@@ -5,6 +5,7 @@ import DataService        from './client/DataService.mjs';
 import InteractionService from './client/InteractionService.mjs';
 import RuntimeService     from './client/RuntimeService.mjs';
 import Socket             from '../data/connection/WebSocket.mjs';
+import WindowManager      from '../manager/Window.mjs';
 
 /**
  * The AI Client establishes a WebSocket connection to the Neural Link MCP Server.
@@ -201,7 +202,7 @@ class Client extends Base {
     onAppWorkerWindowConnect(data) {
         if (this.isConnected) {
             const
-                win = Neo.manager.Window.get(data.windowId),
+                win = WindowManager.get(data.windowId),
                 {appName, windowId} = data;
 
             this.sendNotification('window_connected', {
@@ -259,7 +260,7 @@ class Client extends Base {
         const appWorker = Neo.worker.App;
 
         // 1. Register the worker
-        this.socket.sendMessage(JSON.stringify({
+        this.socket.sendMessage({
             jsonrpc: '2.0',
             method : 'register',
             params : {
@@ -268,22 +269,18 @@ class Client extends Base {
                 isSharedWorker: appWorker.isSharedWorker,
                 userAgent     : navigator.userAgent
             }
-        }));
+        });
 
         // 2. Rehydrate window topology
-        const windowManager = Neo.manager?.Window;
-
-        if (windowManager) {
-            windowManager.items.forEach(win => {
-                this.sendNotification('window_connected', {
-                    appName  : win.appName,
-                    chrome   : win.chrome,
-                    innerRect: win.innerRect,
-                    outerRect: win.outerRect,
-                    windowId : win.id
-                })
+        WindowManager.items.forEach(win => {
+            this.sendNotification('window_connected', {
+                appName  : win.appName,
+                chrome   : win.chrome,
+                innerRect: win.innerRect,
+                outerRect: win.outerRect,
+                windowId : win.id
             })
-        }
+        })
 
         // 3. Rehydrate drag state (if active)
         const dragCoordinator = Neo.manager?.DragCoordinator;
@@ -319,7 +316,7 @@ class Client extends Base {
      */
     sendError(id, message, stack) {
         if (this.isConnected) {
-            this.socket.sendMessage(JSON.stringify({
+            this.socket.sendMessage({
                 jsonrpc: '2.0',
                 id,
                 error: {
@@ -327,7 +324,7 @@ class Client extends Base {
                     message: message,
                     data   : {stack}
                 }
-            }))
+            })
         }
     }
 
@@ -338,11 +335,11 @@ class Client extends Base {
      */
     sendNotification(method, params) {
         if (this.isConnected) {
-            this.socket.sendMessage(JSON.stringify({
+            this.socket.sendMessage({
                 jsonrpc: '2.0',
                 method,
                 params
-            }))
+            })
         }
     }
 
@@ -353,11 +350,11 @@ class Client extends Base {
      */
     sendResponse(id, result) {
         if (this.isConnected) {
-            this.socket.sendMessage(JSON.stringify({
+            this.socket.sendMessage({
                 jsonrpc: '2.0',
                 id,
                 result
-            }))
+            })
         }
     }
 }

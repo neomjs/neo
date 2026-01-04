@@ -500,6 +500,10 @@ class App extends Base {
      * @param {Object} data
      */
     async onConnect(data) {
+        if (this.aiClientPromise) {
+            await this.aiClientPromise
+        }
+
         // short delay to ensure app VCs are in place
         await this.timeout(10);
 
@@ -616,7 +620,9 @@ class App extends Base {
                 }
             }
 
-            useAi && import('../ai/Client.mjs')
+            if (useAi) {
+                this.aiClientPromise = import('../ai/Client.mjs')
+            }
         }
 
         !config.useVdomWorker && import('../vdom/Helper.mjs')
