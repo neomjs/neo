@@ -30,6 +30,10 @@ class ConnectionService extends Base {
          */
         className: 'Neo.ai.mcp.server.neural-link.services.ConnectionService',
         /**
+         * @member {String|null} cwd=null @protected
+         */
+        cwd: null,
+        /**
          * @member {Number} port=8081
          * @protected
          */
@@ -419,11 +423,11 @@ class ConnectionService extends Base {
      */
     async spawnBridge() {
         return new Promise((resolve, reject) => {
-            const args = ['run', 'ai:server-neural-link'];
+            const args    = ['run', 'ai:server-neural-link'];
             const logFile = fs.openSync('./bridge.log', 'a');
 
             this.bridgeProcess = spawn('npm', args, {
-                cwd     : process.cwd(),
+                cwd     : this.cwd || process.cwd(),
                 detached: true,
                 stdio   : ['ignore', logFile, logFile]
             });

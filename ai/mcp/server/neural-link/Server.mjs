@@ -1,12 +1,12 @@
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
-import Base from '../../../../src/core/Base.mjs';
-import aiConfig from './config.mjs';
-import logger from './logger.mjs';
-import ConnectionService from './services/ConnectionService.mjs';
-import HealthService from './services/HealthService.mjs';
-import { listTools, callTool } from './services/toolService.mjs';
+import {McpServer}                                     from '@modelcontextprotocol/sdk/server/mcp.js';
+import {StdioServerTransport}                          from '@modelcontextprotocol/sdk/server/stdio.js';
+import {CallToolRequestSchema, ListToolsRequestSchema} from '@modelcontextprotocol/sdk/types.js';
+import Base                                            from '../../../../src/core/Base.mjs';
+import aiConfig                                        from './config.mjs';
+import logger                                          from './logger.mjs';
+import ConnectionService                               from './services/ConnectionService.mjs';
+import HealthService                                   from './services/HealthService.mjs';
+import {listTools, callTool}                           from './services/toolService.mjs';
 
 /**
  * @class Neo.ai.mcp.server.neural-link.Server
@@ -14,9 +14,17 @@ import { listTools, callTool } from './services/toolService.mjs';
  */
 class Server extends Base {
     static config = {
+        /**
+         * @member {String} className='Neo.ai.mcp.server.neural-link.Server'
+         * @protected
+         */
         className: 'Neo.ai.mcp.server.neural-link.Server'
     }
 
+    /**
+     * @member {String|null} bridgeCwd=null
+     */
+    bridgeCwd = null
     /**
      * Path to a custom configuration file.
      * @member {String|null} configFile=null
@@ -66,6 +74,9 @@ class Server extends Base {
         // 5. Wait for Connection Service
         // This might take time if spawning a new Bridge process
         try {
+            if (this.bridgeCwd) {
+                ConnectionService.cwd = this.bridgeCwd;
+            }
             await ConnectionService.ready();
         } catch (e) {
             logger.error('ConnectionService failed to initialize:', e);
