@@ -100,6 +100,41 @@ class RuntimeService extends Service {
     }
 
     /**
+     * Retrieves the source code of a method on a class prototype.
+     * @param {Object} params
+     * @param {String} params.className  The fully qualified class name.
+     * @param {String} params.methodName The name of the method.
+     * @returns {Object} {success: Boolean, source?: String, error?: String}
+     */
+    getMethodSource({className, methodName}) {
+        const cls = Neo.ns(className);
+
+        if (!cls) {
+            return {success: false, error: `Class '${className}' not found`}
+        }
+
+        const type = Neo.typeOf(cls);
+        let proto;
+
+        if (type === 'NeoClass') {
+            proto = cls.prototype
+        } else if (type === 'NeoInstance') {
+            proto = cls.constructor.prototype
+        } else {
+            return {success: false, error: `Target '${className}' is not a Neo class or instance`}
+        }
+
+        if (typeof proto[methodName] !== 'function') {
+            return {success: false, error: `Method '${methodName}' not found on '${className}'`}
+        }
+
+        return {
+            success: true,
+            source : proto[methodName].toString()
+        }
+    }
+
+    /**
      * Retrieves the loaded namespace tree.
      * @param {Object} params
      * @param {String} [params.root='Neo'] The root namespace to start from (e.g., 'Neo', 'MyApp').

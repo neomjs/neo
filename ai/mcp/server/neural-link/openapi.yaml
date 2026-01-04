@@ -1058,6 +1058,48 @@ paths:
               schema:
                 type: object
 
+  /code/source/get:
+    post:
+      summary: Get Method Source
+      operationId: get_method_source
+      x-pass-as-object: true
+      description: |
+        Retrieves the source code of a class method.
+
+        **When to Use:**
+        To inspect the current implementation of a method before hot-patching it.
+      tags: [Runtime]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GetMethodSourceRequest'
+      responses:
+        '200':
+          description: Source code retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  source:
+                    type: string
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /code/patch:
     post:
       summary: Patch Code
@@ -1066,6 +1108,9 @@ paths:
       description: |
         Replaces a method implementation on a class prototype at runtime.
         **Requires** `Neo.config.enableHotPatching = true`.
+
+        **Best Practice:**
+        Always use `get_method_source` first to retrieve the current implementation before creating a patch. This ensures you are modifying the correct version of the code.
 
         **When to Use:**
         To hot-patch a bug in a live application without reloading.
@@ -1522,6 +1567,22 @@ components:
           enum: [standard, compact]
           default: standard
           description: Level of detail to return. 'compact' returns only own configs/methods. 'standard' returns full inheritance.
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
+
+    GetMethodSourceRequest:
+      type: object
+      required:
+        - className
+        - methodName
+      properties:
+        className:
+          type: string
+          description: The fully qualified class name.
+        methodName:
+          type: string
+          description: The name of the method.
         sessionId:
           type: string
           description: The target App Worker Session ID
