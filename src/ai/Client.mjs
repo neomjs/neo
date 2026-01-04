@@ -2,6 +2,7 @@ import Base             from '../core/Base.mjs';
 import ClassSystemUtil  from '../util/ClassSystem.mjs';
 import ComponentService   from './client/ComponentService.mjs';
 import DataService        from './client/DataService.mjs';
+import InstanceService    from './client/InstanceService.mjs';
 import InteractionService from './client/InteractionService.mjs';
 import RuntimeService     from './client/RuntimeService.mjs';
 import Socket             from '../data/connection/WebSocket.mjs';
@@ -78,11 +79,12 @@ class Client extends Base {
         me.services = {
             component  : Neo.create(ComponentService,   {client: me}),
             data       : Neo.create(DataService,        {client: me}),
+            instance   : Neo.create(InstanceService,    {client: me}),
             interaction: Neo.create(InteractionService, {client: me}),
             runtime    : Neo.create(RuntimeService,     {client: me})
         };
 
-        const {component, data, interaction, runtime} = me.services;
+        const {component, data, instance, interaction, runtime} = me.services;
 
         me.serviceMap = {
             get_component         : component,
@@ -94,6 +96,9 @@ class Client extends Base {
             highlight_component   : component,
             query_component       : component,
             set_component         : component,
+
+            get_instance          : instance,
+            set_instance          : instance,
 
             get_record            : data,
             inspect_state_provider: data,

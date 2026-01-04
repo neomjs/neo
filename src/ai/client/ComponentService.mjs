@@ -16,18 +16,6 @@ class ComponentService extends Service {
     }
 
     /**
-     * @param {Object} params
-     * @param {String} params.id
-     * @param {String} params.property
-     * @returns {Object}
-     */
-    getComponentProperty({id, property}) {
-        const component = Neo.getComponent(id);
-        if (!component) throw new Error(`Component not found: ${id}`);
-        return {value: this.safeSerialize(component[property])};
-    }
-
-    /**
      * @param {Object}   params
      * @param {String}   params.componentId
      * @param {String[]} params.variables
@@ -186,20 +174,6 @@ class ComponentService extends Service {
         return {
             components: matches.map(c => c.toJSON())
         }
-    }
-
-    /**
-     * @param {Object} params
-     * @param {String} params.id
-     * @param {String} params.property
-     * @param {*}      params.value
-     * @returns {Object}
-     */
-    setComponentProperty({id, property, value}) {
-        const component = Neo.getComponent(id);
-        if (!component) throw new Error(`Component not found: ${id}`);
-        component[property] = value;
-        return {success: true}
     }
 
     /**

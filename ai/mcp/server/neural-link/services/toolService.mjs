@@ -5,6 +5,7 @@ import ComponentService  from './ComponentService.mjs';
 import ConnectionService from './ConnectionService.mjs';
 import DataService       from './DataService.mjs';
 import HealthService     from './HealthService.mjs';
+import InstanceService   from './InstanceService.mjs';
 import InteractionService from './InteractionService.mjs';
 import RuntimeService    from './RuntimeService.mjs';
 
@@ -14,7 +15,6 @@ const openApiFilePath = path.join(__dirname, '../openapi.yaml');
 
 const serviceMapping = {
     check_namespace              : RuntimeService    .checkNamespace            .bind(RuntimeService),
-    get_component_property       : ComponentService  .getComponentProperty      .bind(ComponentService),
     get_component_tree           : ComponentService  .getComponentTree          .bind(ComponentService),
     get_computed_styles          : ComponentService  .getComputedStyles         .bind(ComponentService),
     get_console_logs             : ConnectionService .getConsoleLogs            .bind(ConnectionService),
@@ -22,6 +22,7 @@ const serviceMapping = {
     get_dom_event_summary        : RuntimeService    .getDomEventSummary        .bind(RuntimeService),
     get_dom_rect                 : ComponentService  .getDomRect                .bind(ComponentService),
     get_drag_state               : InteractionService.getDragState              .bind(InteractionService),
+    get_instance_property        : InstanceService   .getInstanceProperty       .bind(InstanceService),
     get_method_source            : RuntimeService    .getMethodSource           .bind(RuntimeService),
     get_namespace_tree           : RuntimeService    .getNamespaceTree          .bind(RuntimeService),
     get_record                   : DataService       .getRecord                 .bind(DataService),
@@ -41,7 +42,7 @@ const serviceMapping = {
     patch_code                   : RuntimeService    .patchCode                 .bind(RuntimeService),
     query_component              : ComponentService  .queryComponent            .bind(ComponentService),
     reload_page                  : RuntimeService    .reloadPage                .bind(RuntimeService),
-    set_component_property       : ComponentService  .setComponentProperty      .bind(ComponentService),
+    set_instance_property        : InstanceService   .setInstanceProperty       .bind(InstanceService),
     set_route                    : RuntimeService    .setRoute                  .bind(RuntimeService),
     simulate_event               : InteractionService.simulateEvent             .bind(InteractionService)
 };

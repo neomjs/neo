@@ -97,23 +97,23 @@ paths:
                   tree:
                     type: object
 
-  /get_component_property:
+  /instance/property/get:
     post:
-      summary: Get Component Property
-      operationId: get_component_property
+      summary: Get Instance Property
+      operationId: get_instance_property
       x-pass-as-object: true
       description: |
-        Retrieves a property from a component by its ID.
+        Retrieves a property from a specific instance by its ID.
 
         **When to Use:**
-        To inspect the current state of a component (e.g., `width`, `store`, `value`).
-      tags: [Component]
+        To inspect the current state of any Neo instance (e.g., Component, Store, Controller, Manager).
+      tags: [Instance]
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/GetComponentPropertyRequest'
+              $ref: '#/components/schemas/GetInstancePropertyRequest'
       responses:
         '200':
           description: The value of the property
@@ -892,23 +892,23 @@ paths:
                     chrome:
                       type: object
 
-  /component/property/set:
+  /instance/property/set:
     post:
-      summary: Set Component Property
-      operationId: set_component_property
+      summary: Set Instance Property
+      operationId: set_instance_property
       x-pass-as-object: true
       description: |
-        Sets a property on a component by its ID.
+        Sets a property on a specific instance by its ID.
 
         **When to Use:**
-        To modify the runtime state of a component (e.g., change text, toggle visibility).
-      tags: [Component]
+        To modify the runtime state of an instance (e.g., change component text, update store filter).
+      tags: [Instance]
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/SetComponentPropertyRequest'
+              $ref: '#/components/schemas/SetInstancePropertyRequest'
       responses:
         '200':
           description: Property set successfully
@@ -1208,7 +1208,7 @@ components:
         uptime:
           type: number
 
-    GetComponentPropertyRequest:
+    GetInstancePropertyRequest:
       type: object
       required:
         - id
@@ -1216,7 +1216,7 @@ components:
       properties:
         id:
           type: string
-          description: The component ID
+          description: The instance ID
         property:
           type: string
           description: The property name to retrieve
@@ -1349,7 +1349,7 @@ components:
           type: string
           description: The target App Worker Session ID
 
-    SetComponentPropertyRequest:
+    SetInstancePropertyRequest:
       type: object
       required:
         - id
@@ -1358,7 +1358,7 @@ components:
       properties:
         id:
           type: string
-          description: The component ID
+          description: The instance ID
         property:
           type: string
           description: The property name to set
