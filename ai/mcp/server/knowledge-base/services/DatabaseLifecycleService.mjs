@@ -63,6 +63,22 @@ class DatabaseLifecycleService extends Base {
     }
 
     /**
+     * Manages the database lifecycle based on the provided action.
+     * @param {Object} params
+     * @param {String} params.action - 'start' or 'stop'
+     * @returns {Promise<Object>}
+     */
+    async manageDatabase({action}) {
+        if (action === 'start') {
+            return this.startDatabase();
+        } else if (action === 'stop') {
+            return this.stopDatabase();
+        } else {
+            throw new Error(`Invalid action: ${action}. Must be 'start' or 'stop'.`);
+        }
+    }
+
+    /**
      * Starts the ChromaDB server as a background process, if not already running.
      * @returns {Promise<object>} A promise that resolves with the status.
      */
