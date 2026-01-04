@@ -20,10 +20,9 @@ const serviceMapping = {
     get_session_memories: MemoryService           .listMemories      .bind(MemoryService),
     healthcheck         : HealthService           .healthcheck       .bind(HealthService),
     import_database     : DatabaseService         .importDatabase    .bind(DatabaseService),
+    manage_database     : DatabaseLifecycleService.manageDatabase    .bind(DatabaseLifecycleService),
     query_raw_memories  : MemoryService           .queryMemories     .bind(MemoryService),
     query_summaries     : SummaryService          .querySummaries    .bind(SummaryService),
-    start_database      : DatabaseLifecycleService.startDatabase     .bind(DatabaseLifecycleService),
-    stop_database       : DatabaseLifecycleService.stopDatabase      .bind(DatabaseLifecycleService),
     summarize_sessions  : SessionService          .summarizeSessions .bind(SessionService)
 };
 

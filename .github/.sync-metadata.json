@@ -1,6 +1,6 @@
 {
-  "lastSync": "2026-01-04T15:27:17.761Z",
-  "releasesLastFetched": "2026-01-04T15:27:17.772Z",
+  "lastSync": "2026-01-04T16:24:55.877Z",
+  "releasesLastFetched": "2026-01-04T16:24:55.887Z",
   "pushFailures": [],
   "issues": {
     "3789": {
@@ -14226,6 +14226,48 @@
       "closedAt": "2026-01-04T15:02:24Z",
       "updatedAt": "2026-01-04T15:02:24Z",
       "contentHash": "7f44b80bffd76eb083a2daef9e5d76e871fef1d65ca0f595d42c64b5b8b30e3b"
+    },
+    "8314": {
+      "state": "CLOSED",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-8314.md",
+      "closedAt": "2026-01-04T16:15:26Z",
+      "updatedAt": "2026-01-04T16:15:26Z",
+      "contentHash": "3af50bfdb761759a91e1da0d9deec8eb7bfe66fc3e4a72502ad654c175f80409"
+    },
+    "8315": {
+      "state": "OPEN",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-8315.md",
+      "closedAt": null,
+      "updatedAt": "2026-01-04T16:23:49Z",
+      "contentHash": "8243d53b6846eb1e452f908c15777d427c7bdfabd805742598c714c96c10c0db"
+    },
+    "8316": {
+      "state": "OPEN",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-8316.md",
+      "closedAt": null,
+      "updatedAt": "2026-01-04T16:24:15Z",
+      "contentHash": "30b904b5a054f18c232ebfa2b9400d19ad39063d35a4dd784ab768c94a4db7bf"
+    },
+    "8317": {
+      "state": "OPEN",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-8317.md",
+      "closedAt": null,
+      "updatedAt": "2026-01-04T16:24:17Z",
+      "contentHash": "79d244e24989a560c302643e50968bc16ce70be97583c3c63f554876a67c90fb"
+    },
+    "8318": {
+      "state": "OPEN",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-8318.md",
+      "closedAt": null,
+      "updatedAt": "2026-01-04T16:24:19Z",
+      "contentHash": "41ed0fcd9659a8e8f5af5df5be95f1cbaa4f6a48e0e146ec087cb23ae4f62a65"
+    },
+    "8319": {
+      "state": "OPEN",
+      "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-8319.md",
+      "closedAt": null,
+      "updatedAt": "2026-01-04T16:24:21Z",
+      "contentHash": "328b4c7494c87b0e5063869d493398ec4915ac327b1778db0ee2a6d19c949db6"
     }
   },
   "releases": {
