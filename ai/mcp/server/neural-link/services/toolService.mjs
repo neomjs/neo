@@ -22,7 +22,7 @@ const serviceMapping = {
     get_dom_event_summary        : RuntimeService    .getDomEventSummary        .bind(RuntimeService),
     get_dom_rect                 : ComponentService  .getDomRect                .bind(ComponentService),
     get_drag_state               : InteractionService.getDragState              .bind(InteractionService),
-    get_instance_property        : InstanceService   .getInstanceProperty       .bind(InstanceService),
+    get_instance_properties      : InstanceService   .getInstanceProperties     .bind(InstanceService),
     get_method_source            : RuntimeService    .getMethodSource           .bind(RuntimeService),
     get_namespace_tree           : RuntimeService    .getNamespaceTree          .bind(RuntimeService),
     get_record                   : DataService       .getRecord                 .bind(DataService),
@@ -42,7 +42,7 @@ const serviceMapping = {
     patch_code                   : RuntimeService    .patchCode                 .bind(RuntimeService),
     query_component              : ComponentService  .queryComponent            .bind(ComponentService),
     reload_page                  : RuntimeService    .reloadPage                .bind(RuntimeService),
-    set_instance_property        : InstanceService   .setInstanceProperty       .bind(InstanceService),
+    set_instance_properties      : InstanceService   .setInstanceProperties     .bind(InstanceService),
     set_route                    : RuntimeService    .setRoute                  .bind(RuntimeService),
     simulate_event               : InteractionService.simulateEvent             .bind(InteractionService)
 };

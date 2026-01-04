@@ -97,8 +97,8 @@ class Client extends Base {
             query_component       : component,
             set_component         : component,
 
-            get_instance          : instance,
-            set_instance          : instance,
+            get_instance_properties: instance,
+            set_instance_properties: instance,
 
             get_record            : data,
             inspect_state_provider: data,

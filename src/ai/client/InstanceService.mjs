@@ -15,36 +15,43 @@ class InstanceService extends Service {
     }
 
     /**
+     * Retrieves properties from a specific instance by its ID.
      * @param {Object} params
      * @param {String} params.id
-     * @param {String} params.property
+     * @param {String[]} params.properties
      * @returns {Object}
      */
-    getInstanceProperty({id, property}) {
-        const instance = Neo.get(id);
+    getInstanceProperties({id, properties}) {
+        const
+            instance = Neo.get(id),
+            result   = {};
 
         if (!instance) {
             throw new Error(`Instance not found: ${id}`)
         }
 
-        return {value: this.safeSerialize(instance[property])}
+        properties.forEach(property => {
+            result[property] = this.safeSerialize(instance[property])
+        });
+
+        return {properties: result}
     }
 
     /**
+     * Sets properties on a specific instance by its ID.
      * @param {Object} params
      * @param {String} params.id
-     * @param {String} params.property
-     * @param {*}      params.value
+     * @param {Object} params.properties
      * @returns {Object}
      */
-    setInstanceProperty({id, property, value}) {
+    setInstanceProperties({id, properties}) {
         const instance = Neo.get(id);
 
         if (!instance) {
             throw new Error(`Instance not found: ${id}`)
         }
 
-        instance[property] = value;
+        instance.set(properties);
 
         return {success: true}
     }

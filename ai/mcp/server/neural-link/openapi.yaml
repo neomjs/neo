@@ -97,13 +97,13 @@ paths:
                   tree:
                     type: object
 
-  /instance/property/get:
+  /instance/properties/get:
     post:
-      summary: Get Instance Property
-      operationId: get_instance_property
+      summary: Get Instance Properties
+      operationId: get_instance_properties
       x-pass-as-object: true
       description: |
-        Retrieves a property from a specific instance by its ID.
+        Retrieves properties from a specific instance by its ID.
 
         **When to Use:**
         To inspect the current state of any Neo instance (e.g., Component, Store, Controller, Manager).
@@ -113,14 +113,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/GetInstancePropertyRequest'
+              $ref: '#/components/schemas/GetInstancePropertiesRequest'
       responses:
         '200':
-          description: The value of the property
+          description: The values of the properties
           content:
             application/json:
               schema:
-                description: The property value
+                description: The property values
         '400':
           description: Invalid request body
           content:
@@ -892,13 +892,13 @@ paths:
                     chrome:
                       type: object
 
-  /instance/property/set:
+  /instance/properties/set:
     post:
-      summary: Set Instance Property
-      operationId: set_instance_property
+      summary: Set Instance Properties
+      operationId: set_instance_properties
       x-pass-as-object: true
       description: |
-        Sets a property on a specific instance by its ID.
+        Sets properties on a specific instance by its ID.
 
         **When to Use:**
         To modify the runtime state of an instance (e.g., change component text, update store filter).
@@ -908,10 +908,10 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/SetInstancePropertyRequest'
+              $ref: '#/components/schemas/SetInstancePropertiesRequest'
       responses:
         '200':
-          description: Property set successfully
+          description: Properties set successfully
         '400':
           description: Invalid request body
           content:
@@ -1208,18 +1208,20 @@ components:
         uptime:
           type: number
 
-    GetInstancePropertyRequest:
+    GetInstancePropertiesRequest:
       type: object
       required:
         - id
-        - property
+        - properties
       properties:
         id:
           type: string
           description: The instance ID
-        property:
-          type: string
-          description: The property name to retrieve
+        properties:
+          type: array
+          items:
+            type: string
+          description: List of property names to retrieve
         sessionId:
           type: string
           description: The target App Worker Session ID
@@ -1349,21 +1351,18 @@ components:
           type: string
           description: The target App Worker Session ID
 
-    SetInstancePropertyRequest:
+    SetInstancePropertiesRequest:
       type: object
       required:
         - id
-        - property
-        - value
+        - properties
       properties:
         id:
           type: string
           description: The instance ID
-        property:
-          type: string
-          description: The property name to set
-        value:
-          description: The value to set
+        properties:
+          type: object
+          description: Key-value pairs of properties to set
         sessionId:
           type: string
           description: The target App Worker Session ID

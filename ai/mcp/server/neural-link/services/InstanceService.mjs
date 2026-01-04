@@ -26,34 +26,32 @@ class InstanceService extends Base {
     }
 
     /**
-     * Retrieves a property from a specific instance by its ID.
+     * Retrieves properties from a specific instance by its ID.
      * @param {Object} opts
      * @param {String} opts.sessionId
      * @param {String} opts.id
-     * @param {String} opts.property
+     * @param {String[]} opts.properties
      * @returns {Promise<Object>}
      */
-    async getInstanceProperty({sessionId, id, property}) {
-        return await ConnectionService.call(sessionId, 'get_instance_property', {
+    async getInstanceProperties({sessionId, id, properties}) {
+        return await ConnectionService.call(sessionId, 'get_instance_properties', {
             id,
-            property
+            properties
         })
     }
 
     /**
-     * Sets a property on a specific instance by its ID.
+     * Sets properties on a specific instance by its ID.
      * @param {Object} opts
      * @param {String} opts.sessionId
      * @param {String} opts.id
-     * @param {String} opts.property
-     * @param {*}      opts.value
+     * @param {Object} opts.properties
      * @returns {Promise<Object>}
      */
-    async setInstanceProperty({sessionId, id, property, value}) {
-        return await ConnectionService.call(sessionId, 'set_instance_property', {
+    async setInstanceProperties({sessionId, id, properties}) {
+        return await ConnectionService.call(sessionId, 'set_instance_properties', {
             id,
-            property,
-            value
+            properties
         })
     }
 }
