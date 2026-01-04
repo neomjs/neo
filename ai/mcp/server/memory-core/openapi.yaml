@@ -394,57 +394,17 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /db/export:
-    get:
-      summary: Export Database
-      operationId: export_database
-      x-pass-as-object: true
-      x-annotations:
-        readOnlyHint: true
-      description: |
-        Exports the entire memory database (both memories and summaries) to a JSONL file.
-
-        **When to Use:**
-        For creating backups or migrating memory data between environments.
-      tags: [Database]
-      parameters:
-        - name: include
-          in: query
-          required: false
-          description: Which collections to export
-          schema:
-            type: array
-            items:
-              type: string
-              enum: [memories, summaries]
-            default: [memories, summaries]
-          style: form
-          explode: false
-      responses:
-        '200':
-          description: Database exported successfully
-          content:
-            application/x-jsonlines:
-              schema:
-                type: string
-                format: binary
-        '503':
-          description: Cannot connect to database
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /db/import:
+  /db/backup/manage:
     post:
-      summary: Import Database
-      operationId: import_database
+      summary: Manage Database Backup
+      operationId: manage_database_backup
       x-pass-as-object: true
       description: |
-        Imports a previously exported JSONL file back into the database.
+        Manages database backups (import/export).
 
         **When to Use:**
-        To restore a backup or migrate memory from another environment.
+        - **Export:** For creating backups or migrating memory data between environments.
+        - **Import:** To restore a backup or migrate memory from another environment.
       tags: [Database]
       requestBody:
         required: true
@@ -452,36 +412,51 @@ paths:
           multipart/form-data:
             schema:
               type: object
+              required:
+                - action
               properties:
+                action:
+                  type: string
+                  enum: [import, export]
+                  description: The action to perform.
+                include:
+                  type: array
+                  items:
+                    type: string
+                    enum: [memories, summaries]
+                  default: [memories, summaries]
+                  description: (Export only) Which collections to export.
                 file:
                   type: string
                   format: binary
-                  description: The JSONL backup file to import
+                  description: (Import only) The JSONL backup file to import.
                 mode:
                   type: string
                   enum: [merge, replace]
                   default: merge
                   description: |
+                    (Import only) Import mode.
                     - merge: Add new records, skip existing IDs
                     - replace: Clear existing data and import
                 reEmbed:
                   type: boolean
                   default: false
                   description: |
-                    If true, ignores stored embeddings and generates new ones using the current model.
-                    Crucial for model migration (e.g., to gemini-embedding-001).
-                    NOTE: This is a slow operation due to rate limiting (batching).
-              required:
-                - file
+                    (Import only) If true, ignores stored embeddings and generates new ones.
       responses:
         '200':
-          description: Import completed successfully
+          description: Operation completed successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ImportResponse'
+                oneOf:
+                  - $ref: '#/components/schemas/ImportResponse'
+                  - type: object
+                    properties:
+                      message:
+                        type: string
         '400':
-          description: Invalid file or request format
+          description: Invalid request
           content:
             application/json:
               schema:

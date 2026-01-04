@@ -7,9 +7,10 @@ labels:
   - epic
   - ai
   - refactoring
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-01-04T16:23:49Z'
-updatedAt: '2026-01-04T16:23:49Z'
+updatedAt: '2026-01-04T17:18:33Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8315'
 author: tobiu
 commentsCount: 0
@@ -18,9 +19,10 @@ subIssues:
   - '[x] 8316 MCP: Optimize Memory Core Tool Count'
   - '[x] 8317 MCP: Optimize Knowledge Base Tool Count'
   - '[x] 8318 MCP: Optimize GitHub Workflow Tool Count'
-  - '[ ] 8319 MCP: Optimize Neural Link Tool Count'
-subIssuesCompleted: 3
-subIssuesTotal: 4
+  - '[x] 8319 MCP: Optimize Neural Link Tool Count'
+  - '[ ] 8320 MCP: Optimize Memory Core Database Backup Tools'
+subIssuesCompleted: 4
+subIssuesTotal: 5
 blockedBy: []
 blocking: []
 ---
@@ -61,4 +63,7 @@ Reduce the total number of MCP tools by consolidating redundant or complementary
 - 2026-01-04 @tobiu added sub-issue #8317
 - 2026-01-04 @tobiu added sub-issue #8318
 - 2026-01-04 @tobiu added sub-issue #8319
+- 2026-01-04 @tobiu assigned to @tobiu
+- 2026-01-04 @tobiu cross-referenced by #8320
+- 2026-01-04 @tobiu added sub-issue #8320
 

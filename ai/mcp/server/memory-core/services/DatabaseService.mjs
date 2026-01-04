@@ -42,7 +42,7 @@ class DatabaseService extends Base {
      */
     async #exportCollection(collection, backupPath, filePrefix) {
         logger.log(`Fetching all documents from "${collection.name}"...`);
-        
+
         // 1. Get total count first
         const count = await collection.count();
         if (count === 0) {
@@ -60,10 +60,10 @@ class DatabaseService extends Base {
         // 2. Paginated Fetch
         const limit = 2000; // Safe batch size
         let offset  = 0;
-        
+
         while (offset < count) {
             logger.log(`Fetching batch: ${offset} to ${Math.min(offset + limit, count)} of ${count}`);
-            
+
             const batch = await collection.get({
                 include: ["documents", "embeddings", "metadatas"],
                 limit  : limit,
@@ -220,6 +220,23 @@ class DatabaseService extends Base {
                 message: error.message,
                 code   : 'DATABASE_IMPORT_ERROR'
             };
+        }
+    }
+
+    /**
+     * Manages database backups (import/export).
+     * @param {Object} options
+     * @param {String} options.action   The action to perform: 'import' or 'export'.
+     * @param {Object} [options.config] Additional options for the action.
+     * @returns {Promise<Object>}
+     */
+    async manageDatabaseBackup({action, ...config}) {
+        if (action === 'export') {
+            return this.exportDatabase(config);
+        } else if (action === 'import') {
+            return this.importDatabase(config);
+        } else {
+            throw new Error(`Unknown action: ${action}`);
         }
     }
 }
