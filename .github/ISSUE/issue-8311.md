@@ -1,7 +1,7 @@
 ---
 id: 8311
 title: 'Feat: Neural Link - Configurable URL & Graceful Connection'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
@@ -9,7 +9,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-01-04T13:34:40Z'
-updatedAt: '2026-01-04T13:35:06Z'
+updatedAt: '2026-01-04T13:47:40Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8311'
 author: tobiu
 commentsCount: 0
@@ -19,6 +19,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-01-04T13:47:40Z'
 ---
 # Feat: Neural Link - Configurable URL & Graceful Connection
 
@@ -43,4 +44,9 @@ Make Neural Link configuration more flexible and runtime-safe.
 - 2026-01-04 @tobiu added the `architecture` label
 - 2026-01-04 @tobiu added parent issue #8169
 - 2026-01-04 @tobiu assigned to @tobiu
+- 2026-01-04 @tobiu referenced in commit `88e5191` - "refactor(ai): Use JSDoc-only definition for neuralLinkUrl (#8311)
+
+- Remove explicit value from DefaultConfig.mjs to keep it lightweight, matching the pattern of other optional configs."
+- 2026-01-04 @tobiu referenced in commit `91e1647` - "Feat: Neural Link - Configurable URL & Graceful Connection #8311"
+- 2026-01-04 @tobiu closed this issue
 
