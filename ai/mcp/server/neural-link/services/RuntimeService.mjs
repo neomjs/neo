@@ -56,6 +56,18 @@ class RuntimeService extends Base {
     }
 
     /**
+     * Retrieves the source code of a method.
+     * @param {Object} opts            The options object.
+     * @param {String} opts.className  The fully qualified class name.
+     * @param {String} opts.methodName The name of the method.
+     * @param {String} opts.sessionId  The target session ID.
+     * @returns {Promise<Object>}
+     */
+    async getMethodSource({className, methodName, sessionId}) {
+        return await ConnectionService.call(sessionId, 'get_method_source', {className, methodName})
+    }
+
+    /**
      * Retrieves the loaded namespace tree.
      * @param {Object} opts            The options object.
      * @param {String} [opts.root]     The root namespace.

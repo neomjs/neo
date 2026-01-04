@@ -101,6 +101,7 @@ class Client extends Base {
 
             get_dom_event         : runtime,
             get_drag              : runtime,
+            get_method_source     : runtime,
             get_route             : runtime,
             get_window            : runtime,
             patch_code            : runtime,
