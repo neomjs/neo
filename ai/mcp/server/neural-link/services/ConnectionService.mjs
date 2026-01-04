@@ -1,3 +1,4 @@
+import aiConfig  from '../config.mjs';
 import {spawn}   from 'child_process';
 import crypto    from 'crypto';
 import fs        from 'fs';
@@ -124,14 +125,14 @@ class ConnectionService extends Base {
         logger.info(`[ConnectionService] Sending call ${id} to ${sessionId}: ${method}`);
 
         return new Promise((resolve, reject) => {
-            // Timeout after 30s
+            // Timeout after configured time
             const timeout = setTimeout(() => {
                 if (this.pendingRequests.has(id)) {
                     this.pendingRequests.delete(id);
                     logger.error(`[ConnectionService] Call ${id} timed out`);
                     reject(new Error('Request timed out'));
                 }
-            }, 30000);
+            }, aiConfig.rpcTimeout);
 
             this.pendingRequests.set(id, {resolve, reject, timeout});
 
