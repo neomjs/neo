@@ -205,10 +205,13 @@ const DefaultConfig = {
     /**
      * Set this to true to establish a WebSocket connection to the Neural Link MCP Server.
      * This enables bidirectional communication between the App Worker and external AI Agents.
+     *
+     * You can also use a string or array of strings to specify the target environment(s).
+     * Example: 'development' or ['development', 'dist/production']
      * @default false
      * @memberOf! module:Neo
      * @name config.useAiClient
-     * @type Boolean
+     * @type Boolean|String|String[]
      */
     useAiClient: false,
     /**

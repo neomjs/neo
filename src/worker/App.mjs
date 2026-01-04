@@ -602,8 +602,23 @@ class App extends Base {
             .then(response => response.json())
             .then(data => {this.createThemeMap(data)});
 
-        config.remotesApiUrl  && import('../remotes/Api.mjs').then(module => module.default.load());
-        config.useAiClient    && import('../ai/Client.mjs');
+        config.remotesApiUrl && import('../remotes/Api.mjs').then(module => module.default.load());
+
+        if (config.useAiClient) {
+            let {environment, useAiClient} = config,
+                useAi                      = useAiClient === true;
+
+            if (!useAi) {
+                if (Array.isArray(useAiClient)) {
+                    useAi = useAiClient.includes(environment)
+                } else if (typeof useAiClient === 'string') {
+                    useAi = useAiClient === environment
+                }
+            }
+
+            useAi && import('../ai/Client.mjs')
+        }
+
         !config.useVdomWorker && import('../vdom/Helper.mjs')
     }
 
