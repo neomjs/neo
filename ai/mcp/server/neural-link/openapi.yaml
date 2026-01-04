@@ -1288,6 +1288,11 @@ components:
         rootId:
           type: string
           description: Optional ID of a component to search within (scoped search).
+        returnProperties:
+          type: array
+          items:
+            type: string
+          description: "Optional list of properties to return. If provided, returns a lean response (id, className, properties) instead of the full component serialization."
         sessionId:
           type: string
           description: The target App Worker Session ID

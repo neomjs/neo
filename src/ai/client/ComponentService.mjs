@@ -154,9 +154,10 @@ class ComponentService extends Service {
      * @param {Object} params
      * @param {String} [params.rootId]
      * @param {Object} params.selector
+     * @param {String[]} [params.returnProperties]
      * @returns {Object}
      */
-    queryComponent({rootId, selector}) {
+    queryComponent({rootId, selector, returnProperties}) {
         let matches = [];
 
         if (rootId) {
@@ -171,9 +172,24 @@ class ComponentService extends Service {
             matches = matches ? [matches] : []
         }
 
-        return {
-            components: matches.map(c => c.toJSON())
-        }
+        const components = matches.map(c => {
+            if (returnProperties && Array.isArray(returnProperties) && returnProperties.length > 0) {
+                const props = {};
+                returnProperties.forEach(prop => {
+                    props[prop] = this.safeSerialize(c[prop])
+                });
+
+                return {
+                    className : c.className,
+                    id        : c.id,
+                    properties: props
+                }
+            }
+
+            return c.toJSON()
+        });
+
+        return {components}
     }
 
     /**
