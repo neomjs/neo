@@ -1,4 +1,5 @@
-import Service from './Service.mjs';
+import Service     from './Service.mjs';
+import TreeBuilder from '../../util/vdom/TreeBuilder.mjs';
 
 /**
  * Handles component-related Neural Link requests.
@@ -124,24 +125,26 @@ class ComponentService extends Service {
 
     /**
      * @param {Object} params
+     * @param {Number} [params.depth]
      * @param {String} [params.rootId]
      * @returns {Object}
      */
-    getVdomTree({rootId}) {
+    getVdomTree({depth, rootId}) {
         const component = this.getComponentRoot(rootId);
         if (!component) throw new Error('Root component not found');
-        return {vdom: component.vdom}
+        return {vdom: TreeBuilder.getVdomTree(component.vdom, depth)}
     }
 
     /**
      * @param {Object} params
+     * @param {Number} [params.depth]
      * @param {String} [params.rootId]
      * @returns {Object}
      */
-    getVnodeTree({rootId}) {
+    getVnodeTree({depth, rootId}) {
         const component = this.getComponentRoot(rootId);
         if (!component) throw new Error('Root component not found');
-        return {vnode: component.vnode}
+        return {vnode: TreeBuilder.getVnodeTree(component.vnode, depth)}
     }
 
     /**
