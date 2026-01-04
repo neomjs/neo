@@ -158,6 +158,14 @@ const DefaultConfig = {
      */
     mainThreadAddons: ['DragDrop', 'Navigator', 'Stylesheet'],
     /**
+     * The URL for the Neural Link WebSocket connection.
+     * @default 'ws://localhost:8081'
+     * @memberOf! module:Neo
+     * @name config.neuralLinkUrl
+     * @type String
+     */
+
+    /**
      * Pass the URL of a JSON-file, which contains the services and methods from your backend,
      * which you want to expose to the client.
      * See: https://github.com/neomjs/neo/projects/32
