@@ -1,6 +1,6 @@
 {
-  "lastSync": "2026-01-03T22:32:33.427Z",
-  "releasesLastFetched": "2026-01-03T22:32:33.438Z",
+  "lastSync": "2026-01-04T09:46:27.760Z",
+  "releasesLastFetched": "2026-01-04T09:46:28.568Z",
   "pushFailures": [],
   "issues": {
     "3789": {
@@ -13224,7 +13224,7 @@
       "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-8169.md",
       "closedAt": null,
       "updatedAt": "2025-12-28T13:36:59Z",
-      "contentHash": "18921592849ac1173e28fb8aae2a7a42caf7c725c78aa79317bab1ea6809ab8d"
+      "contentHash": "52d8ebff8c08af6fd4ef90c1344aa441dcc8e0d7ecef7d59c745eaeec8bb7619"
     },
     "8170": {
       "state": "CLOSED",
@@ -13377,8 +13377,8 @@
       "state": "OPEN",
       "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-8191.md",
       "closedAt": null,
-      "updatedAt": "2025-12-28T21:30:46Z",
-      "contentHash": "38bbe7996d184abacff12acead11042e0bac8fae089ce9fd331868c454e871b7"
+      "updatedAt": "2026-01-04T09:45:42Z",
+      "contentHash": "d037dd2a2dd03040d7c81e30b7e483b712913fb85c7f1433dd7975199460a478"
     },
     "8192": {
       "state": "CLOSED",
@@ -13388,11 +13388,11 @@
       "contentHash": "50e2b06b74f51dff0b80e14967de7ed51ca6e9630c640e47cf8f449894396f66"
     },
     "8193": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-8193.md",
-      "closedAt": null,
-      "updatedAt": "2025-12-28T21:37:35Z",
-      "contentHash": "dd14b345fe514f0ffb157f7953c8ba137e8b9ea30147a5b941ba77dd03406cf1"
+      "closedAt": "2026-01-04T09:44:59Z",
+      "updatedAt": "2026-01-04T09:44:59Z",
+      "contentHash": "5921fe10130d4f9f961fbb28b4ee29bc38db96e01073d6b7ee9ed92c17193f78"
     },
     "8194": {
       "state": "CLOSED",
@@ -14014,8 +14014,8 @@
       "state": "OPEN",
       "path": "/Users/Shared/github/neomjs/neo/.github/ISSUE/issue-8283.md",
       "closedAt": null,
-      "updatedAt": "2026-01-02T00:35:46Z",
-      "contentHash": "77cfdfd869d527603930707bed802849ca31a4cf627307c9f11890701661057d"
+      "updatedAt": "2026-01-04T09:45:21Z",
+      "contentHash": "5075af2ad72501e85b479a6a40e91277f96f841ed201aa68211fdaaa5f4e0fb7"
     },
     "8284": {
       "state": "CLOSED",

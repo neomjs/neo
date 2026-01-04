@@ -6,9 +6,10 @@ labels:
   - enhancement
   - ai
   - performance
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-01-02T00:35:46Z'
-updatedAt: '2026-01-02T00:35:46Z'
+updatedAt: '2026-01-04T09:45:21Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8283'
 author: tobiu
 commentsCount: 0
@@ -43,4 +44,5 @@ Add an optional `detail` parameter:
 - 2026-01-02 @tobiu added the `ai` label
 - 2026-01-02 @tobiu added the `performance` label
 - 2026-01-02 @tobiu added parent issue #8169
+- 2026-01-04 @tobiu assigned to @tobiu
 

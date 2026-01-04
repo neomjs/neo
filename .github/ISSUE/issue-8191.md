@@ -5,9 +5,10 @@ state: OPEN
 labels:
   - enhancement
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2025-12-28T21:30:46Z'
-updatedAt: '2025-12-28T21:30:46Z'
+updatedAt: '2026-01-04T09:45:42Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8191'
 author: tobiu
 commentsCount: 0
@@ -43,4 +44,5 @@ blocking: []
 - 2025-12-28 @tobiu added the `enhancement` label
 - 2025-12-28 @tobiu added the `ai` label
 - 2025-12-28 @tobiu added parent issue #8169
+- 2026-01-04 @tobiu assigned to @tobiu
 
