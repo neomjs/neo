@@ -1,7 +1,7 @@
 ---
 id: 8283
 title: '[Neural Link] Feature: inspect_class tiered detail (compact mode)'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
@@ -9,16 +9,17 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-01-02T00:35:46Z'
-updatedAt: '2026-01-04T09:45:21Z'
+updatedAt: '2026-01-04T12:12:44Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8283'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 8169
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-01-04T12:12:44Z'
 ---
 # [Neural Link] Feature: inspect_class tiered detail (compact mode)
 
@@ -38,6 +39,27 @@ Add an optional `detail` parameter:
 - Update `RuntimeService.inspectClass` and `openapi.yaml`.
 
 
+## Comments
+
+### @tobiu - 2026-01-04 12:11
+
+**Input from Gemini 2.5 pro:**
+
+> ✦ Implemented `inspect_class` tiered detail support.
+> 
+> **Changes:**
+> 1.  **Client-Side (`src/ai/client/RuntimeService.mjs`):**
+>     *   Added `detail` parameter (`'standard'` | `'compact'`) to `inspectClass`.
+>     *   Implemented logic for `'compact'` mode:
+>         *   **Configs:** Returns only configs defined or overridden in the target class (compares against superclass).
+>         *   **Methods:** Returns only methods defined on the target class prototype (no inheritance traversal).
+> 2.  **Server-Side (`ai/mcp/server/neural-link/services/RuntimeService.mjs`):**
+>     *   Updated proxy method to pass `detail` parameter.
+> 3.  **OpenAPI (`ai/mcp/server/neural-link/openapi.yaml`):**
+>     *   Added `detail` parameter to `InspectClassRequest` schema.
+> 
+> This significantly reduces token usage for class discovery tasks where full inheritance context is not required.
+
 ## Activity Log
 
 - 2026-01-02 @tobiu added the `enhancement` label
@@ -45,4 +67,10 @@ Add an optional `detail` parameter:
 - 2026-01-02 @tobiu added the `performance` label
 - 2026-01-02 @tobiu added parent issue #8169
 - 2026-01-04 @tobiu assigned to @tobiu
+- 2026-01-04 @tobiu referenced in commit `2c68522` - "feat(ai): Implement inspect_class tiered detail (compact mode) (#8283)
+
+- Added 'detail' parameter to inspectClass (standard|compact)
+- Implemented 'compact' logic to return only own configs and methods
+- Updated client, server proxy, and OpenAPI definition"
+- 2026-01-04 @tobiu closed this issue
 
