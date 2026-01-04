@@ -86,6 +86,7 @@ class Client extends Base {
 
         me.serviceMap = {
             get_component         : component,
+            get_computed_styles   : component,
             get_dom_rect          : component,
             get_vdom              : component,
             get_vdom_vnode        : component,
@@ -105,6 +106,7 @@ class Client extends Base {
             get_method_source     : runtime,
             get_route             : runtime,
             get_window            : runtime,
+            inspect_class         : runtime,
             patch_code            : runtime,
             reload_page           : runtime,
             set_route             : runtime,
