@@ -35,7 +35,7 @@ subIssues:
   - '[x] 8187 Feat: Neural Link - State Provider Inspection & Modification'
   - '[x] 8188 Feat: Neural Link - Visual Highlighting'
   - '[x] 8189 Feat: Neural Link - Advanced Event Simulation'
-  - '[ ] 8190 Feat: Neural Link - Runtime Code Hot-Patching'
+  - '[x] 8190 Feat: Neural Link - Runtime Code Hot-Patching'
   - '[x] 8191 Feat: Neural Link - Global Config Management'
   - '[x] 8192 Feat: Neural Link - Log & Error Streaming'
   - '[x] 8193 Feat: Neural Link - Namespace Discovery'
@@ -65,8 +65,8 @@ subIssues:
   - '[x] 8279 [Neural Link] Feature: Tool get_dom_event_summary'
   - '[x] 8280 [Neural Link] Feature: Tool inspect_class'
   - '[x] 8281 [Neural Link] Feature: Tool get_computed_styles'
-subIssuesCompleted: 54
-subIssuesTotal: 56
+subIssuesCompleted: 56
+subIssuesTotal: 57
 blockedBy: []
 blocking: []
 ---
