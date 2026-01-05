@@ -1,14 +1,14 @@
 ---
 id: 8336
 title: Increase IssueSyncer sub-issue sync limit to 100
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
 assignees:
   - tobiu
 createdAt: '2026-01-05T14:55:37Z'
-updatedAt: '2026-01-05T14:55:57Z'
+updatedAt: '2026-01-05T15:04:10Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8336'
 author: tobiu
 commentsCount: 0
@@ -18,6 +18,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-01-05T15:04:10Z'
 ---
 # Increase IssueSyncer sub-issue sync limit to 100
 
@@ -36,4 +37,5 @@ Increase the `maxSubIssuesPerIssue` configuration in `ai/mcp/server/github-workf
 - 2026-01-05 @tobiu added the `ai` label
 - 2026-01-05 @tobiu assigned to @tobiu
 - 2026-01-05 @tobiu referenced in commit `de62239` - "feat(ai): Increase GitHub workflow sub-issue sync limit to 100 (#8336)"
+- 2026-01-05 @tobiu closed this issue
 
