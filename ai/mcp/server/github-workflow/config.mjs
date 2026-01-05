@@ -155,7 +155,7 @@ const defaultConfig = {
          * Maximum number of sub-issues to fetch per issue in GraphQL queries.
          * @type {number}
          */
-        maxSubIssuesPerIssue: 50,
+        maxSubIssuesPerIssue: 100,
         /**
          * Maximum number of timeline items to fetch per issue in GraphQL queries.
          * @type {number}
