@@ -15,6 +15,7 @@ const openApiFilePath = path.join(__dirname, '../openapi.yaml');
 
 const serviceMapping = {
     check_namespace              : RuntimeService    .checkNamespace            .bind(RuntimeService),
+    find_instances               : InstanceService   .findInstances             .bind(InstanceService),
     get_component_tree           : ComponentService  .getComponentTree          .bind(ComponentService),
     get_computed_styles          : ComponentService  .getComputedStyles         .bind(ComponentService),
     get_console_logs             : ConnectionService .getConsoleLogs            .bind(ConnectionService),

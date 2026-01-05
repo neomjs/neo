@@ -38,6 +38,34 @@ class InstanceService extends Service {
     }
 
     /**
+     * Finds instances matching a selector.
+     * @param {Object} params
+     * @param {Object} params.selector
+     * @param {String[]} [params.returnProperties]
+     * @returns {Object}
+     */
+    findInstances({selector, returnProperties}) {
+        const instances = Neo.manager.Instance.find(selector).map(instance => {
+            if (Array.isArray(returnProperties) && returnProperties.length > 0) {
+                const props = {};
+                returnProperties.forEach(prop => {
+                    props[prop] = this.safeSerialize(instance[prop])
+                });
+
+                return {
+                    className : instance.className,
+                    id        : instance.id,
+                    properties: props
+                }
+            }
+
+            return instance.toJSON()
+        });
+
+        return {instances}
+    }
+
+    /**
      * Sets properties on a specific instance by its ID.
      * @param {Object} params
      * @param {String} params.id

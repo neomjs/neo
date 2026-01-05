@@ -66,6 +66,49 @@ paths:
                   exists:
                     type: boolean
 
+  /instance/find:
+    post:
+      summary: Find Instances
+      operationId: find_instances
+      x-pass-as-object: true
+      description: |
+        Finds instances matching a set of properties.
+        Example: `find_instances({selector: {className: 'Neo.state.Provider'}})`
+
+        **When to Use:**
+        To discover non-component instances (StateProviders, Stores, Managers) by properties or class name.
+      tags: [Instance]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FindInstancesRequest'
+      responses:
+        '200':
+          description: List of matching instances
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  instances:
+                    type: array
+                    items:
+                      type: object
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /get_namespace_tree:
     post:
       summary: Retrieves the loaded namespace tree from the runtime.
@@ -1207,6 +1250,23 @@ components:
           type: string
         uptime:
           type: number
+
+    FindInstancesRequest:
+      type: object
+      required:
+        - selector
+      properties:
+        selector:
+          type: object
+          description: "JSON object with property/value pairs to match (e.g., {className: 'Neo.state.Provider'})."
+        returnProperties:
+          type: array
+          items:
+            type: string
+          description: "Optional list of properties to return. If provided, returns a lean response (id, className, properties)."
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
 
     GetInstancePropertiesRequest:
       type: object
