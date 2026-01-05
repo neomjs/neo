@@ -1,7 +1,7 @@
 ---
 id: 8331
 title: Enhance Neural Link Health Check Response
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
@@ -9,7 +9,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-01-05T11:51:14Z'
-updatedAt: '2026-01-05T11:51:31Z'
+updatedAt: '2026-01-05T12:16:07Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8331'
 author: tobiu
 commentsCount: 0
@@ -19,6 +19,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-01-05T12:16:07Z'
 ---
 # Enhance Neural Link Health Check Response
 
@@ -48,4 +49,11 @@ Reference: #8169 (Epic)
 - 2026-01-05 @tobiu added the `architecture` label
 - 2026-01-05 @tobiu assigned to @tobiu
 - 2026-01-05 @tobiu added parent issue #8169
+- 2026-01-05 @tobiu referenced in commit `9613d44` - "feat(ai): Enhance Neural Link health check response (#8331)
+
+- Remove redundant 'details' array
+- Add structured 'sessions', 'windows', and 'agents' lists
+- Include window dimensions in 'windows' list
+- Update openapi.yaml schema"
+- 2026-01-05 @tobiu closed this issue
 

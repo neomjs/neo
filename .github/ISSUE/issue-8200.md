@@ -65,8 +65,8 @@ subIssues:
   - '[x] 8290 [Neural Link] Implement toJSON in form.field.Text'
   - '[x] 8291 [Neural Link] Implement toJSON in form.field.Number'
   - '[x] 8292 [Neural Link] Implement toJSON in form.field.CheckBox'
-subIssuesCompleted: 62
-subIssuesTotal: 62
+subIssuesCompleted: 63
+subIssuesTotal: 63
 blockedBy: []
 blocking: []
 ---
