@@ -18,6 +18,7 @@ class Interventions extends Store {
         autoLoad: true,
         /**
          * @member {Neo.data.Model} model=InterventionModel
+         * @reactive
          */
         model: InterventionModel,
         /**

@@ -21,6 +21,7 @@ class StrategyPanel extends DashboardPanel {
         cls: ['agent-panel-strategy'],
         /**
          * @member {Neo.controller.Component} controller=StrategyPanelController
+         * @reactive
          */
         controller: StrategyPanelController,
         /**
@@ -37,6 +38,7 @@ class StrategyPanel extends DashboardPanel {
         }],
         /**
          * @member {Object} layout='fit'
+         * @reactive
          */
         layout: 'fit',
         /**

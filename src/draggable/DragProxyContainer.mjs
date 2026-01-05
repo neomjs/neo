@@ -31,6 +31,7 @@ class DragProxyContainer extends BaseContainer {
         baseCls: ['neo-dragproxy'],
         /**
          * @member {Object} layout='fit'
+         * @reactive
          */
         layout: 'fit',
         /**

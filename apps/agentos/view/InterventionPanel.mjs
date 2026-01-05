@@ -20,10 +20,12 @@ class InterventionPanel extends DashboardPanel {
         ntype: 'intervention-panel',
         /**
          * @member {String[]} cls=['agent-panel-intervention']
+         * @reactive
          */
         cls: ['agent-panel-intervention'],
         /**
          * @member {Object} layout={ntype: 'fit'}
+         * @reactive
          */
         layout: {ntype: 'fit'},
         /**

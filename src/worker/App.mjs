@@ -29,6 +29,7 @@ class App extends Base {
          * This is especially important for the neural link, where multiple App workers can connect.
          * @member {String} id=crypto.randomUUID()
          * @protected
+         * @reactive
          */
         id: crypto.randomUUID(),
         /**

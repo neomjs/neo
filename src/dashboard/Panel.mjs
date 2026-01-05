@@ -29,6 +29,7 @@ class DashboardPanel extends Panel {
         ntype: 'dashboard-panel',
         /**
          * @member {String[]} cls=['neo-dashboard-panel','neo-panel','neo-container']
+         * @reactive
          */
         cls: ['neo-dashboard-panel', 'neo-panel', 'neo-container'],
         /**

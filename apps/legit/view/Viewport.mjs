@@ -23,14 +23,17 @@ class Viewport extends BaseViewport {
         className: 'Legit.view.Viewport',
         /**
          * @member {String[]} cls=['legit-viewport']
+         * @reactive
          */
         cls: ['legit-viewport'],
         /**
          * @member {Neo.controller.Component} controller=ViewportController
+         * @reactive
          */
         controller: ViewportController,
         /**
          * @member {Neo.state.Provider} stateProvider=ViewportStateProvider
+         * @reactive
          */
         stateProvider: ViewportStateProvider,
         /*

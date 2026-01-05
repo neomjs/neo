@@ -24,10 +24,12 @@ class Viewport extends BaseViewport {
         cls: ['agent-os-viewport'],
         /**
          * @member {Neo.controller.Component} controller=ViewportController
+         * @reactive
          */
         controller: ViewportController,
         /**
-         * @member {Object} layout={ntype:'vbox', align:'stretch'}
+         * @member {Object} layout={ntype:'vbox',align:'stretch'}
+         * @reactive
          */
         layout: {ntype: 'vbox', align: 'stretch'},
         /**
