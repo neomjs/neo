@@ -159,7 +159,7 @@ const DefaultConfig = {
     mainThreadAddons: ['DragDrop', 'Navigator', 'Stylesheet'],
     /**
      * The URL for the Neural Link WebSocket connection.
-     * @default 'ws://localhost:8081'
+     * @default 'ws://127.0.0.1:8081'
      * @memberOf! module:Neo
      * @name config.neuralLinkUrl
      * @type String

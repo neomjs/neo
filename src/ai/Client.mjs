@@ -35,9 +35,9 @@ class Client extends Base {
         socketConfig: null,
         /**
          * The URL of the Neural Link MCP Server's WebSocket endpoint.
-         * @member {String} url='ws://localhost:8081'
+         * @member {String} url='ws://127.0.0.1:8081'
          */
-        url: 'ws://localhost:8081'
+        url: 'ws://127.0.0.1:8081'
     }
 
     /**

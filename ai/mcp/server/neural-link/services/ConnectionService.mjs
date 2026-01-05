@@ -146,7 +146,7 @@ class ConnectionService extends Base {
      */
     async connectToBridge() {
         return new Promise((resolve, reject) => {
-            const url = `ws://localhost:${this.port}?role=agent&id=${this.agentId}`;
+            const url = `ws://127.0.0.1:${this.port}?role=agent&id=${this.agentId}`;
             const ws  = new WebSocket(url);
 
             ws.on('open', () => {
@@ -184,7 +184,8 @@ class ConnectionService extends Base {
             await this.connectToBridge();
             connected = true;
         } catch (e) {
-            logger.info('Bridge not running. Spawning new Bridge process...');
+            logger.info('Failed to connect to existing bridge:', e.message);
+            logger.info('Assuming Bridge not running. Spawning new Bridge process...');
         }
 
         // 2. Spawn if missing
