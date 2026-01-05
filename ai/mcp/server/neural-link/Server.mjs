@@ -97,11 +97,11 @@ class Server extends Base {
     logStartupStatus(health) {
         if (health.status === 'unhealthy') {
             logger.warn('⚠️  [Startup] Neural Link is unhealthy. Server will start but tools will fail until resolved.');
-            health.details.forEach(detail => logger.warn(`    ${detail}`));
+            health.details?.forEach(detail => logger.warn(`    ${detail}`));
         } else {
             logger.info('✅ [Startup] Neural Link health check passed');
-            logger.info(`   - Active Sessions: ${health.session.activeApps}`);
-            logger.info(`   - Connected Windows: ${health.session.connectedWindows}`);
+            logger.info(`   - Active Sessions: ${health.sessions.length}`);
+            logger.info(`   - Connected Windows: ${health.windows.length}`);
         }
     }
 
