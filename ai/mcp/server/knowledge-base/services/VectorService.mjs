@@ -139,13 +139,15 @@ class VectorService extends Base {
 
         const chunksToProcess = [];
         const allIds          = new Set();
+        const processedIds    = new Set();
 
         knowledgeBase.forEach(chunk => {
             const chunkId = chunk.hash;
             allIds.add(chunkId);
 
-            if (!existingIds.has(chunkId)) {
+            if (!existingIds.has(chunkId) && !processedIds.has(chunkId)) {
                 chunksToProcess.push({ ...chunk, id: chunkId });
+                processedIds.add(chunkId);
             }
         });
 
