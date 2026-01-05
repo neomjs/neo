@@ -121,7 +121,8 @@ class VectorService extends Base {
         const limit = 2000;
         let batch;
 
-        // ChromaDB default limit is often small (10), so we must paginate to get all IDs
+        // ChromaDB has a default limit (usually 10) if not specified.
+        // Even with a larger limit, it's safer to paginate for large collections.
         do {
             batch = await collection.get({
                 include: [],
