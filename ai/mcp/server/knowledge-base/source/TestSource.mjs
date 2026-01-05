@@ -66,6 +66,7 @@ class TestSource extends Base {
         if (!await fs.pathExists(fullPath)) return 0;
 
         const entries = await fs.readdir(fullPath, {withFileTypes: true});
+        entries.sort((a, b) => a.name.localeCompare(b.name));
 
         for (const entry of entries) {
             const entryName         = entry.name;

@@ -40,10 +40,14 @@ class TicketSource extends Base {
 
         if (await fs.pathExists(ticketArchivePath)) {
             const releaseVersions = await fs.readdir(ticketArchivePath);
+            releaseVersions.sort();
+
             for (const version of releaseVersions) {
                 const versionPath = path.join(ticketArchivePath, version);
                 if ((await fs.stat(versionPath)).isDirectory()) {
                     const ticketFiles = await fs.readdir(versionPath);
+                    ticketFiles.sort();
+
                     for (const file of ticketFiles) {
                         if (file.endsWith('.md')) {
                             const filePath   = path.join(versionPath, file);

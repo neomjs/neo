@@ -49,6 +49,8 @@ class ApiSource extends Base {
             const apiData = await fs.readJson(apiPath);
             const chunks  = ApiParser.parse(apiData);
 
+            chunks.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
             chunks.forEach(chunk => {
                 chunk.hash = createHashFn(chunk);
                 writeStream.write(JSON.stringify(chunk) + '\n');

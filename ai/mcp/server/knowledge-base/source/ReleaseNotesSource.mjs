@@ -39,6 +39,8 @@ class ReleaseNotesSource extends Base {
 
         if (await fs.pathExists(releaseNotesPath)) {
             const releaseFiles = await fs.readdir(releaseNotesPath);
+            releaseFiles.sort();
+
             for (const file of releaseFiles) {
                 if (file.endsWith('.md')) {
                     const filePath = path.join(releaseNotesPath, file);

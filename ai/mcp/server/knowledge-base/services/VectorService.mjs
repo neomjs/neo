@@ -116,26 +116,41 @@ class VectorService extends Base {
         logger.log(`Using collection: ${collection.name}`);
 
         logger.log('Fetching existing documents from ChromaDB...');
-        const existingDocs    = await collection.get({ include: ["metadatas"] });
-        const existingDocsMap = new Map();
+        const existingIds = new Set();
+        let offset = 0;
+        const limit = 2000;
+        let batch;
 
-        existingDocs.ids.forEach((id, index) => {
-            existingDocsMap.set(id, existingDocs.metadatas[index].hash);
-        });
-        logger.log(`Found ${existingDocsMap.size} existing documents.`);
+        // ChromaDB default limit is often small (10), so we must paginate to get all IDs
+        do {
+            batch = await collection.get({
+                include: [],
+                limit: limit,
+                offset: offset
+            });
+
+            batch.ids.forEach(id => existingIds.add(id));
+            offset += limit;
+            logger.log(`Fetched ${existingIds.size} IDs so far...`);
+        } while (batch.ids.length === limit);
+
+        logger.log(`Found ${existingIds.size} existing documents.`);
 
         const chunksToProcess = [];
         const allIds          = new Set();
 
-        knowledgeBase.forEach((chunk, index) => {
-            const chunkId = `id_${index}`;
+        knowledgeBase.forEach(chunk => {
+            const chunkId = chunk.hash;
             allIds.add(chunkId);
-            if (!existingDocsMap.has(chunkId) || existingDocsMap.get(chunkId) !== chunk.hash) {
+
+            if (!existingIds.has(chunkId)) {
                 chunksToProcess.push({ ...chunk, id: chunkId });
             }
         });
 
-        const idsToDelete = existingDocs.ids.filter(id => !allIds.has(id));
+        // Convert existingIds Set to Array for filtering, as existingDocs object is no longer available
+        const existingIdsArray = Array.from(existingIds);
+        const idsToDelete      = existingIdsArray.filter(id => !allIds.has(id));
 
         logger.log(`${chunksToProcess.length} chunks to add or update.`);
         logger.log(`${idsToDelete.length} chunks to delete.`);
