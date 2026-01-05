@@ -93,6 +93,7 @@ class Worker extends Base {
         switch (name) {
             case 'app':
             case 'data':
+            case 'main':
                 return true;
             case 'canvas':
                 return Neo.config.useCanvasWorker;
