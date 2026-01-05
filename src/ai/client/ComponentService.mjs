@@ -151,14 +151,14 @@ class ComponentService extends Service {
     }
 
     /**
-     * @param {Object} params
-     * @param {String} [params.rootId]
-     * @param {Object} params.selector
+     * @param {Object}   params
+     * @param {String}   [params.rootId]
+     * @param {Object}   params.selector
      * @param {String[]} [params.returnProperties]
      * @returns {Object}
      */
     queryComponent({rootId, selector, returnProperties}) {
-        let matches = [];
+        let matches;
 
         if (rootId) {
             const component = Neo.getComponent(rootId);
@@ -168,12 +168,8 @@ class ComponentService extends Service {
             matches = Neo.manager.Component.find(selector)
         }
 
-        if (!Array.isArray(matches)) {
-            matches = matches ? [matches] : []
-        }
-
         const components = matches.map(c => {
-            if (returnProperties && Array.isArray(returnProperties) && returnProperties.length > 0) {
+            if (Array.isArray(returnProperties) && returnProperties.length > 0) {
                 const props = {};
                 returnProperties.forEach(prop => {
                     props[prop] = this.safeSerialize(c[prop])
