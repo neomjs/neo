@@ -56,4 +56,5 @@ To reduce the total tool count and comply with VSCode extension limits (Epic #83
 - 2026-01-04 @tobiu referenced in commit `41019d1` - "Refactor Memory Core tools: consolidate database backup tools (Issue #8320)"
 - 2026-01-04 @tobiu closed this issue
 - 2026-01-04 @tobiu cross-referenced by #8315
+- 2026-01-04 @tobiu cross-referenced by #8321
 

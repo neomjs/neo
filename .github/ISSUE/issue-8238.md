@@ -61,4 +61,5 @@ It should return an object containing:
 - 2025-12-31 @tobiu referenced in commit `e34a2ad` - "feat(collection): Implement toJSON in Collection, Filter, and Sorter for Neural Link (#8238, #8239, #8240)"
 - 2025-12-31 @tobiu assigned to @tobiu
 - 2025-12-31 @tobiu closed this issue
+- 2025-12-31 @tobiu referenced in commit `ad471ec` - "docs(issue): Close tickets #8238, #8239, #8240"
 

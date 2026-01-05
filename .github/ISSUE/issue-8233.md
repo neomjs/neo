@@ -56,4 +56,5 @@ It should return an object containing:
 - 2025-12-31 @tobiu assigned to @tobiu
 - 2025-12-31 @tobiu referenced in commit `b8600b2` - "feat(layout): Implement toJSON in Neo.layout.Base for Neural Link serialization (#8233)"
 - 2025-12-31 @tobiu closed this issue
+- 2025-12-31 @tobiu referenced in commit `a07f4f2` - "docs(issue): Close ticket #8233"
 

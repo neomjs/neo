@@ -65,6 +65,19 @@ subIssues:
   - '[x] 8290 [Neural Link] Implement toJSON in form.field.Text'
   - '[x] 8291 [Neural Link] Implement toJSON in form.field.Number'
   - '[x] 8292 [Neural Link] Implement toJSON in form.field.CheckBox'
+  - '[x] 8293 [Neural Link] Implement toJSON in form.field.Radio'
+  - '[x] 8294 [Neural Link] Implement toJSON in form.field.Date'
+  - '[x] 8295 [Neural Link] Implement toJSON in form.field.trigger.Base'
+  - '[x] 8296 [Neural Link] Implement toJSON in form.Container'
+  - '[x] 8297 [Neural Link] Implement toJSON in component.Base (add keys)'
+  - '[x] 8298 [Neural Link] Implement toJSON in form.field.Picker'
+  - '[x] 8299 [Neural Link] Fix missing align config in component.Base.toJSON'
+  - '[x] 8300 [Neural Link] Implement toJSON in form.field.trigger.SpinUpDown'
+  - '[x] 8301 [Neural Link] Implement toJSON in util.KeyNavigation'
+  - '[x] 8302 [Neural Link] Enhance core.Base.serializeConfig to handle Neo Instances'
+  - '[x] 8303 [Neural Link] Implement toJSON for AmChart and Monaco'
+  - '[x] 8304 [Neural Link] Deep Value Collection for form.Container.toJSON'
+  - '[x] 8335 Fix toJSON mixin shadowing and implement dynamic mixin serialization'
 subIssuesCompleted: 63
 subIssuesTotal: 63
 blockedBy: []

@@ -50,4 +50,5 @@ It should return an object containing:
 - 2025-12-31 @tobiu assigned to @tobiu
 - 2025-12-31 @tobiu referenced in commit `4c9e8b7` - "feat(layout): Implement toJSON in Neo.layout.Form for Neural Link serialization (#8236)"
 - 2025-12-31 @tobiu closed this issue
+- 2025-12-31 @tobiu referenced in commit `0001f48` - "docs(issue): Close ticket #8236"
 

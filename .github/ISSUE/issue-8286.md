@@ -45,4 +45,5 @@ Provides a single source of truth for DOM node resolution across the framework, 
 - 2026-01-02 @tobiu added parent issue #8169
 - 2026-01-02 @tobiu closed this issue
 - 2026-01-02 @tobiu assigned to @tobiu
+- 2026-01-04 @jonnyamsp referenced in commit `48f9a47` - "enhancement(main): Enhance DomAccess.getElement to support window, document and body targets. Resolves #8286"
 

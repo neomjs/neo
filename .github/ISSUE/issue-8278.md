@@ -41,4 +41,13 @@ To debug event delegation and interaction logic on a specific component.
 - 2026-01-01 @tobiu added parent issue #8169
 - 2026-01-01 @tobiu assigned to @tobiu
 - 2026-01-02 @tobiu closed this issue
+- 2026-01-04 @jonnyamsp referenced in commit `e8372da` - "feat(ai): Implement DOM Event introspection tools (#8278, #8279)
+
+- Implement client-side logic for getDomEventListeners and getDomEventSummary in RuntimeService
+- Update Client.mjs to route get_dom_event requests
+- Update Server-side RuntimeService to expose new methods
+- Update OpenAPI definition with new tools
+
+Closes #8278
+Closes #8279"
 

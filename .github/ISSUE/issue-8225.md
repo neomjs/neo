@@ -78,4 +78,5 @@ This is part of the Neural Link serialization epic.
 - 2025-12-31 @tobiu added the `enhancement` label
 - 2025-12-31 @tobiu added parent issue #8200
 - 2025-12-31 @tobiu closed this issue
+- 2026-01-03 @tobiu cross-referenced by #8299
 

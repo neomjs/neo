@@ -41,4 +41,9 @@ Ensure future AI agents understand that `inspect_class` returns more than just a
 - 2026-01-02 @tobiu added parent issue #8169
 - 2026-01-02 @tobiu assigned to @tobiu
 - 2026-01-02 @tobiu closed this issue
+- 2026-01-02 @tobiu referenced in commit `8eb43be` - "docs: Enhance inspect_class description in OpenAPI spec
+
+Explicitly documents the Rich Blueprint return structure, including hooks and metadata, to improve agent understanding of the tool's capabilities.
+
+Relates to #8282"
 

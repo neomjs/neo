@@ -37,4 +37,11 @@ Requirements:
 - 2026-01-01 @tobiu added parent issue #8169
 - 2026-01-01 @tobiu assigned to @tobiu
 - 2026-01-01 @tobiu closed this issue
+- 2026-01-04 @jonnyamsp referenced in commit `e389924` - "feat(ai): Parameterize inspectStore limit and offset
+
+- Update ai.client.DataService.inspectStore to accept limit/offset and use getRange
+- Update MCP DataService wrapper to pass parameters
+- Update OpenAPI schema for InspectStoreRequest
+
+Closes #8274"
 

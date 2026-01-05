@@ -34,4 +34,18 @@ Update `src/ai/client/DataService.mjs` to rely on `toJSON`.
 - 2026-01-01 @tobiu added parent issue #8169
 - 2026-01-01 @tobiu closed this issue
 - 2026-01-01 @tobiu assigned to @tobiu
+- 2026-01-04 @jonnyamsp referenced in commit `aaeaa6e` - "feat(ai): Implement Neural Link toJSON protocol for Client Services and Managers
+
+- Implement toJSON in manager.DragCoordinator
+- Implement toJSON in manager.Window
+- Refactor ComponentService to use toJSON protocol
+- Refactor DataService to use toJSON protocol
+- Refactor RuntimeService to use toJSON protocol
+- Update ai.client.Service.safeSerialize to prioritize toJSON
+
+Closes #8269
+Closes #8270
+Closes #8271
+Closes #8272
+Closes #8273"
 

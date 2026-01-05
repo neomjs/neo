@@ -58,4 +58,5 @@ Note: Records (data items) already have a `toJSON` method implemented in `src/da
 - 2025-12-31 @tobiu assigned to @tobiu
 - 2025-12-31 @tobiu referenced in commit `35f26b6` - "feat(data): Implement toJSON in Model and Store for Neural Link (#8241, #8242)"
 - 2025-12-31 @tobiu closed this issue
+- 2025-12-31 @tobiu referenced in commit `c3bd5ac` - "docs(issue): Close tickets #8241, #8242"
 
