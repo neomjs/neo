@@ -770,6 +770,7 @@ paths:
     post:
       summary: Manage WebSocket Server
       operationId: manage_connection
+      x-pass-as-object: true
       description: |
         Manages the WebSocket server connection (start/stop).
 
