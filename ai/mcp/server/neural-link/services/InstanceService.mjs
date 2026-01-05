@@ -26,6 +26,21 @@ class InstanceService extends Base {
     }
 
     /**
+     * Finds instances matching a selector.
+     * @param {Object} opts
+     * @param {String} opts.sessionId
+     * @param {Object} opts.selector
+     * @param {String[]} [opts.returnProperties]
+     * @returns {Promise<Object>}
+     */
+    async findInstances({sessionId, selector, returnProperties}) {
+        return await ConnectionService.call(sessionId, 'find_instances', {
+            selector,
+            returnProperties
+        })
+    }
+
+    /**
      * Retrieves properties from a specific instance by its ID.
      * @param {Object} opts
      * @param {String} opts.sessionId
