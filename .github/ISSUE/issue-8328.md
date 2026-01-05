@@ -1,7 +1,7 @@
 ---
 id: 8328
 title: '[Neural Link] Feature: Tool query_vdom'
-state: OPEN
+state: CLOSED
 labels:
   - developer-experience
   - ai
@@ -9,7 +9,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-01-04T19:47:50Z'
-updatedAt: '2026-01-05T11:32:46Z'
+updatedAt: '2026-01-05T15:42:52Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8328'
 author: tobiu
 commentsCount: 0
@@ -19,6 +19,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-01-05T15:42:52Z'
 ---
 # [Neural Link] Feature: Tool query_vdom
 
@@ -45,4 +46,5 @@ Allow AI agents to query the Virtual DOM directly to find nodes based on visual 
 - 2026-01-04 @tobiu added the `feature` label
 - 2026-01-04 @tobiu added parent issue #8169
 - 2026-01-05 @tobiu assigned to @tobiu
+- 2026-01-05 @tobiu closed this issue
 

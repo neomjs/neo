@@ -82,14 +82,14 @@ subIssues:
   - '[x] 8325 [Neural Link] Enhance Instance Tools with Batch Operations'
   - '[x] 8326 [Neural Link] Enhance query_component with Property Return'
   - '[x] 8327 [Neural Link] Feature: Tool find_instances'
-  - '[ ] 8328 [Neural Link] Feature: Tool query_vdom'
+  - '[x] 8328 [Neural Link] Feature: Tool query_vdom'
   - '[x] 8329 [Neural Link] Refactor: ComponentService.queryComponent logic'
   - '[x] 8330 [Neural Link] Fix find_instances regression (Client mapping & OpenAPI)'
   - '[x] 8331 Enhance Neural Link Health Check Response'
   - '[x] 8332 Fix manage_connection tool argument passing'
   - '[x] 8333 Fix Neural Link Server startup crash due to Health Check response structure change'
   - '[x] 8334 Fix query_component missing returnProperties argument'
-subIssuesCompleted: 72
+subIssuesCompleted: 73
 subIssuesTotal: 74
 blockedBy: []
 blocking: []
