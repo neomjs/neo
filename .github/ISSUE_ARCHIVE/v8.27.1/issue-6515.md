@@ -1,8 +1,6 @@
 ---
 id: 6515
-title: >-
-  selection.grid.ColumnModel: onNavKeyColumn() => add support for navigating
-  into non-painted columns
+title: 'selection.grid.ColumnModel: onNavKeyColumn() => add support for navigating into non-painted columns'
 state: CLOSED
 labels:
   - enhancement

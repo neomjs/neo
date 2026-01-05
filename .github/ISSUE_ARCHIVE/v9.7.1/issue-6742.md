@@ -1,8 +1,6 @@
 ---
 id: 6742
-title: >-
-  Create a new blog post: The UI Revolution: How JSON Blueprints & Shared
-  Workers Power Next-Gen AI Interfaces
+title: 'Create a new blog post: The UI Revolution: How JSON Blueprints & Shared Workers Power Next-Gen AI Interfaces'
 state: CLOSED
 labels:
   - Blog Post

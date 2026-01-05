@@ -14,32 +14,32 @@ author: tobiu
 commentsCount: 2
 parentIssue: null
 subIssues:
-  - 7317
-  - 7318
-  - 7319
-  - 7320
-  - 7321
-  - 7322
-  - 7324
-  - 7325
-  - 7326
-  - 7332
-  - 7333
-  - 7334
-  - 7335
-  - 7336
-  - 7337
-  - 7338
-  - 7341
-  - 7356
-  - 7357
-  - 7358
-  - 7361
-  - 7362
-  - 7363
-  - 7394
-  - 7397
-  - 7398
+  - '[x] 7317 Set up Memory ChromaDB'
+  - '[x] 7318 Create Memory Capture API'
+  - '[x] 7319 Create Memory Query Tool'
+  - '[x] 7320 Update Agent Workflow for Memory'
+  - '[x] 7321 Create Guide for Personalized Agent Identity'
+  - '[x] 7322 Implement Memory Backup and Restore'
+  - '[x] 7324 Refactor and Centralize AI Configuration'
+  - '[x] 7325 Create Session Summarization API'
+  - '[x] 7326 Document Optional Memory Core Setup'
+  - '[x] 7332 Enhance Session Summary with Rich Metadata'
+  - '[x] 7333 Create AI Strategic Workflows Guide'
+  - '[x] 7334 Document Human Verification of Agent Memory'
+  - '[x] 7335 Clarify Agent Memory Protocol and Tooling'
+  - '[x] 7336 Implement Automated Session Summarization Workflow'
+  - '[x] 7337 Enhance Agent Session Initialization: Generate New Session ID and Validate Memory Core State'
+  - '[x] 7338 Implement Session Recovery Protocol in AGENTS.md'
+  - '[x] 7341 Correct agent memory initialization protocol'
+  - '[x] 7356 Clarify ai:add-memory command in AGENTS.md'
+  - '[x] 7357 Create and Integrate `ai:get-last-session` Script'
+  - '[x] 7358 Refactor `summarizeSession.mjs` to automatically summarize all un-summarized sessions'
+  - '[x] 7361 Clarify Agent Memory Server Port in AGENTS.md'
+  - '[x] 7362 Correct Agent Initialization Workflow'
+  - '[x] 7363 Create `clearSummaries.mjs` script for development'
+  - '[x] 7394 Clarify UUID Generation for Agent Memory'
+  - '[x] 7397 Update AGENTS.md with Correct Health Check Endpoint'
+  - '[x] 7398 Ensure Cross-Platform UUID Generation for Agent Memory'
 subIssuesCompleted: 26
 subIssuesTotal: 26
 blockedBy: []

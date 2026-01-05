@@ -1,8 +1,6 @@
 ---
 id: 6206
-title: >-
-  main.addon.Stylesheet: addThemeFiles(), createStyleSheet() => convert to async
-  & resolve on load
+title: 'main.addon.Stylesheet: addThemeFiles(), createStyleSheet() => convert to async & resolve on load'
 state: CLOSED
 labels:
   - enhancement

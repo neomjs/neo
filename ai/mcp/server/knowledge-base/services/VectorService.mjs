@@ -159,9 +159,13 @@ class VectorService extends Base {
         logger.log(`Initialized Google AI embedding model: ${aiConfig.embeddingModel}.`);
 
         logger.log('Embedding chunks...');
-        const {batchSize, maxRetries} = aiConfig;
+        const {batchSize, batchDelay, maxRetries} = aiConfig;
 
         for (let i = 0; i < chunksToProcess.length; i += batchSize) {
+            if (i > 0 && batchDelay) {
+                await this.timeout(batchDelay);
+            }
+
             const batch = chunksToProcess.slice(i, i + batchSize);
             const textsToEmbed = batch.map(chunk => `${chunk.type}: ${chunk.name} in ${chunk.className || ''}\n${chunk.description || chunk.content || ''}`);
 
@@ -196,7 +200,7 @@ class VectorService extends Base {
                     if (retries < maxRetries) {
                         await new Promise(res => setTimeout(res, 2 ** retries * 1000)); // Exponential backoff
                     } else {
-                        console.error(`Failed to process batch ${i / batchSize + 1} after ${maxRetries} retries. Skipping.`);
+                        throw new Error(`Failed to process batch ${i / batchSize + 1} after ${maxRetries} retries. Aborting.`);
                     }
                 }
             }

@@ -1,10 +1,10 @@
 import BaseViewport          from '../../../src/container/Viewport.mjs';
 import BarChartComponent     from './BarChartComponent.mjs';
 import Dashboard             from '../../../src/dashboard/Container.mjs';
+import DashboardPanel        from '../../../src/dashboard/Panel.mjs';
 import HeaderToolbar         from './HeaderToolbar.mjs';
 import PieChartComponent     from './PieChartComponent.mjs';
 import GridContainer         from './GridContainer.mjs';
-import Panel                 from '../../../src/container/Panel.mjs';
 import ViewportController    from './ViewportController.mjs';
 import ViewportStateProvider from './ViewportStateProvider.mjs';
 
@@ -42,15 +42,12 @@ class Viewport extends BaseViewport {
         }, {
             module   : Dashboard,
             layout   : {ntype: 'vbox', align: 'stretch'},
+            popupUrl : 'apps/colors/childapps/widget/index.html',
             reference: 'dashboard',
-
-            listeners: {
-                dragBoundaryEntry: 'onDragBoundaryEntry',
-                dragBoundaryExit : 'onDragBoundaryExit'
-            },
+            sortGroup: 'neo-connected-dashboard',
 
             items: [{
-                module   : Panel,
+                module   : DashboardPanel,
                 flex     : 1,
                 reference: 'grid-panel',
                 headers  : [{
@@ -62,7 +59,7 @@ class Viewport extends BaseViewport {
                     {module: GridContainer, reference: 'grid'}
                 ]
             }, {
-                module   : Panel,
+                module   : DashboardPanel,
                 flex     : 1.3,
                 reference: 'pie-chart-panel',
                 headers  : [{
@@ -74,7 +71,7 @@ class Viewport extends BaseViewport {
                     {module: PieChartComponent, reference: 'pie-chart'}
                 ]
             }, {
-                module   : Panel,
+                module   : DashboardPanel,
                 flex     : 1.3,
                 reference: 'bar-chart-panel',
                 headers  : [{

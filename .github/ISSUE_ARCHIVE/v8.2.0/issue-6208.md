@@ -1,8 +1,6 @@
 ---
 id: 6208
-title: >-
-  component.Base: render() => only execute in case there are no pending CSS
-  loads, otherwise wait for them
+title: 'component.Base: render() => only execute in case there are no pending CSS loads, otherwise wait for them'
 state: CLOSED
 labels:
   - enhancement

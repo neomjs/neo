@@ -25,6 +25,14 @@ class App extends Base {
          */
         countLoadingThemeFiles_: 0,
         /**
+         * Using crypto.randomUUID() as a unique window identifier.
+         * This is especially important for the neural link, where multiple App workers can connect.
+         * @member {String} id=crypto.randomUUID()
+         * @protected
+         * @reactive
+         */
+        id: crypto.randomUUID(),
+        /**
          * Remote method access for other workers
          * @member {Object} remote
          * @protected
@@ -73,7 +81,9 @@ class App extends Base {
 
         // convenience shortcuts
         Neo.applyDeltas    = me.applyDeltas   .bind(me);
-        Neo.setCssVariable = me.setCssVariable.bind(me)
+        Neo.setCssVariable = me.setCssVariable.bind(me);
+
+        me.interceptConsole()
     }
 
     /**
@@ -270,12 +280,12 @@ class App extends Base {
     async getAddon(name, windowId) {
         let addon = Neo.main?.addon?.[name];
 
-        if (!addon) {
-            await Neo.Main.importAddon({name, windowId});
-            addon = Neo.main.addon[name]
+        if (addon) {
+            return addon
         }
 
-        return addon
+        await Neo.Main.importAddon({name, windowId});
+        return Neo.main.addon[name]
     }
 
     /**
@@ -323,6 +333,86 @@ class App extends Base {
             /* webpackMode: "lazy" */
             `../../${path}.mjs`
         )
+    }
+
+    /**
+     * Intercepts console logs and errors to forward them to the Neural Link
+     */
+    interceptConsole() {
+        const types = ['log', 'warn', 'error', 'info'];
+
+        types.forEach(type => {
+            const original = console[type];
+
+            console[type] = (...args) => {
+                original.apply(console, args);
+
+                // Use the Client singleton if available (lazy check)
+                const client = Neo.ai?.Client;
+
+                if (client) {
+                    try {
+                        const message = args.map(arg => {
+                            if (arg instanceof Error) {
+                                return arg.message + '\n' + arg.stack
+                            }
+                            if (typeof arg === 'object') {
+                                try {
+                                    return JSON.stringify(arg)
+                                } catch (e) {
+                                    return String(arg)
+                                }
+                            }
+                            return String(arg)
+                        }).join(' ');
+
+                        const logEntry = {
+                            type,
+                            message,
+                            timestamp: Date.now(),
+                            stack    : type === 'error' ? new Error().stack : undefined
+                        };
+
+                        if (client.isConnected) {
+                            client.sendNotification('console_log', logEntry)
+                        } else {
+                            // Direct push to Client instance array
+                            client.logs.push(logEntry)
+                        }
+                    } catch (err) {
+                        // Prevent infinite loop if logging fails
+                    }
+                }
+            }
+        });
+
+        // Intercept unhandled errors
+        const originalOnError = globalThis.onerror;
+
+        globalThis.onerror = (msg, url, lineNo, columnNo, error) => {
+            const client = Neo.ai?.Client;
+
+            if (client) {
+                const logEntry = {
+                    type     : 'error',
+                    message  : msg,
+                    timestamp: Date.now(),
+                    stack    : error?.stack
+                };
+
+                if (client.isConnected) {
+                    client.sendNotification('console_log', logEntry)
+                } else {
+                    client.logs.push(logEntry)
+                }
+            }
+
+            if (originalOnError) {
+                return originalOnError(msg, url, lineNo, columnNo, error)
+            }
+
+            return false
+        }
     }
 
     /**
@@ -408,6 +498,29 @@ class App extends Base {
     }
 
     /**
+     * @param {Object} data
+     */
+    async onConnect(data) {
+        if (this.aiClientPromise) {
+            await this.aiClientPromise
+        }
+
+        // short delay to ensure app VCs are in place
+        await this.timeout(10);
+
+        let {appName, windowId} = data,
+            windowData;
+
+        try {
+            windowData = await Neo.Main.getWindowData({windowId})
+        } catch (e) {
+            console.error('onConnect: getWindowData failed', e)
+        }
+
+        this.fire('connect', {appName, windowData, windowId})
+    }
+
+    /**
      * Every dom event will get forwarded as a worker message from main and ends up here first
      * @param {Object} data useful event properties, differs for different event types. See Neo.main.DomEvents.
      */
@@ -476,7 +589,7 @@ class App extends Base {
 
         Neo.windowConfigs = Neo.windowConfigs || {};
 
-        Neo.windowConfigs[data.windowId] = data;
+        Neo.windowConfigs[data.windowId] = Neo.clone(data, true);
 
         if (config.environment === 'development' || config.environment === 'dist/esm') {
             url = `../../${url}`
@@ -494,8 +607,25 @@ class App extends Base {
             .then(response => response.json())
             .then(data => {this.createThemeMap(data)});
 
-        config.remotesApiUrl  && import('../remotes/Api.mjs').then(module => module.default.load());
-        config.useAiClient    && import('../ai/Client.mjs');
+        config.remotesApiUrl && import('../remotes/Api.mjs').then(module => module.default.load());
+
+        if (config.useAiClient) {
+            let {environment, useAiClient} = config,
+                useAi                      = useAiClient === true;
+
+            if (!useAi) {
+                if (Array.isArray(useAiClient)) {
+                    useAi = useAiClient.includes(environment)
+                } else if (typeof useAiClient === 'string') {
+                    useAi = useAiClient === environment
+                }
+            }
+
+            if (useAi) {
+                this.aiClientPromise = import('../ai/Client.mjs')
+            }
+        }
+
         !config.useVdomWorker && import('../vdom/Helper.mjs')
     }
 

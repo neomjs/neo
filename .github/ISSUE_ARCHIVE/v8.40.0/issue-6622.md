@@ -1,8 +1,6 @@
 ---
 id: 6622
-title: >-
-  Colors.view.ViewportController: updateWidgets() => timing issue inside
-  dist/dev
+title: 'Colors.view.ViewportController: updateWidgets() => timing issue inside dist/dev'
 state: CLOSED
 labels:
   - enhancement

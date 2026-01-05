@@ -1,8 +1,6 @@
 ---
 id: 6820
-title: >-
-  main.mixin.DeltaUpdates: createDomTree() => add a check to skip component
-  references
+title: 'main.mixin.DeltaUpdates: createDomTree() => add a check to skip component references'
 state: CLOSED
 labels:
   - enhancement

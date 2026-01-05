@@ -17,7 +17,12 @@ const defaultConfig = {
      * The port the WebSocket server is listening on.
      * @type {number}
      */
-    port: 8081
+    port: 8081,
+    /**
+     * Timeout for RPC calls in milliseconds.
+     * @type {number}
+     */
+    rpcTimeout: 10000
 };
 
 /**

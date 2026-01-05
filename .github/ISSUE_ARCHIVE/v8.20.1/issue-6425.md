@@ -1,8 +1,6 @@
 ---
 id: 6425
-title: >-
-  examples.grid.bigData.ControlsContainer: switch to a slide & fade show / hide
-  OP
+title: 'examples.grid.bigData.ControlsContainer: switch to a slide & fade show / hide OP'
 state: CLOSED
 labels:
   - enhancement

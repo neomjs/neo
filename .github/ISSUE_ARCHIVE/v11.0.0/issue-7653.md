@@ -1,8 +1,6 @@
 ---
 id: 7653
-title: >-
-  Chore: Update MCP Server Names in `.gemini/settings.json` for Branding
-  Consistency
+title: 'Chore: Update MCP Server Names in `.gemini/settings.json` for Branding Consistency'
 state: CLOSED
 labels:
   - enhancement

@@ -1,8 +1,6 @@
 ---
 id: 7899
-title: >-
-  Clean up Docs App structure by filtering invalid AI modules and pruning empty
-  folders
+title: Clean up Docs App structure by filtering invalid AI modules and pruning empty folders
 state: CLOSED
 labels:
   - bug

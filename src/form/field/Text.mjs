@@ -1683,6 +1683,33 @@ class Text extends Field {
 
         return !returnValue ? false : super.validate(silent)
     }
+    /**
+     * Serializes the field into a JSON-compatible object.
+     * @returns {Object}
+     */
+    toJSON() {
+        let me = this;
+
+        return {
+            ...super.toJSON(),
+            autoCapitalize : me.autoCapitalize,
+            autoComplete   : me.autoComplete,
+            clearable      : me.clearable,
+            editable       : me.editable,
+            hideLabel      : me.hideLabel,
+            inputPattern   : me.inputPattern?.toString(),
+            inputType      : me.inputType,
+            inputValue     : me.inputValue,
+            labelPosition  : me.labelPosition,
+            labelText      : me.labelText,
+            maxLength      : me.maxLength,
+            minLength      : me.minLength,
+            placeholderText: me.placeholderText,
+            readOnly       : me.readOnly,
+            required       : me.required,
+            triggers       : me.triggers?.map(trigger => trigger.toJSON())
+        }
+    }
 }
 
 export default Neo.setupClass(Text);

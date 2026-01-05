@@ -1,8 +1,6 @@
 ---
 id: 6346
-title: >-
-  main.mixin.DeltaUpdates: du_moveNode() => improve the support for direct swap
-  OPs
+title: 'main.mixin.DeltaUpdates: du_moveNode() => improve the support for direct swap OPs'
 state: CLOSED
 labels:
   - enhancement

@@ -334,6 +334,11 @@ class Abstract extends Base {
         }
 
         if (parentComponent) {
+            if (parentComponent === me) {
+                console.error('Circular parent reference detected', me.id);
+                return null
+            }
+
             // todo: We need ?. until functional.component.Base supports controllers
             return parentComponent.getConfigInstanceByNtype?.(configName, ntype)
         }
@@ -450,6 +455,25 @@ class Abstract extends Base {
      */
     setState(...args) {
         this.getStateProvider().setData(...args)
+    }
+
+    /**
+     * Serializes the component into a JSON-compatible object.
+     * Extends the core.Base serialization with component-specific properties.
+     * @returns {Object}
+     */
+    toJSON() {
+        let me = this;
+
+        return {
+            ...super.toJSON(),
+            appName      : me.appName,
+            bind         : me.bind ? Object.keys(me.bind) : null,
+            mounted      : me.mounted,
+            parentId     : me.parentId,
+            stateProvider: me.stateProvider?.toJSON(),
+            windowId     : me.windowId
+        }
     }
 }
 

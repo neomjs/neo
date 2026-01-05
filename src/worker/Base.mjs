@@ -63,10 +63,11 @@ class Worker extends Base {
             gt = globalThis;
 
         Object.assign(me, {
-            channelPorts  : {},
-            isSharedWorker: gt.toString() === '[object SharedWorkerGlobalScope]',
-            ports         : [],
-            promises      : {}
+            channelPorts     : {},
+            isSharedWorker   : gt.toString() === '[object SharedWorkerGlobalScope]',
+            ports            : [],
+            promises         : {},
+            remotesToRegister: []
         });
 
         if (me.isSharedWorker) {
@@ -93,6 +94,7 @@ class Worker extends Base {
         switch (name) {
             case 'app':
             case 'data':
+            case 'main':
                 return true;
             case 'canvas':
                 return Neo.config.useCanvasWorker;
@@ -166,7 +168,11 @@ class Worker extends Base {
         // core.Base: initRemote() subscribes to this event for the SharedWorkers context
         me.fire('connected');
 
-        me.sendMessage(id, {action: 'workerConstructed', port: id});
+        me.sendMessage(id, {action: 'workerConstructed', port: id})
+
+        me.remotesToRegister.forEach(remote => {
+            me.sendMessage(id, {action : 'registerRemote', ...remote})
+        });
 
         me.afterConnect()
     }

@@ -14,7 +14,7 @@ author: tobiu
 commentsCount: 0
 parentIssue: null
 subIssues:
-  - 7791
+  - '[x] 7791 Refactor ContentComponent to use new highlight.js utilities'
 subIssuesCompleted: 1
 subIssuesTotal: 1
 blockedBy: []

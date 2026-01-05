@@ -14,19 +14,19 @@ author: tobiu
 commentsCount: 0
 parentIssue: null
 subIssues:
-  - 7448
-  - 7449
-  - 7451
-  - 7452
-  - 7453
-  - 7460
-  - 7742
-  - 7743
-  - 7744
-  - 7745
-  - 7746
-  - 7747
-  - 7748
+  - '[x] 7448 Create DocumentHead Addon with Canonical URL Support'
+  - '[x] 7449 Create Sitemap & LLM.txt Generator Script'
+  - '[x] 7451 Generate sitemap.xml File via Build Script'
+  - '[x] 7452 Generate LLM.txt File via Build Script'
+  - '[x] 7453 Update robots.txt for SEO'
+  - '[x] 7460 Refactor SEO Generator Script with Correct Data Sources'
+  - '[x] 7742 Enhance Sitemap Generation: Add `lastmod` based on Git History'
+  - '[x] 7743 Enhance Sitemap Generation: Include Top-Level Application Routes'
+  - '[x] 7744 Refactor Release Preparation Script: Rename `injectPackageVersion` to `prepareRelease` and Integrate SEO File Generation'
+  - '[x] 7745 Refactor `generate-seo-files.mjs`: Implement CLI Option Parsing with Commander'
+  - '[x] 7746 Enhance Release Preparation: Auto-update `datePublished` in `index.html`'
+  - '[x] 7747 Integrate SEO File Copying into `buildAll.mjs` for Application Builds'
+  - '[x] 7748 Bug: `copySeoFiles.mjs` Fails to Copy SEO Files to Correct `dist` Paths for Applications'
 subIssuesCompleted: 13
 subIssuesTotal: 13
 blockedBy: []

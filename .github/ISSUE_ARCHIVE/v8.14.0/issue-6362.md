@@ -1,8 +1,6 @@
 ---
 id: 6362
-title: >-
-  draggable.grid.header.toolbar.SortZone: onDragStart() => hide the cells of the
-  dragged column
+title: 'draggable.grid.header.toolbar.SortZone: onDragStart() => hide the cells of the dragged column'
 state: CLOSED
 labels:
   - enhancement

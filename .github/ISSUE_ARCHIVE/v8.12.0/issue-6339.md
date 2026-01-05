@@ -1,8 +1,6 @@
 ---
 id: 6339
-title: >-
-  draggable.table.header.toolbar.SortZone: reset the background-color for th
-  tags while dragging
+title: 'draggable.table.header.toolbar.SortZone: reset the background-color for th tags while dragging'
 state: CLOSED
 labels:
   - enhancement

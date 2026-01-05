@@ -1,8 +1,6 @@
 ---
 id: 7842
-title: >-
-  examples.tableFiltering: changing the operator and then the number value for
-  "lucky number" does not honor the new operator
+title: 'examples.tableFiltering: changing the operator and then the number value for "lucky number" does not honor the new operator'
 state: CLOSED
 labels:
   - bug

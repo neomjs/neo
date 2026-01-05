@@ -15,15 +15,15 @@ author: tobiu
 commentsCount: 1
 parentIssue: null
 subIssues:
-  - 7202
-  - 7203
-  - 7204
-  - 7205
-  - 7206
-  - 7207
-  - 7208
-  - 7209
-  - 7210
+  - '[ ] 7202 Phase 1: Foundational Sorting'
+  - '[ ] 7203 Phase 2: Live In-Page Proxy'
+  - '[x] 7204 Phase 3: Dynamic Proxy Transitioning (Windowing)'
+  - '[ ] 7205 Phase 4: Framework-Level Dashboard Abstraction'
+  - '[ ] 7206 Initial Dashboard Drag & Drop'
+  - '[x] 7207 Enhance container.SortZone for Complex Layouts'
+  - '[x] 7208 main.addon.DragDrop: onDragMove() => pass the dragElement rect to the app worker'
+  - '[x] 7209 draggable.dashboard.SortZone: moveTo() => regression bug'
+  - '[x] 7210 Implement Window Management Permission Request'
 subIssuesCompleted: 5
 subIssuesTotal: 9
 blockedBy: []

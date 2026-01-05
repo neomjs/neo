@@ -1,8 +1,6 @@
 ---
 id: 6537
-title: >-
-  core.Observable: addListener() => add support for order when passing a name
-  object
+title: 'core.Observable: addListener() => add support for order when passing a name object'
 state: CLOSED
 labels:
   - enhancement

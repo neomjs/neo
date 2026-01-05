@@ -158,6 +158,14 @@ const DefaultConfig = {
      */
     mainThreadAddons: ['DragDrop', 'Navigator', 'Stylesheet'],
     /**
+     * The URL for the Neural Link WebSocket connection.
+     * @default 'ws://127.0.0.1:8081'
+     * @memberOf! module:Neo
+     * @name config.neuralLinkUrl
+     * @type String
+     */
+
+    /**
      * Pass the URL of a JSON-file, which contains the services and methods from your backend,
      * which you want to expose to the client.
      * See: https://github.com/neomjs/neo/projects/32
@@ -205,10 +213,13 @@ const DefaultConfig = {
     /**
      * Set this to true to establish a WebSocket connection to the Neural Link MCP Server.
      * This enables bidirectional communication between the App Worker and external AI Agents.
+     *
+     * You can also use a string or array of strings to specify the target environment(s).
+     * Example: 'development' or ['development', 'dist/production']
      * @default false
      * @memberOf! module:Neo
      * @name config.useAiClient
-     * @type Boolean
+     * @type Boolean|String|String[]
      */
     useAiClient: false,
     /**
@@ -308,12 +319,12 @@ const DefaultConfig = {
     useVdomWorker: true,
     /**
      * buildScripts/injectPackageVersion.mjs will update this value
-     * @default '11.17.1'
+     * @default '11.18.0'
      * @memberOf! module:Neo
      * @name config.version
      * @type String
      */
-    version: '11.17.1'
+    version: '11.18.0'
 };
 
 Object.assign(DefaultConfig, {

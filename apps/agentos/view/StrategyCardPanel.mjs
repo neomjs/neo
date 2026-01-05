@@ -1,10 +1,10 @@
-import Panel from '../../../src/container/Panel.mjs';
+import DashboardPanel from '../../../src/dashboard/Panel.mjs';
 
 /**
  * @class AgentOS.view.StrategyCardPanel
- * @extends Neo.container.Panel
+ * @extends Neo.dashboard.Panel
  */
-class StrategyCardPanel extends Panel {
+class StrategyCardPanel extends DashboardPanel {
     static config = {
         /**
          * @member {String} className='AgentOS.view.StrategyCardPanel'

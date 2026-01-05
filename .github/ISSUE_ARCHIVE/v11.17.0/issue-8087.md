@@ -1,8 +1,6 @@
 ---
 id: 8087
-title: >-
-  [Refactor] Unify SortZone logic in Container.Base and remove Toolbar specific
-  implementations
+title: '[Refactor] Unify SortZone logic in Container.Base and remove Toolbar specific implementations'
 state: CLOSED
 labels:
   - epic

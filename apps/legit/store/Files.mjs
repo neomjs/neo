@@ -14,6 +14,7 @@ class Files extends Store {
         className: 'Legit.store.Files',
         /**
          * @member {Neo.data.Model} model=FileModel
+         * @reactive
          */
         model: FileModel
     }

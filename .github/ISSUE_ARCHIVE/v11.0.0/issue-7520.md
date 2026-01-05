@@ -14,14 +14,14 @@ author: tobiu
 commentsCount: 1
 parentIssue: null
 subIssues:
-  - 7521
-  - 7522
-  - 7523
-  - 7524
-  - 7525
-  - 7526
-  - 7527
-  - 7528
+  - '[x] 7521 Scaffold Memory Core MCP Server'
+  - '[x] 7522 Refactor Memory Core OpenAPI for MCP'
+  - '[x] 7523 Implement Memory Core toolService'
+  - '[x] 7524 Remove Legacy Express Server from Memory Core'
+  - '[x] 7525 Enhance Memory Core Health Check'
+  - '[x] 7526 Refactor dbService to use chromaManager'
+  - '[x] 7527 Refactor Health Service to Remove Redundant Try/Catch'
+  - '[x] 7528 Use Centralized AI Config in Memory Core Services'
 subIssuesCompleted: 8
 subIssuesTotal: 8
 blockedBy: []

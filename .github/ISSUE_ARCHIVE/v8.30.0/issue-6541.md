@@ -1,8 +1,6 @@
 ---
 id: 6541
-title: >-
-  component.Base: get parent() does not properly return the parentComponent
-  config
+title: 'component.Base: get parent() does not properly return the parentComponent config'
 state: CLOSED
 labels:
   - bug

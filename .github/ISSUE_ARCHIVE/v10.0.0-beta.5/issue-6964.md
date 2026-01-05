@@ -1,8 +1,6 @@
 ---
 id: 6964
-title: >-
-  Feature: Introduce Neo.core.Effect and Neo.core.EffectManager for reactive
-  computations
+title: 'Feature: Introduce Neo.core.Effect and Neo.core.EffectManager for reactive computations'
 state: CLOSED
 labels:
   - enhancement

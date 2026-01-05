@@ -11,6 +11,7 @@ import {FETCH_ISSUES_FOR_SYNC, FETCH_SINGLE_ISSUE} from '../queries/issueQueries
 import {GET_ISSUE_ID, UPDATE_ISSUE}                  from '../queries/mutations.mjs';
 
 const issueSyncConfig = aiConfig.issueSync;
+const lineBreaksRegex = /[\r\n]+/g;
 
 /**
  * @summary Handles fetching, creating, and updating local issue files from GitHub.
@@ -60,7 +61,7 @@ class IssueSyncer extends Base {
     #formatIssueMarkdown(issue, comments) {
         const frontmatter = {
             id                : issue.number,
-            title             : issue.title,
+            title             : issue.title.replace(lineBreaksRegex, ' '),
             state             : issue.state,
             labels            : issue.labels.nodes.map(l => l.name),
             assignees         : issue.assignees.nodes.map(a => a.login),
@@ -70,11 +71,11 @@ class IssueSyncer extends Base {
             author            : issue.author.login,
             commentsCount     : comments.length,
             parentIssue       : issue.parent ? issue.parent.number : null,
-            subIssues         : issue.subIssues?.nodes.map(sub => sub.number) || [],
+            subIssues         : issue.subIssues?.nodes.map(sub => `[${sub.state === 'CLOSED' ? 'x' : ' '}] ${sub.number} ${sub.title.replace(lineBreaksRegex, ' ')}`) || [],
             subIssuesCompleted: issue.subIssuesSummary?.completed || 0,
             subIssuesTotal    : issue.subIssuesSummary?.total || 0,
-            blockedBy         : issue.blockedBy?.nodes.map(b => b.number) || [],
-            blocking          : issue.blocking?.nodes.map(b => b.number) || []
+            blockedBy         : issue.blockedBy?.nodes.map(b => `[${b.state === 'CLOSED' ? 'x' : ' '}] ${b.number} ${b.title.replace(lineBreaksRegex, ' ')}`) || [],
+            blocking          : issue.blocking?.nodes.map(b => `[${b.state === 'CLOSED' ? 'x' : ' '}] ${b.number} ${b.title.replace(lineBreaksRegex, ' ')}`) || []
         };
 
         if (issue.closedAt) {
@@ -109,7 +110,7 @@ class IssueSyncer extends Base {
             body += '\n';
         }
 
-        return matter.stringify(body, frontmatter);
+        return matter.stringify(body, frontmatter, {lineWidth: -1});
     }
 
     /**

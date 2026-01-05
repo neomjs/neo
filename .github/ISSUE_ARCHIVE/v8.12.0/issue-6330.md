@@ -1,8 +1,6 @@
 ---
 id: 6330
-title: >-
-  draggable.DragProxyComponent: disable pointer events globally in case the body
-  contains .neo-is-dragging
+title: 'draggable.DragProxyComponent: disable pointer events globally in case the body contains .neo-is-dragging'
 state: CLOSED
 labels:
   - enhancement

@@ -56,162 +56,94 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /db/start:
+  /db/manage:
     post:
-      summary: Start Database
-      operationId: start_database
+      summary: Manage Database
+      operationId: manage_database
       description: |
-        Starts the ChromaDB database instance as a background process.
+        Manages the lifecycle (start/stop) of the ChromaDB database instance.
+
+        **Behavior:**
+        - **Start:**
+          - **Managed:** If no database is running on the configured port, this tool spawns a new process managed by this server. This process will be automatically cleaned up when the agent session ends.
+          - **External:** If a database is already running, this tool simply confirms the connection. The server acts as a client and will NOT kill the database on exit.
+        - **Stop:**
+          - **Managed:** Stops the process spawned by this server.
+          - **External:** **No effect.** The server cannot stop a database it did not start.
+
+        **Multi-Agent / Swarm Recommendation:**
+        For workflows involving multiple concurrent agents, it is **highly recommended** to start the database externally using `npm run ai:server` before starting the agents. This prevents unexpected disconnects for other agents when the "owner" agent exits.
 
         **When to Use:**
-        Use this tool if a `healthcheck` reveals that the database process is not running.
+        - Use `action: start` if a `healthcheck` reveals that the database process is not running.
+        - Use `action: stop` for debugging, forcing a restart, or freeing up resources.
       tags: ["Database Lifecycle"]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - action
+              properties:
+                action:
+                  type: string
+                  enum: [start, stop]
+                  description: The action to perform.
       responses:
         '200':
-          description: The database process was started successfully.
+          description: Operation completed successfully.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/DatabaseLifecycleResponse'
         '500':
-          description: The database process is already running or failed to start.
+          description: Operation failed.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /db/stop:
+  /db/data/manage:
     post:
-      summary: Stop Database
-      operationId: stop_database
+      summary: Manage Knowledge Base Data
+      operationId: manage_knowledge_base
       description: |
-        Stops the running ChromaDB database instance.
+        Manages the content of the knowledge base.
+
+        **Actions:**
+        - **sync:** (Recommended) Full update. Creates the JSONL file from source and embeds it.
+        - **create:** Generates the intermediate `ai-knowledge-base.jsonl` file only.
+        - **embed:** Embeds the existing JSONL file into the vector database (diff-based).
+        - **delete:** (Destructive) Permanently deletes the entire collection from ChromaDB.
 
         **When to Use:**
-        Use this tool to shut down the database process at the end of a session to free up resources.
-      tags: ["Database Lifecycle"]
+        - Use **sync** to update the database after code changes.
+        - Use **delete** followed by **sync** for a clean rebuild.
+      tags: [Database]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - action
+              properties:
+                action:
+                  type: string
+                  enum: [sync, create, embed, delete]
+                  description: The management action to perform.
       responses:
         '200':
-          description: The database process was stopped successfully.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DatabaseLifecycleResponse'
-        '500':
-          description: The database process is not running or failed to stop.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /db/sync:
-    post:
-      summary: Synchronize Database
-      operationId: sync_database
-      x-annotations:
-        readOnlyHint: false
-      description: |
-        Triggers the full knowledge base synchronization process. This is a long-running,
-        asynchronous operation that orchestrates the 'create' and 'embed' processes in sequence.
-
-        **When to Use:**
-        Use this tool when you want to rebuild the entire knowledge base from the latest
-        source files in one step. This is the most common way to update the database.
-      tags: [Database]
-      responses:
-        '202':
-          description: Accepted. The synchronization process has been started successfully.
+          description: Operation completed successfully.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessResponse'
         '500':
-          description: Internal server error during synchronization.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /db/create:
-    post:
-      summary: Create Knowledge Base
-      operationId: create_knowledge_base
-      x-annotations:
-        readOnlyHint: false
-      description: |
-        Creates (or overwrites) the knowledge base JSONL file from all source materials.
-        This is the first step in the synchronization process and does not affect the vector database.
-
-        **When to Use:**
-        Use this tool if you only need to generate the intermediate `ai-knowledge-base.jsonl` file
-        for inspection or debugging, without incurring the cost and time of embedding.
-      tags: [Database]
-      responses:
-        '200':
-          description: The knowledge base file was created successfully.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SuccessResponse'
-        '500':
-          description: Internal server error during creation.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /db/embed:
-    post:
-      summary: Embed Knowledge Base
-      operationId: embed_knowledge_base
-      x-annotations:
-        readOnlyHint: false
-      description: |
-        Embeds the content from the existing knowledge base JSONL file into the vector database.
-        This performs a diff and only adds, updates, or deletes what has changed.
-
-        **When to Use:**
-        Use this tool after manually verifying or modifying the `ai-knowledge-base.jsonl` file,
-        or if a previous embedding process was interrupted. It assumes the JSONL file is already correct.
-      tags: [Database]
-      responses:
-        '200':
-          description: The knowledge base was embedded successfully.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SuccessResponse'
-        '500':
-          description: Internal server error during embedding.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /db:
-    delete:
-      summary: Delete Database Collection
-      operationId: delete_database
-      x-annotations:
-        readOnlyHint: false
-        destructiveHint: true
-      description: |
-        Permanently deletes the entire knowledge base collection from ChromaDB.
-        This is a destructive operation used for a clean reset.
-
-        **Warning:**
-        This action cannot be undone. The entire knowledge base will need to be rebuilt from
-        scratch using the `create` and `embed` or `sync` tools.
-      tags: [Database]
-      responses:
-        '200':
-          description: The collection was successfully deleted.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SuccessResponse'
-        '500':
-          description: An error occurred while deleting the collection.
+          description: Operation failed.
           content:
             application/json:
               schema:

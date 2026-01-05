@@ -1,8 +1,6 @@
 ---
 id: 6624
-title: >-
-  form.Container: validate() => fields without a validate() method should count
-  as valid
+title: 'form.Container: validate() => fields without a validate() method should count as valid'
 state: CLOSED
 labels:
   - enhancement

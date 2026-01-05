@@ -1,8 +1,6 @@
 ---
 id: 6953
-title: >-
-  tests/config/AfterSetConfig: add tests for non-reactive configs and class
-  fields
+title: 'tests/config/AfterSetConfig: add tests for non-reactive configs and class fields'
 state: CLOSED
 labels:
   - enhancement

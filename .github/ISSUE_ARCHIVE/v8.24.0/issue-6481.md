@@ -1,8 +1,6 @@
 ---
 id: 6481
-title: >-
-  Portal.view.home.parts.MainNeo: use component.MagicMoveText for the
-  sub-headline
+title: 'Portal.view.home.parts.MainNeo: use component.MagicMoveText for the sub-headline'
 state: CLOSED
 labels:
   - enhancement

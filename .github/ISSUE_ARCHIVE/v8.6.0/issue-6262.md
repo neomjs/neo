@@ -1,8 +1,6 @@
 ---
 id: 6262
-title: >-
-  examples.table.nestedRecordFields.EditUserDialog: use the record.set() API for
-  field changes
+title: 'examples.table.nestedRecordFields.EditUserDialog: use the record.set() API for field changes'
 state: CLOSED
 labels:
   - enhancement

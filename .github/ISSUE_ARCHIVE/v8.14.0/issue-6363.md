@@ -1,8 +1,6 @@
 ---
 id: 6363
-title: >-
-  examples.grid.nestedRecordFields.Viewport: add a button to change the column
-  header drag mode
+title: 'examples.grid.nestedRecordFields.Viewport: add a button to change the column header drag mode'
 state: CLOSED
 labels:
   - enhancement

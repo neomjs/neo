@@ -1,8 +1,6 @@
 ---
 id: 6374
-title: >-
-  draggable.grid.header.toolbar.SortZone: createDragProxy() => adjust the proxy
-  height
+title: 'draggable.grid.header.toolbar.SortZone: createDragProxy() => adjust the proxy height'
 state: CLOSED
 labels:
   - enhancement

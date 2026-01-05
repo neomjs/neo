@@ -1356,6 +1356,23 @@ class Collection extends Base {
     }
 
     /**
+     * Serializes the instance into a JSON-compatible object for the Neural Link.
+     * @returns {Object}
+     */
+    toJSON() {
+        let me = this;
+
+        return {
+            ...super.toJSON(),
+            count      : me.count,
+            filters    : me.filters.map(filter => filter.toJSON()),
+            keyProperty: me.keyProperty,
+            sorters    : me.sorters.map(sorter => sorter.toJSON()),
+            sourceId   : me.sourceId
+        }
+    }
+
+    /**
      * Adds one or more elements to the beginning of the collection and returns the new items count
      * @param {Array|Object} item The item(s) to add
      * @returns {Number} the collection count

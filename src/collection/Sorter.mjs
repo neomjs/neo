@@ -138,6 +138,18 @@ class Sorter extends Base {
     }
 
     /**
+     * Serializes the instance into a JSON-compatible object for the Neural Link.
+     * @returns {Object}
+     */
+    toJSON() {
+        return {
+            ...super.toJSON(),
+            direction: this.direction,
+            property : this.property
+        }
+    }
+
+    /**
      * @param {*} value
      * @returns {*} value
      */

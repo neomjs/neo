@@ -3,25 +3,334 @@ info:
   title: Neo.mjs Neural Link MCP Server
   version: 1.0.0
 paths:
-  /component/property/get:
+  /health:
     post:
-      summary: Get Component Property
-      operationId: get_component_property
-      x-pass-as-object: true
-      description: Retrieves a property from a component by its ID.
+      summary: Health Check
+      operationId: healthcheck
+      x-annotations:
+        readOnlyHint: true
+      description: |
+        Checks the health of the Neural Link server, including WebSocket connectivity and active sessions.
+
+        **When to Use:**
+        Use this as a first-step diagnostic tool to ensure the Neural Link bridge to the browser is operational.
+      tags: [Health]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
+      responses:
+        '200':
+          description: Server is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthCheckResponse'
+        '503':
+          description: Server is unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /check_namespace:
+    post:
+      summary: Checks if a namespace exists in the current environment.
+      operationId: check_namespace
+      x-handler: check_namespace
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/GetComponentPropertyRequest'
+              type: object
+              properties:
+                namespace:
+                  type: string
+                  description: The namespace to check (e.g., 'Neo.button.Base').
+                sessionId:
+                  type: string
+                  description: The target App Worker Session ID.
+              required:
+                - namespace
       responses:
         '200':
-          description: The value of the property
+          description: Result indicating if the namespace exists.
           content:
             application/json:
               schema:
-                description: The property value
+                type: object
+                properties:
+                  exists:
+                    type: boolean
+
+  /instance/find:
+    post:
+      summary: Find Instances
+      operationId: find_instances
+      x-pass-as-object: true
+      description: |
+        Finds instances matching a set of properties.
+        Example: `find_instances({selector: {className: 'Neo.state.Provider'}})`
+
+        **When to Use:**
+        To discover non-component instances (StateProviders, Stores, Managers) by properties or class name.
+      tags: [Instance]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FindInstancesRequest'
+      responses:
+        '200':
+          description: List of matching instances
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  instances:
+                    type: array
+                    items:
+                      type: object
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /get_namespace_tree:
+    post:
+      summary: Retrieves the loaded namespace tree from the runtime.
+      operationId: get_namespace_tree
+      x-handler: get_namespace_tree
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                root:
+                  type: string
+                  description: Optional root namespace to start from (defaults to 'Neo').
+                sessionId:
+                  type: string
+                  description: The target App Worker Session ID.
+      responses:
+        '200':
+          description: The namespace tree structure.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  root:
+                    type: string
+                  tree:
+                    type: object
+
+  /instance/properties/get:
+    post:
+      summary: Get Instance Properties
+      operationId: get_instance_properties
+      x-pass-as-object: true
+      description: |
+        Retrieves properties from a specific instance by its ID.
+
+        **When to Use:**
+        To inspect the current state of any Neo instance (e.g., Component, Store, Controller, Manager).
+      tags: [Instance]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GetInstancePropertiesRequest'
+      responses:
+        '200':
+          description: The values of the properties
+          content:
+            application/json:
+              schema:
+                description: The property values
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /component/styles/get:
+    post:
+      summary: Get Computed Styles
+      operationId: get_computed_styles
+      x-pass-as-object: true
+      description: |
+        Retrieves the computed styles for a component.
+
+        **When to Use:**
+        To verify visual state and theming (The "Visual Gap").
+      tags: [Component]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GetComputedStylesRequest'
+      responses:
+        '200':
+          description: Computed styles
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  styles:
+                    type: object
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /component/rect/get:
+    post:
+      summary: Get Component DOM Rects
+      operationId: get_dom_rect
+      x-pass-as-object: true
+      description: |
+        Retrieves the DOM rectangles for one or more components.
+
+        **When to Use:**
+        To inspect the physical layout and visibility of components.
+      tags: [Component]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GetDomRectRequest'
+      responses:
+        '200':
+          description: List of DOMRects
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rects:
+                    type: array
+                    items:
+                      type: object
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /component/dom/events/get:
+    post:
+      summary: Get DOM Event Listeners
+      operationId: get_dom_event_listeners
+      x-pass-as-object: true
+      description: |
+        Retrieves detailed DOM event listeners for a specific component.
+
+        **When to Use:**
+        To debug event delegation and interaction logic on a specific component.
+      tags: [Component]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GetDomEventListenersRequest'
+      responses:
+        '200':
+          description: List of event listeners
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  listeners:
+                    type: array
+                    items:
+                      type: object
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /component/dom/events/summary:
+    post:
+      summary: Get DOM Event Summary
+      operationId: get_dom_event_summary
+      x-pass-as-object: true
+      description: |
+        Retrieves a high-level summary of the DomEvent manager state.
+
+        **When to Use:**
+        To understand the global event landscape and identify potential hotspots.
+      tags: [Component]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GetDomEventSummaryRequest'
+      responses:
+        '200':
+          description: Event summary
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  totalEvents:
+                    type: integer
+                  byEvent:
+                    type: object
+                  byComponent:
+                    type: object
         '400':
           description: Invalid request body
           content:
@@ -40,7 +349,12 @@ paths:
       summary: Get Component Tree
       operationId: get_component_tree
       x-pass-as-object: true
-      description: Retrieves the full component tree of the application.
+      description: |
+        Retrieves the full component tree of the application.
+
+        **When to Use:**
+        To understand the structure of the UI, find component IDs, or debug hierarchy issues.
+      tags: [Component]
       requestBody:
         content:
           application/json:
@@ -67,12 +381,316 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /component/render-tree/inspect:
+    post:
+      summary: Inspect Component Render Tree
+      operationId: inspect_component_render_tree
+      x-pass-as-object: true
+      description: |
+        Retrieves the render tree (VDOM/VNode) of a component.
+
+        **When to Use:**
+        To inspect the Virtual DOM (VDOM) structure, the actual DOM-aligned VNodes, or both for debugging rendering issues.
+      tags: [Component]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - type
+              properties:
+                type:
+                  type: string
+                  enum: [vdom, vnode, both]
+                  description: "The type of tree to retrieve."
+                rootId:
+                  type: string
+                  description: Optional root component ID. Defaults to the App's MainView if available.
+                depth:
+                  type: integer
+                  description: Depth limit. 1=Self, 2=Self+Children, -1=Infinite.
+                sessionId:
+                  type: string
+                  description: The target App Worker Session ID.
+      responses:
+        '200':
+          description: The requested tree structure(s)
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /data/store/inspect:
+    post:
+      summary: Inspect Store
+      operationId: inspect_store
+      x-pass-as-object: true
+      description: |
+        Inspects a specific data store.
+
+        **When to Use:**
+        To see the actual records, filters, sorters, and count of a Store.
+      tags: [Data]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InspectStoreRequest'
+      responses:
+        '200':
+          description: Store details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  count:
+                    type: integer
+                  model:
+                    type: string
+                  filters:
+                    type: array
+                  sorters:
+                    type: array
+                  items:
+                    type: array
+
+  /data/store/list:
+    post:
+      summary: List Stores
+      operationId: list_stores
+      x-pass-as-object: true
+      description: |
+        Lists all active data stores.
+
+        **When to Use:**
+        To find available stores in the application.
+      tags: [Data]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ListStoresRequest'
+      responses:
+        '200':
+          description: List of stores
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                    model:
+                      type: string
+                    count:
+                      type: integer
+
+  /data/record/get:
+    post:
+      summary: Get Record
+      operationId: get_record
+      x-pass-as-object: true
+      description: |
+        Retrieves a specific data record.
+
+        **When to Use:**
+        To inspect the full data of a single record.
+      tags: [Data]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GetRecordRequest'
+      responses:
+        '200':
+          description: Record data
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /data/state/inspect:
+    post:
+      summary: Inspect State Provider
+      operationId: inspect_state_provider
+      x-pass-as-object: true
+      description: |
+        Inspects a specific state provider.
+
+        **When to Use:**
+        To view the hierarchical data of a StateProvider.
+      tags: [Data]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InspectStateProviderRequest'
+      responses:
+        '200':
+          description: State provider data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  data:
+                    type: object
+
+  /data/state/modify:
+    post:
+      summary: Modify State Provider
+      operationId: modify_state_provider
+      x-pass-as-object: true
+      description: |
+        Modifies the data of a specific state provider.
+
+        **When to Use:**
+        To update application state stored in a StateProvider.
+      tags: [Data]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ModifyStateProviderRequest'
+      responses:
+        '200':
+          description: Modification successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+
+  /drag/state:
+    post:
+      summary: Get Drag State
+      operationId: get_drag_state
+      x-pass-as-object: true
+      description: |
+        Retrieves the state of the DragCoordinator.
+
+        **When to Use:**
+        To debug drag-and-drop operations, checking what is being dragged and where.
+      tags: [Inspection]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                sessionId:
+                  type: string
+                  description: Target App Worker Session ID
+      responses:
+        '200':
+          description: Drag Coordinator State
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /component/query:
+    post:
+      summary: Query Components
+      operationId: query_component
+      x-pass-as-object: true
+      description: |
+        Finds components matching a set of properties (semantic query).
+        Example: `query_component({selector: {ntype: 'button', text: 'Save'}})`
+
+        **When to Use:**
+        To find components without knowing their ID, using fuzzy matching on properties.
+      tags: [Component]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QueryComponentRequest'
+      responses:
+        '200':
+          description: List of matching components
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  components:
+                    type: array
+                    items:
+                      type: object
+
+  /component/vdom/query:
+    post:
+      summary: Query VDOM
+      operationId: query_vdom
+      x-pass-as-object: true
+      description: |
+        Finds the first VDOM node matching a set of attributes (e.g. CSS classes).
+        Example: `query_vdom({selector: {cls: 'my-class'}})`
+
+        **When to Use:**
+        To find specific DOM elements inside a component's Virtual DOM that are not components themselves.
+      tags: [Component]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QueryVdomRequest'
+      responses:
+        '200':
+          description: Matching VDOM node
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  vdom:
+                    type: object
+                  index:
+                    type: integer
+                  parentId:
+                    type: string
+
   /page/reload:
     post:
       summary: Reload Page
       operationId: reload_page
       x-pass-as-object: true
-      description: Reloads the application page.
+      description: |
+        Reloads the application page.
+
+        **When to Use:**
+        To force a full reload of the connected application window.
+      tags: [Lifecycle]
       requestBody:
         content:
           application/json:
@@ -94,21 +712,526 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /component/property/set:
+  /navigation/history:
     post:
-      summary: Set Component Property
-      operationId: set_component_property
+      summary: Get Route History
+      operationId: get_route_history
       x-pass-as-object: true
-      description: Sets a property on a component by its ID.
+      description: |
+        Retrieves the navigation history stack and current route information.
+
+        **When to Use:**
+        To understand where the user is in the application and how they got there.
+      tags: [Navigation]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GetRouteHistoryRequest'
+      responses:
+        '200':
+          description: Route history
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                  windowId:
+                    type: integer
+                  history:
+                    type: array
+                    items:
+                      type: object
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /navigation/route/set:
+    post:
+      summary: Set Route
+      operationId: set_route
+      x-pass-as-object: true
+      description: |
+        Navigates the application to a specific route (hash).
+
+        **When to Use:**
+        To drive the application to a specific view or state.
+      tags: [Navigation]
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/SetComponentPropertyRequest'
+              $ref: '#/components/schemas/SetRouteRequest'
       responses:
         '200':
-          description: Property set successfully
+          description: Route set successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  hash:
+                    type: string
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /connection/manage:
+    post:
+      summary: Manage WebSocket Server
+      operationId: manage_connection
+      x-pass-as-object: true
+      description: |
+        Manages the WebSocket server connection (start/stop).
+
+        **When to Use:**
+        Use this to recover the bridge if the server was previously stopped or crashed, or to simulate a disconnect.
+      tags: [Lifecycle]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - action
+              properties:
+                action:
+                  type: string
+                  enum: [start, stop]
+                  description: "The action to perform: 'start' to launch the server, 'stop' to shut it down."
+      responses:
+        '200':
+          description: Action completed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /console/logs/get:
+    post:
+      summary: Get Console Logs
+      operationId: get_console_logs
+      x-pass-as-object: true
+      description: |
+        Retrieves the console logs from the App Worker.
+
+        **When to Use:**
+        To see the App Worker's console output (log, warn, error) and exceptions.
+      tags: [Inspection]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GetConsoleLogsRequest'
+      responses:
+        '200':
+          description: List of logs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    type:
+                      type: string
+                    message:
+                      type: string
+                    timestamp:
+                      type: number
+                    stack:
+                      type: string
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /worker/topology:
+    post:
+      summary: Get Worker Topology
+      operationId: get_worker_topology
+      description: |
+        Retrieves the topology of all connected App Workers.
+
+        **When to Use:**
+        To discover connected workers, their session IDs, and environments.
+      tags: [Topology]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
+      responses:
+        '200':
+          description: List of App Workers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    sessionId:
+                      type: string
+                    appWorkerId:
+                      type: string
+                    isSharedWorker:
+                      type: boolean
+                    userAgent:
+                      type: string
+                    environment:
+                      type: string
+                    connectedAt:
+                      type: number
+
+  /window/topology:
+    post:
+      summary: Get Window Topology
+      operationId: get_window_topology
+      description: |
+        Retrieves the topology of all connected windows.
+
+        **When to Use:**
+        To map logical window IDs to physical browser windows and their dimensions.
+      tags: [Topology]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
+      responses:
+        '200':
+          description: List of windows
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                    appName:
+                      type: string
+                    innerRect:
+                      type: object
+                    outerRect:
+                      type: object
+                    chrome:
+                      type: object
+
+  /instance/properties/set:
+    post:
+      summary: Set Instance Properties
+      operationId: set_instance_properties
+      x-pass-as-object: true
+      description: |
+        Sets properties on a specific instance by its ID.
+
+        **When to Use:**
+        To modify the runtime state of an instance (e.g., change component text, update store filter).
+      tags: [Instance]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetInstancePropertiesRequest'
+      responses:
+        '200':
+          description: Properties set successfully
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /component/highlight:
+    post:
+      summary: Highlight Component
+      operationId: highlight_component
+      x-pass-as-object: true
+      description: |
+        Highlights a component visually for debugging purposes.
+
+        **When to Use:**
+        To visually identify a component on the page during debugging or interaction sessions.
+      tags: [Component]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HighlightComponentRequest'
+      responses:
+        '200':
+          description: Component highlighted successfully
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /class/inspect:
+    post:
+      summary: Inspect Class
+      operationId: inspect_class
+      x-pass-as-object: true
+      description: |
+        Inspects a Neo.mjs class to retrieve its **Rich Blueprint**.
+
+        Returns a detailed schema including:
+        - **Hierarchy:** Full `ntypeChain` and `superClass`.
+        - **Mixins:** Resolved list of applied mixins.
+        - **Methods:** Cleaned public API (filtering out lifecycle noise).
+        - **Configs:** A rich map where each key contains:
+          - `value`: The resolved default value.
+          - `meta`: Descriptor properties (e.g., `merge: 'shallow'`).
+          - `hooks`: List of active reactive hooks (`beforeSet`, `afterSet`) found on the prototype.
+
+        **When to Use:**
+        To understand the *capabilities* and *reactivity* of a class. Use this to read the "manual" before instantiating or modifying a component.
+      tags: [Introspection]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InspectClassRequest'
+      responses:
+        '200':
+          description: Class schema
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /code/source/get:
+    post:
+      summary: Get Method Source
+      operationId: get_method_source
+      x-pass-as-object: true
+      description: |
+        Retrieves the source code of a class method.
+
+        **When to Use:**
+        To inspect the current implementation of a method before hot-patching it.
+      tags: [Runtime]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GetMethodSourceRequest'
+      responses:
+        '200':
+          description: Source code retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  source:
+                    type: string
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /code/patch:
+    post:
+      summary: Patch Code
+      operationId: patch_code
+      x-pass-as-object: true
+      description: |
+        Replaces a method implementation on a class prototype at runtime.
+        **Requires** `Neo.config.enableHotPatching = true`.
+
+        **Best Practice:**
+        Always use `get_method_source` first to retrieve the current implementation before creating a patch. This ensures you are modifying the correct version of the code.
+
+        **When to Use:**
+        To hot-patch a bug in a live application without reloading.
+      tags: [Runtime]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchCodeRequest'
+      responses:
+        '200':
+          description: Patch successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /runtime/config/manage:
+    post:
+      summary: Manage Neo Config
+      operationId: manage_neo_config
+      x-pass-as-object: true
+      description: |
+        Manages the global Neo.config object (get/set).
+
+        **When to Use:**
+        To inspect or modify the global configuration of the framework at runtime.
+      tags: [Configuration]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - action
+              properties:
+                action:
+                  type: string
+                  enum: [get, set]
+                  description: "The action to perform: 'get' to retrieve, 'set' to update."
+                config:
+                  type: object
+                  description: "The partial config object to merge (required for 'set')."
+                windowId:
+                  type: string
+                  description: "Optional window ID to retrieve specific boot config (only for 'get')."
+                sessionId:
+                  type: string
+                  description: The target App Worker Session ID.
+      responses:
+        '200':
+          description: Configuration result
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /interaction/simulate_event:
+    post:
+      summary: Simulate DOM Event
+      operationId: simulate_event
+      x-pass-as-object: true
+      description: |
+        Simulates a native DOM event on a specific component or a sequence of events.
+
+        **When to Use:**
+        To trigger user interactions like clicks, keyboard input, or drag sequences for E2E testing.
+      tags: [Interaction]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SimulateEventRequest'
+      responses:
+        '200':
+          description: Event(s) dispatched successfully
+          content:
+            application/json:
+              schema:
+                type: boolean
         '400':
           description: Invalid request body
           content:
@@ -124,54 +1247,438 @@ paths:
 
 components:
   schemas:
-    GetComponentPropertyRequest:
+    HealthCheckResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, unhealthy, degraded]
+        timestamp:
+          type: string
+          format: date-time
+        bridge:
+          type: object
+          properties:
+            connected:
+              type: boolean
+            agentId:
+              type: string
+            port:
+              type: integer
+        sessions:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              connectedAt:
+                type: number
+              activeApps:
+                type: integer
+        windows:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              appName:
+                type: string
+              width:
+                type: number
+              height:
+                type: number
+              x:
+                type: number
+              y:
+                type: number
+        agents:
+          type: array
+          items:
+            type: string
+        version:
+          type: string
+        uptime:
+          type: number
+
+    FindInstancesRequest:
+      type: object
+      required:
+        - selector
+      properties:
+        selector:
+          type: object
+          description: "JSON object with property/value pairs to match (e.g., {className: 'Neo.state.Provider'})."
+        returnProperties:
+          type: array
+          items:
+            type: string
+          description: "Optional list of properties to return. If provided, returns a lean response (id, className, properties)."
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
+
+    GetInstancePropertiesRequest:
       type: object
       required:
         - id
-        - property
+        - properties
       properties:
         id:
           type: string
+          description: The instance ID
+        properties:
+          type: array
+          items:
+            type: string
+          description: List of property names to retrieve
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
+
+    GetComputedStylesRequest:
+      type: object
+      required:
+        - componentId
+        - variables
+      properties:
+        componentId:
+          type: string
           description: The component ID
-        property:
+        variables:
+          type: array
+          items:
+            type: string
+          description: The list of style properties/variables to retrieve
+        sessionId:
           type: string
-          description: The property name to retrieve
-        windowId:
+          description: The target App Worker Session ID
+
+    GetDomRectRequest:
+      type: object
+      required:
+        - componentIds
+      properties:
+        componentIds:
+          type: array
+          items:
+            type: string
+          description: List of component IDs to inspect.
+        sessionId:
           type: string
-          description: The target window ID
+          description: The target App Worker Session ID
+
+    GetDomEventListenersRequest:
+      type: object
+      required:
+        - componentId
+      properties:
+        componentId:
+          type: string
+          description: The component ID to inspect
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
+
+    GetDomEventSummaryRequest:
+      type: object
+      properties:
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
+
+    QueryComponentRequest:
+      type: object
+      required:
+        - selector
+      properties:
+        selector:
+          type: object
+          description: "JSON object with property/value pairs to match (e.g., {ntype: 'button', text: 'Save'})."
+        rootId:
+          type: string
+          description: Optional ID of a component to search within (scoped search).
+        returnProperties:
+          type: array
+          items:
+            type: string
+          description: "Optional list of properties to return. If provided, returns a lean response (id, className, properties) instead of the full component serialization."
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
+
+    QueryVdomRequest:
+      type: object
+      required:
+        - selector
+      properties:
+        selector:
+          type: object
+          description: "JSON object with property/value pairs to match (e.g., {cls: 'my-class'})."
+        rootId:
+          type: string
+          description: Optional ID of a component to search within (scoped search).
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
 
     GetComponentTreeRequest:
       type: object
       properties:
-        windowId:
+        rootId:
           type: string
-          description: The target window ID
+          description: Optional root component ID. Defaults to the App's MainView if available.
+        depth:
+          type: integer
+          description: Depth limit. 1=Self, 2=Self+Children, -1=Infinite.
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
+
+    GetConsoleLogsRequest:
+      type: object
+      properties:
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
+        filter:
+          type: string
+          description: Optional string to filter logs by message content.
+        type:
+          type: string
+          enum: [log, warn, error, info]
+          description: Optional filter by log type.
 
     ReloadPageRequest:
       type: object
       properties:
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
+
+    GetRouteHistoryRequest:
+      type: object
+      properties:
         windowId:
           type: string
-          description: The target window ID
+          description: Optional window ID to get history for.
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
 
-    SetComponentPropertyRequest:
+    SetRouteRequest:
+      type: object
+      required:
+        - hash
+      properties:
+        hash:
+          type: string
+          description: The new hash value to set (e.g., "#mainview=home").
+        windowId:
+          type: string
+          description: Optional window ID to target.
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
+
+    SetInstancePropertiesRequest:
       type: object
       required:
         - id
-        - property
-        - value
+        - properties
       properties:
         id:
           type: string
+          description: The instance ID
+        properties:
+          type: object
+          description: Key-value pairs of properties to set
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
+
+    InspectStoreRequest:
+      type: object
+      required:
+        - storeId
+      properties:
+        storeId:
+          type: string
+          description: The ID of the store to inspect
+        limit:
+          type: integer
+          default: 50
+          description: Maximum number of records to return
+        offset:
+          type: integer
+          default: 0
+          description: The record index to start from
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
+
+    ListStoresRequest:
+      type: object
+      properties:
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
+
+    GetRecordRequest:
+      type: object
+      required:
+        - recordId
+      properties:
+        recordId:
+          type: string
+          description: The ID of the record to retrieve
+        storeId:
+          type: string
+          description: Optional Store ID to scope the search
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
+
+    InspectStateProviderRequest:
+      type: object
+      required:
+        - providerId
+      properties:
+        providerId:
+          type: string
+          description: The ID of the state provider to inspect
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
+
+    ModifyStateProviderRequest:
+      type: object
+      required:
+        - providerId
+        - data
+      properties:
+        providerId:
+          type: string
+          description: The ID of the state provider to modify
+        data:
+          type: object
+          description: The data object to merge into the provider
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
+
+    HighlightComponentRequest:
+      type: object
+      required:
+        - componentId
+      properties:
+        componentId:
+          type: string
           description: The component ID
-        property:
+        options:
+          type: object
+          properties:
+            color:
+              type: string
+              description: Highlight color (default 'red')
+            duration:
+              type: integer
+              description: Duration in ms (default 2000)
+            style:
+              type: string
+              enum: [outline, box-shadow]
+              description: Highlight style (default 'outline')
+        sessionId:
           type: string
-          description: The property name to set
-        value:
-          description: The value to set
-        windowId:
+          description: The target App Worker Session ID
+
+    InspectClassRequest:
+      type: object
+      required:
+        - className
+      properties:
+        className:
           type: string
-          description: The target window ID
+          description: The fully qualified class name (e.g., "Neo.button.Base").
+        detail:
+          type: string
+          enum: [standard, compact]
+          default: standard
+          description: Level of detail to return. 'compact' returns only own configs/methods. 'standard' returns full inheritance.
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
+
+    GetMethodSourceRequest:
+      type: object
+      required:
+        - className
+        - methodName
+      properties:
+        className:
+          type: string
+          description: The fully qualified class name.
+        methodName:
+          type: string
+          description: The name of the method.
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
+
+    PatchCodeRequest:
+      type: object
+      required:
+        - className
+        - methodName
+        - source
+      properties:
+        className:
+          type: string
+          description: The fully qualified class name.
+        methodName:
+          type: string
+          description: The name of the method to patch.
+        source:
+          type: string
+          description: "The new function source code (e.g., 'function(args) { ... }')."
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
+
+    SimulateEventRequest:
+      type: object
+      required:
+        - events
+      properties:
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
+        events:
+          type: array
+          items:
+            type: object
+            required:
+              - targetId
+              - type
+              - windowId
+            properties:
+              targetId:
+                type: string
+                description: The DOM ID of the target element.
+              type:
+                type: string
+                description: "The event type (e.g., 'click', 'keydown')."
+              options:
+                type: object
+                description: "Event constructor options (e.g., {bubbles: true})."
+              delay:
+                type: integer
+                description: "Delay in ms before this event."
+              windowId:
+                type: string
+                description: "Target window ID."
+          description: "Sequence of events to dispatch."
 
     ErrorResponse:
       type: object

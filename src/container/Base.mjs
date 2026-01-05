@@ -910,6 +910,40 @@ class Container extends Component {
 
         me.update()
     }
+
+    /**
+     * Serializes the container into a JSON-compatible object.
+     * @returns {Object}
+     */
+    toJSON() {
+        let me = this;
+
+        return {
+            ...super.toJSON(),
+            dragResortable: me.dragResortable,
+            itemCount     : me.items?.length || 0,
+            itemDefaults  : me.itemDefaults,
+            items         : me.items?.map(item => {
+                const itemType = Neo.typeOf(item);
+
+                if (itemType === 'NeoInstance') {
+                    return item.id
+                }
+
+                if (itemType === 'Object') {
+                    if (Neo.isFunction(item.module) && !item.module.isClass) {
+                        return {
+                            ...item,
+                            module: item.module.toString()
+                        }
+                    }
+                }
+
+                return me.serializeConfig(item)
+            }),
+            layout: me.layout?.toJSON()
+        }
+    }
 }
 
 export default Neo.setupClass(Container);

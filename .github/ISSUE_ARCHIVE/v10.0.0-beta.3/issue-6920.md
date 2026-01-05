@@ -1,8 +1,6 @@
 ---
 id: 6920
-title: >-
-  vdom.Helper: initAsync() => only check for currentWorker, if not inside the
-  unit testing mode (siesta)
+title: 'vdom.Helper: initAsync() => only check for currentWorker, if not inside the unit testing mode (siesta)'
 state: CLOSED
 labels:
   - enhancement

@@ -1,8 +1,6 @@
 ---
 id: 6991
-title: >-
-  test/siesta/tests/neo/MixinStaticConfig.mjs: add more complex testing
-  scenarios
+title: 'test/siesta/tests/neo/MixinStaticConfig.mjs: add more complex testing scenarios'
 state: CLOSED
 labels:
   - enhancement

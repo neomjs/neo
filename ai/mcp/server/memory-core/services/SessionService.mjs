@@ -321,6 +321,16 @@ class SessionService extends Base {
         if (memories.ids.length === 0) return null;
 
         const aggregatedContent = memories.documents.join('\n\n---\n\n');
+
+        // Calculate the latest timestamp from the session's memories to preserve historical timeline
+        let lastActivity = Date.now();
+        if (memories.metadatas && memories.metadatas.length > 0) {
+            const timestamps = memories.metadatas.map(m => m.timestamp).filter(Boolean);
+            if (timestamps.length > 0) {
+                lastActivity = Math.max(...timestamps);
+            }
+        }
+
         const summaryPrompt = `
 Analyze the following development session and provide a structured summary in JSON format. The JSON object should have the following properties:
 
@@ -360,7 +370,7 @@ ${aggregatedContent}
             documents : [summary],
             embeddings: [embedding],
             metadatas : [{
-                sessionId, timestamp: Date.now(), memoryCount: memories.ids.length,
+                sessionId, timestamp: lastActivity, memoryCount: memories.ids.length,
                 title, category, quality, productivity, impact, complexity, technologies: technologies.join(',')
             }]
         });
@@ -385,10 +395,21 @@ ${aggregatedContent}
                 if (result) processed.push(result);
             } else {
                 const sessionsToSummarize = await this.findSessionsToSummarize(includeAll);
-                const promises            = sessionsToSummarize.map(id => this.summarizeSession(id));
-                const results             = await Promise.all(promises);
+                const batchSize           = aiConfig.summarizationConcurrency || 5;
+                const total               = sessionsToSummarize.length;
 
-                processed = results.filter(Boolean);
+                logger.info(`[SessionService] Found ${total} sessions to summarize. Processing in batches of ${batchSize}...`);
+
+                for (let i = 0; i < total; i += batchSize) {
+                    const chunk = sessionsToSummarize.slice(i, i + batchSize);
+                    logger.info(`[SessionService] Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(total / batchSize)} (${chunk.length} sessions)...`);
+
+                    const promises    = chunk.map(id => this.summarizeSession(id));
+                    const results     = await Promise.all(promises);
+                    const batchResult = results.filter(Boolean);
+
+                    processed.push(...batchResult);
+                }
             }
 
             return {processed: processed.length, sessions: processed};

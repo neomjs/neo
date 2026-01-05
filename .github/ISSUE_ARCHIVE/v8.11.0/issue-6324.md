@@ -1,8 +1,6 @@
 ---
 id: 6324
-title: >-
-  examples.table.container.MainContainer: unchecking the fit width checkbox
-  removes the column headers
+title: 'examples.table.container.MainContainer: unchecking the fit width checkbox removes the column headers'
 state: CLOSED
 labels:
   - bug

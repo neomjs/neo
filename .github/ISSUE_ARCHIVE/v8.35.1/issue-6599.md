@@ -1,8 +1,6 @@
 ---
 id: 6599
-title: >-
-  state.Provider: onDataPropertyChange() => add a check to not enter
-  resolveFormulas() in case there are no formulas
+title: 'state.Provider: onDataPropertyChange() => add a check to not enter resolveFormulas() in case there are no formulas'
 state: CLOSED
 labels:
   - enhancement

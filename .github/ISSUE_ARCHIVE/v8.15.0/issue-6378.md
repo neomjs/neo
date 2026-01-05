@@ -13,9 +13,9 @@ author: tobiu
 commentsCount: 1
 parentIssue: null
 subIssues:
-  - 6386
-  - 6384
-  - 6385
+  - '[x] 6386 grid.View: createRow() => hide cells for a column, in case it is currently being dragged'
+  - '[x] 6384 grid.View: columnPositions_ => use a collection instead of an array'
+  - '[x] 6385 grid.View: createRow() => match columnPositions by dataField instead of index'
 subIssuesCompleted: 3
 subIssuesTotal: 3
 blockedBy: []

@@ -3,6 +3,7 @@ import Collection      from '../collection/Base.mjs';
 import Model           from './Model.mjs';
 import Observable      from '../core/Observable.mjs';
 import RecordFactory   from './RecordFactory.mjs';
+import StoreManager    from '../manager/Store.mjs';
 
 const initialIndexSymbol = Symbol.for('initialIndex');
 
@@ -174,7 +175,18 @@ class Store extends Collection {
             mutate: me.onCollectionMutate,
             sort  : me.onCollectionSort,
             scope : me
-        })
+        });
+
+        StoreManager.register(me)
+    }
+
+    /**
+     *
+     */
+    destroy() {
+        StoreManager.unregister(this);
+
+        super.destroy()
     }
 
     /**
@@ -760,6 +772,30 @@ class Store extends Collection {
                     }]
                 }
             }
+        }
+    }
+    /**
+     * Serializes the instance into a JSON-compatible object for the Neural Link.
+     * @returns {Object}
+     */
+    toJSON() {
+        let me = this;
+
+        return {
+            ...super.toJSON(),
+            autoInitRecords : me.autoInitRecords,
+            autoLoad        : me.autoLoad,
+            currentPage     : me.currentPage,
+            initialChunkSize: me.initialChunkSize,
+            isGrouped       : me.isGrouped,
+            isLoaded        : me.isLoaded,
+            isLoading       : me.isLoading,
+            model           : me.model?.toJSON(),
+            pageSize        : me.pageSize,
+            remoteFilter    : me.remoteFilter,
+            remoteSort      : me.remoteSort,
+            totalCount      : me.totalCount,
+            url             : me.url
         }
     }
 }

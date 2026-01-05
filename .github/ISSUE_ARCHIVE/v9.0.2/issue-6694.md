@@ -1,8 +1,6 @@
 ---
 id: 6694
-title: >-
-  selection.table.RowModel select & deselct events do not fire at Table
-  component
+title: selection.table.RowModel select & deselct events do not fire at Table component
 state: CLOSED
 labels:
   - bug

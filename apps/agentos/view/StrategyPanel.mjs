@@ -1,13 +1,13 @@
 import Dashboard               from '../../../src/dashboard/Container.mjs';
-import Panel                   from '../../../src/container/Panel.mjs';
+import DashboardPanel          from '../../../src/dashboard/Panel.mjs';
 import StrategyCardPanel       from './StrategyCardPanel.mjs';
 import StrategyPanelController from './StrategyPanelController.mjs';
 
 /**
  * @class AgentOS.view.StrategyPanel
- * @extends Neo.container.Panel
+ * @extends Neo.dashboard.Panel
  */
-class StrategyPanel extends Panel {
+class StrategyPanel extends DashboardPanel {
     static config = {
         /**
          * @member {String} className='AgentOS.view.StrategyPanel'
@@ -21,6 +21,7 @@ class StrategyPanel extends Panel {
         cls: ['agent-panel-strategy'],
         /**
          * @member {Neo.controller.Component} controller=StrategyPanelController
+         * @reactive
          */
         controller: StrategyPanelController,
         /**
@@ -37,8 +38,13 @@ class StrategyPanel extends Panel {
         }],
         /**
          * @member {Object} layout='fit'
+         * @reactive
          */
         layout: 'fit',
+        /**
+         * @member {Function|String|null} popupUrl='apps/agentos/childapps/widget/index.html'
+         */
+        popupUrl: 'apps/agentos/childapps/widget/index.html',
         /**
          * @member {Object[]} items
          */
@@ -47,12 +53,7 @@ class StrategyPanel extends Panel {
             cls              : ['agent-kpi-dashboard'],
             dragProxyExtraCls: ['agent-panel-strategy', 'neo-panel'], // Ensure styles carry over to popup proxy
             layout           : {ntype: 'hbox', align: 'stretch'},
-
-            listeners: {
-                dragBoundaryEntry: 'onDragBoundaryEntry',
-                dragBoundaryExit : 'onDragBoundaryExit',
-                dragEnd          : 'onDragEnd'
-            },
+            popupUrl         : 'apps/agentos/childapps/strategy/index.html',
 
             itemDefaults: {
                 module: StrategyCardPanel,

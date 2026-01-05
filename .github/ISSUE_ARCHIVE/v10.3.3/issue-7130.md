@@ -14,34 +14,34 @@ author: tobiu
 commentsCount: 1
 parentIssue: null
 subIssues:
-  - 7131
-  - 7132
-  - 7136
-  - 7137
-  - 7138
-  - 7139
-  - 7140
-  - 7141
-  - 7142
-  - 7143
-  - 7144
-  - 7146
-  - 7147
-  - 7148
-  - 7149
-  - 7150
-  - 7151
-  - 7152
-  - 7153
-  - 7154
-  - 7155
-  - 7156
-  - 7158
-  - 7159
-  - 7160
-  - 7161
-  - 7162
-  - 7163
+  - '[x] 7131 Dev Mode: Main Thread Addon for Live Parsing'
+  - '[x] 7132 Production Mode: Build-Time Parsing with `parse5`'
+  - '[x] 7136 Alternative Dev Mode: In-Worker Parsing with `parse5`'
+  - '[x] 7137 Template Syntax Specification'
+  - '[x] 7138 Parser: Interpolation and Data Type Handling'
+  - '[x] 7139 Parser: Component vs. HTML Tag Recognition'
+  - '[x] 7140 Bundle `parse5` for Browser Compatibility'
+  - '[x] 7141 Enhance Learning Content'
+  - '[x] 7142 Expand Test Coverage with Real Components'
+  - '[x] 7143 Code Quality Refinement'
+  - '[x] 7144 Create a Real-World Example'
+  - '[x] 7146 Fix Conditional Rendering and Add Tests'
+  - '[x] 7147 Refactor `render` to `initVnode` and `createTemplateVdom` to `render`'
+  - '[x] 7148 Create a Robust VDOM-to-String Serializer'
+  - '[x] 7149 Refactor Build-Time Parser to be AST-Based for Robustness'
+  - '[x] 7150 Build-Time `html` Template to VDOM Conversion'
+  - '[x] 7151 Finalize and Integrate AST-based Build Process'
+  - '[x] 7152 Showcase Nested Templates and Component Usage'
+  - '[x] 7153 Introduce `attributeNameMap` for Robust Attribute Handling'
+  - '[x] 7154 Fix Self-Closing Custom Component Tags'
+  - '[x] 7155 Fix Build-Time Conditional Template Rendering'
+  - '[x] 7156 Finalize Build-Time AST Transformation'
+  - '[x] 7158 Create a Reusable, AST-Based Build-Time Processor'
+  - '[x] 7159 Optimize Build Process with a Pre-emptive Regex Check'
+  - '[x] 7160 Integrate Template Processing into `dist/development` Build'
+  - '[x] 7161 Integrate Template Processing into `dist/production` Build'
+  - '[x] 7162 Add Error Resilience to AST Processor'
+  - '[x] 7163 Create "Under the Hood: HTML Templates" Guide'
 subIssuesCompleted: 28
 subIssuesTotal: 28
 blockedBy: []

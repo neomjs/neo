@@ -13,9 +13,9 @@ author: tobiu
 commentsCount: 0
 parentIssue: null
 subIssues:
-  - 7923
-  - 7924
-  - 7925
+  - '[ ] 7923 Refactor: Extract Memory Core to @neomjs/ai-memory-server'
+  - '[ ] 7924 Refactor: Extract GitHub Workflow to @neomjs/ai-github-server'
+  - '[ ] 7925 Feat: Create VisualService (Sighted Agent SDK)'
 subIssuesCompleted: 0
 subIssuesTotal: 3
 blockedBy: []

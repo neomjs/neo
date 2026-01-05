@@ -1,8 +1,6 @@
 ---
 id: 7123
-title: >-
-  Covid app: Regression Bug => selecting a country inside the header dropdown
-  leads to an infinite selection loop
+title: 'Covid app: Regression Bug => selecting a country inside the header dropdown leads to an infinite selection loop'
 state: CLOSED
 labels:
   - bug

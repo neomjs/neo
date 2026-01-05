@@ -1,8 +1,6 @@
 ---
 id: 6766
-title: >-
-  Docs.view.ApiTreeList: onConstructed() => add instruction message in case
-  there is no data
+title: 'Docs.view.ApiTreeList: onConstructed() => add instruction message in case there is no data'
 state: CLOSED
 labels:
   - enhancement

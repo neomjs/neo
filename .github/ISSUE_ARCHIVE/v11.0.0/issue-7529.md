@@ -14,9 +14,9 @@ author: tobiu
 commentsCount: 0
 parentIssue: null
 subIssues:
-  - 7530
-  - 7531
-  - 7532
+  - '[x] 7530 Add Database Management Tools to Knowledge Base Server'
+  - '[x] 7531 Add Database Management Tools to Memory Core Server'
+  - '[x] 7532 Make start_database Hybrid-Aware'
 subIssuesCompleted: 3
 subIssuesTotal: 3
 blockedBy: []

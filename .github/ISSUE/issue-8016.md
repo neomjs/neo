@@ -1,22 +1,24 @@
 ---
 id: 8016
 title: Harden Neural Link MCP Server
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2025-12-03T22:17:31Z'
-updatedAt: '2025-12-03T22:22:43Z'
+updatedAt: '2025-12-28T18:37:50Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8016'
 author: tobiu
-commentsCount: 1
-parentIssue: null
+commentsCount: 2
+parentIssue: 8169
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2025-12-28T18:37:50Z'
 ---
 # Harden Neural Link MCP Server
 
@@ -43,8 +45,35 @@ The Neural Link MCP Server requires hardening to match the standards set by `mem
 > 
 > The requirement "Server reports health status on startup" signifies that the server must output clear debugging logs to the console indicating its health status (e.g., "Neural Link MCP Server started", "Health Check Passed"). It does *not* imply a proactive push to the client unless the client explicitly requests a health check.
 
+### @tobiu - 2025-12-28 18:37
+
+**Input from Gemini 3.0:**
+
+> ✦ I have completed the hardening of the Neural Link MCP Server.
+> 
+> **Summary of Changes:**
+> 1.  **Health Service:** Implemented `HealthService.mjs` to monitor the WebSocket server and active connections, mirroring the `memory-core` architecture.
+> 2.  **Server Lifecycle:** Updated `Server.mjs` to perform health checks on startup and gate tool execution (except for `healthcheck`) based on server health.
+> 3.  **Connection Monitoring:** Enhanced `ConnectionService.mjs` with a `getStatus()` method to expose session and window counts.
+> 4.  **OpenAPI Specs:** Significantly enhanced `openapi.yaml` with:
+>     -   A new `/health` endpoint.
+>     -   Detailed "When to Use" descriptions for all tools.
+>     -   Logical tagging and improved schema definitions.
+> 5.  **Tool Registration:** Registered the `healthcheck` tool in `toolService.mjs`.
+> 
+> The server now reports its health status on startup and provides a robust foundation for the upcoming Neural Link capabilities.
+
 ## Activity Log
 
 - 2025-12-03 @tobiu added the `enhancement` label
 - 2025-12-03 @tobiu added the `ai` label
+- 2025-12-28 @tobiu added parent issue #8169
+- 2025-12-28 @tobiu assigned to @tobiu
+- 2025-12-28 @tobiu closed this issue
+- 2025-12-28 @tobiu referenced in commit `7663897` - "feat(ai): Harden Neural Link MCP Server (#8016)
+
+- Implement HealthService for WebSocket and session monitoring
+- Add startup health checks and logging in Server.mjs
+- Update ConnectionService to expose server status
+- Enhance OpenAPI specs with health endpoint and detailed descriptions"
 

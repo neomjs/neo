@@ -1,8 +1,6 @@
 ---
 id: 6632
-title: >-
-  grid.column.Component: support view controller based handlers / listeners and
-  state provider bindings
+title: 'grid.column.Component: support view controller based handlers / listeners and state provider bindings'
 state: CLOSED
 labels:
   - enhancement

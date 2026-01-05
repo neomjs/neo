@@ -1,8 +1,6 @@
 ---
 id: 8050
-title: >-
-  [ComponentManager] Implement Logical Component Bubbling for Event Path
-  Resolution
+title: '[ComponentManager] Implement Logical Component Bubbling for Event Path Resolution'
 state: CLOSED
 labels:
   - enhancement

@@ -1,8 +1,6 @@
 ---
 id: 6229
-title: >-
-  data.Store: beforeSetData() => remove the cloning, switch to a for loop =>
-  performance
+title: 'data.Store: beforeSetData() => remove the cloning, switch to a for loop => performance'
 state: CLOSED
 labels:
   - enhancement

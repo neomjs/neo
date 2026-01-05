@@ -1,8 +1,6 @@
 ---
 id: 6426
-title: >-
-  examples.grid.bigData.ControlsContainer: border-radius for the show / hide
-  button ripple effect wrapper
+title: 'examples.grid.bigData.ControlsContainer: border-radius for the show / hide button ripple effect wrapper'
 state: CLOSED
 labels:
   - enhancement

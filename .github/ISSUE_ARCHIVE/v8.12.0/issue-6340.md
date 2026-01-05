@@ -1,8 +1,6 @@
 ---
 id: 6340
-title: >-
-  draggable.grid.header.toolbar.SortZone: moveTo() => keep grid container
-  columns in sync
+title: 'draggable.grid.header.toolbar.SortZone: moveTo() => keep grid container columns in sync'
 state: CLOSED
 labels:
   - enhancement

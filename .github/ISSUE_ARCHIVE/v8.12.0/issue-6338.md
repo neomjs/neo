@@ -1,8 +1,6 @@
 ---
 id: 6338
-title: >-
-  examples.ConfigurationViewport: global theme switch => assign the new theme to
-  the app main view
+title: 'examples.ConfigurationViewport: global theme switch => assign the new theme to the app main view'
 state: CLOSED
 labels:
   - enhancement

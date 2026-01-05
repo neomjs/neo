@@ -1,8 +1,6 @@
 ---
 id: 6845
-title: >-
-  worker.Manager: setNeoConfig() => provide a way to globally change config
-  values
+title: 'worker.Manager: setNeoConfig() => provide a way to globally change config values'
 state: CLOSED
 labels:
   - enhancement

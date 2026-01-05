@@ -1,8 +1,6 @@
 ---
 id: 7172
-title: >-
-  buildScripts/buildAll: exclude the docs output generation, in case the docs
-  folder is not present
+title: 'buildScripts/buildAll: exclude the docs output generation, in case the docs folder is not present'
 state: CLOSED
 labels:
   - enhancement

@@ -1,8 +1,6 @@
 ---
 id: 6200
-title: >-
-  manager.DomEvent: initial listeners when a vdom.id is not present do not get
-  applied correctly
+title: 'manager.DomEvent: initial listeners when a vdom.id is not present do not get applied correctly'
 state: CLOSED
 labels:
   - bug

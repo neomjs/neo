@@ -1,8 +1,6 @@
 ---
 id: 6488
-title: >-
-  Portal.view.home.parts.MainNeo: adjust the CSS for the magic move text =>
-  mobile
+title: 'Portal.view.home.parts.MainNeo: adjust the CSS for the magic move text => mobile'
 state: CLOSED
 labels:
   - enhancement

@@ -1,8 +1,6 @@
 ---
 id: 6221
-title: >-
-  grid.Container: afterSetColumns() => for the mounted state (run-time change)
-  we need to trigger passSizeToView()
+title: 'grid.Container: afterSetColumns() => for the mounted state (run-time change) we need to trigger passSizeToView()'
 state: CLOSED
 labels:
   - enhancement

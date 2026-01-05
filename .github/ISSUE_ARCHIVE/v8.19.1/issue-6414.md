@@ -1,8 +1,6 @@
 ---
 id: 6414
-title: >-
-  examples.grid.bigData.ControlsContainer: gh button - switch the load script
-  call to afterSetMounted()
+title: 'examples.grid.bigData.ControlsContainer: gh button - switch the load script call to afterSetMounted()'
 state: CLOSED
 labels:
   - enhancement

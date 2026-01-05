@@ -1,8 +1,6 @@
 ---
 id: 6325
-title: >-
-  form.field.ComboBox: fireChangeEvent() => enable firing change events for null
-  when forceSelection is enabled
+title: 'form.field.ComboBox: fireChangeEvent() => enable firing change events for null when forceSelection is enabled'
 state: CLOSED
 labels:
   - enhancement

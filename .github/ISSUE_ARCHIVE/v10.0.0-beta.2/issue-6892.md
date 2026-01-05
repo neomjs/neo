@@ -1,8 +1,6 @@
 ---
 id: 6892
-title: >-
-  learn/guides/MainThreadAddons.md: add an example of extending an addon inside
-  a workspace
+title: 'learn/guides/MainThreadAddons.md: add an example of extending an addon inside a workspace'
 state: CLOSED
 labels:
   - enhancement

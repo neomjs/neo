@@ -1,8 +1,6 @@
 ---
 id: 6393
-title: >-
-  draggable.toolbar.SortZone: onDragMove() => add overdrag support for
-  sortDirection vertical
+title: 'draggable.toolbar.SortZone: onDragMove() => add overdrag support for sortDirection vertical'
 state: CLOSED
 labels:
   - enhancement

@@ -215,6 +215,22 @@ class Filter extends Base {
         return !Filter[me._operator](recordValue, filterValue)
     }
 
+    /**
+     * Serializes the instance into a JSON-compatible object for the Neural Link.
+     * @returns {Object}
+     */
+    toJSON() {
+        let me = this;
+
+        return {
+            ...super.toJSON(),
+            disabled: me.disabled,
+            operator: me.operator,
+            property: me.property,
+            value   : me.value
+        }
+    }
+
     static ['=='] (a, b) {return a == b}
     static ['==='](a, b) {return a === b}
     static ['!='] (a, b) {return a != b}

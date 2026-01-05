@@ -78,6 +78,17 @@ class Form extends Base {
         style.flex = item.flex || null;
         item.wrapperStyle = style
     }
+
+    /**
+     * Serializes the instance into a JSON-compatible object for the Neural Link.
+     * @returns {Object}
+     */
+    toJSON() {
+        return {
+            ...super.toJSON(),
+            gap: this.gap
+        }
+    }
 }
 
 export default Neo.setupClass(Form);

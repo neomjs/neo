@@ -16,14 +16,14 @@ author: tobiu
 commentsCount: 1
 parentIssue: null
 subIssues:
-  - 7591
-  - 7592
-  - 7593
-  - 7594
-  - 7595
-  - 7598
-  - 7599
-  - 7600
+  - '[x] 7591 Implement GraphQL Client & Auth Service'
+  - '[x] 7592 Migrate Label & Issue Services to GraphQL'
+  - '[x] 7593 Migrate PullRequestService to GraphQL'
+  - '[x] 7594 Migrate SyncService to GraphQL'
+  - '[x] 7595 Finalize GraphQL Migration & Cleanup'
+  - '[x] 7598 Finalize MCP Server Config Refactoring'
+  - '[x] 7599 Externalize GraphQL Queries for Label and PullRequest Services'
+  - '[x] 7600 Update OpenAPI Specification to Reflect GraphQL Data Models'
 subIssuesCompleted: 8
 subIssuesTotal: 8
 blockedBy: []

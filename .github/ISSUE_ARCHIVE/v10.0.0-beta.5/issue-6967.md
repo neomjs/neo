@@ -1,8 +1,6 @@
 ---
 id: 6967
-title: >-
-  Feature: Core Reactivity Enhancements: Effect Dependency Tracking & Dynamic
-  Functions
+title: 'Feature: Core Reactivity Enhancements: Effect Dependency Tracking & Dynamic Functions'
 state: CLOSED
 labels:
   - enhancement

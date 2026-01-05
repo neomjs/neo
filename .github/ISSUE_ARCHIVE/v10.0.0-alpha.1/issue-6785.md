@@ -12,26 +12,26 @@ author: tobiu
 commentsCount: 2
 parentIssue: null
 subIssues:
-  - 6795
-  - 6797
-  - 6798
-  - 6799
-  - 6800
-  - 6802
-  - 6803
-  - 6804
-  - 6805
-  - 6806
-  - 6807
-  - 6808
-  - 6809
-  - 6810
-  - 6812
-  - 6813
-  - 6814
-  - 6815
-  - 6817
-  - 6818
+  - '[x] 6795 Neo.config.useStringBasedMounting'
+  - '[x] 6797 main.mixin.DeltaUpdates: createDomTree()'
+  - '[x] 6798 vdom/domConstants.mjs'
+  - '[x] 6799 vdom.Helper: create() => refactoring needed'
+  - '[x] 6800 Ensure there are no cls entries inside the vdom which contain strings'
+  - '[x] 6802 main.mixin.DeltaUpdates: createDomTree() => move the id generation outside of attributes'
+  - '[x] 6803 vdom.Helper: create() => only generate outerHTML in case Neo.config.useStringBasedMounting equals true'
+  - '[x] 6804 vdom.Helper: insertNode() => only generate outerHTML in case Neo.config.useStringBasedMounting equals true'
+  - '[x] 6805 main.mixin.DeltaUpdates: du_insertNode: honor the parent index for Neo.config.useStringBasedMounting = false'
+  - '[x] 6806 vdom.Helper: insert() & move() => add a physical index & hasLeadingTextChildren delta flag'
+  - '[x] 6807 main.mixin.DeltaUpdates: du_insertNode() => use the new hasLeadingTextChildren'
+  - '[x] 6808 main.mixin.DeltaUpdates: du_moveNode() => add more comments'
+  - '[x] 6809 vdom.util.StringFromVnode'
+  - '[x] 6810 vdom.util.DomApiVnodeCreator'
+  - '[x] 6812 vdom.VNode: add a textContent property'
+  - '[x] 6813 vdom.Helper: createVnode() => add support for vdom.text => vnode.textContent'
+  - '[x] 6814 component.Base: vdom => remove support for vdom.nodeName'
+  - '[x] 6815 vdom.Helper: compareAttributes() => add support for `textContent`'
+  - '[x] 6817 vdom.Helper: createVnode() => use vdom.cn as the single source of truth'
+  - '[x] 6818 component.Base: vdom => use html as the single source of truth'
 subIssuesCompleted: 20
 subIssuesTotal: 20
 blockedBy: []

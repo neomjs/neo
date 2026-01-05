@@ -1,8 +1,6 @@
 ---
 id: 6483
-title: >-
-  Portal.view.home.parts.MainNeo: stop the text auto-cycling when the page is
-  not visible
+title: 'Portal.view.home.parts.MainNeo: stop the text auto-cycling when the page is not visible'
 state: CLOSED
 labels:
   - enhancement

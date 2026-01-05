@@ -1,8 +1,6 @@
 ---
 id: 6726
-title: >-
-  buildScripts/buildESModules: copy the resources folders for apps, docs &
-  examples
+title: 'buildScripts/buildESModules: copy the resources folders for apps, docs & examples'
 state: CLOSED
 labels:
   - enhancement

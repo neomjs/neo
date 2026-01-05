@@ -37,6 +37,17 @@ class Index extends Column {
     cellRenderer({rowIndex}) {
         return rowIndex + (this.zeroBased ? 0 : 1)
     }
+
+    /**
+     * Serializes the instance into a JSON-compatible object for the Neural Link.
+     * @returns {Object}
+     */
+    toJSON() {
+        return {
+            ...super.toJSON(),
+            zeroBased: this.zeroBased
+        }
+    }
 }
 
 export default Neo.setupClass(Index);

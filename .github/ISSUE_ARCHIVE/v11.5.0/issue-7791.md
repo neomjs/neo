@@ -15,8 +15,8 @@ author: tobiu
 commentsCount: 0
 parentIssue: 7788
 subIssues:
-  - 7789
-  - 7790
+  - '[x] 7789 Create a utility for highlight.js line numbers'
+  - '[x] 7790 Create a universal ESM bundle for highlight.js'
 subIssuesCompleted: 2
 subIssuesTotal: 2
 blockedBy: []

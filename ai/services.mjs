@@ -36,7 +36,13 @@ import Memory_ChromaManager         from './mcp/server/memory-core/services/Chro
 import Memory_Config                from './mcp/server/memory-core/config.mjs';
 
 // --- Neural Link Services ---
-import NeuralLink_ConnectionService from './mcp/server/neural-link/services/ConnectionService.mjs';
+import NeuralLink_ComponentService   from './mcp/server/neural-link/services/ComponentService.mjs';
+import NeuralLink_ConnectionService  from './mcp/server/neural-link/services/ConnectionService.mjs';
+import NeuralLink_DataService        from './mcp/server/neural-link/services/DataService.mjs';
+import NeuralLink_HealthService      from './mcp/server/neural-link/services/HealthService.mjs';
+import NeuralLink_InstanceService    from './mcp/server/neural-link/services/InstanceService.mjs';
+import NeuralLink_InteractionService from './mcp/server/neural-link/services/InteractionService.mjs';
+import NeuralLink_RuntimeService     from './mcp/server/neural-link/services/RuntimeService.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -157,7 +163,13 @@ makeSafe(Memory_HealthService,    memSpec);
 makeSafe(Memory_SummaryService,   memSpec);
 
 // Neural Link
-makeSafe(NeuralLink_ConnectionService, nlSpec);
+makeSafe(NeuralLink_ConnectionService,  nlSpec);
+makeSafe(NeuralLink_ComponentService,   nlSpec);
+makeSafe(NeuralLink_DataService,        nlSpec);
+makeSafe(NeuralLink_HealthService,      nlSpec);
+makeSafe(NeuralLink_InstanceService,    nlSpec);
+makeSafe(NeuralLink_InteractionService, nlSpec);
+makeSafe(NeuralLink_RuntimeService,     nlSpec);
 
 
 /**
@@ -208,5 +220,11 @@ export {
     Memory_SummaryService,
 
     // Neural Link
-    NeuralLink_ConnectionService
+    NeuralLink_ComponentService,
+    NeuralLink_ConnectionService,
+    NeuralLink_DataService,
+    NeuralLink_HealthService,
+    NeuralLink_InstanceService,
+    NeuralLink_InteractionService,
+    NeuralLink_RuntimeService
 };

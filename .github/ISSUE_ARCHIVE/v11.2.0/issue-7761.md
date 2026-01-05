@@ -1,8 +1,6 @@
 ---
 id: 7761
-title: >-
-  Refactor `resolveContentFileFromId` in `generateSeoFiles.mjs` for accurate
-  content path resolution
+title: Refactor `resolveContentFileFromId` in `generateSeoFiles.mjs` for accurate content path resolution
 state: CLOSED
 labels:
   - bug

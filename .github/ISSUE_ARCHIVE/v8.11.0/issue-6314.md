@@ -1,8 +1,6 @@
 ---
 id: 6314
-title: >-
-  Neo.Main.getByPath() => add support for accessing window methods & passing
-  params
+title: Neo.Main.getByPath() => add support for accessing window methods & passing params
 state: CLOSED
 labels:
   - enhancement

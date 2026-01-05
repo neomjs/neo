@@ -1,8 +1,6 @@
 ---
 id: 6847
-title: >-
-  vdom.Helper: subscribe to the new global neo config change event and act
-  accordingly
+title: 'vdom.Helper: subscribe to the new global neo config change event and act accordingly'
 state: CLOSED
 labels:
   - enhancement

@@ -1,8 +1,6 @@
 ---
 id: 6614
-title: >-
-  data.RecordFactory: add support for calculated fields inside the original data
-  symbol
+title: 'data.RecordFactory: add support for calculated fields inside the original data symbol'
 state: CLOSED
 labels:
   - enhancement

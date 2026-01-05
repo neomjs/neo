@@ -1,8 +1,6 @@
 ---
 id: 7967
-title: >-
-  examples.component.multiWindowHelix.ViewportController: throws when clicking
-  on the detach window button
+title: 'examples.component.multiWindowHelix.ViewportController: throws when clicking on the detach window button'
 state: CLOSED
 labels:
   - bug

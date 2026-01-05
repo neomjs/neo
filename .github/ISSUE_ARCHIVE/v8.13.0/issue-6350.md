@@ -1,8 +1,6 @@
 ---
 id: 6350
-title: >-
-  main.addon.AmCharts: loadFiles() => adjust the fallback path for the GH pages
-  deployment
+title: 'main.addon.AmCharts: loadFiles() => adjust the fallback path for the GH pages deployment'
 state: CLOSED
 labels:
   - enhancement

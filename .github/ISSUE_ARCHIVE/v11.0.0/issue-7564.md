@@ -14,29 +14,29 @@ author: tobiu
 commentsCount: 1
 parentIssue: null
 subIssues:
-  - 7565
-  - 7566
-  - 7567
-  - 7568
-  - 7569
-  - 7570
-  - 7571
-  - 7572
-  - 7573
-  - 7574
-  - 7575
-  - 7576
-  - 7578
-  - 7579
-  - 7580
-  - 7581
-  - 7582
-  - 7583
-  - 7584
-  - 7585
-  - 7587
-  - 7588
-  - 7589
+  - '[x] 7565 Create Scaffold for the Issue Synchronization Service'
+  - '[x] 7566 Implement GitHub to Local Sync (Pull)'
+  - '[x] 7567 Implement Local to GitHub Sync (Push)'
+  - '[x] 7568 Refine Issue Creation to be API-First'
+  - '[x] 7569 Refactor SyncService to Use Centralized Configuration'
+  - '[x] 7570 Implement and Adopt a Centralized stderr Logger'
+  - '[x] 7571 Refactor Sync Config for Dynamic Date-Based Syncing'
+  - '[x] 7572 Implement Dynamic Release Fetching in SyncService'
+  - '[x] 7573 Filter GitHub Issues by Date in SyncService'
+  - '[x] 7574 Update Archiving Logic to Use Dynamic Release Data'
+  - '[x] 7575 Implement Release Note Synchronization'
+  - '[x] 7576 Fix and Verify GitHub API Field Names in SyncService'
+  - '[x] 7578 Harden Release Caching and Add Fallback'
+  - '[x] 7579 Track and Handle Failed Pushes in SyncService'
+  - '[x] 7580 Add Frontmatter to Synchronized Release Notes'
+  - '[x] 7581 Add Comprehensive JSDoc to SyncService'
+  - '[x] 7582 Externalize Magic Numbers and Strings in SyncService'
+  - '[x] 7583 Implement Abort-on-Startup if Health Check Fails'
+  - '[x] 7584 Fix Semantic Version Comparison in HealthService using ''semver'''
+  - '[x] 7585 Implement Missing #checkGhAuth Method in HealthService'
+  - '[x] 7587 Implement Graceful Health Handling with Recovery'
+  - '[x] 7588 Enhance Sync Result Payload with Comprehensive Statistics'
+  - '[x] 7589 Refactor Issue Filename Convention'
 subIssuesCompleted: 23
 subIssuesTotal: 23
 blockedBy: []

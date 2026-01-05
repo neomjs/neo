@@ -270,6 +270,16 @@ class GalleryModel extends Model {
     }
 
     /**
+     * @returns {Object}
+     */
+    toJSON() {
+        return {
+            ...super.toJSON(),
+            stayInRow: this.stayInRow
+        }
+    }
+
+    /**
      *
      */
     unregister() {

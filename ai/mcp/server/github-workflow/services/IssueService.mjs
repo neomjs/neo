@@ -8,7 +8,7 @@ import {promisify}       from 'util';
 import {spawn}           from 'child_process';
 import {GET_ISSUE_AND_LABEL_IDS, GET_ISSUE_PARENT, GET_BLOCKED_BY, FETCH_ISSUES_FOR_SYNC, FETCH_ISSUES_LIST} from './queries/issueQueries.mjs';
 import {GET_PULL_REQUEST_ID} from './queries/pullRequestQueries.mjs';
-import {ADD_LABELS, REMOVE_LABELS, ADD_SUB_ISSUE, REMOVE_SUB_ISSUE, ADD_BLOCKED_BY, REMOVE_BLOCKED_BY, GET_ISSUE_ID, ADD_COMMENT} from './queries/mutations.mjs';
+import {ADD_LABELS, REMOVE_LABELS, ADD_SUB_ISSUE, REMOVE_SUB_ISSUE, ADD_BLOCKED_BY, REMOVE_BLOCKED_BY, GET_ISSUE_ID, ADD_COMMENT, UPDATE_COMMENT} from './queries/mutations.mjs';
 
 const execAsync = promisify(exec);
 
@@ -319,6 +319,95 @@ class IssueService extends Base {
     }
 
     /**
+     * Consolidates assignee management into a single method.
+     * @param {object}   options              The options object
+     * @param {number}   options.issue_number The number of the issue to modify.
+     * @param {string[]} options.assignees    An array of GitHub user logins to assign/unassign.
+     * @param {string}   options.action       The action to perform: 'add' or 'remove'.
+     * @returns {Promise<object>}
+     */
+    async manageIssueAssignees({issue_number, assignees, action}) {
+        if (!['add', 'remove'].includes(action)) {
+            return {
+                error: 'Bad Request',
+                message: "Invalid action. Must be 'add' or 'remove'.",
+                code: 'INVALID_ARGUMENTS'
+            };
+        }
+
+        if (action === 'add') {
+            return this.assignIssue({issue_number, assignees});
+        } else {
+            return this.unassignIssue({issue_number, assignees});
+        }
+    }
+
+    /**
+     * Consolidates comment management into a single method.
+     * @param {object} options                The options object
+     * @param {number} [options.issue_number] The number of the issue (required for create).
+     * @param {number} [options.pr_number]    The number of the pull request (required for create if issue_number omitted).
+     * @param {string} [options.comment_id]   The global node ID of the comment (required for update).
+     * @param {string} options.body           The content of the comment.
+     * @param {string} [options.agent]        The identity of the calling agent (required for create).
+     * @param {string} options.action         The action to perform: 'create' or 'update'.
+     * @returns {Promise<object>}
+     */
+    async manageIssueComment({issue_number, pr_number, comment_id, body, agent, action}) {
+        if (!['create', 'update'].includes(action)) {
+            return {
+                error: 'Bad Request',
+                message: "Invalid action. Must be 'create' or 'update'.",
+                code: 'INVALID_ARGUMENTS'
+            };
+        }
+
+        if (action === 'create') {
+            if (!agent) {
+                return {
+                    error: 'Bad Request',
+                    message: "Missing required argument: 'agent' is required for creating comments.",
+                    code: 'MISSING_ARGUMENTS'
+                };
+            }
+            return this.createComment({issue_number, pr_number, body, agent});
+        } else {
+            if (!comment_id) {
+                return {
+                    error: 'Bad Request',
+                    message: "Missing required argument: 'comment_id' is required for updating comments.",
+                    code: 'MISSING_ARGUMENTS'
+                };
+            }
+            return this.updateComment(comment_id, body);
+        }
+    }
+
+    /**
+     * Consolidates label management into a single method.
+     * @param {object}   options              The options object
+     * @param {number}   options.issue_number The number of the issue or PR.
+     * @param {string[]} options.labels       An array of labels to add or remove.
+     * @param {string}   options.action       The action to perform: 'add' or 'remove'.
+     * @returns {Promise<object>}
+     */
+    async manageIssueLabels({issue_number, labels, action}) {
+        if (!['add', 'remove'].includes(action)) {
+            return {
+                error: 'Bad Request',
+                message: "Invalid action. Must be 'add' or 'remove'.",
+                code: 'INVALID_ARGUMENTS'
+            };
+        }
+
+        if (action === 'add') {
+            return this.addLabels(issue_number, labels);
+        } else {
+            return this.removeLabels(issue_number, labels);
+        }
+    }
+
+    /**
      * Removes one or more specified assignees from a GitHub issue.
      * This method first verifies that the user has the required permissions (`WRITE`, `MAINTAIN`, or `ADMIN`)
      * before attempting to modify the issue.
@@ -368,6 +457,35 @@ class IssueService extends Base {
                 error  : 'GitHub CLI command failed',
                 message: error.message,
                 code   : 'GH_CLI_ERROR'
+            };
+        }
+    }
+
+    /**
+     * Updates an existing comment on a pull request or issue.
+     * @param {string} comment_id The global node ID of the comment to update
+     * @param {string} body       The new body content for the comment
+     * @returns {Promise<object>} A promise that resolves to a success message or a structured error.
+     */
+    async updateComment(comment_id, body) {
+        try {
+            const result = await GraphqlService.query(UPDATE_COMMENT, {
+                commentId: comment_id,
+                body
+            });
+
+            return {
+                message  : `Successfully updated comment ${comment_id}`,
+                commentId: result.updateIssueComment.issueComment.id,
+                url      : result.updateIssueComment.issueComment.url,
+                updatedAt: result.updateIssueComment.issueComment.updatedAt
+            };
+        } catch (error) {
+            logger.error(`Error updating comment ${comment_id} via GraphQL:`, error);
+            return {
+                error  : 'GraphQL API request failed',
+                message: error.message,
+                code   : 'GRAPHQL_API_ERROR'
             };
         }
     }

@@ -1,8 +1,6 @@
 ---
 id: 6806
-title: >-
-  vdom.Helper: insert() & move() => add a physical index &
-  hasLeadingTextChildren delta flag
+title: 'vdom.Helper: insert() & move() => add a physical index & hasLeadingTextChildren delta flag'
 state: CLOSED
 labels:
   - enhancement

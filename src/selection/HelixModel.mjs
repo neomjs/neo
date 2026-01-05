@@ -273,6 +273,16 @@ class HelixModel extends Model {
     }
 
     /**
+     * @returns {Object}
+     */
+    toJSON() {
+        return {
+            ...super.toJSON(),
+            stayInColumn: this.stayInColumn
+        }
+    }
+
+    /**
      *
      */
     unregister() {

@@ -1,8 +1,6 @@
 ---
 id: 6252
-title: >-
-  data.RecordFactory: createRecordClass() => add a 2nd param to enforce class
-  overwrites
+title: 'data.RecordFactory: createRecordClass() => add a 2nd param to enforce class overwrites'
 state: CLOSED
 labels:
   - enhancement

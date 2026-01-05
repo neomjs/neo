@@ -1,8 +1,6 @@
 ---
 id: 6889
-title: >-
-  Portal.view.learn.ContentComponent: update the code regexes to support blank
-  chars before the end
+title: 'Portal.view.learn.ContentComponent: update the code regexes to support blank chars before the end'
 state: CLOSED
 labels:
   - enhancement

@@ -719,6 +719,47 @@ class CheckBox extends Field {
 
         return !returnValue ? false : super.validate(silent)
     }
+    /**
+     * Serializes the field into a JSON-compatible object.
+     * @returns {Object}
+     */
+    toJSON() {
+        let me = this;
+
+        return {
+            ...super.toJSON(),
+            checked      : me.checked,
+            hideLabel    : me.hideLabel,
+            inputType    : me.inputType,
+            labelPosition: me.labelPosition,
+            labelText    : me.labelText,
+            valueLabel   : me.valueLabel
+        }
+    }
+    /**
+     * Serializes the field into a JSON-compatible object.
+     * @returns {Object}
+     */
+    toJSON() {
+        let me = this;
+
+        return {
+            ...super.toJSON(),
+            checked       : me.checked,
+            error         : me.error,
+            groupRequired : me.groupRequired,
+            hideLabel     : me.hideLabel,
+            iconCls       : me.iconCls,
+            iconClsChecked: me.iconClsChecked,
+            inputType     : me.inputType,
+            labelPosition : me.labelPosition,
+            labelText     : me.labelText,
+            labelWidth    : me.labelWidth,
+            required      : me.required,
+            uncheckedValue: me.uncheckedValue,
+            valueLabel    : me.valueLabel
+        }
+    }
 }
 
 export default Neo.setupClass(CheckBox);

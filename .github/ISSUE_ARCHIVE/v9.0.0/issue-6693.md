@@ -1,8 +1,6 @@
 ---
 id: 6693
-title: >-
-  Portal.view.ViewportController: afterSetMainContentLayout() => check if the
-  LocalStorage item does exist
+title: 'Portal.view.ViewportController: afterSetMainContentLayout() => check if the LocalStorage item does exist'
 state: CLOSED
 labels:
   - bug

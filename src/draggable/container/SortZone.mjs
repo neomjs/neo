@@ -56,6 +56,12 @@ class SortZone extends DragZone {
          */
         currentIndex: -1,
         /**
+         * The intersection ratio (0-1) required to detach an item into a new window.
+         * Lower values mean the item must be dragged further out.
+         * @member {Number} detachThreshold=0.8
+         */
+        detachThreshold: 0.8,
+        /**
          * A CSS selector to identify the drag handle within a component.
          * If specified, the drag is initiated on this element, but the owning component is dragged.
          * @member {String|null} dragHandleSelector=null
@@ -81,6 +87,11 @@ class SortZone extends DragZone {
          */
         itemStyles: null,
         /**
+         * @member {Number} lastIntersectionRatio=1
+         * @protected
+         */
+        lastIntersectionRatio: 1,
+        /**
          * @member {Object} ownerRect=null
          * @protected
          */
@@ -90,6 +101,12 @@ class SortZone extends DragZone {
          * @protected
          */
         ownerStyle: null,
+        /**
+         * The intersection ratio (0-1) required to re-attach a window-dragged item back into the container.
+         * Higher values mean the item must be dragged further in.
+         * @member {Number} reattachThreshold=0.6
+         */
+        reattachThreshold: 0.6,
         /**
          * @member {Boolean} alwaysFireDragMove=false
          * @protected
@@ -151,6 +168,78 @@ class SortZone extends DragZone {
     }
 
     /**
+     * @param {Object} data
+     * @returns {Boolean} true if the method processing should stop
+     */
+    checkWindowBoundary(data) {
+        let me = this,
+            {proxyRect} = data;
+
+        if (proxyRect && me.boundaryContainerRect) {
+            const
+                boundaryRect      = me.boundaryContainerRect,
+                intersection      = Rectangle.getIntersection(proxyRect, boundaryRect),
+                proxyArea         = proxyRect.width * proxyRect.height,
+                intersectionArea  = intersection ? intersection.width * intersection.height : 0,
+                intersectionRatio = proxyArea > 0 ? intersectionArea / proxyArea : 0,
+                isMovingIn        = intersectionRatio > me.lastIntersectionRatio,
+                isMovingOut       = intersectionRatio < me.lastIntersectionRatio;
+
+            me.lastIntersectionRatio = intersectionRatio;
+
+            if (!me.isWindowDragging) {
+                if (isMovingOut && intersectionRatio < me.detachThreshold) {
+                    me.isWindowDragging = true; // Set flag to prevent re-entry
+
+                    me.fire('dragBoundaryExit', {
+                        draggedItem: me.dragComponent,
+                        proxyRect,
+                        sortZone   : me
+                    });
+                    return true // Stop further processing in onDragMove
+                }
+            } else if (me.isWindowDragging) {
+                if (isMovingIn && intersectionRatio > me.reattachThreshold) {
+                    // Restore layout
+                    me.dragPlaceholder.wrapperStyle = {
+                        ...me.dragPlaceholder.wrapperStyle,
+                        visibility: 'visible'
+                    };
+
+                    // Re-applying the current state:
+                    me.itemRects.forEach((rect, index) => {
+                        let mappedIndex = me.indexMap[index];
+                        if (mappedIndex !== -1) {
+                            let item = me.owner.items[mappedIndex];
+
+                            if (item !== me.dragPlaceholder && item !== me.dragComponent) {
+                                item.wrapperStyle = {
+                                    ...item.wrapperStyle,
+                                    height: `${rect.height}px`,
+                                    left  : `${rect.left}px`,
+                                    top   : `${rect.top}px`,
+                                    width : `${rect.width}px`
+                                }
+                            }
+                        }
+                    });
+
+                    me.fire('dragBoundaryEntry', {
+                        draggedItem: me.dragComponent,
+                        proxyRect,
+                        sortZone   : me
+                    })
+                } else {
+                    me.onWindowDragContinue(intersectionRatio, data)
+                }
+                return true
+            }
+        }
+
+        return false
+    }
+
+    /**
      * Helper method, override as needed
      * @returns {Object}
      */
@@ -196,12 +285,15 @@ class SortZone extends DragZone {
 
                 if (component && index > -1) {
                     if (!me.isWindowDragging) {
-                        deltas.push({
-                            action  : 'moveNode',
-                            id      : component.id,
-                            index,    // Visually correct index (where placeholder is)
-                            parentId: owner.getVdomItemsRoot().id
-                        });
+                        // Only move DOM if not window dragging or if it's a remote drag being finalized locally
+                        if (!me.isRemoteDragging || (me.isRemoteDragging && !me.isWindowDragging)) {
+                             deltas.push({
+                                action  : 'moveNode',
+                                id      : component.id,
+                                index,    // Visually correct index (where placeholder is)
+                                parentId: owner.getVdomItemsRoot().id
+                            })
+                        }
                     }
 
                     deltas.push({
@@ -243,7 +335,14 @@ class SortZone extends DragZone {
                 item.wrapperStyle = itemStyle
             });
 
-            if (!me.isWindowDragging && me.startIndex !== me.currentIndex) {
+            // Restore visibility of the dragged component (it's not in sortableItems if placeholder is used)
+            if (me.dragComponent) {
+                let style = me.dragComponent.wrapperStyle || {};
+                style.visibility = null;
+                me.dragComponent.wrapperStyle = style;
+            }
+
+            if (!me.isWindowDragging && !me.isRemoteDragging && me.startIndex !== me.currentIndex) {
                 let fromIndex, toIndex;
 
                 if (me.dragPlaceholder) {
@@ -261,6 +360,7 @@ class SortZone extends DragZone {
             Object.assign(me, {
                 currentIndex    : -1,
                 indexMap        : null,
+                isRemoteDragging: false,
                 isWindowDragging: false,
                 itemRects       : null,
                 itemStyles      : null,
@@ -288,7 +388,7 @@ class SortZone extends DragZone {
      *     if the threshold is crossed, updating the `currentIndex`.
      * 4.  **Auto-Scrolling:** Manages auto-scrolling when dragging near the edges of the container.
      *
-     * @param {Object} data - The drag move event data.
+     * @param {Object} data The drag move event data.
      */
     async onDragMove(data) {
         let me = this;
@@ -298,61 +398,11 @@ class SortZone extends DragZone {
             return
         }
 
-        if (me.dragProxy && me.enableProxyToPopup) {
-            const {proxyRect} = data;
+        // console.log('SortZone onDragMove', me.dragProxy);
 
-            if (proxyRect && me.boundaryContainerRect) {
-                const
-                    boundaryRect     = me.boundaryContainerRect,
-                    intersection     = Rectangle.getIntersection(proxyRect, boundaryRect),
-                    proxyArea        = proxyRect.width * proxyRect.height,
-                    intersectionArea = intersection ? intersection.width * intersection.height : 0;
-
-                if (!me.isWindowDragging) {
-                    if (proxyArea > 0 && (intersectionArea / proxyArea) < 0.5) {
-                        me.isWindowDragging = true; // Set flag to prevent re-entry
-
-                        me.fire('dragBoundaryExit', {
-                            draggedItem: me.dragComponent,
-                            proxyRect,
-                            sortZone   : me
-                        });
-                        return // Stop further processing in onDragMove
-                    }
-                } else if (me.isWindowDragging) {
-                    if (proxyArea > 0 && (intersectionArea / proxyArea) > 0.51) {
-                        // Restore layout
-                        me.dragPlaceholder.wrapperStyle = {
-                            ...me.dragPlaceholder.wrapperStyle,
-                            visibility: 'visible'
-                        };
-
-                        // Re-applying the current state:
-                        me.itemRects.forEach((rect, index) => {
-                            let mappedIndex = me.indexMap[index];
-                            if (mappedIndex !== -1) {
-                                let item = me.owner.items[mappedIndex];
-
-                                if (item !== me.dragPlaceholder && item !== me.dragComponent) {
-                                    item.wrapperStyle = {
-                                        ...item.wrapperStyle,
-                                        height: `${rect.height}px`,
-                                        left  : `${rect.left}px`,
-                                        top   : `${rect.top}px`,
-                                        width : `${rect.width}px`
-                                    };
-                                }
-                            }
-                        });
-
-                        me.fire('dragBoundaryEntry', {
-                            draggedItem: me.dragComponent,
-                            proxyRect,
-                            sortZone   : me
-                        })
-                    }
-                    return
-                }
+        if (!me.isRemoteDragging && me.dragProxy && me.enableProxyToPopup) {
+            if (me.checkWindowBoundary(data)) {
+                return
             }
         }
 
@@ -438,11 +488,11 @@ class SortZone extends DragZone {
      * @param {Object} data - The drag start event data.
      */
     async onDragStart(data) {
-        let me                   = this,
+        let me         = this,
             {adjustItemRectsToParent, dragHandleSelector, owner} = me,
-            itemStyles           = me.itemStyles = [],
-            {layout}             = owner,
-            ownerStyle           = owner.style || {},
+            itemStyles = me.itemStyles = [],
+            {layout}   = owner,
+            ownerStyle = owner.style || {},
             draggedItem, index, indexMap, itemStyle, rect, sortableItems;
 
         if (owner.dragResortable) {
@@ -451,7 +501,7 @@ class SortZone extends DragZone {
                 const handleNode      = data.path.find(node => node.cls.includes(handleClassName));
 
                 if (!handleNode) {
-                    return;
+                    return
                 }
 
                 const handleIndex = data.path.indexOf(handleNode);
@@ -467,7 +517,7 @@ class SortZone extends DragZone {
                 }
 
                 if (!draggedItem) {
-                    return;
+                    return
                 }
 
                 sortableItems = owner.items.filter(item => VDomUtil.find(item.vdom, {
@@ -476,12 +526,12 @@ class SortZone extends DragZone {
                 index         = sortableItems.indexOf(draggedItem);
 
                 if (index < 0) {
-                    return;
+                    return
                 }
             } else {
                 draggedItem   = Neo.getComponent(data.path[0].id);
                 sortableItems = owner.items;
-                index         = owner.indexOf(draggedItem.id);
+                index         = owner.indexOf(draggedItem.id)
             }
 
             indexMap = {};
@@ -491,6 +541,7 @@ class SortZone extends DragZone {
                 dragElement            : VDomUtil.find(owner.vdom, draggedItem.id).vdom,
                 dragProxyConfig        : me.getDragProxyConfig(),
                 indexMap,
+                lastIntersectionRatio  : 1,
                 ownerStyle             : {height: ownerStyle.height, minWidth: ownerStyle.minWidth, width: ownerStyle.width},
                 reversedLayoutDirection: layout.direction === 'column-reverse' || layout.direction === 'row-reverse',
                 sortableItems,
@@ -506,12 +557,38 @@ class SortZone extends DragZone {
                 itemStyles.push({
                     height: item.height ? `${item.height}px` :  item.style?.height,
                     width : item.width  ? `${item.width}px`  :  item.style?.width
-                });
+                })
             });
 
             const itemRects = await owner.getDomRect([owner.id].concat(sortableItems.map(e => e.id)));
 
             me.ownerRect = itemRects.shift();
+
+            // Calculate real owner dimensions based on first and last item rects (accounting for padding)
+            if (itemRects.length > 0) {
+                const firstItemRect = itemRects[0];
+                const lastItemRect  = itemRects[itemRects.length - 1];
+
+                if (me.sortDirection === 'horizontal') {
+                    if (firstItemRect.x > me.ownerRect.x) {
+                        me.ownerRect.x = firstItemRect.x
+                    }
+                    if (firstItemRect.y > me.ownerRect.y) {
+                        me.ownerRect.y = firstItemRect.y
+                    }
+                    me.ownerRect.width  = (lastItemRect.x + lastItemRect.width)  - me.ownerRect.x;
+                    me.ownerRect.height = (lastItemRect.y + lastItemRect.height) - me.ownerRect.y
+                } else {
+                    if (firstItemRect.x > me.ownerRect.x) {
+                        me.ownerRect.x = firstItemRect.x
+                    }
+                    if (firstItemRect.y > me.ownerRect.y) {
+                        me.ownerRect.y = firstItemRect.y
+                    }
+                    me.ownerRect.width  = (lastItemRect.x + lastItemRect.width)  - me.ownerRect.x;
+                    me.ownerRect.height = (lastItemRect.y + lastItemRect.height) - me.ownerRect.y
+                }
+            }
 
             owner.style = {
                 ...ownerStyle,
@@ -532,9 +609,9 @@ class SortZone extends DragZone {
             if (me.dragPlaceholder) {
                 const placeholderIndex = sortableItems.indexOf(draggedItem);
                 if (placeholderIndex > -1) {
-                    sortableItems[placeholderIndex] = me.dragPlaceholder;
+                    sortableItems[placeholderIndex] = me.dragPlaceholder
                 }
-                me.dragElement = me.dragPlaceholder.vdom;
+                me.dragElement = me.dragPlaceholder.vdom
             }
 
             sortableItems.forEach((item, i) => {
@@ -550,147 +627,24 @@ class SortZone extends DragZone {
                     position: 'absolute',
                     top     : `${rect.top}px`,
                     width   : `${rect.width}px`
-                });
+                })
             });
 
             await me.timeout(5);
 
-            // If we have a placeholder, the original item is already hidden/moved.
-            // But we might want to ensure the placeholder (which is now in sortableItems) matches expectations?
-            // The logic below originally hid the draggedItem.
-            // If we use placeholder, draggedItem is in proxy (visible). Placeholder is hidden.
-            // me.dragPlaceholder logic in DragZone already set it to visibility: hidden.
             if (!me.dragPlaceholder) {
                 itemStyle = draggedItem.wrapperStyle || {};
                 itemStyle.visibility = 'hidden';
-                draggedItem.wrapperStyle = itemStyle;
+                draggedItem.wrapperStyle = itemStyle
             }
         }
     }
 
     /**
-     * Calculates a new layout for the remaining items when one item is dragged out of the container (e.g., into a new window).
-     *
-     * This method ensures the dashboard doesn't leave a "hole" where the dragged item was. Instead, it:
-     * 1.  **Infers Gaps & Offsets:** Analyzes the cached `itemRects` to mathematically derive the container's padding
-     *     and the gaps between items, ensuring the new layout respects the original design tokens.
-     * 2.  **Identifies Remaining Items:** Filters out the dragged component and its placeholder.
-     * 3.  **Distributes Space:** Calculates the available space (Total Size - Offsets - Gaps - Fixed Items) and distributes
-     *     it among flex items proportional to their flex values.
-     * 4.  **Generates Styles:** Returns a list of style objects (`top`, `left`, `width`, `height`) to be applied to the remaining items.
-     *
-     * @returns {Object[]} Array of objects containing the `item` reference and the calculated `style` object.
+     * @param {Number} intersectionRatio
+     * @param {Object} data
      */
-    calculateExpandedLayout() {
-        let me           = this,
-            ownerRect    = me.ownerRect,
-            isHorizontal = me.sortDirection === 'horizontal',
-            totalSize    = isHorizontal ? ownerRect.width : ownerRect.height,
-            items        = [],
-            totalFlex    = 0,
-            usedSize     = 0,
-            rects        = [],
-            startOffset  = 0,
-            endOffset    = 0,
-            gap          = 0,
-            topOffset    = 0,
-            bottomOffset = 0,
-            leftOffset   = 0,
-            rightOffset  = 0,
-            startX       = me.adjustItemRectsToParent ? 0 : ownerRect.x,
-            startY       = me.adjustItemRectsToParent ? 0 : ownerRect.y;
-
-        // 1. Calculate offsets and gaps from the original slots (itemRects)
-        if (me.itemRects.length > 0) {
-            let r0 = me.itemRects[0],
-                rn = me.itemRects[me.itemRects.length - 1];
-
-            if (isHorizontal) {
-                startOffset  = me.adjustItemRectsToParent ? r0.x : r0.x - ownerRect.x;
-                endOffset    = totalSize - (me.adjustItemRectsToParent ? (rn.x + rn.width) : (rn.x - ownerRect.x + rn.width));
-                topOffset    = me.adjustItemRectsToParent ? r0.y : r0.y - ownerRect.y;
-                bottomOffset = ownerRect.height - (me.adjustItemRectsToParent ? (r0.y + r0.height) : (r0.y - ownerRect.y + r0.height)); // Approx from first item
-
-                if (me.itemRects.length > 1) {
-                    let r1 = me.itemRects[1];
-                    gap = r1.x - (r0.x + r0.width);
-                }
-            } else {
-                startOffset = me.adjustItemRectsToParent ? r0.y : r0.y - ownerRect.y;
-                endOffset   = totalSize - (me.adjustItemRectsToParent ? (rn.y + rn.height) : (rn.y - ownerRect.y + rn.height));
-                leftOffset  = me.adjustItemRectsToParent ? r0.x : r0.x - ownerRect.x;
-                rightOffset = ownerRect.width - (me.adjustItemRectsToParent ? (r0.x + r0.width) : (r0.x - ownerRect.x + r0.width));
-
-                if (me.itemRects.length > 1) {
-                    let r1 = me.itemRects[1];
-                    gap = r1.y - (r0.y + r0.height);
-                }
-            }
-        }
-        // 2. Filter valid items
-        for (let i = 0; i < me.itemRects.length; i++) {
-            let mappedIndex = me.indexMap[i];
-
-            if (mappedIndex === -1) {
-                 continue;
-            }
-
-            let item = me.owner.items[mappedIndex];
-
-            if (item === me.dragPlaceholder || item === me.dragComponent) {
-                continue;
-            }
-
-            let rect = me.itemRects[i];
-
-            items.push({item, rect});
-
-            if (item.flex) {
-                totalFlex += item.flex;
-            } else {
-                let size = isHorizontal ? rect.width : rect.height;
-                usedSize += size;
-            }
-        }
-
-        // 3. Calculate available space
-        let totalGaps      = Math.max(0, items.length - 1),
-            availableSpace = Math.max(0, totalSize - startOffset - endOffset - (totalGaps * gap) - usedSize);
-
-        // 4. Distribute space
-        let currentPos = startOffset;
-
-        items.forEach(({item, rect}, index) => {
-            let itemSize, style = {};
-
-            if (item.flex) {
-                itemSize = (item.flex / totalFlex) * availableSpace;
-            } else {
-                itemSize = isHorizontal ? rect.width : rect.height;
-            }
-
-            if (isHorizontal) {
-                style = {
-                    left  : `${startX + currentPos}px`,
-                    top   : `${startY + topOffset}px`,
-                    height: `${ownerRect.height - topOffset - bottomOffset}px`,
-                    width : `${itemSize}px`
-                };
-            } else {
-                style = {
-                    left  : `${startX + leftOffset}px`,
-                    top   : `${startY + currentPos}px`,
-                    height: `${itemSize}px`,
-                    width : `${ownerRect.width - leftOffset - rightOffset}px`
-                };
-            }
-
-            rects.push({item, style});
-            currentPos += itemSize + gap;
-        });
-
-        return rects;
-    }
+    onWindowDragContinue(intersectionRatio, data) {}
 
     /**
      * @returns {Promise<void>}
@@ -701,50 +655,6 @@ class SortZone extends DragZone {
         me.isScrolling = true;
         await me.owner.scrollToIndex?.(me.currentIndex, me.itemRects[me.currentIndex]);
         me.isScrolling = false
-    }
-
-    /**
-     * Handles the drag move event. This is the core logic loop for the drag operation.
-     *
-     * Responsibilities:
-     * 1.  **Window Drag Re-entry:** Checks if a window drag has re-entered the original container boundaries.
-     *     If so, it restores the original layout snapshot (`itemRects`) and shows the placeholder, effectively
-     *     "snapping" the dashboard back to its sortable state.
-     * 2.  **Window Drag Exit:** Detects if the drag proxy has left the container boundaries (if `enableProxyToPopup` is true)
-     *     and triggers the `dragBoundaryExit` event to potentially start a window drag.
-     * 3.  **Standard Sorting:** If not in window-drag mode, it calculates the drag delta and swaps items (`switchItems`)
-     *     if the threshold is crossed, updating the `currentIndex`.
-     * 4.  **Auto-Scrolling:** Manages auto-scrolling when dragging near the edges of the container.
-     *
-     * @param {Object} data - The drag move event data.
-     */
-    startWindowDrag(data) {
-        let me = this,
-            {popupHeight, popupWidth, windowName} = data;
-
-        // Keep the proxy active to capture mouse events, but make it invisible
-        me.dragProxy.style = {opacity: 0};
-        me.isWindowDragging = true;
-
-        if (me.dragPlaceholder) {
-            me.dragPlaceholder.wrapperStyle = {
-                ...me.dragPlaceholder.wrapperStyle,
-                visibility: 'hidden'
-            };
-        }
-
-        // Apply expanded layout
-        let expandedLayout = me.calculateExpandedLayout();
-        expandedLayout.forEach(({item, style}) => {
-            item.wrapperStyle = {...item.wrapperStyle, ...style};
-        });
-
-        Neo.main.addon.DragDrop.startWindowDrag({
-            popupHeight,
-            popupName: windowName,
-            popupWidth,
-            windowId : me.windowId
-        });
     }
 
     /**
@@ -769,7 +679,7 @@ class SortZone extends DragZone {
         if ((!reversed && index2 < index1) || (reversed && index1 < index2)) {
             tmp    = index1;
             index1 = index2;
-            index2 = tmp;
+            index2 = tmp
         }
 
         let itemRects = me.itemRects,
@@ -790,7 +700,7 @@ class SortZone extends DragZone {
 
             rect1.height = rect2Copy.height;
             rect2.height = rect1Copy.height;
-            rect2.y      = rect1Copy.y + rect2Copy.height + gap;
+            rect2.y      = rect1Copy.y + rect2Copy.height + gap
         }
 
         tmp         = map[index1];
@@ -812,7 +722,7 @@ class SortZone extends DragZone {
 
         if (mappedIndex === -1) {
             if (me.dragPlaceholder) {
-                item = me.dragPlaceholder;
+                item = me.dragPlaceholder
             } else {
                 return
             }

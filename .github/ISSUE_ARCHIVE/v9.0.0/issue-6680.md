@@ -1,8 +1,6 @@
 ---
 id: 6680
-title: >-
-  selection.grid.CellRowModel: onCellClick() => toggle rows based on cell
-  selection
+title: 'selection.grid.CellRowModel: onCellClick() => toggle rows based on cell selection'
 state: CLOSED
 labels:
   - enhancement

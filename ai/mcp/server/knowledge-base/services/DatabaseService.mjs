@@ -79,6 +79,27 @@ class DatabaseService extends Base {
     }
 
     /**
+     * Manages knowledge base data operations based on the provided action.
+     * @param {Object} params
+     * @param {String} params.action - 'sync', 'create', 'embed', or 'delete'
+     * @returns {Promise<Object>}
+     */
+    async manageKnowledgeBase({action}) {
+        switch (action) {
+            case 'sync':
+                return this.syncDatabase();
+            case 'create':
+                return this.createKnowledgeBase();
+            case 'embed':
+                return this.embedKnowledgeBase();
+            case 'delete':
+                return this.deleteDatabase();
+            default:
+                throw new Error(`Invalid action: ${action}. Must be 'sync', 'create', 'embed', or 'delete'.`);
+        }
+    }
+
+    /**
      * Parses all knowledge sources (JSDoc, guides, release notes, tickets) and generates
      * a structured JSONL file at `dist/ai-knowledge-base.jsonl`.
      *

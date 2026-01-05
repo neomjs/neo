@@ -433,6 +433,29 @@ class Cube extends Card {
     }
 
     /**
+     * Serializes the instance into a JSON-compatible object for the Neural Link.
+     * @returns {Object}
+     */
+    toJSON() {
+        let me = this;
+
+        return {
+            ...super.toJSON(),
+            activeFace                : me.activeFace,
+            activeIndex               : me.activeIndex,
+            fitContainer              : me.fitContainer,
+            hideInactiveCardsOnDestroy: me.hideInactiveCardsOnDestroy,
+            perspective               : me.perspective,
+            rotateX                   : me.rotateX,
+            rotateY                   : me.rotateY,
+            rotateZ                   : me.rotateZ,
+            sideX                     : me.sideX,
+            sideY                     : me.sideY,
+            sideZ                     : me.sideZ
+        }
+    }
+
+    /**
      * @param {String} name
      * @param {String} value
      */

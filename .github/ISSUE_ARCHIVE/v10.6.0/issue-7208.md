@@ -1,8 +1,6 @@
 ---
 id: 7208
-title: >-
-  main.addon.DragDrop: onDragMove() => pass the dragElement rect to the app
-  worker
+title: 'main.addon.DragDrop: onDragMove() => pass the dragElement rect to the app worker'
 state: CLOSED
 labels:
   - enhancement

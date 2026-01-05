@@ -690,6 +690,31 @@ class Provider extends Base {
             EffectManager.resume()
         }
     }
+
+    /**
+     * Serializes the instance into a JSON-compatible object for the Neural Link.
+     * @returns {Object}
+     */
+    toJSON() {
+        const
+            me     = this,
+            stores = {};
+
+        if (me.stores) {
+            Object.entries(me.stores).forEach(([key, value]) => {
+                stores[key] = value.toJSON()
+            })
+        }
+
+        return {
+            ...super.toJSON(),
+            component: me.component?.id,
+            data     : me.data,
+            parent   : me.parent?.id,
+            stores,
+            windowId : me.windowId
+        }
+    }
 }
 
 export default Neo.setupClass(Provider);

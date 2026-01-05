@@ -15,23 +15,23 @@ author: tobiu
 commentsCount: 3
 parentIssue: null
 subIssues:
-  - 7297
-  - 7298
-  - 7299
-  - 7301
-  - 7305
-  - 7306
-  - 7307
-  - 7328
-  - 7342
-  - 7343
-  - 7344
-  - 7345
-  - 7346
-  - 7417
-  - 7465
-  - 7467
-  - 7474
+  - '[x] 7297 Create a Modern ''Getting Started'' Guide'
+  - '[x] 7298 A Beginner''s Guide to View Controllers'
+  - '[x] 7299 Add Intent-Driven JSDoc to Tab Container Example'
+  - '[x] 7301 Add Intent-Driven JSDoc to `splitter.MainContainer` Example'
+  - '[x] 7305 Test and Use the `createExample` Script to Build an `Image` Example'
+  - '[x] 7306 Exploration Quest: Make the AI Aware of `buildScripts`'
+  - '[x] 7307 Re-framing the VDOM - Neo.mjs''s Lightweight Messaging Protocol'
+  - '[x] 7328 Create Guide: Neo.setupClass() Deep Dive'
+  - '[x] 7342 Hacktoberfest Mission: Train the AI - Test Its Memory! (1/5)'
+  - '[x] 7343 Hacktoberfest Mission: Train the AI - Test Its Memory! (2/5)'
+  - '[x] 7344 Hacktoberfest Mission: Train the AI - Test Its Memory! (3/5)'
+  - '[x] 7345 Hacktoberfest Mission: Train the AI - Test Its Memory! (4/5)'
+  - '[x] 7346 Hacktoberfest Mission: Train the AI - Test Its Memory! (5/5)'
+  - '[x] 7417 Polish the new ''Getting Started'' Guide'
+  - '[x] 7465 Hacktoberfest Mission: Implement the Memory Protocol Fix'
+  - '[x] 7467 `ai:query` fails to find content in existing blog post'
+  - '[x] 7474 Improve AI Query Scoring to Boost Content Matches'
 subIssuesCompleted: 17
 subIssuesTotal: 17
 blockedBy: []

@@ -1,8 +1,6 @@
 ---
 id: 8120
-title: >-
-  Regression: SortZone calculates item layout after placeholder insertion,
-  causing incorrect positioning
+title: 'Regression: SortZone calculates item layout after placeholder insertion, causing incorrect positioning'
 state: CLOSED
 labels:
   - bug

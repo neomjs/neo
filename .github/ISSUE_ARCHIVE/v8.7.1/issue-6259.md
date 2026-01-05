@@ -1,8 +1,6 @@
 ---
 id: 6259
-title: >-
-  examples.table.nestedRecordFields.EditUserDialog: the dialog no longer gets
-  shown properly
+title: 'examples.table.nestedRecordFields.EditUserDialog: the dialog no longer gets shown properly'
 state: CLOSED
 labels:
   - bug

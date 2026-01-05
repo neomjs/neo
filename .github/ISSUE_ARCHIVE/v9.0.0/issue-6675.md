@@ -1,8 +1,6 @@
 ---
 id: 6675
-title: >-
-  selection.grid.RowModel: updateAnnotations() => adjust for recordId based
-  selections
+title: 'selection.grid.RowModel: updateAnnotations() => adjust for recordId based selections'
 state: CLOSED
 labels:
   - enhancement

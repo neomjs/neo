@@ -1,8 +1,6 @@
 ---
 id: 6562
-title: >-
-  examples.grid.animatedRowSorting.Viewport: add a transition duration
-  numberfield
+title: 'examples.grid.animatedRowSorting.Viewport: add a transition duration numberfield'
 state: CLOSED
 labels:
   - enhancement

@@ -286,6 +286,22 @@ class Card extends Base {
 
         await container.promiseUpdate()
     }
+
+    /**
+     * Serializes the instance into a JSON-compatible object for the Neural Link.
+     * @returns {Object}
+     */
+    toJSON() {
+        let me = this;
+
+        return {
+            ...super.toJSON(),
+            activeIndex        : me.activeIndex,
+            containerCls       : me.containerCls,
+            removeInactiveCards: me.removeInactiveCards,
+            slideDirection     : me.slideDirection
+        }
+    }
 }
 
 export default Neo.setupClass(Card);

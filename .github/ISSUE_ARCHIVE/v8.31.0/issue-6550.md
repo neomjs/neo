@@ -1,8 +1,6 @@
 ---
 id: 6550
-title: >-
-  list.plugin.Animate: updateTransitionDetails() => not properly removing CSS
-  rules
+title: 'list.plugin.Animate: updateTransitionDetails() => not properly removing CSS rules'
 state: CLOSED
 labels:
   - bug

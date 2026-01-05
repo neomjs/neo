@@ -1,8 +1,6 @@
 ---
 id: 7055
-title: >-
-  examples.ConfigurationViewport: make createConfigurationComponents()
-  optionally async
+title: 'examples.ConfigurationViewport: make createConfigurationComponents() optionally async'
 state: CLOSED
 labels:
   - enhancement

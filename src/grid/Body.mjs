@@ -1275,6 +1275,25 @@ class GridBody extends Component {
             !silent && me.update()
         }
     }
+
+    /**
+     * @returns {Object}
+     */
+    toJSON() {
+        let me = this;
+
+        return {
+            ...super.toJSON(),
+            animatedRowSorting    : me.animatedRowSorting,
+            bufferColumnRange     : me.bufferColumnRange,
+            bufferRowRange        : me.bufferRowRange,
+            colspanField          : me.colspanField,
+            highlightModifiedCells: me.highlightModifiedCells,
+            rowHeight             : me.rowHeight,
+            selectedRecordField   : me.selectedRecordField,
+            selectionModel        : me.selectionModel?.toJSON()
+        }
+    }
 }
 
 export default Neo.setupClass(GridBody);

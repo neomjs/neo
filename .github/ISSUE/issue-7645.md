@@ -14,10 +14,10 @@ author: tobiu
 commentsCount: 0
 parentIssue: null
 subIssues:
-  - 7644
-  - 7643
-  - 7642
-  - 7646
+  - '[ ] 7644 Feat: Implement PR Syncer for GitHub Workflow'
+  - '[x] 7643 Refactor: Implement MetadataManager for Sync Service'
+  - '[x] 7642 Refactor: Extract Release & Issue Syncers from SyncService'
+  - '[x] 7646 Refactor: Streamline Release Metadata Handling in Sync Service'
 subIssuesCompleted: 3
 subIssuesTotal: 4
 blockedBy: []

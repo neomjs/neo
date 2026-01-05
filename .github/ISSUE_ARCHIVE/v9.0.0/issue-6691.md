@@ -1,8 +1,6 @@
 ---
 id: 6691
-title: >-
-  container.Base: createItem() => when removing existing instances from
-  different parents, delete potential removeDom flags
+title: 'container.Base: createItem() => when removing existing instances from different parents, delete potential removeDom flags'
 state: CLOSED
 labels:
   - enhancement

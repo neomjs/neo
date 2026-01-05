@@ -59,4 +59,5 @@ Current implementation handles live DOM updates (capturing scroll) and VDOM/VNod
 - 2025-12-17 @tobiu assigned to @tobiu
 - 2025-12-17 @tobiu referenced in commit `5ffb631` - "Feature Request: Component saveScrollPosition config #8137"
 - 2025-12-17 @tobiu closed this issue
+- 2025-12-17 @tobiu cross-referenced by #8138
 

@@ -312,6 +312,25 @@ class Button extends BaseButton {
         me.cls       = cls;
         me._isSorted = null
     }
+
+    /**
+     * @returns {Object}
+     */
+    toJSON() {
+        let me = this;
+
+        return {
+            ...super.toJSON(),
+            cellAlign           : me.cellAlign,
+            dataField           : me.dataField,
+            defaultSortDirection: me.defaultSortDirection,
+            editorConfig        : me.serializeConfig(me.editorConfig),
+            filterConfig        : me.serializeConfig(me.filterConfig),
+            isSorted            : me.isSorted,
+            showHeaderFilter    : me.showHeaderFilter,
+            sortable            : me.sortable
+        }
+    }
 }
 
 export default Neo.setupClass(Button);

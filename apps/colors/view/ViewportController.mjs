@@ -20,36 +20,10 @@ class ViewportController extends Controller {
     }
 
     /**
-     * @summary Tracks the names of widgets currently open in separate windows.
-     * @member {String[]} connectedApps=[]
-     */
-    connectedApps = []
-    /**
      * @summary The ID for the `setInterval` used for real-time data updates.
      * @member {Number|null} intervalId
      */
     intervalId = null
-    /**
-     * @member {Boolean} #isReintegrating=false
-     * @private
-     */
-    #isReintegrating = false
-    /**
-     * @summary A private flag to track if a drag operation is in the process of moving a widget to a new window.
-     * @member {Boolean} #isWindowDragging=false
-     * @private
-     */
-    #isWindowDragging = false
-    /**
-     * @summary A map to get the original index of a widget in the dashboard's items array.
-     * @description This is used to correctly re-insert a widget when its popup window is closed.
-     * @member {Object} widgetIndexMap
-     */
-    widgetIndexMap = {
-        'bar-chart': 2,
-        'pie-chart': 1,
-        grid       : 0
-    }
 
     /**
      * @summary Factory method to open a widget in a new browser window or popup.
@@ -59,10 +33,11 @@ class ViewportController extends Controller {
      */
     async createBrowserWindow(name) {
         if (this.getStateProvider().getData('openWidgetsAsPopups')) {
-            let widget = this.getReference(name),
-                rect   = await this.component.getDomRect(widget.vdom.id); // using the vdom id to always get the top-level node
+            let dashboard = this.getReference('dashboard'),
+                widget    = this.getReference(name),
+                rect      = await this.component.getDomRect(widget.vdom.id); // using the vdom id to always get the top-level node
 
-            await this.#openWidgetInPopup(name, rect)
+            await dashboard.openWidgetInPopup(widget, rect)
         } else {
             let {config, windowConfigs} = Neo,
                 {environment}           = config,
@@ -87,75 +62,6 @@ class ViewportController extends Controller {
     destroy(...args) {
         this.intervalId && clearInterval(this.intervalId);
         super.destroy(...args)
-    }
-
-    /**
-     * @summary Handles the `connect` event fired by `Neo.currentWorker`.
-     * @description This is triggered when a new child application (a detached widget window) connects to the shared worker.
-     * It re-parents the widget component from the main app's component tree into the new child app's viewport.
-     * @param {Object} data The event data from the worker.
-     * @param {String} data.appName The name of the connecting application.
-     * @param {Number} data.windowId The ID of the new window.
-     */
-    async onAppConnect(data) {
-        if (data.appName === 'ColorsWidget') {
-            let me           = this,
-                app          = Neo.apps[data.windowId],
-                mainView     = app.mainView,
-                {windowId}   = data,
-                url          = await Neo.Main.getByPath({path: 'document.URL', windowId}),
-                widgetName   = new URL(url).searchParams.get('name'),
-                widget       = me.getReference(widgetName),
-                parent       = widget.up('panel');
-
-            if (!me.#isWindowDragging) {
-                parent.hide()
-            }
-
-            me.connectedApps.push(widgetName);
-
-            me.getReference(`detach-${widgetName}-button`).disabled = true;
-
-            mainView.add(widget, false, !me.#isWindowDragging)
-        }
-    }
-
-    /**
-     * @summary Handles the `disconnect` event fired by `Neo.currentWorker`.
-     * @description This is triggered when a child application window is closed. It moves the widget component
-     * back into its original position in the main application's dashboard.
-     * @param {Object} data The event data from the worker.
-     * @param {String} data.appName The name of the disconnecting application.
-     * @param {Number} data.windowId The ID of the closed window.
-     */
-    async onAppDisconnect(data) {
-        let me = this;
-
-        if (me.#isWindowDragging || me.#isReintegrating) {
-            me.#isWindowDragging = false;
-            return
-        }
-
-        let {appName, windowId} = data,
-            dashboard           = me.getReference('dashboard'),
-            url                 = await Neo.Main.getByPath({path: 'document.URL', windowId}),
-            widgetName          = new URL(url).searchParams.get('name'),
-            widget              = me.getReference(widgetName);
-
-        // Closing a non-main app needs to move the widget back into its original position & re-enable the show button
-        if (appName === 'ColorsWidget') {
-            let itemPanel     = dashboard.items[me.widgetIndexMap[widgetName]],
-                bodyContainer = itemPanel.getReference('bodyContainer');
-
-            bodyContainer.add(widget);
-            itemPanel.show();
-
-            me.getReference(`detach-${widgetName}-button`).disabled = false
-        }
-        // Close popup windows when closing or reloading the main window
-        else if (appName === 'Colors') {
-            Neo.Main.windowClose({names: me.connectedApps, windowId})
-        }
     }
 
     /**
@@ -191,22 +97,6 @@ class ViewportController extends Controller {
     }
 
     /**
-     * @summary Lifecycle method, called after the controller's constructor.
-     * @description Sets up listeners for the shared worker's connect and disconnect events.
-     */
-    onConstructed() {
-        super.onConstructed();
-
-        let me = this;
-
-        Neo.currentWorker.on({
-            connect   : me.onAppConnect,
-            disconnect: me.onAppDisconnect,
-            scope     : me
-        })
-    }
-
-    /**
      * @summary Lifecycle method, called after the controller's component is constructed.
      * @description Triggers the initial data load for the widgets.
      */
@@ -237,60 +127,6 @@ class ViewportController extends Controller {
      */
     async onDetachPieChartButtonClick(data) {
         await this.createBrowserWindow('pie-chart')
-    }
-
-    /**
-     * @summary Handles the `dragBoundaryEntry` event from the `SortZone`.
-     * @description This is the core of the drag-to-re-dock feature. When a dragged window re-enters the main
-     * application's boundary, this method closes the popup window and re-inserts the widget component
-     * back into its original dashboard container, providing a seamless user experience.
-     * @param {Object} data The event data from the SortZone.
-     */
-    async onDragBoundaryEntry(data) {
-        let me            = this,
-            {windowId}    = me,
-            {sortZone}    = data,
-            widgetName    = data.draggedItem.reference.replace('-panel', ''),
-            widget        = me.getReference(widgetName);
-
-        me.#isReintegrating = true;
-
-        sortZone.dragProxy.add(widget, true);
-
-        await Neo.Main.windowClose({names: widgetName, windowId});
-
-        me.#isReintegrating  = false;
-        me.#isWindowDragging = false;
-
-        sortZone.isWindowDragging = false;
-        sortZone.dragProxy.style = {opacity: 1};
-
-        Neo.main.addon.DragDrop.setConfigs({isWindowDragging: false, windowId})
-    }
-
-    /**
-     * @summary Handles the `dragBoundaryExit` event from the `SortZone`.
-     * @description This is the core of the drag-to-popup feature. When a dragged component's proxy leaves
-     * the boundary of its container, this method orchestrates the creation of a new popup window
-     * and hands off the drag operation to the main thread's DragDrop addon to drag the OS-level window.
-     * @param {Object} data The event data from the SortZone.
-     */
-    async onDragBoundaryExit(data) {
-        let {draggedItem, proxyRect, sortZone} = data,
-            widgetName                         = draggedItem.reference.replace('-panel', ''),
-            popupData;
-
-        this.#isWindowDragging = true;
-
-        // Prohibit the size reduction inside #openWidgetInPopup().
-        proxyRect.height += 50;
-
-        popupData = await this.#openWidgetInPopup(widgetName, proxyRect);
-
-        sortZone.startWindowDrag({
-            dragData: data,
-            ...popupData
-        });
     }
 
     /**
@@ -344,46 +180,6 @@ class ViewportController extends Controller {
             clearInterval(me.intervalId);
             me.intervalId = null
         }
-    }
-
-    /**
-     * @summary Private helper method to open a widget in a new popup window.
-     * @description This method calculates the precise screen coordinates for the new window based on the main
-     * window's position and the drag proxy's last known rectangle. It then calls the main thread
-     * to open the new window with the correct URL and features.
-     * @param {String} name The reference name of the widget.
-     * @param {Object} rect The DOM rect of the drag proxy.
-     * @returns {Promise<Object>} A promise that resolves with the new window's properties.
-     * @private
-     */
-    async #openWidgetInPopup(name, rect) {
-        let me                      = this,
-            {windowId}              = me,
-            {config, windowConfigs} = Neo,
-            {environment}           = config,
-            firstWindowId           = Object.keys(windowConfigs)[0],
-            {basePath}              = windowConfigs[firstWindowId],
-            url;
-
-        if (environment !== 'development') {
-            basePath = `${basePath + environment}/`
-        }
-
-        url = `${basePath}apps/colors/childapps/widget/index.html?name=${name}`;
-
-        let winData               = await Neo.Main.getWindowData({windowId}),
-            {height, width, x, y} = rect,
-            popupHeight           = height - 50, // popup header in Chrome
-            popupLeft             = x + winData.screenLeft,
-            popupTop              = y + (winData.outerHeight - winData.innerHeight + winData.screenTop);
-
-        await Neo.Main.windowOpen({
-            url,
-            windowFeatures: `height=${popupHeight},left=${popupLeft},top=${popupTop},width=${width}`,
-            windowName    : name
-        });
-
-        return {popupHeight, popupLeft, popupTop, popupWidth: width, windowName: name}
     }
 
     /**

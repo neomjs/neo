@@ -6,22 +6,23 @@ labels:
   - help wanted
   - good first issue
   - epic
+  - stale
   - hacktoberfest
   - ai
 assignees:
   - tobiu
 createdAt: '2025-10-06T09:03:06Z'
-updatedAt: '2025-10-06T10:40:57Z'
+updatedAt: '2026-01-05T03:23:20Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7385'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues:
-  - 7386
-  - 7387
-  - 7388
-  - 7389
-  - 7390
+  - '[x] 7386 Configure MCP Server for Project'
+  - '[x] 7387 Create Guide for Chrome DevTools MCP Server'
+  - '[ ] 7388 Define the "Sighted" Development Workflow'
+  - '[ ] 7389 Investigate Worker Console Access with MCP'
+  - '[ ] 7390 Create a "Sighted" Development Demo'
 subIssuesCompleted: 2
 subIssuesTotal: 5
 blockedBy: []
@@ -57,6 +58,12 @@ This initiative is a critical step towards building a more powerful and autonomo
 - **To Do:** ticket-investigate-worker-console-access-with-mcp.md
 - **To Do:** ticket-create-sighted-development-demo.md
 
+## Comments
+
+### @github-actions - 2026-01-05 03:23
+
+This issue is stale because it has been open for 90 days with no activity.
+
 ## Activity Log
 
 - 2025-10-06 @tobiu assigned to @tobiu
@@ -71,4 +78,5 @@ This initiative is a critical step towards building a more powerful and autonomo
 - 2025-10-06 @tobiu added sub-issue #7389
 - 2025-10-06 @tobiu added sub-issue #7390
 - 2025-10-06 @tobiu referenced in commit `d071c95` - "#7385 ticket md files"
+- 2026-01-05 @github-actions added the `stale` label
 

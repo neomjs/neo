@@ -1,8 +1,6 @@
 ---
 id: 6484
-title: >-
-  Portal.view.home.MainContainer: add support for deactivate() when
-  de-intersecting
+title: 'Portal.view.home.MainContainer: add support for deactivate() when de-intersecting'
 state: CLOSED
 labels:
   - enhancement

@@ -1,8 +1,6 @@
 ---
 id: 6906
-title: >-
-  Portal.view.learn.PageSectionsList: prevent showing inline code blocks inside
-  list items
+title: 'Portal.view.learn.PageSectionsList: prevent showing inline code blocks inside list items'
 state: CLOSED
 labels:
   - enhancement

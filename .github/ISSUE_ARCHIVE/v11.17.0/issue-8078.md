@@ -1,8 +1,6 @@
 ---
 id: 8078
-title: >-
-  Enhance Store DX: Add 'init' parameter to add() and insert() for immediate
-  record creation
+title: 'Enhance Store DX: Add ''init'' parameter to add() and insert() for immediate record creation'
 state: CLOSED
 labels:
   - enhancement

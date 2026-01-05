@@ -111,7 +111,7 @@ class HashHistory extends Base {
      * @returns {Object}
      */
     second(windowId) {
-        return this.getAt(0, windowId)
+        return this.getAt(1, windowId)
     }
 }
 

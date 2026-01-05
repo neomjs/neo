@@ -1,8 +1,6 @@
 ---
 id: 6397
-title: >-
-  main.addon.ScrollSync: register() => define the params & internal map to store
-  data
+title: 'main.addon.ScrollSync: register() => define the params & internal map to store data'
 state: CLOSED
 labels:
   - enhancement

@@ -1,8 +1,6 @@
 ---
 id: 6912
-title: >-
-  Form.view.FormPageContainer: use a tag config instead of overriding the vdom
-  tag manually
+title: 'Form.view.FormPageContainer: use a tag config instead of overriding the vdom tag manually'
 state: CLOSED
 labels:
   - enhancement

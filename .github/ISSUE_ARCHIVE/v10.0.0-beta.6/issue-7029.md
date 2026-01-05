@@ -15,18 +15,18 @@ author: tobiu
 commentsCount: 1
 parentIssue: null
 subIssues:
-  - 7030
-  - 7031
-  - 7032
-  - 7033
-  - 7034
-  - 7035
-  - 7036
-  - 7037
-  - 7038
-  - 7039
-  - 7040
-  - 7041
+  - '[x] 7030 Feature: Create Comparisons Overview Page'
+  - '[x] 7031 Feature: Add Neo.mjs vs. Solid.js Comparison Article'
+  - '[x] 7032 Feature: Add Neo.mjs vs. React Comparison Article'
+  - '[x] 7033 Feature: Add Neo.mjs vs. Angular Comparison Article'
+  - '[x] 7034 Add the mutable vdom & state concept to all 3 guides'
+  - '[x] 7035 Feature: Add Neo.mjs vs. Ext.js Comparison Article'
+  - '[x] 7036 Update Framework Comparison Guides'
+  - '[x] 7037 Overview.md: add a comparison table and remove redundancy'
+  - '[x] 7038 Update guides based on more LLM input'
+  - '[x] 7039 Feature: Add Neo.mjs vs. Vue.js Comparison Article'
+  - '[x] 7040 Feature: Compare Next.js (SSR/Build) vs. Neo.mjs (Zero-Build Dev Mode)'
+  - '[x] 7041 Overview => comparison table => add multi-window support'
 subIssuesCompleted: 12
 subIssuesTotal: 12
 blockedBy: []

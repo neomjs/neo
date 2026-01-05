@@ -1,8 +1,6 @@
 ---
 id: 7649
-title: >-
-  Feat: Make `agent` parameter required for `create_comment` tool and simplify
-  implementation
+title: 'Feat: Make `agent` parameter required for `create_comment` tool and simplify implementation'
 state: CLOSED
 labels:
   - enhancement

@@ -170,6 +170,16 @@ class Toolbar extends Container {
     replaceSpacer(item) {
         return item === '->' ? {module: Component, flex: 1} : item
     }
+
+    /**
+     * @returns {Object}
+     */
+    toJSON() {
+        return {
+            ...super.toJSON(),
+            dock: this.dock
+        }
+    }
 }
 
 export default Neo.setupClass(Toolbar);

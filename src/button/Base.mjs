@@ -632,6 +632,30 @@ class Button extends Component {
     }
 
     /**
+     * Serializes the button into a JSON-compatible object.
+     * @returns {Object}
+     */
+    toJSON() {
+        let me      = this,
+            handler = me.handler;
+
+        return {
+            ...super.toJSON(),
+            badgePosition: me.badgePosition,
+            badgeText    : me.badgeText,
+            handler      : Neo.isString(handler) ? handler : (Neo.isFunction(handler) ? 'function' : null),
+            iconCls      : me.iconCls,
+            iconColor    : me.iconColor,
+            iconPosition : me.iconPosition,
+            pressed      : me.pressed,
+            route        : me.route,
+            text         : me.text,
+            url          : me.url,
+            urlTarget    : me.urlTarget
+        }
+    }
+
+    /**
      * Updates the VDOM tag of the button (e.g., switching between 'button' and 'a' tags) based on the current configuration.
      */
     updateTag() {

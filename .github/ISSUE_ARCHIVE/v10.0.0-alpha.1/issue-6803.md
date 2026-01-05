@@ -1,8 +1,6 @@
 ---
 id: 6803
-title: >-
-  vdom.Helper: create() => only generate outerHTML in case
-  Neo.config.useStringBasedMounting equals true
+title: 'vdom.Helper: create() => only generate outerHTML in case Neo.config.useStringBasedMounting equals true'
 state: CLOSED
 labels:
   - enhancement

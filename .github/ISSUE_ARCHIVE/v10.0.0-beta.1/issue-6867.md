@@ -1,8 +1,6 @@
 ---
 id: 6867
-title: >-
-  draggable.grid.header.toolbar.SortZone: honor the grid.View => grid.Body
-  refactoring
+title: 'draggable.grid.header.toolbar.SortZone: honor the grid.View => grid.Body refactoring'
 state: CLOSED
 labels:
   - enhancement

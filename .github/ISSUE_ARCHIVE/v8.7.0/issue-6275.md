@@ -1,8 +1,6 @@
 ---
 id: 6275
-title: >-
-  data.RecordFactory: setRecordFields() => only touch _isModified for
-  non-initial data changes
+title: 'data.RecordFactory: setRecordFields() => only touch _isModified for non-initial data changes'
 state: CLOSED
 labels:
   - enhancement

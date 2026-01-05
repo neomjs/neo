@@ -180,6 +180,17 @@ class BaseModel extends Model {
     }
 
     /**
+     * @returns {Object}
+     */
+    toJSON() {
+        return {
+            ...super.toJSON(),
+            selectedColumns: this.selectedColumns,
+            selectedRows   : this.selectedRows
+        }
+    }
+
+    /**
      *
      */
     unregister() {

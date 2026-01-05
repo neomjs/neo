@@ -1,8 +1,6 @@
 ---
 id: 6233
-title: >-
-  grid.Container / View: add support for the keys PageDown, PageUp, End, Home to
-  navigate
+title: 'grid.Container / View: add support for the keys PageDown, PageUp, End, Home to navigate'
 state: CLOSED
 labels:
   - enhancement

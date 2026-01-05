@@ -1,8 +1,6 @@
 ---
 id: 6545
-title: >-
-  component.Progress: get label(), get progress(), afterSetLabelText() => use
-  removeDom
+title: 'component.Progress: get label(), get progress(), afterSetLabelText() => use removeDom'
 state: CLOSED
 labels:
   - enhancement

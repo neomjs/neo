@@ -46,13 +46,19 @@ const defaultConfig = {
      * The name of the Google Generative AI model for text embeddings.
      * @type {string}
      */
-    embeddingModel: 'text-embedding-004',
+    embeddingModel: 'gemini-embedding-001',
     /**
      * Pagination limit for fetching records during session summarization scans.
      * Controls the batch size for memory and summary retrieval.
      * @type {number}
      */
     summarizationBatchLimit: 2000,
+    /**
+     * Maximum number of concurrent session summarization requests.
+     * Prevents hitting LLM/Embedding API rate limits during bulk operations.
+     * @type {number}
+     */
+    summarizationConcurrency: 5,
     /**
      * Configuration for the AI agent's persistent memory database.
      */

@@ -98,6 +98,22 @@ class Model extends Base {
     }
 
     /**
+     * Serializes the instance into a JSON-compatible object for the Neural Link.
+     * @returns {Object}
+     */
+    toJSON() {
+        let me = this;
+
+        return {
+            ...super.toJSON(),
+            fields             : me.serializeConfig(me.fields),
+            keyProperty        : me.keyProperty,
+            storeId            : me.storeId,
+            trackModifiedFields: me.trackModifiedFields
+        }
+    }
+
+    /**
      * @param {Object[]} fields
      * @param {Boolean} isRoot=true
      * @param {String} path=''

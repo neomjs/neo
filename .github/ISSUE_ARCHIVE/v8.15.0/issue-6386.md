@@ -1,8 +1,6 @@
 ---
 id: 6386
-title: >-
-  grid.View: createRow() => hide cells for a column, in case it is currently
-  being dragged
+title: 'grid.View: createRow() => hide cells for a column, in case it is currently being dragged'
 state: CLOSED
 labels:
   - enhancement

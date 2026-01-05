@@ -1,8 +1,6 @@
 ---
 id: 7757
-title: >-
-  Optimize GraphQL responses for `ADD_BLOCKED_BY` and `REMOVE_BLOCKED_BY`
-  mutations
+title: Optimize GraphQL responses for `ADD_BLOCKED_BY` and `REMOVE_BLOCKED_BY` mutations
 state: CLOSED
 labels:
   - bug

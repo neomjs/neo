@@ -69,6 +69,7 @@ class DomAccess extends Base {
                 'focus',
                 'getAttributes',
                 'getBoundingClientRect',
+                'getComputedStyle',
                 'getOffscreenCanvas',
                 'getScrollingDimensions',
                 'measure',
@@ -404,11 +405,48 @@ class DomAccess extends Base {
     }
 
     /**
-     * @param {String|HTMLElement} nodeId
-     * @returns {HTMLElement|null}
+     * @param {Object} data
+     * @param {String} data.id
+     * @param {String|String[]} data.style
+     * @returns {Object}
+     */
+    getComputedStyle({id, style}) {
+        let node   = this.getElement(id),
+            styles = {};
+
+        if (node) {
+            let computedStyle = window.getComputedStyle(node);
+
+            if (!Array.isArray(style)) {
+                style = [style]
+            }
+
+            style.forEach(prop => {
+                styles[prop] = computedStyle.getPropertyValue(prop)
+            })
+        }
+
+        return styles
+    }
+
+    /**
+     * @param {String|HTMLElement|Window|Document} nodeId
+     * @returns {HTMLElement|Window|Document|null}
      * @protected
      */
     getElement(nodeId) {
+        if (nodeId === 'window') {
+            return globalThis
+        }
+
+        if (nodeId === 'document') {
+            return document
+        }
+
+        if (nodeId === 'document.body' || nodeId === 'body') {
+            return document.body
+        }
+
         let node = nodeId?.nodeType ?
             nodeId : Neo.config.useDomIds ?
                 document.getElementById(nodeId) :
@@ -427,7 +465,7 @@ class DomAccess extends Base {
             return null
         }
 
-        return nodeId.nodeType ? nodeId : (nodeId === 'body' || nodeId === 'document.body') ? document.body : this.getElement(nodeId)
+        return this.getElement(nodeId)
     }
 
     /**

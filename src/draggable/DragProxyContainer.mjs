@@ -18,6 +18,10 @@ class DragProxyContainer extends BaseContainer {
          */
         ntype: 'dragproxycontainer',
         /**
+         * @member {Boolean} autoInitVnode=true
+         */
+        autoInitVnode: true,
+        /**
          * @member {Boolean} autoMount=true
          */
         autoMount: true,
@@ -27,6 +31,7 @@ class DragProxyContainer extends BaseContainer {
         baseCls: ['neo-dragproxy'],
         /**
          * @member {Object} layout='fit'
+         * @reactive
          */
         layout: 'fit',
         /**
@@ -53,8 +58,8 @@ class DragProxyContainer extends BaseContainer {
 
     /**
      * Triggered after the windowId config got changed
-     * @param {Number|null} value
-     * @param {Number|null} oldValue
+     * @param {String|null} value
+     * @param {String|null} oldValue
      * @protected
      */
     afterSetWindowId(value, oldValue) {

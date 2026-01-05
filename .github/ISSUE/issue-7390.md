@@ -6,13 +6,14 @@ labels:
   - enhancement
   - help wanted
   - good first issue
+  - stale
   - hacktoberfest
 assignees: []
 createdAt: '2025-10-06T10:38:41Z'
-updatedAt: '2025-10-06T11:05:39Z'
+updatedAt: '2026-01-05T03:23:19Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7390'
 author: tobiu
-commentsCount: 2
+commentsCount: 3
 parentIssue: 7385
 subIssues: []
 subIssuesCompleted: 0
@@ -61,6 +62,10 @@ https://discord.gg/6p8paPq
 
 Let me know in case you are still up for the task! If so, I will assign the ticket to you.
 
+### @github-actions - 2026-01-05 03:23
+
+This issue is stale because it has been open for 90 days with no activity.
+
 ## Activity Log
 
 - 2025-10-06 @tobiu added the `enhancement` label
@@ -68,4 +73,5 @@ Let me know in case you are still up for the task! If so, I will assign the tick
 - 2025-10-06 @tobiu added the `help wanted` label
 - 2025-10-06 @tobiu added the `good first issue` label
 - 2025-10-06 @tobiu added the `hacktoberfest` label
+- 2026-01-05 @github-actions added the `stale` label
 

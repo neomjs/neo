@@ -1,8 +1,6 @@
 ---
 id: 6838
-title: >-
-  [v10] Move the __webpack_require__.p override inside main threads before the
-  very first dynamic import
+title: '[v10] Move the __webpack_require__.p override inside main threads before the very first dynamic import'
 state: CLOSED
 labels:
   - bug

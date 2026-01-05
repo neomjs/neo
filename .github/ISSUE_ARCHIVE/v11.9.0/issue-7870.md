@@ -1,8 +1,6 @@
 ---
 id: 7870
-title: >-
-  Docs: Clarify distinction between Non-Reactive Configs and Class Fields in
-  Neo.core.Base
+title: 'Docs: Clarify distinction between Non-Reactive Configs and Class Fields in Neo.core.Base'
 state: CLOSED
 labels:
   - documentation

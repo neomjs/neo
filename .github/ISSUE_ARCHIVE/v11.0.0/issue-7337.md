@@ -1,8 +1,6 @@
 ---
 id: 7337
-title: >-
-  Enhance Agent Session Initialization: Generate New Session ID and Validate
-  Memory Core State
+title: 'Enhance Agent Session Initialization: Generate New Session ID and Validate Memory Core State'
 state: CLOSED
 labels:
   - bug

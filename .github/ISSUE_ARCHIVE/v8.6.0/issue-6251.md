@@ -1,8 +1,6 @@
 ---
 id: 6251
-title: >-
-  data.Model: afterSetFields() => take ownership of creating & updating the
-  record class
+title: 'data.Model: afterSetFields() => take ownership of creating & updating the record class'
 state: CLOSED
 labels:
   - enhancement

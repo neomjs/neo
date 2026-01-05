@@ -1,8 +1,6 @@
 ---
 id: 6754
-title: >-
-  buildScripts/buildESModules: enhance the import regex to better catch dynamic
-  imports
+title: 'buildScripts/buildESModules: enhance the import regex to better catch dynamic imports'
 state: CLOSED
 labels:
   - enhancement

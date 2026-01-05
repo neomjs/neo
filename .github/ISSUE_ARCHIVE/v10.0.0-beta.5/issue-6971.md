@@ -1,8 +1,6 @@
 ---
 id: 6971
-title: >-
-  tab.header.EffectButton: create a PoC to showcase that we can extend
-  button.Effect
+title: 'tab.header.EffectButton: create a PoC to showcase that we can extend button.Effect'
 state: CLOSED
 labels:
   - enhancement

@@ -39,4 +39,5 @@ This is a technical debt cleanup task.
 - 2025-12-21 @tobiu added the `ai` label
 - 2025-12-21 @tobiu added the `refactoring` label
 - 2025-12-21 @tobiu added the `architecture` label
+- 2025-12-21 @tobiu cross-referenced by #8149
 

@@ -259,7 +259,7 @@ class Base {
             }
         });
 
-        me.id = config.id || IdGenerator.getId(this.getIdKey());
+        me.id = config.id || me.constructor.config.id || IdGenerator.getId(this.getIdKey());
         delete config.id;
 
         // Assign class field values prior to configs
@@ -629,16 +629,19 @@ class Base {
             {currentWorker}     = Neo;
 
         if (!Neo.config.isMiddleware && !Neo.config.unitTestMode) {
-            if (Neo.workerId !== 'main' && currentWorker.isSharedWorker && !currentWorker.isConnected) {
-                await new Promise(resolve => {
-                    currentWorker.on('connected', async () => {
-                        await Base.promiseRemotes(className, remote);
-                        resolve()
-                    }, this, {once: true})
-                })
-            } else {
-                await Base.promiseRemotes(className, remote)
+            if (Neo.workerId !== 'main' && currentWorker.isSharedWorker) {
+                if (remote.main) {
+                    currentWorker.remotesToRegister.push({className, methods: remote.main})
+                }
+
+                if (!currentWorker.isConnected) {
+                    await new Promise(resolve => {
+                        currentWorker.on('connected', () => resolve(), this, {once: true})
+                    })
+                }
             }
+
+            await Base.promiseRemotes(className, remote)
         }
     }
 
@@ -892,6 +895,60 @@ class Base {
     }
 
     /**
+     * Serializes a config object/array to be JSON-compatible.
+     * Use this method when a config might contain references to Neo classes (constructors)
+     * which need to be converted to their className strings for serialization.
+     * @param {Array|Object} config
+     * @returns {Array|Object}
+     */
+    serializeConfig(config) {
+        let me   = this,
+            type = Neo.typeOf(config);
+
+        if (type === 'Array') {
+            return config.map(item => me.serializeConfig(item))
+        }
+
+        if (type === 'NeoInstance') {
+            return {
+                className: config.className,
+                id       : config.id
+            }
+        }
+
+        if (type !== 'Object') {
+            return type === 'NeoClass' ? config.prototype.className : config
+        }
+
+        let out = {};
+
+        Object.entries(config).forEach(([key, value]) => {
+            type = Neo.typeOf(value);
+
+            if (type === 'NeoClass') {
+                if (key === 'module') {
+                    out.className = value.prototype.className
+                } else {
+                    out[key] = value.prototype.className
+                }
+            } else if (type === 'NeoInstance') {
+                out[key] = {
+                    className: value.className,
+                    id       : value.id
+                }
+            } else if (type === 'Object' || type === 'Array') {
+                out[key] = me.serializeConfig(value)
+            } else if (type !== 'Function') {
+                out[key] = value
+            } else {
+                out[key] = '[Function]'
+            }
+        });
+
+        return out
+    }
+
+    /**
      * set() accepts the following input as keys:
      * 1. Non-reactive configs
      * 2. Reactive configs
@@ -997,6 +1054,70 @@ class Base {
 
             timeoutIds.push(timeoutId)
         })
+    }
+
+    /**
+     * Recursive helper to extract all mixin classes from the mixins object
+     * @param {Object} [obj=this.mixins]
+     * @param {Array} [res=[]]
+     * @returns {Array}
+     * @protected
+     */
+    getMixins(obj=this.mixins, res=[]) {
+        if (obj) {
+            Object.values(obj).forEach(value => {
+                if (value && value.prototype) {
+                    res.push(value)
+                } else if (Neo.isObject(value)) {
+                    this.getMixins(value, res)
+                }
+            })
+        }
+
+        return res
+    }
+
+    /**
+     * Serializes the instance into a JSON-compatible object for the Neural Link.
+     * Subclasses should override this to include their specific relevant state.
+     * @returns {Object}
+     */
+    toJSON() {
+        let me = this;
+
+        // Recursion guard: If a mixin calls super.toJSON(), it hits this method again.
+        // We return the base object to break the loop.
+        if (me.__inToJSON) {
+            return {
+                className  : me.className,
+                id         : me.id,
+                isDestroyed: me.isDestroyed,
+                ntype      : me.ntype,
+                remote     : me.remote
+            }
+        }
+
+        me.__inToJSON = true;
+
+        try {
+            let out = {
+                className  : me.className,
+                id         : me.id,
+                isDestroyed: me.isDestroyed,
+                ntype      : me.ntype,
+                remote     : me.remote
+            };
+
+            me.getMixins().forEach(mixin => {
+                if (mixin.prototype.toJSON) {
+                    Object.assign(out, mixin.prototype.toJSON.call(me))
+                }
+            });
+
+            return out
+        } finally {
+            delete me.__inToJSON
+        }
     }
 
     /**

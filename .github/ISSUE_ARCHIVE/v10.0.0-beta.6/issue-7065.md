@@ -1,8 +1,6 @@
 ---
 id: 7065
-title: >-
-  component.Base: destroy() => remove
-  `parentStateProvider?.removeBindings(me.id)`
+title: 'component.Base: destroy() => remove `parentStateProvider?.removeBindings(me.id)`'
 state: CLOSED
 labels:
   - enhancement

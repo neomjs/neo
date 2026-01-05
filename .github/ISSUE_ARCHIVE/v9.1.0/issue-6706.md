@@ -1,8 +1,6 @@
 ---
 id: 6706
-title: >-
-  examples.tableStore.MainContainer: update cells 100x => access the record
-  without using the data symbol
+title: 'examples.tableStore.MainContainer: update cells 100x => access the record without using the data symbol'
 state: CLOSED
 labels:
   - enhancement

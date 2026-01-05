@@ -1,8 +1,6 @@
 ---
 id: 7901
-title: >-
-  Split Playwright tests into granular knowledge base chunks for better
-  retrieval
+title: Split Playwright tests into granular knowledge base chunks for better retrieval
 state: CLOSED
 labels:
   - enhancement

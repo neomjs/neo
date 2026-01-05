@@ -15,16 +15,16 @@ author: tobiu
 commentsCount: 1
 parentIssue: null
 subIssues:
-  - 8001
-  - 8002
-  - 8003
-  - 8004
-  - 8007
-  - 8010
-  - 8008
-  - 8013
-  - 8006
-  - 8014
+  - '[x] 8001 Implement App Worker MCP Server PoC (Neural Link)'
+  - '[x] 8002 Refactor App Worker MCP Server to use ToolService'
+  - '[x] 8003 Make AI Tooling Dependencies Optional'
+  - '[x] 8004 Create Dedicated Example App for AI Bridge Testing'
+  - '[x] 8007 Implement Dynamic Loading for NeuralLink'
+  - '[x] 8010 Align Neural Link MCP Server with Memory Core Server'
+  - '[x] 8008 Create Neural Link Testbed App'
+  - '[x] 8013 Implement End-to-End Tests for Neural Link'
+  - '[x] 8006 Implement Neo.ai.NeuralLink (App Worker)'
+  - '[x] 8014 Update ai/services.mjs to use Neural Link'
 subIssuesCompleted: 10
 subIssuesTotal: 10
 blockedBy: []

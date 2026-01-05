@@ -1,8 +1,6 @@
 ---
 id: 6504
-title: >-
-  tab.Container: afterSetTabBarPosition() => bundle all changes into 1 update
-  cycle
+title: 'tab.Container: afterSetTabBarPosition() => bundle all changes into 1 update cycle'
 state: CLOSED
 labels:
   - enhancement

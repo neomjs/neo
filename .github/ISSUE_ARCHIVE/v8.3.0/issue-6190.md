@@ -1,8 +1,6 @@
 ---
 id: 6190
-title: >-
-  grid.View: afterSetScrollPosition() => only change the startIndex when
-  scrolling more than the buffer row range
+title: 'grid.View: afterSetScrollPosition() => only change the startIndex when scrolling more than the buffer row range'
 state: CLOSED
 labels:
   - enhancement

@@ -1,8 +1,6 @@
 ---
 id: 6821
-title: >-
-  Neo.vdom.util.DomApiVnodeCreator: create() => opt out for componentId
-  reference nodes
+title: 'Neo.vdom.util.DomApiVnodeCreator: create() => opt out for componentId reference nodes'
 state: CLOSED
 labels:
   - enhancement

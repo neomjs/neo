@@ -1,8 +1,6 @@
 ---
 id: 6863
-title: >-
-  core.Base: isReady, readyPromise class fields, and support for an optional
-  initAsync() method
+title: 'core.Base: isReady, readyPromise class fields, and support for an optional initAsync() method'
 state: CLOSED
 labels:
   - enhancement

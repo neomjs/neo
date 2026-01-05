@@ -1,8 +1,6 @@
 ---
 id: 6256
-title: >-
-  data.RecordFactory: setRecordFields() => re-enable passing partial objects for
-  changing nested fields
+title: 'data.RecordFactory: setRecordFields() => re-enable passing partial objects for changing nested fields'
 state: CLOSED
 labels:
   - enhancement

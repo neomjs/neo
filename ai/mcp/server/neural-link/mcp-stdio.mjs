@@ -13,6 +13,7 @@ program
     .name('neo-neural-link-mcp')
     .description('Neo.mjs Neural Link MCP Server')
     .option('-c, --config <path>', 'Path to the configuration file', sanitizeInput)
+    .option('-w, --cwd <path>', 'Working directory for the bridge process')
     .option('-d, --debug', 'Enable debug logging')
     .parse(process.argv);
 
@@ -25,7 +26,8 @@ if (options.debug) {
 
 try {
     await Neo.create(Server, {
-        configFile: options.config
+        configFile: options.config,
+        bridgeCwd : options.cwd
     }).ready();
 } catch (error) {
     logger.error('Fatal error during server initialization:', error);

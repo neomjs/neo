@@ -1598,6 +1598,36 @@ class Component extends Abstract {
     }
 
     /**
+     * Serializes the component into a JSON-compatible object.
+     * Extends the core.Base serialization with component-specific properties.
+     * @returns {Object}
+     */
+    toJSON() {
+        let me = this;
+
+        return {
+            ...super.toJSON(),
+            align       : me.align,
+            cls         : me.cls,
+            controller  : me.controller?.toJSON(),
+            disabled    : me.disabled,
+            height      : me.height,
+            hidden      : me.hidden,
+            keys        : me.keys?.toJSON(),
+            reference   : me.reference,
+            role        : me.role,
+            style       : me.style,
+            theme       : me.theme,
+            ui          : me.ui,
+            vdom        : me.vdom,
+            vnode       : me.vnode,
+            width       : me.width,
+            wrapperCls  : me.wrapperCls,
+            wrapperStyle: me.wrapperStyle
+        }
+    }
+
+    /**
      *
      */
     updateStyle() {

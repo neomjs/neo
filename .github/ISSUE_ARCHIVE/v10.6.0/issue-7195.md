@@ -1,8 +1,6 @@
 ---
 id: 7195
-title: >-
-  Implement the create method for the Open Streetmaps addon so that the example
-  component will load a map
+title: Implement the create method for the Open Streetmaps addon so that the example component will load a map
 state: CLOSED
 labels: []
 assignees: []

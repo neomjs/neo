@@ -82,6 +82,21 @@ class AnimatedCurrency extends AnimatedChange {
     getAnimationCls(record) {
         return record[this.compareField || this.dataField] < 0 ? 'neo-animated-negative' : 'neo-animated-positive'
     }
+
+    /**
+     * Serializes the instance into a JSON-compatible object for the Neural Link.
+     * @returns {Object}
+     */
+    toJSON() {
+        let me = this;
+
+        return {
+            ...super.toJSON(),
+            compareField: me.compareField,
+            currency    : me.currency,
+            locale      : me.locale
+        }
+    }
 }
 
 export default Neo.setupClass(AnimatedCurrency);

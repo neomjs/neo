@@ -17,21 +17,21 @@ author: tobiu
 commentsCount: 2
 parentIssue: null
 subIssues:
-  - 7400
-  - 7401
-  - 7402
-  - 7403
-  - 7404
-  - 7406
-  - 7407
-  - 7408
-  - 7409
-  - 7410
-  - 7411
-  - 7412
-  - 7425
-  - 7464
-  - 7468
+  - '[x] 7400 Define Agent-Agnostic MCP Server Configuration'
+  - '[x] 7401 Design Knowledge Base MCP Server API'
+  - '[x] 7402 Design Memory Core MCP Server API'
+  - '[x] 7403 MCP Server: Implement Knowledge Server Scaffold'
+  - '[x] 7404 MCP Server: Implement Knowledge Read Endpoints'
+  - '[x] 7406 MCP Server: Implement Knowledge Admin Endpoints'
+  - '[x] 7407 MCP Server: Implement Memory Server Scaffold'
+  - '[x] 7408 MCP Server: Implement Memory Read Endpoints'
+  - '[x] 7409 MCP Server: Implement Memory Query Endpoints'
+  - '[x] 7410 MCP Server: Implement Memory Create Endpoint'
+  - '[x] 7411 MCP Server: Implement Memory Lifecycle Endpoints'
+  - '[x] 7412 MCP Server: Implement Memory Admin Endpoints'
+  - '[x] 7425 MCP Config: Align Knowledge Server Port and Health Check'
+  - '[x] 7464 MCP Server: Refine Memory Server Endpoints'
+  - '[x] 7468 MCP Server: Relocate Memory API Specification'
 subIssuesCompleted: 15
 subIssuesTotal: 15
 blockedBy: []

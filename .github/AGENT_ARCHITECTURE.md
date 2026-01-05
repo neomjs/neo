@@ -1,165 +1,92 @@
-# Agent-App Integration Architecture: The Neural Link
+# Neo Agent OS: The Autonomous Application Engine
 
-## Vision
-Enable real-time, bidirectional communication between AI agents (Node.js) and Neo.mjs applications (Browser) via WebSocket RMA. This creates a "Neural Link" allowing autonomous agents to observe, react to, and manipulate visual interfaces as first-class citizens of the runtime environment.
+## 1. Vision
+Transform Neo.mjs from a passive framework into an **Autonomous Application Engine**.
+The goal is to move beyond "Interactive Assistance" (CLI) to **"Asynchronous Agency"** (Swarm).
+We are building a digital workforce ("Night Watchman," "Bug Hunter") that operates autonomously to maintain, optimize, and extend applications.
 
-## System Architecture
+## 2. Core Architecture
 
-### Topology
+### 2.1. The Runtime: Node.js Agent Server
+*   **Role:** The persistent "Body" of the Agent OS.
+*   **Why Node.js?**
+    *   **Stability:** Does not crash when the browser reloads.
+    *   **Persistence:** Hosts the long-running loops and state.
+    *   **Connectivity:** Acts as the hub for MCP Clients (GitHub, FS) and LLM APIs.
+*   **Vs. In-App Workers:** While in-app workers (via `MessageChannel`) offer low latency, they are ephemeral. The Node.js runtime provides the necessary lifecycle stability for DevOps tasks.
 
-```
-      [ Autonomous Agent (Node.js) ]
-      +------------------------------------------+
-      |  [ Event Priority Queue ]                |
-      |    ^      ^       ^                      |
-      |    |      |       |                      |
-      | (Logs) (Events) (User)                   |
-      |    |      |       |                      |
-      |  [ Cognitive Loop ] <---> [ LLM Model ]  |
-      |    |      |                              |
-      |    v      v                              |
-      |  [ Context Window ]                      |
-      |    |                                     |
-      |    v                                     |
-      |  [ Action Dispatcher ]                   |
-      +----+--------------+----------------------+
-           |              |
-      (WebSocket)     (MCP Tools)
-           |              |
-           v              v
-    [ Browser App ]   [ GitHub / FS ]
-```
+### 2.2. The Orchestrator (The "Loop")
+*   **Role:** The "Brain" that replaces the human-in-the-loop.
+*   **Mechanism:** A persistent event loop that manages agent lifecycles.
+*   **Responsibilities:**
+    *   **Task Ingestion:** Monitors GitHub Issues, Webhooks, and Timers.
+    *   **Agent Spawning:** Instantiates specific agents (PM, Dev, QA) based on task type.
+    *   **State Management:** Maintains the Context Graph.
+    *   **Termination:** Enforces budgets (tokens/time) and quality gates.
 
-## Architectural Pillars
+### 2.3. The Context Graph (The "Shared World Model")
+*   **Role:** The structured memory that prevents "Context Window Overflow" in multi-agent swarms.
+*   **Data Structure:** A directed graph modeling project reality.
+    *   **Nodes:** Tickets, Files, Concepts, Agents, Errors.
+    *   **Edges:** `is_blocking`, `modifies`, `relates_to`, `assigned_to`.
+*   **Usage:** Agents receive a *subgraph* relevant to their task, not the entire chat history.
 
-### Pillar 0: The Cognitive Runtime (New Foundation)
-Transforming the Agent from a passive script to an autonomous daemon.
+### 2.4. Decision Trees (The "SOPs")
+*   **Role:** The algorithmic "Game Rules" that guide agent behavior.
+*   **Mechanism:** Hard-coded or learned logic defining legal transitions.
+    *   *Example:* `If (Build Fails) -> Retry(MAX=3) -> Else Escalate`.
+*   **Benefit:** Prevents infinite loops and embeds "Senior Engineer Intuition" into the process.
 
-**The Stimulus-Response Loop:**
-1.  **Perceive:** Events (Errors, User Prompts, DOM Changes) enter a **Priority Queue**.
-    *   *Critical:* System Crashes, Security Alerts.
-    *   *High:* User Input.
-    *   *Normal:* State Changes.
-    *   *Low:* Telemetry noise.
-2.  **Reason:** The Agent wraps the event in a "Synthetic Prompt" and queries the **LLM Model**.
-3.  **Act:** The LLM decides to call a Tool (MCP) or send a Remote Command (RPC).
-4.  **Reflect:** The Agent observes the result of its action and updates its Context Window.
+### 2.5. The Neural Link (The "Hands & Eyes")
+*   **Role:** The bridge between the Node.js Agent OS and the running Neo.mjs Browser App.
+*   **Technology:** WebSocket-based Remote Method Access (RMA).
+*   **Capabilities:**
+    *   **Introspection:** `get_component_tree`, `get_dom_event_listeners`.
+    *   **Manipulation:** `set_component_property`, `simulate_event`.
+    *   **Orchestration:** Spawning new windows, navigating routes.
 
-**Components:**
--   **`Neo.ai.model.Base`:** Abstract layer for LLM providers (Gemini, OpenAI).
--   **`ContextWindow`:** Manages token limits, history compression, and long-term memory retrieval.
--   **`Guardrails`:** Rate limiting and human-approval gates for destructive actions.
+## 3. Swarm Topology
 
-### Pillar 1: Bidirectional WebSocket RMA
-The core communication backbone.
-
-**Connection Model: Browser Connects to Agent Server** (Recommended)
--   **Mechanism:** Agent runs WebSocket server (e.g., localhost:8080). Browser connects via `Neo.main.addon.Remote` using `Neo.config.remotesApiUrl`.
--   **Reasoning:** Agents are long-lived services; browser tabs are ephemeral. Standard client-server pattern.
-
-**RPC Flows:**
--   **Browser -> Agent:** (Existing)
-    -   App Worker calls backend services via `remotes-api.json`.
-    -   Example: `await AgentOS.agents.Analyzer.analyzeComponent({...})`
--   **Agent -> Browser:** (New Capability)
-    -   Node.js Agent calls App Worker methods (RPC) via WebSocket.
-    -   Example: `await browserApp.call('Neo.worker.App.createNeoInstance', {...})`
-    -   **Requirement:** Implement reverse RPC routing in `Neo.worker.mixin.Remote`.
-
-**Message Format:**
-```json
-// Agent -> Browser (RPC Call)
-{
-  "type": "rpc",
-  "id": "uuid-v4",
-  "method": "Neo.worker.App.createNeoInstance",
-  "params": {...},
-  "windowId": "neo-window-1",
-  "timeout": 5000
-}
-
-// Browser -> Agent (RPC Response)
-{
-  "type": "rpc_response",
-  "id": "uuid-v4",
-  "result": {...},
-  "error": null
-}
-
-// Browser -> Agent (Event Push)
-{
-  "type": "event",
-  "name": "neo:error",
-  "data": {...},
-  "windowId": "neo-window-1",
-  "timestamp": 1234567890
-}
+```mermaid
+graph TD
+    User((User)) -->|Goal| Orchestrator[Orchestrator Node]
+    Orchestrator -->|Manage| ContextGraph[(Context Graph)]
+    Orchestrator -->|Spawn| PM[PM Agent]
+    
+    PM -->|Plan| ContextGraph
+    PM -->|Delegate| Dev[Dev Agent]
+    PM -->|Delegate| QA[QA Agent]
+    
+    Dev -->|Code| FS[File System]
+    Dev -->|Control| NeuralLink[Neural Link WSS]
+    
+    QA -->|Verify| NeuralLink
+    
+    NeuralLink -->|RMA| BrowserApp[Neo.mjs Browser App]
 ```
 
-### Pillar 2: Event & Log Telemetry
-Solving the "Blind Agent" problem.
--   **Strategy A (Phase 1 - Immediate):** `Neo.worker.mixin.LogBridge`
-    -   A Worker-side interceptor that overrides `console.*` and `globalThis.onerror`.
-    -   Forwards serializable logs via the WebSocket RMA channel to the Agent.
-    -   Provides immediate observability without external dependencies.
--   **Strategy B (Phase 2 - Future):** MCP DevTools Enhancement
-    -   Contribute support for `worker` and `shared_worker` targets to the MCP DevTools server.
--   **Semantic Event Stream:**
-    -   Agents can subscribe to high-level Neo.mjs framework events (`neo:component:mount`, `neo:window:connect`).
-    -   **Event Filtering:** Agents specify subscriptions (e.g., `agent.subscribe(['neo:error'])`) to avoid noise.
+## 4. Implementation Strategy
 
-### Pillar 3: Security & Capabilities
-Safe autonomous control.
--   **Threat Model:** Malicious/Buggy Agents, Compromised Connections.
--   **Mitigations:**
-    -   **Capability Tokens:** Signed JWTs defining permitted actions.
-    -   **Default Deny:** All capabilities require explicit grant.
-    -   **Kill Switch:** Ability to revoke agent access instantly.
--   **Example Roles:**
-    -   **Observer:** `component:read`, `log:read`
-    -   **Developer:** `component:create`, `component:update`, `config:set`
-    -   **Admin:** `component:destroy`, `window:manage`
-    -   **Forbidden:** `code:eval`
+### Phase 1: The "Night Watchman" (Prototype)
+*   **Goal:** A simple script (`supervisor.mjs`) that runs nightly.
+*   **Logic:**
+    1.  Read `TODO.md`.
+    2.  Pick top item.
+    3.  Run `gemini` (or equivalent API) to implement.
+    4.  Run tests.
+    5.  Commit or Rollback.
 
-### Pillar 4: Agent-Spawned Applications
-Dynamic workspace expansion.
--   **Mechanism:**
-    -   Agent calls `Neo.Main.windowOpen({ app: 'agent-task-view' })`.
-    -   Agent injects the initial state/configuration for the new window.
+### Phase 2: The Neural Link Integration
+*   **Goal:** Enable agents to "see" and "debug" the app.
+*   **Key Tools:**
+    *   `get_dom_event_listeners` (Introspection).
+    *   `simulate_event` (Interaction).
+    *   `get_computed_styles` (Visual verification).
 
-## Operational Resilience
+### Phase 3: The Context Graph
+*   **Goal:** Structured inter-agent memory.
+*   **Stack:** Graph Database (or JSON-based in-memory graph) + Vector Search (ChromaDB).
 
-### Reconnection Strategy
--   **On Browser Disconnect:** Agent marks window as "offline" but keeps state for 30s. Reconnection restores subscriptions.
--   **On Agent Restart:** Browser attempts exponential backoff reconnection (1s to 30s). Agent recovers state from Memory Core.
--   **Heartbeat:** 10s ping/pong to detect network partitions.
-
-### Known Failure Modes
--   **Single Point of Failure:** WebSocket server crash stops all comms. Mitigation: Auto-restart & browser retry.
--   **State Desync:** Stale agent view. Mitigation: Browser sends full snapshot on reconnect.
--   **Serialization Errors:** `JSON.stringify` failures in params. Mitigation: Reject early, log warning.
--   **Runaway Agent:** Agent enters a loop of destructive actions. Mitigation: Rate limiting (actions/min) & Human-in-the-loop for critical ops.
-
-## Implementation Roadmap
-
-### Phase 0A: Cognitive Runtime (Priority 1)
-1.  **Model Layer:** Implement `Neo.ai.model.Base` and `Neo.ai.model.Gemini`.
-2.  **Loop:** Implement `Agent.chat()` loop with Context Window.
-3.  **Events:** Implement `PriorityQueue` for incoming signals.
-
-### Phase 0B: The Neural Link Spike (Priority 2 - Parallel)
-1.  **Proof of Concept:** Build minimal bidirectional RPC (Agent -> Browser).
-2.  **Integration:** Wire WebSocket `onMessage` directly into the Agent's Event Queue.
-
-### Phase 1: Infrastructure
-1.  Design `agent-api.json` schema.
-2.  Implement `Neo.ai.server.WebSocket`.
-3.  Verify bidirectional RMA.
-
-### Phase 2: Observability
-1.  Implement `Neo.worker.mixin.LogBridge`.
-2.  Create the "Agent Console" view in the Command Center.
-
-### Phase 3: Control & Security
-1.  Implement Capability enforcement middleware.
-2.  Define standard Agent Roles.
+## 5. Related Epics
+*   **#8169:** Neural Link Core Capabilities.
+*   **#8288:** Neo Agent OS: Orchestration & Swarm Architecture.

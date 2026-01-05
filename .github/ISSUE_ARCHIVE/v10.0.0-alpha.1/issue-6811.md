@@ -1,8 +1,6 @@
 ---
 id: 6811
-title: >-
-  worker.mixin.RemoteMethodAccess: onRemoteMethod() => log errors for async
-  function calls into the console
+title: 'worker.mixin.RemoteMethodAccess: onRemoteMethod() => log errors for async function calls into the console'
 state: CLOSED
 labels:
   - enhancement

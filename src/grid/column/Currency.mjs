@@ -67,6 +67,18 @@ class Currency extends Column {
 
         me.formatter = new Intl.NumberFormat(me.locale, {style: 'currency', currency: me.currency})
     }
+
+    /**
+     * Serializes the instance into a JSON-compatible object for the Neural Link.
+     * @returns {Object}
+     */
+    toJSON() {
+        return {
+            ...super.toJSON(),
+            currency: this.currency,
+            locale  : this.locale
+        }
+    }
 }
 
 export default Neo.setupClass(Currency);

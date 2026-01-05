@@ -1,8 +1,6 @@
 ---
 id: 6712
-title: >-
-  buildScripts/production/webpack.config.appworker: minify all json files inside
-  copied resources folders
+title: 'buildScripts/production/webpack.config.appworker: minify all json files inside copied resources folders'
 state: CLOSED
 labels:
   - enhancement

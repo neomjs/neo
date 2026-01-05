@@ -51,4 +51,5 @@ Ensure stable and correct message routing in complex multi-window environments, 
 - 2025-12-19 @tobiu assigned to @tobiu
 - 2025-12-19 @tobiu referenced in commit `c45b566` - "Fix: Multi-Window Remote Registration and Message Routing #8148"
 - 2025-12-19 @tobiu closed this issue
+- 2025-12-19 @tobiu cross-referenced by #8149
 

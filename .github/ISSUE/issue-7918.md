@@ -14,24 +14,24 @@ author: tobiu
 commentsCount: 0
 parentIssue: null
 subIssues:
-  - 7920
-  - 7921
-  - 7922
-  - 7954
-  - 7955
-  - 7956
-  - 8018
-  - 8019
-  - 8021
-  - 8022
-  - 8024
-  - 8025
-  - 8031
-  - 8032
-  - 8033
-  - 8034
-  - 8035
-  - 8036
+  - '[x] 7920 Design: Agent Dashboard Layout (Multi-Window Architecture)'
+  - '[x] 7921 Feat: Real-time ''Blackboard'' Visualization'
+  - '[ ] 7922 Feat: ''Derailment'' Intervention Interface'
+  - '[x] 7954 Task: Scaffold Agent OS Application'
+  - '[x] 7955 Feat: Implement Agent OS Multi-Window Layout'
+  - '[x] 7956 Feat: Multi-Window Orchestration Baseline'
+  - '[x] 8018 Feat: Implement Drag-to-Popup Dashboard'
+  - '[ ] 8019 Bug: isWindowDragging flag stuck after external drop'
+  - '[x] 8021 Refactor AgentOS SCSS: Split Source and Variables'
+  - '[ ] 8022 Refactor AgentOS Viewport: Modularize Components'
+  - '[x] 8024 Refactor Intervention View to dedicated Grid Component'
+  - '[ ] 8025 Create Custom Theme: Neo Cyberpunk'
+  - '[x] 8031 Fix Grid Header Button Border on Hover'
+  - '[x] 8032 Add Glow and Transition to Cyberpunk Grid Header Buttons'
+  - '[x] 8033 Create InterventionPanel.scss and Fix Selection Contrast'
+  - '[x] 8034 Migrate Intervention Panel Styles and Clean Viewport SCSS'
+  - '[x] 8035 Refine Visual Alignment and Button Typography'
+  - '[x] 8036 Increase Toolbar Padding to 20px'
 subIssuesCompleted: 14
 subIssuesTotal: 18
 blockedBy: []

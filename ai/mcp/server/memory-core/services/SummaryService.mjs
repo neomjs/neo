@@ -1,3 +1,4 @@
+import aiConfig             from '../config.mjs';
 import Base                 from '../../../../../src/core/Base.mjs';
 import ChromaManager        from './ChromaManager.mjs';
 import logger               from '../logger.mjs';
@@ -49,7 +50,11 @@ class SummaryService extends Base {
     }
 
     /**
-     * Retrieves summaries in reverse chronological order.
+     * Retrieves summaries in reverse chronological order using a two-phase fetch strategy.
+     *
+     * Phase 1: Fetch ALL metadata (lightweight) to perform a global sort in memory.
+     * Phase 2: Fetch full documents (heavy) only for the paginated slice.
+     *
      * @param {Object} options
      * @param {Number} options.limit=50 The maximum number of summaries to return.
      * @param {Number} options.offset=0 The number of summaries to skip.
@@ -59,19 +64,81 @@ class SummaryService extends Base {
         try {
             const collection = await ChromaManager.getSummaryCollection();
 
+            // Phase 1: Fetch ALL metadata (lightweight)
+            const
+                allRecords = [],
+                batchSize  = aiConfig.summarizationBatchLimit || 2000;
+
+            let batchOffset = 0,
+                hasMore     = true;
+
+            while (hasMore) {
+                const batch = await collection.get({
+                    limit  : batchSize,
+                    offset : batchOffset,
+                    include: ['metadatas'] // No documents
+                });
+
+                if (batch.ids.length === 0) {
+                    hasMore = false;
+                } else {
+                    batch.ids.forEach((id, index) => {
+                        allRecords.push({
+                            id,
+                            metadata: batch.metadatas[index]
+                        });
+                    });
+
+                    batchOffset += batchSize;
+                    if (batch.ids.length < batchSize) {
+                        hasMore = false;
+                    }
+                }
+            }
+
+            // Phase 2: Sort and Slice
+            // Sort by timestamp DESC
+            allRecords.sort((a, b) => (b.metadata.timestamp || 0) - (a.metadata.timestamp || 0));
+
+            const
+                total     = allRecords.length,
+                targetIds = allRecords.slice(offset, offset + limit).map(r => r.id);
+
+            if (targetIds.length === 0) {
+                return {count: 0, total, summaries: []};
+            }
+
+            // Phase 3: Fetch full documents for the slice
             const result = await collection.get({
+                ids    : targetIds,
                 include: ['metadatas', 'documents']
             });
 
-            const records = result.ids.map((id, index) => {
-                const metadata   = result.metadatas[index] || {};
-                const document   = result.documents?.[index] || '';
+            // Create a map for O(1) lookup instead of re-sorting
+            const resultMap = new Map();
+            result.ids.forEach((id, index) => {
+                resultMap.set(id, {
+                    metadata: result.metadatas[index] || {},
+                    document: result.documents?.[index] || ''
+                });
+            });
+
+            // Map in the correct order (already sorted from targetIds)
+            const summaries = targetIds.map(id => {
+                const data = resultMap.get(id);
+
+                if (!data) {
+                    return null;
+                }
+
+                const metadata   = data.metadata;
+                const document   = data.document;
                 const techSource = metadata.technologies || '';
 
                 return {
                     id,
                     sessionId   : metadata.sessionId,
-                    timestamp   : metadata.timestamp,
+                    timestamp   : new Date(metadata.timestamp).toISOString(),
                     title       : metadata.title,
                     summary     : document,
                     category    : metadata.category,
@@ -84,10 +151,7 @@ class SummaryService extends Base {
                         ? techSource.split(',').map(item => item.trim()).filter(Boolean)
                         : []
                 };
-            }).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-
-            const total     = records.length;
-            const summaries = records.slice(offset, offset + limit);
+            }).filter(Boolean);
 
             return {
                 count: summaries.length,
@@ -144,7 +208,7 @@ class SummaryService extends Base {
                 return {
                     id,
                     sessionId   : metadata.sessionId,
-                    timestamp   : metadata.timestamp,
+                    timestamp   : new Date(metadata.timestamp).toISOString(),
                     title       : metadata.title,
                     summary     : document,
                     category    : metadata.category,

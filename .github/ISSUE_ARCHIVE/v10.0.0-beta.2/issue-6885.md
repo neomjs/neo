@@ -1,8 +1,6 @@
 ---
 id: 6885
-title: >-
-  component.MagicMoveText: afterSetText() => remove the custom blank char
-  replacement
+title: 'component.MagicMoveText: afterSetText() => remove the custom blank char replacement'
 state: CLOSED
 labels:
   - enhancement

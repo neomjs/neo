@@ -21,10 +21,12 @@ class AddFileDialog extends Dialog {
         closeAction: 'hide',
         /**
          * @member {Boolean} modal=true
+         * @reactive
          */
         modal: true,
         /**
          * @member {Boolean} resizable=false
+         * @reactive
          */
         resizable: false,
         /**

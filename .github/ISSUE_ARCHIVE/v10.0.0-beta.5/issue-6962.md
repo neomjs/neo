@@ -1,8 +1,6 @@
 ---
 id: 6962
-title: >-
-  collection.Base: clone() => Ensure that cloned collections get the related
-  `keyProperty`
+title: 'collection.Base: clone() => Ensure that cloned collections get the related `keyProperty`'
 state: CLOSED
 labels:
   - bug

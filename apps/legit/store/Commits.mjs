@@ -14,10 +14,12 @@ class Commits extends Store {
         className: 'Legit.store.Commits',
         /**
          * @member {Neo.data.Model} model=CommitModel
+         * @reactive
          */
         model: CommitModel,
         /**
          * @member {Object[]} sorters=[{property:'timestamp',direction:'DESC'}]
+         * @reactive
          */
         sorters: [{
             property : 'timestamp',

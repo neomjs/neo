@@ -1,10 +1,11 @@
 import aiConfig      from '../config.mjs';
 import fs            from 'fs-extra';
-import logger        from '../logger.mjs';
+import logger               from '../logger.mjs';
 import path          from 'path';
 import readline      from 'readline';
 import Base          from '../../../../../src/core/Base.mjs';
 import ChromaManager from './ChromaManager.mjs';
+import TextEmbeddingService from './TextEmbeddingService.mjs';
 
 /**
  * @summary Service for exporting and importing memory core data.
@@ -41,9 +42,9 @@ class DatabaseService extends Base {
      */
     async #exportCollection(collection, backupPath, filePrefix) {
         logger.log(`Fetching all documents from "${collection.name}"...`);
-        const data  = await collection.get({include: ["documents", "embeddings", "metadatas"]});
-        const count = data.ids.length;
 
+        // 1. Get total count first
+        const count = await collection.count();
         if (count === 0) {
             logger.log(`No documents found in ${collection.name} to export.`);
             return 0;
@@ -56,14 +57,32 @@ class DatabaseService extends Base {
         const backupFile  = path.join(backupPath, `${filePrefix}-${timestamp}.jsonl`);
         const writeStream = fs.createWriteStream(backupFile);
 
-        for (let i = 0; i < count; i++) {
-            const record = {
-                id       : data.ids[i],
-                embedding: data.embeddings[i],
-                metadata : data.metadatas[i],
-                document : data.documents[i]
-            };
-            writeStream.write(JSON.stringify(record) + '\n');
+        // 2. Paginated Fetch
+        const limit = 2000; // Safe batch size
+        let offset  = 0;
+
+        while (offset < count) {
+            logger.log(`Fetching batch: ${offset} to ${Math.min(offset + limit, count)} of ${count}`);
+
+            const batch = await collection.get({
+                include: ["documents", "embeddings", "metadatas"],
+                limit  : limit,
+                offset : offset
+            });
+
+            if (!batch.ids || batch.ids.length === 0) break;
+
+            for (let i = 0; i < batch.ids.length; i++) {
+                const record = {
+                    id       : batch.ids[i],
+                    embedding: batch.embeddings[i],
+                    metadata : batch.metadatas[i],
+                    document : batch.documents[i]
+                };
+                writeStream.write(JSON.stringify(record) + '\n');
+            }
+
+            offset += limit;
         }
 
         writeStream.end();
@@ -108,9 +127,10 @@ class DatabaseService extends Base {
      * @param {Object} options
      * @param {String} options.file The path to the backup file to import.
      * @param {String} options.mode The import mode: 'merge' or 'replace'.
+     * @param {Boolean} [options.reEmbed=false] If true, regenerates embeddings for all records.
      * @returns {Promise<{imported: number, total: number, mode: string}>}
      */
-    async importDatabase({file, mode}) {
+    async importDatabase({file, mode, reEmbed=false}) {
         try {
             const filePath = file; // Assuming file object contains path
             logger.log(`Starting agent memory import from: ${filePath}`);
@@ -151,6 +171,36 @@ class DatabaseService extends Base {
                 return { message: 'No records found in backup file to import.' };
             }
 
+            // --- Re-Embedding Logic ---
+            if (reEmbed) {
+                logger.log('Re-embedding enabled. Generating new embeddings for all records (Model: gemini-embedding-001)...');
+                const batchSize = 50;
+                const delay     = 10000; // 10s
+
+                for (let i = 0; i < records.length; i += batchSize) {
+                    const batch = records.slice(i, i + batchSize);
+                    logger.log(`Processing batch ${Math.ceil((i + 1) / batchSize)}/${Math.ceil(records.length / batchSize)}...`);
+
+                    const promises = batch.map(async (record) => {
+                        try {
+                            const newEmbedding = await TextEmbeddingService.embedText(record.document);
+                            record.embedding = newEmbedding;
+                        } catch (err) {
+                            logger.error(`Failed to re-embed record ${record.id}:`, err);
+                            throw err;
+                        }
+                    });
+
+                    await Promise.all(promises);
+
+                    if (i + batchSize < records.length) {
+                        logger.log(`Waiting ${delay}ms to respect rate limits...`);
+                        await this.timeout(delay);
+                    }
+                }
+            }
+            // --------------------------
+
             logger.log(`Importing ${records.length} documents into ${collection.name}...`);
 
             await collection.upsert({
@@ -162,7 +212,12 @@ class DatabaseService extends Base {
 
             const count = await collection.count();
             logger.log(`Import complete. Collection "${collection.name}" now contains ${count} documents.`);
-            return {imported: records.length, total: count, mode};
+            return {
+                message : `Import complete. Collection "${collection.name}" now contains ${count} documents.`,
+                imported: records.length,
+                total   : count,
+                mode
+            };
         } catch (error) {
             logger.error('[DatabaseService] Error importing database:', error);
             return {
@@ -170,6 +225,23 @@ class DatabaseService extends Base {
                 message: error.message,
                 code   : 'DATABASE_IMPORT_ERROR'
             };
+        }
+    }
+
+    /**
+     * Manages database backups (import/export).
+     * @param {Object} options
+     * @param {String} options.action   The action to perform: 'import' or 'export'.
+     * @param {Object} [options.config] Additional options for the action.
+     * @returns {Promise<Object>}
+     */
+    async manageDatabaseBackup({action, ...config}) {
+        if (action === 'export') {
+            return this.exportDatabase(config);
+        } else if (action === 'import') {
+            return this.importDatabase(config);
+        } else {
+            throw new Error(`Unknown action: ${action}`);
         }
     }
 }

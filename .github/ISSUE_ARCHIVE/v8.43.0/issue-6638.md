@@ -1,8 +1,6 @@
 ---
 id: 6638
-title: >-
-  grid.column.Base: renderer => allow string based value to map into a parent
-  view controller
+title: 'grid.column.Base: renderer => allow string based value to map into a parent view controller'
 state: CLOSED
 labels:
   - enhancement
