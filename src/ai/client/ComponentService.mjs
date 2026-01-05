@@ -1,5 +1,6 @@
 import Service     from './Service.mjs';
 import TreeBuilder from '../../util/vdom/TreeBuilder.mjs';
+import VdomUtil    from '../../util/VDom.mjs';
 
 /**
  * Handles component-related Neural Link requests.
@@ -186,6 +187,25 @@ class ComponentService extends Service {
         });
 
         return {components}
+    }
+
+    /**
+     * @param {Object} params
+     * @param {String} [params.rootId]
+     * @param {Object} params.selector
+     * @returns {Object}
+     */
+    queryVdom({rootId, selector}) {
+        const component = this.getComponentRoot(rootId);
+        if (!component) throw new Error('Root component not found');
+
+        const result = VdomUtil.find(component.vdom, selector);
+
+        return {
+            vdom    : result?.vdom || null,
+            index   : result?.index,
+            parentId: result?.parentNode?.id
+        }
     }
 
     /**

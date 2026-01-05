@@ -647,6 +647,39 @@ paths:
                     items:
                       type: object
 
+  /component/vdom/query:
+    post:
+      summary: Query VDOM
+      operationId: query_vdom
+      x-pass-as-object: true
+      description: |
+        Finds the first VDOM node matching a set of attributes (e.g. CSS classes).
+        Example: `query_vdom({selector: {cls: 'my-class'}})`
+
+        **When to Use:**
+        To find specific DOM elements inside a component's Virtual DOM that are not components themselves.
+      tags: [Component]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QueryVdomRequest'
+      responses:
+        '200':
+          description: Matching VDOM node
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  vdom:
+                    type: object
+                  index:
+                    type: integer
+                  parentId:
+                    type: string
+
   /page/reload:
     post:
       summary: Reload Page
@@ -1371,6 +1404,21 @@ components:
           items:
             type: string
           description: "Optional list of properties to return. If provided, returns a lean response (id, className, properties) instead of the full component serialization."
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
+
+    QueryVdomRequest:
+      type: object
+      required:
+        - selector
+      properties:
+        selector:
+          type: object
+          description: "JSON object with property/value pairs to match (e.g., {cls: 'my-class'})."
+        rootId:
+          type: string
+          description: Optional ID of a component to search within (scoped search).
         sessionId:
           type: string
           description: The target App Worker Session ID

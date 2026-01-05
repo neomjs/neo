@@ -114,6 +114,18 @@ class ComponentService extends Base {
     }
 
     /**
+     * Queries VDOM nodes based on a selector object (e.g. {cls: 'my-class'}).
+     * @param {Object} opts             The options object.
+     * @param {Object} opts.selector    The selector object to match against.
+     * @param {String} [opts.rootId]    Optional root component ID to limit the search scope.
+     * @param {String} [opts.sessionId] The target session ID.
+     * @returns {Promise<Object>} The matching VDOM node.
+     */
+    async queryVdom({selector, rootId, sessionId}) {
+        return await ConnectionService.call(sessionId, 'query_vdom', {selector, rootId});
+    }
+
+    /**
      * Sets a property on a component by its ID.
      * @param {Object} opts             The options object.
      * @param {String} opts.id          The component ID.

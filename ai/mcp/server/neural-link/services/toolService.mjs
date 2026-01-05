@@ -42,6 +42,7 @@ const serviceMapping = {
     modify_state_provider        : DataService       .modifyStateProvider       .bind(DataService),
     patch_code                   : RuntimeService    .patchCode                 .bind(RuntimeService),
     query_component              : ComponentService  .queryComponent            .bind(ComponentService),
+    query_vdom                   : ComponentService  .queryVdom                 .bind(ComponentService),
     reload_page                  : RuntimeService    .reloadPage                .bind(RuntimeService),
     set_instance_properties      : InstanceService   .setInstanceProperties     .bind(InstanceService),
     set_route                    : RuntimeService    .setRoute                  .bind(RuntimeService),
