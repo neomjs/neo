@@ -26,6 +26,14 @@ class DataService extends Base {
     }
 
     /**
+     * @returns {Promise<void>}
+     */
+    async initAsync() {
+        await super.initAsync();
+        await ConnectionService.ready();
+    }
+
+    /**
      * Inspects a specific state provider.
      * @param {Object} opts The options object.
      * @param {String} opts.providerId The ID of the provider to inspect.

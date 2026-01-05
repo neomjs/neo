@@ -26,6 +26,14 @@ class InteractionService extends Base {
     }
 
     /**
+     * @returns {Promise<void>}
+     */
+    async initAsync() {
+        await super.initAsync();
+        await ConnectionService.ready();
+    }
+
+    /**
      * Retrieves the state of the DragCoordinator.
      * @param {Object} opts
      * @param {String} [opts.sessionId]

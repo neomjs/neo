@@ -26,6 +26,14 @@ class RuntimeService extends Base {
     }
 
     /**
+     * @returns {Promise<void>}
+     */
+    async initAsync() {
+        await super.initAsync();
+        await ConnectionService.ready();
+    }
+
+    /**
      * Checks if a namespace exists.
      * @param {Object} opts            The options object.
      * @param {String} opts.namespace  The namespace to check.

@@ -26,6 +26,14 @@ class ComponentService extends Base {
     }
 
     /**
+     * @returns {Promise<void>}
+     */
+    async initAsync() {
+        await super.initAsync();
+        await ConnectionService.ready();
+    }
+
+    /**
      * Retrieves a property from a component by its ID.
      * @param {Object} opts             The options object.
      * @param {String} opts.id          The component ID.

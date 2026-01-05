@@ -26,6 +26,14 @@ class InstanceService extends Base {
     }
 
     /**
+     * @returns {Promise<void>}
+     */
+    async initAsync() {
+        await super.initAsync();
+        await ConnectionService.ready();
+    }
+
+    /**
      * Finds instances matching a selector.
      * @param {Object} opts
      * @param {String} opts.sessionId
