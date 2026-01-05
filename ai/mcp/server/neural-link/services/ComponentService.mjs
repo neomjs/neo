@@ -109,8 +109,8 @@ class ComponentService extends Base {
      * @param {String} [opts.sessionId] The target session ID.
      * @returns {Promise<Object>} The list of matching components.
      */
-    async queryComponent({selector, rootId, sessionId}) {
-        return await ConnectionService.call(sessionId, 'query_component', {selector, rootId});
+    async queryComponent({selector, rootId, returnProperties, sessionId}) {
+        return await ConnectionService.call(sessionId, 'query_component', {selector, rootId, returnProperties});
     }
 
     /**
