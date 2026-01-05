@@ -39,9 +39,10 @@ class SourceParser extends Base {
      * Parses a Neo.mjs source file into granular chunks.
      * @param {String} content The raw file content.
      * @param {String} filePath The relative file path.
+     * @param {String} [defaultType='src'] The type to assign to chunks (e.g., 'src', 'app', 'example').
      * @returns {Array<Object>} An array of chunks.
      */
-    parse(content, filePath) {
+    parse(content, filePath, defaultType='src') {
         const chunks = [];
         let ast;
 
@@ -117,7 +118,7 @@ class SourceParser extends Base {
 
         if (contextContent.trim()) {
             chunks.push({
-                type      : 'src',
+                type      : defaultType,
                 kind      : 'module-context',
                 name      : `${filePath} - [Module Context]`,
                 content   : contextContent.trim(),
@@ -132,7 +133,7 @@ class SourceParser extends Base {
             // We join the raw source of all property nodes
             const propsContent = propertyNodes.map(node => content.substring(node.start, node.end)).join('\n\n');
             chunks.push({
-                type      : 'src',
+                type      : defaultType,
                 kind      : 'class-properties',
                 name      : `${filePath} - [Class Properties]`,
                 content   : propsContent,
@@ -145,7 +146,7 @@ class SourceParser extends Base {
         // 4. Extract Config Chunk
         if (configNode) {
             chunks.push({
-                type      : 'src',
+                type      : defaultType,
                 kind      : 'class-config',
                 name      : `${filePath} - [Config]`,
                 content   : content.substring(configNode.start, configNode.end),
@@ -159,7 +160,7 @@ class SourceParser extends Base {
         methodNodes.forEach(node => {
             const methodName = node.key.name || '[computed]';
             chunks.push({
-                type      : 'src',
+                type      : defaultType,
                 kind      : 'method',
                 name      : `${filePath} - ${methodName}()`,
                 content   : content.substring(node.start, node.end),

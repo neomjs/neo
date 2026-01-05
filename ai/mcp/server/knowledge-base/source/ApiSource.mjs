@@ -26,10 +26,6 @@ class ApiSource extends Base {
          */
         className: 'Neo.ai.mcp.server.knowledge-base.source.ApiSource',
         /**
-         * @member {String} srcPath='src'
-         */
-        srcPath: 'src',
-        /**
          * @member {Boolean} singleton=true
          * @protected
          */
@@ -43,7 +39,21 @@ class ApiSource extends Base {
      * @returns {Promise<Number>} The number of chunks extracted.
      */
     async extract(writeStream, createHashFn) {
-        return await this.indexRawDirectory(writeStream, createHashFn, this.srcPath);
+        const sourceMap = {
+            'src'     : 'src',
+            'apps'    : 'app',
+            'examples': 'example',
+            'docs/app': 'app',
+            'ai'      : 'ai-infrastructure'
+        };
+
+        let count = 0;
+
+        for (const [path, type] of Object.entries(sourceMap)) {
+            count += await this.indexRawDirectory(writeStream, createHashFn, path, type);
+        }
+
+        return count;
     }
 
     /**
@@ -51,10 +61,11 @@ class ApiSource extends Base {
      * @param {Object}   writeStream           The stream to write chunks to.
      * @param {Function} createHashFn          Function to create content hash.
      * @param {String}   relativePath          The relative path from cwd to scan.
+     * @param {String}   defaultType           The default type to assign to chunks.
      * @returns {Promise<Number>} The number of chunks created.
      * @private
      */
-    async indexRawDirectory(writeStream, createHashFn, relativePath) {
+    async indexRawDirectory(writeStream, createHashFn, relativePath, defaultType) {
         let count = 0;
         const fullPath = path.resolve(process.cwd(), relativePath);
 
@@ -69,10 +80,11 @@ class ApiSource extends Base {
             const relativeEntryPath = path.join(relativePath, entryName);
 
             if (entry.isDirectory()) {
-                count += await this.indexRawDirectory(writeStream, createHashFn, relativeEntryPath);
+                if (entryName === 'node_modules') continue; // Safety check
+                count += await this.indexRawDirectory(writeStream, createHashFn, relativeEntryPath, defaultType);
             } else if (entry.isFile() && entryName.endsWith('.mjs')) {
                 const content = await fs.readFile(entryPath, 'utf-8');
-                const chunks  = SourceParser.parse(content, relativeEntryPath);
+                const chunks  = SourceParser.parse(content, relativeEntryPath, defaultType);
 
                 chunks.forEach(chunk => {
                     chunk.hash = createHashFn(chunk);
