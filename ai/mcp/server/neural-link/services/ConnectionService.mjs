@@ -235,18 +235,33 @@ class ConnectionService extends Base {
      * @returns {Object}
      */
     getStatus() {
-        const windows = [];
+        const
+            sessions = [],
+            windows  = [];
 
-        for (const meta of this.sessionData.values()) {
+        for (const [id, meta] of this.sessionData.entries()) {
+            sessions.push({
+                id,
+                connectedAt: meta.connectedAt,
+                activeApps : meta.windows ? meta.windows.size : 0
+            });
+
             if (meta.windows) {
                 for (const win of meta.windows.values()) {
-                    windows.push(win)
+                    windows.push({
+                        id     : win.windowId,
+                        appName: win.appName,
+                        width  : win.outerRect?.width,
+                        height : win.outerRect?.height,
+                        x      : win.outerRect?.x,
+                        y      : win.outerRect?.y
+                    })
                 }
             }
         }
 
         return {
-            sessions       : this.sessionData.size,
+            sessions,
             windows,
             bridgeConnected: !!this.bridgeSocket,
             agentId        : this.agentId,

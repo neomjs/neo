@@ -66,7 +66,7 @@ subIssues:
   - '[x] 8280 [Neural Link] Feature: Tool inspect_class'
   - '[x] 8281 [Neural Link] Feature: Tool get_computed_styles'
 subIssuesCompleted: 68
-subIssuesTotal: 70
+subIssuesTotal: 71
 blockedBy: []
 blocking: []
 ---

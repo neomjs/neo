@@ -1231,18 +1231,35 @@ components:
               type: string
             port:
               type: integer
-        session:
-          type: object
-          properties:
-            activeApps:
-              type: integer
-            connectedWindows:
-              type: integer
-            agents:
-              type: array
-              items:
+        sessions:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
                 type: string
-        details:
+              connectedAt:
+                type: number
+              activeApps:
+                type: integer
+        windows:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              appName:
+                type: string
+              width:
+                type: number
+              height:
+                type: number
+              x:
+                type: number
+              y:
+                type: number
+        agents:
           type: array
           items:
             type: string

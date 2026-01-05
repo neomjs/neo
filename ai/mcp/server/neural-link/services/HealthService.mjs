@@ -33,26 +33,11 @@ class HealthService extends Base {
      */
     async healthcheck() {
         try {
-            const status  = ConnectionService.getStatus();
-            const details = [];
-            let   health  = 'healthy';
+            const status = ConnectionService.getStatus();
+            let   health = 'healthy';
 
             if (!status.bridgeConnected) {
-                health = 'unhealthy';
-                details.push('Not connected to Neural Link Bridge');
-            } else {
-                details.push('Connected to Neural Link Bridge');
-            }
-
-            if (status.sessions === 0) {
-                details.push('No active App Worker sessions');
-            } else {
-                details.push(`${status.sessions} active App Worker session(s)`);
-                details.push(`${status.windows.length} connected window(s)`);
-            }
-
-            if (status.agents && status.agents.length > 0) {
-                details.push(`${status.agents.length} other agent(s) connected`);
+                health = 'unhealthy'
             }
 
             return {
@@ -63,12 +48,9 @@ class HealthService extends Base {
                     agentId  : status.agentId,
                     port     : ConnectionService.port
                 },
-                session  : {
-                    activeApps      : status.sessions,
-                    connectedWindows: status.windows.length,
-                    agents          : status.agents || []
-                },
-                details,
+                sessions : status.sessions,
+                windows  : status.windows,
+                agents   : status.agents,
                 version  : process.env.npm_package_version || '1.0.0',
                 uptime   : process.uptime()
             };
@@ -76,7 +58,6 @@ class HealthService extends Base {
             logger.error('[HealthService] Unexpected error during health check:', error);
             return {
                 status : 'unhealthy',
-                details: [`Unexpected error: ${error.message}`],
                 error  : 'Health check failed unexpectedly',
                 message: error.message,
                 code   : 'HEALTH_CHECK_ERROR'
