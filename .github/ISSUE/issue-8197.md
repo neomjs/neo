@@ -1,7 +1,7 @@
 ---
 id: 8197
 title: 'Feat: Neural Link - Export Domain Services in AI SDK'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
@@ -9,7 +9,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2025-12-29T00:03:10Z'
-updatedAt: '2025-12-29T00:03:28Z'
+updatedAt: '2026-01-05T16:04:20Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8197'
 author: tobiu
 commentsCount: 0
@@ -19,6 +19,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-01-05T16:04:20Z'
 ---
 # Feat: Neural Link - Export Domain Services in AI SDK
 
@@ -46,4 +47,6 @@ Empower standalone AI scripts to "import and use" the full power of the Neural L
 - 2025-12-29 @tobiu added the `architecture` label
 - 2025-12-29 @tobiu assigned to @tobiu
 - 2025-12-29 @tobiu added parent issue #8169
+- 2026-01-05 @tobiu referenced in commit `4a80bff` - "feat(ai): Export Neural Link services in AI SDK and enforce bridge connection (#8197)"
+- 2026-01-05 @tobiu closed this issue
 

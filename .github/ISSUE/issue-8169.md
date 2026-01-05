@@ -1,7 +1,7 @@
 ---
 id: 8169
 title: Neural Link Core Capabilities
-state: OPEN
+state: CLOSED
 labels:
   - epic
   - ai
@@ -9,7 +9,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2025-12-28T13:36:46Z'
-updatedAt: '2025-12-28T13:36:59Z'
+updatedAt: '2026-01-05T16:05:04Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8169'
 author: tobiu
 commentsCount: 0
@@ -43,7 +43,7 @@ subIssues:
   - '[x] 8194 Feat: Neural Link - Propagate Runtime Errors to Agent'
   - '[x] 8195 Feat: Neural Link - Get Record Tool'
   - '[x] 8196 Refactor: Neural Link - Client-Side Service Architecture'
-  - '[ ] 8197 Feat: Neural Link - Export Domain Services in AI SDK'
+  - '[x] 8197 Feat: Neural Link - Export Domain Services in AI SDK'
   - '[x] 8206 Refactor Client Services to use Parameter Destructuring'
   - '[x] 8207 ai.Client: Enhance handleRequest to support sync and async execution'
   - '[x] 8208 ai.client.ComponentService: Make highlightComponent non-blocking'
@@ -89,10 +89,11 @@ subIssues:
   - '[x] 8332 Fix manage_connection tool argument passing'
   - '[x] 8333 Fix Neural Link Server startup crash due to Health Check response structure change'
   - '[x] 8334 Fix query_component missing returnProperties argument'
-subIssuesCompleted: 73
+subIssuesCompleted: 74
 subIssuesTotal: 74
 blockedBy: []
 blocking: []
+closedAt: '2026-01-05T16:05:04Z'
 ---
 # Neural Link Core Capabilities
 

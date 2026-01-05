@@ -1,7 +1,7 @@
 ---
 id: 8200
 title: '[Neural Link] Implement toJSON Serialization Protocol'
-state: OPEN
+state: CLOSED
 labels:
   - epic
   - ai
@@ -9,7 +9,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2025-12-29T07:10:42Z'
-updatedAt: '2025-12-29T07:11:00Z'
+updatedAt: '2026-01-05T16:05:17Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8200'
 author: tobiu
 commentsCount: 0
@@ -82,6 +82,7 @@ subIssuesCompleted: 63
 subIssuesTotal: 63
 blockedBy: []
 blocking: []
+closedAt: '2026-01-05T16:05:17Z'
 ---
 # [Neural Link] Implement toJSON Serialization Protocol
 
