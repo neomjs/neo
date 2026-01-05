@@ -1,7 +1,7 @@
 ---
 id: 8332
 title: Fix manage_connection tool argument passing
-state: OPEN
+state: CLOSED
 labels:
   - bug
   - ai
@@ -9,7 +9,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-01-05T11:58:21Z'
-updatedAt: '2026-01-05T11:58:45Z'
+updatedAt: '2026-01-05T11:59:38Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8332'
 author: tobiu
 commentsCount: 0
@@ -19,6 +19,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-01-05T11:59:38Z'
 ---
 # Fix manage_connection tool argument passing
 
@@ -35,4 +36,6 @@ Add `x-pass-as-object: true` to `/connection/manage` in `openapi.yaml`.
 - 2026-01-05 @tobiu added the `architecture` label
 - 2026-01-05 @tobiu assigned to @tobiu
 - 2026-01-05 @tobiu added parent issue #8169
+- 2026-01-05 @tobiu referenced in commit `ffeef5b` - "fix(ai): Add x-pass-as-object to manage_connection tool (#8332)"
+- 2026-01-05 @tobiu closed this issue
 
