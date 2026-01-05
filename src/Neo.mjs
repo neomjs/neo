@@ -910,7 +910,8 @@ const ignoreMixin = [
     'isClass',
     'mixin',
     'ntype',
-    'observable'
+    'observable',
+    'toJSON'
 ],
 
     charsRegex         = /\d+/g,
