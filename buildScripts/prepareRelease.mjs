@@ -10,6 +10,7 @@
 import fs                          from 'fs-extra';
 import os                          from 'os';
 import path                        from 'path';
+import createReleaseIndex          from './createReleaseIndex.mjs';
 import {getLlmsTxt, getSitemapXml} from './generateSeoFiles.mjs';
 
 const
@@ -92,6 +93,9 @@ if (insideNeo) {
         console.log('Updated apps/portal/index.html datePublished');
     }
 }
+
+// Generate the release index JSON before SEO files
+await createReleaseIndex();
 
 // Generate sitemap.xml and llms.txt to ensure SEO files are up-to-date with the latest content and routes.
 // This is crucial for search engine discoverability and AI model consumption.
