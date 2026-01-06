@@ -28,12 +28,20 @@ But performance is only half the story. With v11, Neo.mjs becomes the world's fi
 </p>
 
 </br></br>
-## 🤝 Community & Support
+## 🎯 Is Neo.mjs Right for You?
 
-Have a question or want to connect with the community? We have two channels to help you out.
+**Neo.mjs is an Application Engine, not a website builder.**
 
-*   **[💬 Discord (Recommended for Questions & History)](https://discord.gg/6p8paPq):** Our primary community hub. All conversations are permanently archived and searchable, making it the best place to ask questions and find past answers.
-*   **[⚡️ Slack (For Real-Time Chat)](https://join.slack.com/t/neomjs/shared_invite/zt-6c50ueeu-3E1~M4T9xkNnb~M_prEEOA):** Perfect for quick, real-time conversations. Please note that the free version's history is temporary (messages are deleted after 90 days).
+✅ **Perfect For:**
+* **Financial & Trading Platforms:** processing 10k+ ticks/sec without UI freeze.
+* **Multi-Window Workspaces:** IDEs, Control Rooms, and Dashboards that span multiple screens.
+* **AI-Native Interfaces:** Apps where the UI structure must be mutable by AI agents at runtime.
+* **Enterprise SPAs:** Complex logic that demands the stability of a desktop application.
+
+❌ **Not Designed For:**
+* Static content sites or simple blogs (Use Astro/Next.js).
+* Teams looking for "React with a different syntax."
+* Developers unwilling to embrace the Actor Model (Workers).
 
 </br></br>
 ## 🚀 The AI-Native Development Platform
@@ -58,14 +66,64 @@ This isn't just about generating code; it's about creating a self-aware developm
 4.  **⚡️ The Agent Runtime**: Empower your agents to act as autonomous developers. Instead of passively asking for information, agents can write and execute complex scripts using the **Neo.mjs AI SDK**. This enables advanced workflows like self-healing code, automated refactoring, and data migration—running locally at machine speed.
     *   **[📘 Read the Guide](https://github.com/neomjs/neo/blob/dev/learn/guides/mcp/CodeExecution.md)**
 
-5.  **🔗 The Neural Link**: The bridge that connects AI agents directly to the running application engine. It comprises the **[AI Client](https://github.com/neomjs/neo/blob/dev/src/ai/Client.mjs)** (Runtime) and the **[Neural Link Bridge](https://github.com/neomjs/neo/tree/dev/ai/mcp/server/neural-link)** (Server). Unlike static code analysis, this allows agents to "see" the live render tree, "touch" component states, and perform **runtime permutations** (hot-patching) without a reload. It turns your application into a mutable environment that you and the AI cultivate together.
-
 ### Why an Engine Architecture Matters for AI
 AI agents are "blind" in traditional compiled frameworks (React, Svelte) because the code they write (JSX/Templates) is destroyed by the build step—the runtime reality (DOM nodes) looks nothing like the source.
 
 **In Neo.mjs, the map IS the territory.** Because components are persistent objects in the App Worker (not ephemeral DOM nodes), the AI can query their state, methods, and inheritance chain at any time. It's like inspecting a running game character in Unreal Engine, rather than parsing the pixels on the screen. The AI sees exactly what the engine sees, enabling it to reason about state, inheritance, and topology with perfect accuracy.
 
-This powerful tooling, co-created with AI agents, resulted in **resolving 388 tickets in just 6 weeks**. To learn more about this paradigm shift, read our blog post: **[388 Tickets in 6 Weeks: Context Engineering Done Right](./learn/blog/context-engineering-done-right.md)**.
+This powerful tooling, co-created with AI agents, enabled us to ship **388 architectural enhancements in just 6 weeks**. This order-of-magnitude increase in velocity proves that Context Engineering solves the complexity bottleneck. To learn more about this paradigm shift, read our blog post: **[388 Tickets in 6 Weeks: Context Engineering Done Right](./learn/blog/context-engineering-done-right.md)**.
+
+</br></br>
+## 🔗 The Neural Link: Your App is a Living Graph
+
+**Most frameworks offer a "Read-Only" view of your code to AI. Neo.mjs offers "Read/Write" access to the Runtime.**
+
+Because Neo.mjs components are persistent objects (Lego Technic) rather than transient DOM nodes (Melted Plastic), the **Neural Link** allows AI agents to connect directly to the engine's memory.
+
+* **Introspection:** Agents can query the Scene Graph (`get_component_tree`) to understand the exact state of the UI.
+* **Mutation:** Agents can hot-patch class methods, modify state, or re-parent components in real-time without a reload.
+* **Verification:** Agents can simulate user events (clicks, drags) to verify their own fixes.
+
+**[📘 Read the Neural Link Guide](https://github.com/neomjs/neo/blob/dev/learn/guides/mcp/NeuralLink.md)**
+
+</br></br>
+## 🚀 Jump In: Your First Neo.mjs App in Minutes
+
+Run this command:
+
+```bash
+npx neo-app@latest
+```
+
+This one-liner sets up everything you need to start building with Neo.mjs, including:
+
+* A new app workspace.
+* A pre-configured app shell.
+* A local development server.
+* Launching your app in a new browser window — all in one go.
+
+:book: More details? Check out our [Getting Started Guide](./.github/GETTING_STARTED.md)
+
+:student: Make sure to dive into the [Learning Section](https://neomjs.com/dist/production/apps/portal/#/learn/gettingstarted.Setup)
+
+Next steps:
+
+* :star: **Experience stunning Demos & Examples here**: [Neo.mjs Examples Portal](https://neomjs.com/dist/production/apps/portal/#/examples)
+* Many more are included inside the repos [apps](https://github.com/neomjs/neo/tree/dev/apps)
+  & [examples](https://github.com/neomjs/neo/tree/dev/examples) folders.
+* :blue_book: All Blog Posts are listed here: [Neo.mjs Blog](https://neomjs.com/dist/production/apps/portal/#/blog)
+* :robot: Get started with the **[AI Knowledge Base Quick Start Guide](./.github/AI_QUICK_START.md)**.
+
+</br></br>
+## 📦 The Object Model: The Scene Graph
+
+**Neo.mjs components are nodes in a Scene Graph (Lego Technic), not just DOM templates (Duplo).**
+
+The DOM is a transient render target, not a storage medium. In Neo.mjs, the Component Tree is the application state.
+
+In most frameworks, components are like "melted plastic"—once rendered, they lose their identity in the DOM. Neo.mjs components are **Lego Technic**: precision-engineered, persistent structures that retain their identity, state, and relationships at runtime.
+
+Because every component adheres to a strict **JSON-based serialization protocol**, the entire application is a mutable graph. This allows AI agents (or you) to inspect, dismantle, and reconfigure the application on the fly—changing layouts, moving dashboards between windows, or hot-swapping themes without a reload. It's not just a library of views; it's a kit of mechanical parts for building complex, adaptive machinery.
 
 </br></br>
 ## 💡 Why Choose Neo.mjs?
@@ -99,48 +157,6 @@ Traders get real-time updates with zero lag, and the app feels like a native des
 **multiple synchronized browser windows**, each displaying different real-time views, all remaining butter-smooth.
 That’s Neo.mjs in action — solving problems others can’t touch.
 
-</br></br>
-## 📚 Foundational Architecture: The Core Principles
-
-The v10 release marked a significant evolution of the Neo.mjs core, introducing a new functional component model and a revolutionary two-tier reactivity system. These principles form the bedrock of the framework today. We've published a five-part blog series that dives deep into this architecture:
-
-1.  **[A Frontend Love Story: Why the Strategies of Today Won't Build the Apps of Tomorrow](./learn/blog/v10-post1-love-story.md)**
-    *   *An introduction to the core problems in modern frontend development and the architectural vision of Neo.mjs.*
-2.  **[Deep Dive: Named vs. Anonymous State - A New Era of Component Reactivity](./learn/blog/v10-deep-dive-reactivity.md)**
-    *   *Explore the powerful two-tier reactivity system that makes the "memoization tax" a thing of the past.*
-3.  **[Beyond Hooks: A New Breed of Functional Components for a Multi-Threaded World](./learn/blog/v10-deep-dive-functional-components.md)**
-    *   *Discover how functional components in a multi-threaded world eliminate the trade-offs of traditional hooks.*
-4.  **[Deep Dive: The VDOM Revolution - JSON Blueprints & Asymmetric Rendering](./learn/blog/v10-deep-dive-vdom-revolution.md)**
-    *   *Learn how our off-thread VDOM engine uses simple JSON blueprints for maximum performance and security.*
-5.  **[Deep Dive: The State Provider Revolution](./learn/blog/v10-deep-dive-state-provider.md)**
-    *   *A look into the powerful, hierarchical state management system that scales effortlessly.*
-
-</br></br>
-## 📦 The Object Model: The Scene Graph
-
-**Neo.mjs components are nodes in a Scene Graph (Lego Technic), not just DOM templates (Duplo).**
-
-The DOM is a transient render target, not a storage medium. In Neo.mjs, the Component Tree is the application state.
-
-In most frameworks, components are like "melted plastic"—once rendered, they lose their identity in the DOM. Neo.mjs components are **Lego Technic**: precision-engineered, persistent structures that retain their identity, state, and relationships at runtime.
-
-Because every component adheres to a strict **JSON-based serialization protocol**, the entire application is a mutable graph. This allows AI agents (or you) to inspect, dismantle, and reconfigure the application on the fly—changing layouts, moving dashboards between windows, or hot-swapping themes without a reload. It's not just a library of views; it's a kit of mechanical parts for building complex, adaptive machinery.
-</br></br>
-## A Platform at Scale: More Than Just a Library
-
-To appreciate the scope of Neo.mjs, it's important to understand its scale. This is not a micro-library; it's a comprehensive, enterprise-ready platform representing over a decade of architectural investment. **Neo.mjs is an innovation factory.**
-
-The stats below, from **October 2025**, provide a snapshot of the ecosystem. For a deeper dive, you can explore the full **[Codebase Overview](./learn/guides/fundamentals/CodebaseOverview.md)**.
-
--   **~41,000 lines** of core platform source code
--   **~33,000 lines** across hundreds of working examples and flagship applications
--   **~11,000 lines** of production-grade theming
--   **~6,000 lines** of dedicated AI-native infrastructure
--   **~30,000 lines** of detailed JSDoc documentation
-
-**Total: Over 130,000 lines of curated code and documentation.**
-
-This is not a small library—it's a complete ecosystem with more source code than many established frameworks, designed for the most demanding use cases.
 </br></br>
 ## 🌟 Engine Subsystems (and How They Supercharge Your App)
 
@@ -214,6 +230,39 @@ This is the "Editor" for the AI era. It connects your development environment to
 **The Result:** You don't just write code; you cultivate a living system with an AI partner that understands exactly how the engine works.
 
 </br></br>
+## A Platform at Scale: More Than Just a Library
+
+To appreciate the scope of Neo.mjs, it's important to understand its scale. This is not a micro-library; it's a comprehensive, enterprise-ready platform representing over a decade of architectural investment. **Neo.mjs is an innovation factory.**
+
+The stats below, from **October 2025**, provide a snapshot of the ecosystem. For a deeper dive, you can explore the full **[Codebase Overview](./learn/guides/fundamentals/CodebaseOverview.md)**.
+
+-   **~41,000 lines** of core platform source code
+-   **~33,000 lines** across hundreds of working examples and flagship applications
+-   **~11,000 lines** of production-grade theming
+-   **~6,000 lines** of dedicated AI-native infrastructure
+-   **~30,000 lines** of detailed JSDoc documentation
+
+**Total: Over 130,000 lines of curated code and documentation.**
+
+This is not a small library—it's a complete ecosystem with more source code than many established frameworks, designed for the most demanding use cases.
+
+</br></br>
+## 📚 Foundational Architecture: The Core Principles
+
+The v10 release marked a significant evolution of the Neo.mjs core, introducing a new functional component model and a revolutionary two-tier reactivity system. These principles form the bedrock of the framework today. We've published a five-part blog series that dives deep into this architecture:
+
+1.  **[A Frontend Love Story: Why the Strategies of Today Won't Build the Apps of Tomorrow](./learn/blog/v10-post1-love-story.md)**
+    *   *An introduction to the core problems in modern frontend development and the architectural vision of Neo.mjs.*
+2.  **[Deep Dive: Named vs. Anonymous State - A New Era of Component Reactivity](./learn/blog/v10-deep-dive-reactivity.md)**
+    *   *Explore the powerful two-tier reactivity system that makes the "memoization tax" a thing of the past.*
+3.  **[Beyond Hooks: A New Breed of Functional Components for a Multi-Threaded World](./learn/blog/v10-deep-dive-functional-components.md)**
+    *   *Discover how functional components in a multi-threaded world eliminate the trade-offs of traditional hooks.*
+4.  **[Deep Dive: The VDOM Revolution - JSON Blueprints & Asymmetric Rendering](./learn/blog/v10-deep-dive-vdom-revolution.md)**
+    *   *Learn how our off-thread VDOM engine uses simple JSON blueprints for maximum performance and security.*
+5.  **[Deep Dive: The State Provider Revolution](./learn/blog/v10-deep-dive-state-provider.md)**
+    *   *A look into the powerful, hierarchical state management system that scales effortlessly.*
+
+</br></br>
 ## ⚙️ Declarative Class Configuration: Build Faster, Maintain Easier
 
 Neo.mjs’s class config system allows you to define and manage classes in a declarative and reusable way. This simplifies
@@ -273,32 +322,12 @@ For each config property ending with an underscore (_), Neo.mjs automatically ge
 For more details, check out the [Class Config System documentation](https://neomjs.com/dist/production/apps/portal/index.html#/learn/gettingstarted.Config).
 
 </br></br>
-## 🚀 Jump In: Your First Neo.mjs App in Minutes
+## 🤝 Community & Support
 
-Run this command:
+Have a question or want to connect with the community? We have two channels to help you out.
 
-```bash
-npx neo-app@latest
-```
-
-This one-liner sets up everything you need to start building with Neo.mjs, including:
-
-* A new app workspace.
-* A pre-configured app shell.
-* A local development server.
-* Launching your app in a new browser window — all in one go.
-
-:book: More details? Check out our [Getting Started Guide](./.github/GETTING_STARTED.md)
-
-:student: Make sure to dive into the [Learning Section](https://neomjs.com/dist/production/apps/portal/#/learn/gettingstarted.Setup)
-
-Next steps:
-
-* :star: **Experience stunning Demos & Examples here**: [Neo.mjs Examples Portal](https://neomjs.com/dist/production/apps/portal/#/examples)
-* Many more are included inside the repos [apps](https://github.com/neomjs/neo/tree/dev/apps)
-  & [examples](https://github.com/neomjs/neo/tree/dev/examples) folders.
-* :blue_book: All Blog Posts are listed here: [Neo.mjs Blog](https://neomjs.com/dist/production/apps/portal/#/blog)
-* :robot: Get started with the **[AI Knowledge Base Quick Start Guide](./.github/AI_QUICK_START.md)**.
+*   **[💬 Discord (Recommended for Questions & History)](https://discord.gg/6p8paPq):** Our primary community hub. All conversations are permanently archived and searchable, making it the best place to ask questions and find past answers.
+*   **[⚡️ Slack (For Real-Time Chat)](https://join.slack.com/t/neomjs/shared_invite/zt-6c50ueeu-3E1~M4T9xkNnb~M_prEEOA):** Perfect for quick, real-time conversations. Please note that the free version's history is temporary (messages are deleted after 90 days).
 
 </br></br>
 ## 🧭 Vision & Roadmap
