@@ -4,10 +4,8 @@
 }
 
 .portal-home-main-neo.portal-home-content-view {
-    background-color: var(--sem-color-bg-neutral-highlighted);
-    background-image:
-        radial-gradient(at 0% 0%, rgba(62, 99, 221, 0.08) 0px, transparent 50%),
-        radial-gradient(at 100% 100%, rgba(138, 43, 226, 0.08) 0px, transparent 50%);
+    /* Background moved to MainContainer for global engine effect */
+    background-color: transparent;
     gap             : 2.5rem;
     padding         : 6em 2em;
 

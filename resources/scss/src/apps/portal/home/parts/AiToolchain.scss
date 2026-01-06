@@ -1,11 +1,12 @@
 .portal-home-parts-aitoolchain {
-    background-color: var(--sem-color-bg-neutral-highlighted);
+    background-color: transparent;
     color           : var(--sem-color-text-neutral-default);
     gap             : 4rem;
     padding         : 6em 2em 0; /* Removing bottom padding as FooterContainer is attached */
 
     .content-wrapper {
         align-items   : center;
+        background-color: transparent;
         display       : flex;
         flex-direction: column;
         gap           : 2rem;
@@ -33,12 +34,13 @@
     }
 
     .card-container {
-        gap                  : 2rem;
+        background-color: transparent;
+        gap             : 2rem;
         grid-template-columns: repeat(3, 1fr);
-        margin-top           : 2rem;
-        overflow             : visible;
-        padding              : 10px;
-        width                : 100%;
+        margin-top      : 2rem;
+        overflow        : visible;
+        padding         : 10px;
+        width           : 100%;
 
         @media (max-width: 900px) {
             grid-template-columns: 1fr;
