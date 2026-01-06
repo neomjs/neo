@@ -32,66 +32,64 @@ class Features extends BaseContainer {
          * @member {Object[]} items
          */
         items: [{
-            header: 'Multi-threading',
+            header: 'Threading Subsystem',
             route : '#/learn/benefits.OffTheMainThread',
 
             content: [
-                'Following the OMT (Off the Main-Thread) paradigm',
-                'Your Apps & the Framework live within an Application Worker',
-                'Non-blocking, no-freeze, user interaction responses, even for heavy data i/o, processing, and intensive, complex screen updating',
-                'Additional Workers for OffscreenCanvas, Data, Delta-Updates & Tasks',
-                'A ServiceWorker connected to the App Worker for predictive Caching'
+                'True Multithreading: App, Data, VDOM, and Canvas live in separate workers.',
+                'The Main Thread is treated as a "dumb" renderer, ensuring 60fps fluidity.',
+                'Eliminates UI jank by isolating logic from rendering.',
+                'Includes a dedicated Task Worker for background processing.'
             ]
         }, {
-            header: 'Multi-Window Apps',
+            header: 'Rendering Pipeline',
+            route : '#/learn/benefits.OffTheMainThread',
+
+            content: [
+                'Asymmetric VDOM: Diffing happens off-thread.',
+                'Sends compressed JSON deltas to the Main Thread.',
+                'Faster, more secure, and AI-friendly than main-thread diffing.',
+                'Supports over 40,000 delta updates per second.'
+            ]
+        }, {
+            header: 'The Scene Graph',
+            route : '#/learn/guides.fundamentals.CodebaseOverview',
+
+            content: [
+                'Components are persistent objects, not ephemeral render results.',
+                'Retain state and identity even when detached from the DOM.',
+                'Enables Runtime Permutation: Drag active dashboards between windows.',
+                'The "Lego Technic" model vs. "Melted Plastic" (other frameworks).'
+            ]
+        }, {
+            header: 'State Subsystem',
+            route : '#/learn/guides.state.Provider',
+
+            content: [
+                'Built-in, hierarchical State Providers.',
+                'Push and Pull reactivity models.',
+                'Components bind declaratively to state changes.',
+                'Updates are handled efficiently off the main thread.'
+            ]
+        }, {
+            header: 'Multi-Window Orchestration',
             route : '#/learn/benefits.MultiWindow',
 
             content: [
-                'No need for a Native Shell (e.g. Electron)',
-                'Sharing Data across Windows',
-                'Sharing State across Windows',
-                'Moving Components across Windows while keeping the same JS instances'
+                'A single engine instance powers multiple browser windows.',
+                'SharedWorkers enable real-time state synchronization.',
+                'Move components between windows without losing state.',
+                'Ideal for Trading Platforms and Control Rooms.'
             ]
         }, {
-            header: 'Modern JS in your Browser',
+            header: 'Zero-Build System',
             route : '#/learn/benefits.Quick',
 
             content: [
-                'The Dev-Mode runs without the need for Transpilations or Compilations',
-                'Using the latest ECMAScript Features, as soon as the Browser Support is there',
-                'Simple and powerful Debugging',
-                'Reduced Development Costs'
-            ]
-        }, {
-            header: 'Powerful Component-Library',
-            route : '#/learn/benefits.Quick',
-
-            content: [
-                'Declarative Component-Trees',
-                'High Order Components',
-                'Many out-of-the-box Components, including nested lazy-loaded forms',
-                'Multiple themes, which can get nested'
-            ]
-        }, {
-            header: 'Elegant State Management',
-            route : '#/learn/benefits.Speed',
-
-            content: [
-                'Multiple communicating State-Providers',
-                'Observable',
-                'Supporting different architectures like MVVM without enforcing them'
-            ]
-        }, {
-            header: 'Core Features',
-            route : '#/learn/benefits.Speed',
-
-            content: [
-                'RPC Layer (cross-realm, including Backends)',
-                'Extensibility',
-                'Scalability',
-                'Class Config System',
-                'Drag & Drop',
-                'Mixins, Plugins & Main-Thread Addons'
+                'Runs as native ES Modules directly in the browser.',
+                'No transpilation or bundling required in Dev Mode.',
+                'Instant reloads: What you write is what you debug.',
+                '100% aligned with modern Web Standards.'
             ]
         }]
     }

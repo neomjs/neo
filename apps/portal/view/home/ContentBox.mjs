@@ -36,8 +36,10 @@ class ContentBox extends Base {
          */
         _vdom:
         {tag: 'a', cn: [
-            {tag: 'h3', cls: ['portal-content-box-headline']},
-            {tag: 'ul', cls: ['portal-content-box-content'], cn: []}
+            {tag: 'h4', cls: ['portal-content-box-headline']},
+            {tag: 'div', cls: ['portal-content-box-content'], cn: [
+                {tag: 'ul', cn: []}
+            ]}
         ]}
     }
 
@@ -48,9 +50,13 @@ class ContentBox extends Base {
      * @protected
      */
     afterSetContent(value, oldValue) {
+        let list = this.vdom.cn[1].cn[0];
+
+        list.cn = [];
+
         value?.forEach(item => {
-            this.vdom.cn[1].cn.push({tag: 'li', text: item})
-        })
+            list.cn.push({tag: 'li', text: item})
+        });
 
         this.update()
     }

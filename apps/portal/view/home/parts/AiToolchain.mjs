@@ -1,4 +1,5 @@
 import BaseContainer   from './BaseContainer.mjs';
+import ContentBox      from '../ContentBox.mjs';
 import FooterContainer from '../FooterContainer.mjs';
 
 /**
@@ -26,49 +27,55 @@ class AiToolchain extends BaseContainer {
          * @member {Object[]} items
          */
         items: [{
-            ntype: 'component',
+            ntype: 'container',
             cls  : ['content-wrapper'],
-            vdom : {
-                cn: [{
-                    tag : 'h1',
-                    cls : ['neo-h1'],
-                    text: 'Code at the Speed of Thought'
-                }, {
-                    tag : 'h3',
-                    cls : ['neo-h3'],
-                    text: 'AI agents can now "see" and "touch" your running Neo.mjs app in real-time via the Neural Link.'
-                }, {
-                    cls: ['card-container'],
-                    cn : [{
-                        cls: ['feature-card'],
-                        cn : [{
-                            tag : 'h4',
-                            text: 'The Neural Link'
-                        }, {
-                            tag : 'p',
-                            text: 'Enable live debugging, conversational UI changes, and zero-downtime hotfixes.'
-                        }]
+            items: [{
+                ntype: 'component',
+                flex : 'none',
+                vdom : {
+                    cn: [{
+                        tag : 'h1',
+                        cls : ['neo-h1'],
+                        text: 'Code at the Speed of Thought'
                     }, {
-                        cls: ['feature-card'],
-                        cn : [{
-                            tag : 'h4',
-                            text: 'MCP Servers'
-                        }, {
-                            tag : 'p',
-                            text: 'Give your agent deep context with the Knowledge Base, Memory Core, and GitHub Workflow.'
-                        }]
-                    }, {
-                        cls: ['feature-card'],
-                        cn : [{
-                            tag : 'h4',
-                            text: 'Context Engineering'
-                        }, {
-                            tag : 'p',
-                            text: '181 tickets resolved in 15 days using the very tools we were building.'
-                        }]
+                        tag : 'h3',
+                        cls : ['neo-h3'],
+                        text: 'AI agents can now "see" and "touch" your running Neo.mjs app in real-time via the Neural Link.'
                     }]
+                }
+            }, {
+                ntype : 'container',
+                cls   : ['card-container'],
+                layout: {ntype: 'grid', columns: 3, gap: '2rem'},
+                items : [{
+                    module : ContentBox,
+                    header : 'The Neural Link',
+                    content: [
+                        'Introspect the live Scene Graph.',
+                        'Live Runtime Mutation (Hot-Swapping).',
+                        'Simulate user interactions for E2E.',
+                        'Bi-directional agent communication.'
+                    ]
+                }, {
+                    module : ContentBox,
+                    header : 'MCP Infrastructure',
+                    content: [
+                        'Knowledge Base: Semantic codebase search.',
+                        'Memory Core: Persistent agent context.',
+                        'GitHub Workflow: Autonomous PR reviews.',
+                        'Neural Link: The Bridge to the runtime.'
+                    ]
+                }, {
+                    module : ContentBox,
+                    header : 'Context Engineering',
+                    content: [
+                        'Advanced Code Execution: Orchestrate tools as APIs.',
+                        'Tool Composition: Chain complex workflows locally.',
+                        'On-Demand Loading: Prevent context window overload.',
+                        '181 tickets resolved in 15 days.'
+                    ]
                 }]
-            }
+            }]
         }, {
             module: FooterContainer,
             flex  : 'none'

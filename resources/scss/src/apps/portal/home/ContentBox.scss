@@ -1,98 +1,62 @@
 .portal-content-box {
-    background     : #ffffff;
-    border-radius  : 12px;
-    box-shadow     : 0 4px 16px rgba(0, 0, 0, 0.1);
-    color          : #3e63dd;
-    cursor         : pointer;
-    flex           : 0 0 calc(33.33% - 1.5em);
-    max-width      : 350px;
-    min-width      : 280px;
-    padding        : 1em;
-    position       : relative;
-    text-decoration: none;
-    transition     : transform 0.3s ease-out, box-shadow 0.3s ease-out;
+    background-color: var(--sem-color-bg-neutral-default);
+    border          : 1px solid var(--sem-color-border-subtle);
+    border-radius   : 12px;
+    box-sizing      : border-box;
+    color           : var(--sem-color-text-neutral-default);
+    cursor          : pointer;
+    display         : flex;
+    flex-direction  : column;
+    min-height      : 300px;
+    padding         : 2rem;
+    position        : relative;
+    text-align      : left;
+    text-decoration : none;
+    transition      : transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 
     &:hover {
-        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
-        transform : translateY(-8px) scale(1.02);
+        border-color: var(--sem-color-border-focus);
+        box-shadow  : 0 10px 30px rgba(0, 0, 0, 0.05);
+        transform   : translateY(-4px);
+
+        .portal-content-box-headline {
+            color: var(--sem-color-text-primary-default);
+        }
     }
 
     &:active {
-        transform: scale(0.98);
+        transform: scale(0.99);
+    }
+
+    .portal-content-box-headline {
+        color         : var(--sem-color-text-neutral-contrast);
+        font-family   : "GT-Planar", sans-serif;
+        font-size     : 1.25rem;
+        font-weight   : 600;
+        margin        : 0 0 1rem 0;
+        padding-bottom: 0.5rem;
+        text-align    : left;
+        transition    : color 0.2s ease;
     }
 
     .portal-content-box-content {
-        color       : #555;
-        font-size   : 0.95em;
-        list-style  : none;
-        margin-top  : 0.5em;
-        padding     : 8px 8px 8px 0;
-    }
+        flex: 1;
 
-    .portal-content-box-content li {
-        border-radius: 4px;
-        list-style   : none;
-        margin-top   : .4em;
-        padding      : 8px;
-        transition   : background-color 0.2s ease-out, color 0.2s ease-out;
-
-        &:hover {
-            background-color: rgba(62, 99, 221, 0.1);
-            color           : #3e63dd;
+        ul {
+            margin    : 0;
+            padding   : 0 0 0 1.2em;
+            list-style: disc;
         }
-    }
 
-    h3.portal-content-box-headline {
-        border-bottom : 2px solid #3e63dd;
-        color         : #3e63dd;
-        font-size     : 1.18em;
-        font-weight   : 500;
-        letter-spacing: 1.5px;
-        margin        : 0 auto;
-        max-width     : 90%;
-        padding-bottom: 0.4em;
-        text-align    : center;
-    }
+        li {
+            color        : var(--sem-color-text-neutral-subdued);
+            font-size    : 1rem;
+            line-height  : 1.6;
+            margin-bottom: 0.5rem;
 
-    &:after {
-        align-items     : center;
-        background-color: rgba(62, 99, 221, 0.05);
-        border-radius   : 5px;
-        bottom          : 10px;
-        color           : #3e63dd;
-        content         : "\2192";
-        display         : flex;
-        font-size       : 1.2em;
-        justify-content : center;
-        opacity         : 0.8;
-        padding         : 5px 8px;
-        position        : absolute;
-        right           : 10px;
-        transition      : background-color 0.3s ease;
-    }
-
-    &:after:hover:after {
-        background-color: rgba(62, 99, 221, 0.25);
-    }
-
-    .neo-mouse {
-        &:hover {
-            background-color: rgba(62, 99, 221, 0.05);
-
-            .portal-content-box-headline {
-                border-bottom-color: #1a47b8;
+            &::marker {
+                color: var(--sem-color-text-primary-default);
             }
-        }
-    }
-
-    .neo-no-mouse {
-        &:after {
-            bottom     : 20px;
-            color      : #3e63dd;
-            content    : "\f08e";
-            font-weight: 600;
-            position   : absolute;
-            right      : 0.5em;
         }
     }
 }
