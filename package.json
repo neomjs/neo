@@ -38,6 +38,7 @@
         "create-app-minimal"           : "node ./buildScripts/createAppMinimal.mjs",
         "create-class"                 : "node ./buildScripts/createClass.mjs",
         "create-component"             : "node ./buildScripts/createComponent.mjs",
+        "create-release-index"         : "node ./buildScripts/createReleaseIndex.mjs",
         "generate-docs-json"           : "node ./buildScripts/docs/jsdocx.mjs",
         "prepare"                      : "node ./buildScripts/downloadKnowledgeBase.mjs",
         "prepare-release"              : "node ./buildScripts/prepareRelease.mjs",
