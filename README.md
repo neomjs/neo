@@ -55,11 +55,16 @@ This isn't just about generating code; it's about creating a self-aware developm
 3.  **🤖 The GitHub Workflow Server**: Closes the loop by enabling agents to participate directly in your project's lifecycle. It provides tools for autonomous PR reviews, issue management, and bi-directional synchronization of GitHub issues into a local, queryable set of markdown files. This removes the human bottleneck in code review and project management.
     *   **[📘 Read the Guide](https://github.com/neomjs/neo/blob/dev/learn/guides/mcp/GitHubWorkflow.md)**
 
-4.  **⚡️ Code Execution (The "Thick Client")**: Empower your agents to act as autonomous developers. Instead of passively asking for information, agents can write and execute complex scripts using the **Neo.mjs AI SDK**. This enables advanced workflows like self-healing code, automated refactoring, and data migration—running locally at machine speed.
+4.  **⚡️ The Agent Runtime**: Empower your agents to act as autonomous developers. Instead of passively asking for information, agents can write and execute complex scripts using the **Neo.mjs AI SDK**. This enables advanced workflows like self-healing code, automated refactoring, and data migration—running locally at machine speed.
     *   **[📘 Read the Guide](https://github.com/neomjs/neo/blob/dev/learn/guides/mcp/CodeExecution.md)**
 
 5.  **🔗 The Neural Link**: The bridge that connects AI agents directly to the running application engine. Unlike static code analysis, this allows agents to "see" the live render tree, "touch" component states, and perform **runtime permutations** (hot-patching) without a reload. It turns your application into a mutable environment that you and the AI cultivate together.
     *   **[📘 Read the Release Notes](https://github.com/neomjs/neo/blob/dev/.github/RELEASE_NOTES/v11.18.0.md)**
+
+### Why an Engine Architecture Matters for AI
+AI agents are "blind" in traditional compiled frameworks (React, Svelte) because the code they write (JSX/Templates) is destroyed by the build step—the runtime reality (DOM nodes) looks nothing like the source.
+
+**In Neo.mjs, the map IS the territory.** Because of **Object Permanence**, the runtime object graph matches the source code structure 1:1. The AI sees exactly what the engine sees, enabling it to reason about state, inheritance, and topology with perfect accuracy.
 
 This powerful tooling, co-created with AI agents, resulted in **resolving 388 tickets in just 6 weeks**. To learn more about this paradigm shift, read our blog post: **[388 Tickets in 6 Weeks: Context Engineering Done Right](./learn/blog/context-engineering-done-right.md)**.
 
@@ -103,9 +108,9 @@ The v10 release marked a significant evolution of the Neo.mjs core, introducing 
     *   *A look into the powerful, hierarchical state management system that scales effortlessly.*
 
 </br></br>
-## 📦 Batteries Included: Lego Technic, Not Duplo
+## 📦 Batteries Included: The Scene Graph
 
-**Neo.mjs components are Lego Technic, not Duplo.**
+**Neo.mjs components are nodes in a Scene Graph (Lego Technic), not just DOM templates (Duplo).**
 
 In most frameworks, components are like "melted plastic"—once rendered, they lose their identity in the DOM. Neo.mjs components are **Lego Technic**: precision-engineered, persistent structures that retain their identity, state, and relationships at runtime.
 
@@ -135,13 +140,17 @@ Traders get real-time updates with zero lag, and the app feels like a native des
 **multiple synchronized browser windows**, each displaying different real-time views, all remaining butter-smooth.
 That’s Neo.mjs in action — solving problems others can’t touch.
 </br></br>
-## 🌟 Key Features (and How They Supercharge Your App)
+## 🌟 Engine Subsystems (and How They Supercharge Your App)
 
-* **Runtime Permutation & Object Permanence**: Functioning as a persistent Application Engine, Neo.mjs components are **live entities** in the App Worker, functioning like nodes in a Scene Graph. They retain their state and identity even when detached from the DOM. This enables **Runtime Permutation**: the ability to drag active dashboards between windows or re-parent complex tools at runtime without losing context.
+* **The Threading Subsystem**: A dedicated orchestrator that isolates application logic (App Worker) from rendering logic (Main Thread) and data processing (Data Worker). This ensures the main thread is always free to respond to user input, eliminating UI jank at an architectural level.
 
-* **Functional & Class-Based Components**: Neo.mjs offers two powerful component models. **Functional Components**, introduced more recently, provide an easier onboarding experience and a modern, hook-based development style (`defineComponent`, `useConfig`, `useEvent`), similar to other popular frameworks. They are ideal for simpler, more declarative UIs. For advanced use cases requiring granular control over VDOM changes and deeper integration with the framework's lifecycle, **Class-Based Components** offer superior power and flexibility, albeit with slightly more code overhead. Both models seamlessly interoperate, allowing you to choose the right tool for each part of your application while benefiting from the unparalleled performance of our multi-threaded architecture. Best of all, our functional components are free from the "memoization tax" (`useMemo`, `useCallback`) that plagues other frameworks.
+* **The Rendering Pipeline**: Just as a game engine sends draw calls to the GPU, the Neo.mjs App Worker sends compressed JSON deltas to the Main Thread. This **Asymmetric VDOM** approach is faster, more secure, and AI-friendly than main-thread diffing.
 
-* **Reactive State Management**: Leveraging `Neo.state.Provider`, Neo.mjs offers natively integrated, hierarchical state management.
+* **The Scene Graph (Object Permanence)**: Functioning as a persistent Application Engine, Neo.mjs components are **live entities** in the App Worker, functioning like nodes in a Scene Graph. They retain their state and identity even when detached from the DOM. This enables **Runtime Permutation**: the ability to drag active dashboards between windows or re-parent complex tools at runtime without losing context.
+
+* **The Component System**: Neo.mjs offers two powerful component models. **Functional Components**, introduced more recently, provide an easier onboarding experience and a modern, hook-based development style (`defineComponent`, `useConfig`, `useEvent`), similar to other popular frameworks. They are ideal for simpler, more declarative UIs. For advanced use cases requiring granular control over VDOM changes and deeper integration with the framework's lifecycle, **Class-Based Components** offer superior power and flexibility, albeit with slightly more code overhead. Both models seamlessly interoperate, allowing you to choose the right tool for each part of your application while benefiting from the unparalleled performance of our multi-threaded architecture. Best of all, our functional components are free from the "memoization tax" (`useMemo`, `useCallback`) that plagues other frameworks.
+
+* **The State Subsystem**: Leveraging `Neo.state.Provider`, Neo.mjs offers natively integrated, hierarchical state management.
   Components declare their data needs via a concise `bind` config. These `bind` functions act as powerful inline formulas, allowing
   Components to automatically react to changes and combine data from multiple state providers within the component hierarchy.
   This ensures dynamic, efficient updates — from simple property changes to complex computed values — all handled off the main thread.
@@ -237,6 +246,17 @@ class MyComponent extends Component {
 }
 
 export default Neo.setupClass(MyComponent);
+
+// -------------------------------------------------------
+// The Engine allows Runtime Mutation:
+// An AI agent (or you) can inspect and modify this instance LIVE without a reload.
+// -------------------------------------------------------
+
+// Agent Command (via Neural Link):
+Neo.get('my-component-id').set({
+    myConfig: 'newValue',
+    style   : { color: 'red' } // Instant update via OMT Rendering Pipeline
+});
 ```
 
 For each config property ending with an underscore (_), Neo.mjs automatically generates a getter and a setter on the class prototype. These setters ensure that changes trigger corresponding lifecycle hooks, providing a powerful, built-in reactive system:
