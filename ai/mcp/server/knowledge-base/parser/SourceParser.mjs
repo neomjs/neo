@@ -46,6 +46,11 @@ class SourceParser extends Base {
         const chunks = [];
         let ast;
 
+        // Strip shebang if present (acorn doesn't handle it)
+        if (content.startsWith('#!')) {
+            content = content.replace(/^#!.*\n/, '');
+        }
+
         try {
             ast = acorn.parse(content, { sourceType: 'module', locations: true, ecmaVersion: 2022 });
         } catch (e) {
