@@ -25,6 +25,9 @@ import KB_QueryService              from './mcp/server/knowledge-base/services/Q
 import KB_ChromaManager             from './mcp/server/knowledge-base/services/ChromaManager.mjs';
 import KB_Config                    from './mcp/server/knowledge-base/config.mjs';
 
+// Disable auto-sync for all scripts using the SDK to prevent double-runs
+KB_Config.data.autoSync = false;
+
 // --- Memory Core Services ---
 import Memory_Service               from './mcp/server/memory-core/services/MemoryService.mjs';
 import Memory_DatabaseService       from './mcp/server/memory-core/services/DatabaseService.mjs';

@@ -10,6 +10,11 @@ const cwd = process.cwd();
  */
 const defaultConfig = {
     /**
+     * Automatically synchronize the knowledge base on startup.
+     * @type {boolean}
+     */
+    autoSync: true,
+    /**
      * Global debug flag for all MCP servers.
      * @type {boolean}
      */
