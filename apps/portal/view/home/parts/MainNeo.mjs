@@ -49,7 +49,7 @@ class MainNeo extends BaseContainer {
                 'Object Permanence',
                 'Context Engineering',
                 'AI-Native Runtime',
-                'Runtime Permutation',
+                'Live Runtime Mutation',
                 'Desktop-Class Performance',
                 'Linear Scalability',
                 'Multi-Window Orchestration',
@@ -58,9 +58,10 @@ class MainNeo extends BaseContainer {
                 'Hierarchical State Management',
                 'Clean Architecture',
                 'Separation of Concerns',
+                '100% Web Standards',
                 'Zero Build Step',
                 'No Transpilation',
-                'Instant Hot Reload'
+                'Instant Page Reloads'
             ]
         }, {
             cls : ['neo-h3'],
