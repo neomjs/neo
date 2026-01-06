@@ -1,9 +1,9 @@
-import Neo                  from '../../src/Neo.mjs';
-import * as core            from '../../src/core/_export.mjs';
-import KB_Config            from '../mcp/server/knowledge-base/config.mjs';
-import KB_DatabaseService   from '../mcp/server/knowledge-base/services/DatabaseService.mjs';
-import KB_ChromaManager     from '../mcp/server/knowledge-base/services/ChromaManager.mjs';
-import KB_LifecycleService  from '../mcp/server/knowledge-base/services/DatabaseLifecycleService.mjs';
+import Neo                  from '../src/Neo.mjs';
+import * as core            from '../src/core/_export.mjs';
+import KB_Config            from '../ai/mcp/server/knowledge-base/config.mjs';
+import KB_DatabaseService   from '../ai/mcp/server/knowledge-base/services/DatabaseService.mjs';
+import KB_ChromaManager     from '../ai/mcp/server/knowledge-base/services/ChromaManager.mjs';
+import KB_LifecycleService  from '../ai/mcp/server/knowledge-base/services/DatabaseLifecycleService.mjs';
 
 async function syncKnowledgeBase() {
     // Enable debug logging to see progress

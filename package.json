@@ -23,7 +23,7 @@
         "ai:server"                    : "chroma run --path ./chroma-neo-knowledge-base",
         "ai:server-memory"             : "chroma run --path ./chroma-neo-memory-core --port 8001",
         "ai:server-neural-link"        : "node ./ai/mcp/server/neural-link/run-bridge.mjs",
-        "ai:sync-kb"                   : "node ./ai/examples/sync_knowledge_base.mjs",
+        "ai:sync-kb"                   : "node ./buildScripts/syncKnowledgeBase.mjs",
         "ai:upload-kb"                 : "node ./buildScripts/uploadKnowledgeBase.mjs",
         "build-all"                    : "node ./buildScripts/buildAll.mjs -f -n",
         "build-all-questions"          : "node ./buildScripts/buildAll.mjs -f",
