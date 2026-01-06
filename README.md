@@ -14,6 +14,10 @@
 # The Application Engine for the AI Era
 🚀 **True Multithreading Meets Context Engineering — Build Desktop-Class UIs with an AI Co-Developer.**
 
+> **⚡ The Mental Model:**
+> **Neo.mjs is a multi-threaded application runtime where UI components are persistent objects—not ephemeral render results.**
+> This architectural shift enables desktop-class performance, multi-window orchestration, and AI-driven runtime mutation that traditional frameworks cannot achieve.
+
 💻 ***Neo.mjs is not a framework; it is an Application Engine for the web. Just as Unreal Engine provides a complete runtime and toolchain for games, Neo.mjs provides a multi-threaded runtime and AI-native toolchain for enterprise applications.***
 
 Imagine web applications that never jank, no matter how complex the logic, how many real-time updates they handle, or how many browser windows they span. Neo.mjs is engineered from the ground up to deliver **desktop-like fluidity and scalability**. **While it excels for Single Page Apps (SPAs), Neo.mjs is simply the best option for browser-based multi-window applications**, operating fundamentally different from traditional frameworks.
@@ -56,16 +60,16 @@ This isn't just about generating code; it's about creating a self-aware developm
 </p>
 
 1.  **🧠 The Knowledge Base Server**: Gives agents a deep, semantic understanding of your project. Powered by ChromaDB and Gemini embeddings, it allows agents to perform semantic searches across your entire codebase, documentation, and historical tickets. An agent can ask, "How does VDOM diffing work?" and get the exact source files and architectural guides relevant to the *currently checked-out version*.
-    *   **[📘 Read the Guide](https://github.com/neomjs/neo/blob/dev/learn/guides/mcp/KnowledgeBase.md)**
+    * **[📘 Read the Guide](https://github.com/neomjs/neo/blob/dev/learn/guides/mcp/KnowledgeBase.md)**
 
-2.  **💾 The Memory Core Server**: Provides agents with persistent, long-term memory. Every interaction—prompt, thought process, and response—is stored, allowing the agent to learn from experience, recall past decisions, and maintain context across multiple sessions. This transforms the agent from a stateless tool into a true collaborator that grows with your project.
-    *   **[📘 Read the Guide](https://github.com/neomjs/neo/blob/dev/learn/guides/mcp/MemoryCore.md)**
+2.  **💾 The Memory Core Server**: Provides agents with persistent, long-term memory. Every interaction—prompt, thought process, and response is stored, allowing the agent to learn from experience, recall past decisions, and maintain context across multiple sessions. This transforms the agent from a stateless tool into a true collaborator that grows with your project.
+    * **[📘 Read the Guide](https://github.com/neomjs/neo/blob/dev/learn/guides/mcp/MemoryCore.md)**
 
 3.  **🤖 The GitHub Workflow Server**: Closes the loop by enabling agents to participate directly in your project's lifecycle. It provides tools for autonomous PR reviews, issue management, and bi-directional synchronization of GitHub issues into a local, queryable set of markdown files. This removes the human bottleneck in code review and project management.
-    *   **[📘 Read the Guide](https://github.com/neomjs/neo/blob/dev/learn/guides/mcp/GitHubWorkflow.md)**
+    * **[📘 Read the Guide](https://github.com/neomjs/neo/blob/dev/learn/guides/mcp/GitHubWorkflow.md)**
 
 4.  **⚡️ The Agent Runtime**: Empower your agents to act as autonomous developers. Instead of passively asking for information, agents can write and execute complex scripts using the **Neo.mjs AI SDK**. This enables advanced workflows like self-healing code, automated refactoring, and data migration—running locally at machine speed.
-    *   **[📘 Read the Guide](https://github.com/neomjs/neo/blob/dev/learn/guides/mcp/CodeExecution.md)**
+    * **[📘 Read the Guide](https://github.com/neomjs/neo/blob/dev/learn/guides/mcp/CodeExecution.md)**
 
 ### Why an Engine Architecture Matters for AI
 AI agents are "blind" in traditional compiled frameworks (React, Svelte) because the code they write (JSX/Templates) is destroyed by the build step—the runtime reality (DOM nodes) looks nothing like the source.
@@ -118,13 +122,15 @@ Next steps:
 </br></br>
 ## 📦 The Object Model: The Scene Graph
 
-**Neo.mjs components are nodes in a Scene Graph (Lego Technic), not just DOM templates (Duplo).**
+**Frameworks compile away. Engines stay alive.**
 
-The DOM is a transient render target, not a storage medium. In Neo.mjs, the Component Tree is the application state.
+In traditional frameworks, the source code is a blueprint that gets destroyed to create the DOM. In Neo.mjs, the source code instantiates a **Scene Graph**—a hierarchy of persistent objects that lives in the App Worker.
 
-In most frameworks, components are like "melted plastic"—once rendered, they lose their identity in the DOM. Neo.mjs components are **Lego Technic**: precision-engineered, persistent structures that retain their identity, state, and relationships at runtime.
+* **Lego Technic vs. Duplo:** Most framework components are like "melted plastic"—once rendered, they lose their identity. Neo.mjs components are like **Lego Technic**: precision-engineered parts that retain their state, methods, and relationships at runtime.
+* **The JSON Protocol:** Because every component adheres to a strict **serialization protocol** (toJSON), the entire application behaves as a mutable graph.
+* **Runtime Permutation:** This allows AI agents (or you) to inspect, dismantle, and reconfigure the application on the fly—changing layouts, moving dashboards between windows, or hot-swapping themes without a reload.
 
-Because every component adheres to a strict **JSON-based serialization protocol**, the entire application is a mutable graph. This allows AI agents (or you) to inspect, dismantle, and reconfigure the application on the fly—changing layouts, moving dashboards between windows, or hot-swapping themes without a reload. It's not just a library of views; it's a kit of mechanical parts for building complex, adaptive machinery.
+It's not just a view library; it's a **construction kit** for adaptive, living applications.
 
 </br></br>
 ## 💡 Why Choose Neo.mjs?
