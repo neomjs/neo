@@ -6,9 +6,10 @@ labels:
   - documentation
   - enhancement
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-01-06T12:16:23Z'
-updatedAt: '2026-01-06T12:28:42Z'
+updatedAt: '2026-01-06T15:36:57Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8353'
 author: tobiu
 commentsCount: 1
@@ -58,4 +59,5 @@ This task addresses the "Final 1%" of polish items.
 - 2026-01-06 @tobiu added the `ai` label
 - 2026-01-06 @tobiu referenced in commit `bb25def` - "Docs: Finalize README.md rebrand with engine terminology and Neural Link details #8353"
 - 2026-01-06 @tobiu closed this issue
+- 2026-01-06 @tobiu assigned to @tobiu
 
