@@ -18,6 +18,7 @@
 > **Neo.mjs is a multi-threaded application runtime where UI components are persistent objects—not ephemeral render results.**
 > This architectural shift enables desktop-class performance, multi-window orchestration, and AI-driven runtime mutation that traditional frameworks cannot achieve.
 
+</br></br>
 💻 ***Neo.mjs is not a framework; it is an Application Engine for the web. Just as Unreal Engine provides a complete runtime and toolchain for games, Neo.mjs provides a multi-threaded runtime and AI-native toolchain for enterprise applications.***
 
 Imagine web applications that never jank, no matter how complex the logic, how many real-time updates they handle, or how many browser windows they span. Neo.mjs is engineered from the ground up to deliver **desktop-like fluidity and scalability**. **While it excels for Single Page Apps (SPAs), Neo.mjs is simply the best option for browser-based multi-window applications**, operating fundamentally different from traditional frameworks.
