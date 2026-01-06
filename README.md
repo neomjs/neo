@@ -38,7 +38,7 @@ Have a question or want to connect with the community? We have two channels to h
 </br></br>
 ## 🚀 The AI-Native Development Platform
 
-Neo.mjs v11 introduces a revolutionary approach to software development: **Context Engineering**. We've moved beyond simple "AI-assisted" coding to create a truly **AI-native** platform where AI agents are deeply integrated partners in the development process. This is made possible by three dedicated **Model Context Protocol (MCP) servers** that give agents the context they need to understand, build, and reason about your code.
+Neo.mjs v11 introduces a revolutionary approach to software development: **Context Engineering**. We've moved beyond simple "AI-assisted" coding to create a truly **AI-native** platform where AI agents are deeply integrated partners in the development process. This is made possible by a suite of dedicated **Model Context Protocol (MCP) servers** that give agents the context they need to understand, build, and reason about your code.
 
 This isn't just about generating code; it's about creating a self-aware development environment that accelerates velocity, improves quality, and enables a new level of human-AI collaboration.
 
@@ -64,7 +64,7 @@ This isn't just about generating code; it's about creating a self-aware developm
 ### Why an Engine Architecture Matters for AI
 AI agents are "blind" in traditional compiled frameworks (React, Svelte) because the code they write (JSX/Templates) is destroyed by the build step—the runtime reality (DOM nodes) looks nothing like the source.
 
-**In Neo.mjs, the map IS the territory.** Because of **Object Permanence**, the runtime object graph matches the source code structure 1:1. The AI sees exactly what the engine sees, enabling it to reason about state, inheritance, and topology with perfect accuracy.
+**In Neo.mjs, the map IS the territory.** Because components are persistent objects in the App Worker (not ephemeral DOM nodes), the AI can query their state, methods, and inheritance chain at any time. It's like inspecting a running game character in Unreal Engine, rather than parsing the pixels on the screen. The AI sees exactly what the engine sees, enabling it to reason about state, inheritance, and topology with perfect accuracy.
 
 This powerful tooling, co-created with AI agents, resulted in **resolving 388 tickets in just 6 weeks**. To learn more about this paradigm shift, read our blog post: **[388 Tickets in 6 Weeks: Context Engineering Done Right](./learn/blog/context-engineering-done-right.md)**.
 
@@ -108,7 +108,7 @@ The v10 release marked a significant evolution of the Neo.mjs core, introducing 
     *   *A look into the powerful, hierarchical state management system that scales effortlessly.*
 
 </br></br>
-## 📦 Batteries Included: The Scene Graph
+## 📦 The Object Model: The Scene Graph
 
 **Neo.mjs components are nodes in a Scene Graph (Lego Technic), not just DOM templates (Duplo).**
 
@@ -164,13 +164,13 @@ That’s Neo.mjs in action — solving problems others can’t touch.
   }
   ```
 
-* **Clean Architecture (MVVM-inspired)**: View controllers ensure a clear separation of concerns, isolating business logic
+* **The Logic Subsystem**: View controllers ensure a clear separation of concerns, isolating business logic
   from UI components for easier maintenance, testing, and team collaboration.
 
 * **Multi-Window & Single-Page Applications (SPAs)***: Beyond traditional SPAs, Neo.mjs excels at complex multi-window applications.
   Its unique architecture, powered by seamless cross-worker communication and extensible Main Thread addons, enables truly native-like, persistent experiences across browser windows.
 
-* **No npm Dependency Hell**: Neo.mjs apps run with **zero runtime dependencies**, just a few dev dependencies for tooling.
+* **The Module System**: Neo.mjs apps run with **zero runtime dependencies**, just a few dev dependencies for tooling.
   This means smaller bundles, fewer conflicts, and a simpler dependency graph.
 
 * **Unparalleled Debugging Experience**: Benefit from Neo.mjs's built-in debugging capabilities. Easily inspect the full component
@@ -255,7 +255,7 @@ export default Neo.setupClass(MyComponent);
 // Agent Command (via Neural Link):
 Neo.get('my-component-id').set({
     myConfig: 'newValue',
-    style   : { color: 'red' } // Instant update via OMT Rendering Pipeline
+    style   : { color: 'red' } // Instant update via OMT Rendering Pipeline. No build step. No reload.
 });
 ```
 
