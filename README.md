@@ -179,20 +179,28 @@ That’s Neo.mjs in action — solving problems others can’t touch.
 *Diagram: A high-level overview of Neo.mjs's multi-threaded architecture (Main Thread, App Worker, VDom Worker, Canvas Worker, Data Worker, Service Worker, Backend). Optional workers fade in on hover on neomjs.com.*
 
 </br></br>
-## 🔍 Architectural Deep Dive: Neo.mjs vs. Main-Thread Frameworks
-The true power of Neo.mjs lies in its foundational architectural choices, which solve problems that other frameworks can only mitigate. Here’s a more detailed breakdown:
+## 🔍 Engine Architecture: The Runtime & The Toolchain
 
-| Feature | Neo.mjs Approach | Typical Main-Thread Framework Approach (React, Vue, Angular) | The Neo.mjs Advantage |
-| :--- | :--- | :--- | :--- |
-| **Core Architecture** | **Multi-Threaded by Design**: App logic, VDOM diffing, and rendering are split across a dedicated App Worker, VDOM Worker, and the Main Thread. | **Single-Threaded**: All application logic, state management, rendering, and user interactions compete for the same Main Thread resources. | **Guaranteed UI Responsiveness**. By isolating expensive computations, Neo.mjs ensures the main thread is always free to respond to user input, eliminating UI jank and freezes at an architectural level. |
-| **Reactivity Model** | **Direct & Granular Hybrid**: A powerful two-tier system combines imperative "push" (`afterSet`) and declarative "pull" (`Effect`) reactivity. | **React**: Inverted model (the entire component function re-runs). **Vue/Angular**: Highly optimized, direct "pull" model. | **Performant by Default**. Eliminates the "memoization tax" (`useMemo`, etc.) required in React. More powerful than pure pull systems for orchestrating complex business logic. |
-| **Component Lifecycle** | **Stable & Persistent**: Instances are created once and persist through UI changes. Features a rich lifecycle with `construct`, `initAsync`, and `afterSetMounted`. | **React**: Ephemeral (functional components are re-executed on every render). **Vue/Angular**: More stable, but lack pre-ready async hooks for complex setup. | **Robust & Predictable**. `initAsync` solves async setup (data fetching, module loading) *before* the first render, preventing UI flicker. Persistence enables complex stateful apps and multi-window operations. |
-| **State Management** | **Surgical Subscriptions**: The integrated `StateProvider` allows components to subscribe *only* to the precise state slices they need, completely bypassing intermediate components. | **React**: Context API re-renders all consumers by default, requiring manual optimization. **Vue/Angular**: Optimized state managers (Pinia, NgRx) are still bound by the main thread. | **Scalable & Decoupled**. More performant for global state changes by default. Architecturally cleaner, avoiding props drilling and the performance traps of React's Context. |
-| **DOM Updates** | **Asymmetric & Off-Thread**: Simple, serializable JSON objects (blueprints) are sent to the VDOM worker for diffing. The Main Thread only receives and applies minimal, pre-calculated patches. | VDOM diffing and DOM manipulation are computationally expensive tasks that occur on the main thread, directly competing with user interactions. | **Faster, More Secure, and AI-Friendly**. Off-thread diffing is faster. Using direct DOM APIs instead of `innerHTML` is more secure. Simple JSON blueprints are trivial for AI to generate and manipulate. |
-| **AI & Dev Tooling** | **Integrated AI-Native Platform**: Three dedicated MCP servers provide context engineering, semantic search, agent memory, and autonomous workflow automation. | **Disconnected Tooling**: Relies on external, disconnected tools (linters, IDE extensions, CI scripts). No built-in context awareness for AI agents. | **Unprecedented Developer Velocity**. Enables true human-AI collaboration, autonomous code review, and a self-aware development environment that solves the "bus factor" problem. |
-| **Dev Experience** | **Zero-Builds Development**: Native ES Modules run directly in the browser. No transpilation or bundling is needed for development. | **Build-Heavy**: Relies on tools like Vite, Webpack, or the Angular CLI, which add complexity, require source maps, and introduce delays. | **Unparalleled Simplicity & Debugging Clarity**. What you write is what you debug. Instant feedback and the absence of complex build toolchains lead to a faster, more intuitive workflow. |
+Just as a Game Engine consists of a **Runtime** (what players play) and an **Editor** (what developers use), Neo.mjs is split into two complementary layers.
 
-**The Bottom Line**: Where other frameworks optimize operations on the main thread, Neo.mjs moves them off the main thread entirely. This fundamental difference results in a platform that is not just faster, but architecturally more scalable, robust, and resilient to complexity.
+### 1. The Runtime (Neo.mjs Core)
+*Runs in the Browser. Production-Ready. Zero-Bloat.*
+
+This is the high-performance engine that powers your application. It operates on a **multi-threaded architecture**, isolating the main thread to ensure 60fps fluidity even under heavy load.
+*   **App Worker:** Runs your entire application logic, state, and virtual DOM diffing.
+*   **Multi-Window Orchestration:** A single engine instance can power multiple browser windows via SharedWorkers. Components can be dragged, dropped, and moved between windows seamlessly—essential for complex "Control Room" interfaces.
+*   **Main Thread:** Treated as a "dumb" renderer, only applying efficient DOM patches.
+*   **Object Permanence:** Components are persistent entities that can be moved, detached, and re-attached without losing state.
+
+### 2. The Toolchain (Agent OS)
+*Runs in Node.js. Dev-Time Only. AI-Native.*
+
+This is the "Editor" for the AI era. It connects your development environment to the running engine, allowing AI agents to act as first-class collaborators.
+*   **The Neural Link:** A bi-directional bridge allowing agents to "see" and "mutate" the live runtime graph.
+*   **MCP Servers:** Provide agents with deep context (Knowledge Base) and memory (Memory Core).
+*   **Context Engineering:** A structured workflow where agents help you build the engine by understanding its architecture.
+
+**The Result:** You don't just write code; you cultivate a living system with an AI partner that understands exactly how the engine works.
 
 </br></br>
 ## ⚙️ Declarative Class Configuration: Build Faster, Maintain Easier
