@@ -1,5 +1,6 @@
 .portal-home-feature-section {
     align-items      : stretch;
+    background-color : transparent;
     display          : flex;
     flex-wrap        : nowrap;
     justify-content  : center;
@@ -42,13 +43,14 @@
     }
 
     .portal-content-text {
-        align-items    : start;
-        display        : flex;
-        flex           : 1;
-        flex-direction : column;
-        flex-wrap      : nowrap;
-        justify-content: center;
-        padding        : 2rem;
+        align-items     : start;
+        background-color: transparent;
+        display         : flex;
+        flex            : 1;
+        flex-direction  : column;
+        flex-wrap       : nowrap;
+        justify-content : center;
+        padding         : 2rem;
 
         @media (max-width: 600px) {
             flex           : .5 !important;
