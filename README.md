@@ -31,6 +31,7 @@ But performance is only half the story. With v11, Neo.mjs becomes the world's fi
 ## 🎯 Is Neo.mjs Right for You?
 
 **Neo.mjs is an Application Engine, not a website builder.**
+*It is a mature, enterprise-grade platform with over 130,000 lines of production-ready code.*
 
 ✅ **Perfect For:**
 * **Financial & Trading Platforms:** processing 10k+ ticks/sec without UI freeze.
@@ -128,7 +129,9 @@ Because every component adheres to a strict **JSON-based serialization protocol*
 </br></br>
 ## 💡 Why Choose Neo.mjs?
 
-**Stop building F1 cars with Toyota parts.** Traditional frameworks are general-purpose tools designed for mass adoption (Toyota), sacrificing raw performance for ease of use. Neo.mjs is precision-engineered for extreme performance (F1), designed for applications where "good enough" isn't acceptable.
+**You're building F1 apps with Toyota parts.**
+
+Traditional frameworks are reliable general-purpose tools (Toyota), sacrificing raw performance for mass adoption. Neo.mjs is precision-engineered for extreme performance (F1), designed for applications where "good enough" isn't acceptable.
 
 1.  **Eliminate UI Freezes with True Multithreading**:
     > *"The browser's main thread should be treated like a neurosurgeon: only perform precise, scheduled operations with zero distractions."*</br></br>
