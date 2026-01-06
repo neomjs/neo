@@ -11,10 +11,10 @@
   <a href="./CONTRIBUTING.md"><img src="https://img.shields.io/badge/PRs-welcome-green.svg?logo=GitHub&logoColor=white" alt="PRs Welcome"></a>
 </p>
 
-# The AI-Native Platform for Ultra-Fast Web Apps
+# The Application Engine for the AI Era
 🚀 **True Multithreading Meets Context Engineering — Build Desktop-Class UIs with an AI Co-Developer.**
 
-💻 ***Neo.mjs is more than a framework; it's a new operating system for the web, architected for unparalleled performance and pioneering human-AI collaboration.***
+💻 ***Neo.mjs is not a framework; it is an Application Engine for the web. Just as Unreal Engine provides a complete runtime and toolchain for games, Neo.mjs provides a multi-threaded runtime and AI-native toolchain for enterprise applications.***
 
 Imagine web applications that never jank, no matter how complex the logic, how many real-time updates they handle, or how many browser windows they span. Neo.mjs is engineered from the ground up to deliver **desktop-like fluidity and scalability**. **While it excels for Single Page Apps (SPAs), Neo.mjs is simply the best option for browser-based multi-window applications**, operating fundamentally different from traditional frameworks.
 
@@ -58,12 +58,15 @@ This isn't just about generating code; it's about creating a self-aware developm
 4.  **⚡️ Code Execution (The "Thick Client")**: Empower your agents to act as autonomous developers. Instead of passively asking for information, agents can write and execute complex scripts using the **Neo.mjs AI SDK**. This enables advanced workflows like self-healing code, automated refactoring, and data migration—running locally at machine speed.
     *   **[📘 Read the Guide](https://github.com/neomjs/neo/blob/dev/learn/guides/mcp/CodeExecution.md)**
 
+5.  **🔗 The Neural Link**: The bridge that connects AI agents directly to the running application engine. Unlike static code analysis, this allows agents to "see" the live render tree, "touch" component states, and perform **runtime permutations** (hot-patching) without a reload. It turns your application into a mutable environment that you and the AI cultivate together.
+    *   **[📘 Read the Release Notes](https://github.com/neomjs/neo/blob/dev/.github/RELEASE_NOTES/v11.18.0.md)**
+
 This powerful tooling, co-created with AI agents, resulted in **resolving 388 tickets in just 6 weeks**. To learn more about this paradigm shift, read our blog post: **[388 Tickets in 6 Weeks: Context Engineering Done Right](./learn/blog/context-engineering-done-right.md)**.
 
 </br></br>
 ## 💡 Why Choose Neo.mjs?
 
-Traditional single-threaded frameworks struggle with performance bottlenecks, especially in large-scale, data-intensive applications. Neo.mjs offers a fundamentally different solution, designed for **uncompromising performance, AI-native productivity, and superior developer experience.**
+**Stop building F1 cars with Toyota parts.** Traditional frameworks are general-purpose tools designed for mass adoption (Toyota), sacrificing raw performance for ease of use. Neo.mjs is precision-engineered for extreme performance (F1), designed for applications where "good enough" isn't acceptable.
 
 1.  **Eliminate UI Freezes with True Multithreading**:
     > *"The browser's main thread should be treated like a neurosurgeon: only perform precise, scheduled operations with zero distractions."*</br></br>
@@ -100,13 +103,13 @@ The v10 release marked a significant evolution of the Neo.mjs core, introducing 
     *   *A look into the powerful, hierarchical state management system that scales effortlessly.*
 
 </br></br>
-## 📦 Batteries Included: A Comprehensive Component Library
+## 📦 Batteries Included: Lego Technic, Not Duplo
 
-While other frameworks provide just the view layer, Neo.mjs delivers a complete, natively integrated ecosystem. You'll find a rich
-suite of high-performance UI components — from advanced data grids, forms, and trees, to versatile containers and specialized elements
-like a full calendar, carousels, and chart wrappers. All components are pre-built and optimized to work seamlessly within the
-multi-threaded architecture, significantly accelerating development and eliminating the complexity of integrating disparate
-external component libraries.
+**Neo.mjs components are Lego Technic, not Duplo.**
+
+In most frameworks, components are like "melted plastic"—once rendered, they lose their identity in the DOM. Neo.mjs components are **Lego Technic**: precision-engineered, persistent structures that retain their identity, state, and relationships at runtime.
+
+Because every component adheres to a strict **JSON-based serialization protocol**, the entire application is a mutable graph. This allows AI agents (or you) to inspect, dismantle, and reconfigure the application on the fly—changing layouts, moving dashboards between windows, or hot-swapping themes without a reload. It's not just a library of views; it's a kit of mechanical parts for building complex, adaptive machinery.
 </br></br>
 ## A Platform at Scale: More Than Just a Library
 
@@ -134,8 +137,7 @@ That’s Neo.mjs in action — solving problems others can’t touch.
 </br></br>
 ## 🌟 Key Features (and How They Supercharge Your App)
 
-* **Persistent Component Instances**: Components maintain their state and logic even when their DOM is removed or moved.
-  No more wasteful re-creations – just surgical, efficient updates.
+* **Runtime Permutation & Object Permanence**: Unlike traditional frameworks, Neo.mjs components are **live entities** in the App Worker, functioning like nodes in a Scene Graph. They retain their state and identity even when detached from the DOM. This enables **Runtime Permutation**: the ability to drag active dashboards between windows or re-parent complex tools at runtime without losing context.
 
 * **Functional & Class-Based Components**: Neo.mjs offers two powerful component models. **Functional Components**, introduced more recently, provide an easier onboarding experience and a modern, hook-based development style (`defineComponent`, `useConfig`, `useEvent`), similar to other popular frameworks. They are ideal for simpler, more declarative UIs. For advanced use cases requiring granular control over VDOM changes and deeper integration with the framework's lifecycle, **Class-Based Components** offer superior power and flexibility, albeit with slightly more code overhead. Both models seamlessly interoperate, allowing you to choose the right tool for each part of your application while benefiting from the unparalleled performance of our multi-threaded architecture. Best of all, our functional components are free from the "memoization tax" (`useMemo`, `useCallback`) that plagues other frameworks.
 
