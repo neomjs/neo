@@ -10,6 +10,11 @@ const cwd = process.cwd();
  */
 const defaultConfig = {
     /**
+     * Automatically trigger session summarization on startup.
+     * @type {boolean}
+     */
+    autoSummarize: true,
+    /**
      * Global debug flag for all MCP servers.
      * @type {boolean}
      */
