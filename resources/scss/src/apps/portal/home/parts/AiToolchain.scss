@@ -1,0 +1,72 @@
+.portal-home-parts-aitoolchain {
+    background-color: var(--sem-color-bg-neutral-highlighted);
+    color           : var(--sem-color-text-neutral-default);
+    gap             : 4rem;
+    padding         : 6em 2em 0; /* Removing bottom padding as FooterContainer is attached */
+
+    .content-wrapper {
+        align-items: center;
+        display    : flex;
+        flex-direction: column;
+        gap        : 2rem;
+        max-width  : 1200px;
+        margin     : 0 auto;
+        text-align : center;
+    }
+
+    .neo-h1 {
+        color      : var(--sem-color-text-neutral-contrast);
+        font-family: "GT-Planar", sans-serif;
+        font-size  : 4rem;
+        line-height: 1.1;
+        margin     : 0;
+    }
+
+    .neo-h3 {
+        color      : var(--sem-color-text-neutral-subdued);
+        font-size  : 1.5rem;
+        line-height: 1.5;
+        margin     : 0;
+        max-width  : 800px;
+    }
+
+    .card-container {
+        display              : grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap                  : 2rem;
+        margin-top           : 2rem;
+        width                : 100%;
+
+        @media (max-width: 900px) {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .feature-card {
+        background   : var(--sem-color-bg-neutral-default);
+        border       : 1px solid var(--sem-color-border-subtle);
+        border-radius: 12px;
+        padding      : 2rem;
+        text-align   : left;
+        transition   : transform 0.2s ease, box-shadow 0.2s ease;
+
+        &:hover {
+            transform : translateY(-4px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+        }
+
+        h4 {
+            color        : var(--sem-color-text-primary-default);
+            font-family  : "GT-Planar", sans-serif;
+            font-size    : 1.25rem;
+            margin-bottom: 1rem;
+        }
+
+        p {
+            color      : var(--sem-color-text-neutral-subdued);
+            font-size  : 1.1rem;
+            line-height: 1.6;
+            margin     : 0;
+        }
+    }
+}

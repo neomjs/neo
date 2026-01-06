@@ -1,10 +1,10 @@
-import AfterMath from './parts/AfterMath.mjs';
-import Colors    from './parts/Colors.mjs';
-import Container from '../../../../src/container/Base.mjs';
-import Features  from './parts/Features.mjs';
-import Helix     from './parts/Helix.mjs';
-import How       from './parts/How.mjs';
-import MainNeo   from './parts/MainNeo.mjs';
+import AiToolchain from './parts/AiToolchain.mjs';
+import Colors      from './parts/Colors.mjs';
+import Container   from '../../../../src/container/Base.mjs';
+import Features    from './parts/Features.mjs';
+import Helix       from './parts/Helix.mjs';
+import How         from './parts/How.mjs';
+import MainNeo     from './parts/MainNeo.mjs';
 
 /**
  * @class Portal.view.home.MainContainer
@@ -56,7 +56,7 @@ class MainContainer extends Container {
             Helix,
             How,
             Features,
-            AfterMath
+            AiToolchain
         ],
         /**
          * @member {Boolean} scrollable=true
