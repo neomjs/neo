@@ -42,7 +42,11 @@ class Mermaid extends Base {
             app: [
                 'render'
             ]
-        }
+        },
+        /**
+         * @member {Boolean} useLazyLoading=true
+         */
+        useLazyLoading: true
     }
 
     /**

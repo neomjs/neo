@@ -127,7 +127,6 @@ class Markdown extends Component {
     }
 
     /**
-     * @param {String} inputString
      * @returns {String}
      */
     insertLabDivs(inputString) {

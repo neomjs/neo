@@ -58,6 +58,7 @@ class Config {
     /**
      * The strategy to use when merging new values into this config.
      * Defaults to 'replace'. Can be overridden via a descriptor merge property.
+     * Supported values: 'deep', 'deepArrays', 'replace', 'shallow'.
      * @member {Function|String} mergeStrategy='replace'
      */
 

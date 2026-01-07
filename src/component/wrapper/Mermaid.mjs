@@ -86,6 +86,13 @@ class Mermaid extends Component {
     }
 
     /**
+     * @returns {Promise<void>}
+     */
+    async loadFiles() {
+        return this.addon.loadFiles()
+    }
+
+    /**
      * Renders the Mermaid diagram.
      * This method waits for the component to be fully initialized (ready) and then invokes
      * the `render` method on the remote addon proxy.
