@@ -26,14 +26,14 @@ class NewsTabContainer extends TabContainer {
             module: BlogContainer,
             header: {
                 iconCls: 'fa fa-blog',
-                route  : 'news/blog',
+                route  : '/news/blog',
                 text   : 'Blog'
             }
         }, {
             module: ReleaseMainContainer,
             header: {
                 iconCls: 'fa fa-scroll',
-                route  : 'news/releases',
+                route  : '/news/releases',
                 text   : 'Release Notes'
             }
         }]
