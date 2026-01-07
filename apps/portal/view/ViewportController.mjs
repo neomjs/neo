@@ -54,13 +54,13 @@ class ViewportController extends Controller {
          */
         routes: {
             '/about-us'         : 'onAboutUsRoute',
-            '/blog'             : 'onBlogRoute',
             '/docs'             : 'onDocsRoute',
             '/examples'         : 'onExamplesRoute',
             '/examples/{itemId}': 'onExamplesRoute',
             '/home'             : 'onHomeRoute',
             '/learn'            : 'onLearnRoute',
             '/learn/{*itemId}'  : 'onLearnRoute',
+            '/news'             : 'onNewsRoute',
             '/services'         : 'onServicesRoute'
         },
         /**
@@ -173,7 +173,7 @@ class ViewportController extends Controller {
      * @param {Object[]} records
      */
     onBlogPostStoreLoad(records) {
-        this.getReference('blog-header-button').badgeText = records.length + ''
+        this.getReference('news-header-button').badgeText = records.length + ''
     }
 
     /**
@@ -181,7 +181,7 @@ class ViewportController extends Controller {
      * @param {Object} value
      * @param {Object} oldValue
      */
-    onBlogRoute(params, value, oldValue) {
+    onNewsRoute(params, value, oldValue) {
         this.setMainContentIndex(2)
     }
 

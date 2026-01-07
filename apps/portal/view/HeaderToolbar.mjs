@@ -36,9 +36,9 @@ class HeaderToolbar extends Base {
             text : 'Learn',
             route: '/learn'
         }, {
-            text     : 'Blog',
-            reference: 'blog-header-button',
-            route    : '/blog'
+            text     : 'News',
+            reference: 'news-header-button',
+            route    : '/news'
         }, {
             text : 'Examples',
             route: '/examples'
