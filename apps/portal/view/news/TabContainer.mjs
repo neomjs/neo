@@ -1,6 +1,7 @@
 import BlogContainer        from '../blog/Container.mjs';
 import ReleaseMainContainer from '../release/MainContainer.mjs';
 import TabContainer         from '../shared/TabContainer.mjs';
+import TabContainerController from './TabContainerController.mjs';
 
 /**
  * @class Portal.view.news.TabContainer
@@ -9,10 +10,18 @@ import TabContainer         from '../shared/TabContainer.mjs';
 class NewsTabContainer extends TabContainer {
     static config = {
         /**
+         * @member {Number|null} activeIndex=null
+         */
+        activeIndex: null,
+        /**
          * @member {String} className='Portal.view.news.TabContainer'
          * @protected
          */
         className: 'Portal.view.news.TabContainer',
+        /**
+         * @member {Neo.controller.Component} controller=TabContainerController
+         */
+        controller: TabContainerController,
         /**
          * @member {Object} headerToolbar
          */
