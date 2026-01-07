@@ -15,8 +15,10 @@ commentsCount: 0
 parentIssue: null
 subIssues:
   - '[x] 8386 Refactor Portal Blog to News Section with Tabbed Interface'
-subIssuesCompleted: 1
-subIssuesTotal: 1
+  - '[x] 8388 Refactor Portal Learning Views to Shared Content Viewer'
+  - '[ ] 8389 Implement Releases Section using Shared Content View'
+subIssuesCompleted: 2
+subIssuesTotal: 3
 blockedBy: []
 blocking: []
 ---
@@ -54,4 +56,6 @@ This structure prepares the Portal for the upcoming Middleware deployment (SSR/S
 - 2026-01-07 @tobiu added the `epic` label
 - 2026-01-07 @tobiu cross-referenced by #8386
 - 2026-01-07 @tobiu added sub-issue #8386
+- 2026-01-07 @tobiu added sub-issue #8388
+- 2026-01-07 @tobiu added sub-issue #8389
 
