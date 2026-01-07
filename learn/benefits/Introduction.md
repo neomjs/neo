@@ -25,15 +25,21 @@ When you create a `Button`, a `Grid`, or a `Window` in Neo.mjs, it exists as a l
 
 This distinction is the difference between an AI agent that is **blind** and one that can **see**.
 
-In traditional frameworks, the code you write (JSX, templates) gets destroyed by the build step. The runtime reality (DOM nodes) looks nothing like your source code.
+In traditional frameworks, the code you write (JSX, templates) gets destroyed by the build step. The runtime reality (DOM nodes) looks nothing like your source code. The map is lost.
 
 **In Neo.mjs, the map IS the territory.**
-Because components are persistent objects, the runtime reality matches your source code 1:1. This allows an AI agent to connect to the Neo.mjs runtime (via the **Neural Link**) and see the **Scene Graph**.
+Because components are persistent objects, the runtime retains the semantic structure of your original intent. But unlike a static source file, this territory **evolves**.
 
-*   **In a Framework:** The AI sees a soup of `<div>` tags. It guesses.
-*   **In an Engine:** The AI queries: *"Get me the Grid with reference 'sales-report'"*. The Engine replies with the actual object. The AI can then inspect it, modify its config, or move it to another window.
+ViewControllers dynamically change layouts, data streams update grids, and users modify state. Different browsers execute JavaScript in subtly different ways. The complexity of these interactions rises to a point where "imagining" the outcome via static analysis is impossible.
 
-**Neo.mjs gives AI agents "Read/Write" access to the runtime reality of your application.**
+The **Neural Link** renders hallucinations obsolete. An AI agent doesn't have to guess; it can query the **Ground Truth**.
+
+*   **In a Framework:** The AI looks at code and *hopes* it understands the state. It guesses.
+*   **In an Engine:** The AI queries: *"Get me the Grid with reference 'sales-report'"*. The Engine replies with the **live object**. The AI sees that it currently has 5 filters applied, contains 10,000 records, and is sitting in Window 2.
+
+It can then verify bugs or apply hot-fixes based on **reality**, not assumptions. This enables AI models to solve complex, runtime-dependent problems that were previously unresolvable.
+
+**Neo.mjs gives AI agents "Read/Write" access to the living runtime of your application.**
 
 ---
 
