@@ -4,11 +4,11 @@ title: Refactor Portal 'Blog' to 'News' with Left-Tab Architecture for Releases 
 state: OPEN
 labels:
   - documentation
-  - enhancement
+  - epic
 assignees:
   - tobiu
 createdAt: '2026-01-06T14:50:50Z'
-updatedAt: '2026-01-06T14:51:05Z'
+updatedAt: '2026-01-07T14:39:26Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8362'
 author: tobiu
 commentsCount: 0
@@ -49,4 +49,6 @@ This structure prepares the Portal for the upcoming Middleware deployment (SSR/S
 - 2026-01-06 @tobiu added the `documentation` label
 - 2026-01-06 @tobiu added the `enhancement` label
 - 2026-01-06 @tobiu assigned to @tobiu
+- 2026-01-07 @tobiu removed the `enhancement` label
+- 2026-01-07 @tobiu added the `epic` label
 
