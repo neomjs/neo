@@ -243,7 +243,14 @@ class Markdown extends Component {
 
             if (tag) {
                 rows[i] = me.onHeadline(tag, row, headlineIndex);
-                headlineIndex++
+                headlineIndex++;
+
+                // If the next line is not empty, add one
+                if (rows[i + 1] && rows[i + 1] !== '') {
+                    rows.splice(i + 1, 0, '');
+                    len++;
+                    i++
+                }
             }
         }
 
