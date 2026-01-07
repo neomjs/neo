@@ -44,9 +44,17 @@ class Markdown extends Component {
          */
         baseCls: ['neo-markdown-component'],
         /**
+         * True to parse and render YAML frontmatter (metadata) at the top of the content.
+         * Useful for displaying file metadata like title, date, or tags.
          * @member {Boolean} renderFrontmatter=true
          */
         renderFrontmatter: true,
+        /**
+         * True to wrap the rendered frontmatter table in a collapsible <details> tag.
+         * This keeps the metadata accessible but unobtrusive, collapsed by default.
+         * @member {Boolean} useFrontmatterDetails=true
+         */
+        useFrontmatterDetails: true,
         /**
          * @member {String|null} value_=null
          * @reactive
@@ -140,17 +148,50 @@ class Markdown extends Component {
     }
 
     /**
+     * @param {*} value
+     * @returns {String}
+     */
+    formatFrontMatterValue(value) {
+        if (Array.isArray(value)) {
+            return value.join(', ')
+        }
+
+        if (typeof value === 'boolean') {
+            return `<i class="fa-solid fa-${value ? 'check' : 'xmark'}"></i>`
+        }
+
+        if (typeof value === 'string') {
+            // ISO Date
+            if (/^\d{4}-\d{2}-\d{2}T/.test(value)) {
+                return new Date(value).toLocaleString()
+            }
+
+            // URL
+            if (/^https?:\/\//.test(value)) {
+                return `<a href="${value}" target="_blank">${value}</a>`
+            }
+        }
+
+        return value
+    }
+
+    /**
      * @param {Object} data
      * @returns {String}
      */
     frontMatterToHtml(data) {
-        let html = '<table class="neo-frontmatter-table"><tbody>';
+        let me   = this,
+            html = '<table class="neo-frontmatter-table"><tbody>';
 
         Object.entries(data).forEach(([key, value]) => {
-            html += `<tr><td>${key}</td><td>${value}</td></tr>`
+            html += `<tr><td>${key}</td><td>${me.formatFrontMatterValue(value)}</td></tr>`
         });
 
         html += '</tbody></table>';
+
+        if (me.useFrontmatterDetails) {
+            return `<details><summary>Frontmatter</summary>${html}</details>`
+        }
 
         return html
     }
@@ -171,7 +212,7 @@ class Markdown extends Component {
                 }
 
                 try {
-                    return me.frontMatterToHtml(me.parseFrontMatter(frontmatter))
+                    return me.frontMatterToHtml(me.parseFrontMatter(frontmatter)) + '\n'
                 } catch (e) {
                     console.error('Error parsing FrontMatter', e);
                     return match

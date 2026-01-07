@@ -117,19 +117,7 @@
         display: none;
     }
 
-    .neo-frontmatter-table {
-        margin-bottom: 20px;
-        width        : fit-content;
-
-        td {
-            padding: 4px 10px;
-        }
-
-        td:first-child {
-            font-weight: bold;
-        }
-    }
-
+    .neo-frontmatter-table,
     > table {
         border         : 1px solid lightgray;
         border-collapse: separate;
@@ -158,6 +146,19 @@
         th {
             background-color: #f8f8f8;
             font-weight     : bold;
+        }
+    }
+
+    .neo-frontmatter-table {
+        margin-bottom: 20px;
+        width        : fit-content;
+
+        td {
+            padding: 4px 10px;
+        }
+
+        td:first-child {
+            font-weight: bold;
         }
     }
 }
