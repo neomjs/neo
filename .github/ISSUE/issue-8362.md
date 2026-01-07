@@ -17,8 +17,9 @@ subIssues:
   - '[x] 8386 Refactor Portal Blog to News Section with Tabbed Interface'
   - '[x] 8388 Refactor Portal Learning Views to Shared Content Viewer'
   - '[ ] 8389 Implement Releases Section using Shared Content View'
-subIssuesCompleted: 2
-subIssuesTotal: 3
+  - '[x] 8390 Implement Tree-Structured Release Index and Portal Integration'
+subIssuesCompleted: 3
+subIssuesTotal: 4
 blockedBy: []
 blocking: []
 ---
@@ -58,4 +59,5 @@ This structure prepares the Portal for the upcoming Middleware deployment (SSR/S
 - 2026-01-07 @tobiu added sub-issue #8386
 - 2026-01-07 @tobiu added sub-issue #8388
 - 2026-01-07 @tobiu added sub-issue #8389
+- 2026-01-07 @tobiu added sub-issue #8390
 
