@@ -18,8 +18,11 @@ subIssues:
   - '[x] 8388 Refactor Portal Learning Views to Shared Content Viewer'
   - '[ ] 8389 Implement Releases Section using Shared Content View'
   - '[x] 8390 Implement Tree-Structured Release Index and Portal Integration'
-subIssuesCompleted: 3
-subIssuesTotal: 4
+  - '[x] 8395 Enhance Markdown parser to enforce newlines after headlines'
+  - '[x] 8396 Enhance Markdown parser to support implicit readonly code blocks'
+  - '[x] 8397 Add support for automatic GitHub issue linking in Markdown component'
+subIssuesCompleted: 6
+subIssuesTotal: 7
 blockedBy: []
 blocking: []
 ---
@@ -60,4 +63,7 @@ This structure prepares the Portal for the upcoming Middleware deployment (SSR/S
 - 2026-01-07 @tobiu added sub-issue #8388
 - 2026-01-07 @tobiu added sub-issue #8389
 - 2026-01-07 @tobiu added sub-issue #8390
+- 2026-01-07 @tobiu added sub-issue #8395
+- 2026-01-07 @tobiu added sub-issue #8396
+- 2026-01-07 @tobiu added sub-issue #8397
 
