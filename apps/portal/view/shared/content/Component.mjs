@@ -102,13 +102,11 @@ class Component extends Markdown {
      * @returns {Promise<void>}
      */
     async doFetchContent(record) {
-        let me          = this,
-            {windowId}  = me,
-            path        = me.getStateProvider().getData('contentPath'),
-            pagesFolder = path.includes('/learn/') ? '' : 'pages/',
-            content, data;
+        let me         = this,
+            {windowId} = me,
+            content, data, path;
 
-        path += `${pagesFolder + record.id.replaceAll('.', '/')}.md`;
+        path = me.getContentPath(record);
 
         if (record.isLeaf && path) {
             data    = await fetch(path);
@@ -126,6 +124,15 @@ class Component extends Markdown {
             });
         }
     }
+
+    /**
+     * @param {Object} record
+     * @returns {String|null}
+     */
+    getContentPath(record) {
+        return null
+    }
+
     /**
      * @member {Object[]} headlineData=null
      * @private

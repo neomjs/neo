@@ -61,6 +61,7 @@ class ViewportController extends Controller {
             '/learn'            : 'onLearnRoute',
             '/learn/{*itemId}'  : 'onLearnRoute',
             '/news'             : 'onNewsRoute',
+            '/news/{*itemId}'   : 'onNewsRoute',
             '/services'         : 'onServicesRoute'
         },
         /**

@@ -1,6 +1,6 @@
-import BlogContainer    from '../blog/Container.mjs';
-import ReleaseContainer from './ReleaseContainer.mjs';
-import TabContainer     from '../shared/TabContainer.mjs';
+import BlogContainer        from '../blog/Container.mjs';
+import ReleaseMainContainer from '../release/MainContainer.mjs';
+import TabContainer         from '../shared/TabContainer.mjs';
 
 /**
  * @class Portal.view.news.TabContainer
@@ -26,12 +26,14 @@ class NewsTabContainer extends TabContainer {
             module: BlogContainer,
             header: {
                 iconCls: 'fa fa-blog',
+                route  : 'news/blog',
                 text   : 'Blog'
             }
         }, {
-            module: ReleaseContainer,
+            module: ReleaseMainContainer,
             header: {
                 iconCls: 'fa fa-scroll',
+                route  : 'news/releases',
                 text   : 'Release Notes'
             }
         }]

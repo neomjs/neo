@@ -4,16 +4,16 @@ import SharedContainer  from '../shared/content/Container.mjs';
 import StateProvider    from './MainContainerStateProvider.mjs';
 
 /**
- * @class Portal.view.learn.MainContainer
+ * @class Portal.view.release.MainContainer
  * @extends Portal.view.shared.content.Container
  */
 class MainContainer extends SharedContainer {
     static config = {
         /**
-         * @member {String} className='Portal.view.learn.MainContainer'
+         * @member {String} className='Portal.view.release.MainContainer'
          * @protected
          */
-        className: 'Portal.view.learn.MainContainer',
+        className: 'Portal.view.release.MainContainer',
         /**
          * @member {Neo.component.Base} contentComponent=ContentComponent
          */

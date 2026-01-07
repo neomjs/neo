@@ -26,10 +26,29 @@ class PageContainer extends Container {
             previousPageRecord: data => data.previousPageRecord
         },
         /**
-         * @member {Object[]} items
+         * @member {Neo.component.Base|null} contentComponent=null
          */
-        items: [{
-            module   : Component,
+        contentComponent: null,
+        /**
+         * @member {Object} nextPageRecord_=null
+         * @reactive
+         */
+        nextPageRecord_: null,
+        /**
+         * @member {Object} previousPageRecord_=null
+         * @reactive
+         */
+        previousPageRecord_: null
+    }
+
+    /**
+     * @param {Object} config
+     */
+    construct(config) {
+        let me = this;
+
+        config.items = [{
+            module   : me.contentComponent || config.contentComponent || Component,
             reference: 'content',
             listeners: {
                 edit   : 'onContentEdit',
@@ -57,17 +76,9 @@ class PageContainer extends Container {
                 reference   : 'next-page-button',
                 ui          : 'secondary'
             }]
-        }],
-        /**
-         * @member {Object} nextPageRecord_=null
-         * @reactive
-         */
-        nextPageRecord_: null,
-        /**
-         * @member {Object} previousPageRecord_=null
-         * @reactive
-         */
-        previousPageRecord_: null
+        }];
+
+        super.construct(config)
     }
 
     /**

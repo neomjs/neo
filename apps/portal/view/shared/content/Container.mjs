@@ -21,9 +21,23 @@ class MainContainer extends Container {
          */
         cls: ['portal-shared-content-container'],
         /**
-         * @member {Object[]} items
+         * @member {Neo.component.Base|null} contentComponent=null
          */
-        items: [{
+        contentComponent: null,
+        /**
+         * @member {Object} layout={ntype:'hbox',align:'stretch'}
+         * @reactive
+         */
+        layout: {ntype: 'hbox', align: 'stretch'}
+    }
+
+    /**
+     * @param {Object} config
+     */
+    construct(config) {
+        let me = this;
+
+        config.items = [{
             module   : Container,
             cls      : ['sidenav-container'],
             flex     : 'none',
@@ -49,16 +63,14 @@ class MainContainer extends Container {
             resizeTarget: 'previous',
             size        : 3
         }, {
-            module: PageContainer
+            module          : PageContainer,
+            contentComponent: me.contentComponent || config.contentComponent
         }, {
             module   : SectionsContainer,
             reference: 'page-sections-container'
-        }],
-        /**
-         * @member {Object} layout={ntype:'hbox',align:'stretch'}
-         * @reactive
-         */
-        layout: {ntype: 'hbox', align: 'stretch'}
+        }];
+
+        super.construct(config)
     }
 }
 
