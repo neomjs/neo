@@ -10,7 +10,7 @@ const
     regexLivePreview  = /```(javascript|html|css|json)\s+live-preview\s*\n([\s\S]*?)\n\s*```/g,
     regexMermaid      = /```mermaid\s*\n([\s\S]*?)\n\s*```/g,
     regexNeoComponent = /```json\s+neo-component\s*\n([\s\S]*?)\n\s*```/g,
-    regexReadonly     = /```(bash|css|html|javascript|json|markdown|plaintext|scss|text|xml|yaml)\s+readonly\s*\n([\s\S]*?)\n\s*```/g;
+    regexCodeBlock    = /```(\w*)(?:[^\n]*)?\n([\s\S]*?)\n\s*```/g;
 
 /**
  * @summary A specialized component for rendering Markdown content.
@@ -373,14 +373,18 @@ class Markdown extends Component {
             count               = 0,
             replacements;
 
-        let updatedContent = contentString.replace(regexReadonly, (match, language, code) => {
+        let updatedContent = contentString.replace(regexCodeBlock, (match, language, code) => {
             const token = `__NEO-READONLY-TOKEN-${++count}__`;
-            const lang  = language === 'text' ? 'plaintext' : language;
+            const lang  = (!language || language.trim() === '' || language === 'text') ? 'plaintext' : language;
 
             replacementPromises.push(
                 HighlightJs.highlight(code, lang, windowId)
+                    .catch(err => {
+                        console.warn(`Highlighting failed for language '${lang}', falling back to plaintext.`, err);
+                        return HighlightJs.highlight(code, 'plaintext', windowId);
+                    })
                     .then(highlightedHtml => ({
-                        after: `<pre data-${language} class="hljs" id="pre-readonly-${IdGenerator.getId()}">${highlightedHtml.trim()}</pre>`,
+                        after: `<pre data-${lang} class="hljs" id="pre-readonly-${IdGenerator.getId()}">${highlightedHtml.trim()}</pre>`,
                         token
                     }))
             );
