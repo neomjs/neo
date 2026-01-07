@@ -56,7 +56,7 @@ This tax is most obvious when looking at a "performant" component side-by-side w
 <tr>
 <td>
 
-```javascript
+```javascript readonly
 import {useState, useMemo} from 'react';
 
 // A typical "optimized" React component
@@ -88,7 +88,7 @@ const App = () => {
 </td>
 <td>
 
-```javascript
+```javascript readonly
 import {defineComponent, useConfig} from 'neo.mjs/src/functional/_export.mjs';
 
 const MyComponent = defineComponent({

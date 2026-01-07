@@ -17,7 +17,7 @@ world, where performance is a feature of the architecture, not a burden on the d
 Before we dive into the "why," let's look at the "what." Here is a simple, complete, and reactive functional component in
 Neo.mjs. Keep this structure in mind as we explore how it solves common performance problems at an architectural level.
 
-```javascript
+```javascript readonly
 import {defineComponent, useConfig, useEvent} from 'neo.mjs';
 
 export default defineComponent({
@@ -104,7 +104,7 @@ intended for the child with its last applied configuration. Only if actual chang
 that child, ensuring that only the truly affected parts of the UI are re-rendered, even for deeply nested components.
 
 To prove this, consider this example:
-```javascript
+```javascript readonly
 import {defineComponent, useConfig} from 'neo.mjs/src/functional/_export.mjs';
 
 const ChildComponent = defineComponent({
@@ -144,7 +144,7 @@ To signal that a state change has occurred, many frameworks require developers t
 nested object, you have to meticulously reconstruct the object path, creating new references for every level. While this
 makes the change detection algorithm simpler for the framework, it offloads significant cognitive burden onto the developer.
 
-```javascript
+```javascript readonly
 // The familiar immutable update dance
 setState(prevState => ({
   ...prevState,
@@ -163,7 +163,7 @@ setState(prevState => ({
 We believe the developer should not carry this cognitive load. In Neo.mjs, you can just mutate the state directly.
 It's simple and intuitive.
 
-```javascript
+```javascript readonly
 // Just change the value. That's it.
 this.myObject.deeply.nested.property = 'new value';
 ```

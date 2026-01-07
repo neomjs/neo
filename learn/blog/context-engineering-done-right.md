@@ -110,7 +110,7 @@ of the AI-native development workflow:
 
 This new architecture is defined directly within the agent's settings, making the tools available for any task:
 
-```json
+```json readonly
 {
     "mcpServers": {
         "chrome-devtools": {
