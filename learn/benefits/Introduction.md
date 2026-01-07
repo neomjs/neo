@@ -40,6 +40,7 @@ Because components are persistent objects, the runtime reality matches your sour
 ## The Two Pillars of the Engine
 
 ### 1. True Multithreading (Performance)
+
 The browser's main thread is like a neurosurgeon: it should only perform precise, scheduled operations (DOM updates) with zero distractions.
 Neo.mjs moves **everything else**—your application logic, data processing, state management, and Virtual DOM diffing—into a dedicated **App Worker**.
 
@@ -47,6 +48,7 @@ Neo.mjs moves **everything else**—your application logic, data processing, sta
 *   **Scale:** This allows you to build applications that rival native desktop performance, a feat impossible in single-threaded frameworks.
 
 ### 2. Context Engineering (Velocity)
+
 Because Neo.mjs is an engine with a standardized architecture, it allows for **Context Engineering**.
 We have built a suite of **MCP Servers** (Knowledge Base, Memory Core, GitHub Workflow) that allow AI agents (like Gemini and Claude) to become first-class developers on your team.
 
