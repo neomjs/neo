@@ -10,6 +10,7 @@ const
     regexLivePreview  = /```(javascript|html|css|json)\s+live-preview\s*\n([\s\S]*?)\n\s*```/g,
     regexMermaid      = /```mermaid\s*\n([\s\S]*?)\n\s*```/g,
     regexNeoComponent = /```json\s+neo-component\s*\n([\s\S]*?)\n\s*```/g,
+    regexNewLines     = /^\n+|\n+$/g,
     regexCodeBlock    = /```(\w*)(?:[^\n]*)?\n([\s\S]*?)\n\s*```/g,
     regexTicketId     = /(^|[\s(])#(\d+)\b/g;
 
@@ -399,7 +400,7 @@ class Markdown extends Component {
                         return HighlightJs.highlight(code, 'plaintext', windowId);
                     })
                     .then(highlightedHtml => ({
-                        after: `<pre data-${lang} class="hljs" id="pre-readonly-${IdGenerator.getId()}">${highlightedHtml.trim()}</pre>`,
+                        after: `<pre data-${lang} class="hljs" id="pre-readonly-${IdGenerator.getId()}">${highlightedHtml.replace(regexNewLines, '')}</pre>`,
                         token
                     }))
             );
