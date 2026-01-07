@@ -15,6 +15,10 @@ class Release extends Model {
          * @member {Object[]} fields
          */
         fields: [{
+            name        : 'collapsed',
+            type        : 'Boolean',
+            defaultValue: true
+        }, {
             name: 'date', // "2026-01-05T21:00:29Z"
             type: 'String' // Keeping as string for now, could be Date
         }, {
@@ -36,14 +40,12 @@ class Release extends Model {
             defaultValue: null
         }, {
             // Computed field for TreeList display
-            name   : 'name',
-            mapping: 'version',
-            type   : 'String'
+            name: 'name',
+            type: 'String'
         }, {
             // Computed field for TreeList id
-            name   : 'id',
-            mapping: 'version',
-            type   : 'String'
+            name: 'id',
+            type: 'String'
         }]
     }
 }

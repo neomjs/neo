@@ -97,10 +97,73 @@ async function createReleaseIndex(options = {}) {
         return b.version.localeCompare(a.version, undefined, { numeric: true, sensitivity: 'base' });
     });
 
+    const treeData      = [],
+          majorVersions = new Map();
+
+    releases.forEach(release => {
+        const
+            version     = release.version,
+            validSemver = semver.valid(version),
+            major       = validSemver ? semver.major(version) : 'Other',
+            parentId    = `v${major}`;
+
+        if (!majorVersions.has(major)) {
+            majorVersions.set(major, {
+                children : [], // Temp storage
+                collapsed: true, // Default to collapsed
+                id       : parentId,
+                isLeaf   : false,
+                name     : parentId,
+                parentId : null
+            });
+        }
+
+        // Add tree fields to release
+        release.id       = version;
+        // release.isLeaf = true; // Default value in model is true
+        release.name     = version;
+        release.parentId = parentId;
+
+        majorVersions.get(major).children.push(release);
+    });
+
+    // Convert Map to Array and sort Major versions (descending)
+    // If keys are numbers, b - a. If 'Other', handle it.
+    const sortedMajors = Array.from(majorVersions.values()).sort((a, b) => {
+        const
+            aMajor = parseInt(a.id.replace('v', '')),
+            bMajor = parseInt(b.id.replace('v', ''));
+
+        if (isNaN(aMajor)) return 1;
+        if (isNaN(bMajor)) return -1;
+
+        return bMajor - aMajor;
+    });
+
+    // Flatten logic
+    sortedMajors.forEach((majorNode, index) => {
+        // Expand the latest major version (first one)
+        if (index === 0) {
+            majorNode.collapsed = false;
+        }
+
+        // Add parent node
+        treeData.push({
+            collapsed: majorNode.collapsed,
+            id       : majorNode.id,
+            isLeaf   : majorNode.isLeaf,
+            name     : majorNode.name,
+            parentId : majorNode.parentId
+        });
+
+        // Add children (already sorted from previous step)
+        treeData.push(...majorNode.children);
+    });
+
     console.log(`Found ${releases.length} releases.`);
 
     await fs.ensureDir(path.dirname(outputFile));
-    await fs.writeJSON(outputFile, releases, { spaces: 4 });
+    await fs.writeJSON(outputFile, treeData, { spaces: 4 });
     
     console.log(`Release index written to ${outputFile}`);
 }
