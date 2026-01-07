@@ -1,13 +1,13 @@
-import Container              from '../../../../src/tab/Container.mjs';
 import ExampleStore           from '../../store/Examples.mjs';
 import List                   from './List.mjs';
+import TabContainer           from '../shared/TabContainer.mjs';
 import TabContainerController from './TabContainerController.mjs';
 
 /**
  * @class Portal.view.examples.TabContainer
- * @extends Neo.tab.Container
+ * @extends Portal.view.shared.TabContainer
  */
-class TabContainer extends Container {
+class ExamplesTabContainer extends TabContainer {
     static config = {
         /**
          * @member {String} className='Portal.view.examples.TabContainer'
@@ -19,10 +19,6 @@ class TabContainer extends Container {
          * @reactive
          */
         activeIndex: null,
-        /**
-         * @member {String[]} baseCls=['portal-examples-tab-container','neo-tab-container']
-         */
-        baseCls: ['portal-examples-tab-container', 'neo-tab-container'],
         /**
          * @member {Neo.controller.Component} controller=TabContainerController
          * @reactive
@@ -37,7 +33,7 @@ class TabContainer extends Container {
          * @member {Object} headerToolbar
          */
         headerToolbar: {
-            cls: ['portal-examples-tab-header-toolbar']
+            cls: ['portal-shared-tab-header-toolbar', 'neo-tab-header-toolbar']
         },
         /**
          * @member {Object} itemDefaults
@@ -83,13 +79,8 @@ class TabContainer extends Container {
                 route  : '/examples/dist_prod',
                 text   : 'dist/prod'
             }
-        }],
-        /**
-         * @member {String} tabBarPosition='left'
-         * @reactive
-         */
-        tabBarPosition: 'left',
+        }]
     }
 }
 
-export default Neo.setupClass(TabContainer);
+export default Neo.setupClass(ExamplesTabContainer);

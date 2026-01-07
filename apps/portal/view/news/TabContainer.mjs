@@ -1,10 +1,10 @@
 import BlogContainer    from '../blog/Container.mjs';
 import ReleaseContainer from './ReleaseContainer.mjs';
-import TabContainer     from '../../../../src/tab/Container.mjs';
+import TabContainer     from '../shared/TabContainer.mjs';
 
 /**
  * @class Portal.view.news.TabContainer
- * @extends Neo.tab.Container
+ * @extends Portal.view.shared.TabContainer
  */
 class NewsTabContainer extends TabContainer {
     static config = {
@@ -14,10 +14,11 @@ class NewsTabContainer extends TabContainer {
          */
         className: 'Portal.view.news.TabContainer',
         /**
-         * @member {String[]} cls=['portal-news-tab-container','neo-tab-container']
-         * @reactive
+         * @member {Object} headerToolbar
          */
-        cls: ['portal-news-tab-container', 'neo-tab-container'],
+        headerToolbar: {
+            cls: ['portal-shared-tab-header-toolbar', 'neo-tab-header-toolbar']
+        },
         /**
          * @member {Object[]} items
          */
@@ -33,12 +34,7 @@ class NewsTabContainer extends TabContainer {
                 iconCls: 'fa fa-scroll',
                 text   : 'Release Notes'
             }
-        }],
-        /**
-         * @member {String} tabBarPosition='left'
-         * @reactive
-         */
-        tabBarPosition: 'left'
+        }]
     }
 }
 
