@@ -117,6 +117,19 @@
         display: none;
     }
 
+    .neo-frontmatter-table {
+        margin-bottom: 20px;
+        width        : fit-content;
+
+        td {
+            padding: 4px 10px;
+        }
+
+        td:first-child {
+            font-weight: bold;
+        }
+    }
+
     > table {
         border         : 1px solid lightgray;
         border-collapse: separate;

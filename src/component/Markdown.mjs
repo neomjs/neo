@@ -4,6 +4,7 @@ import IdGenerator from '../core/IdGenerator.mjs';
 import {marked}    from '../../node_modules/marked/lib/marked.esm.js';
 
 const
+    regexFrontMatter  = /^---\n([\s\S]*?)\n---\n/,
     regexLabClose     = /<!--\s*\/lab\s*-->/g,
     regexLabOpen      = /<!--\s*lab\s*-->/g,
     regexLivePreview  = /```(javascript|html|css|json)\s+live-preview\s*\n([\s\S]*?)\n\s*```/g,
@@ -43,12 +44,15 @@ class Markdown extends Component {
          */
         baseCls: ['neo-markdown-component'],
         /**
+         * @member {Boolean} renderFrontmatter=true
+         */
+        renderFrontmatter: true,
+        /**
          * @member {String|null} value_=null
          * @reactive
          */
         value_: null,
         /**
-         * Optional windowUrl to pass to nested code.LivePreviews.
          * @member {String|null} windowUrl=null
          */
         windowUrl: null
@@ -136,14 +140,46 @@ class Markdown extends Component {
     }
 
     /**
+     * @param {Object} data
+     * @returns {String}
+     */
+    frontMatterToHtml(data) {
+        let html = '<table class="neo-frontmatter-table"><tbody>';
+
+        Object.entries(data).forEach(([key, value]) => {
+            html += `<tr><td>${key}</td><td>${value}</td></tr>`
+        });
+
+        html += '</tbody></table>';
+
+        return html
+    }
+
+    /**
      * Modifies the markdown content before rendering.
      * Default implementation parses headlines to add specific classes.
      * @param {String} content
      * @returns {String}
      */
     modifyMarkdown(content) {
-        let me            = this,
-            rows          = content.split('\n'),
+        let me = this;
+
+        if (regexFrontMatter.test(content)) {
+            content = content.replace(regexFrontMatter, (match, frontmatter) => {
+                if (!me.renderFrontmatter) {
+                    return ''
+                }
+
+                try {
+                    return me.frontMatterToHtml(me.parseFrontMatter(frontmatter))
+                } catch (e) {
+                    console.error('Error parsing FrontMatter', e);
+                    return match
+                }
+            })
+        }
+
+        let rows          = content.split('\n'),
             i             = 0,
             len           = rows.length,
             headlineIndex = 1,
@@ -182,6 +218,62 @@ class Markdown extends Component {
     onHeadline(tag, text, index) {
         text = text.replace(this.constructor.regexInlineCode, '<code>$1</code>');
         return `<${tag} class="neo-${tag}">${text}</${tag}>`
+    }
+
+    /**
+     * @param {String} text
+     * @returns {Object}
+     */
+    parseFrontMatter(text) {
+        let data       = {},
+            lines      = text.trim().split('\n'),
+            currentKey;
+
+        lines.forEach(line => {
+            let trimLine = line.trim();
+
+            if (!trimLine || trimLine.startsWith('#')) return; // Skip empty or comments
+
+            // Array item
+            if (trimLine.startsWith('- ')) {
+                if (currentKey) {
+                    if (!Array.isArray(data[currentKey])) {
+                        data[currentKey] = []
+                    }
+                    data[currentKey].push(this.parseValue(trimLine.substring(2)))
+                }
+                return
+            }
+
+            // Key-Value
+            let match = trimLine.match(/^([\w\d_-]+):\s*(.*)$/);
+            if (match) {
+                currentKey       = match[1];
+                data[currentKey] = this.parseValue(match[2])
+            }
+        });
+
+        return data
+    }
+
+    /**
+     * @param {String} value
+     * @returns {Boolean|Number|String|null}
+     */
+    parseValue(value) {
+        value = value.trim();
+
+        if (value === 'true')  return true;
+        if (value === 'false') return false;
+        if (value === 'null')  return null;
+
+        if (!isNaN(Number(value)) && value !== '') return Number(value);
+
+        if ((value.startsWith("'") && value.endsWith("'")) || (value.startsWith('"') && value.endsWith('"'))) {
+            return value.slice(1, -1)
+        }
+
+        return value
     }
 
     /**
