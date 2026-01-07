@@ -7,6 +7,7 @@ const
     regexLabClose     = /<!--\s*\/lab\s*-->/g,
     regexLabOpen      = /<!--\s*lab\s*-->/g,
     regexLivePreview  = /```(javascript|html|css|json)\s+live-preview\s*\n([\s\S]*?)\n\s*```/g,
+    regexMermaid      = /```mermaid\s*\n([\s\S]*?)\n\s*```/g,
     regexNeoComponent = /```json\s+neo-component\s*\n([\s\S]*?)\n\s*```/g,
     regexReadonly     = /```(bash|javascript|html|css|json|scss|xml|markdown|yaml)\s+readonly\s*\n([\s\S]*?)\n\s*```/g;
 
@@ -202,6 +203,19 @@ class Markdown extends Component {
      * @param {Object} map
      * @returns {String}
      */
+    processMermaidBlocks(contentString, map) {
+        return contentString.replace(regexMermaid, (match, code) => {
+            const key = IdGenerator.getId('mermaid');
+            map[key] = code;
+            return `<div class="neo-mermaid" id="${key}"></div>`
+        })
+    }
+
+    /**
+     * @param {String} contentString
+     * @param {Object} map
+     * @returns {String}
+     */
     processNeoComponentsBlocks(contentString, map) {
         return contentString.replace(regexNeoComponent, (match, code) => {
             const key = IdGenerator.getId('learn-content-component');
@@ -260,15 +274,17 @@ class Markdown extends Component {
      */
     async render({code}) {
         let me            = this,
+            {windowId}    = me,
             content       = code,
             neoComponents = {},
             neoDivs       = {},
+            mermaidDivs   = {},
             baseConfigs   = {
                 appName        : me.appName,
                 autoInitVnode  : true,
                 autoMount      : true,
                 parentComponent: me.parentComponent,
-                windowId       : me.windowId
+                windowId
             },
             html, instance;
 
@@ -281,6 +297,9 @@ class Markdown extends Component {
 
         // Process custom Live Preview blocks (synchronous)
         content = me.processLivePreviewBlocks(content, neoDivs);
+
+        // Process Mermaid blocks (synchronous)
+        content = me.processMermaidBlocks(content, mermaidDivs);
 
         // Process custom Readonly Code blocks (asynchronous due to HighlightJS)
         // This will replace the markdown fenced block with the highlighted HTML <pre> tag.
@@ -325,6 +344,18 @@ class Markdown extends Component {
                 instance = Neo.create(config);
                 me.activeComponents.push(instance);
             });
+        }
+
+        if (Object.keys(mermaidDivs).length > 0) {
+            const Mermaid = await Neo.currentWorker.getAddon('Mermaid', windowId);
+
+            Object.keys(mermaidDivs).forEach(key => {
+                Mermaid.render({
+                    code: mermaidDivs[key],
+                    id  : key,
+                    windowId
+                })
+            })
         }
 
         return {}
