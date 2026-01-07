@@ -276,7 +276,7 @@ directory of your workspace (the output of `npx neo-app`).
 
 [Side Note]: If you add a new addon to the framework repo, the `WS/` prefix is not needed.
 
-```json
+```javascript readonly
 // neo-config.json
 {
     "mainThreadAddons": [
