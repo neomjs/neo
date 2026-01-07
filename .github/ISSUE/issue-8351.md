@@ -1,7 +1,7 @@
 ---
 id: 8351
 title: 'Docs: Replace Framework Comparison with Engine Architecture in README'
-state: OPEN
+state: CLOSED
 labels:
   - documentation
   - enhancement
@@ -9,7 +9,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-01-06T11:35:29Z'
-updatedAt: '2026-01-06T11:39:35Z'
+updatedAt: '2026-01-07T22:20:05Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8351'
 author: tobiu
 commentsCount: 2
@@ -19,6 +19,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-01-07T22:20:05Z'
 ---
 # Docs: Replace Framework Comparison with Engine Architecture in README
 
@@ -77,4 +78,5 @@ With the rebranding to "Application Engine", comparing Neo.mjs to UI libraries i
 - 2026-01-06 @tobiu added the `ai` label
 - 2026-01-06 @tobiu assigned to @tobiu
 - 2026-01-06 @tobiu referenced in commit `8f959e3` - "Docs: Replace comparison table with Engine Architecture breakdown #8351"
+- 2026-01-07 @tobiu closed this issue
 

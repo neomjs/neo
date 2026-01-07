@@ -1,7 +1,7 @@
 ---
 id: 8352
 title: 'Docs: Refine README Vocabulary to ''Engine Subsystems'' & ''Scene Graph'''
-state: OPEN
+state: CLOSED
 labels:
   - documentation
   - enhancement
@@ -10,7 +10,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-01-06T11:42:58Z'
-updatedAt: '2026-01-06T12:08:44Z'
+updatedAt: '2026-01-07T22:19:49Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8352'
 author: tobiu
 commentsCount: 3
@@ -20,6 +20,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-01-07T22:19:49Z'
 ---
 # Docs: Refine README Vocabulary to 'Engine Subsystems' & 'Scene Graph'
 
@@ -101,4 +102,5 @@ Execute the final phase of the "Application Engine" rebranding by shifting the t
 - 2026-01-06 @tobiu assigned to @tobiu
 - 2026-01-06 @tobiu referenced in commit `10ac75b` - "Docs: Refine README vocabulary to Engine terms #8352"
 - 2026-01-06 @tobiu referenced in commit `335f7cc` - "Docs: Refine README vocabulary to Engine terms #8352"
+- 2026-01-07 @tobiu closed this issue
 

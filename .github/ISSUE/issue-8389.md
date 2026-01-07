@@ -1,14 +1,14 @@
 ---
 id: 8389
 title: Implement Releases Section using Shared Content View
-state: OPEN
+state: CLOSED
 labels:
   - documentation
   - feature
 assignees:
   - tobiu
 createdAt: '2026-01-07T15:59:03Z'
-updatedAt: '2026-01-07T15:59:21Z'
+updatedAt: '2026-01-07T22:19:02Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8389'
 author: tobiu
 commentsCount: 0
@@ -18,6 +18,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-01-07T22:19:02Z'
 ---
 # Implement Releases Section using Shared Content View
 
@@ -51,4 +52,23 @@ Display release notes in the Portal using the same "Tree Nav + Content + Section
 - 2026-01-07 @tobiu added the `feature` label
 - 2026-01-07 @tobiu assigned to @tobiu
 - 2026-01-07 @tobiu added parent issue #8362
+- 2026-01-07 @tobiu referenced in commit `c4e8020` - "feat(#8389): Implement Releases section with shared content view architecture
+
+- Refactor Shared Content View:
+  - Extract generic content logic to apps/portal/view/shared/content/
+  - Introduce getContentPath() template method in shared Component
+  - Create domain-specific subclasses for Learn and Release content
+  - Update PageContainer and MainContainer to use dynamic item injection via config
+
+- Implement Releases Feature:
+  - Create Portal.model.Release and Portal.store.Releases
+  - Create Portal.view.release.MainContainer and related classes
+  - Integrate Releases into NewsTabContainer with routing
+
+- Refactor Portal Blog/News:
+  - Update NewsTabContainer to use routes for tabs
+  - Fix store auto-loading in Release state provider
+  - Update ViewportController routing to handle nested news paths"
+- 2026-01-07 @tobiu referenced in commit `338e50b` - "fix(#8389): Add leading slash to NewsTabContainer routes"
+- 2026-01-07 @tobiu closed this issue
 

@@ -1,14 +1,15 @@
 ---
 id: 8355
 title: Refine README 'F1 vs Toyota' Phrasing
-state: OPEN
+state: CLOSED
 labels:
   - documentation
   - enhancement
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-01-06T12:47:34Z'
-updatedAt: '2026-01-06T12:47:34Z'
+updatedAt: '2026-01-07T22:19:29Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8355'
 author: tobiu
 commentsCount: 0
@@ -18,6 +19,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-01-07T22:19:29Z'
 ---
 # Refine README 'F1 vs Toyota' Phrasing
 
@@ -34,4 +36,6 @@ Update the "Why Choose Neo.mjs?" introduction in `README.md` to use more empathe
 - 2026-01-06 @tobiu added the `enhancement` label
 - 2026-01-06 @tobiu added the `ai` label
 - 2026-01-06 @tobiu referenced in commit `aea1f6b` - "Docs: Refine F1 phrasing & add maturity check #8355 #8356"
+- 2026-01-07 @tobiu assigned to @tobiu
+- 2026-01-07 @tobiu closed this issue
 
