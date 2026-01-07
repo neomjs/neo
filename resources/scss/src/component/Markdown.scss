@@ -116,4 +116,21 @@
     summary::-webkit-details-marker {
         display: none;
     }
+
+    > table {
+        border-collapse: collapse;
+        margin         : 1em 0;
+        width          : 100%;
+
+        th, td {
+            border    : 1px solid lightgray;
+            padding   : 8px 12px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f8f8f8;
+            font-weight     : bold;
+        }
+    }
 }
