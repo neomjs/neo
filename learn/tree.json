@@ -72,6 +72,7 @@
             {"name": "Introduction",                                   "parentId": "guides/mcp",                                          "id": "guides/mcp/Introduction"},
             {"name": "The Knowledge Base Server",                      "parentId": "guides/mcp",                                          "id": "guides/mcp/KnowledgeBase"},
             {"name": "The Memory Core Server",                         "parentId": "guides/mcp",                                          "id": "guides/mcp/MemoryCore"},
+            {"name": "The Neural Link Server",                         "parentId": "guides/mcp",                                          "id": "guides/mcp/NeuralLink"},
             {"name": "The GitHub Workflow Server",                     "parentId": "guides/mcp",                                          "id": "guides/mcp/GitHubWorkflow"},
             {"name": "Code Execution",                                 "parentId": "guides/mcp",                                          "id": "guides/mcp/CodeExecution"},
         {"name": "AI",                                                 "parentId": "guides",                             "isLeaf": false, "id": "guides/ai", "collapsed": true},
