@@ -1,30 +1,22 @@
-import Markdown from '../../../../src/component/Markdown.mjs';
+import Markdown from '../../../../../src/component/Markdown.mjs';
 
 /**
- * @summary Displays interactive learning content (Markdown) within the Portal application.
- *
- * This component acts as the viewer for the guides, tutorials, and blog posts found in the Neo.mjs documentation.
- * It is responsible for:
- * - **Fetching Content**: Retrieving Markdown files based on the selected record/route.
- * - **Rendering**: Delegating the parsing and rendering of the Markdown (including interactive examples) to `Neo.code.renderer.Markdown`.
- * - **Navigation**: Integrating with the `IntersectionObserver` to track the active section and update the table of contents.
- * - **State Management**: Managing the lifecycle of embedded interactive components (`LivePreview`, custom components).
- *
- * @class Portal.view.learn.ContentComponent
+ * @summary Displays interactive content (Markdown) within the Portal application.
+ * @class Portal.view.shared.content.Component
  * @extends Neo.component.Markdown
  */
-class ContentComponent extends Markdown {
+class Component extends Markdown {
     static config = {
         /**
-         * @member {String} className='Portal.view.learn.ContentComponent'
+         * @member {String} className='Portal.view.shared.content.Component'
          * @protected
          */
-        className: 'Portal.view.learn.ContentComponent',
+        className: 'Portal.view.shared.content.Component',
         /**
-         * @member {String[]} baseCls=['learn-content','neo-markdown-component']
+         * @member {String[]} baseCls=['portal-content-component','neo-markdown-component']
          * @protected
          */
-        baseCls: ['learn-content', 'neo-markdown-component'],
+        baseCls: ['portal-content-component', 'neo-markdown-component'],
         /**
          * @member {Object} bind
          */
@@ -157,14 +149,15 @@ class ContentComponent extends Markdown {
     }
 
     /**
-     * Updates the contentSections VM store and replaces ## with h2 tags
+     * Updates the sections VM store and replaces ## with h2 tags
      * @param {String} content
      * @returns {String}
      */
     modifyMarkdown(content) {
         this.headlineData = [];
         const result = super.modifyMarkdown(content);
-        this.getStateProvider().getStore('contentSections').data = this.headlineData;
+        // Using 'sections' store (generic name)
+        this.getStateProvider().getStore('sections').data = this.headlineData;
         this.headlineData = null;
         return result
     }
@@ -176,15 +169,15 @@ class ContentComponent extends Markdown {
      * @returns {String}
      */
     onHeadline(tag, text, index) {
-        // Markdown titles can contain inline code, which we don't want to display inside PageSectionsList.
+        // Markdown titles can contain inline code, which we don't want to display inside SectionsList.
         const sideNavTitle = text.replaceAll('`', '');
 
         this.headlineData.push({id: index, name: sideNavTitle, sourceId: this.id, tag});
 
-        const headline = text.replace(ContentComponent.regexInlineCode, '<code>$1</code>');
+        const headline = text.replace(Component.regexInlineCode, '<code>$1</code>');
 
         return `<${tag} class="neo-${tag}" data-record-id="${index}">${headline}</${tag}>`
     }
 }
 
-export default Neo.setupClass(ContentComponent);
+export default Neo.setupClass(Component);

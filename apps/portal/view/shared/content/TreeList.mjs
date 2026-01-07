@@ -1,29 +1,29 @@
-import TreeList from '../../../../src/tree/List.mjs';
+import BaseTreeList from '../../../../../src/tree/List.mjs';
 
 /**
- * @class Portal.view.learn.ContentTreeList
+ * @class Portal.view.shared.content.TreeList
  * @extends Neo.tree.List
  */
-class ContentTreeList extends TreeList {
+class TreeList extends BaseTreeList {
     static config = {
         /**
-         * @member {String} className='Portal.view.learn.ContentTreeList'
+         * @member {String} className='Portal.view.shared.content.TreeList'
          * @protected
          */
-        className: 'Portal.view.learn.ContentTreeList',
+        className: 'Portal.view.shared.content.TreeList',
         /**
          * @member {Object} bind
          */
         bind: {
             contentPath      : data => data.contentPath,
             currentPageRecord: data => data.currentPageRecord,
-            store            : 'stores.contentTree'
+            store            : 'stores.tree'
         },
         /**
-         * @member {String[]} cls=['topics-tree']
+         * @member {String[]} cls=['portal-content-tree-list']
          * @reactive
          */
-        cls: ['topics-tree'],
+        cls: ['portal-content-tree-list'],
         /**
          * @member {String|null} contentPath_=null
          * @reactive
@@ -33,6 +33,11 @@ class ContentTreeList extends TreeList {
          * @member {Object} currentPageRecord=null
          */
         currentPageRecord_: null,
+        /**
+         * Optional prefix for the route (e.g. '/learn' or '/releases')
+         * @member {String|null} routePrefix=null
+         */
+        routePrefix: null,
         /**
          * @member {Boolean} showCollapseExpandAllIcons=false
          */
@@ -73,10 +78,12 @@ class ContentTreeList extends TreeList {
     onLeafItemClick(record) {
         super.onLeafItemClick(record);
 
-        Neo.Main.setRoute({
-            value   : `/learn/${record.id}`,
-            windowId: this.windowId
-        })
+        if (this.routePrefix) {
+            Neo.Main.setRoute({
+                value   : `${this.routePrefix}/${record.id}`,
+                windowId: this.windowId
+            })
+        }
     }
 
     /**
@@ -89,4 +96,4 @@ class ContentTreeList extends TreeList {
     }
 }
 
-export default Neo.setupClass(ContentTreeList);
+export default Neo.setupClass(TreeList);

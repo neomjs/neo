@@ -1,22 +1,22 @@
-import Container        from '../../../../src/container/Base.mjs';
-import PageSectionsList from './PageSectionsList.mjs';
+import Container    from '../../../../../src/container/Base.mjs';
+import SectionsList from './SectionsList.mjs';
 
 /**
- * @class Portal.view.learn.PageSectionsContainer
+ * @class Portal.view.shared.content.SectionsContainer
  * @extends Neo.container.Base
  */
-class PageSectionsContainer extends Container {
+class SectionsContainer extends Container {
     static config = {
         /**
-         * @member {String} className='Portal.view.learn.PageSectionsContainer'
+         * @member {String} className='Portal.view.shared.content.SectionsContainer'
          * @protected
          */
-        className: 'Portal.view.learn.PageSectionsContainer',
+        className: 'Portal.view.shared.content.SectionsContainer',
         /**
-         * @member {String[]} cls=['portal-page-sections-container']
+         * @member {String[]} cls=['portal-shared-content-sections-container']
          * @reactive
          */
-        cls: ['portal-page-sections-container'],
+        cls: ['portal-shared-content-sections-container'],
         /**
          * @member {Object[]} items
          */
@@ -37,7 +37,7 @@ class PageSectionsContainer extends Container {
                 {tag: 'h3', text: 'On this page'}
             ]}
         }, {
-            module   : PageSectionsList,
+            module   : SectionsList,
             listeners: {pageListSelect: 'up.onPageListSelect'},
             reference: 'list'
         }],
@@ -55,7 +55,7 @@ class PageSectionsContainer extends Container {
 
     /**
      * Convenience shortcut
-     * @member {Portal.view.learn.PageSectionsList} list
+     * @member {Portal.view.shared.content.SectionsList} list
      */
     get list() {
         return this.getReference('list')
@@ -69,4 +69,4 @@ class PageSectionsContainer extends Container {
     }
 }
 
-export default Neo.setupClass(PageSectionsContainer);
+export default Neo.setupClass(SectionsContainer);

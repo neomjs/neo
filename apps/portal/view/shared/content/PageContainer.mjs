@@ -1,23 +1,23 @@
-import Container        from '../../../../src/container/Base.mjs';
-import ContentComponent from './ContentComponent.mjs';
-import Toolbar          from '../../../../src/toolbar/Base.mjs';
+import Component from './Component.mjs';
+import Container from '../../../../../src/container/Base.mjs';
+import Toolbar   from '../../../../../src/toolbar/Base.mjs';
 
 /**
- * @class Portal.view.learn.PageContainer
+ * @class Portal.view.shared.content.PageContainer
  * @extends Neo.container.Base
  */
 class PageContainer extends Container {
     static config = {
         /**
-         * @member {String} className='Portal.view.learn.PageContainer'
+         * @member {String} className='Portal.view.shared.content.PageContainer'
          * @protected
          */
-        className: 'Portal.view.learn.PageContainer',
+        className: 'Portal.view.shared.content.PageContainer',
         /**
-         * @member {String[]} baseCls=['portal-learn-page-container','neo-container']
+         * @member {String[]} baseCls=['portal-shared-content-page-container','neo-container']
          * @protected
          */
-        baseCls: ['portal-learn-page-container', 'neo-container'],
+        baseCls: ['portal-shared-content-page-container', 'neo-container'],
         /**
          * @member {Object} bind
          */
@@ -29,7 +29,7 @@ class PageContainer extends Container {
          * @member {Object[]} items
          */
         items: [{
-            module   : ContentComponent,
+            module   : Component,
             reference: 'content',
             listeners: {
                 edit   : 'onContentEdit',

@@ -1,27 +1,27 @@
-import List from '../../../../src/list/Base.mjs';
+import List from '../../../../../src/list/Base.mjs';
 
 /**
- * @class Portal.view.learn.PageSectionsList
+ * @class Portal.view.shared.content.SectionsList
  * @extends Neo.list.Base
  */
-class PageSectionsList extends List {
+class SectionsList extends List {
     static config = {
         /**
-         * @member {String} className='Portal.view.learn.PageSectionsList'
+         * @member {String} className='Portal.view.shared.content.SectionsList'
          * @protected
          */
-        className: 'Portal.view.learn.PageSectionsList',
+        className: 'Portal.view.shared.content.SectionsList',
         /**
          * @member {Object} bind
          */
         bind: {
-            store: 'stores.contentSections'
+            store: 'stores.sections'
         },
         /**
-         * @member {String[]} cls=['portal-page-sections-list','topics-tree']
+         * @member {String[]} cls=['portal-shared-content-sections-list','portal-content-tree-list']
          * @reactive
          */
-        cls: ['portal-page-sections-list', 'topics-tree']
+        cls: ['portal-shared-content-sections-list', 'portal-content-tree-list']
     }
 
     /**
@@ -87,4 +87,4 @@ class PageSectionsList extends List {
     }
 }
 
-export default Neo.setupClass(PageSectionsList);
+export default Neo.setupClass(SectionsList);
