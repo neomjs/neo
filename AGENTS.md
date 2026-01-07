@@ -116,3 +116,12 @@ First, classify the user's request into one of two categories:
     - **Action:** Apply the **Ticket-First Gate** (Section 3).
 
 **Note:** A conceptual discussion can become an actionable task. The moment the intent shifts from "what if..." to "let's do...", you must treat it as a new actionable request and apply the Ticket-First Gate.
+
+## 6. Git Protocol
+
+- **Ticket ID Required:** The commit subject line **MUST** end with `(#TICKET_ID)`.
+    - **Correct:** `feat: Add infinite canvas (#8392)`
+- **Standard:** Follow Conventional Commits.
+- **Update Ticket:** You **MUST** post a comment on the issue if:
+    1. You deviate from the original plan (explain *why*).
+    2. The task is complete (summarize the result).
