@@ -171,13 +171,6 @@ class ViewportController extends Controller {
     }
 
     /**
-     * @param {Object[]} records
-     */
-    onBlogPostStoreLoad(records) {
-        this.getReference('news-header-button').badgeText = records.length + ''
-    }
-
-    /**
      * @param {Object} params
      * @param {Object} value
      * @param {Object} oldValue

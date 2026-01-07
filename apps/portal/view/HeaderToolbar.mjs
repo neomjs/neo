@@ -36,15 +36,16 @@ class HeaderToolbar extends Base {
             text : 'Learn',
             route: '/learn'
         }, {
-            text     : 'News',
+            bind     : {badgeText: 'blogPostCount'},
             reference: 'news-header-button',
-            route    : '/news'
+            route    : '/news',
+            text     : 'News'
         }, {
-            text : 'Examples',
-            route: '/examples'
+            route: '/examples',
+            text : 'Examples'
         }, {
-            text : 'Services',
-            route: '/services'
+            route: '/services',
+            text : 'Services'
         }, {
             ntype    : 'container',
             layout   : 'hbox',
