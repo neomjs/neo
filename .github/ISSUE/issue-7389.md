@@ -4,14 +4,15 @@ title: Investigate Worker Console Access with MCP
 state: OPEN
 labels:
   - enhancement
+  - stale
   - ai
 assignees:
   - tobiu
 createdAt: '2025-10-06T10:36:47Z'
-updatedAt: '2025-10-08T14:00:56Z'
+updatedAt: '2026-01-07T03:10:01Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7389'
 author: tobiu
-commentsCount: 2
+commentsCount: 3
 parentIssue: 7385
 subIssues: []
 subIssuesCompleted: 0
@@ -50,6 +51,10 @@ https://github.com/ChromeDevTools/chrome-devtools-mcp/issues/316
 Shared Workers:
 https://github.com/ChromeDevTools/chrome-devtools-mcp/issues/317
 
+### @github-actions - 2026-01-07 03:10
+
+This issue is stale because it has been open for 90 days with no activity.
+
 ## Activity Log
 
 - 2025-10-06 @tobiu added the `enhancement` label
@@ -62,4 +67,5 @@ https://github.com/ChromeDevTools/chrome-devtools-mcp/issues/317
 - 2025-10-06 @tobiu removed the `help wanted` label
 - 2025-10-06 @tobiu removed the `good first issue` label
 - 2025-10-06 @tobiu removed the `hacktoberfest` label
+- 2026-01-07 @github-actions added the `stale` label
 

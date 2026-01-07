@@ -1,14 +1,15 @@
 ---
 id: 8372
 title: Create Neural Link Documentation
-state: OPEN
+state: CLOSED
 labels:
   - documentation
   - enhancement
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-01-07T02:11:14Z'
-updatedAt: '2026-01-07T02:11:14Z'
+updatedAt: '2026-01-07T02:54:15Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8372'
 author: tobiu
 commentsCount: 0
@@ -18,6 +19,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-01-07T02:54:07Z'
 ---
 # Create Neural Link Documentation
 
@@ -36,4 +38,6 @@ The guide should cover:
 - 2026-01-07 @tobiu added the `documentation` label
 - 2026-01-07 @tobiu added the `enhancement` label
 - 2026-01-07 @tobiu added the `ai` label
+- 2026-01-07 @tobiu closed this issue
+- 2026-01-07 @tobiu assigned to @tobiu
 

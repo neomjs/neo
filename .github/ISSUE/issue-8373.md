@@ -1,14 +1,14 @@
 ---
 id: 8373
 title: Update Introduction.md to highlight Neural Link capabilities
-state: OPEN
+state: CLOSED
 labels:
   - documentation
   - ai
 assignees:
   - tobiu
 createdAt: '2026-01-07T03:05:36Z'
-updatedAt: '2026-01-07T03:06:05Z'
+updatedAt: '2026-01-07T03:06:38Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8373'
 author: tobiu
 commentsCount: 0
@@ -18,6 +18,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-01-07T03:06:38Z'
 ---
 # Update Introduction.md to highlight Neural Link capabilities
 
@@ -33,4 +34,5 @@ Key points to cover:
 - 2026-01-07 @tobiu added the `documentation` label
 - 2026-01-07 @tobiu added the `ai` label
 - 2026-01-07 @tobiu assigned to @tobiu
+- 2026-01-07 @tobiu closed this issue
 
