@@ -6,9 +6,10 @@ labels:
   - documentation
   - enhancement
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-01-07T11:30:09Z'
-updatedAt: '2026-01-07T12:05:54Z'
+updatedAt: '2026-01-07T14:42:07Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8376'
 author: tobiu
 commentsCount: 1
@@ -47,4 +48,5 @@ To support the new Neural Link documentation, we need to enable Mermaid diagram 
 Implements support for rendering mermaid diagrams within markdown content using the 'mermaid' code block syntax. This involves a new App worker logic to identify blocks and a new Main thread addon to handle the rendering via the mermaid library.
 
 Closes #8376"
+- 2026-01-07 @tobiu assigned to @tobiu
 

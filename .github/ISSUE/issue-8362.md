@@ -13,9 +13,10 @@ githubUrl: 'https://github.com/neomjs/neo/issues/8362'
 author: tobiu
 commentsCount: 0
 parentIssue: null
-subIssues: []
-subIssuesCompleted: 0
-subIssuesTotal: 0
+subIssues:
+  - '[x] 8386 Refactor Portal Blog to News Section with Tabbed Interface'
+subIssuesCompleted: 1
+subIssuesTotal: 1
 blockedBy: []
 blocking: []
 ---
@@ -51,4 +52,6 @@ This structure prepares the Portal for the upcoming Middleware deployment (SSR/S
 - 2026-01-06 @tobiu assigned to @tobiu
 - 2026-01-07 @tobiu removed the `enhancement` label
 - 2026-01-07 @tobiu added the `epic` label
+- 2026-01-07 @tobiu cross-referenced by #8386
+- 2026-01-07 @tobiu added sub-issue #8386
 
