@@ -489,22 +489,28 @@ To access bundled versions, prefix paths with \`/dist/production/\`, \`/dist/dev
     if (await fs.pathExists(RELEASES_PATH)) {
         try {
             const releases = await fs.readJSON(RELEASES_PATH);
+            
             if (Array.isArray(releases) && releases.length > 0) {
-                content += `## Latest Updates\n\n`;
-                // Take top 5 releases
-                releases.slice(0, 5).forEach(release => {
-                    // Link deep into the Portal's new News/Release tab
-                    // Assumption: The route in Portal is #/news/release/{version}
-                    const version = release.version;
-                    const date    = release.date ? ` (${release.date.split('T')[0]})` : '';
-                    const title   = release.title || 'Update';
-                    
-                    // Note: We use the production distribution link for stability in llms.txt
-                    const url = new URL(`dist/production/apps/portal/index.html#/news/release/${version}`, baseUrl).toString();
-                    
-                    content += `- [v${version}${date}: ${title}](${url})\n`;
-                });
-                content += `\n`;
+                // Filter out directory nodes (leaf nodes only)
+                const actualReleases = releases.filter(r => r.isLeaf !== false && r.version);
+
+                if (actualReleases.length > 0) {
+                    content += `## Latest Updates\n\n`;
+                    // Take top 5 releases
+                    actualReleases.slice(0, 5).forEach(release => {
+                        // Link deep into the Portal's new News/Release tab
+                        // Assumption: The route in Portal is #/news/release/{version}
+                        const version = release.version;
+                        const date    = release.date ? ` (${release.date.split('T')[0]})` : '';
+                        const title   = release.title || 'Update';
+                        
+                        // Note: We use the production distribution link for stability in llms.txt
+                        const url = new URL(`dist/production/apps/portal/index.html#/news/release/${version}`, baseUrl).toString();
+                        
+                        content += `- [v${version}${date}: ${title}](${url})\n`;
+                    });
+                    content += `\n`;
+                }
             }
         } catch (e) {
             console.warn('Found releases.json but failed to parse it. Skipping "Latest Updates" section.');
