@@ -10,7 +10,8 @@ const
     regexLivePreview  = /```(javascript|html|css|json)\s+live-preview\s*\n([\s\S]*?)\n\s*```/g,
     regexMermaid      = /```mermaid\s*\n([\s\S]*?)\n\s*```/g,
     regexNeoComponent = /```json\s+neo-component\s*\n([\s\S]*?)\n\s*```/g,
-    regexCodeBlock    = /```(\w*)(?:[^\n]*)?\n([\s\S]*?)\n\s*```/g;
+    regexCodeBlock    = /```(\w*)(?:[^\n]*)?\n([\s\S]*?)\n\s*```/g,
+    regexTicketId     = /(^|[\s(])#(\d+)\b/g;
 
 /**
  * @summary A specialized component for rendering Markdown content.
@@ -44,11 +45,21 @@ class Markdown extends Component {
          */
         baseCls: ['neo-markdown-component'],
         /**
+         * The base URL for issue tracking. Used when replaceTicketIds is true.
+         * @member {String} issuesUrl='https://github.com/neomjs/neo/issues/'
+         */
+        issuesUrl: 'https://github.com/neomjs/neo/issues/',
+        /**
          * True to parse and render YAML frontmatter (metadata) at the top of the content.
          * Useful for displaying file metadata like title, date, or tags.
          * @member {Boolean} renderFrontmatter=true
          */
         renderFrontmatter: true,
+        /**
+         * True to automatically replace ticket references (e.g. #123) with clickable links.
+         * @member {Boolean} replaceTicketIds=false
+         */
+        replaceTicketIds: false,
         /**
          * True to wrap the rendered frontmatter table in a collapsible <details> tag.
          * This keeps the metadata accessible but unobtrusive, collapsed by default.
@@ -218,6 +229,10 @@ class Markdown extends Component {
                     return match
                 }
             })
+        }
+
+        if (me.replaceTicketIds) {
+            content = content.replace(regexTicketId, `$1<a href="${me.issuesUrl}$2" target="_blank">#$2</a>`)
         }
 
         let rows          = content.split('\n'),

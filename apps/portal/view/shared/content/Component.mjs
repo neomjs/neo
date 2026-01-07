@@ -29,6 +29,10 @@ class Component extends Markdown {
          */
         record_: null,
         /**
+         * @member {Boolean} replaceTicketIds=true
+         */
+        replaceTicketIds: true,
+        /**
          * @member {String} tag='article'
          * @reactive
          */
