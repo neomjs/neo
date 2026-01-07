@@ -64,7 +64,7 @@ This is why agents can reason about Neo.mjs apps with high fidelity while remain
 
 To enable the Neural Link in your application, add the `useAiClient` flag to your `neo-config.json`. This tells the Main Worker to load the `Neo.ai.Client` module.
 
-```json5 readonly
+```javascript readonly
 {
     "appPath": "apps/myApp/app.mjs",
     "useAiClient": true // 👈 This is the magic flag
