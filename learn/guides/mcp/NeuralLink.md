@@ -126,7 +126,7 @@ When multiple AI agents connect to the same Bridge, they share a single view of 
 ### Client-Side Service Pattern
 
 The Neural Link client uses a **Domain Service Architecture** to organize functionality:
-```
+```text readonly
 Neo.ai.Client (Orchestrator)
 ├── ComponentService   → UI inspection & manipulation
 ├── DataService        → Stores, records, state providers

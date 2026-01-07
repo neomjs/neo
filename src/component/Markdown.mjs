@@ -9,7 +9,7 @@ const
     regexLivePreview  = /```(javascript|html|css|json)\s+live-preview\s*\n([\s\S]*?)\n\s*```/g,
     regexMermaid      = /```mermaid\s*\n([\s\S]*?)\n\s*```/g,
     regexNeoComponent = /```json\s+neo-component\s*\n([\s\S]*?)\n\s*```/g,
-    regexReadonly     = /```(bash|javascript|html|css|json|scss|xml|markdown|yaml)\s+readonly\s*\n([\s\S]*?)\n\s*```/g;
+    regexReadonly     = /```(bash|css|html|javascript|json|markdown|plaintext|scss|text|xml|yaml)\s+readonly\s*\n([\s\S]*?)\n\s*```/g;
 
 /**
  * @summary A specialized component for rendering Markdown content.
@@ -235,8 +235,10 @@ class Markdown extends Component {
 
         let updatedContent = contentString.replace(regexReadonly, (match, language, code) => {
             const token = `__NEO-READONLY-TOKEN-${++count}__`;
+            const lang  = language === 'text' ? 'plaintext' : language;
+
             replacementPromises.push(
-                HighlightJs.highlightAuto(code, windowId)
+                HighlightJs.highlight(code, lang, windowId)
                     .then(highlightedHtml => ({
                         after: `<pre data-${language} class="hljs" id="pre-readonly-${IdGenerator.getId()}">${highlightedHtml.trim()}</pre>`,
                         token
