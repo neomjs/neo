@@ -363,7 +363,7 @@ paths:
       parameters:
         - name: root
           in: query
-          required: false
+          required: true
           description: The root class name to filter by.
           schema:
             type: string

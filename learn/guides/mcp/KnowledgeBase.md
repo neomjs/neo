@@ -119,7 +119,7 @@ These are the primary tools used by agents to retrieve information.
     *   *Best Practice:* Use this when you want to read the raw source files yourself.
 
 *   **`get_class_hierarchy`**: Retrieves the static class inheritance tree.
-    *   `root`: Optional root class name (e.g., `Neo.component.Base`).
+    *   `root`: **Required.** The root class name to filter by (e.g., `Neo.component.Base`).
     *   *Best Practice:* Use this to discover available subclasses or understand the inheritance chain deterministically.
 
 *   **`list_documents`**: Retrieves a paginated list of all indexed documents (for inspection).

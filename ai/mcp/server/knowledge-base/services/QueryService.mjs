@@ -58,15 +58,15 @@ class QueryService extends Base {
      * @returns {Promise<Object>} The class hierarchy map or subtree.
      */
     async getClassHierarchy({root} = {}) {
+        if (!root) {
+            throw new Error('The "root" parameter is required to prevent excessive context payload. Please specify a root class (e.g., "Neo.component.Base").');
+        }
+
         if (!await fs.pathExists(aiConfig.hierarchyPath)) {
             throw new Error('Class hierarchy file not found. Please sync the knowledge base first.');
         }
 
         const hierarchy = await fs.readJson(aiConfig.hierarchyPath);
-
-        if (!root) {
-            return hierarchy;
-        }
 
         // If a root is specified, find all subclasses recursively
         const subtree = {};
