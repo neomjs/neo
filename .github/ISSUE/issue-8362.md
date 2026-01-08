@@ -31,8 +31,9 @@ subIssues:
   - '[x] 8411 Fix Release navigation button titles showing HTML and Date'
   - '[x] 8413 Refactor Portal View Structure: Move Blog and Release under News'
   - '[x] 8439 Update SEO Service for Nested Routes and News Section'
-subIssuesCompleted: 17
-subIssuesTotal: 17
+  - '[x] 8440 Fix Mobile Layout Overlay in Portal News TabContainer'
+subIssuesCompleted: 18
+subIssuesTotal: 18
 blockedBy: []
 blocking: []
 ---
@@ -86,4 +87,5 @@ This structure prepares the Portal for the upcoming Middleware deployment (SSR/S
 - 2026-01-08 @tobiu added sub-issue #8411
 - 2026-01-08 @tobiu added sub-issue #8413
 - 2026-01-08 @tobiu added sub-issue #8439
+- 2026-01-08 @tobiu added sub-issue #8440
 

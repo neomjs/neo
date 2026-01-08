@@ -54,7 +54,7 @@ class QueryService extends Base {
     /**
      * Retrieves the static class hierarchy from the pre-generated JSON file.
      * @param {Object} params
-     * @param {String} [params.root] Optional root class name to filter the hierarchy (e.g., 'Neo.component.Base').
+     * @param {String} params.root Root class name to filter the hierarchy (e.g., 'Neo.component.Base').
      * @returns {Promise<Object>} The class hierarchy map or subtree.
      */
     async getClassHierarchy({root} = {}) {
