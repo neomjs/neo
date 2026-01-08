@@ -17,9 +17,9 @@ class NewsTabContainer extends TabContainer {
          */
         className: 'Portal.view.news.TabContainer',
         /**
-         * @member {String[]} cls=['portal-shared-background']
+         * @member {String[]} cls=['portal-shared-background', 'portal-news-tab-container']
          */
-        cls: ['portal-shared-background'],
+        cls: ['portal-shared-background', 'portal-news-tab-container'],
         /**
          * @member {Neo.controller.Component} controller=TabContainerController
          */
