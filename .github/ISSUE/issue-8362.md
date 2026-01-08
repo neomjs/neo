@@ -22,8 +22,14 @@ subIssues:
   - '[x] 8396 Enhance Markdown parser to support implicit readonly code blocks'
   - '[x] 8397 Add support for automatic GitHub issue linking in Markdown component'
   - '[x] 8399 Fix Deep Linking Routing in News TabContainer'
-subIssuesCompleted: 8
-subIssuesTotal: 8
+  - '[x] 8400 Fix Markdown code block trimming destroying indentation'
+  - '[x] 8401 Refine Markdown inline code styling in light theme'
+  - '[x] 8402 Enhance Release tree titles with dates'
+  - '[x] 8403 Pass record instance to Model field convert method'
+  - '[x] 8404 Add styling for Markdown hr tags'
+  - '[x] 8405 Reduce sidebar width for Release view'
+subIssuesCompleted: 14
+subIssuesTotal: 14
 blockedBy: []
 blocking: []
 ---
@@ -68,4 +74,10 @@ This structure prepares the Portal for the upcoming Middleware deployment (SSR/S
 - 2026-01-07 @tobiu added sub-issue #8396
 - 2026-01-07 @tobiu added sub-issue #8397
 - 2026-01-07 @tobiu added sub-issue #8399
+- 2026-01-07 @tobiu added sub-issue #8400
+- 2026-01-07 @tobiu added sub-issue #8401
+- 2026-01-08 @tobiu added sub-issue #8402
+- 2026-01-08 @tobiu added sub-issue #8403
+- 2026-01-08 @tobiu added sub-issue #8404
+- 2026-01-08 @tobiu added sub-issue #8405
 
