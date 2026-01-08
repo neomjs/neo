@@ -18,10 +18,10 @@ class MainContainer extends Container {
          */
         className: 'Portal.view.home.MainContainer',
         /**
-         * @member {String[]} cls=['portal-home-maincontainer']
+         * @member {String[]} cls=['portal-home-maincontainer', 'portal-shared-background']
          * @reactive
          */
-        cls: ['portal-home-maincontainer'],
+        cls: ['portal-home-maincontainer', 'portal-shared-background'],
         /**
          * @member {Object[]} domListeners
          */
