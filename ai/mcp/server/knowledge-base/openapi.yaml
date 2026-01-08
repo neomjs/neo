@@ -305,6 +305,11 @@ paths:
                 query:
                   type: string
                   description: The question to ask.
+                type:
+                  type: string
+                  description: "Optional filter by content type (e.g., 'guide', 'src', 'all')."
+                  enum: [all, blog, guide, src, example, ticket, release, test]
+                  default: all
                 limit:
                   type: integer
                   description: Number of documents to include in context.
