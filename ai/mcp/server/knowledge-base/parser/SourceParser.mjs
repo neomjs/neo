@@ -126,24 +126,21 @@ class SourceParser extends Base {
         };
 
         // 2. Extract Module Context Chunk
-        // Includes imports, top-level vars, and the class header (docs + signature)
+        // Captures everything from the start of the file up to the opening brace of the class body.
+        // This includes:
+        // - Imports
+        // - Top-level variables
+        // - Class JSDoc
+        // - Class Declaration line (e.g. "class MyComponent extends Base {")
         let contextContent = '';
-        if (contextNodes.length > 0) {
-            // Get content from start of file to end of last context node
-            const lastNode = contextNodes[contextNodes.length - 1];
-            contextContent = content.substring(0, lastNode.end) + '\n\n';
-        }
-        // Add the class definition line (and its JSDoc if adjacent)
-        // We need to be careful not to duplicate if variables are interleaved, but in Neo structure
-        // imports/vars usually come before class.
-        // A simpler approach: Context is everything *before* the class body starts, minus the class body content itself.
-        // But we want to be specific.
         
-        // Revised Context Strategy:
-        // Everything from start of file up to the opening brace of the class.
         if (classStart > 0) {
              const preClassContent = content.substring(0, classStart).trim();
              contextContent = (preClassContent ? preClassContent + '\n\n' : '') + classDefinition;
+        } else if (contextNodes.length > 0) {
+            // Fallback for files without a class (e.g. utility modules)
+            const lastNode = contextNodes[contextNodes.length - 1];
+            contextContent = content.substring(0, lastNode.end);
         }
 
         if (contextContent.trim()) {
