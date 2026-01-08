@@ -772,8 +772,14 @@ paths:
         readOnlyHint: false
       description: |
         Triggers the full, bi-directional synchronization of GitHub issues and releases with the local filesystem.
-        This is a comprehensive operation that should be run after making remote changes (e.g., using `create_issue`) 
-        or before looking for local changes to push.
+
+        **When to Use (Use Sparingly):**
+        - **Fetching Remote Changes:** Call this if you suspect a teammate has updated tickets and you need to see the changes locally.
+        - **Pushing Local Edits:** Call this if you have manually modified a local `.md` file (e.g., updating a description) and need to push that text change to GitHub.
+
+        **When NOT to Use:**
+        - **Do NOT call after `create_issue` or `create_comment`:** You already have the content in your context window. The server also handles basic sync automatically.
+        - **Do NOT call for code changes:** This tool only syncs ticket metadata, not code commits.
 
         **Key Functions:**
         - **Pulls remote changes:** Fetches the latest issue and release data from GitHub.

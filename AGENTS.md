@@ -122,6 +122,7 @@ First, classify the user's request into one of two categories:
 - **Ticket ID Required:** The commit subject line **MUST** end with `(#TICKET_ID)`.
     - **Correct:** `feat: Add infinite canvas (#8392)`
 - **Standard:** Follow Conventional Commits.
+- **Push-Before-Notify:** If a task involves local commits, you **MUST** push changes to the remote repository (`git push`) BEFORE posting a completion comment or closing the associated GitHub issue. Do not mark a ticket as done if the code is only on your local machine.
 - **Update Ticket:** You **MUST** post a comment on the issue if:
     1. You deviate from the original plan (explain *why*).
     2. The task is complete (summarize the result).
