@@ -6,9 +6,10 @@ labels:
   - enhancement
   - ai
   - core
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-01-07T23:47:45Z'
-updatedAt: '2026-01-08T00:06:02Z'
+updatedAt: '2026-01-08T00:31:11Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8403'
 author: tobiu
 commentsCount: 1
@@ -46,4 +47,5 @@ This allows `convert` functions to access sibling fields for more complex transf
 - 2026-01-08 @tobiu referenced in commit `c64cc8e` - "enhancement: Enhance Release tree titles and pass record to Model field convert method (#8402, #8403)"
 - 2026-01-08 @tobiu closed this issue
 - 2026-01-08 @tobiu added parent issue #8362
+- 2026-01-08 @tobiu assigned to @tobiu
 
