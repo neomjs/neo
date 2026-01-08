@@ -8,10 +8,10 @@ This article provides a focused comparison between the Neo.mjs ecosystem and Ang
 
 Both Neo.mjs and Angular share common ground in building modern user interfaces:
 
-*   **Component-Based Architecture (with a distinction):** Both frameworks promote building UIs as a composition of reusable components. However, Neo.mjs extends this concept with `Neo.core.Base`, allowing any class-based entity (like controllers, models, or routers) to leverage the powerful class system, even if they don't directly render UI. This contrasts with frameworks where non-visual logic might often be shoehorned into component structures.
+*   **Component-Based Architecture (with a distinction):** Both architectures promote building UIs as a composition of reusable components. However, Neo.mjs extends this concept with `Neo.core.Base`, allowing any class-based entity (like controllers, models, or routers) to leverage the powerful class system, even if they don't directly render UI. This contrasts with frameworks where non-visual logic might often be shoehorned into component structures.
 *   **Declarative UI:** Developers describe *what* the UI should look like for a given state, and the engine handles *how* to update the DOM.
 *   **Reactive Programming:** Both leverage reactive programming principles. Angular heavily uses RxJS for reactivity and change detection. Neo.mjs uses its own fine-grained reactivity system based on `Neo.core.Config` and `Effect`, which conceptually aligns with the "signals" pattern for highly efficient, granular updates.
-*   **Comprehensive & Opinionated Systems:** Both systems provide a structured and opinionated way to build applications, offering extensive out-of-the-box solutions. However, their *nature* of opinionation differs, as explored in "Rigidity vs. Flexible Structure."
+*   **Comprehensive & Opinionated Solutions:** Both solutions provide a structured and opinionated way to build applications, offering extensive out-of-the-box solutions. However, their *nature* of opinionation differs, as explored in "Rigidity vs. Flexible Structure."
 
 ## Key Differences: Architectural & Rendering Strategies
 
