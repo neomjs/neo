@@ -244,15 +244,15 @@ This is the "Editor" for the AI era. It connects your development environment to
 
 To appreciate the scope of Neo.mjs, it's important to understand its scale. This is not a micro-library; it's a comprehensive, enterprise-ready platform representing over a decade of architectural investment. **Neo.mjs is an innovation factory.**
 
-The stats below, from **October 2025**, provide a snapshot of the ecosystem. For a deeper dive, you can explore the full **[Codebase Overview](./learn/guides/fundamentals/CodebaseOverview.md)**.
+The stats below, from **January 2026**, provide a snapshot of the ecosystem. For a deeper dive, you can explore the full **[Codebase Overview](./learn/guides/fundamentals/CodebaseOverview.md)**.
 
--   **~41,000 lines** of core platform source code
--   **~33,000 lines** across hundreds of working examples and flagship applications
--   **~11,000 lines** of production-grade theming
--   **~6,000 lines** of dedicated AI-native infrastructure
--   **~30,000 lines** of detailed JSDoc documentation
+-   **~45,000 lines** of core platform source code
+-   **~36,000 lines** across hundreds of working examples and flagship applications
+-   **~12,000 lines** of production-grade theming
+-   **~14,000 lines** of dedicated AI-native infrastructure
+-   **~53,000 lines** of detailed JSDoc documentation
 
-**Total: Over 130,000 lines of curated code and documentation.**
+**Total: Over 170,000 lines of curated code and documentation.**
 
 This is not a small library—it's a complete ecosystem with more source code than many established frameworks, designed for the most demanding use cases.
 
