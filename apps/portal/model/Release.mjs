@@ -39,9 +39,8 @@ class Release extends Model {
             type        : 'String',
             defaultValue: null
         }, {
-            name     : 'name',
-            type     : 'String',
-            calculate: data => data.version
+            name: 'name',
+            type: 'String'
         }, {
             // Computed field for TreeList display
             name: 'treeNodeName',
@@ -52,13 +51,13 @@ class Release extends Model {
              */
             calculate(data) {
                 const
-                    {date, version} = data;
+                    {date, name} = data;
 
                 if (date) {
-                    return `<b>${version}</b> <span class="release-date">[${new Date(date).toLocaleDateString()}]</span>`
+                    return `<b>${name}</b> <span class="release-date">[${new Date(date).toLocaleDateString()}]</span>`
                 }
 
-                return version
+                return name
             }
         }, {
             // Computed field for TreeList id
