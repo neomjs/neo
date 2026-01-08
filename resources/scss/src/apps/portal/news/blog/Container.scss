@@ -1,4 +1,6 @@
 .portal-blog-container {
+    background-color: transparent;
+
     .portal-blog-searchfield {
         transition: margin var(--portal-transition-duration) ease-out;
         width     : 240px;

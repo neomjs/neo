@@ -1,7 +1,9 @@
 .portal-shared-content-page-container {
-    overflow: auto;
+    background-color: transparent;
+    overflow        : auto;
 
     .content-bottom-toolbar {
+        background-color     : transparent;
         gap                  : 8px;
         grid-template-columns: repeat(2, 1fr);
         margin-bottom        : 3rem;
@@ -23,6 +25,10 @@
             flex           : 1 !important;
             height         : 75px;
             justify-content: flex-start;
+
+            &:not(:hover) {
+                background-color: #fff;
+            }
 
             .neo-button-text, .neo-button-glyph {
                 padding-top: 16px;

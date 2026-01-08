@@ -15,6 +15,10 @@ class MainContainer extends SharedContainer {
          */
         className: 'Portal.view.learn.MainContainer',
         /**
+         * @member {String[]} cls=['portal-shared-background']
+         */
+        cls: ['portal-shared-background'],
+        /**
          * @member {Neo.component.Base} contentComponent=ContentComponent
          */
         contentComponent: ContentComponent,

@@ -1,4 +1,8 @@
 .portal-shared-tab-container.neo-tab-container {
+    .neo-tab-body-container {
+        background-color: transparent;
+    }
+
     .neo-tab-strip {
         .neo-active-tab-indicator {
             background-color: #3E63DD;

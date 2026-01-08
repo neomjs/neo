@@ -10,8 +10,13 @@
     inherits     : false;
 }
 
+.portal-blog-list-wrapper.neo-list-wrapper {
+    background-color: transparent;
+}
+
 .portal-blog-list.neo-list {
-    transition: padding var(--portal-transition-duration) ease-out;
+    background-color: transparent;
+    transition      : padding var(--portal-transition-duration) ease-out;
 
     .neo-list-item {
         box-shadow  : 0 5px 10px rgba(0, 0, 0, 0.3);

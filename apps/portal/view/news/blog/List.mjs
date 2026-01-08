@@ -47,6 +47,11 @@ class List extends BaseList {
          */
         useWrapperNode: true,
         /**
+         * @member wrapperCls=['portal-blog-list-wrapper']
+         * @reactive
+         */
+        wrapperCls: ['portal-blog-list-wrapper'],
+        /**
          * @member {Object} _vdom
          */
         _vdom:

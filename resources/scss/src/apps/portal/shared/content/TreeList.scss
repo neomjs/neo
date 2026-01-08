@@ -3,12 +3,18 @@
 }
 
 .portal-content-tree-list {
-    background-color: white;
+    background-color: transparent;
     padding         : 8px 2px 8px 8px;
 
     &.neo-tree-list {
         .neo-list-container {
+            background-color: transparent;
+
             .neo-list-item {
+                &:not(.neo-list-item[aria-selected=true]) {
+                    background-color: transparent;
+                }
+
                 &.neo-list-item-leaf {
                     .neo-list-item-content:after {
                         content: none !important;
