@@ -41,7 +41,19 @@ class Release extends Model {
         }, {
             // Computed field for TreeList display
             name: 'name',
-            type: 'String'
+            type: 'html',
+            /**
+             * @param {String} value
+             * @param {Object} record
+             * @returns {String}
+             */
+            convert(value, record) {
+                if (record.date) {
+                    return `<b>${value}</b> <span class="release-date">[${new Date(record.date).toLocaleDateString()}]</span>`
+                }
+
+                return value
+            }
         }, {
             // Computed field for TreeList id
             name: 'id',
