@@ -288,6 +288,7 @@ paths:
         **Input:**
         - `query`: The question to ask.
         - `limit`: (Optional) Number of source documents to consider (default 5).
+        - `type`: (Optional) Filter by content type (e.g., 'guide', 'src', 'all').
 
         **Output:**
         - `answer`: Synthesized answer.
