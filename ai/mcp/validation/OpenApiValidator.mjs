@@ -115,6 +115,19 @@ function buildZodSchemaFromResponse(doc, schema) {
             }
         }
         zodSchema = z.object(shape);
+
+        if (schema.additionalProperties) {
+            let additionalSchema;
+            if (schema.additionalProperties === true) {
+                additionalSchema = z.any();
+            } else if (typeof schema.additionalProperties === 'object') {
+                additionalSchema = buildZodSchemaFromResponse(doc, schema.additionalProperties);
+            }
+
+            if (additionalSchema) {
+                zodSchema = zodSchema.catchall(additionalSchema);
+            }
+        }
     } else if (schema.type === 'array') {
         if (schema.items) {
             zodSchema = z.array(buildZodSchemaFromResponse(doc, schema.items));
