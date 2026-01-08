@@ -116,8 +116,8 @@ class SourceParser extends Base {
                             if (member.key.name === 'config' && member.static) {
                                 configNode = member;
 
-                                // Try to extract className from static config if not found in declaration
-                                if (!className && member.value.type === 'ObjectExpression') {
+                                // Extract className from static config (Prioritize this over local identifier)
+                                if (member.value.type === 'ObjectExpression') {
                                     const classNameProp = member.value.properties.find(p => p.key.name === 'className');
                                     if (classNameProp && classNameProp.value.type === 'Literal') {
                                         className = classNameProp.value.value;
