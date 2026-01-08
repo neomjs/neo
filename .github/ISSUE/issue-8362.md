@@ -29,8 +29,9 @@ subIssues:
   - '[x] 8404 Add styling for Markdown hr tags'
   - '[x] 8405 Reduce sidebar width for Release view'
   - '[x] 8411 Fix Release navigation button titles showing HTML and Date'
-subIssuesCompleted: 15
-subIssuesTotal: 15
+  - '[x] 8413 Refactor Portal View Structure: Move Blog and Release under News'
+subIssuesCompleted: 16
+subIssuesTotal: 16
 blockedBy: []
 blocking: []
 ---
@@ -82,4 +83,5 @@ This structure prepares the Portal for the upcoming Middleware deployment (SSR/S
 - 2026-01-08 @tobiu added sub-issue #8404
 - 2026-01-08 @tobiu added sub-issue #8405
 - 2026-01-08 @tobiu added sub-issue #8411
+- 2026-01-08 @tobiu added sub-issue #8413
 
