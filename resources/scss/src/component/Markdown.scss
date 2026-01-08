@@ -72,6 +72,12 @@
         }
     }
 
+    hr {
+        border    : 0;
+        border-top: 1px solid lightgray;
+        margin    : 2rem 0;
+    }
+
     .lab {
         box-shadow   : 0 4px 8px 0 rgba(0, 0, 0, 0.2);
         font-size    : 1em;
