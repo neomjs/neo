@@ -72,23 +72,23 @@ class QueryService extends Base {
         const subtree = {};
         const queue = [root];
 
-        // Include the root itself if it exists
-        if (hierarchy[root]) {
+        // Include the root itself if it exists (parent is the value)
+        if (Object.hasOwn(hierarchy, root)) {
             subtree[root] = hierarchy[root];
         }
 
         while (queue.length > 0) {
             const currentParent = queue.shift();
             
-            Object.entries(hierarchy).forEach(([className, data]) => {
-                if (data.parent === currentParent) {
-                    subtree[className] = data;
+            Object.entries(hierarchy).forEach(([className, parentName]) => {
+                if (parentName === currentParent) {
+                    subtree[className] = parentName;
                     queue.push(className);
                 }
             });
         }
 
-        if (Object.keys(subtree).length === 0 && !hierarchy[root]) {
+        if (Object.keys(subtree).length === 0 && !Object.hasOwn(hierarchy, root)) {
              return { message: `Class '${root}' found in hierarchy, but it has no subclasses or entry.` };
         }
 

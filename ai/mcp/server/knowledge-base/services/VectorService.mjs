@@ -100,10 +100,6 @@ class VectorService extends Base {
             }
         });
 
-        // Save Class Hierarchy Map
-        await fs.writeJson(aiConfig.hierarchyPath, classNameToDataMap, {spaces: 4});
-        logger.log(`Saved class hierarchy map to ${aiConfig.hierarchyPath}`);
-
         knowledgeBase.forEach(chunk => {
             let currentClass = chunk.className; // Metadata is now on every chunk
             const inheritanceChain = [];
