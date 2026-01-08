@@ -33,7 +33,7 @@ class Features extends BaseContainer {
          */
         items: [{
             header: 'Threading Subsystem',
-            route : '#/learn/benefits.OffTheMainThread',
+            route : '#/learn/benefits/OffTheMainThread',
 
             content: [
                 'True Multithreading: App, Data, VDOM, and Canvas live in separate workers.',
@@ -43,7 +43,7 @@ class Features extends BaseContainer {
             ]
         }, {
             header: 'Rendering Pipeline',
-            route : '#/learn/benefits.OffTheMainThread',
+            route : '#/learn/benefits/OffTheMainThread',
 
             content: [
                 'Asymmetric VDOM: Diffing happens off-thread.',
@@ -53,7 +53,7 @@ class Features extends BaseContainer {
             ]
         }, {
             header: 'The Scene Graph',
-            route : '#/learn/guides.fundamentals.CodebaseOverview',
+            route : '#/learn/guides/fundamentals/CodebaseOverview',
 
             content: [
                 'Components are persistent objects, not ephemeral render results.',
@@ -63,7 +63,7 @@ class Features extends BaseContainer {
             ]
         }, {
             header: 'State Subsystem',
-            route : '#/learn/guides.state.Provider',
+            route : '#/learn/guides/datahandling/StateProviders',
 
             content: [
                 'Built-in, hierarchical State Providers.',
@@ -73,7 +73,7 @@ class Features extends BaseContainer {
             ]
         }, {
             header: 'Multi-Window Orchestration',
-            route : '#/learn/benefits.MultiWindow',
+            route : '#/learn/benefits/MultiWindow',
 
             content: [
                 'A single engine instance powers multiple browser windows.',
@@ -83,7 +83,7 @@ class Features extends BaseContainer {
             ]
         }, {
             header: 'Zero-Build System',
-            route : '#/learn/benefits.Quick',
+            route : '#/learn/benefits/Quick',
 
             content: [
                 'Runs as native ES Modules directly in the browser.',

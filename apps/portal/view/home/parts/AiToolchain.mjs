@@ -50,6 +50,7 @@ class AiToolchain extends BaseContainer {
                 items : [{
                     module : ContentBox,
                     header : 'The Neural Link',
+                    route  : '#/learn/guides/mcp/NeuralLink',
                     content: [
                         'Introspect the live Scene Graph.',
                         'Live Runtime Mutation (Hot-Swapping).',
@@ -59,6 +60,7 @@ class AiToolchain extends BaseContainer {
                 }, {
                     module : ContentBox,
                     header : 'MCP Infrastructure',
+                    route  : '#/learn/guides/mcp/Introduction',
                     content: [
                         'Knowledge Base: Semantic codebase search.',
                         'Memory Core: Persistent agent context.',
@@ -68,6 +70,7 @@ class AiToolchain extends BaseContainer {
                 }, {
                     module : ContentBox,
                     header : 'Context Engineering',
+                    route  : '#/learn/blog/context-engineering-done-right',
                     content: [
                         'Advanced Code Execution: Orchestrate tools as APIs.',
                         'Tool Composition: Chain complex workflows locally.',
