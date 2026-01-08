@@ -28,9 +28,6 @@ class Release extends Model {
             name: 'title', // "Neo.mjs v11.18.0 Release Notes"
             type: 'String'
         }, {
-            name: 'version', // "11.18.0"
-            type: 'String'
-        }, {
             name        : 'isLeaf',
             type        : 'Boolean',
             defaultValue: true

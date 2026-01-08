@@ -124,6 +124,8 @@ async function createReleaseIndex(options = {}) {
         release.name     = version;
         release.parentId = parentId;
 
+        delete release.version;
+
         majorVersions.get(major).children.push(release);
     });
 

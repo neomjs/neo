@@ -85,10 +85,10 @@ class MainContainerController extends Controller {
         let store = this.getStateProvider().getStore('tree');
 
         if (store.getCount() > 0) {
-            this.navigateTo(store.getAt(1).version)
+            this.navigateTo(store.getAt(1).id)
         } else {
             store.on({
-                load : () => this.navigateTo(store.getAt(1).version),
+                load : () => this.navigateTo(store.getAt(1).id),
                 delay: 10,
                 once : true
             })
