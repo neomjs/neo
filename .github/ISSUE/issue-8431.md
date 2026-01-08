@@ -1,14 +1,14 @@
 ---
 id: 8431
 title: Apply Shared Background to Portal News and Remove Default Backgrounds
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - design
-  - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-01-08T17:31:31Z'
-updatedAt: '2026-01-08T17:31:31Z'
+updatedAt: '2026-01-08T18:20:34Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8431'
 author: tobiu
 commentsCount: 0
@@ -18,6 +18,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-01-08T18:20:34Z'
 ---
 # Apply Shared Background to Portal News and Remove Default Backgrounds
 
@@ -38,4 +39,8 @@ Ensure the consistent radial gradient background is visible throughout the News 
 - 2026-01-08 @tobiu added the `enhancement` label
 - 2026-01-08 @tobiu added the `design` label
 - 2026-01-08 @tobiu added the `ai` label
+- 2026-01-08 @tobiu assigned to @tobiu
+- 2026-01-08 @tobiu removed the `ai` label
+- 2026-01-08 @tobiu referenced in commit `5c0052d` - "Apply Shared Background to Portal News and Remove Default Backgrounds #8431"
+- 2026-01-08 @tobiu closed this issue
 
