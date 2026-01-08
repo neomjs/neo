@@ -64,6 +64,8 @@ class SourceParser extends Base {
         const methodNodes     = [];
         let   classStart      = 0;
         let   classDefinition = '';
+        let   className       = '';
+        let   superClass      = '';
 
         // 1. Traverse AST to categorize nodes
         ast.body.forEach(node => {
@@ -80,6 +82,28 @@ class SourceParser extends Base {
                     const classHeadEnd = classDecl.body.start + 1; // Include opening brace
                     classDefinition    = content.substring(classDecl.start, classHeadEnd);
 
+                    if (classDecl.id) {
+                        className = classDecl.id.name;
+                    }
+
+                    if (classDecl.superClass) {
+                        if (classDecl.superClass.type === 'Identifier') {
+                            superClass = classDecl.superClass.name;
+                        } else if (classDecl.superClass.type === 'MemberExpression') {
+                            // Handle Neo.core.Base style
+                            let object = classDecl.superClass;
+                            let parts  = [];
+                            while(object.type === 'MemberExpression') {
+                                parts.unshift(object.property.name);
+                                object = object.object;
+                            }
+                            if (object.type === 'Identifier') {
+                                parts.unshift(object.name);
+                            }
+                            superClass = parts.join('.');
+                        }
+                    }
+
                     // Iterate Class Body
                     classDecl.body.body.forEach(member => {
                         if (member.type === 'MethodDefinition') {
@@ -91,6 +115,14 @@ class SourceParser extends Base {
                         } else if (member.type === 'PropertyDefinition') {
                             if (member.key.name === 'config' && member.static) {
                                 configNode = member;
+
+                                // Try to extract className from static config if not found in declaration
+                                if (!className && member.value.type === 'ObjectExpression') {
+                                    const classNameProp = member.value.properties.find(p => p.key.name === 'className');
+                                    if (classNameProp && classNameProp.value.type === 'Literal') {
+                                        className = classNameProp.value.value;
+                                    }
+                                }
                             } else {
                                 propertyNodes.push(member);
                             }
@@ -99,6 +131,14 @@ class SourceParser extends Base {
                 }
             }
         });
+
+        // Resolve fully qualified className if possible (naive approach for now, relying on config)
+        // If className is still empty, we rely on what we found.
+
+        const commonMetadata = {
+            className,
+            extends: superClass
+        };
 
         // 2. Extract Module Context Chunk
         // Includes imports, top-level vars, and the class header (docs + signature)
@@ -129,7 +169,8 @@ class SourceParser extends Base {
                 content   : contextContent.trim(),
                 source    : filePath,
                 line_start: 1,
-                line_end  : ast.loc.end.line // Approximation
+                line_end  : ast.loc.end.line, // Approximation
+                ...commonMetadata
             });
         }
 
@@ -144,7 +185,8 @@ class SourceParser extends Base {
                 content   : propsContent,
                 source    : filePath,
                 line_start: propertyNodes[0].loc.start.line,
-                line_end  : propertyNodes[propertyNodes.length - 1].loc.end.line
+                line_end  : propertyNodes[propertyNodes.length - 1].loc.end.line,
+                ...commonMetadata
             });
         }
 
@@ -157,7 +199,8 @@ class SourceParser extends Base {
                 content   : content.substring(configNode.start, configNode.end),
                 source    : filePath,
                 line_start: configNode.loc.start.line,
-                line_end  : configNode.loc.end.line
+                line_end  : configNode.loc.end.line,
+                ...commonMetadata
             });
         }
 
@@ -171,7 +214,8 @@ class SourceParser extends Base {
                 content   : content.substring(node.start, node.end),
                 source    : filePath,
                 line_start: node.loc.start.line,
-                line_end  : node.loc.end.line
+                line_end  : node.loc.end.line,
+                ...commonMetadata
             });
         });
 

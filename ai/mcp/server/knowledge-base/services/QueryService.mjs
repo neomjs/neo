@@ -111,8 +111,12 @@ class QueryService extends Base {
                 if (keywordSingular.length > 2) {
                     if (sourcePathLower.includes(`/${keywordSingular}/`)) score += queryScoreWeights.sourcePathMatch;
                     if (fileName.includes(keywordSingular)) score += queryScoreWeights.fileNameMatch;
-                    if (metadata.type === 'class' && nameLower.includes(keywordSingular)) score += queryScoreWeights.classNameMatch;
-                    if (metadata.className && metadata.className.toLowerCase().includes(keywordSingular)) score += queryScoreWeights.classNameMatch;
+                    
+                    // Old JSDoc based check: metadata.type === 'class'
+                    // New SourceParser check: metadata.className exists
+                    if (metadata.className && metadata.className.toLowerCase().includes(keywordSingular)) {
+                         score += queryScoreWeights.classNameMatch;
+                    }
 
                     if (metadata.type === 'guide') score += queryScoreWeights.guideMatch;
                     if (metadata.type === 'blog') {

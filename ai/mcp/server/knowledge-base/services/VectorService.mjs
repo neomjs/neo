@@ -91,15 +91,19 @@ class VectorService extends Base {
         // Enrich with inheritance chains
         const classNameToDataMap = {};
         knowledgeBase.forEach(chunk => {
-            if (chunk.kind === 'class') {
-                classNameToDataMap[chunk.name] = {source: chunk.source, parent: chunk.extends};
+            if (chunk.kind === 'module-context' && chunk.className && chunk.extends) {
+                classNameToDataMap[chunk.className] = {source: chunk.source, parent: chunk.extends};
             }
         });
 
         knowledgeBase.forEach(chunk => {
-            let currentClass = chunk.kind === 'class' ? chunk.name : chunk.className;
+            let currentClass = chunk.className; // Metadata is now on every chunk
             const inheritanceChain = [];
             const visited = new Set();
+            
+            // If no className metadata (e.g. non-class files), skip
+            if (!currentClass) return;
+
             while (currentClass && classNameToDataMap[currentClass]?.parent && !visited.has(currentClass)) {
                 visited.add(currentClass);
                 const parentClassName = classNameToDataMap[currentClass].parent;
