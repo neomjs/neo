@@ -15,6 +15,11 @@ class MainContainer extends SharedContainer {
          */
         className: 'Portal.view.release.MainContainer',
         /**
+         * @member {String[]} cls=['portal-release-maincontainer']
+         * @reactive
+         */
+        cls: ['portal-release-maincontainer'],
+        /**
          * @member {Neo.component.Base} contentComponent=ContentComponent
          */
         contentComponent: ContentComponent,

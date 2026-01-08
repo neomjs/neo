@@ -16,10 +16,10 @@ class MainContainer extends Container {
          */
         className: 'Portal.view.shared.content.Container',
         /**
-         * @member {String[]} cls=['portal-shared-content-container']
+         * @member {String[]} baseCls=['portal-shared-content-container','neo-container']
          * @reactive
          */
-        cls: ['portal-shared-content-container'],
+        baseCls: ['portal-shared-content-container', 'neo-container'],
         /**
          * @member {Neo.component.Base|null} contentComponent=null
          */
