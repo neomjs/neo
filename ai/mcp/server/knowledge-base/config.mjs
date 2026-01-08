@@ -63,6 +63,11 @@ const defaultConfig = {
      */
     dataPath: path.resolve(cwd, 'dist/ai-knowledge-base.jsonl'),
     /**
+     * The path to the generated class hierarchy JSON file.
+     * @type {string}
+     */
+    hierarchyPath: path.resolve(cwd, 'dist/ai-class-hierarchy.json'),
+    /**
      * The name of the ChromaDB collection for the knowledge base.
      * @type {string}
      */

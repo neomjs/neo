@@ -343,6 +343,59 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /knowledge/hierarchy:
+    get:
+      summary: Get Class Hierarchy
+      operationId: get_class_hierarchy
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: true
+      description: |
+        Retrieves the static class hierarchy from the knowledge base.
+        This tool provides a deterministic map of class relationships (inheritance) derived from source code.
+
+        **Input:**
+        - `root`: (Optional) Filter the hierarchy to show only subclasses of this class (e.g., 'Neo.component.Base').
+
+        **Output:**
+        A JSON object where keys are class names and values contain metadata (source file, parent class).
+      tags: [Documents]
+      parameters:
+        - name: root
+          in: query
+          required: false
+          description: The root class name to filter by.
+          schema:
+            type: string
+            example: "Neo.component.Base"
+      responses:
+        '200':
+          description: The class hierarchy map.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: object
+                  properties:
+                    source:
+                      type: string
+                    parent:
+                      type: string
+                      nullable: true
+        '404':
+          description: Hierarchy file not found (requires sync).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /documents:
     get:
       summary: List Documents

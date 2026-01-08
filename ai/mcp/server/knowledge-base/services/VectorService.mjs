@@ -4,6 +4,7 @@ import Base                 from '../../../../../src/core/Base.mjs';
 import ChromaManager        from './ChromaManager.mjs';
 import fs                   from 'fs-extra';
 import logger               from '../logger.mjs';
+import path                 from 'path';
 import readline             from 'readline';
 
 /**
@@ -91,10 +92,17 @@ class VectorService extends Base {
         // Enrich with inheritance chains
         const classNameToDataMap = {};
         knowledgeBase.forEach(chunk => {
-            if (chunk.kind === 'module-context' && chunk.className && chunk.extends) {
-                classNameToDataMap[chunk.className] = {source: chunk.source, parent: chunk.extends};
+            if (chunk.kind === 'module-context' && chunk.className) {
+                classNameToDataMap[chunk.className] = {
+                    source : chunk.source,
+                    parent : chunk.extends || null
+                };
             }
         });
+
+        // Save Class Hierarchy Map
+        await fs.writeJson(aiConfig.hierarchyPath, classNameToDataMap, {spaces: 4});
+        logger.log(`Saved class hierarchy map to ${aiConfig.hierarchyPath}`);
 
         knowledgeBase.forEach(chunk => {
             let currentClass = chunk.className; // Metadata is now on every chunk

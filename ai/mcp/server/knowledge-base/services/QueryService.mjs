@@ -1,3 +1,4 @@
+import fs                   from 'fs-extra';
 import {GoogleGenerativeAI} from '@google/generative-ai';
 import aiConfig             from '../config.mjs';
 import Base                 from '../../../../../src/core/Base.mjs';
@@ -48,6 +49,50 @@ class QueryService extends Base {
     async initAsync() {
         await super.initAsync();
         await ChromaManager.ready();
+    }
+
+    /**
+     * Retrieves the static class hierarchy from the pre-generated JSON file.
+     * @param {Object} params
+     * @param {String} [params.root] Optional root class name to filter the hierarchy (e.g., 'Neo.component.Base').
+     * @returns {Promise<Object>} The class hierarchy map or subtree.
+     */
+    async getClassHierarchy({root} = {}) {
+        if (!await fs.pathExists(aiConfig.hierarchyPath)) {
+            throw new Error('Class hierarchy file not found. Please sync the knowledge base first.');
+        }
+
+        const hierarchy = await fs.readJson(aiConfig.hierarchyPath);
+
+        if (!root) {
+            return hierarchy;
+        }
+
+        // If a root is specified, find all subclasses recursively
+        const subtree = {};
+        const queue = [root];
+
+        // Include the root itself if it exists
+        if (hierarchy[root]) {
+            subtree[root] = hierarchy[root];
+        }
+
+        while (queue.length > 0) {
+            const currentParent = queue.shift();
+            
+            Object.entries(hierarchy).forEach(([className, data]) => {
+                if (data.parent === currentParent) {
+                    subtree[className] = data;
+                    queue.push(className);
+                }
+            });
+        }
+
+        if (Object.keys(subtree).length === 0 && !hierarchy[root]) {
+             return { message: `Class '${root}' found in hierarchy, but it has no subclasses or entry.` };
+        }
+
+        return subtree;
     }
 
     /**
