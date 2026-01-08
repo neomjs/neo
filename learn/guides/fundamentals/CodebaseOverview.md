@@ -6,7 +6,7 @@
 
 Neo.mjs is not a library. It's a **comprehensive web platform** with:
 
-- **41,282 lines** of core framework source (351 files)
+- **41,282 lines** of core engine source (351 files)
 - **19,199 lines** of working examples (485 files)
 - **14,111 lines** of flagship applications (260 files)
 - **6,205 lines** of AI infrastructure (47 files)
@@ -136,7 +136,7 @@ Neo.create(Effect, {
 
 ### Component System (Two Models)
 
-**Class-based Components**: Full framework features
+**Class-based Components**: Full engine features
 - Reactive configs with `beforeGet`/`beforeSet`/`afterSet` hooks
 - Mixins for composable behavior
 - Full inheritance chain
@@ -260,7 +260,7 @@ Desktop-class application architecture:
 
 ## The Knowledge Landscape: What's Available to Query
 
-### Core Framework (`/src` - 351 files, 81k lines)
+### Core Engine (`/src` - 351 files, 81k lines)
 
 **Foundation**:
 - `Neo.mjs`: The entry point. Class factory, `setupClass()`, global configuration

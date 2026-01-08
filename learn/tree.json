@@ -12,7 +12,7 @@
         {"name": "Complexity and Effort",                              "parentId": "Benefits",                                            "id": "benefits/Effort"},
         {"name": "Forms Engine",                                       "parentId": "Benefits",                                            "id": "benefits/FormsEngine"},
         {"name": "Features and Benefits Summary",                      "parentId": "Benefits",                                            "id": "benefits/Features"},
-    {"name": "Comparisons",                                            "parentId": null,                                 "isLeaf": false, "id": "comparisons", "collapsed": true},
+    {"name": "Engine vs Frameworks",                                   "parentId": null,                                 "isLeaf": false, "id": "comparisons", "collapsed": true},
         {"name": "Overview",                                           "parentId": "comparisons",                                         "id": "comparisons/Overview"},
         {"name": "Neo.mjs vs React.js",                                "parentId": "comparisons",                                         "id": "comparisons/NeoVsReact"},
         {"name": "Neo.mjs vs Angular",                                 "parentId": "comparisons",                                         "id": "comparisons/NeoVsAngular"},

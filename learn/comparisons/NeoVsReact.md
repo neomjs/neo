@@ -6,7 +6,7 @@ This article provides a focused comparison between the Neo.mjs ecosystem and Rea
 
 ## Foundational Concepts: A Shared Heritage
 
-Despite their architectural differences, both frameworks build upon foundational concepts that have shaped UI development:
+Despite their architectural differences, both architectures build upon foundational concepts that have shaped UI development:
 
 *   **Component-Based Architecture (with a distinction):** Both frameworks promote building UIs as a composition of reusable components. However, Neo.mjs extends this concept with `Neo.core.Base`, allowing any class-based entity (like controllers, models, or routers) to leverage the framework's powerful class system, even if they don't directly render UI. This contrasts with frameworks where non-visual logic might often be shoehorned into component structures.
 *   **Declarative UI:** Developers describe *what* the UI should look like for a given state, and the framework handles *how* to update the DOM.
@@ -15,7 +15,7 @@ Despite their architectural differences, both frameworks build upon foundational
 
 ## Key Differences: Architectural & Rendering Strategies
 
-This is where the two frameworks diverge significantly, each offering unique trade-offs and advantages.
+This is where the two systems diverge significantly, each offering unique trade-offs and advantages.
 
 ### 1. Overall Architecture: Main Thread vs. Worker-Based
 
