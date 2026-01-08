@@ -96,7 +96,10 @@ class SearchService extends Base {
         const contextDocs = (await Promise.all(contextPromises)).join('\n\n');
 
         const prompt = `
-You are an expert Neo.mjs architect. Answer the following question using ONLY the provided context documents.
+You are an expert Neo.mjs architect. 
+**CRITICAL INSTRUCTION:** The framework is named "Neo.mjs". Never refer to it as "Neo.js".
+
+Answer the following question using **ONLY** the provided context documents.
 If the answer cannot be found in the documents, state that you don't have enough information.
 
 Question: ${query}
@@ -108,6 +111,7 @@ Instructions:
 1. Synthesize a clear, concise answer.
 2. Cite specific classes or files from the context where appropriate.
 3. Do not make up code or facts not present in the text.
+4. Adhere to the terminology: "Neo.mjs", "App Worker", "VDom Worker", "config system".
 `;
 
         // 4. Generate Answer
