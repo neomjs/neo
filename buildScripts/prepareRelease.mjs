@@ -102,9 +102,18 @@ if (insideNeo) {
     if (fs.existsSync(npmIgnorePath) && fs.existsSync(gitIgnorePath)) {
         const npmIgnoreContent = fs.readFileSync(npmIgnorePath, 'utf-8').split(os.EOL);
         const gitIgnoreContent = fs.readFileSync(gitIgnorePath, 'utf-8');
+        const splitString      = '# Original content of the .gitignore file';
+        const splitIndex       = npmIgnoreContent.indexOf(splitString);
+        let   headerLines;
 
-        // Keep the first 7 lines of .npmignore (npm specific rules)
-        const newNpmIgnoreContent = npmIgnoreContent.slice(0, 7).join(os.EOL) + os.EOL + gitIgnoreContent;
+        if (splitIndex !== -1) {
+            headerLines = npmIgnoreContent.slice(0, splitIndex + 1);
+        } else {
+            // Fallback to the default 7 lines if the marker is missing
+            headerLines = npmIgnoreContent.slice(0, 7);
+        }
+
+        const newNpmIgnoreContent = headerLines.join(os.EOL) + os.EOL + gitIgnoreContent;
 
         fs.writeFileSync(npmIgnorePath, newNpmIgnoreContent);
         console.log('Synced .npmignore with .gitignore');
