@@ -64,11 +64,34 @@ class Seo extends Base {
 
     /**
      * Retrieves the SEO metadata (title and description) for a given route hash.
+     * Supports nested routes by falling back to parent paths if an exact match is not found.
+     * e.g., '/news/blog/my-post' -> '/news/blog' -> '/news'
      * @param {String} route The route hash string (e.g., '/home', '/blog').
      * @returns {Object|null} An object containing `title` and `description` for the route, or `null` if not found.
      */
     getMetadata(route) {
-        return this.#metadata?.[route] || null
+        let metadata = this.#metadata,
+            parts;
+
+        if (!metadata) return null;
+
+        if (metadata[route]) {
+            return metadata[route]
+        }
+
+        // Fallback logic for nested routes
+        parts = route.split('/');
+
+        while (parts.length > 1) {
+            parts.pop();
+            route = parts.join('/');
+
+            if (metadata[route]) {
+                return metadata[route]
+            }
+        }
+
+        return null
     }
 
     /**
