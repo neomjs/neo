@@ -173,7 +173,7 @@ class StandardComponent extends Component {
 
 **Use `this.update()` when:**
 * Making standard component updates.
-* You want the framework's VDom engine to handle diffing automatically.
+* You want the engine's VDom diffing to handle updates automatically.
 * Working with complex VDom structures where manual delta calculation would be error-prone.
 * This covers ~95% of VDom manipulation use cases.
 
@@ -222,13 +222,13 @@ class AdvancedComponent extends Component {
 
 **Important Limitations and Considerations:**
 * **State Desynchronization (Critical)**: `Neo.applyDeltas()` modifies the DOM but **does not** automatically update the
-  component's internal VDom (`this.vdom`, your desired state) or the framework's cached `VNode` state (`this.vnode`, the
+  component's internal VDom (`this.vdom`, your desired state) or the engine's cached `VNode` state (`this.vnode`, the
   last state known by the VDom engine).
   * If these internal states are not manually synchronized, subsequent standard `this.update()` calls will compare against
     stale data, leading to **redundant, incorrect, or "undoing" deltas** being sent to the Main Thread.
 * **Manual Synchronization for Persistent Changes (Highly Complex)**: For persistent UI changes that must remain synchronized,
   manually updating both `this.vdom` (to reflect the new visual state) and `this.vnode` (to match the exact state after
-  `Neo.applyDeltas()`) is required. This low-level `VNode` manipulation is generally considered a **framework-internal task**
+  `Neo.applyDeltas()`) is required. This low-level `VNode` manipulation is generally considered a **engine-internal task**
   dueled to its complexity and the specific `Neo.vdom.VNode` class structure. It is **not typically recommended for
   application developers** for general UI management.
 * **No Automatic Diffing**: You are entirely responsible for calculating the precise deltas. Errors in delta calculation
@@ -383,9 +383,9 @@ class DataList extends Component {
 For conditionally showing or hiding elements, the recommended and most robust pattern in Neo.mjs is to use the `removeDom`
 property. This approach ensures **structural integrity** of your VDom tree, which is critical for performance and stability.
 
-By keeping a static VDom structure and toggling the `removeDom` flag, you allow the framework's diffing engine to work
+By keeping a static VDom structure and toggling the `removeDom` flag, you allow the diffing engine to work
 most efficiently. It can rely on the stable index of each child node, resulting in minimal and correct deltas. This also
-ensures that internal framework features which traverse the VDOM tree (like `syncVdomIds`) function predictably.
+ensures that internal engine features which traverse the VDOM tree (like `syncVdomIds`) function predictably.
 
 #### The Anti-Pattern: Modifying the `cn` Array
 
@@ -398,7 +398,7 @@ This anti-pattern is problematic because:
   `removeNode`, `insertNode`, and `moveNode` operations instead of a single, simple update.
 3. It forces the developer to manually add stable ids to all sibling nodes to help the diffing algorithm keep its bearings,
    which is an extra, error-prone step.
-4. It breaks the contract of a stable VDOM structure, which can interfere with internal framework optimizations.
+4. It breaks the contract of a stable VDOM structure, which can interfere with internal engine optimizations.
 
 Always prefer the `removeDom` flag for predictable, performant, and robust components.
 
@@ -495,7 +495,7 @@ import Component from './src/component/Base.mjs'; // Required import
 class SecureComponent extends Component {
     // SECURE: Use text property for user-provided string content
     setContent(userInput) {
-        this.textNode.text = userInput; // Automatically HTML-escaped by the framework
+        this.textNode.text = userInput; // Automatically HTML-escaped by the engine
         this.update();
     }
 
@@ -665,7 +665,7 @@ class MemoryEfficientComponent extends Component {
 
 ### 1. Conditional Rendering
 
-Dynamically show or hide VDom nodes by setting their `removeDom` property. This is efficient as the VDom node remains in the tree, but its corresponding DOM element is removed/added from the document flow by the framework.
+Dynamically show or hide VDom nodes by setting their `removeDom` property. This is efficient as the VDom node remains in the tree, but its corresponding DOM element is removed/added from the document flow by the engine.
 
 ```javascript readonly
 import Component from './src/component/Base.mjs'; // Required import
@@ -767,17 +767,17 @@ class ListComponent extends Component {
 
 ## Conclusion
 
-Working with VDom in Neo.mjs provides fine-grained control over DOM manipulation while maintaining the framework's performance benefits. Key takeaways:
+Working with VDom in Neo.mjs provides fine-grained control over DOM manipulation while maintaining the engine's performance benefits. Key takeaways:
 
 * **Separate Concerns**: VDom defines structure/attributes, `domListeners` handle events.
 * **Use flags for node references**: More efficient than querying the real DOM.
 * **Batch VDom updates**: Minimize DOM operations with `this.update()` or `Neo.applyDeltas()`.
-* **Leverage `this.update()`**: Essential for VDom-to-DOM synchronization, letting the framework optimize diffing.
+* **Leverage `this.update()`**: Essential for VDom-to-DOM synchronization, letting the engine optimize diffing.
 * **`Neo.applyDeltas()` for advanced cases**: Bypass diffing for extreme performance needs.
 * **Follow security best practices**: Use `text` over `html` (unless sanitized), use `tag` for safe element creation.
 * **Optimize for performance**: Batch updates, use efficient delegation, manage memory.
 * **Test thoroughly**: VDom logic benefits from comprehensive testing due to its low-level nature.
 
-The VDom layer is where Neo.mjs's performance optimizations happen, and understanding these patterns enables you to build sophisticated, high-performance custom components that integrate seamlessly with the framework's architecture.
+The VDom layer is where Neo.mjs's performance optimizations happen, and understanding these patterns enables you to build sophisticated, high-performance custom components that integrate seamlessly with the engine's architecture.
 
 Remember: Most development should happen at the Component Tree layer. Only drop down to VDom manipulation when you need the additional control and performance optimization it provides.
