@@ -2,6 +2,7 @@ import {GoogleGenerativeAI} from '@google/generative-ai';
 import aiConfig             from '../config.mjs';
 import Base                 from '../../../../../src/core/Base.mjs';
 import ChromaManager        from './ChromaManager.mjs';
+import fs                   from 'fs-extra';
 import logger               from '../logger.mjs';
 
 /**
@@ -36,11 +37,12 @@ class SearchService extends Base {
 
     /**
      * Performs a semantic search and synthesizes an answer using the LLM.
-     * @param {String} query The natural language query.
-     * @param {Number} [limit=5] Number of results to use for context.
+     * @param {Object} params
+     * @param {String} params.query The natural language query.
+     * @param {Number} [params.limit=5] Number of results to use for context.
      * @returns {Promise<Object>} The synthesized answer and references.
      */
-    async ask(query, limit = 5) {
+    async ask({query, limit = 5}) {
         if (!this.model) {
             throw new Error('GEMINI_API_KEY is required for RAG features.');
         }
@@ -66,14 +68,32 @@ class SearchService extends Base {
             };
         }
 
-        // 3. Construct Context
-        const contextDocs = results.documents[0].map((doc, index) => {
-            const meta = results.metadatas[0][index];
-            const source = meta.source || 'Unknown Source';
-            const name = meta.name || 'Unknown Name';
-            return `--- DOCUMENT ${index + 1} (${name} from ${source}) ---
-${doc}`;
-        }).join('\n\n');
+        // 3. Construct Context (Read from Files)
+        const contextPromises = results.metadatas[0].map(async (meta, index) => {
+            const source = meta.source;
+            const name   = meta.name || 'Unknown Name';
+            const doc    = results.documents[0][index];
+            let content  = '';
+
+            if (source && await fs.pathExists(source)) {
+                try {
+                    content = await fs.readFile(source, 'utf8');
+                    // Optional: Truncate really large files? 
+                    // For now, let's assume reasonable sizes or rely on model context window.
+                } catch (err) {
+                    logger.warn(`[SearchService] Failed to read file ${source}:`, err.message);
+                }
+            }
+            
+            // Fallback to metadata content if file read failed or yielded empty
+            if (!content) {
+                content = doc || meta.content || meta.description || 'No Content';
+            }
+
+            return `--- DOCUMENT ${index + 1} (${name} from ${source}) ---\n${content}`;
+        });
+
+        const contextDocs = (await Promise.all(contextPromises)).join('\n\n');
 
         const prompt = `
 You are an expert Neo.mjs architect. Answer the following question using ONLY the provided context documents.

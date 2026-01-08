@@ -24,6 +24,7 @@ import KB_LifecycleService          from './mcp/server/knowledge-base/services/D
 import KB_DocumentService           from './mcp/server/knowledge-base/services/DocumentService.mjs';
 import KB_HealthService             from './mcp/server/knowledge-base/services/HealthService.mjs';
 import KB_QueryService              from './mcp/server/knowledge-base/services/QueryService.mjs';
+import KB_SearchService             from './mcp/server/knowledge-base/services/SearchService.mjs';
 import KB_ChromaManager             from './mcp/server/knowledge-base/services/ChromaManager.mjs';
 import KB_Config                    from './mcp/server/knowledge-base/config.mjs';
 
@@ -160,6 +161,7 @@ makeSafe(KB_LifecycleService, kbSpec);
 makeSafe(KB_DocumentService,  kbSpec);
 makeSafe(KB_HealthService,    kbSpec);
 makeSafe(KB_QueryService,     kbSpec);
+makeSafe(KB_SearchService,    kbSpec);
 
 // Memory Core
 makeSafe(Memory_Service,          memSpec);
@@ -215,6 +217,7 @@ export {
     KB_DocumentService,
     KB_HealthService,
     KB_QueryService,
+    KB_SearchService,
 
     // Memory Core
     Memory_Config,
