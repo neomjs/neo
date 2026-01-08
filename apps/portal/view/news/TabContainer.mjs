@@ -1,5 +1,3 @@
-import BlogContainer        from './blog/Container.mjs';
-import ReleaseMainContainer from './release/MainContainer.mjs';
 import TabContainer         from '../shared/TabContainer.mjs';
 import TabContainerController from './TabContainerController.mjs';
 
@@ -36,14 +34,14 @@ class NewsTabContainer extends TabContainer {
          * @member {Object[]} items
          */
         items: [{
-            module: BlogContainer,
+            module: () => import('./blog/Container.mjs'),
             header: {
                 iconCls: 'fa fa-blog',
                 route  : '/news/blog',
                 text   : 'Blog'
             }
         }, {
-            module: ReleaseMainContainer,
+            module: () => import('./release/MainContainer.mjs'),
             header: {
                 iconCls: 'fa fa-scroll',
                 route  : '/news/releases',
