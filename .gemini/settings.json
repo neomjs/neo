@@ -3,10 +3,6 @@
         "fileName": ["AGENTS.md", "GEMINI.md"]
     },
     "mcpServers": {
-        "chrome-devtools": {
-            "command": "npx",
-            "args"   : ["-y", "chrome-devtools-mcp@latest"]
-        },
         "neo.mjs-github-workflow": {
             "command": "npm",
             "args"   : ["run", "ai:mcp-server-github-workflow"]

@@ -20,6 +20,26 @@ With the Neural Link:
 
 **This is the difference between an AI assistant and an AI developer.**
 
+## Configuration Strategy
+
+To optimize your AI context window and tool limits, we recommend different configurations based on your operational mode.
+
+### 1. Collaborative Mode (Human + Agent)
+**Best for:** Daily development, pair programming, debugging.
+
+In this mode, **you** act as the browser manager. You open the browser, navigate to the page, and the Agent "hitches a ride" via the Neural Link.
+- **Enable:** `neo.mjs-neural-link`
+- **Disable:** `chrome-devtools` (Save 26 tool slots)
+
+**Why:** The agent doesn't need to open tabs if you are already there. It needs deep introspection into the Neo.mjs runtime, which Neural Link provides and Chrome DevTools does not.
+
+### 2. Autonomous Mode (Agent OS)
+**Best for:** CI/CD, nightly regression testing, autonomous "Night Watchman" agents.
+
+In this mode, the Agent is alone. It must be able to launch its own environment.
+- **Enable:** `neo.mjs-neural-link` (For inspection)
+- **Enable:** `chrome-devtools` (For lifecycle: Open Browser, Navigate, Reload)
+
 ## Architecture
 
 The Neural Link consists of three main components arranged in a star topology:
