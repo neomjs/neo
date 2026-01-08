@@ -1,4 +1,5 @@
 import * as acorn from 'acorn';
+import path       from 'path';
 import Base       from '../../../../../src/core/Base.mjs';
 import logger     from '../logger.mjs';
 
@@ -66,11 +67,18 @@ class SourceParser extends Base {
         let   classDefinition = '';
         let   className       = '';
         let   superClass      = '';
+        const imports         = {}; // Map local name to import source
 
         // 1. Traverse AST to categorize nodes
         ast.body.forEach(node => {
-            if (node.type === 'ImportDeclaration' || node.type === 'VariableDeclaration') {
-                // Top-level imports and vars belong to Module Context
+            if (node.type === 'ImportDeclaration') {
+                // Top-level imports
+                contextNodes.push(node);
+                const source = node.source.value;
+                node.specifiers.forEach(specifier => {
+                    imports[specifier.local.name] = source;
+                });
+            } else if (node.type === 'VariableDeclaration') {
                 contextNodes.push(node);
             } else if (node.type === 'ClassDeclaration' || node.type === 'ExportDefaultDeclaration') {
                 // Handle Class Definition
@@ -87,10 +95,11 @@ class SourceParser extends Base {
                     }
 
                     if (classDecl.superClass) {
+                        let localSuperName;
                         if (classDecl.superClass.type === 'Identifier') {
-                            superClass = classDecl.superClass.name;
+                            localSuperName = classDecl.superClass.name;
                         } else if (classDecl.superClass.type === 'MemberExpression') {
-                            // Handle Neo.core.Base style
+                            // Handle Neo.core.Base style (already fully qualified-ish)
                             let object = classDecl.superClass;
                             let parts  = [];
                             while(object.type === 'MemberExpression') {
@@ -101,6 +110,47 @@ class SourceParser extends Base {
                                 parts.unshift(object.name);
                             }
                             superClass = parts.join('.');
+                        }
+
+                        // Try to resolve import for Identifier
+                        if (localSuperName) {
+                            if (imports[localSuperName]) {
+                                try {
+                                    // Resolve relative path to absolute file path
+                                    // Assumption: filePath is relative to project root (e.g. src/component/Base.mjs)
+                                    // imports[localSuperName] is e.g. '../../core/Base.mjs'
+                                    const dir = path.dirname(filePath);
+                                    const resolvedPath = path.join(dir, imports[localSuperName]);
+                                    
+                                    // Normalize path separators
+                                    const normalizedPath = resolvedPath.replace(/\\/g, '/');
+
+                                    // Convert file path to class name
+                                    // Heuristic: src/foo/Bar.mjs -> Neo.foo.Bar
+                                    if (normalizedPath.startsWith('src/')) {
+                                        superClass = 'Neo.' + normalizedPath
+                                            .substring(4) // remove src/
+                                            .replace(/\.mjs$/, '')
+                                            .replace(/\//g, '.');
+                                    } else if (normalizedPath.startsWith('apps/')) {
+                                        // apps/portal/view/Main.mjs -> Portal.view.Main (Heuristic)
+                                        // This is harder because app namespace != folder name always.
+                                        // For now, let's just map path segments.
+                                        const parts = normalizedPath.split('/');
+                                        const appName = parts[1]; // apps/<appName>/...
+                                        // Capitalize app name
+                                        const ns = appName.charAt(0).toUpperCase() + appName.slice(1);
+                                        superClass = ns + '.' + parts.slice(2).join('.').replace(/\.mjs$/, '');
+                                    } else {
+                                        // Fallback to local name if we can't map to namespace
+                                        superClass = localSuperName;
+                                    }
+                                } catch (err) {
+                                    superClass = localSuperName;
+                                }
+                            } else {
+                                superClass = localSuperName;
+                            }
                         }
                     }
 
