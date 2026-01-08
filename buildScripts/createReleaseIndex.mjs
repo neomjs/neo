@@ -113,7 +113,6 @@ async function createReleaseIndex(options = {}) {
                 collapsed: true, // Default to collapsed
                 id       : parentId,
                 isLeaf   : false,
-                name     : parentId,
                 parentId : null
             });
         }
@@ -121,7 +120,6 @@ async function createReleaseIndex(options = {}) {
         // Add tree fields to release
         release.id       = version;
         // release.isLeaf = true; // Default value in model is true
-        release.name     = version;
         release.parentId = parentId;
 
         delete release.version;
@@ -154,7 +152,6 @@ async function createReleaseIndex(options = {}) {
             collapsed: majorNode.collapsed,
             id       : majorNode.id,
             isLeaf   : majorNode.isLeaf,
-            name     : majorNode.name,
             parentId : majorNode.parentId
         });
 
