@@ -92,6 +92,23 @@ if (insideNeo) {
         fs.writeFileSync(indexPath, indexContent);
         console.log('Updated apps/portal/index.html datePublished');
     }
+
+    // Sync .npmignore with .gitignore
+    // This ensures that we don't accidentally publish files that should be ignored,
+    // while maintaining the specific npm-only rules.
+    const npmIgnorePath = path.join(root, '.npmignore');
+    const gitIgnorePath = path.join(root, '.gitignore');
+
+    if (fs.existsSync(npmIgnorePath) && fs.existsSync(gitIgnorePath)) {
+        const npmIgnoreContent = fs.readFileSync(npmIgnorePath, 'utf-8').split(os.EOL);
+        const gitIgnoreContent = fs.readFileSync(gitIgnorePath, 'utf-8');
+
+        // Keep the first 7 lines of .npmignore (npm specific rules)
+        const newNpmIgnoreContent = npmIgnoreContent.slice(0, 7).join(os.EOL) + os.EOL + gitIgnoreContent;
+
+        fs.writeFileSync(npmIgnorePath, newNpmIgnoreContent);
+        console.log('Synced .npmignore with .gitignore');
+    }
 }
 
 // Generate the release index JSON before SEO files
