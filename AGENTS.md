@@ -122,8 +122,14 @@ First, classify the user's request into one of two categories:
 - **Ticket ID Required:** The commit subject line **MUST** end with `(#TICKET_ID)`.
     - **Correct:** `feat: Add infinite canvas (#8392)`
 - **Standard:** Follow Conventional Commits.
-- **Push-Before-Notify:** If a task involves local commits, you **MUST** push changes to the remote repository (`git push`) BEFORE posting a completion comment or closing the associated GitHub issue. Do not mark a ticket as done if the code is only on your local machine.
-- **Ownership-on-Completion:** Before closing a ticket, ensure it is assigned to the current user. If unassigned, assign it immediately to capture credit for the work.
-- **Update Ticket:** You **MUST** post a comment on the issue if:
-    1. You deviate from the original plan (explain *why*).
-    2. The task is complete (summarize the result).
+
+## 7. Ticket Closure Protocol (Definition of Done)
+
+You **MUST** perform these steps in order before marking a task as complete:
+
+1.  **Push:** If a task involves local commits, you **MUST** push changes to the remote repository (`git push`).
+2.  **Assign (MANDATORY):** Ensure the ticket is assigned to the current user. If unassigned, assign it immediately to capture credit for the work.
+3.  **Comment:** You **MUST** post a comment on the issue if:
+    - You deviated from the original plan (explain *why*).
+    - The task is complete (summarize the result).
+4.  **Close:** Only after steps 1-3 are complete can you close the ticket.
