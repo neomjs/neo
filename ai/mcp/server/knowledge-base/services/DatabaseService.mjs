@@ -192,20 +192,12 @@ class DatabaseService extends Base {
         await ChromaManager.ready();
 
         logger.info('[Startup] Checking knowledge base status...');
-        const knowledgeBasePath = aiConfig.dataPath;
-        const kbExists          = await fs.pathExists(knowledgeBasePath);
 
         try {
             if (aiConfig.data.autoSync) {
-                if (!kbExists) {
-                    logger.info('[Startup] Knowledge base file not found. Starting full synchronization...');
-                    await this.syncDatabase();
-                    logger.info('✅ [Startup] Full synchronization complete.');
-                } else {
-                    logger.info('[Startup] Knowledge base file found. Starting embedding process...');
-                    await this.embedKnowledgeBase();
-                    logger.info('✅ [Startup] Embedding process complete.');
-                }
+                logger.info('[Startup] Starting full synchronization (Create + Embed)...');
+                await this.syncDatabase();
+                logger.info('✅ [Startup] Full synchronization complete.');
             }
         } catch (error) {
             logger.warn('⚠️  [Startup] Knowledge base synchronization/embedding failed:', error.message);
