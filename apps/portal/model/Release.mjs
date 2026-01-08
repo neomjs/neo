@@ -39,20 +39,26 @@ class Release extends Model {
             type        : 'String',
             defaultValue: null
         }, {
+            name     : 'name',
+            type     : 'String',
+            calculate: data => data.version
+        }, {
             // Computed field for TreeList display
-            name: 'name',
+            name: 'treeNodeName',
             type: 'html',
             /**
-             * @param {String} value
-             * @param {Object} record
+             * @param {Object} data
              * @returns {String}
              */
-            convert(value, record) {
-                if (record.date) {
-                    return `<b>${value}</b> <span class="release-date">[${new Date(record.date).toLocaleDateString()}]</span>`
+            calculate(data) {
+                const
+                    {date, version} = data;
+
+                if (date) {
+                    return `<b>${version}</b> <span class="release-date">[${new Date(date).toLocaleDateString()}]</span>`
                 }
 
-                return value
+                return version
             }
         }, {
             // Computed field for TreeList id

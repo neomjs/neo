@@ -32,7 +32,13 @@ class MainContainer extends SharedContainer {
          * @member {Neo.state.Provider} stateProvider=MainContainerStateProvider
          * @reactive
          */
-        stateProvider: StateProvider
+        stateProvider: StateProvider,
+        /**
+         * @member {Object} treeConfig={displayField:'treeNodeName'}
+         */
+        treeConfig: {
+            displayField: 'treeNodeName'
+        }
     }
 }
 

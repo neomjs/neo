@@ -28,7 +28,11 @@ class MainContainer extends Container {
          * @member {Object} layout={ntype:'hbox',align:'stretch'}
          * @reactive
          */
-        layout: {ntype: 'hbox', align: 'stretch'}
+        layout: {ntype: 'hbox', align: 'stretch'},
+        /**
+         * @member {Object|null} treeConfig=null
+         */
+        treeConfig: null
     }
 
     /**
@@ -47,7 +51,8 @@ class MainContainer extends Container {
 
             items: [{
                 module   : TreeList,
-                reference: 'tree'
+                reference: 'tree',
+                ...me.treeConfig
             }, {
                 ntype  : 'button',
                 bind   : {hidden: data => data.size !== 'x-small'},
