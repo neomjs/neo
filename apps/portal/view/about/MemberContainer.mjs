@@ -13,10 +13,10 @@ class MemberContainer extends Container {
          */
         className: 'Portal.view.about.MemberContainer',
         /**
-         * @member {String[]} cls=['portal-about-member-container']
+         * @member {String[]} cls=['portal-about-member-container', 'portal-content-box']
          * @reactive
          */
-        cls: ['portal-about-member-container'],
+        cls: ['portal-about-member-container', 'portal-content-box'],
         /**
          * @member {String|null} location_=null
          * @reactive
@@ -66,7 +66,7 @@ class MemberContainer extends Container {
             {cn: [
                 {tag: 'img', cls: ['portal-profile-picture']},
                 {cls: ['portal-profile-content'], cn: [
-                    {tag: 'h2', cls: ['portal-profile-name']},
+                    {tag: 'h2', cls: ['portal-profile-name', 'portal-content-box-headline']},
                     {cls: ['portal-profile-role']},
                     {cn: [
                         {tag: 'i', cls: ['portal-profile-location']},

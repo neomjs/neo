@@ -13,10 +13,10 @@ class Container extends Base {
          */
         className: 'Portal.view.about.Container',
         /**
-         * @member {String[]} cls=['portal-about-container']
+         * @member {String[]} cls=['portal-about-container', 'portal-shared-background']
          * @reactive
          */
-        cls: ['portal-about-container'],
+        cls: ['portal-about-container', 'portal-shared-background'],
         /**
          * @member {Object[]} items
          */
