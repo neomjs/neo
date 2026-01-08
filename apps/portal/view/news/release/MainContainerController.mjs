@@ -1,16 +1,16 @@
-import Controller from '../../../../src/controller/Component.mjs';
+import Controller from '../../../../../src/controller/Component.mjs';
 
 /**
- * @class Portal.view.release.MainContainerController
+ * @class Portal.view.news.release.MainContainerController
  * @extends Neo.controller.Component
  */
 class MainContainerController extends Controller {
     static config = {
         /**
-         * @member {String} className='Portal.view.release.MainContainerController'
+         * @member {String} className='Portal.view.news.release.MainContainerController'
          * @protected
          */
-        className: 'Portal.view.release.MainContainerController',
+        className: 'Portal.view.news.release.MainContainerController',
         /**
          * @member {Object} routes
          */

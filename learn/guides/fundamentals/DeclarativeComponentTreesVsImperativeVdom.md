@@ -109,7 +109,7 @@ class Viewport extends BaseViewport {
             items: [
                 {module: () => import('./home/MainContainer.mjs')},
                 {module: () => import('./learn/MainContainer.mjs')},
-                {module: () => import('./blog/Container.mjs')}
+                {module: () => import('./news/blog/Container.mjs')}
             ]
         }]
     }

@@ -1,9 +1,9 @@
-import BaseList  from '../../../../src/list/Base.mjs';
-import BlogPosts from '../../store/BlogPosts.mjs';
-import VDomUtil  from '../../../../src/util/VDom.mjs';
+import BaseList  from '../../../../../src/list/Base.mjs';
+import BlogPosts from '../../../store/BlogPosts.mjs';
+import VDomUtil  from '../../../../../src/util/VDom.mjs';
 
 /**
- * @class Portal.view.blog.List
+ * @class Portal.view.news.blog.List
  * @extends Neo.list.Base
  */
 class List extends BaseList {
@@ -17,10 +17,10 @@ class List extends BaseList {
 
     static config = {
         /**
-         * @member {String} className='Portal.view.blog.List'
+         * @member {String} className='Portal.view.news.blog.List'
          * @protected
          */
-        className: 'Portal.view.blog.List',
+        className: 'Portal.view.news.blog.List',
         /**
          * @member {String[]} baseCls=['portal-blog-list','neo-list']
          */

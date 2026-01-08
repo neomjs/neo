@@ -1,18 +1,18 @@
-import ContentSectionStore from '../../store/ContentSections.mjs';
-import ReleasesStore       from '../../store/Releases.mjs';
-import StateProvider       from '../../../../src/state/Provider.mjs';
+import ContentSectionStore from '../../../store/ContentSections.mjs';
+import ReleasesStore       from '../../../store/Releases.mjs';
+import StateProvider       from '../../../../../src/state/Provider.mjs';
 
 /**
- * @class Portal.view.release.MainContainerStateProvider
+ * @class Portal.view.news.release.MainContainerStateProvider
  * @extends Neo.state.Provider
  */
 class MainContainerStateProvider extends StateProvider {
     static config = {
         /**
-         * @member {String} className='Portal.view.release.MainContainerStateProvider'
+         * @member {String} className='Portal.view.news.release.MainContainerStateProvider'
          * @protected
          */
-        className: 'Portal.view.release.MainContainerStateProvider',
+        className: 'Portal.view.news.release.MainContainerStateProvider',
         /**
          * @member {Object} data
          */

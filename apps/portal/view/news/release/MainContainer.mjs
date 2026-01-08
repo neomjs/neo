@@ -1,19 +1,19 @@
 import ContentComponent from './Component.mjs';
 import Controller       from './MainContainerController.mjs';
-import SharedContainer  from '../shared/content/Container.mjs';
+import SharedContainer  from '../../shared/content/Container.mjs';
 import StateProvider    from './MainContainerStateProvider.mjs';
 
 /**
- * @class Portal.view.release.MainContainer
+ * @class Portal.view.news.release.MainContainer
  * @extends Portal.view.shared.content.Container
  */
 class MainContainer extends SharedContainer {
     static config = {
         /**
-         * @member {String} className='Portal.view.release.MainContainer'
+         * @member {String} className='Portal.view.news.release.MainContainer'
          * @protected
          */
-        className: 'Portal.view.release.MainContainer',
+        className: 'Portal.view.news.release.MainContainer',
         /**
          * @member {String[]} cls=['portal-release-maincontainer']
          * @reactive

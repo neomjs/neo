@@ -1,5 +1,5 @@
-import BlogContainer        from '../blog/Container.mjs';
-import ReleaseMainContainer from '../release/MainContainer.mjs';
+import BlogContainer        from './blog/Container.mjs';
+import ReleaseMainContainer from './release/MainContainer.mjs';
 import TabContainer         from '../shared/TabContainer.mjs';
 import TabContainerController from './TabContainerController.mjs';
 

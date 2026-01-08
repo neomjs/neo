@@ -1,18 +1,18 @@
-import BaseContainer from '../../../../src/container/Base.mjs';
+import BaseContainer from '../../../../../src/container/Base.mjs';
 import List          from './List.mjs';
-import SearchField   from '../../../../src/form/field/Search.mjs';
+import SearchField   from '../../../../../src/form/field/Search.mjs';
 
 /**
- * @class Portal.view.blog.Container
+ * @class Portal.view.news.blog.Container
  * @extends Neo.container.Base
  */
 class Container extends BaseContainer {
     static config = {
         /**
-         * @member {String} className='Portal.view.blog.Container'
+         * @member {String} className='Portal.view.news.blog.Container'
          * @protected
          */
-        className: 'Portal.view.blog.Container',
+        className: 'Portal.view.news.blog.Container',
         /**
          * @member {String[]} cls=['portal-blog-container']
          * @reactive
