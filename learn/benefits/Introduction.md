@@ -51,7 +51,7 @@ The browser's main thread is like a neurosurgeon: it should only perform precise
 Neo.mjs moves **everything else**—your application logic, data processing, state management, and Virtual DOM diffing—into a dedicated **App Worker**.
 
 *   **Result:** Your UI never freezes. Even if you are sorting 100,000 rows or processing complex AI responses, the Main Thread remains free to animate the UI at 60fps.
-*   **Scale:** This allows you to build applications that rival native desktop performance, a feat impossible in single-threaded frameworks.
+*   **Scale:** This allows you to build applications that rival native desktop performance, a feat impossible in single-threaded architectures.
 
 ### 2. Context Engineering (Velocity)
 

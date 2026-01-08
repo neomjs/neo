@@ -6,7 +6,7 @@ first mounted component.
 ## Overview
 
 When you run a Neo.mjs application in the browser, a sophisticated multi-threaded orchestration happens behind the scenes. 
-Unlike traditional web frameworks that run everything on the main thread, Neo.mjs distributes work across multiple threads 
+Unlike traditional web architectures that run everything on the main thread, Neo.mjs distributes work across multiple threads 
 using Web Workers.
 
 > **Note:** For a deeper understanding of Neo.mjs's multi-threaded architecture, see the
@@ -67,7 +67,7 @@ It performs these steps:
 ### 3. Configuration: neo-config.json
 
 The `neo-config.json` file contains essential configuration for the application bootstrap. For a complete overview 
-of all available configuration options, you can refer to the `src/DefaultConfig.mjs` file in the Neo.mjs framework:
+of all available configuration options, you can refer to the `src/DefaultConfig.mjs` file in the Neo.mjs engine:
 
 ```json readonly
 {
@@ -91,7 +91,7 @@ of all available configuration options, you can refer to the `src/DefaultConfig.
 - `appPath` - Points to your application's entry point (app.mjs)
 - `basePath` - Root path for resolving other paths
 - `environment` - Controls optimization and debugging features
-- `mainPath` - Framework's main thread bootstrap file
+- `mainPath` - Engine's main thread bootstrap file
 - `mainThreadAddons` - Additional features to load in the main thread
 - `themes` - CSS themes to load
 - `useCanvasWorker` - Controls whether to use a separate worker for canvas operations
@@ -283,7 +283,7 @@ The App worker:
 Finally, the application's `app.mjs` file is loaded and executed:
 
 ```javascript readonly
-import Overwrites from './Overwrites.mjs';    // Optional class config default value changes for framework classes
+import Overwrites from './Overwrites.mjs';    // Optional class config default value changes for core classes
 import Viewport   from './view/Viewport.mjs'; // Your main UI component
 
 export const onStart = () => Neo.app({
@@ -319,7 +319,7 @@ class Viewport extends Container {
 The component instantiation process:
 1. Viewport is created in the App Worker
 2. Child components are instantiated recursively
-3. Event listeners are attached via the framework's event system
+3. Event listeners are attached via the engine's event system
 4. Data bindings are established for reactive updates
 
 ### 9. VDom Generation and Initial VNode Initialization
@@ -327,7 +327,7 @@ The component instantiation process:
 Once the component tree is built:
 
 1. Each component generates its virtual DOM structure
-2. The framework builds a complete virtual DOM tree
+2. The engine builds a complete virtual DOM tree
 3. The VDom Worker calculates the initial DOM structure
 4. Relevant CSS files will get lazy-loaded before the DOM is touched to avoid reflows
 5. The Main Thread creates the actual DOM elements
