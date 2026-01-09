@@ -1,3 +1,21 @@
+/**
+ * @summary Verifies the uniqueness and stability of auto-generated VDOM IDs to prevent collisions.
+ *
+ * This test suite focuses on the VDOM ID generation logic within the Neo.mjs framework.
+ * It specifically safeguards against a critical regression where sequential auto-IDs could collide,
+ * causing `ComponentManager` to misidentify component wrapper nodes.
+ *
+ * The tests verify:
+ * 1. Uniqueness of VDOM IDs across same-class and different-class instances.
+ * 2. The fix for the `ComponentManager.wrapperNodes` collision bug, ensuring that wrapper nodes
+ *    use deterministic IDs (`component.id + '__wrapper'`) rather than fragile sequential integers.
+ * 3. Correct registration of these nodes in the global `ComponentManager`.
+ *
+ * @class Test.unit.vdom.AutoId
+ * @see Neo.vdom.Helper
+ * @see Neo.manager.Component
+ * @see Neo.core.IdGenerator
+ */
 import {setup} from '../../setup.mjs';
 
 const appName = 'AutoIdTest';
@@ -96,50 +114,38 @@ test.describe('VDOM Auto-ID Generation', () => {
     });
 
     test('Should reproduce ID collision if VDOM is shared (Anti-Pattern Check)', async () => {
-        // This test manually simulates the "Shared Prototype" bug to prove it causes ID collision
+        // This test simulates the "Shared Prototype" anti-pattern where a VDOM object is shared across instances.
+        // The goal is to verify that VdomHelper.createVnode() correctly generates unique IDs for new VNodes,
+        // even if the input configuration object is the same reference.
+
         class BadComponent extends Component {
             static config = {
                 className: 'Test.BadComponent'
-                // vdom defined as non-reactive property, possibly shared?
-                // But Component.mergeConfig clones it.
-                // We need to bypass the clone logic to simulate the bug.
             }
         }
         
-        // Manually inject a shared vdom object into prototype
+        // Manually inject a shared vdom object into the prototype to bypass Component.mergeConfig() cloning
         const sharedVdom = { tag: 'div', cls: ['shared'] };
         BadComponent.prototype._vdom = sharedVdom; 
 
         Neo.setupClass(BadComponent);
 
-        // Force instances to use the shared object (bypass mergeConfig cloning)
-        // We can't easily bypass construct() logic. 
-        // But we can verify that IF they share the object, IDs collide.
-        
-        // Simulating logic:
+        // We simulate the vdom creation process for two "instances" using the shared configuration object.
+        // VdomHelper.createVnode() should always return a new VNode instance with a unique ID,
+        // ensuring that sharing the input configuration does not lead to VDOM ID collisions.
         const vdom1 = sharedVdom;
-        const vnode1 = VdomHelper.createVnode(vdom1); // This assigns ID to vdom1 if optimization used? 
-        // VdomHelper.createVnode returns NEW VNode. It doesn't mutate input vdom ID unless it's a component placeholder?
-        // Wait, VNode constructor assigns ID.
-        
-        // If vdom1 (the plain object) doesn't have an ID, VNode constructor generates one.
-        // It does NOT write it back to vdom1.
+        const vnode1 = VdomHelper.createVnode(vdom1);
         
         const vnode2 = VdomHelper.createVnode(vdom1);
         
-        // Since vdom1 is just input config, vnode1 and vnode2 are new instances.
-        // They will generate NEW IDs.
-        
         expect(vnode1.id).not.toBe(vnode2.id);
-        
-        // So even if they share the prototype object, Helper generates unique IDs!
-        // This disproves the "Shared Prototype VDOM" causing ID collision theory, 
-        // UNLESS the ID is written back to the shared object BEFORE Helper sees it.
     });
 
     test('ComponentManager.wrapperNodes Collision Prevention (Fix Verification)', async () => {
-        // This test verifies that the fix (stable __wrapper IDs) prevents collisions
-        // in ComponentManager.wrapperNodes even if IdGenerator state is reset.
+        // This test verifies that wrapper nodes (the root elements of components) receive deterministic,
+        // stable IDs (e.g., 'componentId__wrapper') instead of sequential auto-generated IDs.
+        // This stability is critical to prevent collisions in ComponentManager.wrapperNodes when
+        // the IdGenerator state is reset or when IDs are generated in different orders.
 
         class WrapperComponent extends Component {
             static config = {
@@ -155,7 +161,7 @@ test.describe('VDOM Auto-ID Generation', () => {
         }
         Neo.setupClass(WrapperComponent);
 
-        // 1. Create first component
+        // Verify that the first component gets the expected stable wrapper ID
         core.IdGenerator.idCounter['vnode'] = 0;
         const c1 = Neo.create(WrapperComponent, {appName});
         await c1.initVnode();
@@ -163,26 +169,28 @@ test.describe('VDOM Auto-ID Generation', () => {
         
         expect(vnodeId1).toBe(c1.id + '__wrapper');
 
-        // 2. Reset IdGenerator for 'vnode' 
+        // Simulate an IdGenerator reset (or race condition) where the counter restarts.
+        // Previously, this would cause the next component to generate the same ID as the first one.
         core.IdGenerator.idCounter['vnode'] = 0;
 
-        // 3. Create second component
+        // Verify that the second component still generates a unique wrapper ID despite the reset,
+        // proving that the ID is derived from the unique component ID and not the global counter.
         const c2 = Neo.create(WrapperComponent, {appName});
         await c2.initVnode();
         const vnodeId2 = c2.vnode.id;
 
         expect(vnodeId2).toBe(c2.id + '__wrapper');
 
-        // Verify NO collision occurred
+        // Verify global uniqueness and ComponentManager integrity
         expect(vnodeId1).not.toBe(vnodeId2); 
         expect(c1.id).not.toBe(c2.id);
 
-        // Check ComponentManager state - both should be registered correctly
         const manager = Neo.manager.Component;
         expect(manager.wrapperNodes.get(vnodeId1)).toBe(c1);
         expect(manager.wrapperNodes.get(vnodeId2)).toBe(c2);
 
-        // 4. Verify addVnodeComponentReferences picks up correct IDs
+        // Verify that addVnodeComponentReferences correctly resolves the component
+        // using the stable wrapper ID.
         const parentVnode = {
             id: 'parent',
             childNodes: [c1.vnode]
@@ -190,10 +198,9 @@ test.describe('VDOM Auto-ID Generation', () => {
 
         const resultVnode = manager.addVnodeComponentReferences(parentVnode, 'parent');
         
-        // RESULT: The node representing c1's root is correctly replaced by a reference to c1
         const reference = resultVnode.childNodes[0];
         
-        expect(reference.componentId).toBe(c1.id); // FIXED!
+        expect(reference.componentId).toBe(c1.id);
         expect(reference.id).toBe(vnodeId1);
 
         c1.destroy();
