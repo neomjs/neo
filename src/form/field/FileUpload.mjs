@@ -346,13 +346,15 @@ class FileUpload extends Field {
         ]);
     }
 
-    afterSetId(value, oldValue) {
+    /**
+     * @protected
+     */
+    ensureStableIds() {
+        super.ensureStableIds();
+
         const inputElId = `${this.id}-input`;
 
-        this.getInputEl().id =  this.vdom.cn[4].for = inputElId;
-
-        // silent vdom update, the super call will trigger the engine
-        super.afterSetId?.(value, oldValue);
+        this.getInputEl().id = this.vdom.cn[4].for = inputElId
     }
 
     onConstructed() {

@@ -280,22 +280,18 @@ class CheckBox extends Field {
     }
 
     /**
-     * Triggered after the id config got changed
-     * @param {String} value
-     * @param {String} oldValue
      * @protected
      */
-    afterSetId(value, oldValue) {
+    ensureStableIds() {
+        super.ensureStableIds();
+
         let me      = this,
             labelEl = me.vdom.cn[0];
 
         labelEl.cn[0].id = me.getLabelId();
         labelEl.cn[1].id = me.getInputElId();
         labelEl.cn[2].id = me.getIconElId();
-        labelEl.cn[3].id = me.getValueLabelId();
-
-        // silent vdom update, the super call will trigger the engine
-        super.afterSetId(value, oldValue)
+        labelEl.cn[3].id = me.getValueLabelId()
     }
 
     /**
