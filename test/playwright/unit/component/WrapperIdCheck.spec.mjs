@@ -5,8 +5,7 @@ const appName = 'WrapperIdCheck';
 setup({
     neoConfig: {
         allowVdomUpdatesInTests: true,
-        useDomApiRenderer      : true,
-        workerId: 'main'
+        useDomApiRenderer      : true
     },
     appConfig: {
         name: appName
@@ -53,7 +52,7 @@ test.describe('Wrapper Component IDs', () => {
         expect(gridBody.vdom.id).toBe('my-grid-body__wrapper');
         // The getVdomRoot() node should have the component ID
         expect(gridBody.getVdomRoot().id).toBe('my-grid-body');
-        
+
         // Unregister manually to avoid destroy() complexity with mock parent
         Neo.manager.Component.unregister(gridBody);
     });

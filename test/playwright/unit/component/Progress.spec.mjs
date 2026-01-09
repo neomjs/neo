@@ -5,8 +5,7 @@ const appName = 'ProgressTest';
 setup({
     neoConfig: {
         allowVdomUpdatesInTests: true,
-        useDomApiRenderer      : true,
-        workerId: 'main'
+        useDomApiRenderer      : true
     },
     appConfig: {
         name: appName
@@ -32,7 +31,7 @@ test.describe('Progress Component', () => {
 
         // Change ID
         progress.id = 'new-id';
-        
+
         // Check update
         expect(label.for).toBe('new-id');
 

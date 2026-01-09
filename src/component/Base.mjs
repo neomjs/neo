@@ -475,9 +475,11 @@ class Component extends Abstract {
     afterSetId(value, oldValue) {
         super.afterSetId(value, oldValue);
 
-        if (this.configsApplied) {
-            this.ensureStableIds();
-            this.update()
+        let me = this;
+
+        if (me.configsApplied) {
+            me.ensureStableIds();
+            me.update()
         }
     }
 

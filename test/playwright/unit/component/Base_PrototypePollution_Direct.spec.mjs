@@ -5,8 +5,7 @@ const appName = 'PrototypePollutionTest_DirectAccess';
 setup({
     neoConfig: {
         allowVdomUpdatesInTests: true,
-        useDomApiRenderer      : true,
-        workerId: 'main'
+        useDomApiRenderer      : true
     },
     appConfig: {
         name: appName
@@ -15,7 +14,7 @@ setup({
 
 import {test, expect} from '@playwright/test';
 import Neo            from '../../../../src/Neo.mjs';
-import * as core      from '../../../../src/core/_export.mjs'; 
+import * as core      from '../../../../src/core/_export.mjs';
 import Component      from '../../../../src/component/Base.mjs';
 
 test.describe('Neo.component.Base Direct _vdom Access Prototype Pollution', () => {
@@ -60,7 +59,7 @@ test.describe('Neo.component.Base Direct _vdom Access Prototype Pollution', () =
         expect(instance2.vdom.id).toBe('instance-direct-2');
 
         // 3. Verify Prototype Purity
-        // If the safeguard works (e.g. eager cloning in construct), 
+        // If the safeguard works (e.g. eager cloning in construct),
         // the prototype should be clean.
         expect(PollutedClass.prototype._vdom.id).toBeUndefined();
 

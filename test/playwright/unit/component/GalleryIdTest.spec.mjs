@@ -5,8 +5,7 @@ const appName = 'GalleryIdTest';
 setup({
     neoConfig: {
         allowVdomUpdatesInTests: true,
-        useDomApiRenderer      : true,
-        workerId: 'main'
+        useDomApiRenderer      : true
     },
     appConfig: {
         name: appName
@@ -35,7 +34,7 @@ test.describe('Gallery Internal IDs', () => {
 
         // The gallery structure is:
         // origin -> camera -> dolly -> view
-        
+
         const origin = gallery.vdom.cn[0];
         const camera = origin.cn[0];
         const dolly  = camera.cn[0];

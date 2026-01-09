@@ -5,8 +5,7 @@ const appName = 'PrototypePollutionTest';
 setup({
     neoConfig: {
         allowVdomUpdatesInTests: true,
-        useDomApiRenderer      : true,
-        workerId: 'main'
+        useDomApiRenderer      : true
     },
     appConfig: {
         name: appName
