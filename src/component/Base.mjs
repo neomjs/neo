@@ -281,6 +281,17 @@ class Component extends Abstract {
     }
 
     /**
+     * @param {Object} config
+     */
+    construct(config) {
+        if (!Object.hasOwn(this, '_vdom') && this._vdom) {
+            this._vdom = Neo.clone(this._vdom, true)
+        }
+
+        super.construct(config)
+    }
+
+    /**
      * Returns true if this Component is fully visible, that is it is not hidden and has no hidden ancestors
      */
     get isVisible() {
