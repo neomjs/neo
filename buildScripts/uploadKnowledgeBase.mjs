@@ -21,7 +21,18 @@ async function uploadKnowledgeBase() {
         process.exit(1);
     }
 
-    // 2. Check if release exists (Fail fast)
+    // 2. Defragment Database (Ensure clean artifact)
+    console.log(`🧹 Running Defragmentation (npm run ai:defrag-kb)...`);
+    try {
+        const { stdout } = await execAsync('npm run ai:defrag-kb');
+        console.log(stdout);
+    } catch (e) {
+        console.error(`❌ Defragmentation failed: ${e.message}`);
+        console.error('Ensure the AI server is running (npm run ai:server) if required by the defrag script.');
+        process.exit(1);
+    }
+
+    // 3. Check if release exists (Fail fast)
     console.log(`🔍 Checking for GitHub Release ${tagName}...`);
     try {
         await execAsync(`gh release view ${tagName}`);
