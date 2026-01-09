@@ -213,13 +213,10 @@ class Gallery extends Component {
     }
 
     /**
-     * Triggered after the id config got changed
-     * @param {String} value
-     * @param {String} oldValue
      * @protected
      */
-    afterSetId(value, oldValue) {
-        super.afterSetId(value, oldValue);
+    ensureStableIds() {
+        super.ensureStableIds();
 
         let me     = this,
             origin = me.vdom.cn[0],
@@ -231,9 +228,7 @@ class Gallery extends Component {
         camera.id = prefix + 'camera';
         dolly .id = prefix + 'dolly';
         origin.id = prefix + 'origin';
-        view  .id = prefix + 'view';
-
-        me.update()
+        view  .id = prefix + 'view'
     }
 
     /**
