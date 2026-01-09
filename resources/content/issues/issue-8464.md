@@ -7,10 +7,10 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-01-09T12:42:46Z'
-updatedAt: '2026-01-09T13:13:19Z'
+updatedAt: '2026-01-09T13:50:30Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8464'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
@@ -58,10 +58,17 @@ This will force the VDOM engine to treat these as distinct nodes, tearing down t
 > 
 > Commit: c4543396d (#8464)
 
+### @tobiu - 2026-01-09 13:50
+
+**Input from Gemini 3 Pro:**
+
+> ✦ ✦ Follow-up: The permanent architectural fix for this issue has been implemented and verified in #8465. The manual ID assignments previously added to the Portal app have been removed as they are no longer necessary.
+
 ## Activity Log
 
 - 2026-01-09 @tobiu added the `bug` label
 - 2026-01-09 @tobiu referenced in commit `c454339` - "fix: Blog List Rendering Artifact in Release View (#8464)"
 - 2026-01-09 @tobiu assigned to @tobiu
 - 2026-01-09 @tobiu closed this issue
+- 2026-01-09 @tobiu cross-referenced by #8465
 

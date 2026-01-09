@@ -1,6 +1,6 @@
 {
-  "lastSync": "2026-01-09T13:23:54.074Z",
-  "releasesLastFetched": "2026-01-09T13:23:54.090Z",
+  "lastSync": "2026-01-09T15:28:13.060Z",
+  "releasesLastFetched": "2026-01-09T15:28:13.077Z",
   "pushFailures": [],
   "issues": {
     "3789": {
@@ -15281,8 +15281,43 @@
       "state": "CLOSED",
       "path": "resources/content/issues/issue-8464.md",
       "closedAt": "2026-01-09T13:13:19Z",
-      "updatedAt": "2026-01-09T13:13:19Z",
-      "contentHash": "8344cc6d8005060ca7a60ed4a5af5235fe09aad0201791c1ee44acad5620d782"
+      "updatedAt": "2026-01-09T13:50:30Z",
+      "contentHash": "5eeb9b26b9b1fbbb45b07f41ce6a50c83db9b84e176226b108621a1f0847272d"
+    },
+    "8465": {
+      "state": "CLOSED",
+      "path": "resources/content/issues/issue-8465.md",
+      "closedAt": "2026-01-09T13:50:10Z",
+      "updatedAt": "2026-01-09T13:50:10Z",
+      "contentHash": "eca8fac45129a1b8dd390e5277648b838cdf98c009c662cdf2dd587a916f0f0b"
+    },
+    "8466": {
+      "state": "CLOSED",
+      "path": "resources/content/issues/issue-8466.md",
+      "closedAt": "2026-01-09T13:58:46Z",
+      "updatedAt": "2026-01-09T13:58:46Z",
+      "contentHash": "ba6d092af6f1541ae757090c390f4f4d81e40030d0b4b4c00cc05f914d91e468"
+    },
+    "8467": {
+      "state": "CLOSED",
+      "path": "resources/content/issues/issue-8467.md",
+      "closedAt": "2026-01-09T14:01:26Z",
+      "updatedAt": "2026-01-09T14:01:26Z",
+      "contentHash": "998d7f9b721ad330c5b3f0c7b51e2b3ff2131e041ca1d243d7791fd6ff2d7281"
+    },
+    "8468": {
+      "state": "CLOSED",
+      "path": "resources/content/issues/issue-8468.md",
+      "closedAt": "2026-01-09T15:12:08Z",
+      "updatedAt": "2026-01-09T15:12:27Z",
+      "contentHash": "327da7e88290331efe2a5bc02546d947b7df989fbe034603a47af06c68a8e4ae"
+    },
+    "8469": {
+      "state": "OPEN",
+      "path": "resources/content/issues/issue-8469.md",
+      "closedAt": null,
+      "updatedAt": "2026-01-09T15:17:26Z",
+      "contentHash": "b21f598236f1c533b0995819bad99dab540c2c531e4951345838962770a67fac"
     }
   },
   "releases": {
