@@ -6,6 +6,13 @@
         "parentId": null
     },
     {
+        "date": "2026-01-09T12:00:00Z",
+        "title": "Neo.mjs v11.19.1 Release Notes",
+        "path": "resources/content/release-notes/v11.19.1.md",
+        "id": "11.19.1",
+        "parentId": "v11"
+    },
+    {
         "date": "2026-01-09T01:06:42Z",
         "title": "Neo.mjs v11.19.0 Release Notes",
         "path": "resources/content/release-notes/v11.19.0.md",
