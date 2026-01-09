@@ -13,6 +13,7 @@ async function uploadKnowledgeBase() {
     const sourceDir = 'chroma-neo-knowledge-base';
     const zipName = 'chroma-neo-knowledge-base.zip';
     const zipPath = path.resolve(cwd, zipName);
+    let exitCode = 0;
 
     // 1. Check if DB exists
     if (!await fs.pathExists(sourceDir)) {
@@ -46,13 +47,17 @@ async function uploadKnowledgeBase() {
 
     } catch (e) {
         console.error('❌ Operation failed:', e.message);
-        process.exit(1);
+        exitCode = 1;
     } finally {
         // 4. Cleanup
         if (await fs.pathExists(zipPath)) {
             await fs.remove(zipPath);
             console.log(`🧹 Cleaned up ${zipName}`);
         }
+    }
+
+    if (exitCode !== 0) {
+        process.exit(exitCode);
     }
 }
 
