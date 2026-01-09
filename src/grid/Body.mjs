@@ -329,18 +329,7 @@ class GridBody extends Component {
         value > 0 && this.updateMountedAndVisibleColumns()
     }
 
-    /**
-     * Triggered after the id config got changed
-     * @param {String} value
-     * @param {String} oldValue
-     * @protected
-     */
-    afterSetId(value, oldValue) {
-        this.vdom.id = value + '__wrapper';
 
-        // silent vdom update, the super call will trigger the engine
-        super.afterSetId(value, oldValue);
-    }
 
     /**
      * Triggered after the isScrolling config got changed
