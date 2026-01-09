@@ -284,8 +284,10 @@ class Component extends Abstract {
      * @param {Object} config
      */
     construct(config) {
-        if (!Object.hasOwn(this, '_vdom') && this._vdom) {
-            this._vdom = Neo.clone(this._vdom, true)
+        let me = this;
+
+        if (!Object.hasOwn(me, '_vdom') && me._vdom) {
+            me._vdom = Neo.clone(me._vdom, true)
         }
 
         super.construct(config)
