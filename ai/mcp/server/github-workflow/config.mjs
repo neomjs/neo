@@ -14,6 +14,11 @@ const projectRoot = process.cwd() === '/' ? packageRoot : process.cwd();
  */
 const defaultConfig = {
     /**
+     * The root directory of the project.
+     * @type {string}
+     */
+    projectRoot,
+    /**
      * Global debug flag for all MCP servers.
      * @type {boolean}
      */
