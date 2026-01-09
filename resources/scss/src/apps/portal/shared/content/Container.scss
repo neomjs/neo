@@ -1,4 +1,7 @@
 .portal-shared-content-container {
+    flex-shrink: 1 !important;
+    min-width  : 0;
+
     .main-content-splitter {
         margin: 0;
     }

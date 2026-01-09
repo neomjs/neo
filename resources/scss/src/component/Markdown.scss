@@ -169,9 +169,9 @@
     }
 
     .neo-markdown-image-wrapper {
+        max-width : 100%;
         overflow-x: auto;
         text-align: center;
-        width     : 100%;
 
         img {
             max-width: initial;
