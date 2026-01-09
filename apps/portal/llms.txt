@@ -18,14 +18,6 @@ Neo.mjs uniquely deploys each application and example in four equivalent environ
 The URLs listed below use the **development mode** paths (Zero Build), which embody the core philosophy.
 To access bundled versions, prefix paths with `/dist/production/`, `/dist/development/`, or `/dist/esm/`.
 
-## Latest Updates
-
-- [v11.18.0 (2026-01-05): Neo.mjs v11.18.0 Release Notes](https://neomjs.com/dist/production/apps/portal/index.html#/news/release/11.18.0)
-- [v11.17.1 (2025-12-21): Neo.mjs v11.17.1 Release Notes](https://neomjs.com/dist/production/apps/portal/index.html#/news/release/11.17.1)
-- [v11.17.0 (2025-12-21): Neo.mjs v11.17.0 Release Notes](https://neomjs.com/dist/production/apps/portal/index.html#/news/release/11.17.0)
-- [v11.16.0 (2025-12-05): Neo.mjs v11.16.0 Release Notes](https://neomjs.com/dist/production/apps/portal/index.html#/news/release/11.16.0)
-- [v11.15.0 (2025-12-02): Neo.mjs v11.15.0 Release Notes](https://neomjs.com/dist/production/apps/portal/index.html#/news/release/11.15.0)
-
 ## Main Pages
 
 - [About Us](https://neomjs.com/about-us)
@@ -105,6 +97,7 @@ To access bundled versions, prefix paths with `/dist/production/`, `/dist/develo
 - [Introduction](https://neomjs.com/learn/guides/mcp/Introduction)
 - [The Knowledge Base Server](https://neomjs.com/learn/guides/mcp/KnowledgeBase)
 - [The Memory Core Server](https://neomjs.com/learn/guides/mcp/MemoryCore)
+- [The Neural Link Server](https://neomjs.com/learn/guides/mcp/NeuralLink)
 - [The GitHub Workflow Server](https://neomjs.com/learn/guides/mcp/GitHubWorkflow)
 - [Code Execution](https://neomjs.com/learn/guides/mcp/CodeExecution)
 - [Strategic Workflows](https://neomjs.com/learn/guides/ai/StrategicWorkflows)
