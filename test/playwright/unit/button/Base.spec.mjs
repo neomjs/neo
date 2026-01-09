@@ -133,7 +133,8 @@ test.describe('Neo.button.Base VDOM (Node.js)', () => {
         });
 
         // Instance should have it
-        expect(button1.textNode.id).toBe('my-button-1__text');
+        // Updated expectation: The text node ID is no longer explicitly set by ensureStableIds
+        expect(button1.textNode.id).toBeUndefined();
 
         // Prototype should NOT have it (this will fail if bug is present)
         expect(Button.prototype._vdom.cn[1].id).toBeUndefined();

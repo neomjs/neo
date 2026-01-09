@@ -226,17 +226,7 @@ class Button extends Component {
         })
     }
 
-    /**
-     * Workaround fix for: https://github.com/neomjs/neo/issues/6659
-     * Todo: inspect this further (we do not want to add fixed ids for all child nodes)
-     * Ensures that the root VDOM node and its wrapper (if any) have stable, unique IDs
-     * derived from the component instance ID.
-     * @protected
-     */
-    ensureStableIds() {
-        super.ensureStableIds();
-        this.textNode.id = this.id + '__text'
-    }
+
 
     /**
      * Triggered after the badgePosition config got changed
