@@ -609,7 +609,7 @@ class App extends Base {
 
         config.remotesApiUrl && import('../remotes/Api.mjs').then(module => module.default.load());
 
-        if (config.useAiClient) {
+        if (config.useAiClient && !config.isGitHubPages) {
             let {environment, useAiClient} = config,
                 useAi                      = useAiClient === true;
 
