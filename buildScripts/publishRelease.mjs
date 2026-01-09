@@ -175,6 +175,12 @@ async function main() {
     console.log('✅ Release created! GitHub Actions will now publish to npm.');
 
 
+    // --- 5.5 Upload Knowledge Base ---
+
+    console.log('\n🧠 Step 5.5: Uploading Knowledge Base...');
+    runCommand('node buildScripts/uploadKnowledgeBase.mjs', 'Failed to upload knowledge base');
+
+
     // --- 6. Post-Release Cleanup ---
 
     console.log('\n🧹 Step 6: Post-Release Cleanup (Sync & Archive)...');
