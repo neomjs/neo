@@ -1,8 +1,8 @@
 # Additional rules, which are solely npm related, to not bloat the package size.
-.github/ISSUE
-.github/ISSUE_ARCHIVE
-.github/RELEASE_NOTES
-.github/.sync-metadata.json
+resources/content/issues
+resources/content/issue-archive
+resources/content/release-notes
+resources/content/.sync-metadata.json
 
 # Original content of the .gitignore file
 # See http://help.github.com/ignore-files/ for more about ignoring files.
