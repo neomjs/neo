@@ -20,7 +20,8 @@
 
 
         @media (min-width: 1297px) {
-            padding: 0 0 0 3rem;
+            margin-right: 250px;
+            padding     : 0 0 0 3rem;
         }
 
         .neo-button {
@@ -64,11 +65,5 @@
                 top        : var(--cmp-button-spacinghorizontal);
             }
         }
-    }
-}
-
-.portal-size-large {
-    .content-bottom-toolbar {
-        margin-right: 250px;
     }
 }
