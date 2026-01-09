@@ -1,6 +1,6 @@
 {
     "name"           : "neo.mjs",
-    "version"        : "11.19.0",
+    "version"        : "11.19.1",
     "description"    : "The Application Engine for the AI Era. A multi-threaded, AI-native runtime with a persistent Scene Graph, enabling AI agents to introspect and manipulate the living application structure in real-time.",
     "type"           : "module",
     "repository"     : {
@@ -24,7 +24,6 @@
         "ai:server-memory"             : "chroma run --path ./chroma-neo-memory-core --port 8001",
         "ai:server-neural-link"        : "node ./ai/mcp/server/neural-link/run-bridge.mjs",
         "ai:sync-kb"                   : "node ./buildScripts/syncKnowledgeBase.mjs",
-        "ai:upload-kb"                 : "node ./buildScripts/uploadKnowledgeBase.mjs",
         "build-all"                    : "node ./buildScripts/buildAll.mjs -f -n",
         "build-all-questions"          : "node ./buildScripts/buildAll.mjs -f",
         "build-dist-esm"               : "node ./buildScripts/buildESModules.mjs",
@@ -40,7 +39,6 @@
         "create-component"             : "node ./buildScripts/createComponent.mjs",
         "generate-docs-json"           : "node ./buildScripts/docs/jsdocx.mjs",
         "prepare"                      : "node ./buildScripts/downloadKnowledgeBase.mjs",
-        "prepare-release"              : "node ./buildScripts/prepareRelease.mjs",
         "server-start"                 : "webpack serve -c ./buildScripts/webpack/webpack.server.config.mjs --open",
         "test"                         : "playwright test -c test/playwright/playwright.config.mjs",
         "test-components"              : "playwright test -c test/playwright/playwright.config.component.mjs",

@@ -1,0 +1,122 @@
+.route {
+    .route_header {
+        height: 242px;
+    }
+
+    .center {
+        display: inline-block;
+        margin-left: auto;
+        margin-right: auto;
+        width: 50%;
+    }
+
+    .centerPanel {
+        margin-left: auto;
+        margin-right: auto;
+        width: auto;
+        min-height: 50px;
+    }
+
+    .headline-caption {
+        color: #535353;
+        font-family: 'Georgia', 'Times New Roman', serif;
+        font-size: 32px;
+        font-weight: normal;
+        text-align: center;
+        margin-top: 32px;
+        max-height: 70px;
+    }
+
+    .route_buttonbar {
+        min-height: 70px;
+    }
+
+    .route_button {
+        height: 50px;
+        min-width: 150px;
+        border: none;
+        margin-left: 10px;
+        float: left;
+
+        .neo-button-text {
+            color: #535353;
+            font-family: 'Georgia', 'Times New Roman', serif !important;
+            font-weight: normal;
+            font-size: 14px;
+            text-align: center;
+            text-transform: none;
+
+        }
+    }
+
+    .route_button_selected {
+        border-bottom: 1px;
+        border-bottom-style: solid;
+        border-bottom-left-radius: 0;
+        border-bottom-right-radius: 0;
+    }
+
+
+    .iconTischtennis {
+        background: url('../../../../../../resources/images/route/tischtennis_40.png');
+        background-position: 0 0;
+        background-repeat: no-repeat;
+        width: 32px;
+        height: 32px;
+
+    }
+
+    .iconFussball {
+        margin-top: 4px !important;
+        background: url('../../../../../../resources/images/route/fussball_38.png');
+        background-position: 0 0;
+        background-repeat: no-repeat;
+        background-size: 26px;
+        width: 32px;
+        height: 32px;
+
+    }
+
+    .iconLeichtathletik {
+        margin-top: 2px !important;
+        background: url('../../../../../../resources/images/route/leichtathletik_37.png');
+        background-position: 0 0;
+        background-repeat: no-repeat;
+        background-size: 30px;
+        width: 32px;
+        height: 32px;
+
+    }
+
+    .iconSchach {
+        background: url('../../../../../../resources/images/route/schach_17.png');
+        background-position: 0 0;
+        background-repeat: no-repeat;
+        width: 17px;
+        height: 28px;
+
+    }
+
+    .iconLogo {
+        margin-top: 2px !important;
+        background: url('../../../../../../resources/images/route/logo.jpg');
+        background-position: 0 0;
+        background-repeat: no-repeat;
+        background-size: 30px;
+        width: 32px;
+        height: 32px;
+
+    }
+
+    .iconBogen {
+        margin-top: 2px !important;
+        background: url('../../../../../../resources/images/route/bogen.png');
+        background-position: 0 0;
+        background-repeat: no-repeat;
+        background-size: 30px;
+        width: 32px;
+        height: 32px;
+
+    }
+
+}

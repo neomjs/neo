@@ -22,6 +22,7 @@
         border-left     : 4px solid var(--sem-color-surface-primary-background);
         font-style      : italic;
         margin-left     : 0;
+        margin-right    : 0;
         padding         : 5px 5px 5px 15px;
     }
 
@@ -165,6 +166,16 @@
 
         td:first-child {
             font-weight: bold;
+        }
+    }
+
+    .neo-markdown-image-wrapper {
+        max-width : 100%;
+        overflow-x: auto;
+        text-align: center;
+
+        img {
+            max-width: initial;
         }
     }
 }

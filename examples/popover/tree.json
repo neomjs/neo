@@ -1,0 +1,112 @@
+[
+  {
+    "id": 1,
+    "name": "ROOT",
+    "parentId": null,
+    "collapsed": false,
+    "isLeaf": false
+  },
+  {
+    "id": 2,
+    "name": "Lorem ipsum dolor sit amet, consetetur sadipscing elitr,",
+    "parentId": 1,
+    "isLeaf": true,
+    "content": "Textfeld",
+    "iconCls": "fa fa-t color-blue"
+  },
+  {
+    "id": 3,
+    "name": "Sed diam nonumy",
+    "parentId": 1,
+    "isLeaf": true,
+    "content": "Textfeld",
+    "iconCls": "fa fa-t color-blue"
+  },
+  {
+    "id": 4,
+    "name": "Eirmod",
+    "parentId": 1,
+    "isLeaf": true,
+    "content": "Textfeld",
+    "iconCls": "fa fa-t color-blue"
+  },
+  {
+    "id": 5,
+    "name": "Tempor",
+    "parentId": 1,
+    "isLeaf": true,
+    "content": "Textfeld",
+    "iconCls": "fa fa-t color-blue"
+  },
+  {
+    "id": 6,
+    "name": "Invidunt ut labore",
+    "parentId": 1,
+    "isLeaf": true,
+    "content": "Textfeld",
+    "iconCls": "fa fa-t color-blue"
+  },
+  {
+    "id": 7,
+    "name": "Dolore magna aliquyam",
+    "parentId": null,
+    "collapsed": false,
+    "isLeaf": false
+  },
+  {
+    "id": 8,
+    "name": "V01 . At vero eos et accusam",
+    "parentId": 7,
+    "collapsed": false,
+    "isLeaf": false,
+    "content": "Auswählliste",
+    "iconCls": "fa fa-chevron-down color-red"
+  },
+  {
+    "id": 9,
+    "name": "Justo  1",
+    "parentId": 8,
+    "isLeaf": true,
+    "content": "Child",
+    "iconCls": "fa-regular fa-square-check color-green"
+  },
+  {
+    "id": 10,
+    "name": "Justo 2",
+    "parentId": 8,
+    "isLeaf": true,
+    "content": "Child",
+    "iconCls": "fa-regular fa-square-check color-green"
+  },
+  {
+    "id": 11,
+    "name": "Rebum",
+    "parentId": null,
+    "collapsed": false,
+    "isLeaf": false
+  },
+  {
+    "id": 12,
+    "name": "F0801 - Stet ",
+    "parentId": 11,
+    "isLeaf": true,
+    "content": "Datumfeld",
+    "iconCls": "fa-solid fa-calendar-days color-yellow"
+  },
+  {
+    "id": 13,
+    "name": "F0802 - Kasd",
+    "parentId": 11,
+    "isLeaf": true,
+    "content": "Datumfeld",
+    "iconCls": "fa-solid fa-calendar-days color-yellow"
+  },
+  {
+    "id": 14,
+    "name": "E30 - Gubergren",
+    "parentId": 11,
+    "isLeaf": true,
+    "content": "Mehrfachauswahl",
+    "iconCls": "fa-regular fa-square-check color-green"
+  }
+]

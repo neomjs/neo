@@ -1,4 +1,7 @@
 .portal-shared-tab-container.neo-tab-container {
+    flex-shrink: 1 !important;
+    min-width  : 0;
+
     .neo-tab-body-container {
         background-color: transparent;
     }

@@ -1,0 +1,40 @@
+.neo-clock {
+    align-items     : center;
+    background-color: #ddd;
+    border-radius   : 50%;
+    display         : flex;
+    font-size       : 30px;
+    justify-content : center;
+
+    background-image: radial-gradient(farthest-side circle at center center, #fff 0%, #bbb 100%);
+
+    &.neo-show-disc {
+        &:before {
+            background-color: #bbb;
+            border-radius   : 50%;
+            content         : '';
+            height          : 1em;
+            position        : absolute;
+            width           : 1em;
+            z-index         : 5;
+        }
+    }
+
+    .neo-hours,
+    .neo-minutes {
+        background-color: #962033;
+        height          : 4em;
+        position        : absolute;
+        transition      : .2s transform ease-out;
+    }
+
+    .neo-hours {
+        width     : .4em;
+        box-shadow: 0 -2em #962033, 0 -4em #962033;
+    }
+
+    .neo-minutes {
+        width     : .3em;
+        box-shadow: 0 -3.4em #962033, 0 -6.8em #962033;
+    }
+}

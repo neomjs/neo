@@ -281,6 +281,19 @@ class Component extends Abstract {
     }
 
     /**
+     * @param {Object} config
+     */
+    construct(config) {
+        let me = this;
+
+        if (!Object.hasOwn(me, '_vdom') && me._vdom) {
+            me._vdom = Neo.clone(me._vdom, true)
+        }
+
+        super.construct(config)
+    }
+
+    /**
      * Returns true if this Component is fully visible, that is it is not hidden and has no hidden ancestors
      */
     get isVisible() {
@@ -463,7 +476,13 @@ class Component extends Abstract {
      */
     afterSetId(value, oldValue) {
         super.afterSetId(value, oldValue);
-        this.changeVdomRootKey('id', value)
+
+        let me = this;
+
+        if (me.configsApplied) {
+            me.ensureStableIds();
+            me.update()
+        }
     }
 
     /**
@@ -1398,6 +1417,8 @@ class Component extends Abstract {
         // It should be possible to modify root level vdom attributes on instance level.
         // Note that vdom is not a real config, but implemented via get() & set().
         this._vdom = Neo.clone({...vdom, ...this._vdom || {}}, true);
+
+        this.ensureStableIds();
 
         delete config._vdom;
         delete config.vdom;

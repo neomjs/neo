@@ -1,0 +1,31 @@
+.form-side-nav-list.neo-list {
+    .neo-list-header {
+        font-weight   : bold;
+        text-transform: uppercase;
+    }
+
+    .neo-list-item {
+        .neo-color-blue {
+            color: #1c60a0;
+        }
+
+        .neo-color-green {
+            color: darkgreen;
+        }
+
+        .neo-color-red {
+            color: brown;
+        }
+
+        .neo-list-icon {
+            margin-right: .5em;
+        }
+
+        &:not(.neo-list-header) {
+            align-items   : center;
+            display       : flex;
+            flex-direction: row;
+            margin-left   : 18px;
+        }
+    }
+}

@@ -1,5 +1,7 @@
 .portal-shared-content-page-container {
     background-color: transparent;
+    flex-shrink     : 1 !important;
+    min-width       : 0;
     overflow        : auto;
 
     .content-bottom-toolbar {
@@ -18,7 +20,8 @@
 
 
         @media (min-width: 1297px) {
-            padding: 0 0 0 3rem;
+            margin-right: 250px;
+            padding     : 0 0 0 3rem;
         }
 
         .neo-button {
@@ -62,11 +65,5 @@
                 top        : var(--cmp-button-spacinghorizontal);
             }
         }
-    }
-}
-
-.portal-size-large {
-    .content-bottom-toolbar {
-        margin-right: 250px;
     }
 }

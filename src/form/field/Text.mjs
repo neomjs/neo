@@ -469,12 +469,11 @@ class Text extends Field {
     }
 
     /**
-     * Triggered after the id config got changed
-     * @param {String} value
-     * @param {String} oldValue
      * @protected
      */
-    afterSetId(value, oldValue) {
+    ensureStableIds() {
+        super.ensureStableIds();
+
         let me        = this,
             inputEl   = me.getInputEl(),
             inputElId = me.getInputElId(),
@@ -482,10 +481,7 @@ class Text extends Field {
 
         inputEl.id  = inputElId;
         labelEl.id  = me.getLabelId();
-        labelEl.for = inputElId;
-
-        // silent vdom update, the super call will trigger the engine
-        super.afterSetId(value, oldValue)
+        labelEl.for = inputElId
     }
 
     /**

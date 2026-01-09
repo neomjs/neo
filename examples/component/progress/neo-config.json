@@ -1,0 +1,6 @@
+{
+    "appPath"    : "examples/component/progress/app.mjs",
+    "basePath"   : "../../../",
+    "environment": "development",
+    "mainPath"   : "./Main.mjs"
+}

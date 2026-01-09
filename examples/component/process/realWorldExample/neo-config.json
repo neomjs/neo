@@ -1,0 +1,6 @@
+{
+  "appPath": "examples/component/process/realWorldExample/app.mjs",
+  "basePath": "../../../../",
+  "environment": "development",
+  "mainPath": "./Main.mjs"
+}

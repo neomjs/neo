@@ -235,6 +235,29 @@ class IssueSyncer extends Base {
     }
 
     /**
+     * Resolves a path to an absolute path against the project root.
+     * @param {string} p The path to resolve.
+     * @returns {string} The absolute path.
+     * @private
+     */
+    #resolvePath(p) {
+        if (!p) return null;
+        if (path.isAbsolute(p)) return p;
+        return path.resolve(aiConfig.projectRoot, p);
+    }
+
+    /**
+     * Converts an absolute path to a path relative to the project root.
+     * @param {string} p The absolute path.
+     * @returns {string} The relative path.
+     * @private
+     */
+    #relativePath(p) {
+        if (!p) return null;
+        return path.relative(aiConfig.projectRoot, p);
+    }
+
+    /**
      * Fetches all relevant issues from GitHub using GraphQL with automatic pagination.
      * This single query fetches issues WITH their comments and relationships in one go!
      * @param {object} metadata
@@ -306,9 +329,10 @@ class IssueSyncer extends Base {
             if (!targetPath) {
                 stats.dropped.count++;
                 stats.dropped.issues.push(issueNumber);
-                const oldPath = metadata.issues[issueNumber]?.path;
-                if (oldPath) {
+                const oldPathRelative = metadata.issues[issueNumber]?.path;
+                if (oldPathRelative) {
                     try {
+                        const oldPath = this.#resolvePath(oldPathRelative);
                         await fs.unlink(oldPath);
                         logger.info(`🗑️ Removed dropped issue #${issueNumber}: ${oldPath}`);
                     } catch (e) { /* File might not exist */ }
@@ -319,9 +343,11 @@ class IssueSyncer extends Base {
             }
 
             const oldIssue = metadata.issues[issueNumber];
+            const oldAbsolutePath = oldIssue ? this.#resolvePath(oldIssue.path) : null;
+
             const needsUpdate = !oldIssue ||
                 oldIssue.updated !== issue.updatedAt ||
-                oldIssue.path !== targetPath;
+                oldAbsolutePath !== targetPath;
 
             let contentHash = oldIssue?.contentHash;
 
@@ -339,14 +365,14 @@ class IssueSyncer extends Base {
                 if (!oldIssue) {
                     stats.pulled.created++;
                     logger.info(`✨ Created #${issueNumber}: ${targetPath}`);
-                } else if (oldIssue.path && oldIssue.path !== targetPath) {
+                } else if (oldAbsolutePath && oldAbsolutePath !== targetPath) {
                     stats.pulled.moved++;
                     try {
-                        await fs.rename(oldIssue.path, targetPath);
-                        logger.info(`📦 Moved #${issueNumber}: ${oldIssue.path} → ${targetPath}`);
+                        await fs.rename(oldAbsolutePath, targetPath);
+                        logger.info(`📦 Moved #${issueNumber}: ${oldAbsolutePath} → ${targetPath}`);
                     } catch (e) {
                         logger.warn(`Could not rename #${issueNumber}, falling back to write. Error: ${e.message}`);
-                        await fs.unlink(oldIssue.path).catch(() => {});
+                        await fs.unlink(oldAbsolutePath).catch(() => {});
                     }
                 } else {
                     stats.pulled.updated++;
@@ -356,7 +382,7 @@ class IssueSyncer extends Base {
 
             newMetadata.issues[issueNumber] = {
                 state    : issue.state,
-                path     : targetPath,
+                path     : this.#relativePath(targetPath), // Store relative path
                 updatedAt: issue.updatedAt,
                 closedAt : issue.closedAt || null,
                 milestone: issue.milestone?.title || null,
@@ -460,7 +486,7 @@ class IssueSyncer extends Base {
 
                     newMetadata.issues[relatedIssueNumber] = {
                         state    : issue.state,
-                        path     : targetPath,
+                        path     : this.#relativePath(targetPath), // Store relative path
                         updatedAt: issue.updatedAt,
                         closedAt : issue.closedAt || null,
                         milestone: issue.milestone?.title || null,
@@ -615,7 +641,10 @@ class IssueSyncer extends Base {
             const issueData = metadata.issues[issueNumber];
 
             // CRITICAL: Only process issues in the active directory
-            if (!issueData.path.startsWith(issueSyncConfig.issuesDir)) {
+            // Resolve path to absolute for checking location
+            const currentAbsolutePath = this.#resolvePath(issueData.path);
+            
+            if (!currentAbsolutePath || !currentAbsolutePath.startsWith(issueSyncConfig.issuesDir)) {
                 continue; // Already archived, skip it
             }
 
@@ -640,7 +669,7 @@ class IssueSyncer extends Base {
             }
 
             // Check if the issue needs to be moved to an archive
-            if (issueData.path !== correctPath) {
+            if (currentAbsolutePath !== correctPath) {
                 // Verify the correct path is actually in an archive, not back to active directory
                 if (correctPath.startsWith(issueSyncConfig.issuesDir) &&
                     !correctPath.includes(issueSyncConfig.archiveDir)) {
@@ -648,17 +677,17 @@ class IssueSyncer extends Base {
                     continue;
                 }
 
-                logger.info(`📦 Archiving closed issue #${issueNumber}: ${issueData.path} → ${correctPath}`);
+                logger.info(`📦 Archiving closed issue #${issueNumber}: ${currentAbsolutePath} → ${correctPath}`);
 
                 try {
                     // Ensure target directory exists
                     await fs.mkdir(path.dirname(correctPath), { recursive: true });
 
                     // Move the file
-                    await fs.rename(issueData.path, correctPath);
+                    await fs.rename(currentAbsolutePath, correctPath);
 
-                    // Update metadata
-                    metadata.issues[issueNumber].path = correctPath;
+                    // Update metadata with relative path
+                    metadata.issues[issueNumber].path = this.#relativePath(correctPath);
 
                     stats.count++;
                     stats.issues.push(parseInt(issueNumber));

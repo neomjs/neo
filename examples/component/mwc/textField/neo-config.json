@@ -1,0 +1,7 @@
+{
+    "appPath"         : "examples/component/mwc/textField/app.mjs",
+    "basePath"        : "../../../../",
+    "environment"     : "development",
+    "mainPath"        : "./Main.mjs",
+    "mainThreadAddons": ["DragDrop", "Mwc", "Stylesheet"]
+}

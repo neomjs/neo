@@ -1,0 +1,8 @@
+{
+    "appPath"      : "examples/toolbar/paging/app.mjs",
+    "basePath"     : "../../../",
+    "environment"  : "development",
+    "mainPath"     : "./Main.mjs",
+    "remotesApiUrl": "remotes-api.json",
+    "themes"       : ["neo-theme-dark", "neo-theme-light"]
+}

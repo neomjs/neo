@@ -60,16 +60,11 @@ class Progress extends Base {
     }
 
     /**
-     * Triggered after the id config got changed
-     * @param {String} value
-     * @param {String} oldValue
      * @protected
      */
-    afterSetId(value, oldValue) {
-        super.afterSetId(value, oldValue);
-
-        this.label.for = value;
-        this.update()
+    ensureStableIds() {
+        super.ensureStableIds();
+        this.label.for = this.id
     }
 
     /**

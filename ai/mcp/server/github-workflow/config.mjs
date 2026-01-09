@@ -14,6 +14,11 @@ const projectRoot = process.cwd() === '/' ? packageRoot : process.cwd();
  */
 const defaultConfig = {
     /**
+     * The root directory of the project.
+     * @type {string}
+     */
+    projectRoot,
+    /**
      * Global debug flag for all MCP servers.
      * @type {boolean}
      */
@@ -59,17 +64,17 @@ const defaultConfig = {
          * The path to the directory for active issues.
          * @type {string}
          */
-        issuesDir: path.resolve(projectRoot, '.github', 'ISSUE'),
+        issuesDir: path.resolve(projectRoot, 'resources/content/issues'),
         /**
          * The path to the directory for archived issues.
          * @type {string}
          */
-        archiveDir: path.resolve(projectRoot, '.github', 'ISSUE_ARCHIVE'),
+        archiveDir: path.resolve(projectRoot, 'resources/content/issue-archive'),
         /**
          * The path to the synchronization metadata file.
          * @type {string}
          */
-        metadataFile: path.resolve(projectRoot, '.github', '.sync-metadata.json'),
+        metadataFile: path.resolve(projectRoot, 'resources/content/.sync-metadata.json'),
         /**
          * Labels that, when present on an issue, will cause it to be ignored and deleted locally.
          * @type {string[]}
@@ -84,7 +89,7 @@ const defaultConfig = {
          * The path to the directory for release notes.
          * @type {string}
          */
-        releaseNotesDir: path.resolve(projectRoot, '.github', 'RELEASE_NOTES'),
+        releaseNotesDir: path.resolve(projectRoot, 'resources/content/release-notes'),
         /**
          * The default version directory to use for archiving issues when no release is found.
          * @type {string}

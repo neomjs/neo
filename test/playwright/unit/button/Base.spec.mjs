@@ -117,4 +117,28 @@ test.describe('Neo.button.Base VDOM (Node.js)', () => {
 
         button.destroy();
     });
+
+    test('Prototype VDOM mutation check', async () => {
+        // Manually clean prototype to verify the fix or demonstrate the bug
+        // Note: We need to access the prototype from the class constructor
+        const protoVdom = Button.prototype._vdom;
+        if (protoVdom.cn[1].id) {
+            delete protoVdom.cn[1].id;
+        }
+
+        const button1 = Neo.create(Button, {
+            appName,
+            id: 'my-button-1',
+            text: 'Button 1'
+        });
+
+        // Instance should have it
+        // Updated expectation: The text node ID is no longer explicitly set by ensureStableIds
+        expect(button1.textNode.id).toBeUndefined();
+
+        // Prototype should NOT have it (this will fail if bug is present)
+        expect(Button.prototype._vdom.cn[1].id).toBeUndefined();
+
+        button1.destroy();
+    });
 });

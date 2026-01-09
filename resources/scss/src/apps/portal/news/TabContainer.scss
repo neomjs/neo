@@ -1,4 +1,7 @@
 .portal-news-tab-container {
+    flex-shrink: 1 !important;
+    min-width  : 0;
+
     .portal-shared-tab-header-toolbar {
         @media (max-width: 640px) {
             padding-top: 50px;

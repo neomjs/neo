@@ -1,0 +1,7 @@
+{
+    "appPath": "examples/preloadingAssets/app.mjs",
+    "basePath": "../../",
+    "environment": "development",
+    "mainPath": "./Main.mjs",
+    "useServiceWorker": true
+}

@@ -1,0 +1,13 @@
+:root .neo-theme-neo-light { // .neo-calendar-weekcomponent
+    --c-w-background-color                  : #fff;
+    --c-w-border-color                      : #ddd;
+    --c-w-event-resizable-color             : #1c60a0;
+    --c-w-header-background-color           : #fff;
+    --c-w-header-date-background-color-hover: #eee;
+    --c-w-header-date-color                 : #666;
+    --c-w-header-date-color-hover           : #666;
+    --c-w-header-day-color                  : #666;
+    --c-w-header-today-background-color     : red;
+    --c-w-header-today-color                : #fff;
+    --c-w-weekend-background-color          : rgba(240, 240, 240, .35);
+}

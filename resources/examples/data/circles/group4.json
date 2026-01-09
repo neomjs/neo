@@ -1,0 +1,28 @@
+{
+    "success" : true,
+
+    "total" : 20,
+
+    "data" : [
+        {"id":  1, "firstname": "Susanne",  "lastname": "Bosch",         "isOnline": false, "image": "ai_images/000044.jpg"},
+        {"id":  2, "firstname": "Sarah",    "lastname": "Baer",          "isOnline": true,  "image": "ai_images/000045.jpg"},
+        {"id":  3, "firstname": "Felix",    "lastname": "Schwarz",       "isOnline": false, "image": "ai_images/000046.jpg"},
+        {"id":  4, "firstname": "Lukas",    "lastname": "Krause",        "isOnline": true,  "image": "ai_images/000047.jpg"},
+        {"id":  5, "firstname": "Frank",    "lastname": "Schmitz",       "isOnline": true,  "image": "ai_images/000048.jpg"},
+        {"id":  6, "firstname": "Stefanie", "lastname": "Berg",          "isOnline": false, "image": "ai_images/000049.jpg"},
+        {"id":  7, "firstname": "Anne",     "lastname": "Fischer",       "isOnline": true,  "image": "ai_images/000050.jpg"},
+        {"id":  8, "firstname": "Tanja",    "lastname": "Fenstermacher", "isOnline": true,  "image": "ai_images/000051.jpg"},
+        {"id":  9, "firstname": "Ines",     "lastname": "Meister",       "isOnline": false, "image": "ai_images/000052.jpg"},
+        {"id": 10, "firstname": "Antje",    "lastname": "Peters",        "isOnline": false, "image": "ai_images/000053.jpg"},
+        {"id": 11, "firstname": "Stephan",  "lastname": "Fleischer",     "isOnline": false, "image": "ai_images/000054.jpg"},
+        {"id": 12, "firstname": "Annett",   "lastname": "Fuerst",        "isOnline": false, "image": "ai_images/000055.jpg"},
+        {"id": 13, "firstname": "Leon",     "lastname": "Ritter",        "isOnline": false, "image": "ai_images/000056.jpg"},
+        {"id": 14, "firstname": "Andrea",   "lastname": "Biermann",      "isOnline": false, "image": "ai_images/000057.jpg"},
+        {"id": 15, "firstname": "Wolfgang", "lastname": "Abend",         "isOnline": false, "image": "ai_images/000058.jpg"},
+        {"id": 16, "firstname": "Ulrich",   "lastname": "Zimmer",        "isOnline": false, "image": "ai_images/000059.jpg"},
+        {"id": 17, "firstname": "Nicole",   "lastname": "Herzog",        "isOnline": false, "image": "ai_images/000060.jpg"},
+        {"id": 18, "firstname": "Felix",    "lastname": "König",         "isOnline": false, "image": "ai_images/000061.jpg"},
+        {"id": 19, "firstname": "Thorsten", "lastname": "Werfel",        "isOnline": false, "image": "ai_images/000063.jpg"},
+        {"id": 20, "firstname": "Patrick",  "lastname": "Wolf",          "isOnline": false, "image": "ai_images/000064.jpg"}
+    ]
+}

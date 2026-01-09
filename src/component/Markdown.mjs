@@ -132,6 +132,26 @@ class Markdown extends Component {
     }
 
     /**
+     * Triggered before the value config gets changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @returns {String|null}
+     * @protected
+     */
+    beforeSetValue(value, oldValue) {
+        if (value) {
+            let lower = value.trim().toLowerCase();
+
+            if (lower.startsWith('<!doctype html>') || lower.startsWith('<html')) {
+                console.error('Markdown component received an HTML document instead of markdown content. This usually indicates a 404 or server error.', this.id);
+                return oldValue
+            }
+        }
+
+        return value
+    }
+
+    /**
      * Destroy all created child instances
      * @param {...*} args
      */
@@ -469,6 +489,9 @@ class Markdown extends Component {
         // Parse the (now modified) markdown content into HTML
         // This content string now contains standard markdown PLUS the HTML divs/pres we injected.
         html = marked.parse(content);
+
+        // Wrap raw HTML img tags in a scrollable container
+        html = html.replace(/<img([^>]*)>/g, '<div class="neo-markdown-image-wrapper"><img$1></div>');
 
         // Insert lab divs (these are markdown comments, so process on the final HTML)
         await me.set({html: me.insertLabDivs(html)});

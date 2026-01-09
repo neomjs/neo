@@ -1,0 +1,17 @@
+{
+    "namespace": "MyApi",
+    "url"      : "../../examples/remotesApi/basic/remotes-api-response.json",
+
+    "services": {
+        "FriendService": {
+            "methods": {
+                "getAll": {}
+            }
+        },
+        "UserService": {
+            "methods": {
+                "getAll": {}
+            }
+        }
+    }
+}

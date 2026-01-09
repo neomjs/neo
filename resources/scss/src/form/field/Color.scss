@@ -1,0 +1,18 @@
+.neo-colorfield {
+    &.label-inline {
+        .neo-label-wrapper {
+            .neo-left-border {
+                width: 2em;
+            }
+        }
+
+        .neo-textfield-input {
+            padding-left: .2em;
+        }
+    }
+
+    .neo-color {
+        transition: background-color .2s ease-out;
+        width     : 1.7em;
+    }
+}

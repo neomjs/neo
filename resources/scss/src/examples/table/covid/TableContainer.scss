@@ -1,0 +1,21 @@
+.neo-table-wrapper {
+    width: 100%
+}
+
+.neo-table-container.covid-country-table {
+    .neo-country-column {
+        min-width: 200px;
+        width    : initial;
+    }
+
+    .neo-index-column {
+        max-width: 40px;
+        min-width: 40px;
+        width    : 40px;
+    }
+
+    td, th {
+        min-width: 100px;
+        width    : 300px;
+    }
+}

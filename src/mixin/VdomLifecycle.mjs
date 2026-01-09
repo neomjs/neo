@@ -169,6 +169,27 @@ class VdomLifecycle extends Base {
     }
 
     /**
+     * Ensures that the root VDOM node and its wrapper (if any) have stable, unique IDs
+     * derived from the component instance ID. This prevents auto-generated ID collisions
+     * in `ComponentManager.wrapperNodes`.
+     * @protected
+     */
+    ensureStableIds() {
+        const
+            me       = this,
+            vdom     = me.vdom,
+            vdomRoot = me.getVdomRoot();
+
+        if (vdomRoot) {
+            vdomRoot.id = me.id;
+
+            if (vdom !== vdomRoot) {
+                vdom.id = me.id + '__wrapper'
+            }
+        }
+    }
+
+    /**
      * Internal method to send update requests to the vdom worker
      * @param {function} [resolve] used by promiseUpdate()
      * @param {function} [reject] used by promiseUpdate()
@@ -338,6 +359,8 @@ class VdomLifecycle extends Base {
 
         if (me.vdom) {
             me.isVdomUpdating = true;
+
+            me.ensureStableIds();
 
             // Ensure child components do not trigger updates while the vnode generation is in progress
             VDomUpdate.registerInFlightUpdate(me.id, -1);
@@ -626,6 +649,8 @@ class VdomLifecycle extends Base {
             resolve && VDomUpdate.addPromiseCallback(me.id, resolve);
             me.needsVdomUpdate = true
         } else {
+            me.ensureStableIds();
+
             // If there's a promise, register it against this component's ID immediately.
             // The manager will ensure it's called when the appropriate update cycle completes.
             resolve && VDomUpdate.addPromiseCallback(me.id, resolve);

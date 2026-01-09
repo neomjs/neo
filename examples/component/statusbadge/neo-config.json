@@ -1,0 +1,6 @@
+{
+    "appPath"    : "examples/component/statusbadge/app.mjs",
+    "basePath"   : "../../../",
+    "environment": "development",
+    "mainPath"   : "./Main.mjs"
+}

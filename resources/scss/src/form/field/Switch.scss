@@ -1,0 +1,87 @@
+.neo-switchfield {
+    .neo-switchfield-input {
+        background-color: var(--switchfield-color-off);
+        border-radius   : 999px;
+        height          : var(--switchfield-height);
+        margin          : 0;
+        position        : relative;
+        width           : var(--switchfield-width);
+
+        -webkit-appearance         : none;
+        -webkit-tap-highlight-color: transparent;
+
+        &:after,
+        &:before {
+            content : "";
+            position: absolute;
+        }
+
+        &:before {
+            background-color: var(--switchfield-color-knob);
+            border-radius   : 50%;
+            height          : var(--switchfield-knobsize);
+            left            : 2px;
+            top             : 2px;
+            transition      : transform 150ms ease-out;
+            width           : var(--switchfield-knobsize);
+        }
+
+        &:after {
+            border       : 1px solid var(--switchfield-color-icon-off);
+            border-radius: 50%;
+            bottom       : 8px;
+            height       : 6px;
+            right        : 5px;
+            width        : 6px;
+        }
+
+        &:checked {
+            background-color: var(--switchfield-color-on);
+
+            &:before {
+                transform: translateX(80%);
+            }
+
+            &:after {
+                background-color: var(--switchfield-color-icon-on);
+                border          : 0;
+                border-radius   : 0;
+                height          : 8px;
+                left            : 9px;
+                right           : auto;
+                width           : 1px;
+            }
+
+            &:hover {
+                background-color: var(--switchfield-color-on-hovered);
+            }
+        }
+
+        &:focus {
+            outline: var(--switchfield-borderwidth-focused) solid var(--switchfield-bordercolor-focused);
+        }
+
+        &:hover {
+            background-color: var(--switchfield-color-off-hovered);
+        }
+    }
+
+    .neo-checkbox-value-label {
+        margin-left: 1em;
+    }
+}
+
+.neo-disabled {
+    .neo-switchfield,
+    &.neo-switchfield {
+        opacity: var(--switchfield-opacity-disabled);
+
+        .neo-switchfield-input {
+            background-color: var(--switchfield-color-off-disabled);
+
+            &:checked {
+                background-color: var(--switchfield-color-on-disabled);
+            }
+        }
+    }
+}

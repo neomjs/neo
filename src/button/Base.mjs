@@ -226,19 +226,7 @@ class Button extends Component {
         })
     }
 
-    /**
-     * Workaround fix for: https://github.com/neomjs/neo/issues/6659
-     * Todo: inspect this further (we do not want to add fixed ids for all child nodes)
-     * Triggered after the id config got changed
-     * @param {String} value    The new value of the id config.
-     * @param {String} oldValue The old value of the id config.
-     * @protected
-     */
-    afterSetId(value, oldValue) {
-        super.afterSetId(value, oldValue);
 
-        this.textNode.id = value + '__text'
-    }
 
     /**
      * Triggered after the badgePosition config got changed

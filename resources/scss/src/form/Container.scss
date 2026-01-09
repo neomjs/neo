@@ -1,0 +1,11 @@
+.neo-form-container {
+    padding: 20px;
+
+    > * {
+       margin-bottom: 10px;
+
+        &:last-child {
+            margin-bottom: 0;
+        }
+    }
+}

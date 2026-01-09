@@ -6,156 +6,170 @@
         "parentId": null
     },
     {
+        "date": "2026-01-09T12:00:00Z",
+        "title": "Neo.mjs v11.19.1 Release Notes",
+        "path": "resources/content/release-notes/v11.19.1.md",
+        "id": "11.19.1",
+        "parentId": "v11"
+    },
+    {
+        "date": "2026-01-09T01:06:42Z",
+        "title": "Neo.mjs v11.19.0 Release Notes",
+        "path": "resources/content/release-notes/v11.19.0.md",
+        "id": "11.19.0",
+        "parentId": "v11"
+    },
+    {
         "date": "2026-01-05T21:00:29Z",
         "title": "Neo.mjs v11.18.0 Release Notes",
-        "path": "/.github/RELEASE_NOTES/v11.18.0.md",
+        "path": "resources/content/release-notes/v11.18.0.md",
         "id": "11.18.0",
         "parentId": "v11"
     },
     {
         "date": "2025-12-21T21:22:14Z",
         "title": "Neo.mjs v11.17.1 Release Notes",
-        "path": "/.github/RELEASE_NOTES/v11.17.1.md",
+        "path": "resources/content/release-notes/v11.17.1.md",
         "id": "11.17.1",
         "parentId": "v11"
     },
     {
         "date": "2025-12-21T19:28:51Z",
         "title": "Neo.mjs v11.17.0 Release Notes",
-        "path": "/.github/RELEASE_NOTES/v11.17.0.md",
+        "path": "resources/content/release-notes/v11.17.0.md",
         "id": "11.17.0",
         "parentId": "v11"
     },
     {
         "date": "2025-12-05T23:31:06Z",
         "title": "Neo.mjs v11.16.0 Release Notes",
-        "path": "/.github/RELEASE_NOTES/v11.16.0.md",
+        "path": "resources/content/release-notes/v11.16.0.md",
         "id": "11.16.0",
         "parentId": "v11"
     },
     {
         "date": "2025-12-02T19:15:29Z",
         "title": "Neo.mjs v11.15.0 Release Notes",
-        "path": "/.github/RELEASE_NOTES/v11.15.0.md",
+        "path": "resources/content/release-notes/v11.15.0.md",
         "id": "11.15.0",
         "parentId": "v11"
     },
     {
         "date": "2025-12-01T18:18:40Z",
         "title": "Neo.mjs v11.14.0 Release Notes",
-        "path": "/.github/RELEASE_NOTES/v11.14.0.md",
+        "path": "resources/content/release-notes/v11.14.0.md",
         "id": "11.14.0",
         "parentId": "v11"
     },
     {
         "date": "2025-11-29T12:34:29Z",
         "title": "Neo.mjs v11.13.0 Release Notes",
-        "path": "/.github/RELEASE_NOTES/v11.13.0.md",
+        "path": "resources/content/release-notes/v11.13.0.md",
         "id": "11.13.0",
         "parentId": "v11"
     },
     {
         "date": "2025-11-29T11:32:31Z",
         "title": "Neo.mjs v11.12.0 Release Notes",
-        "path": "/.github/RELEASE_NOTES/v11.12.0.md",
+        "path": "resources/content/release-notes/v11.12.0.md",
         "id": "11.12.0",
         "parentId": "v11"
     },
     {
         "date": "2025-11-26T12:47:01Z",
         "title": "Neo.mjs v11.11.0 Release Notes",
-        "path": "/.github/RELEASE_NOTES/v11.11.0.md",
+        "path": "resources/content/release-notes/v11.11.0.md",
         "id": "11.11.0",
         "parentId": "v11"
     },
     {
         "date": "2025-11-24T14:55:45Z",
         "title": "Neo.mjs v11.10.0 Release Notes",
-        "path": "/.github/RELEASE_NOTES/v11.10.0.md",
+        "path": "resources/content/release-notes/v11.10.0.md",
         "id": "11.10.0",
         "parentId": "v11"
     },
     {
         "date": "2025-11-23T12:55:07Z",
         "title": "Neo.mjs v11.9.0 Release Notes",
-        "path": "/.github/RELEASE_NOTES/v11.9.0.md",
+        "path": "resources/content/release-notes/v11.9.0.md",
         "id": "11.9.0",
         "parentId": "v11"
     },
     {
         "date": "2025-11-21T15:10:30Z",
         "title": "Neo.mjs v11.8.0 Release Notes",
-        "path": "/.github/RELEASE_NOTES/v11.8.0.md",
+        "path": "resources/content/release-notes/v11.8.0.md",
         "id": "11.8.0",
         "parentId": "v11"
     },
     {
         "date": "2025-11-20T13:32:40Z",
         "title": "Neo.mjs v11.7.0 Release Notes",
-        "path": "/.github/RELEASE_NOTES/v11.7.0.md",
+        "path": "resources/content/release-notes/v11.7.0.md",
         "id": "11.7.0",
         "parentId": "v11"
     },
     {
         "date": "2025-11-19T17:38:22Z",
         "title": "Neo.mjs v11.6.1 Release Notes",
-        "path": "/.github/RELEASE_NOTES/v11.6.1.md",
+        "path": "resources/content/release-notes/v11.6.1.md",
         "id": "11.6.1",
         "parentId": "v11"
     },
     {
         "date": "2025-11-19T13:05:08Z",
         "title": "Neo.mjs v11.6.0 Release Notes",
-        "path": "/.github/RELEASE_NOTES/v11.6.0.md",
+        "path": "resources/content/release-notes/v11.6.0.md",
         "id": "11.6.0",
         "parentId": "v11"
     },
     {
         "date": "2025-11-18T20:28:02Z",
         "title": "Neo.mjs v11.5.0 Release Notes",
-        "path": "/.github/RELEASE_NOTES/v11.5.0.md",
+        "path": "resources/content/release-notes/v11.5.0.md",
         "id": "11.5.0",
         "parentId": "v11"
     },
     {
         "date": "2025-11-15T13:10:59Z",
         "title": "Neo.mjs v11.4.0 Release Notes",
-        "path": "/.github/RELEASE_NOTES/v11.4.0.md",
+        "path": "resources/content/release-notes/v11.4.0.md",
         "id": "11.4.0",
         "parentId": "v11"
     },
     {
         "date": "2025-11-14T15:35:01Z",
         "title": "Neo.mjs v11.3.0 Release Notes",
-        "path": "/.github/RELEASE_NOTES/v11.3.0.md",
+        "path": "resources/content/release-notes/v11.3.0.md",
         "id": "11.3.0",
         "parentId": "v11"
     },
     {
         "date": "2025-11-13T13:36:25Z",
         "title": "Neo.mjs v11.2.0 Release Notes",
-        "path": "/.github/RELEASE_NOTES/v11.2.0.md",
+        "path": "resources/content/release-notes/v11.2.0.md",
         "id": "11.2.0",
         "parentId": "v11"
     },
     {
         "date": "2025-11-12T08:53:49Z",
         "title": "Neo.mjs v11.1.0 Release Notes",
-        "path": "/.github/RELEASE_NOTES/v11.1.0.md",
+        "path": "resources/content/release-notes/v11.1.0.md",
         "id": "11.1.0",
         "parentId": "v11"
     },
     {
         "date": "2025-11-09T14:22:57Z",
         "title": "Neo.mjs v11.0.1 Release Notes",
-        "path": "/.github/RELEASE_NOTES/v11.0.1.md",
+        "path": "resources/content/release-notes/v11.0.1.md",
         "id": "11.0.1",
         "parentId": "v11"
     },
     {
         "date": "2025-11-09T10:22:08Z",
         "title": "Neo.mjs v11.0.0 Release Notes",
-        "path": "/.github/RELEASE_NOTES/v11.0.0.md",
+        "path": "resources/content/release-notes/v11.0.0.md",
         "id": "11.0.0",
         "parentId": "v11"
     },
@@ -168,245 +182,245 @@
     {
         "date": "2025-09-24T09:46:58Z",
         "title": "Neo.mjs v10.9.0 Release Notes",
-        "path": "/.github/RELEASE_NOTES/v10.9.0.md",
+        "path": "resources/content/release-notes/v10.9.0.md",
         "id": "10.9.0",
         "parentId": "v10"
     },
     {
         "date": "2025-09-23T12:48:31Z",
         "title": "Neo.mjs v10.8.0 Release Notes",
-        "path": "/.github/RELEASE_NOTES/v10.8.0.md",
+        "path": "resources/content/release-notes/v10.8.0.md",
         "id": "10.8.0",
         "parentId": "v10"
     },
     {
         "date": "2025-09-21T19:10:19Z",
         "title": "Neo.mjs v10.7.0 Release Notes",
-        "path": "/.github/RELEASE_NOTES/v10.7.0.md",
+        "path": "resources/content/release-notes/v10.7.0.md",
         "id": "10.7.0",
         "parentId": "v10"
     },
     {
         "date": "2025-09-19T13:27:21Z",
         "title": "Neo.mjs v10.6.0 Release Notes",
-        "path": "/.github/RELEASE_NOTES/v10.6.0.md",
+        "path": "resources/content/release-notes/v10.6.0.md",
         "id": "10.6.0",
         "parentId": "v10"
     },
     {
         "date": "2025-08-18T11:36:10Z",
         "title": "Neo.mjs v10.5.4 Release Notes",
-        "path": "/.github/RELEASE_NOTES/v10.5.4.md",
+        "path": "resources/content/release-notes/v10.5.4.md",
         "id": "10.5.4",
         "parentId": "v10"
     },
     {
         "date": "2025-08-15T08:08:44Z",
         "title": "Neo.mjs v10.5.3 Release Notes",
-        "path": "/.github/RELEASE_NOTES/v10.5.3.md",
+        "path": "resources/content/release-notes/v10.5.3.md",
         "id": "10.5.3",
         "parentId": "v10"
     },
     {
         "date": "2025-08-14T10:40:10Z",
         "title": "Neo.mjs v10.5.2 Release Notes",
-        "path": "/.github/RELEASE_NOTES/v10.5.2.md",
+        "path": "resources/content/release-notes/v10.5.2.md",
         "id": "10.5.2",
         "parentId": "v10"
     },
     {
         "date": "2025-08-13T10:19:33Z",
         "title": "Neo.mjs v10.5.1 Release Notes",
-        "path": "/.github/RELEASE_NOTES/v10.5.1.md",
+        "path": "resources/content/release-notes/v10.5.1.md",
         "id": "10.5.1",
         "parentId": "v10"
     },
     {
         "date": "2025-08-12T08:03:27Z",
         "title": "Neo.mjs v10.5.0 Release Notes",
-        "path": "/.github/RELEASE_NOTES/v10.5.0.md",
+        "path": "resources/content/release-notes/v10.5.0.md",
         "id": "10.5.0",
         "parentId": "v10"
     },
     {
         "date": "2025-08-11T12:34:55Z",
         "title": "Neo.mjs v10.4.1 Release Notes",
-        "path": "/.github/RELEASE_NOTES/v10.4.1.md",
+        "path": "resources/content/release-notes/v10.4.1.md",
         "id": "10.4.1",
         "parentId": "v10"
     },
     {
         "date": "2025-08-11T10:40:48Z",
         "title": "Neo.mjs v10.4.0 Release Notes",
-        "path": "/.github/RELEASE_NOTES/v10.4.0.md",
+        "path": "resources/content/release-notes/v10.4.0.md",
         "id": "10.4.0",
         "parentId": "v10"
     },
     {
         "date": "2025-08-09T07:53:27Z",
         "title": "Neo.mjs v10.3.4 Release Notes",
-        "path": "/.github/RELEASE_NOTES/v10.3.5.md",
+        "path": "resources/content/release-notes/v10.3.5.md",
         "id": "10.3.5",
         "parentId": "v10"
     },
     {
         "date": "2025-08-09T07:13:35Z",
         "title": "Neo.mjs v10.3.4 Release Notes",
-        "path": "/.github/RELEASE_NOTES/v10.3.4.md",
+        "path": "resources/content/release-notes/v10.3.4.md",
         "id": "10.3.4",
         "parentId": "v10"
     },
     {
         "date": "2025-08-04T09:18:31Z",
         "title": "Neo.mjs v10.3.3 Release Notes",
-        "path": "/.github/RELEASE_NOTES/v10.3.3.md",
+        "path": "resources/content/release-notes/v10.3.3.md",
         "id": "10.3.3",
         "parentId": "v10"
     },
     {
         "date": "2025-08-03T00:49:05Z",
         "title": "v10.3.2 Hotfix Release",
-        "path": "/.github/RELEASE_NOTES/v10.3.2.md",
+        "path": "resources/content/release-notes/v10.3.2.md",
         "id": "10.3.2",
         "parentId": "v10"
     },
     {
         "date": "2025-08-02T16:44:29Z",
         "title": "Neo.mjs v10.3.1: Build Process Reliability",
-        "path": "/.github/RELEASE_NOTES/v10.3.1.md",
+        "path": "resources/content/release-notes/v10.3.1.md",
         "id": "10.3.1",
         "parentId": "v10"
     },
     {
         "date": "2025-08-02T14:37:23Z",
         "title": "Neo.mjs v10.3.0: Introducing HTML Templates",
-        "path": "/.github/RELEASE_NOTES/v10.3.0.md",
+        "path": "resources/content/release-notes/v10.3.0.md",
         "id": "10.3.0",
         "parentId": "v10"
     },
     {
         "date": "2025-07-30T12:51:16Z",
         "title": "housekeeping",
-        "path": "/.github/RELEASE_NOTES/v10.2.1.md",
+        "path": "resources/content/release-notes/v10.2.1.md",
         "id": "10.2.1",
         "parentId": "v10"
     },
     {
         "date": "2025-07-30T11:27:54Z",
         "title": "Stabilization, DX Improvements & Template PoC",
-        "path": "/.github/RELEASE_NOTES/v10.2.0.md",
+        "path": "resources/content/release-notes/v10.2.0.md",
         "id": "10.2.0",
         "parentId": "v10"
     },
     {
         "date": "2025-07-27T18:02:12Z",
         "title": "Grid Column Header Drag&Drop Hotfix",
-        "path": "/.github/RELEASE_NOTES/v10.1.1.md",
+        "path": "resources/content/release-notes/v10.1.1.md",
         "id": "10.1.1",
         "parentId": "v10"
     },
     {
         "date": "2025-07-27T11:10:13Z",
         "title": "housekeeping",
-        "path": "/.github/RELEASE_NOTES/v10.1.0.md",
+        "path": "resources/content/release-notes/v10.1.0.md",
         "id": "10.1.0",
         "parentId": "v10"
     },
     {
         "date": "2025-07-26T20:02:56Z",
         "title": "v10 polishing",
-        "path": "/.github/RELEASE_NOTES/v10.0.2.md",
+        "path": "resources/content/release-notes/v10.0.2.md",
         "id": "10.0.2",
         "parentId": "v10"
     },
     {
         "date": "2025-07-24T08:23:55Z",
         "title": "Added 2 new v10 series blog posts to the neo website app",
-        "path": "/.github/RELEASE_NOTES/v10.0.1.md",
+        "path": "resources/content/release-notes/v10.0.1.md",
         "id": "10.0.1",
         "parentId": "v10"
     },
     {
         "date": "2025-07-24T06:03:17Z",
         "title": "Neo.mjs v10: The Reactive Revolution",
-        "path": "/.github/RELEASE_NOTES/v10.0.0.md",
+        "path": "resources/content/release-notes/v10.0.0.md",
         "id": "10.0.0",
         "parentId": "v10"
     },
     {
         "date": "2025-07-18T15:31:18Z",
         "title": "Neo.mjs v10.0.0-beta.6",
-        "path": "/.github/RELEASE_NOTES/v10.0.0-beta.6.md",
+        "path": "resources/content/release-notes/v10.0.0-beta.6.md",
         "id": "10.0.0-beta.6",
         "parentId": "v10"
     },
     {
         "date": "2025-07-09T18:37:36Z",
         "title": "Effect-Based Reactivity System",
-        "path": "/.github/RELEASE_NOTES/v10.0.0-beta.5.md",
+        "path": "resources/content/release-notes/v10.0.0-beta.5.md",
         "id": "10.0.0-beta.5",
         "parentId": "v10"
     },
     {
         "date": "2025-07-04T12:36:36Z",
         "title": "Class Config Atoms",
-        "path": "/.github/RELEASE_NOTES/v10.0.0-beta.4.md",
+        "path": "resources/content/release-notes/v10.0.0-beta.4.md",
         "id": "10.0.0-beta.4",
         "parentId": "v10"
     },
     {
         "date": "2025-07-01T09:50:50Z",
         "title": "Neo.mjs v10.0.0-beta.3 Release Notes",
-        "path": "/.github/RELEASE_NOTES/v10.0.0-beta.3.md",
+        "path": "resources/content/release-notes/v10.0.0-beta.3.md",
         "id": "10.0.0-beta.3",
         "parentId": "v10"
     },
     {
         "date": "2025-06-30T02:18:54Z",
         "title": "Neo.mjs v10.0.0-beta.2: Polishing the Core, Securing the UI, and Enriching the Docs",
-        "path": "/.github/RELEASE_NOTES/v10.0.0-beta.2.md",
+        "path": "resources/content/release-notes/v10.0.0-beta.2.md",
         "id": "10.0.0-beta.2",
         "parentId": "v10"
     },
     {
         "date": "2025-06-26T12:30:26Z",
         "title": "First beta version of Neo.mjs v10",
-        "path": "/.github/RELEASE_NOTES/v10.0.0-beta.1.md",
+        "path": "resources/content/release-notes/v10.0.0-beta.1.md",
         "id": "10.0.0-beta.1",
         "parentId": "v10"
     },
     {
         "date": "2025-06-24T11:42:47Z",
         "title": "Polishing v10",
-        "path": "/.github/RELEASE_NOTES/v10.0.0-alpha.5.md",
+        "path": "resources/content/release-notes/v10.0.0-alpha.5.md",
         "id": "10.0.0-alpha.5",
         "parentId": "v10"
     },
     {
         "date": "2025-06-22T21:54:26Z",
         "title": "Advanced Learning Content",
-        "path": "/.github/RELEASE_NOTES/v10.0.0-alpha.4.md",
+        "path": "resources/content/release-notes/v10.0.0-alpha.4.md",
         "id": "10.0.0-alpha.4",
         "parentId": "v10"
     },
     {
         "date": "2025-06-18T18:56:08Z",
         "title": "Polishing v10",
-        "path": "/.github/RELEASE_NOTES/v10.0.0-alpha.3.md",
+        "path": "resources/content/release-notes/v10.0.0-alpha.3.md",
         "id": "10.0.0-alpha.3",
         "parentId": "v10"
     },
     {
         "date": "2025-06-18T17:10:33Z",
         "title": "Polishing v10",
-        "path": "/.github/RELEASE_NOTES/v10.0.0-alpha.2.md",
+        "path": "resources/content/release-notes/v10.0.0-alpha.2.md",
         "id": "10.0.0-alpha.2",
         "parentId": "v10"
     },
     {
         "date": "2025-06-17T14:59:02Z",
         "title": "New DOM API based mount adapter",
-        "path": "/.github/RELEASE_NOTES/v10.0.0-alpha.1.md",
+        "path": "resources/content/release-notes/v10.0.0-alpha.1.md",
         "id": "10.0.0-alpha.1",
         "parentId": "v10"
     },
@@ -419,189 +433,189 @@
     {
         "date": "2025-06-14T11:38:23Z",
         "title": "Learning Section Content",
-        "path": "/.github/RELEASE_NOTES/v9.16.0.md",
+        "path": "resources/content/release-notes/v9.16.0.md",
         "id": "9.16.0",
         "parentId": "v9"
     },
     {
         "date": "2025-06-13T21:40:33Z",
         "title": "Portal App: Added the new Liquid Glass example",
-        "path": "/.github/RELEASE_NOTES/v9.15.0.md",
+        "path": "resources/content/release-notes/v9.15.0.md",
         "id": "9.15.0",
         "parentId": "v9"
     },
     {
         "date": "2025-06-13T21:06:34Z",
         "title": "Learning Content: New 4 Environments article",
-        "path": "/.github/RELEASE_NOTES/v9.14.0.md",
+        "path": "resources/content/release-notes/v9.14.0.md",
         "id": "9.14.0",
         "parentId": "v9"
     },
     {
         "date": "2025-06-13T02:40:35Z",
         "title": "vdom.Helper: hotfix",
-        "path": "/.github/RELEASE_NOTES/v9.13.1.md",
+        "path": "resources/content/release-notes/v9.13.1.md",
         "id": "9.13.1",
         "parentId": "v9"
     },
     {
         "date": "2025-06-13T02:32:00Z",
         "title": "vdom.Helper polishing",
-        "path": "/.github/RELEASE_NOTES/v9.13.0.md",
+        "path": "resources/content/release-notes/v9.13.0.md",
         "id": "9.13.0",
         "parentId": "v9"
     },
     {
         "date": "2025-06-11T13:45:02Z",
         "title": "Smarter environment combinations",
-        "path": "/.github/RELEASE_NOTES/v9.12.0.md",
+        "path": "resources/content/release-notes/v9.12.0.md",
         "id": "9.12.0",
         "parentId": "v9"
     },
     {
         "date": "2025-06-09T13:12:30Z",
         "title": "housekeeping",
-        "path": "/.github/RELEASE_NOTES/v9.11.1.md",
+        "path": "resources/content/release-notes/v9.11.1.md",
         "id": "9.11.1",
         "parentId": "v9"
     },
     {
         "date": "2025-06-09T12:21:36Z",
         "title": "tab.BodyContainer",
-        "path": "/.github/RELEASE_NOTES/v9.11.0.md",
+        "path": "resources/content/release-notes/v9.11.0.md",
         "id": "9.11.0",
         "parentId": "v9"
     },
     {
         "date": "2025-06-09T10:49:07Z",
         "title": "housekeeping",
-        "path": "/.github/RELEASE_NOTES/v9.10.5.md",
+        "path": "resources/content/release-notes/v9.10.5.md",
         "id": "9.10.5",
         "parentId": "v9"
     },
     {
         "date": "2025-06-06T10:51:18Z",
         "title": "housekeeping",
-        "path": "/.github/RELEASE_NOTES/v9.10.4.md",
+        "path": "resources/content/release-notes/v9.10.4.md",
         "id": "9.10.4",
         "parentId": "v9"
     },
     {
         "date": "2025-06-04T00:09:45Z",
         "title": "Portal App: added the OffscreenCanvas example for dist/esm",
-        "path": "/.github/RELEASE_NOTES/v9.10.3.md",
+        "path": "resources/content/release-notes/v9.10.3.md",
         "id": "9.10.3",
         "parentId": "v9"
     },
     {
         "date": "2025-06-03T23:20:07Z",
         "title": "worker.ServiceBase: added node_modules into the cache path defaults",
-        "path": "/.github/RELEASE_NOTES/v9.10.2.md",
+        "path": "resources/content/release-notes/v9.10.2.md",
         "id": "9.10.2",
         "parentId": "v9"
     },
     {
         "date": "2025-06-03T21:25:32Z",
         "title": "buildScripts/buildESModules: better support to match & replace dynamic imports",
-        "path": "/.github/RELEASE_NOTES/v9.10.1.md",
+        "path": "resources/content/release-notes/v9.10.1.md",
         "id": "9.10.1",
         "parentId": "v9"
     },
     {
         "date": "2025-06-03T19:15:23Z",
         "title": "buildScripts/buildESModules: enhanced to handle neo workspaces",
-        "path": "/.github/RELEASE_NOTES/v9.10.0.md",
+        "path": "resources/content/release-notes/v9.10.0.md",
         "id": "9.10.0",
         "parentId": "v9"
     },
     {
         "date": "2025-06-03T12:56:11Z",
         "title": "buildScripts/buildESModules: enhancements",
-        "path": "/.github/RELEASE_NOTES/v9.9.0.md",
+        "path": "resources/content/release-notes/v9.9.0.md",
         "id": "9.9.0",
         "parentId": "v9"
     },
     {
         "date": "2025-06-03T10:18:30Z",
         "title": "Portal App: Added dist/esm into the examples overview",
-        "path": "/.github/RELEASE_NOTES/v9.8.0.md",
+        "path": "resources/content/release-notes/v9.8.0.md",
         "id": "9.8.0",
         "parentId": "v9"
     },
     {
         "date": "2025-06-02T10:05:27Z",
         "title": "Portal App: Added the new blog post",
-        "path": "/.github/RELEASE_NOTES/v9.7.1.md",
+        "path": "resources/content/release-notes/v9.7.1.md",
         "id": "9.7.1",
         "parentId": "v9"
     },
     {
         "date": "2025-06-01T17:37:43Z",
         "title": "dist/esm: full service worker support",
-        "path": "/.github/RELEASE_NOTES/v9.7.0.md",
+        "path": "resources/content/release-notes/v9.7.0.md",
         "id": "9.7.0",
         "parentId": "v9"
     },
     {
         "date": "2025-06-01T13:43:37Z",
         "title": "dist/esm polishing",
-        "path": "/.github/RELEASE_NOTES/v9.6.1.md",
+        "path": "resources/content/release-notes/v9.6.1.md",
         "id": "9.6.1",
         "parentId": "v9"
     },
     {
         "date": "2025-06-01T11:04:20Z",
         "title": "Introducing dist/esm",
-        "path": "/.github/RELEASE_NOTES/v9.6.0.md",
+        "path": "resources/content/release-notes/v9.6.0.md",
         "id": "9.6.0",
         "parentId": "v9"
     },
     {
         "date": "2025-05-25T19:08:51Z",
         "title": "examples.serverside.gridContainer",
-        "path": "/.github/RELEASE_NOTES/v9.5.0.md",
+        "path": "resources/content/release-notes/v9.5.0.md",
         "id": "9.5.0",
         "parentId": "v9"
     },
     {
         "date": "2025-05-23T18:24:38Z",
         "title": "buildScripts/production/appworker: minify all json files inside copied resources folders",
-        "path": "/.github/RELEASE_NOTES/v9.3.0.md",
+        "path": "resources/content/release-notes/v9.3.0.md",
         "id": "9.3.0",
         "parentId": "v9"
     },
     {
         "date": "2025-05-23T12:55:36Z",
         "title": "examples.serverside.toolbarItems",
-        "path": "/.github/RELEASE_NOTES/v9.2.0.md",
+        "path": "resources/content/release-notes/v9.2.0.md",
         "id": "9.2.0",
         "parentId": "v9"
     },
     {
         "date": "2025-05-13T12:29:46Z",
         "title": "component.Helix: added a ResizeObserver",
-        "path": "/.github/RELEASE_NOTES/v9.1.0.md",
+        "path": "resources/content/release-notes/v9.1.0.md",
         "id": "9.1.0",
         "parentId": "v9"
     },
     {
         "date": "2025-05-12T11:13:02Z",
         "title": "housekeeping",
-        "path": "/.github/RELEASE_NOTES/v9.0.2.md",
+        "path": "resources/content/release-notes/v9.0.2.md",
         "id": "9.0.2",
         "parentId": "v9"
     },
     {
         "date": "2025-05-05T17:50:06Z",
         "title": "Portal App: Cube layout regression fix",
-        "path": "/.github/RELEASE_NOTES/v9.0.1.md",
+        "path": "resources/content/release-notes/v9.0.1.md",
         "id": "9.0.1",
         "parentId": "v9"
     },
     {
         "date": "2025-05-03T13:05:04Z",
         "title": "Get driven string based listener resolvings",
-        "path": "/.github/RELEASE_NOTES/v9.0.0.md",
+        "path": "resources/content/release-notes/v9.0.0.md",
         "id": "9.0.0",
         "parentId": "v9"
     },
@@ -614,504 +628,504 @@
     {
         "date": "2025-04-15T10:49:47Z",
         "title": "housekeeping",
-        "path": "/.github/RELEASE_NOTES/v8.43.1.md",
+        "path": "resources/content/release-notes/v8.43.1.md",
         "id": "8.43.1",
         "parentId": "v8"
     },
     {
         "date": "2025-04-14T10:43:21Z",
         "title": "housekeeping",
-        "path": "/.github/RELEASE_NOTES/v8.43.0.md",
+        "path": "resources/content/release-notes/v8.43.0.md",
         "id": "8.43.0",
         "parentId": "v8"
     },
     {
         "date": "2025-04-09T10:56:34Z",
         "title": "housekeeping",
-        "path": "/.github/RELEASE_NOTES/v8.42.0.md",
+        "path": "resources/content/release-notes/v8.42.0.md",
         "id": "8.42.0",
         "parentId": "v8"
     },
     {
         "date": "2025-04-08T22:43:52Z",
         "title": "housekeeping",
-        "path": "/.github/RELEASE_NOTES/v8.41.2.md",
+        "path": "resources/content/release-notes/v8.41.2.md",
         "id": "8.41.2",
         "parentId": "v8"
     },
     {
         "date": "2025-04-08T15:59:46Z",
         "title": "housekeeping",
-        "path": "/.github/RELEASE_NOTES/v8.41.1.md",
+        "path": "resources/content/release-notes/v8.41.1.md",
         "id": "8.41.1",
         "parentId": "v8"
     },
     {
         "date": "2025-04-06T21:37:24Z",
         "title": "Calendar enhancements",
-        "path": "/.github/RELEASE_NOTES/v8.41.0.md",
+        "path": "resources/content/release-notes/v8.41.0.md",
         "id": "8.41.0",
         "parentId": "v8"
     },
     {
         "date": "2025-04-05T22:51:17Z",
         "title": "Remotes API polishing",
-        "path": "/.github/RELEASE_NOTES/v8.40.0.md",
+        "path": "resources/content/release-notes/v8.40.0.md",
         "id": "8.40.0",
         "parentId": "v8"
     },
     {
         "date": "2025-04-05T16:53:00Z",
         "title": "grid column renderer scope cleanup",
-        "path": "/.github/RELEASE_NOTES/v8.39.1.md",
+        "path": "resources/content/release-notes/v8.39.1.md",
         "id": "8.39.1",
         "parentId": "v8"
     },
     {
         "date": "2025-04-04T17:45:54Z",
         "title": "grid, table: support for renderer value for non-leaf dataFields",
-        "path": "/.github/RELEASE_NOTES/v8.39.0.md",
+        "path": "resources/content/release-notes/v8.39.0.md",
         "id": "8.39.0",
         "parentId": "v8"
     },
     {
         "date": "2025-04-04T13:20:35Z",
         "title": "data.RecordFactory: support for calculated fields inside the record originalData symbol",
-        "path": "/.github/RELEASE_NOTES/v8.38.0.md",
+        "path": "resources/content/release-notes/v8.38.0.md",
         "id": "8.38.0",
         "parentId": "v8"
     },
     {
         "date": "2025-04-04T10:18:36Z",
         "title": "data.RecordFactory: enhanced calculated fields for run-time updates",
-        "path": "/.github/RELEASE_NOTES/v8.37.0.md",
+        "path": "resources/content/release-notes/v8.37.0.md",
         "id": "8.37.0",
         "parentId": "v8"
     },
     {
         "date": "2025-04-01T14:01:28Z",
         "title": "Earthquakes Tutorial: updated version",
-        "path": "/.github/RELEASE_NOTES/v8.36.0.md",
+        "path": "resources/content/release-notes/v8.36.0.md",
         "id": "8.36.0",
         "parentId": "v8"
     },
     {
         "date": "2025-03-31T14:42:36Z",
         "title": "state.Provider polishing",
-        "path": "/.github/RELEASE_NOTES/v8.35.1.md",
+        "path": "resources/content/release-notes/v8.35.1.md",
         "id": "8.35.1",
         "parentId": "v8"
     },
     {
         "date": "2025-03-26T18:32:40Z",
         "title": "Finance.view.Viewport: header toolbar with start & stop buttons",
-        "path": "/.github/RELEASE_NOTES/v8.35.0.md",
+        "path": "resources/content/release-notes/v8.35.0.md",
         "id": "8.35.0",
         "parentId": "v8"
     },
     {
         "date": "2025-03-26T15:14:52Z",
         "title": "grid.column.AnimatedCurrency",
-        "path": "/.github/RELEASE_NOTES/v8.34.0.md",
+        "path": "resources/content/release-notes/v8.34.0.md",
         "id": "8.34.0",
         "parentId": "v8"
     },
     {
         "date": "2025-03-25T17:38:42Z",
         "title": "Polishing the ServiceWorker implementation",
-        "path": "/.github/RELEASE_NOTES/v8.33.0.md",
+        "path": "resources/content/release-notes/v8.33.0.md",
         "id": "8.33.0",
         "parentId": "v8"
     },
     {
         "date": "2025-03-21T16:35:47Z",
         "title": "new readme, LLM guide",
-        "path": "/.github/RELEASE_NOTES/v8.32.0.md",
+        "path": "resources/content/release-notes/v8.32.0.md",
         "id": "8.32.0",
         "parentId": "v8"
     },
     {
         "date": "2025-03-10T09:13:16Z",
         "title": "housekeeping",
-        "path": "/.github/RELEASE_NOTES/v8.31.1.md",
+        "path": "resources/content/release-notes/v8.31.1.md",
         "id": "8.31.1",
         "parentId": "v8"
     },
     {
         "date": "2025-03-09T21:58:08Z",
         "title": "Animated sorting & filtering for your grid rows",
-        "path": "/.github/RELEASE_NOTES/v8.31.0.md",
+        "path": "resources/content/release-notes/v8.31.0.md",
         "id": "8.31.0",
         "parentId": "v8"
     },
     {
         "date": "2025-03-07T17:05:53Z",
         "title": "grid.column.Progress",
-        "path": "/.github/RELEASE_NOTES/v8.30.0.md",
+        "path": "resources/content/release-notes/v8.30.0.md",
         "id": "8.30.0",
         "parentId": "v8"
     },
     {
         "date": "2025-03-03T22:33:18Z",
         "title": "Buffered Grid: Column Types",
-        "path": "/.github/RELEASE_NOTES/v8.29.0.md",
+        "path": "resources/content/release-notes/v8.29.0.md",
         "id": "8.29.0",
         "parentId": "v8"
     },
     {
         "date": "2025-03-02T19:15:49Z",
         "title": "housekeeping",
-        "path": "/.github/RELEASE_NOTES/v8.28.1.md",
+        "path": "resources/content/release-notes/v8.28.1.md",
         "id": "8.28.1",
         "parentId": "v8"
     },
     {
         "date": "2025-03-02T18:25:36Z",
         "title": "Adjusting all grid selection models for buffered rendering",
-        "path": "/.github/RELEASE_NOTES/v8.28.0.md",
+        "path": "resources/content/release-notes/v8.28.0.md",
         "id": "8.28.0",
         "parentId": "v8"
     },
     {
         "date": "2025-03-01T16:04:13Z",
         "title": "selection.grid.ColumnModel: support for buffered rendering",
-        "path": "/.github/RELEASE_NOTES/v8.27.1.md",
+        "path": "resources/content/release-notes/v8.27.1.md",
         "id": "8.27.1",
         "parentId": "v8"
     },
     {
         "date": "2025-03-01T15:27:18Z",
         "title": "selection.grid.ColumnModel: support for buffered rendering",
-        "path": "/.github/RELEASE_NOTES/v8.27.0.md",
+        "path": "resources/content/release-notes/v8.27.0.md",
         "id": "8.27.0",
         "parentId": "v8"
     },
     {
         "date": "2025-02-26T23:47:56Z",
         "title": "housekeeping",
-        "path": "/.github/RELEASE_NOTES/v8.26.1.md",
+        "path": "resources/content/release-notes/v8.26.1.md",
         "id": "8.26.1",
         "parentId": "v8"
     },
     {
         "date": "2025-02-26T22:59:58Z",
         "title": "Smarter layout updates",
-        "path": "/.github/RELEASE_NOTES/v8.26.0.md",
+        "path": "resources/content/release-notes/v8.26.0.md",
         "id": "8.26.0",
         "parentId": "v8"
     },
     {
         "date": "2025-02-26T13:55:30Z",
         "title": "grid.ScrollManager",
-        "path": "/.github/RELEASE_NOTES/v8.25.0.md",
+        "path": "resources/content/release-notes/v8.25.0.md",
         "id": "8.25.0",
         "parentId": "v8"
     },
     {
         "date": "2025-02-24T17:36:01Z",
         "title": "Buffered Grid: Cell Selection Model",
-        "path": "/.github/RELEASE_NOTES/v8.24.0.md",
+        "path": "resources/content/release-notes/v8.24.0.md",
         "id": "8.24.0",
         "parentId": "v8"
     },
     {
         "date": "2025-02-21T14:52:52Z",
         "title": "component.MagicMoveText",
-        "path": "/.github/RELEASE_NOTES/v8.23.0.md",
+        "path": "resources/content/release-notes/v8.23.0.md",
         "id": "8.23.0",
         "parentId": "v8"
     },
     {
         "date": "2025-02-18T16:35:25Z",
         "title": "Buffered Grid: Added support for selection.RowModel to navigate into non-mounted areas",
-        "path": "/.github/RELEASE_NOTES/v8.22.0.md",
+        "path": "resources/content/release-notes/v8.22.0.md",
         "id": "8.22.0",
         "parentId": "v8"
     },
     {
         "date": "2025-02-12T10:57:57Z",
         "title": "Added the new blog post to the portal app",
-        "path": "/.github/RELEASE_NOTES/v8.21.2.md",
+        "path": "resources/content/release-notes/v8.21.2.md",
         "id": "8.21.2",
         "parentId": "v8"
     },
     {
         "date": "2025-02-12T03:13:18Z",
         "title": "housekeeping",
-        "path": "/.github/RELEASE_NOTES/v8.21.1.md",
+        "path": "resources/content/release-notes/v8.21.1.md",
         "id": "8.21.1",
         "parentId": "v8"
     },
     {
         "date": "2025-02-11T23:26:47Z",
         "title": "Grid & grid examples enhancements",
-        "path": "/.github/RELEASE_NOTES/v8.21.0.md",
+        "path": "resources/content/release-notes/v8.21.0.md",
         "id": "8.21.0",
         "parentId": "v8"
     },
     {
         "date": "2025-02-09T22:21:02Z",
         "title": "housekeeping",
-        "path": "/.github/RELEASE_NOTES/v8.20.2.md",
+        "path": "resources/content/release-notes/v8.20.2.md",
         "id": "8.20.2",
         "parentId": "v8"
     },
     {
         "date": "2025-02-09T20:49:13Z",
         "title": "housekeeping",
-        "path": "/.github/RELEASE_NOTES/v8.20.1.md",
+        "path": "resources/content/release-notes/v8.20.1.md",
         "id": "8.20.1",
         "parentId": "v8"
     },
     {
         "date": "2025-02-09T19:46:03Z",
         "title": "grid.Container: diagonal scrolling for mobile",
-        "path": "/.github/RELEASE_NOTES/v8.20.0.md",
+        "path": "resources/content/release-notes/v8.20.0.md",
         "id": "8.20.0",
         "parentId": "v8"
     },
     {
         "date": "2025-02-09T14:58:19Z",
         "title": "housekeeping",
-        "path": "/.github/RELEASE_NOTES/v8.19.1.md",
+        "path": "resources/content/release-notes/v8.19.1.md",
         "id": "8.19.1",
         "parentId": "v8"
     },
     {
         "date": "2025-02-09T01:47:52Z",
         "title": "Big data grid demo: sliding controls container",
-        "path": "/.github/RELEASE_NOTES/v8.19.0.md",
+        "path": "resources/content/release-notes/v8.19.0.md",
         "id": "8.19.0",
         "parentId": "v8"
     },
     {
         "date": "2025-02-08T21:48:56Z",
         "title": "housekeeping",
-        "path": "/.github/RELEASE_NOTES/v8.18.1.md",
+        "path": "resources/content/release-notes/v8.18.1.md",
         "id": "8.18.1",
         "parentId": "v8"
     },
     {
         "date": "2025-02-08T17:52:07Z",
         "title": "grid.Container: loading mask styling",
-        "path": "/.github/RELEASE_NOTES/v8.18.0.md",
+        "path": "resources/content/release-notes/v8.18.0.md",
         "id": "8.18.0",
         "parentId": "v8"
     },
     {
         "date": "2025-02-07T16:54:13Z",
         "title": "housekeeping",
-        "path": "/.github/RELEASE_NOTES/v8.17.1.md",
+        "path": "resources/content/release-notes/v8.17.1.md",
         "id": "8.17.1",
         "parentId": "v8"
     },
     {
         "date": "2025-02-07T16:25:25Z",
         "title": "grid.Container: always have a vertical scrollbar at the right edge",
-        "path": "/.github/RELEASE_NOTES/v8.17.0.md",
+        "path": "resources/content/release-notes/v8.17.0.md",
         "id": "8.17.0",
         "parentId": "v8"
     },
     {
         "date": "2025-02-06T12:30:20Z",
         "title": "Grid Column Drag & Drop polishing",
-        "path": "/.github/RELEASE_NOTES/v8.16.0.md",
+        "path": "resources/content/release-notes/v8.16.0.md",
         "id": "8.16.0",
         "parentId": "v8"
     },
     {
         "date": "2025-02-06T00:09:46Z",
         "title": "Grid Column Drag to Scroll over the edge of the Container",
-        "path": "/.github/RELEASE_NOTES/v8.15.0.md",
+        "path": "resources/content/release-notes/v8.15.0.md",
         "id": "8.15.0",
         "parentId": "v8"
     },
     {
         "date": "2025-02-04T18:37:17Z",
         "title": "Grid: DD Column resorting when the grid is horizontally scrolled",
-        "path": "/.github/RELEASE_NOTES/v8.14.3.md",
+        "path": "resources/content/release-notes/v8.14.3.md",
         "id": "8.14.3",
         "parentId": "v8"
     },
     {
         "date": "2025-02-04T10:47:02Z",
         "title": "housekeeping",
-        "path": "/.github/RELEASE_NOTES/v8.14.2.md",
+        "path": "resources/content/release-notes/v8.14.2.md",
         "id": "8.14.2",
         "parentId": "v8"
     },
     {
         "date": "2025-02-03T23:02:19Z",
         "title": "housekeeping",
-        "path": "/.github/RELEASE_NOTES/v8.14.1.md",
+        "path": "resources/content/release-notes/v8.14.1.md",
         "id": "8.14.1",
         "parentId": "v8"
     },
     {
         "date": "2025-02-03T21:24:25Z",
         "title": "Enhanced Grid Column Header Drag&Drop",
-        "path": "/.github/RELEASE_NOTES/v8.14.0.md",
+        "path": "resources/content/release-notes/v8.14.0.md",
         "id": "8.14.0",
         "parentId": "v8"
     },
     {
         "date": "2025-01-30T19:48:05Z",
         "title": "Grid & Table Annotations",
-        "path": "/.github/RELEASE_NOTES/v8.13.0.md",
+        "path": "resources/content/release-notes/v8.13.0.md",
         "id": "8.13.0",
         "parentId": "v8"
     },
     {
         "date": "2025-01-29T22:28:01Z",
         "title": "Grid & Table Column Header Drag & Drop",
-        "path": "/.github/RELEASE_NOTES/v8.12.0.md",
+        "path": "resources/content/release-notes/v8.12.0.md",
         "id": "8.12.0",
         "parentId": "v8"
     },
     {
         "date": "2025-01-28T11:03:00Z",
         "title": "Table Selection Models",
-        "path": "/.github/RELEASE_NOTES/v8.11.0.md",
+        "path": "resources/content/release-notes/v8.11.0.md",
         "id": "8.11.0",
         "parentId": "v8"
     },
     {
         "date": "2025-01-27T10:27:01Z",
         "title": "housekeeping",
-        "path": "/.github/RELEASE_NOTES/v8.10.1.md",
+        "path": "resources/content/release-notes/v8.10.1.md",
         "id": "8.10.1",
         "parentId": "v8"
     },
     {
         "date": "2025-01-26T20:48:50Z",
         "title": "Grid Selection Models",
-        "path": "/.github/RELEASE_NOTES/v8.10.0.md",
+        "path": "resources/content/release-notes/v8.10.0.md",
         "id": "8.10.0",
         "parentId": "v8"
     },
     {
         "date": "2025-01-25T22:53:57Z",
         "title": "housekeeping",
-        "path": "/.github/RELEASE_NOTES/v8.9.1.md",
+        "path": "resources/content/release-notes/v8.9.1.md",
         "id": "8.9.1",
         "parentId": "v8"
     },
     {
         "date": "2025-01-25T21:07:22Z",
         "title": "Smarter theme inheritance for run-time changes",
-        "path": "/.github/RELEASE_NOTES/v8.9.0.md",
+        "path": "resources/content/release-notes/v8.9.0.md",
         "id": "8.9.0",
         "parentId": "v8"
     },
     {
         "date": "2025-01-25T20:00:21Z",
         "title": "examples.grid.nestedRecordFields",
-        "path": "/.github/RELEASE_NOTES/v8.8.0.md",
+        "path": "resources/content/release-notes/v8.8.0.md",
         "id": "8.8.0",
         "parentId": "v8"
     },
     {
         "date": "2025-01-23T23:53:05Z",
         "title": "data.RecordFactory: re-added support for data.Model based record default values",
-        "path": "/.github/RELEASE_NOTES/v8.7.1.md",
+        "path": "resources/content/release-notes/v8.7.1.md",
         "id": "8.7.1",
         "parentId": "v8"
     },
     {
         "date": "2025-01-23T17:07:59Z",
         "title": "data.RecordFactory: optionally tracking modified record fields",
-        "path": "/.github/RELEASE_NOTES/v8.7.0.md",
+        "path": "resources/content/release-notes/v8.7.0.md",
         "id": "8.7.0",
         "parentId": "v8"
     },
     {
         "date": "2025-01-21T18:34:28Z",
         "title": "list.Base: afterSetFocusIndex() honor the mounted state",
-        "path": "/.github/RELEASE_NOTES/v8.6.2.md",
+        "path": "resources/content/release-notes/v8.6.2.md",
         "id": "8.6.2",
         "parentId": "v8"
     },
     {
         "date": "2025-01-21T17:53:25Z",
         "title": "form.field.ComboBox: when showing the picker, the list focus & selected index should be in sync",
-        "path": "/.github/RELEASE_NOTES/v8.6.1.md",
+        "path": "resources/content/release-notes/v8.6.1.md",
         "id": "8.6.1",
         "parentId": "v8"
     },
     {
         "date": "2025-01-21T16:03:31Z",
         "title": "data.RecordFactory: performance boost for creating records",
-        "path": "/.github/RELEASE_NOTES/v8.6.0.md",
+        "path": "resources/content/release-notes/v8.6.0.md",
         "id": "8.6.0",
         "parentId": "v8"
     },
     {
         "date": "2025-01-16T14:22:23Z",
         "title": "Smarter vdom update aggregation for colliding updates",
-        "path": "/.github/RELEASE_NOTES/v8.5.0.md",
+        "path": "resources/content/release-notes/v8.5.0.md",
         "id": "8.5.0",
         "parentId": "v8"
     },
     {
         "date": "2025-01-14T19:21:17Z",
         "title": "grid.View: added support for a column buffer range",
-        "path": "/.github/RELEASE_NOTES/v8.4.2.md",
+        "path": "resources/content/release-notes/v8.4.2.md",
         "id": "8.4.2",
         "parentId": "v8"
     },
     {
         "date": "2025-01-14T14:49:03Z",
         "title": "collection.Base: performance improvement",
-        "path": "/.github/RELEASE_NOTES/v8.4.1.md",
+        "path": "resources/content/release-notes/v8.4.1.md",
         "id": "8.4.1",
         "parentId": "v8"
     },
     {
         "date": "2025-01-14T13:43:37Z",
         "title": "Buffered Data Grid with 5M cells example",
-        "path": "/.github/RELEASE_NOTES/v8.4.0.md",
+        "path": "resources/content/release-notes/v8.4.0.md",
         "id": "8.4.0",
         "parentId": "v8"
     },
     {
         "date": "2025-01-12T23:55:17Z",
         "title": "Critical Rendering Paths for run-time updates",
-        "path": "/.github/RELEASE_NOTES/v8.3.0.md",
+        "path": "resources/content/release-notes/v8.3.0.md",
         "id": "8.3.0",
         "parentId": "v8"
     },
     {
         "date": "2025-01-12T15:59:32Z",
         "title": "Optimising critical rendering paths",
-        "path": "/.github/RELEASE_NOTES/v8.2.0.md",
+        "path": "resources/content/release-notes/v8.2.0.md",
         "id": "8.2.0",
         "parentId": "v8"
     },
     {
         "date": "2025-01-12T12:56:41Z",
         "title": "Buffered Grid - polishing for dist/production & slow connections",
-        "path": "/.github/RELEASE_NOTES/v8.1.3.md",
+        "path": "resources/content/release-notes/v8.1.3.md",
         "id": "8.1.3",
         "parentId": "v8"
     },
     {
         "date": "2025-01-12T03:46:15Z",
         "title": "Buffered Grid: polishing for slow connections & mobile",
-        "path": "/.github/RELEASE_NOTES/v8.1.2.md",
+        "path": "resources/content/release-notes/v8.1.2.md",
         "id": "8.1.2",
         "parentId": "v8"
     },
     {
         "date": "2025-01-11T17:15:06Z",
         "title": "Buffered Grid - Fixed column header clicks",
-        "path": "/.github/RELEASE_NOTES/v8.1.1.md",
+        "path": "resources/content/release-notes/v8.1.1.md",
         "id": "8.1.1",
         "parentId": "v8"
     },
     {
         "date": "2025-01-11T14:50:10Z",
         "title": "Buffered Grid - PoC version",
-        "path": "/.github/RELEASE_NOTES/v8.1.0.md",
+        "path": "resources/content/release-notes/v8.1.0.md",
         "id": "8.1.0",
         "parentId": "v8"
     }
