@@ -490,6 +490,9 @@ class Markdown extends Component {
         // This content string now contains standard markdown PLUS the HTML divs/pres we injected.
         html = marked.parse(content);
 
+        // Wrap raw HTML img tags in a scrollable container
+        html = html.replace(/<img([^>]*)>/g, '<div class="neo-markdown-image-wrapper"><img$1></div>');
+
         // Insert lab divs (these are markdown comments, so process on the final HTML)
         await me.set({html: me.insertLabDivs(html)});
         await me.timeout(10);

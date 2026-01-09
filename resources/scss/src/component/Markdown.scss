@@ -167,4 +167,14 @@
             font-weight: bold;
         }
     }
+
+    .neo-markdown-image-wrapper {
+        overflow-x: auto;
+        text-align: center;
+        width     : 100%;
+
+        img {
+            max-width: initial;
+        }
+    }
 }
