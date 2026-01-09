@@ -229,15 +229,13 @@ class Button extends Component {
     /**
      * Workaround fix for: https://github.com/neomjs/neo/issues/6659
      * Todo: inspect this further (we do not want to add fixed ids for all child nodes)
-     * Triggered after the id config got changed
-     * @param {String} value    The new value of the id config.
-     * @param {String} oldValue The old value of the id config.
+     * Ensures that the root VDOM node and its wrapper (if any) have stable, unique IDs
+     * derived from the component instance ID.
      * @protected
      */
-    afterSetId(value, oldValue) {
-        super.afterSetId(value, oldValue);
-
-        this.textNode.id = value + '__text'
+    ensureStableIds() {
+        super.ensureStableIds();
+        this.textNode.id = this.id + '__text'
     }
 
     /**
