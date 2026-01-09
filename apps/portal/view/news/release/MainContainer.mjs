@@ -20,6 +20,10 @@ class MainContainer extends SharedContainer {
          */
         cls: ['portal-release-maincontainer'],
         /**
+         * @member {String} buttonTextField='id'
+         */
+        buttonTextField: 'id',
+        /**
          * @member {Neo.component.Base} contentComponent=ContentComponent
          */
         contentComponent: ContentComponent,

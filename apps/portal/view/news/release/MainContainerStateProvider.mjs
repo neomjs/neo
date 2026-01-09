@@ -80,9 +80,7 @@ class MainContainerStateProvider extends StateProvider {
                     store              = me.getStore('tree'),
                     index              = store.indexOf(value),
                     nextPageRecord     = null,
-                    nextPageText       = null,
                     previousPageRecord = null,
-                    previousPageText   = null,
                     i, record;
 
                 // the logic assumes that the tree store is sorted
@@ -95,7 +93,7 @@ class MainContainerStateProvider extends StateProvider {
                     }
                 }
 
-                me.setData({previousPageText, previousPageRecord});
+                me.setData({previousPageRecord});
 
                 // the logic assumes that the tree store is sorted
                 for (i=index+1; i < countPages; i++) {
@@ -107,7 +105,7 @@ class MainContainerStateProvider extends StateProvider {
                     }
                 }
 
-                me.setData({nextPageText, nextPageRecord});
+                me.setData({nextPageRecord});
 
                 me.component.getReference('sidenav-container')?.toggleCls('neo-expanded', false)
 

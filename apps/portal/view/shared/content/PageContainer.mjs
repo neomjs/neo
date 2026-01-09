@@ -26,6 +26,10 @@ class PageContainer extends Container {
             previousPageRecord: data => data.previousPageRecord
         },
         /**
+         * @member {String} buttonTextField='name'
+         */
+        buttonTextField: 'name',
+        /**
          * @member {Neo.component.Base|null} contentComponent=null
          */
         contentComponent: null,
@@ -105,7 +109,7 @@ class PageContainer extends Container {
     afterSetNextPageRecord(value, oldValue) {
         if (oldValue !== undefined) {
             if (value) {
-                this.nextPageButton.set({hidden: false, text: value.name})
+                this.nextPageButton.set({hidden: false, text: value[this.buttonTextField]})
             } else {
                 this.nextPageButton.hidden = true
             }
@@ -120,7 +124,7 @@ class PageContainer extends Container {
     afterSetPreviousPageRecord(value, oldValue) {
         if (oldValue !== undefined) {
             if (value) {
-                this.prevPageButton.set({hidden: false, text: value.name})
+                this.prevPageButton.set({hidden: false, text: value[this.buttonTextField]})
             } else {
                 this.prevPageButton.hidden = true
             }
