@@ -2,21 +2,21 @@
 
 > **Note for Readers:** This guide is primarily written for AI agents working with the Neo.mjs codebase and is part of their required session initialization. However, it also serves as a comprehensive overview for human developers seeking to understand the platform's scale, architecture, and design philosophy. References to "querying" refer to the AI Knowledge Base system available to agents.
 
-## Understanding the Scale (State of October 2025)
+## Understanding the Scale (State of January 2026)
 
 Neo.mjs is not a library. It's a **comprehensive web platform** with:
 
-- **41,282 lines** of core framework source (351 files)
-- **19,199 lines** of working examples (485 files)
-- **14,111 lines** of flagship applications (260 files)
-- **6,205 lines** of AI infrastructure (47 files)
-- **4,778 lines** of automated tests (39 files)
-- **4,257 lines** of build tooling (31 files)
+- **45,244 lines** of core engine source (370 files)
+- **19,210 lines** of working examples (485 files)
+- **16,478 lines** of flagship applications (313 files)
+- **13,714 lines** of AI infrastructure (105 files)
+- **6,769 lines** of automated tests (56 files)
+- **5,813 lines** of build tooling (44 files)
 - **1,294 lines** of documentation app (17 files)
-- **11,313 lines** of production theming (415 SCSS files)
-- **30,002 lines** of JSDoc documentation
+- **12,137 lines** of production theming (446 SCSS files)
+- **52,850 lines** of JSDoc documentation
 
-**Total: ~102,000 lines of source code + 30,000 lines of documentation = 132,000 lines of knowledge**
+**Total: ~121,000 lines of source code + 53,000 lines of documentation = ~174,000 lines of knowledge**
 
 The documentation lines count. They contain intent, architectural rationale, and usage patterns—knowledge that's as valuable as the code itself for understanding the platform.
 
@@ -136,7 +136,7 @@ Neo.create(Effect, {
 
 ### Component System (Two Models)
 
-**Class-based Components**: Full framework features
+**Class-based Components**: Full engine features
 - Reactive configs with `beforeGet`/`beforeSet`/`afterSet` hooks
 - Mixins for composable behavior
 - Full inheritance chain
@@ -260,7 +260,7 @@ Desktop-class application architecture:
 
 ## The Knowledge Landscape: What's Available to Query
 
-### Core Framework (`/src` - 351 files, 81k lines)
+### Core Engine (`/src` - 351 files, 81k lines)
 
 **Foundation**:
 - `Neo.mjs`: The entry point. Class factory, `setupClass()`, global configuration
@@ -508,6 +508,6 @@ If you're coming from other frameworks, here are the key mental shifts:
 
 ## Remember
 
-This is a **132,000-line knowledge base**, not a 5k-line library. And that's just the indexed source and JSDoc—it excludes the `/dist` production builds (which would triple it) and ~100 markdown files of learning content in `/learn`.
+This is a **174,000-line knowledge base**, not a 5k-line library. And that's just the indexed source and JSDoc—it excludes the `/dist` production builds (which would triple it) and ~100 markdown files of learning content in `/learn`.
 
 Don't assume. Query. The knowledge base contains the answers. Your job is to ask the right questions.

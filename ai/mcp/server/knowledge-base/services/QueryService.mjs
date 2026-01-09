@@ -1,3 +1,4 @@
+import fs                   from 'fs-extra';
 import {GoogleGenerativeAI} from '@google/generative-ai';
 import aiConfig             from '../config.mjs';
 import Base                 from '../../../../../src/core/Base.mjs';
@@ -48,6 +49,50 @@ class QueryService extends Base {
     async initAsync() {
         await super.initAsync();
         await ChromaManager.ready();
+    }
+
+    /**
+     * Retrieves the static class hierarchy from the pre-generated JSON file.
+     * @param {Object} params
+     * @param {String} params.root Root class name to filter the hierarchy (e.g., 'Neo.component.Base').
+     * @returns {Promise<Object>} The class hierarchy map or subtree.
+     */
+    async getClassHierarchy({root} = {}) {
+        if (!root) {
+            throw new Error('The "root" parameter is required to prevent excessive context payload. Please specify a root class (e.g., "Neo.component.Base").');
+        }
+
+        if (!await fs.pathExists(aiConfig.hierarchyPath)) {
+            throw new Error('Class hierarchy file not found. Please sync the knowledge base first.');
+        }
+
+        const hierarchy = await fs.readJson(aiConfig.hierarchyPath);
+
+        // If a root is specified, find all subclasses recursively
+        const subtree = {};
+        const queue = [root];
+
+        // Include the root itself if it exists (parent is the value)
+        if (Object.hasOwn(hierarchy, root)) {
+            subtree[root] = hierarchy[root];
+        }
+
+        while (queue.length > 0) {
+            const currentParent = queue.shift();
+            
+            Object.entries(hierarchy).forEach(([className, parentName]) => {
+                if (parentName === currentParent) {
+                    subtree[className] = parentName;
+                    queue.push(className);
+                }
+            });
+        }
+
+        if (Object.keys(subtree).length === 0 && !Object.hasOwn(hierarchy, root)) {
+             return { message: `Class '${root}' found in hierarchy, but it has no subclasses or entry.` };
+        }
+
+        return subtree;
     }
 
     /**
@@ -111,8 +156,12 @@ class QueryService extends Base {
                 if (keywordSingular.length > 2) {
                     if (sourcePathLower.includes(`/${keywordSingular}/`)) score += queryScoreWeights.sourcePathMatch;
                     if (fileName.includes(keywordSingular)) score += queryScoreWeights.fileNameMatch;
-                    if (metadata.type === 'class' && nameLower.includes(keywordSingular)) score += queryScoreWeights.classNameMatch;
-                    if (metadata.className && metadata.className.toLowerCase().includes(keywordSingular)) score += queryScoreWeights.classNameMatch;
+                    
+                    // Old JSDoc based check: metadata.type === 'class'
+                    // New SourceParser check: metadata.className exists
+                    if (metadata.className && metadata.className.toLowerCase().includes(keywordSingular)) {
+                         score += queryScoreWeights.classNameMatch;
+                    }
 
                     if (metadata.type === 'guide') score += queryScoreWeights.guideMatch;
                     if (metadata.type === 'blog') {

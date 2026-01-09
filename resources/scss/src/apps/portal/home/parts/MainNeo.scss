@@ -4,16 +4,22 @@
 }
 
 .portal-home-main-neo.portal-home-content-view {
-    background-color: #ffffff;
-    background-image: url("data:image/svg+xml,%3Csvg width='8' height='8' viewBox='0 0 6 6' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23504e54' fill-opacity='0.18' fill-rule='evenodd'%3E%3Cpath d='M5 0h1L0 6V5zM6 5v1H5z'/%3E%3C/g%3E%3C/svg%3E");
-    padding         : 3em;
+    /* Background moved to MainContainer for global engine effect */
+    background-color: transparent;
+    gap             : 2.5rem;
+    padding         : 6em 2em;
 
     .button-group {
         background-color: transparent;
         display         : flex;
-        flex-direction  : row-reverse;
-        gap             : 8px;
-        margin          : 2rem 0;
+        flex-direction  : row;
+        gap             : 1rem;
+        margin-top      : 1rem;
+        width           : auto;
+
+        .neo-button {
+            min-width: 160px;
+        }
     }
 
     .logo-container {
@@ -22,18 +28,19 @@
         display         : flex;
         flex-direction  : row;
         flex-wrap       : wrap;
-        gap             : 20px;
-        min-height      : 130px;
-        min-width       : 240px;
+        gap             : 1.5rem;
+        justify-content : center;
+        min-height      : 100px;
     }
 
     .neo-magic-move-text {
         background-color: transparent;
-        color           : #000;
+        color           : var(--sem-color-text-neutral-default);
         font-size       : 2.5rem;
         height          : 2em;
         letter-spacing  : -0.02em;
         line-height     : 1.2em;
+        margin          : 0;
         width           : 90%;
 
         .neo-content {
@@ -46,24 +53,32 @@
     }
 
     .neo-github {
-        background-color: #fff;
+        background-color: var(--sem-color-bg-neutral-highlighted);
+        color           : var(--sem-color-text-neutral-default);
     }
 
     .neo-h1 {
-        font-family: "GT-Planar";
-        font-size  : 60px;
+        color      : var(--sem-color-text-neutral-contrast);
+        font-family: "GT-Planar", sans-serif;
+        font-size  : 5rem;
+        line-height: 1.1;
+        margin     : 0;
     }
 
     .neo-h2 {
+        color      : var(--sem-color-text-neutral-default);
         font-size  : 2.5rem;
         font-weight: 800;
-        margin     : 1.25rem;
+        margin     : 0;
     }
 
     .neo-h3 {
-        margin    : 1rem 14rem;
-        max-width : 900px;
-        text-align: center;
+        color      : var(--sem-color-text-neutral-subdued);
+        font-size  : 1.25rem;
+        line-height: 1.6;
+        margin     : 0 auto;
+        max-width  : 700px;
+        text-align : center;
     }
 
     .vector {
@@ -77,68 +92,44 @@
     }
 
     @media (max-width : 1000px) {
-        .neo-h3 {
-            margin: 1rem 7rem;
+        .neo-h1 {
+            font-size: 4rem;
         }
     }
 
     @media (max-width : 645px) {
-        padding: 1.5em 0.5em;
+        padding: 4em 1.5em;
+        gap    : 2rem;
 
         .logo-container {
-            gap: 10px;
-        }
-
-        .neo-h2 {
-            margin: 0.5rem 0.5rem;
-        }
-
-        .neo-h3 {
-            margin: 1rem 2rem;
-        }
-
-        .neo-magic-move-text {
-            height: 3.5em;
-        }
-
-        .vector {
-            height: 17vw;
-        }
-
-        .button-group {
-            margin: 0.5rem 0;
-        }
-    }
-
-    @media (max-width : 500px) {
-        .logo-container {
-            gap: 10px;
+            gap: 1rem;
         }
 
         .neo-h1 {
-            font-size: 40px;
-        }
-
-        .neo-h2 {
-            font-size: 2rem;
-            margin   : 0.5rem 2rem;
-        }
-
-        .neo-h3 {
-            font-size: 1.15rem;
+            font-size: 3rem;
         }
 
         .neo-magic-move-text {
             height: 3.5em;
+        }
 
-            .neo-content {
-                font-size: 2rem;
-            }
+        .neo-h3 {
+            font-size: 1.1rem;
+            max-width: 100%;
         }
 
         .vector {
-            height: 70px;
-            width : 70px;
+            height: 60px;
+            width : 60px;
+        }
+
+        .button-group {
+            flex-direction: column;
+            width: 100%;
+
+            .neo-button {
+                width: 100%;
+            }
         }
     }
 }

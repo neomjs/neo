@@ -276,6 +276,121 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /knowledge/ask:
+    post:
+      summary: Ask Knowledge Base (RAG)
+      operationId: ask_knowledge_base
+      x-pass-as-object: true
+      description: |
+        Performs a semantic search and uses an LLM to synthesize an answer based on the top results.
+        Use this tool to get a high-level answer without manually reading multiple files.
+
+        **Input:**
+        - `query`: The question to ask.
+        - `limit`: (Optional) Number of source documents to consider (default 5).
+        - `type`: (Optional) Filter by content type (e.g., 'guide', 'src', 'all').
+
+        **Output:**
+        - `answer`: Synthesized answer.
+        - `references`: List of source files used to generate the answer.
+      tags: [Documents]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - query
+              properties:
+                query:
+                  type: string
+                  description: The question to ask.
+                type:
+                  type: string
+                  description: "Optional filter by content type (e.g., 'guide', 'src', 'all')."
+                  enum: [all, blog, guide, src, example, ticket, release, test]
+                  default: all
+                limit:
+                  type: integer
+                  description: Number of documents to include in context.
+                  default: 5
+      responses:
+        '200':
+          description: Successful RAG response.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  answer:
+                    type: string
+                  references:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        source:
+                          type: string
+                        score:
+                          type: number
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /knowledge/hierarchy:
+    get:
+      summary: Get Class Hierarchy
+      operationId: get_class_hierarchy
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: true
+      description: |
+        Retrieves the static class hierarchy from the knowledge base.
+        This tool provides a deterministic map of class relationships (inheritance) derived from source code.
+
+        **Input:**
+        - `root`: (Optional) Filter the hierarchy to show only subclasses of this class (e.g., 'Neo.component.Base').
+
+        **Output:**
+        A JSON object where keys are class names and values contain metadata (source file, parent class).
+      tags: [Documents]
+      parameters:
+        - name: root
+          in: query
+          required: true
+          description: The root class name to filter by.
+          schema:
+            type: string
+            example: "Neo.component.Base"
+      responses:
+        '200':
+          description: The class hierarchy map.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: string
+                  nullable: true
+        '404':
+          description: Hierarchy file not found (requires sync).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /documents:
     get:
       summary: List Documents

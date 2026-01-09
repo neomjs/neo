@@ -1,0 +1,10 @@
+.portal-content-component {
+    background-color: transparent;
+}
+
+.portal-size-large {
+    .portal-content-component,
+    .neo-markdown-component {
+        padding: 0 250px 0 3rem;
+    }
+}

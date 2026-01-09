@@ -331,7 +331,7 @@ class Worker extends Base {
      * @protected
      */
     sendMessage(dest, opts, transfer) {
-        if (dest === 'main' && this.isSharedWorker) {
+        if (dest === 'main' && this.isSharedWorker && opts.action !== 'registerRemote') {
             console.warn('sendMessage destination "main" is deprecated. Use a windowId instead.', opts)
         }
 

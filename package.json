@@ -1,16 +1,16 @@
 {
-    "name"       : "neo.mjs",
-    "version"    : "11.18.0",
-    "description": "Neo.mjs: The first Agent Operating System for the web. A standalone, type-safe AI SDK combined with a multi-threaded, zero-build platform for building autonomous agents and desktop-class web apps.",
-    "type"       : "module",
-    "repository": {
+    "name"           : "neo.mjs",
+    "version"        : "11.19.0",
+    "description"    : "The Application Engine for the AI Era. A multi-threaded, AI-native runtime with a persistent Scene Graph, enabling AI agents to introspect and manipulate the living application structure in real-time.",
+    "type"           : "module",
+    "repository"     : {
         "type": "git",
         "url" : "https://github.com/neomjs/neo.git"
     },
-    "bin": {
+    "bin"            : {
         "neo-cc": "./buildScripts/createClass.mjs"
     },
-    "scripts": {
+    "scripts"        : {
         "add-config"                   : "node ./buildScripts/addConfig.mjs",
         "add-reactive-tags"            : "node ./buildScripts/addReactiveTags.mjs",
         "ai:download-kb"               : "node ./buildScripts/downloadKnowledgeBase.mjs",
@@ -23,7 +23,7 @@
         "ai:server"                    : "chroma run --path ./chroma-neo-knowledge-base",
         "ai:server-memory"             : "chroma run --path ./chroma-neo-memory-core --port 8001",
         "ai:server-neural-link"        : "node ./ai/mcp/server/neural-link/run-bridge.mjs",
-        "ai:sync-kb"                   : "node ./ai/examples/sync_knowledge_base.mjs",
+        "ai:sync-kb"                   : "node ./buildScripts/syncKnowledgeBase.mjs",
         "ai:upload-kb"                 : "node ./buildScripts/uploadKnowledgeBase.mjs",
         "build-all"                    : "node ./buildScripts/buildAll.mjs -f -n",
         "build-all-questions"          : "node ./buildScripts/buildAll.mjs -f",
@@ -47,15 +47,16 @@
         "test-unit"                    : "playwright test -c test/playwright/playwright.config.unit.mjs",
         "watch-themes"                 : "node ./buildScripts/watchThemes.mjs"
     },
-    "keywords": [
+    "keywords"       : [
         "agent-operating-system",
         "agent-os",
         "ai-agents",
         "ai-code-execution",
         "ai-code-review",
+        "ai-hot-patching",
         "ai-interfaces",
         "ai-native",
-        "angular-alternative",
+        "application-engine",
         "browser-email-client",
         "browser-based-ide",
         "code-execution-pattern",
@@ -92,11 +93,15 @@
         "multi-window-ide",
         "multi-window-llm-interface",
         "native-like",
+        "neo-mjs",
+        "neural-link",
         "next-gen-ai-interfaces",
         "no-bundling",
         "no-jank",
         "no-transpilation",
+        "object-permanence",
         "offscreencanvas",
+        "omt-architecture",
         "outlook-alternative-browser",
         "performance",
         "pwa",
@@ -106,8 +111,10 @@
         "rag-knowledge-base",
         "react-alternative",
         "realtime",
+        "runtime-inspection",
         "runtime-type-safety",
         "scalability",
+        "scene-graph",
         "security",
         "self-healing-code",
         "semantic-code-search",
@@ -121,17 +128,17 @@
         "typescript-without-typescript",
         "ui-responsiveness",
         "virtual-dom",
-        "vue-alternative",
         "web-app",
         "web-based-email-client",
         "web-based-ide",
+        "web-engine",
         "webworker",
         "xss-resistant",
         "zero-build-development"
     ],
-    "author" : "Tobias Uhlig",
-    "license": "MIT",
-    "bugs": {
+    "author"         : "Tobias Uhlig",
+    "license"        : "MIT",
+    "bugs"           : {
         "url": "https://github.com/neomjs/neo/issues"
     },
     "homepage"       : "https://neomjs.com/",
@@ -139,7 +146,7 @@
         "@chroma-core/default-embed"   : "^0.1.9",
         "@fortawesome/fontawesome-free": "^7.1.0",
         "@google/generative-ai"        : "^0.24.1",
-        "@modelcontextprotocol/sdk"    : "^1.25.1",
+        "@modelcontextprotocol/sdk"    : "^1.25.2",
         "@playwright/test"             : "^1.57.0",
         "acorn"                        : "^8.15.0",
         "astring"                      : "^1.9.0",
@@ -162,10 +169,11 @@
         "jsdoc-api"                    : "^9.3.5",
         "js-yaml"                      : "^4.1.1",
         "marked"                       : "^17.0.1",
+        "mermaid"                      : "^11.12.2",
         "monaco-editor"                : "0.50.0",
         "parse5"                       : "^8.0.0",
         "postcss"                      : "^8.5.6",
-        "sass"                         : "^1.97.1",
+        "sass"                         : "^1.97.2",
         "semver"                       : "^7.7.3",
         "terser"                       : "^5.44.1",
         "url"                          : "^0.11.4",
@@ -179,7 +187,7 @@
         "zod"                          : "^3.25.76",
         "zod-to-json-schema"           : "^3.25.1"
     },
-    "funding": {
+    "funding"        : {
         "type": "GitHub Sponsors",
         "url" : "https://github.com/sponsors/tobiu"
     }

@@ -10,6 +10,7 @@
 import fs                          from 'fs-extra';
 import os                          from 'os';
 import path                        from 'path';
+import createReleaseIndex          from './createReleaseIndex.mjs';
 import {getLlmsTxt, getSitemapXml} from './generateSeoFiles.mjs';
 
 const
@@ -91,7 +92,36 @@ if (insideNeo) {
         fs.writeFileSync(indexPath, indexContent);
         console.log('Updated apps/portal/index.html datePublished');
     }
+
+    // Sync .npmignore with .gitignore
+    // This ensures that we don't accidentally publish files that should be ignored,
+    // while maintaining the specific npm-only rules.
+    const npmIgnorePath = path.join(root, '.npmignore');
+    const gitIgnorePath = path.join(root, '.gitignore');
+
+    if (fs.existsSync(npmIgnorePath) && fs.existsSync(gitIgnorePath)) {
+        const npmIgnoreContent = fs.readFileSync(npmIgnorePath, 'utf-8').split(os.EOL);
+        const gitIgnoreContent = fs.readFileSync(gitIgnorePath, 'utf-8');
+        const splitString      = '# Original content of the .gitignore file';
+        const splitIndex       = npmIgnoreContent.indexOf(splitString);
+        let   headerLines;
+
+        if (splitIndex !== -1) {
+            headerLines = npmIgnoreContent.slice(0, splitIndex + 1);
+        } else {
+            // Fallback to the default 7 lines if the marker is missing
+            headerLines = npmIgnoreContent.slice(0, 7);
+        }
+
+        const newNpmIgnoreContent = headerLines.join(os.EOL) + os.EOL + gitIgnoreContent;
+
+        fs.writeFileSync(npmIgnorePath, newNpmIgnoreContent);
+        console.log('Synced .npmignore with .gitignore');
+    }
 }
+
+// Generate the release index JSON before SEO files
+await createReleaseIndex();
 
 // Generate sitemap.xml and llms.txt to ensure SEO files are up-to-date with the latest content and routes.
 // This is crucial for search engine discoverability and AI model consumption.

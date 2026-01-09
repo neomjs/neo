@@ -1,10 +1,10 @@
 # Overview
 
-## Framework Comparisons
+## Engine vs Framework Comparisons
 
-This section provides detailed comparisons between Neo.mjs and other popular JavaScript frameworks. Our goal is to help
-you understand the key similarities, differences, and unique advantages of Neo.mjs in relation to technologies you might
-already be familiar with.
+This section provides detailed comparisons between Neo.mjs and popular JavaScript frameworks. Our goal is to help
+you understand why Neo.mjs is classified as an **Application Engine** and how its multi-threaded, worker-based
+architecture differs fundamentally from the single-threaded design of traditional libraries and frameworks.
 
 We aim to compare these frameworks from a **technical, objective, and constructive perspective**, focusing on how
 different architectural choices and design philosophies address common web development challenges. Please note that

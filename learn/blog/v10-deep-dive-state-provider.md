@@ -35,7 +35,7 @@ The result is an API that is not only more powerful but also simpler and more in
 
 Where the magic truly begins is in how you *change* that data. Thanks to the new deep, proxy-based reactivity system, you can modify state with plain JavaScript assignments. It's as simple as it gets:
 
-```javascript
+```javascript readonly
 // Get the provider and change the data directly
 const provider = myComponent.getStateProvider();
 

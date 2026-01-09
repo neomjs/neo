@@ -164,7 +164,7 @@ After the script runs yous should see these files in the `app/earthquakes` direc
 
 If you look in `neo-config.json` you should see this content. Note the `mainThreadAddons` block 
 &mdash; it reflects the add-ons you chose when you followed the instructions in the script.
-```json
+```json readonly
 {
     "appPath"         : "../../apps/earthquakes/app.mjs",
     "basePath"        : "../../",

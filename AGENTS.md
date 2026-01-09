@@ -116,3 +116,20 @@ First, classify the user's request into one of two categories:
     - **Action:** Apply the **Ticket-First Gate** (Section 3).
 
 **Note:** A conceptual discussion can become an actionable task. The moment the intent shifts from "what if..." to "let's do...", you must treat it as a new actionable request and apply the Ticket-First Gate.
+
+## 6. Git Protocol
+
+- **Ticket ID Required:** The commit subject line **MUST** end with `(#TICKET_ID)`.
+    - **Correct:** `feat: Add infinite canvas (#8392)`
+- **Standard:** Follow Conventional Commits.
+
+## 7. Ticket Closure Protocol (Definition of Done)
+
+You **MUST** perform these steps in order before marking a task as complete:
+
+1.  **Push:** If a task involves local commits, you **MUST** push changes to the remote repository (`git push`).
+2.  **Assign (MANDATORY):** Ensure the ticket is assigned to the current user. If unassigned, assign it immediately to capture credit for the work.
+3.  **Comment:** You **MUST** post a comment on the issue if:
+    - You deviated from the original plan (explain *why*).
+    - The task is complete (summarize the result).
+4.  **Close:** Only after steps 1-3 are complete can you close the ticket.

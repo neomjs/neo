@@ -6,16 +6,16 @@ This article provides a focused comparison between the Neo.mjs ecosystem and Rea
 
 ## Foundational Concepts: A Shared Heritage
 
-Despite their architectural differences, both frameworks build upon foundational concepts that have shaped UI development:
+Despite their architectural differences, both architectures build upon foundational concepts that have shaped UI development:
 
-*   **Component-Based Architecture (with a distinction):** Both frameworks promote building UIs as a composition of reusable components. However, Neo.mjs extends this concept with `Neo.core.Base`, allowing any class-based entity (like controllers, models, or routers) to leverage the framework's powerful class system, even if they don't directly render UI. This contrasts with frameworks where non-visual logic might often be shoehorned into component structures.
-*   **Declarative UI:** Developers describe *what* the UI should look like for a given state, and the framework handles *how* to update the DOM.
+*   **Component-Based Architecture (with a distinction):** Both architectures promote building UIs as a composition of reusable components. However, Neo.mjs extends this concept with `Neo.core.Base`, allowing any class-based entity (like controllers, models, or routers) to leverage the powerful class system, even if they don't directly render UI. This contrasts with frameworks where non-visual logic might often be shoehorned into component structures.
+*   **Declarative UI:** Developers describe *what* the UI should look like for a given state, and the engine handles *how* to update the DOM.
 *   **Reactive Paradigm:** Both leverage reactive programming principles where UI updates are driven by changes in state.
 *   **Functional Components & Hooks:** Both support defining components as functions and provide hooks for managing state and side effects, though their implementation and performance characteristics differ significantly.
 
 ## Key Differences: Architectural & Rendering Strategies
 
-This is where the two frameworks diverge significantly, each offering unique trade-offs and advantages.
+This is where the two systems diverge significantly, each offering unique trade-offs and advantages.
 
 ### 1. Overall Architecture: Main Thread vs. Worker-Based
 
@@ -77,7 +77,7 @@ This is where the two frameworks diverge significantly, each offering unique tra
 *   **Neo.mjs: Direct & Granular Reactivity (Performant by Default)**
     *   Neo.mjs's model is fundamentally more efficient. The **individual config property is the unit of reactivity**.
     *   When a config value changes, only the specific `createVdom` effects that depend on that *exact* piece of state are queued for re-execution. There are no cascading re-renders. If a parent's `createVdom` re-runs, but the configs passed to a child have not changed, the child component's `createVdom` function is **never executed**.
-    *   **Benefit (Zero Manual Optimization):** This fine-grained reactivity completely eliminates the need for manual memoization. The framework is performant by design.
+    *   **Benefit (Zero Manual Optimization):** This fine-grained reactivity completely eliminates the need for manual memoization. The engine is performant by design.
 
     ```javascript
     // The Neo.mjs equivalent, performant by default without manual optimization
@@ -134,7 +134,7 @@ This is where the two frameworks diverge significantly, each offering unique tra
 
 *   **Neo.mjs: The State Provider Solution**
     *   Neo.mjs's architecture makes props drilling an obsolete anti-pattern. The integrated `state.Provider` allows a deeply nested component to subscribe *only* to the precise slice of state it needs via its `bind` config or a `useConfig` hook.
-    *   This creates a direct, performant, and surgical link between the state and the component that needs it, completely bypassing all intermediate components. It is more akin to a selector in a dedicated state management library, but it's a native, architectural feature of the framework.
+    *   This creates a direct, performant, and surgical link between the state and the component that needs it, completely bypassing all intermediate components. It is more akin to a selector in a dedicated state management library, but it's a native, architectural feature of the engine.
 
 ### 6. Component Mobility: Portals vs. True Persistence
 
@@ -147,8 +147,8 @@ A critical architectural difference emerges when dealing with moving components 
 
 *   **Neo.mjs: True Mobility by Design**
     *   This is not a special feature in Neo.mjs; it is a **natural consequence of the architecture**.
-    *   Because component instances are stable and persistent, moving a component is a controlled data operation. A developer programmatically modifies the `items` arrays of the relevant containers, then calls `update()` on the **closest common ancestor**. This signals the framework to perform a single, efficient reconciliation that correctly identifies the component move. While calling `update()` on a higher-level ancestor would also work, targeting the closest one is a best practice that minimizes the scope of the update, showcasing the framework's focus on performance and developer control. This explicit, batch-friendly approach is a core architectural feature, not a hack.
-    *   The framework recognizes that the component's DOM node already exists. It issues a single, efficient `moveNode` command to the Main Thread.
+    *   Because component instances are stable and persistent, moving a component is a controlled data operation. A developer programmatically modifies the `items` arrays of the relevant containers, then calls `update()` on the **closest common ancestor**. This signals the engine to perform a single, efficient reconciliation that correctly identifies the component move. While calling `update()` on a higher-level ancestor would also work, targeting the closest one is a best practice that minimizes the scope of the update, showcasing the engine's focus on performance and developer control. This explicit, batch-friendly approach is a core architectural feature, not a hack.
+    *   The engine recognizes that the component's DOM node already exists. It issues a single, efficient `moveNode` command to the Main Thread.
     *   **The Benefit:** The existing DOM node, with all its internal state, is simply unplugged from its old parent and plugged into the new one. A playing video continues to play, uninterrupted. This enables a level of UI fluidity and state preservation that is architecturally impossible in a single-threaded, ephemeral component model.
 
 ### Other Considerations:
@@ -160,8 +160,8 @@ A critical architectural difference emerges when dealing with moving components 
     *   **`dist/development`:** A bundled but unminified environment for debugging production-specific issues or for TypeScript preference, serving as a bridge to traditional build-based workflows.
 
 *   **JSX vs. Plain Objects:** React uses JSX (requiring a build step for UI definition). Neo.mjs uses plain JavaScript objects for VDOM (no JSX compilation needed for VDOM definition).
-*   **Ecosystem & Maturity:** React has a massive, mature ecosystem with abundant libraries, tools, and community support. Neo.mjs has a smaller but dedicated community, with a focus on framework-level solutions and integrated features.
-*   **Dependency Management (Batteries Included):** React projects often involve a large `node_modules` directory and can lead to complex dependency trees and version conflicts, a common pain point often referred to as "dependency hell." Neo.mjs, in contrast, is a "batteries included" framework. It literally has zero real runtime dependencies outside of its own core. This native ES Module approach and integrated framework significantly reduces this complexity, offering a much leaner and more controlled dependency management experience.
+*   **Ecosystem & Maturity:** React has a massive, mature ecosystem with abundant libraries, tools, and community support. Neo.mjs has a smaller but dedicated community, with a focus on engine-level solutions and integrated features.
+*   **Dependency Management (Batteries Included):** React projects often involve a large `node_modules` directory and can lead to complex dependency trees and version conflicts, a common pain point often referred to as "dependency hell." Neo.mjs, in contrast, is a "batteries included" platform. It literally has zero real runtime dependencies outside of its own core. This native ES Module approach and integrated framework significantly reduces this complexity, offering a much leaner and more controlled dependency management experience.
 
 ## Conclusion: Why Neo.mjs Offers Significant Technical Advantages Over React
 

@@ -317,7 +317,7 @@ class RecordFactory extends Base {
         }
 
         if (field.convert) {
-            value = field.convert(value)
+            value = field.convert(value, record)
         }
 
         let fieldName = field.name,

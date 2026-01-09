@@ -3,10 +3,6 @@
         "title": "About Us - Neo.mjs",
         "description": "Learn more about the team behind Neo.mjs."
     },
-    "/blog": {
-        "title": "Neo.mjs Blog",
-        "description": "The official blog for the Neo.mjs platform."
-    },
     "/docs": {
         "title": "Neo.mjs Docs",
         "description": "Official documentation for the Neo.mjs platform."
@@ -22,6 +18,18 @@
     "/learn": {
         "title": "Learn Neo.mjs",
         "description": "Learn the fundamentals of the Neo.mjs platform."
+    },
+    "/news": {
+        "title": "Neo.mjs News",
+        "description": "Latest updates, blogs, and releases for the Neo.mjs platform."
+    },
+    "/news/blog": {
+        "title": "Neo.mjs Blog",
+        "description": "The official blog for the Neo.mjs platform."
+    },
+    "/news/releases": {
+        "title": "Neo.mjs Releases",
+        "description": "Release notes and changelogs for the Neo.mjs platform."
     },
     "/services": {
         "title": "Neo.mjs Services",

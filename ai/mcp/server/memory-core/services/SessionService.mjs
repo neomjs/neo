@@ -115,28 +115,30 @@ class SessionService extends Base {
             return;
         }
 
-        logger.info('[Startup] Checking for unsummarized sessions...');
+        if (aiConfig.data.autoSummarize) {
+            logger.info('[Startup] Checking for unsummarized sessions...');
 
-        try {
-            const result = await this.summarizeSessions({});
+            try {
+                const result = await this.summarizeSessions({});
 
-            if (result.processed > 0) {
-                logger.info(`✅ [Startup] Summarized ${result.processed} session(s):`);
-                result.sessions.forEach(session => {
-                    logger.info(`   - ${session.title} (${session.memoryCount} memories)`);
-                });
-                HealthService.recordStartupSummarization('completed', {
-                    processed: result.processed,
-                    sessions : result.sessions.map(s => ({title: s.title, memoryCount: s.memoryCount}))
-                });
-            } else {
-                logger.info('[Startup] No unsummarized sessions found');
-                HealthService.recordStartupSummarization('completed', {processed: 0});
+                if (result.processed > 0) {
+                    logger.info(`✅ [Startup] Summarized ${result.processed} session(s):`);
+                    result.sessions.forEach(session => {
+                        logger.info(`   - ${session.title} (${session.memoryCount} memories)`);
+                    });
+                    HealthService.recordStartupSummarization('completed', {
+                        processed: result.processed,
+                        sessions : result.sessions.map(s => ({title: s.title, memoryCount: s.memoryCount}))
+                    });
+                } else {
+                    logger.info('[Startup] No unsummarized sessions found');
+                    HealthService.recordStartupSummarization('completed', {processed: 0});
+                }
+            } catch (error) {
+                logger.warn('⚠️  [Startup] Session summarization failed:', error.message);
+                logger.warn('    You can manually trigger summarization using the summarize_sessions tool');
+                HealthService.recordStartupSummarization('failed', {error: error.message});
             }
-        } catch (error) {
-            logger.warn('⚠️  [Startup] Session summarization failed:', error.message);
-            logger.warn('    You can manually trigger summarization using the summarize_sessions tool');
-            HealthService.recordStartupSummarization('failed', {error: error.message});
         }
     }
 

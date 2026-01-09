@@ -19,7 +19,7 @@ application's state and rendering logic.
 Unlike many frameworks, Neo.mjs has *always* had a reactive config system. Since its earliest versions, you could take a
 component instance and change its properties directly, and the UI would update automatically.
 
-```javascript
+```javascript readonly
 // This has always worked in Neo.mjs
 const myButton = Neo.get('my-button');
 myButton.text = 'Click me now!'; // The button's text in the DOM updates
@@ -97,7 +97,7 @@ architectural challenges in modern UI development: the ambiguity between a compo
 
 This is best explained with a simple component:
 
-```javascript
+```javascript readonly
 import {defineComponent, useConfig, useEvent} from 'neo.mjs';
 
 export default defineComponent({
@@ -136,7 +136,7 @@ Think of it as the component's public-facing API.
 
 Another component, or you directly in the browser console, can do this:
 
-```javascript
+```javascript readonly
 const myComponent = Neo.get('my-component-id');
 
 // Directly change the public API. The component will instantly re-render.
@@ -182,7 +182,7 @@ In Neo.mjs, you are encouraged to work with state in the most natural way possib
 provides several powerful methods to apply these mutations, from changing single properties to batching multiple updates
 atomically, or even decoupling state changes from the render cycle entirely.
 
-```javascript
+```javascript readonly
 // The recommended way is to mutate a component's public configs.
 // The component's internal logic (e.g., an afterSet hook) directly mutates the vdom object, outside any effects.
 // This triggers an asynchronous update cycle.

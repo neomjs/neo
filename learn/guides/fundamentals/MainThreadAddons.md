@@ -77,7 +77,7 @@ Here's what happens when `getMySetting()` is executed:
 ```
 
 1.  **The Call (App Worker)**: Your code calls what looks like a normal static method. However, this
-    `readLocalStorageItem` function is actually a "proxy" or "stub" created by the framework.
+    `readLocalStorageItem` function is actually a "proxy" or "stub" created by the engine.
 2.  **The Message (App Worker -> Main Thread)**: The proxy function immediately returns a `Promise`
     and sends a message to the main thread containing the addon's class name
     (`Neo.main.addon.LocalStorage`), the method name (`readLocalStorageItem`), and the arguments
@@ -145,7 +145,7 @@ export default Neo.setupClass(LocalStorage);
 
 ### The `Cookie` Addon
 
-The framework provides another great example of an addon for interacting with a browser API: the
+The engine provides another great example of an addon for interacting with a browser API: the
 `Cookie` addon. It provides methods to read and write to `document.cookie`.
 
 Let's analyze its source code
@@ -226,12 +226,12 @@ Addons *behave* like singletons within the main thread (meaning there's typicall
 of a given addon class). However, they are deliberately *not defined* with `singleton: true` in
 their `static config`. This is a crucial architectural decision that enables powerful extensibility:
 
-*   **Customization:** Developers can extend a framework addon (e.g., `class MyLocalStorage extends
+*   **Customization:** Developers can extend a core addon (e.g., `class MyLocalStorage extends
     Neo.main.addon.LocalStorage`), override its methods, and then configure their `neo-config.json`
     to load *their* custom version.
 *   **Flexibility:** If the base class were a true singleton, this kind of runtime extension and
     override would be impossible. By making them "semi-singletons" that `Main.mjs` or
-    `Neo.worker.App.getAddon()` manages as single instances, the framework provides both the
+    `Neo.worker.App.getAddon()` manages as single instances, the engine provides both the
     convenience of a singleton and the power of class-based extension.
 
 ### Example: Customizing `LocalStorage`
@@ -269,14 +269,14 @@ class CustomLocalStorage extends LocalStorage {
 export default Neo.setupClass(CustomLocalStorage);
 ```
 
-Next, configure your `neo-config.json` to use your custom addon instead of the framework's default.
+Next, configure your `neo-config.json` to use your custom addon instead of the engine's default.
 This is done by mapping your custom class to the framework's original class name using the `WS/` prefix.
-The `WS/` prefix (which stands for "workspace") tells the framework to look for your addon within the `src/main/addon`
+The `WS/` prefix (which stands for "workspace") tells the engine to look for your addon within the `src/main/addon`
 directory of your workspace (the output of `npx neo-app`).
 
-[Side Note]: If you add a new addon to the framework repo, the `WS/` prefix is not needed.
+[Side Note]: If you add a new addon to the engine repo, the `WS/` prefix is not needed.
 
-```json
+```javascript readonly
 // neo-config.json
 {
     "mainThreadAddons": [
@@ -289,7 +289,7 @@ directory of your workspace (the output of `npx neo-app`).
 Now, any call to `Neo.main.addon.CustomLocalStorage.readLocalStorageItem()` or `updateLocalStorageItem()`
 from your app worker will actually be routed to your `CustomLocalStorage` instance on the main thread,
 automatically applying your custom key prefix. This demonstrates how easily you can swap out or extend
-framework-provided functionality with your own custom implementations.
+engine-provided functionality with your own custom implementations.
 
 ## Asynchronous Initialization: `initAsync` and the `isReady` config
 
@@ -299,7 +299,7 @@ addon is fully initialized and its environment is ready before it's used. This i
 
 ### The Problem: A Race Condition
 
-Consider a scenario where a Main thread addon needs to register itself with another core framework
+Consider a scenario where a Main thread addon needs to register itself with another core engine
 service (like `Neo.worker.Manager` or `Neo.manager.Instance`). These services are also instantiated
 on the Main thread. If the addon's `initAsync()` (or any logic called from it) tries to interact
 with such a service *during* that service's synchronous construction phase, it might try to access
@@ -412,7 +412,7 @@ provides a powerful mechanism for this: the `async loadFiles()` method.
     `<script>` tag) inside the `async loadFiles()` method in your addon. This method **must** return
     a `Promise` that resolves when the library is fully loaded and ready.
 2.  **Automatic Queuing via `interceptRemotes`:** For methods listed in an addon's `interceptRemotes`
-    config, the framework automatically handles queuing any remote method calls that arrive before
+    config, the engine automatically handles queuing any remote method calls that arrive before
     the addon's `isReady` property is `true`.
 
 Here's a conceptual example:
@@ -440,14 +440,14 @@ class ChartingLibrary extends Base {
 
     createChart(opts) {
         // This code will only run after the script has loaded
-        // and the addon is ready. The framework handles queuing automatically.
+        // and the addon is ready. The engine handles queuing automatically.
         return window.ExternalChartingLibrary.create(opts.domId, opts.chartConfig);
     }
 }
 ```
 
 When a worker calls `Neo.main.addon.ChartingLibrary.createChart()` for the first time:
-1.  The framework intercepts the call because `createChart` is in `interceptRemotes`.
+1.  The engine intercepts the call because `createChart` is in `interceptRemotes`.
 2.  If the addon is not `isReady`, the call is automatically queued.
 3.  `loadFiles()` is triggered (if not already running).
 4.  Once `loadFiles()` resolves and the addon becomes `isReady`, the queued `createChart` call is
@@ -472,6 +472,6 @@ queuing them when necessary, and how the component wrapper pattern provides a cl
 interface for your application.
 
 By leveraging Main Thread Addons, you can confidently integrate any browser-dependent functionality
-into your Neo.mjs application, knowing that the framework is handling the complex inter-thread
+into your Neo.mjs application, knowing that the engine is handling the complex inter-thread
 communication and lifecycle management for you. This powerful pattern is key to building
 high-performance, extensible, and truly modern web applications.

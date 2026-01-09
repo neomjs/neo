@@ -2,32 +2,32 @@
 <urlset xmlns="https://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://neomjs.com/about-us</loc>
-    <lastmod>2025-12-20T00:58:23+01:00</lastmod>
+    <lastmod>2026-01-07T23:47:45+01:00</lastmod>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://neomjs.com/blog</loc>
-    <lastmod>2025-12-20T00:58:23+01:00</lastmod>
-    <priority>0.8</priority>
+    <loc>https://neomjs.com/news</loc>
+    <lastmod>2026-01-07T23:47:45+01:00</lastmod>
+    <priority>0.9</priority>
   </url>
   <url>
     <loc>https://neomjs.com/docs</loc>
-    <lastmod>2025-12-20T00:58:23+01:00</lastmod>
+    <lastmod>2026-01-07T23:47:45+01:00</lastmod>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://neomjs.com/examples</loc>
-    <lastmod>2025-12-20T00:58:23+01:00</lastmod>
+    <lastmod>2026-01-07T23:47:45+01:00</lastmod>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://neomjs.com/home</loc>
-    <lastmod>2025-12-20T00:58:23+01:00</lastmod>
+    <lastmod>2026-01-07T23:47:45+01:00</lastmod>
     <priority>1.0</priority>
   </url>
   <url>
     <loc>https://neomjs.com/services</loc>
-    <lastmod>2025-12-20T00:58:23+01:00</lastmod>
+    <lastmod>2026-01-07T23:47:45+01:00</lastmod>
     <priority>0.7</priority>
   </url>
   <url>
@@ -36,22 +36,22 @@
   </url>
   <url>
     <loc>https://neomjs.com/learn/benefits/Introduction</loc>
-    <lastmod>2025-09-15T13:47:23+02:00</lastmod>
+    <lastmod>2026-01-08T23:14:01+01:00</lastmod>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/benefits/OffTheMainThread</loc>
-    <lastmod>2025-07-15T21:37:07+02:00</lastmod>
+    <lastmod>2026-01-08T22:57:06+01:00</lastmod>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/benefits/FourEnvironments</loc>
-    <lastmod>2025-07-15T21:37:07+02:00</lastmod>
+    <lastmod>2026-01-08T23:14:01+01:00</lastmod>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/benefits/ConfigSystem</loc>
-    <lastmod>2025-11-18T20:22:43+01:00</lastmod>
+    <lastmod>2026-01-08T23:14:01+01:00</lastmod>
     <priority>0.9</priority>
   </url>
   <url>
@@ -86,31 +86,31 @@
   </url>
   <url>
     <loc>https://neomjs.com/learn/benefits/Features</loc>
-    <lastmod>2025-07-15T21:37:07+02:00</lastmod>
+    <lastmod>2026-01-08T22:57:06+01:00</lastmod>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/comparisons/Overview</loc>
-    <lastmod>2025-07-15T21:37:07+02:00</lastmod>
+    <lastmod>2026-01-08T22:57:06+01:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/learn/comparisons/NeoVsReact</loc>
-    <lastmod>2025-08-04T05:11:22+02:00</lastmod>
+    <lastmod>2026-01-08T23:14:01+01:00</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/comparisons/NeoVsAngular</loc>
-    <lastmod>2025-08-04T05:11:22+02:00</lastmod>
+    <lastmod>2026-01-08T23:16:36+01:00</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/comparisons/NeoVsVue</loc>
-    <lastmod>2025-08-04T05:11:22+02:00</lastmod>
+    <lastmod>2026-01-08T23:06:13+01:00</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/comparisons/NeoVsSolid</loc>
-    <lastmod>2025-07-15T21:37:07+02:00</lastmod>
+    <lastmod>2026-01-08T23:14:01+01:00</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
@@ -120,7 +120,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/learn/comparisons/NeoVsExtJs</loc>
-    <lastmod>2025-07-15T21:37:07+02:00</lastmod>
+    <lastmod>2026-01-08T23:06:13+01:00</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
@@ -170,25 +170,25 @@
   </url>
   <url>
     <loc>https://neomjs.com/learn/guides/fundamentals/CodebaseOverview</loc>
-    <lastmod>2025-11-03T14:00:38+01:00</lastmod>
+    <lastmod>2026-01-08T23:34:17+01:00</lastmod>
     <priority>1.0</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/guides/fundamentals/ApplicationBootstrap</loc>
-    <lastmod>2025-07-31T21:54:15+02:00</lastmod>
+    <lastmod>2026-01-08T23:14:01+01:00</lastmod>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/guides/fundamentals/InstanceLifecycle</loc>
-    <lastmod>2025-07-31T21:54:15+02:00</lastmod>
+    <lastmod>2026-01-08T23:06:13+01:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/learn/guides/fundamentals/WorkerArchitecture</loc>
-    <lastmod>2025-12-17T05:28:18+01:00</lastmod>
+    <lastmod>2026-01-08T23:06:13+01:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/learn/guides/fundamentals/DeclarativeComponentTreesVsImperativeVdom</loc>
-    <lastmod>2025-07-15T21:37:07+02:00</lastmod>
+    <lastmod>2026-01-08T23:14:01+01:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/learn/guides/fundamentals/DeclarativeVDOMWithEffects</loc>
@@ -196,15 +196,15 @@
   </url>
   <url>
     <loc>https://neomjs.com/learn/guides/fundamentals/ConfigSystemDeepDive</loc>
-    <lastmod>2025-07-28T12:35:48+02:00</lastmod>
+    <lastmod>2026-01-08T23:14:01+01:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/learn/guides/fundamentals/ExtendingNeoClasses</loc>
-    <lastmod>2025-07-15T21:37:07+02:00</lastmod>
+    <lastmod>2026-01-08T23:06:13+01:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/learn/guides/fundamentals/MainThreadAddons</loc>
-    <lastmod>2025-07-15T21:37:07+02:00</lastmod>
+    <lastmod>2026-01-08T23:06:13+01:00</lastmod>
     <priority>0.9</priority>
   </url>
   <url>
@@ -219,15 +219,15 @@
   </url>
   <url>
     <loc>https://neomjs.com/learn/guides/uibuildingblocks/CustomComponents</loc>
-    <lastmod>2025-07-15T21:37:07+02:00</lastmod>
+    <lastmod>2026-01-08T23:06:13+01:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/learn/guides/uibuildingblocks/WorkingWithVDom</loc>
-    <lastmod>2025-11-26T11:20:41+01:00</lastmod>
+    <lastmod>2026-01-08T23:06:13+01:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/learn/guides/uibuildingblocks/HtmlTemplates</loc>
-    <lastmod>2025-07-31T18:54:44+02:00</lastmod>
+    <lastmod>2026-01-08T23:14:01+01:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/learn/guides/uibuildingblocks/HtmlTemplatesUnderTheHood</loc>
@@ -235,7 +235,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/learn/guides/uibuildingblocks/StylingAndTheming</loc>
-    <lastmod>2025-09-21T14:51:15+02:00</lastmod>
+    <lastmod>2026-01-08T23:06:13+01:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/learn/guides/datahandling/Collections</loc>
@@ -293,15 +293,21 @@
   </url>
   <url>
     <loc>https://neomjs.com/learn/guides/mcp/Introduction</loc>
-    <lastmod>2025-11-23T13:10:07+01:00</lastmod>
+    <lastmod>2026-01-07T04:34:04+01:00</lastmod>
+    <priority>1.0</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/guides/mcp/KnowledgeBase</loc>
-    <lastmod>2025-11-23T13:10:07+01:00</lastmod>
+    <lastmod>2026-01-08T15:04:19+01:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/learn/guides/mcp/MemoryCore</loc>
     <lastmod>2025-11-23T13:10:07+01:00</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/learn/guides/mcp/NeuralLink</loc>
+    <lastmod>2026-01-08T08:05:01+01:00</lastmod>
+    <priority>1.0</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/guides/mcp/GitHubWorkflow</loc>
@@ -309,7 +315,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/learn/guides/mcp/CodeExecution</loc>
-    <lastmod>2025-11-23T13:10:07+01:00</lastmod>
+    <lastmod>2026-01-07T04:36:51+01:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/learn/guides/ai/StrategicWorkflows</loc>
@@ -349,7 +355,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/learn/tutorials/Earthquakes</loc>
-    <lastmod>2025-08-03T02:34:14+02:00</lastmod>
+    <lastmod>2026-01-07T15:36:38+01:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/learn/tutorials/TodoList</loc>
@@ -381,11 +387,11 @@
   </url>
   <url>
     <loc>https://neomjs.com/learn/Glossary</loc>
-    <lastmod>2025-07-15T21:37:07+02:00</lastmod>
+    <lastmod>2026-01-08T23:14:01+01:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/learn/blog/context-engineering-done-right</loc>
-    <lastmod>2025-11-10T10:51:09+01:00</lastmod>
+    <lastmod>2026-01-07T15:36:38+01:00</lastmod>
     <priority>0.9</priority>
   </url>
   <url>
@@ -395,32 +401,32 @@
   </url>
   <url>
     <loc>https://neomjs.com/learn/blog/v10-deep-dive-state-provider</loc>
-    <lastmod>2025-09-17T12:16:45+02:00</lastmod>
+    <lastmod>2026-01-07T15:36:38+01:00</lastmod>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/blog/benchmarking-frontends-2025</loc>
-    <lastmod>2025-08-18T11:30:41+02:00</lastmod>
+    <lastmod>2026-01-07T15:36:38+01:00</lastmod>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/blog/v10-deep-dive-vdom-revolution</loc>
-    <lastmod>2025-08-04T12:18:02+02:00</lastmod>
+    <lastmod>2026-01-07T15:36:38+01:00</lastmod>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/blog/v10-deep-dive-functional-components</loc>
-    <lastmod>2025-07-28T09:31:03+02:00</lastmod>
+    <lastmod>2026-01-07T15:36:38+01:00</lastmod>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/blog/v10-deep-dive-reactivity</loc>
-    <lastmod>2025-07-27T21:29:42+02:00</lastmod>
+    <lastmod>2026-01-07T15:36:38+01:00</lastmod>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://neomjs.com/learn/blog/v10-post1-love-story</loc>
-    <lastmod>2025-07-27T21:29:42+02:00</lastmod>
+    <lastmod>2026-01-07T15:36:38+01:00</lastmod>
     <priority>0.9</priority>
   </url>
   <url>
@@ -430,7 +436,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/apps/agentos/index.html</loc>
-    <lastmod>2025-12-30T09:56:14+01:00</lastmod>
+    <lastmod>2026-01-05T21:56:32+01:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/apps/ai/neural-link/index.html</loc>
@@ -458,11 +464,11 @@
   </url>
   <url>
     <loc>https://neomjs.com/apps/legit/index.html</loc>
-    <lastmod>2025-12-17T02:13:56+01:00</lastmod>
+    <lastmod>2026-01-05T21:56:32+01:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/apps/portal/index.html</loc>
-    <lastmod>2025-12-21T22:20:13+01:00</lastmod>
+    <lastmod>2026-01-08T21:26:09+01:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/apps/realworld/index.html</loc>

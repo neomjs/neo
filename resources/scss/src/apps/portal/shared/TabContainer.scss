@@ -1,0 +1,44 @@
+.portal-shared-tab-container.neo-tab-container {
+    .neo-tab-body-container {
+        background-color: transparent;
+    }
+
+    .neo-tab-strip {
+        .neo-active-tab-indicator {
+            background-color: #3E63DD;
+        }
+    }
+}
+
+// must not be inside the root class to honor the styling for tab button drag&drop
+.portal-shared-tab-header-toolbar.neo-tab-header-toolbar {
+    background-color: #8BA6FF;
+
+    .neo-tab-header-button.neo-button {
+        .neo-button-glyph {
+            color: #fff;
+        }
+
+        .neo-button-ripple {
+            background-color: #3E63DD;
+        }
+
+        &.neo-button.pressed .neo-tab-button-indicator {
+            background-color: #3E63DD;
+        }
+
+        .neo-button-text {
+            color: #fff;
+        }
+
+        &.pressed {
+            .neo-button-glyph {
+                color: #3E63DD;
+            }
+        }
+    }
+
+    .neo-tab-strip .neo-active-tab-indicator {
+        background-color: #3E63DD;
+    }
+}

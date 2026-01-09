@@ -15,7 +15,7 @@ sophisticated multi-screen workflows. For more details, see
 ## True Multi-threading (Off-The-Main-Thread Architecture)
 
 At the heart of Neo.mjs is its revolutionary Off-Main-Thread (OMT) paradigm. Your entire application, including the
-framework itself, runs within a dedicated application worker. This offloads all business logic, data processing, and
+engine itself, runs within a dedicated application worker. This offloads all business logic, data processing, and
 intensive UI updates from the main thread, ensuring a consistently non-blocking, freeze-free user experience, even during
 heavy computations or data I/O. Neo.mjs further enhances this with additional workers for OffscreenCanvas, data handling,
 delta-updates, and tasks, alongside a ServiceWorker for predictive caching. Learn more about this in 

@@ -3,7 +3,7 @@
 ## Overview
 
 Neo.mjs employs a unique two-tier architecture that separates **declarative component configuration** from **imperative
-virtual DOM (VDom) operations**. This design provides both developer productivity and framework performance optimization
+virtual DOM (VDom) operations**. This design provides both developer productivity and engine performance optimization
 while maintaining clear separation of concerns across different abstraction layers.
 
 **Target Audience**: This guide is essential for developers coming from React, Vue, or Angular who need to understand
@@ -14,7 +14,7 @@ Neo.mjs's fundamentally different approach to UI composition.
 Neo.mjs operates on two distinct abstraction layers:
 
 - **Component Tree Layer** (Application Development): Declarative, mutable, reactive component configurations
-- **VDom Tree Layer** (Framework Internals): Imperative virtual DOM operations for performance optimization
+- **VDom Tree Layer** (Engine Internals): Imperative virtual DOM operations for performance optimization
 
 ```text
 Your Application Code → Component Tree (declarative, mutable, reactive)
@@ -79,7 +79,7 @@ Your new mental model:</br>
 
 ### Key Architectural Differences
 
-| Aspect | Other Frameworks | Neo.mjs |
+| Aspect | Other Architectures | Neo.mjs |
 |---|---|---|
 | **Layers** | Single virtual DOM layer | Two-tier: Component tree + VDom |
 | **Composition** | Mix HTML + components directly in templates/JSX | Pure component hierarchies via `items` configs |
@@ -109,7 +109,7 @@ class Viewport extends BaseViewport {
             items: [
                 {module: () => import('./home/MainContainer.mjs')},
                 {module: () => import('./learn/MainContainer.mjs')},
-                {module: () => import('./blog/Container.mjs')}
+                {module: () => import('./news/blog/Container.mjs')}
             ]
         }]
     }
@@ -167,11 +167,11 @@ class ViewportStateProvider extends StateProvider {
 viewportStateProvider.setData({size: 'large'});
 ```
 
-## VDom Layer (Framework Internals)
+## VDom Layer (Engine Internals)
 
 ### Internal VDom Structure
 
-Framework components define their internal DOM structure through `vdom` config:
+Core components define their internal DOM structure through `vdom` config:
 
 ```javascript readonly
 // Neo.button.Base
@@ -192,10 +192,10 @@ class Button extends Component {
 
 ### Imperative VDom Operations
 
-Framework code performs imperative operations on VDom node properties:
+Engine code performs imperative operations on VDom node properties:
 
 ```javascript readonly
-// Neo.button.Base - internal framework code
+// Neo.button.Base - internal engine code
 afterSetIconCls(value, oldValue) {
     let {iconNode} = this;
     
@@ -251,7 +251,7 @@ async showRipple(data) {
 
 ## Developer Experience Benefits
 
-### What You Write vs. What the Framework Handles
+### What You Write vs. What the Engine Handles
 
 Understanding the value proposition of Neo.mjs's two-tier architecture:
 
@@ -265,7 +265,7 @@ Understanding the value proposition of Neo.mjs's two-tier architecture:
     badgeText: '5'
 }
 
-// What the framework automatically handles:
+// What the engine automatically handles:
 // ✓ VDom node creation and management
 // ✓ Event binding and cleanup  
 // ✓ DOM updates and reconciliation
@@ -369,7 +369,7 @@ async onAppConnect(data) {
 
 ### Use VDom Layer When (1% of development):
 
-- Creating custom framework components
+- Creating custom core components
 - Defining component internal DOM structure (`vdom`)
 - Implementing component lifecycle methods (`afterSet*`, `beforeSet*`, `beforeGet*`)
 - Optimizing rendering performance
@@ -400,14 +400,14 @@ async onAppConnect(data) {
 3. **Use State Providers**: Manage application state reactively
 4. **Component References**: Use `reference` for component communication
 
-### For Framework Development:
+### For Engine Development:
 
 1. **Encapsulate Complexity**: Hide imperative operations behind declarative APIs
 2. **Optimize VDom Updates**: Batch changes and use `update()` efficiently
 3. **Memory Management**: Clean up event listeners and references
 4. **Worker Communication**: Minimize cross-worker message passing
 
-## Migration from Other Frameworks
+## Migration from Other Architectures
 
 ### Key Mental Shifts:
 
@@ -439,7 +439,7 @@ async onAppConnect(data) {
 
 > **Security Note**: Using `tag` instead of `html` is crucial for preventing Cross-Site Scripting (XSS) vulnerabilities by avoiding raw HTML injection for element creation.
 
-### Framework-Specific Migration Notes:
+### Architecture-Specific Migration Notes:
 
 - **From React**: Component configs replace JSX, `items` replaces children composition, reactive updates replace manual state management
 - **From Vue**: Component configs replace templates, reactive properties work similarly but with automatic UI updates,
@@ -489,13 +489,13 @@ Neo.config.logDeltaUpdates = true;  // Enable update timing logs
 
 ## Conclusion
 
-Neo.mjs's two-tier architecture successfully balances developer productivity with framework performance through:
+Neo.mjs's two-tier architecture successfully balances developer productivity with engine performance through:
 
 - **Clear Abstraction Layers**: Component tree for apps, VDom for framework optimization
 - **Multi-Threading Architecture**: Optimal resource utilization across worker threads
 - **Reactive Component Tree**: Automatic UI synchronization with configuration changes
 - **Runtime Mutability**: Dynamic component tree modifications without recreation
-- **Performance Optimization**: Framework-level imperative optimizations when needed
+- **Performance Optimization**: Engine-level imperative optimizations when needed
 
 This architecture enables developers to build complex, performant web applications while focusing on business logic rather
 than DOM manipulation details. Understanding the distinction between these layers is crucial for effectively leveraging

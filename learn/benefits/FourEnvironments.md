@@ -2,7 +2,7 @@
 
 ## Introduction
 
-Neo.mjs was the very first frontend framework, which enabled full support for a ***zero builds instant development mode***,
+Neo.mjs was the very first frontend platform, which enabled full support for a ***zero builds instant development mode***,
 while sticking to the latest ECMAScript features (e.g., the ES6 class system, modules and dynamic imports).
 This means that your ***primary development workflow*** with Neo.mjs involves creating and debugging your application
 ***entirely within this instant, zero-builds environment***, with builds typically reserved only for ***deployment or
@@ -74,7 +74,7 @@ improved caching granularity compared to large, single bundles.
 ### Optimized On-Demand Delivery for Dynamic UIs
 
 When your application needs to render a new component or view based on a JSON blueprint (whether manually crafted,
-backend-generated, or dynamically produced), the framework efficiently fetches only the specific component modules
+backend-generated, or dynamically produced), the engine efficiently fetches only the specific component modules
 required for that UI, without loading unnecessary code upfront. This ensures optimized resource usage and faster
 rendering for dynamic content.
 
@@ -133,7 +133,7 @@ For environments where serving multiple module files isn't optimal, or for legac
 provides the convenience of deploying just a few highly optimized bundle files.
 
 In summary, `dist/production` is Neo.mjs's answer for maximum compatibility and minimal payload, offering a robust,
-Webpack-powered build that respects the framework's multi-threaded nature to deliver highly optimized bundles for each
+Webpack-powered build that respects the engine's multi-threaded nature to deliver highly optimized bundles for each
 part of your application.
 
 ## dist/development: The Classic "Dev Mode"
@@ -156,7 +156,7 @@ both JavaScript and CSS, which are crucial for debugging bundled code by mapping
 For developers who strongly prefer building their applications using TypeScript, this is the environment where you'll
 typically work. Keep in mind, however, that opting for TypeScript compilation in this mode means sacrificing the
 instantaneous, zero-builds development experience that Neo.mjs uniquely offers. It introduces a build step for every
-code change, a trade-off that many Neo.mjs developers find unnecessary given the framework's native ES module support.
+code change, a trade-off that many Neo.mjs developers find unnecessary given the platform's native ES module support.
 
 In essence, `dist/development` offers a familiar, bundled development experience for those who need it, serving as a
 debugging aid for production builds or an option for TypeScript users, but it comes at the cost of Neo.mjs's signature
@@ -167,9 +167,9 @@ instant development flow.
 Understanding Neo.mjs's four distinct environments is crucial, but it's equally important to grasp how they interact,
 especially when your application needs to load additional, code-based modules dynamically—for instance, code written by
 users within a Monaco editor that contains its own `import` statements. These scenarios present a unique challenge:
-How does the framework ensure consistent and correct module loading across different deployment contexts?
+How does the engine ensure consistent and correct module loading across different deployment contexts?
 
-For most traditional frontend frameworks relying on bundlers, handling such truly dynamic, run-time imports of
+For most traditional frontend architectures relying on bundlers, handling such truly dynamic, run-time imports of
 "anything" (i.e., modules that aren't known at build time) is either impossible or astronomically expensive.
 Bundlers are designed to pre-analyze your application's static import graph and create optimized bundles or code-split
 chunks. To accommodate every possible module combination that could be dynamically imported at runtime would require
@@ -177,7 +177,7 @@ generating an unmanageable number of split chunks, leading to insane overhead fo
 inefficient deployment.
 
 This is precisely where Neo.mjs comes to the rescue with its intelligent environment combinations – a novel approach
-that, to our knowledge, no other framework has truly accomplished. By leveraging native browser module loading
+that, to our knowledge, no other platform has truly accomplished. By leveraging native browser module loading
 capabilities and a sophisticated class registry, Neo.mjs ensures that even dynamically loaded code, with its arbitrary
 import statements, integrates seamlessly and efficiently into your application, regardless of the core environment
 it's running in.

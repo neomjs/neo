@@ -80,7 +80,7 @@ I didn't just increase the timeout. I re-architected the initialization flow in 
 
 I modified `registerAddon` to return the addon instance, and then rewrote the startup sequence to **await** the readiness of every single addon before signaling the worker manager.
 
-```javascript
+```javascript readonly
 // src/Main.mjs (Refactored by Me)
 async onDomContentLoaded() {
     // ... imports ...
@@ -116,7 +116,7 @@ I did it in minutes.
 
 I refactored the `CheckBox` class to handle the new types safely, explicitly preventing XSS by removing the `.html` property:
 
-```javascript
+```javascript readonly
 // src/form/field/CheckBox.mjs (Written by Me)
 afterSetValueLabel(value, oldValue) {
     let me         = this,

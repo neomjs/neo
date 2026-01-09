@@ -15,7 +15,7 @@ and nested approach to their configuration, a gap that a class config system aim
 ### The Problem with Disparate Configuration
 
 Currently, the configuration and management of these non-DOM entities can feel somewhat disparate across different
-frameworks. State management, for instance, might involve dedicated libraries (like Redux or Vuex), routing is handled
+frameworks and libraries. State management, for instance, might involve dedicated libraries (like Redux or Vuex), routing is handled
 by router-specific configurations, and layouts might be defined through a mix of component composition and potentially
 separate layout configurations. While these solutions are functional, they don't always present a unified configuration
 tree that mirrors the nested, hierarchical structure often used for describing the UI. The syntax and patterns for
@@ -60,7 +60,7 @@ are configured in isolation using different mechanisms.
 
 Neo.mjs achieves this by leveraging a powerful static config object pattern. You define properties and their default
 values directly within your class definitions. When you create an instance of that class using Neo.create(), you can
-override these defaults, and the framework automatically processes these configurations to instantiate and configure
+override these defaults, and the engine automatically processes these configurations to instantiate and configure
 components, data models, routes, and more. This mechanism applies consistently across all Neo.mjs classes.
 
 ## Key Advantages
@@ -201,7 +201,7 @@ Neo.ntype({
 ```
 
 Notice how `text`, `iconCls`, `iconPosition`, and `route` are simply properties passed into the configuration object.
-The framework takes care of applying these values to the button instance and rendering its virtual DOM (`_vdom) accordingly.
+The engine takes care of applying these values to the button instance and rendering its virtual DOM (`_vdom) accordingly.
 
 ### 2. Nested Component Configuration: Containers and the items Property
 

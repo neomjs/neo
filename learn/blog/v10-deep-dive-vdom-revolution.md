@@ -51,7 +51,7 @@ approaches to defining your UI, each with its own strengths.
 The most powerful and abstract way to build complex applications in Neo.mjs is the Object-Oriented approach. You compose
 your UI by creating `Container` classes and declaratively defining their child `items` as a configuration object.
 
-```javascript
+```javascript readonly
 // Example of a declarative component tree
 import Container from '../../../../src/container/Base.mjs';
 import Toolbar   from '../../../../src/toolbar/Base.mjs';
@@ -109,7 +109,7 @@ While JSON is the framework's native tongue, we recognize the universal fluency 
 and provide a familiar authoring experience, the recent [v10.3.0 release](../../.github/RELEASE_NOTES/v10.3.0.md)
 introduced an intuitive, HTML-like syntax built on standard JavaScript Tagged Template Literals.
 
-```javascript
+```javascript readonly
 // Inside a component's render() method:
 return html`
     <div class="my-container">
@@ -171,7 +171,7 @@ component's data, it is physically incapable of being executed as code in the br
 The renderer builds the entire new UI tree on a `DocumentFragment` that is detached from the live DOM, preventing layout
 thrashing. Only when the entire structure is complete is it appended to the document in a single, efficient operation.
 
-```javascript
+```javascript readonly
 // A simplified look at the DomApiRenderer's core logic
 // Note: This runs on the Main Thread
 const createFragment = (vnode) => {
@@ -194,7 +194,7 @@ parentElement.appendChild(createFragment(vnode));
 Enabling this superior rendering engine is as simple as setting a flag in your project's configuration
 (Default value in v10):
 
-```json
+```javascript readonly
 {
     // ...
     "useDomApiRenderer": true
@@ -268,7 +268,7 @@ Here is the power of this approach in action.
 
 **Before: The Container's Own VDOM Blueprint**
 This is the simple structure the container holds before the update. It just references its children.
-```javascript
+```javascript readonly
 // The container's vdom property just lists its children
 {
     id: 'dashboard-container-1',

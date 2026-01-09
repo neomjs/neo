@@ -163,10 +163,10 @@ async function debugSessionState() {
     console.log('------------------------------------------------------------------------------------------------------------------');
     console.log(`\nDiagnosis complete. Found ${candidates} sessions needing summarization.`);
 
-    console.log(`\n🧪 Verifying Service Logic (Memory_SessionService.findSessionsToSummarize(false))...`);
+    console.log(`\n🧪 Verifying Service Logic (Memory_SessionService.findSessionsToSummarize(${includeAll}))...`);
     let serviceCandidates = [];
     try {
-        serviceCandidates = await Memory_SessionService.findSessionsToSummarize(false);
+        serviceCandidates = await Memory_SessionService.findSessionsToSummarize(includeAll);
         console.log(`   Service returned ${serviceCandidates.length} candidates:`, serviceCandidates);
         
         const missing = sessionIds.filter(id => {

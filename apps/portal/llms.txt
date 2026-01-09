@@ -1,45 +1,33 @@
-# Neo.mjs Platform
+# Neo.mjs: The Application Engine for the AI Era
 
-> Neo.mjs is not a library, but a comprehensive web platform and a new operating system for the web, with over 1000 
-> files and 130,000 lines of code. It is architected for AI collaboration from the ground up, featuring three dedicated 
-> Model Context Protocol (MCP) servers. It reimagines web development from first principles, treating the browser as a 
-> distributed computing environment, not a single-threaded document renderer.
->
-> The core of Neo.mjs is its truly multi-threaded architecture which moves all application logic, state management, and 
-> data processing off the main thread. This ensures a "jank-free" user experience where the UI remains perfectly 
-> responsive, regardless of the workload. The platform provides a holistic, managed environment with operational 
-> guarantees, a unified class config system for declaratively describing entire component trees, and critical operational 
-> primitives like multi-window state. It includes an enterprise-grade component library.
->
-> The developer experience is revolutionary and future-proof, featuring a zero-builds development mode that is 100% based 
-> on web standards. This eliminates the frustrating abstraction layer of bundlers and transpilers and ensures that 
-> applications evolve with the web platform itself.
+> Neo.mjs is not a framework, but a multi-threaded Application Engine for the web.
+> It moves all application logic, state management, and data processing off the main thread,
+> ensuring a desktop-class, jank-free user experience.
 
-Neo.mjs uniquely deploys each application and example in four equivalent environments, each serving identical 
-functionality through different code delivery methods: development mode (zero-builds), dist/development (bundled, 
-unminified), dist/esm (native ES modules, optimized), and dist/production (bundled, minified). 
+> **Key Capabilities:**
+> * **True Multithreading:** 100% of your code runs in a Worker, keeping the UI thread free.
+> * **The Neural Link:** A bi-directional bridge allowing AI agents to inspect and mutate the live Scene Graph.
+> * **Object Permanence:** Components are persistent objects that can move between browser windows without losing state.
+> * **Zero Build Step:** Runs natively in the browser as ES Modules (no transpilation).
 
-The URLs listed below use the development mode paths (e.g., /apps/ or /examples/), representing the zero-builds, 
-browser-native version that embodies Neo.mjs's core philosophy. To access any application in a different environment, 
-simply prefix the path with /dist/development/, /dist/esm/, or /dist/production/.
+> **AI-Native Architecture:**
+> Neo.mjs is the first platform architected for "Context Engineering." It includes dedicated
+> MCP Servers (Knowledge Base, Memory Core) that allow AI agents to act as co-developers.
 
-For example, the Portal app is available at all four environment URLs, plus a fifth version mapped to the domain root:
-- https://neomjs.com/ (mapped to dist/production)
-- https://neomjs.com/apps/portal/index.html (dev mode)
-- https://neomjs.com/dist/development/apps/portal/index.html
-- https://neomjs.com/dist/esm/apps/portal/index.html
-- https://neomjs.com/dist/production/apps/portal/index.html
+Neo.mjs uniquely deploys each application and example in four equivalent environments.
+The URLs listed below use the **development mode** paths (Zero Build), which embody the core philosophy.
+To access bundled versions, prefix paths with `/dist/production/`, `/dist/development/`, or `/dist/esm/`.
 
-## main
+## Main Pages
 
 - [About Us](https://neomjs.com/about-us)
-- [Blog](https://neomjs.com/blog)
+- [News](https://neomjs.com/news)
 - [Docs](https://neomjs.com/docs)
 - [Examples](https://neomjs.com/examples)
 - [Home](https://neomjs.com/home)
 - [Services](https://neomjs.com/services)
 
-## benefits
+## Benefits
 
 - [Introduction](https://neomjs.com/learn/benefits/Introduction)
 - [Off the Main Thread](https://neomjs.com/learn/benefits/OffTheMainThread)
@@ -53,7 +41,7 @@ For example, the Portal app is available at all four environment URLs, plus a fi
 - [Forms Engine](https://neomjs.com/learn/benefits/FormsEngine)
 - [Features and Benefits Summary](https://neomjs.com/learn/benefits/Features)
 
-## comparisons
+## Comparisons
 
 - [Overview](https://neomjs.com/learn/comparisons/Overview)
 - [Neo.mjs vs React.js](https://neomjs.com/learn/comparisons/NeoVsReact)
@@ -63,7 +51,7 @@ For example, the Portal app is available at all four environment URLs, plus a fi
 - [Neo.mjs vs Next.js](https://neomjs.com/learn/comparisons/NeoVsNextJs)
 - [Neo.mjs vs Ext.js](https://neomjs.com/learn/comparisons/NeoVsExtJs)
 
-## gettingstarted
+## Gettingstarted
 
 - [Setup](https://neomjs.com/learn/gettingstarted/Setup)
 - [Workspaces and Applications](https://neomjs.com/learn/gettingstarted/Workspaces)
@@ -75,7 +63,7 @@ For example, the Portal app is available at all four environment URLs, plus a fi
 - [Shared Bindable Data](https://neomjs.com/learn/gettingstarted/ComponentModels)
 - [Creating Your First App](https://neomjs.com/learn/gettingstarted/CreatingYourFirstApp)
 
-## guides
+## Guides
 
 - [Codebase Overview](https://neomjs.com/learn/guides/fundamentals/CodebaseOverview)
 - [Application Bootstrap](https://neomjs.com/learn/guides/fundamentals/ApplicationBootstrap)
@@ -109,6 +97,7 @@ For example, the Portal app is available at all four environment URLs, plus a fi
 - [Introduction](https://neomjs.com/learn/guides/mcp/Introduction)
 - [The Knowledge Base Server](https://neomjs.com/learn/guides/mcp/KnowledgeBase)
 - [The Memory Core Server](https://neomjs.com/learn/guides/mcp/MemoryCore)
+- [The Neural Link Server](https://neomjs.com/learn/guides/mcp/NeuralLink)
 - [The GitHub Workflow Server](https://neomjs.com/learn/guides/mcp/GitHubWorkflow)
 - [Code Execution](https://neomjs.com/learn/guides/mcp/CodeExecution)
 - [Strategic Workflows](https://neomjs.com/learn/guides/ai/StrategicWorkflows)
@@ -120,7 +109,7 @@ For example, the Portal app is available at all four environment URLs, plus a fi
 - [Troubleshooting Tool Calls](https://neomjs.com/learn/guides/ai/TroubleshootingToolCalls)
 - [AI Tooling WSL Setup](https://neomjs.com/learn/guides/ai/AiToolingWslSetup)
 
-## tutorials
+## Tutorials
 
 - [Rock Scissors Paper](https://neomjs.com/learn/tutorials/RSP)
 - [Earthquakes](https://neomjs.com/learn/tutorials/Earthquakes)
@@ -128,14 +117,14 @@ For example, the Portal app is available at all four environment URLs, plus a fi
 - [Creating a Functional Button](https://neomjs.com/learn/tutorials/CreatingAFunctionalButton)
 - [Routing](https://neomjs.com/learn/tutorials/Routing)
 
-## javascript
+## Javascript
 
 - [Classes, Properties, and Methods](https://neomjs.com/learn/javascript/Classes)
 - [Overriding Methods](https://neomjs.com/learn/javascript/Overrides)
 - [Other JavaScript Class Features](https://neomjs.com/learn/javascript/ClassFeatures)
 - [Super](https://neomjs.com/learn/javascript/Super)
 
-## blog
+## Blog
 
 - [Context Engineering Done Right](https://neomjs.com/learn/blog/context-engineering-done-right)
 - [A Platform That Answers Your Questions](https://neomjs.com/learn/blog/ai-native-platform-answers-questions)
@@ -157,7 +146,7 @@ For example, the Portal app is available at all four environment URLs, plus a fi
 - [Neo.mjs Finance Dashboard](https://neomjs.com/apps/finance/index.html)
 - [Form](https://neomjs.com/apps/form/index.html)
 - [Legit](https://neomjs.com/apps/legit/index.html)
-- [Neo.mjs](https://neomjs.com/apps/portal/index.html)
+- [Neo.mjs - The Application Engine for the AI Era](https://neomjs.com/apps/portal/index.html)
 - [Conduit](https://neomjs.com/apps/realworld/index.html)
 - [RealWorld2](https://neomjs.com/apps/realworld2/index.html)
 - [Route](https://neomjs.com/apps/route/index.html)

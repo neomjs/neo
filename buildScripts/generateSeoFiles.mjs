@@ -10,12 +10,14 @@ const ROOT_DIR          = process.cwd();
 const LEARN_DIR         = path.resolve(ROOT_DIR, 'learn');
 const PORTAL_DIR        = path.resolve(ROOT_DIR, 'apps/portal');
 const TREE_FILE_PATH    = path.join(LEARN_DIR, 'tree.json');
+// Location of the JSON index we will generate in the next step
+const RELEASES_PATH     = path.resolve(PORTAL_DIR, 'resources/data/releases.json'); 
 const DEFAULT_BASE_PATH = '/learn';
 
 // Top-level routes that don't map to content files
 const TOP_LEVEL_ROUTES = [
     '/about-us',
-    '/blog',
+    '/news', // Renamed from /blog
     '/docs',
     '/examples',
     '/home',
@@ -27,12 +29,14 @@ const PRIORITIES = new Map([
     ['/home'    , 1.0],
     ['/docs'    , 0.9],
     ['/examples', 0.9],
-    ['/blog'    , 0.8],
+    ['/news'    , 0.9], // Boosted Priority
     ['/about-us', 0.7],
     ['/services', 0.7],
 
-    // High-value content
+    // High-value content (Application Engine & AI)
     ['guides/fundamentals/CodebaseOverview'         , 1.0],
+    ['guides/mcp/Introduction'                      , 1.0], // AI Priority
+    ['guides/mcp/NeuralLink'                        , 1.0], // AI Priority
 
     ['benefits/ConfigSystem'                        , 0.9],
     ['benefits/Effort'                              , 0.9],
@@ -457,46 +461,69 @@ export async function getLlmsTxt(options={}) {
     const {baseUrl, basePath = DEFAULT_BASE_PATH} = options;
     const allRoutes = await collectAllRoutes();
 
-    let content = `# Neo.mjs Platform
+    // 1. The Dynamic Header: Application Engine Branding
+    let content = `# Neo.mjs: The Application Engine for the AI Era
 
-> Neo.mjs is not a library, but a comprehensive web platform and a new operating system for the web, with over 1000 
-> files and 130,000 lines of code. It is architected for AI collaboration from the ground up, featuring three dedicated 
-> Model Context Protocol (MCP) servers. It reimagines web development from first principles, treating the browser as a 
-> distributed computing environment, not a single-threaded document renderer.
->
-> The core of Neo.mjs is its truly multi-threaded architecture which moves all application logic, state management, and 
-> data processing off the main thread. This ensures a "jank-free" user experience where the UI remains perfectly 
-> responsive, regardless of the workload. The platform provides a holistic, managed environment with operational 
-> guarantees, a unified class config system for declaratively describing entire component trees, and critical operational 
-> primitives like multi-window state. It includes an enterprise-grade component library.
->
-> The developer experience is revolutionary and future-proof, featuring a zero-builds development mode that is 100% based 
-> on web standards. This eliminates the frustrating abstraction layer of bundlers and transpilers and ensures that 
-> applications evolve with the web platform itself.
+> Neo.mjs is not a framework, but a multi-threaded Application Engine for the web.
+> It moves all application logic, state management, and data processing off the main thread,
+> ensuring a desktop-class, jank-free user experience.
 
-Neo.mjs uniquely deploys each application and example in four equivalent environments, each serving identical 
-functionality through different code delivery methods: development mode (zero-builds), dist/development (bundled, 
-unminified), dist/esm (native ES modules, optimized), and dist/production (bundled, minified). 
+> **Key Capabilities:**
+> * **True Multithreading:** 100% of your code runs in a Worker, keeping the UI thread free.
+> * **The Neural Link:** A bi-directional bridge allowing AI agents to inspect and mutate the live Scene Graph.
+> * **Object Permanence:** Components are persistent objects that can move between browser windows without losing state.
+> * **Zero Build Step:** Runs natively in the browser as ES Modules (no transpilation).
 
-The URLs listed below use the development mode paths (e.g., /apps/ or /examples/), representing the zero-builds, 
-browser-native version that embodies Neo.mjs's core philosophy. To access any application in a different environment, 
-simply prefix the path with /dist/development/, /dist/esm/, or /dist/production/.
+> **AI-Native Architecture:**
+> Neo.mjs is the first platform architected for "Context Engineering." It includes dedicated
+> MCP Servers (Knowledge Base, Memory Core) that allow AI agents to act as co-developers.
 
-For example, the Portal app is available at all four environment URLs, plus a fifth version mapped to the domain root:
-- https://neomjs.com/ (mapped to dist/production)
-- https://neomjs.com/apps/portal/index.html (dev mode)
-- https://neomjs.com/dist/development/apps/portal/index.html
-- https://neomjs.com/dist/esm/apps/portal/index.html
-- https://neomjs.com/dist/production/apps/portal/index.html
+Neo.mjs uniquely deploys each application and example in four equivalent environments.
+The URLs listed below use the **development mode** paths (Zero Build), which embody the core philosophy.
+To access bundled versions, prefix paths with \`/dist/production/\`, \`/dist/development/\`, or \`/dist/esm/\`.
 
 `;
+
+    // 2. The Dynamic Injector: Latest Release Notes
+    // This looks for a generated releases.json from the Portal build process
+    if (await fs.pathExists(RELEASES_PATH)) {
+        try {
+            const releases = await fs.readJSON(RELEASES_PATH);
+            
+            if (Array.isArray(releases) && releases.length > 0) {
+                // Filter out directory nodes (leaf nodes only)
+                const actualReleases = releases.filter(r => r.isLeaf !== false && r.version);
+
+                if (actualReleases.length > 0) {
+                    content += `## Latest Updates\n\n`;
+                    // Take top 5 releases
+                    actualReleases.slice(0, 5).forEach(release => {
+                        // Link deep into the Portal's new News/Release tab
+                        // Assumption: The route in Portal is #/news/release/{version}
+                        const version = release.version;
+                        const date    = release.date ? ` (${release.date.split('T')[0]})` : '';
+                        const title   = release.title || 'Update';
+                        
+                        // Note: We use the production distribution link for stability in llms.txt
+                        const url = new URL(`dist/production/apps/portal/index.html#/news/release/${version}`, baseUrl).toString();
+                        
+                        content += `- [v${version}${date}: ${title}](${url})\n`;
+                    });
+                    content += `\n`;
+                }
+            }
+        } catch (e) {
+            console.warn('Found releases.json but failed to parse it. Skipping "Latest Updates" section.');
+        }
+    }
 
     const topLevelRoutes = allRoutes.filter(route => route.category === 'top-level');
     const exampleRoutes  = allRoutes.filter(route => route.category === 'file');
     const contentRoutes  = allRoutes.filter(route => route.category === 'tree');
 
-    content += `## main\n\n`;
+    content += `## Main Pages\n\n`;
     const topLevelUrls = topLevelRoutes.map(route => {
+        // Beautify route name: /about-us -> About Us
         const name  = route.id.substring(1).split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
         const url   = new URL(buildRouteFromId(route.id, null, false), baseUrl).toString();
         return `- [${name}](${url})`;
@@ -516,7 +543,9 @@ For example, the Portal app is available at all four environment URLs, plus a fi
     }, {});
 
     for (const folder in topLevelFolders) {
-        content += `## ${folder}\n\n`;
+        // Capitalize folder header
+        const header = folder.charAt(0).toUpperCase() + folder.slice(1);
+        content += `## ${header}\n\n`;
         const urls = topLevelFolders[folder].map(node => {
             const route = buildRouteFromId(node.id, basePath, false);
             const url   = new URL(route, baseUrl).toString();

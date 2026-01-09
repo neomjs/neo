@@ -27,12 +27,12 @@ provides the functionality you need.
 -   If you need a custom form field, look for a suitable class within `Neo.form.field`.
 
 By choosing the most specific base class, you inherit a rich set of features, saving you from having to reinvent the
-wheel and ensuring your component integrates smoothly into the framework.
+wheel and ensuring your component integrates smoothly into the engine.
 
 ## Real-World Examples inside the Neo.mjs Component Library
 
-The Neo.mjs framework itself uses this principle of extending the most specific class. Let's look at a couple of
-examples from the framework's source code.
+The Neo.mjs engine itself uses this principle of extending the most specific class. Let's look at a couple of
+examples from the engine's source code.
 
 ### Toolbar Inheritance
 
@@ -66,18 +66,18 @@ component architecture.
 
 ## The Role of `Neo.setupClass()` and the Global `Neo` Namespace
 
-When you define a class in Neo.mjs and pass it to `Neo.setupClass()`, the framework does more than just process its configurations and apply mixins. A crucial step performed by `Neo.setupClass()` is to **enhance the global `Neo` namespace** with a reference to your newly defined class.
+When you define a class in Neo.mjs and pass it to `Neo.setupClass()`, the engine does more than just process its configurations and apply mixins. A crucial step performed by `Neo.setupClass()` is to **enhance the global `Neo` namespace** with a reference to your newly defined class.
 
 This means that after `Neo.setupClass(MyClass)` is executed, your class becomes accessible globally via `Neo.[your.class.name]`, where `[your.class.name]` corresponds to the `className` config you defined (e.g., `Neo.button.Base`, `Neo.form.field.Text`).
 
 **Implications for Class Extension and Usage:**
 
-*   **Global Accessibility**: You can refer to any framework class (or your own custom classes after they've been set up) using their full `Neo` namespace path (e.g., `Neo.button.Base`, `Neo.container.Base`) anywhere in your application code, even without an explicit ES module import for that specific class.
+*   **Global Accessibility**: You can refer to any core class (or your own custom classes after they've been set up) using their full `Neo` namespace path (e.g., `Neo.button.Base`, `Neo.container.Base`) anywhere in your application code, even without an explicit ES module import for that specific class.
 *   **Convenience vs. Best Practice**: While `extends Neo.button.Base` might technically work without an `import Button from '...'`, it is generally **not recommended** for application code. Explicit ES module imports (e.g., `import Button from '../button/Base.mjs';`) are preferred because they:
     *   **Improve Readability**: Clearly show the dependencies of your module.
     *   **Enhance Tooling**: Enable better static analysis, auto-completion, and refactoring support in modern IDEs.
     *   **Ensure Consistency**: Promote a consistent and predictable coding style.
-*   **Framework Internal Use**: The global `Neo` namespace is heavily utilized internally by the framework itself for its class registry, dependency resolution, and dynamic instantiation (e.g., when using `ntype` or `module` configs).
+*   **Framework Internal Use**: The global `Neo` namespace is heavily utilized internally by the engine itself for its class registry, dependency resolution, and dynamic instantiation (e.g., when using `ntype` or `module` configs).
 
 Understanding this mechanism clarifies how Neo.mjs manages its class system and provides the underlying flexibility for its configuration-driven approach.
 
@@ -115,7 +115,7 @@ Let's look at a practical example. Here, we'll create a custom button that combi
 import Button    from '../button/Base.mjs';
 import Container from '../container/Base.mjs';
 
-// 1. Define our custom component by extending a framework class.
+// 1. Define our custom component by extending a core class.
 class MySpecialButton extends Button {
     static config = {
         className: 'Example.view.MySpecialButton',
@@ -157,10 +157,10 @@ class MainView extends Container {
         className: 'Example.view.MainView',
         layout   : {ntype: 'vbox', align: 'start'},
         items    : [{
-            // A standard framework button for comparison
+            // A standard engine button for comparison
             module : Button,
             iconCls: 'fa fa-home',
-            text   : 'A framework button'
+            text   : 'A core button'
         }, {
             // Our new custom button
             module     : MySpecialButton,
@@ -175,14 +175,14 @@ MainView = Neo.setupClass(MainView);
 
 ### Breakdown of the Example:
 
-1.  **Class Definition**: We define `MySpecialButton` which `extends` the framework's `Button` class.
+1.  **Class Definition**: We define `MySpecialButton` which `extends` the engine's `Button` class.
 2.  **New Reactive Config**: We add a `specialText_` config. The trailing underscore makes it reactive.
 3.  **Lifecycle Methods**: We implement `afterSetSpecialText()` and override `afterSetText()` to call our custom
     `updateButtonText()` method. Because `afterSet` hooks are called for initial values upon instantiation, this
     ensures the button text is correct from the start and stays in sync.
 4.  **Custom Method**: The `updateButtonText()` method combines the `text` and `specialText` configs and updates the
     `text` property of the button's `textNode` in the VDOM.
-5.  **`this.update()`**: After changing the VDOM, we call `this.update()` to make the framework apply our changes to the
+5.  **`this.update()`**: After changing the VDOM, we call `this.update()` to make the engine apply our changes to the
     real DOM.
 
 This example shows how you can create a component that encapsulates its own logic and provides a richer, more dynamic

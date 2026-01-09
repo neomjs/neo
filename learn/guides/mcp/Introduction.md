@@ -2,7 +2,7 @@
 
 Neo.mjs v11.8.0 introduces a paradigm shift in how we think about AI-assisted development. We have moved beyond simple "tool use" scripts to a comprehensive **Agent OS** architecture, powered by the **Model Context Protocol (MCP)**.
 
-This guide explains what MCP is, why we adopted it, and how it transforms the Neo.mjs repository into a self-aware development environment.
+This guide explains what MCP is, why we adopted it, and how it transforms the Neo.mjs Application Engine into a self-aware development environment.
 
 ## What is the Model Context Protocol (MCP)?
 
@@ -40,7 +40,7 @@ MCP provides a robust security model. Our servers run over `stdio` (standard inp
 
 ## The "Agent OS" Architecture
 
-The Agent OS consists of three specialized MCP servers that work together to give the agent a complete "brain":
+The Agent OS consists of four specialized MCP servers that work together to give the agent a complete "brain":
 
 ### 1. The Knowledge Base Server (`neo.mjs-knowledge-base`)
 
@@ -60,9 +60,15 @@ The Agent OS consists of three specialized MCP servers that work together to giv
 *   **Function:** Bridges the local environment with GitHub. It syncs issues and PRs as local markdown files.
 *   **Capability:** Enables "Offline-First" project management. Agents can review PRs, manage tickets, and plan sprints without hitting API rate limits.
 
+### 4. The Neural Link Server (`neo.mjs-neural-link`)
+
+*   **Role:** The Visual Cortex & Hands.
+*   **Function:** Connects directly to the running application runtime.
+*   **Capability:** Allows agents to see the component tree, inspect state, and manipulate the UI in real-time. It turns the "Blind Architect" into a "Sighted Developer" who can verify their own work.
+
 ## Shared Architectural Patterns
 
-All three servers share a common architectural DNA, leveraging the Neo.mjs framework itself for backend development:
+All servers share a common architectural DNA, leveraging the Neo.mjs core itself for backend development:
 
 ### 1. OpenAPI-Driven Design
 
@@ -74,7 +80,7 @@ Each server defines its capabilities in a strict **OpenAPI 3.0 Specification** (
 
 The servers are built using the **Neo.mjs Class System**. Every service (e.g., `QueryService`, `SessionService`) is a Neo.mjs Singleton.
 *   **Lifecycle Management:** Services use `initAsync()` and `ready()` hooks for robust dependency orchestration.
-*   **Reactive Configs:** Runtime configuration is handled via the framework's reactive config system, ensuring type safety and validation.
+*   **Reactive Configs:** Runtime configuration is handled via the core's reactive config system, ensuring type safety and validation.
 
 ### 3. Transport Agnosticism
 

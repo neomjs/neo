@@ -1,7 +1,7 @@
 # Glossary
 
 This glossary provides definitions for key terms and concepts used throughout the Neo.mjs documentation. Understanding
-these terms is essential for grasping the framework's unique architecture and capabilities.
+these terms is essential for grasping the engine's unique architecture and capabilities.
 
 ## A
 
@@ -36,7 +36,7 @@ controllers, etc.) through a `static config` object. It provides consistency, re
 ### Component Lifecycle
 
 The series of well-defined stages an Neo.mjs class instance goes through, from its creation and initialization to its
-destruction. The framework provides hooks (e.g., `construct`, `initAsync`, `destroy`) to tap into these stages.
+destruction. The engine provides hooks (e.g., `construct`, `initAsync`, `destroy`) to tap into these stages.
 
 ### Component Library
 
@@ -94,7 +94,7 @@ they are actually needed, optimizing initial load times for complex forms.
 
 ### Lifecycle hooks
 
-Methods provided by the Neo.mjs framework that allow developers to execute custom logic at specific points during a
+Methods provided by the Neo.mjs engine that allow developers to execute custom logic at specific points during a
 class instance's lifecycle (e.g., `beforeSet`, `afterSet`, `initAsync`, `destroy`).
 
 ## M
@@ -111,8 +111,8 @@ specific browser APIs). Neo.mjs provides mechanisms to integrate these while mai
 
 ### MicroLoader
 
-A lightweight JavaScript file that is the first part of the Neo.mjs framework loaded by the browser. It's responsible
-for fetching the application's configuration and dynamically importing the main thread part of the framework.
+A lightweight JavaScript file that is the first part of the Neo.mjs engine loaded by the browser. It's responsible
+for fetching the application's configuration and dynamically importing the main thread part of the engine.
 
 ### Mixins
 
@@ -183,7 +183,7 @@ cross-context communication.
 
 ### RPC Layer
 
-Remote Procedure Call layer. In Neo.mjs, this refers to the framework's built-in system for enabling methods to be called
+Remote Procedure Call layer. In Neo.mjs, this refers to the engine's built-in system for enabling methods to be called
 on objects residing in different execution contexts (e.g., between workers, or to a backend) as if they were local.
 
 ### Routing

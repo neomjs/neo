@@ -1,6 +1,6 @@
 # Neo.mjs vs Angular
 
-Neo.mjs is a comprehensive JavaScript ecosystem for building high-performance, multi-threaded web applications. Unlike frameworks like Angular that require a complex, mandatory build process even for development, Neo.mjs is a self-contained system with **zero runtime dependencies**. It provides a complete, out-of-the-box solution that includes four distinct development and deployment environments, from a revolutionary zero-builds development mode to thread-optimized production bundles.
+Neo.mjs is a comprehensive JavaScript ecosystem for building high-performance, multi-threaded web applications. Unlike build-heavy frameworks like Angular that require a complex, mandatory build process even for development, Neo.mjs is a self-contained system with **zero runtime dependencies**. It provides a complete, out-of-the-box solution that includes four distinct development and deployment environments, from a revolutionary zero-builds development mode to thread-optimized production bundles.
 
 This article provides a focused comparison between the Neo.mjs ecosystem and Angular. While both are used to build modern user interfaces, they employ fundamentally different architectural and rendering strategies to achieve their goals. We will explore their approaches to **rendering, reactivity, and DOM updates**, highlighting the trade-offs between Angular's Main-Thread-bound, build-centric model and Neo.mjs's holistic, worker-based paradigm.
 
@@ -8,14 +8,14 @@ This article provides a focused comparison between the Neo.mjs ecosystem and Ang
 
 Both Neo.mjs and Angular share common ground in building modern user interfaces:
 
-*   **Component-Based Architecture (with a distinction):** Both frameworks promote building UIs as a composition of reusable components. However, Neo.mjs extends this concept with `Neo.core.Base`, allowing any class-based entity (like controllers, models, or routers) to leverage the framework's powerful class system, even if they don't directly render UI. This contrasts with frameworks where non-visual logic might often be shoehorned into component structures.
-*   **Declarative UI:** Developers describe *what* the UI should look like for a given state, and the framework handles *how* to update the DOM.
+*   **Component-Based Architecture (with a distinction):** Both architectures promote building UIs as a composition of reusable components. However, Neo.mjs extends this concept with `Neo.core.Base`, allowing any class-based entity (like controllers, models, or routers) to leverage the powerful class system, even if they don't directly render UI. This contrasts with frameworks where non-visual logic might often be shoehorned into component structures.
+*   **Declarative UI:** Developers describe *what* the UI should look like for a given state, and the engine handles *how* to update the DOM.
 *   **Reactive Programming:** Both leverage reactive programming principles. Angular heavily uses RxJS for reactivity and change detection. Neo.mjs uses its own fine-grained reactivity system based on `Neo.core.Config` and `Effect`, which conceptually aligns with the "signals" pattern for highly efficient, granular updates.
-*   **Comprehensive & Opinionated Frameworks:** Both provide a structured and opinionated way to build applications, offering extensive out-of-the-box solutions. However, their *nature* of opinionation differs, as explored in "Framework Rigidity vs. Flexible Structure."
+*   **Comprehensive & Opinionated Solutions:** Both solutions provide a structured and opinionated way to build applications, offering extensive out-of-the-box solutions. However, their *nature* of opinionation differs, as explored in "Rigidity vs. Flexible Structure."
 
 ## Key Differences: Architectural & Rendering Strategies
 
-This is where the two frameworks diverge significantly, each offering unique trade-offs and advantages.
+This is where the two architectures diverge significantly, each offering unique trade-offs and advantages.
 
 ### 1. Overall Architecture: Main Thread vs. Worker-Based
 
@@ -77,18 +77,18 @@ A critical architectural difference emerges when dealing with moving components 
 
 *   **Neo.mjs: True Mobility by Design**
     *   This is not a special feature in Neo.mjs; it is a **natural consequence of the architecture**.
-    *   Because component instances are stable and persistent, moving a component is a controlled data operation. A developer programmatically modifies the `items` arrays of the relevant containers, then calls `update()` on the **closest common ancestor**. This signals the framework to perform a single, efficient reconciliation that correctly identifies the component move. While calling `update()` on a higher-level ancestor would also work, targeting the closest one is a best practice that minimizes the scope of the update, showcasing the framework's focus on performance and developer control. This explicit, batch-friendly approach is a core architectural feature, not a hack.
-    *   The framework recognizes that the component's DOM node already exists. It issues a single, efficient `moveNode` command to the Main Thread.
+    *   Because component instances are stable and persistent, moving a component is a controlled data operation. A developer programmatically modifies the `items` arrays of the relevant containers, then calls `update()` on the **closest common ancestor**. This signals the engine to perform a single, efficient reconciliation that correctly identifies the component move. While calling `update()` on a higher-level ancestor would also work, targeting the closest one is a best practice that minimizes the scope of the update, showcasing the framework's focus on performance and developer control. This explicit, batch-friendly approach is a core architectural feature, not a hack.
+    *   The engine recognizes that the component's DOM node already exists. It issues a single, efficient `moveNode` command to the Main Thread.
     *   **The Benefit:** The existing DOM node, with all its internal state, is simply unplugged from its old parent and plugged into the new one. A playing video continues to play, uninterrupted. This enables a level of UI fluidity and state preservation that is architecturally impossible in a single-threaded model where component identity is tied to its place in the template.
 
 ### Other Considerations:
 
-*   **Framework Rigidity vs. Flexible Structure:** Angular is often perceived as a "straightjacket" due to its highly opinionated and prescriptive nature, dictating specific patterns (e.g., NgModules, decorators, strict DI) that can limit flexibility and make it challenging to deviate from "the Angular way." Neo.mjs, while also a comprehensive framework, offers a different kind of opinionation. Its core architectural choices (worker-based, unified config system, `Neo.core.Base` for any class-based entity) provide a robust structure, but within that structure, it offers significant flexibility (e.g., plain JS for VDOM, choice of functional or class components, integrated features reducing external dependencies), allowing developers more freedom without sacrificing consistency.
+*   **Rigidity vs. Flexible Structure:** Angular is often perceived as a "straightjacket" due to its highly opinionated and prescriptive nature, dictating specific patterns (e.g., NgModules, decorators, strict DI) that can limit flexibility and make it challenging to deviate from "the Angular way." Neo.mjs, while also a comprehensive platform, offers a different kind of opinionation. Its core architectural choices (worker-based, unified config system, `Neo.core.Base` for any class-based entity) provide a robust structure, but within that structure, it offers significant flexibility (e.g., plain JS for VDOM, choice of functional or class components, integrated features reducing external dependencies), allowing developers more freedom without sacrificing consistency.
 
 *   **TypeScript:** Angular is built with TypeScript and strongly encourages its use. Neo.mjs is written in plain JavaScript but supports TypeScript usage.
 *   **Learning Curve:** Angular has a reputation for a steeper learning curve due to its opinionated structure, extensive concepts (modules, decorators, DI, RxJS), and reliance on its CLI. Neo.mjs also has an initial learning curve (especially its worker architecture), but its core concepts are often simpler once understood.
-*   **Ecosystem & Maturity:** Angular has a large, mature ecosystem backed by Google. Neo.mjs has a smaller but dedicated community, with a focus on framework-level solutions and integrated features.
-*   **Dependency Management (Batteries Included):** Angular projects often involve a large `node_modules` directory and can lead to complex dependency trees and version conflicts. Neo.mjs, in contrast, is a "batteries included" framework. It literally has zero real runtime dependencies outside of its own core. This native ES Module approach and integrated framework, significantly reduces this complexity, offering a much leaner and more controlled dependency management experience.
+*   **Ecosystem & Maturity:** Angular has a large, mature ecosystem backed by Google. Neo.mjs has a smaller but dedicated community, with a focus on engine-level solutions and integrated features.
+*   **Dependency Management (Batteries Included):** Angular projects often involve a large `node_modules` directory and can lead to complex dependency trees and version conflicts. Neo.mjs, in contrast, is a "batteries included" platform. It literally has zero real runtime dependencies outside of its own core. This native ES Module approach and integrated framework, significantly reduces this complexity, offering a much leaner and more controlled dependency management experience.
 
 ## Conclusion: Why Neo.mjs Offers a More Modern and Flexible Architecture
 

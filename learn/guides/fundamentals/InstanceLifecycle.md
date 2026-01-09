@@ -1,7 +1,7 @@
 # Instance Lifecycle
 
 Understanding the lifecycle of a class instance in Neo.mjs is crucial for building robust and predictable
-applications. The framework provides a series of well-defined hooks that allow you to tap into different stages of an
+applications. The engine provides a series of well-defined hooks that allow you to tap into different stages of an
 instance's life, from its creation and rendering to its destruction.
 
 This guide will walk you through the entire lifecycle, which can be broken down into four main phases:
@@ -18,22 +18,22 @@ While this guide details the lifecycle methods of an instance, it's important to
 In typical Neo.mjs application code, you will rarely call `Neo.create()` directly.
 
 The most common way to create component instances is declaratively, by defining configuration objects within a container's
-`items` array. The framework then internally uses `Neo.create()` to turn these configuration objects into fully-fledged
+`items` array. The engine then internally uses `Neo.create()` to turn these configuration objects into fully-fledged
 instances, automatically initiating their lifecycle.
 
 It is crucial to **never** create a Neo.mjs class instance using the `new` keyword (e.g., `new MyComponent()`), as this
 would bypass the entire lifecycle initialization process described below, resulting in a broken and improperly configured
-instance. Always let the framework handle instantiation.
+instance. Always let the engine handle instantiation.
 
 ## 1. The Synchronous Creation Flow
 
-When the framework creates a new instance, it executes a sequence of synchronous methods. This initial phase is
+When the engine creates a new instance, it executes a sequence of synchronous methods. This initial phase is
 responsible for setting up the instance's basic configuration and state. **At this stage, the component has not been
 mounted to the DOM.**
 
 The synchronous lifecycle methods are called in the following order:
 
-1.  **`new YourClass()`**: The framework first calls the actual JavaScript class constructor with **no arguments**.
+1.  **`new YourClass()`**: The engine first calls the actual JavaScript class constructor with **no arguments**.
     Its primary purpose is to create the instance and initialize all of its defined class fields. This ensures that by
     the time any Neo.mjs lifecycle method is called, all class fields are fully available on `this`.
 
@@ -53,7 +53,7 @@ The synchronous lifecycle methods are called in the following order:
 ### `constructor()` vs `construct()`: A Critical Distinction
 
 While you *can* define a standard JavaScript `constructor()` method on a Neo.mjs class, it is strongly discouraged and
-considered a bad practice. The framework provides the `construct()` lifecycle hook for a very specific and powerful
+considered a bad practice. The engine provides the `construct()` lifecycle hook for a very specific and powerful
 reason: **pre-processing configs**.
 
 #### The `constructor()` Limitation
@@ -73,7 +73,7 @@ constructor(config) {
 
 #### The `construct()` Advantage
 
-The `construct()` method, however, is just a regular method called by the framework *after* the instance has been fully
+The `construct()` method, however, is just a regular method called by the engine *after* the instance has been fully
 created (via `new YourClass()`). This means that inside `construct()`, you have full access to `this` from the very first line.
 
 This enables a powerful pattern: you can inspect or modify the incoming `config` object *before* passing it up the
@@ -132,7 +132,7 @@ to wrap your asynchronous logic in `try...catch` blocks to handle potential fail
 
 ### `isReady`: The Signal of Completion
 
-Once the `initAsync()` promise resolves successfully, the framework sets the instance's `isReady` config to `true`.
+Once the `initAsync()` promise resolves successfully, the engine sets the instance's `isReady` config to `true`.
 
 *   **`isReady_`**: The config is defined as `isReady_`, which means it gets an `afterSetIsReady(value, oldValue)` hook.
 *   **Reacting to Readiness**: You can implement `afterSetIsReady()` to be notified precisely when the instance is fully
@@ -188,7 +188,7 @@ listeners, that need to be created and destroyed in sync with the component's pr
 ### Multi-Window Mounting
 
 Neo.mjs's multi-window support adds another layer to this phase. A component can be unmounted from one browser window
-and re-mounted into another. The framework manages this through the `windowId_` config.
+and re-mounted into another. The engine manages this through the `windowId_` config.
 
 *   **`windowId_`**: This config tracks which browser window the component currently belongs to.
 *   **`afterSetWindowId(newWindowId, oldWindowId)`**: This hook is called when a component is moved between windows.
@@ -266,7 +266,7 @@ To summarize the best practices:
 
 A powerful feature of the config system is that a config property can be another Neo.mjs class instance. A common
 example is a grid's `selectionModel`. This raises an important architectural question: when should this nested instance
-be created? The framework supports two patterns, each with different implications for the lifecycle.
+be created? The engine supports two patterns, each with different implications for the lifecycle.
 
 ### The Set-Driven Approach (Eager Instantiation)
 
@@ -285,7 +285,7 @@ beforeSetSelectionModel(value, oldValue) {
 }
 ```
 
-When the framework processes the grid body's configs during its `construct` phase, `beforeSetSelectionModel` is called.
+When the engine processes the grid body's configs during its `construct` phase, `beforeSetSelectionModel` is called.
 It immediately creates the selection model instance.
 
 **The key takeaway is the guarantee this provides for `onConstructed()`**. Because the selection model was instantiated

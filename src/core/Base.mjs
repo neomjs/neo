@@ -158,11 +158,15 @@ class Base {
          *
          * ONLY supported for singletons.
          *
-         * @member {Object|null} remote_=null
+         * @member {Object|null} remote_={[isDescriptor]: true, merge: 'deepArrays', value: null}
          * @protected
          * @reactive
          */
-        remote_: null
+        remote_: {
+            [isDescriptor]: true,
+            merge         : 'deepArrays',
+            value         : null
+        }
     }
 
     /**

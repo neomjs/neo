@@ -1,0 +1,49 @@
+.portal-home-parts-aitoolchain {
+    background-color: transparent;
+    color           : var(--sem-color-text-neutral-default);
+    gap             : 4rem;
+    padding         : 6em 2em 0; /* Removing bottom padding as FooterContainer is attached */
+
+    .content-wrapper {
+        align-items     : center;
+        background-color: transparent;
+        display         : flex;
+        flex-direction  : column;
+        gap             : 2rem;
+        margin          : 0 auto;
+        max-width       : 1200px;
+        width           : 100%;
+    }
+
+    .neo-h1 {
+        color      : #3e63dd !important;
+        font-family: "GT-Planar", sans-serif;
+        font-size  : 4rem;
+        line-height: 1.1;
+        margin     : 0;
+        text-align : center;
+    }
+
+    .neo-h3 {
+        color      : var(--sem-color-text-neutral-subdued) !important;
+        font-size  : 1.5rem;
+        line-height: 1.5;
+        margin     : 0;
+        max-width  : 800px;
+        text-align : center;
+    }
+
+    .card-container {
+        background-color: transparent;
+        gap             : 2rem;
+        grid-template-columns: repeat(3, 1fr);
+        margin-top      : 2rem;
+        overflow        : visible;
+        padding         : 10px;
+        width           : 100%;
+
+        @media (max-width: 900px) {
+            grid-template-columns: 1fr;
+        }
+    }
+}

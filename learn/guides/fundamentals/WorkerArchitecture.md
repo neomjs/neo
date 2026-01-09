@@ -1,14 +1,14 @@
 # Worker Architecture & Messaging
 
-Traditional web frameworks face a fundamental constraint: everything competes for the same single thread. A heavy calculation locks your UI. A complex animation stutters during data processing.
+Traditional web architectures face a fundamental constraint: everything competes for the same single thread. A heavy calculation locks your UI. A complex animation stutters during data processing.
 
 Neo.mjs solves this by inverting the standard architecture. It moves your application logic, virtual DOM diffing, and data processing into separate worker threads, leaving the main thread almost entirely empty.
 
-This guide explains the architectural implementation of these workers, how the framework abstracts their complexity, and the sophisticated messaging patterns that enable high-performance communication.
+This guide explains the architectural implementation of these workers, how the engine abstracts their complexity, and the sophisticated messaging patterns that enable high-performance communication.
 
 ## The Worker Model
 
-The framework orchestrates a specific set of threads, each with a dedicated purpose.
+The engine orchestrates a specific set of threads, each with a dedicated purpose.
 
 ### 1. The Main Thread (Manager)
 In Neo.mjs, the main thread's role is minimized. It acts as a "thin client" responsible for:
@@ -36,7 +36,7 @@ A specialized worker for handling `OffscreenCanvas`. It allows for high-performa
 
 ## Unified Worker Abstraction: `Neo.worker.Base`
 
-One of the framework's most powerful features is its ability to switch between **Dedicated Workers** (`new Worker()`) and **Shared Workers** (`new SharedWorker()`) via the `useSharedWorkers` config, without requiring changes to application code.
+One of the engine's most powerful features is its ability to switch between **Dedicated Workers** (`new Worker()`) and **Shared Workers** (`new SharedWorker()`) via the `useSharedWorkers` config, without requiring changes to application code.
 
 **Guidance:**
 
@@ -57,7 +57,7 @@ This abstraction allows Neo.mjs to support advanced scenarios like **multi-windo
 By default, workers in a browser cannot communicate directly with each other; they must route messages through the main thread. This creates a potential bottleneck. Neo.mjs solves this using **MessageChannels**.
 
 ### Initial Handshake
-When the framework boots up, `Neo.worker.Manager` (in Main) facilitates an initial handshake to establish direct connections between workers.
+When the engine boots up, `Neo.worker.Manager` (in Main) facilitates an initial handshake to establish direct connections between workers.
 
 1.  **Creation:** A worker (e.g., App) creates a `MessageChannel` containing two ports (`port1`, `port2`).
 2.  **Retention:** The worker keeps `port1` for itself.
@@ -87,15 +87,15 @@ afterConnect() {
 Neo.mjs uses several sophisticated messaging patterns to optimize performance and developer experience.
 
 ### 1. Remote Method Access (RMA): The "Magic" RPC
-The framework provides a Remote Procedure Call (RPC) layer that allows code in one worker to call methods in another worker as if they were local, asynchronous functions.
+The engine provides a Remote Procedure Call (RPC) layer that allows code in one worker to call methods in another worker as if they were local, asynchronous functions.
 
 **The Developer Experience:**
-To a developer, there is **no difference** between calling a local asynchronous function and a remote method in another thread. You simply use `await`. The framework handles the complexities of serialization, message passing, and promise resolution transparently.
+To a developer, there is **no difference** between calling a local asynchronous function and a remote method in another thread. You simply use `await`. The engine handles the complexities of serialization, message passing, and promise resolution transparently.
 
-This effectively makes multi-threading **trivial**. You spend 95% of your time in the App Worker, writing standard JavaScript, while the framework orchestrates the distributed execution behind the scenes.
+This effectively makes multi-threading **trivial**. You spend 95% of your time in the App Worker, writing standard JavaScript, while the engine orchestrates the distributed execution behind the scenes.
 
 **How it works:**
-1.  **Proxies:** The framework dynamically generates "stub" methods in the calling worker for classes exposed by the target worker.
+1.  **Proxies:** The engine dynamically generates "stub" methods in the calling worker for classes exposed by the target worker.
 2.  **Promises:** Calling a stub immediately returns a `Promise`.
 3.  **Messaging:** Under the hood, `Neo.worker.mixin.RemoteMethodAccess` sends a message to the target worker.
 4.  **Execution:** The target worker executes the real method and sends the result back.
@@ -118,13 +118,13 @@ To simplify this, Neo.mjs components provide high-level abstractions that handle
 
 ```javascript
 // 2. Component Abstraction (Best Practice)
-// The framework wraps the RMA call, handling scoping automatically.
+// The engine wraps the RMA call, handling scoping automatically.
 // It even offers advanced variants like waitForDomRect() to handle async rendering timing.
 const componentRect = await this.getDomRect();
 ```
 
 ### 2. The Triangular Communication (VDOM Updates)
-For VDOM updates, the framework uses a specialized flow to minimize latency and main-thread overhead. Instead of a simple request-response, the data flows in a triangle:
+For VDOM updates, the engine uses a specialized flow to minimize latency and main-thread overhead. Instead of a simple request-response, the data flows in a triangle:
 
 1.  **App Worker:** Generates a new VDOM structure and sends it to the **VDom Worker**.
 2.  **VDom Worker:** Calculates the deltas (diff) and sends a "reply" message.
@@ -187,9 +187,11 @@ Debugging multi-threaded applications might seem daunting, but modern tools make
 *   **Console Logs:** Logs from **Dedicated Workers** appear in the browser console. Chrome DevTools allows you to filter logs by "Context" (selecting specific workers).
 *   **SharedWorker Logs:** For **SharedWorkers**, logs do *not* appear in the main console. You must visit `chrome://inspect/#workers` and click "Inspect" to open a dedicated DevTools window for that worker.
 *   **Source Maps:** Neo.mjs runs directly in the browser (no transpilation in dev mode), so stack traces point directly to your source files in the correct worker.
-*   **RMA Errors:** If a remote method throws an error, the framework catches it, serializes the stack trace, and rejects the Promise in the calling worker. The error message typically identifies which worker threw the exception. You can use `try/catch` blocks around RMA calls just like local async functions.
+*   **RMA Errors:** If a remote method throws an error, the engine catches it, serializes the stack trace, and rejects the Promise in the calling worker. The error message typically identifies which worker threw the exception. You can use `try/catch` blocks around RMA calls just like local async functions.
 *   **Debugging Workers:** In Chrome DevTools, you can inspect dedicated workers under the "Sources" tab. For SharedWorkers, visit `chrome://inspect/#workers` to open a dedicated devtools window.
 
 ## Summary
 
-The Neo.mjs worker architecture is designed to keep the Main thread idle and the application responsive. By combining a unified worker abstraction with optimized communication patterns like RMA, triangular routing, and direct MessageChannels, it provides a robust foundation for building complex, high-performance web applications that run smoothly on any device—from powerful desktops to mobile phones.
+
+
+The Neo.mjs worker system is designed to keep the Main thread idle and the application responsive. By combining a unified worker abstraction with optimized communication patterns like RMA, triangular routing, and direct MessageChannels, it provides a robust foundation for building complex, high-performance web applications that run smoothly on any device—from powerful desktops to mobile phones.

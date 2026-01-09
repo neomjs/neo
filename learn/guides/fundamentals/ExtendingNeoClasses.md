@@ -1,6 +1,6 @@
 # Extending Neo Classes
 
-Neo.mjs is built upon a robust and consistent class system. Understanding how to extend framework classes is fundamental
+Neo.mjs is built upon a robust and consistent class system. Understanding how to extend core classes is fundamental
 to building custom functionality, whether you're creating new UI components, defining data structures, or implementing
 application logic.
 
@@ -30,7 +30,7 @@ alias for component creation).
 ## 2. Reactive Configs: The Trailing Underscore (`_`)
 
 A cornerstone of Neo.mjs's reactivity is the trailing underscore (`_`) convention for configs defined in `static config`.
-When you append an underscore to a config name (e.g., `myConfig_`), the framework automatically generates a reactive
+When you append an underscore to a config name (e.g., `myConfig_`), the engine automatically generates a reactive
 getter and setter for it.
 
 ```javascript readonly
@@ -57,7 +57,7 @@ static and do not trigger this reactive behavior.
 ## 3. Configuration Lifecycle Hooks (`beforeSet`, `afterSet`, `beforeGet`)
 
 For every reactive config (`myConfig_`), Neo.mjs provides three optional lifecycle hooks that you can implement in your
-class. These methods are automatically called by the framework during the config's lifecycle, offering powerful
+class. These methods are automatically called by the engine during the config's lifecycle, offering powerful
 interception points:
 
 *   **`beforeSetMyConfig(value, oldValue)`**:
@@ -102,7 +102,7 @@ You can typically configure such properties using one of three methods:
     ```
 
 2.  **A Class Reference:**
-  Pass a direct reference to the Neo.mjs class. The framework will automatically instantiate this class when the
+  Pass a direct reference to the Neo.mjs class. The engine will automatically instantiate this class when the
   component is created.
 
     ```javascript readonly
@@ -173,7 +173,7 @@ This pattern is crucial for providing a flexible yet robust API for configuring 
 
 ## 5. The Role of `Neo.setupClass()` and the Global `Neo` Namespace
 
-When you define a class in Neo.mjs and pass it to `Neo.setupClass()`, the framework performs several crucial operations.
+When you define a class in Neo.mjs and pass it to `Neo.setupClass()`, the engine performs several crucial operations.
 One of the most significant is to **enhance the global `Neo` namespace** with a reference to your newly defined class.
 
 This means that after `Neo.setupClass(MyClass)` is executed, your class becomes accessible globally via
@@ -182,7 +182,7 @@ This means that after `Neo.setupClass(MyClass)` is executed, your class becomes 
 
 **Implications for Class Extension and Usage:**
 
-* **Global Accessibility**: You can refer to any framework class (or your own custom classes after they've been set
+* **Global Accessibility**: You can refer to any core class (or your own custom classes after they've been set
   up) using their full `Neo` namespace path (e.g., `Neo.button.Base`, `Neo.container.Base`) anywhere in your
   application code, even
   without an explicit ES module import for that specific class.
@@ -192,7 +192,7 @@ This means that after `Neo.setupClass(MyClass)` is executed, your class becomes 
   * **Improve Readability**: Clearly show the dependencies of your module.
   * **Enhance Tooling**: Enable better static analysis, auto-completion, and refactoring support in modern IDEs.
   * **Ensure Consistency**: Promote a consistent and predictable coding style.
-* **Framework Internal Use**: The global `Neo` namespace is heavily utilized internally by the framework itself for
+* **Framework Internal Use**: The global `Neo` namespace is heavily utilized internally by the engine itself for
   its class registry, dependency resolution, and dynamic instantiation (e.g., when using `ntype` or `module` configs).
 
 Understanding this mechanism clarifies how Neo.mjs manages its class system and provides the underlying flexibility for
@@ -357,4 +357,4 @@ Neo.setupClass(MyCustomController);
 
 The class extension mechanism, coupled with the reactive config system and `Neo.setupClass()`, forms the backbone of
 development in Neo.mjs. By mastering these principles, you can create highly modular, maintainable, and powerful
-applications that seamlessly integrate with the framework's core.
+applications that seamlessly integrate with the engine's core.

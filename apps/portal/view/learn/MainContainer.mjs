@@ -1,16 +1,13 @@
-import Container                  from '../../../../src/container/Base.mjs';
-import ContentTreeList            from './ContentTreeList.mjs';
-import MainContainerController    from './MainContainerController.mjs';
-import MainContainerStateProvider from './MainContainerStateProvider.mjs';
-import PageContainer              from './PageContainer.mjs';
-import PageSectionsContainer      from './PageSectionsContainer.mjs';
-import Splitter                   from '../../../../src/component/Splitter.mjs';
+import ContentComponent from './Component.mjs';
+import Controller       from './MainContainerController.mjs';
+import SharedContainer  from '../shared/content/Container.mjs';
+import StateProvider    from './MainContainerStateProvider.mjs';
 
 /**
  * @class Portal.view.learn.MainContainer
- * @extends Neo.container.Base
+ * @extends Portal.view.shared.content.Container
  */
-class MainContainer extends Container {
+class MainContainer extends SharedContainer {
     static config = {
         /**
          * @member {String} className='Portal.view.learn.MainContainer'
@@ -18,59 +15,23 @@ class MainContainer extends Container {
          */
         className: 'Portal.view.learn.MainContainer',
         /**
-         * @member {String[]} cls=['portal-learn-maincontainer']
-         * @reactive
+         * @member {String[]} cls=['portal-shared-background']
          */
-        cls: ['portal-learn-maincontainer'],
+        cls: ['portal-shared-background'],
+        /**
+         * @member {Neo.component.Base} contentComponent=ContentComponent
+         */
+        contentComponent: ContentComponent,
         /**
          * @member {Neo.controller.Component} controller=MainContainerController
          * @reactive
          */
-        controller: MainContainerController,
-        /**
-         * @member {Object[]} items
-         */
-        items: [{
-            module   : Container,
-            cls      : ['sidenav-container'],
-            flex     : 'none',
-            layout   : 'fit',
-            reference: 'sidenav-container',
-            tag      : 'aside',
-
-            items: [{
-                module   : ContentTreeList,
-                reference: 'tree'
-            }, {
-                ntype  : 'button',
-                bind   : {hidden: data => data.size !== 'x-small'},
-                cls    : ['sidenav-button'],
-                handler: 'onSideNavToggleButtonClick',
-                iconCls: 'fas fa-bars',
-                ui     : 'secondary'
-            }]
-        }, {
-            module      : Splitter,
-            bind        : {hidden: data => data.size === 'x-small'},
-            cls         : ['main-content-splitter'],
-            resizeTarget: 'previous',
-            size        : 3
-        }, {
-            module: PageContainer
-        }, {
-            module   : PageSectionsContainer,
-            reference: 'page-sections-container'
-        }],
-        /**
-         * @member {Object} layout={ntype:'hbox',align:'stretch'}
-         * @reactive
-         */
-        layout: {ntype: 'hbox', align: 'stretch'},
+        controller: Controller,
         /**
          * @member {Neo.state.Provider} stateProvider=MainContainerStateProvider
          * @reactive
          */
-        stateProvider: MainContainerStateProvider
+        stateProvider: StateProvider
     }
 }
 

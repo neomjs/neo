@@ -538,6 +538,34 @@ If you intended to create custom logic, use the 'beforeGet${Neo.capitalize(key)}
     },
 
     /**
+     * @param {Object} a
+     * @param {Object} b
+     * @returns {Object}
+     */
+    mergeDeepArrays(a, b) {
+        if (!a) return b;
+        if (!b) return a;
+
+        let out = Neo.clone(a, true);
+
+        Object.entries(b).forEach(([key, value]) => {
+            if (out[key]) {
+                if (Array.isArray(out[key]) && Array.isArray(value)) {
+                    out[key] = [...new Set([...out[key], ...value])]
+                } else if (Neo.isObject(out[key]) && Neo.isObject(value)) {
+                    out[key] = Neo.mergeDeepArrays(out[key], value)
+                } else {
+                    out[key] = value
+                }
+            } else {
+                out[key] = value
+            }
+        });
+
+        return out
+    },
+
+    /**
      * Merges a new value into an existing config value based on a specified strategy.
      * This method is used during instance creation to apply merge strategies defined in config descriptors.
      * @param {any} defaultValue - The default value of the config (from static config).
@@ -557,6 +585,10 @@ If you intended to create custom logic, use the 'beforeGet${Neo.capitalize(key)}
         } else if (strategy === 'deep') {
             if (defaultValueType === 'Object' && instanceValueType === 'Object') {
                 return Neo.merge(Neo.clone(defaultValue, true), instanceValue)
+            }
+        } else if (strategy === 'deepArrays') {
+            if (defaultValueType === 'Object' && instanceValueType === 'Object') {
+                return Neo.mergeDeepArrays(defaultValue, instanceValue)
             }
         } else if (typeof strategy === 'function') {
             return strategy(defaultValue, instanceValue)

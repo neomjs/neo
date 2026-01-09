@@ -10,6 +10,11 @@ const cwd = process.cwd();
  */
 const defaultConfig = {
     /**
+     * Automatically synchronize the knowledge base on startup.
+     * @type {boolean}
+     */
+    autoSync: true,
+    /**
      * Global debug flag for all MCP servers.
      * @type {boolean}
      */
@@ -58,10 +63,20 @@ const defaultConfig = {
      */
     dataPath: path.resolve(cwd, 'dist/ai-knowledge-base.jsonl'),
     /**
+     * The path to the generated class hierarchy JSON file.
+     * @type {string}
+     */
+    hierarchyPath: path.resolve(cwd, 'docs/output/class-hierarchy.json'),
+    /**
      * The name of the ChromaDB collection for the knowledge base.
      * @type {string}
      */
     collectionName: 'neo-knowledge-base',
+    /**
+     * The name of the Google Generative AI model for content generation.
+     * @type {string}
+     */
+    modelName: 'gemini-2.5-flash',
     /**
      * The name of the Google Generative AI model for text embeddings.
      * @type {string}

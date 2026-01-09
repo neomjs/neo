@@ -2,21 +2,21 @@
 
 Neo.mjs is a comprehensive JavaScript ecosystem for building high-performance, multi-threaded web applications. Unlike libraries such as Solid.js that focus purely on rendering and are typically part of a manually assembled toolchain, Neo.mjs is a self-contained system with **zero runtime dependencies**. It provides a complete, out-of-the-box solution that includes four distinct development and deployment environments, from a revolutionary zero-builds development mode to thread-optimized production bundles.
 
-This article provides a focused comparison between the Neo.mjs ecosystem and Solid.js. While both frameworks leverage fine-grained reactivity for high performance, they employ fundamentally different architectural and rendering strategies to achieve their goals. We will explore their approaches to **rendering, reactivity, and DOM updates**, highlighting the trade-offs between Solid's "no-VDOM," Main-Thread-bound model and Neo.mjs's holistic, worker-based paradigm.
+This article provides a focused comparison between the Neo.mjs ecosystem and Solid.js. While both architectures leverage fine-grained reactivity for high performance, they employ fundamentally different architectural and rendering strategies to achieve their goals. We will explore their approaches to **rendering, reactivity, and DOM updates**, highlighting the trade-offs between Solid's "no-VDOM," Main-Thread-bound model and Neo.mjs's holistic, worker-based paradigm.
 
 ## Core Similarities: Fine-Grained Reactivity
 
-At their heart, both frameworks share the philosophy of **fine-grained reactivity**:
+At their heart, both architectures share the philosophy of **fine-grained reactivity**:
 
-*   **Direct Updates:** When a piece of reactive state changes, only the specific parts of the UI that directly depend on that state are updated. This minimizes unnecessary re-renders of entire component trees, a common performance bottleneck in traditional Virtual DOM frameworks.
+*   **Direct Updates:** When a piece of reactive state changes, only the specific parts of the UI that directly depend on that state are updated. This minimizes unnecessary re-renders of entire component trees, a common performance bottleneck in traditional Virtual DOM architectures.
 *   **Reactive Primitives:**
     *   **Solid.js:** Utilizes "signals" (`createSignal`) as its primary reactive primitive.
     *   **Neo.mjs:** Employs `Neo.core.Config` instances as its core reactive primitive.
-*   **Automatic Dependency Tracking:** Both frameworks automatically detect dependencies. When code executes within a reactive context (e.g., an effect, a memo, or a component's render logic), any reactive primitive accessed during that execution is automatically subscribed to. This eliminates the need for manual dependency declarations in many cases.
+*   **Automatic Dependency Tracking:** Both architectures automatically detect dependencies. When code executes within a reactive context (e.g., an effect, a memo, or a component's render logic), any reactive primitive accessed during that execution is automatically subscribed to. This eliminates the need for manual dependency declarations in many cases.
 
 ## Key Differences: Architectural & Rendering Strategies
 
-This is where the two frameworks diverge significantly, each offering unique trade-offs.
+This is where the two architectures diverge significantly, each offering unique trade-offs.
 
 ### 1. Rendering Mechanism: A Tale of Two Architectures
 
@@ -66,11 +66,11 @@ This is where the two frameworks diverge significantly, each offering unique tra
 
 *   **JSX vs. Plain Objects:** Solid uses JSX (requiring a build step), while Neo.mjs uses plain JavaScript objects for VDOM (no JSX compilation needed). **This means Neo.mjs's VDOM is defined using simple nested JavaScript objects and arrays, akin to a JSON-like description of the DOM.**
 *   **Side Effects:** Solid has explicit `createEffect` and `createRenderEffect` hooks for managing side effects. In Neo.mjs, `createVdom` is the primary effect for rendering, and other side effects would typically be managed by separate `Neo.core.Effect` instances or dedicated hooks.
-*   **Ecosystem & Maturity:** Solid.js has a growing community and ecosystem. Neo.mjs has a smaller but dedicated community, with a focus on framework-level solutions.
+*   **Ecosystem & Maturity:** Solid.js has a growing community and ecosystem. Neo.mjs has a smaller but dedicated community, with a focus on engine-level solutions.
 
 ## Conclusion
 
-Both Neo.mjs and Solid.js are highly performant, modern reactive frameworks.
+Both Neo.mjs and Solid.js are highly performant, modern reactive solutions.
 
 *   **Solid.js** excels by completely sidestepping the Virtual DOM, compiling directly to efficient DOM operations, and running components only once. It's a lean, fast choice for Main Thread-bound applications.
 *   **Neo.mjs** offers a unique value proposition with its worker-based architecture, offloading heavy computation from the Main Thread to ensure UI responsiveness. It combines this with a sophisticated VDOM pipeline that includes off-Main-Thread diffing, intelligent batching/aggregation, and surgical direct DOM API updates.

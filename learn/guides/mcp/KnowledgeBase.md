@@ -66,11 +66,17 @@ The brain of the operation. It handles the search logic and implements the **Wei
     - **Penalties:** Historical Tickets (-70) and Release Notes (-50) are penalized in general searches to avoid confusing the agent with outdated information, unless explicitly requested via `type='ticket'`.
     - **Inheritance:** When a class is found, its parent classes get a boost (+80). This is crucial: it ensures the agent sees the full prototype chain, understanding methods inherited from `Base` classes.
 
+#### SearchService (`services/SearchService.mjs`)
+
+The RAG (Retrieval-Augmented Generation) engine.
+- **Synthesizes Answers:** Unlike `QueryService` which returns raw files, `SearchService` takes a question, retrieves relevant documents, reads their full content from disk, and uses an LLM (Gemini) to generate a concise, synthesized answer with citations.
+- **Contextual Reading:** It reads the actual files from the filesystem before feeding them to the LLM, ensuring the context is complete and up-to-date.
+
 #### DatabaseService (`services/DatabaseService.mjs`)
 
 The ETL (Extract, Transform, Load) engine.
 - **Extract:** Reads from `docs/output/all.json` (JSDoc), `learn/tree.json` (Guides), and `.github/` (Tickets/Releases).
-- **Transform:** Normalizes content into a unified JSONL format (`dist/ai-knowledge-base.jsonl`). It generates a **Content Hash** (SHA-256) for each chunk to detect changes.
+- **Transform:** Normalizes content into a unified JSONL format (`dist/ai-knowledge-base.jsonl`). It generates a **Content Hash** (SHA-256) for each chunk to detect changes. It also generates a static **Class Hierarchy Map** (`dist/ai-class-hierarchy.json`).
 - **Load:** "Upserts" vectors into ChromaDB. It uses the content hash to perform a diff, ensuring only new or modified chunks are re-embedded, saving time and API costs.
 
 #### HealthService (`services/HealthService.mjs`)
@@ -102,10 +108,19 @@ The server manages a local instance of **ChromaDB**, a high-performance vector d
 
 These are the primary tools used by agents to retrieve information.
 
-*   **`query_documents`**: Performs a semantic search.
+*   **`ask_knowledge_base`**: **(Recommended)** Performs a semantic search and uses an LLM to synthesize an answer.
+    *   `query`: The question to ask.
+    *   `type`: Optional filter by content type (`guide`, `src`, `all`).
+    *   *Best Practice:* Use this for "How do I..." questions to get a summarized answer with code references.
+
+*   **`query_documents`**: Performs a raw semantic search. Returns a ranked list of relevant files.
     *   `query`: The natural language question.
     *   `type`: Filter by content type (`guide`, `src`, `ticket`, `blog`, `release`, `example`, `all`).
-    *   *Best Practice:* Start broad, then narrow down. Use `type` to focus the search.
+    *   *Best Practice:* Use this when you want to read the raw source files yourself.
+
+*   **`get_class_hierarchy`**: Retrieves the static class inheritance tree.
+    *   `root`: **Required.** The root class name to filter by (e.g., `Neo.component.Base`).
+    *   *Best Practice:* Use this to discover available subclasses or understand the inheritance chain deterministically.
 
 *   **`list_documents`**: Retrieves a paginated list of all indexed documents (for inspection).
 *   **`get_document_by_id`**: Retrieves a specific document chunk by its ID.
@@ -114,23 +129,20 @@ These are the primary tools used by agents to retrieve information.
 
 These tools manage the knowledge base lifecycle.
 
-*   **`sync_database`**: **The "One Button" Update.** Triggers the full ETL pipeline:
-    1.  Scans source files.
-    2.  Creates `ai-knowledge-base.jsonl`.
-    3.  Embeds changes into ChromaDB.
-    *   *Use when:* You have modified code or docs and want the agent to "learn" the changes.
-
-*   **`create_knowledge_base`**: Runs only the "Extract & Transform" steps (creates the JSONL file). Useful for debugging the extraction logic without incurring embedding costs.
-*   **`embed_knowledge_base`**: Runs only the "Load" step (embeds the JSONL file). Useful if the JSONL file was manually edited or verified.
-*   **`delete_database`**: **Destructive.** Deletes the entire ChromaDB collection.
+*   **`manage_knowledge_base`**: Unified tool for KB operations.
+    *   `action: 'sync'`: **The "One Button" Update.** Triggers the full ETL pipeline (Create + Embed). Use this after code changes.
+    *   `action: 'create'`: Runs only the extraction step.
+    *   `action: 'embed'`: Runs only the embedding step.
+    *   `action: 'delete'`: **Destructive.** Deletes the entire ChromaDB collection.
 
 ### Infrastructure Tools
 
 These tools manage the underlying services.
 
 *   **`healthcheck`**: Diagnostic tool. Checks ChromaDB connectivity, collection status, and API key presence.
-*   **`start_database`**: Starts the local ChromaDB process.
-*   **`stop_database`**: Stops the local ChromaDB process.
+*   **`manage_database`**: Manages the database process.
+    *   `action: 'start'`: Starts the local ChromaDB process.
+    *   `action: 'stop'`: Stops the local ChromaDB process.
 
 ## The Virtuous Cycle: Enhancing the Knowledge Base
 

@@ -16,14 +16,20 @@ import GH_LocalFileService          from './mcp/server/github-workflow/services/
 import GH_PullRequestService        from './mcp/server/github-workflow/services/PullRequestService.mjs';
 import GH_RepositoryService         from './mcp/server/github-workflow/services/RepositoryService.mjs';
 
+GH_Config.data.syncOnStartup = false;
+
 // --- Knowledge Base Services ---
 import KB_DatabaseService           from './mcp/server/knowledge-base/services/DatabaseService.mjs';
 import KB_LifecycleService          from './mcp/server/knowledge-base/services/DatabaseLifecycleService.mjs';
 import KB_DocumentService           from './mcp/server/knowledge-base/services/DocumentService.mjs';
 import KB_HealthService             from './mcp/server/knowledge-base/services/HealthService.mjs';
 import KB_QueryService              from './mcp/server/knowledge-base/services/QueryService.mjs';
+import KB_SearchService             from './mcp/server/knowledge-base/services/SearchService.mjs';
 import KB_ChromaManager             from './mcp/server/knowledge-base/services/ChromaManager.mjs';
 import KB_Config                    from './mcp/server/knowledge-base/config.mjs';
+
+// Disable auto-sync for all scripts using the SDK to prevent double-runs
+KB_Config.data.autoSync = false;
 
 // --- Memory Core Services ---
 import Memory_Service               from './mcp/server/memory-core/services/MemoryService.mjs';
@@ -34,6 +40,8 @@ import Memory_HealthService         from './mcp/server/memory-core/services/Heal
 import Memory_SummaryService        from './mcp/server/memory-core/services/SummaryService.mjs';
 import Memory_ChromaManager         from './mcp/server/memory-core/services/ChromaManager.mjs';
 import Memory_Config                from './mcp/server/memory-core/config.mjs';
+
+Memory_Config.data.autoSummarize = false;
 
 // --- Neural Link Services ---
 import NeuralLink_ComponentService   from './mcp/server/neural-link/services/ComponentService.mjs';
@@ -153,6 +161,7 @@ makeSafe(KB_LifecycleService, kbSpec);
 makeSafe(KB_DocumentService,  kbSpec);
 makeSafe(KB_HealthService,    kbSpec);
 makeSafe(KB_QueryService,     kbSpec);
+makeSafe(KB_SearchService,    kbSpec);
 
 // Memory Core
 makeSafe(Memory_Service,          memSpec);
@@ -208,6 +217,7 @@ export {
     KB_DocumentService,
     KB_HealthService,
     KB_QueryService,
+    KB_SearchService,
 
     // Memory Core
     Memory_Config,

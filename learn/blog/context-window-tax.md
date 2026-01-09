@@ -72,7 +72,7 @@ This work serves as a reference implementation for teams building Code Execution
 
 Rather than replacing Tool Use entirely, we implement a hybrid architecture that combines the strengths of both patterns:
 
-```
+```text readonly
 ┌─────────────────────────────────────────────────┐
 │              Agent Decision Point               │
 └────────────┬────────────────────────┬───────────┘
@@ -116,7 +116,7 @@ This hybrid approach keeps session startup contexts manageable (~115k tokens for
 
 The core of our implementation is `ai/services.mjs`, a standalone JavaScript module that exports the internal service classes powering our three MCP servers:
 
-```javascript
+```javascript readonly
 // Agent script import
 import { 
     KB_QueryService,      // Knowledge Base: semantic search
@@ -151,7 +151,7 @@ Our solution: **Runtime argument validation** via Zod schemas dynamically derive
 3.  All service method calls are intercepted and validated *before* execution.
 
 **Example Error Output (`ai/examples/test-safety.mjs`):**
-```javascript
+```javascript readonly
 // Agent attempts invalid call
 await KB_QueryService.queryDocuments({ query: 123 });
 
@@ -173,7 +173,7 @@ This precise feedback enables agents to self-correct immediately without needing
 
 A crucial architectural decision: **MCP servers are just transport adapters.** The actual business logic lives in **Service classes** that exist independently.
 
-```
+```text readonly
 ┌──────────────────────────────────────────┐
 │         Service Layer (Core Logic)       │
 │  • QueryService (search implementation)  │
@@ -230,7 +230,7 @@ Closed issues automatically move into version-specific folders based on release 
 Traditional Tool Use forces agents to pass intermediate results through the LLM for simple filtering (e.g., "Find top 3 guides").
 
 **Code Execution Solution (`ai/examples/smart-search.mjs`):**
-```javascript
+```javascript readonly
 // Agent writes this script once
 const results = await KB_QueryService.queryDocuments({
     query: "reactive config system",
@@ -299,7 +299,7 @@ A unique aspect of this implementation is that the MCP servers themselves are bu
 
 ### 5.1 The Neo.mjs Class System in Node.js
 
-```
+```text readonly
 ┌─────────────────────────────────────────────────┐
 │         Neo.mjs Universal Runtime               │
 ├─────────────────────────────────────────────────┤

@@ -3,7 +3,7 @@
 **Pre-requisite:** It is highly recommended to study [The Unified Class Config System](#/learn/benefits.ConfigSystem)
 first to understand the foundational concepts and benefits.
 
-The Neo.mjs class configuration system is a cornerstone of the framework, providing a powerful, declarative, and
+The Neo.mjs class configuration system is a cornerstone of the engine, providing a powerful, declarative, and
 reactive way to manage the state of your components and classes. With the introduction of functional components in v10,
 this system has evolved into a sophisticated, two-tier reactivity model that combines the robustness of a classic
 "push" system with the fine-grained efficiency of a modern "pull" system.
@@ -24,9 +24,9 @@ At its heart, the push system is built on a few key principles:
 *   **`static config` Block:** All configurable properties of a class are declared in a `static config = {}` block.
     This provides a single, clear source of truth for a class's API.
 *   **`_` Suffix Convention:** Config properties that require custom logic when they change are declared with a trailing
-    underscore (e.g., `myValue_`). This signals the framework to automatically create a native getter and setter on the
+    underscore (e.g., `myValue_`). This signals the engine to automatically create a native getter and setter on the
     class's prototype for this property.
-*   **Lifecycle Hooks:** For a config like `myValue_`, the framework provides optional lifecycle hooks that you can
+*   **Lifecycle Hooks:** For a config like `myValue_`, the engine provides optional lifecycle hooks that you can
     implement in your class:
     *   `beforeGetMyValue(value)`: Called before the getter returns the value.
     *   `beforeSetMyValue(value, oldValue)`: Called before the setter applies the new value.
@@ -228,17 +228,17 @@ The `EffectManager` is a singleton that orchestrates the entire pull system.
 
 In a functional component, the `createVdom()` method is the perfect example of an effect in action.
 
-*   **The `vdomEffect`:** When a functional component is constructed, the framework automatically wraps its `createVdom()`
+*   **The `vdomEffect`:** When a functional component is constructed, the engine automatically wraps its `createVdom()`
     method in a `Neo.core.Effect`.
 *   **Reading is Subscribing:** When your `createVdom()` function runs, every component config you access (e.g.,
     `config.text`, `config.items`) is a call to that config's underlying `Neo.core.Config` atom's `get()` method.
     This automatically subscribes the `vdomEffect` to those configs.
 *   **Automatic UI Updates:** If any of those configs change later, they notify the `vdomEffect`. The effect then
-    re-runs your `createVdom()` function, generating a new virtual DOM based on the new state. The framework then
+    re-runs your `createVdom()` function, generating a new virtual DOM based on the new state. The engine then
     efficiently diffs this new VDOM with the old one and applies the minimal necessary changes to the actual DOM.
 
 This is the essence of declarative, state-driven UI. You declare what the UI should look like for a given state, and
-the framework handles the "how" and "when" of updating it.
+the engine handles the "how" and "when" of updating it.
 
 ## The Bridge: How "Push" and "Pull" Work Together
 

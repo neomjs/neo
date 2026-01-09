@@ -1,6 +1,6 @@
 # Neo.mjs vs Ext.js
 
-Neo.mjs is a comprehensive JavaScript ecosystem for building high-performance, multi-threaded web applications. Unlike legacy frameworks like Ext.js that are architecturally bound to a single thread and a rigid, monolithic build system, Neo.mjs is a self-contained system with **zero runtime dependencies**. It provides a complete, out-of-the-box solution that includes four distinct development and deployment environments, from a revolutionary zero-builds development mode to thread-optimized production bundles.
+Neo.mjs is a comprehensive JavaScript ecosystem for building high-performance, multi-threaded web applications. Unlike legacy architectures like Ext.js that are architecturally bound to a single thread and a rigid, monolithic build system, Neo.mjs is a self-contained system with **zero runtime dependencies**. It provides a complete, out-of-the-box solution that includes four distinct development and deployment environments, from a revolutionary zero-builds development mode to thread-optimized production bundles.
 
 This article provides a focused comparison between the Neo.mjs ecosystem and Ext.js. While both are designed for building complex enterprise-grade applications, they employ fundamentally different strategies to achieve their goals. We will explore their approaches to **architecture, rendering, component models, and development workflow**, highlighting the upgrade path from Ext.js's legacy model to Neo.mjs's modern, worker-based paradigm.
 
@@ -19,7 +19,7 @@ and workflow. This has often led to experienced solution engineers, including th
 internals, being brought in to perform extensive performance tuning and framework-level debugging on large-scale
 Ext.js implementations, highlighting the inherent challenges.
 
-It is precisely this deep understanding of the limitations of existing frameworks, gained from extensive
+It is precisely this deep understanding of the limitations of existing architectures, gained from extensive
 experience with their large-scale implementations, that motivated the creation of Neo.mjs. **Crucially,
 Neo.mjs was built from the ground up with a completely new and independent architecture**, representing a
 deliberate and complete break from legacy constraints and ensuring a truly modern and unburdened foundation.
@@ -34,7 +34,7 @@ perceived stagnation in Ext.js's recent evolution.
 
 Both Neo.mjs and Ext.js share common ground in building large-scale, enterprise-grade user interfaces:
 
-*   **Comprehensive Frameworks:** Both are full-fledged frameworks (not just libraries) providing a wide array of
+*   **Comprehensive Systems:** Both are full-fledged systems (not just libraries) providing a wide array of
   features out-of-the-box, including a rich component library, data management, and application structure.
 *   **Class-Based Architecture:** Both heavily rely on a class-based object-oriented programming (OOP) model for
   structuring applications. This includes a foundational `Base` class (`Ext.core.Base` in Ext.js, `Neo.core.Base`
@@ -47,7 +47,7 @@ Both Neo.mjs and Ext.js share common ground in building large-scale, enterprise-
 
 ## Key Differences: Modern Architecture & Performance
 
-This is where the two frameworks diverge significantly, with Neo.mjs addressing many of the historical challenges and
+This is where the two architectures diverge significantly, with Neo.mjs addressing many of the historical challenges and
 limitations of Ext.js.
 
 ### 1. Overall Architecture: Main Thread Blocking vs. Worker-Based
@@ -105,7 +105,7 @@ limitations of Ext.js.
         automatically propagated to the UI. Developers *must* explicitly call setter methods (e.g.,
         `component.setTitle('New Title')`, `record.set('fieldName', 'newValue')`) to update values. Simply assigning a
         new value to a property (e.g., `component.title = 'New Title'`) will **not** update the UI.
-    *   **Change Detection:** Updates are often triggered manually or through specific framework mechanisms, which can
+    *   **Change Detection:** Updates are often triggered manually or through specific engine mechanisms, which can
         sometimes lead to developers needing to explicitly refresh components or views.
 
 *   **Neo.mjs: True, Fine-Grained Reactivity**
@@ -116,7 +116,7 @@ limitations of Ext.js.
 
 *   **Ext.js: Legacy JavaScript & Build Tools**
     *   Ext.js's foundational architecture is rooted in pre-ES5 (conceptually ES4-like) paradigms, and it does not fully
-        leverage modern JavaScript capabilities. While newer versions support ES6+, the core framework still carries
+        leverage modern JavaScript capabilities. While newer versions support ES6+, the core library still carries
         significant legacy baggage.
     *   **Build Process:** Typically involves a complex build process with Sencha Cmd for compilation, minification,
         and code splitting.
@@ -158,7 +158,7 @@ performance, responsiveness, and maintainability.
 Notably, Neo.mjs being built on the latest fully supported ES features, ensures a truly modern and unburdened foundation.
 
 Indeed, as members of the Neo.mjs community state, "Neo.mjs is what Sencha should have built, but were incapable of."
-This sentiment is further reinforced by the belief that "Neo.mjs is the ideal framework to migrate to, coming from Ext.js."
+This sentiment is further reinforced by the belief that "Neo.mjs is the ideal platform to migrate to, coming from Ext.js."
 
 *   **Unblocked Main Thread & Inherent Performance:** Neo.mjs's worker-based architecture fundamentally shifts application
     logic off the Main Thread, directly solving the UI blocking issues common in Ext.js applications.
@@ -174,5 +174,5 @@ This sentiment is further reinforced by the belief that "Neo.mjs is the ideal fr
     design enable a more linear relationship between complexity and development effort, leading to faster development
     cycles and lower maintenance costs in the long run.
 
-For organizations and developers looking for a modern, performant, and maintainable framework to build complex
+For organizations and developers looking for a modern, performant, and maintainable platform to build complex
 enterprise-grade web applications, Neo.mjs presents a compelling and technically superior successor to Ext.js.

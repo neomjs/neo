@@ -43,17 +43,25 @@ class MainNeo extends BaseContainer {
             reference: 'magic-move',
 
             cycleTexts: [
-                'Modern Enterprise JavaScript Framework',
-                'An Application Worker being the Orchestrator',
-                'Scalability',
-                'Extensibility',
-                'Performance',
-                'Declarative & Reactive Component Trees',
-                'Separated from Business Logic',
-                'View Controllers',
-                'State Providers',
-                'Clean Architectures',
-                'Multi Window Apps'
+                'The Application Engine for the AI Era',
+                'True Multithreading',
+                'The Neural Link',
+                'Object Permanence',
+                'Context Engineering',
+                'AI-Native Runtime',
+                'Live Runtime Mutation',
+                'Desktop-Class Performance',
+                'Linear Scalability',
+                'Multi-Window Orchestration',
+                'Cross-Window Messaging',
+                'JSON Blueprints',
+                'Hierarchical State Management',
+                'Clean Architecture',
+                'Separation of Concerns',
+                '100% Web Standards',
+                'Zero Build Step',
+                'No Transpilation',
+                'Instant Page Reloads'
             ]
         }, {
             cls : ['neo-h3'],
@@ -61,8 +69,8 @@ class MainNeo extends BaseContainer {
             tag : 'h3',
 
             text: [
-                'Neo.mjs provides a new approach for building feature-rich web applications. Increase productivity by leveraging ',
-                'a vast component library and harness the power of multi-threading for extreme real-time performance.'
+                'Neo.mjs is the Application Engine for the AI Era. Build desktop-class, multi-window apps with ',
+                'a true multi-threaded runtime and an AI co-developer.'
             ].join('')
         }, {
             ntype: 'container',

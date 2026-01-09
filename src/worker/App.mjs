@@ -567,10 +567,10 @@ class App extends Base {
      * @param {Boolean} msg.data.angle
      * @param {Boolean} msg.data.layout landscape|portrait
      * @param {String}  msg.data.type landscape-primary|landscape-secondary|portrait-primary|portrait-secondary
-     * @param {Number}  msg.data.windowId
+     * @param {String}  msg.windowId
      */
     onOrientationChange(msg) {
-        Neo.apps[data.windowId]?.fire('orientationchange', data.data)
+        Neo.apps[msg.windowId]?.fire('orientationchange', msg.data)
     }
 
     /**

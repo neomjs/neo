@@ -1,0 +1,72 @@
+.portal-shared-content-page-container {
+    background-color: transparent;
+    overflow        : auto;
+
+    .content-bottom-toolbar {
+        background-color     : transparent;
+        gap                  : 8px;
+        grid-template-columns: repeat(2, 1fr);
+        margin-bottom        : 3rem;
+        margin-top           : 3rem;
+        padding              : 0 3rem;
+
+        @media (max-width: 600px) {
+            margin-bottom: 1rem;
+            margin-top   : 1rem;
+            padding      : 0 1rem;
+        }
+
+
+        @media (min-width: 1297px) {
+            padding: 0 0 0 3rem;
+        }
+
+        .neo-button {
+            flex           : 1 !important;
+            height         : 75px;
+            justify-content: flex-start;
+
+            &:not(:hover) {
+                background-color: #fff;
+            }
+
+            .neo-button-text, .neo-button-glyph {
+                padding-top: 16px;
+            }
+
+            .neo-button-text {
+                overflow     : hidden;
+                text-overflow: ellipsis;
+                word-break   : break-word;
+            }
+        }
+
+        .content-bottom-toolbar-previous:before {
+            color      : #000; // required for mobile
+            content    : 'Previous Page';
+            font-family: var(--core-fontfamily-sans);
+            left       : var(--cmp-button-spacinghorizontal);
+            position   : absolute;
+            top        : var(--cmp-button-spacinghorizontal);
+        }
+
+        .content-bottom-toolbar-next {
+            grid-column: 2/3;
+
+            &:before {
+                color      : #000; // required for mobile
+                content    : 'Next Page';
+                font-family: var(--core-fontfamily-sans);
+                position   : absolute;
+                right      : var(--cmp-button-spacinghorizontal);
+                top        : var(--cmp-button-spacinghorizontal);
+            }
+        }
+    }
+}
+
+.portal-size-large {
+    .content-bottom-toolbar {
+        margin-right: 250px;
+    }
+}

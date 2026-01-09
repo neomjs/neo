@@ -50,7 +50,7 @@ class Viewport extends BaseViewport {
             items: [
                 {module: () => import('./home/MainContainer.mjs')},
                 {module: () => import('./learn/MainContainer.mjs')},
-                {module: () => import('./blog/Container.mjs')},
+                {module: () => import('./news/TabContainer.mjs')},
                 {module: () => import('./services/Component.mjs')},
                 {module: () => import('./examples/TabContainer.mjs')},
                 {module: () => import('./about/Container.mjs')},

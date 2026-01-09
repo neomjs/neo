@@ -2,7 +2,7 @@
 
 The pinnacle of the Agent OS architecture is **Code Execution**, often referred to as the **"Thick Client"** pattern (a term coined by [Anthropic](https://www.anthropic.com/engineering/code-execution-with-mcp)).
 
-This guide explains how to move beyond simple "Tool Use" and empower agents to act as autonomous developers within the Neo.mjs environment.
+This guide explains how to move beyond simple "Tool Use" and empower agents to act as autonomous developers within the Neo.mjs Application Engine.
 
 ## The Paradigm Shift
 
@@ -55,6 +55,7 @@ import {
 | **Knowledge Base** | `KB_` | Semantic search (`KB_QueryService`), DB management (`KB_LifecycleService`). |
 | **Memory Core** | `Memory_` | Long-term memory (`Memory_Service`), session summaries (`Memory_SessionService`). |
 | **GitHub Workflow** | `GH_` | Issue tracking (`GH_IssueService`), PRs (`GH_PullRequestService`). |
+| **Neural Link** | `NeuralLink_` | Introspection (`NeuralLink_ComponentService`), Interaction (`NeuralLink_InteractionService`). |
 
 *For a complete list of available services and methods, see `ai/sdk-manifest.md`.*
 

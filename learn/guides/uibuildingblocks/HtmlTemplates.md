@@ -1,16 +1,16 @@
 # Using HTML Templates for VDOM
 
-This guide covers the purpose, syntax, and trade-offs of using tagged template literals (HTML-like syntax) to define VDOM structures in neo.mjs. This feature provides an intuitive and familiar alternative to the traditional JSON-based VDOM approach, especially for developers coming from other traditional, single-threaded frameworks.
+This guide covers the purpose, syntax, and trade-offs of using tagged template literals (HTML-like syntax) to define VDOM structures in neo.mjs. This feature provides an intuitive and familiar alternative to the traditional JSON-based VDOM approach, especially for developers coming from other traditional, single-threaded architectures.
 
 ## The "Why": An Alternative, Not a Replacement
 
 The core of neo.mjs is built on a highly efficient, JSON-based VDOM structure. This approach is powerful and performant, as it requires zero parsing or transformation at runtime.
 
-However, we recognize that many developers are accustomed to writing UI with an HTML-like syntax. HTML templates are offered as a **beginner-friendly and transitional option** to lower the barrier to entry. They allow you to get started quickly, leveraging familiar patterns, while you learn the more advanced capabilities of the framework.
+However, we recognize that many developers are accustomed to writing UI with an HTML-like syntax. HTML templates are offered as a **beginner-friendly and transitional option** to lower the barrier to entry. They allow you to get started quickly, leveraging familiar patterns, while you learn the more advanced capabilities of the engine.
 
 ## The Trade-Off: Performance in Development
 
-Using this feature comes with a clear trade-off. To enable live parsing of HTML templates in your browser during development, the framework must load the `parse5` library. This adds **~176KB (minified)** to your application's initial download size in development mode.
+Using this feature comes with a clear trade-off. To enable live parsing of HTML templates in your browser during development, the engine must load the `parse5` library. This adds **~176KB (minified)** to your application's initial download size in development mode.
 
 For production builds, this penalty is removed, as the templates are pre-compiled into the standard JSON VDOM format.
 
@@ -27,7 +27,7 @@ You may be accustomed to writing component tags directly, like `<Button>`. In ne
 -   **JSX Requires a Compiler:** JSX is not standard JavaScript. It must be compiled into `React.createElement(Button, ...)` calls. The simplicity of `<Button>` is an abstraction provided by a mandatory build step.
 -   **neo.mjs Templates are Native JavaScript:** The `html`...`` syntax is a standard JavaScript feature called a "tagged template literal." It runs directly in the browser without a build step in development. The `<${Button}>` syntax is the native JavaScript way to pass the actual `Button` component constructor (the variable) into the template function.
 
-This approach means you are not learning a special template language; you are using the full power of JavaScript itself for all your view logic, including conditionals and loops, which is a core design principle of the framework.
+This approach means you are not learning a special template language; you are using the full power of JavaScript itself for all your view logic, including conditionals and loops, which is a core design principle of the engine.
 
 ## Basic Usage
 
@@ -133,7 +133,7 @@ const vdom = html`
 
 ## Dynamic and Conditional Rendering
 
-Unlike other frameworks, neo.mjs templates do not have special directives for logic. Instead, you use the full power of JavaScript to build your dynamic UI *before* it goes into the template.
+Unlike other architectures, neo.mjs templates do not have special directives for logic. Instead, you use the full power of JavaScript to build your dynamic UI *before* it goes into the template.
 
 ### Conditional Rendering
 
@@ -188,4 +188,4 @@ const vdom = html`
 
 This template system **does not** support inline DOM event handlers (e.g., `onClick="..."`).
 
-To handle DOM events, you must continue to use the framework's standard, efficient, and secure delegated event system via the `domListeners` config on class-based components or the `useEvent()` hook in functional components. This maintains architectural consistency and performance.
+To handle DOM events, you must continue to use the engine's standard, efficient, and secure delegated event system via the `domListeners` config on class-based components or the `useEvent()` hook in functional components. This maintains architectural consistency and performance.

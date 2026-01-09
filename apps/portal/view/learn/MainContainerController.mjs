@@ -128,7 +128,13 @@ class MainContainerController extends Controller {
      */
     onRouteLearnItem({itemId}) {
         let stateProvider = this.getStateProvider(),
-            store         = stateProvider.getStore('contentTree');
+            store         = stateProvider.getStore('tree'),
+            tree          = this.getReference('tree');
+
+        // Ensure the tree has the correct route prefix for this controller context
+        if (tree.routePrefix !== '/learn') {
+            tree.routePrefix = '/learn'
+        }
 
         if (store.getCount() > 0) {
             stateProvider.data.currentPageRecord = store.get(itemId)

@@ -216,7 +216,7 @@ class Tree extends Base {
             cn : [{
                 tag  : 'span',
                 cls  : contentCls,
-                html : record.name,
+                html : record[me.displayField],
                 style: {pointerEvents: 'none'}
             }],
             style: {

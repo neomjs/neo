@@ -4,11 +4,15 @@ import IdGenerator from '../core/IdGenerator.mjs';
 import {marked}    from '../../node_modules/marked/lib/marked.esm.js';
 
 const
+    regexFrontMatter  = /^---\n([\s\S]*?)\n---\n/,
     regexLabClose     = /<!--\s*\/lab\s*-->/g,
     regexLabOpen      = /<!--\s*lab\s*-->/g,
     regexLivePreview  = /```(javascript|html|css|json)\s+live-preview\s*\n([\s\S]*?)\n\s*```/g,
+    regexMermaid      = /```mermaid\s*\n([\s\S]*?)\n\s*```/g,
     regexNeoComponent = /```json\s+neo-component\s*\n([\s\S]*?)\n\s*```/g,
-    regexReadonly     = /```(bash|javascript|html|css|json|scss|xml|markdown|yaml)\s+readonly\s*\n([\s\S]*?)\n\s*```/g;
+    regexNewLines     = /^\n+|\n+$/g,
+    regexCodeBlock    = /```(\w*)(?:[^\n]*)?\n([\s\S]*?)\n\s*```/g,
+    regexTicketId     = /(^|[\s(])#(\d+)\b/g;
 
 /**
  * @summary A specialized component for rendering Markdown content.
@@ -42,12 +46,33 @@ class Markdown extends Component {
          */
         baseCls: ['neo-markdown-component'],
         /**
+         * The base URL for issue tracking. Used when replaceTicketIds is true.
+         * @member {String} issuesUrl='https://github.com/neomjs/neo/issues/'
+         */
+        issuesUrl: 'https://github.com/neomjs/neo/issues/',
+        /**
+         * True to parse and render YAML frontmatter (metadata) at the top of the content.
+         * Useful for displaying file metadata like title, date, or tags.
+         * @member {Boolean} renderFrontmatter=true
+         */
+        renderFrontmatter: true,
+        /**
+         * True to automatically replace ticket references (e.g. #123) with clickable links.
+         * @member {Boolean} replaceTicketIds=false
+         */
+        replaceTicketIds: false,
+        /**
+         * True to wrap the rendered frontmatter table in a collapsible <details> tag.
+         * This keeps the metadata accessible but unobtrusive, collapsed by default.
+         * @member {Boolean} useFrontmatterDetails=true
+         */
+        useFrontmatterDetails: true,
+        /**
          * @member {String|null} value_=null
          * @reactive
          */
         value_: null,
         /**
-         * Optional windowUrl to pass to nested code.LivePreviews.
          * @member {String|null} windowUrl=null
          */
         windowUrl: null
@@ -126,7 +151,6 @@ class Markdown extends Component {
     }
 
     /**
-     * @param {String} inputString
      * @returns {String}
      */
     insertLabDivs(inputString) {
@@ -136,14 +160,83 @@ class Markdown extends Component {
     }
 
     /**
+     * @param {*} value
+     * @returns {String}
+     */
+    formatFrontMatterValue(value) {
+        if (Array.isArray(value)) {
+            return value.join(', ')
+        }
+
+        if (typeof value === 'boolean') {
+            return `<i class="fa-solid fa-${value ? 'check' : 'xmark'}"></i>`
+        }
+
+        if (typeof value === 'string') {
+            // ISO Date
+            if (/^\d{4}-\d{2}-\d{2}T/.test(value)) {
+                return new Date(value).toLocaleString()
+            }
+
+            // URL
+            if (/^https?:\/\//.test(value)) {
+                return `<a href="${value}" target="_blank">${value}</a>`
+            }
+        }
+
+        return value
+    }
+
+    /**
+     * @param {Object} data
+     * @returns {String}
+     */
+    frontMatterToHtml(data) {
+        let me   = this,
+            html = '<table class="neo-frontmatter-table"><tbody>';
+
+        Object.entries(data).forEach(([key, value]) => {
+            html += `<tr><td>${key}</td><td>${me.formatFrontMatterValue(value)}</td></tr>`
+        });
+
+        html += '</tbody></table>';
+
+        if (me.useFrontmatterDetails) {
+            return `<details><summary>Frontmatter</summary>${html}</details>`
+        }
+
+        return html
+    }
+
+    /**
      * Modifies the markdown content before rendering.
      * Default implementation parses headlines to add specific classes.
      * @param {String} content
      * @returns {String}
      */
     modifyMarkdown(content) {
-        let me            = this,
-            rows          = content.split('\n'),
+        let me = this;
+
+        if (regexFrontMatter.test(content)) {
+            content = content.replace(regexFrontMatter, (match, frontmatter) => {
+                if (!me.renderFrontmatter) {
+                    return ''
+                }
+
+                try {
+                    return me.frontMatterToHtml(me.parseFrontMatter(frontmatter)) + '\n'
+                } catch (e) {
+                    console.error('Error parsing FrontMatter', e);
+                    return match
+                }
+            })
+        }
+
+        if (me.replaceTicketIds) {
+            content = content.replace(regexTicketId, `$1<a href="${me.issuesUrl}$2" target="_blank">#$2</a>`)
+        }
+
+        let rows          = content.split('\n'),
             i             = 0,
             len           = rows.length,
             headlineIndex = 1,
@@ -166,7 +259,14 @@ class Markdown extends Component {
 
             if (tag) {
                 rows[i] = me.onHeadline(tag, row, headlineIndex);
-                headlineIndex++
+                headlineIndex++;
+
+                // If the next line is not empty, add one
+                if (rows[i + 1] && rows[i + 1] !== '') {
+                    rows.splice(i + 1, 0, '');
+                    len++;
+                    i++
+                }
             }
         }
 
@@ -185,6 +285,62 @@ class Markdown extends Component {
     }
 
     /**
+     * @param {String} text
+     * @returns {Object}
+     */
+    parseFrontMatter(text) {
+        let data       = {},
+            lines      = text.trim().split('\n'),
+            currentKey;
+
+        lines.forEach(line => {
+            let trimLine = line.trim();
+
+            if (!trimLine || trimLine.startsWith('#')) return; // Skip empty or comments
+
+            // Array item
+            if (trimLine.startsWith('- ')) {
+                if (currentKey) {
+                    if (!Array.isArray(data[currentKey])) {
+                        data[currentKey] = []
+                    }
+                    data[currentKey].push(this.parseValue(trimLine.substring(2)))
+                }
+                return
+            }
+
+            // Key-Value
+            let match = trimLine.match(/^([\w\d_-]+):\s*(.*)$/);
+            if (match) {
+                currentKey       = match[1];
+                data[currentKey] = this.parseValue(match[2])
+            }
+        });
+
+        return data
+    }
+
+    /**
+     * @param {String} value
+     * @returns {Boolean|Number|String|null}
+     */
+    parseValue(value) {
+        value = value.trim();
+
+        if (value === 'true')  return true;
+        if (value === 'false') return false;
+        if (value === 'null')  return null;
+
+        if (!isNaN(Number(value)) && value !== '') return Number(value);
+
+        if ((value.startsWith("'") && value.endsWith("'")) || (value.startsWith('"') && value.endsWith('"'))) {
+            return value.slice(1, -1)
+        }
+
+        return value
+    }
+
+    /**
      * @param {String} contentString
      * @param {Object} map
      * @returns {String}
@@ -194,6 +350,19 @@ class Markdown extends Component {
             const key = IdGenerator.getId('pre-live-preview');
             map[key] = {code, language};
             return `<div id="${key}"></div>`
+        })
+    }
+
+    /**
+     * @param {String} contentString
+     * @param {Object} map
+     * @returns {String}
+     */
+    processMermaidBlocks(contentString, map) {
+        return contentString.replace(regexMermaid, (match, code) => {
+            const key = IdGenerator.getId('mermaid');
+            map[key] = code;
+            return `<div class="neo-mermaid" id="${key}"></div>`
         })
     }
 
@@ -220,12 +389,18 @@ class Markdown extends Component {
             count               = 0,
             replacements;
 
-        let updatedContent = contentString.replace(regexReadonly, (match, language, code) => {
+        let updatedContent = contentString.replace(regexCodeBlock, (match, language, code) => {
             const token = `__NEO-READONLY-TOKEN-${++count}__`;
+            const lang  = (!language || language.trim() === '' || language === 'text') ? 'plaintext' : language;
+
             replacementPromises.push(
-                HighlightJs.highlightAuto(code, windowId)
+                HighlightJs.highlight(code, lang, windowId)
+                    .catch(err => {
+                        console.warn(`Highlighting failed for language '${lang}', falling back to plaintext.`, err);
+                        return HighlightJs.highlight(code, 'plaintext', windowId);
+                    })
                     .then(highlightedHtml => ({
-                        after: `<pre data-${language} class="hljs" id="pre-readonly-${IdGenerator.getId()}">${highlightedHtml.trim()}</pre>`,
+                        after: `<pre data-${lang} class="hljs" id="pre-readonly-${IdGenerator.getId()}">${highlightedHtml.replace(regexNewLines, '')}</pre>`,
                         token
                     }))
             );
@@ -260,15 +435,17 @@ class Markdown extends Component {
      */
     async render({code}) {
         let me            = this,
+            {windowId}    = me,
             content       = code,
             neoComponents = {},
             neoDivs       = {},
+            mermaidDivs   = {},
             baseConfigs   = {
                 appName        : me.appName,
                 autoInitVnode  : true,
                 autoMount      : true,
                 parentComponent: me.parentComponent,
-                windowId       : me.windowId
+                windowId
             },
             html, instance;
 
@@ -281,6 +458,9 @@ class Markdown extends Component {
 
         // Process custom Live Preview blocks (synchronous)
         content = me.processLivePreviewBlocks(content, neoDivs);
+
+        // Process Mermaid blocks (synchronous)
+        content = me.processMermaidBlocks(content, mermaidDivs);
 
         // Process custom Readonly Code blocks (asynchronous due to HighlightJS)
         // This will replace the markdown fenced block with the highlighted HTML <pre> tag.
@@ -325,6 +505,18 @@ class Markdown extends Component {
                 instance = Neo.create(config);
                 me.activeComponents.push(instance);
             });
+        }
+
+        if (Object.keys(mermaidDivs).length > 0) {
+            const Mermaid = await Neo.currentWorker.getAddon('Mermaid', windowId);
+
+            Object.keys(mermaidDivs).forEach(key => {
+                Mermaid.render({
+                    code: mermaidDivs[key],
+                    id  : key,
+                    windowId
+                })
+            })
         }
 
         return {}

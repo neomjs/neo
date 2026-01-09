@@ -56,7 +56,7 @@ This is fine for functional testing, but for performance measurement, it's a fat
 
 This realization forced us to throw out polling entirely and build our own high-precision waiting mechanism using the browser's native `MutationObserver`. Our `measurePerformanceInBrowser` function attaches an observer that checks our pass condition on *every single DOM mutation*. This allows us to stop the timer at the exact moment the UI reaches its desired state, giving us microsecond-level precision. It is the technical heart of our benchmark's credibility.
 
-```javascript
+```javascript readonly
 // The core of our high-precision, in-browser measurement utility
 export const measurePerformanceInBrowser = (testName, action, condition) => {
     return new Promise((resolve, reject) => {

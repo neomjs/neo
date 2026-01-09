@@ -200,7 +200,7 @@ class DomEvent extends Base {
             if (dragZone) {
                 // drag:move & drag:end
                 if (eventName.startsWith('drag:')) {
-                    dragZone[eventName === 'drag:move' ? 'onDragMove' : 'onDragEnd'](data)
+                    dragZone[eventName === 'drag:move' ? 'onDragMove' : 'onDragEnd']?.(data)
                 } else {
                     dragZone.fire(eventName, data);
                     dragZone[{

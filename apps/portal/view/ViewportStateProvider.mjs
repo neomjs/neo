@@ -16,6 +16,10 @@ class ViewportStateProvider extends StateProvider {
          */
         data: {
             /**
+             * @member {Number|null} blogPostCount=null
+             */
+            blogPostCount: null,
+            /**
              * Values are: large, medium, small, xSmall, null
              * @member {String|null} size
              */
