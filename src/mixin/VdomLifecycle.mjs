@@ -339,6 +339,16 @@ class VdomLifecycle extends Base {
         if (me.vdom) {
             me.isVdomUpdating = true;
 
+            const vdomRoot = me.getVdomRoot();
+
+            if (vdomRoot) {
+                vdomRoot.id = me.id;
+
+                if (me.vdom !== vdomRoot) {
+                    me.vdom.id = me.id + '__wrapper'
+                }
+            }
+
             // Ensure child components do not trigger updates while the vnode generation is in progress
             VDomUpdate.registerInFlightUpdate(me.id, -1);
 

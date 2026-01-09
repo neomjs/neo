@@ -463,7 +463,21 @@ class Component extends Abstract {
      */
     afterSetId(value, oldValue) {
         super.afterSetId(value, oldValue);
-        this.changeVdomRootKey('id', value)
+
+        const
+            me       = this,
+            vdom     = me.vdom,
+            vdomRoot = me.getVdomRoot();
+
+        if (vdomRoot) {
+            vdomRoot.id = value;
+
+            if (vdom !== vdomRoot) {
+                vdom.id = value + '__wrapper'
+            }
+
+            me.update()
+        }
     }
 
     /**

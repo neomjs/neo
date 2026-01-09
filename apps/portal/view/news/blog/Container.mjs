@@ -45,19 +45,6 @@ class Container extends BaseContainer {
          */
         layout: {ntype: 'vbox', align: 'stretch'}
     }
-
-    /**
-     *
-     */
-    onConstructed() {
-        let me = this;
-
-        if (me.items[1]) {
-            me.items[1].id = `${me.id}__list`
-        }
-
-        super.onConstructed()
-    }
 }
 
 export default Neo.setupClass(Container);
