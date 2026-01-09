@@ -1403,6 +1403,8 @@ class Component extends Abstract {
         // Note that vdom is not a real config, but implemented via get() & set().
         this._vdom = Neo.clone({...vdom, ...this._vdom || {}}, true);
 
+        this.ensureStableIds();
+
         delete config._vdom;
         delete config.vdom;
 
