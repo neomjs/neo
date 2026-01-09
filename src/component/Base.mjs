@@ -465,20 +465,8 @@ class Component extends Abstract {
         super.afterSetId(value, oldValue);
 
         if (this.configsApplied) {
-            const
-                me       = this,
-                vdom     = me.vdom,
-                vdomRoot = me.getVdomRoot();
-
-            if (vdomRoot) {
-                vdomRoot.id = value;
-
-                if (vdom !== vdomRoot) {
-                    vdom.id = value + '__wrapper'
-                }
-
-                me.update()
-            }
+            this.ensureStableIds();
+            this.update()
         }
     }
 
