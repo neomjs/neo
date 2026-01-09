@@ -82,6 +82,19 @@ class MainContainer extends Container {
 
         super.construct(config)
     }
+
+    /**
+     *
+     */
+    onConstructed() {
+        let me = this;
+
+        if (me.items[1]) {
+            me.items[1].id = `${me.id}__splitter`
+        }
+
+        super.onConstructed()
+    }
 }
 
 export default Neo.setupClass(MainContainer);
