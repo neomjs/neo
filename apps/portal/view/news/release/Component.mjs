@@ -15,10 +15,11 @@ class Component extends ContentComponent {
 
     /**
      * @param {Object} record
+     * @param {String} record.path
      * @returns {String|null}
      */
-    getContentPath(record) {
-        return record.path ? Neo.config.basePath + record.path.substring(1) : null
+    getContentPath({path}) {
+        return path ? Neo.config.basePath + path : null
     }
 }
 
