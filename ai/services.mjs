@@ -15,6 +15,7 @@ import GH_IssueService              from './mcp/server/github-workflow/services/
 import GH_LocalFileService          from './mcp/server/github-workflow/services/LocalFileService.mjs';
 import GH_PullRequestService        from './mcp/server/github-workflow/services/PullRequestService.mjs';
 import GH_RepositoryService         from './mcp/server/github-workflow/services/RepositoryService.mjs';
+import GH_SyncService               from './mcp/server/github-workflow/services/SyncService.mjs';
 
 GH_Config.data.syncOnStartup = false;
 
@@ -154,6 +155,7 @@ makeSafe(GH_IssueService,       ghSpec);
 makeSafe(GH_LocalFileService,   ghSpec);
 makeSafe(GH_PullRequestService, ghSpec);
 makeSafe(GH_RepositoryService,  ghSpec);
+makeSafe(GH_SyncService,        ghSpec);
 
 // Knowledge Base
 makeSafe(KB_DatabaseService,  kbSpec);
@@ -208,6 +210,7 @@ export {
     GH_LocalFileService,
     GH_PullRequestService,
     GH_RepositoryService,
+    GH_SyncService,
 
     // Knowledge Base
     KB_Config,
