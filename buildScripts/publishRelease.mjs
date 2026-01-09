@@ -173,9 +173,42 @@ async function main() {
 
     console.log('\n🚀 Step 5: Creating GitHub Release...');
 
+    // Parse release notes to extract title and body (removing frontmatter)
+    let releaseTitle = `v${newVersion}`;
+    let releaseBodyPath = releaseNotePath;
+    const tempBodyPath = path.join(root, 'temp_release_body.md');
+    let tempFileCreated = false;
+
+    try {
+        let noteContent = fs.readFileSync(releaseNotePath, 'utf-8');
+
+        // 1. Remove Frontmatter
+        noteContent = noteContent.replace(/^---[\s\S]+?---\s*/, '');
+
+        // 2. Extract Title (first H1)
+        const titleMatch = noteContent.match(/^#\s+(.+)$/m);
+        if (titleMatch) {
+            releaseTitle = titleMatch[1].trim();
+            // 3. Remove Title from body
+            noteContent = noteContent.replace(/^#\s+.+$/m, '').trim();
+        }
+
+        // Write cleaned body to temp file
+        fs.writeFileSync(tempBodyPath, noteContent);
+        releaseBodyPath = tempBodyPath;
+        tempFileCreated = true;
+
+    } catch (e) {
+        console.warn('⚠️  Failed to parse release notes content. Using raw file.', e.message);
+    }
+
     // This triggers the npm-publish workflow
-    const ghCommand = `gh release create v${newVersion} --target dev --title "v${newVersion}" --notes-file ${releaseNotePath}`;
+    const ghCommand = `gh release create ${newVersion} --target dev --title "${releaseTitle}" --notes-file ${releaseBodyPath}`;
     runCommand(ghCommand, 'Failed to create GitHub release');
+
+    if (tempFileCreated) {
+        fs.removeSync(tempBodyPath);
+    }
 
     console.log('✅ Release created! GitHub Actions will now publish to npm.');
 
