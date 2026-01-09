@@ -1,9 +1,22 @@
 #!/usr/bin/env node
 
 /**
- * @file Automates the Neo.mjs release process using a Local-First Strategy.
- * This script handles version updates, atomic git history (Squash to Main),
- * and synchronizing GitHub issues/releases with local markdown files.
+ * @summary Automates the Neo.mjs release process using a Local-First Strategy.
+ *
+ * This script orchestrates the entire release lifecycle, enforcing a strict "Squash to Main" workflow
+ * to maintain a clean, linear, and atomic git history on the production branch. It bridges the gap
+ * between local development artifacts and remote GitHub infrastructure.
+ *
+ * The workflow consists of 6 key stages:
+ * 1. **Pre-flight Checks**: Validates environment state (branch, auth, versioning).
+ * 2. **Preparation**: Generates build artifacts and prepares the dev branch.
+ * 3. **Atomic Squash**: Uses low-level git plumbing (`commit-tree`) to graft the dev state onto main
+ *    as a single commit, avoiding merge conflicts and preserving history cleanliness.
+ * 4. **Documentation**: Finalizes release notes with the production commit hash.
+ * 5. **Distribution**: Triggers the GitHub Release (which cascades to npm) and updates the AI Knowledge Base.
+ * 6. **Synchronization**: Syncs the latest GitHub state back to local markdown files and archives tickets.
+ *
+ * @keywords Release Automation, Git Plumbing, Local-First, Knowledge Base, GitHub Sync, CI/CD
  */
 
 import { execSync } from 'child_process';
@@ -65,15 +78,7 @@ async function main() {
     }
 
     // Verify Release Notes
-    const version = getPackageVersion(); // Note: This is the OLD version, prepareRelease will bump it.
-    // Wait, prepareRelease bumps it. So we don't know the NEW version yet unless we parse it or ask.
-    // Actually, usually the dev bumps package.json manually OR prepareRelease does it?
-    // Checking prepareRelease.mjs: It reads package.json. It assumes package.json is ALREADY updated with the new version.
-    // So the user must have bumped package.json manually before running this?
-    // "prepareRelease.mjs: const packageJson = requireJson(path.join(root, 'package.json'))"
-    // It updates config files based on package.json.
-    // So yes, the user must bump package.json first.
-    
+    // The user is expected to have manually bumped the version in package.json before running this script.
     const newVersion = getPackageVersion();
     const releaseNotePath = path.join(root, `resources/content/release-notes/v${newVersion}.md`);
 
