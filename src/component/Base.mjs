@@ -292,6 +292,10 @@ class Component extends Abstract {
      * @member {Object} vdom=this._vdom
      */
     get vdom() {
+        if (!Object.hasOwn(this, '_vdom')) {
+            this._vdom = Neo.clone(this._vdom, true)
+        }
+
         return this._vdom
     }
     set vdom(value) {
