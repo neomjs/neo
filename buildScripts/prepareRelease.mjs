@@ -11,6 +11,7 @@ import fs                          from 'fs-extra';
 import os                          from 'os';
 import path                        from 'path';
 import createReleaseIndex          from './createReleaseIndex.mjs';
+import createTicketIndex           from './createTicketIndex.mjs';
 import {getLlmsTxt, getSitemapXml} from './generateSeoFiles.mjs';
 
 const
@@ -122,6 +123,7 @@ if (insideNeo) {
 
 // Generate the release index JSON before SEO files
 await createReleaseIndex();
+await createTicketIndex();
 
 // Generate sitemap.xml and llms.txt to ensure SEO files are up-to-date with the latest content and routes.
 // This is crucial for search engine discoverability and AI model consumption.
