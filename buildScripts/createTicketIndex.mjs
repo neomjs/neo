@@ -7,6 +7,25 @@ import matter          from 'gray-matter';
 import semver          from 'semver';
 import {sanitizeInput} from './util/Sanitizer.mjs';
 
+/**
+ * @module buildScripts.createTicketIndex
+ * @summary Generates a hierarchical JSON index of GitHub tickets for the Neo.mjs Portal application.
+ *
+ * This script is a critical part of the **Portal Knowledge Hub** data pipeline. It parses local markdown
+ * files (synced from GitHub Issues) and transforms them into a lightweight, structured JSON index (`tickets.json`).
+ * This index drives the `TreeList` navigation in the Portal's "Tickets" section.
+ *
+ * **Key Features:**
+ * - **Dual-Source Scanning:** Reads from both active issues (`resources/content/issues`) and the issue archive (`resources/content/issue-archive`).
+ * - **Intelligent Filtering:** Includes high-value tickets (bug, feature, epic) while excluding noise (chore, task) to ensure high signal-to-noise ratio for SEO and AI.
+ * - **Hierarchical Grouping:** Groups tickets by "Latest" (active) or by Release Version (archived), sorted semantically.
+ * - **TreeList Optimization:** Outputs a flat-tree structure compatible with `Neo.tree.List` and `Neo.data.Store`.
+ *
+ * @see apps/portal/view/news/tickets/MainContainer.mjs
+ * @see buildScripts/createReleaseIndex.mjs
+ * @keywords portal, tickets, seo, json-index, build-script, knowledge-base
+ */
+
 const ROOT_DIR    = process.cwd();
 const ISSUES_DIR  = path.resolve(ROOT_DIR, 'resources/content/issues');
 const ARCHIVE_DIR = path.resolve(ROOT_DIR, 'resources/content/issue-archive');
@@ -18,12 +37,21 @@ const INCLUDE_LABELS = new Set(['bug', 'feature', 'enhancement', 'documentation'
 const EXCLUDE_LABELS = new Set(['chore', 'task', 'agent-task']);
 
 /**
- * Scans the issues and issue-archive directories and generates a hierarchical JSON index.
- * @param {Object} options
- * @param {String} options.issuesDir - Directory containing active markdown tickets
- * @param {String} options.archiveDir - Directory containing archived markdown tickets (versioned folders)
- * @param {String} options.outputFile - Path to the output JSON file
- * @returns {Promise<void>}
+ * Core logic to scan, filter, and index ticket markdown files.
+ *
+ * This function performs the heavy lifting:
+ * 1.  Glob-scans the configured directories for `.md` files.
+ * 2.  Parses YAML frontmatter to extract metadata (id, title, labels, dates).
+ * 3.  Applies inclusion/exclusion label logic.
+ * 4.  Groups tickets by version (directory name) or 'Latest'.
+ * 5.  Sorts groups by SemVer and tickets by date/ID.
+ * 6.  Flattens the result into a `Neo.data.Store` compatible array.
+ *
+ * @param {Object} options Configuration options
+ * @param {String} [options.issuesDir] - Directory containing active markdown tickets (defaults to `resources/content/issues`)
+ * @param {String} [options.archiveDir] - Directory containing archived markdown tickets (defaults to `resources/content/issue-archive`)
+ * @param {String} [options.outputFile] - Path to the output JSON file (defaults to `apps/portal/resources/data/tickets.json`)
+ * @returns {Promise<void>} Resolves when the JSON file is written
  */
 async function createTicketIndex(options = {}) {
     const issuesDir  = options.issuesDir  || ISSUES_DIR;
@@ -178,6 +206,15 @@ async function createTicketIndex(options = {}) {
     console.log(`Ticket index written to ${outputFile}`);
 }
 
+/**
+ * CLI entry point for the script.
+ * Handles argument parsing using `commander` and invokes the main `createTicketIndex` function.
+ *
+ * Supported flags:
+ * - `-i, --issues <path>`: Custom issues directory
+ * - `-a, --archive <path>`: Custom archive directory
+ * - `-o, --output <path>`: Custom output file path
+ */
 async function runCli() {
     const program = new Command();
 
