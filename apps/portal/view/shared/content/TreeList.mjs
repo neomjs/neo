@@ -39,6 +39,10 @@ class TreeList extends BaseTreeList {
          */
         routePrefix: null,
         /**
+         * @member {Boolean} saveScrollPosition=true
+         */
+        saveScrollPosition: true,
+        /**
          * @member {Boolean} showCollapseExpandAllIcons=false
          */
         showCollapseExpandAllIcons: false

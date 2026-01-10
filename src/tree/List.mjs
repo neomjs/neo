@@ -61,6 +61,10 @@ class Tree extends Base {
          */
         wrapperCls: [],
         /**
+         * @member {Boolean} saveScrollPosition=false
+         */
+        saveScrollPosition: false,
+        /**
          * @member {Object} _vdom
          */
         _vdom:
@@ -476,6 +480,65 @@ class Tree extends Base {
             this.collapseAll()
         } else {
             this.expandAll()
+        }
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onScrollCapture(data) {
+        super.onScrollCapture(data);
+
+        let me = this;
+
+        if (me.saveScrollPosition) {
+            let scrollTop   = data.scrollTop,
+                needsUpdate = false,
+                y           = 0;
+
+            const traverse = (node) => {
+                if (!node.cn) return;
+
+                let lastFolderOpen = true;
+
+                node.cn.forEach(child => {
+                    if (child.tag === 'li') {
+                        if (child.cls.includes(me.folderCls)) {
+                            let topStyle = child.style.top;
+
+                            if (topStyle) {
+                                let isStuck  = scrollTop > 0 && (y - scrollTop) <= parseInt(topStyle),
+                                    wasStuck = child.cls.includes('neo-stuck');
+
+                                if (isStuck !== wasStuck) {
+                                    NeoArray.toggle(child.cls, 'neo-stuck', isStuck);
+                                    needsUpdate = true
+                                }
+                            }
+
+                            lastFolderOpen = child.cls.includes('neo-folder-open')
+                        } else {
+                            lastFolderOpen = true
+                        }
+
+                        if (child.style?.display !== 'none') {
+                            y += 48
+                        }
+                    } else if (child.tag === 'ul') {
+                        if (lastFolderOpen) {
+                            traverse(child)
+                        }
+                    }
+                })
+            };
+
+            if (me.vdom.cn && me.vdom.cn[0]) {
+                traverse(me.vdom.cn[0])
+            }
+
+            if (needsUpdate) {
+                me.update()
+            }
         }
     }
 

@@ -43,6 +43,10 @@
                             content: unset !important;
                         }
                     }
+
+                    &.neo-stuck {
+                        background-color: var(--list-item-background-color);
+                    }
                 }
             }
         }
