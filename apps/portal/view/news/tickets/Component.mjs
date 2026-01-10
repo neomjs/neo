@@ -41,6 +41,8 @@ class Component extends ContentComponent {
                 }).join('');
             } else if (key === 'author') {
                 renderedValue = `<a href="https://github.com/${value}" target="_blank">${value}</a>`;
+            } else if (key === 'labels' && Array.isArray(value)) {
+                renderedValue = me.getBadgesHtml(value);
             } else {
                 renderedValue = me.formatFrontMatterValue(value);
             }
@@ -55,6 +57,33 @@ class Component extends ContentComponent {
         }
 
         return html
+    }
+
+    /**
+     * @param {String[]} labels
+     * @returns {String}
+     */
+    getBadgesHtml(labels) {
+        if (!labels || labels.length === 0) return '';
+
+        let me         = this,
+            badgesHtml = '<div class="neo-ticket-labels">',
+            store      = me.getStateProvider().getStore('labels'),
+            record;
+
+        labels.forEach(label => {
+            record = store.get(label);
+
+            if (record) {
+                badgesHtml += `<span class="neo-badge" style="background-color:${record.color};color:${record.textColor}">${label}</span>`
+            } else {
+                badgesHtml += `<span class="neo-badge">${label}</span>`
+            }
+        });
+
+        badgesHtml += '</div>';
+
+        return badgesHtml
     }
 
     /**
@@ -86,24 +115,7 @@ class Component extends ContentComponent {
         content = super.modifyMarkdown(content);
 
         if (labels.length > 0) {
-            let badgesHtml = '<div class="neo-ticket-labels">',
-                store      = me.getStateProvider().getStore('labels'),
-                record;
-
-            labels.forEach(label => {
-                record = store.get(label);
-
-                if (record) {
-                    badgesHtml += `<span class="neo-badge" style="background-color:${record.color};color:${record.textColor}">${label}</span>`
-                } else {
-                    // Fallback for unknown labels
-                    badgesHtml += `<span class="neo-badge">${label}</span>`
-                }
-            });
-
-            badgesHtml += '</div>';
-
-            content = content.replace(/(<h1[^>]*>.*?<\/h1>)/, '$1' + badgesHtml)
+            content = content.replace(/(<h1[^>]*>.*?<\/h1>)/, '$1' + me.getBadgesHtml(labels))
         }
 
         return content
