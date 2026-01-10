@@ -27,11 +27,25 @@
     }
 
     details {
-        margin: 1em 0 1em 0;
+        interpolate-size: allow-keywords;
+        margin          : 1em 0 1em 0;
+    }
+
+    details::details-content {
+        block-size        : 0;
+        content-visibility: auto;
+        opacity           : 0;
+        overflow          : hidden;
+        transition        : block-size 300ms ease-out, content-visibility 300ms allow-discrete, opacity 300ms ease-out;
     }
 
     details[open] {
         margin-bottom: 2em;
+    }
+
+    details[open]::details-content {
+        block-size: auto;
+        opacity   : 1;
     }
 
     details summary {
@@ -41,7 +55,6 @@
         display    : flex;
         font-weight: bold;
         list-style : none;
-        transition : margin 300ms ease-out;
     }
 
     details summary::before {
