@@ -1,7 +1,7 @@
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { GH_LabelService } from '../ai/services.mjs';
+import fs                from 'fs';
+import path              from 'path';
+import {fileURLToPath}   from 'url';
+import {GH_LabelService} from '../ai/services.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -35,10 +35,10 @@ async function generateLabelIndex() {
         }
 
         const labels = response.labels.map(label => ({
-            color: `#${label.color}`,
+            color      : `#${label.color}`,
             description: label.description,
-            name: label.name,
-            textColor: getContrastColor(label.color)
+            name       : label.name,
+            textColor  : getContrastColor(label.color)
         }));
 
         labels.sort((a, b) => a.name.localeCompare(b.name));
@@ -55,6 +55,10 @@ async function generateLabelIndex() {
     }
 }
 
-generateLabelIndex().then(() => {
-    process.exit(0);
-});
+if (process.argv[1] === __filename) {
+    generateLabelIndex().then(() => {
+        process.exit(0);
+    });
+}
+
+export default generateLabelIndex;

@@ -10,6 +10,7 @@
 import fs                          from 'fs-extra';
 import os                          from 'os';
 import path                        from 'path';
+import createLabelIndex            from './createLabelIndex.mjs';
 import createReleaseIndex          from './createReleaseIndex.mjs';
 import createTicketIndex           from './createTicketIndex.mjs';
 import {getLlmsTxt, getSitemapXml} from './generateSeoFiles.mjs';
@@ -121,7 +122,8 @@ if (insideNeo) {
     }
 }
 
-// Generate the release index JSON before SEO files
+// Generate the release content JSON before SEO files
+await createLabelIndex();
 await createReleaseIndex();
 await createTicketIndex();
 
