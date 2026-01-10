@@ -1,25 +1,38 @@
 .portal-news-tickets-component {
+    .neo-badge {
+        align-items     : center;
+        background-color: #eff1f3; // Default fallback
+        border          : 1px solid rgba(0, 0, 0, 0.1);
+        border-radius   : 2em;
+        color           : #24292f;
+        display         : inline-flex;
+        font-size       : 12px;
+        font-weight     : 500;
+        line-height     : 22px;
+        padding         : 0 10px;
+        text-transform  : capitalize;
+
+        &.neo-state-badge {
+            border-radius: 2em;
+            color        : #ffffff;
+            gap          : 6px;
+            padding      : 2px 10px 2px 8px;
+
+            &.neo-state-closed {
+                background-color : #8250df;
+            }
+
+            &.neo-state-open {
+                background-color: #2da44e;
+            }
+        }
+    }
+
     .neo-ticket-labels {
         display      : flex;
         flex-wrap    : wrap;
         gap          : 8px;
         margin-bottom: 20px;
-
-        .neo-badge {
-            align-items   : center;
-            border        : 1px solid rgba(0, 0, 0, 0.1);
-            border-radius : 2em;
-            display       : inline-flex;
-            font-size     : 12px;
-            font-weight   : 500;
-            line-height   : 22px;
-            padding       : 0 10px;
-            text-transform: capitalize;
-
-            // Default fallback
-            background-color: #eff1f3;
-            color           : #24292f;
-        }
     }
 
     .neo-frontmatter-table {
@@ -28,6 +41,10 @@
             display      : flex;
             gap          : 8px;
             margin-bottom: 4px;
+        }
+
+        .neo-state-badge {
+            height: 24px;
         }
 
         .neo-ticket-labels {

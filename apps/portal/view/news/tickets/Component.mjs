@@ -43,6 +43,8 @@ class Component extends ContentComponent {
                 renderedValue = `<a href="https://github.com/${value}" target="_blank">${value}</a>`;
             } else if (key === 'labels' && Array.isArray(value)) {
                 renderedValue = me.getBadgesHtml(value);
+            } else if (key === 'state') {
+                renderedValue = me.getStateBadgeHtml(value);
             } else {
                 renderedValue = me.formatFrontMatterValue(value);
             }
@@ -96,12 +98,33 @@ class Component extends ContentComponent {
     }
 
     /**
+     * @param {String} state
+     * @returns {String}
+     */
+    getStateBadgeHtml(state) {
+        if (!state) return '';
+
+        let cls  = 'neo-badge neo-state-badge',
+            icon = 'fa-circle-dot';
+
+        if (state.toUpperCase() === 'CLOSED') {
+            cls  += ' neo-state-closed';
+            icon  = 'fa-circle-check';
+        } else {
+            cls += ' neo-state-open';
+        }
+
+        return `<span class="${cls}"><i class="fa-regular ${icon}"></i>${Neo.capitalize(state.toLowerCase())}</span>`
+    }
+
+    /**
      * @param {String} content
      * @returns {String}
      */
     modifyMarkdown(content) {
         let me     = this,
             labels = [],
+            state  = null,
             match  = content.match(regexFrontMatter);
 
         if (match) {
@@ -110,12 +133,39 @@ class Component extends ContentComponent {
             if (data.labels) {
                 labels = data.labels
             }
+
+            if (data.state) {
+                state = data.state
+            }
         }
 
         content = super.modifyMarkdown(content);
 
-        if (labels.length > 0) {
-            content = content.replace(/(<h1[^>]*>.*?<\/h1>)/, '$1' + me.getBadgesHtml(labels))
+        if (labels.length > 0 || state) {
+            let badgesHtml = '<div class="neo-ticket-labels">';
+
+            if (state) {
+                badgesHtml += me.getStateBadgeHtml(state)
+            }
+
+            if (labels.length > 0) {
+                let store = me.getStateProvider().getStore('labels'),
+                    record;
+
+                labels.forEach(label => {
+                    record = store.get(label);
+
+                    if (record) {
+                        badgesHtml += `<span class="neo-badge" style="background-color:${record.color};color:${record.textColor}">${label}</span>`
+                    } else {
+                        badgesHtml += `<span class="neo-badge">${label}</span>`
+                    }
+                });
+            }
+
+            badgesHtml += '</div>';
+
+            content = content.replace(/(<h1[^>]*>.*?<\/h1>)/, '$1' + badgesHtml)
         }
 
         return content
