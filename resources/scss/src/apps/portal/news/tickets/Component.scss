@@ -78,7 +78,7 @@
     }
 
     .neo-ticket-timeline {
-        margin-top  : 3rem;
+        margin-top  : 2rem; // Reduced from 3rem to be closer to header
         padding-left: 60px;
         position    : relative;
 
@@ -97,6 +97,11 @@
         .neo-timeline-item {
             margin-bottom: 1.5rem;
             position     : relative;
+
+            // Specific style for the body item to ensure it looks like the start
+            &.body-item {
+                margin-bottom: 2rem;
+            }
 
             &.event {
                 .neo-timeline-badge {
