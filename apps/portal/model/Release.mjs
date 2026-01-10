@@ -41,12 +41,11 @@ class Release extends Model {
             type: 'html',
             /**
              * @param {Object} data
+             * @param {String} data.date
+             * @param {String} data.id
              * @returns {String}
              */
-            calculate(data) {
-                const
-                    {date, id} = data;
-
+            calculate({date, id}) {
                 if (date) {
                     return `<b>${id}</b> <span class="release-date">[${new Date(date).toLocaleDateString()}]</span>`
                 }

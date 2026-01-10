@@ -40,17 +40,14 @@ class Ticket extends Model {
             name: 'treeNodeName',
             type: 'html',
             /**
-             * @param {Object} data
-             * @returns {String}
+             * @param {Object}  data
+             * @param {String}  data.id
+             * @param {Boolean} data.isLeaf
+             * @param {String}  data.title
+             * @returns {{id, isLeaf, title}}
              */
-            calculate(data) {
-                const {id, isLeaf, title} = data;
-
-                if (isLeaf) {
-                    return `<b>#${id}</b> ${title}`
-                }
-
-                return id
+            calculate({id, isLeaf, title}) {
+                return isLeaf ? `<b>${id}</b> ${title}` : id
             }
         }]
     }
