@@ -24,8 +24,12 @@ subIssues:
   - '[x] 8506 Add Tickets Tab to Portal News Section'
   - '[x] 8509 Optimization: Minify Indices and Prune Release Model'
   - '[x] 8511 Enhance Ticket Markdown Rendering with Badges'
-subIssuesCompleted: 8
-subIssuesTotal: 8
+  - '[x] 8520 Enhance Markdown Frontmatter Animation'
+  - '[x] 8521 Animate Frontmatter Toggle Icon (Rotate Plus to X)'
+  - '[x] 8522 Use Badge Style for Labels in Ticket Frontmatter'
+  - '[x] 8523 Implement Ticket Status Badges (Open/Closed)'
+subIssuesCompleted: 12
+subIssuesTotal: 12
 blockedBy: []
 blocking: []
 ---
@@ -84,4 +88,9 @@ blocking: []
 - 2026-01-10 @tobiu cross-referenced by #8509
 - 2026-01-10 @tobiu added sub-issue #8509
 - 2026-01-10 @tobiu added sub-issue #8511
+- 2026-01-10 @tobiu cross-referenced by #8514
+- 2026-01-10 @tobiu added sub-issue #8520
+- 2026-01-10 @tobiu added sub-issue #8521
+- 2026-01-10 @tobiu added sub-issue #8522
+- 2026-01-10 @tobiu added sub-issue #8523
 
