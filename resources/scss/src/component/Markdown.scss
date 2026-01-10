@@ -57,20 +57,18 @@
         list-style : none;
     }
 
-    details summary::before {
-        content: "\f055";
-    }
-
     details[open] summary::before {
-        content: "\f056";
+        transform: rotate(45deg);
     }
 
     details summary::before {
         color      : #c4c4c4;
+        content    : "\f055";
         font-family: var(--fa-style-family, "Font Awesome 7 Free");
         font-size  : 1em;
         font-weight: var(--fa-style, 900);
         margin     : 0.4em 0.4em 0.4em 0;
+        transition : transform 300ms ease-out;
     }
 
     h1.neo-h1 {
