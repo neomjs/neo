@@ -46,23 +46,14 @@ async function createReleaseIndex(options = {}) {
         const fileName = path.basename(filePath, '.md'); // e.g., 'v11.18.0'
         
         let frontmatter = {};
-        let bodyContent = content;
 
         try {
             const parsed = matter(content);
             frontmatter  = parsed.data;
-            bodyContent  = parsed.content;
         } catch (e) {
             console.warn(`Failed to parse frontmatter for ${fileName}:`, e.message);
         }
         
-        // Extract Title (Priority: frontmatter.name -> First H1 -> filename)
-        let title = frontmatter.name;
-        if (!title) {
-            const titleMatch = bodyContent.match(/^#\s+(.+)$/m);
-            title = titleMatch ? titleMatch[1].trim() : fileName;
-        }
-
         // Extract Date (Priority: frontmatter.publishedAt -> file stats)
         let date = frontmatter.publishedAt;
         if (!date) {
@@ -82,7 +73,6 @@ async function createReleaseIndex(options = {}) {
         return {
             version: cleanVersion,
             date   : date,
-            title  : title,
             path   : `resources/content/release-notes/${path.basename(filePath)}`
         };
     }));
@@ -162,7 +152,7 @@ async function createReleaseIndex(options = {}) {
     console.log(`Found ${releases.length} releases.`);
 
     await fs.ensureDir(path.dirname(outputFile));
-    await fs.writeJSON(outputFile, treeData, { spaces: 4 });
+    await fs.writeJSON(outputFile, treeData);
     
     console.log(`Release index written to ${outputFile}`);
 }

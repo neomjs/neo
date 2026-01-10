@@ -173,7 +173,7 @@ async function createTicketIndex(options = {}) {
     console.log(`Filtered down to ${flatTree.length - sortedGroups.length} tickets in ${sortedGroups.length} groups.`);
 
     await fs.ensureDir(path.dirname(outputFile));
-    await fs.writeJSON(outputFile, flatTree, { spaces: 4 });
+    await fs.writeJSON(outputFile, flatTree);
     
     console.log(`Ticket index written to ${outputFile}`);
 }

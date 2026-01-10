@@ -25,9 +25,6 @@ class Release extends Model {
             name: 'path', // "/.github/RELEASE_NOTES/v11.18.0.md"
             type: 'String'
         }, {
-            name: 'title', // "Neo.mjs v11.18.0 Release Notes"
-            type: 'String'
-        }, {
             name        : 'isLeaf',
             type        : 'Boolean',
             defaultValue: true
