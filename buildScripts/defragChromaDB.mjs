@@ -3,6 +3,7 @@ import {ChromaClient}  from 'chromadb';
 import fs              from 'fs-extra';
 import path            from 'path';
 import {fileURLToPath} from 'url';
+import Neo             from '../src/Neo.mjs';
 
 /**
  * @summary A generic CLI tool to defragment ChromaDB instances (Knowledge Base & Memory Core).
