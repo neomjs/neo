@@ -643,6 +643,10 @@ class Base {
                         currentWorker.on('connected', () => resolve(), this, {once: true})
                     })
                 }
+            } else if (Neo.workerId === 'service') {
+                if (remote.app) {
+                    currentWorker.remotesToRegister.push({className, methods: remote.app})
+                }
             }
 
             await Base.promiseRemotes(className, remote)

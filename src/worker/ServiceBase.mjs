@@ -71,6 +71,11 @@ class ServiceBase extends Base {
      */
     remotes = []
     /**
+     * @member {Object[]} remotesToRegister=[]
+     * @protected
+     */
+    remotesToRegister = []
+    /**
      * @member {String|null} workerId=null
      * @protected
      */
@@ -135,6 +140,14 @@ class ServiceBase extends Base {
 
         port1.onmessage = me.onMessage.bind(me);
 
+        me.remotesToRegister.forEach(remote => {
+            port1.postMessage({
+                action   : 'registerRemote',
+                className: remote.className,
+                methods  : remote.methods
+            })
+        });
+
         me.sendMessage('app', {action: 'registerPort', transfer: port2}, [port2]);
 
         me.channelPorts.push({
@@ -164,7 +177,7 @@ class ServiceBase extends Base {
      * @returns {Boolean}
      */
     hasWorker(name) {
-        return name === 'app' || !!this.getPort(name) || !!this.lastClient
+        return !!this.getPort(name) || !!this.lastClient
     }
 
     /**
