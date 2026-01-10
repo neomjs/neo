@@ -28,8 +28,11 @@ subIssues:
   - '[x] 8521 Animate Frontmatter Toggle Icon (Rotate Plus to X)'
   - '[x] 8522 Use Badge Style for Labels in Ticket Frontmatter'
   - '[x] 8523 Implement Ticket Status Badges (Open/Closed)'
-subIssuesCompleted: 12
-subIssuesTotal: 12
+  - '[x] 8524 Enhance TreeList navigation for internal routing and deep linking'
+  - '[x] 8525 Add Release badge to Ticket Header for navigation'
+  - '[x] 8526 Fix CSS collision for state badge icons in Tickets view'
+subIssuesCompleted: 15
+subIssuesTotal: 15
 blockedBy: []
 blocking: []
 ---
@@ -93,4 +96,10 @@ blocking: []
 - 2026-01-10 @tobiu added sub-issue #8521
 - 2026-01-10 @tobiu added sub-issue #8522
 - 2026-01-10 @tobiu added sub-issue #8523
+- 2026-01-10 @tobiu referenced in commit `1208fa3` - "feat: Support internal routing for Markdown ticket links (#8398)
+
+Updates Markdown component to respect local routing for ticket IDs if the configured issuesUrl starts with #."
+- 2026-01-10 @tobiu added sub-issue #8524
+- 2026-01-10 @tobiu added sub-issue #8525
+- 2026-01-10 @tobiu added sub-issue #8526
 
