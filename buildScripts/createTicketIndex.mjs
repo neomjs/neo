@@ -52,7 +52,7 @@ async function createTicketIndex(options = {}) {
 
     await Promise.all(allFiles.map(async (fileInfo) => {
         const filePath = fileInfo.path;
-        
+
         let content;
         try {
             content = await fs.readFile(filePath, 'utf8');
@@ -76,10 +76,10 @@ async function createTicketIndex(options = {}) {
         }
 
         // Filtering Logic
-        const labels = Array.isArray(frontmatter.labels) ? frontmatter.labels.map(l => (l.name || l).toLowerCase()) : [];
+        const labels          = Array.isArray(frontmatter.labels) ? frontmatter.labels.map(l => (l.name || l).toLowerCase()) : [];
         const hasIncludeLabel = labels.some(l => INCLUDE_LABELS.has(l));
         const hasExcludeLabel = labels.some(l => EXCLUDE_LABELS.has(l));
-        
+
         let shouldKeep = true;
         if (hasExcludeLabel && !hasIncludeLabel) {
             shouldKeep = false;
@@ -139,7 +139,7 @@ async function createTicketIndex(options = {}) {
     sortedGroups.forEach((groupName, index) => {
         // Create Parent Node
         const isFirst = index === 0;
-        
+
         const parentNode = {
             id       : groupName,
             isLeaf   : false,
@@ -155,7 +155,7 @@ async function createTicketIndex(options = {}) {
         tickets.sort((a, b) => {
             const dateA = a._closedAt || a._updatedAt || 0;
             const dateB = b._closedAt || b._updatedAt || 0;
-            
+
             if (dateA !== dateB) {
                 return new Date(dateB) - new Date(dateA);
             }
@@ -174,7 +174,7 @@ async function createTicketIndex(options = {}) {
 
     await fs.ensureDir(path.dirname(outputFile));
     await fs.writeJSON(outputFile, flatTree);
-    
+
     console.log(`Ticket index written to ${outputFile}`);
 }
 

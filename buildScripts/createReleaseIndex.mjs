@@ -7,9 +7,9 @@ import matter          from 'gray-matter';
 import semver          from 'semver';
 import {sanitizeInput} from './util/Sanitizer.mjs';
 
-const ROOT_DIR      = process.cwd();
-const RELEASE_DIR   = path.resolve(ROOT_DIR, 'resources/content/release-notes');
-const OUTPUT_FILE   = path.resolve(ROOT_DIR, 'apps/portal/resources/data/releases.json');
+const ROOT_DIR    = process.cwd();
+const RELEASE_DIR = path.resolve(ROOT_DIR, 'resources/content/release-notes');
+const OUTPUT_FILE = path.resolve(ROOT_DIR, 'apps/portal/resources/data/releases.json');
 
 /**
  * Parsed release note object
@@ -40,11 +40,11 @@ async function createReleaseIndex(options = {}) {
         console.warn('No release note files found.');
         return;
     }
-    
+
     const releases = await Promise.all(files.map(async (filePath) => {
         const content  = await fs.readFile(filePath, 'utf8');
         const fileName = path.basename(filePath, '.md'); // e.g., 'v11.18.0'
-        
+
         let frontmatter = {};
 
         try {
@@ -53,7 +53,7 @@ async function createReleaseIndex(options = {}) {
         } catch (e) {
             console.warn(`Failed to parse frontmatter for ${fileName}:`, e.message);
         }
-        
+
         // Extract Date (Priority: frontmatter.publishedAt -> file stats)
         let date = frontmatter.publishedAt;
         if (!date) {
@@ -153,7 +153,7 @@ async function createReleaseIndex(options = {}) {
 
     await fs.ensureDir(path.dirname(outputFile));
     await fs.writeJSON(outputFile, treeData);
-    
+
     console.log(`Release index written to ${outputFile}`);
 }
 
