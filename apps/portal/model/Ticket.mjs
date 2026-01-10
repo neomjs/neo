@@ -44,7 +44,7 @@ class Ticket extends Model {
              * @param {String}  data.id
              * @param {Boolean} data.isLeaf
              * @param {String}  data.title
-             * @returns {{id, isLeaf, title}}
+             * @returns {String}
              */
             calculate({id, isLeaf, title}) {
                 return isLeaf ? `<b>${id}</b> ${title}` : id
