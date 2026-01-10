@@ -145,7 +145,6 @@ class ServiceBase extends Base {
     }
 
     /**
-     *
      * @param {String} destination
      * @param {String} clientId=this.lastClient.id
      * @returns {MessagePort|null}
@@ -158,6 +157,14 @@ class ServiceBase extends Base {
         }
 
         return null
+    }
+
+    /**
+     * @param {String} name
+     * @returns {Boolean}
+     */
+    hasWorker(name) {
+        return name === 'app' || !!this.getPort(name) || !!this.lastClient
     }
 
     /**
