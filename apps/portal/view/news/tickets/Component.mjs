@@ -1,9 +1,13 @@
 import ContentComponent  from '../../shared/content/Component.mjs';
+import {marked}          from '../../../../../../node_modules/marked/lib/marked.esm.js';
 
 const
-    regexFrontMatter = /^---\n([\s\S]*?)\n---\n/,
-    regexH1          = /(<h1[^>]*>.*?<\/h1>)/,
-    regexTicketLink  = /(\d{4,})/;
+    regexFrontMatter     = /^---\n([\s\S]*?)\n---\n/,
+    regexH1              = /(<h1[^>]*>.*?<\/h1>)/,
+    regexTicketLink      = /(\d{4,})/,
+    regexTimeline        = /## Timeline\s*\n([\s\S]*)/,
+    regexTimelineComment = /^### @(\w+) - (\d{4}-\d{2}-\d{2} \d{2}:\d{2})\n\n([\s\S]*)/,
+    regexTimelineEvent   = /^- (\d{4}-\d{2}-\d{2}) @(\w+) (.*)$/;
 
 /**
  * @class Portal.view.news.tickets.Component
@@ -127,7 +131,8 @@ class Component extends ContentComponent {
             {parentId}   = me.record,
             labels       = [],
             state        = null,
-            match        = content.match(regexFrontMatter);
+            match        = content.match(regexFrontMatter),
+            timelineHtml = '';
 
         if (match) {
             let data = me.parseFrontMatter(match[1]);
@@ -139,6 +144,13 @@ class Component extends ContentComponent {
             if (data.state) {
                 state = data.state
             }
+        }
+
+        // Extract and process timeline
+        let timelineMatch = content.match(regexTimeline);
+        if (timelineMatch) {
+            timelineHtml = me.renderTimeline(timelineMatch[1]);
+            content = content.replace(regexTimeline, ''); // Remove raw timeline from main content
         }
 
         content = super.modifyMarkdown(content);
@@ -176,7 +188,103 @@ class Component extends ContentComponent {
             content = content.replace(regexH1, '$1' + badgesHtml)
         }
 
+        if (timelineHtml) {
+            content += timelineHtml;
+        }
+
         return content
+    }
+
+    /**
+     * @param {String} content
+     * @returns {String}
+     */
+    renderTimeline(content) {
+        let html        = '<div class="neo-ticket-timeline">',
+            lines       = content.split('\n'),
+            commentBuf  = [],
+            currentUser = null,
+            currentDate = null,
+            i           = 0,
+            len         = lines.length,
+            line, match, icon, actionCls;
+
+        const flushComment = () => {
+            if (commentBuf.length > 0) {
+                let body = marked.parse(commentBuf.join('\n'));
+                html += `
+                    <div class="neo-timeline-item comment">
+                        <div class="neo-timeline-avatar">
+                            <img src="https://github.com/${currentUser}.png" alt="${currentUser}">
+                        </div>
+                        <div class="neo-timeline-content">
+                            <div class="neo-timeline-header">
+                                <span class="neo-timeline-user">${currentUser}</span>
+                                <span class="neo-timeline-date">${currentDate}</span>
+                            </div>
+                            <div class="neo-timeline-body">${body}</div>
+                        </div>
+                    </div>`;
+                commentBuf  = [];
+                currentUser = null;
+                currentDate = null;
+            }
+        };
+
+        for (; i < len; i++) {
+            line = lines[i];
+
+            // Event Line: - YYYY-MM-DD @user action...
+            if ((match = line.match(regexTimelineEvent))) {
+                flushComment();
+                let [_, date, user, action] = match;
+
+                icon      = 'fa-circle-dot'; // Default
+                actionCls = '';
+
+                if (action.includes('added the `'))   { icon = 'fa-tag'; }
+                else if (action.includes('assigned')) { icon = 'fa-user-pen'; }
+                else if (action.includes('closed'))   { icon = 'fa-circle-check'; actionCls = 'purple'; }
+                else if (action.includes('reopened')) { icon = 'fa-circle-dot';   actionCls = 'green'; }
+                else if (action.includes('referenced') || action.includes('cross-referenced')) { icon = 'fa-link'; }
+                else if (action.includes('milestoned')){ icon = 'fa-sign-post'; }
+                else if (action.includes('sub-issue')) { icon = 'fa-diagram-project'; }
+
+                // Clean up markdown in action text (e.g. `code` to <code>)
+                action = marked.parseInline(action);
+
+                html += `
+                    <div class="neo-timeline-item event ${actionCls}">
+                        <div class="neo-timeline-badge"><i class="fa-solid ${icon}"></i></div>
+                        <div class="neo-timeline-body">
+                            <span class="neo-timeline-user">${user}</span> ${action} <span class="neo-timeline-date">on ${date}</span>
+                        </div>
+                    </div>`;
+            }
+            // Comment Header: ### @user - Date Time
+            else if (line.startsWith('### @')) {
+                // Check regex manually since we need to capture
+                let headerMatch = line.match(/^### @(\w+) - (\d{4}-\d{2}-\d{2} \d{2}:\d{2})$/);
+                if (headerMatch) {
+                    flushComment();
+                    currentUser = headerMatch[1];
+                    currentDate = headerMatch[2];
+                } else {
+                    // Fallback for weird headers? treat as text
+                    if (currentUser) commentBuf.push(line);
+                }
+            }
+            else {
+                if (currentUser) {
+                    commentBuf.push(line);
+                }
+            }
+        }
+
+        flushComment(); // Flush last comment
+
+        html += '</div>';
+        return html;
     }
 }
 
