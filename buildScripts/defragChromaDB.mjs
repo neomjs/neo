@@ -34,8 +34,8 @@ import Neo             from '../src/Neo.mjs';
  * @see Neo.ai.mcp.server.memory-core.Config
  */
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname  = path.dirname(__filename);
+const __filename   = fileURLToPath(import.meta.url);
+const __dirname    = path.dirname(__filename);
 const PROJECT_ROOT = path.resolve(__dirname, '..');
 
 // Configuration Mapping
@@ -129,6 +129,28 @@ async function cleanOldBackups(backupDir) {
 }
 
 /**
+ * Recursively calculates the size of a directory in bytes.
+ *
+ * @param {String} dir - The directory path.
+ * @returns {Promise<Number>} The total size in bytes.
+ */
+async function getDirSize(dir) {
+    const files = await fs.readdir(dir, { withFileTypes: true });
+    let size = 0;
+
+    for (const file of files) {
+        const filePath = path.join(dir, file.name);
+        if (file.isDirectory()) {
+            size += await getDirSize(filePath);
+        } else {
+            const stats = await fs.stat(filePath);
+            size += stats.size;
+        }
+    }
+    return size;
+}
+
+/**
  * Main execution function for the defragmentation process.
  *
  * It orchestrates the Backup -> Extract -> Nuke -> Load -> Cleanup pipeline.
@@ -172,6 +194,10 @@ async function defragChromaDB() {
             console.error(`❌ Database path not found: ${DB_PATH}`);
             process.exit(1);
         }
+
+        // 0.1 Initial Size Check
+        const initialSize = await getDirSize(DB_PATH);
+        console.log(`   📊 Initial Size: ${(initialSize / 1024 / 1024).toFixed(2)} MB`);
 
         // 1. Backup (Mandatory & Centralized)
         // We never run destructive operations without a fallback.
@@ -348,24 +374,14 @@ async function defragChromaDB() {
 
         console.log(`\n🎉 Defragmentation Complete!`);
 
-        // Final Size Check
-        const getDirSize = async (dir) => {
-            const files = await fs.readdir(dir, { withFileTypes: true });
-            let size = 0;
-            for (const file of files) {
-                const filePath = path.join(dir, file.name);
-                if (file.isDirectory()) {
-                    size += await getDirSize(filePath);
-                } else {
-                    const stats = await fs.stat(filePath);
-                    size += stats.size;
-                }
-            }
-            return size;
-        };
+        // Final Size Check & Reporting
+        const finalSize      = await getDirSize(DB_PATH);
+        const reduction      = initialSize - finalSize;
+        const reductionPercent = initialSize > 0 ? (reduction / initialSize) * 100 : 0;
 
-        const finalSize = await getDirSize(DB_PATH);
-        console.log(`   📉 Final Database Size: ${(finalSize / 1024 / 1024).toFixed(2)} MB`);
+        console.log(`   📉 Initial Size : ${(initialSize / 1024 / 1024).toFixed(2)} MB`);
+        console.log(`   📉 Final Size   : ${(finalSize / 1024 / 1024).toFixed(2)} MB`);
+        console.log(`   🔥 Reduction    : ${(reduction / 1024 / 1024).toFixed(2)} MB (${reductionPercent.toFixed(1)}%)`);
 
         // Exit with error code if any collection failed to restore
         if (hasRestoreErrors) {
