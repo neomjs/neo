@@ -1,4 +1,4 @@
-import ContentComponent from '../../shared/content/Component.mjs';
+import ContentComponent  from '../../shared/content/Component.mjs';
 
 /**
  * @class Portal.view.news.tickets.Component
@@ -31,7 +31,7 @@ class Component extends ContentComponent {
      * @returns {String}
      */
     modifyMarkdown(content) {
-        let me = this,
+        let me     = this,
             labels = [],
             match  = content.match(/^---\n([\s\S]*?)\n---\n/);
 
@@ -46,11 +46,19 @@ class Component extends ContentComponent {
         content = super.modifyMarkdown(content);
 
         if (labels.length > 0) {
-            let badgesHtml = '<div class="neo-ticket-labels">';
+            let badgesHtml = '<div class="neo-ticket-labels">',
+                store      = me.getStateProvider().getStore('labels'),
+                record;
 
             labels.forEach(label => {
-                const cls = label.toLowerCase().replace(/[:\s]+/g, '-');
-                badgesHtml += `<span class="neo-badge neo-badge-${cls}">${label}</span>`
+                record = store.get(label);
+
+                if (record) {
+                    badgesHtml += `<span class="neo-badge" style="background-color:${record.color};color:${record.textColor}">${label}</span>`
+                } else {
+                    // Fallback for unknown labels
+                    badgesHtml += `<span class="neo-badge">${label}</span>`
+                }
             });
 
             badgesHtml += '</div>';

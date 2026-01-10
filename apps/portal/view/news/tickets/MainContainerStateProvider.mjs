@@ -1,4 +1,5 @@
 import ContentSectionStore from '../../../store/ContentSections.mjs';
+import TicketLabelsStore   from '../../../store/TicketLabels.mjs';
 import TicketsStore        from '../../../store/Tickets.mjs';
 import StateProvider       from '../../../../../src/state/Provider.mjs';
 
@@ -45,6 +46,10 @@ class MainContainerStateProvider extends StateProvider {
          * @member {Object} stores
          */
         stores: {
+            labels: {
+                autoLoad: true,
+                module  : TicketLabelsStore
+            },
             sections: {
                 module: ContentSectionStore
             },
