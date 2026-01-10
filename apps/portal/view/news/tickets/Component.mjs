@@ -32,6 +32,8 @@ class Component extends ContentComponent {
                 renderedValue = value.map(issue => {
                     return issue.replace(/(\d{4,})/, '<a href="#/news/tickets/$1">$1</a>')
                 }).join('<br>');
+            } else if (key === 'author') {
+                renderedValue = `<a href="https://github.com/${value}" target="_blank">${value}</a>`;
             } else {
                 renderedValue = me.formatFrontMatterValue(value);
             }
