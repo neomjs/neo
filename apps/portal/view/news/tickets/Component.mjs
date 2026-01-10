@@ -18,6 +18,37 @@ class Component extends ContentComponent {
     }
 
     /**
+     * @param {Object} data
+     * @returns {String}
+     */
+    frontMatterToHtml(data) {
+        let me   = this,
+            html = '<table class="neo-frontmatter-table"><tbody>';
+
+        Object.entries(data).forEach(([key, value]) => {
+            let renderedValue;
+
+            if (key === 'subIssues' && Array.isArray(value)) {
+                renderedValue = value.map(issue => {
+                    return issue.replace(/(\d{4,})/, '<a href="#/news/tickets/$1">$1</a>')
+                }).join('<br>');
+            } else {
+                renderedValue = me.formatFrontMatterValue(value);
+            }
+
+            html += `<tr><td>${key}</td><td>${renderedValue}</td></tr>`
+        });
+
+        html += '</tbody></table>';
+
+        if (me.useFrontmatterDetails) {
+            return `<details><summary>Frontmatter</summary>${html}</details>`
+        }
+
+        return html
+    }
+
+    /**
      * @param {Object} record
      * @param {String} record.path
      * @returns {String|null}
