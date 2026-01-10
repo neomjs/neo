@@ -2,6 +2,7 @@ import ContentComponent  from '../../shared/content/Component.mjs';
 
 const
     regexFrontMatter = /^---\n([\s\S]*?)\n---\n/,
+    regexH1          = /(<h1[^>]*>.*?<\/h1>)/,
     regexTicketLink  = /(\d{4,})/;
 
 /**
@@ -122,10 +123,11 @@ class Component extends ContentComponent {
      * @returns {String}
      */
     modifyMarkdown(content) {
-        let me     = this,
-            labels = [],
-            state  = null,
-            match  = content.match(regexFrontMatter);
+        let me           = this,
+            {parentId}   = me.record,
+            labels       = [],
+            state        = null,
+            match        = content.match(regexFrontMatter);
 
         if (match) {
             let data = me.parseFrontMatter(match[1]);
@@ -141,11 +143,17 @@ class Component extends ContentComponent {
 
         content = super.modifyMarkdown(content);
 
-        if (labels.length > 0 || state) {
+        if (labels.length > 0 || state || (parentId && parentId !== 'Latest')) {
             let badgesHtml = '<div class="neo-ticket-labels">';
 
             if (state) {
                 badgesHtml += me.getStateBadgeHtml(state)
+            }
+
+            if (parentId && parentId !== 'Latest') {
+                badgesHtml += `<a class="neo-badge neo-release-badge" href="#/news/releases/${parentId.substring(1)}">
+                    <i class="fa-solid fa-code-branch"></i> ${parentId}
+                </a>`
             }
 
             if (labels.length > 0) {
@@ -165,7 +173,7 @@ class Component extends ContentComponent {
 
             badgesHtml += '</div>';
 
-            content = content.replace(/(<h1[^>]*>.*?<\/h1>)/, '$1' + badgesHtml)
+            content = content.replace(regexH1, '$1' + badgesHtml)
         }
 
         return content
