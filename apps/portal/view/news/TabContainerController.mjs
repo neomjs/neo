@@ -15,7 +15,7 @@ class TabContainerController extends Controller {
          * @member {Object} routes
          */
         routes: {
-            '/news'                   : 'onBlogRoute',
+            '/news'                   : 'onReleasesRoute',
             '/news/blog'              : 'onBlogRoute',
             '/news/releases'          : 'onReleasesRoute',
             '/news/releases/{*itemId}': 'onReleasesRoute'
