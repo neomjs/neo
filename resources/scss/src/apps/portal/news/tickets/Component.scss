@@ -1,0 +1,85 @@
+$label-colors: (
+    "bug": #d73a4a,
+    "documentation": #0075ca,
+    "duplicate": #cfd3d7,
+    "enhancement": #a2eeef,
+    "good-first-issue": #7057ff,
+    "help-wanted": #008672,
+    "invalid": #e4e669,
+    "question": #d876e3,
+    "wontfix": #ffffff,
+    "epic": #6ed666,
+    "discussion": #ed8863,
+    "qa": #30e5b8,
+    "blog-post": #71c5ce,
+    "windows": #9F1470,
+    "developer-experience": #5319E7,
+    "contributor-experience": #0EDA16,
+    "dependencies": #0366d6,
+    "no-auto-close": #0BA59A,
+    "stale": #ededed,
+    "hacktoberfest": #1d76db,
+    "design": #74B7DB,
+    "javascript": #168700,
+    "hacktoberfest-accepted": #8dc67c,
+    "ai": #0e5ca2,
+    "refactoring": #5316bf,
+    "testing": #0a720b,
+    "regression": #267581,
+    "dropped": #601161,
+    "agent-task-pending": #D93F0B,
+    "agent-role-dev": #0E8A16,
+    "ai-generated": #C5DEF5,
+    "agent-task-in-progress": #D93F0B,
+    "agent-task-review": #FBCA04,
+    "agent-task-blocked": #d73a4a,
+    "agent-task-completed": #0E8A16,
+    "agent-role-pm": #1D76DB,
+    "agent-role-qa": #C2E0C6,
+    "architecture": #000000,
+    "performance": #ffc266,
+    "build": #bfd4f2,
+    "core": #000000,
+    "feature": #a2eeef
+);
+
+@function set-color($color) {
+    @if (lightness($color) > 60) {
+        @return #000000;
+    } @else {
+        @return #ffffff;
+    }
+}
+
+.portal-news-tickets-component {
+    .neo-ticket-labels {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 20px;
+
+        .neo-badge {
+            align-items: center;
+            border: 1px solid rgba(0,0,0,0.1);
+            border-radius: 2em;
+            display: inline-flex;
+            font-size: 12px;
+            font-weight: 500;
+            line-height: 22px;
+            padding: 0 10px;
+            text-transform: capitalize;
+
+            // Default fallback
+            background-color: #eff1f3;
+            color: #24292f;
+
+            @each $name, $color in $label-colors {
+                &.neo-badge-#{$name} {
+                    background-color: $color;
+                    color: set-color($color);
+                    border-color: rgba(set-color($color), 0.2);
+                }
+            }
+        }
+    }
+}

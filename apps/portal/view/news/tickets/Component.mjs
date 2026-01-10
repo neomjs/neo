@@ -10,7 +10,11 @@ class Component extends ContentComponent {
          * @member {String} className='Portal.view.news.tickets.Component'
          * @protected
          */
-        className: 'Portal.view.news.tickets.Component'
+        className: 'Portal.view.news.tickets.Component',
+        /**
+         * @member {String[]} cls=['portal-news-tickets-component']
+         */
+        cls: ['portal-news-tickets-component']
     }
 
     /**
@@ -20,6 +24,41 @@ class Component extends ContentComponent {
      */
     getContentPath({path}) {
         return path ? Neo.config.basePath + path : null
+    }
+
+    /**
+     * @param {String} content
+     * @returns {String}
+     */
+    modifyMarkdown(content) {
+        let me = this,
+            labels = [],
+            match  = content.match(/^---\n([\s\S]*?)\n---\n/);
+
+        if (match) {
+            let data = me.parseFrontMatter(match[1]);
+
+            if (data.labels) {
+                labels = data.labels
+            }
+        }
+
+        content = super.modifyMarkdown(content);
+
+        if (labels.length > 0) {
+            let badgesHtml = '<div class="neo-ticket-labels">';
+
+            labels.forEach(label => {
+                const cls = label.toLowerCase().replace(/[:\s]+/g, '-');
+                badgesHtml += `<span class="neo-badge neo-badge-${cls}">${label}</span>`
+            });
+
+            badgesHtml += '</div>';
+
+            content = content.replace(/(<h1[^>]*>.*?<\/h1>)/, '$1' + badgesHtml)
+        }
+
+        return content
     }
 }
 
