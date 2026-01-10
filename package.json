@@ -13,7 +13,8 @@
     "scripts"        : {
         "add-config"                   : "node ./buildScripts/addConfig.mjs",
         "add-reactive-tags"            : "node ./buildScripts/addReactiveTags.mjs",
-        "ai:defrag-kb"                 : "node ./buildScripts/defragKnowledgeBase.mjs",
+        "ai:defrag-kb"                 : "node ./buildScripts/defragChromaDB.mjs --target knowledge-base",
+        "ai:defrag-memory"             : "node ./buildScripts/defragChromaDB.mjs --target memory-core",
         "ai:download-kb"               : "node ./buildScripts/downloadKnowledgeBase.mjs",
         "ai:mcp-client"                : "node ./ai/mcp/client/mcp-cli.mjs",
         "ai:mcp-server-github-workflow": "node ./ai/mcp/server/github-workflow/mcp-stdio.mjs",

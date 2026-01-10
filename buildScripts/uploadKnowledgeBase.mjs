@@ -21,7 +21,7 @@ const cwd       = process.cwd();
  * 5.  **Cleanup**: Removes the temporary zip file to keep the workspace clean.
  *
  * @module buildScripts/uploadKnowledgeBase
- * @see buildScripts/defragKnowledgeBase.mjs
+ * @see buildScripts/defragChromaDB.mjs
  * @see buildScripts/publishRelease.mjs
  */
 
