@@ -247,10 +247,10 @@ async function defragChromaDB() {
                 const count = await collection.count();
                 console.log(`     Found ${count} items.`);
 
-                const colData = { ids: [], embeddings: [], metadatas: [], documents: [] };
-                let offset = 0;
-                let hasMore = true;
-                const limit = 2000;
+                const colData = {ids: [], embeddings: [], metadatas: [], documents: []};
+                let offset    = 0;
+                let hasMore   = true;
+                const limit   = 2000;
 
                 while (hasMore) {
                     process.stdout.write(`     Fetching batch ${offset}... `);
@@ -322,7 +322,7 @@ async function defragChromaDB() {
                 newCollectionIds.push(newCollection.id);
                 console.log(`     New ID: ${newCollection.id}`);
 
-                const total = data.ids.length;
+                const total     = data.ids.length;
                 const batchSize = 1000;
 
                 for (let i = 0; i < total; i += batchSize) {
@@ -376,8 +376,8 @@ async function defragChromaDB() {
         console.log(`\n🎉 Defragmentation Complete!`);
 
         // Final Size Check & Reporting
-        const finalSize      = await getDirSize(DB_PATH);
-        const reduction      = initialSize - finalSize;
+        const finalSize        = await getDirSize(DB_PATH);
+        const reduction        = initialSize - finalSize;
         const reductionPercent = initialSize > 0 ? (reduction / initialSize) * 100 : 0;
 
         console.log(`   📉 Initial Size : ${(initialSize / 1024 / 1024).toFixed(2)} MB`);
