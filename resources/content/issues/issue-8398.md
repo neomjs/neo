@@ -22,8 +22,9 @@ subIssues:
   - '[x] 8504 Create Portal.store.Tickets'
   - '[x] 8505 Implement Tickets View Structure (Scaffolding)'
   - '[x] 8506 Add Tickets Tab to Portal News Section'
-subIssuesCompleted: 6
-subIssuesTotal: 6
+  - '[x] 8509 Optimization: Minify Indices and Prune Release Model'
+subIssuesCompleted: 7
+subIssuesTotal: 7
 blockedBy: []
 blocking: []
 ---
@@ -79,4 +80,6 @@ blocking: []
 - 2026-01-10 @tobiu added sub-issue #8505
 - 2026-01-10 @tobiu cross-referenced by #8506
 - 2026-01-10 @tobiu added sub-issue #8506
+- 2026-01-10 @tobiu cross-referenced by #8509
+- 2026-01-10 @tobiu added sub-issue #8509
 
