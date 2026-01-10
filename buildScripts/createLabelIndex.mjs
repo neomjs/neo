@@ -1,9 +1,9 @@
-import fs              from 'fs-extra';
-import path            from 'path';
-import {Command}       from 'commander/esm.mjs';
-import {fileURLToPath} from 'url';
-import {GH_LabelService, NeuralLink_ConnectionService} from '../ai/services.mjs';
-import {sanitizeInput} from './util/Sanitizer.mjs';
+import fs                from 'fs-extra';
+import path              from 'path';
+import {Command}         from 'commander/esm.mjs';
+import {fileURLToPath}   from 'url';
+import {GH_LabelService} from '../ai/services.mjs';
+import {sanitizeInput}   from './util/Sanitizer.mjs';
 
 /**
  * @module buildScripts.createLabelIndex
@@ -79,14 +79,6 @@ async function createLabelIndex(options = {}) {
         console.error('Error generating label index:', error);
         // We throw here so the caller (CLI or other script) can handle it
         throw error;
-    } finally {
-        // Ensure we disconnect from the Neural Link Bridge to allow the process to exit.
-        // Importing ai/services.mjs automatically starts the connection via the singleton pattern.
-        try {
-            await NeuralLink_ConnectionService.manageConnection({action: 'stop'});
-        } catch (e) {
-            // Ignore disconnection errors, as we just want to ensure exit
-        }
     }
 }
 

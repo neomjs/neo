@@ -23,8 +23,9 @@ subIssues:
   - '[x] 8505 Implement Tickets View Structure (Scaffolding)'
   - '[x] 8506 Add Tickets Tab to Portal News Section'
   - '[x] 8509 Optimization: Minify Indices and Prune Release Model'
-subIssuesCompleted: 7
-subIssuesTotal: 7
+  - '[x] 8511 Enhance Ticket Markdown Rendering with Badges'
+subIssuesCompleted: 8
+subIssuesTotal: 8
 blockedBy: []
 blocking: []
 ---
@@ -82,4 +83,5 @@ blocking: []
 - 2026-01-10 @tobiu added sub-issue #8506
 - 2026-01-10 @tobiu cross-referenced by #8509
 - 2026-01-10 @tobiu added sub-issue #8509
+- 2026-01-10 @tobiu added sub-issue #8511
 

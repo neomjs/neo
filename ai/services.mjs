@@ -53,6 +53,9 @@ import NeuralLink_HealthService      from './mcp/server/neural-link/services/Hea
 import NeuralLink_InstanceService    from './mcp/server/neural-link/services/InstanceService.mjs';
 import NeuralLink_InteractionService from './mcp/server/neural-link/services/InteractionService.mjs';
 import NeuralLink_RuntimeService     from './mcp/server/neural-link/services/RuntimeService.mjs';
+import NeuralLink_Config             from './mcp/server/neural-link/config.mjs';
+
+NeuralLink_Config.data.autoConnect = false;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -237,6 +240,7 @@ export {
 
     // Neural Link
     NeuralLink_ComponentService,
+    NeuralLink_Config,
     NeuralLink_ConnectionService,
     NeuralLink_DataService,
     NeuralLink_HealthService,
