@@ -349,6 +349,7 @@ class ServiceBase extends Base {
         let cacheName = data.cacheName || this.cacheName,
             cache     = await caches.open(cacheName),
             {files}   = data,
+            failed    = [],
             items     = [],
             asset, hasMatch, item;
 
@@ -368,10 +369,24 @@ class ServiceBase extends Base {
         }
 
         if (items.length > 0) {
-            await cache.addAll(items)
+            await Promise.all(items.map(url =>
+                fetch(url).then(response => {
+                    if (!response.ok && response.status !== 0) {
+                        failed.push(url)
+                    } else {
+                        return cache.put(url, response)
+                    }
+                }).catch(() => {
+                    failed.push(url)
+                })
+            ))
         }
 
-        return {success: true}
+        return {
+            failed,
+            ratio  : files.length > 0 ? (files.length - failed.length) / files.length : 1,
+            success: failed.length === 0
+        }
     }
 
     /**
