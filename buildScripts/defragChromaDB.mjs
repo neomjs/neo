@@ -13,7 +13,8 @@ import {fileURLToPath} from 'url';
  *
  * The "Nuke and Pave" Strategy:
  * 1.  **Backup (Safety First)**: Before any destructive operation, a full physical backup of the database folder is created.
- *     This is critical for the Memory Core, which contains persistent user sessions.
+ *     Backups are stored in `dist/chromadb-backups/<target>/` to avoid project root pollution.
+ *     Automated retention policy: Deletes backups older than 7 days, but always keeps the last 3.
  * 2.  **Extract (ETL)**: All data (IDs, embeddings, metadata, documents) is fetched from *all* target collections
  *     into an in-memory buffer.
  * 3.  **Nuke (Logical Reset)**: The collections are deleted via the API. This releases the logical references to the data,
@@ -33,7 +34,8 @@ import {fileURLToPath} from 'url';
  */
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __dirname  = path.dirname(__filename);
+const PROJECT_ROOT = path.resolve(__dirname, '..');
 
 // Configuration Mapping
 // Maps CLI target names to their respective config files and adapts the config structure
@@ -84,6 +86,48 @@ async function loadConfig(targetName) {
 }
 
 /**
+ * Manages backup retention.
+ * Policy: Keep last 3 backups, delete others if older than 7 days.
+ *
+ * @param {String} backupDir - The directory containing backups.
+ */
+async function cleanOldBackups(backupDir) {
+    try {
+        if (!await fs.pathExists(backupDir)) return;
+
+        const entries = await fs.readdir(backupDir, { withFileTypes: true });
+        const backups = entries
+            .filter(e => e.isDirectory() && e.name.startsWith('backup-'))
+            .map(e => {
+                const parts = e.name.split('-');
+                // timestamp is the last part
+                const timestamp = parseInt(parts[parts.length - 1]);
+                return {
+                    name: e.name,
+                    path: path.join(backupDir, e.name),
+                    time: timestamp
+                };
+            })
+            // Filter out any filenames that didn't match the parsing logic
+            .filter(b => !isNaN(b.time))
+            .sort((a, b) => b.time - a.time); // Newest first
+
+        // Always keep the newest 3
+        const toCheck = backups.slice(3);
+        const weekAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
+
+        for (const backup of toCheck) {
+            if (backup.time < weekAgo) {
+                console.log(`   🗑️  Removing old backup: ${backup.name}`);
+                await fs.remove(backup.path);
+            }
+        }
+    } catch (e) {
+        console.warn(`   ⚠️  Backup cleanup failed (non-critical): ${e.message}`);
+    }
+}
+
+/**
  * Main execution function for the defragmentation process.
  *
  * It orchestrates the Backup -> Extract -> Nuke -> Load -> Cleanup pipeline.
@@ -114,6 +158,10 @@ async function defragChromaDB() {
         const config  = await loadConfig(targetName);
         const DB_PATH = config.path;
 
+        if (!DB_PATH) {
+            throw new Error(`Config for ${targetName} is missing a valid 'path' property.`);
+        }
+
         console.log(`   📂 Database Path: ${DB_PATH}`);
         console.log(`   🔌 Host: ${config.host}:${config.port}`);
         console.log(`   📚 Collections: ${config.collections.join(', ')}`);
@@ -124,12 +172,21 @@ async function defragChromaDB() {
             process.exit(1);
         }
 
-        // 1. Backup (Mandatory)
+        // 1. Backup (Mandatory & Centralized)
         // We never run destructive operations without a fallback.
-        const backupPath = `${DB_PATH}.bak-${Date.now()}`;
+        // Backups are stored in `dist/chromadb-backups/<target>/backup-<timestamp>`
+        const timestamp  = Date.now();
+        const backupRoot = path.resolve(PROJECT_ROOT, 'dist', 'chromadb-backups', targetName);
+        const backupName = `backup-${timestamp}`;
+        const backupPath = path.join(backupRoot, backupName);
+
         console.log(`\n1️⃣  Creating Backup at ${backupPath}...`);
+        await fs.ensureDir(backupRoot);
         await fs.copy(DB_PATH, backupPath);
         console.log(`   ✅ Backup created.`);
+
+        // 1.1 Cleanup Old Backups
+        await cleanOldBackups(backupRoot);
 
         // 2. Connect
         console.log(`\n2️⃣  Connecting to ChromaDB...`);
@@ -141,15 +198,16 @@ async function defragChromaDB() {
         // Dummy embedding function required by Chroma client to handle raw embeddings
         // without attempting to re-generate them via an external provider.
         const dummyEf = {
-            generate: () => null,
-            name: 'dummy',
-            getConfig: () => ({}),
-            constructor: { buildFromConfig: () => ({ generate: () => null }) }
+            generate   : () => null,
+            name       : 'dummy',
+            getConfig  : () => ({}),
+            constructor: {buildFromConfig: () => ({generate: () => null})}
         };
 
         // 3. Extract All Data (Multi-Collection)
         console.log(`\n3️⃣  Fetching data from all collections...`);
         const buffer = {};
+        let extractionErrors = false;
 
         for (const colName of config.collections) {
             console.log(`   Processing collection: ${colName}`);
@@ -195,6 +253,11 @@ async function defragChromaDB() {
             }
         }
 
+        if (extractionErrors) {
+            console.error('❌ Critical errors during extraction. Aborting before destructive actions.');
+            process.exit(1);
+        }
+
         // 4. Nuke (Logical Delete)
         // Deleting the collection via API releases the logical locks on the index files.
         console.log(`\n4️⃣  Resetting Collections...`);
@@ -211,46 +274,52 @@ async function defragChromaDB() {
         // Re-creating the collection triggers a clean build of the HNSW index.
         console.log(`\n5️⃣  Restoring Data...`);
         const newCollectionIds = [];
+        let hasRestoreErrors = false;
 
         for (const colName of config.collections) {
-            const data = buffer[colName];
-            if (!data || data.ids.length === 0) {
-                console.log(`   Skipping ${colName} (No data)`);
-                continue;
-            }
+            try {
+                const data = buffer[colName];
+                if (!data || data.ids.length === 0) {
+                    console.log(`   Skipping ${colName} (No data)`);
+                    continue;
+                }
 
-            console.log(`   Recreating ${colName}...`);
-            const newCollection = await client.createCollection({
-                name             : colName,
-                embeddingFunction: dummyEf,
-                metadata         : {"hnsw:space": "cosine"}
-            });
-
-            newCollectionIds.push(newCollection.id);
-            console.log(`     New ID: ${newCollection.id}`);
-
-            const total = data.ids.length;
-            const batchSize = 1000;
-
-            for (let i = 0; i < total; i += batchSize) {
-                const end = Math.min(i + batchSize, total);
-                process.stdout.write(`     Upserting ${i} to ${end}... `);
-
-                // Document Sanitization: Ensure documents are always strings.
-                // ChromaDB can throw if a document is null or an object.
-                const batchDocs = data.documents.slice(i, end).map(d => {
-                    if (d === null || d === undefined) return '';
-                    if (typeof d === 'object') return JSON.stringify(d);
-                    return String(d);
+                console.log(`   Recreating ${colName}...`);
+                const newCollection = await client.createCollection({
+                    name             : colName,
+                    embeddingFunction: dummyEf,
+                    metadata         : {"hnsw:space": "cosine"}
                 });
 
-                await newCollection.add({
-                    ids       : data.ids.slice(i, end),
-                    embeddings: data.embeddings.slice(i, end),
-                    metadatas : data.metadatas.slice(i, end),
-                    documents : batchDocs
-                });
-                console.log('✅');
+                newCollectionIds.push(newCollection.id);
+                console.log(`     New ID: ${newCollection.id}`);
+
+                const total = data.ids.length;
+                const batchSize = 1000;
+
+                for (let i = 0; i < total; i += batchSize) {
+                    const end = Math.min(i + batchSize, total);
+                    process.stdout.write(`     Upserting ${i} to ${end}... `);
+
+                    // Document Sanitization: Ensure documents are always strings.
+                    // ChromaDB can throw if a document is null or an object.
+                    const batchDocs = data.documents.slice(i, end).map(d => {
+                        if (d === null || d === undefined) return '';
+                        if (typeof d === 'object') return JSON.stringify(d);
+                        return String(d);
+                    });
+
+                    await newCollection.add({
+                        ids       : data.ids.slice(i, end),
+                        embeddings: data.embeddings.slice(i, end),
+                        metadatas : data.metadatas.slice(i, end),
+                        documents : batchDocs
+                    });
+                    console.log('✅');
+                }
+            } catch (e) {
+                console.error(`❌ Failed to restore ${colName}: ${e.message}`);
+                hasRestoreErrors = true;
             }
         }
 
@@ -296,6 +365,12 @@ async function defragChromaDB() {
 
         const finalSize = await getDirSize(DB_PATH);
         console.log(`   📉 Final Database Size: ${(finalSize / 1024 / 1024).toFixed(2)} MB`);
+
+        // Exit with error code if any collection failed to restore
+        if (hasRestoreErrors) {
+            console.error('\n⚠️ Completed with errors in some collections.');
+            process.exit(1);
+        }
 
     } catch (e) {
         console.error(`\n❌ Fatal Error: ${e.message}`);
