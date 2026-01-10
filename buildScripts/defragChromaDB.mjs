@@ -276,7 +276,8 @@ async function defragChromaDB() {
                 buffer[colName] = colData;
             } catch (e) {
                 console.warn(`     ⚠️ Could not fetch collection ${colName} (might not exist yet): ${e.message}`);
-                buffer[colName] = null; // Mark as empty/missing
+                extractionErrors = true;
+                buffer[colName]  = null; // Mark as empty/missing
             }
         }
 
