@@ -3,9 +3,32 @@ import Message            from './Message.mjs';
 import RemoteMethodAccess from './mixin/RemoteMethodAccess.mjs';
 
 /**
+ * @summary The programmable network layer of the Neo Application Engine.
+ *
+ * Unlike traditional Service Workers which are often static scripts, `ServiceBase` is a fully reactive
+ * Neo.mjs class that allows the App Worker (and by extension, AI Agents via Neural Link) to orchestrate
+ * the application's "physical reality"—network requests, caching, and asset availability—in real-time.
+ *
+ * **Key Responsibilities:**
+ * 1.  **Asset Caching:** Manages the `neo-runtime` cache, storing core framework files, app logic, and resources.
+ * 2.  **Offline Support:** Intercepts fetch requests to serve cached assets when offline (`onFetch`).
+ * 3.  **Pre-emptive Asset Resolution:** Exposes the `preloadAssets` remote method, enabling AI Agents to
+ *     time-shift network latency by predicting user intent and physically preparing the application state
+ *     (assets, chunks) *before* the user acts. This achieves true "Just-in-Time" UX without page reloads.
+ * 4.  **Multi-Context Communication:** Establishes message channels with all connected clients (browser tabs),
+ *     enabling the "Shared Worker" pattern where one App Worker can control multiple windows.
+ * 5.  **Lifecycle Management:** Handles `install` and `activate` events to manage cache versioning and cleanup.
+ *
+ * **Architectural Note:**
+ * This class transforms the Service Worker from a passive cache into an active **Runtime Actor**.
+ * Because it participates in the `RemoteMethodAccess` system, an AI Agent can inspect the current cache state,
+ * decide what resources are needed for a future task, and command the Service Worker to fetch them immediately—
+ * effectively bridging the gap between "Generative UI" and "Instant Performance."
+ *
  * @class Neo.worker.ServiceBase
  * @extends Neo.core.Base
  * @abstract
+ * @see Neo.main.addon.ServiceWorker
  */
 class ServiceBase extends Base {
     static config = {
@@ -15,6 +38,8 @@ class ServiceBase extends Base {
          */
         className: 'Neo.worker.ServiceBase',
         /**
+         * The name of the CacheStorage key.
+         * Appends the `version` property to create unique cache entries (e.g., "neo-runtime-1.0.0").
          * @member {String} cacheName_='neo-runtime'
          * @reactive
          */
@@ -24,7 +49,8 @@ class ServiceBase extends Base {
          */
         mixins: [RemoteMethodAccess],
         /**
-         * Remote method access for other workers
+         * Remote method access for other workers.
+         * Defines which methods can be called via RPC from the App Worker.
          * @member {Object} remote={app: [//...]}
          * @protected
          * @reactive
@@ -40,6 +66,8 @@ class ServiceBase extends Base {
     }
 
     /**
+     * List of path partials that should be cached dynamically.
+     * Requests matching these strings will be cached upon successful fetch.
      * @member {String[]} cachePaths
      */
     cachePaths = [
@@ -51,11 +79,14 @@ class ServiceBase extends Base {
         '/resources/'
     ]
     /**
+     * Registry of active message ports for connected clients (tabs/windows).
+     * Used to route messages to specific windows.
      * @member {Object[]|null} channelPorts=null
      * @protected
      */
     channelPorts = null
     /**
+     * The most recently active client (source of the last message).
      * @member {Client|null} lastClient=null
      * @protected
      */
@@ -92,6 +123,7 @@ class ServiceBase extends Base {
 
         me.channelPorts = [];
 
+        // Bind standard Service Worker lifecycle events to class methods.
         Object.assign(globalThis, {
             onactivate: bind('onActivate'),
             onfetch   : bind('onFetch'),
@@ -104,7 +136,8 @@ class ServiceBase extends Base {
     }
 
     /**
-     * Triggered when accessing the cacheName config
+     * Triggered when accessing the cacheName config.
+     * Appends the application version to ensure cache invalidation on upgrades.
      * @param {String} value
      * @protected
      */
@@ -113,6 +146,8 @@ class ServiceBase extends Base {
     }
 
     /**
+     * Deletes a specific named cache.
+     * Accessible remotely from the App Worker.
      * @param {String} name=this.cacheName
      * @returns {Promise<Object>}
      */
@@ -122,6 +157,8 @@ class ServiceBase extends Base {
     }
 
     /**
+     * Nuke option: Deletes ALL caches managed by this origin.
+     * Use with caution. Accessible remotely.
      * @returns {Promise<Object>}
      */
     async clearCaches() {
@@ -131,6 +168,8 @@ class ServiceBase extends Base {
     }
 
     /**
+     * Establishes a 2-way MessageChannel with a connecting client (window).
+     * This is the handshake that allows the App Worker to control this Service Worker.
      * @param {Client} client
      */
     createMessageChannel(client) {
@@ -138,8 +177,10 @@ class ServiceBase extends Base {
             channel        = new MessageChannel(),
             {port1, port2} = channel;
 
+        // Listen for messages on our end (port1)
         port1.onmessage = me.onMessage.bind(me);
 
+        // Inform the client about any remote methods we want to expose to it
         me.remotesToRegister.forEach(remote => {
             port1.postMessage({
                 action   : 'registerRemote',
@@ -148,6 +189,7 @@ class ServiceBase extends Base {
             })
         });
 
+        // Send the other end (port2) to the App Worker (via the Main Thread/Client)
         me.sendMessage('app', {action: 'registerPort', transfer: port2}, [port2]);
 
         me.channelPorts.push({
@@ -194,6 +236,8 @@ class ServiceBase extends Base {
     }
 
     /**
+     * Handle the 'activate' event.
+     * Cleans up old caches that don't match the current version.
      * @param {ExtendableMessageEvent} event
      */
     onActivate(event) {
@@ -216,6 +260,7 @@ class ServiceBase extends Base {
     }
 
     /**
+     * Handle the 'connect' event (e.g. from shared workers or multiple tabs).
      * @param {Client} source
      */
     async onConnect(source) {
@@ -224,6 +269,8 @@ class ServiceBase extends Base {
     }
 
     /**
+     * The core interceptor for network requests.
+     * Implements a "Cache First, then Network" strategy for matched paths.
      * @param {ExtendableMessageEvent} event
      */
     onFetch(event) {
@@ -247,6 +294,7 @@ class ServiceBase extends Base {
                         }
 
                         return fetch(request).then(response => {
+                            // Cache successful responses for future use
                             if (response.ok || response.status === 0) {
                                 cache.put(request, response.clone());
                             }
@@ -259,6 +307,8 @@ class ServiceBase extends Base {
     }
 
     /**
+     * Handle the 'install' event.
+     * Forces the waiting Service Worker to become the active one.
      * @param {ExtendableMessageEvent} event
      */
     onInstall(event) {
@@ -339,11 +389,16 @@ class ServiceBase extends Base {
     }
 
     /**
+     * Speculatively loads and caches assets before they are requested by the browser.
+     *
+     * **Use Case:** "Predictive Code Splitting". The App Worker (or an AI agent) anticipates
+     * where the user is going next and preloads the necessary JS modules or images.
+     *
      * @param {Object} data
-     * @param {String} [data.cacheName=this.cacheName]
-     * @param {String[]|String} data.files
-     * @param {Boolean} [data.foreReload=false]
-     * @returns {Promise<Object>}
+     * @param {String} [data.cacheName=this.cacheName] Target cache
+     * @param {String[]|String} data.files List of URLs to preload
+     * @param {Boolean} [data.forceReload=false] True to bypass existing cache
+     * @returns {Promise<Object>} Status report {failed, ratio, success}
      */
     async preloadAssets(data) {
         let cacheName = data.cacheName || this.cacheName,
@@ -409,12 +464,13 @@ class ServiceBase extends Base {
     }
 
     /**
-     * You can either pass an url, an array of urls or an object with additional options
+     * Removes specific assets from the cache.
+     *
      * See: https://developer.mozilla.org/en-US/docs/Web/API/Cache/delete
      * @param {String|String[]|Object} data
-     * @param {String|String[]} data.assets
+     * @param {String|String[]} data.assets URL(s) to remove
      * @param {String} data.cacheName=this.cacheName
-     * @param {Object} data.options
+     * @param {Object} data.options Options for cache.delete (ignoreMethod, etc.)
      * @param {Boolean} data.options.ignoreMethod=false
      * @param {Boolean} data.options.ignoreSearch=false
      * @param {Boolean} data.options.ignoreVary=false
