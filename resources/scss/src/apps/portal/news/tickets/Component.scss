@@ -56,6 +56,16 @@
             display      : flex;
             gap          : 8px;
             margin-bottom: 4px;
+
+            i {
+                &.fa-circle-check {
+                    color: #2da44e; // GitHub success green
+                }
+
+                &.fa-circle {
+                    color: #8c959f; // GitHub muted grey
+                }
+            }
         }
 
         .neo-state-badge {
@@ -64,16 +74,6 @@
 
         .neo-ticket-labels {
             margin-bottom: 0;
-        }
-
-        i {
-            &.fa-circle-check {
-                color: #2da44e; // GitHub success green
-            }
-
-            &.fa-circle {
-                color: #8c959f; // GitHub muted grey
-            }
         }
     }
 }
