@@ -44,29 +44,28 @@ However, in case we update a LOT of records, the impact grows. And, after all, n
 
 @rwaters Thoughts on this one?
 
-## Comments
+## Timeline
 
+- 2025-01-28 @tobiu added the `enhancement` label
+- 2025-01-28 @tobiu assigned to @tobiu
 ### @tobiu - 2025-01-29 09:08
 
 more thoughts on this one:
 
 If i update 50 records in a row, the first record change would trigger a view update. probably all other 49 would end up combined inside the next update cycle. the more changes there are, the faster the current method might be. needs benchmarking though.
 
+- 2025-04-16 @tobiu cross-referenced by #6658
 ### @github-actions - 2025-04-30 02:47
 
 This issue is stale because it has been open for 90 days with no activity.
 
+- 2025-04-30 @github-actions added the `stale` label
 ### @github-actions - 2025-05-14 02:51
 
 This issue was closed because it has been inactive for 14 days since being marked as stale.
 
-## Activity Log
-
-- 2025-01-28 @tobiu added the `enhancement` label
-- 2025-01-28 @tobiu assigned to @tobiu
-- 2025-04-16 @tobiu cross-referenced by #6658
-- 2025-04-30 @github-actions added the `stale` label
 - 2025-05-14 @github-actions closed this issue
 - 2025-05-14 @tobiu removed the `stale` label
 - 2025-05-14 @tobiu added the `no auto close` label
+- 2025-05-14 @tobiu reopened this issue
 

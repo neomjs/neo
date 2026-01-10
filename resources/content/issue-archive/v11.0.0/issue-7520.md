@@ -57,13 +57,7 @@ This epic covers the migration of the Express-based `memory` server to a `stdio`
 - **Sub-Tasks:**
     - `ticket-mc-remove-express.md`: Remove the old `index.mjs` and any Express-related files and dependencies.
 
-## Comments
-
-### @tobiu - 2025-10-17 12:44
-
-resolved.
-
-## Activity Log
+## Timeline
 
 - 2025-10-17 @tobiu assigned to @tobiu
 - 2025-10-17 @tobiu added the `epic` label
@@ -77,5 +71,9 @@ resolved.
 - 2025-10-17 @tobiu added sub-issue #7526
 - 2025-10-17 @tobiu added sub-issue #7527
 - 2025-10-17 @tobiu added sub-issue #7528
+### @tobiu - 2025-10-17 12:44
+
+resolved.
+
 - 2025-10-17 @tobiu closed this issue
 

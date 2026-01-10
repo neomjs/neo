@@ -26,7 +26,7 @@ The agent has been failing to consistently follow the mandatory session initiali
 
 To mitigate this, the agent's local context file, `.gemini/GEMINI.md`, has been updated to include a more forceful and explicit directive at the very top. This change is intended to make the startup check the first and most critical instruction the agent processes, ensuring the initialization protocol is executed reliably in all future sessions.
 
-## Activity Log
+## Timeline
 
 - 2025-11-03 @tobiu added the `documentation` label
 - 2025-11-03 @tobiu added the `ai` label

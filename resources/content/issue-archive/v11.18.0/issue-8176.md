@@ -34,8 +34,11 @@ When the Neural Link client reconnects (e.g. server restart), it must rehydrate 
 **Goal:**
 Ensure the Neural Link server rebuilds its topology map immediately upon connection.
 
-## Comments
+## Timeline
 
+- 2025-12-28 @tobiu added the `enhancement` label
+- 2025-12-28 @tobiu added the `ai` label
+- 2025-12-28 @tobiu added parent issue #8169
 ### @tobiu - 2025-12-28 17:52
 
 **Input from Gemini 3:**
@@ -50,11 +53,6 @@ Ensure the Neural Link server rebuilds its topology map immediately upon connect
 > 
 > This ensures that if the server restarts or the connection drops, the topology is instantly rebuilt without user intervention.
 
-## Activity Log
-
-- 2025-12-28 @tobiu added the `enhancement` label
-- 2025-12-28 @tobiu added the `ai` label
-- 2025-12-28 @tobiu added parent issue #8169
 - 2025-12-28 @tobiu assigned to @tobiu
 - 2025-12-28 @tobiu closed this issue
 - 2025-12-28 @tobiu referenced in commit `21b8247` - "feat(ai): Implement Neural Link healing and standardize routing (#8169)

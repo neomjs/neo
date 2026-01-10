@@ -33,7 +33,7 @@ To remove the "magic placeholder" hack for `autoMount` and unify the DOM update 
 
 This effectively moves `autoMount` operations to the `updateQueue` in `Main`, paving the way for removing the legacy `writeQueue`.
 
-## Activity Log
+## Timeline
 
 - 2025-12-16 @tobiu added the `refactoring` label
 - 2025-12-16 @tobiu added the `architecture` label

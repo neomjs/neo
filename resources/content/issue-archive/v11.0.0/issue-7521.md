@@ -30,7 +30,7 @@ This ticket covers the initial scaffolding of the new `memory-core` MCP server. 
 2.  A new `mcp-stdio.mjs` entry point file is created inside the `memory-core` directory.
 3.  The new server is registered in `.gemini/settings.json`, and the old entry is removed.
 
-## Activity Log
+## Timeline
 
 - 2025-10-17 @tobiu assigned to @tobiu
 - 2025-10-17 @tobiu added parent issue #7520

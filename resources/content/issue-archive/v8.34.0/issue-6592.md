@@ -23,7 +23,7 @@ closedAt: '2025-03-26T14:07:30Z'
 
 * create a first algorithm for random real-time cell updates
 
-## Activity Log
+## Timeline
 
 - 2025-03-26 @tobiu added the `enhancement` label
 - 2025-03-26 @tobiu assigned to @tobiu

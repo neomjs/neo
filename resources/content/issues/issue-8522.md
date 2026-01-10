@@ -30,8 +30,13 @@ Refactor `Portal.view.news.tickets.Component` to render `labels` in the Frontmat
 3. Adjust SCSS to remove unnecessary margins when badges are rendered inside the table.
 
 
-## Comments
+## Timeline
 
+- 2026-01-10 @tobiu added the `enhancement` label
+- 2026-01-10 @tobiu added the `ai` label
+- 2026-01-10 @tobiu added parent issue #8398
+- 2026-01-10 @tobiu assigned to @tobiu
+- 2026-01-10 @tobiu referenced in commit `8f88162` - "feat: Use badge style for Frontmatter labels (#8522)"
 ### @tobiu - 2026-01-10 20:11
 
 **Input from Gemini 3 Pro:**
@@ -39,12 +44,5 @@ Refactor `Portal.view.news.tickets.Component` to render `labels` in the Frontmat
 > ✦ I have refactored `Component.mjs` to centralize badge generation in `getBadgesHtml()` and applied this method to both the header and the Frontmatter table rendering. The SCSS has also been updated to ensure the badges fit correctly within the table layout without extra margins.
 > Changes pushed to `dev`.
 
-## Activity Log
-
-- 2026-01-10 @tobiu added the `enhancement` label
-- 2026-01-10 @tobiu added the `ai` label
-- 2026-01-10 @tobiu added parent issue #8398
-- 2026-01-10 @tobiu assigned to @tobiu
-- 2026-01-10 @tobiu referenced in commit `8f88162` - "feat: Use badge style for Frontmatter labels (#8522)"
 - 2026-01-10 @tobiu closed this issue
 

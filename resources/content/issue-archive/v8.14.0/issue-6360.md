@@ -27,7 +27,7 @@ closedAt: '2025-02-03T12:26:07Z'
 
 some tweaking needed for class extensions, especially inside the calendar.
 
-## Activity Log
+## Timeline
 
 - 2025-02-03 @tobiu added the `enhancement` label
 - 2025-02-03 @tobiu assigned to @tobiu

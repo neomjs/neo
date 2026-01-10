@@ -75,7 +75,7 @@ The architecture should be enhanced to "walk" the VDOM config and the component 
 -   Changing a deeply nested property in a functional component's VDOM (e.g., `grid.body.selectionModel.singleSelect = false`) results in a targeted `set()` call on the deepest affected component (`selectionModel.set({singleSelect: false})`) without re-instantiating its parents (`body` or `grid`).
 -   The implementation is generic and can handle multiple levels of nesting.
 
-## Activity Log
+## Timeline
 
 - 2025-07-14 @tobiu assigned to @tobiu
 - 2025-07-14 @tobiu added the `enhancement` label

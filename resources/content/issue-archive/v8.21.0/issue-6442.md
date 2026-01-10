@@ -24,7 +24,7 @@ closedAt: '2025-02-11T19:52:02Z'
 * a store load or filter OP can result with a different amount of rows => needs to get reflected inside the view
 
 
-## Activity Log
+## Timeline
 
 - 2025-02-11 @tobiu added the `enhancement` label
 - 2025-02-11 @tobiu assigned to @tobiu

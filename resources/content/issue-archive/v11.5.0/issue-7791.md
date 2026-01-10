@@ -40,7 +40,7 @@ This will remove the dependency on the main thread addon for highlighting and si
 7.  Ensure the new SCSS file is imported and used by the portal application.
 8.  Remove the old CSS files (`highlightjs-custom-github-theme.css`, `highlightjs-custom-dark-theme.css`). The dark theme can be re-added later if needed, using SCSS variables.
 
-## Activity Log
+## Timeline
 
 - 2025-11-18 @tobiu added the `enhancement` label
 - 2025-11-18 @tobiu added the `ai` label

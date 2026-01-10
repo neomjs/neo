@@ -35,7 +35,7 @@ This ticket refactors the knowledge base schema to solve this regression and mak
 2.  **Verify `buildScripts/ai/queryKnowledgeBase.mjs`:**
     -   Confirm that the existing query logic, which filters on the `type` property, works correctly with the new schema without modification.
 
-## Activity Log
+## Timeline
 
 - 2025-09-28 @tobiu assigned to @tobiu
 - 2025-09-28 @tobiu added the `bug` label

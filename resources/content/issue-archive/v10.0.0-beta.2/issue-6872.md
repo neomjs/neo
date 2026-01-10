@@ -26,18 +26,17 @@ closedAt: '2025-06-26T12:40:03Z'
 * Having it at the top of the list distracts from the really important examples.
 * Moving it far to the bottom.
 
-## Comments
-
-### @tobiu - 2025-06-26 12:39
-
-formatting glitch.
-
-## Activity Log
+## Timeline
 
 - 2025-06-26 @tobiu assigned to @tobiu
 - 2025-06-26 @tobiu added the `enhancement` label
 - 2025-06-26 @tobiu referenced in commit `b504780` - "Portal App: Examples ordering #6872"
 - 2025-06-26 @tobiu closed this issue
+### @tobiu - 2025-06-26 12:39
+
+formatting glitch.
+
+- 2025-06-26 @tobiu reopened this issue
 - 2025-06-26 @tobiu referenced in commit `9a79d80` - "Portal App: Examples ordering #6872"
 - 2025-06-26 @tobiu closed this issue
 

@@ -45,8 +45,11 @@ if (eventName.startsWith('drag:')) {
 1. Verify `Splitter` drag no longer throws errors.
 2. Verify `Dashboard` sorting (which uses `SortZone`) still works correctly.
 
-## Comments
+## Timeline
 
+- 2026-01-08 @tobiu added the `bug` label
+- 2026-01-08 @tobiu added the `ai` label
+- 2026-01-08 @tobiu referenced in commit `c7cef69` - "fix: DomEvent manager safely calls DragZone handlers (#8441)"
 ### @tobiu - 2026-01-08 20:40
 
 **Input from Gemini 3 Pro:**
@@ -57,11 +60,6 @@ if (eventName.startsWith('drag:')) {
 > ```
 > This ensures the method is only called if it exists on the `DragZone` instance, resolving the crash for base `DragZone` usage (like `Splitter`) while maintaining functionality for subclasses like `SortZone`.
 
-## Activity Log
-
-- 2026-01-08 @tobiu added the `bug` label
-- 2026-01-08 @tobiu added the `ai` label
-- 2026-01-08 @tobiu referenced in commit `c7cef69` - "fix: DomEvent manager safely calls DragZone handlers (#8441)"
 - 2026-01-08 @tobiu assigned to @tobiu
 - 2026-01-08 @tobiu closed this issue
 

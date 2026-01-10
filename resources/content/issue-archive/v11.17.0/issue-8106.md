@@ -25,7 +25,7 @@ closedAt: '2025-12-13T15:22:55Z'
 
 The main header text of the `StrategyPanel` ("Strategy Dashboard") is currently rendering in the default cyan color instead of the intended golden (`--agent-accent-strategy`). The existing SCSS only applies the golden color to the inner KPI card headers (`.agent-kpi-card-panel`). This task will add a style rule to ensure the main header is also styled correctly.
 
-## Activity Log
+## Timeline
 
 - 2025-12-13 @tobiu added the `bug` label
 - 2025-12-13 @tobiu added the `design` label

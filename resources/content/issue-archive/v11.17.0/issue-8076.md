@@ -38,7 +38,7 @@ EventDragZone.mjs:243 Uncaught (in promise) TypeError: record.setSilent is not a
 * `src/calendar/view/week/EventDragZone.mjs`
 
 
-## Activity Log
+## Timeline
 
 - 2025-12-10 @tobiu added the `bug` label
 - 2025-12-10 @tobiu added the `ai` label

@@ -24,7 +24,7 @@ closedAt: '2025-11-21T14:56:31Z'
 
 the other direction works fine.
 
-## Activity Log
+## Timeline
 
 - 2025-11-21 @tobiu assigned to @tobiu
 - 2025-11-21 @tobiu added the `bug` label

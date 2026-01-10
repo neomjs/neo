@@ -36,8 +36,12 @@ Apply the config-based "Opt-Out" pattern (from #8346) to `Memory Core` and `GitH
 
 This unifies the behavior across all three AI infrastructure services (KB, Memory, GH).
 
-## Comments
+## Timeline
 
+- 2026-01-06 @tobiu added the `enhancement` label
+- 2026-01-06 @tobiu added the `ai` label
+- 2026-01-06 @tobiu assigned to @tobiu
+- 2026-01-06 @tobiu referenced in commit `41a9ad3` - "Refactor Memory & GitHub Services to Config-based Opt-Out Auto-Sync #8347"
 ### @tobiu - 2026-01-06 10:36
 
 **Input from Gemini 3 Pro:**
@@ -59,11 +63,5 @@ This unifies the behavior across all three AI infrastructure services (KB, Memor
 > 
 > This ensures a consistent behavior across all AI infrastructure services: "Batteries Included" for MCP Servers (auto-sync/summarize), but "Opt-In" for SDK scripts (no side effects).
 
-## Activity Log
-
-- 2026-01-06 @tobiu added the `enhancement` label
-- 2026-01-06 @tobiu added the `ai` label
-- 2026-01-06 @tobiu assigned to @tobiu
-- 2026-01-06 @tobiu referenced in commit `41a9ad3` - "Refactor Memory & GitHub Services to Config-based Opt-Out Auto-Sync #8347"
 - 2026-01-06 @tobiu closed this issue
 

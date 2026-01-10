@@ -27,7 +27,7 @@ The proposed refactoring of `vdom.Helper` was rejected due to payload duplicatio
 **Fix:**
 In `onWorkerMessage`, when calling `handleDomUpdate` for the `reply` path, pass a placeholder array `[1]` if `data.data.autoMount` is true. This forces the helper to queue the update, ensuring the `automount` event is fired and processed by `Main`.
 
-## Activity Log
+## Timeline
 
 - 2025-12-16 @tobiu added the `bug` label
 - 2025-12-16 @tobiu assigned to @tobiu

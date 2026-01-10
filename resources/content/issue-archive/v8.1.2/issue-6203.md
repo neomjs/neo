@@ -23,7 +23,7 @@ closedAt: '2025-01-12T03:29:22Z'
 
 delay for slow connections, where the container-sizing is not done yet
 
-## Activity Log
+## Timeline
 
 - 2025-01-12 @tobiu added the `enhancement` label
 - 2025-01-12 @tobiu assigned to @tobiu

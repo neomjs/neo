@@ -23,7 +23,7 @@ closedAt: '2025-05-25T17:50:09Z'
 * Convenience shortcut
 * Use the method inside both serverside examples
 
-## Activity Log
+## Timeline
 
 - 2025-05-25 @tobiu added the `enhancement` label
 - 2025-05-25 @tobiu referenced in commit `71fa973` - "container.Base: loadItems() #6714"

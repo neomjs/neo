@@ -69,17 +69,7 @@ This will serve as a powerful learning resource and a compelling demonstration o
 -   The "detach" feature successfully moves the compose view to a new window without losing state.
 -   The application is well-documented and serves as a high-quality example for the community.
 
-## Comments
-
-### @github-actions - 2025-10-13 02:49
-
-This issue is stale because it has been open for 90 days with no activity.
-
-### @github-actions - 2025-10-27 02:58
-
-This issue was closed because it has been inactive for 14 days since being marked as stale.
-
-## Activity Log
+## Timeline
 
 - 2025-07-14 @tobiu assigned to @tobiu
 - 2025-07-14 @tobiu added the `enhancement` label
@@ -89,6 +79,14 @@ This issue was closed because it has been inactive for 14 days since being marke
 - 2025-07-14 @tobiu referenced in commit `146818c` - "#7048 Updated Epic plan"
 - 2025-07-15 @tobiu added sub-issue #7056
 - 2025-07-15 @tobiu added sub-issue #7058
+### @github-actions - 2025-10-13 02:49
+
+This issue is stale because it has been open for 90 days with no activity.
+
 - 2025-10-13 @github-actions added the `stale` label
+### @github-actions - 2025-10-27 02:58
+
+This issue was closed because it has been inactive for 14 days since being marked as stale.
+
 - 2025-10-27 @github-actions closed this issue
 

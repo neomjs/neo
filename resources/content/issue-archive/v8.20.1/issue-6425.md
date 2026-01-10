@@ -25,7 +25,7 @@ iOS can be mean:
 
 ![Image](https://github.com/user-attachments/assets/733c1563-58ec-4623-ae6a-b5b9d9d598fa)
 
-## Activity Log
+## Timeline
 
 - 2025-02-09 @tobiu added the `enhancement` label
 - 2025-02-09 @tobiu assigned to @tobiu

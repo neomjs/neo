@@ -55,7 +55,7 @@ I strongly recommend renaming Neo.config.useStringBasedMounting to Neo.config.us
 
 This change will make the configuration much more intuitive and directly communicate the preferred, secure, and performant rendering strategy to developers. It aligns with the "Quantum Leap" narrative of v10.
 
-## Activity Log
+## Timeline
 
 - 2025-06-19 @tobiu assigned to @tobiu
 - 2025-06-19 @tobiu added the `enhancement` label

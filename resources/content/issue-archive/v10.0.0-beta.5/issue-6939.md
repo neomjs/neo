@@ -34,7 +34,7 @@ This approach maintains the separation of concerns: `mergeStrategy` is applied o
 **Describe alternatives you've considered**
 Initially, I considered having `Neo.core.Config.set()` handle the `mergeStrategy` for all updates, but this was clarified to be incorrect as `mergeStrategy` is strictly for initial value merging during instance creation. Another alternative involved passing the default value from `staticConfig` directly to the `Config` constructor, which would have led to redundant `beforeSet`/`afterSet` calls.
 
-## Activity Log
+## Timeline
 
 - 2025-07-04 @tobiu assigned to @tobiu
 - 2025-07-04 @tobiu added the `enhancement` label

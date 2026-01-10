@@ -35,7 +35,7 @@ Implement `toJSON()` method in `src/grid/column/Base.mjs` to support Neural Link
 
 **Note:** Inherits `id`, `className`, `ntype`, `isDestroyed`, and `remote` from `core.Base`.
 
-## Activity Log
+## Timeline
 
 - 2026-01-01 @tobiu added the `enhancement` label
 - 2026-01-01 @tobiu added the `ai` label

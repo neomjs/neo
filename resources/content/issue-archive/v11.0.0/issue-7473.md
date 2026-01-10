@@ -55,8 +55,12 @@ The solution is to modify the data creation script to assign the correct type at
 3.  `queryKnowledgeBase.mjs` is simplified, and the workaround for blog queries is removed.
 4.  After rebuilding the knowledge base, running `npm run ai:query -- -q "<search-term>" -t blog` successfully returns results from blog posts.
 
-## Comments
+## Timeline
 
+- 2025-10-13 @tobiu assigned to @tobiu
+- 2025-10-13 @tobiu added the `enhancement` label
+- 2025-10-13 @tobiu added the `ai` label
+- 2025-10-13 @tobiu referenced in commit `82617a3` - "REFACTOR: Assign type: 'blog' directly in createKnowledgeBase.mjs #7473"
 ### @harikrishna-au - 2025-10-13 09:38
 
 @tobiu assign me this
@@ -66,11 +70,5 @@ The solution is to modify the data creation script to assign the correct type at
 
 this one is already resolved via: https://github.com/neomjs/neo/commit/82617a3a208c3902ae64251e090a552f840b8ddf, as mentioned inside the PR comment.
 
-## Activity Log
-
-- 2025-10-13 @tobiu assigned to @tobiu
-- 2025-10-13 @tobiu added the `enhancement` label
-- 2025-10-13 @tobiu added the `ai` label
-- 2025-10-13 @tobiu referenced in commit `82617a3` - "REFACTOR: Assign type: 'blog' directly in createKnowledgeBase.mjs #7473"
 - 2025-10-13 @tobiu closed this issue
 

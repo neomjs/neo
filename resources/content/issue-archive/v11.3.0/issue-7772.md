@@ -57,7 +57,7 @@ This task proposes refactoring this logic to follow best practices by separating
 *   `Portal.view.ViewportController` successfully uses the new service to update document head metadata on route changes.
 *   The application's SEO functionality remains unchanged from a user's perspective.
 
-## Activity Log
+## Timeline
 
 - 2025-11-14 @tobiu added the `enhancement` label
 - 2025-11-14 @tobiu added the `ai` label

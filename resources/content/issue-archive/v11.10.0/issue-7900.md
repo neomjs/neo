@@ -41,7 +41,7 @@ Implement support for a custom JSDoc tag `@ignoreDocs`. When this tag is present
 *   Run `npm run generate-docs-json`.
 *   Verify `issueQueries` is no longer in `docs/output/structure.json`.
 
-## Activity Log
+## Timeline
 
 - 2025-11-24 @tobiu added the `documentation` label
 - 2025-11-24 @tobiu added the `enhancement` label

@@ -33,7 +33,7 @@ This ticket proposes creating a new `update_comment` tool to fill this gap, allo
 4.  A corresponding service method should be implemented, likely within `PullRequestService.mjs`.
 5.  The new tool must be registered in `toolService.mjs`.
 
-## Activity Log
+## Timeline
 
 - 2025-11-12 @tobiu added the `enhancement` label
 - 2025-11-12 @tobiu added the `good first issue` label

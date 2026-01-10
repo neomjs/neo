@@ -31,7 +31,7 @@ closedAt: '2025-07-15T11:54:55Z'
 5.  **Event Handling:** The "Compose" button will set `isComposing` to `true`. The `ComposeView` will have a "Close" button that sets it back to `false`.
 6.  **Overlay Implementation:** We will build a custom functional overlay for this, as it's a good exercise and provides maximum flexibility.
 
-## Activity Log
+## Timeline
 
 - 2025-07-15 @tobiu assigned to @tobiu
 - 2025-07-15 @tobiu added the `enhancement` label

@@ -25,8 +25,10 @@ blocking: []
 * looks like a regression bug to me. might be related to the `main.addon.Navigator` introduction
 * most likely just a missing focus() call
 
-## Comments
+## Timeline
 
+- 2024-10-15 @tobiu added the `bug` label
+- 2024-10-15 @tobiu assigned to @tobiu
 ### @soumajit23 - 2024-10-18 07:18
 
 Hello @tobiu , I would like to work on this issue.
@@ -47,6 +49,7 @@ digging deeper, it is definitely also related to @ExtAnimal's changes on selecti
 best regards,
 tobias
 
+- 2024-10-18 @tobiu added the `epic` label
 ### @soumajit23 - 2024-10-18 09:49
 
 @tobiu thank you for clarifying! Looking into it, I see that it is definitely quite difficult to work on. I suppose I will look into other issues to work on for the time being.
@@ -55,11 +58,6 @@ tobias
 
 This issue is stale because it has been open for 90 days with no activity.
 
-## Activity Log
-
-- 2024-10-15 @tobiu added the `bug` label
-- 2024-10-15 @tobiu assigned to @tobiu
-- 2024-10-18 @tobiu added the `epic` label
 - 2025-01-17 @github-actions added the `stale` label
 - 2025-01-18 @tobiu removed the `stale` label
 - 2025-01-18 @tobiu added the `no auto close` label

@@ -33,7 +33,7 @@ This creates a virtuous cycle where the end of one session's work becomes the st
 3.  If a previous session ID is found, the agent must execute `npm run ai:summarize-session` on that ID.
 4.  This step should be positioned after the memory core check in the initialization process.
 
-## Activity Log
+## Timeline
 
 - 2025-10-03 @tobiu assigned to @tobiu
 - 2025-10-03 @tobiu added the `documentation` label

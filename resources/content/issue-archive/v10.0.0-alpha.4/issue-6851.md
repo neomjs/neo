@@ -22,7 +22,7 @@ closedAt: '2025-06-21T19:36:30Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
 - 2025-06-21 @tobiu added the `enhancement` label
 - 2025-06-21 @tobiu referenced in commit `20f524a` - "Learning Content: declarative component trees VS imperative vdom trees #6851"

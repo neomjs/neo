@@ -24,7 +24,7 @@ closedAt: '2025-11-10T12:18:09Z'
 
 https://tobiasuhlig.medium.com/388-tickets-in-6-weeks-context-engineering-done-right-f8da8577b8c2?source=friends_link&sk=c9a9cac53d5f52a970a79a9493639eef
 
-## Activity Log
+## Timeline
 
 - 2025-11-10 @tobiu assigned to @tobiu
 - 2025-11-10 @tobiu added the `documentation` label

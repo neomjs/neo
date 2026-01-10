@@ -33,7 +33,7 @@ This ticket covers refactoring `ai/mcp/server/knowledge-base/services/documentSe
 5.  The `ai/mcp/server/knowledge-base/services/toolService.mjs` is updated to import the `DocumentService` class and map its methods.
 6.  All related tools (`list_documents`, `get_document_by_id`) continue to function correctly after the refactoring.
 
-## Activity Log
+## Timeline
 
 - 2025-10-19 @tobiu assigned to @tobiu
 - 2025-10-19 @tobiu added the `enhancement` label

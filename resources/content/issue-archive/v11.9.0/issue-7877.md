@@ -37,7 +37,7 @@ To ensure they are correctly rendered as static, read-only blocks within the Neo
 - Update all code block fences to include the `readonly` tag where appropriate (e.g., change ```javascript to ```javascript readonly).
 
 
-## Activity Log
+## Timeline
 
 - 2025-11-23 @tobiu assigned to @tobiu
 - 2025-11-23 @tobiu added the `documentation` label

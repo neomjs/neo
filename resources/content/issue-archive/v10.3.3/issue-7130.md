@@ -57,13 +57,7 @@ An early proof-of-concept (PoC) already exists in the following files:
 - `src/functional/component/Base.mjs` (see `enableHtmlTemplates_` config)
 - `src/functional/util/html.mjs`
 
-## Comments
-
-### @tobiu - 2025-08-03 01:09
-
-resolved via v10.3.0
-
-## Activity Log
+## Timeline
 
 - 2025-07-30 @tobiu assigned to @tobiu
 - 2025-07-30 @tobiu added the `enhancement` label

@@ -42,7 +42,7 @@ Add a new public method `observeConfig(publisher, configName, fn)` to `Neo.core.
 **Impact:**
 Replaces direct calls to `Neo.core.Config#subscribe` in `Neo.core.Base` subclasses with the new `observeConfig` method.
 
-## Activity Log
+## Timeline
 
 - 2025-07-06 @tobiu assigned to @tobiu
 - 2025-07-06 @tobiu added the `enhancement` label

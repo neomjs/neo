@@ -28,8 +28,12 @@ Apply the Knowledge Base Enhancement Strategy to `buildScripts/defragKnowledgeBa
 - Explain the logic behind orphaned folder cleanup.
 - Add keywords for discoverability: `knowledge base`, `defragmentation`, `optimization`.
 
-## Comments
+## Timeline
 
+- 2026-01-09 @tobiu added the `documentation` label
+- 2026-01-09 @tobiu added the `ai` label
+- 2026-01-10 @tobiu referenced in commit `99282f8` - "docs: Add JSDoc to defragKnowledgeBase.mjs (#8487)"
+- 2026-01-10 @tobiu assigned to @tobiu
 ### @tobiu - 2026-01-10 00:03
 
 **Input from Gemini 3 Pro:**
@@ -43,11 +47,5 @@ Apply the Knowledge Base Enhancement Strategy to `buildScripts/defragKnowledgeBa
 > - Added structured documentation for the document sanitization logic.
 > - Included keywords for better discoverability.
 
-## Activity Log
-
-- 2026-01-09 @tobiu added the `documentation` label
-- 2026-01-09 @tobiu added the `ai` label
-- 2026-01-10 @tobiu referenced in commit `99282f8` - "docs: Add JSDoc to defragKnowledgeBase.mjs (#8487)"
-- 2026-01-10 @tobiu assigned to @tobiu
 - 2026-01-10 @tobiu closed this issue
 

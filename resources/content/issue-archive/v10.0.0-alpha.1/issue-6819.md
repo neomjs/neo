@@ -26,7 +26,7 @@ closedAt: '2025-06-16T16:04:32Z'
 * childNodes for componentId flags (empty array for consistency, tbd)
 * XSS security for `Neo.config.useStringBasedMounting` and `textContent`
 
-## Activity Log
+## Timeline
 
 - 2025-06-16 @tobiu added the `enhancement` label
 - 2025-06-16 @tobiu referenced in commit `bbe1d91` - "vdom.VNode: single source of truth #6819"

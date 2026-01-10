@@ -31,7 +31,7 @@ This ticket is to update the document to lead with the modern, functional approa
 - Reframe the existing content as "The Classic Approach: Class-Based Components".
 - Add a brief explanation of when to choose one approach over the other (e.g., functional for simple views, class-based for extending the component library or complex stateful logic).
 
-## Activity Log
+## Timeline
 
 - 2025-07-24 @tobiu assigned to @tobiu
 - 2025-07-24 @tobiu added the `enhancement` label

@@ -23,7 +23,7 @@ closedAt: '2025-01-14T17:48:43Z'
 
 * counterpart for `bufferRowRange_`
 
-## Activity Log
+## Timeline
 
 - 2025-01-14 @tobiu added the `enhancement` label
 - 2025-01-14 @tobiu assigned to @tobiu

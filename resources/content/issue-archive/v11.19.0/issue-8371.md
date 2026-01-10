@@ -41,7 +41,7 @@ Rewrite the introduction to align with the new strategic positioning found in th
 -   **The Architecture:** Briefly touch on Multi-threading (Performance) and The Neural Link (AI).
 -   **Conclusion:** Why this matters for the future of development.
 
-## Activity Log
+## Timeline
 
 - 2026-01-07 @tobiu added the `documentation` label
 - 2026-01-07 @tobiu added the `enhancement` label

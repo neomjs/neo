@@ -23,16 +23,14 @@ closedAt: '2025-09-17T10:51:03Z'
 
 *(No description provided)*
 
-## Comments
+## Timeline
 
+- 2025-09-17 @tobiu assigned to @tobiu
+- 2025-09-17 @tobiu added the `Blog Post` label
 ### @tobiu - 2025-09-17 10:46
 
 https://tobiasuhlig.medium.com/designing-a-state-manager-for-performance-a-deep-dive-into-hierarchical-reactivity-013e70a97347?source=friends_link&sk=f0abfa975ae2c0ff2d7e05bc1a0454c0
 
-## Activity Log
-
-- 2025-09-17 @tobiu assigned to @tobiu
-- 2025-09-17 @tobiu added the `Blog Post` label
 - 2025-09-17 @tobiu referenced in commit `0853c06` - "#7213 portal app blog.json"
 - 2025-09-17 @tobiu closed this issue
 - 2025-09-17 @tobiu referenced in commit `0196152` - "#7213 updated url"

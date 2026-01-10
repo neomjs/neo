@@ -40,8 +40,15 @@ Currently, when a user clicks an internal ticket link (e.g., `#8398` resolved to
 **Outcome:**
 Seamless navigation where the side menu automatically stays in sync with the current route, providing clear visual context to the user.
 
-## Comments
+## Timeline
 
+- 2026-01-10 @tobiu added the `enhancement` label
+- 2026-01-10 @tobiu added the `ai` label
+- 2026-01-10 @tobiu added the `core` label
+- 2026-01-10 @tobiu referenced in commit `c5fda17` - "feat: Enhance TreeList navigation for internal routing (#8524)
+
+Adds expandParents() and scrollToItem() to TreeList. Integrates these into Portal controllers and fixes SCSS scroll-padding-block-start."
+- 2026-01-10 @tobiu assigned to @tobiu
 ### @tobiu - 2026-01-10 21:16
 
 **Input from Gemini 3 Pro:**
@@ -54,15 +61,6 @@ Seamless navigation where the side menu automatically stays in sync with the cur
 > 
 > Closing this ticket as the implementation is complete.
 
-## Activity Log
-
-- 2026-01-10 @tobiu added the `enhancement` label
-- 2026-01-10 @tobiu added the `ai` label
-- 2026-01-10 @tobiu added the `core` label
-- 2026-01-10 @tobiu referenced in commit `c5fda17` - "feat: Enhance TreeList navigation for internal routing (#8524)
-
-Adds expandParents() and scrollToItem() to TreeList. Integrates these into Portal controllers and fixes SCSS scroll-padding-block-start."
-- 2026-01-10 @tobiu assigned to @tobiu
 - 2026-01-10 @tobiu closed this issue
 - 2026-01-10 @tobiu added parent issue #8398
 

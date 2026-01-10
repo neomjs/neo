@@ -38,7 +38,7 @@ Two distinct tools will be created:
 4.  The service contains `listDocuments` and `getDocumentById` functions.
 5.  The `toolService.mjs` `serviceMapping` is updated to point the new `operationId`s to their respective service functions.
 
-## Activity Log
+## Timeline
 
 - 2025-10-16 @tobiu assigned to @tobiu
 - 2025-10-16 @tobiu added the `enhancement` label

@@ -35,7 +35,7 @@ Modify `Neo.core.Config#subscribe` to strictly require an `id` (representing the
 **Impact:**
 Requires updates to `Neo.core.Base#observeConfig` and any other direct consumers of `Neo.core.Config#subscribe` to conform to the new signature.
 
-## Activity Log
+## Timeline
 
 - 2025-07-05 @tobiu assigned to @tobiu
 - 2025-07-05 @tobiu added the `enhancement` label

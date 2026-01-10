@@ -23,7 +23,7 @@ closedAt: '2025-01-26T20:27:28Z'
 
 Probably from the early days where class configs did not get cloned to ensure prototypes are not affected.
 
-## Activity Log
+## Timeline
 
 - 2025-01-26 @tobiu added the `enhancement` label
 - 2025-01-26 @tobiu assigned to @tobiu

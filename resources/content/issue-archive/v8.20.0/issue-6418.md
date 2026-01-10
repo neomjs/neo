@@ -24,7 +24,7 @@ closedAt: '2025-02-09T16:17:30Z'
 * I noticed that on mobile, pressing a row triggers the hover effect.
 * This looks rather odd and should get prevented.
 
-## Activity Log
+## Timeline
 
 - 2025-02-09 @tobiu added the `enhancement` label
 - 2025-02-09 @tobiu assigned to @tobiu

@@ -48,7 +48,7 @@ Simplify the architecture to a strict **Read/Write** model, aligning with standa
 **Dependencies:**
 -   This relies on the previous `Manager.mjs` refactoring where `autoMount` was transformed into `updateVdom` with `deltas`.
 
-## Activity Log
+## Timeline
 
 - 2025-12-16 @tobiu added the `refactoring` label
 - 2025-12-16 @tobiu added the `architecture` label

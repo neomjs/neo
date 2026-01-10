@@ -32,7 +32,7 @@ The `#syncReleaseNotes` method in `ai/mcp/server/github-workflow/services/SyncSe
 
 This ensures that the title of the release is immediately visible in the content of the file, just as it is for issues.
 
-## Activity Log
+## Timeline
 
 - 2025-10-22 @tobiu assigned to @tobiu
 - 2025-10-22 @tobiu added the `enhancement` label

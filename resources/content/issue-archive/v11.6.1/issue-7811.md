@@ -31,7 +31,7 @@ Tasks:
 - Add `modelName` (or similar) to `defaultConfig` in `config.mjs`.
 - Update `SessionService.mjs` to use the new config value.
 
-## Activity Log
+## Timeline
 
 - 2025-11-19 @tobiu added the `enhancement` label
 - 2025-11-19 @tobiu added the `ai` label

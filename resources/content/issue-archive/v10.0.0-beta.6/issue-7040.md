@@ -56,7 +56,7 @@ This comparison will be highly valuable for developers making technology choices
 **Affected Files (Conceptual):**
 *   `learn/comparisons/neo-vs-nextjs.md` (new file)
 
-## Activity Log
+## Timeline
 
 - 2025-07-13 @tobiu assigned to @tobiu
 - 2025-07-13 @tobiu added the `enhancement` label

@@ -25,7 +25,7 @@ closedAt: '2025-03-12T10:37:18Z'
 * New: `packageJson.name.includes('neo.mjs')`
 
 
-## Activity Log
+## Timeline
 
 - 2025-03-12 @tobiu added the `enhancement` label
 - 2025-03-12 @tobiu referenced in commit `aef8689` - "Build scripts: soften the neo.mjs repo name check #6569"

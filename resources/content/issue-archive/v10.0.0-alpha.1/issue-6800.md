@@ -23,7 +23,7 @@ closedAt: '2025-06-15T14:26:11Z'
 
 * This affects multiple files
 
-## Activity Log
+## Timeline
 
 - 2025-06-15 @tobiu added the `enhancement` label
 - 2025-06-15 @tobiu added parent issue #6785

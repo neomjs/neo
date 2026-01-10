@@ -40,10 +40,12 @@ Update the landing page content to reflect the new "Application Engine" position
 
 **Note:** `apps/portal/view/home/MainContainer.mjs` seems to be the orchestrator and likely doesn't need content updates, but should be verified.
 
-## Activity Log
+## Timeline
 
 - 2026-01-06 @tobiu added the `documentation` label
 - 2026-01-06 @tobiu added the `ai` label
 - 2026-01-06 @tobiu assigned to @tobiu
 - 2026-01-06 @tobiu closed this issue
+- 2026-01-06 @tobiu cross-referenced by #8367
+- 2026-01-07 @jonnyamsp referenced in commit `701ab87` - "docs: Update Portal landing page content with comprehensive Application Engine branding (closes #8360)"
 

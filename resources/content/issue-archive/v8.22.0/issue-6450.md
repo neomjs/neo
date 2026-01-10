@@ -23,7 +23,7 @@ closedAt: '2025-02-14T09:13:54Z'
 
 The code got created before the method existed.
 
-## Activity Log
+## Timeline
 
 - 2025-02-14 @tobiu added the `enhancement` label
 - 2025-02-14 @tobiu assigned to @tobiu

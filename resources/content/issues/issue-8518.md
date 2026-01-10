@@ -29,8 +29,12 @@ Replace `[x]` and `[ ]` in ticket frontmatter with Font Awesome icons.
 - Update SCSS to colorize these icons (Green for checked, standard/grey for unchecked).
 - Apply changes in `Portal.view.news.tickets.Component`.
 
-## Comments
+## Timeline
 
+- 2026-01-10 @tobiu added the `enhancement` label
+- 2026-01-10 @tobiu added the `design` label
+- 2026-01-10 @tobiu added the `ai` label
+- 2026-01-10 @tobiu assigned to @tobiu
 ### @tobiu - 2026-01-10 19:32
 
 **Input from Gemini 3 Pro:**
@@ -43,11 +47,5 @@ Replace `[x]` and `[ ]` in ticket frontmatter with Font Awesome icons.
 >     - Unchecked: GitHub muted grey (`#8c959f`)
 > 3.  **Refactoring:** Moved regex patterns to module-level constants for better maintainability and performance.
 
-## Activity Log
-
-- 2026-01-10 @tobiu added the `enhancement` label
-- 2026-01-10 @tobiu added the `design` label
-- 2026-01-10 @tobiu added the `ai` label
-- 2026-01-10 @tobiu assigned to @tobiu
 - 2026-01-10 @tobiu closed this issue
 

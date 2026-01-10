@@ -41,13 +41,7 @@ To drive engagement and attract new contributors, a blog post is needed to annou
 -   The initial draft covers the key topics at a high level.
 -   The post is ready for subsequent review and detailed content enhancement.
 
-## Comments
-
-### @tobiu - 2025-09-23 10:32
-
-https://tobiasuhlig.medium.com/ai-native-not-ai-assisted-a-platform-that-answers-your-questions-0c08f5a336ae?source=friends_link&sk=45cc238e4f342672d3eb3244136b7770
-
-## Activity Log
+## Timeline
 
 - 2025-09-22 @tobiu assigned to @tobiu
 - 2025-09-22 @tobiu added the `enhancement` label
@@ -75,5 +69,9 @@ https://tobiasuhlig.medium.com/ai-native-not-ai-assisted-a-platform-that-answers
 - 2025-09-23 @tobiu referenced in commit `8aa5836` - "#7233 What's Next: Full Workspace Support section"
 - 2025-09-23 @tobiu referenced in commit `8beffc5` - "#7233 more on agents.md"
 - 2025-09-23 @tobiu referenced in commit `f021616` - "#7233 blueprints intro"
+### @tobiu - 2025-09-23 10:32
+
+https://tobiasuhlig.medium.com/ai-native-not-ai-assisted-a-platform-that-answers-your-questions-0c08f5a336ae?source=friends_link&sk=45cc238e4f342672d3eb3244136b7770
+
 - 2025-09-23 @tobiu closed this issue
 

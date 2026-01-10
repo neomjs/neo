@@ -39,7 +39,7 @@ Apply the same configuration and CLI argument parsing improvements to the Memory
 **Goal:**
 Standardize the configuration and startup logic across MCP servers for better maintainability and flexibility.
 
-## Activity Log
+## Timeline
 
 - 2025-11-19 @tobiu added the `enhancement` label
 - 2025-11-19 @tobiu added the `ai` label

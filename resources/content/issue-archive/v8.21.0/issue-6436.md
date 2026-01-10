@@ -23,7 +23,7 @@ closedAt: '2025-02-10T21:45:05Z'
 
 * apply selectionModel changes to `grid.View`
 
-## Activity Log
+## Timeline
 
 - 2025-02-10 @tobiu added the `enhancement` label
 - 2025-02-10 @tobiu assigned to @tobiu

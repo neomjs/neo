@@ -27,7 +27,7 @@ The `SessionService.summarizeSession` method currently uses `Date.now()` for the
 **Fix:**
 Update `summarizeSession` to calculate the session's timestamp based on the **latest memory timestamp** within that session. This ensures that the summary reflects the actual time of the activity, not the time of the summarization process.
 
-## Activity Log
+## Timeline
 
 - 2025-12-29 @tobiu added the `bug` label
 - 2025-12-29 @tobiu added the `ai` label

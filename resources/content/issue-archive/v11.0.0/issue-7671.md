@@ -89,7 +89,7 @@ Add more context to the Memory Core check in the Session Initialization section.
     -   **If the healthcheck fails:** The Memory Core is not active. Proceed with the session without using memory tools. Your work will not be persisted for future analysis.
 ```
 
-## Activity Log
+## Timeline
 
 - 2025-10-27 @tobiu added the `documentation` label
 - 2025-10-27 @tobiu added the `enhancement` label

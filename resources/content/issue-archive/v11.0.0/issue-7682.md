@@ -24,7 +24,7 @@ closedAt: '2025-10-31T20:57:27Z'
 
 The `unregister` method in `src/main/addon/ScrollSync.mjs` is not implemented. To properly unregister scroll sync listeners, we need to store the listener references upon registration and then use those references to remove them in `unregister`.
 
-## Activity Log
+## Timeline
 
 - 2025-10-31 @tobiu added the `enhancement` label
 - 2025-10-31 @tobiu added the `ai` label

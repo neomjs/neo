@@ -33,7 +33,7 @@ Obsolete now, since `state.Provider` cleans up binding effects on its own:
         });
 ```
 
-## Activity Log
+## Timeline
 
 - 2025-07-15 @tobiu assigned to @tobiu
 - 2025-07-15 @tobiu added the `enhancement` label

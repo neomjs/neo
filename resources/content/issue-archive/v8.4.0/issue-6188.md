@@ -25,7 +25,7 @@ closedAt: '2025-01-13T18:10:57Z'
 * i am thinking about 10k rows and 50 columns
 * the json file should not get added into the neo repo itself, since it would increase the package size a lot, but get hosted & deployed inside the pages repo
 
-## Activity Log
+## Timeline
 
 - 2025-01-07 @tobiu added the `enhancement` label
 - 2025-01-07 @tobiu assigned to @tobiu

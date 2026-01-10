@@ -23,7 +23,7 @@ closedAt: '2025-02-05T23:25:35Z'
 
 requires https://github.com/neomjs/neo/issues/6384 to be resolved
 
-## Activity Log
+## Timeline
 
 - 2025-02-05 @tobiu added the `enhancement` label
 - 2025-02-05 @tobiu assigned to @tobiu

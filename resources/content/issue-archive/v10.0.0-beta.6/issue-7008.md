@@ -35,7 +35,7 @@ The `StateProviders.md` guide has been updated to provide a more accurate and co
 
 Confirmed that the updated example in `learn/guides/datahandling/StateProviders.md` functions as expected, demonstrating direct reactive binding to store properties.
 
-## Activity Log
+## Timeline
 
 - 2025-07-10 @tobiu assigned to @tobiu
 - 2025-07-10 @tobiu added the `enhancement` label

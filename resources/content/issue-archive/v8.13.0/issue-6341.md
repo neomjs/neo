@@ -23,7 +23,7 @@ closedAt: '2025-01-30T12:15:42Z'
 
 * Important for not breaking cell based selection models
 
-## Activity Log
+## Timeline
 
 - 2025-01-29 @tobiu added the `enhancement` label
 - 2025-01-29 @tobiu assigned to @tobiu

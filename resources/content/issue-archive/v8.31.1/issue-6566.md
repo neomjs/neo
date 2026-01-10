@@ -23,7 +23,7 @@ closedAt: '2025-03-10T09:10:04Z'
 * The change to add the animation class no longer gets into the next animation frame
 * While I am not 100% sure yet why this is happening, it is easy to fix
 
-## Activity Log
+## Timeline
 
 - 2025-03-10 @tobiu added the `enhancement` label
 - 2025-03-10 @tobiu referenced in commit `f3d797f` - "grid.column.AnimatedChange: onRecordChange() => animation no longer showing up #6566"

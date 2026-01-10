@@ -23,7 +23,7 @@ closedAt: '2025-05-12T11:09:12Z'
 * The logic was added to make moving views into different containers (e.g. browser windows) easier, since we no longer need to manually remove the target views
 * There are exceptions though, where parents are not instances or extensions of `container.Base`, in which case `remove()` might not exist. Example: A ComboBox Picker.
 
-## Activity Log
+## Timeline
 
 - 2025-05-12 @tobiu added the `bug` label
 - 2025-05-12 @tobiu referenced in commit `a03952d` - "container.Base: createItem() => soften the parent.remove() call for existing instances #6704"

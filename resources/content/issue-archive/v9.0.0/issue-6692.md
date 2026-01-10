@@ -25,7 +25,7 @@ Especially for moving components into different browser windows:
 A component might rely on references & handler methods inside the previous controller realm
 
 
-## Activity Log
+## Timeline
 
 - 2025-05-02 @tobiu added the `enhancement` label
 - 2025-05-02 @tobiu assigned to @tobiu

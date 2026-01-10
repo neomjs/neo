@@ -23,7 +23,7 @@ closedAt: '2025-03-03T23:49:26Z'
 
 edge case, since this barely gets used, but still important
 
-## Activity Log
+## Timeline
 
 - 2025-03-03 @tobiu added the `bug` label
 - 2025-03-03 @tobiu assigned to @tobiu

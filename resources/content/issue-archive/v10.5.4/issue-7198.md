@@ -24,7 +24,7 @@ closedAt: '2025-08-18T11:10:29Z'
 
 https://tobiasuhlig.medium.com/benchmarking-frontends-in-2025-f6bbf43b7721?source=friends_link&sk=af0f2c6745a7ca4993bc0ae60ad0ebb4
 
-## Activity Log
+## Timeline
 
 - 2025-08-18 @tobiu assigned to @tobiu
 - 2025-08-18 @tobiu added the `enhancement` label

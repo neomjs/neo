@@ -32,7 +32,7 @@ This involves translating the existing test at `test/siesta/tests/core/Effect.mj
 - Ensure the new test is self-contained and passes successfully.
 - All other tests in the suite must continue to pass.
 
-## Activity Log
+## Timeline
 
 - 2025-09-26 @tobiu assigned to @tobiu
 - 2025-09-26 @tobiu added the `enhancement` label

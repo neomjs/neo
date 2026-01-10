@@ -23,7 +23,7 @@ closedAt: '2025-07-15T17:52:29Z'
 
 * While mixins are only supposed to provide content to get copied over, they must also import all related dependencies for the lexical scope.
 
-## Activity Log
+## Timeline
 
 - 2025-07-15 @tobiu assigned to @tobiu
 - 2025-07-15 @tobiu added the `bug` label

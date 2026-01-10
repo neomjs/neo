@@ -32,7 +32,7 @@ This task involves updating the `buildScripts/generateSeoFiles.mjs` script to ad
 - A default priority of 0.5 will be used for all other pages, and the `<priority>` tag will be omitted for these to keep the sitemap clean, as per SEO best practices.
 
 
-## Activity Log
+## Timeline
 
 - 2025-11-15 @tobiu added the `enhancement` label
 - 2025-11-15 @tobiu added the `good first issue` label

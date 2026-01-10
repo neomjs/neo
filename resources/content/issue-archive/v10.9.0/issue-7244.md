@@ -49,7 +49,7 @@ While an `<img>` tag can be created directly in a VDOM tree, a dedicated compone
 -   The component correctly renders an `<img>` tag.
 -   Changing the `src` and `alt` configs programmatically updates the rendered `<img>` tag's attributes.
 
-## Activity Log
+## Timeline
 
 - 2025-09-23 @tobiu assigned to @tobiu
 - 2025-09-23 @tobiu added the `enhancement` label

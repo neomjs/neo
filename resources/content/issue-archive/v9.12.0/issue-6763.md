@@ -26,7 +26,7 @@ The "problem" here is the way how promises got implemented in JS:
 
 If we enter the catch part, `then()` will still get triggered.
 
-## Activity Log
+## Timeline
 
 - 2025-06-11 @tobiu added the `enhancement` label
 - 2025-06-11 @tobiu referenced in commit `f6d9d96` - "data.Store: load() => enhance the catch part #6763"

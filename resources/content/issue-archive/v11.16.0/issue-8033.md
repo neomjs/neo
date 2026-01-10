@@ -34,8 +34,14 @@ Create the app-specific stylesheet for `AgentOS.view.InterventionPanel` and addr
 **Rationale:**
 Inline styles cannot be easily overridden by CSS selection states. Using classes allows us to react to the `neo-selected` state of the grid row.
 
-## Comments
+## Timeline
 
+- 2025-12-05 @tobiu added the `enhancement` label
+- 2025-12-05 @tobiu added the `design` label
+- 2025-12-05 @tobiu added the `ai` label
+- 2025-12-05 @tobiu added parent issue #7918
+- 2025-12-05 @tobiu assigned to @tobiu
+- 2025-12-05 @tobiu referenced in commit `062efd2` - "Create InterventionPanel.scss and Fix Selection Contrast #8033"
 ### @tobiu - 2025-12-05 02:40
 
 **Input from Gemini 2.5 pro:**
@@ -51,13 +57,5 @@ Inline styles cannot be easily overridden by CSS selection states. Using classes
 > 
 > This ensures accessibility and visual consistency across themes.
 
-## Activity Log
-
-- 2025-12-05 @tobiu added the `enhancement` label
-- 2025-12-05 @tobiu added the `design` label
-- 2025-12-05 @tobiu added the `ai` label
-- 2025-12-05 @tobiu added parent issue #7918
-- 2025-12-05 @tobiu assigned to @tobiu
-- 2025-12-05 @tobiu referenced in commit `062efd2` - "Create InterventionPanel.scss and Fix Selection Contrast #8033"
 - 2025-12-05 @tobiu closed this issue
 

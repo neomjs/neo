@@ -43,7 +43,7 @@ This creates a powerful, two-tiered memory system: a high-level index of session
 4.  The script successfully retrieves memories, generates a summary via the Gemini API, and stores it in the new collection.
 5.  The `aiConfig.mjs` file is updated with configuration for the new sessions collection.
 
-## Activity Log
+## Timeline
 
 - 2025-10-02 @tobiu assigned to @tobiu
 - 2025-10-02 @tobiu added parent issue #7316

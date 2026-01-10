@@ -39,7 +39,7 @@ To facilitate the usage of Mermaid diagrams in Neo.mjs applications, we should c
     - React to `value` changes by re-rendering.
     - Handle windowId propagation.
 
-## Activity Log
+## Timeline
 
 - 2026-01-07 @tobiu added the `enhancement` label
 - 2026-01-07 @tobiu added the `feature` label

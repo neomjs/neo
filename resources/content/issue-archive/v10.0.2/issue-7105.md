@@ -30,7 +30,7 @@ This ticket covers a series of enhancements to the `learn/comparisons/NeoVsReact
 - Added a section comparing React's ephemeral component lifecycle with Neo.mjs's stable, persistent instances and rich lifecycle hooks (`initAsync`, `afterSetMounted`).
 - Detailed the architectural advantages of Neo.mjs's `StateProvider` for surgical state subscriptions over React's Context API.
 
-## Activity Log
+## Timeline
 
 - 2025-07-24 @tobiu assigned to @tobiu
 - 2025-07-24 @tobiu added the `enhancement` label

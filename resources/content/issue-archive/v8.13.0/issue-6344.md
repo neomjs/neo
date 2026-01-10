@@ -24,7 +24,7 @@ closedAt: '2025-01-30T14:32:13Z'
 * I find it rather confusing to use `index`, since it could be either `columnIndex` or `rowIndex`
 * The render fn will also get the new signature
 
-## Activity Log
+## Timeline
 
 - 2025-01-30 @tobiu added the `enhancement` label
 - 2025-01-30 @tobiu assigned to @tobiu

@@ -34,7 +34,7 @@ Ensure future AI agents understand that `inspect_class` returns more than just a
 - Update `ai/mcp/server/neural-link/openapi.yaml` to include a detailed breakdown of the response schema in the tool description.
 
 
-## Activity Log
+## Timeline
 
 - 2026-01-02 @tobiu added the `documentation` label
 - 2026-01-02 @tobiu added the `ai` label

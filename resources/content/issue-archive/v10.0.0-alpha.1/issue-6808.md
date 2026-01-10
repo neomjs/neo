@@ -23,7 +23,7 @@ closedAt: '2025-06-15T21:13:06Z'
 
 * especially mentioning the new physical index
 
-## Activity Log
+## Timeline
 
 - 2025-06-15 @tobiu assigned to @tobiu
 - 2025-06-15 @tobiu added the `enhancement` label

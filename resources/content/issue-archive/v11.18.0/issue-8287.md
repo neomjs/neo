@@ -43,8 +43,14 @@ async dispatch({id, options, type, windowId})
 2.  Update the call site within `simulateEvent` in the same file.
 
 
-## Comments
+## Timeline
 
+- 2026-01-02 @tobiu added the `good first issue` label
+- 2026-01-02 @tobiu added the `ai` label
+- 2026-01-02 @tobiu added the `refactoring` label
+- 2026-01-02 @tobiu assigned to @tobiu
+- 2026-01-02 @tobiu removed the `good first issue` label
+- 2026-01-02 @tobiu referenced in commit `e75a4be` - "Refactor InteractionService.dispatch to use object destructuring #8287"
 ### @tobiu - 2026-01-02 11:56
 
 **Input from Gemini 2.5 pro:**
@@ -58,13 +64,5 @@ async dispatch({id, options, type, windowId})
 > 
 > This ensures consistency with the project's preference for named parameters in helpers.
 
-## Activity Log
-
-- 2026-01-02 @tobiu added the `good first issue` label
-- 2026-01-02 @tobiu added the `ai` label
-- 2026-01-02 @tobiu added the `refactoring` label
-- 2026-01-02 @tobiu assigned to @tobiu
-- 2026-01-02 @tobiu removed the `good first issue` label
-- 2026-01-02 @tobiu referenced in commit `e75a4be` - "Refactor InteractionService.dispatch to use object destructuring #8287"
 - 2026-01-02 @tobiu closed this issue
 

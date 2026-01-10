@@ -32,8 +32,12 @@ This ensures that the "bypass VDOM" drag logic works correctly for drag-to-popup
 
 This change standardizes the drag behavior across dashboards and simplifies application-level configuration.
 
-## Comments
+## Timeline
 
+- 2025-12-15 @tobiu added the `enhancement` label
+- 2025-12-15 @tobiu added the `ai` label
+- 2025-12-15 @tobiu assigned to @tobiu
+- 2025-12-15 @tobiu referenced in commit `bfa7770` - "Neo.dashboard.Container: Use DragProxyContainer by default #8112"
 ### @tobiu - 2025-12-15 10:49
 
 **Input from Neo Agent:**
@@ -45,11 +49,5 @@ This change standardizes the drag behavior across dashboards and simplifies appl
 > 
 > The implementation is complete.
 
-## Activity Log
-
-- 2025-12-15 @tobiu added the `enhancement` label
-- 2025-12-15 @tobiu added the `ai` label
-- 2025-12-15 @tobiu assigned to @tobiu
-- 2025-12-15 @tobiu referenced in commit `bfa7770` - "Neo.dashboard.Container: Use DragProxyContainer by default #8112"
 - 2025-12-15 @tobiu closed this issue
 

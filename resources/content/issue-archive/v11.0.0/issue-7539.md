@@ -32,7 +32,7 @@ This approach aligns with the goal of integrating Neo.mjs core into the MCP serv
 2.  The `isDbRunning()` method uses `ChromaManager.client.heartbeat()` within a `try...catch` block to check for a running ChromaDB instance.
 3.  The method correctly returns `true` if `heartbeat()` succeeds and `false` if it fails (e.g., due to `ChromaManager.client` being null or the database not being reachable).
 
-## Activity Log
+## Timeline
 
 - 2025-10-18 @tobiu assigned to @tobiu
 - 2025-10-18 @tobiu added the `enhancement` label

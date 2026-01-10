@@ -23,7 +23,7 @@ closedAt: '2025-02-05T23:36:43Z'
 
 * `columnPositions` needs to get a hidden flag for the related entry
 
-## Activity Log
+## Timeline
 
 - 2025-02-05 @tobiu added the `enhancement` label
 - 2025-02-05 @tobiu assigned to @tobiu

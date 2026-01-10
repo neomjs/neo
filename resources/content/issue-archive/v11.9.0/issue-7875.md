@@ -41,7 +41,7 @@ Refactor Neo.manager.Window to extend Neo.manager.Base.
 - Simplified code (no manual Map management).
 
 
-## Activity Log
+## Timeline
 
 - 2025-11-23 @tobiu assigned to @tobiu
 - 2025-11-23 @tobiu added the `enhancement` label

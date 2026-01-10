@@ -39,7 +39,7 @@ This ticket covers the initial setup and scaffolding for the new `SyncService`, 
 -   Creates the necessary API endpoint for agents to trigger the synchronization.
 -   Provides the foundation for stateful, delta-based updates.
 
-## Activity Log
+## Timeline
 
 - 2025-10-20 @tobiu assigned to @tobiu
 - 2025-10-20 @tobiu added the `enhancement` label

@@ -33,26 +33,24 @@ This task is to migrate the unit test for `vdom/Advanced.mjs` from the Siesta te
 3.  Ensure the new test runs successfully via `npm test`.
 4.  The new test must cover all the functionality of the original Siesta test.
 
-## Comments
-
-### @KURO-1125 - 2025-10-03 09:24
-
-Hi! I'd like to work on this Advanced test migration using the AI native workflow.
-Could you please assign this to me?
-Thanks!
-
-### @tobiu - 2025-10-03 16:07
-
-done.
-
-## Activity Log
+## Timeline
 
 - 2025-09-27 @tobiu added parent issue #7262
 - 2025-09-27 @tobiu added the `enhancement` label
 - 2025-10-02 @tobiu added the `help wanted` label
 - 2025-10-02 @tobiu added the `good first issue` label
 - 2025-10-02 @tobiu added the `hacktoberfest` label
+### @KURO-1125 - 2025-10-03 09:24
+
+Hi! I'd like to work on this Advanced test migration using the AI native workflow.
+Could you please assign this to me?
+Thanks!
+
 - 2025-10-03 @tobiu assigned to @KURO-1125
+### @tobiu - 2025-10-03 16:07
+
+done.
+
 - 2025-10-03 @KURO-1125 cross-referenced by PR #7339
 - 2025-10-04 @tobiu closed this issue
 - 2025-10-04 @tobiu referenced in commit `0172609` - "#7290 asignee, ticket status, removed ticket duplicate"

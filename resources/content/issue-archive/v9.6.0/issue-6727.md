@@ -24,18 +24,16 @@ closedAt: '2025-06-01T09:05:19Z'
 * While `dist/dev` has a different output (not minified, source maps), the other dist modes have the same content.
 * When building all, we should just copy the CSS folder & theme-map, instead of rebuilding it.
 
-## Comments
+## Timeline
 
+- 2025-05-29 @tobiu assigned to @tobiu
+- 2025-05-29 @tobiu added the `enhancement` label
+- 2025-06-01 @tobiu referenced in commit `ca2d209` - "buildScripts/buildThemes: mode all => combine dist/esm & dist/prod #6727"
 ### @tobiu - 2025-06-01 09:05
 
 A lot more complex than I thought. `buildEnv()` had to get converted to being `async`, to ensure that all files creations are done before copying files.
 
 `CSSNano` can not get executed in a sync way.
 
-## Activity Log
-
-- 2025-05-29 @tobiu assigned to @tobiu
-- 2025-05-29 @tobiu added the `enhancement` label
-- 2025-06-01 @tobiu referenced in commit `ca2d209` - "buildScripts/buildThemes: mode all => combine dist/esm & dist/prod #6727"
 - 2025-06-01 @tobiu closed this issue
 

@@ -41,7 +41,7 @@ By fetching this information on startup, we simplify the agent's workflow and ma
 -   The `get_viewer_permission` tool reads from the cached value and does not make a new API call.
 -   Other services can import `RepositoryService` and access the permission level directly (e.g., `RepositoryService.viewerPermission`).
 
-## Activity Log
+## Timeline
 
 - 2025-10-23 @tobiu assigned to @tobiu
 - 2025-10-23 @tobiu added parent issue #7604

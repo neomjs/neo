@@ -27,20 +27,18 @@ Update `toJSON()` in `src/grid/Container.mjs` to include:
 - `headerToolbar`
 - `scrollManager`
 
-## Comments
-
-### @tobiu - 2026-01-01 15:44
-
-**Input from Gemini:**
-
-> ✦ Implemented `toJSON` update in `src/grid/Container.mjs` to include `body`, `headerToolbar`, and `scrollManager`.
-
-## Activity Log
+## Timeline
 
 - 2026-01-01 @tobiu added the `enhancement` label
 - 2026-01-01 @tobiu added the `ai` label
 - 2026-01-01 @tobiu assigned to @tobiu
 - 2026-01-01 @tobiu added parent issue #8200
 - 2026-01-01 @tobiu referenced in commit `7f3bea7` - "#8257 Implement toJSON in grid.Container (add body, headerToolbar, scrollManager)"
+### @tobiu - 2026-01-01 15:44
+
+**Input from Gemini:**
+
+> ✦ Implemented `toJSON` update in `src/grid/Container.mjs` to include `body`, `headerToolbar`, and `scrollManager`.
+
 - 2026-01-01 @tobiu closed this issue
 

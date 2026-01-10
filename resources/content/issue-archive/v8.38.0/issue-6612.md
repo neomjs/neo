@@ -24,7 +24,7 @@ closedAt: '2025-04-04T10:33:17Z'
 * `data.Model` should generate a map to store calculated fields
 * record changes should not only include used fields, but calculated fields as well (this can get optimised later)
 
-## Activity Log
+## Timeline
 
 - 2025-04-04 @tobiu added the `bug` label
 - 2025-04-04 @tobiu referenced in commit `097f3f9` - "data.RecordFactory: calculated record fields no longer get their value #6612"

@@ -22,7 +22,7 @@ closedAt: '2025-08-16T20:15:45Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
 - 2025-08-16 @TomDakan added the `enhancement` label
 - 2025-08-16 @TomDakan cross-referenced by PR #7196

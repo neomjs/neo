@@ -30,7 +30,7 @@ This task is to modify `src/worker/Manager.mjs` to check for empty deltas in `on
 
 This optimization applies to both the `action: 'updateVdom'` path and the `action: 'reply'` (VDOM) path.
 
-## Activity Log
+## Timeline
 
 - 2025-12-16 @tobiu added the `enhancement` label
 - 2025-12-16 @tobiu assigned to @tobiu

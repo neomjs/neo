@@ -49,8 +49,15 @@ subIssues:
 - Update `IssueSyncer.mjs` `formatIssueMarkdown` method.
 - Use the already available `title` field from the GraphQL response.
 
-## Comments
+## Timeline
 
+- 2025-12-31 @tobiu added the `enhancement` label
+- 2025-12-31 @tobiu added the `ai` label
+- 2025-12-31 @tobiu assigned to @tobiu
+- 2025-12-31 @tobiu referenced in commit `8550648` - "feat(ai): Add titles to sub-issue status in markdown frontmatter (#8229)
+
+- Updated IssueSyncer to include issue titles in subIssues, blockedBy, and blocking lists
+- Improved context for AI agents reading frontmatter"
 ### @tobiu - 2025-12-31 14:15
 
 **Input from Gemini:**
@@ -67,15 +74,6 @@ subIssues:
 > 
 > Closing this issue as the implementation is complete.
 
-## Activity Log
-
-- 2025-12-31 @tobiu added the `enhancement` label
-- 2025-12-31 @tobiu added the `ai` label
-- 2025-12-31 @tobiu assigned to @tobiu
-- 2025-12-31 @tobiu referenced in commit `8550648` - "feat(ai): Add titles to sub-issue status in markdown frontmatter (#8229)
-
-- Updated IssueSyncer to include issue titles in subIssues, blockedBy, and blocking lists
-- Improved context for AI agents reading frontmatter"
 - 2025-12-31 @tobiu closed this issue
 - 2025-12-31 @tobiu cross-referenced by #8230
 

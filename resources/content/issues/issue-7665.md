@@ -32,7 +32,7 @@ This will enable an agent (or other tools) to get specific information about cla
 - An endpoint to query for class relationships (e.g., `findClasses({extends: 'Neo.form.field.Base'})`).
 - An endpoint to list all classes within a given namespace.
 
-## Activity Log
+## Timeline
 
 - 2025-10-26 @tobiu added the `enhancement` label
 - 2025-10-26 @tobiu added the `epic` label

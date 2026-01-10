@@ -194,8 +194,9 @@ class VdomRenderer {
 }
 ```
 
-## Comments
+## Timeline
 
+- 2025-06-13 @tobiu added the `enhancement` label
 ### @tobiu - 2025-06-13 02:01
 
 Tobi:
@@ -290,13 +291,6 @@ This file would also need to import VdomConstants and update its internal refere
 
 This approach ensures consistency and avoids the pitfalls of code duplication across different thread contexts.
 
-### @tobiu - 2025-06-16 15:59
-
-done.
-
-## Activity Log
-
-- 2025-06-13 @tobiu added the `enhancement` label
 - 2025-06-15 @tobiu added sub-issue #6795
 - 2025-06-15 @tobiu added sub-issue #6797
 - 2025-06-15 @tobiu added sub-issue #6798
@@ -317,5 +311,9 @@ done.
 - 2025-06-16 @tobiu added sub-issue #6815
 - 2025-06-16 @tobiu added sub-issue #6817
 - 2025-06-16 @tobiu added sub-issue #6818
+### @tobiu - 2025-06-16 15:59
+
+done.
+
 - 2025-06-16 @tobiu closed this issue
 

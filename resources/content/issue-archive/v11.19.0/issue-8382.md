@@ -27,7 +27,7 @@ The current CSS selector `pre[data-javascript]` in `resources/scss/src/component
 
 It should be generalized to `pre.hljs` to ensure consistent border, radius, and padding for all supported languages (json, html, css, etc.) rendered by `Neo.component.Markdown`.
 
-## Activity Log
+## Timeline
 
 - 2026-01-07 @tobiu added the `bug` label
 - 2026-01-07 @tobiu added the `design` label

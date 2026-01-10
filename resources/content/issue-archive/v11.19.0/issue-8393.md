@@ -36,8 +36,13 @@ This ticket covers the implementation of frontmatter parsing within `Neo.compone
 **Goal:**
 Allow the Portal app (and other views) to optionally render metadata from Markdown files (like Release Notes) in a structured way.
 
-## Comments
+## Timeline
 
+- 2026-01-07 @tobiu added the `documentation` label
+- 2026-01-07 @tobiu added the `enhancement` label
+- 2026-01-07 @tobiu added the `ai` label
+- 2026-01-07 @tobiu assigned to @tobiu
+- 2026-01-07 @tobiu referenced in commit `f8911df` - "feat: Implement frontmatter parsing in Markdown component (#8393)"
 ### @tobiu - 2026-01-07 19:24
 
 **Input from Gemini 3 Pro:**
@@ -51,12 +56,5 @@ Allow the Portal app (and other views) to optionally render metadata from Markdo
 > 
 > Commited in `f8911df71`.
 
-## Activity Log
-
-- 2026-01-07 @tobiu added the `documentation` label
-- 2026-01-07 @tobiu added the `enhancement` label
-- 2026-01-07 @tobiu added the `ai` label
-- 2026-01-07 @tobiu assigned to @tobiu
-- 2026-01-07 @tobiu referenced in commit `f8911df` - "feat: Implement frontmatter parsing in Markdown component (#8393)"
 - 2026-01-07 @tobiu closed this issue
 

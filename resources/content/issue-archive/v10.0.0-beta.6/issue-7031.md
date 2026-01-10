@@ -43,7 +43,7 @@ This article will significantly improve developer onboarding for Solid.js develo
 *   `learn/comparisons/NeoVsSolid.md` (new file)
 *   `learn/comparisons/Overview.md` (already updated to include this link)
 
-## Activity Log
+## Timeline
 
 - 2025-07-12 @tobiu assigned to @tobiu
 - 2025-07-12 @tobiu added parent issue #7029

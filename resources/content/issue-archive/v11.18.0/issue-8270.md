@@ -24,7 +24,7 @@ closedAt: '2026-01-01T17:52:09Z'
 
 Implement `toJSON` for the singleton `manager.Window`. This should serialize the collection of windows, ensuring each window object (`{appName, chrome, id, ...}`) is correctly serialized.
 
-## Activity Log
+## Timeline
 
 - 2026-01-01 @tobiu added the `enhancement` label
 - 2026-01-01 @tobiu added the `ai` label

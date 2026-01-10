@@ -28,12 +28,19 @@ closedAt: '2025-12-01T17:03:01Z'
 2.  **Summarization:** Use `Memory_SessionService` to generate intermediate summaries for older messages instead of dropping them.
 **Context:** Follow-up to Epic #7961.
 
-## Comments
+## Timeline
 
+- 2025-12-01 @tobiu added the `enhancement` label
+- 2025-12-01 @tobiu added the `ai` label
+- 2025-12-01 @tobiu assigned to @tobiu
+- 2025-12-01 @tobiu referenced in commit `f89c9d5` - "Harden Agent Cognitive Loop (Reflection & Error Handling) #7969
+Implement Context Window Compression #7970"
 ### @tobiu - 2025-12-01 17:03
 
 <img width="893" height="507" alt="Image" src="https://github.com/user-attachments/assets/88accba9-66dd-4132-b724-63540537b0f7" />
 
+- 2025-12-01 @tobiu closed this issue
+- 2025-12-01 @tobiu cross-referenced by #7972
 ### @tobiu - 2025-12-01 17:05
 
 **Input from Gemini 2.5:**
@@ -43,13 +50,4 @@ closedAt: '2025-12-01T17:03:01Z'
 > Verified with `ai/examples/test-loop-harden.mjs`.
 > Closing as completed.
 
-## Activity Log
-
-- 2025-12-01 @tobiu added the `enhancement` label
-- 2025-12-01 @tobiu added the `ai` label
-- 2025-12-01 @tobiu assigned to @tobiu
-- 2025-12-01 @tobiu referenced in commit `f89c9d5` - "Harden Agent Cognitive Loop (Reflection & Error Handling) #7969
-Implement Context Window Compression #7970"
-- 2025-12-01 @tobiu closed this issue
-- 2025-12-01 @tobiu cross-referenced by #7972
 

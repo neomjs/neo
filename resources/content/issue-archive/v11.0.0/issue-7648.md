@@ -35,7 +35,7 @@ The `createComment` method in `ai/mcp/server/github-workflow/services/PullReques
 
 This ensures that agent comments are consistently well-formatted, improving readability and adherence to markdown conventions.
 
-## Activity Log
+## Timeline
 
 - 2025-10-25 @tobiu added the `enhancement` label
 - 2025-10-25 @tobiu added the `ai` label

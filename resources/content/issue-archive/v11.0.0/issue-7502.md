@@ -38,7 +38,7 @@ This design must define a comprehensive, resource-oriented API for managing the 
     - `GET /documents/:id`: (Optional) Retrieves a specific document by its ID.
 3.  The API design is formally documented in an OpenAPI 3.0 specification file at `ai/mcp/server/knowledge-base/openapi.yaml`.
 
-## Activity Log
+## Timeline
 
 - 2025-10-16 @tobiu assigned to @tobiu
 - 2025-10-16 @tobiu added parent issue #7501

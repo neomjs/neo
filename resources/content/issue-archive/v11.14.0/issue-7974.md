@@ -27,7 +27,7 @@ This allows for dynamic updates and better integration with the `ClassSystemUtil
 
 Also update JSDoc to reflect that `Object` is a valid type for these configs.
 
-## Activity Log
+## Timeline
 
 - 2025-12-01 @tobiu added the `ai` label
 - 2025-12-01 @tobiu added the `refactoring` label

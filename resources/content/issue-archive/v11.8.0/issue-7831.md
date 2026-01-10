@@ -40,7 +40,7 @@ Anthropic's "Code Execution" pattern demonstrates that agents are more efficient
 - `ROADMAP_AI_AGENTS.md`: Strategic roadmap for future "Agent OS" features.
 
 
-## Activity Log
+## Timeline
 
 - 2025-11-21 @tobiu added the `enhancement` label
 - 2025-11-21 @tobiu added the `developer-experience` label

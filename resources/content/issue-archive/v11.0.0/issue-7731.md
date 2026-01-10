@@ -30,7 +30,7 @@ This fix ensures that:
 1. The log message for cached releases displays the correct count.
 2. The warning for finding zero releases since the sync start date now triggers correctly.
 
-## Activity Log
+## Timeline
 
 - 2025-11-09 @tobiu added the `bug` label
 - 2025-11-09 @tobiu added the `ai` label

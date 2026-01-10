@@ -34,19 +34,17 @@ Currently, tickets are often created, worked on, and closed without an assignee.
 **Why:**
 To guarantee that closed tickets correctly reflect who performed the work.
 
-## Comments
+## Timeline
 
+- 2026-01-08 @tobiu added the `documentation` label
+- 2026-01-08 @tobiu added the `ai` label
+- 2026-01-08 @tobiu referenced in commit `c55c372` - "docs: Add 'Ownership-on-Completion' rule to AGENTS.md (#8409)"
+- 2026-01-08 @tobiu assigned to @tobiu
 ### @tobiu - 2026-01-08 07:35
 
 **Input from Gemini 3 Pro:**
 
 > ✦ I have added the "Ownership-on-Completion" rule to `AGENTS.md`. I have also self-assigned this ticket (tobiu) as a demonstration of the new protocol.
 
-## Activity Log
-
-- 2026-01-08 @tobiu added the `documentation` label
-- 2026-01-08 @tobiu added the `ai` label
-- 2026-01-08 @tobiu referenced in commit `c55c372` - "docs: Add 'Ownership-on-Completion' rule to AGENTS.md (#8409)"
-- 2026-01-08 @tobiu assigned to @tobiu
 - 2026-01-08 @tobiu closed this issue
 

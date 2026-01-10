@@ -23,8 +23,10 @@ closedAt: '2025-04-01T20:03:18Z'
 
 @maxrahder I will take a look into this one tomorrow!
 
-## Comments
+## Timeline
 
+- 2025-03-31 @tobiu added the `bug` label
+- 2025-03-31 @tobiu assigned to @tobiu
 ### @camtnbikerrwc - 2025-04-01 02:10
 
 Here are my version numbers if it helps;
@@ -39,6 +41,7 @@ FastImac:neo gerard$ npm -v
 11.2.0
 
 
+- 2025-04-01 @tobiu referenced in commit `195a4df` - "Earthquakes tutorial still using model.Component instead of state.Provider #6607"
 ### @tobiu - 2025-04-01 13:15
 
 @camtnbikerrwc Ger, I hope I got all spots now. The commit on top of this comment is rather long.
@@ -71,6 +74,7 @@ export default Neo.setupClass(MainView);
 
 The key difference is that the new version supports running different neo envs on one page (e.g. inside the Portal App we use the `development` mode for code inside code editors (can not get minified or bundled), and we use the `dist/production` env for everything else.
 
+- 2025-04-01 @tobiu referenced in commit `2b7cb0b` - "#6607 createAppMinimal: view model => state provider"
 ### @tobiu - 2025-04-01 13:28
 
 updated @maxrahder's createAppMinimal program too.
@@ -118,6 +122,7 @@ so the message would be: "want to do this tutorial? give google your credit card
 
 not sure, if this is feasible.
 
+- 2025-04-01 @tobiu closed this issue
 ### @tobiu - 2025-04-01 20:03
 
 i added a follow-up ticket: https://github.com/neomjs/neo/issues/6611
@@ -130,11 +135,4 @@ fwiw, I have  had Googlemaps working with legacy and advanced markers, plus some
 checking ... .
 
 
-## Activity Log
-
-- 2025-03-31 @tobiu added the `bug` label
-- 2025-03-31 @tobiu assigned to @tobiu
-- 2025-04-01 @tobiu referenced in commit `195a4df` - "Earthquakes tutorial still using model.Component instead of state.Provider #6607"
-- 2025-04-01 @tobiu referenced in commit `2b7cb0b` - "#6607 createAppMinimal: view model => state provider"
-- 2025-04-01 @tobiu closed this issue
 

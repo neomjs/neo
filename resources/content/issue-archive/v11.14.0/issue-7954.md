@@ -36,7 +36,7 @@ Files created:
 - `.gitignore` update
 
 
-## Activity Log
+## Timeline
 
 - 2025-11-30 @tobiu added the `enhancement` label
 - 2025-11-30 @tobiu added the `ai` label

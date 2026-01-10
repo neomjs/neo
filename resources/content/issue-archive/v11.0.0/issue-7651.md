@@ -44,7 +44,7 @@ const release = Object.values(ReleaseSyncer.releases).find(r => new Date(r.publi
 ```
 This ensures that the `find()` method is called on an array of release objects, resolving the error.
 
-## Activity Log
+## Timeline
 
 - 2025-10-25 @tobiu added the `bug` label
 - 2025-10-25 @tobiu added the `ai` label

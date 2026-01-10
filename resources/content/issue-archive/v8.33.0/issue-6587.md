@@ -26,8 +26,12 @@ Rationale:
 2. `main.addon.ServiceWorker` might not even be included, which does not prevent running SW instances from caching
 3. MicroLoader => loads Main => imports the `worker.Manager` singleton => feels like a good spot
 
-## Comments
+## Timeline
 
+- 2025-03-25 @tobiu added the `enhancement` label
+- 2025-03-25 @tobiu assigned to @tobiu
+- 2025-03-25 @tobiu added parent issue #6584
+- 2025-03-25 @tobiu referenced in commit `cd334f0` - "worker.Manager: add controllerchange SW listener as early as possible #6587"
 ### @tobiu - 2025-03-25 10:56
 
 @dfabulich not sure, if you are still using your old code:
@@ -50,6 +54,7 @@ navigator.serviceWorker.addEventListener('controllerchange', function() {
 }, {once: true});
 ```
 
+- 2025-03-25 @tobiu closed this issue
 ### @dfabulich - 2025-03-25 19:49
 
 Yes, `{once: true}` is the right way to do it now, and I've just updated my blog post to match.
@@ -75,11 +80,4 @@ Browser support has luckily evolved a lot during the last years: I still remembe
 Best regards,
 Tobi
 
-## Activity Log
-
-- 2025-03-25 @tobiu added the `enhancement` label
-- 2025-03-25 @tobiu assigned to @tobiu
-- 2025-03-25 @tobiu added parent issue #6584
-- 2025-03-25 @tobiu referenced in commit `cd334f0` - "worker.Manager: add controllerchange SW listener as early as possible #6587"
-- 2025-03-25 @tobiu closed this issue
 

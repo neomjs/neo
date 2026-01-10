@@ -29,7 +29,7 @@ I did run into edge-case issues, where the vnode got cloned and an outdated vers
 * `promiseUpdate()` needs to get rid of the vdom & vnode params
 * wrapper class changes must not use the main thread shortcut
 
-## Activity Log
+## Timeline
 
 - 2025-02-03 @tobiu added the `enhancement` label
 - 2025-02-03 @tobiu assigned to @tobiu

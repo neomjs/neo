@@ -23,7 +23,7 @@ closedAt: '2025-07-22T06:24:15Z'
 
 * beta 1-3 are missing
 
-## Activity Log
+## Timeline
 
 - 2025-07-22 @tobiu assigned to @tobiu
 - 2025-07-22 @tobiu added the `enhancement` label

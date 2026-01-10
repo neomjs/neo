@@ -33,7 +33,7 @@ The `.github/PULL_REQUEST_TEMPLATE.md` file has been modified to:
 ## Goal
 To improve the consistency and reliability of issue tracking within the project by ensuring all Pull Requests are explicitly linked to a corresponding GitHub issue, and to leverage GitHub's automatic issue closing feature.
 
-## Activity Log
+## Timeline
 
 - 2025-10-22 @tobiu assigned to @tobiu
 - 2025-10-22 @tobiu added the `documentation` label

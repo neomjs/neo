@@ -50,8 +50,13 @@ This new ticket that you create should:
 -   Justify why your chosen solution is the best approach.
 -   Provide a detailed, step-by-step implementation plan for another developer to follow to actually build the solution.
 
-## Comments
+## Timeline
 
+- 2025-09-28 @tobiu added the `enhancement` label
+- 2025-09-28 @tobiu added the `help wanted` label
+- 2025-09-28 @tobiu added parent issue #7296
+- 2025-09-28 @tobiu added the `good first issue` label
+- 2025-09-28 @tobiu added the `hacktoberfest` label
 ### @Saksham-chourasia - 2025-10-01 19:36
 
 Hi 👋,
@@ -64,6 +69,7 @@ Thanks!
 
 Hi, thanks for the interest! For this one I would definitely recommend the "ai native" workflow and let e.g. gemini cli explore it in-depth and then reason back and forth. might be a fun experience.
 
+- 2025-10-01 @tobiu assigned to @Saksham-chourasia
 ### @tobiu - 2025-10-24 09:54
 
 Hi @Saksham-chourasia,
@@ -74,13 +80,5 @@ As there has been no activity for a couple of weeks and the project’s architec
 
 We’re closing this ticket now. Thanks again for your willingness to contribute, and we hope to see you in other issues!
 
-## Activity Log
-
-- 2025-09-28 @tobiu added the `enhancement` label
-- 2025-09-28 @tobiu added the `help wanted` label
-- 2025-09-28 @tobiu added parent issue #7296
-- 2025-09-28 @tobiu added the `good first issue` label
-- 2025-09-28 @tobiu added the `hacktoberfest` label
-- 2025-10-01 @tobiu assigned to @Saksham-chourasia
 - 2025-10-24 @tobiu closed this issue
 

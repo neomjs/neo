@@ -21,7 +21,7 @@ closedAt: '2025-10-23T15:45:05Z'
 
 Please ignore.
 
-## Activity Log
+## Timeline
 
 - 2025-10-23 @tobiu assigned to @tobiu
 - 2025-10-23 @tobiu unassigned from @tobiu

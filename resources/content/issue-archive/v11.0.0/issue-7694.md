@@ -32,7 +32,7 @@ The solution uses the CLI's default context-loading mechanism to provide a persi
 
 This approach ensures that the agent will always perform the correct initialization sequence upon receiving the first user prompt of a session.
 
-## Activity Log
+## Timeline
 
 - 2025-11-02 @tobiu added the `enhancement` label
 - 2025-11-02 @tobiu added the `ai` label

@@ -22,7 +22,7 @@ closedAt: '2025-06-30T23:27:22Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
 - 2025-06-30 @tobiu added the `enhancement` label
 - 2025-06-30 @tobiu referenced in commit `d936c17` - "Learning Content: ComboBox guide #6913 initial draft version"

@@ -42,7 +42,7 @@ Since this is a long-running, asynchronous process, the service should be design
 3.  The function is asynchronous and does not block the main thread.
 4.  The `toolService.mjs` `serviceMapping` is updated to point the `sync_database` operationId to the new service function.
 
-## Activity Log
+## Timeline
 
 - 2025-10-16 @tobiu assigned to @tobiu
 - 2025-10-16 @tobiu added parent issue #7501

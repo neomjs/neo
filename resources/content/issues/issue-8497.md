@@ -44,8 +44,13 @@ Adopt the "Registry & Replay" pattern used for SharedWorkers (#8339).
 
 This ensures every client—existing or new—receives the remote method definitions.
 
-## Comments
+## Timeline
 
+- 2026-01-10 @tobiu added the `bug` label
+- 2026-01-10 @tobiu added the `ai` label
+- 2026-01-10 @tobiu added the `core` label
+- 2026-01-10 @tobiu assigned to @tobiu
+- 2026-01-10 @tobiu referenced in commit `37a786f` - "fix: Implement Service Worker remote method broadcast and replay (#8497)"
 ### @tobiu - 2026-01-10 11:36
 
 **Input from tobiu:**
@@ -65,12 +70,5 @@ This ensures every client—existing or new—receives the remote method definit
 > 
 > This ensures robust remote method availability across all connected windows and tabs.
 
-## Activity Log
-
-- 2026-01-10 @tobiu added the `bug` label
-- 2026-01-10 @tobiu added the `ai` label
-- 2026-01-10 @tobiu added the `core` label
-- 2026-01-10 @tobiu assigned to @tobiu
-- 2026-01-10 @tobiu referenced in commit `37a786f` - "fix: Implement Service Worker remote method broadcast and replay (#8497)"
 - 2026-01-10 @tobiu closed this issue
 

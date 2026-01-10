@@ -69,7 +69,7 @@ code.
 *   **Foundation for Advanced Features:** These enhancements lay critical groundwork for more sophisticated reactive patterns, such as computed properties
 and highly optimized data flows.
 
-## Activity Log
+## Timeline
 
 - 2025-07-06 @tobiu assigned to @tobiu
 - 2025-07-06 @tobiu added the `enhancement` label

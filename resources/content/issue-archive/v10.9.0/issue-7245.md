@@ -44,7 +44,7 @@ These changes ensure that newly generated Neo.mjs workspaces are fully equipped 
 ## Goal
 Enable AI agents to effectively use the knowledge base within any Neo.mjs workspace, improving their ability to understand and contribute to workspace-specific projects and reducing hallucination.
 
-## Activity Log
+## Timeline
 
 - 2025-09-24 @tobiu assigned to @tobiu
 - 2025-09-24 @tobiu added the `enhancement` label

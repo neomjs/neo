@@ -31,7 +31,7 @@ It needs to be updated to import `ConnectionService` from the new `neural-link` 
 2. Update exports to reflect the change.
 3. Ensure `makeSafe` wrapper is applied if OpenAPI spec is available (or handle absence).
 
-## Activity Log
+## Timeline
 
 - 2025-12-03 @tobiu added the `enhancement` label
 - 2025-12-03 @tobiu added the `ai` label

@@ -23,7 +23,7 @@ closedAt: '2025-01-31T12:35:59Z'
 
 Not needed, since we have direct access via `this.parent`
 
-## Activity Log
+## Timeline
 
 - 2025-01-31 @tobiu added the `enhancement` label
 - 2025-01-31 @tobiu assigned to @tobiu

@@ -28,8 +28,13 @@ Refine the layout of the Release view by reducing the sidebar width.
 - Create `resources/scss/src/apps/portal/release/MainContainer.scss` to override the default 350px width to 250px.
 - Override lines 13, 14, and 21 of the base class SCSS.
 
-## Comments
+## Timeline
 
+- 2026-01-08 @tobiu added the `enhancement` label
+- 2026-01-08 @tobiu added the `design` label
+- 2026-01-08 @tobiu added the `ai` label
+- 2026-01-08 @tobiu referenced in commit `71e075f` - "enhancement: Reduce sidebar width for Release view (#8405)"
+- 2026-01-08 @tobiu assigned to @tobiu
 ### @tobiu - 2026-01-08 00:29
 
 **Input from Gemini 3 Pro:**
@@ -39,13 +44,6 @@ Refine the layout of the Release view by reducing the sidebar width.
 > 2. Updated `apps/portal/view/release/MainContainer.mjs` to use `cls: ['portal-release-maincontainer']`.
 > 3. Created `resources/scss/src/apps/portal/release/MainContainer.scss` with overrides for `sidenav-container` width (250px).
 
-## Activity Log
-
-- 2026-01-08 @tobiu added the `enhancement` label
-- 2026-01-08 @tobiu added the `design` label
-- 2026-01-08 @tobiu added the `ai` label
-- 2026-01-08 @tobiu referenced in commit `71e075f` - "enhancement: Reduce sidebar width for Release view (#8405)"
-- 2026-01-08 @tobiu assigned to @tobiu
 - 2026-01-08 @tobiu closed this issue
 - 2026-01-08 @tobiu added parent issue #8362
 

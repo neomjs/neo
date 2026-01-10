@@ -33,8 +33,13 @@ This task is to migrate the unit test for `vdom/table/Container.mjs` from the Si
 3.  Ensure the new test runs successfully via `npm test`.
 4.  The new test must cover all the functionality of the original Siesta test.
 
-## Comments
+## Timeline
 
+- 2025-09-27 @tobiu added the `enhancement` label
+- 2025-09-27 @tobiu added parent issue #7262
+- 2025-09-29 @tobiu added the `help wanted` label
+- 2025-09-29 @tobiu added the `good first issue` label
+- 2025-09-29 @tobiu added the `hacktoberfest` label
 ### @KURO-1125 - 2025-10-02 17:13
 
 Hi! I'd like to work on this issue for Hacktoberfest. 
@@ -65,6 +70,8 @@ https://github.com/neomjs/neo/blob/dev/.github/AI_QUICK_START.md
 
 Of course you can also do it manually, but it feels a bit like wasting time here.
 
+- 2025-10-02 @tobiu assigned to @KURO-1125
+- 2025-10-02 @tobiu cross-referenced by #7285
 ### @KURO-1125 - 2025-10-02 19:13
 
 Thanks for the AI native workflow guidance! I've successfully used it:
@@ -92,6 +99,7 @@ i should add: ideally one PR for each sub, so that both count for the event.
 
 i will flag more of the testing subs with the `hacktoberfest` label now.
 
+- 2025-10-02 @KURO-1125 cross-referenced by PR #7330
 ### @KURO-1125 - 2025-10-02 19:33
 
 Perfect! I've created two separate PRs as requested:
@@ -102,15 +110,5 @@ Perfect! I've created two separate PRs as requested:
 Thanks for flagging more test migration issues with the hacktoberfest label!
 
 
-## Activity Log
-
-- 2025-09-27 @tobiu added the `enhancement` label
-- 2025-09-27 @tobiu added parent issue #7262
-- 2025-09-29 @tobiu added the `help wanted` label
-- 2025-09-29 @tobiu added the `good first issue` label
-- 2025-09-29 @tobiu added the `hacktoberfest` label
-- 2025-10-02 @tobiu assigned to @KURO-1125
-- 2025-10-02 @tobiu cross-referenced by #7285
-- 2025-10-02 @KURO-1125 cross-referenced by PR #7330
 - 2025-10-02 @tobiu closed this issue
 

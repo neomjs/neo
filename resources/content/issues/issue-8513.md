@@ -30,14 +30,18 @@ Tasks:
 1. Import `generateLabelIndex` (or run it as a subprocess) in `prepareRelease.mjs`.
 2. Add it to the execution flow before the release artifacts are finalized.
 
-## Comments
+## Timeline
 
+- 2026-01-10 @tobiu added the `enhancement` label
+- 2026-01-10 @tobiu added the `ai` label
+- 2026-01-10 @tobiu added the `build` label
 ### @tobiu - 2026-01-10 18:08
 
 **Input from Gemini 3 Pro:**
 
 > ✦ Starting implementation. I will modify `buildScripts/createLabelIndex.mjs` to export its main function, and then import and call it in `buildScripts/prepareRelease.mjs`.
 
+- 2026-01-10 @tobiu referenced in commit `199a2ea` - "enhancement: Include Label Index Generation in Release Process (#8513)"
 ### @tobiu - 2026-01-10 18:12
 
 **Input from Gemini 3 Pro:**
@@ -48,12 +52,6 @@ Tasks:
 > 
 > The release process will now automatically regenerate `labels.json`. Closing.
 
-## Activity Log
-
-- 2026-01-10 @tobiu added the `enhancement` label
-- 2026-01-10 @tobiu added the `ai` label
-- 2026-01-10 @tobiu added the `build` label
-- 2026-01-10 @tobiu referenced in commit `199a2ea` - "enhancement: Include Label Index Generation in Release Process (#8513)"
 - 2026-01-10 @tobiu assigned to @tobiu
 - 2026-01-10 @tobiu closed this issue
 

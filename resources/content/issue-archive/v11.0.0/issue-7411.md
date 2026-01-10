@@ -47,8 +47,14 @@ To work on this ticket, please start your session with the following prompt:
 > 
 > You will need to read the epic context from @.github/ISSUE/epic-architect-ai-tooling-as-mcp.md and the specific ticket details from @.github/ISSUE/ticket-implement-memory-lifecycle-endpoints.md before we begin.
 
-## Comments
+## Timeline
 
+- 2025-10-07 @tobiu added parent issue #7399
+- 2025-10-07 @tobiu added the `enhancement` label
+- 2025-10-07 @tobiu added the `help wanted` label
+- 2025-10-07 @tobiu added the `good first issue` label
+- 2025-10-07 @tobiu added the `hacktoberfest` label
+- 2025-10-07 @tobiu added the `ai` label
 ### @harikrishna-au - 2025-10-13 02:07
 
 @tobiu please assign
@@ -57,6 +63,7 @@ To work on this ticket, please start your session with the following prompt:
 
 sure, and thanks for your interest. for this ticket, i would also recommend to point the agent to `ai/mcp/server/memory/openapi.yaml`, and let it explore other files for the new memory server (consistency and context).
 
+- 2025-10-13 @tobiu assigned to @harikrishna-au
 ### @tobiu - 2025-10-24 09:16
 
 Hi @harikrishna-au,
@@ -67,14 +74,5 @@ As there has been no activity for a couple of weeks and the project's architectu
 
 We're closing this ticket now. Thanks again for your willingness to contribute, and we hope to see you in other issues!
 
-## Activity Log
-
-- 2025-10-07 @tobiu added parent issue #7399
-- 2025-10-07 @tobiu added the `enhancement` label
-- 2025-10-07 @tobiu added the `help wanted` label
-- 2025-10-07 @tobiu added the `good first issue` label
-- 2025-10-07 @tobiu added the `hacktoberfest` label
-- 2025-10-07 @tobiu added the `ai` label
-- 2025-10-13 @tobiu assigned to @harikrishna-au
 - 2025-10-24 @tobiu closed this issue
 

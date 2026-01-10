@@ -23,8 +23,11 @@ closedAt: '2025-04-12T12:16:24Z'
 
 *(No description provided)*
 
-## Comments
+## Timeline
 
+- 2025-04-12 @tobiu added the `enhancement` label
+- 2025-04-12 @tobiu assigned to @tobiu
+- 2025-04-12 @tobiu referenced in commit `7b4dfe6` - "apps/colors: replace the table with a grid #6641"
 ### @tobiu - 2025-04-12 10:01
 
 <img width="1791" alt="Image" src="https://github.com/user-attachments/assets/05db6226-1651-4d22-b45e-48ee4a663e40" />
@@ -33,10 +36,5 @@ closedAt: '2025-04-12T12:16:24Z'
 
 * I will close this ticket, and create follow-up tickets, since additional changes to make dropping a `grid.Container` into a flexbox layout need adjustments on framework level.
 
-## Activity Log
-
-- 2025-04-12 @tobiu added the `enhancement` label
-- 2025-04-12 @tobiu assigned to @tobiu
-- 2025-04-12 @tobiu referenced in commit `7b4dfe6` - "apps/colors: replace the table with a grid #6641"
 - 2025-04-12 @tobiu closed this issue
 

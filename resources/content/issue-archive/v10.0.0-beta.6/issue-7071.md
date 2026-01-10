@@ -24,7 +24,7 @@ closedAt: '2025-07-16T02:35:44Z'
 * `functional.component.Base` does not have a style or wrapper style config yet.
 * for now, let us just opt out.
 
-## Activity Log
+## Timeline
 
 - 2025-07-16 @tobiu assigned to @tobiu
 - 2025-07-16 @tobiu added the `enhancement` label

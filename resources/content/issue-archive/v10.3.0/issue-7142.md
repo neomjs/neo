@@ -33,16 +33,14 @@ While the mock component tests are a good start, we need to ensure the template 
     - Edge cases with complex interpolation in attributes and text nodes.
     - Ensure the entire component lifecycle (mount, update, destroy) works as expected when the VDOM is generated from a template.
 
-## Comments
-
-### @tobiu - 2025-08-02 12:48
-
-resolved
-
-## Activity Log
+## Timeline
 
 - 2025-07-31 @tobiu assigned to @tobiu
 - 2025-07-31 @tobiu added the `enhancement` label
 - 2025-07-31 @tobiu added parent issue #7130
+### @tobiu - 2025-08-02 12:48
+
+resolved
+
 - 2025-08-02 @tobiu closed this issue
 

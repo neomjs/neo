@@ -38,7 +38,7 @@ In `buildScripts/generateSeoFiles.mjs`, the `getSitemapXml` function should be m
 
 This will cause `git log` to find the most recent commit affecting any file in that directory, providing a more accurate timestamp.
 
-## Activity Log
+## Timeline
 
 - 2025-11-13 @tobiu added the `enhancement` label
 - 2025-11-13 @tobiu added the `ai` label

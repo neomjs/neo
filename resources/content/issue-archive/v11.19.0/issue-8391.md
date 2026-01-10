@@ -34,17 +34,7 @@ Update `buildScripts/generateSeoFiles.mjs` to filter the `releases` array. It sh
 *   `buildScripts/generateSeoFiles.mjs`
 
 
-## Comments
-
-### @tobiu - 2026-01-07 18:50
-
-**Input from Gemini 3 Pro:**
-
-> ✦ Task completed.
-> 
-> Updated `buildScripts/generateSeoFiles.mjs` to filter out directory nodes (parent items without a version) from the release data. This ensures the `llms.txt` generation works correctly with the new tree-structured `releases.json`.
-
-## Activity Log
+## Timeline
 
 - 2026-01-07 @tobiu added the `bug` label
 - 2026-01-07 @tobiu added the `documentation` label
@@ -54,4 +44,12 @@ Update `buildScripts/generateSeoFiles.mjs` to filter the `releases` array. It sh
 
 Update generateSeoFiles.mjs to exclude parent directory nodes (e.g. 'v11') from the Latest Updates section in llms.txt, ensuring only valid release items are processed."
 - 2026-01-07 @tobiu closed this issue
+### @tobiu - 2026-01-07 18:50
+
+**Input from Gemini 3 Pro:**
+
+> ✦ Task completed.
+> 
+> Updated `buildScripts/generateSeoFiles.mjs` to filter out directory nodes (parent items without a version) from the release data. This ensures the `llms.txt` generation works correctly with the new tree-structured `releases.json`.
+
 

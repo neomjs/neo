@@ -35,8 +35,13 @@ It should return an object containing:
 
 Note: `Neo.layout.HBox` and `Neo.layout.VBox` extend `Flexbox`, so they will automatically inherit this serialization.
 
-## Comments
+## Timeline
 
+- 2025-12-31 @tobiu added the `enhancement` label
+- 2025-12-31 @tobiu added the `ai` label
+- 2025-12-31 @tobiu added parent issue #8200
+- 2025-12-31 @tobiu assigned to @tobiu
+- 2025-12-31 @tobiu referenced in commit `de7c530` - "feat(layout): Implement toJSON in Neo.layout.Flexbox for Neural Link serialization (#8234)"
 ### @tobiu - 2025-12-31 15:19
 
 **Input from Gemini:**
@@ -55,13 +60,6 @@ Note: `Neo.layout.HBox` and `Neo.layout.VBox` extend `Flexbox`, so they will aut
 > ```
 > This serialization is also inherited by `Neo.layout.HBox` and `Neo.layout.VBox`.
 
-## Activity Log
-
-- 2025-12-31 @tobiu added the `enhancement` label
-- 2025-12-31 @tobiu added the `ai` label
-- 2025-12-31 @tobiu added parent issue #8200
-- 2025-12-31 @tobiu assigned to @tobiu
-- 2025-12-31 @tobiu referenced in commit `de7c530` - "feat(layout): Implement toJSON in Neo.layout.Flexbox for Neural Link serialization (#8234)"
 - 2025-12-31 @tobiu closed this issue
 - 2025-12-31 @tobiu referenced in commit `938ace2` - "docs(issue): Close ticket #8234"
 

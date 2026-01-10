@@ -27,7 +27,7 @@ Refactored the Playwright `setup.mjs` file to export a configurable function, al
 - Modified `test/playwright/setup.mjs` to export a `setup` function that accepts an `options` object for `neoConfig` and `appConfig`.
 - Updated `test/playwright/classic/button.spec.mjs` to import and call the `setup` function with its specific configuration, including `appName`.
 
-## Activity Log
+## Timeline
 
 - 2025-09-25 @tobiu assigned to @tobiu
 - 2025-09-25 @tobiu added the `enhancement` label

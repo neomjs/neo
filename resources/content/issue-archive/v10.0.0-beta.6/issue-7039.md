@@ -43,7 +43,7 @@ This article will significantly improve developer onboarding for Vue.js develope
 *   `learn/comparisons/NeoVsVue.md` (new file)
 *   `learn/comparisons/Overview.md` (already updated to include this link)
 
-## Activity Log
+## Timeline
 
 - 2025-07-13 @tobiu assigned to @tobiu
 - 2025-07-13 @tobiu added the `enhancement` label

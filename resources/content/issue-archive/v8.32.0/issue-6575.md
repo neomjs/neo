@@ -27,7 +27,7 @@ _Running the examples locally without a webpack build requires browsers to be ab
 
 
 
-## Comments
+## Timeline
 
 ### @tobiu - 2025-03-15 14:34
 
@@ -45,8 +45,6 @@ tobi
 ### @gplanansky - 2025-03-15 18:54
 
 Your blog postings have informed of progress with browser support for features Neo sought;  just this needs updating.   Sure, just change it.
-
-## Activity Log
 
 - 2025-03-17 @tobiu referenced in commit `0d45c70` - "update neo/tree/dev/examples/README.md #6575"
 - 2025-03-17 @tobiu closed this issue

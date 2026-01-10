@@ -23,7 +23,7 @@ closedAt: '2025-03-03T12:58:14Z'
 
 * i more lightweight type implementation makes sense here
 
-## Activity Log
+## Timeline
 
 - 2025-03-03 @tobiu added the `enhancement` label
 - 2025-03-03 @tobiu assigned to @tobiu

@@ -34,8 +34,14 @@ Improve the `buildScripts/defragChromaDB.mjs` tool to be more robust and enterpr
 
 **Goal:** Provide a reliable maintenance tool for the AI infrastructure.
 
-## Comments
+## Timeline
 
+- 2026-01-10 @tobiu added the `enhancement` label
+- 2026-01-10 @tobiu added the `ai` label
+- 2026-01-10 @tobiu added the `refactoring` label
+- 2026-01-10 @tobiu added the `build` label
+- 2026-01-10 @tobiu assigned to @tobiu
+- 2026-01-10 @tobiu referenced in commit `d952600` - "feat: Harden ChromaDB defrag tool with backups and error tracking (#8490)"
 ### @tobiu - 2026-01-10 00:51
 
 **Input from tobiu:**
@@ -49,6 +55,7 @@ Improve the `buildScripts/defragChromaDB.mjs` tool to be more robust and enterpr
 > 
 > Refactoring complete.
 
+- 2026-01-10 @tobiu referenced in commit `36f43ba` - "fix: Add missing Neo import to defrag script to support config loading (#8490)"
 ### @tobiu - 2026-01-10 00:54
 
 **Input from tobiu:**
@@ -58,22 +65,13 @@ Improve the `buildScripts/defragChromaDB.mjs` tool to be more robust and enterpr
 > 
 > Verified by successfully running `npm run ai:defrag-memory`.
 
+- 2026-01-10 @tobiu added the `agent-task:completed` label
 ### @tobiu - 2026-01-10 00:55
 
 **Input from tobiu:**
 
 > ◆ Task complete. The `defragChromaDB.mjs` script is now robust, backup-enabled, and verified working. Closing.
 
-## Activity Log
-
-- 2026-01-10 @tobiu added the `enhancement` label
-- 2026-01-10 @tobiu added the `ai` label
-- 2026-01-10 @tobiu added the `refactoring` label
-- 2026-01-10 @tobiu added the `build` label
-- 2026-01-10 @tobiu assigned to @tobiu
-- 2026-01-10 @tobiu referenced in commit `d952600` - "feat: Harden ChromaDB defrag tool with backups and error tracking (#8490)"
-- 2026-01-10 @tobiu referenced in commit `36f43ba` - "fix: Add missing Neo import to defrag script to support config loading (#8490)"
-- 2026-01-10 @tobiu added the `agent-task:completed` label
 - 2026-01-10 @tobiu closed this issue
 - 2026-01-10 @tobiu removed the `agent-task:completed` label
 

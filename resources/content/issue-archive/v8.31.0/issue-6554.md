@@ -23,7 +23,7 @@ closedAt: '2025-03-09T01:15:38Z'
 
 time to split up the logic inside `beforeSetStore()` in a better way.
 
-## Activity Log
+## Timeline
 
 - 2025-03-09 @tobiu added the `enhancement` label
 - 2025-03-09 @tobiu assigned to @tobiu

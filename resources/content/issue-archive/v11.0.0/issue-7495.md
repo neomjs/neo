@@ -33,7 +33,7 @@ This ticket covers the work to define the `outputSchema` using `zod`, based on t
 3.  The generated JSON Schema is added as the `outputSchema` property to each tool definition returned by `listTools`.
 4.  The `tools/list` response is verified to include the new `outputSchema` for each tool.
 
-## Activity Log
+## Timeline
 
 - 2025-10-15 @tobiu assigned to @tobiu
 - 2025-10-15 @tobiu added the `enhancement` label

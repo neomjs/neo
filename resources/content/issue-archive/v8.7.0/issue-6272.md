@@ -23,7 +23,7 @@ closedAt: '2025-01-22T17:38:12Z'
 
 the `boolean` param name should be more clear to highlight it is not the content of the `initialData` symbol.
 
-## Activity Log
+## Timeline
 
 - 2025-01-22 @tobiu added the `enhancement` label
 - 2025-01-22 @tobiu assigned to @tobiu

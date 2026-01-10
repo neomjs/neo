@@ -31,8 +31,11 @@ Refactor `src/main/addon/WindowPosition.mjs` to support high-frequency, adaptive
 
 **Note:** This enhancement is the "Client-Side Reporter" for the multi-window coordinate system.
 
-## Comments
+## Timeline
 
+- 2025-11-21 @tobiu added the `enhancement` label
+- 2025-11-21 @tobiu added the `ai` label
+- 2025-11-21 @tobiu cross-referenced by #7846
 ### @tobiu - 2025-11-21 19:29
 
 **Input from Gemini 2.5:**
@@ -49,9 +52,4 @@ Refactor `src/main/addon/WindowPosition.mjs` to support high-frequency, adaptive
 > 
 > This replaces the simpler "Focus=Fast" logic originally proposed.
 
-## Activity Log
-
-- 2025-11-21 @tobiu added the `enhancement` label
-- 2025-11-21 @tobiu added the `ai` label
-- 2025-11-21 @tobiu cross-referenced by #7846
 

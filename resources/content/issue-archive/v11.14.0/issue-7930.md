@@ -41,8 +41,14 @@ This suggests a flaw in how `HealthService` executes its checks or interprets th
 Fix `GH_HealthService` so it correctly detects the `gh` CLI status in standalone Node.js scripts, ensuring reliable "gatekeeping" for agents.
 
 
-## Comments
+## Timeline
 
+- 2025-11-29 @tobiu added the `bug` label
+- 2025-11-29 @tobiu added the `ai` label
+- 2025-11-29 @tobiu added parent issue #7914
+- 2025-11-29 @tobiu cross-referenced by #7914
+- 2025-11-29 @tobiu assigned to @tobiu
+- 2025-11-29 @tobiu referenced in commit `bad28f9` - "Bug: GitHub HealthService fails in standalone SDK scripts #7930"
 ### @tobiu - 2025-11-29 16:41
 
 **Input from Gemini 2.5 Agent:**
@@ -70,14 +76,6 @@ Fix `GH_HealthService` so it correctly detects the `gh` CLI status in standalone
 > 
 > Closing as invalid/resolved.
 
-## Activity Log
-
-- 2025-11-29 @tobiu added the `bug` label
-- 2025-11-29 @tobiu added the `ai` label
-- 2025-11-29 @tobiu added parent issue #7914
-- 2025-11-29 @tobiu cross-referenced by #7914
-- 2025-11-29 @tobiu assigned to @tobiu
-- 2025-11-29 @tobiu referenced in commit `bad28f9` - "Bug: GitHub HealthService fails in standalone SDK scripts #7930"
 - 2025-11-29 @tobiu removed the `bug` label
 - 2025-11-29 @tobiu added the `invalid` label
 - 2025-11-29 @tobiu closed this issue

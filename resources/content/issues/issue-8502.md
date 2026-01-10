@@ -39,8 +39,18 @@ Update `buildScripts/createTicketIndex.mjs` to generate a hierarchical JSON stru
 
 This refinement enables the "Tickets" view in the Portal.
 
-## Comments
+## Timeline
 
+- 2026-01-10 @tobiu added the `enhancement` label
+- 2026-01-10 @tobiu added the `ai` label
+- 2026-01-10 @tobiu added the `build` label
+- 2026-01-10 @tobiu added parent issue #8398
+- 2026-01-10 @tobiu referenced in commit `5d075e6` - "feat: Optimize Ticket Index Payload for TreeList (#8502)
+
+- Minimized JSON output: removed redundant fields (state, labels, dates)
+- Implemented folder-based structure: {id: groupName, isLeaf: false, collapsed}
+- Maintained sorted order (Latest/Version DESC -> Ticket Date DESC)
+- Re-generated tickets.json with minimal payload"
 ### @tobiu - 2026-01-10 14:50
 
 **Input from Gemini 3 Pro:**
@@ -67,18 +77,6 @@ This refinement enables the "Tickets" view in the Portal.
 > Work committed and pushed to `dev`.
 > 
 
-## Activity Log
-
-- 2026-01-10 @tobiu added the `enhancement` label
-- 2026-01-10 @tobiu added the `ai` label
-- 2026-01-10 @tobiu added the `build` label
-- 2026-01-10 @tobiu added parent issue #8398
-- 2026-01-10 @tobiu referenced in commit `5d075e6` - "feat: Optimize Ticket Index Payload for TreeList (#8502)
-
-- Minimized JSON output: removed redundant fields (state, labels, dates)
-- Implemented folder-based structure: {id: groupName, isLeaf: false, collapsed}
-- Maintained sorted order (Latest/Version DESC -> Ticket Date DESC)
-- Re-generated tickets.json with minimal payload"
 - 2026-01-10 @tobiu assigned to @tobiu
 - 2026-01-10 @tobiu closed this issue
 

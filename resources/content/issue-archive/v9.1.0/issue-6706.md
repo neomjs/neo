@@ -22,7 +22,7 @@ closedAt: '2025-05-13T06:09:48Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
 - 2025-05-13 @tobiu added the `enhancement` label
 - 2025-05-13 @tobiu referenced in commit `52191c3` - "examples.tableStore.MainContainer: update cells 100x => access the record without using the data symbol #6706"

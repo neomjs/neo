@@ -25,7 +25,7 @@ closedAt: '2025-06-25T15:17:24Z'
 * The new method should contain the singleton check (instead of `initRemote()`)
 * a potential error will get thrown earlier inside the instance lifecycle
 
-## Activity Log
+## Timeline
 
 - 2025-06-25 @tobiu assigned to @tobiu
 - 2025-06-25 @tobiu added the `enhancement` label

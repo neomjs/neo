@@ -50,7 +50,7 @@ Remove the line `oldValue && selectionModel?.deselect(oldValue);` from the `afte
 **Reasoning:**
 The `selectionModel.select()` method, when `singleSelect` is true, is designed to ensure only one item is selected. It will internally deselect any existing selection before applying the new one. Removing the redundant `deselect` call will streamline the selection logic, improve efficiency, and prevent potential unnecessary event emissions from the `selectionModel`.
 
-## Activity Log
+## Timeline
 
 - 2025-07-29 @tobiu assigned to @tobiu
 - 2025-07-29 @tobiu added the `enhancement` label

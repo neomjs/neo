@@ -30,7 +30,7 @@ This ticket is to update the document to include the `initAsync` lifecycle hook.
 - This section must detail the `async initAsync()` method and its purpose for handling asynchronous operations like data fetching and lazy-loading modules.
 - It must explain the role of the `isReady_` config and how the `afterSetIsReady()` hook is used to reliably signal when a component is fully initialized and ready for interaction.
 
-## Activity Log
+## Timeline
 
 - 2025-07-24 @tobiu assigned to @tobiu
 - 2025-07-24 @tobiu added the `enhancement` label

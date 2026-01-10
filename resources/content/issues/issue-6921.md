@@ -67,7 +67,7 @@ myCollection.filters.findFirst('property', 'name');
 
 This enhancement would significantly improve the ergonomics and consistency of managing filters and sorters within Neo.mjs applications.
 
-## Activity Log
+## Timeline
 
 - 2025-07-01 @tobiu added the `enhancement` label
 - 2025-07-01 @tobiu added the `no auto close` label

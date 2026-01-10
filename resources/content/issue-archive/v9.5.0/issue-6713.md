@@ -22,7 +22,7 @@ closedAt: '2025-05-25T17:23:52Z'
 
 * create a demo which loads the full configuration for a grid from a json file
 
-## Activity Log
+## Timeline
 
 - 2025-05-25 @tobiu added the `enhancement` label
 - 2025-05-25 @tobiu referenced in commit `fe57f7c` - "examples.serverside.gridContainer #6713 basic example setup"

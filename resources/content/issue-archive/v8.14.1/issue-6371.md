@@ -23,16 +23,14 @@ closedAt: '2025-02-03T21:54:39Z'
 
 @maxrahder 
 
-## Comments
-
-### @tobiu - 2025-02-03 21:54
-
-can not fix the image ;)
-
-## Activity Log
+## Timeline
 
 - 2025-02-03 @tobiu added the `enhancement` label
 - 2025-02-03 @tobiu assigned to @tobiu
 - 2025-02-03 @tobiu referenced in commit `a50252f` - "Guides: Getting Started => Shared bindable data => switch vms to state providers #6371"
+### @tobiu - 2025-02-03 21:54
+
+can not fix the image ;)
+
 - 2025-02-03 @tobiu closed this issue
 

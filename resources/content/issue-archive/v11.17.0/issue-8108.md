@@ -37,7 +37,7 @@ To improve architecture and error handling, we will introduce `Legit.service.Leg
 - `apps/legit/view/ViewportController.mjs`: Delegate logic to the new service.
 
 
-## Activity Log
+## Timeline
 
 - 2025-12-13 @tobiu added the `enhancement` label
 - 2025-12-13 @tobiu added the `ai` label

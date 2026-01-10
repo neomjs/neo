@@ -40,7 +40,7 @@ The `FeedbackLoop.mjs` test file ensures the following:
 1.  Add the new file `test/siesta/tests/state/FeedbackLoop.mjs` to the project.
 2.  Register the new test file in `test/siesta/siesta.js` to ensure it is run as part of the standard test suite. It should be added to the `state` group.
 
-## Activity Log
+## Timeline
 
 - 2025-07-30 @tobiu assigned to @tobiu
 - 2025-07-30 @tobiu added the `enhancement` label

@@ -26,16 +26,14 @@ closedAt: '2025-06-30T12:32:10Z'
 
 In case the first example has no valuable output, it should be read only => HighlightJS instead of the LivePreview.
 
-## Comments
-
-### @tobiu - 2025-06-30 12:32
-
-obsolete => new guide in place.
-
-## Activity Log
+## Timeline
 
 - 2024-08-06 @tobiu added the `enhancement` label
 - 2024-08-06 @tobiu assigned to @maxrahder
 - 2024-10-07 @tobiu added the `no auto close` label
+### @tobiu - 2025-06-30 12:32
+
+obsolete => new guide in place.
+
 - 2025-06-30 @tobiu closed this issue
 

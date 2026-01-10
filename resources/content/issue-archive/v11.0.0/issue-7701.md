@@ -34,7 +34,7 @@ The following changes will be implemented:
 
 These changes are designed to make the protocols more robust and prevent future lapses in agent procedure.
 
-## Activity Log
+## Timeline
 
 - 2025-11-03 @tobiu added the `documentation` label
 - 2025-11-03 @tobiu added the `ai` label

@@ -62,7 +62,7 @@ To ensure technical accuracy and to clearly articulate the significant advantage
 - `/Users/Shared/github/neomjs/neo/learn/comparisons/NeoVsExtJs.md`
 - `/Users/Shared/github/neomjs/neo/src/functional/defineComponent.mjs`
 
-## Activity Log
+## Timeline
 
 - 2025-07-13 @tobiu assigned to @tobiu
 - 2025-07-13 @tobiu added parent issue #7029

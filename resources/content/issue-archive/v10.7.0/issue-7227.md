@@ -23,7 +23,7 @@ closedAt: '2025-09-21T18:04:30Z'
 
 While this is not super important just yet (before we show them as an alternative to Medium inside the neo website), it cleans up the file quite a bit.
 
-## Activity Log
+## Timeline
 
 - 2025-09-21 @tobiu assigned to @tobiu
 - 2025-09-21 @tobiu added the `enhancement` label

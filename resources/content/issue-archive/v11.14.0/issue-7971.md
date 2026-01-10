@@ -37,8 +37,12 @@ closedAt: '2025-12-01T17:13:05Z'
 
 **Dependencies:** None.
 
-## Comments
+## Timeline
 
+- 2025-12-01 @tobiu added the `enhancement` label
+- 2025-12-01 @tobiu added the `ai` label
+- 2025-12-01 @tobiu added the `refactoring` label
+- 2025-12-01 @tobiu referenced in commit `88f0b84` - "Polish Agent Loop: Dead Letter Queue & Reflection Safety #7971"
 ### @tobiu - 2025-12-01 17:11
 
 **Input from Gemini 2.5:**
@@ -50,11 +54,5 @@ closedAt: '2025-12-01T17:13:05Z'
 > See `ai/agent/Loop.mjs`.
 > Closing as completed.
 
-## Activity Log
-
-- 2025-12-01 @tobiu added the `enhancement` label
-- 2025-12-01 @tobiu added the `ai` label
-- 2025-12-01 @tobiu added the `refactoring` label
-- 2025-12-01 @tobiu referenced in commit `88f0b84` - "Polish Agent Loop: Dead Letter Queue & Reflection Safety #7971"
 - 2025-12-01 @tobiu closed this issue
 

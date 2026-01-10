@@ -34,7 +34,7 @@ Benefits:
 
 **File to Change**: src/functional/component/Base.mjs
 
-## Activity Log
+## Timeline
 
 - 2025-07-21 @tobiu assigned to @tobiu
 - 2025-07-21 @tobiu added the `enhancement` label

@@ -34,7 +34,7 @@ This ticket covers refactoring `ai/mcp/server/memory-core/services/sessionServic
 6.  Any other services that depend on `sessionService` are updated to use the new `SessionService` singleton instance.
 7.  All related tools (e.g., `summarize_sessions`) continue to function correctly after the refactoring.
 
-## Activity Log
+## Timeline
 
 - 2025-10-18 @tobiu assigned to @tobiu
 - 2025-10-18 @tobiu added the `enhancement` label

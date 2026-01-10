@@ -44,7 +44,7 @@ This will be achieved by leveraging the existing `HealthService`.
 -   **Clear Errors:** Provides immediate, actionable feedback to the user if their environment is not configured correctly.
 -   **DRY:** Reuses the existing, comprehensive logic in `HealthService` instead of duplicating checks.
 
-## Activity Log
+## Timeline
 
 - 2025-10-20 @tobiu assigned to @tobiu
 - 2025-10-20 @tobiu added the `enhancement` label

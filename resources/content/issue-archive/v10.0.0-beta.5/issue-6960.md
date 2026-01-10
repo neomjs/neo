@@ -42,7 +42,7 @@ The generated setter in `Neo.mjs#autoGenerateGetSet` was refactored to restore t
 
 This fix restores the pre-v10 atomicity of `set()` operations, ensuring that all `beforeSet` hooks within a batch see a consistent, updated view of all pending changes.
 
-## Activity Log
+## Timeline
 
 - 2025-07-06 @tobiu assigned to @tobiu
 - 2025-07-06 @tobiu added the `enhancement` label

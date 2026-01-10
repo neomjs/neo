@@ -23,7 +23,7 @@ closedAt: '2025-06-01T17:32:37Z'
 
 * to honor the required `dist/esm` changes, we now need to point to the top-level folder to find the SW build entry-point.
 
-## Activity Log
+## Timeline
 
 - 2025-06-01 @tobiu assigned to @tobiu
 - 2025-06-01 @tobiu added the `enhancement` label

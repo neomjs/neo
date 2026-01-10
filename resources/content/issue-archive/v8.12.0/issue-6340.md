@@ -24,7 +24,7 @@ closedAt: '2025-01-29T22:05:36Z'
 * Important for not breaking cell based selection models
 * Also trigger a column positions recalculation
 
-## Activity Log
+## Timeline
 
 - 2025-01-29 @tobiu added the `enhancement` label
 - 2025-01-29 @tobiu assigned to @tobiu

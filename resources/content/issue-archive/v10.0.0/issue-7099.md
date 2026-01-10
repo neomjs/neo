@@ -62,7 +62,7 @@ This change ensures that all methods of setting data (`proxy.prop = value`, `set
     *   The incorrect hint in `learn/guides/datahandling/StateProviders.md` must be removed. The section should be updated to accurately describe the deep-merge behavior.
     *   The code examples in the blog post `learn/blog/v10-deep-dive-state-provider.md` must be updated to demonstrate and explain the correct, intuitive API usage.
 
-## Activity Log
+## Timeline
 
 - 2025-07-22 @tobiu assigned to @tobiu
 - 2025-07-22 @tobiu added the `enhancement` label

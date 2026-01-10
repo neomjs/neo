@@ -24,20 +24,18 @@ closedAt: '2025-07-31T17:31:10Z'
 **Description:**
 To showcase the new feature and provide a practical learning resource, create a new, simple example application that is built using a functional component with a string-based template. This will serve as a clear, working demonstration for developers.
 
-## Comments
-
-### @tobiu - 2025-07-31 17:31
-
-<img width="512" height="762" alt="Image" src="https://github.com/user-attachments/assets/eda57dfe-a488-4eca-8936-9680139fc978" />
-
-<img width="913" height="304" alt="Image" src="https://github.com/user-attachments/assets/a834002c-f883-4e21-ba78-0163e0965d00" />
-
-## Activity Log
+## Timeline
 
 - 2025-07-31 @tobiu assigned to @tobiu
 - 2025-07-31 @tobiu added the `enhancement` label
 - 2025-07-31 @tobiu added parent issue #7130
 - 2025-07-31 @tobiu referenced in commit `dfec6c4` - "Create a Real-World Example #7144"
 - 2025-07-31 @tobiu referenced in commit `33a3b26` - "Create a Real-World Example #7144"
+### @tobiu - 2025-07-31 17:31
+
+<img width="512" height="762" alt="Image" src="https://github.com/user-attachments/assets/eda57dfe-a488-4eca-8936-9680139fc978" />
+
+<img width="913" height="304" alt="Image" src="https://github.com/user-attachments/assets/a834002c-f883-4e21-ba78-0163e0965d00" />
+
 - 2025-07-31 @tobiu closed this issue
 

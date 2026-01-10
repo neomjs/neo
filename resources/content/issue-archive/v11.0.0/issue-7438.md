@@ -40,12 +40,20 @@ To facilitate communication between the Playwright test runner and the component
     -   `setComponentConfig(id, config)`: A wrapper around `Neo.worker.App.setConfigs()`.
 3.  These helpers will be used in the `beforeEach`, `afterEach`, and test body sections of the component tests.
 
-## Comments
+## Timeline
 
+- 2025-10-10 @tobiu added parent issue #7435
+- 2025-10-10 @tobiu added the `enhancement` label
+- 2025-10-10 @tobiu added the `help wanted` label
+- 2025-10-10 @tobiu added the `hacktoberfest` label
+- 2025-10-10 @tobiu added the `ai` label
 ### @Aki-07 - 2025-10-11 05:18
 
 Would love to work on this please do assign me @tobiu
 
+- 2025-10-11 @Aki-07 cross-referenced by PR #7459
+- 2025-10-11 @tobiu closed this issue
+- 2025-10-11 @tobiu assigned to @Aki-07
 ### @tobiu - 2025-10-11 09:03
 
 Let me add some more context what remote method access is all about, since this is one of my favorite topics. It simplifies cross-thread communication via using namespaces.
@@ -71,14 +79,4 @@ https://github.com/neomjs/neo/blob/dev/src/core/Base.mjs#L569
 This one might be worth a read too:
 https://github.com/neomjs/neo/blob/dev/learn/benefits/RPCLayer.md
 
-## Activity Log
-
-- 2025-10-10 @tobiu added parent issue #7435
-- 2025-10-10 @tobiu added the `enhancement` label
-- 2025-10-10 @tobiu added the `help wanted` label
-- 2025-10-10 @tobiu added the `hacktoberfest` label
-- 2025-10-10 @tobiu added the `ai` label
-- 2025-10-11 @Aki-07 cross-referenced by PR #7459
-- 2025-10-11 @tobiu closed this issue
-- 2025-10-11 @tobiu assigned to @Aki-07
 

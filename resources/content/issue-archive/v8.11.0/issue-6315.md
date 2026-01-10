@@ -23,7 +23,7 @@ closedAt: '2025-01-27T12:39:51Z'
 
 * I will clean up the logic while I am at it
 
-## Activity Log
+## Timeline
 
 - 2025-01-27 @tobiu added the `bug` label
 - 2025-01-27 @tobiu assigned to @tobiu

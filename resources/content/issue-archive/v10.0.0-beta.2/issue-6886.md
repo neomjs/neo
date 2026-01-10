@@ -23,10 +23,11 @@ closedAt: '2025-06-27T23:19:19Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
 - 2025-06-27 @tobiu assigned to @tobiu
 - 2025-06-27 @tobiu added the `enhancement` label
 - 2025-06-27 @tobiu referenced in commit `0054f13` - "app/*: use text over html for vdom #6886"
+- 2025-06-27 @tobiu changed title from **app/*: use text over html for vdom** to **apps/*: use text over html for vdom**
 - 2025-06-27 @tobiu closed this issue
 

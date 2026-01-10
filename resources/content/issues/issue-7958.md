@@ -35,7 +35,7 @@ Enable agents to "see" runtime errors and state changes immediately without poll
 
 Reference: `.github/AGENT_ARCHITECTURE.md`
 
-## Activity Log
+## Timeline
 
 - 2025-11-30 @tobiu added the `epic` label
 - 2025-11-30 @tobiu added the `ai` label

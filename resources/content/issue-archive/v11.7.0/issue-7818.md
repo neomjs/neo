@@ -34,7 +34,7 @@ Explain that while Neo.mjs code creates high-level abstractions, this tool allow
 
 **Tone:** Consistent with the "I am a Contributor" persona.
 
-## Activity Log
+## Timeline
 
 - 2025-11-20 @tobiu added the `documentation` label
 - 2025-11-20 @tobiu added the `ai` label

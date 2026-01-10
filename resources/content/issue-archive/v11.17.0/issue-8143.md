@@ -46,7 +46,7 @@ This ensures that once the drag operation concludes, the controller is ready to 
 - `apps/agentos/view/StrategyPanelController.mjs`
 - (Potentially) `apps/agentos/view/StrategyPanel.mjs` (to attach the listener)
 
-## Activity Log
+## Timeline
 
 - 2025-12-19 @tobiu added the `bug` label
 - 2025-12-19 @tobiu added the `ai` label

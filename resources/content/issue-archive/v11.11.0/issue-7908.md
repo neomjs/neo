@@ -25,7 +25,7 @@ closedAt: '2025-11-26T12:16:41Z'
 In `src/vdom/Helper.mjs`, the `initAsync` method currently checks `!NeoConfig.unitTestMode` before accessing `Neo.currentWorker`.
 Using optional chaining `Neo.currentWorker?.on(...)` is cleaner and handles cases where `currentWorker` is undefined without an explicit mode check.
 
-## Activity Log
+## Timeline
 
 - 2025-11-26 @tobiu added the `ai` label
 - 2025-11-26 @tobiu added the `refactoring` label

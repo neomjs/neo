@@ -43,7 +43,7 @@ Update `Neo.container.Base.prototype.add` to accept a `silent` parameter and pas
     }
 ```
 
-## Activity Log
+## Timeline
 
 - 2025-12-07 @tobiu added the `enhancement` label
 - 2025-12-07 @tobiu added the `good first issue` label

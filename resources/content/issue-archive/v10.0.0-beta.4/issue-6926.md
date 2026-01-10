@@ -23,7 +23,7 @@ closedAt: '2025-07-01T15:41:22Z'
 
 * Now that we have the enhanced routing logic in place, it makes sense to apply it here.
 
-## Activity Log
+## Timeline
 
 - 2025-07-01 @tobiu assigned to @tobiu
 - 2025-07-01 @tobiu added the `enhancement` label

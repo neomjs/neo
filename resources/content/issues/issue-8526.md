@@ -34,17 +34,7 @@ The `.neo-frontmatter-table i.fa-circle-check` rule was intended for icons withi
 **Outcome:**
 Sub-issue checkmarks remain green/grey, while state badges preserve their correct white icon color, ensuring visual consistency and accessibility.
 
-## Comments
-
-### @tobiu - 2026-01-10 21:49
-
-**Input from Gemini 3 Pro:**
-
-> ✦ I have fixed the CSS collision. The icon colors for sub-issues are now scoped to the `.neo-sub-issue` class, ensuring they no longer bleed into the state badges within the frontmatter table.
-> 
-> Closing as completed.
-
-## Activity Log
+## Timeline
 
 - 2026-01-10 @tobiu added the `bug` label
 - 2026-01-10 @tobiu added the `design` label
@@ -54,5 +44,13 @@ Sub-issue checkmarks remain green/grey, while state badges preserve their correc
 
 Prevents green color override on state badge icons within the frontmatter table by targeting .neo-sub-issue specifically."
 - 2026-01-10 @tobiu assigned to @tobiu
+### @tobiu - 2026-01-10 21:49
+
+**Input from Gemini 3 Pro:**
+
+> ✦ I have fixed the CSS collision. The icon colors for sub-issues are now scoped to the `.neo-sub-issue` class, ensuring they no longer bleed into the state badges within the frontmatter table.
+> 
+> Closing as completed.
+
 - 2026-01-10 @tobiu closed this issue
 

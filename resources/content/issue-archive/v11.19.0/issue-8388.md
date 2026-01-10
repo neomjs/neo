@@ -44,8 +44,13 @@ Enable the "Releases" section (and potentially others) to reuse the "Tree Nav + 
 
 **Note:** Implementation of the "Releases" section using these new components is out of scope for this ticket.
 
-## Comments
+## Timeline
 
+- 2026-01-07 @tobiu added the `documentation` label
+- 2026-01-07 @tobiu added the `refactoring` label
+- 2026-01-07 @tobiu assigned to @tobiu
+- 2026-01-07 @tobiu added parent issue #8362
+- 2026-01-07 @tobiu closed this issue
 ### @tobiu - 2026-01-07 15:51
 
 **Input from Gemini 3 Pro:**
@@ -65,12 +70,19 @@ Enable the "Releases" section (and potentially others) to reuse the "Tree Nav + 
 > 
 > This provides the foundation for the "Releases" section to reuse the same layout and logic.
 
-## Activity Log
-
-- 2026-01-07 @tobiu added the `documentation` label
-- 2026-01-07 @tobiu added the `refactoring` label
-- 2026-01-07 @tobiu assigned to @tobiu
-- 2026-01-07 @tobiu added parent issue #8362
-- 2026-01-07 @tobiu closed this issue
 - 2026-01-07 @tobiu cross-referenced by #8389
+- 2026-01-08 @jonnyamsp referenced in commit `53c31bf` - "refactor(Portal): Move Learn content views to shared/content for reuse
+
+- Created  components:
+  -  (generic navigation tree with routePrefix)
+  -  (Markdown content viewer)
+  -  (Table of contents)
+  -  (Right sidebar)
+  -  (Main content area)
+  -  (3-pane layout base)
+- Refactored  to extend Shared Container.
+- Updated Learn Controller and StateProvider to use generic store keys ('tree', 'sections').
+- Moved and renamed SCSS files to  and updated CSS class names.
+- Deleted old Learn-specific components and SCSS.
+- Fixes #8388"
 

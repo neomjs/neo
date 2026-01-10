@@ -34,7 +34,7 @@ Apply the shared background effect (`.portal-shared-background`) to the Portal N
 **Objective:**
 Ensure the consistent radial gradient background is visible throughout the News section (Blog and Release Notes) by applying it at the TabContainer level and ensuring child components are transparent where appropriate.
 
-## Activity Log
+## Timeline
 
 - 2026-01-08 @tobiu added the `enhancement` label
 - 2026-01-08 @tobiu added the `design` label

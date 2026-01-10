@@ -31,7 +31,7 @@ This change corrects the documentation to:
 
 These changes ensure that new developers and AI agents get a correct understanding of the data layer from the start.
 
-## Activity Log
+## Timeline
 
 - 2025-11-03 @tobiu added the `documentation` label
 - 2025-11-03 @tobiu added the `ai` label

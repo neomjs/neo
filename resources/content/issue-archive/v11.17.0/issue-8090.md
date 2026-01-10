@@ -26,7 +26,7 @@ closedAt: '2025-12-11T18:45:26Z'
 2. Update the selector to target direct children: `.neo-toolbar.neo-is-dragging > .neo-button`.
 3. Remove `resources/scss/src/draggable/toolbar/SortZone.scss`.
 
-## Activity Log
+## Timeline
 
 - 2025-12-11 @tobiu added the `ai` label
 - 2025-12-11 @tobiu added the `refactoring` label

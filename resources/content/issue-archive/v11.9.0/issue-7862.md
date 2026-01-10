@@ -38,7 +38,7 @@ Current `SessionService` limits automatic summarization to sessions active in th
 3.  **Update Documentation:**
     -   Update JSDoc for `summarizeSessions` and `findSessionsToSummarize` to document the new parameter and behavior.
 
-## Activity Log
+## Timeline
 
 - 2025-11-22 @tobiu assigned to @tobiu
 - 2025-11-22 @tobiu added the `enhancement` label

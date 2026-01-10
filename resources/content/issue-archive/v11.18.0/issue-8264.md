@@ -31,7 +31,7 @@ Implement `toJSON` in `src/selection/grid/CellColumnModel.mjs`.
 
 **Parent Issue:** #8200
 
-## Activity Log
+## Timeline
 
 - 2026-01-01 @tobiu added the `enhancement` label
 - 2026-01-01 @tobiu added the `ai` label

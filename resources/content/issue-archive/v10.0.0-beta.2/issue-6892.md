@@ -23,10 +23,11 @@ closedAt: '2025-06-29T11:53:05Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
 - 2025-06-29 @tobiu assigned to @tobiu
 - 2025-06-29 @tobiu added the `enhancement` label
+- 2025-06-29 @tobiu changed title from **earn/guides/MainThreadAddons.md: add an example of extending an addon inside a workspace** to **learn/guides/MainThreadAddons.md: add an example of extending an addon inside a workspace**
 - 2025-06-29 @tobiu referenced in commit `1ca033e` - "learn/guides/MainThreadAddons.md: add an example of extending an addon inside a workspace #6892"
 - 2025-06-29 @tobiu closed this issue
 

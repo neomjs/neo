@@ -45,7 +45,7 @@ Dragging components typically involves moving them in the VDOM tree, which trigg
 *   `src/draggable/DragZone.mjs`
 *   `src/draggable/container/SortZone.mjs`
 
-## Activity Log
+## Timeline
 
 - 2025-12-07 @tobiu added the `enhancement` label
 - 2025-12-07 @tobiu added the `ai` label

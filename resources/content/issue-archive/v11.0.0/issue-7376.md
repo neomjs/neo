@@ -35,12 +35,22 @@ The agent will have access to two sources of information for issues and PRs: the
 3.  The workflow instructs the agent to use the GitHub CLI (`gh`) to get the real-time status (e.g., open/closed, assignees, labels) of a *specific* issue or PR that it has already discovered (Verification).
 4.  The protocol should include a clear example of this two-step "Discover, then Verify" process.
 
-## Comments
+## Timeline
 
+- 2025-10-05 @tobiu added the `documentation` label
+- 2025-10-05 @tobiu added the `enhancement` label
+- 2025-10-05 @tobiu added parent issue #7364
+- 2025-10-05 @tobiu added the `help wanted` label
+- 2025-10-05 @tobiu added the `good first issue` label
+- 2025-10-05 @tobiu added the `hacktoberfest` label
+- 2025-10-05 @tobiu added the `ai` label
 ### @kart-u - 2025-10-05 13:11
 
 hello @tobiu I would like to contribute to this, can you please assign it to me
 
+- 2025-10-05 @ksanjeev284 cross-referenced by PR #7374
+- 2025-10-05 @tobiu cross-referenced by #7367
+- 2025-10-05 @tobiu assigned to @kart-u
 ### @tobiu - 2025-10-05 14:17
 
 sure. Gemini input:
@@ -69,17 +79,5 @@ This ticket was for updating the AGENTS.md file with a new strategic protocol. T
 
 We're closing this ticket as it is no longer relevant. The upcoming rewrite of AGENTS.md (covered in #7630) will include a new, more streamlined workflow. Thanks again for your willingness to contribute!
 
-## Activity Log
-
-- 2025-10-05 @tobiu added the `documentation` label
-- 2025-10-05 @tobiu added the `enhancement` label
-- 2025-10-05 @tobiu added parent issue #7364
-- 2025-10-05 @tobiu added the `help wanted` label
-- 2025-10-05 @tobiu added the `good first issue` label
-- 2025-10-05 @tobiu added the `hacktoberfest` label
-- 2025-10-05 @tobiu added the `ai` label
-- 2025-10-05 @ksanjeev284 cross-referenced by PR #7374
-- 2025-10-05 @tobiu cross-referenced by #7367
-- 2025-10-05 @tobiu assigned to @kart-u
 - 2025-10-24 @tobiu closed this issue
 

@@ -24,7 +24,7 @@ blocking: []
 * Currently we are only checking if a row is inside the mounted range
 * While there is a memory overhead, it would be nice to check if inside the pre-load store state, the row (record id) was present
 
-## Activity Log
+## Timeline
 
 - 2025-03-09 @tobiu added the `enhancement` label
 - 2025-03-09 @tobiu added the `no auto close` label

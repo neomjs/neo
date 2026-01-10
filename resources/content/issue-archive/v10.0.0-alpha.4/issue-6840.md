@@ -25,7 +25,7 @@ closedAt: '2025-06-18T20:53:52Z'
 * VNodes get serialised to get passed via ´postMessage´, so there would be more iterations
 * Negligible from a performance perspective, but the main argument is purity
 
-## Activity Log
+## Timeline
 
 - 2025-06-18 @tobiu assigned to @tobiu
 - 2025-06-18 @tobiu added the `enhancement` label

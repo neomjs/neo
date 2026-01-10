@@ -23,7 +23,7 @@ closedAt: '2025-03-09T21:35:12Z'
 
 * plus a parent toolbar for both form fields
 
-## Activity Log
+## Timeline
 
 - 2025-03-09 @tobiu added the `enhancement` label
 - 2025-03-09 @tobiu assigned to @tobiu

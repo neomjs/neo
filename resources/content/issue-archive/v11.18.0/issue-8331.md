@@ -42,7 +42,7 @@ Including basic dimensions (width/height) helps immediately distinguish between 
 
 Reference: #8169 (Epic)
 
-## Activity Log
+## Timeline
 
 - 2026-01-05 @tobiu added the `enhancement` label
 - 2026-01-05 @tobiu added the `ai` label

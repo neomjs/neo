@@ -35,14 +35,20 @@ The goal of this ticket is to add high-quality, intent-driven documentation to t
 3.  Add descriptive JSDoc comments to each method (`createConfigurationComponents`, `createExampleComponent`, `logInstance`, `switchDirection`), explaining its purpose and parameters.
 4.  Use `src/core/Base.mjs` as a reference for high-quality, intent-driven JSDoc style.
 
-## Comments
+## Timeline
 
+- 2025-09-28 @tobiu added the `documentation` label
+- 2025-09-28 @tobiu added the `help wanted` label
+- 2025-09-28 @tobiu added the `good first issue` label
+- 2025-09-28 @tobiu added the `hacktoberfest` label
+- 2025-09-28 @tobiu added parent issue #7296
 ### @nikeshadhikari9 - 2025-09-29 09:09
 
 **Hi**, I have recently known and started writing JSDoc based comments with docdash theme for my personal projects and would be great If I could know more about the intent-driven JSDoc style from the existing comments from `src/core/Base.mjs` file and would love to contribute to write similar intent-driven JSDoc style comment to `examples/component/splitter/MainContainer.mjs` file.
 
 Could you please assign this documentation issue to me? I’d be happy to submit a PR with the updated comments.
 
+- 2025-09-29 @nikeshadhikari9 cross-referenced by #7299
 ### @tobiu - 2025-09-29 09:41
 
 Sure, and thanks for your interest! Hint: do not submit PRs before October 1, to ensure they count for the Hacktoberfest event.
@@ -55,6 +61,7 @@ https://github.com/neomjs/neo/blob/dev/.github/AI_QUICK_START.md
 
 While the task can be easily done manually, I encourage you to try out the new "AI Native" workflows.
 
+- 2025-09-29 @tobiu assigned to @nikeshadhikari9
 ### @nikeshadhikari9 - 2025-09-29 12:37
 
 Thank you for the advice, I will surely go through the both readme's and try to use the AI Native workflows.
@@ -90,15 +97,6 @@ Thanks for the heads up! Normally I would recommend to open a ticket (please do 
 
 There is a Slack & a Discord Channel posted inside the parent ticket, in case you prefer a more direct communication (e.g. for asking questions).
 
-## Activity Log
-
-- 2025-09-28 @tobiu added the `documentation` label
-- 2025-09-28 @tobiu added the `help wanted` label
-- 2025-09-28 @tobiu added the `good first issue` label
-- 2025-09-28 @tobiu added the `hacktoberfest` label
-- 2025-09-28 @tobiu added parent issue #7296
-- 2025-09-29 @nikeshadhikari9 cross-referenced by #7299
-- 2025-09-29 @tobiu assigned to @nikeshadhikari9
 - 2025-09-29 @tobiu referenced in commit `4b6a979` - "AI_QUICK_START.md: fixed the gemini cli installation path. thx for the heads-up! #7301"
 - 2025-10-01 @nikeshadhikari9 cross-referenced by PR #7313
 - 2025-10-01 @tobiu closed this issue

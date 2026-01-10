@@ -23,7 +23,7 @@ closedAt: '2025-01-14T23:46:30Z'
 
 * grid rows can no longer receive focus
 
-## Activity Log
+## Timeline
 
 - 2025-01-14 @tobiu added the `enhancement` label
 - 2025-01-14 @tobiu assigned to @tobiu

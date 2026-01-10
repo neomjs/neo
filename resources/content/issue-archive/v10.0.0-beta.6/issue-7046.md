@@ -54,7 +54,7 @@ The implementation relies on enhancements to `Neo.functional.component.Base`.
 -   **State Preservation:** Child component state (both internal `useConfig` state and public config state) is preserved across parent re-renders.
 -   **Rendering Isolation:** Parent and child components can update their DOM representations independently, leading to more efficient and targeted DOM manipulations.
 
-## Activity Log
+## Timeline
 
 - 2025-07-14 @tobiu assigned to @tobiu
 - 2025-07-14 @tobiu added the `enhancement` label

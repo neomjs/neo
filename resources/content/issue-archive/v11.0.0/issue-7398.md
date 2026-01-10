@@ -32,7 +32,7 @@ This sub-task is to update the command to a more robust, cross-platform syntax t
 
 1.  `AGENTS.md` is updated with a cross-platform compatible command for generating a UUID that is tested to work on Unix-like systems and Windows Command Prompt.
 
-## Activity Log
+## Timeline
 
 - 2025-10-07 @tobiu added the `bug` label
 - 2025-10-07 @tobiu added parent issue #7316

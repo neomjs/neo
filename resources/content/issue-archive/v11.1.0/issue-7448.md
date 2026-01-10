@@ -37,8 +37,12 @@ This is the highest priority task for the SEO epic, as it enables crawlers like 
     -   Listen for route changes.
     -   On route change, call the `HeadManager` addon's methods to update the title, meta description, and, most importantly, the canonical URL for the new route.
 
-## Comments
+## Timeline
 
+- 2025-10-10 @tobiu assigned to @tobiu
+- 2025-10-10 @tobiu added the `enhancement` label
+- 2025-10-10 @tobiu added the `ai` label
+- 2025-10-10 @tobiu added parent issue #7446
 ### @22Yash - 2025-10-17 14:36
 
 @tobiu I would like to work on this issue!
@@ -51,16 +55,11 @@ My plan is:
 
 Please assign this to me. Thank you!
 
+- 2025-11-11 @tobiu changed title from **Create HeadManager Addon with Canonical URL Support** to **Create DocumentHead Addon with Canonical URL Support**
 ### @tobiu - 2025-11-11 09:11
 
 @22Yash sorry, missed your comment. the v11 release was insane. since this was already last month, i will tackle this one on my own.
 
-## Activity Log
-
-- 2025-10-10 @tobiu assigned to @tobiu
-- 2025-10-10 @tobiu added the `enhancement` label
-- 2025-10-10 @tobiu added the `ai` label
-- 2025-10-10 @tobiu added parent issue #7446
 - 2025-11-11 @tobiu referenced in commit `0d13b56` - "#7448 base class"
 - 2025-11-11 @tobiu referenced in commit `6cd886c` - "#7448 class name"
 - 2025-11-11 @tobiu referenced in commit `9134cf4` - "#7448 getCanonical, getTag, setCanonical, setTag, Portal.view.ViewportController WIP"

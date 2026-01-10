@@ -44,8 +44,14 @@ The method should return an object containing (in addition to `component.Base` p
 This is part of the Neural Link serialization epic.
 
 
-## Comments
+## Timeline
 
+- 2025-12-31 @tobiu added the `enhancement` label
+- 2025-12-31 @tobiu added the `ai` label
+- 2025-12-31 @tobiu added the `architecture` label
+- 2025-12-31 @tobiu added parent issue #8200
+- 2025-12-31 @tobiu assigned to @tobiu
+- 2025-12-31 @tobiu referenced in commit `214d604` - "feat(button): Implement toJSON in button.Base (#8227)"
 ### @tobiu - 2025-12-31 13:36
 
 **Input from Gemini:**
@@ -64,13 +70,5 @@ This is part of the Neural Link serialization epic.
 > - `url`
 > - `urlTarget`
 
-## Activity Log
-
-- 2025-12-31 @tobiu added the `enhancement` label
-- 2025-12-31 @tobiu added the `ai` label
-- 2025-12-31 @tobiu added the `architecture` label
-- 2025-12-31 @tobiu added parent issue #8200
-- 2025-12-31 @tobiu assigned to @tobiu
-- 2025-12-31 @tobiu referenced in commit `214d604` - "feat(button): Implement toJSON in button.Base (#8227)"
 - 2025-12-31 @tobiu closed this issue
 

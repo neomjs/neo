@@ -31,7 +31,7 @@ Additionally, JSDoc comments for `iconCls_` and `position_` in `src/component/To
 * `src/dashboard/Container.mjs`
 * `src/grid/Container.mjs`
 
-## Activity Log
+## Timeline
 
 - 2025-10-02 @tobiu assigned to @tobiu
 - 2025-10-02 @tobiu added the `bug` label

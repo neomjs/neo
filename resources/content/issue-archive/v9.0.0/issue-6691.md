@@ -23,7 +23,7 @@ closedAt: '2025-05-02T21:01:15Z'
 
 * otherwise items might not get into the vnode, assuming that moving an existing item should always show it
 
-## Activity Log
+## Timeline
 
 - 2025-05-02 @tobiu added the `enhancement` label
 - 2025-05-02 @tobiu assigned to @tobiu

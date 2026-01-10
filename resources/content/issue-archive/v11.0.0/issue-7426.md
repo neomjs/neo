@@ -30,7 +30,7 @@ The following changes were made:
 
 2.  **Rewrote Outdated Introduction:** Section 1, which was written when the project was first released, has been completely rewritten. The new text removes outdated language ("just got released"), updates platform names (Twitter -> X), and adopts a more professional tone suitable for a mature open-source project.
 
-## Activity Log
+## Timeline
 
 - 2025-10-09 @tobiu assigned to @tobiu
 - 2025-10-09 @tobiu added the `documentation` label

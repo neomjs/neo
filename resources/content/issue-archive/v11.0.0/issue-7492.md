@@ -36,7 +36,7 @@ This ticket covers the refactoring of the GitHub Workflow MCP server to define t
 4.  All Express-related files (`index.mjs`, `app.mjs`, `config.mjs`, and the `routes` and `middleware` directories) are deleted.
 5.  The `ai:server-github-workflow-mcp` script in `package.json` is verified to work correctly with the refactored server.
 
-## Activity Log
+## Timeline
 
 - 2025-10-15 @tobiu assigned to @tobiu
 - 2025-10-15 @tobiu added parent issue #7477

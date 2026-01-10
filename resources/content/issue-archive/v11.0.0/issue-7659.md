@@ -47,7 +47,7 @@ The `openapi.yaml` file for each MCP server should become the single source of t
 2.  Ensure the `description` for every tool is comprehensive enough to not require external documentation.
 3.  Add rich, practical examples to the descriptions.
 
-## Activity Log
+## Timeline
 
 - 2025-10-26 @tobiu added the `documentation` label
 - 2025-10-26 @tobiu added the `enhancement` label

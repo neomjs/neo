@@ -23,7 +23,7 @@ closedAt: '2025-06-15T20:00:46Z'
 
 * Since the vdom worker now takes care of it, we no longer need the hack to check for leading comments inside Main.
 
-## Activity Log
+## Timeline
 
 - 2025-06-15 @tobiu assigned to @tobiu
 - 2025-06-15 @tobiu added parent issue #6785

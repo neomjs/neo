@@ -43,15 +43,13 @@ This ensures that listeners added imperatively via `on()` remain unaffected and 
 - All existing tests for `Observable` continue to pass.
 - (Optional but recommended) New unit tests are created to specifically verify the diffing logic in various scenarios (add, remove, update).
 
-## Comments
+## Timeline
 
+- 2025-07-22 @tobiu added the `enhancement` label
 ### @github-actions - 2025-10-21 02:46
 
 This issue is stale because it has been open for 90 days with no activity.
 
-## Activity Log
-
-- 2025-07-22 @tobiu added the `enhancement` label
 - 2025-10-21 @github-actions added the `stale` label
 - 2025-10-21 @tobiu removed the `stale` label
 - 2025-10-21 @tobiu added the `no auto close` label

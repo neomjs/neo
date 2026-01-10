@@ -23,7 +23,7 @@ closedAt: '2025-02-14T20:42:44Z'
 
 Convenience file for bulk imports
 
-## Activity Log
+## Timeline
 
 - 2025-02-14 @tobiu added the `enhancement` label
 - 2025-02-14 @tobiu assigned to @tobiu

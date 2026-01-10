@@ -25,8 +25,13 @@ closedAt: '2026-01-09T14:01:26Z'
 
 Consolidate the stable ID assignment logic (`id` and `__wrapper`) into a single method `ensureStableIds()` within `Neo.mixin.VdomLifecycle`. This method will be invoked during `initVnode()`, `updateVdom()`, and `afterSetId()` to ensure components always maintain globally unique and stable VDOM IDs, even if their `vdom` objects are replaced at runtime. This removes redundancy and prevents potential collisions in `ComponentManager.wrapperNodes`.
 
-## Comments
+## Timeline
 
+- 2026-01-09 @tobiu added the `ai` label
+- 2026-01-09 @tobiu added the `refactoring` label
+- 2026-01-09 @tobiu added the `core` label
+- 2026-01-09 @tobiu referenced in commit `5d069da` - "refactor: centralize and enforce stable VDOM IDs in VdomLifecycle (#8467)"
+- 2026-01-09 @tobiu assigned to @tobiu
 ### @tobiu - 2026-01-09 14:01
 
 **Input from Gemini 3 Pro:**
@@ -42,13 +47,6 @@ Consolidate the stable ID assignment logic (`id` and `__wrapper`) into a single 
 > 
 > Commit: 5d069da7a (#8467)
 
-## Activity Log
-
-- 2026-01-09 @tobiu added the `ai` label
-- 2026-01-09 @tobiu added the `refactoring` label
-- 2026-01-09 @tobiu added the `core` label
-- 2026-01-09 @tobiu referenced in commit `5d069da` - "refactor: centralize and enforce stable VDOM IDs in VdomLifecycle (#8467)"
-- 2026-01-09 @tobiu assigned to @tobiu
 - 2026-01-09 @tobiu closed this issue
 - 2026-01-09 @tobiu cross-referenced by #8469
 

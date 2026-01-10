@@ -59,7 +59,7 @@ The `buildScripts/ai/queryKnowledgeBase.mjs` script is a critical tool for the A
 -   `AGENTS.md` is updated with clear and accurate instructions on using the new feature.
 -   The `yargs` dependency is removed from the script.
 
-## Activity Log
+## Timeline
 
 - 2025-09-22 @tobiu assigned to @tobiu
 - 2025-09-22 @tobiu added the `enhancement` label

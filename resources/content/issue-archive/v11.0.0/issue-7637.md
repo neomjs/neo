@@ -50,7 +50,7 @@ Enhance `Neo.core.Base` to provide a standardized and reliable way to await the 
 
 This change will provide a clean, reusable, and framework-aligned solution for managing async initialization in Neo.mjs classes.
 
-## Activity Log
+## Timeline
 
 - 2025-10-25 @tobiu assigned to @tobiu
 - 2025-10-25 @tobiu added the `bug` label

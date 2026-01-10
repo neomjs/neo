@@ -22,7 +22,7 @@ closedAt: '2025-03-12T11:05:21Z'
 
 * Follow-up ticket on the effort to switch as much as possible to windowId
 
-## Activity Log
+## Timeline
 
 - 2025-03-12 @tobiu added the `enhancement` label
 - 2025-03-12 @tobiu referenced in commit `eaa716d` - "util.Css: switch from appName to windowId for the multi-window scope #6571"

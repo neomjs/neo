@@ -35,7 +35,7 @@ To improve code organization, maintainability, and consistency across the GitHub
 6.  `PullRequestService.mjs` is updated to import and use the queries from the new file.
 7.  The new query modules should export default limit variables (e.g., `DEFAULT_QUERY_LIMITS`) if applicable, sourcing values from the config to avoid magic numbers, similar to the pattern in `issueQueries.mjs`.
 
-## Activity Log
+## Timeline
 
 - 2025-10-22 @tobiu assigned to @tobiu
 - 2025-10-22 @tobiu added the `enhancement` label

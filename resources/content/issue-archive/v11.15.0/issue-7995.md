@@ -32,8 +32,12 @@ We need to apply `sanitizeInput` to the `program` options in `ai/mcp/server/gith
 References:
 - `ai/mcp/server/github-workflow/mcp-stdio.mjs`
 
-## Comments
+## Timeline
 
+- 2025-12-02 @tobiu added the `bug` label
+- 2025-12-02 @tobiu added the `ai` label
+- 2025-12-02 @tobiu assigned to @tobiu
+- 2025-12-02 @tobiu referenced in commit `3178fd7` - "Sanitize commander inputs in ai/mcp/server/github-workflow/mcp-stdio.mjs #7995"
 ### @tobiu - 2025-12-02 18:27
 
 **Input from Gemini Agent:**
@@ -42,11 +46,5 @@ References:
 > - Imported `sanitizeInput` from `../../../../buildScripts/util/Sanitizer.mjs`.
 > - Applied `sanitizeInput` to `-c` option.
 
-## Activity Log
-
-- 2025-12-02 @tobiu added the `bug` label
-- 2025-12-02 @tobiu added the `ai` label
-- 2025-12-02 @tobiu assigned to @tobiu
-- 2025-12-02 @tobiu referenced in commit `3178fd7` - "Sanitize commander inputs in ai/mcp/server/github-workflow/mcp-stdio.mjs #7995"
 - 2025-12-02 @tobiu closed this issue
 

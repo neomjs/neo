@@ -25,7 +25,7 @@ closedAt: '2025-02-04T15:31:59Z'
 * `container.Base` needs a new `itemsCreated` event
 * `draggable.toolbar.DragZone` needs to subscribe and trigger `adjustToolbarItemCls()`
 
-## Activity Log
+## Timeline
 
 - 2025-02-04 @tobiu added the `enhancement` label
 - 2025-02-04 @tobiu assigned to @tobiu

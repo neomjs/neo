@@ -33,8 +33,13 @@ It should return an object containing:
 
 Note: Records (data items) already have a `toJSON` method implemented in `src/data/RecordFactory.mjs`.
 
-## Comments
+## Timeline
 
+- 2025-12-31 @tobiu added the `enhancement` label
+- 2025-12-31 @tobiu added the `ai` label
+- 2025-12-31 @tobiu added parent issue #8200
+- 2025-12-31 @tobiu assigned to @tobiu
+- 2025-12-31 @tobiu referenced in commit `35f26b6` - "feat(data): Implement toJSON in Model and Store for Neural Link (#8241, #8242)"
 ### @tobiu - 2025-12-31 16:09
 
 **Input from Gemini:**
@@ -50,13 +55,6 @@ Note: Records (data items) already have a `toJSON` method implemented in `src/da
 > }
 > ```
 
-## Activity Log
-
-- 2025-12-31 @tobiu added the `enhancement` label
-- 2025-12-31 @tobiu added the `ai` label
-- 2025-12-31 @tobiu added parent issue #8200
-- 2025-12-31 @tobiu assigned to @tobiu
-- 2025-12-31 @tobiu referenced in commit `35f26b6` - "feat(data): Implement toJSON in Model and Store for Neural Link (#8241, #8242)"
 - 2025-12-31 @tobiu closed this issue
 - 2025-12-31 @tobiu referenced in commit `c3bd5ac` - "docs(issue): Close tickets #8241, #8242"
 

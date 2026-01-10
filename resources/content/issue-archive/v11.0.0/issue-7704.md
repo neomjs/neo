@@ -34,7 +34,7 @@ These methods should be updated to follow the pattern used by `loadModule`. They
 
 This change will significantly improve the developer experience for component testing by making worker-side errors immediately visible in the test results.
 
-## Activity Log
+## Timeline
 
 - 2025-11-04 @tobiu added the `enhancement` label
 - 2025-11-04 @tobiu added the `ai` label

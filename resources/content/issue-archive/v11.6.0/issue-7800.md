@@ -23,10 +23,11 @@ closedAt: '2025-11-19T02:04:02Z'
 
 no longer needed, since the middleware no longer passes counters.
 
-## Activity Log
+## Timeline
 
 - 2025-11-19 @tobiu assigned to @tobiu
 - 2025-11-19 @tobiu added the `enhancement` label
+- 2025-11-19 @tobiu changed title from **worker.Manager: createWorkers() => remove passing idCounter to the data worker** to **worker.Manager: createWorkers() => remove passing idCounter to the vdom worker**
 - 2025-11-19 @tobiu referenced in commit `ffa8ef6` - "worker.Manager: createWorkers() => remove passing idCounter to the vdom worker #7800"
 - 2025-11-19 @tobiu closed this issue
 

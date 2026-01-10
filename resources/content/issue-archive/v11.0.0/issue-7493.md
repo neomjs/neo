@@ -35,7 +35,7 @@ This ticket corrects that architectural error. We will reinstate the use of `ope
 5.  The `callTool` function will dynamically execute the correct service function based on the parsed tool definitions.
 6.  The `mcp-stdio.mjs` entry point will remain unchanged and will function correctly with the refactored `toolService`.
 
-## Activity Log
+## Timeline
 
 - 2025-10-15 @tobiu assigned to @tobiu
 - 2025-10-15 @tobiu added parent issue #7477

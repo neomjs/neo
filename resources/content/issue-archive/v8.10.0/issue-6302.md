@@ -23,16 +23,14 @@ closedAt: '2025-01-26T18:46:56Z'
 
 *(No description provided)*
 
-## Comments
-
-### @tobiu - 2025-01-26 18:46
-
-https://github.com/user-attachments/assets/7d59d48c-18dd-41a3-9661-9528fc92d0e0
-
-## Activity Log
+## Timeline
 
 - 2025-01-26 @tobiu added the `enhancement` label
 - 2025-01-26 @tobiu assigned to @tobiu
 - 2025-01-26 @tobiu referenced in commit `539cf29` - "selection.grid.ColumnModel: detach the logic from event paths #6302"
+### @tobiu - 2025-01-26 18:46
+
+https://github.com/user-attachments/assets/7d59d48c-18dd-41a3-9661-9528fc92d0e0
+
 - 2025-01-26 @tobiu closed this issue
 

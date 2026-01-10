@@ -37,7 +37,7 @@ The goal is to define a clear, structured API for the server's first iteration, 
 3.  The specification defines clear request and response schemas for each endpoint.
 4.  The initial draft is committed and pushed, allowing for further review and implementation.
 
-## Activity Log
+## Timeline
 
 - 2025-10-14 @tobiu assigned to @tobiu
 - 2025-10-14 @tobiu added the `enhancement` label

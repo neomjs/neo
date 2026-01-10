@@ -50,7 +50,7 @@ Instead, we have implemented a build script that:
 
 The generated files are placed in the `dist/` folder and are not committed to the repository.
 
-## Activity Log
+## Timeline
 
 - 2025-11-18 @tobiu added the `enhancement` label
 - 2025-11-18 @tobiu added the `dependencies` label

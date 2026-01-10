@@ -25,7 +25,7 @@ closedAt: '2025-05-02T16:11:26Z'
 * `bindCallback()` needs to get moved from `core.Observable` to `core.Base` (needed inside `manager.DomEvent` which is not observable.
 * `manager.DomEvent: fire()` needs to use `bindCallback()`
 
-## Activity Log
+## Timeline
 
 - 2025-05-02 @tobiu added the `enhancement` label
 - 2025-05-02 @tobiu assigned to @tobiu

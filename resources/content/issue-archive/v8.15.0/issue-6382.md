@@ -24,7 +24,7 @@ closedAt: '2025-02-05T16:01:52Z'
 * So far, the logic was only needed to check if the intersecting area was > 50% when dropping a dialog between 2 browser windows
 * However, to use it inside `main.addon.DragDrop`, we do need the real intersection rect
 
-## Activity Log
+## Timeline
 
 - 2025-02-05 @tobiu added the `enhancement` label
 - 2025-02-05 @tobiu assigned to @tobiu

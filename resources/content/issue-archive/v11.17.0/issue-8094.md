@@ -56,7 +56,7 @@ Instead of storing a separate array of data, we now tag each record with its ins
 *   **Maintainability:** Centralized index logic in `Collection.Base`, making it available to all collections, not just Stores.
 *   **Correctness:** Sorting reset now reliably updates the UI.
 
-## Activity Log
+## Timeline
 
 - 2025-12-11 @tobiu added the `bug` label
 - 2025-12-11 @tobiu added the `epic` label

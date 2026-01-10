@@ -39,7 +39,7 @@ This approach is clean, avoids `neo.mjs` dependency, and ensures the `debug` fla
 3.  If the `--debug` flag is present, the logger's output is enabled regardless of the `aiConfig.debug` setting.
 4.  The logger correctly reflects this overridden `debug` state.
 
-## Activity Log
+## Timeline
 
 - 2025-10-22 @tobiu assigned to @tobiu
 - 2025-10-22 @tobiu added the `enhancement` label

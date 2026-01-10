@@ -26,16 +26,14 @@ The `ai/examples/self-healing.mjs` script outputs a warning: "No embedding funct
 
 We need to update the `dummyEmbeddingFunction` to include the required properties (`name`, `getConfig`, and a static `buildFromConfig`) so that it is recognized as a valid embedding function and not treated as 'legacy', which triggers the warning.
 
-## Comments
-
-### @tobiu - 2025-11-21 10:19
-
-resolved via #7839.
-
-## Activity Log
+## Timeline
 
 - 2025-11-21 @tobiu added the `bug` label
 - 2025-11-21 @tobiu added the `ai` label
 - 2025-11-21 @tobiu assigned to @tobiu
+### @tobiu - 2025-11-21 10:19
+
+resolved via #7839.
+
 - 2025-11-21 @tobiu closed this issue
 

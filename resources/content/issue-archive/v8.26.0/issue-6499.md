@@ -25,18 +25,17 @@ closedAt: '2025-02-26T19:51:06Z'
 * Nothing bad will happen, since they stay at the same spot (no-op)
 * But still, those deltas should not exist in the first place, which we can resolve via enhancing the same node check
 
-## Comments
-
-### @tobiu - 2025-02-26 19:49
-
-I need to reopen this one, since the new check needs to exclude non-set componentId flags (both sides undefined)
-
-## Activity Log
+## Timeline
 
 - 2025-02-26 @tobiu added the `bug` label
 - 2025-02-26 @tobiu assigned to @tobiu
 - 2025-02-26 @tobiu referenced in commit `2585b12` - "vdom.Helper: createDeltas() => same node check via compentId flag #6499"
 - 2025-02-26 @tobiu closed this issue
+### @tobiu - 2025-02-26 19:49
+
+I need to reopen this one, since the new check needs to exclude non-set componentId flags (both sides undefined)
+
+- 2025-02-26 @tobiu reopened this issue
 - 2025-02-26 @tobiu referenced in commit `f494eb9` - "vdom.Helper: createDeltas() => same node check via componentId flag #6499"
 - 2025-02-26 @tobiu closed this issue
 

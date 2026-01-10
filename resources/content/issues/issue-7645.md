@@ -29,7 +29,7 @@ This epic tracks the architectural refactoring of the `SyncService` to improve i
 
 The current `SyncService` is monolithic, has a bloated metadata file, and needs to be broken down before new features like PR syncing can be added cleanly.
 
-## Activity Log
+## Timeline
 
 - 2025-10-25 @tobiu added the `epic` label
 - 2025-10-25 @tobiu added the `ai` label

@@ -24,12 +24,16 @@ closedAt: '2025-01-15T02:28:59Z'
 
 *(No description provided)*
 
-## Comments
+## Timeline
 
+- 2024-06-21 @tobiu added the `enhancement` label
+- 2024-06-21 @tobiu added the `good first issue` label
 ### @github-actions - 2024-09-20 02:30
 
 This issue is stale because it has been open for 90 days with no activity.
 
+- 2024-09-20 @github-actions added the `stale` label
+- 2024-09-29 @TheCoderAdi cross-referenced by PR #5978
 ### @TheCoderAdi - 2024-09-29 05:49
 
 Hello , I have added a pull request for it , Please review the changes and add a label for hacktoberfest2024
@@ -79,6 +83,8 @@ On Sun, Sep 29, 2024, 4:41 PM Tobias Uhlig ***@***.***> wrote:
 >
 
 
+- 2024-09-30 @github-actions removed the `stale` label
+- 2024-10-01 @TheCoderAdi cross-referenced by PR #5995
 ### @TheCoderAdi - 2024-10-01 05:03
 
 I hope you're doing well! Since Hacktoberfest has officially started, I wanted to kindly request if you could merge the pull request I recently submitted. This will allow the contribution to count towards the event, and I'd be thrilled to see it make a positive impact.
@@ -89,18 +95,10 @@ Thank you for your time and support!
 
 This issue is stale because it has been open for 90 days with no activity.
 
+- 2024-12-31 @github-actions added the `stale` label
 ### @github-actions - 2025-01-15 02:28
 
 This issue was closed because it has been inactive for 14 days since being marked as stale.
 
-## Activity Log
-
-- 2024-06-21 @tobiu added the `enhancement` label
-- 2024-06-21 @tobiu added the `good first issue` label
-- 2024-09-20 @github-actions added the `stale` label
-- 2024-09-29 @TheCoderAdi cross-referenced by PR #5978
-- 2024-09-30 @github-actions removed the `stale` label
-- 2024-10-01 @TheCoderAdi cross-referenced by PR #5995
-- 2024-12-31 @github-actions added the `stale` label
 - 2025-01-15 @github-actions closed this issue
 

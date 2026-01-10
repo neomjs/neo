@@ -27,7 +27,7 @@ closedAt: '2025-02-06T09:43:40Z'
 * It would be nicer, if the scrolling continues as long as we drag & are outside the zone
 * Technically speaking: `onDragMove()` needs to call itself again in this case
 
-## Activity Log
+## Timeline
 
 - 2025-02-06 @tobiu added the `enhancement` label
 - 2025-02-06 @tobiu assigned to @tobiu

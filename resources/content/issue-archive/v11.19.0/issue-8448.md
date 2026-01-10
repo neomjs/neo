@@ -30,7 +30,7 @@ Refine terminology in `learn/comparisons/NeoVsAngular.md` to avoid awkward label
 - Replace "Both **systems** provide" with "Both **solutions** provide".
 - Replace "Both **frameworks** promote" with "Both **architectures** promote".
 
-## Activity Log
+## Timeline
 
 - 2026-01-08 @tobiu added the `documentation` label
 - 2026-01-08 @tobiu added the `enhancement` label

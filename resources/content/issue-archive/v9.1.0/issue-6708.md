@@ -24,7 +24,7 @@ closedAt: '2025-05-13T11:50:37Z'
 * Currently `offsetHeight` and `offsetWidth` only gets pulled from main once a mount operation happens.
 * This is not sufficient for resizing the component, where we want to ensure that expanding an item always results in using the top-left corner.
 
-## Activity Log
+## Timeline
 
 - 2025-05-13 @tobiu added the `enhancement` label
 - 2025-05-13 @tobiu assigned to @tobiu

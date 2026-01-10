@@ -45,17 +45,15 @@ This will serve as a clear, practical guide for developers on how to structure c
 -   The top-level component's state drives changes in the deeply nested children.
 -   The example is clean, well-documented, and easy to understand.
 
-## Comments
-
-### @github-actions - 2025-10-13 02:49
-
-This issue is stale because it has been open for 90 days with no activity.
-
-## Activity Log
+## Timeline
 
 - 2025-07-14 @tobiu assigned to @tobiu
 - 2025-07-14 @tobiu added the `enhancement` label
 - 2025-07-14 @tobiu added parent issue #6992
+### @github-actions - 2025-10-13 02:49
+
+This issue is stale because it has been open for 90 days with no activity.
+
 - 2025-10-13 @github-actions added the `stale` label
 - 2025-10-24 @tobiu removed the `stale` label
 - 2025-10-24 @tobiu added the `no auto close` label

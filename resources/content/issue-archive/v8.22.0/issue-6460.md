@@ -25,12 +25,13 @@ closedAt: '2025-02-17T14:09:46Z'
 * `visibleRows` excludes the bufferRowRange
 * We need both for the selection models, especially row based ones
 
-## Activity Log
+## Timeline
 
 - 2025-02-17 @tobiu added the `enhancement` label
 - 2025-02-17 @tobiu assigned to @tobiu
 - 2025-02-17 @tobiu referenced in commit `67899ee` - "grid.View: mountedRows, visibleRows configs #6460"
 - 2025-02-17 @tobiu closed this issue
+- 2025-02-17 @tobiu reopened this issue
 - 2025-02-17 @tobiu referenced in commit `ba1be8d` - "#6460 docs cleanup"
 - 2025-02-17 @tobiu closed this issue
 

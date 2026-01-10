@@ -48,7 +48,7 @@ return { result: stdout };
 
 This will align the service's output with the tool's schema, resolving the validation error.
 
-## Activity Log
+## Timeline
 
 - 2025-10-22 @tobiu assigned to @tobiu
 - 2025-10-22 @tobiu added the `bug` label

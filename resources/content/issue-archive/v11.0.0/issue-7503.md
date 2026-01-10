@@ -32,7 +32,7 @@ This ticket covers the initial scaffolding of the new AI Knowledge Base MCP serv
 4.  A `toolService.mjs` file is created within `services/`, containing placeholder `listTools` and `callTool` functions.
 5.  An entry for the server is added to `.gemini/settings.json` to register it with the CLI.
 
-## Activity Log
+## Timeline
 
 - 2025-10-16 @tobiu assigned to @tobiu
 - 2025-10-16 @tobiu added parent issue #7501

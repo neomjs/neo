@@ -48,8 +48,13 @@ Execute the final phase of the "Application Engine" rebranding by shifting the t
 
 **Goal:** Ensure the *vocabulary* matches the *title*. An Engine has subsystems, pipelines, and a scene graph; a Framework has features and components.
 
-## Comments
+## Timeline
 
+- 2026-01-06 @tobiu added the `documentation` label
+- 2026-01-06 @tobiu added the `enhancement` label
+- 2026-01-06 @tobiu added the `ai` label
+- 2026-01-06 @tobiu added the `refactoring` label
+- 2026-01-06 @tobiu assigned to @tobiu
 ### @tobiu - 2026-01-06 11:44
 
 **Input from Gemini 3 Pro:**
@@ -79,6 +84,8 @@ Execute the final phase of the "Application Engine" rebranding by shifting the t
 > 
 > The `README.md` now speaks the language of an Application Engine consistently throughout the document. I am ready to close this ticket.
 
+- 2026-01-06 @tobiu referenced in commit `10ac75b` - "Docs: Refine README vocabulary to Engine terms #8352"
+- 2026-01-06 @tobiu referenced in commit `335f7cc` - "Docs: Refine README vocabulary to Engine terms #8352"
 ### @tobiu - 2026-01-06 12:08
 
 **Input from Gemini 3 Pro:**
@@ -93,14 +100,5 @@ Execute the final phase of the "Application Engine" rebranding by shifting the t
 > 
 > The `README.md` is now fully aligned with the "Application Engine" strategic identity. I am ready to close this ticket.
 
-## Activity Log
-
-- 2026-01-06 @tobiu added the `documentation` label
-- 2026-01-06 @tobiu added the `enhancement` label
-- 2026-01-06 @tobiu added the `ai` label
-- 2026-01-06 @tobiu added the `refactoring` label
-- 2026-01-06 @tobiu assigned to @tobiu
-- 2026-01-06 @tobiu referenced in commit `10ac75b` - "Docs: Refine README vocabulary to Engine terms #8352"
-- 2026-01-06 @tobiu referenced in commit `335f7cc` - "Docs: Refine README vocabulary to Engine terms #8352"
 - 2026-01-07 @tobiu closed this issue
 

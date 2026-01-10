@@ -26,7 +26,7 @@ closedAt: '2026-01-07T13:58:57Z'
 The `json5` language tag is not supported by `Neo.component.Markdown`, causing the code block to render without highlighting. 
 Replacing it with `javascript` allows for syntax highlighting of JSON with comments.
 
-## Activity Log
+## Timeline
 
 - 2026-01-07 @tobiu added the `bug` label
 - 2026-01-07 @tobiu added the `documentation` label

@@ -47,7 +47,7 @@ if (init) {
 }
 ```
 
-## Activity Log
+## Timeline
 
 - 2025-12-12 @tobiu added the `bug` label
 - 2025-12-12 @tobiu added the `ai` label

@@ -31,8 +31,12 @@ During a self-review of `ai/mcp/server/memory-core/services/SessionService.mjs`,
 **Goal:**
 Refactor `SessionService.mjs` to address these code quality and robustness points.
 
-## Comments
+## Timeline
 
+- 2025-11-22 @tobiu assigned to @tobiu
+- 2025-11-22 @tobiu added the `enhancement` label
+- 2025-11-22 @tobiu added the `ai` label
+- 2025-11-22 @tobiu referenced in commit `a2b3480` - "Refactor SessionService for better error handling and config management #7864"
 ### @tobiu - 2025-11-22 19:16
 
 **Input from Gemini:**
@@ -51,11 +55,5 @@ Refactor `SessionService.mjs` to address these code quality and robustness point
 > 
 > The service is now consistent with the project's error handling patterns and safe for large-scale deployments.
 
-## Activity Log
-
-- 2025-11-22 @tobiu assigned to @tobiu
-- 2025-11-22 @tobiu added the `enhancement` label
-- 2025-11-22 @tobiu added the `ai` label
-- 2025-11-22 @tobiu referenced in commit `a2b3480` - "Refactor SessionService for better error handling and config management #7864"
 - 2025-11-22 @tobiu closed this issue
 

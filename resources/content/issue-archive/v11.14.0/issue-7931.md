@@ -58,7 +58,7 @@ To achieve true decoupling and enable agents to use *any* MCP server (not just o
 *   `@modelcontextprotocol/sdk`
 
 
-## Activity Log
+## Timeline
 
 - 2025-11-29 @tobiu added the `epic` label
 - 2025-11-29 @tobiu added the `ai` label

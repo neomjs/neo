@@ -23,7 +23,7 @@ closedAt: '2025-01-14T22:54:18Z'
 
 relict from the table implementation
 
-## Activity Log
+## Timeline
 
 - 2025-01-14 @tobiu added the `enhancement` label
 - 2025-01-14 @tobiu assigned to @tobiu

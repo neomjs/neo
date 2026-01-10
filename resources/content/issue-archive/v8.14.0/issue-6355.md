@@ -23,7 +23,7 @@ closedAt: '2025-02-03T10:18:31Z'
 
 We already have `addCls()`, so this convenience shortcut seems helpful.
 
-## Activity Log
+## Timeline
 
 - 2025-02-03 @tobiu added the `enhancement` label
 - 2025-02-03 @tobiu assigned to @tobiu

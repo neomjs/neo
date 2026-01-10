@@ -37,7 +37,7 @@ Modify `src/worker/App.mjs`:
 
 This ensures compatibility with the `Manager`'s logic and supports the convenient single-object syntax used throughout the codebase.
 
-## Activity Log
+## Timeline
 
 - 2025-12-17 @tobiu added the `bug` label
 - 2025-12-17 @tobiu added the `ai` label

@@ -39,7 +39,7 @@ Enable live dragging for the Swarm View (Blackboard) so that the canvas connecti
 
 **Note:** This is a proof-of-concept verification for the new `DragProxyContainer` architecture.
 
-## Activity Log
+## Timeline
 
 - 2025-12-07 @tobiu added the `enhancement` label
 - 2025-12-07 @tobiu added the `ai` label

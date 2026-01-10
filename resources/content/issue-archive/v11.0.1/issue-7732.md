@@ -44,7 +44,7 @@ The local issue file is not moved. The sync logic appears to skip re-evaluating 
 
 The bug is likely within the `IssueSyncer` service. The current logic prioritizes content hash checking over location validation. The logic needs to be refactored to ensure that for every issue pulled from GitHub, its correct local path (active vs. archived) is determined based on its milestone, and the local file is moved if its current path does not match the expected path. This location check must happen independently of the content sync check.
 
-## Activity Log
+## Timeline
 
 - 2025-11-09 @tobiu added the `bug` label
 - 2025-11-09 @tobiu added the `ai` label

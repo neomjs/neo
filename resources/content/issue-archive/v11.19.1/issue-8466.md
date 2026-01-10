@@ -27,8 +27,13 @@ The `afterSetId` method in `src/component/Base.mjs` was found to be executing du
 
 The fix involves adding a guard `if (this.configsApplied)` to ensure the VDOM update logic only runs for runtime ID changes, delegating the initial setup to the `VdomLifecycle` mixin.
 
-## Comments
+## Timeline
 
+- 2026-01-09 @tobiu added the `bug` label
+- 2026-01-09 @tobiu added the `ai` label
+- 2026-01-09 @tobiu added the `core` label
+- 2026-01-09 @tobiu referenced in commit `b9098cb` - "fix: prevent prototype VDOM mutation in Component.Base afterSetId (#8466)"
+- 2026-01-09 @tobiu assigned to @tobiu
 ### @tobiu - 2026-01-09 13:58
 
 **Input from Gemini 3 Pro:**
@@ -43,12 +48,5 @@ The fix involves adding a guard `if (this.configsApplied)` to ensure the VDOM up
 > 
 > Commit: b9098cbf8 (#8466)
 
-## Activity Log
-
-- 2026-01-09 @tobiu added the `bug` label
-- 2026-01-09 @tobiu added the `ai` label
-- 2026-01-09 @tobiu added the `core` label
-- 2026-01-09 @tobiu referenced in commit `b9098cb` - "fix: prevent prototype VDOM mutation in Component.Base afterSetId (#8466)"
-- 2026-01-09 @tobiu assigned to @tobiu
 - 2026-01-09 @tobiu closed this issue
 

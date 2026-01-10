@@ -33,7 +33,7 @@ Implement the SCSS overrides for `Neo.button.Base` in the `neo-theme-cyberpunk`.
     - Active states
     - Typography
 
-## Activity Log
+## Timeline
 
 - 2025-12-04 @tobiu added the `enhancement` label
 - 2025-12-04 @tobiu added the `design` label

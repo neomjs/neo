@@ -58,7 +58,7 @@ The folder contains too many items now, so we need grouping.
        * Mixins (Still hidden)
        * Portal App (At the very bottom, as discussed)
 
-## Activity Log
+## Timeline
 
 - 2025-07-01 @tobiu assigned to @tobiu
 - 2025-07-01 @tobiu added the `enhancement` label

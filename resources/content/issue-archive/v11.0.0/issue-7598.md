@@ -38,7 +38,7 @@ This task is to update all server-side modules to import from their respective n
 3.  All modules within `ai/mcp/server/memory-core/` that previously imported `../../config.mjs` are updated to import `./config.mjs`.
 4.  The old `ai/mcp/server/config.mjs` file is deleted.
 
-## Activity Log
+## Timeline
 
 - 2025-10-22 @tobiu assigned to @tobiu
 - 2025-10-22 @tobiu added parent issue #7590

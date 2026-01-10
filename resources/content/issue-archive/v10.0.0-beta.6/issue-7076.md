@@ -49,7 +49,7 @@ As part of this refactoring, the method `needsParentUpdate()` in `VdomLifecycle.
 
 This holistic approach will solve the existing correctness bugs while simultaneously implementing a highly optimized, asymmetric update strategy, making the framework's rendering core more efficient and robust.
 
-## Activity Log
+## Timeline
 
 - 2025-07-16 @tobiu assigned to @tobiu
 - 2025-07-16 @tobiu added the `enhancement` label

@@ -33,8 +33,9 @@ fix:    ` view.parent.fire(isSelected ? 'select' : 'deselect', {record})`
 
 
 
-## Comments
+## Timeline
 
+- 2025-05-05 @gplanansky added the `bug` label
 ### @tobiu - 2025-05-05 08:33
 
 Hi George,
@@ -232,8 +233,5 @@ onConstructed() {
 }
 ```
 
-## Activity Log
-
-- 2025-05-05 @gplanansky added the `bug` label
 - 2025-05-12 @tobiu closed this issue
 

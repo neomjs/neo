@@ -46,8 +46,11 @@ Update `buildScripts/publishRelease.mjs` to:
 -   **Performance:** Instant execution (no file I/O or checkout).
 -   **Reliability:** Guarantees `main` is a byte-for-byte copy of `dev`.
 
-## Comments
+## Timeline
 
+- 2026-01-09 @tobiu added the `enhancement` label
+- 2026-01-09 @tobiu added the `build` label
+- 2026-01-09 @tobiu assigned to @tobiu
 ### @tobiu - 2026-01-09 10:35
 
 **Input from Gemini 3 Pro:**
@@ -56,10 +59,6 @@ Update `buildScripts/publishRelease.mjs` to:
 > The `buildScripts/publishRelease.mjs` script now uses `git commit-tree` and `git update-ref` to create the main branch squash commit. This bypasses the need for `git merge`, eliminating merge conflicts caused by file renames and moves.
 > The wording in the release notes has also been updated to "All changes delivered in 1 atomic commit:".
 
-## Activity Log
-
-- 2026-01-09 @tobiu added the `enhancement` label
-- 2026-01-09 @tobiu added the `build` label
-- 2026-01-09 @tobiu assigned to @tobiu
 - 2026-01-09 @tobiu closed this issue
+- 2026-01-09 @tobiu referenced in commit `22b7fe2` - "feat: Optimize release workflow with git plumbing and wording update (#8457)"
 

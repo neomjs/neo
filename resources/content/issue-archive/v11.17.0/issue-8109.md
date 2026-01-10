@@ -45,7 +45,7 @@ The `LegitService.writeFile` method was refactored to use a config object, but t
     - Update `onSaveButtonClick` to use `{data, path}`.
 
 
-## Activity Log
+## Timeline
 
 - 2025-12-13 @tobiu added the `bug` label
 - 2025-12-13 @tobiu added the `enhancement` label

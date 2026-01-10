@@ -43,7 +43,7 @@ This ticket proposes to refactor `buildScripts/generate-seo-files.mjs` to use th
 -   All existing command-line options are supported and function as before.
 -   The script's output and behavior are unchanged when invoked with the same arguments.
 
-## Activity Log
+## Timeline
 
 - 2025-11-11 @tobiu assigned to @tobiu
 - 2025-11-11 @tobiu added the `enhancement` label

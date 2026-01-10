@@ -39,8 +39,14 @@ While our primary workflow will be local-first, any contributor can still create
 6.  For each missing one, it should use `gh issue view <ID>` to get the title and body.
 7.  It will then create a new local markdown file (e.g., `.github/ISSUE/gh-<ID>-<title>.md`) using the refactored utility functions to ensure consistent formatting.
 
-## Comments
+## Timeline
 
+- 2025-10-05 @tobiu added the `enhancement` label
+- 2025-10-05 @tobiu added the `help wanted` label
+- 2025-10-05 @tobiu added parent issue #7364
+- 2025-10-05 @tobiu added the `good first issue` label
+- 2025-10-05 @tobiu added the `hacktoberfest` label
+- 2025-10-05 @tobiu added the `ai` label
 ### @nabeel001 - 2025-10-05 13:15
 
 Hi @tobiu 
@@ -88,6 +94,7 @@ More Input from Gemini:
 >   Recommendation:
 >   We can leave the ticket as is. It's ready for an enterprising contributor who is comfortable with the GitHub CLI, but we should not expect the work to begin until the Phase 1 authentication ticket is complete.
 
+- 2025-10-05 @tobiu assigned to @nabeel001
 ### @LemonDrop847 - 2025-10-05 15:51
 
 hey @tobiu i believe this is almost exactly the same as #7368 or are there some other goals with this?
@@ -98,20 +105,11 @@ there is a similarity, but a different use case: we will need the create script,
 
 the benefit of the md files: we drop them into chromaDB (the ai knowledge base), so gemini can use it to query for tickets based on vector distances more easily.
 
+- 2025-10-09 @nabeel001 cross-referenced by PR #7424
 ### @nabeel001 - 2025-10-09 05:07
 
 Hi @tobiu 
 I have created the script to sync new gitHub issues to local markdown files. Kindly verify and merge the PR.
 
-## Activity Log
-
-- 2025-10-05 @tobiu added the `enhancement` label
-- 2025-10-05 @tobiu added the `help wanted` label
-- 2025-10-05 @tobiu added parent issue #7364
-- 2025-10-05 @tobiu added the `good first issue` label
-- 2025-10-05 @tobiu added the `hacktoberfest` label
-- 2025-10-05 @tobiu added the `ai` label
-- 2025-10-05 @tobiu assigned to @nabeel001
-- 2025-10-09 @nabeel001 cross-referenced by PR #7424
 - 2025-10-09 @tobiu closed this issue
 

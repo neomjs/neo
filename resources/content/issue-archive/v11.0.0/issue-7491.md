@@ -34,7 +34,7 @@ This ticket covers the work to replace the Express server with a proper MCP-comp
 4.  The `.gemini/settings.json` file is updated to correctly configure the `neo-github-workflow` MCP server, ensuring the `command` and `args` point to the new npm script.
 5.  The old Express server file (`index.mjs` and related files like `app.mjs` if they are no longer needed) should be reviewed for deprecation or removal.
 
-## Activity Log
+## Timeline
 
 - 2025-10-15 @tobiu assigned to @tobiu
 - 2025-10-15 @tobiu added parent issue #7477

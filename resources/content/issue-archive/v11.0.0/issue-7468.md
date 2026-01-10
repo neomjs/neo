@@ -34,7 +34,7 @@ The current location for the memory server's spec (`buildScripts/mcp/memory/open
 2.  The original file at `buildScripts/mcp/memory/openapi.yaml` must be deleted.
 3.  The directory `buildScripts/mcp/memory/` should be removed if it becomes empty after the move.
 
-## Activity Log
+## Timeline
 
 - 2025-10-12 @tobiu assigned to @tobiu
 - 2025-10-12 @tobiu added the `enhancement` label

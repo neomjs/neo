@@ -39,7 +39,7 @@ With the configuration now based on a `syncStartDate`, the `SyncService` must be
 -   Eliminates the need for manual configuration updates when a new version is released.
 -   Ensures the service has an accurate, up-to-date list of all relevant releases.
 
-## Activity Log
+## Timeline
 
 - 2025-10-20 @tobiu assigned to @tobiu
 - 2025-10-20 @tobiu added the `enhancement` label

@@ -37,7 +37,7 @@ The previous implementation was less strict about type checking, which led to th
 **Additional context**
 This enhancement improves the reliability and predictability of the config merging process within the Neo.mjs framework, ensuring that `shallow` and `deep` merges are only performed on appropriate data types.
 
-## Activity Log
+## Timeline
 
 - 2025-07-04 @tobiu assigned to @tobiu
 - 2025-07-04 @tobiu added the `enhancement` label

@@ -31,7 +31,7 @@ closedAt: '2025-07-10T12:15:38Z'
 
 Since this is not directly related to the neo core, other interested devs could jump in on this one.
 
-## Activity Log
+## Timeline
 
 - 2025-06-24 @tobiu added the `bug` label
 - 2025-06-24 @tobiu added the `enhancement` label

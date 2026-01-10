@@ -25,7 +25,7 @@ closedAt: '2025-01-24T14:24:06Z'
 * it is not in use anywhere
 
 
-## Activity Log
+## Timeline
 
 - 2025-01-24 @tobiu added the `enhancement` label
 - 2025-01-24 @tobiu assigned to @tobiu

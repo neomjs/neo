@@ -29,7 +29,7 @@ The current `README.md` creates confusion about the best place to seek community
 3.  List Slack second, describing it as an option for real-time chat and explicitly mentioning that its message history is temporary.
 4.  Remove the old, redundant "Join the Community" section from the bottom of the `README.md`.
 
-## Activity Log
+## Timeline
 
 - 2025-09-30 @tobiu assigned to @tobiu
 - 2025-09-30 @tobiu added the `enhancement` label

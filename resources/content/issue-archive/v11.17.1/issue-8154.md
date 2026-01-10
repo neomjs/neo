@@ -31,17 +31,15 @@ We need to ensure the following apps are whitelisted in the npm package:
 Also, we should remove outdated entries like `apps/krausest` and update the local AI knowledge base paths to match `.gitignore`.
 
 
-## Comments
-
-### @tobiu - 2025-12-21 21:15
-
-Fixed in commit 11b1fd19b: synced .npmignore with .gitignore
-
-## Activity Log
+## Timeline
 
 - 2025-12-21 @tobiu added the `bug` label
 - 2025-12-21 @tobiu added the `ai` label
 - 2025-12-21 @tobiu assigned to @tobiu
 - 2025-12-21 @tobiu referenced in commit `11b1fd1` - "sync .npmignore with .gitignore #8154"
+### @tobiu - 2025-12-21 21:15
+
+Fixed in commit 11b1fd19b: synced .npmignore with .gitignore
+
 - 2025-12-21 @tobiu closed this issue
 

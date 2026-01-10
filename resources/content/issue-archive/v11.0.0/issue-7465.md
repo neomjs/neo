@@ -69,7 +69,7 @@ To work on this ticket, please start your session with the following prompt:
 >
 > You will need to read the ticket `.github/ISSUE/ticket-hacktoberfest-implement-memory-protocol-fix.md` and the report file at `.github/ISSUE/ai-memory-core-assistant-save-failure.md` before we begin.
 
-## Activity Log
+## Timeline
 
 - 2025-10-11 @tobiu assigned to @tobiu
 - 2025-10-11 @tobiu added the `enhancement` label

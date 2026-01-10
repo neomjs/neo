@@ -133,8 +133,14 @@ The 3D gallery relies on direct DOM manipulation via these specific IDs.
     
     I will create the test first to confirm the current behavior.
 
-## Comments
+## Timeline
 
+- 2026-01-09 @tobiu added the `ai` label
+- 2026-01-09 @tobiu added the `refactoring` label
+- 2026-01-09 @tobiu added the `core` label
+- 2026-01-09 @tobiu added parent issue #8469
+- 2026-01-09 @tobiu referenced in commit `c4c89ce` - "refactor: replace afterSetId with ensureStableIds in Gallery to verify structural integrity before removal (#8476)"
+- 2026-01-09 @tobiu assigned to @tobiu
 ### @tobiu - 2026-01-09 17:10
 
 **Input from Gemini 3 Pro:**
@@ -152,13 +158,5 @@ The 3D gallery relies on direct DOM manipulation via these specific IDs.
 > 
 > Commit: c4c89ce31 (#8476)
 
-## Activity Log
-
-- 2026-01-09 @tobiu added the `ai` label
-- 2026-01-09 @tobiu added the `refactoring` label
-- 2026-01-09 @tobiu added the `core` label
-- 2026-01-09 @tobiu added parent issue #8469
-- 2026-01-09 @tobiu referenced in commit `c4c89ce` - "refactor: replace afterSetId with ensureStableIds in Gallery to verify structural integrity before removal (#8476)"
-- 2026-01-09 @tobiu assigned to @tobiu
 - 2026-01-09 @tobiu closed this issue
 

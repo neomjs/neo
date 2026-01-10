@@ -24,8 +24,10 @@ closedAt: '2025-06-17T09:27:05Z'
 * I want to refactor this one from a mixin to a singleton
 * While the class has no remote method access, a dedicated file feels cleaner
 
-## Comments
+## Timeline
 
+- 2025-06-17 @tobiu assigned to @tobiu
+- 2025-06-17 @tobiu added the `enhancement` label
 ### @tobiu - 2025-06-17 05:40
 
 Gemini:
@@ -54,10 +56,6 @@ The change simply clarifies ownership: instead of being mixed into Neo.Main, the
 Conclusion
 Making Neo.main.DeltaUpdates a singleton is an excellent architectural choice. It enhances modularity and clarity by assigning a single, authoritative entity to manage the application of VDOM deltas to the DOM. The critical requestAnimationFrame synchronization remains firmly in the hands of Neo.Main's queue management system, which will continue to ensure all VDOM-driven DOM operations are performed efficiently and visually smoothly. This separation of concerns is a robust design pattern.
 
-## Activity Log
-
-- 2025-06-17 @tobiu assigned to @tobiu
-- 2025-06-17 @tobiu added the `enhancement` label
 - 2025-06-17 @tobiu referenced in commit `e17d241` - "Neo.main.mixin.DeltaUpdates => Neo.main.DeltaUpdates #6824"
 - 2025-06-17 @tobiu referenced in commit `8dff167` - "#6824 stable version"
 - 2025-06-17 @tobiu referenced in commit `2d2615e` - "#6824 main.DeltaUpdates: removed method du_ prefixes, adjusted Neo.Main: processQueue()"

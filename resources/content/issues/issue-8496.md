@@ -49,8 +49,13 @@ For the Service Worker, a "worker" (destination) is available if:
 2. We have a connected client or port for it.
 
 
-## Comments
+## Timeline
 
+- 2026-01-10 @tobiu added the `bug` label
+- 2026-01-10 @tobiu added the `ai` label
+- 2026-01-10 @tobiu added the `core` label
+- 2026-01-10 @tobiu assigned to @tobiu
+- 2026-01-10 @tobiu referenced in commit `3e6aece` - "fix: Implement hasWorker() in ServiceBase to allow initRemote calls (#8496)"
 ### @tobiu - 2026-01-10 11:19
 
 **Input from tobiu:**
@@ -67,12 +72,5 @@ For the Service Worker, a "worker" (destination) is available if:
 > 
 > This fix ensures that `initRemote()` calls within the Service Worker context no longer throw `TypeError: origin.hasWorker is not a function`.
 
-## Activity Log
-
-- 2026-01-10 @tobiu added the `bug` label
-- 2026-01-10 @tobiu added the `ai` label
-- 2026-01-10 @tobiu added the `core` label
-- 2026-01-10 @tobiu assigned to @tobiu
-- 2026-01-10 @tobiu referenced in commit `3e6aece` - "fix: Implement hasWorker() in ServiceBase to allow initRemote calls (#8496)"
 - 2026-01-10 @tobiu closed this issue
 

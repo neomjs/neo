@@ -27,7 +27,7 @@ there is one example for "overriding ancestor configs", but placed below other h
 
 ![Screenshot 2024-08-06 at 09 01 38](https://github.com/user-attachments/assets/cf64eb82-8a0a-4ae5-85c7-df8426504e11)
 
-## Activity Log
+## Timeline
 
 - 2024-08-06 @tobiu added the `enhancement` label
 - 2024-08-06 @tobiu assigned to @maxrahder

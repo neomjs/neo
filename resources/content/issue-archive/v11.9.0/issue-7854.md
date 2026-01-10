@@ -37,7 +37,7 @@ The current guide `@learn/guides/mcp/KnowledgeBase.md` needs to be updated to re
 4.  Add details about the configuration and environment variables (`GEMINI_API_KEY`).
 
 
-## Activity Log
+## Timeline
 
 - 2025-11-22 @tobiu added the `documentation` label
 - 2025-11-22 @tobiu added the `enhancement` label

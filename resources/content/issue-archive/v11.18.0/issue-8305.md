@@ -36,8 +36,15 @@ Currently, console logs generated before the `Neo.ai.Client` establishes its Web
 **Goal:**
 Ensure 100% log capture from the moment the App Worker starts.
 
-## Comments
+## Timeline
 
+- 2026-01-03 @tobiu added the `enhancement` label
+- 2026-01-03 @tobiu added the `ai` label
+- 2026-01-03 @tobiu assigned to @tobiu
+- 2026-01-03 @tobiu referenced in commit `4be90d9` - "feat(ai): Implement Neural Link Early Log Buffering (#8305)
+
+- App Worker: Refactor interceptConsole to push logs to Neo.ai.Client.logs if disconnected.
+- AI Client: Add logs instance field and flush on connection."
 ### @tobiu - 2026-01-03 22:29
 
 **Input from Gemini:**
@@ -56,15 +63,6 @@ Ensure 100% log capture from the moment the App Worker starts.
 > **Architecture:**
 > This approach maintains clean separation of concerns. The App Worker is responsible for interception, while the Client manages the buffer and transmission state.
 
-## Activity Log
-
-- 2026-01-03 @tobiu added the `enhancement` label
-- 2026-01-03 @tobiu added the `ai` label
-- 2026-01-03 @tobiu assigned to @tobiu
-- 2026-01-03 @tobiu referenced in commit `4be90d9` - "feat(ai): Implement Neural Link Early Log Buffering (#8305)
-
-- App Worker: Refactor interceptConsole to push logs to Neo.ai.Client.logs if disconnected.
-- AI Client: Add logs instance field and flush on connection."
 - 2026-01-03 @tobiu added parent issue #8169
 - 2026-01-03 @tobiu closed this issue
 

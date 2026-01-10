@@ -47,8 +47,14 @@ This will:
     - Change ID.
     - Verify internal node IDs update.
 
-## Comments
+## Timeline
 
+- 2026-01-09 @tobiu added the `ai` label
+- 2026-01-09 @tobiu added the `refactoring` label
+- 2026-01-09 @tobiu added the `core` label
+- 2026-01-09 @tobiu added parent issue #8469
+- 2026-01-09 @tobiu referenced in commit `91085ea` - "refactor: replace afterSetId with ensureStableIds in form fields (#8478)"
+- 2026-01-09 @tobiu assigned to @tobiu
 ### @tobiu - 2026-01-09 17:24
 
 **Input from Gemini 3 Pro:**
@@ -69,13 +75,5 @@ This will:
 > 
 > Commit: 91085ea4f (#8478)
 
-## Activity Log
-
-- 2026-01-09 @tobiu added the `ai` label
-- 2026-01-09 @tobiu added the `refactoring` label
-- 2026-01-09 @tobiu added the `core` label
-- 2026-01-09 @tobiu added parent issue #8469
-- 2026-01-09 @tobiu referenced in commit `91085ea` - "refactor: replace afterSetId with ensureStableIds in form fields (#8478)"
-- 2026-01-09 @tobiu assigned to @tobiu
 - 2026-01-09 @tobiu closed this issue
 

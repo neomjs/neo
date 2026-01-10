@@ -26,8 +26,12 @@ blocking: []
 
 In case this is the case, I would like to create a new addon which is roughly on feature parity with `main.addon.GoogleMaps`.
 
-## Comments
+## Timeline
 
+- 2025-04-01 @tobiu added the `enhancement` label
+- 2025-04-01 @tobiu added the `no auto close` label
+- 2025-04-01 @tobiu assigned to @tobiu
+- 2025-04-01 @tobiu cross-referenced by #6611
 ### @TomDakan - 2025-08-03 05:21
 
 I think this can be done with the [OpenLayers ](https://openlayers.org/) library. The markers would be created as a [vector layer](https://openlayers.org/en/latest/examples/icon.html) on top of a tile layer pulled from OpenStreetMaps as described in [this](https://openlayers.org/en/latest/examples/simple.html) example. It appears that there's no need for an api key to pull tiles from OSM.
@@ -52,10 +56,4 @@ Feel free to ask questions on Slack / Discord, and I can give you more pointers.
 Best regards,
 Tobias
 
-## Activity Log
-
-- 2025-04-01 @tobiu added the `enhancement` label
-- 2025-04-01 @tobiu added the `no auto close` label
-- 2025-04-01 @tobiu assigned to @tobiu
-- 2025-04-01 @tobiu cross-referenced by #6611
 

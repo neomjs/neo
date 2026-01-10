@@ -37,7 +37,7 @@ This ticket aims to simplify the architecture by:
 
 **Goal:** Remove the leaky "renderer" abstraction, simplify `LivePreview`, and fully encapsulate markdown logic within its component.
 
-## Activity Log
+## Timeline
 
 - 2025-12-09 @tobiu added the `ai` label
 - 2025-12-09 @tobiu added the `refactoring` label

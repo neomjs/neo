@@ -30,16 +30,14 @@ This ticket is a scheduled task to remove that temporary section after the event
 
 - On or after November 1st, 2025, remove the "Hacktoberfest 2025 Onboarding Protocol (Temporary)" section from `AGENTS.md`.
 
-## Comments
-
-### @tobiu - 2025-11-12 11:53
-
-already removed
-
-## Activity Log
+## Timeline
 
 - 2025-09-28 @tobiu assigned to @tobiu
 - 2025-09-28 @tobiu added the `enhancement` label
 - 2025-09-28 @tobiu added the `no auto close` label
+### @tobiu - 2025-11-12 11:53
+
+already removed
+
 - 2025-11-12 @tobiu closed this issue
 

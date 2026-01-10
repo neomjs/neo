@@ -29,8 +29,13 @@ closedAt: '2025-12-01T15:53:53Z'
 - Expose `agent.schedule(event)` to allow external systems (like WebSocket) to feed the loop.
 **Context:** Part of Epic #7961.
 
-## Comments
+## Timeline
 
+- 2025-12-01 @tobiu added the `enhancement` label
+- 2025-12-01 @tobiu added the `ai` label
+- 2025-12-01 @tobiu assigned to @tobiu
+- 2025-12-01 @tobiu added parent issue #7961
+- 2025-12-01 @tobiu referenced in commit `14c97c2` - "Integrate Cognitive Loop into Agent Class #7968"
 ### @tobiu - 2025-12-01 15:53
 
 <img width="763" height="148" alt="Image" src="https://github.com/user-attachments/assets/6d1acab7-d061-4a7a-8841-14b504ac67d5" />
@@ -45,12 +50,5 @@ closedAt: '2025-12-01T15:53:53Z'
 > - Added `schedule(event)`, `start()`, and `stop()` methods.
 > - Validated end-to-end flow with `ai/examples/test-agent.mjs`.
 
-## Activity Log
-
-- 2025-12-01 @tobiu added the `enhancement` label
-- 2025-12-01 @tobiu added the `ai` label
-- 2025-12-01 @tobiu assigned to @tobiu
-- 2025-12-01 @tobiu added parent issue #7961
-- 2025-12-01 @tobiu referenced in commit `14c97c2` - "Integrate Cognitive Loop into Agent Class #7968"
 - 2025-12-01 @tobiu closed this issue
 

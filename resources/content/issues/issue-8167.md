@@ -36,7 +36,7 @@ blocking: []
 **Goal:**
 Audit and harden this flow. Ensure `onDragBoundaryEntry` in the Source correctly identifies the returning item and restores it to its original state/placeholder without data loss or ID conflicts.
 
-## Activity Log
+## Timeline
 
 - 2025-12-27 @tobiu added the `bug` label
 - 2025-12-27 @tobiu added the `QA` label

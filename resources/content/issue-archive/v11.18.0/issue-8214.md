@@ -29,7 +29,7 @@ This causes a crash during startup log output.
 **Resolution:**
 Update `ai/mcp/server/neural-link/Server.mjs` to map the `health.session` properties correctly in `logStartupStatus`.
 
-## Activity Log
+## Timeline
 
 - 2025-12-30 @tobiu added the `bug` label
 - 2025-12-30 @tobiu added the `ai` label

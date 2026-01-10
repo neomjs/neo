@@ -45,20 +45,18 @@ This task covers the architectural refactoring of the Playwright test setup to s
 
 This new structure provides a clear, conflict-free, and easy-to-use system for all Playwright-based testing.
 
-## Comments
-
-### @tobiu - 2025-10-12 14:10
-
-FYI @Aki-07 , @Mahita07 I think we are getting close with making the epic more accessible to others. These infrastructure items are rough, even with ai support. I had to push back on Gemini very hard, several times.
-
-I will grab the button test next for a real migration and check how it works.
-
-## Activity Log
+## Timeline
 
 - 2025-10-12 @tobiu assigned to @tobiu
 - 2025-10-12 @tobiu added the `enhancement` label
 - 2025-10-12 @tobiu added parent issue #7435
 - 2025-10-12 @tobiu added the `ai` label
 - 2025-10-12 @tobiu referenced in commit `bd3b69a` - "Refactor: Implement Granular Playwright Test Configurations #7471"
+### @tobiu - 2025-10-12 14:10
+
+FYI @Aki-07 , @Mahita07 I think we are getting close with making the epic more accessible to others. These infrastructure items are rough, even with ai support. I had to push back on Gemini very hard, several times.
+
+I will grab the button test next for a real migration and check how it works.
+
 - 2025-10-12 @tobiu closed this issue
 

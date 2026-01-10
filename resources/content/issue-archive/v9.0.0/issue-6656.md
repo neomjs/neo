@@ -23,7 +23,7 @@ closedAt: '2025-04-15T23:51:13Z'
 
 * form.field.Text: validator is the last spot for a get driven replacement
 
-## Activity Log
+## Timeline
 
 - 2025-04-15 @tobiu added the `enhancement` label
 - 2025-04-15 @tobiu assigned to @tobiu

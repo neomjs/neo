@@ -24,7 +24,7 @@ closedAt: '2025-02-21T23:57:06Z'
 * No more measuring is needed, once the first rotation is complete with the cache
 * As long as the size of the cmp itself does not change => We need a `ResizeObserver` to clear the cache if needed
 
-## Activity Log
+## Timeline
 
 - 2025-02-21 @tobiu added the `enhancement` label
 - 2025-02-21 @tobiu assigned to @tobiu

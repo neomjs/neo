@@ -39,7 +39,7 @@ To break this loop, the component needed to apply the VDOM update *after* the ef
 -   The `run()` method correctly uses `get()` and `set()` on `isRunning`.
 -   The change successfully enables consumers to observe the effect's execution state, resolving the infinite loop problem in functional components.
 
-## Activity Log
+## Timeline
 
 - 2025-07-12 @tobiu assigned to @tobiu
 - 2025-07-12 @tobiu added the `enhancement` label

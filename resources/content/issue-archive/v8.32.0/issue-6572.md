@@ -23,7 +23,7 @@ closedAt: '2025-03-12T11:11:28Z'
 
 * less boilerplate when creating plugin instances
 
-## Activity Log
+## Timeline
 
 - 2025-03-12 @tobiu added the `enhancement` label
 - 2025-03-12 @tobiu assigned to @tobiu

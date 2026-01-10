@@ -36,7 +36,7 @@ In `src/main/addon/Stylesheet.mjs`, inside the `construct` method:
 
 This prevents redundant network requests and double-loading of styles in SSR environments.
 
-## Activity Log
+## Timeline
 
 - 2025-11-20 @tobiu added the `enhancement` label
 - 2025-11-20 @tobiu added the `ai` label

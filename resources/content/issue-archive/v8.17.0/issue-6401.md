@@ -27,7 +27,7 @@ closedAt: '2025-02-07T15:42:40Z'
 
 Not needed for Mac OS, but for Windows users.
 
-## Activity Log
+## Timeline
 
 - 2025-02-07 @tobiu added the `enhancement` label
 - 2025-02-07 @tobiu assigned to @tobiu

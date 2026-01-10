@@ -25,7 +25,7 @@ closedAt: '2025-03-09T18:02:52Z'
 * Add a reference to the grid
 * Update the filter value when a field change event happens
 
-## Activity Log
+## Timeline
 
 - 2025-03-09 @tobiu added the `enhancement` label
 - 2025-03-09 @tobiu assigned to @tobiu

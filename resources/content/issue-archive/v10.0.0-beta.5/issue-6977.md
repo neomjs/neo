@@ -25,7 +25,7 @@ closedAt: '2025-07-07T17:55:43Z'
 * Effects can observe this config to clean themselves up.
 * Use case is e.g. `state.Provider`
 
-## Activity Log
+## Timeline
 
 - 2025-07-07 @tobiu assigned to @tobiu
 - 2025-07-07 @tobiu added the `enhancement` label

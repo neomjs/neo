@@ -23,7 +23,7 @@ closedAt: '2025-06-03T20:11:33Z'
 
 * Let us avoid re-creating the function for each regex match
 
-## Activity Log
+## Timeline
 
 - 2025-06-03 @tobiu assigned to @tobiu
 - 2025-06-03 @tobiu added the `enhancement` label

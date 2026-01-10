@@ -35,7 +35,7 @@ This ticket covers the implementation of the missing authentication check.
     - `authenticated` should be `true` if login is successful, `false` otherwise.
     - `error` should contain an informative message if authentication fails.
 
-## Activity Log
+## Timeline
 
 - 2025-10-20 @tobiu assigned to @tobiu
 - 2025-10-20 @tobiu added the `bug` label

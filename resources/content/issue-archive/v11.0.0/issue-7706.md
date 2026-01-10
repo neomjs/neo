@@ -35,7 +35,7 @@ The parsing time for documentation JSON files has significantly improved:
 *   **Before:** ~28 seconds
 *   **After:** ~7.52 seconds
 
-## Activity Log
+## Timeline
 
 - 2025-11-04 @tobiu added the `enhancement` label
 - 2025-11-04 @tobiu added the `ai` label

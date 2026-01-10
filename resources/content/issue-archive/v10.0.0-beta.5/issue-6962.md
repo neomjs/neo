@@ -23,7 +23,7 @@ closedAt: '2025-07-06T17:01:42Z'
 
 * v10 regression issue
 
-## Activity Log
+## Timeline
 
 - 2025-07-06 @tobiu assigned to @tobiu
 - 2025-07-06 @tobiu added the `bug` label

@@ -28,7 +28,7 @@ We need to implement a `sanitizeInput` function and apply it to the `program` op
 References:
 - `buildScripts/buildAll.mjs`
 
-## Activity Log
+## Timeline
 
 - 2025-12-02 @tobiu added the `bug` label
 - 2025-12-02 @tobiu added the `ai` label

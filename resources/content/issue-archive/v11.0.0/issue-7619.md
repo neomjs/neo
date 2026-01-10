@@ -51,7 +51,7 @@ We should also evaluate if `100` is the optimal value.
 
 A value of **50** is proposed as a more balanced compromise. It significantly reduces the data fetched during incremental updates while remaining reasonably efficient for the initial full sync.
 
-## Activity Log
+## Timeline
 
 - 2025-10-23 @tobiu assigned to @tobiu
 - 2025-10-23 @tobiu added the `enhancement` label

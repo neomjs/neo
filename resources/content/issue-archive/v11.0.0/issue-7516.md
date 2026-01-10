@@ -33,7 +33,7 @@ This bug prevents the `query_documents` tool from functioning correctly, as its 
 3.  The `query` and `type` parameters are correctly passed from the MCP client to the `queryDocuments` service function.
 4.  The `query_documents` tool executes successfully with valid parameters.
 
-## Activity Log
+## Timeline
 
 - 2025-10-16 @tobiu assigned to @tobiu
 - 2025-10-16 @tobiu added the `bug` label

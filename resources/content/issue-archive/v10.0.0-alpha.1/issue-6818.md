@@ -23,7 +23,7 @@ closedAt: '2025-06-16T13:24:42Z'
 
 * Meaning: drop support for `vdom.innerHTML`
 
-## Activity Log
+## Timeline
 
 - 2025-06-16 @tobiu added parent issue #6785
 - 2025-06-16 @tobiu added the `enhancement` label

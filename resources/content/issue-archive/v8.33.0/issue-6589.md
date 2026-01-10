@@ -24,7 +24,7 @@ closedAt: '2025-03-25T13:07:07Z'
 * time to move the worker registration logic outside of `construct()`
 * make the new logic async to enhance the readability
 
-## Activity Log
+## Timeline
 
 - 2025-03-25 @tobiu added the `enhancement` label
 - 2025-03-25 @tobiu assigned to @tobiu

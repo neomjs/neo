@@ -23,7 +23,7 @@ closedAt: '2025-02-03T14:26:20Z'
 
 * and remove the border for the grid container within the proxy vdom
 
-## Activity Log
+## Timeline
 
 - 2025-02-03 @tobiu added the `enhancement` label
 - 2025-02-03 @tobiu assigned to @tobiu

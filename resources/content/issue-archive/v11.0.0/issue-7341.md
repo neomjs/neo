@@ -26,7 +26,7 @@ The `AGENTS.md` file incorrectly implied that the session ID should be saved to 
 ## Changes
 - Updated `AGENTS.md` to add an explicit step: "Persist Initial Context" after generating a new session ID in two separate flows.
 
-## Activity Log
+## Timeline
 
 - 2025-10-04 @tobiu assigned to @tobiu
 - 2025-10-04 @tobiu added the `enhancement` label

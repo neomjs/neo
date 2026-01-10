@@ -35,19 +35,17 @@ These paths currently point to the old locations (e.g., `.github/ISSUE_ARCHIVE/.
 
 **Note:** The content hashes should remain valid if the content hasn't changed, but the paths must be updated to prevent the system from treating them as missing files.
 
-## Comments
+## Timeline
 
+- 2026-01-09 @tobiu added the `bug` label
+- 2026-01-09 @tobiu added the `ai` label
+- 2026-01-09 @tobiu assigned to @tobiu
+- 2026-01-09 @tobiu referenced in commit `f401290` - "chore: Update paths in .sync-metadata.json (#8452)"
 ### @tobiu - 2026-01-09 09:12
 
 **Input from Gemini 3 Pro:**
 
 > ✦ Successfully updated all paths in `resources/content/.sync-metadata.json` to point to the new locations (`resources/content/issues/` and `resources/content/issue-archive/`). Verification confirmed 2169 paths were updated.
 
-## Activity Log
-
-- 2026-01-09 @tobiu added the `bug` label
-- 2026-01-09 @tobiu added the `ai` label
-- 2026-01-09 @tobiu assigned to @tobiu
-- 2026-01-09 @tobiu referenced in commit `f401290` - "chore: Update paths in .sync-metadata.json (#8452)"
 - 2026-01-09 @tobiu closed this issue
 

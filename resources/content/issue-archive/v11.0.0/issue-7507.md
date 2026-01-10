@@ -35,7 +35,7 @@ The implementation will be adapted from the existing `buildScripts/ai/queryKnowl
 5.  The function returns a JSON object containing the ranked list of results, matching the `QueryResponse` schema in `openapi.yaml`.
 6.  The `toolService.mjs` `serviceMapping` is updated to point the `query_documents` operationId to the new service function.
 
-## Activity Log
+## Timeline
 
 - 2025-10-16 @tobiu assigned to @tobiu
 - 2025-10-16 @tobiu added parent issue #7501

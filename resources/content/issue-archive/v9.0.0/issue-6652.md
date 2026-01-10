@@ -23,7 +23,7 @@ closedAt: '2025-04-15T19:35:59Z'
 
 * no longer a need to use a custom app worker based domListener
 
-## Activity Log
+## Timeline
 
 - 2025-04-15 @tobiu added the `enhancement` label
 - 2025-04-15 @tobiu assigned to @tobiu

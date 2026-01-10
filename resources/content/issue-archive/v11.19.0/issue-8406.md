@@ -34,8 +34,13 @@ The VSCode/Gemini MCP environment has a hard limit of 100 tools. Chrome DevTools
     *   **Collaborative Mode:** Use Neural Link, disable Chrome DevTools.
     *   **Autonomous Mode:** Use both (Chrome DevTools needed for browser lifecycle).
 
-## Comments
+## Timeline
 
+- 2026-01-08 @tobiu added the `documentation` label
+- 2026-01-08 @tobiu added the `enhancement` label
+- 2026-01-08 @tobiu added the `ai` label
+- 2026-01-08 @tobiu assigned to @tobiu
+- 2026-01-08 @tobiu referenced in commit `5352248` - "feat: Optimize MCP tool allocation by removing Chrome DevTools from default config (#8406)"
 ### @tobiu - 2026-01-08 07:05
 
 **Input from Gemini 3 Pro:**
@@ -46,12 +51,5 @@ The VSCode/Gemini MCP environment has a hard limit of 100 tools. Chrome DevTools
 > 
 > This aligns the environment with the "Human + Agent" team strategy.
 
-## Activity Log
-
-- 2026-01-08 @tobiu added the `documentation` label
-- 2026-01-08 @tobiu added the `enhancement` label
-- 2026-01-08 @tobiu added the `ai` label
-- 2026-01-08 @tobiu assigned to @tobiu
-- 2026-01-08 @tobiu referenced in commit `5352248` - "feat: Optimize MCP tool allocation by removing Chrome DevTools from default config (#8406)"
 - 2026-01-08 @tobiu closed this issue
 

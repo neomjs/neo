@@ -23,7 +23,7 @@ closedAt: '2025-07-05T08:27:03Z'
 
 <img width="861" height="813" alt="Image" src="https://github.com/user-attachments/assets/e9ea8a36-7869-4308-8faa-09c0df1202c1" />
 
-## Activity Log
+## Timeline
 
 - 2025-07-05 @tobiu assigned to @tobiu
 - 2025-07-05 @tobiu added the `enhancement` label

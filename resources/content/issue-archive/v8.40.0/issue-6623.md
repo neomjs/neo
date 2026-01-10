@@ -23,7 +23,7 @@ closedAt: '2025-04-05T22:40:19Z'
 
 * fine-tuning: inside `neo-config.json`, we can define the URL where to find the API definition, so we need to use this config value, instead of a static path.
 
-## Activity Log
+## Timeline
 
 - 2025-04-05 @tobiu added the `enhancement` label
 - 2025-04-05 @tobiu assigned to @tobiu

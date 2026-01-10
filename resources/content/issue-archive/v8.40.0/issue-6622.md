@@ -24,7 +24,7 @@ closedAt: '2025-04-05T22:28:38Z'
 * I noticed that (only) inside `dist/development` it can happen that we try to access the API, before the namespaces got registered.
 * For now, I will make the method async, and a check if it does exist.
 
-## Activity Log
+## Timeline
 
 - 2025-04-05 @tobiu added the `enhancement` label
 - 2025-04-05 @tobiu assigned to @tobiu

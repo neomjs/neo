@@ -23,7 +23,7 @@ closedAt: '2025-01-26T22:55:52Z'
 
 * the code is calling `Container` `Base`, which can be confusing
 
-## Activity Log
+## Timeline
 
 - 2025-01-26 @tobiu added the `enhancement` label
 - 2025-01-26 @tobiu assigned to @tobiu

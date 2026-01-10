@@ -33,7 +33,7 @@ The configuration was updated to:
 
 This change ensures that the MCP server configuration accurately reflects the intended architecture and maintains consistency across the defined services.
 
-## Activity Log
+## Timeline
 
 - 2025-10-09 @tobiu assigned to @tobiu
 - 2025-10-09 @tobiu added the `documentation` label

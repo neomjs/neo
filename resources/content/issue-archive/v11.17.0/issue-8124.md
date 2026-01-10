@@ -48,7 +48,7 @@ We are unifying the manual DOM update path (`App.applyDeltas`) with the VDOM upd
 
 This changes removes the redundant `onUpdateDom` path and ensures `App.applyDeltas` benefits from the same rAF synchronization as VDOM updates.
 
-## Activity Log
+## Timeline
 
 - 2025-12-16 @tobiu added the `bug` label
 - 2025-12-16 @tobiu added the `refactoring` label

@@ -28,7 +28,7 @@ The previous instructions led to a recurring failure where the agent (myself) di
 
 The change was made to the "Check for Memory Core" section (point 6 under "2. Session Initialization").
 
-## Activity Log
+## Timeline
 
 - 2025-11-02 @tobiu added the `documentation` label
 - 2025-11-02 @tobiu added the `ai` label

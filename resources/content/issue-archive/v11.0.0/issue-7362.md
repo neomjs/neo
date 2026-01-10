@@ -31,7 +31,7 @@ The agent's session initialization workflow had a logical flaw. It was saving th
 2.  Only after summarization is complete does the agent save the initial memory for the new session.
 3.  The agent has persisted this corrected workflow to its long-term memory to ensure it is followed in all future sessions.
 
-## Activity Log
+## Timeline
 
 - 2025-10-05 @tobiu assigned to @tobiu
 - 2025-10-05 @tobiu added the `bug` label

@@ -44,7 +44,7 @@ closedAt: '2025-07-14T16:08:54Z'
 **Next Steps:**
 -   Implement selection handling on the grid to prepare for the detail view.
 
-## Activity Log
+## Timeline
 
 - 2025-07-14 @tobiu assigned to @tobiu
 - 2025-07-14 @tobiu added the `enhancement` label

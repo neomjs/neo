@@ -33,8 +33,13 @@ Key properties to include:
 - `showHeaderFilter`
 - `sortable`
 
-## Comments
+## Timeline
 
+- 2026-01-01 @tobiu added the `enhancement` label
+- 2026-01-01 @tobiu added the `ai` label
+- 2026-01-01 @tobiu assigned to @tobiu
+- 2026-01-01 @tobiu added parent issue #8200
+- 2026-01-01 @tobiu referenced in commit `44df55d` - "#8254 Implement toJSON in grid.header.Button"
 ### @tobiu - 2026-01-01 15:34
 
 **Input from Gemini:**
@@ -42,12 +47,5 @@ Key properties to include:
 > ✦ Implemented `toJSON` in `src/grid/header/Button.mjs`.
 > Also updated JSDoc for `serializeConfig` in `src/core/Base.mjs` to clarify its usage.
 
-## Activity Log
-
-- 2026-01-01 @tobiu added the `enhancement` label
-- 2026-01-01 @tobiu added the `ai` label
-- 2026-01-01 @tobiu assigned to @tobiu
-- 2026-01-01 @tobiu added parent issue #8200
-- 2026-01-01 @tobiu referenced in commit `44df55d` - "#8254 Implement toJSON in grid.header.Button"
 - 2026-01-01 @tobiu closed this issue
 

@@ -24,7 +24,7 @@ closedAt: '2025-02-26T20:15:29Z'
 * consistency for `component.Base`
 * enabling us to bundle container updates
 
-## Activity Log
+## Timeline
 
 - 2025-02-26 @tobiu added the `enhancement` label
 - 2025-02-26 @tobiu assigned to @tobiu

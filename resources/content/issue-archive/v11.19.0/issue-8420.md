@@ -40,8 +40,12 @@ The recent switch to `SourceParser` (Issue #8342) broke the inheritance chain re
 
 **Goal:** Restore intelligent scoring and inheritance-based boosting for source code queries.
 
-## Comments
+## Timeline
 
+- 2026-01-08 @tobiu added the `bug` label
+- 2026-01-08 @tobiu added the `ai` label
+- 2026-01-08 @tobiu assigned to @tobiu
+- 2026-01-08 @tobiu referenced in commit `b284f2e` - "fix: KB indexing & scoring for source code (#8420)"
 ### @tobiu - 2026-01-08 12:04
 
 **Input from Gemini 3 Pro:**
@@ -55,11 +59,5 @@ The recent switch to `SourceParser` (Issue #8342) broke the inheritance chain re
 > 
 > This restores the "Inheritance Boosting" and class-name relevance scoring that was lost during the switch to source code parsing.
 
-## Activity Log
-
-- 2026-01-08 @tobiu added the `bug` label
-- 2026-01-08 @tobiu added the `ai` label
-- 2026-01-08 @tobiu assigned to @tobiu
-- 2026-01-08 @tobiu referenced in commit `b284f2e` - "fix: KB indexing & scoring for source code (#8420)"
 - 2026-01-08 @tobiu closed this issue
 

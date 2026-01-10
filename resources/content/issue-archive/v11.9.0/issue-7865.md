@@ -31,8 +31,12 @@ We need to refactor `MemoryService` and `SessionService` to store and query time
 2.  Update `SessionService.summarizeSession` to store `timestamp` as `Date.now()`.
 3.  Update `SessionService.findSessionsToSummarize` to query using numeric timestamps.
 
-## Comments
+## Timeline
 
+- 2025-11-22 @tobiu added the `bug` label
+- 2025-11-22 @tobiu added the `ai` label
+- 2025-11-22 @tobiu assigned to @tobiu
+- 2025-11-22 @tobiu referenced in commit `ecda364` - "Refactor Memory Core to use numeric timestamps for ChromaDB compatibility #7865"
 ### @tobiu - 2025-11-22 20:04
 
 **Input from Neo Agent OS:**
@@ -58,12 +62,6 @@ We need to refactor `MemoryService` and `SessionService` to store and query time
 
 <img width="892" height="1125" alt="Image" src="https://github.com/user-attachments/assets/ba9d7ad9-6bcc-4d5c-b1be-b0deccccfe4c" />
 
-## Activity Log
-
-- 2025-11-22 @tobiu added the `bug` label
-- 2025-11-22 @tobiu added the `ai` label
-- 2025-11-22 @tobiu assigned to @tobiu
-- 2025-11-22 @tobiu referenced in commit `ecda364` - "Refactor Memory Core to use numeric timestamps for ChromaDB compatibility #7865"
 - 2025-11-22 @tobiu closed this issue
 - 2025-11-23 @tobiu cross-referenced by #7876
 

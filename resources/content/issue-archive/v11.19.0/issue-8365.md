@@ -35,7 +35,7 @@ Integrate `createReleaseIndex` into the release preparation workflow and fix `ge
     *   **Fix URL Construction:** Resolve the `ERR_INVALID_URL` error when `baseUrl` is missing. Ensure `getLlmsTxt` handles relative paths gracefully or enforces a `baseUrl`.
 
 
-## Activity Log
+## Timeline
 
 - 2026-01-06 @tobiu added the `bug` label
 - 2026-01-06 @tobiu added the `enhancement` label

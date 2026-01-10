@@ -33,7 +33,7 @@ The `AI_QUICK_START.md` guide needs to be updated to reflect the current MCP ser
 
 This update will simplify the setup process for developers.
 
-## Activity Log
+## Timeline
 
 - 2025-11-03 @tobiu added the `enhancement` label
 - 2025-11-03 @tobiu added the `ai` label

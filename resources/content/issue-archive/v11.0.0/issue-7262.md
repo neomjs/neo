@@ -112,13 +112,7 @@ The primary goal is to prevent regressions, especially in the complex core modul
     Neo.setupClass(MyTestClass); // Missing re-assignment
     ```
 
-## Comments
-
-### @tobiu - 2025-11-04 10:56
-
-resolved.
-
-## Activity Log
+## Timeline
 
 - 2025-09-27 @tobiu assigned to @tobiu
 - 2025-09-27 @tobiu added the `enhancement` label
@@ -165,5 +159,9 @@ resolved.
 - 2025-09-30 @tobiu referenced in commit `f9c97b4` - "#7262 changed Button test filename to upper case, ClassConfigsAndFields.spec.mjs: reassigned classes when calling setupClass() for consistency"
 - 2025-10-02 @tobiu referenced in commit `d9c4d4b` - "#7262 updated internal tickets"
 - 2025-11-04 @tobiu removed sub-issue #7266
+### @tobiu - 2025-11-04 10:56
+
+resolved.
+
 - 2025-11-04 @tobiu closed this issue
 

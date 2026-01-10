@@ -23,7 +23,7 @@ closedAt: '2025-11-16T23:11:26Z'
 
 We need to bypass `new XMLHttpRequest()` which does not exist inside nodejs.
 
-## Activity Log
+## Timeline
 
 - 2025-11-16 @tobiu assigned to @tobiu
 - 2025-11-16 @tobiu added the `enhancement` label

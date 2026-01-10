@@ -26,7 +26,7 @@ closedAt: '2025-02-11T21:21:28Z'
 * use the new `createRecord()` method inside `add()`
 * adjust the `isLoading` state inside beforeSet & afterSetData()
 
-## Activity Log
+## Timeline
 
 - 2025-02-11 @tobiu added the `enhancement` label
 - 2025-02-11 @tobiu assigned to @tobiu

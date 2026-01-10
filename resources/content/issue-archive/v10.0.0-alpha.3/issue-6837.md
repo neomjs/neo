@@ -23,7 +23,7 @@ closedAt: '2025-06-18T18:51:23Z'
 
 <img width="1319" alt="Image" src="https://github.com/user-attachments/assets/2f4e6eb5-f563-406c-8db3-58407f533091" />
 
-## Activity Log
+## Timeline
 
 - 2025-06-18 @tobiu assigned to @tobiu
 - 2025-06-18 @tobiu added the `bug` label

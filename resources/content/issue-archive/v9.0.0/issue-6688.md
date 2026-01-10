@@ -23,7 +23,7 @@ closedAt: '2025-05-02T16:38:44Z'
 
 * Regression issue: mapping array items does not happen inline, so we need to store the result
 
-## Activity Log
+## Timeline
 
 - 2025-05-02 @tobiu added the `bug` label
 - 2025-05-02 @tobiu assigned to @tobiu

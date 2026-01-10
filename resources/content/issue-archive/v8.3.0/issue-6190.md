@@ -22,15 +22,13 @@ closedAt: '2025-01-12T19:05:35Z'
 
 right now, we update `startIndex` when scrolling more than 1 row. with the introduction of `bufferRowRange`, we need to change it to only trigger a view update when scrolling more than the range instead => performance.
 
-## Comments
+## Timeline
 
+- 2025-01-08 @tobiu added the `enhancement` label
+- 2025-01-09 @tobiu referenced in commit `c2b69bf` - "grid.View: afterSetScrollPosition() => only change the startIndex when scrolling more than the buffer row range #6190 WIP"
 ### @tobiu - 2025-01-12 19:05
 
 done.
 
-## Activity Log
-
-- 2025-01-08 @tobiu added the `enhancement` label
-- 2025-01-09 @tobiu referenced in commit `c2b69bf` - "grid.View: afterSetScrollPosition() => only change the startIndex when scrolling more than the buffer row range #6190 WIP"
 - 2025-01-12 @tobiu closed this issue
 

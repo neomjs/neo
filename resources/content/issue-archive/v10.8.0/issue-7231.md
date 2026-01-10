@@ -39,7 +39,7 @@ This ticket proposes a minor but important enhancement to the `AGENTS.md` guidel
 -   `AGENTS.md` is updated to include the regression testing guidance in the "4. Verify" step.
 -   The reference to `learn/guides/UnitTestingWithSiesta.md` is accurate.
 
-## Activity Log
+## Timeline
 
 - 2025-09-22 @tobiu assigned to @tobiu
 - 2025-09-22 @tobiu added the `enhancement` label

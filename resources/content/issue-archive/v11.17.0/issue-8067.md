@@ -47,7 +47,7 @@ Decouple styling from the view and logic from the renderer, creating a self-cont
 
 **Note:** This ticket focuses on the component creation and integration. Consolidating logic from `MarkdownRenderer` into the component itself is out of scope for this task and will be considered later.
 
-## Activity Log
+## Timeline
 
 - 2025-12-09 @tobiu added the `enhancement` label
 - 2025-12-09 @tobiu added the `ai` label

@@ -39,7 +39,7 @@ Modify `src/mixin/VdomLifecycle.mjs`:
 
 This restores the mounting functionality for the non-worker VDOM configuration without relying on the now-circular `mount()` method.
 
-## Activity Log
+## Timeline
 
 - 2025-12-17 @tobiu added the `bug` label
 - 2025-12-17 @tobiu added the `ai` label

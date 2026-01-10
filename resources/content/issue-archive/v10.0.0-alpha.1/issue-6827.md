@@ -26,7 +26,7 @@ closedAt: '2025-06-17T11:16:07Z'
 * exception: vtype text => fragment since 3 nodes
 * the method should handle the live dom insertion on its own.
 
-## Activity Log
+## Timeline
 
 - 2025-06-17 @tobiu assigned to @tobiu
 - 2025-06-17 @tobiu added the `enhancement` label

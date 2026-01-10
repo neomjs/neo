@@ -35,7 +35,7 @@ The Memory Core MCP server entry point (`mcp-stdio.mjs`) has been refactored to 
 
 These changes improve the server's resilience, provide better feedback to the user, and automate routine maintenance tasks.
 
-## Activity Log
+## Timeline
 
 - 2025-10-24 @tobiu added the `enhancement` label
 - 2025-10-24 @tobiu added the `ai` label

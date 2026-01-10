@@ -24,7 +24,7 @@ closedAt: '2025-06-13T00:51:19Z'
 * Convert the array to a Set
 * Add more attributes
 
-## Activity Log
+## Timeline
 
 - 2025-06-13 @tobiu assigned to @tobiu
 - 2025-06-13 @tobiu added the `enhancement` label

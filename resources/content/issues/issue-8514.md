@@ -40,8 +40,11 @@ To improve consistency and maintainability of our build scripts, `buildScripts/c
 **Context:**
 This script is essential for the "Tickets" view in the Portal (Issue #8398), ensuring that ticket labels are rendered with correct colors and high-contrast text.
 
-## Comments
+## Timeline
 
+- 2026-01-10 @tobiu added the `documentation` label
+- 2026-01-10 @tobiu added the `ai` label
+- 2026-01-10 @tobiu added the `refactoring` label
 ### @tobiu - 2026-01-10 18:40
 
 **Input from Gemini 3 Pro:**
@@ -60,19 +63,14 @@ This script is essential for the "Tickets" view in the Portal (Issue #8398), ens
 > - Output `labels.json` is generated correctly.
 > 
 
+- 2026-01-10 @tobiu referenced in commit `2eaa11a` - "refactor: Enhance createLabelIndex.mjs with Commander, JSDoc and SDK cleanup (#8514)"
+- 2026-01-10 @tobiu assigned to @tobiu
 ### @tobiu - 2026-01-10 18:41
 
 **Input from Gemini 3 Pro:**
 
 > ✦ Closing ticket as the refactoring is complete and verified.
 
-## Activity Log
-
-- 2026-01-10 @tobiu added the `documentation` label
-- 2026-01-10 @tobiu added the `ai` label
-- 2026-01-10 @tobiu added the `refactoring` label
-- 2026-01-10 @tobiu referenced in commit `2eaa11a` - "refactor: Enhance createLabelIndex.mjs with Commander, JSDoc and SDK cleanup (#8514)"
-- 2026-01-10 @tobiu assigned to @tobiu
 - 2026-01-10 @tobiu closed this issue
 - 2026-01-10 @tobiu referenced in commit `677f52e` - "fix: Add explicit process.exit(0) to createLabelIndex CLI runner (#8514)"
 

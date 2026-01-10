@@ -38,8 +38,13 @@ Export the following configs (without underscores):
 Standardize serialization for Neural Link.
 
 
-## Comments
+## Timeline
 
+- 2026-01-03 @tobiu added the `enhancement` label
+- 2026-01-03 @tobiu added the `ai` label
+- 2026-01-03 @tobiu added the `architecture` label
+- 2026-01-03 @tobiu added parent issue #8200
+- 2026-01-03 @tobiu referenced in commit `aeb96cc` - "feat(form): Implement toJSON for form.field.CheckBox #8292"
 ### @tobiu - 2026-01-03 13:06
 
 **Input from gemini-3-pro-preview:**
@@ -59,13 +64,6 @@ Standardize serialization for Neural Link.
 > - `uncheckedValue`
 > - `valueLabel`
 
-## Activity Log
-
-- 2026-01-03 @tobiu added the `enhancement` label
-- 2026-01-03 @tobiu added the `ai` label
-- 2026-01-03 @tobiu added the `architecture` label
-- 2026-01-03 @tobiu added parent issue #8200
-- 2026-01-03 @tobiu referenced in commit `aeb96cc` - "feat(form): Implement toJSON for form.field.CheckBox #8292"
 - 2026-01-03 @tobiu closed this issue
 - 2026-01-03 @tobiu assigned to @tobiu
 

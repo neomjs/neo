@@ -41,24 +41,24 @@ To improve the developer onboarding experience, this ticket proposes adding a ne
 -   The installation instructions are accurate and easy to follow.
 -   The importance of running the CLI from the project root is clearly stated.
 
-## Comments
-
-### @tobiu - 2025-09-22 11:07
-
-reopening to enhance the pre-requisites further.
-
-### @tobiu - 2025-09-22 11:29
-
-follow-up thought: let us convert it into a read guide.
-
-## Activity Log
+## Timeline
 
 - 2025-09-22 @tobiu assigned to @tobiu
 - 2025-09-22 @tobiu added the `enhancement` label
 - 2025-09-22 @tobiu referenced in commit `274cb61` - "Add Installation Instructions for Gemini CLI to AI_QUICK_START.md #7232"
 - 2025-09-22 @tobiu closed this issue
+### @tobiu - 2025-09-22 11:07
+
+reopening to enhance the pre-requisites further.
+
+- 2025-09-22 @tobiu reopened this issue
 - 2025-09-22 @tobiu referenced in commit `8636fe1` - "Add Installation Instructions for Gemini CLI to AI_QUICK_START.md #7232"
 - 2025-09-22 @tobiu closed this issue
+### @tobiu - 2025-09-22 11:29
+
+follow-up thought: let us convert it into a read guide.
+
+- 2025-09-22 @tobiu reopened this issue
 - 2025-09-22 @tobiu referenced in commit `5f93694` - "Add Installation Instructions for Gemini CLI to AI_QUICK_START.md #7232"
 - 2025-09-22 @tobiu closed this issue
 

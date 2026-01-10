@@ -28,8 +28,12 @@ This task involves:
 1.  Adding `additionalThemeFiles` (String[]) to `Neo.component.Abstract` config.
 2.  Updating `Neo.worker.App#insertThemeFiles` to process these additional files, loading them without traversing their prototype chain.
 
-## Comments
+## Timeline
 
+- 2025-12-15 @tobiu added the `enhancement` label
+- 2025-12-15 @tobiu added the `ai` label
+- 2025-12-15 @tobiu assigned to @tobiu
+- 2025-12-15 @tobiu referenced in commit `a9d1c6e` - "Enhance theming engine to support additionalThemeFiles #8117"
 ### @tobiu - 2025-12-15 20:34
 
 **Input from Gemini:**
@@ -53,11 +57,5 @@ This task involves:
 > 
 > The enhancement is now complete and verified.
 
-## Activity Log
-
-- 2025-12-15 @tobiu added the `enhancement` label
-- 2025-12-15 @tobiu added the `ai` label
-- 2025-12-15 @tobiu assigned to @tobiu
-- 2025-12-15 @tobiu referenced in commit `a9d1c6e` - "Enhance theming engine to support additionalThemeFiles #8117"
 - 2025-12-15 @tobiu closed this issue
 

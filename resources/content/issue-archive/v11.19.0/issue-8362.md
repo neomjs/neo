@@ -63,7 +63,7 @@ Refactor the Portal's "Blog" section into a comprehensive "News" (or "Updates") 
 **Strategic Value:**
 This structure prepares the Portal for the upcoming Middleware deployment (SSR/SSG+), ensuring that high-value content like Release Notes is accessible, indexable, and organized alongside Blog posts.
 
-## Activity Log
+## Timeline
 
 - 2026-01-06 @tobiu added the `documentation` label
 - 2026-01-06 @tobiu added the `enhancement` label

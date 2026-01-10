@@ -23,7 +23,7 @@ closedAt: '2025-06-15T10:57:25Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
 - 2025-06-15 @tobiu assigned to @tobiu
 - 2025-06-15 @tobiu added parent issue #6785

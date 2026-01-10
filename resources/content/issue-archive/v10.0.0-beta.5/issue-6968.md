@@ -68,7 +68,7 @@ This resulted in redundant computations and potential performance bottlenecks, e
 *   **Framework Consistency:** Aligns the `Effect` system's update cycle with the existing `core.Base#set()` batching pattern.
 *   **Robustness:** Provides a more reliable and efficient foundation for all reactive data flows in Neo.mjs.
 
-## Activity Log
+## Timeline
 
 - 2025-07-07 @tobiu assigned to @tobiu
 - 2025-07-07 @tobiu added the `enhancement` label

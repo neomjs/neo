@@ -37,13 +37,19 @@ This task is to migrate the component test for `form/field/Text.mjs` from the Si
 3.  The new test must cover all the functionality of the original Siesta test (`test/components/files/form/field/Text.mjs`).
 4.  Ensure the new test runs successfully via the component test runner.
 
-## Comments
+## Timeline
 
+- 2025-10-10 @tobiu added parent issue #7435
+- 2025-10-10 @tobiu added the `enhancement` label
+- 2025-10-10 @tobiu added the `help wanted` label
+- 2025-10-10 @tobiu added the `hacktoberfest` label
+- 2025-10-10 @tobiu added the `ai` label
 ### @harikrishna-au - 2025-10-13 02:06
 
 @tobiu please assign
 
 
+- 2025-10-13 @tobiu assigned to @harikrishna-au
 ### @tobiu - 2025-10-13 09:55
 
 assigned. i will further refine the epic with hints on how to work on component based testing (once i am done with ticket assignments and PR reviews), since it is non-trivial. playwright runs by default a headless chromium, so devs and gemini are still flying blind, except when switching to a non-headless browser, or changing the playwright settings to record videos.
@@ -52,14 +58,6 @@ some ideas: look into `src/form/field/Text.mjs` to see how it works. Use `npm ru
 
 we can literally open 100+ additional tickets for component based testing alone.
 
-## Activity Log
-
-- 2025-10-10 @tobiu added parent issue #7435
-- 2025-10-10 @tobiu added the `enhancement` label
-- 2025-10-10 @tobiu added the `help wanted` label
-- 2025-10-10 @tobiu added the `hacktoberfest` label
-- 2025-10-10 @tobiu added the `ai` label
-- 2025-10-13 @tobiu assigned to @harikrishna-au
 - 2025-11-04 @tobiu unassigned from @harikrishna-au
 - 2025-11-04 @tobiu assigned to @tobiu
 - 2025-11-04 @tobiu referenced in commit `878a3fe` - "Convert Component Test form/field/Text.mjs to Playwright #7443"

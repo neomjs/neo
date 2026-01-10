@@ -29,7 +29,7 @@ To streamline agent instructions and reduce the size of AGENTS.md, we need to mo
 
 This epic covers the work to enhance the OpenAPI specification for the Knowledge Base server, making its tools, especially `query_documents`, fully self-documenting.
 
-## Activity Log
+## Timeline
 
 - 2025-10-27 @tobiu added the `documentation` label
 - 2025-10-27 @tobiu added the `epic` label

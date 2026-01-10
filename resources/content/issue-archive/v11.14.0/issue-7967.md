@@ -33,7 +33,7 @@ ViewportController.mjs:30 Uncaught (in promise) TypeError: Cannot destructure pr
     at App.onMessage (Base.mjs:189:46)
 ```
 
-## Activity Log
+## Timeline
 
 - 2025-12-01 @tobiu assigned to @tobiu
 - 2025-12-01 @tobiu added the `bug` label

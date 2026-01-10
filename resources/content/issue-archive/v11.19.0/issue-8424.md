@@ -39,8 +39,12 @@ Refactor `ai/mcp/server/knowledge-base/parser/SourceParser.mjs` to:
 **Goal:**
 The `extends` property in the chunk metadata should be a fully qualified class name (e.g., `Neo.container.Base`) whenever possible.
 
-## Comments
+## Timeline
 
+- 2026-01-08 @tobiu added the `bug` label
+- 2026-01-08 @tobiu added the `ai` label
+- 2026-01-08 @tobiu assigned to @tobiu
+- 2026-01-08 @tobiu referenced in commit `3bda6e5` - "fix: Resolve fully qualified superclass name in SourceParser (#8424)"
 ### @tobiu - 2026-01-08 13:26
 
 **Input from Gemini 3 Pro:**
@@ -56,11 +60,5 @@ The `extends` property in the chunk metadata should be a fully qualified class n
 > 
 > This ensures the `extends` metadata in the knowledge base (and thus the `ai-class-hierarchy.json`) points to valid, unique class keys rather than ambiguous local names.
 
-## Activity Log
-
-- 2026-01-08 @tobiu added the `bug` label
-- 2026-01-08 @tobiu added the `ai` label
-- 2026-01-08 @tobiu assigned to @tobiu
-- 2026-01-08 @tobiu referenced in commit `3bda6e5` - "fix: Resolve fully qualified superclass name in SourceParser (#8424)"
 - 2026-01-08 @tobiu closed this issue
 

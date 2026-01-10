@@ -29,7 +29,7 @@ This change will ensure that `Store.mjs` can be used seamlessly in web workers (
 **Proposed Change:**
 Modify the `load` method in `src/data/Store.mjs` to use a dynamic `import('fs/promises')` when `globalThis.process?.release` is true.
 
-## Activity Log
+## Timeline
 
 - 2025-11-17 @tobiu added the `enhancement` label
 - 2025-11-17 @tobiu added the `ai` label

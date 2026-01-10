@@ -23,10 +23,11 @@ closedAt: '2025-01-06T14:28:03Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
 - 2025-01-06 @tobiu added the `enhancement` label
 - 2025-01-06 @tobiu assigned to @tobiu
+- 2025-01-06 @tobiu changed title from **gird.View: wrap up the support for buffered columns (cells)** to **grid.View: wrap up the support for buffered columns (cells)**
 - 2025-01-06 @tobiu referenced in commit `eba4823` - "grid.View: wrap up the support for buffered columns (cells) #6182"
 - 2025-01-06 @tobiu closed this issue
 

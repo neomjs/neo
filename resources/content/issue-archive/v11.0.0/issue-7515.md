@@ -32,7 +32,7 @@ This indicates that the object returned by the `healthService.healthcheck` funct
 2.  The `healthcheck` function is modified to return a JSON object that strictly conforms to the `HealthCheckResponse` schema.
 3.  Running the `healthcheck` tool successfully returns the structured health status without any MCP errors.
 
-## Activity Log
+## Timeline
 
 - 2025-10-16 @tobiu assigned to @tobiu
 - 2025-10-16 @tobiu added parent issue #7501

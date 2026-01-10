@@ -23,7 +23,7 @@ closedAt: '2025-06-11T11:17:14Z'
 
 * It is quite useful to check when a load call is done (successful or failed).
 
-## Activity Log
+## Timeline
 
 - 2025-06-11 @tobiu assigned to @tobiu
 - 2025-06-11 @tobiu added the `enhancement` label

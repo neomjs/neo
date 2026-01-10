@@ -36,8 +36,16 @@ closedAt: '2026-01-10T21:40:49Z'
 **Outcome:**
 Users can now click a "Release" badge on any ticket to jump directly to the corresponding Release Notes in the Portal.
 
-## Comments
+## Timeline
 
+- 2026-01-10 @tobiu added the `enhancement` label
+- 2026-01-10 @tobiu added the `ai` label
+- 2026-01-10 @tobiu added the `feature` label
+- 2026-01-10 @tobiu added parent issue #8398
+- 2026-01-10 @tobiu referenced in commit `452fd8e` - "feat: Add Release badge to Ticket Header (#8525)
+
+Injects a release badge link into ticket headers, providing bidirectional navigation between tickets and releases. Refactors regex to module constants."
+- 2026-01-10 @tobiu assigned to @tobiu
 ### @tobiu - 2026-01-10 21:40
 
 **Input from Gemini 3 Pro:**
@@ -51,15 +59,5 @@ Users can now click a "Release" badge on any ticket to jump directly to the corr
 > 
 > This completes the bidirectional navigation between Tickets and Releases.
 
-## Activity Log
-
-- 2026-01-10 @tobiu added the `enhancement` label
-- 2026-01-10 @tobiu added the `ai` label
-- 2026-01-10 @tobiu added the `feature` label
-- 2026-01-10 @tobiu added parent issue #8398
-- 2026-01-10 @tobiu referenced in commit `452fd8e` - "feat: Add Release badge to Ticket Header (#8525)
-
-Injects a release badge link into ticket headers, providing bidirectional navigation between tickets and releases. Refactors regex to module constants."
-- 2026-01-10 @tobiu assigned to @tobiu
 - 2026-01-10 @tobiu closed this issue
 

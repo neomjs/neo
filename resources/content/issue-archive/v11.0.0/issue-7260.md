@@ -30,7 +30,7 @@ The Playwright test runner was incorrectly creating a `test-results` directory a
 
 This combination ensures that all test artifacts are consistently and correctly placed in `test/playwright/test-results`.
 
-## Activity Log
+## Timeline
 
 - 2025-09-26 @tobiu assigned to @tobiu
 - 2025-09-26 @tobiu added the `enhancement` label

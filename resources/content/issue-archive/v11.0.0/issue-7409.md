@@ -48,8 +48,14 @@ To work on this ticket, please start your session with the following prompt:
 > 
 > You will need to read the epic context from @.github/ISSUE/epic-architect-ai-tooling-as-mcp.md and the specific ticket details from @.github/ISSUE/ticket-implement-memory-query-endpoints.md before we begin.
 
-## Comments
+## Timeline
 
+- 2025-10-07 @tobiu added the `enhancement` label
+- 2025-10-07 @tobiu added parent issue #7399
+- 2025-10-07 @tobiu added the `help wanted` label
+- 2025-10-07 @tobiu added the `good first issue` label
+- 2025-10-07 @tobiu added the `hacktoberfest` label
+- 2025-10-07 @tobiu added the `ai` label
 ### @Aki-07 - 2025-10-10 13:17
 
 Hey @tobiu, love to work on this one! Can u assign me on this
@@ -65,21 +71,13 @@ Optional: The "big picture" for this hacktoberfest in neo is "context engineerin
 https://github.com/neomjs/neo/blob/dev/ROADMAP.md
 https://github.com/neomjs/neo/blob/dev/.github/VISION.md
 
-### @tobiu - 2025-10-12 11:15
-
-closing this one as resolved by the read PR.
-
-## Activity Log
-
-- 2025-10-07 @tobiu added the `enhancement` label
-- 2025-10-07 @tobiu added parent issue #7399
-- 2025-10-07 @tobiu added the `help wanted` label
-- 2025-10-07 @tobiu added the `good first issue` label
-- 2025-10-07 @tobiu added the `hacktoberfest` label
-- 2025-10-07 @tobiu added the `ai` label
 - 2025-10-10 @tobiu assigned to @Aki-07
 - 2025-10-10 @Aki-07 cross-referenced by #7407
 - 2025-10-10 @Aki-07 cross-referenced by PR #7455
 - 2025-10-11 @Aki-07 cross-referenced by PR #7463
+### @tobiu - 2025-10-12 11:15
+
+closing this one as resolved by the read PR.
+
 - 2025-10-12 @tobiu closed this issue
 

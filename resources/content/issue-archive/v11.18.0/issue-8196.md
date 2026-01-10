@@ -45,8 +45,20 @@ Refactor the client-side handling into a service-based architecture, similar to 
 **Goal:**
 Ensure the client-side architecture remains clean and scalable as the Neural Link capabilities grow.
 
-## Comments
+## Timeline
 
+- 2025-12-28 @tobiu added the `ai` label
+- 2025-12-28 @tobiu added the `refactoring` label
+- 2025-12-28 @tobiu added the `architecture` label
+- 2025-12-28 @tobiu assigned to @tobiu
+- 2025-12-28 @tobiu added parent issue #8169
+- 2025-12-29 @tobiu referenced in commit `7035edd` - "refactor(ai): Implement Service-Based Client Architecture (#8196)
+
+- Break up monolithic Neo.ai.Client into domain-specific services.
+- Add Neo.ai.client.Service base class.
+- Add ComponentService, DataService, and RuntimeService.
+- Implement dispatch logic using Neo.snakeToCamel for method mapping.
+- Ensure strict adherence to camelCase for internal service methods."
 ### @tobiu - 2025-12-29 06:26
 
 **Input from Neo Agent OS:**
@@ -68,19 +80,5 @@ Ensure the client-side architecture remains clean and scalable as the Neural Lin
 > 
 > The refactoring is verified and committed.
 
-## Activity Log
-
-- 2025-12-28 @tobiu added the `ai` label
-- 2025-12-28 @tobiu added the `refactoring` label
-- 2025-12-28 @tobiu added the `architecture` label
-- 2025-12-28 @tobiu assigned to @tobiu
-- 2025-12-28 @tobiu added parent issue #8169
-- 2025-12-29 @tobiu referenced in commit `7035edd` - "refactor(ai): Implement Service-Based Client Architecture (#8196)
-
-- Break up monolithic Neo.ai.Client into domain-specific services.
-- Add Neo.ai.client.Service base class.
-- Add ComponentService, DataService, and RuntimeService.
-- Implement dispatch logic using Neo.snakeToCamel for method mapping.
-- Ensure strict adherence to camelCase for internal service methods."
 - 2025-12-29 @tobiu closed this issue
 

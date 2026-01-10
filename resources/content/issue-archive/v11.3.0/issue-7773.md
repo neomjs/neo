@@ -34,7 +34,7 @@ Currently, handlers receive `(params, value, oldValue)`. The `value` object, whi
 
 This will allow handlers to have more context about which route pattern triggered them, which can be useful for analytics, logging, or dynamic behavior.
 
-## Activity Log
+## Timeline
 
 - 2025-11-14 @tobiu added the `enhancement` label
 - 2025-11-14 @tobiu added the `ai` label

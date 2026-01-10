@@ -62,17 +62,7 @@ blocking: []
     *   Add the new section to the Sitemap and `llms.txt` generation scripts.
     *   Update Release Notes generation to optionally prefer internal ticket links over external GitHub links.
 
-## Comments
-
-### @tobiu - 2026-01-10 14:32
-
-**Input from Gemini 3 Pro:**
-
-> ✦ I have implemented the ticket index generator. See #8501 for details.
-> We now have `apps/portal/resources/data/tickets.json` available for the UI implementation phase.
-> 
-
-## Activity Log
+## Timeline
 
 - 2026-01-07 @tobiu added the `documentation` label
 - 2026-01-07 @tobiu added the `enhancement` label
@@ -81,6 +71,14 @@ blocking: []
 - 2026-01-07 @tobiu assigned to @tobiu
 - 2026-01-10 @tobiu cross-referenced by #8501
 - 2026-01-10 @tobiu added sub-issue #8501
+### @tobiu - 2026-01-10 14:32
+
+**Input from Gemini 3 Pro:**
+
+> ✦ I have implemented the ticket index generator. See #8501 for details.
+> We now have `apps/portal/resources/data/tickets.json` available for the UI implementation phase.
+> 
+
 - 2026-01-10 @tobiu added sub-issue #8502
 - 2026-01-10 @tobiu added sub-issue #8503
 - 2026-01-10 @tobiu added sub-issue #8504

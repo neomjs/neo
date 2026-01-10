@@ -73,7 +73,7 @@ The `core.Effect` constructor has been improved. This ticket tracks the work to 
 - All `new Effect()` calls are refactored to use the single config object signature.
 - All relevant tests continue to pass.
 
-## Activity Log
+## Timeline
 
 - 2025-07-18 @tobiu assigned to @tobiu
 - 2025-07-18 @tobiu added the `enhancement` label

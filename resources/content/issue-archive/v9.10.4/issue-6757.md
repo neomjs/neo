@@ -25,7 +25,7 @@ closedAt: '2025-06-06T10:29:14Z'
 * The default scope for cell renderers switched from the column to the view instance.
 * The fix is trivial, since the renderer gets the column as a nested param
 
-## Activity Log
+## Timeline
 
 - 2025-06-06 @tobiu assigned to @tobiu
 - 2025-06-06 @tobiu added the `bug` label

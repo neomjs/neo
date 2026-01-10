@@ -26,7 +26,7 @@ closedAt: '2025-07-26T19:17:41Z'
 * the new base class got `null` instead
 * This breaks shared tooltips
 
-## Activity Log
+## Timeline
 
 - 2025-07-26 @tobiu assigned to @tobiu
 - 2025-07-26 @tobiu added the `bug` label

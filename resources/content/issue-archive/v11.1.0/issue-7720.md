@@ -23,7 +23,7 @@ closedAt: '2025-11-11T08:35:17Z'
 
 The `healthHelpers.mjs` file was introduced in PR #7717 to separate parsing logic from `HealthService.mjs`. However, this logic is not shared with any other module, and the file itself is quite short. To simplify the architecture, the helper functions (`combineOutput`, `parseAuthOutput`, `parseVersionOutput`, `interpretExecError`) should be moved back into `HealthService.mjs` as private methods, and the `healthHelpers.mjs` file should be deleted. The associated test file `healthHelpers.test.mjs` should also be either removed or its tests integrated into a test for `HealthService.mjs`.
 
-## Activity Log
+## Timeline
 
 - 2025-11-08 @tobiu added the `ai` label
 - 2025-11-08 @tobiu added the `refactoring` label

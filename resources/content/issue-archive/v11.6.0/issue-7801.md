@@ -33,7 +33,7 @@ The `config.mjs` file should be the single source of truth used directly by the 
 3. Remove `DEFAULT_QUERY_LIMITS` from `ai/mcp/server/github-workflow/services/queries/pullRequestQueries.mjs`.
 4. Update `ai/mcp/server/github-workflow/services/PullRequestService.mjs` to assign query variables directly from `aiConfig.pullRequest` (or `aiConfig.issueSync` where applicable).
 
-## Activity Log
+## Timeline
 
 - 2025-11-19 @tobiu added the `enhancement` label
 - 2025-11-19 @tobiu added the `ai` label

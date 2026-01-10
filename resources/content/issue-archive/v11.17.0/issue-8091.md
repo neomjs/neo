@@ -26,7 +26,7 @@ Update `src/tab/header/Toolbar.mjs` to use the new `SortZone` creation logic fro
 1. Remove `afterSetSortable()`.
 2. Implement `loadSortZoneModule()` to import `../../draggable/tab/header/toolbar/SortZone.mjs`.
 
-## Activity Log
+## Timeline
 
 - 2025-12-11 @tobiu added the `ai` label
 - 2025-12-11 @tobiu added the `refactoring` label

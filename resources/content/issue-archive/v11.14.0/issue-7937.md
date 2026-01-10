@@ -31,7 +31,7 @@ This task implements a command-line interface (CLI) for the MCP Client and integ
     *   Instantiates `Neo.ai.mcp.client.Client` to interact with specified MCP servers.
 2.  **NPM Script Integration:** Add a new script `ai:mcp-client` to `package.json` that executes `node ai/mcp/client/mcp-cli.mjs`.
 
-## Activity Log
+## Timeline
 
 - 2025-11-29 @tobiu assigned to @tobiu
 - 2025-11-29 @tobiu added the `enhancement` label

@@ -28,7 +28,7 @@ closedAt: '2025-03-09T17:21:51Z'
 
 i will extract the related part from the view logic.
 
-## Activity Log
+## Timeline
 
 - 2025-03-09 @tobiu added the `enhancement` label
 - 2025-03-09 @tobiu assigned to @tobiu

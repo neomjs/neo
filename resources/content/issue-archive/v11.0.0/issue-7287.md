@@ -33,8 +33,13 @@ This task is to migrate the unit test for `state/FeedbackLoop.mjs` from the Sies
 3.  Ensure the new test runs successfully via `npm test`.
 4.  The new test must cover all the functionality of the original Siesta test.
 
-## Comments
+## Timeline
 
+- 2025-09-27 @tobiu added the `enhancement` label
+- 2025-09-27 @tobiu added parent issue #7262
+- 2025-10-02 @tobiu added the `help wanted` label
+- 2025-10-02 @tobiu added the `good first issue` label
+- 2025-10-02 @tobiu added the `hacktoberfest` label
 ### @shubham220420 - 2025-10-03 10:23
 
 hey @tobiu, I'd like to work on this, please assign this to me.
@@ -52,6 +57,7 @@ https://github.com/neomjs/neo/blob/dev/.github/AI_QUICK_START.md
 
 E.g. gemini cli should be capable to complete it on its own.
 
+- 2025-10-03 @tobiu assigned to @shubham220420
 ### @nabeel001 - 2025-10-09 04:33
 
 Hi @tobiu 
@@ -81,21 +87,13 @@ Good luck with your exams from me too!
 
 And no worries: even when this epic is finished, there are a lot more files which could use unit testing (Gemini can identify them, and create new tickets). Plus, there is also component based testing, which would be a full new epic.
 
+- 2025-10-09 @tobiu unassigned from @shubham220420
+- 2025-10-09 @tobiu assigned to @nabeel001
+- 2025-10-10 @nabeel001 cross-referenced by PR #7433
 ### @nabeel001 - 2025-10-10 02:20
 
 Hi @tobiu 
 Kindly review and merge the PR.
 
-## Activity Log
-
-- 2025-09-27 @tobiu added the `enhancement` label
-- 2025-09-27 @tobiu added parent issue #7262
-- 2025-10-02 @tobiu added the `help wanted` label
-- 2025-10-02 @tobiu added the `good first issue` label
-- 2025-10-02 @tobiu added the `hacktoberfest` label
-- 2025-10-03 @tobiu assigned to @shubham220420
-- 2025-10-09 @tobiu unassigned from @shubham220420
-- 2025-10-09 @tobiu assigned to @nabeel001
-- 2025-10-10 @nabeel001 cross-referenced by PR #7433
 - 2025-10-10 @tobiu closed this issue
 

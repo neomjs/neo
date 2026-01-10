@@ -41,7 +41,7 @@ To align with the correct component behavior and fix pre-existing issues, severa
 
 With the component bug fixed and the test file updated, all tests within `test/playwright/component/form/field/ComboBox.spec.mjs` are now passing.
 
-## Activity Log
+## Timeline
 
 - 2025-11-06 @tobiu assigned to @tobiu
 - 2025-11-06 @tobiu added the `bug` label

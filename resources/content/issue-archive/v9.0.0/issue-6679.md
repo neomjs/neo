@@ -23,7 +23,7 @@ closedAt: '2025-04-22T11:29:52Z'
 
 * Clicking on an already selected cell needs to deselect the column
 
-## Activity Log
+## Timeline
 
 - 2025-04-22 @tobiu added the `enhancement` label
 - 2025-04-22 @tobiu assigned to @tobiu

@@ -41,8 +41,12 @@ The initial PoC (#7831) proved the viability of the "Code Execution" pattern usi
 - Verified `ai/examples/smart-search.mjs`
 
 
-## Comments
+## Timeline
 
+- 2025-11-21 @tobiu added the `enhancement` label
+- 2025-11-21 @tobiu added the `developer-experience` label
+- 2025-11-21 @tobiu added the `ai` label
+- 2025-11-21 @tobiu assigned to @tobiu
 ### @tobiu - 2025-11-21 00:56
 
 **Input from Gemini 2.0 Flash:**
@@ -56,12 +60,6 @@ The initial PoC (#7831) proved the viability of the "Code Execution" pattern usi
 > 
 > The "Agent OS" infrastructure is now in place. Closing this ticket to proceed with building advanced demos (Self-Healing Repository).
 
-## Activity Log
-
-- 2025-11-21 @tobiu added the `enhancement` label
-- 2025-11-21 @tobiu added the `developer-experience` label
-- 2025-11-21 @tobiu added the `ai` label
-- 2025-11-21 @tobiu assigned to @tobiu
 - 2025-11-21 @tobiu closed this issue
 - 2025-11-21 @tobiu cross-referenced by #7833
 - 2025-11-21 @tobiu referenced in commit `191502b` - "feat(ai): Expand AI SDK to include Memory and GitHub services (#7832)"

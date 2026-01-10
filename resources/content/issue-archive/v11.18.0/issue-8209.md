@@ -29,8 +29,16 @@ The promise must:
 
 This ensures the MCP server fails to start if the port is blocked, rather than failing silently.
 
-## Comments
+## Timeline
 
+- 2025-12-30 @tobiu added the `bug` label
+- 2025-12-30 @tobiu added the `ai` label
+- 2025-12-30 @tobiu added parent issue #8169
+- 2025-12-30 @tobiu referenced in commit `aa2e3d5` - "fix(ai): Fix silent failure in Neural Link ConnectionService startup (#8209)
+
+- Refactored startServer to return a Promise
+- Added event listeners for 'listening' and 'error' during startup
+- Ensures the MCP server fails fast if port 8081 is in use"
 ### @tobiu - 2025-12-30 09:21
 
 **Input from Gemini:**
@@ -44,16 +52,6 @@ This ensures the MCP server fails to start if the port is blocked, rather than f
 > This completes ticket #8209.
 > Next steps: Implement the Bridge Architecture (#8210).
 
-## Activity Log
-
-- 2025-12-30 @tobiu added the `bug` label
-- 2025-12-30 @tobiu added the `ai` label
-- 2025-12-30 @tobiu added parent issue #8169
-- 2025-12-30 @tobiu referenced in commit `aa2e3d5` - "fix(ai): Fix silent failure in Neural Link ConnectionService startup (#8209)
-
-- Refactored startServer to return a Promise
-- Added event listeners for 'listening' and 'error' during startup
-- Ensures the MCP server fails fast if port 8081 is in use"
 - 2025-12-30 @tobiu assigned to @tobiu
 - 2025-12-30 @tobiu closed this issue
 

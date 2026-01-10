@@ -46,7 +46,7 @@ The `parse5` library, while robust for HTML, does not correctly parse self-closi
 -   Standard HTML void elements are unaffected and continue to parse correctly.
 -   Unnecessary `acorn` and `astring` imports have been removed from the processor.
 
-## Activity Log
+## Timeline
 
 - 2025-08-01 @tobiu assigned to @tobiu
 - 2025-08-01 @tobiu added the `enhancement` label

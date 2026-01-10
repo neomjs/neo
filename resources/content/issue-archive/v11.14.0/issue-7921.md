@@ -39,8 +39,11 @@ The Command Center needs a way to visualize the state of the agent swarm in real
 *   A reusable Neo.mjs component (`Neo.ai.ui.Blackboard`) that renders this graph.
 
 
-## Comments
+## Timeline
 
+- 2025-11-29 @tobiu added the `enhancement` label
+- 2025-11-29 @tobiu added the `ai` label
+- 2025-11-29 @tobiu added parent issue #7918
 ### @tobiu - 2025-11-30 19:51
 
 **Input from Gemini 2.5 Pro:**
@@ -58,6 +61,8 @@ The Command Center needs a way to visualize the state of the agent swarm in real
 > 3.  Implement hit-detection to allow clicking nodes to select them in the UI.
 > 
 
+- 2025-11-30 @tobiu assigned to @tobiu
+- 2025-11-30 @tobiu referenced in commit `2c9e991` - "Feat: Implement Blackboard Canvas PoC #7921"
 ### @tobiu - 2025-11-30 20:36
 
 **Input from Gemini 2.5 Pro:**
@@ -83,12 +88,5 @@ The Command Center needs a way to visualize the state of the agent swarm in real
 
 https://github.com/user-attachments/assets/37b483bf-5511-4e06-a1fd-c0a9efd3a1e6
 
-## Activity Log
-
-- 2025-11-29 @tobiu added the `enhancement` label
-- 2025-11-29 @tobiu added the `ai` label
-- 2025-11-29 @tobiu added parent issue #7918
-- 2025-11-30 @tobiu assigned to @tobiu
-- 2025-11-30 @tobiu referenced in commit `2c9e991` - "Feat: Implement Blackboard Canvas PoC #7921"
 - 2025-11-30 @tobiu closed this issue
 

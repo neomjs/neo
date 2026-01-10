@@ -38,7 +38,7 @@ The issue archiving logic in `#getIssuePath()` is currently tied to a static con
 -   Ensures that closed issues are always archived into the correct, most recent release folder without manual intervention.
 -   Makes the archiving logic resilient to changes in the project's release cadence.
 
-## Activity Log
+## Timeline
 
 - 2025-10-20 @tobiu assigned to @tobiu
 - 2025-10-20 @tobiu added parent issue #7564

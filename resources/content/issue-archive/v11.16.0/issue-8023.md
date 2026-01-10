@@ -40,7 +40,7 @@ show() {
 }
 ```
 
-## Activity Log
+## Timeline
 
 - 2025-12-04 @tobiu added the `bug` label
 - 2025-12-04 @tobiu added the `ai` label

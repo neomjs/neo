@@ -23,7 +23,7 @@ closedAt: '2025-02-26T19:48:24Z'
 
 minor, but it should use the same coding style as `applyRenderAttributes()` for consistency.
 
-## Activity Log
+## Timeline
 
 - 2025-02-26 @tobiu added the `enhancement` label
 - 2025-02-26 @tobiu assigned to @tobiu

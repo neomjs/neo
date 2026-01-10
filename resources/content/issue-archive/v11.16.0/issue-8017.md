@@ -34,7 +34,7 @@ The `sync_all` tool was failing in the Antigravity environment due to `process.c
 **Verification:**
 - Verified that `sync_all` runs successfully in Antigravity after the fix.
 
-## Activity Log
+## Timeline
 
 - 2025-12-03 @tobiu added the `bug` label
 - 2025-12-03 @tobiu added the `contributor-experience` label

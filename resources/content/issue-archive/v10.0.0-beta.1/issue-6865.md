@@ -26,7 +26,7 @@ Rationale:
 * core.Base does not use the observable mixin.
 * using a real config, devs can easily "listen" to `afterSetIsReady()` => getting a notification once the async initialization is done.
 
-## Activity Log
+## Timeline
 
 - 2025-06-24 @tobiu assigned to @tobiu
 - 2025-06-24 @tobiu added the `enhancement` label

@@ -22,7 +22,7 @@ closedAt: '2025-06-17T14:51:20Z'
 
 * this will affect the next neo version
 
-## Activity Log
+## Timeline
 
 - 2025-06-17 @tobiu added the `bug` label
 - 2025-06-17 @tobiu referenced in commit `7011ae7` - "calendar.view.calendars.List: createItemContent() => ensure there are no space separated cls items inside the vdom #6829"

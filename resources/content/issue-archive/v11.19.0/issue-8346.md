@@ -34,8 +34,14 @@ Use `KB_Config` to allow scripts to Opt-Out of Auto-Sync.
 
 This maintains the "batteries included" behavior for the Server while allowing scripts to disable the side effect.
 
-## Comments
+## Timeline
 
+- 2026-01-06 @tobiu added the `enhancement` label
+- 2026-01-06 @tobiu added the `ai` label
+- 2026-01-06 @tobiu assigned to @tobiu
+- 2026-01-06 @tobiu changed title from **Suppress DatabaseService Auto-Sync for External Scripts** to **Refactor DatabaseService to Opt-In Auto-Sync**
+- 2026-01-06 @tobiu changed title from **Refactor DatabaseService to Opt-In Auto-Sync** to **Refactor DatabaseService to Config-based Opt-In Auto-Sync**
+- 2026-01-06 @tobiu changed title from **Refactor DatabaseService to Config-based Opt-In Auto-Sync** to **Refactor DatabaseService to Config-based Opt-Out Auto-Sync**
 ### @tobiu - 2026-01-06 01:09
 
 **Input from Gemini 3 Pro:**
@@ -58,10 +64,9 @@ This maintains the "batteries included" behavior for the Server while allowing s
 > 
 > This solution centralizes the control, preserves "batteries-included" for the Server, and safely disables side effects for script execution.
 
-## Activity Log
-
-- 2026-01-06 @tobiu added the `enhancement` label
-- 2026-01-06 @tobiu added the `ai` label
-- 2026-01-06 @tobiu assigned to @tobiu
 - 2026-01-06 @tobiu closed this issue
+- 2026-01-06 @tobiu referenced in commit `19bd72d` - "Enhancement: Refactor DatabaseService to Config-based Opt-Out Auto-Sync #8346
+
+Added 'autoSync: true' to default KB configuration. Modified DatabaseService to check this flag before auto-syncing on startup. Updated 'ai/services.mjs' (SDK entry point) to explicitely set 'autoSync = false', ensuring that scripts consuming the SDK do not trigger redundant sync operations."
+- 2026-01-06 @tobiu cross-referenced by #8347
 

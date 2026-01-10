@@ -26,7 +26,7 @@ closedAt: '2025-06-18T18:37:58Z'
 * Now, the new `main.DeltaUpdates` singleton dynamically imports DOM renderers.
 * Since this file is imported into `Neo.Main`, it is crucial to move the override here.
 
-## Activity Log
+## Timeline
 
 - 2025-06-18 @tobiu assigned to @tobiu
 - 2025-06-18 @tobiu added the `bug` label

@@ -23,7 +23,7 @@ closedAt: '2025-02-10T21:46:26Z'
 
 * not all form fields do
 
-## Activity Log
+## Timeline
 
 - 2025-02-10 @tobiu added the `enhancement` label
 - 2025-02-10 @tobiu assigned to @tobiu

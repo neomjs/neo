@@ -24,16 +24,14 @@ closedAt: '2025-01-22T16:11:40Z'
 * Since we are storing record values inside a data symbol now, the same approach should happen for the initial data => storing it inside another symbol
 * We need to adjust the related logic
 
-## Comments
-
-### @tobiu - 2025-01-22 16:11
-
-closing the ticket => i will create more granular follow-up tickets, since the story is not finished yet.
-
-## Activity Log
+## Timeline
 
 - 2025-01-18 @tobiu added the `enhancement` label
 - 2025-01-18 @tobiu assigned to @tobiu
 - 2025-01-22 @tobiu referenced in commit `23dbb2d` - "data.RecordFactory: isModified(), isModifiedField() => adapt to the new concept #6258"
+### @tobiu - 2025-01-22 16:11
+
+closing the ticket => i will create more granular follow-up tickets, since the story is not finished yet.
+
 - 2025-01-22 @tobiu closed this issue
 

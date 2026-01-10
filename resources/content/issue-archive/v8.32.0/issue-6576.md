@@ -22,7 +22,7 @@ closedAt: '2025-03-17T13:47:32Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
 - 2025-03-17 @tobiu added the `bug` label
 - 2025-03-17 @tobiu referenced in commit `5326d3b` - "data.Store: onConstructed() => the callback needs to check if the instance still exists #6576"

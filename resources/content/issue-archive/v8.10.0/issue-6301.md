@@ -24,7 +24,7 @@ closedAt: '2025-01-26T18:16:05Z'
 * Since the internal structure of cellIds could change, we need a clean API to get the matching `dataField`
 * Needed inside selection models
 
-## Activity Log
+## Timeline
 
 - 2025-01-26 @tobiu added the `enhancement` label
 - 2025-01-26 @tobiu assigned to @tobiu

@@ -34,7 +34,7 @@ Align `src/grid/header/Toolbar.mjs` and `src/table/header/Toolbar.mjs` with the 
 2. Implement `loadSortZoneModule` to import `../../draggable/table/header/toolbar/SortZone.mjs`.
 (No custom `createSortZone` needed).
 
-## Activity Log
+## Timeline
 
 - 2025-12-11 @tobiu added the `ai` label
 - 2025-12-11 @tobiu added the `refactoring` label

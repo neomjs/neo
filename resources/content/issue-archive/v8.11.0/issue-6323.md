@@ -23,7 +23,7 @@ closedAt: '2025-01-28T10:12:53Z'
 
 * they can not receive focus at all (this code was copied from `table.View`
 
-## Activity Log
+## Timeline
 
 - 2025-01-28 @tobiu added the `enhancement` label
 - 2025-01-28 @tobiu assigned to @tobiu

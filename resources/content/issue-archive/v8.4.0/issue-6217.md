@@ -23,16 +23,14 @@ closedAt: '2025-01-14T11:11:23Z'
 
 * `header.Toolbar` needs to recreate its items
 
-## Comments
-
-### @tobiu - 2025-01-14 11:11
-
-actually it already was there, but the `updateDepth` was missing.
-
-## Activity Log
+## Timeline
 
 - 2025-01-13 @tobiu added the `enhancement` label
 - 2025-01-13 @tobiu assigned to @tobiu
 - 2025-01-14 @tobiu referenced in commit `1083111` - "grid.Container: columns_: add support for run-time changes #6217"
+### @tobiu - 2025-01-14 11:11
+
+actually it already was there, but the `updateDepth` was missing.
+
 - 2025-01-14 @tobiu closed this issue
 

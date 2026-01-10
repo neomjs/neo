@@ -23,10 +23,11 @@ closedAt: '2025-04-22T11:25:13Z'
 
 * If we click on an already selected cell (important: not column), we want to deselect everything
 
-## Activity Log
+## Timeline
 
 - 2025-04-22 @tobiu added the `enhancement` label
 - 2025-04-22 @tobiu assigned to @tobiu
+- 2025-04-22 @tobiu changed title from **selection.grid.ColumnModel: onCellClick() => add deselection logic** to **selection.grid.CellColumnModel: onCellClick() => add deselection logic**
 - 2025-04-22 @tobiu referenced in commit `5a5acd2` - "selection.grid.CellColumnModel: onCellClick() => add deselection logic #6678"
 - 2025-04-22 @tobiu closed this issue
 

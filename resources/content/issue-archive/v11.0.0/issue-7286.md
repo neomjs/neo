@@ -33,8 +33,13 @@ This task is to migrate the unit test for `state/createHierarchicalDataProxy.mjs
 3.  Ensure the new test runs successfully via `npm test`.
 4.  The new test must cover all the functionality of the original Siesta test.
 
-## Comments
+## Timeline
 
+- 2025-09-27 @tobiu added the `enhancement` label
+- 2025-09-27 @tobiu added parent issue #7262
+- 2025-10-02 @tobiu added the `help wanted` label
+- 2025-10-02 @tobiu added the `good first issue` label
+- 2025-10-02 @tobiu added the `hacktoberfest` label
 ### @kart-u - 2025-10-04 08:59
 
 Hello @tobiu I would like to work on this , can you assign it to me
@@ -46,10 +51,13 @@ https://github.com/neomjs/neo/issues/7343
 
 => you can try out the new memory core, in case you update your fork to get the latest changes in there. this should help when working on test migrations. meaning: if you had a good session to migrate a test, inside a fresh session you can point the ai agent to that session memory, and it can pick up on it.
 
+- 2025-10-04 @tobiu assigned to @kart-u
 ### @kart-u - 2025-10-04 10:19
 
 thanks!! will surely try this 
 
+- 2025-10-04 @kart-u referenced in commit `11d56da` - "Convert state/createHierarchicalDataProxy.mjs Test from Siesta to Playwright #7286"
+- 2025-10-04 @kart-u cross-referenced by PR #7355
 ### @kart-u - 2025-10-04 12:23
 
 yes I tried new memory core , it was quite convenient ,without much additional input Gemini was able to infer issue from past contexts and less errors
@@ -70,16 +78,6 @@ i am just ironing out a few more glitches with using the memory core:
 
 <img width="991" height="1266" alt="Image" src="https://github.com/user-attachments/assets/94a07d38-b4f3-4ab7-9864-d4dde7bf683c" />
 
-## Activity Log
-
-- 2025-09-27 @tobiu added the `enhancement` label
-- 2025-09-27 @tobiu added parent issue #7262
-- 2025-10-02 @tobiu added the `help wanted` label
-- 2025-10-02 @tobiu added the `good first issue` label
-- 2025-10-02 @tobiu added the `hacktoberfest` label
-- 2025-10-04 @tobiu assigned to @kart-u
-- 2025-10-04 @kart-u referenced in commit `11d56da` - "Convert state/createHierarchicalDataProxy.mjs Test from Siesta to Playwright #7286"
-- 2025-10-04 @kart-u cross-referenced by PR #7355
 - 2025-10-04 @kart-u referenced in commit `9ed2ac2` - "Convert state/createHierarchicalDataProxy.mjs Test from Siesta to Playwright #7286"
 - 2025-10-04 @kart-u referenced in commit `5019fcf` - "Convert state/createHierarchicalDataProxy.mjs Test from Siesta to Playwright #7286"
 - 2025-10-04 @kart-u referenced in commit `2d76a05` - "Convert state/createHierarchicalDataProxy.mjs Test from Siesta to Playwright #7286"

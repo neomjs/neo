@@ -34,7 +34,7 @@ To improve this, we will enhance the `connect` event in the App worker to includ
 
 This avoids the initial "null rect" state and ensures spatial awareness is available immediately upon connection.
 
-## Activity Log
+## Timeline
 
 - 2025-12-26 @tobiu added the `enhancement` label
 - 2025-12-26 @tobiu added the `ai` label

@@ -30,7 +30,7 @@ Scope:
 - Ensure standard error responses (400, 500) and component schemas are used.
 - Verify integration with `package.json` and `.gemini/settings.json`.
 
-## Activity Log
+## Timeline
 
 - 2025-12-05 @tobiu added the `enhancement` label
 - 2025-12-05 @tobiu added the `ai` label

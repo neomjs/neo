@@ -31,18 +31,16 @@ This is the final ticket in the GraphQL migration epic. It covers the final clea
 3.  All relevant JSDoc comments throughout the services are updated to reflect the new GraphQL data access patterns and return structures.
 4.  The `openapi.yaml` file is reviewed and updated to reflect any changes in the data structures returned by the services.
 
-## Comments
-
-### @tobiu - 2025-10-23 14:57
-
-resolved.
-
-## Activity Log
+## Timeline
 
 - 2025-10-21 @tobiu assigned to @tobiu
 - 2025-10-21 @tobiu added the `enhancement` label
 - 2025-10-21 @tobiu added the `ai` label
 - 2025-10-21 @tobiu added parent issue #7590
 - 2025-10-22 @tobiu cross-referenced by #7590
+### @tobiu - 2025-10-23 14:57
+
+resolved.
+
 - 2025-10-23 @tobiu closed this issue
 

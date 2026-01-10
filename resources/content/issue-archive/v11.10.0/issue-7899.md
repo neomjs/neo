@@ -38,7 +38,7 @@ Refine the `buildScripts/docs/jsdocx.mjs` script to filter out these invalid ite
 - Confirm that valid classes like `Neo.ai.mcp.server.github-workflow.Server` are still present.
 - Verify the Docs app loads without errors when navigating the tree.
 
-## Activity Log
+## Timeline
 
 - 2025-11-24 @tobiu added the `bug` label
 - 2025-11-24 @tobiu added the `documentation` label

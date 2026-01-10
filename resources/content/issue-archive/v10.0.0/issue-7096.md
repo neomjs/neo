@@ -37,7 +37,7 @@ Senior engineers, tech leads, and teams for whom performance and security are cr
 ## 4. Deliverable
 A complete draft of the blog post as a markdown file.
 
-## Activity Log
+## Timeline
 
 - 2025-07-22 @tobiu assigned to @tobiu
 - 2025-07-22 @tobiu added the `Blog Post` label

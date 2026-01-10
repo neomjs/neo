@@ -23,7 +23,7 @@ closedAt: '2025-02-03T21:14:41Z'
 
 * We can delay the record class creation until the first record instance is needed
 
-## Activity Log
+## Timeline
 
 - 2025-02-03 @tobiu added the `enhancement` label
 - 2025-02-03 @tobiu assigned to @tobiu

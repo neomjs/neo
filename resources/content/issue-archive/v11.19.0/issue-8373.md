@@ -29,10 +29,11 @@ Key points to cover:
 - How the Neural Link eliminates hallucinations by providing access to the "Ground Truth".
 - The capability to solve previously unresolvable runtime-dependent problems.
 
-## Activity Log
+## Timeline
 
 - 2026-01-07 @tobiu added the `documentation` label
 - 2026-01-07 @tobiu added the `ai` label
 - 2026-01-07 @tobiu assigned to @tobiu
 - 2026-01-07 @tobiu closed this issue
+- 2026-01-07 @jonnyamsp referenced in commit `b1f1139` - "Docs: Update Introduction.md with Neural Link Ground Truth analogy (Closes #8373)"
 

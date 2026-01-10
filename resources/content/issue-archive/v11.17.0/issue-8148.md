@@ -43,7 +43,7 @@ This PR fixes critical issues with remote method registration and message routin
 **Goal:**
 Ensure stable and correct message routing in complex multi-window environments, enabling features like `AgentOS` component detachment to work without crashing the original window or hanging the new one.
 
-## Activity Log
+## Timeline
 
 - 2025-12-19 @tobiu added the `bug` label
 - 2025-12-19 @tobiu added the `ai` label

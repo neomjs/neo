@@ -24,7 +24,7 @@ closedAt: '2025-07-12T12:05:05Z'
 * The method is currently inside `component.Base`.
 * Functional components need scoped vdom updates too.
 
-## Activity Log
+## Timeline
 
 - 2025-07-12 @tobiu added the `enhancement` label
 - 2025-07-12 @tobiu added parent issue #6992

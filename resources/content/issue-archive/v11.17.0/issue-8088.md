@@ -41,7 +41,7 @@ Updated `Neo.manager.DomEvent#register` to prioritize the Logical Component ID (
 ## Changes
 - Refactored `src/manager/DomEvent.mjs` `register()` to resolve the storage ID at the start of the method.
 
-## Activity Log
+## Timeline
 
 - 2025-12-11 @tobiu added the `bug` label
 - 2025-12-11 @tobiu added the `ai` label

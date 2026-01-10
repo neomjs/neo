@@ -23,16 +23,14 @@ closedAt: '2025-01-26T20:18:39Z'
 
 *(No description provided)*
 
-## Comments
-
-### @tobiu - 2025-01-26 20:18
-
-https://github.com/user-attachments/assets/15ce7749-4ff0-45e5-bfb2-72f7c8a68da2
-
-## Activity Log
+## Timeline
 
 - 2025-01-26 @tobiu added the `enhancement` label
 - 2025-01-26 @tobiu assigned to @tobiu
 - 2025-01-26 @tobiu referenced in commit `1c53980` - "selection.grid.CellColumnRowModel: add basic navigation support #6307"
+### @tobiu - 2025-01-26 20:18
+
+https://github.com/user-attachments/assets/15ce7749-4ff0-45e5-bfb2-72f7c8a68da2
+
 - 2025-01-26 @tobiu closed this issue
 

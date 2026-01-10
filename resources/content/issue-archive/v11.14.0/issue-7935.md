@@ -34,7 +34,7 @@ This task implements the core client-side logic for connecting to MCP servers, f
     *   Demonstrate connection to the local `github-workflow` server.
     *   Execute tools via the MCP protocol without direct service imports.
 
-## Activity Log
+## Timeline
 
 - 2025-11-29 @tobiu assigned to @tobiu
 - 2025-11-29 @tobiu added the `enhancement` label

@@ -23,16 +23,14 @@ closedAt: '2025-01-18T21:38:16Z'
 
 *(No description provided)*
 
-## Comments
-
-### @tobiu - 2025-01-18 21:38
-
-![Image](https://github.com/user-attachments/assets/e989a7ca-c7ac-4e14-a9c0-a1a66281e4fd)
-
-## Activity Log
+## Timeline
 
 - 2025-01-18 @tobiu added the `enhancement` label
 - 2025-01-18 @tobiu assigned to @tobiu
 - 2025-01-18 @tobiu referenced in commit `e9424ed` - "data.RecordFactory: setRecordFields() => re-enable passing partial objects for changing nested fields #6256"
+### @tobiu - 2025-01-18 21:38
+
+![Image](https://github.com/user-attachments/assets/e989a7ca-c7ac-4e14-a9c0-a1a66281e4fd)
+
 - 2025-01-18 @tobiu closed this issue
 

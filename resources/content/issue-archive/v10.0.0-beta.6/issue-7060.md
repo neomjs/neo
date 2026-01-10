@@ -23,7 +23,7 @@ closedAt: '2025-07-15T17:20:11Z'
 
 * Rationale: not interesting for frequent users
 
-## Activity Log
+## Timeline
 
 - 2025-07-15 @tobiu assigned to @tobiu
 - 2025-07-15 @tobiu added the `enhancement` label

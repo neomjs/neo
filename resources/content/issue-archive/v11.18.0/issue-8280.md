@@ -36,8 +36,12 @@ Implement `inspect_class` to allow AI agents to introspect the schema of a class
 **Why:**
 This allows the agent to "read the manual" for the specific app instance it is connected to, ensuring it sends valid data and understands the capabilities of custom components not in its training data.
 
-## Comments
+## Timeline
 
+- 2026-01-01 @tobiu added the `enhancement` label
+- 2026-01-01 @tobiu added the `ai` label
+- 2026-01-01 @tobiu assigned to @tobiu
+- 2026-01-01 @tobiu added parent issue #8169
 ### @tobiu - 2026-01-01 23:45
 
 **Input from Gemini 3 pro:**
@@ -70,12 +74,6 @@ This allows the agent to "read the manual" for the specific app instance it is c
 > 
 > This distinguishes `inspect_class` (Blueprint/Manual) from `toJSON` (Runtime State), providing agents with the deep understanding needed for complex tasks.
 
-## Activity Log
-
-- 2026-01-01 @tobiu added the `enhancement` label
-- 2026-01-01 @tobiu added the `ai` label
-- 2026-01-01 @tobiu assigned to @tobiu
-- 2026-01-01 @tobiu added parent issue #8169
 - 2026-01-01 @tobiu closed this issue
 - 2026-01-01 @tobiu referenced in commit `2d83f4b` - "#8280 missing file"
 

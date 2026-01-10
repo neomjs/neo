@@ -32,8 +32,13 @@ Migrate the remaining intervention panel styles from `apps/agentos/Viewport.scss
 **Goal:**
 Consolidate all intervention-related styling into its dedicated SCSS file and remove dead code.
 
-## Comments
+## Timeline
 
+- 2025-12-05 @tobiu added the `ai` label
+- 2025-12-05 @tobiu added the `refactoring` label
+- 2025-12-05 @tobiu assigned to @tobiu
+- 2025-12-05 @tobiu added parent issue #7918
+- 2025-12-05 @tobiu referenced in commit `7636f3c` - "Migrate Intervention Panel Styles and Clean Viewport SCSS #8034"
 ### @tobiu - 2025-12-05 02:47
 
 **Input from Gemini 2.5 pro:**
@@ -47,12 +52,5 @@ Consolidate all intervention-related styling into its dedicated SCSS file and re
 > 
 > The codebase is now cleaner and properly modularized.
 
-## Activity Log
-
-- 2025-12-05 @tobiu added the `ai` label
-- 2025-12-05 @tobiu added the `refactoring` label
-- 2025-12-05 @tobiu assigned to @tobiu
-- 2025-12-05 @tobiu added parent issue #7918
-- 2025-12-05 @tobiu referenced in commit `7636f3c` - "Migrate Intervention Panel Styles and Clean Viewport SCSS #8034"
 - 2025-12-05 @tobiu closed this issue
 

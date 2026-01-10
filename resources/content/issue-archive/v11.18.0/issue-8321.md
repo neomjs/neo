@@ -34,7 +34,7 @@ The recent consolidation of backup tools (Issue #8320) introduced a `multipart/f
 2. **Unified Response Schema:** Replace `oneOf` with a single `BackupActionResponse` schema containing nullable fields (`imported`, `skipped`, `total`, `mode`) and a mandatory `message`.
 3. **Standardize Service Output:** Update `DatabaseService.mjs` to return a consistent object structure matching the new schema.
 
-## Activity Log
+## Timeline
 
 - 2026-01-04 @tobiu added the `bug` label
 - 2026-01-04 @tobiu added the `ai` label

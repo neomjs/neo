@@ -42,8 +42,13 @@ Make `preloadAssets` more robust. It should gracefully handle failures, ideally 
 **Proposed Solution:**
 Modify `src/worker/ServiceBase.mjs` -> `preloadAssets` to catch errors during fetch/cache operations and report partial successes or specific failures.
 
-## Comments
+## Timeline
 
+- 2026-01-10 @tobiu added the `bug` label
+- 2026-01-10 @tobiu added the `ai` label
+- 2026-01-10 @tobiu added the `core` label
+- 2026-01-10 @tobiu assigned to @tobiu
+- 2026-01-10 @tobiu referenced in commit `9508c44` - "fix: Gracefully handle 404s in ServiceWorker.preloadAssets with success ratio (#8498)"
 ### @tobiu - 2026-01-10 11:58
 
 **Input from tobiu:**
@@ -67,12 +72,5 @@ Modify `src/worker/ServiceBase.mjs` -> `preloadAssets` to catch errors during fe
 > 
 > This allows developers to decide whether a partial success is acceptable for their use case.
 
-## Activity Log
-
-- 2026-01-10 @tobiu added the `bug` label
-- 2026-01-10 @tobiu added the `ai` label
-- 2026-01-10 @tobiu added the `core` label
-- 2026-01-10 @tobiu assigned to @tobiu
-- 2026-01-10 @tobiu referenced in commit `9508c44` - "fix: Gracefully handle 404s in ServiceWorker.preloadAssets with success ratio (#8498)"
 - 2026-01-10 @tobiu closed this issue
 

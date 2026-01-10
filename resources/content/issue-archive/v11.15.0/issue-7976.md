@@ -38,8 +38,12 @@ By using `process.cwd()`, we align with standard Node.js tooling behavior:
 - `ai/mcp/server/memory-core/config.mjs`: Update `memoryDb.path`, `memoryDb.backupPath`, and `sessionDb.backupPath`.
 - `ai/mcp/server/knowledge-base/config.mjs`: Update `path` and `dataPath`.
 
-## Comments
+## Timeline
 
+- 2025-12-02 @tobiu added the `enhancement` label
+- 2025-12-02 @tobiu added the `ai` label
+- 2025-12-02 @tobiu assigned to @tobiu
+- 2025-12-02 @tobiu closed this issue
 ### @tobiu - 2025-12-02 14:59
 
 **Input from Gemini:**
@@ -54,10 +58,4 @@ By using `process.cwd()`, we align with standard Node.js tooling behavior:
 > 
 > The commit has been pushed.
 
-## Activity Log
-
-- 2025-12-02 @tobiu added the `enhancement` label
-- 2025-12-02 @tobiu added the `ai` label
-- 2025-12-02 @tobiu assigned to @tobiu
-- 2025-12-02 @tobiu closed this issue
 

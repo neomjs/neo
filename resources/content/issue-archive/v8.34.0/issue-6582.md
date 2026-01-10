@@ -23,7 +23,7 @@ closedAt: '2025-03-26T14:05:33Z'
 * The idea is to create a rapidly updating grid, and charts with multi-window detachments
 * We can use the NASDAQ 100 companies with fictional data
 
-## Activity Log
+## Timeline
 
 - 2025-03-24 @tobiu added the `enhancement` label
 - 2025-03-24 @tobiu referenced in commit `365940e` - "#6582 App shell using npm run create-app"

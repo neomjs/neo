@@ -22,7 +22,7 @@ closedAt: '2025-06-15T16:15:25Z'
 
 * Same logic like inside `create()`
 
-## Activity Log
+## Timeline
 
 - 2025-06-15 @tobiu added the `enhancement` label
 - 2025-06-15 @tobiu added parent issue #6785

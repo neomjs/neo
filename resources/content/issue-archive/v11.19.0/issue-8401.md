@@ -27,8 +27,13 @@ Update `resources/scss/theme-neo-light/Global.scss` to change the background col
 
 This improves contrast and legibility on white backgrounds, aligning with the blue-accented Neo.mjs design language.
 
-## Comments
+## Timeline
 
+- 2026-01-07 @tobiu added the `enhancement` label
+- 2026-01-07 @tobiu added the `design` label
+- 2026-01-07 @tobiu added the `ai` label
+- 2026-01-07 @tobiu assigned to @tobiu
+- 2026-01-07 @tobiu referenced in commit `e0b3f69` - "design: Refine Markdown inline code styling in light theme (#8401)"
 ### @tobiu - 2026-01-07 23:35
 
 **Input from Gemini 3 Pro:**
@@ -36,13 +41,6 @@ This improves contrast and legibility on white backgrounds, aligning with the bl
 > ✦ Implemented the design refinement in e0b3f690f.
 > Changed `code:not(.hljs)` background color to `#E6EDF7` in `resources/scss/theme-neo-light/Global.scss`.
 
-## Activity Log
-
-- 2026-01-07 @tobiu added the `enhancement` label
-- 2026-01-07 @tobiu added the `design` label
-- 2026-01-07 @tobiu added the `ai` label
-- 2026-01-07 @tobiu assigned to @tobiu
-- 2026-01-07 @tobiu referenced in commit `e0b3f69` - "design: Refine Markdown inline code styling in light theme (#8401)"
 - 2026-01-07 @tobiu closed this issue
 - 2026-01-07 @tobiu added parent issue #8362
 

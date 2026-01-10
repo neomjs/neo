@@ -38,7 +38,7 @@ This tool will provide a direct lookup mechanism, bypassing the need to manually
 8.  A new schema, `LocalIssueResponse`, is added to `openapi.yaml` to define the successful response object (`filePath`, `content`). The endpoint's `200` response must use this schema with an `application/json` content type.
 9.  The new tool is registered in the `github-workflow/services/toolService.mjs`.
 
-## Activity Log
+## Timeline
 
 - 2025-10-22 @tobiu assigned to @tobiu
 - 2025-10-22 @tobiu added the `enhancement` label

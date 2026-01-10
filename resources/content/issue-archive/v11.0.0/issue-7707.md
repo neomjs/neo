@@ -56,7 +56,7 @@ This ticket summarizes a comprehensive refactoring of the JSDoc documentation ge
 **Conclusion:**
 The primary bottleneck was identified as JSDoc parsing itself. Parallel processing, leveraging physical core counts, proved to be the most impactful optimization. Further significant speed gains would likely require switching to an entirely different parser or implementing incremental builds.
 
-## Activity Log
+## Timeline
 
 - 2025-11-04 @tobiu added the `enhancement` label
 - 2025-11-04 @tobiu added the `ai` label

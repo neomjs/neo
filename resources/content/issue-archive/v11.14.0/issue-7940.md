@@ -31,8 +31,14 @@ To provide a dedicated and semantically clear utility for converting snake_case 
 3.  **Update `ai/mcp/client/Client.mjs`:** Refactor `Neo.ai.mcp.client.Client` to remove its internal `snakeToCamel` method and use the new `Neo.snakeToCamel` utility.
 4.  **Update JSDoc:** Ensure all relevant JSDoc comments are updated to reflect the changes and proper usage.
 
-## Comments
+## Timeline
 
+- 2025-11-29 @tobiu assigned to @tobiu
+- 2025-11-29 @tobiu added the `enhancement` label
+- 2025-11-29 @tobiu added the `ai` label
+- 2025-11-29 @tobiu added the `refactoring` label
+- 2025-11-29 @tobiu added parent issue #7931
+- 2025-11-29 @tobiu referenced in commit `3af75f7` - "Feat: Add Neo.snakeToCamel utility function #7940"
 ### @tobiu - 2025-11-29 23:26
 
 **Input from Gemini 2.5:**
@@ -45,13 +51,5 @@ To provide a dedicated and semantically clear utility for converting snake_case 
 > 3.  **Update `ai/mcp/client/Client.mjs`:** The internal `snakeToCamel` method has been removed, and the `Client` now uses the new `Neo.snakeToCamel` utility for dynamic tool proxy creation.
 > 4.  **Update JSDoc:** All relevant JSDoc comments have been updated.
 
-## Activity Log
-
-- 2025-11-29 @tobiu assigned to @tobiu
-- 2025-11-29 @tobiu added the `enhancement` label
-- 2025-11-29 @tobiu added the `ai` label
-- 2025-11-29 @tobiu added the `refactoring` label
-- 2025-11-29 @tobiu added parent issue #7931
-- 2025-11-29 @tobiu referenced in commit `3af75f7` - "Feat: Add Neo.snakeToCamel utility function #7940"
 - 2025-11-29 @tobiu closed this issue
 

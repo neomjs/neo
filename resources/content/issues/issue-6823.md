@@ -96,7 +96,7 @@ export interface VDomNodeConfig {
 }
 ```
 
-## Activity Log
+## Timeline
 
 - 2025-06-17 @tobiu added the `enhancement` label
 - 2025-06-30 @tobiu added the `no auto close` label

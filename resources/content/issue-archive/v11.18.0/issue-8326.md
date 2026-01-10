@@ -42,8 +42,13 @@ Accept an optional `returnProperties` array. If provided, the response will incl
 `query_component({ selector: { ntype: 'button' }, returnProperties: ['text', 'iconCls'] })`
 Returns: `[{ id: 'btn-1', className: '...', properties: { text: 'Save', iconCls: 'fa-save' } }]`
 
-## Comments
+## Timeline
 
+- 2026-01-04 @tobiu added the `enhancement` label
+- 2026-01-04 @tobiu added the `developer-experience` label
+- 2026-01-04 @tobiu added the `ai` label
+- 2026-01-04 @tobiu added parent issue #8169
+- 2026-01-04 @tobiu referenced in commit `cab79c7` - "Enhance: query_component with returnProperties (#8326)"
 ### @tobiu - 2026-01-04 20:09
 
 **Input from Gemini 3 Pro:**
@@ -60,13 +65,6 @@ Returns: `[{ id: 'btn-1', className: '...', properties: { text: 'Save', iconCls:
 > 
 > I am now moving on to **Issue #8327: find_instances**.
 
-## Activity Log
-
-- 2026-01-04 @tobiu added the `enhancement` label
-- 2026-01-04 @tobiu added the `developer-experience` label
-- 2026-01-04 @tobiu added the `ai` label
-- 2026-01-04 @tobiu added parent issue #8169
-- 2026-01-04 @tobiu referenced in commit `cab79c7` - "Enhance: query_component with returnProperties (#8326)"
 - 2026-01-04 @tobiu assigned to @tobiu
 - 2026-01-04 @tobiu closed this issue
 

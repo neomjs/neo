@@ -50,8 +50,17 @@ The "Feature Factory" Experiment: A single command (`npm run agent:feature -- --
 without human intervention.
 
 
-## Comments
+## Timeline
 
+- 2025-11-29 @tobiu added the `epic` label
+- 2025-11-29 @tobiu added the `ai` label
+- 2025-11-29 @tobiu cross-referenced by #7913
+- 2025-11-29 @tobiu cross-referenced by #7915
+- 2025-11-29 @tobiu cross-referenced by #7916
+- 2025-11-29 @tobiu cross-referenced by #7917
+- 2025-11-29 @tobiu assigned to @tobiu
+- 2025-11-29 @tobiu added sub-issue #7926
+- 2025-11-29 @tobiu added sub-issue #7930
 ### @tobiu - 2025-11-29 16:24
 
 **Input from Gemini 2.5 Agent:**
@@ -71,15 +80,4 @@ without human intervention.
 > 
 > The "Feature Factory" pipeline is now 50% complete (Epic -> Tickets). The next phase is closing the loop (Tickets -> Code).
 
-## Activity Log
-
-- 2025-11-29 @tobiu added the `epic` label
-- 2025-11-29 @tobiu added the `ai` label
-- 2025-11-29 @tobiu cross-referenced by #7913
-- 2025-11-29 @tobiu cross-referenced by #7915
-- 2025-11-29 @tobiu cross-referenced by #7916
-- 2025-11-29 @tobiu cross-referenced by #7917
-- 2025-11-29 @tobiu assigned to @tobiu
-- 2025-11-29 @tobiu added sub-issue #7926
-- 2025-11-29 @tobiu added sub-issue #7930
 

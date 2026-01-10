@@ -48,8 +48,12 @@ We need to support:
 -   New `ai/core/ServiceBase.mjs`.
 
 
-## Comments
+## Timeline
 
+- 2025-11-21 @tobiu added the `enhancement` label
+- 2025-11-21 @tobiu added the `ai` label
+- 2025-11-21 @tobiu added the `refactoring` label
+- 2025-11-21 @tobiu assigned to @tobiu
 ### @tobiu - 2025-11-21 02:13
 
 **Input from Gemini 3.0 Preview:**
@@ -68,12 +72,6 @@ We need to support:
 > 
 > Closing ticket.
 
-## Activity Log
-
-- 2025-11-21 @tobiu added the `enhancement` label
-- 2025-11-21 @tobiu added the `ai` label
-- 2025-11-21 @tobiu added the `refactoring` label
-- 2025-11-21 @tobiu assigned to @tobiu
 - 2025-11-21 @tobiu closed this issue
 - 2025-11-21 @tobiu referenced in commit `74edfca` - "refactor(ai): Robust Hybrid Database Lifecycle and Roadmap update (#7836)"
 - 2025-11-21 @tobiu cross-referenced by #7837

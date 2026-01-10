@@ -40,19 +40,18 @@ This PoC successfully resolved key unknowns (like module pathing and RMA usage) 
 7.  **Test Case 2 (Reactivity):** Used the `Neo.worker.App.setConfigs()` RMA method to change the `src` and `alt` configs and asserted that the DOM attributes updated correctly.
 8.  The test suite passed successfully.
 
-## Comments
-
-### @tobiu - 2025-10-12 13:35
-
-FYI @Aki-07 this one works now.
-
-## Activity Log
+## Timeline
 
 - 2025-10-12 @tobiu assigned to @tobiu
 - 2025-10-12 @tobiu added parent issue #7435
 - 2025-10-12 @tobiu added the `enhancement` label
 - 2025-10-12 @tobiu added the `ai` label
+- 2025-10-12 @tobiu changed title from **PoC: Migrate Component Test for component.Image** to **PoC: Create Component Test for component.Image**
 - 2025-10-12 @tobiu referenced in commit `9ef29f3` - "PoC: Create Component Test for component.Image #7470"
+### @tobiu - 2025-10-12 13:35
+
+FYI @Aki-07 this one works now.
+
 - 2025-10-12 @tobiu closed this issue
 - 2025-10-12 @tobiu referenced in commit `5514561` - "#7470 missing file"
 

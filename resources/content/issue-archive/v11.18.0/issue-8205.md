@@ -43,7 +43,7 @@ subIssues:
 - Update `IssueSyncer.mjs` to format these fields during the sync process.
 - Ensure the existing GraphQL query `FETCH_ISSUES_FOR_SYNC` retrieves the `state` for these related issues (verified: it does).
 
-## Activity Log
+## Timeline
 
 - 2025-12-29 @tobiu added the `enhancement` label
 - 2025-12-29 @tobiu added the `ai` label

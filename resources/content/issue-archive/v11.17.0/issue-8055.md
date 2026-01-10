@@ -55,7 +55,7 @@ if (!promise) {
 
 This logic has already been verified in `src/worker/Manager.mjs`. This ticket tracks the formal acceptance and documentation of this capability.
 
-## Activity Log
+## Timeline
 
 - 2025-12-08 @tobiu added the `enhancement` label
 - 2025-12-08 @tobiu added the `ai` label

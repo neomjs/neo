@@ -39,7 +39,7 @@ Refine `learn/blog/agent-os-technical-report.md` to address critical feedback an
 
 **Goal:** Shift from a "Manifesto" style to a data-backed **Technical Experience Report** that validates Anthropic's "Code Execution" vision.
 
-## Activity Log
+## Timeline
 
 - 2025-11-23 @tobiu added the `documentation` label
 - 2025-11-23 @tobiu added the `Blog Post` label

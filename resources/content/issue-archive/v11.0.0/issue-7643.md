@@ -30,7 +30,7 @@ As part of the sync service refactoring epic, this ticket focuses on creating a 
 3.  Implement data pruning logic within the manager. When saving, it should only store the essential fields required for change detection (e.g., `updatedAt`, `contentHash`, `path`) for each entity, instead of the full objects currently being stored. This will drastically reduce the file size.
 4.  Refactor the `IssueSyncer` and `ReleaseSyncer` modules to use the new `MetadataManager` for all metadata reads and writes.
 
-## Activity Log
+## Timeline
 
 - 2025-10-25 @tobiu added the `epic` label
 - 2025-10-25 @tobiu added the `ai` label

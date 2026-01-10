@@ -24,16 +24,14 @@ closedAt: '2025-01-25T19:03:46Z'
 * Same logic as for `table.View`
 * Add related theme vars & src
 
-## Comments
-
-### @tobiu - 2025-01-25 19:03
-
-![Image](https://github.com/user-attachments/assets/241edf00-d8b9-41af-8615-bbfd21ed6ebb)
-
-## Activity Log
+## Timeline
 
 - 2025-01-25 @tobiu added the `enhancement` label
 - 2025-01-25 @tobiu assigned to @tobiu
 - 2025-01-25 @tobiu referenced in commit `3be5eba` - "grid.View: add support for highlighting modified cells #6288"
+### @tobiu - 2025-01-25 19:03
+
+![Image](https://github.com/user-attachments/assets/241edf00-d8b9-41af-8615-bbfd21ed6ebb)
+
 - 2025-01-25 @tobiu closed this issue
 

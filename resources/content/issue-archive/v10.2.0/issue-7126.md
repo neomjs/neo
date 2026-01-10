@@ -28,16 +28,14 @@ closedAt: '2025-07-29T23:59:39Z'
 
 <img width="244" height="197" alt="Image" src="https://github.com/user-attachments/assets/a726155b-2a61-4f1f-ad4d-53e803ecdc3e" />
 
-## Comments
-
-### @tobiu - 2025-07-29 23:59
-
-<img width="242" height="196" alt="Image" src="https://github.com/user-attachments/assets/26e3449f-e348-48bf-98fd-b57ca3e89bd3" />
-
-## Activity Log
+## Timeline
 
 - 2025-07-29 @tobiu assigned to @tobiu
 - 2025-07-29 @tobiu added the `bug` label
 - 2025-07-29 @tobiu referenced in commit `0818bf9` - "examples.grid.bigData.ControlsContainer: not showing initial dropdown values #7126"
+### @tobiu - 2025-07-29 23:59
+
+<img width="242" height="196" alt="Image" src="https://github.com/user-attachments/assets/26e3449f-e348-48bf-98fd-b57ca3e89bd3" />
+
 - 2025-07-29 @tobiu closed this issue
 

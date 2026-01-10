@@ -31,7 +31,7 @@ When `SessionService` is initialized (triggered by `HealthService` import), it a
 **Proposed Fix:**
 Remove the static import of `SessionService` in `HealthService.mjs` and access `SessionService` lazily inside `#performHealthCheck`.
 
-## Activity Log
+## Timeline
 
 - 2025-12-02 @tobiu added the `bug` label
 - 2025-12-02 @tobiu added the `ai` label

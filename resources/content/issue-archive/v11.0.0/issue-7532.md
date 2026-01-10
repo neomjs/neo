@@ -32,7 +32,7 @@ The `start_database` tool is not hybrid-aware. It doesn't check if a ChromaDB in
 4.  If the heartbeat is successful, it returns a status indicating the database is already running and does not spawn a new process.
 5.  If the heartbeat fails, it proceeds with spawning a new background process.
 
-## Activity Log
+## Timeline
 
 - 2025-10-17 @tobiu assigned to @tobiu
 - 2025-10-17 @tobiu added the `enhancement` label

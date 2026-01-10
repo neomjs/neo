@@ -23,7 +23,7 @@ closedAt: '2025-06-15T15:27:11Z'
 
 * vnode.attributes does not contain the id, it is a top-level property for convenience reasons
 
-## Activity Log
+## Timeline
 
 - 2025-06-15 @tobiu added parent issue #6785
 - 2025-06-15 @tobiu added the `enhancement` label

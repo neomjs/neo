@@ -24,7 +24,7 @@ closedAt: '2025-04-22T11:38:08Z'
 * Clicking on a different cell inside the same row => keep the row selection
 * Clicking on an already selected cell => remove the row selection
 
-## Activity Log
+## Timeline
 
 - 2025-04-22 @tobiu added the `enhancement` label
 - 2025-04-22 @tobiu assigned to @tobiu

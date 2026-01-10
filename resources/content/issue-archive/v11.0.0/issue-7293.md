@@ -33,8 +33,13 @@ This task is to migrate the unit test for `vdom/layout/Cube.mjs` from the Siesta
 3.  Ensure the new test runs successfully via `npm test`.
 4.  The new test must cover all the functionality of the original Siesta test.
 
-## Comments
+## Timeline
 
+- 2025-09-27 @tobiu added the `enhancement` label
+- 2025-09-27 @tobiu added parent issue #7262
+- 2025-10-02 @tobiu added the `help wanted` label
+- 2025-10-02 @tobiu added the `good first issue` label
+- 2025-10-02 @tobiu added the `hacktoberfest` label
 ### @kart-u - 2025-10-03 09:20
 
 hello @tobiu ,
@@ -53,25 +58,6 @@ Ha, these 2 comments came in almost at the same time. Assuming you are not the s
 
 No worries, I can easily create more new tickets if needed.
 
-### @tobiu - 2025-10-04 18:31
-
-reopening, since something is off with the imports / top-level setup. only happens when running all tests combined.
-
-### @kart-u - 2025-10-04 18:39
-
-please check again made some changes asked Gemini on issue it state modified state of Neo.config.useDomApiRenderer might be messing with other tests
-
-### @tobiu - 2025-10-04 18:47
-
-the PR was already merged. somehow the combination of the cube layout and vdomrealword tests clashed. now all 114 tests are passing.
-
-## Activity Log
-
-- 2025-09-27 @tobiu added the `enhancement` label
-- 2025-09-27 @tobiu added parent issue #7262
-- 2025-10-02 @tobiu added the `help wanted` label
-- 2025-10-02 @tobiu added the `good first issue` label
-- 2025-10-02 @tobiu added the `hacktoberfest` label
 - 2025-10-03 @tobiu assigned to @kart-u
 - 2025-10-04 @kart-u referenced in commit `8ae23f5` - "Convert vdom/layout/Cube.mjs Test from Siesta to Playwright #7293"
 - 2025-10-04 @kart-u cross-referenced by PR #7352
@@ -84,6 +70,18 @@ the PR was already merged. somehow the combination of the cube layout and vdomre
 - 2025-10-04 @tobiu referenced in commit `2e770aa` - "Convert vdom/layout/Cube.mjs Test from Siesta to Playwright #7293"
 - 2025-10-04 @tobiu closed this issue
 - 2025-10-04 @tobiu referenced in commit `ce0b439` - "Convert vdom/layout/Cube.mjs Test from Siesta to Playwright #7293"
+### @tobiu - 2025-10-04 18:31
+
+reopening, since something is off with the imports / top-level setup. only happens when running all tests combined.
+
 - 2025-10-04 @tobiu referenced in commit `f03427b` - "#7293 ticket md file update, imports / setup fix"
 - 2025-10-04 @kart-u referenced in commit `0e2392d` - "Convert vdom/layout/Cube.mjs Test from Siesta to Playwright #7293"
+### @kart-u - 2025-10-04 18:39
+
+please check again made some changes asked Gemini on issue it state modified state of Neo.config.useDomApiRenderer might be messing with other tests
+
+### @tobiu - 2025-10-04 18:47
+
+the PR was already merged. somehow the combination of the cube layout and vdomrealword tests clashed. now all 114 tests are passing.
+
 

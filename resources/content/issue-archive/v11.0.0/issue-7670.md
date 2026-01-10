@@ -52,7 +52,7 @@ Once the `query_documents` tool is self-documenting via its OpenAPI specificatio
 
 This change will significantly shorten `AGENTS.md` and ensure that the tool's documentation is the single source of truth.
 
-## Activity Log
+## Timeline
 
 - 2025-10-27 @tobiu added the `documentation` label
 - 2025-10-27 @tobiu added the `enhancement` label

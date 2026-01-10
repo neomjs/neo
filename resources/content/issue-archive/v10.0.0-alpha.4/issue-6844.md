@@ -23,7 +23,7 @@ closedAt: '2025-06-19T13:23:15Z'
 * I noticed several spots with `switch(` and `switch (`
 * Let us always use the blank char, to achieve consistency with `for (`, `while (`
 
-## Activity Log
+## Timeline
 
 - 2025-06-19 @tobiu added the `enhancement` label
 - 2025-06-19 @tobiu referenced in commit `5c76988` - "Consistent usage of switch #6844"

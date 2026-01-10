@@ -30,7 +30,7 @@ The Knowledge Base MCP server (`ai/mcp/server/knowledge-base`) requires a review
 1.  **Class-Level Comments:** Ensure all classes have a `@summary` tag, followed by an empty line, and then a detailed description.
 2.  **Method-Level Comments:** Verify that all methods adhere to the strict block formatting rules (vertical alignment of types, names, and descriptions with correct spacing) and that no empty lines exist between the description and the first `@param` tag.
 
-## Activity Log
+## Timeline
 
 - 2025-11-24 @tobiu added the `documentation` label
 - 2025-11-24 @tobiu added the `enhancement` label

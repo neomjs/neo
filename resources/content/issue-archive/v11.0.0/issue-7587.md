@@ -52,7 +52,7 @@ startup to handle unhealthy states gracefully.
 - Recovery: User can run `gh auth login` and tools will work
 - UX: Clear errors guide users to fix issues
 
-## Activity Log
+## Timeline
 
 - 2025-10-20 @tobiu assigned to @tobiu
 - 2025-10-20 @tobiu added the `enhancement` label

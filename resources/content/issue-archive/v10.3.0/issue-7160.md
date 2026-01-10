@@ -45,17 +45,15 @@ To ensure feature parity and a consistent developer experience, `html` templates
 -   The `dist/development` build process correctly transforms `html` templates into VDOM objects.
 -   Applications running in `dist/development` mode render components using `html` templates correctly.
 
-## Comments
-
-### @tobiu - 2025-08-02 12:41
-
-<img width="1977" height="1426" alt="Image" src="https://github.com/user-attachments/assets/af74dbdc-237d-491c-ac2c-834739acaa30" />
-
-## Activity Log
+## Timeline
 
 - 2025-08-02 @tobiu assigned to @tobiu
 - 2025-08-02 @tobiu added the `enhancement` label
 - 2025-08-02 @tobiu added parent issue #7130
 - 2025-08-02 @tobiu referenced in commit `a04d286` - "Integrate Template Processing into dist/development Build #7160"
+### @tobiu - 2025-08-02 12:41
+
+<img width="1977" height="1426" alt="Image" src="https://github.com/user-attachments/assets/af74dbdc-237d-491c-ac2c-834739acaa30" />
+
 - 2025-08-02 @tobiu closed this issue
 

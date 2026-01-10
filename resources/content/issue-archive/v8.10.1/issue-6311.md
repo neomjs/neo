@@ -33,18 +33,17 @@ Using `margin-top: 1px` on the glyph looks better:
 
 This should be a new theme var
 
-## Comments
-
-### @tobiu - 2025-01-27 10:10
-
-reopening to add this change for buttons inside toolbars & tabs too
-
-## Activity Log
+## Timeline
 
 - 2025-01-26 @tobiu added the `enhancement` label
 - 2025-01-26 @tobiu assigned to @tobiu
 - 2025-01-27 @tobiu referenced in commit `bfbce0a` - "button.Base: glyph position #6311"
 - 2025-01-27 @tobiu closed this issue
+### @tobiu - 2025-01-27 10:10
+
+reopening to add this change for buttons inside toolbars & tabs too
+
+- 2025-01-27 @tobiu reopened this issue
 - 2025-01-27 @tobiu referenced in commit `6f1d3bf` - "button.Base: glyph position #6311"
 - 2025-01-27 @tobiu closed this issue
 

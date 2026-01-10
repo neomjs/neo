@@ -25,7 +25,7 @@ See: https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Attributes/
 
 Since we are using buffered rendering for grid cells, we should use this attribute to.
 
-## Activity Log
+## Timeline
 
 - 2025-01-07 @tobiu added the `enhancement` label
 - 2025-01-07 @tobiu assigned to @tobiu

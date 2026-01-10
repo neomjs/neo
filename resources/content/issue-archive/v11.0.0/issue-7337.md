@@ -34,7 +34,7 @@ This ticket aims to rectify this by enhancing the session initialization process
 4.  The agent's internal logic for initiating a session must reflect these changes, ensuring a new `sessionId` is always used for new sessions when the memory core is active.
 5.  The agent should be able to correctly identify and use the *current* session's ID for all memory operations within that session.
 
-## Activity Log
+## Timeline
 
 - 2025-10-03 @tobiu added the `bug` label
 - 2025-10-03 @tobiu added the `enhancement` label

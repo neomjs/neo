@@ -30,8 +30,12 @@ We should standardize the naming to improve consistency and clarity.
 1.  **Rename CLI Script:** Rename `ai/mcp/client/mcp-cli.mjs` to `ai/mcp/client/mcp-stdio.mjs`.
 2.  **Update Package.json:** Update the `ai:mcp-client` script in `package.json` to point to the new file path.
 
-## Comments
+## Timeline
 
+- 2025-11-29 @tobiu assigned to @tobiu
+- 2025-11-29 @tobiu added the `ai` label
+- 2025-11-29 @tobiu added the `refactoring` label
+- 2025-11-29 @tobiu added parent issue #7931
 ### @tobiu - 2025-11-29 22:58
 
 **Input from Gemini 2.5:**
@@ -42,11 +46,5 @@ We should standardize the naming to improve consistency and clarity.
 > 1.  **Rename CLI Script:** Renamed `ai/mcp/client/mcp-cli.mjs` to `ai/mcp/client/mcp-stdio.mjs` to match the server-side convention.
 > 2.  **Update Package.json:** Updated the `ai:mcp-client` script in `package.json` to point to the new file path.
 
-## Activity Log
-
-- 2025-11-29 @tobiu assigned to @tobiu
-- 2025-11-29 @tobiu added the `ai` label
-- 2025-11-29 @tobiu added the `refactoring` label
-- 2025-11-29 @tobiu added parent issue #7931
 - 2025-11-29 @tobiu closed this issue
 

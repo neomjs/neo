@@ -47,7 +47,7 @@ To address this, the component detection logic in `LivePreview.mjs` has been ref
 
 4.  **Cleaner Code:** This change allows us to remove the redundant `Neo.setupClass()` assignments from our functional component examples, resulting in cleaner, more idiomatic tutorial code. The `doRunSource()` method was updated to resolve the component instance using its class name string instead of a variable name.
 
-## Activity Log
+## Timeline
 
 - 2025-07-16 @tobiu assigned to @tobiu
 - 2025-07-16 @tobiu added the `enhancement` label

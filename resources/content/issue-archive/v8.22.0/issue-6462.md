@@ -23,7 +23,7 @@ closedAt: '2025-02-18T13:44:25Z'
 
 adding `react-alternative` & `angular-alternative`, hoping that this will help a bit for discovering neo.
 
-## Activity Log
+## Timeline
 
 - 2025-02-18 @tobiu added the `enhancement` label
 - 2025-02-18 @tobiu assigned to @tobiu

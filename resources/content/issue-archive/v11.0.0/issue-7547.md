@@ -33,7 +33,7 @@ To provide clear and decoupled notifications about the ChromaDB process manageme
 4.  The `mcp-stdio.mjs` entry point (or a relevant service) is updated to subscribe to these events for logging purposes, demonstrating the eventing mechanism.
 5.  All related functionalities continue to work correctly after the changes.
 
-## Activity Log
+## Timeline
 
 - 2025-10-18 @tobiu assigned to @tobiu
 - 2025-10-18 @tobiu added the `enhancement` label

@@ -143,7 +143,7 @@ QueryRequest:
       default: all
 ```
 
-## Activity Log
+## Timeline
 
 - 2025-10-27 @tobiu added the `documentation` label
 - 2025-10-27 @tobiu added the `enhancement` label

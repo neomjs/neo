@@ -23,7 +23,7 @@ closedAt: '2025-01-12T23:40:21Z'
 
 minor file-size & readability polishing
 
-## Activity Log
+## Timeline
 
 - 2025-01-12 @tobiu added the `enhancement` label
 - 2025-01-12 @tobiu assigned to @tobiu

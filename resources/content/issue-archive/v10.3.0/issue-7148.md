@@ -35,16 +35,14 @@ The `JSON.stringify` + regex method for generating the VDOM string during the bu
     5. It will handle the build-time placeholders for runtime expressions, outputting them as raw, unquoted code.
     6. This new utility will completely replace the `JSON.stringify` and subsequent regex calls in the build scripts.
 
-## Comments
-
-### @tobiu - 2025-08-02 12:47
-
-resolved
-
-## Activity Log
+## Timeline
 
 - 2025-07-31 @tobiu assigned to @tobiu
 - 2025-07-31 @tobiu added the `enhancement` label
 - 2025-07-31 @tobiu added parent issue #7130
+### @tobiu - 2025-08-02 12:47
+
+resolved
+
 - 2025-08-02 @tobiu closed this issue
 

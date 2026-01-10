@@ -38,15 +38,13 @@ blocking: []
  -   Integrate the script into a pre-commit hook to automatically format files.
  -   Add the script to a CI/CD pipeline to enforce the standard.
 
-## Comments
+## Timeline
 
+- 2025-07-17 @tobiu added the `enhancement` label
 ### @github-actions - 2025-10-16 02:43
 
 This issue is stale because it has been open for 90 days with no activity.
 
-## Activity Log
-
-- 2025-07-17 @tobiu added the `enhancement` label
 - 2025-10-16 @github-actions added the `stale` label
 - 2025-10-23 @github-actions removed the `stale` label
 

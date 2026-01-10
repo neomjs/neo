@@ -30,7 +30,7 @@ The `LocalFileService` currently uses the `glob` npm package for recursively sea
 2.  A new private helper method, e.g., `#findFileRecursively(directory, filename)`, is implemented within `LocalFileService.mjs`.
 3.  This helper method performs a recursive search for the specified `filename` within the given `directory` and its subdirectories, returning the absolute path of the first match, or `null` if not found.
 
-## Activity Log
+## Timeline
 
 - 2025-10-22 @tobiu assigned to @tobiu
 - 2025-10-22 @tobiu added the `ai` label

@@ -48,7 +48,7 @@ The previous `HealthService` in the Knowledge Base server was basic, lacking fea
 
 This enhancement significantly improves the reliability and diagnostic capabilities of the Knowledge Base MCP server.
 
-## Activity Log
+## Timeline
 
 - 2025-10-25 @tobiu added the `enhancement` label
 - 2025-10-25 @tobiu added the `ai` label

@@ -39,7 +39,7 @@ Allow AI agents to query the Virtual DOM directly to find nodes based on visual 
 **Use Case:**
 "Find the DOM element with class 'agent-kpi-value'" (which is inside a component's VDOM but not a component config).
 
-## Activity Log
+## Timeline
 
 - 2026-01-04 @tobiu added the `developer-experience` label
 - 2026-01-04 @tobiu added the `ai` label
@@ -47,4 +47,16 @@ Allow AI agents to query the Virtual DOM directly to find nodes based on visual 
 - 2026-01-04 @tobiu added parent issue #8169
 - 2026-01-05 @tobiu assigned to @tobiu
 - 2026-01-05 @tobiu closed this issue
+- 2026-01-06 @jonnyamsp referenced in commit `2b4edb7` - "Feature: Implement query_vdom tool for Neural Link
+
+Added a new tool 'query_vdom' to the Neural Link MCP server, enabling AI agents to search for VDOM nodes using visual attributes (e.g., CSS classes) via 'Neo.util.VDom.find()'.
+
+Changes:
+- src/ai/client/ComponentService.mjs: Implemented 'queryVdom' using 'Neo.util.VDom.find'.
+- ai/mcp/server/neural-link/services/ComponentService.mjs: Added 'queryVdom' proxy method.
+- ai/mcp/server/neural-link/services/toolService.mjs: Registered 'query_vdom' tool.
+- ai/mcp/server/neural-link/openapi.yaml: Defined API contract for 'query_vdom'.
+- src/ai/Client.mjs: Added 'query_vdom' to the service map.
+
+Closes #8328"
 

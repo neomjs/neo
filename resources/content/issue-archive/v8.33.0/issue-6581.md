@@ -22,7 +22,7 @@ closedAt: '2025-03-24T10:58:58Z'
 
 @gplanansky spotted a not used line of code. thx!
 
-## Activity Log
+## Timeline
 
 - 2025-03-24 @tobiu added the `enhancement` label
 - 2025-03-24 @tobiu referenced in commit `853ca0f` - "manager.Component: getVdomTree() => cleanup #6581"

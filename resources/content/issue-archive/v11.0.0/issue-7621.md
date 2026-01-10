@@ -38,7 +38,7 @@ The `ai/mcp/server/github-workflow/services/IssueService.mjs` currently contains
 3.  Update `IssueService.mjs` to import and use these new, externalized GraphQL operations.
 4.  Ensure all functionality remains the same after the refactoring.
 
-## Activity Log
+## Timeline
 
 - 2025-10-23 @tobiu assigned to @tobiu
 - 2025-10-23 @tobiu added the `enhancement` label

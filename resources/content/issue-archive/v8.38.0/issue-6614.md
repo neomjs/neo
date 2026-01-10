@@ -23,7 +23,7 @@ closedAt: '2025-04-04T12:54:25Z'
 * `parseRecordValue()` should get changed to just use one param
 * the signature of `calculate()` for a given field needs to change: `calculate(data, fields)`, where data is either `record[dataSymbol]` or `record[originalDataSymbol]` 
 
-## Activity Log
+## Timeline
 
 - 2025-04-04 @tobiu added the `enhancement` label
 - 2025-04-04 @tobiu referenced in commit `6c78dc7` - "data.RecordFactory: add support for calculated fields inside the original data symbol #6614"

@@ -30,7 +30,7 @@ Refactor `DragZone.mjs` to rely on the built-in "auto-stealing" behavior of `Neo
 
 This change simplifies the code and aligns it with the framework's instance management best practices, ensuring better preservation of controller scopes during the move.
 
-## Activity Log
+## Timeline
 
 - 2025-12-07 @tobiu added the `ai` label
 - 2025-12-07 @tobiu added the `refactoring` label

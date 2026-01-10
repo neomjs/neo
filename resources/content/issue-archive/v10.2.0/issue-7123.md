@@ -23,13 +23,7 @@ closedAt: '2025-07-30T10:52:01Z'
 
 *(No description provided)*
 
-## Comments
-
-### @tobiu - 2025-07-30 10:52
-
-resolved via https://github.com/neomjs/neo/issues/7129
-
-## Activity Log
+## Timeline
 
 - 2025-07-29 @tobiu assigned to @tobiu
 - 2025-07-29 @tobiu added the `bug` label
@@ -37,5 +31,9 @@ resolved via https://github.com/neomjs/neo/issues/7129
 - 2025-07-29 @tobiu referenced in commit `66fcabd` - "#7123 adjusting all examples related twoWay bindings to the new syntax"
 - 2025-07-29 @tobiu referenced in commit `a377556` - "#7123 adjusting all src-related twoWay bindings to the new syntax"
 - 2025-07-29 @tobiu referenced in commit `9e6e5b3` - "#7123 more unit testing for twoWay bindings"
+### @tobiu - 2025-07-30 10:52
+
+resolved via https://github.com/neomjs/neo/issues/7129
+
 - 2025-07-30 @tobiu closed this issue
 

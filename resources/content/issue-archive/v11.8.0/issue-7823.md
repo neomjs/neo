@@ -32,7 +32,7 @@ The script should be optimized to:
 
 This will significantly speed up the build process for subsequent runs.
 
-## Activity Log
+## Timeline
 
 - 2025-11-20 @tobiu added the `enhancement` label
 - 2025-11-20 @tobiu added the `developer-experience` label

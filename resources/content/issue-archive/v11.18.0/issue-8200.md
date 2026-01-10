@@ -116,7 +116,7 @@ Every class decides its own JSON representation. `JSON.stringify(instance)` auto
 *   **Standardization:** Uses native JS patterns.
 *   **Scalability:** Distributes the maintenance load to component authors.
 
-## Activity Log
+## Timeline
 
 - 2025-12-29 @tobiu added the `epic` label
 - 2025-12-29 @tobiu added the `ai` label

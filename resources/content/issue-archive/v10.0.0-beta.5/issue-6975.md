@@ -27,7 +27,7 @@ A new guide has been drafted and added to the `learn/guides/fundamentals/Declara
 
 This guide explains the new declarative VDOM pattern using `Neo.core.Effect`, contrasts it with the traditional imperative `afterSet` hook pattern, and demonstrates its extensibility through inheritance. It also provides guidance on when to use each approach.
 
-## Activity Log
+## Timeline
 
 - 2025-07-07 @tobiu assigned to @tobiu
 - 2025-07-07 @tobiu added the `enhancement` label

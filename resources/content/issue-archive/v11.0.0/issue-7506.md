@@ -31,7 +31,7 @@ This ticket covers the implementation of the `delete_database` service for the A
 3.  The function returns a success message upon completion.
 4.  The `toolService.mjs` `serviceMapping` is updated to point the `delete_database` operationId to the new service function.
 
-## Activity Log
+## Timeline
 
 - 2025-10-16 @tobiu assigned to @tobiu
 - 2025-10-16 @tobiu added the `enhancement` label

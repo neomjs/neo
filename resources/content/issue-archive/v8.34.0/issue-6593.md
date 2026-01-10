@@ -23,7 +23,7 @@ closedAt: '2025-03-26T15:06:17Z'
 
 * a combination of `grid.column.AnimatedChange` & `grid.column.Currency`
 
-## Activity Log
+## Timeline
 
 - 2025-03-26 @tobiu added the `enhancement` label
 - 2025-03-26 @tobiu assigned to @tobiu

@@ -33,17 +33,15 @@ The goal of this phase is to enhance the user experience by making the drag prox
 3.  **Finalize Drop Logic:**
     -   On drop, the live component will be moved from the proxy container back into its new position in the `Viewport`'s layout.
 
-## Comments
-
-### @github-actions - 2025-11-19 02:51
-
-This issue is stale because it has been open for 90 days with no activity.
-
-## Activity Log
+## Timeline
 
 - 2025-08-20 @tobiu assigned to @tobiu
 - 2025-08-20 @tobiu added parent issue #7201
 - 2025-08-20 @tobiu added the `enhancement` label
+### @github-actions - 2025-11-19 02:51
+
+This issue is stale because it has been open for 90 days with no activity.
+
 - 2025-11-19 @github-actions added the `stale` label
 - 2025-11-19 @tobiu removed the `stale` label
 - 2025-11-19 @tobiu added the `no auto close` label

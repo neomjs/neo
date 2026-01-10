@@ -30,18 +30,16 @@ Once the new "Codebase Overview" guide is created and the MCP server is enhanced
 2. Add a new first step instructing the agent to read the new `learn/guides/fundamentals/CodebaseOverview.md` to gain a conceptual understanding of the framework.
 3. Update any related instructions to encourage the use of the new MCP class query tools for detailed exploration once they are available.
 
-## Comments
-
-### @tobiu - 2025-10-26 16:16
-
-resolved
-
-## Activity Log
+## Timeline
 
 - 2025-10-26 @tobiu added the `documentation` label
 - 2025-10-26 @tobiu added the `enhancement` label
 - 2025-10-26 @tobiu added the `ai` label
 - 2025-10-26 @tobiu assigned to @tobiu
 - 2025-10-26 @tobiu added parent issue #7665
+### @tobiu - 2025-10-26 16:16
+
+resolved
+
 - 2025-10-26 @tobiu closed this issue
 

@@ -24,7 +24,7 @@ closedAt: '2025-01-12T12:42:06Z'
 * Move the logic outside of ´afterSetMounted()´
 * Add a check that the remotes API is ready
 
-## Activity Log
+## Timeline
 
 - 2025-01-12 @tobiu added the `enhancement` label
 - 2025-01-12 @tobiu assigned to @tobiu

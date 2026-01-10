@@ -26,7 +26,7 @@ closedAt: '2025-02-26T20:04:04Z'
 * first call needs to create the flexbox layout
 * following calls need to change layout configs
 
-## Activity Log
+## Timeline
 
 - 2025-02-26 @tobiu added the `enhancement` label
 - 2025-02-26 @tobiu assigned to @tobiu

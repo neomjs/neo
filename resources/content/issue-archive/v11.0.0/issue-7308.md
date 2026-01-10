@@ -33,7 +33,7 @@ This guide covers several critical topics:
 6.  **The Session Lifecycle:** An analogy for understanding agent context degradation over time.
 7.  **Proactive Context Management:** A best practice for knowing when to start a fresh session.
 
-## Activity Log
+## Timeline
 
 - 2025-09-29 @tobiu assigned to @tobiu
 - 2025-09-29 @tobiu added the `documentation` label
@@ -48,6 +48,7 @@ This guide covers several critical topics:
 - 2025-09-29 @tobiu referenced in commit `8d007c1` - "#7308 Fully Automated Workflows"
 - 2025-09-29 @tobiu referenced in commit `f290c87` - "#7308 final polishing"
 - 2025-09-29 @tobiu closed this issue
+- 2025-09-29 @tobiu reopened this issue
 - 2025-09-29 @tobiu referenced in commit `2efbcef` - "#7308 final polishing"
 - 2025-09-29 @tobiu closed this issue
 

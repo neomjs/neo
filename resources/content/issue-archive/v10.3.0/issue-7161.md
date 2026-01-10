@@ -40,17 +40,15 @@ This is the final step to ensure `html` templates are a fully supported, product
 -   The final, minified production bundles contain optimized VDOM, not raw `html` template strings.
 -   Applications running in `dist/production` mode render components using `html` templates correctly.
 
-## Comments
-
-### @tobiu - 2025-08-02 12:49
-
-<img width="850" height="308" alt="Image" src="https://github.com/user-attachments/assets/162d0d4b-32f9-4fb6-bfd7-4c2f6b1ff4b6" />
-
-## Activity Log
+## Timeline
 
 - 2025-08-02 @tobiu assigned to @tobiu
 - 2025-08-02 @tobiu added the `enhancement` label
 - 2025-08-02 @tobiu added parent issue #7130
 - 2025-08-02 @tobiu referenced in commit `6410cdd` - "Integrate Template Processing into dist/production Build #7161"
+### @tobiu - 2025-08-02 12:49
+
+<img width="850" height="308" alt="Image" src="https://github.com/user-attachments/assets/162d0d4b-32f9-4fb6-bfd7-4c2f6b1ff4b6" />
+
 - 2025-08-02 @tobiu closed this issue
 

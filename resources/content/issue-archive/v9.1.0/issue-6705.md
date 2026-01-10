@@ -22,7 +22,7 @@ closedAt: '2025-05-13T06:01:21Z'
 
 `table.Container` => `table.View` listener
 
-## Activity Log
+## Timeline
 
 - 2025-05-13 @tobiu added the `enhancement` label
 - 2025-05-13 @tobiu referenced in commit `84cfb58` - "Earthquakes Tutorial: Adjust the table view listeners example #6705"

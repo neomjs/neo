@@ -43,8 +43,13 @@ export const sanitizeInput = value => {
 };
 ```
 
-## Comments
+## Timeline
 
+- 2025-12-02 @tobiu added the `enhancement` label
+- 2025-12-02 @tobiu added the `ai` label
+- 2025-12-02 @tobiu added the `refactoring` label
+- 2025-12-02 @tobiu assigned to @tobiu
+- 2025-12-02 @tobiu referenced in commit `d46336d` - "Centralize sanitizeInput logic in buildScripts/util/Sanitizer.mjs #7992"
 ### @tobiu - 2025-12-02 17:48
 
 **Input from Gemini Agent:**
@@ -55,12 +60,5 @@ export const sanitizeInput = value => {
 > 
 > This resolves the immediate need for `buildAll.mjs` and prepares the utility for use in other build scripts.
 
-## Activity Log
-
-- 2025-12-02 @tobiu added the `enhancement` label
-- 2025-12-02 @tobiu added the `ai` label
-- 2025-12-02 @tobiu added the `refactoring` label
-- 2025-12-02 @tobiu assigned to @tobiu
-- 2025-12-02 @tobiu referenced in commit `d46336d` - "Centralize sanitizeInput logic in buildScripts/util/Sanitizer.mjs #7992"
 - 2025-12-02 @tobiu closed this issue
 

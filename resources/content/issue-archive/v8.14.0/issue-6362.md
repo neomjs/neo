@@ -23,16 +23,14 @@ closedAt: '2025-02-03T13:42:27Z'
 
 *(No description provided)*
 
-## Comments
-
-### @tobiu - 2025-02-03 13:42
-
-https://github.com/user-attachments/assets/54f1e9bb-2f48-459c-88cc-4ef0c05934a9
-
-## Activity Log
+## Timeline
 
 - 2025-02-03 @tobiu added the `enhancement` label
 - 2025-02-03 @tobiu assigned to @tobiu
 - 2025-02-03 @tobiu referenced in commit `80c642c` - "draggable.grid.header.toolbar.SortZone: onDragStart() => hide the cells of the dragged column #6362"
+### @tobiu - 2025-02-03 13:42
+
+https://github.com/user-attachments/assets/54f1e9bb-2f48-459c-88cc-4ef0c05934a9
+
 - 2025-02-03 @tobiu closed this issue
 

@@ -24,7 +24,7 @@ closedAt: '2025-11-21T09:16:22Z'
 
 The `ai/examples/self-healing.mjs` script currently awaits both `LifecycleService` and `ChromaManager` for each service. With the recent refactoring (issue #7836), `ChromaManager.ready()` is sufficient as it ensures the lifecycle service is ready. This task removes the redundant calls.
 
-## Activity Log
+## Timeline
 
 - 2025-11-21 @tobiu added the `ai` label
 - 2025-11-21 @tobiu added the `refactoring` label

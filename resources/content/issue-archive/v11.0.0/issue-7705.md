@@ -26,7 +26,7 @@ closedAt: '2025-11-04T20:29:04Z'
 
 With the successful migration of all unit and component tests to Playwright, the Siesta framework is now obsolete. This ticket is to track the work of completely removing all Siesta-related files and dependencies from the repository. This includes updating `package.json`, deleting the `test/siesta/` and `test/components/` directories, and cleaning up any related scripts or documentation.
 
-## Activity Log
+## Timeline
 
 - 2025-11-04 @tobiu added the `enhancement` label
 - 2025-11-04 @tobiu added the `ai` label

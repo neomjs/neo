@@ -37,7 +37,7 @@ Currently, `Neo.config.useAiClient` is a boolean. This means the Neural Link is 
 **Goal:**
 Allow developers to restrict Neural Link access to specific environments.
 
-## Activity Log
+## Timeline
 
 - 2026-01-04 @tobiu added the `enhancement` label
 - 2026-01-04 @tobiu added the `ai` label

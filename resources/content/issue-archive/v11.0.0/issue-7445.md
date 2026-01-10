@@ -32,7 +32,7 @@ This task is to implement a new Remote Method Access (RMA) method, `loadModule()
 3.  Crucially, the import statement **must** include the `/* webpackIgnore: true */` magic comment to prevent webpack from trying to bundle the dynamic path.
 4.  The new `loadModule` method must be added to the `remote.main` array in the `config` of `src/worker/App.mjs` to make it accessible from the main thread.
 
-## Activity Log
+## Timeline
 
 - 2025-10-10 @tobiu assigned to @tobiu
 - 2025-10-10 @tobiu added the `enhancement` label

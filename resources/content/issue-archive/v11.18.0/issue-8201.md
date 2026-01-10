@@ -33,7 +33,7 @@ This task involves updating the logic in:
 
 Additionally, `ai/mcp/validation/OpenApiValidator.mjs` needs to be robust against OpenAPI array schemas that do not define an `items` property (defaulting to `any[]`).
 
-## Activity Log
+## Timeline
 
 - 2025-12-29 @tobiu added the `bug` label
 - 2025-12-29 @tobiu added the `ai` label

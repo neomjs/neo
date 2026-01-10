@@ -23,7 +23,7 @@ closedAt: '2025-06-11T12:08:29Z'
 
 * We are just using `collection.Base` here
 
-## Activity Log
+## Timeline
 
 - 2025-06-11 @tobiu assigned to @tobiu
 - 2025-06-11 @tobiu added the `enhancement` label

@@ -23,7 +23,7 @@ closedAt: '2025-08-12T23:37:55Z'
 
 * `onStoreLoad()` was changed to use destructured params, so we must pass something, or it results inside a JS bug
 
-## Activity Log
+## Timeline
 
 - 2025-08-12 @tobiu assigned to @tobiu
 - 2025-08-12 @tobiu added the `bug` label

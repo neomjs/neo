@@ -46,7 +46,7 @@ This enhancement significantly improves the developer experience by streamlining
 *   `src/functional/_export.mjs`
 *   `examples/functional/defineComponent/Component.mjs`
 
-## Activity Log
+## Timeline
 
 - 2025-07-12 @tobiu assigned to @tobiu
 - 2025-07-12 @tobiu added the `enhancement` label

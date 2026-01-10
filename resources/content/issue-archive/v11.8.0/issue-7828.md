@@ -32,7 +32,7 @@ Update the JSDoc type definition to reflect that `windowId` now is a `String`.
 **Files to Modify:**
 - `src/worker/Manager.mjs`
 
-## Activity Log
+## Timeline
 
 - 2025-11-20 @tobiu added the `enhancement` label
 - 2025-11-20 @tobiu added the `ai` label

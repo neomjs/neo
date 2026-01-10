@@ -53,7 +53,7 @@ Currently, the logic for finding and transforming `html` templates is tightly co
 -   `buildESModules.mjs` is simplified and correctly uses the new reusable utility.
 -   Running `npm run build-dist-esm` produces the exact same correct output as it does now, confirming the refactoring was successful.
 
-## Activity Log
+## Timeline
 
 - 2025-08-02 @tobiu assigned to @tobiu
 - 2025-08-02 @tobiu added the `enhancement` label

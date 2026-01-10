@@ -30,7 +30,7 @@ This task involves:
 1. Standardizing the version retrieval to use `process.env.npm_package_version || '1.0.0'` across all `HealthService` classes.
 2. Updating the OpenAPI spec for the GitHub Workflow server to include the `version` field in the response schema.
 
-## Activity Log
+## Timeline
 
 - 2025-11-23 @tobiu added the `enhancement` label
 - 2025-11-23 @tobiu added the `ai` label

@@ -67,7 +67,7 @@ The guide should cover the following topics:
 -   The guide includes clear, runnable code examples.
 -   The new guide is added to the `learn/tree.json` file to appear in the documentation navigation.
 
-## Activity Log
+## Timeline
 
 - 2025-09-20 @tobiu assigned to @tobiu
 - 2025-09-20 @tobiu added the `documentation` label

@@ -22,7 +22,7 @@ closedAt: '2025-06-16T10:19:57Z'
 
 * counterpart for: `vdom.util.StringFromVnode`
 
-## Activity Log
+## Timeline
 
 - 2025-06-16 @tobiu added parent issue #6785
 - 2025-06-16 @tobiu added the `enhancement` label

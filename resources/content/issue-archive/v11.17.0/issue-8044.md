@@ -50,7 +50,7 @@ Currently, `DragZone` creates a `DragProxyComponent` which is populated with a *
 **Next Steps:**
 This implementation provides the architectural capability. A follow-up task is required to integrate this into the AgentOS app (specifically for the Swarm View / Blackboard) to verify that the `OffscreenCanvas` connection persists during the drag.
 
-## Activity Log
+## Timeline
 
 - 2025-12-07 @tobiu added the `enhancement` label
 - 2025-12-07 @tobiu added the `ai` label

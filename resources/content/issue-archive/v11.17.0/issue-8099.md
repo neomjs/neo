@@ -46,7 +46,7 @@ if (Object.hasOwn(item, initialIndexSymbol)) {
 
 This ensures the feature is "opt-in" and works correctly for `Neo.data.Store` (where records have the symbol) while ignoring plain objects in standard collections.
 
-## Activity Log
+## Timeline
 
 - 2025-12-12 @tobiu added the `bug` label
 - 2025-12-12 @tobiu added the `ai` label

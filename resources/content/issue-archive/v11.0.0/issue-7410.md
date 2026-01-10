@@ -49,8 +49,14 @@ To work on this ticket, please start your session with the following prompt:
 > 
 > You will need to read the epic context from @.github/ISSUE/epic-architect-ai-tooling-as-mcp.md and the specific ticket details from @.github/ISSUE/ticket-implement-memory-create-endpoint.md before we begin.
 
-## Comments
+## Timeline
 
+- 2025-10-07 @tobiu added the `enhancement` label
+- 2025-10-07 @tobiu added parent issue #7399
+- 2025-10-07 @tobiu added the `help wanted` label
+- 2025-10-07 @tobiu added the `good first issue` label
+- 2025-10-07 @tobiu added the `hacktoberfest` label
+- 2025-10-07 @tobiu added the `ai` label
 ### @nabeel001 - 2025-10-08 03:21
 
 i would like to work on this. kindly assign this to me @tobiu 
@@ -59,6 +65,7 @@ i would like to work on this. kindly assign this to me @tobiu
 
 Sure. Hint: this is a phase 2 item of https://github.com/neomjs/neo/issues/7399 => it requires phase 1 to be completed before you can start working on it.
 
+- 2025-10-08 @tobiu assigned to @nabeel001
 ### @tobiu - 2025-10-24 09:21
 
 Hi @nabeel001,
@@ -69,14 +76,5 @@ As there has been no activity for a couple of weeks and the project's architectu
 
 We're closing this ticket now. Thanks again for your willingness to contribute, and we hope to see you in other issues!
 
-## Activity Log
-
-- 2025-10-07 @tobiu added the `enhancement` label
-- 2025-10-07 @tobiu added parent issue #7399
-- 2025-10-07 @tobiu added the `help wanted` label
-- 2025-10-07 @tobiu added the `good first issue` label
-- 2025-10-07 @tobiu added the `hacktoberfest` label
-- 2025-10-07 @tobiu added the `ai` label
-- 2025-10-08 @tobiu assigned to @nabeel001
 - 2025-10-24 @tobiu closed this issue
 

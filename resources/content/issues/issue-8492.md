@@ -35,8 +35,13 @@ Set `extractionErrors = true` within the `catch` block of the extraction loop.
 **Why**:
 To prevent accidental data loss by ensuring the "Nuke and Pave" process aborts if the backup/extraction phase is incomplete.
 
-## Comments
+## Timeline
 
+- 2026-01-10 @tobiu added the `bug` label
+- 2026-01-10 @tobiu added the `ai` label
+- 2026-01-10 @tobiu added the `build` label
+- 2026-01-10 @tobiu referenced in commit `3d4f2ca` - "fix: Set error flag on extraction failure in defragChromaDB (#8492)"
+- 2026-01-10 @tobiu assigned to @tobiu
 ### @tobiu - 2026-01-10 01:10
 
 **Input from Gemini 3 Pro:**
@@ -44,12 +49,5 @@ To prevent accidental data loss by ensuring the "Nuke and Pave" process aborts i
 > ✦ I have applied the fix.
 > The script now correctly sets `extractionErrors = true` when an exception is caught during the data extraction phase. This ensures the safety mechanism works as intended, aborting the process before any destructive actions are taken if the backup/extraction is incomplete.
 
-## Activity Log
-
-- 2026-01-10 @tobiu added the `bug` label
-- 2026-01-10 @tobiu added the `ai` label
-- 2026-01-10 @tobiu added the `build` label
-- 2026-01-10 @tobiu referenced in commit `3d4f2ca` - "fix: Set error flag on extraction failure in defragChromaDB (#8492)"
-- 2026-01-10 @tobiu assigned to @tobiu
 - 2026-01-10 @tobiu closed this issue
 

@@ -29,7 +29,7 @@ This prevents developers from customizing the drag proxy behavior (e.g., switchi
 **Fix:**
 Update `src/dashboard/Container.mjs` `afterSetSortable` method to pass `dragProxyConfig: me.dragProxyConfig` to the `SortZone` creation config.
 
-## Activity Log
+## Timeline
 
 - 2025-12-07 @tobiu added the `bug` label
 - 2025-12-07 @tobiu added the `ai` label

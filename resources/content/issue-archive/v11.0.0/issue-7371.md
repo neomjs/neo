@@ -33,8 +33,14 @@ After checking out a PR branch, the agent needs a way to see the changes introdu
 2.  The workflow instructs the agent on how to use `gh pr diff <PR_NUMBER>` to view the changes in a pull request.
 3.  The agent should be instructed to use this command after checking out a PR branch to get an overview of the changes before doing a more detailed file-by-file review.
 
-## Comments
+## Timeline
 
+- 2025-10-05 @tobiu added parent issue #7364
+- 2025-10-05 @tobiu added the `enhancement` label
+- 2025-10-05 @tobiu added the `help wanted` label
+- 2025-10-05 @tobiu added the `good first issue` label
+- 2025-10-05 @tobiu added the `hacktoberfest` label
+- 2025-10-05 @tobiu added the `ai` label
 ### @pranjalarora98 - 2025-10-05 12:43
 
 @tobiu can u plz assign. Me this!!!
@@ -67,6 +73,7 @@ More input from Gemini:
 >   Recommendation:
 >   Work on ticket-agent-can-checkout-pr-branch.md should be completed before work begins on ticket-agent-can-diff-apr.md.
 
+- 2025-10-05 @tobiu assigned to @pranjalarora98
 ### @tobiu - 2025-10-24 09:42
 
 Hi @pranjalarora98,
@@ -77,14 +84,5 @@ The functionality described in this ticket has now been implemented and supersed
 
 We're closing this ticket as it has been resolved. Thanks again for your willingness to contribute!
 
-## Activity Log
-
-- 2025-10-05 @tobiu added parent issue #7364
-- 2025-10-05 @tobiu added the `enhancement` label
-- 2025-10-05 @tobiu added the `help wanted` label
-- 2025-10-05 @tobiu added the `good first issue` label
-- 2025-10-05 @tobiu added the `hacktoberfest` label
-- 2025-10-05 @tobiu added the `ai` label
-- 2025-10-05 @tobiu assigned to @pranjalarora98
 - 2025-10-24 @tobiu closed this issue
 

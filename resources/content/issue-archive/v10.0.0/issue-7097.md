@@ -39,7 +39,7 @@ Developers who want to understand how to build UIs with the new API.
 ## 4. Deliverable
 A complete draft of the blog post as a markdown file.
 
-## Activity Log
+## Timeline
 
 - 2025-07-22 @tobiu assigned to @tobiu
 - 2025-07-22 @tobiu added the `Blog Post` label

@@ -34,7 +34,7 @@ The agent frequently forgets to call `add_memory` in the middle of sessions or w
 
 **Goal:** Increase the reliability of session persistence by making the requirement more salient during tool selection.
 
-## Activity Log
+## Timeline
 
 - 2026-01-02 @tobiu added the `documentation` label
 - 2026-01-02 @tobiu added the `enhancement` label

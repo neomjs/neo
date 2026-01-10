@@ -32,12 +32,15 @@ The comments on GitHub issues and PRs contain invaluable context, debates, and d
 4.  Each comment chunk must be linked to its parent issue/PR chunk to maintain context (e.g., via a `parentId` field).
 5.  This ensures that a semantic search for a topic will return not only the original ticket but also the relevant discussion from the comments.
 
-## Comments
+## Timeline
 
+- 2025-10-05 @tobiu added the `enhancement` label
+- 2025-10-05 @tobiu added parent issue #7364
 ### @kart-u - 2025-10-05 13:20
 
 @tobiu I would like to  work on this, can you assign it to me??
 
+- 2025-10-05 @tobiu assigned to @kart-u
 ### @tobiu - 2025-10-05 14:21
 
 sure. Gemini input on this one (more and more ai native workflows^^):
@@ -61,11 +64,13 @@ sure. Gemini input on this one (more and more ai native workflows^^):
 >   Recommendation:
 >   The same guidance applies. The contributor can proceed, but they should be made aware that they will need to handle the gh CLI setup themselves as a prerequisite to working on and testing their solution.
 
+- 2025-10-06 @kart-u referenced in commit `620ab3d` - "Enhance Knowledge Base to Include GitHub Comments #7378"
 ### @kart-u - 2025-10-06 20:21
 
 @tobiu had one doubt 
 do we need to look into comment for .github/ISSUE_ARCHIVE only or .github/ISSUE too
 
+- 2025-10-06 @tobiu added the `hacktoberfest` label
 ### @tobiu - 2025-10-06 20:54
 
 The current idea was to drop md files into an archive, whenever we do a new npm release. Rationale: keeping items grouped. Fairly new as you can see: it literally started with the last release (v10.8).
@@ -579,12 +584,5 @@ https://github.com/neomjs/neo/blob/dev/.github/workflows/prevent-reopen.yml
 
 @kart-u: resolved, in a way => 2-way sync in place, so comments will get automatically added into the knowledge db (with their tickets).
 
-## Activity Log
-
-- 2025-10-05 @tobiu added the `enhancement` label
-- 2025-10-05 @tobiu added parent issue #7364
-- 2025-10-05 @tobiu assigned to @kart-u
-- 2025-10-06 @kart-u referenced in commit `620ab3d` - "Enhance Knowledge Base to Include GitHub Comments #7378"
-- 2025-10-06 @tobiu added the `hacktoberfest` label
 - 2025-10-24 @tobiu closed this issue
 

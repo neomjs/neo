@@ -25,7 +25,7 @@ closedAt: '2025-03-03T10:30:00Z'
 * I am planning to move related logic outside of `grid.header.toolbar.Button`
 * We need a collection for columns (maybe we can just re-use  an enhanced version of `columnPositions`
 
-## Activity Log
+## Timeline
 
 - 2025-03-03 @tobiu added the `enhancement` label
 - 2025-03-03 @tobiu assigned to @tobiu

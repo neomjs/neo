@@ -25,7 +25,7 @@ closedAt: '2025-06-15T11:26:33Z'
 * However, the documentation and ctor use it as an Array, which is misleading.
 * While it did not break anything, I want to change it for clarity.
 
-## Activity Log
+## Timeline
 
 - 2025-06-15 @tobiu assigned to @tobiu
 - 2025-06-15 @tobiu added the `bug` label

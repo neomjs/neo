@@ -27,8 +27,11 @@ We should exclude this folder from the knowledge base creation process.
 
 This can be done by updating `buildScripts/ai/createKnowledgeBase.mjs` to ignore this path.
 
-## Comments
+## Timeline
 
+- 2025-09-20 @tobiu assigned to @tobiu
+- 2025-09-20 @tobiu added the `enhancement` label
+- 2025-09-20 @tobiu referenced in commit `bd4f48b` - "AI Knowledge Base: Exclude learn/comparisons #7217"
 ### @tobiu - 2025-09-20 08:44
 
 ```bash
@@ -60,10 +63,5 @@ Most relevant source files (by weighted score):
 Top result: /Users/Shared/github/neomjs/neo/learn/blog/v10-deep-dive-reactivity.md
 ```
 
-## Activity Log
-
-- 2025-09-20 @tobiu assigned to @tobiu
-- 2025-09-20 @tobiu added the `enhancement` label
-- 2025-09-20 @tobiu referenced in commit `bd4f48b` - "AI Knowledge Base: Exclude learn/comparisons #7217"
 - 2025-09-20 @tobiu closed this issue
 

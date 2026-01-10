@@ -23,7 +23,7 @@ closedAt: '2025-11-24T11:54:36Z'
 
 Some files use `AI.`, while most files use `Neo.ai.`. We always want to use `Neo.ai` for consistency and generated namespaces.
 
-## Activity Log
+## Timeline
 
 - 2025-11-24 @tobiu assigned to @tobiu
 - 2025-11-24 @tobiu added the `enhancement` label

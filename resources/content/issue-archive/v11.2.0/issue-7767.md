@@ -26,7 +26,7 @@ The `IssueSyncer` currently generates a `## Relationships` section in the markdo
 
 This ticket is to remove the logic that generates this section from the `formatIssueMarkdown` method, making the frontmatter the single source of truth for relationship metadata and simplifying the markdown content.
 
-## Activity Log
+## Timeline
 
 - 2025-11-13 @tobiu added the `ai` label
 - 2025-11-13 @tobiu added the `refactoring` label

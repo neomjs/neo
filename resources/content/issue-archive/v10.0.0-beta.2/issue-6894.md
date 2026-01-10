@@ -22,7 +22,7 @@ closedAt: '2025-06-29T15:25:46Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
 - 2025-06-29 @tobiu added the `enhancement` label
 - 2025-06-29 @tobiu referenced in commit `ba4f415` - "learn/guides/InstanceLifecycle #6894"

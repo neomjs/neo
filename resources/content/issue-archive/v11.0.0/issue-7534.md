@@ -34,7 +34,7 @@ This ticket is to implement a centralized, debug-flag-aware logger to manage `st
 4.  All existing `console.log` statements in the `knowledge-base` and `memory-core` MCP server files are refactored to use the new logger module.
 5.  `console.error` statements are not affected and should remain as they are for logging to `stderr`.
 
-## Activity Log
+## Timeline
 
 - 2025-10-18 @tobiu assigned to @tobiu
 - 2025-10-18 @tobiu added the `enhancement` label

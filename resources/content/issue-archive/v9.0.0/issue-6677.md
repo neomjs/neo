@@ -25,7 +25,7 @@ closedAt: '2025-04-22T12:36:42Z'
 * Bypassing the vdom engine made sense before the scoped vdom updates were ready, to make non-leaf based updates faster.
 * At this point, it no longer makes sense => all updates should go through the vdom worker.
 
-## Activity Log
+## Timeline
 
 - 2025-04-22 @tobiu added the `enhancement` label
 - 2025-04-22 @tobiu assigned to @tobiu

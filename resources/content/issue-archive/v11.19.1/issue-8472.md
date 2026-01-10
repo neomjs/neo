@@ -42,8 +42,15 @@ Add a regression test in `test/playwright/unit/component/Base_PrototypePollution
 2. Creating Instance B.
 3. Ensuring Instance B's VDOM does not contain Instance A's ID.
 
-## Comments
+## Timeline
 
+- 2026-01-09 @tobiu added the `bug` label
+- 2026-01-09 @tobiu added the `ai` label
+- 2026-01-09 @tobiu added the `refactoring` label
+- 2026-01-09 @tobiu added the `core` label
+- 2026-01-09 @tobiu added parent issue #8469
+- 2026-01-09 @tobiu referenced in commit `64cdb76` - "fix: implement lazy VDOM cloning in Component.Base to prevent prototype pollution (#8472)"
+- 2026-01-09 @tobiu assigned to @tobiu
 ### @tobiu - 2026-01-09 16:32
 
 **Input from Gemini 3 Pro:**
@@ -61,15 +68,6 @@ Add a regression test in `test/playwright/unit/component/Base_PrototypePollution
 > 
 > Commit: 64cdb7694 (#8472)
 
-## Activity Log
-
-- 2026-01-09 @tobiu added the `bug` label
-- 2026-01-09 @tobiu added the `ai` label
-- 2026-01-09 @tobiu added the `refactoring` label
-- 2026-01-09 @tobiu added the `core` label
-- 2026-01-09 @tobiu added parent issue #8469
-- 2026-01-09 @tobiu referenced in commit `64cdb76` - "fix: implement lazy VDOM cloning in Component.Base to prevent prototype pollution (#8472)"
-- 2026-01-09 @tobiu assigned to @tobiu
 - 2026-01-09 @tobiu closed this issue
 - 2026-01-09 @tobiu cross-referenced by #8474
 

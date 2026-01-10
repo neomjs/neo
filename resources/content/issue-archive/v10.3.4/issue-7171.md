@@ -25,7 +25,7 @@ closedAt: '2025-08-09T00:45:58Z'
 * The app might not be there, but `generate-docs-json` created `docs/output`
 * A smarter check is `docs/app`
 
-## Activity Log
+## Timeline
 
 - 2025-08-09 @tobiu assigned to @tobiu
 - 2025-08-09 @tobiu added the `enhancement` label

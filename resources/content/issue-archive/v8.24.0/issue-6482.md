@@ -23,7 +23,7 @@ closedAt: '2025-02-22T15:43:22Z'
 
 * We need to enhance the sorting algo to support multi-line texts
 
-## Activity Log
+## Timeline
 
 - 2025-02-22 @tobiu added the `enhancement` label
 - 2025-02-22 @tobiu assigned to @tobiu

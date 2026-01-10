@@ -34,7 +34,7 @@ Move the highlight.js build execution from the `postinstall` script in `package.
 2.  Add execution of `buildScripts/buildHighlightJs.mjs` to `buildScripts/buildAll.mjs`, ensuring it runs as part of the standard build process (e.g., after `bundleParse5`).
 
 
-## Activity Log
+## Timeline
 
 - 2025-11-18 @tobiu added the `enhancement` label
 - 2025-11-18 @tobiu added the `developer-experience` label

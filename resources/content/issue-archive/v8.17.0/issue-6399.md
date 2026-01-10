@@ -25,7 +25,7 @@ closedAt: '2025-02-07T14:53:33Z'
 * It is crucial that `grid.Container` ignores the new scroller events
 * Not just from a performance perspective, but it would destroy the `columnPositions`
 
-## Activity Log
+## Timeline
 
 - 2025-02-07 @tobiu added the `enhancement` label
 - 2025-02-07 @tobiu assigned to @tobiu

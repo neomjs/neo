@@ -24,17 +24,16 @@ For `grid.plugin.AnimateRows` we need a way to get the next vdom state without a
 
 It would be way too expensive to even manually iterate over all records (imaging 50k rows).
 
-## Comments
-
-### @tobiu - 2025-03-09 17:17
-
-I need to revert this one, since it would still trigger cell renderers. For component based columns => index shift => update cycle. Got a smarter strategy already.
-
-## Activity Log
+## Timeline
 
 - 2025-03-09 @tobiu added the `enhancement` label
 - 2025-03-09 @tobiu referenced in commit `6f6a597` - "grid.View: createViewData() => updateVdom param #6555"
 - 2025-03-09 @tobiu closed this issue
+### @tobiu - 2025-03-09 17:17
+
+I need to revert this one, since it would still trigger cell renderers. For component based columns => index shift => update cycle. Got a smarter strategy already.
+
+- 2025-03-09 @tobiu reopened this issue
 - 2025-03-09 @tobiu referenced in commit `ddf28a0` - "#6555 reverted the change in favor of a smarter solution"
 - 2025-03-09 @tobiu closed this issue
 - 2025-03-09 @tobiu cross-referenced by #6557

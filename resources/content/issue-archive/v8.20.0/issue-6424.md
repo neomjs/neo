@@ -24,7 +24,7 @@ closedAt: '2025-02-09T19:42:57Z'
 * Experimental
 * We need a touch OP owner
 
-## Activity Log
+## Timeline
 
 - 2025-02-09 @tobiu added the `enhancement` label
 - 2025-02-09 @tobiu assigned to @tobiu

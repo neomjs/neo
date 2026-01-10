@@ -33,11 +33,12 @@ The guide should cover:
 - Reference the `toJSON` protocol and its importance.
 - Explain the security model (localhost only).
 
-## Activity Log
+## Timeline
 
 - 2026-01-07 @tobiu added the `documentation` label
 - 2026-01-07 @tobiu added the `enhancement` label
 - 2026-01-07 @tobiu added the `ai` label
 - 2026-01-07 @tobiu closed this issue
 - 2026-01-07 @tobiu assigned to @tobiu
+- 2026-01-07 @jonnyamsp referenced in commit `a591e3b` - "Docs: Create Neural Link Guide (Closes #8372)"
 

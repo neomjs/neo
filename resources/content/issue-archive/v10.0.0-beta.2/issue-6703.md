@@ -25,7 +25,7 @@ closedAt: '2025-06-29T00:49:15Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
 - 2025-05-06 @tobiu added the `documentation` label
 - 2025-05-06 @tobiu added the `enhancement` label

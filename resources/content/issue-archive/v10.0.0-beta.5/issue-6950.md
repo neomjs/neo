@@ -23,16 +23,14 @@ closedAt: '2025-07-05T10:05:59Z'
 
 *(No description provided)*
 
-## Comments
-
-### @tobiu - 2025-07-05 10:05
-
-<img width="833" height="460" alt="Image" src="https://github.com/user-attachments/assets/e2730554-3201-4ef2-a8c4-1e352402dd85" />
-
-## Activity Log
+## Timeline
 
 - 2025-07-05 @tobiu assigned to @tobiu
 - 2025-07-05 @tobiu added the `enhancement` label
 - 2025-07-05 @tobiu referenced in commit `87c2265` - "tests/config/CustomFunctions #6950"
+### @tobiu - 2025-07-05 10:05
+
+<img width="833" height="460" alt="Image" src="https://github.com/user-attachments/assets/e2730554-3201-4ef2-a8c4-1e352402dd85" />
+
 - 2025-07-05 @tobiu closed this issue
 

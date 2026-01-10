@@ -36,7 +36,7 @@ This ticket covers two improvements for `Neo.code.LivePreview`:
     - `onAppDisconnect` -> `onWindowDisconnect`
     - The events receive `appName` and `windowId`, but since `appName` is not unique across tabs, `windowId` is the key identifier. Renaming reflects this focus.
 
-## Activity Log
+## Timeline
 
 - 2025-12-09 @tobiu added the `enhancement` label
 - 2025-12-09 @tobiu added the `ai` label

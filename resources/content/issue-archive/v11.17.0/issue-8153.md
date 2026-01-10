@@ -36,8 +36,13 @@ This task ensures that `windowId` is consistently propagated from `Neo.component
     *   Update `beforeSetStateProvider(value, oldValue)`:
         *   Include `windowId: this.windowId` in the default values object passed to `ClassSystemUtil.beforeSetInstance` when creating the state provider instance.
 
-## Comments
+## Timeline
 
+- 2025-12-21 @tobiu added the `enhancement` label
+- 2025-12-21 @tobiu added the `ai` label
+- 2025-12-21 @tobiu added the `architecture` label
+- 2025-12-21 @tobiu assigned to @tobiu
+- 2025-12-21 @tobiu referenced in commit `0d2eda6` - "#8153 Propagate windowId to StateProviders and Controllers"
 ### @tobiu - 2025-12-21 16:13
 
 Implemented windowId propagation to state.Provider and controller.Component.
@@ -46,12 +51,5 @@ Implemented windowId propagation to state.Provider and controller.Component.
 - Updated component.Abstract to pass windowId during state provider creation
 - Fixed JSDoc type for controller.Component.windowId
 
-## Activity Log
-
-- 2025-12-21 @tobiu added the `enhancement` label
-- 2025-12-21 @tobiu added the `ai` label
-- 2025-12-21 @tobiu added the `architecture` label
-- 2025-12-21 @tobiu assigned to @tobiu
-- 2025-12-21 @tobiu referenced in commit `0d2eda6` - "#8153 Propagate windowId to StateProviders and Controllers"
 - 2025-12-21 @tobiu closed this issue
 

@@ -36,7 +36,7 @@ Any raw configuration object passed to the `controller` config will have been co
 **Goal:**
 Allow Neural Link to identify and inspect the controller managing a component.
 
-## Activity Log
+## Timeline
 
 - 2026-01-01 @tobiu added the `enhancement` label
 - 2026-01-01 @tobiu added the `ai` label

@@ -83,8 +83,15 @@ Your contribution will be a new ticket file that serves as your official report.
 
 That's it! Your PR will be a valuable piece of R&D that helps us build a truly intelligent and reliable AI development partner. We can't wait to see what you discover.
 
-## Comments
+## Timeline
 
+- 2025-10-04 @tobiu added the `help wanted` label
+- 2025-10-04 @tobiu added the `good first issue` label
+- 2025-10-04 @tobiu added the `hacktoberfest` label
+- 2025-10-04 @tobiu added parent issue #7296
+- 2025-10-04 @tobiu added the `ai` label
+- 2025-10-04 @tobiu cross-referenced by #7286
+- 2025-10-04 @tobiu cross-referenced by PR #7339
 ### @Raj-G07 - 2025-10-06 19:29
 
 @tobiu  Can i take up this issue?
@@ -103,6 +110,7 @@ You could explore this a bit too, if you like (bleeding edge on what is possible
 
 <img width="1304" height="1360" alt="Image" src="https://github.com/user-attachments/assets/069c0838-ed2c-41a1-b183-cab0051a9495" />
 
+- 2025-10-06 @tobiu assigned to @Raj-G07
 ### @tobiu - 2025-10-24 09:52
 
 Hi Raj-G07,
@@ -113,15 +121,5 @@ As there has been no activity for a couple of weeks and the project's architectu
 
 We're closing this ticket now. Thanks again for your willingness to contribute, and we hope to see you in other issues!
 
-## Activity Log
-
-- 2025-10-04 @tobiu added the `help wanted` label
-- 2025-10-04 @tobiu added the `good first issue` label
-- 2025-10-04 @tobiu added the `hacktoberfest` label
-- 2025-10-04 @tobiu added parent issue #7296
-- 2025-10-04 @tobiu added the `ai` label
-- 2025-10-04 @tobiu cross-referenced by #7286
-- 2025-10-04 @tobiu cross-referenced by PR #7339
-- 2025-10-06 @tobiu assigned to @Raj-G07
 - 2025-10-24 @tobiu closed this issue
 

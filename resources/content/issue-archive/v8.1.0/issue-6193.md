@@ -23,7 +23,7 @@ closedAt: '2025-01-09T13:24:25Z'
 
 to ensure that the header toolbar always stays on top, the grid container and its wrapper need `overflow-y: hidden`.
 
-## Activity Log
+## Timeline
 
 - 2025-01-09 @tobiu added the `enhancement` label
 - 2025-01-09 @tobiu assigned to @tobiu

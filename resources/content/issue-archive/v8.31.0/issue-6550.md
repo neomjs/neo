@@ -23,7 +23,7 @@ closedAt: '2025-03-08T23:43:42Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
 - 2025-03-08 @tobiu added the `bug` label
 - 2025-03-08 @tobiu assigned to @tobiu

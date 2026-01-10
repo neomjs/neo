@@ -27,7 +27,7 @@ I stumbled upon an edge case, where there is no cmp found for a given cmp id => 
 
 Assumption: it happens when a cmp is getting destroyed.
 
-## Activity Log
+## Timeline
 
 - 2025-03-17 @tobiu added the `bug` label
 - 2025-03-17 @tobiu assigned to @tobiu

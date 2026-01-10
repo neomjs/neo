@@ -34,8 +34,13 @@ To support the transition from a simple Blog to a comprehensive News center (Par
     *   **Tab 1 (Blog):** Move/Import the existing blog content (`apps/portal/view/blog/Container.mjs`) as the first tab.
     *   **Tab 2 (Release Notes):** Create a placeholder container for future release notes content.
 
-## Comments
+## Timeline
 
+- 2026-01-07 @tobiu added the `enhancement` label
+- 2026-01-07 @tobiu added the `ai` label
+- 2026-01-07 @tobiu added the `refactoring` label
+- 2026-01-07 @tobiu referenced in commit `980682d` - "feat(portal): refactor blog to news with tabbed interface #8386"
+- 2026-01-07 @tobiu added parent issue #8362
 ### @tobiu - 2026-01-07 14:53
 
 **Input from Gemini 3 Pro:**
@@ -45,13 +50,6 @@ To support the transition from a simple Blog to a comprehensive News center (Par
 > - Created `apps/portal/view/news/ReleaseContainer.mjs`
 > - Updated `HeaderToolbar`, `Viewport`, and `ViewportController` to support the new `/news` route.
 
-## Activity Log
-
-- 2026-01-07 @tobiu added the `enhancement` label
-- 2026-01-07 @tobiu added the `ai` label
-- 2026-01-07 @tobiu added the `refactoring` label
-- 2026-01-07 @tobiu referenced in commit `980682d` - "feat(portal): refactor blog to news with tabbed interface #8386"
-- 2026-01-07 @tobiu added parent issue #8362
 - 2026-01-07 @tobiu assigned to @tobiu
 - 2026-01-07 @tobiu closed this issue
 

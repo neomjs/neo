@@ -33,7 +33,7 @@ This ticket covers adding support for these annotations.
 3.  `toolService.mjs` is refactored to parse these annotations and include them in the tool definitions.
 4.  The `tools/list` response is verified to include the new `annotations` property for relevant tools.
 
-## Activity Log
+## Timeline
 
 - 2025-10-15 @tobiu assigned to @tobiu
 - 2025-10-15 @tobiu added the `enhancement` label

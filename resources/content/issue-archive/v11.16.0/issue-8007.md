@@ -33,8 +33,11 @@ closedAt: '2025-12-03T13:47:03Z'
 5.  **Configuration:** Implement `config.mjs` and `logger.mjs` aligned with `memory-core` standards.
 6.  **Dependencies:** `ws`, `@modelcontextprotocol/sdk`, `commander`.
 
-## Comments
+## Timeline
 
+- 2025-12-03 @tobiu added the `enhancement` label
+- 2025-12-03 @tobiu added the `ai` label
+- 2025-12-03 @tobiu added the `refactoring` label
 ### @tobiu - 2025-12-03 10:16
 
 **Input from Antigravity:**
@@ -45,11 +48,6 @@ closedAt: '2025-12-03T13:47:03Z'
 > 2.  **Import**: It will dynamically import **`../../ai/Client.mjs`**.
 > 
 
-## Activity Log
-
-- 2025-12-03 @tobiu added the `enhancement` label
-- 2025-12-03 @tobiu added the `ai` label
-- 2025-12-03 @tobiu added the `refactoring` label
 - 2025-12-03 @tobiu assigned to @tobiu
 - 2025-12-03 @tobiu added parent issue #7960
 - 2025-12-03 @tobiu referenced in commit `4358d77` - "Implement Dynamic Loading for NeuralLink #8007"

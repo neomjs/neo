@@ -24,7 +24,7 @@ closedAt: '2025-04-22T12:42:23Z'
 * Setting `aria-selected` to false (default value) just adds overhead & inconsistency
 * Better delete the attribute completely
 
-## Activity Log
+## Timeline
 
 - 2025-04-22 @tobiu added the `enhancement` label
 - 2025-04-22 @tobiu assigned to @tobiu

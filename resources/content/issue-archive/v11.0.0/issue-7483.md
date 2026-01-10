@@ -34,18 +34,16 @@ The endpoint will allow the agent to submit a comment for a specific pull reques
 4.  The service function uses the `gh pr comment` command to post the comment to the specified pull request.
 5.  The `routes/pullRequests.mjs` file is updated with the new route and handler.
 
-## Comments
-
-### @tobiu - 2025-10-14 10:55
-
-<img width="519" height="140" alt="Image" src="https://github.com/user-attachments/assets/0e19a950-da39-4387-9f4c-54aa20a4e659" />
-
-## Activity Log
+## Timeline
 
 - 2025-10-14 @tobiu assigned to @tobiu
 - 2025-10-14 @tobiu added the `enhancement` label
 - 2025-10-14 @tobiu added the `ai` label
 - 2025-10-14 @tobiu added parent issue #7477
 - 2025-10-14 @tobiu referenced in commit `1c16d76` - "Implement PR Commenting Endpoint #7483"
+### @tobiu - 2025-10-14 10:55
+
+<img width="519" height="140" alt="Image" src="https://github.com/user-attachments/assets/0e19a950-da39-4387-9f4c-54aa20a4e659" />
+
 - 2025-10-14 @tobiu closed this issue
 

@@ -31,16 +31,7 @@ For development mode, we need an addon that can parse these HTML string template
     2. Traverse the generated DOM tree and map it to a JSON structure that matches the Neo.mjs VDOM format.
     3. Ensure that any embedded logic or dynamic values from the template literal are correctly placed within the resulting VDOM for later processing by the framework.
 
-## Comments
-
-### @tobiu - 2025-08-02 12:58
-
-**Status:** Dropped
-
-**Reason:** This approach was superseded by the in-worker parsing strategy (Sub-Task 4). The main thread addon would require an inefficient and slow worker roundtrip for parsing, while the in-worker approach is synchronous and significantly more performant for the zero-builds development mode. The addon and its related tests have been deleted to simplify the codebase.
-
-
-## Activity Log
+## Timeline
 
 - 2025-07-30 @tobiu assigned to @tobiu
 - 2025-07-30 @tobiu added parent issue #7130
@@ -49,5 +40,12 @@ For development mode, we need an addon that can parse these HTML string template
 - 2025-07-30 @tobiu referenced in commit `dd6731c` - "#7131 main.addon.HtmlStringToVdom: WIP"
 - 2025-07-30 @tobiu referenced in commit `92fb035` - "#7131 main.addon.HtmlStringToVdom: using Neo.createStyleObject()"
 - 2025-08-02 @tobiu referenced in commit `1ffee33` - "Dev Mode: Main Thread Addon for Live Parsing #7131"
+### @tobiu - 2025-08-02 12:58
+
+**Status:** Dropped
+
+**Reason:** This approach was superseded by the in-worker parsing strategy (Sub-Task 4). The main thread addon would require an inefficient and slow worker roundtrip for parsing, while the in-worker approach is synchronous and significantly more performant for the zero-builds development mode. The addon and its related tests have been deleted to simplify the codebase.
+
+
 - 2025-08-02 @tobiu closed this issue
 

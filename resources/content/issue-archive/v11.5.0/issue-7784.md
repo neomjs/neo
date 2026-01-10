@@ -39,7 +39,7 @@ This ticket covers the implementation of the client-side logic required for the 
 
 These changes establish the client-side foundation for the new SSR and Static Site Generation (SSG) strategy.
 
-## Activity Log
+## Timeline
 
 - 2025-11-17 @tobiu added the `enhancement` label
 - 2025-11-17 @tobiu added the `ai` label

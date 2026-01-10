@@ -27,7 +27,7 @@ The new roadmap provides a high-level strategic overview of the project's direct
 
 The document also clarifies the path to the v11.0.0 release, tying it to the completion of these foundational infrastructure projects and acknowledging the flexible timeline due to community contributions via Hacktoberfest.
 
-## Activity Log
+## Timeline
 
 - 2025-10-09 @tobiu assigned to @tobiu
 - 2025-10-09 @tobiu added parent issue #7264

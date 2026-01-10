@@ -34,7 +34,7 @@ This ticket covers the refactoring of the server to become a true MCP-compliant,
 4.  A `POST /tools/call` endpoint is implemented. It receives a `toolName` and `arguments`, executes the correct service function, and returns the result.
 5.  The existing REST endpoints (e.g., `/pull-requests`, `/labels`) remain functional for now but are considered deprecated for agent use.
 
-## Activity Log
+## Timeline
 
 - 2025-10-14 @tobiu assigned to @tobiu
 - 2025-10-14 @tobiu added the `enhancement` label

@@ -30,7 +30,7 @@ This ticket covers the first phase of rewriting `AGENTS.md` (ticket #7630) as pa
 2.  Completely rewrite Section 2 ("Session Initialization") to remove all manual `npm run` commands, `curl` health checks, and other setup procedures that are now automated by the MCP servers.
 3.  The new initialization protocol should be significantly simpler, reflecting the new automated environment.
 
-## Activity Log
+## Timeline
 
 - 2025-10-24 @tobiu added the `documentation` label
 - 2025-10-24 @tobiu added the `enhancement` label

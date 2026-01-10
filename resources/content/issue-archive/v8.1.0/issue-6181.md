@@ -23,7 +23,7 @@ closedAt: '2025-01-05T12:20:57Z'
 
 required for buffered column rendering
 
-## Activity Log
+## Timeline
 
 - 2025-01-05 @tobiu added the `enhancement` label
 - 2025-01-05 @tobiu assigned to @tobiu

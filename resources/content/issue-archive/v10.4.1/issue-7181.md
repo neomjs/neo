@@ -41,7 +41,7 @@ The new logic is as follows:
 *   **Code Consistency:** Aligns the behavior of `table.Body` with `grid.Body`, making the framework more consistent and predictable.
 *   **Improved Efficiency:** Avoids a large and unnecessary VDOM diffing operation for a common use case.
 
-## Activity Log
+## Timeline
 
 - 2025-08-11 @tobiu assigned to @tobiu
 - 2025-08-11 @tobiu added the `enhancement` label

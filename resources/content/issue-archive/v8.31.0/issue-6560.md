@@ -23,18 +23,16 @@ closedAt: '2025-03-09T20:21:08Z'
 
 *(No description provided)*
 
-## Comments
+## Timeline
 
+- 2025-03-09 @tobiu added the `enhancement` label
+- 2025-03-09 @tobiu assigned to @tobiu
+- 2025-03-09 @tobiu referenced in commit `79b31e8` - "grid.plugin.AnimateRows: updateView() => logic for adding new rows #6560"
 ### @tobiu - 2025-03-09 20:21
 
 https://github.com/user-attachments/assets/a268116f-758c-4310-b959-aea017e9b733
 
 the logic itself is fine, but needs a follow up ticket for component based columns => index based cycling can steal cmp instances.
 
-## Activity Log
-
-- 2025-03-09 @tobiu added the `enhancement` label
-- 2025-03-09 @tobiu assigned to @tobiu
-- 2025-03-09 @tobiu referenced in commit `79b31e8` - "grid.plugin.AnimateRows: updateView() => logic for adding new rows #6560"
 - 2025-03-09 @tobiu closed this issue
 

@@ -33,7 +33,7 @@ Enhance the `knowledge-base` and `memory-core` MCP servers with tools that allow
 - `ticket-mc-add-db-tools.md`: Add `start/stop_database` tools to the Memory Core server.
 - `ticket-kb-make-start-hybrid-aware.md`: Make the `start_database` tool hybrid-aware.
 
-## Activity Log
+## Timeline
 
 - 2025-10-17 @tobiu assigned to @tobiu
 - 2025-10-17 @tobiu added the `epic` label

@@ -26,7 +26,7 @@ closedAt: '2025-07-15T19:37:24Z'
 * This does not work for reading files on GitHub directly
 * It is most likely bad for SEO
 
-## Activity Log
+## Timeline
 
 - 2025-07-15 @tobiu assigned to @tobiu
 - 2025-07-15 @tobiu added the `enhancement` label

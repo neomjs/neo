@@ -31,7 +31,7 @@ During development and testing of the session summarization feature, a utility s
 3.  It deletes and immediately recreates the `sessions` collection.
 4.  The script is intended for development use and will not be added to `package.json` scripts.
 
-## Activity Log
+## Timeline
 
 - 2025-10-05 @tobiu assigned to @tobiu
 - 2025-10-05 @tobiu added parent issue #7316

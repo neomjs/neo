@@ -33,7 +33,7 @@ We should merge these into a single, robust API that:
 
 This is a technical debt cleanup task.
 
-## Activity Log
+## Timeline
 
 - 2025-12-21 @tobiu added the `enhancement` label
 - 2025-12-21 @tobiu added the `ai` label

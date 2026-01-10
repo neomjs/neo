@@ -23,7 +23,7 @@ closedAt: '2025-04-08T18:44:46Z'
 
 * Add a view controller to the example
 
-## Activity Log
+## Timeline
 
 - 2025-04-08 @tobiu added the `enhancement` label
 - 2025-04-08 @tobiu assigned to @tobiu

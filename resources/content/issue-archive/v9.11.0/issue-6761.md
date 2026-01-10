@@ -25,7 +25,7 @@ closedAt: '2025-06-09T12:16:51Z'
 * In this case, we also want to remove the tab.header.Button from the tab.header.Toolbar.
 * Use case: `SharedCovid.view.MainContainerController`
 
-## Activity Log
+## Timeline
 
 - 2025-06-09 @tobiu added the `enhancement` label
 - 2025-06-09 @tobiu referenced in commit `792eb99` - "tab.BodyContainer #6761"

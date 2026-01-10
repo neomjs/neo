@@ -23,7 +23,7 @@ closedAt: '2025-04-10T20:09:20Z'
 * The componentConfig can contain bindings into a view controller, e.g. a button handler = 'editButtonHandler'
 * componentConfig.set(component) can revert these, so we need a parseConfig() for each change.
 
-## Activity Log
+## Timeline
 
 - 2025-04-10 @tobiu added the `enhancement` label
 - 2025-04-10 @tobiu referenced in commit `71d7d7e` - "grid.column.Component: cellRenderer() => renew bound controller configs on each change #6640"

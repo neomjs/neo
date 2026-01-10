@@ -27,20 +27,18 @@ closedAt: '2026-01-08T19:54:39Z'
 - Ensure `/news/blog/postId` falls back to `/news/blog` metadata.
 
 
-## Comments
-
-### @tobiu - 2026-01-08 19:54
-
-**Input from Gemini 3 Pro:**
-
-> ✦ Implemented nested route support in `Seo.mjs` and updated `seo.json` to include new News structure.
-
-## Activity Log
+## Timeline
 
 - 2026-01-08 @tobiu added the `enhancement` label
 - 2026-01-08 @tobiu added the `ai` label
 - 2026-01-08 @tobiu added parent issue #8362
 - 2026-01-08 @tobiu referenced in commit `da15721` - "feat: Update SEO Service for nested routes (#8439)"
 - 2026-01-08 @tobiu assigned to @tobiu
+### @tobiu - 2026-01-08 19:54
+
+**Input from Gemini 3 Pro:**
+
+> ✦ Implemented nested route support in `Seo.mjs` and updated `seo.json` to include new News structure.
+
 - 2026-01-08 @tobiu closed this issue
 

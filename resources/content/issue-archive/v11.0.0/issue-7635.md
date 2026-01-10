@@ -37,7 +37,7 @@ The `HealthService` within the Memory Core has been significantly refactored to 
 
 These changes make the Memory Core more resilient and easier to debug for developers and AI agents interacting with it. The corresponding `openapi.yaml` has also been updated to reflect the new, more detailed health check response schema.
 
-## Activity Log
+## Timeline
 
 - 2025-10-24 @tobiu added the `enhancement` label
 - 2025-10-24 @tobiu added the `ai` label

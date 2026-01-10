@@ -39,7 +39,7 @@ function getAllAriaAttributes(node) {
 }
 ```
 
-## Activity Log
+## Timeline
 
 - 2025-04-16 @tobiu added the `enhancement` label
 - 2025-04-16 @tobiu cross-referenced by #6664

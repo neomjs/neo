@@ -29,7 +29,7 @@ The `ADD_SUB_ISSUE` and `REMOVE_SUB_ISSUE` GraphQL mutations, introduced in PR #
 2.  The return payload of these mutations should be minimal, confirming only the parent and the specific child issue that was added or removed.
 3.  The `subIssues` field should be removed from the mutation's response to reduce the payload size and improve performance.
 
-## Activity Log
+## Timeline
 
 - 2025-11-12 @tobiu added the `enhancement` label
 - 2025-11-12 @tobiu added the `good first issue` label

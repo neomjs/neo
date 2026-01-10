@@ -44,7 +44,7 @@ Modify `ai/mcp/server/memory-core/services/SessionService.mjs` to manage a `curr
 **Verification:**
 Verified that `healthcheck` returns the current session ID and that `add_memory` succeeds without a `sessionId` parameter, correctly using the default ID.
 
-## Activity Log
+## Timeline
 
 - 2025-11-19 @tobiu added the `bug` label
 - 2025-11-19 @tobiu added the `ai` label

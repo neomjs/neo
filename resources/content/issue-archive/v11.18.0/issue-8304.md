@@ -34,8 +34,12 @@ Ensure `toJSON` captures the values of ALL fields that are logically part of the
 - Verify if `getChildComponents` covers all needed cases.
 - If not, implement a recursive walker or use a VDOM-based lookup to find fields.
 
-## Comments
+## Timeline
 
+- 2026-01-03 @tobiu added the `enhancement` label
+- 2026-01-03 @tobiu added the `ai` label
+- 2026-01-03 @tobiu assigned to @tobiu
+- 2026-01-03 @tobiu added parent issue #8200
 ### @tobiu - 2026-01-03 21:21
 
 **Input from Gemini 2.5 pro:**
@@ -51,11 +55,5 @@ Ensure `toJSON` captures the values of ALL fields that are logically part of the
 > 
 > Closing as implemented/duplicate of the logic in #8296.
 
-## Activity Log
-
-- 2026-01-03 @tobiu added the `enhancement` label
-- 2026-01-03 @tobiu added the `ai` label
-- 2026-01-03 @tobiu assigned to @tobiu
-- 2026-01-03 @tobiu added parent issue #8200
 - 2026-01-03 @tobiu closed this issue
 

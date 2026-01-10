@@ -113,18 +113,17 @@ myInstance.sayHello();
 // Hello
 ```
 
-## Comments
-
-### @tobiu - 2025-07-02 18:51
-
-the export syntax is broken.
-
-## Activity Log
+## Timeline
 
 - 2025-07-02 @tobiu assigned to @tobiu
 - 2025-07-02 @tobiu added the `enhancement` label
 - 2025-07-02 @tobiu referenced in commit `022f86d` - "Enhanced Method Sequencing #6935"
 - 2025-07-02 @tobiu closed this issue
+### @tobiu - 2025-07-02 18:51
+
+the export syntax is broken.
+
+- 2025-07-02 @tobiu reopened this issue
 - 2025-07-02 @tobiu referenced in commit `db44d9e` - "Enhanced Method Sequencing #6935"
 - 2025-07-02 @tobiu closed this issue
 - 2025-07-02 @tobiu referenced in commit `0f82e86` - "Enhanced Method Sequencing #6935 initial concept exploration"
@@ -169,6 +168,4 @@ the export syntax is broken.
 - 2025-07-04 @tobiu referenced in commit `3ecb6fc` - "#6935 initial debugging, trying to get examples/button/base running inside the browser"
 - 2025-07-04 @tobiu referenced in commit `5843c32` - "#6935 further testing, brainstorming, debugging"
 - 2025-07-04 @tobiu referenced in commit `d9476f2` - "#6935 concept exploration"
-- 2025-07-04 @tobiu referenced in commit `2251e70` - "#6935 concept exploration"
-- 2025-07-04 @tobiu referenced in commit `5d1dcca` - "#6935 Reached the PoC state"
 

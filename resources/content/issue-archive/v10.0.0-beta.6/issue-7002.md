@@ -42,7 +42,7 @@ To optimize memory usage and instantiation performance, we will refactor the `Co
 
 This is a standard JavaScript optimization that is critical for the performance of a core framework component like `Config`.
 
-## Activity Log
+## Timeline
 
 - 2025-07-09 @tobiu assigned to @tobiu
 - 2025-07-09 @tobiu added the `enhancement` label

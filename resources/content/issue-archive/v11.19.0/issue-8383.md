@@ -54,7 +54,7 @@ We need to add CSS rules to `resources/scss/src/component/Markdown.scss` to styl
     }
 ```
 
-## Activity Log
+## Timeline
 
 - 2026-01-07 @tobiu added the `enhancement` label
 - 2026-01-07 @tobiu added the `design` label

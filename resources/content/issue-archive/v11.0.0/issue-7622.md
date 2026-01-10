@@ -49,7 +49,7 @@ Create a new tool for the `github-workflow` MCP server that handles the creation
 
 This new, two-step workflow (`create_issue` then `sync_all`) will be a reliable, atomic process for issue creation, eliminating the problems of the local-first approach.
 
-## Activity Log
+## Timeline
 
 - 2025-10-23 @tobiu assigned to @tobiu
 - 2025-10-23 @tobiu added the `enhancement` label

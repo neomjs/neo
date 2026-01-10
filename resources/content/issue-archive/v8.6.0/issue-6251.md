@@ -26,12 +26,13 @@ from a separation of concerns perspective: a store should be in charge of creati
 * we can remove the observable mixin again
 * directly connect to the `data.RecordFactory` instead
 
-## Activity Log
+## Timeline
 
 - 2025-01-18 @tobiu added the `enhancement` label
 - 2025-01-18 @tobiu assigned to @tobiu
 - 2025-01-18 @tobiu referenced in commit `d92cde9` - "data.Model: afterSetFields() => take ownership of creating & updating the record class #6251"
 - 2025-01-18 @tobiu closed this issue
+- 2025-01-18 @tobiu reopened this issue
 - 2025-01-18 @tobiu referenced in commit `afc9793` - "#6251: removed the static observable class field"
 - 2025-01-18 @tobiu closed this issue
 

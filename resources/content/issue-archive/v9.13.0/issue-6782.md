@@ -24,7 +24,7 @@ closedAt: '2025-06-13T00:48:00Z'
 * Some tags must not convert `height, maxHeight, maxWidth, minHeight, minWidth, width` into styles.
 * Mostly SVG related
 
-## Activity Log
+## Timeline
 
 - 2025-06-13 @tobiu assigned to @tobiu
 - 2025-06-13 @tobiu added the `enhancement` label

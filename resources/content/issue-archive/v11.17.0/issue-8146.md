@@ -32,7 +32,7 @@ Implementation plan:
 2. Implement `onDomResize` in `Canvas` to fire a `resize` event.
 3. Update `AgentOS.view.Blackboard` to enable `monitorSize` and listen for `resize` events to update the offscreen canvas dimensions.
 
-## Activity Log
+## Timeline
 
 - 2025-12-19 @tobiu added the `enhancement` label
 - 2025-12-19 @tobiu added the `ai` label

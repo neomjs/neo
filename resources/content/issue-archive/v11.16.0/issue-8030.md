@@ -32,7 +32,7 @@ Implement the SCSS overrides for `Neo.container.Toolbar` in the `neo-theme-cyber
     - Border styles
     - Spacing/Gap adjustments if needed.
 
-## Activity Log
+## Timeline
 
 - 2025-12-04 @tobiu added the `enhancement` label
 - 2025-12-04 @tobiu added the `design` label

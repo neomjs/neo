@@ -31,7 +31,7 @@ Logic:
 
 This prevents the component from being destroyed/recreated on every keystroke, avoiding unnecessary parent VDOM updates and race conditions.
 
-## Activity Log
+## Timeline
 
 - 2025-12-10 @tobiu added the `enhancement` label
 - 2025-12-10 @tobiu added the `ai` label

@@ -23,7 +23,7 @@ closedAt: '2025-02-05T23:36:01Z'
 
 * `keyProperty` = 'dataField'
 
-## Activity Log
+## Timeline
 
 - 2025-02-05 @tobiu added the `enhancement` label
 - 2025-02-05 @tobiu assigned to @tobiu

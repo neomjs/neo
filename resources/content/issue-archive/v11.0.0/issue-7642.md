@@ -31,7 +31,7 @@ As the first step in the larger sync service refactoring (Epic: Refactor and Ext
 4.  Refactor `SyncService.mjs` to become a lean orchestrator that imports and calls the new `ReleaseSyncer` and `IssueSyncer` modules.
 5.  Update comments and method names within `SyncService` to be more generic and accurate.
 
-## Activity Log
+## Timeline
 
 - 2025-10-25 @tobiu added the `epic` label
 - 2025-10-25 @tobiu added the `ai` label

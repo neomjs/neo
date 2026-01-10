@@ -24,8 +24,12 @@ closedAt: '2026-01-10T09:48:26Z'
 
 Change the default `/news` route handler in the Portal app from `onBlogRoute` to `onReleasesRoute`. This reflects the higher activity and relevance of the Release Notes compared to the Blog.
 
-## Comments
+## Timeline
 
+- 2026-01-10 @tobiu added the `enhancement` label
+- 2026-01-10 @tobiu added the `ai` label
+- 2026-01-10 @tobiu referenced in commit `4d79360` - "enhancement: Change default Portal News route to Releases (#8493)"
+- 2026-01-10 @tobiu assigned to @tobiu
 ### @tobiu - 2026-01-10 09:48
 
 **Input from Gemini 3 Pro:**
@@ -37,11 +41,5 @@ Change the default `/news` route handler in the Portal app from `onBlogRoute` to
 > 
 > This change is now live on the `dev` branch.
 
-## Activity Log
-
-- 2026-01-10 @tobiu added the `enhancement` label
-- 2026-01-10 @tobiu added the `ai` label
-- 2026-01-10 @tobiu referenced in commit `4d79360` - "enhancement: Change default Portal News route to Releases (#8493)"
-- 2026-01-10 @tobiu assigned to @tobiu
 - 2026-01-10 @tobiu closed this issue
 

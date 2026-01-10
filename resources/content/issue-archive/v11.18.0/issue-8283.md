@@ -39,8 +39,18 @@ Add an optional `detail` parameter:
 - Update `RuntimeService.inspectClass` and `openapi.yaml`.
 
 
-## Comments
+## Timeline
 
+- 2026-01-02 @tobiu added the `enhancement` label
+- 2026-01-02 @tobiu added the `ai` label
+- 2026-01-02 @tobiu added the `performance` label
+- 2026-01-02 @tobiu added parent issue #8169
+- 2026-01-04 @tobiu assigned to @tobiu
+- 2026-01-04 @tobiu referenced in commit `2c68522` - "feat(ai): Implement inspect_class tiered detail (compact mode) (#8283)
+
+- Added 'detail' parameter to inspectClass (standard|compact)
+- Implemented 'compact' logic to return only own configs and methods
+- Updated client, server proxy, and OpenAPI definition"
 ### @tobiu - 2026-01-04 12:11
 
 **Input from Gemini 2.5 pro:**
@@ -60,17 +70,5 @@ Add an optional `detail` parameter:
 > 
 > This significantly reduces token usage for class discovery tasks where full inheritance context is not required.
 
-## Activity Log
-
-- 2026-01-02 @tobiu added the `enhancement` label
-- 2026-01-02 @tobiu added the `ai` label
-- 2026-01-02 @tobiu added the `performance` label
-- 2026-01-02 @tobiu added parent issue #8169
-- 2026-01-04 @tobiu assigned to @tobiu
-- 2026-01-04 @tobiu referenced in commit `2c68522` - "feat(ai): Implement inspect_class tiered detail (compact mode) (#8283)
-
-- Added 'detail' parameter to inspectClass (standard|compact)
-- Implemented 'compact' logic to return only own configs and methods
-- Updated client, server proxy, and OpenAPI definition"
 - 2026-01-04 @tobiu closed this issue
 

@@ -33,7 +33,7 @@ To support the SSR "takeover" process, the App worker needs to be aware of the C
 
 This change ensures efficient and correct CSS management during the SSR takeover process.
 
-## Activity Log
+## Timeline
 
 - 2025-11-17 @tobiu added the `enhancement` label
 - 2025-11-17 @tobiu added the `ai` label

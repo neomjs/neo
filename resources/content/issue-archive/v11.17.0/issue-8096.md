@@ -33,7 +33,7 @@ The initial tests should cover:
 
 This ensures the recent optimizations to `initRecord` and the general Store behavior are covered by automated tests.
 
-## Activity Log
+## Timeline
 
 - 2025-12-12 @tobiu added the `ai` label
 - 2025-12-12 @tobiu added the `testing` label

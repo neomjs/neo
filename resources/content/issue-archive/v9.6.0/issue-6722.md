@@ -23,7 +23,7 @@ closedAt: '2025-05-28T22:47:47Z'
 
 * We need to go 2 levels up for accessing `node_modules`
 
-## Activity Log
+## Timeline
 
 - 2025-05-28 @tobiu assigned to @tobiu
 - 2025-05-28 @tobiu added the `enhancement` label

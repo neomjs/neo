@@ -27,7 +27,7 @@ closedAt: '2025-03-12T12:02:23Z'
 * CSS vars for duration & easing
 * Changing the values of these 2 => change the value of the related CSS var inside the `grid.View` style attribute
 
-## Activity Log
+## Timeline
 
 - 2025-03-10 @tobiu added the `enhancement` label
 - 2025-03-10 @tobiu assigned to @tobiu

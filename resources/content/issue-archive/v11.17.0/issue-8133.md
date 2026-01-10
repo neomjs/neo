@@ -45,7 +45,7 @@ const fsModule      = await import(/* webpackIgnore: true */ 'https://esm.sh/mem
 
 This should resolve the build errors while maintaining the dynamic loading functionality in the browser.
 
-## Activity Log
+## Timeline
 
 - 2025-12-17 @tobiu added the `bug` label
 - 2025-12-17 @tobiu added the `ai` label

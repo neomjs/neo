@@ -35,7 +35,7 @@ This ticket aims to introduce a robust session recovery protocol within `AGENTS.
 5.  The protocol should emphasize the importance of this recovery step for maintaining a complete and analyzable session history.
 6.  The agent's internal logic must be updated to implement and adhere to this session recovery protocol.
 
-## Activity Log
+## Timeline
 
 - 2025-10-03 @tobiu assigned to @tobiu
 - 2025-10-03 @tobiu added the `bug` label

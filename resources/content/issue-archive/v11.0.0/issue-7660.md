@@ -42,7 +42,7 @@ A single "turn" encompasses the entire agent process from receiving a user's `PR
 
 This change will significantly increase the signal-to-noise ratio of the stored memories. It also acknowledges the current limitation of not having agent lifecycle hooks and places the responsibility of consolidating the turn on the agent itself.
 
-## Activity Log
+## Timeline
 
 - 2025-10-26 @tobiu added the `documentation` label
 - 2025-10-26 @tobiu added the `enhancement` label

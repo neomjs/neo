@@ -29,7 +29,7 @@ This leads to a race condition where the wrong renderer might be initialized.
 **Solution:**
 Move the `Neo.vdom.Helper` import into `onRegisterNeoConfig` to ensure `Neo.config` is fully populated before the helper initializes.
 
-## Activity Log
+## Timeline
 
 - 2025-11-26 @tobiu added the `bug` label
 - 2025-11-26 @tobiu added the `ai` label

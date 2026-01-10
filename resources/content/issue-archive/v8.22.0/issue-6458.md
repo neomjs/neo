@@ -24,7 +24,7 @@ closedAt: '2025-02-17T13:02:46Z'
 * more powerful, since we can specify the scroll behavior
 * shorter code
 
-## Activity Log
+## Timeline
 
 - 2025-02-17 @tobiu added the `enhancement` label
 - 2025-02-17 @tobiu assigned to @tobiu

@@ -33,7 +33,7 @@ Define and implement the security model for Agent-initiated browser actions.
 
 Reference: `.github/AGENT_ARCHITECTURE.md`
 
-## Activity Log
+## Timeline
 
 - 2025-11-30 @tobiu added the `epic` label
 - 2025-11-30 @tobiu added the `ai` label

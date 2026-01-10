@@ -32,7 +32,7 @@ Error:
 Proposed Fix:
 Strip Markdown code block delimiters from the response text before calling `JSON.parse()`.
 
-## Activity Log
+## Timeline
 
 - 2025-11-20 @tobiu added the `bug` label
 - 2025-11-20 @tobiu added the `ai` label

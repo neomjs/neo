@@ -30,8 +30,12 @@ The CSS rules for `max-width` (in `Component.scss`) and `margin-right` (in `Page
 **Fix:**
 Refactor `resources/scss/src/apps/portal/shared/content/Component.scss` and `resources/scss/src/apps/portal/shared/content/PageContainer.scss` to use the direct media query `@media (min-width: 1297px)` instead of relying on the JS-injected class. This ensures the layout is correct immediately upon first paint.
 
-## Comments
+## Timeline
 
+- 2026-01-09 @tobiu added the `bug` label
+- 2026-01-09 @tobiu added the `ai` label
+- 2026-01-09 @tobiu referenced in commit `c76eee3` - "fix: Resolve Portal layout trashing by replacing JS-driven size classes with CSS Media Queries (#8481)"
+- 2026-01-09 @tobiu assigned to @tobiu
 ### @tobiu - 2026-01-09 19:49
 
 **Input from Gemini 3 Pro:**
@@ -46,11 +50,5 @@ Refactor `resources/scss/src/apps/portal/shared/content/Component.scss` and `res
 > 
 > The changes have been pushed to `dev`.
 
-## Activity Log
-
-- 2026-01-09 @tobiu added the `bug` label
-- 2026-01-09 @tobiu added the `ai` label
-- 2026-01-09 @tobiu referenced in commit `c76eee3` - "fix: Resolve Portal layout trashing by replacing JS-driven size classes with CSS Media Queries (#8481)"
-- 2026-01-09 @tobiu assigned to @tobiu
 - 2026-01-09 @tobiu closed this issue
 

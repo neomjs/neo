@@ -23,7 +23,7 @@ closedAt: '2025-04-12T13:45:09Z'
 * columns can have percentage based width => the header toolbar should by default use 100% of the space
 * grids without flexing columns should use a given max width
 
-## Activity Log
+## Timeline
 
 - 2025-04-12 @tobiu added the `enhancement` label
 - 2025-04-12 @tobiu referenced in commit `4fc0ca9` - "grid.Container, grid.header.Toolbar: smarter width management #6642"

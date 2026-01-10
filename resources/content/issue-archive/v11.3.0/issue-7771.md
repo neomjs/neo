@@ -40,7 +40,7 @@ Update the introductory description in `apps/portal/llms.txt` to:
 
 The necessary changes to the `getLlmsTxt` function in `buildScripts/generateSeoFiles.mjs` to update this description have already been implemented. This ticket serves to track the completion and verification of this documentation enhancement.
 
-## Activity Log
+## Timeline
 
 - 2025-11-13 @tobiu added the `documentation` label
 - 2025-11-13 @tobiu added the `ai` label

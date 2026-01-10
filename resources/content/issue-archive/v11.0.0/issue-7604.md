@@ -54,7 +54,7 @@ This epic covers automating these startup procedures within the MCP servers them
 -   **Increased Reliability:** Automating these steps makes the system more robust and less prone to user or agent error.
 -   **Faster Session Startup:** Reduces the number of commands and checks required to start a new session.
 
-## Activity Log
+## Timeline
 
 - 2025-10-22 @tobiu added the `enhancement` label
 - 2025-10-22 @tobiu added the `epic` label

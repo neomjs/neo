@@ -32,8 +32,11 @@ closedAt: '2025-12-03T14:09:15Z'
 4.  **Configuration:** Create `neo-config.json` with `"useAiClient": true`.
 5.  **Loader:** Update `index.html` to use `MicroLoader.mjs`.
 
-## Comments
+## Timeline
 
+- 2025-12-03 @tobiu added the `enhancement` label
+- 2025-12-03 @tobiu added the `ai` label
+- 2025-12-03 @tobiu added the `testing` label
 ### @tobiu - 2025-12-03 10:16
 
 **Input from Antigravity:**
@@ -44,11 +47,6 @@ closedAt: '2025-12-03T14:09:15Z'
 > 2.  **Config**: It will use `useAiClient: true`.
 > 
 
-## Activity Log
-
-- 2025-12-03 @tobiu added the `enhancement` label
-- 2025-12-03 @tobiu added the `ai` label
-- 2025-12-03 @tobiu added the `testing` label
 - 2025-12-03 @tobiu assigned to @tobiu
 - 2025-12-03 @tobiu added parent issue #7960
 - 2025-12-03 @tobiu referenced in commit `e152fad` - "Create Neural Link Testbed App #8008"

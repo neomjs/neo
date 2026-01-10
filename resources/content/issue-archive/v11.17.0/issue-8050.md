@@ -48,7 +48,7 @@ Update `getParentPath` to traverse the logical component tree once a registered 
 
 This change fundamentally improves the framework's ability to handle complex, detached UI architectures while maintaining backward compatibility for standard hierarchies.
 
-## Activity Log
+## Timeline
 
 - 2025-12-07 @tobiu added the `enhancement` label
 - 2025-12-07 @tobiu added the `ai` label

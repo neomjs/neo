@@ -43,7 +43,7 @@ The logic within `functional/component/Base.mjs` has been enhanced to intelligen
 
 This change fixes a major performance bottleneck and aligns the update behavior of functional components with the highly efficient, scoped update model of classic components.
 
-## Activity Log
+## Timeline
 
 - 2025-07-16 @tobiu assigned to @tobiu
 - 2025-07-16 @tobiu added the `enhancement` label

@@ -31,7 +31,7 @@ A robust framework should handle these early updates gracefully by scheduling th
 2.  **Add Diagnostic Logging:** Temporarily add detailed logging to key methods in `src/mixin/VdomLifecycle.mjs` (`initVnode`, `updateVdom`, `resolveVdomUpdate`) to trace the component's state (`isVdomUpdating`, `vnodeInitialized`, `needsVdomUpdate`) through the entire lifecycle.
 3.  **Analyze and Fix:** Use the logs from the test case to identify the exact point where the update is being dropped and implement a fix to ensure it is correctly queued and processed.
 
-## Activity Log
+## Timeline
 
 - 2025-11-06 @tobiu added the `bug` label
 - 2025-11-06 @tobiu added the `ai` label

@@ -23,7 +23,7 @@ closedAt: '2025-04-28T13:01:13Z'
 
 * Rationale: nested structures could cause side effects (passed by reference), in case devs would modify the passed return value directly
 
-## Activity Log
+## Timeline
 
 - 2025-04-28 @tobiu added the `enhancement` label
 - 2025-04-28 @tobiu assigned to @tobiu

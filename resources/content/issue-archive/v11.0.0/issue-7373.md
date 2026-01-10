@@ -36,8 +36,15 @@ With the agent being able to check out, diff, and comment on pull requests, it i
 4.  The protocol must require the agent to run the project's tests (e.g., `npm test`) against the PR's code to check for regressions.
 5.  The protocol should define a standard format for review comments, e.g., starting with a summary of findings, followed by specific line-by-line comments.
 
-## Comments
+## Timeline
 
+- 2025-10-05 @tobiu added the `documentation` label
+- 2025-10-05 @tobiu added parent issue #7364
+- 2025-10-05 @tobiu added the `enhancement` label
+- 2025-10-05 @tobiu added the `help wanted` label
+- 2025-10-05 @tobiu added the `good first issue` label
+- 2025-10-05 @tobiu added the `hacktoberfest` label
+- 2025-10-05 @tobiu added the `ai` label
 ### @LemonDrop847 - 2025-10-05 11:41
 
 Hi, Can I have a go at it?
@@ -55,6 +62,7 @@ Since the epic subs strongly build on and relate to each other, I also strongly 
 https://join.slack.com/t/neomjs/shared_invite/zt-6c50ueeu-3E1~M4T9xkNnb~M_prEEOA
 https://discord.gg/6p8paPq
 
+- 2025-10-05 @tobiu assigned to @LemonDrop847
 ### @tobiu - 2025-10-24 09:45
 
 Hi @LemonDrop847,
@@ -65,15 +73,5 @@ As there has been no activity for over three weeks, we are closing this ticket. 
 
 Thanks again for your willingness to contribute!
 
-## Activity Log
-
-- 2025-10-05 @tobiu added the `documentation` label
-- 2025-10-05 @tobiu added parent issue #7364
-- 2025-10-05 @tobiu added the `enhancement` label
-- 2025-10-05 @tobiu added the `help wanted` label
-- 2025-10-05 @tobiu added the `good first issue` label
-- 2025-10-05 @tobiu added the `hacktoberfest` label
-- 2025-10-05 @tobiu added the `ai` label
-- 2025-10-05 @tobiu assigned to @LemonDrop847
 - 2025-10-24 @tobiu closed this issue
 

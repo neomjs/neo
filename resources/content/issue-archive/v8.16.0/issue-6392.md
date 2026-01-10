@@ -23,7 +23,7 @@ closedAt: '2025-02-06T12:06:11Z'
 
 * We need a sharper separation of the different cases for clarity & future maintainability
 
-## Activity Log
+## Timeline
 
 - 2025-02-06 @tobiu added the `enhancement` label
 - 2025-02-06 @tobiu assigned to @tobiu

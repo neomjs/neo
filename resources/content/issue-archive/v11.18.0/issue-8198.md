@@ -30,7 +30,7 @@ The `get_all_summaries` tool fails with a schema validation error because it ret
 **Proposed Fix:**
 Update `ai/mcp/server/memory-core/services/SummaryService.mjs` to convert the `timestamp` metadata to an ISO string in both `listSummaries` and `querySummaries`.
 
-## Activity Log
+## Timeline
 
 - 2025-12-29 @tobiu added the `bug` label
 - 2025-12-29 @tobiu added the `ai` label

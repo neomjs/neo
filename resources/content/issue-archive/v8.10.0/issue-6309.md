@@ -23,7 +23,7 @@ closedAt: '2025-01-26T20:34:33Z'
 
 * Since both, the `Grid` & `Table` models are now view based, we no longer need it
 
-## Activity Log
+## Timeline
 
 - 2025-01-26 @tobiu added the `enhancement` label
 - 2025-01-26 @tobiu assigned to @tobiu

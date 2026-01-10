@@ -23,7 +23,7 @@ closedAt: '2025-03-31T15:35:47Z'
 
 * basic fields to define an email
 
-## Activity Log
+## Timeline
 
 - 2025-03-31 @tobiu added the `enhancement` label
 - 2025-03-31 @tobiu assigned to @tobiu

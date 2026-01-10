@@ -24,7 +24,7 @@ closedAt: '2025-11-19T09:54:38Z'
 
 it uses: `DEFAULT_QUERY_LIMITS` and `FETCH_ISSUES_FOR_SYNC` which do not exist inside this file (missing import).
 
-## Activity Log
+## Timeline
 
 - 2025-11-19 @tobiu added the `bug` label
 - 2025-11-19 @tobiu added the `ai` label

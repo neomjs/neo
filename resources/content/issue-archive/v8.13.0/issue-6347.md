@@ -23,7 +23,7 @@ closedAt: '2025-01-30T16:10:58Z'
 
 same story as for the grid: https://github.com/neomjs/neo/issues/6343
 
-## Activity Log
+## Timeline
 
 - 2025-01-30 @tobiu added the `enhancement` label
 - 2025-01-30 @tobiu assigned to @tobiu

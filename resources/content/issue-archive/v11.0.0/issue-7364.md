@@ -78,8 +78,15 @@ This epic aims to deeply integrate the GitHub CLI (`gh`) into the development an
     - `ticket-sync-gh-issues-to-local.md`: Create a script to sync new GitHub issues to local markdown files.
     - `ticket-add-github-comments-to-kb.md`: Enhance the knowledge base to include comments from GitHub issues and PRs.
 
-## Comments
+## Timeline
 
+- 2025-10-05 @tobiu assigned to @tobiu
+- 2025-10-05 @tobiu added the `help wanted` label
+- 2025-10-05 @tobiu added the `good first issue` label
+- 2025-10-05 @tobiu added the `epic` label
+- 2025-10-05 @tobiu added the `hacktoberfest` label
+- 2025-10-05 @tobiu added the `ai` label
+- 2025-10-05 @tobiu added sub-issue #7365
 ### @tobiu - 2025-10-05 10:34
 
 I think this new epic fits the `hacktoberfest` scope very well: https://github.com/neomjs/neo/issues/7296
@@ -93,19 +100,6 @@ Since the epic subs strongly build on and relate to each other, I also strongly 
 https://join.slack.com/t/neomjs/shared_invite/zt-6c50ueeu-3E1~M4T9xkNnb~M_prEEOA
 https://discord.gg/6p8paPq
 
-### @tobiu - 2025-10-24 09:47
-
-closing the epic, new items for the github-workflow mcp server will get added as new tickets / epics.
-
-## Activity Log
-
-- 2025-10-05 @tobiu assigned to @tobiu
-- 2025-10-05 @tobiu added the `help wanted` label
-- 2025-10-05 @tobiu added the `good first issue` label
-- 2025-10-05 @tobiu added the `epic` label
-- 2025-10-05 @tobiu added the `hacktoberfest` label
-- 2025-10-05 @tobiu added the `ai` label
-- 2025-10-05 @tobiu added sub-issue #7365
 - 2025-10-05 @tobiu added sub-issue #7366
 - 2025-10-05 @tobiu added sub-issue #7367
 - 2025-10-05 @tobiu added sub-issue #7368
@@ -129,5 +123,9 @@ closing the epic, new items for the github-workflow mcp server will get added as
 - 2025-10-07 @tobiu added sub-issue #7414
 - 2025-10-08 @tobiu added sub-issue #7418
 - 2025-10-14 @tobiu cross-referenced by #7477
+### @tobiu - 2025-10-24 09:47
+
+closing the epic, new items for the github-workflow mcp server will get added as new tickets / epics.
+
 - 2025-10-24 @tobiu closed this issue
 

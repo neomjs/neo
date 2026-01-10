@@ -40,15 +40,13 @@ The current alternative is to manually listen for changes on the record (if a me
 **Additional context**
 This feature is dependent on the implementation of granular change notifications within `Neo.data.Record`. It would significantly improve the developer experience for data-intensive applications, making it much easier to build reactive UIs that respond directly to changes in individual record fields.
 
-## Comments
+## Timeline
 
+- 2025-07-01 @tobiu added the `enhancement` label
 ### @github-actions - 2025-09-30 02:38
 
 This issue is stale because it has been open for 90 days with no activity.
 
-## Activity Log
-
-- 2025-07-01 @tobiu added the `enhancement` label
 - 2025-09-30 @github-actions added the `stale` label
 - 2025-10-08 @tobiu removed the `stale` label
 - 2025-10-08 @tobiu added the `help wanted` label

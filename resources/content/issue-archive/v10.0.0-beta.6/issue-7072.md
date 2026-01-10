@@ -24,7 +24,7 @@ closedAt: '2025-07-16T02:46:50Z'
 * `Neo.setupClass()` is an excellent gatekeeper for handling multiple envs in parallel.
 * We need the same protection for modules which do not extend `core.Base`.
 
-## Activity Log
+## Timeline
 
 - 2025-07-16 @tobiu assigned to @tobiu
 - 2025-07-16 @tobiu added the `enhancement` label

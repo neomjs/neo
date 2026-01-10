@@ -24,7 +24,7 @@ closedAt: '2025-02-26T20:53:58Z'
 * Since we are no longer replacing layout instances, the check for layout `ntype` can no longer work as before
 * We need to check for the layout `direction` instead
 
-## Activity Log
+## Timeline
 
 - 2025-02-26 @tobiu added the `enhancement` label
 - 2025-02-26 @tobiu assigned to @tobiu

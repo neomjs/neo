@@ -33,7 +33,7 @@ Implement the SCSS overrides for `Neo.grid.Container` in the `neo-theme-cyberpun
     - Selection colors (neon highlight)
     - Row hover effects
 
-## Activity Log
+## Timeline
 
 - 2025-12-04 @tobiu added the `enhancement` label
 - 2025-12-04 @tobiu added the `design` label

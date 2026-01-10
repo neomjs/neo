@@ -34,21 +34,7 @@ After reviewing a pull request, the agent needs to be able to provide feedback d
 3.  The workflow should also mention `gh issue comment <PR_URL> --body "..."` as an alternative for general comments.
 4.  The agent should be instructed to use these commands to provide feedback after reviewing the code.
 
-## Comments
-
-### @LemonDrop847 - 2025-10-05 11:42
-
-Hello, Can I try adding this workflow?
-
-### @tobiu - 2025-10-05 11:46
-
-assigned. please read my comment on your other ticket first.
-
-### @tobiu - 2025-10-13 21:16
-
-closing the ticket as resolved.
-
-## Activity Log
+## Timeline
 
 - 2025-10-05 @tobiu added the `enhancement` label
 - 2025-10-05 @tobiu added the `help wanted` label
@@ -56,7 +42,19 @@ closing the ticket as resolved.
 - 2025-10-05 @tobiu added the `hacktoberfest` label
 - 2025-10-05 @tobiu added the `ai` label
 - 2025-10-05 @tobiu added parent issue #7364
+### @LemonDrop847 - 2025-10-05 11:42
+
+Hello, Can I try adding this workflow?
+
 - 2025-10-05 @tobiu assigned to @LemonDrop847
+### @tobiu - 2025-10-05 11:46
+
+assigned. please read my comment on your other ticket first.
+
 - 2025-10-05 @LemonDrop847 cross-referenced by PR #7383
+### @tobiu - 2025-10-13 21:16
+
+closing the ticket as resolved.
+
 - 2025-10-13 @tobiu closed this issue
 

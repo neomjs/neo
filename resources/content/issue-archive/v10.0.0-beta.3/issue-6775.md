@@ -29,7 +29,7 @@ closedAt: '2025-07-01T01:39:58Z'
 * Reactivity
 * `data.Model: trackModifiedFields`
 
-## Activity Log
+## Timeline
 
 - 2025-06-12 @tobiu added the `enhancement` label
 - 2025-06-12 @tobiu added the `no auto close` label

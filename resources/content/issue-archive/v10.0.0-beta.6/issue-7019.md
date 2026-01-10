@@ -77,19 +77,18 @@ Extensive improvements were made to the JSDocs in `src/core/Base.mjs` and `src/N
 
 The framework's API is now more intuitive, and the documentation for its sophisticated configuration system is significantly clearer and more comprehensive. This will lower the learning curve for new developers and serve as a better reference for experienced ones.
 
-## Comments
-
-### @tobiu - 2025-07-11 16:45
-
-let us enhance the `setupClass()` docs a bit more, to point out the gatekeeper role.
-
-## Activity Log
+## Timeline
 
 - 2025-07-11 @tobiu assigned to @tobiu
 - 2025-07-11 @tobiu added the `enhancement` label
 - 2025-07-11 @tobiu added parent issue #6992
 - 2025-07-11 @tobiu referenced in commit `ef78b5f` - "Refactor defineComponent and Enhance Config System Documentation #7019"
 - 2025-07-11 @tobiu closed this issue
+### @tobiu - 2025-07-11 16:45
+
+let us enhance the `setupClass()` docs a bit more, to point out the gatekeeper role.
+
+- 2025-07-11 @tobiu reopened this issue
 - 2025-07-11 @tobiu referenced in commit `1f1d025` - "Enhance Config System Documentation #7019"
 - 2025-07-11 @tobiu closed this issue
 

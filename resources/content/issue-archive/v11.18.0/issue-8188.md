@@ -40,7 +40,7 @@ Agents need to visually identify components during debugging or interaction sess
 
 **Goal:** Enable visual debugging assistance.
 
-## Activity Log
+## Timeline
 
 - 2025-12-28 @tobiu added the `enhancement` label
 - 2025-12-28 @tobiu added the `ai` label

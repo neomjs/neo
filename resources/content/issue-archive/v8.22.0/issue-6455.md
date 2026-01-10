@@ -23,7 +23,7 @@ closedAt: '2025-02-16T08:45:58Z'
 
 Sadly lack of interest
 
-## Activity Log
+## Timeline
 
 - 2025-02-16 @tobiu added the `enhancement` label
 - 2025-02-16 @tobiu assigned to @tobiu

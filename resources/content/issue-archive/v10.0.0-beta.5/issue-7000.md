@@ -24,7 +24,7 @@ closedAt: '2025-07-09T16:42:27Z'
 * `header.Toolbar#onConstructed` which triggers `createItems()` might happen before columns got defined at run-time
 * We should honor this edge-case from a stability perspective.
 
-## Activity Log
+## Timeline
 
 - 2025-07-09 @tobiu assigned to @tobiu
 - 2025-07-09 @tobiu added the `enhancement` label

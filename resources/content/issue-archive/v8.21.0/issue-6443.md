@@ -24,7 +24,7 @@ closedAt: '2025-02-11T20:09:12Z'
 * the idea was that we could skip the fn body in case the store was not loaded for the very first time
 * however, this does affect filtering the store down to zero
 
-## Activity Log
+## Timeline
 
 - 2025-02-11 @tobiu added the `enhancement` label
 - 2025-02-11 @tobiu assigned to @tobiu

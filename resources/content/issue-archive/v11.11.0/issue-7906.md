@@ -29,7 +29,7 @@ This should be moved to a non-reactive static config `apiPath` to allow for cust
 - Add `apiPath: 'docs/output/all.json'` to `ApiSource.config`.
 - Update `extract()` method to use `this.apiPath`.
 
-## Activity Log
+## Timeline
 
 - 2025-11-25 @tobiu added the `ai` label
 - 2025-11-25 @tobiu added the `refactoring` label

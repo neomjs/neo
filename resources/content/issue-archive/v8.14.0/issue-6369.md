@@ -23,7 +23,7 @@ closedAt: '2025-02-03T18:48:52Z'
 
 * pointer-events: none is not sufficient
 
-## Activity Log
+## Timeline
 
 - 2025-02-03 @tobiu added the `enhancement` label
 - 2025-02-03 @tobiu assigned to @tobiu

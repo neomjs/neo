@@ -24,7 +24,7 @@ closedAt: '2025-11-07T09:03:07Z'
 
 The npm package size is getting unnecessarily bloated by including local copies of GitHub issues and release notes, which are managed by the new github-workflow MCP server. An `.npmignore` file should be created to prevent these and other development-specific files from being included in the published package. The file should inherit all rules from `.gitignore` and add exclusions for `.github/ISSUE` and `.github/RELEASE_NOTES`.
 
-## Activity Log
+## Timeline
 
 - 2025-11-07 @tobiu added the `enhancement` label
 - 2025-11-07 @tobiu added the `ai` label

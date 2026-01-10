@@ -30,7 +30,7 @@ Requirements:
 2. Update `ai/mcp/server/neural-link/services/DataService.mjs` to pass these parameters.
 3. Update `ai/mcp/server/neural-link/openapi.yaml` to define these parameters in the schema.
 
-## Activity Log
+## Timeline
 
 - 2026-01-01 @tobiu added the `enhancement` label
 - 2026-01-01 @tobiu added the `ai` label

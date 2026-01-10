@@ -44,7 +44,7 @@ Create a new custom theme `neo-theme-cyberpunk` (folder: `resources/scss/theme-c
 - **Typography:** Monospace fonts (`Courier New`, `Consolas`) for data/logs.
 - **Effects:** Text shadows, box shadows (glows), sharp borders (no rounding).
 
-## Activity Log
+## Timeline
 
 - 2025-12-04 @tobiu added the `epic` label
 - 2025-12-04 @tobiu added the `design` label

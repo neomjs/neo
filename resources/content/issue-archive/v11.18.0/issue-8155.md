@@ -46,7 +46,7 @@ Move the logic for managing detached items (drag-to-window and re-integration) f
     *   Remove the redundant logic from `AgentOS` and `Colors` Viewport Controllers.
 
 
-## Activity Log
+## Timeline
 
 - 2025-12-26 @tobiu added the `enhancement` label
 - 2025-12-26 @tobiu added the `ai` label

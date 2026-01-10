@@ -109,7 +109,7 @@ This bug leads to a visual desynchronization between the data model and the rend
 
 **Priority:** High (Affects core grid functionality and performance showcase credibility)
 
-## Activity Log
+## Timeline
 
 - 2025-08-07 @tobiu assigned to @tobiu
 - 2025-08-07 @tobiu added the `bug` label

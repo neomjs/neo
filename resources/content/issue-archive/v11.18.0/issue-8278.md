@@ -34,7 +34,7 @@ To debug event delegation and interaction logic on a specific component.
 2.  **Server-Side:** Define `get_dom_event_listeners` tool in MCP.
 3.  **Schema:** Strict array response.
 
-## Activity Log
+## Timeline
 
 - 2026-01-01 @tobiu added the `enhancement` label
 - 2026-01-01 @tobiu added the `ai` label

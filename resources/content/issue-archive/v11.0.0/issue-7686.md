@@ -35,7 +35,7 @@ Standard JavaScript closure behavior means that two function instances, even wit
 ### JSDoc Update
 The JSDoc for the `handler_` config in `src/button/Base.mjs` should be updated to explain this behavior and the rationale behind the `isEqual` override.
 
-## Activity Log
+## Timeline
 
 - 2025-11-01 @tobiu added the `bug` label
 - 2025-11-01 @tobiu added the `enhancement` label

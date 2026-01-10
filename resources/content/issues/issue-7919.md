@@ -35,7 +35,7 @@ This epic covers Phase 4 of the roadmap: evolving our internal AI tools into sta
 2.  **Visual Service:** A robust SDK for programmatic A11y tree inspection and screenshotting.
 
 
-## Activity Log
+## Timeline
 
 - 2025-11-29 @tobiu added the `epic` label
 - 2025-11-29 @tobiu added the `ai` label

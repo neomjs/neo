@@ -29,7 +29,7 @@ closedAt: '2025-10-21T11:21:04Z'
     -   Attaching the necessary `Authorization` and `Content-Type` headers.
     -   Basic error handling for network requests and GraphQL API errors.
 
-## Activity Log
+## Timeline
 
 - 2025-10-21 @tobiu assigned to @tobiu
 - 2025-10-21 @tobiu added the `enhancement` label

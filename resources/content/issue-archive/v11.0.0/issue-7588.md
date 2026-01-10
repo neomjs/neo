@@ -295,7 +295,7 @@ if (result.timing.durationMs > 300000) {
 - "Did new PRs come in?" → Check `statistics.pulled.created`
 - "Which releases were synced?" → Check `statistics.releases.synced`
 
-## Activity Log
+## Timeline
 
 - 2025-10-21 @tobiu assigned to @tobiu
 - 2025-10-21 @tobiu added the `enhancement` label

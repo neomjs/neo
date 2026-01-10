@@ -26,7 +26,7 @@ closedAt: '2025-04-14T09:48:25Z'
 * Adjust `view.MainContainerController`
 * Adjust `view.TableContainerController`
 
-## Activity Log
+## Timeline
 
 - 2025-04-14 @tobiu added the `enhancement` label
 - 2025-04-14 @tobiu referenced in commit `31da6bf` - "apps/covid, apps/sharedCovid: use fallback API #6645"

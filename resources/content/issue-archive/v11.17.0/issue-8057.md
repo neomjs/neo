@@ -60,7 +60,7 @@ Implement a **3-Phase Verification Strategy** in `verifyDelegationPath` to balan
     *   Negative case (Random element)
 
 
-## Activity Log
+## Timeline
 
 - 2025-12-08 @tobiu added the `enhancement` label
 - 2025-12-08 @tobiu added the `ai` label

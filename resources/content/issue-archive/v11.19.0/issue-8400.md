@@ -30,7 +30,7 @@ This negatively affects content that relies on precise indentation, such as ASCI
 **Goal:**
 Replace `.trim()` with a regex-based approach that only removes leading and trailing *newlines* (`\n`), preserving the horizontal whitespace (indentation).
 
-## Activity Log
+## Timeline
 
 - 2026-01-07 @tobiu added the `bug` label
 - 2026-01-07 @tobiu added the `documentation` label

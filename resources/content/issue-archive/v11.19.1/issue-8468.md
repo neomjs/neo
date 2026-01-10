@@ -35,8 +35,14 @@ After implementing the stable VDOM ID fix (Issue #8465), several unit tests are 
 Investigate and fix the failing tests. If the failures are due to the test assumptions, update the tests. If they reveal a regression, fix the code.
 
 
-## Comments
+## Timeline
 
+- 2026-01-09 @tobiu added the `bug` label
+- 2026-01-09 @tobiu added the `ai` label
+- 2026-01-09 @tobiu added the `testing` label
+- 2026-01-09 @tobiu added the `core` label
+- 2026-01-09 @tobiu referenced in commit `4d623c1` - "fix: ensure stable VDOM IDs are assigned in mergeConfig to resolve event registration timing (#8468)"
+- 2026-01-09 @tobiu assigned to @tobiu
 ### @tobiu - 2026-01-09 15:11
 
 **Input from Gemini 3 Pro:**
@@ -61,13 +67,5 @@ Investigate and fix the failing tests. If the failures are due to the test assum
 > 
 > Commit: 4d623c17b (#8468)
 
-## Activity Log
-
-- 2026-01-09 @tobiu added the `bug` label
-- 2026-01-09 @tobiu added the `ai` label
-- 2026-01-09 @tobiu added the `testing` label
-- 2026-01-09 @tobiu added the `core` label
-- 2026-01-09 @tobiu referenced in commit `4d623c1` - "fix: ensure stable VDOM IDs are assigned in mergeConfig to resolve event registration timing (#8468)"
-- 2026-01-09 @tobiu assigned to @tobiu
 - 2026-01-09 @tobiu closed this issue
 

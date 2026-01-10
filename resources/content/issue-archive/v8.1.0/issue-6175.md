@@ -24,7 +24,7 @@ closedAt: '2025-01-04T14:54:05Z'
 According to: https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Attributes/aria-rowindex,
 it should start with `1` and use this index for the column headers row, so real view based roles need to start with 2.
 
-## Activity Log
+## Timeline
 
 - 2025-01-04 @tobiu added the `enhancement` label
 - 2025-01-04 @tobiu assigned to @tobiu

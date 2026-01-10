@@ -28,7 +28,7 @@ This ticket covers the deletion of the `buildScripts/ai` directory. This folder 
 **Acceptance Criteria:**
 1. The `buildScripts/ai` directory is deleted from the repository.
 
-## Activity Log
+## Timeline
 
 - 2025-10-24 @tobiu added the `enhancement` label
 - 2025-10-24 @tobiu added the `ai` label

@@ -32,7 +32,7 @@ Create a new guide `learn/guides/mcp/Introduction.md` that serves as the entry p
 *   **High-Level Architecture:** Briefly introduce the three servers (Knowledge Base, Memory Core, GitHub Workflow) and how they interact.
 *   **Update `learn/tree.json`:** Add this new node to the navigation tree.
 
-## Activity Log
+## Timeline
 
 - 2025-11-22 @tobiu added the `documentation` label
 - 2025-11-22 @tobiu added the `enhancement` label

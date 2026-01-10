@@ -62,7 +62,7 @@ const MyCounter = defineComponent({
 -   It correctly creates and manages reactive state via `Neo.core.Config`.
 -   Changes to the state trigger re-execution of the component's render function (via `Effect`).
 
-## Activity Log
+## Timeline
 
 - 2025-07-11 @tobiu added parent issue #6992
 - 2025-07-11 @tobiu added the `enhancement` label

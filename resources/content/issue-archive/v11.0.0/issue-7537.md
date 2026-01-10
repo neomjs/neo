@@ -35,7 +35,7 @@ This ticket covers the first phase of the "Integrate Neo.mjs Core into MCP Serve
 7.  Service handlers that depend on `chromaManager` are updated to use the new singleton instance.
 8.  The `neo-memory-core__healthcheck` tool and other related tools continue to function correctly after the refactoring.
 
-## Activity Log
+## Timeline
 
 - 2025-10-18 @tobiu assigned to @tobiu
 - 2025-10-18 @tobiu added parent issue #7536

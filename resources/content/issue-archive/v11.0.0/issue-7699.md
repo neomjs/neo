@@ -47,7 +47,7 @@ Add the following text to the instruction:
 As discussed, the ideal solution would be to trigger the startup procedure *before* the user can enter their first prompt. However, assuming this is not currently feasible, the proposed change will make the existing pre-response check rock-solid.
 
 
-## Activity Log
+## Timeline
 
 - 2025-11-03 @tobiu added the `enhancement` label
 - 2025-11-03 @tobiu added the `ai` label

@@ -34,7 +34,7 @@ This ticket covers refactoring the configuration for the `memory-core` server by
 4.  All services within the `ai/mcp/server/memory-core/` directory are updated to use the new configuration paths (e.g., `aiConfig.memoryCore.memoryDb.port`).
 5.  The memory-core server continues to function correctly after the refactoring.
 
-## Activity Log
+## Timeline
 
 - 2025-10-19 @tobiu assigned to @tobiu
 - 2025-10-19 @tobiu added the `enhancement` label

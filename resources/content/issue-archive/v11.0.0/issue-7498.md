@@ -32,7 +32,7 @@ The Gemini CLI client was unable to correctly parse the `tools/list` response fr
 4.  `mcp-stdio.mjs` is modified to conditionally include `nextCursor` in the `tools/list` response only if it is not `undefined`.
 5.  The Gemini CLI client successfully lists all tools from the `neo-github-workflow` server without errors.
 
-## Activity Log
+## Timeline
 
 - 2025-10-15 @tobiu assigned to @tobiu
 - 2025-10-15 @tobiu added parent issue #7477

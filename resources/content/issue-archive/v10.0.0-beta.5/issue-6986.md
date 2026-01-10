@@ -23,17 +23,15 @@ closedAt: '2025-07-08T15:19:34Z'
 
 *(No description provided)*
 
-## Comments
-
-### @tobiu - 2025-07-08 15:19
-
-<img width="857" height="716" alt="Image" src="https://github.com/user-attachments/assets/0a0e322b-345a-4e91-a2e4-63c2760eb26e" />
-
-## Activity Log
+## Timeline
 
 - 2025-07-08 @tobiu assigned to @tobiu
 - 2025-07-08 @tobiu added the `enhancement` label
 - 2025-07-08 @tobiu referenced in commit `5b35084` - "test/siesta/tests/VdomHelper => update for v10 #6986"
+### @tobiu - 2025-07-08 15:19
+
+<img width="857" height="716" alt="Image" src="https://github.com/user-attachments/assets/0a0e322b-345a-4e91-a2e4-63c2760eb26e" />
+
 - 2025-07-08 @tobiu closed this issue
 - 2025-07-09 @tobiu referenced in commit `6571491` - "test/siesta/tests/VdomHelper => update for v10 #6986"
 

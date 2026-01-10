@@ -41,13 +41,7 @@ This phase builds directly on the live proxy from Phase 2, introducing a seamles
         - The popup window will be closed.
         - The drag operation will revert to moving the in-page proxy, allowing for re-sorting within the viewport.
 
-## Comments
-
-### @tobiu - 2025-10-24 10:08
-
-resolved.
-
-## Activity Log
+## Timeline
 
 - 2025-08-20 @tobiu assigned to @tobiu
 - 2025-08-20 @tobiu added the `enhancement` label
@@ -59,5 +53,9 @@ resolved.
 - 2025-08-21 @tobiu referenced in commit `b415efd` - "#7204 popup drag:move events (WIP)"
 - 2025-08-21 @tobiu referenced in commit `0fb3eb0` - "#7204 dragBoundaryEntry event"
 - 2025-08-21 @tobiu referenced in commit `b7f19e8` - "Phase 3: Dynamic Proxy Transitioning (Windowing) #7204"
+### @tobiu - 2025-10-24 10:08
+
+resolved.
+
 - 2025-10-24 @tobiu closed this issue
 

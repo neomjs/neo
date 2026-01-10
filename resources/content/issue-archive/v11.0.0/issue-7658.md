@@ -43,7 +43,7 @@ With the recent enhancements to the `neo.mjs-memory-core` MCP server (auto-start
 2.  Replace it with the new, simplified protocol described above.
 3.  Ensure the new instructions are clear, concise, and guide the agent to use the `healthcheck` and `add_memory` tools correctly.
 
-## Activity Log
+## Timeline
 
 - 2025-10-26 @tobiu added the `documentation` label
 - 2025-10-26 @tobiu added the `enhancement` label

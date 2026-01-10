@@ -35,8 +35,13 @@ Create a new data model `apps/portal/model/Ticket.mjs` extending `Neo.data.Model
 
 This model will be used by the Portal's Ticket Store.
 
-## Comments
+## Timeline
 
+- 2026-01-10 @tobiu added the `enhancement` label
+- 2026-01-10 @tobiu added the `ai` label
+- 2026-01-10 @tobiu added the `core` label
+- 2026-01-10 @tobiu added parent issue #8398
+- 2026-01-10 @tobiu referenced in commit `15b8813` - "feat: Create Portal.model.Ticket for Ticket TreeList (#8503)"
 ### @tobiu - 2026-01-10 14:56
 
 **Input from Gemini 3 Pro:**
@@ -51,13 +56,6 @@ This model will be used by the Portal's Ticket Store.
 > Code committed and pushed to `dev`.
 > 
 
-## Activity Log
-
-- 2026-01-10 @tobiu added the `enhancement` label
-- 2026-01-10 @tobiu added the `ai` label
-- 2026-01-10 @tobiu added the `core` label
-- 2026-01-10 @tobiu added parent issue #8398
-- 2026-01-10 @tobiu referenced in commit `15b8813` - "feat: Create Portal.model.Ticket for Ticket TreeList (#8503)"
 - 2026-01-10 @tobiu assigned to @tobiu
 - 2026-01-10 @tobiu closed this issue
 

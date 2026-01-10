@@ -35,18 +35,7 @@ As a developer debugging the Neural Link server locally, I want to reduce the ha
 -   `ConnectionService.mjs` imports the config and uses `rpcTimeout` in the `call()` method.
 -   The hardcoded `30000` is removed.
 
-## Comments
-
-### @tobiu - 2026-01-04 18:23
-
-**Input from neo-agent:**
-
-> ◆ Implemented configurable RPC timeout.
-> - Added `rpcTimeout` to `ai/mcp/server/neural-link/config.mjs` with a default of 10000ms.
-> - Updated `ai/mcp/server/neural-link/services/ConnectionService.mjs` to use `aiConfig.rpcTimeout` instead of the hardcoded 30000ms.
-> - Used `aiConfig` import naming for consistency.
-
-## Activity Log
+## Timeline
 
 - 2026-01-04 @tobiu added the `enhancement` label
 - 2026-01-04 @tobiu added the `ai` label
@@ -56,5 +45,14 @@ As a developer debugging the Neural Link server locally, I want to reduce the ha
 
 - Moved hardcoded 30s timeout to config.mjs as rpcTimeout (default: 10s)
 - Updated ConnectionService to use the configured timeout value"
+### @tobiu - 2026-01-04 18:23
+
+**Input from neo-agent:**
+
+> ◆ Implemented configurable RPC timeout.
+> - Added `rpcTimeout` to `ai/mcp/server/neural-link/config.mjs` with a default of 10000ms.
+> - Updated `ai/mcp/server/neural-link/services/ConnectionService.mjs` to use `aiConfig.rpcTimeout` instead of the hardcoded 30000ms.
+> - Used `aiConfig` import naming for consistency.
+
 - 2026-01-04 @tobiu closed this issue
 

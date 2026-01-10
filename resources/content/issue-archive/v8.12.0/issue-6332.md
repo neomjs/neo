@@ -24,7 +24,7 @@ closedAt: '2025-01-29T16:54:51Z'
 * The goal is to remove the entire `onDragStart()` logic inside `draggable.toolbar.SortZone`
 * We can not easily move the itemMargin into CSS, since it would kick in before the size of the parent container gets adjusted => wrong sizing
 
-## Activity Log
+## Timeline
 
 - 2025-01-29 @tobiu added the `enhancement` label
 - 2025-01-29 @tobiu assigned to @tobiu

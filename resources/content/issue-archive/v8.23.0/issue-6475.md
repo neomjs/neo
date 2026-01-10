@@ -23,16 +23,14 @@ closedAt: '2025-02-21T13:32:34Z'
 
 *(No description provided)*
 
-## Comments
-
-### @tobiu - 2025-02-21 13:32
-
-https://github.com/user-attachments/assets/7596285c-40d0-416a-b914-6eda9d828076
-
-## Activity Log
+## Timeline
 
 - 2025-02-21 @tobiu added the `enhancement` label
 - 2025-02-21 @tobiu assigned to @tobiu
 - 2025-02-21 @tobiu referenced in commit `78fc8d6` - "component.MagicMoveText: transitionTime_ config #6475"
+### @tobiu - 2025-02-21 13:32
+
+https://github.com/user-attachments/assets/7596285c-40d0-416a-b914-6eda9d828076
+
 - 2025-02-21 @tobiu closed this issue
 

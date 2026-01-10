@@ -33,7 +33,7 @@ Key changes include:
 
 The guide now accurately documents the current state and usage of the Memory Core MCP server.
 
-## Activity Log
+## Timeline
 
 - 2025-11-08 @tobiu added the `documentation` label
 - 2025-11-08 @tobiu added the `ai` label

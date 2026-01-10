@@ -24,7 +24,7 @@ closedAt: '2025-01-28T10:04:38Z'
 * add a focus receiver to the `tbody` tag
 * adjust the scss files as needed
 
-## Activity Log
+## Timeline
 
 - 2025-01-28 @tobiu added the `enhancement` label
 - 2025-01-28 @tobiu assigned to @tobiu

@@ -38,7 +38,7 @@ The `returnProperties` feature (returning a lean response) is silently ignored, 
 **Fix:**
 Update the method signature and the `ConnectionService.call` arguments to include `returnProperties`.
 
-## Activity Log
+## Timeline
 
 - 2026-01-05 @tobiu added the `bug` label
 - 2026-01-05 @tobiu added the `ai` label

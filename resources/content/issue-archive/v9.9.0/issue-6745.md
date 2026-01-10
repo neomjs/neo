@@ -24,7 +24,7 @@ closedAt: '2025-06-03T12:53:48Z'
 * add the SW file as a new entry point
 * adjust `main.addon.ServiceWorker: registerServiceWorker()` for dist/esm
 
-## Activity Log
+## Timeline
 
 - 2025-06-03 @tobiu added the `enhancement` label
 - 2025-06-03 @tobiu referenced in commit `44c865f` - "buildScripts/buildESModules: minifyFile() #6745"

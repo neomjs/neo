@@ -35,7 +35,7 @@ Key aspects of the updated vision include:
 3.  **"End Game" Perspective:** It paints a picture of the future experience, where performance is invisible, creation is effortless, and AI is a proactive co-developer.
 4.  **Sustainability:** It includes a section on "Building a Sustainable Future" to ensure the project's long-term health and innovation.
 
-## Activity Log
+## Timeline
 
 - 2025-10-09 @tobiu assigned to @tobiu
 - 2025-10-09 @tobiu added the `documentation` label

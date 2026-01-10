@@ -23,7 +23,7 @@ closedAt: '2025-01-29T20:53:18Z'
 
 * makes it easier for e.g. drag proxies to adjust to changes
 
-## Activity Log
+## Timeline
 
 - 2025-01-29 @tobiu added the `enhancement` label
 - 2025-01-29 @tobiu assigned to @tobiu

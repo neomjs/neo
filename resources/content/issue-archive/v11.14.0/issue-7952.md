@@ -38,7 +38,7 @@ Fix the git file tracking for `ToolService.mjs` by performing a brute-force rena
 -   Correctly capitalized `ToolService.mjs` in git history.
 
 
-## Activity Log
+## Timeline
 
 - 2025-11-30 @tobiu added the `bug` label
 - 2025-11-30 @tobiu added the `ai` label

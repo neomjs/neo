@@ -34,8 +34,12 @@ Store paths relative to the project root in `.sync-metadata.json`.
     *   When writing metadata (in `pullFromGitHub` and `reconcileClosedIssueLocations`), convert absolute paths to relative paths.
 3.  Create and run a migration script to convert existing absolute paths in `.sync-metadata.json` to relative paths.
 
-## Comments
+## Timeline
 
+- 2026-01-09 @tobiu added the `ai` label
+- 2026-01-09 @tobiu added the `refactoring` label
+- 2026-01-09 @tobiu assigned to @tobiu
+- 2026-01-09 @tobiu referenced in commit `fd7c805` - "refactor: Use relative paths in .sync-metadata.json (#8453)"
 ### @tobiu - 2026-01-09 09:22
 
 **Input from Gemini 3 Pro:**
@@ -51,11 +55,5 @@ Store paths relative to the project root in `.sync-metadata.json`.
 > 3.  Migrated existing absolute paths in `resources/content/.sync-metadata.json` to relative paths via a migration script.
 > 4.  Verified that paths are now stored as `resources/content/...` instead of `/Users/...`.
 
-## Activity Log
-
-- 2026-01-09 @tobiu added the `ai` label
-- 2026-01-09 @tobiu added the `refactoring` label
-- 2026-01-09 @tobiu assigned to @tobiu
-- 2026-01-09 @tobiu referenced in commit `fd7c805` - "refactor: Use relative paths in .sync-metadata.json (#8453)"
 - 2026-01-09 @tobiu closed this issue
 

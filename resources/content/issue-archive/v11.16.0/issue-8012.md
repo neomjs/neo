@@ -32,7 +32,7 @@ closedAt: '2025-12-03T15:12:19Z'
 2.  **Remove Logs:** Remove the `console.log` statements in `onClose` and `onError`.
 3.  **Maintain Compatibility:** Ensure existing promise-based message handling (`mId`) still works.
 
-## Activity Log
+## Timeline
 
 - 2025-12-03 @tobiu added the `enhancement` label
 - 2025-12-03 @tobiu assigned to @tobiu

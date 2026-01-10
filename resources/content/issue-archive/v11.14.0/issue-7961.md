@@ -126,27 +126,7 @@ closedAt: '2025-12-01T16:00:03Z'
 
 **Reference:** `.github/AGENT_ARCHITECTURE.md`
 
-## Comments
-
-### @tobiu - 2025-12-01 15:59
-
-**Input from Gemini 2.5:**
-
-> ✦ Completed **Epic #7961: Agent Cognitive Runtime**.
-> 
-> **Achievements:**
-> 1.  **Strategic Pivot:** Shifted focus to "Cognitive Runtime First" to give the Agent a brain before building the nervous system (WebSocket).
-> 2.  **Model Abstraction Layer:** Implemented `Neo.ai.provider.Base` and `Neo.ai.provider.Gemini`. Secured API keys via `requiredEnv`.
-> 3.  **Context & Memory:** Created `Neo.ai.context.Assembler` using the "Thick Client" pattern to directly access `memory-core` services for short-term history and RAG (Long-Term Memory + KB).
-> 4.  **Event Loop:** Implemented `Neo.ai.agent.Scheduler` (Priority Queue) and `Neo.ai.agent.Loop` (Stimulus-Response Cycle) with Token Bucket rate limiting.
-> 5.  **Integration:** Upgraded `Neo.ai.Agent` to instantiate and orchestrate the cognitive runtime while preserving legacy MCP Client capabilities.
-> 6.  **Verification:** Validated end-to-end flow with `ai/examples/test-agent.mjs` (Agent -> Loop -> Scheduler -> Assembler -> Provider -> Gemini).
-> 
-> **Next Steps:**
-> - Proceed with **Spike #7960** (WebSocket RMA) to give the Agent "Eyes" (Telemetry) and "Remote Hands" (RPC).
-> - The WebSocket `onMessage` handler will now simply call `agent.schedule(event)`, enabling the "Neural Link".
-
-## Activity Log
+## Timeline
 
 - 2025-12-01 @tobiu added the `epic` label
 - 2025-12-01 @tobiu added the `ai` label
@@ -166,6 +146,24 @@ closedAt: '2025-12-01T16:00:03Z'
 - 2025-12-01 @tobiu added sub-issue #7967
 - 2025-12-01 @tobiu added sub-issue #7968
 - 2025-12-01 @tobiu removed sub-issue #7967
+### @tobiu - 2025-12-01 15:59
+
+**Input from Gemini 2.5:**
+
+> ✦ Completed **Epic #7961: Agent Cognitive Runtime**.
+> 
+> **Achievements:**
+> 1.  **Strategic Pivot:** Shifted focus to "Cognitive Runtime First" to give the Agent a brain before building the nervous system (WebSocket).
+> 2.  **Model Abstraction Layer:** Implemented `Neo.ai.provider.Base` and `Neo.ai.provider.Gemini`. Secured API keys via `requiredEnv`.
+> 3.  **Context & Memory:** Created `Neo.ai.context.Assembler` using the "Thick Client" pattern to directly access `memory-core` services for short-term history and RAG (Long-Term Memory + KB).
+> 4.  **Event Loop:** Implemented `Neo.ai.agent.Scheduler` (Priority Queue) and `Neo.ai.agent.Loop` (Stimulus-Response Cycle) with Token Bucket rate limiting.
+> 5.  **Integration:** Upgraded `Neo.ai.Agent` to instantiate and orchestrate the cognitive runtime while preserving legacy MCP Client capabilities.
+> 6.  **Verification:** Validated end-to-end flow with `ai/examples/test-agent.mjs` (Agent -> Loop -> Scheduler -> Assembler -> Provider -> Gemini).
+> 
+> **Next Steps:**
+> - Proceed with **Spike #7960** (WebSocket RMA) to give the Agent "Eyes" (Telemetry) and "Remote Hands" (RPC).
+> - The WebSocket `onMessage` handler will now simply call `agent.schedule(event)`, enabling the "Neural Link".
+
 - 2025-12-01 @tobiu closed this issue
 - 2025-12-01 @tobiu cross-referenced by #7969
 - 2025-12-01 @tobiu cross-referenced by #7970

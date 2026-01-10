@@ -41,7 +41,7 @@ closedAt: '2025-07-14T14:57:44Z'
 -   **Interoperability:** Decided to keep the classic `Viewport` and embed the new functional `MainView` component within it. This is a pragmatic approach that leverages existing structures and showcases the interoperability between classic and functional components.
 -   **Naming:** Renamed the main functional component from `Main.mjs` to `MainView.mjs` for better clarity and to align with the `mainView` config in `app.mjs`.
 
-## Activity Log
+## Timeline
 
 - 2025-07-14 @tobiu assigned to @tobiu
 - 2025-07-14 @tobiu added the `enhancement` label

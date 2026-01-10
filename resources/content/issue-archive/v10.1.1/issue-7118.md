@@ -58,7 +58,7 @@ This two-step approach guarantees that the indices are correct for both operatio
 
 This ticket documents the successful resolution of the issue.
 
-## Activity Log
+## Timeline
 
 - 2025-07-27 @tobiu assigned to @tobiu
 - 2025-07-27 @tobiu added the `enhancement` label

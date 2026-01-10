@@ -24,10 +24,11 @@ closedAt: '2025-01-14T11:45:20Z'
 * clicking on the input field does show the menu
 
 
-## Activity Log
+## Timeline
 
 - 2025-01-13 @tobiu added the `bug` label
 - 2025-01-13 @tobiu assigned to @tobiu
+- 2025-01-14 @tobiu changed title from **form.field.ComboBox: editable false => trigger clicks no longer show the menu** to **form.field.Picker: editable false => trigger clicks no longer show the menu**
 - 2025-01-14 @tobiu referenced in commit `2710b4e` - "form.field.Picker: editable false => trigger clicks no longer show the menu #6218"
 - 2025-01-14 @tobiu closed this issue
 

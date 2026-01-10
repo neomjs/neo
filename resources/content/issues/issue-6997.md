@@ -46,16 +46,14 @@ Functional components, driven by `Neo.core.Effect`, re-generate their VDOM whene
 -   Functional components can leverage memoization to improve rendering performance.
 -   Performance benchmarks demonstrate measurable gains.
 
-## Comments
+## Timeline
 
+- 2025-07-09 @tobiu added parent issue #6992
+- 2025-07-09 @tobiu added the `enhancement` label
 ### @github-actions - 2025-10-08 02:38
 
 This issue is stale because it has been open for 90 days with no activity.
 
-## Activity Log
-
-- 2025-07-09 @tobiu added parent issue #6992
-- 2025-07-09 @tobiu added the `enhancement` label
 - 2025-10-08 @github-actions added the `stale` label
 - 2025-10-08 @tobiu removed the `stale` label
 - 2025-10-08 @tobiu added the `help wanted` label

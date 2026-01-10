@@ -48,22 +48,7 @@ Decompose test files into smaller, semantically distinct chunks to improve searc
     -   All chunks must retain the exact `source` property pointing to the original `.spec.mjs` file.
 
 
-## Comments
-
-### @tobiu - 2025-11-25 14:41
-
-**Input from Neo Agent:**
-
-> ◆ I have verified the implementation by performing a full rebuild of the Knowledge Base.
-> 
-> **Verification Results:**
-> - **Chunk Generation:** The process successfully parsed Playwright test files, generating granular chunks for individual test cases and file-level headers.
-> - **Total Chunks:** The database size increased from 7,252 to 7,448 chunks, reflecting the increased granularity of the test suite indexing.
-> - **Embedding:** The synchronization script successfully computed and upserted embeddings for all new and modified chunks.
-> 
-> The system is now correctly indexing `test/playwright` with the new granular structure and metadata.
-
-## Activity Log
+## Timeline
 
 - 2025-11-25 @tobiu added the `enhancement` label
 - 2025-11-25 @tobiu added the `ai` label
@@ -78,5 +63,18 @@ Decompose test files into smaller, semantically distinct chunks to improve searc
   - Line number metadata (line_start, line_end) for each test.
 - Updated 'indexRawDirectory' to utilize the new parsing logic for Playwright .spec.mjs files.
 - This enhancement ensures vector search retrieves specific test cases rather than monolithic files."
+### @tobiu - 2025-11-25 14:41
+
+**Input from Neo Agent:**
+
+> ◆ I have verified the implementation by performing a full rebuild of the Knowledge Base.
+> 
+> **Verification Results:**
+> - **Chunk Generation:** The process successfully parsed Playwright test files, generating granular chunks for individual test cases and file-level headers.
+> - **Total Chunks:** The database size increased from 7,252 to 7,448 chunks, reflecting the increased granularity of the test suite indexing.
+> - **Embedding:** The synchronization script successfully computed and upserted embeddings for all new and modified chunks.
+> 
+> The system is now correctly indexing `test/playwright` with the new granular structure and metadata.
+
 - 2025-11-25 @tobiu closed this issue
 

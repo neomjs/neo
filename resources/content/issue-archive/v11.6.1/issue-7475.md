@@ -170,13 +170,7 @@ This test plan was generated using the AI-Native workflow defined in the "Cookbo
 - [ ] **Styling States:** Test that `.neo-focus` and `.neo-hovered` classes are applied correctly on user interaction.
 ```
 
-## Comments
-
-### @tobiu - 2025-11-19 14:00
-
-closing the ticket, since resolved.
-
-## Activity Log
+## Timeline
 
 - 2025-10-13 @tobiu assigned to @tobiu
 - 2025-10-13 @tobiu added the `help wanted` label
@@ -195,5 +189,9 @@ closing the ticket, since resolved.
 - 2025-10-14 @ritikrikm cross-referenced by PR #7490
 - 2025-10-24 @tobiu cross-referenced by PR #7548
 - 2025-10-27 @ad1tyayadav cross-referenced by PR #7676
+### @tobiu - 2025-11-19 14:00
+
+closing the ticket, since resolved.
+
 - 2025-11-19 @tobiu closed this issue
 

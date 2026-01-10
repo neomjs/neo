@@ -23,7 +23,7 @@ closedAt: '2025-06-17T10:09:28Z'
 
 * move the related logic outside of `insertNode()`
 
-## Activity Log
+## Timeline
 
 - 2025-06-17 @tobiu assigned to @tobiu
 - 2025-06-17 @tobiu added the `enhancement` label

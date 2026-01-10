@@ -34,7 +34,7 @@ Update `learn/` content to align with the "Application Engine" positioning.
 - `learn/benefits/FourEnvironments.md`: Updated "framework" to "platform".
 - `learn/comparisons/NeoVsReact.md`: Refined comparison terminology (frameworks -> architectures/systems).
 
-## Activity Log
+## Timeline
 
 - 2026-01-08 @tobiu added the `documentation` label
 - 2026-01-08 @tobiu added the `enhancement` label

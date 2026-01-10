@@ -30,7 +30,7 @@ To provide a more personalized and effective onboarding experience for Hacktober
 3.  Based on the user's answers, the agent should recommend a suitable contribution path or a specific starter ticket.
 4.  The protocol should only be active for the duration of October 2025.
 
-## Activity Log
+## Timeline
 
 - 2025-09-28 @tobiu assigned to @tobiu
 - 2025-09-28 @tobiu added the `enhancement` label

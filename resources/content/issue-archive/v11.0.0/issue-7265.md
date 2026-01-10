@@ -33,17 +33,15 @@ This updated vision will serve as the foundational document for all strategic pl
     *   Its unique value proposition and key differentiators.
     *   The long-term goals and direction of the project.
 
-## Comments
-
-### @tobiu - 2025-10-09 21:41
-
-superseded by #7430
-
-## Activity Log
+## Timeline
 
 - 2025-09-27 @tobiu assigned to @tobiu
 - 2025-09-27 @tobiu added parent issue #7264
 - 2025-09-27 @tobiu added the `enhancement` label
 - 2025-10-09 @tobiu removed parent issue #7264
+### @tobiu - 2025-10-09 21:41
+
+superseded by #7430
+
 - 2025-10-09 @tobiu closed this issue
 

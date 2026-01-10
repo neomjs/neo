@@ -28,7 +28,7 @@ The `update_issue_relationship` tool successfully manages parent/child hierarchi
 2.  The tool should allow setting and unsetting these relationships via the GitHub API.
 3.  The local markdown file representation should be updated to reflect these new relationship types during the `sync_all` process.
 
-## Activity Log
+## Timeline
 
 - 2025-11-12 @tobiu added the `enhancement` label
 - 2025-11-12 @tobiu added the `ai` label

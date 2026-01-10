@@ -23,7 +23,7 @@ closedAt: '2025-02-06T12:16:42Z'
 
 * While we don't need it for the Grid, it would not feel feature-complete without it
 
-## Activity Log
+## Timeline
 
 - 2025-02-06 @tobiu added the `enhancement` label
 - 2025-02-06 @tobiu assigned to @tobiu

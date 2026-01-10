@@ -34,7 +34,7 @@ Address visual alignment issues and typography sizes in the AgentOS UI.
     -   **Grid Header Buttons:** Refactor `src/grid/header/Button.scss` to use a variable `--grid-header-button-font-size`.
     -   **Theme Configuration:** Set `--grid-header-button-font-size` to `11px` in all themes to maintain compact layout.
 
-## Activity Log
+## Timeline
 
 - 2025-12-05 @tobiu added the `enhancement` label
 - 2025-12-05 @tobiu added the `design` label

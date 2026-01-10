@@ -33,7 +33,7 @@ This task is to migrate the unit test for `config/Hierarchy.mjs` from the Siesta
 3.  Ensure the new test runs successfully via `npm test`.
 4.  The new test must cover all the functionality of the original Siesta test.
 
-## Activity Log
+## Timeline
 
 - 2025-09-27 @tobiu added the `enhancement` label
 - 2025-09-27 @tobiu added parent issue #7262

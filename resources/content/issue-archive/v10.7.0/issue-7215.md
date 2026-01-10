@@ -57,7 +57,7 @@ This document captures planned enhancements for the local AI knowledge base syst
 -   Significantly lower memory footprint.
 -   Improved scalability for much larger codebases.
 
-## Activity Log
+## Timeline
 
 - 2025-09-18 @tobiu assigned to @tobiu
 - 2025-09-18 @tobiu added the `enhancement` label

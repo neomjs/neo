@@ -23,7 +23,7 @@ closedAt: '2025-01-26T19:42:33Z'
 
 * it will affect more advanced selection models otherwise, like `selection.grid.CellColumnModel`
 
-## Activity Log
+## Timeline
 
 - 2025-01-26 @tobiu added the `enhancement` label
 - 2025-01-26 @tobiu assigned to @tobiu

@@ -26,7 +26,7 @@ closedAt: '2025-06-16T12:56:03Z'
 
 both were not actually in use, it is time to remove this confusion.
 
-## Activity Log
+## Timeline
 
 - 2025-06-16 @tobiu assigned to @tobiu
 - 2025-06-16 @tobiu added the `enhancement` label

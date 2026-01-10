@@ -30,18 +30,16 @@ The goal of this ticket is to add high-quality, intent-driven documentation to t
 3.  Add descriptive JSDoc comments to each method (`createConfigurationComponents`, `createExampleComponent`, `logInstance`, `switchDirection`), explaining its purpose and parameters.
 4.  Use `src/core/Base.mjs` as a reference for high-quality, intent-driven JSDoc style.
 
-## Comments
-
-### @tobiu - 2025-09-28 13:51
-
-duplicated by mistake. closing.
-
-## Activity Log
+## Timeline
 
 - 2025-09-28 @tobiu added the `help wanted` label
 - 2025-09-28 @tobiu added the `good first issue` label
 - 2025-09-28 @tobiu added parent issue #7296
 - 2025-09-28 @tobiu added the `hacktoberfest` label
+### @tobiu - 2025-09-28 13:51
+
+duplicated by mistake. closing.
+
 - 2025-09-28 @tobiu closed this issue
 - 2025-09-28 @tobiu removed the `help wanted` label
 - 2025-09-28 @tobiu removed the `good first issue` label

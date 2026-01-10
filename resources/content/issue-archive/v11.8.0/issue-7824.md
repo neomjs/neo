@@ -24,7 +24,7 @@ closedAt: '2025-11-20T15:41:37Z'
 
 for easier code navigation
 
-## Activity Log
+## Timeline
 
 - 2025-11-20 @tobiu assigned to @tobiu
 - 2025-11-20 @tobiu added the `enhancement` label

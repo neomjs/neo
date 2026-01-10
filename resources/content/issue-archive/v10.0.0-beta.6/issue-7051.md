@@ -53,7 +53,7 @@ Separating component structure (defined in JavaScript) from its presentation (de
 -   The styles for the panes are defined in `MainView.scss` under a dedicated class.
 -   The visual appearance of the `MainView` component remains identical to the previous implementation.
 
-## Activity Log
+## Timeline
 
 - 2025-07-14 @tobiu assigned to @tobiu
 - 2025-07-14 @tobiu added the `enhancement` label

@@ -23,7 +23,7 @@ closedAt: '2025-06-03T20:10:20Z'
 
 * `dist/esm` has the repo structure, not the one of a workspace
 
-## Activity Log
+## Timeline
 
 - 2025-06-03 @tobiu assigned to @tobiu
 - 2025-06-03 @tobiu added the `enhancement` label

@@ -29,7 +29,7 @@ The key refinements include:
 2.  **Pillar 2 (Simplicity):** Expanded on the **Unified Config System** to highlight that it applies to *all* classes (not just components), thus avoiding the "component-ize everything" trap common in other frameworks.
 3.  **Pillar 3 (AI Partnership):** Articulated that the framework's architecture is inherently AI-native due to its use of a **JSON Blueprint** instead of JSX, making the application's structure natively understandable to LLMs.
 
-## Activity Log
+## Timeline
 
 - 2025-10-09 @tobiu assigned to @tobiu
 - 2025-10-09 @tobiu added the `documentation` label

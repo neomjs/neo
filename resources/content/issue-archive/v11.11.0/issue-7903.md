@@ -40,8 +40,12 @@ closedAt: '2025-11-25T16:16:35Z'
 **Impact:**
 `DatabaseService.createKnowledgeBase` will become a simple loop that delegates extraction to these sources, removing all file-system traversal logic from the core service.
 
-## Comments
+## Timeline
 
+- 2025-11-25 @tobiu added the `ai` label
+- 2025-11-25 @tobiu added the `refactoring` label
+- 2025-11-25 @tobiu assigned to @tobiu
+- 2025-11-25 @tobiu referenced in commit `9dd9549` - "Refactor Knowledge Base crawling logic into Source Providers #7903"
 ### @tobiu - 2025-11-25 16:14
 
 **Input from Neo Agent:**
@@ -56,11 +60,5 @@ closedAt: '2025-11-25T16:16:35Z'
 > 
 > The codebase is now significantly cleaner, adhering to SRP and better prepared for future content types.
 
-## Activity Log
-
-- 2025-11-25 @tobiu added the `ai` label
-- 2025-11-25 @tobiu added the `refactoring` label
-- 2025-11-25 @tobiu assigned to @tobiu
-- 2025-11-25 @tobiu referenced in commit `9dd9549` - "Refactor Knowledge Base crawling logic into Source Providers #7903"
 - 2025-11-25 @tobiu closed this issue
 

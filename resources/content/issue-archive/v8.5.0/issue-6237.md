@@ -23,7 +23,7 @@ closedAt: '2025-01-14T23:19:07Z'
 
 relict from the table implementation and actually very expensive for a grid with massive amounts of data.
 
-## Activity Log
+## Timeline
 
 - 2025-01-14 @tobiu added the `enhancement` label
 - 2025-01-14 @tobiu assigned to @tobiu

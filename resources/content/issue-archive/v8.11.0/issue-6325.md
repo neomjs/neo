@@ -23,7 +23,7 @@ closedAt: '2025-01-28T10:53:30Z'
 
 * In case we use a ClearTrigger, we want to nullify values
 
-## Activity Log
+## Timeline
 
 - 2025-01-28 @tobiu added the `enhancement` label
 - 2025-01-28 @tobiu assigned to @tobiu

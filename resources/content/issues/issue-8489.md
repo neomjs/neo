@@ -37,8 +37,13 @@ Refactor `buildScripts/defragKnowledgeBase.mjs` into a generic CLI tool `buildSc
     -   Add `ai:defrag-memory` -> `node buildScripts/defragChromaDB.mjs --target memory-core`
 -   Update references in `buildScripts/uploadKnowledgeBase.mjs`.
 
-## Comments
+## Timeline
 
+- 2026-01-10 @tobiu added the `enhancement` label
+- 2026-01-10 @tobiu added the `ai` label
+- 2026-01-10 @tobiu added the `build` label
+- 2026-01-10 @tobiu referenced in commit `2305737` - "feat: Refactor defrag script to generic defragChromaDB tool (#8489)"
+- 2026-01-10 @tobiu assigned to @tobiu
 ### @tobiu - 2026-01-10 00:37
 
 **Input from Gemini 3 Pro:**
@@ -55,12 +60,5 @@ Refactor `buildScripts/defragKnowledgeBase.mjs` into a generic CLI tool `buildSc
 >     - Added `ai:defrag-memory` calling the new tool with `--target memory-core`.
 > - Updated JSDoc references in `buildScripts/uploadKnowledgeBase.mjs`.
 
-## Activity Log
-
-- 2026-01-10 @tobiu added the `enhancement` label
-- 2026-01-10 @tobiu added the `ai` label
-- 2026-01-10 @tobiu added the `build` label
-- 2026-01-10 @tobiu referenced in commit `2305737` - "feat: Refactor defrag script to generic defragChromaDB tool (#8489)"
-- 2026-01-10 @tobiu assigned to @tobiu
 - 2026-01-10 @tobiu closed this issue
 

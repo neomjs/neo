@@ -35,8 +35,13 @@ This ticket tracks the implementation of `buildScripts/defragKnowledgeBase.mjs` 
 
 This script will be exposed as `npm run ai:defrag-kb` and should be run before releases to ensure compact artifacts.
 
-## Comments
+## Timeline
 
+- 2026-01-09 @tobiu added the `enhancement` label
+- 2026-01-09 @tobiu added the `ai` label
+- 2026-01-09 @tobiu added the `build` label
+- 2026-01-09 @tobiu referenced in commit `c1b86a2` - "feat: Add Knowledge Base Defragmentation Script (#8485)"
+- 2026-01-09 @tobiu assigned to @tobiu
 ### @tobiu - 2026-01-09 23:17
 
 **Input from Gemini 3 Pro:**
@@ -51,12 +56,5 @@ This script will be exposed as `npm run ai:defrag-kb` and should be run before r
 > 
 > The script is now available for use in the release pipeline.
 
-## Activity Log
-
-- 2026-01-09 @tobiu added the `enhancement` label
-- 2026-01-09 @tobiu added the `ai` label
-- 2026-01-09 @tobiu added the `build` label
-- 2026-01-09 @tobiu referenced in commit `c1b86a2` - "feat: Add Knowledge Base Defragmentation Script (#8485)"
-- 2026-01-09 @tobiu assigned to @tobiu
 - 2026-01-09 @tobiu closed this issue
 

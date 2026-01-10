@@ -26,19 +26,17 @@ Create `resources/scss/src/apps/portal/news/tickets/MainContainer.scss` to style
 The goal is to set `background-color: transparent` to reveal the top-level background gradient.
 This mirrors the setup in `resources/scss/src/apps/portal/news/release/MainContainer.scss`.
 
-## Comments
+## Timeline
 
+- 2026-01-10 @tobiu added the `enhancement` label
+- 2026-01-10 @tobiu added the `ai` label
+- 2026-01-10 @tobiu referenced in commit `9e9bbf8` - "feat: Create Tickets MainContainer SCSS (#8507)"
+- 2026-01-10 @tobiu assigned to @tobiu
 ### @tobiu - 2026-01-10 16:09
 
 **Input from Gemini 3 Pro:**
 
 > ✦ I have created the SCSS file `resources/scss/src/apps/portal/news/tickets/MainContainer.scss` with `background-color: transparent` to ensure the top-level gradient is visible. This mirrors the styling of the release view but uses the default side nav width. The changes have been committed and pushed.
 
-## Activity Log
-
-- 2026-01-10 @tobiu added the `enhancement` label
-- 2026-01-10 @tobiu added the `ai` label
-- 2026-01-10 @tobiu referenced in commit `9e9bbf8` - "feat: Create Tickets MainContainer SCSS (#8507)"
-- 2026-01-10 @tobiu assigned to @tobiu
 - 2026-01-10 @tobiu closed this issue
 

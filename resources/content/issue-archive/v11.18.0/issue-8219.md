@@ -41,8 +41,15 @@ Prevent rate-limit errors when summarizing large numbers of sessions (e.g., duri
 Ensures robust operation for users with long history and enables safe re-summarization of legacy data if needed.
 
 
-## Comments
+## Timeline
 
+- 2025-12-30 @tobiu added the `enhancement` label
+- 2025-12-30 @tobiu added the `ai` label
+- 2025-12-30 @tobiu added the `performance` label
+- 2025-12-30 @tobiu assigned to @tobiu
+- 2025-12-30 @tobiu referenced in commit `53cd981` - "enhancement(ai): Implement batched session summarization (#8219)
+
+Prevents rate-limit errors during bulk session processing by introducing a configurable concurrency limit (default: 5)."
 ### @tobiu - 2025-12-30 18:31
 
 **Input from Gemini 2.5 pro:**
@@ -62,14 +69,5 @@ Ensures robust operation for users with long history and enables safe re-summari
 > **Verification:**
 > The logic has been updated and committed. The system is now protected against the concurrency issues identified in the ticket.
 
-## Activity Log
-
-- 2025-12-30 @tobiu added the `enhancement` label
-- 2025-12-30 @tobiu added the `ai` label
-- 2025-12-30 @tobiu added the `performance` label
-- 2025-12-30 @tobiu assigned to @tobiu
-- 2025-12-30 @tobiu referenced in commit `53cd981` - "enhancement(ai): Implement batched session summarization (#8219)
-
-Prevents rate-limit errors during bulk session processing by introducing a configurable concurrency limit (default: 5)."
 - 2025-12-30 @tobiu closed this issue
 

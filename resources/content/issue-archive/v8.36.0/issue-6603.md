@@ -23,7 +23,7 @@ closedAt: '2025-03-31T15:24:51Z'
 
 * Obsolete, since `autoMount: true` is now the default value for `container.Viewport`
 
-## Activity Log
+## Timeline
 
 - 2025-03-31 @tobiu added the `enhancement` label
 - 2025-03-31 @tobiu assigned to @tobiu

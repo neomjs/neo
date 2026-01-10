@@ -28,8 +28,10 @@ while i just opened a couple of tickets, it is far from complete.
 
 you need to decide what the scope should be, open new tickets as needed. i can help out with working on specific items.
 
-## Comments
+## Timeline
 
+- 2024-08-06 @tobiu added the `enhancement` label
+- 2024-08-06 @tobiu assigned to @maxrahder
 ### @Dinkh - 2024-08-10 16:11
 
 @tobiu and @maxrahder for version 1 I would like to keep the learning section as is.
@@ -38,14 +40,10 @@ As soon as people start to ask for more, we should start adding content.
 For now I would like to add only "please ask if you would like to see this section filled" for those parts we have not been filled yet.
 Other than that, more is not in our focus for now.
 
+- 2024-10-07 @tobiu added the `no auto close` label
 ### @tobiu - 2025-06-29 14:25
 
 closing the ticket as obsolete.
 
-## Activity Log
-
-- 2024-08-06 @tobiu added the `enhancement` label
-- 2024-08-06 @tobiu assigned to @maxrahder
-- 2024-10-07 @tobiu added the `no auto close` label
 - 2025-06-29 @tobiu closed this issue
 

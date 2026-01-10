@@ -35,7 +35,7 @@ To strengthen the empirical evaluation in the "Agent OS Technical Report", we ne
 **Methodology:**
 Use `git log` with date ranges to extract commit counts.
 
-## Activity Log
+## Timeline
 
 - 2025-11-23 @tobiu added the `documentation` label
 - 2025-11-23 @tobiu added the `ai` label

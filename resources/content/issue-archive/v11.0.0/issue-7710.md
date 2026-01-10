@@ -34,7 +34,7 @@ This refactoring corrected the issue by:
 
 This change centralizes the logic, improves code clarity, and aligns the implementation with Neo.mjs best practices for reactive state management.
 
-## Activity Log
+## Timeline
 
 - 2025-11-06 @tobiu added the `enhancement` label
 - 2025-11-06 @tobiu added the `ai` label

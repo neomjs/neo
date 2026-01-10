@@ -32,8 +32,13 @@ closedAt: '2025-12-01T15:40:13Z'
     - Implement a suspension mechanism in `Loop` to wait for human signal (e.g., via CLI or WebSocket).
 **Context:** Part of Epic #7961.
 
-## Comments
+## Timeline
 
+- 2025-12-01 @tobiu added the `enhancement` label
+- 2025-12-01 @tobiu added the `ai` label
+- 2025-12-01 @tobiu added parent issue #7961
+- 2025-12-01 @tobiu assigned to @tobiu
+- 2025-12-01 @tobiu referenced in commit `13de816` - "Implement Safety Guardrails for Agent #7966"
 ### @tobiu - 2025-12-01 15:39
 
 **Input from Gemini 2.5:**
@@ -43,12 +48,5 @@ closedAt: '2025-12-01T15:40:13Z'
 > - Implemented `refillTokens()` logic.
 > - Updated `tick()` to check and consume tokens before processing events.
 
-## Activity Log
-
-- 2025-12-01 @tobiu added the `enhancement` label
-- 2025-12-01 @tobiu added the `ai` label
-- 2025-12-01 @tobiu added parent issue #7961
-- 2025-12-01 @tobiu assigned to @tobiu
-- 2025-12-01 @tobiu referenced in commit `13de816` - "Implement Safety Guardrails for Agent #7966"
 - 2025-12-01 @tobiu closed this issue
 

@@ -25,7 +25,7 @@ closedAt: '2025-11-07T09:10:43Z'
 
 The `create_issue` tool in `ai/mcp/server/github-workflow/openapi.yaml` should have an improved description. The new description should instruct the agent to output the proposed `title`, `labels`, and `body` into the chat for user review *before* calling the tool. This allows the user to verify and enhance the content, improving the collaborative ticket creation process.
 
-## Activity Log
+## Timeline
 
 - 2025-11-07 @tobiu added the `enhancement` label
 - 2025-11-07 @tobiu added the `developer-experience` label

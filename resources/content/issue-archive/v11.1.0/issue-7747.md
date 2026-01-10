@@ -59,7 +59,7 @@ This ticket proposes to enhance the build process to automatically discover and 
 -   The `examples/` folder and its contents should be explicitly excluded from this process, as they are not deployable applications requiring these files.
 -   `buildScripts/buildAll.mjs` remains clean and focused on orchestrating the main build steps.
 
-## Activity Log
+## Timeline
 
 - 2025-11-11 @tobiu assigned to @tobiu
 - 2025-11-11 @tobiu added the `enhancement` label

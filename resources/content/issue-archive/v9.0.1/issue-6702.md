@@ -23,12 +23,13 @@ closedAt: '2025-05-05T17:43:18Z'
 
 * We need to give the first node a static id, to ensure that previously queued node updates don't auto-assign an id to the new wrapper node (regression fix)
 
-## Activity Log
+## Timeline
 
 - 2025-05-05 @tobiu assigned to @tobiu
 - 2025-05-05 @tobiu added parent issue #6696
 - 2025-05-05 @tobiu added the `enhancement` label
 - 2025-05-05 @tobiu closed this issue
+- 2025-05-05 @tobiu reopened this issue
 - 2025-05-05 @tobiu referenced in commit `10ef6d6` - "layout.Cube: getPlaneId() #6702"
 - 2025-05-05 @tobiu closed this issue
 

@@ -29,7 +29,7 @@ To standardize AI-generated comments on pull requests and reduce formatting erro
 2.  **Server-Side Templating:** The `createComment` method in `PullRequestService.mjs` will be updated. It will use the `agent` parameter to wrap the provided `body` in a template that adds a header (`Input from [agent]:`) and prefixes the comment body with a specific icon (`✦` for Gemini, `❋` for Claude).
 3.  **API Spec Update:** The `openapi.yaml` file for the `github-workflow` server will be updated to include the new `agent` parameter in the `createComment` operation and clarify that the tool now handles the comment formatting.
 
-## Activity Log
+## Timeline
 
 - 2025-10-25 @tobiu assigned to @tobiu
 - 2025-10-25 @tobiu added the `enhancement` label

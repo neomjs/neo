@@ -58,7 +58,7 @@ Using protected properties (e.g., `_hooks`) was considered but deemed insufficie
 -   The `vdomEffect` is correctly associated with the component's ID.
 -   The implementation provides the necessary foundation for the `useConfig` hook to function correctly.
 
-## Activity Log
+## Timeline
 
 - 2025-07-11 @tobiu assigned to @tobiu
 - 2025-07-11 @tobiu added parent issue #6992

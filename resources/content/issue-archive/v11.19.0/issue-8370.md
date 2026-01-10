@@ -38,13 +38,7 @@ Instead of disparate sections, the entire homepage should feel like a single coh
 - `resources/scss/src/apps/portal/home/parts/MainNeo.scss` (Remove local BG)
 - `resources/scss/src/apps/portal/home/parts/AiToolchain.scss` (Add transparency)
 
-## Comments
-
-### @tobiu - 2026-01-06 22:59
-
-resolved via https://github.com/neomjs/neo/commit/53673b942b195586b6b4e14e1f864307798bffc4
-
-## Activity Log
+## Timeline
 
 - 2026-01-06 @tobiu added the `enhancement` label
 - 2026-01-06 @tobiu added the `design` label
@@ -52,6 +46,10 @@ resolved via https://github.com/neomjs/neo/commit/53673b942b195586b6b4e14e1f8643
 
 - Moved 'Quantum Mesh' background to MainContainer with fixed attachment.
 - Updated MainNeo and AiToolchain to be transparent."
+### @tobiu - 2026-01-06 22:59
+
+resolved via https://github.com/neomjs/neo/commit/53673b942b195586b6b4e14e1f864307798bffc4
+
 - 2026-01-06 @tobiu closed this issue
 - 2026-01-06 @tobiu assigned to @tobiu
 

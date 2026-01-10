@@ -49,7 +49,7 @@ The `SyncService` has been refactored to implement **content hash tracking** for
 - Verify that merely touching a local issue file (without changing content) does *not* trigger a push to GitHub.
 - Observe reduced API usage for sync operations when few or no actual content changes have occurred locally.
 
-## Activity Log
+## Timeline
 
 - 2025-10-22 @tobiu assigned to @tobiu
 - 2025-10-22 @tobiu added the `bug` label

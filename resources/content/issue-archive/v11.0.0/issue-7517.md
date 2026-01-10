@@ -31,7 +31,7 @@ This ticket addresses the code duplication between the `toolService.mjs` files i
 3.  The `toolService.mjs` files in `knowledge-base` and `github-workflow` are refactored to use the new shared service.
 4.  All existing functionality of both MCP servers remains unchanged and fully operational.
 
-## Activity Log
+## Timeline
 
 - 2025-10-17 @tobiu assigned to @tobiu
 - 2025-10-17 @tobiu added the `enhancement` label

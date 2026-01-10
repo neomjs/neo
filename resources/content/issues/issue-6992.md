@@ -124,13 +124,7 @@ export default defineComponent({
 });
 ```
 
-## Comments
-
-### @github-actions - 2025-10-14 02:41
-
-This issue is stale because it has been open for 90 days with no activity.
-
-## Activity Log
+## Timeline
 
 - 2025-07-09 @tobiu added the `enhancement` label
 - 2025-07-09 @tobiu added the `epic` label
@@ -171,6 +165,10 @@ This issue is stale because it has been open for 90 days with no activity.
 - 2025-07-16 @tobiu added sub-issue #7071
 - 2025-07-16 @tobiu added sub-issue #7074
 - 2025-07-16 @tobiu added sub-issue #7075
+### @github-actions - 2025-10-14 02:41
+
+This issue is stale because it has been open for 90 days with no activity.
+
 - 2025-10-14 @github-actions added the `stale` label
 - 2025-10-14 @tobiu removed the `stale` label
 - 2025-10-14 @tobiu added the `no auto close` label

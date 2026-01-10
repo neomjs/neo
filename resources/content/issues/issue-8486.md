@@ -32,8 +32,13 @@ To ensure that all released Knowledge Base artifacts are compact and optimized, 
 
 This removes the manual burden of remembering to defrag before releasing.
 
-## Comments
+## Timeline
 
+- 2026-01-09 @tobiu added the `enhancement` label
+- 2026-01-09 @tobiu added the `ai` label
+- 2026-01-09 @tobiu added the `build` label
+- 2026-01-09 @tobiu referenced in commit `c1bf15f` - "feat: Integrate Defrag into KB Upload (#8486)"
+- 2026-01-09 @tobiu assigned to @tobiu
 ### @tobiu - 2026-01-09 23:31
 
 **Input from Gemini 3 Pro:**
@@ -47,12 +52,5 @@ This removes the manual burden of remembering to defrag before releasing.
 > 
 > This ensures that all future releases will automatically have compact, optimized knowledge base artifacts without requiring manual intervention.
 
-## Activity Log
-
-- 2026-01-09 @tobiu added the `enhancement` label
-- 2026-01-09 @tobiu added the `ai` label
-- 2026-01-09 @tobiu added the `build` label
-- 2026-01-09 @tobiu referenced in commit `c1bf15f` - "feat: Integrate Defrag into KB Upload (#8486)"
-- 2026-01-09 @tobiu assigned to @tobiu
 - 2026-01-09 @tobiu closed this issue
 

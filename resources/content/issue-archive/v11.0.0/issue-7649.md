@@ -38,7 +38,7 @@ Making the `agent` parameter required improves the contract of the `create_comme
 
 This change enhances the robustness of agent comments and simplifies the codebase.
 
-## Activity Log
+## Timeline
 
 - 2025-10-25 @tobiu added the `enhancement` label
 - 2025-10-25 @tobiu added the `ai` label

@@ -34,7 +34,7 @@ Implications:
 This refactoring makes sense for a utility like `IdGenerator` that doesn't need the full power of the Neo.mjs class
 system and is intended to be a simple, globally accessible singleton.
 
-## Activity Log
+## Timeline
 
 - 2025-07-10 @tobiu assigned to @tobiu
 - 2025-07-10 @tobiu added the `enhancement` label

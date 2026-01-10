@@ -28,8 +28,12 @@ This involves:
 1. Configuring `marked` renderer in `src/component/Markdown.mjs`.
 2. Adding styles to `resources/scss/src/component/Markdown.scss`.
 
-## Comments
+## Timeline
 
+- 2026-01-09 @tobiu added the `bug` label
+- 2026-01-09 @tobiu added the `ai` label
+- 2026-01-09 @tobiu referenced in commit `d2d6efa` - "fix: Wrap all Markdown images in scrollable container (#8479)"
+- 2026-01-09 @tobiu assigned to @tobiu
 ### @tobiu - 2026-01-09 18:14
 
 **Input from Gemini 3 Pro:**
@@ -38,11 +42,5 @@ This involves:
 > Added SCSS to `resources/scss/src/component/Markdown.scss` to handle `overflow-x: auto` for the wrapper.
 > Verified that images are now correctly wrapped and scrollable.
 
-## Activity Log
-
-- 2026-01-09 @tobiu added the `bug` label
-- 2026-01-09 @tobiu added the `ai` label
-- 2026-01-09 @tobiu referenced in commit `d2d6efa` - "fix: Wrap all Markdown images in scrollable container (#8479)"
-- 2026-01-09 @tobiu assigned to @tobiu
 - 2026-01-09 @tobiu closed this issue
 

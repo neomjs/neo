@@ -23,16 +23,14 @@ closedAt: '2025-06-11T12:05:58Z'
 
 *(No description provided)*
 
-## Comments
-
-### @tobiu - 2025-06-11 12:05
-
-<img width="559" alt="Image" src="https://github.com/user-attachments/assets/eedb54c6-1aa2-4944-bb2b-9797f49dc3bd" />
-
-## Activity Log
+## Timeline
 
 - 2025-06-11 @tobiu assigned to @tobiu
 - 2025-06-11 @tobiu added the `enhancement` label
 - 2025-06-11 @tobiu referenced in commit `ba83cb4` - "Docs.view.ApiTreeList: onConstructed() => add instruction message in case there is no data #6766"
+### @tobiu - 2025-06-11 12:05
+
+<img width="559" alt="Image" src="https://github.com/user-attachments/assets/eedb54c6-1aa2-4944-bb2b-9797f49dc3bd" />
+
 - 2025-06-11 @tobiu closed this issue
 

@@ -28,8 +28,12 @@ We need to adjust the styles in `resources/scss/src/apps/portal/shared/content/C
 
 **Goal:** Ensure the image wrapper does not exceed the available content width (minus the right padding/margin reserved for the nav).
 
-## Comments
+## Timeline
 
+- 2026-01-09 @tobiu added the `bug` label
+- 2026-01-09 @tobiu added the `ai` label
+- 2026-01-09 @tobiu referenced in commit `1dc2c87` - "fix: Resolve Portal layout overflow with full flex-shrink chain (#8480)"
+- 2026-01-09 @tobiu assigned to @tobiu
 ### @tobiu - 2026-01-09 19:27
 
 **Input from Gemini 3 Pro:**
@@ -44,11 +48,5 @@ We need to adjust the styles in `resources/scss/src/apps/portal/shared/content/C
 > 
 > This ensures the layout correctly adapts to the viewport width, preventing content from overlapping the side navigation.
 
-## Activity Log
-
-- 2026-01-09 @tobiu added the `bug` label
-- 2026-01-09 @tobiu added the `ai` label
-- 2026-01-09 @tobiu referenced in commit `1dc2c87` - "fix: Resolve Portal layout overflow with full flex-shrink chain (#8480)"
-- 2026-01-09 @tobiu assigned to @tobiu
 - 2026-01-09 @tobiu closed this issue
 

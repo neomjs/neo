@@ -67,7 +67,7 @@ To ensure search engines have an up-to-date map of our site, we will automate th
 
 This combination of a server-side deployment fix and a client-side management addon, supported by automated file generation, provides a robust and sustainable solution to dramatically improve the project's visibility.
 
-## Activity Log
+## Timeline
 
 - 2025-10-10 @tobiu assigned to @tobiu
 - 2025-10-10 @tobiu added the `epic` label

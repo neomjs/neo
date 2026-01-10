@@ -25,7 +25,7 @@ closedAt: '2025-06-18T00:15:01Z'
 * this lead to configs being moved into the mixin owner, as a workaround
 * now we can finally clean this part up
 
-## Activity Log
+## Timeline
 
 - 2025-06-18 @tobiu assigned to @tobiu
 - 2025-06-18 @tobiu added the `enhancement` label

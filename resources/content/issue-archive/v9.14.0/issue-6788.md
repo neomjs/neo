@@ -32,7 +32,7 @@ Here's why it's beneficial, even if it's already in the blog section:
 3. Internal Linking & SEO: From an SEO perspective, relevant internal linking helps search engines understand the relationship between your content pieces and can improve the discoverability of both articles.
 4. Reinforces Key Arguments: The blog post expands on why Neo.mjs's architecture (which influences these environments) is so powerful for modern interfaces, especially those involving dynamic data. A direct link reinforces these core strengths.
 
-## Activity Log
+## Timeline
 
 - 2025-06-13 @tobiu assigned to @tobiu
 - 2025-06-13 @tobiu added the `enhancement` label

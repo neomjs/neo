@@ -41,8 +41,10 @@ This will ensure that the tool definitions provided to AI agents are always a pe
 4.  The script merges the configuration values into the template to produce a final, valid OpenAPI specification.
 5.  The MCP server startup process is modified to either run this script or read the generated file, ensuring it always uses the dynamic spec.
 
-## Comments
+## Timeline
 
+- 2025-10-22 @tobiu added the `enhancement` label
+- 2025-10-22 @tobiu added the `ai` label
 ### @SarthakJain29 - 2025-10-23 08:20
 
 Hey, Would love to work on this!
@@ -54,8 +56,4 @@ Hey, Would love to work on this!
 
 Feel free to ping me inside the slack / discord general channels => there are huge areas with higher impacts / more to learn / more fun to work on.
 
-## Activity Log
-
-- 2025-10-22 @tobiu added the `enhancement` label
-- 2025-10-22 @tobiu added the `ai` label
 

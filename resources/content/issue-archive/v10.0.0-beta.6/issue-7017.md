@@ -23,7 +23,7 @@ closedAt: '2025-07-11T11:20:24Z'
 
 * Since we created `src.functional` as the new root for functional components, we need to move the mixin one level upwards, as the lowest common level.
 
-## Activity Log
+## Timeline
 
 - 2025-07-11 @tobiu assigned to @tobiu
 - 2025-07-11 @tobiu added the `enhancement` label

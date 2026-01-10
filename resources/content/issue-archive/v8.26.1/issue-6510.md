@@ -24,7 +24,7 @@ closedAt: '2025-02-26T23:37:21Z'
 * It should to default to `false`
 * Specific implementations can then set it to true, if needed
 
-## Activity Log
+## Timeline
 
 - 2025-02-26 @tobiu added the `enhancement` label
 - 2025-02-26 @tobiu assigned to @tobiu

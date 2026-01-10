@@ -31,7 +31,7 @@ This works fine inside the dev mode as well as webpack-based dist envs, but `dis
 * We need to add `workerBasePath` for the new env.
 * We need to adjust related logic inside the main thread addons
 
-## Activity Log
+## Timeline
 
 - 2025-06-01 @tobiu assigned to @tobiu
 - 2025-06-01 @tobiu added the `enhancement` label

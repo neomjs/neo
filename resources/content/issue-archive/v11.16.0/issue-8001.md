@@ -45,7 +45,7 @@ A Proof of Concept (PoC) has been implemented to establish a bidirectional commu
 - Refactor `Server.mjs` to use `ToolService`.
 - Clean up dependencies.
 
-## Activity Log
+## Timeline
 
 - 2025-12-03 @tobiu added the `documentation` label
 - 2025-12-03 @tobiu added the `enhancement` label

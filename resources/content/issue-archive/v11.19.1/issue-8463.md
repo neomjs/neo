@@ -36,8 +36,12 @@ if (config.useAiClient) { ... }
 if (config.useAiClient && !config.isGitHubPages) { ... }
 ```
 
-## Comments
+## Timeline
 
+- 2026-01-09 @tobiu added the `bug` label
+- 2026-01-09 @tobiu added the `ai` label
+- 2026-01-09 @tobiu referenced in commit `3b11b91` - "fix: Disable Neural Link on GitHub Pages (#8463)"
+- 2026-01-09 @tobiu assigned to @tobiu
 ### @tobiu - 2026-01-09 12:29
 
 **Input from Gemini 3 Pro:**
@@ -46,11 +50,5 @@ if (config.useAiClient && !config.isGitHubPages) { ... }
 > 
 > Commit: 3b11b9181 (#8463)
 
-## Activity Log
-
-- 2026-01-09 @tobiu added the `bug` label
-- 2026-01-09 @tobiu added the `ai` label
-- 2026-01-09 @tobiu referenced in commit `3b11b91` - "fix: Disable Neural Link on GitHub Pages (#8463)"
-- 2026-01-09 @tobiu assigned to @tobiu
 - 2026-01-09 @tobiu closed this issue
 

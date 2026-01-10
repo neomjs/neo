@@ -35,7 +35,7 @@ The resulting convention (e.g., `issue-123.md`) is scalable, robust, and remains
 3.  The `#getIssuePath` method in `SyncService.mjs` is updated to construct filenames using the prefix and the raw, un-padded issue number.
 4.  The sync logic must gracefully handle the transition. On the next pull, it should detect and rename any existing files that use the old padded-number format to the new prefixed format.
 
-## Activity Log
+## Timeline
 
 - 2025-10-21 @tobiu assigned to @tobiu
 - 2025-10-21 @tobiu added the `enhancement` label

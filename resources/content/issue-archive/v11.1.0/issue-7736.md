@@ -33,7 +33,7 @@ However, upon review, these are unnecessary:
 
 This change removes these `try...catch` blocks to improve code clarity and reduce visual clutter, aligning with a "fail fast" principle if the logging mechanism itself were to be fundamentally broken.
 
-## Activity Log
+## Timeline
 
 - 2025-11-10 @tobiu added the `ai` label
 - 2025-11-10 @tobiu added the `refactoring` label

@@ -23,7 +23,7 @@ closedAt: '2025-01-11T17:11:57Z'
 
 this affects e.g. table header buttons => click logic
 
-## Activity Log
+## Timeline
 
 - 2025-01-11 @tobiu added the `bug` label
 - 2025-01-11 @tobiu assigned to @tobiu

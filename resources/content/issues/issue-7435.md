@@ -267,8 +267,36 @@ This section is for all new component tests created using the "Cookbook Epic".
 
 - **To Do:**
 
-## Comments
+## Timeline
 
+- 2025-10-10 @tobiu assigned to @tobiu
+- 2025-10-10 @tobiu added the `help wanted` label
+- 2025-10-10 @tobiu added the `good first issue` label
+- 2025-10-10 @tobiu added the `epic` label
+- 2025-10-10 @tobiu added the `hacktoberfest` label
+- 2025-10-10 @tobiu added the `ai` label
+- 2025-10-10 @tobiu removed the `good first issue` label
+- 2025-10-10 @tobiu cross-referenced by #7436
+- 2025-10-10 @tobiu added sub-issue #7436
+- 2025-10-10 @tobiu added sub-issue #7437
+- 2025-10-10 @tobiu cross-referenced by #7437
+- 2025-10-10 @tobiu cross-referenced by #7438
+- 2025-10-10 @tobiu added sub-issue #7438
+- 2025-10-10 @tobiu added sub-issue #7439
+- 2025-10-10 @tobiu cross-referenced by #7439
+- 2025-10-10 @tobiu added sub-issue #7440
+- 2025-10-10 @tobiu cross-referenced by #7440
+- 2025-10-10 @tobiu added sub-issue #7441
+- 2025-10-10 @tobiu cross-referenced by #7441
+- 2025-10-10 @tobiu added sub-issue #7442
+- 2025-10-10 @tobiu cross-referenced by #7442
+- 2025-10-10 @tobiu added sub-issue #7443
+- 2025-10-10 @tobiu cross-referenced by #7443
+- 2025-10-10 @tobiu added sub-issue #7444
+- 2025-10-10 @tobiu cross-referenced by #7444
+- 2025-10-10 @tobiu referenced in commit `48d43fc` - "#7435 ticket md files"
+- 2025-10-10 @tobiu added sub-issue #7445
+- 2025-10-10 @tobiu referenced in commit `25acc3f` - "#7435 internal ticket md updates"
 ### @tobiu - 2025-10-10 17:47
 
 Input from Gemini:
@@ -343,6 +371,10 @@ TL-BR: I think it would make sense if I take care of the epic itself and assign 
 
 Makes sense, I loved working in each sub part, And will continue to request myself for each sub task
 
+- 2025-10-12 @tobiu added sub-issue #7469
+- 2025-10-12 @tobiu added sub-issue #7470
+- 2025-10-12 @tobiu added sub-issue #7471
+- 2025-10-12 @tobiu referenced in commit `84ee05c` - "#7435 component.Image: specs location update"
 ### @tobiu - 2025-10-12 14:28
 
 FYI: phase 1 is completed now.
@@ -353,41 +385,8 @@ updated the epic body with more hints, created a separate new epic just for defi
 
 into the new epic, we can now drop big amounts of subs.
 
-## Activity Log
-
-- 2025-10-10 @tobiu assigned to @tobiu
-- 2025-10-10 @tobiu added the `help wanted` label
-- 2025-10-10 @tobiu added the `good first issue` label
-- 2025-10-10 @tobiu added the `epic` label
-- 2025-10-10 @tobiu added the `hacktoberfest` label
-- 2025-10-10 @tobiu added the `ai` label
-- 2025-10-10 @tobiu removed the `good first issue` label
-- 2025-10-10 @tobiu cross-referenced by #7436
-- 2025-10-10 @tobiu added sub-issue #7436
-- 2025-10-10 @tobiu added sub-issue #7437
-- 2025-10-10 @tobiu cross-referenced by #7437
-- 2025-10-10 @tobiu cross-referenced by #7438
-- 2025-10-10 @tobiu added sub-issue #7438
-- 2025-10-10 @tobiu added sub-issue #7439
-- 2025-10-10 @tobiu cross-referenced by #7439
-- 2025-10-10 @tobiu added sub-issue #7440
-- 2025-10-10 @tobiu cross-referenced by #7440
-- 2025-10-10 @tobiu added sub-issue #7441
-- 2025-10-10 @tobiu cross-referenced by #7441
-- 2025-10-10 @tobiu added sub-issue #7442
-- 2025-10-10 @tobiu cross-referenced by #7442
-- 2025-10-10 @tobiu added sub-issue #7443
-- 2025-10-10 @tobiu cross-referenced by #7443
-- 2025-10-10 @tobiu added sub-issue #7444
-- 2025-10-10 @tobiu cross-referenced by #7444
-- 2025-10-10 @tobiu referenced in commit `48d43fc` - "#7435 ticket md files"
-- 2025-10-10 @tobiu added sub-issue #7445
-- 2025-10-10 @tobiu referenced in commit `25acc3f` - "#7435 internal ticket md updates"
-- 2025-10-12 @tobiu added sub-issue #7469
-- 2025-10-12 @tobiu added sub-issue #7470
-- 2025-10-12 @tobiu added sub-issue #7471
-- 2025-10-12 @tobiu referenced in commit `84ee05c` - "#7435 component.Image: specs location update"
 - 2025-10-14 @tobiu cross-referenced by #7476
+- 2025-10-27 @tobiu changed title from **Migrate Component Tests from Siesta to Playwright (R&D)** to **Create Component Tests in Playwright (and migrate existing tests from Siesta)**
 - 2025-10-27 @tobiu added sub-issue #7677
 - 2025-11-04 @tobiu added sub-issue #7703
 - 2025-11-10 @tobiu added sub-issue #7737

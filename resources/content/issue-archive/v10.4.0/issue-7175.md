@@ -55,7 +55,7 @@ This refactoring provides several key benefits:
 - **Consistency:** Both vertical and horizontal scrolling now share the same robust mechanism for managing the `isScrolling` state.
 - **Reduced Complexity:** The removal of manual timer management simplifies the `ScrollManager`'s implementation.
 
-## Activity Log
+## Timeline
 
 - 2025-08-11 @tobiu assigned to @tobiu
 - 2025-08-11 @tobiu added the `enhancement` label

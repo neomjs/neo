@@ -62,7 +62,7 @@ Establish a strict standard for method signatures based on argument requirements
 **Note:**
 This refactoring ensures that calling a tool like `list_summaries` via MCP without passing an empty object `{}` (which some clients might do) will not cause a server-side error.
 
-## Activity Log
+## Timeline
 
 - 2025-11-24 @tobiu added the `enhancement` label
 - 2025-11-24 @tobiu added the `ai` label

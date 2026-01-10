@@ -29,7 +29,7 @@ The current implementation of `describe()` calls in `buildZodSchemaFromResponse`
 1.  `buildZodSchemaFromResponse` is refactored to apply `schema.description` to the generated `zodSchema` consistently for all types.
 2.  `buildOutputZodSchema` is refactored to ensure descriptions are applied correctly to the wrapped object for `text/plain` responses.
 
-## Activity Log
+## Timeline
 
 - 2025-10-15 @tobiu assigned to @tobiu
 - 2025-10-15 @tobiu added the `enhancement` label

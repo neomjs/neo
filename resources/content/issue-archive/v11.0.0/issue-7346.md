@@ -83,8 +83,13 @@ Your contribution will be a new ticket file that serves as your official report.
 
 That's it! Your PR will be a valuable piece of R&D that helps us build a truly intelligent and reliable AI development partner. We can't wait to see what you discover.
 
-## Comments
+## Timeline
 
+- 2025-10-04 @tobiu added the `help wanted` label
+- 2025-10-04 @tobiu added the `good first issue` label
+- 2025-10-04 @tobiu added the `hacktoberfest` label
+- 2025-10-04 @tobiu added parent issue #7296
+- 2025-10-04 @tobiu added the `ai` label
 ### @srikanth-s2003 - 2025-10-04 09:44
 
 @tobiu 
@@ -96,13 +101,6 @@ Thanks!
 
 Sure. Feel free to join the Slack and / or Discord channels for questions.
 
-## Activity Log
-
-- 2025-10-04 @tobiu added the `help wanted` label
-- 2025-10-04 @tobiu added the `good first issue` label
-- 2025-10-04 @tobiu added the `hacktoberfest` label
-- 2025-10-04 @tobiu added parent issue #7296
-- 2025-10-04 @tobiu added the `ai` label
 - 2025-10-04 @tobiu assigned to @srikanth-s2003
 - 2025-10-04 @srikanth-s2003 referenced in commit `784eba7` - "feat: Complete Hacktoberfest Memory Protocol Failure Analysis
 

@@ -23,7 +23,7 @@ closedAt: '2025-06-14T11:11:41Z'
 
 * they should be blue, matching spots in other pages of the website
 
-## Activity Log
+## Timeline
 
 - 2025-06-14 @tobiu assigned to @tobiu
 - 2025-06-14 @tobiu added the `enhancement` label

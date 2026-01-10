@@ -49,7 +49,7 @@ This change is vital for:
 **Validation:**
 Re-testing in a fresh session confirmed that all MCP servers start correctly, and their tools are recognized by the Gemini CLI client, indicating that the previous compatibility issues related to `npm run` output are no longer present.
 
-## Activity Log
+## Timeline
 
 - 2025-10-25 @tobiu added the `enhancement` label
 - 2025-10-25 @tobiu added the `ai` label

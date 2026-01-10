@@ -25,7 +25,7 @@ closedAt: '2025-01-26T16:53:39Z'
 * Update all examples & apps which use tables => move `selectionModel` configs into `viewConfig`
 * Update all table-related selection models
 
-## Activity Log
+## Timeline
 
 - 2025-01-26 @tobiu added the `enhancement` label
 - 2025-01-26 @tobiu assigned to @tobiu

@@ -23,7 +23,7 @@ closedAt: '2025-02-09T12:43:35Z'
 
 timing issues on GH pages
 
-## Activity Log
+## Timeline
 
 - 2025-02-09 @tobiu added the `enhancement` label
 - 2025-02-09 @tobiu assigned to @tobiu

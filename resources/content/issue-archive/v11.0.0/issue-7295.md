@@ -27,11 +27,12 @@ The AI Quick Start Guide (`.github/AI_QUICK_START.md`) needs to be updated based
 1.  **Update Node.js Version:** The current requirement is `v18+`, which is too low. It should be updated to `v20+`.
 2.  **Add Gemini CLI Installation Instructions:** The guide assumes the user has the Gemini CLI installed but does not provide the installation command. A new section or paragraph should be added to explain how to install it globally via npm (`npm i -g @google/generative-ai/cli`).
 
-## Activity Log
+## Timeline
 
 - 2025-09-28 @tobiu added the `enhancement` label
 - 2025-09-28 @tobiu referenced in commit `f53cf66` - "Update AI Quick Start Guide #7295"
 - 2025-09-28 @tobiu closed this issue
+- 2025-09-28 @tobiu reopened this issue
 - 2025-09-28 @tobiu referenced in commit `c2a83be` - "Update AI Quick Start Guide #7295"
 - 2025-09-28 @tobiu closed this issue
 

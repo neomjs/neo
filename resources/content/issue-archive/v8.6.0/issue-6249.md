@@ -23,7 +23,7 @@ closedAt: '2025-01-18T13:06:44Z'
 
 * this requires adding the observable mixin
 
-## Activity Log
+## Timeline
 
 - 2025-01-16 @tobiu added the `enhancement` label
 - 2025-01-16 @tobiu assigned to @tobiu

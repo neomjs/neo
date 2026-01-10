@@ -44,7 +44,7 @@ This includes the intelligent archiving logic to keep the issue directories orga
 -   Automates the organization and archiving of closed issues.
 -   Creates the foundation for the AI Knowledge Base to consume issue data.
 
-## Activity Log
+## Timeline
 
 - 2025-10-20 @tobiu assigned to @tobiu
 - 2025-10-20 @tobiu added the `enhancement` label

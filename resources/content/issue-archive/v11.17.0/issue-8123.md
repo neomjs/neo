@@ -38,7 +38,7 @@ A race condition exists in `src/mixin/VdomLifecycle.mjs` where child components 
 2.  **Centralize Cleanup:** Move `me.isVdomUpdating = false` into `resolveVdomUpdate` to ensure the flag remains true until the entire transaction (including callbacks and mounting) is complete.
 3.  **Refactor:** Update `executeVdomUpdate` to rely on `resolveVdomUpdate` for clearing the flag, ensuring consistency.
 
-## Activity Log
+## Timeline
 
 - 2025-12-16 @tobiu added the `bug` label
 - 2025-12-16 @tobiu added the `ai` label

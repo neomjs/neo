@@ -72,13 +72,7 @@ Once the core issue synchronization is stable and robust, we will expand its cap
 -   **Comment Push:** Investigate and implement a mechanism to push new comments from the local `.md` files back to GitHub. This is a complex task that requires careful parsing and state management.
 -   **Knowledge Base Integration:** Integrate the locally stored issue and PR files into the AI Knowledge Base build process, making them queryable for deep contextual understanding.
 
-## Comments
-
-### @tobiu - 2025-10-24 09:32
-
-epic resolved, there will be new tickets for the new mcp server.
-
-## Activity Log
+## Timeline
 
 - 2025-10-20 @tobiu assigned to @tobiu
 - 2025-10-20 @tobiu added the `epic` label
@@ -112,5 +106,9 @@ epic resolved, there will be new tickets for the new mcp server.
 - 2025-10-21 @tobiu added sub-issue #7588
 - 2025-10-21 @tobiu referenced in commit `1de91d6` - "#7564 new sub md file"
 - 2025-10-21 @tobiu added sub-issue #7589
+### @tobiu - 2025-10-24 09:32
+
+epic resolved, there will be new tickets for the new mcp server.
+
 - 2025-10-24 @tobiu closed this issue
 

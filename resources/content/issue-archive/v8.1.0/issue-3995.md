@@ -37,8 +37,9 @@ Workaround: right befor I use moveTo() I set the size of the window:
 
 This might be especially interesting to  @michaelwasserman and @quisquous and @tomayac
 
-## Comments
+## Timeline
 
+- 2023-02-06 @Dinkh added the `bug` label
 ### @tomayac - 2023-02-06 15:05
 
 Thanks for the feedback. I'm not entirely sure I'd count this as a bug. FWIW, the same behavior happens with native apps, where, when you move apps between screens with different resolution, the window size seemingly changes. I have seen developers deal with this by setting a scaling factor at the operating system level, for example, for [Windows 10](https://www.alphr.com/microsoft/microsoft-windows-10/1001272/how-to-set-display-scaling-in-windows-10/#:~:text=What%20Does%20Windows%2010%20Scaling%20Do%3F). Your app taking care of this scaling at the browser level might actually make things worse. @michaelwasserman may have more background there.
@@ -75,10 +76,12 @@ Feel free to share more details or demo when available, we're happy to investiga
 
 This issue is stale because it has been open for 90 days with no activity.
 
+- 2024-08-29 @github-actions added the `stale` label
 ### @tomayac - 2024-08-29 10:27
 
 Is this still an issue? @michaelwasserman's offer to help still stands (sorry for speaking on your behalf, Mike, but I'm sure it does).  
 
+- 2024-08-30 @github-actions removed the `stale` label
 ### @tobiu - 2024-08-30 16:12
 
 @tomayac @michaelwasserman: thanks for your input! appreciated.
@@ -106,10 +109,12 @@ Tobias
 
 This issue is stale because it has been open for 90 days with no activity.
 
+- 2024-11-29 @github-actions added the `stale` label
 ### @github-actions - 2024-12-13 02:46
 
 This issue was closed because it has been inactive for 14 days since being marked as stale.
 
+- 2024-12-13 @github-actions closed this issue
 ### @tobiu - 2025-07-26 13:22
 
 @Dinkh @tomayac @michaelwasserman 
@@ -155,11 +160,4 @@ Wow, that's really neat! Congratulations!
 
 +100, very nice!!
 
-## Activity Log
-
-- 2023-02-06 @Dinkh added the `bug` label
-- 2024-08-29 @github-actions added the `stale` label
-- 2024-08-30 @github-actions removed the `stale` label
-- 2024-11-29 @github-actions added the `stale` label
-- 2024-12-13 @github-actions closed this issue
 

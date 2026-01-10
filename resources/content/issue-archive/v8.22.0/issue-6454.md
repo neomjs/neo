@@ -40,7 +40,7 @@ Leaving people hanging when I know that they need help is something I would neve
 
 I hope for both of you, that karma never finds you.
 
-## Activity Log
+## Timeline
 
 - 2025-02-16 @tobiu added the `enhancement` label
 - 2025-02-16 @tobiu assigned to @tobiu

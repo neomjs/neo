@@ -39,7 +39,7 @@ Enhance the "The AI-Native Development Platform" section in `README.md` to:
 3.  **🤖 The GitHub Workflow Server**: ... [Read Guide](...)
 4.  **⚡️ Code Execution (The "Thick Client")**: ... [Read Guide](...)
 
-## Activity Log
+## Timeline
 
 - 2025-11-23 @tobiu added the `documentation` label
 - 2025-11-23 @tobiu added the `ai` label

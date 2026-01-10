@@ -31,7 +31,7 @@ This guide is not sufficient.
 * Explain how to migrate an app from the repo to a workspace
 * Explain how to migrate an app from a workspace to the repo
 
-## Activity Log
+## Timeline
 
 - 2025-06-12 @tobiu added the `enhancement` label
 - 2025-06-12 @tobiu added the `no auto close` label

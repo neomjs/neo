@@ -40,7 +40,7 @@ The goal was to restructure the development workflow in `AGENTS.md` to make the 
 
 This task is complete. The changes have been applied to `AGENTS.md`.
 
-## Activity Log
+## Timeline
 
 - 2025-09-26 @tobiu assigned to @tobiu
 - 2025-09-26 @tobiu added the `enhancement` label

@@ -23,7 +23,7 @@ closedAt: '2025-01-08T10:36:40Z'
 
 it should be possible for devs to change the amount of (up to) x rows before the first and after the last visible row, to fine-tune their scrolling behavior.
 
-## Activity Log
+## Timeline
 
 - 2025-01-07 @tobiu added the `enhancement` label
 - 2025-01-07 @tobiu assigned to @tobiu

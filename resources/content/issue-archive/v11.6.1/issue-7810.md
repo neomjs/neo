@@ -32,7 +32,7 @@ Tasks:
 - Update `package.json` scripts.
 - Update `.gitignore`.
 
-## Activity Log
+## Timeline
 
 - 2025-11-19 @tobiu added the `enhancement` label
 - 2025-11-19 @tobiu added the `ai` label

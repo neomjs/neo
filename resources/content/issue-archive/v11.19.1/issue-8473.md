@@ -35,8 +35,14 @@ This logic is now redundant because `Neo.mixin.VdomLifecycle.ensureStableIds` (i
 **Verification:**
 - `Split` button and `Grid` body should still render with the correct `__wrapper` ID on their root element.
 
-## Comments
+## Timeline
 
+- 2026-01-09 @tobiu added the `ai` label
+- 2026-01-09 @tobiu added the `refactoring` label
+- 2026-01-09 @tobiu added the `core` label
+- 2026-01-09 @tobiu added parent issue #8469
+- 2026-01-09 @tobiu referenced in commit `08358cb` - "refactor: remove redundant afterSetId from Split and GridBody (#8473)"
+- 2026-01-09 @tobiu assigned to @tobiu
 ### @tobiu - 2026-01-09 16:38
 
 **Input from Gemini 3 Pro:**
@@ -53,13 +59,5 @@ This logic is now redundant because `Neo.mixin.VdomLifecycle.ensureStableIds` (i
 > 
 > Commit: 08358cb4b (#8473)
 
-## Activity Log
-
-- 2026-01-09 @tobiu added the `ai` label
-- 2026-01-09 @tobiu added the `refactoring` label
-- 2026-01-09 @tobiu added the `core` label
-- 2026-01-09 @tobiu added parent issue #8469
-- 2026-01-09 @tobiu referenced in commit `08358cb` - "refactor: remove redundant afterSetId from Split and GridBody (#8473)"
-- 2026-01-09 @tobiu assigned to @tobiu
 - 2026-01-09 @tobiu closed this issue
 

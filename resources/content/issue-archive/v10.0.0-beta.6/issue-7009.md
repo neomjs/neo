@@ -35,18 +35,17 @@ A new live-preview example, "Formulas in Action," has been added to the `learn/g
 
 Confirmed that the new live-preview example functions as expected within the documentation, demonstrating the reactive behavior of formulas.
 
-## Comments
-
-### @tobiu - 2025-07-10 21:28
-
-let us re-open the ticket for further simplification.
-
-## Activity Log
+## Timeline
 
 - 2025-07-10 @tobiu assigned to @tobiu
 - 2025-07-10 @tobiu added the `enhancement` label
 - 2025-07-10 @tobiu referenced in commit `98800ed` - "Add Formulas in Action Example to State Provider Guide #7009"
 - 2025-07-10 @tobiu closed this issue
+### @tobiu - 2025-07-10 21:28
+
+let us re-open the ticket for further simplification.
+
+- 2025-07-10 @tobiu reopened this issue
 - 2025-07-10 @tobiu referenced in commit `1a23d25` - "#7009 simplification"
 - 2025-07-10 @tobiu closed this issue
 

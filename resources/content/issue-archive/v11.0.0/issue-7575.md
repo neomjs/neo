@@ -39,7 +39,7 @@ To create a complete local mirror of the project's history, we need to synchroni
 -   Enriches the AI knowledge base with high-level summaries of changes and new features for each version.
 -   Improves the agent's ability to understand the evolution of the codebase over time.
 
-## Activity Log
+## Timeline
 
 - 2025-10-20 @tobiu assigned to @tobiu
 - 2025-10-20 @tobiu added the `enhancement` label

@@ -23,7 +23,7 @@ closedAt: '2025-06-19T12:27:05Z'
 
 * While the logic does work fine, it is not as easy to read or understand as it should be.
 
-## Activity Log
+## Timeline
 
 - 2025-06-19 @tobiu assigned to @tobiu
 - 2025-06-19 @tobiu added the `enhancement` label

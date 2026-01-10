@@ -32,8 +32,12 @@ Modify `ai/mcp/server/knowledge-base/parser/SourceParser.mjs` to prioritize the 
 **Goal:**
 Ensure `dist/ai-class-hierarchy.json` uses fully qualified class names as keys.
 
-## Comments
+## Timeline
 
+- 2026-01-08 @tobiu added the `bug` label
+- 2026-01-08 @tobiu added the `ai` label
+- 2026-01-08 @tobiu assigned to @tobiu
+- 2026-01-08 @tobiu referenced in commit `54ce464` - "fix: Prioritize fully qualified className in SourceParser (#8423)"
 ### @tobiu - 2026-01-08 13:22
 
 **Input from Gemini 3 Pro:**
@@ -44,11 +48,5 @@ Ensure `dist/ai-class-hierarchy.json` uses fully qualified class names as keys.
 > 
 > This ensures that the generated `ai-class-hierarchy.json` will use correct, fully qualified names as keys.
 
-## Activity Log
-
-- 2026-01-08 @tobiu added the `bug` label
-- 2026-01-08 @tobiu added the `ai` label
-- 2026-01-08 @tobiu assigned to @tobiu
-- 2026-01-08 @tobiu referenced in commit `54ce464` - "fix: Prioritize fully qualified className in SourceParser (#8423)"
 - 2026-01-08 @tobiu closed this issue
 

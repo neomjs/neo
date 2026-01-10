@@ -53,13 +53,7 @@ This section outlines the key architectural decisions and strategic insights tha
 
 -   **Dynamic Windowing (Phase 3):** The implementation of this ambitious phase is significantly de-risked and accelerated by adapting existing, proven logic. The `apps/colors/view/ViewportController` already contains robust functionality for detaching a live widget into a separate popup window. Phase 3 will adapt this logic to trigger dynamically mid-drag. Furthermore, `Neo.util.Rectangle.getIntersection()` has been identified as the ideal utility for the boundary-check calculations.
 
-## Comments
-
-### @github-actions - 2025-11-19 02:51
-
-This issue is stale because it has been open for 90 days with no activity.
-
-## Activity Log
+## Timeline
 
 - 2025-08-20 @tobiu assigned to @tobiu
 - 2025-08-20 @tobiu added the `enhancement` label
@@ -75,6 +69,10 @@ This issue is stale because it has been open for 90 days with no activity.
 - 2025-08-21 @tobiu referenced in commit `57a5d97` - "#7201 switched drag-handles back to cursor pointer (important for e.g. tab header buttons)"
 - 2025-08-21 @tobiu added sub-issue #7209
 - 2025-08-21 @tobiu added sub-issue #7210
+### @github-actions - 2025-11-19 02:51
+
+This issue is stale because it has been open for 90 days with no activity.
+
 - 2025-11-19 @github-actions added the `stale` label
 - 2025-11-19 @tobiu removed the `stale` label
 - 2025-11-19 @tobiu added the `no auto close` label

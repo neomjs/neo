@@ -35,7 +35,7 @@ This ticket covers the work to perform an in-depth review and rewrite the servic
 4.  High-quality, intent-driven JSDoc comments are added to all exported functions in the service, explaining their purpose and behavior.
 5.  The final implementation is functionally identical to running the two original scripts in sequence.
 
-## Activity Log
+## Timeline
 
 - 2025-10-16 @tobiu assigned to @tobiu
 - 2025-10-16 @tobiu added the `bug` label

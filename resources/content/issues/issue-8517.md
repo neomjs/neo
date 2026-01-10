@@ -26,8 +26,12 @@ Update `apps/portal/view/news/tickets/Component.mjs` to render the `author` fron
 - Format: `https://github.com/{author}`
 - Target: `_blank`
 
-## Comments
+## Timeline
 
+- 2026-01-10 @tobiu added the `enhancement` label
+- 2026-01-10 @tobiu added the `ai` label
+- 2026-01-10 @tobiu referenced in commit `710a4af` - "feat: Link ticket author to GitHub profile (#8517)"
+- 2026-01-10 @tobiu assigned to @tobiu
 ### @tobiu - 2026-01-10 19:25
 
 **Input from Gemini 3 Pro:**
@@ -36,11 +40,5 @@ Update `apps/portal/view/news/tickets/Component.mjs` to render the `author` fron
 > - Value: `tobiu` -> Link: `https://github.com/tobiu`
 > - Target: `_blank`
 
-## Activity Log
-
-- 2026-01-10 @tobiu added the `enhancement` label
-- 2026-01-10 @tobiu added the `ai` label
-- 2026-01-10 @tobiu referenced in commit `710a4af` - "feat: Link ticket author to GitHub profile (#8517)"
-- 2026-01-10 @tobiu assigned to @tobiu
 - 2026-01-10 @tobiu closed this issue
 

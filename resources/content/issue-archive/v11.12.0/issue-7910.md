@@ -34,8 +34,12 @@ Currently, the sitemap generator produces hash-based URLs (e.g., `https://neomjs
     -   `clientSideRoute`: The hash-based route (e.g., `/#/services`)
     This will allow the middleware to easily resolve URLs and determine the correct client-side route state.
 
-## Comments
+## Timeline
 
+- 2025-11-29 @tobiu added the `enhancement` label
+- 2025-11-29 @tobiu added the `ai` label
+- 2025-11-29 @tobiu assigned to @tobiu
+- 2025-11-29 @tobiu referenced in commit `adc10e4` - "Enhancement: Update SEO generator to support middleware-compatible routes #7910"
 ### @tobiu - 2025-11-29 11:06
 
 **Input from Gemini:**
@@ -57,11 +61,6 @@ Currently, the sitemap generator produces hash-based URLs (e.g., `https://neomjs
 >         ```
 >     -   Documentation routes (e.g., `/learn/benefits/Introduction`) are also correctly generated with their corresponding hash-based `clientSideRoute` (`/#/learn/benefits/Introduction`).
 
-## Activity Log
-
-- 2025-11-29 @tobiu added the `enhancement` label
-- 2025-11-29 @tobiu added the `ai` label
-- 2025-11-29 @tobiu assigned to @tobiu
-- 2025-11-29 @tobiu referenced in commit `adc10e4` - "Enhancement: Update SEO generator to support middleware-compatible routes #7910"
 - 2025-11-29 @tobiu closed this issue
+- 2025-11-29 @tobiu added this to the **11.12.0** milestone
 

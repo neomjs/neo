@@ -24,16 +24,14 @@ blocking: []
 * when adding a fixed `background-color`, it got a higher priority than the hover selector
 * the active state still works, but does not look nice (transparency & a bg gradient do not play together well)
 
-## Comments
+## Timeline
 
+- 2024-10-22 @tobiu added the `bug` label
+- 2024-10-22 @tobiu assigned to @tobiu
 ### @github-actions - 2025-01-21 02:28
 
 This issue is stale because it has been open for 90 days with no activity.
 
-## Activity Log
-
-- 2024-10-22 @tobiu added the `bug` label
-- 2024-10-22 @tobiu assigned to @tobiu
 - 2025-01-21 @github-actions added the `stale` label
 - 2025-01-25 @tobiu removed the `stale` label
 - 2025-01-25 @tobiu added the `no auto close` label

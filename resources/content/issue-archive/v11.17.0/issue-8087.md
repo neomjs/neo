@@ -45,7 +45,7 @@ This epic refactoring unifies the draggable sorting logic by promoting it from `
 
 **Goal:** Reduce code duplication, improve maintainability, and provide a consistent sorting capability for all Containers.
 
-## Activity Log
+## Timeline
 
 - 2025-12-11 @tobiu added the `epic` label
 - 2025-12-11 @tobiu added the `ai` label

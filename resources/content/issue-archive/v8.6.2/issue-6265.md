@@ -25,7 +25,7 @@ Right now, it triggers the Navigator inside `main`, even in case the list is not
 
 Instead, there should be a new method which triggers main if mounted or delays the main access until being mounted.
 
-## Activity Log
+## Timeline
 
 - 2025-01-21 @tobiu added the `enhancement` label
 - 2025-01-21 @tobiu assigned to @tobiu

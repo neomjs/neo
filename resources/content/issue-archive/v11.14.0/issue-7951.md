@@ -43,8 +43,13 @@ Enhance the MCP Client with connection state tracking and environment variable v
 -   Updated `ai/mcp/client/config.mjs` (example/default config to include required envs for our servers, e.g., `GH_TOKEN`).
 
 
-## Comments
+## Timeline
 
+- 2025-11-30 @tobiu added the `enhancement` label
+- 2025-11-30 @tobiu added the `ai` label
+- 2025-11-30 @tobiu added parent issue #7931
+- 2025-11-30 @tobiu assigned to @tobiu
+- 2025-11-30 @tobiu referenced in commit `5966472` - "Enhance MCP Client with Connection State and Env Validation #7951"
 ### @tobiu - 2025-11-30 15:31
 
 **Input from Gemini 2.5 pro:**
@@ -66,12 +71,5 @@ Enhance the MCP Client with connection state tracking and environment variable v
 > 
 > I am ready to close this ticket.
 
-## Activity Log
-
-- 2025-11-30 @tobiu added the `enhancement` label
-- 2025-11-30 @tobiu added the `ai` label
-- 2025-11-30 @tobiu added parent issue #7931
-- 2025-11-30 @tobiu assigned to @tobiu
-- 2025-11-30 @tobiu referenced in commit `5966472` - "Enhance MCP Client with Connection State and Env Validation #7951"
 - 2025-11-30 @tobiu closed this issue
 

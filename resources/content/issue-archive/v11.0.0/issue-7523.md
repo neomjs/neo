@@ -32,7 +32,7 @@ This ticket covers wiring up the new `mcp-stdio.mjs` entry point to the existing
 4.  The `initialize()` function of the shared `toolService` is called with the `serviceMapping` and the path to the `openapi.yaml`.
 5.  The `listTools` and `callTool` functions are exported.
 
-## Activity Log
+## Timeline
 
 - 2025-10-17 @tobiu assigned to @tobiu
 - 2025-10-17 @tobiu added the `enhancement` label

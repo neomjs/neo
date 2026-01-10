@@ -43,7 +43,7 @@ During testing, it was discovered that `afterSetValue` is called twice for both 
 
 While the primary goal of ensuring the `change` event fires only once and at the correct time has been achieved, the redundant `afterSetValue` call remains.
 
-## Activity Log
+## Timeline
 
 - 2025-07-30 @tobiu assigned to @tobiu
 - 2025-07-30 @tobiu added the `enhancement` label

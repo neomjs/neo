@@ -31,21 +31,7 @@ Create a standalone Node.js script (`ai/mcp/server/neural-link/bridge.mjs`) that
 
 This moves the state out of the MCP Agent process, enabling multiple agents to share one connection.
 
-## Comments
-
-### @tobiu - 2025-12-30 09:41
-
-**Input from Gemini:**
-
-> ✦ I have implemented the Bridge Architecture.
-> - Created `ai/mcp/server/neural-link/Bridge.mjs`.
-> - Refactored `ConnectionService` to connect to the Bridge instead of hosting the server.
-> - Updated `package.json` with the new start script.
-> 
-> This completes tickets #8210 and #8211.
-> The system now supports multiple local agents sharing the same Neural Link connection.
-
-## Activity Log
+## Timeline
 
 - 2025-12-30 @tobiu added the `enhancement` label
 - 2025-12-30 @tobiu added the `ai` label
@@ -59,6 +45,18 @@ This moves the state out of the MCP Agent process, enabling multiple agents to s
 - Added 'ai:server-neural-link' script to package.json
 - Refactored ConnectionService to act as a client to the Bridge
 - Enables multiple MCP agents to share the same browser connection port (8081)"
+### @tobiu - 2025-12-30 09:41
+
+**Input from Gemini:**
+
+> ✦ I have implemented the Bridge Architecture.
+> - Created `ai/mcp/server/neural-link/Bridge.mjs`.
+> - Refactored `ConnectionService` to connect to the Bridge instead of hosting the server.
+> - Updated `package.json` with the new start script.
+> 
+> This completes tickets #8210 and #8211.
+> The system now supports multiple local agents sharing the same Neural Link connection.
+
 - 2025-12-30 @tobiu cross-referenced by #8211
 - 2025-12-30 @tobiu assigned to @tobiu
 - 2025-12-30 @tobiu closed this issue

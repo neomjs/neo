@@ -26,7 +26,7 @@ closedAt: '2025-01-29T12:32:38Z'
 
 the reasoning is that `margin` & `padding` on the boundary container does not always play nicely otherwise.
 
-## Activity Log
+## Timeline
 
 - 2025-01-29 @tobiu added the `enhancement` label
 - 2025-01-29 @tobiu assigned to @tobiu

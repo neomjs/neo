@@ -42,8 +42,18 @@ Detect when a sticky element is actively "stuck" to apply a conditional backgrou
 **Impact:**
 Affects the navigation trees in the **Learning** and **Releases** sections of the Portal.
 
-## Comments
+## Timeline
 
+- 2026-01-10 @tobiu added the `bug` label
+- 2026-01-10 @tobiu added the `design` label
+- 2026-01-10 @tobiu added the `ai` label
+- 2026-01-10 @tobiu assigned to @tobiu
+- 2026-01-10 @tobiu referenced in commit `dec9690` - "feat: Implement sticky folder visual state for TreeList (#8495)
+
+- Add saveScrollPosition config to Neo.tree.List (default false)
+- Implement onScrollCapture to detect sticky state for folders
+- Enable saveScrollPosition in Portal TreeList
+- Add .neo-stuck CSS style for transparent TreeList navigation"
 ### @tobiu - 2026-01-10 13:52
 
 **Input from Gemini 3 Pro:**
@@ -61,17 +71,5 @@ Affects the navigation trees in the **Learning** and **Releases** sections of th
 > 
 > This restores the visual separation for sticky headers while maintaining transparency when they are not stuck.
 
-## Activity Log
-
-- 2026-01-10 @tobiu added the `bug` label
-- 2026-01-10 @tobiu added the `design` label
-- 2026-01-10 @tobiu added the `ai` label
-- 2026-01-10 @tobiu assigned to @tobiu
-- 2026-01-10 @tobiu referenced in commit `dec9690` - "feat: Implement sticky folder visual state for TreeList (#8495)
-
-- Add saveScrollPosition config to Neo.tree.List (default false)
-- Implement onScrollCapture to detect sticky state for folders
-- Enable saveScrollPosition in Portal TreeList
-- Add .neo-stuck CSS style for transparent TreeList navigation"
 - 2026-01-10 @tobiu closed this issue
 

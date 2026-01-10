@@ -39,7 +39,7 @@ Create the initial directory structure and global variable definitions for the n
 - Text: `#c9d1d9`
 - Font: `'Courier New', monospace`
 
-## Activity Log
+## Timeline
 
 - 2025-12-04 @tobiu added the `enhancement` label
 - 2025-12-04 @tobiu added the `design` label

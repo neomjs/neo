@@ -42,7 +42,7 @@ This represents a significant milestone in the stability and predictability of f
 **Affected Files:**
 *   `src/functional/component/Base.mjs`
 
-## Activity Log
+## Timeline
 
 - 2025-07-12 @tobiu assigned to @tobiu
 - 2025-07-12 @tobiu added the `enhancement` label

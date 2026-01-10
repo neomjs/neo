@@ -64,13 +64,19 @@ This test plan was generated using the AI-Native workflow defined in the "Cookbo
 - [ ] **`user-select: none`:** Verify that the `user-select: none` CSS property is applied to the label, preventing text selection.
 - [ ] **`white-space: nowrap`:** Verify that the `white-space: nowrap` CSS property is applied to the label, preventing text wrapping.
 
-## Comments
+## Timeline
 
+- 2025-11-10 @tobiu added the `enhancement` label
+- 2025-11-10 @tobiu added parent issue #7435
+- 2025-11-10 @tobiu added the `ai` label
+- 2025-11-10 @tobiu added the `testing` label
+- 2025-11-10 @tobiu cross-referenced by PR #7734
 ### @Alachi24 - 2025-11-10 20:57
 
 @tobiu I'd like to work on this, kindly assign this to me.
 Also for clarity, i'd love to have any prior instruction to use as direction to work on this.
 
+- 2025-11-10 @tobiu assigned to @Alachi24
 ### @tobiu - 2025-11-10 21:00
 
 i would recommend looking at existing component based tests, e.g.:
@@ -82,14 +88,6 @@ https://github.com/neomjs/neo/blob/dev/test/playwright/component/button/Base.spe
 
 Acceptable... Thank you 
 
-## Activity Log
-
-- 2025-11-10 @tobiu added the `enhancement` label
-- 2025-11-10 @tobiu added parent issue #7435
-- 2025-11-10 @tobiu added the `ai` label
-- 2025-11-10 @tobiu added the `testing` label
-- 2025-11-10 @tobiu cross-referenced by PR #7734
-- 2025-11-10 @tobiu assigned to @Alachi24
 - 2025-11-13 @Alachi24 referenced in commit `b2d74a6` - "docs: add playwright test for Neo.component.label (#7737)"
 - 2025-11-13 @Alachi24 cross-referenced by PR #7768
 - 2025-11-15 @Alachi24 referenced in commit `822b65c` - "docs: update on add playwright test for Neo.component.label (#7737)"

@@ -32,7 +32,7 @@ The `SyncService` implementation contains several hardcoded "magic numbers" and 
     - `maxReleases` (e.g., `1000`)
     - `commentSectionDelimiter` (e.g., `'
 
-## Activity Log
+## Timeline
 
 - 2025-10-20 @tobiu assigned to @tobiu
 - 2025-10-20 @tobiu added the `enhancement` label

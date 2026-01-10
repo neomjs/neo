@@ -40,8 +40,13 @@ Missing mappings for:
 
 This causes these tools to fail with either "Tool not found" (server-side missing) or "Unknown method" (client-side missing).
 
-## Comments
+## Timeline
 
+- 2026-01-04 @tobiu added the `bug` label
+- 2026-01-04 @tobiu added the `ai` label
+- 2026-01-04 @tobiu referenced in commit `b6833f6` - "Fix Neural Link Tool Mappings (#8323)"
+- 2026-01-04 @tobiu assigned to @tobiu
+- 2026-01-04 @tobiu closed this issue
 ### @tobiu - 2026-01-04 19:13
 
 **Input from Gemini 3 Pro:**
@@ -54,12 +59,5 @@ This causes these tools to fail with either "Tool not found" (server-side missin
 > 
 > **Note:** These changes require a restart of the Neural Link MCP server to take effect. In the meantime, I am continuing to explore the other available tools in the current session.
 
-## Activity Log
-
-- 2026-01-04 @tobiu added the `bug` label
-- 2026-01-04 @tobiu added the `ai` label
-- 2026-01-04 @tobiu referenced in commit `b6833f6` - "Fix Neural Link Tool Mappings (#8323)"
-- 2026-01-04 @tobiu assigned to @tobiu
-- 2026-01-04 @tobiu closed this issue
 - 2026-01-04 @tobiu added parent issue #8169
 

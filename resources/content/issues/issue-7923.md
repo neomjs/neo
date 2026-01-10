@@ -35,7 +35,7 @@ To enable broader adoption (Epic #7919), we need to extract the Memory Core from
 *   A published npm package `@neomjs/ai-memory-server`.
 
 
-## Activity Log
+## Timeline
 
 - 2025-11-29 @tobiu added the `ai` label
 - 2025-11-29 @tobiu added the `refactoring` label

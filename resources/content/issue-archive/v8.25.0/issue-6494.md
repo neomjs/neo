@@ -23,7 +23,7 @@ closedAt: '2025-02-26T12:58:25Z'
 
 Right now, the scrolling logic is scattered inside `grid.Container` & `grid.View`. It should be at a central spot instead.
 
-## Activity Log
+## Timeline
 
 - 2025-02-26 @tobiu added the `enhancement` label
 - 2025-02-26 @tobiu assigned to @tobiu

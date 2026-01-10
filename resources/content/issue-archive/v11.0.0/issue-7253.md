@@ -32,7 +32,7 @@ This ticket addresses updates made to the `AGENTS.md` file to enhance AI agent g
 
 These updates improve the clarity and functionality of the AI agent's operational guidelines, enabling more efficient and accurate assistance within and outside the Neo.mjs framework context.
 
-## Activity Log
+## Timeline
 
 - 2025-09-24 @tobiu assigned to @tobiu
 - 2025-09-24 @tobiu added the `enhancement` label

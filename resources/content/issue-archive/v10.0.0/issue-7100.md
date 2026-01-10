@@ -62,7 +62,7 @@ The following configs, methods, and lifecycle logic must be moved from `src/comp
 -   `src/component/Base.mjs` (source of logic to be moved)
 -   `src/functional/component/Base.mjs` to not pass data to createVdom() => performance => access via `config.data`
 
-## Activity Log
+## Timeline
 
 - 2025-07-23 @tobiu assigned to @tobiu
 - 2025-07-23 @tobiu added the `enhancement` label

@@ -23,7 +23,7 @@ closedAt: '2025-09-20T11:00:27Z'
 
 Create a new top-level `AGENTS.md` file. This file will serve as a set of bootstrap instructions for AI agents working within the neo.mjs repository. It will define the agent's role, establish the repository as the single source of truth, mandate the reading of core files (`src/Neo.mjs`, `src/core/Base.mjs`), and instruct the agent to avoid hallucinations and use the `npm run ai:query` command frequently.
 
-## Activity Log
+## Timeline
 
 - 2025-09-20 @tobiu assigned to @tobiu
 - 2025-09-20 @tobiu added the `enhancement` label

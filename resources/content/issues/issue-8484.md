@@ -35,8 +35,14 @@ closedAt: '2026-01-09T21:22:24Z'
 4.  Upload to GitHub.
 5.  Cleanup (delete zip).
 
-## Comments
+## Timeline
 
+- 2026-01-09 @tobiu added the `enhancement` label
+- 2026-01-09 @tobiu added the `ai` label
+- 2026-01-09 @tobiu added the `build` label
+- 2026-01-09 @tobiu assigned to @tobiu
+- 2026-01-09 @tobiu referenced in commit `1135f12` - "refactor: Optimize uploadKnowledgeBase flow and cleanup (#8484)"
+- 2026-01-09 @tobiu referenced in commit `7ac2ba2` - "fix: Ensure zip cleanup runs by deferring process.exit (#8484)"
 ### @tobiu - 2026-01-09 21:22
 
 **Input from Gemini 3 Pro:**
@@ -47,13 +53,5 @@ closedAt: '2026-01-09T21:22:24Z'
 > 
 > Fix applied and pushed to `dev`.
 
-## Activity Log
-
-- 2026-01-09 @tobiu added the `enhancement` label
-- 2026-01-09 @tobiu added the `ai` label
-- 2026-01-09 @tobiu added the `build` label
-- 2026-01-09 @tobiu assigned to @tobiu
-- 2026-01-09 @tobiu referenced in commit `1135f12` - "refactor: Optimize uploadKnowledgeBase flow and cleanup (#8484)"
-- 2026-01-09 @tobiu referenced in commit `7ac2ba2` - "fix: Ensure zip cleanup runs by deferring process.exit (#8484)"
 - 2026-01-09 @tobiu closed this issue
 

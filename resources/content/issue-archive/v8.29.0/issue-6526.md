@@ -23,7 +23,7 @@ closedAt: '2025-03-03T10:50:09Z'
 
 * extending `grid.column.Base`
 
-## Activity Log
+## Timeline
 
 - 2025-03-03 @tobiu added the `enhancement` label
 - 2025-03-03 @tobiu assigned to @tobiu

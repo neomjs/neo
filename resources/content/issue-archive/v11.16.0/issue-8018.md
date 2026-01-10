@@ -37,8 +37,10 @@ To enable a true "Command Center" experience, users must be able to undock widge
 - [ ] Closing the popup (or dragging it back) restores the component to the main dashboard.
 
 
-## Comments
+## Timeline
 
+- 2025-12-04 @tobiu added the `enhancement` label
+- 2025-12-04 @tobiu added the `ai` label
 ### @tobiu - 2025-12-04 00:31
 
 **Input from Antigravity:**
@@ -61,10 +63,6 @@ To enable a true "Command Center" experience, users must be able to undock widge
 > 
 > Closing as completed.
 
-## Activity Log
-
-- 2025-12-04 @tobiu added the `enhancement` label
-- 2025-12-04 @tobiu added the `ai` label
 - 2025-12-04 @tobiu assigned to @tobiu
 - 2025-12-04 @tobiu added parent issue #7918
 - 2025-12-04 @tobiu closed this issue

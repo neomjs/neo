@@ -34,7 +34,7 @@ Implement `toJSON` in `src/selection/Model.mjs` to support Neural Link inspectio
 
 **Parent Issue:** #8200
 
-## Activity Log
+## Timeline
 
 - 2026-01-01 @tobiu added the `enhancement` label
 - 2026-01-01 @tobiu added the `ai` label

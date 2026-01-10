@@ -33,7 +33,7 @@ Change `container.removeAll()` to `container.removeAll(true, true)` in both file
 The second argument `silent=true` suppresses the update after removal.
 The subsequent `add()` will trigger a full update that includes the cleared state and the new item, merging two updates into one.
 
-## Activity Log
+## Timeline
 
 - 2025-12-10 @tobiu added the `enhancement` label
 - 2025-12-10 @tobiu added the `ai` label

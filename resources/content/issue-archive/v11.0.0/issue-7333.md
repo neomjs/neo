@@ -34,7 +34,7 @@ This separates the strategic "why" and "when" from the core operational protocol
 4.  The initial version of the guide is written, containing a detailed description of the **Regression Bug Analysis Workflow**.
 5.  The `AGENTS.md` file is updated to include reading this guide as a mandatory step in the `Session Initialization` protocol.
 
-## Activity Log
+## Timeline
 
 - 2025-10-03 @tobiu assigned to @tobiu
 - 2025-10-03 @tobiu added parent issue #7316

@@ -33,8 +33,14 @@ Since this issue affects various areas of the framework, it is most likely a "to
 
 I need to dive into it, before we can declare v10 as stable.
 
-## Comments
+## Timeline
 
+- 2025-06-24 @tobiu assigned to @tobiu
+- 2025-06-24 @tobiu added the `bug` label
+- 2025-06-24 @tobiu referenced in commit `fa85510` - "Portal.view.blog.List: Clearing the filter no longer works #6859 => minor logic polishing"
+- 2025-06-24 @tobiu changed title from **Portal.view.blog.List: Clearning the filter no longer works** to **Portal.view.blog.List: Clearing the filter no longer works**
+- 2025-06-24 @tobiu referenced in commit `885872c` - "Portal.view.blog.List: Clearing the filter no longer works #6859 => vdom.Helper typo fix"
+- 2025-06-24 @tobiu referenced in commit `d25166e` - "#6859 Portal.view.blog.List: util.Style: compareStyles() => fixed an else if part without a return value"
 ### @tobiu - 2025-06-24 11:24
 
 this was a fascinating debugging session.
@@ -70,12 +76,5 @@ The second issue was inside the `vdom.VNode` interface: in v9, a vnode inside th
 
 The key lesson learned: the entire auto-id on vnode level synchronization back to vdom structures works perfectly fine. I was a bit worried that this part broke => not the case.
 
-## Activity Log
-
-- 2025-06-24 @tobiu assigned to @tobiu
-- 2025-06-24 @tobiu added the `bug` label
-- 2025-06-24 @tobiu referenced in commit `fa85510` - "Portal.view.blog.List: Clearing the filter no longer works #6859 => minor logic polishing"
-- 2025-06-24 @tobiu referenced in commit `885872c` - "Portal.view.blog.List: Clearing the filter no longer works #6859 => vdom.Helper typo fix"
-- 2025-06-24 @tobiu referenced in commit `d25166e` - "#6859 Portal.view.blog.List: util.Style: compareStyles() => fixed an else if part without a return value"
 - 2025-06-24 @tobiu closed this issue
 

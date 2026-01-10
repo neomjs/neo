@@ -35,7 +35,7 @@ The `ai/mcp/server/github-workflow/mcp-stdio.mjs` entry point should use `comman
 -   Update `ai/mcp/server/github-workflow/mcp-stdio.mjs` to parse args.
 -   Refactor `ai/mcp/server/github-workflow/config.mjs` to allow loading from a specific path or merging with an external config.
 
-## Activity Log
+## Timeline
 
 - 2025-11-19 @tobiu added the `enhancement` label
 - 2025-11-19 @tobiu added the `ai` label

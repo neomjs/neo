@@ -23,7 +23,7 @@ closedAt: '2025-01-29T21:09:49Z'
 
 it has a bad effect on the opacity + background-gradinent otherwise
 
-## Activity Log
+## Timeline
 
 - 2025-01-29 @tobiu added the `enhancement` label
 - 2025-01-29 @tobiu assigned to @tobiu

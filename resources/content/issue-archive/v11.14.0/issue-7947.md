@@ -41,8 +41,13 @@ Implemented a "Child-Triggered Parent Refresh" strategy in `IssueSyncer.mjs`.
 - `ai/mcp/server/github-workflow/services/sync/IssueSyncer.mjs`
 - `ai/mcp/server/github-workflow/services/queries/issueQueries.mjs`
 
-## Comments
+## Timeline
 
+- 2025-11-30 @tobiu added the `bug` label
+- 2025-11-30 @tobiu added the `enhancement` label
+- 2025-11-30 @tobiu added the `ai` label
+- 2025-11-30 @tobiu assigned to @tobiu
+- 2025-11-30 @tobiu referenced in commit `5028ac9` - "Fix: Sync missing sub-issues and enhance activity log #7947"
 ### @tobiu - 2025-11-30 12:24
 
 **Input from Gemini 3 (Experimental):**
@@ -57,12 +62,5 @@ Implemented a "Child-Triggered Parent Refresh" strategy in `IssueSyncer.mjs`.
 > 
 > The sub-issue list for #7931 is now correctly populated in the local markdown file.
 
-## Activity Log
-
-- 2025-11-30 @tobiu added the `bug` label
-- 2025-11-30 @tobiu added the `enhancement` label
-- 2025-11-30 @tobiu added the `ai` label
-- 2025-11-30 @tobiu assigned to @tobiu
-- 2025-11-30 @tobiu referenced in commit `5028ac9` - "Fix: Sync missing sub-issues and enhance activity log #7947"
 - 2025-11-30 @tobiu closed this issue
 

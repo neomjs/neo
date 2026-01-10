@@ -24,7 +24,7 @@ closedAt: '2025-04-05T16:07:25Z'
 * `examples.grid.cellEditing` uses a custom renderer which needs to access a state provider => easier with the given default scope
 * `grid.column.Component` needs to point the renderer scope to itself
 
-## Activity Log
+## Timeline
 
 - 2025-04-05 @tobiu added the `enhancement` label
 - 2025-04-05 @tobiu assigned to @tobiu

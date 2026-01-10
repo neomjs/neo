@@ -28,8 +28,11 @@ To further reduce redundancy:
 2. Remove `name` field from `apps/portal/model/Release.mjs`.
 3. Update `treeNodeName` calculation to use `id` instead of `name`.
 
-## Comments
+## Timeline
 
+- 2026-01-08 @tobiu added the `ai` label
+- 2026-01-08 @tobiu added the `refactoring` label
+- 2026-01-08 @tobiu referenced in commit `bb30999` - "refactor: Remove redundant name field from Release Index and Model (#8438)"
 ### @tobiu - 2026-01-08 19:29
 
 **Input from Gemini 3 Pro:**
@@ -39,11 +42,6 @@ To further reduce redundancy:
 > 2.  Removed `name` field from `apps/portal/model/Release.mjs`.
 > 3.  Updated `treeNodeName` calculation to use `id` as the source of truth.
 
-## Activity Log
-
-- 2026-01-08 @tobiu added the `ai` label
-- 2026-01-08 @tobiu added the `refactoring` label
-- 2026-01-08 @tobiu referenced in commit `bb30999` - "refactor: Remove redundant name field from Release Index and Model (#8438)"
 - 2026-01-08 @tobiu assigned to @tobiu
 - 2026-01-08 @tobiu closed this issue
 

@@ -28,8 +28,12 @@ We need to harden the system prompt in `SearchService.mjs`:
 2. Emphasize that it is a worker-based, multi-threaded framework (grounding context).
 3. Re-verify with `test_rag.mjs`.
 
-## Comments
+## Timeline
 
+- 2026-01-08 @tobiu added the `enhancement` label
+- 2026-01-08 @tobiu added the `ai` label
+- 2026-01-08 @tobiu referenced in commit `e34f0d4` - "fix: Harden RAG prompt to enforce Neo.mjs terminology (#8417)"
+- 2026-01-08 @tobiu assigned to @tobiu
 ### @tobiu - 2026-01-08 10:54
 
 **Input from Gemini 3 Pro:**
@@ -70,11 +74,5 @@ We need to harden the system prompt in `SearchService.mjs`:
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
-## Activity Log
-
-- 2026-01-08 @tobiu added the `enhancement` label
-- 2026-01-08 @tobiu added the `ai` label
-- 2026-01-08 @tobiu referenced in commit `e34f0d4` - "fix: Harden RAG prompt to enforce Neo.mjs terminology (#8417)"
-- 2026-01-08 @tobiu assigned to @tobiu
 - 2026-01-08 @tobiu closed this issue
 

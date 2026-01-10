@@ -29,7 +29,7 @@ The `AGENTS.md` file currently implies the agent should check for the memory cor
 
 Update `AGENTS.md` to clearly state that the memory server runs on port 8001 and ensure the health check command targets the correct port. This will improve the reliability of the agent's session initialization.
 
-## Activity Log
+## Timeline
 
 - 2025-10-05 @tobiu assigned to @tobiu
 - 2025-10-05 @tobiu added parent issue #7316

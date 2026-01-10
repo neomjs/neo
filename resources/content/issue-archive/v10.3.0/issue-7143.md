@@ -24,7 +24,7 @@ closedAt: '2025-07-31T15:25:44Z'
 **Description:**
 After the feature is functionally complete and well-tested, refactor the new modules (`HtmlTemplateProcessor`, etc.) to meet the high code quality standards of the neo.mjs framework. This includes adding comprehensive JSDoc comments, ensuring adherence to coding guidelines, and optimizing for clarity and performance.
 
-## Activity Log
+## Timeline
 
 - 2025-07-31 @tobiu assigned to @tobiu
 - 2025-07-31 @tobiu added parent issue #7130

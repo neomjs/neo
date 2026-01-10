@@ -30,13 +30,7 @@ This task covers the architectural refactoring and consolidation of the Playwrig
 3.  **Configuration Cleanup:** The `neo-config.json` for the harness was cleaned up to remove redundant settings and rely on the framework's defaults from `src/DefaultConfig.mjs`.
 4.  **Strategy Documentation:** The main epic (`epic-migrate-component-tests-to-playwright.md`) was updated to reflect these structural changes and to formally document the new **hybrid testing strategy** for complex components.
 
-## Comments
-
-### @tobiu - 2025-10-12 12:59
-
-FYI @Aki-07. I will create 1-2 PoC tests next. also updated the epic to at least mention the hybrid strategy.
-
-## Activity Log
+## Timeline
 
 - 2025-10-12 @tobiu assigned to @tobiu
 - 2025-10-12 @tobiu added parent issue #7435
@@ -44,5 +38,9 @@ FYI @Aki-07. I will create 1-2 PoC tests next. also updated the epic to at least
 - 2025-10-12 @tobiu added the `ai` label
 - 2025-10-12 @tobiu referenced in commit `a48b99b` - "Refactor: Consolidate and Refine Playwright Test Harness
 #7469"
+### @tobiu - 2025-10-12 12:59
+
+FYI @Aki-07. I will create 1-2 PoC tests next. also updated the epic to at least mention the hybrid strategy.
+
 - 2025-10-12 @tobiu closed this issue
 

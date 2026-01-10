@@ -113,7 +113,7 @@ Empower AI agents to "see" and "touch" the runtime application, moving beyond st
 -   An AI agent can inspect the state of a drag operation in real-time.
 
 
-## Activity Log
+## Timeline
 
 - 2025-12-28 @tobiu added the `epic` label
 - 2025-12-28 @tobiu added the `ai` label

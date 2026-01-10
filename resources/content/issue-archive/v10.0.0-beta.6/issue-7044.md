@@ -30,16 +30,14 @@ Most likely, one of these 2 files is responsible:
 * `Neo.main.render.DomApiRenderer`
 * `Neo.main.DeltaUpdates`
 
-## Comments
-
-### @tobiu - 2025-07-13 17:29
-
-<img width="988" height="749" alt="Image" src="https://github.com/user-attachments/assets/fae2ae64-0562-4682-a248-e4c2b2100694" />
-
-## Activity Log
+## Timeline
 
 - 2025-07-13 @tobiu assigned to @tobiu
 - 2025-07-13 @tobiu added the `bug` label
 - 2025-07-13 @tobiu referenced in commit `0a7c9b1` - "examples.todoList.version1.MainComponent: vtype: "text" gets rendered as a div #7044"
+### @tobiu - 2025-07-13 17:29
+
+<img width="988" height="749" alt="Image" src="https://github.com/user-attachments/assets/fae2ae64-0562-4682-a248-e4c2b2100694" />
+
 - 2025-07-13 @tobiu closed this issue
 

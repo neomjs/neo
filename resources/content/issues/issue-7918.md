@@ -52,7 +52,7 @@ This epic covers Phase 3 of the Agent OS Roadmap: building the "Killer App" that
 3.  **Intervention UI:** A chat-like interface to guide stuck agents.
 
 
-## Activity Log
+## Timeline
 
 - 2025-11-29 @tobiu added the `epic` label
 - 2025-11-29 @tobiu added the `ai` label

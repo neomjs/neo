@@ -37,7 +37,7 @@ This optimization is particularly beneficial for grids displaying a large number
 
 This feature was implemented in `src/grid/Body.mjs#createRow`.
 
-## Activity Log
+## Timeline
 
 - 2025-08-12 @tobiu assigned to @tobiu
 - 2025-08-12 @tobiu added the `enhancement` label

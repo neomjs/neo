@@ -37,8 +37,9 @@ Creating an alternative first has a higher priority, but we need to get this add
 
 @maxrahder @gplanansky
 
-## Comments
+## Timeline
 
+- 2025-04-01 @tobiu added the `bug` label
 ### @gplanansky - 2025-04-09 17:23
 
 I have had advanced markers working for some time.  I'll clean up and do a PR.
@@ -47,13 +48,10 @@ I have had advanced markers working for some time.  I'll clean up and do a PR.
 
 This issue is stale because it has been open for 90 days with no activity.
 
+- 2025-07-09 @github-actions added the `stale` label
 ### @github-actions - 2025-07-23 03:12
 
 This issue was closed because it has been inactive for 14 days since being marked as stale.
 
-## Activity Log
-
-- 2025-04-01 @tobiu added the `bug` label
-- 2025-07-09 @github-actions added the `stale` label
 - 2025-07-23 @github-actions closed this issue
 

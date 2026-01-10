@@ -31,18 +31,16 @@ It might be possible with just a couple of CSS tweaks, but it probably is more t
 
 In case someone has a good idea, feel free to add a comment or send a PR. Thx!
 
-## Comments
-
-### @tobiu - 2025-02-26 13:36
-
-already resolved.
-
-## Activity Log
+## Timeline
 
 - 2025-01-14 @tobiu added the `enhancement` label
 - 2025-01-14 @tobiu added the `help wanted` label
 - 2025-02-06 @tobiu referenced in commit `18a717b` - "grid.View: create a PoC to have the vertical scrollbar at the right edge of the wrapper container #6235 first try"
 - 2025-02-06 @tobiu referenced in commit `e25a546` - "#6235 grid.Scrollbar: base class & scss"
 - 2025-02-07 @tobiu referenced in commit `49c0bc0` - "#6235 main.addon.ScrollSync: base class"
+### @tobiu - 2025-02-26 13:36
+
+already resolved.
+
 - 2025-02-26 @tobiu closed this issue
 

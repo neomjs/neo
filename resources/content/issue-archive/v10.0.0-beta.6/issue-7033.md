@@ -43,7 +43,7 @@ This article will be crucial for attracting Angular developers to Neo.mjs, enhan
 *   `learn/comparisons/NeoVsAngular.md` (new file)
 *   `learn/comparisons/Overview.md` (will be updated to include this link)
 
-## Activity Log
+## Timeline
 
 - 2025-07-12 @tobiu assigned to @tobiu
 - 2025-07-12 @tobiu added the `enhancement` label

@@ -29,7 +29,7 @@ This ticket covers a series of enhancements to the `learn/comparisons/NeoVsVue.m
 - Added a dedicated section comparing Vue's pure "pull" reactivity with Neo.mjs's hybrid "push/pull" system, explaining the benefits of `afterSet` hooks for complex logic.
 - Contrasted Vue's lifecycle with Neo.mjs's stable and persistent lifecycle, focusing on `initAsync` and multi-window capabilities as key differentiators for advanced applications.
 
-## Activity Log
+## Timeline
 
 - 2025-07-24 @tobiu assigned to @tobiu
 - 2025-07-24 @tobiu added the `enhancement` label

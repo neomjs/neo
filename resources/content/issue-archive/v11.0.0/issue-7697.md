@@ -32,7 +32,7 @@ The AI knowledge-base server should proactively ensure it's up-to-date when it s
 - The server startup logs should clearly indicate which process is running (sync or embed) and its outcome.
 
 
-## Activity Log
+## Timeline
 
 - 2025-11-03 @tobiu added the `enhancement` label
 - 2025-11-03 @tobiu added the `ai` label

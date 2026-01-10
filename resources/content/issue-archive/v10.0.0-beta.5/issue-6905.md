@@ -35,19 +35,17 @@ Modify the `applyMixins` function (or the `Neo.setupClass` process where mixins 
 *   **Enhanced Developer Experience**: Mixins become more powerful and intuitive for sharing not just behavior, but also configurable state.
 *   **Consistency**: Aligns the mixin system more closely with the declarative nature of Neo.mjs's config system.
 
-## Comments
-
-### @tobiu - 2025-07-08 21:04
-
-<img width="945" height="303" alt="Image" src="https://github.com/user-attachments/assets/b72d102e-f596-4cbf-84cb-96a51960f99a" />
-
-## Activity Log
+## Timeline
 
 - 2025-06-30 @tobiu added the `enhancement` label
 - 2025-07-08 @tobiu referenced in commit `1a4bbfb` - "Enhance Mixin System: Automatically Merge static config from Mixins #6905 exploration inside a new feature branch"
 - 2025-07-08 @tobiu referenced in commit `31c60d2` - "#6905 exploration WIP"
 - 2025-07-08 @tobiu referenced in commit `3bf40d4` - "#6905 Added test testing class into the current feature branch, to not lose it."
 - 2025-07-08 @tobiu referenced in commit `8fc891c` - "Enhance Mixin System: Automatically Merge static config from Mixins #6905"
+### @tobiu - 2025-07-08 21:04
+
+<img width="945" height="303" alt="Image" src="https://github.com/user-attachments/assets/b72d102e-f596-4cbf-84cb-96a51960f99a" />
+
 - 2025-07-08 @tobiu closed this issue
 - 2025-07-09 @tobiu referenced in commit `3e475e6` - "#6905 Added test testing class into the current feature branch, to not lose it."
 - 2025-07-09 @tobiu referenced in commit `9feb51e` - "Enhance Mixin System: Automatically Merge static config from Mixins #6905"

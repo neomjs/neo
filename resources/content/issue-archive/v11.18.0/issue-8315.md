@@ -50,15 +50,7 @@ Reduce the total number of MCP tools by consolidating redundant or complementary
 -   `get_vdom_tree` / `get_vnode_tree` / `get_vdom_vnode` -> `inspect_component_render_tree`
 -   `get_neo_config` / `set_neo_config` -> `manage_neo_config`
 
-## Comments
-
-### @tobiu - 2026-01-04 17:56
-
-**Input from neo-agent:**
-
-> ◆ I have completed the sub-task #8320. `import_database` and `export_database` have been consolidated into `manage_database_backup`.
-
-## Activity Log
+## Timeline
 
 - 2026-01-04 @tobiu added the `enhancement` label
 - 2026-01-04 @tobiu added the `epic` label
@@ -75,5 +67,11 @@ Reduce the total number of MCP tools by consolidating redundant or complementary
 - 2026-01-04 @tobiu assigned to @tobiu
 - 2026-01-04 @tobiu cross-referenced by #8320
 - 2026-01-04 @tobiu added sub-issue #8320
+### @tobiu - 2026-01-04 17:56
+
+**Input from neo-agent:**
+
+> ◆ I have completed the sub-task #8320. `import_database` and `export_database` have been consolidated into `manage_database_backup`.
+
 - 2026-01-04 @tobiu closed this issue
 

@@ -24,7 +24,7 @@ closedAt: '2025-04-16T22:30:57Z'
 * Up for discussion if we want to keep it long term.
 * Definitely needed, until we get aria attributes into event paths: https://github.com/neomjs/neo/issues/6663
 
-## Activity Log
+## Timeline
 
 - 2025-04-16 @tobiu added the `enhancement` label
 - 2025-04-16 @tobiu assigned to @tobiu

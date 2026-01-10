@@ -23,7 +23,7 @@ closedAt: '2025-01-29T22:19:28Z'
 
 * not needed plus staying in sync with `grid.View`
 
-## Activity Log
+## Timeline
 
 - 2025-01-29 @tobiu added the `enhancement` label
 - 2025-01-29 @tobiu assigned to @tobiu

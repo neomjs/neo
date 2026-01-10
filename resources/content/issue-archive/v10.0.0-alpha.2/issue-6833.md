@@ -24,7 +24,7 @@ closedAt: '2025-06-18T16:28:10Z'
 * We are using the same logic within `insertNode()` and `moveNode()`
 * Time to give it a new home
 
-## Activity Log
+## Timeline
 
 - 2025-06-18 @tobiu assigned to @tobiu
 - 2025-06-18 @tobiu added the `enhancement` label

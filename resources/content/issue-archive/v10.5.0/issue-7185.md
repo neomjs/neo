@@ -62,7 +62,7 @@ This feature was implemented through a series of commits, including the initial 
 
 These results demonstrate a dramatic reduction in the initial data processing time, especially for larger datasets, leading to a much more responsive user experience.
 
-## Activity Log
+## Timeline
 
 - 2025-08-12 @tobiu assigned to @tobiu
 - 2025-08-12 @tobiu added the `enhancement` label

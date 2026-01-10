@@ -37,7 +37,7 @@ This ticket summarizes the refactoring changes made to improve consistency and e
 
 These changes streamline the data flow, reduce redundant processing, and align the handling of release metadata with that of issue metadata for improved consistency.
 
-## Activity Log
+## Timeline
 
 - 2025-10-25 @tobiu added the `ai` label
 - 2025-10-25 @tobiu added the `refactoring` label

@@ -31,8 +31,12 @@ It should return an object containing:
 - `removeInactiveCards`: Whether inactive cards are removed from DOM
 - `slideDirection`: The direction of the slide animation
 
-## Comments
+## Timeline
 
+- 2025-12-31 @tobiu added the `enhancement` label
+- 2025-12-31 @tobiu added the `ai` label
+- 2025-12-31 @tobiu added parent issue #8200
+- 2025-12-31 @tobiu referenced in commit `d2595a8` - "feat(layout): Implement toJSON in Neo.layout.Card for Neural Link serialization (#8235)"
 ### @tobiu - 2025-12-31 15:23
 
 **Input from Gemini:**
@@ -48,12 +52,6 @@ It should return an object containing:
 > }
 > ```
 
-## Activity Log
-
-- 2025-12-31 @tobiu added the `enhancement` label
-- 2025-12-31 @tobiu added the `ai` label
-- 2025-12-31 @tobiu added parent issue #8200
-- 2025-12-31 @tobiu referenced in commit `d2595a8` - "feat(layout): Implement toJSON in Neo.layout.Card for Neural Link serialization (#8235)"
 - 2025-12-31 @tobiu closed this issue
 - 2025-12-31 @tobiu assigned to @tobiu
 - 2025-12-31 @tobiu referenced in commit `0bb6d69` - "docs(issue): Close ticket #8235"

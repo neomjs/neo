@@ -23,7 +23,7 @@ closedAt: '2025-01-04T16:21:21Z'
 
 we need to work more with position absolute & relative, since it would get too expensive otherwise.
 
-## Activity Log
+## Timeline
 
 - 2025-01-04 @tobiu added the `enhancement` label
 - 2025-01-04 @tobiu assigned to @tobiu

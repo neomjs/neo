@@ -28,7 +28,7 @@ is actually expensive, since it will trigger `getHierarchyData()` inside `state.
 
 related to: https://github.com/neomjs/neo/issues/6597
 
-## Activity Log
+## Timeline
 
 - 2025-03-30 @tobiu added the `enhancement` label
 - 2025-03-30 @tobiu referenced in commit `d7b47de` - "calendar.view.week.plugin.EventResizable: onMouseMove() => simplify the check condition #6598"

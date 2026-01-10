@@ -32,7 +32,7 @@ The Neural Link Bridge knows which agents are connected. This information should
 
 This provides better observability into the multi-agent environment.
 
-## Activity Log
+## Timeline
 
 - 2025-12-30 @tobiu added the `enhancement` label
 - 2025-12-30 @tobiu added the `ai` label

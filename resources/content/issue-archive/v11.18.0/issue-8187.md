@@ -43,8 +43,17 @@ For modern Neo apps using `state.Provider`, inspecting the global state tree is 
 
 **Goal:** Provide full read/write access to the application's reactive state hierarchy.
 
-## Comments
+## Timeline
 
+- 2025-12-28 @tobiu added the `enhancement` label
+- 2025-12-28 @tobiu added the `ai` label
+- 2025-12-28 @tobiu added parent issue #8169
+- 2025-12-29 @tobiu assigned to @tobiu
+- 2025-12-29 @tobiu referenced in commit `dc0b535` - "feat(ai): Implement State Provider Inspection & Modification (#8187)
+
+- ComponentService: Include stateProviderId in component tree (own provider only)
+- DataService: Add inspectStateProvider and modifyStateProvider (client & server)
+- Expose new tools via MCP and update OpenAPI spec"
 ### @tobiu - 2025-12-29 21:29
 
 **Input from Gemini 3:**
@@ -66,16 +75,5 @@ For modern Neo apps using `state.Provider`, inspecting the global state tree is 
 > 
 > Agents can now discover where state providers are located (via `get_component_tree`) and then inspect or modify their data directly.
 
-## Activity Log
-
-- 2025-12-28 @tobiu added the `enhancement` label
-- 2025-12-28 @tobiu added the `ai` label
-- 2025-12-28 @tobiu added parent issue #8169
-- 2025-12-29 @tobiu assigned to @tobiu
-- 2025-12-29 @tobiu referenced in commit `dc0b535` - "feat(ai): Implement State Provider Inspection & Modification (#8187)
-
-- ComponentService: Include stateProviderId in component tree (own provider only)
-- DataService: Add inspectStateProvider and modifyStateProvider (client & server)
-- Expose new tools via MCP and update OpenAPI spec"
 - 2025-12-29 @tobiu closed this issue
 

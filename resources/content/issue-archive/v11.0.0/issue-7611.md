@@ -39,7 +39,7 @@ To address these issues, the `logger.mjs` file should be duplicated into each MC
 6.  All files within the `knowledge-base` server that previously imported the centralized logger are updated to import `../logger.mjs`.
 7.  All files within the `memory-core` server that previously imported the centralized logger are updated to import `../logger.mjs`.
 
-## Activity Log
+## Timeline
 
 - 2025-10-22 @tobiu assigned to @tobiu
 - 2025-10-22 @tobiu added the `enhancement` label

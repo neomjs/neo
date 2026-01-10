@@ -31,7 +31,7 @@ With the memory capture and query tools in place, this ticket involves updating 
     b.  Second, query the memory database (`npm run ai:query-memory`) for historical context, past decisions, and user requirements related to the current task.
 3.  The guidelines should emphasize how to synthesize information from both sources to make more informed decisions.
 
-## Activity Log
+## Timeline
 
 - 2025-10-01 @tobiu assigned to @tobiu
 - 2025-10-01 @tobiu added the `enhancement` label

@@ -42,7 +42,7 @@ Create a new core manager, `Neo.manager.Window`, in the App Worker to track the 
 -   (Mock/Test) Updating a window's rect updates the internal state.
 -   `getWindowAt(x, y)` correctly identifies the target window based on the stored geometry.
 
-## Activity Log
+## Timeline
 
 - 2025-11-21 @tobiu added the `enhancement` label
 - 2025-11-21 @tobiu added the `ai` label

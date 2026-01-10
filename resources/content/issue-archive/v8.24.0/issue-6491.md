@@ -22,7 +22,7 @@ closedAt: '2025-02-24T17:26:32Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
 - 2025-02-24 @tobiu added the `enhancement` label
 - 2025-02-24 @tobiu referenced in commit `ee4a1ab` - "selection.grid.CellModel: add support for navigating into non-painted columns #6491 WIP"

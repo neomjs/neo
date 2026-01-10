@@ -31,7 +31,7 @@ Increase the `maxSubIssuesPerIssue` configuration in `ai/mcp/server/github-workf
 **Implementation:**
 - Update `maxSubIssuesPerIssue` in `ai/mcp/server/github-workflow/config.mjs`.
 
-## Activity Log
+## Timeline
 
 - 2026-01-05 @tobiu added the `enhancement` label
 - 2026-01-05 @tobiu added the `ai` label

@@ -39,13 +39,7 @@ This enhancement will allow the agent to fully understand how to call each tool,
 3.  The `callTool` function in `toolService.mjs` is updated to remove the manual `switch` statement for argument mapping. It should expect `args` to conform to the `inputSchema` and use a more generic method to pass them to the `tool.handler`.
 4.  The `outputSchema` (JSON Schema object) is optionally included in the tool definition if available in the OpenAPI response.
 
-## Comments
-
-### @tobiu - 2025-10-14 12:30
-
-<img width="837" height="789" alt="Image" src="https://github.com/user-attachments/assets/7c179ecd-1bcf-4c5e-a3d3-4f990c846819" />
-
-## Activity Log
+## Timeline
 
 - 2025-10-14 @tobiu assigned to @tobiu
 - 2025-10-14 @tobiu added the `enhancement` label
@@ -53,6 +47,10 @@ This enhancement will allow the agent to fully understand how to call each tool,
 - 2025-10-14 @tobiu added parent issue #7477
 - 2025-10-14 @tobiu referenced in commit `d2af666` - "Enhance Tools List with OpenAPI Schema #7487"
 - 2025-10-14 @tobiu referenced in commit `d5fe8f3` - "#7487 buildOutputSchema()"
+### @tobiu - 2025-10-14 12:30
+
+<img width="837" height="789" alt="Image" src="https://github.com/user-attachments/assets/7c179ecd-1bcf-4c5e-a3d3-4f990c846819" />
+
 - 2025-10-14 @tobiu closed this issue
 - 2025-10-14 @tobiu cross-referenced by #7403
 

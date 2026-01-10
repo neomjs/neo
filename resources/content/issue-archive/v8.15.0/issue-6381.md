@@ -27,16 +27,14 @@ closedAt: '2025-02-05T16:12:22Z'
 
 It might make sense to enhance `boundaryContainerId` to also accept `String[]` => multiple ids and create an intersection rectangle.
 
-## Comments
-
-### @tobiu - 2025-02-05 16:12
-
-https://github.com/user-attachments/assets/d02c56be-ec7a-409e-9112-de1240d37fbd
-
-## Activity Log
+## Timeline
 
 - 2025-02-05 @tobiu added the `enhancement` label
 - 2025-02-05 @tobiu assigned to @tobiu
 - 2025-02-05 @tobiu referenced in commit `c9e8a38` - "draggable.grid.header.toolbar.SortZone: limit the boundary rect to match the grid container width #6381"
+### @tobiu - 2025-02-05 16:12
+
+https://github.com/user-attachments/assets/d02c56be-ec7a-409e-9112-de1240d37fbd
+
 - 2025-02-05 @tobiu closed this issue
 

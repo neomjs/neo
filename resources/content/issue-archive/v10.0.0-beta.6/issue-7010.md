@@ -55,15 +55,13 @@ export default defineComponent(function MyCounter(config) { // The functional co
 // Neo.create(MyCounter, { id: 'my-counter-instance' });
 ```
 
-## Comments
+## Timeline
 
+- 2025-07-11 @tobiu added the `enhancement` label
+- 2025-07-11 @tobiu added parent issue #6992
 ### @tobiu - 2025-07-13 17:32
 
 resolved via: https://github.com/neomjs/neo/tree/dev/examples/functional/defineComponent
 
-## Activity Log
-
-- 2025-07-11 @tobiu added the `enhancement` label
-- 2025-07-11 @tobiu added parent issue #6992
 - 2025-07-13 @tobiu closed this issue
 

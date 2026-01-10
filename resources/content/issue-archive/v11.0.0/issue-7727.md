@@ -24,7 +24,7 @@ closedAt: '2025-11-08T14:50:03Z'
 * stop auto-cycling when switching to a different browser tab
 * restart when coming back (with a cleared cache
 
-## Activity Log
+## Timeline
 
 - 2025-11-08 @tobiu assigned to @tobiu
 - 2025-11-08 @tobiu added the `enhancement` label

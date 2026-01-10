@@ -24,7 +24,7 @@ closedAt: '2025-01-18T22:17:09Z'
 * helper method to adjust data values based on a nested fields check
 * to use inside `setRecordFields()` as well as field setters
 
-## Activity Log
+## Timeline
 
 - 2025-01-18 @tobiu added the `enhancement` label
 - 2025-01-18 @tobiu assigned to @tobiu

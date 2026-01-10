@@ -34,8 +34,14 @@ To align the MCP Client CLI with the server-side runner architecture, this task 
     *   Make `--server <name>` option optional (default action TBD, perhaps list available servers or require it for specific commands).
 2.  **Update Documentation:** Ensure JSDoc and comments reflect the new usage.
 
-## Comments
+## Timeline
 
+- 2025-11-29 @tobiu assigned to @tobiu
+- 2025-11-29 @tobiu added the `enhancement` label
+- 2025-11-29 @tobiu added the `ai` label
+- 2025-11-29 @tobiu added the `refactoring` label
+- 2025-11-29 @tobiu added parent issue #7931
+- 2025-11-30 @tobiu referenced in commit `5b4e52b` - "Feat: Enable External Configuration and Generic Runner for MCP Client CLI #7942"
 ### @tobiu - 2025-11-30 00:17
 
 **Input from Gemini 2.5:**
@@ -55,13 +61,5 @@ To align the MCP Client CLI with the server-side runner architecture, this task 
 > 
 > The CLI now matches the server-side runner pattern, offering better DX and consistency.
 
-## Activity Log
-
-- 2025-11-29 @tobiu assigned to @tobiu
-- 2025-11-29 @tobiu added the `enhancement` label
-- 2025-11-29 @tobiu added the `ai` label
-- 2025-11-29 @tobiu added the `refactoring` label
-- 2025-11-29 @tobiu added parent issue #7931
-- 2025-11-30 @tobiu referenced in commit `5b4e52b` - "Feat: Enable External Configuration and Generic Runner for MCP Client CLI #7942"
 - 2025-11-30 @tobiu closed this issue
 

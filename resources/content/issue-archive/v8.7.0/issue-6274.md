@@ -23,7 +23,7 @@ closedAt: '2025-01-22T18:28:26Z'
 
 it makes sense to move this check into the record class prototype.
 
-## Activity Log
+## Timeline
 
 - 2025-01-22 @tobiu added the `enhancement` label
 - 2025-01-22 @tobiu assigned to @tobiu

@@ -24,7 +24,7 @@ closedAt: '2025-01-30T15:51:10Z'
 * I guess I left the `todo` in the code for a reason :)
 * Sometimes when swapping grid columns with their siblings, I do run into issues
 
-## Activity Log
+## Timeline
 
 - 2025-01-30 @tobiu added the `enhancement` label
 - 2025-01-30 @tobiu assigned to @tobiu

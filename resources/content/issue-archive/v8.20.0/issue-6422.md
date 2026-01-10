@@ -23,7 +23,7 @@ closedAt: '2025-02-09T18:40:22Z'
 
 * Regression issue: the proxy is still relying on the scrollbar stretcher, which just got removed
 
-## Activity Log
+## Timeline
 
 - 2025-02-09 @tobiu added the `bug` label
 - 2025-02-09 @tobiu assigned to @tobiu

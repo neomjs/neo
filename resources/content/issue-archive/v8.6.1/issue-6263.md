@@ -27,7 +27,7 @@ this one happens only inside the deployed online version (not reproducible local
 
 let us fix the "symptoms" first: the method should return `null` in case no node was found.
 
-## Activity Log
+## Timeline
 
 - 2025-01-21 @tobiu added the `bug` label
 - 2025-01-21 @tobiu assigned to @tobiu

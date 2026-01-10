@@ -33,18 +33,16 @@ Key Changes:
 4.  **Priority Updates:** Boost priority for high-value content (AI, Config System, etc.).
 
 
-## Comments
-
-### @tobiu - 2026-01-06 15:32
-
-resolved via https://github.com/neomjs/neo/commit/9f8d38aa2f46e9e4e7cd1a4adb2b01446407c915
-
-## Activity Log
+## Timeline
 
 - 2026-01-06 @tobiu added the `documentation` label
 - 2026-01-06 @tobiu added the `enhancement` label
 - 2026-01-06 @tobiu added the `ai` label
 - 2026-01-06 @tobiu added the `build` label
 - 2026-01-06 @tobiu assigned to @tobiu
+### @tobiu - 2026-01-06 15:32
+
+resolved via https://github.com/neomjs/neo/commit/9f8d38aa2f46e9e4e7cd1a4adb2b01446407c915
+
 - 2026-01-06 @tobiu closed this issue
 

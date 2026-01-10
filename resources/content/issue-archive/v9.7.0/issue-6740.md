@@ -24,16 +24,14 @@ closedAt: '2025-06-01T17:21:32Z'
 * It requires changes in several files
 * Most importantly, we can no longer use a SW file inside the `apps` & `examples` folder, but it has to be on root level => otherwise only the main thread will use it in dist/esm, but not the workers
 
-## Comments
-
-### @tobiu - 2025-06-01 17:21
-
-<img width="1943" alt="Image" src="https://github.com/user-attachments/assets/75a7361e-b185-48ee-b500-03740c750084" />
-
-## Activity Log
+## Timeline
 
 - 2025-06-01 @tobiu assigned to @tobiu
 - 2025-06-01 @tobiu added the `enhancement` label
 - 2025-06-01 @tobiu referenced in commit `595b4aa` - "Enable service worker support for dist/esm #6740"
+### @tobiu - 2025-06-01 17:21
+
+<img width="1943" alt="Image" src="https://github.com/user-attachments/assets/75a7361e-b185-48ee-b500-03740c750084" />
+
 - 2025-06-01 @tobiu closed this issue
 

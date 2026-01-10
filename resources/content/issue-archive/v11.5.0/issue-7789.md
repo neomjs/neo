@@ -70,7 +70,7 @@ The current browser-based  plugin is not compatible with Node.js as it relies on
 }
 ```
 
-## Activity Log
+## Timeline
 
 - 2025-11-18 @tobiu added the `enhancement` label
 - 2025-11-18 @tobiu added the `ai` label

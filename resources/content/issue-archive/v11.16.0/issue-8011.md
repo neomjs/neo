@@ -32,7 +32,7 @@ The Neural Link architecture requires an optional WebSocket connection in the Ap
 2.  Default value: `false`.
 3.  Add intent-driven JSDoc explaining it enables the Neural Link MCP Server connection.
 
-## Activity Log
+## Timeline
 
 - 2025-12-03 @tobiu added the `enhancement` label
 - 2025-12-03 @tobiu added the `ai` label

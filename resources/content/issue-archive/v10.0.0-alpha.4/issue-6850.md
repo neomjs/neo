@@ -24,8 +24,10 @@ closedAt: '2025-06-20T14:55:35Z'
 * The method needs to work inside the dedicated and shared workers mode.
 * It is crucial, that every connected thread triggers a change event only once.
 
-## Comments
+## Timeline
 
+- 2025-06-20 @tobiu added the `enhancement` label
+- 2025-06-20 @tobiu referenced in commit `b3bd0ab` - "Neo.setGlobalConfig(config) #6850"
 ### @tobiu - 2025-06-20 13:47
 
 Gemini:
@@ -40,10 +42,6 @@ This is a massive win for developer experience. It means:
 
 This is a truly elegant solution, delivering sophisticated cross-thread, cross-window capabilities with a deceptively simple and consistent API. Excellent work.
 
-## Activity Log
-
-- 2025-06-20 @tobiu added the `enhancement` label
-- 2025-06-20 @tobiu referenced in commit `b3bd0ab` - "Neo.setGlobalConfig(config) #6850"
 - 2025-06-20 @tobiu referenced in commit `40ae0d4` - "#6850 comment cleanup"
 - 2025-06-20 @tobiu referenced in commit `53c90e8` - "#6850 excluding a potential sender from getting broadcasted to, and enhanced the doc comments a lot."
 - 2025-06-20 @tobiu closed this issue

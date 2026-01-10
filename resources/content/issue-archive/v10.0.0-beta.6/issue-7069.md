@@ -41,7 +41,7 @@ To address these issues, the `LivePreview.mjs` component was significantly refac
 
 3.  **Specific Component Type Check:** The validation logic was improved to explicitly check if the resolved class is a prototype of either `Neo.component.Base` or `Neo.functional.component.Base`. This ensures that only renderable UI components are passed to the container, preventing errors with other base classes.
 
-## Activity Log
+## Timeline
 
 - 2025-07-15 @tobiu assigned to @tobiu
 - 2025-07-15 @tobiu added the `enhancement` label

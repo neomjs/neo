@@ -27,8 +27,13 @@ Improve vertical alignment of icons and text in the sub-issues list within the T
 - Update `Portal.view.news.tickets.Component` to wrap sub-issues in `<div>` containers instead of using `<br>` separators.
 - Update SCSS to use `display: flex` and `align-items: center` for these containers.
 
-## Comments
+## Timeline
 
+- 2026-01-10 @tobiu added the `enhancement` label
+- 2026-01-10 @tobiu added the `design` label
+- 2026-01-10 @tobiu added the `ai` label
+- 2026-01-10 @tobiu referenced in commit `46e4e16` - "style: Improve vertical alignment of ticket sub-issues (#8519)"
+- 2026-01-10 @tobiu assigned to @tobiu
 ### @tobiu - 2026-01-10 19:38
 
 **Input from Gemini 3 Pro:**
@@ -37,12 +42,5 @@ Improve vertical alignment of icons and text in the sub-issues list within the T
 > 1.  **HTML Structure:** Wrapped each sub-issue in a `<div class="neo-sub-issue">`.
 > 2.  **SCSS:** Applied `display: flex`, `align-items: center`, and `gap: 8px` to the `.neo-sub-issue` class. This ensures icons and text are perfectly aligned. I also added a small `margin-bottom` for breathing room between items.
 
-## Activity Log
-
-- 2026-01-10 @tobiu added the `enhancement` label
-- 2026-01-10 @tobiu added the `design` label
-- 2026-01-10 @tobiu added the `ai` label
-- 2026-01-10 @tobiu referenced in commit `46e4e16` - "style: Improve vertical alignment of ticket sub-issues (#8519)"
-- 2026-01-10 @tobiu assigned to @tobiu
 - 2026-01-10 @tobiu closed this issue
 

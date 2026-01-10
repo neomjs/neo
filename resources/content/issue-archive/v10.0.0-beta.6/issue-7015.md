@@ -46,7 +46,7 @@ Since `core.Effect` is a new class introduced in the v10 beta series, adding an 
 -   `functional.component.Base` correctly passes its ID when creating its `vdomEffect`.
 -   This change enables the `useConfig` hook to reliably get the current component instance.
 
-## Activity Log
+## Timeline
 
 - 2025-07-11 @tobiu assigned to @tobiu
 - 2025-07-11 @tobiu added parent issue #6992

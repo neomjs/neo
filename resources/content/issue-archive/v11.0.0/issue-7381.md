@@ -36,21 +36,7 @@ To ensure all contributors have a consistent and functional environment for usin
 5.  It must check the `gh --version` against a minimum required version and instruct the user to upgrade if necessary.
 6.  The script should be added to `package.json` so it can be run easily (e.g., `npm run ai:verify-gh-setup`).
 
-## Comments
-
-### @LemonDrop847 - 2025-10-05 16:09
-
-would like to try this
-
-### @tobiu - 2025-10-05 16:09
-
-thx! assigned.
-
-### @tobiu - 2025-10-13 21:15
-
-closing the ticket as resolved.
-
-## Activity Log
+## Timeline
 
 - 2025-10-05 @tobiu added the `enhancement` label
 - 2025-10-05 @tobiu added the `help wanted` label
@@ -58,7 +44,19 @@ closing the ticket as resolved.
 - 2025-10-05 @tobiu added the `hacktoberfest` label
 - 2025-10-05 @tobiu added the `ai` label
 - 2025-10-05 @tobiu added parent issue #7364
+### @LemonDrop847 - 2025-10-05 16:09
+
+would like to try this
+
 - 2025-10-05 @tobiu assigned to @LemonDrop847
+### @tobiu - 2025-10-05 16:09
+
+thx! assigned.
+
 - 2025-10-05 @LemonDrop847 cross-referenced by PR #7382
+### @tobiu - 2025-10-13 21:15
+
+closing the ticket as resolved.
+
 - 2025-10-13 @tobiu closed this issue
 

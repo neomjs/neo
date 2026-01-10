@@ -23,7 +23,7 @@ closedAt: '2025-06-25T21:46:11Z'
 
 * For flexibility, let us check for thenable objects instead.
 
-## Activity Log
+## Timeline
 
 - 2025-06-25 @tobiu assigned to @tobiu
 - 2025-06-25 @tobiu added the `enhancement` label

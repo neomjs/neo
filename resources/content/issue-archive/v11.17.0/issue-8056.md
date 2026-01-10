@@ -49,7 +49,7 @@ Implement a two-phase verification process to balance performance and correctnes
 *   The fallback check should verify that `targetId` is findable starting from `listener.vnodeId` within the listener component's VNode tree.
 
 
-## Activity Log
+## Timeline
 
 - 2025-12-08 @tobiu added the `enhancement` label
 - 2025-12-08 @tobiu added the `ai` label

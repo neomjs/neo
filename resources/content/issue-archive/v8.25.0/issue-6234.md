@@ -23,15 +23,13 @@ closedAt: '2025-02-26T13:36:50Z'
 
 *(No description provided)*
 
-## Comments
+## Timeline
 
+- 2025-01-14 @tobiu added the `enhancement` label
+- 2025-01-14 @tobiu assigned to @tobiu
 ### @tobiu - 2025-02-26 13:36
 
 already resolved.
 
-## Activity Log
-
-- 2025-01-14 @tobiu added the `enhancement` label
-- 2025-01-14 @tobiu assigned to @tobiu
 - 2025-02-26 @tobiu closed this issue
 

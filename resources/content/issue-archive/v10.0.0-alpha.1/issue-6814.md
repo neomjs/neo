@@ -24,7 +24,7 @@ closedAt: '2025-06-16T12:29:58Z'
 * It was never used inside the framework code
 * We need a single source of truth to prevent lots of additional checks.
 
-## Activity Log
+## Timeline
 
 - 2025-06-16 @tobiu added the `enhancement` label
 - 2025-06-16 @tobiu added parent issue #6785

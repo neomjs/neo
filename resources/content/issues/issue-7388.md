@@ -34,14 +34,7 @@ This ticket is for defining the new interactive development workflow that levera
     c.  Use the insights from the DOM to generate meaningful Playwright tests.
 3.  The document serves as a blueprint for implementing the new workflow.
 
-## Comments
-
-### @1sh-repalto - 2025-10-06 16:52
-
-Hello @tobiu, I’d like to take up this issue. Could you please assign it to me?
-Also, it’s my first time contributing here, so any quick guidance would be really helpful. Thanks!
-
-## Activity Log
+## Timeline
 
 - 2025-10-06 @tobiu added parent issue #7385
 - 2025-10-06 @tobiu added the `enhancement` label
@@ -49,4 +42,9 @@ Also, it’s my first time contributing here, so any quick guidance would be rea
 - 2025-10-06 @tobiu added the `good first issue` label
 - 2025-10-06 @tobiu added the `hacktoberfest` label
 - 2025-10-06 @tobiu added the `ai` label
+### @1sh-repalto - 2025-10-06 16:52
+
+Hello @tobiu, I’d like to take up this issue. Could you please assign it to me?
+Also, it’s my first time contributing here, so any quick guidance would be really helpful. Thanks!
+
 

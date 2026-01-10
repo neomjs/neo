@@ -65,7 +65,7 @@ Modify `resources/scss/src/component/Markdown.scss`:
     }
 ```
 
-## Activity Log
+## Timeline
 
 - 2026-01-07 @tobiu added the `enhancement` label
 - 2026-01-07 @tobiu added the `design` label

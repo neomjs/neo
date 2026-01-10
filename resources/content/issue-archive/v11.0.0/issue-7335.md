@@ -33,7 +33,7 @@ This ticket covers the documentation and process improvements needed to prevent 
 1.  The `.github/AGENTS.md` file is updated to move the memory server check into the "Session Initialization" section.
 2.  The `buildScripts/ai/addMemory.mjs` script is updated with clear documentation for its command-line options, especially `--thought` and `--session-id`.
 
-## Activity Log
+## Timeline
 
 - 2025-10-03 @tobiu assigned to @tobiu
 - 2025-10-03 @tobiu added the `documentation` label

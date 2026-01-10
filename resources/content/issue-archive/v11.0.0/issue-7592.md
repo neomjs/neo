@@ -31,7 +31,7 @@ As part of the GraphQL migration, the `LabelService` and `IssueService` will be 
 3.  `IssueService.removeLabels` is refactored to use the `removeLabelsFromLabelable` GraphQL mutation.
 4.  The old `gh` command logic is removed from these services.
 
-## Activity Log
+## Timeline
 
 - 2025-10-21 @tobiu assigned to @tobiu
 - 2025-10-21 @tobiu added parent issue #7590

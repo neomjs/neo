@@ -46,7 +46,7 @@ Release v11.8.0 introduced the Standalone AI SDK and "Code Execution" capabiliti
 **Strategic Value**
 This re-positioning captures the emerging "Agentic" market and differentiates Neo.mjs from traditional UI frameworks by claiming the "Agent OS" category.
 
-## Activity Log
+## Timeline
 
 - 2025-11-21 @tobiu added the `documentation` label
 - 2025-11-21 @tobiu added the `enhancement` label

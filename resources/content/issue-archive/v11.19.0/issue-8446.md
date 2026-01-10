@@ -39,7 +39,7 @@ Systematically replace "framework" with "engine", "platform", or "system" in the
 
 Total remaining instances to evaluate: **257**.
 
-## Activity Log
+## Timeline
 
 - 2026-01-08 @tobiu added the `documentation` label
 - 2026-01-08 @tobiu added the `enhancement` label

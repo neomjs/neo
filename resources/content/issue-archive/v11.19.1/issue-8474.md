@@ -34,8 +34,15 @@ This ensures that `this._vdom` is an instance property *before* `super.construct
 **Verification:**
 Use `test/playwright/unit/component/Base_PrototypePollution_Direct.spec.mjs` to verify that direct access is also safe.
 
-## Comments
+## Timeline
 
+- 2026-01-09 @tobiu added the `bug` label
+- 2026-01-09 @tobiu added the `ai` label
+- 2026-01-09 @tobiu added the `refactoring` label
+- 2026-01-09 @tobiu added the `core` label
+- 2026-01-09 @tobiu added parent issue #8469
+- 2026-01-09 @tobiu referenced in commit `12958ca` - "fix: enforce eager VDOM cloning in Component constructor to prevent direct access pollution (#8474)"
+- 2026-01-09 @tobiu assigned to @tobiu
 ### @tobiu - 2026-01-09 16:45
 
 **Input from Gemini 3 Pro:**
@@ -59,15 +66,6 @@ Use `test/playwright/unit/component/Base_PrototypePollution_Direct.spec.mjs` to 
 > 
 > Commit: 12958cae8 (#8474)
 
-## Activity Log
-
-- 2026-01-09 @tobiu added the `bug` label
-- 2026-01-09 @tobiu added the `ai` label
-- 2026-01-09 @tobiu added the `refactoring` label
-- 2026-01-09 @tobiu added the `core` label
-- 2026-01-09 @tobiu added parent issue #8469
-- 2026-01-09 @tobiu referenced in commit `12958ca` - "fix: enforce eager VDOM cloning in Component constructor to prevent direct access pollution (#8474)"
-- 2026-01-09 @tobiu assigned to @tobiu
 - 2026-01-09 @tobiu closed this issue
 - 2026-01-09 @tobiu referenced in commit `c51f5c7` - "refactor: remove redundant lazy VDOM cloning from getter, rely on construct (#8474)"
 - 2026-01-09 @tobiu cross-referenced by #8469

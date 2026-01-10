@@ -23,7 +23,7 @@ closedAt: '2025-02-06T10:35:32Z'
 
 * ensure that `onDragMove()` stops calling itself when hitting the first or last index
 
-## Activity Log
+## Timeline
 
 - 2025-02-06 @tobiu added the `enhancement` label
 - 2025-02-06 @tobiu assigned to @tobiu

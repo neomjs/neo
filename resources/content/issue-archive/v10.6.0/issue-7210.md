@@ -43,7 +43,7 @@ This ticket covers the implementation of a user-facing mechanism to request the 
     -   This method encapsulates the browser API interaction, calling `window.getScreenDetails()` to trigger the permission prompt.
     -   It includes checks for a secure context (`window.isSecureContext`) and API availability, returning a detailed success or error status.
 
-## Activity Log
+## Timeline
 
 - 2025-08-21 @tobiu assigned to @tobiu
 - 2025-08-21 @tobiu added the `enhancement` label

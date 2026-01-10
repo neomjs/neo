@@ -24,7 +24,7 @@ closedAt: '2025-05-05T16:55:12Z'
 * default `false`
 * not triggering an engine update if true
 
-## Activity Log
+## Timeline
 
 - 2025-05-05 @tobiu added the `enhancement` label
 - 2025-05-05 @tobiu added parent issue #6696

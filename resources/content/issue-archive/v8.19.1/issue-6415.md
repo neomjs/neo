@@ -24,7 +24,7 @@ closedAt: '2025-02-09T13:06:27Z'
 * Thinking more about it: when demos where hosted on pages.github.io, it made sense to find the repo.
 * Now demos are available on the neo domain, so finding the repo is trivial.
 
-## Activity Log
+## Timeline
 
 - 2025-02-09 @tobiu added the `enhancement` label
 - 2025-02-09 @tobiu assigned to @tobiu

@@ -23,7 +23,7 @@ closedAt: '2025-06-25T22:40:59Z'
 
 * a stronger sequential execution for cached methods is needed, assuming some of them could be async.
 
-## Activity Log
+## Timeline
 
 - 2025-06-25 @tobiu assigned to @tobiu
 - 2025-06-25 @tobiu added the `enhancement` label

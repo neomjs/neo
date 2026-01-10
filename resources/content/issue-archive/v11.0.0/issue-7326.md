@@ -33,7 +33,7 @@ This documentation will be added to `AI_QUICK_START.md` and will serve as the pr
     b.  Initializing the memory collection (`npm run ai:setup-memory-db`).
 3.  The documentation emphasizes that this is an optional feature and explains its benefits.
 
-## Activity Log
+## Timeline
 
 - 2025-10-02 @tobiu assigned to @tobiu
 - 2025-10-02 @tobiu added parent issue #7316

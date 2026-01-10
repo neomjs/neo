@@ -22,7 +22,7 @@ closedAt: '2025-05-29T11:09:11Z'
 
 * Move the `html-minifier-terser` related logic into its own file, so that we can also use it for `dist/production` => `webpack.config.appworker.mjs`
 
-## Activity Log
+## Timeline
 
 - 2025-05-29 @tobiu added the `enhancement` label
 - 2025-05-29 @tobiu referenced in commit `414f56d` - "buildScripts/util/minifyHtml.mjs #6728"

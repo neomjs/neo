@@ -33,24 +33,22 @@ This task is to migrate the unit test for `functional/Parse5Processor.mjs` from 
 3.  Ensure the new test runs successfully via `npm test`.
 4.  The new test must cover all the functionality of the original Siesta test.
 
-## Comments
-
-### @kart-u - 2025-10-04 09:00
-
-hello @tobiu I would like to work on this can you please assign it to me?
-
-### @tobiu - 2025-10-04 09:21
-
-done.
-
-## Activity Log
+## Timeline
 
 - 2025-09-27 @tobiu added the `enhancement` label
 - 2025-09-27 @tobiu added parent issue #7262
 - 2025-10-02 @tobiu added the `help wanted` label
 - 2025-10-02 @tobiu added the `good first issue` label
 - 2025-10-02 @tobiu added the `hacktoberfest` label
+### @kart-u - 2025-10-04 09:00
+
+hello @tobiu I would like to work on this can you please assign it to me?
+
 - 2025-10-04 @tobiu assigned to @kart-u
+### @tobiu - 2025-10-04 09:21
+
+done.
+
 - 2025-10-04 @kart-u referenced in commit `4eb6e3f` - "Convert functional/Parse5Processor.mjs Test from Siesta to Playwright #7284"
 - 2025-10-04 @kart-u cross-referenced by PR #7353
 - 2025-10-04 @kart-u cross-referenced by #7286

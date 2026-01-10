@@ -33,7 +33,7 @@ To improve separation of concerns and reuse, the headline parsing logic should b
 3.  Ensure `ContentComponent` removes the duplicated `updateContentSectionsStore` method.
 4.  Remove the duplicated regex definition.
 
-## Activity Log
+## Timeline
 
 - 2025-12-09 @tobiu added the `ai` label
 - 2025-12-09 @tobiu added the `refactoring` label

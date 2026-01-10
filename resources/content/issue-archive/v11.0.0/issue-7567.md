@@ -36,7 +36,7 @@ The sync logic will follow the "push-then-pull" model, so this push operation sh
     - The title should be extracted from the main `#` heading.
     - The body should be the content of the file, excluding the frontmatter and the `
 
-## Activity Log
+## Timeline
 
 - 2025-10-20 @tobiu assigned to @tobiu
 - 2025-10-20 @tobiu added the `enhancement` label

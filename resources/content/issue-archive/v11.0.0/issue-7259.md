@@ -33,15 +33,13 @@ This was discovered while converting the `VdomHelper` Siesta test to Playwright.
 - Correct the logic to ensure `className` is handled as a top-level `vnode` property.
 - Update the assertions in `test/playwright/unit/VdomHelper.spec.mjs` to reflect the correct behavior.
 
-## Comments
+## Timeline
 
+- 2025-09-26 @tobiu assigned to @tobiu
+- 2025-09-26 @tobiu added the `bug` label
 ### @tobiu - 2025-09-26 13:40
 
 We can close this one. It was a Gemini hallucination, using `className` instead of `cls` inside the vdom definitions
 
-## Activity Log
-
-- 2025-09-26 @tobiu assigned to @tobiu
-- 2025-09-26 @tobiu added the `bug` label
 - 2025-09-26 @tobiu closed this issue
 

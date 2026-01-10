@@ -25,7 +25,7 @@ closedAt: '2025-07-05T10:31:28Z'
 * Rationale: this avoids regenerating it every time the method is called.
 * Let us also remove fat arrows here => performance gain, since bindings are not needed here.
 
-## Activity Log
+## Timeline
 
 - 2025-07-05 @tobiu assigned to @tobiu
 - 2025-07-05 @tobiu added the `enhancement` label

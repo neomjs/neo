@@ -33,7 +33,7 @@ Modify `AGENTS.md` to make the agent's information-gathering process more robust
 
 2.  **Enhance Initial Query Strategy:** The "Discovery Pattern" will be updated with a more prescriptive initial step, forcing the agent to query for foundational terms like "benefits", "concept", and "architecture" before narrowing its search.
 
-## Activity Log
+## Timeline
 
 - 2025-09-24 @tobiu assigned to @tobiu
 - 2025-09-24 @tobiu added the `enhancement` label

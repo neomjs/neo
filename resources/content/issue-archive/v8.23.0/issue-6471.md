@@ -23,7 +23,7 @@ closedAt: '2025-02-21T05:43:02Z'
 
 this feature should be optional
 
-## Activity Log
+## Timeline
 
 - 2025-02-21 @tobiu added the `enhancement` label
 - 2025-02-21 @tobiu assigned to @tobiu

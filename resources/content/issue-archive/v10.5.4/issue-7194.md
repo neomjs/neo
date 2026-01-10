@@ -21,7 +21,7 @@ closedAt: '2025-08-16T20:15:29Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
 - 2025-08-16 @TomDakan cross-referenced by PR #7197
 - 2025-08-16 @tobiu closed this issue

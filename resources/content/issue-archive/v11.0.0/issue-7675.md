@@ -41,7 +41,7 @@ This fix needs to be propagated to the other two MCP servers to ensure consisten
 **Reference Change:**
 See the changes made in `ai/mcp/server/github-workflow/mcp-stdio.mjs` for the implementation details.
 
-## Activity Log
+## Timeline
 
 - 2025-10-27 @tobiu added the `bug` label
 - 2025-10-27 @tobiu added the `ai` label

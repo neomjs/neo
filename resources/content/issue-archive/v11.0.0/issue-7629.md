@@ -44,7 +44,7 @@ Create a new tool named `unassign_issue` that removes a specified list of assign
 
 *   Add `unassign_issue` to the `serviceMapping` to expose the new method as a tool.
 
-## Activity Log
+## Timeline
 
 - 2025-10-23 @tobiu assigned to @tobiu
 - 2025-10-23 @tobiu added the `enhancement` label

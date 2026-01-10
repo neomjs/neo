@@ -30,7 +30,7 @@ Add a sub-headline to the "Is Neo.mjs Right for You?" section in `README.md` to 
 
 **Goal:** Provide immediate credibility about the project's stability and size alongside the positioning statement.
 
-## Activity Log
+## Timeline
 
 - 2026-01-06 @tobiu added the `documentation` label
 - 2026-01-06 @tobiu added the `enhancement` label

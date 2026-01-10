@@ -95,7 +95,7 @@ instance.style = { backgroundColor: 'red' };
 
 This provides a more intuitive, powerful, and declarative way to handle complex configurations at creation time without adding runtime overhead.
 
-## Activity Log
+## Timeline
 
 - 2025-07-04 @tobiu assigned to @tobiu
 - 2025-07-04 @tobiu added the `enhancement` label

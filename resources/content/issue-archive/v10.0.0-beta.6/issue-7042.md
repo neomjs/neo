@@ -40,7 +40,7 @@ This regression was introduced when the `isRunning` property of `Neo.core.Effect
 
 The fix involved strategically pausing and resuming `EffectManager`'s dependency tracking within the `Effect.run()` method to prevent the `Effect` from registering itself as a dependency of its own `isRunning` config during its execution, and to prevent recursive calls when `isRunning` was set.
 
-## Activity Log
+## Timeline
 
 - 2025-07-13 @tobiu assigned to @tobiu
 - 2025-07-13 @tobiu added the `enhancement` label

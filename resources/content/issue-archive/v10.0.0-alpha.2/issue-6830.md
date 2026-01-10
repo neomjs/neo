@@ -22,7 +22,7 @@ closedAt: '2025-06-18T00:12:32Z'
 
 gemini strongly suggests to add more
 
-## Activity Log
+## Timeline
 
 - 2025-06-17 @tobiu added the `enhancement` label
 - 2025-06-18 @tobiu referenced in commit `0be63d4` - "package.json: description & keywords enhancement #6830"

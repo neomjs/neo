@@ -33,7 +33,7 @@ While the agent is mandated to follow a "save-then-respond" protocol, a sufficie
 3.  This section explicitly defines the human developer's duty to verify that the `ai:add-memory` tool call is successfully made after every agent turn when the memory core is active.
 4.  The section provides a clear recovery prompt for the user to issue in case the agent fails to save its memory.
 
-## Activity Log
+## Timeline
 
 - 2025-10-03 @tobiu assigned to @tobiu
 - 2025-10-03 @tobiu added the `documentation` label

@@ -22,7 +22,7 @@ closedAt: '2025-03-21T16:21:38Z'
 
 * Experiment to check if we can get a fresh session up to speed with following one guide.
 
-## Activity Log
+## Timeline
 
 - 2025-03-18 @tobiu added the `enhancement` label
 - 2025-03-18 @tobiu referenced in commit `e2188a8` - "Create a guide for LLMS #6578"

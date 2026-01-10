@@ -24,7 +24,7 @@ closedAt: '2025-01-16T13:13:20Z'
 * the previous approach to merge depths inside `isParentUpdating()` was not ideal, since it did not guarantee that there was a future update scheduled
 * this change will resolve it
 
-## Activity Log
+## Timeline
 
 - 2025-01-16 @tobiu added the `enhancement` label
 - 2025-01-16 @tobiu assigned to @tobiu

@@ -24,7 +24,7 @@ blocking: []
 * Instead of rebinding view based store listeners logic, the cleaner way would be to remove the relevant view based listeners and add own listeners to the store
 * This way, we could easily restore the view to its previous state, in case the plugin needs to get disabled at run-time
 
-## Activity Log
+## Timeline
 
 - 2025-03-09 @tobiu added the `enhancement` label
 - 2025-03-09 @tobiu added the `no auto close` label

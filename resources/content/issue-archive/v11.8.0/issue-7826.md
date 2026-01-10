@@ -33,7 +33,7 @@ Tasks:
 - Export in `src/util/_export.mjs`
 - Use in `SessionService.mjs`
 
-## Activity Log
+## Timeline
 
 - 2025-11-20 @tobiu added the `enhancement` label
 - 2025-11-20 @tobiu added the `ai` label

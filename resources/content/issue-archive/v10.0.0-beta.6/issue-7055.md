@@ -24,7 +24,7 @@ closedAt: '2025-07-15T09:29:39Z'
 - Required for functional components hosting "classic" components, in case you want to subscribe controls to components which get created inside the `createVdom()` effect.
 - Rationale: we need to wait "one tick" inside the micro task queue, before the instances exist
 
-## Activity Log
+## Timeline
 
 - 2025-07-15 @tobiu assigned to @tobiu
 - 2025-07-15 @tobiu added parent issue #6992

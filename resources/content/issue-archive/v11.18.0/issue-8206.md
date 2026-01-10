@@ -43,7 +43,7 @@ Refactor all methods in `src/ai/client/*.mjs` that currently accept a single `pa
 -   No functionality is broken (verify with basic checks or existing tests if available).
 
 
-## Activity Log
+## Timeline
 
 - 2025-12-29 @tobiu added the `ai` label
 - 2025-12-29 @tobiu added the `refactoring` label

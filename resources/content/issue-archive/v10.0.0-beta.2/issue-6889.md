@@ -23,7 +23,7 @@ closedAt: '2025-06-28T23:05:56Z'
 
 * rationale: in case we put code blocks into lists, the 3 backticks do not necessarily start right after a new line => \n
 
-## Activity Log
+## Timeline
 
 - 2025-06-28 @tobiu assigned to @tobiu
 - 2025-06-28 @tobiu added the `enhancement` label

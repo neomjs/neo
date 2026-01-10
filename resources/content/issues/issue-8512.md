@@ -41,8 +41,12 @@ This ensures perfect consistency between GitHub and the Portal, automated update
 - [ ] Update `Portal.view.news.tickets.Component.mjs` logic
 - [ ] Remove color map from `apps/portal/resources/scss/src/apps/portal/news/tickets/Component.scss`
 
-## Comments
+## Timeline
 
+- 2026-01-10 @tobiu added the `enhancement` label
+- 2026-01-10 @tobiu added the `ai` label
+- 2026-01-10 @tobiu added the `refactoring` label
+- 2026-01-10 @tobiu added the `build` label
 ### @tobiu - 2026-01-10 17:52
 
 **Input from Gemini 3 Pro:**
@@ -55,6 +59,7 @@ This ensures perfect consistency between GitHub and the Portal, automated update
 
 > ✦ Implemented `GH_LabelService` export in `ai/services.mjs`. Now creating the build script `buildScripts/createLabelIndex.mjs`.
 
+- 2026-01-10 @tobiu referenced in commit `cb695c6` - "feat: Refactor Ticket Badges to use Dynamic Label Store (#8512)"
 ### @tobiu - 2026-01-10 18:05
 
 **Input from Gemini 3 Pro:**
@@ -69,13 +74,6 @@ This ensures perfect consistency between GitHub and the Portal, automated update
 > 
 > Ready to close.
 
-## Activity Log
-
-- 2026-01-10 @tobiu added the `enhancement` label
-- 2026-01-10 @tobiu added the `ai` label
-- 2026-01-10 @tobiu added the `refactoring` label
-- 2026-01-10 @tobiu added the `build` label
-- 2026-01-10 @tobiu referenced in commit `cb695c6` - "feat: Refactor Ticket Badges to use Dynamic Label Store (#8512)"
 - 2026-01-10 @tobiu assigned to @tobiu
 - 2026-01-10 @tobiu closed this issue
 

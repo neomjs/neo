@@ -38,11 +38,17 @@ The text content was updated in #8360/8361, but the visual presentation remains 
 - `apps/portal/view/home/parts/MainNeo.mjs`
 - `resources/scss/src/apps/portal/home/parts/MainNeo.scss`
 
-## Activity Log
+## Timeline
 
 - 2026-01-06 @tobiu added the `enhancement` label
 - 2026-01-06 @tobiu added the `design` label
 - 2026-01-06 @tobiu added the `ai` label
 - 2026-01-06 @tobiu assigned to @tobiu
 - 2026-01-06 @tobiu closed this issue
+- 2026-01-07 @jonnyamsp referenced in commit `b084459` - "feat(portal): Modernize Portal Hero styling (resolves #8367)
+
+- Replace outdated background with neutral 'Quantum Mesh' gradient
+- Update typography hierarchy (H1 size, H3 semantic colors)
+- Improve layout vertical rhythm using gap and flex-direction
+- Ensure button group is responsive and prioritized"
 

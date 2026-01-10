@@ -24,11 +24,12 @@ closedAt: '2025-07-04T12:30:08Z'
 * While release notes are available on github, they are not included inside the repo yet.
 * Let us change this from now on, especially since LLMs can then explore them more easily.
 
-## Activity Log
+## Timeline
 
 - 2025-07-04 @tobiu assigned to @tobiu
 - 2025-07-04 @tobiu added the `enhancement` label
 - 2025-07-04 @tobiu referenced in commit `b57e590` - "Create a release notes folder #6938"
 - 2025-07-04 @tobiu closed this issue
+- 2025-07-04 @tobiu reopened this issue
 - 2025-07-04 @tobiu closed this issue
 

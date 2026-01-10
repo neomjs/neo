@@ -25,7 +25,7 @@ The JSDoc for `Neo.tab.Container` is minimal. It needs to be enhanced with inten
 
 Once the new JSDoc is in place, the hypothetical example in `.github/AGENTS.md` (lines 162-180) should be replaced with this new, accurate, and real-world JSDoc block to improve the quality of the agent guidelines.
 
-## Activity Log
+## Timeline
 
 - 2025-09-30 @tobiu assigned to @tobiu
 - 2025-09-30 @tobiu added the `enhancement` label

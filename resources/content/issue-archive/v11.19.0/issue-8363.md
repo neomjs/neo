@@ -34,7 +34,7 @@ The script should:
 4.  Output the JSON file.
 
 
-## Activity Log
+## Timeline
 
 - 2026-01-06 @tobiu added the `enhancement` label
 - 2026-01-06 @tobiu added the `ai` label

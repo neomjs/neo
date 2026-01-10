@@ -59,7 +59,7 @@ static delayable = {
 2.  Verify the fix in the Covid application.
 3.  Review components with performance-intensive event handlers and apply the `delayable` pattern as needed.
 
-## Activity Log
+## Timeline
 
 - 2025-07-30 @tobiu assigned to @tobiu
 - 2025-07-30 @tobiu added the `enhancement` label

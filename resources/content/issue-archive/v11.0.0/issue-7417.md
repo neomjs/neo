@@ -47,27 +47,25 @@ After making the changes, you can see them live by:
 3. Finding the "Creating Your First App" guide in the "Getting Started" section of the side navigation.
 4. Verifying that the guide renders correctly, with no manual table of contents and with styled code blocks.
 
-## Comments
+## Timeline
 
+- 2025-10-08 @tobiu assigned to @tobiu
+- 2025-10-08 @tobiu added the `documentation` label
+- 2025-10-08 @tobiu added parent issue #7296
+- 2025-10-08 @tobiu cross-referenced by PR #7323
 ### @Mariam-Saeed - 2025-10-08 15:26
 
 @tobiu 
 Thank you for merging my previous PR!
 You can assign this issue to me, I’ll be happy to handle these changes 😊
 
+- 2025-10-08 @tobiu unassigned from @tobiu
+- 2025-10-08 @tobiu assigned to @Mariam-Saeed
+- 2025-10-08 @tobiu added the `hacktoberfest` label
 ### @tobiu - 2025-10-08 15:29
 
 thx, appreciated! you could try gemini cli here.
 
-## Activity Log
-
-- 2025-10-08 @tobiu assigned to @tobiu
-- 2025-10-08 @tobiu added the `documentation` label
-- 2025-10-08 @tobiu added parent issue #7296
-- 2025-10-08 @tobiu cross-referenced by PR #7323
-- 2025-10-08 @tobiu unassigned from @tobiu
-- 2025-10-08 @tobiu assigned to @Mariam-Saeed
-- 2025-10-08 @tobiu added the `hacktoberfest` label
 - 2025-10-08 @Mariam-Saeed cross-referenced by PR #7422
 - 2025-10-09 @tobiu closed this issue
 

@@ -35,16 +35,14 @@ The current build-time approach, which uses regular expressions to find and repl
     6. Finally, use `astring` to generate the final, correct JavaScript code from the modified AST.
     7. This new, robust process will replace the fragile regex-based `replace` loop.
 
-## Comments
-
-### @tobiu - 2025-08-02 12:47
-
-resolved
-
-## Activity Log
+## Timeline
 
 - 2025-07-31 @tobiu assigned to @tobiu
 - 2025-07-31 @tobiu added the `enhancement` label
 - 2025-07-31 @tobiu added parent issue #7130
+### @tobiu - 2025-08-02 12:47
+
+resolved
+
 - 2025-08-02 @tobiu closed this issue
 

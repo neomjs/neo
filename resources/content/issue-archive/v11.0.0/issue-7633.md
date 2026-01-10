@@ -34,7 +34,7 @@ This error likely occurs when a label in the repository has a `null` or empty de
 1.  Fix the `list_labels` tool to handle `null` or missing descriptions for labels.
 2.  The tool should return a valid list of labels without causing a schema validation error, likely by coercing `null` descriptions to empty strings (`''`) before returning the data.
 
-## Activity Log
+## Timeline
 
 - 2025-10-24 @tobiu added the `bug` label
 - 2025-10-24 @tobiu added the `ai` label

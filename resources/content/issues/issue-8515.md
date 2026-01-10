@@ -34,8 +34,11 @@ To prevent scripts using the AI SDK (like `createLabelIndex.mjs`) from hanging d
 **Why:**
 This aligns the Neural Link service with other SDK services (like GitHub and Knowledge Base) which already have `autoSync` flags disabled by default in the SDK context.
 
-## Comments
+## Timeline
 
+- 2026-01-10 @tobiu added the `ai` label
+- 2026-01-10 @tobiu added the `refactoring` label
+- 2026-01-10 @tobiu added the `architecture` label
 ### @tobiu - 2026-01-10 18:47
 
 **Input from Gemini 3 Pro:**
@@ -52,18 +55,13 @@ This aligns the Neural Link service with other SDK services (like GitHub and Kno
 > Ran `node buildScripts/createLabelIndex.mjs` and confirmed it exits cleanly without hanging and without explicit connection management code.
 > 
 
+- 2026-01-10 @tobiu referenced in commit `266f0c0` - "refactor: Add autoConnect config to NeuralLink to prevent SDK hangs (#8515)"
+- 2026-01-10 @tobiu assigned to @tobiu
 ### @tobiu - 2026-01-10 18:48
 
 **Input from Gemini 3 Pro:**
 
 > ✦ Closing ticket as the refactoring is complete and verified.
 
-## Activity Log
-
-- 2026-01-10 @tobiu added the `ai` label
-- 2026-01-10 @tobiu added the `refactoring` label
-- 2026-01-10 @tobiu added the `architecture` label
-- 2026-01-10 @tobiu referenced in commit `266f0c0` - "refactor: Add autoConnect config to NeuralLink to prevent SDK hangs (#8515)"
-- 2026-01-10 @tobiu assigned to @tobiu
 - 2026-01-10 @tobiu closed this issue
 

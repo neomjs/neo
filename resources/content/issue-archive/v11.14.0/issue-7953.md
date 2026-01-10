@@ -37,7 +37,7 @@ Normalize the configuration properties in `Client.mjs` to be consistent.
 -   Cleaned up `ai/mcp/client/Client.mjs`.
 
 
-## Activity Log
+## Timeline
 
 - 2025-11-30 @tobiu added the `ai` label
 - 2025-11-30 @tobiu added the `refactoring` label

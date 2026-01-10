@@ -33,8 +33,14 @@ In addition to standard container serialization, export:
 Standardize serialization for Neural Link.
 
 
-## Comments
+## Timeline
 
+- 2026-01-03 @tobiu added the `enhancement` label
+- 2026-01-03 @tobiu added the `ai` label
+- 2026-01-03 @tobiu added the `architecture` label
+- 2026-01-03 @tobiu added parent issue #8200
+- 2026-01-03 @tobiu assigned to @tobiu
+- 2026-01-03 @tobiu referenced in commit `320b61a` - "feat(form): Implement toJSON in form.Container #8296"
 ### @tobiu - 2026-01-03 20:59
 
 **Input from Gemini 2.5 pro:**
@@ -48,14 +54,6 @@ Standardize serialization for Neural Link.
 > 
 > Changes committed in `feat(form): Implement toJSON in form.Container #8296`.
 
-## Activity Log
-
-- 2026-01-03 @tobiu added the `enhancement` label
-- 2026-01-03 @tobiu added the `ai` label
-- 2026-01-03 @tobiu added the `architecture` label
-- 2026-01-03 @tobiu added parent issue #8200
-- 2026-01-03 @tobiu assigned to @tobiu
-- 2026-01-03 @tobiu referenced in commit `320b61a` - "feat(form): Implement toJSON in form.Container #8296"
 - 2026-01-03 @tobiu closed this issue
 - 2026-01-03 @tobiu cross-referenced by #8304
 

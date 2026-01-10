@@ -37,7 +37,7 @@ The fix was implemented in `src/container/Base.mjs` inside the `onConstructed` m
 
 This ensures that each container instance works with its own unique layout configuration, resolving the regression.
 
-## Activity Log
+## Timeline
 
 - 2025-07-30 @tobiu assigned to @tobiu
 - 2025-07-30 @tobiu added the `bug` label

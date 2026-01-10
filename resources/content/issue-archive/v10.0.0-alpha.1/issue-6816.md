@@ -23,7 +23,7 @@ closedAt: '2025-06-16T12:44:43Z'
 
 * like inside the VNode ctor, innerHTML has the priority
 
-## Activity Log
+## Timeline
 
 - 2025-06-16 @tobiu assigned to @tobiu
 - 2025-06-16 @tobiu added the `enhancement` label

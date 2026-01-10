@@ -39,7 +39,7 @@ The current database tools place an unnecessary burden on the agent to manage pr
 
 **Goal:** Agents should no longer feel compelled to call `stop_database` at the end of a session, and "zombie" processes should be prevented for managed instances.
 
-## Activity Log
+## Timeline
 
 - 2026-01-02 @tobiu added the `enhancement` label
 - 2026-01-02 @tobiu added the `ai` label

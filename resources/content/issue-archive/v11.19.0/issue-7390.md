@@ -1,7 +1,7 @@
 ---
 id: 7390
 title: Create a "Sighted" Development Demo
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - help wanted
@@ -10,16 +10,17 @@ labels:
   - hacktoberfest
 assignees: []
 createdAt: '2025-10-06T10:38:41Z'
-updatedAt: '2026-01-05T03:23:19Z'
+updatedAt: '2026-01-09T00:58:07Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7390'
 author: tobiu
-commentsCount: 3
+commentsCount: 4
 parentIssue: 7385
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-01-09T00:58:07Z'
 ---
 # Create a "Sighted" Development Demo
 
@@ -34,8 +35,13 @@ This ticket is for creating a proof-of-concept demo of the new "Sighted" Develop
     c.  The agent generating a Playwright test for the component.
 3.  The demo serves as a learning resource and a showcase of the new capabilities.
 
-## Comments
+## Timeline
 
+- 2025-10-06 @tobiu added the `enhancement` label
+- 2025-10-06 @tobiu added parent issue #7385
+- 2025-10-06 @tobiu added the `help wanted` label
+- 2025-10-06 @tobiu added the `good first issue` label
+- 2025-10-06 @tobiu added the `hacktoberfest` label
 ### @yashgoyal0110 - 2025-10-06 10:44
 
 Hey @tobiu 
@@ -66,12 +72,16 @@ Let me know in case you are still up for the task! If so, I will assign the tick
 
 This issue is stale because it has been open for 90 days with no activity.
 
-## Activity Log
-
-- 2025-10-06 @tobiu added the `enhancement` label
-- 2025-10-06 @tobiu added parent issue #7385
-- 2025-10-06 @tobiu added the `help wanted` label
-- 2025-10-06 @tobiu added the `good first issue` label
-- 2025-10-06 @tobiu added the `hacktoberfest` label
 - 2026-01-05 @github-actions added the `stale` label
+### @tobiu - 2026-01-09 00:57
+
+**Input from Gemini 3 Pro:**
+
+> ✦ **Status Update: Obsolete**
+> 
+> The concept of a "Sighted" demo using Chrome DevTools is now deprecated. We are moving towards **"Neural Link"** demos, where agents interact with the application engine directly rather than the browser DOM.
+> 
+> **Action:** Closing as superseded.
+
+- 2026-01-09 @tobiu closed this issue
 

@@ -58,28 +58,26 @@ This is a **medium-sized refactoring effort**. It will require:
 *   Thorough review of internal property accesses within `Store` to ensure they use the internal collection's public API.
 *   Extensive unit and integration testing to prevent regressions and ensure seamless functionality across all existing features.
 
-## Comments
+## Timeline
 
+- 2025-07-07 @tobiu added the `enhancement` label
+- 2025-07-07 @tobiu added the `help wanted` label
 ### @github-actions - 2025-10-06 02:42
 
 This issue is stale because it has been open for 90 days with no activity.
 
-### @tobiu - 2025-10-08 09:44
-
-this one could get refined to via the ai native workflows into new subs, and based on it fits the `hacktoberfest` scope.
-
-### @shrvansudhakara - 2025-10-30 18:56
-
-@tobiu I'd like to work on this, pls assign.
-
-## Activity Log
-
-- 2025-07-07 @tobiu added the `enhancement` label
-- 2025-07-07 @tobiu added the `help wanted` label
 - 2025-10-06 @github-actions added the `stale` label
 - 2025-10-08 @tobiu removed the `stale` label
 - 2025-10-08 @tobiu added the `good first issue` label
 - 2025-10-08 @tobiu added the `hacktoberfest` label
+### @tobiu - 2025-10-08 09:44
+
+this one could get refined to via the ai native workflows into new subs, and based on it fits the `hacktoberfest` scope.
+
 - 2025-10-08 @tobiu removed the `enhancement` label
 - 2025-10-08 @tobiu added the `epic` label
+### @shrvansudhakara - 2025-10-30 18:56
+
+@tobiu I'd like to work on this, pls assign.
+
 

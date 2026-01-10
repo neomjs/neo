@@ -54,7 +54,7 @@ The model will be asked to provide a JSON object with the following structure:
 2.  **Parse Response:** Parse the JSON response from the model.
 3.  **Store Metadata:** Add the new fields (`title`, `category`, `quality`, `productivity`, `impact`, `complexity`, `technologies`) to the `metadatas` object being upserted into the `sessionsCollection`. The `summary` text will remain the main document content.
 
-## Activity Log
+## Timeline
 
 - 2025-10-03 @tobiu assigned to @tobiu
 - 2025-10-03 @tobiu added the `enhancement` label

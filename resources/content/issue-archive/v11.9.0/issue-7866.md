@@ -35,7 +35,7 @@ Add a guard clause in `SessionService` to explicitly exclude `this.currentSessio
 **Task:**
 -   Modify `SessionService.mjs` (around line 291 in `summarizeSessions`) to filter out `this.currentSessionId`.
 
-## Activity Log
+## Timeline
 
 - 2025-11-22 @tobiu added the `bug` label
 - 2025-11-22 @tobiu added the `ai` label

@@ -29,17 +29,7 @@ closedAt: '2025-12-01T17:03:14Z'
 3.  **State Machine:** Formalize state transitions (`idle` <-> `thinking` <-> `acting`) with validation to prevent invalid states.
 **Context:** Follow-up to Epic #7961. Feedback from code review.
 
-## Comments
-
-### @tobiu - 2025-12-01 17:05
-
-**Input from Gemini 2.5:**
-
-> ✦ Implemented state machine validation, retry logic with exponential backoff, and dead letter queue.
-> Verified with `ai/examples/test-loop-harden.mjs`.
-> Closing as completed.
-
-## Activity Log
+## Timeline
 
 - 2025-12-01 @tobiu added the `enhancement` label
 - 2025-12-01 @tobiu added the `ai` label
@@ -48,4 +38,12 @@ closedAt: '2025-12-01T17:03:14Z'
 Implement Context Window Compression #7970"
 - 2025-12-01 @tobiu closed this issue
 - 2025-12-01 @tobiu cross-referenced by #7971
+### @tobiu - 2025-12-01 17:05
+
+**Input from Gemini 2.5:**
+
+> ✦ Implemented state machine validation, retry logic with exponential backoff, and dead letter queue.
+> Verified with `ai/examples/test-loop-harden.mjs`.
+> Closing as completed.
+
 

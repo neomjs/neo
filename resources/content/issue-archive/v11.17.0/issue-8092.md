@@ -35,8 +35,15 @@ Scope:
 5.  **SortZones:** Update `src/draggable/container/SortZone.mjs` to check `owner.dragResortable`.
 6.  **Apps & Examples:** Search and replace `sortable: true` with `dragResortable: true` in container configurations.
 
-## Comments
+## Timeline
 
+- 2025-12-11 @tobiu added the `enhancement` label
+- 2025-12-11 @tobiu added the `ai` label
+- 2025-12-11 @tobiu added the `refactoring` label
+- 2025-12-11 @tobiu assigned to @tobiu
+- 2025-12-11 @tobiu added the `developer-experience` label
+- 2025-12-11 @tobiu referenced in commit `b48f980` - "[Refactor] Rename container.sortable to container.dragResortable #8092"
+- 2025-12-11 @tobiu closed this issue
 ### @tobiu - 2025-12-11 20:11
 
 > ✦ I would rate the impact of this session as High.
@@ -62,13 +69,4 @@ Scope:
 > Summary:
 > This was a necessary maturation step for the framework. As you added more complex components (Grid, Table), the overloaded sortable term  became a technical debt liability. Paying it down now prevents future bugs and makes the learning curve smoother for new adopters. The code is cleaner, DRY-er, and more semantic.
 
-## Activity Log
-
-- 2025-12-11 @tobiu added the `enhancement` label
-- 2025-12-11 @tobiu added the `ai` label
-- 2025-12-11 @tobiu added the `refactoring` label
-- 2025-12-11 @tobiu assigned to @tobiu
-- 2025-12-11 @tobiu added the `developer-experience` label
-- 2025-12-11 @tobiu referenced in commit `b48f980` - "[Refactor] Rename container.sortable to container.dragResortable #8092"
-- 2025-12-11 @tobiu closed this issue
 

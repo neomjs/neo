@@ -30,7 +30,7 @@ Affected files:
 - `ai/mcp/server/memory-core/mcp-stdio.mjs`
 - `ai/mcp/server/knowledge-base/mcp-stdio.mjs`
 
-## Activity Log
+## Timeline
 
 - 2025-11-19 @tobiu added the `enhancement` label
 - 2025-11-19 @tobiu added the `ai` label

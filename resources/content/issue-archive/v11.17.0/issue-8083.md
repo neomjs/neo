@@ -25,7 +25,7 @@ closedAt: '2025-12-10T17:38:48Z'
 Prevent double execution of `doRunSource` when `language` and `value` are set simultaneously.
 1. Update `afterSetLanguage` to check `!Object.hasOwn(me[configSymbol], 'value')`.
 
-## Activity Log
+## Timeline
 
 - 2025-12-10 @tobiu added the `enhancement` label
 - 2025-12-10 @tobiu added the `ai` label

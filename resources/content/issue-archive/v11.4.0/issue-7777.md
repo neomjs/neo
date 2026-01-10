@@ -56,7 +56,7 @@ The `update` method should also be adjusted to handle named schemas.
 - When no identifier is provided, `getLdJson` and `setLdJson` default to the current behavior (find first or create).
 - `apps/portal/index.html` is updated with unique identifiers for each `ld+json` script.
 
-## Activity Log
+## Timeline
 
 - 2025-11-15 @tobiu added the `enhancement` label
 - 2025-11-15 @tobiu added the `ai` label

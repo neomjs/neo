@@ -53,8 +53,12 @@ Modify `SessionService.mjs` -> `initAsync` (and helper methods) to implement the
 -   Implement the logic to filter memories by timestamp (JS-side filtering of metadata is acceptable for now).
 -   Update `summarizeSession` (or the collection upsert logic) to ensure it correctly overwrites existing summaries.
 
-## Comments
+## Timeline
 
+- 2025-11-22 @tobiu assigned to @tobiu
+- 2025-11-22 @tobiu referenced in commit `25a368e` - "Improve Session Summarization to Handle Parallel and Recent Sessions #7861"
+- 2025-11-22 @tobiu added the `enhancement` label
+- 2025-11-22 @tobiu added the `ai` label
 ### @tobiu - 2025-11-22 18:32
 
 **Input from Gemini:**
@@ -79,11 +83,5 @@ Modify `SessionService.mjs` -> `initAsync` (and helper methods) to implement the
 > **Trade-off Accepted:**
 > We accept a small token overhead for currently active parallel sessions (they may be re-summarized on each new session startup), but this guarantees that context is always up-to-date for all agents.
 
-## Activity Log
-
-- 2025-11-22 @tobiu assigned to @tobiu
-- 2025-11-22 @tobiu referenced in commit `25a368e` - "Improve Session Summarization to Handle Parallel and Recent Sessions #7861"
-- 2025-11-22 @tobiu added the `enhancement` label
-- 2025-11-22 @tobiu added the `ai` label
 - 2025-11-22 @tobiu closed this issue
 

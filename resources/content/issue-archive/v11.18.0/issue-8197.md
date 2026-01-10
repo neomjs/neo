@@ -40,7 +40,7 @@ To enable advanced "Self-Healing" and "Active Monitoring" workflows, standalone 
 **Goal:**
 Empower standalone AI scripts to "import and use" the full power of the Neural Link.
 
-## Activity Log
+## Timeline
 
 - 2025-12-29 @tobiu added the `enhancement` label
 - 2025-12-29 @tobiu added the `ai` label

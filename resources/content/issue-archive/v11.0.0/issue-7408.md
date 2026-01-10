@@ -48,8 +48,14 @@ To work on this ticket, please start your session with the following prompt:
 > 
 > You will need to read the epic context from @.github/ISSUE/epic-architect-ai-tooling-as-mcp.md and the specific ticket details from @.github/ISSUE/ticket-implement-memory-read-endpoints.md before we begin.
 
-## Comments
+## Timeline
 
+- 2025-10-07 @tobiu added the `enhancement` label
+- 2025-10-07 @tobiu added parent issue #7399
+- 2025-10-07 @tobiu added the `help wanted` label
+- 2025-10-07 @tobiu added the `good first issue` label
+- 2025-10-07 @tobiu added the `hacktoberfest` label
+- 2025-10-07 @tobiu added the `ai` label
 ### @Nalin7parihar - 2025-10-07 10:31
 
 Hi! I would like to work on this issue? can you assign it to me?
@@ -62,19 +68,11 @@ You can explore the current implementation though already, e.g. after instructin
 
 You can also mention hacktoberfest and start a conversation => the agent can create new tickets.
 
+- 2025-10-07 @tobiu assigned to @Nalin7parihar
 ### @Nalin7parihar - 2025-10-07 10:56
 
 Got it! I’ll go through the epic and design tickets while the setup is in progress.
 
-## Activity Log
-
-- 2025-10-07 @tobiu added the `enhancement` label
-- 2025-10-07 @tobiu added parent issue #7399
-- 2025-10-07 @tobiu added the `help wanted` label
-- 2025-10-07 @tobiu added the `good first issue` label
-- 2025-10-07 @tobiu added the `hacktoberfest` label
-- 2025-10-07 @tobiu added the `ai` label
-- 2025-10-07 @tobiu assigned to @Nalin7parihar
 - 2025-10-10 @Aki-07 cross-referenced by PR #7455
 - 2025-10-11 @Aki-07 cross-referenced by PR #7463
 - 2025-10-11 @tobiu closed this issue

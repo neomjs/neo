@@ -26,7 +26,7 @@ Update `src/ai/client/RuntimeService.mjs`.
 *   `getDragState`: Use `DragCoordinator.toJSON()`.
 *   `getWindowInfo`: Use `WindowManager.toJSON()`.
 
-## Activity Log
+## Timeline
 
 - 2026-01-01 @tobiu added the `ai` label
 - 2026-01-01 @tobiu added the `refactoring` label

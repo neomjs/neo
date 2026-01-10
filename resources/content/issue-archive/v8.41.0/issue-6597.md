@@ -44,8 +44,12 @@ We suspect this code to to be the problem.
 
 ![Image](https://github.com/user-attachments/assets/87b09ca9-8184-41cd-a093-665ed17cd73a)
 
-## Comments
+## Timeline
 
+- 2025-03-30 @cgauthier added the `bug` label
+- 2025-03-30 @tobiu cross-referenced by #6598
+- 2025-03-30 @tobiu added the `help wanted` label
+- 2025-03-30 @tobiu added the `no auto close` label
 ### @tobiu - 2025-03-30 18:56
 
 @cgauthier thanks for opening the ticket! sadly, I can not reproduce it on Mac OS (it works locally as well as inside the deployed version: https://neomjs.com/examples/calendar/basic/index.html )
@@ -129,6 +133,8 @@ console.log(key, value);
 
 this part also looks fine on Mac OS. `onDataPropertyChange()` only gets called once for each data property.
 
+- 2025-04-06 @tobiu referenced in commit `34d6eb0` - "Calendar - Basic - Windows Browsers (all of them) - Maximum Call Stack Size Exceeded error #6597"
+- 2025-04-06 @tobiu referenced in commit `8d418bc` - "#6597 cleanup"
 ### @tobiu - 2025-04-06 21:30
 
 as it turned out, this was not a windows issue, but UTC vs later starting timezones (e.g. USA).
@@ -136,13 +142,5 @@ thanks a lot @cgauthier for the debugging session!
 
 while it is working now, it needs follow up tickets.
 
-## Activity Log
-
-- 2025-03-30 @cgauthier added the `bug` label
-- 2025-03-30 @tobiu cross-referenced by #6598
-- 2025-03-30 @tobiu added the `help wanted` label
-- 2025-03-30 @tobiu added the `no auto close` label
-- 2025-04-06 @tobiu referenced in commit `34d6eb0` - "Calendar - Basic - Windows Browsers (all of them) - Maximum Call Stack Size Exceeded error #6597"
-- 2025-04-06 @tobiu referenced in commit `8d418bc` - "#6597 cleanup"
 - 2025-04-06 @tobiu closed this issue
 

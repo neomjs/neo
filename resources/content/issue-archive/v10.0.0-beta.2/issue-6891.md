@@ -23,7 +23,7 @@ closedAt: '2025-06-29T11:23:27Z'
 * Common use case: files are not loaded yet.
 * We need to solve this one generically => `worker.mixin.RemoteMethodAccess`, since other singletons can use it too.
 
-## Activity Log
+## Timeline
 
 - 2025-06-29 @tobiu added the `enhancement` label
 - 2025-06-29 @tobiu referenced in commit `b839158` - "addon.Base: intercept remotes which arrive before isReady equals true #6891"

@@ -53,10 +53,11 @@ The `Neo.state.Provider` system allows for nested and hierarchical data structur
 *   **Performance:** Optimized to efficiently traverse the provider hierarchy and interact with `Neo.core.Config` instances.
 *   **Foundation for Refactoring:** Lays the essential groundwork for refactoring `Neo.state.Provider` to fully utilize the new `Effect` system.
 
-## Activity Log
+## Timeline
 
 - 2025-07-06 @tobiu assigned to @tobiu
 - 2025-07-06 @tobiu added the `enhancement` label
+- 2025-07-06 @tobiu changed title from **Feature: Implement Neo.state.HierarchicalDataProxy for reactive state provider data access** to **Feature: Implement Neo.state.createHierarchicalDataProxy for reactive state provider data access**
 - 2025-07-06 @tobiu referenced in commit `96a0173` - "Feature: Implement Neo.state.createHierarchicalDataProxy for reactive state provider data access #6965"
 - 2025-07-06 @tobiu closed this issue
 - 2025-07-06 @tobiu referenced in commit `ac4810a` - "Feature: Implement Neo.state.createHierarchicalDataProxy for reactive state provider data access #6965"

@@ -47,7 +47,7 @@ The `#getIssuePath` method was refactored with the following logic:
 
 This ensures that the local file structure accurately reflects the development lifecycle, where closed issues are only archived after they have been included in a release.
 
-## Activity Log
+## Timeline
 
 - 2025-10-22 @tobiu assigned to @tobiu
 - 2025-10-22 @tobiu added the `bug` label

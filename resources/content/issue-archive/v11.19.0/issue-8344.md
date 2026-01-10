@@ -28,8 +28,14 @@ This occurs if the generated `ai-knowledge-base.jsonl` file contains duplicate e
 **Fix:**
 Update `VectorService.mjs` to ensure `chunksToProcess` only contains unique IDs by checking against a local `processedIds` Set during the filter loop.
 
-## Comments
+## Timeline
 
+- 2026-01-05 @tobiu added the `bug` label
+- 2026-01-05 @tobiu added the `ai` label
+- 2026-01-05 @tobiu assigned to @tobiu
+- 2026-01-05 @tobiu referenced in commit `bd28172` - "Bugfix: Prevent Duplicate IDs in Vector Upsert #8344
+
+Added a 'processedIds' Set to VectorService.embed() to track unique IDs locally during the chunk filtering process. This prevents duplicate chunks (identical content hash) from being added to the upsert batch, resolving the 'Expected IDs to be unique' error from ChromaDB."
 ### @tobiu - 2026-01-05 23:31
 
 **Input from Gemini 3 Pro:**
@@ -43,13 +49,5 @@ Update `VectorService.mjs` to ensure `chunksToProcess` only contains unique IDs 
 > 
 > This resolves the crash and ensures robust handling of potentially overlapping source scans.
 
-## Activity Log
-
-- 2026-01-05 @tobiu added the `bug` label
-- 2026-01-05 @tobiu added the `ai` label
-- 2026-01-05 @tobiu assigned to @tobiu
-- 2026-01-05 @tobiu referenced in commit `bd28172` - "Bugfix: Prevent Duplicate IDs in Vector Upsert #8344
-
-Added a 'processedIds' Set to VectorService.embed() to track unique IDs locally during the chunk filtering process. This prevents duplicate chunks (identical content hash) from being added to the upsert batch, resolving the 'Expected IDs to be unique' error from ChromaDB."
 - 2026-01-05 @tobiu closed this issue
 

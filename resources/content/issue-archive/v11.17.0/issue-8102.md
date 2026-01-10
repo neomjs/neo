@@ -29,7 +29,7 @@ Standard sub-agents (like `codebase_investigator`) lack the specific context of 
 ### Solution
 Update `AGENTS_STARTUP.md` to include a directive for agents. When invoking a sub-agent, the parent agent MUST inject a "Context Preamble" or explicitly instruct the sub-agent to read `src/core/Base.mjs` and `src/Neo.mjs` to understand the framework's "physics" before analyzing code.
 
-## Activity Log
+## Timeline
 
 - 2025-12-12 @tobiu added the `documentation` label
 - 2025-12-12 @tobiu added the `contributor-experience` label

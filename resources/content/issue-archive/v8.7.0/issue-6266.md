@@ -23,7 +23,7 @@ closedAt: '2025-01-22T15:25:42Z'
 
 * Easier to read when making method calls & we will need one more param soon
 
-## Activity Log
+## Timeline
 
 - 2025-01-22 @tobiu added the `enhancement` label
 - 2025-01-22 @tobiu assigned to @tobiu

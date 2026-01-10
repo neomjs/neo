@@ -39,18 +39,17 @@ The `grid.VerticalScrollbar` has been enhanced to fully support the chunked load
 *   **Improved User Experience:** Prevents the scrollbar from "jumping" or resizing, which is a much smoother experience.
 *   **Code Simplification & Robustness:** The component's logic is now cleaner and more robustly aligned with the framework's event lifecycle.
 
-## Comments
-
-### @tobiu - 2025-08-11 12:39
-
-we need to soften the check a bit more.
-
-## Activity Log
+## Timeline
 
 - 2025-08-11 @tobiu assigned to @tobiu
 - 2025-08-11 @tobiu added the `enhancement` label
 - 2025-08-11 @tobiu referenced in commit `2699c10` - "Enhance grid.VerticalScrollbar to Support Chunked Store Loading #7182"
 - 2025-08-11 @tobiu closed this issue
+### @tobiu - 2025-08-11 12:39
+
+we need to soften the check a bit more.
+
+- 2025-08-11 @tobiu reopened this issue
 - 2025-08-11 @tobiu referenced in commit `c1df85b` - "#7182 hotfix"
 - 2025-08-11 @tobiu closed this issue
 

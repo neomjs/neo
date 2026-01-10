@@ -25,15 +25,13 @@ closedAt: '2025-02-23T12:34:59Z'
 * This ensures that the next animation will start from the correct new spot
 * `updateChars()` and `onResize()` can both use the new method (no redundancy)
 
-## Comments
+## Timeline
 
+- 2025-02-23 @tobiu added the `enhancement` label
+- 2025-02-23 @tobiu referenced in commit `2675998` - "component.MagicMoveText: createCharsVdom() #6489"
 ### @tobiu - 2025-02-23 12:35
 
 https://youtube.com/shorts/OdR1doNy6k8?feature=share
 
-## Activity Log
-
-- 2025-02-23 @tobiu added the `enhancement` label
-- 2025-02-23 @tobiu referenced in commit `2675998` - "component.MagicMoveText: createCharsVdom() #6489"
 - 2025-02-23 @tobiu closed this issue
 

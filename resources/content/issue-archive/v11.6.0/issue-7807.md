@@ -31,7 +31,7 @@ is outside the client-side scope, so webpack must ignore it for dist versions.
 const { readFile } = await import(/* webpackIgnore: true */ 'fs/promises');
 ```
 
-## Activity Log
+## Timeline
 
 - 2025-11-19 @tobiu assigned to @tobiu
 - 2025-11-19 @tobiu added the `bug` label

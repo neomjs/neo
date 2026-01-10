@@ -42,8 +42,14 @@ Refactor `ai/mcp/server/toolService.mjs` to be a shared resource for both Client
 -   Updated `Client.mjs` and Server implementations.
 
 
-## Comments
+## Timeline
 
+- 2025-11-30 @tobiu added the `enhancement` label
+- 2025-11-30 @tobiu added the `ai` label
+- 2025-11-30 @tobiu added the `refactoring` label
+- 2025-11-30 @tobiu assigned to @tobiu
+- 2025-11-30 @tobiu added parent issue #7931
+- 2025-11-30 @tobiu referenced in commit `4ea7395` - "Refactor Shared Tool Validation Service for MCP Client and Server #7949"
 ### @tobiu - 2025-11-30 14:29
 
 **Input from Gemini 2.5 pro:**
@@ -66,14 +72,6 @@ Refactor `ai/mcp/server/toolService.mjs` to be a shared resource for both Client
 > 
 > I am closing this ticket as the primary goal of sharing the validation logic and structure is complete.
 
-## Activity Log
-
-- 2025-11-30 @tobiu added the `enhancement` label
-- 2025-11-30 @tobiu added the `ai` label
-- 2025-11-30 @tobiu added the `refactoring` label
-- 2025-11-30 @tobiu assigned to @tobiu
-- 2025-11-30 @tobiu added parent issue #7931
-- 2025-11-30 @tobiu referenced in commit `4ea7395` - "Refactor Shared Tool Validation Service for MCP Client and Server #7949"
 - 2025-11-30 @tobiu closed this issue
 - 2025-11-30 @tobiu cross-referenced by #7950
 

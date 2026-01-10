@@ -36,7 +36,7 @@ To make the issue synchronization process scalable and efficient, we need to mov
 -   Provides a single, simple configuration point for controlling the time window of the synchronization.
 -   Paves the way for the service to dynamically fetch release data from GitHub.
 
-## Activity Log
+## Timeline
 
 - 2025-10-20 @tobiu assigned to @tobiu
 - 2025-10-20 @tobiu added the `enhancement` label

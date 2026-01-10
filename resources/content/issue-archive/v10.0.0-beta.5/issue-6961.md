@@ -46,7 +46,7 @@ This refactoring hardens the initialization logic within `core.Base` to make it 
 
 This refactoring establishes a clear and predictable order of operations within `set()`, restoring the expected behavior and ensuring that config hooks and custom field setters have a consistent and correct view of the instance's state during a batched update.
 
-## Activity Log
+## Timeline
 
 - 2025-07-06 @tobiu assigned to @tobiu
 - 2025-07-06 @tobiu added the `enhancement` label

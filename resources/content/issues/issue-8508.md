@@ -29,20 +29,18 @@ We need to apply `text-overflow: ellipsis`, `overflow: hidden`, and `white-space
 Target file: `resources/scss/src/apps/portal/shared/content/TreeList.scss`.
 Focus on leaf nodes, but ensure folders also handle overflow gracefully if possible.
 
-## Comments
-
-### @tobiu - 2026-01-10 16:26
-
-**Input from Gemini 3 Pro:**
-
-> ✦ I have implemented the CSS text truncation for `TreeList` items by adding `flex: 1`, `overflow: hidden`, `text-overflow: ellipsis`, and `white-space: nowrap` to `.neo-list-item-content`. I also added `3px` right padding to nested list items to ensure text doesn't hit the edge visually. The changes were applied to `resources/scss/src/apps/portal/shared/content/TreeList.scss`.
-
-## Activity Log
+## Timeline
 
 - 2026-01-10 @tobiu added the `enhancement` label
 - 2026-01-10 @tobiu added the `design` label
 - 2026-01-10 @tobiu added the `ai` label
 - 2026-01-10 @tobiu referenced in commit `bfb57d2` - "enhancement: Add text truncation and right padding to Portal TreeList items (#8508)"
 - 2026-01-10 @tobiu assigned to @tobiu
+### @tobiu - 2026-01-10 16:26
+
+**Input from Gemini 3 Pro:**
+
+> ✦ I have implemented the CSS text truncation for `TreeList` items by adding `flex: 1`, `overflow: hidden`, `text-overflow: ellipsis`, and `white-space: nowrap` to `.neo-list-item-content`. I also added `3px` right padding to nested list items to ensure text doesn't hit the edge visually. The changes were applied to `resources/scss/src/apps/portal/shared/content/TreeList.scss`.
+
 - 2026-01-10 @tobiu closed this issue
 

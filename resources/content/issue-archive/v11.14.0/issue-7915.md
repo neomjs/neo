@@ -62,7 +62,7 @@ Define the exact YAML structure that agents must use in the Issue Body.
 *   A new file: `ai/agents/PROTOCOL.md` containing the full specification.
 
 
-## Activity Log
+## Timeline
 
 - 2025-11-29 @tobiu added the `documentation` label
 - 2025-11-29 @tobiu added the `ai` label

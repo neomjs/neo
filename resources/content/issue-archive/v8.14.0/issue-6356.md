@@ -23,7 +23,7 @@ closedAt: '2025-02-03T10:20:37Z'
 
 * Makes it easier to identify columns, especially when moving (DD)
 
-## Activity Log
+## Timeline
 
 - 2025-02-03 @tobiu added the `enhancement` label
 - 2025-02-03 @tobiu assigned to @tobiu

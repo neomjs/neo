@@ -23,7 +23,7 @@ closedAt: '2025-05-23T18:01:09Z'
 
 * Create an example containing an empty Toolbar and a Button which fetches a JSON file containing the items component tree on click
 
-## Activity Log
+## Timeline
 
 - 2025-05-23 @tobiu assigned to @tobiu
 - 2025-05-23 @tobiu added the `enhancement` label

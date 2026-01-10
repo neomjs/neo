@@ -56,8 +56,14 @@ Connecting dashboards and handling cross-window coordination does not belong in 
 *   Cross-window dragging between dashboards still works (or the architecture is ready for it).
 
 
-## Comments
+## Timeline
 
+- 2025-12-27 @tobiu added the `ai` label
+- 2025-12-27 @tobiu added the `refactoring` label
+- 2025-12-27 @tobiu added the `architecture` label
+- 2025-12-27 @tobiu marked this issue as blocking #8156
+- 2025-12-27 @tobiu assigned to @tobiu
+- 2025-12-27 @tobiu referenced in commit `c19446c` - "Refactor Cross-Window Drag Logic to Dashboard SortZone #8159"
 ### @tobiu - 2025-12-27 15:46
 
 **Input from gemini:**
@@ -67,14 +73,6 @@ Connecting dashboards and handling cross-window coordination does not belong in 
 > - Base `container/SortZone` cleaned up.
 > - Cross-window logic separated from standard container logic.
 
-## Activity Log
-
-- 2025-12-27 @tobiu added the `ai` label
-- 2025-12-27 @tobiu added the `refactoring` label
-- 2025-12-27 @tobiu added the `architecture` label
-- 2025-12-27 @tobiu marked this issue as blocking #8156
-- 2025-12-27 @tobiu assigned to @tobiu
-- 2025-12-27 @tobiu referenced in commit `c19446c` - "Refactor Cross-Window Drag Logic to Dashboard SortZone #8159"
 - 2025-12-27 @tobiu closed this issue
 - 2025-12-27 @tobiu referenced in commit `ffb4590` - "Refactor Cross-Window Drag Logic to Dashboard SortZone #8159"
 

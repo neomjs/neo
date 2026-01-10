@@ -23,18 +23,16 @@ closedAt: '2025-01-25T19:29:59Z'
 
 *(No description provided)*
 
-## Comments
+## Timeline
 
+- 2025-01-25 @tobiu added the `enhancement` label
+- 2025-01-25 @tobiu assigned to @tobiu
+- 2025-01-25 @tobiu referenced in commit `2afea9c` - "examples.grid.nestedRecordFields.Viewport: add a switch theme button #6289"
+- 2025-01-25 @tobiu closed this issue
 ### @tobiu - 2025-01-25 19:30
 
 ![Image](https://github.com/user-attachments/assets/37681e74-fb6d-4811-a5fe-da91eb28bc63)
 
 ![Image](https://github.com/user-attachments/assets/977e0d47-a671-46b0-81a5-d1773d2fc0e8)
 
-## Activity Log
-
-- 2025-01-25 @tobiu added the `enhancement` label
-- 2025-01-25 @tobiu assigned to @tobiu
-- 2025-01-25 @tobiu referenced in commit `2afea9c` - "examples.grid.nestedRecordFields.Viewport: add a switch theme button #6289"
-- 2025-01-25 @tobiu closed this issue
 

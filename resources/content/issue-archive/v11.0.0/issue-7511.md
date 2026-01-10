@@ -38,7 +38,7 @@ This ticket covers the work to separate this functionality into distinct tools t
 3.  The existing `syncDatabase` function is refactored to be a simple orchestrator that calls `createKnowledgeBase()` and then `embedKnowledgeBase()` in sequence.
 4.  The `toolService.mjs` `serviceMapping` is updated to map the new `operationId`s to their respective service functions.
 
-## Activity Log
+## Timeline
 
 - 2025-10-16 @tobiu assigned to @tobiu
 - 2025-10-16 @tobiu added the `enhancement` label

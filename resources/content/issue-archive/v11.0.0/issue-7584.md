@@ -33,7 +33,7 @@ This will be fixed by incorporating the official `semver` npm package.
 3.  `HealthService.mjs` is updated to import the `semver` package.
 4.  The `#checkGhVersion()` method is refactored to use `semver.gte(currentVersion, minVersion)` for the version comparison instead of the incorrect string comparison.
 
-## Activity Log
+## Timeline
 
 - 2025-10-20 @tobiu assigned to @tobiu
 - 2025-10-20 @tobiu added parent issue #7564

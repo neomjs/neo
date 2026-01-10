@@ -35,7 +35,7 @@ Key changes include:
 
 The updated guide now accurately represents the current, more robust, and simplified SDK-based approach to MCP server integration.
 
-## Activity Log
+## Timeline
 
 - 2025-11-08 @tobiu added the `documentation` label
 - 2025-11-08 @tobiu added the `ai` label

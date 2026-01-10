@@ -43,8 +43,10 @@ Consider parameters such as `limit`, `state` (e.g., `open`, `closed`, `all`), an
 **Documentation:**
 The tool's description in `openapi.yaml` should be comprehensive and self-explanatory, following the guidelines established in #7659.
 
-## Comments
+## Timeline
 
+- 2025-10-26 @tobiu added the `enhancement` label
+- 2025-10-26 @tobiu added the `ai` label
 ### @MannXo - 2025-10-27 12:27
 
 Can I work on this one @tobiu ?
@@ -53,10 +55,6 @@ Can I work on this one @tobiu ?
 
 @MannXo Sure. This one should be quite straight forward. Hint: all 3 MCP servers should now be fully functional, and I updated the AGENTS.md file => with a fresh/updated fork definitely worth some testing.
 
-## Activity Log
-
-- 2025-10-26 @tobiu added the `enhancement` label
-- 2025-10-26 @tobiu added the `ai` label
 - 2025-10-27 @tobiu assigned to @MannXo
 - 2025-10-27 @tobiu added the `hacktoberfest` label
 - 2025-10-28 @MannXo referenced in commit `7f720ed` - "feat(mcp/github-workflow): add list_issues tool, OpenAPI path/schemas and verification tests

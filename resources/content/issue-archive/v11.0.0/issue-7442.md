@@ -38,8 +38,13 @@ This task is to migrate the component test for `form/field/ComboBox.mjs` from th
 3.  The new test must cover all the functionality of the original Siesta test (`test/components/files/form/field/ComboBox.mjs`).
 4.  Ensure the new test runs successfully via the component test runner.
 
-## Comments
+## Timeline
 
+- 2025-10-10 @tobiu added parent issue #7435
+- 2025-10-10 @tobiu added the `enhancement` label
+- 2025-10-10 @tobiu added the `help wanted` label
+- 2025-10-10 @tobiu added the `hacktoberfest` label
+- 2025-10-10 @tobiu added the `ai` label
 ### @Mahita07 - 2025-10-11 11:33
 
 @tobiu Could you please assign this issue to me ?
@@ -48,13 +53,6 @@ This task is to migrate the component test for `form/field/ComboBox.mjs` from th
 
 sure. same as for the other sub: requires phase 1 to be completed. i think the combobox is quite complex, and assume that the siesta test currently fails. so my recommendation: we can migrate the tests as they are first, but then need a follow-up ticket to ensure that all pass (we need to evaluate if there are framework issues, or if logic changes just require to adjust test conditions).
 
-## Activity Log
-
-- 2025-10-10 @tobiu added parent issue #7435
-- 2025-10-10 @tobiu added the `enhancement` label
-- 2025-10-10 @tobiu added the `help wanted` label
-- 2025-10-10 @tobiu added the `hacktoberfest` label
-- 2025-10-10 @tobiu added the `ai` label
 - 2025-10-11 @tobiu assigned to @Mahita07
 - 2025-11-04 @tobiu unassigned from @Mahita07
 - 2025-11-04 @tobiu assigned to @tobiu

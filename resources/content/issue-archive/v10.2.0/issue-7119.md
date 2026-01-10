@@ -48,7 +48,7 @@ The following three unpublished blog posts have been rewritten to align with thi
 
 These articles are now better positioned to clearly and effectively communicate the value and innovation of the Neo.mjs architecture.
 
-## Activity Log
+## Timeline
 
 - 2025-07-27 @tobiu assigned to @tobiu
 - 2025-07-27 @tobiu added the `enhancement` label

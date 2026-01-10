@@ -26,7 +26,7 @@ closedAt: '2025-04-07T14:23:40Z'
 
 rationale: while there is an `index` field inside the `data.Model`, it has no values inside the store data. sorting by this column makes little sense anyway, since it is supposed to display ascending values.
 
-## Activity Log
+## Timeline
 
 - 2025-04-07 @tobiu added the `enhancement` label
 - 2025-04-07 @tobiu assigned to @tobiu

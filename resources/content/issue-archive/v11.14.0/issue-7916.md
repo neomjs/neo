@@ -53,7 +53,7 @@ Create a standalone Node.js script `ai/agents/pm.mjs` that acts as a "Headless P
 *   Use the `github-workflow` tools (via SDK import) for issue management.
 
 
-## Activity Log
+## Timeline
 
 - 2025-11-29 @tobiu added the `enhancement` label
 - 2025-11-29 @tobiu added the `ai` label

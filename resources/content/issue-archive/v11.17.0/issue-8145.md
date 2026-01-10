@@ -27,7 +27,7 @@ Fixes a bug in `AgentOS.view.ViewportController` where manual state manipulation
 
 Additionally, ensures correct styling for AgentOS child apps (`swarm` and `widget`) by adding `additionalThemeFiles` to their Viewports, matching the main application's theme.
 
-## Activity Log
+## Timeline
 
 - 2025-12-19 @tobiu added the `bug` label
 - 2025-12-19 @tobiu added the `enhancement` label

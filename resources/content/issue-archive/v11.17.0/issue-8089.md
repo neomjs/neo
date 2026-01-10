@@ -37,7 +37,7 @@ This test suite `test/playwright/unit/manager/domEvent/CustomVdomRoot.spec.mjs` 
 - [x] Verify tests pass
 
 
-## Activity Log
+## Timeline
 
 - 2025-12-11 @tobiu added the `ai` label
 - 2025-12-11 @tobiu added the `testing` label

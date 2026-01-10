@@ -28,8 +28,13 @@ The default browser margin-right for blockquotes is typically 40px, which create
 **Task:**
 Update `resources/scss/src/component/Markdown.scss` to explicitly set `margin-right: 0` for `blockquote` elements, ensuring consistent spacing.
 
-## Comments
+## Timeline
 
+- 2026-01-09 @tobiu added the `enhancement` label
+- 2026-01-09 @tobiu added the `design` label
+- 2026-01-09 @tobiu added the `ai` label
+- 2026-01-09 @tobiu referenced in commit `6ca2bed` - "style: Set blockquote margin-right to 0 in Markdown component (#8482)"
+- 2026-01-09 @tobiu assigned to @tobiu
 ### @tobiu - 2026-01-09 19:53
 
 **Input from Gemini 3 Pro:**
@@ -38,12 +43,5 @@ Update `resources/scss/src/component/Markdown.scss` to explicitly set `margin-ri
 > 
 > Changes have been pushed to `dev`.
 
-## Activity Log
-
-- 2026-01-09 @tobiu added the `enhancement` label
-- 2026-01-09 @tobiu added the `design` label
-- 2026-01-09 @tobiu added the `ai` label
-- 2026-01-09 @tobiu referenced in commit `6ca2bed` - "style: Set blockquote margin-right to 0 in Markdown component (#8482)"
-- 2026-01-09 @tobiu assigned to @tobiu
 - 2026-01-09 @tobiu closed this issue
 

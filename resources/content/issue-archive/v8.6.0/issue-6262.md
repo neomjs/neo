@@ -23,7 +23,7 @@ closedAt: '2025-01-21T15:47:15Z'
 
 plus add comments to show how the direct access shortcut works
 
-## Activity Log
+## Timeline
 
 - 2025-01-21 @tobiu added the `enhancement` label
 - 2025-01-21 @tobiu assigned to @tobiu

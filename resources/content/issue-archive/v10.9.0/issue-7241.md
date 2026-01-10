@@ -44,7 +44,7 @@ This will enable developers and AI agents to ask questions about when specific f
 -   Running `npm run ai:query -- -q "<some feature>" -t release` returns relevant release notes.
 -   The system remains stable and existing functionality is unaffected.
 
-## Activity Log
+## Timeline
 
 - 2025-09-23 @tobiu assigned to @tobiu
 - 2025-09-23 @tobiu added the `enhancement` label

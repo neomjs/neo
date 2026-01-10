@@ -27,21 +27,19 @@ Let us move the controls for the grid into a sliding container.
 
 this one was ok for the first demo, but does not look nice.
 
-## Comments
-
-### @tobiu - 2025-02-08 23:54
-
-https://github.com/user-attachments/assets/1269dcf4-e936-4e32-925a-2db615386844
-
-### @tobiu - 2025-02-09 00:36
-
-<img width="994" alt="Image" src="https://github.com/user-attachments/assets/1378fe55-c4c3-4695-9e6f-9707f59326b1" />
-
-## Activity Log
+## Timeline
 
 - 2025-02-08 @tobiu added the `enhancement` label
 - 2025-02-08 @tobiu assigned to @tobiu
 - 2025-02-08 @tobiu referenced in commit `6b3b857` - "examples.grid.bigData.ControlsContainer #6411 WIP"
+### @tobiu - 2025-02-08 23:54
+
+https://github.com/user-attachments/assets/1269dcf4-e936-4e32-925a-2db615386844
+
 - 2025-02-09 @tobiu referenced in commit `30926d7` - "#6411 examples.grid.bigData.ControlsContainer: added the controls, styling, adjusted the grid default settings"
+### @tobiu - 2025-02-09 00:36
+
+<img width="994" alt="Image" src="https://github.com/user-attachments/assets/1378fe55-c4c3-4695-9e6f-9707f59326b1" />
+
 - 2025-02-09 @tobiu closed this issue
 

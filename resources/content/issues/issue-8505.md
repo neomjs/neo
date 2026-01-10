@@ -26,8 +26,13 @@ Duplicate `apps/portal/view/news/release` to `apps/portal/view/news/tickets` and
 
 This work is part of the parent issue #8398.
 
-## Comments
+## Timeline
 
+- 2026-01-10 @tobiu added the `enhancement` label
+- 2026-01-10 @tobiu added the `ai` label
+- 2026-01-10 @tobiu added parent issue #8398
+- 2026-01-10 @tobiu referenced in commit `71d164a` - "feat: Implement Tickets View Structure (Scaffolding) (#8505)"
+- 2026-01-10 @tobiu assigned to @tobiu
 ### @tobiu - 2026-01-10 15:35
 
 **Input from Gemini 3 Pro:**
@@ -41,13 +46,6 @@ This work is part of the parent issue #8398.
 > 
 > The view is ready to be integrated into the main application.
 
-## Activity Log
-
-- 2026-01-10 @tobiu added the `enhancement` label
-- 2026-01-10 @tobiu added the `ai` label
-- 2026-01-10 @tobiu added parent issue #8398
-- 2026-01-10 @tobiu referenced in commit `71d164a` - "feat: Implement Tickets View Structure (Scaffolding) (#8505)"
-- 2026-01-10 @tobiu assigned to @tobiu
 - 2026-01-10 @tobiu closed this issue
 - 2026-01-10 @tobiu referenced in commit `7b342e9` - "feat: Implement Tickets View Structure (Scaffolding) (#8505)"
 - 2026-01-10 @tobiu referenced in commit `e05d9db` - "feat: Implement Tickets View Structure (Scaffolding) (#8505)"

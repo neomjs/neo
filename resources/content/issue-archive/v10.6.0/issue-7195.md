@@ -21,7 +21,7 @@ closedAt: '2025-08-20T06:14:20Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
 - 2025-08-19 @TomDakan cross-referenced by PR #7199
 - 2025-08-20 @TomDakan cross-referenced by PR #7200

@@ -30,7 +30,7 @@ This task involves:
 2.  Updating `apps/agentos/view/Viewport.mjs` to use this new asset.
 3.  Updating `resources/scss/theme-cyberpunk/apps/agentos/Viewport.scss` to add a neon glow effect to the logo.
 
-## Activity Log
+## Timeline
 
 - 2025-12-13 @tobiu added the `enhancement` label
 - 2025-12-13 @tobiu added the `design` label

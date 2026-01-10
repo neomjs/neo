@@ -23,7 +23,7 @@ closedAt: '2025-09-17T10:40:15Z'
 
 While the post already is strong, we can do better inside specific areas.
 
-## Activity Log
+## Timeline
 
 - 2025-09-17 @tobiu assigned to @tobiu
 - 2025-09-17 @tobiu added the `Blog Post` label

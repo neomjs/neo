@@ -31,7 +31,7 @@ This ticket is to improve the `healthcheck` tool for the `memory-core` server to
 3.  The `HealthCheckResponse` schema in `ai/mcp/server/memory-core/openapi.yaml` is updated to include the detailed database and collection status, matching the structure of the knowledge-base server's schema.
 4.  A successful health check call returns the new, richer status object.
 
-## Activity Log
+## Timeline
 
 - 2025-10-17 @tobiu assigned to @tobiu
 - 2025-10-17 @tobiu added the `enhancement` label

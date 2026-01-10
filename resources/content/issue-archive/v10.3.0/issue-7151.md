@@ -42,7 +42,7 @@ After proving the AST-based approach in a dedicated script (`buildSingleFile.mjs
 -   The corresponding npm script has been renamed to `build-dist-esm`.
 -   The full build process runs successfully, correctly transforming all `html` templates across the project.
 
-## Activity Log
+## Timeline
 
 - 2025-08-01 @tobiu assigned to @tobiu
 - 2025-08-01 @tobiu added the `enhancement` label

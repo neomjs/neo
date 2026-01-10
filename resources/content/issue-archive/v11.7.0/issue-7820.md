@@ -41,7 +41,7 @@ This is a breaking change for any code directly accessing `Neo.apps['AppName']`.
 Developers should switch to using `Neo.apps[windowId]` or the new helper methods.
 
 
-## Activity Log
+## Timeline
 
 - 2025-11-20 @tobiu assigned to @tobiu
 - 2025-11-20 @tobiu added the `enhancement` label

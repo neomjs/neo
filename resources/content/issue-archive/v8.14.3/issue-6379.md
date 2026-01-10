@@ -23,7 +23,7 @@ closedAt: '2025-02-04T15:28:47Z'
 
 * Consistency for `adjustToolbarItemCls()`
 
-## Activity Log
+## Timeline
 
 - 2025-02-04 @tobiu added the `enhancement` label
 - 2025-02-04 @tobiu assigned to @tobiu

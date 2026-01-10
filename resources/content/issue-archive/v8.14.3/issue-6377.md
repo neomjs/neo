@@ -23,8 +23,12 @@ closedAt: '2025-02-04T15:08:30Z'
 
 The current solution does not work yet after scrolling to the right side.
 
-## Comments
+## Timeline
 
+- 2025-02-04 @tobiu added the `enhancement` label
+- 2025-02-04 @tobiu assigned to @tobiu
+- 2025-02-04 @tobiu changed title from **draggable.grid.header.toolbar.SortZone: add support for buffered columns** to **draggable.grid.header.toolbar.SortZone: add support for scrolled columns**
+- 2025-02-04 @tobiu referenced in commit `ff4fbfd` - "draggable.grid.header.toolbar.SortZone: add support for scrolled columns #6377"
 ### @tobiu - 2025-02-04 15:08
 
 * the new `scrollLeft` config of `draggable.toolbar.SortZone` is now included inside the calculation which triggers the switch
@@ -34,10 +38,5 @@ The current solution does not work yet after scrolling to the right side.
 
 https://github.com/user-attachments/assets/1d4d4db0-ce9a-4f44-92dc-88a78d5660c3
 
-## Activity Log
-
-- 2025-02-04 @tobiu added the `enhancement` label
-- 2025-02-04 @tobiu assigned to @tobiu
-- 2025-02-04 @tobiu referenced in commit `ff4fbfd` - "draggable.grid.header.toolbar.SortZone: add support for scrolled columns #6377"
 - 2025-02-04 @tobiu closed this issue
 

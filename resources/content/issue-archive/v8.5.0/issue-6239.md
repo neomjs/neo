@@ -23,7 +23,7 @@ closedAt: '2025-01-15T00:25:03Z'
 
 selections are purely view based, so we should move the related logic over.
 
-## Activity Log
+## Timeline
 
 - 2025-01-14 @tobiu added the `enhancement` label
 - 2025-01-14 @tobiu assigned to @tobiu

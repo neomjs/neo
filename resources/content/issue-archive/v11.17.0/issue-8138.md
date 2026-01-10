@@ -38,8 +38,12 @@ Update `Neo.main.render.DomApiRenderer` to check for and apply `scrollTop` and `
   - In `createDomTree`, after creating the DOM element, check if `vnode.scrollTop` or `vnode.scrollLeft` are present.
   - If so, apply them to the `domNode`.
 
-## Comments
+## Timeline
 
+- 2025-12-17 @tobiu added the `enhancement` label
+- 2025-12-17 @tobiu added the `ai` label
+- 2025-12-17 @tobiu added the `core` label
+- 2025-12-17 @tobiu assigned to @tobiu
 ### @tobiu - 2025-12-17 14:39
 
 **Input from Gemini 2.5:**
@@ -57,12 +61,6 @@ Update `Neo.main.render.DomApiRenderer` to check for and apply `scrollTop` and `
 > 
 > This ensures that scroll positions are correctly restored when components are re-mounted or moved.
 
-## Activity Log
-
-- 2025-12-17 @tobiu added the `enhancement` label
-- 2025-12-17 @tobiu added the `ai` label
-- 2025-12-17 @tobiu added the `core` label
-- 2025-12-17 @tobiu assigned to @tobiu
 - 2025-12-17 @tobiu referenced in commit `bae9034` - "feat: Support saveScrollPosition in DomApiRenderer #8138"
 - 2025-12-17 @tobiu cross-referenced by #8139
 - 2025-12-19 @tobiu closed this issue

@@ -47,7 +47,7 @@ The `set` trap should:
 *   No regressions are introduced in the `StateProvider`'s reactivity or hierarchical data access.
 *   Comprehensive unit tests are added to `test/siesta/tests/state/Provider.mjs` to cover direct assignment scenarios, including nested properties and various data types.
 
-## Activity Log
+## Timeline
 
 - 2025-07-07 @tobiu assigned to @tobiu
 - 2025-07-07 @tobiu added the `enhancement` label

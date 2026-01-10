@@ -64,7 +64,7 @@ const MyGreeting = defineComponent({
 -   It successfully generates functional component classes from plain functions.
 -   Generated components correctly utilize `useConfig` for state management.
 
-## Activity Log
+## Timeline
 
 - 2025-07-11 @tobiu added parent issue #6992
 - 2025-07-11 @tobiu added the `enhancement` label

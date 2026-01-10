@@ -30,7 +30,7 @@ The `BACKERS.md` file has been completely rewritten and restructured into an "In
 4.  **Removed Stale Offers:** The outdated "Special Offer" was removed to present a cleaner, more confident appeal.
 5.  **Modernized Tone:** The overall tone has been shifted from a personal appeal to a professional investment opportunity.
 
-## Activity Log
+## Timeline
 
 - 2025-10-10 @tobiu assigned to @tobiu
 - 2025-10-10 @tobiu added the `documentation` label

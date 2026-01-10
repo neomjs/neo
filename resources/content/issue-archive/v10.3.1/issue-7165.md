@@ -41,7 +41,7 @@ A robust build process should not rely on implicit dependencies or a specific or
 -   The overall build process is more robust, and the implicit dependency within `templateBuildProcessor.mjs` is now satisfied automatically.
 -   Developers running the standard `build-all` command will not encounter build failures related to the missing `parse5.mjs` file.
 
-## Activity Log
+## Timeline
 
 - 2025-08-02 @tobiu assigned to @tobiu
 - 2025-08-02 @tobiu added the `enhancement` label

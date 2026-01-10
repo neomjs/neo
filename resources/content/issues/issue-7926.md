@@ -34,7 +34,7 @@ For the "Connected Organization" (Phase 1), agents need to manage tickets in rep
 *   Updated `GitHubWorkflow` tools supporting cross-repo operations.
 
 
-## Activity Log
+## Timeline
 
 - 2025-11-29 @tobiu added the `enhancement` label
 - 2025-11-29 @tobiu added the `ai` label

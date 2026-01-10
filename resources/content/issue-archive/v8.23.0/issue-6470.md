@@ -26,16 +26,14 @@ After seeing @yangshun 's video on LinkedIn, I got curious if I can implement th
 => Moving chars inside strings like in Apple's Keynote => Magic Move effect.
 
 
-## Comments
-
-### @tobiu - 2025-02-21 00:23
-
-https://github.com/user-attachments/assets/4b23d260-89ec-4e25-a19e-054d985c3c79
-
-## Activity Log
+## Timeline
 
 - 2025-02-21 @tobiu added the `enhancement` label
 - 2025-02-21 @tobiu assigned to @tobiu
 - 2025-02-21 @tobiu referenced in commit `4a93360` - "component.MagicMoveText #6470"
+### @tobiu - 2025-02-21 00:23
+
+https://github.com/user-attachments/assets/4b23d260-89ec-4e25-a19e-054d985c3c79
+
 - 2025-02-21 @tobiu closed this issue
 

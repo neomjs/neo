@@ -63,13 +63,7 @@ Operations that perform local Git repository manipulations (e.g., `gh pr checkou
     -   Review all services to ensure no unnecessary `gh` calls remain.
     -   Update all relevant JSDoc comments and documentation to reflect the new GraphQL data access patterns.
 
-## Comments
-
-### @tobiu - 2025-10-23 14:58
-
-resolved.
-
-## Activity Log
+## Timeline
 
 - 2025-10-21 @tobiu assigned to @tobiu
 - 2025-10-21 @tobiu added the `enhancement` label
@@ -86,5 +80,9 @@ resolved.
 - 2025-10-22 @tobiu added sub-issue #7598
 - 2025-10-22 @tobiu added sub-issue #7599
 - 2025-10-22 @tobiu added sub-issue #7600
+### @tobiu - 2025-10-23 14:58
+
+resolved.
+
 - 2025-10-23 @tobiu closed this issue
 

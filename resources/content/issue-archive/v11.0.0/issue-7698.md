@@ -34,7 +34,7 @@ To improve separation of concerns and align with the pattern now used in the kno
 - The `DatabaseLifecycleService` should be awaited inside the `SessionService`'s `initAsync` method, and the direct import/await removed from `mcp-stdio.mjs`.
 
 
-## Activity Log
+## Timeline
 
 - 2025-11-03 @tobiu added the `ai` label
 - 2025-11-03 @tobiu added the `refactoring` label

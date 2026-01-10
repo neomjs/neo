@@ -43,7 +43,7 @@ Rewrite `.github/AI_QUICK_START.md` to reflect the new workflow:
 *   Misleading claims about speed and rate limits are corrected.
 
 
-## Activity Log
+## Timeline
 
 - 2025-12-30 @tobiu added the `documentation` label
 - 2025-12-30 @tobiu added the `ai` label

@@ -36,7 +36,7 @@ This change also required careful consideration of edge cases to prevent the age
 
 This establishes a more robust and professional development process where every change to the codebase is tracked in a ticket from its inception. It provides clarity for both the AI and human developers, ensuring no work happens "off the books".
 
-## Activity Log
+## Timeline
 
 - 2025-09-23 @tobiu assigned to @tobiu
 - 2025-09-23 @tobiu added the `enhancement` label

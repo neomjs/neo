@@ -67,7 +67,7 @@ allIssues.forEach(issue => {
 
 This ensures complete referential integrity for all relationship types.
 
-## Activity Log
+## Timeline
 
 - 2025-11-30 @tobiu added the `enhancement` label
 - 2025-11-30 @tobiu added the `ai` label

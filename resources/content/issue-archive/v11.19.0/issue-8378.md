@@ -33,7 +33,7 @@ Add intent-driven comments to `src/main/addon/Mermaid.mjs`.
 **Why:**
 To improve codebase navigability and ensure developers understand where and how this addon is utilized.
 
-## Activity Log
+## Timeline
 
 - 2026-01-07 @tobiu added the `documentation` label
 - 2026-01-07 @tobiu added the `enhancement` label

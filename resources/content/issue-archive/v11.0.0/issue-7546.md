@@ -34,7 +34,7 @@ This ticket covers refactoring `ai/mcp/server/memory-core/services/textEmbedding
 6.  Any other services that depend on `textEmbeddingService` are updated to use the new `TextEmbeddingService` singleton instance.
 7.  All related functionalities continue to work correctly after the refactoring.
 
-## Activity Log
+## Timeline
 
 - 2025-10-18 @tobiu assigned to @tobiu
 - 2025-10-18 @tobiu added the `enhancement` label

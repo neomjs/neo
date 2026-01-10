@@ -24,7 +24,7 @@ closedAt: '2025-04-22T11:16:52Z'
 
 * For consistency, a click on an already selected column needs to deselect it.
 
-## Activity Log
+## Timeline
 
 - 2025-04-22 @tobiu added the `enhancement` label
 - 2025-04-22 @tobiu assigned to @tobiu

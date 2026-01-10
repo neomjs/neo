@@ -23,7 +23,7 @@ closedAt: '2025-04-04T17:40:46Z'
 
 * While we do have full browser support, SWs won't exist when using `http` (only `https`)
 
-## Activity Log
+## Timeline
 
 - 2025-04-04 @tobiu added the `enhancement` label
 - 2025-04-04 @tobiu assigned to @tobiu

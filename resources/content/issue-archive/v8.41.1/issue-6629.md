@@ -23,7 +23,7 @@ closedAt: '2025-04-07T21:08:29Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
 - 2025-04-07 @camtnbikerrwc added the `bug` label
 - 2025-04-07 @tobiu assigned to @camtnbikerrwc

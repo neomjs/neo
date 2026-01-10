@@ -46,7 +46,7 @@ We need to determine **why** `createInstance` is being invoked multiple times.
 This ticket tracks the regression fix and the subsequent investigation.
 
 
-## Activity Log
+## Timeline
 
 - 2025-12-20 @tobiu added the `bug` label
 - 2025-12-20 @tobiu added the `ai` label

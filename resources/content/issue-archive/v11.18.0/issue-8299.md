@@ -34,7 +34,7 @@ The `align` config was missed in the initial implementation of `toJSON` for `Neo
 This was identified while working on `form.field.trigger.Base` which also uses `align`.
 
 
-## Activity Log
+## Timeline
 
 - 2026-01-03 @tobiu added the `bug` label
 - 2026-01-03 @tobiu added the `ai` label

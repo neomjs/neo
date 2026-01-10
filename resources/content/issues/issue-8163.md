@@ -48,7 +48,7 @@ This epic tracks the advanced refinement and functional expansion of the Cross-W
     *   Review `DragCoordinator` responsibility (is it doing too much visual calculation?).
     *   Comprehensive JSDoc cleanup across `SortZone`, `DashboardSortZone`, and `DragCoordinator`.
 
-## Activity Log
+## Timeline
 
 - 2025-12-27 @tobiu added the `epic` label
 - 2025-12-27 @tobiu added the `ai` label

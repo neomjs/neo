@@ -27,7 +27,7 @@ closedAt: '2025-02-07T15:45:00Z'
 
 I will rename the view node to `neo-grid-stretcher` to avoid getting wrong CSS rules.
 
-## Activity Log
+## Timeline
 
 - 2025-02-07 @tobiu added the `enhancement` label
 - 2025-02-07 @tobiu assigned to @tobiu

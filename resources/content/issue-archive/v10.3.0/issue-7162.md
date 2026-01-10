@@ -43,7 +43,7 @@ The AST transformation is complex. If an edge case or a bug in the processor cau
 -   A parsing error in one file logs a console error but does not stop the build.
 -   The file that caused the error is passed through the build untransformed.
 
-## Activity Log
+## Timeline
 
 - 2025-08-02 @tobiu assigned to @tobiu
 - 2025-08-02 @tobiu added parent issue #7130

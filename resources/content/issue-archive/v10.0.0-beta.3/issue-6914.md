@@ -23,7 +23,7 @@ closedAt: '2025-06-30T22:17:51Z'
 
 * i noticed inside new learning section demos, that the rendering can look odd otherwise.
 
-## Activity Log
+## Timeline
 
 - 2025-06-30 @tobiu assigned to @tobiu
 - 2025-06-30 @tobiu added the `enhancement` label

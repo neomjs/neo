@@ -25,7 +25,7 @@ closedAt: '2025-06-15T13:44:56Z'
 * The method is returning an overloaded vnode object
 * Time to get rid of this technical debt, and separate both accordingly
 
-## Activity Log
+## Timeline
 
 - 2025-06-15 @tobiu assigned to @tobiu
 - 2025-06-15 @tobiu added the `enhancement` label

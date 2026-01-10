@@ -23,7 +23,7 @@ closedAt: '2025-03-03T13:40:58Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
 - 2025-03-03 @tobiu added the `enhancement` label
 - 2025-03-03 @tobiu assigned to @tobiu

@@ -25,15 +25,13 @@ while all grid selection models need work, we need to start somewhere :)
 
 for the `RowModel`: in case we want to select a non-painted row, we need to paint it first or scroll to it.
 
-## Comments
+## Timeline
 
+- 2025-01-07 @tobiu added the `enhancement` label
+- 2025-01-07 @tobiu assigned to @tobiu
 ### @tobiu - 2025-02-26 13:37
 
 already resolved.
 
-## Activity Log
-
-- 2025-01-07 @tobiu added the `enhancement` label
-- 2025-01-07 @tobiu assigned to @tobiu
 - 2025-02-26 @tobiu closed this issue
 

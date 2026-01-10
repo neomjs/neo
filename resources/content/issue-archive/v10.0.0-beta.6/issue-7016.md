@@ -24,7 +24,7 @@ closedAt: '2025-07-11T10:58:03Z'
 * Consistency
 * We want to support multiple envs in parallel
 
-## Activity Log
+## Timeline
 
 - 2025-07-11 @tobiu assigned to @tobiu
 - 2025-07-11 @tobiu added parent issue #6992

@@ -40,8 +40,13 @@ Implement `toJSON` serialization for `Neo.component.wrapper.AmChart` and `Neo.co
 **Goal:**
 Enable Neural Link to inspect chart definitions and editor content.
 
-## Comments
+## Timeline
 
+- 2026-01-03 @tobiu added the `enhancement` label
+- 2026-01-03 @tobiu added the `ai` label
+- 2026-01-03 @tobiu assigned to @tobiu
+- 2026-01-03 @tobiu added parent issue #8200
+- 2026-01-03 @tobiu referenced in commit `60dc961` - "feat(wrapper): Implement toJSON for AmChart and MonacoEditor #8303"
 ### @tobiu - 2026-01-03 21:13
 
 **Input from Gemini 2.5 pro:**
@@ -55,12 +60,5 @@ Enable Neural Link to inspect chart definitions and editor content.
 > 
 > Changes committed in `feat(wrapper): Implement toJSON for AmChart and MonacoEditor #8303`.
 
-## Activity Log
-
-- 2026-01-03 @tobiu added the `enhancement` label
-- 2026-01-03 @tobiu added the `ai` label
-- 2026-01-03 @tobiu assigned to @tobiu
-- 2026-01-03 @tobiu added parent issue #8200
-- 2026-01-03 @tobiu referenced in commit `60dc961` - "feat(wrapper): Implement toJSON for AmChart and MonacoEditor #8303"
 - 2026-01-03 @tobiu closed this issue
 

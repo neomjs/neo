@@ -40,8 +40,13 @@ The current guide `@learn/guides/mcp/KnowledgeBase.md` focuses heavily on the te
 - `AGENTS_STARTUP.md`
 
 
-## Comments
+## Timeline
 
+- 2025-11-22 @tobiu added the `documentation` label
+- 2025-11-22 @tobiu added the `enhancement` label
+- 2025-11-22 @tobiu added the `ai` label
+- 2025-11-22 @tobiu assigned to @tobiu
+- 2025-11-22 @tobiu referenced in commit `1b5066b` - "Enhance Knowledge Base Guide with 'Why' and Use Cases #7855"
 ### @tobiu - 2025-11-22 09:09
 
 **Input from Gemini 2.5 pro:**
@@ -59,12 +64,5 @@ The current guide `@learn/guides/mcp/KnowledgeBase.md` focuses heavily on the te
 > Closing this ticket.
 > 
 
-## Activity Log
-
-- 2025-11-22 @tobiu added the `documentation` label
-- 2025-11-22 @tobiu added the `enhancement` label
-- 2025-11-22 @tobiu added the `ai` label
-- 2025-11-22 @tobiu assigned to @tobiu
-- 2025-11-22 @tobiu referenced in commit `1b5066b` - "Enhance Knowledge Base Guide with 'Why' and Use Cases #7855"
 - 2025-11-22 @tobiu closed this issue
 

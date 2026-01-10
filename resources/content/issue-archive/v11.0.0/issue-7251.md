@@ -31,7 +31,7 @@ To honor the release of v10.9.0, the ticket archival process is being formally i
 
 3.  **Update Strategy Document:** The `.github/TICKET_STRATEGY.md` file will be updated to reflect the use of `.github/ISSUE_ARCHIVE/` as the official archive directory and to mention the practice of using release-specific sub-folders.
 
-## Activity Log
+## Timeline
 
 - 2025-09-24 @tobiu assigned to @tobiu
 - 2025-09-24 @tobiu added the `enhancement` label

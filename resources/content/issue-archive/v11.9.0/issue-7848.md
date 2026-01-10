@@ -32,13 +32,7 @@ This epic tracks the creation of a comprehensive documentation section for the n
 
 The goal is to explain the Model Context Protocol (MCP) implementation, the three specific servers, and the code execution pattern to both human developers and AI agents.
 
-## Comments
-
-### @tobiu - 2025-11-22 08:35
-
-initial draft version done, there will be follow-up tickets.
-
-## Activity Log
+## Timeline
 
 - 2025-11-22 @tobiu added the `documentation` label
 - 2025-11-22 @tobiu added the `epic` label
@@ -50,5 +44,9 @@ initial draft version done, there will be follow-up tickets.
 - 2025-11-22 @tobiu added sub-issue #7853
 - 2025-11-22 @tobiu assigned to @tobiu
 - 2025-11-22 @tobiu referenced in commit `6a353c1` - "#7848 tree.json update"
+### @tobiu - 2025-11-22 08:35
+
+initial draft version done, there will be follow-up tickets.
+
 - 2025-11-22 @tobiu closed this issue
 

@@ -26,7 +26,7 @@ blocking: []
 * a view with 10 rows => filter change => 5 get added, 5 get removed, 5 get moved => 15 => more than the cycle range and cmps inside cells can get moved
 * we need a concept to handle it (e.g. a vdom & vnode clone with different ids)
 
-## Activity Log
+## Timeline
 
 - 2025-03-09 @tobiu added the `enhancement` label
 - 2025-03-09 @tobiu added the `help wanted` label

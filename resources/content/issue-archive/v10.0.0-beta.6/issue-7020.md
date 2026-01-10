@@ -53,13 +53,7 @@ The correct approach is to create a **dedicated build script** (`buildScripts/ad
 
 This automated approach ensures accuracy and can be re-run as needed to keep the documentation in sync with the code.
 
-## Comments
-
-### @tobiu - 2025-07-11 19:54
-
-reopening for adding examples
-
-## Activity Log
+## Timeline
 
 - 2025-07-11 @tobiu assigned to @tobiu
 - 2025-07-11 @tobiu added the `enhancement` label
@@ -67,6 +61,11 @@ reopening for adding examples
 - 2025-07-11 @tobiu referenced in commit `1188f0a` - "JSDoc Enhancement: Add @reactive Tag to All Reactive Configs #7020"
 - 2025-07-11 @tobiu referenced in commit `b7144f0` - "#7020 polishing"
 - 2025-07-11 @tobiu closed this issue
+### @tobiu - 2025-07-11 19:54
+
+reopening for adding examples
+
+- 2025-07-11 @tobiu reopened this issue
 - 2025-07-11 @tobiu referenced in commit `f708d1b` - "#7020 added examples"
 - 2025-07-11 @tobiu closed this issue
 

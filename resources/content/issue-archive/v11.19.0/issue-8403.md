@@ -30,8 +30,12 @@ New: `value = field.convert(value, record)`
 
 This allows `convert` functions to access sibling fields for more complex transformations, similar to `calculate`.
 
-## Comments
+## Timeline
 
+- 2026-01-07 @tobiu added the `enhancement` label
+- 2026-01-07 @tobiu added the `ai` label
+- 2026-01-07 @tobiu added the `core` label
+- 2026-01-08 @tobiu referenced in commit `c64cc8e` - "enhancement: Enhance Release tree titles and pass record to Model field convert method (#8402, #8403)"
 ### @tobiu - 2026-01-08 00:05
 
 **Input from Gemini 3 Pro:**
@@ -39,12 +43,6 @@ This allows `convert` functions to access sibling fields for more complex transf
 > ✦ Implemented in c64cc8ebb.
 > Updated `src/data/RecordFactory.mjs` to pass `record` as the second argument to `field.convert()`.
 
-## Activity Log
-
-- 2026-01-07 @tobiu added the `enhancement` label
-- 2026-01-07 @tobiu added the `ai` label
-- 2026-01-07 @tobiu added the `core` label
-- 2026-01-08 @tobiu referenced in commit `c64cc8e` - "enhancement: Enhance Release tree titles and pass record to Model field convert method (#8402, #8403)"
 - 2026-01-08 @tobiu closed this issue
 - 2026-01-08 @tobiu added parent issue #8362
 - 2026-01-08 @tobiu assigned to @tobiu

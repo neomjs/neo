@@ -23,7 +23,7 @@ closedAt: '2025-01-29T20:49:40Z'
 
 no longer needed, all neo based DD OPs are now proxy based
 
-## Activity Log
+## Timeline
 
 - 2025-01-29 @tobiu added the `enhancement` label
 - 2025-01-29 @tobiu assigned to @tobiu

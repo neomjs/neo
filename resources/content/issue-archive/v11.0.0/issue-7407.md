@@ -51,8 +51,14 @@ To work on this ticket, please start your session with the following prompt:
 > 
 > You will need to read the epic context from @.github/ISSUE/epic-architect-ai-tooling-as-mcp.md and the specific ticket details from @.github/ISSUE/ticket-implement-memory-server-scaffold.md before we begin.
 
-## Comments
+## Timeline
 
+- 2025-10-07 @tobiu added the `enhancement` label
+- 2025-10-07 @tobiu added the `help wanted` label
+- 2025-10-07 @tobiu added parent issue #7399
+- 2025-10-07 @tobiu added the `good first issue` label
+- 2025-10-07 @tobiu added the `hacktoberfest` label
+- 2025-10-07 @tobiu added the `ai` label
 ### @SiddharthJiyani - 2025-10-08 15:34
 
 I would love to work on this.
@@ -60,6 +66,7 @@ Can I start the work ?
 
 
 
+- 2025-10-08 @tobiu assigned to @SiddharthJiyani
 ### @tobiu - 2025-10-08 15:56
 
 Hi, and thanks for your interest. Assigned. Please make sure to read the parent epic first: https://github.com/neomjs/neo/issues/7399
@@ -80,6 +87,8 @@ For the meantime, there definitely is an almost infinite amount of items which y
 
 You could also just ask an ai agent after following the agents.md instructions to suggest new work items for you. Ideally mention hacktoberfest, and the agent should ask you what could be items that match your interests. Of course I will add the `hacktoberfest` label on every self-generated new ticket.
 
+- 2025-10-10 @Aki-07 cross-referenced by PR #7450
+- 2025-10-10 @Aki-07 cross-referenced by PR #7455
 ### @Aki-07 - 2025-10-10 20:50
 
 Thanks for the clarification @tobiu! I completely understand the one-week fairness rule.
@@ -89,17 +98,6 @@ PR #7455: Memory server scaffold + /healthcheck +  Read endpoints (GET /memories
 
 To had complete the query endpoint had to work on the memory server as well as on the GET apis. I understand these may need to wait for the original assignee or the one-week mark, but I wanted to have the work ready so there's no delay once we can proceed. I ll go on and try to work on the other things which you have posted
 
-## Activity Log
-
-- 2025-10-07 @tobiu added the `enhancement` label
-- 2025-10-07 @tobiu added the `help wanted` label
-- 2025-10-07 @tobiu added parent issue #7399
-- 2025-10-07 @tobiu added the `good first issue` label
-- 2025-10-07 @tobiu added the `hacktoberfest` label
-- 2025-10-07 @tobiu added the `ai` label
-- 2025-10-08 @tobiu assigned to @SiddharthJiyani
-- 2025-10-10 @Aki-07 cross-referenced by PR #7450
-- 2025-10-10 @Aki-07 cross-referenced by PR #7455
 - 2025-10-11 @Aki-07 cross-referenced by PR #7462
 - 2025-10-11 @tobiu closed this issue
 

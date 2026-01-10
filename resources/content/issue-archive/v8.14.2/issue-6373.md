@@ -27,18 +27,16 @@ https://github.com/user-attachments/assets/b333b32e-ab61-4c00-9d59-c740dd470f89
 
 We need to update the widths inside `switchItems()` to get to the same positioning as `draggable.toolbar.SortZone`.
 
-## Comments
+## Timeline
 
+- 2025-02-04 @tobiu added the `enhancement` label
+- 2025-02-04 @tobiu assigned to @tobiu
+- 2025-02-04 @tobiu referenced in commit `c083186` - "draggable.grid.header.toolbar.SortZone: switchItems() => add support for different column widths #6373"
 ### @tobiu - 2025-02-04 09:05
 
 Even easier: we can just re-use the header positions directly.
 
 https://github.com/user-attachments/assets/97d77012-6d69-4a77-90ab-bfc4d2d0206a
 
-## Activity Log
-
-- 2025-02-04 @tobiu added the `enhancement` label
-- 2025-02-04 @tobiu assigned to @tobiu
-- 2025-02-04 @tobiu referenced in commit `c083186` - "draggable.grid.header.toolbar.SortZone: switchItems() => add support for different column widths #6373"
 - 2025-02-04 @tobiu closed this issue
 

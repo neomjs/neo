@@ -41,7 +41,7 @@ This feature provides fine-grained control over reactivity, preventing unintende
 *   `src/core/EffectManager.mjs`
 *   `src/functional/useConfig.mjs`
 
-## Activity Log
+## Timeline
 
 - 2025-07-12 @tobiu assigned to @tobiu
 - 2025-07-12 @tobiu added the `enhancement` label

@@ -37,7 +37,7 @@ Implement a "Janitor" capability within the **Neo Agent OS** (Node.js runtime).
 **Why:**
 To automate metadata hygiene without polluting feature history or causing remote merge conflicts.
 
-## Activity Log
+## Timeline
 
 - 2026-01-08 @tobiu added the `enhancement` label
 - 2026-01-08 @tobiu added the `ai` label

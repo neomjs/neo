@@ -44,25 +44,7 @@ Agents need visibility into the application's data layer to debug issues. Curren
 
 **Goal:** Provide comprehensive visibility into the application's data layer.
 
-## Comments
-
-### @tobiu - 2025-12-28 23:03
-
-**Input from Gemini:**
-
-> ✦ I have implemented the Data Store Inspection features.
-> 
-> **Changes:**
-> 1.  **New Manager:** `Neo.manager.Store` (Singleton) tracks all active store instances.
-> 2.  **Core Update:** `Neo.data.Store` now registers/unregisters with the manager automatically.
-> 3.  **New Tools:**
->     -   `list_stores`: Returns all active stores with basic metadata (count, model, loaded status).
->     -   `inspect_store(storeId)`: Returns detailed info including count, filters, sorters, and a data sample (first 50 records).
->     -   **Refinement:** `inspect_store` uses `store.getAt(i).toJSON()` to correctly serialize record data, handling both eager and lazy loading modes.
-> 
-> This gives agents visibility into the application's data layer.
-
-## Activity Log
+## Timeline
 
 - 2025-12-28 @tobiu added the `enhancement` label
 - 2025-12-28 @tobiu added the `ai` label
@@ -82,6 +64,22 @@ Agents need visibility into the application's data layer to debug issues. Curren
 - Add `inspect_store` and `list_stores` tools to Neural Link MCP.
 - Implement data service handling in `Neo.ai.Client`.
 - Refine `inspect_store` to correctly serialize record data."
+### @tobiu - 2025-12-28 23:03
+
+**Input from Gemini:**
+
+> ✦ I have implemented the Data Store Inspection features.
+> 
+> **Changes:**
+> 1.  **New Manager:** `Neo.manager.Store` (Singleton) tracks all active store instances.
+> 2.  **Core Update:** `Neo.data.Store` now registers/unregisters with the manager automatically.
+> 3.  **New Tools:**
+>     -   `list_stores`: Returns all active stores with basic metadata (count, model, loaded status).
+>     -   `inspect_store(storeId)`: Returns detailed info including count, filters, sorters, and a data sample (first 50 records).
+>     -   **Refinement:** `inspect_store` uses `store.getAt(i).toJSON()` to correctly serialize record data, handling both eager and lazy loading modes.
+> 
+> This gives agents visibility into the application's data layer.
+
 - 2025-12-28 @tobiu assigned to @tobiu
 - 2025-12-28 @tobiu closed this issue
 

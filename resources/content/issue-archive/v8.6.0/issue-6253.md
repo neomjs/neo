@@ -27,18 +27,16 @@ old:
 
 ![Image](https://github.com/user-attachments/assets/975596ad-4a0f-4055-99be-8a31d3b12908)
 
-## Comments
+## Timeline
 
+- 2025-01-18 @tobiu added the `enhancement` label
+- 2025-01-18 @tobiu assigned to @tobiu
+- 2025-01-18 @tobiu referenced in commit `c6d2f77` - "data.RecordFactory: store Record values inside a shared data symbol #6253"
 ### @tobiu - 2025-01-18 15:29
 
 new:
 
 ![Image](https://github.com/user-attachments/assets/60c2ae3e-4045-430b-98cb-b54281827862)
 
-## Activity Log
-
-- 2025-01-18 @tobiu added the `enhancement` label
-- 2025-01-18 @tobiu assigned to @tobiu
-- 2025-01-18 @tobiu referenced in commit `c6d2f77` - "data.RecordFactory: store Record values inside a shared data symbol #6253"
 - 2025-01-18 @tobiu closed this issue
 

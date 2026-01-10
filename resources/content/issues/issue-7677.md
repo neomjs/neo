@@ -78,7 +78,7 @@ The `Neo.form.field.Password` component extends `Neo.form.field.Text` and only o
 
 The test should be created at: `test/playwright/component/form/field/Password.spec.mjs`
 
-## Activity Log
+## Timeline
 
 - 2025-10-27 @tobiu added the `enhancement` label
 - 2025-10-27 @tobiu added the `ai` label

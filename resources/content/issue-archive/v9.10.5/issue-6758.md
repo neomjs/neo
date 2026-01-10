@@ -25,7 +25,7 @@ closedAt: '2025-06-09T08:40:05Z'
 * consistency to the service worker implementation
 * update class extensions accordingly
 
-## Activity Log
+## Timeline
 
 - 2025-06-09 @tobiu assigned to @tobiu
 - 2025-06-09 @tobiu added the `enhancement` label

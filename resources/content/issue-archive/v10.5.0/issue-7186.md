@@ -70,7 +70,7 @@ This refactoring significantly improves the performance and memory footprint of 
 
 The benchmarks demonstrate a dramatic reduction in initial data processing time due to lazy instantiation. While synchronous adding of 1M rows still causes a UI freeze, the configurable chunking mechanism provides a way to manage this for perceived performance. The resolution of VDom errors and component cleanup further enhance stability and efficiency.
 
-## Activity Log
+## Timeline
 
 - 2025-08-12 @tobiu assigned to @tobiu
 - 2025-08-12 @tobiu added the `enhancement` label

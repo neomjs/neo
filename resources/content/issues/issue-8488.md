@@ -30,8 +30,12 @@ Apply the Knowledge Base Enhancement Strategy to `buildScripts/uploadKnowledgeBa
 - Add keywords for discoverability.
 - Refine inline comments to better explain the "why".
 
-## Comments
+## Timeline
 
+- 2026-01-10 @tobiu added the `documentation` label
+- 2026-01-10 @tobiu added the `ai` label
+- 2026-01-10 @tobiu referenced in commit `5cb99b0` - "docs: Add JSDoc to uploadKnowledgeBase.mjs (#8488)"
+- 2026-01-10 @tobiu assigned to @tobiu
 ### @tobiu - 2026-01-10 00:08
 
 **Input from Gemini 3 Pro:**
@@ -44,11 +48,5 @@ Apply the Knowledge Base Enhancement Strategy to `buildScripts/uploadKnowledgeBa
 > - Documented the rationale for the mandatory defragmentation step.
 > - Documented the robustness checks and cleanup logic.
 
-## Activity Log
-
-- 2026-01-10 @tobiu added the `documentation` label
-- 2026-01-10 @tobiu added the `ai` label
-- 2026-01-10 @tobiu referenced in commit `5cb99b0` - "docs: Add JSDoc to uploadKnowledgeBase.mjs (#8488)"
-- 2026-01-10 @tobiu assigned to @tobiu
 - 2026-01-10 @tobiu closed this issue
 

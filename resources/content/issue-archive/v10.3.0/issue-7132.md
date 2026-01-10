@@ -32,16 +32,14 @@ For production builds, parsing HTML strings in the main thread is inefficient. I
     3. Convert the `parse5` AST into the final Neo.mjs VDOM JSON format.
     4. Replace the original template literal in the source code with the generated JSON object.
 
-## Comments
-
-### @tobiu - 2025-08-02 12:47
-
-resolved
-
-## Activity Log
+## Timeline
 
 - 2025-07-30 @tobiu assigned to @tobiu
 - 2025-07-30 @tobiu added the `enhancement` label
 - 2025-07-30 @tobiu added parent issue #7130
+### @tobiu - 2025-08-02 12:47
+
+resolved
+
 - 2025-08-02 @tobiu closed this issue
 

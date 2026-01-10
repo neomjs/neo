@@ -34,7 +34,7 @@ This ticket covers the work to apply this standard to all tools in the Knowledge
 3.  The manuals explain the tool's purpose, when to use it, what it does behind the scenes (e.g., "this orchestrates the create and embed tools"), and any potential side effects (e.g., "this is a destructive operation").
 4.  The `query_documents` description, which already follows this pattern, can be used as a template.
 
-## Activity Log
+## Timeline
 
 - 2025-10-16 @tobiu assigned to @tobiu
 - 2025-10-16 @tobiu added the `documentation` label

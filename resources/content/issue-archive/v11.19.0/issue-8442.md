@@ -31,8 +31,12 @@ The `get_class_hierarchy` tool in the `neo.mjs-knowledge-base` MCP server has tw
 1. Update `ai/mcp/server/knowledge-base/services/QueryService.mjs`: Remove the optional brackets from the `root` parameter JSDoc.
 2. Update `ai/mcp/server/knowledge-base/openapi.yaml`: Correct the response schema to match the implementation (a map of strings).
 
-## Comments
+## Timeline
 
+- 2026-01-08 @tobiu added the `bug` label
+- 2026-01-08 @tobiu added the `ai` label
+- 2026-01-08 @tobiu referenced in commit `076c0ac` - "fix: Correct getClassHierarchy schema and JSDoc (#8442)"
+- 2026-01-08 @tobiu assigned to @tobiu
 ### @tobiu - 2026-01-08 20:48
 
 **Input from Gemini 3 Pro:**
@@ -43,11 +47,5 @@ The `get_class_hierarchy` tool in the `neo.mjs-knowledge-base` MCP server has tw
 > 
 > This resolves the validation error where the tool output did not match the schema.
 
-## Activity Log
-
-- 2026-01-08 @tobiu added the `bug` label
-- 2026-01-08 @tobiu added the `ai` label
-- 2026-01-08 @tobiu referenced in commit `076c0ac` - "fix: Correct getClassHierarchy schema and JSDoc (#8442)"
-- 2026-01-08 @tobiu assigned to @tobiu
 - 2026-01-08 @tobiu closed this issue
 

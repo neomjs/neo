@@ -83,12 +83,18 @@ Your contribution will be a new ticket file that serves as your official report.
 
 That's it! Your PR will be a valuable piece of R&D that helps us build a truly intelligent and reliable AI development partner. We can't wait to see what you discover.
 
-## Comments
+## Timeline
 
+- 2025-10-04 @tobiu added the `help wanted` label
+- 2025-10-04 @tobiu added the `good first issue` label
+- 2025-10-04 @tobiu added parent issue #7296
+- 2025-10-04 @tobiu added the `hacktoberfest` label
+- 2025-10-04 @tobiu added the `ai` label
 ### @kiransatdive - 2025-10-04 08:41
 
 I would like to work on this issue. Could you please assign it to me?
 
+- 2025-10-04 @tobiu assigned to @kiransatdive
 ### @tobiu - 2025-10-04 08:43
 
 Sure. Feel free to join the Slack and / or Discord channels for questions.
@@ -103,13 +109,5 @@ As there has been no activity for a couple of weeks and the project's architectu
 
 We're closing this ticket now. Thanks again for your willingness to contribute, and we hope to see you in other issues!
 
-## Activity Log
-
-- 2025-10-04 @tobiu added the `help wanted` label
-- 2025-10-04 @tobiu added the `good first issue` label
-- 2025-10-04 @tobiu added parent issue #7296
-- 2025-10-04 @tobiu added the `hacktoberfest` label
-- 2025-10-04 @tobiu added the `ai` label
-- 2025-10-04 @tobiu assigned to @kiransatdive
 - 2025-10-24 @tobiu closed this issue
 

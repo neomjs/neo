@@ -62,7 +62,7 @@ The `CallToolRequestSchema` handler in `mcp-stdio.mjs` was modified as follows:
 ```
 This ensures that error responses from tools are correctly identified and propagated.
 
-## Activity Log
+## Timeline
 
 - 2025-10-25 @tobiu added the `bug` label
 - 2025-10-25 @tobiu added the `ai` label

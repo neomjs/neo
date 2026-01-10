@@ -30,7 +30,7 @@ Maintaining the old `mcp-servers.json` file is no longer necessary and creates c
 
 Future integrations with other agents (e.g., Claude) can be handled by creating new, agent-specific configuration files as needed, rather than trying to maintain a single, generic file that doesn't fully serve any specific agent.
 
-## Activity Log
+## Timeline
 
 - 2025-11-08 @tobiu added the `enhancement` label
 - 2025-11-08 @tobiu added the `ai` label

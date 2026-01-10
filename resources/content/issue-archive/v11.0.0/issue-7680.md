@@ -25,7 +25,7 @@ closedAt: '2025-10-31T19:55:04Z'
 
 The calendar example was throwing a `TypeError: date.getFullYear is not a function`. This was caused by `Events.mjs#getDayRecords()` accessing `me.items[i]` directly, which returns a raw data object instead of a `Record` instance. The fix is to use `me.getAt(i)` to ensure the lazy record creation is triggered.
 
-## Activity Log
+## Timeline
 
 - 2025-10-31 @tobiu added the `bug` label
 - 2025-10-31 @tobiu added the `ai` label

@@ -31,18 +31,16 @@ To enable multi-window `LivePreview` functionality within the new `apps/legit` a
 
 This ticket primarily tracks the setup and verification steps for the new app environment.
 
-## Comments
-
-### @tobiu - 2025-12-09 17:16
-
-I also updated appNames, mainThreadAddons, gitignore.
-
-## Activity Log
+## Timeline
 
 - 2025-12-09 @tobiu added the `enhancement` label
 - 2025-12-09 @tobiu added the `ai` label
 - 2025-12-09 @tobiu added the `testing` label
 - 2025-12-09 @tobiu assigned to @tobiu
 - 2025-12-09 @tobiu referenced in commit `eeef8ca` - "Duplicate childapps/preview to apps/legit for LivePreview testing #8073"
+### @tobiu - 2025-12-09 17:16
+
+I also updated appNames, mainThreadAddons, gitignore.
+
 - 2025-12-09 @tobiu closed this issue
 

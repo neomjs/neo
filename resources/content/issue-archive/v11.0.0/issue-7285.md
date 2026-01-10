@@ -33,8 +33,13 @@ This task is to migrate the unit test for `neo/MixinStaticConfig.mjs` from the S
 3.  Ensure the new test runs successfully via `npm test`.
 4.  The new test must cover all the functionality of the original Siesta test.
 
-## Comments
+## Timeline
 
+- 2025-09-27 @tobiu added the `enhancement` label
+- 2025-09-27 @tobiu added parent issue #7262
+- 2025-09-29 @tobiu added the `help wanted` label
+- 2025-09-29 @tobiu added the `good first issue` label
+- 2025-09-29 @tobiu added the `hacktoberfest` label
 ### @KURO-1125 - 2025-10-02 17:29
 
 Hi! I'd like to work on this issue for Hacktoberfest.
@@ -58,19 +63,12 @@ Could you please assign this issue to me?
 Thanks!
 
 
+- 2025-10-02 @tobiu assigned to @KURO-1125
 ### @tobiu - 2025-10-02 17:33
 
 Assigned. Please check my comment inside your other ticket first:
 https://github.com/neomjs/neo/issues/7294#issuecomment-3362286193
 
-## Activity Log
-
-- 2025-09-27 @tobiu added the `enhancement` label
-- 2025-09-27 @tobiu added parent issue #7262
-- 2025-09-29 @tobiu added the `help wanted` label
-- 2025-09-29 @tobiu added the `good first issue` label
-- 2025-09-29 @tobiu added the `hacktoberfest` label
-- 2025-10-02 @tobiu assigned to @KURO-1125
 - 2025-10-02 @KURO-1125 cross-referenced by PR #7331
 - 2025-10-02 @tobiu closed this issue
 

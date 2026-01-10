@@ -34,7 +34,7 @@ To make the context of all past work searchable, the archived tickets will be in
     -   Type-based filtering is now handled directly within the database query using a `where` clause, replacing the previous, less efficient post-query filtering in JavaScript.
     -   The scoring algorithm has been adjusted to apply a penalty to `ticket` type results in general queries (`--type all`) to reduce noise, ensuring they are discoverable only when explicitly queried via `--type ticket`.
 
-## Activity Log
+## Timeline
 
 - 2025-09-24 @tobiu assigned to @tobiu
 - 2025-09-24 @tobiu added the `enhancement` label

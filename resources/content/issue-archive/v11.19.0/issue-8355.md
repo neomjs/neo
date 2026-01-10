@@ -30,7 +30,7 @@ Update the "Why Choose Neo.mjs?" introduction in `README.md` to use more empathe
 
 **Goal:** Shift the tone from a command to an insight, validating the developer's struggle with general-purpose tools for high-performance needs.
 
-## Activity Log
+## Timeline
 
 - 2026-01-06 @tobiu added the `documentation` label
 - 2026-01-06 @tobiu added the `enhancement` label

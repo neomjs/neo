@@ -24,7 +24,7 @@ closedAt: '2025-04-23T14:19:06Z'
 * Using bindings inside component based cell renderers is expensive, since we need to rebind inside every re-rendering
 * Since this is not needed for most use cases, I will add a flag to only parse for bindings when required
 
-## Activity Log
+## Timeline
 
 - 2025-04-23 @tobiu added the `enhancement` label
 - 2025-04-23 @tobiu assigned to @tobiu

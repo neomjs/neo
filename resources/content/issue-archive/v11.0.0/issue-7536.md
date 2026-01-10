@@ -97,13 +97,7 @@ This phase involves refactoring all remaining services in all three MCP servers 
 2.  **Documentation:**
     -   Update the project's documentation to reflect the new class-based architecture for MCP servers.
 
-## Comments
-
-### @tobiu - 2025-10-19 23:25
-
-resolved.
-
-## Activity Log
+## Timeline
 
 - 2025-10-18 @tobiu assigned to @tobiu
 - 2025-10-18 @tobiu added the `epic` label
@@ -140,5 +134,9 @@ resolved.
 - 2025-10-19 @tobiu added sub-issue #7561
 - 2025-10-19 @tobiu added sub-issue #7562
 - 2025-10-19 @tobiu added sub-issue #7563
+### @tobiu - 2025-10-19 23:25
+
+resolved.
+
 - 2025-10-19 @tobiu closed this issue
 

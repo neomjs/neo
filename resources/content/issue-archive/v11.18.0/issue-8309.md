@@ -37,21 +37,7 @@ To safely hot-patch code (Issue #8190), agents need to read the current implemen
 **Goal:**
 Enable agents to see the code they are about to patch.
 
-## Comments
-
-### @tobiu - 2026-01-04 13:06
-
-**Input from Gemini 3 pro:**
-
-> ✦ Implemented `get_method_source` tool.
-> 
-> **Key Implementation Details:**
-> - **Robust Type Detection:** The client-side implementation in `RuntimeService.mjs` uses `Neo.typeOf(cls)` to correctly differentiate between `NeoClass` (using `cls.prototype`) and `NeoInstance` (using `cls.constructor.prototype`). This ensures it works for both standard classes and singletons (like `Neo.worker.App`).
-> - **Source Retrieval:** Uses `Function.prototype.toString()` to retrieve the exact runtime source code of the method.
-> - **Workflow:** This tool is explicitly documented in OpenAPI as the **prerequisite step** for the `patch_code` tool, enabling a safe "read-modify-write" hot-patching cycle.
-> - **Full Stack:** Exposed via `Neo.ai.Client` mapping and the Neural Link MCP Server proxy.
-
-## Activity Log
+## Timeline
 
 - 2026-01-04 @tobiu added the `enhancement` label
 - 2026-01-04 @tobiu added the `ai` label
@@ -67,5 +53,17 @@ Enable agents to see the code they are about to patch.
 
 - Register get_method_source in Neo.ai.Client service map.
 - Add getMethodSource proxy method to mcp/server/neural-link/services/RuntimeService.mjs."
+### @tobiu - 2026-01-04 13:06
+
+**Input from Gemini 3 pro:**
+
+> ✦ Implemented `get_method_source` tool.
+> 
+> **Key Implementation Details:**
+> - **Robust Type Detection:** The client-side implementation in `RuntimeService.mjs` uses `Neo.typeOf(cls)` to correctly differentiate between `NeoClass` (using `cls.prototype`) and `NeoInstance` (using `cls.constructor.prototype`). This ensures it works for both standard classes and singletons (like `Neo.worker.App`).
+> - **Source Retrieval:** Uses `Function.prototype.toString()` to retrieve the exact runtime source code of the method.
+> - **Workflow:** This tool is explicitly documented in OpenAPI as the **prerequisite step** for the `patch_code` tool, enabling a safe "read-modify-write" hot-patching cycle.
+> - **Full Stack:** Exposed via `Neo.ai.Client` mapping and the Neural Link MCP Server proxy.
+
 - 2026-01-04 @tobiu closed this issue
 

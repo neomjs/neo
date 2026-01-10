@@ -24,7 +24,7 @@ closedAt: '2025-09-15T11:47:36Z'
 
 important, since this is one of the first pages interested devs might read.
 
-## Activity Log
+## Timeline
 
 - 2025-09-15 @tobiu assigned to @tobiu
 - 2025-09-15 @tobiu added the `documentation` label

@@ -23,7 +23,7 @@ closedAt: '2025-07-09T00:09:06Z'
 
 * We can not use `Neo.merge()` here, since `vdom` contains arrays, which will get replaced
 
-## Activity Log
+## Timeline
 
 - 2025-07-09 @tobiu assigned to @tobiu
 - 2025-07-09 @tobiu added the `enhancement` label

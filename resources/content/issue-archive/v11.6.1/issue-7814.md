@@ -50,7 +50,7 @@ Replace `parseConfig(me)` with `createBindings(me)` in `src/layout/Base.mjs`. Th
 **Verification:**
 Verify that bindings on layouts (e.g., in `apps/form/view/FormContainer.mjs`) work correctly after the fix.
 
-## Activity Log
+## Timeline
 
 - 2025-11-19 @tobiu added the `bug` label
 - 2025-11-19 @tobiu added the `refactoring` label

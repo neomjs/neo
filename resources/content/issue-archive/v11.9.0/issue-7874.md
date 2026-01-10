@@ -40,7 +40,7 @@ This causes code duplication and confusion.
 - Tests (if any) still pass.
 
 
-## Activity Log
+## Timeline
 
 - 2025-11-23 @tobiu added the `bug` label
 - 2025-11-23 @tobiu added the `ai` label

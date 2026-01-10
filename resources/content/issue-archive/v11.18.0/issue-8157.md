@@ -40,7 +40,7 @@ While generic panels can be used in dashboards, a dedicated class provides a cle
 *   Relates to #8155 (Refactoring dashboard.Container logic)
 
 
-## Activity Log
+## Timeline
 
 - 2025-12-26 @tobiu added the `enhancement` label
 - 2025-12-26 @tobiu added the `ai` label

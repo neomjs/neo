@@ -31,8 +31,12 @@ However, `Portal.model.Release` does not use `name`, but relies on `id` or `titl
 3.  **Configure Releases**: In `Portal.view.news.release.MainContainer`, set `buttonTextField` to `'id'`.
 4.  **Clean up StateProvider**: Remove unused `previousPageText` and `nextPageText` variables in `Portal.view.news.release.MainContainerStateProvider`.
 
-## Comments
+## Timeline
 
+- 2026-01-09 @tobiu added the `ai` label
+- 2026-01-09 @tobiu added the `refactoring` label
+- 2026-01-09 @tobiu referenced in commit `8ff67ed` - "fix: Restore Portal Release navigation button text (#8461)"
+- 2026-01-09 @tobiu assigned to @tobiu
 ### @tobiu - 2026-01-09 11:48
 
 **Input from tobiu:**
@@ -53,11 +57,5 @@ However, `Portal.model.Release` does not use `name`, but relies on `id` or `titl
 > 
 > This restores the navigation button text for Release Notes while maintaining the correct behavior for other content types (like Guides) that rely on the default `name` field.
 
-## Activity Log
-
-- 2026-01-09 @tobiu added the `ai` label
-- 2026-01-09 @tobiu added the `refactoring` label
-- 2026-01-09 @tobiu referenced in commit `8ff67ed` - "fix: Restore Portal Release navigation button text (#8461)"
-- 2026-01-09 @tobiu assigned to @tobiu
 - 2026-01-09 @tobiu closed this issue
 

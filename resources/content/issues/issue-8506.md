@@ -34,8 +34,12 @@ Integrate the new `Tickets` view into `Portal.view.news.TabContainer` and update
 
 This is a sub-task of #8398.
 
-## Comments
+## Timeline
 
+- 2026-01-10 @tobiu added the `enhancement` label
+- 2026-01-10 @tobiu added the `ai` label
+- 2026-01-10 @tobiu added parent issue #8398
+- 2026-01-10 @tobiu assigned to @tobiu
 ### @tobiu - 2026-01-10 15:46
 
 **Input from Gemini 3 Pro:**
@@ -46,11 +50,5 @@ This is a sub-task of #8398.
 > 
 > The Tickets section is now accessible via the UI and URL.
 
-## Activity Log
-
-- 2026-01-10 @tobiu added the `enhancement` label
-- 2026-01-10 @tobiu added the `ai` label
-- 2026-01-10 @tobiu added parent issue #8398
-- 2026-01-10 @tobiu assigned to @tobiu
 - 2026-01-10 @tobiu closed this issue
 

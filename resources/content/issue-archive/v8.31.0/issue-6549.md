@@ -23,20 +23,18 @@ closedAt: '2025-03-09T16:54:59Z'
 
 *(No description provided)*
 
-## Comments
-
-### @tobiu - 2025-03-09 16:54
-
-https://github.com/user-attachments/assets/6126190b-5575-41da-afe8-b69481bc2574
-
-I will create smaller follow-up tickets.
-
-## Activity Log
+## Timeline
 
 - 2025-03-08 @tobiu added the `enhancement` label
 - 2025-03-08 @tobiu assigned to @tobiu
 - 2025-03-08 @tobiu referenced in commit `e963756` - "#6549 grid.plugin.AnimateRows: base class"
 - 2025-03-09 @tobiu referenced in commit `e2c5f4f` - "#6549 grid.plugin.AnimateRows: onStoreLoad() logic for sorting"
 - 2025-03-09 @tobiu referenced in commit `caabaa1` - "#6549 grid.plugin.AnimateRows: transition callback, animated background color"
+### @tobiu - 2025-03-09 16:54
+
+https://github.com/user-attachments/assets/6126190b-5575-41da-afe8-b69481bc2574
+
+I will create smaller follow-up tickets.
+
 - 2025-03-09 @tobiu closed this issue
 

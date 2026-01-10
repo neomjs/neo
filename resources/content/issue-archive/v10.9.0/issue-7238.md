@@ -40,7 +40,7 @@ This also included fixing a bug where the `text` config was incorrectly used to 
 
 The Helix example is now a well-documented, self-explanatory resource that is easily discoverable by the AI knowledge base. It serves as a prime example of the high documentation standard expected for all framework code.
 
-## Activity Log
+## Timeline
 
 - 2025-09-23 @tobiu assigned to @tobiu
 - 2025-09-23 @tobiu added the `enhancement` label

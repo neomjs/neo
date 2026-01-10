@@ -26,7 +26,7 @@ closedAt: '2025-11-19T12:40:12Z'
 We added the activity log into issue bodies. Syncing tickets back now leads to adding the activity log into the body on github, which is not supposed to happen.
 
 
-## Activity Log
+## Timeline
 
 - 2025-11-18 @tobiu added the `bug` label
 - 2025-11-18 @tobiu added the `enhancement` label

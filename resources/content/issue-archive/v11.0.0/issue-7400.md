@@ -50,8 +50,14 @@ To work on this ticket, please start your session with the following prompt:
 > 
 > You will need to read the epic context from @.github/ISSUE/epic-architect-ai-tooling-as-mcp.md and the specific ticket details from @.github/ISSUE/ticket-define-agent-agnostic-mcp-config.md before we begin.
 
-## Comments
+## Timeline
 
+- 2025-10-07 @tobiu added parent issue #7399
+- 2025-10-07 @tobiu added the `enhancement` label
+- 2025-10-07 @tobiu added the `help wanted` label
+- 2025-10-07 @tobiu added the `good first issue` label
+- 2025-10-07 @tobiu added the `hacktoberfest` label
+- 2025-10-07 @tobiu added the `ai` label
 ### @MannXo - 2025-10-07 09:46
 
 Hey @tobiu , I can work on this. can you assign it to me if it's up for grabs?
@@ -63,14 +69,6 @@ Hi, and thanks for your interest. This was fast. Sure, I can assign it to you. P
 
 I am still in the middle of refining the other subs and moving them into GitHub tickets.
 
-## Activity Log
-
-- 2025-10-07 @tobiu added parent issue #7399
-- 2025-10-07 @tobiu added the `enhancement` label
-- 2025-10-07 @tobiu added the `help wanted` label
-- 2025-10-07 @tobiu added the `good first issue` label
-- 2025-10-07 @tobiu added the `hacktoberfest` label
-- 2025-10-07 @tobiu added the `ai` label
 - 2025-10-07 @tobiu assigned to @MannXo
 - 2025-10-08 @MannXo referenced in commit `d09fc09` - "Add agent-agnostic MCP server configuration
 

@@ -32,7 +32,7 @@ To improve the long-term maintainability and clarity of the `SyncService`, all p
 3.  Methods that can throw errors are documented with the `@throws` tag.
 4.  At least one complex method, such as `#getIssuePath`, includes an `@example` block demonstrating its usage in different scenarios.
 
-## Activity Log
+## Timeline
 
 - 2025-10-20 @tobiu assigned to @tobiu
 - 2025-10-20 @tobiu added the `documentation` label

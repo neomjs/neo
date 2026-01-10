@@ -36,8 +36,14 @@ The current workflow requires the project maintainer to manually create a GitHub
 5.  The script will use `gh issue create --title "<title>" --body-file <file>` to create the issue. A temporary file might be needed for the body.
 6.  The script should be added to `package.json` as `npm run ai:create-gh-issue`.
 
-## Comments
+## Timeline
 
+- 2025-10-05 @tobiu added the `enhancement` label
+- 2025-10-05 @tobiu added the `help wanted` label
+- 2025-10-05 @tobiu added parent issue #7364
+- 2025-10-05 @tobiu added the `good first issue` label
+- 2025-10-05 @tobiu added the `hacktoberfest` label
+- 2025-10-05 @tobiu added the `ai` label
 ### @ksanjeev284 - 2025-10-05 10:43
 
 can you assign me
@@ -55,6 +61,7 @@ Since the epic subs strongly build on and relate to each other, I also strongly 
 https://join.slack.com/t/neomjs/shared_invite/zt-6c50ueeu-3E1~M4T9xkNnb~M_prEEOA
 https://discord.gg/6p8paPq
 
+- 2025-10-05 @tobiu assigned to @ksanjeev284
 ### @ksanjeev284 - 2025-10-05 10:50
 
 Hi @tobiu sure I have joiuned the channel and will start working on it
@@ -65,14 +72,5 @@ ha, just noticed that the PR mentioned #7376 instead of #7367 (this one). almost
 
 thx again for the contribution! closing this one as resolved.
 
-## Activity Log
-
-- 2025-10-05 @tobiu added the `enhancement` label
-- 2025-10-05 @tobiu added the `help wanted` label
-- 2025-10-05 @tobiu added parent issue #7364
-- 2025-10-05 @tobiu added the `good first issue` label
-- 2025-10-05 @tobiu added the `hacktoberfest` label
-- 2025-10-05 @tobiu added the `ai` label
-- 2025-10-05 @tobiu assigned to @ksanjeev284
 - 2025-10-05 @tobiu closed this issue
 

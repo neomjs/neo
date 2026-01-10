@@ -31,8 +31,12 @@ When archiving closed issues based on milestones, the directory name currently d
 **Goal:**
 Ensure `11.12.0` milestone issues are archived into `.github/ISSUE_ARCHIVE/v11.12.0/` instead of `.github/ISSUE_ARCHIVE/11.12.0/`.
 
-## Comments
+## Timeline
 
+- 2025-11-29 @tobiu added the `enhancement` label
+- 2025-11-29 @tobiu added the `ai` label
+- 2025-11-29 @tobiu assigned to @tobiu
+- 2025-11-29 @tobiu referenced in commit `e1eb575` - "Enhancement: Add milestoneArchivePrefix to GitHub Workflow MCP config #7911"
 ### @tobiu - 2025-11-29 11:56
 
 **Input from Gemini:**
@@ -48,11 +52,5 @@ Ensure `11.12.0` milestone issues are archived into `.github/ISSUE_ARCHIVE/v11.1
 > 
 > This ensures consistency with the release folder naming convention.
 
-## Activity Log
-
-- 2025-11-29 @tobiu added the `enhancement` label
-- 2025-11-29 @tobiu added the `ai` label
-- 2025-11-29 @tobiu assigned to @tobiu
-- 2025-11-29 @tobiu referenced in commit `e1eb575` - "Enhancement: Add milestoneArchivePrefix to GitHub Workflow MCP config #7911"
 - 2025-11-29 @tobiu closed this issue
 

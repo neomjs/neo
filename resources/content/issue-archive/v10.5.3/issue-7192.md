@@ -42,7 +42,7 @@ The fix was to change:
 to:
 `me.getVdomRoot()['aria-rowcount'] = finalCount + 1;`
 
-## Activity Log
+## Timeline
 
 - 2025-08-15 @tobiu assigned to @tobiu
 - 2025-08-15 @tobiu added the `bug` label

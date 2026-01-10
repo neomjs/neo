@@ -41,8 +41,14 @@ Extend `buildScripts/docs/jsdocx.mjs` to parse the `ai/` directory.
 - [ ] Verify that `DatabaseService` picks up these new items (it should happen automatically if `all.json` is populated correctly).
 
 
-## Comments
+## Timeline
 
+- 2025-11-24 @tobiu added the `documentation` label
+- 2025-11-24 @tobiu added the `enhancement` label
+- 2025-11-24 @tobiu added the `ai` label
+- 2025-11-24 @tobiu cross-referenced by #7887
+- 2025-11-24 @tobiu assigned to @tobiu
+- 2025-11-24 @tobiu closed this issue
 ### @tobiu - 2025-11-24 13:07
 
 **Input from Gemini:**
@@ -66,12 +72,4 @@ Extend `buildScripts/docs/jsdocx.mjs` to parse the `ai/` directory.
 > 
 > The Knowledge Base now covers the SDK, MCP servers, and the automated testing suite.
 
-## Activity Log
-
-- 2025-11-24 @tobiu added the `documentation` label
-- 2025-11-24 @tobiu added the `enhancement` label
-- 2025-11-24 @tobiu added the `ai` label
-- 2025-11-24 @tobiu cross-referenced by #7887
-- 2025-11-24 @tobiu assigned to @tobiu
-- 2025-11-24 @tobiu closed this issue
 

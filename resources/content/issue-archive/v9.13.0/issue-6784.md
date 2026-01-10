@@ -24,7 +24,7 @@ closedAt: '2025-06-13T00:57:20Z'
 * Convert the array to a Set
 * Remove `command` and `keygen` (According to Gemini deprecated html5 attributes)
 
-## Activity Log
+## Timeline
 
 - 2025-06-13 @tobiu assigned to @tobiu
 - 2025-06-13 @tobiu added the `enhancement` label

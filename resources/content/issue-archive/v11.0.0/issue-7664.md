@@ -31,7 +31,7 @@ As part of the agent protocol simplification epic (#7604), we need a new guide t
 3. It must provide a high-level overview of the major namespaces within the `src` directory (e.g., `component`, `data`, `form`, `grid`, `manager`, `worker`, etc.), explaining their purpose and how they relate to each other.
 4. Add the new guide to `learn/tree.json` under the "Fundamentals & Core Concepts" section.
 
-## Activity Log
+## Timeline
 
 - 2025-10-26 @tobiu added the `documentation` label
 - 2025-10-26 @tobiu added the `enhancement` label

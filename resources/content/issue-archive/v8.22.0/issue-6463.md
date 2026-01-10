@@ -24,15 +24,13 @@ closedAt: '2025-02-18T16:13:52Z'
 * However, if you press the `home` or `end` keys or just scroll with the mouse, the next arrow key will just scroll by one row, instead of to the target location
 
 
-## Comments
+## Timeline
 
+- 2025-02-18 @tobiu added the `enhancement` label
+- 2025-02-18 @tobiu referenced in commit `fa83755` - "grid.View: scrollByRows() => switch to main.DomAccess.scrollTo() #6463"
 ### @tobiu - 2025-02-18 16:13
 
 https://github.com/user-attachments/assets/ea982168-1308-4ac6-a378-534a648694b2
 
-## Activity Log
-
-- 2025-02-18 @tobiu added the `enhancement` label
-- 2025-02-18 @tobiu referenced in commit `fa83755` - "grid.View: scrollByRows() => switch to main.DomAccess.scrollTo() #6463"
 - 2025-02-18 @tobiu closed this issue
 

@@ -24,7 +24,7 @@ closedAt: '2025-01-29T14:32:47Z'
 * We already have a visually stunning DD implementation for tab headers in place, it is time for the grid header toolbar to catch up
 * We might be able to use `draggable.toolbar.SortZone`, but probably need to extend it
 
-## Activity Log
+## Timeline
 
 - 2025-01-29 @tobiu added the `enhancement` label
 - 2025-01-29 @tobiu assigned to @tobiu

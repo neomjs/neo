@@ -51,8 +51,14 @@ To work on this ticket, please start your session with the following prompt:
 > 
 > You will need to read the epic context from @.github/ISSUE/epic-architect-ai-tooling-as-mcp.md and the specific ticket details from @.github/ISSUE/ticket-implement-knowledge-server-scaffold.md before we begin.
 
-## Comments
+## Timeline
 
+- 2025-10-07 @tobiu added parent issue #7399
+- 2025-10-07 @tobiu added the `enhancement` label
+- 2025-10-07 @tobiu added the `help wanted` label
+- 2025-10-07 @tobiu added the `good first issue` label
+- 2025-10-07 @tobiu added the `hacktoberfest` label
+- 2025-10-07 @tobiu added the `ai` label
 ### @thisis-gp - 2025-10-07 16:24
 
 @tobiu Can you assign me this issue?
@@ -67,6 +73,8 @@ You can also mention hacktoberfest and start a conversation => the agent can cre
 
 Or you could also pick one of the phase 1 items.
 
+- 2025-10-07 @tobiu assigned to @thisis-gp
+- 2025-10-08 @MannXo cross-referenced by #7404
 ### @tobiu - 2025-10-08 14:46
 
 heads up: i changed the file path from `buildScripts/mcp/` to `ai/mcp/server/`, which feels better suited as the new location inside the repo.
@@ -124,15 +132,5 @@ As there has been no PR for this foundational task and the project's architectur
 
 We're closing this ticket now. Thanks again for your willingness to contribute, and we hope to see you in other issues!
 
-## Activity Log
-
-- 2025-10-07 @tobiu added parent issue #7399
-- 2025-10-07 @tobiu added the `enhancement` label
-- 2025-10-07 @tobiu added the `help wanted` label
-- 2025-10-07 @tobiu added the `good first issue` label
-- 2025-10-07 @tobiu added the `hacktoberfest` label
-- 2025-10-07 @tobiu added the `ai` label
-- 2025-10-07 @tobiu assigned to @thisis-gp
-- 2025-10-08 @MannXo cross-referenced by #7404
 - 2025-10-24 @tobiu closed this issue
 

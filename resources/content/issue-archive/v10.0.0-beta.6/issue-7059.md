@@ -45,7 +45,7 @@ So, we should enable the following syntax:
 
 `manager.Component#getVdomTree()` must no longer transform these values into empty objects.
 
-## Activity Log
+## Timeline
 
 - 2025-07-15 @tobiu assigned to @tobiu
 - 2025-07-15 @tobiu added the `enhancement` label

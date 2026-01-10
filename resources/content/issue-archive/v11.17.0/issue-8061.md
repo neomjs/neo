@@ -32,7 +32,7 @@ Enable the "Save" button in `AddFileDialog` to trigger a method in `ViewportCont
     *   In `onNewFileButtonClick`, pass `parentComponent: me.component` when creating the dialog. This establishes a logical parent-child relationship without mounting the dialog in the Viewport's DOM, enabling the event handler to bubble up to the `ViewportController`.
     *   Implement the `onAddFileDialogSave(data)` method to handle the event.
 
-## Activity Log
+## Timeline
 
 - 2025-12-08 @tobiu added the `enhancement` label
 - 2025-12-08 @tobiu added the `ai` label

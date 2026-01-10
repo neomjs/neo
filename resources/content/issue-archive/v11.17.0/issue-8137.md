@@ -51,7 +51,7 @@ This feature was implemented by treating `scrollTop` and `scrollLeft` as **top-l
 Current implementation handles live DOM updates (capturing scroll) and VDOM/VNode synchronization. **However, re-mounting (restoring scroll position on node insertion) is NOT yet handled.** This is a follow-up item that requires updates to specific renderers/mount adapters to ensure nodes are created/inserted with the correct scroll properties.
 
 
-## Activity Log
+## Timeline
 
 - 2025-12-17 @tobiu added the `enhancement` label
 - 2025-12-17 @tobiu added the `ai` label

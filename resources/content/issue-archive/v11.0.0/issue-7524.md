@@ -30,7 +30,7 @@ With the new `stdio`-based MCP server fully functional, the final step is to rem
 2.  Any direct Express.js dependencies (`express`, `cors`, etc.) are removed from the main `package.json` if they are no longer needed by other parts of the project.
 3.  The `start` script for the memory server in `package.json` is updated or removed.
 
-## Activity Log
+## Timeline
 
 - 2025-10-17 @tobiu assigned to @tobiu
 - 2025-10-17 @tobiu added the `enhancement` label

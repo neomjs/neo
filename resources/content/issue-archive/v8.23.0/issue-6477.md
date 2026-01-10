@@ -23,16 +23,14 @@ closedAt: '2025-02-21T14:15:45Z'
 
 it will need a follow-up ticket
 
-## Comments
-
-### @tobiu - 2025-02-21 14:15
-
-![Image](https://github.com/user-attachments/assets/775fea05-c5ad-46bd-b2e2-052188725069)
-
-## Activity Log
+## Timeline
 
 - 2025-02-21 @tobiu added the `enhancement` label
 - 2025-02-21 @tobiu assigned to @tobiu
 - 2025-02-21 @tobiu referenced in commit `78ab4b3` - "examples.ConfigurationViewport: scss => basic support for mobile #6477"
+### @tobiu - 2025-02-21 14:15
+
+![Image](https://github.com/user-attachments/assets/775fea05-c5ad-46bd-b2e2-052188725069)
+
 - 2025-02-21 @tobiu closed this issue
 

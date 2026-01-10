@@ -27,7 +27,7 @@ Update `src/ai/client/ComponentService.mjs` to rely on the newly implemented `to
 *   `getComponentProperty` should use `toJSON` if available.
 *   `queryComponent` should use `toJSON` for result mapping.
 
-## Activity Log
+## Timeline
 
 - 2026-01-01 @tobiu added the `ai` label
 - 2026-01-01 @tobiu added the `refactoring` label

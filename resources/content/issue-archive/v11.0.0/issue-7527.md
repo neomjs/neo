@@ -30,7 +30,7 @@ The `buildHealthResponse` function in `healthService.mjs` contains two inner `tr
 2.  The two inner `try...catch` blocks are removed.
 3.  The logic remains correct: if a collection doesn't exist, its `exists` flag is correctly reported as `false` and its `count` as `0`.
 
-## Activity Log
+## Timeline
 
 - 2025-10-17 @tobiu assigned to @tobiu
 - 2025-10-17 @tobiu added the `enhancement` label

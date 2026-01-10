@@ -30,7 +30,7 @@ Update `.github/CODING_GUIDELINES.md` to:
 1.  Define the usage of `@summary` for a concise, one-sentence explanation of the class's purpose.
 2.  Mandate an empty line after the `@summary` tag (or the last single-line tag like `@class`, `@extends`) and before the detailed description of the class.
 
-## Activity Log
+## Timeline
 
 - 2025-11-24 @tobiu added the `documentation` label
 - 2025-11-24 @tobiu added the `enhancement` label

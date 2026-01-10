@@ -23,7 +23,7 @@ closedAt: '2025-01-07T17:09:21Z'
 
 a buffered grid strongly relies on a given fixed size. any change needs a throttled callback to reconfigure / adjust to it.
 
-## Activity Log
+## Timeline
 
 - 2025-01-07 @tobiu added the `enhancement` label
 - 2025-01-07 @tobiu assigned to @tobiu

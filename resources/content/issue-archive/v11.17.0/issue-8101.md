@@ -35,7 +35,7 @@ The unit tests for `Neo.draggable.container.SortZone` were failing due to two mi
 
 These changes ensure the test environment correctly simulates the runtime conditions required by `SortZone`.
 
-## Activity Log
+## Timeline
 
 - 2025-12-12 @tobiu added the `bug` label
 - 2025-12-12 @tobiu added the `ai` label

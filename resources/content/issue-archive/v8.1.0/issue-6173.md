@@ -23,7 +23,7 @@ closedAt: '2025-01-04T14:14:16Z'
 
 this should not affect / break the logic.
 
-## Activity Log
+## Timeline
 
 - 2025-01-04 @tobiu added the `enhancement` label
 - 2025-01-04 @tobiu assigned to @tobiu

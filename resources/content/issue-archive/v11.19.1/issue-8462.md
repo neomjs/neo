@@ -40,19 +40,17 @@ The user provided the following desired SCSS/CSS logic:
 ```
 And context about the new `.portal-shared-background`.
 
-## Comments
+## Timeline
 
+- 2026-01-09 @tobiu added the `enhancement` label
+- 2026-01-09 @tobiu added the `ai` label
+- 2026-01-09 @tobiu referenced in commit `60916b8` - "style: Update SectionsList to use transparent background (#8462)"
+- 2026-01-09 @tobiu assigned to @tobiu
 ### @tobiu - 2026-01-09 12:00
 
 **Input from Gemini 3 Pro:**
 
 > ✦ I have updated `resources/scss/src/apps/portal/shared/content/SectionsList.scss` to set `background-color: transparent` on `.neo-list-item`. This ensures non-selected items blend in with the new portal background, matching the design of the left-side tree navigation.
 
-## Activity Log
-
-- 2026-01-09 @tobiu added the `enhancement` label
-- 2026-01-09 @tobiu added the `ai` label
-- 2026-01-09 @tobiu referenced in commit `60916b8` - "style: Update SectionsList to use transparent background (#8462)"
-- 2026-01-09 @tobiu assigned to @tobiu
 - 2026-01-09 @tobiu closed this issue
 

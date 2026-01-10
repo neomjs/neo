@@ -24,24 +24,22 @@ closedAt: '2025-01-18T20:20:17Z'
 * With moving the field generation outside of the record ctor into the class creation, we need a new concept for supporting nested field access & change events
 * The easiest way is most likely a flat symbol on the record root level
 
-## Comments
+## Timeline
 
+- 2025-01-16 @tobiu added the `enhancement` label
+- 2025-01-16 @tobiu assigned to @tobiu
 ### @tobiu - 2025-01-18 20:19
 
 old version:
 
 ![Image](https://github.com/user-attachments/assets/71859dc3-99e8-4677-a193-657f2f6cbcd3)
 
+- 2025-01-18 @tobiu referenced in commit `71f64b5` - "data.RecordFactory: createField() => re-add support for nested fields #6250"
 ### @tobiu - 2025-01-18 20:20
 
 new version:
 
 ![Image](https://github.com/user-attachments/assets/3ba1a99d-765c-427f-8775-970ddd197ebc)
 
-## Activity Log
-
-- 2025-01-16 @tobiu added the `enhancement` label
-- 2025-01-16 @tobiu assigned to @tobiu
-- 2025-01-18 @tobiu referenced in commit `71f64b5` - "data.RecordFactory: createField() => re-add support for nested fields #6250"
 - 2025-01-18 @tobiu closed this issue
 

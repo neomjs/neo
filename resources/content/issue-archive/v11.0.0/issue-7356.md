@@ -31,7 +31,7 @@ This ticket is to update the agent guidelines to prevent this specific error in 
 
 1.  The `.github/AGENTS.md` file is updated within the "Memory Core Protocol" section to include a clear, templated example of the `npm run ai:add-memory` command, showing the correct `--session-id` flag and argument structure.
 
-## Activity Log
+## Timeline
 
 - 2025-10-04 @tobiu added the `documentation` label
 - 2025-10-04 @tobiu added the `enhancement` label

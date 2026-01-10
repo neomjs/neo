@@ -27,16 +27,14 @@ current version:
 
 ![Image](https://github.com/user-attachments/assets/6bd83e2e-2788-4b69-9604-5248c34ef2e6)
 
-## Comments
-
-### @tobiu - 2025-01-21 15:34
-
-![Image](https://github.com/user-attachments/assets/1884bc99-a173-46ec-bbb4-35dda5e9318f)
-
-## Activity Log
+## Timeline
 
 - 2025-01-21 @tobiu added the `enhancement` label
 - 2025-01-21 @tobiu assigned to @tobiu
 - 2025-01-21 @tobiu referenced in commit `377504b` - "data.RecordFactory: add support for using JSON.stringify() on records #6261"
+### @tobiu - 2025-01-21 15:34
+
+![Image](https://github.com/user-attachments/assets/1884bc99-a173-46ec-bbb4-35dda5e9318f)
+
 - 2025-01-21 @tobiu closed this issue
 

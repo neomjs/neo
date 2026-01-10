@@ -24,7 +24,7 @@ closedAt: '2025-01-29T14:34:39Z'
 * also switch `cursor` to move
 * `main.addon.DragDrop` => the `.neo-unselectable` toggle is no longer needed
 
-## Activity Log
+## Timeline
 
 - 2025-01-29 @tobiu added the `enhancement` label
 - 2025-01-29 @tobiu assigned to @tobiu

@@ -46,7 +46,7 @@ store.filter({
 });
 ```
 
-## Activity Log
+## Timeline
 
 - 2025-11-24 @tobiu added the `enhancement` label
 - 2025-11-24 @tobiu assigned to @tobiu

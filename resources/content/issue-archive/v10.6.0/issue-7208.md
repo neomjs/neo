@@ -23,7 +23,7 @@ closedAt: '2025-08-21T18:46:44Z'
 
 * Plus use the `allowOverdrag` config, passed from the app worker
 
-## Activity Log
+## Timeline
 
 - 2025-08-21 @tobiu assigned to @tobiu
 - 2025-08-21 @tobiu added the `enhancement` label

@@ -36,7 +36,7 @@ The Headless PM Agent (Ticket #7916) needs fast, local access to issue content (
 Enables "Local First" patterns for autonomous agents running within the repo.
 
 
-## Activity Log
+## Timeline
 
 - 2025-11-29 @tobiu added the `enhancement` label
 - 2025-11-29 @tobiu added the `ai` label

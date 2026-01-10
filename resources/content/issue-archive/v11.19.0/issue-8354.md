@@ -33,7 +33,7 @@ Implement the final feedback loop for the `README.md` rebrand to position Neo.mj
 
 **Goal:** Blend architectural authority with conversion flow to finalize the "Engine" positioning.
 
-## Activity Log
+## Timeline
 
 - 2026-01-06 @tobiu added the `documentation` label
 - 2026-01-06 @tobiu added the `enhancement` label

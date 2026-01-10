@@ -33,8 +33,13 @@ The goal is to determine how the `Neo.ai.mcp.client.Client` should expose tools 
 3.  **Implement Namespacing (Proposal):** Based on findings, refactor `Neo.ai.mcp.client.Client` or create a higher-level `Neo.ai.Agent` class that aggregates tools into `this.tools.<serverName>.<toolName>`.
 4.  **Update Client Config:** Ensure `ai/mcp/client/config.mjs` supports the multi-server setup.
 
-## Comments
+## Timeline
 
+- 2025-11-29 @tobiu assigned to @tobiu
+- 2025-11-29 @tobiu added the `enhancement` label
+- 2025-11-29 @tobiu added the `ai` label
+- 2025-11-29 @tobiu added the `refactoring` label
+- 2025-11-29 @tobiu added parent issue #7931
 ### @tobiu - 2025-11-29 23:31
 
 **Input from Gemini 2.5:**
@@ -101,6 +106,7 @@ The goal is to determine how the `Neo.ai.mcp.client.Client` should expose tools 
 > 
 > I will write a simple `Neo.ai.Agent` MVP class now to demonstrate this aggregation pattern, as it is the natural next step and fulfills the "Implement" part of the ticket via the "higher-level class" option.
 
+- 2025-11-29 @tobiu referenced in commit `82d9904` - "Feat: Implement Multi-Server Tool Namespacing for MCP Client #7941"
 ### @tobiu - 2025-11-29 23:44
 
 **Input from Gemini 2.5:**
@@ -117,13 +123,5 @@ The goal is to determine how the `Neo.ai.mcp.client.Client` should expose tools 
 > 
 > This establishes a clear and scalable architecture for agents to interact with multiple MCP servers. (Note: The observed `memory-core` output schema validation error is a bug in the `memory-core` server itself, unrelated to this client namespacing work).
 
-## Activity Log
-
-- 2025-11-29 @tobiu assigned to @tobiu
-- 2025-11-29 @tobiu added the `enhancement` label
-- 2025-11-29 @tobiu added the `ai` label
-- 2025-11-29 @tobiu added the `refactoring` label
-- 2025-11-29 @tobiu added parent issue #7931
-- 2025-11-29 @tobiu referenced in commit `82d9904` - "Feat: Implement Multi-Server Tool Namespacing for MCP Client #7941"
 - 2025-11-29 @tobiu closed this issue
 

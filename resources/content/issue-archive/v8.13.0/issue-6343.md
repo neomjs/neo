@@ -31,19 +31,17 @@ https://github.com/user-attachments/assets/826166f7-104d-4a6f-9c01-2cc85ccc9817
 
 => Rich is selected as an annotation, I select Gerard manually. Re-sorting the Grid => the selection model contains Gerard, but Rich is still inside the annotations, so both get selected.
 
-## Comments
+## Timeline
 
+- 2025-01-30 @tobiu added the `enhancement` label
+- 2025-01-30 @tobiu assigned to @tobiu
+- 2025-01-30 @tobiu referenced in commit `dc5a8bd` - "selection.grid.RowModel: update record based annotations (in case they exist) on manual selections #6343"
 ### @tobiu - 2025-01-30 13:30
 
 https://github.com/user-attachments/assets/8854266f-4d7b-475a-bd52-68a813b7c432
 
 clicks & key nav will now update the annotations as needed.
 
-## Activity Log
-
-- 2025-01-30 @tobiu added the `enhancement` label
-- 2025-01-30 @tobiu assigned to @tobiu
-- 2025-01-30 @tobiu referenced in commit `dc5a8bd` - "selection.grid.RowModel: update record based annotations (in case they exist) on manual selections #6343"
 - 2025-01-30 @tobiu closed this issue
 - 2025-01-30 @tobiu cross-referenced by #6347
 

@@ -34,7 +34,7 @@ The `TICKET_STRATEGY.md` document needs a comprehensive rewrite to align with th
 ## Goal
 To provide clear, up-to-date documentation for the project's ticket management strategy, fully leveraging the capabilities of the `github-workflow` MCP server and supporting both human and AI contributors.
 
-## Activity Log
+## Timeline
 
 - 2025-10-22 @tobiu assigned to @tobiu
 - 2025-10-22 @tobiu added the `documentation` label

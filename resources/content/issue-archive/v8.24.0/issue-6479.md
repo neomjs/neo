@@ -23,8 +23,10 @@ closedAt: '2025-02-22T12:23:54Z'
 * Once a transition is done, replace the absolute positioned chars with the plain text string
 * Rationale: keeping the DOM minimal
 
-## Comments
+## Timeline
 
+- 2025-02-22 @tobiu added the `enhancement` label
+- 2025-02-22 @tobiu referenced in commit `39d5f7d` - "component.MagicMoveText: charsVdom class field #6479"
 ### @tobiu - 2025-02-22 12:23
 
 https://github.com/user-attachments/assets/c30f4b06-daea-4675-a9c3-46846ec47263
@@ -33,10 +35,6 @@ https://github.com/user-attachments/assets/c30f4b06-daea-4675-a9c3-46846ec47263
 
 Combined with the new measurement caching, it is quite efficient now. @yangshun
 
-## Activity Log
-
-- 2025-02-22 @tobiu added the `enhancement` label
-- 2025-02-22 @tobiu referenced in commit `39d5f7d` - "component.MagicMoveText: charsVdom class field #6479"
 - 2025-02-22 @tobiu closed this issue
 - 2025-02-22 @tobiu referenced in commit `4873b96` - "component.MagicMoveText: charsVdom class field #6479"
 

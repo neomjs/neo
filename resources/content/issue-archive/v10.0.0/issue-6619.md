@@ -89,8 +89,9 @@ if (!path.includes('D:\\System')) {
 
 Let me know if you need help reproducing it. Thanks
 
-## Comments
+## Timeline
 
+- 2025-04-05 @ahmad-su added the `bug` label
 ### @ahmad-su - 2025-04-05 13:55
 
 Update: Running the build command on git bash didnt solve the issue
@@ -123,13 +124,10 @@ But I'm still curious to modify the App.mjs to make it work wherever I place the
 
 This issue is stale because it has been open for 90 days with no activity.
 
+- 2025-07-05 @github-actions added the `stale` label
 ### @github-actions - 2025-07-19 03:02
 
 This issue was closed because it has been inactive for 14 days since being marked as stale.
 
-## Activity Log
-
-- 2025-04-05 @ahmad-su added the `bug` label
-- 2025-07-05 @github-actions added the `stale` label
 - 2025-07-19 @github-actions closed this issue
 

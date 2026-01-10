@@ -23,7 +23,7 @@ closedAt: '2025-06-30T12:10:47Z'
 
 * While it is possible to style them, it feels just distracting from the content, making a quick navigation harder.
 
-## Activity Log
+## Timeline
 
 - 2025-06-30 @tobiu assigned to @tobiu
 - 2025-06-30 @tobiu added the `enhancement` label

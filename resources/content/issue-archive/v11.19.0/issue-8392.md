@@ -33,8 +33,14 @@ Add a new section "6. Git & Commit Protocol" with a concise rule:
 Ensure consistent traceability across all AI agent interactions for all users.
 
 
-## Comments
+## Timeline
 
+- 2026-01-07 @tobiu added the `documentation` label
+- 2026-01-07 @tobiu added the `ai` label
+- 2026-01-07 @tobiu assigned to @tobiu
+- 2026-01-07 @tobiu referenced in commit `b18f0e8` - "docs: Update AGENTS.md with mandatory Git Protocol (#8392)
+
+Add Section 6 to AGENTS.md requiring ticket IDs in commit subjects and defining rules for ticket comments on scope deviation."
 ### @tobiu - 2026-01-07 18:50
 
 **Input from Gemini 3 Pro:**
@@ -43,13 +49,5 @@ Ensure consistent traceability across all AI agent interactions for all users.
 > 
 > Updated `AGENTS.md` with **Section 6: Git Protocol**, mandating ticket IDs in commit subjects and defining rules for ticket updates to ensure traceability.
 
-## Activity Log
-
-- 2026-01-07 @tobiu added the `documentation` label
-- 2026-01-07 @tobiu added the `ai` label
-- 2026-01-07 @tobiu assigned to @tobiu
-- 2026-01-07 @tobiu referenced in commit `b18f0e8` - "docs: Update AGENTS.md with mandatory Git Protocol (#8392)
-
-Add Section 6 to AGENTS.md requiring ticket IDs in commit subjects and defining rules for ticket comments on scope deviation."
 - 2026-01-07 @tobiu closed this issue
 

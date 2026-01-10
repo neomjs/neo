@@ -30,16 +30,15 @@ closedAt: '2025-04-16T22:38:29Z'
 * button text nodes have dynamic ids: `neo-vnode-x`
 
 
-## Comments
-
-### @tobiu - 2025-04-16 22:38
-
-i will close this one for now, but cycling components needs a follow-up ticket.
-
-## Activity Log
+## Timeline
 
 - 2025-04-16 @tobiu added the `bug` label
 - 2025-04-16 @tobiu assigned to @tobiu
 - 2025-04-16 @tobiu referenced in commit `1b0a079` - "#6659 workaround fix"
+### @tobiu - 2025-04-16 22:38
+
+i will close this one for now, but cycling components needs a follow-up ticket.
+
 - 2025-04-16 @tobiu closed this issue
+- 2026-01-09 @tobiu cross-referenced by #8475
 

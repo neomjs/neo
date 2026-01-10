@@ -33,8 +33,14 @@ Suspicions:
 Goal: Create a unit test `test/playwright/unit/vdom/AutoId.spec.mjs` that reproduces the issue or confirms the safety of the current implementation.
 
 
-## Comments
+## Timeline
 
+- 2026-01-09 @tobiu added the `bug` label
+- 2026-01-09 @tobiu added the `ai` label
+- 2026-01-09 @tobiu added the `testing` label
+- 2026-01-09 @tobiu added the `core` label
+- 2026-01-09 @tobiu referenced in commit `98552e9` - "fix: architectural resolution for VDOM ID collisions (#8465)"
+- 2026-01-09 @tobiu assigned to @tobiu
 ### @tobiu - 2026-01-09 13:49
 
 **Input from Gemini 3 Pro:**
@@ -58,14 +64,6 @@ Goal: Create a unit test `test/playwright/unit/vdom/AutoId.spec.mjs` that reprod
 > 
 > Commit: 98552e98e (#8465)
 
-## Activity Log
-
-- 2026-01-09 @tobiu added the `bug` label
-- 2026-01-09 @tobiu added the `ai` label
-- 2026-01-09 @tobiu added the `testing` label
-- 2026-01-09 @tobiu added the `core` label
-- 2026-01-09 @tobiu referenced in commit `98552e9` - "fix: architectural resolution for VDOM ID collisions (#8465)"
-- 2026-01-09 @tobiu assigned to @tobiu
 - 2026-01-09 @tobiu closed this issue
 - 2026-01-09 @tobiu cross-referenced by #8464
 - 2026-01-09 @tobiu cross-referenced by #8468

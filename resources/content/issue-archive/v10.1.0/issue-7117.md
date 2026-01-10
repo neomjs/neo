@@ -24,7 +24,7 @@ closedAt: '2025-07-27T00:30:09Z'
 * `getCount()` is deprecated.
 * we will continue to keep it for a while, but should not use it on our own.
 
-## Activity Log
+## Timeline
 
 - 2025-07-27 @tobiu assigned to @tobiu
 - 2025-07-27 @tobiu added the `enhancement` label

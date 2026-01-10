@@ -30,7 +30,7 @@ closedAt: '2025-09-21T13:04:03Z'
 * watch-themes
 * Create a new theme
 
-## Activity Log
+## Timeline
 
 - 2025-06-12 @tobiu added the `enhancement` label
 - 2025-06-12 @tobiu added the `no auto close` label

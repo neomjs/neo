@@ -43,7 +43,7 @@ The previous startup sequence for the Knowledge Base MCP server was basic, lacki
 
 This enhancement significantly improves the startup experience and diagnostic capabilities of the Knowledge Base MCP server.
 
-## Activity Log
+## Timeline
 
 - 2025-10-25 @tobiu added the `enhancement` label
 - 2025-10-25 @tobiu added the `ai` label

@@ -24,7 +24,7 @@ closedAt: '2025-08-09T00:50:47Z'
 * Rationale: a workspace which deletes the entire docs app, most likely does not want a docs output generation by default.
 * `npm run generate-docs-json` can still produce it.
 
-## Activity Log
+## Timeline
 
 - 2025-08-09 @tobiu assigned to @tobiu
 - 2025-08-09 @tobiu added the `enhancement` label

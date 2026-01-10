@@ -92,17 +92,7 @@ We will employ a rapid and agile development approach. The scope and API specifi
 ### Future Scope
 - Integration of ticket and issue synchronization.
 
-## Comments
-
-### @tobiu - 2025-10-15 11:40
-
-closed the epic by accident. not done yet.
-
-### @tobiu - 2025-10-20 10:56
-
-resolved. i will create more epics for specific enhancements.
-
-## Activity Log
+## Timeline
 
 - 2025-10-14 @tobiu assigned to @tobiu
 - 2025-10-14 @tobiu added the `epic` label
@@ -123,6 +113,11 @@ resolved. i will create more epics for specific enhancements.
 - 2025-10-15 @tobiu closed this issue
 - 2025-10-15 @tobiu added sub-issue #7493
 - 2025-10-15 @tobiu cross-referenced by PR #7490
+### @tobiu - 2025-10-15 11:40
+
+closed the epic by accident. not done yet.
+
+- 2025-10-15 @tobiu reopened this issue
 - 2025-10-15 @tobiu added sub-issue #7494
 - 2025-10-15 @tobiu added sub-issue #7495
 - 2025-10-15 @tobiu added sub-issue #7496
@@ -135,5 +130,9 @@ resolved. i will create more epics for specific enhancements.
 - 2025-10-15 @tobiu referenced in commit `c4a2c83` - "#7477 ensuring the return value of nextCursor is a string"
 - 2025-10-15 @tobiu referenced in commit `4b9b403` - "#7477 added healthcheck as a tool"
 - 2025-10-15 @tobiu referenced in commit `d52d356` - "#7477 pr service: author.login description (confusing, since it contains the name)"
+### @tobiu - 2025-10-20 10:56
+
+resolved. i will create more epics for specific enhancements.
+
 - 2025-10-20 @tobiu closed this issue
 

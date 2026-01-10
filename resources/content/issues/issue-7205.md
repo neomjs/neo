@@ -35,17 +35,15 @@ The final phase is to abstract the logic and components developed in the Colors 
     -   Develop comprehensive documentation for the new dashboard classes.
     -   Create new, focused examples to demonstrate how developers can build their own multi-window dashboards using these new framework-level tools.
 
-## Comments
-
-### @github-actions - 2025-11-19 02:51
-
-This issue is stale because it has been open for 90 days with no activity.
-
-## Activity Log
+## Timeline
 
 - 2025-08-20 @tobiu assigned to @tobiu
 - 2025-08-20 @tobiu added the `enhancement` label
 - 2025-08-20 @tobiu added parent issue #7201
+### @github-actions - 2025-11-19 02:51
+
+This issue is stale because it has been open for 90 days with no activity.
+
 - 2025-11-19 @github-actions added the `stale` label
 - 2025-11-19 @tobiu removed the `stale` label
 - 2025-11-19 @tobiu added the `no auto close` label

@@ -33,7 +33,7 @@ This ticket covers moving the warning suppression logic into the `ChromaManager`
 3.  The `HealthService` and any other service that previously contained this logic are confirmed to no longer have it.
 4.  The functionality of all related services remains unchanged, but the console output is cleaner.
 
-## Activity Log
+## Timeline
 
 - 2025-10-19 @tobiu assigned to @tobiu
 - 2025-10-19 @tobiu added parent issue #7536

@@ -68,15 +68,13 @@ stores: {
 *   Existing `StateProvider` and `Store` functionality remains intact (no regressions).
 *   Comprehensive unit tests are added to cover various `sourceId` scenarios, including referencing implicitly and explicitly ID'd stores, and handling non-existent references gracefully.
 
-## Comments
+## Timeline
 
+- 2025-07-07 @tobiu added the `enhancement` label
 ### @github-actions - 2025-10-06 02:42
 
 This issue is stale because it has been open for 90 days with no activity.
 
-## Activity Log
-
-- 2025-07-07 @tobiu added the `enhancement` label
 - 2025-10-06 @github-actions added the `stale` label
 - 2025-10-08 @tobiu removed the `stale` label
 - 2025-10-08 @tobiu added the `help wanted` label

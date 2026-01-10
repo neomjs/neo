@@ -23,20 +23,18 @@ closedAt: '2025-06-26T22:59:33Z'
 
 *(No description provided)*
 
-## Comments
+## Timeline
 
+- 2025-06-26 @tobiu assigned to @tobiu
+- 2025-06-26 @tobiu added the `enhancement` label
+- 2025-06-26 @tobiu referenced in commit `c975123` - "manager.ClassHierarchy #6876"
+- 2025-06-26 @tobiu referenced in commit `fab02a3` - "#6876 manager.ClassHierarchy: added into all workers (except service), updated Neo.setupClass() to feed a tmp map until the manager is ready."
 ### @tobiu - 2025-06-26 21:26
 
 <img width="516" alt="Image" src="https://github.com/user-attachments/assets/e340b6c9-b210-4b88-9202-54b04d6125c8" />
 
 <img width="670" alt="Image" src="https://github.com/user-attachments/assets/e3aea659-e782-474a-8256-73570694c818" />
 
-## Activity Log
-
-- 2025-06-26 @tobiu assigned to @tobiu
-- 2025-06-26 @tobiu added the `enhancement` label
-- 2025-06-26 @tobiu referenced in commit `c975123` - "manager.ClassHierarchy #6876"
-- 2025-06-26 @tobiu referenced in commit `fab02a3` - "#6876 manager.ClassHierarchy: added into all workers (except service), updated Neo.setupClass() to feed a tmp map until the manager is ready."
 - 2025-06-26 @tobiu referenced in commit `49a39e6` - "#6876 manager.ClassHierarchy: added into Neo.Main"
 - 2025-06-26 @tobiu referenced in commit `e7c4931` - "#6876 manager.ClassHierarchy: isA()"
 - 2025-06-26 @tobiu referenced in commit `b092eee` - "#6876 manager.ClassHierarchy: isAQueryMap => Memoizes the return values of isA() calls"

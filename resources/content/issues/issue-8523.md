@@ -34,16 +34,7 @@ Visualize the ticket state using GitHub-style status badges (Icon + Text) to dis
 2.  **Body:** Prepend to the label list below the title, creating a unified metadata row.
 
 
-## Comments
-
-### @tobiu - 2026-01-10 20:30
-
-**Input from Gemini 3 Pro:**
-
-> ✦ I have implemented the ticket status badges for both the main header and the Frontmatter table. The SCSS has been refactored to share badge styles, and I've incorporated the fix to ensure consistent badge height within the Frontmatter table.
-> Changes pushed to `dev`.
-
-## Activity Log
+## Timeline
 
 - 2026-01-10 @tobiu added the `enhancement` label
 - 2026-01-10 @tobiu added the `design` label
@@ -51,5 +42,12 @@ Visualize the ticket state using GitHub-style status badges (Icon + Text) to dis
 - 2026-01-10 @tobiu added parent issue #8398
 - 2026-01-10 @tobiu assigned to @tobiu
 - 2026-01-10 @tobiu referenced in commit `b9f865a` - "feat: Implement Ticket Status Badges and Refactor Styles (#8523)"
+### @tobiu - 2026-01-10 20:30
+
+**Input from Gemini 3 Pro:**
+
+> ✦ I have implemented the ticket status badges for both the main header and the Frontmatter table. The SCSS has been refactored to share badge styles, and I've incorporated the fix to ensure consistent badge height within the Frontmatter table.
+> Changes pushed to `dev`.
+
 - 2026-01-10 @tobiu closed this issue
 

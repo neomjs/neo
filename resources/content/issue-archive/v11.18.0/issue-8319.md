@@ -27,20 +27,7 @@ Part of Epic #8315.
 2. Consolidate `get_vdom_tree`, `get_vnode_tree`, and `get_vdom_vnode` into `inspect_component_render_tree` (type: 'vdom' | 'vnode' | 'both').
 3. Consolidate `get_neo_config` and `set_neo_config` into `manage_neo_config` (action: 'get' | 'set').
 
-## Comments
-
-### @tobiu - 2026-01-04 17:45
-
-**Input from neo-agent:**
-
-> ◆ I have completed the consolidation of Neural Link tools as requested.
-> - `manage_connection` now handles both start and stop actions.
-> - `inspect_component_render_tree` consolidates VDOM and VNode inspection.
-> - `manage_neo_config` unifies configuration management.
-> 
-> This completes the last sub-task for Epic #8315. All tool consolidation goals have been met.
-
-## Activity Log
+## Timeline
 
 - 2026-01-04 @tobiu added the `ai` label
 - 2026-01-04 @tobiu added the `refactoring` label
@@ -53,5 +40,16 @@ Part of Epic #8315.
 - Consolidated get_vdom/vnode_tree into inspect_component_render_tree
 
 - Consolidated get/set_neo_config into manage_neo_config"
+### @tobiu - 2026-01-04 17:45
+
+**Input from neo-agent:**
+
+> ◆ I have completed the consolidation of Neural Link tools as requested.
+> - `manage_connection` now handles both start and stop actions.
+> - `inspect_component_render_tree` consolidates VDOM and VNode inspection.
+> - `manage_neo_config` unifies configuration management.
+> 
+> This completes the last sub-task for Epic #8315. All tool consolidation goals have been met.
+
 - 2026-01-04 @tobiu closed this issue
 

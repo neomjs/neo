@@ -23,7 +23,7 @@ closedAt: '2025-07-24T07:42:54Z'
 
 https://tobiasuhlig.medium.com/a-frontend-love-story-111e6eeea8a6?source=friends_link&sk=da33ff064e874dde2d215570fa580d00
 
-## Activity Log
+## Timeline
 
 - 2025-07-24 @tobiu assigned to @tobiu
 - 2025-07-24 @tobiu added the `Blog Post` label

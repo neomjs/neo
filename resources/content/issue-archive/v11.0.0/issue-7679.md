@@ -24,7 +24,7 @@ closedAt: '2025-10-31T19:13:15Z'
 
 `getMemoryCollection()` uses `getCollection()`. `getSummaryCollection()` uses `getOrCreateCollection()`. This can result in an error for first time users, which have not created the collections otherwise.
 
-## Activity Log
+## Timeline
 
 - 2025-10-31 @tobiu added the `bug` label
 - 2025-10-31 @tobiu added the `ai` label

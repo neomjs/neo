@@ -23,7 +23,7 @@ closedAt: '2025-06-11T11:42:20Z'
 
 * Now that the method is async, we can use await internally
 
-## Activity Log
+## Timeline
 
 - 2025-06-11 @tobiu added the `enhancement` label
 - 2025-06-11 @tobiu assigned to @tobiu

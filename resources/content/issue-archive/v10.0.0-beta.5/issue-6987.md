@@ -26,7 +26,7 @@ closedAt: '2025-07-08T15:55:31Z'
 
 While `oldValue` attempts => having a value without an idMap is a theoretical problem => could only happen in case `Neo.setupClass()` had bugs, the check is still reasonable.
 
-## Activity Log
+## Timeline
 
 - 2025-07-08 @tobiu assigned to @tobiu
 - 2025-07-08 @tobiu added the `enhancement` label

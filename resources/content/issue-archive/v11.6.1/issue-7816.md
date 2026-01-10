@@ -38,7 +38,7 @@ Add `/* webpackIgnore: true */` to the import statement in `src/util/HighlightJs
 module = await import(/* webpackIgnore: true */ path);
 ```
 
-## Activity Log
+## Timeline
 
 - 2025-11-19 @tobiu added the `bug` label
 - 2025-11-19 @tobiu added the `refactoring` label

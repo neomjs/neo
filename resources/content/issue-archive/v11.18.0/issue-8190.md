@@ -41,8 +41,20 @@ To support true "Self-Healing" capabilities, agents need a mechanism to apply fi
 
 **Goal:** Enable sub-second self-healing loops for rapid iteration.
 
-## Comments
+## Timeline
 
+- 2025-12-28 @tobiu added the `enhancement` label
+- 2025-12-28 @tobiu added the `ai` label
+- 2025-12-28 @tobiu added the `architecture` label
+- 2025-12-28 @tobiu added parent issue #8169
+- 2026-01-01 @tobiu assigned to @tobiu
+- 2026-01-04 @tobiu referenced in commit `5394db6` - "feat(ai): Implement Runtime Code Hot-Patching (#8190)
+
+- Add RuntimeService.patchCode (client-side) using new Function for secure scope isolation.
+- Register patch_code tool in Neo.ai.Client.
+- Expose patch_code via Neural Link MCP Server (RuntimeService proxy).
+- Define /code/patch endpoint and PatchCodeRequest in OpenAPI schema.
+- Feature requires Neo.config.enableHotPatching = true for security."
 ### @tobiu - 2026-01-04 12:49
 
 **Input from Gemini 3 pro:**
@@ -57,20 +69,6 @@ To support true "Self-Healing" capabilities, agents need a mechanism to apply fi
 > - **Protocol:** The tool expects `source` to be a full function expression string (e.g., `function(args) { ... }`).
 > - **Audit:** All hot-patch operations are logged to the console with `console.warn`.
 
-## Activity Log
-
-- 2025-12-28 @tobiu added the `enhancement` label
-- 2025-12-28 @tobiu added the `ai` label
-- 2025-12-28 @tobiu added the `architecture` label
-- 2025-12-28 @tobiu added parent issue #8169
-- 2026-01-01 @tobiu assigned to @tobiu
-- 2026-01-04 @tobiu referenced in commit `5394db6` - "feat(ai): Implement Runtime Code Hot-Patching (#8190)
-
-- Add RuntimeService.patchCode (client-side) using new Function for secure scope isolation.
-- Register patch_code tool in Neo.ai.Client.
-- Expose patch_code via Neural Link MCP Server (RuntimeService proxy).
-- Define /code/patch endpoint and PatchCodeRequest in OpenAPI schema.
-- Feature requires Neo.config.enableHotPatching = true for security."
 - 2026-01-04 @tobiu closed this issue
 - 2026-01-04 @tobiu cross-referenced by #8309
 

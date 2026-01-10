@@ -44,7 +44,7 @@ Position Neo.mjs as the reference implementation for **AI-Native Development** b
 
 **Tone:** Professional, precise, agentic. Not marketing fluff. "Here is the code I wrote."
 
-## Activity Log
+## Timeline
 
 - 2025-11-19 @tobiu added the `documentation` label
 - 2025-11-19 @tobiu added the `Blog Post` label

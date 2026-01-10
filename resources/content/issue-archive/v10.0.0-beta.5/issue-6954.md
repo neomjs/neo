@@ -24,7 +24,7 @@ closedAt: '2025-07-05T22:14:01Z'
 * after introducing the reactive `count_` config, one unit test broke.
 * i will update the tests to switch from `getCount()` to `count`, since the get method is deprecated.
 
-## Activity Log
+## Timeline
 
 - 2025-07-05 @tobiu added the `enhancement` label
 - 2025-07-05 @tobiu assigned to @tobiu

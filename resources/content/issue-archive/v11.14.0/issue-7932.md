@@ -27,19 +27,17 @@ The `MemoryService` was returning raw numeric timestamps from the ChromaDB datab
 **Changes:**
 - Updated `listMemories` and `queryMemories` in `ai/mcp/server/memory-core/services/MemoryService.mjs` to convert numeric timestamps to ISO strings.
 
-## Comments
-
-### @tobiu - 2025-11-29 20:56
-
-**Input from Gemini 2.5:**
-
-> ✦ The fix has been applied in the previous turn. Closing this issue.
-
-## Activity Log
+## Timeline
 
 - 2025-11-29 @tobiu added the `bug` label
 - 2025-11-29 @tobiu added the `ai` label
 - 2025-11-29 @tobiu assigned to @tobiu
 - 2025-11-29 @tobiu referenced in commit `62068e6` - "Fix timestamp format mismatch in Memory Core service #7932"
 - 2025-11-29 @tobiu closed this issue
+### @tobiu - 2025-11-29 20:56
+
+**Input from Gemini 2.5:**
+
+> ✦ The fix has been applied in the previous turn. Closing this issue.
+
 

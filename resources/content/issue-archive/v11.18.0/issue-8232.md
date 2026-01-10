@@ -32,8 +32,14 @@ It should return an object containing:
 - `stores`: A mapped object where each store instance is serialized via its `toJSON()` method.
 - `windowId`: The associated window ID
 
-## Comments
+## Timeline
 
+- 2025-12-31 @tobiu added the `enhancement` label
+- 2025-12-31 @tobiu added the `ai` label
+- 2025-12-31 @tobiu added parent issue #8200
+- 2025-12-31 @tobiu assigned to @tobiu
+- 2025-12-31 @tobiu referenced in commit `2e9a550` - "feat(state): Implement toJSON in Neo.state.Provider for Neural Link serialization (#8232)"
+- 2025-12-31 @tobiu referenced in commit `665b841` - "docs(issue): Update ticket state for #8200 and #8232"
 ### @tobiu - 2025-12-31 15:11
 
 **Input from Gemini:**
@@ -51,14 +57,6 @@ It should return an object containing:
 > ```
 > This enables proper serialization for the Neural Link, including recursive serialization of stores.
 
-## Activity Log
-
-- 2025-12-31 @tobiu added the `enhancement` label
-- 2025-12-31 @tobiu added the `ai` label
-- 2025-12-31 @tobiu added parent issue #8200
-- 2025-12-31 @tobiu assigned to @tobiu
-- 2025-12-31 @tobiu referenced in commit `2e9a550` - "feat(state): Implement toJSON in Neo.state.Provider for Neural Link serialization (#8232)"
-- 2025-12-31 @tobiu referenced in commit `665b841` - "docs(issue): Update ticket state for #8200 and #8232"
 - 2025-12-31 @tobiu closed this issue
 - 2025-12-31 @tobiu referenced in commit `de02ab3` - "docs(issue): Close ticket #8232"
 

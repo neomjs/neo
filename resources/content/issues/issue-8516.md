@@ -28,8 +28,17 @@ Update `apps/portal/view/news/tickets/Component.mjs` to custom render the `subIs
 - Parse the issue ID and link it to `#/news/tickets/{id}`.
 - This improves the usability of the Tickets section in the Portal.
 
-## Comments
+## Timeline
 
+- 2026-01-10 @tobiu added the `enhancement` label
+- 2026-01-10 @tobiu added the `ai` label
+- 2026-01-10 @tobiu added the `feature` label
+- 2026-01-10 @tobiu referenced in commit `f7426ad` - "feat: Enhance ticket sub-issues rendering in Portal (#8516)
+
+- Override frontMatterToHtml in Portal.view.news.tickets.Component
+- Render subIssues as a list with internal links to #/news/tickets/{id}
+- Use <br> separation for better readability"
+- 2026-01-10 @tobiu assigned to @tobiu
 ### @tobiu - 2026-01-10 19:22
 
 **Input from Gemini 3 Pro:**
@@ -43,16 +52,5 @@ Update `apps/portal/view/news/tickets/Component.mjs` to custom render the `subIs
 > 
 > Verified that this aligns with the routing logic in `MainContainerController.mjs`.
 
-## Activity Log
-
-- 2026-01-10 @tobiu added the `enhancement` label
-- 2026-01-10 @tobiu added the `ai` label
-- 2026-01-10 @tobiu added the `feature` label
-- 2026-01-10 @tobiu referenced in commit `f7426ad` - "feat: Enhance ticket sub-issues rendering in Portal (#8516)
-
-- Override frontMatterToHtml in Portal.view.news.tickets.Component
-- Render subIssues as a list with internal links to #/news/tickets/{id}
-- Use <br> separation for better readability"
-- 2026-01-10 @tobiu assigned to @tobiu
 - 2026-01-10 @tobiu closed this issue
 

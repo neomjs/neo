@@ -23,7 +23,7 @@ closedAt: '2025-01-29T16:11:32Z'
 
 * this part now happens globally, as soon as `.neo-is-dragging` is somewhere inside the DOM tree
 
-## Activity Log
+## Timeline
 
 - 2025-01-29 @tobiu added the `enhancement` label
 - 2025-01-29 @tobiu assigned to @tobiu

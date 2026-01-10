@@ -29,7 +29,7 @@ This ticket covers the initial setup of a new, dedicated ChromaDB instance to se
 2.  The script should create a new ChromaDB collection specifically for agent memories (e.g., `neo-agent-memory`).
 3.  Configuration for the memory database (e.g., path, collection name) should be managed in a central location.
 
-## Activity Log
+## Timeline
 
 - 2025-10-01 @tobiu assigned to @tobiu
 - 2025-10-01 @tobiu added parent issue #7316

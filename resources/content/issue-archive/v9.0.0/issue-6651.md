@@ -25,8 +25,10 @@ closedAt: '2025-04-15T19:29:26Z'
 * `util.Function: resolveCallback()` needs to honor view controllers
 * `core.Observable` needs a new `bindCallback()` method
 
-## Comments
+## Timeline
 
+- 2025-04-15 @tobiu added the `enhancement` label
+- 2025-04-15 @tobiu referenced in commit `a32abb0` - "button.Base: onClick() => bind handler if string #6651"
 ### @gplanansky - 2025-04-15 19:01
 
 @tobiu 
@@ -57,10 +59,6 @@ handlers need to stay optional. This only affects the dev branch => for the next
 
 I will create a follow-up ticket for header buttons using `onClick()` directly.
 
-## Activity Log
-
-- 2025-04-15 @tobiu added the `enhancement` label
-- 2025-04-15 @tobiu referenced in commit `a32abb0` - "button.Base: onClick() => bind handler if string #6651"
 - 2025-04-15 @tobiu referenced in commit `1b907d4` - "#6651 keeping handlers optional"
 - 2025-04-15 @tobiu closed this issue
 

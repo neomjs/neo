@@ -23,7 +23,7 @@ closedAt: '2025-07-05T09:51:03Z'
 
 Looks like i tried to simplify the logic too much here.
 
-## Activity Log
+## Timeline
 
 - 2025-07-05 @tobiu assigned to @tobiu
 - 2025-07-05 @tobiu added the `bug` label

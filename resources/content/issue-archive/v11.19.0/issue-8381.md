@@ -26,7 +26,7 @@ closedAt: '2026-01-07T14:04:51Z'
 In `learn/guides/fundamentals/MainThreadAddons.md`, there is a `json` code block that uses comments (`//`). This causes rendering issues with the custom Markdown component.
 It should be updated to `javascript` to support comments and ensure correct highlighting.
 
-## Activity Log
+## Timeline
 
 - 2026-01-07 @tobiu added the `bug` label
 - 2026-01-07 @tobiu added the `documentation` label

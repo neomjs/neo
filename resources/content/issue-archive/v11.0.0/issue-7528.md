@@ -32,7 +32,7 @@ Several services within the `memory-core` server are importing the old `aiConfig
 4.  The `aiConfig` import path is corrected in `sessionService.mjs`.
 5.  The `aiConfig` import path is corrected in `textEmbeddingService.mjs`.
 
-## Activity Log
+## Timeline
 
 - 2025-10-17 @tobiu assigned to @tobiu
 - 2025-10-17 @tobiu added the `enhancement` label

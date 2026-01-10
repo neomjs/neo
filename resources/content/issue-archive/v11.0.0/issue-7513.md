@@ -37,7 +37,7 @@ To make the tools more self-documenting and provide clearer guidance to future a
     - A query targeting a specific content type (e.g., `-t guide`).
 4.  This enhancement makes the tool's intended usage clearer directly from its OpenAPI definition.
 
-## Activity Log
+## Timeline
 
 - 2025-10-16 @tobiu assigned to @tobiu
 - 2025-10-16 @tobiu added parent issue #7501

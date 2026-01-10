@@ -23,7 +23,7 @@ closedAt: '2025-01-25T19:55:52Z'
 
 * Keep the example app in sync with `examples.grid.nestedRecordFields`
 
-## Activity Log
+## Timeline
 
 - 2025-01-25 @tobiu added the `enhancement` label
 - 2025-01-25 @tobiu assigned to @tobiu

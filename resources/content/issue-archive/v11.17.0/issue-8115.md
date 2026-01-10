@@ -35,8 +35,12 @@ Update `apps/agentos/view/ViewportController.mjs` and `apps/colors/view/Viewport
 
 This ensures consistent and bug-free drag-to-popup behavior across all dashboards.
 
-## Comments
+## Timeline
 
+- 2025-12-15 @tobiu added the `enhancement` label
+- 2025-12-15 @tobiu added the `ai` label
+- 2025-12-15 @tobiu assigned to @tobiu
+- 2025-12-15 @tobiu referenced in commit `b4e4690` - "Standardize Drag-to-Popup Logic in ViewportControllers #8115"
 ### @tobiu - 2025-12-15 13:42
 
 **Input from Neo Agent:**
@@ -48,11 +52,5 @@ This ensures consistent and bug-free drag-to-popup behavior across all dashboard
 > 
 > The implementation is complete.
 
-## Activity Log
-
-- 2025-12-15 @tobiu added the `enhancement` label
-- 2025-12-15 @tobiu added the `ai` label
-- 2025-12-15 @tobiu assigned to @tobiu
-- 2025-12-15 @tobiu referenced in commit `b4e4690` - "Standardize Drag-to-Popup Logic in ViewportControllers #8115"
 - 2025-12-15 @tobiu closed this issue
 

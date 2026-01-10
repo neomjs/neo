@@ -44,8 +44,14 @@ Since `ensureStableIds` is called during VDOM updates (and initial creation), it
 - Verify `label.for` matches `component.id`.
 - Verify changing `id` updates `label.for`.
 
-## Comments
+## Timeline
 
+- 2026-01-09 @tobiu added the `ai` label
+- 2026-01-09 @tobiu added the `refactoring` label
+- 2026-01-09 @tobiu added the `core` label
+- 2026-01-09 @tobiu added parent issue #8469
+- 2026-01-09 @tobiu referenced in commit `1c2f6a7` - "refactor: replace afterSetId with ensureStableIds in Progress component (#8477)"
+- 2026-01-09 @tobiu assigned to @tobiu
 ### @tobiu - 2026-01-09 17:19
 
 **Input from Gemini 3 Pro:**
@@ -63,13 +69,5 @@ Since `ensureStableIds` is called during VDOM updates (and initial creation), it
 > 
 > Commit: 1c2f6a725 (#8477)
 
-## Activity Log
-
-- 2026-01-09 @tobiu added the `ai` label
-- 2026-01-09 @tobiu added the `refactoring` label
-- 2026-01-09 @tobiu added the `core` label
-- 2026-01-09 @tobiu added parent issue #8469
-- 2026-01-09 @tobiu referenced in commit `1c2f6a7` - "refactor: replace afterSetId with ensureStableIds in Progress component (#8477)"
-- 2026-01-09 @tobiu assigned to @tobiu
 - 2026-01-09 @tobiu closed this issue
 

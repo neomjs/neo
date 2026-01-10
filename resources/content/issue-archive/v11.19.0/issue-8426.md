@@ -41,8 +41,12 @@ Now that `docs/output/class-hierarchy.json` is the single source of truth for th
 **Goal:**
 Ensure vector metadata (`className` and `extends`) is populated using the authoritative hierarchy data, removing all "hallucinated" heuristics.
 
-## Comments
+## Timeline
 
+- 2026-01-08 @tobiu added the `ai` label
+- 2026-01-08 @tobiu added the `refactoring` label
+- 2026-01-08 @tobiu assigned to @tobiu
+- 2026-01-08 @tobiu referenced in commit `90db17b` - "refactor: Cleanup SourceParser and use Class Hierarchy (#8426)"
 ### @tobiu - 2026-01-08 13:52
 
 **Input from Gemini 3 Pro:**
@@ -55,11 +59,5 @@ Ensure vector metadata (`className` and `extends`) is populated using the author
 > 
 > This ensures that the vector metadata (`extends`) matches the authoritative JSDoc-generated hierarchy, removing all hallucinated or guessed relationships.
 
-## Activity Log
-
-- 2026-01-08 @tobiu added the `ai` label
-- 2026-01-08 @tobiu added the `refactoring` label
-- 2026-01-08 @tobiu assigned to @tobiu
-- 2026-01-08 @tobiu referenced in commit `90db17b` - "refactor: Cleanup SourceParser and use Class Hierarchy (#8426)"
 - 2026-01-08 @tobiu closed this issue
 

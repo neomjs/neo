@@ -60,7 +60,7 @@ Currently, `applyDeltas` relies on `appName` to route DOM update messages. In mu
 *   This is a breaking change for custom components or plugins that use `Neo.applyDeltas` directly.
 *   Ensure backward compatibility or migration paths if necessary (though internal framework usage seems to be the primary consumer).
 
-## Activity Log
+## Timeline
 
 - 2025-11-20 @tobiu assigned to @tobiu
 - 2025-11-20 @tobiu added the `enhancement` label

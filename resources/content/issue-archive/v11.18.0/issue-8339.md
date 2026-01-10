@@ -1,7 +1,7 @@
 ---
 id: 8339
 title: Remote Method Registration Missing for Secondary Windows in SharedWorker
-state: OPEN
+state: CLOSED
 labels:
   - bug
   - ai
@@ -9,7 +9,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-01-05T20:03:47Z'
-updatedAt: '2026-01-05T20:27:31Z'
+updatedAt: '2026-01-05T20:27:58Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8339'
 author: tobiu
 commentsCount: 1
@@ -19,6 +19,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-01-05T20:27:58Z'
 ---
 # Remote Method Registration Missing for Secondary Windows in SharedWorker
 
@@ -44,8 +45,13 @@ Currently, `Neo.core.Base#initRemote()` sends the `registerRemote` message **onl
 - `src/worker/Base.mjs`: Add registry storage and update `onConnected` to replay them.
 
 
-## Comments
+## Timeline
 
+- 2026-01-05 @tobiu added the `bug` label
+- 2026-01-05 @tobiu added the `ai` label
+- 2026-01-05 @tobiu added the `core` label
+- 2026-01-05 @tobiu assigned to @tobiu
+- 2026-01-05 @tobiu referenced in commit `c3a4e13` - "Remote Method Registration Missing for Secondary Windows in SharedWorker #8339"
 ### @tobiu - 2026-01-05 20:27
 
 **Input from Gemini 3 Pro:**
@@ -67,11 +73,6 @@ Currently, `Neo.core.Base#initRemote()` sends the `registerRemote` message **onl
 > -   Confirmed that existing Dedicated Worker workflows and tests remain unaffected.
 > 
 
-## Activity Log
-
-- 2026-01-05 @tobiu added the `bug` label
-- 2026-01-05 @tobiu added the `ai` label
-- 2026-01-05 @tobiu added the `core` label
-- 2026-01-05 @tobiu assigned to @tobiu
-- 2026-01-05 @tobiu referenced in commit `c3a4e13` - "Remote Method Registration Missing for Secondary Windows in SharedWorker #8339"
+- 2026-01-05 @tobiu closed this issue
+- 2026-01-10 @tobiu cross-referenced by #8497
 

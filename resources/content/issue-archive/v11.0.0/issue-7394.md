@@ -36,7 +36,7 @@ This sub-task aims to:
 
 1.  `AGENTS.md` is updated with a clear, explicit, and tested method for the agent to generate a UUID for session IDs.
 
-## Activity Log
+## Timeline
 
 - 2025-10-06 @tobiu assigned to @tobiu
 - 2025-10-06 @tobiu added parent issue #7316

@@ -23,7 +23,7 @@ closedAt: '2025-04-05T22:25:13Z'
 
 * Now that we copy `remote-api.json` files into the dist folder, it is time to ensure that each env fetches the right file.
 
-## Activity Log
+## Timeline
 
 - 2025-04-05 @tobiu added the `enhancement` label
 - 2025-04-05 @tobiu assigned to @tobiu

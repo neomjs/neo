@@ -25,7 +25,7 @@ closedAt: '2025-11-02T19:44:00Z'
 
 This ticket tracks the refactoring of agent instructions to ensure persistent rule enforcement. The current `AGENTS.md` will be split into two files: `AGENTS_STARTUP.md` for one-time session initialization, and `AGENTS.md` for the per-turn enforcement rules. The `.gemini/GEMINI.md` trigger file will be updated to orchestrate this new flow, importing the new `AGENTS.md` to keep the rules in the context of every turn.
 
-## Activity Log
+## Timeline
 
 - 2025-11-02 @tobiu added the `enhancement` label
 - 2025-11-02 @tobiu added the `ai` label

@@ -32,7 +32,7 @@ Currently, if a local issue file is modified but the corresponding issue is dele
 4.  The `#pushToGitHub` logic is updated to check if an issue number is present in the `metadata.push_failures` from the previous sync. If it is, the service should skip attempting to push it again and log a debug message.
 5.  After a full sync cycle, if an issue that was previously in `push_failures` is successfully pulled (i.e., it exists on GitHub again), it should be removed from the `push_failures` list in the new metadata.
 
-## Activity Log
+## Timeline
 
 - 2025-10-20 @tobiu assigned to @tobiu
 - 2025-10-20 @tobiu added the `enhancement` label

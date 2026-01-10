@@ -33,7 +33,7 @@ Create `AgentOSStrategy` (cloned from `AgentOSWidget`) to serve as the container
 2.  Set `appName` to `AgentOSStrategy`.
 3.  Update `StrategyPanelController` to spawn this specific app and listen for its connection events, ensuring strict isolation from the Swarm/Intervention logic.
 
-## Activity Log
+## Timeline
 
 - 2025-12-14 @tobiu added the `enhancement` label
 - 2025-12-14 @tobiu added the `ai` label

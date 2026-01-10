@@ -41,7 +41,7 @@ It then calls `instance.set()` with new values for all of these properties simul
 
 This test provides a critical safety net to prevent future regressions in the complex config initialization logic. It ensures that the `set()` method behaves as a predictable, atomic operation, which is fundamental to the framework's reactivity model.
 
-## Activity Log
+## Timeline
 
 - 2025-07-06 @tobiu assigned to @tobiu
 - 2025-07-06 @tobiu added the `enhancement` label

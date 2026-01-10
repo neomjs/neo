@@ -33,7 +33,7 @@ This ticket covers the implementation of endpoints for repository-wide label man
 3.  A new `issueService.mjs` is created with functions to add/remove labels using `gh issue edit`.
 4.  New route files and handlers are created for the `/labels` and `/issues` resources.
 
-## Activity Log
+## Timeline
 
 - 2025-10-14 @tobiu assigned to @tobiu
 - 2025-10-14 @tobiu added parent issue #7477

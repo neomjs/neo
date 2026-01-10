@@ -32,7 +32,7 @@ Update `Neo.component.Base.toJSON` to include the `keys` configuration.
 Standardize serialization for Neural Link.
 
 
-## Activity Log
+## Timeline
 
 - 2026-01-03 @tobiu added the `enhancement` label
 - 2026-01-03 @tobiu added the `ai` label

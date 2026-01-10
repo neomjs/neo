@@ -33,7 +33,7 @@ This update adds a `--cwd` command-line argument to the `mcp-stdio.mjs` entry po
 - `ConnectionService.mjs`: Updated `spawnBridge` to use the configured `cwd`.
 - `mcp_config.json`: Updated usage to use `--cwd` instead of the invalid `cwd` property.
 
-## Activity Log
+## Timeline
 
 - 2026-01-04 @tobiu added the `enhancement` label
 - 2026-01-04 @tobiu added the `ai-generated` label

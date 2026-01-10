@@ -24,7 +24,7 @@ closedAt: '2025-02-03T11:00:48Z'
 * We need to identify the current column index (it can change via drag&drop)
 * Return all cell vdom objects of the related index
 
-## Activity Log
+## Timeline
 
 - 2025-02-03 @tobiu added the `enhancement` label
 - 2025-02-03 @tobiu assigned to @tobiu

@@ -34,7 +34,7 @@ An outdated API specification is misleading for both human developers and AI age
 3.  Review all other relevant schemas in `openapi.yaml` (e.g., `PullRequest`, `Label`) to ensure they are aligned with the data now being returned by the GraphQL-backed services.
 4.  Ensure all examples in the OpenAPI specification are updated to reflect the new data structures.
 
-## Activity Log
+## Timeline
 
 - 2025-10-22 @tobiu assigned to @tobiu
 - 2025-10-22 @tobiu added the `documentation` label

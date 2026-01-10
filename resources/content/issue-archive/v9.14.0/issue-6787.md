@@ -24,7 +24,7 @@ closedAt: '2025-06-13T18:49:37Z'
 * Avoid using `-` inside file names (Windows)
 * Rename `Multi-Threading` to `OffTheMainThread`
 
-## Activity Log
+## Timeline
 
 - 2025-06-13 @tobiu assigned to @tobiu
 - 2025-06-13 @tobiu added the `enhancement` label

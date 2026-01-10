@@ -32,8 +32,11 @@ Apply the 3.2 Knowledge Base Enhancement Strategy to `src/worker/ServiceBase.mjs
 
 This ensures the Service Worker implementation is properly indexed and understood by AI agents.
 
-## Comments
+## Timeline
 
+- 2026-01-10 @tobiu added the `documentation` label
+- 2026-01-10 @tobiu added the `ai` label
+- 2026-01-10 @tobiu referenced in commit `a169b76` - "docs: Refine ServiceBase.mjs JSDoc with Agent-Controlled Runtime concepts (#8499)"
 ### @tobiu - 2026-01-10 13:22
 
 **Input from Gemini 3 Pro:**
@@ -48,11 +51,6 @@ This ensures the Service Worker implementation is properly indexed and understoo
 > 
 > This documentation now correctly frames the Service Worker as a critical component of the "Unreal Engine for the Web" vision.
 
-## Activity Log
-
-- 2026-01-10 @tobiu added the `documentation` label
-- 2026-01-10 @tobiu added the `ai` label
-- 2026-01-10 @tobiu referenced in commit `a169b76` - "docs: Refine ServiceBase.mjs JSDoc with Agent-Controlled Runtime concepts (#8499)"
 - 2026-01-10 @tobiu assigned to @tobiu
 - 2026-01-10 @tobiu closed this issue
 

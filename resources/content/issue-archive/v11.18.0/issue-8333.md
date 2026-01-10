@@ -26,7 +26,7 @@ The Neural Link MCP Server crashes on startup with `TypeError: Cannot read prope
 This is caused by a recent change in `HealthService.healthcheck()` response structure (commit `9613d448`), where `health.session` was replaced by `health.sessions`.
 `Server.logStartupStatus` still tries to access `health.session.activeApps`.
 
-## Activity Log
+## Timeline
 
 - 2026-01-05 @tobiu added the `bug` label
 - 2026-01-05 @tobiu added the `ai` label

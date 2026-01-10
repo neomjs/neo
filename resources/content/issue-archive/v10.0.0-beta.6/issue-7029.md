@@ -60,13 +60,7 @@ This initiative will significantly improve developer onboarding, enhance discove
 *   `learn/comparisons/neo-vs-extjs.md` (new file)
 *   `learn/README.md` (update to link new section)
 
-## Comments
-
-### @tobiu - 2025-07-13 10:59
-
-The initial versions are in place now, with huge Gemini support. Please open new tickets, in case there might be oversights or inaccuracies.
-
-## Activity Log
+## Timeline
 
 - 2025-07-12 @tobiu assigned to @tobiu
 - 2025-07-12 @tobiu added the `documentation` label
@@ -84,5 +78,9 @@ The initial versions are in place now, with huge Gemini support. Please open new
 - 2025-07-13 @tobiu added sub-issue #7039
 - 2025-07-13 @tobiu added sub-issue #7040
 - 2025-07-13 @tobiu added sub-issue #7041
+### @tobiu - 2025-07-13 10:59
+
+The initial versions are in place now, with huge Gemini support. Please open new tickets, in case there might be oversights or inaccuracies.
+
 - 2025-07-13 @tobiu closed this issue
 

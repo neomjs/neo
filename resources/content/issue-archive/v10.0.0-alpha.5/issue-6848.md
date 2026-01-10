@@ -34,7 +34,7 @@ Renaming View to Body for both Neo.grid and Neo.table components (i.e., Neo.grid
 
 This is a very logical and beneficial breaking change that will significantly improve the developer experience and clarity of your API in Neo.mjs v10. It's precisely the kind of refinement that a major version bump allows for.
 
-## Activity Log
+## Timeline
 
 - 2025-06-20 @tobiu assigned to @tobiu
 - 2025-06-20 @tobiu added the `enhancement` label

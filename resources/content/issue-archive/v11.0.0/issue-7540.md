@@ -34,7 +34,7 @@ This ticket covers refactoring `ai/mcp/server/memory-core/services/dbService.mjs
 6.  Any other services that depend on `dbService` are updated to use the new `DatabaseService` singleton instance.
 7.  All related tools (e.g., `export_database`, `import_database`) continue to function correctly after the refactoring.
 
-## Activity Log
+## Timeline
 
 - 2025-10-18 @tobiu assigned to @tobiu
 - 2025-10-18 @tobiu added parent issue #7536

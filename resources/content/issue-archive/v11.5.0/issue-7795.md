@@ -35,18 +35,16 @@ Update `buildScripts/buildAll.mjs` to dynamically determine the Node.js command 
 2.  Replace all hardcoded `spawnSync('node', ...)` calls with `spawnSync(nodeCmd, ...)`.
 
 
-## Comments
-
-### @tobiu - 2025-11-18 19:47
-
-already resolved
-
-## Activity Log
+## Timeline
 
 - 2025-11-18 @tobiu added the `enhancement` label
 - 2025-11-18 @tobiu added the `windows` label
 - 2025-11-18 @tobiu added the `developer-experience` label
 - 2025-11-18 @tobiu added the `ai` label
 - 2025-11-18 @tobiu assigned to @tobiu
+### @tobiu - 2025-11-18 19:47
+
+already resolved
+
 - 2025-11-18 @tobiu closed this issue
 

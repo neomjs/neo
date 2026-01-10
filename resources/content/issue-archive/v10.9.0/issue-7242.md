@@ -42,16 +42,14 @@ This ticket covers two key adjustments to the scoring logic in `buildScripts/ai/
 -   Running a general query like `npm run ai:query -- -q "reactivity"` does not show release notes in the top results, prioritizing `src` and `guide` files.
 -   The new scoring logic is well-documented within the `queryKnowledgeBase.mjs` script.
 
-## Comments
-
-### @tobiu - 2025-09-23 14:38
-
-<img width="904" height="1279" alt="Image" src="https://github.com/user-attachments/assets/7d9895b7-2cf5-401d-916a-e12e397731a3" />
-
-## Activity Log
+## Timeline
 
 - 2025-09-23 @tobiu assigned to @tobiu
 - 2025-09-23 @tobiu added the `enhancement` label
 - 2025-09-23 @tobiu referenced in commit `2243864` - "Refine AI Query Scoring for Release Notes #7242"
+### @tobiu - 2025-09-23 14:38
+
+<img width="904" height="1279" alt="Image" src="https://github.com/user-attachments/assets/7d9895b7-2cf5-401d-916a-e12e397731a3" />
+
 - 2025-09-23 @tobiu closed this issue
 

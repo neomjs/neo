@@ -25,22 +25,21 @@ closedAt: '2025-01-23T23:42:34Z'
 
 ![Image](https://github.com/user-attachments/assets/435e1ce8-f93c-407f-9926-8c3c807f21fe)
 
-## Comments
-
-### @tobiu - 2025-01-18 21:54
-
-![Image](https://github.com/user-attachments/assets/dcc96a46-0e30-40b7-ad0f-08f7024a700e)
-
-### @tobiu - 2025-01-23 23:38
-
-reopening, since sometimes it still breaks inside the deployed version
-
-## Activity Log
+## Timeline
 
 - 2025-01-18 @tobiu added the `bug` label
 - 2025-01-18 @tobiu assigned to @tobiu
 - 2025-01-18 @tobiu referenced in commit `bc85ded` - "examples.table.nestedRecordFields.EditUserDialog: the dialog no longer gets shown properly #6259"
+### @tobiu - 2025-01-18 21:54
+
+![Image](https://github.com/user-attachments/assets/dcc96a46-0e30-40b7-ad0f-08f7024a700e)
+
 - 2025-01-18 @tobiu closed this issue
+### @tobiu - 2025-01-23 23:38
+
+reopening, since sometimes it still breaks inside the deployed version
+
+- 2025-01-23 @tobiu reopened this issue
 - 2025-01-23 @tobiu referenced in commit `16540dc` - "#6259 dialog.Base: further increasing the delay to ensure it does not break inside prod versions"
 - 2025-01-23 @tobiu closed this issue
 

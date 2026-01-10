@@ -23,7 +23,7 @@ closedAt: '2025-02-03T17:30:19Z'
 
 too expensive
 
-## Activity Log
+## Timeline
 
 - 2025-02-03 @tobiu added the `enhancement` label
 - 2025-02-03 @tobiu assigned to @tobiu

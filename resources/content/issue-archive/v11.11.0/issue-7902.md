@@ -44,7 +44,7 @@ closedAt: '2025-11-25T15:33:44Z'
 **Impact:** 
 `DatabaseService.mjs` should become an orchestrator that delegates to these services, significantly reducing its LOC and complexity to a manageable level.
 
-## Activity Log
+## Timeline
 
 - 2025-11-25 @tobiu added the `ai` label
 - 2025-11-25 @tobiu added the `refactoring` label

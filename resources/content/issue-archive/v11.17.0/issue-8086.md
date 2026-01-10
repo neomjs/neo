@@ -33,7 +33,7 @@ Add a new unit test suite for `Neo.draggable.container.SortZone` using Playwrigh
 
 This ensures the fix for #8054 is regression-tested and that mixed-content containers (like Toolbars with separators) remain stable.
 
-## Activity Log
+## Timeline
 
 - 2025-12-11 @tobiu added the `ai` label
 - 2025-12-11 @tobiu added the `testing` label

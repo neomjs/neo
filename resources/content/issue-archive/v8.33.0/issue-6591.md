@@ -23,7 +23,7 @@ closedAt: '2025-03-25T17:21:42Z'
 
 * move the logic inside `onConnect()` over here
 
-## Activity Log
+## Timeline
 
 - 2025-03-25 @tobiu added the `enhancement` label
 - 2025-03-25 @tobiu assigned to @tobiu

@@ -37,13 +37,7 @@ https://redfin.engineering/how-to-fix-the-refresh-button-when-using-service-work
 
 I will create sub-tasks (tickets).
 
-## Comments
-
-### @tobiu - 2025-03-25 17:32
-
-https://youtu.be/UG1JOeUSyEU
-
-## Activity Log
+## Timeline
 
 - 2025-03-25 @tobiu added the `enhancement` label
 - 2025-03-25 @tobiu assigned to @tobiu
@@ -54,5 +48,9 @@ https://youtu.be/UG1JOeUSyEU
 - 2025-03-25 @tobiu added sub-issue #6589
 - 2025-03-25 @tobiu added sub-issue #6590
 - 2025-03-25 @tobiu added sub-issue #6591
+### @tobiu - 2025-03-25 17:32
+
+https://youtu.be/UG1JOeUSyEU
+
 - 2025-03-25 @tobiu closed this issue
 

@@ -50,7 +50,7 @@ const [record] = store.add(data, true);
 This overloads the `collection.Base` signature. While slightly impure, the DX benefit for Store usage is significant.
 
 
-## Activity Log
+## Timeline
 
 - 2025-12-10 @tobiu added the `enhancement` label
 - 2025-12-10 @tobiu added the `developer-experience` label

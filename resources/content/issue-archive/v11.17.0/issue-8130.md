@@ -29,7 +29,7 @@ Based on the successful PoC, we are polishing `handleDomUpdate` in `src/worker/M
 2.  **Variable Extraction:** Extract `data.data` into a local variable (e.g., `payload`) inside `onWorkerMessage` to reduce property access redundancy and improve readability.
 3.  **Update Call Sites:** Simplify the calls to `handleDomUpdate` in `onWorkerMessage` since the conditional check is no longer needed.
 
-## Activity Log
+## Timeline
 
 - 2025-12-16 @tobiu added the `refactoring` label
 - 2025-12-16 @tobiu assigned to @tobiu

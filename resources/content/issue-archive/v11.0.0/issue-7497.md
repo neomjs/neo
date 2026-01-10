@@ -30,7 +30,7 @@ The `ai/mcp/server/github-workflow/mcp-stdio.mjs` file can be improved for bette
 2.  The `mcpTools` mapping within the `ListToolsRequestSchema` handler is updated to include `title`, `outputSchema`, and `annotations` from the `tool` object returned by `listTools`.
 3.  The comment "// Convert from your format to MCP format" is removed or updated to be more accurate.
 
-## Activity Log
+## Timeline
 
 - 2025-10-15 @tobiu assigned to @tobiu
 - 2025-10-15 @tobiu added parent issue #7477

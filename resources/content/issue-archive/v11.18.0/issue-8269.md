@@ -24,7 +24,7 @@ closedAt: '2026-01-01T17:52:09Z'
 
 Implement `toJSON` for the singleton `manager.DragCoordinator` to expose `activeTargetZone` and `sortZones` for AI inspection.
 
-## Activity Log
+## Timeline
 
 - 2026-01-01 @tobiu added the `enhancement` label
 - 2026-01-01 @tobiu added the `ai` label

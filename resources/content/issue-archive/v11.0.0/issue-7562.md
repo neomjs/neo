@@ -39,7 +39,7 @@ To improve clarity, consistency, and discoverability, all service class names sh
 
 *(Note: This is a straightforward find-and-replace task that can be applied across the respective server directories.)*
 
-## Activity Log
+## Timeline
 
 - 2025-10-19 @tobiu assigned to @tobiu
 - 2025-10-19 @tobiu added the `enhancement` label

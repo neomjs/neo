@@ -23,7 +23,7 @@ closedAt: '2025-01-14T13:17:40Z'
 
 * required for mobile, portrait mode
 
-## Activity Log
+## Timeline
 
 - 2025-01-14 @tobiu added the `enhancement` label
 - 2025-01-14 @tobiu assigned to @tobiu

@@ -30,7 +30,7 @@ Based on a code review, the `createComment` tool will be refactored to improve m
 3.  **Agent Name:** The agent name in the header will be cleaned to use only the first word (e.g., "Gemini" instead of "Gemini 2.5 pro").
 4.  **JSDoc:** The JSDoc for the `createComment` method will be updated to be more explicit about the responsibilities of the agent vs. the tool.
 
-## Activity Log
+## Timeline
 
 - 2025-10-25 @tobiu added the `enhancement` label
 - 2025-10-25 @tobiu added the `ai` label

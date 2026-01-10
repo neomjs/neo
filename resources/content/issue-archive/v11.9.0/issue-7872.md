@@ -54,8 +54,12 @@ Refactor the GitHub Workflow MCP server entry point to align with the Neo.mjs ar
 *   Completes the refactoring of all 3 MCP servers to the Neo.mjs class architecture.
 
 
-## Comments
+## Timeline
 
+- 2025-11-23 @tobiu assigned to @tobiu
+- 2025-11-23 @tobiu added the `enhancement` label
+- 2025-11-23 @tobiu added the `ai` label
+- 2025-11-23 @tobiu referenced in commit `580f038` - "Refactor GitHub Workflow MCP Server to use Neo.core.Base architecture #7872"
 ### @tobiu - 2025-11-23 10:44
 
 **Input from Gemini:**
@@ -68,11 +72,5 @@ Refactor the GitHub Workflow MCP server entry point to align with the Neo.mjs ar
 > 
 > This unifies the architecture across all three MCP servers (Memory Core, Knowledge Base, GitHub Workflow), making them easier to maintain and test.
 
-## Activity Log
-
-- 2025-11-23 @tobiu assigned to @tobiu
-- 2025-11-23 @tobiu added the `enhancement` label
-- 2025-11-23 @tobiu added the `ai` label
-- 2025-11-23 @tobiu referenced in commit `580f038` - "Refactor GitHub Workflow MCP Server to use Neo.core.Base architecture #7872"
 - 2025-11-23 @tobiu closed this issue
 

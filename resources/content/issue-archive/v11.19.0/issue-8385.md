@@ -34,7 +34,7 @@ To resolve this, we should add support for a `text` or `plaintext` language in o
 
 This will ensure the block is rendered with the same `pre.hljs` styling as other code blocks.
 
-## Activity Log
+## Timeline
 
 - 2026-01-07 @tobiu added the `documentation` label
 - 2026-01-07 @tobiu added the `enhancement` label

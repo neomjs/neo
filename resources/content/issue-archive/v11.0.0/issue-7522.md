@@ -31,7 +31,7 @@ This ticket involves refactoring the existing `openapi.yaml` from its RESTful st
 3.  The `paths` object is flattened, removing the RESTful URL structure.
 4.  All schemas, descriptions, and examples are preserved and correctly associated with their new tool definitions.
 
-## Activity Log
+## Timeline
 
 - 2025-10-17 @tobiu assigned to @tobiu
 - 2025-10-17 @tobiu added the `enhancement` label

@@ -33,7 +33,7 @@ It seems like `header.Toolbar` wants to do an update, containing the correct vdo
 
 Stepping through `component.Base` to resolve it.
 
-## Activity Log
+## Timeline
 
 - 2025-01-15 @tobiu added the `bug` label
 - 2025-01-15 @tobiu assigned to @tobiu

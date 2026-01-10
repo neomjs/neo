@@ -23,7 +23,7 @@ closedAt: '2025-11-13T09:11:30Z'
 
 Since remote methods are `async`, a new convenience method to update multiple items inside `document.head` makes sense.
 
-## Activity Log
+## Timeline
 
 - 2025-11-13 @tobiu assigned to @tobiu
 - 2025-11-13 @tobiu added the `enhancement` label

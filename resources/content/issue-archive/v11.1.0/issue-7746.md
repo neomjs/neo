@@ -34,7 +34,7 @@ This task was completed as part of the broader SEO enhancement epic, aiming to i
 -   When `buildScripts/prepareRelease.mjs` is executed, the `datePublished` field in `apps/portal/index.html` is updated to the current date in `YYYY-MM-DD` format.
 -   The script executes without errors and logs the update.
 
-## Activity Log
+## Timeline
 
 - 2025-11-11 @tobiu assigned to @tobiu
 - 2025-11-11 @tobiu added the `enhancement` label

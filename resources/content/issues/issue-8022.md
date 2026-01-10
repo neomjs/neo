@@ -25,7 +25,7 @@ blocking: []
 
 The `Viewport.mjs` file is becoming overloaded. Refactor the `items` (Toolbar, Dashboard, Panels) into their own dedicated component files (e.g., `view/main/Toolbar.mjs`, `view/dashboard/Panel.mjs`). This promotes separation of concerns and cleaner code.
 
-## Activity Log
+## Timeline
 
 - 2025-12-04 @tobiu added the `enhancement` label
 - 2025-12-04 @tobiu added the `ai` label

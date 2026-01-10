@@ -34,7 +34,7 @@ Error: The GEMINI_API_KEY environment variable must be set to use semantic searc
 - Modify `TextEmbeddingService` to log a warning instead of throwing during construction.
 - Ensure methods like `embed` throw a helpful error *when called* if the key is missing, rather than preventing startup.
 
-## Activity Log
+## Timeline
 
 - 2025-12-02 @tobiu added the `bug` label
 - 2025-12-02 @tobiu added the `ai` label

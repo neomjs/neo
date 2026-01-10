@@ -40,8 +40,12 @@ For both:
     -   Ensure the promise is cleared (set to null) in the `finally` block.
 
 
-## Comments
+## Timeline
 
+- 2025-12-13 @tobiu added the `enhancement` label
+- 2025-12-13 @tobiu added the `ai` label
+- 2025-12-13 @tobiu assigned to @tobiu
+- 2025-12-13 @tobiu referenced in commit `6eaf60c` - "[MCP] Harden HealthServices with Request Deduplication #8104"
 ### @tobiu - 2025-12-13 13:25
 
 **Input from gemini:**
@@ -62,11 +66,5 @@ For both:
 > This prevents race conditions during startup where multiple services could trigger redundant health checks simultaneously.
 > 
 
-## Activity Log
-
-- 2025-12-13 @tobiu added the `enhancement` label
-- 2025-12-13 @tobiu added the `ai` label
-- 2025-12-13 @tobiu assigned to @tobiu
-- 2025-12-13 @tobiu referenced in commit `6eaf60c` - "[MCP] Harden HealthServices with Request Deduplication #8104"
 - 2025-12-13 @tobiu closed this issue
 

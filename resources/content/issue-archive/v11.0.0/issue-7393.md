@@ -34,8 +34,12 @@ This would improve maintainability and clarity for contributors.
 
 Parent: #7364
 
-## Comments
+## Timeline
 
+- 2025-10-06 @SarthakJain29 added the `enhancement` label
+- 2025-10-06 @tobiu assigned to @SarthakJain29
+- 2025-10-06 @tobiu added the `hacktoberfest` label
+- 2025-10-06 @tobiu added parent issue #7364
 ### @tobiu - 2025-10-06 13:37
 
 FYI (flash model):
@@ -46,12 +50,6 @@ FYI (flash model):
 >   and navigation, making my workflow easier and more robust.
 
 
-## Activity Log
-
-- 2025-10-06 @SarthakJain29 added the `enhancement` label
-- 2025-10-06 @tobiu assigned to @SarthakJain29
-- 2025-10-06 @tobiu added the `hacktoberfest` label
-- 2025-10-06 @tobiu added parent issue #7364
 - 2025-10-06 @SarthakJain29 cross-referenced by PR #7395
 - 2025-10-08 @tobiu closed this issue
 

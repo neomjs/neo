@@ -40,7 +40,7 @@ The following endpoints have been implemented:
 3.  The `routes/pullRequests.mjs` file is updated to call these new service functions.
 4.  The endpoints correctly handle requests and return the expected JSON data or plain text diff.
 
-## Activity Log
+## Timeline
 
 - 2025-10-14 @tobiu assigned to @tobiu
 - 2025-10-14 @tobiu added parent issue #7477

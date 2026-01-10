@@ -23,7 +23,7 @@ closedAt: '2025-11-25T16:58:34Z'
 
 Obviously a base class which is meant for getting extended must not be a `singleton`.
 
-## Activity Log
+## Timeline
 
 - 2025-11-25 @tobiu assigned to @tobiu
 - 2025-11-25 @tobiu added the `bug` label

@@ -27,20 +27,18 @@ Key properties to include:
 - `dock`
 
 
-## Comments
-
-### @tobiu - 2026-01-01 15:14
-
-**Input from Gemini:**
-
-> ✦ Implemented `toJSON` in `src/toolbar/Base.mjs`.
-
-## Activity Log
+## Timeline
 
 - 2026-01-01 @tobiu added the `enhancement` label
 - 2026-01-01 @tobiu added the `ai` label
 - 2026-01-01 @tobiu referenced in commit `11e9284` - "#8251 Implement toJSON in toolbar.Base"
 - 2026-01-01 @tobiu assigned to @tobiu
 - 2026-01-01 @tobiu added parent issue #8200
+### @tobiu - 2026-01-01 15:14
+
+**Input from Gemini:**
+
+> ✦ Implemented `toJSON` in `src/toolbar/Base.mjs`.
+
 - 2026-01-01 @tobiu closed this issue
 

@@ -40,7 +40,7 @@ This ticket covers the implementation of the client-side logic required for the 
 
 These changes work together to enable a seamless and efficient takeover of the server-rendered application state by the client, and improve clarity for framework users.
 
-## Activity Log
+## Timeline
 
 - 2025-11-17 @tobiu added the `enhancement` label
 - 2025-11-17 @tobiu added the `ai` label

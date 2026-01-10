@@ -50,26 +50,24 @@ To work on this ticket, please start your session with the following prompt:
 >
 > You will need to read the epic context from @.github/ISSUE/epic-architect-ai-tooling-as-mcp.md and the specific ticket details from @.github/ISSUE/ticket-refine-memory-server-endpoints.md before we begin.
 
-## Comments
-
-### @Aki-07 - 2025-10-11 18:11
-
-Can I pick up this refinement @tobiu ?
-
-### @tobiu - 2025-10-11 18:45
-
-sure.
-
-## Activity Log
+## Timeline
 
 - 2025-10-11 @tobiu assigned to @tobiu
 - 2025-10-11 @tobiu added parent issue #7399
 - 2025-10-11 @tobiu added the `enhancement` label
 - 2025-10-11 @tobiu added the `ai` label
 - 2025-10-11 @tobiu cross-referenced by PR #7463
+### @Aki-07 - 2025-10-11 18:11
+
+Can I pick up this refinement @tobiu ?
+
 - 2025-10-11 @tobiu unassigned from @tobiu
 - 2025-10-11 @tobiu assigned to @Aki-07
 - 2025-10-11 @tobiu added the `hacktoberfest` label
+### @tobiu - 2025-10-11 18:45
+
+sure.
+
 - 2025-10-12 @Aki-07 cross-referenced by PR #7466
 - 2025-10-13 @tobiu closed this issue
 

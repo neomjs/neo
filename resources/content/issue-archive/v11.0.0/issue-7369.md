@@ -35,13 +35,21 @@ Once the script to automate GitHub issue creation is complete, the agent's core 
 3.  It is replaced with a new protocol where the agent, after creating the local markdown ticket, immediately calls the `npm run ai:create-gh-issue` script.
 4.  The agent should be instructed to verify that the script ran successfully and that the markdown file was updated with the new GitHub issue ID.
 
-## Comments
+## Timeline
 
+- 2025-10-05 @tobiu added the `documentation` label
+- 2025-10-05 @tobiu added the `enhancement` label
+- 2025-10-05 @tobiu added the `help wanted` label
+- 2025-10-05 @tobiu added the `good first issue` label
+- 2025-10-05 @tobiu added the `hacktoberfest` label
+- 2025-10-05 @tobiu added the `ai` label
+- 2025-10-05 @tobiu added parent issue #7364
 ### @kayush0712 - 2025-10-05 12:02
 
 can i work on this?
 
 
+- 2025-10-05 @tobiu assigned to @kayush0712
 ### @tobiu - 2025-10-05 14:06
 
 Hi, and thanks for your interest.
@@ -73,6 +81,7 @@ more input from gemini:
 > 
 >   There are no blockers. The task is to write documentation for a workflow involving a script that is now present in the repository. The contributor does not need an authenticated GitHub CLI environment to write these instructions.
 
+- 2025-10-22 @tobiu cross-referenced by PR #7541
 ### @tobiu - 2025-10-24 09:34
 
 Hi @kayush0712,
@@ -83,16 +92,5 @@ This ticket was for updating the AGENTS.md file to use a new script. The project
 
 We're closing this ticket as it is no longer relevant. Thanks again for your willingness to contribute, and we hope to see you in other issues!
 
-## Activity Log
-
-- 2025-10-05 @tobiu added the `documentation` label
-- 2025-10-05 @tobiu added the `enhancement` label
-- 2025-10-05 @tobiu added the `help wanted` label
-- 2025-10-05 @tobiu added the `good first issue` label
-- 2025-10-05 @tobiu added the `hacktoberfest` label
-- 2025-10-05 @tobiu added the `ai` label
-- 2025-10-05 @tobiu added parent issue #7364
-- 2025-10-05 @tobiu assigned to @kayush0712
-- 2025-10-22 @tobiu cross-referenced by PR #7541
 - 2025-10-24 @tobiu closed this issue
 

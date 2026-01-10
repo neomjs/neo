@@ -26,7 +26,7 @@ closedAt: '2025-05-28T11:06:44Z'
 * No tree-shaking
 * Using Terser
 
-## Activity Log
+## Timeline
 
 - 2025-05-26 @tobiu assigned to @tobiu
 - 2025-05-26 @tobiu added the `enhancement` label

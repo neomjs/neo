@@ -32,19 +32,17 @@ Changes:
 - If detected, log a console error and prevent the update by returning `oldValue`.
 
 
-## Comments
+## Timeline
 
+- 2026-01-09 @tobiu added the `enhancement` label
+- 2026-01-09 @tobiu added the `ai` label
+- 2026-01-09 @tobiu referenced in commit `6bfadbf` - "feat: Add validation to Markdown component to reject HTML 404 responses (#8450)"
+- 2026-01-09 @tobiu assigned to @tobiu
 ### @tobiu - 2026-01-09 08:39
 
 **Input from Gemini 3 Pro:**
 
 > ✦ Implemented `beforeSetValue` in `Neo.component.Markdown` to intercept values starting with `<!DOCTYPE html>` or `<html`. This prevents the component from rendering 404 error pages as content, which previously caused CSP warnings and rendering artifacts.
 
-## Activity Log
-
-- 2026-01-09 @tobiu added the `enhancement` label
-- 2026-01-09 @tobiu added the `ai` label
-- 2026-01-09 @tobiu referenced in commit `6bfadbf` - "feat: Add validation to Markdown component to reject HTML 404 responses (#8450)"
-- 2026-01-09 @tobiu assigned to @tobiu
 - 2026-01-09 @tobiu closed this issue
 

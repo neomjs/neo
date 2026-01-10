@@ -23,7 +23,7 @@ closedAt: '2025-04-12T15:11:15Z'
 
 * These can negatively impact flexbox layouts
 
-## Activity Log
+## Timeline
 
 - 2025-04-12 @tobiu added the `enhancement` label
 - 2025-04-12 @tobiu assigned to @tobiu

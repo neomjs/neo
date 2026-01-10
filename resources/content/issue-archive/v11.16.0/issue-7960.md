@@ -68,13 +68,7 @@ closedAt: '2025-12-04T03:45:44Z'
 
 **Reference:** .github/AGENT_ARCHITECTURE.md
 
-## Comments
-
-### @tobiu - 2025-12-04 03:45
-
-resolved
-
-## Activity Log
+## Timeline
 
 - 2025-11-30 @tobiu added the `enhancement` label
 - 2025-11-30 @tobiu added the `ai` label
@@ -94,5 +88,9 @@ resolved
 - 2025-12-03 @tobiu added sub-issue #8013
 - 2025-12-03 @tobiu added sub-issue #8006
 - 2025-12-03 @tobiu added sub-issue #8014
+### @tobiu - 2025-12-04 03:45
+
+resolved
+
 - 2025-12-04 @tobiu closed this issue
 

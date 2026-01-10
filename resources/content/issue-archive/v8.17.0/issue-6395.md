@@ -23,7 +23,7 @@ closedAt: '2025-02-06T23:18:36Z'
 
 * There are a bunch of selectors in there which belong into `grid.View`
 
-## Activity Log
+## Timeline
 
 - 2025-02-06 @tobiu added the `enhancement` label
 - 2025-02-06 @tobiu assigned to @tobiu

@@ -49,8 +49,14 @@ To work on this ticket, please start your session with the following prompt:
 > 
 > You will need to read the epic context from @.github/ISSUE/epic-architect-ai-tooling-as-mcp.md and the specific ticket details from @.github/ISSUE/ticket-implement-knowledge-query-endpoint.md before we begin.
 
-## Comments
+## Timeline
 
+- 2025-10-07 @tobiu added the `enhancement` label
+- 2025-10-07 @tobiu added parent issue #7399
+- 2025-10-07 @tobiu added the `help wanted` label
+- 2025-10-07 @tobiu added the `good first issue` label
+- 2025-10-07 @tobiu added the `hacktoberfest` label
+- 2025-10-07 @tobiu added the `ai` label
 ### @Mahita07 - 2025-10-08 02:48
 
 @tobiu Could you please assign this ticket to me ? 
@@ -59,19 +65,11 @@ To work on this ticket, please start your session with the following prompt:
 
 Sure and thx!
 
+- 2025-10-08 @tobiu assigned to @Mahita07
+- 2025-10-24 @tobiu removed parent issue #7399
 ### @tobiu - 2025-11-02 12:30
 
 already resolved
 
-## Activity Log
-
-- 2025-10-07 @tobiu added the `enhancement` label
-- 2025-10-07 @tobiu added parent issue #7399
-- 2025-10-07 @tobiu added the `help wanted` label
-- 2025-10-07 @tobiu added the `good first issue` label
-- 2025-10-07 @tobiu added the `hacktoberfest` label
-- 2025-10-07 @tobiu added the `ai` label
-- 2025-10-08 @tobiu assigned to @Mahita07
-- 2025-10-24 @tobiu removed parent issue #7399
 - 2025-11-02 @tobiu closed this issue
 

@@ -46,7 +46,7 @@ Display release notes in the Portal using the same "Tree Nav + Content + Section
 **Dependencies:**
 -   Depends on the completion of #8388 (Refactor Learn).
 
-## Activity Log
+## Timeline
 
 - 2026-01-07 @tobiu added the `documentation` label
 - 2026-01-07 @tobiu added the `feature` label

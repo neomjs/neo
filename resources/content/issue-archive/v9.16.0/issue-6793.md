@@ -31,7 +31,7 @@ The names should be more clear:
 * `<pre data-code-readonly>`
 * `<pre data-code-livepreview>`
 
-## Activity Log
+## Timeline
 
 - 2025-06-14 @tobiu assigned to @tobiu
 - 2025-06-14 @tobiu added the `enhancement` label

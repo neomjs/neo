@@ -30,7 +30,7 @@ The `#fetchAndCacheReleases` method needs to be hardened to handle the edge case
 2.  The `#fetchAndCacheReleases` method in `SyncService.mjs` is updated to log a warning if `this.releases` is empty after filtering.
 3.  The `#getIssuePath` method is updated to use the new `defaultArchiveVersion` from the config as its fallback value instead of the hardcoded `'unknown'`.
 
-## Activity Log
+## Timeline
 
 - 2025-10-20 @tobiu assigned to @tobiu
 - 2025-10-20 @tobiu added the `enhancement` label

@@ -34,16 +34,14 @@ This ticket is to enhance the `buildZodSchemaFromResponse` function to correctly
 4.  The `openapi.yaml` for the memory-core server is simplified to use `nullable: true` for the `pid` property, removing the need for complex `oneOf` constructs.
 5.  The `neo-memory-core__healthcheck` tool passes successfully with these changes.
 
-## Comments
-
-### @tobiu - 2025-10-18 10:08
-
-resolved via https://github.com/neomjs/neo/commit/e272eb7bb355091d08b7fac278a1cd7f3850a85e (used the wrong ticket id for the commit)
-
-## Activity Log
+## Timeline
 
 - 2025-10-18 @tobiu assigned to @tobiu
 - 2025-10-18 @tobiu added the `enhancement` label
 - 2025-10-18 @tobiu added the `ai` label
+### @tobiu - 2025-10-18 10:08
+
+resolved via https://github.com/neomjs/neo/commit/e272eb7bb355091d08b7fac278a1cd7f3850a85e (used the wrong ticket id for the commit)
+
 - 2025-10-18 @tobiu closed this issue
 

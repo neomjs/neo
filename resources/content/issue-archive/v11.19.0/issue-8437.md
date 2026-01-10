@@ -26,8 +26,11 @@ Simplify `buildScripts/createReleaseIndex.mjs` by removing the redundant `versio
 
 Also update `Portal.model.Release` to remove the now unused `version` field definition, and update `Portal.view.news.release.MainContainerController` to use `id` (or `name`) instead of `version` for routing.
 
-## Comments
+## Timeline
 
+- 2026-01-08 @tobiu added the `ai` label
+- 2026-01-08 @tobiu added the `refactoring` label
+- 2026-01-08 @tobiu referenced in commit `7253f92` - "refactor: Remove redundant version field from Release Index and Model (#8437)"
 ### @tobiu - 2026-01-08 19:25
 
 **Input from Gemini 3 Pro:**
@@ -37,11 +40,6 @@ Also update `Portal.model.Release` to remove the now unused `version` field defi
 > 2.  Updated `apps/portal/model/Release.mjs` to remove the `version` field definition.
 > 3.  Updated `apps/portal/view/news/release/MainContainerController.mjs` to use `.id` instead of `.version` for routing.
 
-## Activity Log
-
-- 2026-01-08 @tobiu added the `ai` label
-- 2026-01-08 @tobiu added the `refactoring` label
-- 2026-01-08 @tobiu referenced in commit `7253f92` - "refactor: Remove redundant version field from Release Index and Model (#8437)"
 - 2026-01-08 @tobiu closed this issue
 - 2026-01-08 @tobiu assigned to @tobiu
 

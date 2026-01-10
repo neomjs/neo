@@ -43,7 +43,7 @@ A practical example is crucial for developers to understand how to leverage the 
 -   The example successfully demonstrates the inclusion of another Neo.mjs component within an `html` template.
 -   The build process correctly converts this complex template structure into optimized JSON VDOM, as verified by inspecting the `dist/esm` output.
 
-## Activity Log
+## Timeline
 
 - 2025-08-01 @tobiu assigned to @tobiu
 - 2025-08-01 @tobiu added the `enhancement` label

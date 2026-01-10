@@ -23,7 +23,7 @@ closedAt: '2025-01-06T15:38:20Z'
 
 the method should rely on the `startIndex` config plus `this.store.items`, no exceptions.
 
-## Activity Log
+## Timeline
 
 - 2025-01-06 @tobiu added the `enhancement` label
 - 2025-01-06 @tobiu assigned to @tobiu

@@ -58,7 +58,7 @@ For functional components to be first-class citizens within the framework, they 
 -   The new properties (`childUpdateCache`, etc.) are present on the class.
 -   The changes are documented and this ticket is closed.
 
-## Activity Log
+## Timeline
 
 - 2025-07-14 @tobiu assigned to @tobiu
 - 2025-07-14 @tobiu added the `enhancement` label

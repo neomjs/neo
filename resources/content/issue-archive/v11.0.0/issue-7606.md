@@ -33,7 +33,7 @@ To improve clarity and accurately reflect the tool's function for all consumers 
 2.  The path of the endpoint is changed from `/sync-issues` to `/sync-all` for consistency.
 3.  In `ai/mcp/server/github-workflow/services/toolService.mjs`, the entry in the `serviceMapping` object is updated from `sync_issues` to `sync_all`.
 
-## Activity Log
+## Timeline
 
 - 2025-10-22 @tobiu assigned to @tobiu
 - 2025-10-22 @tobiu added the `enhancement` label

@@ -25,7 +25,7 @@ regression issue.
 
 ![Image](https://github.com/user-attachments/assets/7b69514f-f46f-49a0-8814-7e8e3a05cd5d)
 
-## Activity Log
+## Timeline
 
 - 2025-02-07 @tobiu added the `bug` label
 - 2025-02-07 @tobiu assigned to @tobiu

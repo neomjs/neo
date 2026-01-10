@@ -40,8 +40,13 @@ The `apps/portal/resources/data/blog.json` file is for presentation purposes on 
 5.  Ensure that URL path segments are joined correctly using forward slashes (`/`).
 6.  Update the `generateSitemap()` and `generateLlmTxt()` functions to use this corrected data source.
 
-## Comments
+## Timeline
 
+- 2025-10-11 @tobiu assigned to @tobiu
+- 2025-10-11 @tobiu added parent issue #7446
+- 2025-10-11 @tobiu added the `enhancement` label
+- 2025-10-11 @tobiu added the `ai` label
+- 2025-10-11 @tobiu cross-referenced by PR #7456
 ### @Aki-07 - 2025-10-11 15:15
 
 Sure, will finish the work on this! Can I get it assigned on me?
@@ -50,12 +55,5 @@ Sure, will finish the work on this! Can I get it assigned on me?
 
 already resolved.
 
-## Activity Log
-
-- 2025-10-11 @tobiu assigned to @tobiu
-- 2025-10-11 @tobiu added parent issue #7446
-- 2025-10-11 @tobiu added the `enhancement` label
-- 2025-10-11 @tobiu added the `ai` label
-- 2025-10-11 @tobiu cross-referenced by PR #7456
 - 2025-11-11 @tobiu closed this issue
 

@@ -23,16 +23,14 @@ closedAt: '2025-01-26T18:06:43Z'
 
 * since neither grid rows nor cells contain `tabIndex = -1`, we need to remove any path related logic (the root path is the grid wrapper)
 
-## Comments
-
-### @tobiu - 2025-01-26 18:06
-
-https://github.com/user-attachments/assets/85dec71e-f814-4405-b090-d4dbdede300b
-
-## Activity Log
+## Timeline
 
 - 2025-01-26 @tobiu added the `enhancement` label
 - 2025-01-26 @tobiu assigned to @tobiu
 - 2025-01-26 @tobiu referenced in commit `fecca0b` - "selection.grid.CellModel: adjust the basic navigation logic #6300"
+### @tobiu - 2025-01-26 18:06
+
+https://github.com/user-attachments/assets/85dec71e-f814-4405-b090-d4dbdede300b
+
 - 2025-01-26 @tobiu closed this issue
 

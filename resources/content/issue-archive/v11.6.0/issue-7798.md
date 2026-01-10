@@ -27,7 +27,7 @@ Neo.config.allowVdomUpdatesInTests = true;
 Neo.config.unitTestMode = true;
 ```
 
-## Activity Log
+## Timeline
 
 - 2025-11-19 @tobiu assigned to @tobiu
 - 2025-11-19 @tobiu added the `enhancement` label

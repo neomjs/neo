@@ -23,7 +23,7 @@ closedAt: '2025-02-07T15:49:32Z'
 
 * We need to add one more record => item rowHeight
 
-## Activity Log
+## Timeline
 
 - 2025-02-07 @tobiu added the `enhancement` label
 - 2025-02-07 @tobiu assigned to @tobiu

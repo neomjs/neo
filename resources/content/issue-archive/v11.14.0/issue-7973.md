@@ -37,7 +37,7 @@ ViewportController.mjs:360 Uncaught (in promise) TypeError: Cannot destructure p
     at App.onDomEvent (App.mjs:407:25)
 ```
 
-## Activity Log
+## Timeline
 
 - 2025-12-01 @tobiu assigned to @tobiu
 - 2025-12-01 @tobiu added the `bug` label

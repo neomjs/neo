@@ -24,7 +24,7 @@ closedAt: '2025-02-22T17:25:41Z'
 * cleaner to have the interval callback as its own method
 * also trigger it right away => `setInterval()` does not start immediately
 
-## Activity Log
+## Timeline
 
 - 2025-02-22 @tobiu added the `enhancement` label
 - 2025-02-22 @tobiu assigned to @tobiu

@@ -28,7 +28,7 @@ The guide is based on a real-world scenario where a model failed to use a tool c
 
 The new guide is located at `learn/guides/ai/TroubleshootingToolCalls.md` and is already added to the `learn/tree.json`.
 
-## Activity Log
+## Timeline
 
 - 2025-10-26 @tobiu added the `documentation` label
 - 2025-10-26 @tobiu added the `ai` label

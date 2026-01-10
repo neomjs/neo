@@ -24,7 +24,7 @@ closedAt: '2025-02-19T00:23:14Z'
 * similar to `mountedRows`
 * we need both: `mountedColumns` & `visibleColumns` for cell based selection models => navigating into not painted areas
 
-## Activity Log
+## Timeline
 
 - 2025-02-18 @tobiu added the `enhancement` label
 - 2025-02-18 @tobiu assigned to @tobiu

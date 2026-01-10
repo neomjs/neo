@@ -33,7 +33,7 @@ When dragging a widget out of the dashboard into a popup window, the widget was 
 
 This combination ensures robust re-integration even after multiple drag interactions.
 
-## Activity Log
+## Timeline
 
 - 2025-12-19 @tobiu added the `bug` label
 - 2025-12-19 @tobiu added the `ai` label

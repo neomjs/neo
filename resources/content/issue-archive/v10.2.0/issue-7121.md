@@ -37,7 +37,7 @@ This ticket is to create a new tutorial, "Creating a Custom Functional Button", 
 - The introduction must clarify that Neo.mjs already has a feature-rich functional button (`Neo.functional.button.Base`) and that this tutorial is for educational purposes to teach the core concepts of functional component creation.
 - Update `learn/tree.json` to add the new tutorial to the "Tutorials" section, making it discoverable in the navigation tree.
 
-## Activity Log
+## Timeline
 
 - 2025-07-28 @tobiu assigned to @tobiu
 - 2025-07-28 @tobiu added the `documentation` label

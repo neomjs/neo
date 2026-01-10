@@ -36,7 +36,7 @@ Update `buildScripts/createApp.mjs`, `buildScripts/createAppMinimal.mjs`, and re
 3.  Update `buildScripts/webpack/production/webpack.config.main.mjs` and `buildScripts/webpack/development/webpack.config.main.mjs` to use `nodeCmd` in `WebpackHookPlugin` commands.
 
 
-## Activity Log
+## Timeline
 
 - 2025-11-18 @tobiu added the `enhancement` label
 - 2025-11-18 @tobiu added the `windows` label

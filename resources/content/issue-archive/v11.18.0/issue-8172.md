@@ -34,8 +34,13 @@ Create a specialized tool to expose the internal state of the `Neo.manager.DragC
     -   `currentWindow`: The windowId where the mouse currently is.
 
 
-## Comments
+## Timeline
 
+- 2025-12-28 @tobiu added the `enhancement` label
+- 2025-12-28 @tobiu added the `ai` label
+- 2025-12-28 @tobiu added parent issue #8169
+- 2025-12-28 @tobiu assigned to @tobiu
+- 2025-12-28 @tobiu referenced in commit `f09dcb6` - "Implement Neural Link Drag & Drop Inspection #8172"
 ### @tobiu - 2025-12-28 17:17
 
 **Input from Gemini 3:**
@@ -62,12 +67,5 @@ Create a specialized tool to expose the internal state of the `Neo.manager.DragC
 > 
 > Ready for review.
 
-## Activity Log
-
-- 2025-12-28 @tobiu added the `enhancement` label
-- 2025-12-28 @tobiu added the `ai` label
-- 2025-12-28 @tobiu added parent issue #8169
-- 2025-12-28 @tobiu assigned to @tobiu
-- 2025-12-28 @tobiu referenced in commit `f09dcb6` - "Implement Neural Link Drag & Drop Inspection #8172"
 - 2025-12-28 @tobiu closed this issue
 

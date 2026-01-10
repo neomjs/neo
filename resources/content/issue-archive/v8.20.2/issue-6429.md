@@ -28,7 +28,7 @@ Especially inside the Chromium dev tools, I open run into issues when changing t
 * Using `position: fixed` on the html tag itself resolves it.
 * However, this should be optional
 
-## Activity Log
+## Timeline
 
 - 2025-02-09 @tobiu added the `enhancement` label
 - 2025-02-09 @tobiu assigned to @tobiu

@@ -36,7 +36,7 @@ The calendar's `YearComponent` exhibited a regression where changing the year re
 -   `YearComponent` navigation works correctly (no double logs, no reverted state).
 -   `StateProvider` clones `Date` objects on set.
 
-## Activity Log
+## Timeline
 
 - 2025-12-12 @tobiu added the `bug` label
 - 2025-12-12 @tobiu added the `ai` label

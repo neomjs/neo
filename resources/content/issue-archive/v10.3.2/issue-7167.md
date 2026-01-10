@@ -24,7 +24,7 @@ closedAt: '2025-08-03T00:45:55Z'
 * I just noticed 3 spots, where v6 was used manually. I will replace them with v7 now.
 * This affected e.g. the learning section lab summaries.
 
-## Activity Log
+## Timeline
 
 - 2025-08-03 @tobiu assigned to @tobiu
 - 2025-08-03 @tobiu added the `enhancement` label

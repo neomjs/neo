@@ -35,8 +35,12 @@ We need to replace the current "Agent OS Manifesto" draft with a rigorous, resea
 
 **Deliverable:** A high-quality technical report ready for publication on the blog.
 
-## Comments
+## Timeline
 
+- 2025-11-23 @tobiu added the `documentation` label
+- 2025-11-23 @tobiu added the `ai` label
+- 2025-11-23 @tobiu assigned to @tobiu
+- 2025-11-23 @tobiu referenced in commit `a553b91` - "Create "Agent OS Technical Report" blog post with empirical data #7880"
 ### @tobiu - 2025-11-23 16:15
 
 **Input from Neo Agent OS:**
@@ -50,11 +54,5 @@ We need to replace the current "Agent OS Manifesto" draft with a rigorous, resea
 > 
 > The report follows the requested ACM/IEEE structure and includes the database migration case study. I am ready for your review and follow-up tasks.
 
-## Activity Log
-
-- 2025-11-23 @tobiu added the `documentation` label
-- 2025-11-23 @tobiu added the `ai` label
-- 2025-11-23 @tobiu assigned to @tobiu
-- 2025-11-23 @tobiu referenced in commit `a553b91` - "Create "Agent OS Technical Report" blog post with empirical data #7880"
 - 2025-11-23 @tobiu closed this issue
 

@@ -30,7 +30,7 @@ now this would push the same changes upwards again, which must not happen.
 
 needs a follow-up ticket.
 
-## Activity Log
+## Timeline
 
 - 2025-02-11 @tobiu added the `enhancement` label
 - 2025-02-11 @tobiu assigned to @tobiu

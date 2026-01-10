@@ -33,8 +33,13 @@ This task is to migrate the unit test for `state/ProviderNestedDataConfigs.mjs` 
 3.  Ensure the new test runs successfully via `npm test`.
 4.  The new test must cover all the functionality of the original Siesta test.
 
-## Comments
+## Timeline
 
+- 2025-09-27 @tobiu added parent issue #7262
+- 2025-09-27 @tobiu added the `enhancement` label
+- 2025-10-02 @tobiu added the `help wanted` label
+- 2025-10-02 @tobiu added the `good first issue` label
+- 2025-10-02 @tobiu added the `hacktoberfest` label
 ### @kart-u - 2025-10-03 09:28
 
 hello @tobiu ,
@@ -54,29 +59,6 @@ https://github.com/neomjs/neo/blob/dev/.github/AI_QUICK_START.md
 
 e.g. gemini cli should be capable to complete it on its own.
 
-### @tobiu - 2025-10-04 14:49
-
-reopening to fix the class definition to prevent breaking tests.
-
-### @tobiu - 2025-10-04 15:10
-
-i added a comment to the PR. i merged it anyways => i am not that strict to first-time contributors :)
-
-<img width="472" height="59" alt="Image" src="https://github.com/user-attachments/assets/45c9e37d-a8fb-403d-9b59-ff8519575ca7" />
-
-there was a hint about this in the epic. this is why i pointed out to tell gemini to read it first, smoothening your workflow.
-
-### @kart-u - 2025-10-04 15:23
-
-thank you for your understanding :)
-
-## Activity Log
-
-- 2025-09-27 @tobiu added parent issue #7262
-- 2025-09-27 @tobiu added the `enhancement` label
-- 2025-10-02 @tobiu added the `help wanted` label
-- 2025-10-02 @tobiu added the `good first issue` label
-- 2025-10-02 @tobiu added the `hacktoberfest` label
 - 2025-10-03 @tobiu assigned to @kart-u
 - 2025-10-04 @kart-u referenced in commit `f60907c` - "Convert state/ProviderNestedDataConfigs.mjs Test from Siesta to Playwright #7289"
 - 2025-10-04 @kart-u cross-referenced by PR #7347
@@ -85,6 +67,23 @@ thank you for your understanding :)
 - 2025-10-04 @kart-u cross-referenced by #7286
 - 2025-10-04 @tobiu closed this issue
 - 2025-10-04 @tobiu referenced in commit `d252f7e` - "Convert state/ProviderNestedDataConfigs.mjs Test from Siesta to Playwright #7289"
+### @tobiu - 2025-10-04 14:49
+
+reopening to fix the class definition to prevent breaking tests.
+
+- 2025-10-04 @tobiu reopened this issue
 - 2025-10-04 @tobiu referenced in commit `11c42a5` - "#7289 class definition fix, internal ticket update"
+### @tobiu - 2025-10-04 15:10
+
+i added a comment to the PR. i merged it anyways => i am not that strict to first-time contributors :)
+
+<img width="472" height="59" alt="Image" src="https://github.com/user-attachments/assets/45c9e37d-a8fb-403d-9b59-ff8519575ca7" />
+
+there was a hint about this in the epic. this is why i pointed out to tell gemini to read it first, smoothening your workflow.
+
 - 2025-10-04 @tobiu closed this issue
+### @kart-u - 2025-10-04 15:23
+
+thank you for your understanding :)
+
 

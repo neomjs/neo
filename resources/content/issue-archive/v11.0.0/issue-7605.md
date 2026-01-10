@@ -32,7 +32,7 @@ To improve consistency, we should add a configurable prefix for release note fil
 2.  The `#syncReleaseNotes` method in `SyncService.mjs` is updated to use this new prefix when constructing the filename for each release note.
     -   Example: `v10.0.0.md` instead of `10.0.0.md`.
 
-## Activity Log
+## Timeline
 
 - 2025-10-22 @tobiu assigned to @tobiu
 - 2025-10-22 @tobiu added the `enhancement` label

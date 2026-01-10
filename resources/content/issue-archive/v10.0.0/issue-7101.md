@@ -43,7 +43,7 @@ Remove the redundant call to `this.getStateProvider()?.createBindings(this)` fro
 
 - `src/component/Abstract.mjs`
 
-## Activity Log
+## Timeline
 
 - 2025-07-23 @tobiu assigned to @tobiu
 - 2025-07-23 @tobiu added the `enhancement` label

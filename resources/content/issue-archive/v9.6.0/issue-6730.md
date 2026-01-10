@@ -23,7 +23,7 @@ closedAt: '2025-05-29T22:43:36Z'
 
 * We need the ability to pass params to the remote endpoint, so an `data` object containing `options` and `url` as properties makes sense.
 
-## Activity Log
+## Timeline
 
 - 2025-05-29 @tobiu assigned to @tobiu
 - 2025-05-29 @tobiu added the `enhancement` label

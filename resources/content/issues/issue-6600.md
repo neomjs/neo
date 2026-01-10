@@ -34,7 +34,7 @@ Goals:
 * Write email overlay (similar to GMail), animated full-screen expansion
 * Make it possible to move the new email dialog into a new browser window
 
-## Activity Log
+## Timeline
 
 - 2025-03-31 @tobiu added the `enhancement` label
 - 2025-03-31 @tobiu assigned to @tobiu

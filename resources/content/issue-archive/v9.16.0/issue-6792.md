@@ -24,7 +24,7 @@ closedAt: '2025-06-14T10:22:14Z'
 * the new title is more clear
 * i will also slightly update the content based on Gemini's input
 
-## Activity Log
+## Timeline
 
 - 2025-06-14 @tobiu assigned to @tobiu
 - 2025-06-14 @tobiu added the `enhancement` label

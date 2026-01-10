@@ -44,7 +44,7 @@ Review and refine the content of these schemas to ensure they are accurate, comp
 
 This is based on the concept of Generative Engine Optimization.
 
-## Activity Log
+## Timeline
 
 - 2025-11-15 @tobiu added the `documentation` label
 - 2025-11-15 @tobiu added the `enhancement` label

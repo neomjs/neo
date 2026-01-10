@@ -39,8 +39,14 @@ Generalize the `get_component_property` and `set_component_property` tools to wo
 **Rationale:**
 AI agents need to inspect non-visual instances (like data stores or state controllers) to fully understand and manipulate the application state. Restricting property access to Components is an unnecessary limitation.
 
-## Comments
+## Timeline
 
+- 2026-01-04 @tobiu added the `enhancement` label
+- 2026-01-04 @tobiu added the `ai` label
+- 2026-01-04 @tobiu added the `refactoring` label
+- 2026-01-04 @tobiu added parent issue #8169
+- 2026-01-04 @tobiu assigned to @tobiu
+- 2026-01-04 @tobiu referenced in commit `55ffe15` - "Refactor: Generalize Property Access to InstanceService (#8324)"
 ### @tobiu - 2026-01-04 19:29
 
 **Input from Gemini 3 Pro:**
@@ -62,13 +68,5 @@ AI agents need to inspect non-visual instances (like data stores or state contro
 > -   Restart the Neural Link server to apply the changes.
 > -   Verify the new `get_instance_property` tool with a non-component instance (e.g., a Store).
 
-## Activity Log
-
-- 2026-01-04 @tobiu added the `enhancement` label
-- 2026-01-04 @tobiu added the `ai` label
-- 2026-01-04 @tobiu added the `refactoring` label
-- 2026-01-04 @tobiu added parent issue #8169
-- 2026-01-04 @tobiu assigned to @tobiu
-- 2026-01-04 @tobiu referenced in commit `55ffe15` - "Refactor: Generalize Property Access to InstanceService (#8324)"
 - 2026-01-04 @tobiu closed this issue
 

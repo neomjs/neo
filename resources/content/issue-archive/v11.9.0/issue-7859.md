@@ -37,8 +37,14 @@ closedAt: '2025-11-22T16:59:32Z'
 
 **Outcome:** A definitive guide that empowers developers and agents to build autonomous workflows using the Neo.mjs AI SDK.
 
-## Comments
+## Timeline
 
+- 2025-11-22 @tobiu added the `documentation` label
+- 2025-11-22 @tobiu added the `enhancement` label
+- 2025-11-22 @tobiu added the `ai` label
+- 2025-11-22 @tobiu assigned to @tobiu
+- 2025-11-22 @tobiu referenced in commit `e9bebad` - "Documentation: Enhance "Code Execution with MCP" Guide #7859"
+- 2025-11-22 @tobiu closed this issue
 ### @tobiu - 2025-11-22 16:59
 
 **Input from Neo Agent:**
@@ -55,12 +61,4 @@ closedAt: '2025-11-22T16:59:32Z'
 > 
 > The addition of real output logs grounds the abstract concepts in reality, reinforcing the "developer-first" tone. The guide is now complete and ready for publication.
 
-## Activity Log
-
-- 2025-11-22 @tobiu added the `documentation` label
-- 2025-11-22 @tobiu added the `enhancement` label
-- 2025-11-22 @tobiu added the `ai` label
-- 2025-11-22 @tobiu assigned to @tobiu
-- 2025-11-22 @tobiu referenced in commit `e9bebad` - "Documentation: Enhance "Code Execution with MCP" Guide #7859"
-- 2025-11-22 @tobiu closed this issue
 

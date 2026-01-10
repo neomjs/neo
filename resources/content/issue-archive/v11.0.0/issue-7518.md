@@ -34,7 +34,7 @@ This ticket is to make the `callTool` function in the shared `toolService.mjs` r
 4.  Tool calls with prefixed names now execute correctly.
 5.  Tool calls with non-prefixed names continue to work as before.
 
-## Activity Log
+## Timeline
 
 - 2025-10-17 @tobiu assigned to @tobiu
 - 2025-10-17 @tobiu added parent issue #7501

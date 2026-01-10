@@ -35,7 +35,7 @@ The goal is to create the service that dynamically parses the `openapi.yaml` fil
 5.  For this initial ticket, the mapped service functions can be placeholders/dummies (e.g., `() => Promise.resolve('Not implemented yet')`).
 6.  The module exports `listTools` and `callTool` functions that are ready for integration with `mcp-stdio.mjs`.
 
-## Activity Log
+## Timeline
 
 - 2025-10-16 @tobiu assigned to @tobiu
 - 2025-10-16 @tobiu added parent issue #7501

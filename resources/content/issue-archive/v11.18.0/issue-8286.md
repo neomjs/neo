@@ -37,7 +37,7 @@ Enhance `src/main/DomAccess.mjs` `getElement(id)` to support reserved keywords:
 Provides a single source of truth for DOM node resolution across the framework, avoiding duplicate logic in addons.
 
 
-## Activity Log
+## Timeline
 
 - 2026-01-02 @tobiu added the `enhancement` label
 - 2026-01-02 @tobiu added the `core` label

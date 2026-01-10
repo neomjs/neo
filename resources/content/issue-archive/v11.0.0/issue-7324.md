@@ -31,7 +31,7 @@ During the setup of the agent's memory database, a new configuration object (`me
 4.  All affected AI scripts are updated to import their settings from `buildScripts/ai/aiConfig.mjs`.
 5.  The inline `TODO` comment in `setupMemoryDB.mjs` is removed.
 
-## Activity Log
+## Timeline
 
 - 2025-10-02 @tobiu assigned to @tobiu
 - 2025-10-02 @tobiu added the `enhancement` label

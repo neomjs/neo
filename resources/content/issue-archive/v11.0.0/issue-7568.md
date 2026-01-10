@@ -40,17 +40,15 @@ This ticket proposes creating a new `create_issue` tool within the `github-workf
 -   **Simplified Agent Workflow:** The agent interacts with a structured tool call instead of raw file creation.
 -   **Single Source of Truth:** GitHub becomes the definitive source for new issue data.
 
-## Comments
-
-### @tobiu - 2025-10-24 09:31
-
-resolved with the new tooling
-
-## Activity Log
+## Timeline
 
 - 2025-10-20 @tobiu assigned to @tobiu
 - 2025-10-20 @tobiu added parent issue #7564
 - 2025-10-20 @tobiu added the `enhancement` label
 - 2025-10-20 @tobiu added the `ai` label
+### @tobiu - 2025-10-24 09:31
+
+resolved with the new tooling
+
 - 2025-10-24 @tobiu closed this issue
 

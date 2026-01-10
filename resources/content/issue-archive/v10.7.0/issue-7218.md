@@ -39,7 +39,7 @@ The `queryKnowledgeBase.mjs` script currently reloads and processes the entire k
 - Better separation of concerns (`create` -> `score & embed` -> `query`).
 - More scalable architecture.
 
-## Activity Log
+## Timeline
 
 - 2025-09-20 @tobiu assigned to @tobiu
 - 2025-09-20 @tobiu added the `enhancement` label

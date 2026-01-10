@@ -28,7 +28,7 @@ The files inside the `ai/mcp/server/github-workflow` directory need to be update
 **Goal:**
 Add a `@summary` tag followed by an empty line and a detailed description to all classes within the `ai/mcp/server/github-workflow` directory. This ensures consistent and comprehensive documentation across the MCP server.
 
-## Activity Log
+## Timeline
 
 - 2025-11-24 @tobiu added the `documentation` label
 - 2025-11-24 @tobiu added the `enhancement` label

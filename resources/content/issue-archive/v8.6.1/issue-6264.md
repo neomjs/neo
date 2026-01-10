@@ -27,16 +27,14 @@ before the change:
 
 https://github.com/user-attachments/assets/234141e8-a53b-48a8-98c3-6d17785bc8f1
 
-## Comments
-
-### @tobiu - 2025-01-21 17:36
-
-https://github.com/user-attachments/assets/eaa7c896-5eb4-4044-ba82-46b1a238c652
-
-## Activity Log
+## Timeline
 
 - 2025-01-21 @tobiu added the `bug` label
 - 2025-01-21 @tobiu assigned to @tobiu
 - 2025-01-21 @tobiu referenced in commit `e1dfd6b` - "form.field.ComboBox: doFilter() => apply selections & list focus depending on the current value config #6264"
+### @tobiu - 2025-01-21 17:36
+
+https://github.com/user-attachments/assets/eaa7c896-5eb4-4044-ba82-46b1a238c652
+
 - 2025-01-21 @tobiu closed this issue
 

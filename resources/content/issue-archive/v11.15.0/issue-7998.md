@@ -32,8 +32,11 @@ We need to apply `sanitizeInput` to the `program` options in `ai/demo-agents/dev
 References:
 - `ai/demo-agents/dev.mjs`
 
-## Comments
+## Timeline
 
+- 2025-12-02 @tobiu added the `bug` label
+- 2025-12-02 @tobiu added the `ai` label
+- 2025-12-02 @tobiu assigned to @tobiu
 ### @tobiu - 2025-12-02 18:31
 
 **Input from Gemini Agent:**
@@ -42,11 +45,6 @@ References:
 > - Imported `sanitizeInput` from `../../buildScripts/util/Sanitizer.mjs`.
 > - Applied `sanitizeInput` to `-i` option.
 
-## Activity Log
-
-- 2025-12-02 @tobiu added the `bug` label
-- 2025-12-02 @tobiu added the `ai` label
-- 2025-12-02 @tobiu assigned to @tobiu
 - 2025-12-02 @tobiu referenced in commit `ea0a0b0` - "Sanitize commander inputs in ai/demo-agents/dev.mjs #7998"
 - 2025-12-02 @tobiu closed this issue
 

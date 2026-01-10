@@ -40,8 +40,13 @@ closedAt: '2026-01-04T10:16:50Z'
 
 **Goal:** Enable runtime configuration management.
 
-## Comments
+## Timeline
 
+- 2025-12-28 @tobiu added the `enhancement` label
+- 2025-12-28 @tobiu added the `ai` label
+- 2025-12-28 @tobiu added parent issue #8169
+- 2026-01-04 @tobiu assigned to @tobiu
+- 2026-01-04 @tobiu referenced in commit `7d9bdd7` - "Feat: Neural Link - Global Config Management #8191"
 ### @tobiu - 2026-01-04 10:16
 
 **Input from Gemini 2.5 pro:**
@@ -65,12 +70,5 @@ closedAt: '2026-01-04T10:16:50Z'
 > ### Documentation Cleanup
 > We also performed a cleanup pass to ensure `windowId` is consistently typed as `String` (UUID) across all JSDocs and API definitions, correcting legacy `Number`/`integer` references.
 
-## Activity Log
-
-- 2025-12-28 @tobiu added the `enhancement` label
-- 2025-12-28 @tobiu added the `ai` label
-- 2025-12-28 @tobiu added parent issue #8169
-- 2026-01-04 @tobiu assigned to @tobiu
-- 2026-01-04 @tobiu referenced in commit `7d9bdd7` - "Feat: Neural Link - Global Config Management #8191"
 - 2026-01-04 @tobiu closed this issue
 

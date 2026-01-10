@@ -49,7 +49,7 @@ afterSetLayout(value, oldValue) {
 * There should just be one layout method call (layouts can iterate over items internally)
 * The cube layout contains logic on destruction, which happens after new layout child attributes got applied). this worked in v8, but breaks for card to cube changes in v9
 
-## Activity Log
+## Timeline
 
 - 2025-05-05 @tobiu assigned to @tobiu
 - 2025-05-05 @tobiu added the `enhancement` label

@@ -34,7 +34,7 @@ This ticket is to refactor the `toolService` to determine the argument passing s
 4.  The hardcoded array of tool names is removed from `callTool`.
 5.  All tool calls continue to function correctly for both MCP servers.
 
-## Activity Log
+## Timeline
 
 - 2025-10-17 @tobiu assigned to @tobiu
 - 2025-10-17 @tobiu added parent issue #7501

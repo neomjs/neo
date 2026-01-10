@@ -23,7 +23,7 @@ closedAt: '2025-03-25T12:49:40Z'
 
 * `construct()` should clear all caches except for the one matching the latest version
 
-## Activity Log
+## Timeline
 
 - 2025-03-25 @tobiu added the `enhancement` label
 - 2025-03-25 @tobiu assigned to @tobiu

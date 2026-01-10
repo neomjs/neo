@@ -38,7 +38,7 @@ When a remote drag (originating from Window A) enters a Target Dashboard (Window
 **Goal:**
 Debug and fix the layout restoration logic in `SortZone` to ensure the Target Dashboard returns to its pristine state when a remote drag visitor leaves.
 
-## Activity Log
+## Timeline
 
 - 2025-12-27 @tobiu added the `bug` label
 - 2025-12-27 @tobiu added the `ai` label

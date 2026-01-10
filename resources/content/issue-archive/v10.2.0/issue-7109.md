@@ -32,7 +32,7 @@ This ticket is to update the document to provide a complete picture of the v10 t
 - Crucially, it needs to explain how the two tiers are bridged: how a single config setter both triggers the classic `afterSet` hook and updates the new `Neo.core.Config` atom.
 - The existing content on the "push" system (`set`, `processConfigs`) should be preserved and framed as the first tier of the hybrid system.
 
-## Activity Log
+## Timeline
 
 - 2025-07-24 @tobiu assigned to @tobiu
 - 2025-07-24 @tobiu added the `enhancement` label

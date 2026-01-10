@@ -23,7 +23,7 @@ closedAt: '2025-02-19T13:43:06Z'
 
 * better have the old ones in place compared to having none, until there are new ones
 
-## Activity Log
+## Timeline
 
 - 2025-02-19 @tobiu added the `enhancement` label
 - 2025-02-19 @tobiu assigned to @tobiu

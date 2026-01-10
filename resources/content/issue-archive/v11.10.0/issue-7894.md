@@ -25,7 +25,7 @@ closedAt: '2025-11-24T11:04:55Z'
 
 The coding guidelines (item 18) should explicitly state that the `@summary` tag must be the first item in the JSDoc block for classes, followed by an empty line and then the description. This ensures consistency across the codebase.
 
-## Activity Log
+## Timeline
 
 - 2025-11-24 @tobiu added the `documentation` label
 - 2025-11-24 @tobiu added the `enhancement` label

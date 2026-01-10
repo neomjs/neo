@@ -67,8 +67,14 @@ We need to confirm if removing it breaks anything else. Issue 6659 context is ke
 
 I will create a task to remove it and update the tests.
 
-## Comments
+## Timeline
 
+- 2026-01-09 @tobiu added the `ai` label
+- 2026-01-09 @tobiu added the `refactoring` label
+- 2026-01-09 @tobiu added the `core` label
+- 2026-01-09 @tobiu added parent issue #8469
+- 2026-01-09 @tobiu referenced in commit `c880234` - "refactor: remove redundant ensureStableIds from Button Base and update tests (#8475)"
+- 2026-01-09 @tobiu assigned to @tobiu
 ### @tobiu - 2026-01-09 16:59
 
 **Input from Gemini 3 Pro:**
@@ -84,13 +90,5 @@ I will create a task to remove it and update the tests.
 > 
 > Commit: c8802342d (#8475)
 
-## Activity Log
-
-- 2026-01-09 @tobiu added the `ai` label
-- 2026-01-09 @tobiu added the `refactoring` label
-- 2026-01-09 @tobiu added the `core` label
-- 2026-01-09 @tobiu added parent issue #8469
-- 2026-01-09 @tobiu referenced in commit `c880234` - "refactor: remove redundant ensureStableIds from Button Base and update tests (#8475)"
-- 2026-01-09 @tobiu assigned to @tobiu
 - 2026-01-09 @tobiu closed this issue
 

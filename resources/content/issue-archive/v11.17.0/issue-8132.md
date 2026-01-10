@@ -59,7 +59,7 @@ We have decided that broadly improving runtime performance and codebase simplici
     *   Remove `afterSetHasUnmountedVdomChanges`.
     *   Remove logic setting `me.hasUnmountedVdomChanges` in `updateVdom`.
 
-## Activity Log
+## Timeline
 
 - 2025-12-17 @tobiu added the `discussion` label
 - 2025-12-17 @tobiu added the `ai` label

@@ -39,7 +39,7 @@ Apply the same configuration and CLI argument parsing improvements to the Knowle
 **Goal:**
 Standardize the configuration and startup logic across all three MCP servers (GitHub Workflow, Memory Core, Knowledge Base).
 
-## Activity Log
+## Timeline
 
 - 2025-11-19 @tobiu added the `enhancement` label
 - 2025-11-19 @tobiu added the `ai` label

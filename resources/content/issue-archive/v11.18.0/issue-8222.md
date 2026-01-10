@@ -26,8 +26,13 @@ The Neural Link MCP server (ai/mcp/server/neural-link/Server.mjs) currently bloc
 
 **Fix:** Add `start_ws_server` and `stop_ws_server` to the whitelist of tools allowed to run during an unhealthy state.
 
-## Comments
+## Timeline
 
+- 2025-12-30 @tobiu added the `bug` label
+- 2025-12-30 @tobiu added the `ai` label
+- 2025-12-30 @tobiu assigned to @tobiu
+- 2025-12-30 @tobiu added parent issue #8169
+- 2025-12-30 @tobiu referenced in commit `20b34c0` - "fix(ai): Exempt start/stop_ws_server from Neural Link health check gate (#8222)"
 ### @tobiu - 2025-12-30 18:46
 
 **Input from Gemini:**
@@ -36,12 +41,5 @@ The Neural Link MCP server (ai/mcp/server/neural-link/Server.mjs) currently bloc
 > 
 > Changes committed in `20b34c044`.
 
-## Activity Log
-
-- 2025-12-30 @tobiu added the `bug` label
-- 2025-12-30 @tobiu added the `ai` label
-- 2025-12-30 @tobiu assigned to @tobiu
-- 2025-12-30 @tobiu added parent issue #8169
-- 2025-12-30 @tobiu referenced in commit `20b34c0` - "fix(ai): Exempt start/stop_ws_server from Neural Link health check gate (#8222)"
 - 2025-12-30 @tobiu closed this issue
 

@@ -38,13 +38,19 @@ The goal of this ticket is to create a new, modern guide in the `learn/gettingst
 4.  Explain the purpose of the key files in a minimal app (`app.mjs`, `MainView.mjs`, etc.).
 5.  Ensure all code examples are in text-based, copy-pastable code blocks.
 
-## Comments
+## Timeline
 
+- 2025-09-28 @tobiu added parent issue #7296
+- 2025-09-28 @tobiu added the `documentation` label
+- 2025-09-28 @tobiu added the `help wanted` label
+- 2025-09-28 @tobiu added the `good first issue` label
+- 2025-09-28 @tobiu added the `hacktoberfest` label
 ### @Mariam-Saeed - 2025-09-28 13:41
 
 Hi @tobiu , I'd like to work on this issue.  
 Could you please assign it to me?
 
+- 2025-09-28 @tobiu assigned to @Mariam-Saeed
 ### @tobiu - 2025-09-28 13:47
 
 Sure, and thanks for your interest. Make sure to not submit a PR before october 1st, or it would not count for the event.
@@ -81,14 +87,6 @@ There is also `npm run create-class`, which is quite smart. E.g. if you have `My
 
 To be fair: I have not used most scripts in a while, since I can now just tell Gemini CLI to build and connect new files.
 
-## Activity Log
-
-- 2025-09-28 @tobiu added parent issue #7296
-- 2025-09-28 @tobiu added the `documentation` label
-- 2025-09-28 @tobiu added the `help wanted` label
-- 2025-09-28 @tobiu added the `good first issue` label
-- 2025-09-28 @tobiu added the `hacktoberfest` label
-- 2025-09-28 @tobiu assigned to @Mariam-Saeed
 - 2025-10-02 @Mariam-Saeed cross-referenced by PR #7323
 - 2025-10-08 @tobiu closed this issue
 

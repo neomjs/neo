@@ -25,16 +25,14 @@ closedAt: '2025-02-12T03:11:50Z'
 * I added a token for the neo online demos at the start of the project to make deployments easier
 * No longer in use for years
 
-## Comments
-
-### @tobiu - 2025-02-12 03:11
-
-left the comments in there for IDE support
-
-## Activity Log
+## Timeline
 
 - 2025-02-12 @tobiu added the `enhancement` label
 - 2025-02-12 @tobiu assigned to @tobiu
 - 2025-02-12 @tobiu referenced in commit `6c96adc` - "remove Neo.config.gtagId #6448"
+### @tobiu - 2025-02-12 03:11
+
+left the comments in there for IDE support
+
 - 2025-02-12 @tobiu closed this issue
 

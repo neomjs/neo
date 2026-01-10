@@ -25,7 +25,7 @@ this looks odd, there should be no border:
 
 ![Image](https://github.com/user-attachments/assets/46244cd6-f292-4473-8964-43f4f85e5b94)
 
-## Activity Log
+## Timeline
 
 - 2025-01-23 @tobiu added the `bug` label
 - 2025-01-23 @tobiu assigned to @tobiu

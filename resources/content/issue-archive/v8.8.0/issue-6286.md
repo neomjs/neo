@@ -23,10 +23,11 @@ closedAt: '2025-01-25T19:28:49Z'
 
 * same example as `examples.table.nestedRecordFields` with using a grid instead of a table
 
-## Activity Log
+## Timeline
 
 - 2025-01-25 @tobiu added the `enhancement` label
 - 2025-01-25 @tobiu assigned to @tobiu
+- 2025-01-25 @tobiu changed title from **examples.grid.nestedRecordFields.EditUserDialog** to **examples.grid.nestedRecordFields**
 - 2025-01-25 @tobiu referenced in commit `be27d06` - "#6286 examples.grid.nestedRecordFields: copied the table example & adjusted the namespaces"
 - 2025-01-25 @tobiu referenced in commit `da0526e` - "#6286 grid.nestedRecordFields.MainContainer: using the grid"
 - 2025-01-25 @tobiu referenced in commit `00fe7aa` - "#6286 mainThreadAddons: ResizeObserver"

@@ -23,7 +23,7 @@ closedAt: '2025-02-17T13:07:11Z'
 
 * Consistency to `scrollBy()`
 
-## Activity Log
+## Timeline
 
 - 2025-02-17 @tobiu added the `enhancement` label
 - 2025-02-17 @tobiu assigned to @tobiu

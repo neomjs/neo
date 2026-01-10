@@ -22,7 +22,7 @@ closedAt: '2025-07-07T11:10:45Z'
 
 More like a thought experiment to see if we can map the `vdom` creation into a `core.Effect`.
 
-## Activity Log
+## Timeline
 
 - 2025-07-07 @tobiu added the `enhancement` label
 - 2025-07-07 @tobiu referenced in commit `f3ee2e0` - "Neo.button.Effect PoC #6969"

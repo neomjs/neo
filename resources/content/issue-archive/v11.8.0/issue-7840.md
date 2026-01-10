@@ -24,7 +24,7 @@ closedAt: '2025-11-21T13:00:34Z'
 
 Refactor `SessionService.summarizeSessions` to process unsummarized sessions in parallel using `Promise.all` instead of a sequential `for...of` loop. This will improve the startup time when there are multiple unsummarized sessions.
 
-## Activity Log
+## Timeline
 
 - 2025-11-21 @tobiu added the `enhancement` label
 - 2025-11-21 @tobiu added the `ai` label

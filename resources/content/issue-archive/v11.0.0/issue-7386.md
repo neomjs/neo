@@ -41,7 +41,7 @@ To enable the AI agent to interact with a browser, the Chrome DevTools Model Con
 }
 ```
 
-## Activity Log
+## Timeline
 
 - 2025-10-06 @tobiu assigned to @tobiu
 - 2025-10-06 @tobiu added the `enhancement` label

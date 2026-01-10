@@ -247,23 +247,7 @@ Join us. The future of development is being written right now.
 
 **Neo.mjs: Where your contributions compound into everyone's success.**
 
-## Comments
-
-### @tobiu - 2025-09-28 14:27
-
-This ticket itself is already an example of the "ai native" workflow. It was created as a combined effort of `Claude` and `Gemini` with guidance. I will keep it unassigned, so that it hopefully show up in event search tools.
-
-### @tobiu - 2025-09-29 09:58
-
-updated the intro to include: https://github.com/neomjs/neo/blob/dev/.github/WORKING_WITH_AGENTS.md
-
-### @tobiu - 2025-10-04 14:22
-
-Hi guys! As the epic mentions: you are welcome to open hacktoberfest tickets on your own. E.g. using the "ai native" workflow, gemini can easily provide you with ideas.
-
-Alternatively, you are also welcome to just ask here for more tickets (ideally with a short summary on what you would like to work on).
-
-## Activity Log
+## Timeline
 
 - 2025-09-28 @tobiu added the `help wanted` label
 - 2025-09-28 @tobiu added the `good first issue` label
@@ -281,9 +265,17 @@ Alternatively, you are also welcome to just ask here for more tickets (ideally w
 - 2025-09-28 @tobiu added sub-issue #7305
 - 2025-09-28 @tobiu added sub-issue #7306
 - 2025-09-28 @tobiu referenced in commit `240d918` - "#7296 ticket md files"
+### @tobiu - 2025-09-28 14:27
+
+This ticket itself is already an example of the "ai native" workflow. It was created as a combined effort of `Claude` and `Gemini` with guidance. I will keep it unassigned, so that it hopefully show up in event search tools.
+
 - 2025-09-28 @tobiu unassigned from @tobiu
 - 2025-09-28 @tobiu added sub-issue #7307
 - 2025-09-28 @tobiu referenced in commit `1cca92a` - "#7296 new sub md file"
+### @tobiu - 2025-09-29 09:58
+
+updated the intro to include: https://github.com/neomjs/neo/blob/dev/.github/WORKING_WITH_AGENTS.md
+
 - 2025-10-01 @tobiu referenced in commit `6a7ddda` - "#7296 internal tickets update"
 - 2025-10-02 @tobiu added sub-issue #7328
 - 2025-10-02 @tobiu referenced in commit `a321602` - "#7296 new sub md file"
@@ -297,6 +289,12 @@ Alternatively, you are also welcome to just ask here for more tickets (ideally w
 - 2025-10-04 @tobiu added sub-issue #7345
 - 2025-10-04 @tobiu added sub-issue #7346
 - 2025-10-04 @tobiu referenced in commit `0e84aea` - "#7296 new sub-ticket md files"
+### @tobiu - 2025-10-04 14:22
+
+Hi guys! As the epic mentions: you are welcome to open hacktoberfest tickets on your own. E.g. using the "ai native" workflow, gemini can easily provide you with ideas.
+
+Alternatively, you are also welcome to just ask here for more tickets (ideally with a short summary on what you would like to work on).
+
 - 2025-10-05 @tobiu cross-referenced by #7364
 - 2025-10-06 @tobiu cross-referenced by #7391
 - 2025-10-07 @tobiu cross-referenced by #7399

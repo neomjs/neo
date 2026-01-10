@@ -45,7 +45,7 @@ These changes significantly improve the flexibility and predictability of routin
 *   `apps/portal/view/learn/MainContainerController.mjs`: `'/learn/{*itemId}'`
 *   `apps/portal/view/learn/ViewportController.mjs`: `'/learn/{*itemId}'`
 
-## Activity Log
+## Timeline
 
 - 2025-07-01 @tobiu assigned to @tobiu
 - 2025-07-01 @tobiu added the `enhancement` label

@@ -23,7 +23,7 @@ closedAt: '2025-03-25T17:12:17Z'
 
 * double-check, if there are no side effects
 
-## Activity Log
+## Timeline
 
 - 2025-03-25 @tobiu added the `enhancement` label
 - 2025-03-25 @tobiu assigned to @tobiu

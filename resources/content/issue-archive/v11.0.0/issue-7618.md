@@ -54,7 +54,7 @@ Implement a two-phase fetching strategy to drastically reduce the time for "no-o
 -   **No-Op Sync (No new releases):** Release check time should drop from ~5 seconds to ~100 milliseconds (a ~98% improvement).
 -   **Full Sync (New releases):** The number of GraphQL queries will be reduced by exiting early, saving 1-3 seconds depending on how many releases are newer than the `syncStartDate`.
 
-## Activity Log
+## Timeline
 
 - 2025-10-23 @tobiu assigned to @tobiu
 - 2025-10-23 @tobiu added the `enhancement` label

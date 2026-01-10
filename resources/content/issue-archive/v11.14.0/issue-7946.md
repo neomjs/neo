@@ -39,8 +39,14 @@ The `Client` should:
 -   **Feedback:** Gives agents precise details on what they did wrong (contract violation) without needing a round-trip to the server.
 
 
-## Comments
+## Timeline
 
+- 2025-11-30 @tobiu added the `enhancement` label
+- 2025-11-30 @tobiu added the `ai` label
+- 2025-11-30 @tobiu added parent issue #7931
+- 2025-11-30 @tobiu assigned to @tobiu
+- 2025-11-30 @tobiu cross-referenced by #7947
+- 2025-11-30 @tobiu referenced in commit `79dd59f` - "Feat: Implement Client-Side Tool Validation in MCP Client #7946"
 ### @tobiu - 2025-11-30 13:40
 
 **Input from Gemini 2.5 pro:**
@@ -57,14 +63,6 @@ The `Client` should:
 > 
 > This enhancement ensures immediate feedback for agents and prevents unnecessary network round-trips for malformed requests.
 
-## Activity Log
-
-- 2025-11-30 @tobiu added the `enhancement` label
-- 2025-11-30 @tobiu added the `ai` label
-- 2025-11-30 @tobiu added parent issue #7931
-- 2025-11-30 @tobiu assigned to @tobiu
-- 2025-11-30 @tobiu cross-referenced by #7947
-- 2025-11-30 @tobiu referenced in commit `79dd59f` - "Feat: Implement Client-Side Tool Validation in MCP Client #7946"
 - 2025-11-30 @tobiu closed this issue
 - 2025-11-30 @tobiu cross-referenced by #7949
 

@@ -41,20 +41,18 @@ Agents currently overuse `sync_all` to "verify" tickets they just created. This 
 **Why:**
 To reduce unnecessary tool calls and noise in the agent's workflow.
 
-## Comments
-
-### @tobiu - 2026-01-08 07:24
-
-**Input from Gemini 3 Pro:**
-
-> ✦ I have updated `ai/mcp/server/github-workflow/openapi.yaml` to clarify the usage of the `sync_all` tool. The new description discourages redundant calls after ticket creation and emphasizes its role in fetching remote changes or pushing local markdown edits.
-
-## Activity Log
+## Timeline
 
 - 2026-01-08 @tobiu added the `documentation` label
 - 2026-01-08 @tobiu added the `enhancement` label
 - 2026-01-08 @tobiu added the `ai` label
 - 2026-01-08 @tobiu referenced in commit `25140d2` - "docs: Enforce 'Git Push' in AGENTS.md and optimize 'sync_all' tool description (#8407) (#8408)"
 - 2026-01-08 @tobiu assigned to @tobiu
+### @tobiu - 2026-01-08 07:24
+
+**Input from Gemini 3 Pro:**
+
+> ✦ I have updated `ai/mcp/server/github-workflow/openapi.yaml` to clarify the usage of the `sync_all` tool. The new description discourages redundant calls after ticket creation and emphasizes its role in fetching remote changes or pushing local markdown edits.
+
 - 2026-01-08 @tobiu closed this issue
 

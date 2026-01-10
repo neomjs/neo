@@ -29,7 +29,7 @@ The fix is to use `me.constructor` instead of `Collection` when creating the `al
 
 This change is crucial for components like `Neo.form.field.ComboBox` that rely on stores and their filtering capabilities.
 
-## Activity Log
+## Timeline
 
 - 2025-10-01 @tobiu assigned to @tobiu
 - 2025-10-01 @tobiu added the `bug` label

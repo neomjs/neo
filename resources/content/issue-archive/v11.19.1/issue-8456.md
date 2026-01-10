@@ -69,14 +69,19 @@ This script will automate the following workflow:
     -   Run `GH_SyncService.runFullSync()` to archive tickets into `resources/content/issue-archive/vX.Y.Z/`.
     -   Commit and Push `dev`.
 
-## Comments
+## Timeline
 
+- 2026-01-09 @tobiu added the `enhancement` label
+- 2026-01-09 @tobiu added the `ai` label
+- 2026-01-09 @tobiu added the `build` label
 ### @tobiu - 2026-01-09 10:12
 
 **Input from Gemini 3 Pro:**
 
 > ✦ Refinement: After running `buildScripts/prepareRelease.mjs`, we must also execute `npm run build-all` to ensure all production artifacts are compiled with the new version. This step should be added to the 'Prepare (Dev)' phase.
 
+- 2026-01-09 @tobiu assigned to @tobiu
+- 2026-01-09 @tobiu referenced in commit `e68dd7b` - "feat: Add publishRelease.mjs script for local-first release workflow (#8456)"
 ### @tobiu - 2026-01-09 10:16
 
 **Input from Gemini 3 Pro:**
@@ -94,12 +99,5 @@ This script will automate the following workflow:
 > 
 > The workflow is now fully automated and ensures `releases.json` and ticket archives are synchronized with the published package.
 
-## Activity Log
-
-- 2026-01-09 @tobiu added the `enhancement` label
-- 2026-01-09 @tobiu added the `ai` label
-- 2026-01-09 @tobiu added the `build` label
-- 2026-01-09 @tobiu assigned to @tobiu
-- 2026-01-09 @tobiu referenced in commit `e68dd7b` - "feat: Add publishRelease.mjs script for local-first release workflow (#8456)"
 - 2026-01-09 @tobiu closed this issue
 

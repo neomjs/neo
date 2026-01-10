@@ -23,15 +23,13 @@ closedAt: '2025-06-02T07:36:29Z'
 
 *(No description provided)*
 
-## Comments
+## Timeline
 
+- 2025-06-02 @tobiu assigned to @tobiu
+- 2025-06-02 @tobiu added the `Blog Post` label
 ### @tobiu - 2025-06-02 07:36
 
 https://tobiasuhlig.medium.com/the-ui-revolution-how-json-blueprints-shared-workers-power-next-gen-ai-interfaces-60a2bf0fc1dc?source=friends_link&sk=1b0b306285e23bb12f31271dd87bebe5
 
-## Activity Log
-
-- 2025-06-02 @tobiu assigned to @tobiu
-- 2025-06-02 @tobiu added the `Blog Post` label
 - 2025-06-02 @tobiu closed this issue
 

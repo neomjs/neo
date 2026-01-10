@@ -24,7 +24,7 @@ closedAt: '2025-01-09T21:54:38Z'
 We need a bigger depth, since grid.Container & table.Container use selection.Model as a  top-level config.
 In case the config would get moved to grid.View & table.View, we would not need it.
 
-## Activity Log
+## Timeline
 
 - 2025-01-09 @tobiu added the `bug` label
 - 2025-01-09 @tobiu assigned to @tobiu

@@ -23,7 +23,7 @@ closedAt: '2025-03-07T11:09:57Z'
 
 rather an edge case so far for grid.View with component based columns
 
-## Activity Log
+## Timeline
 
 - 2025-03-07 @tobiu added the `enhancement` label
 - 2025-03-07 @tobiu assigned to @tobiu

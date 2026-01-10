@@ -28,7 +28,7 @@ The ChromaDB client does not handle this gracefully and throws an error: `Expect
 
 The fix is to conditionally build the query parameters, only adding the `where` key if a `category` is provided.
 
-## Activity Log
+## Timeline
 
 - 2025-11-02 @tobiu added the `bug` label
 - 2025-11-02 @tobiu added the `ai` label

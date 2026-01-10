@@ -23,7 +23,7 @@ closedAt: '2025-06-18T16:46:27Z'
 
 * Destructure param inside the method head
 
-## Activity Log
+## Timeline
 
 - 2025-06-18 @tobiu assigned to @tobiu
 - 2025-06-18 @tobiu added the `enhancement` label

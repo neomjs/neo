@@ -61,7 +61,7 @@ The tutorial should guide the user through the following steps:
 -   The final result is a simple but functional multi-page application.
 -   The new tutorial is added to the `learn/tree.json` file.
 
-## Activity Log
+## Timeline
 
 - 2025-09-20 @tobiu assigned to @tobiu
 - 2025-09-20 @tobiu added the `documentation` label

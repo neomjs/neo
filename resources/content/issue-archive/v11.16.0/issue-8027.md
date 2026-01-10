@@ -32,7 +32,7 @@ Implement the SCSS overrides for `Neo.container.Panel` in the `neo-theme-cyberpu
     - Header backgrounds
     - Header text typography (uppercase, monospace)
 
-## Activity Log
+## Timeline
 
 - 2025-12-04 @tobiu added the `enhancement` label
 - 2025-12-04 @tobiu added the `design` label

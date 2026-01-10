@@ -24,7 +24,7 @@ closedAt: '2025-01-23T17:02:01Z'
 * Consistency for configs => storing values inside `originalConfig`
 * More clear that the value could get reset to something else
 
-## Activity Log
+## Timeline
 
 - 2025-01-23 @tobiu added the `enhancement` label
 - 2025-01-23 @tobiu assigned to @tobiu

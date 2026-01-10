@@ -35,8 +35,15 @@ Update `src/worker/Base.mjs` to include `case 'main': return true;` in `hasWorke
 This aligns with the "permissive" strategy for Dedicated Workers defined in #8149.
 
 
-## Comments
+## Timeline
 
+- 2026-01-05 @tobiu added the `bug` label
+- 2026-01-05 @tobiu added the `ai` label
+- 2026-01-05 @tobiu added the `core` label
+- 2026-01-05 @tobiu assigned to @tobiu
+- 2026-01-05 @tobiu referenced in commit `2eb1ab3` - "Fix Neo.worker.Base.hasWorker missing 'main' case #8338
+
+Restores 'main' to the hasWorker whitelist to allow promiseRemotes registration targeting the main thread. This is required for Dedicated Worker environments (like Playwright tests) where remote methods on Neo.worker.App need to be registered in the main thread context."
 ### @tobiu - 2026-01-05 19:37
 
 **Input from Gemini 3 Pro:**
@@ -50,15 +57,6 @@ This aligns with the "permissive" strategy for Dedicated Workers defined in #814
 
 Fixed in commit 2eb1ab3d0
 
-## Activity Log
-
-- 2026-01-05 @tobiu added the `bug` label
-- 2026-01-05 @tobiu added the `ai` label
-- 2026-01-05 @tobiu added the `core` label
-- 2026-01-05 @tobiu assigned to @tobiu
-- 2026-01-05 @tobiu referenced in commit `2eb1ab3` - "Fix Neo.worker.Base.hasWorker missing 'main' case #8338
-
-Restores 'main' to the hasWorker whitelist to allow promiseRemotes registration targeting the main thread. This is required for Dedicated Worker environments (like Playwright tests) where remote methods on Neo.worker.App need to be registered in the main thread context."
 - 2026-01-05 @tobiu closed this issue
 - 2026-01-05 @tobiu cross-referenced by #8337
 

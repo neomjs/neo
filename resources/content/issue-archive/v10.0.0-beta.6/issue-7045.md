@@ -56,7 +56,7 @@ Currently, the logic for generating reactive getters and setters (`autoGenerateG
 *   **Cleaner `setupClass`:** Streamlines the class setup process by delegating reactive config definition.
 *   **Enables Dynamic State:** Paves the way for easily creating and managing reactive state directly on component instances at runtime.
 
-## Activity Log
+## Timeline
 
 - 2025-07-13 @tobiu assigned to @tobiu
 - 2025-07-13 @tobiu added the `enhancement` label

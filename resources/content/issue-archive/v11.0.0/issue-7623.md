@@ -44,7 +44,7 @@ Thoroughly review and update the `description` for every operation in `ai/mcp/se
 -   Critical workflow instructions and constraints are embedded in the descriptions.
 -   The overall quality of the documentation is on par with `knowledge-base/openapi.yaml`.
 
-## Activity Log
+## Timeline
 
 - 2025-10-23 @tobiu assigned to @tobiu
 - 2025-10-23 @tobiu added the `documentation` label

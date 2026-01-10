@@ -34,21 +34,20 @@ It relies on `floating` components to be placed inside the component tree correc
 
 @rwaters 
 
-## Comments
+## Timeline
 
+- 2024-11-22 @tobiu added the `enhancement` label
 ### @github-actions - 2025-02-21 02:32
 
 This issue is stale because it has been open for 90 days with no activity.
 
+- 2025-02-21 @github-actions added the `stale` label
 ### @github-actions - 2025-03-07 02:38
 
 This issue was closed because it has been inactive for 14 days since being marked as stale.
 
-## Activity Log
-
-- 2024-11-22 @tobiu added the `enhancement` label
-- 2025-02-21 @github-actions added the `stale` label
 - 2025-03-07 @github-actions closed this issue
+- 2025-04-05 @tobiu reopened this issue
 - 2025-04-05 @tobiu removed the `stale` label
 - 2025-04-05 @tobiu added the `no auto close` label
 

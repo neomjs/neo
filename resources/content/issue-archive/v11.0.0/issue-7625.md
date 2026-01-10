@@ -38,7 +38,7 @@ Create a new tool named `assign_issue`.
 
 Assigning issues is a permission-restricted action. Before calling this tool, an agent **must** first call the generic `get_viewer_permission` tool (defined in ticket #7624) to ensure it has sufficient permissions. The required permission levels are `ADMIN`, `MAINTAIN`, or `WRITE`.
 
-## Activity Log
+## Timeline
 
 - 2025-10-23 @tobiu assigned to @tobiu
 - 2025-10-23 @tobiu added the `enhancement` label

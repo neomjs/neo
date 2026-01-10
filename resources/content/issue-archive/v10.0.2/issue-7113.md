@@ -23,7 +23,7 @@ closedAt: '2025-07-26T19:31:00Z'
 
 * not in sync with the new `theme-neo-light`
 
-## Activity Log
+## Timeline
 
 - 2025-07-26 @tobiu assigned to @tobiu
 - 2025-07-26 @tobiu added the `enhancement` label

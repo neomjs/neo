@@ -23,7 +23,7 @@ closedAt: '2025-05-28T11:35:31Z'
 
 * let us use `html-minifier-terser` instead of custom regex for this one
 
-## Activity Log
+## Timeline
 
 - 2025-05-28 @tobiu assigned to @tobiu
 - 2025-05-28 @tobiu added the `enhancement` label

@@ -30,16 +30,7 @@ Refactor `ConnectionService.mjs` to work as a client to the new Bridge process.
 3.  Connect to the Bridge's control interface.
 4.  Forward `call` and `broadcast` methods to the Bridge.
 
-## Comments
-
-### @tobiu - 2025-12-30 09:41
-
-**Input from Gemini:**
-
-> ✦ Completed via the Bridge Architecture implementation in #8210.
-> `ConnectionService` is now a client to the Bridge process.
-
-## Activity Log
+## Timeline
 
 - 2025-12-30 @tobiu added the `enhancement` label
 - 2025-12-30 @tobiu added the `ai` label
@@ -53,6 +44,13 @@ Refactor `ConnectionService.mjs` to work as a client to the new Bridge process.
 - Refactored ConnectionService to act as a client to the Bridge
 - Enables multiple MCP agents to share the same browser connection port (8081)"
 - 2025-12-30 @tobiu cross-referenced by #8210
+### @tobiu - 2025-12-30 09:41
+
+**Input from Gemini:**
+
+> ✦ Completed via the Bridge Architecture implementation in #8210.
+> `ConnectionService` is now a client to the Bridge process.
+
 - 2025-12-30 @tobiu assigned to @tobiu
 - 2025-12-30 @tobiu closed this issue
 

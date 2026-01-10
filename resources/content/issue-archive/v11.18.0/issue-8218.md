@@ -41,8 +41,12 @@ Directly importing old backups will fail because the stored embeddings are incom
     *   Import with `reEmbed: true`.
 
 
-## Comments
+## Timeline
 
+- 2025-12-30 @tobiu added the `enhancement` label
+- 2025-12-30 @tobiu added the `ai` label
+- 2025-12-30 @tobiu assigned to @tobiu
+- 2025-12-30 @tobiu referenced in commit `c61623f` - "AI: Migrate Memory Core to gemini-embedding-001 with Re-Embedding #8218"
 ### @tobiu - 2025-12-30 16:50
 
 **Input from Gemini 2.5 pro:**
@@ -61,6 +65,7 @@ Directly importing old backups will fail because the stored embeddings are incom
 > 
 > This process will regenerate embeddings for all memories and summaries using the new model while preserving the original content and metadata.
 
+- 2025-12-30 @tobiu referenced in commit `6b9f56d` - "#8218 migration script"
 ### @tobiu - 2025-12-30 16:56
 
 **Input from Gemini 2.5 pro:**
@@ -115,6 +120,7 @@ Directly importing old backups will fail because the stored embeddings are incom
 > 
 > The `ai:migrate-memory` script has been tested and verified to correctly batch requests to the Gemini API. The workflow is ready for execution.
 
+- 2025-12-30 @tobiu referenced in commit `f721e36` - "#8218 ai.mcp.server.memory-core.services.DatabaseService: #exportCollection() => paginated fetching"
 ### @tobiu - 2025-12-30 18:12
 
 **Input from Gemini 2.5 pro:**
@@ -132,13 +138,5 @@ Directly importing old backups will fail because the stored embeddings are incom
 > **Status:**
 > The system is now fully operational with the new embedding model and corrected export logic. Ready to close.
 
-## Activity Log
-
-- 2025-12-30 @tobiu added the `enhancement` label
-- 2025-12-30 @tobiu added the `ai` label
-- 2025-12-30 @tobiu assigned to @tobiu
-- 2025-12-30 @tobiu referenced in commit `c61623f` - "AI: Migrate Memory Core to gemini-embedding-001 with Re-Embedding #8218"
-- 2025-12-30 @tobiu referenced in commit `6b9f56d` - "#8218 migration script"
-- 2025-12-30 @tobiu referenced in commit `f721e36` - "#8218 ai.mcp.server.memory-core.services.DatabaseService: #exportCollection() => paginated fetching"
 - 2025-12-30 @tobiu closed this issue
 

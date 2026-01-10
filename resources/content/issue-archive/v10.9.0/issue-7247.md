@@ -35,7 +35,7 @@ The `AI_QUICK_START.md` guide is copied into new workspaces created via `npx neo
 
 To ensure the AI Quick Start Guide provides accurate and clear setup instructions for users in both the core framework repository and in a separate workspace, preventing confusion for new users.
 
-## Activity Log
+## Timeline
 
 - 2025-09-24 @tobiu assigned to @tobiu
 - 2025-09-24 @tobiu added the `enhancement` label

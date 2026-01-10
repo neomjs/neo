@@ -39,7 +39,7 @@ Refactor `onWorkerMessage` to eliminate code duplication by extracting the commo
 
 This will reduce file size and improve maintainability.
 
-## Activity Log
+## Timeline
 
 - 2025-12-16 @tobiu added the `refactoring` label
 - 2025-12-16 @tobiu assigned to @tobiu

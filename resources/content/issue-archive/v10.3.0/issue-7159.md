@@ -43,7 +43,7 @@ The current process parses every single `.mjs` file with `acorn`, which is compu
 -   Files that *do* contain `html` templates are still transformed correctly.
 -   The overall build time is measurably reduced.
 
-## Activity Log
+## Timeline
 
 - 2025-08-02 @tobiu assigned to @tobiu
 - 2025-08-02 @tobiu added the `enhancement` label

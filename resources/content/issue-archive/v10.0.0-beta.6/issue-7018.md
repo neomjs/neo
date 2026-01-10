@@ -23,7 +23,7 @@ closedAt: '2025-07-11T11:24:20Z'
 
 * Regression issue, we must not overwrite the public `fn` class field.
 
-## Activity Log
+## Timeline
 
 - 2025-07-11 @tobiu assigned to @tobiu
 - 2025-07-11 @tobiu added the `bug` label

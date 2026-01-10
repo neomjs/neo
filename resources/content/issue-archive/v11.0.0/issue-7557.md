@@ -32,7 +32,7 @@ This ticket covers refactoring `ai/mcp/server/github-workflow/services/issueServ
 4.  The `ai/mcp/server/github-workflow/services/toolService.mjs` is updated to use the new `IssueService` class.
 5.  The `add_labels` and `remove_labels` tools continue to function correctly after the refactoring.
 
-## Activity Log
+## Timeline
 
 - 2025-10-19 @tobiu assigned to @tobiu
 - 2025-10-19 @tobiu added the `enhancement` label

@@ -38,7 +38,7 @@ This new strategy ensures that the history of work remains portable and accessib
 
 This establishes a clear, scalable, and robust process for managing work items. It solves the problem of losing historical context for the AI, prevents repository bloat, and creates a clear path for linking version-controlled tickets with the GitHub issue tracker.
 
-## Activity Log
+## Timeline
 
 - 2025-09-23 @tobiu assigned to @tobiu
 - 2025-09-23 @tobiu added the `enhancement` label

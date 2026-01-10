@@ -23,8 +23,11 @@ closedAt: '2025-05-25T18:57:06Z'
 
 * We have to combine the `devmode` and `dist/production` environments for this use case
 
-## Comments
+## Timeline
 
+- 2025-05-25 @tobiu assigned to @tobiu
+- 2025-05-25 @tobiu added the `enhancement` label
+- 2025-05-25 @tobiu referenced in commit `8ec49d1` - "container.Base: loadItems() => adjust the logic for dist/production #6715"
 ### @tobiu - 2025-05-25 18:57
 
 Gemini:
@@ -33,10 +36,5 @@ Gemini:
 
 <img width="803" alt="Image" src="https://github.com/user-attachments/assets/ce5b0be3-c928-4eef-b26d-82afb684e2ce" />
 
-## Activity Log
-
-- 2025-05-25 @tobiu assigned to @tobiu
-- 2025-05-25 @tobiu added the `enhancement` label
-- 2025-05-25 @tobiu referenced in commit `8ec49d1` - "container.Base: loadItems() => adjust the logic for dist/production #6715"
 - 2025-05-25 @tobiu closed this issue
 

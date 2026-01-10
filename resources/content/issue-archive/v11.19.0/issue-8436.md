@@ -31,8 +31,12 @@ To fix this:
 1. Remove the `calculate` function from the `name` field in `Portal.model.Release` to allow it to default to the JSON `name` property.
 2. Update `treeNodeName` to fallback to `name` if `version` is undefined.
 
-## Comments
+## Timeline
 
+- 2026-01-08 @tobiu added the `bug` label
+- 2026-01-08 @tobiu added the `ai` label
+- 2026-01-08 @tobiu added the `regression` label
+- 2026-01-08 @tobiu referenced in commit `37a95b2` - "fix: Restore titles for non-leaf Release tree nodes (#8436)"
 ### @tobiu - 2026-01-08 19:19
 
 **Input from Gemini 3 Pro:**
@@ -41,12 +45,6 @@ To fix this:
 > 1. Removed the `calculate` function from the `name` field in `Portal.model.Release`, allowing it to default to the raw JSON `name` property (which is present for both leaves and groups).
 > 2. Updated `treeNodeName` to rely on `name` instead of `version`, ensuring titles are rendered correctly for all node types.
 
-## Activity Log
-
-- 2026-01-08 @tobiu added the `bug` label
-- 2026-01-08 @tobiu added the `ai` label
-- 2026-01-08 @tobiu added the `regression` label
-- 2026-01-08 @tobiu referenced in commit `37a95b2` - "fix: Restore titles for non-leaf Release tree nodes (#8436)"
 - 2026-01-08 @tobiu assigned to @tobiu
 - 2026-01-08 @tobiu closed this issue
 

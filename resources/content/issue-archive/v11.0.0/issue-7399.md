@@ -93,31 +93,7 @@ https://github.com/neomjs/neo/blob/dev/.github/VISION.md
 - **To Do:** ticket-create-mcp-server-documentation.md
 - **To Do:** ticket-cleanup-old-ai-query-npm-scripts.md
 
-## Comments
-
-### @tobiu - 2025-10-08 15:22
-
-FYI: https://geminicli.com/extensions/
-
-=> while this is limited to gemini, it is definitely worth to brainstorm about it.
-
-> ✦ Here is my new analysis based on the actual content:
-> 
->    1. The Goal is to Build "Extensions": You are correct. The entire initiative is about creating Gemini CLI Extensions. The geminicli.comite positions these as the primary way to integrate tools and personalize the CLI. Our Knowledge Base and Memory Core servers are not just standalone projects; they are features to be packaged as extensions for this ecosystem.
-> 
->    2. Anatomy of an Extension: The main page clarifies that an extension is a bundle that can contain MCP servers, context files, and custom commands. This is a key insight. While MCP is the dominant mechanism, as seen on the browse page, an extension is a broader concept. This means for our epics, we need to consider if we only need an MCP server, or if we should also provide context files or custom commands to make the user experience better.
-> 
->    3. A Rich Ecosystem: The browse page shows a mature ecosystem with extensions for major platforms like Stripe, Terraform, Grafana, and many Google Cloud services. The chrome-devtools-mcp extension is listed at the top, which firmly places our own DevTools integration work within this same strategic direction.
-> 
->   This new context is extremely valuable. It reframes the goal of the epic-architect-ai-tooling-as-mcp.md epic. We are not just refactoring scripts into servers; we are building full-fledged extensions for a specific, documented platform. The "Build your own" section mentioned on the main page will be a critical resource for our scaffolding tickets, as it will define what a complete, well-formed extension looks like.
-> 
->   Thank you for this essential context update.
-
-### @tobiu - 2025-10-24 09:27
-
-resolved => inside the new servers
-
-## Activity Log
+## Timeline
 
 - 2025-10-07 @tobiu assigned to @tobiu
 - 2025-10-07 @tobiu added the `epic` label
@@ -152,6 +128,24 @@ resolved => inside the new servers
 - 2025-10-08 @MannXo cross-referenced by #7404
 - 2025-10-08 @tobiu cross-referenced by #7283
 - 2025-10-08 @tobiu referenced in commit `560d280` - "#7399 minor sub changes, for a better new file location"
+### @tobiu - 2025-10-08 15:22
+
+FYI: https://geminicli.com/extensions/
+
+=> while this is limited to gemini, it is definitely worth to brainstorm about it.
+
+> ✦ Here is my new analysis based on the actual content:
+> 
+>    1. The Goal is to Build "Extensions": You are correct. The entire initiative is about creating Gemini CLI Extensions. The geminicli.comite positions these as the primary way to integrate tools and personalize the CLI. Our Knowledge Base and Memory Core servers are not just standalone projects; they are features to be packaged as extensions for this ecosystem.
+> 
+>    2. Anatomy of an Extension: The main page clarifies that an extension is a bundle that can contain MCP servers, context files, and custom commands. This is a key insight. While MCP is the dominant mechanism, as seen on the browse page, an extension is a broader concept. This means for our epics, we need to consider if we only need an MCP server, or if we should also provide context files or custom commands to make the user experience better.
+> 
+>    3. A Rich Ecosystem: The browse page shows a mature ecosystem with extensions for major platforms like Stripe, Terraform, Grafana, and many Google Cloud services. The chrome-devtools-mcp extension is listed at the top, which firmly places our own DevTools integration work within this same strategic direction.
+> 
+>   This new context is extremely valuable. It reframes the goal of the epic-architect-ai-tooling-as-mcp.md epic. We are not just refactoring scripts into servers; we are building full-fledged extensions for a specific, documented platform. The "Build your own" section mentioned on the main page will be a critical resource for our scaffolding tickets, as it will define what a complete, well-formed extension looks like.
+> 
+>   Thank you for this essential context update.
+
 - 2025-10-08 @tobiu cross-referenced by PR #7419
 - 2025-10-08 @tobiu cross-referenced by #7407
 - 2025-10-08 @tobiu cross-referenced by #7406
@@ -161,5 +155,9 @@ resolved => inside the new servers
 - 2025-10-12 @tobiu added sub-issue #7468
 - 2025-10-12 @tobiu referenced in commit `68c7980` - "#7399 sub-tasks cleanup"
 - 2025-10-24 @tobiu removed sub-issue #7405
+### @tobiu - 2025-10-24 09:27
+
+resolved => inside the new servers
+
 - 2025-10-24 @tobiu closed this issue
 

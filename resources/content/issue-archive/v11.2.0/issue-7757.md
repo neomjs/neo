@@ -24,7 +24,7 @@ closedAt: '2025-11-12T21:15:11Z'
 
 The current GraphQL mutations for `ADD_BLOCKED_BY` and `REMOVE_BLOCKED_BY` in `ai/mcp/server/github-workflow/services/queries/mutations.mjs` fetch up to 100 child issues in their responses. This can be overly expensive and is likely unnecessary for the immediate confirmation of the mutation. The responses should be optimized to fetch only the essential information needed to confirm the success of the operation, such as the issue numbers involved.
 
-## Activity Log
+## Timeline
 
 - 2025-11-12 @tobiu added the `bug` label
 - 2025-11-12 @tobiu added the `ai` label

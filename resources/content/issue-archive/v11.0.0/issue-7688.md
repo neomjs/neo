@@ -24,7 +24,7 @@ closedAt: '2025-11-01T19:14:27Z'
 
 PR #7678 introduced two new testing files (`openapi-issues.test.mjs` and `tool-registration.test.mjs`) for the `github-workflow` MCP server. This ticket is to integrate these new server-side tests into our existing Playwright testing suite, ensuring consistency and maintainability of our test infrastructure.
 
-## Activity Log
+## Timeline
 
 - 2025-11-01 @tobiu added the `enhancement` label
 - 2025-11-01 @tobiu added the `ai` label

@@ -37,22 +37,20 @@ To fix this within the constraints of GitHub Pages hosting and the need to prese
     -   All application assets (JS, CSS, workers) load correctly.
     -   Other top-level paths (e.g., `/apps/covid/`, `/examples/`) remain accessible and functional.
 
-## Comments
-
-### @tobiu - 2025-11-11 18:30
-
-detaching the ticket from the epic, since we can not resolve it inside this repo.
-
-### @tobiu - 2025-11-12 13:57
-
-resolved via: https://github.com/neomjs/pages/blob/main/buildScripts/enhanceSeo.mjs
-
-## Activity Log
+## Timeline
 
 - 2025-10-10 @tobiu assigned to @tobiu
 - 2025-10-10 @tobiu added the `enhancement` label
 - 2025-10-10 @tobiu added parent issue #7446
 - 2025-10-10 @tobiu added the `ai` label
+### @tobiu - 2025-11-11 18:30
+
+detaching the ticket from the epic, since we can not resolve it inside this repo.
+
 - 2025-11-11 @tobiu removed parent issue #7446
+### @tobiu - 2025-11-12 13:57
+
+resolved via: https://github.com/neomjs/pages/blob/main/buildScripts/enhanceSeo.mjs
+
 - 2025-11-12 @tobiu closed this issue
 

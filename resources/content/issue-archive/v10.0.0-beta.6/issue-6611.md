@@ -24,21 +24,19 @@ closedAt: '2025-07-16T03:10:30Z'
 
 related to: https://github.com/neomjs/neo/issues/6610
 
-## Comments
-
-### @github-actions - 2025-07-01 03:13
-
-This issue is stale because it has been open for 90 days with no activity.
-
-### @github-actions - 2025-07-16 03:10
-
-This issue was closed because it has been inactive for 14 days since being marked as stale.
-
-## Activity Log
+## Timeline
 
 - 2025-04-01 @tobiu added the `enhancement` label
 - 2025-04-01 @tobiu assigned to @tobiu
 - 2025-04-01 @tobiu cross-referenced by #6607
+### @github-actions - 2025-07-01 03:13
+
+This issue is stale because it has been open for 90 days with no activity.
+
 - 2025-07-01 @github-actions added the `stale` label
+### @github-actions - 2025-07-16 03:10
+
+This issue was closed because it has been inactive for 14 days since being marked as stale.
+
 - 2025-07-16 @github-actions closed this issue
 

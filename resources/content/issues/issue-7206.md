@@ -49,13 +49,7 @@ Implement the foundational (Phase 1) drag-and-drop reordering for the panels wit
 - Panels can be reordered within the viewport.
 - The new order is correctly applied when the drag operation is complete.
 
-## Comments
-
-### @github-actions - 2025-11-19 02:51
-
-This issue is stale because it has been open for 90 days with no activity.
-
-## Activity Log
+## Timeline
 
 - 2025-08-20 @tobiu assigned to @tobiu
 - 2025-08-20 @tobiu added parent issue #7201
@@ -68,6 +62,10 @@ This issue is stale because it has been open for 90 days with no activity.
 - 2025-08-21 @tobiu referenced in commit `6e729a0` - "#7206 WIP"
 - 2025-08-21 @tobiu referenced in commit `5b1f960` - "#7206 WIP"
 - 2025-08-21 @tobiu referenced in commit `af84d7f` - "#7206 WIP"
+### @github-actions - 2025-11-19 02:51
+
+This issue is stale because it has been open for 90 days with no activity.
+
 - 2025-11-19 @github-actions added the `stale` label
 - 2025-11-19 @tobiu removed the `stale` label
 - 2025-11-19 @tobiu added the `no auto close` label

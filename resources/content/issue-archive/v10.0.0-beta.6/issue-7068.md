@@ -23,10 +23,11 @@ closedAt: '2025-07-15T22:24:44Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
 - 2025-07-15 @tobiu assigned to @tobiu
 - 2025-07-15 @tobiu added the `enhancement` label
 - 2025-07-15 @tobiu referenced in commit `6b735ec` - "Class definitions: use @ mixes inside the JSDoc comments where appropriate #7068"
+- 2025-07-15 @tobiu changed title from **Class definitions: use @ mixes inside the JSDoc comments where appropiate** to **Class definitions: use @ mixes inside the JSDoc comments where appropriate**
 - 2025-07-15 @tobiu closed this issue
 

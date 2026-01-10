@@ -23,7 +23,7 @@ closedAt: '2025-08-21T19:22:38Z'
 
 AI hallucination: neo is not designed to update for inline container items resorting.
 
-## Activity Log
+## Timeline
 
 - 2025-08-21 @tobiu assigned to @tobiu
 - 2025-08-21 @tobiu added the `bug` label

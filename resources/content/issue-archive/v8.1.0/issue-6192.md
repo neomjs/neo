@@ -25,7 +25,7 @@ the first idea was to keep a `{removeDom: true}` flag to keep the internal struc
 
 however, in case there are big amounts of columns, this would increase the size of the worker messages to check for vdom updates quite a lot => not needed.
 
-## Activity Log
+## Timeline
 
 - 2025-01-08 @tobiu added the `enhancement` label
 - 2025-01-08 @tobiu assigned to @tobiu

@@ -24,7 +24,7 @@ https://github.com/user-attachments/assets/379e076b-146a-4c1d-be39-51bc601d43a2
 
 Not sure how they got in there, but there are some CSS rules with `!important`, which should not use the flag.
 
-## Activity Log
+## Timeline
 
 - 2025-02-25 @tobiu added the `bug` label
 - 2025-02-25 @tobiu referenced in commit `58021aa` - "button.Base: active rules affect tab.header.Button #6493"

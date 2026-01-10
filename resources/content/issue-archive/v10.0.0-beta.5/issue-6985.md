@@ -59,7 +59,7 @@ The `Neo.state.Provider`'s `data_` config, intended to support deep merging of d
 **Overall Impact:**
 The `Neo.state.Provider`'s `data_` config now correctly supports deep merging of class-level and instance-level data. The `createHierarchicalDataProxy` is significantly more robust, compatible with standard JavaScript introspection methods, and fully testable with deep comparison utilities like Siesta's `t.isDeeplyStrict`. All relevant tests are now passing, confirming the correct behavior of the `State.Provider`'s reactive data system.
 
-## Activity Log
+## Timeline
 
 - 2025-07-08 @tobiu assigned to @tobiu
 - 2025-07-08 @tobiu added the `enhancement` label

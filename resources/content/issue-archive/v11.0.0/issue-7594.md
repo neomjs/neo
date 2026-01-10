@@ -31,7 +31,7 @@ This is the largest part of the GraphQL migration, focusing on the complete refa
 3.  The `#fetchAndCacheReleases` method is rewritten to use a GraphQL query.
 4.  The old `#ghCommand` helper method is removed from the service.
 
-## Activity Log
+## Timeline
 
 - 2025-10-21 @tobiu assigned to @tobiu
 - 2025-10-21 @tobiu added the `enhancement` label

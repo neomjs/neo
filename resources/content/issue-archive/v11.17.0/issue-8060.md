@@ -25,7 +25,7 @@ closedAt: '2025-12-08T12:36:25Z'
 Add a footer toolbar to `apps/legit/view/AddFileDialog.mjs` containing a right-aligned Save button.
 This ensures the dialog has a primary action.
 
-## Activity Log
+## Timeline
 
 - 2025-12-08 @tobiu added the `enhancement` label
 - 2025-12-08 @tobiu added the `ai` label

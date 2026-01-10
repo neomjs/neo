@@ -35,7 +35,7 @@ This ticket covers the implementation of the `healthcheck` service for the AI Kn
     - (Optional) The number of items in the collection if it exists.
 5.  The `toolService.mjs` `serviceMapping` is updated to point the `healthcheck` operationId to the new service function.
 
-## Activity Log
+## Timeline
 
 - 2025-10-16 @tobiu assigned to @tobiu
 - 2025-10-16 @tobiu added the `enhancement` label

@@ -23,7 +23,7 @@ closedAt: '2025-02-24T17:31:32Z'
 
 non-final, we need a follow-up ticket
 
-## Activity Log
+## Timeline
 
 - 2025-02-24 @tobiu added the `enhancement` label
 - 2025-02-24 @tobiu assigned to @tobiu

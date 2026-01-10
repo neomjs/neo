@@ -60,7 +60,7 @@ The correct solution is to make the framework smarter. `FunctionalBase` should c
 -   The Email App's grid component, configured declaratively with `store: EmailsStore`, no longer re-creates its store on parent re-renders.
 -   The state of the grid (selection, scroll position) is preserved across parent state changes that do not affect the grid's own configuration.
 
-## Activity Log
+## Timeline
 
 - 2025-07-14 @tobiu assigned to @tobiu
 - 2025-07-14 @tobiu added the `enhancement` label

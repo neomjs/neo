@@ -40,22 +40,20 @@ Specifically, `Neo.form.field.CheckBox` uses `valueLabelText` and `afterSetValue
 - `src/filter/BooleanContainer.mjs`
 - All files using `valueLabelText` config on CheckBox.
 
-## Comments
-
-### @tobiu - 2025-11-19 14:57
-
-<img width="884" height="451" alt="Image" src="https://github.com/user-attachments/assets/c54cf8a1-adc3-4cd1-9f4b-9227a649641c" />
-
-### @tobiu - 2025-11-19 16:08
-
-<img width="878" height="440" alt="Image" src="https://github.com/user-attachments/assets/423c9bd0-45df-4742-afa6-dc5ad5cd0d84" />
-
-## Activity Log
+## Timeline
 
 - 2025-11-19 @tobiu added the `bug` label
 - 2025-11-19 @tobiu added the `refactoring` label
 - 2025-11-19 @tobiu added the `regression` label
+### @tobiu - 2025-11-19 14:57
+
+<img width="884" height="451" alt="Image" src="https://github.com/user-attachments/assets/c54cf8a1-adc3-4cd1-9f4b-9227a649641c" />
+
 - 2025-11-19 @tobiu assigned to @tobiu
 - 2025-11-19 @tobiu referenced in commit `64398fb` - "Fix regression: Enable HTML rendering in form field labels (valueLabel) #7812"
+### @tobiu - 2025-11-19 16:08
+
+<img width="878" height="440" alt="Image" src="https://github.com/user-attachments/assets/423c9bd0-45df-4742-afa6-dc5ad5cd0d84" />
+
 - 2025-11-19 @tobiu closed this issue
 

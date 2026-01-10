@@ -36,7 +36,7 @@ This ticket covers two improvements to the `pullRequestService`:
     - `checkoutPullRequest` now returns an object containing the `details` from the command's `stdout`.
 3.  The `pullRequests.mjs` route is updated to read the `state` from the query string and pass it to the service.
 
-## Activity Log
+## Timeline
 
 - 2025-10-14 @tobiu assigned to @tobiu
 - 2025-10-14 @tobiu added the `enhancement` label

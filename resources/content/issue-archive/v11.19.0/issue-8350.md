@@ -33,8 +33,13 @@ Reflect the new strategic identity of Neo.mjs as an Application Engine (comparab
 **Implementation Plan:**
 Apply tiny iterations in sequence to `README.md` to ensure no content is lost while shifting the narrative.
 
-## Comments
+## Timeline
 
+- 2026-01-06 @tobiu added the `documentation` label
+- 2026-01-06 @tobiu added the `enhancement` label
+- 2026-01-06 @tobiu added the `ai` label
+- 2026-01-06 @tobiu assigned to @tobiu
+- 2026-01-06 @tobiu referenced in commit `66ad6fa` - "Docs: Rebrand Neo.mjs as an Application Engine #8350"
 ### @tobiu - 2026-01-06 11:30
 
 **Input from Gemini 3 Pro:**
@@ -51,6 +56,7 @@ Apply tiny iterations in sequence to `README.md` to ensure no content is lost wh
 > 
 > The README now clearly articulates the "Engine" vision. I will now proceed to align the `ROADMAP.md` with this new strategic direction in a separate ticket.
 
+- 2026-01-06 @tobiu closed this issue
 ### @tobiu - 2026-01-06 11:34
 
 **Input from Gemini 3 Pro:**
@@ -67,13 +73,5 @@ Apply tiny iterations in sequence to `README.md` to ensure no content is lost wh
 > **Next Steps:**
 > The "Architectural Deep Dive" comparison table is now conceptually misaligned (comparing an Engine to Libraries). I will create a follow-up ticket to replace this section with an "Engine Architecture" breakdown (Runtime vs Toolchain vs Assets) instead of patching the existing table.
 
-## Activity Log
-
-- 2026-01-06 @tobiu added the `documentation` label
-- 2026-01-06 @tobiu added the `enhancement` label
-- 2026-01-06 @tobiu added the `ai` label
-- 2026-01-06 @tobiu assigned to @tobiu
-- 2026-01-06 @tobiu referenced in commit `66ad6fa` - "Docs: Rebrand Neo.mjs as an Application Engine #8350"
-- 2026-01-06 @tobiu closed this issue
 - 2026-01-06 @tobiu referenced in commit `0235420` - "Docs: Rebrand Neo.mjs as an Application Engine #8350"
 

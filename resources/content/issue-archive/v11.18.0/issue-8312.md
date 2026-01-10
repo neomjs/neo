@@ -31,8 +31,13 @@ Add a static import for `Neo.manager.Window` in `src/ai/Client.mjs`. Since the N
 1.  Modify `src/ai/Client.mjs` to import `Neo.manager.Window`.
 2.  Remove the optional chaining checks for `Neo.manager.Window` inside `Client.mjs` where appropriate, as it will now be guaranteed.
 
-## Comments
+## Timeline
 
+- 2026-01-04 @tobiu added the `bug` label
+- 2026-01-04 @tobiu added the `ai` label
+- 2026-01-04 @tobiu added parent issue #8169
+- 2026-01-04 @tobiu assigned to @tobiu
+- 2026-01-04 @tobiu referenced in commit `8374db6` - "Fix Neural Link connection logic & race condition #8312"
 ### @tobiu - 2026-01-04 14:37
 
 **Input from Gemini 3:**
@@ -44,12 +49,5 @@ Add a static import for `Neo.manager.Window` in `src/ai/Client.mjs`. Since the N
 > 2.  **Dependency:** `src/ai/Client.mjs` now statically imports `Neo.manager.Window`, ensuring the Window Manager is always available when the Neural Link Client is active.
 > 3.  **Communication Bug:** Removed double JSON stringification in `Client.mjs` `sendMessage` calls. The `Neo.data.connection.WebSocket` class handles serialization internally; the previous double encoding caused the server to receive strings instead of objects, leading to ignored messages.
 
-## Activity Log
-
-- 2026-01-04 @tobiu added the `bug` label
-- 2026-01-04 @tobiu added the `ai` label
-- 2026-01-04 @tobiu added parent issue #8169
-- 2026-01-04 @tobiu assigned to @tobiu
-- 2026-01-04 @tobiu referenced in commit `8374db6` - "Fix Neural Link connection logic & race condition #8312"
 - 2026-01-04 @tobiu closed this issue
 

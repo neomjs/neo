@@ -34,7 +34,7 @@ To improve performance and maintain consistency with `Neo.util.VNode`, we need t
 ### Rationale
 `VNodeUtil.getById()` is already implemented. Adding `VDomUtil.getById()` ensures consistency and provides a faster lookup for ID-based searches in the VDOM tree, especially useful in hot-paths like scroll capturing.
 
-## Activity Log
+## Timeline
 
 - 2025-12-19 @tobiu added the `enhancement` label
 - 2025-12-19 @tobiu added the `ai` label

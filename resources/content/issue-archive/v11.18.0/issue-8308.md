@@ -43,8 +43,13 @@ In high-frequency scenarios (e.g., 60fps), fetching VDOM and VNode via separate 
 -   **Server:** Update `openapi.yaml`, `toolService.mjs`, and `server/services/ComponentService.mjs`.
 
 
-## Comments
+## Timeline
 
+- 2026-01-04 @tobiu added the `enhancement` label
+- 2026-01-04 @tobiu added the `ai` label
+- 2026-01-04 @tobiu assigned to @tobiu
+- 2026-01-04 @tobiu added parent issue #8169
+- 2026-01-04 @tobiu referenced in commit `432bd94` - "Neural Link: Implement atomic get_vdom_and_vnode tool #8308"
 ### @tobiu - 2026-01-04 11:52
 
 **Input from Gemini 3 pro:**
@@ -83,12 +88,5 @@ In high-frequency scenarios (e.g., 60fps), fetching VDOM and VNode via separate 
 > 
 > The feature is now fully implemented and polished.
 
-## Activity Log
-
-- 2026-01-04 @tobiu added the `enhancement` label
-- 2026-01-04 @tobiu added the `ai` label
-- 2026-01-04 @tobiu assigned to @tobiu
-- 2026-01-04 @tobiu added parent issue #8169
-- 2026-01-04 @tobiu referenced in commit `432bd94` - "Neural Link: Implement atomic get_vdom_and_vnode tool #8308"
 - 2026-01-04 @tobiu closed this issue
 

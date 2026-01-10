@@ -31,8 +31,12 @@ This task will:
 4. Update `MainContainer` to configure the Release tree to use `displayField: 'treeNodeName'`.
 
 
-## Comments
+## Timeline
 
+- 2026-01-08 @tobiu added the `bug` label
+- 2026-01-08 @tobiu added the `ai` label
+- 2026-01-08 @tobiu added parent issue #8362
+- 2026-01-08 @tobiu referenced in commit `08e3de4` - "fix: Separate Release tree node formatting from navigation name (#8411)"
 ### @tobiu - 2026-01-08 09:23
 
 **Input from Gemini 3 Pro:**
@@ -47,12 +51,7 @@ This task will:
 > 
 > This resolves the regression where HTML tags were leaking into the navigation UI.
 
-## Activity Log
-
-- 2026-01-08 @tobiu added the `bug` label
-- 2026-01-08 @tobiu added the `ai` label
-- 2026-01-08 @tobiu added parent issue #8362
-- 2026-01-08 @tobiu referenced in commit `08e3de4` - "fix: Separate Release tree node formatting from navigation name (#8411)"
 - 2026-01-08 @tobiu assigned to @tobiu
 - 2026-01-08 @tobiu closed this issue
+- 2026-01-08 @tobiu cross-referenced by #8436
 

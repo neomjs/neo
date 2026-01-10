@@ -36,8 +36,13 @@ To correctly map the topology of a distributed Neo.mjs environment (multiple bro
 4.  **Tool:** Implement `get_worker_topology` to list connected workers.
 
 
-## Comments
+## Timeline
 
+- 2025-12-28 @tobiu added the `enhancement` label
+- 2025-12-28 @tobiu added the `ai` label
+- 2025-12-28 @tobiu added the `architecture` label
+- 2025-12-28 @tobiu added parent issue #8169
+- 2025-12-28 @tobiu assigned to @tobiu
 ### @tobiu - 2025-12-28 14:53
 
 we enhanced `core.Base` to enable uids inside the static config block:
@@ -64,6 +69,8 @@ we enhanced `core.Base` to enable uids inside the static config block:
 ```
 => the ctor check is new.
 
+- 2025-12-28 @tobiu referenced in commit `9053f90` - "#8173 app worker uid"
+- 2025-12-28 @tobiu referenced in commit `58c6e6f` - "#8171 and #8173 in combination"
 ### @tobiu - 2025-12-28 15:29
 
 **Input from Gemini 3:**
@@ -93,14 +100,5 @@ we enhanced `core.Base` to enable uids inside the static config block:
 > 
 > Ready for review.
 
-## Activity Log
-
-- 2025-12-28 @tobiu added the `enhancement` label
-- 2025-12-28 @tobiu added the `ai` label
-- 2025-12-28 @tobiu added the `architecture` label
-- 2025-12-28 @tobiu added parent issue #8169
-- 2025-12-28 @tobiu assigned to @tobiu
-- 2025-12-28 @tobiu referenced in commit `9053f90` - "#8173 app worker uid"
-- 2025-12-28 @tobiu referenced in commit `58c6e6f` - "#8171 and #8173 in combination"
 - 2025-12-28 @tobiu closed this issue
 

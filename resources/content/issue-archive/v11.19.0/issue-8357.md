@@ -30,7 +30,7 @@ Update `package.json` to reflect the new "Application Engine" branding.
 2.  **Keywords:** Add `application-engine`, `scene-graph`, `runtime-inspection`, `ai-hot-patching`. Remove `angular-alternative`, `vue-alternative`.
 3.  **Formatting:** Standardize JSON formatting.
 
-## Activity Log
+## Timeline
 
 - 2026-01-06 @tobiu added the `enhancement` label
 - 2026-01-06 @tobiu added the `ai` label

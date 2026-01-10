@@ -35,7 +35,7 @@ Update `AGENTS_STARTUP.md` (specifically Section 6: Check for Memory Core) to:
 - `AGENTS_STARTUP.md` clearly instructs agents to perform this action during initialization.
 - The instruction is framed as a mandatory step for "Memory Core Active" scenarios.
 
-## Activity Log
+## Timeline
 
 - 2025-12-29 @tobiu added the `documentation` label
 - 2025-12-29 @tobiu added the `developer-experience` label

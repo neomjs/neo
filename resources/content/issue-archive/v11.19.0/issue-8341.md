@@ -37,8 +37,15 @@ The current Knowledge Base embedding logic relies on positional IDs (`id_${index
 1.  Refactor `VectorService.embed()` to index existing documents by ID (which will now be the hash).
 2.  Update Sources to sort files/keys before writing.
 
-## Comments
+## Timeline
 
+- 2026-01-05 @tobiu added the `bug` label
+- 2026-01-05 @tobiu added the `enhancement` label
+- 2026-01-05 @tobiu added the `ai` label
+- 2026-01-05 @tobiu assigned to @tobiu
+- 2026-01-05 @tobiu referenced in commit `6100d61` - "Enhancement: Robust Knowledge Base Delta Updates #8341
+
+Implemented hash-based IDs for VectorService to eliminate cascading updates on file insertions. Added deterministic sorting to all Source extractors (Api, Ticket, ReleaseNotes, Test) to ensure stable JSONL generation regardless of OS file ordering. Also implemented batched ID fetching in VectorService to support large collections."
 ### @tobiu - 2026-01-05 22:36
 
 **Input from Gemini 3 Pro:**
@@ -58,14 +65,5 @@ The current Knowledge Base embedding logic relies on positional IDs (`id_${index
 > 
 > These changes ensure that the Knowledge Base generation is deterministic and that updates are true deltas, minimizing unnecessary re-embeddings.
 
-## Activity Log
-
-- 2026-01-05 @tobiu added the `bug` label
-- 2026-01-05 @tobiu added the `enhancement` label
-- 2026-01-05 @tobiu added the `ai` label
-- 2026-01-05 @tobiu assigned to @tobiu
-- 2026-01-05 @tobiu referenced in commit `6100d61` - "Enhancement: Robust Knowledge Base Delta Updates #8341
-
-Implemented hash-based IDs for VectorService to eliminate cascading updates on file insertions. Added deterministic sorting to all Source extractors (Api, Ticket, ReleaseNotes, Test) to ensure stable JSONL generation regardless of OS file ordering. Also implemented batched ID fetching in VectorService to support large collections."
 - 2026-01-05 @tobiu closed this issue
 

@@ -41,7 +41,7 @@ The `Memory_DatabaseService` was not exposed in the public SDK, preventing agent
 *   **Change:** Remove redundant `LifecycleService.ready()` calls in `ai/examples/self-healing.mjs` (since `ChromaManager.ready()` now handles it).
 *   **New Artifacts:** Add `ai/examples/db-backup.mjs` and `ai/examples/db-restore.mjs` as working proofs of the new SDK capabilities.
 
-## Activity Log
+## Timeline
 
 - 2025-11-21 @tobiu added the `enhancement` label
 - 2025-11-21 @tobiu added the `ai` label

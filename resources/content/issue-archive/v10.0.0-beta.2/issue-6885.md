@@ -24,7 +24,7 @@ closedAt: '2025-06-27T15:39:58Z'
 * using `textContent`, it is no longer required.
 * we can also remove the top-level `text` config (now defined inside `component.Base`)
 
-## Activity Log
+## Timeline
 
 - 2025-06-27 @tobiu assigned to @tobiu
 - 2025-06-27 @tobiu added the `enhancement` label

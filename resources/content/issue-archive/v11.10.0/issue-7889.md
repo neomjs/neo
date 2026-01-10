@@ -35,7 +35,7 @@ The current coding guidelines regarding JSDoc comments for class methods are ins
 2.  **Refactor `ai/mcp/server/github-workflow`:**
     *   Apply these new rules to all services in `ai/mcp/server/github-workflow/services/`.
 
-## Activity Log
+## Timeline
 
 - 2025-11-24 @tobiu added the `documentation` label
 - 2025-11-24 @tobiu added the `enhancement` label

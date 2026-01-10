@@ -42,7 +42,7 @@ This article will be crucial for attracting Ext.js developers to Neo.mjs, enhanc
 *   `learn/comparisons/NeoVsExtJs.md` (new file)
 *   `learn/comparisons/Overview.md` (will be updated to include this link)
 
-## Activity Log
+## Timeline
 
 - 2025-07-12 @tobiu added the `enhancement` label
 - 2025-07-12 @tobiu added parent issue #7029

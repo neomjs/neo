@@ -31,7 +31,7 @@ Refactor `MemoryService.mjs` to generate memory IDs using `crypto.randomUUID()`,
 1.  Import `crypto` in `ai/mcp/server/memory-core/services/MemoryService.mjs`.
 2.  Update the `addMemory` method to generate `memoryId` using `crypto.randomUUID()` instead of the timestamp-based string.
 
-## Activity Log
+## Timeline
 
 - 2025-11-22 @tobiu added the `ai` label
 - 2025-11-22 @tobiu added the `refactoring` label

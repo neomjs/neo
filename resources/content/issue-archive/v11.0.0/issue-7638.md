@@ -35,7 +35,7 @@ The `healthcheck` endpoint has been enhanced to provide visibility into the stat
 3.  **API Specification Update:**
     -   The `openapi.yaml` has been updated. The `HealthCheckResponse` schema now includes a `startup` object containing `summarizationStatus` and `summarizationDetails`.
 
-## Activity Log
+## Timeline
 
 - 2025-10-25 @tobiu assigned to @tobiu
 - 2025-10-25 @tobiu added the `enhancement` label

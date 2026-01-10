@@ -24,7 +24,7 @@ closedAt: '2025-11-02T17:00:26Z'
 
 This issue is to track the enhancement of the `AGENTS.md` file. The "Ticket-First Gate" protocol will be updated to explicitly state that it applies to all files within the repository, including `AGENTS.md` itself. This clarification is necessary to prevent a recurring failure mode where the agent skips ticket creation for "meta" files concerning its own instructions.
 
-## Activity Log
+## Timeline
 
 - 2025-11-02 @tobiu added the `documentation` label
 - 2025-11-02 @tobiu added the `ai` label

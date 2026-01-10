@@ -24,7 +24,7 @@ closedAt: '2025-04-16T00:10:55Z'
 * to keep it more lightweight
 * data, delay, once & scope are optional now
 
-## Activity Log
+## Timeline
 
 - 2025-04-16 @tobiu added the `enhancement` label
 - 2025-04-16 @tobiu assigned to @tobiu

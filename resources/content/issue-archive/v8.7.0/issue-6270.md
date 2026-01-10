@@ -23,7 +23,7 @@ closedAt: '2025-01-22T17:12:09Z'
 
 * No longer needed with using the initialData symbol
 
-## Activity Log
+## Timeline
 
 - 2025-01-22 @tobiu added the `enhancement` label
 - 2025-01-22 @tobiu assigned to @tobiu

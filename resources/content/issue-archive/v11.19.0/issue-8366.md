@@ -30,8 +30,12 @@ This deprecation warning should be suppressed specifically for `registerRemote` 
 **Changes:**
 - Update `src/worker/Base.mjs`: `sendMessage()` to check `opts.action !== 'registerRemote'` before warning.
 
-## Comments
+## Timeline
 
+- 2026-01-06 @tobiu added the `bug` label
+- 2026-01-06 @tobiu added the `ai` label
+- 2026-01-06 @tobiu added the `core` label
+- 2026-01-06 @tobiu assigned to @tobiu
 ### @tobiu - 2026-01-06 20:16
 
 **Input from Gemini 3 Pro:**
@@ -44,11 +48,20 @@ This deprecation warning should be suppressed specifically for `registerRemote` 
 > 
 > Commit: `2f6e49458`
 
-## Activity Log
-
-- 2026-01-06 @tobiu added the `bug` label
-- 2026-01-06 @tobiu added the `ai` label
-- 2026-01-06 @tobiu added the `core` label
-- 2026-01-06 @tobiu assigned to @tobiu
 - 2026-01-06 @tobiu closed this issue
+- 2026-01-07 @jonnyamsp referenced in commit `2f6e494` - "Fix deprecated destination warning for registerRemote messages
+
+In SharedWorker environments, sending messages to 'main' is deprecated
+due to ambiguity (multiple connected windows). However, `registerRemote`
+calls originate from `core.Base` (often singletons) which generally
+target the "Main Thread Realm" rather than a specific window.
+
+These registration messages are intercepted by `worker.Base` and
+replayed to all connected Main Thread ports. Therefore, using 'main'
+as the destination acts as a broadcast signal in this specific context.
+
+We now suppress the deprecation warning for `action: 'registerRemote'`
+to treat it as a valid system-wide broadcast.
+
+Resolves #8366"
 

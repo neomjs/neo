@@ -23,7 +23,7 @@ closedAt: '2025-11-10T20:03:08Z'
 
 The new test file `ai/mcp/server/github-workflow/test/healthHelpers.test.mjs` is currently outside the main Playwright test harness. To ensure consistency and that it is picked up by the main test runner, it should be moved to `test/playwright/mcp/github-workflow/`.
 
-## Activity Log
+## Timeline
 
 - 2025-11-08 @tobiu added the `ai` label
 - 2025-11-08 @tobiu added the `testing` label

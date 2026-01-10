@@ -47,7 +47,7 @@ This comprehensive approach ensures both correctness (no stack overflow) and opt
 *   **Increased Robustness:** Makes the core collection class more resilient and predictable under heavy load.
 *   **Code Simplification:** The corrected code is simpler and more efficient.
 
-## Activity Log
+## Timeline
 
 - 2025-08-11 @tobiu assigned to @tobiu
 - 2025-08-11 @tobiu added the `enhancement` label

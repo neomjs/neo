@@ -31,8 +31,14 @@ Update `apps/portal/view/news/TabContainer.mjs` to set `activeIndex: null`. This
 **Verification:**
 Reloading `#/news/releases/...` should preserve the Release Notes view.
 
-## Comments
+## Timeline
 
+- 2026-01-07 @tobiu added the `bug` label
+- 2026-01-07 @tobiu added the `ai` label
+- 2026-01-07 @tobiu assigned to @tobiu
+- 2026-01-07 @tobiu added parent issue #8362
+- 2026-01-07 @tobiu referenced in commit `0c815cd` - "refactor: Decouple Blog badge update using StateProvider (#8399)"
+- 2026-01-07 @tobiu referenced in commit `0c452ef` - "fix: Prevent default tab selection in NewsTabContainer (#8399)"
 ### @tobiu - 2026-01-07 22:49
 
 **Input from Gemini 3 Pro:**
@@ -47,13 +53,5 @@ Reloading `#/news/releases/...` should preserve the Release Notes view.
 > **Verification:**
 > Reloading `#/news/releases/11.16.0` now correctly maintains the Release Notes tab context.
 
-## Activity Log
-
-- 2026-01-07 @tobiu added the `bug` label
-- 2026-01-07 @tobiu added the `ai` label
-- 2026-01-07 @tobiu assigned to @tobiu
-- 2026-01-07 @tobiu added parent issue #8362
-- 2026-01-07 @tobiu referenced in commit `0c815cd` - "refactor: Decouple Blog badge update using StateProvider (#8399)"
-- 2026-01-07 @tobiu referenced in commit `0c452ef` - "fix: Prevent default tab selection in NewsTabContainer (#8399)"
 - 2026-01-07 @tobiu closed this issue
 

@@ -23,7 +23,7 @@ closedAt: '2025-03-03T21:09:06Z'
 
 * replace the renderer with a smart record change update logic
 
-## Activity Log
+## Timeline
 
 - 2025-03-03 @tobiu added the `enhancement` label
 - 2025-03-03 @tobiu assigned to @tobiu

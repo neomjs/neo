@@ -57,7 +57,7 @@ This change was applied to the `toolService.mjs` file in all three MCP servers:
 
 This resolves the bug and makes the tool handling mechanism more robust and reliable.
 
-## Activity Log
+## Timeline
 
 - 2025-10-22 @tobiu assigned to @tobiu
 - 2025-10-22 @tobiu added the `bug` label

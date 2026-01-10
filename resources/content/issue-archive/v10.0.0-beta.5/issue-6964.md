@@ -57,7 +57,7 @@ As the framework evolves, there's a growing need for a standardized, efficient, 
 *   Improves the overall consistency and maintainability of the framework's reactivity model.
 *   Lays the groundwork for future enhancements in data binding, computed properties, and state management.
 
-## Activity Log
+## Timeline
 
 - 2025-07-06 @tobiu assigned to @tobiu
 - 2025-07-06 @tobiu added the `enhancement` label

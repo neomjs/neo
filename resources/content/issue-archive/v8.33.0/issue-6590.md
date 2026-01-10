@@ -22,7 +22,7 @@ closedAt: '2025-03-25T17:16:09Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
 - 2025-03-25 @tobiu added the `enhancement` label
 - 2025-03-25 @tobiu added parent issue #6584

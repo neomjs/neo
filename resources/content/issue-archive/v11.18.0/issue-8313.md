@@ -31,7 +31,7 @@ If the Bridge process takes time to spawn, or if `ConnectionService` hangs waiti
 **Fix:**
 Move the `transport.connect()` call to *before* the `ConnectionService.ready()` await. This ensures the MCP server is responsive to tool discovery requests immediately, even if the backend service (Bridge) is still initializing.
 
-## Activity Log
+## Timeline
 
 - 2026-01-04 @tobiu added the `bug` label
 - 2026-01-04 @tobiu added the `ai` label

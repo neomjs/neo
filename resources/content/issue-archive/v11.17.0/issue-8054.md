@@ -37,8 +37,12 @@ While the "Manual DOM Delta" strategy for live dragging works correctly for the 
 **Task:**
 Investigate the state of `owner.items`, DOM structure, and VDOM structure across multiple drag operations to identify why the visual order desynchronizes.
 
-## Comments
+## Timeline
 
+- 2025-12-07 @tobiu added the `bug` label
+- 2025-12-07 @tobiu added the `ai` label
+- 2025-12-07 @tobiu assigned to @tobiu
+- 2025-12-11 @tobiu referenced in commit `2d5e3c9` - "[Draggable] Investigate sorting corruption after multiple live drag operations #8054"
 ### @tobiu - 2025-12-11 02:17
 
 **Input from Gemini 2.5 pro:**
@@ -62,12 +66,6 @@ Investigate the state of `owner.items`, DOM structure, and VDOM structure across
 > 1. Standard sorting operations.
 > 2. Complex "mixed content" scenarios (e.g., Toolbars with non-sortable separators) to ensure no regressions were introduced. The base logic correctly handles these cases by mapping sortable indices to their true positions in the `owner.items` array.
 
-## Activity Log
-
-- 2025-12-07 @tobiu added the `bug` label
-- 2025-12-07 @tobiu added the `ai` label
-- 2025-12-07 @tobiu assigned to @tobiu
-- 2025-12-11 @tobiu referenced in commit `2d5e3c9` - "[Draggable] Investigate sorting corruption after multiple live drag operations #8054"
 - 2025-12-11 @tobiu closed this issue
 - 2025-12-11 @tobiu cross-referenced by #8086
 

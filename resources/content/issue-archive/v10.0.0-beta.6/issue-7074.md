@@ -46,7 +46,7 @@ The problem was solved by enhancing the `Effect` class to handle this timing req
 
 This architectural change ensures that the VDOM processing logic is subscribed before the first run, guaranteeing that it executes exactly once and at the correct synchronous point in the component lifecycle. This fixes the initial render issue for all use cases without causing double runs.
 
-## Activity Log
+## Timeline
 
 - 2025-07-16 @tobiu assigned to @tobiu
 - 2025-07-16 @tobiu added the `enhancement` label

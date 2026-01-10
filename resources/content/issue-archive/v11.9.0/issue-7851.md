@@ -32,7 +32,7 @@ Create a new guide `learn/guides/mcp/MemoryCore.md` detailing the agent's persis
 *   **Querying:** Explain the difference between `query_raw_memories` and `query_summaries`.
 *   **Update `learn/tree.json`:** Add this new node to the navigation tree.
 
-## Activity Log
+## Timeline
 
 - 2025-11-22 @tobiu added the `documentation` label
 - 2025-11-22 @tobiu added the `enhancement` label

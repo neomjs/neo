@@ -38,7 +38,7 @@ To improve workflow efficiency. Agents should display the proposal and then imme
 - The `openapi.yaml` file reflects the updated instruction.
 - Future agent sessions follow the "Show -> Call" pattern without redundant permission questions.
 
-## Activity Log
+## Timeline
 
 - 2025-11-23 @tobiu added the `documentation` label
 - 2025-11-23 @tobiu added the `enhancement` label

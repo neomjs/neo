@@ -61,17 +61,7 @@ To work on this ticket, please start your session with the following prompt:
 > 
 > You will need to read the epic context from @.github/ISSUE/epic-architect-ai-tooling-as-mcp.md and the specific ticket details from @.github/ISSUE/ticket-design-memory-mcp-api.md before we begin.
 
-## Comments
-
-### @MannXo - 2025-10-08 12:47
-
-Can you assign this to me? @tobiu 
-
-### @tobiu - 2025-10-08 12:50
-
-done
-
-## Activity Log
+## Timeline
 
 - 2025-10-07 @tobiu added parent issue #7399
 - 2025-10-07 @tobiu added the `enhancement` label
@@ -80,7 +70,15 @@ done
 - 2025-10-07 @tobiu added the `hacktoberfest` label
 - 2025-10-07 @tobiu added the `ai` label
 - 2025-10-08 @MannXo cross-referenced by #7404
+### @MannXo - 2025-10-08 12:47
+
+Can you assign this to me? @tobiu 
+
 - 2025-10-08 @tobiu assigned to @MannXo
+### @tobiu - 2025-10-08 12:50
+
+done
+
 - 2025-10-08 @MannXo referenced in commit `7e2bca2` - "Design Memory Core MCP Server API
 
 - Create OpenAPI 3.0 specification with all 11 required endpoints

@@ -26,17 +26,15 @@ closedAt: '2025-11-11T09:23:57Z'
 
 Rationale: semver handles edge cases like `v11.0.0-alpha.2` well.
 
-## Comments
-
-### @MannXo - 2025-11-11 08:46
-
-Hey @tobiu . As you mentioned, this is a follow-up ticket on HealthService and Im happy to work on it.
-
-## Activity Log
+## Timeline
 
 - 2025-11-11 @tobiu added the `enhancement` label
 - 2025-11-11 @tobiu added the `ai` label
 - 2025-11-11 @tobiu cross-referenced by PR #7738
+### @MannXo - 2025-11-11 08:46
+
+Hey @tobiu . As you mentioned, this is a follow-up ticket on HealthService and Im happy to work on it.
+
 - 2025-11-11 @tobiu assigned to @MannXo
 - 2025-11-11 @MannXo cross-referenced by PR #7740
 - 2025-11-11 @tobiu closed this issue

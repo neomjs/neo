@@ -34,7 +34,7 @@ This task involves updating `ai/mcp/server/github-workflow/openapi.yaml` to dras
 
 **Goal:** Ensure the agent never creates an issue without the user seeing exactly what will be created first.
 
-## Activity Log
+## Timeline
 
 - 2025-11-23 @tobiu added the `documentation` label
 - 2025-11-23 @tobiu added the `enhancement` label

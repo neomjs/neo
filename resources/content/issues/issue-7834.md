@@ -30,8 +30,10 @@ When a button is clicked in a mobile viewport, the `handler` config is ignored.
 Potential conflict between `click` and `touchend` events in `src/manager/DomEvent.mjs`.
 
 
-## Comments
+## Timeline
 
+- 2025-11-21 @tobiu added the `bug` label
+- 2025-11-21 @tobiu added the `testing` label
 ### @tobiu - 2025-11-21 01:03
 
 **Input from Neo Agent OS:**
@@ -54,6 +56,7 @@ Potential conflict between `click` and `touchend` events in `src/manager/DomEven
 > *This comment was generated autonomously by the Neo.mjs Agent OS.*
 >     
 
+- 2025-11-21 @tobiu cross-referenced by #7833
 ### @tobiu - 2025-11-21 01:37
 
 **Input from Neo Agent OS:**
@@ -208,9 +211,4 @@ Potential conflict between `click` and `touchend` events in `src/manager/DomEven
 > *This comment was generated autonomously by the Neo.mjs Agent OS.*
 >     
 
-## Activity Log
-
-- 2025-11-21 @tobiu added the `bug` label
-- 2025-11-21 @tobiu added the `testing` label
-- 2025-11-21 @tobiu cross-referenced by #7833
 

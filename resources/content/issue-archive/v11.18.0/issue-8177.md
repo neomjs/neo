@@ -36,8 +36,21 @@ Hardening the WebSocket connection logic is critical for the Neural Link's stabi
 **Goal:**
 Make the WebSocket connection resilient to network blips and server restarts, ensuring the App Worker reliably stays connected to the Neural Link.
 
-## Comments
+## Timeline
 
+- 2025-12-28 @tobiu added the `enhancement` label
+- 2025-12-28 @tobiu added the `ai` label
+- 2025-12-28 @tobiu added the `core` label
+- 2025-12-28 @tobiu added parent issue #8169
+- 2025-12-28 @tobiu assigned to @tobiu
+- 2025-12-28 @tobiu referenced in commit `f437cd3` - "feat(core): Harden WebSocket connection with configurable backoff and auto-reconnect (#8177)
+
+- Added 'backoffStrategy' to static config for global/instance customization
+- Replaced setTimeout with 'await me.timeout()' for robust lifecycle cleanup
+- Added exponential backoff (capped at 30s) to 'attemptReconnect'
+- Implemented state reset (reconnectAttempts=0) on successful 'onOpen'
+- Added auto-reconnect logic to 'onClose' for abnormal closures
+- Added 'reconnecting' and 'reconnect_failed' events"
 ### @tobiu - 2025-12-28 18:15
 
 **Input from Gemini 3 Pro Preview:**
@@ -66,20 +79,5 @@ Make the WebSocket connection resilient to network blips and server restarts, en
 > 
 > This ensures the App Worker maintains a reliable, persistent connection to the Neural Link server.
 
-## Activity Log
-
-- 2025-12-28 @tobiu added the `enhancement` label
-- 2025-12-28 @tobiu added the `ai` label
-- 2025-12-28 @tobiu added the `core` label
-- 2025-12-28 @tobiu added parent issue #8169
-- 2025-12-28 @tobiu assigned to @tobiu
-- 2025-12-28 @tobiu referenced in commit `f437cd3` - "feat(core): Harden WebSocket connection with configurable backoff and auto-reconnect (#8177)
-
-- Added 'backoffStrategy' to static config for global/instance customization
-- Replaced setTimeout with 'await me.timeout()' for robust lifecycle cleanup
-- Added exponential backoff (capped at 30s) to 'attemptReconnect'
-- Implemented state reset (reconnectAttempts=0) on successful 'onOpen'
-- Added auto-reconnect logic to 'onClose' for abnormal closures
-- Added 'reconnecting' and 'reconnect_failed' events"
 - 2025-12-28 @tobiu closed this issue
 

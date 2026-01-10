@@ -25,7 +25,7 @@ Calling ´getField()´ happens too often when creating records, so we need a fas
 
 `fieldsMap` will store a name path to field object reference for direct access (including nested fields).
 
-## Activity Log
+## Timeline
 
 - 2025-01-16 @tobiu added the `enhancement` label
 - 2025-01-16 @tobiu assigned to @tobiu

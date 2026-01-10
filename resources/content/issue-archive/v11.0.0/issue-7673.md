@@ -32,7 +32,7 @@ We need to refactor this to align with our project conventions.
 2. Convert all the weight keys from `UPPER_SNAKE_CASE` to `camelCase` (e.g., `BASE_INCREMENT` becomes `baseIncrement`).
 3. Update `ai/mcp/server/knowledge-base/services/QueryService.mjs` to import the default `config` and access the weights via `config.scoreWeights.newKey`.
 
-## Activity Log
+## Timeline
 
 - 2025-10-27 @tobiu added the `enhancement` label
 - 2025-10-27 @tobiu added the `ai` label

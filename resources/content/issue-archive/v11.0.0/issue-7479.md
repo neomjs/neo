@@ -47,7 +47,7 @@ A meaningful health check has been implemented to verify that the `gh` CLI is in
 5.  Placeholder files for the pull request workflow are in place:
     - `routes/pullRequests.mjs`
 
-## Activity Log
+## Timeline
 
 - 2025-10-14 @tobiu assigned to @tobiu
 - 2025-10-14 @tobiu added the `enhancement` label

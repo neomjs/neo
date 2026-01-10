@@ -93,7 +93,7 @@ An alternative would be to add checks for `undefined` in all methods that use th
 **Additional context**
 This change makes the `Collection` class more robust and prevents subtle bugs in components that rely on it, especially when they perform data manipulations within their config setters.
 
-## Activity Log
+## Timeline
 
 - 2025-08-11 @tobiu assigned to @tobiu
 - 2025-08-11 @tobiu added the `bug` label

@@ -23,7 +23,7 @@ closedAt: '2025-06-12T15:50:14Z'
 
 * memory leak otherwise => kept inside `manager.Component`.
 
-## Activity Log
+## Timeline
 
 - 2025-06-12 @tobiu added the `enhancement` label
 - 2025-06-12 @tobiu referenced in commit `80692e7` - "form.field.Text: destroy() => destroy all triggers if needed #6773"

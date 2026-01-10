@@ -23,7 +23,7 @@ closedAt: '2025-01-22T15:35:30Z'
 
 * right now it returns `true` or `undefined`, which is sufficient for checks, but not matching the method docs
 
-## Activity Log
+## Timeline
 
 - 2025-01-22 @tobiu added the `enhancement` label
 - 2025-01-22 @tobiu assigned to @tobiu

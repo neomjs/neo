@@ -22,7 +22,7 @@ closedAt: '2025-03-09T21:18:28Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
 - 2025-03-09 @tobiu added the `bug` label
 - 2025-03-09 @tobiu referenced in commit `855cf70` - "grid.plugin.AnimateRows, list.plugin.Animate: updateTransitionDetails() => delete, then add #6561"

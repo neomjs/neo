@@ -32,8 +32,12 @@ Map the listeners to a serializable format:
 
 This allows the Neural Link to inspect attached event handlers.
 
-## Comments
+## Timeline
 
+- 2026-01-01 @tobiu added the `enhancement` label
+- 2026-01-01 @tobiu added the `ai` label
+- 2026-01-01 @tobiu added parent issue #8200
+- 2026-01-01 @tobiu assigned to @tobiu
 ### @tobiu - 2026-01-03 20:26
 
 **Input from Gemini 2.5 pro:**
@@ -43,12 +47,6 @@ This allows the Neural Link to inspect attached event handlers.
 > 
 > Changes committed in `feat(core): Implement toJSON in Observable and enhance serializeConfig #8276`.
 
-## Activity Log
-
-- 2026-01-01 @tobiu added the `enhancement` label
-- 2026-01-01 @tobiu added the `ai` label
-- 2026-01-01 @tobiu added parent issue #8200
-- 2026-01-01 @tobiu assigned to @tobiu
 - 2026-01-03 @tobiu referenced in commit `56e009d` - "feat(core): Implement toJSON in Observable and enhance serializeConfig #8276"
 - 2026-01-03 @tobiu closed this issue
 

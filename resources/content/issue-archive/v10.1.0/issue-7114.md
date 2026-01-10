@@ -55,8 +55,9 @@ Profile Path	/data/user/0/com.android.chrome/app_chrome/Default
 Add any other context about the problem here.
 I saw a blog article about neo.mjs ,  got curious, found the website and this is the first example I looked at, as it was near the top of the list and apropos to my job as a dba.
 
-## Comments
+## Timeline
 
+- 2025-07-26 @TristanJamesBall added the `bug` label
 ### @tobiu - 2025-07-26 22:16
 
 @TristanJamesBall Thanks a lot for the report!
@@ -76,6 +77,7 @@ Given you've reproduced anyway this is probably moot but :
 
 ![Image](https://github.com/user-attachments/assets/e535180d-24f3-4ac8-b519-b28c1ff8bf57)
 
+- 2025-07-27 @tobiu referenced in commit `789f1cb` - "Neo gridcontainer example has rendering issues on chrome/android #7114"
 ### @tobiu - 2025-07-27 10:50
 
 @TristanJamesBall I think I got it now.
@@ -92,6 +94,7 @@ With opening a bug ticket, you are giving me the chance to fix a bug which I did
 Best regards,
 Tobi
 
+- 2025-07-27 @tobiu closed this issue
 ### @tobiu - 2025-07-27 19:43
 
 @TristanJamesBall forgot to mention:
@@ -99,9 +102,4 @@ https://neomjs.com/dist/production/examples/grid/bigData/index.html
 
 => The new version is deployed now. Please let me know if you encounter any other issues. I also fixed the grid column header drag&drop resorting. You can over-drag to the left or right and the grid will scroll accordingly.
 
-## Activity Log
-
-- 2025-07-26 @TristanJamesBall added the `bug` label
-- 2025-07-27 @tobiu referenced in commit `789f1cb` - "Neo gridcontainer example has rendering issues on chrome/android #7114"
-- 2025-07-27 @tobiu closed this issue
 

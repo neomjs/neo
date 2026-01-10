@@ -42,7 +42,7 @@ The current `buildScripts/injectPackageVersion.mjs` script is responsible for up
 -   The `prepareRelease.mjs` script successfully updates package versions and regenerates `sitemap.xml` and `llm.txt` when executed.
 -   The generated `sitemap.xml` and `llm.txt` files contain the correct, canonical, hash-based URLs.
 
-## Activity Log
+## Timeline
 
 - 2025-11-11 @tobiu assigned to @tobiu
 - 2025-11-11 @tobiu added the `enhancement` label

@@ -43,13 +43,7 @@ This article will be crucial for attracting React developers to Neo.mjs, enhanci
 *   `learn/comparisons/NeoVsReact.md` (new file)
 *   `learn/comparisons/Overview.md` (will be updated to include this link)
 
-## Comments
-
-### @tobiu - 2025-07-12 21:57
-
-reopening for adding zero dependencies
-
-## Activity Log
+## Timeline
 
 - 2025-07-12 @tobiu assigned to @tobiu
 - 2025-07-12 @tobiu added parent issue #7029
@@ -57,6 +51,11 @@ reopening for adding zero dependencies
 - 2025-07-12 @tobiu referenced in commit `b26cbbf` - "Feature: Add Neo.mjs vs. React Comparison Article #7032"
 - 2025-07-12 @tobiu referenced in commit `c60a369` - "#7032 mentioning core.Base"
 - 2025-07-12 @tobiu closed this issue
+### @tobiu - 2025-07-12 21:57
+
+reopening for adding zero dependencies
+
+- 2025-07-12 @tobiu reopened this issue
 - 2025-07-12 @tobiu referenced in commit `68834d1` - "Feature: Add Neo.mjs vs. React Comparison Article #7032"
 - 2025-07-12 @tobiu closed this issue
 

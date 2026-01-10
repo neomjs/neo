@@ -42,7 +42,7 @@ This bug could lead to application freezes and "Maximum call stack size exceeded
 **Affected Files**
 `src/core/EffectBatchManager.mjs`
 
-## Activity Log
+## Timeline
 
 - 2025-07-12 @tobiu assigned to @tobiu
 - 2025-07-12 @tobiu added the `enhancement` label

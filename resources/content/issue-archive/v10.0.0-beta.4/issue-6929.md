@@ -33,7 +33,7 @@ Currently, developers need to listen to the `mutate` event on the collection and
 **Additional context**
 This enhancement would align `Neo.collection.Base` more closely with the reactive nature of other Neo.mjs components and improve integration with `Neo.state.Provider` for future enhancements (though direct binding via `stores.myStoreName.count` would still require a separate `Neo.state.Provider` enhancement).
 
-## Activity Log
+## Timeline
 
 - 2025-07-01 @tobiu assigned to @tobiu
 - 2025-07-01 @tobiu added the `enhancement` label

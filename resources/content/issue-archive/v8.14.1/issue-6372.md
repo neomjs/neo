@@ -29,7 +29,7 @@ This is a funny one. first thought was it is related to the vdom update changes.
 
 Long story short: when the callback gets triggered, we need to check if the cmp is already mounted. 
 
-## Activity Log
+## Timeline
 
 - 2025-02-03 @tobiu added the `bug` label
 - 2025-02-03 @tobiu assigned to @tobiu

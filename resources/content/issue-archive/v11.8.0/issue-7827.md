@@ -34,7 +34,7 @@ closedAt: '2025-11-20T20:36:45Z'
 **Note on `createNeoInstance`:**
 The fallback logic `let appName = Object.values(Neo.apps)[0]?.name` is preserved but becomes safe due to the initialization in step 1.
 
-## Activity Log
+## Timeline
 
 - 2025-11-20 @tobiu added the `enhancement` label
 - 2025-11-20 @tobiu added the `ai` label

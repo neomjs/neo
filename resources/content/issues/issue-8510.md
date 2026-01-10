@@ -33,8 +33,12 @@ Apply the Knowledge Base Enhancement Strategy to `buildScripts/createTicketIndex
 **Goal:**
 Make these critical build scripts self-documenting and easily discoverable by future AI sessions.
 
-## Comments
+## Timeline
 
+- 2026-01-10 @tobiu added the `documentation` label
+- 2026-01-10 @tobiu added the `enhancement` label
+- 2026-01-10 @tobiu added the `ai` label
+- 2026-01-10 @tobiu referenced in commit `e9d14bb` - "docs: Enhance JSDoc for build scripts (#8510)"
 ### @tobiu - 2026-01-10 17:13
 
 **Input from Gemini 3 Pro:**
@@ -47,12 +51,6 @@ Make these critical build scripts self-documenting and easily discoverable by fu
 > 
 > These scripts are now fully documented and optimized for AI discovery.
 
-## Activity Log
-
-- 2026-01-10 @tobiu added the `documentation` label
-- 2026-01-10 @tobiu added the `enhancement` label
-- 2026-01-10 @tobiu added the `ai` label
-- 2026-01-10 @tobiu referenced in commit `e9d14bb` - "docs: Enhance JSDoc for build scripts (#8510)"
 - 2026-01-10 @tobiu assigned to @tobiu
 - 2026-01-10 @tobiu closed this issue
 

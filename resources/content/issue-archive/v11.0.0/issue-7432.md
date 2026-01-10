@@ -43,7 +43,7 @@ The README was updated to be more evergreen, more precise, and better integrated
 - **Strategic Alignment:** A new **"Vision & Roadmap"** section was added to provide a clear path for developers to understand the project's long-term goals.
 - **AI Strategy:** The "AI-Native by Design" section was replaced with a more professional and specific explanation of **Context Engineering**, articulating the deliberate system being built to enable AI collaboration while carefully preserving all links to existing guides.
 
-## Activity Log
+## Timeline
 
 - 2025-10-09 @tobiu assigned to @tobiu
 - 2025-10-09 @tobiu added the `documentation` label

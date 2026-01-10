@@ -43,7 +43,7 @@ component.Base:
 
 Especially for form field trigger clicks, which show a picker, it can lead to side effects.
 
-## Activity Log
+## Timeline
 
 - 2025-04-08 @tobiu added the `bug` label
 - 2025-04-08 @tobiu referenced in commit `5980dfe` - "core.Observable: not removing listeners with "once" properly, for multiple occurrences on the same event target #6635"

@@ -34,7 +34,7 @@ This new protocol is designed to be more robust by:
 
 This change transforms the initialization from a passive, easily missed instruction into a direct, primary action. This ticket documents the implementation of this new protocol.
 
-## Activity Log
+## Timeline
 
 - 2025-11-07 @tobiu added the `bug` label
 - 2025-11-07 @tobiu added the `contributor-experience` label

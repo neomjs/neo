@@ -36,7 +36,7 @@ This ticket documents the changes made to enable the VDom worker to correctly ha
 
 These changes are crucial for the seamless integration of server-rendered content with the client-side VDom worker, supporting the overall SSR takeover strategy.
 
-## Activity Log
+## Timeline
 
 - 2025-11-17 @tobiu added the `enhancement` label
 - 2025-11-17 @tobiu added the `ai` label

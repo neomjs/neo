@@ -38,7 +38,7 @@ Create a new comprehensive guide `learn/guides/fundamentals/WorkerArchitecture.m
 **Update `learn/tree.json`:**
 Add the new guide entry to the `guides/fundamentals` section.
 
-## Activity Log
+## Timeline
 
 - 2025-12-17 @tobiu added the `documentation` label
 - 2025-12-17 @tobiu added the `enhancement` label

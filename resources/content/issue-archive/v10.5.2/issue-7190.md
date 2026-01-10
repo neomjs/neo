@@ -36,7 +36,7 @@ This is also a prerequisite for testing buffered columns.
 5.  Call `updateColCount()` at the end of `construct()` to set the initial value.
 6.  Call `updateColCount()` inside `afterSetColumns()` to handle cases where the entire columns config is replaced.
 
-## Activity Log
+## Timeline
 
 - 2025-08-14 @tobiu assigned to @tobiu
 - 2025-08-14 @tobiu added the `enhancement` label

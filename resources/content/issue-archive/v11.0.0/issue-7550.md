@@ -33,7 +33,7 @@ This ticket covers refactoring `ai/mcp/server/knowledge-base/services/databaseLi
 5.  The `ai/mcp/server/knowledge-base/services/toolService.mjs` is updated to import the `DatabaseLifecycleService` class and map its methods.
 6.  All related tools (`start_database`, `stop_database`) continue to function correctly after the refactoring.
 
-## Activity Log
+## Timeline
 
 - 2025-10-19 @tobiu assigned to @tobiu
 - 2025-10-19 @tobiu added the `enhancement` label

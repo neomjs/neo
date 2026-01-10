@@ -50,21 +50,7 @@ To refactor and enhance `Neo.draggable.container.SortZone` to support more compl
 - The `DashboardSortZone` can be refactored into a minimal subclass that primarily just configures the `dragHandleSelector`.
 - Existing functionalities that use `container.SortZone` (e.g., tab header reordering) remain unaffected and work as before.
 
-## Comments
-
-### @github-actions - 2025-11-20 02:50
-
-This issue is stale because it has been open for 90 days with no activity.
-
-### @github-actions - 2025-12-04 02:57
-
-This issue was closed because it has been inactive for 14 days since being marked as stale.
-
-### @github-actions - 2025-12-04 02:59
-
-❌ Tickets cannot be reopened. Created new ticket: #8020
-
-## Activity Log
+## Timeline
 
 - 2025-08-21 @tobiu assigned to @tobiu
 - 2025-08-21 @tobiu added the `enhancement` label
@@ -72,8 +58,21 @@ This issue was closed because it has been inactive for 14 days since being marke
 - 2025-08-21 @tobiu referenced in commit `61692a5` - "#7207 dragHandleSelector config"
 - 2025-08-21 @tobiu referenced in commit `6f2a206` - "#7207 wip"
 - 2025-08-21 @tobiu referenced in commit `2e26e1f` - "#7207"
+### @github-actions - 2025-11-20 02:50
+
+This issue is stale because it has been open for 90 days with no activity.
+
 - 2025-11-20 @github-actions added the `stale` label
+### @github-actions - 2025-12-04 02:57
+
+This issue was closed because it has been inactive for 14 days since being marked as stale.
+
 - 2025-12-04 @github-actions closed this issue
+- 2025-12-04 @tobiu reopened this issue
 - 2025-12-04 @github-actions closed this issue
+### @github-actions - 2025-12-04 02:59
+
+❌ Tickets cannot be reopened. Created new ticket: #8020
+
 - 2025-12-04 @github-actions cross-referenced by #8020
 

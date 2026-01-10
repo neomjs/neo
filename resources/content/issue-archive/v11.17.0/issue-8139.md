@@ -55,7 +55,7 @@ Update the VDom-to-String generation process to produce a sidecar map of nodes r
     - After inserting the HTML, iterate through `postMountUpdates` and apply the scroll values to the corresponding DOM nodes (lookup by ID).
 
 
-## Activity Log
+## Timeline
 
 - 2025-12-17 @tobiu added the `enhancement` label
 - 2025-12-17 @tobiu added the `ai` label

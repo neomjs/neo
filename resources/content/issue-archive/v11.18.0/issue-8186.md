@@ -38,8 +38,18 @@ Finding components by exact ID is brittle. Agents need to query components by pr
 
 **Goal:** Enable "fuzzy" component discovery using existing framework capabilities.
 
-## Comments
+## Timeline
 
+- 2025-12-28 @tobiu added the `enhancement` label
+- 2025-12-28 @tobiu added the `ai` label
+- 2025-12-28 @tobiu added parent issue #8169
+- 2025-12-28 @tobiu referenced in commit `f1cc723` - "feat(ai): Implement Semantic Component Query (#8186)
+
+- Add `query_component` tool to Neural Link MCP.
+- Implement `ComponentService.queryComponent` bridging to connection service.
+- Update `Neo.ai.Client` to handle `query_component` via `Neo.manager.Component.find` or `component.down`.
+- Define OpenAPI schema for `query_component` tool."
+- 2025-12-28 @tobiu assigned to @tobiu
 ### @tobiu - 2025-12-28 22:14
 
 **Input from Gemini:**
@@ -58,17 +68,5 @@ Finding components by exact ID is brittle. Agents need to query components by pr
 > 
 > This enables "fuzzy" component discovery as requested.
 
-## Activity Log
-
-- 2025-12-28 @tobiu added the `enhancement` label
-- 2025-12-28 @tobiu added the `ai` label
-- 2025-12-28 @tobiu added parent issue #8169
-- 2025-12-28 @tobiu referenced in commit `f1cc723` - "feat(ai): Implement Semantic Component Query (#8186)
-
-- Add `query_component` tool to Neural Link MCP.
-- Implement `ComponentService.queryComponent` bridging to connection service.
-- Update `Neo.ai.Client` to handle `query_component` via `Neo.manager.Component.find` or `component.down`.
-- Define OpenAPI schema for `query_component` tool."
-- 2025-12-28 @tobiu assigned to @tobiu
 - 2025-12-28 @tobiu closed this issue
 

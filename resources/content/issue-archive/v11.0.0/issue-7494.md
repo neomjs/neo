@@ -34,7 +34,7 @@ This ticket covers the refactoring of the tool service to manage both schema typ
 4.  The `listTools` function is updated to return the plain JSON Schema object in the `inputSchema` field of each tool.
 5.  The `callTool` function is updated to use the internal `zod` schema to validate arguments via `.parse()` before executing the tool handler.
 
-## Activity Log
+## Timeline
 
 - 2025-10-15 @tobiu assigned to @tobiu
 - 2025-10-15 @tobiu added parent issue #7477

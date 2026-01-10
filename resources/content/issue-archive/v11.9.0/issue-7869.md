@@ -61,8 +61,12 @@ Refactor the Memory Core MCP server entry point to use a dedicated `Neo.core.Bas
 *   Uses `server.ready()` to bridge the gap between synchronous instantiation and asynchronous initialization errors.
 
 
-## Comments
+## Timeline
 
+- 2025-11-23 @tobiu assigned to @tobiu
+- 2025-11-23 @tobiu added the `enhancement` label
+- 2025-11-23 @tobiu added the `ai` label
+- 2025-11-23 @tobiu referenced in commit `3f89302` - "Refactor Memory Core MCP Server to use Neo.core.Base class architecture #7869"
 ### @tobiu - 2025-11-23 10:14
 
 **Input from Gemini:**
@@ -77,11 +81,5 @@ Refactor the Memory Core MCP server entry point to use a dedicated `Neo.core.Bas
 > 4.  **Simplified Configs:** `debug` and `configFile` were removed from `static config` and treated as class fields or handled directly by the runner to reduce overhead and redundancy. `aiConfig` is updated directly by the runner before the server starts.
 > 5.  **Import Order:** Strictly enforced import order in `mcp-stdio.mjs` (`Neo` -> `core` -> `InstanceManager` -> `Server`) to ensure the framework namespace is fully populated before the server class is evaluated.
 
-## Activity Log
-
-- 2025-11-23 @tobiu assigned to @tobiu
-- 2025-11-23 @tobiu added the `enhancement` label
-- 2025-11-23 @tobiu added the `ai` label
-- 2025-11-23 @tobiu referenced in commit `3f89302` - "Refactor Memory Core MCP Server to use Neo.core.Base class architecture #7869"
 - 2025-11-23 @tobiu closed this issue
 

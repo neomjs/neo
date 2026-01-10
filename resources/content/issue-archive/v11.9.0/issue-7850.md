@@ -32,7 +32,7 @@ Create a new guide `learn/guides/mcp/KnowledgeBase.md` detailed the operation of
 *   **Content Sources:** Detail what is indexed (Source code, Guides, Ticket History, Release Notes).
 *   **Update `learn/tree.json`:** Add this new node to the navigation tree.
 
-## Activity Log
+## Timeline
 
 - 2025-11-22 @tobiu added the `documentation` label
 - 2025-11-22 @tobiu added the `enhancement` label

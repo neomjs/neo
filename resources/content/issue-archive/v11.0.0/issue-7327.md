@@ -29,7 +29,7 @@ Add a clear note to AGENTS.md, specifically in the "Read the Codebase Structure"
 - The statement is located in the section describing the reading of `class-hierarchy.yaml`.
 - The wording is concise and unambiguous.
 
-## Activity Log
+## Timeline
 
 - 2025-10-02 @tobiu assigned to @tobiu
 - 2025-10-02 @tobiu added the `enhancement` label

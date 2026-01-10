@@ -58,7 +58,7 @@ By creating a shared `Abstract` base class, we achieve:
 -   Duplicated code has been removed from both child base classes.
 -   All existing component-related tests continue to pass, verifying that the refactoring did not introduce regressions.
 
-## Activity Log
+## Timeline
 
 - 2025-07-21 @tobiu assigned to @tobiu
 - 2025-07-21 @tobiu added the `enhancement` label

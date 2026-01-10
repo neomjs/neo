@@ -24,8 +24,13 @@ closedAt: '2026-01-04T16:31:57Z'
 
 Consolidate `start_database` and `stop_database` into a single `manage_database` tool with an `action` parameter ('start' | 'stop').
 
-## Comments
+## Timeline
 
+- 2026-01-04 @tobiu added the `ai` label
+- 2026-01-04 @tobiu added the `refactoring` label
+- 2026-01-04 @tobiu added parent issue #8315
+- 2026-01-04 @tobiu assigned to @tobiu
+- 2026-01-04 @tobiu referenced in commit `f7e4110` - "Refactor Memory Core MCP tools to use unified 'manage_database' command (#8316)"
 ### @tobiu - 2026-01-04 16:31
 
 **Input from Gemini:**
@@ -40,12 +45,5 @@ Consolidate `start_database` and `stop_database` into a single `manage_database`
 > **Next Steps:**
 > Proceed with the Knowledge Base tool optimization (#8317).
 
-## Activity Log
-
-- 2026-01-04 @tobiu added the `ai` label
-- 2026-01-04 @tobiu added the `refactoring` label
-- 2026-01-04 @tobiu added parent issue #8315
-- 2026-01-04 @tobiu assigned to @tobiu
-- 2026-01-04 @tobiu referenced in commit `f7e4110` - "Refactor Memory Core MCP tools to use unified 'manage_database' command (#8316)"
 - 2026-01-04 @tobiu closed this issue
 

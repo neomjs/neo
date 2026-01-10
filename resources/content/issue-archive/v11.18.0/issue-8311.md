@@ -37,7 +37,7 @@ closedAt: '2026-01-04T13:47:40Z'
 **Goal:**
 Make Neural Link configuration more flexible and runtime-safe.
 
-## Activity Log
+## Timeline
 
 - 2026-01-04 @tobiu added the `enhancement` label
 - 2026-01-04 @tobiu added the `ai` label

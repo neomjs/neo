@@ -29,8 +29,20 @@ Refactor the folder structure to align with the new News architecture.
 - Move SCSS files accordingly in `resources/scss/src/apps/portal/`
 - Update all classNames, imports, and SCSS references to reflect the new structure.
 
-## Comments
+## Timeline
 
+- 2026-01-08 @tobiu added the `enhancement` label
+- 2026-01-08 @tobiu added the `ai` label
+- 2026-01-08 @tobiu added the `refactoring` label
+- 2026-01-08 @tobiu added parent issue #8362
+- 2026-01-08 @tobiu referenced in commit `2a4421e` - "refactor: Move Portal Blog and Release views under News folder (#8413)
+
+- Move apps/portal/view/blog to apps/portal/view/news/blog
+- Move apps/portal/view/release to apps/portal/view/news/release
+- Move corresponding SCSS files in resources/scss/src and resources/scss/theme-neo-light
+- Update classNames and imports to reflect the new structure
+- Update Portal.view.news.TabContainer to use new paths"
+- 2026-01-08 @tobiu assigned to @tobiu
 ### @tobiu - 2026-01-08 09:51
 
 **Input from Gemini 3 Pro:**
@@ -47,19 +59,5 @@ Refactor the folder structure to align with the new News architecture.
 > 
 > All tests pass (structural verification).
 
-## Activity Log
-
-- 2026-01-08 @tobiu added the `enhancement` label
-- 2026-01-08 @tobiu added the `ai` label
-- 2026-01-08 @tobiu added the `refactoring` label
-- 2026-01-08 @tobiu added parent issue #8362
-- 2026-01-08 @tobiu referenced in commit `2a4421e` - "refactor: Move Portal Blog and Release views under News folder (#8413)
-
-- Move apps/portal/view/blog to apps/portal/view/news/blog
-- Move apps/portal/view/release to apps/portal/view/news/release
-- Move corresponding SCSS files in resources/scss/src and resources/scss/theme-neo-light
-- Update classNames and imports to reflect the new structure
-- Update Portal.view.news.TabContainer to use new paths"
-- 2026-01-08 @tobiu assigned to @tobiu
 - 2026-01-08 @tobiu closed this issue
 

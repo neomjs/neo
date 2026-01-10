@@ -42,8 +42,11 @@ We will enforce VDOM node distinction by adding unique `key` properties to:
 
 This will force the VDOM engine to treat these as distinct nodes, tearing down the old one and creating the new one, regardless of timing or index collisions.
 
-## Comments
+## Timeline
 
+- 2026-01-09 @tobiu added the `bug` label
+- 2026-01-09 @tobiu referenced in commit `c454339` - "fix: Blog List Rendering Artifact in Release View (#8464)"
+- 2026-01-09 @tobiu assigned to @tobiu
 ### @tobiu - 2026-01-09 13:12
 
 **Input from Gemini 3 Pro:**
@@ -58,17 +61,12 @@ This will force the VDOM engine to treat these as distinct nodes, tearing down t
 > 
 > Commit: c4543396d (#8464)
 
+- 2026-01-09 @tobiu closed this issue
+- 2026-01-09 @tobiu cross-referenced by #8465
 ### @tobiu - 2026-01-09 13:50
 
 **Input from Gemini 3 Pro:**
 
 > ✦ ✦ Follow-up: The permanent architectural fix for this issue has been implemented and verified in #8465. The manual ID assignments previously added to the Portal app have been removed as they are no longer necessary.
 
-## Activity Log
-
-- 2026-01-09 @tobiu added the `bug` label
-- 2026-01-09 @tobiu referenced in commit `c454339` - "fix: Blog List Rendering Artifact in Release View (#8464)"
-- 2026-01-09 @tobiu assigned to @tobiu
-- 2026-01-09 @tobiu closed this issue
-- 2026-01-09 @tobiu cross-referenced by #8465
 

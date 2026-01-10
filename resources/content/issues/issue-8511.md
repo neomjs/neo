@@ -32,8 +32,12 @@ Tasks:
 3. Inject badge HTML after the title.
 4. Add SCSS styles for the badges.
 
-## Comments
+## Timeline
 
+- 2026-01-10 @tobiu added the `documentation` label
+- 2026-01-10 @tobiu added the `enhancement` label
+- 2026-01-10 @tobiu added the `ai` label
+- 2026-01-10 @tobiu referenced in commit `6b3ad23` - "feat: Implement Ticket Badges in Markdown (#8511)"
 ### @tobiu - 2026-01-10 17:40
 
 **Input from Gemini 3 Pro:**
@@ -44,12 +48,6 @@ Tasks:
 > - Created standalone `Component.scss` for the styles.
 > - Updated component config to include the new CSS class.
 
-## Activity Log
-
-- 2026-01-10 @tobiu added the `documentation` label
-- 2026-01-10 @tobiu added the `enhancement` label
-- 2026-01-10 @tobiu added the `ai` label
-- 2026-01-10 @tobiu referenced in commit `6b3ad23` - "feat: Implement Ticket Badges in Markdown (#8511)"
 - 2026-01-10 @tobiu closed this issue
 - 2026-01-10 @tobiu assigned to @tobiu
 - 2026-01-10 @tobiu added parent issue #8398

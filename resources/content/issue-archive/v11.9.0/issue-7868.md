@@ -44,7 +44,7 @@ The following tools in `ai/mcp/server/memory-core/services/toolService.mjs` lack
 **Task:**
 Wrap the logic of the listed methods in `try-catch` blocks and return the standardized error object on failure.
 
-## Activity Log
+## Timeline
 
 - 2025-11-22 @tobiu added the `enhancement` label
 - 2025-11-22 @tobiu added the `ai` label

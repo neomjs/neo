@@ -109,7 +109,7 @@ export default Neo.gatekeep(IdGenerator, 'Neo.core.IdGenerator', () => {
     *   src/core/IdGenerator.mjs
     *   src/vdom/VNode.mjs
 
-## Activity Log
+## Timeline
 
 - 2025-07-18 @tobiu assigned to @tobiu
 - 2025-07-18 @tobiu added the `enhancement` label

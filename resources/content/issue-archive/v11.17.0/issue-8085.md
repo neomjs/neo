@@ -45,7 +45,7 @@ The JSDoc for `add` and `insert` in `Neo.data.Store` needs to be significantly e
 *   The return type variations (`Number` vs `Array`).
 
 
-## Activity Log
+## Timeline
 
 - 2025-12-11 @tobiu added the `documentation` label
 - 2025-12-11 @tobiu added the `developer-experience` label

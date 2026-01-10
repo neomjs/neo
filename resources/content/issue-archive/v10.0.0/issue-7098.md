@@ -24,8 +24,12 @@ closedAt: '2025-07-22T19:30:40Z'
 * Keep it DRY.
 * Make the intent more clear: showcasing that we want to aggregate `vdom` & `vnode` trees in the same way.
 
-## Comments
+## Timeline
 
+- 2025-07-22 @tobiu assigned to @tobiu
+- 2025-07-22 @tobiu added the `enhancement` label
+- 2025-07-22 @tobiu referenced in commit `8d36325` - "util.vdom.TreeBuilder: #buildTree() #7098"
+- 2025-07-22 @tobiu closed this issue
 ### @tobiu - 2025-07-22 19:30
 
 we are facing an edge case, only inside the unit testing realm.
@@ -34,12 +38,7 @@ the combined logic contained the `if (!Neo.isObject(node) {return node}` check a
 
 inside the unit testing scope, we import `vdom.Helper` into main threads, so `vnodes` are no longer objects, and the new method opted out right away.
 
-## Activity Log
-
-- 2025-07-22 @tobiu assigned to @tobiu
-- 2025-07-22 @tobiu added the `enhancement` label
-- 2025-07-22 @tobiu referenced in commit `8d36325` - "util.vdom.TreeBuilder: #buildTree() #7098"
-- 2025-07-22 @tobiu closed this issue
+- 2025-07-22 @tobiu reopened this issue
 - 2025-07-22 @tobiu referenced in commit `112400c` - "util.vdom.TreeBuilder: #buildTree() #7098"
 - 2025-07-22 @tobiu closed this issue
 

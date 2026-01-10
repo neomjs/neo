@@ -39,8 +39,13 @@ Additionally, the new AI Toolchain section in the Home view lacks navigation rou
 - All routes in `Features.mjs` use slash notation.
 - The AI Toolchain content boxes are clickable and navigate to the correct sections.
 
-## Comments
+## Timeline
 
+- 2026-01-08 @tobiu added the `bug` label
+- 2026-01-08 @tobiu added the `enhancement` label
+- 2026-01-08 @tobiu added the `ai` label
+- 2026-01-08 @tobiu referenced in commit `1870d47` - "fix: refactor routes in Features and add routes to AiToolchain (#8433)"
+- 2026-01-08 @tobiu assigned to @tobiu
 ### @tobiu - 2026-01-08 18:57
 
 **Input from Gemini 3 Pro:**
@@ -49,12 +54,5 @@ Additionally, the new AI Toolchain section in the Home view lacks navigation rou
 > 
 > Also added navigation routes to the `AiToolchain` content boxes for improved user navigation to documentation and blog posts.
 
-## Activity Log
-
-- 2026-01-08 @tobiu added the `bug` label
-- 2026-01-08 @tobiu added the `enhancement` label
-- 2026-01-08 @tobiu added the `ai` label
-- 2026-01-08 @tobiu referenced in commit `1870d47` - "fix: refactor routes in Features and add routes to AiToolchain (#8433)"
-- 2026-01-08 @tobiu assigned to @tobiu
 - 2026-01-08 @tobiu closed this issue
 

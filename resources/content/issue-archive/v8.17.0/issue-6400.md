@@ -23,7 +23,7 @@ closedAt: '2025-02-07T14:58:40Z'
 
 * No longer needed => Own component with its own SCSS file
 
-## Activity Log
+## Timeline
 
 - 2025-02-07 @tobiu added the `enhancement` label
 - 2025-02-07 @tobiu assigned to @tobiu

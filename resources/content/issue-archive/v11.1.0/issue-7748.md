@@ -59,7 +59,7 @@ These bugs prevent SEO files from being correctly deployed to application `dist`
 -   SEO files are copied for `development`, `production`, and `esm` environments as appropriate based on the `--env` parameter.
 -   No "Target directory does not exist" warnings related to SEO file copying are observed for valid application `dist` paths.
 
-## Activity Log
+## Timeline
 
 - 2025-11-11 @tobiu assigned to @tobiu
 - 2025-11-11 @tobiu added the `bug` label

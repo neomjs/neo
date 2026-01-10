@@ -29,17 +29,15 @@ Tasks:
 2. Refactor `ai/mcp/server/neural-link/mcp-stdio.mjs` to use `commander` for CLI args and proper error handling.
 3. Update `ai/mcp/server/neural-link/Server.mjs` to respect the configuration.
 
-## Comments
-
-### @tobiu - 2025-12-03 13:47
-
-resolved via #8007
-
-## Activity Log
+## Timeline
 
 - 2025-12-03 @tobiu added the `ai` label
 - 2025-12-03 @tobiu added the `refactoring` label
 - 2025-12-03 @tobiu assigned to @tobiu
+### @tobiu - 2025-12-03 13:47
+
+resolved via #8007
+
 - 2025-12-03 @tobiu closed this issue
 - 2025-12-03 @tobiu added parent issue #7960
 

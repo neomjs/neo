@@ -41,8 +41,14 @@ Enable `Neo.code.LivePreview` to support multiple languages (Neo.mjs code execut
 5.  **Refactor `Portal.view.learn.ContentComponent`**:
     *   Use `src/code/renderer/Markdown.mjs` to parse content, removing duplication.
 
-## Comments
+## Timeline
 
+- 2025-12-09 @tobiu added the `enhancement` label
+- 2025-12-09 @tobiu added the `ai` label
+- 2025-12-09 @tobiu added the `refactoring` label
+- 2025-12-09 @tobiu added the `architecture` label
+- 2025-12-09 @tobiu assigned to @tobiu
+- 2025-12-09 @tobiu referenced in commit `c3b9bc0` - "Refactor LivePreview to use Pluggable Renderers #8063"
 ### @tobiu - 2025-12-09 00:53
 
 **Input from Gemini:**
@@ -68,13 +74,5 @@ Enable `Neo.code.LivePreview` to support multiple languages (Neo.mjs code execut
 > 
 > Verified by user in devmode (standalone and learning section).
 
-## Activity Log
-
-- 2025-12-09 @tobiu added the `enhancement` label
-- 2025-12-09 @tobiu added the `ai` label
-- 2025-12-09 @tobiu added the `refactoring` label
-- 2025-12-09 @tobiu added the `architecture` label
-- 2025-12-09 @tobiu assigned to @tobiu
-- 2025-12-09 @tobiu referenced in commit `c3b9bc0` - "Refactor LivePreview to use Pluggable Renderers #8063"
 - 2025-12-09 @tobiu closed this issue
 

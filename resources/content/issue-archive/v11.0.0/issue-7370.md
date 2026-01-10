@@ -34,17 +34,7 @@ To allow the agent to review code from external pull requests, it needs a way to
 3.  The workflow should include safety checks, such as reminding the agent to ensure its current work is committed or stashed before checking out a new branch.
 4.  The agent should be instructed to use this command as the first step when asked to "review PR #123".
 
-## Comments
-
-### @SarthakJain29 - 2025-10-05 17:19
-
-Hi again! would love to work on this.
-
-### @tobiu - 2025-10-05 17:53
-
-assigned. ai native workflow strongly recommended for this one.
-
-## Activity Log
+## Timeline
 
 - 2025-10-05 @tobiu added the `enhancement` label
 - 2025-10-05 @tobiu added the `help wanted` label
@@ -53,7 +43,15 @@ assigned. ai native workflow strongly recommended for this one.
 - 2025-10-05 @tobiu added the `ai` label
 - 2025-10-05 @tobiu added parent issue #7364
 - 2025-10-05 @tobiu cross-referenced by #7371
+### @SarthakJain29 - 2025-10-05 17:19
+
+Hi again! would love to work on this.
+
 - 2025-10-05 @tobiu assigned to @SarthakJain29
+### @tobiu - 2025-10-05 17:53
+
+assigned. ai native workflow strongly recommended for this one.
+
 - 2025-10-06 @SarthakJain29 cross-referenced by PR #7392
 - 2025-10-06 @SarthakJain29 cross-referenced by #7393
 - 2025-10-06 @tobiu closed this issue

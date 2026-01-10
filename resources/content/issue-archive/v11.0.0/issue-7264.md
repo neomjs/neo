@@ -55,13 +55,7 @@ This will shift the agent's role from purely reactive execution to proactive par
     *   Instruct the agent on how to triage new, large-scale ideas against the `ROADMAP.md`.
     *   Define the process for adding new items to the roadmap's backlog and gating the creation of new epics until they are properly documented and prioritized within the roadmap.
 
-## Comments
-
-### @tobiu - 2025-10-24 10:03
-
-resolved.
-
-## Activity Log
+## Timeline
 
 - 2025-09-27 @tobiu assigned to @tobiu
 - 2025-09-27 @tobiu added the `enhancement` label
@@ -74,5 +68,9 @@ resolved.
 - 2025-10-09 @tobiu removed sub-issue #7265
 - 2025-10-09 @tobiu added sub-issue #7431
 - 2025-10-09 @tobiu added sub-issue #7432
+### @tobiu - 2025-10-24 10:03
+
+resolved.
+
 - 2025-10-24 @tobiu closed this issue
 

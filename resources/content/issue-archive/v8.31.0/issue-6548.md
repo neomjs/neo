@@ -22,7 +22,7 @@ closedAt: '2025-03-09T18:01:10Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
 - 2025-03-08 @tobiu added the `enhancement` label
 - 2025-03-08 @tobiu referenced in commit `8fa4d9d` - "#6548 examples.grid.animatedRowSorting: first setup"

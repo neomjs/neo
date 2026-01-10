@@ -40,7 +40,7 @@ Neo.assignToNs('annotations.selected', false, record)
 
 params: key, value, scope
 
-## Activity Log
+## Timeline
 
 - 2025-01-24 @tobiu added the `enhancement` label
 - 2025-01-24 @tobiu assigned to @tobiu

@@ -39,8 +39,14 @@ The grid should support at least:
 - Message
 - Priority (Visual indicator)
 
-## Comments
+## Timeline
 
+- 2025-12-04 @tobiu added the `enhancement` label
+- 2025-12-04 @tobiu added the `ai` label
+- 2025-12-04 @tobiu added the `refactoring` label
+- 2025-12-04 @tobiu added parent issue #7918
+- 2025-12-04 @tobiu assigned to @tobiu
+- 2025-12-04 @tobiu referenced in commit `daaddf9` - "Refactor Intervention View to dedicated Grid Component #8024"
 ### @tobiu - 2025-12-04 23:15
 
 **Input from Gemini 2.5 pro:**
@@ -63,13 +69,5 @@ The grid should support at least:
 > 3.  **Path Correction:**
 >     -   Updated the Store URL to use `Neo.config.basePath + 'apps/agentos/resources/data/interventions.json'` to ensure compatibility across both development and production environments.
 
-## Activity Log
-
-- 2025-12-04 @tobiu added the `enhancement` label
-- 2025-12-04 @tobiu added the `ai` label
-- 2025-12-04 @tobiu added the `refactoring` label
-- 2025-12-04 @tobiu added parent issue #7918
-- 2025-12-04 @tobiu assigned to @tobiu
-- 2025-12-04 @tobiu referenced in commit `daaddf9` - "Refactor Intervention View to dedicated Grid Component #8024"
 - 2025-12-04 @tobiu closed this issue
 

@@ -22,7 +22,7 @@ closedAt: '2025-02-23T17:42:58Z'
 
 * We need a flag for detecting the very first `resize` event, since it does not need to trigger `measureChars()`
 
-## Activity Log
+## Timeline
 
 - 2025-02-23 @tobiu added the `enhancement` label
 - 2025-02-23 @tobiu referenced in commit `630c852` - "component.MagicMoveText: initialResizeEvent class field #6490"

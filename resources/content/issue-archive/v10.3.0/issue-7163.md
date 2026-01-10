@@ -64,7 +64,7 @@ trade-offs and showcasing the power of the build-time AST transformation.
 - The learn/tree.json file is updated to include a link to the new guide.
 - The documentation now clearly separates the "how-to" from the "how-it-works" for the HTML templates feature.
 
-## Activity Log
+## Timeline
 
 - 2025-08-02 @tobiu assigned to @tobiu
 - 2025-08-02 @tobiu added the `enhancement` label

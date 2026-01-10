@@ -23,7 +23,7 @@ closedAt: '2025-01-31T12:44:32Z'
 
 No longer needed, since the concept of using a dedicated scroller cmp is deprecated already
 
-## Activity Log
+## Timeline
 
 - 2025-01-31 @tobiu added the `enhancement` label
 - 2025-01-31 @tobiu assigned to @tobiu

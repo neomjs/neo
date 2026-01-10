@@ -32,7 +32,7 @@ The component uses a `measureCache` to store character geometries for performanc
 2.  The fix should be verified on the `neomjs.com` portal's home page.
 3.  The "jumping" effect should be completely eliminated, resulting in a smooth transition when content changes.
 
-## Activity Log
+## Timeline
 
 - 2025-09-30 @tobiu assigned to @tobiu
 - 2025-09-30 @tobiu added the `bug` label

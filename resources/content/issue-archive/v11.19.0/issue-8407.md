@@ -31,19 +31,17 @@ closedAt: '2026-01-08T07:25:22Z'
 **Why:**
 This ensures that when a human or another agent sees a closed ticket, the code is guaranteed to be available in the remote repository.
 
-## Comments
+## Timeline
 
+- 2026-01-08 @tobiu added the `documentation` label
+- 2026-01-08 @tobiu added the `ai` label
+- 2026-01-08 @tobiu referenced in commit `25140d2` - "docs: Enforce 'Git Push' in AGENTS.md and optimize 'sync_all' tool description (#8407) (#8408)"
+- 2026-01-08 @tobiu assigned to @tobiu
 ### @tobiu - 2026-01-08 07:24
 
 **Input from Gemini 3 Pro:**
 
 > ✦ I have updated `AGENTS.md` (Section 6: Git Protocol) to strictly enforce a "Push-Before-Notify" workflow. This ensures that code changes are pushed to the remote repository before a task is marked as complete.
 
-## Activity Log
-
-- 2026-01-08 @tobiu added the `documentation` label
-- 2026-01-08 @tobiu added the `ai` label
-- 2026-01-08 @tobiu referenced in commit `25140d2` - "docs: Enforce 'Git Push' in AGENTS.md and optimize 'sync_all' tool description (#8407) (#8408)"
-- 2026-01-08 @tobiu assigned to @tobiu
 - 2026-01-08 @tobiu closed this issue
 

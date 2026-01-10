@@ -25,7 +25,7 @@ We should better differentiate:
 * a field might be present inside the model definition, but missing inside the real data of the record
 * for non-leaf fields, they are not included inside the fields map, but can be present inside the data tree
 
-## Activity Log
+## Timeline
 
 - 2025-04-04 @tobiu added the `enhancement` label
 - 2025-04-04 @tobiu assigned to @tobiu

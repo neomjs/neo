@@ -22,7 +22,7 @@ closedAt: '2025-06-01T09:11:42Z'
 
 * Required for copying to a non-existent nested target folder
 
-## Activity Log
+## Timeline
 
 - 2025-06-01 @tobiu added the `enhancement` label
 - 2025-06-01 @tobiu referenced in commit `be5f196` - "buildScripts/copyFolder: recursive target folder creation #6731"

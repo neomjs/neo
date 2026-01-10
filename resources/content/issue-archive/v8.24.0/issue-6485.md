@@ -23,7 +23,7 @@ closedAt: '2025-02-22T17:17:51Z'
 
 start / stop the magic move text auto cycling dependent on the intersection state
 
-## Activity Log
+## Timeline
 
 - 2025-02-22 @tobiu added the `enhancement` label
 - 2025-02-22 @tobiu assigned to @tobiu

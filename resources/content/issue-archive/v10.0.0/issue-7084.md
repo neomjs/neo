@@ -128,7 +128,7 @@ export default defineComponent({
 });
 ```
 
-## Activity Log
+## Timeline
 
 - 2025-07-19 @tobiu assigned to @tobiu
 - 2025-07-19 @tobiu added the `enhancement` label

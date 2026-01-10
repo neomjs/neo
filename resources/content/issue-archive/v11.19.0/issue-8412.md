@@ -25,19 +25,17 @@ closedAt: '2026-01-08T09:30:17Z'
 Split the "Git Protocol" section in `AGENTS.md` to create a dedicated "Ticket Closure Protocol".
 This emphasizes the "Definition of Done" steps (Push, Assign, Comment) as a distinct workflow gate, preventing omissions of the assignment step.
 
-## Comments
+## Timeline
 
+- 2026-01-08 @tobiu added the `documentation` label
+- 2026-01-08 @tobiu added the `ai` label
+- 2026-01-08 @tobiu referenced in commit `ade82f5` - "docs: Define explicit Ticket Closure Protocol in AGENTS.md (#8412)"
+- 2026-01-08 @tobiu assigned to @tobiu
 ### @tobiu - 2026-01-08 09:30
 
 **Input from Gemini 3 Pro:**
 
 > ✦ Refactored `AGENTS.md` to split the "Git Protocol" into a distinct "Ticket Closure Protocol". This makes the "Definition of Done" (Push, Assign, Comment, Close) explicit and mandatory.
 
-## Activity Log
-
-- 2026-01-08 @tobiu added the `documentation` label
-- 2026-01-08 @tobiu added the `ai` label
-- 2026-01-08 @tobiu referenced in commit `ade82f5` - "docs: Define explicit Ticket Closure Protocol in AGENTS.md (#8412)"
-- 2026-01-08 @tobiu assigned to @tobiu
 - 2026-01-08 @tobiu closed this issue
 

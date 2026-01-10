@@ -23,7 +23,7 @@ closedAt: '2025-03-13T23:44:02Z'
 
 * using LLMs to enhance the content
 
-## Activity Log
+## Timeline
 
 - 2025-03-13 @tobiu added the `enhancement` label
 - 2025-03-13 @tobiu assigned to @tobiu

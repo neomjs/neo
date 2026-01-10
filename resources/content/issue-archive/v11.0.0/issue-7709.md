@@ -59,7 +59,7 @@ await page.evaluate(async ({buttonId, toolbarId}) => {
 });
 ```
 
-## Activity Log
+## Timeline
 
 - 2025-11-06 @tobiu added the `bug` label
 - 2025-11-06 @tobiu added the `ai` label

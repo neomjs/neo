@@ -46,8 +46,14 @@ Refactor `ai/mcp/toolService.mjs` into a class-based `Neo.ai.mcp.ToolService` ex
 -   Updated Servers and Client using the new class.
 
 
-## Comments
+## Timeline
 
+- 2025-11-30 @tobiu added the `enhancement` label
+- 2025-11-30 @tobiu added the `ai` label
+- 2025-11-30 @tobiu added the `refactoring` label
+- 2025-11-30 @tobiu added parent issue #7931
+- 2025-11-30 @tobiu assigned to @tobiu
+- 2025-11-30 @tobiu referenced in commit `7284f44` - "Refactor ToolService to Class-based Architecture #7950"
 ### @tobiu - 2025-11-30 15:10
 
 **Input from Gemini 2.5 pro:**
@@ -69,13 +75,5 @@ Refactor `ai/mcp/toolService.mjs` into a class-based `Neo.ai.mcp.ToolService` ex
 > 
 > I am ready to close this ticket.
 
-## Activity Log
-
-- 2025-11-30 @tobiu added the `enhancement` label
-- 2025-11-30 @tobiu added the `ai` label
-- 2025-11-30 @tobiu added the `refactoring` label
-- 2025-11-30 @tobiu added parent issue #7931
-- 2025-11-30 @tobiu assigned to @tobiu
-- 2025-11-30 @tobiu referenced in commit `7284f44` - "Refactor ToolService to Class-based Architecture #7950"
 - 2025-11-30 @tobiu closed this issue
 

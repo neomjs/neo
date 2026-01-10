@@ -48,7 +48,7 @@ This ticket covers updating the configuration file and refactoring the `SyncServ
 -   **Increased Flexibility:** The local file structure can be easily reconfigured for different projects or testing scenarios.
 -   **Cleaner Code:** Removes hardcoded values from the service, making the logic itself clearer.
 
-## Activity Log
+## Timeline
 
 - 2025-10-20 @tobiu assigned to @tobiu
 - 2025-10-20 @tobiu added parent issue #7564

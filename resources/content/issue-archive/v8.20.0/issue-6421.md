@@ -23,18 +23,17 @@ closedAt: '2025-02-09T18:43:03Z'
 
 * Experimental
 
-## Comments
-
-### @tobiu - 2025-02-09 18:42
-
-While looking at the result: we need to invert the delta :)
-
-## Activity Log
+## Timeline
 
 - 2025-02-09 @tobiu added the `enhancement` label
 - 2025-02-09 @tobiu assigned to @tobiu
 - 2025-02-09 @tobiu referenced in commit `651e15d` - "grid.Container: onScroll() => use touches for Y #6421"
 - 2025-02-09 @tobiu closed this issue
+### @tobiu - 2025-02-09 18:42
+
+While looking at the result: we need to invert the delta :)
+
+- 2025-02-09 @tobiu reopened this issue
 - 2025-02-09 @tobiu referenced in commit `d791c1d` - "#6421 grid.Container: onScroll() => inverting deltaY"
 - 2025-02-09 @tobiu closed this issue
 

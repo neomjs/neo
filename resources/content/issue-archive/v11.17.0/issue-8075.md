@@ -30,7 +30,7 @@ Use `await me.set({html: me.insertLabDivs(html)})` which returns `me.promiseUpda
 Add a small buffer `await me.timeout(10)` to ensure rendering in the next frame.
 
 
-## Activity Log
+## Timeline
 
 - 2025-12-09 @tobiu added the `enhancement` label
 - 2025-12-09 @tobiu added the `ai` label

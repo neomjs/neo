@@ -27,7 +27,7 @@ The 'Priority' column in the `InterventionPanel` grid is currently set to `width
 
 This task involves updating `apps/agentos/view/InterventionPanel.mjs` to increase the width of the 'Priority' column (e.g., to 100px) to improve readability and visual balance.
 
-## Activity Log
+## Timeline
 
 - 2025-12-13 @tobiu added the `enhancement` label
 - 2025-12-13 @tobiu added the `design` label

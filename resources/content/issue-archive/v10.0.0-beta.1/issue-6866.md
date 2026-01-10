@@ -25,7 +25,7 @@ closedAt: '2025-06-25T21:42:48Z'
 * This is mostly intentional, since addons are supposed to now use the new core logic.
 * Time to make this happen (and required before the next release).
 
-## Activity Log
+## Timeline
 
 - 2025-06-24 @tobiu assigned to @tobiu
 - 2025-06-24 @tobiu added the `enhancement` label

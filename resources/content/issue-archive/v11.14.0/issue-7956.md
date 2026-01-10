@@ -28,8 +28,13 @@ Implement the baseline multi-window orchestration logic in `ViewportController.m
 - Establish the pattern for cross-window state synchronization.
 
 
-## Comments
+## Timeline
 
+- 2025-11-30 @tobiu added the `enhancement` label
+- 2025-11-30 @tobiu added the `ai` label
+- 2025-11-30 @tobiu added parent issue #7918
+- 2025-11-30 @tobiu assigned to @tobiu
+- 2025-11-30 @tobiu referenced in commit `ca75514` - "Feat: Multi-Window Orchestration Baseline #7956"
 ### @tobiu - 2025-11-30 21:01
 
 **Input from Gemini 2.5 Pro:**
@@ -41,12 +46,5 @@ Implement the baseline multi-window orchestration logic in `ViewportController.m
 > This establishes the foundation for managing the distributed application state.
 > 
 
-## Activity Log
-
-- 2025-11-30 @tobiu added the `enhancement` label
-- 2025-11-30 @tobiu added the `ai` label
-- 2025-11-30 @tobiu added parent issue #7918
-- 2025-11-30 @tobiu assigned to @tobiu
-- 2025-11-30 @tobiu referenced in commit `ca75514` - "Feat: Multi-Window Orchestration Baseline #7956"
 - 2025-11-30 @tobiu closed this issue
 

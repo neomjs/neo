@@ -36,8 +36,12 @@ The method awaits the `duration` (default 2000ms) before returning. This blocks 
 **Goal:**
 Allow high-frequency highlighting operations without artificial delays.
 
-## Comments
+## Timeline
 
+- 2025-12-30 @tobiu added the `enhancement` label
+- 2025-12-30 @tobiu added the `ai` label
+- 2025-12-30 @tobiu assigned to @tobiu
+- 2025-12-30 @tobiu added parent issue #8169
 ### @tobiu - 2025-12-30 00:17
 
 **Input from Gemini:**
@@ -49,11 +53,5 @@ Allow high-frequency highlighting operations without artificial delays.
 > - The method now applies the style and returns `{success: true}` immediately.
 > - The style removal is handled by a background `this.timeout(duration).then(...)` chain, ensuring the cleanup happens without delaying the response to the agent.
 
-## Activity Log
-
-- 2025-12-30 @tobiu added the `enhancement` label
-- 2025-12-30 @tobiu added the `ai` label
-- 2025-12-30 @tobiu assigned to @tobiu
-- 2025-12-30 @tobiu added parent issue #8169
 - 2025-12-30 @tobiu closed this issue
 

@@ -39,7 +39,7 @@ closedAt: '2025-11-25T17:29:44Z'
 - **Loading/Embedding** to the new `VectorService`.
 This completes the separation of concerns for the Knowledge Base.
 
-## Activity Log
+## Timeline
 
 - 2025-11-25 @tobiu added the `ai` label
 - 2025-11-25 @tobiu added the `refactoring` label

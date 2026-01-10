@@ -32,7 +32,7 @@ Currently, `dbService.mjs` creates its own ChromaDB client, which is redundant w
 4.  The `exportDatabase` function is enhanced to support exporting both `memories` and `summaries` collections.
 5.  The functionality of the import/export tools remains correct.
 
-## Activity Log
+## Timeline
 
 - 2025-10-17 @tobiu assigned to @tobiu
 - 2025-10-17 @tobiu added the `enhancement` label

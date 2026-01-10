@@ -25,7 +25,7 @@ closedAt: '2025-04-07T09:35:32Z'
 * `container.Base` needs to use `theme` as a default value inside `createItem()`
 * `calendar.view.MainContainer` needs to delegate the theme to `editCalendarContainer` & `editEventContainer`
 
-## Activity Log
+## Timeline
 
 - 2025-04-07 @tobiu added the `enhancement` label
 - 2025-04-07 @tobiu assigned to @tobiu

@@ -22,7 +22,7 @@ closedAt: '2025-03-07T11:04:45Z'
 
 30ms will trigger additional view update () calls while scrolling, 100ms resolves this.
 
-## Activity Log
+## Timeline
 
 - 2025-03-07 @tobiu added the `enhancement` label
 - 2025-03-07 @tobiu referenced in commit `8964304` - "grid.ScrollManager: onViewScroll() => increase the timeout #6543"

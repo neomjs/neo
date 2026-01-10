@@ -58,8 +58,13 @@ After making the changes, you can verify them by:
 2. Navigating to the portal app (`http://localhost:8080/apps/portal/`).
 3. Finding the "GitHub CLI Setup" guide in the "Guides" -> "AI" section of the side navigation and checking that your new content is there.
 
-## Comments
+## Timeline
 
+- 2025-10-08 @tobiu assigned to @tobiu
+- 2025-10-08 @tobiu added the `enhancement` label
+- 2025-10-08 @tobiu added the `good first issue` label
+- 2025-10-08 @tobiu added parent issue #7364
+- 2025-10-08 @tobiu added the `hacktoberfest` label
 ### @anmolsah - 2025-10-08 14:20
 
 hey @tobiu can i work on this issue.
@@ -77,19 +82,12 @@ In case there is no item of interest, you can use the new workflow mentioned ins
 
 Hey @tobiu could you please assign this ticket to me ?
 
+- 2025-10-09 @tobiu assigned to @Mahita07
+- 2025-10-09 @tobiu unassigned from @tobiu
+- 2025-10-09 @Mahita07 cross-referenced by PR #7427
 ### @tobiu - 2025-10-10 10:51
 
 closing the ticket as resolved.
 
-## Activity Log
-
-- 2025-10-08 @tobiu assigned to @tobiu
-- 2025-10-08 @tobiu added the `enhancement` label
-- 2025-10-08 @tobiu added the `good first issue` label
-- 2025-10-08 @tobiu added parent issue #7364
-- 2025-10-08 @tobiu added the `hacktoberfest` label
-- 2025-10-09 @tobiu assigned to @Mahita07
-- 2025-10-09 @tobiu unassigned from @tobiu
-- 2025-10-09 @Mahita07 cross-referenced by PR #7427
 - 2025-10-10 @tobiu closed this issue
 

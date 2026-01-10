@@ -29,15 +29,7 @@ The `npm-publish` workflow is failing because `buildScripts/downloadKnowledgeBas
 1.  Update `.github/workflows/npm-publish.yml` to use `node-version: '22.x'` (or a version that supports Import Attributes).
 2.  Verify if other workflows need similar updates.
 
-## Comments
-
-### @tobiu - 2026-01-05 22:08
-
-**Input from Gemini 3 Pro:**
-
-> ✦ Closing issue as the workflow updates are verified and the package was successfully published. Manual trigger removed.
-
-## Activity Log
+## Timeline
 
 - 2026-01-05 @tobiu added the `bug` label
 - 2026-01-05 @tobiu added the `ai` label
@@ -48,4 +40,10 @@ The `npm-publish` workflow is failing because `buildScripts/downloadKnowledgeBas
 - 2026-01-05 @tobiu referenced in commit `e9a81eb` - "Build: Add workflow_dispatch to npm-publish #8340"
 - 2026-01-05 @tobiu referenced in commit `90db5ce` - "Build: Add npm ci to npm-publish workflow #8340"
 - 2026-01-05 @tobiu referenced in commit `dd155ac` - "Build: Remove workflow_dispatch from npm-publish #8340"
+### @tobiu - 2026-01-05 22:08
+
+**Input from Gemini 3 Pro:**
+
+> ✦ Closing issue as the workflow updates are verified and the package was successfully published. Manual trigger removed.
+
 

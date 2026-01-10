@@ -44,7 +44,7 @@ This ticket covers the enhancement of the existing `logger.mjs` to provide a saf
 -   **Centralized Logging:** Provides a single, consistent, and safe way to handle logging across all services.
 -   **Improved Diagnostics:** Prefixes logs with `[INFO]`, `[WARN]`, etc., making `stderr` output easier to read and filter.
 
-## Activity Log
+## Timeline
 
 - 2025-10-20 @tobiu assigned to @tobiu
 - 2025-10-20 @tobiu added the `enhancement` label

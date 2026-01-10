@@ -24,7 +24,7 @@ closedAt: '2025-11-08T09:32:09Z'
 
 The `AGENTS_STARTUP.md` guide incorrectly implies that the agent needs to manually trigger session summarization. This was corrected to clarify that the Memory Core server handles this automatically on startup. The agent's only responsibility is to save its own initialization turn. This change ensures the guide is accurate and prevents confusion.
 
-## Activity Log
+## Timeline
 
 - 2025-11-08 @tobiu added the `documentation` label
 - 2025-11-08 @tobiu added the `ai` label

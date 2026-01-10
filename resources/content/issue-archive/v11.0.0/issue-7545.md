@@ -34,7 +34,7 @@ This ticket covers refactoring `ai/mcp/server/memory-core/services/summaryServic
 6.  Any other services that depend on `summaryService` are updated to use the new `SummaryService` singleton instance.
 7.  All related tools (e.g., `delete_all_summaries`, `get_all_summaries`, `query_summaries`) continue to function correctly after the refactoring.
 
-## Activity Log
+## Timeline
 
 - 2025-10-18 @tobiu assigned to @tobiu
 - 2025-10-18 @tobiu added parent issue #7536

@@ -24,7 +24,7 @@ closedAt: '2025-02-10T21:57:14Z'
 * it can happen that deltas arrive when nodes already got removed
 * also remove the testing log for updates
 
-## Activity Log
+## Timeline
 
 - 2025-02-10 @tobiu added the `enhancement` label
 - 2025-02-10 @tobiu assigned to @tobiu

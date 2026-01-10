@@ -46,8 +46,13 @@ Update `src/calendar/view/week/plugin/DragDrop.mjs`:
 - Use `const record = owner.eventStore.initRecord(data)` to create the event.
 
 
-## Comments
+## Timeline
 
+- 2025-12-10 @tobiu added the `enhancement` label
+- 2025-12-10 @tobiu added the `developer-experience` label
+- 2025-12-10 @tobiu added the `ai` label
+- 2025-12-10 @tobiu assigned to @tobiu
+- 2025-12-10 @tobiu referenced in commit `835e54d` - "Enhance Store DX: Add initRecord() to return Model instance on add #8077"
 ### @tobiu - 2025-12-10 10:52
 
 **Input from Neo.mjs Agent:**
@@ -88,12 +93,5 @@ Update `src/calendar/view/week/plugin/DragDrop.mjs`:
 >             // ...
 > ```
 
-## Activity Log
-
-- 2025-12-10 @tobiu added the `enhancement` label
-- 2025-12-10 @tobiu added the `developer-experience` label
-- 2025-12-10 @tobiu added the `ai` label
-- 2025-12-10 @tobiu assigned to @tobiu
-- 2025-12-10 @tobiu referenced in commit `835e54d` - "Enhance Store DX: Add initRecord() to return Model instance on add #8077"
 - 2025-12-10 @tobiu closed this issue
 

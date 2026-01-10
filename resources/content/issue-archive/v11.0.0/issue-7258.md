@@ -42,18 +42,17 @@ The conversion of the `VdomHelper` test is complete. After a thorough review, al
 
 All 14 unit tests in the Playwright suite are now passing.
 
-## Comments
-
-### @tobiu - 2025-09-26 13:42
-
-reopening, since some tests were not migrated properly.
-
-## Activity Log
+## Timeline
 
 - 2025-09-26 @tobiu assigned to @tobiu
 - 2025-09-26 @tobiu added the `enhancement` label
 - 2025-09-26 @tobiu referenced in commit `6b0aa06` - "Refactor Playwright Setup and Convert VdomHelper Test #7258"
 - 2025-09-26 @tobiu closed this issue
+### @tobiu - 2025-09-26 13:42
+
+reopening, since some tests were not migrated properly.
+
+- 2025-09-26 @tobiu reopened this issue
 - 2025-09-26 @tobiu referenced in commit `e527632` - "Refactor Playwright Setup and Convert VdomHelper Test #7258"
 - 2025-09-26 @tobiu closed this issue
 - 2025-09-27 @tobiu added parent issue #7262

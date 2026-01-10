@@ -34,7 +34,7 @@ This ticket covers refactoring `ai/mcp/server/memory-core/services/databaseLifec
 6.  Any services that depend on `databaseLifecycleService` are updated to use the new singleton instance.
 7.  The `neo-memory-core__healthcheck` tool and other related tools continue to function correctly after the refactoring.
 
-## Activity Log
+## Timeline
 
 - 2025-10-18 @tobiu assigned to @tobiu
 - 2025-10-18 @tobiu added the `enhancement` label

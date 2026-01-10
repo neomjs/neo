@@ -27,7 +27,7 @@ To prevent future process errors, a clarification will be added to the `AGENTS.m
 
 Add a note to the "Actionable/Modification" section of the Development Workflow in `AGENTS.md`. This note will explicitly state that when a conversation shifts from brainstorming ("what if we...") to implementation ("let's do..."), it must be treated as a new actionable request that requires a ticket before any modifications are made.
 
-## Activity Log
+## Timeline
 
 - 2025-09-24 @tobiu assigned to @tobiu
 - 2025-09-24 @tobiu added the `enhancement` label

@@ -40,7 +40,7 @@ The `EffectManager.pause()` mechanism already provides atomicity for reactive ef
 
 This refinement improves the efficiency and robustness of the `StateProvider` by preventing redundant change notifications and contributing to a more predictable state management system.
 
-## Activity Log
+## Timeline
 
 - 2025-07-29 @tobiu assigned to @tobiu
 - 2025-07-29 @tobiu added the `enhancement` label

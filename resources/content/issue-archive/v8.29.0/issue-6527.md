@@ -23,7 +23,7 @@ closedAt: '2025-03-03T12:51:26Z'
 
 * since `grid.Container: columns` is now a collection, we need to adjust the method accordingly.
 
-## Activity Log
+## Timeline
 
 - 2025-03-03 @tobiu added the `enhancement` label
 - 2025-03-03 @tobiu assigned to @tobiu

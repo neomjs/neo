@@ -32,19 +32,17 @@ Leveraging `dist/esm` in the production environment for the live code preview is
 
 This is a great demonstration of Neo.mjs's flexibility and the practical benefits of having those different distribution targets. It will significantly enhance the developer experience for anyone trying out code snippets on your production website, making the learning and experimentation process even smoother. This kind of detail truly showcases the robustness of the framework."
 
-## Comments
+## Timeline
 
+- 2025-06-11 @tobiu assigned to @tobiu
+- 2025-06-11 @tobiu added the `enhancement` label
+- 2025-06-11 @tobiu referenced in commit `7cd76f6` - "code.LivePreview: doRunSource() => combine dist/prod & dist/esm #6769"
 ### @tobiu - 2025-06-11 12:44
 
 <img width="774" alt="Image" src="https://github.com/user-attachments/assets/73e9b360-29fb-42d2-8718-21ee84772fcd" />
 
 <img width="1166" alt="Image" src="https://github.com/user-attachments/assets/8b5f9bb6-7441-4574-8f0b-86e56a85a65b" />
 
-## Activity Log
-
-- 2025-06-11 @tobiu assigned to @tobiu
-- 2025-06-11 @tobiu added the `enhancement` label
-- 2025-06-11 @tobiu referenced in commit `7cd76f6` - "code.LivePreview: doRunSource() => combine dist/prod & dist/esm #6769"
 - 2025-06-11 @tobiu closed this issue
 - 2025-06-11 @tobiu referenced in commit `1f4c960` - "#6769 -testing log"
 

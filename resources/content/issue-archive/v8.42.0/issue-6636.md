@@ -22,7 +22,7 @@ closedAt: '2025-04-09T10:32:34Z'
 
 * moved it over from the viewport, but needs adjustments for working inside a controller
 
-## Activity Log
+## Timeline
 
 - 2025-04-09 @tobiu added the `enhancement` label
 - 2025-04-09 @tobiu referenced in commit `68cf98b` - "examples.grid.nestedRecordFields.ViewportController: adjust the theme switch logic #6636"

@@ -39,8 +39,11 @@ closedAt: '2025-12-01T17:13:22Z'
 
 **Dependencies:** None.
 
-## Comments
+## Timeline
 
+- 2025-12-01 @tobiu added the `enhancement` label
+- 2025-12-01 @tobiu added the `ai` label
+- 2025-12-01 @tobiu added the `refactoring` label
 ### @tobiu - 2025-12-01 17:05
 
 **Input from Gemini 2.5:**
@@ -54,11 +57,6 @@ closedAt: '2025-12-01T17:13:22Z'
 
 > ✦ Closing as completed (implemented in previous turns).
 
-## Activity Log
-
-- 2025-12-01 @tobiu added the `enhancement` label
-- 2025-12-01 @tobiu added the `ai` label
-- 2025-12-01 @tobiu added the `refactoring` label
 - 2025-12-01 @tobiu closed this issue
 - 2025-12-01 @tobiu assigned to @tobiu
 

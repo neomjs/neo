@@ -23,16 +23,14 @@ closedAt: '2025-03-02T17:40:35Z'
 
 *(No description provided)*
 
-## Comments
-
-### @tobiu - 2025-03-02 17:40
-
-https://github.com/user-attachments/assets/047216e9-ed04-4d07-b4f3-bbb022d0e7aa
-
-## Activity Log
+## Timeline
 
 - 2025-03-02 @tobiu added the `enhancement` label
 - 2025-03-02 @tobiu assigned to @tobiu
 - 2025-03-02 @tobiu referenced in commit `1b0daf7` - "selection.grid.CellRowModel: adjust for buffered rendering #6519"
+### @tobiu - 2025-03-02 17:40
+
+https://github.com/user-attachments/assets/047216e9-ed04-4d07-b4f3-bbb022d0e7aa
+
 - 2025-03-02 @tobiu closed this issue
 

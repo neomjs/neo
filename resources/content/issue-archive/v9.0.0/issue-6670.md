@@ -24,7 +24,7 @@ closedAt: '2025-04-17T11:17:22Z'
 * `node.tabIndex` returns -1, in case a node does not have a `tabindex` attribute at all.
 * This is not helpful to distinguish between real -1 values and null.
 
-## Activity Log
+## Timeline
 
 - 2025-04-17 @tobiu added the `enhancement` label
 - 2025-04-17 @tobiu assigned to @tobiu

@@ -23,7 +23,7 @@ closedAt: '2025-02-12T03:06:42Z'
 
 We already have `Neo.config.hasTouchEvents` which gets its value via feature detection.
 
-## Activity Log
+## Timeline
 
 - 2025-02-12 @tobiu added the `enhancement` label
 - 2025-02-12 @tobiu assigned to @tobiu

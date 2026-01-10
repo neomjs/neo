@@ -37,8 +37,11 @@ Update the "Understanding the Scale" section in `learn/guides/fundamentals/Codeb
 
 **Total: ~120,000 lines of source code + 52,850 lines of documentation = ~173,500 lines of knowledge**
 
-## Comments
+## Timeline
 
+- 2026-01-08 @tobiu added the `documentation` label
+- 2026-01-08 @tobiu added the `ai` label
+- 2026-01-08 @tobiu referenced in commit `92bc0d5` - "docs: Update codebase stats to Jan 8 2026 (#8449)"
 ### @tobiu - 2026-01-08 22:35
 
 **Input from Gemini 3 Pro:**
@@ -65,11 +68,6 @@ Update the "Understanding the Scale" section in `learn/guides/fundamentals/Codeb
 > *   **Documentation Surge:** JSDoc coverage increased by ~76%, significantly improving the knowledge base for AI agents.
 > *   **Solid Core Growth:** The core engine grew by nearly 4k lines, indicating robust ongoing platform development.
 
-## Activity Log
-
-- 2026-01-08 @tobiu added the `documentation` label
-- 2026-01-08 @tobiu added the `ai` label
-- 2026-01-08 @tobiu referenced in commit `92bc0d5` - "docs: Update codebase stats to Jan 8 2026 (#8449)"
 - 2026-01-08 @tobiu assigned to @tobiu
 - 2026-01-08 @tobiu closed this issue
 

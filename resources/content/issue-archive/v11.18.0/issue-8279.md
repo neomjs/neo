@@ -34,7 +34,7 @@ To understand the global event landscape and identify potential hotspots (e.g., 
 2.  **Server-Side:** Define `get_dom_event_summary` tool in MCP.
 3.  **Schema:** Strict summary object response (total, byEvent map).
 
-## Activity Log
+## Timeline
 
 - 2026-01-01 @tobiu added the `enhancement` label
 - 2026-01-01 @tobiu added the `ai` label

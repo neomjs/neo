@@ -55,7 +55,7 @@ We implemented a 2-phase strategy that bridges the physical and logical worlds w
 *   Added comprehensive tests in `test/playwright/unit/manager/domEvent/Delegation.spec.mjs` covering all scenarios.
 
 
-## Activity Log
+## Timeline
 
 - 2025-12-08 @tobiu added the `enhancement` label
 - 2025-12-08 @tobiu added the `ai` label

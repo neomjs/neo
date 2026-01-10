@@ -31,8 +31,15 @@ To improve observability of the Neural Link Bridge, we should log the name of th
 **Example Log:**
 `[INFO] Bridge: App connected [uuid] (AgentOS)`
 
-## Comments
+## Timeline
 
+- 2025-12-30 @tobiu added the `enhancement` label
+- 2025-12-30 @tobiu added the `ai` label
+- 2025-12-30 @tobiu added parent issue #8169
+- 2025-12-30 @tobiu referenced in commit `d549d3a` - "feat(ai): Log App Name in Neural Link Bridge connections (#8213)
+
+- Client: Pass appName from config to Bridge query params
+- Bridge: Log appName on connection and include in broadcast"
 ### @tobiu - 2025-12-30 10:03
 
 **Input from Gemini:**
@@ -45,15 +52,6 @@ To improve observability of the Neural Link Bridge, we should log the name of th
 > 
 > This completes ticket #8213.
 
-## Activity Log
-
-- 2025-12-30 @tobiu added the `enhancement` label
-- 2025-12-30 @tobiu added the `ai` label
-- 2025-12-30 @tobiu added parent issue #8169
-- 2025-12-30 @tobiu referenced in commit `d549d3a` - "feat(ai): Log App Name in Neural Link Bridge connections (#8213)
-
-- Client: Pass appName from config to Bridge query params
-- Bridge: Log appName on connection and include in broadcast"
 - 2025-12-30 @tobiu assigned to @tobiu
 - 2025-12-30 @tobiu closed this issue
 

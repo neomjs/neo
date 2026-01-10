@@ -33,8 +33,13 @@ This task is to migrate the unit test for `functional/HtmlTemplateComponent.mjs`
 3.  Ensure the new test runs successfully via `npm test`.
 4.  The new test must cover all the functionality of the original Siesta test.
 
-## Comments
+## Timeline
 
+- 2025-09-27 @tobiu added the `enhancement` label
+- 2025-09-27 @tobiu added parent issue #7262
+- 2025-10-02 @tobiu added the `help wanted` label
+- 2025-10-02 @tobiu added the `good first issue` label
+- 2025-10-02 @tobiu added the `hacktoberfest` label
 ### @erbierc - 2025-10-03 11:43
 
 I'd like to contribute :)
@@ -52,6 +57,7 @@ https://github.com/neomjs/neo/blob/dev/.github/AI_QUICK_START.md
 
 E.g. gemini cli should be capable to complete it on its own.
 
+- 2025-10-03 @tobiu assigned to @erbierc
 ### @erbierc - 2025-10-08 12:16
 
 I have mostly completed this task, the only thing left is to check if the Gemini output is correct - the tests are passing.
@@ -72,6 +78,8 @@ interesting. i think the MCP servers (express => node) as wrappers around chroma
 
 I have created a PR: #7420 
 
+- 2025-10-08 @erbierc cross-referenced by PR #7420
+- 2025-10-08 @tobiu referenced in commit `bf777ce` - "#7283 minor cleanup"
 ### @tobiu - 2025-10-08 17:55
 
 Input from Gemini:
@@ -95,6 +103,7 @@ Input from Gemini:
 > 
 >   Thanks again for the fantastic contribution
 
+- 2025-10-08 @tobiu closed this issue
 ### @erbierc - 2025-10-08 18:10
 
 Lovely, thank you!
@@ -134,15 +143,4 @@ I just updated the project vision & roadmap, to better describe the big picture:
 https://github.com/neomjs/neo/blob/dev/ROADMAP.md
 https://github.com/neomjs/neo/blob/dev/.github/VISION.md
 
-## Activity Log
-
-- 2025-09-27 @tobiu added the `enhancement` label
-- 2025-09-27 @tobiu added parent issue #7262
-- 2025-10-02 @tobiu added the `help wanted` label
-- 2025-10-02 @tobiu added the `good first issue` label
-- 2025-10-02 @tobiu added the `hacktoberfest` label
-- 2025-10-03 @tobiu assigned to @erbierc
-- 2025-10-08 @erbierc cross-referenced by PR #7420
-- 2025-10-08 @tobiu referenced in commit `bf777ce` - "#7283 minor cleanup"
-- 2025-10-08 @tobiu closed this issue
 

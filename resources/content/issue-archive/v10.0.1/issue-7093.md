@@ -83,7 +83,7 @@ All web developers, including those from other framework ecosystems (React, Vue,
 ## 4. Deliverable
 A complete draft of the blog post as a markdown file, following this new structure.
 
-## Activity Log
+## Timeline
 
 - 2025-07-22 @tobiu assigned to @tobiu
 - 2025-07-22 @tobiu added the `enhancement` label

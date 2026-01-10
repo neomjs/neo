@@ -26,16 +26,14 @@ i think the only the Covid & SharedCovid apps are still using parameterized rout
 i need to check all affected examples & apps for this change, to ensure there are no side effects.
 
 
-## Comments
+## Timeline
 
+- 2024-10-15 @tobiu added the `enhancement` label
+- 2024-10-15 @tobiu assigned to @tobiu
 ### @github-actions - 2025-01-14 02:26
 
 This issue is stale because it has been open for 90 days with no activity.
 
-## Activity Log
-
-- 2024-10-15 @tobiu added the `enhancement` label
-- 2024-10-15 @tobiu assigned to @tobiu
 - 2025-01-14 @github-actions added the `stale` label
 - 2025-01-25 @tobiu removed the `stale` label
 - 2025-01-25 @tobiu added the `no auto close` label

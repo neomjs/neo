@@ -25,7 +25,7 @@ these need to get moved into the buttons scss file to not influence other widget
 
 <img width="1598" alt="Image" src="https://github.com/user-attachments/assets/fffa9504-2963-43ff-9e8f-6fd857bce685" />
 
-## Activity Log
+## Timeline
 
 - 2025-02-08 @tobiu added the `bug` label
 - 2025-02-08 @tobiu assigned to @tobiu

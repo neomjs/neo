@@ -33,7 +33,7 @@ The current session summarization workflow is clunky, requiring one script to fi
 4.  The `ai:get-last-session` script is removed from `package.json`.
 5.  `AGENTS.md` is updated to reflect the new, simplified workflow for session summarization.
 
-## Activity Log
+## Timeline
 
 - 2025-10-04 @tobiu assigned to @tobiu
 - 2025-10-04 @tobiu added the `enhancement` label

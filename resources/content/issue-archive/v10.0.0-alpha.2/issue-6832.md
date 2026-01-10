@@ -22,7 +22,7 @@ closedAt: '2025-06-18T16:58:33Z'
 
 * Time for testing a different version
 
-## Activity Log
+## Timeline
 
 - 2025-06-18 @tobiu added the `enhancement` label
 - 2025-06-18 @tobiu referenced in commit `c70b128` - "README.md: content refinement #6832"

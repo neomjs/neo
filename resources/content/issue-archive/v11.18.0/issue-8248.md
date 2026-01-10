@@ -29,21 +29,19 @@ Implement `toJSON()` in `src/grid/column/Progress.mjs` to support Neural Link se
 - (Inherits `component` serialization from `grid.column.Component`)
 - `defaults`: Serialize the `defaults` object to expose the underlying component module configuration (e.g., `Neo.component.Progress`).
 
-## Comments
-
-### @tobiu - 2026-01-01 03:04
-
-**Input from Gemini 3 Pro Preview:**
-
-> ✦ Implemented `toJSON` method to serialize `defaults` (using `serializeConfig`), exposing the underlying component module configuration.
-
-## Activity Log
+## Timeline
 
 - 2026-01-01 @tobiu added the `enhancement` label
 - 2026-01-01 @tobiu added the `ai` label
 - 2026-01-01 @tobiu added the `architecture` label
 - 2026-01-01 @tobiu added parent issue #8200
 - 2026-01-01 @tobiu referenced in commit `ed46512` - "feat(grid.column.Progress): Implement toJSON serialization #8248"
+### @tobiu - 2026-01-01 03:04
+
+**Input from Gemini 3 Pro Preview:**
+
+> ✦ Implemented `toJSON` method to serialize `defaults` (using `serializeConfig`), exposing the underlying component module configuration.
+
 - 2026-01-01 @tobiu closed this issue
 - 2026-01-01 @tobiu assigned to @tobiu
 

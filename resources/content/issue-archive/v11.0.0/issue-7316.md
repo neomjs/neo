@@ -66,23 +66,7 @@ This initiative is a key pillar for advanced workflows, alongside mandatory unit
 ### Phase 3: Personalized Agent Framework
 - **Goal:** Establish a framework for contributors to optionally configure a persistent memory and unique Git identity for their local AI agent.
 
-## Comments
-
-### @tobiu - 2025-10-04 12:37
-
-some updates on the current progress:
-
-<img width="1030" height="620" alt="Image" src="https://github.com/user-attachments/assets/1c39c9b8-46d5-4134-bd81-be62dccabe94" />
-
-<img width="928" height="446" alt="Image" src="https://github.com/user-attachments/assets/25af0d83-e784-40d3-97b4-7e102a980603" />
-
-<img width="1026" height="1163" alt="Image" src="https://github.com/user-attachments/assets/1b3c0117-eeb7-4db2-ae32-776fba3a3f7f" />
-
-### @tobiu - 2025-10-24 09:53
-
-closing as resolved.
-
-## Activity Log
+## Timeline
 
 - 2025-10-01 @tobiu assigned to @tobiu
 - 2025-10-01 @tobiu added the `enhancement` label
@@ -113,6 +97,16 @@ closing as resolved.
 - 2025-10-04 @tobiu cross-referenced by #7344
 - 2025-10-04 @tobiu cross-referenced by #7345
 - 2025-10-04 @tobiu cross-referenced by #7346
+### @tobiu - 2025-10-04 12:37
+
+some updates on the current progress:
+
+<img width="1030" height="620" alt="Image" src="https://github.com/user-attachments/assets/1c39c9b8-46d5-4134-bd81-be62dccabe94" />
+
+<img width="928" height="446" alt="Image" src="https://github.com/user-attachments/assets/25af0d83-e784-40d3-97b4-7e102a980603" />
+
+<img width="1026" height="1163" alt="Image" src="https://github.com/user-attachments/assets/1b3c0117-eeb7-4db2-ae32-776fba3a3f7f" />
+
 - 2025-10-04 @tobiu added sub-issue #7356
 - 2025-10-04 @tobiu added sub-issue #7357
 - 2025-10-04 @tobiu added sub-issue #7358
@@ -123,5 +117,9 @@ closing as resolved.
 - 2025-10-07 @tobiu added sub-issue #7397
 - 2025-10-07 @tobiu referenced in commit `7bfbcb2` - "#7316 ticket md update"
 - 2025-10-07 @tobiu added sub-issue #7398
+### @tobiu - 2025-10-24 09:53
+
+closing as resolved.
+
 - 2025-10-24 @tobiu closed this issue
 

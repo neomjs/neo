@@ -34,16 +34,14 @@ We need to start very simple, since most developers simply don't even understand
 8. buffered rows
 9. buffered columns
 
-## Comments
-
-### @tobiu - 2025-02-12 09:02
-
-https://tobiasuhlig.medium.com/building-a-blazing-fast-buffered-data-grid-in-public-7698bc781113?source=friends_link&sk=349893c757c5134671b16a643f35cf54
-
-## Activity Log
+## Timeline
 
 - 2025-01-12 @tobiu added the `Blog Post` label
 - 2025-01-12 @tobiu added the `enhancement` label
 - 2025-01-12 @tobiu assigned to @tobiu
+### @tobiu - 2025-02-12 09:02
+
+https://tobiasuhlig.medium.com/building-a-blazing-fast-buffered-data-grid-in-public-7698bc781113?source=friends_link&sk=349893c757c5134671b16a643f35cf54
+
 - 2025-02-12 @tobiu closed this issue
 

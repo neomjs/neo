@@ -41,13 +41,7 @@ This blog post will announce the v11.0.0 release, focusing on the theme of "Cont
 7.  **Title:** "The Context Engineering Revolution: How We Built a Self-Aware Development Environment" (or similar).
 
 
-## Comments
-
-### @tobiu - 2025-11-10 09:56
-
-https://tobiasuhlig.medium.com/388-tickets-in-6-weeks-context-engineering-done-right-f8da8577b8c2?source=friends_link&sk=c9a9cac53d5f52a970a79a9493639eef
-
-## Activity Log
+## Timeline
 
 - 2025-11-09 @tobiu added the `documentation` label
 - 2025-11-09 @tobiu added the `enhancement` label
@@ -71,5 +65,9 @@ https://tobiasuhlig.medium.com/388-tickets-in-6-weeks-context-engineering-done-r
 - 2025-11-10 @tobiu referenced in commit `fe22895` - "#7733 more content, fine-tuning"
 - 2025-11-10 @tobiu referenced in commit `3ebfdef` - "#7733 new file name to reflect on the title change"
 - 2025-11-10 @tobiu referenced in commit `77a548e` - "#7733 cover image"
+### @tobiu - 2025-11-10 09:56
+
+https://tobiasuhlig.medium.com/388-tickets-in-6-weeks-context-engineering-done-right-f8da8577b8c2?source=friends_link&sk=c9a9cac53d5f52a970a79a9493639eef
+
 - 2025-11-10 @tobiu closed this issue
 

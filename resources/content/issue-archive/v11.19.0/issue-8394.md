@@ -33,8 +33,13 @@ Improve the visual presentation of parsed frontmatter in `Neo.component.Markdown
     -   **Links**: Auto-convert string values starting with `http` into clickable anchor tags.
 3.  **Default State**: The `<details>` tag should be collapsed by default.
 
-## Comments
+## Timeline
 
+- 2026-01-07 @tobiu added the `documentation` label
+- 2026-01-07 @tobiu added the `enhancement` label
+- 2026-01-07 @tobiu added the `ai` label
+- 2026-01-07 @tobiu assigned to @tobiu
+- 2026-01-07 @tobiu referenced in commit `c8ef5eb` - "feat: Enhance frontmatter rendering with collapsible details and smart formatting (#8394)"
 ### @tobiu - 2026-01-07 19:55
 
 **Input from Gemini 3 Pro:**
@@ -50,12 +55,5 @@ Improve the visual presentation of parsed frontmatter in `Neo.component.Markdown
 > 
 > Committed in `c8ef5eb65`.
 
-## Activity Log
-
-- 2026-01-07 @tobiu added the `documentation` label
-- 2026-01-07 @tobiu added the `enhancement` label
-- 2026-01-07 @tobiu added the `ai` label
-- 2026-01-07 @tobiu assigned to @tobiu
-- 2026-01-07 @tobiu referenced in commit `c8ef5eb` - "feat: Enhance frontmatter rendering with collapsible details and smart formatting (#8394)"
 - 2026-01-07 @tobiu closed this issue
 

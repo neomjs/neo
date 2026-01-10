@@ -38,7 +38,7 @@ The `healthcheck` response should be enhanced to make this hybrid startup scenar
 
 This will provide a clearer picture to the agent, preventing incorrect assumptions and unnecessary actions.
 
-## Activity Log
+## Timeline
 
 - 2025-11-02 @tobiu added the `enhancement` label
 - 2025-11-02 @tobiu added the `developer-experience` label

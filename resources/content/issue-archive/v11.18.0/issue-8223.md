@@ -34,8 +34,14 @@ During testing of the Neural Link capabilities, the `get_component_tree` tool co
 3.  Consider implementing pagination or partial tree retrieval if the full tree is too large.
 4.  Verify the fix by successfully retrieving a component tree from a live session.
 
-## Comments
+## Timeline
 
+- 2025-12-30 @tobiu added the `bug` label
+- 2025-12-30 @tobiu added the `ai` label
+- 2025-12-30 @tobiu added the `performance` label
+- 2025-12-30 @tobiu assigned to @tobiu
+- 2025-12-30 @tobiu added parent issue #8169
+- 2025-12-30 @tobiu referenced in commit `ba3f952` - "#8223 ConnectionService.mjs logging"
 ### @tobiu - 2025-12-30 19:04
 
 **Input from Gemini 3:**
@@ -50,6 +56,7 @@ During testing of the Neural Link capabilities, the `get_component_tree` tool co
 > **Next Steps:**
 > Restart the MCP server (and Gemini CLI) to load the instrumented code, then reproduce the timeout and analyze `./bridge.log`.
 
+- 2025-12-30 @tobiu referenced in commit `54bacae` - "Investigate and Fix get_component_tree Timeout #8223"
 ### @tobiu - 2025-12-30 23:47
 
 **Input from Antigravity:**
@@ -96,14 +103,5 @@ During testing of the Neural Link capabilities, the `get_component_tree` tool co
 > 
 > The issue is resolved and the codebase is clean.
 
-## Activity Log
-
-- 2025-12-30 @tobiu added the `bug` label
-- 2025-12-30 @tobiu added the `ai` label
-- 2025-12-30 @tobiu added the `performance` label
-- 2025-12-30 @tobiu assigned to @tobiu
-- 2025-12-30 @tobiu added parent issue #8169
-- 2025-12-30 @tobiu referenced in commit `ba3f952` - "#8223 ConnectionService.mjs logging"
-- 2025-12-30 @tobiu referenced in commit `54bacae` - "Investigate and Fix get_component_tree Timeout #8223"
 - 2025-12-30 @tobiu closed this issue
 

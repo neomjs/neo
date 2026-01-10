@@ -35,8 +35,13 @@ Avoid recursive serialization of child components.
 Handle lazy-load configs where `module` is a function.
 The else block for `serializeConfig` is likely unreachable given strictly managed `items` content, but we will verify this assumption.
 
-## Comments
+## Timeline
 
+- 2026-01-01 @tobiu added the `enhancement` label
+- 2026-01-01 @tobiu added the `ai` label
+- 2026-01-01 @tobiu added parent issue #8200
+- 2026-01-01 @tobiu assigned to @tobiu
+- 2026-01-01 @tobiu referenced in commit `a7edf69` - "feat(container): Implement toJSON in container.Base items #8258"
 ### @tobiu - 2026-01-01 16:27
 
 **Input from Gemini:**
@@ -48,12 +53,5 @@ The else block for `serializeConfig` is likely unreachable given strictly manage
 > - Retains `itemCount`.
 > - Falls back to `serializeConfig` for other object types.
 
-## Activity Log
-
-- 2026-01-01 @tobiu added the `enhancement` label
-- 2026-01-01 @tobiu added the `ai` label
-- 2026-01-01 @tobiu added parent issue #8200
-- 2026-01-01 @tobiu assigned to @tobiu
-- 2026-01-01 @tobiu referenced in commit `a7edf69` - "feat(container): Implement toJSON in container.Base items #8258"
 - 2026-01-01 @tobiu closed this issue
 

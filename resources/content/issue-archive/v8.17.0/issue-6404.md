@@ -24,7 +24,7 @@ closedAt: '2025-02-07T16:06:16Z'
 * No longer needed with our new sticky right custom scrollbar
 * Also polish the animation timing more
 
-## Activity Log
+## Timeline
 
 - 2025-02-07 @tobiu added the `enhancement` label
 - 2025-02-07 @tobiu assigned to @tobiu

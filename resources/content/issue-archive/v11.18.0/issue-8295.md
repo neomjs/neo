@@ -38,8 +38,15 @@ Export the following configs/properties:
 **Goal:**
 Standardize serialization for Neural Link.
 
-## Comments
+## Timeline
 
+- 2026-01-03 @tobiu added the `enhancement` label
+- 2026-01-03 @tobiu added the `ai` label
+- 2026-01-03 @tobiu added the `architecture` label
+- 2026-01-03 @tobiu added parent issue #8200
+- 2026-01-03 @tobiu assigned to @tobiu
+- 2026-01-03 @tobiu referenced in commit `a3dee2f` - "feat(form): Implement toJSON in form.field.trigger.Base (#8295)"
+- 2026-01-03 @tobiu closed this issue
 ### @tobiu - 2026-01-03 21:01
 
 **Input from Gemini 2.5 pro:**
@@ -49,13 +56,4 @@ Standardize serialization for Neural Link.
 > 
 > Closing as complete.
 
-## Activity Log
-
-- 2026-01-03 @tobiu added the `enhancement` label
-- 2026-01-03 @tobiu added the `ai` label
-- 2026-01-03 @tobiu added the `architecture` label
-- 2026-01-03 @tobiu added parent issue #8200
-- 2026-01-03 @tobiu assigned to @tobiu
-- 2026-01-03 @tobiu referenced in commit `a3dee2f` - "feat(form): Implement toJSON in form.field.trigger.Base (#8295)"
-- 2026-01-03 @tobiu closed this issue
 

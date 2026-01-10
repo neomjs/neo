@@ -36,7 +36,7 @@ The fix ensures that `setupClass` operates on a deep clone of the static `config
 
 This change resolves the intermittent test failures and makes the class setup process more robust and safe for concurrent environments.
 
-## Activity Log
+## Timeline
 
 - 2025-09-30 @tobiu assigned to @tobiu
 - 2025-09-30 @tobiu added the `bug` label

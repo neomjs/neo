@@ -23,7 +23,7 @@ closedAt: '2025-03-25T13:45:40Z'
 
 * We do not want caching for 'DELETE', 'PATCH', 'POST', 'PUT'
 
-## Activity Log
+## Timeline
 
 - 2025-03-25 @tobiu added the `enhancement` label
 - 2025-03-25 @tobiu assigned to @tobiu

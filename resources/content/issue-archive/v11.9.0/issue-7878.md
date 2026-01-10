@@ -28,7 +28,7 @@ However, the custom Highlight.js bundle generation script (`buildScripts/buildHi
 
 This ticket is to update `buildScripts/buildHighlightJs.mjs` to include `'markdown'` and `'yaml'` in the `languages` array, ensuring these languages are included in the next build of the highlighting library.
 
-## Activity Log
+## Timeline
 
 - 2025-11-23 @tobiu added the `enhancement` label
 - 2025-11-23 @tobiu added the `ai` label

@@ -33,7 +33,7 @@ This ticket involves creating a Node.js-based internal API or script that the AI
 3.  The script generates a semantic embedding for the combined text content.
 4.  The script saves the content and its embedding as a new document in the `neo-agent-memory` ChromaDB collection, along with metadata (e.g., timestamp, session ID).
 
-## Activity Log
+## Timeline
 
 - 2025-10-01 @tobiu assigned to @tobiu
 - 2025-10-01 @tobiu added the `enhancement` label

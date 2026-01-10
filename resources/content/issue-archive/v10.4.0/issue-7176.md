@@ -48,7 +48,7 @@ A descriptive comment was also added to the code to explain the rationale behind
 - **Reduced CPU Load:** Avoids a large, unnecessary VDOM diffing operation.
 - **Improved Code Efficiency:** Handles a common, specific use case with a highly optimized, targeted solution.
 
-## Activity Log
+## Timeline
 
 - 2025-08-11 @tobiu assigned to @tobiu
 - 2025-08-11 @tobiu added the `enhancement` label

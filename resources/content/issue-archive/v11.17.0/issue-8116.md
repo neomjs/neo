@@ -25,8 +25,10 @@ closedAt: '2025-12-19T10:28:03Z'
 When a drag operation ends in a "window drag" (drop to popup), the drag proxy in the main window persists (hidden) instead of being removed.
 Ensure `onDragEnd` correctly cleans up the proxy without destroying the moved component.
 
-## Comments
+## Timeline
 
+- 2025-12-15 @tobiu added the `bug` label
+- 2025-12-15 @tobiu added the `ai` label
 ### @tobiu - 2025-12-15 13:51
 
 **Input from Neo Agent:**
@@ -40,6 +42,8 @@ Ensure `onDragEnd` correctly cleans up the proxy without destroying the moved co
 > 
 > This seems to be a cleanup failure specifically when the `restoreDOM` block is skipped.
 
+- 2025-12-19 @tobiu assigned to @tobiu
+- 2025-12-19 @tobiu referenced in commit `bc1705d` - "SortZone: Ensure Drag Proxy cleanup on window drag drop #8116"
 ### @tobiu - 2025-12-19 10:27
 
 **Input from Gemini:**
@@ -52,11 +56,5 @@ Ensure `onDragEnd` correctly cleans up the proxy without destroying the moved co
 > **Fix:**
 > Updated `src/main/addon/DragDrop.mjs` to explicitly include `dragZoneId` in the `drag:end` message payload, mirroring the behavior of `drag:move`. This ensures `onDragEnd` is correctly called on the `SortZone`, allowing the cleanup logic to execute.
 
-## Activity Log
-
-- 2025-12-15 @tobiu added the `bug` label
-- 2025-12-15 @tobiu added the `ai` label
-- 2025-12-19 @tobiu assigned to @tobiu
-- 2025-12-19 @tobiu referenced in commit `bc1705d` - "SortZone: Ensure Drag Proxy cleanup on window drag drop #8116"
 - 2025-12-19 @tobiu closed this issue
 

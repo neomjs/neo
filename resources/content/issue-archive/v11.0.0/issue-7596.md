@@ -90,8 +90,9 @@ Labels
 
 @tobiu , I'd love to work on this issue.
 
-## Comments
+## Timeline
 
+- 2025-10-21 @Alachi24 added the `bug` label
 ### @tobiu - 2025-10-21 14:36
 
 this one is tricky. i would say, chroma should resolve it on their own, e.g.: https://github.com/chroma-core/chroma/issues/5188
@@ -110,15 +111,12 @@ https://github.com/neomjs/neo/blob/dev/ai/mcp/server/memory-core/services/Chroma
 
 creating a guide is definitely fine too.
 
+- 2025-10-21 @tobiu assigned to @Alachi24
 ### @Alachi24 - 2025-10-21 14:47
 
 Thank you, I'll start working on it.
 Can you also include the labels I requested, especially the `Documentation` & `Hacktoberfest` @tobiu 
 
-## Activity Log
-
-- 2025-10-21 @Alachi24 added the `bug` label
-- 2025-10-21 @tobiu assigned to @Alachi24
 - 2025-10-21 @tobiu added the `documentation` label
 - 2025-10-21 @tobiu added the `good first issue` label
 - 2025-10-21 @tobiu added the `hacktoberfest` label

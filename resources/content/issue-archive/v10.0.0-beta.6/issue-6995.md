@@ -72,13 +72,7 @@ To make this work, the system (likely the `VdomLifecycle` mixin) must solve thes
 -   The classic component can access its functional parent via `this.parent`.
 -   Context-aware features work across the boundary.
 
-## Comments
-
-### @tobiu - 2025-07-15 19:44
-
-works fine now. see: https://github.com/neomjs/neo/blob/dev/apps/email/view/MainView.mjs
-
-## Activity Log
+## Timeline
 
 - 2025-07-09 @tobiu added parent issue #6992
 - 2025-07-09 @tobiu added the `enhancement` label
@@ -87,5 +81,9 @@ works fine now. see: https://github.com/neomjs/neo/blob/dev/apps/email/view/Main
 - 2025-07-14 @tobiu referenced in commit `afc73cb` - "#6995 functional.component.Base: support for nesting cmps.WIP."
 - 2025-07-14 @tobiu referenced in commit `fd35f81` - "#6995 functional.component.Base: method order"
 - 2025-07-14 @tobiu referenced in commit `df0eba1` - "#6995 functional.component.Base: refactoring & cleanup"
+### @tobiu - 2025-07-15 19:44
+
+works fine now. see: https://github.com/neomjs/neo/blob/dev/apps/email/view/MainView.mjs
+
 - 2025-07-15 @tobiu closed this issue
 

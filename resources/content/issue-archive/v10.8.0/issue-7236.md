@@ -37,7 +37,7 @@ This work serves as the first implementation of the new documentation standard.
 ## Impact
 This significantly improves the clarity and educational value of the advanced StateProvider example. It now serves as a high-quality, self-documenting resource for both human developers and AI agents, and its content is now properly indexed and discoverable within the local knowledge base.
 
-## Activity Log
+## Timeline
 
 - 2025-09-23 @tobiu assigned to @tobiu
 - 2025-09-23 @tobiu added the `enhancement` label

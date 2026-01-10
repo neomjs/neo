@@ -31,7 +31,7 @@ The `HealthService` for the `github-workflow` server currently has the minimum r
 3.  The `HealthService.mjs` is updated to import the `aiConfig` and use `aiConfig.githubWorkflow.minGhVersion` instead of the hardcoded `MIN_GH_VERSION` constant.
 4.  The `healthcheck` tool continues to function correctly.
 
-## Activity Log
+## Timeline
 
 - 2025-10-19 @tobiu assigned to @tobiu
 - 2025-10-19 @tobiu added the `enhancement` label

@@ -24,7 +24,7 @@ closedAt: '2025-02-03T11:32:56Z'
 * Make it easier to extend the dragProxy Element
 * Return either the config or the instance based on the new param
 
-## Activity Log
+## Timeline
 
 - 2025-02-03 @tobiu added the `enhancement` label
 - 2025-02-03 @tobiu assigned to @tobiu

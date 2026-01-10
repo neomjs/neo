@@ -44,7 +44,7 @@ requirements:
 ```
 
 
-## Activity Log
+## Timeline
 
 - 2025-11-29 @tobiu added the `documentation` label
 - 2025-11-29 @tobiu added the `ai` label

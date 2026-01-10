@@ -25,7 +25,7 @@ Depending on the parent structure using position absolute and relative, it can b
 
 For tab.header.Toolbar it is needed, for grid.header.Toolbar it is not
 
-## Activity Log
+## Timeline
 
 - 2025-02-26 @tobiu added the `enhancement` label
 - 2025-02-26 @tobiu assigned to @tobiu

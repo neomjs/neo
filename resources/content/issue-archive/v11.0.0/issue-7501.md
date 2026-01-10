@@ -90,13 +90,7 @@ We will employ a rapid and agile development approach. The scope and API specifi
     - `bug-kb-healthcheck-unstructured-content.md`: Fix the healthcheck tool to return structured content matching its schema.
     - `bug-kb-query-documents-input-mismatch.md`: Fix the input parameter mismatch for the `query_documents` tool.
 
-## Comments
-
-### @tobiu - 2025-10-17 11:01
-
-<img width="823" height="1088" alt="Image" src="https://github.com/user-attachments/assets/0092fcf8-7762-4069-a594-10f2ce3cf554" />
-
-## Activity Log
+## Timeline
 
 - 2025-10-16 @tobiu assigned to @tobiu
 - 2025-10-16 @tobiu added the `epic` label
@@ -120,5 +114,9 @@ We will employ a rapid and agile development approach. The scope and API specifi
 - 2025-10-17 @tobiu added sub-issue #7517
 - 2025-10-17 @tobiu added sub-issue #7518
 - 2025-10-17 @tobiu added sub-issue #7519
+### @tobiu - 2025-10-17 11:01
+
+<img width="823" height="1088" alt="Image" src="https://github.com/user-attachments/assets/0092fcf8-7762-4069-a594-10f2ce3cf554" />
+
 - 2025-10-17 @tobiu closed this issue
 

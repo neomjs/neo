@@ -23,7 +23,7 @@ closedAt: '2025-02-09T14:45:40Z'
 
 * With the new setup, we no longer need it => the view can just use the real height value directly
 
-## Activity Log
+## Timeline
 
 - 2025-02-09 @tobiu added the `enhancement` label
 - 2025-02-09 @tobiu assigned to @tobiu

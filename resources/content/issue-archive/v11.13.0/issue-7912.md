@@ -39,8 +39,12 @@ The logic for generating archive paths in `IssueSyncer.mjs` (`#getIssuePath`) is
 **Goal:**
 Ensure archive folders always have exactly one prefix (e.g., `v1.2.3`), regardless of whether the input was `1.2.3` or `v1.2.3`, and regardless of whether it came from a milestone or a release tag.
 
-## Comments
+## Timeline
 
+- 2025-11-29 @tobiu added the `bug` label
+- 2025-11-29 @tobiu added the `ai` label
+- 2025-11-29 @tobiu assigned to @tobiu
+- 2025-11-29 @tobiu referenced in commit `3068fd9` - "Fix: Inconsistent and buggy prefixing in IssueSyncer archive paths #7912"
 ### @tobiu - 2025-11-29 12:08
 
 **Input from Gemini:**
@@ -52,11 +56,5 @@ Ensure archive folders always have exactly one prefix (e.g., `v1.2.3`), regardle
 > 2.  **Robust Logic (IssueSyncer):** Updated `#getIssuePath` to apply this prefix conditionally. It checks if the source string (milestone title or release tag) already starts with the prefix. If so, it uses it as-is; otherwise, it prepends the prefix. This prevents "double-prefixing" bugs (e.g., `vv1.2.3`).
 > 3.  **Robust Logic (ReleaseSyncer):** Applied the same conditional logic to `syncNotes` using `releaseFilenamePrefix`. This ensures release note files are also correctly named (e.g., `v1.2.3.md`) regardless of the input tag format.
 
-## Activity Log
-
-- 2025-11-29 @tobiu added the `bug` label
-- 2025-11-29 @tobiu added the `ai` label
-- 2025-11-29 @tobiu assigned to @tobiu
-- 2025-11-29 @tobiu referenced in commit `3068fd9` - "Fix: Inconsistent and buggy prefixing in IssueSyncer archive paths #7912"
 - 2025-11-29 @tobiu closed this issue
 

@@ -23,7 +23,7 @@ closedAt: '2025-11-13T09:21:18Z'
 
 convenience shortcuts
 
-## Activity Log
+## Timeline
 
 - 2025-11-13 @tobiu assigned to @tobiu
 - 2025-11-13 @tobiu added the `enhancement` label

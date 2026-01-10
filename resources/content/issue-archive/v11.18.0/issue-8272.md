@@ -27,7 +27,7 @@ Update `src/ai/client/DataService.mjs` to rely on `toJSON`.
 *   `inspectStateProvider`: Use `provider.toJSON()`.
 *   `inspectStore`: Use `store.toJSON()`.
 
-## Activity Log
+## Timeline
 
 - 2026-01-01 @tobiu added the `ai` label
 - 2026-01-01 @tobiu added the `refactoring` label

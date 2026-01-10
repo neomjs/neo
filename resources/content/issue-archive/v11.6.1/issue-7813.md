@@ -33,7 +33,7 @@ Crucially, this refactoring must remove the usage of `.html` (innerHTML) assignm
 
 **Note:** This does NOT involve renaming `labelText` to `label`, keeping the scope manageable while improving security and flexibility.
 
-## Activity Log
+## Timeline
 
 - 2025-11-19 @tobiu added the `enhancement` label
 - 2025-11-19 @tobiu added the `refactoring` label

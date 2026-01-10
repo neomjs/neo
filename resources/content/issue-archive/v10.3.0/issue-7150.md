@@ -48,7 +48,7 @@ Pre-processing templates at build time is a best practice in modern web developm
 -   The client-side `HtmlTemplateProcessor` is no longer required for production builds using this feature.
 -   The logic is cleanly separated, with no build-time code included in client-side bundles.
 
-## Activity Log
+## Timeline
 
 - 2025-08-01 @tobiu assigned to @tobiu
 - 2025-08-01 @tobiu added parent issue #7130

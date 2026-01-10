@@ -23,7 +23,7 @@ closedAt: '2025-02-03T11:25:18Z'
 
 * Optionally move the column content (cells) while dragging
 
-## Activity Log
+## Timeline
 
 - 2025-02-03 @tobiu added the `enhancement` label
 - 2025-02-03 @tobiu assigned to @tobiu

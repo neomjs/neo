@@ -23,12 +23,13 @@ closedAt: '2025-04-17T11:50:53Z'
 
 * Using the `aria-rowindex`, which is now included inside event paths
 
-## Activity Log
+## Timeline
 
 - 2025-04-17 @tobiu added the `enhancement` label
 - 2025-04-17 @tobiu assigned to @tobiu
 - 2025-04-17 @tobiu referenced in commit `5fa2f1a` - "selection.grid.BaseModel: getRecordId() => getRecord() #6672"
 - 2025-04-17 @tobiu closed this issue
+- 2025-04-17 @tobiu reopened this issue
 - 2025-04-17 @tobiu referenced in commit `cdcb457` - "#6672 cleanup"
 - 2025-04-17 @tobiu closed this issue
 

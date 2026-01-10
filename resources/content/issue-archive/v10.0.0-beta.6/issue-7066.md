@@ -24,7 +24,7 @@ closedAt: '2025-07-15T18:07:35Z'
 * firing a custom event was needed for a `state.Provider` reactive effects demo, before the support for binding to store configs was in place.
 * obsolete now.
 
-## Activity Log
+## Timeline
 
 - 2025-07-15 @tobiu assigned to @tobiu
 - 2025-07-15 @tobiu added the `enhancement` label

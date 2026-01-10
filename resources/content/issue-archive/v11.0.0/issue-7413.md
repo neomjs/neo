@@ -43,13 +43,7 @@ To work on this ticket, please start your session with the following prompt:
 > 
 > You will need to read the epic context from @.github/ISSUE/epic-architect-ai-tooling-as-mcp.md and the specific ticket details from @.github/ISSUE/ticket-implement-knowledge-create-update-endpoint.md before we begin.
 
-## Comments
-
-### @tobiu - 2025-10-07 10:53
-
-redundant. closing the ticket.
-
-## Activity Log
+## Timeline
 
 - 2025-10-07 @tobiu added the `enhancement` label
 - 2025-10-07 @tobiu added parent issue #7399
@@ -63,5 +57,9 @@ redundant. closing the ticket.
 - 2025-10-07 @tobiu removed the `good first issue` label
 - 2025-10-07 @tobiu removed the `hacktoberfest` label
 - 2025-10-07 @tobiu removed the `ai` label
+### @tobiu - 2025-10-07 10:53
+
+redundant. closing the ticket.
+
 - 2025-10-07 @tobiu closed this issue
 

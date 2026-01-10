@@ -24,7 +24,7 @@ closedAt: '2025-05-02T20:57:56Z'
 * it would be cleaner to create a separate class for it
 * in case we add or remove an item to the content container and the item qualifies as a tab, it should delegate the call to the tab container itself (also adjusting the header)
 
-## Activity Log
+## Timeline
 
 - 2025-05-02 @tobiu added the `enhancement` label
 - 2025-05-02 @tobiu assigned to @tobiu

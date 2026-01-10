@@ -37,7 +37,7 @@ Add a new subsection to `AGENTS.md` under **"1. Your Role and Primary Directive"
 > - **When to Use Positive Reinforcement:** It is appropriate to acknowledge the user's contribution with positive reinforcement only when they have pointed out a significant flaw in your own reasoning or have proposed a demonstrably better solution. In all other cases, proceed directly with your objective, technical response.
 > - **Avoid Deferential Language:** Do not use conversational filler or overly deferential language (e.g., "You are absolutely right.").
 
-## Activity Log
+## Timeline
 
 - 2025-10-26 @tobiu added the `documentation` label
 - 2025-10-26 @tobiu added the `enhancement` label

@@ -54,7 +54,7 @@ During rapid scrolling, the VDOM Worker would receive updates with conflicting o
 -   Ensures VDOM/VNode consistency even when mutating state while update roundtrips are in flight.
 -   Improves stability for all components using `saveScrollPosition`.
 
-## Activity Log
+## Timeline
 
 - 2025-12-20 @tobiu added the `bug` label
 - 2025-12-20 @tobiu added the `enhancement` label

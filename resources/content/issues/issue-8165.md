@@ -30,7 +30,7 @@ Implement a `themeMode` config (e.g., `'adapt' | 'retain'`) on the Draggable/Sor
 **Current Behavior:**
 The proxy clones the DOM/VDOM, likely carrying over classes, but if CSS variables are missing in the target, it may look broken.
 
-## Activity Log
+## Timeline
 
 - 2025-12-27 @tobiu added the `enhancement` label
 - 2025-12-27 @tobiu added the `ai` label

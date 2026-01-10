@@ -32,7 +32,7 @@ The current debugging implementation relies on manually parsing `process.argv` i
 
 This consolidation ensures a single source of truth for the debug state and leverages the CLI parsing library correctly.
 
-## Activity Log
+## Timeline
 
 - 2025-11-19 @tobiu added the `enhancement` label
 - 2025-11-19 @tobiu added the `ai` label
