@@ -1,11 +1,30 @@
-import fs                from 'fs';
-import path              from 'path';
-import {fileURLToPath}   from 'url';
-import {GH_LabelService} from '../ai/services.mjs';
+import fs              from 'fs-extra';
+import path            from 'path';
+import {Command}       from 'commander/esm.mjs';
+import {fileURLToPath} from 'url';
+import {GH_LabelService, NeuralLink_ConnectionService} from '../ai/services.mjs';
+import {sanitizeInput} from './util/Sanitizer.mjs';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname  = path.dirname(__filename);
-const outputPath = path.resolve(__dirname, '../apps/portal/resources/data/labels.json');
+/**
+ * @module buildScripts.createLabelIndex
+ * @summary Fetches GitHub labels and generates a JSON index for the Neo.mjs Portal application.
+ *
+ * This script retrieves all labels from the repository using the Neo.mjs AI SDK (`GH_LabelService`).
+ * It calculates contrast colors (black/white) for accessibility based on the label's background color.
+ * The output is a `labels.json` file consumed by the Portal's "Tickets" view to render label badges.
+ *
+ * **Key Features:**
+ * - **GitHub Integration:** Fetches live label data directly from the GitHub API.
+ * - **Accessibility:** Automatically calculates optimal text contrast colors (YIQ formula).
+ * - **Minification:** Outputs a minified JSON file for production use.
+ *
+ * @see apps/portal/view/news/tickets/Component.mjs
+ * @see buildScripts/createTicketIndex.mjs
+ * @keywords portal, labels, github, accessibility, build-script, knowledge-base
+ */
+
+const ROOT_DIR    = process.cwd();
+const OUTPUT_FILE = path.resolve(ROOT_DIR, 'apps/portal/resources/data/labels.json');
 
 /**
  * Calculates the optimal text color (black or white) for a given background color
@@ -23,8 +42,14 @@ function getContrastColor(hexcolor) {
 
 /**
  * Main function to fetch labels and generate the index file.
+ *
+ * @param {Object} options Configuration options
+ * @param {String} [options.outputFile] - Path to the output JSON file (defaults to `apps/portal/resources/data/labels.json`)
+ * @returns {Promise<void>} Resolves when the JSON file is written
  */
-async function generateLabelIndex() {
+async function createLabelIndex(options = {}) {
+    const outputFile = options.outputFile || OUTPUT_FILE;
+
     console.log('Fetching labels from GitHub...');
 
     try {
@@ -43,22 +68,60 @@ async function generateLabelIndex() {
 
         labels.sort((a, b) => a.name.localeCompare(b.name));
 
-        console.log(`Found ${labels.length} labels. Writing to ${outputPath}...`);
+        console.log(`Found ${labels.length} labels. Writing to ${outputFile}...`);
 
-        fs.writeFileSync(outputPath, JSON.stringify(labels, null, 0)); // Minified
+        await fs.ensureDir(path.dirname(outputFile));
+        await fs.writeJSON(outputFile, labels);
 
         console.log('Successfully generated labels.json');
 
     } catch (error) {
         console.error('Error generating label index:', error);
-        process.exit(1);
+        // We throw here so the caller (CLI or other script) can handle it
+        throw error;
+    } finally {
+        // Ensure we disconnect from the Neural Link Bridge to allow the process to exit.
+        // Importing ai/services.mjs automatically starts the connection via the singleton pattern.
+        try {
+            await NeuralLink_ConnectionService.manageConnection({action: 'stop'});
+        } catch (e) {
+            // Ignore disconnection errors, as we just want to ensure exit
+        }
     }
 }
 
-if (process.argv[1] === __filename) {
-    generateLabelIndex().then(() => {
-        process.exit(0);
+/**
+ * CLI entry point for the script.
+ * Handles argument parsing using `commander` and invokes the main `createLabelIndex` function.
+ *
+ * Supported flags:
+ * - `-o, --output <path>`: Custom output file path
+ */
+async function runCli() {
+    const program = new Command();
+
+    program
+        .name('create-label-index')
+        .description('Generates a JSON index of GitHub labels for the Portal app.')
+        .option('-o, --output <path>', 'Output file path', sanitizeInput);
+
+    program.parse(process.argv);
+
+    const opts = program.opts();
+
+    await createLabelIndex({
+        outputFile: opts.output ? path.resolve(ROOT_DIR, opts.output) : undefined
     });
 }
 
-export default generateLabelIndex;
+const cliEntryPath = process.argv[1] ? path.resolve(process.argv[1]) : null;
+const modulePath   = fileURLToPath(import.meta.url);
+
+if (cliEntryPath && cliEntryPath === modulePath) {
+    runCli().catch(err => {
+        console.error(err);
+        process.exit(1);
+    });
+}
+
+export default createLabelIndex;
