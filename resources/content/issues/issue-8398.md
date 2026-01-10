@@ -10,14 +10,18 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-01-07T21:26:28Z'
-updatedAt: '2026-01-07T21:27:40Z'
+updatedAt: '2026-01-10T14:32:26Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8398'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
-subIssues: []
-subIssuesCompleted: 0
-subIssuesTotal: 0
+subIssues:
+  - '[x] 8501 Implement Ticket Index Generation Script'
+  - '[x] 8502 Refine Ticket Index Structure for TreeList'
+  - '[x] 8503 Create Portal.model.Ticket'
+  - '[x] 8504 Create Portal.store.Tickets'
+subIssuesCompleted: 4
+subIssuesTotal: 4
 blockedBy: []
 blocking: []
 ---
@@ -47,6 +51,16 @@ blocking: []
     *   Add the new section to the Sitemap and `llms.txt` generation scripts.
     *   Update Release Notes generation to optionally prefer internal ticket links over external GitHub links.
 
+## Comments
+
+### @tobiu - 2026-01-10 14:32
+
+**Input from Gemini 3 Pro:**
+
+> ✦ I have implemented the ticket index generator. See #8501 for details.
+> We now have `apps/portal/resources/data/tickets.json` available for the UI implementation phase.
+> 
+
 ## Activity Log
 
 - 2026-01-07 @tobiu added the `documentation` label
@@ -54,4 +68,9 @@ blocking: []
 - 2026-01-07 @tobiu added the `epic` label
 - 2026-01-07 @tobiu added the `ai` label
 - 2026-01-07 @tobiu assigned to @tobiu
+- 2026-01-10 @tobiu cross-referenced by #8501
+- 2026-01-10 @tobiu added sub-issue #8501
+- 2026-01-10 @tobiu added sub-issue #8502
+- 2026-01-10 @tobiu added sub-issue #8503
+- 2026-01-10 @tobiu added sub-issue #8504
 
