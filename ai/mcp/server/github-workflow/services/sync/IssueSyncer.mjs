@@ -135,6 +135,18 @@ class IssueSyncer extends Base {
             case 'ClosedEvent':
                 details = `closed this issue`;
                 break;
+            case 'ReopenedEvent':
+                details = `reopened this issue`;
+                break;
+            case 'RenamedTitleEvent':
+                details = `changed title from **${event.previousTitle}** to **${event.currentTitle}**`;
+                break;
+            case 'MilestonedEvent':
+                details = `added this to the **${event.milestoneTitle}** milestone`;
+                break;
+            case 'DemilestonedEvent':
+                details = `removed this from the **${event.milestoneTitle}** milestone`;
+                break;
             case 'ReferencedEvent':
                 const commitMessage = event.commit.message.split('\\n')[0];
                 details = `referenced in commit \`${event.commit.oid.substring(0, 7)}\` - "${commitMessage}"`;
