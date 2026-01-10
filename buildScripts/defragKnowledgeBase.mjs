@@ -3,13 +3,47 @@ import fs from 'fs-extra';
 import path from 'path';
 import {promisify} from 'util';
 
+/**
+ * @summary A maintenance script to defragment the ChromaDB knowledge base by performing a full "Nuke and Pave".
+ *
+ * This script addresses the issue of HNSW index fragmentation and file bloat in ChromaDB.
+ * Deleted records in ChromaDB often leave behind orphaned UUID directories and fragmented index files,
+ * causing the knowledge base size to grow significantly (e.g., from 100MB to 500MB) even when the actual data size is small.
+ *
+ * The "Nuke and Pave" strategy implemented here involves:
+ * 1.  Fetching all existing data (IDs, embeddings, metadata, documents) into memory.
+ * 2.  Deleting the collection via the API to release logical references.
+ * 3.  Attempting a database reset or collection recreation to ensure a clean slate.
+ * 4.  Restoring the buffered data into the new, clean collection.
+ * 5.  Physically scanning the filesystem to identify and delete orphaned UUID directories that do not match the active collection's ID.
+ *
+ * This process ensures that the knowledge base remains compact and optimized for distribution, especially
+ * before a release.
+ *
+ * @module buildScripts/defragKnowledgeBase
+ * @see Neo.ai.mcp.server.knowledge-base.services.KnowledgeBaseService
+ */
+
 // Hardcoded configs to match project
 const DB_PATH = path.resolve(process.cwd(), 'chroma-neo-knowledge-base');
 const COLLECTION_NAME = 'neo-knowledge-base';
-const EMBEDDING_MODEL = 'gemini-embedding-001'; // Just for metadata if needed
 
 const sleep = promisify(setTimeout);
 
+/**
+ * Executes the knowledge base defragmentation process.
+ *
+ * This function orchestrates the entire ETL (Extract, Transform, Load) and cleanup pipeline:
+ * 1.  **Extract**: Connects to the local ChromaDB instance and buffers all 2000+ records into memory.
+ * 2.  **Transform**: Sanitizes document fields to ensure they are valid strings (handling nulls/objects).
+ * 3.  **Nuke**: Deletes the existing collection to free up the namespace.
+ * 4.  **Load**: Recreates the collection with consistent settings (cosine distance) and batches the inserts.
+ * 5.  **Cleanup**: Performs a filesystem audit on `chroma-neo-knowledge-base`, deleting any directory that looks like a UUID but is not the active collection.
+ *
+ * @async
+ * @returns {Promise<void>}
+ * @keywords knowledge base, defragmentation, optimization, vector database, chromadb, bloat, maintenance
+ */
 async function defragKnowledgeBase() {
     console.log('🧹 Starting Knowledge Base Defragmentation...');
     
@@ -20,7 +54,7 @@ async function defragKnowledgeBase() {
         port: 8000
     });
 
-    // LIST COLLECTIONS DEBUG
+    // List available collections for debugging purposes
     try {
         const collections = await client.listCollections();
         console.log('   📂 Available Collections:', collections.map(c => c.name));
@@ -28,7 +62,7 @@ async function defragKnowledgeBase() {
         console.log('   ⚠️  Could not list collections:', e.message);
     }
 
-    // Use dummy embedding function to avoid validation errors
+    // Use dummy embedding function to avoid validation errors during raw data transfer
     const dummyEf = {
         generate: () => null,
         name: 'dummy',
@@ -56,8 +90,8 @@ async function defragKnowledgeBase() {
     }
 
     // 2. Fetch All Data (In-Memory Buffer)
-    // Warning: With 400MB bloat but 7MB data, this fits in RAM.
-    // If data grows > 1GB, we'd need a temp file buffer.
+    // Note: The current dataset size (~7MB) easily fits in memory.
+    // If the dataset grows significantly (> 1GB), this buffer strategy should be replaced with a file-based stream.
     console.log(`\n2️⃣  Fetching all records into memory...`);
     const limit = 2000;
     let offset = 0;
@@ -92,20 +126,9 @@ async function defragKnowledgeBase() {
     // 3. Nuke the DB
     console.log(`\n3️⃣  Resetting Database Storage...`);
     
-    // We can't delete the folder while the client is connected? 
-    // Actually, in JS the ChromaClient communicates via HTTP to the Python/Rust core if running separately,
-    // OR via ffi if embedded. The node module uses a server process or direct ffi?
-    // The default `chroma run` spawns a server. If we are running this script standalone...
-    // Wait, the npm `chromadb` client expects a server running.
-    // BUT the project uses `chroma run --path ...`.
-    
-    // CRITICAL: We need to shut down the server to release file locks before deleting.
-    // If we assume the server IS running (we need it to fetch), we can't delete the files yet.
-    
-    // Strategy:
-    // 1. Fetch data (Done)
-    // 2. Client.reset()? Chroma API has a reset() but it's often disabled.
-    // 3. Delete Collection? 
+    // Limitation: We cannot delete the physical database folder while the server is running due to file locks.
+    // However, deleting the collection via the API releases the logical references, allowing the subsequent
+    // filesystem scan to identify the orphaned artifacts.
     
     console.log('   Attempting to delete collection via API...');
     try {
@@ -116,18 +139,16 @@ async function defragKnowledgeBase() {
         console.log('   Proceeding to physical deletion (requires manual server restart if running)...');
     }
 
-    // Since we can't easily restart the server from inside the script if it was external,
-    // AND `client.reset()` requires `ALLOW_RESET=TRUE` env var...
-    
-    // Let's try `client.reset()` first.
+    // Attempt an API-level reset if enabled on the server.
+    // This is often disabled in production environments (ALLOW_RESET=FALSE).
     try {
         const resetResult = await client.reset(); 
         if (resetResult) console.log('   ✅ Database reset via API.');
     } catch (e) {
-         console.log('   ℹ️  API Reset failed (likely disabled). using collection recreation.');
+         console.log('   ℹ️  API Reset failed (likely disabled). Proceeding with collection recreation.');
     }
 
-    // Re-creating collection
+    // Re-creating collection to establish a clean index state
     console.log(`\n4️⃣  Re-creating fresh collection...`);
     const newCollection = await client.createCollection({
         name: COLLECTION_NAME,
@@ -144,14 +165,15 @@ async function defragKnowledgeBase() {
         const end = Math.min(i + batchSize, total);
         process.stdout.write(`   Upserting ${i} to ${end}... `);
         
-        // Fix: Documents cannot be null/objects. If missing, pass empty strings or null (if allowed).
-        // Chroma requires documents to be strings if provided.
-        // Since we are restoring from "allData.documents", let's inspect what we got.
-        // It seems some are objects or null.
-        // Safe bet: Ensure they are strings or undefined.
-        
+        /**
+         * Document Sanitization:
+         * ChromaDB strictly requires the 'documents' field to be an array of strings.
+         * We must handle potential nulls, undefined values, or objects that may have existed in the source data.
+         * - Null/Undefined -> Converted to empty string.
+         * - Objects -> Stringified.
+         */
         const batchDocs = allData.documents.slice(i, end).map(d => {
-            if (d === null || d === undefined) return ''; // Fix: Chroma rejects null, use empty string
+            if (d === null || d === undefined) return '';
             if (typeof d === 'object') return JSON.stringify(d);
             return String(d);
         });
@@ -174,7 +196,7 @@ async function defragKnowledgeBase() {
         const entries = await fs.readdir(DB_PATH, { withFileTypes: true });
         for (const entry of entries) {
             if (entry.isDirectory()) {
-                // Check if this directory is a UUID (approximate check)
+                // Heuristic: Check if directory name resembles a UUID (length 36, contains hyphens)
                 if (entry.name.length === 36 && entry.name.includes('-')) {
                      if (entry.name !== activeId) {
                          const orphanPath = path.join(DB_PATH, entry.name);
