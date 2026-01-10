@@ -171,15 +171,6 @@ class ViewportController extends Controller {
     }
 
     /**
-     * @param {Object} params
-     * @param {Object} value
-     * @param {Object} oldValue
-     */
-    onNewsRoute(params, value, oldValue) {
-        this.setMainContentIndex(2)
-    }
-
-    /**
      * @param {Object} data
      */
     onBlogSearchFieldChange(data) {
@@ -248,6 +239,15 @@ class ViewportController extends Controller {
      */
     onLearnRoute(params, value, oldValue) {
         this.setMainContentIndex(1)
+    }
+
+    /**
+     * @param {Object} params
+     * @param {Object} value
+     * @param {Object} oldValue
+     */
+    onNewsRoute(params, value, oldValue) {
+        this.setMainContentIndex(2)
     }
 
     /**
