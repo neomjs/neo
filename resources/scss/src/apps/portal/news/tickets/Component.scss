@@ -1,24 +1,43 @@
 .portal-news-tickets-component {
     .neo-ticket-labels {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
+        display      : flex;
+        flex-wrap    : wrap;
+        gap          : 8px;
         margin-bottom: 20px;
 
         .neo-badge {
-            align-items: center;
-            border: 1px solid rgba(0,0,0,0.1);
-            border-radius: 2em;
-            display: inline-flex;
-            font-size: 12px;
-            font-weight: 500;
-            line-height: 22px;
-            padding: 0 10px;
+            align-items   : center;
+            border        : 1px solid rgba(0, 0, 0, 0.1);
+            border-radius : 2em;
+            display       : inline-flex;
+            font-size     : 12px;
+            font-weight   : 500;
+            line-height   : 22px;
+            padding       : 0 10px;
             text-transform: capitalize;
 
             // Default fallback
             background-color: #eff1f3;
-            color: #24292f;
+            color           : #24292f;
+        }
+    }
+
+    .neo-frontmatter-table {
+        .neo-sub-issue {
+            align-items  : center;
+            display      : flex;
+            gap          : 8px;
+            margin-bottom: 4px;
+        }
+
+        i {
+            &.fa-circle-check {
+                color: #2da44e; // GitHub success green
+            }
+
+            &.fa-circle {
+                color: #8c959f; // GitHub muted grey
+            }
         }
     }
 }

@@ -34,11 +34,11 @@ class Component extends ContentComponent {
 
             if (key === 'subIssues' && Array.isArray(value)) {
                 renderedValue = value.map(issue => {
-                    return issue
+                    return `<div class="neo-sub-issue">${issue
                         .replace(regexTicketLink, '<a href="#/news/tickets/$1">$1</a>')
                         .replace('[x]', '<i class="fa-solid fa-circle-check"></i>')
-                        .replace('[ ]', '<i class="fa-regular fa-circle"></i>')
-                }).join('<br>');
+                        .replace('[ ]', '<i class="fa-regular fa-circle"></i>')}</div>`
+                }).join('');
             } else if (key === 'author') {
                 renderedValue = `<a href="https://github.com/${value}" target="_blank">${value}</a>`;
             } else {
