@@ -4,6 +4,7 @@ import {Command}       from 'commander/esm.mjs';
 import {fileURLToPath} from 'url';
 import fg              from 'fast-glob';
 import matter          from 'gray-matter';
+import semver          from 'semver';
 import {sanitizeInput} from './util/Sanitizer.mjs';
 
 const ROOT_DIR    = process.cwd();
@@ -17,7 +18,7 @@ const INCLUDE_LABELS = new Set(['bug', 'feature', 'enhancement', 'documentation'
 const EXCLUDE_LABELS = new Set(['chore', 'task', 'agent-task']);
 
 /**
- * Scans the issues and issue-archive directories and generates a JSON index.
+ * Scans the issues and issue-archive directories and generates a hierarchical JSON index.
  * @param {Object} options
  * @param {String} options.issuesDir - Directory containing active markdown tickets
  * @param {String} options.archiveDir - Directory containing archived markdown tickets (versioned folders)
@@ -47,7 +48,7 @@ async function createTicketIndex(options = {}) {
 
     console.log(`Found ${allFiles.length} total ticket files.`);
 
-    const tickets = [];
+    const ticketsByGroup = new Map();
 
     await Promise.all(allFiles.map(async (fileInfo) => {
         const filePath = fileInfo.path;
@@ -71,71 +72,108 @@ async function createTicketIndex(options = {}) {
 
         // Validate essential fields
         if (!frontmatter.id || !frontmatter.title) {
-            // Some very old files might lack frontmatter or use a different format. 
-            // We skip them to maintain index quality.
             return;
         }
 
         // Filtering Logic
         const labels = Array.isArray(frontmatter.labels) ? frontmatter.labels.map(l => (l.name || l).toLowerCase()) : [];
-        
         const hasIncludeLabel = labels.some(l => INCLUDE_LABELS.has(l));
         const hasExcludeLabel = labels.some(l => EXCLUDE_LABELS.has(l));
-
-        // Strategy: 
-        // 1. If it has an EXCLUDE label, we only keep it if it ALSO has an INCLUDE label.
-        //    (e.g., 'chore' + 'refactoring' might be interesting, but plain 'chore' is noise).
-        // 2. If it has neither, we probably keep it (default inclusion) or strictly require an include label.
-        //    Let's be permissive by default but filter out pure chores.
         
         let shouldKeep = true;
-
         if (hasExcludeLabel && !hasIncludeLabel) {
             shouldKeep = false;
         }
-
-        // Optional: Strict mode (must have at least one valid label). 
-        // For now, let's stick to the exclusion rule.
-
         if (!shouldKeep) {
             return;
         }
 
-        // Construct path relative to repo root (for dynamic loading)
-        // We assume the app will load these via fetch, so we need the relative path from the server root
-        const relativePath = path.relative(ROOT_DIR, filePath);
+        // Determine Group (Version or Latest)
+        let groupName;
+        if (fileInfo.isActive) {
+            groupName = 'Latest';
+        } else {
+            // path/to/archive/v11.19.1/issue-123.md -> v11.19.1
+            const parentDir = path.basename(path.dirname(filePath));
+            groupName = parentDir;
+        }
 
-        tickets.push({
-            id         : String(frontmatter.id), // Ensure string ID
-            title      : frontmatter.title,
-            state      : frontmatter.state,
-            labels     : frontmatter.labels || [], // Keep original casing/structure
-            assignees  : frontmatter.assignees || [],
-            author     : frontmatter.author || null,
-            createdAt  : frontmatter.createdAt,
-            updatedAt  : frontmatter.updatedAt,
-            closedAt   : frontmatter.closedAt,
-            version    : !fileInfo.isActive ? path.basename(path.dirname(filePath)) : null, // Extract version from folder name if archived
-            path       : relativePath
-        });
+        // Construct path relative to repo root
+        const relativePath = path.relative(ROOT_DIR, filePath);
+        const ticketId     = String(frontmatter.id);
+
+        const ticketData = {
+            id      : ticketId,
+            parentId: groupName,
+            title   : frontmatter.title,
+            path    : relativePath,
+            // Internal sorting keys (removed before write)
+            _closedAt : frontmatter.closedAt,
+            _updatedAt: frontmatter.updatedAt
+        };
+
+        if (!ticketsByGroup.has(groupName)) {
+            ticketsByGroup.set(groupName, []);
+        }
+        ticketsByGroup.get(groupName).push(ticketData);
     }));
 
-    // Sort by ID (descending) - Newest tickets first
-    tickets.sort((a, b) => parseInt(b.id) - parseInt(a.id));
+    // Sort Groups
+    // 'Latest' first, then versions descending (using semver)
+    const sortedGroups = Array.from(ticketsByGroup.keys()).sort((a, b) => {
+        if (a === 'Latest') return -1;
+        if (b === 'Latest') return 1;
 
-    console.log(`Filtered down to ${tickets.length} indexable tickets.`);
+        // Clean versions for semver comparison
+        const vA = a.replace(/^v/, '');
+        const vB = b.replace(/^v/, '');
+
+        if (semver.valid(vA) && semver.valid(vB)) {
+            return semver.rcompare(vA, vB);
+        }
+        return b.localeCompare(a, undefined, { numeric: true, sensitivity: 'base' });
+    });
+
+    const flatTree = [];
+
+    sortedGroups.forEach((groupName, index) => {
+        // Create Parent Node
+        const isFirst = index === 0;
+        
+        const parentNode = {
+            id       : groupName,
+            isLeaf   : false,
+            parentId : null,
+            collapsed: !isFirst // Expand first, collapse rest
+        };
+
+        flatTree.push(parentNode);
+
+        // Sort Tickets within Group
+        // Priority: closedAt DESC -> updatedAt DESC -> id DESC
+        const tickets = ticketsByGroup.get(groupName);
+        tickets.sort((a, b) => {
+            const dateA = a._closedAt || a._updatedAt || 0;
+            const dateB = b._closedAt || b._updatedAt || 0;
+            
+            if (dateA !== dateB) {
+                return new Date(dateB) - new Date(dateA);
+            }
+            return parseInt(b.id) - parseInt(a.id);
+        });
+
+        // Add Tickets to Tree (Cleanup internal keys)
+        tickets.forEach(t => {
+            delete t._closedAt;
+            delete t._updatedAt;
+            flatTree.push(t);
+        });
+    });
+
+    console.log(`Filtered down to ${flatTree.length - sortedGroups.length} tickets in ${sortedGroups.length} groups.`);
 
     await fs.ensureDir(path.dirname(outputFile));
-    await fs.writeJSON(outputFile, tickets, { spaces: 0 }); // Compact JSON for network performance? Or 4 for readability?
-    // Releases.json uses 4 spaces. Let's use 0 to save bytes for the big list, 
-    // unless the user specifically wants it readable. 
-    // Given the prompt "explore... resources/data/releases.json", which is pretty printed...
-    // I'll stick to 0 (minified) for now as this file could get large (hundreds of tickets).
-    // Wait, releases.json is pretty printed. Let's do 4 to be consistent with the project style unless file size is an issue.
-    // 388 tickets is not that big. 
-    
-    // Actually, let's check the previous read of releases.json. It was pretty printed.
-    await fs.writeJSON(outputFile, tickets, { spaces: 4 });
+    await fs.writeJSON(outputFile, flatTree, { spaces: 4 });
     
     console.log(`Ticket index written to ${outputFile}`);
 }
@@ -145,7 +183,7 @@ async function runCli() {
 
     program
         .name('create-ticket-index')
-        .description('Generates a JSON index of tickets from markdown files.')
+        .description('Generates a hierarchical JSON index of tickets.')
         .option('-i, --issues <path>',  'Active issues directory path', sanitizeInput)
         .option('-a, --archive <path>', 'Archive directory path', sanitizeInput)
         .option('-o, --output <path>',  'Output file path',     sanitizeInput);
