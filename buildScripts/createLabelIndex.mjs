@@ -110,10 +110,12 @@ const cliEntryPath = process.argv[1] ? path.resolve(process.argv[1]) : null;
 const modulePath   = fileURLToPath(import.meta.url);
 
 if (cliEntryPath && cliEntryPath === modulePath) {
-    runCli().catch(err => {
-        console.error(err);
-        process.exit(1);
-    });
+    runCli()
+        .then(() => process.exit(0))
+        .catch(err => {
+            console.error(err);
+            process.exit(1);
+        });
 }
 
 export default createLabelIndex;
