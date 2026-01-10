@@ -41,6 +41,13 @@ class NewsTabContainer extends TabContainer {
                 text   : 'Blog'
             }
         }, {
+            module: () => import('./tickets/MainContainer.mjs'),
+            header: {
+                iconCls: 'fa fa-clipboard-list',
+                route  : '/news/tickets',
+                text   : 'Tickets'
+            }
+        }, {
             module: () => import('./release/MainContainer.mjs'),
             header: {
                 iconCls: 'fa fa-scroll',
