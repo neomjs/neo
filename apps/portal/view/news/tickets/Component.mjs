@@ -1,5 +1,9 @@
 import ContentComponent  from '../../shared/content/Component.mjs';
 
+const
+    regexFrontMatter = /^---\n([\s\S]*?)\n---\n/,
+    regexTicketLink  = /(\d{4,})/;
+
 /**
  * @class Portal.view.news.tickets.Component
  * @extends Portal.view.shared.content.Component
@@ -30,7 +34,10 @@ class Component extends ContentComponent {
 
             if (key === 'subIssues' && Array.isArray(value)) {
                 renderedValue = value.map(issue => {
-                    return issue.replace(/(\d{4,})/, '<a href="#/news/tickets/$1">$1</a>')
+                    return issue
+                        .replace(regexTicketLink, '<a href="#/news/tickets/$1">$1</a>')
+                        .replace('[x]', '<i class="fa-solid fa-circle-check"></i>')
+                        .replace('[ ]', '<i class="fa-regular fa-circle"></i>')
                 }).join('<br>');
             } else if (key === 'author') {
                 renderedValue = `<a href="https://github.com/${value}" target="_blank">${value}</a>`;
@@ -66,7 +73,7 @@ class Component extends ContentComponent {
     modifyMarkdown(content) {
         let me     = this,
             labels = [],
-            match  = content.match(/^---\n([\s\S]*?)\n---\n/);
+            match  = content.match(regexFrontMatter);
 
         if (match) {
             let data = me.parseFrontMatter(match[1]);
