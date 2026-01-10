@@ -176,30 +176,29 @@ class ServiceBase extends Base {
     /**
      * @param {ExtendableMessageEvent} event
      */
-    async onActivate(event) {
-        await globalThis.clients.claim();
+    onActivate(event) {
+        event.waitUntil((async () => {
+            await globalThis.clients.claim();
 
-        console.log('onActivate', event);
+            console.log('Neo ServiceWorker activated:', this.version);
 
-        let me   = this,
-            keys = await caches.keys(),
-            key;
+            let me   = this,
+                keys = await caches.keys(),
+                key;
 
-        for (key of keys) {
-            // Clear caches for prior SW versions, without touching non-related caches
-            if (key.startsWith(me._cacheName) && key !== me.cacheName) {
-                // No need to await the method execution
-                me.clearCache(key)
+            for (key of keys) {
+                // Clear caches for prior SW versions, without touching non-related caches
+                if (key.startsWith(me._cacheName) && key !== me.cacheName) {
+                    await me.clearCache(key)
+                }
             }
-        }
+        })());
     }
 
     /**
      * @param {Client} source
      */
     async onConnect(source) {
-        console.log('onConnect', source);
-
         this.createMessageChannel(source);
         this.initRemote()
     }
@@ -219,22 +218,32 @@ class ServiceBase extends Base {
             }
         }
 
-        hasMatch && request.method === 'GET' && event.respondWith(
-            caches.match(request)
-                .then(cachedResponse => cachedResponse || caches.open(this.cacheName)
-                .then(cache          => fetch(request)
-                .then(response       => cache.put(request, response.clone())
-                .then(()             => response)
-            )))
-        )
+        if (hasMatch && request.method === 'GET') {
+            event.respondWith(
+                caches.open(this.cacheName).then(cache => {
+                    return cache.match(request).then(cachedResponse => {
+                        if (cachedResponse) {
+                            return cachedResponse;
+                        }
+
+                        return fetch(request).then(response => {
+                            if (response.ok || response.status === 0) {
+                                cache.put(request, response.clone());
+                            }
+                            return response;
+                        });
+                    });
+                })
+            );
+        }
     }
 
     /**
      * @param {ExtendableMessageEvent} event
      */
     onInstall(event) {
-        console.log('onInstall', event);
-        globalThis.skipWaiting();
+        console.log('Neo ServiceWorker installed:', this.version);
+        event.waitUntil(globalThis.skipWaiting());
     }
 
     /**
@@ -257,7 +266,15 @@ class ServiceBase extends Base {
         }
 
         if (action !== 'reply') {
-            me['on' + Neo.capitalize(action)](data, event);
+            const method = me['on' + Neo.capitalize(action)];
+
+            if (method) {
+                const result = method.call(me, data, event);
+
+                if (result instanceof Promise && event.waitUntil) {
+                    event.waitUntil(result);
+                }
+            }
         } else if (promise = action === 'reply' && me.promises[replyId]) {
             promise[data.reject ? 'reject' : 'resolve'](data.data);
             delete me.promises[replyId]

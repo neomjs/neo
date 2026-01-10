@@ -48,10 +48,6 @@ class ServiceWorker extends Base {
 
             window.addEventListener('beforeunload', me.onBeforeUnload.bind(me));
 
-            registration.addEventListener('updatefound', () => {
-                window.location.reload()
-            })
-
             await serviceWorker.ready;
 
             serviceWorker.onmessage = WorkerManager.onWorkerMessage.bind(WorkerManager);
