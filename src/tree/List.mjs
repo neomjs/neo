@@ -371,6 +371,37 @@ class Tree extends Base {
     }
 
     /**
+     * Expands all parent folders of a given item
+     * @param {String|Number} itemId
+     */
+    expandParents(itemId) {
+        let me       = this,
+            item     = me.store.get(itemId),
+            hasMatch = false,
+            node, parentId;
+
+        if (item) {
+            parentId = item.parentId;
+
+            while (parentId) {
+                node = me.getVdomChild(me.getItemId(parentId));
+
+                if (node && !node.cls.includes('neo-folder-open')) {
+                    NeoArray.add(node.cls, 'neo-folder-open');
+                    hasMatch = true
+                }
+
+                item     = me.store.get(parentId);
+                parentId = item ? item.parentId : null
+            }
+        }
+
+        if (hasMatch) {
+            me.update()
+        }
+    }
+
+    /**
      * Hides Tree nodes which do not match the filter
      * @param {String} property The store field to filter by
      * @param {String} value The filter value
@@ -418,6 +449,19 @@ class Tree extends Base {
         }
 
         return isFiltered
+    }
+
+    /**
+     * Scrolls a list item into the visible area
+     * @param {String|Number} itemId
+     */
+    scrollToItem(itemId) {
+        let me = this;
+
+        Neo.main.DomAccess.scrollIntoView({
+            id      : me.getItemId(itemId),
+            windowId: me.windowId
+        })
     }
 
     /**

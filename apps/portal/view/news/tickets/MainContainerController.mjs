@@ -109,11 +109,17 @@ class MainContainerController extends Controller {
             tree.routePrefix = '/news/tickets'
         }
 
+        const select = () => {
+            stateProvider.data.currentPageRecord = store.get(itemId);
+            tree.expandParents(itemId);
+            tree.scrollToItem(itemId)
+        };
+
         if (store.getCount() > 0) {
-            stateProvider.data.currentPageRecord = store.get(itemId)
+            select()
         } else {
             store.on({
-                load : () => {stateProvider.data.currentPageRecord = store.get(itemId)},
+                load : select,
                 delay: 10,
                 once : true
             })
