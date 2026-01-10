@@ -24,6 +24,10 @@ class Component extends Markdown {
             record: data => data.currentPageRecord
         },
         /**
+         * @member {String} issuesUrl='#/news/tickets/'
+         */
+        issuesUrl: '#/news/tickets/',
+        /**
          * @member {Object} record_=null
          * @reactive
          */
