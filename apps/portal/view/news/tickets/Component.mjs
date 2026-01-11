@@ -346,7 +346,7 @@ class Component extends ContentComponent {
         }
 
         // 6. Wrap the remaining HTML (Body) in the Timeline Item structure
-        let bodyId = 'timeline-0';
+        let bodyId = `timeline-${me.record.id}-0`;
 
         me.timelineData.unshift({
             id   : bodyId,
@@ -416,7 +416,7 @@ class Component extends ContentComponent {
 
         const flushComment = () => {
             if (commentBuf.length > 0) {
-                id = `timeline-${me.timelineData.length + 1}`;
+                id = `timeline-${me.record.id}-${me.timelineData.length + 1}`;
 
                 me.timelineData.push({
                     id   : id,
@@ -495,7 +495,7 @@ class Component extends ContentComponent {
                 // Linkify Commit Hashes
                 cleanAction = cleanAction.replace(regexCommit, `<a href="${commitsUrl}$1" target="_blank">$1</a>`);
 
-                id = `timeline-${me.timelineData.length + 1}`;
+                id = `timeline-${me.record.id}-${me.timelineData.length + 1}`;
 
                 // Extract a short action name for the list
                 let shortAction = action.split(' ')[0]; // 'added', 'closed', etc.
