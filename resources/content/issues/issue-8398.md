@@ -34,8 +34,10 @@ subIssues:
   - '[x] 8529 Implement rich HTML Timeline rendering for Ticket view'
   - '[x] 8530 Integrate Ticket Body into Timeline view'
   - '[x] 8531 Polish Portal Ticket Timeline: Author & Commit Links'
-subIssuesCompleted: 18
-subIssuesTotal: 18
+  - '[x] 8533 Portal Ticket Timeline: Localized & Smart Timestamp Formatting'
+  - '[x] 8534 Portal Ticket Timeline: Render Labels as Badges'
+subIssuesCompleted: 20
+subIssuesTotal: 20
 blockedBy: []
 blocking: []
 ---
@@ -106,4 +108,6 @@ Updates Markdown component to respect local routing for ticket IDs if the config
 - 2026-01-10T23:07:39Z @tobiu added sub-issue #8529
 - 2026-01-10T23:19:01Z @tobiu added sub-issue #8530
 - 2026-01-11T00:07:16Z @tobiu added sub-issue #8531
+- 2026-01-11T00:55:28Z @tobiu added sub-issue #8533
+- 2026-01-11T01:13:04Z @tobiu added sub-issue #8534
 
