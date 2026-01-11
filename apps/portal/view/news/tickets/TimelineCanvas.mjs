@@ -121,13 +121,14 @@ class TimelineCanvas extends Canvas {
         let delay = isResize ? 50 : 100;
 
         me.timeout(delay).then(async () => {
-            let ids          = records.map(r => r.id),
+            // Target the actual Avatar/Badge elements we added IDs to
+            let ids          = records.map(r => `${r.id}-target`),
                 componentId  = me.getStateProvider().data.contentComponentId,
                 timelineId   = `ticket-timeline-${componentId}`,
                 rects, timelineRect;
 
             try {
-                // Fetch DOM rects for all timeline items
+                // Fetch DOM rects for the MARKERS (Avatars/Badges), not the containers
                 rects = await me.getDomRect(ids);
 
                 // Fetch timeline container rect (optional, fallback)
@@ -155,22 +156,21 @@ class TimelineCanvas extends Canvas {
                 let nodes      = [];
                 let startY     = 0;
 
-                ids.forEach((id, index) => {
+                ids.forEach((targetId, index) => {
                     let rect   = rects[index],
                         record = records[index];
 
                     if (rect) {
-                        // Precise offset based on CSS (Avatar/Badge position)
-                        // Comment/Body: Avatar is top: -6px, height: 40px -> Center is -6 + 20 = 14px from rect top.
-                        // Event: Badge is top: -2px, height: 28px -> Center is -2 + 14 = 12px from rect top.
-                        let isComment = record.tag === 'comment' || record.tag === 'body';
-                        let offset    = isComment ? 14 : 12;
-                        let nodeY     = rect.y - canvasRect.y + offset;
+                        // PRECISE CENTERING
+                        // Now 'rect' is the actual avatar/badge.
+                        let offset = rect.height / 2;
+                        let nodeY  = rect.y - canvasRect.y + offset;
+                        let nodeX  = rect.x - canvasRect.x + (rect.width / 2);
 
                         nodes.push({
-                            id: id,
+                            id: record.id, // Keep original ID for logic
                             y : nodeY,
-                            x : rect.x - canvasRect.x
+                            x : nodeX
                         });
 
                         // Set the startY of the line to the first node

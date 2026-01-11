@@ -126,18 +126,11 @@ class TicketCanvas extends Base {
         // 1. Clear
         ctx.clearRect(0, 0, width, height);
 
-        // 2. Draw Vertical Neural Line (The "Spine")
-        // Positioned relative to the first node.
-        // CSS: Timeline padding-left 60px. Line at 30px. Item content starts at 60px.
-        // So line is 30px to the left of the item content.
-        // We assume nodes[0].x is the item content left edge.
-        let spineX = 38,
-            startY = me.startY;
-
-        if (me.nodes.length > 0) {
-            spineX = me.nodes[0].x - 30; // Shift left to center in the gutter
-        }
-
+        // 2. Draw Neural Connections (The "Spine")
+        // We connect each node to the next one.
+        // For the first segment, we can just draw straight down from the first node?
+        // Or strictly connect nodes. Let's connect nodes.
+        
         // Gradient for the spine
         const gradient = ctx.createLinearGradient(0, 0, 0, height);
         gradient.addColorStop(0, 'rgba(64, 196, 255, 0.1)');
@@ -147,18 +140,53 @@ class TicketCanvas extends Base {
         ctx.strokeStyle = gradient;
         ctx.lineWidth   = 2;
         ctx.beginPath();
-        ctx.moveTo(spineX, startY);
-        ctx.lineTo(spineX, height);
+
+        if (me.nodes.length > 0) {
+            let first = me.nodes[0];
+            ctx.moveTo(first.x, first.y);
+
+            for (let i = 1; i < me.nodes.length; i++) {
+                let node = me.nodes[i];
+                ctx.lineTo(node.x, node.y);
+            }
+            // Extend to bottom from last node
+            let last = me.nodes[me.nodes.length - 1];
+            ctx.lineTo(last.x, height);
+        }
         ctx.stroke();
 
         // 3. Draw "Pulse" Effect
-        // A glowing segment moving down
+        // A glowing segment moving down the path
+        // To do this strictly on the path requires path following logic.
+        // For now, let's keep the vertical pulse but align it to the node X at that Y.
+        // Since our nodes are mostly vertical, we can interpolate X based on pulseY.
+
         const pulseSpeed = 0.15; // px per ms
         const pulseY = (now * pulseSpeed) % height;
         const pulseLength = 100;
 
-        // Only draw pulse if it's within the spine range
-        if (pulseY > startY) {
+        // Find which segment the pulse is in
+        // Simple linear interpolation function
+        const getXAtY = (y) => {
+            if (me.nodes.length < 2) return me.nodes[0]?.x || 38;
+            
+            // Before first node
+            if (y < me.nodes[0].y) return me.nodes[0].x;
+
+            for (let i = 0; i < me.nodes.length - 1; i++) {
+                let curr = me.nodes[i];
+                let next = me.nodes[i+1];
+                if (y >= curr.y && y <= next.y) {
+                    let ratio = (y - curr.y) / (next.y - curr.y);
+                    return curr.x + (next.x - curr.x) * ratio;
+                }
+            }
+            
+            // After last node
+            return me.nodes[me.nodes.length - 1].x;
+        };
+
+        if (me.nodes.length > 0 && pulseY > me.nodes[0].y) {
             const pulseGrad = ctx.createLinearGradient(0, pulseY, 0, pulseY + pulseLength);
             pulseGrad.addColorStop(0, 'rgba(64, 196, 255, 0)');
             pulseGrad.addColorStop(0.5, 'rgba(64, 196, 255, 1)');
@@ -167,18 +195,20 @@ class TicketCanvas extends Base {
             ctx.strokeStyle = pulseGrad;
             ctx.lineWidth = 4;
             ctx.beginPath();
-            ctx.moveTo(spineX, pulseY);
-            ctx.lineTo(spineX, Math.min(pulseY + pulseLength, height));
+            
+            // Draw pulse segment by segment to follow the path
+            // This is complex for a simple effect. 
+            // Simplified: Draw a vertical line at the interpolated X.
+            // It might look slightly detached on steep angles but fine for vertical flow.
+            let pulseX = getXAtY(pulseY);
+            ctx.moveTo(pulseX, pulseY);
+            ctx.lineTo(getXAtY(pulseY + pulseLength), Math.min(pulseY + pulseLength, height));
             ctx.stroke();
-        }
-        
-        // Wrap around pulse (if at bottom)
-        if (pulseY + pulseLength > height) {
-             // Draw the remainder at top? Or just let it flow out.
         }
 
         // 4. Draw Nodes (Event Markers)
         me.nodes.forEach(node => {
+            const x = node.x;
             const y = node.y;
             
             // Interaction: If pulse is near node, glow up
@@ -188,7 +218,7 @@ class TicketCanvas extends Base {
             const alpha = isActive ? 1 : 0.5;
 
             ctx.beginPath();
-            ctx.arc(spineX, y, radius, 0, 2 * Math.PI);
+            ctx.arc(x, y, radius, 0, 2 * Math.PI);
             ctx.fillStyle = `rgba(64, 196, 255, ${alpha})`;
             ctx.fill();
             

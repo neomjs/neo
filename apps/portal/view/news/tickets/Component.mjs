@@ -316,7 +316,7 @@ class Component extends ContentComponent {
 
         let bodyItemHtml = `
             <div id="${bodyId}" class="neo-timeline-item comment body-item" data-record-id="${bodyId}">
-                <div class="neo-timeline-avatar">
+                <div id="${bodyId}-target" class="neo-timeline-avatar">
                     <img src="${me.repoUserUrl}${author}.png" alt="${author}">
                 </div>
                 <div class="neo-timeline-content">
@@ -377,7 +377,7 @@ class Component extends ContentComponent {
                 let body = marked.parse(commentBuf.join('\n'));
                 html += `
                     <div id="${id}" class="neo-timeline-item comment" data-record-id="${id}">
-                        <div class="neo-timeline-avatar">
+                        <div id="${id}-target" class="neo-timeline-avatar">
                             <img src="${repoUserUrl}${currentUser}.png" alt="${currentUser}">
                         </div>
                         <div class="neo-timeline-content">
@@ -451,7 +451,7 @@ class Component extends ContentComponent {
 
                 html += `
                     <div id="${id}" class="neo-timeline-item event ${actionCls}" data-record-id="${id}">
-                        <div class="neo-timeline-badge"><i class="fa-solid ${icon}"></i></div>
+                        <div id="${id}-target" class="neo-timeline-badge"><i class="fa-solid ${icon}"></i></div>
                         <div class="neo-timeline-body">
                             <a class="neo-timeline-user" href="${repoUserUrl}${user}" target="_blank">${user}</a> ${cleanAction} <span class="neo-timeline-date">on ${me.formatTimestamp(date)}</span>
                         </div>
