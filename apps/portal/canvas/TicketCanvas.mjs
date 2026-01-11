@@ -48,6 +48,7 @@ class TicketCanvas extends Base {
          */
         remote: {
             app: [
+                'clearGraph',
                 'initGraph',
                 'updateGraphData',
                 'updateSize'
@@ -100,6 +101,18 @@ class TicketCanvas extends Base {
      * @member {Number} startY=0
      */
     startY = 0
+
+    /**
+     * Clears the graph state and stops the render loop.
+     * This is called when the view unmounts to prevent "Zombie Loops".
+     */
+    clearGraph() {
+        let me = this;
+        me.nodes      = [];
+        me.context    = null; // This stops the render loop (see render() check)
+        me.canvasId   = null;
+        me.canvasSize = null
+    }
 
     /**
      * Calculates the horizontal (X) position on the spine for a given vertical (Y) position.

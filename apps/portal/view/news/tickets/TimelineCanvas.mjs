@@ -101,8 +101,10 @@ class TimelineCanvas extends Canvas {
             if (store.getCount() > 0) {
                 me.onTimelineDataLoad(store.items)
             }
-        } else {
-            me.isCanvasReady = false
+        } else if (oldValue) {
+            me.isCanvasReady = false;
+            // Stop the worker loop to prevent "Zombie Canvas" CPU usage
+            await Portal.canvas.TicketCanvas.clearGraph()
         }
     }
 
