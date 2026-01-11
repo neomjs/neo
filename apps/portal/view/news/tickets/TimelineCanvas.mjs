@@ -171,14 +171,13 @@ class TimelineCanvas extends Canvas {
                         // Avatars (~40px) get more breathing room than Badges (~28px)
                         let padding = rect.height > 32 ? 6 : 3;
 
-                        nodes.push({
-                            id    : record.id, // Keep original ID for logic
-                            radius: offset + padding, 
-                            y     : nodeY,
-                            x     : nodeX
-                        });
-
-                        // Set the startY of the line to the first node
+                                                                        nodes.push({
+                                                                            color : record.color, // Pass Hex Color (e.g. #ff0000)
+                                                                            id    : record.id,
+                                                                            radius: offset + padding,
+                                                                            y     : nodeY,
+                                                                            x     : nodeX
+                                                                        });                        // Set the startY of the line to the first node
                         if (index === 0) {
                             startY = nodeY;
                         }

@@ -93,15 +93,46 @@ class TicketCanvas extends Base {
     pulseY = 0
 
     /**
+     * @member {Number} animationId=null
+     */
+    animationId = null
+
+    /**
      * @param {Object} data
      * @param {Array}  data.nodes
      * @param {Number} [data.startY]
      */
     updateGraphData(data) {
-        this.nodes = data.nodes || [];
+        let me = this;
+        me.nodes = data.nodes || [];
         if (data.startY !== undefined) {
-            this.startY = data.startY;
+            me.startY = data.startY;
         }
+        
+        // Ensure animation loop is running if we have data
+        if (me.nodes.length > 0 && !me.animationId && me.context) {
+            me.render();
+        }
+    }
+
+    /**
+     * Helper to parse hex to rgb
+     * @param {String} hex
+     * @returns {Object} {r,g,b}
+     */
+    hexToRgb(hex) {
+        // Expand shorthand form (e.g. "03F") to full form (e.g. "0033FF")
+        var shorthandRegex = /^#?([a-f\d])([a-f\d])([a-f\d])$/i;
+        hex = hex.replace(shorthandRegex, function(m, r, g, b) {
+            return r + r + g + g + b + b;
+        });
+
+        var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+        return result ? {
+            r: parseInt(result[1], 16),
+            g: parseInt(result[2], 16),
+            b: parseInt(result[3], 16)
+        } : null;
     }
 
     /**
@@ -140,23 +171,22 @@ class TicketCanvas extends Base {
         let dt = now - (me.lastFrameTime || now);
         me.lastFrameTime = now;
         
-        // Cap dt to prevent huge jumps if tab was inactive
+        // Cap dt to prevent huge jumps
         if (dt > 100) dt = 16; 
 
         // 1. Calculate Physics
-        // Find distance to nearest node to determine speed
-        let minDist = Infinity;
+        let minDist   = Infinity;
+        let nearNode  = null;
         
-        // We only care about vertical distance for speed throttling
         me.nodes.forEach(node => {
             let dist = Math.abs(me.pulseY - node.y);
-            if (dist < minDist) minDist = dist;
+            if (dist < minDist) {
+                minDist  = dist;
+                nearNode = node;
+            }
         });
 
-        // Speed Modifier:
-        // Far away (>150px): 1.5x (Highway)
-        // At node (0px): 0.2x (Traffic)
-        // Smooth interpolation
+        // Speed Modifier
         const influenceRange = 150;
         const minMod = 0.2;
         const maxMod = 1.5;
@@ -165,11 +195,25 @@ class TicketCanvas extends Base {
         
         if (minDist < influenceRange) {
             let ratio = minDist / influenceRange;
-            // Ease out cubic for smoother braking
-            // ratio 0 -> minMod
-            // ratio 1 -> maxMod
             speedModifier = minMod + (maxMod - minMod) * (ratio * ratio);
         }
+
+        // Color Interpolation (Chameleon Effect)
+        // Base Color: Neo Blue (64, 196, 255)
+        let r = 64, g = 196, b = 255;
+
+        // If near a colored node (within 100px), interpolate to its color
+        if (nearNode && nearNode.color && minDist < 100) {
+            let target = me.hexToRgb(nearNode.color);
+            if (target) {
+                let mix = 1 - (minDist / 100);
+                r = r + (target.r - r) * mix;
+                g = g + (target.g - g) * mix;
+                b = b + (target.b - b) * mix;
+            }
+        }
+        
+        const pulseColorStr = `rgba(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)}`; // leaves alpha open
 
         // Apply Velocity
         me.pulseY += me.baseSpeed * speedModifier * dt;
@@ -177,17 +221,14 @@ class TicketCanvas extends Base {
             me.pulseY = -200; // Restart above
         }
         
-        // Dynamic Pulse Length (Squash & Stretch)
-        // Fast = Long, Slow = Short
+        // Dynamic Pulse Length
         const baseLength = 100;
-        const pulseLength = baseLength * (speedModifier * 0.8); // Scale length with speed
+        const pulseLength = baseLength * (speedModifier * 0.8); 
 
         // 2. Clear
         ctx.clearRect(0, 0, width, height);
 
         // 3. Draw Neural Connections (The "Spine")
-        
-        // Gradient for the spine - refined to Gray/Subtle
         const gradient = ctx.createLinearGradient(0, 0, 0, height);
         gradient.addColorStop(0,   'rgba(150, 150, 150, 0.1)');
         gradient.addColorStop(0.5, 'rgba(150, 150, 150, 0.3)');
@@ -205,7 +246,6 @@ class TicketCanvas extends Base {
                 let node = me.nodes[i];
                 ctx.lineTo(node.x, node.y);
             }
-            // Extend to bottom from last node
             let last = me.nodes[me.nodes.length - 1];
             ctx.lineTo(last.x, height);
         }
@@ -214,11 +254,8 @@ class TicketCanvas extends Base {
         // 4. Draw "Pulse" Effect
         const pulseY = me.pulseY;
 
-        // Find which segment the pulse is in
         const getXAtY = (y) => {
             if (me.nodes.length < 2) return me.nodes[0]?.x || 38;
-            
-            // Before first node
             if (y < me.nodes[0].y) return me.nodes[0].x;
 
             for (let i = 0; i < me.nodes.length - 1; i++) {
@@ -229,16 +266,14 @@ class TicketCanvas extends Base {
                     return curr.x + (next.x - curr.x) * ratio;
                 }
             }
-            
-            // After last node
             return me.nodes[me.nodes.length - 1].x;
         };
 
         if (me.nodes.length > 0 && pulseY > me.nodes[0].y - pulseLength) {
             const pulseGrad = ctx.createLinearGradient(0, pulseY, 0, pulseY + pulseLength);
-            pulseGrad.addColorStop(0,   'rgba(64, 196, 255, 0)');
-            pulseGrad.addColorStop(0.5, 'rgba(64, 196, 255, 1)');
-            pulseGrad.addColorStop(1,   'rgba(64, 196, 255, 0)');
+            pulseGrad.addColorStop(0,   `${pulseColorStr}, 0)`);
+            pulseGrad.addColorStop(0.5, `${pulseColorStr}, 1)`);
+            pulseGrad.addColorStop(1,   `${pulseColorStr}, 0)`);
 
             ctx.strokeStyle = pulseGrad;
             ctx.lineWidth   = 4;
@@ -250,10 +285,9 @@ class TicketCanvas extends Base {
             ctx.stroke();
         }
 
-        // 5. "The Gap": Cut out holes for the DOM Nodes
-        // This ensures the line never visually crosses the Avatar/Badge
+        // 5. "The Gap"
         ctx.globalCompositeOperation = 'destination-out';
-        ctx.fillStyle = '#000'; // Color irrelevant for erase
+        ctx.fillStyle = '#000';
 
         me.nodes.forEach(node => {
             if (node.radius) {
@@ -264,7 +298,6 @@ class TicketCanvas extends Base {
         });
 
         // 5. Draw Orbit/Glow Effects
-        // Switch back to drawing on top
         ctx.globalCompositeOperation = 'source-over';
 
         me.nodes.forEach(node => {
@@ -272,37 +305,25 @@ class TicketCanvas extends Base {
             const x      = node.x;
             const y      = node.y;
             
-            // Pulse range
             const pTop    = pulseY;
             const pBottom = pulseY + pulseLength;
             const nTop    = y - radius;
             const nBottom = y + radius;
 
-            // Check overlap
             if (pBottom > nTop && pTop < nBottom) {
-                // Calculate angular progress
-                // 0 = Top (-PI/2), 1 = Bottom (PI/2)
-                
                 const getProgress = (val) => {
                     return Math.max(0, Math.min(1, (val - nTop) / (2 * radius)));
                 };
 
-                const startP = getProgress(pTop);    // Where the tail is
-                const endP   = getProgress(pBottom); // Where the head is
-
-                // Angles: -PI/2 is top. PI/2 is bottom.
-                // But we draw from startAngle to endAngle.
-                // Head is at endP (bottom-most), Tail is at startP (top-most).
-                // We want to draw the segment between Tail and Head.
+                const startP = getProgress(pTop);
+                const endP   = getProgress(pBottom);
                 
                 const angleTail = -Math.PI/2 + (startP * Math.PI);
                 const angleHead = -Math.PI/2 + (endP * Math.PI);
 
-                // Intensity based on how much of the pulse is "inside" vs outside?
-                // Or just standard pulse color. 
-                // Let's use the standard blue but maybe slightly brighter as it compresses.
-                ctx.strokeStyle = 'rgba(64, 196, 255, 1)';
-                ctx.lineWidth   = 2; // Conservation of mass: 4px pulse splits into two 2px arcs
+                // Use the DYNAMIC color here too!
+                ctx.strokeStyle = `${pulseColorStr}, 1)`;
+                ctx.lineWidth   = 2;
 
                 // Right Arc
                 ctx.beginPath();
@@ -310,31 +331,16 @@ class TicketCanvas extends Base {
                 ctx.stroke();
 
                 // Left Arc
-                // Mirror the angles?
-                // Left side goes from Top (-PI/2) to Left (PI) to Bottom (PI/2).
-                // Or -PI/2 to -3PI/2.
-                // Left Arc: Start at Tail, End at Head (Counter-Clockwise)
-                // If we use CCW:
-                // Tail (-PI/2 + offset) -> Head (-PI/2 + offset)
-                // We want to mirror the progress.
-                // Right side: -90deg -> +90deg
-                // Left side:  -90deg -> -270deg
-                // So angle = -PI/2 - (p * PI)
-                
                 const leftTail = -Math.PI/2 - (startP * Math.PI);
                 const leftHead = -Math.PI/2 - (endP * Math.PI);
                 
                 ctx.beginPath();
-                // Draw from Tail to Head? 
-                // Context.arc draws from start to end.
-                // If we use CCW=true, we should go from Tail to Head?
-                // Let's test: Tail=-90, Head=-180. CCW=true -> -90 to -180. Correct.
                 ctx.arc(x, y, radius + 2, leftTail, leftHead, true);
                 ctx.stroke();
             }
         });
 
-        // Loop
+        // Loop using setTimeout (SharedWorkers do not support rAF)
         setTimeout(me.render.bind(me), 1000 / 60);
     }
 }

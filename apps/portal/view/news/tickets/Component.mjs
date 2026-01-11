@@ -409,24 +409,36 @@ class Component extends ContentComponent {
                     {key: 'added the `',      icon: 'fa-tag'},
                     {key: 'removed the `',    icon: 'fa-tag'},
                     {key: 'assigned',         icon: 'fa-user-pen'},
-                    {key: 'closed',           icon: 'fa-circle-check', cls: 'purple'},
-                    {key: 'reopened',         icon: 'fa-circle-dot',   cls: 'green'},
+                    {key: 'closed',           icon: 'fa-circle-check', color: '#8250df'}, // GitHub Purple
+                    {key: 'reopened',         icon: 'fa-circle-dot',   color: '#2da44e'}, // GitHub Green
                     {key: 'referenced',       icon: 'fa-link'},
                     {key: 'cross-referenced', icon: 'fa-link'},
                     {key: 'milestoned',       icon: 'fa-sign-post'},
                     {key: 'sub-issue',        icon: 'fa-diagram-project'}
                 ].find(e => action.includes(e.key));
 
+                let color = null;
+
                 if (eventType) {
                     icon = eventType.icon;
-                    if (eventType.cls) actionCls = eventType.cls
+                    if (eventType.color) color = eventType.color
                 }
 
                 // Clean up markdown in action text (e.g. `code` to <code>)
                 let cleanAction = marked.parseInline(action);
 
                 if (icon === 'fa-tag') {
-                    cleanAction = cleanAction.replace(/<code>(.*?)<\/code>/g, (match, label) => me.getLabelBadgeHtml(label))
+                    cleanAction = cleanAction.replace(/<code>(.*?)<\/code>/g, (match, label) => me.getLabelBadgeHtml(label));
+                    
+                    // Try to resolve color from label
+                    let labelMatch = action.match(/`([^`]+)`/);
+                    if (labelMatch) {
+                        let labelName = labelMatch[1];
+                        let labelRec  = me.getStateProvider().getStore('labels').get(labelName);
+                        if (labelRec) {
+                            color = labelRec.color;
+                        }
+                    }
                 }
 
                 // Linkify Commit Hashes
@@ -443,15 +455,19 @@ class Component extends ContentComponent {
                 }
 
                 me.timelineData.push({
-                    icon: icon,
-                    id  : id,
-                    name: `${Neo.capitalize(shortAction)} (${user})`,
-                    tag : 'event'
+                    color: color, // Pass resolved hex color
+                    icon : icon,
+                    id   : id,
+                    name : `${Neo.capitalize(shortAction)} (${user})`,
+                    tag  : 'event'
                 });
 
+                // Apply color style if present, otherwise default
+                let style = color ? `style="color: ${color}"` : '';
+
                 html += `
-                    <div id="${id}" class="neo-timeline-item event ${actionCls}" data-record-id="${id}">
-                        <div id="${id}-target" class="neo-timeline-badge"><i class="fa-solid ${icon}"></i></div>
+                    <div id="${id}" class="neo-timeline-item event" data-record-id="${id}">
+                        <div id="${id}-target" class="neo-timeline-badge" ${style}><i class="fa-solid ${icon}"></i></div>
                         <div class="neo-timeline-body">
                             <a class="neo-timeline-user" href="${repoUserUrl}${user}" target="_blank">${user}</a> ${cleanAction} <span class="neo-timeline-date">on ${me.formatTimestamp(date)}</span>
                         </div>
