@@ -4,6 +4,15 @@ const
     hexToRgbRegex  = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i,
     shorthandRegex = /^#?([a-f\d])([a-f\d])([a-f\d])$/i; // Expand shorthand form (e.g. "03F") to full form (e.g. "0033FF")
 
+const BASE_COLOR = {r: 64, g: 196, b: 255}; // Neo Blue
+
+const PHYSICS = {
+    influenceRange: 150,
+    minMod        : 0.2,
+    maxMod        : 1.5,
+    pulseBounds   : -200
+};
+
 /**
  * @class Portal.canvas.TicketCanvas
  * @extends Neo.core.Base
@@ -68,6 +77,10 @@ class TicketCanvas extends Base {
      */
     pulseY = 0
     /**
+     * @member {Function} renderLoop=this.render.bind(this)
+     */
+    renderLoop = this.render.bind(this)
+    /**
      * @member {Number} startY=0
      */
     startY = 0
@@ -127,13 +140,15 @@ class TicketCanvas extends Base {
 
         me.canvasId = canvasId;
 
-        // Wait for the canvas to be available in the worker map
+        // Wait for the canvas to be available in the worker map.
+        // The OffscreenCanvas is transferred asynchronously to the CanvasWorker,
+        // so we need to poll until it arrives.
         const checkCanvas = () => {
             const canvas = Neo.currentWorker.canvasWindowMap[canvasId]?.[windowId];
 
             if (canvas) {
                 me.context = canvas.getContext('2d');
-                hasChange && me.render()
+                hasChange && me.renderLoop()
             } else {
                 setTimeout(checkCanvas, 50)
             }
@@ -155,7 +170,7 @@ class TicketCanvas extends Base {
 
         // Ensure animation loop is running if we have data
         if (me.nodes.length > 0 && !me.animationId && me.context) {
-            me.render()
+            me.renderLoop()
         }
     }
 
@@ -211,10 +226,7 @@ class TicketCanvas extends Base {
         });
 
         // Speed Modifier
-        const
-            influenceRange = 150,
-            minMod         = 0.2,
-            maxMod         = 1.5;
+        const {influenceRange, minMod, maxMod, pulseBounds} = PHYSICS;
 
         let speedModifier = maxMod;
 
@@ -224,8 +236,7 @@ class TicketCanvas extends Base {
         }
 
         // Color Interpolation (Chameleon Effect)
-        // Base Color: Neo Blue (64, 196, 255)
-        let r = 64, g = 196, b = 255;
+        let {r, g, b} = BASE_COLOR;
 
         // If near a colored node (within 100px), interpolate to its color
         if (nearNode && nearNode.color && minDist < 100) {
@@ -242,8 +253,8 @@ class TicketCanvas extends Base {
 
         // Apply Velocity
         me.pulseY += me.baseSpeed * speedModifier * dt;
-        if (me.pulseY > height + 200) {
-            me.pulseY = -200; // Restart above
+        if (me.pulseY > height - pulseBounds) {
+            me.pulseY = pulseBounds; // Restart above
         }
 
         // Dynamic Pulse Length
@@ -353,7 +364,7 @@ class TicketCanvas extends Base {
         });
 
         // Loop using setTimeout (SharedWorkers do not support rAF)
-        setTimeout(me.render.bind(me), 1000 / 60)
+        setTimeout(me.renderLoop, 1000 / 60)
     }
 }
 
