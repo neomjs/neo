@@ -37,9 +37,12 @@ subIssues:
   - '[x] 8533 Portal Ticket Timeline: Localized & Smart Timestamp Formatting'
   - '[x] 8534 Portal Ticket Timeline: Render Labels as Badges'
   - '[x] 8536 Feature: Canvas-based "Neural" Timeline Animation'
-  - '[ ] 8542 Enhancement: "Orbit" Effect & Visual Polish for Neural Timeline'
-subIssuesCompleted: 21
-subIssuesTotal: 22
+  - '[x] 8542 Enhancement: "Orbit" Effect & Visual Polish for Neural Timeline'
+  - '[x] 8546 Fix TimelineCanvas crash on ticket switch (records.map is not a function)'
+  - '[x] 8544 Enhancement: Physics-based "Traffic" Animation (Variable Speed & Length)'
+  - '[x] 8543 Enhancement: "Orbit" Animation Logic (Pulse travels around nodes)'
+subIssuesCompleted: 25
+subIssuesTotal: 25
 blockedBy: []
 blocking: []
 ---
@@ -115,4 +118,7 @@ Updates Markdown component to respect local routing for ticket IDs if the config
 - 2026-01-11T10:16:53Z @tobiu cross-referenced by #8537
 - 2026-01-11T13:25:00Z @tobiu added sub-issue #8536
 - 2026-01-11T13:25:31Z @tobiu added sub-issue #8542
+- 2026-01-11T14:29:19Z @tobiu added sub-issue #8546
+- 2026-01-11T14:30:27Z @tobiu added sub-issue #8544
+- 2026-01-11T14:30:50Z @tobiu added sub-issue #8543
 
