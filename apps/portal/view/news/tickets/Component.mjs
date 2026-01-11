@@ -129,18 +129,10 @@ class Component extends ContentComponent {
         if (!labels || labels.length === 0) return '';
 
         let me         = this,
-            badgesHtml = '<div class="neo-ticket-labels">',
-            store      = me.getStateProvider().getStore('labels'),
-            record;
+            badgesHtml = '<div class="neo-ticket-labels">';
 
         labels.forEach(label => {
-            record = store.get(label);
-
-            if (record) {
-                badgesHtml += `<span class="neo-badge" style="background-color:${record.color};color:${record.textColor}">${label}</span>`
-            } else {
-                badgesHtml += `<span class="neo-badge">${label}</span>`
-            }
+            badgesHtml += me.getLabelBadgeHtml(label)
         });
 
         badgesHtml += '</div>';
@@ -155,6 +147,21 @@ class Component extends ContentComponent {
      */
     getContentPath({path}) {
         return path ? Neo.config.basePath + path : null
+    }
+
+    /**
+     * @param {String} label
+     * @returns {String}
+     */
+    getLabelBadgeHtml(label) {
+        let store  = this.getStateProvider().getStore('labels'),
+            record = store.get(label);
+
+        if (record) {
+            return `<span class="neo-badge" style="background-color:${record.color};color:${record.textColor}">${label}</span>`
+        }
+
+        return `<span class="neo-badge">${label}</span>`
     }
 
     /**
@@ -336,16 +343,29 @@ class Component extends ContentComponent {
                 icon      = 'fa-circle-dot'; // Default
                 actionCls = '';
 
-                if (action.includes('added the `'))   {icon = 'fa-tag'}
-                else if (action.includes('assigned')) {icon = 'fa-user-pen'; }
-                else if (action.includes('closed'))   {icon = 'fa-circle-check'; actionCls = 'purple'}
-                else if (action.includes('reopened')) {icon = 'fa-circle-dot';   actionCls = 'green'}
-                else if (action.includes('referenced') || action.includes('cross-referenced')) { icon = 'fa-link'}
-                else if (action.includes('milestoned')){icon = 'fa-sign-post'}
-                else if (action.includes('sub-issue')) {icon = 'fa-diagram-project'}
+                const eventType = [
+                    {key: 'added the `',      icon: 'fa-tag'},
+                    {key: 'removed the `',    icon: 'fa-tag'},
+                    {key: 'assigned',         icon: 'fa-user-pen'},
+                    {key: 'closed',           icon: 'fa-circle-check', cls: 'purple'},
+                    {key: 'reopened',         icon: 'fa-circle-dot',   cls: 'green'},
+                    {key: 'referenced',       icon: 'fa-link'},
+                    {key: 'cross-referenced', icon: 'fa-link'},
+                    {key: 'milestoned',       icon: 'fa-sign-post'},
+                    {key: 'sub-issue',        icon: 'fa-diagram-project'}
+                ].find(e => action.includes(e.key));
+
+                if (eventType) {
+                    icon = eventType.icon;
+                    if (eventType.cls) actionCls = eventType.cls
+                }
 
                 // Clean up markdown in action text (e.g. `code` to <code>)
                 action = marked.parseInline(action);
+
+                if (icon === 'fa-tag') {
+                    action = action.replace(/<code>(.*?)<\/code>/g, (match, label) => me.getLabelBadgeHtml(label))
+                }
 
                 // Linkify Commit Hashes
                 action = action.replace(regexCommit, `<a href="${commitsUrl}$1" target="_blank">$1</a>`);
