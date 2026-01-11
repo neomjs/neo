@@ -80,6 +80,19 @@ class TicketCanvas extends Base {
     startY = 0
 
     /**
+     * @member {Number} baseSpeed=0.5
+     */
+    baseSpeed = 0.5
+    /**
+     * @member {Number} lastFrameTime=0
+     */
+    lastFrameTime = 0
+    /**
+     * @member {Number} pulseY=0
+     */
+    pulseY = 0
+
+    /**
      * @param {Object} data
      * @param {Array}  data.nodes
      * @param {Number} [data.startY]
@@ -123,11 +136,56 @@ class TicketCanvas extends Base {
             height = me.canvasSize?.height || 600,
             now    = Date.now();
 
-        // 1. Clear
+        // Time delta in ms
+        let dt = now - (me.lastFrameTime || now);
+        me.lastFrameTime = now;
+        
+        // Cap dt to prevent huge jumps if tab was inactive
+        if (dt > 100) dt = 16; 
+
+        // 1. Calculate Physics
+        // Find distance to nearest node to determine speed
+        let minDist = Infinity;
+        
+        // We only care about vertical distance for speed throttling
+        me.nodes.forEach(node => {
+            let dist = Math.abs(me.pulseY - node.y);
+            if (dist < minDist) minDist = dist;
+        });
+
+        // Speed Modifier:
+        // Far away (>150px): 1.5x (Highway)
+        // At node (0px): 0.2x (Traffic)
+        // Smooth interpolation
+        const influenceRange = 150;
+        const minMod = 0.2;
+        const maxMod = 1.5;
+        
+        let speedModifier = maxMod;
+        
+        if (minDist < influenceRange) {
+            let ratio = minDist / influenceRange;
+            // Ease out cubic for smoother braking
+            // ratio 0 -> minMod
+            // ratio 1 -> maxMod
+            speedModifier = minMod + (maxMod - minMod) * (ratio * ratio);
+        }
+
+        // Apply Velocity
+        me.pulseY += me.baseSpeed * speedModifier * dt;
+        if (me.pulseY > height + 200) {
+            me.pulseY = -200; // Restart above
+        }
+        
+        // Dynamic Pulse Length (Squash & Stretch)
+        // Fast = Long, Slow = Short
+        const baseLength = 100;
+        const pulseLength = baseLength * (speedModifier * 0.8); // Scale length with speed
+
+        // 2. Clear
         ctx.clearRect(0, 0, width, height);
 
-        // 2. Draw Neural Connections (The "Spine")
-        // We connect each node to the next one.
+        // 3. Draw Neural Connections (The "Spine")
         
         // Gradient for the spine - refined to Gray/Subtle
         const gradient = ctx.createLinearGradient(0, 0, 0, height);
@@ -153,10 +211,8 @@ class TicketCanvas extends Base {
         }
         ctx.stroke();
 
-        // 3. Draw "Pulse" Effect
-        const pulseSpeed  = 0.15; // px per ms
-        const pulseY      = (now * pulseSpeed) % height;
-        const pulseLength = 100;
+        // 4. Draw "Pulse" Effect
+        const pulseY = me.pulseY;
 
         // Find which segment the pulse is in
         const getXAtY = (y) => {
@@ -178,7 +234,7 @@ class TicketCanvas extends Base {
             return me.nodes[me.nodes.length - 1].x;
         };
 
-        if (me.nodes.length > 0 && pulseY > me.nodes[0].y) {
+        if (me.nodes.length > 0 && pulseY > me.nodes[0].y - pulseLength) {
             const pulseGrad = ctx.createLinearGradient(0, pulseY, 0, pulseY + pulseLength);
             pulseGrad.addColorStop(0,   'rgba(64, 196, 255, 0)');
             pulseGrad.addColorStop(0.5, 'rgba(64, 196, 255, 1)');
@@ -194,7 +250,7 @@ class TicketCanvas extends Base {
             ctx.stroke();
         }
 
-        // 4. "The Gap": Cut out holes for the DOM Nodes
+        // 5. "The Gap": Cut out holes for the DOM Nodes
         // This ensures the line never visually crosses the Avatar/Badge
         ctx.globalCompositeOperation = 'destination-out';
         ctx.fillStyle = '#000'; // Color irrelevant for erase
