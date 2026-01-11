@@ -107,27 +107,29 @@ class MainContainerController extends Controller {
      * @param {Object} value
      * @param {Object} oldValue
      */
-    onRouteItem({itemId}, value, oldValue) {
-        let stateProvider = this.getStateProvider(),
+    async onRouteItem({itemId}, value, oldValue) {
+        let me            = this,
+            stateProvider = me.getStateProvider(),
             store         = stateProvider.getStore('tree'),
-            tree          = this.getReference('tree');
+            tree          = me.getReference('tree');
 
         // Ensure the tree has the correct route prefix for this controller context
         if (tree.routePrefix !== '/news/tickets') {
             tree.routePrefix = '/news/tickets'
         }
 
-        const select = () => {
+        const select = async () => {
             stateProvider.data.currentPageRecord = store.get(itemId);
             tree.expandParents(itemId);
 
             if (!oldValue?.hashString?.startsWith('/news/tickets')) {
+                await me.timeout(100);
                 tree.scrollToItem(itemId)
             }
         };
 
         if (store.getCount() > 0) {
-            select()
+            await select()
         } else {
             store.on({
                 load : select,

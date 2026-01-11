@@ -15,6 +15,7 @@ class MainContainerController extends Controller {
          * @member {Object} routes
          */
         routes: {
+            '/news'                   : 'onRouteDefault',
             '/news/releases'          : 'onRouteDefault',
             '/news/releases/{*itemId}': 'onRouteItem'
         }
@@ -23,7 +24,7 @@ class MainContainerController extends Controller {
     /**
      * @param {String} item
      */
-    navigateTo(item) {
+    navigateTo(item) {console.log('navigateTo', item);
         Neo.Main.setRoute({
             value   : `/news/releases/${item}`,
             windowId: this.component.windowId
@@ -80,8 +81,13 @@ class MainContainerController extends Controller {
 
     /**
      * @param {Object} data
+     * @param {Object} value
+     * @param {Object} oldValue
      */
-    onRouteDefault(data) {
+    onRouteDefault(data, value, oldValue) {
+        // Opt out for potentially incorrectly captured routes like '/news/tickets'
+        if (value?.hashString !== '/news' || value?.hashString !== '/news/releases') return;
+
         let me    = this,
             store = me.getStateProvider().getStore('tree');
 
@@ -102,27 +108,29 @@ class MainContainerController extends Controller {
      * @param {Object} value
      * @param {Object} oldValue
      */
-    onRouteItem({itemId}, value, oldValue) {
-        let stateProvider = this.getStateProvider(),
+    async onRouteItem({itemId}, value, oldValue) {
+        let me            = this,
+            stateProvider = me.getStateProvider(),
             store         = stateProvider.getStore('tree'),
-            tree          = this.getReference('tree');
+            tree          = me.getReference('tree');
 
         // Ensure the tree has the correct route prefix for this controller context
         if (tree.routePrefix !== '/news/releases') {
             tree.routePrefix = '/news/releases'
         }
 
-        const select = () => {
+        const select = async () => {
             stateProvider.data.currentPageRecord = store.get(itemId);
             tree.expandParents(itemId);
 
-            if (!oldValue?.hashString?.startsWith('/news/releases')) {
+            if (!oldValue?.hashString?.startsWith('/news/releases')) {console.log('scroll', itemId);
+                await me.timeout(100);
                 tree.scrollToItem(itemId)
             }
         };
 
         if (store.getCount() > 0) {
-            select()
+            await select()
         } else {
             store.on({
                 load : select,
