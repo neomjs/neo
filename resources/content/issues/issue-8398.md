@@ -56,8 +56,10 @@ subIssues:
   - '[x] 8561 Remove arbitrary delay in TreeList afterSetCurrentPageRecord'
   - '[x] 8562 Refactor TimelineCanvas.onTimelineDataLoad to use waitForDomRect'
   - '[x] 8563 Prevent race condition in TimelineCanvas by making sections store update optional'
-subIssuesCompleted: 40
-subIssuesTotal: 40
+  - '[x] 8564 Reset TicketCanvas animation on data load'
+  - '[x] 8565 Scope timeline item IDs to Ticket ID to prevent stale rects on switch'
+subIssuesCompleted: 42
+subIssuesTotal: 42
 blockedBy: []
 blocking: []
 ---
