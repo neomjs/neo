@@ -128,14 +128,12 @@ class TicketCanvas extends Base {
 
         // 2. Draw Neural Connections (The "Spine")
         // We connect each node to the next one.
-        // For the first segment, we can just draw straight down from the first node?
-        // Or strictly connect nodes. Let's connect nodes.
         
-        // Gradient for the spine
+        // Gradient for the spine - refined to Gray/Subtle
         const gradient = ctx.createLinearGradient(0, 0, 0, height);
-        gradient.addColorStop(0, 'rgba(64, 196, 255, 0.1)');
-        gradient.addColorStop(0.5, 'rgba(64, 196, 255, 0.5)');
-        gradient.addColorStop(1, 'rgba(64, 196, 255, 0.1)');
+        gradient.addColorStop(0,   'rgba(150, 150, 150, 0.1)');
+        gradient.addColorStop(0.5, 'rgba(150, 150, 150, 0.3)');
+        gradient.addColorStop(1,   'rgba(150, 150, 150, 0.1)');
 
         ctx.strokeStyle = gradient;
         ctx.lineWidth   = 2;
@@ -156,17 +154,11 @@ class TicketCanvas extends Base {
         ctx.stroke();
 
         // 3. Draw "Pulse" Effect
-        // A glowing segment moving down the path
-        // To do this strictly on the path requires path following logic.
-        // For now, let's keep the vertical pulse but align it to the node X at that Y.
-        // Since our nodes are mostly vertical, we can interpolate X based on pulseY.
-
-        const pulseSpeed = 0.15; // px per ms
-        const pulseY = (now * pulseSpeed) % height;
+        const pulseSpeed  = 0.15; // px per ms
+        const pulseY      = (now * pulseSpeed) % height;
         const pulseLength = 100;
 
         // Find which segment the pulse is in
-        // Simple linear interpolation function
         const getXAtY = (y) => {
             if (me.nodes.length < 2) return me.nodes[0]?.x || 38;
             
@@ -188,44 +180,73 @@ class TicketCanvas extends Base {
 
         if (me.nodes.length > 0 && pulseY > me.nodes[0].y) {
             const pulseGrad = ctx.createLinearGradient(0, pulseY, 0, pulseY + pulseLength);
-            pulseGrad.addColorStop(0, 'rgba(64, 196, 255, 0)');
+            pulseGrad.addColorStop(0,   'rgba(64, 196, 255, 0)');
             pulseGrad.addColorStop(0.5, 'rgba(64, 196, 255, 1)');
-            pulseGrad.addColorStop(1, 'rgba(64, 196, 255, 0)');
+            pulseGrad.addColorStop(1,   'rgba(64, 196, 255, 0)');
 
             ctx.strokeStyle = pulseGrad;
-            ctx.lineWidth = 4;
+            ctx.lineWidth   = 4;
             ctx.beginPath();
             
-            // Draw pulse segment by segment to follow the path
-            // This is complex for a simple effect. 
-            // Simplified: Draw a vertical line at the interpolated X.
-            // It might look slightly detached on steep angles but fine for vertical flow.
             let pulseX = getXAtY(pulseY);
             ctx.moveTo(pulseX, pulseY);
             ctx.lineTo(getXAtY(pulseY + pulseLength), Math.min(pulseY + pulseLength, height));
             ctx.stroke();
         }
 
-        // 4. Draw Nodes (Event Markers)
-        me.nodes.forEach(node => {
-            const x = node.x;
-            const y = node.y;
-            
-            // Interaction: If pulse is near node, glow up
-            const dist = Math.abs((pulseY + pulseLength/2) - y);
-            const isActive = dist < 50;
-            const radius = isActive ? 6 : 4;
-            const alpha = isActive ? 1 : 0.5;
+        // 4. "The Gap": Cut out holes for the DOM Nodes
+        // This ensures the line never visually crosses the Avatar/Badge
+        ctx.globalCompositeOperation = 'destination-out';
+        ctx.fillStyle = '#000'; // Color irrelevant for erase
 
-            ctx.beginPath();
-            ctx.arc(x, y, radius, 0, 2 * Math.PI);
-            ctx.fillStyle = `rgba(64, 196, 255, ${alpha})`;
-            ctx.fill();
+        me.nodes.forEach(node => {
+            if (node.radius) {
+                ctx.beginPath();
+                ctx.arc(node.x, node.y, node.radius, 0, 2 * Math.PI);
+                ctx.fill();
+            }
+        });
+
+        // 5. Draw Orbit/Glow Effects
+        // Switch back to drawing on top
+        ctx.globalCompositeOperation = 'source-over';
+
+        me.nodes.forEach(node => {
+            const radius = node.radius || 20;
+            const x      = node.x;
+            const y      = node.y;
             
+            // Interaction: If pulse is near node, activate orbit
+            const dist     = Math.abs((pulseY + pulseLength/2) - y);
+            const isActive = dist < 60;
+
             if (isActive) {
-                ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
-                ctx.lineWidth = 1;
+                // Calculate intensity based on proximity
+                const alpha = Math.max(0, 1 - (dist / 60));
+                
+                // Outer Orbit Ring
+                ctx.strokeStyle = `rgba(64, 196, 255, ${alpha})`;
+                ctx.lineWidth   = 2;
+                ctx.beginPath();
+                ctx.arc(x, y, radius + 2, 0, 2 * Math.PI);
                 ctx.stroke();
+
+                // Inner Glow (Subtle)
+                ctx.fillStyle = `rgba(64, 196, 255, ${alpha * 0.1})`;
+                ctx.beginPath();
+                ctx.arc(x, y, radius, 0, 2 * Math.PI);
+                ctx.fill();
+            } else {
+                // Idle state: Subtle gray ring to define the track (Optional)
+                // Looks cleaner without it, letting the gap be the definition.
+                // Uncomment to add a static ring:
+                /*
+                ctx.strokeStyle = `rgba(150, 150, 150, 0.1)`;
+                ctx.lineWidth   = 1;
+                ctx.beginPath();
+                ctx.arc(x, y, radius + 1, 0, 2 * Math.PI);
+                ctx.stroke();
+                */
             }
         });
 

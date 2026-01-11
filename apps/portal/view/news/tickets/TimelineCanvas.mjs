@@ -166,11 +166,16 @@ class TimelineCanvas extends Canvas {
                         let offset = rect.height / 2;
                         let nodeY  = rect.y - canvasRect.y + offset;
                         let nodeX  = rect.x - canvasRect.x + (rect.width / 2);
+                        
+                        // Distinct padding for Orbit effect
+                        // Avatars (~40px) get more breathing room than Badges (~28px)
+                        let padding = rect.height > 32 ? 6 : 3;
 
                         nodes.push({
-                            id: record.id, // Keep original ID for logic
-                            y : nodeY,
-                            x : nodeX
+                            id    : record.id, // Keep original ID for logic
+                            radius: offset + padding, 
+                            y     : nodeY,
+                            x     : nodeX
                         });
 
                         // Set the startY of the line to the first node
