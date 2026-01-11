@@ -1,6 +1,16 @@
 import Canvas from '../../../../../src/component/Canvas.mjs';
 
 /**
+ * @summary The "Coordinator" component for the Neural Timeline, bridging the App Worker and Canvas Worker.
+ *
+ * This component renders a transparent canvas overlay on top of the Ticket List. It is responsible for:
+ * 1. **Data Bridge**: Listening to the `sections` store and passing ticket data to the `TicketCanvas` (SharedWorker).
+ * 2. **Visual Alignment**: Calculating the precise DOM positions of Ticket Avatars/Badges to ensure the
+ *    canvas nodes align perfectly with the HTML content.
+ * 3. **Lifecycle Management**: initializing the offscreen canvas transfer and handling resize events.
+ *
+ * It uses the `Portal.canvas.TicketCanvas` singleton (via Remote Method Access) to drive the actual animation.
+ *
  * @class Portal.view.news.tickets.TimelineCanvas
  * @extends Neo.component.Canvas
  */
@@ -52,7 +62,14 @@ class TimelineCanvas extends Canvas {
     }
 
     /**
-     * Triggered after the offscreenRegistered config got changed
+     * Lifecycle hook that runs once the `OffscreenCanvas` has been transferred to the Canvas Worker.
+     *
+     * This method:
+     * 1. Imports the `TicketCanvas` logic into the Canvas Worker context.
+     * 2. Initializes the graph in the worker via Remote Method Access (`initGraph`).
+     * 3. Sets up a `ResizeObserver` to keep the canvas size synced with the DOM.
+     * 4. Triggers the initial data load if store data is available.
+     *
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
@@ -120,6 +137,17 @@ class TimelineCanvas extends Canvas {
     }
 
     /**
+     * The core "Alignment Engine" of the timeline.
+     *
+     * This method synchronizes the Canvas nodes with the DOM elements (Avatars/Badges).
+     *
+     * **Strategy:**
+     * 1. **Targeting**: It uses the `-target` ID suffix to find the specific DOM elements (Avatars) within the ticket list.
+     * 2. **Measurement**: It fetches the `DOMRect` for every target to get its exact screen position.
+     * 3. **Translation**: It converts these screen coordinates into Canvas-local coordinates.
+     * 4. **Handoff**: It packages this geometric data (x, y, radius, color) and sends it to the
+     *    `TicketCanvas` worker to update the physics simulation.
+     *
      * @param {Object[]|Object} records Array of records or Store load event object {items: [...]}
      * @param {Number} [attempt=0]
      * @param {Boolean} [isResize=false]
