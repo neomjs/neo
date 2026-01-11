@@ -41,8 +41,11 @@ subIssues:
   - '[x] 8546 Fix TimelineCanvas crash on ticket switch (records.map is not a function)'
   - '[x] 8544 Enhancement: Physics-based "Traffic" Animation (Variable Speed & Length)'
   - '[x] 8543 Enhancement: "Orbit" Animation Logic (Pulse travels around nodes)'
-subIssuesCompleted: 25
-subIssuesTotal: 25
+  - '[x] 8547 fix: Portal App tree navigation scrolling behavior'
+  - '[x] 8548 Refactor PageContainer for Tickets View'
+  - '[x] 8549 Fix duplicate listener on TimelineCanvas during navigation'
+subIssuesCompleted: 28
+subIssuesTotal: 28
 blockedBy: []
 blocking: []
 ---
@@ -121,4 +124,7 @@ Updates Markdown component to respect local routing for ticket IDs if the config
 - 2026-01-11T14:29:19Z @tobiu added sub-issue #8546
 - 2026-01-11T14:30:27Z @tobiu added sub-issue #8544
 - 2026-01-11T14:30:50Z @tobiu added sub-issue #8543
+- 2026-01-11T15:10:24Z @tobiu added sub-issue #8547
+- 2026-01-11T15:21:46Z @tobiu added sub-issue #8548
+- 2026-01-11T15:32:14Z @tobiu added sub-issue #8549
 
