@@ -200,6 +200,7 @@ class TicketCanvas extends Base {
     /**
      * @param {Object} data
      * @param {Array}  data.nodes
+     * @param {Boolean} [data.reset]
      * @param {Number} [data.startY]
      */
     updateGraphData(data) {
@@ -207,6 +208,10 @@ class TicketCanvas extends Base {
         me.nodes = data.nodes || [];
         if (data.startY !== undefined) {
             me.startY = data.startY;
+        }
+
+        if (data.reset) {
+            me.pulseY = PHYSICS.pulseBounds
         }
 
         // Ensure animation loop is running if we have data

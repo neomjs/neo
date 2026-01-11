@@ -240,7 +240,7 @@ class TimelineCanvas extends Canvas {
                 }
             });
 
-            await Portal.canvas.TicketCanvas.updateGraphData({nodes, startY})
+            await Portal.canvas.TicketCanvas.updateGraphData({nodes, reset: !isResize, startY})
         } catch (e) {
             console.error('TimelineCanvas update failed', e)
         }
