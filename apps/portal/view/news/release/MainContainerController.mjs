@@ -24,7 +24,7 @@ class MainContainerController extends Controller {
     /**
      * @param {String} item
      */
-    navigateTo(item) {console.log('navigateTo', item);
+    navigateTo(item) {
         Neo.Main.setRoute({
             value   : `/news/releases/${item}`,
             windowId: this.component.windowId
@@ -85,10 +85,6 @@ class MainContainerController extends Controller {
      * @param {Object} oldValue
      */
     onRouteDefault(data, value, oldValue) {
-        // Opt out for potentially incorrectly captured routes like '/news/tickets'
-        console.log('onRouteDefault', value?.hashString);
-        if (value?.hashString !== '/news' && value?.hashString !== '/news/releases') return;
-
         let me    = this,
             store = me.getStateProvider().getStore('tree');
 
@@ -124,7 +120,7 @@ class MainContainerController extends Controller {
             stateProvider.data.currentPageRecord = store.get(itemId);
             tree.expandParents(itemId);
 
-            if (!oldValue?.hashString?.startsWith('/news/releases')) {console.log('scroll', itemId);
+            if (!oldValue?.hashString?.startsWith('/news/releases')) {
                 await me.timeout(100);
                 tree.scrollToItem(itemId)
             }

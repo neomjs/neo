@@ -92,13 +92,13 @@ class Controller extends Base {
             if (key.toLowerCase() === 'default'){
                 me.defaultRoute = value[key]
             } else {
-                me.handleRoutes[key] = new RegExp(key.replace(regexRouteParam, (match, isWildcard, paramName) => {
+                me.handleRoutes[key] = new RegExp('^' + key.replace(regexRouteParam, (match, isWildcard, paramName) => {
                     if (isWildcard || paramName.startsWith('*')) {
                         return '(.*)'
                     } else {
                         return '([\\w-.]+)'
                     }
-                }))
+                }) + '$')
             }
         })
     }
