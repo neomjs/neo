@@ -51,8 +51,11 @@ subIssues:
   - '[x] 8555 Fix Zombie Canvas Loop in TicketCanvas'
   - '[x] 8556 Enhance Neural Timeline: Limit spine and pulse to last item'
   - '[x] 8557 Fix Ticket Timeline content overflow'
-subIssuesCompleted: 35
-subIssuesTotal: 35
+  - '[x] 8559 Optimize TimelineCanvas data load delay'
+  - '[x] 8560 Replace hardcoded timeout in MainContainerController with deterministic wait'
+  - '[x] 8561 Remove arbitrary delay in TreeList afterSetCurrentPageRecord'
+subIssuesCompleted: 38
+subIssuesTotal: 38
 blockedBy: []
 blocking: []
 ---
