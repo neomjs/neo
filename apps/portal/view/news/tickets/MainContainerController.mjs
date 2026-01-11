@@ -123,8 +123,13 @@ class MainContainerController extends Controller {
             tree.expandParents(itemId);
 
             if (!oldValue?.hashString?.startsWith('/news/tickets')) {
-                await me.timeout(100);
-                tree.scrollToItem(itemId)
+                // Wait for the expansion VDOM update to be applied and the item to be visible in the DOM
+                const id   = tree.getItemId(itemId),
+                      rect = await tree.waitForDomRect({id, attempts: 20, delay: 20});
+
+                if (rect) {
+                    tree.scrollToItem(itemId)
+                }
             }
         };
 

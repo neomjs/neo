@@ -64,7 +64,6 @@ class TreeList extends BaseTreeList {
      */
     async afterSetCurrentPageRecord(value, oldValue) {
         if (value) {
-            await this.timeout(20);
             this.selectionModel.select(value)
         }
     }
