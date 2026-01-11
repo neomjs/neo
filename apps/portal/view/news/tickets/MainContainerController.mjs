@@ -87,13 +87,14 @@ class MainContainerController extends Controller {
      * @param {Object} data
      */
     onRouteDefault(data) {
-        let store = this.getStateProvider().getStore('tree');
+        let me    = this,
+            store = me.getStateProvider().getStore('tree');
 
         if (store.getCount() > 0) {
-            this.navigateTo(store.getAt(1).id)
+            me.navigateTo(store.getAt(1).id)
         } else {
             store.on({
-                load : () => this.navigateTo(store.getAt(1).id),
+                load : () => me.navigateTo(store.getAt(1).id),
                 delay: 10,
                 once : true
             })
