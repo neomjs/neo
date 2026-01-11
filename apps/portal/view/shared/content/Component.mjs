@@ -40,7 +40,11 @@ class Component extends Markdown {
          * @member {String} tag='article'
          * @reactive
          */
-        tag: 'article'
+        tag: 'article',
+        /**
+         * @member {Boolean} updateSectionsStore=true
+         */
+        updateSectionsStore: true
     }
 
     /**
@@ -171,8 +175,12 @@ class Component extends Markdown {
     modifyMarkdown(content) {
         this.headlineData = [];
         const result = super.modifyMarkdown(content);
+
         // Using 'sections' store (generic name)
-        this.getStateProvider().getStore('sections').data = this.headlineData;
+        if (this.updateSectionsStore) {
+            this.getStateProvider().getStore('sections').data = this.headlineData
+        }
+
         this.headlineData = null;
         return result
     }

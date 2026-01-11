@@ -44,7 +44,11 @@ class Component extends ContentComponent {
         /**
          * @member {String} repoUserUrl='https://github.com/'
          */
-        repoUserUrl: 'https://github.com/'
+        repoUserUrl: 'https://github.com/',
+        /**
+         * @member {Boolean} updateSectionsStore=false
+         */
+        updateSectionsStore: false
     }
 
     /**
@@ -63,6 +67,14 @@ class Component extends ContentComponent {
      * @private
      */
     timelineData = null
+
+    /**
+     * @param {Object} config
+     */
+    construct(config) {
+        super.construct(config);
+        this.getStateProvider().setData('contentComponentId', this.id)
+    }
 
     /**
      * @param {String} isoString

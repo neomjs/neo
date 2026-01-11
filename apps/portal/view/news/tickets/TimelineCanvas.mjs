@@ -134,7 +134,7 @@ class TimelineCanvas extends Canvas {
         if (me.lastRecords) {
             // We don't need to re-fetch rects instantly, but it's safer to do so
             // to ensure alignment with the new layout.
-            me.onTimelineDataLoad(me.lastRecords, 0, true)
+            me.onTimelineDataLoad(me.lastRecords, true)
         }
     }
 
@@ -151,10 +151,9 @@ class TimelineCanvas extends Canvas {
      *    `TicketCanvas` worker to update the physics simulation.
      *
      * @param {Object[]|Object} records Array of records or Store load event object {items: [...]}
-     * @param {Number} [attempt=0]
      * @param {Boolean} [isResize=false]
      */
-    onTimelineDataLoad(records, attempt = 0, isResize = false) {
+    async onTimelineDataLoad(records, isResize = false) {
         let me = this;
 
         // Handle Store 'load' event signature: fire('load', {items: [...]})
@@ -173,79 +172,78 @@ class TimelineCanvas extends Canvas {
 
         me.lastRecords = records;
 
-        // If this is a fresh data load (not a resize), wait a bit for DOM
-        let delay = attempt === 0 ? 0 : 50;
+        let ids         = records.map(r => `${r.id}-target`),
+            componentId = me.getStateProvider().getData('contentComponentId'),
+            timelineId  = `ticket-timeline-${componentId}`,
+            rects, timelineRect;
 
-        me.timeout(delay).then(async () => {
-            // Target the actual Avatar/Badge elements we added IDs to
-            let ids         = records.map(r => `${r.id}-target`),
-                componentId = me.getStateProvider().data.contentComponentId,
-                timelineId  = `ticket-timeline-${componentId}`,
-                rects, timelineRect;
+        try {
+            // Fetch DOM rects for the MARKERS (Avatars/Badges), not the containers
+            rects = await me.waitForDomRect({
+                attempts: 20,
+                delay   : 50,
+                id      : ids
+            });
 
-            try {
-                // Fetch DOM rects for the MARKERS (Avatars/Badges), not the containers
-                rects = await me.getDomRect(ids);
-
-                // Fetch timeline container rect (optional, fallback)
-                if (componentId) {
-                    timelineRect = await me.getDomRect(timelineId)
-                }
-
-                // Check if we got valid rects (at least one)
-                let hasRects = rects && rects.some(r => r);
-
-                // Retry logic:
-                // If we miss rects OR if we miss the timeline container (and we expect one), retry.
-                if ((!hasRects || !timelineRect) && attempt < 10) {
-                    me.onTimelineDataLoad(records, attempt + 1, isResize);
-                    return
-                }
-
-                // On first valid data load (not resize), ensure size is synced
-                // because content might have pushed the container height.
-                if (!isResize && attempt === 0) {
-                    await me.updateSize()
-                }
-
-                let canvasRect = await me.getDomRect(me.getCanvasId()),
-                    nodes      = [],
-                    startY     = 0;
-
-                ids.forEach((targetId, index) => {
-                    let rect   = rects[index],
-                        record = records[index];
-
-                    if (rect) {
-                        // PRECISE CENTERING
-                        // Now 'rect' is the actual avatar/badge.
-                        let offset = rect.height / 2,
-                            nodeY  = rect.y - canvasRect.y + offset,
-                            nodeX  = rect.x - canvasRect.x + (rect.width / 2),
-                            // Distinct padding for Orbit effect
-                            // Avatars (~40px) get more breathing room than Badges (~28px)
-                            padding = rect.height > 32 ? 6 : 3;
-
-                        nodes.push({
-                            color : record.color, // Pass Hex Color (e.g. #ff0000)
-                            id    : record.id,
-                            radius: offset + padding,
-                            y     : nodeY,
-                            x     : nodeX
-                        });
-
-                        // Set the startY of the line to the first node
-                        if (index === 0) {
-                            startY = nodeY
-                        }
-                    }
-                });
-
-                await Portal.canvas.TicketCanvas.updateGraphData({nodes, startY})
-            } catch (e) {
-                console.error('TimelineCanvas update failed', e)
+            if (me.lastRecords !== records) {
+                return
             }
-        })
+
+            // Fetch timeline container rect (optional, fallback)
+            if (componentId) {
+                timelineRect = await me.getDomRect(timelineId)
+            }
+
+            // Check if we got valid rects (at least one)
+            let hasRects = rects && rects.some(r => r);
+
+            if (!hasRects) {
+                return
+            }
+
+            // On first valid data load (not resize), ensure size is synced
+            // because content might have pushed the container height.
+            if (!isResize) {
+                await me.updateSize()
+            }
+
+            let canvasRect = await me.getDomRect(me.getCanvasId()),
+                nodes      = [],
+                startY     = 0;
+
+            ids.forEach((targetId, index) => {
+                let rect   = rects[index],
+                    record = records[index];
+
+                if (rect) {
+                    // PRECISE CENTERING
+                    // Now 'rect' is the actual avatar/badge.
+                    let offset = rect.height / 2,
+                        nodeY  = rect.y - canvasRect.y + offset,
+                        nodeX  = rect.x - canvasRect.x + (rect.width / 2),
+                        // Distinct padding for Orbit effect
+                        // Avatars (~40px) get more breathing room than Badges (~28px)
+                        padding = rect.height > 32 ? 6 : 3;
+
+                    nodes.push({
+                        color : record.color, // Pass Hex Color (e.g. #ff0000)
+                        id    : record.id,
+                        radius: offset + padding,
+                        y     : nodeY,
+                        x     : nodeX
+                    });
+
+                    // Set the startY of the line to the first node
+                    if (index === 0) {
+                        startY = nodeY
+                    }
+                }
+            });
+
+            await Portal.canvas.TicketCanvas.updateGraphData({nodes, startY})
+        } catch (e) {
+            console.error('TimelineCanvas update failed', e)
+        }
     }
 
     /**
