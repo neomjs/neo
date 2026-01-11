@@ -6,7 +6,7 @@ const
     regexH1            = /(<h1[^>]*>.*?<\/h1>)/,
     regexTicketLink    = /(\d{4,})/,
     regexTimeline      = /## Timeline\s*\n([\s\S]*)/,
-    regexTimelineEvent = /^- (\d{4}-\d{2}-\d{2}) @(\w+) (.*)$/,
+    regexTimelineEvent = /^- ([\dTZ:.-]+) @(\w+) (.*)$/,
     regexCommit        = /\b([0-9a-f]{7,40})\b/g;
 
 /**
@@ -35,6 +35,51 @@ class Component extends ContentComponent {
     }
 
     /**
+     * @member {Intl.DateTimeFormat|null} #dateTimeFormatHistory=null
+     */
+    #dateTimeFormatHistory = null
+    /**
+     * @member {Intl.DateTimeFormat|null} #dateTimeFormatToday=null
+     */
+    #dateTimeFormatToday = null
+
+    /**
+     * @param {String} isoString
+     * @returns {String}
+     */
+    formatTimestamp(isoString) {
+        if (!isoString) return '';
+
+        let me      = this,
+            date    = new Date(isoString),
+            now     = new Date(),
+            isToday = date.toDateString() === now.toDateString();
+
+        if (isToday) {
+            if (!me.#dateTimeFormatToday) {
+                me.#dateTimeFormatToday = new Intl.DateTimeFormat('default', {
+                    hour  : 'numeric',
+                    minute: 'numeric'
+                })
+            }
+
+            return me.#dateTimeFormatToday.format(date)
+        }
+
+        if (!me.#dateTimeFormatHistory) {
+            me.#dateTimeFormatHistory = new Intl.DateTimeFormat('default', {
+                day   : 'numeric',
+                hour  : 'numeric',
+                minute: 'numeric',
+                month : 'short',
+                year  : 'numeric'
+            })
+        }
+
+        return me.#dateTimeFormatHistory.format(date)
+    }
+
+    /**
      * @param {Object} data
      * @returns {String}
      */
@@ -54,6 +99,8 @@ class Component extends ContentComponent {
                 }).join('')
             } else if (key === 'author') {
                 renderedValue = `<a href="${me.repoUserUrl}${value}" target="_blank">${value}</a>`
+            } else if (key === 'createdAt' || key === 'closedAt' || key === 'updatedAt') {
+                renderedValue = me.formatTimestamp(value)
             } else if (key === 'labels' && Array.isArray(value)) {
                 renderedValue = me.getBadgesHtml(value)
             } else if (key === 'state') {
@@ -149,7 +196,7 @@ class Component extends ContentComponent {
             let data = me.parseFrontMatter(match[1]);
 
             if (data.author)    {author    = data.author}
-            if (data.createdAt) {createdAt = new Date(data.createdAt).toLocaleString()}
+            if (data.createdAt) {createdAt = me.formatTimestamp(data.createdAt)}
             if (data.labels)    {labels    = data.labels}
             if (data.state)     {state     = data.state}
         }
@@ -267,7 +314,7 @@ class Component extends ContentComponent {
                         <div class="neo-timeline-content">
                             <div class="neo-timeline-header">
                                 <a class="neo-timeline-user" href="${repoUserUrl}${currentUser}" target="_blank">${currentUser}</a>
-                                <span class="neo-timeline-date">${currentDate}</span>
+                                <span class="neo-timeline-date">${me.formatTimestamp(currentDate)}</span>
                             </div>
                             <div class="neo-timeline-body">${body}</div>
                         </div>
@@ -281,7 +328,7 @@ class Component extends ContentComponent {
         for (; i < len; i++) {
             line = lines[i];
 
-            // Event Line: - YYYY-MM-DD @user action...
+            // Event Line: - 2026-01-11T... @user action...
             if ((match = line.match(regexTimelineEvent))) {
                 flushComment();
                 let [_, date, user, action] = match;
@@ -307,14 +354,14 @@ class Component extends ContentComponent {
                     <div class="neo-timeline-item event ${actionCls}">
                         <div class="neo-timeline-badge"><i class="fa-solid ${icon}"></i></div>
                         <div class="neo-timeline-body">
-                            <a class="neo-timeline-user" href="${repoUserUrl}${user}" target="_blank">${user}</a> ${action} <span class="neo-timeline-date">on ${date}</span>
+                            <a class="neo-timeline-user" href="${repoUserUrl}${user}" target="_blank">${user}</a> ${action} <span class="neo-timeline-date">on ${me.formatTimestamp(date)}</span>
                         </div>
                     </div>`;
             }
-            // Comment Header: ### @user - Date Time
+            // Comment Header: ### @user - 2026-01-11T...
             else if (line.startsWith('### @')) {
-                // Check regex manually since we need to capture
-                let headerMatch = line.match(/^### @(\w+) - (\d{4}-\d{2}-\d{2} \d{2}:\d{2})$/);
+                // Captures "user" and "2026-01-11T..." (ISO timestamp)
+                let headerMatch = line.match(/^### @(\w+) - ([\dTZ:.-]+)$/);
                 if (headerMatch) {
                     flushComment();
                     currentUser = headerMatch[1];
