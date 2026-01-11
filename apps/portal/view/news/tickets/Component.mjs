@@ -6,7 +6,8 @@ const
     regexH1            = /(<h1[^>]*>.*?<\/h1>)/,
     regexTicketLink    = /(\d{4,})/,
     regexTimeline      = /## Timeline\s*\n([\s\S]*)/,
-    regexTimelineEvent = /^- (\d{4}-\d{2}-\d{2}) @(\w+) (.*)$/;
+    regexTimelineEvent = /^- (\d{4}-\d{2}-\d{2}) @(\w+) (.*)$/,
+    regexCommit        = /\b([0-9a-f]{7,40})\b/g;
 
 /**
  * @class Portal.view.news.tickets.Component
@@ -22,7 +23,15 @@ class Component extends ContentComponent {
         /**
          * @member {String[]} cls=['portal-news-tickets-component']
          */
-        cls: ['portal-news-tickets-component']
+        cls: ['portal-news-tickets-component'],
+        /**
+         * @member {String} commitsUrl='https://github.com/neomjs/neo/commit/'
+         */
+        commitsUrl: 'https://github.com/neomjs/neo/commit/',
+        /**
+         * @member {String} repoUserUrl='https://github.com/'
+         */
+        repoUserUrl: 'https://github.com/'
     }
 
     /**
@@ -44,7 +53,7 @@ class Component extends ContentComponent {
                         .replace('[ ]', '<i class="fa-regular fa-circle"></i>')}</div>`
                 }).join('')
             } else if (key === 'author') {
-                renderedValue = `<a href="https://github.com/${value}" target="_blank">${value}</a>`
+                renderedValue = `<a href="${me.repoUserUrl}${value}" target="_blank">${value}</a>`
             } else if (key === 'labels' && Array.isArray(value)) {
                 renderedValue = me.getBadgesHtml(value)
             } else if (key === 'state') {
@@ -209,11 +218,11 @@ class Component extends ContentComponent {
         let bodyItemHtml = `
             <div class="neo-timeline-item comment body-item">
                 <div class="neo-timeline-avatar">
-                    <img src="https://github.com/${author}.png" alt="${author}">
+                    <img src="${me.repoUserUrl}${author}.png" alt="${author}">
                 </div>
                 <div class="neo-timeline-content">
                     <div class="neo-timeline-header">
-                        <span class="neo-timeline-user">${author}</span>
+                        <a class="neo-timeline-user" href="${me.repoUserUrl}${author}" target="_blank">${author}</a>
                         <span class="neo-timeline-date">commented on ${createdAt}</span>
                     </div>
                     <div class="neo-timeline-body">${fullHtml}</div>
@@ -236,7 +245,9 @@ class Component extends ContentComponent {
      * @returns {String}
      */
     renderTimeline(content) {
-        let html        = '<div class="neo-ticket-timeline">',
+        let me          = this,
+            {commitsUrl, repoUserUrl} = me,
+            html        = '<div class="neo-ticket-timeline">',
             lines       = content.split('\n'),
             commentBuf  = [],
             currentUser = null,
@@ -251,11 +262,11 @@ class Component extends ContentComponent {
                 html += `
                     <div class="neo-timeline-item comment">
                         <div class="neo-timeline-avatar">
-                            <img src="https://github.com/${currentUser}.png" alt="${currentUser}">
+                            <img src="${repoUserUrl}${currentUser}.png" alt="${currentUser}">
                         </div>
                         <div class="neo-timeline-content">
                             <div class="neo-timeline-header">
-                                <span class="neo-timeline-user">${currentUser}</span>
+                                <a class="neo-timeline-user" href="${repoUserUrl}${currentUser}" target="_blank">${currentUser}</a>
                                 <span class="neo-timeline-date">${currentDate}</span>
                             </div>
                             <div class="neo-timeline-body">${body}</div>
@@ -289,11 +300,14 @@ class Component extends ContentComponent {
                 // Clean up markdown in action text (e.g. `code` to <code>)
                 action = marked.parseInline(action);
 
+                // Linkify Commit Hashes
+                action = action.replace(regexCommit, `<a href="${commitsUrl}$1" target="_blank">$1</a>`);
+
                 html += `
                     <div class="neo-timeline-item event ${actionCls}">
                         <div class="neo-timeline-badge"><i class="fa-solid ${icon}"></i></div>
                         <div class="neo-timeline-body">
-                            <span class="neo-timeline-user">${user}</span> ${action} <span class="neo-timeline-date">on ${date}</span>
+                            <a class="neo-timeline-user" href="${repoUserUrl}${user}" target="_blank">${user}</a> ${action} <span class="neo-timeline-date">on ${date}</span>
                         </div>
                     </div>`;
             }

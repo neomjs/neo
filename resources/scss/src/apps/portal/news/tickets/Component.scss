@@ -132,8 +132,14 @@
                     padding-top: 2px;
 
                     .neo-timeline-user {
-                        color      : #24292f;
-                        font-weight: 600;
+                        color          : #24292f;
+                        cursor         : pointer;
+                        font-weight    : 600;
+                        text-decoration: none;
+
+                        &:hover {
+                            text-decoration: underline;
+                        }
                     }
                 }
 
@@ -203,9 +209,15 @@
                         padding         : 8px 16px;
 
                         .neo-timeline-user {
-                            color      : #24292f;
-                            font-weight: 600;
-                            margin-right: 8px;
+                            color          : #24292f;
+                            cursor         : pointer;
+                            font-weight    : 600;
+                            margin-right   : 8px;
+                            text-decoration: none;
+
+                            &:hover {
+                                text-decoration: underline;
+                            }
                         }
                     }
 
