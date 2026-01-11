@@ -1,8 +1,10 @@
 import Base from '../../../src/core/Base.mjs';
 
 const
+    // Matches full hex codes (e.g., "#0033FF" or "0033FF")
     hexToRgbRegex  = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i,
-    shorthandRegex = /^#?([a-f\d])([a-f\d])([a-f\d])$/i; // Expand shorthand form (e.g. "03F") to full form (e.g. "0033FF")
+    // Matches shorthand hex codes (e.g., "#03F" or "03F") for expansion
+    shorthandRegex = /^#?([a-f\d])([a-f\d])([a-f\d])$/i;
 
 const BASE_COLOR = {r: 64, g: 196, b: 255}; // Neo Blue
 
@@ -14,6 +16,20 @@ const PHYSICS = {
 };
 
 /**
+ * @summary Renders the "Neural Timeline" visualization for the Portal's Ticket view.
+ *
+ * This class runs inside a SharedWorker (via `CanvasWorker`) to provide a high-performance,
+ * main-thread-blocking-free animation. It visualizes the flow of time and activity connecting
+ * timeline nodes (tickets/events).
+ *
+ * Key Visual Concepts:
+ * 1. **The Spine**: A continuous, gradient-stroked line connecting all nodes.
+ * 2. **The Pulse**: A "data packet" that travels along the spine.
+ * 3. **Traffic Model Physics**: The pulse does not move at constant speed. It accelerates in empty space
+ *    and decelerates when approaching nodes ("interest points"), creating a sense of "observing" the data.
+ * 4. **Chameleon Effect**: The pulse dynamically changes its color to match the semantic color of the
+ *    nearest node (e.g., Red for Bugs, Green for Features) as it passes by.
+ *
  * @class Portal.canvas.TicketCanvas
  * @extends Neo.core.Base
  * @singleton
@@ -86,9 +102,14 @@ class TicketCanvas extends Base {
     startY = 0
 
     /**
+     * Calculates the horizontal (X) position on the spine for a given vertical (Y) position.
      *
-     * @param {Number} y
-     * @returns {Number}
+     * Since the nodes are not vertically aligned (they weave left/right), the spine is a polyline.
+     * This method performs linear interpolation between the two nearest nodes to ensure the
+     * "Pulse" stays perfectly centered on the spine path as it travels.
+     *
+     * @param {Number} y - The vertical position
+     * @returns {Number} x - The calculated horizontal position on the spine
      */
     getXAtY(y) {
         let me = this;
@@ -129,7 +150,14 @@ class TicketCanvas extends Base {
     }
 
     /**
-     * Initialize the graph with a canvas ID
+     * Initializes the canvas context for the graph.
+     *
+     * **Async Initialization Pattern:**
+     * The `OffscreenCanvas` is transferred from the main thread to the `CanvasWorker` asynchronously.
+     * We cannot guarantee it exists in `Neo.currentWorker.canvasWindowMap` at the moment this method is called.
+     * Therefore, we use a polling mechanism (`checkCanvas`) to wait for the transfer to complete before
+     * starting the render loop.
+     *
      * @param {Object} opts
      * @param {String} opts.canvasId
      * @param {String} opts.windowId
@@ -191,7 +219,14 @@ class TicketCanvas extends Base {
     }
 
     /**
-     * Main Render Loop
+     * The Main Animation Loop (60fps).
+     *
+     * This method is responsible for:
+     * 1. **Physics Calculation**: Determining the pulse's speed based on proximity to nodes ("Traffic Model").
+     * 2. **State Updates**: Updating the pulse's position (`pulseY`) and color (`Chameleon Effect`).
+     * 3. **Drawing**: Rendering the spine, the pulse, and the node glows to the `OffscreenCanvas`.
+     *
+     * It uses `setTimeout` instead of `requestAnimationFrame` because SharedWorkers do not generally support rAF.
      */
     render() {
         let me = this;
@@ -214,6 +249,8 @@ class TicketCanvas extends Base {
         if (dt > 100) dt = 16;
 
         // 1. Calculate Physics
+        // "Traffic Model": We want the pulse to slow down when it passes "interesting" things (nodes)
+        // so the user has time to see the connection. It accelerates in the empty space between nodes.
         let minDist   = Infinity,
             nearNode  = null;
 
@@ -225,17 +262,19 @@ class TicketCanvas extends Base {
             }
         });
 
-        // Speed Modifier
+        // Speed Modifier logic
         const {influenceRange, minMod, maxMod, pulseBounds} = PHYSICS;
 
         let speedModifier = maxMod;
 
         if (minDist < influenceRange) {
+            // Parabolic easing for smooth deceleration/acceleration
             let ratio = minDist / influenceRange;
             speedModifier = minMod + (maxMod - minMod) * (ratio * ratio);
         }
 
         // Color Interpolation (Chameleon Effect)
+        // The pulse "absorbs" the color of the node it is currently passing.
         let {r, g, b} = BASE_COLOR;
 
         // If near a colored node (within 100px), interpolate to its color
