@@ -35,16 +35,16 @@ This task is to migrate the unit test for `functional/HtmlTemplateComponent.mjs`
 
 ## Timeline
 
-- 2025-09-27 @tobiu added the `enhancement` label
-- 2025-09-27 @tobiu added parent issue #7262
-- 2025-10-02 @tobiu added the `help wanted` label
-- 2025-10-02 @tobiu added the `good first issue` label
-- 2025-10-02 @tobiu added the `hacktoberfest` label
-### @erbierc - 2025-10-03 11:43
+- 2025-09-27T13:55:26Z @tobiu added the `enhancement` label
+- 2025-09-27T13:55:26Z @tobiu added parent issue #7262
+- 2025-10-02T19:24:57Z @tobiu added the `help wanted` label
+- 2025-10-02T19:24:57Z @tobiu added the `good first issue` label
+- 2025-10-02T19:24:57Z @tobiu added the `hacktoberfest` label
+### @erbierc - 2025-10-03T11:43:44Z
 
 I'd like to contribute :)
 
-### @tobiu - 2025-10-03 16:17
+### @tobiu - 2025-10-03T16:17:05Z
 
 Hi and thanks for your interest. For the testing tickets, I strongly recommend trying out the “ai native” workflow.
 
@@ -57,30 +57,30 @@ https://github.com/neomjs/neo/blob/dev/.github/AI_QUICK_START.md
 
 E.g. gemini cli should be capable to complete it on its own.
 
-- 2025-10-03 @tobiu assigned to @erbierc
-### @erbierc - 2025-10-08 12:16
+- 2025-10-03T16:17:11Z @tobiu assigned to @erbierc
+### @erbierc - 2025-10-08T12:16:52Z
 
 I have mostly completed this task, the only thing left is to check if the Gemini output is correct - the tests are passing.
 
-### @tobiu - 2025-10-08 12:24
+### @tobiu - 2025-10-08T12:24:31Z
 
 Thx for the heads-up, and feel free to send the PR => i will let gemini double-check it anyway. How was your experience with the ai workflow? still work in progress, and it should become a lot better, once the MCP-server epic is finished.
 
-### @erbierc - 2025-10-08 12:34
+### @erbierc - 2025-10-08T12:34:11Z
 
 I actually had a problem (managed to finish the task anyway), where when I wanted to use chroma related scripts, I'd get an error: "Unsupported Windows architecture: x64. Only ARM64 is supported".  I got around it using WSL but without full functionality, that's why I kinda wanted to try one more time before sending a PR, using a virtual machine with Linux on it and making sure I got the full experience!
 
-### @tobiu - 2025-10-08 12:37
+### @tobiu - 2025-10-08T12:37:24Z
 
 interesting. i think the MCP servers (express => node) as wrappers around chroma will resolve it => https://github.com/neomjs/neo/issues/7399 . if there are specific operations you want to use on chroma, which are not part of the API specs, feel free to create a follow-up ticket for the new epic.
 
-### @erbierc - 2025-10-08 17:06
+### @erbierc - 2025-10-08T17:06:33Z
 
 I have created a PR: #7420 
 
-- 2025-10-08 @erbierc cross-referenced by PR #7420
-- 2025-10-08 @tobiu referenced in commit `bf777ce` - "#7283 minor cleanup"
-### @tobiu - 2025-10-08 17:55
+- 2025-10-08T17:07:39Z @erbierc cross-referenced by PR #7420
+- 2025-10-08T17:51:35Z @tobiu referenced in commit `bf777ce` - "#7283 minor cleanup"
+### @tobiu - 2025-10-08T17:55:50Z
 
 Input from Gemini:
 
@@ -103,12 +103,12 @@ Input from Gemini:
 > 
 >   Thanks again for the fantastic contribution
 
-- 2025-10-08 @tobiu closed this issue
-### @erbierc - 2025-10-08 18:10
+- 2025-10-08T17:55:50Z @tobiu closed this issue
+### @erbierc - 2025-10-08T18:10:59Z
 
 Lovely, thank you!
 
-### @tobiu - 2025-10-08 18:23
+### @tobiu - 2025-10-08T18:23:35Z
 
 Can you imagine that I created all Siesta tests manually? This was pre-AI :)
 
@@ -123,7 +123,7 @@ This would definitely be worth a new epic.
 
 Currently, I can barely keep up with the progress: the last release v10.9 was 2 weeks ago, and now we have 150+ new tickets inside: https://github.com/neomjs/neo/tree/dev/.github/ISSUE
 
-### @erbierc - 2025-10-10 12:21
+### @erbierc - 2025-10-10T12:21:10Z
 
 Tell you what, I am looking to add proper test writing to my skillset, so I could try and help out in that regard! It might take some time, though, as I would need to analyze neo better and learn playwright properly.
 
@@ -131,7 +131,7 @@ I think it would also be neat to add Svelte to the comparison, it is quite stron
 
 150 tickets is a crazy number!
 
-### @tobiu - 2025-10-10 14:30
+### @tobiu - 2025-10-10T14:30:28Z
 
 For testing, playwright is definitely gaining momentum in the industry, and as far as i know has now more adoption than cypress. I would also recommend to take a look into [Vitest](https://vitest.dev/). Sadly this one does not really fit for neo, since `Vite` is designed to start a server for one app, while neo needs split-chunks across multiple apps (e.g. app folder inside the neo repo & workspaces). More details: https://github.com/neomjs/neo/blob/dev/learn/benefits/FourEnvironments.md.
 

@@ -24,8 +24,8 @@ closedAt: '2025-05-29T11:09:11Z'
 
 ## Timeline
 
-- 2025-05-29 @tobiu added the `enhancement` label
-- 2025-05-29 @tobiu referenced in commit `414f56d` - "buildScripts/util/minifyHtml.mjs #6728"
-- 2025-05-29 @tobiu referenced in commit `4a2b2d4` - "#6728 webpack.config.appworker.mjs (converted to being async)"
-- 2025-05-29 @tobiu closed this issue
+- 2025-05-29T10:04:13Z @tobiu added the `enhancement` label
+- 2025-05-29T10:33:09Z @tobiu referenced in commit `414f56d` - "buildScripts/util/minifyHtml.mjs #6728"
+- 2025-05-29T11:08:56Z @tobiu referenced in commit `4a2b2d4` - "#6728 webpack.config.appworker.mjs (converted to being async)"
+- 2025-05-29T11:09:11Z @tobiu closed this issue
 

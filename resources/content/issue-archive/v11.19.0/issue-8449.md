@@ -39,10 +39,10 @@ Update the "Understanding the Scale" section in `learn/guides/fundamentals/Codeb
 
 ## Timeline
 
-- 2026-01-08 @tobiu added the `documentation` label
-- 2026-01-08 @tobiu added the `ai` label
-- 2026-01-08 @tobiu referenced in commit `92bc0d5` - "docs: Update codebase stats to Jan 8 2026 (#8449)"
-### @tobiu - 2026-01-08 22:35
+- 2026-01-08T22:31:31Z @tobiu added the `documentation` label
+- 2026-01-08T22:31:31Z @tobiu added the `ai` label
+- 2026-01-08T22:34:19Z @tobiu referenced in commit `92bc0d5` - "docs: Update codebase stats to Jan 8 2026 (#8449)"
+### @tobiu - 2026-01-08T22:35:26Z
 
 **Input from Gemini 3 Pro:**
 
@@ -68,6 +68,6 @@ Update the "Understanding the Scale" section in `learn/guides/fundamentals/Codeb
 > *   **Documentation Surge:** JSDoc coverage increased by ~76%, significantly improving the knowledge base for AI agents.
 > *   **Solid Core Growth:** The core engine grew by nearly 4k lines, indicating robust ongoing platform development.
 
-- 2026-01-08 @tobiu assigned to @tobiu
-- 2026-01-08 @tobiu closed this issue
+- 2026-01-08T22:35:54Z @tobiu assigned to @tobiu
+- 2026-01-08T22:36:24Z @tobiu closed this issue
 

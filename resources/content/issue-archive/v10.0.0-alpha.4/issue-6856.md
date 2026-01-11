@@ -24,7 +24,7 @@ closedAt: '2025-06-22T21:36:41Z'
 
 ## Timeline
 
-- 2025-06-22 @tobiu added the `enhancement` label
-- 2025-06-22 @tobiu referenced in commit `9f74da1` - "learn/tree.json: move guides before tutorials #6856"
-- 2025-06-22 @tobiu closed this issue
+- 2025-06-22T21:36:00Z @tobiu added the `enhancement` label
+- 2025-06-22T21:36:29Z @tobiu referenced in commit `9f74da1` - "learn/tree.json: move guides before tutorials #6856"
+- 2025-06-22T21:36:41Z @tobiu closed this issue
 

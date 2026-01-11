@@ -80,14 +80,14 @@ This epic aims to deeply integrate the GitHub CLI (`gh`) into the development an
 
 ## Timeline
 
-- 2025-10-05 @tobiu assigned to @tobiu
-- 2025-10-05 @tobiu added the `help wanted` label
-- 2025-10-05 @tobiu added the `good first issue` label
-- 2025-10-05 @tobiu added the `epic` label
-- 2025-10-05 @tobiu added the `hacktoberfest` label
-- 2025-10-05 @tobiu added the `ai` label
-- 2025-10-05 @tobiu added sub-issue #7365
-### @tobiu - 2025-10-05 10:34
+- 2025-10-05T10:23:45Z @tobiu assigned to @tobiu
+- 2025-10-05T10:23:46Z @tobiu added the `help wanted` label
+- 2025-10-05T10:23:46Z @tobiu added the `good first issue` label
+- 2025-10-05T10:23:47Z @tobiu added the `epic` label
+- 2025-10-05T10:23:47Z @tobiu added the `hacktoberfest` label
+- 2025-10-05T10:23:47Z @tobiu added the `ai` label
+- 2025-10-05T10:32:12Z @tobiu added sub-issue #7365
+### @tobiu - 2025-10-05T10:34:19Z
 
 I think this new epic fits the `hacktoberfest` scope very well: https://github.com/neomjs/neo/issues/7296
 
@@ -100,32 +100,32 @@ Since the epic subs strongly build on and relate to each other, I also strongly 
 https://join.slack.com/t/neomjs/shared_invite/zt-6c50ueeu-3E1~M4T9xkNnb~M_prEEOA
 https://discord.gg/6p8paPq
 
-- 2025-10-05 @tobiu added sub-issue #7366
-- 2025-10-05 @tobiu added sub-issue #7367
-- 2025-10-05 @tobiu added sub-issue #7368
-- 2025-10-05 @tobiu added sub-issue #7369
-- 2025-10-05 @tobiu added sub-issue #7370
-- 2025-10-05 @tobiu added sub-issue #7371
-- 2025-10-05 @tobiu added sub-issue #7372
-- 2025-10-05 @tobiu added sub-issue #7373
-- 2025-10-05 @tobiu referenced in commit `c99360a` - "#7364 initial tickets as md files"
-- 2025-10-05 @tobiu added sub-issue #7376
-- 2025-10-05 @tobiu added sub-issue #7377
-- 2025-10-05 @tobiu added sub-issue #7378
-- 2025-10-05 @tobiu referenced in commit `9d09963` - "#7364 phase 4 subs as md files"
-- 2025-10-05 @tobiu referenced in commit `0531f7b` - "#7364 internal ticket md file updates"
-- 2025-10-05 @tobiu added sub-issue #7381
-- 2025-10-05 @tobiu referenced in commit `348d2ad` - "#7364 added a new sub-ticket"
-- 2025-10-06 @tobiu added sub-issue #7391
-- 2025-10-06 @tobiu referenced in commit `91af8fb` - "#7364 ticket md files"
-- 2025-10-06 @tobiu added sub-issue #7393
-- 2025-10-06 @tobiu cross-referenced by #7393
-- 2025-10-07 @tobiu added sub-issue #7414
-- 2025-10-08 @tobiu added sub-issue #7418
-- 2025-10-14 @tobiu cross-referenced by #7477
-### @tobiu - 2025-10-24 09:47
+- 2025-10-05T10:37:16Z @tobiu added sub-issue #7366
+- 2025-10-05T10:39:41Z @tobiu added sub-issue #7367
+- 2025-10-05T10:54:08Z @tobiu added sub-issue #7368
+- 2025-10-05T11:00:51Z @tobiu added sub-issue #7369
+- 2025-10-05T11:15:34Z @tobiu added sub-issue #7370
+- 2025-10-05T11:22:26Z @tobiu added sub-issue #7371
+- 2025-10-05T11:24:47Z @tobiu added sub-issue #7372
+- 2025-10-05T11:33:22Z @tobiu added sub-issue #7373
+- 2025-10-05T11:37:06Z @tobiu referenced in commit `c99360a` - "#7364 initial tickets as md files"
+- 2025-10-05T13:02:37Z @tobiu added sub-issue #7376
+- 2025-10-05T13:10:01Z @tobiu added sub-issue #7377
+- 2025-10-05T13:11:44Z @tobiu added sub-issue #7378
+- 2025-10-05T13:13:13Z @tobiu referenced in commit `9d09963` - "#7364 phase 4 subs as md files"
+- 2025-10-05T15:04:31Z @tobiu referenced in commit `0531f7b` - "#7364 internal ticket md file updates"
+- 2025-10-05T15:57:45Z @tobiu added sub-issue #7381
+- 2025-10-05T15:59:15Z @tobiu referenced in commit `348d2ad` - "#7364 added a new sub-ticket"
+- 2025-10-06T11:18:36Z @tobiu added sub-issue #7391
+- 2025-10-06T11:20:33Z @tobiu referenced in commit `91af8fb` - "#7364 ticket md files"
+- 2025-10-06T12:19:38Z @tobiu added sub-issue #7393
+- 2025-10-06T12:19:58Z @tobiu cross-referenced by #7393
+- 2025-10-07T15:43:04Z @tobiu added sub-issue #7414
+- 2025-10-08T14:16:36Z @tobiu added sub-issue #7418
+- 2025-10-14T08:37:50Z @tobiu cross-referenced by #7477
+### @tobiu - 2025-10-24T09:47:01Z
 
 closing the epic, new items for the github-workflow mcp server will get added as new tickets / epics.
 
-- 2025-10-24 @tobiu closed this issue
+- 2025-10-24T09:47:01Z @tobiu closed this issue
 

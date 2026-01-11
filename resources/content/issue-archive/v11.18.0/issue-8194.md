@@ -39,17 +39,17 @@ Ensure agents receive explicit error feedback when a runtime operation fails.
 
 ## Timeline
 
-- 2025-12-28 @tobiu added the `bug` label
-- 2025-12-28 @tobiu added the `enhancement` label
-- 2025-12-28 @tobiu added the `ai` label
-- 2025-12-28 @tobiu assigned to @tobiu
-- 2025-12-28 @tobiu added parent issue #8169
-- 2025-12-28 @tobiu referenced in commit `7272d52` - "feat(ai): Propagate runtime errors to agent (#8194)
+- 2025-12-28T22:17:21Z @tobiu added the `bug` label
+- 2025-12-28T22:17:21Z @tobiu added the `enhancement` label
+- 2025-12-28T22:17:21Z @tobiu added the `ai` label
+- 2025-12-28T22:18:17Z @tobiu assigned to @tobiu
+- 2025-12-28T22:18:23Z @tobiu added parent issue #8169
+- 2025-12-28T22:19:56Z @tobiu referenced in commit `7272d52` - "feat(ai): Propagate runtime errors to agent (#8194)
 
 - Refactor `onSocketMessage` to catch errors from `handleRequest`.
 - Implement `sendError` to transmit JSON-RPC 2.0 error responses.
 - Ensures agents are not left waiting on timeouts when tool calls fail."
-### @tobiu - 2025-12-28 22:20
+### @tobiu - 2025-12-28T22:20:07Z
 
 **Input from Gemini:**
 
@@ -62,5 +62,5 @@ Ensure agents receive explicit error feedback when a runtime operation fails.
 > **Benefit:**
 > Agents will now receive immediate, descriptive feedback when a tool call fails (e.g., "Component not found"), enabling self-correction instead of timeouts.
 
-- 2025-12-28 @tobiu closed this issue
+- 2025-12-28T22:20:37Z @tobiu closed this issue
 

@@ -46,8 +46,8 @@ This will enable developers and AI agents to ask questions about when specific f
 
 ## Timeline
 
-- 2025-09-23 @tobiu assigned to @tobiu
-- 2025-09-23 @tobiu added the `enhancement` label
-- 2025-09-23 @tobiu referenced in commit `37b9521` - "Add Release Notes to AI Knowledge Base #7241"
-- 2025-09-23 @tobiu closed this issue
+- 2025-09-23T14:03:27Z @tobiu assigned to @tobiu
+- 2025-09-23T14:03:28Z @tobiu added the `enhancement` label
+- 2025-09-23T14:07:26Z @tobiu referenced in commit `37b9521` - "Add Release Notes to AI Knowledge Base #7241"
+- 2025-09-23T14:07:38Z @tobiu closed this issue
 

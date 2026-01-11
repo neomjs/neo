@@ -32,9 +32,9 @@ This fix ensures that:
 
 ## Timeline
 
-- 2025-11-09 @tobiu added the `bug` label
-- 2025-11-09 @tobiu added the `ai` label
-- 2025-11-09 @tobiu referenced in commit `a60dc56` - "Fix: incorrect length check for releases object in ReleaseSyncer #7731"
-- 2025-11-09 @tobiu assigned to @tobiu
-- 2025-11-09 @tobiu closed this issue
+- 2025-11-09T09:25:45Z @tobiu added the `bug` label
+- 2025-11-09T09:25:46Z @tobiu added the `ai` label
+- 2025-11-09T09:28:30Z @tobiu referenced in commit `a60dc56` - "Fix: incorrect length check for releases object in ReleaseSyncer #7731"
+- 2025-11-09T09:28:32Z @tobiu assigned to @tobiu
+- 2025-11-09T09:28:37Z @tobiu closed this issue
 

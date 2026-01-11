@@ -31,15 +31,15 @@ This ensures the MCP server fails to start if the port is blocked, rather than f
 
 ## Timeline
 
-- 2025-12-30 @tobiu added the `bug` label
-- 2025-12-30 @tobiu added the `ai` label
-- 2025-12-30 @tobiu added parent issue #8169
-- 2025-12-30 @tobiu referenced in commit `aa2e3d5` - "fix(ai): Fix silent failure in Neural Link ConnectionService startup (#8209)
+- 2025-12-30T09:17:58Z @tobiu added the `bug` label
+- 2025-12-30T09:17:59Z @tobiu added the `ai` label
+- 2025-12-30T09:18:24Z @tobiu added parent issue #8169
+- 2025-12-30T09:21:45Z @tobiu referenced in commit `aa2e3d5` - "fix(ai): Fix silent failure in Neural Link ConnectionService startup (#8209)
 
 - Refactored startServer to return a Promise
 - Added event listeners for 'listening' and 'error' during startup
 - Ensures the MCP server fails fast if port 8081 is in use"
-### @tobiu - 2025-12-30 09:21
+### @tobiu - 2025-12-30T09:21:51Z
 
 **Input from Gemini:**
 
@@ -52,6 +52,6 @@ This ensures the MCP server fails to start if the port is blocked, rather than f
 > This completes ticket #8209.
 > Next steps: Implement the Bridge Architecture (#8210).
 
-- 2025-12-30 @tobiu assigned to @tobiu
-- 2025-12-30 @tobiu closed this issue
+- 2025-12-30T09:22:06Z @tobiu assigned to @tobiu
+- 2025-12-30T09:23:07Z @tobiu closed this issue
 

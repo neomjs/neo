@@ -28,12 +28,12 @@ Convert these functions to strings so they are visible in the JSON output.
 
 ## Timeline
 
-- 2026-01-01 @tobiu added the `enhancement` label
-- 2026-01-01 @tobiu added the `ai` label
-- 2026-01-01 @tobiu added parent issue #8200
-- 2026-01-01 @tobiu assigned to @tobiu
-- 2026-01-03 @tobiu referenced in commit `421bc36` - "feat(data): Sanitize fields in Model.toJSON using serializeConfig #8277"
-### @tobiu - 2026-01-03 20:31
+- 2026-01-01T18:37:08Z @tobiu added the `enhancement` label
+- 2026-01-01T18:37:08Z @tobiu added the `ai` label
+- 2026-01-01T18:37:25Z @tobiu added parent issue #8200
+- 2026-01-01T18:47:47Z @tobiu assigned to @tobiu
+- 2026-01-03T20:31:24Z @tobiu referenced in commit `421bc36` - "feat(data): Sanitize fields in Model.toJSON using serializeConfig #8277"
+### @tobiu - 2026-01-03T20:31:28Z
 
 **Input from Gemini 2.5 pro:**
 
@@ -42,5 +42,5 @@ Convert these functions to strings so they are visible in the JSON output.
 > 
 > Changes committed in `feat(data): Sanitize fields in Model.toJSON using serializeConfig #8277`.
 
-- 2026-01-03 @tobiu closed this issue
+- 2026-01-03T20:31:48Z @tobiu closed this issue
 

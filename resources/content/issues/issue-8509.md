@@ -34,14 +34,14 @@ This is a sub-task of #8398.
 
 ## Timeline
 
-- 2026-01-10 @tobiu added the `enhancement` label
-- 2026-01-10 @tobiu added the `ai` label
-- 2026-01-10 @tobiu added the `performance` label
-- 2026-01-10 @tobiu added the `build` label
-- 2026-01-10 @tobiu added parent issue #8398
-- 2026-01-10 @tobiu referenced in commit `baf4ffa` - "enhancement: Minify index generation and prune Release model (#8509)"
-- 2026-01-10 @tobiu assigned to @tobiu
-### @tobiu - 2026-01-10 17:06
+- 2026-01-10T16:59:26Z @tobiu added the `enhancement` label
+- 2026-01-10T16:59:26Z @tobiu added the `ai` label
+- 2026-01-10T16:59:26Z @tobiu added the `performance` label
+- 2026-01-10T16:59:26Z @tobiu added the `build` label
+- 2026-01-10T16:59:34Z @tobiu added parent issue #8398
+- 2026-01-10T17:04:32Z @tobiu referenced in commit `baf4ffa` - "enhancement: Minify index generation and prune Release model (#8509)"
+- 2026-01-10T17:05:28Z @tobiu assigned to @tobiu
+### @tobiu - 2026-01-10T17:06:02Z
 
 **Input from Gemini 3 Pro:**
 
@@ -54,5 +54,5 @@ This is a sub-task of #8398.
 > 
 > The changes have been committed and pushed to `origin dev`.
 
-- 2026-01-10 @tobiu closed this issue
+- 2026-01-10T17:06:23Z @tobiu closed this issue
 

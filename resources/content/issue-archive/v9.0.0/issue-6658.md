@@ -28,9 +28,9 @@ closedAt: '2025-04-16T13:39:06Z'
 
 ## Timeline
 
-- 2025-04-16 @tobiu added the `bug` label
-- 2025-04-16 @tobiu assigned to @tobiu
-### @tobiu - 2025-04-16 12:09
+- 2025-04-16T11:32:37Z @tobiu added the `bug` label
+- 2025-04-16T11:32:37Z @tobiu assigned to @tobiu
+### @tobiu - 2025-04-16T12:09:53Z
 
 @gplanansky @camtnbikerrwc & others who are interested:
 How would you locate a bug as bizarre as this one?
@@ -46,7 +46,7 @@ The `vdom` is looking fine. The progress wrapper (neo-vnode-199) is only contain
 
 The next thing to look into is the `vnode`. The wrapper node has the same id (neo-vnode-199), but the child node got reduced to only contain a `componentId`. This already does give us a clue.
 
-### @tobiu - 2025-04-16 12:14
+### @tobiu - 2025-04-16T12:14:38Z
 
 The next thing to look into is the initial working state before cycling:
 
@@ -54,7 +54,7 @@ The next thing to look into is the initial working state before cycling:
 
 `vdom` & `vnode` are in sync, no replacement.
 
-### @tobiu - 2025-04-16 12:44
+### @tobiu - 2025-04-16T12:44:30Z
 
 As the next step, we need to investigate the logic which does replace components with `componentId` based references.
 
@@ -76,8 +76,8 @@ and logged it into the console, in case a component to replace is found:
 
 This looks like a good starting point.
 
-- 2025-04-16 @tobiu referenced in commit `39bbdb7` - "#6658 manager.Component: addVnodeComponentReferences() => adding an additional top-level wrapper node check"
-### @tobiu - 2025-04-16 13:04
+- 2025-04-16T13:00:39Z @tobiu referenced in commit `39bbdb7` - "#6658 manager.Component: addVnodeComponentReferences() => adding an additional top-level wrapper node check"
+### @tobiu - 2025-04-16T13:04:29Z
 
 Testing the new change:
 
@@ -92,9 +92,9 @@ How is it possible, that a specific wrapper gets a child node with a different i
 
 Assuming that the vdom delta update logic works correctly, I need to take a deeper look into the grid column component based cycling.
 
-- 2025-04-16 @tobiu referenced in commit `6b8892c` - "#6658 manager.Component: addVnodeComponentReferences() => removing the wrapper check"
-- 2025-04-16 @tobiu referenced in commit `984fef0` - "#6658 grid.column.Component: ensuring that wrapped components which don't have a wrapperId, always get an index-based one"
-### @tobiu - 2025-04-16 13:39
+- 2025-04-16T13:34:47Z @tobiu referenced in commit `6b8892c` - "#6658 manager.Component: addVnodeComponentReferences() => removing the wrapper check"
+- 2025-04-16T13:35:16Z @tobiu referenced in commit `984fef0` - "#6658 grid.column.Component: ensuring that wrapped components which don't have a wrapperId, always get an index-based one"
+### @tobiu - 2025-04-16T13:39:06Z
 
 @gplanansky @camtnbikerrwc In the end, adding this into `grid.column.Component` fixed it:
 
@@ -109,8 +109,8 @@ The wrapper check inside `manager.Component` is no longer needed.
 
 While the fix itself was easy (just ensuring that wrapped components always have the same index based id), finding it was non-trivial.
 
-- 2025-04-16 @tobiu closed this issue
-### @camtnbikerrwc - 2025-04-16 14:18
+- 2025-04-16T13:39:06Z @tobiu closed this issue
+### @camtnbikerrwc - 2025-04-16T14:18:58Z
 
 That fixed my grid issue I suspect GerSent from my iPhoneOn Apr 16, 2025, at 6:39 AM, Tobias Uhlig ***@***.***> wrote:﻿
   @gplanansky @camtnbikerrwc In the end, adding this into grid.column.Component fixed it:

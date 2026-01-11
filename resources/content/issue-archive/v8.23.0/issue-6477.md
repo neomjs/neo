@@ -25,12 +25,12 @@ it will need a follow-up ticket
 
 ## Timeline
 
-- 2025-02-21 @tobiu added the `enhancement` label
-- 2025-02-21 @tobiu assigned to @tobiu
-- 2025-02-21 @tobiu referenced in commit `78ab4b3` - "examples.ConfigurationViewport: scss => basic support for mobile #6477"
-### @tobiu - 2025-02-21 14:15
+- 2025-02-21T14:14:55Z @tobiu added the `enhancement` label
+- 2025-02-21T14:14:55Z @tobiu assigned to @tobiu
+- 2025-02-21T14:15:20Z @tobiu referenced in commit `78ab4b3` - "examples.ConfigurationViewport: scss => basic support for mobile #6477"
+### @tobiu - 2025-02-21T14:15:45Z
 
 ![Image](https://github.com/user-attachments/assets/775fea05-c5ad-46bd-b2e2-052188725069)
 
-- 2025-02-21 @tobiu closed this issue
+- 2025-02-21T14:15:45Z @tobiu closed this issue
 

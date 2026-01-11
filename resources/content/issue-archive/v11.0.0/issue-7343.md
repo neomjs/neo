@@ -85,18 +85,18 @@ That's it! Your PR will be a valuable piece of R&D that helps us build a truly i
 
 ## Timeline
 
-- 2025-10-04 @tobiu added the `help wanted` label
-- 2025-10-04 @tobiu added the `good first issue` label
-- 2025-10-04 @tobiu added the `hacktoberfest` label
-- 2025-10-04 @tobiu added parent issue #7296
-- 2025-10-04 @tobiu added the `ai` label
-- 2025-10-04 @tobiu cross-referenced by #7286
-- 2025-10-04 @tobiu cross-referenced by PR #7339
-### @Raj-G07 - 2025-10-06 19:29
+- 2025-10-04T08:41:19Z @tobiu added the `help wanted` label
+- 2025-10-04T08:41:20Z @tobiu added the `good first issue` label
+- 2025-10-04T08:41:20Z @tobiu added the `hacktoberfest` label
+- 2025-10-04T08:41:20Z @tobiu added parent issue #7296
+- 2025-10-04T08:41:20Z @tobiu added the `ai` label
+- 2025-10-04T09:21:31Z @tobiu cross-referenced by #7286
+- 2025-10-04T13:37:28Z @tobiu cross-referenced by PR #7339
+### @Raj-G07 - 2025-10-06T19:29:17Z
 
 @tobiu  Can i take up this issue?
 
-### @tobiu - 2025-10-06 19:33
+### @tobiu - 2025-10-06T19:33:54Z
 
 Hi, and thanks for the interest. Of course you can.
 
@@ -110,8 +110,8 @@ You could explore this a bit too, if you like (bleeding edge on what is possible
 
 <img width="1304" height="1360" alt="Image" src="https://github.com/user-attachments/assets/069c0838-ed2c-41a1-b183-cab0051a9495" />
 
-- 2025-10-06 @tobiu assigned to @Raj-G07
-### @tobiu - 2025-10-24 09:52
+- 2025-10-06T19:34:06Z @tobiu assigned to @Raj-G07
+### @tobiu - 2025-10-24T09:52:10Z
 
 Hi Raj-G07,
 
@@ -121,5 +121,5 @@ As there has been no activity for a couple of weeks and the project's architectu
 
 We're closing this ticket now. Thanks again for your willingness to contribute, and we hope to see you in other issues!
 
-- 2025-10-24 @tobiu closed this issue
+- 2025-10-24T09:52:10Z @tobiu closed this issue
 

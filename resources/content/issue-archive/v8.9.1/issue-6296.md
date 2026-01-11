@@ -31,8 +31,8 @@ There are still edge cases where a dialog does not show up properly:
 
 ## Timeline
 
-- 2025-01-25 @tobiu added the `enhancement` label
-- 2025-01-25 @tobiu assigned to @tobiu
-- 2025-01-25 @tobiu referenced in commit `9b783da` - "component.Base: waitForDomRect() #6296"
-- 2025-01-25 @tobiu closed this issue
+- 2025-01-25T22:26:04Z @tobiu added the `enhancement` label
+- 2025-01-25T22:26:04Z @tobiu assigned to @tobiu
+- 2025-01-25T22:28:20Z @tobiu referenced in commit `9b783da` - "component.Base: waitForDomRect() #6296"
+- 2025-01-25T22:28:23Z @tobiu closed this issue
 

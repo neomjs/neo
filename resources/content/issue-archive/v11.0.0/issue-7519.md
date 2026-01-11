@@ -36,10 +36,10 @@ This ticket is to refactor the `toolService` to determine the argument passing s
 
 ## Timeline
 
-- 2025-10-17 @tobiu assigned to @tobiu
-- 2025-10-17 @tobiu added parent issue #7501
-- 2025-10-17 @tobiu added the `enhancement` label
-- 2025-10-17 @tobiu added the `ai` label
-- 2025-10-17 @tobiu referenced in commit `5e92dcf` - "Dynamically determine argument passing strategy from OpenAPI spec #7519"
-- 2025-10-17 @tobiu closed this issue
+- 2025-10-17T10:59:40Z @tobiu assigned to @tobiu
+- 2025-10-17T10:59:42Z @tobiu added parent issue #7501
+- 2025-10-17T10:59:42Z @tobiu added the `enhancement` label
+- 2025-10-17T10:59:42Z @tobiu added the `ai` label
+- 2025-10-17T11:00:23Z @tobiu referenced in commit `5e92dcf` - "Dynamically determine argument passing strategy from OpenAPI spec #7519"
+- 2025-10-17T11:00:39Z @tobiu closed this issue
 

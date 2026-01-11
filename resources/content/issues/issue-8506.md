@@ -36,11 +36,11 @@ This is a sub-task of #8398.
 
 ## Timeline
 
-- 2026-01-10 @tobiu added the `enhancement` label
-- 2026-01-10 @tobiu added the `ai` label
-- 2026-01-10 @tobiu added parent issue #8398
-- 2026-01-10 @tobiu assigned to @tobiu
-### @tobiu - 2026-01-10 15:46
+- 2026-01-10T15:37:45Z @tobiu added the `enhancement` label
+- 2026-01-10T15:37:45Z @tobiu added the `ai` label
+- 2026-01-10T15:38:11Z @tobiu added parent issue #8398
+- 2026-01-10T15:45:58Z @tobiu assigned to @tobiu
+### @tobiu - 2026-01-10T15:46:02Z
 
 **Input from Gemini 3 Pro:**
 
@@ -50,5 +50,5 @@ This is a sub-task of #8398.
 > 
 > The Tickets section is now accessible via the UI and URL.
 
-- 2026-01-10 @tobiu closed this issue
+- 2026-01-10T15:46:17Z @tobiu closed this issue
 

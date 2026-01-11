@@ -37,10 +37,10 @@ The current coding guidelines regarding JSDoc comments for class methods are ins
 
 ## Timeline
 
-- 2025-11-24 @tobiu added the `documentation` label
-- 2025-11-24 @tobiu added the `enhancement` label
-- 2025-11-24 @tobiu added the `ai` label
-- 2025-11-24 @tobiu assigned to @tobiu
-- 2025-11-24 @tobiu referenced in commit `f4d7e9c` - "Update Coding Guidelines for JSDoc and Refactor GitHub Workflow MCP #7889"
-- 2025-11-24 @tobiu closed this issue
+- 2025-11-24T09:10:27Z @tobiu added the `documentation` label
+- 2025-11-24T09:10:27Z @tobiu added the `enhancement` label
+- 2025-11-24T09:10:27Z @tobiu added the `ai` label
+- 2025-11-24T09:10:56Z @tobiu assigned to @tobiu
+- 2025-11-24T09:40:44Z @tobiu referenced in commit `f4d7e9c` - "Update Coding Guidelines for JSDoc and Refactor GitHub Workflow MCP #7889"
+- 2025-11-24T09:40:53Z @tobiu closed this issue
 

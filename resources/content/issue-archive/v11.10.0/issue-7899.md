@@ -40,10 +40,10 @@ Refine the `buildScripts/docs/jsdocx.mjs` script to filter out these invalid ite
 
 ## Timeline
 
-- 2025-11-24 @tobiu added the `bug` label
-- 2025-11-24 @tobiu added the `documentation` label
-- 2025-11-24 @tobiu added the `enhancement` label
-- 2025-11-24 @tobiu assigned to @tobiu
-- 2025-11-24 @tobiu referenced in commit `c3d4434` - "Clean up Docs App structure by filtering invalid AI modules and pruning empty folders #7899"
-- 2025-11-24 @tobiu closed this issue
+- 2025-11-24T13:53:04Z @tobiu added the `bug` label
+- 2025-11-24T13:53:04Z @tobiu added the `documentation` label
+- 2025-11-24T13:53:04Z @tobiu added the `enhancement` label
+- 2025-11-24T13:53:36Z @tobiu assigned to @tobiu
+- 2025-11-24T13:54:06Z @tobiu referenced in commit `c3d4434` - "Clean up Docs App structure by filtering invalid AI modules and pruning empty folders #7899"
+- 2025-11-24T13:54:24Z @tobiu closed this issue
 

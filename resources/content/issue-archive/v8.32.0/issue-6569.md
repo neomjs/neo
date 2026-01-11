@@ -27,7 +27,7 @@ closedAt: '2025-03-12T10:37:18Z'
 
 ## Timeline
 
-- 2025-03-12 @tobiu added the `enhancement` label
-- 2025-03-12 @tobiu referenced in commit `aef8689` - "Build scripts: soften the neo.mjs repo name check #6569"
-- 2025-03-12 @tobiu closed this issue
+- 2025-03-12T10:36:45Z @tobiu added the `enhancement` label
+- 2025-03-12T10:37:13Z @tobiu referenced in commit `aef8689` - "Build scripts: soften the neo.mjs repo name check #6569"
+- 2025-03-12T10:37:18Z @tobiu closed this issue
 

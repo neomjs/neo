@@ -32,10 +32,10 @@ This ticket covers the first phase of rewriting `AGENTS.md` (ticket #7630) as pa
 
 ## Timeline
 
-- 2025-10-24 @tobiu added the `documentation` label
-- 2025-10-24 @tobiu added the `enhancement` label
-- 2025-10-24 @tobiu added the `ai` label
-- 2025-10-24 @tobiu referenced in commit `812d0d0` - "#7634 replacing npm run with agent tool calls"
-- 2025-10-24 @tobiu assigned to @tobiu
-- 2025-11-02 @tobiu closed this issue
+- 2025-10-24T10:43:34Z @tobiu added the `documentation` label
+- 2025-10-24T10:43:35Z @tobiu added the `enhancement` label
+- 2025-10-24T10:43:35Z @tobiu added the `ai` label
+- 2025-10-24T11:15:23Z @tobiu referenced in commit `812d0d0` - "#7634 replacing npm run with agent tool calls"
+- 2025-10-24T12:24:56Z @tobiu assigned to @tobiu
+- 2025-11-02T09:31:27Z @tobiu closed this issue
 

@@ -43,19 +43,19 @@ This phase builds directly on the live proxy from Phase 2, introducing a seamles
 
 ## Timeline
 
-- 2025-08-20 @tobiu assigned to @tobiu
-- 2025-08-20 @tobiu added the `enhancement` label
-- 2025-08-20 @tobiu added parent issue #7201
-- 2025-08-21 @tobiu referenced in commit `fc51172` - "Phase 3: Dynamic Proxy Transitioning (Windowing) #7204 starting point"
-- 2025-08-21 @tobiu referenced in commit `1c5b345` - "#7204 dashboard.Container: allowOverdrag"
-- 2025-08-21 @tobiu referenced in commit `aeae9c5` - "#7204 passing the proxyRect (dragEl rect) into the dragBoundaryExit event."
-- 2025-08-21 @tobiu referenced in commit `39168db` - "#7204 Colors.view.ViewportController: openWidgetInPopup()"
-- 2025-08-21 @tobiu referenced in commit `b415efd` - "#7204 popup drag:move events (WIP)"
-- 2025-08-21 @tobiu referenced in commit `0fb3eb0` - "#7204 dragBoundaryEntry event"
-- 2025-08-21 @tobiu referenced in commit `b7f19e8` - "Phase 3: Dynamic Proxy Transitioning (Windowing) #7204"
-### @tobiu - 2025-10-24 10:08
+- 2025-08-20T22:06:01Z @tobiu assigned to @tobiu
+- 2025-08-20T22:06:02Z @tobiu added the `enhancement` label
+- 2025-08-20T22:06:02Z @tobiu added parent issue #7201
+- 2025-08-21T16:41:35Z @tobiu referenced in commit `fc51172` - "Phase 3: Dynamic Proxy Transitioning (Windowing) #7204 starting point"
+- 2025-08-21T16:43:52Z @tobiu referenced in commit `1c5b345` - "#7204 dashboard.Container: allowOverdrag"
+- 2025-08-21T19:27:07Z @tobiu referenced in commit `aeae9c5` - "#7204 passing the proxyRect (dragEl rect) into the dragBoundaryExit event."
+- 2025-08-21T19:33:47Z @tobiu referenced in commit `39168db` - "#7204 Colors.view.ViewportController: openWidgetInPopup()"
+- 2025-08-21T21:38:30Z @tobiu referenced in commit `b415efd` - "#7204 popup drag:move events (WIP)"
+- 2025-08-21T21:53:18Z @tobiu referenced in commit `0fb3eb0` - "#7204 dragBoundaryEntry event"
+- 2025-08-21T22:51:46Z @tobiu referenced in commit `b7f19e8` - "Phase 3: Dynamic Proxy Transitioning (Windowing) #7204"
+### @tobiu - 2025-10-24T10:08:16Z
 
 resolved.
 
-- 2025-10-24 @tobiu closed this issue
+- 2025-10-24T10:08:16Z @tobiu closed this issue
 

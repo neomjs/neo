@@ -35,9 +35,9 @@ This ensures the fix for #8054 is regression-tested and that mixed-content conta
 
 ## Timeline
 
-- 2025-12-11 @tobiu added the `ai` label
-- 2025-12-11 @tobiu added the `testing` label
-- 2025-12-11 @tobiu assigned to @tobiu
-- 2025-12-11 @tobiu referenced in commit `c77c6ff` - "[Tests] Add unit tests for Draggable SortZone #8086"
-- 2025-12-11 @tobiu closed this issue
+- 2025-12-11T02:29:49Z @tobiu added the `ai` label
+- 2025-12-11T02:29:49Z @tobiu added the `testing` label
+- 2025-12-11T02:30:51Z @tobiu assigned to @tobiu
+- 2025-12-11T02:31:27Z @tobiu referenced in commit `c77c6ff` - "[Tests] Add unit tests for Draggable SortZone #8086"
+- 2025-12-11T02:31:33Z @tobiu closed this issue
 

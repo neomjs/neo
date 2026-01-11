@@ -25,8 +25,8 @@ closedAt: '2025-02-06T12:16:42Z'
 
 ## Timeline
 
-- 2025-02-06 @tobiu added the `enhancement` label
-- 2025-02-06 @tobiu assigned to @tobiu
-- 2025-02-06 @tobiu referenced in commit `d6cc6e8` - "draggable.toolbar.SortZone: onDragMove() => add overdrag support for sortDirection vertical #6393"
-- 2025-02-06 @tobiu closed this issue
+- 2025-02-06T12:16:19Z @tobiu added the `enhancement` label
+- 2025-02-06T12:16:19Z @tobiu assigned to @tobiu
+- 2025-02-06T12:16:36Z @tobiu referenced in commit `d6cc6e8` - "draggable.toolbar.SortZone: onDragMove() => add overdrag support for sortDirection vertical #6393"
+- 2025-02-06T12:16:42Z @tobiu closed this issue
 

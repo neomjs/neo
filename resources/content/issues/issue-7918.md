@@ -54,27 +54,27 @@ This epic covers Phase 3 of the Agent OS Roadmap: building the "Killer App" that
 
 ## Timeline
 
-- 2025-11-29 @tobiu added the `epic` label
-- 2025-11-29 @tobiu added the `ai` label
-- 2025-11-29 @tobiu cross-referenced by #7920
-- 2025-11-29 @tobiu added sub-issue #7920
-- 2025-11-29 @tobiu added sub-issue #7921
-- 2025-11-29 @tobiu added sub-issue #7922
-- 2025-11-30 @tobiu assigned to @tobiu
-- 2025-11-30 @tobiu cross-referenced by #7954
-- 2025-11-30 @tobiu added sub-issue #7954
-- 2025-11-30 @tobiu added sub-issue #7955
-- 2025-11-30 @tobiu added sub-issue #7956
-- 2025-12-04 @tobiu added sub-issue #8018
-- 2025-12-04 @tobiu added sub-issue #8019
-- 2025-12-04 @tobiu added sub-issue #8021
-- 2025-12-04 @tobiu added sub-issue #8022
-- 2025-12-04 @tobiu added sub-issue #8024
-- 2025-12-04 @tobiu added sub-issue #8025
-- 2025-12-05 @tobiu added sub-issue #8031
-- 2025-12-05 @tobiu added sub-issue #8032
-- 2025-12-05 @tobiu added sub-issue #8033
-- 2025-12-05 @tobiu added sub-issue #8034
-- 2025-12-05 @tobiu added sub-issue #8035
-- 2025-12-05 @tobiu added sub-issue #8036
+- 2025-11-29T15:17:50Z @tobiu added the `epic` label
+- 2025-11-29T15:17:51Z @tobiu added the `ai` label
+- 2025-11-29T15:19:19Z @tobiu cross-referenced by #7920
+- 2025-11-29T15:21:37Z @tobiu added sub-issue #7920
+- 2025-11-29T15:22:15Z @tobiu added sub-issue #7921
+- 2025-11-29T15:22:17Z @tobiu added sub-issue #7922
+- 2025-11-30T18:37:29Z @tobiu assigned to @tobiu
+- 2025-11-30T18:39:06Z @tobiu cross-referenced by #7954
+- 2025-11-30T18:39:14Z @tobiu added sub-issue #7954
+- 2025-11-30T18:42:48Z @tobiu added sub-issue #7955
+- 2025-11-30T21:00:40Z @tobiu added sub-issue #7956
+- 2025-12-04T01:15:15Z @tobiu added sub-issue #8018
+- 2025-12-04T01:30:57Z @tobiu added sub-issue #8019
+- 2025-12-04T03:45:00Z @tobiu added sub-issue #8021
+- 2025-12-04T03:45:20Z @tobiu added sub-issue #8022
+- 2025-12-04T22:49:12Z @tobiu added sub-issue #8024
+- 2025-12-04T23:37:38Z @tobiu added sub-issue #8025
+- 2025-12-05T01:02:11Z @tobiu added sub-issue #8031
+- 2025-12-05T02:07:50Z @tobiu added sub-issue #8032
+- 2025-12-05T02:19:06Z @tobiu added sub-issue #8033
+- 2025-12-05T02:43:35Z @tobiu added sub-issue #8034
+- 2025-12-05T03:03:15Z @tobiu added sub-issue #8035
+- 2025-12-05T03:28:07Z @tobiu added sub-issue #8036
 

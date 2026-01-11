@@ -26,9 +26,9 @@ closedAt: '2025-07-15T09:29:39Z'
 
 ## Timeline
 
-- 2025-07-15 @tobiu assigned to @tobiu
-- 2025-07-15 @tobiu added parent issue #6992
-- 2025-07-15 @tobiu added the `enhancement` label
-- 2025-07-15 @tobiu referenced in commit `219d801` - "examples.ConfigurationViewport: make createConfigurationComponents() optionally async #7055"
-- 2025-07-15 @tobiu closed this issue
+- 2025-07-15T08:29:12Z @tobiu assigned to @tobiu
+- 2025-07-15T08:29:13Z @tobiu added parent issue #6992
+- 2025-07-15T08:29:14Z @tobiu added the `enhancement` label
+- 2025-07-15T08:35:13Z @tobiu referenced in commit `219d801` - "examples.ConfigurationViewport: make createConfigurationComponents() optionally async #7055"
+- 2025-07-15T09:29:39Z @tobiu closed this issue
 

@@ -42,8 +42,8 @@ I hope for both of you, that karma never finds you.
 
 ## Timeline
 
-- 2025-02-16 @tobiu added the `enhancement` label
-- 2025-02-16 @tobiu assigned to @tobiu
-- 2025-02-16 @tobiu referenced in commit `a383c85` - "Remove Rich from the license files #6454"
-- 2025-02-16 @tobiu closed this issue
+- 2025-02-16T08:35:16Z @tobiu added the `enhancement` label
+- 2025-02-16T08:35:16Z @tobiu assigned to @tobiu
+- 2025-02-16T08:42:52Z @tobiu referenced in commit `a383c85` - "Remove Rich from the license files #6454"
+- 2025-02-16T08:43:41Z @tobiu closed this issue
 

@@ -33,14 +33,14 @@ This ticket primarily tracks the setup and verification steps for the new app en
 
 ## Timeline
 
-- 2025-12-09 @tobiu added the `enhancement` label
-- 2025-12-09 @tobiu added the `ai` label
-- 2025-12-09 @tobiu added the `testing` label
-- 2025-12-09 @tobiu assigned to @tobiu
-- 2025-12-09 @tobiu referenced in commit `eeef8ca` - "Duplicate childapps/preview to apps/legit for LivePreview testing #8073"
-### @tobiu - 2025-12-09 17:16
+- 2025-12-09T17:06:33Z @tobiu added the `enhancement` label
+- 2025-12-09T17:06:33Z @tobiu added the `ai` label
+- 2025-12-09T17:06:33Z @tobiu added the `testing` label
+- 2025-12-09T17:06:46Z @tobiu assigned to @tobiu
+- 2025-12-09T17:15:41Z @tobiu referenced in commit `eeef8ca` - "Duplicate childapps/preview to apps/legit for LivePreview testing #8073"
+### @tobiu - 2025-12-09T17:16:04Z
 
 I also updated appNames, mainThreadAddons, gitignore.
 
-- 2025-12-09 @tobiu closed this issue
+- 2025-12-09T17:16:04Z @tobiu closed this issue
 

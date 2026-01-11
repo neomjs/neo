@@ -38,14 +38,14 @@ Ensure 100% log capture from the moment the App Worker starts.
 
 ## Timeline
 
-- 2026-01-03 @tobiu added the `enhancement` label
-- 2026-01-03 @tobiu added the `ai` label
-- 2026-01-03 @tobiu assigned to @tobiu
-- 2026-01-03 @tobiu referenced in commit `4be90d9` - "feat(ai): Implement Neural Link Early Log Buffering (#8305)
+- 2026-01-03T22:21:34Z @tobiu added the `enhancement` label
+- 2026-01-03T22:21:34Z @tobiu added the `ai` label
+- 2026-01-03T22:22:25Z @tobiu assigned to @tobiu
+- 2026-01-03T22:29:21Z @tobiu referenced in commit `4be90d9` - "feat(ai): Implement Neural Link Early Log Buffering (#8305)
 
 - App Worker: Refactor interceptConsole to push logs to Neo.ai.Client.logs if disconnected.
 - AI Client: Add logs instance field and flush on connection."
-### @tobiu - 2026-01-03 22:29
+### @tobiu - 2026-01-03T22:29:36Z
 
 **Input from Gemini:**
 
@@ -63,6 +63,6 @@ Ensure 100% log capture from the moment the App Worker starts.
 > **Architecture:**
 > This approach maintains clean separation of concerns. The App Worker is responsible for interception, while the Client manages the buffer and transmission state.
 
-- 2026-01-03 @tobiu added parent issue #8169
-- 2026-01-03 @tobiu closed this issue
+- 2026-01-03T22:29:56Z @tobiu added parent issue #8169
+- 2026-01-03T22:30:24Z @tobiu closed this issue
 

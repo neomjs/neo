@@ -25,9 +25,9 @@ closedAt: '2025-07-09T00:07:21Z'
 
 ## Timeline
 
-- 2025-07-09 @tobiu assigned to @tobiu
-- 2025-07-09 @tobiu added the `enhancement` label
-- 2025-07-09 @tobiu referenced in commit `ec08a27` - "Neo.merge() => simplify the no target part #6988"
-- 2025-07-09 @tobiu closed this issue
-- 2025-07-09 @tobiu referenced in commit `5808df7` - "Neo.merge() => simplify the no target part #6988"
+- 2025-07-09T00:06:22Z @tobiu assigned to @tobiu
+- 2025-07-09T00:06:23Z @tobiu added the `enhancement` label
+- 2025-07-09T00:07:03Z @tobiu referenced in commit `ec08a27` - "Neo.merge() => simplify the no target part #6988"
+- 2025-07-09T00:07:21Z @tobiu closed this issue
+- 2025-07-09T00:10:52Z @tobiu referenced in commit `5808df7` - "Neo.merge() => simplify the no target part #6988"
 

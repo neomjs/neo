@@ -32,9 +32,9 @@ The `LocalFileService` currently uses the `glob` npm package for recursively sea
 
 ## Timeline
 
-- 2025-10-22 @tobiu assigned to @tobiu
-- 2025-10-22 @tobiu added the `ai` label
-- 2025-10-22 @tobiu added the `refactoring` label
-- 2025-10-22 @tobiu referenced in commit `03f7174` - "Refactor LocalFileService to Remove glob Dependency #7610"
-- 2025-10-22 @tobiu closed this issue
+- 2025-10-22T13:13:05Z @tobiu assigned to @tobiu
+- 2025-10-22T13:13:06Z @tobiu added the `ai` label
+- 2025-10-22T13:13:07Z @tobiu added the `refactoring` label
+- 2025-10-22T13:13:32Z @tobiu referenced in commit `03f7174` - "Refactor LocalFileService to Remove glob Dependency #7610"
+- 2025-10-22T13:13:44Z @tobiu closed this issue
 

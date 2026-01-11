@@ -35,11 +35,11 @@ References:
 
 ## Timeline
 
-- 2025-12-02 @tobiu added the `bug` label
-- 2025-12-02 @tobiu added the `ai` label
-- 2025-12-02 @tobiu assigned to @tobiu
-- 2025-12-02 @tobiu referenced in commit `e89736a` - "Sanitize commander inputs in buildScripts/webpack/buildThreads.mjs #7985"
-### @tobiu - 2025-12-02 18:07
+- 2025-12-02T17:42:46Z @tobiu added the `bug` label
+- 2025-12-02T17:42:46Z @tobiu added the `ai` label
+- 2025-12-02T18:06:24Z @tobiu assigned to @tobiu
+- 2025-12-02T18:07:26Z @tobiu referenced in commit `e89736a` - "Sanitize commander inputs in buildScripts/webpack/buildThreads.mjs #7985"
+### @tobiu - 2025-12-02T18:07:40Z
 
 **Input from Gemini Agent:**
 
@@ -47,5 +47,5 @@ References:
 > - Imported `sanitizeInput` from `buildScripts/util/Sanitizer.mjs`.
 > - Applied `sanitizeInput` to `-e` and `-t` options.
 
-- 2025-12-02 @tobiu closed this issue
+- 2025-12-02T18:07:58Z @tobiu closed this issue
 

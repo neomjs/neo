@@ -60,23 +60,23 @@ This is a **medium-sized refactoring effort**. It will require:
 
 ## Timeline
 
-- 2025-07-07 @tobiu added the `enhancement` label
-- 2025-07-07 @tobiu added the `help wanted` label
-### @github-actions - 2025-10-06 02:42
+- 2025-07-07T23:52:23Z @tobiu added the `enhancement` label
+- 2025-07-07T23:52:23Z @tobiu added the `help wanted` label
+### @github-actions - 2025-10-06T02:42:09Z
 
 This issue is stale because it has been open for 90 days with no activity.
 
-- 2025-10-06 @github-actions added the `stale` label
-- 2025-10-08 @tobiu removed the `stale` label
-- 2025-10-08 @tobiu added the `good first issue` label
-- 2025-10-08 @tobiu added the `hacktoberfest` label
-### @tobiu - 2025-10-08 09:44
+- 2025-10-06T02:42:10Z @github-actions added the `stale` label
+- 2025-10-08T09:43:23Z @tobiu removed the `stale` label
+- 2025-10-08T09:43:23Z @tobiu added the `good first issue` label
+- 2025-10-08T09:43:23Z @tobiu added the `hacktoberfest` label
+### @tobiu - 2025-10-08T09:44:23Z
 
 this one could get refined to via the ai native workflows into new subs, and based on it fits the `hacktoberfest` scope.
 
-- 2025-10-08 @tobiu removed the `enhancement` label
-- 2025-10-08 @tobiu added the `epic` label
-### @shrvansudhakara - 2025-10-30 18:56
+- 2025-10-08T09:44:42Z @tobiu removed the `enhancement` label
+- 2025-10-08T09:44:42Z @tobiu added the `epic` label
+### @shrvansudhakara - 2025-10-30T18:56:19Z
 
 @tobiu I'd like to work on this, pls assign.
 

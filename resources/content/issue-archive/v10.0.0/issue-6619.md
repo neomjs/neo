@@ -91,12 +91,12 @@ Let me know if you need help reproducing it. Thanks
 
 ## Timeline
 
-- 2025-04-05 @ahmad-su added the `bug` label
-### @ahmad-su - 2025-04-05 13:55
+- 2025-04-05T05:27:05Z @ahmad-su added the `bug` label
+### @ahmad-su - 2025-04-05T13:55:47Z
 
 Update: Running the build command on git bash didnt solve the issue
 
-### @tobiu - 2025-04-05 14:55
+### @tobiu - 2025-04-05T14:55:19Z
 
 @ahmad-su Without having Windows installed, I can sadly not help too much on this one (flying blind).
 
@@ -115,19 +115,19 @@ If it would try to go further up, there might be security related restrictions (
 
 The main idea is, that by fetching all `app.mjs` files, we do get split chunks & tree-shaking across multiple apps out of the box. E.g. if you would lazy-load a 2nd neo app into your website, there should be little overhead.
 
-### @ahmad-su - 2025-04-05 16:11
+### @ahmad-su - 2025-04-05T16:11:36Z
 
 Thanks for the insight @tobiu , the solution is just by nesting the project folder 1 level deeper. so ../.. will not accidentally go to D:\
 But I'm still curious to modify the App.mjs to make it work wherever I place the project.
 
-### @github-actions - 2025-07-05 02:53
+### @github-actions - 2025-07-05T02:53:16Z
 
 This issue is stale because it has been open for 90 days with no activity.
 
-- 2025-07-05 @github-actions added the `stale` label
-### @github-actions - 2025-07-19 03:02
+- 2025-07-05T02:53:17Z @github-actions added the `stale` label
+### @github-actions - 2025-07-19T03:02:59Z
 
 This issue was closed because it has been inactive for 14 days since being marked as stale.
 
-- 2025-07-19 @github-actions closed this issue
+- 2025-07-19T03:02:59Z @github-actions closed this issue
 

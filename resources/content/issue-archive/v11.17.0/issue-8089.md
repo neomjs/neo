@@ -39,9 +39,9 @@ This test suite `test/playwright/unit/manager/domEvent/CustomVdomRoot.spec.mjs` 
 
 ## Timeline
 
-- 2025-12-11 @tobiu added the `ai` label
-- 2025-12-11 @tobiu added the `testing` label
-- 2025-12-11 @tobiu assigned to @tobiu
-- 2025-12-11 @tobiu referenced in commit `e4e2603` - "Add tests for Custom VDOM Root DOM Events #8089"
-- 2025-12-11 @tobiu closed this issue
+- 2025-12-11T14:23:11Z @tobiu added the `ai` label
+- 2025-12-11T14:23:11Z @tobiu added the `testing` label
+- 2025-12-11T14:33:36Z @tobiu assigned to @tobiu
+- 2025-12-11T14:34:08Z @tobiu referenced in commit `e4e2603` - "Add tests for Custom VDOM Root DOM Events #8089"
+- 2025-12-11T14:34:23Z @tobiu closed this issue
 

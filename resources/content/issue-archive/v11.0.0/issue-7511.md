@@ -40,10 +40,10 @@ This ticket covers the work to separate this functionality into distinct tools t
 
 ## Timeline
 
-- 2025-10-16 @tobiu assigned to @tobiu
-- 2025-10-16 @tobiu added the `enhancement` label
-- 2025-10-16 @tobiu added the `ai` label
-- 2025-10-16 @tobiu added parent issue #7501
-- 2025-10-16 @tobiu referenced in commit `82ce4fd` - "Separate Create and Embed Services #7511"
-- 2025-10-16 @tobiu closed this issue
+- 2025-10-16T11:32:53Z @tobiu assigned to @tobiu
+- 2025-10-16T11:32:54Z @tobiu added the `enhancement` label
+- 2025-10-16T11:32:54Z @tobiu added the `ai` label
+- 2025-10-16T11:32:54Z @tobiu added parent issue #7501
+- 2025-10-16T11:36:13Z @tobiu referenced in commit `82ce4fd` - "Separate Create and Embed Services #7511"
+- 2025-10-16T11:36:28Z @tobiu closed this issue
 

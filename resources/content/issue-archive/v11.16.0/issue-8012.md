@@ -34,9 +34,9 @@ closedAt: '2025-12-03T15:12:19Z'
 
 ## Timeline
 
-- 2025-12-03 @tobiu added the `enhancement` label
-- 2025-12-03 @tobiu assigned to @tobiu
-- 2025-12-03 @tobiu added the `ai` label
-- 2025-12-03 @tobiu referenced in commit `329c0d8` - "Enhance WebSocket Connection with Observable Events #8012"
-- 2025-12-03 @tobiu closed this issue
+- 2025-12-03T14:35:13Z @tobiu added the `enhancement` label
+- 2025-12-03T14:39:53Z @tobiu assigned to @tobiu
+- 2025-12-03T14:40:06Z @tobiu added the `ai` label
+- 2025-12-03T14:41:11Z @tobiu referenced in commit `329c0d8` - "Enhance WebSocket Connection with Observable Events #8012"
+- 2025-12-03T15:12:19Z @tobiu closed this issue
 

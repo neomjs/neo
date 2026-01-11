@@ -32,9 +32,9 @@ This task is to migrate the unit test for `CollectionBase.mjs` from the Siesta t
 
 ## Timeline
 
-- 2025-09-27 @tobiu added parent issue #7262
-- 2025-09-27 @tobiu added the `enhancement` label
-- 2025-09-30 @tobiu assigned to @tobiu
-- 2025-09-30 @tobiu referenced in commit `3dd728e` - "Convert CollectionBase.mjs Test from Siesta to Playwright #7269"
-- 2025-09-30 @tobiu closed this issue
+- 2025-09-27T12:37:42Z @tobiu added parent issue #7262
+- 2025-09-27T12:37:42Z @tobiu added the `enhancement` label
+- 2025-09-30T10:58:31Z @tobiu assigned to @tobiu
+- 2025-09-30T10:58:57Z @tobiu referenced in commit `3dd728e` - "Convert CollectionBase.mjs Test from Siesta to Playwright #7269"
+- 2025-09-30T10:59:09Z @tobiu closed this issue
 

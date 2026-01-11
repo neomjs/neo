@@ -26,7 +26,7 @@ closedAt: '2025-06-03T12:53:48Z'
 
 ## Timeline
 
-- 2025-06-03 @tobiu added the `enhancement` label
-- 2025-06-03 @tobiu referenced in commit `44c865f` - "buildScripts/buildESModules: minifyFile() #6745"
-- 2025-06-03 @tobiu closed this issue
+- 2025-06-03T12:53:16Z @tobiu added the `enhancement` label
+- 2025-06-03T12:53:40Z @tobiu referenced in commit `44c865f` - "buildScripts/buildESModules: minifyFile() #6745"
+- 2025-06-03T12:53:49Z @tobiu closed this issue
 

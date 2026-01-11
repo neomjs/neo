@@ -26,20 +26,20 @@ closedAt: '2025-01-18T20:20:17Z'
 
 ## Timeline
 
-- 2025-01-16 @tobiu added the `enhancement` label
-- 2025-01-16 @tobiu assigned to @tobiu
-### @tobiu - 2025-01-18 20:19
+- 2025-01-16T20:52:04Z @tobiu added the `enhancement` label
+- 2025-01-16T20:52:04Z @tobiu assigned to @tobiu
+### @tobiu - 2025-01-18T20:19:02Z
 
 old version:
 
 ![Image](https://github.com/user-attachments/assets/71859dc3-99e8-4677-a193-657f2f6cbcd3)
 
-- 2025-01-18 @tobiu referenced in commit `71f64b5` - "data.RecordFactory: createField() => re-add support for nested fields #6250"
-### @tobiu - 2025-01-18 20:20
+- 2025-01-18T20:19:50Z @tobiu referenced in commit `71f64b5` - "data.RecordFactory: createField() => re-add support for nested fields #6250"
+### @tobiu - 2025-01-18T20:20:17Z
 
 new version:
 
 ![Image](https://github.com/user-attachments/assets/3ba1a99d-765c-427f-8775-970ddd197ebc)
 
-- 2025-01-18 @tobiu closed this issue
+- 2025-01-18T20:20:17Z @tobiu closed this issue
 

@@ -47,12 +47,12 @@ A Proof of Concept (PoC) has been implemented to establish a bidirectional commu
 
 ## Timeline
 
-- 2025-12-03 @tobiu added the `documentation` label
-- 2025-12-03 @tobiu added the `enhancement` label
-- 2025-12-03 @tobiu added the `ai` label
-- 2025-12-03 @tobiu added the `refactoring` label
-- 2025-12-03 @tobiu assigned to @tobiu
-- 2025-12-03 @tobiu added parent issue #7960
-- 2025-12-03 @tobiu referenced in commit `6d78b50` - "Implement App Worker MCP Server PoC (Neural Link) #8001"
-- 2025-12-03 @tobiu closed this issue
+- 2025-12-03T01:50:41Z @tobiu added the `documentation` label
+- 2025-12-03T01:50:41Z @tobiu added the `enhancement` label
+- 2025-12-03T01:50:41Z @tobiu added the `ai` label
+- 2025-12-03T01:50:42Z @tobiu added the `refactoring` label
+- 2025-12-03T01:52:12Z @tobiu assigned to @tobiu
+- 2025-12-03T01:56:08Z @tobiu added parent issue #7960
+- 2025-12-03T02:07:47Z @tobiu referenced in commit `6d78b50` - "Implement App Worker MCP Server PoC (Neural Link) #8001"
+- 2025-12-03T02:14:18Z @tobiu closed this issue
 

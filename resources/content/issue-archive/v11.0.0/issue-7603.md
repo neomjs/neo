@@ -49,10 +49,10 @@ This ensures that the local file structure accurately reflects the development l
 
 ## Timeline
 
-- 2025-10-22 @tobiu assigned to @tobiu
-- 2025-10-22 @tobiu added the `bug` label
-- 2025-10-22 @tobiu added the `ai` label
-- 2025-10-22 @tobiu added the `refactoring` label
-- 2025-10-22 @tobiu referenced in commit `9bc008d` - "Bug: Issue Archiving Logic Incorrectly Buckets Recently Closed Issues #7603"
-- 2025-10-22 @tobiu closed this issue
+- 2025-10-22T11:39:52Z @tobiu assigned to @tobiu
+- 2025-10-22T11:39:53Z @tobiu added the `bug` label
+- 2025-10-22T11:39:53Z @tobiu added the `ai` label
+- 2025-10-22T11:39:54Z @tobiu added the `refactoring` label
+- 2025-10-22T11:40:57Z @tobiu referenced in commit `9bc008d` - "Bug: Issue Archiving Logic Incorrectly Buckets Recently Closed Issues #7603"
+- 2025-10-22T11:42:48Z @tobiu closed this issue
 

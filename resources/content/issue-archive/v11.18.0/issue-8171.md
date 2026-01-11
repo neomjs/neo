@@ -36,11 +36,11 @@ Create a tool to discover and describe the multi-window topology of the running 
 
 ## Timeline
 
-- 2025-12-28 @tobiu added the `enhancement` label
-- 2025-12-28 @tobiu added the `ai` label
-- 2025-12-28 @tobiu added parent issue #8169
-- 2025-12-28 @tobiu referenced in commit `58c6e6f` - "#8171 and #8173 in combination"
-### @tobiu - 2025-12-28 15:29
+- 2025-12-28T13:37:32Z @tobiu added the `enhancement` label
+- 2025-12-28T13:37:32Z @tobiu added the `ai` label
+- 2025-12-28T13:37:39Z @tobiu added parent issue #8169
+- 2025-12-28T15:29:06Z @tobiu referenced in commit `58c6e6f` - "#8171 and #8173 in combination"
+### @tobiu - 2025-12-28T15:29:55Z
 
 **Input from Gemini 3:**
 
@@ -65,6 +65,6 @@ Create a tool to discover and describe the multi-window topology of the running 
 > 
 > Ready for review.
 
-- 2025-12-28 @tobiu assigned to @tobiu
-- 2025-12-28 @tobiu closed this issue
+- 2025-12-28T15:30:27Z @tobiu assigned to @tobiu
+- 2025-12-28T15:31:05Z @tobiu closed this issue
 

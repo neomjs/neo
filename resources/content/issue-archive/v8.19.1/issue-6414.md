@@ -25,8 +25,8 @@ timing issues on GH pages
 
 ## Timeline
 
-- 2025-02-09 @tobiu added the `enhancement` label
-- 2025-02-09 @tobiu assigned to @tobiu
-- 2025-02-09 @tobiu referenced in commit `884610d` - "examples.grid.bigData.ControlsContainer: gh button - switch the load script call to afterSetMounted() #6414"
-- 2025-02-09 @tobiu closed this issue
+- 2025-02-09T02:08:47Z @tobiu added the `enhancement` label
+- 2025-02-09T02:08:47Z @tobiu assigned to @tobiu
+- 2025-02-09T02:08:59Z @tobiu referenced in commit `884610d` - "examples.grid.bigData.ControlsContainer: gh button - switch the load script call to afterSetMounted() #6414"
+- 2025-02-09T12:43:35Z @tobiu closed this issue
 

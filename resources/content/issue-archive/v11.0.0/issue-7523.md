@@ -34,10 +34,10 @@ This ticket covers wiring up the new `mcp-stdio.mjs` entry point to the existing
 
 ## Timeline
 
-- 2025-10-17 @tobiu assigned to @tobiu
-- 2025-10-17 @tobiu added the `enhancement` label
-- 2025-10-17 @tobiu added the `ai` label
-- 2025-10-17 @tobiu added parent issue #7520
-- 2025-10-17 @tobiu referenced in commit `e266084` - "Implement Memory Core toolService #7523"
-- 2025-10-17 @tobiu closed this issue
+- 2025-10-17T11:25:46Z @tobiu assigned to @tobiu
+- 2025-10-17T11:25:47Z @tobiu added the `enhancement` label
+- 2025-10-17T11:25:47Z @tobiu added the `ai` label
+- 2025-10-17T11:25:47Z @tobiu added parent issue #7520
+- 2025-10-17T12:02:45Z @tobiu referenced in commit `e266084` - "Implement Memory Core toolService #7523"
+- 2025-10-17T12:02:52Z @tobiu closed this issue
 

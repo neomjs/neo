@@ -29,10 +29,10 @@ It should be generalized to `pre.hljs` to ensure consistent border, radius, and 
 
 ## Timeline
 
-- 2026-01-07 @tobiu added the `bug` label
-- 2026-01-07 @tobiu added the `design` label
-- 2026-01-07 @tobiu added the `ai` label
-- 2026-01-07 @tobiu assigned to @tobiu
-- 2026-01-07 @tobiu referenced in commit `b6c5976` - "Fix Markdown code block styling to apply universally #8382"
-- 2026-01-07 @tobiu closed this issue
+- 2026-01-07T14:11:21Z @tobiu added the `bug` label
+- 2026-01-07T14:11:22Z @tobiu added the `design` label
+- 2026-01-07T14:11:22Z @tobiu added the `ai` label
+- 2026-01-07T14:11:29Z @tobiu assigned to @tobiu
+- 2026-01-07T14:14:02Z @tobiu referenced in commit `b6c5976` - "Fix Markdown code block styling to apply universally #8382"
+- 2026-01-07T14:14:07Z @tobiu closed this issue
 

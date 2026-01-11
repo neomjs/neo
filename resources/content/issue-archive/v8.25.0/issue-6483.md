@@ -25,11 +25,11 @@ closedAt: '2025-02-26T13:36:03Z'
 
 ## Timeline
 
-- 2025-02-22 @tobiu added the `enhancement` label
-- 2025-02-22 @tobiu assigned to @tobiu
-### @tobiu - 2025-02-26 13:36
+- 2025-02-22T15:44:11Z @tobiu added the `enhancement` label
+- 2025-02-22T15:44:11Z @tobiu assigned to @tobiu
+### @tobiu - 2025-02-26T13:36:03Z
 
 already resolved.
 
-- 2025-02-26 @tobiu closed this issue
+- 2025-02-26T13:36:03Z @tobiu closed this issue
 

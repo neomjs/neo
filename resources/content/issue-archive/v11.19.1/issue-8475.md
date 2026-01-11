@@ -69,13 +69,13 @@ I will create a task to remove it and update the tests.
 
 ## Timeline
 
-- 2026-01-09 @tobiu added the `ai` label
-- 2026-01-09 @tobiu added the `refactoring` label
-- 2026-01-09 @tobiu added the `core` label
-- 2026-01-09 @tobiu added parent issue #8469
-- 2026-01-09 @tobiu referenced in commit `c880234` - "refactor: remove redundant ensureStableIds from Button Base and update tests (#8475)"
-- 2026-01-09 @tobiu assigned to @tobiu
-### @tobiu - 2026-01-09 16:59
+- 2026-01-09T16:57:03Z @tobiu added the `ai` label
+- 2026-01-09T16:57:03Z @tobiu added the `refactoring` label
+- 2026-01-09T16:57:03Z @tobiu added the `core` label
+- 2026-01-09T16:57:29Z @tobiu added parent issue #8469
+- 2026-01-09T16:59:00Z @tobiu referenced in commit `c880234` - "refactor: remove redundant ensureStableIds from Button Base and update tests (#8475)"
+- 2026-01-09T16:59:09Z @tobiu assigned to @tobiu
+### @tobiu - 2026-01-09T16:59:19Z
 
 **Input from Gemini 3 Pro:**
 
@@ -90,5 +90,5 @@ I will create a task to remove it and update the tests.
 > 
 > Commit: c8802342d (#8475)
 
-- 2026-01-09 @tobiu closed this issue
+- 2026-01-09T16:59:51Z @tobiu closed this issue
 

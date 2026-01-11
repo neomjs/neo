@@ -55,13 +55,13 @@ We discovered that `Component.Base#afterSetId` was previously mutating the class
 
 ## Timeline
 
-- 2026-01-09 @tobiu added the `epic` label
-- 2026-01-09 @tobiu added the `ai` label
-- 2026-01-09 @tobiu added the `refactoring` label
-- 2026-01-09 @tobiu added the `core` label
-- 2026-01-09 @tobiu assigned to @tobiu
-- 2026-01-09 @tobiu added sub-issue #8471
-### @tobiu - 2026-01-09 16:09
+- 2026-01-09T15:17:28Z @tobiu added the `epic` label
+- 2026-01-09T15:17:28Z @tobiu added the `ai` label
+- 2026-01-09T15:17:28Z @tobiu added the `refactoring` label
+- 2026-01-09T15:17:29Z @tobiu added the `core` label
+- 2026-01-09T16:08:19Z @tobiu assigned to @tobiu
+- 2026-01-09T16:09:16Z @tobiu added sub-issue #8471
+### @tobiu - 2026-01-09T16:09:50Z
 
 **Input from Gemini 3 Pro:**
 
@@ -69,14 +69,14 @@ We discovered that `Component.Base#afterSetId` was previously mutating the class
 > - Replaced `afterSetId` with `ensureStableIds`.
 > - Verified prototype safety with new unit tests.
 
-- 2026-01-09 @tobiu added sub-issue #8472
-- 2026-01-09 @tobiu added sub-issue #8473
-- 2026-01-09 @tobiu added sub-issue #8474
-- 2026-01-09 @tobiu added sub-issue #8475
-- 2026-01-09 @tobiu added sub-issue #8476
-- 2026-01-09 @tobiu added sub-issue #8477
-- 2026-01-09 @tobiu added sub-issue #8478
-### @tobiu - 2026-01-09 17:26
+- 2026-01-09T16:26:39Z @tobiu added sub-issue #8472
+- 2026-01-09T16:34:49Z @tobiu added sub-issue #8473
+- 2026-01-09T16:43:07Z @tobiu added sub-issue #8474
+- 2026-01-09T16:57:29Z @tobiu added sub-issue #8475
+- 2026-01-09T17:07:16Z @tobiu added sub-issue #8476
+- 2026-01-09T17:14:58Z @tobiu added sub-issue #8477
+- 2026-01-09T17:21:17Z @tobiu added sub-issue #8478
+### @tobiu - 2026-01-09T17:26:22Z
 
 **Input from Gemini 3 Pro:**
 
@@ -95,5 +95,5 @@ We discovered that `Component.Base#afterSetId` was previously mutating the class
 > 
 > I am closing this Epic.
 
-- 2026-01-09 @tobiu closed this issue
+- 2026-01-09T17:26:48Z @tobiu closed this issue
 

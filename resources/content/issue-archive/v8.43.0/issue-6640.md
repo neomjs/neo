@@ -25,7 +25,7 @@ closedAt: '2025-04-10T20:09:20Z'
 
 ## Timeline
 
-- 2025-04-10 @tobiu added the `enhancement` label
-- 2025-04-10 @tobiu referenced in commit `71d7d7e` - "grid.column.Component: cellRenderer() => renew bound controller configs on each change #6640"
-- 2025-04-10 @tobiu closed this issue
+- 2025-04-10T20:08:55Z @tobiu added the `enhancement` label
+- 2025-04-10T20:09:10Z @tobiu referenced in commit `71d7d7e` - "grid.column.Component: cellRenderer() => renew bound controller configs on each change #6640"
+- 2025-04-10T20:09:20Z @tobiu closed this issue
 

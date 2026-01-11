@@ -45,21 +45,21 @@ To work on this ticket, please start your session with the following prompt:
 
 ## Timeline
 
-- 2025-10-07 @tobiu added the `enhancement` label
-- 2025-10-07 @tobiu added parent issue #7399
-- 2025-10-07 @tobiu added the `help wanted` label
-- 2025-10-07 @tobiu added the `good first issue` label
-- 2025-10-07 @tobiu added the `hacktoberfest` label
-- 2025-10-07 @tobiu added the `ai` label
-- 2025-10-07 @tobiu removed parent issue #7399
-- 2025-10-07 @tobiu removed the `enhancement` label
-- 2025-10-07 @tobiu removed the `help wanted` label
-- 2025-10-07 @tobiu removed the `good first issue` label
-- 2025-10-07 @tobiu removed the `hacktoberfest` label
-- 2025-10-07 @tobiu removed the `ai` label
-### @tobiu - 2025-10-07 10:53
+- 2025-10-07T10:48:10Z @tobiu added the `enhancement` label
+- 2025-10-07T10:48:10Z @tobiu added parent issue #7399
+- 2025-10-07T10:48:10Z @tobiu added the `help wanted` label
+- 2025-10-07T10:48:10Z @tobiu added the `good first issue` label
+- 2025-10-07T10:48:11Z @tobiu added the `hacktoberfest` label
+- 2025-10-07T10:48:11Z @tobiu added the `ai` label
+- 2025-10-07T10:52:53Z @tobiu removed parent issue #7399
+- 2025-10-07T10:53:01Z @tobiu removed the `enhancement` label
+- 2025-10-07T10:53:01Z @tobiu removed the `help wanted` label
+- 2025-10-07T10:53:01Z @tobiu removed the `good first issue` label
+- 2025-10-07T10:53:01Z @tobiu removed the `hacktoberfest` label
+- 2025-10-07T10:53:01Z @tobiu removed the `ai` label
+### @tobiu - 2025-10-07T10:53:33Z
 
 redundant. closing the ticket.
 
-- 2025-10-07 @tobiu closed this issue
+- 2025-10-07T10:53:34Z @tobiu closed this issue
 

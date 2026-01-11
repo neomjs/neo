@@ -25,8 +25,8 @@ closedAt: '2025-06-30T12:10:47Z'
 
 ## Timeline
 
-- 2025-06-30 @tobiu assigned to @tobiu
-- 2025-06-30 @tobiu added the `enhancement` label
-- 2025-06-30 @tobiu referenced in commit `ebeff5c` - "Portal.view.learn.PageSectionsList: prevent showing inline code blocks inside list items #6906"
-- 2025-06-30 @tobiu closed this issue
+- 2025-06-30T12:09:34Z @tobiu assigned to @tobiu
+- 2025-06-30T12:09:35Z @tobiu added the `enhancement` label
+- 2025-06-30T12:10:31Z @tobiu referenced in commit `ebeff5c` - "Portal.view.learn.PageSectionsList: prevent showing inline code blocks inside list items #6906"
+- 2025-06-30T12:10:47Z @tobiu closed this issue
 

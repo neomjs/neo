@@ -31,12 +31,12 @@ To not create redundancy, we need the new method.
 
 ## Timeline
 
-- 2025-03-03 @tobiu added the `enhancement` label
-- 2025-03-03 @tobiu assigned to @tobiu
-- 2025-03-03 @tobiu referenced in commit `bd3de39` - "grid.View: updateCellNode() #6539"
-### @tobiu - 2025-03-03 22:10
+- 2025-03-03T22:09:31Z @tobiu added the `enhancement` label
+- 2025-03-03T22:09:31Z @tobiu assigned to @tobiu
+- 2025-03-03T22:09:50Z @tobiu referenced in commit `bd3de39` - "grid.View: updateCellNode() #6539"
+### @tobiu - 2025-03-03T22:10:23Z
 
 https://github.com/user-attachments/assets/cf8515f8-f663-4693-8ce3-ea7120d2fcab
 
-- 2025-03-03 @tobiu closed this issue
+- 2025-03-03T22:10:23Z @tobiu closed this issue
 

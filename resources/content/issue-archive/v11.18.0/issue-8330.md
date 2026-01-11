@@ -30,12 +30,12 @@ Fix regression from previous session where `find_instances` was not fully integr
 
 ## Timeline
 
-- 2026-01-05 @tobiu added the `bug` label
-- 2026-01-05 @tobiu added the `ai` label
-- 2026-01-05 @tobiu added parent issue #8169
-- 2026-01-05 @tobiu assigned to @tobiu
-- 2026-01-05 @tobiu referenced in commit `12898b6` - "Fix find_instances regression: Add missing Client mapping and Server implementation #8330"
-### @tobiu - 2026-01-05 11:24
+- 2026-01-05T11:19:59Z @tobiu added the `bug` label
+- 2026-01-05T11:19:59Z @tobiu added the `ai` label
+- 2026-01-05T11:20:07Z @tobiu added parent issue #8169
+- 2026-01-05T11:20:26Z @tobiu assigned to @tobiu
+- 2026-01-05T11:24:16Z @tobiu referenced in commit `12898b6` - "Fix find_instances regression: Add missing Client mapping and Server implementation #8330"
+### @tobiu - 2026-01-05T11:24:21Z
 
 **Input from Gemini 3 Pro:**
 
@@ -46,5 +46,5 @@ Fix regression from previous session where `find_instances` was not fully integr
 > 2.  **Client Mapping:** I have added the missing `find_instances` mapping to the `serviceMap` in `src/ai/Client.mjs`, ensuring client-side requests are correctly routed.
 > 3.  **OpenAPI Integrity:** I verified `openapi.yaml` and confirmed the schema is correct. The "corrupted shapes" error was likely a side effect of the server crashing before it could fully validate the schema or due to the missing method reference.
 
-- 2026-01-05 @tobiu closed this issue
+- 2026-01-05T11:24:50Z @tobiu closed this issue
 

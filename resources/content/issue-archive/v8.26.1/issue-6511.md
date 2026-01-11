@@ -25,8 +25,8 @@ closedAt: '2025-02-26T23:40:09Z'
 
 ## Timeline
 
-- 2025-02-26 @tobiu added the `enhancement` label
-- 2025-02-26 @tobiu assigned to @tobiu
-- 2025-02-26 @tobiu referenced in commit `f6547c8` - "tab.Container: headerToolbarDefaults => headerToolbar #6511"
-- 2025-02-26 @tobiu closed this issue
+- 2025-02-26T23:37:57Z @tobiu added the `enhancement` label
+- 2025-02-26T23:37:57Z @tobiu assigned to @tobiu
+- 2025-02-26T23:38:11Z @tobiu referenced in commit `f6547c8` - "tab.Container: headerToolbarDefaults => headerToolbar #6511"
+- 2025-02-26T23:40:10Z @tobiu closed this issue
 

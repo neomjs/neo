@@ -32,10 +32,10 @@ Affected files:
 
 ## Timeline
 
-- 2025-11-19 @tobiu added the `enhancement` label
-- 2025-11-19 @tobiu added the `ai` label
-- 2025-11-19 @tobiu added the `refactoring` label
-- 2025-11-19 @tobiu assigned to @tobiu
-- 2025-11-19 @tobiu referenced in commit `ff452b6` - "Refactor: Use npm package version in MCP servers #7809"
-- 2025-11-19 @tobiu closed this issue
+- 2025-11-19T13:45:22Z @tobiu added the `enhancement` label
+- 2025-11-19T13:45:22Z @tobiu added the `ai` label
+- 2025-11-19T13:45:22Z @tobiu added the `refactoring` label
+- 2025-11-19T13:45:44Z @tobiu assigned to @tobiu
+- 2025-11-19T13:50:11Z @tobiu referenced in commit `ff452b6` - "Refactor: Use npm package version in MCP servers #7809"
+- 2025-11-19T13:50:23Z @tobiu closed this issue
 

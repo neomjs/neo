@@ -24,7 +24,7 @@ closedAt: '2025-05-28T22:20:02Z'
 
 ## Timeline
 
-- 2025-05-28 @tobiu added the `enhancement` label
-- 2025-05-28 @tobiu referenced in commit `c87a497` - "main.addon.Stylesheet: construct() => adjust the logic for dist/esm #6721"
-- 2025-05-28 @tobiu closed this issue
+- 2025-05-28T22:19:26Z @tobiu added the `enhancement` label
+- 2025-05-28T22:19:56Z @tobiu referenced in commit `c87a497` - "main.addon.Stylesheet: construct() => adjust the logic for dist/esm #6721"
+- 2025-05-28T22:20:02Z @tobiu closed this issue
 

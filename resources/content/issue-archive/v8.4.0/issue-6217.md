@@ -25,12 +25,12 @@ closedAt: '2025-01-14T11:11:23Z'
 
 ## Timeline
 
-- 2025-01-13 @tobiu added the `enhancement` label
-- 2025-01-13 @tobiu assigned to @tobiu
-- 2025-01-14 @tobiu referenced in commit `1083111` - "grid.Container: columns_: add support for run-time changes #6217"
-### @tobiu - 2025-01-14 11:11
+- 2025-01-13T20:47:07Z @tobiu added the `enhancement` label
+- 2025-01-13T20:47:08Z @tobiu assigned to @tobiu
+- 2025-01-14T11:10:51Z @tobiu referenced in commit `1083111` - "grid.Container: columns_: add support for run-time changes #6217"
+### @tobiu - 2025-01-14T11:11:23Z
 
 actually it already was there, but the `updateDepth` was missing.
 
-- 2025-01-14 @tobiu closed this issue
+- 2025-01-14T11:11:23Z @tobiu closed this issue
 

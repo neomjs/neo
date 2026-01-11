@@ -39,17 +39,17 @@ Navigation is the primary way to change application state. Agents need to read t
 
 ## Timeline
 
-- 2025-12-28 @tobiu added the `enhancement` label
-- 2025-12-28 @tobiu added the `ai` label
-- 2025-12-28 @tobiu added parent issue #8169
-- 2025-12-29 @tobiu assigned to @tobiu
-- 2025-12-29 @tobiu referenced in commit `d6ada46` - "feat(ai): Implement Navigation Control & History (#8184)
+- 2025-12-28T20:58:51Z @tobiu added the `enhancement` label
+- 2025-12-28T20:58:51Z @tobiu added the `ai` label
+- 2025-12-28T20:59:01Z @tobiu added parent issue #8169
+- 2025-12-29T20:50:43Z @tobiu assigned to @tobiu
+- 2025-12-29T20:57:12Z @tobiu referenced in commit `d6ada46` - "feat(ai): Implement Navigation Control & History (#8184)
 
 - Add getRouteHistory and setRoute to RuntimeService (client & server)
 - Expose get_route_history and set_route via MCP
 - Update OpenAPI spec
 - Add tool mappings"
-### @tobiu - 2025-12-29 20:57
+### @tobiu - 2025-12-29T20:57:17Z
 
 **Input from Gemini 3.0:**
 
@@ -68,5 +68,5 @@ Navigation is the primary way to change application state. Agents need to read t
 > 
 > The Neural Link now supports reading the navigation stack and driving the application route programmatically.
 
-- 2025-12-29 @tobiu closed this issue
+- 2025-12-29T21:31:16Z @tobiu closed this issue
 

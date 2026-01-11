@@ -55,13 +55,13 @@ The `Neo.state.Provider` system allows for nested and hierarchical data structur
 
 ## Timeline
 
-- 2025-07-06 @tobiu assigned to @tobiu
-- 2025-07-06 @tobiu added the `enhancement` label
-- 2025-07-06 @tobiu changed title from **Feature: Implement Neo.state.HierarchicalDataProxy for reactive state provider data access** to **Feature: Implement Neo.state.createHierarchicalDataProxy for reactive state provider data access**
-- 2025-07-06 @tobiu referenced in commit `96a0173` - "Feature: Implement Neo.state.createHierarchicalDataProxy for reactive state provider data access #6965"
-- 2025-07-06 @tobiu closed this issue
-- 2025-07-06 @tobiu referenced in commit `ac4810a` - "Feature: Implement Neo.state.createHierarchicalDataProxy for reactive state provider data access #6965"
-- 2025-07-06 @tobiu cross-referenced by #6966
-- 2025-07-09 @tobiu referenced in commit `4720f89` - "Feature: Implement Neo.state.createHierarchicalDataProxy for reactive state provider data access #6965"
-- 2025-07-09 @tobiu referenced in commit `eff9df6` - "Feature: Implement Neo.state.createHierarchicalDataProxy for reactive state provider data access #6965"
+- 2025-07-06T18:41:11Z @tobiu assigned to @tobiu
+- 2025-07-06T18:41:12Z @tobiu added the `enhancement` label
+- 2025-07-06T19:09:37Z @tobiu changed title from **Feature: Implement Neo.state.HierarchicalDataProxy for reactive state provider data access** to **Feature: Implement Neo.state.createHierarchicalDataProxy for reactive state provider data access**
+- 2025-07-06T19:10:42Z @tobiu referenced in commit `96a0173` - "Feature: Implement Neo.state.createHierarchicalDataProxy for reactive state provider data access #6965"
+- 2025-07-06T19:11:34Z @tobiu closed this issue
+- 2025-07-06T19:48:05Z @tobiu referenced in commit `ac4810a` - "Feature: Implement Neo.state.createHierarchicalDataProxy for reactive state provider data access #6965"
+- 2025-07-06T19:49:06Z @tobiu cross-referenced by #6966
+- 2025-07-09T00:10:49Z @tobiu referenced in commit `4720f89` - "Feature: Implement Neo.state.createHierarchicalDataProxy for reactive state provider data access #6965"
+- 2025-07-09T00:10:49Z @tobiu referenced in commit `eff9df6` - "Feature: Implement Neo.state.createHierarchicalDataProxy for reactive state provider data access #6965"
 

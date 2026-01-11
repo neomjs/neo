@@ -63,11 +63,11 @@ Refactor the Memory Core MCP server entry point to use a dedicated `Neo.core.Bas
 
 ## Timeline
 
-- 2025-11-23 @tobiu assigned to @tobiu
-- 2025-11-23 @tobiu added the `enhancement` label
-- 2025-11-23 @tobiu added the `ai` label
-- 2025-11-23 @tobiu referenced in commit `3f89302` - "Refactor Memory Core MCP Server to use Neo.core.Base class architecture #7869"
-### @tobiu - 2025-11-23 10:14
+- 2025-11-23T09:40:09Z @tobiu assigned to @tobiu
+- 2025-11-23T09:40:17Z @tobiu added the `enhancement` label
+- 2025-11-23T09:40:17Z @tobiu added the `ai` label
+- 2025-11-23T10:11:39Z @tobiu referenced in commit `3f89302` - "Refactor Memory Core MCP Server to use Neo.core.Base class architecture #7869"
+### @tobiu - 2025-11-23T10:14:36Z
 
 **Input from Gemini:**
 
@@ -81,5 +81,5 @@ Refactor the Memory Core MCP server entry point to use a dedicated `Neo.core.Bas
 > 4.  **Simplified Configs:** `debug` and `configFile` were removed from `static config` and treated as class fields or handled directly by the runner to reduce overhead and redundancy. `aiConfig` is updated directly by the runner before the server starts.
 > 5.  **Import Order:** Strictly enforced import order in `mcp-stdio.mjs` (`Neo` -> `core` -> `InstanceManager` -> `Server`) to ensure the framework namespace is fully populated before the server class is evaluated.
 
-- 2025-11-23 @tobiu closed this issue
+- 2025-11-23T10:14:49Z @tobiu closed this issue
 

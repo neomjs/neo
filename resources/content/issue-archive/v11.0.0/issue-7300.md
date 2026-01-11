@@ -37,8 +37,8 @@ This ticket refactors the knowledge base schema to solve this regression and mak
 
 ## Timeline
 
-- 2025-09-28 @tobiu assigned to @tobiu
-- 2025-09-28 @tobiu added the `bug` label
-- 2025-09-28 @tobiu referenced in commit `eca8527` - "Refactor Knowledge Base Schema to Fix Type Regression #7300"
-- 2025-09-28 @tobiu closed this issue
+- 2025-09-28T13:13:53Z @tobiu assigned to @tobiu
+- 2025-09-28T13:13:55Z @tobiu added the `bug` label
+- 2025-09-28T13:30:56Z @tobiu referenced in commit `eca8527` - "Refactor Knowledge Base Schema to Fix Type Regression #7300"
+- 2025-09-28T13:31:00Z @tobiu closed this issue
 

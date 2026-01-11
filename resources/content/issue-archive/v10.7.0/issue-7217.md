@@ -29,10 +29,10 @@ This can be done by updating `buildScripts/ai/createKnowledgeBase.mjs` to ignore
 
 ## Timeline
 
-- 2025-09-20 @tobiu assigned to @tobiu
-- 2025-09-20 @tobiu added the `enhancement` label
-- 2025-09-20 @tobiu referenced in commit `bd4f48b` - "AI Knowledge Base: Exclude learn/comparisons #7217"
-### @tobiu - 2025-09-20 08:44
+- 2025-09-20T08:37:02Z @tobiu assigned to @tobiu
+- 2025-09-20T08:37:03Z @tobiu added the `enhancement` label
+- 2025-09-20T08:41:56Z @tobiu referenced in commit `bd4f48b` - "AI Knowledge Base: Exclude learn/comparisons #7217"
+### @tobiu - 2025-09-20T08:44:42Z
 
 ```bash
 tobiasuhlig@iMacPro neo % npm run ai:query -- -q "Tell me about reactivity"
@@ -63,5 +63,5 @@ Most relevant source files (by weighted score):
 Top result: /Users/Shared/github/neomjs/neo/learn/blog/v10-deep-dive-reactivity.md
 ```
 
-- 2025-09-20 @tobiu closed this issue
+- 2025-09-20T08:44:42Z @tobiu closed this issue
 

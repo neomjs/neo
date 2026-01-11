@@ -49,8 +49,8 @@ To address this, the component detection logic in `LivePreview.mjs` has been ref
 
 ## Timeline
 
-- 2025-07-16 @tobiu assigned to @tobiu
-- 2025-07-16 @tobiu added the `enhancement` label
-- 2025-07-16 @tobiu referenced in commit `96b1fee` - "Refactor LivePreview to Use className-based Component Detection #7073"
-- 2025-07-16 @tobiu closed this issue
+- 2025-07-16T10:08:50Z @tobiu assigned to @tobiu
+- 2025-07-16T10:08:51Z @tobiu added the `enhancement` label
+- 2025-07-16T10:10:42Z @tobiu referenced in commit `96b1fee` - "Refactor LivePreview to Use className-based Component Detection #7073"
+- 2025-07-16T10:10:52Z @tobiu closed this issue
 

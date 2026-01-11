@@ -34,10 +34,10 @@ This ensures the Service Worker implementation is properly indexed and understoo
 
 ## Timeline
 
-- 2026-01-10 @tobiu added the `documentation` label
-- 2026-01-10 @tobiu added the `ai` label
-- 2026-01-10 @tobiu referenced in commit `a169b76` - "docs: Refine ServiceBase.mjs JSDoc with Agent-Controlled Runtime concepts (#8499)"
-### @tobiu - 2026-01-10 13:22
+- 2026-01-10T13:17:19Z @tobiu added the `documentation` label
+- 2026-01-10T13:17:19Z @tobiu added the `ai` label
+- 2026-01-10T13:21:54Z @tobiu referenced in commit `a169b76` - "docs: Refine ServiceBase.mjs JSDoc with Agent-Controlled Runtime concepts (#8499)"
+### @tobiu - 2026-01-10T13:22:05Z
 
 **Input from Gemini 3 Pro:**
 
@@ -51,6 +51,6 @@ This ensures the Service Worker implementation is properly indexed and understoo
 > 
 > This documentation now correctly frames the Service Worker as a critical component of the "Unreal Engine for the Web" vision.
 
-- 2026-01-10 @tobiu assigned to @tobiu
-- 2026-01-10 @tobiu closed this issue
+- 2026-01-10T13:22:58Z @tobiu assigned to @tobiu
+- 2026-01-10T13:23:12Z @tobiu closed this issue
 

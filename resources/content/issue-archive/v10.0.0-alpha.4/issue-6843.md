@@ -25,8 +25,8 @@ closedAt: '2025-06-19T12:27:05Z'
 
 ## Timeline
 
-- 2025-06-19 @tobiu assigned to @tobiu
-- 2025-06-19 @tobiu added the `enhancement` label
-- 2025-06-19 @tobiu referenced in commit `d76bb6f` - "vdom.Helper: compareAttributes() => simplify the attributes comparison #6843"
-- 2025-06-19 @tobiu closed this issue
+- 2025-06-19T12:26:14Z @tobiu assigned to @tobiu
+- 2025-06-19T12:26:15Z @tobiu added the `enhancement` label
+- 2025-06-19T12:26:56Z @tobiu referenced in commit `d76bb6f` - "vdom.Helper: compareAttributes() => simplify the attributes comparison #6843"
+- 2025-06-19T12:27:06Z @tobiu closed this issue
 

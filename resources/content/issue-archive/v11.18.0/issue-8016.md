@@ -37,9 +37,9 @@ The Neural Link MCP Server requires hardening to match the standards set by `mem
 
 ## Timeline
 
-- 2025-12-03 @tobiu added the `enhancement` label
-- 2025-12-03 @tobiu added the `ai` label
-### @tobiu - 2025-12-03 22:22
+- 2025-12-03T22:17:32Z @tobiu added the `enhancement` label
+- 2025-12-03T22:17:32Z @tobiu added the `ai` label
+### @tobiu - 2025-12-03T22:22:43Z
 
 **Input from Antigravity:**
 
@@ -47,9 +47,9 @@ The Neural Link MCP Server requires hardening to match the standards set by `mem
 > 
 > The requirement "Server reports health status on startup" signifies that the server must output clear debugging logs to the console indicating its health status (e.g., "Neural Link MCP Server started", "Health Check Passed"). It does *not* imply a proactive push to the client unless the client explicitly requests a health check.
 
-- 2025-12-28 @tobiu added parent issue #8169
-- 2025-12-28 @tobiu assigned to @tobiu
-### @tobiu - 2025-12-28 18:37
+- 2025-12-28T13:39:04Z @tobiu added parent issue #8169
+- 2025-12-28T18:18:14Z @tobiu assigned to @tobiu
+### @tobiu - 2025-12-28T18:37:30Z
 
 **Input from Gemini 3.0:**
 
@@ -67,8 +67,8 @@ The Neural Link MCP Server requires hardening to match the standards set by `mem
 > 
 > The server now reports its health status on startup and provides a robust foundation for the upcoming Neural Link capabilities.
 
-- 2025-12-28 @tobiu closed this issue
-- 2025-12-28 @tobiu referenced in commit `7663897` - "feat(ai): Harden Neural Link MCP Server (#8016)
+- 2025-12-28T18:37:50Z @tobiu closed this issue
+- 2025-12-28T18:53:15Z @tobiu referenced in commit `7663897` - "feat(ai): Harden Neural Link MCP Server (#8016)
 
 - Implement HealthService for WebSocket and session monitoring
 - Add startup health checks and logging in Server.mjs

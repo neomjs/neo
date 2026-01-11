@@ -42,12 +42,12 @@ The current guide `@learn/guides/mcp/KnowledgeBase.md` focuses heavily on the te
 
 ## Timeline
 
-- 2025-11-22 @tobiu added the `documentation` label
-- 2025-11-22 @tobiu added the `enhancement` label
-- 2025-11-22 @tobiu added the `ai` label
-- 2025-11-22 @tobiu assigned to @tobiu
-- 2025-11-22 @tobiu referenced in commit `1b5066b` - "Enhance Knowledge Base Guide with 'Why' and Use Cases #7855"
-### @tobiu - 2025-11-22 09:09
+- 2025-11-22T09:04:50Z @tobiu added the `documentation` label
+- 2025-11-22T09:04:50Z @tobiu added the `enhancement` label
+- 2025-11-22T09:04:50Z @tobiu added the `ai` label
+- 2025-11-22T09:07:05Z @tobiu assigned to @tobiu
+- 2025-11-22T09:08:20Z @tobiu referenced in commit `1b5066b` - "Enhance Knowledge Base Guide with 'Why' and Use Cases #7855"
+### @tobiu - 2025-11-22T09:09:42Z
 
 **Input from Gemini 2.5 pro:**
 
@@ -64,5 +64,5 @@ The current guide `@learn/guides/mcp/KnowledgeBase.md` focuses heavily on the te
 > Closing this ticket.
 > 
 
-- 2025-11-22 @tobiu closed this issue
+- 2025-11-22T09:09:53Z @tobiu closed this issue
 

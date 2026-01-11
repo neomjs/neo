@@ -53,33 +53,33 @@ To work on this ticket, please start your session with the following prompt:
 
 ## Timeline
 
-- 2025-10-07 @tobiu added the `enhancement` label
-- 2025-10-07 @tobiu added the `help wanted` label
-- 2025-10-07 @tobiu added parent issue #7399
-- 2025-10-07 @tobiu added the `good first issue` label
-- 2025-10-07 @tobiu added the `hacktoberfest` label
-- 2025-10-07 @tobiu added the `ai` label
-### @SiddharthJiyani - 2025-10-08 15:34
+- 2025-10-07T10:19:24Z @tobiu added the `enhancement` label
+- 2025-10-07T10:19:24Z @tobiu added the `help wanted` label
+- 2025-10-07T10:19:24Z @tobiu added parent issue #7399
+- 2025-10-07T10:19:25Z @tobiu added the `good first issue` label
+- 2025-10-07T10:19:25Z @tobiu added the `hacktoberfest` label
+- 2025-10-07T10:19:25Z @tobiu added the `ai` label
+### @SiddharthJiyani - 2025-10-08T15:34:44Z
 
 I would love to work on this.
 Can I start the work ?
 
 
 
-- 2025-10-08 @tobiu assigned to @SiddharthJiyani
-### @tobiu - 2025-10-08 15:56
+- 2025-10-08T15:55:03Z @tobiu assigned to @SiddharthJiyani
+### @tobiu - 2025-10-08T15:56:21Z
 
 Hi, and thanks for your interest. Assigned. Please make sure to read the parent epic first: https://github.com/neomjs/neo/issues/7399
 
 Phase 1 just got completed, so the baseline for phase 2 is now in place.
 
-### @Aki-07 - 2025-10-10 19:40
+### @Aki-07 - 2025-10-10T19:40:16Z
 
 Hi @tobiu! I'm currently assigned to ticket #7409 (implement memory query endpoints), but I've discovered it depends on this scaffold ticket which hasn't been started yet.
 I see this was assigned 2 days ago. Is the assignee still actively working on it? If not, I'd like to take this on as well so I can unblock my query endpoints ticket. I have time today to implement both the scaffold and the query endpoints together in a single PR.
 Let me know if I should proceed or if I should wait for the current assignee! Happy to coordinate either way.
 
-### @tobiu - 2025-10-10 19:58
+### @tobiu - 2025-10-10T19:58:35Z
 
 We actually had this case just yesterday(?) where someone asked if a ticket could get reassigned. From a fairness perspective, I came up with "after a week yes", since this always includes one weekend. I added it here: https://github.com/neomjs/neo/blob/dev/CONTRIBUTING.md (item 3.2)
 
@@ -87,9 +87,9 @@ For the meantime, there definitely is an almost infinite amount of items which y
 
 You could also just ask an ai agent after following the agents.md instructions to suggest new work items for you. Ideally mention hacktoberfest, and the agent should ask you what could be items that match your interests. Of course I will add the `hacktoberfest` label on every self-generated new ticket.
 
-- 2025-10-10 @Aki-07 cross-referenced by PR #7450
-- 2025-10-10 @Aki-07 cross-referenced by PR #7455
-### @Aki-07 - 2025-10-10 20:50
+- 2025-10-10T20:14:12Z @Aki-07 cross-referenced by PR #7450
+- 2025-10-10T20:46:26Z @Aki-07 cross-referenced by PR #7455
+### @Aki-07 - 2025-10-10T20:50:36Z
 
 Thanks for the clarification @tobiu! I completely understand the one-week fairness rule.
 Apologies...In the meantime, I've gone ahead and created the implementation for all three dependent tickets as a PR to keep momentum going and learn the codebase:
@@ -98,6 +98,6 @@ PR #7455: Memory server scaffold + /healthcheck +  Read endpoints (GET /memories
 
 To had complete the query endpoint had to work on the memory server as well as on the GET apis. I understand these may need to wait for the original assignee or the one-week mark, but I wanted to have the work ready so there's no delay once we can proceed. I ll go on and try to work on the other things which you have posted
 
-- 2025-10-11 @Aki-07 cross-referenced by PR #7462
-- 2025-10-11 @tobiu closed this issue
+- 2025-10-11T14:57:45Z @Aki-07 cross-referenced by PR #7462
+- 2025-10-11T17:30:49Z @tobiu closed this issue
 

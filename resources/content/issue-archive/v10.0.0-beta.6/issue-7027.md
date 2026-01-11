@@ -44,9 +44,9 @@ This represents a significant milestone in the stability and predictability of f
 
 ## Timeline
 
-- 2025-07-12 @tobiu assigned to @tobiu
-- 2025-07-12 @tobiu added the `enhancement` label
-- 2025-07-12 @tobiu added parent issue #6992
-- 2025-07-12 @tobiu referenced in commit `4b12fb7` - "Feature: Robust Synchronous Updates for Functional Components #7027"
-- 2025-07-13 @tobiu closed this issue
+- 2025-07-12T18:23:39Z @tobiu assigned to @tobiu
+- 2025-07-12T18:23:39Z @tobiu added the `enhancement` label
+- 2025-07-12T18:23:40Z @tobiu added parent issue #6992
+- 2025-07-12T18:24:21Z @tobiu referenced in commit `4b12fb7` - "Feature: Robust Synchronous Updates for Functional Components #7027"
+- 2025-07-13T17:48:36Z @tobiu closed this issue
 

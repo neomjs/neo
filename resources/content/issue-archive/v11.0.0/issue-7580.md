@@ -35,11 +35,11 @@ During implementation, a broader strategic decision was made to align all frontm
 
 ## Timeline
 
-- 2025-10-20 @tobiu assigned to @tobiu
-- 2025-10-20 @tobiu added the `enhancement` label
-- 2025-10-20 @tobiu added the `ai` label
-- 2025-10-20 @tobiu added parent issue #7564
-- 2025-10-21 @tobiu referenced in commit `48d20c1` - "Add Frontmatter to Synchronized Release Notes #7580"
-- 2025-10-21 @tobiu referenced in commit `66824ba` - "#7580 enhanced scope"
-- 2025-10-21 @tobiu closed this issue
+- 2025-10-20T13:27:19Z @tobiu assigned to @tobiu
+- 2025-10-20T13:27:21Z @tobiu added the `enhancement` label
+- 2025-10-20T13:27:21Z @tobiu added the `ai` label
+- 2025-10-20T13:27:21Z @tobiu added parent issue #7564
+- 2025-10-21T09:06:43Z @tobiu referenced in commit `48d20c1` - "Add Frontmatter to Synchronized Release Notes #7580"
+- 2025-10-21T09:09:38Z @tobiu referenced in commit `66824ba` - "#7580 enhanced scope"
+- 2025-10-21T09:09:47Z @tobiu closed this issue
 

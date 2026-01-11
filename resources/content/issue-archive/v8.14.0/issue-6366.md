@@ -25,9 +25,9 @@ closedAt: '2025-02-03T16:41:12Z'
 
 ## Timeline
 
-- 2025-02-03 @tobiu added the `enhancement` label
-- 2025-02-03 @tobiu assigned to @tobiu
-- 2025-02-03 @tobiu referenced in commit `cc541b2` - "examples.grid.nestedRecordFields.Viewport: editRenderer() => adjust to the new index params #6366"
-- 2025-02-03 @tobiu referenced in commit `56ff1d1` - "#6366 examples.table.container.MainContainer"
-- 2025-02-03 @tobiu closed this issue
+- 2025-02-03T16:36:53Z @tobiu added the `enhancement` label
+- 2025-02-03T16:36:53Z @tobiu assigned to @tobiu
+- 2025-02-03T16:37:42Z @tobiu referenced in commit `cc541b2` - "examples.grid.nestedRecordFields.Viewport: editRenderer() => adjust to the new index params #6366"
+- 2025-02-03T16:39:34Z @tobiu referenced in commit `56ff1d1` - "#6366 examples.table.container.MainContainer"
+- 2025-02-03T16:41:12Z @tobiu closed this issue
 

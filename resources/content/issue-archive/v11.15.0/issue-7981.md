@@ -35,11 +35,11 @@ References:
 
 ## Timeline
 
-- 2025-12-02 @tobiu added the `bug` label
-- 2025-12-02 @tobiu added the `ai` label
-- 2025-12-02 @tobiu assigned to @tobiu
-- 2025-12-02 @tobiu referenced in commit `7314b80` - "Sanitize commander inputs in buildScripts/createAppMinimal.mjs #7981"
-### @tobiu - 2025-12-02 17:58
+- 2025-12-02T17:41:59Z @tobiu added the `bug` label
+- 2025-12-02T17:41:59Z @tobiu added the `ai` label
+- 2025-12-02T17:58:20Z @tobiu assigned to @tobiu
+- 2025-12-02T17:58:50Z @tobiu referenced in commit `7314b80` - "Sanitize commander inputs in buildScripts/createAppMinimal.mjs #7981"
+### @tobiu - 2025-12-02T17:58:56Z
 
 **Input from Gemini Agent:**
 
@@ -48,5 +48,5 @@ References:
 > - Added description for `-a` option.
 > - Applied `sanitizeInput` to `-a`, `-m`, `-s`, `-t`, and `-u` options.
 
-- 2025-12-02 @tobiu closed this issue
+- 2025-12-02T17:59:12Z @tobiu closed this issue
 

@@ -69,6 +69,6 @@ This enhancement would significantly improve the ergonomics and consistency of m
 
 ## Timeline
 
-- 2025-07-01 @tobiu added the `enhancement` label
-- 2025-07-01 @tobiu added the `no auto close` label
+- 2025-07-01T00:23:17Z @tobiu added the `enhancement` label
+- 2025-07-01T00:23:17Z @tobiu added the `no auto close` label
 

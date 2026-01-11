@@ -49,9 +49,9 @@ The `set` trap should:
 
 ## Timeline
 
-- 2025-07-07 @tobiu assigned to @tobiu
-- 2025-07-07 @tobiu added the `enhancement` label
-- 2025-07-07 @tobiu referenced in commit `95f89f2` - "Implement a Proxy set trap for Neo.state.Provider data to enable direct reactive assignments #6981"
-- 2025-07-07 @tobiu closed this issue
-- 2025-07-09 @tobiu referenced in commit `eac5988` - "Implement a Proxy set trap for Neo.state.Provider data to enable direct reactive assignments #6981"
+- 2025-07-07T20:09:05Z @tobiu assigned to @tobiu
+- 2025-07-07T20:09:07Z @tobiu added the `enhancement` label
+- 2025-07-07T20:10:47Z @tobiu referenced in commit `95f89f2` - "Implement a Proxy set trap for Neo.state.Provider data to enable direct reactive assignments #6981"
+- 2025-07-07T20:11:20Z @tobiu closed this issue
+- 2025-07-09T00:10:51Z @tobiu referenced in commit `eac5988` - "Implement a Proxy set trap for Neo.state.Provider data to enable direct reactive assignments #6981"
 

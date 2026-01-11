@@ -35,10 +35,10 @@ While the agent is mandated to follow a "save-then-respond" protocol, a sufficie
 
 ## Timeline
 
-- 2025-10-03 @tobiu assigned to @tobiu
-- 2025-10-03 @tobiu added the `documentation` label
-- 2025-10-03 @tobiu added parent issue #7316
-- 2025-10-03 @tobiu added the `enhancement` label
-- 2025-10-03 @tobiu referenced in commit `94a925d` - "Document Human Verification of Agent Memory #7334"
-- 2025-10-03 @tobiu closed this issue
+- 2025-10-03T10:15:51Z @tobiu assigned to @tobiu
+- 2025-10-03T10:15:52Z @tobiu added the `documentation` label
+- 2025-10-03T10:15:52Z @tobiu added parent issue #7316
+- 2025-10-03T10:15:53Z @tobiu added the `enhancement` label
+- 2025-10-03T10:17:31Z @tobiu referenced in commit `94a925d` - "Document Human Verification of Agent Memory #7334"
+- 2025-10-03T10:17:41Z @tobiu closed this issue
 

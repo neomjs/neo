@@ -25,12 +25,12 @@ closedAt: '2025-01-14T19:08:14Z'
 
 ## Timeline
 
-- 2025-01-14 @tobiu added the `enhancement` label
-- 2025-01-14 @tobiu assigned to @tobiu
-- 2025-01-14 @tobiu referenced in commit `c1e6bdf` - "examples.grid.bigData.MainContainer: comboBox to change the new bufferColumnRange #6232"
-### @tobiu - 2025-01-14 19:08
+- 2025-01-14T19:07:33Z @tobiu added the `enhancement` label
+- 2025-01-14T19:07:33Z @tobiu assigned to @tobiu
+- 2025-01-14T19:08:03Z @tobiu referenced in commit `c1e6bdf` - "examples.grid.bigData.MainContainer: comboBox to change the new bufferColumnRange #6232"
+### @tobiu - 2025-01-14T19:08:14Z
 
 ![Image](https://github.com/user-attachments/assets/acd3cd08-b892-4412-9019-253f00e444fb)
 
-- 2025-01-14 @tobiu closed this issue
+- 2025-01-14T19:08:14Z @tobiu closed this issue
 

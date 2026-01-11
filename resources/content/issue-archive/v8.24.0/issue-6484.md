@@ -24,7 +24,7 @@ closedAt: '2025-02-22T17:11:25Z'
 
 ## Timeline
 
-- 2025-02-22 @tobiu added the `enhancement` label
-- 2025-02-22 @tobiu referenced in commit `6a45117` - "Portal.view.home.MainContainer: add support for deactivate() when de-intersecting #6484"
-- 2025-02-22 @tobiu closed this issue
+- 2025-02-22T17:10:34Z @tobiu added the `enhancement` label
+- 2025-02-22T17:11:18Z @tobiu referenced in commit `6a45117` - "Portal.view.home.MainContainer: add support for deactivate() when de-intersecting #6484"
+- 2025-02-22T17:11:25Z @tobiu closed this issue
 

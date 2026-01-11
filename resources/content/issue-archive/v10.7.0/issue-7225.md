@@ -25,8 +25,8 @@ closedAt: '2025-09-21T12:46:33Z'
 
 ## Timeline
 
-- 2025-09-21 @tobiu assigned to @tobiu
-- 2025-09-21 @tobiu added the `enhancement` label
-- 2025-09-21 @tobiu referenced in commit `c7e6ef7` - "Guide: Working with VDom => security: add use text over html #7225"
-- 2025-09-21 @tobiu closed this issue
+- 2025-09-21T12:46:02Z @tobiu assigned to @tobiu
+- 2025-09-21T12:46:03Z @tobiu added the `enhancement` label
+- 2025-09-21T12:46:26Z @tobiu referenced in commit `c7e6ef7` - "Guide: Working with VDom => security: add use text over html #7225"
+- 2025-09-21T12:46:33Z @tobiu closed this issue
 

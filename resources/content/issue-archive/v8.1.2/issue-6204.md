@@ -25,8 +25,8 @@ closedAt: '2025-01-12T03:43:05Z'
 
 ## Timeline
 
-- 2025-01-12 @tobiu added the `enhancement` label
-- 2025-01-12 @tobiu assigned to @tobiu
-- 2025-01-12 @tobiu referenced in commit `2a66c12` - "grid.header.Toolbar: passSizeToView() => delay if needed #6204"
-- 2025-01-12 @tobiu closed this issue
+- 2025-01-12T03:42:15Z @tobiu added the `enhancement` label
+- 2025-01-12T03:42:15Z @tobiu assigned to @tobiu
+- 2025-01-12T03:42:58Z @tobiu referenced in commit `2a66c12` - "grid.header.Toolbar: passSizeToView() => delay if needed #6204"
+- 2025-01-12T03:43:06Z @tobiu closed this issue
 

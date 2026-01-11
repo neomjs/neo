@@ -27,10 +27,10 @@ The `create_issue` tool in `ai/mcp/server/github-workflow/openapi.yaml` should h
 
 ## Timeline
 
-- 2025-11-07 @tobiu added the `enhancement` label
-- 2025-11-07 @tobiu added the `developer-experience` label
-- 2025-11-07 @tobiu added the `ai` label
-- 2025-11-07 @tobiu referenced in commit `0e7c542` - "Improve create_issue tool description for better user workflow #7716"
-- 2025-11-07 @tobiu assigned to @tobiu
-- 2025-11-07 @tobiu closed this issue
+- 2025-11-07T09:06:44Z @tobiu added the `enhancement` label
+- 2025-11-07T09:06:44Z @tobiu added the `developer-experience` label
+- 2025-11-07T09:06:44Z @tobiu added the `ai` label
+- 2025-11-07T09:10:22Z @tobiu referenced in commit `0e7c542` - "Improve create_issue tool description for better user workflow #7716"
+- 2025-11-07T09:10:38Z @tobiu assigned to @tobiu
+- 2025-11-07T09:10:43Z @tobiu closed this issue
 

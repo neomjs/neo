@@ -25,12 +25,12 @@ closedAt: '2025-01-26T20:12:25Z'
 
 ## Timeline
 
-- 2025-01-26 @tobiu added the `enhancement` label
-- 2025-01-26 @tobiu assigned to @tobiu
-- 2025-01-26 @tobiu referenced in commit `87820db` - "selection.grid.CellRowModel: add basic navigation support #6306"
-### @tobiu - 2025-01-26 20:12
+- 2025-01-26T20:11:01Z @tobiu added the `enhancement` label
+- 2025-01-26T20:11:01Z @tobiu assigned to @tobiu
+- 2025-01-26T20:11:25Z @tobiu referenced in commit `87820db` - "selection.grid.CellRowModel: add basic navigation support #6306"
+### @tobiu - 2025-01-26T20:12:25Z
 
 https://github.com/user-attachments/assets/5de8881c-6728-4659-9666-f6c046ffaae2
 
-- 2025-01-26 @tobiu closed this issue
+- 2025-01-26T20:12:25Z @tobiu closed this issue
 

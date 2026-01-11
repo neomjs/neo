@@ -24,7 +24,7 @@ minor run-time improvement, in case `onDataPropertyChange()` does get called ver
 
 ## Timeline
 
-- 2025-03-30 @tobiu added the `enhancement` label
-- 2025-03-30 @tobiu referenced in commit `c5e0e4c` - "state.Provider: onDataPropertyChange() => add a check to not enter resolveFormulas() in case there are no formulas #6599"
-- 2025-03-30 @tobiu closed this issue
+- 2025-03-30T19:22:50Z @tobiu added the `enhancement` label
+- 2025-03-30T19:23:47Z @tobiu referenced in commit `c5e0e4c` - "state.Provider: onDataPropertyChange() => add a check to not enter resolveFormulas() in case there are no formulas #6599"
+- 2025-03-30T19:23:59Z @tobiu closed this issue
 

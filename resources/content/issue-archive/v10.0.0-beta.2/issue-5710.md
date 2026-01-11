@@ -26,20 +26,20 @@ started, but not finished:
 
 ## Timeline
 
-- 2024-08-06 @tobiu added the `enhancement` label
-- 2024-08-06 @tobiu assigned to @maxrahder
-### @Dinkh - 2024-08-10 16:13
+- 2024-08-06T07:53:57Z @tobiu added the `enhancement` label
+- 2024-08-06T07:53:57Z @tobiu assigned to @maxrahder
+### @Dinkh - 2024-08-10T16:13:38Z
 
 We might want to add an example based on something we already have. No need - for now - to add something completely new.
 
-- 2024-10-07 @tobiu added the `no auto close` label
-- 2025-06-29 @tobiu unassigned from @maxrahder
-### @tobiu - 2025-06-29 11:55
+- 2024-10-07T21:53:09Z @tobiu added the `no auto close` label
+- 2025-06-29T11:53:54Z @tobiu unassigned from @maxrahder
+### @tobiu - 2025-06-29T11:55:16Z
 
 closing this ticket, in favor of the new guide:
 https://github.com/neomjs/neo/blob/dev/learn/guides/MainThreadAddons.md
 
 => it also covers intercepting remote method calls, until an addon is ready (files are loaded).
 
-- 2025-06-29 @tobiu closed this issue
+- 2025-06-29T11:55:17Z @tobiu closed this issue
 

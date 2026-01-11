@@ -25,8 +25,8 @@ closedAt: '2025-06-17T09:45:50Z'
 
 ## Timeline
 
-- 2025-06-17 @tobiu assigned to @tobiu
-- 2025-06-17 @tobiu added the `enhancement` label
-- 2025-06-17 @tobiu referenced in commit `6c49e7e` - "main.DeltaUpdates: removeNode() => improve the performance for vtype text #6825"
-- 2025-06-17 @tobiu closed this issue
+- 2025-06-17T09:45:32Z @tobiu assigned to @tobiu
+- 2025-06-17T09:45:33Z @tobiu added the `enhancement` label
+- 2025-06-17T09:45:44Z @tobiu referenced in commit `6c49e7e` - "main.DeltaUpdates: removeNode() => improve the performance for vtype text #6825"
+- 2025-06-17T09:45:50Z @tobiu closed this issue
 

@@ -31,9 +31,9 @@ Update `src/dashboard/Container.mjs` `afterSetSortable` method to pass `dragProx
 
 ## Timeline
 
-- 2025-12-07 @tobiu added the `bug` label
-- 2025-12-07 @tobiu added the `ai` label
-- 2025-12-07 @tobiu assigned to @tobiu
-- 2025-12-07 @tobiu referenced in commit `85bd328` - "[Dashboard] Pass dragProxyConfig to internal SortZone #8048"
-- 2025-12-07 @tobiu closed this issue
+- 2025-12-07T13:15:51Z @tobiu added the `bug` label
+- 2025-12-07T13:15:51Z @tobiu added the `ai` label
+- 2025-12-07T13:16:14Z @tobiu assigned to @tobiu
+- 2025-12-07T13:16:43Z @tobiu referenced in commit `85bd328` - "[Dashboard] Pass dragProxyConfig to internal SortZone #8048"
+- 2025-12-07T13:16:47Z @tobiu closed this issue
 

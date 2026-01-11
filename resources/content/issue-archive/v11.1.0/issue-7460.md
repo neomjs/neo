@@ -42,18 +42,18 @@ The `apps/portal/resources/data/blog.json` file is for presentation purposes on 
 
 ## Timeline
 
-- 2025-10-11 @tobiu assigned to @tobiu
-- 2025-10-11 @tobiu added parent issue #7446
-- 2025-10-11 @tobiu added the `enhancement` label
-- 2025-10-11 @tobiu added the `ai` label
-- 2025-10-11 @tobiu cross-referenced by PR #7456
-### @Aki-07 - 2025-10-11 15:15
+- 2025-10-11T09:36:00Z @tobiu assigned to @tobiu
+- 2025-10-11T09:36:01Z @tobiu added parent issue #7446
+- 2025-10-11T09:36:02Z @tobiu added the `enhancement` label
+- 2025-10-11T09:36:02Z @tobiu added the `ai` label
+- 2025-10-11T09:43:42Z @tobiu cross-referenced by PR #7456
+### @Aki-07 - 2025-10-11T15:15:55Z
 
 Sure, will finish the work on this! Can I get it assigned on me?
 
-### @tobiu - 2025-11-11 12:28
+### @tobiu - 2025-11-11T12:28:41Z
 
 already resolved.
 
-- 2025-11-11 @tobiu closed this issue
+- 2025-11-11T12:28:41Z @tobiu closed this issue
 

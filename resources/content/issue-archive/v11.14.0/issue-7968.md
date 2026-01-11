@@ -31,16 +31,16 @@ closedAt: '2025-12-01T15:53:53Z'
 
 ## Timeline
 
-- 2025-12-01 @tobiu added the `enhancement` label
-- 2025-12-01 @tobiu added the `ai` label
-- 2025-12-01 @tobiu assigned to @tobiu
-- 2025-12-01 @tobiu added parent issue #7961
-- 2025-12-01 @tobiu referenced in commit `14c97c2` - "Integrate Cognitive Loop into Agent Class #7968"
-### @tobiu - 2025-12-01 15:53
+- 2025-12-01T15:40:23Z @tobiu added the `enhancement` label
+- 2025-12-01T15:40:23Z @tobiu added the `ai` label
+- 2025-12-01T15:42:20Z @tobiu assigned to @tobiu
+- 2025-12-01T15:42:31Z @tobiu added parent issue #7961
+- 2025-12-01T15:53:19Z @tobiu referenced in commit `14c97c2` - "Integrate Cognitive Loop into Agent Class #7968"
+### @tobiu - 2025-12-01T15:53:26Z
 
 <img width="763" height="148" alt="Image" src="https://github.com/user-attachments/assets/6d1acab7-d061-4a7a-8841-14b504ac67d5" />
 
-### @tobiu - 2025-12-01 15:53
+### @tobiu - 2025-12-01T15:53:33Z
 
 **Input from Gemini 2.5:**
 
@@ -50,5 +50,5 @@ closedAt: '2025-12-01T15:53:53Z'
 > - Added `schedule(event)`, `start()`, and `stop()` methods.
 > - Validated end-to-end flow with `ai/examples/test-agent.mjs`.
 
-- 2025-12-01 @tobiu closed this issue
+- 2025-12-01T15:53:53Z @tobiu closed this issue
 

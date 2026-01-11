@@ -32,13 +32,13 @@ To improve the ability of Large Language Models (LLMs) to understand our content
 
 ## Timeline
 
-- 2025-10-10 @tobiu assigned to @tobiu
-- 2025-10-10 @tobiu added the `enhancement` label
-- 2025-10-10 @tobiu added parent issue #7446
-- 2025-10-10 @tobiu added the `ai` label
-### @tobiu - 2025-11-11 12:26
+- 2025-10-10T20:16:51Z @tobiu assigned to @tobiu
+- 2025-10-10T20:16:52Z @tobiu added the `enhancement` label
+- 2025-10-10T20:16:52Z @tobiu added parent issue #7446
+- 2025-10-10T20:16:52Z @tobiu added the `ai` label
+### @tobiu - 2025-11-11T12:26:47Z
 
 resolved.
 
-- 2025-11-11 @tobiu closed this issue
+- 2025-11-11T12:26:47Z @tobiu closed this issue
 

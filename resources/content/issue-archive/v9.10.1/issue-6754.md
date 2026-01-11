@@ -25,8 +25,8 @@ closedAt: '2025-06-03T21:12:14Z'
 
 ## Timeline
 
-- 2025-06-03 @tobiu assigned to @tobiu
-- 2025-06-03 @tobiu added the `enhancement` label
-- 2025-06-03 @tobiu referenced in commit `3c02c16` - "buildScripts/buildESModules: enhance the import regex to better catch dynamic imports #6754"
-- 2025-06-03 @tobiu closed this issue
+- 2025-06-03T21:11:13Z @tobiu assigned to @tobiu
+- 2025-06-03T21:11:14Z @tobiu added the `enhancement` label
+- 2025-06-03T21:12:09Z @tobiu referenced in commit `3c02c16` - "buildScripts/buildESModules: enhance the import regex to better catch dynamic imports #6754"
+- 2025-06-03T21:12:14Z @tobiu closed this issue
 

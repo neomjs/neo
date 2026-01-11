@@ -34,9 +34,9 @@ Here's why it's beneficial, even if it's already in the blog section:
 
 ## Timeline
 
-- 2025-06-13 @tobiu assigned to @tobiu
-- 2025-06-13 @tobiu added the `enhancement` label
-- 2025-06-13 @tobiu referenced in commit `9b8354b` - "Learning Content: 4 envs => add the related blog post #6788"
-- 2025-06-13 @tobiu referenced in commit `f095291` - "Learning Content: 4 envs => add the related blog post #6788"
-- 2025-06-13 @tobiu closed this issue
+- 2025-06-13T21:00:45Z @tobiu assigned to @tobiu
+- 2025-06-13T21:00:47Z @tobiu added the `enhancement` label
+- 2025-06-13T21:01:09Z @tobiu referenced in commit `9b8354b` - "Learning Content: 4 envs => add the related blog post #6788"
+- 2025-06-13T21:02:24Z @tobiu referenced in commit `f095291` - "Learning Content: 4 envs => add the related blog post #6788"
+- 2025-06-13T21:06:00Z @tobiu closed this issue
 

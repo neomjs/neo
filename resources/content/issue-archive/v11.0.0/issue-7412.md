@@ -50,22 +50,22 @@ To work on this ticket, please start your session with the following prompt:
 
 ## Timeline
 
-- 2025-10-07 @tobiu added parent issue #7399
-- 2025-10-07 @tobiu added the `enhancement` label
-- 2025-10-07 @tobiu added the `help wanted` label
-- 2025-10-07 @tobiu added the `good first issue` label
-- 2025-10-07 @tobiu added the `hacktoberfest` label
-- 2025-10-07 @tobiu added the `ai` label
-### @SarthakJain29 - 2025-10-07 17:38
+- 2025-10-07T10:30:51Z @tobiu added parent issue #7399
+- 2025-10-07T10:30:52Z @tobiu added the `enhancement` label
+- 2025-10-07T10:30:52Z @tobiu added the `help wanted` label
+- 2025-10-07T10:30:52Z @tobiu added the `good first issue` label
+- 2025-10-07T10:30:52Z @tobiu added the `hacktoberfest` label
+- 2025-10-07T10:30:53Z @tobiu added the `ai` label
+### @SarthakJain29 - 2025-10-07T17:38:18Z
 
 Hey! I would like to work on this issue.
 
-### @tobiu - 2025-10-07 18:53
+### @tobiu - 2025-10-07T18:53:53Z
 
 Hi, and yes again. Be aware: this is a phase 2 item of the new epic. We need to resolve phase 1 first (there are still open items).
 
-- 2025-10-07 @tobiu assigned to @SarthakJain29
-### @tobiu - 2025-10-24 09:13
+- 2025-10-07T18:53:59Z @tobiu assigned to @SarthakJain29
+### @tobiu - 2025-10-24T09:13:26Z
 
 Input from Gemini:
 
@@ -77,5 +77,5 @@ Input from Gemini:
 > 
 > We're closing this ticket now. Thanks again for your willingness to contribute, and we hope to see you in other issues!
 
-- 2025-10-24 @tobiu closed this issue
+- 2025-10-24T09:13:38Z @tobiu closed this issue
 

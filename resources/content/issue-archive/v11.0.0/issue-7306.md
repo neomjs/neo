@@ -52,12 +52,12 @@ This new ticket that you create should:
 
 ## Timeline
 
-- 2025-09-28 @tobiu added the `enhancement` label
-- 2025-09-28 @tobiu added the `help wanted` label
-- 2025-09-28 @tobiu added parent issue #7296
-- 2025-09-28 @tobiu added the `good first issue` label
-- 2025-09-28 @tobiu added the `hacktoberfest` label
-### @Saksham-chourasia - 2025-10-01 19:36
+- 2025-09-28T14:13:06Z @tobiu added the `enhancement` label
+- 2025-09-28T14:13:06Z @tobiu added the `help wanted` label
+- 2025-09-28T14:13:06Z @tobiu added parent issue #7296
+- 2025-09-28T14:13:07Z @tobiu added the `good first issue` label
+- 2025-09-28T14:13:07Z @tobiu added the `hacktoberfest` label
+### @Saksham-chourasia - 2025-10-01T19:36:43Z
 
 Hi 👋,
 
@@ -65,12 +65,12 @@ I’d like to work on this issue as part of Hacktoberfest. Could you please assi
 
 Thanks!
 
-### @tobiu - 2025-10-01 23:14
+### @tobiu - 2025-10-01T23:14:15Z
 
 Hi, thanks for the interest! For this one I would definitely recommend the "ai native" workflow and let e.g. gemini cli explore it in-depth and then reason back and forth. might be a fun experience.
 
-- 2025-10-01 @tobiu assigned to @Saksham-chourasia
-### @tobiu - 2025-10-24 09:54
+- 2025-10-01T23:14:21Z @tobiu assigned to @Saksham-chourasia
+### @tobiu - 2025-10-24T09:54:55Z
 
 Hi @Saksham-chourasia,
 
@@ -80,5 +80,5 @@ As there has been no activity for a couple of weeks and the project’s architec
 
 We’re closing this ticket now. Thanks again for your willingness to contribute, and we hope to see you in other issues!
 
-- 2025-10-24 @tobiu closed this issue
+- 2025-10-24T09:54:55Z @tobiu closed this issue
 

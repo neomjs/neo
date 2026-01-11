@@ -66,29 +66,29 @@ This test plan was generated using the AI-Native workflow defined in the "Cookbo
 
 ## Timeline
 
-- 2025-11-10 @tobiu added the `enhancement` label
-- 2025-11-10 @tobiu added parent issue #7435
-- 2025-11-10 @tobiu added the `ai` label
-- 2025-11-10 @tobiu added the `testing` label
-- 2025-11-10 @tobiu cross-referenced by PR #7734
-### @Alachi24 - 2025-11-10 20:57
+- 2025-11-10T20:25:51Z @tobiu added the `enhancement` label
+- 2025-11-10T20:25:51Z @tobiu added parent issue #7435
+- 2025-11-10T20:25:51Z @tobiu added the `ai` label
+- 2025-11-10T20:25:52Z @tobiu added the `testing` label
+- 2025-11-10T20:26:59Z @tobiu cross-referenced by PR #7734
+### @Alachi24 - 2025-11-10T20:57:47Z
 
 @tobiu I'd like to work on this, kindly assign this to me.
 Also for clarity, i'd love to have any prior instruction to use as direction to work on this.
 
-- 2025-11-10 @tobiu assigned to @Alachi24
-### @tobiu - 2025-11-10 21:00
+- 2025-11-10T20:58:04Z @tobiu assigned to @Alachi24
+### @tobiu - 2025-11-10T21:00:49Z
 
 i would recommend looking at existing component based tests, e.g.:
 https://github.com/neomjs/neo/blob/dev/test/playwright/component/button/Base.spec.mjs
 
 => the setup is almost 1:1 => using the empty viewport, using remote method access to tell the app worker to render & mount a label into a specific parent div (viewport).
 
-### @Alachi24 - 2025-11-10 21:03
+### @Alachi24 - 2025-11-10T21:03:48Z
 
 Acceptable... Thank you 
 
-- 2025-11-13 @Alachi24 referenced in commit `b2d74a6` - "docs: add playwright test for Neo.component.label (#7737)"
-- 2025-11-13 @Alachi24 cross-referenced by PR #7768
-- 2025-11-15 @Alachi24 referenced in commit `822b65c` - "docs: update on add playwright test for Neo.component.label (#7737)"
+- 2025-11-13T14:07:23Z @Alachi24 referenced in commit `b2d74a6` - "docs: add playwright test for Neo.component.label (#7737)"
+- 2025-11-13T14:16:52Z @Alachi24 cross-referenced by PR #7768
+- 2025-11-15T20:53:25Z @Alachi24 referenced in commit `822b65c` - "docs: update on add playwright test for Neo.component.label (#7737)"
 

@@ -42,18 +42,18 @@ This will remove the dependency on the main thread addon for highlighting and si
 
 ## Timeline
 
-- 2025-11-18 @tobiu added the `enhancement` label
-- 2025-11-18 @tobiu added the `ai` label
-- 2025-11-18 @tobiu added the `refactoring` label
-- 2025-11-18 @tobiu added sub-issue #7789
-- 2025-11-18 @tobiu added sub-issue #7790
-- 2025-11-18 @tobiu added parent issue #7788
-- 2025-11-18 @tobiu cross-referenced by #7788
-- 2025-11-18 @tobiu assigned to @tobiu
-- 2025-11-18 @tobiu cross-referenced by #7790
-- 2025-11-18 @tobiu referenced in commit `8f1d7b7` - "Refactor ContentComponent to use new highlight.js utilities #7791 & added Neo.util.HighlightJs"
-- 2025-11-18 @tobiu referenced in commit `4d45226` - "#7791 theming"
-- 2025-11-18 @tobiu referenced in commit `5132316` - "#7791 portal app: removed custom hljs resources, using our new util class now"
-- 2025-11-18 @tobiu referenced in commit `b0edcaa` - "#7791 removed the highlightjs devDependency (not needed when cloning the repo)"
-- 2025-11-18 @tobiu closed this issue
+- 2025-11-18T10:13:13Z @tobiu added the `enhancement` label
+- 2025-11-18T10:13:13Z @tobiu added the `ai` label
+- 2025-11-18T10:13:14Z @tobiu added the `refactoring` label
+- 2025-11-18T10:13:37Z @tobiu added sub-issue #7789
+- 2025-11-18T10:13:45Z @tobiu added sub-issue #7790
+- 2025-11-18T10:13:59Z @tobiu added parent issue #7788
+- 2025-11-18T10:16:31Z @tobiu cross-referenced by #7788
+- 2025-11-18T10:23:27Z @tobiu assigned to @tobiu
+- 2025-11-18T12:12:21Z @tobiu cross-referenced by #7790
+- 2025-11-18T18:21:23Z @tobiu referenced in commit `8f1d7b7` - "Refactor ContentComponent to use new highlight.js utilities #7791 & added Neo.util.HighlightJs"
+- 2025-11-18T18:45:47Z @tobiu referenced in commit `4d45226` - "#7791 theming"
+- 2025-11-18T19:22:48Z @tobiu referenced in commit `5132316` - "#7791 portal app: removed custom hljs resources, using our new util class now"
+- 2025-11-18T19:27:23Z @tobiu referenced in commit `b0edcaa` - "#7791 removed the highlightjs devDependency (not needed when cloning the repo)"
+- 2025-11-18T19:27:35Z @tobiu closed this issue
 

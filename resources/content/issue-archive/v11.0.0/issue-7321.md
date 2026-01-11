@@ -38,12 +38,12 @@ This final ticket for the epic covers the creation of a guide for contributors o
 
 ## Timeline
 
-- 2025-10-01 @tobiu assigned to @tobiu
-- 2025-10-01 @tobiu added the `enhancement` label
-- 2025-10-01 @tobiu added parent issue #7316
-### @tobiu - 2025-10-24 09:53
+- 2025-10-01T21:11:40Z @tobiu assigned to @tobiu
+- 2025-10-01T21:11:41Z @tobiu added the `enhancement` label
+- 2025-10-01T21:11:41Z @tobiu added parent issue #7316
+### @tobiu - 2025-10-24T09:53:17Z
 
 dropped.
 
-- 2025-10-24 @tobiu closed this issue
+- 2025-10-24T09:53:17Z @tobiu closed this issue
 

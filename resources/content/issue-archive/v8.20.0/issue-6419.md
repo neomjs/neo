@@ -25,8 +25,8 @@ closedAt: '2025-02-09T16:43:39Z'
 
 ## Timeline
 
-- 2025-02-09 @tobiu added the `enhancement` label
-- 2025-02-09 @tobiu assigned to @tobiu
-- 2025-02-09 @tobiu referenced in commit `d64f6fc` - "grid.header.Button: font-size for mobile #6419"
-- 2025-02-09 @tobiu closed this issue
+- 2025-02-09T16:42:30Z @tobiu added the `enhancement` label
+- 2025-02-09T16:42:30Z @tobiu assigned to @tobiu
+- 2025-02-09T16:43:30Z @tobiu referenced in commit `d64f6fc` - "grid.header.Button: font-size for mobile #6419"
+- 2025-02-09T16:43:39Z @tobiu closed this issue
 

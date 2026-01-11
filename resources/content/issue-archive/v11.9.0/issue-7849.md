@@ -34,11 +34,11 @@ Create a new guide `learn/guides/mcp/Introduction.md` that serves as the entry p
 
 ## Timeline
 
-- 2025-11-22 @tobiu added the `documentation` label
-- 2025-11-22 @tobiu added the `enhancement` label
-- 2025-11-22 @tobiu added the `ai` label
-- 2025-11-22 @tobiu added parent issue #7848
-- 2025-11-22 @tobiu assigned to @tobiu
-- 2025-11-22 @tobiu referenced in commit `d8b403c` - "Documentation: Create Guide for "Introduction to MCP & Agent OS" #7849"
-- 2025-11-22 @tobiu closed this issue
+- 2025-11-22T08:15:05Z @tobiu added the `documentation` label
+- 2025-11-22T08:15:05Z @tobiu added the `enhancement` label
+- 2025-11-22T08:15:05Z @tobiu added the `ai` label
+- 2025-11-22T08:15:10Z @tobiu added parent issue #7848
+- 2025-11-22T08:17:05Z @tobiu assigned to @tobiu
+- 2025-11-22T08:29:47Z @tobiu referenced in commit `d8b403c` - "Documentation: Create Guide for "Introduction to MCP & Agent OS" #7849"
+- 2025-11-22T08:30:01Z @tobiu closed this issue
 

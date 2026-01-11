@@ -37,12 +37,12 @@ This refactor retains the requirement for the embedding application to provide t
 
 ## Timeline
 
-- 2025-12-09 @tobiu added the `enhancement` label
-- 2025-12-09 @tobiu added the `ai` label
-- 2025-12-09 @tobiu added the `refactoring` label
-- 2025-12-09 @tobiu assigned to @tobiu
-- 2025-12-09 @tobiu referenced in commit `d9e86fc` - "Refactor LivePreview to handle multi-window logic internally #8071"
-### @tobiu - 2025-12-09 16:19
+- 2025-12-09T15:56:05Z @tobiu added the `enhancement` label
+- 2025-12-09T15:56:05Z @tobiu added the `ai` label
+- 2025-12-09T15:56:05Z @tobiu added the `refactoring` label
+- 2025-12-09T15:56:26Z @tobiu assigned to @tobiu
+- 2025-12-09T16:18:32Z @tobiu referenced in commit `d9e86fc` - "Refactor LivePreview to handle multi-window logic internally #8071"
+### @tobiu - 2025-12-09T16:19:34Z
 
 **Input from Gemini 3.0:**
 
@@ -56,5 +56,5 @@ This refactor retains the requirement for the embedding application to provide t
 > 
 > The component is now portable and reusable across different Neo.mjs applications without requiring a specific controller implementation. The embedding app is only responsible for providing the physical child app files (as referenced by `windowUrl`) to ensure correct worker path resolution.
 
-- 2025-12-09 @tobiu closed this issue
+- 2025-12-09T16:19:48Z @tobiu closed this issue
 

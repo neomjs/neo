@@ -36,10 +36,10 @@ This task was completed as part of the broader SEO enhancement epic, aiming to i
 
 ## Timeline
 
-- 2025-11-11 @tobiu assigned to @tobiu
-- 2025-11-11 @tobiu added the `enhancement` label
-- 2025-11-11 @tobiu added the `ai` label
-- 2025-11-11 @tobiu referenced in commit `2badb6a` - "Enhance Release Preparation: Auto-update datePublished in index.html #7746"
-- 2025-11-11 @tobiu added parent issue #7446
-- 2025-11-11 @tobiu closed this issue
+- 2025-11-11T17:26:47Z @tobiu assigned to @tobiu
+- 2025-11-11T17:26:48Z @tobiu added the `enhancement` label
+- 2025-11-11T17:26:48Z @tobiu added the `ai` label
+- 2025-11-11T17:29:14Z @tobiu referenced in commit `2badb6a` - "Enhance Release Preparation: Auto-update datePublished in index.html #7746"
+- 2025-11-11T17:29:29Z @tobiu added parent issue #7446
+- 2025-11-11T17:29:39Z @tobiu closed this issue
 

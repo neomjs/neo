@@ -77,11 +77,11 @@ The architecture should be enhanced to "walk" the VDOM config and the component 
 
 ## Timeline
 
-- 2025-07-14 @tobiu assigned to @tobiu
-- 2025-07-14 @tobiu added the `enhancement` label
-- 2025-07-14 @tobiu added parent issue #6992
-- 2025-07-15 @tobiu referenced in commit `514a988` - "#7054 grid.Container: use `body` instead of `bodyConfig`"
-- 2025-07-15 @tobiu referenced in commit `6da7594` - "#7054 grid.Container: use `headerToolbar` instead of `headerToolbarConfig`"
-- 2025-07-15 @tobiu referenced in commit `65bf8e7` - "Architectural Enhancement: Recursive VDOM Config Diffing for Nested Components #7054"
-- 2025-07-15 @tobiu closed this issue
+- 2025-07-14T17:26:48Z @tobiu assigned to @tobiu
+- 2025-07-14T17:26:49Z @tobiu added the `enhancement` label
+- 2025-07-14T17:26:49Z @tobiu added parent issue #6992
+- 2025-07-15T09:48:01Z @tobiu referenced in commit `514a988` - "#7054 grid.Container: use `body` instead of `bodyConfig`"
+- 2025-07-15T10:26:51Z @tobiu referenced in commit `6da7594` - "#7054 grid.Container: use `headerToolbar` instead of `headerToolbarConfig`"
+- 2025-07-15T11:01:35Z @tobiu referenced in commit `65bf8e7` - "Architectural Enhancement: Recursive VDOM Config Diffing for Nested Components #7054"
+- 2025-07-15T11:01:48Z @tobiu closed this issue
 

@@ -26,8 +26,8 @@ closedAt: '2025-02-11T19:52:02Z'
 
 ## Timeline
 
-- 2025-02-11 @tobiu added the `enhancement` label
-- 2025-02-11 @tobiu assigned to @tobiu
-- 2025-02-11 @tobiu referenced in commit `8fe908f` - "grid.View: createViewData() => needs to silently trigger updateScrollHeight() #6442"
-- 2025-02-11 @tobiu closed this issue
+- 2025-02-11T19:51:36Z @tobiu added the `enhancement` label
+- 2025-02-11T19:51:36Z @tobiu assigned to @tobiu
+- 2025-02-11T19:51:59Z @tobiu referenced in commit `8fe908f` - "grid.View: createViewData() => needs to silently trigger updateScrollHeight() #6442"
+- 2025-02-11T19:52:02Z @tobiu closed this issue
 

@@ -29,9 +29,9 @@ This guide explains the new declarative VDOM pattern using `Neo.core.Effect`, co
 
 ## Timeline
 
-- 2025-07-07 @tobiu assigned to @tobiu
-- 2025-07-07 @tobiu added the `enhancement` label
-- 2025-07-07 @tobiu referenced in commit `e8ce52c` - "Create "Declarative VDOM with Effects" Guide #6975"
-- 2025-07-07 @tobiu closed this issue
-- 2025-07-09 @tobiu referenced in commit `1d83e53` - "Create "Declarative VDOM with Effects" Guide #6975"
+- 2025-07-07T11:39:43Z @tobiu assigned to @tobiu
+- 2025-07-07T11:39:44Z @tobiu added the `enhancement` label
+- 2025-07-07T11:40:15Z @tobiu referenced in commit `e8ce52c` - "Create "Declarative VDOM with Effects" Guide #6975"
+- 2025-07-07T11:40:29Z @tobiu closed this issue
+- 2025-07-09T00:10:50Z @tobiu referenced in commit `1d83e53` - "Create "Declarative VDOM with Effects" Guide #6975"
 

@@ -41,10 +41,10 @@ To create a complete local mirror of the project's history, we need to synchroni
 
 ## Timeline
 
-- 2025-10-20 @tobiu assigned to @tobiu
-- 2025-10-20 @tobiu added the `enhancement` label
-- 2025-10-20 @tobiu added the `ai` label
-- 2025-10-20 @tobiu added parent issue #7564
-- 2025-10-20 @tobiu referenced in commit `55084b3` - "Implement Release Note Synchronization #7575"
-- 2025-10-20 @tobiu closed this issue
+- 2025-10-20T12:49:19Z @tobiu assigned to @tobiu
+- 2025-10-20T12:49:20Z @tobiu added the `enhancement` label
+- 2025-10-20T12:49:20Z @tobiu added the `ai` label
+- 2025-10-20T12:49:20Z @tobiu added parent issue #7564
+- 2025-10-20T13:02:36Z @tobiu referenced in commit `55084b3` - "Implement Release Note Synchronization #7575"
+- 2025-10-20T13:02:58Z @tobiu closed this issue
 

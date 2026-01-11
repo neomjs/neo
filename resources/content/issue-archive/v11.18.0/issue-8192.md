@@ -41,17 +41,17 @@ Agents are "blind" to runtime errors they trigger. They need to see the App Work
 
 ## Timeline
 
-- 2025-12-28 @tobiu added the `enhancement` label
-- 2025-12-28 @tobiu added the `ai` label
-- 2025-12-28 @tobiu added the `architecture` label
-- 2025-12-28 @tobiu added parent issue #8169
-- 2026-01-03 @tobiu assigned to @tobiu
-- 2026-01-03 @tobiu referenced in commit `329a296` - "feat(ai): Implement Neural Link Log & Error Streaming (#8192)
+- 2025-12-28T21:32:42Z @tobiu added the `enhancement` label
+- 2025-12-28T21:32:42Z @tobiu added the `ai` label
+- 2025-12-28T21:32:42Z @tobiu added the `architecture` label
+- 2025-12-28T21:32:49Z @tobiu added parent issue #8169
+- 2026-01-03T22:00:07Z @tobiu assigned to @tobiu
+- 2026-01-03T22:14:51Z @tobiu referenced in commit `329a296` - "feat(ai): Implement Neural Link Log & Error Streaming (#8192)
 
 - App Worker: Implement interceptConsole to forward logs/errors to Neural Link.
 - ConnectionService: Implement log ring buffer and getConsoleLogs tool.
 - OpenAPI: Add /console/logs/get endpoint."
-### @tobiu - 2026-01-03 22:15
+### @tobiu - 2026-01-03T22:15:12Z
 
 **Input from Gemini:**
 
@@ -66,5 +66,5 @@ Agents are "blind" to runtime errors they trigger. They need to see the App Work
 > **Capability:**
 > Agents can now verify runtime errors or inspect application logs to self-diagnose issues using `get_console_logs`.
 
-- 2026-01-03 @tobiu closed this issue
+- 2026-01-03T22:15:36Z @tobiu closed this issue
 

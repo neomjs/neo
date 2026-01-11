@@ -58,15 +58,15 @@ This refactoring addresses these issues by leveraging the newly introduced `Effe
 
 ## Timeline
 
-- 2025-07-07 @tobiu assigned to @tobiu
-- 2025-07-07 @tobiu added the `enhancement` label
-- 2025-07-07 @tobiu referenced in commit `899f7cc` - "Refactor Neo.state.Provider to use core.Effect based reactivity #6974 WIP"
-- 2025-07-07 @tobiu referenced in commit `ec5f191` - "Refactor Neo.state.Provider to use core.Effect based reactivity #6974"
-### @tobiu - 2025-07-07 17:45
+- 2025-07-07T11:30:39Z @tobiu assigned to @tobiu
+- 2025-07-07T11:30:40Z @tobiu added the `enhancement` label
+- 2025-07-07T11:31:13Z @tobiu referenced in commit `899f7cc` - "Refactor Neo.state.Provider to use core.Effect based reactivity #6974 WIP"
+- 2025-07-07T17:44:46Z @tobiu referenced in commit `ec5f191` - "Refactor Neo.state.Provider to use core.Effect based reactivity #6974"
+### @tobiu - 2025-07-07T17:45:18Z
 
 <img width="816" height="718" alt="Image" src="https://github.com/user-attachments/assets/5b5472f9-e404-4fea-a79e-4f370956cd54" />
 
-- 2025-07-07 @tobiu closed this issue
-- 2025-07-09 @tobiu referenced in commit `f4a7746` - "Refactor Neo.state.Provider to use core.Effect based reactivity #6974 WIP"
-- 2025-07-09 @tobiu referenced in commit `5ae9c63` - "Refactor Neo.state.Provider to use core.Effect based reactivity #6974"
+- 2025-07-07T17:45:18Z @tobiu closed this issue
+- 2025-07-09T00:10:50Z @tobiu referenced in commit `f4a7746` - "Refactor Neo.state.Provider to use core.Effect based reactivity #6974 WIP"
+- 2025-07-09T00:10:51Z @tobiu referenced in commit `5ae9c63` - "Refactor Neo.state.Provider to use core.Effect based reactivity #6974"
 

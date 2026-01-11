@@ -49,22 +49,22 @@ To work on this ticket, please start your session with the following prompt:
 
 ## Timeline
 
-- 2025-10-07 @tobiu added parent issue #7399
-- 2025-10-07 @tobiu added the `enhancement` label
-- 2025-10-07 @tobiu added the `help wanted` label
-- 2025-10-07 @tobiu added the `good first issue` label
-- 2025-10-07 @tobiu added the `hacktoberfest` label
-- 2025-10-07 @tobiu added the `ai` label
-### @harikrishna-au - 2025-10-13 02:07
+- 2025-10-07T10:29:12Z @tobiu added parent issue #7399
+- 2025-10-07T10:29:12Z @tobiu added the `enhancement` label
+- 2025-10-07T10:29:13Z @tobiu added the `help wanted` label
+- 2025-10-07T10:29:13Z @tobiu added the `good first issue` label
+- 2025-10-07T10:29:13Z @tobiu added the `hacktoberfest` label
+- 2025-10-07T10:29:13Z @tobiu added the `ai` label
+### @harikrishna-au - 2025-10-13T02:07:13Z
 
 @tobiu please assign
 
-### @tobiu - 2025-10-13 10:05
+### @tobiu - 2025-10-13T10:05:16Z
 
 sure, and thanks for your interest. for this ticket, i would also recommend to point the agent to `ai/mcp/server/memory/openapi.yaml`, and let it explore other files for the new memory server (consistency and context).
 
-- 2025-10-13 @tobiu assigned to @harikrishna-au
-### @tobiu - 2025-10-24 09:16
+- 2025-10-13T10:05:22Z @tobiu assigned to @harikrishna-au
+### @tobiu - 2025-10-24T09:16:16Z
 
 Hi @harikrishna-au,
 
@@ -74,5 +74,5 @@ As there has been no activity for a couple of weeks and the project's architectu
 
 We're closing this ticket now. Thanks again for your willingness to contribute, and we hope to see you in other issues!
 
-- 2025-10-24 @tobiu closed this issue
+- 2025-10-24T09:16:28Z @tobiu closed this issue
 

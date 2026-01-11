@@ -27,18 +27,18 @@ Will take a look into this one next.
 
 ## Timeline
 
-- 2025-01-11 @tobiu added the `bug` label
-- 2025-01-11 @tobiu assigned to @tobiu
-### @tobiu - 2025-01-11 16:17
+- 2025-01-11T15:48:14Z @tobiu added the `bug` label
+- 2025-01-11T15:48:14Z @tobiu assigned to @tobiu
+### @tobiu - 2025-01-11T16:17:13Z
 
 It looks like the ripple effect wrapper is pushing the content outside:
 
 ![Image](https://github.com/user-attachments/assets/3b7af1f5-03c8-46a9-bc33-1273a1c72920)
 
-- 2025-01-11 @tobiu referenced in commit `e768f65` - "grid.header.Button: a click seems to update the next column #6199"
-### @tobiu - 2025-01-11 16:51
+- 2025-01-11T16:49:48Z @tobiu referenced in commit `e768f65` - "grid.header.Button: a click seems to update the next column #6199"
+### @tobiu - 2025-01-11T16:51:16Z
 
 https://github.com/user-attachments/assets/d85f9ecc-c554-481a-91ce-32f4eae1c370
 
-- 2025-01-11 @tobiu closed this issue
+- 2025-01-11T16:51:16Z @tobiu closed this issue
 

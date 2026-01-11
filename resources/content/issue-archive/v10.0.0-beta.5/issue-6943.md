@@ -50,9 +50,9 @@ This change is crucial for the predictability and correctness of how `static con
 
 ## Timeline
 
-- 2025-07-04 @tobiu assigned to @tobiu
-- 2025-07-04 @tobiu added the `enhancement` label
-- 2025-07-04 @tobiu changed title from **Ensure Correct `merge` Strategy Inheritance for Config Values Across Class Hierarchy** to **Implement Hierarchical `static config` Value Merging based on `configDescriptors` in `Neo.setupClass`**
-- 2025-07-04 @tobiu referenced in commit `b3cb219` - "Implement Hierarchical static config Value Merging based on configDescriptors in Neo.setupClass #6943"
-- 2025-07-04 @tobiu closed this issue
+- 2025-07-04T18:47:43Z @tobiu assigned to @tobiu
+- 2025-07-04T18:47:44Z @tobiu added the `enhancement` label
+- 2025-07-04T18:54:05Z @tobiu changed title from **Ensure Correct `merge` Strategy Inheritance for Config Values Across Class Hierarchy** to **Implement Hierarchical `static config` Value Merging based on `configDescriptors` in `Neo.setupClass`**
+- 2025-07-04T19:31:07Z @tobiu referenced in commit `b3cb219` - "Implement Hierarchical static config Value Merging based on configDescriptors in Neo.setupClass #6943"
+- 2025-07-04T19:31:12Z @tobiu closed this issue
 

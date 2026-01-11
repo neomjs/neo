@@ -34,10 +34,10 @@ closedAt: '2025-12-03T14:09:15Z'
 
 ## Timeline
 
-- 2025-12-03 @tobiu added the `enhancement` label
-- 2025-12-03 @tobiu added the `ai` label
-- 2025-12-03 @tobiu added the `testing` label
-### @tobiu - 2025-12-03 10:16
+- 2025-12-03T09:56:27Z @tobiu added the `enhancement` label
+- 2025-12-03T09:56:27Z @tobiu added the `ai` label
+- 2025-12-03T09:56:28Z @tobiu added the `testing` label
+### @tobiu - 2025-12-03T10:16:50Z
 
 **Input from Antigravity:**
 
@@ -47,10 +47,10 @@ closedAt: '2025-12-03T14:09:15Z'
 > 2.  **Config**: It will use `useAiClient: true`.
 > 
 
-- 2025-12-03 @tobiu assigned to @tobiu
-- 2025-12-03 @tobiu added parent issue #7960
-- 2025-12-03 @tobiu referenced in commit `e152fad` - "Create Neural Link Testbed App #8008"
-- 2025-12-03 @tobiu closed this issue
-- 2025-12-03 @tobiu referenced in commit `cc7678f` - "#8008 config fix"
-- 2025-12-03 @tobiu cross-referenced by #8004
+- 2025-12-03T14:06:57Z @tobiu assigned to @tobiu
+- 2025-12-03T14:07:13Z @tobiu added parent issue #7960
+- 2025-12-03T14:09:08Z @tobiu referenced in commit `e152fad` - "Create Neural Link Testbed App #8008"
+- 2025-12-03T14:09:15Z @tobiu closed this issue
+- 2025-12-03T14:10:56Z @tobiu referenced in commit `cc7678f` - "#8008 config fix"
+- 2025-12-03T21:47:11Z @tobiu cross-referenced by #8004
 

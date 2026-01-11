@@ -25,8 +25,8 @@ closedAt: '2025-02-03T18:48:52Z'
 
 ## Timeline
 
-- 2025-02-03 @tobiu added the `enhancement` label
-- 2025-02-03 @tobiu assigned to @tobiu
-- 2025-02-03 @tobiu referenced in commit `465b619` - "draggable.DragProxyComponent: SCSS => re-add user-select: none #6369"
-- 2025-02-03 @tobiu closed this issue
+- 2025-02-03T18:41:00Z @tobiu added the `enhancement` label
+- 2025-02-03T18:41:00Z @tobiu assigned to @tobiu
+- 2025-02-03T18:41:13Z @tobiu referenced in commit `465b619` - "draggable.DragProxyComponent: SCSS => re-add user-select: none #6369"
+- 2025-02-03T18:48:52Z @tobiu closed this issue
 

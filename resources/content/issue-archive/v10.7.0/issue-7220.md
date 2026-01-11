@@ -25,13 +25,13 @@ Create a new top-level `AGENTS.md` file. This file will serve as a set of bootst
 
 ## Timeline
 
-- 2025-09-20 @tobiu assigned to @tobiu
-- 2025-09-20 @tobiu added the `enhancement` label
-- 2025-09-20 @tobiu referenced in commit `562ade5` - "#7220 Initial draft"
-- 2025-09-20 @tobiu referenced in commit `e22dfad` - "#7220 foundation files, framework overview"
-- 2025-09-20 @tobiu referenced in commit `76fa445` - "#7220 query results interpretations"
-- 2025-09-20 @tobiu referenced in commit `aad3e16` - "#7220 session maintenance"
-- 2025-09-20 @tobiu referenced in commit `63292a9` - "#7220 Handling Failed Queries"
-- 2025-09-20 @tobiu referenced in commit `74e3cd5` - "#7220 added the functional vs classic components guide as a foundation item"
-- 2025-09-20 @tobiu closed this issue
+- 2025-09-20T10:10:31Z @tobiu assigned to @tobiu
+- 2025-09-20T10:10:32Z @tobiu added the `enhancement` label
+- 2025-09-20T10:12:17Z @tobiu referenced in commit `562ade5` - "#7220 Initial draft"
+- 2025-09-20T10:24:24Z @tobiu referenced in commit `e22dfad` - "#7220 foundation files, framework overview"
+- 2025-09-20T10:29:21Z @tobiu referenced in commit `76fa445` - "#7220 query results interpretations"
+- 2025-09-20T10:30:02Z @tobiu referenced in commit `aad3e16` - "#7220 session maintenance"
+- 2025-09-20T10:32:08Z @tobiu referenced in commit `63292a9` - "#7220 Handling Failed Queries"
+- 2025-09-20T10:53:53Z @tobiu referenced in commit `74e3cd5` - "#7220 added the functional vs classic components guide as a foundation item"
+- 2025-09-20T11:00:27Z @tobiu closed this issue
 

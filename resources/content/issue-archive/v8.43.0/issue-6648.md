@@ -25,8 +25,8 @@ closedAt: '2025-04-14T10:38:32Z'
 
 ## Timeline
 
-- 2025-04-14 @tobiu added the `enhancement` label
-- 2025-04-14 @tobiu assigned to @tobiu
-- 2025-04-14 @tobiu referenced in commit `97359a3` - "examples.component.multiWindowCoronaGallery: useFallbackApi #6648"
-- 2025-04-14 @tobiu closed this issue
+- 2025-04-14T10:38:05Z @tobiu added the `enhancement` label
+- 2025-04-14T10:38:06Z @tobiu assigned to @tobiu
+- 2025-04-14T10:38:26Z @tobiu referenced in commit `97359a3` - "examples.component.multiWindowCoronaGallery: useFallbackApi #6648"
+- 2025-04-14T10:38:32Z @tobiu closed this issue
 

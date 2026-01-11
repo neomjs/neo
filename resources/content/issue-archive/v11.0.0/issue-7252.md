@@ -36,8 +36,8 @@ To make the context of all past work searchable, the archived tickets will be in
 
 ## Timeline
 
-- 2025-09-24 @tobiu assigned to @tobiu
-- 2025-09-24 @tobiu added the `enhancement` label
-- 2025-09-24 @tobiu referenced in commit `fd4f711` - "Add Ticket Archive to Knowledge Base #7252"
-- 2025-09-24 @tobiu closed this issue
+- 2025-09-24T11:46:31Z @tobiu assigned to @tobiu
+- 2025-09-24T11:46:33Z @tobiu added the `enhancement` label
+- 2025-09-24T12:59:21Z @tobiu referenced in commit `fd4f711` - "Add Ticket Archive to Knowledge Base #7252"
+- 2025-09-24T12:59:35Z @tobiu closed this issue
 

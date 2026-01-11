@@ -45,9 +45,9 @@ A practical example is crucial for developers to understand how to leverage the 
 
 ## Timeline
 
-- 2025-08-01 @tobiu assigned to @tobiu
-- 2025-08-01 @tobiu added the `enhancement` label
-- 2025-08-01 @tobiu added parent issue #7130
-- 2025-08-01 @tobiu referenced in commit `35494c5` - "Showcase Nested Templates and Component Usage #7152"
-- 2025-08-01 @tobiu closed this issue
+- 2025-08-01T12:23:41Z @tobiu assigned to @tobiu
+- 2025-08-01T12:23:42Z @tobiu added the `enhancement` label
+- 2025-08-01T12:23:43Z @tobiu added parent issue #7130
+- 2025-08-01T12:24:25Z @tobiu referenced in commit `35494c5` - "Showcase Nested Templates and Component Usage #7152"
+- 2025-08-01T12:24:29Z @tobiu closed this issue
 

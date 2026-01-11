@@ -46,10 +46,10 @@ This is based on the concept of Generative Engine Optimization.
 
 ## Timeline
 
-- 2025-11-15 @tobiu added the `documentation` label
-- 2025-11-15 @tobiu added the `enhancement` label
-- 2025-11-15 @tobiu added the `ai` label
-- 2025-11-15 @tobiu assigned to @tobiu
-- 2025-11-15 @tobiu referenced in commit `a51a4ab` - "Improve Generative Engine Optimization for the Portal App #7776"
-- 2025-11-15 @tobiu closed this issue
+- 2025-11-15T11:56:41Z @tobiu added the `documentation` label
+- 2025-11-15T11:56:42Z @tobiu added the `enhancement` label
+- 2025-11-15T11:56:42Z @tobiu added the `ai` label
+- 2025-11-15T11:56:50Z @tobiu assigned to @tobiu
+- 2025-11-15T12:30:38Z @tobiu referenced in commit `a51a4ab` - "Improve Generative Engine Optimization for the Portal App #7776"
+- 2025-11-15T12:30:46Z @tobiu closed this issue
 

@@ -25,8 +25,8 @@ closedAt: '2025-04-18T10:55:11Z'
 
 ## Timeline
 
-- 2025-04-18 @tobiu added the `enhancement` label
-- 2025-04-18 @tobiu assigned to @tobiu
-- 2025-04-18 @tobiu referenced in commit `beb3a2d` - "selection.grid.CellRowModel: switch to store record ids instead of row DOM ids #6673"
-- 2025-04-18 @tobiu closed this issue
+- 2025-04-18T09:35:54Z @tobiu added the `enhancement` label
+- 2025-04-18T09:35:54Z @tobiu assigned to @tobiu
+- 2025-04-18T10:55:01Z @tobiu referenced in commit `beb3a2d` - "selection.grid.CellRowModel: switch to store record ids instead of row DOM ids #6673"
+- 2025-04-18T10:55:11Z @tobiu closed this issue
 

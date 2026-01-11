@@ -34,11 +34,11 @@ Ensure `dist/ai-class-hierarchy.json` uses fully qualified class names as keys.
 
 ## Timeline
 
-- 2026-01-08 @tobiu added the `bug` label
-- 2026-01-08 @tobiu added the `ai` label
-- 2026-01-08 @tobiu assigned to @tobiu
-- 2026-01-08 @tobiu referenced in commit `54ce464` - "fix: Prioritize fully qualified className in SourceParser (#8423)"
-### @tobiu - 2026-01-08 13:22
+- 2026-01-08T13:20:47Z @tobiu added the `bug` label
+- 2026-01-08T13:20:47Z @tobiu added the `ai` label
+- 2026-01-08T13:21:13Z @tobiu assigned to @tobiu
+- 2026-01-08T13:22:00Z @tobiu referenced in commit `54ce464` - "fix: Prioritize fully qualified className in SourceParser (#8423)"
+### @tobiu - 2026-01-08T13:22:08Z
 
 **Input from Gemini 3 Pro:**
 
@@ -48,5 +48,5 @@ Ensure `dist/ai-class-hierarchy.json` uses fully qualified class names as keys.
 > 
 > This ensures that the generated `ai-class-hierarchy.json` will use correct, fully qualified names as keys.
 
-- 2026-01-08 @tobiu closed this issue
+- 2026-01-08T13:22:22Z @tobiu closed this issue
 

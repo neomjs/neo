@@ -25,8 +25,8 @@ closedAt: '2025-02-26T20:07:01Z'
 
 ## Timeline
 
-- 2025-02-26 @tobiu added the `enhancement` label
-- 2025-02-26 @tobiu assigned to @tobiu
-- 2025-02-26 @tobiu referenced in commit `42ad5c3` - "tab.header.Toolbar: getLayoutConfig() => adjust the logic for re-using layouts #6502"
-- 2025-02-26 @tobiu closed this issue
+- 2025-02-26T20:05:43Z @tobiu added the `enhancement` label
+- 2025-02-26T20:05:43Z @tobiu assigned to @tobiu
+- 2025-02-26T20:06:01Z @tobiu referenced in commit `42ad5c3` - "tab.header.Toolbar: getLayoutConfig() => adjust the logic for re-using layouts #6502"
+- 2025-02-26T20:07:01Z @tobiu closed this issue
 

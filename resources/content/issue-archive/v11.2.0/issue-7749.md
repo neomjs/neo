@@ -30,9 +30,9 @@ The `update_issue_relationship` tool successfully manages parent/child hierarchi
 
 ## Timeline
 
-- 2025-11-12 @tobiu added the `enhancement` label
-- 2025-11-12 @tobiu added the `ai` label
-- 2025-11-12 @tobiu cross-referenced by PR #7741
-- 2025-11-12 @MannXo cross-referenced by PR #7753
-- 2025-11-12 @tobiu closed this issue
+- 2025-11-12T07:58:05Z @tobiu added the `enhancement` label
+- 2025-11-12T07:58:05Z @tobiu added the `ai` label
+- 2025-11-12T08:14:45Z @tobiu cross-referenced by PR #7741
+- 2025-11-12T10:21:40Z @MannXo cross-referenced by PR #7753
+- 2025-11-12T14:23:01Z @tobiu closed this issue
 

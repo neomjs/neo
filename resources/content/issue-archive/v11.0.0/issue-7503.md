@@ -34,10 +34,10 @@ This ticket covers the initial scaffolding of the new AI Knowledge Base MCP serv
 
 ## Timeline
 
-- 2025-10-16 @tobiu assigned to @tobiu
-- 2025-10-16 @tobiu added parent issue #7501
-- 2025-10-16 @tobiu added the `enhancement` label
-- 2025-10-16 @tobiu added the `ai` label
-- 2025-10-16 @tobiu referenced in commit `079ab51` - "Scaffold Knowledge Base MCP Server #7503"
-- 2025-10-16 @tobiu closed this issue
+- 2025-10-16T10:00:27Z @tobiu assigned to @tobiu
+- 2025-10-16T10:00:28Z @tobiu added parent issue #7501
+- 2025-10-16T10:00:29Z @tobiu added the `enhancement` label
+- 2025-10-16T10:00:29Z @tobiu added the `ai` label
+- 2025-10-16T10:12:23Z @tobiu referenced in commit `079ab51` - "Scaffold Knowledge Base MCP Server #7503"
+- 2025-10-16T10:12:51Z @tobiu closed this issue
 

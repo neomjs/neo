@@ -32,17 +32,17 @@ The goal of this ticket is to add high-quality, intent-driven documentation to t
 
 ## Timeline
 
-- 2025-09-28 @tobiu added the `help wanted` label
-- 2025-09-28 @tobiu added the `good first issue` label
-- 2025-09-28 @tobiu added parent issue #7296
-- 2025-09-28 @tobiu added the `hacktoberfest` label
-### @tobiu - 2025-09-28 13:51
+- 2025-09-28T13:50:07Z @tobiu added the `help wanted` label
+- 2025-09-28T13:50:07Z @tobiu added the `good first issue` label
+- 2025-09-28T13:50:07Z @tobiu added parent issue #7296
+- 2025-09-28T13:50:07Z @tobiu added the `hacktoberfest` label
+### @tobiu - 2025-09-28T13:51:03Z
 
 duplicated by mistake. closing.
 
-- 2025-09-28 @tobiu closed this issue
-- 2025-09-28 @tobiu removed the `help wanted` label
-- 2025-09-28 @tobiu removed the `good first issue` label
-- 2025-09-28 @tobiu removed the `hacktoberfest` label
-- 2025-09-28 @tobiu removed parent issue #7296
+- 2025-09-28T13:51:03Z @tobiu closed this issue
+- 2025-09-28T13:51:15Z @tobiu removed the `help wanted` label
+- 2025-09-28T13:51:15Z @tobiu removed the `good first issue` label
+- 2025-09-28T13:51:15Z @tobiu removed the `hacktoberfest` label
+- 2025-09-28T13:51:36Z @tobiu removed parent issue #7296
 

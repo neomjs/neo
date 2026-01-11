@@ -25,9 +25,9 @@ closedAt: '2025-06-15T14:26:11Z'
 
 ## Timeline
 
-- 2025-06-15 @tobiu added the `enhancement` label
-- 2025-06-15 @tobiu added parent issue #6785
-- 2025-06-15 @tobiu assigned to @tobiu
-- 2025-06-15 @tobiu referenced in commit `2d20b66` - "Ensure there are no cls entries inside the vdom which contain strings #6800"
-- 2025-06-15 @tobiu closed this issue
+- 2025-06-15T14:25:06Z @tobiu added the `enhancement` label
+- 2025-06-15T14:25:06Z @tobiu added parent issue #6785
+- 2025-06-15T14:25:16Z @tobiu assigned to @tobiu
+- 2025-06-15T14:26:06Z @tobiu referenced in commit `2d20b66` - "Ensure there are no cls entries inside the vdom which contain strings #6800"
+- 2025-06-15T14:26:11Z @tobiu closed this issue
 

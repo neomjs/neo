@@ -33,10 +33,10 @@ Implement `toJSON` in `src/selection/table/CellRowModel.mjs`.
 
 ## Timeline
 
-- 2026-01-01 @tobiu added the `enhancement` label
-- 2026-01-01 @tobiu added the `ai` label
-- 2026-01-01 @tobiu referenced in commit `e4cc0d2` - "feat(selection): Implement toJSON in table.CellRowModel #8267"
-- 2026-01-01 @tobiu assigned to @tobiu
-- 2026-01-01 @tobiu added parent issue #8200
-- 2026-01-01 @tobiu closed this issue
+- 2026-01-01T17:00:39Z @tobiu added the `enhancement` label
+- 2026-01-01T17:00:39Z @tobiu added the `ai` label
+- 2026-01-01T17:03:03Z @tobiu referenced in commit `e4cc0d2` - "feat(selection): Implement toJSON in table.CellRowModel #8267"
+- 2026-01-01T17:03:28Z @tobiu assigned to @tobiu
+- 2026-01-01T17:03:48Z @tobiu added parent issue #8200
+- 2026-01-01T17:03:52Z @tobiu closed this issue
 

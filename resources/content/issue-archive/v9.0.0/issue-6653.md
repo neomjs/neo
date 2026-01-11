@@ -27,8 +27,8 @@ closedAt: '2025-04-15T20:35:30Z'
 
 ## Timeline
 
-- 2025-04-15 @tobiu added the `enhancement` label
-- 2025-04-15 @tobiu assigned to @tobiu
-- 2025-04-15 @tobiu referenced in commit `af821fa` - "table.View: afterSetStore() #6653"
-- 2025-04-15 @tobiu closed this issue
+- 2025-04-15T20:34:12Z @tobiu added the `enhancement` label
+- 2025-04-15T20:34:12Z @tobiu assigned to @tobiu
+- 2025-04-15T20:34:28Z @tobiu referenced in commit `af821fa` - "table.View: afterSetStore() #6653"
+- 2025-04-15T20:35:30Z @tobiu closed this issue
 

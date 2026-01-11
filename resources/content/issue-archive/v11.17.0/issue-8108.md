@@ -39,10 +39,10 @@ To improve architecture and error handling, we will introduce `Legit.service.Leg
 
 ## Timeline
 
-- 2025-12-13 @tobiu added the `enhancement` label
-- 2025-12-13 @tobiu added the `ai` label
-- 2025-12-13 @tobiu added the `refactoring` label
-- 2025-12-13 @tobiu assigned to @tobiu
-- 2025-12-13 @tobiu referenced in commit `436df64` - "Refactor Legit App to use a dedicated Service #8108"
-- 2025-12-13 @tobiu closed this issue
+- 2025-12-13T15:31:41Z @tobiu added the `enhancement` label
+- 2025-12-13T15:31:41Z @tobiu added the `ai` label
+- 2025-12-13T15:31:41Z @tobiu added the `refactoring` label
+- 2025-12-13T15:32:13Z @tobiu assigned to @tobiu
+- 2025-12-13T15:59:52Z @tobiu referenced in commit `436df64` - "Refactor Legit App to use a dedicated Service #8108"
+- 2025-12-13T16:00:00Z @tobiu closed this issue
 

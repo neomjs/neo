@@ -50,10 +50,10 @@ This change fundamentally improves the framework's ability to handle complex, de
 
 ## Timeline
 
-- 2025-12-07 @tobiu added the `enhancement` label
-- 2025-12-07 @tobiu added the `ai` label
-- 2025-12-07 @tobiu added the `architecture` label
-- 2025-12-07 @tobiu assigned to @tobiu
-- 2025-12-07 @tobiu referenced in commit `1070193` - "[ComponentManager] Implement Logical Component Bubbling for Event Path Resolution #8050"
-- 2025-12-07 @tobiu closed this issue
+- 2025-12-07T17:58:20Z @tobiu added the `enhancement` label
+- 2025-12-07T17:58:20Z @tobiu added the `ai` label
+- 2025-12-07T17:58:20Z @tobiu added the `architecture` label
+- 2025-12-07T17:59:16Z @tobiu assigned to @tobiu
+- 2025-12-07T18:00:22Z @tobiu referenced in commit `1070193` - "[ComponentManager] Implement Logical Component Bubbling for Event Path Resolution #8050"
+- 2025-12-07T18:01:04Z @tobiu closed this issue
 

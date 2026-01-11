@@ -42,12 +42,12 @@ While generic panels can be used in dashboards, a dedicated class provides a cle
 
 ## Timeline
 
-- 2025-12-26 @tobiu added the `enhancement` label
-- 2025-12-26 @tobiu added the `ai` label
-- 2025-12-26 @tobiu added the `feature` label
-- 2025-12-26 @tobiu assigned to @tobiu
-- 2025-12-26 @tobiu referenced in commit `d13d230` - "Create Neo.dashboard.Panel #8157"
-- 2025-12-26 @tobiu referenced in commit `03d7487` - "#8157 dashboard.Panel: documentation"
-- 2025-12-26 @tobiu closed this issue
-- 2025-12-26 @tobiu cross-referenced by #8156
+- 2025-12-26T16:03:12Z @tobiu added the `enhancement` label
+- 2025-12-26T16:03:13Z @tobiu added the `ai` label
+- 2025-12-26T16:03:13Z @tobiu added the `feature` label
+- 2025-12-26T16:27:18Z @tobiu assigned to @tobiu
+- 2025-12-26T16:27:43Z @tobiu referenced in commit `d13d230` - "Create Neo.dashboard.Panel #8157"
+- 2025-12-26T17:23:01Z @tobiu referenced in commit `03d7487` - "#8157 dashboard.Panel: documentation"
+- 2025-12-26T17:23:13Z @tobiu closed this issue
+- 2025-12-26T17:29:03Z @tobiu cross-referenced by #8156
 

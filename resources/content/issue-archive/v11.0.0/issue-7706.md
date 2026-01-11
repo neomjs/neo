@@ -37,9 +37,9 @@ The parsing time for documentation JSON files has significantly improved:
 
 ## Timeline
 
-- 2025-11-04 @tobiu added the `enhancement` label
-- 2025-11-04 @tobiu added the `ai` label
-- 2025-11-04 @tobiu assigned to @tobiu
-- 2025-11-04 @tobiu referenced in commit `f06f783` - "Refactor jsdoc-x integration for improved performance and maintainability #7706"
-- 2025-11-04 @tobiu closed this issue
+- 2025-11-04T22:00:16Z @tobiu added the `enhancement` label
+- 2025-11-04T22:00:16Z @tobiu added the `ai` label
+- 2025-11-04T22:00:50Z @tobiu assigned to @tobiu
+- 2025-11-04T22:01:18Z @tobiu referenced in commit `f06f783` - "Refactor jsdoc-x integration for improved performance and maintainability #7706"
+- 2025-11-04T22:02:12Z @tobiu closed this issue
 

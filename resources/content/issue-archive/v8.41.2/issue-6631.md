@@ -28,8 +28,8 @@ closedAt: '2025-04-08T18:26:36Z'
 
 ## Timeline
 
-- 2025-04-07 @tobiu added the `bug` label
-- 2025-04-07 @tobiu assigned to @tobiu
-- 2025-04-08 @tobiu referenced in commit `ebe7280` - "Docs App: rendering items content twice #6631"
-- 2025-04-08 @tobiu closed this issue
+- 2025-04-07T21:10:08Z @tobiu added the `bug` label
+- 2025-04-07T21:10:08Z @tobiu assigned to @tobiu
+- 2025-04-08T15:51:54Z @tobiu referenced in commit `ebe7280` - "Docs App: rendering items content twice #6631"
+- 2025-04-08T18:26:36Z @tobiu closed this issue
 

@@ -33,13 +33,13 @@ Also, we should remove outdated entries like `apps/krausest` and update the loca
 
 ## Timeline
 
-- 2025-12-21 @tobiu added the `bug` label
-- 2025-12-21 @tobiu added the `ai` label
-- 2025-12-21 @tobiu assigned to @tobiu
-- 2025-12-21 @tobiu referenced in commit `11b1fd1` - "sync .npmignore with .gitignore #8154"
-### @tobiu - 2025-12-21 21:15
+- 2025-12-21T21:10:57Z @tobiu added the `bug` label
+- 2025-12-21T21:10:57Z @tobiu added the `ai` label
+- 2025-12-21T21:13:10Z @tobiu assigned to @tobiu
+- 2025-12-21T21:13:52Z @tobiu referenced in commit `11b1fd1` - "sync .npmignore with .gitignore #8154"
+### @tobiu - 2025-12-21T21:15:43Z
 
 Fixed in commit 11b1fd19b: synced .npmignore with .gitignore
 
-- 2025-12-21 @tobiu closed this issue
+- 2025-12-21T21:15:43Z @tobiu closed this issue
 

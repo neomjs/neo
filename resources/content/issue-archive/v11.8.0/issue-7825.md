@@ -34,10 +34,10 @@ Strip Markdown code block delimiters from the response text before calling `JSON
 
 ## Timeline
 
-- 2025-11-20 @tobiu added the `bug` label
-- 2025-11-20 @tobiu added the `ai` label
-- 2025-11-20 @tobiu assigned to @tobiu
-- 2025-11-20 @tobiu referenced in commit `fa76c18` - "Fix JSON parsing in SessionService summarization #7825"
-- 2025-11-20 @tobiu closed this issue
-- 2025-11-20 @tobiu cross-referenced by #7826
+- 2025-11-20T19:38:52Z @tobiu added the `bug` label
+- 2025-11-20T19:38:52Z @tobiu added the `ai` label
+- 2025-11-20T19:39:05Z @tobiu assigned to @tobiu
+- 2025-11-20T19:49:33Z @tobiu referenced in commit `fa76c18` - "Fix JSON parsing in SessionService summarization #7825"
+- 2025-11-20T19:49:56Z @tobiu closed this issue
+- 2025-11-20T19:58:35Z @tobiu cross-referenced by #7826
 

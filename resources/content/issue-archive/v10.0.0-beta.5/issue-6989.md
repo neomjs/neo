@@ -25,9 +25,9 @@ closedAt: '2025-07-09T00:09:06Z'
 
 ## Timeline
 
-- 2025-07-09 @tobiu assigned to @tobiu
-- 2025-07-09 @tobiu added the `enhancement` label
-- 2025-07-09 @tobiu referenced in commit `896063f` - "v10 component.Base: mergeConfig() => smarter vdom aggregation #6989"
-- 2025-07-09 @tobiu closed this issue
-- 2025-07-09 @tobiu referenced in commit `ab5fc9e` - "v10 component.Base: mergeConfig() => smarter vdom aggregation #6989"
+- 2025-07-09T00:08:40Z @tobiu assigned to @tobiu
+- 2025-07-09T00:08:41Z @tobiu added the `enhancement` label
+- 2025-07-09T00:09:02Z @tobiu referenced in commit `896063f` - "v10 component.Base: mergeConfig() => smarter vdom aggregation #6989"
+- 2025-07-09T00:09:06Z @tobiu closed this issue
+- 2025-07-09T00:10:52Z @tobiu referenced in commit `ab5fc9e` - "v10 component.Base: mergeConfig() => smarter vdom aggregation #6989"
 

@@ -25,8 +25,8 @@ closedAt: '2025-01-26T22:55:52Z'
 
 ## Timeline
 
-- 2025-01-26 @tobiu added the `enhancement` label
-- 2025-01-26 @tobiu assigned to @tobiu
-- 2025-01-26 @tobiu referenced in commit `ba1ad2d` - "Portal App: Benefits => Speed => demo code #6310"
-- 2025-01-26 @tobiu closed this issue
+- 2025-01-26T22:55:29Z @tobiu added the `enhancement` label
+- 2025-01-26T22:55:29Z @tobiu assigned to @tobiu
+- 2025-01-26T22:55:46Z @tobiu referenced in commit `ba1ad2d` - "Portal App: Benefits => Speed => demo code #6310"
+- 2025-01-26T22:55:52Z @tobiu closed this issue
 

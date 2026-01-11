@@ -37,8 +37,8 @@ Modify the `buildScripts/docs/jsdocx.mjs` script to generate a new file at `docs
 
 ## Timeline
 
-- 2025-09-24 @tobiu assigned to @tobiu
-- 2025-09-24 @tobiu added the `enhancement` label
-- 2025-09-24 @tobiu referenced in commit `d24d22c` - "Create Class Hierarchy YAML #7246"
-- 2025-09-24 @tobiu closed this issue
+- 2025-09-24T08:50:16Z @tobiu assigned to @tobiu
+- 2025-09-24T08:50:17Z @tobiu added the `enhancement` label
+- 2025-09-24T08:50:55Z @tobiu referenced in commit `d24d22c` - "Create Class Hierarchy YAML #7246"
+- 2025-09-24T08:50:59Z @tobiu closed this issue
 

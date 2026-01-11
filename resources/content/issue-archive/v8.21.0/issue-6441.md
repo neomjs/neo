@@ -25,8 +25,8 @@ closedAt: '2025-02-11T19:50:21Z'
 
 ## Timeline
 
-- 2025-02-11 @tobiu added the `enhancement` label
-- 2025-02-11 @tobiu assigned to @tobiu
-- 2025-02-11 @tobiu referenced in commit `b50a645` - "grid.Scrollbar: filtering the store needs to trigger updateScrollHeight() #6441"
-- 2025-02-11 @tobiu closed this issue
+- 2025-02-11T19:46:25Z @tobiu added the `enhancement` label
+- 2025-02-11T19:46:25Z @tobiu assigned to @tobiu
+- 2025-02-11T19:46:46Z @tobiu referenced in commit `b50a645` - "grid.Scrollbar: filtering the store needs to trigger updateScrollHeight() #6441"
+- 2025-02-11T19:50:21Z @tobiu closed this issue
 

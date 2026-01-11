@@ -25,9 +25,9 @@ closedAt: '2025-07-13T10:59:00Z'
 
 ## Timeline
 
-- 2025-07-13 @tobiu assigned to @tobiu
-- 2025-07-13 @tobiu added parent issue #7029
-- 2025-07-13 @tobiu added the `enhancement` label
-- 2025-07-13 @tobiu referenced in commit `0782669` - "Overview => comparison table => add multi-window support #7041"
-- 2025-07-13 @tobiu closed this issue
+- 2025-07-13T10:57:44Z @tobiu assigned to @tobiu
+- 2025-07-13T10:57:45Z @tobiu added parent issue #7029
+- 2025-07-13T10:57:45Z @tobiu added the `enhancement` label
+- 2025-07-13T10:58:10Z @tobiu referenced in commit `0782669` - "Overview => comparison table => add multi-window support #7041"
+- 2025-07-13T10:59:01Z @tobiu closed this issue
 

@@ -62,9 +62,9 @@ The correct solution is to make the framework smarter. `FunctionalBase` should c
 
 ## Timeline
 
-- 2025-07-14 @tobiu assigned to @tobiu
-- 2025-07-14 @tobiu added the `enhancement` label
-- 2025-07-14 @tobiu added parent issue #6992
-- 2025-07-14 @tobiu referenced in commit `db706b1` - "Architectural Enhancement: Implement VDOM Config Diffing in FunctionalBase #7053"
-- 2025-07-14 @tobiu closed this issue
+- 2025-07-14T16:36:36Z @tobiu assigned to @tobiu
+- 2025-07-14T16:36:37Z @tobiu added the `enhancement` label
+- 2025-07-14T16:36:37Z @tobiu added parent issue #6992
+- 2025-07-14T16:54:29Z @tobiu referenced in commit `db706b1` - "Architectural Enhancement: Implement VDOM Config Diffing in FunctionalBase #7053"
+- 2025-07-14T17:14:38Z @tobiu closed this issue
 

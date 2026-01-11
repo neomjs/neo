@@ -25,8 +25,8 @@ closedAt: '2025-07-26T19:31:00Z'
 
 ## Timeline
 
-- 2025-07-26 @tobiu assigned to @tobiu
-- 2025-07-26 @tobiu added the `enhancement` label
-- 2025-07-26 @tobiu referenced in commit `3addceb` - "button.Base: theme dark => improve the styling for ui ghost #7113"
-- 2025-07-26 @tobiu closed this issue
+- 2025-07-26T19:30:26Z @tobiu assigned to @tobiu
+- 2025-07-26T19:30:27Z @tobiu added the `enhancement` label
+- 2025-07-26T19:30:45Z @tobiu referenced in commit `3addceb` - "button.Base: theme dark => improve the styling for ui ghost #7113"
+- 2025-07-26T19:31:00Z @tobiu closed this issue
 

@@ -31,9 +31,9 @@ This ticket covers the initial setup of a new, dedicated ChromaDB instance to se
 
 ## Timeline
 
-- 2025-10-01 @tobiu assigned to @tobiu
-- 2025-10-01 @tobiu added parent issue #7316
-- 2025-10-01 @tobiu added the `enhancement` label
-- 2025-10-02 @tobiu referenced in commit `b70fcfe` - "Set up Memory ChromaDB #7317"
-- 2025-10-02 @tobiu closed this issue
+- 2025-10-01T20:52:33Z @tobiu assigned to @tobiu
+- 2025-10-01T20:52:34Z @tobiu added parent issue #7316
+- 2025-10-01T20:52:34Z @tobiu added the `enhancement` label
+- 2025-10-02T08:40:25Z @tobiu referenced in commit `b70fcfe` - "Set up Memory ChromaDB #7317"
+- 2025-10-02T08:40:41Z @tobiu closed this issue
 

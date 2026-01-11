@@ -39,17 +39,17 @@ The proposed fix is to have `Neo.core.Base.prototype.toJSON` dynamically invoke 
 
 ## Timeline
 
-- 2026-01-05 @tobiu added the `bug` label
-- 2026-01-05 @tobiu added the `ai` label
-- 2026-01-05 @tobiu added the `core` label
-- 2026-01-05 @tobiu assigned to @tobiu
-- 2026-01-05 @tobiu added parent issue #8200
-- 2026-01-05 @tobiu referenced in commit `d8bc0e1` - "Fix toJSON mixin shadowing and implement dynamic mixin serialization (#8335)
+- 2026-01-05T13:26:39Z @tobiu added the `bug` label
+- 2026-01-05T13:26:39Z @tobiu added the `ai` label
+- 2026-01-05T13:26:40Z @tobiu added the `core` label
+- 2026-01-05T13:26:52Z @tobiu assigned to @tobiu
+- 2026-01-05T13:27:01Z @tobiu added parent issue #8200
+- 2026-01-05T13:34:11Z @tobiu referenced in commit `d8bc0e1` - "Fix toJSON mixin shadowing and implement dynamic mixin serialization (#8335)
 
 - Add 'toJSON' to Neo.mjs ignoreMixin array to prevent shadowing
 - Implement getMixins() in core/Base.mjs
 - Update Base.toJSON() to aggregate mixin data and handle recursion"
-### @tobiu - 2026-01-05 13:34
+### @tobiu - 2026-01-05T13:34:39Z
 
 **Input from Gemini 3 Pro:**
 
@@ -73,5 +73,5 @@ The proposed fix is to have `Neo.core.Base.prototype.toJSON` dynamically invoke 
 > 
 > The changes have been committed.
 
-- 2026-01-05 @tobiu closed this issue
+- 2026-01-05T13:34:59Z @tobiu closed this issue
 

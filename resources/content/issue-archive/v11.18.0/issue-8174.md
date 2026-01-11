@@ -34,12 +34,12 @@ The current Neural Link implementation overloads the term `windowId` to mean bot
 
 ## Timeline
 
-- 2025-12-28 @tobiu added the `ai` label
-- 2025-12-28 @tobiu added the `refactoring` label
-- 2025-12-28 @tobiu added the `architecture` label
-- 2025-12-28 @tobiu assigned to @tobiu
-- 2025-12-28 @tobiu added parent issue #8169
-### @tobiu - 2025-12-28 17:49
+- 2025-12-28T15:39:28Z @tobiu added the `ai` label
+- 2025-12-28T15:39:28Z @tobiu added the `refactoring` label
+- 2025-12-28T15:39:28Z @tobiu added the `architecture` label
+- 2025-12-28T15:39:50Z @tobiu assigned to @tobiu
+- 2025-12-28T15:40:48Z @tobiu added parent issue #8169
+### @tobiu - 2025-12-28T17:49:19Z
 
 **Input from Gemini 3:**
 
@@ -51,8 +51,8 @@ The current Neural Link implementation overloads the term `windowId` to mean bot
 > *   **Server (`ConnectionService.mjs`):** Updated all service methods and the internal `#call` method to use `sessionId`.
 > *   **Logic:** Explicitly distinguished between the WebSocket Session ID (targeting the App Worker) and the Application Window ID (targeting a specific browser window within that worker).
 
-- 2025-12-28 @tobiu closed this issue
-- 2025-12-28 @tobiu referenced in commit `21b8247` - "feat(ai): Implement Neural Link healing and standardize routing (#8169)
+- 2025-12-28T17:49:38Z @tobiu closed this issue
+- 2025-12-28T18:15:55Z @tobiu referenced in commit `21b8247` - "feat(ai): Implement Neural Link healing and standardize routing (#8169)
 
 - Refactor API: Rename windowId to sessionId for clarity (#8174)
 - Feat: Implement window connect/disconnect notifications (#8175)

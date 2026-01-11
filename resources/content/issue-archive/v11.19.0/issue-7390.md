@@ -37,17 +37,17 @@ This ticket is for creating a proof-of-concept demo of the new "Sighted" Develop
 
 ## Timeline
 
-- 2025-10-06 @tobiu added the `enhancement` label
-- 2025-10-06 @tobiu added parent issue #7385
-- 2025-10-06 @tobiu added the `help wanted` label
-- 2025-10-06 @tobiu added the `good first issue` label
-- 2025-10-06 @tobiu added the `hacktoberfest` label
-### @yashgoyal0110 - 2025-10-06 10:44
+- 2025-10-06T10:38:42Z @tobiu added the `enhancement` label
+- 2025-10-06T10:38:42Z @tobiu added parent issue #7385
+- 2025-10-06T10:38:43Z @tobiu added the `help wanted` label
+- 2025-10-06T10:38:43Z @tobiu added the `good first issue` label
+- 2025-10-06T10:38:43Z @tobiu added the `hacktoberfest` label
+### @yashgoyal0110 - 2025-10-06T10:44:10Z
 
 Hey @tobiu 
 Assign please!
 
-### @tobiu - 2025-10-06 11:05
+### @tobiu - 2025-10-06T11:05:39Z
 
 Hi, and thanks for your interest. This is a pretty exciting R&D topic.
 
@@ -68,12 +68,12 @@ https://discord.gg/6p8paPq
 
 Let me know in case you are still up for the task! If so, I will assign the ticket to you.
 
-### @github-actions - 2026-01-05 03:23
+### @github-actions - 2026-01-05T03:23:18Z
 
 This issue is stale because it has been open for 90 days with no activity.
 
-- 2026-01-05 @github-actions added the `stale` label
-### @tobiu - 2026-01-09 00:57
+- 2026-01-05T03:23:19Z @github-actions added the `stale` label
+### @tobiu - 2026-01-09T00:57:25Z
 
 **Input from Gemini 3 Pro:**
 
@@ -83,5 +83,5 @@ This issue is stale because it has been open for 90 days with no activity.
 > 
 > **Action:** Closing as superseded.
 
-- 2026-01-09 @tobiu closed this issue
+- 2026-01-09T00:58:07Z @tobiu closed this issue
 

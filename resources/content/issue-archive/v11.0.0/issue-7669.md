@@ -145,13 +145,13 @@ QueryRequest:
 
 ## Timeline
 
-- 2025-10-27 @tobiu added the `documentation` label
-- 2025-10-27 @tobiu added the `enhancement` label
-- 2025-10-27 @tobiu added the `ai` label
-- 2025-10-27 @tobiu cross-referenced by #7670
-- 2025-10-27 @tobiu assigned to @tobiu
-- 2025-10-27 @tobiu added parent issue #7668
-- 2025-10-27 @tobiu referenced in commit `19de6d7` - "Refactor: Enhance OpenAPI spec for Knowledge Base Server #7669"
-- 2025-10-27 @tobiu closed this issue
-- 2025-10-27 @tobiu cross-referenced by #7672
+- 2025-10-27T08:50:44Z @tobiu added the `documentation` label
+- 2025-10-27T08:50:45Z @tobiu added the `enhancement` label
+- 2025-10-27T08:50:45Z @tobiu added the `ai` label
+- 2025-10-27T08:50:59Z @tobiu cross-referenced by #7670
+- 2025-10-27T08:51:27Z @tobiu assigned to @tobiu
+- 2025-10-27T08:51:51Z @tobiu added parent issue #7668
+- 2025-10-27T08:55:53Z @tobiu referenced in commit `19de6d7` - "Refactor: Enhance OpenAPI spec for Knowledge Base Server #7669"
+- 2025-10-27T08:56:19Z @tobiu closed this issue
+- 2025-10-27T09:05:59Z @tobiu cross-referenced by #7672
 

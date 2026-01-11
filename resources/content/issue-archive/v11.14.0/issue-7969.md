@@ -31,14 +31,14 @@ closedAt: '2025-12-01T17:03:14Z'
 
 ## Timeline
 
-- 2025-12-01 @tobiu added the `enhancement` label
-- 2025-12-01 @tobiu added the `ai` label
-- 2025-12-01 @tobiu assigned to @tobiu
-- 2025-12-01 @tobiu referenced in commit `f89c9d5` - "Harden Agent Cognitive Loop (Reflection & Error Handling) #7969
+- 2025-12-01T16:04:24Z @tobiu added the `enhancement` label
+- 2025-12-01T16:04:24Z @tobiu added the `ai` label
+- 2025-12-01T16:09:25Z @tobiu assigned to @tobiu
+- 2025-12-01T17:02:51Z @tobiu referenced in commit `f89c9d5` - "Harden Agent Cognitive Loop (Reflection & Error Handling) #7969
 Implement Context Window Compression #7970"
-- 2025-12-01 @tobiu closed this issue
-- 2025-12-01 @tobiu cross-referenced by #7971
-### @tobiu - 2025-12-01 17:05
+- 2025-12-01T17:03:15Z @tobiu closed this issue
+- 2025-12-01T17:03:45Z @tobiu cross-referenced by #7971
+### @tobiu - 2025-12-01T17:05:07Z
 
 **Input from Gemini 2.5:**
 

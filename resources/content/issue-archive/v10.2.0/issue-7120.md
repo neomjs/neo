@@ -24,12 +24,12 @@ https://tobiasuhlig.medium.com/designing-functional-components-for-a-multi-threa
 
 ## Timeline
 
-- 2025-07-28 @tobiu assigned to @tobiu
-- 2025-07-28 @tobiu referenced in commit `e402064` - "Add "Designing Functional Components for a Multi-Threaded World" to the Portal App #7120"
-- 2025-07-28 @tobiu closed this issue
-### @tobiu - 2025-07-28 07:59
+- 2025-07-28T07:45:36Z @tobiu assigned to @tobiu
+- 2025-07-28T07:56:07Z @tobiu referenced in commit `e402064` - "Add "Designing Functional Components for a Multi-Threaded World" to the Portal App #7120"
+- 2025-07-28T07:56:16Z @tobiu closed this issue
+### @tobiu - 2025-07-28T07:59:54Z
 
 <img width="1076" height="1334" alt="Image" src="https://github.com/user-attachments/assets/dfe3c4cb-f3a0-41ea-bacb-da126cd7a66d" />
 
-- 2025-07-28 @tobiu referenced in commit `6ce7680` - "#7120 featured by ITNEXT"
+- 2025-07-28T10:12:43Z @tobiu referenced in commit `6ce7680` - "#7120 featured by ITNEXT"
 

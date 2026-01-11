@@ -28,9 +28,9 @@ rationale: while there is an `index` field inside the `data.Model`, it has no va
 
 ## Timeline
 
-- 2025-04-07 @tobiu added the `enhancement` label
-- 2025-04-07 @tobiu assigned to @tobiu
-- 2025-04-07 @tobiu referenced in commit `864f2cc` - "Covid.view.country.Table: make the index column non-sortable #6628"
-- 2025-04-07 @tobiu referenced in commit `1f4023d` - "#6628 grid.header.Toolbar: applied the same honor item based sorting defaults change"
-- 2025-04-07 @tobiu closed this issue
+- 2025-04-07T14:20:56Z @tobiu added the `enhancement` label
+- 2025-04-07T14:20:57Z @tobiu assigned to @tobiu
+- 2025-04-07T14:21:14Z @tobiu referenced in commit `864f2cc` - "Covid.view.country.Table: make the index column non-sortable #6628"
+- 2025-04-07T14:23:29Z @tobiu referenced in commit `1f4023d` - "#6628 grid.header.Toolbar: applied the same honor item based sorting defaults change"
+- 2025-04-07T14:23:40Z @tobiu closed this issue
 

@@ -99,44 +99,44 @@ This phase involves refactoring all remaining services in all three MCP servers 
 
 ## Timeline
 
-- 2025-10-18 @tobiu assigned to @tobiu
-- 2025-10-18 @tobiu added the `epic` label
-- 2025-10-18 @tobiu added the `ai` label
-- 2025-10-18 @tobiu added sub-issue #7537
-- 2025-10-18 @tobiu referenced in commit `6028d86` - "#7536 ticket as md files"
-- 2025-10-18 @tobiu referenced in commit `c9da77e` - "#7536 epic md file update"
-- 2025-10-18 @tobiu added sub-issue #7538
-- 2025-10-18 @tobiu added sub-issue #7539
-- 2025-10-18 @tobiu added sub-issue #7540
-- 2025-10-18 @tobiu added sub-issue #7542
-- 2025-10-18 @tobiu added sub-issue #7543
-- 2025-10-18 @tobiu added sub-issue #7544
-- 2025-10-18 @tobiu referenced in commit `32f858d` - "#7536 healthService.mjs => HealthService.mjs"
-- 2025-10-18 @tobiu added sub-issue #7545
-- 2025-10-18 @tobiu added sub-issue #7546
-- 2025-10-18 @tobiu referenced in commit `3c28197` - "#7536 replacing onConstructed() with construct() in services where needed"
-- 2025-10-18 @tobiu added sub-issue #7547
-- 2025-10-19 @tobiu added sub-issue #7549
-- 2025-10-19 @tobiu added sub-issue #7550
-- 2025-10-19 @tobiu added sub-issue #7551
-- 2025-10-19 @tobiu added sub-issue #7552
-- 2025-10-19 @tobiu added sub-issue #7553
-- 2025-10-19 @tobiu added sub-issue #7554
-- 2025-10-19 @tobiu added sub-issue #7555
-- 2025-10-19 @tobiu referenced in commit `33ee24b` - "#7536 knowledge base => toolService.mjs formatting"
-- 2025-10-19 @tobiu added sub-issue #7556
-- 2025-10-19 @tobiu added sub-issue #7557
-- 2025-10-19 @tobiu added sub-issue #7558
-- 2025-10-19 @tobiu added sub-issue #7559
-- 2025-10-19 @tobiu referenced in commit `2df1067` - "#7536 github-workflow/mcp-stdio.mjs: neo imports"
-- 2025-10-19 @tobiu referenced in commit `c2311f9` - "#7536 github-workflow/services/toolService.mjs: formatting"
-- 2025-10-19 @tobiu added sub-issue #7560
-- 2025-10-19 @tobiu added sub-issue #7561
-- 2025-10-19 @tobiu added sub-issue #7562
-- 2025-10-19 @tobiu added sub-issue #7563
-### @tobiu - 2025-10-19 23:25
+- 2025-10-18T10:08:51Z @tobiu assigned to @tobiu
+- 2025-10-18T10:08:53Z @tobiu added the `epic` label
+- 2025-10-18T10:08:53Z @tobiu added the `ai` label
+- 2025-10-18T10:14:15Z @tobiu added sub-issue #7537
+- 2025-10-18T10:14:49Z @tobiu referenced in commit `6028d86` - "#7536 ticket as md files"
+- 2025-10-18T11:23:55Z @tobiu referenced in commit `c9da77e` - "#7536 epic md file update"
+- 2025-10-18T11:28:09Z @tobiu added sub-issue #7538
+- 2025-10-18T11:51:18Z @tobiu added sub-issue #7539
+- 2025-10-18T12:03:29Z @tobiu added sub-issue #7540
+- 2025-10-18T12:49:48Z @tobiu added sub-issue #7542
+- 2025-10-18T13:06:34Z @tobiu added sub-issue #7543
+- 2025-10-18T13:23:17Z @tobiu added sub-issue #7544
+- 2025-10-18T13:39:26Z @tobiu referenced in commit `32f858d` - "#7536 healthService.mjs => HealthService.mjs"
+- 2025-10-18T13:44:03Z @tobiu added sub-issue #7545
+- 2025-10-18T13:53:59Z @tobiu added sub-issue #7546
+- 2025-10-18T14:02:57Z @tobiu referenced in commit `3c28197` - "#7536 replacing onConstructed() with construct() in services where needed"
+- 2025-10-18T14:42:40Z @tobiu added sub-issue #7547
+- 2025-10-19T21:07:14Z @tobiu added sub-issue #7549
+- 2025-10-19T21:17:23Z @tobiu added sub-issue #7550
+- 2025-10-19T21:19:11Z @tobiu added sub-issue #7551
+- 2025-10-19T21:48:50Z @tobiu added sub-issue #7552
+- 2025-10-19T21:54:40Z @tobiu added sub-issue #7553
+- 2025-10-19T22:08:38Z @tobiu added sub-issue #7554
+- 2025-10-19T22:17:02Z @tobiu added sub-issue #7555
+- 2025-10-19T22:19:26Z @tobiu referenced in commit `33ee24b` - "#7536 knowledge base => toolService.mjs formatting"
+- 2025-10-19T22:23:52Z @tobiu added sub-issue #7556
+- 2025-10-19T22:35:59Z @tobiu added sub-issue #7557
+- 2025-10-19T22:43:29Z @tobiu added sub-issue #7558
+- 2025-10-19T22:57:16Z @tobiu added sub-issue #7559
+- 2025-10-19T22:59:33Z @tobiu referenced in commit `2df1067` - "#7536 github-workflow/mcp-stdio.mjs: neo imports"
+- 2025-10-19T23:00:25Z @tobiu referenced in commit `c2311f9` - "#7536 github-workflow/services/toolService.mjs: formatting"
+- 2025-10-19T23:04:22Z @tobiu added sub-issue #7560
+- 2025-10-19T23:09:12Z @tobiu added sub-issue #7561
+- 2025-10-19T23:18:42Z @tobiu added sub-issue #7562
+- 2025-10-19T23:24:13Z @tobiu added sub-issue #7563
+### @tobiu - 2025-10-19T23:25:22Z
 
 resolved.
 
-- 2025-10-19 @tobiu closed this issue
+- 2025-10-19T23:25:22Z @tobiu closed this issue
 

@@ -50,8 +50,8 @@ These articles are now better positioned to clearly and effectively communicate 
 
 ## Timeline
 
-- 2025-07-27 @tobiu assigned to @tobiu
-- 2025-07-27 @tobiu added the `enhancement` label
-- 2025-07-27 @tobiu referenced in commit `8b0880a` - "Refine Technical Blog Content Strategy #7119"
-- 2025-07-27 @tobiu closed this issue
+- 2025-07-27T18:29:30Z @tobiu assigned to @tobiu
+- 2025-07-27T18:29:31Z @tobiu added the `enhancement` label
+- 2025-07-27T19:29:47Z @tobiu referenced in commit `8b0880a` - "Refine Technical Blog Content Strategy #7119"
+- 2025-07-27T19:29:54Z @tobiu closed this issue
 

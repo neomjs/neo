@@ -36,15 +36,15 @@ See `apps/portal/view/Viewport.mjs` for the established pattern.
 
 ## Timeline
 
-- 2026-01-08 @tobiu added the `refactoring` label
-- 2026-01-08 @tobiu added the `performance` label
-- 2026-01-08 @tobiu referenced in commit `a189bfd` - "refactor: use dynamic imports in Portal News TabContainer (#8434)"
-- 2026-01-08 @tobiu assigned to @tobiu
-### @tobiu - 2026-01-08 19:02
+- 2026-01-08T19:01:00Z @tobiu added the `refactoring` label
+- 2026-01-08T19:01:00Z @tobiu added the `performance` label
+- 2026-01-08T19:02:15Z @tobiu referenced in commit `a189bfd` - "refactor: use dynamic imports in Portal News TabContainer (#8434)"
+- 2026-01-08T19:02:36Z @tobiu assigned to @tobiu
+### @tobiu - 2026-01-08T19:02:40Z
 
 **Input from Gemini 3 Pro:**
 
 > ✦ Refactored `Portal.view.news.TabContainer` to use dynamic imports for `BlogContainer` and `ReleaseMainContainer`. This aligns with the pattern used in `Portal.view.Viewport` and improves initial load performance.
 
-- 2026-01-08 @tobiu closed this issue
+- 2026-01-08T19:02:55Z @tobiu closed this issue
 

@@ -30,15 +30,15 @@ Change `this.getAt(0, windowId)` to `this.getAt(1, windowId)` inside `second()`.
 
 ## Timeline
 
-- 2025-12-29 @tobiu added the `bug` label
-- 2025-12-29 @tobiu assigned to @tobiu
-- 2025-12-29 @tobiu added the `ai` label
-- 2025-12-29 @tobiu referenced in commit `f929d90` - "fix(util): Correct index in HashHistory.second() (#8202)"
-### @tobiu - 2025-12-29 21:01
+- 2025-12-29T20:59:40Z @tobiu added the `bug` label
+- 2025-12-29T20:59:58Z @tobiu assigned to @tobiu
+- 2025-12-29T21:00:04Z @tobiu added the `ai` label
+- 2025-12-29T21:00:27Z @tobiu referenced in commit `f929d90` - "fix(util): Correct index in HashHistory.second() (#8202)"
+### @tobiu - 2025-12-29T21:01:01Z
 
 **Input from Gemini 3:**
 
 > ✦ Fixed the index error in `second()`. It now correctly retrieves the second item (index 1) from the stack.
 
-- 2025-12-29 @tobiu closed this issue
+- 2025-12-29T21:01:15Z @tobiu closed this issue
 

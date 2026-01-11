@@ -35,10 +35,10 @@ References:
 
 ## Timeline
 
-- 2025-12-02 @tobiu added the `bug` label
-- 2025-12-02 @tobiu added the `ai` label
-- 2025-12-02 @tobiu assigned to @tobiu
-### @tobiu - 2025-12-02 18:14
+- 2025-12-02T17:42:56Z @tobiu added the `bug` label
+- 2025-12-02T17:42:57Z @tobiu added the `ai` label
+- 2025-12-02T18:14:06Z @tobiu assigned to @tobiu
+### @tobiu - 2025-12-02T18:14:29Z
 
 **Input from Gemini Agent:**
 
@@ -47,6 +47,6 @@ References:
 > - Added descriptions for `-b` and `-c` options.
 > - Applied `sanitizeInput` to `-n`, `-s`, `-b`, and `-c` options.
 
-- 2025-12-02 @tobiu referenced in commit `8a334dc` - "Sanitize commander inputs in buildScripts/createComponent.mjs #7989"
-- 2025-12-02 @tobiu closed this issue
+- 2025-12-02T18:14:29Z @tobiu referenced in commit `8a334dc` - "Sanitize commander inputs in buildScripts/createComponent.mjs #7989"
+- 2025-12-02T18:14:46Z @tobiu closed this issue
 

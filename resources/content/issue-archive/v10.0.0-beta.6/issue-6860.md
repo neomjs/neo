@@ -33,10 +33,10 @@ Since this is not directly related to the neo core, other interested devs could 
 
 ## Timeline
 
-- 2025-06-24 @tobiu added the `bug` label
-- 2025-06-24 @tobiu added the `enhancement` label
-- 2025-06-24 @tobiu added the `help wanted` label
-- 2025-06-24 @tobiu added the `good first issue` label
-- 2025-07-10 @tobiu referenced in commit `6d626f9` - "new ServiceWorker versions are being stuck inside a waiting state #6860"
-- 2025-07-10 @tobiu closed this issue
+- 2025-06-24T12:16:40Z @tobiu added the `bug` label
+- 2025-06-24T12:16:40Z @tobiu added the `enhancement` label
+- 2025-06-24T12:16:41Z @tobiu added the `help wanted` label
+- 2025-06-24T12:16:41Z @tobiu added the `good first issue` label
+- 2025-07-10T12:15:31Z @tobiu referenced in commit `6d626f9` - "new ServiceWorker versions are being stuck inside a waiting state #6860"
+- 2025-07-10T12:15:38Z @tobiu closed this issue
 

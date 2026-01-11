@@ -85,21 +85,21 @@ That's it! Your PR will be a valuable piece of R&D that helps us build a truly i
 
 ## Timeline
 
-- 2025-10-04 @tobiu added the `help wanted` label
-- 2025-10-04 @tobiu added the `good first issue` label
-- 2025-10-04 @tobiu added parent issue #7296
-- 2025-10-04 @tobiu added the `hacktoberfest` label
-- 2025-10-04 @tobiu added the `ai` label
-### @kiransatdive - 2025-10-04 08:41
+- 2025-10-04T08:37:46Z @tobiu added the `help wanted` label
+- 2025-10-04T08:37:46Z @tobiu added the `good first issue` label
+- 2025-10-04T08:37:46Z @tobiu added parent issue #7296
+- 2025-10-04T08:37:47Z @tobiu added the `hacktoberfest` label
+- 2025-10-04T08:37:47Z @tobiu added the `ai` label
+### @kiransatdive - 2025-10-04T08:41:18Z
 
 I would like to work on this issue. Could you please assign it to me?
 
-- 2025-10-04 @tobiu assigned to @kiransatdive
-### @tobiu - 2025-10-04 08:43
+- 2025-10-04T08:43:00Z @tobiu assigned to @kiransatdive
+### @tobiu - 2025-10-04T08:43:36Z
 
 Sure. Feel free to join the Slack and / or Discord channels for questions.
 
-### @tobiu - 2025-10-24 09:52
+### @tobiu - 2025-10-24T09:52:42Z
 
 Hi @kiransatdive,
 
@@ -109,5 +109,5 @@ As there has been no activity for a couple of weeks and the project's architectu
 
 We're closing this ticket now. Thanks again for your willingness to contribute, and we hope to see you in other issues!
 
-- 2025-10-24 @tobiu closed this issue
+- 2025-10-24T09:52:42Z @tobiu closed this issue
 

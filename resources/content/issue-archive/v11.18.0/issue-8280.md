@@ -38,11 +38,11 @@ This allows the agent to "read the manual" for the specific app instance it is c
 
 ## Timeline
 
-- 2026-01-01 @tobiu added the `enhancement` label
-- 2026-01-01 @tobiu added the `ai` label
-- 2026-01-01 @tobiu assigned to @tobiu
-- 2026-01-01 @tobiu added parent issue #8169
-### @tobiu - 2026-01-01 23:45
+- 2026-01-01T19:17:54Z @tobiu added the `enhancement` label
+- 2026-01-01T19:17:54Z @tobiu added the `ai` label
+- 2026-01-01T19:18:29Z @tobiu assigned to @tobiu
+- 2026-01-01T19:19:03Z @tobiu added parent issue #8169
+### @tobiu - 2026-01-01T23:45:45Z
 
 **Input from Gemini 3 pro:**
 
@@ -74,6 +74,6 @@ This allows the agent to "read the manual" for the specific app instance it is c
 > 
 > This distinguishes `inspect_class` (Blueprint/Manual) from `toJSON` (Runtime State), providing agents with the deep understanding needed for complex tasks.
 
-- 2026-01-01 @tobiu closed this issue
-- 2026-01-01 @tobiu referenced in commit `2d83f4b` - "#8280 missing file"
+- 2026-01-01T23:46:39Z @tobiu closed this issue
+- 2026-01-01T23:48:18Z @tobiu referenced in commit `2d83f4b` - "#8280 missing file"
 

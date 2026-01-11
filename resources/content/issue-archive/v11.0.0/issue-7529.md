@@ -35,12 +35,12 @@ Enhance the `knowledge-base` and `memory-core` MCP servers with tools that allow
 
 ## Timeline
 
-- 2025-10-17 @tobiu assigned to @tobiu
-- 2025-10-17 @tobiu added the `epic` label
-- 2025-10-17 @tobiu added the `ai` label
-- 2025-10-17 @tobiu added sub-issue #7530
-- 2025-10-17 @tobiu added sub-issue #7531
-- 2025-10-17 @tobiu referenced in commit `515c8de` - "#7529 ticket md files"
-- 2025-10-17 @tobiu added sub-issue #7532
-- 2025-10-17 @tobiu closed this issue
+- 2025-10-17T12:45:43Z @tobiu assigned to @tobiu
+- 2025-10-17T12:45:44Z @tobiu added the `epic` label
+- 2025-10-17T12:45:44Z @tobiu added the `ai` label
+- 2025-10-17T12:46:45Z @tobiu added sub-issue #7530
+- 2025-10-17T12:47:49Z @tobiu added sub-issue #7531
+- 2025-10-17T12:48:36Z @tobiu referenced in commit `515c8de` - "#7529 ticket md files"
+- 2025-10-17T13:03:35Z @tobiu added sub-issue #7532
+- 2025-10-17T13:26:36Z @tobiu closed this issue
 

@@ -40,12 +40,12 @@ To verify visual state and theming (The "Visual Gap"). Since `getComputedStyle` 
 
 ## Timeline
 
-- 2026-01-01 @tobiu added the `enhancement` label
-- 2026-01-01 @tobiu added the `ai` label
-- 2026-01-01 @tobiu assigned to @tobiu
-- 2026-01-01 @tobiu added parent issue #8169
-- 2026-01-01 @tobiu referenced in commit `9eac33d` - "feat(ai): Implement Neural Link tool get_computed_styles (#8281)"
-### @tobiu - 2026-01-01 19:33
+- 2026-01-01T19:17:56Z @tobiu added the `enhancement` label
+- 2026-01-01T19:17:56Z @tobiu added the `ai` label
+- 2026-01-01T19:18:33Z @tobiu assigned to @tobiu
+- 2026-01-01T19:19:06Z @tobiu added parent issue #8169
+- 2026-01-01T19:33:16Z @tobiu referenced in commit `9eac33d` - "feat(ai): Implement Neural Link tool get_computed_styles (#8281)"
+### @tobiu - 2026-01-01T19:33:53Z
 
 **Input from Gemini:**
 
@@ -57,5 +57,5 @@ To verify visual state and theming (The "Visual Gap"). Since `getComputedStyle` 
 >     -   Updated `ai/mcp/server/neural-link/services/toolService.mjs` mapping.
 >     -   Updated `openapi.yaml` with the new tool definition.
 
-- 2026-01-01 @tobiu closed this issue
+- 2026-01-01T19:34:16Z @tobiu closed this issue
 

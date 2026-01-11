@@ -25,8 +25,8 @@ closedAt: '2025-07-01T15:10:04Z'
 
 ## Timeline
 
-- 2025-07-01 @tobiu assigned to @tobiu
-- 2025-07-01 @tobiu added the `enhancement` label
-- 2025-07-01 @tobiu referenced in commit `bdc9e7f` - "controller.Base: onConstructed() => initAsync() #6925"
-- 2025-07-01 @tobiu closed this issue
+- 2025-07-01T15:09:24Z @tobiu assigned to @tobiu
+- 2025-07-01T15:09:25Z @tobiu added the `enhancement` label
+- 2025-07-01T15:09:50Z @tobiu referenced in commit `bdc9e7f` - "controller.Base: onConstructed() => initAsync() #6925"
+- 2025-07-01T15:10:04Z @tobiu closed this issue
 

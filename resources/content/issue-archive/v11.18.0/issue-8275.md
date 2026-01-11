@@ -38,10 +38,10 @@ Allow Neural Link to identify and inspect the controller managing a component.
 
 ## Timeline
 
-- 2026-01-01 @tobiu added the `enhancement` label
-- 2026-01-01 @tobiu added the `ai` label
-- 2026-01-01 @tobiu added parent issue #8200
-- 2026-01-01 @tobiu assigned to @tobiu
-- 2026-01-03 @tobiu referenced in commit `155a3d7` - "feat(component): Export controller in component.Base.toJSON (#8275)"
-- 2026-01-03 @tobiu closed this issue
+- 2026-01-01T18:37:03Z @tobiu added the `enhancement` label
+- 2026-01-01T18:37:03Z @tobiu added the `ai` label
+- 2026-01-01T18:37:21Z @tobiu added parent issue #8200
+- 2026-01-01T18:47:30Z @tobiu assigned to @tobiu
+- 2026-01-03T19:34:56Z @tobiu referenced in commit `155a3d7` - "feat(component): Export controller in component.Base.toJSON (#8275)"
+- 2026-01-03T19:35:19Z @tobiu closed this issue
 

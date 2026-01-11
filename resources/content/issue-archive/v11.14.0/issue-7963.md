@@ -31,12 +31,12 @@ closedAt: '2025-12-01T11:27:14Z'
 
 ## Timeline
 
-- 2025-12-01 @tobiu added the `enhancement` label
-- 2025-12-01 @tobiu added the `ai` label
-- 2025-12-01 @tobiu added parent issue #7961
-- 2025-12-01 @tobiu assigned to @tobiu
-- 2025-12-01 @tobiu referenced in commit `ab74b18` - "Implement Neo.ai.provider.Gemini #7963"
-### @tobiu - 2025-12-01 11:26
+- 2025-12-01T10:59:47Z @tobiu added the `enhancement` label
+- 2025-12-01T10:59:47Z @tobiu added the `ai` label
+- 2025-12-01T10:59:59Z @tobiu added parent issue #7961
+- 2025-12-01T11:25:47Z @tobiu assigned to @tobiu
+- 2025-12-01T11:26:32Z @tobiu referenced in commit `ab74b18` - "Implement Neo.ai.provider.Gemini #7963"
+### @tobiu - 2025-12-01T11:26:55Z
 
 **Input from Gemini 2.5:**
 
@@ -45,5 +45,5 @@ closedAt: '2025-12-01T11:27:14Z'
 > - Securely reads `GEMINI_API_KEY` from `process.env`.
 > - Initialization moved to `construct()`.
 
-- 2025-12-01 @tobiu closed this issue
+- 2025-12-01T11:27:14Z @tobiu closed this issue
 

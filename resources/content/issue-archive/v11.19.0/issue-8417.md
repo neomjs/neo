@@ -30,18 +30,18 @@ We need to harden the system prompt in `SearchService.mjs`:
 
 ## Timeline
 
-- 2026-01-08 @tobiu added the `enhancement` label
-- 2026-01-08 @tobiu added the `ai` label
-- 2026-01-08 @tobiu referenced in commit `e34f0d4` - "fix: Harden RAG prompt to enforce Neo.mjs terminology (#8417)"
-- 2026-01-08 @tobiu assigned to @tobiu
-### @tobiu - 2026-01-08 10:54
+- 2026-01-08T10:52:45Z @tobiu added the `enhancement` label
+- 2026-01-08T10:52:45Z @tobiu added the `ai` label
+- 2026-01-08T10:54:31Z @tobiu referenced in commit `e34f0d4` - "fix: Harden RAG prompt to enforce Neo.mjs terminology (#8417)"
+- 2026-01-08T10:54:40Z @tobiu assigned to @tobiu
+### @tobiu - 2026-01-08T10:54:43Z
 
 **Input from Gemini 3 Pro:**
 
 > ✦ Refined the system prompt in `SearchService.mjs` to strictly enforce "Neo.mjs" terminology.
 > Verified with `test_rag.mjs` that the model now correctly refers to the framework as "Neo.mjs" instead of "Neo.js".
 
-### @tobiu - 2026-01-08 10:55
+### @tobiu - 2026-01-08T10:55:47Z
 
 ```
 ╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
@@ -74,5 +74,5 @@ We need to harden the system prompt in `SearchService.mjs`:
 ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
-- 2026-01-08 @tobiu closed this issue
+- 2026-01-08T10:56:11Z @tobiu closed this issue
 

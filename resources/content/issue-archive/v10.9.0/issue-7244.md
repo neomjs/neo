@@ -51,8 +51,8 @@ While an `<img>` tag can be created directly in a VDOM tree, a dedicated compone
 
 ## Timeline
 
-- 2025-09-23 @tobiu assigned to @tobiu
-- 2025-09-23 @tobiu added the `enhancement` label
-- 2025-09-23 @tobiu referenced in commit `6bcc85d` - "Create Neo.component.Image #7244"
-- 2025-09-23 @tobiu closed this issue
+- 2025-09-23T15:22:41Z @tobiu assigned to @tobiu
+- 2025-09-23T15:22:42Z @tobiu added the `enhancement` label
+- 2025-09-23T15:28:26Z @tobiu referenced in commit `6bcc85d` - "Create Neo.component.Image #7244"
+- 2025-09-23T15:29:47Z @tobiu closed this issue
 

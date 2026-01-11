@@ -44,11 +44,11 @@ This enhancement would significantly improve developer experience and reduce boi
 
 ## Timeline
 
-- 2025-07-01 @tobiu added the `enhancement` label
-### @tobiu - 2025-07-28 11:20
+- 2025-07-01T19:52:03Z @tobiu added the `enhancement` label
+### @tobiu - 2025-07-28T11:20:42Z
 
 already resolved:
 https://github.com/neomjs/neo/blob/dev/learn/guides/datahandling/StateProviders.md#managing-stores-with-state-providers
 
-- 2025-07-28 @tobiu closed this issue
+- 2025-07-28T11:20:42Z @tobiu closed this issue
 

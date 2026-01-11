@@ -36,11 +36,11 @@ This was identified while working on `form.field.trigger.Base` which also uses `
 
 ## Timeline
 
-- 2026-01-03 @tobiu added the `bug` label
-- 2026-01-03 @tobiu added the `ai` label
-- 2026-01-03 @tobiu added the `architecture` label
-- 2026-01-03 @tobiu assigned to @tobiu
-- 2026-01-03 @tobiu added parent issue #8200
-- 2026-01-03 @tobiu referenced in commit `e72c88e` - "fix(component): Add missing align config to component.Base.toJSON (#8299)"
-- 2026-01-03 @tobiu closed this issue
+- 2026-01-03T19:23:57Z @tobiu added the `bug` label
+- 2026-01-03T19:23:57Z @tobiu added the `ai` label
+- 2026-01-03T19:23:57Z @tobiu added the `architecture` label
+- 2026-01-03T19:24:30Z @tobiu assigned to @tobiu
+- 2026-01-03T19:24:48Z @tobiu added parent issue #8200
+- 2026-01-03T19:24:59Z @tobiu referenced in commit `e72c88e` - "fix(component): Add missing align config to component.Base.toJSON (#8299)"
+- 2026-01-03T19:25:22Z @tobiu closed this issue
 

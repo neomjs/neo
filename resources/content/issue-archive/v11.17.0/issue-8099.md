@@ -48,9 +48,9 @@ This ensures the feature is "opt-in" and works correctly for `Neo.data.Store` (w
 
 ## Timeline
 
-- 2025-12-12 @tobiu added the `bug` label
-- 2025-12-12 @tobiu added the `ai` label
-- 2025-12-12 @tobiu assigned to @tobiu
-- 2025-12-12 @tobiu referenced in commit `a48c9db` - "Fix initialIndexSymbol assignment in Neo.collection.Base #8099"
-- 2025-12-12 @tobiu closed this issue
+- 2025-12-12T21:39:06Z @tobiu added the `bug` label
+- 2025-12-12T21:39:07Z @tobiu added the `ai` label
+- 2025-12-12T21:41:57Z @tobiu assigned to @tobiu
+- 2025-12-12T21:42:14Z @tobiu referenced in commit `a48c9db` - "Fix initialIndexSymbol assignment in Neo.collection.Base #8099"
+- 2025-12-12T21:42:26Z @tobiu closed this issue
 

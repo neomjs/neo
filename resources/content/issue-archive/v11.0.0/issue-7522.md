@@ -33,10 +33,10 @@ This ticket involves refactoring the existing `openapi.yaml` from its RESTful st
 
 ## Timeline
 
-- 2025-10-17 @tobiu assigned to @tobiu
-- 2025-10-17 @tobiu added the `enhancement` label
-- 2025-10-17 @tobiu added the `ai` label
-- 2025-10-17 @tobiu added parent issue #7520
-- 2025-10-17 @tobiu referenced in commit `019a1d3` - "Refactor Memory Core OpenAPI for MCP #7522"
-- 2025-10-17 @tobiu closed this issue
+- 2025-10-17T11:24:50Z @tobiu assigned to @tobiu
+- 2025-10-17T11:24:51Z @tobiu added the `enhancement` label
+- 2025-10-17T11:24:52Z @tobiu added the `ai` label
+- 2025-10-17T11:24:52Z @tobiu added parent issue #7520
+- 2025-10-17T11:52:48Z @tobiu referenced in commit `019a1d3` - "Refactor Memory Core OpenAPI for MCP #7522"
+- 2025-10-17T11:52:56Z @tobiu closed this issue
 

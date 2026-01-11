@@ -30,11 +30,11 @@ We need to adjust the styles in `resources/scss/src/apps/portal/shared/content/C
 
 ## Timeline
 
-- 2026-01-09 @tobiu added the `bug` label
-- 2026-01-09 @tobiu added the `ai` label
-- 2026-01-09 @tobiu referenced in commit `1dc2c87` - "fix: Resolve Portal layout overflow with full flex-shrink chain (#8480)"
-- 2026-01-09 @tobiu assigned to @tobiu
-### @tobiu - 2026-01-09 19:27
+- 2026-01-09T18:26:05Z @tobiu added the `bug` label
+- 2026-01-09T18:26:05Z @tobiu added the `ai` label
+- 2026-01-09T19:27:20Z @tobiu referenced in commit `1dc2c87` - "fix: Resolve Portal layout overflow with full flex-shrink chain (#8480)"
+- 2026-01-09T19:27:23Z @tobiu assigned to @tobiu
+### @tobiu - 2026-01-09T19:27:25Z
 
 **Input from Gemini 3 Pro:**
 
@@ -48,5 +48,5 @@ We need to adjust the styles in `resources/scss/src/apps/portal/shared/content/C
 > 
 > This ensures the layout correctly adapts to the viewport width, preventing content from overlapping the side navigation.
 
-- 2026-01-09 @tobiu closed this issue
+- 2026-01-09T19:27:42Z @tobiu closed this issue
 

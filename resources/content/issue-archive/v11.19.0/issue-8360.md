@@ -42,10 +42,10 @@ Update the landing page content to reflect the new "Application Engine" position
 
 ## Timeline
 
-- 2026-01-06 @tobiu added the `documentation` label
-- 2026-01-06 @tobiu added the `ai` label
-- 2026-01-06 @tobiu assigned to @tobiu
-- 2026-01-06 @tobiu closed this issue
-- 2026-01-06 @tobiu cross-referenced by #8367
-- 2026-01-07 @jonnyamsp referenced in commit `701ab87` - "docs: Update Portal landing page content with comprehensive Application Engine branding (closes #8360)"
+- 2026-01-06T14:23:02Z @tobiu added the `documentation` label
+- 2026-01-06T14:23:03Z @tobiu added the `ai` label
+- 2026-01-06T14:23:34Z @tobiu assigned to @tobiu
+- 2026-01-06T14:29:28Z @tobiu closed this issue
+- 2026-01-06T20:30:56Z @tobiu cross-referenced by #8367
+- 2026-01-07T13:25:08Z @jonnyamsp referenced in commit `701ab87` - "docs: Update Portal landing page content with comprehensive Application Engine branding (closes #8360)"
 

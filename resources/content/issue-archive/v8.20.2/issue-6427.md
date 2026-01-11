@@ -25,8 +25,8 @@ closedAt: '2025-02-09T21:49:35Z'
 
 ## Timeline
 
-- 2025-02-09 @tobiu added the `enhancement` label
-- 2025-02-09 @tobiu assigned to @tobiu
-- 2025-02-09 @tobiu referenced in commit `fbe0cef` - "grid.View: pass the store to grid cell renderers #6427"
-- 2025-02-09 @tobiu closed this issue
+- 2025-02-09T21:48:38Z @tobiu added the `enhancement` label
+- 2025-02-09T21:48:38Z @tobiu assigned to @tobiu
+- 2025-02-09T21:49:27Z @tobiu referenced in commit `fbe0cef` - "grid.View: pass the store to grid cell renderers #6427"
+- 2025-02-09T21:49:35Z @tobiu closed this issue
 

@@ -43,10 +43,10 @@ By fetching this information on startup, we simplify the agent's workflow and ma
 
 ## Timeline
 
-- 2025-10-23 @tobiu assigned to @tobiu
-- 2025-10-23 @tobiu added parent issue #7604
-- 2025-10-23 @tobiu added the `enhancement` label
-- 2025-10-23 @tobiu added the `ai` label
-- 2025-10-23 @tobiu referenced in commit `9f99f71` - "Cache Viewer Permission on Server Startup #7626"
-- 2025-10-23 @tobiu closed this issue
+- 2025-10-23T15:06:25Z @tobiu assigned to @tobiu
+- 2025-10-23T15:06:26Z @tobiu added parent issue #7604
+- 2025-10-23T15:06:26Z @tobiu added the `enhancement` label
+- 2025-10-23T15:06:26Z @tobiu added the `ai` label
+- 2025-10-23T15:18:48Z @tobiu referenced in commit `9f99f71` - "Cache Viewer Permission on Server Startup #7626"
+- 2025-10-23T15:19:06Z @tobiu closed this issue
 

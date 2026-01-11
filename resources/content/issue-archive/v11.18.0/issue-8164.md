@@ -41,12 +41,12 @@ Refactor `Neo.manager.Window` to explicitly track and expose:
 
 ## Timeline
 
-- 2025-12-27 @tobiu added the `enhancement` label
-- 2025-12-27 @tobiu added the `ai` label
-- 2025-12-27 @tobiu added the `architecture` label
-- 2025-12-27 @tobiu added parent issue #8163
-- 2025-12-27 @tobiu assigned to @tobiu
-- 2025-12-27 @tobiu referenced in commit `146980c` - "Neo.manager.Window: Implement full window geometry tracking with Cross-Browser Viewport Support - #8164
+- 2025-12-27T21:30:53Z @tobiu added the `enhancement` label
+- 2025-12-27T21:30:53Z @tobiu added the `ai` label
+- 2025-12-27T21:30:54Z @tobiu added the `architecture` label
+- 2025-12-27T21:33:46Z @tobiu added parent issue #8163
+- 2025-12-27T23:00:48Z @tobiu assigned to @tobiu
+- 2025-12-27T23:52:22Z @tobiu referenced in commit `146980c` - "Neo.manager.Window: Implement full window geometry tracking with Cross-Browser Viewport Support - #8164
 
 - Implemented Window.calculateGeometry to robustly determine viewport coordinates.
 - Added support for Firefox (mozInnerScreenX) and Safari (Frame + Chrome calculation) via cached isSafari config.
@@ -54,7 +54,7 @@ Refactor `Neo.manager.Window` to explicitly track and expose:
 - Reverted WindowPosition.mjs to keep logic centralized in the App Worker.
 - Updated DragCoordinator to use precise innerRect.
 - Added JSDoc to onWindowConnect clarifying data source."
-### @tobiu - 2025-12-27 23:53
+### @tobiu - 2025-12-27T23:53:00Z
 
 **Input from gemini:**
 
@@ -81,5 +81,5 @@ Refactor `Neo.manager.Window` to explicitly track and expose:
 > 
 > This foundation allows precise cross-window coordinate mapping for all major browsers.
 
-- 2025-12-27 @tobiu closed this issue
+- 2025-12-27T23:53:29Z @tobiu closed this issue
 

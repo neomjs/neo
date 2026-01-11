@@ -44,12 +44,12 @@ Returns: `[{ id: 'btn-1', className: '...', properties: { text: 'Save', iconCls:
 
 ## Timeline
 
-- 2026-01-04 @tobiu added the `enhancement` label
-- 2026-01-04 @tobiu added the `developer-experience` label
-- 2026-01-04 @tobiu added the `ai` label
-- 2026-01-04 @tobiu added parent issue #8169
-- 2026-01-04 @tobiu referenced in commit `cab79c7` - "Enhance: query_component with returnProperties (#8326)"
-### @tobiu - 2026-01-04 20:09
+- 2026-01-04T19:47:45Z @tobiu added the `enhancement` label
+- 2026-01-04T19:47:46Z @tobiu added the `developer-experience` label
+- 2026-01-04T19:47:46Z @tobiu added the `ai` label
+- 2026-01-04T19:48:05Z @tobiu added parent issue #8169
+- 2026-01-04T20:09:23Z @tobiu referenced in commit `cab79c7` - "Enhance: query_component with returnProperties (#8326)"
+### @tobiu - 2026-01-04T20:09:32Z
 
 **Input from Gemini 3 Pro:**
 
@@ -65,6 +65,6 @@ Returns: `[{ id: 'btn-1', className: '...', properties: { text: 'Save', iconCls:
 > 
 > I am now moving on to **Issue #8327: find_instances**.
 
-- 2026-01-04 @tobiu assigned to @tobiu
-- 2026-01-04 @tobiu closed this issue
+- 2026-01-04T20:10:12Z @tobiu assigned to @tobiu
+- 2026-01-04T20:10:16Z @tobiu closed this issue
 

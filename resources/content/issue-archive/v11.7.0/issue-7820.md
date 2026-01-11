@@ -43,10 +43,10 @@ Developers should switch to using `Neo.apps[windowId]` or the new helper methods
 
 ## Timeline
 
-- 2025-11-20 @tobiu assigned to @tobiu
-- 2025-11-20 @tobiu added the `enhancement` label
-- 2025-11-20 @tobiu added the `ai` label
-- 2025-11-20 @tobiu referenced in commit `a6d5582` - "Refactor Neo.apps to support multi-window instances #7820"
-- 2025-11-20 @tobiu referenced in commit `136e6f7` - "#7820 additional items"
-- 2025-11-20 @tobiu closed this issue
+- 2025-11-20T10:45:52Z @tobiu assigned to @tobiu
+- 2025-11-20T10:45:59Z @tobiu added the `enhancement` label
+- 2025-11-20T10:45:59Z @tobiu added the `ai` label
+- 2025-11-20T11:23:39Z @tobiu referenced in commit `a6d5582` - "Refactor Neo.apps to support multi-window instances #7820"
+- 2025-11-20T11:38:31Z @tobiu referenced in commit `136e6f7` - "#7820 additional items"
+- 2025-11-20T11:38:36Z @tobiu closed this issue
 

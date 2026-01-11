@@ -25,8 +25,8 @@ closedAt: '2025-06-13T21:36:21Z'
 
 ## Timeline
 
-- 2025-06-13 @tobiu assigned to @tobiu
-- 2025-06-13 @tobiu added the `enhancement` label
-- 2025-06-13 @tobiu referenced in commit `685a08a` - "Learning Content: 4 envs => describe why "Environment Combinations" are needed #6789"
-- 2025-06-13 @tobiu closed this issue
+- 2025-06-13T21:24:45Z @tobiu assigned to @tobiu
+- 2025-06-13T21:24:47Z @tobiu added the `enhancement` label
+- 2025-06-13T21:25:02Z @tobiu referenced in commit `685a08a` - "Learning Content: 4 envs => describe why "Environment Combinations" are needed #6789"
+- 2025-06-13T21:36:21Z @tobiu closed this issue
 

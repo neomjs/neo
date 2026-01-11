@@ -31,10 +31,10 @@ Update `AGENTS_STARTUP.md` to include a directive for agents. When invoking a su
 
 ## Timeline
 
-- 2025-12-12 @tobiu added the `documentation` label
-- 2025-12-12 @tobiu added the `contributor-experience` label
-- 2025-12-12 @tobiu added the `ai` label
-- 2025-12-12 @tobiu assigned to @tobiu
-- 2025-12-12 @tobiu referenced in commit `3532229` - "Mandate Sub-Agent Context Injection in AGENTS_STARTUP.md #8102"
-- 2025-12-12 @tobiu closed this issue
+- 2025-12-12T23:11:03Z @tobiu added the `documentation` label
+- 2025-12-12T23:11:03Z @tobiu added the `contributor-experience` label
+- 2025-12-12T23:11:03Z @tobiu added the `ai` label
+- 2025-12-12T23:14:07Z @tobiu assigned to @tobiu
+- 2025-12-12T23:15:27Z @tobiu referenced in commit `3532229` - "Mandate Sub-Agent Context Injection in AGENTS_STARTUP.md #8102"
+- 2025-12-12T23:15:34Z @tobiu closed this issue
 

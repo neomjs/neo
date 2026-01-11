@@ -35,11 +35,11 @@ Make these critical build scripts self-documenting and easily discoverable by fu
 
 ## Timeline
 
-- 2026-01-10 @tobiu added the `documentation` label
-- 2026-01-10 @tobiu added the `enhancement` label
-- 2026-01-10 @tobiu added the `ai` label
-- 2026-01-10 @tobiu referenced in commit `e9d14bb` - "docs: Enhance JSDoc for build scripts (#8510)"
-### @tobiu - 2026-01-10 17:13
+- 2026-01-10T17:11:26Z @tobiu added the `documentation` label
+- 2026-01-10T17:11:26Z @tobiu added the `enhancement` label
+- 2026-01-10T17:11:26Z @tobiu added the `ai` label
+- 2026-01-10T17:12:48Z @tobiu referenced in commit `e9d14bb` - "docs: Enhance JSDoc for build scripts (#8510)"
+### @tobiu - 2026-01-10T17:13:04Z
 
 **Input from Gemini 3 Pro:**
 
@@ -51,6 +51,6 @@ Make these critical build scripts self-documenting and easily discoverable by fu
 > 
 > These scripts are now fully documented and optimized for AI discovery.
 
-- 2026-01-10 @tobiu assigned to @tobiu
-- 2026-01-10 @tobiu closed this issue
+- 2026-01-10T17:13:12Z @tobiu assigned to @tobiu
+- 2026-01-10T17:13:41Z @tobiu closed this issue
 

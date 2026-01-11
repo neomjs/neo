@@ -35,23 +35,23 @@ This task is to migrate the unit test for `state/Provider.mjs` from the Siesta t
 
 ## Timeline
 
-- 2025-09-27 @tobiu added the `enhancement` label
-- 2025-09-27 @tobiu added parent issue #7262
-- 2025-10-02 @tobiu added the `help wanted` label
-- 2025-10-02 @tobiu added the `good first issue` label
-- 2025-10-02 @tobiu added the `hacktoberfest` label
-### @KURO-1125 - 2025-10-03 09:37
+- 2025-09-27T14:01:28Z @tobiu added the `enhancement` label
+- 2025-09-27T14:01:28Z @tobiu added parent issue #7262
+- 2025-10-02T19:23:24Z @tobiu added the `help wanted` label
+- 2025-10-02T19:23:24Z @tobiu added the `good first issue` label
+- 2025-10-02T19:23:24Z @tobiu added the `hacktoberfest` label
+### @KURO-1125 - 2025-10-03T09:37:42Z
 
 Hi! I'd like to work on this Provider test migration using the AI native workflow.
 Could you please assign this to me?
 Thanks!
 
-- 2025-10-03 @tobiu assigned to @KURO-1125
-### @tobiu - 2025-10-03 16:14
+- 2025-10-03T16:14:19Z @tobiu assigned to @KURO-1125
+### @tobiu - 2025-10-03T16:14:24Z
 
 done.
 
-### @KURO-1125 - 2025-10-03 20:08
+### @KURO-1125 - 2025-10-03T20:08:56Z
 
 Hi! Completed two more migrations using the AI workflow:
 
@@ -63,7 +63,7 @@ Working on the remaining 2 assigned migrations next.
 Thanks!
 
 
-- 2025-10-03 @KURO-1125 cross-referenced by PR #7340
-- 2025-10-04 @tobiu closed this issue
-- 2025-10-04 @tobiu referenced in commit `d590d34` - "#7288 internal ticket update"
+- 2025-10-03T20:09:39Z @KURO-1125 cross-referenced by PR #7340
+- 2025-10-04T13:40:22Z @tobiu closed this issue
+- 2025-10-04T13:43:03Z @tobiu referenced in commit `d590d34` - "#7288 internal ticket update"
 

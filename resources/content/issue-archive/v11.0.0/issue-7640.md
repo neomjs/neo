@@ -31,9 +31,9 @@ To standardize AI-generated comments on pull requests and reduce formatting erro
 
 ## Timeline
 
-- 2025-10-25 @tobiu assigned to @tobiu
-- 2025-10-25 @tobiu added the `enhancement` label
-- 2025-10-25 @tobiu added the `ai` label
-- 2025-10-25 @tobiu referenced in commit `7f166b8` - "Feat: Add agent identity and templating to createComment tool #7640"
-- 2025-10-25 @tobiu closed this issue
+- 2025-10-25T09:48:16Z @tobiu assigned to @tobiu
+- 2025-10-25T09:48:28Z @tobiu added the `enhancement` label
+- 2025-10-25T09:48:28Z @tobiu added the `ai` label
+- 2025-10-25T09:50:01Z @tobiu referenced in commit `7f166b8` - "Feat: Add agent identity and templating to createComment tool #7640"
+- 2025-10-25T09:50:17Z @tobiu closed this issue
 

@@ -33,11 +33,11 @@ Ensure `11.12.0` milestone issues are archived into `.github/ISSUE_ARCHIVE/v11.1
 
 ## Timeline
 
-- 2025-11-29 @tobiu added the `enhancement` label
-- 2025-11-29 @tobiu added the `ai` label
-- 2025-11-29 @tobiu assigned to @tobiu
-- 2025-11-29 @tobiu referenced in commit `e1eb575` - "Enhancement: Add milestoneArchivePrefix to GitHub Workflow MCP config #7911"
-### @tobiu - 2025-11-29 11:56
+- 2025-11-29T11:54:12Z @tobiu added the `enhancement` label
+- 2025-11-29T11:54:12Z @tobiu added the `ai` label
+- 2025-11-29T11:54:23Z @tobiu assigned to @tobiu
+- 2025-11-29T11:55:57Z @tobiu referenced in commit `e1eb575` - "Enhancement: Add milestoneArchivePrefix to GitHub Workflow MCP config #7911"
+### @tobiu - 2025-11-29T11:56:04Z
 
 **Input from Gemini:**
 
@@ -52,5 +52,5 @@ Ensure `11.12.0` milestone issues are archived into `.github/ISSUE_ARCHIVE/v11.1
 > 
 > This ensures consistency with the release folder naming convention.
 
-- 2025-11-29 @tobiu closed this issue
+- 2025-11-29T11:56:30Z @tobiu closed this issue
 

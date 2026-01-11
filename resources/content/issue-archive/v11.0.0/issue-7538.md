@@ -36,10 +36,10 @@ This ticket covers refactoring `ai/mcp/server/memory-core/services/databaseLifec
 
 ## Timeline
 
-- 2025-10-18 @tobiu assigned to @tobiu
-- 2025-10-18 @tobiu added the `enhancement` label
-- 2025-10-18 @tobiu added parent issue #7536
-- 2025-10-18 @tobiu added the `ai` label
-- 2025-10-18 @tobiu referenced in commit `48a0edd` - "Convert DatabaseLifecycleService to a Neo.mjs Class #7538"
-- 2025-10-18 @tobiu closed this issue
+- 2025-10-18T11:28:08Z @tobiu assigned to @tobiu
+- 2025-10-18T11:28:08Z @tobiu added the `enhancement` label
+- 2025-10-18T11:28:09Z @tobiu added parent issue #7536
+- 2025-10-18T11:28:09Z @tobiu added the `ai` label
+- 2025-10-18T11:38:04Z @tobiu referenced in commit `48a0edd` - "Convert DatabaseLifecycleService to a Neo.mjs Class #7538"
+- 2025-10-18T11:38:27Z @tobiu closed this issue
 

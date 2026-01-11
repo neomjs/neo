@@ -32,9 +32,9 @@ Scope:
 
 ## Timeline
 
-- 2025-12-05 @tobiu added the `enhancement` label
-- 2025-12-05 @tobiu added the `ai` label
-- 2025-12-05 @tobiu assigned to @tobiu
-- 2025-12-05 @tobiu referenced in commit `7a811cb` - "Recreate OpenAPI specification for Neural Link MCP Server #8037"
-- 2025-12-05 @tobiu closed this issue
+- 2025-12-05T21:46:37Z @tobiu added the `enhancement` label
+- 2025-12-05T21:46:37Z @tobiu added the `ai` label
+- 2025-12-05T21:46:56Z @tobiu assigned to @tobiu
+- 2025-12-05T21:47:29Z @tobiu referenced in commit `7a811cb` - "Recreate OpenAPI specification for Neural Link MCP Server #8037"
+- 2025-12-05T21:47:44Z @tobiu closed this issue
 

@@ -37,14 +37,14 @@ This aligns with the "permissive" strategy for Dedicated Workers defined in #814
 
 ## Timeline
 
-- 2026-01-05 @tobiu added the `bug` label
-- 2026-01-05 @tobiu added the `ai` label
-- 2026-01-05 @tobiu added the `core` label
-- 2026-01-05 @tobiu assigned to @tobiu
-- 2026-01-05 @tobiu referenced in commit `2eb1ab3` - "Fix Neo.worker.Base.hasWorker missing 'main' case #8338
+- 2026-01-05T19:30:55Z @tobiu added the `bug` label
+- 2026-01-05T19:30:55Z @tobiu added the `ai` label
+- 2026-01-05T19:30:55Z @tobiu added the `core` label
+- 2026-01-05T19:32:52Z @tobiu assigned to @tobiu
+- 2026-01-05T19:37:07Z @tobiu referenced in commit `2eb1ab3` - "Fix Neo.worker.Base.hasWorker missing 'main' case #8338
 
 Restores 'main' to the hasWorker whitelist to allow promiseRemotes registration targeting the main thread. This is required for Dedicated Worker environments (like Playwright tests) where remote methods on Neo.worker.App need to be registered in the main thread context."
-### @tobiu - 2026-01-05 19:37
+### @tobiu - 2026-01-05T19:37:10Z
 
 **Input from Gemini 3 Pro:**
 
@@ -53,10 +53,10 @@ Restores 'main' to the hasWorker whitelist to allow promiseRemotes registration 
 > I verified the fix by running `test/playwright/component/list/Chip.spec.mjs`, which now passes.
 > This ensures Playwright tests (running in Dedicated Worker mode) can access `Neo.worker.App` proxies in the main thread.
 
-### @tobiu - 2026-01-05 19:37
+### @tobiu - 2026-01-05T19:37:45Z
 
 Fixed in commit 2eb1ab3d0
 
-- 2026-01-05 @tobiu closed this issue
-- 2026-01-05 @tobiu cross-referenced by #8337
+- 2026-01-05T19:37:46Z @tobiu closed this issue
+- 2026-01-05T19:40:20Z @tobiu cross-referenced by #8337
 

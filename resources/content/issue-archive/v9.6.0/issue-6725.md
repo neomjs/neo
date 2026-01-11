@@ -25,12 +25,12 @@ closedAt: '2025-05-28T23:10:41Z'
 
 ## Timeline
 
-- 2025-05-28 @tobiu assigned to @tobiu
-- 2025-05-28 @tobiu added the `enhancement` label
-- 2025-05-28 @tobiu referenced in commit `bd2da4d` - "dist/esm: polish file paths for theme css imports #6725"
-### @tobiu - 2025-05-28 23:10
+- 2025-05-28T23:10:12Z @tobiu assigned to @tobiu
+- 2025-05-28T23:10:12Z @tobiu added the `enhancement` label
+- 2025-05-28T23:10:29Z @tobiu referenced in commit `bd2da4d` - "dist/esm: polish file paths for theme css imports #6725"
+### @tobiu - 2025-05-28T23:10:41Z
 
 <img width="1843" alt="Image" src="https://github.com/user-attachments/assets/53cd9aab-3fcb-4bc6-a6ee-256dff2f7c6d" />
 
-- 2025-05-28 @tobiu closed this issue
+- 2025-05-28T23:10:41Z @tobiu closed this issue
 

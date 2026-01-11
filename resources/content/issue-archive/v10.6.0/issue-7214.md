@@ -411,11 +411,11 @@ Add the following scripts to the `scripts` section of the `package.json` in the 
 
 ## Timeline
 
-- 2025-09-18 @tobiu assigned to @tobiu
-- 2025-09-18 @tobiu added the `enhancement` label
-- 2025-09-18 @tobiu added the `no auto close` label
-- 2025-09-18 @tobiu referenced in commit `d71776c` - "Local AI Knowledge Base Setup for the Neo.mjs Repository #7214 WIP"
-### @tobiu - 2025-09-18 18:15
+- 2025-09-18T16:06:18Z @tobiu assigned to @tobiu
+- 2025-09-18T16:06:19Z @tobiu added the `enhancement` label
+- 2025-09-18T16:47:26Z @tobiu added the `no auto close` label
+- 2025-09-18T18:14:47Z @tobiu referenced in commit `d71776c` - "Local AI Knowledge Base Setup for the Neo.mjs Repository #7214 WIP"
+### @tobiu - 2025-09-18T18:15:55Z
 
 ```bash
 tobiasuhlig@iMacPro neo % npm run ai:query -- -q "How do I create a button?"
@@ -437,13 +437,13 @@ Most relevant source files (by weighted score):
 Top result: /Users/Shared/github/neomjs/neo/src/button/Base.mjs
 ``` 
 
-- 2025-09-18 @tobiu referenced in commit `3a14588` - "Local AI Knowledge Base Setup for the Neo.mjs Repository #7214 WIP"
-- 2025-09-19 @tobiu referenced in commit `327e554` - "#7214 enhancing the weighting for queries"
-- 2025-09-19 @tobiu referenced in commit `69b014e` - "#7214 adding base classes into search query results"
-- 2025-09-19 @tobiu referenced in commit `4902907` - "#7214 balancing base class weights"
-### @tobiu - 2025-09-19 12:21
+- 2025-09-18T18:37:47Z @tobiu referenced in commit `3a14588` - "Local AI Knowledge Base Setup for the Neo.mjs Repository #7214 WIP"
+- 2025-09-19T11:28:45Z @tobiu referenced in commit `327e554` - "#7214 enhancing the weighting for queries"
+- 2025-09-19T12:13:05Z @tobiu referenced in commit `69b014e` - "#7214 adding base classes into search query results"
+- 2025-09-19T12:20:00Z @tobiu referenced in commit `4902907` - "#7214 balancing base class weights"
+### @tobiu - 2025-09-19T12:21:45Z
 
 <img width="995" height="663" alt="Image" src="https://github.com/user-attachments/assets/e4f015b3-2560-4ec5-868c-32ae05a4df86" />
 
-- 2025-09-19 @tobiu closed this issue
+- 2025-09-19T12:22:44Z @tobiu closed this issue
 

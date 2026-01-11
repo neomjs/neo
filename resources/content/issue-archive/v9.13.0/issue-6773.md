@@ -25,8 +25,8 @@ closedAt: '2025-06-12T15:50:14Z'
 
 ## Timeline
 
-- 2025-06-12 @tobiu added the `enhancement` label
-- 2025-06-12 @tobiu referenced in commit `80692e7` - "form.field.Text: destroy() => destroy all triggers if needed #6773"
-- 2025-06-12 @tobiu assigned to @tobiu
-- 2025-06-12 @tobiu closed this issue
+- 2025-06-12T15:49:34Z @tobiu added the `enhancement` label
+- 2025-06-12T15:49:57Z @tobiu referenced in commit `80692e7` - "form.field.Text: destroy() => destroy all triggers if needed #6773"
+- 2025-06-12T15:50:07Z @tobiu assigned to @tobiu
+- 2025-06-12T15:50:14Z @tobiu closed this issue
 

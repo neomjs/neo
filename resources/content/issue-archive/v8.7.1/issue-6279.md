@@ -27,8 +27,8 @@ this looks odd, there should be no border:
 
 ## Timeline
 
-- 2025-01-23 @tobiu added the `bug` label
-- 2025-01-23 @tobiu assigned to @tobiu
-- 2025-01-23 @tobiu referenced in commit `c7abf64` - "dialog.Base: header toolbar => active button state #6279"
-- 2025-01-23 @tobiu closed this issue
+- 2025-01-23T23:49:19Z @tobiu added the `bug` label
+- 2025-01-23T23:49:19Z @tobiu assigned to @tobiu
+- 2025-01-23T23:49:35Z @tobiu referenced in commit `c7abf64` - "dialog.Base: header toolbar => active button state #6279"
+- 2025-01-23T23:50:10Z @tobiu closed this issue
 

@@ -29,9 +29,9 @@ Update `summarizeSession` to calculate the session's timestamp based on the **la
 
 ## Timeline
 
-- 2025-12-29 @tobiu added the `bug` label
-- 2025-12-29 @tobiu added the `ai` label
-- 2025-12-29 @tobiu assigned to @tobiu
-- 2025-12-29 @tobiu referenced in commit `0f1550f` - "Fix Session Summary Timestamp Overwrite on Re-summarization #8204"
-- 2025-12-29 @tobiu closed this issue
+- 2025-12-29T22:37:05Z @tobiu added the `bug` label
+- 2025-12-29T22:37:06Z @tobiu added the `ai` label
+- 2025-12-29T22:38:35Z @tobiu assigned to @tobiu
+- 2025-12-29T22:39:01Z @tobiu referenced in commit `0f1550f` - "Fix Session Summary Timestamp Overwrite on Re-summarization #8204"
+- 2025-12-29T22:39:10Z @tobiu closed this issue
 

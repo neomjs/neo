@@ -42,8 +42,8 @@ params: key, value, scope
 
 ## Timeline
 
-- 2025-01-24 @tobiu added the `enhancement` label
-- 2025-01-24 @tobiu assigned to @tobiu
-- 2025-01-24 @tobiu referenced in commit `34d2cc7` - "Neo.assignToNs() #6280"
-- 2025-01-24 @tobiu closed this issue
+- 2025-01-24T00:19:38Z @tobiu added the `enhancement` label
+- 2025-01-24T00:19:38Z @tobiu assigned to @tobiu
+- 2025-01-24T14:02:34Z @tobiu referenced in commit `34d2cc7` - "Neo.assignToNs() #6280"
+- 2025-01-24T14:18:22Z @tobiu closed this issue
 

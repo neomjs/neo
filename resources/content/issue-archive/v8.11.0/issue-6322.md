@@ -26,8 +26,8 @@ closedAt: '2025-01-28T10:04:38Z'
 
 ## Timeline
 
-- 2025-01-28 @tobiu added the `enhancement` label
-- 2025-01-28 @tobiu assigned to @tobiu
-- 2025-01-28 @tobiu referenced in commit `2095c7f` - "table.View: remove tabIndex (receiving focus) from table cells & rows #6322"
-- 2025-01-28 @tobiu closed this issue
+- 2025-01-28T10:04:22Z @tobiu added the `enhancement` label
+- 2025-01-28T10:04:22Z @tobiu assigned to @tobiu
+- 2025-01-28T10:04:35Z @tobiu referenced in commit `2095c7f` - "table.View: remove tabIndex (receiving focus) from table cells & rows #6322"
+- 2025-01-28T10:04:38Z @tobiu closed this issue
 

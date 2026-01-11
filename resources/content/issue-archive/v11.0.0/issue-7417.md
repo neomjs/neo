@@ -49,23 +49,23 @@ After making the changes, you can see them live by:
 
 ## Timeline
 
-- 2025-10-08 @tobiu assigned to @tobiu
-- 2025-10-08 @tobiu added the `documentation` label
-- 2025-10-08 @tobiu added parent issue #7296
-- 2025-10-08 @tobiu cross-referenced by PR #7323
-### @Mariam-Saeed - 2025-10-08 15:26
+- 2025-10-08T13:19:53Z @tobiu assigned to @tobiu
+- 2025-10-08T13:19:55Z @tobiu added the `documentation` label
+- 2025-10-08T13:19:55Z @tobiu added parent issue #7296
+- 2025-10-08T13:25:55Z @tobiu cross-referenced by PR #7323
+### @Mariam-Saeed - 2025-10-08T15:26:56Z
 
 @tobiu 
 Thank you for merging my previous PR!
 You can assign this issue to me, I’ll be happy to handle these changes 😊
 
-- 2025-10-08 @tobiu unassigned from @tobiu
-- 2025-10-08 @tobiu assigned to @Mariam-Saeed
-- 2025-10-08 @tobiu added the `hacktoberfest` label
-### @tobiu - 2025-10-08 15:29
+- 2025-10-08T15:28:46Z @tobiu unassigned from @tobiu
+- 2025-10-08T15:28:46Z @tobiu assigned to @Mariam-Saeed
+- 2025-10-08T15:28:52Z @tobiu added the `hacktoberfest` label
+### @tobiu - 2025-10-08T15:29:24Z
 
 thx, appreciated! you could try gemini cli here.
 
-- 2025-10-08 @Mariam-Saeed cross-referenced by PR #7422
-- 2025-10-09 @tobiu closed this issue
+- 2025-10-08T22:32:35Z @Mariam-Saeed cross-referenced by PR #7422
+- 2025-10-09T11:06:14Z @tobiu closed this issue
 

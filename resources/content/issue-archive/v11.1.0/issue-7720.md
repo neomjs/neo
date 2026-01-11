@@ -25,9 +25,9 @@ The `healthHelpers.mjs` file was introduced in PR #7717 to separate parsing logi
 
 ## Timeline
 
-- 2025-11-08 @tobiu added the `ai` label
-- 2025-11-08 @tobiu added the `refactoring` label
-- 2025-11-08 @tobiu cross-referenced by PR #7717
-- 2025-11-11 @MannXo cross-referenced by PR #7738
-- 2025-11-11 @tobiu closed this issue
+- 2025-11-08T09:50:30Z @tobiu added the `ai` label
+- 2025-11-08T09:50:30Z @tobiu added the `refactoring` label
+- 2025-11-08T10:03:47Z @tobiu cross-referenced by PR #7717
+- 2025-11-11T08:01:31Z @MannXo cross-referenced by PR #7738
+- 2025-11-11T08:35:17Z @tobiu closed this issue
 

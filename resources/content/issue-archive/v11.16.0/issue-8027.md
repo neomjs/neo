@@ -34,11 +34,11 @@ Implement the SCSS overrides for `Neo.container.Panel` in the `neo-theme-cyberpu
 
 ## Timeline
 
-- 2025-12-04 @tobiu added the `enhancement` label
-- 2025-12-04 @tobiu added the `design` label
-- 2025-12-04 @tobiu added the `ai` label
-- 2025-12-04 @tobiu added parent issue #8025
-- 2025-12-05 @tobiu assigned to @tobiu
-- 2025-12-05 @tobiu referenced in commit `72fef25` - "Implement Panel Styles for Neo Cyberpunk #8027"
-- 2025-12-05 @tobiu closed this issue
+- 2025-12-04T23:40:18Z @tobiu added the `enhancement` label
+- 2025-12-04T23:40:18Z @tobiu added the `design` label
+- 2025-12-04T23:40:18Z @tobiu added the `ai` label
+- 2025-12-04T23:41:19Z @tobiu added parent issue #8025
+- 2025-12-05T00:39:14Z @tobiu assigned to @tobiu
+- 2025-12-05T00:40:45Z @tobiu referenced in commit `72fef25` - "Implement Panel Styles for Neo Cyberpunk #8027"
+- 2025-12-05T00:41:00Z @tobiu closed this issue
 

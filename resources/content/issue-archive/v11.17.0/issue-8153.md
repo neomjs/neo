@@ -38,12 +38,12 @@ This task ensures that `windowId` is consistently propagated from `Neo.component
 
 ## Timeline
 
-- 2025-12-21 @tobiu added the `enhancement` label
-- 2025-12-21 @tobiu added the `ai` label
-- 2025-12-21 @tobiu added the `architecture` label
-- 2025-12-21 @tobiu assigned to @tobiu
-- 2025-12-21 @tobiu referenced in commit `0d2eda6` - "#8153 Propagate windowId to StateProviders and Controllers"
-### @tobiu - 2025-12-21 16:13
+- 2025-12-21T16:09:20Z @tobiu added the `enhancement` label
+- 2025-12-21T16:09:20Z @tobiu added the `ai` label
+- 2025-12-21T16:09:20Z @tobiu added the `architecture` label
+- 2025-12-21T16:09:38Z @tobiu assigned to @tobiu
+- 2025-12-21T16:12:58Z @tobiu referenced in commit `0d2eda6` - "#8153 Propagate windowId to StateProviders and Controllers"
+### @tobiu - 2025-12-21T16:13:12Z
 
 Implemented windowId propagation to state.Provider and controller.Component.
 - Added non-reactive windowId config to state.Provider
@@ -51,5 +51,5 @@ Implemented windowId propagation to state.Provider and controller.Component.
 - Updated component.Abstract to pass windowId during state provider creation
 - Fixed JSDoc type for controller.Component.windowId
 
-- 2025-12-21 @tobiu closed this issue
+- 2025-12-21T16:13:13Z @tobiu closed this issue
 

@@ -41,9 +41,9 @@ Enhance the "The AI-Native Development Platform" section in `README.md` to:
 
 ## Timeline
 
-- 2025-11-23 @tobiu added the `documentation` label
-- 2025-11-23 @tobiu added the `ai` label
-- 2025-11-23 @tobiu assigned to @tobiu
-- 2025-11-23 @tobiu referenced in commit `819708c` - "Enhance README.md with links to new MCP guides and Code Execution section #7879"
-- 2025-11-23 @tobiu closed this issue
+- 2025-11-23T12:13:14Z @tobiu added the `documentation` label
+- 2025-11-23T12:13:14Z @tobiu added the `ai` label
+- 2025-11-23T12:14:19Z @tobiu assigned to @tobiu
+- 2025-11-23T12:14:40Z @tobiu referenced in commit `819708c` - "Enhance README.md with links to new MCP guides and Code Execution section #7879"
+- 2025-11-23T12:14:47Z @tobiu closed this issue
 

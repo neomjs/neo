@@ -25,8 +25,8 @@ closedAt: '2025-06-16T17:23:11Z'
 
 ## Timeline
 
-- 2025-06-16 @tobiu assigned to @tobiu
-- 2025-06-16 @tobiu added the `enhancement` label
-- 2025-06-16 @tobiu referenced in commit `5af1f7f` - "Neo.vdom.util.DomApiVnodeCreator: create() => opt out for componentId reference nodes #6821"
-- 2025-06-16 @tobiu closed this issue
+- 2025-06-16T17:06:12Z @tobiu assigned to @tobiu
+- 2025-06-16T17:06:13Z @tobiu added the `enhancement` label
+- 2025-06-16T17:23:00Z @tobiu referenced in commit `5af1f7f` - "Neo.vdom.util.DomApiVnodeCreator: create() => opt out for componentId reference nodes #6821"
+- 2025-06-16T17:23:11Z @tobiu closed this issue
 

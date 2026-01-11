@@ -45,10 +45,10 @@ The AST transformation is complex. If an edge case or a bug in the processor cau
 
 ## Timeline
 
-- 2025-08-02 @tobiu assigned to @tobiu
-- 2025-08-02 @tobiu added parent issue #7130
-- 2025-08-02 @tobiu added the `enhancement` label
-- 2025-08-02 @tobiu referenced in commit `690c380` - "Add Error Resilience to AST Processor
+- 2025-08-02T12:07:16Z @tobiu assigned to @tobiu
+- 2025-08-02T12:07:17Z @tobiu added parent issue #7130
+- 2025-08-02T12:07:18Z @tobiu added the `enhancement` label
+- 2025-08-02T12:10:06Z @tobiu referenced in commit `690c380` - "Add Error Resilience to AST Processor
 #7162"
-- 2025-08-02 @tobiu closed this issue
+- 2025-08-02T12:10:28Z @tobiu closed this issue
 

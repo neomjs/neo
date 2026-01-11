@@ -25,8 +25,8 @@ closedAt: '2025-03-09T00:21:13Z'
 
 ## Timeline
 
-- 2025-03-08 @tobiu added the `enhancement` label
-- 2025-03-08 @tobiu assigned to @tobiu
-- 2025-03-09 @tobiu referenced in commit `6889f34` - "grid.View: afterSetStore() => create own listeners #6551"
-- 2025-03-09 @tobiu closed this issue
+- 2025-03-08T23:47:36Z @tobiu added the `enhancement` label
+- 2025-03-08T23:47:36Z @tobiu assigned to @tobiu
+- 2025-03-09T00:21:02Z @tobiu referenced in commit `6889f34` - "grid.View: afterSetStore() => create own listeners #6551"
+- 2025-03-09T00:21:13Z @tobiu closed this issue
 

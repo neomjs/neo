@@ -35,10 +35,10 @@ This ticket covers the documentation and process improvements needed to prevent 
 
 ## Timeline
 
-- 2025-10-03 @tobiu assigned to @tobiu
-- 2025-10-03 @tobiu added the `documentation` label
-- 2025-10-03 @tobiu added the `enhancement` label
-- 2025-10-03 @tobiu added parent issue #7316
-- 2025-10-03 @tobiu referenced in commit `e358e2d` - "Clarify Agent Memory Protocol and Tooling #7335"
-- 2025-10-03 @tobiu closed this issue
+- 2025-10-03T10:56:21Z @tobiu assigned to @tobiu
+- 2025-10-03T10:56:22Z @tobiu added the `documentation` label
+- 2025-10-03T10:56:22Z @tobiu added the `enhancement` label
+- 2025-10-03T10:56:22Z @tobiu added parent issue #7316
+- 2025-10-03T10:57:30Z @tobiu referenced in commit `e358e2d` - "Clarify Agent Memory Protocol and Tooling #7335"
+- 2025-10-03T10:57:53Z @tobiu closed this issue
 

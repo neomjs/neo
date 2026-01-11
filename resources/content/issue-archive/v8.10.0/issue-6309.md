@@ -25,8 +25,8 @@ closedAt: '2025-01-26T20:34:33Z'
 
 ## Timeline
 
-- 2025-01-26 @tobiu added the `enhancement` label
-- 2025-01-26 @tobiu assigned to @tobiu
-- 2025-01-26 @tobiu referenced in commit `62e5ce8` - "selection.*: remove all spots which increase the updateDepth #6309"
-- 2025-01-26 @tobiu closed this issue
+- 2025-01-26T20:34:11Z @tobiu added the `enhancement` label
+- 2025-01-26T20:34:11Z @tobiu assigned to @tobiu
+- 2025-01-26T20:34:28Z @tobiu referenced in commit `62e5ce8` - "selection.*: remove all spots which increase the updateDepth #6309"
+- 2025-01-26T20:34:34Z @tobiu closed this issue
 

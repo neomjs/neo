@@ -36,23 +36,23 @@ To allow the agent to review code from external pull requests, it needs a way to
 
 ## Timeline
 
-- 2025-10-05 @tobiu added the `enhancement` label
-- 2025-10-05 @tobiu added the `help wanted` label
-- 2025-10-05 @tobiu added the `good first issue` label
-- 2025-10-05 @tobiu added the `hacktoberfest` label
-- 2025-10-05 @tobiu added the `ai` label
-- 2025-10-05 @tobiu added parent issue #7364
-- 2025-10-05 @tobiu cross-referenced by #7371
-### @SarthakJain29 - 2025-10-05 17:19
+- 2025-10-05T11:15:34Z @tobiu added the `enhancement` label
+- 2025-10-05T11:15:34Z @tobiu added the `help wanted` label
+- 2025-10-05T11:15:34Z @tobiu added the `good first issue` label
+- 2025-10-05T11:15:34Z @tobiu added the `hacktoberfest` label
+- 2025-10-05T11:15:34Z @tobiu added the `ai` label
+- 2025-10-05T11:15:34Z @tobiu added parent issue #7364
+- 2025-10-05T14:13:01Z @tobiu cross-referenced by #7371
+### @SarthakJain29 - 2025-10-05T17:19:52Z
 
 Hi again! would love to work on this.
 
-- 2025-10-05 @tobiu assigned to @SarthakJain29
-### @tobiu - 2025-10-05 17:53
+- 2025-10-05T17:52:37Z @tobiu assigned to @SarthakJain29
+### @tobiu - 2025-10-05T17:53:23Z
 
 assigned. ai native workflow strongly recommended for this one.
 
-- 2025-10-06 @SarthakJain29 cross-referenced by PR #7392
-- 2025-10-06 @SarthakJain29 cross-referenced by #7393
-- 2025-10-06 @tobiu closed this issue
+- 2025-10-06T11:29:05Z @SarthakJain29 cross-referenced by PR #7392
+- 2025-10-06T12:18:17Z @SarthakJain29 cross-referenced by #7393
+- 2025-10-06T13:21:52Z @tobiu closed this issue
 

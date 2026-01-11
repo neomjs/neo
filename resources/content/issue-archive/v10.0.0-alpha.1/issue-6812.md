@@ -25,9 +25,9 @@ closedAt: '2025-06-16T11:56:47Z'
 
 ## Timeline
 
-- 2025-06-16 @tobiu assigned to @tobiu
-- 2025-06-16 @tobiu added the `enhancement` label
-- 2025-06-16 @tobiu added parent issue #6785
-- 2025-06-16 @tobiu referenced in commit `2d942c4` - "vdom.VNode: add a textContent property #6812"
-- 2025-06-16 @tobiu closed this issue
+- 2025-06-16T11:10:09Z @tobiu assigned to @tobiu
+- 2025-06-16T11:10:10Z @tobiu added the `enhancement` label
+- 2025-06-16T11:10:10Z @tobiu added parent issue #6785
+- 2025-06-16T11:10:33Z @tobiu referenced in commit `2d942c4` - "vdom.VNode: add a textContent property #6812"
+- 2025-06-16T11:56:47Z @tobiu closed this issue
 

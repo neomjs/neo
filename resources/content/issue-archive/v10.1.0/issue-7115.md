@@ -61,7 +61,7 @@ the SM must try to pass a matching view controller.
 
 ## Timeline
 
-- 2025-07-27 @tobiu added the `enhancement` label
-- 2025-07-27 @tobiu referenced in commit `d5dec95` - "Neo.selection.Model: add getController() #7115"
-- 2025-07-27 @tobiu closed this issue
+- 2025-07-27T00:22:36Z @tobiu added the `enhancement` label
+- 2025-07-27T00:24:09Z @tobiu referenced in commit `d5dec95` - "Neo.selection.Model: add getController() #7115"
+- 2025-07-27T00:24:22Z @tobiu closed this issue
 

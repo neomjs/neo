@@ -25,8 +25,8 @@ closedAt: '2025-02-22T18:19:13Z'
 
 ## Timeline
 
-- 2025-02-22 @tobiu added the `enhancement` label
-- 2025-02-22 @tobiu assigned to @tobiu
-- 2025-02-22 @tobiu referenced in commit `979f77f` - "Portal.view.home.parts.MainNeo: adjust the CSS for the magic move text => mobile #6488"
-- 2025-02-22 @tobiu closed this issue
+- 2025-02-22T18:18:48Z @tobiu added the `enhancement` label
+- 2025-02-22T18:18:49Z @tobiu assigned to @tobiu
+- 2025-02-22T18:19:06Z @tobiu referenced in commit `979f77f` - "Portal.view.home.parts.MainNeo: adjust the CSS for the magic move text => mobile #6488"
+- 2025-02-22T18:19:13Z @tobiu closed this issue
 

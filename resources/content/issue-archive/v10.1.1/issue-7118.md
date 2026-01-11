@@ -60,8 +60,8 @@ This ticket documents the successful resolution of the issue.
 
 ## Timeline
 
-- 2025-07-27 @tobiu assigned to @tobiu
-- 2025-07-27 @tobiu added the `enhancement` label
-- 2025-07-27 @tobiu referenced in commit `5b15ad3` - "Bug Report: collection.Base#move() fails on sibling swaps #7118"
-- 2025-07-27 @tobiu closed this issue
+- 2025-07-27T17:51:14Z @tobiu assigned to @tobiu
+- 2025-07-27T17:51:15Z @tobiu added the `enhancement` label
+- 2025-07-27T17:52:38Z @tobiu referenced in commit `5b15ad3` - "Bug Report: collection.Base#move() fails on sibling swaps #7118"
+- 2025-07-27T17:52:58Z @tobiu closed this issue
 

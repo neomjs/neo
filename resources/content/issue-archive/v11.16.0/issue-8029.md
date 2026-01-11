@@ -35,11 +35,11 @@ Implement the SCSS overrides for `Neo.button.Base` in the `neo-theme-cyberpunk`.
 
 ## Timeline
 
-- 2025-12-04 @tobiu added the `enhancement` label
-- 2025-12-04 @tobiu added the `design` label
-- 2025-12-04 @tobiu added the `ai` label
-- 2025-12-04 @tobiu added parent issue #8025
-- 2025-12-05 @tobiu assigned to @tobiu
-- 2025-12-05 @tobiu referenced in commit `4669e1d` - "Implement Button Styles for Neo Cyberpunk #8029"
-- 2025-12-05 @tobiu closed this issue
+- 2025-12-04T23:40:23Z @tobiu added the `enhancement` label
+- 2025-12-04T23:40:23Z @tobiu added the `design` label
+- 2025-12-04T23:40:23Z @tobiu added the `ai` label
+- 2025-12-04T23:41:23Z @tobiu added parent issue #8025
+- 2025-12-05T00:41:13Z @tobiu assigned to @tobiu
+- 2025-12-05T00:41:41Z @tobiu referenced in commit `4669e1d` - "Implement Button Styles for Neo Cyberpunk #8029"
+- 2025-12-05T00:41:44Z @tobiu closed this issue
 

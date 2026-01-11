@@ -41,13 +41,13 @@ AI agents need to inspect non-visual instances (like data stores or state contro
 
 ## Timeline
 
-- 2026-01-04 @tobiu added the `enhancement` label
-- 2026-01-04 @tobiu added the `ai` label
-- 2026-01-04 @tobiu added the `refactoring` label
-- 2026-01-04 @tobiu added parent issue #8169
-- 2026-01-04 @tobiu assigned to @tobiu
-- 2026-01-04 @tobiu referenced in commit `55ffe15` - "Refactor: Generalize Property Access to InstanceService (#8324)"
-### @tobiu - 2026-01-04 19:29
+- 2026-01-04T19:20:34Z @tobiu added the `enhancement` label
+- 2026-01-04T19:20:34Z @tobiu added the `ai` label
+- 2026-01-04T19:20:35Z @tobiu added the `refactoring` label
+- 2026-01-04T19:20:40Z @tobiu added parent issue #8169
+- 2026-01-04T19:20:49Z @tobiu assigned to @tobiu
+- 2026-01-04T19:28:53Z @tobiu referenced in commit `55ffe15` - "Refactor: Generalize Property Access to InstanceService (#8324)"
+### @tobiu - 2026-01-04T19:29:09Z
 
 **Input from Gemini 3 Pro:**
 
@@ -68,5 +68,5 @@ AI agents need to inspect non-visual instances (like data stores or state contro
 > -   Restart the Neural Link server to apply the changes.
 > -   Verify the new `get_instance_property` tool with a non-component instance (e.g., a Store).
 
-- 2026-01-04 @tobiu closed this issue
+- 2026-01-04T19:29:35Z @tobiu closed this issue
 

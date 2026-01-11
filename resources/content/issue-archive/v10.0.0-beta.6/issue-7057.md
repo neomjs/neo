@@ -25,9 +25,9 @@ closedAt: '2025-07-15T13:26:01Z'
 
 ## Timeline
 
-- 2025-07-15 @tobiu assigned to @tobiu
-- 2025-07-15 @tobiu added the `enhancement` label
-- 2025-07-15 @tobiu added parent issue #6992
-- 2025-07-15 @tobiu referenced in commit `5669487` - "Enable support for nesting functional components #7057"
-- 2025-07-15 @tobiu closed this issue
+- 2025-07-15T13:17:16Z @tobiu assigned to @tobiu
+- 2025-07-15T13:17:17Z @tobiu added the `enhancement` label
+- 2025-07-15T13:17:17Z @tobiu added parent issue #6992
+- 2025-07-15T13:17:52Z @tobiu referenced in commit `5669487` - "Enable support for nesting functional components #7057"
+- 2025-07-15T13:26:01Z @tobiu closed this issue
 

@@ -25,8 +25,8 @@ selections are purely view based, so we should move the related logic over.
 
 ## Timeline
 
-- 2025-01-14 @tobiu added the `enhancement` label
-- 2025-01-14 @tobiu assigned to @tobiu
-- 2025-01-15 @tobiu referenced in commit `15f2ad2` - "grid.Container: selectionModel_ => move the config into grid.View #6239"
-- 2025-01-15 @tobiu closed this issue
+- 2025-01-14T23:49:42Z @tobiu added the `enhancement` label
+- 2025-01-14T23:49:42Z @tobiu assigned to @tobiu
+- 2025-01-15T00:24:52Z @tobiu referenced in commit `15f2ad2` - "grid.Container: selectionModel_ => move the config into grid.View #6239"
+- 2025-01-15T00:25:03Z @tobiu closed this issue
 

@@ -43,24 +43,24 @@ This ensures perfect consistency between GitHub and the Portal, automated update
 
 ## Timeline
 
-- 2026-01-10 @tobiu added the `enhancement` label
-- 2026-01-10 @tobiu added the `ai` label
-- 2026-01-10 @tobiu added the `refactoring` label
-- 2026-01-10 @tobiu added the `build` label
-### @tobiu - 2026-01-10 17:52
+- 2026-01-10T17:52:23Z @tobiu added the `enhancement` label
+- 2026-01-10T17:52:23Z @tobiu added the `ai` label
+- 2026-01-10T17:52:23Z @tobiu added the `refactoring` label
+- 2026-01-10T17:52:24Z @tobiu added the `build` label
+### @tobiu - 2026-01-10T17:52:42Z
 
 **Input from Gemini 3 Pro:**
 
 > ✦ Starting work on exposing `GH_LabelService` in the AI SDK.
 
-### @tobiu - 2026-01-10 17:53
+### @tobiu - 2026-01-10T17:53:28Z
 
 **Input from Gemini 3 Pro:**
 
 > ✦ Implemented `GH_LabelService` export in `ai/services.mjs`. Now creating the build script `buildScripts/createLabelIndex.mjs`.
 
-- 2026-01-10 @tobiu referenced in commit `cb695c6` - "feat: Refactor Ticket Badges to use Dynamic Label Store (#8512)"
-### @tobiu - 2026-01-10 18:05
+- 2026-01-10T18:05:46Z @tobiu referenced in commit `cb695c6` - "feat: Refactor Ticket Badges to use Dynamic Label Store (#8512)"
+### @tobiu - 2026-01-10T18:05:55Z
 
 **Input from Gemini 3 Pro:**
 
@@ -74,6 +74,6 @@ This ensures perfect consistency between GitHub and the Portal, automated update
 > 
 > Ready to close.
 
-- 2026-01-10 @tobiu assigned to @tobiu
-- 2026-01-10 @tobiu closed this issue
+- 2026-01-10T18:06:19Z @tobiu assigned to @tobiu
+- 2026-01-10T18:06:34Z @tobiu closed this issue
 

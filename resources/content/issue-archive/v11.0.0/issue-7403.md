@@ -53,17 +53,17 @@ To work on this ticket, please start your session with the following prompt:
 
 ## Timeline
 
-- 2025-10-07 @tobiu added parent issue #7399
-- 2025-10-07 @tobiu added the `enhancement` label
-- 2025-10-07 @tobiu added the `help wanted` label
-- 2025-10-07 @tobiu added the `good first issue` label
-- 2025-10-07 @tobiu added the `hacktoberfest` label
-- 2025-10-07 @tobiu added the `ai` label
-### @thisis-gp - 2025-10-07 16:24
+- 2025-10-07T10:10:59Z @tobiu added parent issue #7399
+- 2025-10-07T10:10:59Z @tobiu added the `enhancement` label
+- 2025-10-07T10:11:00Z @tobiu added the `help wanted` label
+- 2025-10-07T10:11:00Z @tobiu added the `good first issue` label
+- 2025-10-07T10:11:00Z @tobiu added the `hacktoberfest` label
+- 2025-10-07T10:11:00Z @tobiu added the `ai` label
+### @thisis-gp - 2025-10-07T16:24:36Z
 
 @tobiu Can you assign me this issue?
 
-### @tobiu - 2025-10-07 16:30
+### @tobiu - 2025-10-07T16:30:52Z
 
 Hi, and thanks for your interest. Sure, I can assign the ticket to you. Make sure to read https://github.com/neomjs/neo/issues/7399 first. The work on this ticket is blocked, until the server is set up (phase 1 is completed).
 
@@ -73,21 +73,21 @@ You can also mention hacktoberfest and start a conversation => the agent can cre
 
 Or you could also pick one of the phase 1 items.
 
-- 2025-10-07 @tobiu assigned to @thisis-gp
-- 2025-10-08 @MannXo cross-referenced by #7404
-### @tobiu - 2025-10-08 14:46
+- 2025-10-07T16:31:01Z @tobiu assigned to @thisis-gp
+- 2025-10-08T12:42:15Z @MannXo cross-referenced by #7404
+### @tobiu - 2025-10-08T14:46:14Z
 
 heads up: i changed the file path from `buildScripts/mcp/` to `ai/mcp/server/`, which feels better suited as the new location inside the repo.
 
-### @tobiu - 2025-10-11 17:34
+### @tobiu - 2025-10-11T17:34:29Z
 
 FYI: the other MCP server scaffolding is completed. You might want to take a look at it, for feeding the agent with the files (saving time and getting consistency): https://github.com/neomjs/neo/tree/dev/ai/mcp/server/memory
 
-### @MannXo - 2025-10-14 14:24
+### @MannXo - 2025-10-14T14:24:39Z
 
 Hey, is this ticket in progress? I'm afraid it's blocking the endpoint implementation tasks.
 
-### @tobiu - 2025-10-14 15:02
+### @tobiu - 2025-10-14T15:02:50Z
 
 I don't know. I updated https://github.com/neomjs/neo/blob/dev/CONTRIBUTING.md with section 3.2, so that tickets can get reassigned in case there is no PR or ticket comment after one week.
 
@@ -97,7 +97,7 @@ The idea is to keep Open API specs as the "single source of truth", but deriving
 
 Unrelated brainstorming: Inside the agents file, we consume `docs/output/class-hierarchy.yaml` (over 500 lines), which feels wasteful from a token consumption perspective. Instead, we could add a new database (e.g. SQL) into the knowledge base server, and support queries to list all parent namespaces and file paths for a given class. This should also work for hacktoberfest tickets.
 
-### @MannXo - 2025-10-14 15:34
+### @MannXo - 2025-10-14T15:34:29Z
 
 > I don't know. I updated https://github.com/neomjs/neo/blob/dev/CONTRIBUTING.md with section 3.2, so that tickets can get reassigned in case there is no PR or ticket comment after one week.
 > 
@@ -111,18 +111,18 @@ Thanks @tobiu, that sounds very exciting. I'm happy to help with 7477 epic ticke
 
 Cheers.
 
-### @tobiu - 2025-10-14 16:33
+### @tobiu - 2025-10-14T16:33:56Z
 
 Appreciated! The project could definitely use more contributors beyond the hacktoberfest scope. I would not recommend 7477 though, since I will most likely change the specs a lot on the fly => want to resolve it this week, since it is my biggest own bottleneck to better support others. My recommendation would be to work on the other 2 MCP servers, and feel free to create new tickets as needed.
 
 We should be good for the hacktoberfest scope: we still have the unit testing, component based testing and component test ticket creation epics, and could literally add 100s of additional subs in there.
 
-### @MannXo - 2025-10-20 12:47
+### @MannXo - 2025-10-20T12:47:55Z
 
 Hey @tobiu I'm happy to take care of this one since there doesn't seem to be any activity after 2 weeks.
 lmk if I can start working on this.
 
-### @tobiu - 2025-10-24 09:20
+### @tobiu - 2025-10-24T09:20:14Z
 
 Hi @thisis-gp and @MannXo,
 
@@ -132,5 +132,5 @@ As there has been no PR for this foundational task and the project's architectur
 
 We're closing this ticket now. Thanks again for your willingness to contribute, and we hope to see you in other issues!
 
-- 2025-10-24 @tobiu closed this issue
+- 2025-10-24T09:20:25Z @tobiu closed this issue
 

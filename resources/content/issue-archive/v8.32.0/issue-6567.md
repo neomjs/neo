@@ -29,8 +29,8 @@ closedAt: '2025-03-12T12:02:23Z'
 
 ## Timeline
 
-- 2025-03-10 @tobiu added the `enhancement` label
-- 2025-03-10 @tobiu assigned to @tobiu
-- 2025-03-12 @tobiu referenced in commit `bee8ab1` - "grid.plugin.AnimateRows: use CSS vars #6567"
-- 2025-03-12 @tobiu closed this issue
+- 2025-03-10T10:35:36Z @tobiu added the `enhancement` label
+- 2025-03-10T10:35:36Z @tobiu assigned to @tobiu
+- 2025-03-12T12:02:16Z @tobiu referenced in commit `bee8ab1` - "grid.plugin.AnimateRows: use CSS vars #6567"
+- 2025-03-12T12:02:23Z @tobiu closed this issue
 

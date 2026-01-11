@@ -35,15 +35,15 @@ This should be a new theme var
 
 ## Timeline
 
-- 2025-01-26 @tobiu added the `enhancement` label
-- 2025-01-26 @tobiu assigned to @tobiu
-- 2025-01-27 @tobiu referenced in commit `bfbce0a` - "button.Base: glyph position #6311"
-- 2025-01-27 @tobiu closed this issue
-### @tobiu - 2025-01-27 10:10
+- 2025-01-26T22:58:05Z @tobiu added the `enhancement` label
+- 2025-01-26T22:58:05Z @tobiu assigned to @tobiu
+- 2025-01-27T10:00:26Z @tobiu referenced in commit `bfbce0a` - "button.Base: glyph position #6311"
+- 2025-01-27T10:01:33Z @tobiu closed this issue
+### @tobiu - 2025-01-27T10:10:14Z
 
 reopening to add this change for buttons inside toolbars & tabs too
 
-- 2025-01-27 @tobiu reopened this issue
-- 2025-01-27 @tobiu referenced in commit `6f1d3bf` - "button.Base: glyph position #6311"
-- 2025-01-27 @tobiu closed this issue
+- 2025-01-27T10:10:14Z @tobiu reopened this issue
+- 2025-01-27T10:10:27Z @tobiu referenced in commit `6f1d3bf` - "button.Base: glyph position #6311"
+- 2025-01-27T10:10:34Z @tobiu closed this issue
 

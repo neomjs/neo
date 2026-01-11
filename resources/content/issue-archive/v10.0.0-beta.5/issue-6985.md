@@ -61,9 +61,9 @@ The `Neo.state.Provider`'s `data_` config now correctly supports deep merging of
 
 ## Timeline
 
-- 2025-07-08 @tobiu assigned to @tobiu
-- 2025-07-08 @tobiu added the `enhancement` label
-- 2025-07-08 @tobiu referenced in commit `ba73dab` - "Implement and Validate Deep Merge for State.Provider's data_ Config #6985"
-- 2025-07-08 @tobiu closed this issue
-- 2025-07-09 @tobiu referenced in commit `bea9b43` - "Implement and Validate Deep Merge for State.Provider's data_ Config #6985"
+- 2025-07-08T02:20:57Z @tobiu assigned to @tobiu
+- 2025-07-08T02:20:59Z @tobiu added the `enhancement` label
+- 2025-07-08T02:27:26Z @tobiu referenced in commit `ba73dab` - "Implement and Validate Deep Merge for State.Provider's data_ Config #6985"
+- 2025-07-08T02:27:34Z @tobiu closed this issue
+- 2025-07-09T00:10:52Z @tobiu referenced in commit `bea9b43` - "Implement and Validate Deep Merge for State.Provider's data_ Config #6985"
 

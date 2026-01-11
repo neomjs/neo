@@ -32,11 +32,11 @@ Replace `.trim()` with a regex-based approach that only removes leading and trai
 
 ## Timeline
 
-- 2026-01-07 @tobiu added the `bug` label
-- 2026-01-07 @tobiu added the `documentation` label
-- 2026-01-07 @tobiu added the `ai` label
-- 2026-01-07 @tobiu referenced in commit `756a168` - "fix: Preserve indentation in Markdown code blocks (#8400)"
-- 2026-01-07 @tobiu assigned to @tobiu
-- 2026-01-07 @tobiu closed this issue
-- 2026-01-07 @tobiu added parent issue #8362
+- 2026-01-07T23:09:21Z @tobiu added the `bug` label
+- 2026-01-07T23:09:21Z @tobiu added the `documentation` label
+- 2026-01-07T23:09:21Z @tobiu added the `ai` label
+- 2026-01-07T23:12:19Z @tobiu referenced in commit `756a168` - "fix: Preserve indentation in Markdown code blocks (#8400)"
+- 2026-01-07T23:12:24Z @tobiu assigned to @tobiu
+- 2026-01-07T23:12:27Z @tobiu closed this issue
+- 2026-01-07T23:12:45Z @tobiu added parent issue #8362
 

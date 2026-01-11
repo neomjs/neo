@@ -26,9 +26,9 @@ This issue is to track the enhancement of the `AGENTS.md` file. The "Ticket-Firs
 
 ## Timeline
 
-- 2025-11-02 @tobiu added the `documentation` label
-- 2025-11-02 @tobiu added the `ai` label
-- 2025-11-02 @tobiu assigned to @tobiu
-- 2025-11-02 @tobiu referenced in commit `9f8d667` - "Docs: Clarify Scope of Ticket-First Gate in AGENTS.md #7693"
-- 2025-11-02 @tobiu closed this issue
+- 2025-11-02T16:58:48Z @tobiu added the `documentation` label
+- 2025-11-02T16:58:48Z @tobiu added the `ai` label
+- 2025-11-02T16:59:09Z @tobiu assigned to @tobiu
+- 2025-11-02T17:00:09Z @tobiu referenced in commit `9f8d667` - "Docs: Clarify Scope of Ticket-First Gate in AGENTS.md #7693"
+- 2025-11-02T17:00:26Z @tobiu closed this issue
 

@@ -37,11 +37,11 @@ This ensures consistent and bug-free drag-to-popup behavior across all dashboard
 
 ## Timeline
 
-- 2025-12-15 @tobiu added the `enhancement` label
-- 2025-12-15 @tobiu added the `ai` label
-- 2025-12-15 @tobiu assigned to @tobiu
-- 2025-12-15 @tobiu referenced in commit `b4e4690` - "Standardize Drag-to-Popup Logic in ViewportControllers #8115"
-### @tobiu - 2025-12-15 13:42
+- 2025-12-15T13:41:07Z @tobiu added the `enhancement` label
+- 2025-12-15T13:41:07Z @tobiu added the `ai` label
+- 2025-12-15T13:41:25Z @tobiu assigned to @tobiu
+- 2025-12-15T13:41:48Z @tobiu referenced in commit `b4e4690` - "Standardize Drag-to-Popup Logic in ViewportControllers #8115"
+### @tobiu - 2025-12-15T13:42:01Z
 
 **Input from Neo Agent:**
 
@@ -52,5 +52,5 @@ This ensures consistent and bug-free drag-to-popup behavior across all dashboard
 > 
 > The implementation is complete.
 
-- 2025-12-15 @tobiu closed this issue
+- 2025-12-15T13:42:21Z @tobiu closed this issue
 

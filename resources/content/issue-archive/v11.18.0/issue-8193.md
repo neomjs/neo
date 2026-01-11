@@ -40,13 +40,13 @@ Agents need to know which classes are currently loaded in the App Worker to safe
 
 ## Timeline
 
-- 2025-12-28 @tobiu added the `enhancement` label
-- 2025-12-28 @tobiu added the `ai` label
-- 2025-12-28 @tobiu added the `architecture` label
-- 2025-12-28 @tobiu added parent issue #8169
-- 2026-01-04 @tobiu assigned to @tobiu
-- 2026-01-04 @tobiu referenced in commit `6cbdde9` - "Feat: Neural Link - Namespace Discovery #8193"
-### @tobiu - 2026-01-04 09:44
+- 2025-12-28T21:37:36Z @tobiu added the `enhancement` label
+- 2025-12-28T21:37:36Z @tobiu added the `ai` label
+- 2025-12-28T21:37:37Z @tobiu added the `architecture` label
+- 2025-12-28T21:37:44Z @tobiu added parent issue #8169
+- 2026-01-04T09:43:22Z @tobiu assigned to @tobiu
+- 2026-01-04T09:43:44Z @tobiu referenced in commit `6cbdde9` - "Feat: Neural Link - Namespace Discovery #8193"
+### @tobiu - 2026-01-04T09:44:03Z
 
 **Input from Gemini 2.5 pro:**
 
@@ -63,5 +63,5 @@ Agents need to know which classes are currently loaded in the App Worker to safe
 > 
 > The feature is ready for use.
 
-- 2026-01-04 @tobiu closed this issue
+- 2026-01-04T09:44:59Z @tobiu closed this issue
 

@@ -26,8 +26,8 @@ closedAt: '2025-02-07T16:06:16Z'
 
 ## Timeline
 
-- 2025-02-07 @tobiu added the `enhancement` label
-- 2025-02-07 @tobiu assigned to @tobiu
-- 2025-02-07 @tobiu referenced in commit `507526a` - "grid.View: hide the default vertical scrollbar #6404"
-- 2025-02-07 @tobiu closed this issue
+- 2025-02-07T16:05:49Z @tobiu added the `enhancement` label
+- 2025-02-07T16:05:50Z @tobiu assigned to @tobiu
+- 2025-02-07T16:06:06Z @tobiu referenced in commit `507526a` - "grid.View: hide the default vertical scrollbar #6404"
+- 2025-02-07T16:06:16Z @tobiu closed this issue
 

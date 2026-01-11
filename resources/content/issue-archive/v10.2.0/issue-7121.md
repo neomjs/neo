@@ -39,9 +39,9 @@ This ticket is to create a new tutorial, "Creating a Custom Functional Button", 
 
 ## Timeline
 
-- 2025-07-28 @tobiu assigned to @tobiu
-- 2025-07-28 @tobiu added the `documentation` label
-- 2025-07-28 @tobiu added the `enhancement` label
-- 2025-07-28 @tobiu referenced in commit `d006480` - "docs: Create a new tutorial for building a functional component #7121"
-- 2025-07-28 @tobiu closed this issue
+- 2025-07-28T11:15:16Z @tobiu assigned to @tobiu
+- 2025-07-28T11:15:18Z @tobiu added the `documentation` label
+- 2025-07-28T11:15:18Z @tobiu added the `enhancement` label
+- 2025-07-28T11:15:44Z @tobiu referenced in commit `d006480` - "docs: Create a new tutorial for building a functional component #7121"
+- 2025-07-28T11:16:06Z @tobiu closed this issue
 

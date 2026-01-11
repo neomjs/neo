@@ -47,10 +47,10 @@ This epic refactoring unifies the draggable sorting logic by promoting it from `
 
 ## Timeline
 
-- 2025-12-11 @tobiu added the `epic` label
-- 2025-12-11 @tobiu added the `ai` label
-- 2025-12-11 @tobiu added the `refactoring` label
-- 2025-12-11 @tobiu assigned to @tobiu
-- 2025-12-11 @tobiu referenced in commit `60fd9b0` - "[Refactor] Unify SortZone logic in Container.Base and remove Toolbar specific implementations #8087"
-- 2025-12-11 @tobiu closed this issue
+- 2025-12-11T03:58:41Z @tobiu added the `epic` label
+- 2025-12-11T03:58:41Z @tobiu added the `ai` label
+- 2025-12-11T03:58:41Z @tobiu added the `refactoring` label
+- 2025-12-11T03:59:01Z @tobiu assigned to @tobiu
+- 2025-12-11T03:59:39Z @tobiu referenced in commit `60fd9b0` - "[Refactor] Unify SortZone logic in Container.Base and remove Toolbar specific implementations #8087"
+- 2025-12-11T04:05:36Z @tobiu closed this issue
 

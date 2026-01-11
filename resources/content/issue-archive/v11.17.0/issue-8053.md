@@ -47,10 +47,10 @@ Dragging components typically involves moving them in the VDOM tree, which trigg
 
 ## Timeline
 
-- 2025-12-07 @tobiu added the `enhancement` label
-- 2025-12-07 @tobiu added the `ai` label
-- 2025-12-07 @tobiu added the `architecture` label
-- 2025-12-07 @tobiu assigned to @tobiu
-- 2025-12-07 @tobiu referenced in commit `356532b` - "[Draggable] Implement Manual DOM Delta Strategy for Live Component Dragging #8053"
-- 2025-12-07 @tobiu closed this issue
+- 2025-12-07T19:01:13Z @tobiu added the `enhancement` label
+- 2025-12-07T19:01:13Z @tobiu added the `ai` label
+- 2025-12-07T19:01:13Z @tobiu added the `architecture` label
+- 2025-12-07T19:02:28Z @tobiu assigned to @tobiu
+- 2025-12-07T19:05:38Z @tobiu referenced in commit `356532b` - "[Draggable] Implement Manual DOM Delta Strategy for Live Component Dragging #8053"
+- 2025-12-07T19:09:29Z @tobiu closed this issue
 

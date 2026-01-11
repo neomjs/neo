@@ -41,13 +41,13 @@ The grid should support at least:
 
 ## Timeline
 
-- 2025-12-04 @tobiu added the `enhancement` label
-- 2025-12-04 @tobiu added the `ai` label
-- 2025-12-04 @tobiu added the `refactoring` label
-- 2025-12-04 @tobiu added parent issue #7918
-- 2025-12-04 @tobiu assigned to @tobiu
-- 2025-12-04 @tobiu referenced in commit `daaddf9` - "Refactor Intervention View to dedicated Grid Component #8024"
-### @tobiu - 2025-12-04 23:15
+- 2025-12-04T22:48:56Z @tobiu added the `enhancement` label
+- 2025-12-04T22:48:56Z @tobiu added the `ai` label
+- 2025-12-04T22:48:56Z @tobiu added the `refactoring` label
+- 2025-12-04T22:49:12Z @tobiu added parent issue #7918
+- 2025-12-04T22:49:37Z @tobiu assigned to @tobiu
+- 2025-12-04T23:14:50Z @tobiu referenced in commit `daaddf9` - "Refactor Intervention View to dedicated Grid Component #8024"
+### @tobiu - 2025-12-04T23:15:48Z
 
 **Input from Gemini 2.5 pro:**
 
@@ -69,5 +69,5 @@ The grid should support at least:
 > 3.  **Path Correction:**
 >     -   Updated the Store URL to use `Neo.config.basePath + 'apps/agentos/resources/data/interventions.json'` to ensure compatibility across both development and production environments.
 
-- 2025-12-04 @tobiu closed this issue
+- 2025-12-04T23:16:00Z @tobiu closed this issue
 

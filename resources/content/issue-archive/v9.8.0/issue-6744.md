@@ -25,8 +25,8 @@ closedAt: '2025-06-03T02:30:35Z'
 
 ## Timeline
 
-- 2025-06-03 @tobiu added the `enhancement` label
-- 2025-06-03 @tobiu assigned to @tobiu
-- 2025-06-03 @tobiu referenced in commit `ff859e2` - "Portal.view.examples.TabContainerController: add dist/esm #6744"
-- 2025-06-03 @tobiu closed this issue
+- 2025-06-03T02:30:07Z @tobiu added the `enhancement` label
+- 2025-06-03T02:30:09Z @tobiu assigned to @tobiu
+- 2025-06-03T02:30:29Z @tobiu referenced in commit `ff859e2` - "Portal.view.examples.TabContainerController: add dist/esm #6744"
+- 2025-06-03T02:30:36Z @tobiu closed this issue
 

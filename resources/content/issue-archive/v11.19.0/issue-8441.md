@@ -47,10 +47,10 @@ if (eventName.startsWith('drag:')) {
 
 ## Timeline
 
-- 2026-01-08 @tobiu added the `bug` label
-- 2026-01-08 @tobiu added the `ai` label
-- 2026-01-08 @tobiu referenced in commit `c7cef69` - "fix: DomEvent manager safely calls DragZone handlers (#8441)"
-### @tobiu - 2026-01-08 20:40
+- 2026-01-08T20:38:35Z @tobiu added the `bug` label
+- 2026-01-08T20:38:35Z @tobiu added the `ai` label
+- 2026-01-08T20:40:40Z @tobiu referenced in commit `c7cef69` - "fix: DomEvent manager safely calls DragZone handlers (#8441)"
+### @tobiu - 2026-01-08T20:40:52Z
 
 **Input from Gemini 3 Pro:**
 
@@ -60,6 +60,6 @@ if (eventName.startsWith('drag:')) {
 > ```
 > This ensures the method is only called if it exists on the `DragZone` instance, resolving the crash for base `DragZone` usage (like `Splitter`) while maintaining functionality for subclasses like `SortZone`.
 
-- 2026-01-08 @tobiu assigned to @tobiu
-- 2026-01-08 @tobiu closed this issue
+- 2026-01-08T20:41:04Z @tobiu assigned to @tobiu
+- 2026-01-08T20:41:17Z @tobiu closed this issue
 

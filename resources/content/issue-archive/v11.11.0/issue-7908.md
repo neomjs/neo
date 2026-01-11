@@ -27,9 +27,9 @@ Using optional chaining `Neo.currentWorker?.on(...)` is cleaner and handles case
 
 ## Timeline
 
-- 2025-11-26 @tobiu added the `ai` label
-- 2025-11-26 @tobiu added the `refactoring` label
-- 2025-11-26 @tobiu assigned to @tobiu
-- 2025-11-26 @tobiu referenced in commit `f7b79d5` - "Refactor vdom.Helper initAsync to use optional chaining #7908"
-- 2025-11-26 @tobiu closed this issue
+- 2025-11-26T12:12:59Z @tobiu added the `ai` label
+- 2025-11-26T12:12:59Z @tobiu added the `refactoring` label
+- 2025-11-26T12:13:10Z @tobiu assigned to @tobiu
+- 2025-11-26T12:15:58Z @tobiu referenced in commit `f7b79d5` - "Refactor vdom.Helper initAsync to use optional chaining #7908"
+- 2025-11-26T12:16:41Z @tobiu closed this issue
 

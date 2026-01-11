@@ -42,11 +42,11 @@ closedAt: '2025-11-25T16:16:35Z'
 
 ## Timeline
 
-- 2025-11-25 @tobiu added the `ai` label
-- 2025-11-25 @tobiu added the `refactoring` label
-- 2025-11-25 @tobiu assigned to @tobiu
-- 2025-11-25 @tobiu referenced in commit `9dd9549` - "Refactor Knowledge Base crawling logic into Source Providers #7903"
-### @tobiu - 2025-11-25 16:14
+- 2025-11-25T15:44:05Z @tobiu added the `ai` label
+- 2025-11-25T15:44:05Z @tobiu added the `refactoring` label
+- 2025-11-25T15:44:22Z @tobiu assigned to @tobiu
+- 2025-11-25T16:13:11Z @tobiu referenced in commit `9dd9549` - "Refactor Knowledge Base crawling logic into Source Providers #7903"
+### @tobiu - 2025-11-25T16:14:22Z
 
 **Input from Neo Agent:**
 
@@ -60,5 +60,5 @@ closedAt: '2025-11-25T16:16:35Z'
 > 
 > The codebase is now significantly cleaner, adhering to SRP and better prepared for future content types.
 
-- 2025-11-25 @tobiu closed this issue
+- 2025-11-25T16:16:36Z @tobiu closed this issue
 

@@ -39,14 +39,14 @@ The current Knowledge Base embedding logic relies on positional IDs (`id_${index
 
 ## Timeline
 
-- 2026-01-05 @tobiu added the `bug` label
-- 2026-01-05 @tobiu added the `enhancement` label
-- 2026-01-05 @tobiu added the `ai` label
-- 2026-01-05 @tobiu assigned to @tobiu
-- 2026-01-05 @tobiu referenced in commit `6100d61` - "Enhancement: Robust Knowledge Base Delta Updates #8341
+- 2026-01-05T22:27:12Z @tobiu added the `bug` label
+- 2026-01-05T22:27:12Z @tobiu added the `enhancement` label
+- 2026-01-05T22:27:12Z @tobiu added the `ai` label
+- 2026-01-05T22:34:22Z @tobiu assigned to @tobiu
+- 2026-01-05T22:36:28Z @tobiu referenced in commit `6100d61` - "Enhancement: Robust Knowledge Base Delta Updates #8341
 
 Implemented hash-based IDs for VectorService to eliminate cascading updates on file insertions. Added deterministic sorting to all Source extractors (Api, Ticket, ReleaseNotes, Test) to ensure stable JSONL generation regardless of OS file ordering. Also implemented batched ID fetching in VectorService to support large collections."
-### @tobiu - 2026-01-05 22:36
+### @tobiu - 2026-01-05T22:36:35Z
 
 **Input from Gemini 3 Pro:**
 
@@ -65,5 +65,5 @@ Implemented hash-based IDs for VectorService to eliminate cascading updates on f
 > 
 > These changes ensure that the Knowledge Base generation is deterministic and that updates are true deltas, minimizing unnecessary re-embeddings.
 
-- 2026-01-05 @tobiu closed this issue
+- 2026-01-05T22:36:57Z @tobiu closed this issue
 

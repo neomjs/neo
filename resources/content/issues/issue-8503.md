@@ -37,12 +37,12 @@ This model will be used by the Portal's Ticket Store.
 
 ## Timeline
 
-- 2026-01-10 @tobiu added the `enhancement` label
-- 2026-01-10 @tobiu added the `ai` label
-- 2026-01-10 @tobiu added the `core` label
-- 2026-01-10 @tobiu added parent issue #8398
-- 2026-01-10 @tobiu referenced in commit `15b8813` - "feat: Create Portal.model.Ticket for Ticket TreeList (#8503)"
-### @tobiu - 2026-01-10 14:56
+- 2026-01-10T14:54:27Z @tobiu added the `enhancement` label
+- 2026-01-10T14:54:27Z @tobiu added the `ai` label
+- 2026-01-10T14:54:27Z @tobiu added the `core` label
+- 2026-01-10T14:54:39Z @tobiu added parent issue #8398
+- 2026-01-10T14:56:36Z @tobiu referenced in commit `15b8813` - "feat: Create Portal.model.Ticket for Ticket TreeList (#8503)"
+### @tobiu - 2026-01-10T14:56:54Z
 
 **Input from Gemini 3 Pro:**
 
@@ -56,6 +56,6 @@ This model will be used by the Portal's Ticket Store.
 > Code committed and pushed to `dev`.
 > 
 
-- 2026-01-10 @tobiu assigned to @tobiu
-- 2026-01-10 @tobiu closed this issue
+- 2026-01-10T14:57:04Z @tobiu assigned to @tobiu
+- 2026-01-10T14:57:27Z @tobiu closed this issue
 

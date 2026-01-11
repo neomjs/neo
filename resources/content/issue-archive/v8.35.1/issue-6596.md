@@ -27,8 +27,8 @@ closedAt: '2025-03-26T19:46:58Z'
 
 ## Timeline
 
-- 2025-03-26 @tobiu added the `bug` label
-- 2025-03-26 @tobiu assigned to @tobiu
-- 2025-03-26 @tobiu referenced in commit `dd8f606` - "main.addon.ResizeObserver: unregister() #6596"
-- 2025-03-26 @tobiu closed this issue
+- 2025-03-26T19:46:20Z @tobiu added the `bug` label
+- 2025-03-26T19:46:21Z @tobiu assigned to @tobiu
+- 2025-03-26T19:46:50Z @tobiu referenced in commit `dd8f606` - "main.addon.ResizeObserver: unregister() #6596"
+- 2025-03-26T19:46:58Z @tobiu closed this issue
 

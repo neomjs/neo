@@ -35,14 +35,14 @@ The goal of this phase is to enhance the user experience by making the drag prox
 
 ## Timeline
 
-- 2025-08-20 @tobiu assigned to @tobiu
-- 2025-08-20 @tobiu added parent issue #7201
-- 2025-08-20 @tobiu added the `enhancement` label
-### @github-actions - 2025-11-19 02:51
+- 2025-08-20T22:05:23Z @tobiu assigned to @tobiu
+- 2025-08-20T22:05:24Z @tobiu added parent issue #7201
+- 2025-08-20T22:05:25Z @tobiu added the `enhancement` label
+### @github-actions - 2025-11-19T02:51:51Z
 
 This issue is stale because it has been open for 90 days with no activity.
 
-- 2025-11-19 @github-actions added the `stale` label
-- 2025-11-19 @tobiu removed the `stale` label
-- 2025-11-19 @tobiu added the `no auto close` label
+- 2025-11-19T02:51:52Z @github-actions added the `stale` label
+- 2025-11-19T14:02:06Z @tobiu removed the `stale` label
+- 2025-11-19T14:02:06Z @tobiu added the `no auto close` label
 

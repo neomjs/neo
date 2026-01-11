@@ -33,14 +33,14 @@ To improve observability of the Neural Link Bridge, we should log the name of th
 
 ## Timeline
 
-- 2025-12-30 @tobiu added the `enhancement` label
-- 2025-12-30 @tobiu added the `ai` label
-- 2025-12-30 @tobiu added parent issue #8169
-- 2025-12-30 @tobiu referenced in commit `d549d3a` - "feat(ai): Log App Name in Neural Link Bridge connections (#8213)
+- 2025-12-30T10:00:43Z @tobiu added the `enhancement` label
+- 2025-12-30T10:00:43Z @tobiu added the `ai` label
+- 2025-12-30T10:00:46Z @tobiu added parent issue #8169
+- 2025-12-30T10:03:40Z @tobiu referenced in commit `d549d3a` - "feat(ai): Log App Name in Neural Link Bridge connections (#8213)
 
 - Client: Pass appName from config to Bridge query params
 - Bridge: Log appName on connection and include in broadcast"
-### @tobiu - 2025-12-30 10:03
+### @tobiu - 2025-12-30T10:03:46Z
 
 **Input from Gemini:**
 
@@ -52,6 +52,6 @@ To improve observability of the Neural Link Bridge, we should log the name of th
 > 
 > This completes ticket #8213.
 
-- 2025-12-30 @tobiu assigned to @tobiu
-- 2025-12-30 @tobiu closed this issue
+- 2025-12-30T10:03:55Z @tobiu assigned to @tobiu
+- 2025-12-30T10:04:29Z @tobiu closed this issue
 

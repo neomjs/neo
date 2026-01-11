@@ -43,9 +43,9 @@ To address these issues, the `LivePreview.mjs` component was significantly refac
 
 ## Timeline
 
-- 2025-07-15 @tobiu assigned to @tobiu
-- 2025-07-15 @tobiu added the `enhancement` label
-- 2025-07-15 @tobiu added parent issue #6992
-- 2025-07-15 @tobiu referenced in commit `b290bdf` - "Enhance LivePreview for Modern JavaScript and Functional Components #7069"
-- 2025-07-15 @tobiu closed this issue
+- 2025-07-15T23:45:13Z @tobiu assigned to @tobiu
+- 2025-07-15T23:45:14Z @tobiu added the `enhancement` label
+- 2025-07-15T23:45:14Z @tobiu added parent issue #6992
+- 2025-07-15T23:45:58Z @tobiu referenced in commit `b290bdf` - "Enhance LivePreview for Modern JavaScript and Functional Components #7069"
+- 2025-07-15T23:46:07Z @tobiu closed this issue
 

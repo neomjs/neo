@@ -44,9 +44,9 @@ Create a new core manager, `Neo.manager.Window`, in the App Worker to track the 
 
 ## Timeline
 
-- 2025-11-21 @tobiu added the `enhancement` label
-- 2025-11-21 @tobiu added the `ai` label
-- 2025-11-21 @tobiu assigned to @tobiu
-- 2025-11-21 @tobiu referenced in commit `14b20c1` - "Feat: Create Neo.manager.Window for Multi-Window Geometry Tracking #7845"
-- 2025-11-21 @tobiu closed this issue
+- 2025-11-21T18:16:43Z @tobiu added the `enhancement` label
+- 2025-11-21T18:16:43Z @tobiu added the `ai` label
+- 2025-11-21T18:18:21Z @tobiu assigned to @tobiu
+- 2025-11-21T20:53:09Z @tobiu referenced in commit `14b20c1` - "Feat: Create Neo.manager.Window for Multi-Window Geometry Tracking #7845"
+- 2025-11-21T20:54:34Z @tobiu closed this issue
 

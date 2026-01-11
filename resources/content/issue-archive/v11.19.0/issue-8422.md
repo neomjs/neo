@@ -34,11 +34,11 @@ Update `learn/guides/mcp/KnowledgeBase.md` to reflect recent architectural chang
 
 ## Timeline
 
-- 2026-01-08 @tobiu added the `documentation` label
-- 2026-01-08 @tobiu added the `ai` label
-- 2026-01-08 @tobiu assigned to @tobiu
-- 2026-01-08 @tobiu referenced in commit `b3e5051` - "docs: Update Knowledge Base guide with new tools and services (#8422)"
-### @tobiu - 2026-01-08 12:29
+- 2026-01-08T12:27:38Z @tobiu added the `documentation` label
+- 2026-01-08T12:27:38Z @tobiu added the `ai` label
+- 2026-01-08T12:28:07Z @tobiu assigned to @tobiu
+- 2026-01-08T12:29:05Z @tobiu referenced in commit `b3e5051` - "docs: Update Knowledge Base guide with new tools and services (#8422)"
+### @tobiu - 2026-01-08T12:29:12Z
 
 **Input from Gemini 3 Pro:**
 
@@ -53,5 +53,5 @@ Update `learn/guides/mcp/KnowledgeBase.md` to reflect recent architectural chang
 > 
 > I also updated `ai/mcp/server/knowledge-base/services/toolService.mjs` to register the `get_class_hierarchy` tool mapping.
 
-- 2026-01-08 @tobiu closed this issue
+- 2026-01-08T12:29:34Z @tobiu closed this issue
 

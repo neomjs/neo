@@ -29,8 +29,8 @@ Neo.config.unitTestMode = true;
 
 ## Timeline
 
-- 2025-11-19 @tobiu assigned to @tobiu
-- 2025-11-19 @tobiu added the `enhancement` label
-- 2025-11-19 @tobiu referenced in commit `876c4c2` - "Neo.config.isMiddleware #7798"
-- 2025-11-19 @tobiu closed this issue
+- 2025-11-19T01:42:43Z @tobiu assigned to @tobiu
+- 2025-11-19T01:42:44Z @tobiu added the `enhancement` label
+- 2025-11-19T01:56:12Z @tobiu referenced in commit `876c4c2` - "Neo.config.isMiddleware #7798"
+- 2025-11-19T01:56:15Z @tobiu closed this issue
 

@@ -35,10 +35,10 @@ This effectively moves `autoMount` operations to the `updateQueue` in `Main`, pa
 
 ## Timeline
 
-- 2025-12-16 @tobiu added the `refactoring` label
-- 2025-12-16 @tobiu added the `architecture` label
-- 2025-12-16 @tobiu assigned to @tobiu
-- 2025-12-16 @tobiu referenced in commit `f81d266` - "Manager.mjs: Transform autoMount to delta update #8129"
-- 2025-12-16 @tobiu added the `ai` label
-- 2025-12-16 @tobiu closed this issue
+- 2025-12-16T19:22:11Z @tobiu added the `refactoring` label
+- 2025-12-16T19:22:11Z @tobiu added the `architecture` label
+- 2025-12-16T19:22:26Z @tobiu assigned to @tobiu
+- 2025-12-16T19:28:21Z @tobiu referenced in commit `f81d266` - "Manager.mjs: Transform autoMount to delta update #8129"
+- 2025-12-16T19:28:25Z @tobiu added the `ai` label
+- 2025-12-16T19:28:29Z @tobiu closed this issue
 

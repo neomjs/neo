@@ -25,8 +25,8 @@ closedAt: '2025-02-10T21:04:26Z'
 
 ## Timeline
 
-- 2025-02-10 @tobiu added the `enhancement` label
-- 2025-02-10 @tobiu assigned to @tobiu
-- 2025-02-10 @tobiu referenced in commit `f8c0433` - "main.DomEvents: onKeyDown() => add neo-grid-editor into the path check #6433"
-- 2025-02-10 @tobiu closed this issue
+- 2025-02-10T21:04:01Z @tobiu added the `enhancement` label
+- 2025-02-10T21:04:01Z @tobiu assigned to @tobiu
+- 2025-02-10T21:04:23Z @tobiu referenced in commit `f8c0433` - "main.DomEvents: onKeyDown() => add neo-grid-editor into the path check #6433"
+- 2025-02-10T21:04:26Z @tobiu closed this issue
 

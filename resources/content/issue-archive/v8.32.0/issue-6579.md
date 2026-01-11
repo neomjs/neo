@@ -24,7 +24,7 @@ closedAt: '2025-03-21T16:15:30Z'
 
 ## Timeline
 
-- 2025-03-21 @tobiu added the `enhancement` label
-- 2025-03-21 @tobiu referenced in commit `1be31b8` - "Portal App home: move the socket demo to the top #6579"
-- 2025-03-21 @tobiu closed this issue
+- 2025-03-21T16:15:12Z @tobiu added the `enhancement` label
+- 2025-03-21T16:15:28Z @tobiu referenced in commit `1be31b8` - "Portal App home: move the socket demo to the top #6579"
+- 2025-03-21T16:15:30Z @tobiu closed this issue
 

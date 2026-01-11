@@ -29,15 +29,15 @@ closedAt: '2025-01-12T23:34:15Z'
 
 ## Timeline
 
-- 2025-01-12 @tobiu added the `enhancement` label
-- 2025-01-12 @tobiu assigned to @tobiu
-### @tobiu - 2025-01-12 23:30
+- 2025-01-12T23:05:01Z @tobiu added the `enhancement` label
+- 2025-01-12T23:05:01Z @tobiu assigned to @tobiu
+### @tobiu - 2025-01-12T23:30:19Z
 
 * this logic can get added inside just 1 spot: `updateVdom()`
 * the check should only happen in case all other update requirements have successfully passed.
 
 https://github.com/user-attachments/assets/a7d9629a-2787-44c4-b03d-a5461d925853
 
-- 2025-01-12 @tobiu referenced in commit `24aac85` - "component.Base: update(), promiseUpdate() => critical rendering path #6210"
-- 2025-01-12 @tobiu closed this issue
+- 2025-01-12T23:31:31Z @tobiu referenced in commit `24aac85` - "component.Base: update(), promiseUpdate() => critical rendering path #6210"
+- 2025-01-12T23:34:15Z @tobiu closed this issue
 

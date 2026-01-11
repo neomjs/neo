@@ -43,10 +43,10 @@ See the changes made in `ai/mcp/server/github-workflow/mcp-stdio.mjs` for the im
 
 ## Timeline
 
-- 2025-10-27 @tobiu added the `bug` label
-- 2025-10-27 @tobiu added the `ai` label
-- 2025-10-27 @tobiu added the `refactoring` label
-- 2025-10-27 @tobiu assigned to @tobiu
-- 2025-10-27 @tobiu referenced in commit `2758fdc` - "Refactor: Standardize MCP server error response handling #7675"
-- 2025-10-27 @tobiu closed this issue
+- 2025-10-27T12:07:18Z @tobiu added the `bug` label
+- 2025-10-27T12:07:18Z @tobiu added the `ai` label
+- 2025-10-27T12:07:18Z @tobiu added the `refactoring` label
+- 2025-10-27T12:18:48Z @tobiu assigned to @tobiu
+- 2025-10-27T12:35:08Z @tobiu referenced in commit `2758fdc` - "Refactor: Standardize MCP server error response handling #7675"
+- 2025-10-27T12:35:21Z @tobiu closed this issue
 

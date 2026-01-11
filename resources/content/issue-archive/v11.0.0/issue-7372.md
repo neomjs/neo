@@ -36,25 +36,25 @@ After reviewing a pull request, the agent needs to be able to provide feedback d
 
 ## Timeline
 
-- 2025-10-05 @tobiu added the `enhancement` label
-- 2025-10-05 @tobiu added the `help wanted` label
-- 2025-10-05 @tobiu added the `good first issue` label
-- 2025-10-05 @tobiu added the `hacktoberfest` label
-- 2025-10-05 @tobiu added the `ai` label
-- 2025-10-05 @tobiu added parent issue #7364
-### @LemonDrop847 - 2025-10-05 11:42
+- 2025-10-05T11:24:47Z @tobiu added the `enhancement` label
+- 2025-10-05T11:24:47Z @tobiu added the `help wanted` label
+- 2025-10-05T11:24:47Z @tobiu added the `good first issue` label
+- 2025-10-05T11:24:47Z @tobiu added the `hacktoberfest` label
+- 2025-10-05T11:24:47Z @tobiu added the `ai` label
+- 2025-10-05T11:24:47Z @tobiu added parent issue #7364
+### @LemonDrop847 - 2025-10-05T11:42:38Z
 
 Hello, Can I try adding this workflow?
 
-- 2025-10-05 @tobiu assigned to @LemonDrop847
-### @tobiu - 2025-10-05 11:46
+- 2025-10-05T11:45:50Z @tobiu assigned to @LemonDrop847
+### @tobiu - 2025-10-05T11:46:07Z
 
 assigned. please read my comment on your other ticket first.
 
-- 2025-10-05 @LemonDrop847 cross-referenced by PR #7383
-### @tobiu - 2025-10-13 21:16
+- 2025-10-05T18:20:10Z @LemonDrop847 cross-referenced by PR #7383
+### @tobiu - 2025-10-13T21:16:05Z
 
 closing the ticket as resolved.
 
-- 2025-10-13 @tobiu closed this issue
+- 2025-10-13T21:16:05Z @tobiu closed this issue
 

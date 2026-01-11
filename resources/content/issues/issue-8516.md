@@ -30,16 +30,16 @@ Update `apps/portal/view/news/tickets/Component.mjs` to custom render the `subIs
 
 ## Timeline
 
-- 2026-01-10 @tobiu added the `enhancement` label
-- 2026-01-10 @tobiu added the `ai` label
-- 2026-01-10 @tobiu added the `feature` label
-- 2026-01-10 @tobiu referenced in commit `f7426ad` - "feat: Enhance ticket sub-issues rendering in Portal (#8516)
+- 2026-01-10T19:16:27Z @tobiu added the `enhancement` label
+- 2026-01-10T19:16:27Z @tobiu added the `ai` label
+- 2026-01-10T19:16:27Z @tobiu added the `feature` label
+- 2026-01-10T19:21:47Z @tobiu referenced in commit `f7426ad` - "feat: Enhance ticket sub-issues rendering in Portal (#8516)
 
 - Override frontMatterToHtml in Portal.view.news.tickets.Component
 - Render subIssues as a list with internal links to #/news/tickets/{id}
 - Use <br> separation for better readability"
-- 2026-01-10 @tobiu assigned to @tobiu
-### @tobiu - 2026-01-10 19:22
+- 2026-01-10T19:21:59Z @tobiu assigned to @tobiu
+### @tobiu - 2026-01-10T19:22:08Z
 
 **Input from Gemini 3 Pro:**
 
@@ -52,5 +52,5 @@ Update `apps/portal/view/news/tickets/Component.mjs` to custom render the `subIs
 > 
 > Verified that this aligns with the routing logic in `MainContainerController.mjs`.
 
-- 2026-01-10 @tobiu closed this issue
+- 2026-01-10T19:22:27Z @tobiu closed this issue
 

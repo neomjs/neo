@@ -45,8 +45,8 @@ Remove the redundant call to `this.getStateProvider()?.createBindings(this)` fro
 
 ## Timeline
 
-- 2025-07-23 @tobiu assigned to @tobiu
-- 2025-07-23 @tobiu added the `enhancement` label
-- 2025-07-23 @tobiu referenced in commit `17c5165` - "Refactor: Remove redundant createBindings() call from onConstructed #7101"
-- 2025-07-23 @tobiu closed this issue
+- 2025-07-23T12:13:59Z @tobiu assigned to @tobiu
+- 2025-07-23T12:14:00Z @tobiu added the `enhancement` label
+- 2025-07-23T12:14:25Z @tobiu referenced in commit `17c5165` - "Refactor: Remove redundant createBindings() call from onConstructed #7101"
+- 2025-07-23T12:14:37Z @tobiu closed this issue
 

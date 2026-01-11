@@ -39,8 +39,8 @@ This feature was implemented in `src/grid/Body.mjs#createRow`.
 
 ## Timeline
 
-- 2025-08-12 @tobiu assigned to @tobiu
-- 2025-08-12 @tobiu added the `enhancement` label
-- 2025-08-12 @tobiu referenced in commit `a1b5bf6` - "Grid Row Vertical Scrolling Optimization with translate3d #7187"
-- 2025-08-12 @tobiu closed this issue
+- 2025-08-12T01:49:13Z @tobiu assigned to @tobiu
+- 2025-08-12T01:49:14Z @tobiu added the `enhancement` label
+- 2025-08-12T01:50:07Z @tobiu referenced in commit `a1b5bf6` - "Grid Row Vertical Scrolling Optimization with translate3d #7187"
+- 2025-08-12T01:50:16Z @tobiu closed this issue
 

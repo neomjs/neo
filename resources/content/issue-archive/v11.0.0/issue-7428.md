@@ -29,9 +29,9 @@ The document also clarifies the path to the v11.0.0 release, tying it to the com
 
 ## Timeline
 
-- 2025-10-09 @tobiu assigned to @tobiu
-- 2025-10-09 @tobiu added parent issue #7264
-- 2025-10-09 @tobiu added the `documentation` label
-- 2025-10-09 @tobiu referenced in commit `8c1bca0` - "Update and Formalize Project ROADMAP.md #7428"
-- 2025-10-09 @tobiu closed this issue
+- 2025-10-09T20:14:34Z @tobiu assigned to @tobiu
+- 2025-10-09T20:14:35Z @tobiu added parent issue #7264
+- 2025-10-09T20:14:36Z @tobiu added the `documentation` label
+- 2025-10-09T20:16:33Z @tobiu referenced in commit `8c1bca0` - "Update and Formalize Project ROADMAP.md #7428"
+- 2025-10-09T20:17:00Z @tobiu closed this issue
 

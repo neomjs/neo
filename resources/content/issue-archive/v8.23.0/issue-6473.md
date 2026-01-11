@@ -25,17 +25,17 @@ closedAt: '2025-02-21T06:19:30Z'
 
 ## Timeline
 
-- 2025-02-21 @tobiu added the `enhancement` label
-- 2025-02-21 @tobiu assigned to @tobiu
-- 2025-02-21 @tobiu referenced in commit `d74e001` - "component.MagicMoveText: fontFamily_ config #6473"
-### @tobiu - 2025-02-21 06:19
+- 2025-02-21T06:18:04Z @tobiu added the `enhancement` label
+- 2025-02-21T06:18:04Z @tobiu assigned to @tobiu
+- 2025-02-21T06:18:39Z @tobiu referenced in commit `d74e001` - "component.MagicMoveText: fontFamily_ config #6473"
+### @tobiu - 2025-02-21T06:19:30Z
 
 https://github.com/user-attachments/assets/16c93922-0544-4528-a006-4f794b7f9377
 
 @yangshun: i had to laugh when playing with it^^
 
-- 2025-02-21 @tobiu closed this issue
-### @yangshun - 2025-02-21 06:28
+- 2025-02-21T06:19:30Z @tobiu closed this issue
+### @yangshun - 2025-02-21T06:28:44Z
 
 Very cool!
 

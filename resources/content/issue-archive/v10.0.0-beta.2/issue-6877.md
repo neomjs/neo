@@ -25,8 +25,8 @@ closedAt: '2025-06-27T12:43:53Z'
 
 ## Timeline
 
-- 2025-06-27 @tobiu assigned to @tobiu
-- 2025-06-27 @tobiu added the `enhancement` label
-- 2025-06-27 @tobiu referenced in commit `64716f9` - "Portal.view.blog.List: use text over html for vdom #6877"
-- 2025-06-27 @tobiu closed this issue
+- 2025-06-27T12:43:27Z @tobiu assigned to @tobiu
+- 2025-06-27T12:43:29Z @tobiu added the `enhancement` label
+- 2025-06-27T12:43:47Z @tobiu referenced in commit `64716f9` - "Portal.view.blog.List: use text over html for vdom #6877"
+- 2025-06-27T12:43:53Z @tobiu closed this issue
 

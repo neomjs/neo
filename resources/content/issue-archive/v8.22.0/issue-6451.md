@@ -29,19 +29,19 @@ WIP:
 
 ## Timeline
 
-- 2025-02-14 @tobiu added the `enhancement` label
-- 2025-02-14 @tobiu assigned to @tobiu
-- 2025-02-14 @tobiu referenced in commit `8fc8702` - "examples.grid.bigData.ControlsContainer: add a TabContainer for separating settings options #6451 WIP"
-- 2025-02-14 @tobiu referenced in commit `65ca594` - "#6451 examples.grid.bigData.ControlsContainer: enable vertical scrolling for the tab container content"
-- 2025-02-14 @tobiu referenced in commit `eea3904` - "#6451 examples.grid.bigData.ControlsContainer: adding the selection model options"
-### @tobiu - 2025-02-14 20:14
+- 2025-02-14T19:05:47Z @tobiu added the `enhancement` label
+- 2025-02-14T19:05:47Z @tobiu assigned to @tobiu
+- 2025-02-14T19:09:41Z @tobiu referenced in commit `8fc8702` - "examples.grid.bigData.ControlsContainer: add a TabContainer for separating settings options #6451 WIP"
+- 2025-02-14T19:30:48Z @tobiu referenced in commit `65ca594` - "#6451 examples.grid.bigData.ControlsContainer: enable vertical scrolling for the tab container content"
+- 2025-02-14T20:13:49Z @tobiu referenced in commit `eea3904` - "#6451 examples.grid.bigData.ControlsContainer: adding the selection model options"
+### @tobiu - 2025-02-14T20:14:02Z
 
 <img width="1117" alt="Image" src="https://github.com/user-attachments/assets/6131c6cf-a925-4548-b6ef-0ab61b53f093" />
 
-- 2025-02-14 @tobiu referenced in commit `ddcade9` - "#6451 examples.grid.bigData.ControlsContainer: selection model switch logic"
-### @tobiu - 2025-02-14 20:31
+- 2025-02-14T20:28:02Z @tobiu referenced in commit `ddcade9` - "#6451 examples.grid.bigData.ControlsContainer: selection model switch logic"
+### @tobiu - 2025-02-14T20:31:38Z
 
 <img width="1120" alt="Image" src="https://github.com/user-attachments/assets/ad30b78d-d736-4075-b3ba-190dd6de105b" />
 
-- 2025-02-14 @tobiu closed this issue
+- 2025-02-14T20:31:38Z @tobiu closed this issue
 

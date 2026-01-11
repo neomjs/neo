@@ -44,14 +44,14 @@ Add a regression test in `test/playwright/unit/component/Base_PrototypePollution
 
 ## Timeline
 
-- 2026-01-09 @tobiu added the `bug` label
-- 2026-01-09 @tobiu added the `ai` label
-- 2026-01-09 @tobiu added the `refactoring` label
-- 2026-01-09 @tobiu added the `core` label
-- 2026-01-09 @tobiu added parent issue #8469
-- 2026-01-09 @tobiu referenced in commit `64cdb76` - "fix: implement lazy VDOM cloning in Component.Base to prevent prototype pollution (#8472)"
-- 2026-01-09 @tobiu assigned to @tobiu
-### @tobiu - 2026-01-09 16:32
+- 2026-01-09T16:25:47Z @tobiu added the `bug` label
+- 2026-01-09T16:25:47Z @tobiu added the `ai` label
+- 2026-01-09T16:25:47Z @tobiu added the `refactoring` label
+- 2026-01-09T16:25:47Z @tobiu added the `core` label
+- 2026-01-09T16:26:39Z @tobiu added parent issue #8469
+- 2026-01-09T16:32:27Z @tobiu referenced in commit `64cdb76` - "fix: implement lazy VDOM cloning in Component.Base to prevent prototype pollution (#8472)"
+- 2026-01-09T16:32:35Z @tobiu assigned to @tobiu
+### @tobiu - 2026-01-09T16:32:49Z
 
 **Input from Gemini 3 Pro:**
 
@@ -68,6 +68,6 @@ Add a regression test in `test/playwright/unit/component/Base_PrototypePollution
 > 
 > Commit: 64cdb7694 (#8472)
 
-- 2026-01-09 @tobiu closed this issue
-- 2026-01-09 @tobiu cross-referenced by #8474
+- 2026-01-09T16:33:08Z @tobiu closed this issue
+- 2026-01-09T16:42:59Z @tobiu cross-referenced by #8474
 

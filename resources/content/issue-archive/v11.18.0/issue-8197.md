@@ -42,11 +42,11 @@ Empower standalone AI scripts to "import and use" the full power of the Neural L
 
 ## Timeline
 
-- 2025-12-29 @tobiu added the `enhancement` label
-- 2025-12-29 @tobiu added the `ai` label
-- 2025-12-29 @tobiu added the `architecture` label
-- 2025-12-29 @tobiu assigned to @tobiu
-- 2025-12-29 @tobiu added parent issue #8169
-- 2026-01-05 @tobiu referenced in commit `4a80bff` - "feat(ai): Export Neural Link services in AI SDK and enforce bridge connection (#8197)"
-- 2026-01-05 @tobiu closed this issue
+- 2025-12-29T00:03:11Z @tobiu added the `enhancement` label
+- 2025-12-29T00:03:11Z @tobiu added the `ai` label
+- 2025-12-29T00:03:11Z @tobiu added the `architecture` label
+- 2025-12-29T00:03:28Z @tobiu assigned to @tobiu
+- 2025-12-29T00:03:46Z @tobiu added parent issue #8169
+- 2026-01-05T16:03:32Z @tobiu referenced in commit `4a80bff` - "feat(ai): Export Neural Link services in AI SDK and enforce bridge connection (#8197)"
+- 2026-01-05T16:04:21Z @tobiu closed this issue
 

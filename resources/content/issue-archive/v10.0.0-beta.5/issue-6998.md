@@ -28,8 +28,8 @@ closedAt: '2025-07-09T12:19:31Z'
 
 ## Timeline
 
-- 2025-07-09 @tobiu assigned to @tobiu
-- 2025-07-09 @tobiu added the `bug` label
-- 2025-07-09 @tobiu referenced in commit `b93a9b0` - "component.Base: re-add initConfig() #6998"
-- 2025-07-09 @tobiu closed this issue
+- 2025-07-09T12:18:51Z @tobiu assigned to @tobiu
+- 2025-07-09T12:18:53Z @tobiu added the `bug` label
+- 2025-07-09T12:19:17Z @tobiu referenced in commit `b93a9b0` - "component.Base: re-add initConfig() #6998"
+- 2025-07-09T12:19:31Z @tobiu closed this issue
 

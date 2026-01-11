@@ -47,13 +47,13 @@ This enhancement will significantly improve the utility and completeness of our 
 
 ## Timeline
 
-- 2025-10-25 @tobiu added the `enhancement` label
-- 2025-10-25 @tobiu added the `ai` label
-- 2025-10-25 @tobiu assigned to @tobiu
-- 2025-11-13 @tobiu referenced in commit `c3e914d` - "Feat: Enhance Local Issue Tickets with GitHub Timeline Events and Related Commits #7650"
-- 2025-11-13 @tobiu referenced in commit `473f287` - "#7650 full ticket re-sync to get activity logs"
-- 2025-11-13 @tobiu closed this issue
-### @tobiu - 2025-11-13 11:55
+- 2025-10-25T17:29:02Z @tobiu added the `enhancement` label
+- 2025-10-25T17:29:02Z @tobiu added the `ai` label
+- 2025-10-25T17:29:17Z @tobiu assigned to @tobiu
+- 2025-11-13T11:41:07Z @tobiu referenced in commit `c3e914d` - "Feat: Enhance Local Issue Tickets with GitHub Timeline Events and Related Commits #7650"
+- 2025-11-13T11:52:17Z @tobiu referenced in commit `473f287` - "#7650 full ticket re-sync to get activity logs"
+- 2025-11-13T11:52:40Z @tobiu closed this issue
+### @tobiu - 2025-11-13T11:55:57Z
 
 @MannXo you might like this one:
 

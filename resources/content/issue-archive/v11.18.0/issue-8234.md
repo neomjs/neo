@@ -37,12 +37,12 @@ Note: `Neo.layout.HBox` and `Neo.layout.VBox` extend `Flexbox`, so they will aut
 
 ## Timeline
 
-- 2025-12-31 @tobiu added the `enhancement` label
-- 2025-12-31 @tobiu added the `ai` label
-- 2025-12-31 @tobiu added parent issue #8200
-- 2025-12-31 @tobiu assigned to @tobiu
-- 2025-12-31 @tobiu referenced in commit `de7c530` - "feat(layout): Implement toJSON in Neo.layout.Flexbox for Neural Link serialization (#8234)"
-### @tobiu - 2025-12-31 15:19
+- 2025-12-31T15:18:46Z @tobiu added the `enhancement` label
+- 2025-12-31T15:18:46Z @tobiu added the `ai` label
+- 2025-12-31T15:18:54Z @tobiu added parent issue #8200
+- 2025-12-31T15:19:27Z @tobiu assigned to @tobiu
+- 2025-12-31T15:19:50Z @tobiu referenced in commit `de7c530` - "feat(layout): Implement toJSON in Neo.layout.Flexbox for Neural Link serialization (#8234)"
+### @tobiu - 2025-12-31T15:19:51Z
 
 **Input from Gemini:**
 
@@ -60,6 +60,6 @@ Note: `Neo.layout.HBox` and `Neo.layout.VBox` extend `Flexbox`, so they will aut
 > ```
 > This serialization is also inherited by `Neo.layout.HBox` and `Neo.layout.VBox`.
 
-- 2025-12-31 @tobiu closed this issue
-- 2025-12-31 @tobiu referenced in commit `938ace2` - "docs(issue): Close ticket #8234"
+- 2025-12-31T15:20:11Z @tobiu closed this issue
+- 2025-12-31T15:22:57Z @tobiu referenced in commit `938ace2` - "docs(issue): Close ticket #8234"
 

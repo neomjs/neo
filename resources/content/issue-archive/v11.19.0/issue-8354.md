@@ -35,10 +35,10 @@ Implement the final feedback loop for the `README.md` rebrand to position Neo.mj
 
 ## Timeline
 
-- 2026-01-06 @tobiu added the `documentation` label
-- 2026-01-06 @tobiu added the `enhancement` label
-- 2026-01-06 @tobiu added the `ai` label
-- 2026-01-06 @tobiu assigned to @tobiu
-- 2026-01-06 @tobiu referenced in commit `df8306b` - "Docs: Finalize README Application Engine rebrand & flow #8354"
-- 2026-01-06 @tobiu closed this issue
+- 2026-01-06T12:38:32Z @tobiu added the `documentation` label
+- 2026-01-06T12:38:32Z @tobiu added the `enhancement` label
+- 2026-01-06T12:38:33Z @tobiu added the `ai` label
+- 2026-01-06T12:38:53Z @tobiu assigned to @tobiu
+- 2026-01-06T12:42:20Z @tobiu referenced in commit `df8306b` - "Docs: Finalize README Application Engine rebrand & flow #8354"
+- 2026-01-06T12:51:14Z @tobiu closed this issue
 

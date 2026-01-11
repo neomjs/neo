@@ -25,8 +25,8 @@ Obviously a base class which is meant for getting extended must not be a `single
 
 ## Timeline
 
-- 2025-11-25 @tobiu assigned to @tobiu
-- 2025-11-25 @tobiu added the `bug` label
-- 2025-11-25 @tobiu referenced in commit `3bd8076` - "ai.mcp.server.knowledge-base.source.Base: remove the singleton config #7905"
-- 2025-11-25 @tobiu closed this issue
+- 2025-11-25T16:57:37Z @tobiu assigned to @tobiu
+- 2025-11-25T16:57:39Z @tobiu added the `bug` label
+- 2025-11-25T16:57:59Z @tobiu referenced in commit `3bd8076` - "ai.mcp.server.knowledge-base.source.Base: remove the singleton config #7905"
+- 2025-11-25T16:58:34Z @tobiu closed this issue
 

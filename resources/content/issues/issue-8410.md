@@ -39,6 +39,6 @@ To automate metadata hygiene without polluting feature history or causing remote
 
 ## Timeline
 
-- 2026-01-08 @tobiu added the `enhancement` label
-- 2026-01-08 @tobiu added the `ai` label
+- 2026-01-08T07:46:35Z @tobiu added the `enhancement` label
+- 2026-01-08T07:46:35Z @tobiu added the `ai` label
 

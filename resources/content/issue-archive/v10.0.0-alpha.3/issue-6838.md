@@ -28,8 +28,8 @@ closedAt: '2025-06-18T18:37:58Z'
 
 ## Timeline
 
-- 2025-06-18 @tobiu assigned to @tobiu
-- 2025-06-18 @tobiu added the `bug` label
-- 2025-06-18 @tobiu referenced in commit `d8beede` - "[v10] Move the __webpack_require__.p override inside main threads before the very first dynamic import #6838"
-- 2025-06-18 @tobiu closed this issue
+- 2025-06-18T18:37:08Z @tobiu assigned to @tobiu
+- 2025-06-18T18:37:09Z @tobiu added the `bug` label
+- 2025-06-18T18:37:52Z @tobiu referenced in commit `d8beede` - "[v10] Move the __webpack_require__.p override inside main threads before the very first dynamic import #6838"
+- 2025-06-18T18:37:58Z @tobiu closed this issue
 

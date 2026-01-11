@@ -25,8 +25,8 @@ closedAt: '2025-05-23T18:04:20Z'
 
 ## Timeline
 
-- 2025-05-23 @tobiu assigned to @tobiu
-- 2025-05-23 @tobiu added the `enhancement` label
-- 2025-05-23 @tobiu referenced in commit `6385a50` - "buildScripts/production/webpack.config.appworker: minify all json files inside copied resources folders #6712"
-- 2025-05-23 @tobiu closed this issue
+- 2025-05-23T18:02:44Z @tobiu assigned to @tobiu
+- 2025-05-23T18:02:45Z @tobiu added the `enhancement` label
+- 2025-05-23T18:03:22Z @tobiu referenced in commit `6385a50` - "buildScripts/production/webpack.config.appworker: minify all json files inside copied resources folders #6712"
+- 2025-05-23T18:04:20Z @tobiu closed this issue
 

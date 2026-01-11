@@ -26,9 +26,9 @@ closedAt: '2025-09-23T10:47:32Z'
 
 ## Timeline
 
-- 2025-09-23 @tobiu assigned to @tobiu
-- 2025-09-23 @tobiu added the `enhancement` label
-- 2025-09-23 @tobiu added the `Blog Post` label
-- 2025-09-23 @tobiu referenced in commit `bdb477f` - "Portal App, add the blog post: AI-Native, Not AI-Assisted: A Platform That Answers Your Questions #7234"
-- 2025-09-23 @tobiu closed this issue
+- 2025-09-23T10:33:49Z @tobiu assigned to @tobiu
+- 2025-09-23T10:33:50Z @tobiu added the `enhancement` label
+- 2025-09-23T10:33:50Z @tobiu added the `Blog Post` label
+- 2025-09-23T10:47:12Z @tobiu referenced in commit `bdb477f` - "Portal App, add the blog post: AI-Native, Not AI-Assisted: A Platform That Answers Your Questions #7234"
+- 2025-09-23T10:47:32Z @tobiu closed this issue
 

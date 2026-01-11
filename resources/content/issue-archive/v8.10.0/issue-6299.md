@@ -25,8 +25,8 @@ closedAt: '2025-01-26T17:07:36Z'
 
 ## Timeline
 
-- 2025-01-26 @tobiu added the `enhancement` label
-- 2025-01-26 @tobiu assigned to @tobiu
-- 2025-01-26 @tobiu referenced in commit `47620b4` - "grid.Container: addResizeObserver() => lazy load the addon, in case it is not inside mainThreadAddons #6299"
-- 2025-01-26 @tobiu closed this issue
+- 2025-01-26T17:06:52Z @tobiu added the `enhancement` label
+- 2025-01-26T17:06:52Z @tobiu assigned to @tobiu
+- 2025-01-26T17:07:26Z @tobiu referenced in commit `47620b4` - "grid.Container: addResizeObserver() => lazy load the addon, in case it is not inside mainThreadAddons #6299"
+- 2025-01-26T17:07:36Z @tobiu closed this issue
 

@@ -35,9 +35,9 @@ This ticket involves creating a Node.js-based internal API or script that the AI
 
 ## Timeline
 
-- 2025-10-01 @tobiu assigned to @tobiu
-- 2025-10-01 @tobiu added the `enhancement` label
-- 2025-10-01 @tobiu added parent issue #7316
-- 2025-10-02 @tobiu referenced in commit `66523d6` - "Create Memory Capture API #7318"
-- 2025-10-02 @tobiu closed this issue
+- 2025-10-01T20:53:39Z @tobiu assigned to @tobiu
+- 2025-10-01T20:53:40Z @tobiu added the `enhancement` label
+- 2025-10-01T20:53:41Z @tobiu added parent issue #7316
+- 2025-10-02T09:33:03Z @tobiu referenced in commit `66523d6` - "Create Memory Capture API #7318"
+- 2025-10-02T09:49:24Z @tobiu closed this issue
 

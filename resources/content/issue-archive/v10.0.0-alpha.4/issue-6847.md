@@ -25,8 +25,8 @@ closedAt: '2025-06-19T23:41:43Z'
 
 ## Timeline
 
-- 2025-06-19 @tobiu assigned to @tobiu
-- 2025-06-19 @tobiu added the `enhancement` label
-- 2025-06-19 @tobiu referenced in commit `4568d67` - "vdom.Helper: subscribe to the new global neo config change event and act accordingly #6847"
-- 2025-06-19 @tobiu closed this issue
+- 2025-06-19T23:41:24Z @tobiu assigned to @tobiu
+- 2025-06-19T23:41:25Z @tobiu added the `enhancement` label
+- 2025-06-19T23:41:40Z @tobiu referenced in commit `4568d67` - "vdom.Helper: subscribe to the new global neo config change event and act accordingly #6847"
+- 2025-06-19T23:41:43Z @tobiu closed this issue
 

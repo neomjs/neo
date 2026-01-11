@@ -63,35 +63,35 @@ To work on this ticket, please start your session with the following prompt:
 
 ## Timeline
 
-- 2025-10-07 @tobiu added parent issue #7399
-- 2025-10-07 @tobiu added the `enhancement` label
-- 2025-10-07 @tobiu added the `help wanted` label
-- 2025-10-07 @tobiu added the `good first issue` label
-- 2025-10-07 @tobiu added the `hacktoberfest` label
-- 2025-10-07 @tobiu added the `ai` label
-- 2025-10-08 @MannXo cross-referenced by #7404
-### @MannXo - 2025-10-08 12:47
+- 2025-10-07T10:08:22Z @tobiu added parent issue #7399
+- 2025-10-07T10:08:22Z @tobiu added the `enhancement` label
+- 2025-10-07T10:08:22Z @tobiu added the `help wanted` label
+- 2025-10-07T10:08:22Z @tobiu added the `good first issue` label
+- 2025-10-07T10:08:22Z @tobiu added the `hacktoberfest` label
+- 2025-10-07T10:08:23Z @tobiu added the `ai` label
+- 2025-10-08T12:42:15Z @MannXo cross-referenced by #7404
+### @MannXo - 2025-10-08T12:47:46Z
 
 Can you assign this to me? @tobiu 
 
-- 2025-10-08 @tobiu assigned to @MannXo
-### @tobiu - 2025-10-08 12:50
+- 2025-10-08T12:50:45Z @tobiu assigned to @MannXo
+### @tobiu - 2025-10-08T12:50:55Z
 
 done
 
-- 2025-10-08 @MannXo referenced in commit `7e2bca2` - "Design Memory Core MCP Server API
+- 2025-10-08T15:09:02Z @MannXo referenced in commit `7e2bca2` - "Design Memory Core MCP Server API
 
 - Create OpenAPI 3.0 specification with all 11 required endpoints
 - Add comprehensive API documentation guide
 - Update navigation tree
 - Resolves #7402"
-- 2025-10-08 @MannXo cross-referenced by PR #7419
-- 2025-10-08 @tobiu closed this issue
-- 2025-10-08 @tobiu referenced in commit `6bcdc06` - "Design Memory Core MCP Server API
+- 2025-10-08T15:15:36Z @MannXo cross-referenced by PR #7419
+- 2025-10-08T15:35:32Z @tobiu closed this issue
+- 2025-10-08T15:35:32Z @tobiu referenced in commit `6bcdc06` - "Design Memory Core MCP Server API
 
 - Create OpenAPI 3.0 specification with all 11 required endpoints
 - Add comprehensive API documentation guide
 - Update navigation tree
 - Resolves #7402"
-- 2025-10-10 @Aki-07 cross-referenced by PR #7454
+- 2025-10-10T20:42:11Z @Aki-07 cross-referenced by PR #7454
 

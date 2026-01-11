@@ -27,8 +27,8 @@ closedAt: '2025-06-06T10:29:14Z'
 
 ## Timeline
 
-- 2025-06-06 @tobiu assigned to @tobiu
-- 2025-06-06 @tobiu added the `bug` label
-- 2025-06-06 @tobiu referenced in commit `8980a13` - "grid.column.AnimatedCurrency: cellRenderer() broken #6757"
-- 2025-06-06 @tobiu closed this issue
+- 2025-06-06T10:28:40Z @tobiu assigned to @tobiu
+- 2025-06-06T10:28:42Z @tobiu added the `bug` label
+- 2025-06-06T10:29:05Z @tobiu referenced in commit `8980a13` - "grid.column.AnimatedCurrency: cellRenderer() broken #6757"
+- 2025-06-06T10:29:14Z @tobiu closed this issue
 

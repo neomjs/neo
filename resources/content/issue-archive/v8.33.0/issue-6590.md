@@ -24,8 +24,8 @@ closedAt: '2025-03-25T17:16:09Z'
 
 ## Timeline
 
-- 2025-03-25 @tobiu added the `enhancement` label
-- 2025-03-25 @tobiu added parent issue #6584
-- 2025-03-25 @tobiu referenced in commit `a803530` - "main.addon.ServiceWorker: registerServiceWorker() => updatefound listener #6590"
-- 2025-03-25 @tobiu closed this issue
+- 2025-03-25T17:13:42Z @tobiu added the `enhancement` label
+- 2025-03-25T17:13:43Z @tobiu added parent issue #6584
+- 2025-03-25T17:14:27Z @tobiu referenced in commit `a803530` - "main.addon.ServiceWorker: registerServiceWorker() => updatefound listener #6590"
+- 2025-03-25T17:16:09Z @tobiu closed this issue
 

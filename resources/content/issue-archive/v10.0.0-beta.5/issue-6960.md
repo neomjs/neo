@@ -44,8 +44,8 @@ This fix restores the pre-v10 atomicity of `set()` operations, ensuring that all
 
 ## Timeline
 
-- 2025-07-06 @tobiu assigned to @tobiu
-- 2025-07-06 @tobiu added the `enhancement` label
-- 2025-07-06 @tobiu referenced in commit `694bddb` - "Bug(core.Config): Regression in beforeSet hooks with v10 config system #6960"
-- 2025-07-06 @tobiu closed this issue
+- 2025-07-06T16:36:00Z @tobiu assigned to @tobiu
+- 2025-07-06T16:36:01Z @tobiu added the `enhancement` label
+- 2025-07-06T16:36:55Z @tobiu referenced in commit `694bddb` - "Bug(core.Config): Regression in beforeSet hooks with v10 config system #6960"
+- 2025-07-06T16:37:04Z @tobiu closed this issue
 

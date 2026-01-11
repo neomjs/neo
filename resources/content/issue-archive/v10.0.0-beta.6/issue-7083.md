@@ -25,8 +25,8 @@ closedAt: '2025-07-18T15:29:42Z'
 
 ## Timeline
 
-- 2025-07-18 @tobiu assigned to @tobiu
-- 2025-07-18 @tobiu added the `enhancement` label
-- 2025-07-18 @tobiu referenced in commit `e42b6b7` - "calendar.view.MainContainerStateProvider: timeFormatter formula #7083"
-- 2025-07-18 @tobiu closed this issue
+- 2025-07-18T14:36:52Z @tobiu assigned to @tobiu
+- 2025-07-18T14:36:53Z @tobiu added the `enhancement` label
+- 2025-07-18T14:37:27Z @tobiu referenced in commit `e42b6b7` - "calendar.view.MainContainerStateProvider: timeFormatter formula #7083"
+- 2025-07-18T15:29:42Z @tobiu closed this issue
 

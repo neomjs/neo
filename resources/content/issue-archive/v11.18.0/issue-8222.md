@@ -28,12 +28,12 @@ The Neural Link MCP server (ai/mcp/server/neural-link/Server.mjs) currently bloc
 
 ## Timeline
 
-- 2025-12-30 @tobiu added the `bug` label
-- 2025-12-30 @tobiu added the `ai` label
-- 2025-12-30 @tobiu assigned to @tobiu
-- 2025-12-30 @tobiu added parent issue #8169
-- 2025-12-30 @tobiu referenced in commit `20b34c0` - "fix(ai): Exempt start/stop_ws_server from Neural Link health check gate (#8222)"
-### @tobiu - 2025-12-30 18:46
+- 2025-12-30T18:40:20Z @tobiu added the `bug` label
+- 2025-12-30T18:40:21Z @tobiu added the `ai` label
+- 2025-12-30T18:45:53Z @tobiu assigned to @tobiu
+- 2025-12-30T18:46:02Z @tobiu added parent issue #8169
+- 2025-12-30T18:46:48Z @tobiu referenced in commit `20b34c0` - "fix(ai): Exempt start/stop_ws_server from Neural Link health check gate (#8222)"
+### @tobiu - 2025-12-30T18:46:49Z
 
 **Input from Gemini:**
 
@@ -41,5 +41,5 @@ The Neural Link MCP server (ai/mcp/server/neural-link/Server.mjs) currently bloc
 > 
 > Changes committed in `20b34c044`.
 
-- 2025-12-30 @tobiu closed this issue
+- 2025-12-30T18:47:13Z @tobiu closed this issue
 

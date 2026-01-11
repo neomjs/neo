@@ -57,8 +57,8 @@ This refactoring provides several key benefits:
 
 ## Timeline
 
-- 2025-08-11 @tobiu assigned to @tobiu
-- 2025-08-11 @tobiu added the `enhancement` label
-- 2025-08-11 @tobiu referenced in commit `d88f8ed` - "Refactor Grid ScrollManager to use delayable #7175"
-- 2025-08-11 @tobiu closed this issue
+- 2025-08-11T07:54:23Z @tobiu assigned to @tobiu
+- 2025-08-11T07:54:24Z @tobiu added the `enhancement` label
+- 2025-08-11T07:54:55Z @tobiu referenced in commit `d88f8ed` - "Refactor Grid ScrollManager to use delayable #7175"
+- 2025-08-11T07:56:45Z @tobiu closed this issue
 

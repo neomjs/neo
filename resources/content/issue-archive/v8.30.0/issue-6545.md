@@ -25,8 +25,8 @@ closedAt: '2025-03-07T15:29:30Z'
 
 ## Timeline
 
-- 2025-03-07 @tobiu added the `enhancement` label
-- 2025-03-07 @tobiu assigned to @tobiu
-- 2025-03-07 @tobiu referenced in commit `f2e4975` - "component.Progress: get label(), get progress(), afterSetLabelText() => use removeDom #6545"
-- 2025-03-07 @tobiu closed this issue
+- 2025-03-07T15:27:21Z @tobiu added the `enhancement` label
+- 2025-03-07T15:27:21Z @tobiu assigned to @tobiu
+- 2025-03-07T15:29:18Z @tobiu referenced in commit `f2e4975` - "component.Progress: get label(), get progress(), afterSetLabelText() => use removeDom #6545"
+- 2025-03-07T15:29:30Z @tobiu closed this issue
 

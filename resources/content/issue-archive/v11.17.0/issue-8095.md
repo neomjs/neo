@@ -39,9 +39,9 @@ This optimizes the common path where records are already present.
 
 ## Timeline
 
-- 2025-12-12 @tobiu added the `enhancement` label
-- 2025-12-12 @tobiu added the `ai` label
-- 2025-12-12 @tobiu assigned to @tobiu
-- 2025-12-12 @tobiu referenced in commit `07f24dc` - "Optimize Store.initRecord to avoid redundant get() calls #8095"
-- 2025-12-12 @tobiu closed this issue
+- 2025-12-12T12:23:49Z @tobiu added the `enhancement` label
+- 2025-12-12T12:23:49Z @tobiu added the `ai` label
+- 2025-12-12T12:24:19Z @tobiu assigned to @tobiu
+- 2025-12-12T12:37:59Z @tobiu referenced in commit `07f24dc` - "Optimize Store.initRecord to avoid redundant get() calls #8095"
+- 2025-12-12T12:38:05Z @tobiu closed this issue
 

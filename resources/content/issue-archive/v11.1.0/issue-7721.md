@@ -28,9 +28,9 @@ A new guide is needed to document how to reproduce and handle scenarios where th
 
 ## Timeline
 
-- 2025-11-08 @tobiu added the `documentation` label
-- 2025-11-08 @tobiu added the `ai` label
-- 2025-11-08 @tobiu cross-referenced by PR #7717
-- 2025-11-08 @MannXo cross-referenced by PR #7729
-- 2025-11-10 @tobiu closed this issue
+- 2025-11-08T09:56:34Z @tobiu added the `documentation` label
+- 2025-11-08T09:56:35Z @tobiu added the `ai` label
+- 2025-11-08T10:03:47Z @tobiu cross-referenced by PR #7717
+- 2025-11-08T17:46:47Z @MannXo cross-referenced by PR #7729
+- 2025-11-10T20:07:24Z @tobiu closed this issue
 

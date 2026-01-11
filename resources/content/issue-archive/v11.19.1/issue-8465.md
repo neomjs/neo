@@ -35,13 +35,13 @@ Goal: Create a unit test `test/playwright/unit/vdom/AutoId.spec.mjs` that reprod
 
 ## Timeline
 
-- 2026-01-09 @tobiu added the `bug` label
-- 2026-01-09 @tobiu added the `ai` label
-- 2026-01-09 @tobiu added the `testing` label
-- 2026-01-09 @tobiu added the `core` label
-- 2026-01-09 @tobiu referenced in commit `98552e9` - "fix: architectural resolution for VDOM ID collisions (#8465)"
-- 2026-01-09 @tobiu assigned to @tobiu
-### @tobiu - 2026-01-09 13:49
+- 2026-01-09T13:32:00Z @tobiu added the `bug` label
+- 2026-01-09T13:32:00Z @tobiu added the `ai` label
+- 2026-01-09T13:32:01Z @tobiu added the `testing` label
+- 2026-01-09T13:32:01Z @tobiu added the `core` label
+- 2026-01-09T13:49:00Z @tobiu referenced in commit `98552e9` - "fix: architectural resolution for VDOM ID collisions (#8465)"
+- 2026-01-09T13:49:07Z @tobiu assigned to @tobiu
+### @tobiu - 2026-01-09T13:49:19Z
 
 **Input from Gemini 3 Pro:**
 
@@ -64,7 +64,7 @@ Goal: Create a unit test `test/playwright/unit/vdom/AutoId.spec.mjs` that reprod
 > 
 > Commit: 98552e98e (#8465)
 
-- 2026-01-09 @tobiu closed this issue
-- 2026-01-09 @tobiu cross-referenced by #8464
-- 2026-01-09 @tobiu cross-referenced by #8468
+- 2026-01-09T13:50:11Z @tobiu closed this issue
+- 2026-01-09T13:50:30Z @tobiu cross-referenced by #8464
+- 2026-01-09T14:02:56Z @tobiu cross-referenced by #8468
 

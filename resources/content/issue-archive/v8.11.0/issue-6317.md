@@ -25,8 +25,8 @@ closedAt: '2025-01-28T09:42:45Z'
 
 ## Timeline
 
-- 2025-01-28 @tobiu added the `enhancement` label
-- 2025-01-28 @tobiu assigned to @tobiu
-- 2025-01-28 @tobiu referenced in commit `feabc64` - "selection.table.CellModel: decouple logic from event paths #6317"
-- 2025-01-28 @tobiu closed this issue
+- 2025-01-28T09:42:03Z @tobiu added the `enhancement` label
+- 2025-01-28T09:42:03Z @tobiu assigned to @tobiu
+- 2025-01-28T09:42:19Z @tobiu referenced in commit `feabc64` - "selection.table.CellModel: decouple logic from event paths #6317"
+- 2025-01-28T09:42:45Z @tobiu closed this issue
 

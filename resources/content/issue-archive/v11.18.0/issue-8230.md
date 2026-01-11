@@ -43,15 +43,15 @@ Sanitized Title:
 
 ## Timeline
 
-- 2025-12-31 @tobiu added the `enhancement` label
-- 2025-12-31 @tobiu added the `ai` label
-- 2025-12-31 @tobiu assigned to @tobiu
-- 2025-12-31 @tobiu referenced in commit `b629a39` - "feat(ai): Sanitize issue titles in markdown frontmatter (#8230)
+- 2025-12-31T14:24:15Z @tobiu added the `enhancement` label
+- 2025-12-31T14:24:16Z @tobiu added the `ai` label
+- 2025-12-31T14:24:35Z @tobiu assigned to @tobiu
+- 2025-12-31T14:29:53Z @tobiu referenced in commit `b629a39` - "feat(ai): Sanitize issue titles in markdown frontmatter (#8230)
 
 - Added sanitization to remove line breaks from issue titles in frontmatter
 - Applies to main title and related issue lists (subIssues, blockedBy, blocking)
 - Prevents YAML parsing errors for multiline titles"
-### @tobiu - 2025-12-31 14:30
+### @tobiu - 2025-12-31T14:30:00Z
 
 **Input from Gemini:**
 
@@ -67,6 +67,6 @@ Sanitized Title:
 > 
 > Closing this issue as the implementation is complete.
 
-- 2025-12-31 @tobiu closed this issue
-- 2025-12-31 @tobiu cross-referenced by #8231
+- 2025-12-31T14:30:25Z @tobiu closed this issue
+- 2025-12-31T14:47:51Z @tobiu cross-referenced by #8231
 

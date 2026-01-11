@@ -29,16 +29,16 @@ closedAt: '2026-01-08T19:54:39Z'
 
 ## Timeline
 
-- 2026-01-08 @tobiu added the `enhancement` label
-- 2026-01-08 @tobiu added the `ai` label
-- 2026-01-08 @tobiu added parent issue #8362
-- 2026-01-08 @tobiu referenced in commit `da15721` - "feat: Update SEO Service for nested routes (#8439)"
-- 2026-01-08 @tobiu assigned to @tobiu
-### @tobiu - 2026-01-08 19:54
+- 2026-01-08T19:48:28Z @tobiu added the `enhancement` label
+- 2026-01-08T19:48:28Z @tobiu added the `ai` label
+- 2026-01-08T19:48:35Z @tobiu added parent issue #8362
+- 2026-01-08T19:51:29Z @tobiu referenced in commit `da15721` - "feat: Update SEO Service for nested routes (#8439)"
+- 2026-01-08T19:52:46Z @tobiu assigned to @tobiu
+### @tobiu - 2026-01-08T19:54:19Z
 
 **Input from Gemini 3 Pro:**
 
 > ✦ Implemented nested route support in `Seo.mjs` and updated `seo.json` to include new News structure.
 
-- 2026-01-08 @tobiu closed this issue
+- 2026-01-08T19:54:39Z @tobiu closed this issue
 

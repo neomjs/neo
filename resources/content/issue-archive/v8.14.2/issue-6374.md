@@ -27,12 +27,12 @@ We need to subtract the bottom & top borders from the height.
 
 ## Timeline
 
-- 2025-02-04 @tobiu added the `enhancement` label
-- 2025-02-04 @tobiu assigned to @tobiu
-- 2025-02-04 @tobiu referenced in commit `b069fac` - "draggable.grid.header.toolbar.SortZone: createDragProxy() => adjust the proxy height #6374"
-### @tobiu - 2025-02-04 09:19
+- 2025-02-04T09:14:31Z @tobiu added the `enhancement` label
+- 2025-02-04T09:14:31Z @tobiu assigned to @tobiu
+- 2025-02-04T09:19:19Z @tobiu referenced in commit `b069fac` - "draggable.grid.header.toolbar.SortZone: createDragProxy() => adjust the proxy height #6374"
+### @tobiu - 2025-02-04T09:19:47Z
 
 ![Image](https://github.com/user-attachments/assets/b5ac5f4b-101d-4950-b1b8-0a8ffec58af7)
 
-- 2025-02-04 @tobiu closed this issue
+- 2025-02-04T09:19:47Z @tobiu closed this issue
 

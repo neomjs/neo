@@ -32,9 +32,9 @@ Add a small buffer `await me.timeout(10)` to ensure rendering in the next frame.
 
 ## Timeline
 
-- 2025-12-09 @tobiu added the `enhancement` label
-- 2025-12-09 @tobiu added the `ai` label
-- 2025-12-09 @tobiu assigned to @tobiu
-- 2025-12-09 @tobiu referenced in commit `7d1de7a` - "Optimize Markdown Component Rendering #8075"
-- 2025-12-09 @tobiu closed this issue
+- 2025-12-09T22:54:52Z @tobiu added the `enhancement` label
+- 2025-12-09T22:54:52Z @tobiu added the `ai` label
+- 2025-12-09T22:59:47Z @tobiu assigned to @tobiu
+- 2025-12-09T23:00:09Z @tobiu referenced in commit `7d1de7a` - "Optimize Markdown Component Rendering #8075"
+- 2025-12-09T23:28:03Z @tobiu closed this issue
 

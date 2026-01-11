@@ -25,12 +25,12 @@ closedAt: '2025-01-26T18:06:43Z'
 
 ## Timeline
 
-- 2025-01-26 @tobiu added the `enhancement` label
-- 2025-01-26 @tobiu assigned to @tobiu
-- 2025-01-26 @tobiu referenced in commit `fecca0b` - "selection.grid.CellModel: adjust the basic navigation logic #6300"
-### @tobiu - 2025-01-26 18:06
+- 2025-01-26T18:06:09Z @tobiu added the `enhancement` label
+- 2025-01-26T18:06:09Z @tobiu assigned to @tobiu
+- 2025-01-26T18:06:32Z @tobiu referenced in commit `fecca0b` - "selection.grid.CellModel: adjust the basic navigation logic #6300"
+### @tobiu - 2025-01-26T18:06:43Z
 
 https://github.com/user-attachments/assets/85dec71e-f814-4405-b090-d4dbdede300b
 
-- 2025-01-26 @tobiu closed this issue
+- 2025-01-26T18:06:43Z @tobiu closed this issue
 

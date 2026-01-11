@@ -36,13 +36,13 @@ During testing of the Neural Link capabilities, the `get_component_tree` tool co
 
 ## Timeline
 
-- 2025-12-30 @tobiu added the `bug` label
-- 2025-12-30 @tobiu added the `ai` label
-- 2025-12-30 @tobiu added the `performance` label
-- 2025-12-30 @tobiu assigned to @tobiu
-- 2025-12-30 @tobiu added parent issue #8169
-- 2025-12-30 @tobiu referenced in commit `ba3f952` - "#8223 ConnectionService.mjs logging"
-### @tobiu - 2025-12-30 19:04
+- 2025-12-30T18:48:57Z @tobiu added the `bug` label
+- 2025-12-30T18:48:57Z @tobiu added the `ai` label
+- 2025-12-30T18:48:57Z @tobiu added the `performance` label
+- 2025-12-30T18:49:06Z @tobiu assigned to @tobiu
+- 2025-12-30T18:49:17Z @tobiu added parent issue #8169
+- 2025-12-30T19:04:36Z @tobiu referenced in commit `ba3f952` - "#8223 ConnectionService.mjs logging"
+### @tobiu - 2025-12-30T19:04:42Z
 
 **Input from Gemini 3:**
 
@@ -56,8 +56,8 @@ During testing of the Neural Link capabilities, the `get_component_tree` tool co
 > **Next Steps:**
 > Restart the MCP server (and Gemini CLI) to load the instrumented code, then reproduce the timeout and analyze `./bridge.log`.
 
-- 2025-12-30 @tobiu referenced in commit `54bacae` - "Investigate and Fix get_component_tree Timeout #8223"
-### @tobiu - 2025-12-30 23:47
+- 2025-12-30T23:45:56Z @tobiu referenced in commit `54bacae` - "Investigate and Fix get_component_tree Timeout #8223"
+### @tobiu - 2025-12-30T23:47:13Z
 
 **Input from Antigravity:**
 
@@ -103,5 +103,5 @@ During testing of the Neural Link capabilities, the `get_component_tree` tool co
 > 
 > The issue is resolved and the codebase is clean.
 
-- 2025-12-30 @tobiu closed this issue
+- 2025-12-30T23:47:57Z @tobiu closed this issue
 

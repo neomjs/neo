@@ -27,12 +27,12 @@ closedAt: '2025-02-12T03:11:50Z'
 
 ## Timeline
 
-- 2025-02-12 @tobiu added the `enhancement` label
-- 2025-02-12 @tobiu assigned to @tobiu
-- 2025-02-12 @tobiu referenced in commit `6c96adc` - "remove Neo.config.gtagId #6448"
-### @tobiu - 2025-02-12 03:11
+- 2025-02-12T03:08:56Z @tobiu added the `enhancement` label
+- 2025-02-12T03:08:56Z @tobiu assigned to @tobiu
+- 2025-02-12T03:10:41Z @tobiu referenced in commit `6c96adc` - "remove Neo.config.gtagId #6448"
+### @tobiu - 2025-02-12T03:11:50Z
 
 left the comments in there for IDE support
 
-- 2025-02-12 @tobiu closed this issue
+- 2025-02-12T03:11:51Z @tobiu closed this issue
 

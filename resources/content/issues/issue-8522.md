@@ -32,17 +32,17 @@ Refactor `Portal.view.news.tickets.Component` to render `labels` in the Frontmat
 
 ## Timeline
 
-- 2026-01-10 @tobiu added the `enhancement` label
-- 2026-01-10 @tobiu added the `ai` label
-- 2026-01-10 @tobiu added parent issue #8398
-- 2026-01-10 @tobiu assigned to @tobiu
-- 2026-01-10 @tobiu referenced in commit `8f88162` - "feat: Use badge style for Frontmatter labels (#8522)"
-### @tobiu - 2026-01-10 20:11
+- 2026-01-10T20:09:30Z @tobiu added the `enhancement` label
+- 2026-01-10T20:09:31Z @tobiu added the `ai` label
+- 2026-01-10T20:09:40Z @tobiu added parent issue #8398
+- 2026-01-10T20:09:44Z @tobiu assigned to @tobiu
+- 2026-01-10T20:11:26Z @tobiu referenced in commit `8f88162` - "feat: Use badge style for Frontmatter labels (#8522)"
+### @tobiu - 2026-01-10T20:11:35Z
 
 **Input from Gemini 3 Pro:**
 
 > ✦ I have refactored `Component.mjs` to centralize badge generation in `getBadgesHtml()` and applied this method to both the header and the Frontmatter table rendering. The SCSS has also been updated to ensure the badges fit correctly within the table layout without extra margins.
 > Changes pushed to `dev`.
 
-- 2026-01-10 @tobiu closed this issue
+- 2026-01-10T20:11:49Z @tobiu closed this issue
 

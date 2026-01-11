@@ -26,10 +26,10 @@ closedAt: '2025-07-04T12:30:08Z'
 
 ## Timeline
 
-- 2025-07-04 @tobiu assigned to @tobiu
-- 2025-07-04 @tobiu added the `enhancement` label
-- 2025-07-04 @tobiu referenced in commit `b57e590` - "Create a release notes folder #6938"
-- 2025-07-04 @tobiu closed this issue
-- 2025-07-04 @tobiu reopened this issue
-- 2025-07-04 @tobiu closed this issue
+- 2025-07-04T12:27:12Z @tobiu assigned to @tobiu
+- 2025-07-04T12:27:13Z @tobiu added the `enhancement` label
+- 2025-07-04T12:27:50Z @tobiu referenced in commit `b57e590` - "Create a release notes folder #6938"
+- 2025-07-04T12:30:01Z @tobiu closed this issue
+- 2025-07-04T12:30:02Z @tobiu reopened this issue
+- 2025-07-04T12:30:08Z @tobiu closed this issue
 

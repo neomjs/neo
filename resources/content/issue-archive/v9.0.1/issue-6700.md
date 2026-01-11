@@ -25,9 +25,9 @@ closedAt: '2025-05-05T16:53:06Z'
 
 ## Timeline
 
-- 2025-05-05 @tobiu added the `enhancement` label
-- 2025-05-05 @tobiu added parent issue #6696
-- 2025-05-05 @tobiu assigned to @tobiu
-- 2025-05-05 @tobiu referenced in commit `4ee5925` - "Portal.view.ViewportController: setMainContentIndex() => only use the first timeout for cube layout switches #6700"
-- 2025-05-05 @tobiu closed this issue
+- 2025-05-05T14:17:41Z @tobiu added the `enhancement` label
+- 2025-05-05T14:17:42Z @tobiu added parent issue #6696
+- 2025-05-05T14:17:51Z @tobiu assigned to @tobiu
+- 2025-05-05T14:18:08Z @tobiu referenced in commit `4ee5925` - "Portal.view.ViewportController: setMainContentIndex() => only use the first timeout for cube layout switches #6700"
+- 2025-05-05T16:53:06Z @tobiu closed this issue
 

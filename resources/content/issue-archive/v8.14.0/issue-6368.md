@@ -31,8 +31,8 @@ I did run into edge-case issues, where the vnode got cloned and an outdated vers
 
 ## Timeline
 
-- 2025-02-03 @tobiu added the `enhancement` label
-- 2025-02-03 @tobiu assigned to @tobiu
-- 2025-02-03 @tobiu referenced in commit `9a566b4` - "component.Base: #executeVdomUpdate() => remove the vdom & vnode params #6368"
-- 2025-02-03 @tobiu closed this issue
+- 2025-02-03T18:28:06Z @tobiu added the `enhancement` label
+- 2025-02-03T18:28:06Z @tobiu assigned to @tobiu
+- 2025-02-03T18:28:31Z @tobiu referenced in commit `9a566b4` - "component.Base: #executeVdomUpdate() => remove the vdom & vnode params #6368"
+- 2025-02-03T18:28:37Z @tobiu closed this issue
 

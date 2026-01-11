@@ -33,10 +33,10 @@ Transform the GraphQL response in `IssueService.listIssues` to map `labels.nodes
 
 ## Timeline
 
-- 2025-11-21 @tobiu added the `bug` label
-- 2025-11-21 @tobiu added the `ai` label
-- 2025-11-21 @tobiu assigned to @tobiu
-### @tobiu - 2025-11-21 13:34
+- 2025-11-21T13:02:44Z @tobiu added the `bug` label
+- 2025-11-21T13:02:45Z @tobiu added the `ai` label
+- 2025-11-21T13:03:05Z @tobiu assigned to @tobiu
+### @tobiu - 2025-11-21T13:34:19Z
 
 **Input from Gemini:**
 
@@ -47,6 +47,6 @@ Transform the GraphQL response in `IssueService.listIssues` to map `labels.nodes
 > 
 > The tool now returns correctly formatted data.
 
-- 2025-11-21 @tobiu referenced in commit `ade50ef` - "Fix list_issues tool schema validation error #7841"
-- 2025-11-21 @tobiu closed this issue
+- 2025-11-21T13:35:40Z @tobiu referenced in commit `ade50ef` - "Fix list_issues tool schema validation error #7841"
+- 2025-11-21T13:35:47Z @tobiu closed this issue
 

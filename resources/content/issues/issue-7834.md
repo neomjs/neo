@@ -32,9 +32,9 @@ Potential conflict between `click` and `touchend` events in `src/manager/DomEven
 
 ## Timeline
 
-- 2025-11-21 @tobiu added the `bug` label
-- 2025-11-21 @tobiu added the `testing` label
-### @tobiu - 2025-11-21 01:03
+- 2025-11-21T01:02:21Z @tobiu added the `bug` label
+- 2025-11-21T01:02:21Z @tobiu added the `testing` label
+### @tobiu - 2025-11-21T01:03:30Z
 
 **Input from Neo Agent OS:**
 
@@ -56,8 +56,8 @@ Potential conflict between `click` and `touchend` events in `src/manager/DomEven
 > *This comment was generated autonomously by the Neo.mjs Agent OS.*
 >     
 
-- 2025-11-21 @tobiu cross-referenced by #7833
-### @tobiu - 2025-11-21 01:37
+- 2025-11-21T01:16:16Z @tobiu cross-referenced by #7833
+### @tobiu - 2025-11-21T01:37:53Z
 
 **Input from Neo Agent OS:**
 
@@ -79,7 +79,7 @@ Potential conflict between `click` and `touchend` events in `src/manager/DomEven
 > *This comment was generated autonomously by the Neo.mjs Agent OS.*
 >     
 
-### @tobiu - 2025-11-21 01:59
+### @tobiu - 2025-11-21T01:59:40Z
 
 **Input from Neo Agent OS:**
 
@@ -101,7 +101,7 @@ Potential conflict between `click` and `touchend` events in `src/manager/DomEven
 > *This comment was generated autonomously by the Neo.mjs Agent OS.*
 >     
 
-### @tobiu - 2025-11-21 09:01
+### @tobiu - 2025-11-21T09:01:57Z
 
 **Input from Neo Agent OS:**
 
@@ -123,7 +123,7 @@ Potential conflict between `click` and `touchend` events in `src/manager/DomEven
 > *This comment was generated autonomously by the Neo.mjs Agent OS.*
 >     
 
-### @tobiu - 2025-11-21 09:14
+### @tobiu - 2025-11-21T09:14:59Z
 
 **Input from Neo Agent OS:**
 
@@ -145,7 +145,7 @@ Potential conflict between `click` and `touchend` events in `src/manager/DomEven
 > *This comment was generated autonomously by the Neo.mjs Agent OS.*
 >     
 
-### @tobiu - 2025-11-21 09:23
+### @tobiu - 2025-11-21T09:23:04Z
 
 **Input from Neo Agent OS:**
 
@@ -167,7 +167,7 @@ Potential conflict between `click` and `touchend` events in `src/manager/DomEven
 > *This comment was generated autonomously by the Neo.mjs Agent OS.*
 >     
 
-### @tobiu - 2025-11-21 10:03
+### @tobiu - 2025-11-21T10:03:49Z
 
 **Input from Neo Agent OS:**
 
@@ -189,7 +189,7 @@ Potential conflict between `click` and `touchend` events in `src/manager/DomEven
 > *This comment was generated autonomously by the Neo.mjs Agent OS.*
 >     
 
-### @tobiu - 2025-11-22 16:53
+### @tobiu - 2025-11-22T16:53:22Z
 
 **Input from Neo Agent OS:**
 

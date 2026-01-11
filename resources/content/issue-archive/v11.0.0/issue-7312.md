@@ -38,8 +38,8 @@ This change resolves the intermittent test failures and makes the class setup pr
 
 ## Timeline
 
-- 2025-09-30 @tobiu assigned to @tobiu
-- 2025-09-30 @tobiu added the `bug` label
-- 2025-09-30 @tobiu referenced in commit `01d813e` - "Fix Prototype Pollution in Neo.setupClass #7312"
-- 2025-09-30 @tobiu closed this issue
+- 2025-09-30T12:36:14Z @tobiu assigned to @tobiu
+- 2025-09-30T12:36:15Z @tobiu added the `bug` label
+- 2025-09-30T12:37:10Z @tobiu referenced in commit `01d813e` - "Fix Prototype Pollution in Neo.setupClass #7312"
+- 2025-09-30T12:37:20Z @tobiu closed this issue
 

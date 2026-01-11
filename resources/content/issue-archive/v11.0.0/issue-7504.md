@@ -37,10 +37,10 @@ The goal is to create the service that dynamically parses the `openapi.yaml` fil
 
 ## Timeline
 
-- 2025-10-16 @tobiu assigned to @tobiu
-- 2025-10-16 @tobiu added parent issue #7501
-- 2025-10-16 @tobiu added the `enhancement` label
-- 2025-10-16 @tobiu added the `ai` label
-- 2025-10-16 @tobiu referenced in commit `a7df15f` - "Implement Knowledge Base Tool Service #7504"
-- 2025-10-16 @tobiu closed this issue
+- 2025-10-16T10:20:22Z @tobiu assigned to @tobiu
+- 2025-10-16T10:20:23Z @tobiu added parent issue #7501
+- 2025-10-16T10:20:24Z @tobiu added the `enhancement` label
+- 2025-10-16T10:20:24Z @tobiu added the `ai` label
+- 2025-10-16T10:23:16Z @tobiu referenced in commit `a7df15f` - "Implement Knowledge Base Tool Service #7504"
+- 2025-10-16T10:31:53Z @tobiu closed this issue
 

@@ -27,8 +27,8 @@ these need to get moved into the buttons scss file to not influence other widget
 
 ## Timeline
 
-- 2025-02-08 @tobiu added the `bug` label
-- 2025-02-08 @tobiu assigned to @tobiu
-- 2025-02-08 @tobiu referenced in commit `bf1d27d` - "component.Base: neo-masked contains styling rules intended for buttons #6407"
-- 2025-02-08 @tobiu closed this issue
+- 2025-02-08T16:29:36Z @tobiu added the `bug` label
+- 2025-02-08T16:29:36Z @tobiu assigned to @tobiu
+- 2025-02-08T16:35:37Z @tobiu referenced in commit `bf1d27d` - "component.Base: neo-masked contains styling rules intended for buttons #6407"
+- 2025-02-08T17:46:18Z @tobiu closed this issue
 

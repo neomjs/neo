@@ -25,8 +25,8 @@ closedAt: '2025-05-28T11:35:31Z'
 
 ## Timeline
 
-- 2025-05-28 @tobiu assigned to @tobiu
-- 2025-05-28 @tobiu added the `enhancement` label
-- 2025-05-28 @tobiu referenced in commit `8550694` - "buildScripts/buildESModules: copy & minify html files #6717"
-- 2025-05-28 @tobiu closed this issue
+- 2025-05-28T11:07:45Z @tobiu assigned to @tobiu
+- 2025-05-28T11:07:47Z @tobiu added the `enhancement` label
+- 2025-05-28T11:35:14Z @tobiu referenced in commit `8550694` - "buildScripts/buildESModules: copy & minify html files #6717"
+- 2025-05-28T11:35:31Z @tobiu closed this issue
 

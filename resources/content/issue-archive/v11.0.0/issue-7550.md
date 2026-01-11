@@ -35,10 +35,10 @@ This ticket covers refactoring `ai/mcp/server/knowledge-base/services/databaseLi
 
 ## Timeline
 
-- 2025-10-19 @tobiu assigned to @tobiu
-- 2025-10-19 @tobiu added the `enhancement` label
-- 2025-10-19 @tobiu added the `ai` label
-- 2025-10-19 @tobiu added parent issue #7536
-- 2025-10-19 @tobiu referenced in commit `6a9b37e` - "Convert databaseLifecycleService to DatabaseLifecycleService Neo.mjs Class #7550"
-- 2025-10-19 @tobiu closed this issue
+- 2025-10-19T21:17:22Z @tobiu assigned to @tobiu
+- 2025-10-19T21:17:23Z @tobiu added the `enhancement` label
+- 2025-10-19T21:17:23Z @tobiu added the `ai` label
+- 2025-10-19T21:17:23Z @tobiu added parent issue #7536
+- 2025-10-19T21:18:02Z @tobiu referenced in commit `6a9b37e` - "Convert databaseLifecycleService to DatabaseLifecycleService Neo.mjs Class #7550"
+- 2025-10-19T21:18:16Z @tobiu closed this issue
 

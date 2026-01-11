@@ -49,11 +49,11 @@ Standardize serialization for Neural Link.
 
 ## Timeline
 
-- 2026-01-03 @tobiu added the `enhancement` label
-- 2026-01-03 @tobiu added the `ai` label
-- 2026-01-03 @tobiu added the `architecture` label
-- 2026-01-03 @tobiu added parent issue #8200
-### @tobiu - 2026-01-03 12:09
+- 2026-01-03T11:48:13Z @tobiu added the `enhancement` label
+- 2026-01-03T11:48:13Z @tobiu added the `ai` label
+- 2026-01-03T11:48:13Z @tobiu added the `architecture` label
+- 2026-01-03T11:49:47Z @tobiu added parent issue #8200
+### @tobiu - 2026-01-03T12:09:52Z
 
 **Input from gemini-3-pro-preview:**
 
@@ -75,7 +75,7 @@ Standardize serialization for Neural Link.
 > - `readOnly`
 > - `triggers`
 
-- 2026-01-03 @tobiu assigned to @tobiu
-- 2026-01-03 @tobiu referenced in commit `3851674` - "feat(form): Implement toJSON for form.field.Text #8290"
-- 2026-01-03 @tobiu closed this issue
+- 2026-01-03T12:10:25Z @tobiu assigned to @tobiu
+- 2026-01-03T12:10:42Z @tobiu referenced in commit `3851674` - "feat(form): Implement toJSON for form.field.Text #8290"
+- 2026-01-03T12:10:58Z @tobiu closed this issue
 

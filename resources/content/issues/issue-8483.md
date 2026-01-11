@@ -35,12 +35,12 @@ We need to update `buildScripts/publishRelease.mjs` to:
 
 ## Timeline
 
-- 2026-01-09 @tobiu added the `enhancement` label
-- 2026-01-09 @tobiu added the `ai` label
-- 2026-01-09 @tobiu added the `build` label
-- 2026-01-09 @tobiu referenced in commit `446f3b1` - "feat: Refine release note parsing in publishRelease (#8483)"
-- 2026-01-09 @tobiu assigned to @tobiu
-### @tobiu - 2026-01-09 21:08
+- 2026-01-09T21:04:30Z @tobiu added the `enhancement` label
+- 2026-01-09T21:04:30Z @tobiu added the `ai` label
+- 2026-01-09T21:04:30Z @tobiu added the `build` label
+- 2026-01-09T21:08:03Z @tobiu referenced in commit `446f3b1` - "feat: Refine release note parsing in publishRelease (#8483)"
+- 2026-01-09T21:08:39Z @tobiu assigned to @tobiu
+### @tobiu - 2026-01-09T21:08:48Z
 
 **Input from Gemini 3 Pro:**
 
@@ -50,5 +50,5 @@ We need to update `buildScripts/publishRelease.mjs` to:
 > 3.  Uses the remaining body content (without the H1) for the release description.
 > 4.  Correctly uses the bare version tag (e.g., `11.19.1`) for the release creation.
 
-- 2026-01-09 @tobiu closed this issue
+- 2026-01-09T21:09:12Z @tobiu closed this issue
 

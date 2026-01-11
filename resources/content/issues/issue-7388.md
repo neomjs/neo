@@ -36,13 +36,13 @@ This ticket is for defining the new interactive development workflow that levera
 
 ## Timeline
 
-- 2025-10-06 @tobiu added parent issue #7385
-- 2025-10-06 @tobiu added the `enhancement` label
-- 2025-10-06 @tobiu added the `help wanted` label
-- 2025-10-06 @tobiu added the `good first issue` label
-- 2025-10-06 @tobiu added the `hacktoberfest` label
-- 2025-10-06 @tobiu added the `ai` label
-### @1sh-repalto - 2025-10-06 16:52
+- 2025-10-06T10:34:37Z @tobiu added parent issue #7385
+- 2025-10-06T10:34:37Z @tobiu added the `enhancement` label
+- 2025-10-06T10:34:38Z @tobiu added the `help wanted` label
+- 2025-10-06T10:34:38Z @tobiu added the `good first issue` label
+- 2025-10-06T10:34:38Z @tobiu added the `hacktoberfest` label
+- 2025-10-06T10:34:38Z @tobiu added the `ai` label
+### @1sh-repalto - 2025-10-06T16:52:41Z
 
 Hello @tobiu, I’d like to take up this issue. Could you please assign it to me?
 Also, it’s my first time contributing here, so any quick guidance would be really helpful. Thanks!

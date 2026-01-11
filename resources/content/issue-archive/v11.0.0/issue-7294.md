@@ -35,12 +35,12 @@ This task is to migrate the unit test for `vdom/table/Container.mjs` from the Si
 
 ## Timeline
 
-- 2025-09-27 @tobiu added the `enhancement` label
-- 2025-09-27 @tobiu added parent issue #7262
-- 2025-09-29 @tobiu added the `help wanted` label
-- 2025-09-29 @tobiu added the `good first issue` label
-- 2025-09-29 @tobiu added the `hacktoberfest` label
-### @KURO-1125 - 2025-10-02 17:13
+- 2025-09-27T14:09:13Z @tobiu added the `enhancement` label
+- 2025-09-27T14:09:13Z @tobiu added parent issue #7262
+- 2025-09-29T14:53:09Z @tobiu added the `help wanted` label
+- 2025-09-29T14:53:09Z @tobiu added the `good first issue` label
+- 2025-09-29T14:53:09Z @tobiu added the `hacktoberfest` label
+### @KURO-1125 - 2025-10-02T17:13:41Z
 
 Hi! I'd like to work on this issue for Hacktoberfest. 
 
@@ -56,7 +56,7 @@ Could you please assign this issue to me?
 Thanks!
 
 
-### @tobiu - 2025-10-02 17:30
+### @tobiu - 2025-10-02T17:30:26Z
 
 Hi and thanks for the interest. For this ticket, I strongly recommend to try out the "ai native" workflow:
 https://github.com/neomjs/neo/blob/dev/.github/WORKING_WITH_AGENTS.md
@@ -70,9 +70,9 @@ https://github.com/neomjs/neo/blob/dev/.github/AI_QUICK_START.md
 
 Of course you can also do it manually, but it feels a bit like wasting time here.
 
-- 2025-10-02 @tobiu assigned to @KURO-1125
-- 2025-10-02 @tobiu cross-referenced by #7285
-### @KURO-1125 - 2025-10-02 19:13
+- 2025-10-02T17:30:40Z @tobiu assigned to @KURO-1125
+- 2025-10-02T17:33:18Z @tobiu cross-referenced by #7285
+### @KURO-1125 - 2025-10-02T19:13:58Z
 
 Thanks for the AI native workflow guidance! I've successfully used it:
 
@@ -87,20 +87,20 @@ The AI workflow is impressive - much more efficient than manual work!
 Branch ready: `migrate-vdom-table-container-test`
 
 
-### @tobiu - 2025-10-02 19:18
+### @tobiu - 2025-10-02T19:18:44Z
 
 Thanks for the feedback! I am still polishing the new memory core (other pinned epic). the code is already done, i just need to add the documentation. Inside the Github page of your fork, there is a pull request button. Then you can send the PR to the neo dev branch, and i will add the `hacktoberfest-accepted` label and merge it in.
 
-### @tobiu - 2025-10-02 19:19
+### @tobiu - 2025-10-02T19:19:21Z
 
 i should add: ideally one PR for each sub, so that both count for the event.
 
-### @tobiu - 2025-10-02 19:20
+### @tobiu - 2025-10-02T19:20:48Z
 
 i will flag more of the testing subs with the `hacktoberfest` label now.
 
-- 2025-10-02 @KURO-1125 cross-referenced by PR #7330
-### @KURO-1125 - 2025-10-02 19:33
+- 2025-10-02T19:31:27Z @KURO-1125 cross-referenced by PR #7330
+### @KURO-1125 - 2025-10-02T19:33:24Z
 
 Perfect! I've created two separate PRs as requested:
 
@@ -110,5 +110,5 @@ Perfect! I've created two separate PRs as requested:
 Thanks for flagging more test migration issues with the hacktoberfest label!
 
 
-- 2025-10-02 @tobiu closed this issue
+- 2025-10-02T19:54:47Z @tobiu closed this issue
 

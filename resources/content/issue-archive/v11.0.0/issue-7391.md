@@ -35,18 +35,18 @@ The `buildScripts/ai/createGhIssue.mjs` script currently uses a mix of `fs` and 
 
 ## Timeline
 
-- 2025-10-06 @tobiu added the `enhancement` label
-- 2025-10-06 @tobiu added parent issue #7364
-- 2025-10-06 @tobiu added the `help wanted` label
-- 2025-10-06 @tobiu added the `good first issue` label
-- 2025-10-06 @tobiu added the `hacktoberfest` label
-- 2025-10-06 @tobiu added the `ai` label
-### @divyanshkul - 2025-10-06 11:46
+- 2025-10-06T11:18:36Z @tobiu added the `enhancement` label
+- 2025-10-06T11:18:36Z @tobiu added parent issue #7364
+- 2025-10-06T11:18:36Z @tobiu added the `help wanted` label
+- 2025-10-06T11:18:37Z @tobiu added the `good first issue` label
+- 2025-10-06T11:18:37Z @tobiu added the `hacktoberfest` label
+- 2025-10-06T11:18:37Z @tobiu added the `ai` label
+### @divyanshkul - 2025-10-06T11:46:34Z
 
 Hi @tobiu 
 Can I work on this?
 
-### @tobiu - 2025-10-06 11:57
+### @tobiu - 2025-10-06T11:57:59Z
 
 Hi, and thanks for your interest.
 
@@ -66,8 +66,8 @@ Feel free to join the chat channels:
 https://join.slack.com/t/neomjs/shared_invite/zt-6c50ueeu-3E1~M4T9xkNnb~M_prEEOA
 https://discord.gg/6p8paPq
 
-- 2025-10-06 @tobiu assigned to @divyanshkul
-### @tobiu - 2025-10-24 09:29
+- 2025-10-06T11:58:06Z @tobiu assigned to @divyanshkul
+### @tobiu - 2025-10-24T09:29:33Z
 
 Hi @divyanshkul,
 
@@ -77,5 +77,5 @@ This ticket was for refactoring an old build script ('createGhIssue.mjs'). This 
 
 We're closing this ticket as it is no longer relevant. Thanks again for your willingness to contribute, and we hope to see you in other issues!
 
-- 2025-10-24 @tobiu closed this issue
+- 2025-10-24T09:29:45Z @tobiu closed this issue
 

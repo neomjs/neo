@@ -25,11 +25,11 @@ closedAt: '2025-05-28T12:38:26Z'
 
 ## Timeline
 
-- 2025-05-28 @tobiu assigned to @tobiu
-- 2025-05-28 @tobiu added the `enhancement` label
-- 2025-05-28 @tobiu referenced in commit `101c387` - "buildScripts/buildESModules: copy & minify json files #6718"
-- 2025-05-28 @tobiu closed this issue
-- 2025-05-28 @tobiu reopened this issue
-- 2025-05-28 @tobiu referenced in commit `27c8cb5` - "#6718 neo-config content fix"
-- 2025-05-28 @tobiu closed this issue
+- 2025-05-28T11:36:02Z @tobiu assigned to @tobiu
+- 2025-05-28T11:36:03Z @tobiu added the `enhancement` label
+- 2025-05-28T12:31:19Z @tobiu referenced in commit `101c387` - "buildScripts/buildESModules: copy & minify json files #6718"
+- 2025-05-28T12:33:30Z @tobiu closed this issue
+- 2025-05-28T12:37:46Z @tobiu reopened this issue
+- 2025-05-28T12:38:12Z @tobiu referenced in commit `27c8cb5` - "#6718 neo-config content fix"
+- 2025-05-28T12:38:26Z @tobiu closed this issue
 

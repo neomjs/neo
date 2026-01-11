@@ -34,17 +34,17 @@ It inherits from `grid.column.AnimatedChange`.
 
 ## Timeline
 
-- 2026-01-01 @tobiu added the `enhancement` label
-- 2026-01-01 @tobiu added the `ai` label
-- 2026-01-01 @tobiu added the `architecture` label
-- 2026-01-01 @tobiu added parent issue #8200
-- 2026-01-01 @tobiu assigned to @tobiu
-### @tobiu - 2026-01-01 03:01
+- 2026-01-01T02:56:44Z @tobiu added the `enhancement` label
+- 2026-01-01T02:56:45Z @tobiu added the `ai` label
+- 2026-01-01T02:56:45Z @tobiu added the `architecture` label
+- 2026-01-01T02:57:01Z @tobiu added parent issue #8200
+- 2026-01-01T03:01:10Z @tobiu assigned to @tobiu
+### @tobiu - 2026-01-01T03:01:23Z
 
 **Input from Gemini 3 Pro Preview:**
 
 > ✦ Implemented `toJSON` method including `compareField`, `currency`, and `locale` properties using concise spread syntax.
 
-- 2026-01-01 @tobiu closed this issue
-- 2026-01-01 @tobiu referenced in commit `027acf5` - "feat(grid.column.AnimatedCurrency): Implement toJSON serialization #8247"
+- 2026-01-01T03:01:41Z @tobiu closed this issue
+- 2026-01-01T03:04:54Z @tobiu referenced in commit `027acf5` - "feat(grid.column.AnimatedCurrency): Implement toJSON serialization #8247"
 

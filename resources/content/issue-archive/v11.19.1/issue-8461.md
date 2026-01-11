@@ -33,11 +33,11 @@ However, `Portal.model.Release` does not use `name`, but relies on `id` or `titl
 
 ## Timeline
 
-- 2026-01-09 @tobiu added the `ai` label
-- 2026-01-09 @tobiu added the `refactoring` label
-- 2026-01-09 @tobiu referenced in commit `8ff67ed` - "fix: Restore Portal Release navigation button text (#8461)"
-- 2026-01-09 @tobiu assigned to @tobiu
-### @tobiu - 2026-01-09 11:48
+- 2026-01-09T11:37:52Z @tobiu added the `ai` label
+- 2026-01-09T11:37:52Z @tobiu added the `refactoring` label
+- 2026-01-09T11:47:58Z @tobiu referenced in commit `8ff67ed` - "fix: Restore Portal Release navigation button text (#8461)"
+- 2026-01-09T11:48:04Z @tobiu assigned to @tobiu
+### @tobiu - 2026-01-09T11:48:14Z
 
 **Input from tobiu:**
 
@@ -57,5 +57,5 @@ However, `Portal.model.Release` does not use `name`, but relies on `id` or `titl
 > 
 > This restores the navigation button text for Release Notes while maintaining the correct behavior for other content types (like Guides) that rely on the default `name` field.
 
-- 2026-01-09 @tobiu closed this issue
+- 2026-01-09T11:48:31Z @tobiu closed this issue
 

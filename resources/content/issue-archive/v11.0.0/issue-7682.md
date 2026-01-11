@@ -26,9 +26,9 @@ The `unregister` method in `src/main/addon/ScrollSync.mjs` is not implemented. T
 
 ## Timeline
 
-- 2025-10-31 @tobiu added the `enhancement` label
-- 2025-10-31 @tobiu added the `ai` label
-- 2025-10-31 @tobiu assigned to @tobiu
-- 2025-10-31 @tobiu referenced in commit `2725361` - "Implement unregister in ScrollSync addon #7682"
-- 2025-10-31 @tobiu closed this issue
+- 2025-10-31T20:24:40Z @tobiu added the `enhancement` label
+- 2025-10-31T20:24:40Z @tobiu added the `ai` label
+- 2025-10-31T20:55:18Z @tobiu assigned to @tobiu
+- 2025-10-31T20:57:23Z @tobiu referenced in commit `2725361` - "Implement unregister in ScrollSync addon #7682"
+- 2025-10-31T20:57:28Z @tobiu closed this issue
 

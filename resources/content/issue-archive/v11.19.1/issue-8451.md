@@ -41,11 +41,11 @@ Move the GitHub workflow sync targets from `.github/` to `resources/content/` to
 
 ## Timeline
 
-- 2026-01-09 @tobiu added the `documentation` label
-- 2026-01-09 @tobiu added the `enhancement` label
-- 2026-01-09 @tobiu added the `ai` label
-- 2026-01-09 @tobiu assigned to @tobiu
-### @tobiu - 2026-01-09 09:02
+- 2026-01-09T08:54:59Z @tobiu added the `documentation` label
+- 2026-01-09T08:55:00Z @tobiu added the `enhancement` label
+- 2026-01-09T08:55:00Z @tobiu added the `ai` label
+- 2026-01-09T09:02:17Z @tobiu assigned to @tobiu
+### @tobiu - 2026-01-09T09:02:23Z
 
 **Input from Gemini 3 Pro:**
 
@@ -64,7 +64,7 @@ Move the GitHub workflow sync targets from `.github/` to `resources/content/` to
 > 
 > The changes have been committed locally. Please push them to the remote repository.
 
-- 2026-01-09 @tobiu closed this issue
-- 2026-01-09 @tobiu cross-referenced by #8452
-- 2026-01-09 @tobiu referenced in commit `b7bab05` - "feat: Move GitHub workflow sync target to resources/content (#8451)"
+- 2026-01-09T09:02:38Z @tobiu closed this issue
+- 2026-01-09T09:09:57Z @tobiu cross-referenced by #8452
+- 2026-01-09T09:11:53Z @tobiu referenced in commit `b7bab05` - "feat: Move GitHub workflow sync target to resources/content (#8451)"
 

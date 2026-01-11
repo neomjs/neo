@@ -26,8 +26,8 @@ closedAt: '2025-02-08T12:45:57Z'
 
 ## Timeline
 
-- 2025-02-08 @tobiu added the `enhancement` label
-- 2025-02-08 @tobiu assigned to @tobiu
-- 2025-02-08 @tobiu referenced in commit `297b4cb` - "component.Base: afterSetIsLoading() => wrapperCls #6406"
-- 2025-02-08 @tobiu closed this issue
+- 2025-02-08T12:45:19Z @tobiu added the `enhancement` label
+- 2025-02-08T12:45:19Z @tobiu assigned to @tobiu
+- 2025-02-08T12:45:49Z @tobiu referenced in commit `297b4cb` - "component.Base: afterSetIsLoading() => wrapperCls #6406"
+- 2025-02-08T12:45:57Z @tobiu closed this issue
 

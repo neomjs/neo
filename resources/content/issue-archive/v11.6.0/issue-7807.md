@@ -33,8 +33,8 @@ const { readFile } = await import(/* webpackIgnore: true */ 'fs/promises');
 
 ## Timeline
 
-- 2025-11-19 @tobiu assigned to @tobiu
-- 2025-11-19 @tobiu added the `bug` label
-- 2025-11-19 @tobiu referenced in commit `85c82d5` - "data.Store: load() => ignore the node.js env for webpack #7807"
-- 2025-11-19 @tobiu closed this issue
+- 2025-11-19T13:00:39Z @tobiu assigned to @tobiu
+- 2025-11-19T13:00:41Z @tobiu added the `bug` label
+- 2025-11-19T13:01:10Z @tobiu referenced in commit `85c82d5` - "data.Store: load() => ignore the node.js env for webpack #7807"
+- 2025-11-19T13:01:16Z @tobiu closed this issue
 

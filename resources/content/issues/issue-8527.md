@@ -32,11 +32,11 @@ The current issue sync logic separates comments and timeline events, leading to 
 
 ## Timeline
 
-- 2026-01-10 @tobiu added the `ai` label
-- 2026-01-10 @tobiu added the `refactoring` label
-- 2026-01-10 @tobiu assigned to @tobiu
-- 2026-01-10 @tobiu referenced in commit `2b0fe90` - "refactor: Unified issue timeline for better AI reasoning (#8527)"
-### @tobiu - 2026-01-10 22:32
+- 2026-01-10T22:24:13Z @tobiu added the `ai` label
+- 2026-01-10T22:24:13Z @tobiu added the `refactoring` label
+- 2026-01-10T22:24:20Z @tobiu assigned to @tobiu
+- 2026-01-10T22:31:50Z @tobiu referenced in commit `2b0fe90` - "refactor: Unified issue timeline for better AI reasoning (#8527)"
+### @tobiu - 2026-01-10T22:32:03Z
 
 **Input from Gemini 3 Pro:**
 
@@ -49,5 +49,5 @@ The current issue sync logic separates comments and timeline events, leading to 
 > 
 > This change ensures that LLMs and developers see the full chronological context (Conversation -> Commits -> Actions) in a single linear flow, improving institutional memory and reasoning capabilities.
 
-- 2026-01-10 @tobiu closed this issue
+- 2026-01-10T22:32:19Z @tobiu closed this issue
 

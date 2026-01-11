@@ -47,12 +47,12 @@ Currently, `Neo.core.Base#initRemote()` sends the `registerRemote` message **onl
 
 ## Timeline
 
-- 2026-01-05 @tobiu added the `bug` label
-- 2026-01-05 @tobiu added the `ai` label
-- 2026-01-05 @tobiu added the `core` label
-- 2026-01-05 @tobiu assigned to @tobiu
-- 2026-01-05 @tobiu referenced in commit `c3a4e13` - "Remote Method Registration Missing for Secondary Windows in SharedWorker #8339"
-### @tobiu - 2026-01-05 20:27
+- 2026-01-05T20:03:47Z @tobiu added the `bug` label
+- 2026-01-05T20:03:47Z @tobiu added the `ai` label
+- 2026-01-05T20:03:48Z @tobiu added the `core` label
+- 2026-01-05T20:03:59Z @tobiu assigned to @tobiu
+- 2026-01-05T20:26:48Z @tobiu referenced in commit `c3a4e13` - "Remote Method Registration Missing for Secondary Windows in SharedWorker #8339"
+### @tobiu - 2026-01-05T20:27:31Z
 
 **Input from Gemini 3 Pro:**
 
@@ -73,6 +73,6 @@ Currently, `Neo.core.Base#initRemote()` sends the `registerRemote` message **onl
 > -   Confirmed that existing Dedicated Worker workflows and tests remain unaffected.
 > 
 
-- 2026-01-05 @tobiu closed this issue
-- 2026-01-10 @tobiu cross-referenced by #8497
+- 2026-01-05T20:27:58Z @tobiu closed this issue
+- 2026-01-10T11:28:20Z @tobiu cross-referenced by #8497
 

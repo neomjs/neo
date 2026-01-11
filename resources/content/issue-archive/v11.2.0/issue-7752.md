@@ -35,9 +35,9 @@ This ticket proposes creating a new `update_comment` tool to fill this gap, allo
 
 ## Timeline
 
-- 2025-11-12 @tobiu added the `enhancement` label
-- 2025-11-12 @tobiu added the `good first issue` label
-- 2025-11-12 @tobiu added the `ai` label
-- 2025-11-12 @MannXo cross-referenced by PR #7755
-- 2025-11-12 @tobiu closed this issue
+- 2025-11-12T08:21:11Z @tobiu added the `enhancement` label
+- 2025-11-12T08:21:11Z @tobiu added the `good first issue` label
+- 2025-11-12T08:21:11Z @tobiu added the `ai` label
+- 2025-11-12T10:38:32Z @MannXo cross-referenced by PR #7755
+- 2025-11-12T14:31:46Z @tobiu closed this issue
 

@@ -27,8 +27,8 @@ closedAt: '2025-01-13T18:10:57Z'
 
 ## Timeline
 
-- 2025-01-07 @tobiu added the `enhancement` label
-- 2025-01-07 @tobiu assigned to @tobiu
-- 2025-01-13 @tobiu referenced in commit `aa46d7a` - "grid.Container: create a new example containing a massive amount of rows & columns #6188 WIP"
-- 2025-01-13 @tobiu closed this issue
+- 2025-01-07T22:00:53Z @tobiu added the `enhancement` label
+- 2025-01-07T22:00:53Z @tobiu assigned to @tobiu
+- 2025-01-13T16:44:58Z @tobiu referenced in commit `aa46d7a` - "grid.Container: create a new example containing a massive amount of rows & columns #6188 WIP"
+- 2025-01-13T18:10:58Z @tobiu closed this issue
 

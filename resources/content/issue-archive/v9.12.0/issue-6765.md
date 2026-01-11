@@ -25,8 +25,8 @@ closedAt: '2025-06-11T11:42:20Z'
 
 ## Timeline
 
-- 2025-06-11 @tobiu added the `enhancement` label
-- 2025-06-11 @tobiu assigned to @tobiu
-- 2025-06-11 @tobiu referenced in commit `84242c1` - "data.Store: load() => use await #6765"
-- 2025-06-11 @tobiu closed this issue
+- 2025-06-11T11:41:47Z @tobiu added the `enhancement` label
+- 2025-06-11T11:41:48Z @tobiu assigned to @tobiu
+- 2025-06-11T11:42:07Z @tobiu referenced in commit `84242c1` - "data.Store: load() => use await #6765"
+- 2025-06-11T11:42:20Z @tobiu closed this issue
 

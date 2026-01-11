@@ -45,10 +45,10 @@ Refactor all methods in `src/ai/client/*.mjs` that currently accept a single `pa
 
 ## Timeline
 
-- 2025-12-29 @tobiu added the `ai` label
-- 2025-12-29 @tobiu added the `refactoring` label
-- 2025-12-29 @tobiu added parent issue #8169
-- 2025-12-29 @tobiu assigned to @tobiu
-- 2025-12-29 @tobiu referenced in commit `77a7371` - "Refactor Client Services to use Parameter Destructuring #8206"
-- 2025-12-29 @tobiu closed this issue
+- 2025-12-29T23:27:20Z @tobiu added the `ai` label
+- 2025-12-29T23:27:20Z @tobiu added the `refactoring` label
+- 2025-12-29T23:27:27Z @tobiu added parent issue #8169
+- 2025-12-29T23:27:55Z @tobiu assigned to @tobiu
+- 2025-12-29T23:36:07Z @tobiu referenced in commit `77a7371` - "Refactor Client Services to use Parameter Destructuring #8206"
+- 2025-12-29T23:36:14Z @tobiu closed this issue
 

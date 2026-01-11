@@ -32,8 +32,8 @@ This ticket covers a series of enhancements to the `learn/comparisons/NeoVsReact
 
 ## Timeline
 
-- 2025-07-24 @tobiu assigned to @tobiu
-- 2025-07-24 @tobiu added the `enhancement` label
-- 2025-07-24 @tobiu referenced in commit `7969234` - "docs: Enhance NeoVsReact.md comparison #7105"
-- 2025-07-24 @tobiu closed this issue
+- 2025-07-24T15:16:44Z @tobiu assigned to @tobiu
+- 2025-07-24T15:16:45Z @tobiu added the `enhancement` label
+- 2025-07-24T15:17:05Z @tobiu referenced in commit `7969234` - "docs: Enhance NeoVsReact.md comparison #7105"
+- 2025-07-24T15:17:14Z @tobiu closed this issue
 

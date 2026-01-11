@@ -25,9 +25,9 @@ closedAt: '2025-06-15T10:57:25Z'
 
 ## Timeline
 
-- 2025-06-15 @tobiu assigned to @tobiu
-- 2025-06-15 @tobiu added parent issue #6785
-- 2025-06-15 @tobiu added the `enhancement` label
-- 2025-06-15 @tobiu referenced in commit `10e582c` - "Neo.config.useStringBasedMounting #6795"
-- 2025-06-15 @tobiu closed this issue
+- 2025-06-15T10:56:35Z @tobiu assigned to @tobiu
+- 2025-06-15T10:56:36Z @tobiu added parent issue #6785
+- 2025-06-15T10:56:37Z @tobiu added the `enhancement` label
+- 2025-06-15T10:57:13Z @tobiu referenced in commit `10e582c` - "Neo.config.useStringBasedMounting #6795"
+- 2025-06-15T10:57:25Z @tobiu closed this issue
 

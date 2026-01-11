@@ -44,11 +44,11 @@ After proving the AST-based approach in a dedicated script (`buildSingleFile.mjs
 
 ## Timeline
 
-- 2025-08-01 @tobiu assigned to @tobiu
-- 2025-08-01 @tobiu added the `enhancement` label
-- 2025-08-01 @tobiu added parent issue #7150
-- 2025-08-01 @tobiu removed parent issue #7150
-- 2025-08-01 @tobiu added parent issue #7130
-- 2025-08-01 @tobiu referenced in commit `a267273` - "Finalize and Integrate AST-based Build Process #7151"
-- 2025-08-01 @tobiu closed this issue
+- 2025-08-01T10:32:59Z @tobiu assigned to @tobiu
+- 2025-08-01T10:33:00Z @tobiu added the `enhancement` label
+- 2025-08-01T10:33:01Z @tobiu added parent issue #7150
+- 2025-08-01T10:33:55Z @tobiu removed parent issue #7150
+- 2025-08-01T10:33:56Z @tobiu added parent issue #7130
+- 2025-08-01T10:34:31Z @tobiu referenced in commit `a267273` - "Finalize and Integrate AST-based Build Process #7151"
+- 2025-08-01T11:06:51Z @tobiu closed this issue
 

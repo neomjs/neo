@@ -38,10 +38,10 @@ To make the issue synchronization process scalable and efficient, we need to mov
 
 ## Timeline
 
-- 2025-10-20 @tobiu assigned to @tobiu
-- 2025-10-20 @tobiu added the `enhancement` label
-- 2025-10-20 @tobiu added parent issue #7564
-- 2025-10-20 @tobiu added the `ai` label
-- 2025-10-20 @tobiu referenced in commit `323d5a4` - "Refactor Sync Config for Dynamic Date-Based Syncing #7571"
-- 2025-10-20 @tobiu closed this issue
+- 2025-10-20T12:43:12Z @tobiu assigned to @tobiu
+- 2025-10-20T12:43:13Z @tobiu added the `enhancement` label
+- 2025-10-20T12:43:13Z @tobiu added parent issue #7564
+- 2025-10-20T12:43:14Z @tobiu added the `ai` label
+- 2025-10-20T12:53:43Z @tobiu referenced in commit `323d5a4` - "Refactor Sync Config for Dynamic Date-Based Syncing #7571"
+- 2025-10-20T12:53:57Z @tobiu closed this issue
 

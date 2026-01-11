@@ -34,9 +34,9 @@ This ticket is to update the document to provide a complete picture of the v10 t
 
 ## Timeline
 
-- 2025-07-24 @tobiu assigned to @tobiu
-- 2025-07-24 @tobiu added the `enhancement` label
-- 2025-07-28 @tobiu referenced in commit `d2d3b0c` - "docs: Update "Config System Deep Dive" for v10 reactivity #7109"
-- 2025-07-28 @tobiu referenced in commit `817b172` - "#7109 code block => readonly"
-- 2025-07-28 @tobiu closed this issue
+- 2025-07-24T15:38:04Z @tobiu assigned to @tobiu
+- 2025-07-24T15:38:06Z @tobiu added the `enhancement` label
+- 2025-07-28T10:35:15Z @tobiu referenced in commit `d2d3b0c` - "docs: Update "Config System Deep Dive" for v10 reactivity #7109"
+- 2025-07-28T10:35:53Z @tobiu referenced in commit `817b172` - "#7109 code block => readonly"
+- 2025-07-28T10:35:58Z @tobiu closed this issue
 

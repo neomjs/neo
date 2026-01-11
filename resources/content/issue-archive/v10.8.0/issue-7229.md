@@ -61,9 +61,9 @@ The `buildScripts/ai/queryKnowledgeBase.mjs` script is a critical tool for the A
 
 ## Timeline
 
-- 2025-09-22 @tobiu assigned to @tobiu
-- 2025-09-22 @tobiu added the `enhancement` label
-- 2025-09-22 @tobiu referenced in commit `b5440d4` - "Enhance AI Query Script with Commander and Content Type Filtering #7229"
-- 2025-09-22 @tobiu referenced in commit `f483d5e` - "#7229 listing all types inside the help option"
-- 2025-09-22 @tobiu closed this issue
+- 2025-09-22T01:17:19Z @tobiu assigned to @tobiu
+- 2025-09-22T01:17:20Z @tobiu added the `enhancement` label
+- 2025-09-22T01:22:42Z @tobiu referenced in commit `b5440d4` - "Enhance AI Query Script with Commander and Content Type Filtering #7229"
+- 2025-09-22T01:26:57Z @tobiu referenced in commit `f483d5e` - "#7229 listing all types inside the help option"
+- 2025-09-22T01:27:08Z @tobiu closed this issue
 

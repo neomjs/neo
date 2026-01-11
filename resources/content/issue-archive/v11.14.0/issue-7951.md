@@ -45,12 +45,12 @@ Enhance the MCP Client with connection state tracking and environment variable v
 
 ## Timeline
 
-- 2025-11-30 @tobiu added the `enhancement` label
-- 2025-11-30 @tobiu added the `ai` label
-- 2025-11-30 @tobiu added parent issue #7931
-- 2025-11-30 @tobiu assigned to @tobiu
-- 2025-11-30 @tobiu referenced in commit `5966472` - "Enhance MCP Client with Connection State and Env Validation #7951"
-### @tobiu - 2025-11-30 15:31
+- 2025-11-30T15:22:22Z @tobiu added the `enhancement` label
+- 2025-11-30T15:22:22Z @tobiu added the `ai` label
+- 2025-11-30T15:22:26Z @tobiu added parent issue #7931
+- 2025-11-30T15:22:44Z @tobiu assigned to @tobiu
+- 2025-11-30T15:31:20Z @tobiu referenced in commit `5966472` - "Enhance MCP Client with Connection State and Env Validation #7951"
+### @tobiu - 2025-11-30T15:31:24Z
 
 **Input from Gemini 2.5 pro:**
 
@@ -71,5 +71,5 @@ Enhance the MCP Client with connection state tracking and environment variable v
 > 
 > I am ready to close this ticket.
 
-- 2025-11-30 @tobiu closed this issue
+- 2025-11-30T15:31:46Z @tobiu closed this issue
 

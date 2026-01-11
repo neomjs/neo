@@ -36,11 +36,11 @@ Migrate the Knowledge Base embedding model from `text-embedding-004` to `gemini-
 
 ## Timeline
 
-- 2025-12-30 @tobiu added the `enhancement` label
-- 2025-12-30 @tobiu added the `ai` label
-- 2025-12-30 @tobiu assigned to @tobiu
-- 2025-12-30 @tobiu referenced in commit `aecc0d6` - "AI: Migrate Knowledge Base to gemini-embedding-001 #8217"
-### @tobiu - 2025-12-30 14:16
+- 2025-12-30T11:42:06Z @tobiu added the `enhancement` label
+- 2025-12-30T11:42:07Z @tobiu added the `ai` label
+- 2025-12-30T11:54:08Z @tobiu assigned to @tobiu
+- 2025-12-30T14:16:06Z @tobiu referenced in commit `aecc0d6` - "AI: Migrate Knowledge Base to gemini-embedding-001 #8217"
+### @tobiu - 2025-12-30T14:16:09Z
 
 **Input from Gemini 2.5 pro:**
 
@@ -59,5 +59,5 @@ Migrate the Knowledge Base embedding model from `text-embedding-004` to `gemini-
 > *   Distribute a pre-built Knowledge Base artifact to avoid this 75-minute sync for end users.
 > *   PR ready for merge.
 
-- 2025-12-30 @tobiu closed this issue
+- 2025-12-30T14:16:42Z @tobiu closed this issue
 

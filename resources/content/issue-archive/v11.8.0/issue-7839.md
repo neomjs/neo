@@ -43,9 +43,9 @@ The `Memory_DatabaseService` was not exposed in the public SDK, preventing agent
 
 ## Timeline
 
-- 2025-11-21 @tobiu added the `enhancement` label
-- 2025-11-21 @tobiu added the `ai` label
-- 2025-11-21 @tobiu referenced in commit `33f1fe8` - "chore: Enhance AI SDK (Issue #7839)
+- 2025-11-21T10:16:21Z @tobiu added the `enhancement` label
+- 2025-11-21T10:16:22Z @tobiu added the `ai` label
+- 2025-11-21T10:17:39Z @tobiu referenced in commit `33f1fe8` - "chore: Enhance AI SDK (Issue #7839)
 
 - Fix ChromaDB 'No embedding function configuration' warning by implementing full IEmbeddingFunction interface in dummy functions.
 - Enable programmable DB backup/restore by exporting Memory_DatabaseService in SDK.
@@ -53,7 +53,7 @@ The `Memory_DatabaseService` was not exposed in the public SDK, preventing agent
 - Refactor importDatabase for cleaner replace logic.
 - Add db-backup.mjs and db-restore.mjs examples.
 - Cleanup redundant awaits in self-healing.mjs."
-- 2025-11-21 @tobiu assigned to @tobiu
-- 2025-11-21 @tobiu closed this issue
-- 2025-11-21 @tobiu cross-referenced by #7838
+- 2025-11-21T10:17:57Z @tobiu assigned to @tobiu
+- 2025-11-21T10:18:15Z @tobiu closed this issue
+- 2025-11-21T10:19:01Z @tobiu cross-referenced by #7838
 

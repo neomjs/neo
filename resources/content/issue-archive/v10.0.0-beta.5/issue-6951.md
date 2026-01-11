@@ -27,8 +27,8 @@ closedAt: '2025-07-05T10:31:28Z'
 
 ## Timeline
 
-- 2025-07-05 @tobiu assigned to @tobiu
-- 2025-07-05 @tobiu added the `enhancement` label
-- 2025-07-05 @tobiu referenced in commit `b54b761` - "Neo.cloneMap #6951"
-- 2025-07-05 @tobiu closed this issue
+- 2025-07-05T10:28:21Z @tobiu assigned to @tobiu
+- 2025-07-05T10:28:23Z @tobiu added the `enhancement` label
+- 2025-07-05T10:31:07Z @tobiu referenced in commit `b54b761` - "Neo.cloneMap #6951"
+- 2025-07-05T10:31:28Z @tobiu closed this issue
 

@@ -46,9 +46,9 @@ Wrap the logic of the listed methods in `try-catch` blocks and return the standa
 
 ## Timeline
 
-- 2025-11-22 @tobiu added the `enhancement` label
-- 2025-11-22 @tobiu added the `ai` label
-- 2025-11-22 @tobiu assigned to @tobiu
-- 2025-11-22 @tobiu referenced in commit `944c5be` - "Implement consistent error handling for Memory Core MCP tools #7868"
-- 2025-11-22 @tobiu closed this issue
+- 2025-11-22T21:12:15Z @tobiu added the `enhancement` label
+- 2025-11-22T21:12:16Z @tobiu added the `ai` label
+- 2025-11-22T21:19:32Z @tobiu assigned to @tobiu
+- 2025-11-22T21:19:50Z @tobiu referenced in commit `944c5be` - "Implement consistent error handling for Memory Core MCP tools #7868"
+- 2025-11-22T21:20:22Z @tobiu closed this issue
 

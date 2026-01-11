@@ -25,8 +25,8 @@ closedAt: '2025-03-08T23:43:42Z'
 
 ## Timeline
 
-- 2025-03-08 @tobiu added the `bug` label
-- 2025-03-08 @tobiu assigned to @tobiu
-- 2025-03-08 @tobiu referenced in commit `3ac56d7` - "list.plugin.Animate: updateTransitionDetails() => not properly removing CSS rules #6550"
-- 2025-03-08 @tobiu closed this issue
+- 2025-03-08T23:39:32Z @tobiu added the `bug` label
+- 2025-03-08T23:39:32Z @tobiu assigned to @tobiu
+- 2025-03-08T23:43:36Z @tobiu referenced in commit `3ac56d7` - "list.plugin.Animate: updateTransitionDetails() => not properly removing CSS rules #6550"
+- 2025-03-08T23:43:42Z @tobiu closed this issue
 

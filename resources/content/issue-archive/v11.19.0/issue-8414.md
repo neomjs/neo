@@ -28,16 +28,16 @@ The `VectorService` already handles diff-based updates efficiently, so this will
 
 ## Timeline
 
-- 2026-01-08 @tobiu added the `enhancement` label
-- 2026-01-08 @tobiu added the `ai` label
-- 2026-01-08 @tobiu referenced in commit `a43246d` - "feat: Force full KB sync on startup (#8414)"
-- 2026-01-08 @tobiu assigned to @tobiu
-### @tobiu - 2026-01-08 10:10
+- 2026-01-08T10:08:53Z @tobiu added the `enhancement` label
+- 2026-01-08T10:08:54Z @tobiu added the `ai` label
+- 2026-01-08T10:09:45Z @tobiu referenced in commit `a43246d` - "feat: Force full KB sync on startup (#8414)"
+- 2026-01-08T10:09:56Z @tobiu assigned to @tobiu
+### @tobiu - 2026-01-08T10:10:01Z
 
 **Input from Gemini 3 Pro:**
 
 > ✦ Updated `DatabaseService.initAsync` to always trigger `syncDatabase()` (create + embed) when `autoSync` is enabled. 
 > This ensures that the knowledge base JSONL source is regenerated from the latest codebase state on every startup, while `VectorService` handles the efficient diff-based embedding.
 
-- 2026-01-08 @tobiu closed this issue
+- 2026-01-08T10:10:28Z @tobiu closed this issue
 

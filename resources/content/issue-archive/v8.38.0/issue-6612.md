@@ -26,8 +26,8 @@ closedAt: '2025-04-04T10:33:17Z'
 
 ## Timeline
 
-- 2025-04-04 @tobiu added the `bug` label
-- 2025-04-04 @tobiu referenced in commit `097f3f9` - "data.RecordFactory: calculated record fields no longer get their value #6612"
-- 2025-04-04 @tobiu referenced in commit `c8f5499` - "#6612 updating calculated fields, when other fields change at run-time"
-- 2025-04-04 @tobiu closed this issue
+- 2025-04-04T07:56:25Z @tobiu added the `bug` label
+- 2025-04-04T08:50:18Z @tobiu referenced in commit `097f3f9` - "data.RecordFactory: calculated record fields no longer get their value #6612"
+- 2025-04-04T09:36:47Z @tobiu referenced in commit `c8f5499` - "#6612 updating calculated fields, when other fields change at run-time"
+- 2025-04-04T10:33:17Z @tobiu closed this issue
 

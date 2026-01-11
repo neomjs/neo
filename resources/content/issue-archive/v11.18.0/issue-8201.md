@@ -35,9 +35,9 @@ Additionally, `ai/mcp/validation/OpenApiValidator.mjs` needs to be robust agains
 
 ## Timeline
 
-- 2025-12-29 @tobiu added the `bug` label
-- 2025-12-29 @tobiu added the `ai` label
-- 2025-12-29 @tobiu assigned to @tobiu
-- 2025-12-29 @tobiu referenced in commit `a45e8f6` - "Fix nextCursor: null violation and OpenAPI Array Validation in MCP Servers #8201"
-- 2025-12-29 @tobiu closed this issue
+- 2025-12-29T13:33:58Z @tobiu added the `bug` label
+- 2025-12-29T13:33:58Z @tobiu added the `ai` label
+- 2025-12-29T13:36:51Z @tobiu assigned to @tobiu
+- 2025-12-29T13:42:01Z @tobiu referenced in commit `a45e8f6` - "Fix nextCursor: null violation and OpenAPI Array Validation in MCP Servers #8201"
+- 2025-12-29T13:42:19Z @tobiu closed this issue
 

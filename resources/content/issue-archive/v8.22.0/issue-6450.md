@@ -25,8 +25,8 @@ The code got created before the method existed.
 
 ## Timeline
 
-- 2025-02-14 @tobiu added the `enhancement` label
-- 2025-02-14 @tobiu assigned to @tobiu
-- 2025-02-14 @tobiu referenced in commit `46d7227` - "util.ClassSystem: beforeSetInstance() => use Neo.typeOf() #6450"
-- 2025-02-14 @tobiu closed this issue
+- 2025-02-14T09:05:08Z @tobiu added the `enhancement` label
+- 2025-02-14T09:05:08Z @tobiu assigned to @tobiu
+- 2025-02-14T09:13:49Z @tobiu referenced in commit `46d7227` - "util.ClassSystem: beforeSetInstance() => use Neo.typeOf() #6450"
+- 2025-02-14T09:13:54Z @tobiu closed this issue
 

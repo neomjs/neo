@@ -46,10 +46,10 @@ Position Neo.mjs as the reference implementation for **AI-Native Development** b
 
 ## Timeline
 
-- 2025-11-19 @tobiu added the `documentation` label
-- 2025-11-19 @tobiu added the `Blog Post` label
-- 2025-11-19 @tobiu added the `ai` label
-- 2025-11-19 @tobiu assigned to @tobiu
-- 2025-11-19 @tobiu referenced in commit `01484f0` - "Blog: I Am Gemini 3. I Am Not a Chatbot. I Am a Contributor. #7817"
-- 2025-11-19 @tobiu closed this issue
+- 2025-11-19T18:06:44Z @tobiu added the `documentation` label
+- 2025-11-19T18:06:44Z @tobiu added the `Blog Post` label
+- 2025-11-19T18:06:44Z @tobiu added the `ai` label
+- 2025-11-19T18:07:14Z @tobiu assigned to @tobiu
+- 2025-11-19T18:17:34Z @tobiu referenced in commit `01484f0` - "Blog: I Am Gemini 3. I Am Not a Chatbot. I Am a Contributor. #7817"
+- 2025-11-19T18:17:37Z @tobiu closed this issue
 

@@ -27,8 +27,8 @@ Calling ´getField()´ happens too often when creating records, so we need a fas
 
 ## Timeline
 
-- 2025-01-16 @tobiu added the `enhancement` label
-- 2025-01-16 @tobiu assigned to @tobiu
-- 2025-01-16 @tobiu referenced in commit `7891ea6` - "data.Model: fields => fields_, fieldsMap, updateFieldsMap() #6248"
-- 2025-01-16 @tobiu closed this issue
+- 2025-01-16T20:48:39Z @tobiu added the `enhancement` label
+- 2025-01-16T20:48:39Z @tobiu assigned to @tobiu
+- 2025-01-16T20:48:56Z @tobiu referenced in commit `7891ea6` - "data.Model: fields => fields_, fieldsMap, updateFieldsMap() #6248"
+- 2025-01-16T20:49:06Z @tobiu closed this issue
 

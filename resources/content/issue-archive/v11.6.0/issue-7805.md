@@ -41,10 +41,10 @@ Standardize the configuration and startup logic across all three MCP servers (Gi
 
 ## Timeline
 
-- 2025-11-19 @tobiu added the `enhancement` label
-- 2025-11-19 @tobiu added the `ai` label
-- 2025-11-19 @tobiu added the `refactoring` label
-- 2025-11-19 @tobiu assigned to @tobiu
-- 2025-11-19 @tobiu referenced in commit `bfa75e8` - "Add CLI argument parsing and Config refactoring to Knowledge Base MCP Server #7805"
-- 2025-11-19 @tobiu closed this issue
+- 2025-11-19T11:20:51Z @tobiu added the `enhancement` label
+- 2025-11-19T11:20:51Z @tobiu added the `ai` label
+- 2025-11-19T11:20:51Z @tobiu added the `refactoring` label
+- 2025-11-19T11:25:15Z @tobiu assigned to @tobiu
+- 2025-11-19T11:25:41Z @tobiu referenced in commit `bfa75e8` - "Add CLI argument parsing and Config refactoring to Knowledge Base MCP Server #7805"
+- 2025-11-19T11:25:48Z @tobiu closed this issue
 

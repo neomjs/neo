@@ -37,12 +37,12 @@ The else block for `serializeConfig` is likely unreachable given strictly manage
 
 ## Timeline
 
-- 2026-01-01 @tobiu added the `enhancement` label
-- 2026-01-01 @tobiu added the `ai` label
-- 2026-01-01 @tobiu added parent issue #8200
-- 2026-01-01 @tobiu assigned to @tobiu
-- 2026-01-01 @tobiu referenced in commit `a7edf69` - "feat(container): Implement toJSON in container.Base items #8258"
-### @tobiu - 2026-01-01 16:27
+- 2026-01-01T16:25:45Z @tobiu added the `enhancement` label
+- 2026-01-01T16:25:45Z @tobiu added the `ai` label
+- 2026-01-01T16:26:21Z @tobiu added parent issue #8200
+- 2026-01-01T16:26:45Z @tobiu assigned to @tobiu
+- 2026-01-01T16:27:16Z @tobiu referenced in commit `a7edf69` - "feat(container): Implement toJSON in container.Base items #8258"
+### @tobiu - 2026-01-01T16:27:20Z
 
 **Input from Gemini:**
 
@@ -53,5 +53,5 @@ The else block for `serializeConfig` is likely unreachable given strictly manage
 > - Retains `itemCount`.
 > - Falls back to `serializeConfig` for other object types.
 
-- 2026-01-01 @tobiu closed this issue
+- 2026-01-01T16:27:39Z @tobiu closed this issue
 

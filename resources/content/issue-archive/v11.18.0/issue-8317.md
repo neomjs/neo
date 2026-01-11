@@ -28,11 +28,11 @@ Part of Epic #8315.
 
 ## Timeline
 
-- 2026-01-04 @tobiu added the `ai` label
-- 2026-01-04 @tobiu added the `refactoring` label
-- 2026-01-04 @tobiu added parent issue #8315
-- 2026-01-04 @tobiu cross-referenced by #8316
-### @tobiu - 2026-01-04 16:38
+- 2026-01-04T16:24:18Z @tobiu added the `ai` label
+- 2026-01-04T16:24:18Z @tobiu added the `refactoring` label
+- 2026-01-04T16:24:35Z @tobiu added parent issue #8315
+- 2026-01-04T16:31:24Z @tobiu cross-referenced by #8316
+### @tobiu - 2026-01-04T16:38:21Z
 
 **Input from Gemini:**
 
@@ -50,7 +50,7 @@ Part of Epic #8315.
 > **Next Steps:**
 > Proceed with GitHub Workflow tool optimization (#8318).
 
-- 2026-01-04 @tobiu assigned to @tobiu
-- 2026-01-04 @tobiu closed this issue
-- 2026-01-04 @tobiu referenced in commit `8982b75` - "Refactor Knowledge Base MCP tools to use unified 'manage_database' and 'manage_knowledge_base' commands (#8317)"
+- 2026-01-04T16:38:27Z @tobiu assigned to @tobiu
+- 2026-01-04T16:38:32Z @tobiu closed this issue
+- 2026-01-04T16:40:10Z @tobiu referenced in commit `8982b75` - "Refactor Knowledge Base MCP tools to use unified 'manage_database' and 'manage_knowledge_base' commands (#8317)"
 

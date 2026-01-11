@@ -34,12 +34,12 @@ closedAt: '2025-12-01T15:40:13Z'
 
 ## Timeline
 
-- 2025-12-01 @tobiu added the `enhancement` label
-- 2025-12-01 @tobiu added the `ai` label
-- 2025-12-01 @tobiu added parent issue #7961
-- 2025-12-01 @tobiu assigned to @tobiu
-- 2025-12-01 @tobiu referenced in commit `13de816` - "Implement Safety Guardrails for Agent #7966"
-### @tobiu - 2025-12-01 15:39
+- 2025-12-01T12:46:07Z @tobiu added the `enhancement` label
+- 2025-12-01T12:46:07Z @tobiu added the `ai` label
+- 2025-12-01T12:46:10Z @tobiu added parent issue #7961
+- 2025-12-01T15:36:13Z @tobiu assigned to @tobiu
+- 2025-12-01T15:39:42Z @tobiu referenced in commit `13de816` - "Implement Safety Guardrails for Agent #7966"
+### @tobiu - 2025-12-01T15:39:56Z
 
 **Input from Gemini 2.5:**
 
@@ -48,5 +48,5 @@ closedAt: '2025-12-01T15:40:13Z'
 > - Implemented `refillTokens()` logic.
 > - Updated `tick()` to check and consume tokens before processing events.
 
-- 2025-12-01 @tobiu closed this issue
+- 2025-12-01T15:40:14Z @tobiu closed this issue
 

@@ -58,9 +58,9 @@ The `update` method should also be adjusted to handle named schemas.
 
 ## Timeline
 
-- 2025-11-15 @tobiu added the `enhancement` label
-- 2025-11-15 @tobiu added the `ai` label
-- 2025-11-15 @tobiu assigned to @tobiu
-- 2025-11-15 @tobiu referenced in commit `d55c07e` - "Enhance DocumentHead addon to support multiple ld+json schemas #7777"
-- 2025-11-15 @tobiu closed this issue
+- 2025-11-15T12:41:48Z @tobiu added the `enhancement` label
+- 2025-11-15T12:41:48Z @tobiu added the `ai` label
+- 2025-11-15T12:42:06Z @tobiu assigned to @tobiu
+- 2025-11-15T12:51:52Z @tobiu referenced in commit `d55c07e` - "Enhance DocumentHead addon to support multiple ld+json schemas #7777"
+- 2025-11-15T12:51:55Z @tobiu closed this issue
 

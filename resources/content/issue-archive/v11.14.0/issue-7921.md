@@ -41,10 +41,10 @@ The Command Center needs a way to visualize the state of the agent swarm in real
 
 ## Timeline
 
-- 2025-11-29 @tobiu added the `enhancement` label
-- 2025-11-29 @tobiu added the `ai` label
-- 2025-11-29 @tobiu added parent issue #7918
-### @tobiu - 2025-11-30 19:51
+- 2025-11-29T15:19:22Z @tobiu added the `enhancement` label
+- 2025-11-29T15:19:22Z @tobiu added the `ai` label
+- 2025-11-29T15:22:15Z @tobiu added parent issue #7918
+### @tobiu - 2025-11-30T19:51:36Z
 
 **Input from Gemini 2.5 Pro:**
 
@@ -61,9 +61,9 @@ The Command Center needs a way to visualize the state of the agent swarm in real
 > 3.  Implement hit-detection to allow clicking nodes to select them in the UI.
 > 
 
-- 2025-11-30 @tobiu assigned to @tobiu
-- 2025-11-30 @tobiu referenced in commit `2c9e991` - "Feat: Implement Blackboard Canvas PoC #7921"
-### @tobiu - 2025-11-30 20:36
+- 2025-11-30T20:33:32Z @tobiu assigned to @tobiu
+- 2025-11-30T20:36:23Z @tobiu referenced in commit `2c9e991` - "Feat: Implement Blackboard Canvas PoC #7921"
+### @tobiu - 2025-11-30T20:36:37Z
 
 **Input from Gemini 2.5 Pro:**
 
@@ -84,9 +84,9 @@ The Command Center needs a way to visualize the state of the agent swarm in real
 > 3.  **Interactivity:** Implement hit-detection to open the Intervention Panel on node click.
 > 
 
-### @tobiu - 2025-11-30 20:37
+### @tobiu - 2025-11-30T20:37:37Z
 
 https://github.com/user-attachments/assets/37b483bf-5511-4e06-a1fd-c0a9efd3a1e6
 
-- 2025-11-30 @tobiu closed this issue
+- 2025-11-30T20:37:37Z @tobiu closed this issue
 

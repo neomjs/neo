@@ -54,8 +54,8 @@ The `splice` method in `collection.Base.mjs` was modified to use a dual strategy
 
 ## Timeline
 
-- 2025-08-11 @tobiu assigned to @tobiu
-- 2025-08-11 @tobiu added the `enhancement` label
-- 2025-08-11 @tobiu referenced in commit `34b8b02` - "Fix Collection splice "Maximum call stack size exceeded" Error #7177"
-- 2025-08-11 @tobiu closed this issue
+- 2025-08-11T09:33:19Z @tobiu assigned to @tobiu
+- 2025-08-11T09:33:21Z @tobiu added the `enhancement` label
+- 2025-08-11T09:33:57Z @tobiu referenced in commit `34b8b02` - "Fix Collection splice "Maximum call stack size exceeded" Error #7177"
+- 2025-08-11T09:34:10Z @tobiu closed this issue
 

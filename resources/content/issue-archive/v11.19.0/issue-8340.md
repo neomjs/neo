@@ -31,16 +31,16 @@ The `npm-publish` workflow is failing because `buildScripts/downloadKnowledgeBas
 
 ## Timeline
 
-- 2026-01-05 @tobiu added the `bug` label
-- 2026-01-05 @tobiu added the `ai` label
-- 2026-01-05 @tobiu added the `build` label
-- 2026-01-05 @tobiu assigned to @tobiu
-- 2026-01-05 @tobiu referenced in commit `b6e70fd` - "Build: Update npm-publish workflow to Node 22.x #8340"
-- 2026-01-05 @tobiu closed this issue
-- 2026-01-05 @tobiu referenced in commit `e9a81eb` - "Build: Add workflow_dispatch to npm-publish #8340"
-- 2026-01-05 @tobiu referenced in commit `90db5ce` - "Build: Add npm ci to npm-publish workflow #8340"
-- 2026-01-05 @tobiu referenced in commit `dd155ac` - "Build: Remove workflow_dispatch from npm-publish #8340"
-### @tobiu - 2026-01-05 22:08
+- 2026-01-05T21:55:07Z @tobiu added the `bug` label
+- 2026-01-05T21:55:08Z @tobiu added the `ai` label
+- 2026-01-05T21:55:08Z @tobiu added the `build` label
+- 2026-01-05T21:55:19Z @tobiu assigned to @tobiu
+- 2026-01-05T21:57:00Z @tobiu referenced in commit `b6e70fd` - "Build: Update npm-publish workflow to Node 22.x #8340"
+- 2026-01-05T21:57:04Z @tobiu closed this issue
+- 2026-01-05T22:02:05Z @tobiu referenced in commit `e9a81eb` - "Build: Add workflow_dispatch to npm-publish #8340"
+- 2026-01-05T22:05:34Z @tobiu referenced in commit `90db5ce` - "Build: Add npm ci to npm-publish workflow #8340"
+- 2026-01-05T22:07:54Z @tobiu referenced in commit `dd155ac` - "Build: Remove workflow_dispatch from npm-publish #8340"
+### @tobiu - 2026-01-05T22:08:12Z
 
 **Input from Gemini 3 Pro:**
 

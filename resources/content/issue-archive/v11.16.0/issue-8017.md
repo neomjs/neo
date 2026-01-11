@@ -36,10 +36,10 @@ The `sync_all` tool was failing in the Antigravity environment due to `process.c
 
 ## Timeline
 
-- 2025-12-03 @tobiu added the `bug` label
-- 2025-12-03 @tobiu added the `contributor-experience` label
-- 2025-12-03 @tobiu added the `ai` label
-- 2025-12-03 @tobiu assigned to @tobiu
-- 2025-12-03 @tobiu referenced in commit `810857f` - "Fix IssueSyncer path resolution for Antigravity environment #8017"
-- 2025-12-03 @tobiu closed this issue
+- 2025-12-03T23:00:34Z @tobiu added the `bug` label
+- 2025-12-03T23:00:35Z @tobiu added the `contributor-experience` label
+- 2025-12-03T23:00:35Z @tobiu added the `ai` label
+- 2025-12-03T23:14:14Z @tobiu assigned to @tobiu
+- 2025-12-03T23:14:51Z @tobiu referenced in commit `810857f` - "Fix IssueSyncer path resolution for Antigravity environment #8017"
+- 2025-12-03T23:15:22Z @tobiu closed this issue
 

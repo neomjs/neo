@@ -35,10 +35,10 @@ This will be fixed by incorporating the official `semver` npm package.
 
 ## Timeline
 
-- 2025-10-20 @tobiu assigned to @tobiu
-- 2025-10-20 @tobiu added parent issue #7564
-- 2025-10-20 @tobiu added the `bug` label
-- 2025-10-20 @tobiu added the `ai` label
-- 2025-10-20 @tobiu referenced in commit `37809d6` - "Fix Semantic Version Comparison in HealthService using 'semver' #7584"
-- 2025-10-20 @tobiu closed this issue
+- 2025-10-20T13:47:47Z @tobiu assigned to @tobiu
+- 2025-10-20T13:47:48Z @tobiu added parent issue #7564
+- 2025-10-20T13:47:49Z @tobiu added the `bug` label
+- 2025-10-20T13:47:49Z @tobiu added the `ai` label
+- 2025-10-20T13:54:45Z @tobiu referenced in commit `37809d6` - "Fix Semantic Version Comparison in HealthService using 'semver' #7584"
+- 2025-10-20T13:55:11Z @tobiu closed this issue
 

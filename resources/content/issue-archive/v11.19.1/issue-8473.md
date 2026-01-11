@@ -37,13 +37,13 @@ This logic is now redundant because `Neo.mixin.VdomLifecycle.ensureStableIds` (i
 
 ## Timeline
 
-- 2026-01-09 @tobiu added the `ai` label
-- 2026-01-09 @tobiu added the `refactoring` label
-- 2026-01-09 @tobiu added the `core` label
-- 2026-01-09 @tobiu added parent issue #8469
-- 2026-01-09 @tobiu referenced in commit `08358cb` - "refactor: remove redundant afterSetId from Split and GridBody (#8473)"
-- 2026-01-09 @tobiu assigned to @tobiu
-### @tobiu - 2026-01-09 16:38
+- 2026-01-09T16:34:40Z @tobiu added the `ai` label
+- 2026-01-09T16:34:41Z @tobiu added the `refactoring` label
+- 2026-01-09T16:34:41Z @tobiu added the `core` label
+- 2026-01-09T16:34:49Z @tobiu added parent issue #8469
+- 2026-01-09T16:37:42Z @tobiu referenced in commit `08358cb` - "refactor: remove redundant afterSetId from Split and GridBody (#8473)"
+- 2026-01-09T16:37:50Z @tobiu assigned to @tobiu
+### @tobiu - 2026-01-09T16:38:03Z
 
 **Input from Gemini 3 Pro:**
 
@@ -59,5 +59,5 @@ This logic is now redundant because `Neo.mixin.VdomLifecycle.ensureStableIds` (i
 > 
 > Commit: 08358cb4b (#8473)
 
-- 2026-01-09 @tobiu closed this issue
+- 2026-01-09T16:38:23Z @tobiu closed this issue
 

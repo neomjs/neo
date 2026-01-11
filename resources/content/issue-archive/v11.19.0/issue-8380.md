@@ -28,10 +28,10 @@ Replacing it with `javascript` allows for syntax highlighting of JSON with comme
 
 ## Timeline
 
-- 2026-01-07 @tobiu added the `bug` label
-- 2026-01-07 @tobiu added the `documentation` label
-- 2026-01-07 @tobiu added the `ai` label
-- 2026-01-07 @tobiu assigned to @tobiu
-- 2026-01-07 @tobiu referenced in commit `7082af9` - "docs: use javascript instead of json5 for highlighting #8380"
-- 2026-01-07 @tobiu closed this issue
+- 2026-01-07T13:55:57Z @tobiu added the `bug` label
+- 2026-01-07T13:55:57Z @tobiu added the `documentation` label
+- 2026-01-07T13:55:57Z @tobiu added the `ai` label
+- 2026-01-07T13:56:15Z @tobiu assigned to @tobiu
+- 2026-01-07T13:57:03Z @tobiu referenced in commit `7082af9` - "docs: use javascript instead of json5 for highlighting #8380"
+- 2026-01-07T13:58:57Z @tobiu closed this issue
 

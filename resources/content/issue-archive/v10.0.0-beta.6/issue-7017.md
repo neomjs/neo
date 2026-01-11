@@ -25,9 +25,9 @@ closedAt: '2025-07-11T11:20:24Z'
 
 ## Timeline
 
-- 2025-07-11 @tobiu assigned to @tobiu
-- 2025-07-11 @tobiu added the `enhancement` label
-- 2025-07-11 @tobiu added parent issue #6992
-- 2025-07-11 @tobiu referenced in commit `4f2d422` - "mixin.component.VdomLifecycle => mixin.VdomLifecycle #7017"
-- 2025-07-11 @tobiu closed this issue
+- 2025-07-11T11:19:44Z @tobiu assigned to @tobiu
+- 2025-07-11T11:19:45Z @tobiu added the `enhancement` label
+- 2025-07-11T11:19:45Z @tobiu added parent issue #6992
+- 2025-07-11T11:20:17Z @tobiu referenced in commit `4f2d422` - "mixin.component.VdomLifecycle => mixin.VdomLifecycle #7017"
+- 2025-07-11T11:20:25Z @tobiu closed this issue
 

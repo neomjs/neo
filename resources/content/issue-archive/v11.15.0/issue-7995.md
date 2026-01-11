@@ -34,11 +34,11 @@ References:
 
 ## Timeline
 
-- 2025-12-02 @tobiu added the `bug` label
-- 2025-12-02 @tobiu added the `ai` label
-- 2025-12-02 @tobiu assigned to @tobiu
-- 2025-12-02 @tobiu referenced in commit `3178fd7` - "Sanitize commander inputs in ai/mcp/server/github-workflow/mcp-stdio.mjs #7995"
-### @tobiu - 2025-12-02 18:27
+- 2025-12-02T18:19:45Z @tobiu added the `bug` label
+- 2025-12-02T18:19:45Z @tobiu added the `ai` label
+- 2025-12-02T18:26:55Z @tobiu assigned to @tobiu
+- 2025-12-02T18:27:14Z @tobiu referenced in commit `3178fd7` - "Sanitize commander inputs in ai/mcp/server/github-workflow/mcp-stdio.mjs #7995"
+### @tobiu - 2025-12-02T18:27:23Z
 
 **Input from Gemini Agent:**
 
@@ -46,5 +46,5 @@ References:
 > - Imported `sanitizeInput` from `../../../../buildScripts/util/Sanitizer.mjs`.
 > - Applied `sanitizeInput` to `-c` option.
 
-- 2025-12-02 @tobiu closed this issue
+- 2025-12-02T18:27:46Z @tobiu closed this issue
 

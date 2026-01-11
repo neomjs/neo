@@ -33,8 +33,8 @@ To honor the release of v10.9.0, the ticket archival process is being formally i
 
 ## Timeline
 
-- 2025-09-24 @tobiu assigned to @tobiu
-- 2025-09-24 @tobiu added the `enhancement` label
-- 2025-09-24 @tobiu referenced in commit `0d9052c` - "Finalize and Document Ticket Archival Process #7251"
-- 2025-09-24 @tobiu closed this issue
+- 2025-09-24T11:37:41Z @tobiu assigned to @tobiu
+- 2025-09-24T11:37:42Z @tobiu added the `enhancement` label
+- 2025-09-24T11:42:26Z @tobiu referenced in commit `0d9052c` - "Finalize and Document Ticket Archival Process #7251"
+- 2025-09-24T11:42:40Z @tobiu closed this issue
 

@@ -57,18 +57,18 @@ The solution is to modify the data creation script to assign the correct type at
 
 ## Timeline
 
-- 2025-10-13 @tobiu assigned to @tobiu
-- 2025-10-13 @tobiu added the `enhancement` label
-- 2025-10-13 @tobiu added the `ai` label
-- 2025-10-13 @tobiu referenced in commit `82617a3` - "REFACTOR: Assign type: 'blog' directly in createKnowledgeBase.mjs #7473"
-### @harikrishna-au - 2025-10-13 09:38
+- 2025-10-13T08:46:11Z @tobiu assigned to @tobiu
+- 2025-10-13T08:46:12Z @tobiu added the `enhancement` label
+- 2025-10-13T08:46:12Z @tobiu added the `ai` label
+- 2025-10-13T09:11:47Z @tobiu referenced in commit `82617a3` - "REFACTOR: Assign type: 'blog' directly in createKnowledgeBase.mjs #7473"
+### @harikrishna-au - 2025-10-13T09:38:33Z
 
 @tobiu assign me this
 
 
-### @tobiu - 2025-10-13 10:02
+### @tobiu - 2025-10-13T10:02:16Z
 
 this one is already resolved via: https://github.com/neomjs/neo/commit/82617a3a208c3902ae64251e090a552f840b8ddf, as mentioned inside the PR comment.
 
-- 2025-10-13 @tobiu closed this issue
+- 2025-10-13T10:02:16Z @tobiu closed this issue
 

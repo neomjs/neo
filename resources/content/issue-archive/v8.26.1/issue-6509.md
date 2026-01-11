@@ -25,8 +25,8 @@ Add a check, if any of the parents is floating
 
 ## Timeline
 
-- 2025-02-26 @tobiu added the `enhancement` label
-- 2025-02-26 @tobiu assigned to @tobiu
-- 2025-02-26 @tobiu referenced in commit `6e972df` - "component.Base: isFloating() #6509"
-- 2025-02-26 @tobiu closed this issue
+- 2025-02-26T23:23:10Z @tobiu added the `enhancement` label
+- 2025-02-26T23:23:11Z @tobiu assigned to @tobiu
+- 2025-02-26T23:23:38Z @tobiu referenced in commit `6e972df` - "component.Base: isFloating() #6509"
+- 2025-02-26T23:31:16Z @tobiu closed this issue
 

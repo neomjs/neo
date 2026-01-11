@@ -26,7 +26,7 @@ closedAt: '2025-07-10T13:17:48Z'
 
 ## Timeline
 
-- 2025-07-10 @tobiu added the `enhancement` label
-- 2025-07-10 @tobiu referenced in commit `6888320` - "core.Effect: simplify the constructor signature #7004"
-- 2025-07-10 @tobiu closed this issue
+- 2025-07-10T13:17:15Z @tobiu added the `enhancement` label
+- 2025-07-10T13:17:37Z @tobiu referenced in commit `6888320` - "core.Effect: simplify the constructor signature #7004"
+- 2025-07-10T13:17:48Z @tobiu closed this issue
 

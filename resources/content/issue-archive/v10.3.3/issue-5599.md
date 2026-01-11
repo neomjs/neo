@@ -32,20 +32,20 @@ however, we do get a real `onFocusLeave()` call, which unmounts the widget right
 
 ## Timeline
 
-- 2024-07-20 @tobiu added the `bug` label
-- 2024-07-20 @tobiu added the `help wanted` label
-### @github-actions - 2024-10-19 02:31
+- 2024-07-20T21:09:03Z @tobiu added the `bug` label
+- 2024-07-20T21:09:03Z @tobiu added the `help wanted` label
+### @github-actions - 2024-10-19T02:31:16Z
 
 This issue is stale because it has been open for 90 days with no activity.
 
-- 2024-10-19 @github-actions added the `stale` label
-- 2024-10-19 @tobiu removed the `stale` label
-- 2024-10-19 @tobiu added the `no auto close` label
-### @tobiu - 2025-08-03 12:58
+- 2024-10-19T02:31:17Z @github-actions added the `stale` label
+- 2024-10-19T13:43:43Z @tobiu removed the `stale` label
+- 2024-10-19T13:43:43Z @tobiu added the `no auto close` label
+### @tobiu - 2025-08-03T12:58:17Z
 
 https://github.com/user-attachments/assets/1b7aa3b4-523b-4a4b-a7a5-35f0b93615f6
 
 This one is resolved in v10.
 
-- 2025-08-03 @tobiu closed this issue
+- 2025-08-03T12:58:17Z @tobiu closed this issue
 

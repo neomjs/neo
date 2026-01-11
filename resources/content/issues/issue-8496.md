@@ -51,12 +51,12 @@ For the Service Worker, a "worker" (destination) is available if:
 
 ## Timeline
 
-- 2026-01-10 @tobiu added the `bug` label
-- 2026-01-10 @tobiu added the `ai` label
-- 2026-01-10 @tobiu added the `core` label
-- 2026-01-10 @tobiu assigned to @tobiu
-- 2026-01-10 @tobiu referenced in commit `3e6aece` - "fix: Implement hasWorker() in ServiceBase to allow initRemote calls (#8496)"
-### @tobiu - 2026-01-10 11:19
+- 2026-01-10T11:17:31Z @tobiu added the `bug` label
+- 2026-01-10T11:17:31Z @tobiu added the `ai` label
+- 2026-01-10T11:17:31Z @tobiu added the `core` label
+- 2026-01-10T11:17:38Z @tobiu assigned to @tobiu
+- 2026-01-10T11:18:54Z @tobiu referenced in commit `3e6aece` - "fix: Implement hasWorker() in ServiceBase to allow initRemote calls (#8496)"
+### @tobiu - 2026-01-10T11:19:03Z
 
 **Input from tobiu:**
 
@@ -72,5 +72,5 @@ For the Service Worker, a "worker" (destination) is available if:
 > 
 > This fix ensures that `initRemote()` calls within the Service Worker context no longer throw `TypeError: origin.hasWorker is not a function`.
 
-- 2026-01-10 @tobiu closed this issue
+- 2026-01-10T11:19:25Z @tobiu closed this issue
 

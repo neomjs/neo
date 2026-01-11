@@ -43,18 +43,18 @@ To enable the AI agent (and developers) to use the GitHub CLI for repository int
 
 ## Timeline
 
-- 2025-10-05 @tobiu added parent issue #7364
-- 2025-10-05 @tobiu added the `documentation` label
-- 2025-10-05 @tobiu added the `enhancement` label
-- 2025-10-05 @tobiu added the `help wanted` label
-- 2025-10-05 @tobiu added the `good first issue` label
-- 2025-10-05 @tobiu added the `hacktoberfest` label
-- 2025-10-05 @tobiu added the `ai` label
-### @Mahita07 - 2025-10-05 10:38
+- 2025-10-05T10:32:12Z @tobiu added parent issue #7364
+- 2025-10-05T10:32:12Z @tobiu added the `documentation` label
+- 2025-10-05T10:32:12Z @tobiu added the `enhancement` label
+- 2025-10-05T10:32:12Z @tobiu added the `help wanted` label
+- 2025-10-05T10:32:12Z @tobiu added the `good first issue` label
+- 2025-10-05T10:32:13Z @tobiu added the `hacktoberfest` label
+- 2025-10-05T10:32:13Z @tobiu added the `ai` label
+### @Mahita07 - 2025-10-05T10:38:15Z
 
 Hey @tobiu could you please assign this issue to me ? I would love to contribute by working on it.
 
-### @tobiu - 2025-10-05 10:47
+### @tobiu - 2025-10-05T10:47:30Z
 
 Hi, and thanks for your interest.
 
@@ -67,15 +67,15 @@ Since the epic subs strongly build on and relate to each other, I also strongly 
 https://join.slack.com/t/neomjs/shared_invite/zt-6c50ueeu-3E1~M4T9xkNnb~M_prEEOA
 https://discord.gg/6p8paPq
 
-- 2025-10-05 @tobiu assigned to @Mahita07
-### @Mahita07 - 2025-10-05 11:14
+- 2025-10-05T10:47:36Z @tobiu assigned to @Mahita07
+### @Mahita07 - 2025-10-05T11:14:00Z
 
 Sure, thank you !
 
-- 2025-10-05 @Mahita07 cross-referenced by PR #7384
-### @tobiu - 2025-10-13 21:13
+- 2025-10-05T18:30:59Z @Mahita07 cross-referenced by PR #7384
+### @tobiu - 2025-10-13T21:13:29Z
 
 closing the ticket as resolved.
 
-- 2025-10-13 @tobiu closed this issue
+- 2025-10-13T21:13:29Z @tobiu closed this issue
 

@@ -38,15 +38,15 @@ This feature enables advanced drag-and-drop scenarios, such as "drag-to-popup", 
 
 ## Timeline
 
-- 2025-12-15 @tobiu added the `enhancement` label
-- 2025-12-15 @tobiu added the `ai` label
-- 2025-12-15 @tobiu assigned to @tobiu
-- 2025-12-15 @tobiu referenced in commit `9bd4d5d` - "Neo.container.Base: Add optional support to keep items in previous parent on add/insert #8113"
-### @tobiu - 2025-12-15 12:06
+- 2025-12-15T12:04:57Z @tobiu added the `enhancement` label
+- 2025-12-15T12:04:58Z @tobiu added the `ai` label
+- 2025-12-15T12:05:22Z @tobiu assigned to @tobiu
+- 2025-12-15T12:06:02Z @tobiu referenced in commit `9bd4d5d` - "Neo.container.Base: Add optional support to keep items in previous parent on add/insert #8113"
+### @tobiu - 2025-12-15T12:06:07Z
 
 **Input from Neo Agent:**
 
 > ◆ I have verified the implementation of `removeFromPreviousParent` in `src/container/Base.mjs`. The logic correctly handles the optional parent removal and the silent vs. loud `mounted` state update as specified.
 
-- 2025-12-15 @tobiu closed this issue
+- 2025-12-15T12:06:27Z @tobiu closed this issue
 

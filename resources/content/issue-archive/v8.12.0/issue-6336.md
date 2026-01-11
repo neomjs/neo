@@ -25,8 +25,8 @@ This is a big one: get the table header DD in sync with the grid DD
 
 ## Timeline
 
-- 2025-01-29 @tobiu added the `enhancement` label
-- 2025-01-29 @tobiu assigned to @tobiu
-- 2025-01-29 @tobiu referenced in commit `8e735c7` - "draggable.table.header.toolbar.SortZone #6336"
-- 2025-01-29 @tobiu closed this issue
+- 2025-01-29T20:17:31Z @tobiu added the `enhancement` label
+- 2025-01-29T20:17:32Z @tobiu assigned to @tobiu
+- 2025-01-29T20:18:35Z @tobiu referenced in commit `8e735c7` - "draggable.table.header.toolbar.SortZone #6336"
+- 2025-01-29T20:18:39Z @tobiu closed this issue
 

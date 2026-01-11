@@ -37,10 +37,10 @@ The implementation will be adapted from the existing `buildScripts/ai/queryKnowl
 
 ## Timeline
 
-- 2025-10-16 @tobiu assigned to @tobiu
-- 2025-10-16 @tobiu added parent issue #7501
-- 2025-10-16 @tobiu added the `enhancement` label
-- 2025-10-16 @tobiu added the `ai` label
-- 2025-10-16 @tobiu referenced in commit `cfab82c` - "Implement Query Documents Service #7507"
-- 2025-10-16 @tobiu closed this issue
+- 2025-10-16T10:47:57Z @tobiu assigned to @tobiu
+- 2025-10-16T10:47:58Z @tobiu added parent issue #7501
+- 2025-10-16T10:47:58Z @tobiu added the `enhancement` label
+- 2025-10-16T10:47:58Z @tobiu added the `ai` label
+- 2025-10-16T10:54:04Z @tobiu referenced in commit `cfab82c` - "Implement Query Documents Service #7507"
+- 2025-10-16T10:54:35Z @tobiu closed this issue
 

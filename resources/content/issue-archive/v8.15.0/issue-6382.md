@@ -26,8 +26,8 @@ closedAt: '2025-02-05T16:01:52Z'
 
 ## Timeline
 
-- 2025-02-05 @tobiu added the `enhancement` label
-- 2025-02-05 @tobiu assigned to @tobiu
-- 2025-02-05 @tobiu referenced in commit `74bd15b` - "util.Rectangle: getIntersection() => return an intersection rectangle #6382"
-- 2025-02-05 @tobiu closed this issue
+- 2025-02-05T15:53:05Z @tobiu added the `enhancement` label
+- 2025-02-05T15:53:06Z @tobiu assigned to @tobiu
+- 2025-02-05T16:01:45Z @tobiu referenced in commit `74bd15b` - "util.Rectangle: getIntersection() => return an intersection rectangle #6382"
+- 2025-02-05T16:01:53Z @tobiu closed this issue
 

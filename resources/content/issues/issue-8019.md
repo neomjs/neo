@@ -33,8 +33,8 @@ The user mentioned `src/manager/Window.mjs` as a "god view" window manager that 
 
 ## Timeline
 
-- 2025-12-04 @tobiu added the `bug` label
-- 2025-12-04 @tobiu added the `ai` label
-- 2025-12-04 @tobiu assigned to @tobiu
-- 2025-12-04 @tobiu added parent issue #7918
+- 2025-12-04T01:30:23Z @tobiu added the `bug` label
+- 2025-12-04T01:30:23Z @tobiu added the `ai` label
+- 2025-12-04T01:30:36Z @tobiu assigned to @tobiu
+- 2025-12-04T01:30:57Z @tobiu added parent issue #7918
 

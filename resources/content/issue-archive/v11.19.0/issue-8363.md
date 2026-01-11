@@ -36,10 +36,10 @@ The script should:
 
 ## Timeline
 
-- 2026-01-06 @tobiu added the `enhancement` label
-- 2026-01-06 @tobiu added the `ai` label
-- 2026-01-06 @tobiu added the `build` label
-- 2026-01-06 @tobiu assigned to @tobiu
-- 2026-01-06 @tobiu referenced in commit `2a84b7d` - "Create Build Script for Release Notes JSON Index #8363"
-- 2026-01-06 @tobiu closed this issue
+- 2026-01-06T15:08:46Z @tobiu added the `enhancement` label
+- 2026-01-06T15:08:47Z @tobiu added the `ai` label
+- 2026-01-06T15:08:47Z @tobiu added the `build` label
+- 2026-01-06T15:18:03Z @tobiu assigned to @tobiu
+- 2026-01-06T15:18:47Z @tobiu referenced in commit `2a84b7d` - "Create Build Script for Release Notes JSON Index #8363"
+- 2026-01-06T15:19:05Z @tobiu closed this issue
 

@@ -26,8 +26,8 @@ closedAt: '2025-05-13T11:50:37Z'
 
 ## Timeline
 
-- 2025-05-13 @tobiu added the `enhancement` label
-- 2025-05-13 @tobiu assigned to @tobiu
-- 2025-05-13 @tobiu referenced in commit `3fcdfce` - "component.Helix: addResizeObserver() #6708"
-- 2025-05-13 @tobiu closed this issue
+- 2025-05-13T11:50:09Z @tobiu added the `enhancement` label
+- 2025-05-13T11:50:11Z @tobiu assigned to @tobiu
+- 2025-05-13T11:50:26Z @tobiu referenced in commit `3fcdfce` - "component.Helix: addResizeObserver() #6708"
+- 2025-05-13T11:50:37Z @tobiu closed this issue
 

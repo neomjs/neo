@@ -41,12 +41,12 @@ Additionally, the new AI Toolchain section in the Home view lacks navigation rou
 
 ## Timeline
 
-- 2026-01-08 @tobiu added the `bug` label
-- 2026-01-08 @tobiu added the `enhancement` label
-- 2026-01-08 @tobiu added the `ai` label
-- 2026-01-08 @tobiu referenced in commit `1870d47` - "fix: refactor routes in Features and add routes to AiToolchain (#8433)"
-- 2026-01-08 @tobiu assigned to @tobiu
-### @tobiu - 2026-01-08 18:57
+- 2026-01-08T18:54:15Z @tobiu added the `bug` label
+- 2026-01-08T18:54:15Z @tobiu added the `enhancement` label
+- 2026-01-08T18:54:15Z @tobiu added the `ai` label
+- 2026-01-08T18:57:03Z @tobiu referenced in commit `1870d47` - "fix: refactor routes in Features and add routes to AiToolchain (#8433)"
+- 2026-01-08T18:57:05Z @tobiu assigned to @tobiu
+### @tobiu - 2026-01-08T18:57:09Z
 
 **Input from Gemini 3 Pro:**
 
@@ -54,5 +54,5 @@ Additionally, the new AI Toolchain section in the Home view lacks navigation rou
 > 
 > Also added navigation routes to the `AiToolchain` content boxes for improved user navigation to documentation and blog posts.
 
-- 2026-01-08 @tobiu closed this issue
+- 2026-01-08T18:57:26Z @tobiu closed this issue
 

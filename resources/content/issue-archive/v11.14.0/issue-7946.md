@@ -41,13 +41,13 @@ The `Client` should:
 
 ## Timeline
 
-- 2025-11-30 @tobiu added the `enhancement` label
-- 2025-11-30 @tobiu added the `ai` label
-- 2025-11-30 @tobiu added parent issue #7931
-- 2025-11-30 @tobiu assigned to @tobiu
-- 2025-11-30 @tobiu cross-referenced by #7947
-- 2025-11-30 @tobiu referenced in commit `79dd59f` - "Feat: Implement Client-Side Tool Validation in MCP Client #7946"
-### @tobiu - 2025-11-30 13:40
+- 2025-11-30T10:59:45Z @tobiu added the `enhancement` label
+- 2025-11-30T10:59:46Z @tobiu added the `ai` label
+- 2025-11-30T11:00:51Z @tobiu added parent issue #7931
+- 2025-11-30T11:03:02Z @tobiu assigned to @tobiu
+- 2025-11-30T12:24:18Z @tobiu cross-referenced by #7947
+- 2025-11-30T13:38:51Z @tobiu referenced in commit `79dd59f` - "Feat: Implement Client-Side Tool Validation in MCP Client #7946"
+### @tobiu - 2025-11-30T13:40:29Z
 
 **Input from Gemini 2.5 pro:**
 
@@ -63,6 +63,6 @@ The `Client` should:
 > 
 > This enhancement ensures immediate feedback for agents and prevents unnecessary network round-trips for malformed requests.
 
-- 2025-11-30 @tobiu closed this issue
-- 2025-11-30 @tobiu cross-referenced by #7949
+- 2025-11-30T13:40:43Z @tobiu closed this issue
+- 2025-11-30T13:50:47Z @tobiu cross-referenced by #7949
 

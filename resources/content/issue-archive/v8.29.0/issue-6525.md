@@ -27,10 +27,10 @@ closedAt: '2025-03-03T10:30:00Z'
 
 ## Timeline
 
-- 2025-03-03 @tobiu added the `enhancement` label
-- 2025-03-03 @tobiu assigned to @tobiu
-- 2025-03-03 @tobiu referenced in commit `53cf3c7` - "#6525 grid.column.Base: base class"
-- 2025-03-03 @tobiu referenced in commit `0a1209c` - "#6525 grid.column.Base: used inside grid.Container, transformed the columns config into a collection, which contains column instances"
-- 2025-03-03 @tobiu referenced in commit `a0e3a98` - "#6525 grid.column.Base: moved the renderer config & logic over from header.Button"
-- 2025-03-03 @tobiu closed this issue
+- 2025-03-03T07:33:08Z @tobiu added the `enhancement` label
+- 2025-03-03T07:33:09Z @tobiu assigned to @tobiu
+- 2025-03-03T07:34:15Z @tobiu referenced in commit `53cf3c7` - "#6525 grid.column.Base: base class"
+- 2025-03-03T09:54:48Z @tobiu referenced in commit `0a1209c` - "#6525 grid.column.Base: used inside grid.Container, transformed the columns config into a collection, which contains column instances"
+- 2025-03-03T10:03:35Z @tobiu referenced in commit `a0e3a98` - "#6525 grid.column.Base: moved the renderer config & logic over from header.Button"
+- 2025-03-03T10:30:00Z @tobiu closed this issue
 

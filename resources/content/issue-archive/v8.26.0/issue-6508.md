@@ -27,8 +27,8 @@ For tab.header.Toolbar it is needed, for grid.header.Toolbar it is not
 
 ## Timeline
 
-- 2025-02-26 @tobiu added the `enhancement` label
-- 2025-02-26 @tobiu assigned to @tobiu
-- 2025-02-26 @tobiu referenced in commit `d5089e6` - "draggable.toolbar.SortZone: adjustItemRectsToParent config #6508"
-- 2025-02-26 @tobiu closed this issue
+- 2025-02-26T22:35:33Z @tobiu added the `enhancement` label
+- 2025-02-26T22:35:33Z @tobiu assigned to @tobiu
+- 2025-02-26T22:35:49Z @tobiu referenced in commit `d5089e6` - "draggable.toolbar.SortZone: adjustItemRectsToParent config #6508"
+- 2025-02-26T22:37:30Z @tobiu closed this issue
 

@@ -36,11 +36,11 @@ Parent: #7364
 
 ## Timeline
 
-- 2025-10-06 @SarthakJain29 added the `enhancement` label
-- 2025-10-06 @tobiu assigned to @SarthakJain29
-- 2025-10-06 @tobiu added the `hacktoberfest` label
-- 2025-10-06 @tobiu added parent issue #7364
-### @tobiu - 2025-10-06 13:37
+- 2025-10-06T12:17:47Z @SarthakJain29 added the `enhancement` label
+- 2025-10-06T12:18:38Z @tobiu assigned to @SarthakJain29
+- 2025-10-06T12:18:48Z @tobiu added the `hacktoberfest` label
+- 2025-10-06T12:19:38Z @tobiu added parent issue #7364
+### @tobiu - 2025-10-06T13:37:43Z
 
 FYI (flash model):
 
@@ -50,6 +50,6 @@ FYI (flash model):
 >   and navigation, making my workflow easier and more robust.
 
 
-- 2025-10-06 @SarthakJain29 cross-referenced by PR #7395
-- 2025-10-08 @tobiu closed this issue
+- 2025-10-06T17:11:32Z @SarthakJain29 cross-referenced by PR #7395
+- 2025-10-08T12:29:52Z @tobiu closed this issue
 

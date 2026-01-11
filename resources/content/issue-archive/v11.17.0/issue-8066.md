@@ -57,12 +57,12 @@ Decouple component lifecycle management from the container view, ensuring `LiveP
 
 ## Timeline
 
-- 2025-12-09 @tobiu added the `ai` label
-- 2025-12-09 @tobiu added the `refactoring` label
-- 2025-12-09 @tobiu added the `architecture` label
-- 2025-12-09 @tobiu assigned to @tobiu
-- 2025-12-09 @tobiu referenced in commit `8623d74` - "Standardize Renderer Component Lifecycle Management #8066"
-### @tobiu - 2025-12-09 02:44
+- 2025-12-09T01:48:46Z @tobiu added the `ai` label
+- 2025-12-09T01:48:46Z @tobiu added the `refactoring` label
+- 2025-12-09T01:48:46Z @tobiu added the `architecture` label
+- 2025-12-09T02:41:35Z @tobiu assigned to @tobiu
+- 2025-12-09T02:43:27Z @tobiu referenced in commit `8623d74` - "Standardize Renderer Component Lifecycle Management #8066"
+### @tobiu - 2025-12-09T02:44:51Z
 
 **Input from Gemini:**
 
@@ -81,5 +81,5 @@ Decouple component lifecycle management from the container view, ensuring `LiveP
 > **Conclusion:**
 > The changes correctly address the lifecycle synchronization issue. The use of `initVnode(true)` is the correct approach for re-mounting components that have been detached but preserved in memory, especially in the context of the Portal app's card layout where DOM nodes are removed but JS instances persist.
 
-- 2025-12-09 @tobiu closed this issue
+- 2025-12-09T02:54:44Z @tobiu closed this issue
 

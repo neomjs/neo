@@ -46,9 +46,9 @@ Thoroughly review and update the `description` for every operation in `ai/mcp/se
 
 ## Timeline
 
-- 2025-10-23 @tobiu assigned to @tobiu
-- 2025-10-23 @tobiu added the `documentation` label
-- 2025-10-23 @tobiu added the `ai` label
-- 2025-10-23 @tobiu referenced in commit `bf938c3` - "Enhance GitHub Workflow OpenAPI Spec with Rich Descriptions #7623"
-- 2025-10-23 @tobiu closed this issue
+- 2025-10-23T14:18:22Z @tobiu assigned to @tobiu
+- 2025-10-23T14:18:23Z @tobiu added the `documentation` label
+- 2025-10-23T14:18:23Z @tobiu added the `ai` label
+- 2025-10-23T14:31:52Z @tobiu referenced in commit `bf938c3` - "Enhance GitHub Workflow OpenAPI Spec with Rich Descriptions #7623"
+- 2025-10-23T14:31:59Z @tobiu closed this issue
 

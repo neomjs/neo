@@ -26,9 +26,9 @@ closedAt: '2025-10-31T19:13:15Z'
 
 ## Timeline
 
-- 2025-10-31 @tobiu added the `bug` label
-- 2025-10-31 @tobiu added the `ai` label
-- 2025-10-31 @tobiu assigned to @tobiu
-- 2025-10-31 @tobiu referenced in commit `ab107cd` - "ChromaManager.mjs: getMemoryCollection should use getOrCreateCollection #7679"
-- 2025-10-31 @tobiu closed this issue
+- 2025-10-31T19:11:16Z @tobiu added the `bug` label
+- 2025-10-31T19:11:16Z @tobiu added the `ai` label
+- 2025-10-31T19:12:32Z @tobiu assigned to @tobiu
+- 2025-10-31T19:13:07Z @tobiu referenced in commit `ab107cd` - "ChromaManager.mjs: getMemoryCollection should use getOrCreateCollection #7679"
+- 2025-10-31T19:13:15Z @tobiu closed this issue
 

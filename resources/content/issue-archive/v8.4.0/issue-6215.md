@@ -25,8 +25,8 @@ closedAt: '2025-01-13T19:06:37Z'
 
 ## Timeline
 
-- 2025-01-13 @tobiu added the `enhancement` label
-- 2025-01-13 @tobiu assigned to @tobiu
-- 2025-01-13 @tobiu referenced in commit `ad48d64` - "examples.grid.bigData.MainStore: random firstnames & lastnames #6215"
-- 2025-01-13 @tobiu closed this issue
+- 2025-01-13T19:02:50Z @tobiu added the `enhancement` label
+- 2025-01-13T19:02:50Z @tobiu assigned to @tobiu
+- 2025-01-13T19:06:33Z @tobiu referenced in commit `ad48d64` - "examples.grid.bigData.MainStore: random firstnames & lastnames #6215"
+- 2025-01-13T19:06:38Z @tobiu closed this issue
 

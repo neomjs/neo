@@ -26,8 +26,8 @@ closedAt: '2025-01-16T13:13:20Z'
 
 ## Timeline
 
-- 2025-01-16 @tobiu added the `enhancement` label
-- 2025-01-16 @tobiu assigned to @tobiu
-- 2025-01-16 @tobiu referenced in commit `32f7b62` - "component.Base: resolveVdomUpdate() => add a smarter way to merge scheduled child updates #6244"
-- 2025-01-16 @tobiu closed this issue
+- 2025-01-16T13:10:50Z @tobiu added the `enhancement` label
+- 2025-01-16T13:10:51Z @tobiu assigned to @tobiu
+- 2025-01-16T13:12:57Z @tobiu referenced in commit `32f7b62` - "component.Base: resolveVdomUpdate() => add a smarter way to merge scheduled child updates #6244"
+- 2025-01-16T13:13:20Z @tobiu closed this issue
 

@@ -45,10 +45,10 @@ Updates the `agent-os-technical-report.md` blog post draft to correct architectu
 
 ## Timeline
 
-- 2025-11-23 @tobiu added the `documentation` label
-- 2025-11-23 @tobiu added the `Blog Post` label
-- 2025-11-23 @tobiu added the `ai` label
-- 2025-11-23 @tobiu assigned to @tobiu
-- 2025-11-23 @tobiu referenced in commit `57469ef` - "[Docs] Refine Agent OS Technical Report (Section 2.1 & 4.1) #7885"
-- 2025-11-23 @tobiu closed this issue
+- 2025-11-23T19:21:25Z @tobiu added the `documentation` label
+- 2025-11-23T19:21:26Z @tobiu added the `Blog Post` label
+- 2025-11-23T19:21:26Z @tobiu added the `ai` label
+- 2025-11-23T19:22:18Z @tobiu assigned to @tobiu
+- 2025-11-23T19:22:38Z @tobiu referenced in commit `57469ef` - "[Docs] Refine Agent OS Technical Report (Section 2.1 & 4.1) #7885"
+- 2025-11-23T19:22:43Z @tobiu closed this issue
 

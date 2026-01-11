@@ -35,8 +35,8 @@ Stepping through `component.Base` to resolve it.
 
 ## Timeline
 
-- 2025-01-15 @tobiu added the `bug` label
-- 2025-01-15 @tobiu assigned to @tobiu
-- 2025-01-15 @tobiu referenced in commit `9085a1a` - "examples.grid.bigData.GridContainer: updating the columns is visually broken #6241"
-- 2025-01-15 @tobiu closed this issue
+- 2025-01-15T18:30:04Z @tobiu added the `bug` label
+- 2025-01-15T18:30:04Z @tobiu assigned to @tobiu
+- 2025-01-15T19:05:32Z @tobiu referenced in commit `9085a1a` - "examples.grid.bigData.GridContainer: updating the columns is visually broken #6241"
+- 2025-01-15T19:05:57Z @tobiu closed this issue
 

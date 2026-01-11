@@ -28,11 +28,11 @@ Rationale:
 
 ## Timeline
 
-- 2025-03-25 @tobiu added the `enhancement` label
-- 2025-03-25 @tobiu assigned to @tobiu
-- 2025-03-25 @tobiu added parent issue #6584
-- 2025-03-25 @tobiu referenced in commit `cd334f0` - "worker.Manager: add controllerchange SW listener as early as possible #6587"
-### @tobiu - 2025-03-25 10:56
+- 2025-03-25T10:33:30Z @tobiu added the `enhancement` label
+- 2025-03-25T10:33:30Z @tobiu assigned to @tobiu
+- 2025-03-25T10:33:31Z @tobiu added parent issue #6584
+- 2025-03-25T10:51:52Z @tobiu referenced in commit `cd334f0` - "worker.Manager: add controllerchange SW listener as early as possible #6587"
+### @tobiu - 2025-03-25T10:56:35Z
 
 @dfabulich not sure, if you are still using your old code:
 ```
@@ -54,14 +54,14 @@ navigator.serviceWorker.addEventListener('controllerchange', function() {
 }, {once: true});
 ```
 
-- 2025-03-25 @tobiu closed this issue
-### @dfabulich - 2025-03-25 19:49
+- 2025-03-25T10:56:35Z @tobiu closed this issue
+### @dfabulich - 2025-03-25T19:49:23Z
 
 Yes, `{once: true}` is the right way to do it now, and I've just updated my blog post to match.
 
 FWIW, `options.once` was not widely available in 2017. I'm not sure it worked at all in pre-Chromium Edge, which means it didn't become newly available until Edge 18 (based on Chromium) in 2018, and didn't reach "widely available" Baseline until 30 months after that, April 2021.
 
-### @tobiu - 2025-03-25 20:12
+### @tobiu - 2025-03-25T20:12:37Z
 
 @dfabulich Since commits are not easy to track, the idea of what i am doing here:
 

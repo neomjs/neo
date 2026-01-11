@@ -61,9 +61,9 @@ static delayable = {
 
 ## Timeline
 
-- 2025-07-30 @tobiu assigned to @tobiu
-- 2025-07-30 @tobiu added the `enhancement` label
-- 2025-07-30 @tobiu referenced in commit `7ee52ae` - "Refactor fireChangeEvent to be Synchronous and Review Event Handler Timing #7129"
-- 2025-07-30 @tobiu closed this issue
-- 2025-07-30 @tobiu cross-referenced by #7123
+- 2025-07-30T10:47:33Z @tobiu assigned to @tobiu
+- 2025-07-30T10:47:34Z @tobiu added the `enhancement` label
+- 2025-07-30T10:50:31Z @tobiu referenced in commit `7ee52ae` - "Refactor fireChangeEvent to be Synchronous and Review Event Handler Timing #7129"
+- 2025-07-30T10:50:42Z @tobiu closed this issue
+- 2025-07-30T10:52:01Z @tobiu cross-referenced by #7123
 

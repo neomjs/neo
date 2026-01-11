@@ -26,9 +26,9 @@ The `AGENTS_STARTUP.md` guide incorrectly implies that the agent needs to manual
 
 ## Timeline
 
-- 2025-11-08 @tobiu added the `documentation` label
-- 2025-11-08 @tobiu added the `ai` label
-- 2025-11-08 @tobiu referenced in commit `e40262b` - "Docs: Clarify automatic session summarization in AGENTS_STARTUP.md #7719"
-- 2025-11-08 @tobiu assigned to @tobiu
-- 2025-11-08 @tobiu closed this issue
+- 2025-11-08T09:30:54Z @tobiu added the `documentation` label
+- 2025-11-08T09:30:55Z @tobiu added the `ai` label
+- 2025-11-08T09:31:45Z @tobiu referenced in commit `e40262b` - "Docs: Clarify automatic session summarization in AGENTS_STARTUP.md #7719"
+- 2025-11-08T09:31:56Z @tobiu assigned to @tobiu
+- 2025-11-08T09:32:09Z @tobiu closed this issue
 

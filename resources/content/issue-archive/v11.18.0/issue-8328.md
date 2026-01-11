@@ -41,13 +41,13 @@ Allow AI agents to query the Virtual DOM directly to find nodes based on visual 
 
 ## Timeline
 
-- 2026-01-04 @tobiu added the `developer-experience` label
-- 2026-01-04 @tobiu added the `ai` label
-- 2026-01-04 @tobiu added the `feature` label
-- 2026-01-04 @tobiu added parent issue #8169
-- 2026-01-05 @tobiu assigned to @tobiu
-- 2026-01-05 @tobiu closed this issue
-- 2026-01-06 @jonnyamsp referenced in commit `2b4edb7` - "Feature: Implement query_vdom tool for Neural Link
+- 2026-01-04T19:47:51Z @tobiu added the `developer-experience` label
+- 2026-01-04T19:47:52Z @tobiu added the `ai` label
+- 2026-01-04T19:47:52Z @tobiu added the `feature` label
+- 2026-01-04T19:48:09Z @tobiu added parent issue #8169
+- 2026-01-05T11:32:46Z @tobiu assigned to @tobiu
+- 2026-01-05T15:42:52Z @tobiu closed this issue
+- 2026-01-06T13:25:09Z @jonnyamsp referenced in commit `2b4edb7` - "Feature: Implement query_vdom tool for Neural Link
 
 Added a new tool 'query_vdom' to the Neural Link MCP server, enabling AI agents to search for VDOM nodes using visual attributes (e.g., CSS classes) via 'Neo.util.VDom.find()'.
 

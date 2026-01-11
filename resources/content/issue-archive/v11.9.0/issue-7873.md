@@ -32,9 +32,9 @@ This task involves:
 
 ## Timeline
 
-- 2025-11-23 @tobiu added the `enhancement` label
-- 2025-11-23 @tobiu added the `ai` label
-- 2025-11-23 @tobiu assigned to @tobiu
-- 2025-11-23 @tobiu referenced in commit `ca1220a` - "Standardize version reporting across MCP servers #7873"
-- 2025-11-23 @tobiu closed this issue
+- 2025-11-23T10:58:48Z @tobiu added the `enhancement` label
+- 2025-11-23T10:58:48Z @tobiu added the `ai` label
+- 2025-11-23T10:59:13Z @tobiu assigned to @tobiu
+- 2025-11-23T11:01:34Z @tobiu referenced in commit `ca1220a` - "Standardize version reporting across MCP servers #7873"
+- 2025-11-23T11:01:42Z @tobiu closed this issue
 

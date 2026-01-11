@@ -27,12 +27,12 @@ Consolidate the stable ID assignment logic (`id` and `__wrapper`) into a single 
 
 ## Timeline
 
-- 2026-01-09 @tobiu added the `ai` label
-- 2026-01-09 @tobiu added the `refactoring` label
-- 2026-01-09 @tobiu added the `core` label
-- 2026-01-09 @tobiu referenced in commit `5d069da` - "refactor: centralize and enforce stable VDOM IDs in VdomLifecycle (#8467)"
-- 2026-01-09 @tobiu assigned to @tobiu
-### @tobiu - 2026-01-09 14:01
+- 2026-01-09T13:59:51Z @tobiu added the `ai` label
+- 2026-01-09T13:59:51Z @tobiu added the `refactoring` label
+- 2026-01-09T13:59:51Z @tobiu added the `core` label
+- 2026-01-09T14:00:46Z @tobiu referenced in commit `5d069da` - "refactor: centralize and enforce stable VDOM IDs in VdomLifecycle (#8467)"
+- 2026-01-09T14:01:02Z @tobiu assigned to @tobiu
+### @tobiu - 2026-01-09T14:01:14Z
 
 **Input from Gemini 3 Pro:**
 
@@ -47,6 +47,6 @@ Consolidate the stable ID assignment logic (`id` and `__wrapper`) into a single 
 > 
 > Commit: 5d069da7a (#8467)
 
-- 2026-01-09 @tobiu closed this issue
-- 2026-01-09 @tobiu cross-referenced by #8469
+- 2026-01-09T14:01:27Z @tobiu closed this issue
+- 2026-01-09T15:17:28Z @tobiu cross-referenced by #8469
 

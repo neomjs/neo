@@ -47,9 +47,9 @@ This refactoring will ensure that both component types benefit from a centralize
 
 ## Timeline
 
-- 2025-07-13 @tobiu assigned to @tobiu
-- 2025-07-13 @tobiu added the `enhancement` label
-- 2025-07-13 @tobiu added parent issue #6992
-- 2025-07-13 @tobiu referenced in commit `58743c8` - "Refactor: Extract DOM Event Handling to DomEvents Mixin #7043"
-- 2025-07-13 @tobiu closed this issue
+- 2025-07-13T17:13:30Z @tobiu assigned to @tobiu
+- 2025-07-13T17:13:31Z @tobiu added the `enhancement` label
+- 2025-07-13T17:13:32Z @tobiu added parent issue #6992
+- 2025-07-13T17:14:22Z @tobiu referenced in commit `58743c8` - "Refactor: Extract DOM Event Handling to DomEvents Mixin #7043"
+- 2025-07-13T17:14:35Z @tobiu closed this issue
 

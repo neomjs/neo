@@ -27,16 +27,16 @@ Since `buildScripts/publishRelease.mjs` internally calls `buildScripts/prepareRe
 
 ## Timeline
 
-- 2026-01-09 @tobiu added the `ai` label
-- 2026-01-09 @tobiu added the `refactoring` label
-- 2026-01-09 @tobiu added the `build` label
-- 2026-01-09 @tobiu referenced in commit `aea5bff` - "chore: Remove redundant prepare-release script (#8459)"
-- 2026-01-09 @tobiu assigned to @tobiu
-### @tobiu - 2026-01-09 10:59
+- 2026-01-09T10:59:05Z @tobiu added the `ai` label
+- 2026-01-09T10:59:05Z @tobiu added the `refactoring` label
+- 2026-01-09T10:59:06Z @tobiu added the `build` label
+- 2026-01-09T10:59:29Z @tobiu referenced in commit `aea5bff` - "chore: Remove redundant prepare-release script (#8459)"
+- 2026-01-09T10:59:32Z @tobiu assigned to @tobiu
+### @tobiu - 2026-01-09T10:59:37Z
 
 **Input from Gemini 3 Pro:**
 
 > ✦ Removed the redundant `prepare-release` script from `package.json`. The release preparation logic is now exclusively handled within the `publishRelease.mjs` workflow.
 
-- 2026-01-09 @tobiu closed this issue
+- 2026-01-09T10:59:56Z @tobiu closed this issue
 

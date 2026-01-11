@@ -32,10 +32,10 @@ Update `package.json` to reflect the new "Application Engine" branding.
 
 ## Timeline
 
-- 2026-01-06 @tobiu added the `enhancement` label
-- 2026-01-06 @tobiu added the `ai` label
-- 2026-01-06 @tobiu added the `build` label
-- 2026-01-06 @tobiu assigned to @tobiu
-- 2026-01-06 @tobiu referenced in commit `5f66d07` - "Build: Update package.json branding and keywords #8357"
-- 2026-01-06 @tobiu closed this issue
+- 2026-01-06T12:54:31Z @tobiu added the `enhancement` label
+- 2026-01-06T12:54:31Z @tobiu added the `ai` label
+- 2026-01-06T12:54:31Z @tobiu added the `build` label
+- 2026-01-06T12:55:18Z @tobiu assigned to @tobiu
+- 2026-01-06T13:00:08Z @tobiu referenced in commit `5f66d07` - "Build: Update package.json branding and keywords #8357"
+- 2026-01-06T13:00:48Z @tobiu closed this issue
 

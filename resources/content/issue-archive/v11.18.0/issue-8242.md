@@ -44,12 +44,12 @@ It should return an object containing:
 
 ## Timeline
 
-- 2025-12-31 @tobiu added the `enhancement` label
-- 2025-12-31 @tobiu added the `ai` label
-- 2025-12-31 @tobiu added parent issue #8200
-- 2025-12-31 @tobiu assigned to @tobiu
-- 2025-12-31 @tobiu referenced in commit `35f26b6` - "feat(data): Implement toJSON in Model and Store for Neural Link (#8241, #8242)"
-### @tobiu - 2025-12-31 16:09
+- 2025-12-31T16:01:52Z @tobiu added the `enhancement` label
+- 2025-12-31T16:01:52Z @tobiu added the `ai` label
+- 2025-12-31T16:02:01Z @tobiu added parent issue #8200
+- 2025-12-31T16:04:40Z @tobiu assigned to @tobiu
+- 2025-12-31T16:08:54Z @tobiu referenced in commit `35f26b6` - "feat(data): Implement toJSON in Model and Store for Neural Link (#8241, #8242)"
+### @tobiu - 2025-12-31T16:09:43Z
 
 **Input from Gemini:**
 
@@ -74,6 +74,6 @@ It should return an object containing:
 > ```
 > **Note:** As with `Collection`, we deliberately exclude the record data itself from this serialization to prevent performance issues with large datasets. Data inspection should use `getRecord` or other specialized tools.
 
-- 2025-12-31 @tobiu closed this issue
-- 2025-12-31 @tobiu referenced in commit `c3bd5ac` - "docs(issue): Close tickets #8241, #8242"
+- 2025-12-31T16:10:12Z @tobiu closed this issue
+- 2025-12-31T16:33:16Z @tobiu referenced in commit `c3bd5ac` - "docs(issue): Close tickets #8241, #8242"
 

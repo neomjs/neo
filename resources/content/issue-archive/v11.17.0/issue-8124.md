@@ -50,11 +50,11 @@ This changes removes the redundant `onUpdateDom` path and ensures `App.applyDelt
 
 ## Timeline
 
-- 2025-12-16 @tobiu added the `bug` label
-- 2025-12-16 @tobiu added the `refactoring` label
-- 2025-12-16 @tobiu added the `architecture` label
-- 2025-12-16 @tobiu assigned to @tobiu
-- 2025-12-16 @tobiu referenced in commit `b20ec53` - "Unified Delayed DOM Update Strategy #8124"
-- 2025-12-16 @tobiu closed this issue
-- 2025-12-16 @tobiu added the `ai` label
+- 2025-12-16T17:48:42Z @tobiu added the `bug` label
+- 2025-12-16T17:48:42Z @tobiu added the `refactoring` label
+- 2025-12-16T17:48:42Z @tobiu added the `architecture` label
+- 2025-12-16T18:07:51Z @tobiu assigned to @tobiu
+- 2025-12-16T18:11:03Z @tobiu referenced in commit `b20ec53` - "Unified Delayed DOM Update Strategy #8124"
+- 2025-12-16T18:11:33Z @tobiu closed this issue
+- 2025-12-16T18:30:12Z @tobiu added the `ai` label
 

@@ -32,11 +32,11 @@ The Knowledge Base MCP server (`ai/mcp/server/knowledge-base`) requires a review
 
 ## Timeline
 
-- 2025-11-24 @tobiu added the `documentation` label
-- 2025-11-24 @tobiu added the `enhancement` label
-- 2025-11-24 @tobiu added the `ai` label
-- 2025-11-24 @tobiu added the `refactoring` label
-- 2025-11-24 @tobiu assigned to @tobiu
-- 2025-11-24 @tobiu referenced in commit `4c95b57` - "Review and Update JSDoc Comments in Knowledge Base MCP Server #7893"
-- 2025-11-24 @tobiu closed this issue
+- 2025-11-24T10:07:20Z @tobiu added the `documentation` label
+- 2025-11-24T10:07:20Z @tobiu added the `enhancement` label
+- 2025-11-24T10:07:20Z @tobiu added the `ai` label
+- 2025-11-24T10:07:20Z @tobiu added the `refactoring` label
+- 2025-11-24T11:29:48Z @tobiu assigned to @tobiu
+- 2025-11-24T11:47:23Z @tobiu referenced in commit `4c95b57` - "Review and Update JSDoc Comments in Knowledge Base MCP Server #7893"
+- 2025-11-24T11:47:31Z @tobiu closed this issue
 

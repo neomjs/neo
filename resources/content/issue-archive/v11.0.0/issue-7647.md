@@ -64,9 +64,9 @@ This ensures that error responses from tools are correctly identified and propag
 
 ## Timeline
 
-- 2025-10-25 @tobiu added the `bug` label
-- 2025-10-25 @tobiu added the `ai` label
-- 2025-10-25 @tobiu assigned to @tobiu
-- 2025-10-25 @tobiu referenced in commit `6f3b9ed` - "Fix: MCP Server Misinterprets Tool Error Responses #7647"
-- 2025-10-25 @tobiu closed this issue
+- 2025-10-25T14:19:34Z @tobiu added the `bug` label
+- 2025-10-25T14:19:34Z @tobiu added the `ai` label
+- 2025-10-25T14:19:52Z @tobiu assigned to @tobiu
+- 2025-10-25T14:20:23Z @tobiu referenced in commit `6f3b9ed` - "Fix: MCP Server Misinterprets Tool Error Responses #7647"
+- 2025-10-25T14:20:34Z @tobiu closed this issue
 

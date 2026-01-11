@@ -42,9 +42,9 @@ The necessary changes to the `getLlmsTxt` function in `buildScripts/generateSeoF
 
 ## Timeline
 
-- 2025-11-13 @tobiu added the `documentation` label
-- 2025-11-13 @tobiu added the `ai` label
-- 2025-11-13 @tobiu assigned to @tobiu
-- 2025-11-13 @tobiu referenced in commit `bcaf2d9` - "docs(llms.txt): Enhance description for environment URLs #7771"
-- 2025-11-13 @tobiu closed this issue
+- 2025-11-13T22:52:44Z @tobiu added the `documentation` label
+- 2025-11-13T22:52:44Z @tobiu added the `ai` label
+- 2025-11-13T22:53:52Z @tobiu assigned to @tobiu
+- 2025-11-13T22:54:41Z @tobiu referenced in commit `bcaf2d9` - "docs(llms.txt): Enhance description for environment URLs #7771"
+- 2025-11-13T22:54:46Z @tobiu closed this issue
 

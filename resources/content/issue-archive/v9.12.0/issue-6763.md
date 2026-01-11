@@ -28,7 +28,7 @@ If we enter the catch part, `then()` will still get triggered.
 
 ## Timeline
 
-- 2025-06-11 @tobiu added the `enhancement` label
-- 2025-06-11 @tobiu referenced in commit `f6d9d96` - "data.Store: load() => enhance the catch part #6763"
-- 2025-06-11 @tobiu closed this issue
+- 2025-06-11T10:11:42Z @tobiu added the `enhancement` label
+- 2025-06-11T10:52:56Z @tobiu referenced in commit `f6d9d96` - "data.Store: load() => enhance the catch part #6763"
+- 2025-06-11T10:53:02Z @tobiu closed this issue
 

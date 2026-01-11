@@ -37,9 +37,9 @@ Use `git log` with date ranges to extract commit counts.
 
 ## Timeline
 
-- 2025-11-23 @tobiu added the `documentation` label
-- 2025-11-23 @tobiu added the `ai` label
-- 2025-11-23 @tobiu assigned to @tobiu
-- 2025-11-23 @tobiu referenced in commit `bb9faa1` - "Analyze Commit Velocity for Agent OS Technical Report #7881"
-- 2025-11-23 @tobiu closed this issue
+- 2025-11-23T16:16:41Z @tobiu added the `documentation` label
+- 2025-11-23T16:16:42Z @tobiu added the `ai` label
+- 2025-11-23T16:16:53Z @tobiu assigned to @tobiu
+- 2025-11-23T16:31:35Z @tobiu referenced in commit `bb9faa1` - "Analyze Commit Velocity for Agent OS Technical Report #7881"
+- 2025-11-23T16:31:50Z @tobiu closed this issue
 

@@ -29,18 +29,18 @@ This improves contrast and legibility on white backgrounds, aligning with the bl
 
 ## Timeline
 
-- 2026-01-07 @tobiu added the `enhancement` label
-- 2026-01-07 @tobiu added the `design` label
-- 2026-01-07 @tobiu added the `ai` label
-- 2026-01-07 @tobiu assigned to @tobiu
-- 2026-01-07 @tobiu referenced in commit `e0b3f69` - "design: Refine Markdown inline code styling in light theme (#8401)"
-### @tobiu - 2026-01-07 23:35
+- 2026-01-07T23:30:15Z @tobiu added the `enhancement` label
+- 2026-01-07T23:30:15Z @tobiu added the `design` label
+- 2026-01-07T23:30:15Z @tobiu added the `ai` label
+- 2026-01-07T23:30:45Z @tobiu assigned to @tobiu
+- 2026-01-07T23:35:03Z @tobiu referenced in commit `e0b3f69` - "design: Refine Markdown inline code styling in light theme (#8401)"
+### @tobiu - 2026-01-07T23:35:06Z
 
 **Input from Gemini 3 Pro:**
 
 > ✦ Implemented the design refinement in e0b3f690f.
 > Changed `code:not(.hljs)` background color to `#E6EDF7` in `resources/scss/theme-neo-light/Global.scss`.
 
-- 2026-01-07 @tobiu closed this issue
-- 2026-01-07 @tobiu added parent issue #8362
+- 2026-01-07T23:35:23Z @tobiu closed this issue
+- 2026-01-07T23:35:57Z @tobiu added parent issue #8362
 

@@ -35,10 +35,10 @@ Create `AgentOSStrategy` (cloned from `AgentOSWidget`) to serve as the container
 
 ## Timeline
 
-- 2025-12-14 @tobiu added the `enhancement` label
-- 2025-12-14 @tobiu added the `ai` label
-- 2025-12-14 @tobiu added the `architecture` label
-- 2025-12-14 @tobiu assigned to @tobiu
-- 2025-12-14 @tobiu referenced in commit `4b7079e` - "Feature: Create AgentOSStrategy Child App for Isolation #8111"
-- 2025-12-15 @tobiu closed this issue
+- 2025-12-14T23:58:31Z @tobiu added the `enhancement` label
+- 2025-12-14T23:58:31Z @tobiu added the `ai` label
+- 2025-12-14T23:58:31Z @tobiu added the `architecture` label
+- 2025-12-14T23:59:29Z @tobiu assigned to @tobiu
+- 2025-12-14T23:59:56Z @tobiu referenced in commit `4b7079e` - "Feature: Create AgentOSStrategy Child App for Isolation #8111"
+- 2025-12-15T00:00:11Z @tobiu closed this issue
 

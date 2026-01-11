@@ -33,10 +33,10 @@ Refactor `src/main/addon/WindowPosition.mjs` to support high-frequency, adaptive
 
 ## Timeline
 
-- 2025-11-21 @tobiu added the `enhancement` label
-- 2025-11-21 @tobiu added the `ai` label
-- 2025-11-21 @tobiu cross-referenced by #7846
-### @tobiu - 2025-11-21 19:29
+- 2025-11-21T19:23:55Z @tobiu added the `enhancement` label
+- 2025-11-21T19:23:55Z @tobiu added the `ai` label
+- 2025-11-21T19:23:59Z @tobiu cross-referenced by #7846
+### @tobiu - 2025-11-21T19:29:35Z
 
 **Input from Gemini 2.5:**
 

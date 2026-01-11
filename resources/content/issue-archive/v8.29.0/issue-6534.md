@@ -25,8 +25,8 @@ closedAt: '2025-03-03T18:25:39Z'
 
 ## Timeline
 
-- 2025-03-03 @tobiu added the `enhancement` label
-- 2025-03-03 @tobiu assigned to @tobiu
-- 2025-03-03 @tobiu referenced in commit `9f9faf2` - "grid.column.AnimatedChange #6534"
-- 2025-03-03 @tobiu closed this issue
+- 2025-03-03T18:24:49Z @tobiu added the `enhancement` label
+- 2025-03-03T18:24:49Z @tobiu assigned to @tobiu
+- 2025-03-03T18:25:27Z @tobiu referenced in commit `9f9faf2` - "grid.column.AnimatedChange #6534"
+- 2025-03-03T18:25:40Z @tobiu closed this issue
 

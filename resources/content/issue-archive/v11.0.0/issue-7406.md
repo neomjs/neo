@@ -50,22 +50,22 @@ To work on this ticket, please start your session with the following prompt:
 
 ## Timeline
 
-- 2025-10-07 @tobiu added the `enhancement` label
-- 2025-10-07 @tobiu added the `help wanted` label
-- 2025-10-07 @tobiu added parent issue #7399
-- 2025-10-07 @tobiu added the `good first issue` label
-- 2025-10-07 @tobiu added the `hacktoberfest` label
-- 2025-10-07 @tobiu added the `ai` label
-### @tanmaytare - 2025-10-08 16:18
+- 2025-10-07T10:17:16Z @tobiu added the `enhancement` label
+- 2025-10-07T10:17:16Z @tobiu added the `help wanted` label
+- 2025-10-07T10:17:16Z @tobiu added parent issue #7399
+- 2025-10-07T10:17:17Z @tobiu added the `good first issue` label
+- 2025-10-07T10:17:17Z @tobiu added the `hacktoberfest` label
+- 2025-10-07T10:17:17Z @tobiu added the `ai` label
+### @tanmaytare - 2025-10-08T16:18:36Z
 
 I want to work on this ,please assign to me
 
-### @tobiu - 2025-10-08 16:31
+### @tobiu - 2025-10-08T16:31:50Z
 
 Hi, and thanks for your interest. Assigned. Please make sure to read the parent epic first: https://github.com/neomjs/neo/issues/7399
 
-- 2025-10-08 @tobiu assigned to @tanmaytare
-### @tobiu - 2025-10-24 09:22
+- 2025-10-08T16:31:54Z @tobiu assigned to @tanmaytare
+### @tobiu - 2025-10-24T09:22:48Z
 
 Hi @tanmaytare,
 
@@ -75,5 +75,5 @@ As there has been no activity for a couple of weeks and the project's architectu
 
 We're closing this ticket now. Thanks again for your willingness to contribute, and we hope to see you in other issues!
 
-- 2025-10-24 @tobiu closed this issue
+- 2025-10-24T09:22:59Z @tobiu closed this issue
 

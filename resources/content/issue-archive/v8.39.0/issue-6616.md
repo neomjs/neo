@@ -25,10 +25,10 @@ closedAt: '2025-04-04T17:32:15Z'
 
 ## Timeline
 
-- 2025-04-04 @tobiu added the `enhancement` label
-- 2025-04-04 @tobiu assigned to @tobiu
-- 2025-04-04 @tobiu referenced in commit `e4b4e07` - "grid.View, table.View: applyRendererOutput() => add support for non-leaf based field renderer values #6616"
-### @tobiu - 2025-04-04 17:32
+- 2025-04-04T17:22:34Z @tobiu added the `enhancement` label
+- 2025-04-04T17:22:34Z @tobiu assigned to @tobiu
+- 2025-04-04T17:29:41Z @tobiu referenced in commit `e4b4e07` - "grid.View, table.View: applyRendererOutput() => add support for non-leaf based field renderer values #6616"
+### @tobiu - 2025-04-04T17:32:16Z
 
 <img width="752" alt="Image" src="https://github.com/user-attachments/assets/bb8b7d0c-8d64-439a-acc9-9d3c56853651" />
 
@@ -38,5 +38,5 @@ closedAt: '2025-04-04T17:32:15Z'
 
 <img width="969" alt="Image" src="https://github.com/user-attachments/assets/10675c42-741c-48dd-b075-d59b0262cd5c" />
 
-- 2025-04-04 @tobiu closed this issue
+- 2025-04-04T17:32:16Z @tobiu closed this issue
 

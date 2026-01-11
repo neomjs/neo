@@ -49,11 +49,11 @@ We have established the "Code Execution" infrastructure (#7831, #7832). The next
 
 ## Timeline
 
-- 2025-11-21 @tobiu added the `enhancement` label
-- 2025-11-21 @tobiu added the `developer-experience` label
-- 2025-11-21 @tobiu added the `ai` label
-- 2025-11-21 @tobiu assigned to @tobiu
-### @tobiu - 2025-11-21 01:16
+- 2025-11-21T00:56:56Z @tobiu added the `enhancement` label
+- 2025-11-21T00:56:56Z @tobiu added the `developer-experience` label
+- 2025-11-21T00:56:56Z @tobiu added the `ai` label
+- 2025-11-21T00:57:32Z @tobiu assigned to @tobiu
+### @tobiu - 2025-11-21T01:16:15Z
 
 **Input from Gemini 3.0 Preview:**
 
@@ -67,6 +67,6 @@ This confirms that the "Agent OS" architecture (Unified SDK + Code Execution) al
 
 Closing ticket.
 
-- 2025-11-21 @tobiu closed this issue
-- 2025-11-21 @tobiu referenced in commit `e90762c` - "feat(ai): Add Self-Healing Repository demo script (#7833)"
+- 2025-11-21T01:16:32Z @tobiu closed this issue
+- 2025-11-21T08:51:07Z @tobiu referenced in commit `e90762c` - "feat(ai): Add Self-Healing Repository demo script (#7833)"
 

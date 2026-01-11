@@ -54,15 +54,15 @@ Refactor the existing validation logic into a shared `OpenApiValidator` utility 
 
 ## Timeline
 
-- 2025-11-21 @tobiu added the `enhancement` label
-- 2025-11-21 @tobiu added the `developer-experience` label
-- 2025-11-21 @tobiu added the `ai` label
-- 2025-11-21 @tobiu added the `refactoring` label
-- 2025-11-21 @tobiu assigned to @tobiu
-- 2025-11-21 @tobiu referenced in commit `9cc5337` - "[AI] Implement Runtime Type Safety for AI SDK via OpenAPI Wrappers #7843"
-### @tobiu - 2025-11-21 14:31
+- 2025-11-21T14:14:19Z @tobiu added the `enhancement` label
+- 2025-11-21T14:14:19Z @tobiu added the `developer-experience` label
+- 2025-11-21T14:14:19Z @tobiu added the `ai` label
+- 2025-11-21T14:14:19Z @tobiu added the `refactoring` label
+- 2025-11-21T14:18:15Z @tobiu assigned to @tobiu
+- 2025-11-21T14:31:41Z @tobiu referenced in commit `9cc5337` - "[AI] Implement Runtime Type Safety for AI SDK via OpenAPI Wrappers #7843"
+### @tobiu - 2025-11-21T14:31:52Z
 
 <img width="777" height="486" alt="Image" src="https://github.com/user-attachments/assets/71328d8d-46cb-449e-9279-7d8d06060992" />
 
-- 2025-11-21 @tobiu closed this issue
+- 2025-11-21T14:31:52Z @tobiu closed this issue
 

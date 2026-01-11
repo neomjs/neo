@@ -25,8 +25,8 @@ closedAt: '2025-01-04T15:26:44Z'
 
 ## Timeline
 
-- 2025-01-04 @tobiu added the `enhancement` label
-- 2025-01-04 @tobiu assigned to @tobiu
-- 2025-01-04 @tobiu referenced in commit `d3eb9d0` - "grid.header.Toolbar: afterSetMounted() => pass the header button positions to the grid.View #6177"
-- 2025-01-04 @tobiu closed this issue
+- 2025-01-04T15:26:16Z @tobiu added the `enhancement` label
+- 2025-01-04T15:26:16Z @tobiu assigned to @tobiu
+- 2025-01-04T15:26:31Z @tobiu referenced in commit `d3eb9d0` - "grid.header.Toolbar: afterSetMounted() => pass the header button positions to the grid.View #6177"
+- 2025-01-04T15:26:44Z @tobiu closed this issue
 

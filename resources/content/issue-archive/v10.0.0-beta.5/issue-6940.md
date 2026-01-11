@@ -39,8 +39,8 @@ This enhancement improves the reliability and predictability of the config mergi
 
 ## Timeline
 
-- 2025-07-04 @tobiu assigned to @tobiu
-- 2025-07-04 @tobiu added the `enhancement` label
-- 2025-07-04 @tobiu referenced in commit `bd0da0d` - "Enhance Neo.mergeConfig for Robust Type Handling #6940"
-- 2025-07-04 @tobiu closed this issue
+- 2025-07-04T17:33:51Z @tobiu assigned to @tobiu
+- 2025-07-04T17:33:52Z @tobiu added the `enhancement` label
+- 2025-07-04T17:34:21Z @tobiu referenced in commit `bd0da0d` - "Enhance Neo.mergeConfig for Robust Type Handling #6940"
+- 2025-07-04T17:34:32Z @tobiu closed this issue
 

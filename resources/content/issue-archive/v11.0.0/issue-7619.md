@@ -53,10 +53,10 @@ A value of **50** is proposed as a more balanced compromise. It significantly re
 
 ## Timeline
 
-- 2025-10-23 @tobiu assigned to @tobiu
-- 2025-10-23 @tobiu added the `enhancement` label
-- 2025-10-23 @tobiu added the `ai` label
-- 2025-10-23 @tobiu added the `refactoring` label
-- 2025-10-23 @tobiu referenced in commit `75e947d` - "Refactor Magic Number for Release Fetching Pagination #7619"
-- 2025-10-23 @tobiu closed this issue
+- 2025-10-23T11:35:57Z @tobiu assigned to @tobiu
+- 2025-10-23T11:35:59Z @tobiu added the `enhancement` label
+- 2025-10-23T11:35:59Z @tobiu added the `ai` label
+- 2025-10-23T11:35:59Z @tobiu added the `refactoring` label
+- 2025-10-23T11:38:38Z @tobiu referenced in commit `75e947d` - "Refactor Magic Number for Release Fetching Pagination #7619"
+- 2025-10-23T11:38:55Z @tobiu closed this issue
 

@@ -46,9 +46,9 @@ Verified that `healthcheck` returns the current session ID and that `add_memory`
 
 ## Timeline
 
-- 2025-11-19 @tobiu added the `bug` label
-- 2025-11-19 @tobiu added the `ai` label
-- 2025-11-19 @tobiu assigned to @tobiu
-- 2025-11-19 @tobiu referenced in commit `a8e2066` - "Fix add_memory failure when sessionId is omitted #7806"
-- 2025-11-19 @tobiu closed this issue
+- 2025-11-19T11:54:56Z @tobiu added the `bug` label
+- 2025-11-19T11:54:57Z @tobiu added the `ai` label
+- 2025-11-19T12:33:05Z @tobiu assigned to @tobiu
+- 2025-11-19T12:33:41Z @tobiu referenced in commit `a8e2066` - "Fix add_memory failure when sessionId is omitted #7806"
+- 2025-11-19T12:33:44Z @tobiu closed this issue
 

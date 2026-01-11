@@ -41,11 +41,11 @@ Create the initial directory structure and global variable definitions for the n
 
 ## Timeline
 
-- 2025-12-04 @tobiu added the `enhancement` label
-- 2025-12-04 @tobiu added the `design` label
-- 2025-12-04 @tobiu added the `ai` label
-- 2025-12-04 @tobiu added parent issue #8025
-- 2025-12-04 @tobiu assigned to @tobiu
-- 2025-12-04 @tobiu referenced in commit `f126685` - "Scaffold Neo Cyberpunk Theme Structure #8026"
-- 2025-12-04 @tobiu closed this issue
+- 2025-12-04T23:40:16Z @tobiu added the `enhancement` label
+- 2025-12-04T23:40:16Z @tobiu added the `design` label
+- 2025-12-04T23:40:16Z @tobiu added the `ai` label
+- 2025-12-04T23:41:17Z @tobiu added parent issue #8025
+- 2025-12-04T23:45:49Z @tobiu assigned to @tobiu
+- 2025-12-04T23:49:24Z @tobiu referenced in commit `f126685` - "Scaffold Neo Cyberpunk Theme Structure #8026"
+- 2025-12-04T23:49:27Z @tobiu closed this issue
 

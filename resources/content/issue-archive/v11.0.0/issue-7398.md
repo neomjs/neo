@@ -34,10 +34,10 @@ This sub-task is to update the command to a more robust, cross-platform syntax t
 
 ## Timeline
 
-- 2025-10-07 @tobiu added the `bug` label
-- 2025-10-07 @tobiu added parent issue #7316
-- 2025-10-07 @tobiu added the `enhancement` label
-- 2025-10-07 @tobiu added the `ai` label
-- 2025-10-07 @tobiu referenced in commit `b2a872e` - "Ensure Cross-Platform UUID Generation for Agent Memory #7398"
-- 2025-10-07 @tobiu closed this issue
+- 2025-10-07T07:51:51Z @tobiu added the `bug` label
+- 2025-10-07T07:51:51Z @tobiu added parent issue #7316
+- 2025-10-07T07:51:52Z @tobiu added the `enhancement` label
+- 2025-10-07T07:51:52Z @tobiu added the `ai` label
+- 2025-10-07T07:54:03Z @tobiu referenced in commit `b2a872e` - "Ensure Cross-Platform UUID Generation for Agent Memory #7398"
+- 2025-10-07T08:05:44Z @tobiu closed this issue
 

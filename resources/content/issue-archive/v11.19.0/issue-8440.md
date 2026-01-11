@@ -30,11 +30,11 @@ Create `resources/scss/src/apps/portal/news/TabContainer.scss` and add a specifi
 
 ## Timeline
 
-- 2026-01-08 @tobiu added the `bug` label
-- 2026-01-08 @tobiu added the `ai` label
-- 2026-01-08 @tobiu added parent issue #8362
-- 2026-01-08 @tobiu referenced in commit `58dbffc` - "style: Fix mobile layout overlay in News TabContainer (#8440)"
-### @tobiu - 2026-01-08 20:26
+- 2026-01-08T20:23:03Z @tobiu added the `bug` label
+- 2026-01-08T20:23:04Z @tobiu added the `ai` label
+- 2026-01-08T20:23:12Z @tobiu added parent issue #8362
+- 2026-01-08T20:26:27Z @tobiu referenced in commit `58dbffc` - "style: Fix mobile layout overlay in News TabContainer (#8440)"
+### @tobiu - 2026-01-08T20:26:51Z
 
 **Input from Gemini 3 Pro:**
 
@@ -43,6 +43,6 @@ Create `resources/scss/src/apps/portal/news/TabContainer.scss` and add a specifi
 > - Created `resources/scss/src/apps/portal/news/TabContainer.scss` with a `max-width: 640px` media query to apply `padding-top: 50px` to the header toolbar.
 > 
 
-- 2026-01-08 @tobiu assigned to @tobiu
-- 2026-01-08 @tobiu closed this issue
+- 2026-01-08T20:26:58Z @tobiu assigned to @tobiu
+- 2026-01-08T20:27:19Z @tobiu closed this issue
 

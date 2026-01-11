@@ -26,9 +26,9 @@ for easier code navigation
 
 ## Timeline
 
-- 2025-11-20 @tobiu assigned to @tobiu
-- 2025-11-20 @tobiu added the `enhancement` label
-- 2025-11-20 @tobiu added the `developer-experience` label
-- 2025-11-20 @tobiu referenced in commit `f3ae386` - "Neo.ai.mcp.server.github-workflow.services: alphabetical method ordering #7824"
-- 2025-11-20 @tobiu closed this issue
+- 2025-11-20T15:41:10Z @tobiu assigned to @tobiu
+- 2025-11-20T15:41:11Z @tobiu added the `enhancement` label
+- 2025-11-20T15:41:12Z @tobiu added the `developer-experience` label
+- 2025-11-20T15:41:30Z @tobiu referenced in commit `f3ae386` - "Neo.ai.mcp.server.github-workflow.services: alphabetical method ordering #7824"
+- 2025-11-20T15:41:37Z @tobiu closed this issue
 

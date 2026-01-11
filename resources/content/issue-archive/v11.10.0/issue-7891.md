@@ -30,10 +30,10 @@ Add a `@summary` tag followed by an empty line and a detailed description to all
 
 ## Timeline
 
-- 2025-11-24 @tobiu added the `documentation` label
-- 2025-11-24 @tobiu added the `enhancement` label
-- 2025-11-24 @tobiu added the `ai` label
-- 2025-11-24 @tobiu assigned to @tobiu
-- 2025-11-24 @tobiu referenced in commit `1ff346f` - "Add Class-Level JSDoc Comments to GitHub Workflow MCP Server #7891"
-- 2025-11-24 @tobiu closed this issue
+- 2025-11-24T10:06:44Z @tobiu added the `documentation` label
+- 2025-11-24T10:06:44Z @tobiu added the `enhancement` label
+- 2025-11-24T10:06:45Z @tobiu added the `ai` label
+- 2025-11-24T10:08:45Z @tobiu assigned to @tobiu
+- 2025-11-24T10:55:55Z @tobiu referenced in commit `1ff346f` - "Add Class-Level JSDoc Comments to GitHub Workflow MCP Server #7891"
+- 2025-11-24T10:56:33Z @tobiu closed this issue
 

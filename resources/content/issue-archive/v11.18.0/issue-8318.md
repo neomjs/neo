@@ -29,12 +29,12 @@ Part of Epic #8315.
 
 ## Timeline
 
-- 2026-01-04 @tobiu added the `ai` label
-- 2026-01-04 @tobiu added the `refactoring` label
-- 2026-01-04 @tobiu added parent issue #8315
-- 2026-01-04 @tobiu cross-referenced by #8317
-- 2026-01-04 @tobiu assigned to @tobiu
-- 2026-01-04 @tobiu referenced in commit `8879b09` - "refactor: Consolidate GitHub Workflow tools per Issue #8318
+- 2026-01-04T16:24:20Z @tobiu added the `ai` label
+- 2026-01-04T16:24:20Z @tobiu added the `refactoring` label
+- 2026-01-04T16:24:38Z @tobiu added parent issue #8315
+- 2026-01-04T16:38:22Z @tobiu cross-referenced by #8317
+- 2026-01-04T16:40:19Z @tobiu assigned to @tobiu
+- 2026-01-04T17:15:04Z @tobiu referenced in commit `8879b09` - "refactor: Consolidate GitHub Workflow tools per Issue #8318
 
 Optimizes MCP tool count by consolidating assign, label, and comment operations into 'manage_*' tools.
 
@@ -44,7 +44,7 @@ Optimizes MCP tool count by consolidating assign, label, and comment operations 
 - Updates API definition in openapi.yaml with detailed schemas
 - Refactors IssueService to handle unified operations
 - Removes redundant code from PullRequestService"
-### @tobiu - 2026-01-04 17:15
+### @tobiu - 2026-01-04T17:15:10Z
 
 **Input from Gemini 2.5 pro:**
 
@@ -68,5 +68,5 @@ Optimizes MCP tool count by consolidating assign, label, and comment operations 
 > 
 > Ready to close this issue.
 
-- 2026-01-04 @tobiu closed this issue
+- 2026-01-04T17:15:41Z @tobiu closed this issue
 

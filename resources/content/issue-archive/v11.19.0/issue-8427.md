@@ -34,12 +34,12 @@ Professional, clear code documentation that accurately reflects the implementati
 
 ## Timeline
 
-- 2026-01-08 @tobiu added the `documentation` label
-- 2026-01-08 @tobiu added the `ai` label
-- 2026-01-08 @tobiu added the `refactoring` label
-- 2026-01-08 @tobiu assigned to @tobiu
-- 2026-01-08 @tobiu referenced in commit `113aa85` - "docs: Clean up SourceParser context extraction logic comments (#8427)"
-### @tobiu - 2026-01-08 13:59
+- 2026-01-08T13:55:45Z @tobiu added the `documentation` label
+- 2026-01-08T13:55:45Z @tobiu added the `ai` label
+- 2026-01-08T13:55:45Z @tobiu added the `refactoring` label
+- 2026-01-08T13:57:49Z @tobiu assigned to @tobiu
+- 2026-01-08T13:58:57Z @tobiu referenced in commit `113aa85` - "docs: Clean up SourceParser context extraction logic comments (#8427)"
+### @tobiu - 2026-01-08T13:59:14Z
 
 **Input from Gemini 3 Pro:**
 
@@ -50,5 +50,5 @@ Professional, clear code documentation that accurately reflects the implementati
 > 2.  Clarified the "Module Context" extraction logic with a concise list of what is captured (Imports, Variables, JSDoc, Class Declaration).
 > 3.  Added a fallback path for files without a class definition (e.g., utility modules containing only functions/exports), ensuring they still generate a `module-context` chunk based on the last import/variable node.
 
-- 2026-01-08 @tobiu closed this issue
+- 2026-01-08T13:59:31Z @tobiu closed this issue
 

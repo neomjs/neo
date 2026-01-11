@@ -30,11 +30,11 @@ This ticket covers the deletion of the `buildScripts/ai` directory. This folder 
 
 ## Timeline
 
-- 2025-10-24 @tobiu added the `enhancement` label
-- 2025-10-24 @tobiu added the `ai` label
-- 2025-10-24 @tobiu added the `refactoring` label
-- 2025-10-24 @tobiu added parent issue #7604
-- 2025-10-24 @tobiu referenced in commit `07d53b1` - "refactor: Remove obsolete buildScripts/ai directory #7631"
-- 2025-10-24 @tobiu closed this issue
-- 2025-10-26 @tobiu assigned to @tobiu
+- 2025-10-24T10:14:16Z @tobiu added the `enhancement` label
+- 2025-10-24T10:14:16Z @tobiu added the `ai` label
+- 2025-10-24T10:14:16Z @tobiu added the `refactoring` label
+- 2025-10-24T10:15:32Z @tobiu added parent issue #7604
+- 2025-10-24T10:20:24Z @tobiu referenced in commit `07d53b1` - "refactor: Remove obsolete buildScripts/ai directory #7631"
+- 2025-10-24T10:20:45Z @tobiu closed this issue
+- 2025-10-26T10:09:47Z @tobiu assigned to @tobiu
 

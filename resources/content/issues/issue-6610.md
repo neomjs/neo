@@ -28,17 +28,17 @@ In case this is the case, I would like to create a new addon which is roughly on
 
 ## Timeline
 
-- 2025-04-01 @tobiu added the `enhancement` label
-- 2025-04-01 @tobiu added the `no auto close` label
-- 2025-04-01 @tobiu assigned to @tobiu
-- 2025-04-01 @tobiu cross-referenced by #6611
-### @TomDakan - 2025-08-03 05:21
+- 2025-04-01T20:01:30Z @tobiu added the `enhancement` label
+- 2025-04-01T20:01:30Z @tobiu added the `no auto close` label
+- 2025-04-01T20:01:30Z @tobiu assigned to @tobiu
+- 2025-04-01T20:02:42Z @tobiu cross-referenced by #6611
+### @TomDakan - 2025-08-03T05:21:16Z
 
 I think this can be done with the [OpenLayers ](https://openlayers.org/) library. The markers would be created as a [vector layer](https://openlayers.org/en/latest/examples/icon.html) on top of a tile layer pulled from OpenStreetMaps as described in [this](https://openlayers.org/en/latest/examples/simple.html) example. It appears that there's no need for an api key to pull tiles from OSM.
 
 I would be interested in working on this.
 
-### @tobiu - 2025-08-03 12:27
+### @tobiu - 2025-08-03T12:27:02Z
 
 @TomDakan You are very welcome to give it a try! I think this specific topic should be fun (a great learning experience), since it covers a wrapper component, a new main thread addon, RPC based cross-thread communication, and the potential for using the new intercept remotes pattern for addons (e.g. easily queue a request to create a map instance until the map lib is loaded).
 

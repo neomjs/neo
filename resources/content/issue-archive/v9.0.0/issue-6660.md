@@ -25,17 +25,17 @@ closedAt: '2025-04-16T17:24:03Z'
 
 ## Timeline
 
-- 2025-04-16 @tobiu added the `bug` label
-- 2025-04-16 @tobiu assigned to @tobiu
-- 2025-04-16 @tobiu changed title from **examples/button/Base: throws a JS error** to **examples/button/base: throws a JS error**
-### @tobiu - 2025-04-16 17:07
+- 2025-04-16T17:06:24Z @tobiu added the `bug` label
+- 2025-04-16T17:06:24Z @tobiu assigned to @tobiu
+- 2025-04-16T17:07:36Z @tobiu changed title from **examples/button/Base: throws a JS error** to **examples/button/base: throws a JS error**
+### @tobiu - 2025-04-16T17:07:54Z
 
 this also happens sometimes inside the deployed version.
 
-- 2025-04-16 @tobiu referenced in commit `0bca2ce` - "examples/button/base: throws a JS error #6660"
-### @tobiu - 2025-04-16 17:24
+- 2025-04-16T17:23:19Z @tobiu referenced in commit `0bca2ce` - "examples/button/base: throws a JS error #6660"
+### @tobiu - 2025-04-16T17:24:03Z
 
 this one was easy => getting a record instead of the record id.
 
-- 2025-04-16 @tobiu closed this issue
+- 2025-04-16T17:24:04Z @tobiu closed this issue
 

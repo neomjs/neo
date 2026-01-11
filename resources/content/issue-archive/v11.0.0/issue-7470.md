@@ -42,16 +42,16 @@ This PoC successfully resolved key unknowns (like module pathing and RMA usage) 
 
 ## Timeline
 
-- 2025-10-12 @tobiu assigned to @tobiu
-- 2025-10-12 @tobiu added parent issue #7435
-- 2025-10-12 @tobiu added the `enhancement` label
-- 2025-10-12 @tobiu added the `ai` label
-- 2025-10-12 @tobiu changed title from **PoC: Migrate Component Test for component.Image** to **PoC: Create Component Test for component.Image**
-- 2025-10-12 @tobiu referenced in commit `9ef29f3` - "PoC: Create Component Test for component.Image #7470"
-### @tobiu - 2025-10-12 13:35
+- 2025-10-12T12:57:29Z @tobiu assigned to @tobiu
+- 2025-10-12T12:57:30Z @tobiu added parent issue #7435
+- 2025-10-12T12:57:30Z @tobiu added the `enhancement` label
+- 2025-10-12T12:57:30Z @tobiu added the `ai` label
+- 2025-10-12T13:32:41Z @tobiu changed title from **PoC: Migrate Component Test for component.Image** to **PoC: Create Component Test for component.Image**
+- 2025-10-12T13:34:34Z @tobiu referenced in commit `9ef29f3` - "PoC: Create Component Test for component.Image #7470"
+### @tobiu - 2025-10-12T13:35:19Z
 
 FYI @Aki-07 this one works now.
 
-- 2025-10-12 @tobiu closed this issue
-- 2025-10-12 @tobiu referenced in commit `5514561` - "#7470 missing file"
+- 2025-10-12T13:35:19Z @tobiu closed this issue
+- 2025-10-12T13:36:15Z @tobiu referenced in commit `5514561` - "#7470 missing file"
 

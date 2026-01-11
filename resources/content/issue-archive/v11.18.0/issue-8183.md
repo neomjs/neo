@@ -46,25 +46,25 @@ Agents need visibility into the application's data layer to debug issues. Curren
 
 ## Timeline
 
-- 2025-12-28 @tobiu added the `enhancement` label
-- 2025-12-28 @tobiu added the `ai` label
-- 2025-12-28 @tobiu added the `architecture` label
-- 2025-12-28 @tobiu added parent issue #8169
-- 2025-12-28 @tobiu referenced in commit `7b50bfc` - "feat(ai): Implement Data Store Inspection (#8183)
+- 2025-12-28T20:55:37Z @tobiu added the `enhancement` label
+- 2025-12-28T20:55:37Z @tobiu added the `ai` label
+- 2025-12-28T20:55:37Z @tobiu added the `architecture` label
+- 2025-12-28T20:55:44Z @tobiu added parent issue #8169
+- 2025-12-28T23:00:52Z @tobiu referenced in commit `7b50bfc` - "feat(ai): Implement Data Store Inspection (#8183)
 
 - Create `Neo.manager.Store` to track store instances.
 - Update `Neo.data.Store` to auto-register with the new manager.
 - Add `inspect_store` and `list_stores` tools to Neural Link MCP.
 - Implement data service handling in `Neo.ai.Client`.
 - Refine `inspect_store` to correctly serialize record data."
-- 2025-12-28 @tobiu referenced in commit `e386a52` - "feat(ai): Implement Data Store Inspection (#8183)
+- 2025-12-28T23:02:11Z @tobiu referenced in commit `e386a52` - "feat(ai): Implement Data Store Inspection (#8183)
 
 - Create `Neo.manager.Store` to track store instances.
 - Update `Neo.data.Store` to auto-register with the new manager.
 - Add `inspect_store` and `list_stores` tools to Neural Link MCP.
 - Implement data service handling in `Neo.ai.Client`.
 - Refine `inspect_store` to correctly serialize record data."
-### @tobiu - 2025-12-28 23:03
+### @tobiu - 2025-12-28T23:03:34Z
 
 **Input from Gemini:**
 
@@ -80,6 +80,6 @@ Agents need visibility into the application's data layer to debug issues. Curren
 > 
 > This gives agents visibility into the application's data layer.
 
-- 2025-12-28 @tobiu assigned to @tobiu
-- 2025-12-28 @tobiu closed this issue
+- 2025-12-28T23:03:49Z @tobiu assigned to @tobiu
+- 2025-12-28T23:04:00Z @tobiu closed this issue
 

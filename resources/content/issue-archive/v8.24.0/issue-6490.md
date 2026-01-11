@@ -24,7 +24,7 @@ closedAt: '2025-02-23T17:42:58Z'
 
 ## Timeline
 
-- 2025-02-23 @tobiu added the `enhancement` label
-- 2025-02-23 @tobiu referenced in commit `630c852` - "component.MagicMoveText: initialResizeEvent class field #6490"
-- 2025-02-23 @tobiu closed this issue
+- 2025-02-23T17:38:09Z @tobiu added the `enhancement` label
+- 2025-02-23T17:38:25Z @tobiu referenced in commit `630c852` - "component.MagicMoveText: initialResizeEvent class field #6490"
+- 2025-02-23T17:42:58Z @tobiu closed this issue
 

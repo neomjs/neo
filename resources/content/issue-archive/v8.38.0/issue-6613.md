@@ -25,8 +25,8 @@ closedAt: '2025-04-04T10:35:00Z'
 
 ## Timeline
 
-- 2025-04-04 @tobiu added the `enhancement` label
-- 2025-04-04 @tobiu assigned to @tobiu
-- 2025-04-04 @tobiu referenced in commit `93b024b` - "data.RecordFactory: createRecordClass() => only set the isModified symbol in case trackModifiedFields is false #6613"
-- 2025-04-04 @tobiu closed this issue
+- 2025-04-04T10:34:21Z @tobiu added the `enhancement` label
+- 2025-04-04T10:34:21Z @tobiu assigned to @tobiu
+- 2025-04-04T10:34:55Z @tobiu referenced in commit `93b024b` - "data.RecordFactory: createRecordClass() => only set the isModified symbol in case trackModifiedFields is false #6613"
+- 2025-04-04T10:35:00Z @tobiu closed this issue
 

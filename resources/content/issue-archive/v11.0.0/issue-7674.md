@@ -31,9 +31,9 @@ This ticket covers the fix implemented in `buildOutputZodSchema` to iterate over
 
 ## Timeline
 
-- 2025-10-27 @tobiu added the `bug` label
-- 2025-10-27 @tobiu added the `ai` label
-- 2025-10-27 @tobiu added the `refactoring` label
-- 2025-10-27 @tobiu assigned to @tobiu
-- 2025-10-27 @tobiu closed this issue
+- 2025-10-27T11:35:35Z @tobiu added the `bug` label
+- 2025-10-27T11:35:35Z @tobiu added the `ai` label
+- 2025-10-27T11:35:35Z @tobiu added the `refactoring` label
+- 2025-10-27T11:35:49Z @tobiu assigned to @tobiu
+- 2025-10-27T12:06:45Z @tobiu closed this issue
 

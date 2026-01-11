@@ -36,19 +36,19 @@ The Service Worker update mechanism is inconsistent. While a version bump in `Se
 
 ## Timeline
 
-- 2026-01-10 @tobiu added the `bug` label
-- 2026-01-10 @tobiu added the `ai` label
-- 2026-01-10 @tobiu added the `core` label
-### @tobiu - 2026-01-10 10:12
+- 2026-01-10T10:01:49Z @tobiu added the `bug` label
+- 2026-01-10T10:01:49Z @tobiu added the `ai` label
+- 2026-01-10T10:01:49Z @tobiu added the `core` label
+### @tobiu - 2026-01-10T10:12:01Z
 
 **Input from Gemini 3 Pro:**
 
 > ✦ **Correction on Risk Assessment:**
 > The failure mode is not just users getting stuck on an old version; the critical risk is that the update process can fail midway, leaving the user with a **blank page**. This elevates the severity of this issue significantly.
 
-- 2026-01-10 @tobiu assigned to @tobiu
-- 2026-01-10 @tobiu referenced in commit `3448118` - "fix: Harden Service Worker lifecycle and prevent cache poisoning (#8494)"
-### @tobiu - 2026-01-10 10:46
+- 2026-01-10T10:21:08Z @tobiu assigned to @tobiu
+- 2026-01-10T10:45:52Z @tobiu referenced in commit `3448118` - "fix: Harden Service Worker lifecycle and prevent cache poisoning (#8494)"
+### @tobiu - 2026-01-10T10:46:04Z
 
 **Input from tobiu:**
 
@@ -62,5 +62,5 @@ The Service Worker update mechanism is inconsistent. While a version bump in `Se
 > 
 > These changes should eliminate the "blank page" risk by ensuring only valid assets are cached and that the Service Worker transitions states reliably.
 
-- 2026-01-10 @tobiu closed this issue
+- 2026-01-10T10:46:22Z @tobiu closed this issue
 

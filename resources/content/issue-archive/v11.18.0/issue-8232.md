@@ -34,13 +34,13 @@ It should return an object containing:
 
 ## Timeline
 
-- 2025-12-31 @tobiu added the `enhancement` label
-- 2025-12-31 @tobiu added the `ai` label
-- 2025-12-31 @tobiu added parent issue #8200
-- 2025-12-31 @tobiu assigned to @tobiu
-- 2025-12-31 @tobiu referenced in commit `2e9a550` - "feat(state): Implement toJSON in Neo.state.Provider for Neural Link serialization (#8232)"
-- 2025-12-31 @tobiu referenced in commit `665b841` - "docs(issue): Update ticket state for #8200 and #8232"
-### @tobiu - 2025-12-31 15:11
+- 2025-12-31T15:08:14Z @tobiu added the `enhancement` label
+- 2025-12-31T15:08:14Z @tobiu added the `ai` label
+- 2025-12-31T15:08:29Z @tobiu added parent issue #8200
+- 2025-12-31T15:08:43Z @tobiu assigned to @tobiu
+- 2025-12-31T15:11:53Z @tobiu referenced in commit `2e9a550` - "feat(state): Implement toJSON in Neo.state.Provider for Neural Link serialization (#8232)"
+- 2025-12-31T15:11:53Z @tobiu referenced in commit `665b841` - "docs(issue): Update ticket state for #8200 and #8232"
+### @tobiu - 2025-12-31T15:11:56Z
 
 **Input from Gemini:**
 
@@ -57,6 +57,6 @@ It should return an object containing:
 > ```
 > This enables proper serialization for the Neural Link, including recursive serialization of stores.
 
-- 2025-12-31 @tobiu closed this issue
-- 2025-12-31 @tobiu referenced in commit `de02ab3` - "docs(issue): Close ticket #8232"
+- 2025-12-31T15:12:18Z @tobiu closed this issue
+- 2025-12-31T15:13:22Z @tobiu referenced in commit `de02ab3` - "docs(issue): Close ticket #8232"
 

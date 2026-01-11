@@ -25,7 +25,7 @@ closedAt: '2025-03-10T09:10:04Z'
 
 ## Timeline
 
-- 2025-03-10 @tobiu added the `enhancement` label
-- 2025-03-10 @tobiu referenced in commit `f3d797f` - "grid.column.AnimatedChange: onRecordChange() => animation no longer showing up #6566"
-- 2025-03-10 @tobiu closed this issue
+- 2025-03-10T09:09:45Z @tobiu added the `enhancement` label
+- 2025-03-10T09:10:00Z @tobiu referenced in commit `f3d797f` - "grid.column.AnimatedChange: onRecordChange() => animation no longer showing up #6566"
+- 2025-03-10T09:10:04Z @tobiu closed this issue
 

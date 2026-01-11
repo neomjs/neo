@@ -31,12 +31,12 @@ Update `AGENTS.md` to clearly state that the memory server runs on port 8001 and
 
 ## Timeline
 
-- 2025-10-05 @tobiu assigned to @tobiu
-- 2025-10-05 @tobiu added parent issue #7316
-- 2025-10-05 @tobiu added the `documentation` label
-- 2025-10-05 @tobiu added the `enhancement` label
-- 2025-10-05 @tobiu added the `ai` label
-- 2025-10-05 @tobiu referenced in commit `3fc0bc7` - "Clarify Agent Memory Server Port in AGENTS.md #7361"
-- 2025-10-05 @tobiu closed this issue
-- 2025-10-05 @tobiu referenced in commit `967e191` - "#7361 added the ticket id to the markdown file"
+- 2025-10-05T08:55:26Z @tobiu assigned to @tobiu
+- 2025-10-05T08:55:27Z @tobiu added parent issue #7316
+- 2025-10-05T08:55:27Z @tobiu added the `documentation` label
+- 2025-10-05T08:55:27Z @tobiu added the `enhancement` label
+- 2025-10-05T08:55:28Z @tobiu added the `ai` label
+- 2025-10-05T08:58:07Z @tobiu referenced in commit `3fc0bc7` - "Clarify Agent Memory Server Port in AGENTS.md #7361"
+- 2025-10-05T08:58:21Z @tobiu closed this issue
+- 2025-10-05T08:59:10Z @tobiu referenced in commit `967e191` - "#7361 added the ticket id to the markdown file"
 

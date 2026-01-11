@@ -36,8 +36,8 @@ This is a very logical and beneficial breaking change that will significantly im
 
 ## Timeline
 
-- 2025-06-20 @tobiu assigned to @tobiu
-- 2025-06-20 @tobiu added the `enhancement` label
-- 2025-06-24 @tobiu referenced in commit `afdc10d` - "table.View => table.Body #6849"
-- 2025-06-24 @tobiu closed this issue
+- 2025-06-20T12:06:38Z @tobiu assigned to @tobiu
+- 2025-06-20T12:06:39Z @tobiu added the `enhancement` label
+- 2025-06-24T14:40:46Z @tobiu referenced in commit `afdc10d` - "table.View => table.Body #6849"
+- 2025-06-24T14:41:02Z @tobiu closed this issue
 

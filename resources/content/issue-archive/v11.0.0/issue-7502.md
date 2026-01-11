@@ -40,10 +40,10 @@ This design must define a comprehensive, resource-oriented API for managing the 
 
 ## Timeline
 
-- 2025-10-16 @tobiu assigned to @tobiu
-- 2025-10-16 @tobiu added parent issue #7501
-- 2025-10-16 @tobiu added the `enhancement` label
-- 2025-10-16 @tobiu added the `ai` label
-- 2025-10-16 @tobiu referenced in commit `3579ae3` - "Design Knowledge Base MCP Server API #7502"
-- 2025-10-16 @tobiu closed this issue
+- 2025-10-16T09:47:33Z @tobiu assigned to @tobiu
+- 2025-10-16T09:47:35Z @tobiu added parent issue #7501
+- 2025-10-16T09:47:35Z @tobiu added the `enhancement` label
+- 2025-10-16T09:47:35Z @tobiu added the `ai` label
+- 2025-10-16T09:54:40Z @tobiu referenced in commit `3579ae3` - "Design Knowledge Base MCP Server API #7502"
+- 2025-10-16T09:55:02Z @tobiu closed this issue
 

@@ -25,8 +25,8 @@ closedAt: '2025-05-28T23:08:53Z'
 
 ## Timeline
 
-- 2025-05-28 @tobiu assigned to @tobiu
-- 2025-05-28 @tobiu added the `enhancement` label
-- 2025-05-28 @tobiu referenced in commit `faeab3b` - "worker.App: onRegisterNeoConfig() => add support for dist/esm #6724"
-- 2025-05-28 @tobiu closed this issue
+- 2025-05-28T22:54:56Z @tobiu assigned to @tobiu
+- 2025-05-28T22:54:57Z @tobiu added the `enhancement` label
+- 2025-05-28T22:55:20Z @tobiu referenced in commit `faeab3b` - "worker.App: onRegisterNeoConfig() => add support for dist/esm #6724"
+- 2025-05-28T23:08:53Z @tobiu closed this issue
 

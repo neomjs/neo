@@ -35,11 +35,11 @@ Implement the SCSS overrides for `Neo.grid.Container` in the `neo-theme-cyberpun
 
 ## Timeline
 
-- 2025-12-04 @tobiu added the `enhancement` label
-- 2025-12-04 @tobiu added the `design` label
-- 2025-12-04 @tobiu added the `ai` label
-- 2025-12-04 @tobiu added parent issue #8025
-- 2025-12-05 @tobiu assigned to @tobiu
-- 2025-12-05 @tobiu referenced in commit `406b33f` - "Implement Grid Styles for Neo Cyberpunk #8028"
-- 2025-12-05 @tobiu closed this issue
+- 2025-12-04T23:40:21Z @tobiu added the `enhancement` label
+- 2025-12-04T23:40:21Z @tobiu added the `design` label
+- 2025-12-04T23:40:21Z @tobiu added the `ai` label
+- 2025-12-04T23:41:21Z @tobiu added parent issue #8025
+- 2025-12-05T00:36:44Z @tobiu assigned to @tobiu
+- 2025-12-05T00:38:43Z @tobiu referenced in commit `406b33f` - "Implement Grid Styles for Neo Cyberpunk #8028"
+- 2025-12-05T00:38:59Z @tobiu closed this issue
 

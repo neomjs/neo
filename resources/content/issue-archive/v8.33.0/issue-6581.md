@@ -24,7 +24,7 @@ closedAt: '2025-03-24T10:58:58Z'
 
 ## Timeline
 
-- 2025-03-24 @tobiu added the `enhancement` label
-- 2025-03-24 @tobiu referenced in commit `853ca0f` - "manager.Component: getVdomTree() => cleanup #6581"
-- 2025-03-24 @tobiu closed this issue
+- 2025-03-24T10:58:14Z @tobiu added the `enhancement` label
+- 2025-03-24T10:58:51Z @tobiu referenced in commit `853ca0f` - "manager.Component: getVdomTree() => cleanup #6581"
+- 2025-03-24T10:58:58Z @tobiu closed this issue
 

@@ -35,14 +35,14 @@ This ticket covers implementing a new endpoint to retrieve this complete convers
 
 ## Timeline
 
-- 2025-10-14 @tobiu assigned to @tobiu
-- 2025-10-14 @tobiu added the `enhancement` label
-- 2025-10-14 @tobiu added parent issue #7477
-- 2025-10-14 @tobiu added the `ai` label
-- 2025-10-14 @tobiu referenced in commit `260d029` - "Get PR Conversation History #7484"
-### @tobiu - 2025-10-14 11:08
+- 2025-10-14T10:56:48Z @tobiu assigned to @tobiu
+- 2025-10-14T10:56:49Z @tobiu added the `enhancement` label
+- 2025-10-14T10:56:49Z @tobiu added parent issue #7477
+- 2025-10-14T10:56:49Z @tobiu added the `ai` label
+- 2025-10-14T11:08:43Z @tobiu referenced in commit `260d029` - "Get PR Conversation History #7484"
+### @tobiu - 2025-10-14T11:08:54Z
 
 <img width="841" height="782" alt="Image" src="https://github.com/user-attachments/assets/42db4bbe-2e71-4c37-a5e5-3d4d8e990a9b" />
 
-- 2025-10-14 @tobiu closed this issue
+- 2025-10-14T11:08:54Z @tobiu closed this issue
 

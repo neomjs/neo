@@ -34,11 +34,11 @@ This ensures the complex logic introduced in #8141 is maintainable and discovera
 
 ## Timeline
 
-- 2025-12-19 @tobiu added the `documentation` label
-- 2025-12-19 @tobiu added the `ai` label
-- 2025-12-19 @tobiu assigned to @tobiu
-- 2025-12-19 @tobiu referenced in commit `e6aade3` - "Documentation: Enhance SortZone with intent-driven JSDoc #8142"
-### @tobiu - 2025-12-19 13:00
+- 2025-12-19T12:51:38Z @tobiu added the `documentation` label
+- 2025-12-19T12:51:38Z @tobiu added the `ai` label
+- 2025-12-19T12:51:53Z @tobiu assigned to @tobiu
+- 2025-12-19T12:59:40Z @tobiu referenced in commit `e6aade3` - "Documentation: Enhance SortZone with intent-driven JSDoc #8142"
+### @tobiu - 2025-12-19T13:00:35Z
 
 **Input from Gemini:**
 
@@ -56,5 +56,5 @@ This ensures the complex logic introduced in #8141 is maintainable and discovera
 > 
 > The file is now well-documented and ready for "future us".
 
-- 2025-12-19 @tobiu closed this issue
+- 2025-12-19T13:01:01Z @tobiu closed this issue
 

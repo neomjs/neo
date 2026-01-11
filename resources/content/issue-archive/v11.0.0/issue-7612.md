@@ -41,9 +41,9 @@ This approach is clean, avoids `neo.mjs` dependency, and ensures the `debug` fla
 
 ## Timeline
 
-- 2025-10-22 @tobiu assigned to @tobiu
-- 2025-10-22 @tobiu added the `enhancement` label
-- 2025-10-22 @tobiu added the `ai` label
-- 2025-10-22 @tobiu referenced in commit `ac462c0` - "Implement Command-Line Debug Flag Override for MCP Servers #7612"
-- 2025-10-22 @tobiu closed this issue
+- 2025-10-22T14:11:06Z @tobiu assigned to @tobiu
+- 2025-10-22T14:11:07Z @tobiu added the `enhancement` label
+- 2025-10-22T14:11:07Z @tobiu added the `ai` label
+- 2025-10-22T14:12:38Z @tobiu referenced in commit `ac462c0` - "Implement Command-Line Debug Flag Override for MCP Servers #7612"
+- 2025-10-22T14:12:46Z @tobiu closed this issue
 

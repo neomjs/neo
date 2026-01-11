@@ -25,9 +25,9 @@ closedAt: '2025-04-01T20:03:18Z'
 
 ## Timeline
 
-- 2025-03-31 @tobiu added the `bug` label
-- 2025-03-31 @tobiu assigned to @tobiu
-### @camtnbikerrwc - 2025-04-01 02:10
+- 2025-03-31T22:27:04Z @tobiu added the `bug` label
+- 2025-03-31T22:27:10Z @tobiu assigned to @tobiu
+### @camtnbikerrwc - 2025-04-01T02:10:00Z
 
 Here are my version numbers if it helps;
 
@@ -41,8 +41,8 @@ FastImac:neo gerard$ npm -v
 11.2.0
 
 
-- 2025-04-01 @tobiu referenced in commit `195a4df` - "Earthquakes tutorial still using model.Component instead of state.Provider #6607"
-### @tobiu - 2025-04-01 13:15
+- 2025-04-01T13:08:07Z @tobiu referenced in commit `195a4df` - "Earthquakes tutorial still using model.Component instead of state.Provider #6607"
+### @tobiu - 2025-04-01T13:15:41Z
 
 @camtnbikerrwc Ger, I hope I got all spots now. The commit on top of this comment is rather long.
 @maxrahder Max, it would be super nice, if you could double-check your guide once more.
@@ -74,12 +74,12 @@ export default Neo.setupClass(MainView);
 
 The key difference is that the new version supports running different neo envs on one page (e.g. inside the Portal App we use the `development` mode for code inside code editors (can not get minified or bundled), and we use the `dist/production` env for everything else.
 
-- 2025-04-01 @tobiu referenced in commit `2b7cb0b` - "#6607 createAppMinimal: view model => state provider"
-### @tobiu - 2025-04-01 13:28
+- 2025-04-01T13:27:52Z @tobiu referenced in commit `2b7cb0b` - "#6607 createAppMinimal: view model => state provider"
+### @tobiu - 2025-04-01T13:28:24Z
 
 updated @maxrahder's createAppMinimal program too.
 
-### @camtnbikerrwc - 2025-04-01 15:22
+### @camtnbikerrwc - 2025-04-01T15:22:40Z
 
 Hi Tobi, I need to head out for a few hours
 
@@ -87,7 +87,7 @@ Can u zip up the completed EarthQuakes example ( complete with google maps) and 
 
 Ger
 
-### @camtnbikerrwc - 2025-04-01 15:36
+### @camtnbikerrwc - 2025-04-01T15:36:20Z
 
 Looks like this has been updated:
 
@@ -97,13 +97,13 @@ I can start from fresh here and make sure it works.
 
 Ger
 
-### @tobiu - 2025-04-01 17:06
+### @tobiu - 2025-04-01T17:06:55Z
 
 you are making a valid point: i should drop the final version of the tutorial app into an own repository.
 
 will do this today, probably only takes me 15m.
 
-### @tobiu - 2025-04-01 18:39
+### @tobiu - 2025-04-01T18:39:03Z
 
 @camtnbikerrwc Ger, at the moment, i can not recommend the tutorial anymore:
 https://github.com/neomjs/earthquakes
@@ -122,14 +122,14 @@ so the message would be: "want to do this tutorial? give google your credit card
 
 not sure, if this is feasible.
 
-- 2025-04-01 @tobiu closed this issue
-### @tobiu - 2025-04-01 20:03
+- 2025-04-01T20:03:18Z @tobiu closed this issue
+### @tobiu - 2025-04-01T20:03:19Z
 
 i added a follow-up ticket: https://github.com/neomjs/neo/issues/6611
 
 closing this one, since the original scope is resolved.
 
-### @gplanansky - 2025-04-02 02:34
+### @gplanansky - 2025-04-02T02:34:09Z
 
 fwiw, I have  had Googlemaps working with legacy and advanced markers, plus some other stuff, for a while now.  It still works as of Neo 8.5.0 .    However, no markers show at Neo 8.36.0 .   
 checking ... .

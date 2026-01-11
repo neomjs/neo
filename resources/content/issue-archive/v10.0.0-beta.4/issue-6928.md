@@ -25,10 +25,10 @@ closedAt: '2025-07-01T17:44:37Z'
 
 ## Timeline
 
-- 2025-07-01 @tobiu assigned to @tobiu
-- 2025-07-01 @tobiu added the `enhancement` label
-- 2025-07-01 @tobiu referenced in commit `f1cd0e3` - "learn/guides/StateProviders: explain the concept of using stores #6928 draft version"
-- 2025-07-01 @tobiu referenced in commit `b5c90c9` - "#6928 inline store with an imported data.Model extension"
-- 2025-07-01 @tobiu referenced in commit `d71c2ee` - "#6928 live-preview polishing"
-- 2025-07-01 @tobiu closed this issue
+- 2025-07-01T17:17:07Z @tobiu assigned to @tobiu
+- 2025-07-01T17:17:08Z @tobiu added the `enhancement` label
+- 2025-07-01T17:17:42Z @tobiu referenced in commit `f1cd0e3` - "learn/guides/StateProviders: explain the concept of using stores #6928 draft version"
+- 2025-07-01T17:35:10Z @tobiu referenced in commit `b5c90c9` - "#6928 inline store with an imported data.Model extension"
+- 2025-07-01T17:42:27Z @tobiu referenced in commit `d71c2ee` - "#6928 live-preview polishing"
+- 2025-07-01T17:44:38Z @tobiu closed this issue
 

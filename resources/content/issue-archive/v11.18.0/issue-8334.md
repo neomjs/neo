@@ -40,10 +40,10 @@ Update the method signature and the `ConnectionService.call` arguments to includ
 
 ## Timeline
 
-- 2026-01-05 @tobiu added the `bug` label
-- 2026-01-05 @tobiu added the `ai` label
-- 2026-01-05 @tobiu assigned to @tobiu
-- 2026-01-05 @tobiu added parent issue #8169
-- 2026-01-05 @tobiu referenced in commit `d936b6c` - "Fix query_component missing returnProperties argument #8334"
-- 2026-01-05 @tobiu closed this issue
+- 2026-01-05T12:46:41Z @tobiu added the `bug` label
+- 2026-01-05T12:46:41Z @tobiu added the `ai` label
+- 2026-01-05T12:47:06Z @tobiu assigned to @tobiu
+- 2026-01-05T12:47:14Z @tobiu added parent issue #8169
+- 2026-01-05T12:48:04Z @tobiu referenced in commit `d936b6c` - "Fix query_component missing returnProperties argument #8334"
+- 2026-01-05T12:48:10Z @tobiu closed this issue
 

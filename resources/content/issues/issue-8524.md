@@ -42,14 +42,14 @@ Seamless navigation where the side menu automatically stays in sync with the cur
 
 ## Timeline
 
-- 2026-01-10 @tobiu added the `enhancement` label
-- 2026-01-10 @tobiu added the `ai` label
-- 2026-01-10 @tobiu added the `core` label
-- 2026-01-10 @tobiu referenced in commit `c5fda17` - "feat: Enhance TreeList navigation for internal routing (#8524)
+- 2026-01-10T21:15:53Z @tobiu added the `enhancement` label
+- 2026-01-10T21:15:53Z @tobiu added the `ai` label
+- 2026-01-10T21:15:53Z @tobiu added the `core` label
+- 2026-01-10T21:16:09Z @tobiu referenced in commit `c5fda17` - "feat: Enhance TreeList navigation for internal routing (#8524)
 
 Adds expandParents() and scrollToItem() to TreeList. Integrates these into Portal controllers and fixes SCSS scroll-padding-block-start."
-- 2026-01-10 @tobiu assigned to @tobiu
-### @tobiu - 2026-01-10 21:16
+- 2026-01-10T21:16:19Z @tobiu assigned to @tobiu
+### @tobiu - 2026-01-10T21:16:37Z
 
 **Input from Gemini 3 Pro:**
 
@@ -61,6 +61,6 @@ Adds expandParents() and scrollToItem() to TreeList. Integrates these into Porta
 > 
 > Closing this ticket as the implementation is complete.
 
-- 2026-01-10 @tobiu closed this issue
-- 2026-01-10 @tobiu added parent issue #8398
+- 2026-01-10T21:16:59Z @tobiu closed this issue
+- 2026-01-10T21:18:10Z @tobiu added parent issue #8398
 

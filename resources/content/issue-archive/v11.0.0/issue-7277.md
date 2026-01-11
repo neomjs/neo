@@ -35,12 +35,12 @@ This task is to migrate the unit test for `config/Hierarchy.mjs` from the Siesta
 
 ## Timeline
 
-- 2025-09-27 @tobiu added the `enhancement` label
-- 2025-09-27 @tobiu added parent issue #7262
-- 2025-09-30 @tobiu referenced in commit `ebc49d2` - "Convert config/Hierarchy.mjs Test from Siesta to Playwright #7277"
-- 2025-09-30 @tobiu closed this issue
-- 2025-10-03 @tobiu added the `help wanted` label
-- 2025-10-03 @tobiu added the `good first issue` label
-- 2025-10-03 @tobiu added the `hacktoberfest` label
-- 2025-10-07 @tobiu assigned to @tobiu
+- 2025-09-27T13:36:16Z @tobiu added the `enhancement` label
+- 2025-09-27T13:36:16Z @tobiu added parent issue #7262
+- 2025-09-30T12:44:43Z @tobiu referenced in commit `ebc49d2` - "Convert config/Hierarchy.mjs Test from Siesta to Playwright #7277"
+- 2025-09-30T12:45:00Z @tobiu closed this issue
+- 2025-10-03T16:18:11Z @tobiu added the `help wanted` label
+- 2025-10-03T16:18:11Z @tobiu added the `good first issue` label
+- 2025-10-03T16:18:11Z @tobiu added the `hacktoberfest` label
+- 2025-10-07T19:24:35Z @tobiu assigned to @tobiu
 

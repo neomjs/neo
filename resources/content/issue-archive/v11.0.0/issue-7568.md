@@ -42,13 +42,13 @@ This ticket proposes creating a new `create_issue` tool within the `github-workf
 
 ## Timeline
 
-- 2025-10-20 @tobiu assigned to @tobiu
-- 2025-10-20 @tobiu added parent issue #7564
-- 2025-10-20 @tobiu added the `enhancement` label
-- 2025-10-20 @tobiu added the `ai` label
-### @tobiu - 2025-10-24 09:31
+- 2025-10-20T11:26:43Z @tobiu assigned to @tobiu
+- 2025-10-20T11:26:44Z @tobiu added parent issue #7564
+- 2025-10-20T11:26:45Z @tobiu added the `enhancement` label
+- 2025-10-20T11:26:45Z @tobiu added the `ai` label
+### @tobiu - 2025-10-24T09:31:57Z
 
 resolved with the new tooling
 
-- 2025-10-24 @tobiu closed this issue
+- 2025-10-24T09:31:57Z @tobiu closed this issue
 

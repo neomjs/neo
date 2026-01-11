@@ -25,8 +25,8 @@ Looks like i tried to simplify the logic too much here.
 
 ## Timeline
 
-- 2025-07-05 @tobiu assigned to @tobiu
-- 2025-07-05 @tobiu added the `bug` label
-- 2025-07-05 @tobiu referenced in commit `a02ed75` - "core.Config: initDescriptor() is not applying custom merge or isEqual fns #6948"
-- 2025-07-05 @tobiu closed this issue
+- 2025-07-05T09:50:23Z @tobiu assigned to @tobiu
+- 2025-07-05T09:50:24Z @tobiu added the `bug` label
+- 2025-07-05T09:50:46Z @tobiu referenced in commit `a02ed75` - "core.Config: initDescriptor() is not applying custom merge or isEqual fns #6948"
+- 2025-07-05T09:51:03Z @tobiu closed this issue
 

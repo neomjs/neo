@@ -25,8 +25,8 @@ plus add comments to show how the direct access shortcut works
 
 ## Timeline
 
-- 2025-01-21 @tobiu added the `enhancement` label
-- 2025-01-21 @tobiu assigned to @tobiu
-- 2025-01-21 @tobiu referenced in commit `26eb47a` - "examples.table.nestedRecordFields.EditUserDialog: use the record.set() API for field changes #6262"
-- 2025-01-21 @tobiu closed this issue
+- 2025-01-21T15:46:57Z @tobiu added the `enhancement` label
+- 2025-01-21T15:46:57Z @tobiu assigned to @tobiu
+- 2025-01-21T15:47:10Z @tobiu referenced in commit `26eb47a` - "examples.table.nestedRecordFields.EditUserDialog: use the record.set() API for field changes #6262"
+- 2025-01-21T15:47:15Z @tobiu closed this issue
 

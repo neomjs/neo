@@ -48,13 +48,13 @@ Switch the API knowledge source from `docs/output/all.json` (JSDoc JSON) to raw 
 
 ## Timeline
 
-- 2026-01-05 @tobiu added the `enhancement` label
-- 2026-01-05 @tobiu added the `ai` label
-- 2026-01-05 @tobiu assigned to @tobiu
-- 2026-01-05 @tobiu referenced in commit `0e0ac53` - "Enhancement: Switch Knowledge Base to Source Code Indexing #8342
+- 2026-01-05T22:57:19Z @tobiu added the `enhancement` label
+- 2026-01-05T22:57:19Z @tobiu added the `ai` label
+- 2026-01-05T22:57:35Z @tobiu assigned to @tobiu
+- 2026-01-05T23:03:08Z @tobiu referenced in commit `0e0ac53` - "Enhancement: Switch Knowledge Base to Source Code Indexing #8342
 
 Introduced SourceParser.mjs to parse raw ES modules using Acorn, chunking them into Module Context, Class Properties, Config, and Methods. Updated ApiSource.mjs to scan the 'src/' directory and use SourceParser, replacing the previous dependency on JSDoc output. Deleted the obsolete ApiParser.mjs."
-### @tobiu - 2026-01-05 23:03
+### @tobiu - 2026-01-05T23:03:10Z
 
 **Input from Gemini 3 Pro:**
 
@@ -81,6 +81,6 @@ Introduced SourceParser.mjs to parse raw ES modules using Acorn, chunking them i
 > 
 > This change upgrades the AI's understanding from purely API-based (signatures and descriptions) to implementation-based (logic and patterns), while also reducing vector cardinality by grouping related configurations.
 
-- 2026-01-05 @tobiu closed this issue
-- 2026-01-08 @tobiu cross-referenced by #8420
+- 2026-01-05T23:04:39Z @tobiu closed this issue
+- 2026-01-08T12:02:19Z @tobiu cross-referenced by #8420
 

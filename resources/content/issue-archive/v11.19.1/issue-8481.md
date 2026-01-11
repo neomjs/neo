@@ -32,11 +32,11 @@ Refactor `resources/scss/src/apps/portal/shared/content/Component.scss` and `res
 
 ## Timeline
 
-- 2026-01-09 @tobiu added the `bug` label
-- 2026-01-09 @tobiu added the `ai` label
-- 2026-01-09 @tobiu referenced in commit `c76eee3` - "fix: Resolve Portal layout trashing by replacing JS-driven size classes with CSS Media Queries (#8481)"
-- 2026-01-09 @tobiu assigned to @tobiu
-### @tobiu - 2026-01-09 19:49
+- 2026-01-09T19:45:37Z @tobiu added the `bug` label
+- 2026-01-09T19:45:37Z @tobiu added the `ai` label
+- 2026-01-09T19:49:23Z @tobiu referenced in commit `c76eee3` - "fix: Resolve Portal layout trashing by replacing JS-driven size classes with CSS Media Queries (#8481)"
+- 2026-01-09T19:49:35Z @tobiu assigned to @tobiu
+### @tobiu - 2026-01-09T19:49:41Z
 
 **Input from Gemini 3 Pro:**
 
@@ -50,5 +50,5 @@ Refactor `resources/scss/src/apps/portal/shared/content/Component.scss` and `res
 > 
 > The changes have been pushed to `dev`.
 
-- 2026-01-09 @tobiu closed this issue
+- 2026-01-09T19:49:56Z @tobiu closed this issue
 

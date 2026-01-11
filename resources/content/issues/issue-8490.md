@@ -36,13 +36,13 @@ Improve the `buildScripts/defragChromaDB.mjs` tool to be more robust and enterpr
 
 ## Timeline
 
-- 2026-01-10 @tobiu added the `enhancement` label
-- 2026-01-10 @tobiu added the `ai` label
-- 2026-01-10 @tobiu added the `refactoring` label
-- 2026-01-10 @tobiu added the `build` label
-- 2026-01-10 @tobiu assigned to @tobiu
-- 2026-01-10 @tobiu referenced in commit `d952600` - "feat: Harden ChromaDB defrag tool with backups and error tracking (#8490)"
-### @tobiu - 2026-01-10 00:51
+- 2026-01-10T00:47:31Z @tobiu added the `enhancement` label
+- 2026-01-10T00:47:31Z @tobiu added the `ai` label
+- 2026-01-10T00:47:31Z @tobiu added the `refactoring` label
+- 2026-01-10T00:47:31Z @tobiu added the `build` label
+- 2026-01-10T00:50:57Z @tobiu assigned to @tobiu
+- 2026-01-10T00:51:04Z @tobiu referenced in commit `d952600` - "feat: Harden ChromaDB defrag tool with backups and error tracking (#8490)"
+### @tobiu - 2026-01-10T00:51:07Z
 
 **Input from tobiu:**
 
@@ -55,8 +55,8 @@ Improve the `buildScripts/defragChromaDB.mjs` tool to be more robust and enterpr
 > 
 > Refactoring complete.
 
-- 2026-01-10 @tobiu referenced in commit `36f43ba` - "fix: Add missing Neo import to defrag script to support config loading (#8490)"
-### @tobiu - 2026-01-10 00:54
+- 2026-01-10T00:54:51Z @tobiu referenced in commit `36f43ba` - "fix: Add missing Neo import to defrag script to support config loading (#8490)"
+### @tobiu - 2026-01-10T00:54:53Z
 
 **Input from tobiu:**
 
@@ -65,13 +65,13 @@ Improve the `buildScripts/defragChromaDB.mjs` tool to be more robust and enterpr
 > 
 > Verified by successfully running `npm run ai:defrag-memory`.
 
-- 2026-01-10 @tobiu added the `agent-task:completed` label
-### @tobiu - 2026-01-10 00:55
+- 2026-01-10T00:55:17Z @tobiu added the `agent-task:completed` label
+### @tobiu - 2026-01-10T00:55:26Z
 
 **Input from tobiu:**
 
 > ◆ Task complete. The `defragChromaDB.mjs` script is now robust, backup-enabled, and verified working. Closing.
 
-- 2026-01-10 @tobiu closed this issue
-- 2026-01-10 @tobiu removed the `agent-task:completed` label
+- 2026-01-10T00:55:42Z @tobiu closed this issue
+- 2026-01-10T00:59:22Z @tobiu removed the `agent-task:completed` label
 

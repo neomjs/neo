@@ -27,9 +27,9 @@ closedAt: '2025-04-22T12:36:42Z'
 
 ## Timeline
 
-- 2025-04-22 @tobiu added the `enhancement` label
-- 2025-04-22 @tobiu assigned to @tobiu
-- 2025-04-22 @tobiu added the `no auto close` label
-- 2025-04-22 @tobiu referenced in commit `cdb9157` - "component.Base: updateStyle() => remove the direct main delta shortcut #6677"
-- 2025-04-22 @tobiu closed this issue
+- 2025-04-22T11:09:45Z @tobiu added the `enhancement` label
+- 2025-04-22T11:09:45Z @tobiu assigned to @tobiu
+- 2025-04-22T11:09:56Z @tobiu added the `no auto close` label
+- 2025-04-22T12:36:00Z @tobiu referenced in commit `cdb9157` - "component.Base: updateStyle() => remove the direct main delta shortcut #6677"
+- 2025-04-22T12:36:42Z @tobiu closed this issue
 

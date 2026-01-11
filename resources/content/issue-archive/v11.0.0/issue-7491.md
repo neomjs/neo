@@ -36,10 +36,10 @@ This ticket covers the work to replace the Express server with a proper MCP-comp
 
 ## Timeline
 
-- 2025-10-15 @tobiu assigned to @tobiu
-- 2025-10-15 @tobiu added parent issue #7477
-- 2025-10-15 @tobiu added the `enhancement` label
-- 2025-10-15 @tobiu added the `ai` label
-- 2025-10-15 @tobiu referenced in commit `9471c8b` - "Implement MCP Stdio Server for GitHub Workflow #7491"
-- 2025-10-15 @tobiu closed this issue
+- 2025-10-15T10:12:51Z @tobiu assigned to @tobiu
+- 2025-10-15T10:12:52Z @tobiu added parent issue #7477
+- 2025-10-15T10:12:53Z @tobiu added the `enhancement` label
+- 2025-10-15T10:12:53Z @tobiu added the `ai` label
+- 2025-10-15T10:13:38Z @tobiu referenced in commit `9471c8b` - "Implement MCP Stdio Server for GitHub Workflow #7491"
+- 2025-10-15T10:14:26Z @tobiu closed this issue
 

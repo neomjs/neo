@@ -25,8 +25,8 @@ closedAt: '2025-02-10T20:33:57Z'
 
 ## Timeline
 
-- 2025-02-10 @tobiu added the `bug` label
-- 2025-02-10 @tobiu assigned to @tobiu
-- 2025-02-10 @tobiu referenced in commit `017d867` - "examples.grid.cellEditing.MainContainer: selectionModel needs to get mapped to the view #6430"
-- 2025-02-10 @tobiu closed this issue
+- 2025-02-10T20:33:19Z @tobiu added the `bug` label
+- 2025-02-10T20:33:19Z @tobiu assigned to @tobiu
+- 2025-02-10T20:33:54Z @tobiu referenced in commit `017d867` - "examples.grid.cellEditing.MainContainer: selectionModel needs to get mapped to the view #6430"
+- 2025-02-10T20:33:58Z @tobiu closed this issue
 

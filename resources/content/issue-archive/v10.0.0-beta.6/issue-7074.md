@@ -48,9 +48,9 @@ This architectural change ensures that the VDOM processing logic is subscribed b
 
 ## Timeline
 
-- 2025-07-16 @tobiu assigned to @tobiu
-- 2025-07-16 @tobiu added the `enhancement` label
-- 2025-07-16 @tobiu added parent issue #6992
-- 2025-07-16 @tobiu referenced in commit `8ac9b78` - "Improve Functional Component Initial Render Timing #7074"
-- 2025-07-16 @tobiu closed this issue
+- 2025-07-16T11:29:11Z @tobiu assigned to @tobiu
+- 2025-07-16T11:29:13Z @tobiu added the `enhancement` label
+- 2025-07-16T11:29:13Z @tobiu added parent issue #6992
+- 2025-07-16T11:30:30Z @tobiu referenced in commit `8ac9b78` - "Improve Functional Component Initial Render Timing #7074"
+- 2025-07-16T11:30:39Z @tobiu closed this issue
 

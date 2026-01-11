@@ -39,10 +39,10 @@ Normalize the configuration properties in `Client.mjs` to be consistent.
 
 ## Timeline
 
-- 2025-11-30 @tobiu added the `ai` label
-- 2025-11-30 @tobiu added the `refactoring` label
-- 2025-11-30 @tobiu assigned to @tobiu
-- 2025-11-30 @tobiu added parent issue #7931
-- 2025-11-30 @tobiu referenced in commit `f6d1455` - "Refactor Client Configuration Consistency #7953"
-- 2025-11-30 @tobiu closed this issue
+- 2025-11-30T15:57:57Z @tobiu added the `ai` label
+- 2025-11-30T15:57:57Z @tobiu added the `refactoring` label
+- 2025-11-30T15:58:05Z @tobiu assigned to @tobiu
+- 2025-11-30T15:58:10Z @tobiu added parent issue #7931
+- 2025-11-30T16:02:19Z @tobiu referenced in commit `f6d1455` - "Refactor Client Configuration Consistency #7953"
+- 2025-11-30T16:02:34Z @tobiu closed this issue
 

@@ -25,8 +25,8 @@ closedAt: '2025-02-18T22:32:47Z'
 
 ## Timeline
 
-- 2025-02-18 @tobiu added the `enhancement` label
-- 2025-02-18 @tobiu assigned to @tobiu
-- 2025-02-18 @tobiu referenced in commit `f11f672` - "data.Store: getKeyType() #6465"
-- 2025-02-18 @tobiu closed this issue
+- 2025-02-18T22:30:41Z @tobiu added the `enhancement` label
+- 2025-02-18T22:30:41Z @tobiu assigned to @tobiu
+- 2025-02-18T22:31:36Z @tobiu referenced in commit `f11f672` - "data.Store: getKeyType() #6465"
+- 2025-02-18T22:32:47Z @tobiu closed this issue
 

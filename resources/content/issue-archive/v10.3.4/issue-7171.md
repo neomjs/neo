@@ -27,8 +27,8 @@ closedAt: '2025-08-09T00:45:58Z'
 
 ## Timeline
 
-- 2025-08-09 @tobiu assigned to @tobiu
-- 2025-08-09 @tobiu added the `enhancement` label
-- 2025-08-09 @tobiu referenced in commit `8d30821` - "webpack.config.appworker: sharpen the Docs App entry point #7171"
-- 2025-08-09 @tobiu closed this issue
+- 2025-08-09T00:45:28Z @tobiu assigned to @tobiu
+- 2025-08-09T00:45:29Z @tobiu added the `enhancement` label
+- 2025-08-09T00:45:52Z @tobiu referenced in commit `8d30821` - "webpack.config.appworker: sharpen the Docs App entry point #7171"
+- 2025-08-09T00:45:58Z @tobiu closed this issue
 

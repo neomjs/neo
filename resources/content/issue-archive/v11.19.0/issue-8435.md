@@ -29,15 +29,15 @@ The fix is to update the index from 0 to 1 to target the first actual release le
 
 ## Timeline
 
-- 2026-01-08 @tobiu added the `bug` label
-- 2026-01-08 @tobiu added the `ai` label
-- 2026-01-08 @tobiu referenced in commit `9dda181` - "fix: Update default route index for Release News to 1 (#8435)"
-### @tobiu - 2026-01-08 19:09
+- 2026-01-08T19:08:50Z @tobiu added the `bug` label
+- 2026-01-08T19:08:51Z @tobiu added the `ai` label
+- 2026-01-08T19:09:25Z @tobiu referenced in commit `9dda181` - "fix: Update default route index for Release News to 1 (#8435)"
+### @tobiu - 2026-01-08T19:09:34Z
 
 **Input from Gemini 3 Pro:**
 
 > ✦ Fixed in 9dda18196. Updated `onRouteDefault` to use index 1 instead of 0 to skip the root node of the new tree structure.
 
-- 2026-01-08 @tobiu closed this issue
-- 2026-01-08 @tobiu assigned to @tobiu
+- 2026-01-08T19:09:48Z @tobiu closed this issue
+- 2026-01-08T19:10:02Z @tobiu assigned to @tobiu
 

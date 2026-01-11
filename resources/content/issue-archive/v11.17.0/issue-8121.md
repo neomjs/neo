@@ -47,13 +47,13 @@ We encountered and fixed multiple issues related to drag-and-drop popup window s
 
 ## Timeline
 
-- 2025-12-16 @tobiu added the `bug` label
-- 2025-12-16 @tobiu added the `ai` label
-- 2025-12-16 @tobiu added the `refactoring` label
-- 2025-12-16 @tobiu assigned to @tobiu
-- 2025-12-16 @tobiu referenced in commit `647c5c9` - "Fix popup window sizing: race condition, caching, and rounding #8121"
-- 2025-12-16 @tobiu referenced in commit `f91e513` - "#8121 enforcing a "fixed" popup size"
-### @tobiu - 2025-12-16 14:33
+- 2025-12-16T13:39:15Z @tobiu added the `bug` label
+- 2025-12-16T13:39:15Z @tobiu added the `ai` label
+- 2025-12-16T13:39:15Z @tobiu added the `refactoring` label
+- 2025-12-16T13:39:51Z @tobiu assigned to @tobiu
+- 2025-12-16T13:40:51Z @tobiu referenced in commit `647c5c9` - "Fix popup window sizing: race condition, caching, and rounding #8121"
+- 2025-12-16T14:30:58Z @tobiu referenced in commit `f91e513` - "#8121 enforcing a "fixed" popup size"
+### @tobiu - 2025-12-16T14:33:46Z
 
 **Input from Gemini:**
 
@@ -71,5 +71,5 @@ We encountered and fixed multiple issues related to drag-and-drop popup window s
 > *   **Concept:** This acts similarly to `box-sizing: border-box` in CSS.
 > *   **Behavior:** It ensures the requested height is treated as the **total outer height** of the window, ignoring the size of browser header tools. This guarantees that a 219px drag proxy results in exactly a 219px popup window, preserving the visual continuity of the drag operation.
 
-- 2025-12-16 @tobiu closed this issue
+- 2025-12-16T14:35:42Z @tobiu closed this issue
 

@@ -50,17 +50,17 @@ To work on this ticket, please start your session with the following prompt:
 
 ## Timeline
 
-- 2025-10-07 @tobiu added the `enhancement` label
-- 2025-10-07 @tobiu added parent issue #7399
-- 2025-10-07 @tobiu added the `help wanted` label
-- 2025-10-07 @tobiu added the `good first issue` label
-- 2025-10-07 @tobiu added the `hacktoberfest` label
-- 2025-10-07 @tobiu added the `ai` label
-### @Nalin7parihar - 2025-10-07 10:31
+- 2025-10-07T10:21:06Z @tobiu added the `enhancement` label
+- 2025-10-07T10:21:06Z @tobiu added parent issue #7399
+- 2025-10-07T10:21:07Z @tobiu added the `help wanted` label
+- 2025-10-07T10:21:07Z @tobiu added the `good first issue` label
+- 2025-10-07T10:21:07Z @tobiu added the `hacktoberfest` label
+- 2025-10-07T10:21:07Z @tobiu added the `ai` label
+### @Nalin7parihar - 2025-10-07T10:31:19Z
 
 Hi! I would like to work on this issue? can you assign it to me?
 
-### @tobiu - 2025-10-07 10:45
+### @tobiu - 2025-10-07T10:45:52Z
 
 Hi, and thanks for your interest. Sure, I can assign the ticket to you. Make sure to read https://github.com/neomjs/neo/issues/7399 first. The work on this ticket is blocked, until the server is set up.
 
@@ -68,12 +68,12 @@ You can explore the current implementation though already, e.g. after instructin
 
 You can also mention hacktoberfest and start a conversation => the agent can create new tickets.
 
-- 2025-10-07 @tobiu assigned to @Nalin7parihar
-### @Nalin7parihar - 2025-10-07 10:56
+- 2025-10-07T10:45:59Z @tobiu assigned to @Nalin7parihar
+### @Nalin7parihar - 2025-10-07T10:56:25Z
 
 Got it! I’ll go through the epic and design tickets while the setup is in progress.
 
-- 2025-10-10 @Aki-07 cross-referenced by PR #7455
-- 2025-10-11 @Aki-07 cross-referenced by PR #7463
-- 2025-10-11 @tobiu closed this issue
+- 2025-10-10T20:47:14Z @Aki-07 cross-referenced by PR #7455
+- 2025-10-11T15:06:54Z @Aki-07 cross-referenced by PR #7463
+- 2025-10-11T18:07:00Z @tobiu closed this issue
 

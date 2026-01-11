@@ -44,9 +44,9 @@ This overview page enhances the discoverability and usability of the framework c
 
 ## Timeline
 
-- 2025-07-12 @tobiu assigned to @tobiu
-- 2025-07-12 @tobiu added the `enhancement` label
-- 2025-07-12 @tobiu added parent issue #7029
-- 2025-07-12 @tobiu referenced in commit `7b4c55f` - "Feature: Create Comparisons Overview Page #7030"
-- 2025-07-12 @tobiu closed this issue
+- 2025-07-12T21:07:06Z @tobiu assigned to @tobiu
+- 2025-07-12T21:07:06Z @tobiu added the `enhancement` label
+- 2025-07-12T21:07:07Z @tobiu added parent issue #7029
+- 2025-07-12T21:07:51Z @tobiu referenced in commit `7b4c55f` - "Feature: Create Comparisons Overview Page #7030"
+- 2025-07-12T21:07:59Z @tobiu closed this issue
 

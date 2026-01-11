@@ -42,12 +42,12 @@ Replace the ineffective "AfterMath" section with a new **"AI-Native Toolchain"**
 
 ## Timeline
 
-- 2026-01-06 @tobiu added the `enhancement` label
-- 2026-01-06 @tobiu added the `design` label
-- 2026-01-06 @tobiu added the `ai` label
-- 2026-01-06 @tobiu assigned to @tobiu
-- 2026-01-06 @tobiu closed this issue
-- 2026-01-07 @jonnyamsp referenced in commit `90c6ff6` - "feat(portal): Replace AfterMath with AI-Native Toolchain section (resolves #8368)
+- 2026-01-06T21:32:27Z @tobiu added the `enhancement` label
+- 2026-01-06T21:32:27Z @tobiu added the `design` label
+- 2026-01-06T21:32:27Z @tobiu added the `ai` label
+- 2026-01-06T21:32:50Z @tobiu assigned to @tobiu
+- 2026-01-06T21:40:13Z @tobiu closed this issue
+- 2026-01-07T13:25:09Z @jonnyamsp referenced in commit `90c6ff6` - "feat(portal): Replace AfterMath with AI-Native Toolchain section (resolves #8368)
 
 - Replaces the legacy contact list with a new 'AI-Native Toolchain' feature section.
 - Highlights Neural Link, MCP Servers, and Context Engineering.

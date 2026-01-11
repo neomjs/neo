@@ -170,15 +170,15 @@ export default Neo.setupClass(Observable);
 
 ## Timeline
 
-- 2025-07-21 @tobiu assigned to @tobiu
-- 2025-07-21 @tobiu added the `enhancement` label
-- 2025-07-21 @tobiu referenced in commit `39417a4` - "Architecturally Refactor core.Observable to a Fully Reactive Mixin #7090"
-- 2025-07-21 @tobiu closed this issue
-### @tobiu - 2025-07-22 05:32
+- 2025-07-21T22:37:11Z @tobiu assigned to @tobiu
+- 2025-07-21T22:37:12Z @tobiu added the `enhancement` label
+- 2025-07-21T22:38:24Z @tobiu referenced in commit `39417a4` - "Architecturally Refactor core.Observable to a Fully Reactive Mixin #7090"
+- 2025-07-21T22:38:37Z @tobiu closed this issue
+### @tobiu - 2025-07-22T05:32:33Z
 
 missed one change.
 
-- 2025-07-22 @tobiu reopened this issue
-- 2025-07-22 @tobiu referenced in commit `66302a0` - "#7090 removeListener() => accessing the new symbol"
-- 2025-07-22 @tobiu closed this issue
+- 2025-07-22T05:32:33Z @tobiu reopened this issue
+- 2025-07-22T05:33:16Z @tobiu referenced in commit `66302a0` - "#7090 removeListener() => accessing the new symbol"
+- 2025-07-22T05:33:33Z @tobiu closed this issue
 

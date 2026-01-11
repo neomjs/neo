@@ -30,8 +30,8 @@ Especially inside the Chromium dev tools, I open run into issues when changing t
 
 ## Timeline
 
-- 2025-02-09 @tobiu added the `enhancement` label
-- 2025-02-09 @tobiu assigned to @tobiu
-- 2025-02-09 @tobiu referenced in commit `5f7c8c7` - "DefaultConfig: {Boolean} applyFixedPositionToHtmlTag #6429"
-- 2025-02-09 @tobiu closed this issue
+- 2025-02-09T21:54:04Z @tobiu added the `enhancement` label
+- 2025-02-09T21:54:04Z @tobiu assigned to @tobiu
+- 2025-02-09T22:01:25Z @tobiu referenced in commit `5f7c8c7` - "DefaultConfig: {Boolean} applyFixedPositionToHtmlTag #6429"
+- 2025-02-09T22:01:36Z @tobiu closed this issue
 

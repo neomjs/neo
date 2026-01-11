@@ -50,11 +50,11 @@ This ticket covers updating the configuration file and refactoring the `SyncServ
 
 ## Timeline
 
-- 2025-10-20 @tobiu assigned to @tobiu
-- 2025-10-20 @tobiu added parent issue #7564
-- 2025-10-20 @tobiu added the `enhancement` label
-- 2025-10-20 @tobiu added the `ai` label
-- 2025-10-20 @tobiu referenced in commit `cac84a1` - "Refactor SyncService to Use Centralized Configuration #7569"
-- 2025-10-20 @tobiu closed this issue
-- 2025-10-20 @tobiu referenced in commit `c7c3223` - "Refactor SyncService to Use Centralized Configuration #7569"
+- 2025-10-20T12:04:43Z @tobiu assigned to @tobiu
+- 2025-10-20T12:04:45Z @tobiu added parent issue #7564
+- 2025-10-20T12:04:45Z @tobiu added the `enhancement` label
+- 2025-10-20T12:04:45Z @tobiu added the `ai` label
+- 2025-10-20T12:08:31Z @tobiu referenced in commit `cac84a1` - "Refactor SyncService to Use Centralized Configuration #7569"
+- 2025-10-20T12:08:40Z @tobiu closed this issue
+- 2025-10-20T12:24:23Z @tobiu referenced in commit `c7c3223` - "Refactor SyncService to Use Centralized Configuration #7569"
 

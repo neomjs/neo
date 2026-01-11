@@ -32,13 +32,13 @@ As part of the sync service refactoring epic, this ticket focuses on creating a 
 
 ## Timeline
 
-- 2025-10-25 @tobiu added the `epic` label
-- 2025-10-25 @tobiu added the `ai` label
-- 2025-10-25 @tobiu added the `refactoring` label
-- 2025-10-25 @tobiu cross-referenced by #7645
-- 2025-10-25 @tobiu assigned to @tobiu
-- 2025-10-25 @tobiu removed the `epic` label
-- 2025-10-25 @tobiu added parent issue #7645
-- 2025-10-25 @tobiu referenced in commit `681cbdb` - "Refactor: Implement MetadataManager for Sync Service #7643"
-- 2025-10-25 @tobiu closed this issue
+- 2025-10-25T10:22:32Z @tobiu added the `epic` label
+- 2025-10-25T10:22:32Z @tobiu added the `ai` label
+- 2025-10-25T10:22:32Z @tobiu added the `refactoring` label
+- 2025-10-25T10:23:18Z @tobiu cross-referenced by #7645
+- 2025-10-25T10:24:20Z @tobiu assigned to @tobiu
+- 2025-10-25T10:24:23Z @tobiu removed the `epic` label
+- 2025-10-25T10:24:30Z @tobiu added parent issue #7645
+- 2025-10-25T12:26:32Z @tobiu referenced in commit `681cbdb` - "Refactor: Implement MetadataManager for Sync Service #7643"
+- 2025-10-25T12:26:52Z @tobiu closed this issue
 

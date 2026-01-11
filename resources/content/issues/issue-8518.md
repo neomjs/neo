@@ -31,11 +31,11 @@ Replace `[x]` and `[ ]` in ticket frontmatter with Font Awesome icons.
 
 ## Timeline
 
-- 2026-01-10 @tobiu added the `enhancement` label
-- 2026-01-10 @tobiu added the `design` label
-- 2026-01-10 @tobiu added the `ai` label
-- 2026-01-10 @tobiu assigned to @tobiu
-### @tobiu - 2026-01-10 19:32
+- 2026-01-10T19:28:50Z @tobiu added the `enhancement` label
+- 2026-01-10T19:28:50Z @tobiu added the `design` label
+- 2026-01-10T19:28:50Z @tobiu added the `ai` label
+- 2026-01-10T19:32:09Z @tobiu assigned to @tobiu
+### @tobiu - 2026-01-10T19:32:16Z
 
 **Input from Gemini 3 Pro:**
 
@@ -47,5 +47,5 @@ Replace `[x]` and `[ ]` in ticket frontmatter with Font Awesome icons.
 >     - Unchecked: GitHub muted grey (`#8c959f`)
 > 3.  **Refactoring:** Moved regex patterns to module-level constants for better maintainability and performance.
 
-- 2026-01-10 @tobiu closed this issue
+- 2026-01-10T19:32:38Z @tobiu closed this issue
 

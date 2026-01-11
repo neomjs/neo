@@ -25,8 +25,8 @@ time to split up the logic inside `beforeSetStore()` in a better way.
 
 ## Timeline
 
-- 2025-03-09 @tobiu added the `enhancement` label
-- 2025-03-09 @tobiu assigned to @tobiu
-- 2025-03-09 @tobiu referenced in commit `af316d8` - "grid.Container: afterSetStore() #6554"
-- 2025-03-09 @tobiu closed this issue
+- 2025-03-09T01:15:12Z @tobiu added the `enhancement` label
+- 2025-03-09T01:15:12Z @tobiu assigned to @tobiu
+- 2025-03-09T01:15:26Z @tobiu referenced in commit `af316d8` - "grid.Container: afterSetStore() #6554"
+- 2025-03-09T01:15:39Z @tobiu closed this issue
 

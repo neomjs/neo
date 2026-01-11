@@ -30,12 +30,12 @@ closedAt: '2025-07-29T23:59:39Z'
 
 ## Timeline
 
-- 2025-07-29 @tobiu assigned to @tobiu
-- 2025-07-29 @tobiu added the `bug` label
-- 2025-07-29 @tobiu referenced in commit `0818bf9` - "examples.grid.bigData.ControlsContainer: not showing initial dropdown values #7126"
-### @tobiu - 2025-07-29 23:59
+- 2025-07-29T23:51:28Z @tobiu assigned to @tobiu
+- 2025-07-29T23:51:30Z @tobiu added the `bug` label
+- 2025-07-29T23:59:15Z @tobiu referenced in commit `0818bf9` - "examples.grid.bigData.ControlsContainer: not showing initial dropdown values #7126"
+### @tobiu - 2025-07-29T23:59:39Z
 
 <img width="242" height="196" alt="Image" src="https://github.com/user-attachments/assets/26e3449f-e348-48bf-98fd-b57ca3e89bd3" />
 
-- 2025-07-29 @tobiu closed this issue
+- 2025-07-29T23:59:39Z @tobiu closed this issue
 

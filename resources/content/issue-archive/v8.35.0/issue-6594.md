@@ -24,7 +24,7 @@ closedAt: '2025-03-26T17:14:52Z'
 
 ## Timeline
 
-- 2025-03-26 @tobiu added the `enhancement` label
-- 2025-03-26 @tobiu referenced in commit `82d6257` - "Finance.view.Viewport: add a header toolbar with start & stop updating buttons #6594"
-- 2025-03-26 @tobiu closed this issue
+- 2025-03-26T16:58:40Z @tobiu added the `enhancement` label
+- 2025-03-26T17:14:42Z @tobiu referenced in commit `82d6257` - "Finance.view.Viewport: add a header toolbar with start & stop updating buttons #6594"
+- 2025-03-26T17:14:52Z @tobiu closed this issue
 

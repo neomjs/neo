@@ -25,8 +25,8 @@ https://tobiasuhlig.medium.com/a-frontend-love-story-111e6eeea8a6?source=friends
 
 ## Timeline
 
-- 2025-07-24 @tobiu assigned to @tobiu
-- 2025-07-24 @tobiu added the `Blog Post` label
-- 2025-07-24 @tobiu referenced in commit `aad4ead` - "Add "A Frontend Love Story" to the neo website #7103"
-- 2025-07-24 @tobiu closed this issue
+- 2025-07-24T07:38:03Z @tobiu assigned to @tobiu
+- 2025-07-24T07:38:04Z @tobiu added the `Blog Post` label
+- 2025-07-24T07:42:42Z @tobiu referenced in commit `aad4ead` - "Add "A Frontend Love Story" to the neo website #7103"
+- 2025-07-24T07:42:54Z @tobiu closed this issue
 

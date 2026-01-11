@@ -39,9 +39,9 @@ These changes make the Memory Core more resilient and easier to debug for develo
 
 ## Timeline
 
-- 2025-10-24 @tobiu added the `enhancement` label
-- 2025-10-24 @tobiu added the `ai` label
-- 2025-10-24 @tobiu added the `refactoring` label
-- 2025-10-24 @tobiu referenced in commit `46730c4` - "Refactor: Enhance Memory Core HealthService for Robustness and Diagnostics #7635"
-- 2025-10-24 @tobiu closed this issue
+- 2025-10-24T11:58:22Z @tobiu added the `enhancement` label
+- 2025-10-24T11:58:22Z @tobiu added the `ai` label
+- 2025-10-24T11:58:22Z @tobiu added the `refactoring` label
+- 2025-10-24T12:10:02Z @tobiu referenced in commit `46730c4` - "Refactor: Enhance Memory Core HealthService for Robustness and Diagnostics #7635"
+- 2025-10-24T12:11:54Z @tobiu closed this issue
 

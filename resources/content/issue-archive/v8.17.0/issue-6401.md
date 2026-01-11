@@ -29,8 +29,8 @@ Not needed for Mac OS, but for Windows users.
 
 ## Timeline
 
-- 2025-02-07 @tobiu added the `enhancement` label
-- 2025-02-07 @tobiu assigned to @tobiu
-- 2025-02-07 @tobiu referenced in commit `95c74be` - "grid.Scrollbar: animated hiding & showing #6401"
-- 2025-02-07 @tobiu closed this issue
+- 2025-02-07T15:39:41Z @tobiu added the `enhancement` label
+- 2025-02-07T15:39:41Z @tobiu assigned to @tobiu
+- 2025-02-07T15:39:55Z @tobiu referenced in commit `95c74be` - "grid.Scrollbar: animated hiding & showing #6401"
+- 2025-02-07T15:42:40Z @tobiu closed this issue
 

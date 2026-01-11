@@ -35,10 +35,10 @@ This ticket covers moving the warning suppression logic into the `ChromaManager`
 
 ## Timeline
 
-- 2025-10-19 @tobiu assigned to @tobiu
-- 2025-10-19 @tobiu added parent issue #7536
-- 2025-10-19 @tobiu added the `enhancement` label
-- 2025-10-19 @tobiu added the `ai` label
-- 2025-10-19 @tobiu referenced in commit `36a807e` - "Centralize ChromaDB Client Warning Suppression in ChromaManager #7555"
-- 2025-10-19 @tobiu closed this issue
+- 2025-10-19T22:17:01Z @tobiu assigned to @tobiu
+- 2025-10-19T22:17:02Z @tobiu added parent issue #7536
+- 2025-10-19T22:17:02Z @tobiu added the `enhancement` label
+- 2025-10-19T22:17:02Z @tobiu added the `ai` label
+- 2025-10-19T22:17:34Z @tobiu referenced in commit `36a807e` - "Centralize ChromaDB Client Warning Suppression in ChromaManager #7555"
+- 2025-10-19T22:18:46Z @tobiu closed this issue
 

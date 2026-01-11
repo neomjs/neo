@@ -40,10 +40,10 @@ Add the new guide entry to the `guides/fundamentals` section.
 
 ## Timeline
 
-- 2025-12-17 @tobiu added the `documentation` label
-- 2025-12-17 @tobiu added the `enhancement` label
-- 2025-12-17 @tobiu added the `ai` label
-- 2025-12-17 @tobiu assigned to @tobiu
-- 2025-12-17 @tobiu referenced in commit `3c43954` - "Create guide: Worker Architecture & Messaging (#8136)"
-- 2025-12-17 @tobiu closed this issue
+- 2025-12-17T02:57:34Z @tobiu added the `documentation` label
+- 2025-12-17T02:57:34Z @tobiu added the `enhancement` label
+- 2025-12-17T02:57:35Z @tobiu added the `ai` label
+- 2025-12-17T02:57:47Z @tobiu assigned to @tobiu
+- 2025-12-17T04:29:28Z @tobiu referenced in commit `3c43954` - "Create guide: Worker Architecture & Messaging (#8136)"
+- 2025-12-17T04:31:48Z @tobiu closed this issue
 

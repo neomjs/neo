@@ -64,8 +64,8 @@ This change ensures that all methods of setting data (`proxy.prop = value`, `set
 
 ## Timeline
 
-- 2025-07-22 @tobiu assigned to @tobiu
-- 2025-07-22 @tobiu added the `enhancement` label
-- 2025-07-22 @tobiu closed this issue
-- 2025-07-22 @tobiu referenced in commit `b6c2ee7` - "Refactor state.Provider to Support Intuitive Deep-Merging and Runtime Data Creation #7099"
+- 2025-07-22T18:02:47Z @tobiu assigned to @tobiu
+- 2025-07-22T18:02:48Z @tobiu added the `enhancement` label
+- 2025-07-22T18:03:34Z @tobiu closed this issue
+- 2025-07-22T18:03:42Z @tobiu referenced in commit `b6c2ee7` - "Refactor state.Provider to Support Intuitive Deep-Merging and Runtime Data Creation #7099"
 

@@ -26,9 +26,9 @@ The `ai/examples/self-healing.mjs` script currently awaits both `LifecycleServic
 
 ## Timeline
 
-- 2025-11-21 @tobiu added the `ai` label
-- 2025-11-21 @tobiu added the `refactoring` label
-- 2025-11-21 @tobiu assigned to @tobiu
-- 2025-11-21 @tobiu referenced in commit `eb3d42c` - "Cleanup redundant awaits in self-healing example #7837"
-- 2025-11-21 @tobiu closed this issue
+- 2025-11-21T09:14:27Z @tobiu added the `ai` label
+- 2025-11-21T09:14:27Z @tobiu added the `refactoring` label
+- 2025-11-21T09:15:53Z @tobiu assigned to @tobiu
+- 2025-11-21T09:16:20Z @tobiu referenced in commit `eb3d42c` - "Cleanup redundant awaits in self-healing example #7837"
+- 2025-11-21T09:16:22Z @tobiu closed this issue
 

@@ -29,12 +29,12 @@ current version:
 
 ## Timeline
 
-- 2025-01-21 @tobiu added the `enhancement` label
-- 2025-01-21 @tobiu assigned to @tobiu
-- 2025-01-21 @tobiu referenced in commit `377504b` - "data.RecordFactory: add support for using JSON.stringify() on records #6261"
-### @tobiu - 2025-01-21 15:34
+- 2025-01-21T15:33:13Z @tobiu added the `enhancement` label
+- 2025-01-21T15:33:13Z @tobiu assigned to @tobiu
+- 2025-01-21T15:34:29Z @tobiu referenced in commit `377504b` - "data.RecordFactory: add support for using JSON.stringify() on records #6261"
+### @tobiu - 2025-01-21T15:34:39Z
 
 ![Image](https://github.com/user-attachments/assets/1884bc99-a173-46ec-bbb4-35dda5e9318f)
 
-- 2025-01-21 @tobiu closed this issue
+- 2025-01-21T15:34:39Z @tobiu closed this issue
 

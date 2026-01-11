@@ -61,9 +61,9 @@ await page.evaluate(async ({buttonId, toolbarId}) => {
 
 ## Timeline
 
-- 2025-11-06 @tobiu added the `bug` label
-- 2025-11-06 @tobiu added the `ai` label
-- 2025-11-06 @tobiu assigned to @tobiu
-- 2025-11-06 @tobiu referenced in commit `0483f13` - "Fix race conditions in component rendering and updates #7709"
-- 2025-11-06 @tobiu closed this issue
+- 2025-11-06T12:15:53Z @tobiu added the `bug` label
+- 2025-11-06T12:15:53Z @tobiu added the `ai` label
+- 2025-11-06T12:16:37Z @tobiu assigned to @tobiu
+- 2025-11-06T12:18:10Z @tobiu referenced in commit `0483f13` - "Fix race conditions in component rendering and updates #7709"
+- 2025-11-06T12:18:43Z @tobiu closed this issue
 

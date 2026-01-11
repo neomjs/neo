@@ -33,9 +33,9 @@ To adhere to the framework's "zero builds" development principle, the `parse5` l
 
 ## Timeline
 
-- 2025-07-31 @tobiu assigned to @tobiu
-- 2025-07-31 @tobiu added the `enhancement` label
-- 2025-07-31 @tobiu added parent issue #7130
-- 2025-07-31 @tobiu referenced in commit `616d0a5` - "Bundle parse5 for Browser Compatibility #7140"
-- 2025-07-31 @tobiu closed this issue
+- 2025-07-31T07:55:33Z @tobiu assigned to @tobiu
+- 2025-07-31T07:55:35Z @tobiu added the `enhancement` label
+- 2025-07-31T07:55:35Z @tobiu added parent issue #7130
+- 2025-07-31T08:01:18Z @tobiu referenced in commit `616d0a5` - "Bundle parse5 for Browser Compatibility #7140"
+- 2025-07-31T08:01:32Z @tobiu closed this issue
 

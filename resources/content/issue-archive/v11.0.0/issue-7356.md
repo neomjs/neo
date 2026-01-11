@@ -33,11 +33,11 @@ This ticket is to update the agent guidelines to prevent this specific error in 
 
 ## Timeline
 
-- 2025-10-04 @tobiu added the `documentation` label
-- 2025-10-04 @tobiu added the `enhancement` label
-- 2025-10-04 @tobiu added the `ai` label
-- 2025-10-04 @tobiu added parent issue #7316
-- 2025-10-04 @tobiu referenced in commit `4f4c86d` - "Clarify ai:add-memory command in AGENTS.md #7356"
-- 2025-10-04 @tobiu assigned to @tobiu
-- 2025-10-04 @tobiu closed this issue
+- 2025-10-04T12:38:57Z @tobiu added the `documentation` label
+- 2025-10-04T12:38:58Z @tobiu added the `enhancement` label
+- 2025-10-04T12:38:58Z @tobiu added the `ai` label
+- 2025-10-04T12:38:58Z @tobiu added parent issue #7316
+- 2025-10-04T12:43:09Z @tobiu referenced in commit `4f4c86d` - "Clarify ai:add-memory command in AGENTS.md #7356"
+- 2025-10-04T12:43:21Z @tobiu assigned to @tobiu
+- 2025-10-04T12:43:22Z @tobiu closed this issue
 

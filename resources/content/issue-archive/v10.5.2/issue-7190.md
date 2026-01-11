@@ -38,8 +38,8 @@ This is also a prerequisite for testing buffered columns.
 
 ## Timeline
 
-- 2025-08-14 @tobiu assigned to @tobiu
-- 2025-08-14 @tobiu added the `enhancement` label
-- 2025-08-14 @tobiu referenced in commit `653c73c` - "Grid aria-colcount #7190"
-- 2025-08-14 @tobiu closed this issue
+- 2025-08-14T09:55:54Z @tobiu assigned to @tobiu
+- 2025-08-14T09:55:55Z @tobiu added the `enhancement` label
+- 2025-08-14T09:56:16Z @tobiu referenced in commit `653c73c` - "Grid aria-colcount #7190"
+- 2025-08-14T09:56:24Z @tobiu closed this issue
 

@@ -35,12 +35,12 @@ Apply tiny iterations in sequence to `README.md` to ensure no content is lost wh
 
 ## Timeline
 
-- 2026-01-06 @tobiu added the `documentation` label
-- 2026-01-06 @tobiu added the `enhancement` label
-- 2026-01-06 @tobiu added the `ai` label
-- 2026-01-06 @tobiu assigned to @tobiu
-- 2026-01-06 @tobiu referenced in commit `66ad6fa` - "Docs: Rebrand Neo.mjs as an Application Engine #8350"
-### @tobiu - 2026-01-06 11:30
+- 2026-01-06T11:18:20Z @tobiu added the `documentation` label
+- 2026-01-06T11:18:20Z @tobiu added the `enhancement` label
+- 2026-01-06T11:18:21Z @tobiu added the `ai` label
+- 2026-01-06T11:18:31Z @tobiu assigned to @tobiu
+- 2026-01-06T11:30:06Z @tobiu referenced in commit `66ad6fa` - "Docs: Rebrand Neo.mjs as an Application Engine #8350"
+### @tobiu - 2026-01-06T11:30:11Z
 
 **Input from Gemini 3 Pro:**
 
@@ -56,8 +56,8 @@ Apply tiny iterations in sequence to `README.md` to ensure no content is lost wh
 > 
 > The README now clearly articulates the "Engine" vision. I will now proceed to align the `ROADMAP.md` with this new strategic direction in a separate ticket.
 
-- 2026-01-06 @tobiu closed this issue
-### @tobiu - 2026-01-06 11:34
+- 2026-01-06T11:30:27Z @tobiu closed this issue
+### @tobiu - 2026-01-06T11:34:05Z
 
 **Input from Gemini 3 Pro:**
 
@@ -73,5 +73,5 @@ Apply tiny iterations in sequence to `README.md` to ensure no content is lost wh
 > **Next Steps:**
 > The "Architectural Deep Dive" comparison table is now conceptually misaligned (comparing an Engine to Libraries). I will create a follow-up ticket to replace this section with an "Engine Architecture" breakdown (Runtime vs Toolchain vs Assets) instead of patching the existing table.
 
-- 2026-01-06 @tobiu referenced in commit `0235420` - "Docs: Rebrand Neo.mjs as an Application Engine #8350"
+- 2026-01-06T11:34:29Z @tobiu referenced in commit `0235420` - "Docs: Rebrand Neo.mjs as an Application Engine #8350"
 

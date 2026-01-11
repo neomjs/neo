@@ -47,9 +47,9 @@ This should resolve the build errors while maintaining the dynamic loading funct
 
 ## Timeline
 
-- 2025-12-17 @tobiu added the `bug` label
-- 2025-12-17 @tobiu added the `ai` label
-- 2025-12-17 @tobiu assigned to @tobiu
-- 2025-12-17 @tobiu referenced in commit `4a904c5` - "Fix Webpack build errors in Legit.service.Legit using webpackIgnore (#8133)"
-- 2025-12-17 @tobiu closed this issue
+- 2025-12-17T01:12:13Z @tobiu added the `bug` label
+- 2025-12-17T01:12:13Z @tobiu added the `ai` label
+- 2025-12-17T01:12:39Z @tobiu assigned to @tobiu
+- 2025-12-17T01:14:34Z @tobiu referenced in commit `4a904c5` - "Fix Webpack build errors in Legit.service.Legit using webpackIgnore (#8133)"
+- 2025-12-17T01:14:52Z @tobiu closed this issue
 

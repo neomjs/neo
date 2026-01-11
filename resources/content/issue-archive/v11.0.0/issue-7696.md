@@ -35,11 +35,11 @@ This update will simplify the setup process for developers.
 
 ## Timeline
 
-- 2025-11-03 @tobiu added the `enhancement` label
-- 2025-11-03 @tobiu added the `ai` label
-- 2025-11-03 @tobiu assigned to @tobiu
-- 2025-11-03 @tobiu added the `documentation` label
-- 2025-11-03 @tobiu referenced in commit `c85e78e` - "Update AI_QUICK_START.md for new MCP server architecture #7696"
-- 2025-11-03 @tobiu referenced in commit `51a4dc4` - "#7696 more polishing"
-- 2025-11-03 @tobiu closed this issue
+- 2025-11-03T10:13:55Z @tobiu added the `enhancement` label
+- 2025-11-03T10:13:55Z @tobiu added the `ai` label
+- 2025-11-03T10:15:10Z @tobiu assigned to @tobiu
+- 2025-11-03T10:15:18Z @tobiu added the `documentation` label
+- 2025-11-03T10:45:50Z @tobiu referenced in commit `c85e78e` - "Update AI_QUICK_START.md for new MCP server architecture #7696"
+- 2025-11-03T11:12:57Z @tobiu referenced in commit `51a4dc4` - "#7696 more polishing"
+- 2025-11-03T11:13:16Z @tobiu closed this issue
 

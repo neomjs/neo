@@ -53,11 +53,11 @@ The GitHub Workflow server needs to sync issues on startup to ensure a fresh cac
 
 ## Timeline
 
-- 2025-12-13 @tobiu added the `enhancement` label
-- 2025-12-13 @tobiu added the `ai` label
-- 2025-12-13 @tobiu assigned to @tobiu
-- 2025-12-13 @tobiu referenced in commit `41a686e` - "[GitHub Workflow] Add syncOnStartup configuration #8103"
-### @tobiu - 2025-12-13 13:04
+- 2025-12-13T12:46:12Z @tobiu added the `enhancement` label
+- 2025-12-13T12:46:12Z @tobiu added the `ai` label
+- 2025-12-13T12:52:16Z @tobiu assigned to @tobiu
+- 2025-12-13T13:02:57Z @tobiu referenced in commit `41a686e` - "[GitHub Workflow] Add syncOnStartup configuration #8103"
+### @tobiu - 2025-12-13T13:04:30Z
 
 **Input from gemini:**
 
@@ -72,5 +72,5 @@ The GitHub Workflow server needs to sync issues on startup to ensure a fresh cac
 > The server is now robust against race conditions and will automatically keep the issue cache fresh.
 > 
 
-- 2025-12-13 @tobiu closed this issue
+- 2025-12-13T13:06:23Z @tobiu closed this issue
 

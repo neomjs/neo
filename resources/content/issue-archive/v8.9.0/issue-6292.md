@@ -31,12 +31,12 @@ I just noticed the following, when assigning a new theme to a dialog:
 
 ## Timeline
 
-- 2025-01-25 @tobiu added the `enhancement` label
-- 2025-01-25 @tobiu assigned to @tobiu
-- 2025-01-25 @tobiu referenced in commit `498c150` - "component.Base, container.Base: afterSetTheme() #6292"
-### @tobiu - 2025-01-25 20:45
+- 2025-01-25T20:44:15Z @tobiu added the `enhancement` label
+- 2025-01-25T20:44:15Z @tobiu assigned to @tobiu
+- 2025-01-25T20:44:38Z @tobiu referenced in commit `498c150` - "component.Base, container.Base: afterSetTheme() #6292"
+### @tobiu - 2025-01-25T20:45:04Z
 
 ![Image](https://github.com/user-attachments/assets/0b204cc8-dcc5-494b-b79c-9e333b65ce01)
 
-- 2025-01-25 @tobiu closed this issue
+- 2025-01-25T20:45:04Z @tobiu closed this issue
 

@@ -32,10 +32,10 @@ Affected files:
 
 ## Timeline
 
-- 2025-11-19 @tobiu added the `enhancement` label
-- 2025-11-19 @tobiu added the `ai` label
-- 2025-11-19 @tobiu added the `refactoring` label
-- 2025-11-19 @tobiu assigned to @tobiu
-- 2025-11-19 @tobiu referenced in commit `38d545d` - "Refactor: Rename Server to McpServer in MCP implementations #7808"
-- 2025-11-19 @tobiu closed this issue
+- 2025-11-19T13:25:23Z @tobiu added the `enhancement` label
+- 2025-11-19T13:25:23Z @tobiu added the `ai` label
+- 2025-11-19T13:25:23Z @tobiu added the `refactoring` label
+- 2025-11-19T13:27:13Z @tobiu assigned to @tobiu
+- 2025-11-19T13:41:44Z @tobiu referenced in commit `38d545d` - "Refactor: Rename Server to McpServer in MCP implementations #7808"
+- 2025-11-19T13:42:11Z @tobiu closed this issue
 

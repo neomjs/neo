@@ -40,9 +40,9 @@ This will cause `git log` to find the most recent commit affecting any file in t
 
 ## Timeline
 
-- 2025-11-13 @tobiu added the `enhancement` label
-- 2025-11-13 @tobiu added the `ai` label
-- 2025-11-13 @tobiu assigned to @tobiu
-- 2025-11-13 @tobiu referenced in commit `5a53e56` - "feat(seo): Use directory last modified date for examples in sitemap #7770"
-- 2025-11-13 @tobiu closed this issue
+- 2025-11-13T22:13:42Z @tobiu added the `enhancement` label
+- 2025-11-13T22:13:43Z @tobiu added the `ai` label
+- 2025-11-13T22:14:04Z @tobiu assigned to @tobiu
+- 2025-11-13T22:17:15Z @tobiu referenced in commit `5a53e56` - "feat(seo): Use directory last modified date for examples in sitemap #7770"
+- 2025-11-13T22:17:29Z @tobiu closed this issue
 

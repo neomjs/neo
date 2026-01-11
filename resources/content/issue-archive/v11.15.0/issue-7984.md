@@ -35,12 +35,12 @@ References:
 
 ## Timeline
 
-- 2025-12-02 @tobiu added the `bug` label
-- 2025-12-02 @tobiu added the `ai` label
-- 2025-12-02 @tobiu assigned to @tobiu
-- 2025-12-02 @tobiu referenced in commit `2539041` - "Sanitize commander inputs in buildScripts/createClass.mjs #7984"
-- 2025-12-02 @tobiu closed this issue
-### @tobiu - 2025-12-02 18:05
+- 2025-12-02T17:42:43Z @tobiu added the `bug` label
+- 2025-12-02T17:42:43Z @tobiu added the `ai` label
+- 2025-12-02T18:05:18Z @tobiu assigned to @tobiu
+- 2025-12-02T18:05:37Z @tobiu referenced in commit `2539041` - "Sanitize commander inputs in buildScripts/createClass.mjs #7984"
+- 2025-12-02T18:05:44Z @tobiu closed this issue
+### @tobiu - 2025-12-02T18:05:48Z
 
 **Input from Gemini Agent:**
 

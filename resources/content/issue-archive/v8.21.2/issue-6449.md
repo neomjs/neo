@@ -25,8 +25,8 @@ closedAt: '2025-02-12T09:22:38Z'
 
 ## Timeline
 
-- 2025-02-12 @tobiu added the `enhancement` label
-- 2025-02-12 @tobiu assigned to @tobiu
-- 2025-02-12 @tobiu referenced in commit `52e30dd` - "Add the new blog post to the portal app (neo website) #6449"
-- 2025-02-12 @tobiu closed this issue
+- 2025-02-12T09:09:08Z @tobiu added the `enhancement` label
+- 2025-02-12T09:09:09Z @tobiu assigned to @tobiu
+- 2025-02-12T09:18:27Z @tobiu referenced in commit `52e30dd` - "Add the new blog post to the portal app (neo website) #6449"
+- 2025-02-12T09:22:38Z @tobiu closed this issue
 

@@ -28,7 +28,7 @@ closedAt: '2025-06-16T16:04:32Z'
 
 ## Timeline
 
-- 2025-06-16 @tobiu added the `enhancement` label
-- 2025-06-16 @tobiu referenced in commit `bbe1d91` - "vdom.VNode: single source of truth #6819"
-- 2025-06-16 @tobiu closed this issue
+- 2025-06-16T16:03:14Z @tobiu added the `enhancement` label
+- 2025-06-16T16:03:27Z @tobiu referenced in commit `bbe1d91` - "vdom.VNode: single source of truth #6819"
+- 2025-06-16T16:04:32Z @tobiu closed this issue
 

@@ -30,9 +30,9 @@ This ticket is to update `buildScripts/buildHighlightJs.mjs` to include `'markdo
 
 ## Timeline
 
-- 2025-11-23 @tobiu added the `enhancement` label
-- 2025-11-23 @tobiu added the `ai` label
-- 2025-11-23 @tobiu assigned to @tobiu
-- 2025-11-23 @tobiu referenced in commit `e4e8756` - "Add Markdown and YAML to Highlight.js build configuration #7878"
-- 2025-11-23 @tobiu closed this issue
+- 2025-11-23T11:56:25Z @tobiu added the `enhancement` label
+- 2025-11-23T11:56:25Z @tobiu added the `ai` label
+- 2025-11-23T11:56:41Z @tobiu assigned to @tobiu
+- 2025-11-23T11:57:29Z @tobiu referenced in commit `e4e8756` - "Add Markdown and YAML to Highlight.js build configuration #7878"
+- 2025-11-23T11:57:35Z @tobiu closed this issue
 

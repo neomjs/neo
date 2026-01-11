@@ -34,10 +34,10 @@ To give agents more control over their environment, we will add tools to the Kno
 
 ## Timeline
 
-- 2025-10-17 @tobiu assigned to @tobiu
-- 2025-10-17 @tobiu added the `enhancement` label
-- 2025-10-17 @tobiu added parent issue #7529
-- 2025-10-17 @tobiu added the `ai` label
-- 2025-10-17 @tobiu referenced in commit `74a1c7e` - "Add Database Management Tools to Knowledge Base Server #7530"
-- 2025-10-17 @tobiu closed this issue
+- 2025-10-17T12:46:44Z @tobiu assigned to @tobiu
+- 2025-10-17T12:46:45Z @tobiu added the `enhancement` label
+- 2025-10-17T12:46:45Z @tobiu added parent issue #7529
+- 2025-10-17T12:46:46Z @tobiu added the `ai` label
+- 2025-10-17T12:54:12Z @tobiu referenced in commit `74a1c7e` - "Add Database Management Tools to Knowledge Base Server #7530"
+- 2025-10-17T12:54:26Z @tobiu closed this issue
 

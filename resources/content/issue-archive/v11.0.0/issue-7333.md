@@ -36,10 +36,10 @@ This separates the strategic "why" and "when" from the core operational protocol
 
 ## Timeline
 
-- 2025-10-03 @tobiu assigned to @tobiu
-- 2025-10-03 @tobiu added parent issue #7316
-- 2025-10-03 @tobiu added the `documentation` label
-- 2025-10-03 @tobiu added the `enhancement` label
-- 2025-10-03 @tobiu referenced in commit `c2a52a2` - "Create AI Strategic Workflows Guide #7333"
-- 2025-10-03 @tobiu closed this issue
+- 2025-10-03T10:00:03Z @tobiu assigned to @tobiu
+- 2025-10-03T10:00:04Z @tobiu added parent issue #7316
+- 2025-10-03T10:00:05Z @tobiu added the `documentation` label
+- 2025-10-03T10:00:05Z @tobiu added the `enhancement` label
+- 2025-10-03T10:01:17Z @tobiu referenced in commit `c2a52a2` - "Create AI Strategic Workflows Guide #7333"
+- 2025-10-03T10:01:27Z @tobiu closed this issue
 

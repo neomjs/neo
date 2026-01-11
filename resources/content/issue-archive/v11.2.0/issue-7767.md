@@ -28,9 +28,9 @@ This ticket is to remove the logic that generates this section from the `formatI
 
 ## Timeline
 
-- 2025-11-13 @tobiu added the `ai` label
-- 2025-11-13 @tobiu added the `refactoring` label
-- 2025-11-13 @tobiu assigned to @tobiu
-- 2025-11-13 @tobiu referenced in commit `46a15f4` - "Refactor: Remove Relationship Section from Issue Body #7767"
-- 2025-11-13 @tobiu closed this issue
+- 2025-11-13T10:41:02Z @tobiu added the `ai` label
+- 2025-11-13T10:41:02Z @tobiu added the `refactoring` label
+- 2025-11-13T10:41:51Z @tobiu assigned to @tobiu
+- 2025-11-13T10:51:45Z @tobiu referenced in commit `46a15f4` - "Refactor: Remove Relationship Section from Issue Body #7767"
+- 2025-11-13T10:51:52Z @tobiu closed this issue
 

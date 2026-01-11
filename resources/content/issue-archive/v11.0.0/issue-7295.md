@@ -29,10 +29,10 @@ The AI Quick Start Guide (`.github/AI_QUICK_START.md`) needs to be updated based
 
 ## Timeline
 
-- 2025-09-28 @tobiu added the `enhancement` label
-- 2025-09-28 @tobiu referenced in commit `f53cf66` - "Update AI Quick Start Guide #7295"
-- 2025-09-28 @tobiu closed this issue
-- 2025-09-28 @tobiu reopened this issue
-- 2025-09-28 @tobiu referenced in commit `c2a83be` - "Update AI Quick Start Guide #7295"
-- 2025-09-28 @tobiu closed this issue
+- 2025-09-28T11:17:00Z @tobiu added the `enhancement` label
+- 2025-09-28T11:17:43Z @tobiu referenced in commit `f53cf66` - "Update AI Quick Start Guide #7295"
+- 2025-09-28T11:17:52Z @tobiu closed this issue
+- 2025-09-28T11:23:43Z @tobiu reopened this issue
+- 2025-09-28T11:23:54Z @tobiu referenced in commit `c2a83be` - "Update AI Quick Start Guide #7295"
+- 2025-09-28T11:23:59Z @tobiu closed this issue
 

@@ -29,9 +29,9 @@ Also update JSDoc to reflect that `Object` is a valid type for these configs.
 
 ## Timeline
 
-- 2025-12-01 @tobiu added the `ai` label
-- 2025-12-01 @tobiu added the `refactoring` label
-- 2025-12-01 @tobiu assigned to @tobiu
-- 2025-12-01 @tobiu closed this issue
-- 2025-12-01 @tobiu referenced in commit `a4e04c1` - "refactor #7974 Loop configs to be reactive"
+- 2025-12-01T17:40:23Z @tobiu added the `ai` label
+- 2025-12-01T17:40:24Z @tobiu added the `refactoring` label
+- 2025-12-01T17:41:50Z @tobiu assigned to @tobiu
+- 2025-12-01T17:41:52Z @tobiu closed this issue
+- 2025-12-01T17:44:35Z @tobiu referenced in commit `a4e04c1` - "refactor #7974 Loop configs to be reactive"
 

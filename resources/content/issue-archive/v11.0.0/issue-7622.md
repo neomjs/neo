@@ -51,9 +51,9 @@ This new, two-step workflow (`create_issue` then `sync_all`) will be a reliable,
 
 ## Timeline
 
-- 2025-10-23 @tobiu assigned to @tobiu
-- 2025-10-23 @tobiu added the `enhancement` label
-- 2025-10-23 @tobiu added the `ai` label
-- 2025-10-23 @tobiu referenced in commit `07f07f1` - "Create MCP Tool for GitHub Issue Creation #7622"
-- 2025-10-23 @tobiu closed this issue
+- 2025-10-23T14:11:44Z @tobiu assigned to @tobiu
+- 2025-10-23T14:11:46Z @tobiu added the `enhancement` label
+- 2025-10-23T14:11:46Z @tobiu added the `ai` label
+- 2025-10-23T14:12:31Z @tobiu referenced in commit `07f07f1` - "Create MCP Tool for GitHub Issue Creation #7622"
+- 2025-10-23T14:12:51Z @tobiu closed this issue
 

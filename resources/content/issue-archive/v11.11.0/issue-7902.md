@@ -46,9 +46,9 @@ closedAt: '2025-11-25T15:33:44Z'
 
 ## Timeline
 
-- 2025-11-25 @tobiu added the `ai` label
-- 2025-11-25 @tobiu added the `refactoring` label
-- 2025-11-25 @tobiu assigned to @tobiu
-- 2025-11-25 @tobiu referenced in commit `c14cbc7` - "Refactor Knowledge Base parsing logic into domain-specific Singletons #7902"
-- 2025-11-25 @tobiu closed this issue
+- 2025-11-25T14:57:36Z @tobiu added the `ai` label
+- 2025-11-25T14:57:36Z @tobiu added the `refactoring` label
+- 2025-11-25T15:00:41Z @tobiu assigned to @tobiu
+- 2025-11-25T15:33:23Z @tobiu referenced in commit `c14cbc7` - "Refactor Knowledge Base parsing logic into domain-specific Singletons #7902"
+- 2025-11-25T15:33:44Z @tobiu closed this issue
 

@@ -38,25 +38,25 @@ To ensure all contributors have a consistent and functional environment for usin
 
 ## Timeline
 
-- 2025-10-05 @tobiu added the `enhancement` label
-- 2025-10-05 @tobiu added the `help wanted` label
-- 2025-10-05 @tobiu added the `good first issue` label
-- 2025-10-05 @tobiu added the `hacktoberfest` label
-- 2025-10-05 @tobiu added the `ai` label
-- 2025-10-05 @tobiu added parent issue #7364
-### @LemonDrop847 - 2025-10-05 16:09
+- 2025-10-05T15:57:45Z @tobiu added the `enhancement` label
+- 2025-10-05T15:57:45Z @tobiu added the `help wanted` label
+- 2025-10-05T15:57:45Z @tobiu added the `good first issue` label
+- 2025-10-05T15:57:45Z @tobiu added the `hacktoberfest` label
+- 2025-10-05T15:57:45Z @tobiu added the `ai` label
+- 2025-10-05T15:57:45Z @tobiu added parent issue #7364
+### @LemonDrop847 - 2025-10-05T16:09:00Z
 
 would like to try this
 
-- 2025-10-05 @tobiu assigned to @LemonDrop847
-### @tobiu - 2025-10-05 16:09
+- 2025-10-05T16:09:32Z @tobiu assigned to @LemonDrop847
+### @tobiu - 2025-10-05T16:09:40Z
 
 thx! assigned.
 
-- 2025-10-05 @LemonDrop847 cross-referenced by PR #7382
-### @tobiu - 2025-10-13 21:15
+- 2025-10-05T16:34:20Z @LemonDrop847 cross-referenced by PR #7382
+### @tobiu - 2025-10-13T21:15:31Z
 
 closing the ticket as resolved.
 
-- 2025-10-13 @tobiu closed this issue
+- 2025-10-13T21:15:31Z @tobiu closed this issue
 

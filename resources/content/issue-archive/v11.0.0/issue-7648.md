@@ -37,9 +37,9 @@ This ensures that agent comments are consistently well-formatted, improving read
 
 ## Timeline
 
-- 2025-10-25 @tobiu added the `enhancement` label
-- 2025-10-25 @tobiu added the `ai` label
-- 2025-10-25 @tobiu assigned to @tobiu
-- 2025-10-25 @tobiu referenced in commit `3d70e63` - "Feat: Improve Agent Comment Formatting with Markdown Headings #7648"
-- 2025-10-25 @tobiu closed this issue
+- 2025-10-25T15:53:24Z @tobiu added the `enhancement` label
+- 2025-10-25T15:53:25Z @tobiu added the `ai` label
+- 2025-10-25T15:53:49Z @tobiu assigned to @tobiu
+- 2025-10-25T15:54:16Z @tobiu referenced in commit `3d70e63` - "Feat: Improve Agent Comment Formatting with Markdown Headings #7648"
+- 2025-10-25T15:54:31Z @tobiu closed this issue
 

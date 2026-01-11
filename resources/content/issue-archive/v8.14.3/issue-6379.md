@@ -25,8 +25,8 @@ closedAt: '2025-02-04T15:28:47Z'
 
 ## Timeline
 
-- 2025-02-04 @tobiu added the `enhancement` label
-- 2025-02-04 @tobiu assigned to @tobiu
-- 2025-02-04 @tobiu referenced in commit `4c62361` - "draggable.toolbar.DragZone: onItemInsert() => use the wrapperCls instead of class #6379"
-- 2025-02-04 @tobiu closed this issue
+- 2025-02-04T15:14:26Z @tobiu added the `enhancement` label
+- 2025-02-04T15:14:26Z @tobiu assigned to @tobiu
+- 2025-02-04T15:15:19Z @tobiu referenced in commit `4c62361` - "draggable.toolbar.DragZone: onItemInsert() => use the wrapperCls instead of class #6379"
+- 2025-02-04T15:28:48Z @tobiu closed this issue
 

@@ -32,14 +32,14 @@ Once all unit tests have been migrated to the Playwright runner, their value as 
 
 ## Timeline
 
-- 2025-09-27 @tobiu added the `enhancement` label
-- 2025-09-27 @tobiu added parent issue #7262
-- 2025-09-27 @tobiu assigned to @tobiu
-### @tobiu - 2025-11-04 10:55
+- 2025-09-27T12:05:33Z @tobiu added the `enhancement` label
+- 2025-09-27T12:05:33Z @tobiu added parent issue #7262
+- 2025-09-27T12:34:13Z @tobiu assigned to @tobiu
+### @tobiu - 2025-11-04T10:55:51Z
 
 detaching the ticket from the epic.
 
-- 2025-11-04 @tobiu added the `no auto close` label
-- 2025-11-04 @tobiu added the `ai` label
-- 2025-11-04 @tobiu removed parent issue #7262
+- 2025-11-04T10:56:04Z @tobiu added the `no auto close` label
+- 2025-11-04T10:56:04Z @tobiu added the `ai` label
+- 2025-11-04T10:56:16Z @tobiu removed parent issue #7262
 

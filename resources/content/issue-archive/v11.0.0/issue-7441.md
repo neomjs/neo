@@ -40,16 +40,16 @@ This task is to migrate the component test for `component/DateSelector.mjs` from
 
 ## Timeline
 
-- 2025-10-10 @tobiu added the `enhancement` label
-- 2025-10-10 @tobiu added the `help wanted` label
-- 2025-10-10 @tobiu added parent issue #7435
-- 2025-10-10 @tobiu added the `hacktoberfest` label
-- 2025-10-10 @tobiu added the `ai` label
-### @Mahita07 - 2025-10-11 11:32
+- 2025-10-10T16:53:30Z @tobiu added the `enhancement` label
+- 2025-10-10T16:53:30Z @tobiu added the `help wanted` label
+- 2025-10-10T16:53:30Z @tobiu added parent issue #7435
+- 2025-10-10T16:53:31Z @tobiu added the `hacktoberfest` label
+- 2025-10-10T16:53:31Z @tobiu added the `ai` label
+### @Mahita07 - 2025-10-11T11:32:25Z
 
 @tobiu could you please assign this issue to me ?
 
-### @tobiu - 2025-10-11 11:48
+### @tobiu - 2025-10-11T11:48:04Z
 
 Sure, for this one you should sync with @Aki-07, since he is working on the harness. Before the harness is completed, you can not start. If you want to work on something else right away, you could e.g. create a couple new unit testing subs.
 
@@ -60,9 +60,9 @@ Spontaneous ideas (each file would need its own ticket):
     -   `Neo.util.Date`
     -   `Neo.util.Matrix`
 
-- 2025-10-11 @tobiu assigned to @Mahita07
-- 2025-11-04 @tobiu unassigned from @Mahita07
-- 2025-11-04 @tobiu assigned to @tobiu
-- 2025-11-04 @tobiu referenced in commit `a7b185b` - "Convert Component Test component/DateSelector.mjs to Playwright #7441"
-- 2025-11-04 @tobiu closed this issue
+- 2025-10-11T11:48:14Z @tobiu assigned to @Mahita07
+- 2025-11-04T19:30:13Z @tobiu unassigned from @Mahita07
+- 2025-11-04T19:30:13Z @tobiu assigned to @tobiu
+- 2025-11-04T19:30:39Z @tobiu referenced in commit `a7b185b` - "Convert Component Test component/DateSelector.mjs to Playwright #7441"
+- 2025-11-04T19:30:51Z @tobiu closed this issue
 

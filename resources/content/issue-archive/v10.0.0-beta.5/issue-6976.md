@@ -25,11 +25,11 @@ closedAt: '2025-07-07T12:17:56Z'
 
 ## Timeline
 
-- 2025-07-07 @tobiu assigned to @tobiu
-- 2025-07-07 @tobiu added the `enhancement` label
-- 2025-07-07 @tobiu referenced in commit `9c42cf4` - "button.Effect#getVdomConfig(): Add id & style #6976"
-- 2025-07-07 @tobiu closed this issue
-- 2025-07-07 @tobiu reopened this issue
-- 2025-07-07 @tobiu closed this issue
-- 2025-07-09 @tobiu referenced in commit `77717a0` - "button.Effect#getVdomConfig(): Add id & style #6976"
+- 2025-07-07T12:17:26Z @tobiu assigned to @tobiu
+- 2025-07-07T12:17:26Z @tobiu added the `enhancement` label
+- 2025-07-07T12:17:48Z @tobiu referenced in commit `9c42cf4` - "button.Effect#getVdomConfig(): Add id & style #6976"
+- 2025-07-07T12:17:50Z @tobiu closed this issue
+- 2025-07-07T12:17:51Z @tobiu reopened this issue
+- 2025-07-07T12:17:56Z @tobiu closed this issue
+- 2025-07-09T00:10:50Z @tobiu referenced in commit `77717a0` - "button.Effect#getVdomConfig(): Add id & style #6976"
 

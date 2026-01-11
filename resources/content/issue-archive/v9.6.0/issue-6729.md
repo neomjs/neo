@@ -26,8 +26,8 @@ closedAt: '2025-05-29T11:12:13Z'
 
 ## Timeline
 
-- 2025-05-29 @tobiu assigned to @tobiu
-- 2025-05-29 @tobiu added the `enhancement` label
-- 2025-05-29 @tobiu referenced in commit `f70b268` - "worker.App: importApp() => enhance webpackExclude #6729"
-- 2025-05-29 @tobiu closed this issue
+- 2025-05-29T11:11:24Z @tobiu assigned to @tobiu
+- 2025-05-29T11:11:26Z @tobiu added the `enhancement` label
+- 2025-05-29T11:11:54Z @tobiu referenced in commit `f70b268` - "worker.App: importApp() => enhance webpackExclude #6729"
+- 2025-05-29T11:12:14Z @tobiu closed this issue
 

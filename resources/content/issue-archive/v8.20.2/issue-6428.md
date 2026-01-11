@@ -25,8 +25,8 @@ closedAt: '2025-02-09T21:52:18Z'
 
 ## Timeline
 
-- 2025-02-09 @tobiu added the `enhancement` label
-- 2025-02-09 @tobiu assigned to @tobiu
-- 2025-02-09 @tobiu referenced in commit `f29c5cc` - "examples.grid.bigData.GridContainer: use an index renderer for the id column #6428"
-- 2025-02-09 @tobiu closed this issue
+- 2025-02-09T21:50:15Z @tobiu added the `enhancement` label
+- 2025-02-09T21:50:15Z @tobiu assigned to @tobiu
+- 2025-02-09T21:50:29Z @tobiu referenced in commit `f29c5cc` - "examples.grid.bigData.GridContainer: use an index renderer for the id column #6428"
+- 2025-02-09T21:52:19Z @tobiu closed this issue
 

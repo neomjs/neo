@@ -31,13 +31,13 @@ This epic covers the work to enhance the OpenAPI specification for the Knowledge
 
 ## Timeline
 
-- 2025-10-27 @tobiu added the `documentation` label
-- 2025-10-27 @tobiu added the `epic` label
-- 2025-10-27 @tobiu added the `ai` label
-- 2025-10-27 @tobiu cross-referenced by #7669
-- 2025-10-27 @tobiu cross-referenced by #7670
-- 2025-10-27 @tobiu added sub-issue #7669
-- 2025-10-27 @tobiu assigned to @tobiu
-- 2025-10-27 @tobiu added sub-issue #7670
-- 2025-10-27 @tobiu closed this issue
+- 2025-10-27T08:50:15Z @tobiu added the `documentation` label
+- 2025-10-27T08:50:16Z @tobiu added the `epic` label
+- 2025-10-27T08:50:16Z @tobiu added the `ai` label
+- 2025-10-27T08:50:44Z @tobiu cross-referenced by #7669
+- 2025-10-27T08:50:59Z @tobiu cross-referenced by #7670
+- 2025-10-27T08:51:51Z @tobiu added sub-issue #7669
+- 2025-10-27T08:51:57Z @tobiu assigned to @tobiu
+- 2025-10-27T08:52:23Z @tobiu added sub-issue #7670
+- 2025-10-27T09:06:19Z @tobiu closed this issue
 

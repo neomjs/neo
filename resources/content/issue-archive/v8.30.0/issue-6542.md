@@ -28,7 +28,7 @@ to the component as a property. By default, as 'record', but this config can cha
 
 ## Timeline
 
-- 2025-03-04 @tobiu added the `enhancement` label
-- 2025-03-04 @tobiu referenced in commit `2614a87` - "grid.column.Component: recordProperty config #6542"
-- 2025-03-04 @tobiu closed this issue
+- 2025-03-04T18:19:58Z @tobiu added the `enhancement` label
+- 2025-03-04T18:20:15Z @tobiu referenced in commit `2614a87` - "grid.column.Component: recordProperty config #6542"
+- 2025-03-04T18:20:27Z @tobiu closed this issue
 

@@ -32,13 +32,13 @@ closedAt: '2025-04-16T22:38:29Z'
 
 ## Timeline
 
-- 2025-04-16 @tobiu added the `bug` label
-- 2025-04-16 @tobiu assigned to @tobiu
-- 2025-04-16 @tobiu referenced in commit `1b0a079` - "#6659 workaround fix"
-### @tobiu - 2025-04-16 22:38
+- 2025-04-16T16:37:25Z @tobiu added the `bug` label
+- 2025-04-16T16:37:25Z @tobiu assigned to @tobiu
+- 2025-04-16T22:37:14Z @tobiu referenced in commit `1b0a079` - "#6659 workaround fix"
+### @tobiu - 2025-04-16T22:38:29Z
 
 i will close this one for now, but cycling components needs a follow-up ticket.
 
-- 2025-04-16 @tobiu closed this issue
-- 2026-01-09 @tobiu cross-referenced by #8475
+- 2025-04-16T22:38:29Z @tobiu closed this issue
+- 2026-01-09T16:57:02Z @tobiu cross-referenced by #8475
 

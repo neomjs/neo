@@ -25,8 +25,8 @@ closedAt: '2025-05-02T16:38:44Z'
 
 ## Timeline
 
-- 2025-05-02 @tobiu added the `bug` label
-- 2025-05-02 @tobiu assigned to @tobiu
-- 2025-05-02 @tobiu referenced in commit `eb18e73` - "selection.Model: select() => mapped items got lost #6688"
-- 2025-05-02 @tobiu closed this issue
+- 2025-05-02T16:38:04Z @tobiu added the `bug` label
+- 2025-05-02T16:38:05Z @tobiu assigned to @tobiu
+- 2025-05-02T16:38:35Z @tobiu referenced in commit `eb18e73` - "selection.Model: select() => mapped items got lost #6688"
+- 2025-05-02T16:38:44Z @tobiu closed this issue
 

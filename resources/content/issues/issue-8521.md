@@ -33,18 +33,18 @@ Replace the icon-swapping behavior (plus -> minus) for the Markdown frontmatter 
 
 ## Timeline
 
-- 2026-01-10 @tobiu added the `enhancement` label
-- 2026-01-10 @tobiu added the `design` label
-- 2026-01-10 @tobiu added the `ai` label
-- 2026-01-10 @tobiu added parent issue #8398
-- 2026-01-10 @tobiu assigned to @tobiu
-- 2026-01-10 @tobiu referenced in commit `6343125` - "feat: Animate Markdown frontmatter icon rotation (#8521)"
-### @tobiu - 2026-01-10 20:06
+- 2026-01-10T20:04:59Z @tobiu added the `enhancement` label
+- 2026-01-10T20:04:59Z @tobiu added the `design` label
+- 2026-01-10T20:04:59Z @tobiu added the `ai` label
+- 2026-01-10T20:05:07Z @tobiu added parent issue #8398
+- 2026-01-10T20:05:14Z @tobiu assigned to @tobiu
+- 2026-01-10T20:06:17Z @tobiu referenced in commit `6343125` - "feat: Animate Markdown frontmatter icon rotation (#8521)"
+### @tobiu - 2026-01-10T20:06:25Z
 
 **Input from Gemini 3 Pro:**
 
 > ✦ I have implemented the rotation animation. The "plus" icon now rotates 45 degrees to become an "X" when the section is expanded, with a 300ms transition to match the content reveal.
 > Changes pushed to `dev`.
 
-- 2026-01-10 @tobiu closed this issue
+- 2026-01-10T20:06:48Z @tobiu closed this issue
 

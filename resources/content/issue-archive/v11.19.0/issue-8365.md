@@ -37,10 +37,10 @@ Integrate `createReleaseIndex` into the release preparation workflow and fix `ge
 
 ## Timeline
 
-- 2026-01-06 @tobiu added the `bug` label
-- 2026-01-06 @tobiu added the `enhancement` label
-- 2026-01-06 @tobiu added the `build` label
-- 2026-01-06 @tobiu assigned to @tobiu
-- 2026-01-06 @tobiu referenced in commit `50cba68` - "Integrate Release Index Generation into Release Workflow and Fix SEO Script #8365"
-- 2026-01-06 @tobiu closed this issue
+- 2026-01-06T15:31:23Z @tobiu added the `bug` label
+- 2026-01-06T15:31:23Z @tobiu added the `enhancement` label
+- 2026-01-06T15:31:23Z @tobiu added the `build` label
+- 2026-01-06T15:32:35Z @tobiu assigned to @tobiu
+- 2026-01-06T15:36:09Z @tobiu referenced in commit `50cba68` - "Integrate Release Index Generation into Release Workflow and Fix SEO Script #8365"
+- 2026-01-06T15:36:20Z @tobiu closed this issue
 

@@ -24,8 +24,8 @@ closedAt: '2025-03-09T18:01:10Z'
 
 ## Timeline
 
-- 2025-03-08 @tobiu added the `enhancement` label
-- 2025-03-08 @tobiu referenced in commit `8fa4d9d` - "#6548 examples.grid.animatedRowSorting: first setup"
-- 2025-03-08 @tobiu referenced in commit `6f4ee70` - "#6548 examples.grid.animatedRowSorting: viewConfig"
-- 2025-03-09 @tobiu closed this issue
+- 2025-03-08T21:33:03Z @tobiu added the `enhancement` label
+- 2025-03-08T21:33:31Z @tobiu referenced in commit `8fa4d9d` - "#6548 examples.grid.animatedRowSorting: first setup"
+- 2025-03-08T23:36:45Z @tobiu referenced in commit `6f4ee70` - "#6548 examples.grid.animatedRowSorting: viewConfig"
+- 2025-03-09T18:01:10Z @tobiu closed this issue
 

@@ -49,9 +49,9 @@ Extracting the VDOM logic from `component.Base` into `Neo.mixin.VdomLifecycle` i
 
 ## Timeline
 
-- 2025-07-09 @tobiu added parent issue #6992
-- 2025-07-09 @tobiu added the `enhancement` label
-- 2025-07-11 @tobiu changed title from **Create `Neo.mixin.VdomLifecycle`** to **Create `Neo.component.mixin.VdomLifecycle`**
-- 2025-07-11 @tobiu referenced in commit `ac2b5b8` - "Create Neo.component.mixin.VdomLifecycle #6993"
-- 2025-07-11 @tobiu closed this issue
+- 2025-07-09T10:52:01Z @tobiu added parent issue #6992
+- 2025-07-09T10:52:02Z @tobiu added the `enhancement` label
+- 2025-07-11T00:04:42Z @tobiu changed title from **Create `Neo.mixin.VdomLifecycle`** to **Create `Neo.component.mixin.VdomLifecycle`**
+- 2025-07-11T00:06:22Z @tobiu referenced in commit `ac2b5b8` - "Create Neo.component.mixin.VdomLifecycle #6993"
+- 2025-07-11T00:06:26Z @tobiu closed this issue
 

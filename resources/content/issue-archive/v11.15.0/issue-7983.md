@@ -35,12 +35,12 @@ References:
 
 ## Timeline
 
-- 2025-12-02 @tobiu added the `bug` label
-- 2025-12-02 @tobiu added the `ai` label
-- 2025-12-02 @tobiu assigned to @tobiu
-- 2025-12-02 @tobiu referenced in commit `208a6bc` - "Sanitize commander inputs in buildScripts/buildThemes.mjs #7983"
-- 2025-12-02 @tobiu closed this issue
-### @tobiu - 2025-12-02 18:04
+- 2025-12-02T17:42:04Z @tobiu added the `bug` label
+- 2025-12-02T17:42:04Z @tobiu added the `ai` label
+- 2025-12-02T18:03:25Z @tobiu assigned to @tobiu
+- 2025-12-02T18:03:50Z @tobiu referenced in commit `208a6bc` - "Sanitize commander inputs in buildScripts/buildThemes.mjs #7983"
+- 2025-12-02T18:03:57Z @tobiu closed this issue
+### @tobiu - 2025-12-02T18:04:05Z
 
 **Input from Gemini Agent:**
 

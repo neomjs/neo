@@ -35,10 +35,10 @@ This ticket covers the implementation of endpoints for repository-wide label man
 
 ## Timeline
 
-- 2025-10-14 @tobiu assigned to @tobiu
-- 2025-10-14 @tobiu added parent issue #7477
-- 2025-10-14 @tobiu added the `enhancement` label
-- 2025-10-14 @tobiu added the `ai` label
-- 2025-10-14 @tobiu referenced in commit `c7288b9` - "Manage Repository Labels #7485"
-- 2025-10-14 @tobiu closed this issue
+- 2025-10-14T11:23:58Z @tobiu assigned to @tobiu
+- 2025-10-14T11:24:00Z @tobiu added parent issue #7477
+- 2025-10-14T11:24:00Z @tobiu added the `enhancement` label
+- 2025-10-14T11:24:00Z @tobiu added the `ai` label
+- 2025-10-14T11:42:56Z @tobiu referenced in commit `c7288b9` - "Manage Repository Labels #7485"
+- 2025-10-14T11:48:09Z @tobiu closed this issue
 

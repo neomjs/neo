@@ -26,13 +26,13 @@ closedAt: '2025-02-18T15:17:46Z'
 
 ## Timeline
 
-- 2025-02-17 @tobiu added the `enhancement` label
-- 2025-02-17 @tobiu assigned to @tobiu
-- 2025-02-17 @tobiu referenced in commit `7a61cbe` - "grid.View: scrollByRows() #6461 WIP"
-### @tobiu - 2025-02-17 17:15
+- 2025-02-17T17:14:09Z @tobiu added the `enhancement` label
+- 2025-02-17T17:14:09Z @tobiu assigned to @tobiu
+- 2025-02-17T17:14:40Z @tobiu referenced in commit `7a61cbe` - "grid.View: scrollByRows() #6461 WIP"
+### @tobiu - 2025-02-17T17:15:54Z
 
 I got pretty close. Still need to handle the edge case when navigating downwards from the last row => selecting & navigating to the first one.
 
-- 2025-02-18 @tobiu referenced in commit `3e248e0` - "grid.View: scrollByRows() #6461"
-- 2025-02-18 @tobiu closed this issue
+- 2025-02-18T15:14:22Z @tobiu referenced in commit `3e248e0` - "grid.View: scrollByRows() #6461"
+- 2025-02-18T15:17:46Z @tobiu closed this issue
 

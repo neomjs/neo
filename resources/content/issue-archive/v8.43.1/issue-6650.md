@@ -55,10 +55,10 @@ https://github.com/neomjs/neo/blob/42029c4405b6a5c1189fb5ad641672db584eccc1/src/
 
 ## Timeline
 
-- 2025-04-15 @gplanansky added the `bug` label
-- 2025-04-15 @tobiu assigned to @tobiu
-- 2025-04-15 @tobiu referenced in commit `b115bde` - "neo/examples/stateProvider/Table.mjs invokes onStoreLoad _twice_ ?? #6650"
-### @tobiu - 2025-04-15 08:51
+- 2025-04-15T08:09:08Z @gplanansky added the `bug` label
+- 2025-04-15T08:48:02Z @tobiu assigned to @tobiu
+- 2025-04-15T08:48:16Z @tobiu referenced in commit `b115bde` - "neo/examples/stateProvider/Table.mjs invokes onStoreLoad _twice_ ?? #6650"
+### @tobiu - 2025-04-15T08:51:30Z
 
 Hi @gplanansky,
 
@@ -71,9 +71,9 @@ https://github.com/neomjs/neo/blob/dev/src/data/Store.mjs#L435
 * so, `beforeSetStore()` inside the table container no longer needs to to this as well.
 * double-checked the grid, and it was already adjusted there.
 
-- 2025-04-15 @tobiu closed this issue
-- 2025-04-15 @tobiu referenced in commit `01b7f68` - "#6650 removed testing log"
-### @gplanansky - 2025-04-15 16:38
+- 2025-04-15T08:51:31Z @tobiu closed this issue
+- 2025-04-15T08:52:21Z @tobiu referenced in commit `01b7f68` - "#6650 removed testing log"
+### @gplanansky - 2025-04-15T16:38:52Z
 
 Thanks.  Debugging a data app's event-triggered reload logic, which I use a lot,  gets confounded if core store / table  have their own bug.  I could see the trace going through beforeSetStore, but didn't sort it out.
 

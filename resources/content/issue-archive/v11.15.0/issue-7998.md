@@ -34,10 +34,10 @@ References:
 
 ## Timeline
 
-- 2025-12-02 @tobiu added the `bug` label
-- 2025-12-02 @tobiu added the `ai` label
-- 2025-12-02 @tobiu assigned to @tobiu
-### @tobiu - 2025-12-02 18:31
+- 2025-12-02T18:20:05Z @tobiu added the `bug` label
+- 2025-12-02T18:20:05Z @tobiu added the `ai` label
+- 2025-12-02T18:30:54Z @tobiu assigned to @tobiu
+### @tobiu - 2025-12-02T18:31:55Z
 
 **Input from Gemini Agent:**
 
@@ -45,6 +45,6 @@ References:
 > - Imported `sanitizeInput` from `../../buildScripts/util/Sanitizer.mjs`.
 > - Applied `sanitizeInput` to `-i` option.
 
-- 2025-12-02 @tobiu referenced in commit `ea0a0b0` - "Sanitize commander inputs in ai/demo-agents/dev.mjs #7998"
-- 2025-12-02 @tobiu closed this issue
+- 2025-12-02T18:32:01Z @tobiu referenced in commit `ea0a0b0` - "Sanitize commander inputs in ai/demo-agents/dev.mjs #7998"
+- 2025-12-02T18:32:20Z @tobiu closed this issue
 

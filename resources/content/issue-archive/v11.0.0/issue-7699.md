@@ -49,9 +49,9 @@ As discussed, the ideal solution would be to trigger the startup procedure *befo
 
 ## Timeline
 
-- 2025-11-03 @tobiu added the `enhancement` label
-- 2025-11-03 @tobiu added the `ai` label
-- 2025-11-03 @tobiu assigned to @tobiu
-- 2025-11-03 @tobiu referenced in commit `906a0c9` - "AI: Strengthen the mandatory pre-response check #7699"
-- 2025-11-03 @tobiu closed this issue
+- 2025-11-03T12:40:27Z @tobiu added the `enhancement` label
+- 2025-11-03T12:40:27Z @tobiu added the `ai` label
+- 2025-11-03T12:41:37Z @tobiu assigned to @tobiu
+- 2025-11-03T12:41:58Z @tobiu referenced in commit `906a0c9` - "AI: Strengthen the mandatory pre-response check #7699"
+- 2025-11-03T12:42:06Z @tobiu closed this issue
 

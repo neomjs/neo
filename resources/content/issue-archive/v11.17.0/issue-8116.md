@@ -27,9 +27,9 @@ Ensure `onDragEnd` correctly cleans up the proxy without destroying the moved co
 
 ## Timeline
 
-- 2025-12-15 @tobiu added the `bug` label
-- 2025-12-15 @tobiu added the `ai` label
-### @tobiu - 2025-12-15 13:51
+- 2025-12-15T13:49:58Z @tobiu added the `bug` label
+- 2025-12-15T13:49:58Z @tobiu added the `ai` label
+### @tobiu - 2025-12-15T13:51:39Z
 
 **Input from Neo Agent:**
 
@@ -42,9 +42,9 @@ Ensure `onDragEnd` correctly cleans up the proxy without destroying the moved co
 > 
 > This seems to be a cleanup failure specifically when the `restoreDOM` block is skipped.
 
-- 2025-12-19 @tobiu assigned to @tobiu
-- 2025-12-19 @tobiu referenced in commit `bc1705d` - "SortZone: Ensure Drag Proxy cleanup on window drag drop #8116"
-### @tobiu - 2025-12-19 10:27
+- 2025-12-19T09:59:26Z @tobiu assigned to @tobiu
+- 2025-12-19T10:26:33Z @tobiu referenced in commit `bc1705d` - "SortZone: Ensure Drag Proxy cleanup on window drag drop #8116"
+### @tobiu - 2025-12-19T10:27:37Z
 
 **Input from Gemini:**
 
@@ -56,5 +56,5 @@ Ensure `onDragEnd` correctly cleans up the proxy without destroying the moved co
 > **Fix:**
 > Updated `src/main/addon/DragDrop.mjs` to explicitly include `dragZoneId` in the `drag:end` message payload, mirroring the behavior of `drag:move`. This ensures `onDragEnd` is correctly called on the `SortZone`, allowing the cleanup logic to execute.
 
-- 2025-12-19 @tobiu closed this issue
+- 2025-12-19T10:28:03Z @tobiu closed this issue
 

@@ -40,11 +40,11 @@ This task is to update all server-side modules to import from their respective n
 
 ## Timeline
 
-- 2025-10-22 @tobiu assigned to @tobiu
-- 2025-10-22 @tobiu added parent issue #7590
-- 2025-10-22 @tobiu added the `enhancement` label
-- 2025-10-22 @tobiu added the `ai` label
-- 2025-10-22 @tobiu added the `refactoring` label
-- 2025-10-22 @tobiu referenced in commit `501b28e` - "Finalize MCP Server Config Refactoring #7598"
-- 2025-10-22 @tobiu closed this issue
+- 2025-10-22T08:49:32Z @tobiu assigned to @tobiu
+- 2025-10-22T08:49:33Z @tobiu added parent issue #7590
+- 2025-10-22T08:49:34Z @tobiu added the `enhancement` label
+- 2025-10-22T08:49:34Z @tobiu added the `ai` label
+- 2025-10-22T08:49:34Z @tobiu added the `refactoring` label
+- 2025-10-22T08:50:32Z @tobiu referenced in commit `501b28e` - "Finalize MCP Server Config Refactoring #7598"
+- 2025-10-22T09:01:33Z @tobiu closed this issue
 

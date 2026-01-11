@@ -34,11 +34,11 @@ We need to refactor this to align with our project conventions.
 
 ## Timeline
 
-- 2025-10-27 @tobiu added the `enhancement` label
-- 2025-10-27 @tobiu added the `ai` label
-- 2025-10-27 @tobiu added the `refactoring` label
-- 2025-10-27 @tobiu cross-referenced by PR #7533
-- 2025-10-27 @tobiu assigned to @tobiu
-- 2025-10-27 @tobiu referenced in commit `aa2bb05` - "Refactor: Standardize score weights in Knowledge Base config #7673"
-- 2025-10-27 @tobiu closed this issue
+- 2025-10-27T10:59:15Z @tobiu added the `enhancement` label
+- 2025-10-27T10:59:15Z @tobiu added the `ai` label
+- 2025-10-27T10:59:15Z @tobiu added the `refactoring` label
+- 2025-10-27T10:59:26Z @tobiu cross-referenced by PR #7533
+- 2025-10-27T11:06:31Z @tobiu assigned to @tobiu
+- 2025-10-27T11:12:20Z @tobiu referenced in commit `aa2bb05` - "Refactor: Standardize score weights in Knowledge Base config #7673"
+- 2025-10-27T11:12:30Z @tobiu closed this issue
 

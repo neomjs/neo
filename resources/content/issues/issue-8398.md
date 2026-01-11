@@ -67,14 +67,14 @@ blocking: []
 
 ## Timeline
 
-- 2026-01-07 @tobiu added the `documentation` label
-- 2026-01-07 @tobiu added the `enhancement` label
-- 2026-01-07 @tobiu added the `epic` label
-- 2026-01-07 @tobiu added the `ai` label
-- 2026-01-07 @tobiu assigned to @tobiu
-- 2026-01-10 @tobiu cross-referenced by #8501
-- 2026-01-10 @tobiu added sub-issue #8501
-### @tobiu - 2026-01-10 14:32
+- 2026-01-07T21:26:29Z @tobiu added the `documentation` label
+- 2026-01-07T21:26:30Z @tobiu added the `enhancement` label
+- 2026-01-07T21:26:30Z @tobiu added the `epic` label
+- 2026-01-07T21:26:30Z @tobiu added the `ai` label
+- 2026-01-07T21:27:40Z @tobiu assigned to @tobiu
+- 2026-01-10T14:27:58Z @tobiu cross-referenced by #8501
+- 2026-01-10T14:28:10Z @tobiu added sub-issue #8501
+### @tobiu - 2026-01-10T14:32:26Z
 
 **Input from Gemini 3 Pro:**
 
@@ -82,28 +82,28 @@ blocking: []
 > We now have `apps/portal/resources/data/tickets.json` available for the UI implementation phase.
 > 
 
-- 2026-01-10 @tobiu added sub-issue #8502
-- 2026-01-10 @tobiu added sub-issue #8503
-- 2026-01-10 @tobiu added sub-issue #8504
-- 2026-01-10 @tobiu cross-referenced by #8505
-- 2026-01-10 @tobiu added sub-issue #8505
-- 2026-01-10 @tobiu cross-referenced by #8506
-- 2026-01-10 @tobiu added sub-issue #8506
-- 2026-01-10 @tobiu cross-referenced by #8509
-- 2026-01-10 @tobiu added sub-issue #8509
-- 2026-01-10 @tobiu added sub-issue #8511
-- 2026-01-10 @tobiu cross-referenced by #8514
-- 2026-01-10 @tobiu added sub-issue #8520
-- 2026-01-10 @tobiu added sub-issue #8521
-- 2026-01-10 @tobiu added sub-issue #8522
-- 2026-01-10 @tobiu added sub-issue #8523
-- 2026-01-10 @tobiu referenced in commit `1208fa3` - "feat: Support internal routing for Markdown ticket links (#8398)
+- 2026-01-10T14:41:22Z @tobiu added sub-issue #8502
+- 2026-01-10T14:54:39Z @tobiu added sub-issue #8503
+- 2026-01-10T15:00:26Z @tobiu added sub-issue #8504
+- 2026-01-10T15:32:33Z @tobiu cross-referenced by #8505
+- 2026-01-10T15:32:44Z @tobiu added sub-issue #8505
+- 2026-01-10T15:37:45Z @tobiu cross-referenced by #8506
+- 2026-01-10T15:38:11Z @tobiu added sub-issue #8506
+- 2026-01-10T16:59:26Z @tobiu cross-referenced by #8509
+- 2026-01-10T16:59:34Z @tobiu added sub-issue #8509
+- 2026-01-10T17:43:12Z @tobiu added sub-issue #8511
+- 2026-01-10T18:27:46Z @tobiu cross-referenced by #8514
+- 2026-01-10T20:00:12Z @tobiu added sub-issue #8520
+- 2026-01-10T20:05:07Z @tobiu added sub-issue #8521
+- 2026-01-10T20:09:40Z @tobiu added sub-issue #8522
+- 2026-01-10T20:18:21Z @tobiu added sub-issue #8523
+- 2026-01-10T21:02:06Z @tobiu referenced in commit `1208fa3` - "feat: Support internal routing for Markdown ticket links (#8398)
 
 Updates Markdown component to respect local routing for ticket IDs if the configured issuesUrl starts with #."
-- 2026-01-10 @tobiu added sub-issue #8524
-- 2026-01-10 @tobiu added sub-issue #8525
-- 2026-01-10 @tobiu added sub-issue #8526
-- 2026-01-10 @tobiu added sub-issue #8529
-- 2026-01-10 @tobiu added sub-issue #8530
-- 2026-01-11 @tobiu added sub-issue #8531
+- 2026-01-10T21:18:10Z @tobiu added sub-issue #8524
+- 2026-01-10T21:40:11Z @tobiu added sub-issue #8525
+- 2026-01-10T21:48:30Z @tobiu added sub-issue #8526
+- 2026-01-10T23:07:39Z @tobiu added sub-issue #8529
+- 2026-01-10T23:19:01Z @tobiu added sub-issue #8530
+- 2026-01-11T00:07:16Z @tobiu added sub-issue #8531
 

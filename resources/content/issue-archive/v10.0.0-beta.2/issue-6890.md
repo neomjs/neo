@@ -25,11 +25,11 @@ closedAt: '2025-06-29T00:51:35Z'
 
 ## Timeline
 
-- 2025-06-29 @tobiu assigned to @tobiu
-- 2025-06-29 @tobiu added the `enhancement` label
-- 2025-06-29 @tobiu referenced in commit `1b0f60e` - "Learning Content: Main Thread Addons #6890 WIP"
-- 2025-06-29 @tobiu closed this issue
-- 2025-06-29 @tobiu referenced in commit `89816dd` - "Learning Content: Main Thread Addons #6890 WIP"
-- 2025-06-29 @tobiu referenced in commit `8f8ba94` - "Learning Content: Main Thread Addons #6890"
-- 2025-06-29 @tobiu referenced in commit `79a51c2` - "Learning Content: Main Thread Addons #6890 => real todo comment"
+- 2025-06-29T00:51:00Z @tobiu assigned to @tobiu
+- 2025-06-29T00:51:02Z @tobiu added the `enhancement` label
+- 2025-06-29T00:51:25Z @tobiu referenced in commit `1b0f60e` - "Learning Content: Main Thread Addons #6890 WIP"
+- 2025-06-29T00:51:35Z @tobiu closed this issue
+- 2025-06-29T01:31:45Z @tobiu referenced in commit `89816dd` - "Learning Content: Main Thread Addons #6890 WIP"
+- 2025-06-29T01:39:48Z @tobiu referenced in commit `8f8ba94` - "Learning Content: Main Thread Addons #6890"
+- 2025-06-29T01:54:55Z @tobiu referenced in commit `79a51c2` - "Learning Content: Main Thread Addons #6890 => real todo comment"
 

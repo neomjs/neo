@@ -31,8 +31,8 @@ This ticket covers a series of enhancements to the `learn/comparisons/NeoVsVue.m
 
 ## Timeline
 
-- 2025-07-24 @tobiu assigned to @tobiu
-- 2025-07-24 @tobiu added the `enhancement` label
-- 2025-07-24 @tobiu referenced in commit `5a8ca6e` - "docs: Enhance NeoVsVue.md comparison #7106"
-- 2025-07-24 @tobiu closed this issue
+- 2025-07-24T15:21:06Z @tobiu assigned to @tobiu
+- 2025-07-24T15:21:07Z @tobiu added the `enhancement` label
+- 2025-07-24T15:21:29Z @tobiu referenced in commit `5a8ca6e` - "docs: Enhance NeoVsVue.md comparison #7106"
+- 2025-07-24T15:21:37Z @tobiu closed this issue
 

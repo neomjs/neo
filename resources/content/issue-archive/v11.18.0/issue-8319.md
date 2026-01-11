@@ -29,18 +29,18 @@ Part of Epic #8315.
 
 ## Timeline
 
-- 2026-01-04 @tobiu added the `ai` label
-- 2026-01-04 @tobiu added the `refactoring` label
-- 2026-01-04 @tobiu added parent issue #8315
-- 2026-01-04 @tobiu assigned to @tobiu
-- 2026-01-04 @tobiu referenced in commit `9e77ead` - "Refactor Neural Link tools to reduce MCP tool count (Issue #8319)
+- 2026-01-04T16:24:22Z @tobiu added the `ai` label
+- 2026-01-04T16:24:22Z @tobiu added the `refactoring` label
+- 2026-01-04T16:24:40Z @tobiu added parent issue #8315
+- 2026-01-04T17:18:57Z @tobiu assigned to @tobiu
+- 2026-01-04T17:44:54Z @tobiu referenced in commit `9e77ead` - "Refactor Neural Link tools to reduce MCP tool count (Issue #8319)
 
 - Consolidated start/stop_ws_server into manage_connection
 
 - Consolidated get_vdom/vnode_tree into inspect_component_render_tree
 
 - Consolidated get/set_neo_config into manage_neo_config"
-### @tobiu - 2026-01-04 17:45
+### @tobiu - 2026-01-04T17:45:06Z
 
 **Input from neo-agent:**
 
@@ -51,5 +51,5 @@ Part of Epic #8315.
 > 
 > This completes the last sub-task for Epic #8315. All tool consolidation goals have been met.
 
-- 2026-01-04 @tobiu closed this issue
+- 2026-01-04T17:45:51Z @tobiu closed this issue
 

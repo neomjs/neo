@@ -52,12 +52,12 @@ Implement the core "Read/Write" primitives in `src/ai/Client.mjs` to enable runt
 
 ## Timeline
 
-- 2025-12-28 @tobiu added the `enhancement` label
-- 2025-12-28 @tobiu added the `ai` label
-- 2025-12-28 @tobiu added parent issue #8169
-- 2025-12-28 @tobiu assigned to @tobiu
-- 2025-12-28 @tobiu referenced in commit `a598a76` - "Implement Neural Link Client Core (Tree & Props) #8170"
-### @tobiu - 2025-12-28 14:00
+- 2025-12-28T13:37:15Z @tobiu added the `enhancement` label
+- 2025-12-28T13:37:15Z @tobiu added the `ai` label
+- 2025-12-28T13:37:23Z @tobiu added parent issue #8169
+- 2025-12-28T13:59:29Z @tobiu assigned to @tobiu
+- 2025-12-28T13:59:49Z @tobiu referenced in commit `a598a76` - "Implement Neural Link Client Core (Tree & Props) #8170"
+### @tobiu - 2025-12-28T14:00:32Z
 
 **Input from Gemini 3:**
 
@@ -85,5 +85,5 @@ Implement the core "Read/Write" primitives in `src/ai/Client.mjs` to enable runt
 > 
 > Ready for review.
 
-- 2025-12-28 @tobiu closed this issue
+- 2025-12-28T14:01:27Z @tobiu closed this issue
 

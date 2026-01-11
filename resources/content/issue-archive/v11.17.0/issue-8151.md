@@ -56,11 +56,11 @@ During rapid scrolling, the VDOM Worker would receive updates with conflicting o
 
 ## Timeline
 
-- 2025-12-20 @tobiu added the `bug` label
-- 2025-12-20 @tobiu added the `enhancement` label
-- 2025-12-20 @tobiu added the `ai` label
-- 2025-12-20 @tobiu added the `core` label
-- 2025-12-20 @tobiu assigned to @tobiu
-- 2025-12-20 @tobiu referenced in commit `83c413c` - "https://github.com/neomjs/neo/issues/8151"
-- 2025-12-20 @tobiu closed this issue
+- 2025-12-20T15:06:32Z @tobiu added the `bug` label
+- 2025-12-20T15:06:32Z @tobiu added the `enhancement` label
+- 2025-12-20T15:06:32Z @tobiu added the `ai` label
+- 2025-12-20T15:06:32Z @tobiu added the `core` label
+- 2025-12-20T15:06:52Z @tobiu assigned to @tobiu
+- 2025-12-20T15:09:02Z @tobiu referenced in commit `83c413c` - "https://github.com/neomjs/neo/issues/8151"
+- 2025-12-20T15:09:45Z @tobiu closed this issue
 

@@ -30,9 +30,9 @@ The change was made to the "Check for Memory Core" section (point 6 under "2. Se
 
 ## Timeline
 
-- 2025-11-02 @tobiu added the `documentation` label
-- 2025-11-02 @tobiu added the `ai` label
-- 2025-11-02 @tobiu assigned to @tobiu
-- 2025-11-02 @tobiu referenced in commit `2340298` - "Docs: Clarify First Turn Memory Protocol in AGENTS.md #7692"
-- 2025-11-02 @tobiu closed this issue
+- 2025-11-02T16:56:20Z @tobiu added the `documentation` label
+- 2025-11-02T16:56:20Z @tobiu added the `ai` label
+- 2025-11-02T16:57:11Z @tobiu assigned to @tobiu
+- 2025-11-02T16:57:50Z @tobiu referenced in commit `2340298` - "Docs: Clarify First Turn Memory Protocol in AGENTS.md #7692"
+- 2025-11-02T16:58:07Z @tobiu closed this issue
 

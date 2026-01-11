@@ -33,10 +33,10 @@ During development and testing of the session summarization feature, a utility s
 
 ## Timeline
 
-- 2025-10-05 @tobiu assigned to @tobiu
-- 2025-10-05 @tobiu added parent issue #7316
-- 2025-10-05 @tobiu added the `enhancement` label
-- 2025-10-05 @tobiu added the `ai` label
-- 2025-10-05 @tobiu referenced in commit `76c50be` - "Create clearSummaries.mjs script for development #7363"
-- 2025-10-05 @tobiu closed this issue
+- 2025-10-05T10:02:03Z @tobiu assigned to @tobiu
+- 2025-10-05T10:02:04Z @tobiu added parent issue #7316
+- 2025-10-05T10:02:05Z @tobiu added the `enhancement` label
+- 2025-10-05T10:02:05Z @tobiu added the `ai` label
+- 2025-10-05T10:02:56Z @tobiu referenced in commit `76c50be` - "Create clearSummaries.mjs script for development #7363"
+- 2025-10-05T10:03:06Z @tobiu closed this issue
 

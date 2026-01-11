@@ -34,11 +34,11 @@ Implementation plan:
 
 ## Timeline
 
-- 2025-12-19 @tobiu added the `enhancement` label
-- 2025-12-19 @tobiu added the `ai` label
-- 2025-12-19 @tobiu added the `core` label
-- 2025-12-19 @tobiu assigned to @tobiu
-- 2025-12-19 @tobiu referenced in commit `8582a71` - "Enable ResizeObserver for Canvas and Blackboard auto-resize #8146"
-- 2025-12-19 @tobiu referenced in commit `49eb04a` - "#8146 AgentOS.view.Blackboard: removed the monitorSize config (true is now the default value)"
-- 2025-12-19 @tobiu closed this issue
+- 2025-12-19T16:33:19Z @tobiu added the `enhancement` label
+- 2025-12-19T16:33:19Z @tobiu added the `ai` label
+- 2025-12-19T16:33:19Z @tobiu added the `core` label
+- 2025-12-19T16:34:00Z @tobiu assigned to @tobiu
+- 2025-12-19T16:47:38Z @tobiu referenced in commit `8582a71` - "Enable ResizeObserver for Canvas and Blackboard auto-resize #8146"
+- 2025-12-19T16:49:11Z @tobiu referenced in commit `49eb04a` - "#8146 AgentOS.view.Blackboard: removed the monitorSize config (true is now the default value)"
+- 2025-12-19T16:49:24Z @tobiu closed this issue
 

@@ -36,14 +36,14 @@ The endpoint will allow the agent to submit a comment for a specific pull reques
 
 ## Timeline
 
-- 2025-10-14 @tobiu assigned to @tobiu
-- 2025-10-14 @tobiu added the `enhancement` label
-- 2025-10-14 @tobiu added the `ai` label
-- 2025-10-14 @tobiu added parent issue #7477
-- 2025-10-14 @tobiu referenced in commit `1c16d76` - "Implement PR Commenting Endpoint #7483"
-### @tobiu - 2025-10-14 10:55
+- 2025-10-14T10:48:00Z @tobiu assigned to @tobiu
+- 2025-10-14T10:48:01Z @tobiu added the `enhancement` label
+- 2025-10-14T10:48:01Z @tobiu added the `ai` label
+- 2025-10-14T10:48:01Z @tobiu added parent issue #7477
+- 2025-10-14T10:51:47Z @tobiu referenced in commit `1c16d76` - "Implement PR Commenting Endpoint #7483"
+### @tobiu - 2025-10-14T10:55:39Z
 
 <img width="519" height="140" alt="Image" src="https://github.com/user-attachments/assets/0e19a950-da39-4387-9f4c-54aa20a4e659" />
 
-- 2025-10-14 @tobiu closed this issue
+- 2025-10-14T10:55:39Z @tobiu closed this issue
 

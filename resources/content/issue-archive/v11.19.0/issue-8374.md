@@ -32,12 +32,12 @@ Tasks:
 
 ## Timeline
 
-- 2026-01-07 @tobiu added the `documentation` label
-- 2026-01-07 @tobiu added the `enhancement` label
-- 2026-01-07 @tobiu added the `ai` label
-- 2026-01-07 @tobiu assigned to @tobiu
-- 2026-01-07 @tobiu closed this issue
-- 2026-01-07 @jonnyamsp referenced in commit `30f8187` - "docs: Update MCP Introduction with Neural Link and Branding
+- 2026-01-07T03:30:04Z @tobiu added the `documentation` label
+- 2026-01-07T03:30:04Z @tobiu added the `enhancement` label
+- 2026-01-07T03:30:05Z @tobiu added the `ai` label
+- 2026-01-07T03:34:02Z @tobiu assigned to @tobiu
+- 2026-01-07T03:34:30Z @tobiu closed this issue
+- 2026-01-07T13:25:10Z @jonnyamsp referenced in commit `30f8187` - "docs: Update MCP Introduction with Neural Link and Branding
 
 - Added Neural Link server (4th MCP server) to the Agent OS architecture.
 - Updated terminology to reflect 'Application Engine' branding.

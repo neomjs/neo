@@ -26,8 +26,8 @@ closedAt: '2025-02-09T19:42:57Z'
 
 ## Timeline
 
-- 2025-02-09 @tobiu added the `enhancement` label
-- 2025-02-09 @tobiu assigned to @tobiu
-- 2025-02-09 @tobiu referenced in commit `6d80f96` - "grid.Container, grid.View: remove touchmove interference #6424"
-- 2025-02-09 @tobiu closed this issue
+- 2025-02-09T19:09:10Z @tobiu added the `enhancement` label
+- 2025-02-09T19:09:10Z @tobiu assigned to @tobiu
+- 2025-02-09T19:42:46Z @tobiu referenced in commit `6d80f96` - "grid.Container, grid.View: remove touchmove interference #6424"
+- 2025-02-09T19:42:58Z @tobiu closed this issue
 

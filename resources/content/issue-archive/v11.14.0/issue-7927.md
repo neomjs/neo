@@ -38,10 +38,10 @@ Enables "Local First" patterns for autonomous agents running within the repo.
 
 ## Timeline
 
-- 2025-11-29 @tobiu added the `enhancement` label
-- 2025-11-29 @tobiu added the `ai` label
-- 2025-11-29 @tobiu assigned to @tobiu
-- 2025-11-29 @tobiu referenced in commit `ab281fa` - "Feat: Expose LocalFileService in AI SDK #7927"
-- 2025-11-29 @tobiu closed this issue
-- 2025-11-29 @tobiu cross-referenced by #7914
+- 2025-11-29T15:43:50Z @tobiu added the `enhancement` label
+- 2025-11-29T15:43:50Z @tobiu added the `ai` label
+- 2025-11-29T15:45:39Z @tobiu assigned to @tobiu
+- 2025-11-29T15:48:06Z @tobiu referenced in commit `ab281fa` - "Feat: Expose LocalFileService in AI SDK #7927"
+- 2025-11-29T15:48:18Z @tobiu closed this issue
+- 2025-11-29T16:24:29Z @tobiu cross-referenced by #7914
 

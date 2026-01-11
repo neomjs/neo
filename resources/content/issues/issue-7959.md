@@ -35,7 +35,7 @@ Reference: `.github/AGENT_ARCHITECTURE.md`
 
 ## Timeline
 
-- 2025-11-30 @tobiu added the `epic` label
-- 2025-11-30 @tobiu added the `ai` label
-- 2025-11-30 @tobiu added the `architecture` label
+- 2025-11-30T21:52:11Z @tobiu added the `epic` label
+- 2025-11-30T21:52:11Z @tobiu added the `ai` label
+- 2025-11-30T21:52:11Z @tobiu added the `architecture` label
 

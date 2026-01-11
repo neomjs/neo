@@ -39,10 +39,10 @@ A complete draft of the blog post as a markdown file.
 
 ## Timeline
 
-- 2025-07-22 @tobiu assigned to @tobiu
-- 2025-07-22 @tobiu added the `Blog Post` label
-- 2025-07-22 @tobiu added parent issue #7093
-- 2025-07-22 @tobiu referenced in commit `a05fe85` - "Create Deep-Dive Blog Post for Performance & Security #7096"
-- 2025-07-22 @tobiu referenced in commit `11c1e50` - "Create Deep-Dive Blog Post for Performance & Security #7096"
-- 2025-07-22 @tobiu closed this issue
+- 2025-07-22T06:27:32Z @tobiu assigned to @tobiu
+- 2025-07-22T06:27:33Z @tobiu added the `Blog Post` label
+- 2025-07-22T06:27:33Z @tobiu added parent issue #7093
+- 2025-07-22T15:32:38Z @tobiu referenced in commit `a05fe85` - "Create Deep-Dive Blog Post for Performance & Security #7096"
+- 2025-07-22T16:23:31Z @tobiu referenced in commit `11c1e50` - "Create Deep-Dive Blog Post for Performance & Security #7096"
+- 2025-07-22T16:24:46Z @tobiu closed this issue
 

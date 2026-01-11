@@ -25,7 +25,7 @@ closedAt: '2025-03-12T11:24:42Z'
 
 ## Timeline
 
-- 2025-03-12 @tobiu added the `enhancement` label
-- 2025-03-12 @tobiu referenced in commit `9f1dc24` - "Use once: true for related listeners #6573"
-- 2025-03-12 @tobiu closed this issue
+- 2025-03-12T11:24:17Z @tobiu added the `enhancement` label
+- 2025-03-12T11:24:37Z @tobiu referenced in commit `9f1dc24` - "Use once: true for related listeners #6573"
+- 2025-03-12T11:24:42Z @tobiu closed this issue
 

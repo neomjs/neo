@@ -45,12 +45,12 @@ This epic is to enhance the script to automatically discover and include all rel
 
 ## Timeline
 
-- 2025-11-13 @tobiu added the `enhancement` label
-- 2025-11-13 @tobiu added the `epic` label
-- 2025-11-13 @tobiu added the `ai` label
-- 2025-11-13 @tobiu assigned to @tobiu
-- 2025-11-13 @tobiu removed the `epic` label
-- 2025-11-13 @tobiu changed title from **Epic: Enhance SEO file generation to include all examples** to **Enhance SEO file generation to include all examples**
-- 2025-11-13 @tobiu referenced in commit `24d8cbb` - "Enhance SEO file generation to include all examples #7769"
-- 2025-11-13 @tobiu closed this issue
+- 2025-11-13T21:33:51Z @tobiu added the `enhancement` label
+- 2025-11-13T21:33:51Z @tobiu added the `epic` label
+- 2025-11-13T21:33:51Z @tobiu added the `ai` label
+- 2025-11-13T21:34:31Z @tobiu assigned to @tobiu
+- 2025-11-13T21:34:43Z @tobiu removed the `epic` label
+- 2025-11-13T21:36:54Z @tobiu changed title from **Epic: Enhance SEO file generation to include all examples** to **Enhance SEO file generation to include all examples**
+- 2025-11-13T22:12:19Z @tobiu referenced in commit `24d8cbb` - "Enhance SEO file generation to include all examples #7769"
+- 2025-11-13T22:12:31Z @tobiu closed this issue
 

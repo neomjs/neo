@@ -28,8 +28,8 @@ closedAt: '2025-06-17T11:16:07Z'
 
 ## Timeline
 
-- 2025-06-17 @tobiu assigned to @tobiu
-- 2025-06-17 @tobiu added the `enhancement` label
-- 2025-06-17 @tobiu referenced in commit `76fe8f7` - "main.DeltaUpdates: createDomTree() => enhanced logic #6827"
-- 2025-06-17 @tobiu closed this issue
+- 2025-06-17T11:15:42Z @tobiu assigned to @tobiu
+- 2025-06-17T11:15:43Z @tobiu added the `enhancement` label
+- 2025-06-17T11:16:02Z @tobiu referenced in commit `76fe8f7` - "main.DeltaUpdates: createDomTree() => enhanced logic #6827"
+- 2025-06-17T11:16:07Z @tobiu closed this issue
 

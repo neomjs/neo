@@ -25,9 +25,9 @@ closedAt: '2025-03-31T15:17:42Z'
 
 ## Timeline
 
-- 2025-03-31 @tobiu added the `enhancement` label
-- 2025-03-31 @tobiu added parent issue #6600
-- 2025-03-31 @tobiu referenced in commit `7570fab` - "apps/email: basic setup using npm run create-app #6601"
-- 2025-03-31 @tobiu closed this issue
-- 2025-03-31 @tobiu assigned to @tobiu
+- 2025-03-31T15:13:24Z @tobiu added the `enhancement` label
+- 2025-03-31T15:13:25Z @tobiu added parent issue #6600
+- 2025-03-31T15:14:09Z @tobiu referenced in commit `7570fab` - "apps/email: basic setup using npm run create-app #6601"
+- 2025-03-31T15:17:42Z @tobiu closed this issue
+- 2025-03-31T16:00:19Z @tobiu assigned to @tobiu
 

@@ -33,11 +33,11 @@ To make the agent's session initialization process more robust, a new script was
 
 ## Timeline
 
-- 2025-10-04 @tobiu assigned to @tobiu
-- 2025-10-04 @tobiu added the `documentation` label
-- 2025-10-04 @tobiu added the `enhancement` label
-- 2025-10-04 @tobiu added the `ai` label
-- 2025-10-04 @tobiu added parent issue #7316
-- 2025-10-04 @tobiu referenced in commit `95d52c5` - "Create and Integrate ai:get-last-session Script #7357"
-- 2025-10-04 @tobiu closed this issue
+- 2025-10-04T13:27:07Z @tobiu assigned to @tobiu
+- 2025-10-04T13:27:08Z @tobiu added the `documentation` label
+- 2025-10-04T13:27:08Z @tobiu added the `enhancement` label
+- 2025-10-04T13:27:08Z @tobiu added the `ai` label
+- 2025-10-04T13:27:08Z @tobiu added parent issue #7316
+- 2025-10-04T13:28:01Z @tobiu referenced in commit `95d52c5` - "Create and Integrate ai:get-last-session Script #7357"
+- 2025-10-04T13:28:47Z @tobiu closed this issue
 

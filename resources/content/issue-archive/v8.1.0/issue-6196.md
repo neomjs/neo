@@ -25,8 +25,8 @@ closedAt: '2025-01-11T14:37:59Z'
 
 ## Timeline
 
-- 2025-01-11 @tobiu added the `enhancement` label
-- 2025-01-11 @tobiu assigned to @tobiu
-- 2025-01-11 @tobiu referenced in commit `cdb2063` - "grid.View: remove translateY on the view node #6196"
-- 2025-01-11 @tobiu closed this issue
+- 2025-01-11T14:37:35Z @tobiu added the `enhancement` label
+- 2025-01-11T14:37:35Z @tobiu assigned to @tobiu
+- 2025-01-11T14:37:52Z @tobiu referenced in commit `cdb2063` - "grid.View: remove translateY on the view node #6196"
+- 2025-01-11T14:37:59Z @tobiu closed this issue
 

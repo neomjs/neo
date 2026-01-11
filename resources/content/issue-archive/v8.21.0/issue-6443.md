@@ -26,8 +26,8 @@ closedAt: '2025-02-11T20:09:12Z'
 
 ## Timeline
 
-- 2025-02-11 @tobiu added the `enhancement` label
-- 2025-02-11 @tobiu assigned to @tobiu
-- 2025-02-11 @tobiu referenced in commit `fb5197d` - "grid.View: createViewData() => remove the store count check #6443"
-- 2025-02-11 @tobiu closed this issue
+- 2025-02-11T20:07:05Z @tobiu added the `enhancement` label
+- 2025-02-11T20:07:05Z @tobiu assigned to @tobiu
+- 2025-02-11T20:07:27Z @tobiu referenced in commit `fb5197d` - "grid.View: createViewData() => remove the store count check #6443"
+- 2025-02-11T20:09:13Z @tobiu closed this issue
 

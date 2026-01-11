@@ -25,8 +25,8 @@ closedAt: '2025-01-30T17:02:20Z'
 
 ## Timeline
 
-- 2025-01-30 @tobiu added the `enhancement` label
-- 2025-01-30 @tobiu assigned to @tobiu
-- 2025-01-30 @tobiu referenced in commit `f4c07d6` - "apps.covid: switch the index renderer to use rowIndex #6348"
-- 2025-01-30 @tobiu closed this issue
+- 2025-01-30T17:01:27Z @tobiu added the `enhancement` label
+- 2025-01-30T17:01:27Z @tobiu assigned to @tobiu
+- 2025-01-30T17:02:17Z @tobiu referenced in commit `f4c07d6` - "apps.covid: switch the index renderer to use rowIndex #6348"
+- 2025-01-30T17:02:20Z @tobiu closed this issue
 

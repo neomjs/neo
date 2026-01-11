@@ -42,12 +42,12 @@ Enable Neural Link to inspect chart definitions and editor content.
 
 ## Timeline
 
-- 2026-01-03 @tobiu added the `enhancement` label
-- 2026-01-03 @tobiu added the `ai` label
-- 2026-01-03 @tobiu assigned to @tobiu
-- 2026-01-03 @tobiu added parent issue #8200
-- 2026-01-03 @tobiu referenced in commit `60dc961` - "feat(wrapper): Implement toJSON for AmChart and MonacoEditor #8303"
-### @tobiu - 2026-01-03 21:13
+- 2026-01-03T21:08:09Z @tobiu added the `enhancement` label
+- 2026-01-03T21:08:09Z @tobiu added the `ai` label
+- 2026-01-03T21:09:16Z @tobiu assigned to @tobiu
+- 2026-01-03T21:09:22Z @tobiu added parent issue #8200
+- 2026-01-03T21:13:09Z @tobiu referenced in commit `60dc961` - "feat(wrapper): Implement toJSON for AmChart and MonacoEditor #8303"
+### @tobiu - 2026-01-03T21:13:13Z
 
 **Input from Gemini 2.5 pro:**
 
@@ -60,5 +60,5 @@ Enable Neural Link to inspect chart definitions and editor content.
 > 
 > Changes committed in `feat(wrapper): Implement toJSON for AmChart and MonacoEditor #8303`.
 
-- 2026-01-03 @tobiu closed this issue
+- 2026-01-03T21:13:37Z @tobiu closed this issue
 

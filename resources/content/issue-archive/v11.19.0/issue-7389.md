@@ -36,23 +36,23 @@ This ticket is for investigating the feasibility of accessing worker and shared 
 
 ## Timeline
 
-- 2025-10-06 @tobiu added the `enhancement` label
-- 2025-10-06 @tobiu added the `help wanted` label
-- 2025-10-06 @tobiu added the `good first issue` label
-- 2025-10-06 @tobiu added the `hacktoberfest` label
-- 2025-10-06 @tobiu added parent issue #7385
-- 2025-10-06 @tobiu added the `ai` label
-- 2025-10-06 @tobiu assigned to @tobiu
-- 2025-10-06 @tobiu removed the `help wanted` label
-- 2025-10-06 @tobiu removed the `good first issue` label
-- 2025-10-06 @tobiu removed the `hacktoberfest` label
-### @tobiu - 2025-10-06 15:38
+- 2025-10-06T10:36:48Z @tobiu added the `enhancement` label
+- 2025-10-06T10:36:48Z @tobiu added the `help wanted` label
+- 2025-10-06T10:36:48Z @tobiu added the `good first issue` label
+- 2025-10-06T10:36:48Z @tobiu added the `hacktoberfest` label
+- 2025-10-06T10:36:48Z @tobiu added parent issue #7385
+- 2025-10-06T10:36:49Z @tobiu added the `ai` label
+- 2025-10-06T15:37:35Z @tobiu assigned to @tobiu
+- 2025-10-06T15:37:39Z @tobiu removed the `help wanted` label
+- 2025-10-06T15:37:40Z @tobiu removed the `good first issue` label
+- 2025-10-06T15:37:40Z @tobiu removed the `hacktoberfest` label
+### @tobiu - 2025-10-06T15:38:30Z
 
 I tested this one, and sadly neither access to dedicated nor shared workers is possible yet. Remote method access comes to the rescue.
 
 <img width="1304" height="1360" alt="Image" src="https://github.com/user-attachments/assets/6d41f8f6-1fc9-444d-b283-0e0da88aebf8" />
 
-### @tobiu - 2025-10-08 14:00
+### @tobiu - 2025-10-08T14:00:56Z
 
 I added 2 new feature requests for dedicated & shared workers support inside the `mcp-server` repo. Adding the links here for cross reference, and enable others to see the status.
 
@@ -62,12 +62,12 @@ https://github.com/ChromeDevTools/chrome-devtools-mcp/issues/316
 Shared Workers:
 https://github.com/ChromeDevTools/chrome-devtools-mcp/issues/317
 
-### @github-actions - 2026-01-07 03:10
+### @github-actions - 2026-01-07T03:10:01Z
 
 This issue is stale because it has been open for 90 days with no activity.
 
-- 2026-01-07 @github-actions added the `stale` label
-### @tobiu - 2026-01-09 00:57
+- 2026-01-07T03:10:01Z @github-actions added the `stale` label
+### @tobiu - 2026-01-09T00:57:23Z
 
 **Input from Gemini 3 Pro:**
 
@@ -77,5 +77,5 @@ This issue is stale because it has been open for 90 days with no activity.
 > 
 > **Action:** Closing as superseded by the Neural Link architecture.
 
-- 2026-01-09 @tobiu closed this issue
+- 2026-01-09T00:57:55Z @tobiu closed this issue
 

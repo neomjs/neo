@@ -25,8 +25,8 @@ closedAt: '2025-04-18T10:31:46Z'
 
 ## Timeline
 
-- 2025-04-18 @tobiu added the `enhancement` label
-- 2025-04-18 @tobiu assigned to @tobiu
-- 2025-04-18 @tobiu referenced in commit `6dc4eb4` - "grid.View: getRecordByRowId() => adjust for index-based row ids #6674"
-- 2025-04-18 @tobiu closed this issue
+- 2025-04-18T10:31:17Z @tobiu added the `enhancement` label
+- 2025-04-18T10:31:17Z @tobiu assigned to @tobiu
+- 2025-04-18T10:31:40Z @tobiu referenced in commit `6dc4eb4` - "grid.View: getRecordByRowId() => adjust for index-based row ids #6674"
+- 2025-04-18T10:31:46Z @tobiu closed this issue
 

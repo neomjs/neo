@@ -27,10 +27,10 @@ The main header text of the `StrategyPanel` ("Strategy Dashboard") is currently 
 
 ## Timeline
 
-- 2025-12-13 @tobiu added the `bug` label
-- 2025-12-13 @tobiu added the `design` label
-- 2025-12-13 @tobiu added the `ai` label
-- 2025-12-13 @tobiu assigned to @tobiu
-- 2025-12-13 @tobiu referenced in commit `1799a81` - "Fix StrategyPanel main header color mismatch #8106"
-- 2025-12-13 @tobiu closed this issue
+- 2025-12-13T15:17:22Z @tobiu added the `bug` label
+- 2025-12-13T15:17:22Z @tobiu added the `design` label
+- 2025-12-13T15:17:22Z @tobiu added the `ai` label
+- 2025-12-13T15:20:41Z @tobiu assigned to @tobiu
+- 2025-12-13T15:21:06Z @tobiu referenced in commit `1799a81` - "Fix StrategyPanel main header color mismatch #8106"
+- 2025-12-13T15:22:55Z @tobiu closed this issue
 

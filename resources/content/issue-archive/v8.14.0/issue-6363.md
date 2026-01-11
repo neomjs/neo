@@ -25,8 +25,8 @@ closedAt: '2025-02-03T14:12:23Z'
 
 ## Timeline
 
-- 2025-02-03 @tobiu added the `enhancement` label
-- 2025-02-03 @tobiu assigned to @tobiu
-- 2025-02-03 @tobiu referenced in commit `2554133` - "examples.grid.nestedRecordFields.Viewport: add a button to change the column header drag mode #6363"
-- 2025-02-03 @tobiu closed this issue
+- 2025-02-03T14:03:12Z @tobiu added the `enhancement` label
+- 2025-02-03T14:03:12Z @tobiu assigned to @tobiu
+- 2025-02-03T14:03:25Z @tobiu referenced in commit `2554133` - "examples.grid.nestedRecordFields.Viewport: add a button to change the column header drag mode #6363"
+- 2025-02-03T14:12:23Z @tobiu closed this issue
 

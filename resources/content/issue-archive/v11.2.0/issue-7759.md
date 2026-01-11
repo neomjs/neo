@@ -25,9 +25,9 @@ The `IssueSyncer.mjs` currently adds "blocked by" and "blocking" relationship in
 
 ## Timeline
 
-- 2025-11-12 @tobiu added the `enhancement` label
-- 2025-11-12 @tobiu added the `ai` label
-- 2025-11-12 @tobiu cross-referenced by PR #7753
-- 2025-11-13 @MannXo cross-referenced by PR #7764
-- 2025-11-13 @tobiu closed this issue
+- 2025-11-12T14:18:50Z @tobiu added the `enhancement` label
+- 2025-11-12T14:18:50Z @tobiu added the `ai` label
+- 2025-11-12T14:22:13Z @tobiu cross-referenced by PR #7753
+- 2025-11-13T06:29:07Z @MannXo cross-referenced by PR #7764
+- 2025-11-13T10:32:35Z @tobiu closed this issue
 

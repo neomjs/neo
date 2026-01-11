@@ -39,10 +39,10 @@ The goal is to define a clear, structured API for the server's first iteration, 
 
 ## Timeline
 
-- 2025-10-14 @tobiu assigned to @tobiu
-- 2025-10-14 @tobiu added the `enhancement` label
-- 2025-10-14 @tobiu added the `ai` label
-- 2025-10-14 @tobiu added parent issue #7477
-- 2025-10-14 @tobiu referenced in commit `1d6f674` - "Define Initial OpenAPI Specification for GitHub Workflow Server #7478"
-- 2025-10-14 @tobiu closed this issue
+- 2025-10-14T08:40:11Z @tobiu assigned to @tobiu
+- 2025-10-14T08:40:13Z @tobiu added the `enhancement` label
+- 2025-10-14T08:40:13Z @tobiu added the `ai` label
+- 2025-10-14T08:40:13Z @tobiu added parent issue #7477
+- 2025-10-14T08:40:56Z @tobiu referenced in commit `1d6f674` - "Define Initial OpenAPI Specification for GitHub Workflow Server #7478"
+- 2025-10-14T08:56:51Z @tobiu closed this issue
 

@@ -37,9 +37,9 @@ Add a guard clause in `SessionService` to explicitly exclude `this.currentSessio
 
 ## Timeline
 
-- 2025-11-22 @tobiu added the `bug` label
-- 2025-11-22 @tobiu added the `ai` label
-- 2025-11-22 @tobiu assigned to @tobiu
-- 2025-11-22 @tobiu referenced in commit `86ba7d5` - "Bug: Prevent SessionService from summarizing the active session #7866"
-- 2025-11-22 @tobiu closed this issue
+- 2025-11-22T20:55:00Z @tobiu added the `bug` label
+- 2025-11-22T20:55:00Z @tobiu added the `ai` label
+- 2025-11-22T20:55:24Z @tobiu assigned to @tobiu
+- 2025-11-22T21:04:06Z @tobiu referenced in commit `86ba7d5` - "Bug: Prevent SessionService from summarizing the active session #7866"
+- 2025-11-22T21:04:12Z @tobiu closed this issue
 

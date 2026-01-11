@@ -33,10 +33,10 @@ This ticket is to improve the `healthcheck` tool for the `memory-core` server to
 
 ## Timeline
 
-- 2025-10-17 @tobiu assigned to @tobiu
-- 2025-10-17 @tobiu added the `enhancement` label
-- 2025-10-17 @tobiu added the `ai` label
-- 2025-10-17 @tobiu added parent issue #7520
-- 2025-10-17 @tobiu referenced in commit `4d2db48` - "Enhance Memory Core Health Check #7525"
-- 2025-10-17 @tobiu closed this issue
+- 2025-10-17T12:06:14Z @tobiu assigned to @tobiu
+- 2025-10-17T12:06:15Z @tobiu added the `enhancement` label
+- 2025-10-17T12:06:15Z @tobiu added the `ai` label
+- 2025-10-17T12:06:15Z @tobiu added parent issue #7520
+- 2025-10-17T12:10:36Z @tobiu referenced in commit `4d2db48` - "Enhance Memory Core Health Check #7525"
+- 2025-10-17T12:12:06Z @tobiu closed this issue
 

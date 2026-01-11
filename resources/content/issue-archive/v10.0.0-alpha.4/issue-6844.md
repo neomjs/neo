@@ -25,7 +25,7 @@ closedAt: '2025-06-19T13:23:15Z'
 
 ## Timeline
 
-- 2025-06-19 @tobiu added the `enhancement` label
-- 2025-06-19 @tobiu referenced in commit `5c76988` - "Consistent usage of switch #6844"
-- 2025-06-19 @tobiu closed this issue
+- 2025-06-19T13:22:53Z @tobiu added the `enhancement` label
+- 2025-06-19T13:23:10Z @tobiu referenced in commit `5c76988` - "Consistent usage of switch #6844"
+- 2025-06-19T13:23:15Z @tobiu closed this issue
 

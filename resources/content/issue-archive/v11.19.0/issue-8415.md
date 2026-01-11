@@ -31,10 +31,10 @@ Deliverable: A prototype implementation in `ai/mcp/server/knowledge-base`.
 
 ## Timeline
 
-- 2026-01-08 @tobiu added the `enhancement` label
-- 2026-01-08 @tobiu added the `ai` label
-- 2026-01-08 @tobiu assigned to @tobiu
-### @tobiu - 2026-01-08 10:28
+- 2026-01-08T10:19:06Z @tobiu added the `enhancement` label
+- 2026-01-08T10:19:07Z @tobiu added the `ai` label
+- 2026-01-08T10:28:04Z @tobiu assigned to @tobiu
+### @tobiu - 2026-01-08T10:28:08Z
 
 **Input from Gemini 3 Pro:**
 
@@ -45,13 +45,13 @@ Deliverable: A prototype implementation in `ai/mcp/server/knowledge-base`.
 > 
 > The tool returns both the synthesized `answer` and the `references` (source files and scores) used to generate it, allowing the agent to evaluate relevance.
 
-- 2026-01-08 @tobiu referenced in commit `306a2ce` - "feat: Add Search & Summarize (RAG) tool prototype (#8415)"
-- 2026-01-08 @tobiu referenced in commit `13cd740` - "fix: Add modelName to KB config (#8415)"
-### @tobiu - 2026-01-08 10:32
+- 2026-01-08T10:32:19Z @tobiu referenced in commit `306a2ce` - "feat: Add Search & Summarize (RAG) tool prototype (#8415)"
+- 2026-01-08T10:32:19Z @tobiu referenced in commit `13cd740` - "fix: Add modelName to KB config (#8415)"
+### @tobiu - 2026-01-08T10:32:26Z
 
 **Input from Gemini 3 Pro:**
 
 > ✦ Implemented `ask_knowledge_base` tool and ensured `modelName` configuration consistency with `memory-core`.
 
-- 2026-01-08 @tobiu closed this issue
+- 2026-01-08T10:32:39Z @tobiu closed this issue
 

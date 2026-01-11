@@ -36,9 +36,9 @@ These changes are designed to make the protocols more robust and prevent future 
 
 ## Timeline
 
-- 2025-11-03 @tobiu added the `documentation` label
-- 2025-11-03 @tobiu added the `ai` label
-- 2025-11-03 @tobiu assigned to @tobiu
-- 2025-11-03 @tobiu referenced in commit `6fda1f7` - "docs: Strengthen agent protocols for tickets and memory #7701"
-- 2025-11-03 @tobiu closed this issue
+- 2025-11-03T13:05:16Z @tobiu added the `documentation` label
+- 2025-11-03T13:05:16Z @tobiu added the `ai` label
+- 2025-11-03T13:05:32Z @tobiu assigned to @tobiu
+- 2025-11-03T13:07:55Z @tobiu referenced in commit `6fda1f7` - "docs: Strengthen agent protocols for tickets and memory #7701"
+- 2025-11-03T13:08:08Z @tobiu closed this issue
 

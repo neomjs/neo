@@ -36,12 +36,12 @@ To support the transition from a simple Blog to a comprehensive News center (Par
 
 ## Timeline
 
-- 2026-01-07 @tobiu added the `enhancement` label
-- 2026-01-07 @tobiu added the `ai` label
-- 2026-01-07 @tobiu added the `refactoring` label
-- 2026-01-07 @tobiu referenced in commit `980682d` - "feat(portal): refactor blog to news with tabbed interface #8386"
-- 2026-01-07 @tobiu added parent issue #8362
-### @tobiu - 2026-01-07 14:53
+- 2026-01-07T14:49:09Z @tobiu added the `enhancement` label
+- 2026-01-07T14:49:09Z @tobiu added the `ai` label
+- 2026-01-07T14:49:10Z @tobiu added the `refactoring` label
+- 2026-01-07T14:53:29Z @tobiu referenced in commit `980682d` - "feat(portal): refactor blog to news with tabbed interface #8386"
+- 2026-01-07T14:53:45Z @tobiu added parent issue #8362
+### @tobiu - 2026-01-07T14:53:51Z
 
 **Input from Gemini 3 Pro:**
 
@@ -50,6 +50,6 @@ To support the transition from a simple Blog to a comprehensive News center (Par
 > - Created `apps/portal/view/news/ReleaseContainer.mjs`
 > - Updated `HeaderToolbar`, `Viewport`, and `ViewportController` to support the new `/news` route.
 
-- 2026-01-07 @tobiu assigned to @tobiu
-- 2026-01-07 @tobiu closed this issue
+- 2026-01-07T14:54:04Z @tobiu assigned to @tobiu
+- 2026-01-07T14:54:07Z @tobiu closed this issue
 

@@ -25,8 +25,8 @@ closedAt: '2025-06-25T22:40:59Z'
 
 ## Timeline
 
-- 2025-06-25 @tobiu assigned to @tobiu
-- 2025-06-25 @tobiu added the `enhancement` label
-- 2025-06-25 @tobiu referenced in commit `9847f55` - "main.addon.Base: processCachedMethodCalls() #6871"
-- 2025-06-25 @tobiu closed this issue
+- 2025-06-25T22:40:18Z @tobiu assigned to @tobiu
+- 2025-06-25T22:40:19Z @tobiu added the `enhancement` label
+- 2025-06-25T22:40:38Z @tobiu referenced in commit `9847f55` - "main.addon.Base: processCachedMethodCalls() #6871"
+- 2025-06-25T22:40:59Z @tobiu closed this issue
 

@@ -37,15 +37,15 @@ Confirmed that the new live-preview example functions as expected within the doc
 
 ## Timeline
 
-- 2025-07-10 @tobiu assigned to @tobiu
-- 2025-07-10 @tobiu added the `enhancement` label
-- 2025-07-10 @tobiu referenced in commit `98800ed` - "Add Formulas in Action Example to State Provider Guide #7009"
-- 2025-07-10 @tobiu closed this issue
-### @tobiu - 2025-07-10 21:28
+- 2025-07-10T20:47:21Z @tobiu assigned to @tobiu
+- 2025-07-10T20:47:22Z @tobiu added the `enhancement` label
+- 2025-07-10T20:47:44Z @tobiu referenced in commit `98800ed` - "Add Formulas in Action Example to State Provider Guide #7009"
+- 2025-07-10T20:47:52Z @tobiu closed this issue
+### @tobiu - 2025-07-10T21:28:27Z
 
 let us re-open the ticket for further simplification.
 
-- 2025-07-10 @tobiu reopened this issue
-- 2025-07-10 @tobiu referenced in commit `1a23d25` - "#7009 simplification"
-- 2025-07-10 @tobiu closed this issue
+- 2025-07-10T21:28:28Z @tobiu reopened this issue
+- 2025-07-10T21:29:01Z @tobiu referenced in commit `1a23d25` - "#7009 simplification"
+- 2025-07-10T21:29:10Z @tobiu closed this issue
 

@@ -34,9 +34,9 @@ This ensures that the `healthcheck` response accurately reflects the summarizati
 
 ## Timeline
 
-- 2025-11-01 @tobiu added the `bug` label
-- 2025-11-01 @tobiu added the `ai` label
-- 2025-11-01 @tobiu assigned to @tobiu
-- 2025-11-01 @tobiu referenced in commit `5fe2f79` - "Fix: Memory Core Healthcheck summarizationDetails schema validation #7684"
-- 2025-11-01 @tobiu closed this issue
+- 2025-11-01T08:53:17Z @tobiu added the `bug` label
+- 2025-11-01T08:53:17Z @tobiu added the `ai` label
+- 2025-11-01T08:53:32Z @tobiu assigned to @tobiu
+- 2025-11-01T08:53:52Z @tobiu referenced in commit `5fe2f79` - "Fix: Memory Core Healthcheck summarizationDetails schema validation #7684"
+- 2025-11-01T08:56:32Z @tobiu closed this issue
 

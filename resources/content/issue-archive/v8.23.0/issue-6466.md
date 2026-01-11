@@ -25,8 +25,8 @@ closedAt: '2025-02-18T22:59:49Z'
 
 ## Timeline
 
-- 2025-02-18 @tobiu added the `enhancement` label
-- 2025-02-18 @tobiu assigned to @tobiu
-- 2025-02-18 @tobiu referenced in commit `a43d7cb` - "selection.grid.CellModel: onNavKeyRow() #6466"
-- 2025-02-18 @tobiu closed this issue
+- 2025-02-18T22:41:53Z @tobiu added the `enhancement` label
+- 2025-02-18T22:41:53Z @tobiu assigned to @tobiu
+- 2025-02-18T22:59:46Z @tobiu referenced in commit `a43d7cb` - "selection.grid.CellModel: onNavKeyRow() #6466"
+- 2025-02-18T22:59:49Z @tobiu closed this issue
 

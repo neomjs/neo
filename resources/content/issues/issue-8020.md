@@ -52,9 +52,9 @@ To refactor and enhance `Neo.draggable.container.SortZone` to support more compl
 
 ## Timeline
 
-- 2025-12-04 @github-actions added the `enhancement` label
-- 2025-12-04 @github-actions added the `stale` label
-- 2025-12-04 @github-actions cross-referenced by #7207
-- 2025-12-04 @tobiu removed the `stale` label
-- 2025-12-04 @tobiu added the `no auto close` label
+- 2025-12-04T02:59:32Z @github-actions added the `enhancement` label
+- 2025-12-04T02:59:33Z @github-actions added the `stale` label
+- 2025-12-04T02:59:33Z @github-actions cross-referenced by #7207
+- 2025-12-04T03:00:01Z @tobiu removed the `stale` label
+- 2025-12-04T03:00:01Z @tobiu added the `no auto close` label
 

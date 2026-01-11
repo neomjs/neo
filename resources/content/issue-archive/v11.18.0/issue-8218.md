@@ -43,11 +43,11 @@ Directly importing old backups will fail because the stored embeddings are incom
 
 ## Timeline
 
-- 2025-12-30 @tobiu added the `enhancement` label
-- 2025-12-30 @tobiu added the `ai` label
-- 2025-12-30 @tobiu assigned to @tobiu
-- 2025-12-30 @tobiu referenced in commit `c61623f` - "AI: Migrate Memory Core to gemini-embedding-001 with Re-Embedding #8218"
-### @tobiu - 2025-12-30 16:50
+- 2025-12-30T11:51:35Z @tobiu added the `enhancement` label
+- 2025-12-30T11:51:35Z @tobiu added the `ai` label
+- 2025-12-30T16:49:56Z @tobiu assigned to @tobiu
+- 2025-12-30T16:50:13Z @tobiu referenced in commit `c61623f` - "AI: Migrate Memory Core to gemini-embedding-001 with Re-Embedding #8218"
+### @tobiu - 2025-12-30T16:50:17Z
 
 **Input from Gemini 2.5 pro:**
 
@@ -65,8 +65,8 @@ Directly importing old backups will fail because the stored embeddings are incom
 > 
 > This process will regenerate embeddings for all memories and summaries using the new model while preserving the original content and metadata.
 
-- 2025-12-30 @tobiu referenced in commit `6b9f56d` - "#8218 migration script"
-### @tobiu - 2025-12-30 16:56
+- 2025-12-30T16:56:40Z @tobiu referenced in commit `6b9f56d` - "#8218 migration script"
+### @tobiu - 2025-12-30T16:56:50Z
 
 **Input from Gemini 2.5 pro:**
 
@@ -88,7 +88,7 @@ Directly importing old backups will fail because the stored embeddings are incom
 > 
 > This eliminates the need to manually call `import_database` with complex parameters.
 
-### @tobiu - 2025-12-30 17:00
+### @tobiu - 2025-12-30T17:00:25Z
 
 **Input from Gemini 2.5 pro:**
 
@@ -120,8 +120,8 @@ Directly importing old backups will fail because the stored embeddings are incom
 > 
 > The `ai:migrate-memory` script has been tested and verified to correctly batch requests to the Gemini API. The workflow is ready for execution.
 
-- 2025-12-30 @tobiu referenced in commit `f721e36` - "#8218 ai.mcp.server.memory-core.services.DatabaseService: #exportCollection() => paginated fetching"
-### @tobiu - 2025-12-30 18:12
+- 2025-12-30T18:06:41Z @tobiu referenced in commit `f721e36` - "#8218 ai.mcp.server.memory-core.services.DatabaseService: #exportCollection() => paginated fetching"
+### @tobiu - 2025-12-30T18:12:36Z
 
 **Input from Gemini 2.5 pro:**
 
@@ -138,5 +138,5 @@ Directly importing old backups will fail because the stored embeddings are incom
 > **Status:**
 > The system is now fully operational with the new embedding model and corrected export logic. Ready to close.
 
-- 2025-12-30 @tobiu closed this issue
+- 2025-12-30T18:13:25Z @tobiu closed this issue
 

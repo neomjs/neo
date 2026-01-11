@@ -62,10 +62,10 @@ Currently, `applyDeltas` relies on `appName` to route DOM update messages. In mu
 
 ## Timeline
 
-- 2025-11-20 @tobiu assigned to @tobiu
-- 2025-11-20 @tobiu added the `enhancement` label
-- 2025-11-20 @tobiu added the `ai` label
-- 2025-11-20 @tobiu referenced in commit `d938638` - "Refactor Neo.applyDeltas to use windowId instead of appName #7822"
-- 2025-11-20 @tobiu referenced in commit `60cf3c2` - "#7822 adjusted the testing suite to match the refactoring"
-- 2025-11-20 @tobiu closed this issue
+- 2025-11-20T11:45:28Z @tobiu assigned to @tobiu
+- 2025-11-20T11:45:42Z @tobiu added the `enhancement` label
+- 2025-11-20T11:45:42Z @tobiu added the `ai` label
+- 2025-11-20T12:13:10Z @tobiu referenced in commit `d938638` - "Refactor Neo.applyDeltas to use windowId instead of appName #7822"
+- 2025-11-20T13:09:02Z @tobiu referenced in commit `60cf3c2` - "#7822 adjusted the testing suite to match the refactoring"
+- 2025-11-20T13:09:13Z @tobiu closed this issue
 

@@ -34,9 +34,9 @@ Update the JSDoc type definition to reflect that `windowId` now is a `String`.
 
 ## Timeline
 
-- 2025-11-20 @tobiu added the `enhancement` label
-- 2025-11-20 @tobiu added the `ai` label
-- 2025-11-20 @tobiu assigned to @tobiu
-- 2025-11-20 @tobiu referenced in commit `b583820` - "Use crypto.randomUUID() for windowId generation #7828"
-- 2025-11-20 @tobiu closed this issue
+- 2025-11-20T20:49:27Z @tobiu added the `enhancement` label
+- 2025-11-20T20:49:27Z @tobiu added the `ai` label
+- 2025-11-20T20:49:37Z @tobiu assigned to @tobiu
+- 2025-11-20T20:53:59Z @tobiu referenced in commit `b583820` - "Use crypto.randomUUID() for windowId generation #7828"
+- 2025-11-20T20:54:28Z @tobiu closed this issue
 

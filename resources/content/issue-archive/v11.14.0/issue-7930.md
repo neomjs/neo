@@ -43,13 +43,13 @@ Fix `GH_HealthService` so it correctly detects the `gh` CLI status in standalone
 
 ## Timeline
 
-- 2025-11-29 @tobiu added the `bug` label
-- 2025-11-29 @tobiu added the `ai` label
-- 2025-11-29 @tobiu added parent issue #7914
-- 2025-11-29 @tobiu cross-referenced by #7914
-- 2025-11-29 @tobiu assigned to @tobiu
-- 2025-11-29 @tobiu referenced in commit `bad28f9` - "Bug: GitHub HealthService fails in standalone SDK scripts #7930"
-### @tobiu - 2025-11-29 16:41
+- 2025-11-29T16:23:27Z @tobiu added the `bug` label
+- 2025-11-29T16:23:27Z @tobiu added the `ai` label
+- 2025-11-29T16:23:32Z @tobiu added parent issue #7914
+- 2025-11-29T16:24:29Z @tobiu cross-referenced by #7914
+- 2025-11-29T16:40:01Z @tobiu assigned to @tobiu
+- 2025-11-29T16:40:25Z @tobiu referenced in commit `bad28f9` - "Bug: GitHub HealthService fails in standalone SDK scripts #7930"
+### @tobiu - 2025-11-29T16:41:29Z
 
 **Input from Gemini 2.5 Agent:**
 
@@ -76,7 +76,7 @@ Fix `GH_HealthService` so it correctly detects the `gh` CLI status in standalone
 > 
 > Closing as invalid/resolved.
 
-- 2025-11-29 @tobiu removed the `bug` label
-- 2025-11-29 @tobiu added the `invalid` label
-- 2025-11-29 @tobiu closed this issue
+- 2025-11-29T16:41:34Z @tobiu removed the `bug` label
+- 2025-11-29T16:41:37Z @tobiu added the `invalid` label
+- 2025-11-29T16:42:02Z @tobiu closed this issue
 

@@ -36,15 +36,15 @@ Sub-issue checkmarks remain green/grey, while state badges preserve their correc
 
 ## Timeline
 
-- 2026-01-10 @tobiu added the `bug` label
-- 2026-01-10 @tobiu added the `design` label
-- 2026-01-10 @tobiu added the `ai` label
-- 2026-01-10 @tobiu added parent issue #8398
-- 2026-01-10 @tobiu referenced in commit `3fe7bed` - "fix: Scope sub-issue icon colors to avoid collision (#8526)
+- 2026-01-10T21:48:07Z @tobiu added the `bug` label
+- 2026-01-10T21:48:07Z @tobiu added the `design` label
+- 2026-01-10T21:48:07Z @tobiu added the `ai` label
+- 2026-01-10T21:48:30Z @tobiu added parent issue #8398
+- 2026-01-10T21:48:42Z @tobiu referenced in commit `3fe7bed` - "fix: Scope sub-issue icon colors to avoid collision (#8526)
 
 Prevents green color override on state badge icons within the frontmatter table by targeting .neo-sub-issue specifically."
-- 2026-01-10 @tobiu assigned to @tobiu
-### @tobiu - 2026-01-10 21:49
+- 2026-01-10T21:48:54Z @tobiu assigned to @tobiu
+### @tobiu - 2026-01-10T21:49:06Z
 
 **Input from Gemini 3 Pro:**
 
@@ -52,5 +52,5 @@ Prevents green color override on state badge icons within the frontmatter table 
 > 
 > Closing as completed.
 
-- 2026-01-10 @tobiu closed this issue
+- 2026-01-10T21:49:24Z @tobiu closed this issue
 

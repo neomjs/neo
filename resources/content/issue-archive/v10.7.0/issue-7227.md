@@ -25,8 +25,8 @@ While this is not super important just yet (before we show them as an alternativ
 
 ## Timeline
 
-- 2025-09-21 @tobiu assigned to @tobiu
-- 2025-09-21 @tobiu added the `enhancement` label
-- 2025-09-21 @tobiu referenced in commit `d7492da` - "learn/tree.json: sort blog posts by release date #7227"
-- 2025-09-21 @tobiu closed this issue
+- 2025-09-21T18:04:07Z @tobiu assigned to @tobiu
+- 2025-09-21T18:04:08Z @tobiu added the `enhancement` label
+- 2025-09-21T18:04:27Z @tobiu referenced in commit `d7492da` - "learn/tree.json: sort blog posts by release date #7227"
+- 2025-09-21T18:04:30Z @tobiu closed this issue
 

@@ -25,8 +25,8 @@ closedAt: '2025-06-17T10:09:28Z'
 
 ## Timeline
 
-- 2025-06-17 @tobiu assigned to @tobiu
-- 2025-06-17 @tobiu added the `enhancement` label
-- 2025-06-17 @tobiu referenced in commit `f8670a3` - "main.DeltaUpdates: insertNodeAsString() #6826"
-- 2025-06-17 @tobiu closed this issue
+- 2025-06-17T09:58:40Z @tobiu assigned to @tobiu
+- 2025-06-17T09:58:41Z @tobiu added the `enhancement` label
+- 2025-06-17T10:09:21Z @tobiu referenced in commit `f8670a3` - "main.DeltaUpdates: insertNodeAsString() #6826"
+- 2025-06-17T10:09:28Z @tobiu closed this issue
 

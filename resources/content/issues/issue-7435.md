@@ -269,35 +269,35 @@ This section is for all new component tests created using the "Cookbook Epic".
 
 ## Timeline
 
-- 2025-10-10 @tobiu assigned to @tobiu
-- 2025-10-10 @tobiu added the `help wanted` label
-- 2025-10-10 @tobiu added the `good first issue` label
-- 2025-10-10 @tobiu added the `epic` label
-- 2025-10-10 @tobiu added the `hacktoberfest` label
-- 2025-10-10 @tobiu added the `ai` label
-- 2025-10-10 @tobiu removed the `good first issue` label
-- 2025-10-10 @tobiu cross-referenced by #7436
-- 2025-10-10 @tobiu added sub-issue #7436
-- 2025-10-10 @tobiu added sub-issue #7437
-- 2025-10-10 @tobiu cross-referenced by #7437
-- 2025-10-10 @tobiu cross-referenced by #7438
-- 2025-10-10 @tobiu added sub-issue #7438
-- 2025-10-10 @tobiu added sub-issue #7439
-- 2025-10-10 @tobiu cross-referenced by #7439
-- 2025-10-10 @tobiu added sub-issue #7440
-- 2025-10-10 @tobiu cross-referenced by #7440
-- 2025-10-10 @tobiu added sub-issue #7441
-- 2025-10-10 @tobiu cross-referenced by #7441
-- 2025-10-10 @tobiu added sub-issue #7442
-- 2025-10-10 @tobiu cross-referenced by #7442
-- 2025-10-10 @tobiu added sub-issue #7443
-- 2025-10-10 @tobiu cross-referenced by #7443
-- 2025-10-10 @tobiu added sub-issue #7444
-- 2025-10-10 @tobiu cross-referenced by #7444
-- 2025-10-10 @tobiu referenced in commit `48d43fc` - "#7435 ticket md files"
-- 2025-10-10 @tobiu added sub-issue #7445
-- 2025-10-10 @tobiu referenced in commit `25acc3f` - "#7435 internal ticket md updates"
-### @tobiu - 2025-10-10 17:47
+- 2025-10-10T16:38:20Z @tobiu assigned to @tobiu
+- 2025-10-10T16:38:21Z @tobiu added the `help wanted` label
+- 2025-10-10T16:38:22Z @tobiu added the `good first issue` label
+- 2025-10-10T16:38:22Z @tobiu added the `epic` label
+- 2025-10-10T16:38:22Z @tobiu added the `hacktoberfest` label
+- 2025-10-10T16:38:22Z @tobiu added the `ai` label
+- 2025-10-10T16:39:52Z @tobiu removed the `good first issue` label
+- 2025-10-10T16:45:38Z @tobiu cross-referenced by #7436
+- 2025-10-10T16:45:39Z @tobiu added sub-issue #7436
+- 2025-10-10T16:47:12Z @tobiu added sub-issue #7437
+- 2025-10-10T16:47:12Z @tobiu cross-referenced by #7437
+- 2025-10-10T16:48:56Z @tobiu cross-referenced by #7438
+- 2025-10-10T16:48:57Z @tobiu added sub-issue #7438
+- 2025-10-10T16:50:39Z @tobiu added sub-issue #7439
+- 2025-10-10T16:50:39Z @tobiu cross-referenced by #7439
+- 2025-10-10T16:51:59Z @tobiu added sub-issue #7440
+- 2025-10-10T16:51:59Z @tobiu cross-referenced by #7440
+- 2025-10-10T16:53:30Z @tobiu added sub-issue #7441
+- 2025-10-10T16:53:30Z @tobiu cross-referenced by #7441
+- 2025-10-10T16:54:52Z @tobiu added sub-issue #7442
+- 2025-10-10T16:54:52Z @tobiu cross-referenced by #7442
+- 2025-10-10T16:56:19Z @tobiu added sub-issue #7443
+- 2025-10-10T16:56:19Z @tobiu cross-referenced by #7443
+- 2025-10-10T16:58:40Z @tobiu added sub-issue #7444
+- 2025-10-10T16:58:40Z @tobiu cross-referenced by #7444
+- 2025-10-10T17:02:39Z @tobiu referenced in commit `48d43fc` - "#7435 ticket md files"
+- 2025-10-10T17:19:05Z @tobiu added sub-issue #7445
+- 2025-10-10T17:27:23Z @tobiu referenced in commit `25acc3f` - "#7435 internal ticket md updates"
+### @tobiu - 2025-10-10T17:47:07Z
 
 Input from Gemini:
 
@@ -346,17 +346,17 @@ Input from Gemini:
 > 
 >   Does this more incremental, sprint-based approach to achieving test coverage seem like a better fit?
 
-### @Aki-07 - 2025-10-11 04:57
+### @Aki-07 - 2025-10-11T04:57:51Z
 
 Hey @tobiu I have started my work on this Epic, could you assign me to this? Have raised a PR for the test harness config file
 
-### @Aki-07 - 2025-10-11 05:22
+### @Aki-07 - 2025-10-11T05:22:38Z
 
 Thanks @tobiu Since you broke the tasks in smaller checkpoints and very clear, was straighrforward to create PRs
 Please do review them in your free time
 Thanks!
 
-### @tobiu - 2025-10-11 16:15
+### @tobiu - 2025-10-11T16:15:40Z
 
 Some thoughts on my end: I would recommend to assign you sub-tickets, since assigning an epic means to be responsible for the planning phase, further refinements and adding more subs as needed.
 
@@ -367,27 +367,27 @@ Some widgets are like apps on their own, think about the calendar or a buffered 
 TL-BR: I think it would make sense if I take care of the epic itself and assign subs, however if you really want to manage the entire epic, it would be fine for me, and I can provide more context. This one will be a huge amount of work. Your call!
 
 
-### @Aki-07 - 2025-10-11 18:12
+### @Aki-07 - 2025-10-11T18:12:31Z
 
 Makes sense, I loved working in each sub part, And will continue to request myself for each sub task
 
-- 2025-10-12 @tobiu added sub-issue #7469
-- 2025-10-12 @tobiu added sub-issue #7470
-- 2025-10-12 @tobiu added sub-issue #7471
-- 2025-10-12 @tobiu referenced in commit `84ee05c` - "#7435 component.Image: specs location update"
-### @tobiu - 2025-10-12 14:28
+- 2025-10-12T12:56:06Z @tobiu added sub-issue #7469
+- 2025-10-12T12:57:30Z @tobiu added sub-issue #7470
+- 2025-10-12T14:06:29Z @tobiu added sub-issue #7471
+- 2025-10-12T14:27:31Z @tobiu referenced in commit `84ee05c` - "#7435 component.Image: specs location update"
+### @tobiu - 2025-10-12T14:28:21Z
 
 FYI: phase 1 is completed now.
 
-### @tobiu - 2025-10-13 21:06
+### @tobiu - 2025-10-13T21:06:18Z
 
 updated the epic body with more hints, created a separate new epic just for defining "what to test exactly" for each cmp. hacktoberfest quick wins: https://github.com/neomjs/neo/issues/7475
 
 into the new epic, we can now drop big amounts of subs.
 
-- 2025-10-14 @tobiu cross-referenced by #7476
-- 2025-10-27 @tobiu changed title from **Migrate Component Tests from Siesta to Playwright (R&D)** to **Create Component Tests in Playwright (and migrate existing tests from Siesta)**
-- 2025-10-27 @tobiu added sub-issue #7677
-- 2025-11-04 @tobiu added sub-issue #7703
-- 2025-11-10 @tobiu added sub-issue #7737
+- 2025-10-14T07:44:37Z @tobiu cross-referenced by #7476
+- 2025-10-27T13:59:12Z @tobiu changed title from **Migrate Component Tests from Siesta to Playwright (R&D)** to **Create Component Tests in Playwright (and migrate existing tests from Siesta)**
+- 2025-10-27T14:00:20Z @tobiu added sub-issue #7677
+- 2025-11-04T18:48:03Z @tobiu added sub-issue #7703
+- 2025-11-10T20:25:51Z @tobiu added sub-issue #7737
 

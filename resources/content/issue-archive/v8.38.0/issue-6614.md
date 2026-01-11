@@ -25,7 +25,7 @@ closedAt: '2025-04-04T12:54:25Z'
 
 ## Timeline
 
-- 2025-04-04 @tobiu added the `enhancement` label
-- 2025-04-04 @tobiu referenced in commit `6c78dc7` - "data.RecordFactory: add support for calculated fields inside the original data symbol #6614"
-- 2025-04-04 @tobiu closed this issue
+- 2025-04-04T12:54:01Z @tobiu added the `enhancement` label
+- 2025-04-04T12:54:18Z @tobiu referenced in commit `6c78dc7` - "data.RecordFactory: add support for calculated fields inside the original data symbol #6614"
+- 2025-04-04T12:54:25Z @tobiu closed this issue
 

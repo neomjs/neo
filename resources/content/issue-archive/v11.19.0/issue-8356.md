@@ -32,10 +32,10 @@ Add a sub-headline to the "Is Neo.mjs Right for You?" section in `README.md` to 
 
 ## Timeline
 
-- 2026-01-06 @tobiu added the `documentation` label
-- 2026-01-06 @tobiu added the `enhancement` label
-- 2026-01-06 @tobiu added the `ai` label
-- 2026-01-06 @tobiu referenced in commit `aea1f6b` - "Docs: Refine F1 phrasing & add maturity check #8355 #8356"
-- 2026-01-06 @tobiu assigned to @tobiu
-- 2026-01-06 @tobiu closed this issue
+- 2026-01-06T12:49:14Z @tobiu added the `documentation` label
+- 2026-01-06T12:49:14Z @tobiu added the `enhancement` label
+- 2026-01-06T12:49:14Z @tobiu added the `ai` label
+- 2026-01-06T12:50:17Z @tobiu referenced in commit `aea1f6b` - "Docs: Refine F1 phrasing & add maturity check #8355 #8356"
+- 2026-01-06T12:50:51Z @tobiu assigned to @tobiu
+- 2026-01-06T12:50:57Z @tobiu closed this issue
 

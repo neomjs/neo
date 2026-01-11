@@ -27,9 +27,9 @@ Since we are using buffered rendering for grid cells, we should use this attribu
 
 ## Timeline
 
-- 2025-01-07 @tobiu added the `enhancement` label
-- 2025-01-07 @tobiu assigned to @tobiu
-- 2025-01-08 @tobiu referenced in commit `67e36f6` - "grid.View: use aria-colindex #6187"
-- 2025-01-08 @tobiu closed this issue
-- 2025-01-08 @tobiu cross-referenced by #6189
+- 2025-01-07T21:55:46Z @tobiu added the `enhancement` label
+- 2025-01-07T21:55:47Z @tobiu assigned to @tobiu
+- 2025-01-08T09:41:58Z @tobiu referenced in commit `67e36f6` - "grid.View: use aria-colindex #6187"
+- 2025-01-08T09:42:08Z @tobiu closed this issue
+- 2025-01-08T09:42:52Z @tobiu cross-referenced by #6189
 

@@ -30,24 +30,24 @@ closedAt: '2025-10-27T10:45:02Z'
 
 ## Timeline
 
-- 2025-07-15 @tobiu assigned to @tobiu
-- 2025-07-15 @tobiu added the `enhancement` label
-- 2025-07-15 @tobiu added parent issue #6992
-### @github-actions - 2025-10-14 02:41
+- 2025-07-15T17:42:05Z @tobiu assigned to @tobiu
+- 2025-07-15T17:42:06Z @tobiu added the `enhancement` label
+- 2025-07-15T17:42:06Z @tobiu added parent issue #6992
+### @github-actions - 2025-10-14T02:41:12Z
 
 This issue is stale because it has been open for 90 days with no activity.
 
-- 2025-10-14 @github-actions added the `stale` label
-- 2025-10-14 @tobiu removed the `stale` label
-- 2025-10-14 @tobiu added the `help wanted` label
-- 2025-10-14 @tobiu added the `good first issue` label
-- 2025-10-14 @tobiu added the `hacktoberfest` label
-### @ad1tyayadav - 2025-10-26 13:23
+- 2025-10-14T02:41:12Z @github-actions added the `stale` label
+- 2025-10-14T07:37:12Z @tobiu removed the `stale` label
+- 2025-10-14T07:37:12Z @tobiu added the `help wanted` label
+- 2025-10-14T07:37:12Z @tobiu added the `good first issue` label
+- 2025-10-14T07:37:12Z @tobiu added the `hacktoberfest` label
+### @ad1tyayadav - 2025-10-26T13:23:56Z
 
 assign me
 
 
-### @tobiu - 2025-10-26 13:27
+### @tobiu - 2025-10-26T13:27:34Z
 
 Thanks for your interest. For this one I recommend to look into:
 https://github.com/neomjs/neo/blob/dev/src/component/Base.mjs#L1144
@@ -56,8 +56,8 @@ https://github.com/neomjs/neo/blob/dev/src/container/Base.mjs#L476
 I would also recommend the "AI Native" workflows and let agents figure out the details, e.g. what could get moved into:
 https://github.com/neomjs/neo/blob/dev/src/component/Abstract.mjs#L284
 
-- 2025-10-26 @tobiu unassigned from @tobiu
-- 2025-10-26 @tobiu assigned to @ad1tyayadav
-- 2025-10-26 @ad1tyayadav cross-referenced by PR #7667
-- 2025-10-27 @tobiu closed this issue
+- 2025-10-26T13:27:42Z @tobiu unassigned from @tobiu
+- 2025-10-26T13:27:42Z @tobiu assigned to @ad1tyayadav
+- 2025-10-26T14:04:30Z @ad1tyayadav cross-referenced by PR #7667
+- 2025-10-27T10:45:02Z @tobiu closed this issue
 

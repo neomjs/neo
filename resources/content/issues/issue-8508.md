@@ -31,16 +31,16 @@ Focus on leaf nodes, but ensure folders also handle overflow gracefully if possi
 
 ## Timeline
 
-- 2026-01-10 @tobiu added the `enhancement` label
-- 2026-01-10 @tobiu added the `design` label
-- 2026-01-10 @tobiu added the `ai` label
-- 2026-01-10 @tobiu referenced in commit `bfb57d2` - "enhancement: Add text truncation and right padding to Portal TreeList items (#8508)"
-- 2026-01-10 @tobiu assigned to @tobiu
-### @tobiu - 2026-01-10 16:26
+- 2026-01-10T16:16:20Z @tobiu added the `enhancement` label
+- 2026-01-10T16:16:20Z @tobiu added the `design` label
+- 2026-01-10T16:16:20Z @tobiu added the `ai` label
+- 2026-01-10T16:25:54Z @tobiu referenced in commit `bfb57d2` - "enhancement: Add text truncation and right padding to Portal TreeList items (#8508)"
+- 2026-01-10T16:26:13Z @tobiu assigned to @tobiu
+### @tobiu - 2026-01-10T16:26:24Z
 
 **Input from Gemini 3 Pro:**
 
 > ✦ I have implemented the CSS text truncation for `TreeList` items by adding `flex: 1`, `overflow: hidden`, `text-overflow: ellipsis`, and `white-space: nowrap` to `.neo-list-item-content`. I also added `3px` right padding to nested list items to ensure text doesn't hit the edge visually. The changes were applied to `resources/scss/src/apps/portal/shared/content/TreeList.scss`.
 
-- 2026-01-10 @tobiu closed this issue
+- 2026-01-10T16:26:48Z @tobiu closed this issue
 

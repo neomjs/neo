@@ -42,20 +42,20 @@ To achieve efficient, SQL-like pagination without native DB support:
 
 ## Timeline
 
-- 2025-12-29 @tobiu added the `enhancement` label
-- 2025-12-29 @tobiu added the `ai` label
-- 2025-12-29 @tobiu added the `refactoring` label
-- 2025-12-29 @tobiu added the `performance` label
-- 2025-12-29 @tobiu assigned to @tobiu
-### @tobiu - 2025-12-29 22:14
+- 2025-12-29T22:13:29Z @tobiu added the `enhancement` label
+- 2025-12-29T22:13:29Z @tobiu added the `ai` label
+- 2025-12-29T22:13:29Z @tobiu added the `refactoring` label
+- 2025-12-29T22:13:30Z @tobiu added the `performance` label
+- 2025-12-29T22:13:36Z @tobiu assigned to @tobiu
+### @tobiu - 2025-12-29T22:14:21Z
 
 cross reference link: https://github.com/chroma-core/chroma/issues/469
 => it is sad to see that the ordering feature never got implemented.
 
-- 2025-12-29 @tobiu referenced in commit `f562965` - "Refactor(Memory): Implement two-phase fetch for global sorting in listSummaries (#8203)"
-### @tobiu - 2025-12-29 22:24
+- 2025-12-29T22:24:04Z @tobiu referenced in commit `f562965` - "Refactor(Memory): Implement two-phase fetch for global sorting in listSummaries (#8203)"
+### @tobiu - 2025-12-29T22:24:18Z
 
 Implemented the two-phase fetch strategy to ensure correct global sorting and pagination of session summaries. Phase 1 fetches lightweight metadata for sorting, and Phase 2 fetches the full documents for the target slice, using a Map for O(1) re-assembly to preserve order.
 
-- 2025-12-29 @tobiu closed this issue
+- 2025-12-29T22:24:19Z @tobiu closed this issue
 

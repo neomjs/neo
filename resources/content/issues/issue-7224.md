@@ -70,8 +70,8 @@ The guide should cover the following topics:
 
 ## Timeline
 
-- 2025-09-20 @tobiu assigned to @tobiu
-- 2025-09-20 @tobiu added the `documentation` label
-- 2025-09-20 @tobiu added the `enhancement` label
-- 2025-09-20 @tobiu added the `no auto close` label
+- 2025-09-20T12:01:40Z @tobiu assigned to @tobiu
+- 2025-09-20T12:01:41Z @tobiu added the `documentation` label
+- 2025-09-20T12:01:42Z @tobiu added the `enhancement` label
+- 2025-09-20T12:01:42Z @tobiu added the `no auto close` label
 

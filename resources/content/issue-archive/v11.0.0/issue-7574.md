@@ -40,10 +40,10 @@ The issue archiving logic in `#getIssuePath()` is currently tied to a static con
 
 ## Timeline
 
-- 2025-10-20 @tobiu assigned to @tobiu
-- 2025-10-20 @tobiu added parent issue #7564
-- 2025-10-20 @tobiu added the `enhancement` label
-- 2025-10-20 @tobiu added the `ai` label
-- 2025-10-20 @tobiu referenced in commit `46f5ef2` - "Update Archiving Logic to Use Dynamic Release Data #7574"
-- 2025-10-20 @tobiu closed this issue
+- 2025-10-20T12:48:13Z @tobiu assigned to @tobiu
+- 2025-10-20T12:48:14Z @tobiu added parent issue #7564
+- 2025-10-20T12:48:15Z @tobiu added the `enhancement` label
+- 2025-10-20T12:48:15Z @tobiu added the `ai` label
+- 2025-10-20T12:59:20Z @tobiu referenced in commit `46f5ef2` - "Update Archiving Logic to Use Dynamic Release Data #7574"
+- 2025-10-20T12:59:32Z @tobiu closed this issue
 

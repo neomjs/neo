@@ -42,15 +42,15 @@ This feature is dependent on the implementation of granular change notifications
 
 ## Timeline
 
-- 2025-07-01 @tobiu added the `enhancement` label
-### @github-actions - 2025-09-30 02:38
+- 2025-07-01T19:53:14Z @tobiu added the `enhancement` label
+### @github-actions - 2025-09-30T02:38:17Z
 
 This issue is stale because it has been open for 90 days with no activity.
 
-- 2025-09-30 @github-actions added the `stale` label
-- 2025-10-08 @tobiu removed the `stale` label
-- 2025-10-08 @tobiu added the `help wanted` label
-- 2025-10-08 @tobiu added the `good first issue` label
-- 2025-10-08 @tobiu added the `no auto close` label
-- 2025-10-08 @tobiu added the `hacktoberfest` label
+- 2025-09-30T02:38:17Z @github-actions added the `stale` label
+- 2025-10-08T09:40:38Z @tobiu removed the `stale` label
+- 2025-10-08T09:40:38Z @tobiu added the `help wanted` label
+- 2025-10-08T09:40:38Z @tobiu added the `good first issue` label
+- 2025-10-08T09:40:38Z @tobiu added the `no auto close` label
+- 2025-10-08T09:40:38Z @tobiu added the `hacktoberfest` label
 

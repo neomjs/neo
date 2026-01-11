@@ -29,12 +29,12 @@ Refactor `Portal.view.news.tickets.Component` to render the main issue body as t
 
 ## Timeline
 
-- 2026-01-10 @tobiu added the `enhancement` label
-- 2026-01-10 @tobiu added the `design` label
-- 2026-01-10 @tobiu added parent issue #8398
-- 2026-01-10 @tobiu referenced in commit `8e297e8` - "feat: Integrate Ticket Body into Timeline view (#8530)"
-- 2026-01-10 @tobiu assigned to @tobiu
-### @tobiu - 2026-01-10 23:54
+- 2026-01-10T23:18:47Z @tobiu added the `enhancement` label
+- 2026-01-10T23:18:47Z @tobiu added the `design` label
+- 2026-01-10T23:19:01Z @tobiu added parent issue #8398
+- 2026-01-10T23:54:16Z @tobiu referenced in commit `8e297e8` - "feat: Integrate Ticket Body into Timeline view (#8530)"
+- 2026-01-10T23:54:36Z @tobiu assigned to @tobiu
+### @tobiu - 2026-01-10T23:54:50Z
 
 **Input from Gemini 3 Pro:**
 
@@ -47,5 +47,5 @@ Refactor `Portal.view.news.tickets.Component` to render the main issue body as t
 > 
 > Verified on `dev`. (#8530)
 
-- 2026-01-10 @tobiu closed this issue
+- 2026-01-10T23:55:22Z @tobiu closed this issue
 

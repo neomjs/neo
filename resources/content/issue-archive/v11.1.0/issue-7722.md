@@ -25,9 +25,9 @@ The new test file `ai/mcp/server/github-workflow/test/healthHelpers.test.mjs` is
 
 ## Timeline
 
-- 2025-11-08 @tobiu added the `ai` label
-- 2025-11-08 @tobiu added the `testing` label
-- 2025-11-08 @tobiu cross-referenced by PR #7717
-- 2025-11-08 @MannXo cross-referenced by PR #7730
-- 2025-11-10 @tobiu closed this issue
+- 2025-11-08T09:57:49Z @tobiu added the `ai` label
+- 2025-11-08T09:57:50Z @tobiu added the `testing` label
+- 2025-11-08T10:03:47Z @tobiu cross-referenced by PR #7717
+- 2025-11-08T17:55:24Z @MannXo cross-referenced by PR #7730
+- 2025-11-10T20:03:08Z @tobiu closed this issue
 

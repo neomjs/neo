@@ -25,8 +25,8 @@ closedAt: '2025-06-30T23:36:04Z'
 
 ## Timeline
 
-- 2025-06-30 @tobiu assigned to @tobiu
-- 2025-06-30 @tobiu added the `enhancement` label
-- 2025-06-30 @tobiu referenced in commit `082824e` - "guides/ExtendingNeoClasses: add a proper way to work with filters #6919"
-- 2025-06-30 @tobiu closed this issue
+- 2025-06-30T23:35:30Z @tobiu assigned to @tobiu
+- 2025-06-30T23:35:31Z @tobiu added the `enhancement` label
+- 2025-06-30T23:35:58Z @tobiu referenced in commit `082824e` - "guides/ExtendingNeoClasses: add a proper way to work with filters #6919"
+- 2025-06-30T23:36:04Z @tobiu closed this issue
 

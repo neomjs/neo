@@ -30,11 +30,11 @@ This task involves:
 
 ## Timeline
 
-- 2025-12-15 @tobiu added the `enhancement` label
-- 2025-12-15 @tobiu added the `ai` label
-- 2025-12-15 @tobiu assigned to @tobiu
-- 2025-12-15 @tobiu referenced in commit `a9d1c6e` - "Enhance theming engine to support additionalThemeFiles #8117"
-### @tobiu - 2025-12-15 20:34
+- 2025-12-15T20:07:25Z @tobiu added the `enhancement` label
+- 2025-12-15T20:07:25Z @tobiu added the `ai` label
+- 2025-12-15T20:08:05Z @tobiu assigned to @tobiu
+- 2025-12-15T20:32:59Z @tobiu referenced in commit `a9d1c6e` - "Enhance theming engine to support additionalThemeFiles #8117"
+### @tobiu - 2025-12-15T20:34:10Z
 
 **Input from Gemini:**
 
@@ -57,5 +57,5 @@ This task involves:
 > 
 > The enhancement is now complete and verified.
 
-- 2025-12-15 @tobiu closed this issue
+- 2025-12-15T20:35:02Z @tobiu closed this issue
 

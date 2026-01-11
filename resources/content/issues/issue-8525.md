@@ -38,15 +38,15 @@ Users can now click a "Release" badge on any ticket to jump directly to the corr
 
 ## Timeline
 
-- 2026-01-10 @tobiu added the `enhancement` label
-- 2026-01-10 @tobiu added the `ai` label
-- 2026-01-10 @tobiu added the `feature` label
-- 2026-01-10 @tobiu added parent issue #8398
-- 2026-01-10 @tobiu referenced in commit `452fd8e` - "feat: Add Release badge to Ticket Header (#8525)
+- 2026-01-10T21:40:01Z @tobiu added the `enhancement` label
+- 2026-01-10T21:40:01Z @tobiu added the `ai` label
+- 2026-01-10T21:40:01Z @tobiu added the `feature` label
+- 2026-01-10T21:40:11Z @tobiu added parent issue #8398
+- 2026-01-10T21:40:17Z @tobiu referenced in commit `452fd8e` - "feat: Add Release badge to Ticket Header (#8525)
 
 Injects a release badge link into ticket headers, providing bidirectional navigation between tickets and releases. Refactors regex to module constants."
-- 2026-01-10 @tobiu assigned to @tobiu
-### @tobiu - 2026-01-10 21:40
+- 2026-01-10T21:40:22Z @tobiu assigned to @tobiu
+### @tobiu - 2026-01-10T21:40:33Z
 
 **Input from Gemini 3 Pro:**
 
@@ -59,5 +59,5 @@ Injects a release badge link into ticket headers, providing bidirectional naviga
 > 
 > This completes the bidirectional navigation between Tickets and Releases.
 
-- 2026-01-10 @tobiu closed this issue
+- 2026-01-10T21:40:49Z @tobiu closed this issue
 

@@ -25,11 +25,11 @@ The current solution does not work yet after scrolling to the right side.
 
 ## Timeline
 
-- 2025-02-04 @tobiu added the `enhancement` label
-- 2025-02-04 @tobiu assigned to @tobiu
-- 2025-02-04 @tobiu changed title from **draggable.grid.header.toolbar.SortZone: add support for buffered columns** to **draggable.grid.header.toolbar.SortZone: add support for scrolled columns**
-- 2025-02-04 @tobiu referenced in commit `ff4fbfd` - "draggable.grid.header.toolbar.SortZone: add support for scrolled columns #6377"
-### @tobiu - 2025-02-04 15:08
+- 2025-02-04T14:32:27Z @tobiu added the `enhancement` label
+- 2025-02-04T14:32:27Z @tobiu assigned to @tobiu
+- 2025-02-04T14:59:57Z @tobiu changed title from **draggable.grid.header.toolbar.SortZone: add support for buffered columns** to **draggable.grid.header.toolbar.SortZone: add support for scrolled columns**
+- 2025-02-04T15:00:32Z @tobiu referenced in commit `ff4fbfd` - "draggable.grid.header.toolbar.SortZone: add support for scrolled columns #6377"
+### @tobiu - 2025-02-04T15:08:30Z
 
 * the new `scrollLeft` config of `draggable.toolbar.SortZone` is now included inside the calculation which triggers the switch
 * added a `scrollTop` too, for vertical toolbars
@@ -38,5 +38,5 @@ The current solution does not work yet after scrolling to the right side.
 
 https://github.com/user-attachments/assets/1d4d4db0-ce9a-4f44-92dc-88a78d5660c3
 
-- 2025-02-04 @tobiu closed this issue
+- 2025-02-04T15:08:30Z @tobiu closed this issue
 

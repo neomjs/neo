@@ -25,8 +25,8 @@ closedAt: '2025-02-09T19:08:17Z'
 
 ## Timeline
 
-- 2025-02-09 @tobiu added the `enhancement` label
-- 2025-02-09 @tobiu assigned to @tobiu
-- 2025-02-09 @tobiu referenced in commit `cb0c4e2` - "grid.View: onScroll() => use touches for X #6423"
-- 2025-02-09 @tobiu closed this issue
+- 2025-02-09T19:07:52Z @tobiu added the `enhancement` label
+- 2025-02-09T19:07:52Z @tobiu assigned to @tobiu
+- 2025-02-09T19:08:09Z @tobiu referenced in commit `cb0c4e2` - "grid.View: onScroll() => use touches for X #6423"
+- 2025-02-09T19:08:17Z @tobiu closed this issue
 

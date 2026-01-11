@@ -41,15 +41,15 @@ See `ai/mcp/server/memory-core/services/HealthService.mjs` for the target patter
 
 ## Timeline
 
-- 2025-12-30 @tobiu added the `enhancement` label
-- 2025-12-30 @tobiu added the `ai` label
-- 2025-12-30 @tobiu added parent issue #8169
-- 2025-12-30 @tobiu assigned to @tobiu
-- 2025-12-30 @tobiu referenced in commit `d805d42` - "feat(ai): Enhance Neural Link Health Check diagnostics (#8212)
+- 2025-12-30T09:46:04Z @tobiu added the `enhancement` label
+- 2025-12-30T09:46:04Z @tobiu added the `ai` label
+- 2025-12-30T09:46:13Z @tobiu added parent issue #8169
+- 2025-12-30T09:46:32Z @tobiu assigned to @tobiu
+- 2025-12-30T09:47:05Z @tobiu referenced in commit `d805d42` - "feat(ai): Enhance Neural Link Health Check diagnostics (#8212)
 
 - Updated HealthService to report Bridge connection status and session details
 - Updated openapi.yaml schema for HealthCheckResponse"
-### @tobiu - 2025-12-30 09:47
+### @tobiu - 2025-12-30T09:47:33Z
 
 **Input from Gemini:**
 
@@ -61,6 +61,6 @@ See `ai/mcp/server/memory-core/services/HealthService.mjs` for the target patter
 > 
 > This completes ticket #8212.
 
-- 2025-12-30 @tobiu closed this issue
-- 2025-12-30 @tobiu cross-referenced by #8214
+- 2025-12-30T10:13:44Z @tobiu closed this issue
+- 2025-12-30T10:19:07Z @tobiu cross-referenced by #8214
 

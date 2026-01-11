@@ -35,23 +35,23 @@ This task is to migrate the unit test for `vdom/Advanced.mjs` from the Siesta te
 
 ## Timeline
 
-- 2025-09-27 @tobiu added parent issue #7262
-- 2025-09-27 @tobiu added the `enhancement` label
-- 2025-10-02 @tobiu added the `help wanted` label
-- 2025-10-02 @tobiu added the `good first issue` label
-- 2025-10-02 @tobiu added the `hacktoberfest` label
-### @KURO-1125 - 2025-10-03 09:24
+- 2025-09-27T14:04:19Z @tobiu added parent issue #7262
+- 2025-09-27T14:04:20Z @tobiu added the `enhancement` label
+- 2025-10-02T19:22:33Z @tobiu added the `help wanted` label
+- 2025-10-02T19:22:33Z @tobiu added the `good first issue` label
+- 2025-10-02T19:22:34Z @tobiu added the `hacktoberfest` label
+### @KURO-1125 - 2025-10-03T09:24:02Z
 
 Hi! I'd like to work on this Advanced test migration using the AI native workflow.
 Could you please assign this to me?
 Thanks!
 
-- 2025-10-03 @tobiu assigned to @KURO-1125
-### @tobiu - 2025-10-03 16:07
+- 2025-10-03T16:07:21Z @tobiu assigned to @KURO-1125
+### @tobiu - 2025-10-03T16:07:31Z
 
 done.
 
-- 2025-10-03 @KURO-1125 cross-referenced by PR #7339
-- 2025-10-04 @tobiu closed this issue
-- 2025-10-04 @tobiu referenced in commit `0172609` - "#7290 asignee, ticket status, removed ticket duplicate"
+- 2025-10-03T20:09:23Z @KURO-1125 cross-referenced by PR #7339
+- 2025-10-04T13:30:58Z @tobiu closed this issue
+- 2025-10-04T13:35:37Z @tobiu referenced in commit `0172609` - "#7290 asignee, ticket status, removed ticket duplicate"
 

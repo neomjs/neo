@@ -33,15 +33,15 @@ https://github.com/user-attachments/assets/826166f7-104d-4a6f-9c01-2cc85ccc9817
 
 ## Timeline
 
-- 2025-01-30 @tobiu added the `enhancement` label
-- 2025-01-30 @tobiu assigned to @tobiu
-- 2025-01-30 @tobiu referenced in commit `dc5a8bd` - "selection.grid.RowModel: update record based annotations (in case they exist) on manual selections #6343"
-### @tobiu - 2025-01-30 13:30
+- 2025-01-30T12:20:35Z @tobiu added the `enhancement` label
+- 2025-01-30T12:20:35Z @tobiu assigned to @tobiu
+- 2025-01-30T13:28:47Z @tobiu referenced in commit `dc5a8bd` - "selection.grid.RowModel: update record based annotations (in case they exist) on manual selections #6343"
+### @tobiu - 2025-01-30T13:30:12Z
 
 https://github.com/user-attachments/assets/8854266f-4d7b-475a-bd52-68a813b7c432
 
 clicks & key nav will now update the annotations as needed.
 
-- 2025-01-30 @tobiu closed this issue
-- 2025-01-30 @tobiu cross-referenced by #6347
+- 2025-01-30T13:30:12Z @tobiu closed this issue
+- 2025-01-30T16:10:35Z @tobiu cross-referenced by #6347
 

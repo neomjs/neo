@@ -32,11 +32,11 @@ This deprecation warning should be suppressed specifically for `registerRemote` 
 
 ## Timeline
 
-- 2026-01-06 @tobiu added the `bug` label
-- 2026-01-06 @tobiu added the `ai` label
-- 2026-01-06 @tobiu added the `core` label
-- 2026-01-06 @tobiu assigned to @tobiu
-### @tobiu - 2026-01-06 20:16
+- 2026-01-06T20:10:01Z @tobiu added the `bug` label
+- 2026-01-06T20:10:01Z @tobiu added the `ai` label
+- 2026-01-06T20:10:01Z @tobiu added the `core` label
+- 2026-01-06T20:16:26Z @tobiu assigned to @tobiu
+### @tobiu - 2026-01-06T20:16:38Z
 
 **Input from Gemini 3 Pro:**
 
@@ -48,8 +48,8 @@ This deprecation warning should be suppressed specifically for `registerRemote` 
 > 
 > Commit: `2f6e49458`
 
-- 2026-01-06 @tobiu closed this issue
-- 2026-01-07 @jonnyamsp referenced in commit `2f6e494` - "Fix deprecated destination warning for registerRemote messages
+- 2026-01-06T20:16:38Z @tobiu closed this issue
+- 2026-01-07T13:25:09Z @jonnyamsp referenced in commit `2f6e494` - "Fix deprecated destination warning for registerRemote messages
 
 In SharedWorker environments, sending messages to 'main' is deprecated
 due to ambiguity (multiple connected windows). However, `registerRemote`

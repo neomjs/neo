@@ -44,12 +44,12 @@ This ticket covers two key adjustments to the scoring logic in `buildScripts/ai/
 
 ## Timeline
 
-- 2025-09-23 @tobiu assigned to @tobiu
-- 2025-09-23 @tobiu added the `enhancement` label
-- 2025-09-23 @tobiu referenced in commit `2243864` - "Refine AI Query Scoring for Release Notes #7242"
-### @tobiu - 2025-09-23 14:38
+- 2025-09-23T14:37:39Z @tobiu assigned to @tobiu
+- 2025-09-23T14:37:41Z @tobiu added the `enhancement` label
+- 2025-09-23T14:38:43Z @tobiu referenced in commit `2243864` - "Refine AI Query Scoring for Release Notes #7242"
+### @tobiu - 2025-09-23T14:38:59Z
 
 <img width="904" height="1279" alt="Image" src="https://github.com/user-attachments/assets/7d9895b7-2cf5-401d-916a-e12e397731a3" />
 
-- 2025-09-23 @tobiu closed this issue
+- 2025-09-23T14:38:59Z @tobiu closed this issue
 

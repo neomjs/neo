@@ -25,9 +25,9 @@ closedAt: '2025-04-22T11:25:13Z'
 
 ## Timeline
 
-- 2025-04-22 @tobiu added the `enhancement` label
-- 2025-04-22 @tobiu assigned to @tobiu
-- 2025-04-22 @tobiu changed title from **selection.grid.ColumnModel: onCellClick() => add deselection logic** to **selection.grid.CellColumnModel: onCellClick() => add deselection logic**
-- 2025-04-22 @tobiu referenced in commit `5a5acd2` - "selection.grid.CellColumnModel: onCellClick() => add deselection logic #6678"
-- 2025-04-22 @tobiu closed this issue
+- 2025-04-22T11:19:56Z @tobiu added the `enhancement` label
+- 2025-04-22T11:19:56Z @tobiu assigned to @tobiu
+- 2025-04-22T11:24:39Z @tobiu changed title from **selection.grid.ColumnModel: onCellClick() => add deselection logic** to **selection.grid.CellColumnModel: onCellClick() => add deselection logic**
+- 2025-04-22T11:25:00Z @tobiu referenced in commit `5a5acd2` - "selection.grid.CellColumnModel: onCellClick() => add deselection logic #6678"
+- 2025-04-22T11:25:13Z @tobiu closed this issue
 

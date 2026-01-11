@@ -41,17 +41,17 @@ This ticket is to fix the scoring algorithm to give a significant boost to any c
 
 ## Timeline
 
-- 2025-10-13 @tobiu assigned to @tobiu
-- 2025-10-13 @tobiu added parent issue #7296
-- 2025-10-13 @tobiu added the `enhancement` label
-- 2025-10-13 @tobiu added the `help wanted` label
-- 2025-10-13 @tobiu added the `good first issue` label
-- 2025-10-13 @tobiu added the `hacktoberfest` label
-- 2025-10-13 @tobiu added the `ai` label
-### @tobiu - 2025-10-13 09:22
+- 2025-10-13T09:20:44Z @tobiu assigned to @tobiu
+- 2025-10-13T09:20:45Z @tobiu added parent issue #7296
+- 2025-10-13T09:20:46Z @tobiu added the `enhancement` label
+- 2025-10-13T09:20:46Z @tobiu added the `help wanted` label
+- 2025-10-13T09:20:46Z @tobiu added the `good first issue` label
+- 2025-10-13T09:20:46Z @tobiu added the `hacktoberfest` label
+- 2025-10-13T09:20:47Z @tobiu added the `ai` label
+### @tobiu - 2025-10-13T09:22:02Z
 
 I am reserving this ticket for @SarthakBorude for 7 days.
 
-- 2025-10-13 @tobiu cross-referenced by #7467
-- 2025-11-02 @tobiu closed this issue
+- 2025-10-13T09:34:46Z @tobiu cross-referenced by #7467
+- 2025-11-02T09:29:30Z @tobiu closed this issue
 

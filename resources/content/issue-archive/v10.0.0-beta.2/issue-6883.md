@@ -25,8 +25,8 @@ closedAt: '2025-06-27T14:59:19Z'
 
 ## Timeline
 
-- 2025-06-27 @tobiu assigned to @tobiu
-- 2025-06-27 @tobiu added the `enhancement` label
-- 2025-06-27 @tobiu referenced in commit `4cc3059` - "grid.Body, table.Body: applyRendererOutput() => add support for text => alternative to html #6883"
-- 2025-06-27 @tobiu closed this issue
+- 2025-06-27T14:58:50Z @tobiu assigned to @tobiu
+- 2025-06-27T14:58:51Z @tobiu added the `enhancement` label
+- 2025-06-27T14:59:13Z @tobiu referenced in commit `4cc3059` - "grid.Body, table.Body: applyRendererOutput() => add support for text => alternative to html #6883"
+- 2025-06-27T14:59:19Z @tobiu closed this issue
 

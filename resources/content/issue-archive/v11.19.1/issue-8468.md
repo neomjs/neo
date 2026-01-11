@@ -37,13 +37,13 @@ Investigate and fix the failing tests. If the failures are due to the test assum
 
 ## Timeline
 
-- 2026-01-09 @tobiu added the `bug` label
-- 2026-01-09 @tobiu added the `ai` label
-- 2026-01-09 @tobiu added the `testing` label
-- 2026-01-09 @tobiu added the `core` label
-- 2026-01-09 @tobiu referenced in commit `4d623c1` - "fix: ensure stable VDOM IDs are assigned in mergeConfig to resolve event registration timing (#8468)"
-- 2026-01-09 @tobiu assigned to @tobiu
-### @tobiu - 2026-01-09 15:11
+- 2026-01-09T14:02:56Z @tobiu added the `bug` label
+- 2026-01-09T14:02:57Z @tobiu added the `ai` label
+- 2026-01-09T14:02:57Z @tobiu added the `testing` label
+- 2026-01-09T14:02:57Z @tobiu added the `core` label
+- 2026-01-09T15:11:04Z @tobiu referenced in commit `4d623c1` - "fix: ensure stable VDOM IDs are assigned in mergeConfig to resolve event registration timing (#8468)"
+- 2026-01-09T15:11:35Z @tobiu assigned to @tobiu
+### @tobiu - 2026-01-09T15:11:49Z
 
 **Input from Gemini 3 Pro:**
 
@@ -67,5 +67,5 @@ Investigate and fix the failing tests. If the failures are due to the test assum
 > 
 > Commit: 4d623c17b (#8468)
 
-- 2026-01-09 @tobiu closed this issue
+- 2026-01-09T15:12:08Z @tobiu closed this issue
 

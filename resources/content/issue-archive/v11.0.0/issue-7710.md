@@ -36,10 +36,10 @@ This change centralizes the logic, improves code clarity, and aligns the impleme
 
 ## Timeline
 
-- 2025-11-06 @tobiu added the `enhancement` label
-- 2025-11-06 @tobiu added the `ai` label
-- 2025-11-06 @tobiu added the `refactoring` label
-- 2025-11-06 @tobiu assigned to @tobiu
-- 2025-11-06 @tobiu referenced in commit `80863fe` - "Refactor vnodeInitialized to a Reactive Config in VdomLifecycle #7710"
-- 2025-11-06 @tobiu closed this issue
+- 2025-11-06T12:49:23Z @tobiu added the `enhancement` label
+- 2025-11-06T12:49:24Z @tobiu added the `ai` label
+- 2025-11-06T12:49:24Z @tobiu added the `refactoring` label
+- 2025-11-06T12:49:39Z @tobiu assigned to @tobiu
+- 2025-11-06T12:50:04Z @tobiu referenced in commit `80863fe` - "Refactor vnodeInitialized to a Reactive Config in VdomLifecycle #7710"
+- 2025-11-06T12:50:13Z @tobiu closed this issue
 

@@ -52,33 +52,33 @@ To work on this ticket, please start your session with the following prompt:
 
 ## Timeline
 
-- 2025-10-07 @tobiu added parent issue #7399
-- 2025-10-07 @tobiu added the `enhancement` label
-- 2025-10-07 @tobiu added the `help wanted` label
-- 2025-10-07 @tobiu added the `good first issue` label
-- 2025-10-07 @tobiu added the `hacktoberfest` label
-- 2025-10-07 @tobiu added the `ai` label
-### @MannXo - 2025-10-07 09:46
+- 2025-10-07T09:45:02Z @tobiu added parent issue #7399
+- 2025-10-07T09:45:03Z @tobiu added the `enhancement` label
+- 2025-10-07T09:45:03Z @tobiu added the `help wanted` label
+- 2025-10-07T09:45:03Z @tobiu added the `good first issue` label
+- 2025-10-07T09:45:04Z @tobiu added the `hacktoberfest` label
+- 2025-10-07T09:45:04Z @tobiu added the `ai` label
+### @MannXo - 2025-10-07T09:46:40Z
 
 Hey @tobiu , I can work on this. can you assign it to me if it's up for grabs?
 thanks
 
-### @tobiu - 2025-10-07 10:01
+### @tobiu - 2025-10-07T10:01:58Z
 
 Hi, and thanks for your interest. This was fast. Sure, I can assign it to you. Please make sure to read https://github.com/neomjs/neo/issues/7399 first, since it the ticket requires the new "AI Native" workflow.
 
 I am still in the middle of refining the other subs and moving them into GitHub tickets.
 
-- 2025-10-07 @tobiu assigned to @MannXo
-- 2025-10-08 @MannXo referenced in commit `d09fc09` - "Add agent-agnostic MCP server configuration
+- 2025-10-07T10:02:06Z @tobiu assigned to @MannXo
+- 2025-10-08T08:11:29Z @MannXo referenced in commit `d09fc09` - "Add agent-agnostic MCP server configuration
 
 - Create .github/mcp-servers.json with standardized server definitions
 - Add comprehensive documentation guide
 - Update navigation tree
 - Resolves #7400"
-- 2025-10-08 @MannXo cross-referenced by PR #7416
-- 2025-10-08 @tobiu closed this issue
-- 2025-10-08 @tobiu referenced in commit `d6dfc20` - "Add agent-agnostic MCP server configuration
+- 2025-10-08T08:13:28Z @MannXo cross-referenced by PR #7416
+- 2025-10-08T11:40:30Z @tobiu closed this issue
+- 2025-10-08T11:40:30Z @tobiu referenced in commit `d6dfc20` - "Add agent-agnostic MCP server configuration
 
 - Create .github/mcp-servers.json with standardized server definitions
 - Add comprehensive documentation guide

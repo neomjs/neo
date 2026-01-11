@@ -34,19 +34,19 @@ The goal is to explain the Model Context Protocol (MCP) implementation, the thre
 
 ## Timeline
 
-- 2025-11-22 @tobiu added the `documentation` label
-- 2025-11-22 @tobiu added the `epic` label
-- 2025-11-22 @tobiu added the `ai` label
-- 2025-11-22 @tobiu added sub-issue #7849
-- 2025-11-22 @tobiu added sub-issue #7850
-- 2025-11-22 @tobiu added sub-issue #7851
-- 2025-11-22 @tobiu added sub-issue #7852
-- 2025-11-22 @tobiu added sub-issue #7853
-- 2025-11-22 @tobiu assigned to @tobiu
-- 2025-11-22 @tobiu referenced in commit `6a353c1` - "#7848 tree.json update"
-### @tobiu - 2025-11-22 08:35
+- 2025-11-22T08:14:44Z @tobiu added the `documentation` label
+- 2025-11-22T08:14:44Z @tobiu added the `epic` label
+- 2025-11-22T08:14:44Z @tobiu added the `ai` label
+- 2025-11-22T08:15:10Z @tobiu added sub-issue #7849
+- 2025-11-22T08:15:20Z @tobiu added sub-issue #7850
+- 2025-11-22T08:15:24Z @tobiu added sub-issue #7851
+- 2025-11-22T08:15:37Z @tobiu added sub-issue #7852
+- 2025-11-22T08:15:41Z @tobiu added sub-issue #7853
+- 2025-11-22T08:16:46Z @tobiu assigned to @tobiu
+- 2025-11-22T08:34:47Z @tobiu referenced in commit `6a353c1` - "#7848 tree.json update"
+### @tobiu - 2025-11-22T08:35:35Z
 
 initial draft version done, there will be follow-up tickets.
 
-- 2025-11-22 @tobiu closed this issue
+- 2025-11-22T08:35:35Z @tobiu closed this issue
 

@@ -41,13 +41,13 @@ Implement category differentiation based on the source directory.
 
 ## Timeline
 
-- 2026-01-05 @tobiu added the `enhancement` label
-- 2026-01-05 @tobiu added the `ai` label
-- 2026-01-05 @tobiu assigned to @tobiu
-- 2026-01-05 @tobiu referenced in commit `c1a0f7a` - "Enhancement: Expand Source Indexing Coverage #8343
+- 2026-01-05T23:10:09Z @tobiu added the `enhancement` label
+- 2026-01-05T23:10:09Z @tobiu added the `ai` label
+- 2026-01-05T23:10:24Z @tobiu assigned to @tobiu
+- 2026-01-05T23:18:45Z @tobiu referenced in commit `c1a0f7a` - "Enhancement: Expand Source Indexing Coverage #8343
 
 Updated SourceParser to accept a 'defaultType' parameter for dynamic categorization. Refactored ApiSource to iterate over multiple root directories ('src', 'apps', 'examples', 'docs/app', 'ai') and assign specific categories ('src', 'app', 'example', 'ai-infrastructure'), ensuring comprehensive and semantically typed knowledge base coverage."
-### @tobiu - 2026-01-05 23:18
+### @tobiu - 2026-01-05T23:18:58Z
 
 **Input from Gemini 3 Pro:**
 
@@ -72,5 +72,5 @@ Updated SourceParser to accept a 'defaultType' parameter for dynamic categorizat
 > 
 > This ensures the Knowledge Base now contains a comprehensive, categorized view of the entire codebase, from the core framework to the AI infrastructure.
 
-- 2026-01-05 @tobiu closed this issue
+- 2026-01-05T23:24:40Z @tobiu closed this issue
 

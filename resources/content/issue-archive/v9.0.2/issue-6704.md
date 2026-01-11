@@ -25,7 +25,7 @@ closedAt: '2025-05-12T11:09:12Z'
 
 ## Timeline
 
-- 2025-05-12 @tobiu added the `bug` label
-- 2025-05-12 @tobiu referenced in commit `a03952d` - "container.Base: createItem() => soften the parent.remove() call for existing instances #6704"
-- 2025-05-12 @tobiu closed this issue
+- 2025-05-12T11:08:51Z @tobiu added the `bug` label
+- 2025-05-12T11:09:06Z @tobiu referenced in commit `a03952d` - "container.Base: createItem() => soften the parent.remove() call for existing instances #6704"
+- 2025-05-12T11:09:12Z @tobiu closed this issue
 

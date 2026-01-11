@@ -33,10 +33,10 @@ Tasks:
 
 ## Timeline
 
-- 2025-11-19 @tobiu added the `enhancement` label
-- 2025-11-19 @tobiu added the `ai` label
-- 2025-11-19 @tobiu added the `refactoring` label
-- 2025-11-19 @tobiu assigned to @tobiu
-- 2025-11-19 @tobiu referenced in commit `46c8605` - "Refactor: Move hardcoded Gemini model name to config in SessionService #7811"
-- 2025-11-19 @tobiu closed this issue
+- 2025-11-19T14:39:02Z @tobiu added the `enhancement` label
+- 2025-11-19T14:39:02Z @tobiu added the `ai` label
+- 2025-11-19T14:39:02Z @tobiu added the `refactoring` label
+- 2025-11-19T14:39:55Z @tobiu assigned to @tobiu
+- 2025-11-19T14:40:53Z @tobiu referenced in commit `46c8605` - "Refactor: Move hardcoded Gemini model name to config in SessionService #7811"
+- 2025-11-19T14:41:08Z @tobiu closed this issue
 

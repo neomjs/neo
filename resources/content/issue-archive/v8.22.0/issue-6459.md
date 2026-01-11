@@ -25,8 +25,8 @@ closedAt: '2025-02-17T13:07:11Z'
 
 ## Timeline
 
-- 2025-02-17 @tobiu added the `enhancement` label
-- 2025-02-17 @tobiu assigned to @tobiu
-- 2025-02-17 @tobiu referenced in commit `569e5d0` - "main.DomAccess.scrollTo() => switch to element.scrollTo() #6459"
-- 2025-02-17 @tobiu closed this issue
+- 2025-02-17T13:06:39Z @tobiu added the `enhancement` label
+- 2025-02-17T13:06:39Z @tobiu assigned to @tobiu
+- 2025-02-17T13:07:02Z @tobiu referenced in commit `569e5d0` - "main.DomAccess.scrollTo() => switch to element.scrollTo() #6459"
+- 2025-02-17T13:07:11Z @tobiu closed this issue
 

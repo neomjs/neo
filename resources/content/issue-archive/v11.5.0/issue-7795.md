@@ -37,14 +37,14 @@ Update `buildScripts/buildAll.mjs` to dynamically determine the Node.js command 
 
 ## Timeline
 
-- 2025-11-18 @tobiu added the `enhancement` label
-- 2025-11-18 @tobiu added the `windows` label
-- 2025-11-18 @tobiu added the `developer-experience` label
-- 2025-11-18 @tobiu added the `ai` label
-- 2025-11-18 @tobiu assigned to @tobiu
-### @tobiu - 2025-11-18 19:47
+- 2025-11-18T17:31:50Z @tobiu added the `enhancement` label
+- 2025-11-18T17:31:50Z @tobiu added the `windows` label
+- 2025-11-18T17:31:50Z @tobiu added the `developer-experience` label
+- 2025-11-18T17:31:51Z @tobiu added the `ai` label
+- 2025-11-18T19:47:08Z @tobiu assigned to @tobiu
+### @tobiu - 2025-11-18T19:47:12Z
 
 already resolved
 
-- 2025-11-18 @tobiu closed this issue
+- 2025-11-18T19:47:13Z @tobiu closed this issue
 

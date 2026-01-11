@@ -25,13 +25,13 @@ closedAt: '2025-01-27T12:25:59Z'
 
 ## Timeline
 
-- 2025-01-27 @tobiu added the `enhancement` label
-- 2025-01-27 @tobiu assigned to @tobiu
-- 2025-01-27 @tobiu referenced in commit `1ac142c` - "Neo.Main: getByPath() => add support for accessing window methods & passing params #6314"
-### @tobiu - 2025-01-27 12:25
+- 2025-01-27T12:25:11Z @tobiu added the `enhancement` label
+- 2025-01-27T12:25:11Z @tobiu assigned to @tobiu
+- 2025-01-27T12:25:50Z @tobiu referenced in commit `1ac142c` - "Neo.Main: getByPath() => add support for accessing window methods & passing params #6314"
+### @tobiu - 2025-01-27T12:25:59Z
 
 <img width="414" alt="Image" src="https://github.com/user-attachments/assets/7eb16a46-5692-4817-999b-b8ef06f91a6f" />
 
-- 2025-01-27 @tobiu closed this issue
-- 2025-01-27 @tobiu cross-referenced by PR #6313
+- 2025-01-27T12:25:59Z @tobiu closed this issue
+- 2025-01-27T12:32:35Z @tobiu cross-referenced by PR #6313
 

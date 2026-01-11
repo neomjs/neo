@@ -35,10 +35,10 @@ To improve modularity and prepare for eventual packaging, we will create a centr
 
 ## Timeline
 
-- 2025-10-16 @tobiu assigned to @tobiu
-- 2025-10-16 @tobiu added parent issue #7501
-- 2025-10-16 @tobiu added the `enhancement` label
-- 2025-10-16 @tobiu added the `ai` label
-- 2025-10-16 @tobiu referenced in commit `756c958` - "Refactor MCP Server Configuration #7510"
-- 2025-10-16 @tobiu closed this issue
+- 2025-10-16T11:21:55Z @tobiu assigned to @tobiu
+- 2025-10-16T11:21:56Z @tobiu added parent issue #7501
+- 2025-10-16T11:21:57Z @tobiu added the `enhancement` label
+- 2025-10-16T11:21:57Z @tobiu added the `ai` label
+- 2025-10-16T11:24:05Z @tobiu referenced in commit `756c958` - "Refactor MCP Server Configuration #7510"
+- 2025-10-16T11:24:27Z @tobiu closed this issue
 

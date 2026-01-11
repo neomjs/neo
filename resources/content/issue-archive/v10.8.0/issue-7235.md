@@ -36,9 +36,9 @@ This change formalizes a more advanced documentation strategy, ensuring that all
 
 ## Timeline
 
-- 2025-09-23 @tobiu assigned to @tobiu
-- 2025-09-23 @tobiu added the `enhancement` label
-- 2025-09-23 @tobiu changed title from **Refine AGENTS.md for Enhanced Agent Workflow** to **Refine AI Agent Guidelines for Query-Driven Comments**
-- 2025-09-23 @tobiu referenced in commit `f178a98` - "Refine AI Agent Guidelines for Query-Driven Comments #7235"
-- 2025-09-23 @tobiu closed this issue
+- 2025-09-23T11:49:15Z @tobiu assigned to @tobiu
+- 2025-09-23T11:49:16Z @tobiu added the `enhancement` label
+- 2025-09-23T11:49:43Z @tobiu changed title from **Refine AGENTS.md for Enhanced Agent Workflow** to **Refine AI Agent Guidelines for Query-Driven Comments**
+- 2025-09-23T11:50:46Z @tobiu referenced in commit `f178a98` - "Refine AI Agent Guidelines for Query-Driven Comments #7235"
+- 2025-09-23T11:50:52Z @tobiu closed this issue
 

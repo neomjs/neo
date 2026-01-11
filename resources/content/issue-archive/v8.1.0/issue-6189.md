@@ -25,8 +25,8 @@ related to: https://github.com/neomjs/neo/issues/6187
 
 ## Timeline
 
-- 2025-01-08 @tobiu added the `enhancement` label
-- 2025-01-08 @tobiu assigned to @tobiu
-- 2025-01-08 @tobiu referenced in commit `f8f1d3c` - "grid.header.Toolbar: use aria-colindex #6189"
-- 2025-01-08 @tobiu closed this issue
+- 2025-01-08T09:42:51Z @tobiu added the `enhancement` label
+- 2025-01-08T09:42:51Z @tobiu assigned to @tobiu
+- 2025-01-08T09:46:33Z @tobiu referenced in commit `f8f1d3c` - "grid.header.Toolbar: use aria-colindex #6189"
+- 2025-01-08T09:46:52Z @tobiu closed this issue
 

@@ -29,8 +29,8 @@ Add a note to the "Actionable/Modification" section of the Development Workflow 
 
 ## Timeline
 
-- 2025-09-24 @tobiu assigned to @tobiu
-- 2025-09-24 @tobiu added the `enhancement` label
-- 2025-09-24 @tobiu referenced in commit `8f5f6ff` - "Clarify Agent Workflow Transition #7248"
-- 2025-09-24 @tobiu closed this issue
+- 2025-09-24T09:10:14Z @tobiu assigned to @tobiu
+- 2025-09-24T09:10:15Z @tobiu added the `enhancement` label
+- 2025-09-24T09:11:40Z @tobiu referenced in commit `8f5f6ff` - "Clarify Agent Workflow Transition #7248"
+- 2025-09-24T09:18:19Z @tobiu closed this issue
 

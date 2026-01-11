@@ -25,8 +25,8 @@ closedAt: '2025-06-09T09:10:13Z'
 
 ## Timeline
 
-- 2025-06-09 @tobiu added the `enhancement` label
-- 2025-06-09 @tobiu referenced in commit `f37e11c` - "buildScripts/createApp: replace MainContainer with Viewport #6759"
-- 2025-06-09 @tobiu closed this issue
-- 2025-06-09 @tobiu cross-referenced by #19
+- 2025-06-09T09:09:49Z @tobiu added the `enhancement` label
+- 2025-06-09T09:10:05Z @tobiu referenced in commit `f37e11c` - "buildScripts/createApp: replace MainContainer with Viewport #6759"
+- 2025-06-09T09:10:13Z @tobiu closed this issue
+- 2025-06-09T09:12:36Z @tobiu cross-referenced by #19
 

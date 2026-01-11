@@ -48,14 +48,14 @@ Acceptance criteria
 
 ## Timeline
 
-- 2025-11-07 @tobiu added parent issue #7687
-- 2025-11-07 @tobiu assigned to @MannXo
-### @tobiu - 2025-11-07 08:52
+- 2025-11-07T08:48:47Z @tobiu added parent issue #7687
+- 2025-11-07T08:49:31Z @tobiu assigned to @MannXo
+### @tobiu - 2025-11-07T08:52:21Z
 
 @MannXo Thanks for the new tickets. I assigned both to you, assuming that you want to tackle them. We are getting super close to v11 => all tests got migrated to playwright, and I fixed the combobox issues and created a faster and non-vulnerable version of `jsdoc-x` within the repo.
 
 On my end, I will create the `.npmignore` next, and then polish the AI guides more.
 
-- 2025-11-07 @MannXo cross-referenced by PR #7717
-- 2025-11-08 @tobiu closed this issue
+- 2025-11-07T09:35:38Z @MannXo cross-referenced by PR #7717
+- 2025-11-08T10:05:07Z @tobiu closed this issue
 

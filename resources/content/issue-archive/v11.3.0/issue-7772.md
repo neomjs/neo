@@ -59,9 +59,9 @@ This task proposes refactoring this logic to follow best practices by separating
 
 ## Timeline
 
-- 2025-11-14 @tobiu added the `enhancement` label
-- 2025-11-14 @tobiu added the `ai` label
-- 2025-11-14 @tobiu assigned to @tobiu
-- 2025-11-14 @tobiu referenced in commit `2f9dbc6` - "Refactor SEO metadata handling in Portal ViewportController #7772"
-- 2025-11-14 @tobiu closed this issue
+- 2025-11-14T10:51:57Z @tobiu added the `enhancement` label
+- 2025-11-14T10:51:57Z @tobiu added the `ai` label
+- 2025-11-14T10:52:22Z @tobiu assigned to @tobiu
+- 2025-11-14T11:41:13Z @tobiu referenced in commit `2f9dbc6` - "Refactor SEO metadata handling in Portal ViewportController #7772"
+- 2025-11-14T11:41:20Z @tobiu closed this issue
 

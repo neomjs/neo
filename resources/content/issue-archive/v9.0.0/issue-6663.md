@@ -41,8 +41,8 @@ function getAllAriaAttributes(node) {
 
 ## Timeline
 
-- 2025-04-16 @tobiu added the `enhancement` label
-- 2025-04-16 @tobiu cross-referenced by #6664
-- 2025-04-17 @tobiu referenced in commit `e669a05` - "main.DomEvents: getEventData() => include aria attributes #6663"
-- 2025-04-17 @tobiu closed this issue
+- 2025-04-16T22:14:48Z @tobiu added the `enhancement` label
+- 2025-04-16T22:29:28Z @tobiu cross-referenced by #6664
+- 2025-04-17T10:55:38Z @tobiu referenced in commit `e669a05` - "main.DomEvents: getEventData() => include aria attributes #6663"
+- 2025-04-17T10:55:46Z @tobiu closed this issue
 

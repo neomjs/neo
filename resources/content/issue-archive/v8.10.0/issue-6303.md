@@ -25,8 +25,8 @@ closedAt: '2025-01-26T18:56:28Z'
 
 ## Timeline
 
-- 2025-01-26 @tobiu added the `enhancement` label
-- 2025-01-26 @tobiu assigned to @tobiu
-- 2025-01-26 @tobiu referenced in commit `b6e1d5f` - "selection.grid.BaseModel: get dataFields() #6303"
-- 2025-01-26 @tobiu closed this issue
+- 2025-01-26T18:56:06Z @tobiu added the `enhancement` label
+- 2025-01-26T18:56:07Z @tobiu assigned to @tobiu
+- 2025-01-26T18:56:20Z @tobiu referenced in commit `b6e1d5f` - "selection.grid.BaseModel: get dataFields() #6303"
+- 2025-01-26T18:56:28Z @tobiu closed this issue
 

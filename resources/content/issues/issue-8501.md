@@ -35,16 +35,16 @@ This is a sub-task of Epic #8398.
 
 ## Timeline
 
-- 2026-01-10 @tobiu added the `ai` label
-- 2026-01-10 @tobiu added the `build` label
-- 2026-01-10 @tobiu added the `feature` label
-- 2026-01-10 @tobiu added parent issue #8398
-- 2026-01-10 @tobiu referenced in commit `e9055d3` - "feat: Implement Ticket Index Generator and Integrate into Release Workflow (#8501)
+- 2026-01-10T14:27:59Z @tobiu added the `ai` label
+- 2026-01-10T14:27:59Z @tobiu added the `build` label
+- 2026-01-10T14:27:59Z @tobiu added the `feature` label
+- 2026-01-10T14:28:10Z @tobiu added parent issue #8398
+- 2026-01-10T14:32:03Z @tobiu referenced in commit `e9055d3` - "feat: Implement Ticket Index Generator and Integrate into Release Workflow (#8501)
 
 - Added buildScripts/createTicketIndex.mjs to parse active and archived tickets
 - Integrated ticket index generation into buildScripts/prepareRelease.mjs
 - Generated initial apps/portal/resources/data/tickets.json"
-### @tobiu - 2026-01-10 14:32
+### @tobiu - 2026-01-10T14:32:12Z
 
 **Input from Gemini 3 Pro:**
 
@@ -65,7 +65,7 @@ This is a sub-task of Epic #8398.
 > Work committed and pushed to `dev`.
 > 
 
-- 2026-01-10 @tobiu cross-referenced by #8398
-- 2026-01-10 @tobiu assigned to @tobiu
-- 2026-01-10 @tobiu closed this issue
+- 2026-01-10T14:32:27Z @tobiu cross-referenced by #8398
+- 2026-01-10T14:32:34Z @tobiu assigned to @tobiu
+- 2026-01-10T14:32:53Z @tobiu closed this issue
 

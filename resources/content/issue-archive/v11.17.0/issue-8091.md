@@ -28,9 +28,9 @@ Update `src/tab/header/Toolbar.mjs` to use the new `SortZone` creation logic fro
 
 ## Timeline
 
-- 2025-12-11 @tobiu added the `ai` label
-- 2025-12-11 @tobiu added the `refactoring` label
-- 2025-12-11 @tobiu assigned to @tobiu
-- 2025-12-11 @tobiu referenced in commit `0c8c0c3` - "[Refactor] Update tab.header.Toolbar SortZone logic #8091"
-- 2025-12-11 @tobiu closed this issue
+- 2025-12-11T18:53:18Z @tobiu added the `ai` label
+- 2025-12-11T18:53:18Z @tobiu added the `refactoring` label
+- 2025-12-11T18:55:15Z @tobiu assigned to @tobiu
+- 2025-12-11T18:55:36Z @tobiu referenced in commit `0c8c0c3` - "[Refactor] Update tab.header.Toolbar SortZone logic #8091"
+- 2025-12-11T18:55:40Z @tobiu closed this issue
 

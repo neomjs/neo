@@ -27,8 +27,8 @@ closedAt: '2025-04-09T10:42:11Z'
 
 ## Timeline
 
-- 2025-04-09 @tobiu added the `bug` label
-- 2025-04-09 @tobiu assigned to @tobiu
-- 2025-04-09 @tobiu referenced in commit `828a43d` - "container.Base: createItem() => reduce the priority of the default theme #6637"
-- 2025-04-09 @tobiu closed this issue
+- 2025-04-09T10:41:21Z @tobiu added the `bug` label
+- 2025-04-09T10:41:21Z @tobiu assigned to @tobiu
+- 2025-04-09T10:41:46Z @tobiu referenced in commit `828a43d` - "container.Base: createItem() => reduce the priority of the default theme #6637"
+- 2025-04-09T10:42:11Z @tobiu closed this issue
 

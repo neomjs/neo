@@ -26,8 +26,8 @@ closedAt: '2025-04-22T11:38:08Z'
 
 ## Timeline
 
-- 2025-04-22 @tobiu added the `enhancement` label
-- 2025-04-22 @tobiu assigned to @tobiu
-- 2025-04-22 @tobiu referenced in commit `6187eb2` - "selection.grid.CellRowModel: onCellClick() => toggle rows based on cell selection #6680"
-- 2025-04-22 @tobiu closed this issue
+- 2025-04-22T11:37:22Z @tobiu added the `enhancement` label
+- 2025-04-22T11:37:22Z @tobiu assigned to @tobiu
+- 2025-04-22T11:38:01Z @tobiu referenced in commit `6187eb2` - "selection.grid.CellRowModel: onCellClick() => toggle rows based on cell selection #6680"
+- 2025-04-22T11:38:08Z @tobiu closed this issue
 

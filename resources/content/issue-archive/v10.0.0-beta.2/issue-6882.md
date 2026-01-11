@@ -25,8 +25,8 @@ closedAt: '2025-06-27T14:51:06Z'
 
 ## Timeline
 
-- 2025-06-27 @tobiu assigned to @tobiu
-- 2025-06-27 @tobiu added the `enhancement` label
-- 2025-06-27 @tobiu referenced in commit `6207437` - "Neo.*: use text over html for vdom #6882"
-- 2025-06-27 @tobiu closed this issue
+- 2025-06-27T14:50:40Z @tobiu assigned to @tobiu
+- 2025-06-27T14:50:42Z @tobiu added the `enhancement` label
+- 2025-06-27T14:51:00Z @tobiu referenced in commit `6207437` - "Neo.*: use text over html for vdom #6882"
+- 2025-06-27T14:51:06Z @tobiu closed this issue
 

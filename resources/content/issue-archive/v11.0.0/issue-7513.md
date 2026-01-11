@@ -39,11 +39,11 @@ To make the tools more self-documenting and provide clearer guidance to future a
 
 ## Timeline
 
-- 2025-10-16 @tobiu assigned to @tobiu
-- 2025-10-16 @tobiu added parent issue #7501
-- 2025-10-16 @tobiu added the `documentation` label
-- 2025-10-16 @tobiu added the `enhancement` label
-- 2025-10-16 @tobiu added the `ai` label
-- 2025-10-16 @tobiu referenced in commit `05b1447` - "Enhance OpenAPI Spec with Tool Usage Examples #7513"
-- 2025-10-16 @tobiu closed this issue
+- 2025-10-16T12:23:38Z @tobiu assigned to @tobiu
+- 2025-10-16T12:23:39Z @tobiu added parent issue #7501
+- 2025-10-16T12:23:40Z @tobiu added the `documentation` label
+- 2025-10-16T12:23:40Z @tobiu added the `enhancement` label
+- 2025-10-16T12:23:40Z @tobiu added the `ai` label
+- 2025-10-16T12:35:28Z @tobiu referenced in commit `05b1447` - "Enhance OpenAPI Spec with Tool Usage Examples #7513"
+- 2025-10-16T12:35:37Z @tobiu closed this issue
 

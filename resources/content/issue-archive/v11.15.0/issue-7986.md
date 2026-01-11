@@ -35,10 +35,10 @@ References:
 
 ## Timeline
 
-- 2025-12-02 @tobiu added the `bug` label
-- 2025-12-02 @tobiu added the `ai` label
-- 2025-12-02 @tobiu assigned to @tobiu
-### @tobiu - 2025-12-02 18:09
+- 2025-12-02T17:42:51Z @tobiu added the `bug` label
+- 2025-12-02T17:42:51Z @tobiu added the `ai` label
+- 2025-12-02T18:08:10Z @tobiu assigned to @tobiu
+### @tobiu - 2025-12-02T18:09:38Z
 
 **Input from Gemini Agent:**
 
@@ -46,6 +46,6 @@ References:
 > - Imported `sanitizeInput` from `buildScripts/util/Sanitizer.mjs`.
 > - Applied `sanitizeInput` to `-f`, `--base-url`, `--base-path`, and `-o` options.
 
-- 2025-12-02 @tobiu closed this issue
-- 2025-12-02 @tobiu referenced in commit `1c032ad` - "Sanitize commander inputs in buildScripts/generateSeoFiles.mjs #7986"
+- 2025-12-02T18:09:48Z @tobiu closed this issue
+- 2025-12-02T18:10:26Z @tobiu referenced in commit `1c032ad` - "Sanitize commander inputs in buildScripts/generateSeoFiles.mjs #7986"
 

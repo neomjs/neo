@@ -45,12 +45,12 @@ This ensures that listeners added imperatively via `on()` remain unaffected and 
 
 ## Timeline
 
-- 2025-07-22 @tobiu added the `enhancement` label
-### @github-actions - 2025-10-21 02:46
+- 2025-07-22T05:44:24Z @tobiu added the `enhancement` label
+### @github-actions - 2025-10-21T02:46:05Z
 
 This issue is stale because it has been open for 90 days with no activity.
 
-- 2025-10-21 @github-actions added the `stale` label
-- 2025-10-21 @tobiu removed the `stale` label
-- 2025-10-21 @tobiu added the `no auto close` label
+- 2025-10-21T02:46:06Z @github-actions added the `stale` label
+- 2025-10-21T07:23:55Z @tobiu removed the `stale` label
+- 2025-10-21T07:23:55Z @tobiu added the `no auto close` label
 

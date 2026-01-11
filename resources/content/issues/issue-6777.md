@@ -33,7 +33,7 @@ This guide is not sufficient.
 
 ## Timeline
 
-- 2025-06-12 @tobiu added the `enhancement` label
-- 2025-06-12 @tobiu added the `no auto close` label
-- 2025-06-12 @tobiu added the `documentation` label
+- 2025-06-12T16:09:08Z @tobiu added the `enhancement` label
+- 2025-06-12T16:09:08Z @tobiu added the `no auto close` label
+- 2025-06-12T16:11:35Z @tobiu added the `documentation` label
 

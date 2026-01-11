@@ -25,9 +25,9 @@ closedAt: '2025-03-31T16:16:24Z'
 
 ## Timeline
 
-- 2025-03-31 @tobiu added the `enhancement` label
-- 2025-03-31 @tobiu added parent issue #6600
-- 2025-03-31 @tobiu referenced in commit `84f1d6b` - "Email.view.ViewportStateProvider #6606"
-- 2025-03-31 @tobiu assigned to @tobiu
-- 2025-03-31 @tobiu closed this issue
+- 2025-03-31T16:15:35Z @tobiu added the `enhancement` label
+- 2025-03-31T16:15:36Z @tobiu added parent issue #6600
+- 2025-03-31T16:16:14Z @tobiu referenced in commit `84f1d6b` - "Email.view.ViewportStateProvider #6606"
+- 2025-03-31T16:16:23Z @tobiu assigned to @tobiu
+- 2025-03-31T16:16:25Z @tobiu closed this issue
 

@@ -24,7 +24,7 @@ closedAt: '2025-03-12T11:05:21Z'
 
 ## Timeline
 
-- 2025-03-12 @tobiu added the `enhancement` label
-- 2025-03-12 @tobiu referenced in commit `eaa716d` - "util.Css: switch from appName to windowId for the multi-window scope #6571"
-- 2025-03-12 @tobiu closed this issue
+- 2025-03-12T11:01:56Z @tobiu added the `enhancement` label
+- 2025-03-12T11:05:18Z @tobiu referenced in commit `eaa716d` - "util.Css: switch from appName to windowId for the multi-window scope #6571"
+- 2025-03-12T11:05:21Z @tobiu closed this issue
 

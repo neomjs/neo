@@ -44,12 +44,12 @@ Modify `src/worker/ServiceBase.mjs` -> `preloadAssets` to catch errors during fe
 
 ## Timeline
 
-- 2026-01-10 @tobiu added the `bug` label
-- 2026-01-10 @tobiu added the `ai` label
-- 2026-01-10 @tobiu added the `core` label
-- 2026-01-10 @tobiu assigned to @tobiu
-- 2026-01-10 @tobiu referenced in commit `9508c44` - "fix: Gracefully handle 404s in ServiceWorker.preloadAssets with success ratio (#8498)"
-### @tobiu - 2026-01-10 11:58
+- 2026-01-10T11:45:49Z @tobiu added the `bug` label
+- 2026-01-10T11:45:49Z @tobiu added the `ai` label
+- 2026-01-10T11:45:49Z @tobiu added the `core` label
+- 2026-01-10T11:46:03Z @tobiu assigned to @tobiu
+- 2026-01-10T11:58:27Z @tobiu referenced in commit `9508c44` - "fix: Gracefully handle 404s in ServiceWorker.preloadAssets with success ratio (#8498)"
+### @tobiu - 2026-01-10T11:58:39Z
 
 **Input from tobiu:**
 
@@ -72,5 +72,5 @@ Modify `src/worker/ServiceBase.mjs` -> `preloadAssets` to catch errors during fe
 > 
 > This allows developers to decide whether a partial success is acceptable for their use case.
 
-- 2026-01-10 @tobiu closed this issue
+- 2026-01-10T11:58:56Z @tobiu closed this issue
 

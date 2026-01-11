@@ -30,11 +30,11 @@ This involves:
 
 ## Timeline
 
-- 2026-01-09 @tobiu added the `bug` label
-- 2026-01-09 @tobiu added the `ai` label
-- 2026-01-09 @tobiu referenced in commit `d2d6efa` - "fix: Wrap all Markdown images in scrollable container (#8479)"
-- 2026-01-09 @tobiu assigned to @tobiu
-### @tobiu - 2026-01-09 18:14
+- 2026-01-09T17:59:30Z @tobiu added the `bug` label
+- 2026-01-09T17:59:30Z @tobiu added the `ai` label
+- 2026-01-09T18:14:17Z @tobiu referenced in commit `d2d6efa` - "fix: Wrap all Markdown images in scrollable container (#8479)"
+- 2026-01-09T18:14:20Z @tobiu assigned to @tobiu
+### @tobiu - 2026-01-09T18:14:23Z
 
 **Input from Gemini 3 Pro:**
 
@@ -42,5 +42,5 @@ This involves:
 > Added SCSS to `resources/scss/src/component/Markdown.scss` to handle `overflow-x: auto` for the wrapper.
 > Verified that images are now correctly wrapped and scrollable.
 
-- 2026-01-09 @tobiu closed this issue
+- 2026-01-09T18:14:41Z @tobiu closed this issue
 

@@ -40,10 +40,10 @@ To improve workflow efficiency. Agents should display the proposal and then imme
 
 ## Timeline
 
-- 2025-11-23 @tobiu added the `documentation` label
-- 2025-11-23 @tobiu added the `enhancement` label
-- 2025-11-23 @tobiu added the `ai` label
-- 2025-11-23 @tobiu assigned to @tobiu
-- 2025-11-23 @tobiu referenced in commit `4cb4534` - "[AI] Streamline create_issue workflow instruction #7886"
-- 2025-11-23 @tobiu closed this issue
+- 2025-11-23T19:29:54Z @tobiu added the `documentation` label
+- 2025-11-23T19:29:54Z @tobiu added the `enhancement` label
+- 2025-11-23T19:29:54Z @tobiu added the `ai` label
+- 2025-11-23T19:30:19Z @tobiu assigned to @tobiu
+- 2025-11-23T19:30:36Z @tobiu referenced in commit `4cb4534` - "[AI] Streamline create_issue workflow instruction #7886"
+- 2025-11-23T19:30:41Z @tobiu closed this issue
 

@@ -35,9 +35,9 @@ The guide now accurately documents the current state and usage of the Memory Cor
 
 ## Timeline
 
-- 2025-11-08 @tobiu added the `documentation` label
-- 2025-11-08 @tobiu added the `ai` label
-- 2025-11-08 @tobiu assigned to @tobiu
-- 2025-11-08 @tobiu referenced in commit `f6aaefb` - "Docs: Update Memory Core API Guide for MCP SDK #7725"
-- 2025-11-08 @tobiu closed this issue
+- 2025-11-08T12:18:06Z @tobiu added the `documentation` label
+- 2025-11-08T12:18:06Z @tobiu added the `ai` label
+- 2025-11-08T12:19:33Z @tobiu assigned to @tobiu
+- 2025-11-08T12:20:04Z @tobiu referenced in commit `f6aaefb` - "Docs: Update Memory Core API Guide for MCP SDK #7725"
+- 2025-11-08T12:20:12Z @tobiu closed this issue
 

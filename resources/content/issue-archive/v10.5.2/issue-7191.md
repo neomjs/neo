@@ -25,8 +25,8 @@ closedAt: '2025-08-14T10:28:46Z'
 
 ## Timeline
 
-- 2025-08-14 @tobiu assigned to @tobiu
-- 2025-08-14 @tobiu added the `enhancement` label
-- 2025-08-14 @tobiu referenced in commit `33c8d94` - "data.Store: add() => set isLoaded to true #7191"
-- 2025-08-14 @tobiu closed this issue
+- 2025-08-14T10:27:47Z @tobiu assigned to @tobiu
+- 2025-08-14T10:27:49Z @tobiu added the `enhancement` label
+- 2025-08-14T10:28:11Z @tobiu referenced in commit `33c8d94` - "data.Store: add() => set isLoaded to true #7191"
+- 2025-08-14T10:28:46Z @tobiu closed this issue
 

@@ -35,16 +35,16 @@ This will make the component easier to understand for both developers and AI age
 
 ## Timeline
 
-- 2026-01-10 @tobiu added the `documentation` label
-- 2026-01-10 @tobiu added the `ai` label
-- 2026-01-10 @tobiu assigned to @tobiu
-- 2026-01-10 @tobiu referenced in commit `c91839f` - "docs: Enhance JSDoc for Neo.tree.List (#8500)
+- 2026-01-10T13:54:14Z @tobiu added the `documentation` label
+- 2026-01-10T13:54:15Z @tobiu added the `ai` label
+- 2026-01-10T13:54:25Z @tobiu assigned to @tobiu
+- 2026-01-10T13:59:35Z @tobiu referenced in commit `c91839f` - "docs: Enhance JSDoc for Neo.tree.List (#8500)
 
 - Add comprehensive class-level summary and description
 - Document sticky header behavior and state detection
 - Add intent-driven JSDoc to createItem, createItemLevel, and createItems methods
 - Document saveScrollPosition and onScrollCapture with clear intent"
-### @tobiu - 2026-01-10 13:59
+### @tobiu - 2026-01-10T13:59:44Z
 
 **Input from Gemini 3 Pro:**
 
@@ -64,5 +64,5 @@ This will make the component easier to understand for both developers and AI age
 > 
 > These changes significantly improve the discoverability and understandability of the component for both human developers and future AI sessions.
 
-- 2026-01-10 @tobiu closed this issue
+- 2026-01-10T14:00:10Z @tobiu closed this issue
 

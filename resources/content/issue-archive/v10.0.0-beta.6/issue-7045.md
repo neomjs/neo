@@ -58,8 +58,8 @@ Currently, the logic for generating reactive getters and setters (`autoGenerateG
 
 ## Timeline
 
-- 2025-07-13 @tobiu assigned to @tobiu
-- 2025-07-13 @tobiu added the `enhancement` label
-- 2025-07-13 @tobiu referenced in commit `7b7b19a` - "Introduce Neo.createConfig for Unified Reactive Property Definition #7045"
-- 2025-07-13 @tobiu closed this issue
+- 2025-07-13T23:07:23Z @tobiu assigned to @tobiu
+- 2025-07-13T23:07:24Z @tobiu added the `enhancement` label
+- 2025-07-13T23:08:01Z @tobiu referenced in commit `7b7b19a` - "Introduce Neo.createConfig for Unified Reactive Property Definition #7045"
+- 2025-07-13T23:08:12Z @tobiu closed this issue
 

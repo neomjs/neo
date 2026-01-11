@@ -41,9 +41,9 @@ This completes the separation of concerns for the Knowledge Base.
 
 ## Timeline
 
-- 2025-11-25 @tobiu added the `ai` label
-- 2025-11-25 @tobiu added the `refactoring` label
-- 2025-11-25 @tobiu assigned to @tobiu
-- 2025-11-25 @tobiu referenced in commit `227b7ae` - "Refactor Knowledge Base embedding logic into Vector Service #7904"
-- 2025-11-25 @tobiu closed this issue
+- 2025-11-25T16:19:59Z @tobiu added the `ai` label
+- 2025-11-25T16:19:59Z @tobiu added the `refactoring` label
+- 2025-11-25T17:28:51Z @tobiu assigned to @tobiu
+- 2025-11-25T17:29:32Z @tobiu referenced in commit `227b7ae` - "Refactor Knowledge Base embedding logic into Vector Service #7904"
+- 2025-11-25T17:29:44Z @tobiu closed this issue
 

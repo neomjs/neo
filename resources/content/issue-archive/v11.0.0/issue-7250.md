@@ -35,8 +35,8 @@ Modify `AGENTS.md` to make the agent's information-gathering process more robust
 
 ## Timeline
 
-- 2025-09-24 @tobiu assigned to @tobiu
-- 2025-09-24 @tobiu added the `enhancement` label
-- 2025-09-24 @tobiu referenced in commit `83130ea` - "Improve Agent Information Discovery Protocol #7250"
-- 2025-09-24 @tobiu closed this issue
+- 2025-09-24T11:22:58Z @tobiu assigned to @tobiu
+- 2025-09-24T11:22:59Z @tobiu added the `enhancement` label
+- 2025-09-24T11:23:56Z @tobiu referenced in commit `83130ea` - "Improve Agent Information Discovery Protocol #7250"
+- 2025-09-24T11:24:05Z @tobiu closed this issue
 

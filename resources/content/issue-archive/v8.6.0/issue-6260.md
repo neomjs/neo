@@ -26,8 +26,8 @@ closedAt: '2025-01-18T22:17:09Z'
 
 ## Timeline
 
-- 2025-01-18 @tobiu added the `enhancement` label
-- 2025-01-18 @tobiu assigned to @tobiu
-- 2025-01-18 @tobiu referenced in commit `cbb435d` - "data.RecordFactory: setRecordData() #6260"
-- 2025-01-18 @tobiu closed this issue
+- 2025-01-18T22:16:26Z @tobiu added the `enhancement` label
+- 2025-01-18T22:16:26Z @tobiu assigned to @tobiu
+- 2025-01-18T22:17:02Z @tobiu referenced in commit `cbb435d` - "data.RecordFactory: setRecordData() #6260"
+- 2025-01-18T22:17:09Z @tobiu closed this issue
 

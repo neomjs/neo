@@ -34,10 +34,10 @@ This will significantly speed up the build process for subsequent runs.
 
 ## Timeline
 
-- 2025-11-20 @tobiu added the `enhancement` label
-- 2025-11-20 @tobiu added the `developer-experience` label
-- 2025-11-20 @tobiu added the `ai` label
-- 2025-11-20 @tobiu assigned to @tobiu
-- 2025-11-20 @tobiu referenced in commit `6ed71d7` - "Optimize highlight.js build to skip unnecessary regeneration #7823"
-- 2025-11-20 @tobiu closed this issue
+- 2025-11-20T14:11:27Z @tobiu added the `enhancement` label
+- 2025-11-20T14:11:27Z @tobiu added the `developer-experience` label
+- 2025-11-20T14:11:28Z @tobiu added the `ai` label
+- 2025-11-20T14:11:43Z @tobiu assigned to @tobiu
+- 2025-11-20T14:15:22Z @tobiu referenced in commit `6ed71d7` - "Optimize highlight.js build to skip unnecessary regeneration #7823"
+- 2025-11-20T14:15:33Z @tobiu closed this issue
 

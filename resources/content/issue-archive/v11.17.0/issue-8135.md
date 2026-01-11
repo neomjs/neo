@@ -39,10 +39,10 @@ This ensures compatibility with the `Manager`'s logic and supports the convenien
 
 ## Timeline
 
-- 2025-12-17 @tobiu added the `bug` label
-- 2025-12-17 @tobiu added the `ai` label
-- 2025-12-17 @tobiu added the `core` label
-- 2025-12-17 @tobiu assigned to @tobiu
-- 2025-12-17 @tobiu referenced in commit `49637b5` - "Ensure Neo.applyDeltas handles single delta objects (#8135)"
-- 2025-12-17 @tobiu closed this issue
+- 2025-12-17T02:45:21Z @tobiu added the `bug` label
+- 2025-12-17T02:45:21Z @tobiu added the `ai` label
+- 2025-12-17T02:45:21Z @tobiu added the `core` label
+- 2025-12-17T02:46:19Z @tobiu assigned to @tobiu
+- 2025-12-17T02:47:00Z @tobiu referenced in commit `49637b5` - "Ensure Neo.applyDeltas handles single delta objects (#8135)"
+- 2025-12-17T02:47:26Z @tobiu closed this issue
 

@@ -27,12 +27,12 @@ closedAt: '2025-07-09T09:47:26Z'
 
 ## Timeline
 
-- 2025-07-09 @tobiu assigned to @tobiu
-- 2025-07-09 @tobiu added the `enhancement` label
-- 2025-07-09 @tobiu referenced in commit `1e31b24` - "test/siesta/tests/neo/MixinStaticConfig.mjs: add more complex testing scenarios #6991"
-### @tobiu - 2025-07-09 09:47
+- 2025-07-09T09:46:40Z @tobiu assigned to @tobiu
+- 2025-07-09T09:46:41Z @tobiu added the `enhancement` label
+- 2025-07-09T09:47:10Z @tobiu referenced in commit `1e31b24` - "test/siesta/tests/neo/MixinStaticConfig.mjs: add more complex testing scenarios #6991"
+### @tobiu - 2025-07-09T09:47:26Z
 
 <img width="810" height="660" alt="Image" src="https://github.com/user-attachments/assets/995b40f3-bb62-4a5f-bb63-f10dbaa87a7b" />
 
-- 2025-07-09 @tobiu closed this issue
+- 2025-07-09T09:47:26Z @tobiu closed this issue
 

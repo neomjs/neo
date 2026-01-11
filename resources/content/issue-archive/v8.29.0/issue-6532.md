@@ -25,8 +25,8 @@ closedAt: '2025-03-03T18:05:29Z'
 
 ## Timeline
 
-- 2025-03-03 @tobiu added the `enhancement` label
-- 2025-03-03 @tobiu assigned to @tobiu
-- 2025-03-03 @tobiu referenced in commit `e3b7b06` - "draggable.grid.header.toolbar.SortZone: moveTo() => adjust for the new columns collection #6532"
-- 2025-03-03 @tobiu closed this issue
+- 2025-03-03T18:05:08Z @tobiu added the `enhancement` label
+- 2025-03-03T18:05:09Z @tobiu assigned to @tobiu
+- 2025-03-03T18:05:22Z @tobiu referenced in commit `e3b7b06` - "draggable.grid.header.toolbar.SortZone: moveTo() => adjust for the new columns collection #6532"
+- 2025-03-03T18:05:30Z @tobiu closed this issue
 

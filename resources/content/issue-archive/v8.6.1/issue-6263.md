@@ -29,9 +29,9 @@ let us fix the "symptoms" first: the method should return `null` in case no node
 
 ## Timeline
 
-- 2025-01-21 @tobiu added the `bug` label
-- 2025-01-21 @tobiu assigned to @tobiu
-- 2025-01-21 @tobiu referenced in commit `491c17a` - "main.DomAccess.getElement() => throws an error in case no id gets passed #6263"
-- 2025-01-21 @tobiu closed this issue
-- 2025-01-21 @tobiu cross-referenced by #6264
+- 2025-01-21T17:23:52Z @tobiu added the `bug` label
+- 2025-01-21T17:23:52Z @tobiu assigned to @tobiu
+- 2025-01-21T17:24:50Z @tobiu referenced in commit `491c17a` - "main.DomAccess.getElement() => throws an error in case no id gets passed #6263"
+- 2025-01-21T17:25:03Z @tobiu closed this issue
+- 2025-01-21T17:33:58Z @tobiu cross-referenced by #6264
 

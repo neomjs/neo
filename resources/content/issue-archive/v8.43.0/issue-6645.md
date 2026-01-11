@@ -28,7 +28,7 @@ closedAt: '2025-04-14T09:48:25Z'
 
 ## Timeline
 
-- 2025-04-14 @tobiu added the `enhancement` label
-- 2025-04-14 @tobiu referenced in commit `31da6bf` - "apps/covid, apps/sharedCovid: use fallback API #6645"
-- 2025-04-14 @tobiu closed this issue
+- 2025-04-14T09:31:44Z @tobiu added the `enhancement` label
+- 2025-04-14T09:35:21Z @tobiu referenced in commit `31da6bf` - "apps/covid, apps/sharedCovid: use fallback API #6645"
+- 2025-04-14T09:48:25Z @tobiu closed this issue
 

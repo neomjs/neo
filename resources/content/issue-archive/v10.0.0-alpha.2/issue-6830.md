@@ -24,7 +24,7 @@ gemini strongly suggests to add more
 
 ## Timeline
 
-- 2025-06-17 @tobiu added the `enhancement` label
-- 2025-06-18 @tobiu referenced in commit `0be63d4` - "package.json: description & keywords enhancement #6830"
-- 2025-06-18 @tobiu closed this issue
+- 2025-06-17T23:56:56Z @tobiu added the `enhancement` label
+- 2025-06-18T00:12:22Z @tobiu referenced in commit `0be63d4` - "package.json: description & keywords enhancement #6830"
+- 2025-06-18T00:12:32Z @tobiu closed this issue
 

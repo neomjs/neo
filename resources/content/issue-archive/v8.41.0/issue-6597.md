@@ -46,11 +46,11 @@ We suspect this code to to be the problem.
 
 ## Timeline
 
-- 2025-03-30 @cgauthier added the `bug` label
-- 2025-03-30 @tobiu cross-referenced by #6598
-- 2025-03-30 @tobiu added the `help wanted` label
-- 2025-03-30 @tobiu added the `no auto close` label
-### @tobiu - 2025-03-30 18:56
+- 2025-03-30T18:11:02Z @cgauthier added the `bug` label
+- 2025-03-30T18:46:18Z @tobiu cross-referenced by #6598
+- 2025-03-30T18:48:05Z @tobiu added the `help wanted` label
+- 2025-03-30T18:48:05Z @tobiu added the `no auto close` label
+### @tobiu - 2025-03-30T18:56:52Z
 
 @cgauthier thanks for opening the ticket! sadly, I can not reproduce it on Mac OS (it works locally as well as inside the deployed version: https://neomjs.com/examples/calendar/basic/index.html )
 
@@ -90,7 +90,7 @@ Since `parent` is always `null`, it leaves us with 2 options where the issue mos
 
 I added the "help wanted" label to this ticket, since I don't have windows installed here => I can not verify that a hotfix candidate actually resolves it.
 
-### @tobiu - 2025-03-30 19:03
+### @tobiu - 2025-03-30T19:03:41Z
 
 ```
     getPlainData(data=this.data) {
@@ -117,7 +117,7 @@ which looks fine: https://github.com/neomjs/neo/blob/dev/src/calendar/view/MainC
 
 12 top level properties inside `data`, 4 properties inside `data.events`, 2 properties inside `data.timeFormat`.
 
-### @tobiu - 2025-03-30 19:08
+### @tobiu - 2025-03-30T19:08:54Z
 
 ```
     onDataPropertyChange(key, value, oldValue) {
@@ -133,14 +133,14 @@ console.log(key, value);
 
 this part also looks fine on Mac OS. `onDataPropertyChange()` only gets called once for each data property.
 
-- 2025-04-06 @tobiu referenced in commit `34d6eb0` - "Calendar - Basic - Windows Browsers (all of them) - Maximum Call Stack Size Exceeded error #6597"
-- 2025-04-06 @tobiu referenced in commit `8d418bc` - "#6597 cleanup"
-### @tobiu - 2025-04-06 21:30
+- 2025-04-06T21:27:53Z @tobiu referenced in commit `34d6eb0` - "Calendar - Basic - Windows Browsers (all of them) - Maximum Call Stack Size Exceeded error #6597"
+- 2025-04-06T21:28:53Z @tobiu referenced in commit `8d418bc` - "#6597 cleanup"
+### @tobiu - 2025-04-06T21:30:08Z
 
 as it turned out, this was not a windows issue, but UTC vs later starting timezones (e.g. USA).
 thanks a lot @cgauthier for the debugging session!
 
 while it is working now, it needs follow up tickets.
 
-- 2025-04-06 @tobiu closed this issue
+- 2025-04-06T21:30:08Z @tobiu closed this issue
 

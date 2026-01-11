@@ -49,13 +49,13 @@ This will:
 
 ## Timeline
 
-- 2026-01-09 @tobiu added the `ai` label
-- 2026-01-09 @tobiu added the `refactoring` label
-- 2026-01-09 @tobiu added the `core` label
-- 2026-01-09 @tobiu added parent issue #8469
-- 2026-01-09 @tobiu referenced in commit `91085ea` - "refactor: replace afterSetId with ensureStableIds in form fields (#8478)"
-- 2026-01-09 @tobiu assigned to @tobiu
-### @tobiu - 2026-01-09 17:24
+- 2026-01-09T17:20:53Z @tobiu added the `ai` label
+- 2026-01-09T17:20:53Z @tobiu added the `refactoring` label
+- 2026-01-09T17:20:53Z @tobiu added the `core` label
+- 2026-01-09T17:21:17Z @tobiu added parent issue #8469
+- 2026-01-09T17:24:27Z @tobiu referenced in commit `91085ea` - "refactor: replace afterSetId with ensureStableIds in form fields (#8478)"
+- 2026-01-09T17:24:34Z @tobiu assigned to @tobiu
+### @tobiu - 2026-01-09T17:24:43Z
 
 **Input from Gemini 3 Pro:**
 
@@ -75,5 +75,5 @@ This will:
 > 
 > Commit: 91085ea4f (#8478)
 
-- 2026-01-09 @tobiu closed this issue
+- 2026-01-09T17:25:00Z @tobiu closed this issue
 

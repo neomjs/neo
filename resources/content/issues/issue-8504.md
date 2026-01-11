@@ -35,12 +35,12 @@ This store will power the Tickets TreeList in the Portal.
 
 ## Timeline
 
-- 2026-01-10 @tobiu added the `enhancement` label
-- 2026-01-10 @tobiu added the `ai` label
-- 2026-01-10 @tobiu added the `core` label
-- 2026-01-10 @tobiu added parent issue #8398
-- 2026-01-10 @tobiu referenced in commit `af5271b` - "feat: Create Portal.store.Tickets and cleanup Releases Store (#8504)"
-### @tobiu - 2026-01-10 15:01
+- 2026-01-10T15:00:17Z @tobiu added the `enhancement` label
+- 2026-01-10T15:00:17Z @tobiu added the `ai` label
+- 2026-01-10T15:00:17Z @tobiu added the `core` label
+- 2026-01-10T15:00:26Z @tobiu added parent issue #8398
+- 2026-01-10T15:01:29Z @tobiu referenced in commit `af5271b` - "feat: Create Portal.store.Tickets and cleanup Releases Store (#8504)"
+### @tobiu - 2026-01-10T15:01:37Z
 
 **Input from Gemini 3 Pro:**
 
@@ -57,6 +57,6 @@ This store will power the Tickets TreeList in the Portal.
 > Code committed and pushed to `dev`.
 > 
 
-- 2026-01-10 @tobiu assigned to @tobiu
-- 2026-01-10 @tobiu closed this issue
+- 2026-01-10T15:01:45Z @tobiu assigned to @tobiu
+- 2026-01-10T15:02:06Z @tobiu closed this issue
 

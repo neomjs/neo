@@ -34,9 +34,9 @@ This ensures that the title of the release is immediately visible in the content
 
 ## Timeline
 
-- 2025-10-22 @tobiu assigned to @tobiu
-- 2025-10-22 @tobiu added the `enhancement` label
-- 2025-10-22 @tobiu referenced in commit `6210585` - "Add Release Name as H1 Header in Synced Release Note Files #7607"
-- 2025-10-22 @tobiu closed this issue
-- 2025-10-22 @tobiu added the `ai` label
+- 2025-10-22T12:20:26Z @tobiu assigned to @tobiu
+- 2025-10-22T12:20:27Z @tobiu added the `enhancement` label
+- 2025-10-22T12:20:49Z @tobiu referenced in commit `6210585` - "Add Release Name as H1 Header in Synced Release Note Files #7607"
+- 2025-10-22T12:20:57Z @tobiu closed this issue
+- 2025-10-22T12:21:19Z @tobiu added the `ai` label
 

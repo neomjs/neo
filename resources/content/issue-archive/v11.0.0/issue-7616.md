@@ -51,11 +51,11 @@ The `SyncService` has been refactored to implement **content hash tracking** for
 
 ## Timeline
 
-- 2025-10-22 @tobiu assigned to @tobiu
-- 2025-10-22 @tobiu added the `bug` label
-- 2025-10-22 @tobiu added the `enhancement` label
-- 2025-10-22 @tobiu added the `ai` label
-- 2025-10-22 @tobiu added the `refactoring` label
-- 2025-10-22 @tobiu referenced in commit `7e3a2e1` - "Neo.ai.mcp.server.github-workflow.SyncService: Switch to Content Hash Tracking #7616"
-- 2025-10-23 @tobiu closed this issue
+- 2025-10-22T23:59:04Z @tobiu assigned to @tobiu
+- 2025-10-22T23:59:05Z @tobiu added the `bug` label
+- 2025-10-22T23:59:06Z @tobiu added the `enhancement` label
+- 2025-10-22T23:59:06Z @tobiu added the `ai` label
+- 2025-10-22T23:59:06Z @tobiu added the `refactoring` label
+- 2025-10-22T23:59:31Z @tobiu referenced in commit `7e3a2e1` - "Neo.ai.mcp.server.github-workflow.SyncService: Switch to Content Hash Tracking #7616"
+- 2025-10-23T00:10:48Z @tobiu closed this issue
 

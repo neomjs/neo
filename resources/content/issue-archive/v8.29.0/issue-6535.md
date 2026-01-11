@@ -25,8 +25,8 @@ closedAt: '2025-03-03T18:31:47Z'
 
 ## Timeline
 
-- 2025-03-03 @tobiu added the `enhancement` label
-- 2025-03-03 @tobiu assigned to @tobiu
-- 2025-03-03 @tobiu referenced in commit `8db076d` - "grid.column.Base: windowId_ config => support for column based theme files #6535"
-- 2025-03-03 @tobiu closed this issue
+- 2025-03-03T18:31:05Z @tobiu added the `enhancement` label
+- 2025-03-03T18:31:05Z @tobiu assigned to @tobiu
+- 2025-03-03T18:31:44Z @tobiu referenced in commit `8db076d` - "grid.column.Base: windowId_ config => support for column based theme files #6535"
+- 2025-03-03T18:31:47Z @tobiu closed this issue
 

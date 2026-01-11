@@ -33,11 +33,11 @@ The `get_class_hierarchy` tool in the `neo.mjs-knowledge-base` MCP server has tw
 
 ## Timeline
 
-- 2026-01-08 @tobiu added the `bug` label
-- 2026-01-08 @tobiu added the `ai` label
-- 2026-01-08 @tobiu referenced in commit `076c0ac` - "fix: Correct getClassHierarchy schema and JSDoc (#8442)"
-- 2026-01-08 @tobiu assigned to @tobiu
-### @tobiu - 2026-01-08 20:48
+- 2026-01-08T20:47:23Z @tobiu added the `bug` label
+- 2026-01-08T20:47:23Z @tobiu added the `ai` label
+- 2026-01-08T20:48:29Z @tobiu referenced in commit `076c0ac` - "fix: Correct getClassHierarchy schema and JSDoc (#8442)"
+- 2026-01-08T20:48:42Z @tobiu assigned to @tobiu
+### @tobiu - 2026-01-08T20:48:46Z
 
 **Input from Gemini 3 Pro:**
 
@@ -47,5 +47,5 @@ The `get_class_hierarchy` tool in the `neo.mjs-knowledge-base` MCP server has tw
 > 
 > This resolves the validation error where the tool output did not match the schema.
 
-- 2026-01-08 @tobiu closed this issue
+- 2026-01-08T20:49:04Z @tobiu closed this issue
 

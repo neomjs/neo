@@ -52,8 +52,8 @@ The `selectionModel.select()` method, when `singleSelect` is true, is designed t
 
 ## Timeline
 
-- 2025-07-29 @tobiu assigned to @tobiu
-- 2025-07-29 @tobiu added the `enhancement` label
-- 2025-07-29 @tobiu referenced in commit `4b26ff7` - "ComboBox: Optimize afterSetValue Selection Handling for SingleSelect #7125"
-- 2025-07-29 @tobiu closed this issue
+- 2025-07-29T21:47:33Z @tobiu assigned to @tobiu
+- 2025-07-29T21:47:34Z @tobiu added the `enhancement` label
+- 2025-07-29T21:48:49Z @tobiu referenced in commit `4b26ff7` - "ComboBox: Optimize afterSetValue Selection Handling for SingleSelect #7125"
+- 2025-07-29T21:49:02Z @tobiu closed this issue
 

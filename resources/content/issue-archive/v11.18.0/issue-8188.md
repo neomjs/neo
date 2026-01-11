@@ -42,15 +42,15 @@ Agents need to visually identify components during debugging or interaction sess
 
 ## Timeline
 
-- 2025-12-28 @tobiu added the `enhancement` label
-- 2025-12-28 @tobiu added the `ai` label
-- 2025-12-28 @tobiu added parent issue #8169
-- 2025-12-29 @tobiu referenced in commit `0f2bf7d` - "feat(ai): Implement visual component highlighting (#8188)
+- 2025-12-28T21:16:42Z @tobiu added the `enhancement` label
+- 2025-12-28T21:16:42Z @tobiu added the `ai` label
+- 2025-12-28T21:16:50Z @tobiu added parent issue #8169
+- 2025-12-29T23:23:55Z @tobiu referenced in commit `0f2bf7d` - "feat(ai): Implement visual component highlighting (#8188)
 
 - Add highlightComponent to ComponentService (client)
 - Expose highlight_component via Client.mjs
 - Add highlightComponent to InteractionService (server)
 - Update OpenAPI spec with /component/highlight"
-- 2025-12-29 @tobiu closed this issue
-- 2025-12-29 @tobiu assigned to @tobiu
+- 2025-12-29T23:24:43Z @tobiu closed this issue
+- 2025-12-29T23:24:57Z @tobiu assigned to @tobiu
 

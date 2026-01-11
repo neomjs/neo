@@ -25,13 +25,13 @@ closedAt: '2025-05-05T17:22:16Z'
 
 ## Timeline
 
-- 2025-05-05 @tobiu assigned to @tobiu
-- 2025-05-05 @tobiu added the `enhancement` label
-- 2025-05-05 @tobiu added parent issue #6696
-### @tobiu - 2025-05-05 17:22
+- 2025-05-05T13:44:37Z @tobiu assigned to @tobiu
+- 2025-05-05T13:44:38Z @tobiu added the `enhancement` label
+- 2025-05-05T13:44:39Z @tobiu added parent issue #6696
+### @tobiu - 2025-05-05T17:22:16Z
 
 * Fixed the layout switching in a different way
 * This approach would be way more complicated, since lazy-loaded items need to trigger child attribute changes later
 
-- 2025-05-05 @tobiu closed this issue
+- 2025-05-05T17:22:16Z @tobiu closed this issue
 

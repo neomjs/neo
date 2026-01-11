@@ -66,13 +66,13 @@ This task will replace the existing template processing logic in `buildScripts/b
 
 ## Timeline
 
-- 2025-08-01 @tobiu assigned to @tobiu
-- 2025-08-01 @tobiu added the `enhancement` label
-- 2025-08-01 @tobiu added parent issue #7130
-- 2025-08-01 @tobiu referenced in commit `acb0410` - "Finalize Build-Time AST Transformation #7156 WIP"
-- 2025-08-02 @tobiu referenced in commit `c9c75f2` - "Finalize Build-Time AST Transformation #7156 WIP"
-- 2025-08-02 @tobiu referenced in commit `32975a7` - "Finalize Build-Time AST Transformation #7156"
-### @tobiu - 2025-08-02 11:11
+- 2025-08-01T16:07:11Z @tobiu assigned to @tobiu
+- 2025-08-01T16:07:12Z @tobiu added the `enhancement` label
+- 2025-08-01T16:07:12Z @tobiu added parent issue #7130
+- 2025-08-01T23:33:48Z @tobiu referenced in commit `acb0410` - "Finalize Build-Time AST Transformation #7156 WIP"
+- 2025-08-02T11:02:50Z @tobiu referenced in commit `c9c75f2` - "Finalize Build-Time AST Transformation #7156 WIP"
+- 2025-08-02T11:09:54Z @tobiu referenced in commit `32975a7` - "Finalize Build-Time AST Transformation #7156"
+### @tobiu - 2025-08-02T11:11:54Z
 
 this is a huge step forwards for build-time replacements.
 
@@ -82,5 +82,5 @@ gets transformed into:
 
 <img width="716" height="424" alt="Image" src="https://github.com/user-attachments/assets/f3b285ab-cedb-4620-918d-0d41c1ed1bee" />
 
-- 2025-08-02 @tobiu closed this issue
+- 2025-08-02T11:11:55Z @tobiu closed this issue
 

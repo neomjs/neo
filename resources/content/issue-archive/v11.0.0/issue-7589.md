@@ -37,10 +37,10 @@ The resulting convention (e.g., `issue-123.md`) is scalable, robust, and remains
 
 ## Timeline
 
-- 2025-10-21 @tobiu assigned to @tobiu
-- 2025-10-21 @tobiu added the `enhancement` label
-- 2025-10-21 @tobiu added the `ai` label
-- 2025-10-21 @tobiu added parent issue #7564
-- 2025-10-21 @tobiu referenced in commit `ec53d2a` - "Refactor Issue Filename Convention #7589"
-- 2025-10-21 @tobiu closed this issue
+- 2025-10-21T09:33:02Z @tobiu assigned to @tobiu
+- 2025-10-21T09:33:03Z @tobiu added the `enhancement` label
+- 2025-10-21T09:33:03Z @tobiu added the `ai` label
+- 2025-10-21T09:33:03Z @tobiu added parent issue #7564
+- 2025-10-21T09:37:03Z @tobiu referenced in commit `ec53d2a` - "Refactor Issue Filename Convention #7589"
+- 2025-10-21T09:37:13Z @tobiu closed this issue
 

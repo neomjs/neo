@@ -36,12 +36,12 @@ To understand the global event landscape and identify potential hotspots (e.g., 
 
 ## Timeline
 
-- 2026-01-01 @tobiu added the `enhancement` label
-- 2026-01-01 @tobiu added the `ai` label
-- 2026-01-01 @tobiu added parent issue #8169
-- 2026-01-01 @tobiu assigned to @tobiu
-- 2026-01-02 @tobiu closed this issue
-- 2026-01-04 @jonnyamsp referenced in commit `e8372da` - "feat(ai): Implement DOM Event introspection tools (#8278, #8279)
+- 2026-01-01T18:47:03Z @tobiu added the `enhancement` label
+- 2026-01-01T18:47:03Z @tobiu added the `ai` label
+- 2026-01-01T18:47:14Z @tobiu added parent issue #8169
+- 2026-01-01T18:48:01Z @tobiu assigned to @tobiu
+- 2026-01-02T09:42:46Z @tobiu closed this issue
+- 2026-01-04T03:10:29Z @jonnyamsp referenced in commit `e8372da` - "feat(ai): Implement DOM Event introspection tools (#8278, #8279)
 
 - Implement client-side logic for getDomEventListeners and getDomEventSummary in RuntimeService
 - Update Client.mjs to route get_dom_event requests

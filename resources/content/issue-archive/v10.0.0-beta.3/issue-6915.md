@@ -25,8 +25,8 @@ closedAt: '2025-06-30T22:27:31Z'
 
 ## Timeline
 
-- 2025-06-30 @tobiu assigned to @tobiu
-- 2025-06-30 @tobiu added the `enhancement` label
-- 2025-06-30 @tobiu referenced in commit `bc14c79` - "learn/guides/CustomComponents: The Role of Neo.setupClass() #6915"
-- 2025-06-30 @tobiu closed this issue
+- 2025-06-30T22:26:53Z @tobiu assigned to @tobiu
+- 2025-06-30T22:26:54Z @tobiu added the `enhancement` label
+- 2025-06-30T22:27:24Z @tobiu referenced in commit `bc14c79` - "learn/guides/CustomComponents: The Role of Neo.setupClass() #6915"
+- 2025-06-30T22:27:31Z @tobiu closed this issue
 

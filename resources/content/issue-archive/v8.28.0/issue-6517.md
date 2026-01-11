@@ -24,7 +24,7 @@ closedAt: '2025-03-02T15:29:53Z'
 
 ## Timeline
 
-- 2025-03-02 @tobiu added the `enhancement` label
-- 2025-03-02 @tobiu referenced in commit `9d07faf` - "grid.View: createViewData() => silent param #6517"
-- 2025-03-02 @tobiu closed this issue
+- 2025-03-02T15:29:24Z @tobiu added the `enhancement` label
+- 2025-03-02T15:29:48Z @tobiu referenced in commit `9d07faf` - "grid.View: createViewData() => silent param #6517"
+- 2025-03-02T15:29:54Z @tobiu closed this issue
 

@@ -53,9 +53,9 @@ The `Neo.state.Provider` system allows for nested and hierarchical data structur
 
 ## Timeline
 
-- 2025-07-07 @tobiu assigned to @tobiu
-- 2025-07-07 @tobiu added the `enhancement` label
-- 2025-07-07 @tobiu referenced in commit `da95519` - "state/createHierarchicalDataProxy.mjs #6973"
-- 2025-07-07 @tobiu closed this issue
-- 2025-07-09 @tobiu referenced in commit `cc47232` - "state/createHierarchicalDataProxy.mjs #6973"
+- 2025-07-07T11:24:06Z @tobiu assigned to @tobiu
+- 2025-07-07T11:24:07Z @tobiu added the `enhancement` label
+- 2025-07-07T11:24:55Z @tobiu referenced in commit `da95519` - "state/createHierarchicalDataProxy.mjs #6973"
+- 2025-07-07T11:25:06Z @tobiu closed this issue
+- 2025-07-09T00:10:50Z @tobiu referenced in commit `cc47232` - "state/createHierarchicalDataProxy.mjs #6973"
 

@@ -26,8 +26,8 @@ closedAt: '2025-07-09T16:42:27Z'
 
 ## Timeline
 
-- 2025-07-09 @tobiu assigned to @tobiu
-- 2025-07-09 @tobiu added the `enhancement` label
-- 2025-07-09 @tobiu referenced in commit `4d2aecc` - "grid.Container: afterSetColumns() => fine-tune the condition, when header.Toolbar items need to get processed #7000"
-- 2025-07-09 @tobiu closed this issue
+- 2025-07-09T15:17:38Z @tobiu assigned to @tobiu
+- 2025-07-09T15:17:40Z @tobiu added the `enhancement` label
+- 2025-07-09T15:17:55Z @tobiu referenced in commit `4d2aecc` - "grid.Container: afterSetColumns() => fine-tune the condition, when header.Toolbar items need to get processed #7000"
+- 2025-07-09T16:42:27Z @tobiu closed this issue
 

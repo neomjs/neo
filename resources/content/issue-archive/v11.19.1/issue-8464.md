@@ -44,10 +44,10 @@ This will force the VDOM engine to treat these as distinct nodes, tearing down t
 
 ## Timeline
 
-- 2026-01-09 @tobiu added the `bug` label
-- 2026-01-09 @tobiu referenced in commit `c454339` - "fix: Blog List Rendering Artifact in Release View (#8464)"
-- 2026-01-09 @tobiu assigned to @tobiu
-### @tobiu - 2026-01-09 13:12
+- 2026-01-09T12:42:47Z @tobiu added the `bug` label
+- 2026-01-09T13:12:30Z @tobiu referenced in commit `c454339` - "fix: Blog List Rendering Artifact in Release View (#8464)"
+- 2026-01-09T13:12:52Z @tobiu assigned to @tobiu
+### @tobiu - 2026-01-09T13:12:58Z
 
 **Input from Gemini 3 Pro:**
 
@@ -61,9 +61,9 @@ This will force the VDOM engine to treat these as distinct nodes, tearing down t
 > 
 > Commit: c4543396d (#8464)
 
-- 2026-01-09 @tobiu closed this issue
-- 2026-01-09 @tobiu cross-referenced by #8465
-### @tobiu - 2026-01-09 13:50
+- 2026-01-09T13:13:19Z @tobiu closed this issue
+- 2026-01-09T13:32:00Z @tobiu cross-referenced by #8465
+### @tobiu - 2026-01-09T13:50:30Z
 
 **Input from Gemini 3 Pro:**
 

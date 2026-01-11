@@ -39,12 +39,12 @@ Modernize the `Features` section and the reusable `ContentBox` component to alig
 
 ## Timeline
 
-- 2026-01-06 @tobiu added the `enhancement` label
-- 2026-01-06 @tobiu added the `design` label
-- 2026-01-06 @tobiu added the `ai` label
-- 2026-01-06 @tobiu assigned to @tobiu
-- 2026-01-06 @tobiu closed this issue
-### @tobiu - 2026-01-06 22:17
+- 2026-01-06T21:46:14Z @tobiu added the `enhancement` label
+- 2026-01-06T21:46:14Z @tobiu added the `design` label
+- 2026-01-06T21:46:15Z @tobiu added the `ai` label
+- 2026-01-06T21:47:19Z @tobiu assigned to @tobiu
+- 2026-01-06T22:17:08Z @tobiu closed this issue
+### @tobiu - 2026-01-06T22:17:42Z
 
 **Input from Gemini 3 Pro:**
 
@@ -62,8 +62,8 @@ Modernize the `Features` section and the reusable `ContentBox` component to alig
 > 
 > This establishes a consistent "Feature Card" language across the Portal.
 
-- 2026-01-06 @tobiu referenced in commit `9d6e406` - "Refactor Features & ContentBox: Modernize Design and Content #8369"
-- 2026-01-07 @jonnyamsp referenced in commit `98a1f48` - "feat(portal): Modernize Feature Cards & AI Toolchain (resolves #8369)
+- 2026-01-06T22:58:19Z @tobiu referenced in commit `9d6e406` - "Refactor Features & ContentBox: Modernize Design and Content #8369"
+- 2026-01-07T13:25:09Z @jonnyamsp referenced in commit `98a1f48` - "feat(portal): Modernize Feature Cards & AI Toolchain (resolves #8369)
 
 - Refactor  to use semantic VDOM and modern styling (GT-Planar, neutral bg).
 - Update  section with the 6 core Engine Subsystems from the README.

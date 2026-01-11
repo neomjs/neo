@@ -27,8 +27,8 @@ A component might rely on references & handler methods inside the previous contr
 
 ## Timeline
 
-- 2025-05-02 @tobiu added the `enhancement` label
-- 2025-05-02 @tobiu assigned to @tobiu
-- 2025-05-02 @tobiu referenced in commit `6f0d167` - "container.Base: createItem() => moving an instance => keeping the previous controller chain, if needed #6692"
-- 2025-05-02 @tobiu closed this issue
+- 2025-05-02T22:05:12Z @tobiu added the `enhancement` label
+- 2025-05-02T22:05:12Z @tobiu assigned to @tobiu
+- 2025-05-02T22:05:30Z @tobiu referenced in commit `6f0d167` - "container.Base: createItem() => moving an instance => keeping the previous controller chain, if needed #6692"
+- 2025-05-02T22:05:37Z @tobiu closed this issue
 

@@ -37,9 +37,9 @@ Requires updates to `Neo.core.Base#observeConfig` and any other direct consumers
 
 ## Timeline
 
-- 2025-07-05 @tobiu assigned to @tobiu
-- 2025-07-05 @tobiu added the `enhancement` label
-- 2025-07-06 @tobiu referenced in commit `542e84b` - "Enhance Neo.core.Config with ID-based Subscriptions for Improved Debugging & Diagnostics #6956"
-- 2025-07-06 @tobiu referenced in commit `1ee7782` - "#6956 core.Config cleanup"
-- 2025-07-06 @tobiu closed this issue
+- 2025-07-05T23:58:51Z @tobiu assigned to @tobiu
+- 2025-07-05T23:58:52Z @tobiu added the `enhancement` label
+- 2025-07-06T00:00:09Z @tobiu referenced in commit `542e84b` - "Enhance Neo.core.Config with ID-based Subscriptions for Improved Debugging & Diagnostics #6956"
+- 2025-07-06T00:12:22Z @tobiu referenced in commit `1ee7782` - "#6956 core.Config cleanup"
+- 2025-07-06T00:23:09Z @tobiu closed this issue
 

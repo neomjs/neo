@@ -43,9 +43,9 @@ This feature is based on the changes introduced in commit `e76ed9180e32027c157a5
 
 ## Timeline
 
-- 2025-08-11 @tobiu assigned to @tobiu
-- 2025-08-11 @tobiu added the `enhancement` label
-- 2025-08-11 @tobiu referenced in commit `e76ed91` - "#7184"
-- 2025-08-11 @tobiu changed title from **grid.Body: enhance chunk-based preloading** to **Grid: Optimize Rendering for Chunked Data Loading**
-- 2025-08-11 @tobiu closed this issue
+- 2025-08-11T22:39:07Z @tobiu assigned to @tobiu
+- 2025-08-11T22:39:08Z @tobiu added the `enhancement` label
+- 2025-08-11T22:39:35Z @tobiu referenced in commit `e76ed91` - "#7184"
+- 2025-08-11T22:44:14Z @tobiu changed title from **grid.Body: enhance chunk-based preloading** to **Grid: Optimize Rendering for Chunked Data Loading**
+- 2025-08-11T22:44:33Z @tobiu closed this issue
 

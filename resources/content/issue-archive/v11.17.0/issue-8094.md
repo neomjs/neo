@@ -58,10 +58,10 @@ Instead of storing a separate array of data, we now tag each record with its ins
 
 ## Timeline
 
-- 2025-12-11 @tobiu added the `bug` label
-- 2025-12-11 @tobiu added the `epic` label
-- 2025-12-11 @tobiu added the `refactoring` label
-- 2025-12-11 @tobiu assigned to @tobiu
-- 2025-12-11 @tobiu referenced in commit `19d2c50` - "Refactor Store sorting to use symbol-based initialIndex strategy #8094"
-- 2025-12-11 @tobiu closed this issue
+- 2025-12-11T22:12:18Z @tobiu added the `bug` label
+- 2025-12-11T22:12:18Z @tobiu added the `epic` label
+- 2025-12-11T22:12:18Z @tobiu added the `refactoring` label
+- 2025-12-11T22:18:49Z @tobiu assigned to @tobiu
+- 2025-12-11T22:19:17Z @tobiu referenced in commit `19d2c50` - "Refactor Store sorting to use symbol-based initialIndex strategy #8094"
+- 2025-12-11T22:21:07Z @tobiu closed this issue
 

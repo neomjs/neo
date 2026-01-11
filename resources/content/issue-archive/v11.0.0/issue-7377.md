@@ -41,18 +41,18 @@ While our primary workflow will be local-first, any contributor can still create
 
 ## Timeline
 
-- 2025-10-05 @tobiu added the `enhancement` label
-- 2025-10-05 @tobiu added the `help wanted` label
-- 2025-10-05 @tobiu added parent issue #7364
-- 2025-10-05 @tobiu added the `good first issue` label
-- 2025-10-05 @tobiu added the `hacktoberfest` label
-- 2025-10-05 @tobiu added the `ai` label
-### @nabeel001 - 2025-10-05 13:15
+- 2025-10-05T13:10:01Z @tobiu added the `enhancement` label
+- 2025-10-05T13:10:01Z @tobiu added the `help wanted` label
+- 2025-10-05T13:10:01Z @tobiu added parent issue #7364
+- 2025-10-05T13:10:01Z @tobiu added the `good first issue` label
+- 2025-10-05T13:10:01Z @tobiu added the `hacktoberfest` label
+- 2025-10-05T13:10:02Z @tobiu added the `ai` label
+### @nabeel001 - 2025-10-05T13:15:39Z
 
 Hi @tobiu 
 I would like to contribute to this issue. Kindly assign this to me
 
-### @tobiu - 2025-10-05 13:48
+### @tobiu - 2025-10-05T13:48:49Z
 
 Hi, and thanks for your interest.
 
@@ -94,22 +94,22 @@ More Input from Gemini:
 >   Recommendation:
 >   We can leave the ticket as is. It's ready for an enterprising contributor who is comfortable with the GitHub CLI, but we should not expect the work to begin until the Phase 1 authentication ticket is complete.
 
-- 2025-10-05 @tobiu assigned to @nabeel001
-### @LemonDrop847 - 2025-10-05 15:51
+- 2025-10-05T13:48:58Z @tobiu assigned to @nabeel001
+### @LemonDrop847 - 2025-10-05T15:51:44Z
 
 hey @tobiu i believe this is almost exactly the same as #7368 or are there some other goals with this?
 
-### @tobiu - 2025-10-05 16:02
+### @tobiu - 2025-10-05T16:02:44Z
 
 there is a similarity, but a different use case: we will need the create script, when contributors use agents to create new tickets. however, "normal users" can create tickets directly on GitHub. E.g., if they discover a bug inside the neo website or examples. so we will frequently need to sync GH issues back into our internal md files.
 
 the benefit of the md files: we drop them into chromaDB (the ai knowledge base), so gemini can use it to query for tickets based on vector distances more easily.
 
-- 2025-10-09 @nabeel001 cross-referenced by PR #7424
-### @nabeel001 - 2025-10-09 05:07
+- 2025-10-09T05:06:34Z @nabeel001 cross-referenced by PR #7424
+### @nabeel001 - 2025-10-09T05:07:26Z
 
 Hi @tobiu 
 I have created the script to sync new gitHub issues to local markdown files. Kindly verify and merge the PR.
 
-- 2025-10-09 @tobiu closed this issue
+- 2025-10-09T18:42:49Z @tobiu closed this issue
 

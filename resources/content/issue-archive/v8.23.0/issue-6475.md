@@ -25,12 +25,12 @@ closedAt: '2025-02-21T13:32:34Z'
 
 ## Timeline
 
-- 2025-02-21 @tobiu added the `enhancement` label
-- 2025-02-21 @tobiu assigned to @tobiu
-- 2025-02-21 @tobiu referenced in commit `78fc8d6` - "component.MagicMoveText: transitionTime_ config #6475"
-### @tobiu - 2025-02-21 13:32
+- 2025-02-21T13:30:19Z @tobiu added the `enhancement` label
+- 2025-02-21T13:30:19Z @tobiu assigned to @tobiu
+- 2025-02-21T13:32:06Z @tobiu referenced in commit `78fc8d6` - "component.MagicMoveText: transitionTime_ config #6475"
+### @tobiu - 2025-02-21T13:32:34Z
 
 https://github.com/user-attachments/assets/7596285c-40d0-416a-b914-6eda9d828076
 
-- 2025-02-21 @tobiu closed this issue
+- 2025-02-21T13:32:34Z @tobiu closed this issue
 

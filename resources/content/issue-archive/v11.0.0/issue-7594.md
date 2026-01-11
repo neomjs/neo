@@ -33,11 +33,11 @@ This is the largest part of the GraphQL migration, focusing on the complete refa
 
 ## Timeline
 
-- 2025-10-21 @tobiu assigned to @tobiu
-- 2025-10-21 @tobiu added the `enhancement` label
-- 2025-10-21 @tobiu added parent issue #7590
-- 2025-10-21 @tobiu added the `ai` label
-- 2025-10-21 @tobiu referenced in commit `2696ac1` - "Migrate SyncService to GraphQL #7594"
-- 2025-10-21 @tobiu closed this issue
-- 2025-10-22 @tobiu cross-referenced by #7590
+- 2025-10-21T11:08:26Z @tobiu assigned to @tobiu
+- 2025-10-21T11:08:27Z @tobiu added the `enhancement` label
+- 2025-10-21T11:08:27Z @tobiu added parent issue #7590
+- 2025-10-21T11:08:28Z @tobiu added the `ai` label
+- 2025-10-21T19:15:09Z @tobiu referenced in commit `2696ac1` - "Migrate SyncService to GraphQL #7594"
+- 2025-10-21T19:15:14Z @tobiu closed this issue
+- 2025-10-22T22:53:53Z @tobiu cross-referenced by #7590
 

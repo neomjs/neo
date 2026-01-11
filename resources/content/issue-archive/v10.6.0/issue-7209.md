@@ -25,9 +25,9 @@ AI hallucination: neo is not designed to update for inline container items resor
 
 ## Timeline
 
-- 2025-08-21 @tobiu assigned to @tobiu
-- 2025-08-21 @tobiu added the `bug` label
-- 2025-08-21 @tobiu added parent issue #7201
-- 2025-08-21 @tobiu referenced in commit `cd593f1` - "draggable.dashboard.SortZone: moveTo() => regression bug #7209"
-- 2025-08-21 @tobiu closed this issue
+- 2025-08-21T19:22:06Z @tobiu assigned to @tobiu
+- 2025-08-21T19:22:07Z @tobiu added the `bug` label
+- 2025-08-21T19:22:07Z @tobiu added parent issue #7201
+- 2025-08-21T19:22:34Z @tobiu referenced in commit `cd593f1` - "draggable.dashboard.SortZone: moveTo() => regression bug #7209"
+- 2025-08-21T19:22:38Z @tobiu closed this issue
 

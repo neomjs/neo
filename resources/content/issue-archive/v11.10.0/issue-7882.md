@@ -41,10 +41,10 @@ Refine `learn/blog/agent-os-technical-report.md` to address critical feedback an
 
 ## Timeline
 
-- 2025-11-23 @tobiu added the `documentation` label
-- 2025-11-23 @tobiu added the `Blog Post` label
-- 2025-11-23 @tobiu added the `ai` label
-- 2025-11-23 @tobiu assigned to @tobiu
-- 2025-11-23 @tobiu referenced in commit `c040e0c` - "Refine Agent OS Technical Report for Technical Rigor #7882"
-- 2025-11-23 @tobiu closed this issue
+- 2025-11-23T17:37:41Z @tobiu added the `documentation` label
+- 2025-11-23T17:37:41Z @tobiu added the `Blog Post` label
+- 2025-11-23T17:37:41Z @tobiu added the `ai` label
+- 2025-11-23T17:37:50Z @tobiu assigned to @tobiu
+- 2025-11-23T17:38:11Z @tobiu referenced in commit `c040e0c` - "Refine Agent OS Technical Report for Technical Rigor #7882"
+- 2025-11-23T17:38:18Z @tobiu closed this issue
 

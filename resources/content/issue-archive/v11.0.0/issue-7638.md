@@ -37,9 +37,9 @@ The `healthcheck` endpoint has been enhanced to provide visibility into the stat
 
 ## Timeline
 
-- 2025-10-25 @tobiu assigned to @tobiu
-- 2025-10-25 @tobiu added the `enhancement` label
-- 2025-10-25 @tobiu added the `ai` label
-- 2025-10-25 @tobiu referenced in commit `e88fe06` - "Feat: Add startup summarization status to healthcheck #7638"
-- 2025-10-25 @tobiu closed this issue
+- 2025-10-25T09:04:23Z @tobiu assigned to @tobiu
+- 2025-10-25T09:04:32Z @tobiu added the `enhancement` label
+- 2025-10-25T09:04:32Z @tobiu added the `ai` label
+- 2025-10-25T09:05:10Z @tobiu referenced in commit `e88fe06` - "Feat: Add startup summarization status to healthcheck #7638"
+- 2025-10-25T09:05:56Z @tobiu closed this issue
 

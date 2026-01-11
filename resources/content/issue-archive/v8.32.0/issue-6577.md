@@ -29,8 +29,8 @@ Assumption: it happens when a cmp is getting destroyed.
 
 ## Timeline
 
-- 2025-03-17 @tobiu added the `bug` label
-- 2025-03-17 @tobiu assigned to @tobiu
-- 2025-03-17 @tobiu referenced in commit `7dd07c9` - "manager.Component: getVnodeTree() => add a check if the queried cmp exists #6577"
-- 2025-03-17 @tobiu closed this issue
+- 2025-03-17T14:11:43Z @tobiu added the `bug` label
+- 2025-03-17T14:11:43Z @tobiu assigned to @tobiu
+- 2025-03-17T14:19:48Z @tobiu referenced in commit `7dd07c9` - "manager.Component: getVnodeTree() => add a check if the queried cmp exists #6577"
+- 2025-03-17T14:19:52Z @tobiu closed this issue
 

@@ -32,23 +32,23 @@ This ticket is for creating a new tool within the GitHub Workflow MCP server to 
 
 ## Timeline
 
-- 2025-10-24 @tobiu added the `enhancement` label
-- 2025-10-24 @tobiu added the `ai` label
-### @MannXo - 2025-11-11 09:13
+- 2025-10-24T10:15:45Z @tobiu added the `enhancement` label
+- 2025-10-24T10:15:45Z @tobiu added the `ai` label
+### @MannXo - 2025-11-11T09:13:05Z
 
 @tobiu I can take on this one if it's alright.
 
-### @tobiu - 2025-11-11 09:28
+### @tobiu - 2025-11-11T09:28:39Z
 
 @MannXo this ticket is definitely a fascinating one. I have not looked into the API yet. Assuming that relationships do not contain comments, i would add this info at the bottom of each ticket (below comments). E.g. `## History` or `## Relationships`.
 
 To get the idea: https://raw.githubusercontent.com/neomjs/neo/refs/heads/dev/.github/ISSUE/issue-7733.md
 
-- 2025-11-11 @tobiu assigned to @MannXo
-- 2025-11-11 @MannXo cross-referenced by PR #7741
-### @tobiu - 2025-11-12 07:47
+- 2025-11-11T09:28:53Z @tobiu assigned to @MannXo
+- 2025-11-11T10:39:39Z @MannXo cross-referenced by PR #7741
+### @tobiu - 2025-11-12T07:47:52Z
 
 ha, i confused issue relationship and issue history :) i think we got another ticket for the ticket-timeline too somewhere. looking into the PR now.
 
-- 2025-11-12 @tobiu closed this issue
+- 2025-11-12T08:20:31Z @tobiu closed this issue
 

@@ -64,8 +64,8 @@ const MyCounter = defineComponent({
 
 ## Timeline
 
-- 2025-07-11 @tobiu added parent issue #6992
-- 2025-07-11 @tobiu added the `enhancement` label
-- 2025-07-11 @tobiu referenced in commit `fc15419` - "Create Neo.functional.useConfig Hook #7012"
-- 2025-07-11 @tobiu closed this issue
+- 2025-07-11T02:05:41Z @tobiu added parent issue #6992
+- 2025-07-11T02:05:41Z @tobiu added the `enhancement` label
+- 2025-07-11T10:39:16Z @tobiu referenced in commit `fc15419` - "Create Neo.functional.useConfig Hook #7012"
+- 2025-07-11T10:39:44Z @tobiu closed this issue
 

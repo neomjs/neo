@@ -27,7 +27,7 @@ closedAt: '2025-06-09T12:16:51Z'
 
 ## Timeline
 
-- 2025-06-09 @tobiu added the `enhancement` label
-- 2025-06-09 @tobiu referenced in commit `792eb99` - "tab.BodyContainer #6761"
-- 2025-06-09 @tobiu closed this issue
+- 2025-06-09T12:15:54Z @tobiu added the `enhancement` label
+- 2025-06-09T12:16:46Z @tobiu referenced in commit `792eb99` - "tab.BodyContainer #6761"
+- 2025-06-09T12:16:51Z @tobiu closed this issue
 

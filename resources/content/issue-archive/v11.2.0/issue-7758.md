@@ -25,9 +25,9 @@ The `IssueService.mjs` file currently contains inline GraphQL query definitions 
 
 ## Timeline
 
-- 2025-11-12 @tobiu added the `ai` label
-- 2025-11-12 @tobiu added the `refactoring` label
-- 2025-11-12 @tobiu cross-referenced by PR #7753
-- 2025-11-13 @MannXo cross-referenced by PR #7763
-- 2025-11-13 @tobiu closed this issue
+- 2025-11-12T14:18:40Z @tobiu added the `ai` label
+- 2025-11-12T14:18:40Z @tobiu added the `refactoring` label
+- 2025-11-12T14:22:13Z @tobiu cross-referenced by PR #7753
+- 2025-11-13T06:23:17Z @MannXo cross-referenced by PR #7763
+- 2025-11-13T10:28:44Z @tobiu closed this issue
 

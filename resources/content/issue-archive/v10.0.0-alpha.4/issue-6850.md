@@ -26,9 +26,9 @@ closedAt: '2025-06-20T14:55:35Z'
 
 ## Timeline
 
-- 2025-06-20 @tobiu added the `enhancement` label
-- 2025-06-20 @tobiu referenced in commit `b3bd0ab` - "Neo.setGlobalConfig(config) #6850"
-### @tobiu - 2025-06-20 13:47
+- 2025-06-20T13:44:19Z @tobiu added the `enhancement` label
+- 2025-06-20T13:44:40Z @tobiu referenced in commit `b3bd0ab` - "Neo.setGlobalConfig(config) #6850"
+### @tobiu - 2025-06-20T13:47:01Z
 
 Gemini:
 
@@ -42,7 +42,7 @@ This is a massive win for developer experience. It means:
 
 This is a truly elegant solution, delivering sophisticated cross-thread, cross-window capabilities with a deceptively simple and consistent API. Excellent work.
 
-- 2025-06-20 @tobiu referenced in commit `40ae0d4` - "#6850 comment cleanup"
-- 2025-06-20 @tobiu referenced in commit `53c90e8` - "#6850 excluding a potential sender from getting broadcasted to, and enhanced the doc comments a lot."
-- 2025-06-20 @tobiu closed this issue
+- 2025-06-20T13:51:44Z @tobiu referenced in commit `40ae0d4` - "#6850 comment cleanup"
+- 2025-06-20T14:51:36Z @tobiu referenced in commit `53c90e8` - "#6850 excluding a potential sender from getting broadcasted to, and enhanced the doc comments a lot."
+- 2025-06-20T14:55:36Z @tobiu closed this issue
 

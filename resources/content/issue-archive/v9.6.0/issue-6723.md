@@ -25,8 +25,8 @@ closedAt: '2025-05-28T22:48:45Z'
 
 ## Timeline
 
-- 2025-05-28 @tobiu assigned to @tobiu
-- 2025-05-28 @tobiu added the `enhancement` label
-- 2025-05-28 @tobiu referenced in commit `dece7ea` - "buildScripts/buildThemes: add support for dist/esm #6723"
-- 2025-05-28 @tobiu closed this issue
+- 2025-05-28T22:48:16Z @tobiu assigned to @tobiu
+- 2025-05-28T22:48:17Z @tobiu added the `enhancement` label
+- 2025-05-28T22:48:38Z @tobiu referenced in commit `dece7ea` - "buildScripts/buildThemes: add support for dist/esm #6723"
+- 2025-05-28T22:48:45Z @tobiu closed this issue
 

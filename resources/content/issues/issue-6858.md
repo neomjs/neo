@@ -25,13 +25,13 @@ blocking: []
 
 ## Timeline
 
-- 2025-06-23 @tobiu assigned to @tobiu
-- 2025-06-23 @tobiu added the `bug` label
-### @github-actions - 2025-09-22 02:47
+- 2025-06-23T11:16:12Z @tobiu assigned to @tobiu
+- 2025-06-23T11:16:14Z @tobiu added the `bug` label
+### @github-actions - 2025-09-22T02:47:59Z
 
 This issue is stale because it has been open for 90 days with no activity.
 
-- 2025-09-22 @github-actions added the `stale` label
-- 2025-09-22 @tobiu removed the `stale` label
-- 2025-09-22 @tobiu added the `no auto close` label
+- 2025-09-22T02:48:00Z @github-actions added the `stale` label
+- 2025-09-22T08:34:12Z @tobiu removed the `stale` label
+- 2025-09-22T08:34:12Z @tobiu added the `no auto close` label
 

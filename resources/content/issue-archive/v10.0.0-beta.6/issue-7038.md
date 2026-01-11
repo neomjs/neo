@@ -25,9 +25,9 @@ closedAt: '2025-07-13T10:27:30Z'
 
 ## Timeline
 
-- 2025-07-13 @tobiu assigned to @tobiu
-- 2025-07-13 @tobiu added the `enhancement` label
-- 2025-07-13 @tobiu added parent issue #7029
-- 2025-07-13 @tobiu referenced in commit `8bb94b8` - "Update guides based on more LLM input #7038"
-- 2025-07-13 @tobiu closed this issue
+- 2025-07-13T10:26:52Z @tobiu assigned to @tobiu
+- 2025-07-13T10:26:53Z @tobiu added the `enhancement` label
+- 2025-07-13T10:26:54Z @tobiu added parent issue #7029
+- 2025-07-13T10:27:25Z @tobiu referenced in commit `8bb94b8` - "Update guides based on more LLM input #7038"
+- 2025-07-13T10:27:30Z @tobiu closed this issue
 

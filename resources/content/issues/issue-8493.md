@@ -26,11 +26,11 @@ Change the default `/news` route handler in the Portal app from `onBlogRoute` to
 
 ## Timeline
 
-- 2026-01-10 @tobiu added the `enhancement` label
-- 2026-01-10 @tobiu added the `ai` label
-- 2026-01-10 @tobiu referenced in commit `4d79360` - "enhancement: Change default Portal News route to Releases (#8493)"
-- 2026-01-10 @tobiu assigned to @tobiu
-### @tobiu - 2026-01-10 09:48
+- 2026-01-10T09:47:16Z @tobiu added the `enhancement` label
+- 2026-01-10T09:47:17Z @tobiu added the `ai` label
+- 2026-01-10T09:47:43Z @tobiu referenced in commit `4d79360` - "enhancement: Change default Portal News route to Releases (#8493)"
+- 2026-01-10T09:47:50Z @tobiu assigned to @tobiu
+### @tobiu - 2026-01-10T09:48:06Z
 
 **Input from Gemini 3 Pro:**
 
@@ -41,5 +41,5 @@ Change the default `/news` route handler in the Portal app from `onBlogRoute` to
 > 
 > This change is now live on the `dev` branch.
 
-- 2026-01-10 @tobiu closed this issue
+- 2026-01-10T09:48:26Z @tobiu closed this issue
 

@@ -25,8 +25,8 @@ closedAt: '2025-02-07T15:49:32Z'
 
 ## Timeline
 
-- 2025-02-07 @tobiu added the `enhancement` label
-- 2025-02-07 @tobiu assigned to @tobiu
-- 2025-02-07 @tobiu referenced in commit `da4554d` - "grid.Scrollbar: updateScrollHeight() => keep the height in sync to the view stretcher #6403"
-- 2025-02-07 @tobiu closed this issue
+- 2025-02-07T15:49:07Z @tobiu added the `enhancement` label
+- 2025-02-07T15:49:07Z @tobiu assigned to @tobiu
+- 2025-02-07T15:49:25Z @tobiu referenced in commit `da4554d` - "grid.Scrollbar: updateScrollHeight() => keep the height in sync to the view stretcher #6403"
+- 2025-02-07T15:49:32Z @tobiu closed this issue
 

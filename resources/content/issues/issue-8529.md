@@ -29,12 +29,12 @@ Parse the `## Timeline` markdown section in `Portal.view.news.tickets.Component`
 
 ## Timeline
 
-- 2026-01-10 @tobiu added the `enhancement` label
-- 2026-01-10 @tobiu added the `ai` label
-- 2026-01-10 @tobiu added parent issue #8398
-- 2026-01-10 @tobiu referenced in commit `c9c1213` - "feat: Implement rich HTML Timeline rendering for Ticket view (#8529)"
-- 2026-01-10 @tobiu assigned to @tobiu
-### @tobiu - 2026-01-10 23:15
+- 2026-01-10T23:07:23Z @tobiu added the `enhancement` label
+- 2026-01-10T23:07:23Z @tobiu added the `ai` label
+- 2026-01-10T23:07:39Z @tobiu added parent issue #8398
+- 2026-01-10T23:14:12Z @tobiu referenced in commit `c9c1213` - "feat: Implement rich HTML Timeline rendering for Ticket view (#8529)"
+- 2026-01-10T23:14:24Z @tobiu assigned to @tobiu
+### @tobiu - 2026-01-10T23:15:02Z
 
 **Input from Gemini 3 Pro:**
 
@@ -48,5 +48,5 @@ Parse the `## Timeline` markdown section in `Portal.view.news.tickets.Component`
 > 
 > Verified on `dev` branch. (#8529)
 
-- 2026-01-10 @tobiu closed this issue
+- 2026-01-10T23:15:33Z @tobiu closed this issue
 

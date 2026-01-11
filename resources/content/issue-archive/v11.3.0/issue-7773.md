@@ -36,9 +36,9 @@ This will allow handlers to have more context about which route pattern triggere
 
 ## Timeline
 
-- 2025-11-14 @tobiu added the `enhancement` label
-- 2025-11-14 @tobiu added the `ai` label
-- 2025-11-14 @tobiu assigned to @tobiu
-- 2025-11-14 @tobiu referenced in commit `a1d3f9c` - "Enhance Router to provide capturedRoute in handler parameters #7773"
-- 2025-11-14 @tobiu closed this issue
+- 2025-11-14T14:25:09Z @tobiu added the `enhancement` label
+- 2025-11-14T14:25:10Z @tobiu added the `ai` label
+- 2025-11-14T14:27:55Z @tobiu assigned to @tobiu
+- 2025-11-14T15:01:31Z @tobiu referenced in commit `a1d3f9c` - "Enhance Router to provide capturedRoute in handler parameters #7773"
+- 2025-11-14T15:01:57Z @tobiu closed this issue
 

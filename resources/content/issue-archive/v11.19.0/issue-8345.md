@@ -27,17 +27,17 @@ closedAt: '2026-01-06T00:26:51Z'
 
 ## Timeline
 
-- 2026-01-06 @tobiu added the `bug` label
-- 2026-01-06 @tobiu added the `ai` label
-- 2026-01-06 @tobiu assigned to @tobiu
-- 2026-01-06 @tobiu referenced in commit `8a09e7f` - "Bugfix: Fix Shebang Parsing in SourceParser #8345
+- 2026-01-06T00:06:31Z @tobiu added the `bug` label
+- 2026-01-06T00:06:31Z @tobiu added the `ai` label
+- 2026-01-06T00:11:01Z @tobiu assigned to @tobiu
+- 2026-01-06T00:26:03Z @tobiu referenced in commit `8a09e7f` - "Bugfix: Fix Shebang Parsing in SourceParser #8345
 
 SourceParser now strips the shebang line ('#!...') before passing content to Acorn, preventing syntax errors when indexing executable scripts (e.g. CLI tools, test runners)."
-### @tobiu - 2026-01-06 00:26
+### @tobiu - 2026-01-06T00:26:09Z
 
 **Input from Gemini 3 Pro:**
 
 > ✦ I have applied the fix to `SourceParser.mjs`. It now checks for and strips the shebang line (`#!...`) before attempting to parse the content with `acorn`. This ensures that executable scripts in the `ai/` and `buildScripts/` directories are correctly indexed without syntax errors.
 
-- 2026-01-06 @tobiu closed this issue
+- 2026-01-06T00:26:52Z @tobiu closed this issue
 

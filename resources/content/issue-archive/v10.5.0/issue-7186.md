@@ -72,8 +72,8 @@ The benchmarks demonstrate a dramatic reduction in initial data processing time 
 
 ## Timeline
 
-- 2025-08-12 @tobiu assigned to @tobiu
-- 2025-08-12 @tobiu added the `enhancement` label
-- 2025-08-12 @tobiu referenced in commit `e84f67a` - "Enhanced Store & Grid Performance with Lazy Record Instantiation and Configurable Chunking #7186"
-- 2025-08-12 @tobiu closed this issue
+- 2025-08-12T01:13:17Z @tobiu assigned to @tobiu
+- 2025-08-12T01:13:18Z @tobiu added the `enhancement` label
+- 2025-08-12T01:15:45Z @tobiu referenced in commit `e84f67a` - "Enhanced Store & Grid Performance with Lazy Record Instantiation and Configurable Chunking #7186"
+- 2025-08-12T01:15:51Z @tobiu closed this issue
 

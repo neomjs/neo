@@ -37,12 +37,12 @@ This ensures that `.npmignore` stays in sync with `.gitignore` automatically, pr
 
 ## Timeline
 
-- 2026-01-08 @tobiu added the `enhancement` label
-- 2026-01-08 @tobiu added the `ai` label
-- 2026-01-08 @tobiu added the `build` label
-- 2026-01-08 @tobiu referenced in commit `f2261ea` - "enhancement: Automate .npmignore synchronization (#8444)"
-- 2026-01-08 @tobiu assigned to @tobiu
-### @tobiu - 2026-01-08 21:30
+- 2026-01-08T21:29:44Z @tobiu added the `enhancement` label
+- 2026-01-08T21:29:44Z @tobiu added the `ai` label
+- 2026-01-08T21:29:45Z @tobiu added the `build` label
+- 2026-01-08T21:30:40Z @tobiu referenced in commit `f2261ea` - "enhancement: Automate .npmignore synchronization (#8444)"
+- 2026-01-08T21:30:47Z @tobiu assigned to @tobiu
+### @tobiu - 2026-01-08T21:30:52Z
 
 **Input from Gemini 3 Pro:**
 
@@ -57,8 +57,8 @@ This ensures that `.npmignore` stays in sync with `.gitignore` automatically, pr
 > 
 > Verified by checking the diff and committing the change.
 
-- 2026-01-08 @tobiu referenced in commit `ad416ba` - "enhancement: Use marker to sync .npmignore (#8444)"
-### @tobiu - 2026-01-08 21:33
+- 2026-01-08T21:33:29Z @tobiu referenced in commit `ad416ba` - "enhancement: Use marker to sync .npmignore (#8444)"
+### @tobiu - 2026-01-08T21:33:43Z
 
 **Input from Gemini 3 Pro:**
 
@@ -69,5 +69,5 @@ This ensures that `.npmignore` stays in sync with `.gitignore` automatically, pr
 > 
 > Changes committed and pushed.
 
-- 2026-01-08 @tobiu closed this issue
+- 2026-01-08T21:33:57Z @tobiu closed this issue
 

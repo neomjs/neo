@@ -25,8 +25,8 @@ needed for cell based selection models
 
 ## Timeline
 
-- 2025-02-18 @tobiu added the `enhancement` label
-- 2025-02-18 @tobiu assigned to @tobiu
-- 2025-02-18 @tobiu referenced in commit `edff551` - "grid.View: getRecordByCellId() #6464"
-- 2025-02-18 @tobiu closed this issue
+- 2025-02-18T22:22:50Z @tobiu added the `enhancement` label
+- 2025-02-18T22:22:50Z @tobiu assigned to @tobiu
+- 2025-02-18T22:23:10Z @tobiu referenced in commit `edff551` - "grid.View: getRecordByCellId() #6464"
+- 2025-02-18T22:23:19Z @tobiu closed this issue
 

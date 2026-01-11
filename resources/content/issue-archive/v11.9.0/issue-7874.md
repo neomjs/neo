@@ -42,10 +42,10 @@ This causes code duplication and confusion.
 
 ## Timeline
 
-- 2025-11-23 @tobiu added the `bug` label
-- 2025-11-23 @tobiu added the `ai` label
-- 2025-11-23 @tobiu added the `refactoring` label
-- 2025-11-23 @tobiu assigned to @tobiu
-- 2025-11-23 @tobiu referenced in commit `ab304fe` - "Remove duplicate contains() method in Rectangle.mjs #7874"
-- 2025-11-23 @tobiu closed this issue
+- 2025-11-23T11:07:42Z @tobiu added the `bug` label
+- 2025-11-23T11:07:42Z @tobiu added the `ai` label
+- 2025-11-23T11:07:42Z @tobiu added the `refactoring` label
+- 2025-11-23T11:12:26Z @tobiu assigned to @tobiu
+- 2025-11-23T11:13:34Z @tobiu referenced in commit `ab304fe` - "Remove duplicate contains() method in Rectangle.mjs #7874"
+- 2025-11-23T11:13:57Z @tobiu closed this issue
 

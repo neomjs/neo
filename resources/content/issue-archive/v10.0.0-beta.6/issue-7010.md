@@ -57,11 +57,11 @@ export default defineComponent(function MyCounter(config) { // The functional co
 
 ## Timeline
 
-- 2025-07-11 @tobiu added the `enhancement` label
-- 2025-07-11 @tobiu added parent issue #6992
-### @tobiu - 2025-07-13 17:32
+- 2025-07-11T01:57:24Z @tobiu added the `enhancement` label
+- 2025-07-11T01:57:24Z @tobiu added parent issue #6992
+### @tobiu - 2025-07-13T17:32:42Z
 
 resolved via: https://github.com/neomjs/neo/tree/dev/examples/functional/defineComponent
 
-- 2025-07-13 @tobiu closed this issue
+- 2025-07-13T17:32:42Z @tobiu closed this issue
 

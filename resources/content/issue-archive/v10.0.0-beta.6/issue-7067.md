@@ -25,8 +25,8 @@ closedAt: '2025-07-15T22:09:16Z'
 
 ## Timeline
 
-- 2025-07-15 @tobiu assigned to @tobiu
-- 2025-07-15 @tobiu added the `enhancement` label
-- 2025-07-15 @tobiu referenced in commit `57c844a` - "selection.Model: items_ => use a config descriptor #7067"
-- 2025-07-15 @tobiu closed this issue
+- 2025-07-15T22:08:11Z @tobiu assigned to @tobiu
+- 2025-07-15T22:08:12Z @tobiu added the `enhancement` label
+- 2025-07-15T22:08:37Z @tobiu referenced in commit `57c844a` - "selection.Model: items_ => use a config descriptor #7067"
+- 2025-07-15T22:09:16Z @tobiu closed this issue
 

@@ -25,9 +25,9 @@ closedAt: '2025-03-31T15:59:49Z'
 
 ## Timeline
 
-- 2025-03-31 @tobiu added the `enhancement` label
-- 2025-03-31 @tobiu added parent issue #6600
-- 2025-03-31 @tobiu referenced in commit `a765ec9` - "Email.store.Emails #6605"
-- 2025-03-31 @tobiu assigned to @tobiu
-- 2025-03-31 @tobiu closed this issue
+- 2025-03-31T15:58:51Z @tobiu added the `enhancement` label
+- 2025-03-31T15:58:52Z @tobiu added parent issue #6600
+- 2025-03-31T15:59:29Z @tobiu referenced in commit `a765ec9` - "Email.store.Emails #6605"
+- 2025-03-31T15:59:46Z @tobiu assigned to @tobiu
+- 2025-03-31T15:59:49Z @tobiu closed this issue
 

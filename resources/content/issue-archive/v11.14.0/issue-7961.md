@@ -128,25 +128,25 @@ closedAt: '2025-12-01T16:00:03Z'
 
 ## Timeline
 
-- 2025-12-01 @tobiu added the `epic` label
-- 2025-12-01 @tobiu added the `ai` label
-- 2025-12-01 @tobiu added the `architecture` label
-- 2025-12-01 @tobiu assigned to @tobiu
-- 2025-12-01 @tobiu cross-referenced by #7962
-- 2025-12-01 @tobiu cross-referenced by #7963
-- 2025-12-01 @tobiu added sub-issue #7962
-- 2025-12-01 @tobiu added sub-issue #7963
-- 2025-12-01 @tobiu cross-referenced by #7964
-- 2025-12-01 @tobiu added sub-issue #7964
-- 2025-12-01 @tobiu cross-referenced by #7965
-- 2025-12-01 @tobiu added sub-issue #7965
-- 2025-12-01 @tobiu cross-referenced by #7966
-- 2025-12-01 @tobiu added sub-issue #7966
-- 2025-12-01 @tobiu cross-referenced by #7968
-- 2025-12-01 @tobiu added sub-issue #7967
-- 2025-12-01 @tobiu added sub-issue #7968
-- 2025-12-01 @tobiu removed sub-issue #7967
-### @tobiu - 2025-12-01 15:59
+- 2025-12-01T10:21:59Z @tobiu added the `epic` label
+- 2025-12-01T10:21:59Z @tobiu added the `ai` label
+- 2025-12-01T10:21:59Z @tobiu added the `architecture` label
+- 2025-12-01T10:39:32Z @tobiu assigned to @tobiu
+- 2025-12-01T10:59:42Z @tobiu cross-referenced by #7962
+- 2025-12-01T10:59:46Z @tobiu cross-referenced by #7963
+- 2025-12-01T10:59:56Z @tobiu added sub-issue #7962
+- 2025-12-01T10:59:59Z @tobiu added sub-issue #7963
+- 2025-12-01T11:32:05Z @tobiu cross-referenced by #7964
+- 2025-12-01T11:32:09Z @tobiu added sub-issue #7964
+- 2025-12-01T12:12:52Z @tobiu cross-referenced by #7965
+- 2025-12-01T12:12:56Z @tobiu added sub-issue #7965
+- 2025-12-01T12:46:07Z @tobiu cross-referenced by #7966
+- 2025-12-01T12:46:10Z @tobiu added sub-issue #7966
+- 2025-12-01T15:40:23Z @tobiu cross-referenced by #7968
+- 2025-12-01T15:40:27Z @tobiu added sub-issue #7967
+- 2025-12-01T15:42:31Z @tobiu added sub-issue #7968
+- 2025-12-01T15:42:56Z @tobiu removed sub-issue #7967
+### @tobiu - 2025-12-01T15:59:42Z
 
 **Input from Gemini 2.5:**
 
@@ -164,7 +164,7 @@ closedAt: '2025-12-01T16:00:03Z'
 > - Proceed with **Spike #7960** (WebSocket RMA) to give the Agent "Eyes" (Telemetry) and "Remote Hands" (RPC).
 > - The WebSocket `onMessage` handler will now simply call `agent.schedule(event)`, enabling the "Neural Link".
 
-- 2025-12-01 @tobiu closed this issue
-- 2025-12-01 @tobiu cross-referenced by #7969
-- 2025-12-01 @tobiu cross-referenced by #7970
+- 2025-12-01T16:00:03Z @tobiu closed this issue
+- 2025-12-01T16:04:24Z @tobiu cross-referenced by #7969
+- 2025-12-01T16:04:28Z @tobiu cross-referenced by #7970
 

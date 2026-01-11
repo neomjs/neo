@@ -24,7 +24,7 @@ I noticed severe issues inside the portal app for the edge case, when activating
 
 ## Timeline
 
-- 2025-03-21 @tobiu added the `bug` label
-- 2025-03-21 @tobiu referenced in commit `a69f724` - "component.MagicMoveText: afterSetMounted() => better support for unmounting #6580"
-- 2025-03-21 @tobiu closed this issue
+- 2025-03-21T18:34:54Z @tobiu added the `bug` label
+- 2025-03-21T18:35:07Z @tobiu referenced in commit `a69f724` - "component.MagicMoveText: afterSetMounted() => better support for unmounting #6580"
+- 2025-03-21T18:35:12Z @tobiu closed this issue
 

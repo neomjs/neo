@@ -39,31 +39,31 @@ This task is to creat the component test for `form/field/Number.mjs` for the Pla
 
 ## Timeline
 
-- 2025-10-10 @tobiu added the `enhancement` label
-- 2025-10-10 @tobiu added parent issue #7435
-- 2025-10-10 @tobiu added the `help wanted` label
-- 2025-10-10 @tobiu added the `hacktoberfest` label
-- 2025-10-10 @tobiu added the `ai` label
-### @erbierc - 2025-10-12 21:09
+- 2025-10-10T16:58:40Z @tobiu added the `enhancement` label
+- 2025-10-10T16:58:40Z @tobiu added parent issue #7435
+- 2025-10-10T16:58:40Z @tobiu added the `help wanted` label
+- 2025-10-10T16:58:40Z @tobiu added the `hacktoberfest` label
+- 2025-10-10T16:58:41Z @tobiu added the `ai` label
+### @erbierc - 2025-10-12T21:09:22Z
 
 I'd like to work on this!
 
-### @tobiu - 2025-10-13 10:09
+### @tobiu - 2025-10-13T10:09:09Z
 
 i just noted that we have 2 tickets for `form.field.Text`. I will update this one to test `form.field.Number` instead. super similar, but has no siesta counterpart.
 
-- 2025-10-13 @tobiu assigned to @erbierc
-- 2025-10-13 @tobiu changed title from **Convert Component Test form/field/Text.mjs to Playwright** to **Create Component Test form/field/Number.mjs in Playwright**
-### @tobiu - 2025-10-13 10:16
+- 2025-10-13T10:09:14Z @tobiu assigned to @erbierc
+- 2025-10-13T10:09:41Z @tobiu changed title from **Convert Component Test form/field/Text.mjs to Playwright** to **Create Component Test form/field/Number.mjs in Playwright**
+### @tobiu - 2025-10-13T10:16:11Z
 
 some ideas: look into `src/form/field/Text.mjs` and `src/form/field/Number.mjs` to see how it works (point your agent to it). Use `npm run build-all`, unless you have already done it for your fork. then use `npm run server-start`, and you can open examples like `examples/form/field/number` inside your browser.
 
 as mentioned earlier, we can literally open 100+ additional tickets for component based testing alone.
 
-- 2025-10-21 @erbierc cross-referenced by PR #7597
-### @erbierc - 2025-10-22 13:14
+- 2025-10-21T20:00:48Z @erbierc cross-referenced by PR #7597
+### @erbierc - 2025-10-22T13:14:33Z
 
 PR added: #7597 
 
-- 2025-11-02 @tobiu closed this issue
+- 2025-11-02T12:29:18Z @tobiu closed this issue
 

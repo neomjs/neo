@@ -28,14 +28,14 @@ closedAt: '2025-02-26T21:42:54Z'
 
 ## Timeline
 
-- 2025-02-26 @tobiu added the `enhancement` label
-- 2025-02-26 @tobiu assigned to @tobiu
-- 2025-02-26 @tobiu referenced in commit `bcd9088` - "draggable.toolbar.SortZone: onDragMove(), onDragStart() => smarter positioning logic #6507"
-### @tobiu - 2025-02-26 21:42
+- 2025-02-26T21:40:32Z @tobiu added the `enhancement` label
+- 2025-02-26T21:40:32Z @tobiu assigned to @tobiu
+- 2025-02-26T21:41:03Z @tobiu referenced in commit `bcd9088` - "draggable.toolbar.SortZone: onDragMove(), onDragStart() => smarter positioning logic #6507"
+### @tobiu - 2025-02-26T21:42:54Z
 
 this was non-trivial for sure, but works now:
 
 https://github.com/user-attachments/assets/1bb4eac8-61cc-4504-a366-1adf5b5bb82b
 
-- 2025-02-26 @tobiu closed this issue
+- 2025-02-26T21:42:54Z @tobiu closed this issue
 

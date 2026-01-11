@@ -36,10 +36,10 @@ Update `learn/` content to align with the "Application Engine" positioning.
 
 ## Timeline
 
-- 2026-01-08 @tobiu added the `documentation` label
-- 2026-01-08 @tobiu added the `enhancement` label
-- 2026-01-08 @tobiu added the `ai` label
-- 2026-01-08 @tobiu referenced in commit `20eb649` - "docs: Rebrand learning section to 'Application Engine' (#8445)"
-- 2026-01-08 @tobiu closed this issue
-- 2026-01-08 @tobiu assigned to @tobiu
+- 2026-01-08T21:49:05Z @tobiu added the `documentation` label
+- 2026-01-08T21:49:05Z @tobiu added the `enhancement` label
+- 2026-01-08T21:49:05Z @tobiu added the `ai` label
+- 2026-01-08T21:57:07Z @tobiu referenced in commit `20eb649` - "docs: Rebrand learning section to 'Application Engine' (#8445)"
+- 2026-01-08T21:57:18Z @tobiu closed this issue
+- 2026-01-08T22:06:50Z @tobiu assigned to @tobiu
 

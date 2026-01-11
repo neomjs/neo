@@ -35,26 +35,26 @@ This task is to migrate the unit test for `VdomCalendar.mjs` from the Siesta tes
 
 ## Timeline
 
-- 2025-09-27 @tobiu added the `enhancement` label
-- 2025-09-27 @tobiu added parent issue #7262
-- 2025-10-03 @tobiu added the `help wanted` label
-- 2025-10-03 @tobiu added the `good first issue` label
-- 2025-10-03 @tobiu added the `hacktoberfest` label
-### @kart-u - 2025-10-04 12:14
+- 2025-09-27T12:47:59Z @tobiu added the `enhancement` label
+- 2025-09-27T12:47:59Z @tobiu added parent issue #7262
+- 2025-10-03T16:25:12Z @tobiu added the `help wanted` label
+- 2025-10-03T16:25:12Z @tobiu added the `good first issue` label
+- 2025-10-03T16:25:12Z @tobiu added the `hacktoberfest` label
+### @kart-u - 2025-10-04T12:14:37Z
 
 hello @tobiu  I would like to work on this , can you please assign it to me??
 
-### @tobiu - 2025-10-07 19:23
+### @tobiu - 2025-10-07T19:23:37Z
 
 Let me think: the original siesta test for this one contained a real-world, but extremely huge vdom object. Optionally(!) you could ask the agent to shorten it, by keeping relevant parts that we want to test.
 
-- 2025-10-07 @tobiu assigned to @kart-u
-### @tobiu - 2025-11-04 09:13
+- 2025-10-07T19:23:42Z @tobiu assigned to @kart-u
+### @tobiu - 2025-11-04T09:13:40Z
 
 @kart-u grabbing this one, since i want to remove siesta soon.
 
-- 2025-11-04 @tobiu unassigned from @kart-u
-- 2025-11-04 @tobiu assigned to @tobiu
-- 2025-11-04 @tobiu referenced in commit `74583a6` - "Convert VdomCalendar.mjs Test from Siesta to Playwright #7272"
-- 2025-11-04 @tobiu closed this issue
+- 2025-11-04T09:13:47Z @tobiu unassigned from @kart-u
+- 2025-11-04T09:13:47Z @tobiu assigned to @tobiu
+- 2025-11-04T09:14:06Z @tobiu referenced in commit `74583a6` - "Convert VdomCalendar.mjs Test from Siesta to Playwright #7272"
+- 2025-11-04T09:14:17Z @tobiu closed this issue
 

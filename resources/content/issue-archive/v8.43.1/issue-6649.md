@@ -25,12 +25,12 @@ closedAt: '2025-04-14T19:41:39Z'
 
 ## Timeline
 
-- 2025-04-14 @tobiu added the `enhancement` label
-- 2025-04-14 @tobiu assigned to @tobiu
-- 2025-04-14 @tobiu referenced in commit `42029c4` - "grid.VerticalScrollbar: store filter listener #6649"
-### @tobiu - 2025-04-14 19:41
+- 2025-04-14T19:40:23Z @tobiu added the `enhancement` label
+- 2025-04-14T19:40:23Z @tobiu assigned to @tobiu
+- 2025-04-14T19:40:40Z @tobiu referenced in commit `42029c4` - "grid.VerticalScrollbar: store filter listener #6649"
+### @tobiu - 2025-04-14T19:41:39Z
 
 https://github.com/user-attachments/assets/df139896-dd7f-4ca6-b1aa-335993d5b893
 
-- 2025-04-14 @tobiu closed this issue
+- 2025-04-14T19:41:39Z @tobiu closed this issue
 

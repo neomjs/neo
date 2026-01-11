@@ -41,9 +41,9 @@ These changes establish the client-side foundation for the new SSR and Static Si
 
 ## Timeline
 
-- 2025-11-17 @tobiu added the `enhancement` label
-- 2025-11-17 @tobiu added the `ai` label
-- 2025-11-17 @tobiu assigned to @tobiu
-- 2025-11-17 @tobiu referenced in commit `03418d6` - "Implement Client-Side SSR Takeover Logic #7784"
-- 2025-11-17 @tobiu closed this issue
+- 2025-11-17T19:54:37Z @tobiu added the `enhancement` label
+- 2025-11-17T19:54:37Z @tobiu added the `ai` label
+- 2025-11-17T19:55:24Z @tobiu assigned to @tobiu
+- 2025-11-17T19:56:17Z @tobiu referenced in commit `03418d6` - "Implement Client-Side SSR Takeover Logic #7784"
+- 2025-11-17T20:21:22Z @tobiu closed this issue
 

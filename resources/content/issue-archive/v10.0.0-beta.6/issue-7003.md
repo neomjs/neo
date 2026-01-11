@@ -25,8 +25,8 @@ closedAt: '2025-07-10T11:44:10Z'
 
 ## Timeline
 
-- 2025-07-09 @tobiu assigned to @tobiu
-- 2025-07-09 @tobiu added the `enhancement` label
-- 2025-07-09 @tobiu referenced in commit `e449f6f` - "Add the release notes to the repo #7003"
-- 2025-07-10 @tobiu closed this issue
+- 2025-07-09T22:12:34Z @tobiu assigned to @tobiu
+- 2025-07-09T22:12:35Z @tobiu added the `enhancement` label
+- 2025-07-09T22:12:55Z @tobiu referenced in commit `e449f6f` - "Add the release notes to the repo #7003"
+- 2025-07-10T11:44:10Z @tobiu closed this issue
 

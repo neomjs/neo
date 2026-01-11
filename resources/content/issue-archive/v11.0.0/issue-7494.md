@@ -36,10 +36,10 @@ This ticket covers the refactoring of the tool service to manage both schema typ
 
 ## Timeline
 
-- 2025-10-15 @tobiu assigned to @tobiu
-- 2025-10-15 @tobiu added parent issue #7477
-- 2025-10-15 @tobiu added the `enhancement` label
-- 2025-10-15 @tobiu added the `ai` label
-- 2025-10-15 @tobiu referenced in commit `16c8961` - "Implement Zod-based Validation with JSON Schema Conversion #7494"
-- 2025-10-15 @tobiu closed this issue
+- 2025-10-15T11:43:12Z @tobiu assigned to @tobiu
+- 2025-10-15T11:43:13Z @tobiu added parent issue #7477
+- 2025-10-15T11:43:14Z @tobiu added the `enhancement` label
+- 2025-10-15T11:43:14Z @tobiu added the `ai` label
+- 2025-10-15T11:47:59Z @tobiu referenced in commit `16c8961` - "Implement Zod-based Validation with JSON Schema Conversion #7494"
+- 2025-10-15T11:48:18Z @tobiu closed this issue
 

@@ -58,9 +58,9 @@ The primary bottleneck was identified as JSDoc parsing itself. Parallel processi
 
 ## Timeline
 
-- 2025-11-04 @tobiu added the `enhancement` label
-- 2025-11-04 @tobiu added the `ai` label
-- 2025-11-04 @tobiu added the `refactoring` label
-- 2025-11-04 @tobiu referenced in commit `e9b416e` - "Major Performance & Modernization Refactor of JSDoc Documentation Generation #7707"
-- 2025-11-04 @tobiu closed this issue
+- 2025-11-04T22:53:58Z @tobiu added the `enhancement` label
+- 2025-11-04T22:53:58Z @tobiu added the `ai` label
+- 2025-11-04T22:53:58Z @tobiu added the `refactoring` label
+- 2025-11-04T23:00:36Z @tobiu referenced in commit `e9b416e` - "Major Performance & Modernization Refactor of JSDoc Documentation Generation #7707"
+- 2025-11-04T23:01:59Z @tobiu closed this issue
 

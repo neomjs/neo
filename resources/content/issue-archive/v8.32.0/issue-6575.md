@@ -29,7 +29,7 @@ _Running the examples locally without a webpack build requires browsers to be ab
 
 ## Timeline
 
-### @tobiu - 2025-03-15 14:34
+### @tobiu - 2025-03-15T14:34:55Z
 
 @gplanansky a good catch. this file is really old.
 
@@ -42,10 +42,10 @@ would you like to create a PR or shall i change it?
 best regards,
 tobi 
 
-### @gplanansky - 2025-03-15 18:54
+### @gplanansky - 2025-03-15T18:54:19Z
 
 Your blog postings have informed of progress with browser support for features Neo sought;  just this needs updating.   Sure, just change it.
 
-- 2025-03-17 @tobiu referenced in commit `0d45c70` - "update neo/tree/dev/examples/README.md #6575"
-- 2025-03-17 @tobiu closed this issue
+- 2025-03-17T15:25:14Z @tobiu referenced in commit `0d45c70` - "update neo/tree/dev/examples/README.md #6575"
+- 2025-03-17T15:25:22Z @tobiu closed this issue
 

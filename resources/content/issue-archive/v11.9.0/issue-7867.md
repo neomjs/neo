@@ -33,9 +33,9 @@ Refactor `MemoryService.mjs` to generate memory IDs using `crypto.randomUUID()`,
 
 ## Timeline
 
-- 2025-11-22 @tobiu added the `ai` label
-- 2025-11-22 @tobiu added the `refactoring` label
-- 2025-11-22 @tobiu assigned to @tobiu
-- 2025-11-22 @tobiu referenced in commit `5a04c76` - "Refactor MemoryService to use crypto-based IDs #7867"
-- 2025-11-22 @tobiu closed this issue
+- 2025-11-22T21:05:54Z @tobiu added the `ai` label
+- 2025-11-22T21:05:54Z @tobiu added the `refactoring` label
+- 2025-11-22T21:06:02Z @tobiu assigned to @tobiu
+- 2025-11-22T21:09:06Z @tobiu referenced in commit `5a04c76` - "Refactor MemoryService to use crypto-based IDs #7867"
+- 2025-11-22T21:09:10Z @tobiu closed this issue
 

@@ -70,27 +70,27 @@ closedAt: '2025-12-04T03:45:44Z'
 
 ## Timeline
 
-- 2025-11-30 @tobiu added the `enhancement` label
-- 2025-11-30 @tobiu added the `ai` label
-- 2025-11-30 @tobiu added the `architecture` label
-- 2025-12-01 @tobiu cross-referenced by #7961
-- 2025-12-03 @tobiu added sub-issue #8001
-- 2025-12-03 @tobiu added sub-issue #8002
-- 2025-12-03 @tobiu added sub-issue #8003
-- 2025-12-03 @tobiu added sub-issue #8004
-- 2025-12-03 @tobiu cross-referenced by #8006
-- 2025-12-03 @tobiu cross-referenced by #8007
-- 2025-12-03 @tobiu cross-referenced by #8008
-- 2025-12-03 @tobiu added sub-issue #8007
-- 2025-12-03 @tobiu added sub-issue #8010
-- 2025-12-03 @tobiu added sub-issue #8008
-- 2025-12-03 @tobiu assigned to @tobiu
-- 2025-12-03 @tobiu added sub-issue #8013
-- 2025-12-03 @tobiu added sub-issue #8006
-- 2025-12-03 @tobiu added sub-issue #8014
-### @tobiu - 2025-12-04 03:45
+- 2025-11-30T21:58:21Z @tobiu added the `enhancement` label
+- 2025-11-30T21:58:21Z @tobiu added the `ai` label
+- 2025-11-30T21:58:21Z @tobiu added the `architecture` label
+- 2025-12-01T10:57:35Z @tobiu cross-referenced by #7961
+- 2025-12-03T01:56:08Z @tobiu added sub-issue #8001
+- 2025-12-03T01:56:09Z @tobiu added sub-issue #8002
+- 2025-12-03T01:56:10Z @tobiu added sub-issue #8003
+- 2025-12-03T01:56:11Z @tobiu added sub-issue #8004
+- 2025-12-03T09:56:02Z @tobiu cross-referenced by #8006
+- 2025-12-03T09:56:18Z @tobiu cross-referenced by #8007
+- 2025-12-03T09:56:27Z @tobiu cross-referenced by #8008
+- 2025-12-03T13:43:13Z @tobiu added sub-issue #8007
+- 2025-12-03T14:06:43Z @tobiu added sub-issue #8010
+- 2025-12-03T14:07:13Z @tobiu added sub-issue #8008
+- 2025-12-03T21:38:10Z @tobiu assigned to @tobiu
+- 2025-12-03T21:40:30Z @tobiu added sub-issue #8013
+- 2025-12-03T21:50:11Z @tobiu added sub-issue #8006
+- 2025-12-03T22:12:02Z @tobiu added sub-issue #8014
+### @tobiu - 2025-12-04T03:45:44Z
 
 resolved
 
-- 2025-12-04 @tobiu closed this issue
+- 2025-12-04T03:45:44Z @tobiu closed this issue
 

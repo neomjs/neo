@@ -26,9 +26,9 @@ Update the `learn/guides/mcp/GitHubWorkflow.md` guide to explicitly mention the 
 
 ## Timeline
 
-- 2025-11-22 @tobiu added the `documentation` label
-- 2025-11-22 @tobiu added the `ai` label
-- 2025-11-22 @tobiu assigned to @tobiu
-- 2025-11-22 @tobiu referenced in commit `d19db78` - "Documentation: Update GitHubWorkflow.md to reference Knowledge Base Server #7860"
-- 2025-11-22 @tobiu closed this issue
+- 2025-11-22T17:08:50Z @tobiu added the `documentation` label
+- 2025-11-22T17:08:51Z @tobiu added the `ai` label
+- 2025-11-22T17:10:05Z @tobiu assigned to @tobiu
+- 2025-11-22T17:10:23Z @tobiu referenced in commit `d19db78` - "Documentation: Update GitHubWorkflow.md to reference Knowledge Base Server #7860"
+- 2025-11-22T17:10:31Z @tobiu closed this issue
 

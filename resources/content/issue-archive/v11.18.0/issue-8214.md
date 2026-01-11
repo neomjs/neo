@@ -31,10 +31,10 @@ Update `ai/mcp/server/neural-link/Server.mjs` to map the `health.session` proper
 
 ## Timeline
 
-- 2025-12-30 @tobiu added the `bug` label
-- 2025-12-30 @tobiu added the `ai` label
-- 2025-12-30 @tobiu added parent issue #8169
-- 2025-12-30 @tobiu assigned to @tobiu
-- 2025-12-30 @tobiu referenced in commit `4ef277b` - "Fix Neural Link Server startup crash due to health check schema mismatch #8214"
-- 2025-12-30 @tobiu closed this issue
+- 2025-12-30T10:19:07Z @tobiu added the `bug` label
+- 2025-12-30T10:19:07Z @tobiu added the `ai` label
+- 2025-12-30T10:19:15Z @tobiu added parent issue #8169
+- 2025-12-30T10:19:41Z @tobiu assigned to @tobiu
+- 2025-12-30T10:20:09Z @tobiu referenced in commit `4ef277b` - "Fix Neural Link Server startup crash due to health check schema mismatch #8214"
+- 2025-12-30T10:20:51Z @tobiu closed this issue
 

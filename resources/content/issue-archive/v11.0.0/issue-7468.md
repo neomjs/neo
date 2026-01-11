@@ -36,10 +36,10 @@ The current location for the memory server's spec (`buildScripts/mcp/memory/open
 
 ## Timeline
 
-- 2025-10-12 @tobiu assigned to @tobiu
-- 2025-10-12 @tobiu added the `enhancement` label
-- 2025-10-12 @tobiu added the `ai` label
-- 2025-10-12 @tobiu added parent issue #7399
-- 2025-10-12 @tobiu referenced in commit `a5f1736` - "MCP Server: Relocate Memory API Specification #7468"
-- 2025-10-12 @tobiu closed this issue
+- 2025-10-12T11:17:43Z @tobiu assigned to @tobiu
+- 2025-10-12T11:17:44Z @tobiu added the `enhancement` label
+- 2025-10-12T11:17:44Z @tobiu added the `ai` label
+- 2025-10-12T11:17:44Z @tobiu added parent issue #7399
+- 2025-10-12T11:18:34Z @tobiu referenced in commit `a5f1736` - "MCP Server: Relocate Memory API Specification #7468"
+- 2025-10-12T11:18:40Z @tobiu closed this issue
 

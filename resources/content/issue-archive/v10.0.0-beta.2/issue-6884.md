@@ -26,7 +26,7 @@ closedAt: '2025-06-27T15:16:31Z'
 
 ## Timeline
 
-- 2025-06-27 @tobiu added the `enhancement` label
-- 2025-06-27 @tobiu referenced in commit `056a420` - "component.Base: text_ #6884"
-- 2025-06-27 @tobiu closed this issue
+- 2025-06-27T15:13:12Z @tobiu added the `enhancement` label
+- 2025-06-27T15:13:33Z @tobiu referenced in commit `056a420` - "component.Base: text_ #6884"
+- 2025-06-27T15:16:31Z @tobiu closed this issue
 

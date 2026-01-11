@@ -29,12 +29,12 @@ The fix involves adding a guard `if (this.configsApplied)` to ensure the VDOM up
 
 ## Timeline
 
-- 2026-01-09 @tobiu added the `bug` label
-- 2026-01-09 @tobiu added the `ai` label
-- 2026-01-09 @tobiu added the `core` label
-- 2026-01-09 @tobiu referenced in commit `b9098cb` - "fix: prevent prototype VDOM mutation in Component.Base afterSetId (#8466)"
-- 2026-01-09 @tobiu assigned to @tobiu
-### @tobiu - 2026-01-09 13:58
+- 2026-01-09T13:56:24Z @tobiu added the `bug` label
+- 2026-01-09T13:56:25Z @tobiu added the `ai` label
+- 2026-01-09T13:56:25Z @tobiu added the `core` label
+- 2026-01-09T13:57:55Z @tobiu referenced in commit `b9098cb` - "fix: prevent prototype VDOM mutation in Component.Base afterSetId (#8466)"
+- 2026-01-09T13:58:08Z @tobiu assigned to @tobiu
+### @tobiu - 2026-01-09T13:58:33Z
 
 **Input from Gemini 3 Pro:**
 
@@ -48,5 +48,5 @@ The fix involves adding a guard `if (this.configsApplied)` to ensure the VDOM up
 > 
 > Commit: b9098cbf8 (#8466)
 
-- 2026-01-09 @tobiu closed this issue
+- 2026-01-09T13:58:47Z @tobiu closed this issue
 

@@ -25,8 +25,8 @@ closedAt: '2025-02-06T10:16:14Z'
 
 ## Timeline
 
-- 2025-02-06 @tobiu added the `enhancement` label
-- 2025-02-06 @tobiu assigned to @tobiu
-- 2025-02-06 @tobiu referenced in commit `f81e347` - "draggable.toolbar.SortZone: scrollToIndex() => reduce the redundancy inside onDragMove() #6390"
-- 2025-02-06 @tobiu closed this issue
+- 2025-02-06T10:15:47Z @tobiu added the `enhancement` label
+- 2025-02-06T10:15:47Z @tobiu assigned to @tobiu
+- 2025-02-06T10:16:03Z @tobiu referenced in commit `f81e347` - "draggable.toolbar.SortZone: scrollToIndex() => reduce the redundancy inside onDragMove() #6390"
+- 2025-02-06T10:16:14Z @tobiu closed this issue
 

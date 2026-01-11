@@ -61,10 +61,10 @@ These bugs prevent SEO files from being correctly deployed to application `dist`
 
 ## Timeline
 
-- 2025-11-11 @tobiu assigned to @tobiu
-- 2025-11-11 @tobiu added the `bug` label
-- 2025-11-11 @tobiu added the `ai` label
-- 2025-11-11 @tobiu added parent issue #7446
-- 2025-11-11 @tobiu referenced in commit `d0ee445` - "Bug: copySeoFiles.mjs Fails to Copy SEO Files to Correct dist Paths for Applications #7748"
-- 2025-11-11 @tobiu closed this issue
+- 2025-11-11T18:27:04Z @tobiu assigned to @tobiu
+- 2025-11-11T18:27:05Z @tobiu added the `bug` label
+- 2025-11-11T18:27:05Z @tobiu added the `ai` label
+- 2025-11-11T18:27:28Z @tobiu added parent issue #7446
+- 2025-11-11T18:27:56Z @tobiu referenced in commit `d0ee445` - "Bug: copySeoFiles.mjs Fails to Copy SEO Files to Correct dist Paths for Applications #7748"
+- 2025-11-11T18:28:44Z @tobiu closed this issue
 

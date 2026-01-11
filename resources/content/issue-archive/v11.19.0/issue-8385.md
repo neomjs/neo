@@ -36,10 +36,10 @@ This will ensure the block is rendered with the same `pre.hljs` styling as other
 
 ## Timeline
 
-- 2026-01-07 @tobiu added the `documentation` label
-- 2026-01-07 @tobiu added the `enhancement` label
-- 2026-01-07 @tobiu added the `ai` label
-- 2026-01-07 @tobiu assigned to @tobiu
-- 2026-01-07 @tobiu referenced in commit `8802e49` - "Add support for 'text' language in Markdown code blocks #8385"
-- 2026-01-07 @tobiu closed this issue
+- 2026-01-07T14:26:39Z @tobiu added the `documentation` label
+- 2026-01-07T14:26:39Z @tobiu added the `enhancement` label
+- 2026-01-07T14:26:39Z @tobiu added the `ai` label
+- 2026-01-07T14:30:17Z @tobiu assigned to @tobiu
+- 2026-01-07T14:30:50Z @tobiu referenced in commit `8802e49` - "Add support for 'text' language in Markdown code blocks #8385"
+- 2026-01-07T14:36:47Z @tobiu closed this issue
 

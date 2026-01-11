@@ -52,10 +52,10 @@ Verify that bindings on layouts (e.g., in `apps/form/view/FormContainer.mjs`) wo
 
 ## Timeline
 
-- 2025-11-19 @tobiu added the `bug` label
-- 2025-11-19 @tobiu added the `refactoring` label
-- 2025-11-19 @tobiu added the `regression` label
-- 2025-11-19 @tobiu assigned to @tobiu
-- 2025-11-19 @tobiu referenced in commit `17e188b` - "Fix regression: Replace deprecated parseConfig with createBindings in Layout.mjs #7814"
-- 2025-11-19 @tobiu closed this issue
+- 2025-11-19T16:35:00Z @tobiu added the `bug` label
+- 2025-11-19T16:35:01Z @tobiu added the `refactoring` label
+- 2025-11-19T16:35:01Z @tobiu added the `regression` label
+- 2025-11-19T16:35:30Z @tobiu assigned to @tobiu
+- 2025-11-19T16:36:28Z @tobiu referenced in commit `17e188b` - "Fix regression: Replace deprecated parseConfig with createBindings in Layout.mjs #7814"
+- 2025-11-19T16:36:38Z @tobiu closed this issue
 

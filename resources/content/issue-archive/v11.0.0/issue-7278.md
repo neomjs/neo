@@ -32,9 +32,9 @@ This task is to migrate the unit test for `config/MemoryLeak.mjs` from the Siest
 
 ## Timeline
 
-- 2025-09-27 @tobiu added the `enhancement` label
-- 2025-09-27 @tobiu added parent issue #7262
-- 2025-09-30 @tobiu referenced in commit `c4b9506` - "Convert config/MemoryLeak.mjs Test from Siesta to Playwright #7278"
-- 2025-09-30 @tobiu closed this issue
-- 2025-10-07 @tobiu assigned to @tobiu
+- 2025-09-27T13:37:47Z @tobiu added the `enhancement` label
+- 2025-09-27T13:37:48Z @tobiu added parent issue #7262
+- 2025-09-30T12:56:43Z @tobiu referenced in commit `c4b9506` - "Convert config/MemoryLeak.mjs Test from Siesta to Playwright #7278"
+- 2025-09-30T12:57:08Z @tobiu closed this issue
+- 2025-10-07T19:24:45Z @tobiu assigned to @tobiu
 

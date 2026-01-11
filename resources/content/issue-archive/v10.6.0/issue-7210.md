@@ -45,9 +45,9 @@ This ticket covers the implementation of a user-facing mechanism to request the 
 
 ## Timeline
 
-- 2025-08-21 @tobiu assigned to @tobiu
-- 2025-08-21 @tobiu added the `enhancement` label
-- 2025-08-21 @tobiu added parent issue #7201
-- 2025-08-21 @tobiu referenced in commit `e081555` - "Implement Window Management Permission Request #7210"
-- 2025-08-21 @tobiu closed this issue
+- 2025-08-21T19:50:41Z @tobiu assigned to @tobiu
+- 2025-08-21T19:50:43Z @tobiu added the `enhancement` label
+- 2025-08-21T19:50:43Z @tobiu added parent issue #7201
+- 2025-08-21T19:51:13Z @tobiu referenced in commit `e081555` - "Implement Window Management Permission Request #7210"
+- 2025-08-21T19:51:29Z @tobiu closed this issue
 

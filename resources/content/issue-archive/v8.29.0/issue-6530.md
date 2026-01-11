@@ -25,8 +25,8 @@ closedAt: '2025-03-03T13:40:58Z'
 
 ## Timeline
 
-- 2025-03-03 @tobiu added the `enhancement` label
-- 2025-03-03 @tobiu assigned to @tobiu
-- 2025-03-03 @tobiu referenced in commit `62a28d8` - "grid.column.Base: parent config #6530"
-- 2025-03-03 @tobiu closed this issue
+- 2025-03-03T13:40:17Z @tobiu added the `enhancement` label
+- 2025-03-03T13:40:17Z @tobiu assigned to @tobiu
+- 2025-03-03T13:40:50Z @tobiu referenced in commit `62a28d8` - "grid.column.Base: parent config #6530"
+- 2025-03-03T13:40:58Z @tobiu closed this issue
 

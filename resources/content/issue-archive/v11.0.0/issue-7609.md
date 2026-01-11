@@ -40,9 +40,9 @@ This tool will provide a direct lookup mechanism, bypassing the need to manually
 
 ## Timeline
 
-- 2025-10-22 @tobiu assigned to @tobiu
-- 2025-10-22 @tobiu added the `enhancement` label
-- 2025-10-22 @tobiu added the `ai` label
-- 2025-10-22 @tobiu referenced in commit `ba7c596` - "New Tool: Get Local Issue by ID #7609"
-- 2025-10-22 @tobiu closed this issue
+- 2025-10-22T12:44:30Z @tobiu assigned to @tobiu
+- 2025-10-22T12:44:32Z @tobiu added the `enhancement` label
+- 2025-10-22T12:44:32Z @tobiu added the `ai` label
+- 2025-10-22T12:53:11Z @tobiu referenced in commit `ba7c596` - "New Tool: Get Local Issue by ID #7609"
+- 2025-10-22T12:53:25Z @tobiu closed this issue
 

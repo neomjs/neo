@@ -33,10 +33,10 @@ The MCP specification defines several optional fields in tool definitions (e.g.,
 
 ## Timeline
 
-- 2025-10-15 @tobiu assigned to @tobiu
-- 2025-10-15 @tobiu added the `enhancement` label
-- 2025-10-15 @tobiu added the `ai` label
-- 2025-10-15 @tobiu added parent issue #7477
-- 2025-10-15 @tobiu referenced in commit `ada1188` - "Implement Conditional Omission of Optional Fields in MCP Tool Definitions #7499"
-- 2025-10-15 @tobiu closed this issue
+- 2025-10-15T13:55:21Z @tobiu assigned to @tobiu
+- 2025-10-15T13:55:23Z @tobiu added the `enhancement` label
+- 2025-10-15T13:55:23Z @tobiu added the `ai` label
+- 2025-10-15T13:55:23Z @tobiu added parent issue #7477
+- 2025-10-15T13:56:14Z @tobiu referenced in commit `ada1188` - "Implement Conditional Omission of Optional Fields in MCP Tool Definitions #7499"
+- 2025-10-15T13:56:24Z @tobiu closed this issue
 

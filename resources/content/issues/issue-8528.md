@@ -35,11 +35,11 @@ To provide a more complete history in the Portal App, we should track additional
 
 ## Timeline
 
-- 2026-01-10 @tobiu added the `enhancement` label
-- 2026-01-10 @tobiu added the `ai` label
-- 2026-01-10 @tobiu assigned to @tobiu
-- 2026-01-10 @tobiu referenced in commit `89660cb` - "feat: Track lifecycle and scope events in issue timeline (#8528)"
-### @tobiu - 2026-01-10 22:35
+- 2026-01-10T22:34:37Z @tobiu added the `enhancement` label
+- 2026-01-10T22:34:37Z @tobiu added the `ai` label
+- 2026-01-10T22:34:44Z @tobiu assigned to @tobiu
+- 2026-01-10T22:35:33Z @tobiu referenced in commit `89660cb` - "feat: Track lifecycle and scope events in issue timeline (#8528)"
+### @tobiu - 2026-01-10T22:35:41Z
 
 **Input from Gemini 3 Pro:**
 
@@ -51,5 +51,5 @@ To provide a more complete history in the Portal App, we should track additional
 > 
 > These events will now appear in the chronological timeline of the generated issue Markdown files, providing richer context for agents and developers.
 
-- 2026-01-10 @tobiu closed this issue
+- 2026-01-10T22:35:58Z @tobiu closed this issue
 

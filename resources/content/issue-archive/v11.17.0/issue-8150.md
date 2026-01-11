@@ -48,11 +48,11 @@ This ticket tracks the regression fix and the subsequent investigation.
 
 ## Timeline
 
-- 2025-12-20 @tobiu added the `bug` label
-- 2025-12-20 @tobiu added the `ai` label
-- 2025-12-20 @tobiu added the `regression` label
-- 2025-12-20 @tobiu assigned to @tobiu
-- 2025-12-20 @tobiu referenced in commit `c91c725` - "#8150 quick fix"
-- 2025-12-20 @tobiu referenced in commit `b493b62` - "#8150 component.wrapper.MonacoEditor: afterSetWindowId() => clearing out main thread instances"
-- 2025-12-20 @tobiu closed this issue
+- 2025-12-20T00:04:25Z @tobiu added the `bug` label
+- 2025-12-20T00:04:25Z @tobiu added the `ai` label
+- 2025-12-20T00:04:25Z @tobiu added the `regression` label
+- 2025-12-20T00:05:23Z @tobiu assigned to @tobiu
+- 2025-12-20T00:05:48Z @tobiu referenced in commit `c91c725` - "#8150 quick fix"
+- 2025-12-20T00:31:32Z @tobiu referenced in commit `b493b62` - "#8150 component.wrapper.MonacoEditor: afterSetWindowId() => clearing out main thread instances"
+- 2025-12-20T00:31:43Z @tobiu closed this issue
 

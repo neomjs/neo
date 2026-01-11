@@ -43,10 +43,10 @@ This guarantees that the `registerRemote` messages are pushed to the message que
 
 ## Timeline
 
-- 2025-11-19 @tobiu added the `bug` label
-- 2025-11-19 @tobiu added the `refactoring` label
-- 2025-11-19 @tobiu assigned to @tobiu
-- 2025-11-19 @tobiu changed title from **Fix race condition: Await addon initialization in Neo.main.Main** to **Fix race condition: Await addon initialization in Neo.Main**
-- 2025-11-19 @tobiu referenced in commit `dc48095` - "Fix race condition: Await addon initialization in Neo.Main #7815"
-- 2025-11-19 @tobiu closed this issue
+- 2025-11-19T17:06:54Z @tobiu added the `bug` label
+- 2025-11-19T17:06:54Z @tobiu added the `refactoring` label
+- 2025-11-19T17:07:07Z @tobiu assigned to @tobiu
+- 2025-11-19T17:07:39Z @tobiu changed title from **Fix race condition: Await addon initialization in Neo.main.Main** to **Fix race condition: Await addon initialization in Neo.Main**
+- 2025-11-19T17:11:40Z @tobiu referenced in commit `dc48095` - "Fix race condition: Await addon initialization in Neo.Main #7815"
+- 2025-11-19T17:11:45Z @tobiu closed this issue
 

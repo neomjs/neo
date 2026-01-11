@@ -41,11 +41,11 @@ Standardize on `class-hierarchy.json` as the single source of truth for class re
 
 ## Timeline
 
-- 2026-01-08 @tobiu added the `ai` label
-- 2026-01-08 @tobiu added the `refactoring` label
-- 2026-01-08 @tobiu assigned to @tobiu
-- 2026-01-08 @tobiu referenced in commit `6a62379` - "refactor: Switch Class Hierarchy to JSON (#8425)"
-### @tobiu - 2026-01-08 13:42
+- 2026-01-08T13:40:17Z @tobiu added the `ai` label
+- 2026-01-08T13:40:17Z @tobiu added the `refactoring` label
+- 2026-01-08T13:40:34Z @tobiu assigned to @tobiu
+- 2026-01-08T13:42:27Z @tobiu referenced in commit `6a62379` - "refactor: Switch Class Hierarchy to JSON (#8425)"
+### @tobiu - 2026-01-08T13:42:35Z
 
 **Input from Gemini 3 Pro:**
 
@@ -59,5 +59,5 @@ Standardize on `class-hierarchy.json` as the single source of truth for class re
 > 
 > This removes redundancy and ensures the Knowledge Base relies on the authoritative JSDoc-derived hierarchy.
 
-- 2026-01-08 @tobiu closed this issue
+- 2026-01-08T13:42:49Z @tobiu closed this issue
 

@@ -42,12 +42,12 @@ This causes these tools to fail with either "Tool not found" (server-side missin
 
 ## Timeline
 
-- 2026-01-04 @tobiu added the `bug` label
-- 2026-01-04 @tobiu added the `ai` label
-- 2026-01-04 @tobiu referenced in commit `b6833f6` - "Fix Neural Link Tool Mappings (#8323)"
-- 2026-01-04 @tobiu assigned to @tobiu
-- 2026-01-04 @tobiu closed this issue
-### @tobiu - 2026-01-04 19:13
+- 2026-01-04T19:09:12Z @tobiu added the `bug` label
+- 2026-01-04T19:09:12Z @tobiu added the `ai` label
+- 2026-01-04T19:11:36Z @tobiu referenced in commit `b6833f6` - "Fix Neural Link Tool Mappings (#8323)"
+- 2026-01-04T19:12:04Z @tobiu assigned to @tobiu
+- 2026-01-04T19:12:46Z @tobiu closed this issue
+### @tobiu - 2026-01-04T19:13:26Z
 
 **Input from Gemini 3 Pro:**
 
@@ -59,5 +59,5 @@ This causes these tools to fail with either "Tool not found" (server-side missin
 > 
 > **Note:** These changes require a restart of the Neural Link MCP server to take effect. In the meantime, I am continuing to explore the other available tools in the current session.
 
-- 2026-01-04 @tobiu added parent issue #8169
+- 2026-01-04T19:17:12Z @tobiu added parent issue #8169
 

@@ -33,13 +33,13 @@ A code review has highlighted a critical potential bug: a mismatch between the J
 
 ## Timeline
 
-- 2025-10-20 @tobiu assigned to @tobiu
-- 2025-10-20 @tobiu added parent issue #7564
-- 2025-10-20 @tobiu added the `bug` label
-- 2025-10-20 @tobiu added the `ai` label
-### @tobiu - 2025-10-20 14:03
+- 2025-10-20T13:21:01Z @tobiu assigned to @tobiu
+- 2025-10-20T13:21:02Z @tobiu added parent issue #7564
+- 2025-10-20T13:21:03Z @tobiu added the `bug` label
+- 2025-10-20T13:21:03Z @tobiu added the `ai` label
+### @tobiu - 2025-10-20T14:03:37Z
 
 verified field names, no changes needed.
 
-- 2025-10-20 @tobiu closed this issue
+- 2025-10-20T14:03:37Z @tobiu closed this issue
 

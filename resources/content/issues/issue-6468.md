@@ -40,18 +40,18 @@ The view triggers an update, passing vdom&vnode to the vdom worker, it figures o
 
 ## Timeline
 
-- 2025-02-19 @tobiu added the `enhancement` label
-### @github-actions - 2025-05-21 02:53
+- 2025-02-19T11:25:26Z @tobiu added the `enhancement` label
+### @github-actions - 2025-05-21T02:53:25Z
 
 This issue is stale because it has been open for 90 days with no activity.
 
-- 2025-05-21 @github-actions added the `stale` label
-### @github-actions - 2025-06-04 02:56
+- 2025-05-21T02:53:26Z @github-actions added the `stale` label
+### @github-actions - 2025-06-04T02:56:59Z
 
 This issue was closed because it has been inactive for 14 days since being marked as stale.
 
-- 2025-06-04 @github-actions closed this issue
-- 2025-06-04 @tobiu removed the `stale` label
-- 2025-06-04 @tobiu added the `no auto close` label
-- 2025-06-04 @tobiu reopened this issue
+- 2025-06-04T02:56:59Z @github-actions closed this issue
+- 2025-06-04T10:24:39Z @tobiu removed the `stale` label
+- 2025-06-04T10:24:39Z @tobiu added the `no auto close` label
+- 2025-06-04T10:24:42Z @tobiu reopened this issue
 

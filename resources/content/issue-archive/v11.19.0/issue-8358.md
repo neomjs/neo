@@ -40,9 +40,9 @@ Align the `apps/portal/index.html` metadata and structured data with the new "Ap
 
 ## Timeline
 
-- 2026-01-06 @tobiu added the `documentation` label
-- 2026-01-06 @tobiu added the `ai` label
-- 2026-01-06 @tobiu assigned to @tobiu
-- 2026-01-06 @tobiu closed this issue
-- 2026-01-07 @jonnyamsp referenced in commit `5c5049d` - "docs: Update portal index.html to reflect Application Engine branding (closes #8358)"
+- 2026-01-06T14:13:31Z @tobiu added the `documentation` label
+- 2026-01-06T14:13:32Z @tobiu added the `ai` label
+- 2026-01-06T14:13:51Z @tobiu assigned to @tobiu
+- 2026-01-06T14:17:21Z @tobiu closed this issue
+- 2026-01-07T13:25:08Z @jonnyamsp referenced in commit `5c5049d` - "docs: Update portal index.html to reflect Application Engine branding (closes #8358)"
 

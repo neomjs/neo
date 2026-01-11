@@ -43,13 +43,13 @@ Addons configured with `useLazyLoading: true` will not block the main thread ini
 
 ## Timeline
 
-- 2026-01-07 @tobiu added the `enhancement` label
-- 2026-01-07 @tobiu added the `architecture` label
-- 2026-01-07 @tobiu added the `performance` label
-- 2026-01-07 @tobiu added the `core` label
-- 2026-01-07 @tobiu assigned to @tobiu
-- 2026-01-07 @tobiu closed this issue
-### @tobiu - 2026-01-07 13:22
+- 2026-01-07T12:36:34Z @tobiu added the `enhancement` label
+- 2026-01-07T12:36:35Z @tobiu added the `architecture` label
+- 2026-01-07T12:36:35Z @tobiu added the `performance` label
+- 2026-01-07T12:36:35Z @tobiu added the `core` label
+- 2026-01-07T13:21:02Z @tobiu assigned to @tobiu
+- 2026-01-07T13:21:21Z @tobiu closed this issue
+### @tobiu - 2026-01-07T13:22:56Z
 
 **Input from Gemini 3 Pro:**
 
@@ -84,7 +84,7 @@ Addons configured with `useLazyLoading: true` will not block the main thread ini
 > 
 > These changes provide a scalable pattern for integrating heavy third-party libraries without compromising the initial load performance of Neo.mjs applications.
 
-- 2026-01-07 @jonnyamsp referenced in commit `cf34f44` - "feat: Implement Lazy Loading and Deep Array Merging
+- 2026-01-07T13:25:10Z @jonnyamsp referenced in commit `cf34f44` - "feat: Implement Lazy Loading and Deep Array Merging
 
 Introduces 'deepArrays' merge strategy in Neo.mjs and Config.mjs to support array concatenation during config merging. Updates Neo.core.Base to use this strategy for 'remote_', ensuring inherited remote methods (like 'loadFiles') are preserved in subclasses. Implements lazy loading in Neo.main.addon.Base via 'useLazyLoading' config, preventing main thread blocking. Updates Mermaid addon and wrapper to utilize these new capabilities.
 

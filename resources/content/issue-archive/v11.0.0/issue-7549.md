@@ -36,10 +36,10 @@ Add any other context or screenshots about the feature request here.
 
 ## Timeline
 
-- 2025-10-19 @tobiu assigned to @tobiu
-- 2025-10-19 @tobiu added the `enhancement` label
-- 2025-10-19 @tobiu added the `ai` label
-- 2025-10-19 @tobiu added parent issue #7536
-- 2025-10-19 @tobiu referenced in commit `4e26c56` - "Create ChromaManager and Adjust KB Server Entry Point #7549"
-- 2025-10-19 @tobiu closed this issue
+- 2025-10-19T21:07:13Z @tobiu assigned to @tobiu
+- 2025-10-19T21:07:14Z @tobiu added the `enhancement` label
+- 2025-10-19T21:07:14Z @tobiu added the `ai` label
+- 2025-10-19T21:07:14Z @tobiu added parent issue #7536
+- 2025-10-19T21:08:29Z @tobiu referenced in commit `4e26c56` - "Create ChromaManager and Adjust KB Server Entry Point #7549"
+- 2025-10-19T21:10:14Z @tobiu closed this issue
 

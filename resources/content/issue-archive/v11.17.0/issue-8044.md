@@ -52,14 +52,14 @@ This implementation provides the architectural capability. A follow-up task is r
 
 ## Timeline
 
-- 2025-12-07 @tobiu added the `enhancement` label
-- 2025-12-07 @tobiu added the `ai` label
-- 2025-12-07 @tobiu assigned to @tobiu
-- 2025-12-07 @tobiu referenced in commit `497c8e7` - "feat(Draggable): Implement DragProxyContainer for live component dragging #8044
+- 2025-12-07T12:12:27Z @tobiu added the `enhancement` label
+- 2025-12-07T12:12:27Z @tobiu added the `ai` label
+- 2025-12-07T12:12:49Z @tobiu assigned to @tobiu
+- 2025-12-07T12:14:17Z @tobiu referenced in commit `497c8e7` - "feat(Draggable): Implement DragProxyContainer for live component dragging #8044
 
 - Added Neo.draggable.DragProxyContainer to support moving live components into the proxy.
 - Updated DragZone to handle the component swap with a placeholder when using the container proxy.
 - Updated SortZone to track and sort the placeholder to maintain correct layout gaps.
 - Ensured DragProxyContainer reuses DragProxyComponent styling to avoid SCSS duplication."
-- 2025-12-07 @tobiu closed this issue
+- 2025-12-07T12:23:35Z @tobiu closed this issue
 

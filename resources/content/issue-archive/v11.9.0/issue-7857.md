@@ -50,10 +50,10 @@ closedAt: '2025-11-22T09:55:26Z'
 
 ## Timeline
 
-- 2025-11-22 @tobiu added the `documentation` label
-- 2025-11-22 @tobiu added the `enhancement` label
-- 2025-11-22 @tobiu added the `ai` label
-- 2025-11-22 @tobiu assigned to @tobiu
-- 2025-11-22 @tobiu referenced in commit `03312c7` - "Enhance Memory Core MCP Server Documentation #7857"
-- 2025-11-22 @tobiu closed this issue
+- 2025-11-22T09:43:23Z @tobiu added the `documentation` label
+- 2025-11-22T09:43:23Z @tobiu added the `enhancement` label
+- 2025-11-22T09:43:23Z @tobiu added the `ai` label
+- 2025-11-22T09:44:46Z @tobiu assigned to @tobiu
+- 2025-11-22T09:51:26Z @tobiu referenced in commit `03312c7` - "Enhance Memory Core MCP Server Documentation #7857"
+- 2025-11-22T09:55:26Z @tobiu closed this issue
 

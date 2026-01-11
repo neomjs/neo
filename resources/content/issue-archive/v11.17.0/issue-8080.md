@@ -33,9 +33,9 @@ This prevents the component from being destroyed/recreated on every keystroke, a
 
 ## Timeline
 
-- 2025-12-10 @tobiu added the `enhancement` label
-- 2025-12-10 @tobiu added the `ai` label
-- 2025-12-10 @tobiu assigned to @tobiu
-- 2025-12-10 @tobiu referenced in commit `768af2a` - "LivePreview: Reuse Markdown component reference to avoid re-creation #8080"
-- 2025-12-10 @tobiu closed this issue
+- 2025-12-10T14:07:58Z @tobiu added the `enhancement` label
+- 2025-12-10T14:07:59Z @tobiu added the `ai` label
+- 2025-12-10T14:08:07Z @tobiu assigned to @tobiu
+- 2025-12-10T14:29:58Z @tobiu referenced in commit `768af2a` - "LivePreview: Reuse Markdown component reference to avoid re-creation #8080"
+- 2025-12-10T14:30:12Z @tobiu closed this issue
 

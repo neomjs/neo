@@ -50,11 +50,11 @@ Decompose test files into smaller, semantically distinct chunks to improve searc
 
 ## Timeline
 
-- 2025-11-25 @tobiu added the `enhancement` label
-- 2025-11-25 @tobiu added the `ai` label
-- 2025-11-25 @tobiu added the `testing` label
-- 2025-11-25 @tobiu assigned to @tobiu
-- 2025-11-25 @tobiu referenced in commit `06c2c4a` - "Split Playwright tests into granular chunks for improved Knowledge Base indexing #7901
+- 2025-11-25T14:01:03Z @tobiu added the `enhancement` label
+- 2025-11-25T14:01:03Z @tobiu added the `ai` label
+- 2025-11-25T14:01:03Z @tobiu added the `testing` label
+- 2025-11-25T14:02:09Z @tobiu assigned to @tobiu
+- 2025-11-25T14:33:01Z @tobiu referenced in commit `06c2c4a` - "Split Playwright tests into granular chunks for improved Knowledge Base indexing #7901
 
 - Added 'acorn' dependency to DatabaseService.mjs for robust AST parsing.
 - Implemented 'parseTestFile' to extract:
@@ -63,7 +63,7 @@ Decompose test files into smaller, semantically distinct chunks to improve searc
   - Line number metadata (line_start, line_end) for each test.
 - Updated 'indexRawDirectory' to utilize the new parsing logic for Playwright .spec.mjs files.
 - This enhancement ensures vector search retrieves specific test cases rather than monolithic files."
-### @tobiu - 2025-11-25 14:41
+### @tobiu - 2025-11-25T14:41:53Z
 
 **Input from Neo Agent:**
 
@@ -76,5 +76,5 @@ Decompose test files into smaller, semantically distinct chunks to improve searc
 > 
 > The system is now correctly indexing `test/playwright` with the new granular structure and metadata.
 
-- 2025-11-25 @tobiu closed this issue
+- 2025-11-25T14:42:12Z @tobiu closed this issue
 

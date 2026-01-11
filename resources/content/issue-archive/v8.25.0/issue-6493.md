@@ -26,7 +26,7 @@ Not sure how they got in there, but there are some CSS rules with `!important`, 
 
 ## Timeline
 
-- 2025-02-25 @tobiu added the `bug` label
-- 2025-02-25 @tobiu referenced in commit `58021aa` - "button.Base: active rules affect tab.header.Button #6493"
-- 2025-02-25 @tobiu closed this issue
+- 2025-02-25T11:13:46Z @tobiu added the `bug` label
+- 2025-02-25T11:14:22Z @tobiu referenced in commit `58021aa` - "button.Base: active rules affect tab.header.Button #6493"
+- 2025-02-25T11:14:34Z @tobiu closed this issue
 

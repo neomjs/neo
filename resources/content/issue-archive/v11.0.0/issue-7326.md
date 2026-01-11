@@ -35,9 +35,9 @@ This documentation will be added to `AI_QUICK_START.md` and will serve as the pr
 
 ## Timeline
 
-- 2025-10-02 @tobiu assigned to @tobiu
-- 2025-10-02 @tobiu added parent issue #7316
-- 2025-10-02 @tobiu added the `enhancement` label
-- 2025-10-02 @tobiu referenced in commit `decee54` - "Document Optional Memory Core Setup #7326"
-- 2025-10-02 @tobiu closed this issue
+- 2025-10-02T12:54:02Z @tobiu assigned to @tobiu
+- 2025-10-02T12:54:04Z @tobiu added parent issue #7316
+- 2025-10-02T12:54:04Z @tobiu added the `enhancement` label
+- 2025-10-02T12:55:26Z @tobiu referenced in commit `decee54` - "Document Optional Memory Core Setup #7326"
+- 2025-10-02T12:55:40Z @tobiu closed this issue
 

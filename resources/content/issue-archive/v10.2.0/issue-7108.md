@@ -33,8 +33,8 @@ This ticket is to update the document to lead with the modern, functional approa
 
 ## Timeline
 
-- 2025-07-24 @tobiu assigned to @tobiu
-- 2025-07-24 @tobiu added the `enhancement` label
-- 2025-07-28 @tobiu referenced in commit `9647052` - "docs: Update "Describing a View" for v10 functional components #7108"
-- 2025-07-28 @tobiu closed this issue
+- 2025-07-24T15:37:04Z @tobiu assigned to @tobiu
+- 2025-07-24T15:37:05Z @tobiu added the `enhancement` label
+- 2025-07-28T11:02:33Z @tobiu referenced in commit `9647052` - "docs: Update "Describing a View" for v10 functional components #7108"
+- 2025-07-28T11:02:37Z @tobiu closed this issue
 

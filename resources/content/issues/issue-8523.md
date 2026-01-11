@@ -36,18 +36,18 @@ Visualize the ticket state using GitHub-style status badges (Icon + Text) to dis
 
 ## Timeline
 
-- 2026-01-10 @tobiu added the `enhancement` label
-- 2026-01-10 @tobiu added the `design` label
-- 2026-01-10 @tobiu added the `ai` label
-- 2026-01-10 @tobiu added parent issue #8398
-- 2026-01-10 @tobiu assigned to @tobiu
-- 2026-01-10 @tobiu referenced in commit `b9f865a` - "feat: Implement Ticket Status Badges and Refactor Styles (#8523)"
-### @tobiu - 2026-01-10 20:30
+- 2026-01-10T20:18:14Z @tobiu added the `enhancement` label
+- 2026-01-10T20:18:14Z @tobiu added the `design` label
+- 2026-01-10T20:18:14Z @tobiu added the `ai` label
+- 2026-01-10T20:18:21Z @tobiu added parent issue #8398
+- 2026-01-10T20:18:34Z @tobiu assigned to @tobiu
+- 2026-01-10T20:30:24Z @tobiu referenced in commit `b9f865a` - "feat: Implement Ticket Status Badges and Refactor Styles (#8523)"
+### @tobiu - 2026-01-10T20:30:33Z
 
 **Input from Gemini 3 Pro:**
 
 > ✦ I have implemented the ticket status badges for both the main header and the Frontmatter table. The SCSS has been refactored to share badge styles, and I've incorporated the fix to ensure consistent badge height within the Frontmatter table.
 > Changes pushed to `dev`.
 
-- 2026-01-10 @tobiu closed this issue
+- 2026-01-10T20:31:11Z @tobiu closed this issue
 

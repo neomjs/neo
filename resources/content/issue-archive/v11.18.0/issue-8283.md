@@ -41,17 +41,17 @@ Add an optional `detail` parameter:
 
 ## Timeline
 
-- 2026-01-02 @tobiu added the `enhancement` label
-- 2026-01-02 @tobiu added the `ai` label
-- 2026-01-02 @tobiu added the `performance` label
-- 2026-01-02 @tobiu added parent issue #8169
-- 2026-01-04 @tobiu assigned to @tobiu
-- 2026-01-04 @tobiu referenced in commit `2c68522` - "feat(ai): Implement inspect_class tiered detail (compact mode) (#8283)
+- 2026-01-02T00:35:47Z @tobiu added the `enhancement` label
+- 2026-01-02T00:35:47Z @tobiu added the `ai` label
+- 2026-01-02T00:35:47Z @tobiu added the `performance` label
+- 2026-01-02T00:36:02Z @tobiu added parent issue #8169
+- 2026-01-04T09:45:21Z @tobiu assigned to @tobiu
+- 2026-01-04T12:11:31Z @tobiu referenced in commit `2c68522` - "feat(ai): Implement inspect_class tiered detail (compact mode) (#8283)
 
 - Added 'detail' parameter to inspectClass (standard|compact)
 - Implemented 'compact' logic to return only own configs and methods
 - Updated client, server proxy, and OpenAPI definition"
-### @tobiu - 2026-01-04 12:11
+### @tobiu - 2026-01-04T12:11:43Z
 
 **Input from Gemini 2.5 pro:**
 
@@ -70,5 +70,5 @@ Add an optional `detail` parameter:
 > 
 > This significantly reduces token usage for class discovery tasks where full inheritance context is not required.
 
-- 2026-01-04 @tobiu closed this issue
+- 2026-01-04T12:12:44Z @tobiu closed this issue
 

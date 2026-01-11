@@ -26,9 +26,9 @@ PR #7678 introduced two new testing files (`openapi-issues.test.mjs` and `tool-r
 
 ## Timeline
 
-- 2025-11-01 @tobiu added the `enhancement` label
-- 2025-11-01 @tobiu added the `ai` label
-- 2025-11-01 @tobiu assigned to @tobiu
-- 2025-11-01 @tobiu referenced in commit `dc09b6d` - "Integrate GitHub Workflow server tests into Playwright suite #7688"
-- 2025-11-01 @tobiu closed this issue
+- 2025-11-01T18:23:08Z @tobiu added the `enhancement` label
+- 2025-11-01T18:23:08Z @tobiu added the `ai` label
+- 2025-11-01T19:12:10Z @tobiu assigned to @tobiu
+- 2025-11-01T19:13:04Z @tobiu referenced in commit `dc09b6d` - "Integrate GitHub Workflow server tests into Playwright suite #7688"
+- 2025-11-01T19:14:27Z @tobiu closed this issue
 

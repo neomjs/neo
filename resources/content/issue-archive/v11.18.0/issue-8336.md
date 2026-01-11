@@ -33,9 +33,9 @@ Increase the `maxSubIssuesPerIssue` configuration in `ai/mcp/server/github-workf
 
 ## Timeline
 
-- 2026-01-05 @tobiu added the `enhancement` label
-- 2026-01-05 @tobiu added the `ai` label
-- 2026-01-05 @tobiu assigned to @tobiu
-- 2026-01-05 @tobiu referenced in commit `de62239` - "feat(ai): Increase GitHub workflow sub-issue sync limit to 100 (#8336)"
-- 2026-01-05 @tobiu closed this issue
+- 2026-01-05T14:55:38Z @tobiu added the `enhancement` label
+- 2026-01-05T14:55:38Z @tobiu added the `ai` label
+- 2026-01-05T14:55:57Z @tobiu assigned to @tobiu
+- 2026-01-05T14:56:16Z @tobiu referenced in commit `de62239` - "feat(ai): Increase GitHub workflow sub-issue sync limit to 100 (#8336)"
+- 2026-01-05T15:04:10Z @tobiu closed this issue
 

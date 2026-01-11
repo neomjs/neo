@@ -25,8 +25,8 @@ closedAt: '2025-04-16T22:51:23Z'
 
 ## Timeline
 
-- 2025-04-16 @tobiu added the `enhancement` label
-- 2025-04-16 @tobiu assigned to @tobiu
-- 2025-04-16 @tobiu referenced in commit `c1d5872` - "grid.column.AnimatedChange: onRecordChange() => adjust to the new view.getCellId() signature #6665"
-- 2025-04-16 @tobiu closed this issue
+- 2025-04-16T22:51:01Z @tobiu added the `enhancement` label
+- 2025-04-16T22:51:01Z @tobiu assigned to @tobiu
+- 2025-04-16T22:51:17Z @tobiu referenced in commit `c1d5872` - "grid.column.AnimatedChange: onRecordChange() => adjust to the new view.getCellId() signature #6665"
+- 2025-04-16T22:51:23Z @tobiu closed this issue
 

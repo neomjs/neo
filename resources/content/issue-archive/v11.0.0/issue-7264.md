@@ -57,20 +57,20 @@ This will shift the agent's role from purely reactive execution to proactive par
 
 ## Timeline
 
-- 2025-09-27 @tobiu assigned to @tobiu
-- 2025-09-27 @tobiu added the `enhancement` label
-- 2025-09-27 @tobiu added the `epic` label
-- 2025-09-27 @tobiu added sub-issue #7265
-- 2025-09-27 @tobiu referenced in commit `6edcbda` - "#7264 Internal tickets"
-- 2025-10-09 @tobiu added sub-issue #7428
-- 2025-10-09 @tobiu added sub-issue #7429
-- 2025-10-09 @tobiu added sub-issue #7430
-- 2025-10-09 @tobiu removed sub-issue #7265
-- 2025-10-09 @tobiu added sub-issue #7431
-- 2025-10-09 @tobiu added sub-issue #7432
-### @tobiu - 2025-10-24 10:03
+- 2025-09-27T11:26:07Z @tobiu assigned to @tobiu
+- 2025-09-27T11:26:08Z @tobiu added the `enhancement` label
+- 2025-09-27T11:26:08Z @tobiu added the `epic` label
+- 2025-09-27T11:32:33Z @tobiu added sub-issue #7265
+- 2025-09-27T11:56:47Z @tobiu referenced in commit `6edcbda` - "#7264 Internal tickets"
+- 2025-10-09T20:14:35Z @tobiu added sub-issue #7428
+- 2025-10-09T20:33:43Z @tobiu added sub-issue #7429
+- 2025-10-09T21:40:11Z @tobiu added sub-issue #7430
+- 2025-10-09T21:41:38Z @tobiu removed sub-issue #7265
+- 2025-10-09T22:02:03Z @tobiu added sub-issue #7431
+- 2025-10-09T22:45:27Z @tobiu added sub-issue #7432
+### @tobiu - 2025-10-24T10:03:19Z
 
 resolved.
 
-- 2025-10-24 @tobiu closed this issue
+- 2025-10-24T10:03:19Z @tobiu closed this issue
 

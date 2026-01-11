@@ -36,14 +36,14 @@ Use `test/playwright/unit/component/Base_PrototypePollution_Direct.spec.mjs` to 
 
 ## Timeline
 
-- 2026-01-09 @tobiu added the `bug` label
-- 2026-01-09 @tobiu added the `ai` label
-- 2026-01-09 @tobiu added the `refactoring` label
-- 2026-01-09 @tobiu added the `core` label
-- 2026-01-09 @tobiu added parent issue #8469
-- 2026-01-09 @tobiu referenced in commit `12958ca` - "fix: enforce eager VDOM cloning in Component constructor to prevent direct access pollution (#8474)"
-- 2026-01-09 @tobiu assigned to @tobiu
-### @tobiu - 2026-01-09 16:45
+- 2026-01-09T16:42:59Z @tobiu added the `bug` label
+- 2026-01-09T16:43:00Z @tobiu added the `ai` label
+- 2026-01-09T16:43:00Z @tobiu added the `refactoring` label
+- 2026-01-09T16:43:00Z @tobiu added the `core` label
+- 2026-01-09T16:43:07Z @tobiu added parent issue #8469
+- 2026-01-09T16:45:08Z @tobiu referenced in commit `12958ca` - "fix: enforce eager VDOM cloning in Component constructor to prevent direct access pollution (#8474)"
+- 2026-01-09T16:45:14Z @tobiu assigned to @tobiu
+### @tobiu - 2026-01-09T16:45:24Z
 
 **Input from Gemini 3 Pro:**
 
@@ -66,7 +66,7 @@ Use `test/playwright/unit/component/Base_PrototypePollution_Direct.spec.mjs` to 
 > 
 > Commit: 12958cae8 (#8474)
 
-- 2026-01-09 @tobiu closed this issue
-- 2026-01-09 @tobiu referenced in commit `c51f5c7` - "refactor: remove redundant lazy VDOM cloning from getter, rely on construct (#8474)"
-- 2026-01-09 @tobiu cross-referenced by #8469
+- 2026-01-09T16:45:42Z @tobiu closed this issue
+- 2026-01-09T16:54:24Z @tobiu referenced in commit `c51f5c7` - "refactor: remove redundant lazy VDOM cloning from getter, rely on construct (#8474)"
+- 2026-01-09T17:26:23Z @tobiu cross-referenced by #8469
 

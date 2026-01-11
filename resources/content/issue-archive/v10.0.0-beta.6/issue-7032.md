@@ -45,17 +45,17 @@ This article will be crucial for attracting React developers to Neo.mjs, enhanci
 
 ## Timeline
 
-- 2025-07-12 @tobiu assigned to @tobiu
-- 2025-07-12 @tobiu added parent issue #7029
-- 2025-07-12 @tobiu added the `enhancement` label
-- 2025-07-12 @tobiu referenced in commit `b26cbbf` - "Feature: Add Neo.mjs vs. React Comparison Article #7032"
-- 2025-07-12 @tobiu referenced in commit `c60a369` - "#7032 mentioning core.Base"
-- 2025-07-12 @tobiu closed this issue
-### @tobiu - 2025-07-12 21:57
+- 2025-07-12T21:15:48Z @tobiu assigned to @tobiu
+- 2025-07-12T21:15:49Z @tobiu added parent issue #7029
+- 2025-07-12T21:15:50Z @tobiu added the `enhancement` label
+- 2025-07-12T21:40:25Z @tobiu referenced in commit `b26cbbf` - "Feature: Add Neo.mjs vs. React Comparison Article #7032"
+- 2025-07-12T21:48:12Z @tobiu referenced in commit `c60a369` - "#7032 mentioning core.Base"
+- 2025-07-12T21:48:22Z @tobiu closed this issue
+### @tobiu - 2025-07-12T21:57:32Z
 
 reopening for adding zero dependencies
 
-- 2025-07-12 @tobiu reopened this issue
-- 2025-07-12 @tobiu referenced in commit `68834d1` - "Feature: Add Neo.mjs vs. React Comparison Article #7032"
-- 2025-07-12 @tobiu closed this issue
+- 2025-07-12T21:57:32Z @tobiu reopened this issue
+- 2025-07-12T21:57:51Z @tobiu referenced in commit `68834d1` - "Feature: Add Neo.mjs vs. React Comparison Article #7032"
+- 2025-07-12T22:15:55Z @tobiu closed this issue
 

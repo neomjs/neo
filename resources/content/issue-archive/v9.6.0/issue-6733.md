@@ -25,8 +25,8 @@ closedAt: '2025-06-01T10:16:45Z'
 
 ## Timeline
 
-- 2025-06-01 @tobiu assigned to @tobiu
-- 2025-06-01 @tobiu added the `enhancement` label
-- 2025-06-01 @tobiu referenced in commit `965d872` - "remotes.Api: load() => adjust the api path for dist/esm #6733"
-- 2025-06-01 @tobiu closed this issue
+- 2025-06-01T10:13:07Z @tobiu assigned to @tobiu
+- 2025-06-01T10:13:08Z @tobiu added the `enhancement` label
+- 2025-06-01T10:13:26Z @tobiu referenced in commit `965d872` - "remotes.Api: load() => adjust the api path for dist/esm #6733"
+- 2025-06-01T10:16:45Z @tobiu closed this issue
 

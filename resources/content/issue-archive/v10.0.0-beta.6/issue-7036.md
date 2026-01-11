@@ -64,9 +64,9 @@ To ensure technical accuracy and to clearly articulate the significant advantage
 
 ## Timeline
 
-- 2025-07-13 @tobiu assigned to @tobiu
-- 2025-07-13 @tobiu added parent issue #7029
-- 2025-07-13 @tobiu added the `enhancement` label
-- 2025-07-13 @tobiu referenced in commit `da1264c` - "Update Framework Comparison Guides #7036"
-- 2025-07-13 @tobiu closed this issue
+- 2025-07-13T09:06:37Z @tobiu assigned to @tobiu
+- 2025-07-13T09:06:38Z @tobiu added parent issue #7029
+- 2025-07-13T09:06:39Z @tobiu added the `enhancement` label
+- 2025-07-13T09:10:20Z @tobiu referenced in commit `da1264c` - "Update Framework Comparison Guides #7036"
+- 2025-07-13T09:10:37Z @tobiu closed this issue
 

@@ -39,10 +39,10 @@ To significantly improve the performance and reduce the scope of the issue synch
 
 ## Timeline
 
-- 2025-10-20 @tobiu assigned to @tobiu
-- 2025-10-20 @tobiu added parent issue #7564
-- 2025-10-20 @tobiu added the `enhancement` label
-- 2025-10-20 @tobiu added the `ai` label
-- 2025-10-20 @tobiu referenced in commit `501c84b` - "Filter GitHub Issues by Date in SyncService #7573"
-- 2025-10-20 @tobiu closed this issue
+- 2025-10-20T12:46:00Z @tobiu assigned to @tobiu
+- 2025-10-20T12:46:02Z @tobiu added parent issue #7564
+- 2025-10-20T12:46:02Z @tobiu added the `enhancement` label
+- 2025-10-20T12:46:02Z @tobiu added the `ai` label
+- 2025-10-20T12:57:45Z @tobiu referenced in commit `501c84b` - "Filter GitHub Issues by Date in SyncService #7573"
+- 2025-10-20T12:57:55Z @tobiu closed this issue
 

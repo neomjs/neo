@@ -34,11 +34,11 @@ This indicates that the object returned by the `healthService.healthcheck` funct
 
 ## Timeline
 
-- 2025-10-16 @tobiu assigned to @tobiu
-- 2025-10-16 @tobiu added parent issue #7501
-- 2025-10-16 @tobiu added the `bug` label
-- 2025-10-16 @tobiu added the `ai` label
-- 2025-10-16 @tobiu referenced in commit `94ef9cb` - "Healthcheck tool returns unstructured content #7515"
-- 2025-10-16 @tobiu referenced in commit `c661e67` - "#7515 structuredContent"
-- 2025-10-16 @tobiu closed this issue
+- 2025-10-16T12:58:44Z @tobiu assigned to @tobiu
+- 2025-10-16T12:58:45Z @tobiu added parent issue #7501
+- 2025-10-16T12:58:46Z @tobiu added the `bug` label
+- 2025-10-16T12:58:46Z @tobiu added the `ai` label
+- 2025-10-16T13:01:20Z @tobiu referenced in commit `94ef9cb` - "Healthcheck tool returns unstructured content #7515"
+- 2025-10-16T13:53:23Z @tobiu referenced in commit `c661e67` - "#7515 structuredContent"
+- 2025-10-16T13:53:26Z @tobiu closed this issue
 

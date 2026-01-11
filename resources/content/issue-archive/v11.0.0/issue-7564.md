@@ -74,41 +74,41 @@ Once the core issue synchronization is stable and robust, we will expand its cap
 
 ## Timeline
 
-- 2025-10-20 @tobiu assigned to @tobiu
-- 2025-10-20 @tobiu added the `epic` label
-- 2025-10-20 @tobiu added the `ai` label
-- 2025-10-20 @tobiu added sub-issue #7565
-- 2025-10-20 @tobiu added sub-issue #7566
-- 2025-10-20 @tobiu added sub-issue #7567
-- 2025-10-20 @tobiu added sub-issue #7568
-- 2025-10-20 @tobiu referenced in commit `c46e8dd` - "#7564 tickets as md files"
-- 2025-10-20 @tobiu added sub-issue #7569
-- 2025-10-20 @tobiu added sub-issue #7570
-- 2025-10-20 @tobiu added sub-issue #7571
-- 2025-10-20 @tobiu added sub-issue #7572
-- 2025-10-20 @tobiu added sub-issue #7573
-- 2025-10-20 @tobiu added sub-issue #7574
-- 2025-10-20 @tobiu added sub-issue #7575
-- 2025-10-20 @tobiu referenced in commit `83a1208` - "#7564 ticket md files"
-- 2025-10-20 @tobiu added sub-issue #7576
-- 2025-10-20 @tobiu added sub-issue #7577
-- 2025-10-20 @tobiu added sub-issue #7578
-- 2025-10-20 @tobiu added sub-issue #7579
-- 2025-10-20 @tobiu added sub-issue #7580
-- 2025-10-20 @tobiu added sub-issue #7581
-- 2025-10-20 @tobiu added sub-issue #7582
-- 2025-10-20 @tobiu referenced in commit `a08874a` - "#7564 tickets as md files"
-- 2025-10-20 @tobiu removed sub-issue #7577
-- 2025-10-20 @tobiu added sub-issue #7583
-- 2025-10-20 @tobiu added sub-issue #7584
-- 2025-10-20 @tobiu added sub-issue #7585
-- 2025-10-20 @tobiu added sub-issue #7587
-- 2025-10-21 @tobiu added sub-issue #7588
-- 2025-10-21 @tobiu referenced in commit `1de91d6` - "#7564 new sub md file"
-- 2025-10-21 @tobiu added sub-issue #7589
-### @tobiu - 2025-10-24 09:32
+- 2025-10-20T11:17:27Z @tobiu assigned to @tobiu
+- 2025-10-20T11:17:28Z @tobiu added the `epic` label
+- 2025-10-20T11:17:28Z @tobiu added the `ai` label
+- 2025-10-20T11:20:00Z @tobiu added sub-issue #7565
+- 2025-10-20T11:22:38Z @tobiu added sub-issue #7566
+- 2025-10-20T11:24:18Z @tobiu added sub-issue #7567
+- 2025-10-20T11:26:44Z @tobiu added sub-issue #7568
+- 2025-10-20T11:27:17Z @tobiu referenced in commit `c46e8dd` - "#7564 tickets as md files"
+- 2025-10-20T12:04:45Z @tobiu added sub-issue #7569
+- 2025-10-20T12:16:17Z @tobiu added sub-issue #7570
+- 2025-10-20T12:43:13Z @tobiu added sub-issue #7571
+- 2025-10-20T12:44:58Z @tobiu added sub-issue #7572
+- 2025-10-20T12:46:02Z @tobiu added sub-issue #7573
+- 2025-10-20T12:48:14Z @tobiu added sub-issue #7574
+- 2025-10-20T12:49:20Z @tobiu added sub-issue #7575
+- 2025-10-20T12:49:57Z @tobiu referenced in commit `83a1208` - "#7564 ticket md files"
+- 2025-10-20T13:21:02Z @tobiu added sub-issue #7576
+- 2025-10-20T13:22:40Z @tobiu added sub-issue #7577
+- 2025-10-20T13:24:09Z @tobiu added sub-issue #7578
+- 2025-10-20T13:25:20Z @tobiu added sub-issue #7579
+- 2025-10-20T13:27:21Z @tobiu added sub-issue #7580
+- 2025-10-20T13:29:23Z @tobiu added sub-issue #7581
+- 2025-10-20T13:30:44Z @tobiu added sub-issue #7582
+- 2025-10-20T13:31:27Z @tobiu referenced in commit `a08874a` - "#7564 tickets as md files"
+- 2025-10-20T13:34:26Z @tobiu removed sub-issue #7577
+- 2025-10-20T13:37:09Z @tobiu added sub-issue #7583
+- 2025-10-20T13:47:48Z @tobiu added sub-issue #7584
+- 2025-10-20T13:50:50Z @tobiu added sub-issue #7585
+- 2025-10-20T20:47:06Z @tobiu added sub-issue #7587
+- 2025-10-21T07:55:30Z @tobiu added sub-issue #7588
+- 2025-10-21T08:10:34Z @tobiu referenced in commit `1de91d6` - "#7564 new sub md file"
+- 2025-10-21T09:33:03Z @tobiu added sub-issue #7589
+### @tobiu - 2025-10-24T09:32:21Z
 
 epic resolved, there will be new tickets for the new mcp server.
 
-- 2025-10-24 @tobiu closed this issue
+- 2025-10-24T09:32:21Z @tobiu closed this issue
 

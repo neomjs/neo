@@ -39,8 +39,8 @@ ViewportController.mjs:360 Uncaught (in promise) TypeError: Cannot destructure p
 
 ## Timeline
 
-- 2025-12-01 @tobiu assigned to @tobiu
-- 2025-12-01 @tobiu added the `bug` label
-- 2025-12-01 @tobiu referenced in commit `942ea3a` - "Colors.view.ViewportController: openWidgetInPopup() breaks #7973"
-- 2025-12-01 @tobiu closed this issue
+- 2025-12-01T17:26:44Z @tobiu assigned to @tobiu
+- 2025-12-01T17:26:45Z @tobiu added the `bug` label
+- 2025-12-01T17:27:59Z @tobiu referenced in commit `942ea3a` - "Colors.view.ViewportController: openWidgetInPopup() breaks #7973"
+- 2025-12-01T17:28:05Z @tobiu closed this issue
 

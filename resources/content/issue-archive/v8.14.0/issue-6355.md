@@ -25,8 +25,8 @@ We already have `addCls()`, so this convenience shortcut seems helpful.
 
 ## Timeline
 
-- 2025-02-03 @tobiu added the `enhancement` label
-- 2025-02-03 @tobiu assigned to @tobiu
-- 2025-02-03 @tobiu referenced in commit `b2e143c` - "component.Base: addWrapperCls() #6355"
-- 2025-02-03 @tobiu closed this issue
+- 2025-02-03T09:54:24Z @tobiu added the `enhancement` label
+- 2025-02-03T09:54:24Z @tobiu assigned to @tobiu
+- 2025-02-03T09:55:26Z @tobiu referenced in commit `b2e143c` - "component.Base: addWrapperCls() #6355"
+- 2025-02-03T10:18:31Z @tobiu closed this issue
 

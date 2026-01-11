@@ -54,11 +54,11 @@ This change will significantly shorten `AGENTS.md` and ensure that the tool's do
 
 ## Timeline
 
-- 2025-10-27 @tobiu added the `documentation` label
-- 2025-10-27 @tobiu added the `enhancement` label
-- 2025-10-27 @tobiu added the `ai` label
-- 2025-10-27 @tobiu assigned to @tobiu
-- 2025-10-27 @tobiu added parent issue #7668
-- 2025-10-27 @tobiu referenced in commit `634048b` - "Refactor: Shorten AGENTS.md by removing query tool documentation #7670"
-- 2025-10-27 @tobiu closed this issue
+- 2025-10-27T08:50:59Z @tobiu added the `documentation` label
+- 2025-10-27T08:50:59Z @tobiu added the `enhancement` label
+- 2025-10-27T08:51:00Z @tobiu added the `ai` label
+- 2025-10-27T08:52:12Z @tobiu assigned to @tobiu
+- 2025-10-27T08:52:23Z @tobiu added parent issue #7668
+- 2025-10-27T08:59:29Z @tobiu referenced in commit `634048b` - "Refactor: Shorten AGENTS.md by removing query tool documentation #7670"
+- 2025-10-27T08:59:40Z @tobiu closed this issue
 

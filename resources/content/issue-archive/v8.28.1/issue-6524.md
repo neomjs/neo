@@ -25,8 +25,8 @@ closedAt: '2025-03-02T19:00:15Z'
 
 ## Timeline
 
-- 2025-03-02 @tobiu added the `bug` label
-- 2025-03-02 @tobiu assigned to @tobiu
-- 2025-03-02 @tobiu referenced in commit `f3b70d1` - "selection.Model: unregister() => not removing view classes properly for grids #6524"
-- 2025-03-02 @tobiu closed this issue
+- 2025-03-02T18:52:09Z @tobiu added the `bug` label
+- 2025-03-02T18:52:14Z @tobiu assigned to @tobiu
+- 2025-03-02T19:00:09Z @tobiu referenced in commit `f3b70d1` - "selection.Model: unregister() => not removing view classes properly for grids #6524"
+- 2025-03-02T19:00:15Z @tobiu closed this issue
 

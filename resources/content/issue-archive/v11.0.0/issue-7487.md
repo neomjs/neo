@@ -41,16 +41,16 @@ This enhancement will allow the agent to fully understand how to call each tool,
 
 ## Timeline
 
-- 2025-10-14 @tobiu assigned to @tobiu
-- 2025-10-14 @tobiu added the `enhancement` label
-- 2025-10-14 @tobiu added the `ai` label
-- 2025-10-14 @tobiu added parent issue #7477
-- 2025-10-14 @tobiu referenced in commit `d2af666` - "Enhance Tools List with OpenAPI Schema #7487"
-- 2025-10-14 @tobiu referenced in commit `d5fe8f3` - "#7487 buildOutputSchema()"
-### @tobiu - 2025-10-14 12:30
+- 2025-10-14T12:23:57Z @tobiu assigned to @tobiu
+- 2025-10-14T12:23:59Z @tobiu added the `enhancement` label
+- 2025-10-14T12:23:59Z @tobiu added the `ai` label
+- 2025-10-14T12:23:59Z @tobiu added parent issue #7477
+- 2025-10-14T12:26:57Z @tobiu referenced in commit `d2af666` - "Enhance Tools List with OpenAPI Schema #7487"
+- 2025-10-14T12:29:58Z @tobiu referenced in commit `d5fe8f3` - "#7487 buildOutputSchema()"
+### @tobiu - 2025-10-14T12:30:44Z
 
 <img width="837" height="789" alt="Image" src="https://github.com/user-attachments/assets/7c179ecd-1bcf-4c5e-a3d3-4f990c846819" />
 
-- 2025-10-14 @tobiu closed this issue
-- 2025-10-14 @tobiu cross-referenced by #7403
+- 2025-10-14T12:30:44Z @tobiu closed this issue
+- 2025-10-14T15:02:51Z @tobiu cross-referenced by #7403
 

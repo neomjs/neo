@@ -32,9 +32,9 @@ This task is to migrate the unit test for `config/MultiLevelHierarchy.mjs` from 
 
 ## Timeline
 
-- 2025-09-27 @tobiu added parent issue #7262
-- 2025-09-27 @tobiu added the `enhancement` label
-- 2025-09-30 @tobiu assigned to @tobiu
-- 2025-09-30 @tobiu referenced in commit `f6ac6b1` - "Convert config/MultiLevelHierarchy.mjs Test from Siesta to Playwright #7279"
-- 2025-09-30 @tobiu closed this issue
+- 2025-09-27T13:39:02Z @tobiu added parent issue #7262
+- 2025-09-27T13:39:03Z @tobiu added the `enhancement` label
+- 2025-09-30T13:17:31Z @tobiu assigned to @tobiu
+- 2025-09-30T13:17:54Z @tobiu referenced in commit `f6ac6b1` - "Convert config/MultiLevelHierarchy.mjs Test from Siesta to Playwright #7279"
+- 2025-09-30T13:18:04Z @tobiu closed this issue
 

@@ -68,8 +68,8 @@ This allows developers to define rich button content using a standard VDOM struc
 
 ## Timeline
 
-- 2025-07-30 @tobiu assigned to @tobiu
-- 2025-07-30 @tobiu added the `enhancement` label
-- 2025-07-30 @tobiu referenced in commit `28e1ef9` - "Feature: Enhance button.Base text config to support VDOM cn arrays #7135"
-- 2025-07-30 @tobiu closed this issue
+- 2025-07-30T12:37:48Z @tobiu assigned to @tobiu
+- 2025-07-30T12:37:50Z @tobiu added the `enhancement` label
+- 2025-07-30T12:38:20Z @tobiu referenced in commit `28e1ef9` - "Feature: Enhance button.Base text config to support VDOM cn arrays #7135"
+- 2025-07-30T12:39:07Z @tobiu closed this issue
 

@@ -25,8 +25,8 @@ closedAt: '2025-01-27T12:39:51Z'
 
 ## Timeline
 
-- 2025-01-27 @tobiu added the `bug` label
-- 2025-01-27 @tobiu assigned to @tobiu
-- 2025-01-27 @tobiu referenced in commit `a0a1c9e` - "main.DomAccess: getAttributes() => breaks when not passing an array for attributes #6315"
-- 2025-01-27 @tobiu closed this issue
+- 2025-01-27T12:38:44Z @tobiu added the `bug` label
+- 2025-01-27T12:38:44Z @tobiu assigned to @tobiu
+- 2025-01-27T12:39:46Z @tobiu referenced in commit `a0a1c9e` - "main.DomAccess: getAttributes() => breaks when not passing an array for attributes #6315"
+- 2025-01-27T12:39:51Z @tobiu closed this issue
 

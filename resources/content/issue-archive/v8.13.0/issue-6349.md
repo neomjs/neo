@@ -25,10 +25,10 @@ closedAt: '2025-01-30T19:29:50Z'
 
 ## Timeline
 
-- 2025-01-30 @tobiu added the `bug` label
-- 2025-01-30 @tobiu assigned to @tobiu
-- 2025-01-30 @tobiu referenced in commit `60e5e9d` - "main.addon.AmCharts: loadFiles() => promises loop in case both paths fail to load #6349"
-- 2025-01-30 @tobiu closed this issue
-- 2025-01-30 @tobiu referenced in commit `adf6a3b` - "#6349 -testing log"
-- 2025-01-30 @tobiu referenced in commit `cb336f1` - "#6349 -testing log"
+- 2025-01-30T19:29:29Z @tobiu added the `bug` label
+- 2025-01-30T19:29:29Z @tobiu assigned to @tobiu
+- 2025-01-30T19:29:46Z @tobiu referenced in commit `60e5e9d` - "main.addon.AmCharts: loadFiles() => promises loop in case both paths fail to load #6349"
+- 2025-01-30T19:29:51Z @tobiu closed this issue
+- 2025-01-30T19:30:37Z @tobiu referenced in commit `adf6a3b` - "#6349 -testing log"
+- 2025-01-30T19:30:52Z @tobiu referenced in commit `cb336f1` - "#6349 -testing log"
 

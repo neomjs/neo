@@ -41,10 +41,10 @@ Standardize the configuration and startup logic across MCP servers for better ma
 
 ## Timeline
 
-- 2025-11-19 @tobiu added the `enhancement` label
-- 2025-11-19 @tobiu added the `ai` label
-- 2025-11-19 @tobiu added the `refactoring` label
-- 2025-11-19 @tobiu assigned to @tobiu
-- 2025-11-19 @tobiu referenced in commit `4120324` - "Add CLI argument parsing and Config refactoring to Memory Core MCP Server #7804"
-- 2025-11-19 @tobiu closed this issue
+- 2025-11-19T11:12:50Z @tobiu added the `enhancement` label
+- 2025-11-19T11:12:50Z @tobiu added the `ai` label
+- 2025-11-19T11:12:50Z @tobiu added the `refactoring` label
+- 2025-11-19T11:16:28Z @tobiu assigned to @tobiu
+- 2025-11-19T11:17:19Z @tobiu referenced in commit `4120324` - "Add CLI argument parsing and Config refactoring to Memory Core MCP Server #7804"
+- 2025-11-19T11:18:52Z @tobiu closed this issue
 

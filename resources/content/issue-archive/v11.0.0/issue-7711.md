@@ -46,8 +46,8 @@ The `afterSetVnode()` hook only triggered `syncVnodeTree()` on the initial `vnod
 
 ## Timeline
 
-- 2025-11-06 @tobiu added the `bug` label
-- 2025-11-06 @tobiu added the `ai` label
-- 2025-11-06 @tobiu referenced in commit `dc18d85` - "Fix VDOM Lifecycle and Update Collision Logic #7711"
-- 2025-11-06 @tobiu closed this issue
+- 2025-11-06T13:47:00Z @tobiu added the `bug` label
+- 2025-11-06T13:47:00Z @tobiu added the `ai` label
+- 2025-11-06T13:55:05Z @tobiu referenced in commit `dc18d85` - "Fix VDOM Lifecycle and Update Collision Logic #7711"
+- 2025-11-06T13:55:25Z @tobiu closed this issue
 

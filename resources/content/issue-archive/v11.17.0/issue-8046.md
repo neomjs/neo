@@ -41,9 +41,9 @@ Enable live dragging for the Swarm View (Blackboard) so that the canvas connecti
 
 ## Timeline
 
-- 2025-12-07 @tobiu added the `enhancement` label
-- 2025-12-07 @tobiu added the `ai` label
-- 2025-12-07 @tobiu assigned to @tobiu
-- 2025-12-07 @tobiu referenced in commit `aa2630e` - "[AgentOS] Integrate DragProxyContainer for Swarm View live dragging #8046"
-- 2025-12-07 @tobiu closed this issue
+- 2025-12-07T12:25:11Z @tobiu added the `enhancement` label
+- 2025-12-07T12:25:11Z @tobiu added the `ai` label
+- 2025-12-07T12:25:32Z @tobiu assigned to @tobiu
+- 2025-12-07T12:52:31Z @tobiu referenced in commit `aa2630e` - "[AgentOS] Integrate DragProxyContainer for Swarm View live dragging #8046"
+- 2025-12-07T12:52:40Z @tobiu closed this issue
 

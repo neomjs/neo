@@ -25,10 +25,10 @@ closedAt: '2025-05-28T12:43:28Z'
 
 ## Timeline
 
-- 2025-05-28 @tobiu assigned to @tobiu
-- 2025-05-28 @tobiu added the `enhancement` label
-- 2025-05-28 @tobiu changed title from **Neo.Main: devMode => hasJsModules** to **Neo.worker.Manager: devMode => hasJsModules**
-- 2025-05-28 @tobiu changed title from **Neo.worker.Manager: devMode => hasJsModules** to **worker.Manager: devMode => hasJsModules**
-- 2025-05-28 @tobiu referenced in commit `53ba60d` - "worker.Manager: devMode => hasJsModules #6719"
-- 2025-05-28 @tobiu closed this issue
+- 2025-05-28T12:42:10Z @tobiu assigned to @tobiu
+- 2025-05-28T12:42:11Z @tobiu added the `enhancement` label
+- 2025-05-28T12:42:42Z @tobiu changed title from **Neo.Main: devMode => hasJsModules** to **Neo.worker.Manager: devMode => hasJsModules**
+- 2025-05-28T12:42:49Z @tobiu changed title from **Neo.worker.Manager: devMode => hasJsModules** to **worker.Manager: devMode => hasJsModules**
+- 2025-05-28T12:43:15Z @tobiu referenced in commit `53ba60d` - "worker.Manager: devMode => hasJsModules #6719"
+- 2025-05-28T12:43:28Z @tobiu closed this issue
 

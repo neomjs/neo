@@ -51,9 +51,9 @@ Re-testing in a fresh session confirmed that all MCP servers start correctly, an
 
 ## Timeline
 
-- 2025-10-25 @tobiu added the `enhancement` label
-- 2025-10-25 @tobiu added the `ai` label
-- 2025-10-25 @tobiu assigned to @tobiu
-- 2025-10-25 @tobiu referenced in commit `b2fb5ba` - "Feat: Re-enable npm run scripts for MCP Servers and Validate npx Readiness #7652"
-- 2025-10-25 @tobiu closed this issue
+- 2025-10-25T17:52:10Z @tobiu added the `enhancement` label
+- 2025-10-25T17:52:10Z @tobiu added the `ai` label
+- 2025-10-25T17:52:29Z @tobiu assigned to @tobiu
+- 2025-10-25T17:52:58Z @tobiu referenced in commit `b2fb5ba` - "Feat: Re-enable npm run scripts for MCP Servers and Validate npx Readiness #7652"
+- 2025-10-25T17:53:14Z @tobiu closed this issue
 

@@ -41,8 +41,8 @@ This ticket proposes a minor but important enhancement to the `AGENTS.md` guidel
 
 ## Timeline
 
-- 2025-09-22 @tobiu assigned to @tobiu
-- 2025-09-22 @tobiu added the `enhancement` label
-- 2025-09-22 @tobiu referenced in commit `d1cc4e8` - "Add Regression Testing Guidance to AGENTS.md #7231"
-- 2025-09-22 @tobiu closed this issue
+- 2025-09-22T02:05:38Z @tobiu assigned to @tobiu
+- 2025-09-22T02:05:39Z @tobiu added the `enhancement` label
+- 2025-09-22T02:08:14Z @tobiu referenced in commit `d1cc4e8` - "Add Regression Testing Guidance to AGENTS.md #7231"
+- 2025-09-22T02:15:20Z @tobiu closed this issue
 

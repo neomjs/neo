@@ -25,8 +25,8 @@ closedAt: '2025-06-03T14:22:32Z'
 
 ## Timeline
 
-- 2025-06-03 @tobiu assigned to @tobiu
-- 2025-06-03 @tobiu added the `enhancement` label
-- 2025-06-03 @tobiu referenced in commit `4d1a94c` - "worker.Canvas: update webpack magic comments to be in sync with worker.App #6748"
-- 2025-06-03 @tobiu closed this issue
+- 2025-06-03T14:15:27Z @tobiu assigned to @tobiu
+- 2025-06-03T14:15:29Z @tobiu added the `enhancement` label
+- 2025-06-03T14:22:21Z @tobiu referenced in commit `4d1a94c` - "worker.Canvas: update webpack magic comments to be in sync with worker.App #6748"
+- 2025-06-03T14:22:32Z @tobiu closed this issue
 

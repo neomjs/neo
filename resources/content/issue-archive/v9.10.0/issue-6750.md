@@ -25,8 +25,8 @@ closedAt: '2025-06-03T18:25:05Z'
 
 ## Timeline
 
-- 2025-06-03 @tobiu assigned to @tobiu
-- 2025-06-03 @tobiu added the `enhancement` label
-- 2025-06-03 @tobiu referenced in commit `ea65784` - "buildScripts/buildESModules: add support for parsing neo workspaces #6750"
-- 2025-06-03 @tobiu closed this issue
+- 2025-06-03T18:24:36Z @tobiu assigned to @tobiu
+- 2025-06-03T18:24:37Z @tobiu added the `enhancement` label
+- 2025-06-03T18:24:58Z @tobiu referenced in commit `ea65784` - "buildScripts/buildESModules: add support for parsing neo workspaces #6750"
+- 2025-06-03T18:25:06Z @tobiu closed this issue
 

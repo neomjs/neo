@@ -36,10 +36,10 @@ This ticket is to implement a centralized, debug-flag-aware logger to manage `st
 
 ## Timeline
 
-- 2025-10-18 @tobiu assigned to @tobiu
-- 2025-10-18 @tobiu added the `enhancement` label
-- 2025-10-18 @tobiu added the `ai` label
-- 2025-10-18 @tobiu referenced in commit `e477a8c` - "Implement Centralized Logger for MCP Servers #7534"
-- 2025-10-18 @tobiu closed this issue
-- 2025-10-18 @tobiu referenced in commit `e272eb7` - "Implement Centralized Logger for MCP Servers #7534"
+- 2025-10-18T09:11:41Z @tobiu assigned to @tobiu
+- 2025-10-18T09:11:42Z @tobiu added the `enhancement` label
+- 2025-10-18T09:11:42Z @tobiu added the `ai` label
+- 2025-10-18T09:12:03Z @tobiu referenced in commit `e477a8c` - "Implement Centralized Logger for MCP Servers #7534"
+- 2025-10-18T09:18:30Z @tobiu closed this issue
+- 2025-10-18T09:40:55Z @tobiu referenced in commit `e272eb7` - "Implement Centralized Logger for MCP Servers #7534"
 

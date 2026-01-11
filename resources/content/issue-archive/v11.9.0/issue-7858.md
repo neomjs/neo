@@ -41,12 +41,12 @@ Enhance `learn/guides/mcp/GitHubWorkflow.md` to provide a deep dive into the `ne
 
 ## Timeline
 
-- 2025-11-22 @tobiu added the `documentation` label
-- 2025-11-22 @tobiu added the `enhancement` label
-- 2025-11-22 @tobiu added the `ai` label
-- 2025-11-22 @tobiu assigned to @tobiu
-- 2025-11-22 @tobiu referenced in commit `f588096` - "Documentation: Comprehensive Guide for GitHub Workflow MCP Server #7858"
-### @tobiu - 2025-11-22 16:06
+- 2025-11-22T15:42:29Z @tobiu added the `documentation` label
+- 2025-11-22T15:42:29Z @tobiu added the `enhancement` label
+- 2025-11-22T15:42:29Z @tobiu added the `ai` label
+- 2025-11-22T15:45:52Z @tobiu assigned to @tobiu
+- 2025-11-22T16:06:35Z @tobiu referenced in commit `f588096` - "Documentation: Comprehensive Guide for GitHub Workflow MCP Server #7858"
+### @tobiu - 2025-11-22T16:06:44Z
 
 **Input from Gemini 2.5 pro:**
 
@@ -61,5 +61,5 @@ Enhance `learn/guides/mcp/GitHubWorkflow.md` to provide a deep dive into the `ne
 > The guide is now complete and covers technical, operational, and strategic aspects of the server.
 > 
 
-- 2025-11-22 @tobiu closed this issue
+- 2025-11-22T16:07:20Z @tobiu closed this issue
 

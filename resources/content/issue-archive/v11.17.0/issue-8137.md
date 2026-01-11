@@ -53,11 +53,11 @@ Current implementation handles live DOM updates (capturing scroll) and VDOM/VNod
 
 ## Timeline
 
-- 2025-12-17 @tobiu added the `enhancement` label
-- 2025-12-17 @tobiu added the `ai` label
-- 2025-12-17 @tobiu added the `feature` label
-- 2025-12-17 @tobiu assigned to @tobiu
-- 2025-12-17 @tobiu referenced in commit `5ffb631` - "Feature Request: Component saveScrollPosition config #8137"
-- 2025-12-17 @tobiu closed this issue
-- 2025-12-17 @tobiu cross-referenced by #8138
+- 2025-12-17T03:53:51Z @tobiu added the `enhancement` label
+- 2025-12-17T03:53:51Z @tobiu added the `ai` label
+- 2025-12-17T03:53:52Z @tobiu added the `feature` label
+- 2025-12-17T13:59:45Z @tobiu assigned to @tobiu
+- 2025-12-17T14:01:33Z @tobiu referenced in commit `5ffb631` - "Feature Request: Component saveScrollPosition config #8137"
+- 2025-12-17T14:06:45Z @tobiu closed this issue
+- 2025-12-17T14:19:57Z @tobiu cross-referenced by #8138
 

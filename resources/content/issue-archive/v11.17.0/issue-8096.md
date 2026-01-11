@@ -35,9 +35,9 @@ This ensures the recent optimizations to `initRecord` and the general Store beha
 
 ## Timeline
 
-- 2025-12-12 @tobiu added the `ai` label
-- 2025-12-12 @tobiu added the `testing` label
-- 2025-12-12 @tobiu assigned to @tobiu
-- 2025-12-12 @tobiu referenced in commit `28d022b` - "Create unit tests for Neo.data.Store #8096"
-- 2025-12-12 @tobiu closed this issue
+- 2025-12-12T12:48:16Z @tobiu added the `ai` label
+- 2025-12-12T12:48:16Z @tobiu added the `testing` label
+- 2025-12-12T12:48:30Z @tobiu assigned to @tobiu
+- 2025-12-12T12:48:52Z @tobiu referenced in commit `28d022b` - "Create unit tests for Neo.data.Store #8096"
+- 2025-12-12T12:49:01Z @tobiu closed this issue
 

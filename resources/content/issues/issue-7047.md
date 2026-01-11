@@ -47,14 +47,14 @@ This will serve as a clear, practical guide for developers on how to structure c
 
 ## Timeline
 
-- 2025-07-14 @tobiu assigned to @tobiu
-- 2025-07-14 @tobiu added the `enhancement` label
-- 2025-07-14 @tobiu added parent issue #6992
-### @github-actions - 2025-10-13 02:49
+- 2025-07-14T14:03:07Z @tobiu assigned to @tobiu
+- 2025-07-14T14:03:08Z @tobiu added the `enhancement` label
+- 2025-07-14T14:03:08Z @tobiu added parent issue #6992
+### @github-actions - 2025-10-13T02:49:42Z
 
 This issue is stale because it has been open for 90 days with no activity.
 
-- 2025-10-13 @github-actions added the `stale` label
-- 2025-10-24 @tobiu removed the `stale` label
-- 2025-10-24 @tobiu added the `no auto close` label
+- 2025-10-13T02:49:43Z @github-actions added the `stale` label
+- 2025-10-24T10:05:50Z @tobiu removed the `stale` label
+- 2025-10-24T10:05:50Z @tobiu added the `no auto close` label
 

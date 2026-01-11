@@ -45,9 +45,9 @@ This change fixes a major performance bottleneck and aligns the update behavior 
 
 ## Timeline
 
-- 2025-07-16 @tobiu assigned to @tobiu
-- 2025-07-16 @tobiu added the `enhancement` label
-- 2025-07-16 @tobiu added parent issue #6992
-- 2025-07-16 @tobiu referenced in commit `1c93eac` - "Enable Granular VDOM Updates for Functional Components #7075"
-- 2025-07-28 @tobiu closed this issue
+- 2025-07-16T12:50:15Z @tobiu assigned to @tobiu
+- 2025-07-16T12:50:16Z @tobiu added the `enhancement` label
+- 2025-07-16T12:50:16Z @tobiu added parent issue #6992
+- 2025-07-16T12:56:40Z @tobiu referenced in commit `1c93eac` - "Enable Granular VDOM Updates for Functional Components #7075"
+- 2025-07-28T11:16:22Z @tobiu closed this issue
 

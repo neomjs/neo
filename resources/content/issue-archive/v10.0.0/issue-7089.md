@@ -60,9 +60,9 @@ By creating a shared `Abstract` base class, we achieve:
 
 ## Timeline
 
-- 2025-07-21 @tobiu assigned to @tobiu
-- 2025-07-21 @tobiu added the `enhancement` label
-- 2025-07-21 @tobiu referenced in commit `273349e` - "Refactor Component Base Classes into a Common Abstract Class #7089"
-- 2025-07-21 @tobiu referenced in commit `00028be` - "#7089 component.Abstract: removed listeners get/setup => made it a reactive config inside core.Observable."
-- 2025-07-21 @tobiu closed this issue
+- 2025-07-21T11:59:17Z @tobiu assigned to @tobiu
+- 2025-07-21T11:59:19Z @tobiu added the `enhancement` label
+- 2025-07-21T12:26:24Z @tobiu referenced in commit `273349e` - "Refactor Component Base Classes into a Common Abstract Class #7089"
+- 2025-07-21T12:47:54Z @tobiu referenced in commit `00028be` - "#7089 component.Abstract: removed listeners get/setup => made it a reactive config inside core.Observable."
+- 2025-07-21T22:22:17Z @tobiu closed this issue
 

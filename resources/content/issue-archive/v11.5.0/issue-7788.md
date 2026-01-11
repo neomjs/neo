@@ -37,11 +37,11 @@ This epic will be achieved by completing the following sub-tasks:
 
 ## Timeline
 
-- 2025-11-18 @tobiu added the `enhancement` label
-- 2025-11-18 @tobiu added the `ai` label
-- 2025-11-18 @tobiu cross-referenced by #7789
-- 2025-11-18 @tobiu assigned to @tobiu
-- 2025-11-18 @tobiu added sub-issue #7791
-- 2025-11-18 @tobiu changed title from **Create a node-compatible highlight.js utility for SSR** to **Epic: Unify highlight.js architecture for Browser and SSR**
-- 2025-11-18 @tobiu closed this issue
+- 2025-11-18T09:24:46Z @tobiu added the `enhancement` label
+- 2025-11-18T09:24:46Z @tobiu added the `ai` label
+- 2025-11-18T09:44:36Z @tobiu cross-referenced by #7789
+- 2025-11-18T09:44:47Z @tobiu assigned to @tobiu
+- 2025-11-18T10:13:59Z @tobiu added sub-issue #7791
+- 2025-11-18T10:21:43Z @tobiu changed title from **Create a node-compatible highlight.js utility for SSR** to **Epic: Unify highlight.js architecture for Browser and SSR**
+- 2025-11-18T20:07:27Z @tobiu closed this issue
 

@@ -31,12 +31,12 @@ Enhance the `parse5` processor to correctly handle the mapping of interpolated v
 
 ## Timeline
 
-- 2025-07-31 @tobiu assigned to @tobiu
-- 2025-07-31 @tobiu added the `enhancement` label
-- 2025-07-31 @tobiu added parent issue #7130
-### @tobiu - 2025-07-31 10:25
+- 2025-07-31T07:33:13Z @tobiu assigned to @tobiu
+- 2025-07-31T07:33:14Z @tobiu added the `enhancement` label
+- 2025-07-31T07:33:14Z @tobiu added parent issue #7130
+### @tobiu - 2025-07-31T10:25:36Z
 
 resolved via the other subs commits
 
-- 2025-07-31 @tobiu closed this issue
+- 2025-07-31T10:25:36Z @tobiu closed this issue
 

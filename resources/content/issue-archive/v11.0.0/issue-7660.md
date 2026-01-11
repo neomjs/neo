@@ -44,13 +44,13 @@ This change will significantly increase the signal-to-noise ratio of the stored 
 
 ## Timeline
 
-- 2025-10-26 @tobiu added the `documentation` label
-- 2025-10-26 @tobiu added the `enhancement` label
-- 2025-10-26 @tobiu added the `ai` label
-- 2025-10-26 @tobiu added the `refactoring` label
-- 2025-10-26 @tobiu assigned to @tobiu
-- 2025-10-26 @tobiu added parent issue #7604
-- 2025-10-26 @tobiu referenced in commit `7918d8b` - "Refine Memory Protocol: Define a "Turn" and Consolidate Sub-Turns #7660"
-- 2025-10-26 @tobiu closed this issue
-- 2025-10-26 @tobiu cross-referenced by #7661
+- 2025-10-26T10:20:34Z @tobiu added the `documentation` label
+- 2025-10-26T10:20:34Z @tobiu added the `enhancement` label
+- 2025-10-26T10:20:34Z @tobiu added the `ai` label
+- 2025-10-26T10:20:34Z @tobiu added the `refactoring` label
+- 2025-10-26T10:20:59Z @tobiu assigned to @tobiu
+- 2025-10-26T10:21:06Z @tobiu added parent issue #7604
+- 2025-10-26T10:23:23Z @tobiu referenced in commit `7918d8b` - "Refine Memory Protocol: Define a "Turn" and Consolidate Sub-Turns #7660"
+- 2025-10-26T10:23:52Z @tobiu closed this issue
+- 2025-10-26T10:33:22Z @tobiu cross-referenced by #7661
 

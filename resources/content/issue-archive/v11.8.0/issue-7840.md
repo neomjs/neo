@@ -26,9 +26,9 @@ Refactor `SessionService.summarizeSessions` to process unsummarized sessions in 
 
 ## Timeline
 
-- 2025-11-21 @tobiu added the `enhancement` label
-- 2025-11-21 @tobiu added the `ai` label
-- 2025-11-21 @tobiu assigned to @tobiu
-- 2025-11-21 @tobiu referenced in commit `636b6ba` - "Optimize SessionService.summarizeSessions with Promise.all #7840"
-- 2025-11-21 @tobiu closed this issue
+- 2025-11-21T12:58:29Z @tobiu added the `enhancement` label
+- 2025-11-21T12:58:29Z @tobiu added the `ai` label
+- 2025-11-21T13:00:10Z @tobiu assigned to @tobiu
+- 2025-11-21T13:00:26Z @tobiu referenced in commit `636b6ba` - "Optimize SessionService.summarizeSessions with Promise.all #7840"
+- 2025-11-21T13:00:34Z @tobiu closed this issue
 

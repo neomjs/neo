@@ -32,15 +32,15 @@ This task covers the architectural refactoring and consolidation of the Playwrig
 
 ## Timeline
 
-- 2025-10-12 @tobiu assigned to @tobiu
-- 2025-10-12 @tobiu added parent issue #7435
-- 2025-10-12 @tobiu added the `enhancement` label
-- 2025-10-12 @tobiu added the `ai` label
-- 2025-10-12 @tobiu referenced in commit `a48b99b` - "Refactor: Consolidate and Refine Playwright Test Harness
+- 2025-10-12T12:56:05Z @tobiu assigned to @tobiu
+- 2025-10-12T12:56:06Z @tobiu added parent issue #7435
+- 2025-10-12T12:56:07Z @tobiu added the `enhancement` label
+- 2025-10-12T12:56:07Z @tobiu added the `ai` label
+- 2025-10-12T12:58:15Z @tobiu referenced in commit `a48b99b` - "Refactor: Consolidate and Refine Playwright Test Harness
 #7469"
-### @tobiu - 2025-10-12 12:59
+### @tobiu - 2025-10-12T12:59:36Z
 
 FYI @Aki-07. I will create 1-2 PoC tests next. also updated the epic to at least mention the hybrid strategy.
 
-- 2025-10-12 @tobiu closed this issue
+- 2025-10-12T12:59:36Z @tobiu closed this issue
 

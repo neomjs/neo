@@ -34,9 +34,9 @@ This task is to implement a new Remote Method Access (RMA) method, `loadModule()
 
 ## Timeline
 
-- 2025-10-10 @tobiu assigned to @tobiu
-- 2025-10-10 @tobiu added the `enhancement` label
-- 2025-10-10 @tobiu added parent issue #7435
-- 2025-10-10 @tobiu referenced in commit `9e1eaa4` - "Add loadModule RMA Method to App Worker #7445"
-- 2025-10-10 @tobiu closed this issue
+- 2025-10-10T17:19:04Z @tobiu assigned to @tobiu
+- 2025-10-10T17:19:05Z @tobiu added the `enhancement` label
+- 2025-10-10T17:19:05Z @tobiu added parent issue #7435
+- 2025-10-10T17:20:51Z @tobiu referenced in commit `9e1eaa4` - "Add loadModule RMA Method to App Worker #7445"
+- 2025-10-10T17:21:01Z @tobiu closed this issue
 

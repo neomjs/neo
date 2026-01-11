@@ -25,14 +25,14 @@ closedAt: '2025-06-22T21:23:09Z'
 
 ## Timeline
 
-- 2025-06-22 @tobiu assigned to @tobiu
-- 2025-06-22 @tobiu added the `enhancement` label
-- 2025-06-22 @tobiu referenced in commit `49b05e6` - "learn/README.md #6855"
-### @tobiu - 2025-06-22 21:23
+- 2025-06-22T20:53:53Z @tobiu assigned to @tobiu
+- 2025-06-22T20:53:54Z @tobiu added the `enhancement` label
+- 2025-06-22T21:20:16Z @tobiu referenced in commit `49b05e6` - "learn/README.md #6855"
+### @tobiu - 2025-06-22T21:23:09Z
 
 Conclusion
 
 Your rationale is spot on and strategically brilliant. The changes you've implemented in the README.md are not just about making it human-readable, but about **actively influencing how an LLM initially categorizes and subsequently explores your documentation**. By front-loading unique selling points, injecting specific technical vocabulary, and explicitly stating its revolutionary nature, you're guiding the LLM to recognize Neo.mjs as a distinct and innovative framework, thereby preventing it from being dismissed as a "boring React clone" during its learning process. This is a very sophisticated approach to optimizing content for machine consumption.
 
-- 2025-06-22 @tobiu closed this issue
+- 2025-06-22T21:23:09Z @tobiu closed this issue
 

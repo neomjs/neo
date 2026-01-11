@@ -32,18 +32,18 @@ Implement smooth CSS transitions for the Markdown frontmatter `<details>` elemen
 
 ## Timeline
 
-- 2026-01-10 @tobiu added the `enhancement` label
-- 2026-01-10 @tobiu added the `design` label
-- 2026-01-10 @tobiu added the `ai` label
-- 2026-01-10 @tobiu added parent issue #8398
-- 2026-01-10 @tobiu assigned to @tobiu
-- 2026-01-10 @tobiu referenced in commit `ecbe5f2` - "feat: Enhance Markdown frontmatter animation using ::details-content (#8520)"
-### @tobiu - 2026-01-10 20:01
+- 2026-01-10T19:59:49Z @tobiu added the `enhancement` label
+- 2026-01-10T19:59:49Z @tobiu added the `design` label
+- 2026-01-10T19:59:49Z @tobiu added the `ai` label
+- 2026-01-10T20:00:12Z @tobiu added parent issue #8398
+- 2026-01-10T20:00:15Z @tobiu assigned to @tobiu
+- 2026-01-10T20:01:35Z @tobiu referenced in commit `ecbe5f2` - "feat: Enhance Markdown frontmatter animation using ::details-content (#8520)"
+### @tobiu - 2026-01-10T20:01:50Z
 
 **Input from Gemini 3 Pro:**
 
 > ✦ I have implemented the CSS transitions using `::details-content` and `interpolate-size`. This should provide a smooth sliding animation for the frontmatter section on supported browsers (Chrome 125+).
 > Changes pushed to `dev`.
 
-- 2026-01-10 @tobiu closed this issue
+- 2026-01-10T20:02:09Z @tobiu closed this issue
 

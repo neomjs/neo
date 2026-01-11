@@ -30,8 +30,8 @@ i will extract the related part from the view logic.
 
 ## Timeline
 
-- 2025-03-09 @tobiu added the `enhancement` label
-- 2025-03-09 @tobiu assigned to @tobiu
-- 2025-03-09 @tobiu referenced in commit `ec85201` - "grid.plugin.AnimateRows: onStoreLoad() => logic for creating new view positions #6557"
-- 2025-03-09 @tobiu closed this issue
+- 2025-03-09T17:20:10Z @tobiu added the `enhancement` label
+- 2025-03-09T17:20:10Z @tobiu assigned to @tobiu
+- 2025-03-09T17:21:21Z @tobiu referenced in commit `ec85201` - "grid.plugin.AnimateRows: onStoreLoad() => logic for creating new view positions #6557"
+- 2025-03-09T17:21:51Z @tobiu closed this issue
 

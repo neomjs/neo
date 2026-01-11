@@ -69,11 +69,11 @@ The guide should cover the following topics:
 
 ## Timeline
 
-- 2025-09-20 @tobiu assigned to @tobiu
-- 2025-09-20 @tobiu added the `documentation` label
-- 2025-09-20 @tobiu added the `enhancement` label
-- 2025-09-20 @tobiu added the `no auto close` label
-- 2025-09-20 @tobiu referenced in commit `771e329` - "Create Learning Guide: Unit Testing with Siesta #7222"
-- 2025-09-20 @tobiu referenced in commit `49d26d4` - "#7222 component-based VS unit testing"
-- 2025-09-20 @tobiu closed this issue
+- 2025-09-20T11:58:39Z @tobiu assigned to @tobiu
+- 2025-09-20T11:58:39Z @tobiu added the `documentation` label
+- 2025-09-20T11:58:40Z @tobiu added the `enhancement` label
+- 2025-09-20T11:58:50Z @tobiu added the `no auto close` label
+- 2025-09-20T12:13:09Z @tobiu referenced in commit `771e329` - "Create Learning Guide: Unit Testing with Siesta #7222"
+- 2025-09-20T12:18:01Z @tobiu referenced in commit `49d26d4` - "#7222 component-based VS unit testing"
+- 2025-09-20T12:19:11Z @tobiu closed this issue
 

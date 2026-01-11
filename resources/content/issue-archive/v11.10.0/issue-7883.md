@@ -37,9 +37,9 @@ Enhance the `query_documents` tool to allow users to specify the maximum number 
 
 ## Timeline
 
-- 2025-11-23 @tobiu assigned to @tobiu
-- 2025-11-23 @tobiu added the `enhancement` label
-- 2025-11-23 @tobiu added the `ai` label
-- 2025-11-23 @tobiu referenced in commit `4009089` - "Enhance query_documents tool with limit parameter and updated JSDoc #7883"
-- 2025-11-23 @tobiu closed this issue
+- 2025-11-23T18:22:28Z @tobiu assigned to @tobiu
+- 2025-11-23T18:22:37Z @tobiu added the `enhancement` label
+- 2025-11-23T18:22:37Z @tobiu added the `ai` label
+- 2025-11-23T18:24:46Z @tobiu referenced in commit `4009089` - "Enhance query_documents tool with limit parameter and updated JSDoc #7883"
+- 2025-11-23T18:26:05Z @tobiu closed this issue
 

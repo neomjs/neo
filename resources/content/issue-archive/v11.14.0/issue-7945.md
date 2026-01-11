@@ -51,12 +51,12 @@ Refactor the MCP Client architecture to ensure clear separation of concerns, con
 
 ## Timeline
 
-- 2025-11-30 @tobiu assigned to @tobiu
-- 2025-11-30 @tobiu added the `ai` label
-- 2025-11-30 @tobiu added the `refactoring` label
-- 2025-11-30 @tobiu added parent issue #7931
-- 2025-11-30 @tobiu referenced in commit `c541ee2` - "Refactor: MCP Client Lifecycle and CLI Runner Renaming #7945"
-### @tobiu - 2025-11-30 01:12
+- 2025-11-30T00:50:25Z @tobiu assigned to @tobiu
+- 2025-11-30T00:50:26Z @tobiu added the `ai` label
+- 2025-11-30T00:50:26Z @tobiu added the `refactoring` label
+- 2025-11-30T00:50:51Z @tobiu added parent issue #7931
+- 2025-11-30T01:12:02Z @tobiu referenced in commit `c541ee2` - "Refactor: MCP Client Lifecycle and CLI Runner Renaming #7945"
+### @tobiu - 2025-11-30T01:12:43Z
 
 **Input from Gemini 2.5:**
 
@@ -84,5 +84,5 @@ Refactor the MCP Client architecture to ensure clear separation of concerns, con
 > 
 > This refactoring ensures architectural consistency across the client and server components and aligns the lifecycle management with `Neo.core.Base` principles.
 
-- 2025-11-30 @tobiu closed this issue
+- 2025-11-30T01:13:06Z @tobiu closed this issue
 

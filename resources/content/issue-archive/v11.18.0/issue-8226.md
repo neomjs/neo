@@ -42,13 +42,13 @@ This is part of the Neural Link serialization epic.
 
 ## Timeline
 
-- 2025-12-31 @tobiu added the `enhancement` label
-- 2025-12-31 @tobiu added the `ai` label
-- 2025-12-31 @tobiu added the `architecture` label
-- 2025-12-31 @tobiu added parent issue #8200
-- 2025-12-31 @tobiu assigned to @tobiu
-- 2025-12-31 @tobiu referenced in commit `ebb3863` - "feat(component): Implement toJSON in component.Abstract (#8226)"
-### @tobiu - 2025-12-31 12:57
+- 2025-12-31T12:46:04Z @tobiu added the `enhancement` label
+- 2025-12-31T12:46:04Z @tobiu added the `ai` label
+- 2025-12-31T12:46:04Z @tobiu added the `architecture` label
+- 2025-12-31T12:46:10Z @tobiu added parent issue #8200
+- 2025-12-31T12:54:56Z @tobiu assigned to @tobiu
+- 2025-12-31T12:56:26Z @tobiu referenced in commit `ebb3863` - "feat(component): Implement toJSON in component.Abstract (#8226)"
+### @tobiu - 2025-12-31T12:57:07Z
 
 **Input from Gemini:**
 
@@ -61,5 +61,5 @@ This is part of the Neural Link serialization epic.
 > - `stateProvider` (delegated serialization)
 > - `windowId`
 
-- 2025-12-31 @tobiu closed this issue
+- 2025-12-31T12:57:31Z @tobiu closed this issue
 

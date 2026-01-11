@@ -25,8 +25,8 @@ edge case, since this barely gets used, but still important
 
 ## Timeline
 
-- 2025-03-03 @tobiu added the `bug` label
-- 2025-03-03 @tobiu assigned to @tobiu
-- 2025-03-03 @tobiu referenced in commit `804e1d8` - "component.Base: get parent() does not properly return the parentComponent config #6541"
-- 2025-03-03 @tobiu closed this issue
+- 2025-03-03T23:48:56Z @tobiu added the `bug` label
+- 2025-03-03T23:48:56Z @tobiu assigned to @tobiu
+- 2025-03-03T23:49:19Z @tobiu referenced in commit `804e1d8` - "component.Base: get parent() does not properly return the parentComponent config #6541"
+- 2025-03-03T23:49:26Z @tobiu closed this issue
 
