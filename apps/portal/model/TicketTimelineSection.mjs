@@ -21,19 +21,10 @@ class TicketTimelineSection extends ContentSection {
             name: 'icon',
             type: 'String'
         }, {
-            name: 'id',
-            type: 'String'
-        }, {
             name: 'image',
             type: 'String'
         }, {
-            name: 'name',
-            type: 'String'
-        }, {
             name: 'sourceId',
-            type: 'String'
-        }, {
-            name: 'tag',
             type: 'String'
         }]
     }

@@ -546,12 +546,54 @@ If you intended to create custom logic, use the 'beforeGet${Neo.capitalize(key)}
         if (!a) return b;
         if (!b) return a;
 
+        // If both are arrays, we need a smart merge strategy, not index-based merging
+        if (Array.isArray(a) && Array.isArray(b)) {
+            // Create a map of existing items for faster lookup if they have id/name
+            const
+                existingMap = new Map(),
+                mergedArray = Neo.clone(a, true, true); // Deep clone existing items
+
+            // Helper to generate a key for lookup
+            const getItemKey = (item) => {
+                if (item && typeof item === 'object') {
+                    return item.id ?? item.name ?? null
+                }
+                return null
+            };
+
+            mergedArray.forEach((item, index) => {
+                const key = getItemKey(item);
+                if (key !== null) existingMap.set(key, index)
+            });
+
+            b.forEach(newItem => {
+                const
+                    itemKey = getItemKey(newItem),
+                    existingIndex = itemKey !== null ? existingMap.get(itemKey) : -1;
+
+                if (existingIndex !== undefined && existingIndex > -1) {
+                    // Match found by ID/Name - Deep merge
+                    mergedArray[existingIndex] = Neo.mergeDeepArrays(mergedArray[existingIndex], newItem)
+                } else {
+                    // Check for deep equality for items without ID/Name or primitives
+                    const exactMatchIndex = mergedArray.findIndex(existingItem => Neo.isEqual(existingItem, newItem));
+
+                    if (exactMatchIndex === -1) {
+                        mergedArray.push(Neo.clone(newItem, true, true))
+                    }
+                    // If exact match exists, we do nothing (it's a duplicate)
+                }
+            });
+
+            return mergedArray
+        }
+
         let out = Neo.clone(a, true);
 
         Object.entries(b).forEach(([key, value]) => {
             if (out[key]) {
                 if (Array.isArray(out[key]) && Array.isArray(value)) {
-                    out[key] = [...new Set([...out[key], ...value])]
+                    out[key] = Neo.mergeDeepArrays(out[key], value) // Recursively call for nested arrays
                 } else if (Neo.isObject(out[key]) && Neo.isObject(value)) {
                     out[key] = Neo.mergeDeepArrays(out[key], value)
                 } else {
@@ -588,6 +630,8 @@ If you intended to create custom logic, use the 'beforeGet${Neo.capitalize(key)}
             }
         } else if (strategy === 'deepArrays') {
             if (defaultValueType === 'Object' && instanceValueType === 'Object') {
+                return Neo.mergeDeepArrays(defaultValue, instanceValue)
+            } else if (defaultValueType === 'Array' && instanceValueType === 'Array') {
                 return Neo.mergeDeepArrays(defaultValue, instanceValue)
             }
         } else if (typeof strategy === 'function') {
