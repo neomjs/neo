@@ -1,5 +1,9 @@
 import Base from '../../../src/core/Base.mjs';
 
+const
+    hexToRgbRegex  = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i,
+    shorthandRegex = /^#?([a-f\d])([a-f\d])([a-f\d])$/i; // Expand shorthand form (e.g. "03F") to full form (e.g. "0033FF")
+
 /**
  * @class Portal.canvas.TicketCanvas
  * @extends Neo.core.Base
@@ -19,9 +23,9 @@ class TicketCanvas extends Base {
          */
         remote: {
             app: [
+                'initGraph',
                 'updateGraphData',
-                'updateSize',
-                'initGraph'
+                'updateSize'
             ]
         },
         /**
@@ -31,6 +35,14 @@ class TicketCanvas extends Base {
         singleton: true
     }
 
+    /**
+     * @member {Number} animationId=null
+     */
+    animationId = null
+    /**
+     * @member {Number} baseSpeed=0.5
+     */
+    baseSpeed = 0.5
     /**
      * @member {String|null} canvasId=null
      */
@@ -44,9 +56,64 @@ class TicketCanvas extends Base {
      */
     context = null
     /**
+     * @member {Number} lastFrameTime=0
+     */
+    lastFrameTime = 0
+    /**
      * @member {Array} nodes=[]
      */
     nodes = []
+    /**
+     * @member {Number} pulseY=0
+     */
+    pulseY = 0
+    /**
+     * @member {Number} startY=0
+     */
+    startY = 0
+
+    /**
+     *
+     * @param {Number} y
+     * @returns {Number}
+     */
+    getXAtY(y) {
+        let me = this;
+
+        if (me.nodes.length < 2) return me.nodes[0]?.x || 38;
+        if (y < me.nodes[0].y)   return me.nodes[0].x;
+
+        for (let i = 0; i < me.nodes.length - 1; i++) {
+            let curr = me.nodes[i],
+                next = me.nodes[i+1];
+
+            if (y >= curr.y && y <= next.y) {
+                let ratio = (y - curr.y) / (next.y - curr.y);
+                return curr.x + (next.x - curr.x) * ratio;
+            }
+        }
+
+        return me.nodes[me.nodes.length - 1].x
+    }
+
+    /**
+     * Helper to parse hex to rgb
+     * @param {String} hex
+     * @returns {Object} {r,g,b}
+     */
+    hexToRgb(hex) {
+        hex = hex.replace(shorthandRegex, function(m, r, g, b) {
+            return r + r + g + g + b + b;
+        });
+
+        const result = hexToRgbRegex.exec(hex);
+
+        return result ? {
+            r: parseInt(result[1], 16),
+            g: parseInt(result[2], 16),
+            b: parseInt(result[3], 16)
+        } : null
+    }
 
     /**
      * Initialize the graph with a canvas ID
@@ -75,29 +142,6 @@ class TicketCanvas extends Base {
     }
 
     /**
-     * @member {Number} startY=0
-     */
-    startY = 0
-
-    /**
-     * @member {Number} baseSpeed=0.5
-     */
-    baseSpeed = 0.5
-    /**
-     * @member {Number} lastFrameTime=0
-     */
-    lastFrameTime = 0
-    /**
-     * @member {Number} pulseY=0
-     */
-    pulseY = 0
-
-    /**
-     * @member {Number} animationId=null
-     */
-    animationId = null
-
-    /**
      * @param {Object} data
      * @param {Array}  data.nodes
      * @param {Number} [data.startY]
@@ -108,31 +152,11 @@ class TicketCanvas extends Base {
         if (data.startY !== undefined) {
             me.startY = data.startY;
         }
-        
+
         // Ensure animation loop is running if we have data
         if (me.nodes.length > 0 && !me.animationId && me.context) {
-            me.render();
+            me.render()
         }
-    }
-
-    /**
-     * Helper to parse hex to rgb
-     * @param {String} hex
-     * @returns {Object} {r,g,b}
-     */
-    hexToRgb(hex) {
-        // Expand shorthand form (e.g. "03F") to full form (e.g. "0033FF")
-        var shorthandRegex = /^#?([a-f\d])([a-f\d])([a-f\d])$/i;
-        hex = hex.replace(shorthandRegex, function(m, r, g, b) {
-            return r + r + g + g + b + b;
-        });
-
-        var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-        return result ? {
-            r: parseInt(result[1], 16),
-            g: parseInt(result[2], 16),
-            b: parseInt(result[3], 16)
-        } : null;
     }
 
     /**
@@ -158,26 +182,26 @@ class TicketCanvas extends Base {
         let me = this;
 
         if (!me.context) {
-            return;
+            return
         }
 
         const
             ctx    = me.context,
-            width  = me.canvasSize?.width || 800,
+            width  = me.canvasSize?.width  || 800,
             height = me.canvasSize?.height || 600,
             now    = Date.now();
 
         // Time delta in ms
         let dt = now - (me.lastFrameTime || now);
         me.lastFrameTime = now;
-        
+
         // Cap dt to prevent huge jumps
-        if (dt > 100) dt = 16; 
+        if (dt > 100) dt = 16;
 
         // 1. Calculate Physics
-        let minDist   = Infinity;
-        let nearNode  = null;
-        
+        let minDist   = Infinity,
+            nearNode  = null;
+
         me.nodes.forEach(node => {
             let dist = Math.abs(me.pulseY - node.y);
             if (dist < minDist) {
@@ -187,12 +211,13 @@ class TicketCanvas extends Base {
         });
 
         // Speed Modifier
-        const influenceRange = 150;
-        const minMod = 0.2;
-        const maxMod = 1.5;
-        
+        const
+            influenceRange = 150,
+            minMod         = 0.2,
+            maxMod         = 1.5;
+
         let speedModifier = maxMod;
-        
+
         if (minDist < influenceRange) {
             let ratio = minDist / influenceRange;
             speedModifier = minMod + (maxMod - minMod) * (ratio * ratio);
@@ -209,10 +234,10 @@ class TicketCanvas extends Base {
                 let mix = 1 - (minDist / 100);
                 r = r + (target.r - r) * mix;
                 g = g + (target.g - g) * mix;
-                b = b + (target.b - b) * mix;
+                b = b + (target.b - b) * mix
             }
         }
-        
+
         const pulseColorStr = `rgba(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)}`; // leaves alpha open
 
         // Apply Velocity
@@ -220,10 +245,11 @@ class TicketCanvas extends Base {
         if (me.pulseY > height + 200) {
             me.pulseY = -200; // Restart above
         }
-        
+
         // Dynamic Pulse Length
-        const baseLength = 100;
-        const pulseLength = baseLength * (speedModifier * 0.8); 
+        const
+            baseLength  = 100,
+            pulseLength = baseLength * (speedModifier * 0.8);
 
         // 2. Clear
         ctx.clearRect(0, 0, width, height);
@@ -244,30 +270,15 @@ class TicketCanvas extends Base {
 
             for (let i = 1; i < me.nodes.length; i++) {
                 let node = me.nodes[i];
-                ctx.lineTo(node.x, node.y);
+                ctx.lineTo(node.x, node.y)
             }
             let last = me.nodes[me.nodes.length - 1];
-            ctx.lineTo(last.x, height);
+            ctx.lineTo(last.x, height)
         }
         ctx.stroke();
 
         // 4. Draw "Pulse" Effect
         const pulseY = me.pulseY;
-
-        const getXAtY = (y) => {
-            if (me.nodes.length < 2) return me.nodes[0]?.x || 38;
-            if (y < me.nodes[0].y) return me.nodes[0].x;
-
-            for (let i = 0; i < me.nodes.length - 1; i++) {
-                let curr = me.nodes[i];
-                let next = me.nodes[i+1];
-                if (y >= curr.y && y <= next.y) {
-                    let ratio = (y - curr.y) / (next.y - curr.y);
-                    return curr.x + (next.x - curr.x) * ratio;
-                }
-            }
-            return me.nodes[me.nodes.length - 1].x;
-        };
 
         if (me.nodes.length > 0 && pulseY > me.nodes[0].y - pulseLength) {
             const pulseGrad = ctx.createLinearGradient(0, pulseY, 0, pulseY + pulseLength);
@@ -278,22 +289,22 @@ class TicketCanvas extends Base {
             ctx.strokeStyle = pulseGrad;
             ctx.lineWidth   = 4;
             ctx.beginPath();
-            
-            let pulseX = getXAtY(pulseY);
+
+            let pulseX = me.getXAtY(pulseY);
             ctx.moveTo(pulseX, pulseY);
-            ctx.lineTo(getXAtY(pulseY + pulseLength), Math.min(pulseY + pulseLength, height));
-            ctx.stroke();
+            ctx.lineTo(me.getXAtY(pulseY + pulseLength), Math.min(pulseY + pulseLength, height));
+            ctx.stroke()
         }
 
         // 5. "The Gap"
         ctx.globalCompositeOperation = 'destination-out';
-        ctx.fillStyle = '#000';
+        ctx.fillStyle                = '#000';
 
         me.nodes.forEach(node => {
             if (node.radius) {
                 ctx.beginPath();
                 ctx.arc(node.x, node.y, node.radius, 0, 2 * Math.PI);
-                ctx.fill();
+                ctx.fill()
             }
         });
 
@@ -301,25 +312,25 @@ class TicketCanvas extends Base {
         ctx.globalCompositeOperation = 'source-over';
 
         me.nodes.forEach(node => {
-            const radius = node.radius || 20;
-            const x      = node.x;
-            const y      = node.y;
-            
-            const pTop    = pulseY;
-            const pBottom = pulseY + pulseLength;
-            const nTop    = y - radius;
-            const nBottom = y + radius;
+            const
+                radius  = node.radius || 20,
+                x       = node.x,
+                y       = node.y,
+                pTop    = pulseY,
+                pBottom = pulseY + pulseLength,
+                nTop    = y - radius,
+                nBottom = y + radius;
 
             if (pBottom > nTop && pTop < nBottom) {
                 const getProgress = (val) => {
-                    return Math.max(0, Math.min(1, (val - nTop) / (2 * radius)));
+                    return Math.max(0, Math.min(1, (val - nTop) / (2 * radius)))
                 };
 
-                const startP = getProgress(pTop);
-                const endP   = getProgress(pBottom);
-                
-                const angleTail = -Math.PI/2 + (startP * Math.PI);
-                const angleHead = -Math.PI/2 + (endP * Math.PI);
+                const
+                    startP    = getProgress(pTop),
+                    endP      = getProgress(pBottom),
+                    angleTail = -Math.PI / 2 + (startP * Math.PI),
+                    angleHead = -Math.PI / 2 + (endP * Math.PI);
 
                 // Use the DYNAMIC color here too!
                 ctx.strokeStyle = `${pulseColorStr}, 1)`;
@@ -331,17 +342,18 @@ class TicketCanvas extends Base {
                 ctx.stroke();
 
                 // Left Arc
-                const leftTail = -Math.PI/2 - (startP * Math.PI);
-                const leftHead = -Math.PI/2 - (endP * Math.PI);
-                
+                const
+                    leftTail = -Math.PI/2 - (startP * Math.PI),
+                    leftHead = -Math.PI/2 - (endP * Math.PI);
+
                 ctx.beginPath();
                 ctx.arc(x, y, radius + 2, leftTail, leftHead, true);
-                ctx.stroke();
+                ctx.stroke()
             }
         });
 
         // Loop using setTimeout (SharedWorkers do not support rAF)
-        setTimeout(me.render.bind(me), 1000 / 60);
+        setTimeout(me.render.bind(me), 1000 / 60)
     }
 }
 
