@@ -36,8 +36,10 @@ subIssues:
   - '[x] 8531 Polish Portal Ticket Timeline: Author & Commit Links'
   - '[x] 8533 Portal Ticket Timeline: Localized & Smart Timestamp Formatting'
   - '[x] 8534 Portal Ticket Timeline: Render Labels as Badges'
-subIssuesCompleted: 20
-subIssuesTotal: 20
+  - '[x] 8536 Feature: Canvas-based "Neural" Timeline Animation'
+  - '[ ] 8542 Enhancement: "Orbit" Effect & Visual Polish for Neural Timeline'
+subIssuesCompleted: 21
+subIssuesTotal: 22
 blockedBy: []
 blocking: []
 ---
@@ -110,4 +112,7 @@ Updates Markdown component to respect local routing for ticket IDs if the config
 - 2026-01-11T00:07:16Z @tobiu added sub-issue #8531
 - 2026-01-11T00:55:28Z @tobiu added sub-issue #8533
 - 2026-01-11T01:13:04Z @tobiu added sub-issue #8534
+- 2026-01-11T10:16:53Z @tobiu cross-referenced by #8537
+- 2026-01-11T13:25:00Z @tobiu added sub-issue #8536
+- 2026-01-11T13:25:31Z @tobiu added sub-issue #8542
 
