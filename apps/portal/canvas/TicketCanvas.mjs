@@ -216,37 +216,65 @@ class TicketCanvas extends Base {
             const x      = node.x;
             const y      = node.y;
             
-            // Interaction: If pulse is near node, activate orbit
-            const dist     = Math.abs((pulseY + pulseLength/2) - y);
-            const isActive = dist < 60;
+            // Pulse range
+            const pTop    = pulseY;
+            const pBottom = pulseY + pulseLength;
+            const nTop    = y - radius;
+            const nBottom = y + radius;
 
-            if (isActive) {
-                // Calculate intensity based on proximity
-                const alpha = Math.max(0, 1 - (dist / 60));
+            // Check overlap
+            if (pBottom > nTop && pTop < nBottom) {
+                // Calculate angular progress
+                // 0 = Top (-PI/2), 1 = Bottom (PI/2)
                 
-                // Outer Orbit Ring
-                ctx.strokeStyle = `rgba(64, 196, 255, ${alpha})`;
-                ctx.lineWidth   = 2;
+                const getProgress = (val) => {
+                    return Math.max(0, Math.min(1, (val - nTop) / (2 * radius)));
+                };
+
+                const startP = getProgress(pTop);    // Where the tail is
+                const endP   = getProgress(pBottom); // Where the head is
+
+                // Angles: -PI/2 is top. PI/2 is bottom.
+                // But we draw from startAngle to endAngle.
+                // Head is at endP (bottom-most), Tail is at startP (top-most).
+                // We want to draw the segment between Tail and Head.
+                
+                const angleTail = -Math.PI/2 + (startP * Math.PI);
+                const angleHead = -Math.PI/2 + (endP * Math.PI);
+
+                // Intensity based on how much of the pulse is "inside" vs outside?
+                // Or just standard pulse color. 
+                // Let's use the standard blue but maybe slightly brighter as it compresses.
+                ctx.strokeStyle = 'rgba(64, 196, 255, 1)';
+                ctx.lineWidth   = 2; // Conservation of mass: 4px pulse splits into two 2px arcs
+
+                // Right Arc
                 ctx.beginPath();
-                ctx.arc(x, y, radius + 2, 0, 2 * Math.PI);
+                ctx.arc(x, y, radius + 2, angleTail, angleHead, false);
                 ctx.stroke();
 
-                // Inner Glow (Subtle)
-                ctx.fillStyle = `rgba(64, 196, 255, ${alpha * 0.1})`;
+                // Left Arc
+                // Mirror the angles?
+                // Left side goes from Top (-PI/2) to Left (PI) to Bottom (PI/2).
+                // Or -PI/2 to -3PI/2.
+                // Left Arc: Start at Tail, End at Head (Counter-Clockwise)
+                // If we use CCW:
+                // Tail (-PI/2 + offset) -> Head (-PI/2 + offset)
+                // We want to mirror the progress.
+                // Right side: -90deg -> +90deg
+                // Left side:  -90deg -> -270deg
+                // So angle = -PI/2 - (p * PI)
+                
+                const leftTail = -Math.PI/2 - (startP * Math.PI);
+                const leftHead = -Math.PI/2 - (endP * Math.PI);
+                
                 ctx.beginPath();
-                ctx.arc(x, y, radius, 0, 2 * Math.PI);
-                ctx.fill();
-            } else {
-                // Idle state: Subtle gray ring to define the track (Optional)
-                // Looks cleaner without it, letting the gap be the definition.
-                // Uncomment to add a static ring:
-                /*
-                ctx.strokeStyle = `rgba(150, 150, 150, 0.1)`;
-                ctx.lineWidth   = 1;
-                ctx.beginPath();
-                ctx.arc(x, y, radius + 1, 0, 2 * Math.PI);
+                // Draw from Tail to Head? 
+                // Context.arc draws from start to end.
+                // If we use CCW=true, we should go from Tail to Head?
+                // Let's test: Tail=-90, Head=-180. CCW=true -> -90 to -180. Correct.
+                ctx.arc(x, y, radius + 2, leftTail, leftHead, true);
                 ctx.stroke();
-                */
             }
         });
 
