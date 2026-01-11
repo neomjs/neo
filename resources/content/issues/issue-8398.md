@@ -54,8 +54,10 @@ subIssues:
   - '[x] 8559 Optimize TimelineCanvas data load delay'
   - '[x] 8560 Replace hardcoded timeout in MainContainerController with deterministic wait'
   - '[x] 8561 Remove arbitrary delay in TreeList afterSetCurrentPageRecord'
-subIssuesCompleted: 38
-subIssuesTotal: 38
+  - '[x] 8562 Refactor TimelineCanvas.onTimelineDataLoad to use waitForDomRect'
+  - '[x] 8563 Prevent race condition in TimelineCanvas by making sections store update optional'
+subIssuesCompleted: 40
+subIssuesTotal: 40
 blockedBy: []
 blocking: []
 ---
