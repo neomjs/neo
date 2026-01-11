@@ -40,15 +40,27 @@ class TimelineCanvas extends Canvas {
     lastRecords = null
 
     /**
+     *
+     */
+    onConstructed() {
+        super.onConstructed();
+
+        let me    = this,
+            store = me.getStateProvider().getStore('sections');
+
+        store.on('load', me.onTimelineDataLoad, me)
+    }
+
+    /**
      * Triggered after the offscreenRegistered config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
      */
     async afterSetOffscreenRegistered(value, oldValue) {
-        if (value) {
-            let me = this;
+        let me = this;
 
+        if (value) {
             // Ensure the logic is loaded in the worker
             await Portal.canvas.Helper.importTicketCanvas();
 
@@ -66,14 +78,14 @@ class TimelineCanvas extends Canvas {
             // Initial sizing
             await me.updateSize();
 
-            // Hook into state provider to listen for timeline updates
-            let store = me.getStateProvider().getStore('sections');
-            store.on('load', me.onTimelineDataLoad, me);
-
             // Initial load check
+            let store = me.getStateProvider().getStore('sections');
+
             if (store.getCount() > 0) {
                 me.onTimelineDataLoad(store.items)
             }
+        } else {
+            me.isCanvasReady = false
         }
     }
 
