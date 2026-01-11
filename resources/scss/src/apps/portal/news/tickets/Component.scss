@@ -223,12 +223,17 @@
                     }
 
                     .neo-timeline-body {
-                        font-size: 14px;
-                        padding  : 16px;
+                        font-size    : 14px;
+                        overflow-wrap: anywhere;
+                        padding      : 16px;
 
                         // Markdown content fixes
                         p:last-child {
                             margin-bottom: 0;
+                        }
+
+                        pre {
+                            overflow-x: auto;
                         }
                     }
                 }
