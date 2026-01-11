@@ -254,6 +254,13 @@ class TicketCanvas extends Base {
             height = me.canvasSize?.height || 600,
             now    = Date.now();
 
+        // Calculate the bottom-most boundary (last item's Y or default height)
+        let maxY = height;
+
+        if (me.nodes.length > 0) {
+            maxY = me.nodes[me.nodes.length - 1].y
+        }
+
         // Time delta in ms
         let dt = now - (me.lastFrameTime || now);
         me.lastFrameTime = now;
@@ -305,7 +312,7 @@ class TicketCanvas extends Base {
 
         // Apply Velocity
         me.pulseY += me.baseSpeed * speedModifier * dt;
-        if (me.pulseY > height - pulseBounds) {
+        if (me.pulseY > maxY - pulseBounds) {
             me.pulseY = pulseBounds; // Restart above
         }
 
@@ -335,15 +342,13 @@ class TicketCanvas extends Base {
                 let node = me.nodes[i];
                 ctx.lineTo(node.x, node.y)
             }
-            let last = me.nodes[me.nodes.length - 1];
-            ctx.lineTo(last.x, height)
         }
         ctx.stroke();
 
         // 4. Draw "Pulse" Effect
         const pulseY = me.pulseY;
 
-        if (me.nodes.length > 0 && pulseY > me.nodes[0].y - pulseLength) {
+        if (me.nodes.length > 0 && pulseY > me.nodes[0].y - pulseLength && pulseY < maxY) {
             const pulseGrad = ctx.createLinearGradient(0, pulseY, 0, pulseY + pulseLength);
             pulseGrad.addColorStop(0,   `${pulseColorStr}, 0)`);
             pulseGrad.addColorStop(0.5, `${pulseColorStr}, 1)`);
@@ -355,7 +360,7 @@ class TicketCanvas extends Base {
 
             let pulseX = me.getXAtY(pulseY);
             ctx.moveTo(pulseX, pulseY);
-            ctx.lineTo(me.getXAtY(pulseY + pulseLength), Math.min(pulseY + pulseLength, height));
+            ctx.lineTo(me.getXAtY(pulseY + pulseLength), Math.min(pulseY + pulseLength, maxY));
             ctx.stroke()
         }
 
