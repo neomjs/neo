@@ -1,5 +1,5 @@
-import Base          from '../core/Base.mjs';
-import RecordFactory from './RecordFactory.mjs';
+import Base           from '../core/Base.mjs';
+import RecordFactory  from './RecordFactory.mjs';
 import {isDescriptor} from '../core/ConfigSymbols.mjs';
 
 /**
