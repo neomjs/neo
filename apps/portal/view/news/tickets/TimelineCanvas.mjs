@@ -174,7 +174,7 @@ class TimelineCanvas extends Canvas {
         me.lastRecords = records;
 
         // If this is a fresh data load (not a resize), wait a bit for DOM
-        let delay = isResize ? 50 : 100;
+        let delay = attempt === 0 ? 0 : 50;
 
         me.timeout(delay).then(async () => {
             // Target the actual Avatar/Badge elements we added IDs to
