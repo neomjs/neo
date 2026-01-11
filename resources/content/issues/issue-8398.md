@@ -44,8 +44,15 @@ subIssues:
   - '[x] 8547 fix: Portal App tree navigation scrolling behavior'
   - '[x] 8548 Refactor PageContainer for Tickets View'
   - '[x] 8549 Fix duplicate listener on TimelineCanvas during navigation'
-subIssuesCompleted: 28
-subIssuesTotal: 28
+  - '[x] 8551 Refactor TicketCanvas: Performance optimization and cleanup'
+  - '[x] 8552 Enhance TicketCanvas Documentation for Knowledge Base'
+  - '[x] 8553 Enhance TimelineCanvas Documentation for Knowledge Base'
+  - '[x] 8554 Enhance TicketComponent Documentation for Knowledge Base'
+  - '[x] 8555 Fix Zombie Canvas Loop in TicketCanvas'
+  - '[x] 8556 Enhance Neural Timeline: Limit spine and pulse to last item'
+  - '[x] 8557 Fix Ticket Timeline content overflow'
+subIssuesCompleted: 35
+subIssuesTotal: 35
 blockedBy: []
 blocking: []
 ---
@@ -127,4 +134,20 @@ Updates Markdown component to respect local routing for ticket IDs if the config
 - 2026-01-11T15:10:24Z @tobiu added sub-issue #8547
 - 2026-01-11T15:21:46Z @tobiu added sub-issue #8548
 - 2026-01-11T15:32:14Z @tobiu added sub-issue #8549
+- 2026-01-11T15:58:35Z @tobiu referenced in commit `fea49de` - "refactor: Decouple TicketTimelineSection from generic ContentSection (#8398)
+
+- Reverts  model to its generic state (id, name, tag).
+- Creates  model with full field set (including inherited fields).
+- Creates  store extending the base store.
+- Updates  to use the new specialized store."
+- 2026-01-11T16:21:07Z @tobiu referenced in commit `8e74309` - "fix: Prevent selection of undefined records in Tickets view (#8398)
+
+Fixes a runtime TypeError when  attempts to select a record that does not exist in the store."
+- 2026-01-11T16:52:24Z @tobiu added sub-issue #8551
+- 2026-01-11T16:57:53Z @tobiu added sub-issue #8552
+- 2026-01-11T17:01:44Z @tobiu added sub-issue #8553
+- 2026-01-11T17:04:38Z @tobiu added sub-issue #8554
+- 2026-01-11T17:22:23Z @tobiu added sub-issue #8555
+- 2026-01-11T17:44:26Z @tobiu added sub-issue #8556
+- 2026-01-11T17:51:31Z @tobiu added sub-issue #8557
 
