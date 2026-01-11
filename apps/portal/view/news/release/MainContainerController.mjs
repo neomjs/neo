@@ -86,7 +86,8 @@ class MainContainerController extends Controller {
      */
     onRouteDefault(data, value, oldValue) {
         // Opt out for potentially incorrectly captured routes like '/news/tickets'
-        if (value?.hashString !== '/news' || value?.hashString !== '/news/releases') return;
+        console.log('onRouteDefault', value?.hashString);
+        if (value?.hashString !== '/news' && value?.hashString !== '/news/releases') return;
 
         let me    = this,
             store = me.getStateProvider().getStore('tree');
