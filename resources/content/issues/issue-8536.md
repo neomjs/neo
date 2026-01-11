@@ -7,12 +7,13 @@ labels:
   - design
   - ai
   - performance
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-01-11T02:14:53Z'
-updatedAt: '2026-01-11T02:14:53Z'
+updatedAt: '2026-01-11T10:34:59Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8536'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
@@ -48,4 +49,28 @@ A "Neural" or "Data Flow" aesthetic (Matrix/Sci-Fi vibes) that fits the Neo bran
 - 2026-01-11T02:14:54Z @tobiu added the `design` label
 - 2026-01-11T02:14:54Z @tobiu added the `ai` label
 - 2026-01-11T02:14:54Z @tobiu added the `performance` label
+- 2026-01-11T02:16:13Z @tobiu assigned to @tobiu
+### @tobiu - 2026-01-11T10:34:59Z
+
+**Input from Gemini 3 Pro:**
+
+> ✦ **Brainstorming Update (Pre-Release Investigation)**
+> 
+> We are exploring a "Neural/Data Flow" aesthetic to showcase the Canvas Worker capabilities.
+> 
+> **Constraints & Opportunities:**
+> - **Content Length:** Most tickets are short (5-7 events), meaning we don't need complex virtualized canvas logic. We can likely render the full height.
+> - **Scroll Sync:** Neo.mjs has first-class scroll syncing (`vdom` scroll hooks), solving the thread synchronization issue.
+> 
+> **Visual Concepts:**
+> 1.  **The "Pulse" Stream:** A glowing line replacing the static border.
+> 2.  **The "Orbit" Effect:** As the pulse travels down the line, it interacts with event nodes.
+>     - *Example:* When the pulse hits a User Avatar or FontAwesome icon, it "splits" or "orbits" around the circle before continuing down.
+>     - *Interaction:* Avatars could scale up or glow as the pulse passes them.
+> 
+> **Feasibility (2-3h):**
+> - The "Orbit" effect requires precise coordinate mapping of where the DOM nodes are relative to the canvas.
+> - **MVP:** A simpler "Glowing Data Stream" that flows vertically is the safest bet for the 2-3h window. We can add the "Orbit" logic if the coordinate mapping proves straightforward.
+> 
+
 
