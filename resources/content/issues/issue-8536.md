@@ -10,10 +10,10 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-01-11T02:14:53Z'
-updatedAt: '2026-01-11T10:34:59Z'
+updatedAt: '2026-01-11T12:45:03Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8536'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
@@ -72,5 +72,46 @@ A "Neural" or "Data Flow" aesthetic (Matrix/Sci-Fi vibes) that fits the Neo bran
 > - The "Orbit" effect requires precise coordinate mapping of where the DOM nodes are relative to the canvas.
 > - **MVP:** A simpler "Glowing Data Stream" that flows vertically is the safest bet for the 2-3h window. We can add the "Orbit" logic if the coordinate mapping proves straightforward.
 > 
+
+- 2026-01-11T11:00:41Z @tobiu referenced in commit `1483170` - "#8536 basic setup"
+### @tobiu - 2026-01-11T12:44:45Z
+
+**Input from Gemini 3 Pro:**
+
+> ✦ **Timeline Animation: Implementation & Scaling Challenges**
+> 
+> We have made significant progress in rendering the "Neural Pulse" animation but are facing persistent alignment issues due to the interaction between the absolute-positioned canvas and the variable-height content layout.
+> 
+> **Current Status:**
+> 1.  **Architecture:**
+>     -   `TimelineCanvas` runs in a dedicated worker, rendering a spine, pulse, and nodes.
+>     -   `CanvasWrapper` overlays the canvas on top of the content (`z-index: 2`, `pointer-events: none`).
+>     -   `PageContainer` and `CanvasWrapper` have been refactored to use `layout: null` (block) and `overflow: visible` to ensure the wrapper grows with the content, preventing canvas clipping.
+> 
+> 2.  **Logic:**
+>     -   `TimelineCanvas.mjs` synchronizes with DOM updates by querying `getDomRect` for all timeline items.
+>     -   It dynamically calculates `nodeY` based on `rect.y` relative to the canvas.
+>     -   It uses `record.tag` to apply different vertical offsets for "Comments" (Avatar center) vs "Events" (Badge center).
+> 
+> **The Issue:**
+> -   **Drift/Scaling:** Even with correct offsets, the markers visually drift (appear too high/low) as we move down the timeline.
+> -   **Diagnosis:** The logs suggest `CanvasWrapper` height matches the content, but the visual result implies a coordinate mismatch. This usually happens when the canvas *resolution* (width/height attributes) does not perfectly match its *display size* (CSS width/height), causing the browser to scale the drawing.
+> -   **Specifics:** `getDomRect` returns the correct screen coordinates, but the mapping to canvas internal coordinates seems desynchronized, possibly due to race conditions during resize or flexbox constraints in `MainContainer`.
+> 
+> **Next Steps (Debugging with Neural Link):**
+> To fix this efficiently in the next session, we must stop guessing offsets and rely on hard data.
+> 
+> 1.  **Use Neural Link to Inspect Dimensions:**
+>     -   Query `get_computed_styles` for `neo-container-7` (Wrapper) and `neo-markdown-1` (Content) to ensure they are **identical** in height.
+>     -   Query `get_dom_rect` for `neo-canvas-1` (Canvas) and `neo-container-7` (Wrapper) to ensure the canvas is not being clipped or stretched by a parent container.
+> 
+> 2.  **Verify Canvas Resolution:**
+>     -   In `TimelineCanvas.mjs`, log `this.el.width` and `this.el.height` (internal resolution) vs `this.el.getBoundingClientRect().height` (display size). If they differ, `updateSize` logic needs fixing.
+> 
+> 3.  **Check Scroll Offset:**
+>     -   Verify if `canvasRect.y` changes as expected during scroll. If the canvas is attached to the scrolling content, `rect.y - canvasRect.y` should be constant. If it's attached to the viewport, it's not.
+> 
+> **Recommendation:**
+> Start the next session by inspecting the **Canvas Element properties** directly to confirm 1:1 pixel mapping. The logic is sound, but the DOM environment is introducing a scaling factor.
 
 

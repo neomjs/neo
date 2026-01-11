@@ -265,7 +265,8 @@ class Component extends ContentComponent {
         // 4. Extract H1 Title from the generated HTML
         let titleHtml = '';
         fullHtml      = fullHtml.replace(regexH1, (match) => {
-            titleHtml = match;
+            // Inject ID into H1 tag
+            titleHtml = match.replace('<h1', `<h1 id="ticket-title-${me.id}"`);
             return ''; // Remove title from body
         });
 
@@ -314,7 +315,7 @@ class Component extends ContentComponent {
         });
 
         let bodyItemHtml = `
-            <div class="neo-timeline-item comment body-item" data-record-id="${bodyId}">
+            <div id="${bodyId}" class="neo-timeline-item comment body-item" data-record-id="${bodyId}">
                 <div class="neo-timeline-avatar">
                     <img src="${me.repoUserUrl}${author}.png" alt="${author}">
                 </div>
@@ -328,10 +329,15 @@ class Component extends ContentComponent {
             </div>`;
 
         // 7. Inject Body Item at the start of the Timeline
+        let timelineId = `ticket-timeline-${me.id}`;
+
         if (timelineHtml) {
-            timelineHtml = timelineHtml.replace('<div class="neo-ticket-timeline">', '<div class="neo-ticket-timeline">' + bodyItemHtml)
+            timelineHtml = timelineHtml.replace(
+                '<div class="neo-ticket-timeline">',
+                `<div id="${timelineId}" class="neo-ticket-timeline">` + bodyItemHtml
+            )
         } else {
-            timelineHtml = `<div class="neo-ticket-timeline">${bodyItemHtml}</div>`
+            timelineHtml = `<div id="${timelineId}" class="neo-ticket-timeline">${bodyItemHtml}</div>`
         }
 
         me.getStateProvider().getStore('sections').data = me.timelineData;
@@ -370,7 +376,7 @@ class Component extends ContentComponent {
 
                 let body = marked.parse(commentBuf.join('\n'));
                 html += `
-                    <div class="neo-timeline-item comment" data-record-id="${id}">
+                    <div id="${id}" class="neo-timeline-item comment" data-record-id="${id}">
                         <div class="neo-timeline-avatar">
                             <img src="${repoUserUrl}${currentUser}.png" alt="${currentUser}">
                         </div>
@@ -444,7 +450,7 @@ class Component extends ContentComponent {
                 });
 
                 html += `
-                    <div class="neo-timeline-item event ${actionCls}" data-record-id="${id}">
+                    <div id="${id}" class="neo-timeline-item event ${actionCls}" data-record-id="${id}">
                         <div class="neo-timeline-badge"><i class="fa-solid ${icon}"></i></div>
                         <div class="neo-timeline-body">
                             <a class="neo-timeline-user" href="${repoUserUrl}${user}" target="_blank">${user}</a> ${cleanAction} <span class="neo-timeline-date">on ${me.formatTimestamp(date)}</span>

@@ -7,10 +7,16 @@ import Canvas from '../../../../../src/component/Canvas.mjs';
 class TimelineCanvas extends Canvas {
     static config = {
         /**
-         * @member {String} className='AgentOS.view.TimelineCanvas'
+         * @member {String} className='Portal.view.news.tickets.TimelineCanvas'
          * @protected
          */
-        className: 'AgentOS.view.TimelineCanvas',
+        className: 'Portal.view.news.tickets.TimelineCanvas',
+        /**
+         * @member {Object} listeners
+         */
+        listeners: {
+            resize: 'onResize'
+        },
         /**
          * @member {Object} _vdom
          */
@@ -19,6 +25,19 @@ class TimelineCanvas extends Canvas {
             {tag: 'canvas', style: {width: '100%', height: '100%'}}
         ]}
     }
+
+    /**
+     * @member {String} canvasId=null
+     */
+    canvasId = null
+    /**
+     * @member {Boolean} isCanvasReady=false
+     */
+    isCanvasReady = false
+    /**
+     * @member {Object[]} lastRecords=null
+     */
+    lastRecords = null
 
     /**
      * Triggered after the offscreenRegistered config got changed
@@ -30,12 +49,31 @@ class TimelineCanvas extends Canvas {
         if (value) {
             let me = this;
 
+            // Ensure the logic is loaded in the worker
+            await Portal.canvas.Helper.importTicketCanvas();
+
             // Direct Remote Method Access call
-            // The namespace AgentOS.canvas.Blackboard is auto-generated in this worker
-            // by the RemoteMethodAccess mixin when the Canvas worker registers it.
             await Portal.canvas.TicketCanvas.initGraph({canvasId: me.getCanvasId(), windowId: me.windowId});
 
-            await me.updateSize()
+            me.isCanvasReady = true;
+
+            // Register ResizeObserver for the canvas wrapper (me.id)
+            Neo.main.addon.ResizeObserver.register({
+                id      : me.id,
+                windowId: me.windowId
+            });
+
+            // Initial sizing
+            await me.updateSize();
+
+            // Hook into state provider to listen for timeline updates
+            let store = me.getStateProvider().getStore('sections');
+            store.on('load', me.onTimelineDataLoad, me);
+
+            // Initial load check
+            if (store.getCount() > 0) {
+                me.onTimelineDataLoad(store.items)
+            }
         }
     }
 
@@ -43,15 +81,111 @@ class TimelineCanvas extends Canvas {
      * Override to return the inner canvas ID
      */
     getCanvasId() {
-        return this.vdom.cn[0].id;
+        if (!this.canvasId) {
+            this.canvasId = this.vdom.cn[0].id
+        }
+        return this.canvasId;
     }
 
     /**
      * @param {Object} data
      */
-    onDomResize(data) {
-        super.onDomResize(data);
-        this.updateSize(data.contentRect)
+    async onResize(data) {
+        let me = this;
+
+        // Update the canvas size in the worker
+        await me.updateSize(data.contentRect);
+
+        // If we have cached records, re-calculate node positions
+        // because the container dimensions (and likely relative positions) have changed.
+        if (me.lastRecords) {
+            // We don't need to re-fetch rects instantly, but it's safer to do so 
+            // to ensure alignment with the new layout.
+            me.onTimelineDataLoad(me.lastRecords, 0, true)
+        }
+    }
+
+    /**
+     * @param {Object[]} records
+     * @param {Number} [attempt=0]
+     * @param {Boolean} [isResize=false]
+     */
+    onTimelineDataLoad(records, attempt=0, isResize=false) {
+        let me = this;
+        
+        if (!me.isCanvasReady) return;
+
+        me.lastRecords = records;
+
+        // If this is a fresh data load (not a resize), wait a bit for DOM
+        let delay = isResize ? 50 : 100;
+
+        me.timeout(delay).then(async () => {
+            let ids          = records.map(r => r.id),
+                componentId  = me.getStateProvider().data.contentComponentId,
+                timelineId   = `ticket-timeline-${componentId}`,
+                rects, timelineRect;
+
+            try {
+                // Fetch DOM rects for all timeline items
+                rects = await me.getDomRect(ids);
+
+                // Fetch timeline container rect (optional, fallback)
+                if (componentId) {
+                    timelineRect = await me.getDomRect(timelineId);
+                }
+
+                // Check if we got valid rects (at least one)
+                let hasRects = rects && rects.some(r => r);
+
+                // Retry logic:
+                // If we miss rects OR if we miss the timeline container (and we expect one), retry.
+                if ((!hasRects || !timelineRect) && attempt < 10) {
+                    me.onTimelineDataLoad(records, attempt + 1, isResize);
+                    return;
+                }
+
+                // On first valid data load (not resize), ensure size is synced 
+                // because content might have pushed the container height.
+                if (!isResize && attempt === 0) {
+                    await me.updateSize(); 
+                }
+
+                let canvasRect = await me.getDomRect(me.getCanvasId());
+                let nodes      = [];
+                let startY     = 0;
+
+                ids.forEach((id, index) => {
+                    let rect   = rects[index],
+                        record = records[index];
+
+                    if (rect) {
+                        // Precise offset based on CSS (Avatar/Badge position)
+                        // Comment/Body: Avatar is top: -6px, height: 40px -> Center is -6 + 20 = 14px from rect top.
+                        // Event: Badge is top: -2px, height: 28px -> Center is -2 + 14 = 12px from rect top.
+                        let isComment = record.tag === 'comment' || record.tag === 'body';
+                        let offset    = isComment ? 14 : 12;
+                        let nodeY     = rect.y - canvasRect.y + offset;
+
+                        nodes.push({
+                            id: id,
+                            y : nodeY,
+                            x : rect.x - canvasRect.x
+                        });
+
+                        // Set the startY of the line to the first node
+                        if (index === 0) {
+                            startY = nodeY;
+                        }
+                    }
+                });
+
+                await Portal.canvas.TicketCanvas.updateGraphData({nodes, startY});
+
+            } catch (e) {
+                console.error('TimelineCanvas update failed', e)
+            }
+        })
     }
 
     async updateSize(rect) {
@@ -61,8 +195,7 @@ class TimelineCanvas extends Canvas {
             rect = await me.waitForDomRect({id: me.getCanvasId()})
         }
 
-        // todo
-        await Portal.canvas.TicketCanvas.updateSize({width: rect.width, height: rect.height})
+        await Portal.canvas.TicketCanvas.updateSize({width: rect.width, height: rect.height});
     }
 }
 

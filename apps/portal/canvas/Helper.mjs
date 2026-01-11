@@ -5,7 +5,7 @@ import Base from '../../../src/core/Base.mjs';
  * @extends Neo.core.Base
  * @singleton
  */
-class Blackboard extends Base {
+class Helper extends Base {
     static config = {
         /**
          * @member {String} className='Portal.canvas.Helper'
@@ -30,11 +30,12 @@ class Blackboard extends Base {
     }
 
     /**
-     *
+     * @returns {Promise<void>}
      */
-    importTicketCanvas() {
-        import('./TicketCanvas.mjs')
+    async importTicketCanvas() {
+        let module = await import('./TicketCanvas.mjs');
+        await module.default.remotesReady()
     }
 }
 
-export default Neo.setupClass(Blackboard);
+export default Neo.setupClass(Helper);

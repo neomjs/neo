@@ -84,6 +84,7 @@
 
         // Vertical Line
         &::before {
+            display: none; // Hiding it, since we use the canvas animation now
             background-color: #d0d7de;
             bottom          : 0;
             content         : '';

@@ -1,4 +1,4 @@
-import ContentComponent from './Component.mjs';
+import CanvasWrapper    from './CanvasWrapper.mjs';
 import Controller       from './MainContainerController.mjs';
 import SharedContainer  from '../../shared/content/Container.mjs';
 import StateProvider    from './MainContainerStateProvider.mjs';
@@ -24,9 +24,9 @@ class MainContainer extends SharedContainer {
          */
         buttonTextField: 'id',
         /**
-         * @member {Neo.component.Base} contentComponent=ContentComponent
+         * @member {Neo.component.Base} contentComponent=CanvasWrapper
          */
-        contentComponent: ContentComponent,
+        contentComponent: CanvasWrapper,
         /**
          * @member {Neo.controller.Component} controller=MainContainerController
          * @reactive
