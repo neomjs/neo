@@ -106,12 +106,22 @@ class TimelineCanvas extends Canvas {
     }
 
     /**
-     * @param {Object[]} records
+     * @param {Object[]|Object} records Array of records or Store load event object {items: [...]}
      * @param {Number} [attempt=0]
      * @param {Boolean} [isResize=false]
      */
     onTimelineDataLoad(records, attempt=0, isResize=false) {
         let me = this;
+        
+        // Handle Store 'load' event signature: fire('load', {items: [...]})
+        if (records && !Array.isArray(records) && records.items) {
+            records = records.items;
+        }
+
+        if (!Array.isArray(records)) {
+            // Safety check if records is still invalid
+            return; 
+        }
         
         if (!me.isCanvasReady) return;
 
