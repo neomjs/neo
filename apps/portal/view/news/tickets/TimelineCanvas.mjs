@@ -1,7 +1,7 @@
 import Canvas from '../../../../../src/component/Canvas.mjs';
 
 /**
- * @class AgentOS.view.TimelineCanvas
+ * @class Portal.view.news.tickets.TimelineCanvas
  * @extends Neo.component.Canvas
  */
 class TimelineCanvas extends Canvas {
@@ -93,10 +93,12 @@ class TimelineCanvas extends Canvas {
      * Override to return the inner canvas ID
      */
     getCanvasId() {
-        if (!this.canvasId) {
-            this.canvasId = this.vdom.cn[0].id
+        let me = this;
+
+        if (!me.canvasId) {
+            me.canvasId = me.vdom.cn[0].id
         }
-        return this.canvasId;
+        return me.canvasId
     }
 
     /**
@@ -111,7 +113,7 @@ class TimelineCanvas extends Canvas {
         // If we have cached records, re-calculate node positions
         // because the container dimensions (and likely relative positions) have changed.
         if (me.lastRecords) {
-            // We don't need to re-fetch rects instantly, but it's safer to do so 
+            // We don't need to re-fetch rects instantly, but it's safer to do so
             // to ensure alignment with the new layout.
             me.onTimelineDataLoad(me.lastRecords, 0, true)
         }
@@ -122,20 +124,22 @@ class TimelineCanvas extends Canvas {
      * @param {Number} [attempt=0]
      * @param {Boolean} [isResize=false]
      */
-    onTimelineDataLoad(records, attempt=0, isResize=false) {
+    onTimelineDataLoad(records, attempt = 0, isResize = false) {
         let me = this;
-        
+
         // Handle Store 'load' event signature: fire('load', {items: [...]})
         if (records && !Array.isArray(records) && records.items) {
-            records = records.items;
+            records = records.items
         }
 
         if (!Array.isArray(records)) {
             // Safety check if records is still invalid
-            return; 
+            return
         }
-        
-        if (!me.isCanvasReady) return;
+
+        if (!me.isCanvasReady) {
+            return
+        }
 
         me.lastRecords = records;
 
@@ -144,9 +148,9 @@ class TimelineCanvas extends Canvas {
 
         me.timeout(delay).then(async () => {
             // Target the actual Avatar/Badge elements we added IDs to
-            let ids          = records.map(r => `${r.id}-target`),
-                componentId  = me.getStateProvider().data.contentComponentId,
-                timelineId   = `ticket-timeline-${componentId}`,
+            let ids         = records.map(r => `${r.id}-target`),
+                componentId = me.getStateProvider().data.contentComponentId,
+                timelineId  = `ticket-timeline-${componentId}`,
                 rects, timelineRect;
 
             try {
@@ -155,7 +159,7 @@ class TimelineCanvas extends Canvas {
 
                 // Fetch timeline container rect (optional, fallback)
                 if (componentId) {
-                    timelineRect = await me.getDomRect(timelineId);
+                    timelineRect = await me.getDomRect(timelineId)
                 }
 
                 // Check if we got valid rects (at least one)
@@ -165,18 +169,18 @@ class TimelineCanvas extends Canvas {
                 // If we miss rects OR if we miss the timeline container (and we expect one), retry.
                 if ((!hasRects || !timelineRect) && attempt < 10) {
                     me.onTimelineDataLoad(records, attempt + 1, isResize);
-                    return;
+                    return
                 }
 
-                // On first valid data load (not resize), ensure size is synced 
+                // On first valid data load (not resize), ensure size is synced
                 // because content might have pushed the container height.
                 if (!isResize && attempt === 0) {
-                    await me.updateSize(); 
+                    await me.updateSize()
                 }
 
-                let canvasRect = await me.getDomRect(me.getCanvasId());
-                let nodes      = [];
-                let startY     = 0;
+                let canvasRect = await me.getDomRect(me.getCanvasId()),
+                    nodes      = [],
+                    startY     = 0;
 
                 ids.forEach((targetId, index) => {
                     let rect   = rects[index],
@@ -185,35 +189,40 @@ class TimelineCanvas extends Canvas {
                     if (rect) {
                         // PRECISE CENTERING
                         // Now 'rect' is the actual avatar/badge.
-                        let offset = rect.height / 2;
-                        let nodeY  = rect.y - canvasRect.y + offset;
-                        let nodeX  = rect.x - canvasRect.x + (rect.width / 2);
-                        
-                        // Distinct padding for Orbit effect
-                        // Avatars (~40px) get more breathing room than Badges (~28px)
-                        let padding = rect.height > 32 ? 6 : 3;
+                        let offset = rect.height / 2,
+                            nodeY  = rect.y - canvasRect.y + offset,
+                            nodeX  = rect.x - canvasRect.x + (rect.width / 2),
+                            // Distinct padding for Orbit effect
+                            // Avatars (~40px) get more breathing room than Badges (~28px)
+                            padding = rect.height > 32 ? 6 : 3;
 
-                                                                        nodes.push({
-                                                                            color : record.color, // Pass Hex Color (e.g. #ff0000)
-                                                                            id    : record.id,
-                                                                            radius: offset + padding,
-                                                                            y     : nodeY,
-                                                                            x     : nodeX
-                                                                        });                        // Set the startY of the line to the first node
+                        nodes.push({
+                            color : record.color, // Pass Hex Color (e.g. #ff0000)
+                            id    : record.id,
+                            radius: offset + padding,
+                            y     : nodeY,
+                            x     : nodeX
+                        });
+
+                        // Set the startY of the line to the first node
                         if (index === 0) {
-                            startY = nodeY;
+                            startY = nodeY
                         }
                     }
                 });
 
-                await Portal.canvas.TicketCanvas.updateGraphData({nodes, startY});
-
+                await Portal.canvas.TicketCanvas.updateGraphData({nodes, startY})
             } catch (e) {
                 console.error('TimelineCanvas update failed', e)
             }
         })
     }
 
+    /**
+     *
+     * @param rect
+     * @returns {Promise<void>}
+     */
     async updateSize(rect) {
         let me = this;
 
@@ -221,7 +230,7 @@ class TimelineCanvas extends Canvas {
             rect = await me.waitForDomRect({id: me.getCanvasId()})
         }
 
-        await Portal.canvas.TicketCanvas.updateSize({width: rect.width, height: rect.height});
+        await Portal.canvas.TicketCanvas.updateSize({width: rect.width, height: rect.height})
     }
 }
 
