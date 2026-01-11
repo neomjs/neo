@@ -31,8 +31,11 @@ subIssues:
   - '[x] 8524 Enhance TreeList navigation for internal routing and deep linking'
   - '[x] 8525 Add Release badge to Ticket Header for navigation'
   - '[x] 8526 Fix CSS collision for state badge icons in Tickets view'
-subIssuesCompleted: 15
-subIssuesTotal: 15
+  - '[x] 8529 Implement rich HTML Timeline rendering for Ticket view'
+  - '[x] 8530 Integrate Ticket Body into Timeline view'
+  - '[x] 8531 Polish Portal Ticket Timeline: Author & Commit Links'
+subIssuesCompleted: 18
+subIssuesTotal: 18
 blockedBy: []
 blocking: []
 ---
@@ -100,4 +103,7 @@ Updates Markdown component to respect local routing for ticket IDs if the config
 - 2026-01-10 @tobiu added sub-issue #8524
 - 2026-01-10 @tobiu added sub-issue #8525
 - 2026-01-10 @tobiu added sub-issue #8526
+- 2026-01-10 @tobiu added sub-issue #8529
+- 2026-01-10 @tobiu added sub-issue #8530
+- 2026-01-11 @tobiu added sub-issue #8531
 
