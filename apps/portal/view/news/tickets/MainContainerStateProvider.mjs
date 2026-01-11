@@ -1,7 +1,7 @@
-import ContentSectionStore from '../../../store/ContentSections.mjs';
-import TicketLabelsStore   from '../../../store/TicketLabels.mjs';
-import TicketsStore        from '../../../store/Tickets.mjs';
-import StateProvider       from '../../../../../src/state/Provider.mjs';
+import TicketLabelsStore          from '../../../store/TicketLabels.mjs';
+import TicketTimelineSectionsStore  from '../../../store/TicketTimelineSections.mjs';
+import TicketsStore                 from '../../../store/Tickets.mjs';
+import StateProvider                from '../../../../../src/state/Provider.mjs';
 
 /**
  * @class Portal.view.news.tickets.MainContainerStateProvider
@@ -51,7 +51,7 @@ class MainContainerStateProvider extends StateProvider {
                 module  : TicketLabelsStore
             },
             sections: {
-                module: ContentSectionStore
+                module: TicketTimelineSectionsStore
             },
             tree: {
                 autoLoad: true,

@@ -15,22 +15,10 @@ class ContentSection extends Model {
          * @member {Object[]} fields
          */
         fields: [{
-            name: 'color',
-            type: 'String'
-        }, {
-            name: 'icon',
-            type: 'String'
-        }, {
             name: 'id',
             type: 'String'
         }, {
-            name: 'image',
-            type: 'String'
-        }, {
             name: 'name',
-            type: 'String'
-        }, {
-            name: 'sourceId',
             type: 'String'
         }, {
             name: 'tag',
