@@ -109,11 +109,12 @@ class IssueSyncer extends Base {
      * @private
      */
     #formatTimelineEvent(event) {
-        const date  = event.createdAt.split('T')[0];
-        const actor = event.actor?.login || event.author?.login || 'Ghost';
+        const dateParts = event.createdAt.split('T');
+        const date      = dateParts[0];
+        const time      = dateParts[1].substring(0, 5);
+        const actor     = event.actor?.login || event.author?.login || 'Ghost';
 
         if (event.__typename === 'IssueComment') {
-            const time = event.createdAt.split('T')[1].substring(0, 5);
             return `### @${actor} - ${date} ${time}\n\n${event.body}\n\n`;
         }
 
@@ -183,7 +184,7 @@ class IssueSyncer extends Base {
                 details = `performed a "${event.__typename}" event`;
         }
 
-        return `- ${date} @${actor} ${details}\n`;
+        return `- ${date} ${time} @${actor} ${details}\n`;
     }
 
     /**
