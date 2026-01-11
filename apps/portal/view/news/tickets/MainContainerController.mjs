@@ -50,9 +50,9 @@ class MainContainerController extends Controller {
     onIntersect(data) {
         let panel    = this.getReference('page-sections-container'),
             list     = panel.list,
-            recordId = parseInt(data.data.recordId);
+            recordId = data.data.recordId;
 
-        if (!list.isAnimating) {
+        if (recordId && !list.isAnimating) {
             list.selectionModel.select(list.store.get(recordId))
         }
     }

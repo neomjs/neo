@@ -42,6 +42,11 @@ class Component extends ContentComponent {
      * @member {Intl.DateTimeFormat|null} #dateTimeFormatToday=null
      */
     #dateTimeFormatToday = null
+    /**
+     * @member {Object[]} timelineData=null
+     * @private
+     */
+    timelineData = null
 
     /**
      * @param {String} isoString
@@ -142,6 +147,34 @@ class Component extends ContentComponent {
 
     /**
      * @param {Object} record
+     * @returns {Promise<void>}
+     */
+    async doFetchContent(record) {
+        let me         = this,
+            {windowId} = me,
+            content, data, path;
+
+        path = me.getContentPath(record);
+
+        if (record.isLeaf && path) {
+            data    = await fetch(path);
+            content = await data.text();
+
+            me.value = content;
+
+            me.toggleCls('lab', record.name?.startsWith('Lab:'));
+
+            Neo.main.addon.IntersectionObserver.observe({
+                disconnect: true,
+                id        : me.id,
+                observe   : ['.neo-timeline-item[data-record-id]'],
+                windowId
+            })
+        }
+    }
+
+    /**
+     * @param {Object} record
      * @param {String} record.path
      * @returns {String|null}
      */
@@ -198,6 +231,8 @@ class Component extends ContentComponent {
             match        = content.match(regexFrontMatter),
             timelineHtml = '',
             badgesHtml   = '';
+
+        me.timelineData = [];
 
         if (match) {
             let data = me.parseFrontMatter(match[1]);
@@ -269,8 +304,17 @@ class Component extends ContentComponent {
         }
 
         // 6. Wrap the remaining HTML (Body) in the Timeline Item structure
+        let bodyId = 'timeline-0';
+
+        me.timelineData.unshift({
+            id   : bodyId,
+            image: me.repoUserUrl + author + '.png',
+            name : 'Description',
+            tag  : 'body'
+        });
+
         let bodyItemHtml = `
-            <div class="neo-timeline-item comment body-item">
+            <div class="neo-timeline-item comment body-item" data-record-id="${bodyId}">
                 <div class="neo-timeline-avatar">
                     <img src="${me.repoUserUrl}${author}.png" alt="${author}">
                 </div>
@@ -290,6 +334,9 @@ class Component extends ContentComponent {
             timelineHtml = `<div class="neo-ticket-timeline">${bodyItemHtml}</div>`
         }
 
+        me.getStateProvider().getStore('sections').data = me.timelineData;
+        me.timelineData = null;
+
         // Return: Frontmatter + Title + Timeline
         return frontMatterHtml + titleHtml + timelineHtml
     }
@@ -308,13 +355,22 @@ class Component extends ContentComponent {
             currentDate = null,
             i           = 0,
             len         = lines.length,
-            line, match, icon, actionCls;
+            id, line, match, icon, actionCls;
 
         const flushComment = () => {
             if (commentBuf.length > 0) {
+                id = `timeline-${me.timelineData.length + 1}`;
+
+                me.timelineData.push({
+                    id   : id,
+                    image: repoUserUrl + currentUser + '.png',
+                    name : `Comment (${currentUser})`,
+                    tag  : 'comment'
+                });
+
                 let body = marked.parse(commentBuf.join('\n'));
                 html += `
-                    <div class="neo-timeline-item comment">
+                    <div class="neo-timeline-item comment" data-record-id="${id}">
                         <div class="neo-timeline-avatar">
                             <img src="${repoUserUrl}${currentUser}.png" alt="${currentUser}">
                         </div>
@@ -361,20 +417,37 @@ class Component extends ContentComponent {
                 }
 
                 // Clean up markdown in action text (e.g. `code` to <code>)
-                action = marked.parseInline(action);
+                let cleanAction = marked.parseInline(action);
 
                 if (icon === 'fa-tag') {
-                    action = action.replace(/<code>(.*?)<\/code>/g, (match, label) => me.getLabelBadgeHtml(label))
+                    cleanAction = cleanAction.replace(/<code>(.*?)<\/code>/g, (match, label) => me.getLabelBadgeHtml(label))
                 }
 
                 // Linkify Commit Hashes
-                action = action.replace(regexCommit, `<a href="${commitsUrl}$1" target="_blank">$1</a>`);
+                cleanAction = cleanAction.replace(regexCommit, `<a href="${commitsUrl}$1" target="_blank">$1</a>`);
+
+                id = `timeline-${me.timelineData.length + 1}`;
+
+                // Extract a short action name for the list
+                let shortAction = action.split(' ')[0]; // 'added', 'closed', etc.
+
+                if (shortAction === 'added' || shortAction === 'removed') {
+                    let labelMatch = action.match(/`([^`]+)`/);
+                    shortAction = labelMatch ? labelMatch[1] : 'Label'
+                }
+
+                me.timelineData.push({
+                    icon: icon,
+                    id  : id,
+                    name: `${Neo.capitalize(shortAction)} (${user})`,
+                    tag : 'event'
+                });
 
                 html += `
-                    <div class="neo-timeline-item event ${actionCls}">
+                    <div class="neo-timeline-item event ${actionCls}" data-record-id="${id}">
                         <div class="neo-timeline-badge"><i class="fa-solid ${icon}"></i></div>
                         <div class="neo-timeline-body">
-                            <a class="neo-timeline-user" href="${repoUserUrl}${user}" target="_blank">${user}</a> ${action} <span class="neo-timeline-date">on ${me.formatTimestamp(date)}</span>
+                            <a class="neo-timeline-user" href="${repoUserUrl}${user}" target="_blank">${user}</a> ${cleanAction} <span class="neo-timeline-date">on ${me.formatTimestamp(date)}</span>
                         </div>
                     </div>`;
             }

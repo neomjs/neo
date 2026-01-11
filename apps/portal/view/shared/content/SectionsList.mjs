@@ -36,9 +36,19 @@ class SectionsList extends List {
      * @returns {Object|Object[]|String} Either a config object to assign to the item, a vdom cn array or a string.
      */
     createItemContent(record, index) {
+        let content = [];
+
+        if (record.image) {
+            content.push({tag: 'img', src: record.image, cls: ['neo-list-icon', 'avatar']})
+        } else if (record.icon) {
+            content.push({tag: 'i', cls: ['neo-list-icon', 'fa-solid', record.icon]})
+        }
+
+        content.push({tag: 'span', text: record[this.displayField]});
+
         return {
-            cls : `neo-${record.tag}`,
-            text: record[this.displayField]
+            cls: `neo-${record.tag}`,
+            cn : content
         }
     }
 
