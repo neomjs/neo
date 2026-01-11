@@ -98,8 +98,10 @@ class MainContainerController extends Controller {
     /**
      * @param {Object} data
      * @param {String} data.itemId
+     * @param {Object} value
+     * @param {Object} oldValue
      */
-    onRouteItem({itemId}) {
+    onRouteItem({itemId}, value, oldValue) {
         let stateProvider = this.getStateProvider(),
             store         = stateProvider.getStore('tree'),
             tree          = this.getReference('tree');
@@ -112,7 +114,10 @@ class MainContainerController extends Controller {
         const select = () => {
             stateProvider.data.currentPageRecord = store.get(itemId);
             tree.expandParents(itemId);
-            tree.scrollToItem(itemId)
+
+            if (!oldValue?.hashString?.startsWith('/news/releases')) {
+                tree.scrollToItem(itemId)
+            }
         };
 
         if (store.getCount() > 0) {
