@@ -34,6 +34,10 @@ class MainContainer extends Container {
          */
         layout: {ntype: 'hbox', align: 'stretch'},
         /**
+         * @member {Neo.component.Base} pageContainerModule=PageContainer
+         */
+        pageContainerModule: PageContainer,
+        /**
          * @member {Object|null} treeConfig=null
          */
         treeConfig: null
@@ -72,7 +76,7 @@ class MainContainer extends Container {
             resizeTarget: 'previous',
             size        : 3
         }, {
-            module          : PageContainer,
+            module          : me.pageContainerModule,
             buttonTextField : me.buttonTextField,
             contentComponent: me.contentComponent || config.contentComponent
         }, {

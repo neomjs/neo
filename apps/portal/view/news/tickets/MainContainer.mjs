@@ -1,5 +1,6 @@
 import CanvasWrapper    from './CanvasWrapper.mjs';
 import Controller       from './MainContainerController.mjs';
+import PageContainer    from './PageContainer.mjs';
 import SharedContainer  from '../../shared/content/Container.mjs';
 import StateProvider    from './MainContainerStateProvider.mjs';
 
@@ -32,6 +33,10 @@ class MainContainer extends SharedContainer {
          * @reactive
          */
         controller: Controller,
+        /**
+         * @member {Neo.component.Base} pageContainerModule=PageContainer
+         */
+        pageContainerModule: PageContainer,
         /**
          * @member {Neo.state.Provider} stateProvider=MainContainerStateProvider
          * @reactive

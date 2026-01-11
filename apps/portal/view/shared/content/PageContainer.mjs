@@ -42,15 +42,7 @@ class PageContainer extends Container {
          * @member {Object} previousPageRecord_=null
          * @reactive
          */
-        previousPageRecord_: null,
-        /**
-         * @member {Object} layout=null
-         */
-        layout: null,
-        /**
-         * @member {Object} style={flex:1,overflowY:'auto',position:'relative'}
-         */
-        style: {flex: 1, overflowY: 'auto', position: 'relative'}
+        previousPageRecord_: null
     }
 
     /**
