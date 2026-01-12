@@ -230,6 +230,10 @@ async function main() {
     try {
         await GH_SyncService.runFullSync();
         console.log('✅ Sync complete.');
+
+        // Regenerate ticket index to reflect moves (active -> archive)
+        console.log('🔄 Regenerating Ticket Index...');
+        runCommand('node buildScripts/createTicketIndex.mjs', 'Failed to regenerate ticket index');
     } catch (error) {
         console.error('❌ Sync Service failed:', error);
         // Don't exit, try to commit what we have
