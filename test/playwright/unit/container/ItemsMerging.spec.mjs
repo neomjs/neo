@@ -130,16 +130,6 @@ test.describe('Container Items Merging', () => {
     });
 
     test('Component with descriptor-based config should merge correctly when nested in Proxy Config item', () => {
-        console.log('Is Descriptor Symbol equal?', isDescriptor === Symbol.for('Neo.Config.isDescriptor'));
-        
-        const testObj = {
-            [isDescriptor]: true,
-            merge         : 'deep',
-            value         : {}
-        };
-        console.log('Neo.isObject(testObj):', Neo.isObject(testObj));
-        console.log('testObj[isDescriptor]:', testObj[isDescriptor]);
-
         // 1. Define a child component that uses a descriptor for one of its configs
         class ChildComponent extends Component {
             static config = {
@@ -211,9 +201,6 @@ test.describe('Container Items Merging', () => {
         const instance = Neo.create(SubContainer);
         const child = instance.items[0];
 
-        console.log('Child Config Descriptors:', child.constructor.configDescriptors.details);
-        console.log('Child Static Config:', child.constructor.config.details);
-        
         expect(child instanceof ChildComponent).toBe(true);
     });
 
@@ -235,8 +222,6 @@ test.describe('Container Items Merging', () => {
         };
 
         const merged = Neo.mergeConfig(defaultValue, instanceValue, 'deep');
-
-        console.log('Isolated Merge Result:', merged);
 
         expect(merged.theme).toBe('light');
         expect(merged.flags.visible).toBe(true);
