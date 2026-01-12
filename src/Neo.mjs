@@ -47,7 +47,13 @@ const
     };
 
 /**
- * The base module to enhance classes, create instances and the Neo namespace
+ * The base module to enhance classes, create instances and the Neo namespace.
+ *
+ * **Note:** The `Neo` namespace is explicitly augmented by core modules like `src/core/Util.mjs`
+ * and `src/core/Compare.mjs`. Global utility methods (e.g. `Neo.isArray`, `Neo.isEqual`) are defined
+ * there and mapped here. To ensure these methods are available, make sure to import the core package:
+ * `import * as core from '../src/core/_export.mjs';` or the specific modules.
+ *
  * @module Neo
  * @singleton
  * @borrows Neo.core.Util.bindMethods       as bindMethods
@@ -63,6 +69,11 @@ const
  * @borrows Neo.core.Util.isString          as isString
  * @borrows Neo.core.Util.snakeToCamel      as snakeToCamel
  * @borrows Neo.core.Util.toArray           as toArray
+ * @borrows Neo.util.Logger.error           as error
+ * @borrows Neo.util.Logger.info            as info
+ * @borrows Neo.util.Logger.log             as log
+ * @borrows Neo.util.Logger.logError        as logError
+ * @borrows Neo.util.Logger.warn            as warn
  * @tutorial 01_Concept
  */
 let Neo = globalThis.Neo || {};
