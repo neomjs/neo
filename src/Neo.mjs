@@ -872,12 +872,14 @@ If you intended to create custom logic, use the 'beforeGet${Neo.capitalize(key)}
                 }
             });
 
-            // Merge configDescriptors: Apply "first-defined wins" strategy.
-            // If a descriptor for a key already exists (from a parent class), it is not overwritten.
+            // Merge configDescriptors: Apply "last-defined wins" strategy.
+            // If a descriptor for a key already exists (from a parent class), we merge the new one on top.
             if (Object.keys(currentConfigDescriptors).length > 0) {
                 for (const key in currentConfigDescriptors) {
                     if (!Object.hasOwn(configDescriptors, key)) {
                         configDescriptors[key] = currentConfigDescriptors[key];
+                    } else {
+                        Object.assign(configDescriptors[key], currentConfigDescriptors[key]);
                     }
                 }
             }
