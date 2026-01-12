@@ -1,5 +1,5 @@
 import ContentComponent from '../../shared/content/Component.mjs';
-import {marked}         from '../../../../../../node_modules/marked/lib/marked.esm.js';
+import {marked}         from '../../../../../node_modules/marked/lib/marked.esm.js';
 
 const
     regexFrontMatter   = /^---\n([\s\S]*?)\n---\n/,
@@ -480,7 +480,7 @@ class Component extends ContentComponent {
 
                 if (icon === 'fa-tag') {
                     cleanAction = cleanAction.replace(/<code>(.*?)<\/code>/g, (match, label) => me.getLabelBadgeHtml(label));
-                    
+
                     // Try to resolve color from label
                     let labelMatch = action.match(/`([^`]+)`/);
                     if (labelMatch) {
