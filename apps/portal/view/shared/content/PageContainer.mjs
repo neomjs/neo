@@ -1,6 +1,7 @@
-import Component from './Component.mjs';
-import Container from '../../../../../src/container/Base.mjs';
-import Toolbar   from '../../../../../src/toolbar/Base.mjs';
+import {isDescriptor} from '../../../../../src/core/ConfigSymbols.mjs';
+import Component        from './Component.mjs';
+import Container        from '../../../../../src/container/Base.mjs';
+import Toolbar          from '../../../../../src/toolbar/Base.mjs';
 
 /**
  * @class Portal.view.shared.content.PageContainer
@@ -34,6 +35,52 @@ class PageContainer extends Container {
          */
         contentComponent: null,
         /**
+         * Default items configuration using the Proxy Config Pattern
+         * @member {Object} contentItems_
+         */
+        contentItems_: {
+            [isDescriptor]: true,
+            merge         : 'deep',
+            value         : {
+                content: {
+                    module   : '@config:contentComponent',
+                    reference: 'content',
+                    weight   : 10,
+                    listeners: {
+                        edit   : 'onContentEdit',
+                        refresh: 'onContentRefresh'
+                    }
+                },
+                toolbar: {
+                    module: Toolbar,
+                    flex  : 'none',
+                    cls   : ['content-bottom-toolbar'],
+                    layout: 'grid',
+                    tag   : 'nav',
+                    weight: 20,
+                    items : {
+                        prevPageButton: {
+                            cls      : ['content-bottom-toolbar-previous'],
+                            handler  : 'onPreviousPageButtonClick',
+                            hidden   : true,
+                            iconCls  : 'fa fa-chevron-left',
+                            reference: 'prev-page-button',
+                            ui       : 'secondary'
+                        },
+                        nextPageButton: {
+                            cls         : ['content-bottom-toolbar-next'],
+                            handler     : 'onNextPageButtonClick',
+                            hidden      : true,
+                            iconCls     : 'fa fa-chevron-right',
+                            iconPosition: 'right',
+                            reference   : 'next-page-button',
+                            ui          : 'secondary'
+                        }
+                    }
+                }
+            }
+        },
+        /**
          * @member {Object} nextPageRecord_=null
          * @reactive
          */
@@ -46,43 +93,23 @@ class PageContainer extends Container {
     }
 
     /**
-     * @param {Object} config
+     * @param {Object} value
+     * @param {Object} oldValue
      */
-    construct(config) {
-        let me = this;
+    afterSetContentItems(value, oldValue) {
+        if (value) {
+            this.items = value;
+        }
+    }
 
-        config.items = [{
-            module   : me.contentComponent || config.contentComponent || Component,
-            reference: 'content',
-            listeners: {
-                edit   : 'onContentEdit',
-                refresh: 'onContentRefresh'
-            }
-        }, {
-            module: Toolbar,
-            flex  : 'none',
-            cls   : ['content-bottom-toolbar'],
-            layout: 'grid',
-            tag   : 'nav',
-            items : [{
-                cls      : ['content-bottom-toolbar-previous'],
-                handler  : 'onPreviousPageButtonClick',
-                hidden   : true,
-                iconCls  : 'fa fa-chevron-left',
-                reference: 'prev-page-button',
-                ui       : 'secondary'
-            }, {
-                cls         : ['content-bottom-toolbar-next'],
-                handler     : 'onNextPageButtonClick',
-                hidden      : true,
-                iconCls     : 'fa fa-chevron-right',
-                iconPosition: 'right',
-                reference   : 'next-page-button',
-                ui          : 'secondary'
-            }]
-        }];
-
-        super.construct(config)
+    /**
+     * Ensure contentComponent falls back to the default Component if null is passed
+     * @param {Neo.component.Base|null} value
+     * @param {Neo.component.Base|null} oldValue
+     * @returns {Neo.component.Base}
+     */
+    beforeSetContentComponent(value, oldValue) {
+        return value || Component;
     }
 
     /**
@@ -102,16 +129,35 @@ class PageContainer extends Container {
     }
 
     /**
+     *
+     */
+    onConstructed() {
+        super.onConstructed();
+
+        let me = this;
+
+        if (me.nextPageRecord) {
+            me.afterSetNextPageRecord(me.nextPageRecord)
+        }
+
+        if (me.previousPageRecord) {
+            me.afterSetPreviousPageRecord(me.previousPageRecord)
+        }
+    }
+
+    /**
      * Triggered after the nextPageRecord config got changed
      * @param {Object} value
-     * @param {Object} oldValue
+     * @param {Object} [oldValue]
      */
     afterSetNextPageRecord(value, oldValue) {
-        if (oldValue !== undefined) {
+        let me = this;
+
+        if (me.nextPageButton) {
             if (value) {
-                this.nextPageButton.set({hidden: false, text: value[this.buttonTextField]})
+                me.nextPageButton.set({hidden: false, text: value[me.buttonTextField]})
             } else {
-                this.nextPageButton.hidden = true
+                me.nextPageButton.hidden = true
             }
         }
     }
@@ -119,14 +165,16 @@ class PageContainer extends Container {
     /**
      * Triggered after the previousPageRecord config got changed
      * @param {Object} value
-     * @param {Object} oldValue
+     * @param {Object} [oldValue]
      */
     afterSetPreviousPageRecord(value, oldValue) {
-        if (oldValue !== undefined) {
+        let me = this;
+
+        if (me.prevPageButton) {
             if (value) {
-                this.prevPageButton.set({hidden: false, text: value[this.buttonTextField]})
+                me.prevPageButton.set({hidden: false, text: value[me.buttonTextField]})
             } else {
-                this.prevPageButton.hidden = true
+                me.prevPageButton.hidden = true
             }
         }
     }

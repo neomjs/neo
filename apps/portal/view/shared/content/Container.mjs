@@ -1,3 +1,4 @@
+import {isDescriptor}  from '../../../../../src/core/ConfigSymbols.mjs';
 import Container         from '../../../../../src/container/Base.mjs';
 import PageContainer     from './PageContainer.mjs';
 import SectionsContainer from './SectionsContainer.mjs';
@@ -29,6 +30,58 @@ class MainContainer extends Container {
          */
         contentComponent: null,
         /**
+         * Default items configuration using the Proxy Config Pattern
+         * @member {Object} contentItems_
+         */
+        contentItems_: {
+            [isDescriptor]: true,
+            merge         : 'deep',
+            value         : {
+                sideNav: {
+                    module   : Container,
+                    cls      : ['sidenav-container'],
+                    flex     : 'none',
+                    layout   : 'fit',
+                    reference: 'sidenav-container',
+                    tag      : 'aside',
+                    weight   : 10,
+                    items    : {
+                        tree: {
+                            module   : TreeList,
+                            reference: 'tree'
+                        },
+                        toggleBtn: {
+                            ntype  : 'button',
+                            bind   : {hidden: data => data.size !== 'x-small'},
+                            cls    : ['sidenav-button'],
+                            handler: 'onSideNavToggleButtonClick',
+                            iconCls: 'fas fa-bars',
+                            ui     : 'secondary'
+                        }
+                    }
+                },
+                splitter: {
+                    module      : Splitter,
+                    bind        : {hidden: data => data.size === 'x-small'},
+                    cls         : ['main-content-splitter'],
+                    resizeTarget: 'previous',
+                    size        : 3,
+                    weight      : 20
+                },
+                pageContainer: {
+                    module          : '@config:pageContainerModule',
+                    buttonTextField : '@config:buttonTextField',
+                    contentComponent: '@config:contentComponent',
+                    weight          : 30
+                },
+                sections: {
+                    module   : SectionsContainer,
+                    reference: 'page-sections-container',
+                    weight   : 40
+                }
+            }
+        },
+        /**
          * @member {Object} layout={ntype:'hbox',align:'stretch'}
          * @reactive
          */
@@ -44,47 +97,19 @@ class MainContainer extends Container {
     }
 
     /**
-     * @param {Object} config
+     * @param {Object} value
+     * @param {Object} oldValue
      */
-    construct(config) {
+    afterSetContentItems(value, oldValue) {
         let me = this;
 
-        config.items = [{
-            module   : Container,
-            cls      : ['sidenav-container'],
-            flex     : 'none',
-            layout   : 'fit',
-            reference: 'sidenav-container',
-            tag      : 'aside',
-
-            items: [{
-                module   : TreeList,
-                reference: 'tree',
-                ...me.treeConfig
-            }, {
-                ntype  : 'button',
-                bind   : {hidden: data => data.size !== 'x-small'},
-                cls    : ['sidenav-button'],
-                handler: 'onSideNavToggleButtonClick',
-                iconCls: 'fas fa-bars',
-                ui     : 'secondary'
-            }]
-        }, {
-            module      : Splitter,
-            bind        : {hidden: data => data.size === 'x-small'},
-            cls         : ['main-content-splitter'],
-            resizeTarget: 'previous',
-            size        : 3
-        }, {
-            module          : me.pageContainerModule,
-            buttonTextField : me.buttonTextField,
-            contentComponent: me.contentComponent || config.contentComponent
-        }, {
-            module   : SectionsContainer,
-            reference: 'page-sections-container'
-        }];
-
-        super.construct(config)
+        if (value) {
+            // Manually merge treeConfig if it exists
+            if (me.treeConfig && value.sideNav?.items?.tree) {
+                Neo.assignDefaults(value.sideNav.items.tree, me.treeConfig);
+            }
+            me.items = value;
+        }
     }
 }
 
