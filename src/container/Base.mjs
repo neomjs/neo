@@ -7,7 +7,7 @@ import LayoutHbox     from '../layout/HBox.mjs';
 import LayoutVBox     from '../layout/VBox.mjs';
 import Logger         from '../util/Logger.mjs';
 import NeoArray       from '../util/Array.mjs';
-import {isDescriptor} from '../core/ConfigSymbols.mjs';
+import {isDescriptor, mergeFrom} from '../core/ConfigSymbols.mjs';
 
 const byWeight = ({ weight : lhs = 0 }, { weight : rhs = 0 }) => lhs - rhs;
 
@@ -429,6 +429,13 @@ class Container extends Component {
             }
 
             case 'Object': {
+                if (item[mergeFrom]) {
+                    if (me[item[mergeFrom]]) {
+                        item = Neo.mergeConfig(me[item[mergeFrom]], item, 'deep');
+                        delete item[mergeFrom]
+                    }
+                }
+
                 if (defaults) {
                     Neo.assignDefaults(item, defaults)
                 }
