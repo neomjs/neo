@@ -184,7 +184,7 @@ class Tree extends Base {
     collapseAll(silent=false) {
         let me       = this,
             hasMatch = false,
-            node;
+            nextSibling, node, parentNode, index;
 
         me.store.forEach(item => {
             if (!item.isLeaf) {
@@ -192,6 +192,14 @@ class Tree extends Base {
 
                 if (node.cls.includes('neo-folder-open')) {
                     NeoArray.remove(node.cls, 'neo-folder-open');
+
+                    ({parentNode, index} = VDomUtil.find(me.vdom, node.id));
+                    nextSibling          = parentNode.cn[index + 1];
+
+                    if (nextSibling?.tag === 'ul') {
+                        nextSibling.removeDom = true
+                    }
+
                     hasMatch = true
                 }
             }
@@ -245,8 +253,9 @@ class Tree extends Base {
         itemVdom = {
             tag: 'li',
             cls,
-            id : me.getItemId(record[keyProperty]),
-            cn : [{
+            id   : me.getItemId(record[keyProperty]),
+            level: record.level,
+            cn   : [{
                 tag  : 'span',
                 cls  : contentCls,
                 html : record[me.displayField],
@@ -255,9 +264,9 @@ class Tree extends Base {
             style: {
                 display : record.hidden ? 'none' : 'flex',
                 padding : '10px',
-                position: record.isLeaf ? null : 'sticky',
-                top     : record.isLeaf ? null : (record.level * 38) + 'px',
-                zIndex  : record.isLeaf ? null : (20 / (record.level + 1))
+                position: (record.isLeaf || record.collapsed) ? null : 'sticky',
+                top     : (record.isLeaf || record.collapsed) ? null : (record.level * 38) + 'px',
+                zIndex  : record.isLeaf ? 1 : (10000 + record.level)
             }
         };
 
@@ -300,11 +309,11 @@ class Tree extends Base {
 
             if (parentId !== null) {
                 vdomRoot.cn.push({
-                    tag  : 'ul',
-                    cls  : ['neo-list'],
-                    cn   : [],
-                    style: {
-                        display    : hidden ? 'none' : null,
+                    tag      : 'ul',
+                    cls      : ['neo-list'],
+                    cn       : [],
+                    removeDom: hidden,
+                    style    : {
                         paddingLeft: '15px'
                     }
                 });
@@ -319,7 +328,7 @@ class Tree extends Base {
 
                 tmpRoot.cn.push(me.createItem(record));
 
-                me.createItemLevel(record.id, tmpRoot, level + 1, record.hidden || hidden)
+                me.createItemLevel(record.id, tmpRoot, level + 1, record.hidden || hidden || record.collapsed)
             })
         }
 
@@ -352,7 +361,7 @@ class Tree extends Base {
     expandAll(silent=false) {
         let me       = this,
             hasMatch = false,
-            node;
+            nextSibling, node, parentNode, index;
 
         me.store.forEach(item => {
             if (!item.isLeaf) {
@@ -360,6 +369,14 @@ class Tree extends Base {
 
                 if (!node.cls.includes('neo-folder-open')) {
                     NeoArray.add(node.cls, 'neo-folder-open');
+
+                    ({parentNode, index} = VDomUtil.find(me.vdom, node.id));
+                    nextSibling          = parentNode.cn[index + 1];
+
+                    if (nextSibling?.tag === 'ul') {
+                        nextSibling.removeDom = false
+                    }
+
                     hasMatch = true
                 }
             }
@@ -378,7 +395,7 @@ class Tree extends Base {
         let me       = this,
             item     = me.store.get(itemId),
             hasMatch = false,
-            node, parentId;
+            nextSibling, node, parentId, parentNode, index;
 
         if (item) {
             parentId = item.parentId;
@@ -388,6 +405,14 @@ class Tree extends Base {
 
                 if (node && !node.cls.includes('neo-folder-open')) {
                     NeoArray.add(node.cls, 'neo-folder-open');
+
+                    ({parentNode, index} = VDomUtil.find(me.vdom, node.id));
+                    nextSibling          = parentNode.cn[index + 1];
+
+                    if (nextSibling?.tag === 'ul') {
+                        nextSibling.removeDom = false
+                    }
+
                     hasMatch = true
                 }
 
@@ -536,6 +561,18 @@ class Tree extends Base {
         if (item) {
             if (item.cls?.includes(me.folderCls)) {
                 NeoArray.toggle(item.cls, 'neo-folder-open');
+
+                let isOpen              = item.cls.includes('neo-folder-open'),
+                    {parentNode, index} = VDomUtil.find(me.vdom, item.id),
+                    nextSibling         = parentNode.cn[index + 1];
+
+                item.style.position = isOpen ? 'sticky' : null;
+                item.style.top      = isOpen ? (item.level * 38) + 'px' : null;
+
+                if (nextSibling?.tag === 'ul') {
+                    nextSibling.removeDom = !isOpen
+                }
+
                 me.update()
             } else {
                 me.onLeafItemClick(record);
@@ -580,7 +617,7 @@ class Tree extends Base {
      * When `saveScrollPosition` is true, this method calculates which folder headers are currently
      * pinned ("stuck") to the top of the viewport by comparing their computed `top` style with
      * the current `scrollTop`. It toggles the `neo-stuck` class on these items, allowing for
-     * conditional styling (e.g. adding a background to transparent headers).
+     * conditional styling (e.g. background opacity) only when headers are sticking.
      *
      * @param {Object} data
      * @param {Number} data.scrollTop The current scroll position
@@ -591,9 +628,10 @@ class Tree extends Base {
         let me = this;
 
         if (me.saveScrollPosition) {
-            let scrollTop   = data.scrollTop,
-                needsUpdate = false,
-                y           = 0;
+            let scrollTop       = data.scrollTop,
+                needsUpdate     = false,
+                y               = 0,
+                stuckCandidates = {};
 
             const traverse = (node) => {
                 if (!node.cn) return;
@@ -606,12 +644,17 @@ class Tree extends Base {
                             let topStyle = child.style.top;
 
                             if (topStyle) {
-                                let isStuck  = scrollTop > 0 && (y - scrollTop) <= parseInt(topStyle),
-                                    wasStuck = child.cls.includes('neo-stuck');
+                                let isStuck = scrollTop > 0 && (y - scrollTop) <= parseInt(topStyle);
 
-                                if (isStuck !== wasStuck) {
-                                    NeoArray.toggle(child.cls, 'neo-stuck', isStuck);
-                                    needsUpdate = true
+                                if (isStuck) {
+                                    let level = child.level || 0;
+                                    stuckCandidates[level] ??= [];
+                                    stuckCandidates[level].push(child)
+                                } else {
+                                    if (child.cls.includes('neo-stuck')) {
+                                        NeoArray.remove(child.cls, 'neo-stuck');
+                                        needsUpdate = true
+                                    }
                                 }
                             }
 
@@ -620,11 +663,11 @@ class Tree extends Base {
                             lastFolderOpen = true
                         }
 
-                        if (child.style?.display !== 'none') {
-                            y += 48
+                        if (child.style?.display !== 'none' && !child.removeDom) {
+                            y += 51
                         }
                     } else if (child.tag === 'ul') {
-                        if (lastFolderOpen) {
+                        if (lastFolderOpen && !child.removeDom) {
                             traverse(child)
                         }
                     }
@@ -634,6 +677,20 @@ class Tree extends Base {
             if (me.vdom.cn && me.vdom.cn[0]) {
                 traverse(me.vdom.cn[0])
             }
+
+            Object.values(stuckCandidates).forEach(items => {
+                let last = items[items.length - 1];
+
+                items.forEach(item => {
+                    let shouldBeStuck = (item === last),
+                        hasClass      = item.cls.includes('neo-stuck');
+
+                    if (shouldBeStuck !== hasClass) {
+                        NeoArray.toggle(item.cls, 'neo-stuck', shouldBeStuck);
+                        needsUpdate = true
+                    }
+                })
+            });
 
             if (needsUpdate) {
                 me.update()
