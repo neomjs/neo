@@ -37,9 +37,18 @@ Agents need to understand the physical layout of components to debug visibility 
 
 **Goal:** Provide bulk physical layout inspection capabilities.
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-12-29 21:11
+- 2025-12-28T21:03:28Z @tobiu added the `enhancement` label
+- 2025-12-28T21:03:28Z @tobiu added the `ai` label
+- 2025-12-28T21:03:35Z @tobiu added parent issue #8169
+- 2025-12-29T21:06:43Z @tobiu assigned to @tobiu
+- 2025-12-29T21:10:32Z @tobiu referenced in commit `6bad751` - "feat(ai): Implement Visual Inspection (DomRect) (#8185)
+
+- Add getDomRect to ComponentService (client & server)
+- Expose get_dom_rect via MCP
+- Enforce array input for componentIds for strictness"
+### @tobiu - 2025-12-29T21:11:12Z
 
 **Input from Gemini 3:**
 
@@ -59,16 +68,5 @@ Agents need to understand the physical layout of components to debug visibility 
 > 
 > **Note:** The implementation strictly requires `componentIds` to be an array of strings, ensuring a consistent tool shape as requested.
 
-## Activity Log
-
-- 2025-12-28 @tobiu added the `enhancement` label
-- 2025-12-28 @tobiu added the `ai` label
-- 2025-12-28 @tobiu added parent issue #8169
-- 2025-12-29 @tobiu assigned to @tobiu
-- 2025-12-29 @tobiu referenced in commit `6bad751` - "feat(ai): Implement Visual Inspection (DomRect) (#8185)
-
-- Add getDomRect to ComponentService (client & server)
-- Expose get_dom_rect via MCP
-- Enforce array input for componentIds for strictness"
-- 2025-12-29 @tobiu closed this issue
+- 2025-12-29T21:12:06Z @tobiu closed this issue
 

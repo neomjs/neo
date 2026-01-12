@@ -57,12 +57,12 @@ This document captures planned enhancements for the local AI knowledge base syst
 -   Significantly lower memory footprint.
 -   Improved scalability for much larger codebases.
 
-## Activity Log
+## Timeline
 
-- 2025-09-18 @tobiu assigned to @tobiu
-- 2025-09-18 @tobiu added the `enhancement` label
-- 2025-09-18 @tobiu added the `no auto close` label
-- 2025-09-19 @tobiu referenced in commit `ceb1660` - "#7215 incremental updates"
-- 2025-09-20 @tobiu referenced in commit `bd204a2` - "#7215 Streaming for Memory Efficiency"
-- 2025-09-20 @tobiu closed this issue
+- 2025-09-18T16:48:08Z @tobiu assigned to @tobiu
+- 2025-09-18T16:48:09Z @tobiu added the `enhancement` label
+- 2025-09-18T16:48:09Z @tobiu added the `no auto close` label
+- 2025-09-19T14:06:47Z @tobiu referenced in commit `ceb1660` - "#7215 incremental updates"
+- 2025-09-20T09:04:07Z @tobiu referenced in commit `bd204a2` - "#7215 Streaming for Memory Efficiency"
+- 2025-09-20T09:36:15Z @tobiu closed this issue
 

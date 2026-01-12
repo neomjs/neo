@@ -23,10 +23,11 @@ closedAt: '2025-02-21T13:43:16Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
-- 2025-02-21 @tobiu added the `enhancement` label
-- 2025-02-21 @tobiu assigned to @tobiu
-- 2025-02-21 @tobiu referenced in commit `04dbd6a` - "examples.component.magicmovetext.MainContainer: configPanelMaxWidth config #6476"
-- 2025-02-21 @tobiu closed this issue
+- 2025-02-21T13:40:55Z @tobiu added the `enhancement` label
+- 2025-02-21T13:40:55Z @tobiu assigned to @tobiu
+- 2025-02-21T13:41:32Z @tobiu referenced in commit `04dbd6a` - "examples.component.magicmovetext.MainContainer: configPanelMaxWidth config #6476"
+- 2025-02-21T13:43:11Z @tobiu changed title from **examples.component.magicmovetext.MainContainer: configPanelMaxWidth config** to **examples.ConfigurationViewport: configPanelMaxWidth config**
+- 2025-02-21T13:43:16Z @tobiu closed this issue
 

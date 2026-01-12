@@ -93,9 +93,42 @@ https://github.com/neomjs/neo/blob/dev/.github/VISION.md
 - **To Do:** ticket-create-mcp-server-documentation.md
 - **To Do:** ticket-cleanup-old-ai-query-npm-scripts.md
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-10-08 15:22
+- 2025-10-07T09:26:04Z @tobiu assigned to @tobiu
+- 2025-10-07T09:26:06Z @tobiu added the `epic` label
+- 2025-10-07T09:26:06Z @tobiu added the `ai` label
+- 2025-10-07T09:26:45Z @tobiu referenced in commit `59a9701` - "#7399 internal ticket files WIP"
+- 2025-10-07T09:45:02Z @tobiu added sub-issue #7400
+- 2025-10-07T10:01:58Z @tobiu cross-referenced by #7400
+- 2025-10-07T10:05:49Z @tobiu added sub-issue #7401
+- 2025-10-07T10:06:28Z @tobiu added the `help wanted` label
+- 2025-10-07T10:06:28Z @tobiu added the `good first issue` label
+- 2025-10-07T10:06:28Z @tobiu added the `hacktoberfest` label
+- 2025-10-07T10:08:22Z @tobiu added sub-issue #7402
+- 2025-10-07T10:10:59Z @tobiu added sub-issue #7403
+- 2025-10-07T10:12:57Z @tobiu added sub-issue #7404
+- 2025-10-07T10:14:43Z @tobiu added sub-issue #7405
+- 2025-10-07T10:17:16Z @tobiu added sub-issue #7406
+- 2025-10-07T10:19:24Z @tobiu added sub-issue #7407
+- 2025-10-07T10:21:06Z @tobiu added sub-issue #7408
+- 2025-10-07T10:24:24Z @tobiu added sub-issue #7409
+- 2025-10-07T10:26:39Z @tobiu added sub-issue #7410
+- 2025-10-07T10:29:12Z @tobiu added sub-issue #7411
+- 2025-10-07T10:30:51Z @tobiu added sub-issue #7412
+- 2025-10-07T10:31:44Z @tobiu referenced in commit `398d1b0` - "#7399 internal ticket md files"
+- 2025-10-07T10:45:53Z @tobiu cross-referenced by #7408
+- 2025-10-07T10:48:10Z @tobiu added sub-issue #7413
+- 2025-10-07T10:48:55Z @tobiu referenced in commit `d5c5e05` - "#7399 MCP Server: Implement Knowledge Create/Update Endpoint sub"
+- 2025-10-07T10:52:53Z @tobiu removed sub-issue #7413
+- 2025-10-07T10:58:05Z @tobiu referenced in commit `396ddf0` - "#7399 ticket polishing"
+- 2025-10-07T16:30:53Z @tobiu cross-referenced by #7403
+- 2025-10-08T09:32:21Z @tobiu cross-referenced by #7401
+- 2025-10-08T09:35:53Z @tobiu cross-referenced by #7410
+- 2025-10-08T12:12:54Z @MannXo cross-referenced by #7404
+- 2025-10-08T12:37:25Z @tobiu cross-referenced by #7283
+- 2025-10-08T14:47:34Z @tobiu referenced in commit `560d280` - "#7399 minor sub changes, for a better new file location"
+### @tobiu - 2025-10-08T15:22:08Z
 
 FYI: https://geminicli.com/extensions/
 
@@ -113,53 +146,18 @@ FYI: https://geminicli.com/extensions/
 > 
 >   Thank you for this essential context update.
 
-### @tobiu - 2025-10-24 09:27
+- 2025-10-08T15:36:51Z @tobiu cross-referenced by PR #7419
+- 2025-10-08T15:56:22Z @tobiu cross-referenced by #7407
+- 2025-10-08T16:31:50Z @tobiu cross-referenced by #7406
+- 2025-10-09T10:25:30Z @tobiu added sub-issue #7425
+- 2025-10-10T14:10:09Z @tobiu cross-referenced by #7409
+- 2025-10-11T18:03:00Z @tobiu added sub-issue #7464
+- 2025-10-12T11:17:44Z @tobiu added sub-issue #7468
+- 2025-10-12T11:20:48Z @tobiu referenced in commit `68c7980` - "#7399 sub-tasks cleanup"
+- 2025-10-24T09:26:54Z @tobiu removed sub-issue #7405
+### @tobiu - 2025-10-24T09:27:25Z
 
 resolved => inside the new servers
 
-## Activity Log
-
-- 2025-10-07 @tobiu assigned to @tobiu
-- 2025-10-07 @tobiu added the `epic` label
-- 2025-10-07 @tobiu added the `ai` label
-- 2025-10-07 @tobiu referenced in commit `59a9701` - "#7399 internal ticket files WIP"
-- 2025-10-07 @tobiu added sub-issue #7400
-- 2025-10-07 @tobiu cross-referenced by #7400
-- 2025-10-07 @tobiu added sub-issue #7401
-- 2025-10-07 @tobiu added the `help wanted` label
-- 2025-10-07 @tobiu added the `good first issue` label
-- 2025-10-07 @tobiu added the `hacktoberfest` label
-- 2025-10-07 @tobiu added sub-issue #7402
-- 2025-10-07 @tobiu added sub-issue #7403
-- 2025-10-07 @tobiu added sub-issue #7404
-- 2025-10-07 @tobiu added sub-issue #7405
-- 2025-10-07 @tobiu added sub-issue #7406
-- 2025-10-07 @tobiu added sub-issue #7407
-- 2025-10-07 @tobiu added sub-issue #7408
-- 2025-10-07 @tobiu added sub-issue #7409
-- 2025-10-07 @tobiu added sub-issue #7410
-- 2025-10-07 @tobiu added sub-issue #7411
-- 2025-10-07 @tobiu added sub-issue #7412
-- 2025-10-07 @tobiu referenced in commit `398d1b0` - "#7399 internal ticket md files"
-- 2025-10-07 @tobiu cross-referenced by #7408
-- 2025-10-07 @tobiu added sub-issue #7413
-- 2025-10-07 @tobiu referenced in commit `d5c5e05` - "#7399 MCP Server: Implement Knowledge Create/Update Endpoint sub"
-- 2025-10-07 @tobiu removed sub-issue #7413
-- 2025-10-07 @tobiu referenced in commit `396ddf0` - "#7399 ticket polishing"
-- 2025-10-07 @tobiu cross-referenced by #7403
-- 2025-10-08 @tobiu cross-referenced by #7401
-- 2025-10-08 @tobiu cross-referenced by #7410
-- 2025-10-08 @MannXo cross-referenced by #7404
-- 2025-10-08 @tobiu cross-referenced by #7283
-- 2025-10-08 @tobiu referenced in commit `560d280` - "#7399 minor sub changes, for a better new file location"
-- 2025-10-08 @tobiu cross-referenced by PR #7419
-- 2025-10-08 @tobiu cross-referenced by #7407
-- 2025-10-08 @tobiu cross-referenced by #7406
-- 2025-10-09 @tobiu added sub-issue #7425
-- 2025-10-10 @tobiu cross-referenced by #7409
-- 2025-10-11 @tobiu added sub-issue #7464
-- 2025-10-12 @tobiu added sub-issue #7468
-- 2025-10-12 @tobiu referenced in commit `68c7980` - "#7399 sub-tasks cleanup"
-- 2025-10-24 @tobiu removed sub-issue #7405
-- 2025-10-24 @tobiu closed this issue
+- 2025-10-24T09:27:25Z @tobiu closed this issue
 

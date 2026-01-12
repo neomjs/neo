@@ -25,10 +25,10 @@ closedAt: '2025-03-26T19:46:58Z'
 
 <img width="616" alt="Image" src="https://github.com/user-attachments/assets/48b1c0dd-778a-4632-b5b8-509d295b7b28" />
 
-## Activity Log
+## Timeline
 
-- 2025-03-26 @tobiu added the `bug` label
-- 2025-03-26 @tobiu assigned to @tobiu
-- 2025-03-26 @tobiu referenced in commit `dd8f606` - "main.addon.ResizeObserver: unregister() #6596"
-- 2025-03-26 @tobiu closed this issue
+- 2025-03-26T19:46:20Z @tobiu added the `bug` label
+- 2025-03-26T19:46:21Z @tobiu assigned to @tobiu
+- 2025-03-26T19:46:50Z @tobiu referenced in commit `dd8f606` - "main.addon.ResizeObserver: unregister() #6596"
+- 2025-03-26T19:46:58Z @tobiu closed this issue
 

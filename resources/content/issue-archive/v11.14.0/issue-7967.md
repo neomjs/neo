@@ -33,12 +33,12 @@ ViewportController.mjs:30 Uncaught (in promise) TypeError: Cannot destructure pr
     at App.onMessage (Base.mjs:189:46)
 ```
 
-## Activity Log
+## Timeline
 
-- 2025-12-01 @tobiu assigned to @tobiu
-- 2025-12-01 @tobiu added the `bug` label
-- 2025-12-01 @tobiu referenced in commit `dbeb8a7` - "examples.component.multiWindowHelix.ViewportController: throws when clicking on the detach window button #7967"
-- 2025-12-01 @tobiu closed this issue
-- 2025-12-01 @tobiu added parent issue #7961
-- 2025-12-01 @tobiu removed parent issue #7961
+- 2025-12-01T15:24:45Z @tobiu assigned to @tobiu
+- 2025-12-01T15:24:47Z @tobiu added the `bug` label
+- 2025-12-01T15:28:27Z @tobiu referenced in commit `dbeb8a7` - "examples.component.multiWindowHelix.ViewportController: throws when clicking on the detach window button #7967"
+- 2025-12-01T15:28:31Z @tobiu closed this issue
+- 2025-12-01T15:40:27Z @tobiu added parent issue #7961
+- 2025-12-01T15:42:56Z @tobiu removed parent issue #7961
 

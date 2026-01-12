@@ -26,10 +26,10 @@ Rationale:
 * core.Base does not use the observable mixin.
 * using a real config, devs can easily "listen" to `afterSetIsReady()` => getting a notification once the async initialization is done.
 
-## Activity Log
+## Timeline
 
-- 2025-06-24 @tobiu assigned to @tobiu
-- 2025-06-24 @tobiu added the `enhancement` label
-- 2025-06-25 @tobiu referenced in commit `20ce481` - "core.Base: change the public is ready class field to an isReady_ config #6865"
-- 2025-06-25 @tobiu closed this issue
+- 2025-06-24T22:17:10Z @tobiu assigned to @tobiu
+- 2025-06-24T22:17:11Z @tobiu added the `enhancement` label
+- 2025-06-25T14:33:53Z @tobiu referenced in commit `20ce481` - "core.Base: change the public is ready class field to an isReady_ config #6865"
+- 2025-06-25T15:15:02Z @tobiu closed this issue
 

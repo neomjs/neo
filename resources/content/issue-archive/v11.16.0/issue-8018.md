@@ -37,9 +37,11 @@ To enable a true "Command Center" experience, users must be able to undock widge
 - [ ] Closing the popup (or dragging it back) restores the component to the main dashboard.
 
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-12-04 00:31
+- 2025-12-04T00:13:07Z @tobiu added the `enhancement` label
+- 2025-12-04T00:13:07Z @tobiu added the `ai` label
+### @tobiu - 2025-12-04T00:31:49Z
 
 **Input from Antigravity:**
 
@@ -50,7 +52,7 @@ To enable a true "Command Center" experience, users must be able to undock widge
 > 
 > Pending final user verification of the canvas rendering.
 
-### @tobiu - 2025-12-04 00:36
+### @tobiu - 2025-12-04T00:36:04Z
 
 **Input from Antigravity:**
 
@@ -61,11 +63,7 @@ To enable a true "Command Center" experience, users must be able to undock widge
 > 
 > Closing as completed.
 
-## Activity Log
-
-- 2025-12-04 @tobiu added the `enhancement` label
-- 2025-12-04 @tobiu added the `ai` label
-- 2025-12-04 @tobiu assigned to @tobiu
-- 2025-12-04 @tobiu added parent issue #7918
-- 2025-12-04 @tobiu closed this issue
+- 2025-12-04T01:14:59Z @tobiu assigned to @tobiu
+- 2025-12-04T01:15:15Z @tobiu added parent issue #7918
+- 2025-12-04T01:26:32Z @tobiu closed this issue
 

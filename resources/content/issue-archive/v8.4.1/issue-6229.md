@@ -23,16 +23,14 @@ closedAt: '2025-01-14T14:38:44Z'
 
 ![Image](https://github.com/user-attachments/assets/34a36373-bb15-4ce8-9333-4e9fb420058f)
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-01-14 14:38
+- 2025-01-14T14:37:51Z @tobiu added the `enhancement` label
+- 2025-01-14T14:37:51Z @tobiu assigned to @tobiu
+- 2025-01-14T14:38:37Z @tobiu referenced in commit `6a21d38` - "data.Store: beforeSetData() => remove the cloning, switch to a for loop => performance #6229"
+### @tobiu - 2025-01-14T14:38:44Z
 
 ![Image](https://github.com/user-attachments/assets/ccabf897-7c17-42f1-92bb-c5281a00e4b9)
 
-## Activity Log
-
-- 2025-01-14 @tobiu added the `enhancement` label
-- 2025-01-14 @tobiu assigned to @tobiu
-- 2025-01-14 @tobiu referenced in commit `6a21d38` - "data.Store: beforeSetData() => remove the cloning, switch to a for loop => performance #6229"
-- 2025-01-14 @tobiu closed this issue
+- 2025-01-14T14:38:44Z @tobiu closed this issue
 

@@ -54,10 +54,10 @@ The logic is as follows:
 - **Idiomatic Code:** Uses the built-in `suspendEvents` property, which is the intended, declarative way to batch operations without firing events. This is cleaner and more robust than manually managing listeners.
 - **Improved User Experience:** Eliminates long freezes when loading large amounts of data.
 
-## Activity Log
+## Timeline
 
-- 2025-08-11 @tobiu assigned to @tobiu
-- 2025-08-11 @tobiu added the `enhancement` label
-- 2025-08-11 @tobiu referenced in commit `47668b6` - "High-Performance Chunking for Store.add() via suspendEvents #7178"
-- 2025-08-11 @tobiu closed this issue
+- 2025-08-11T10:05:50Z @tobiu assigned to @tobiu
+- 2025-08-11T10:05:51Z @tobiu added the `enhancement` label
+- 2025-08-11T10:06:38Z @tobiu referenced in commit `47668b6` - "High-Performance Chunking for Store.add() via suspendEvents #7178"
+- 2025-08-11T10:06:47Z @tobiu closed this issue
 

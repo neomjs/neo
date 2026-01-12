@@ -65,12 +65,12 @@ Modify `resources/scss/src/component/Markdown.scss`:
     }
 ```
 
-## Activity Log
+## Timeline
 
-- 2026-01-07 @tobiu added the `enhancement` label
-- 2026-01-07 @tobiu added the `design` label
-- 2026-01-07 @tobiu added the `ai` label
-- 2026-01-07 @tobiu assigned to @tobiu
-- 2026-01-07 @tobiu referenced in commit `c3c63d7` - "Add rounded corners to Markdown tables #8384"
-- 2026-01-07 @tobiu closed this issue
+- 2026-01-07T14:21:25Z @tobiu added the `enhancement` label
+- 2026-01-07T14:21:25Z @tobiu added the `design` label
+- 2026-01-07T14:21:25Z @tobiu added the `ai` label
+- 2026-01-07T14:21:33Z @tobiu assigned to @tobiu
+- 2026-01-07T14:23:28Z @tobiu referenced in commit `c3c63d7` - "Add rounded corners to Markdown tables #8384"
+- 2026-01-07T14:23:46Z @tobiu closed this issue
 

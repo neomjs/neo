@@ -38,9 +38,20 @@ Refactor the `Neural Link` architecture by extracting component-related logic fr
 
 **Goal:** Reduce the responsibility of `ConnectionService` and prepare for more complex component operations.
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-12-28 18:53
+- 2025-12-28T18:41:40Z @tobiu added the `ai` label
+- 2025-12-28T18:41:40Z @tobiu added the `refactoring` label
+- 2025-12-28T18:41:40Z @tobiu added the `architecture` label
+- 2025-12-28T18:42:17Z @tobiu added parent issue #8169
+- 2025-12-28T18:51:55Z @tobiu assigned to @tobiu
+- 2025-12-28T18:53:16Z @tobiu referenced in commit `b8f54bf` - "refactor(ai): Extract ComponentService from ConnectionService (#8178)
+
+- Created ComponentService for handling component inspection/modification
+- Exposed ConnectionService.call() as a public method for RPC transport
+- Removed component logic from ConnectionService to reduce complexity
+- Updated toolService to route component tools to the new service"
+### @tobiu - 2025-12-28T18:53:25Z
 
 **Input from Gemini 3.0:**
 
@@ -61,18 +72,5 @@ Refactor the `Neural Link` architecture by extracting component-related logic fr
 > 
 > This establishes the pattern for the upcoming `RuntimeService` and `InteractionService` extractions.
 
-## Activity Log
-
-- 2025-12-28 @tobiu added the `ai` label
-- 2025-12-28 @tobiu added the `refactoring` label
-- 2025-12-28 @tobiu added the `architecture` label
-- 2025-12-28 @tobiu added parent issue #8169
-- 2025-12-28 @tobiu assigned to @tobiu
-- 2025-12-28 @tobiu referenced in commit `b8f54bf` - "refactor(ai): Extract ComponentService from ConnectionService (#8178)
-
-- Created ComponentService for handling component inspection/modification
-- Exposed ConnectionService.call() as a public method for RPC transport
-- Removed component logic from ConnectionService to reduce complexity
-- Updated toolService to route component tools to the new service"
-- 2025-12-28 @tobiu closed this issue
+- 2025-12-28T18:53:47Z @tobiu closed this issue
 

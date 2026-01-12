@@ -23,9 +23,9 @@ closedAt: '2025-03-02T18:08:05Z'
 * the demos are much more impressive
 * the details should not be the first thing new users see
 
-## Activity Log
+## Timeline
 
-- 2025-03-02 @tobiu added the `enhancement` label
-- 2025-03-02 @tobiu referenced in commit `40e224f` - "Portal App Home: move the features overview to the bottom #6521"
-- 2025-03-02 @tobiu closed this issue
+- 2025-03-02T18:07:44Z @tobiu added the `enhancement` label
+- 2025-03-02T18:07:59Z @tobiu referenced in commit `40e224f` - "Portal App Home: move the features overview to the bottom #6521"
+- 2025-03-02T18:08:05Z @tobiu closed this issue
 

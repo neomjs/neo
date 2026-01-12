@@ -23,10 +23,10 @@ closedAt: '2025-11-24T11:54:36Z'
 
 Some files use `AI.`, while most files use `Neo.ai.`. We always want to use `Neo.ai` for consistency and generated namespaces.
 
-## Activity Log
+## Timeline
 
-- 2025-11-24 @tobiu assigned to @tobiu
-- 2025-11-24 @tobiu added the `enhancement` label
-- 2025-11-24 @tobiu referenced in commit `0f569a3` - "MCP servers: inconsistencies inside className configs #7895"
-- 2025-11-24 @tobiu closed this issue
+- 2025-11-24T11:54:05Z @tobiu assigned to @tobiu
+- 2025-11-24T11:54:06Z @tobiu added the `enhancement` label
+- 2025-11-24T11:54:26Z @tobiu referenced in commit `0f569a3` - "MCP servers: inconsistencies inside className configs #7895"
+- 2025-11-24T11:54:36Z @tobiu closed this issue
 

@@ -38,12 +38,12 @@ Current `SessionService` limits automatic summarization to sessions active in th
 3.  **Update Documentation:**
     -   Update JSDoc for `summarizeSessions` and `findSessionsToSummarize` to document the new parameter and behavior.
 
-## Activity Log
+## Timeline
 
-- 2025-11-22 @tobiu assigned to @tobiu
-- 2025-11-22 @tobiu added the `enhancement` label
-- 2025-11-22 @tobiu added the `ai` label
-- 2025-11-22 @tobiu referenced in commit `bc4595e` - "Add capability to force summarize all sessions (ignoring 30-day limit) #7862"
-- 2025-11-22 @tobiu closed this issue
-- 2025-11-23 @tobiu cross-referenced by #7876
+- 2025-11-22T18:37:20Z @tobiu assigned to @tobiu
+- 2025-11-22T18:37:27Z @tobiu added the `enhancement` label
+- 2025-11-22T18:37:27Z @tobiu added the `ai` label
+- 2025-11-22T18:53:03Z @tobiu referenced in commit `bc4595e` - "Add capability to force summarize all sessions (ignoring 30-day limit) #7862"
+- 2025-11-22T18:53:12Z @tobiu closed this issue
+- 2025-11-23T11:34:25Z @tobiu cross-referenced by #7876
 

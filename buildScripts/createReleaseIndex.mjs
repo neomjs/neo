@@ -7,9 +7,27 @@ import matter          from 'gray-matter';
 import semver          from 'semver';
 import {sanitizeInput} from './util/Sanitizer.mjs';
 
-const ROOT_DIR      = process.cwd();
-const RELEASE_DIR   = path.resolve(ROOT_DIR, 'resources/content/release-notes');
-const OUTPUT_FILE   = path.resolve(ROOT_DIR, 'apps/portal/resources/data/releases.json');
+/**
+ * @module buildScripts.createReleaseIndex
+ * @summary Generates a hierarchical JSON index of Release Notes for the Neo.mjs Portal application.
+ *
+ * This script scans local markdown files in `resources/content/release-notes` and constructs a
+ * structured JSON index (`releases.json`). This index is consumed by the Portal's "Release Notes"
+ * section, allowing users to browse history grouped by Major Version.
+ *
+ * **Key Features:**
+ * - **Metadata Extraction:** Parses frontmatter (`tagName`, `publishedAt`) but falls back to file stats/names if needed.
+ * - **SemVer Grouping:** Automatically groups releases by Major Version (e.g., "v5", "v6") using `semver`.
+ * - **Tree-Ready Output:** Generates a flat-tree structure with `parentId` references, optimized for `Neo.tree.List`.
+ *
+ * @see apps/portal/view/release/MainContainer.mjs
+ * @see buildScripts/createTicketIndex.mjs
+ * @keywords portal, releases, changelog, semver, build-script, knowledge-base
+ */
+
+const ROOT_DIR    = process.cwd();
+const RELEASE_DIR = path.resolve(ROOT_DIR, 'resources/content/release-notes');
+const OUTPUT_FILE = path.resolve(ROOT_DIR, 'apps/portal/resources/data/releases.json');
 
 /**
  * Parsed release note object
@@ -21,11 +39,18 @@ const OUTPUT_FILE   = path.resolve(ROOT_DIR, 'apps/portal/resources/data/release
  */
 
 /**
- * Scans the release notes directory and generates a JSON index.
- * @param {Object} options
- * @param {String} options.inputDir - Directory containing markdown release notes
- * @param {String} options.outputFile - Path to the output JSON file
- * @returns {Promise<void>}
+ * Core logic to scan and index release note markdown files.
+ *
+ * 1.  Glob-scans `resources/content/release-notes/*.md`.
+ * 2.  Extracts version numbers and dates (handling both frontmatter and filesystem fallbacks).
+ * 3.  Groups releases into Major Version buckets (e.g., "v1", "v2").
+ * 4.  Sorts majors and minors descending.
+ * 5.  Flattens the structure for `Neo.data.Store` consumption.
+ *
+ * @param {Object} options Configuration options
+ * @param {String} [options.inputDir] - Directory containing markdown release notes (defaults to `resources/content/release-notes`)
+ * @param {String} [options.outputFile] - Path to the output JSON file (defaults to `apps/portal/resources/data/releases.json`)
+ * @returns {Promise<void>} Resolves when the JSON file is written
  */
 async function createReleaseIndex(options = {}) {
     const inputDir   = options.inputDir || RELEASE_DIR;
@@ -40,27 +65,18 @@ async function createReleaseIndex(options = {}) {
         console.warn('No release note files found.');
         return;
     }
-    
+
     const releases = await Promise.all(files.map(async (filePath) => {
         const content  = await fs.readFile(filePath, 'utf8');
         const fileName = path.basename(filePath, '.md'); // e.g., 'v11.18.0'
-        
+
         let frontmatter = {};
-        let bodyContent = content;
 
         try {
             const parsed = matter(content);
             frontmatter  = parsed.data;
-            bodyContent  = parsed.content;
         } catch (e) {
             console.warn(`Failed to parse frontmatter for ${fileName}:`, e.message);
-        }
-        
-        // Extract Title (Priority: frontmatter.name -> First H1 -> filename)
-        let title = frontmatter.name;
-        if (!title) {
-            const titleMatch = bodyContent.match(/^#\s+(.+)$/m);
-            title = titleMatch ? titleMatch[1].trim() : fileName;
         }
 
         // Extract Date (Priority: frontmatter.publishedAt -> file stats)
@@ -82,7 +98,6 @@ async function createReleaseIndex(options = {}) {
         return {
             version: cleanVersion,
             date   : date,
-            title  : title,
             path   : `resources/content/release-notes/${path.basename(filePath)}`
         };
     }));
@@ -162,11 +177,19 @@ async function createReleaseIndex(options = {}) {
     console.log(`Found ${releases.length} releases.`);
 
     await fs.ensureDir(path.dirname(outputFile));
-    await fs.writeJSON(outputFile, treeData, { spaces: 4 });
-    
+    await fs.writeJSON(outputFile, treeData);
+
     console.log(`Release index written to ${outputFile}`);
 }
 
+/**
+ * CLI entry point for the script.
+ * Handles argument parsing using `commander` and invokes the main `createReleaseIndex` function.
+ *
+ * Supported flags:
+ * - `-i, --input <path>`: Custom input directory
+ * - `-o, --output <path>`: Custom output file path
+ */
 async function runCli() {
     const program = new Command();
 

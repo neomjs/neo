@@ -247,63 +247,61 @@ Join us. The future of development is being written right now.
 
 **Neo.mjs: Where your contributions compound into everyone's success.**
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-09-28 14:27
+- 2025-09-28T12:23:37Z @tobiu added the `help wanted` label
+- 2025-09-28T12:23:37Z @tobiu added the `good first issue` label
+- 2025-09-28T12:23:37Z @tobiu added the `epic` label
+- 2025-09-28T12:23:37Z @tobiu added the `hacktoberfest` label
+- 2025-09-28T12:48:03Z @tobiu added sub-issue #7297
+- 2025-09-28T12:49:43Z @tobiu assigned to @tobiu
+- 2025-09-28T12:50:28Z @tobiu added sub-issue #7298
+- 2025-09-28T12:53:03Z @tobiu added sub-issue #7299
+- 2025-09-28T13:09:41Z @tobiu referenced in commit `bf5b347` - "#7296 subs md files"
+- 2025-09-28T13:34:25Z @tobiu added sub-issue #7301
+- 2025-09-28T13:50:07Z @tobiu added sub-issue #7302
+- 2025-09-28T13:51:36Z @tobiu removed sub-issue #7302
+- 2025-09-28T13:52:28Z @tobiu referenced in commit `9062317` - "#7296 sub md file"
+- 2025-09-28T14:07:16Z @tobiu added sub-issue #7305
+- 2025-09-28T14:13:06Z @tobiu added sub-issue #7306
+- 2025-09-28T14:14:20Z @tobiu referenced in commit `240d918` - "#7296 ticket md files"
+### @tobiu - 2025-09-28T14:27:18Z
 
 This ticket itself is already an example of the "ai native" workflow. It was created as a combined effort of `Claude` and `Gemini` with guidance. I will keep it unassigned, so that it hopefully show up in event search tools.
 
-### @tobiu - 2025-09-29 09:58
+- 2025-09-28T14:27:24Z @tobiu unassigned from @tobiu
+- 2025-09-28T15:25:59Z @tobiu added sub-issue #7307
+- 2025-09-28T15:26:47Z @tobiu referenced in commit `1cca92a` - "#7296 new sub md file"
+### @tobiu - 2025-09-29T09:58:17Z
 
 updated the intro to include: https://github.com/neomjs/neo/blob/dev/.github/WORKING_WITH_AGENTS.md
 
-### @tobiu - 2025-10-04 14:22
+- 2025-10-01T08:11:02Z @tobiu referenced in commit `6a7ddda` - "#7296 internal tickets update"
+- 2025-10-02T17:42:20Z @tobiu added sub-issue #7328
+- 2025-10-02T17:42:53Z @tobiu referenced in commit `a321602` - "#7296 new sub md file"
+- 2025-10-02T17:43:51Z @tobiu referenced in commit `ebd2804` - "#7296 new sub md file => gh id"
+- 2025-10-03T16:13:58Z @tobiu cross-referenced by #7289
+- 2025-10-03T16:15:47Z @tobiu cross-referenced by #7287
+- 2025-10-03T16:17:06Z @tobiu cross-referenced by #7283
+- 2025-10-04T08:37:46Z @tobiu added sub-issue #7342
+- 2025-10-04T08:41:20Z @tobiu added sub-issue #7343
+- 2025-10-04T08:46:39Z @tobiu added sub-issue #7344
+- 2025-10-04T08:48:47Z @tobiu added sub-issue #7345
+- 2025-10-04T08:52:08Z @tobiu added sub-issue #7346
+- 2025-10-04T09:30:58Z @tobiu referenced in commit `0e84aea` - "#7296 new sub-ticket md files"
+### @tobiu - 2025-10-04T14:22:00Z
 
 Hi guys! As the epic mentions: you are welcome to open hacktoberfest tickets on your own. E.g. using the "ai native" workflow, gemini can easily provide you with ideas.
 
 Alternatively, you are also welcome to just ask here for more tickets (ideally with a short summary on what you would like to work on).
 
-## Activity Log
-
-- 2025-09-28 @tobiu added the `help wanted` label
-- 2025-09-28 @tobiu added the `good first issue` label
-- 2025-09-28 @tobiu added the `epic` label
-- 2025-09-28 @tobiu added the `hacktoberfest` label
-- 2025-09-28 @tobiu added sub-issue #7297
-- 2025-09-28 @tobiu assigned to @tobiu
-- 2025-09-28 @tobiu added sub-issue #7298
-- 2025-09-28 @tobiu added sub-issue #7299
-- 2025-09-28 @tobiu referenced in commit `bf5b347` - "#7296 subs md files"
-- 2025-09-28 @tobiu added sub-issue #7301
-- 2025-09-28 @tobiu added sub-issue #7302
-- 2025-09-28 @tobiu removed sub-issue #7302
-- 2025-09-28 @tobiu referenced in commit `9062317` - "#7296 sub md file"
-- 2025-09-28 @tobiu added sub-issue #7305
-- 2025-09-28 @tobiu added sub-issue #7306
-- 2025-09-28 @tobiu referenced in commit `240d918` - "#7296 ticket md files"
-- 2025-09-28 @tobiu unassigned from @tobiu
-- 2025-09-28 @tobiu added sub-issue #7307
-- 2025-09-28 @tobiu referenced in commit `1cca92a` - "#7296 new sub md file"
-- 2025-10-01 @tobiu referenced in commit `6a7ddda` - "#7296 internal tickets update"
-- 2025-10-02 @tobiu added sub-issue #7328
-- 2025-10-02 @tobiu referenced in commit `a321602` - "#7296 new sub md file"
-- 2025-10-02 @tobiu referenced in commit `ebd2804` - "#7296 new sub md file => gh id"
-- 2025-10-03 @tobiu cross-referenced by #7289
-- 2025-10-03 @tobiu cross-referenced by #7287
-- 2025-10-03 @tobiu cross-referenced by #7283
-- 2025-10-04 @tobiu added sub-issue #7342
-- 2025-10-04 @tobiu added sub-issue #7343
-- 2025-10-04 @tobiu added sub-issue #7344
-- 2025-10-04 @tobiu added sub-issue #7345
-- 2025-10-04 @tobiu added sub-issue #7346
-- 2025-10-04 @tobiu referenced in commit `0e84aea` - "#7296 new sub-ticket md files"
-- 2025-10-05 @tobiu cross-referenced by #7364
-- 2025-10-06 @tobiu cross-referenced by #7391
-- 2025-10-07 @tobiu cross-referenced by #7399
-- 2025-10-08 @tobiu added sub-issue #7417
-- 2025-10-08 @tobiu cross-referenced by #7418
-- 2025-10-11 @tobiu added sub-issue #7465
-- 2025-10-12 @tobiu added sub-issue #7467
-- 2025-10-13 @tobiu added sub-issue #7474
-- 2025-11-02 @tobiu closed this issue
+- 2025-10-05T10:34:20Z @tobiu cross-referenced by #7364
+- 2025-10-06T11:58:00Z @tobiu cross-referenced by #7391
+- 2025-10-07T09:26:05Z @tobiu cross-referenced by #7399
+- 2025-10-08T13:19:55Z @tobiu added sub-issue #7417
+- 2025-10-08T14:32:45Z @tobiu cross-referenced by #7418
+- 2025-10-11T18:47:35Z @tobiu added sub-issue #7465
+- 2025-10-12T11:08:07Z @tobiu added sub-issue #7467
+- 2025-10-13T09:20:45Z @tobiu added sub-issue #7474
+- 2025-11-02T09:30:38Z @tobiu closed this issue
 

@@ -39,9 +39,14 @@ Update `Portal.view.about.Container` and `Portal.view.about.MemberContainer` to 
 - `apps/portal/view/about/MemberContainer.mjs`
 - `resources/scss/src/apps/portal/about/MemberContainer.scss`
 
-## Comments
+## Timeline
 
-### @tobiu - 2026-01-08 17:26
+- 2026-01-08T17:19:43Z @tobiu added the `enhancement` label
+- 2026-01-08T17:19:43Z @tobiu added the `design` label
+- 2026-01-08T17:19:44Z @tobiu added the `ai` label
+- 2026-01-08T17:25:11Z @tobiu referenced in commit `e8d5297` - "enhancement: Refactor Portal About Page to use Shared Styling (#8430)"
+- 2026-01-08T17:25:59Z @tobiu assigned to @tobiu
+### @tobiu - 2026-01-08T17:26:12Z
 
 **Input from Gemini 3 Pro:**
 
@@ -56,12 +61,5 @@ Update `Portal.view.about.Container` and `Portal.view.about.MemberContainer` to 
 >     - Refactored `resources/scss/src/apps/portal/about/MemberContainer.scss` to remove redundant border, border-radius, and box-shadow styles, deferring to the shared `.portal-content-box` definition.
 >     - Removed hardcoded colors in favor of the shared variables/classes.
 
-## Activity Log
-
-- 2026-01-08 @tobiu added the `enhancement` label
-- 2026-01-08 @tobiu added the `design` label
-- 2026-01-08 @tobiu added the `ai` label
-- 2026-01-08 @tobiu referenced in commit `e8d5297` - "enhancement: Refactor Portal About Page to use Shared Styling (#8430)"
-- 2026-01-08 @tobiu assigned to @tobiu
-- 2026-01-08 @tobiu closed this issue
+- 2026-01-08T17:26:36Z @tobiu closed this issue
 

@@ -38,12 +38,12 @@ Two distinct tools will be created:
 4.  The service contains `listDocuments` and `getDocumentById` functions.
 5.  The `toolService.mjs` `serviceMapping` is updated to point the new `operationId`s to their respective service functions.
 
-## Activity Log
+## Timeline
 
-- 2025-10-16 @tobiu assigned to @tobiu
-- 2025-10-16 @tobiu added the `enhancement` label
-- 2025-10-16 @tobiu added the `ai` label
-- 2025-10-16 @tobiu added parent issue #7501
-- 2025-10-16 @tobiu referenced in commit `2d57001` - "Implement Document Retrieval Services #7509"
-- 2025-10-16 @tobiu closed this issue
+- 2025-10-16T11:06:49Z @tobiu assigned to @tobiu
+- 2025-10-16T11:06:50Z @tobiu added the `enhancement` label
+- 2025-10-16T11:06:51Z @tobiu added the `ai` label
+- 2025-10-16T11:06:51Z @tobiu added parent issue #7501
+- 2025-10-16T11:10:53Z @tobiu referenced in commit `2d57001` - "Implement Document Retrieval Services #7509"
+- 2025-10-16T11:11:44Z @tobiu closed this issue
 

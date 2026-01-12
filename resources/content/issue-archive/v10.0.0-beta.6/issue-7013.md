@@ -64,11 +64,11 @@ const MyGreeting = defineComponent({
 -   It successfully generates functional component classes from plain functions.
 -   Generated components correctly utilize `useConfig` for state management.
 
-## Activity Log
+## Timeline
 
-- 2025-07-11 @tobiu added parent issue #6992
-- 2025-07-11 @tobiu added the `enhancement` label
-- 2025-07-11 @tobiu referenced in commit `27d6ef8` - "Create Neo.functional.defineComponent Factory
+- 2025-07-11T02:07:36Z @tobiu added parent issue #6992
+- 2025-07-11T02:07:37Z @tobiu added the `enhancement` label
+- 2025-07-11T09:24:55Z @tobiu referenced in commit `27d6ef8` - "Create Neo.functional.defineComponent Factory
 #7013"
-- 2025-07-11 @tobiu closed this issue
+- 2025-07-11T09:25:12Z @tobiu closed this issue
 

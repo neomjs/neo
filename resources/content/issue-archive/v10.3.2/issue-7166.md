@@ -22,9 +22,9 @@ closedAt: '2025-08-03T00:25:39Z'
 
 * Regression issue, when renaming `rendered` to `vnodeInitialized`, some spots where missed
 
-## Activity Log
+## Timeline
 
-- 2025-08-03 @tobiu added the `bug` label
-- 2025-08-03 @tobiu referenced in commit `af58515` - "tab.Container: switching tabBarPosition does not correctly update the UI #7166"
-- 2025-08-03 @tobiu closed this issue
+- 2025-08-03T00:24:28Z @tobiu added the `bug` label
+- 2025-08-03T00:24:55Z @tobiu referenced in commit `af58515` - "tab.Container: switching tabBarPosition does not correctly update the UI #7166"
+- 2025-08-03T00:25:39Z @tobiu closed this issue
 

@@ -32,9 +32,14 @@ Additionally, investigate and fix the issue where the drag proxy renders with an
 3.  Adjust SCSS in `resources/scss/src/apps/agentos/StrategyPanel.scss` or related files to remove the unwanted border on the proxy.
 
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-12-06 20:52
+- 2025-12-06T20:43:45Z @tobiu added the `bug` label
+- 2025-12-06T20:43:45Z @tobiu added the `design` label
+- 2025-12-06T20:43:57Z @tobiu assigned to @tobiu
+- 2025-12-06T20:52:28Z @tobiu referenced in commit `8a5bab5` - "Fix drag proxy styling for StrategyPanel KPI cards #8039"
+- 2025-12-06T20:52:38Z @tobiu closed this issue
+### @tobiu - 2025-12-06T20:52:47Z
 
 **Input from Gemini 2.5 pro:**
 
@@ -48,11 +53,4 @@ Additionally, investigate and fix the issue where the drag proxy renders with an
 > Dragging KPI cards now correctly renders the card with its original styling and no unwanted artifacts.
 > 
 
-## Activity Log
-
-- 2025-12-06 @tobiu added the `bug` label
-- 2025-12-06 @tobiu added the `design` label
-- 2025-12-06 @tobiu assigned to @tobiu
-- 2025-12-06 @tobiu referenced in commit `8a5bab5` - "Fix drag proxy styling for StrategyPanel KPI cards #8039"
-- 2025-12-06 @tobiu closed this issue
 

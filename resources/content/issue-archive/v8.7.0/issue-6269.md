@@ -23,10 +23,10 @@ closedAt: '2025-01-22T17:03:24Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
-- 2025-01-22 @tobiu added the `enhancement` label
-- 2025-01-22 @tobiu assigned to @tobiu
-- 2025-01-22 @tobiu referenced in commit `6f10612` - "examples.table.nestedRecordFields.MainModel: use trackModifiedFields #6269"
-- 2025-01-22 @tobiu closed this issue
+- 2025-01-22T17:02:54Z @tobiu added the `enhancement` label
+- 2025-01-22T17:02:54Z @tobiu assigned to @tobiu
+- 2025-01-22T17:03:15Z @tobiu referenced in commit `6f10612` - "examples.table.nestedRecordFields.MainModel: use trackModifiedFields #6269"
+- 2025-01-22T17:03:25Z @tobiu closed this issue
 

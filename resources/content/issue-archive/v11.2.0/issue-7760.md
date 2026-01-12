@@ -42,12 +42,12 @@ This ticket aims to correctly implement the `llms.txt` specification for the Neo
     *   Leveraging the `learn/tree.json` structure to identify important content.
 5.  **Differentiation**: Clarify the role of `llm.txt` (for crawler permissions) versus `llms.txt` (for content indexing). If a separate `llm.txt` for permissions is deemed necessary and distinct from `robots.txt`, a plan for its generation should be included. For now, the primary focus is on `llms.txt`.
 
-## Activity Log
+## Timeline
 
-- 2025-11-12 @tobiu added the `documentation` label
-- 2025-11-12 @tobiu added the `enhancement` label
-- 2025-11-12 @tobiu added the `ai` label
-- 2025-11-13 @tobiu assigned to @tobiu
-- 2025-11-13 @tobiu referenced in commit `689e9d2` - "Implement llms.txt specification and differentiate from llm.txt #7760"
-- 2025-11-13 @tobiu closed this issue
+- 2025-11-12T15:09:52Z @tobiu added the `documentation` label
+- 2025-11-12T15:09:53Z @tobiu added the `enhancement` label
+- 2025-11-12T15:09:53Z @tobiu added the `ai` label
+- 2025-11-13T12:11:45Z @tobiu assigned to @tobiu
+- 2025-11-13T12:49:18Z @tobiu referenced in commit `689e9d2` - "Implement llms.txt specification and differentiate from llm.txt #7760"
+- 2025-11-13T12:49:31Z @tobiu closed this issue
 

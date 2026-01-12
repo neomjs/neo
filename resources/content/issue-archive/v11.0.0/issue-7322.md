@@ -33,11 +33,11 @@ The agent's memory database is a persistent, cumulative asset that cannot be reg
     -   It intelligently upserts the data into the ChromaDB collection, allowing for a full restore to a new or empty database.
 3.  The process is documented, so users understand how to back up their agent's memory.
 
-## Activity Log
+## Timeline
 
-- 2025-10-01 @tobiu assigned to @tobiu
-- 2025-10-01 @tobiu added the `enhancement` label
-- 2025-10-01 @tobiu added parent issue #7316
-- 2025-10-02 @tobiu referenced in commit `f867c90` - "Implement Memory Backup and Restore #7322"
-- 2025-10-02 @tobiu closed this issue
+- 2025-10-01T21:31:27Z @tobiu assigned to @tobiu
+- 2025-10-01T21:31:28Z @tobiu added the `enhancement` label
+- 2025-10-01T21:31:29Z @tobiu added parent issue #7316
+- 2025-10-02T10:04:52Z @tobiu referenced in commit `f867c90` - "Implement Memory Backup and Restore #7322"
+- 2025-10-02T10:05:14Z @tobiu closed this issue
 

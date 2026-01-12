@@ -23,10 +23,10 @@ closedAt: '2025-01-13T18:31:06Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
-- 2025-01-13 @tobiu added the `enhancement` label
-- 2025-01-13 @tobiu assigned to @tobiu
-- 2025-01-13 @tobiu referenced in commit `1ad3a9b` - "examples.grid.bigData.MainStore: amountRows_ config #6213"
-- 2025-01-13 @tobiu closed this issue
+- 2025-01-13T18:29:41Z @tobiu added the `enhancement` label
+- 2025-01-13T18:29:41Z @tobiu assigned to @tobiu
+- 2025-01-13T18:29:57Z @tobiu referenced in commit `1ad3a9b` - "examples.grid.bigData.MainStore: amountRows_ config #6213"
+- 2025-01-13T18:31:07Z @tobiu closed this issue
 

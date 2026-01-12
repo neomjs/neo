@@ -23,10 +23,10 @@ closedAt: '2025-01-22T17:12:09Z'
 
 * No longer needed with using the initialData symbol
 
-## Activity Log
+## Timeline
 
-- 2025-01-22 @tobiu added the `enhancement` label
-- 2025-01-22 @tobiu assigned to @tobiu
-- 2025-01-22 @tobiu referenced in commit `d96972b` - "data.RecordFactory: remove the ovPrefix_ config #6270"
-- 2025-01-22 @tobiu closed this issue
+- 2025-01-22T17:11:37Z @tobiu added the `enhancement` label
+- 2025-01-22T17:11:38Z @tobiu assigned to @tobiu
+- 2025-01-22T17:12:00Z @tobiu referenced in commit `d96972b` - "data.RecordFactory: remove the ovPrefix_ config #6270"
+- 2025-01-22T17:12:09Z @tobiu closed this issue
 

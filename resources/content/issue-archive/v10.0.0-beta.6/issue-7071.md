@@ -24,11 +24,11 @@ closedAt: '2025-07-16T02:35:44Z'
 * `functional.component.Base` does not have a style or wrapper style config yet.
 * for now, let us just opt out.
 
-## Activity Log
+## Timeline
 
-- 2025-07-16 @tobiu assigned to @tobiu
-- 2025-07-16 @tobiu added the `enhancement` label
-- 2025-07-16 @tobiu added parent issue #6992
-- 2025-07-16 @tobiu referenced in commit `0054442` - "layout.Flexbox: applyChildAttributes() => opt out for functional cmps #7071"
-- 2025-07-16 @tobiu closed this issue
+- 2025-07-16T02:34:48Z @tobiu assigned to @tobiu
+- 2025-07-16T02:34:49Z @tobiu added the `enhancement` label
+- 2025-07-16T02:34:49Z @tobiu added parent issue #6992
+- 2025-07-16T02:35:30Z @tobiu referenced in commit `0054442` - "layout.Flexbox: applyChildAttributes() => opt out for functional cmps #7071"
+- 2025-07-16T02:35:44Z @tobiu closed this issue
 

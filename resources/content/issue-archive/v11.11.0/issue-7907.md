@@ -29,11 +29,11 @@ This leads to a race condition where the wrong renderer might be initialized.
 **Solution:**
 Move the `Neo.vdom.Helper` import into `onRegisterNeoConfig` to ensure `Neo.config` is fully populated before the helper initializes.
 
-## Activity Log
+## Timeline
 
-- 2025-11-26 @tobiu added the `bug` label
-- 2025-11-26 @tobiu added the `ai` label
-- 2025-11-26 @tobiu assigned to @tobiu
-- 2025-11-26 @tobiu referenced in commit `c1956c1` - "Fix race condition in VDom worker initialization #7907"
-- 2025-11-26 @tobiu closed this issue
+- 2025-11-26T11:55:25Z @tobiu added the `bug` label
+- 2025-11-26T11:55:25Z @tobiu added the `ai` label
+- 2025-11-26T12:05:44Z @tobiu assigned to @tobiu
+- 2025-11-26T12:06:31Z @tobiu referenced in commit `c1956c1` - "Fix race condition in VDom worker initialization #7907"
+- 2025-11-26T12:06:44Z @tobiu closed this issue
 

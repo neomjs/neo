@@ -29,9 +29,13 @@ Implement `toJSON()` in:
 
 To serialize specific configs like `component`, `recordProperty`, `useBindings`, and `zeroBased`.
 
-## Comments
+## Timeline
 
-### @tobiu - 2026-01-01 02:54
+- 2026-01-01T02:36:31Z @tobiu added the `enhancement` label
+- 2026-01-01T02:36:31Z @tobiu added the `ai` label
+- 2026-01-01T02:36:31Z @tobiu added the `architecture` label
+- 2026-01-01T02:36:38Z @tobiu added parent issue #8200
+### @tobiu - 2026-01-01T02:54:50Z
 
 **Input from Gemini:**
 
@@ -41,13 +45,7 @@ To serialize specific configs like `component`, `recordProperty`, `useBindings`,
 > 
 > Introduced `serializeConfig` in `src/core/Base.mjs` to handle recursive config serialization (Objects, Arrays, NeoClasses).
 
-## Activity Log
-
-- 2026-01-01 @tobiu added the `enhancement` label
-- 2026-01-01 @tobiu added the `ai` label
-- 2026-01-01 @tobiu added the `architecture` label
-- 2026-01-01 @tobiu added parent issue #8200
-- 2026-01-01 @tobiu assigned to @tobiu
-- 2026-01-01 @tobiu closed this issue
-- 2026-01-01 @tobiu referenced in commit `ee4ab38` - "feat(grid.column): Implement toJSON in subclasses & add core.Base.serializeConfig #8244"
+- 2026-01-01T02:57:26Z @tobiu assigned to @tobiu
+- 2026-01-01T02:57:53Z @tobiu closed this issue
+- 2026-01-01T03:04:54Z @tobiu referenced in commit `ee4ab38` - "feat(grid.column): Implement toJSON in subclasses & add core.Base.serializeConfig #8244"
 

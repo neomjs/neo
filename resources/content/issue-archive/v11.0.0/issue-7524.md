@@ -30,12 +30,12 @@ With the new `stdio`-based MCP server fully functional, the final step is to rem
 2.  Any direct Express.js dependencies (`express`, `cors`, etc.) are removed from the main `package.json` if they are no longer needed by other parts of the project.
 3.  The `start` script for the memory server in `package.json` is updated or removed.
 
-## Activity Log
+## Timeline
 
-- 2025-10-17 @tobiu assigned to @tobiu
-- 2025-10-17 @tobiu added the `enhancement` label
-- 2025-10-17 @tobiu added the `ai` label
-- 2025-10-17 @tobiu added parent issue #7520
-- 2025-10-17 @tobiu referenced in commit `8b8cc35` - "Remove Legacy Express Server from Memory Core #7524"
-- 2025-10-17 @tobiu closed this issue
+- 2025-10-17T11:26:42Z @tobiu assigned to @tobiu
+- 2025-10-17T11:26:43Z @tobiu added the `enhancement` label
+- 2025-10-17T11:26:44Z @tobiu added the `ai` label
+- 2025-10-17T11:26:44Z @tobiu added parent issue #7520
+- 2025-10-17T12:36:18Z @tobiu referenced in commit `8b8cc35` - "Remove Legacy Express Server from Memory Core #7524"
+- 2025-10-17T12:36:26Z @tobiu closed this issue
 

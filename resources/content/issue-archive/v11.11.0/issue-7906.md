@@ -29,11 +29,11 @@ This should be moved to a non-reactive static config `apiPath` to allow for cust
 - Add `apiPath: 'docs/output/all.json'` to `ApiSource.config`.
 - Update `extract()` method to use `this.apiPath`.
 
-## Activity Log
+## Timeline
 
-- 2025-11-25 @tobiu added the `ai` label
-- 2025-11-25 @tobiu added the `refactoring` label
-- 2025-11-25 @tobiu assigned to @tobiu
-- 2025-11-25 @tobiu referenced in commit `384360e` - "Refactor ApiSource hardcoded path to non-reactive config #7906"
-- 2025-11-25 @tobiu closed this issue
+- 2025-11-25T17:10:40Z @tobiu added the `ai` label
+- 2025-11-25T17:10:40Z @tobiu added the `refactoring` label
+- 2025-11-25T17:10:52Z @tobiu assigned to @tobiu
+- 2025-11-25T17:12:15Z @tobiu referenced in commit `384360e` - "Refactor ApiSource hardcoded path to non-reactive config #7906"
+- 2025-11-25T17:12:28Z @tobiu closed this issue
 

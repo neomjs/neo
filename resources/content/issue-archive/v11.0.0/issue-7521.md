@@ -30,12 +30,12 @@ This ticket covers the initial scaffolding of the new `memory-core` MCP server. 
 2.  A new `mcp-stdio.mjs` entry point file is created inside the `memory-core` directory.
 3.  The new server is registered in `.gemini/settings.json`, and the old entry is removed.
 
-## Activity Log
+## Timeline
 
-- 2025-10-17 @tobiu assigned to @tobiu
-- 2025-10-17 @tobiu added parent issue #7520
-- 2025-10-17 @tobiu added the `enhancement` label
-- 2025-10-17 @tobiu added the `ai` label
-- 2025-10-17 @tobiu referenced in commit `ab61867` - "Scaffold Memory Core MCP Server #7521"
-- 2025-10-17 @tobiu closed this issue
+- 2025-10-17T11:23:47Z @tobiu assigned to @tobiu
+- 2025-10-17T11:23:49Z @tobiu added parent issue #7520
+- 2025-10-17T11:23:49Z @tobiu added the `enhancement` label
+- 2025-10-17T11:23:49Z @tobiu added the `ai` label
+- 2025-10-17T11:33:37Z @tobiu referenced in commit `ab61867` - "Scaffold Memory Core MCP Server #7521"
+- 2025-10-17T11:34:03Z @tobiu closed this issue
 

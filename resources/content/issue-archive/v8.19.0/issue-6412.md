@@ -23,10 +23,10 @@ closedAt: '2025-02-09T01:25:23Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
-- 2025-02-09 @tobiu added the `enhancement` label
-- 2025-02-09 @tobiu assigned to @tobiu
-- 2025-02-09 @tobiu referenced in commit `344c57a` - "examples.grid.bigData.ControlsContainer: add radios to switch the theme #6412"
-- 2025-02-09 @tobiu closed this issue
+- 2025-02-09T01:00:07Z @tobiu added the `enhancement` label
+- 2025-02-09T01:00:07Z @tobiu assigned to @tobiu
+- 2025-02-09T01:00:23Z @tobiu referenced in commit `344c57a` - "examples.grid.bigData.ControlsContainer: add radios to switch the theme #6412"
+- 2025-02-09T01:25:23Z @tobiu closed this issue
 

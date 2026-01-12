@@ -31,11 +31,11 @@ This change corrects the documentation to:
 
 These changes ensure that new developers and AI agents get a correct understanding of the data layer from the start.
 
-## Activity Log
+## Timeline
 
-- 2025-11-03 @tobiu added the `documentation` label
-- 2025-11-03 @tobiu added the `ai` label
-- 2025-11-03 @tobiu assigned to @tobiu
-- 2025-11-03 @tobiu referenced in commit `eeb40d1` - "docs: Correct Data Layer description in CodebaseOverview.md #7700"
-- 2025-11-03 @tobiu closed this issue
+- 2025-11-03T12:59:59Z @tobiu added the `documentation` label
+- 2025-11-03T12:59:59Z @tobiu added the `ai` label
+- 2025-11-03T13:00:22Z @tobiu assigned to @tobiu
+- 2025-11-03T13:00:43Z @tobiu referenced in commit `eeb40d1` - "docs: Correct Data Layer description in CodebaseOverview.md #7700"
+- 2025-11-03T13:00:53Z @tobiu closed this issue
 

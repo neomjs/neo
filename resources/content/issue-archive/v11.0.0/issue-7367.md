@@ -36,13 +36,19 @@ The current workflow requires the project maintainer to manually create a GitHub
 5.  The script will use `gh issue create --title "<title>" --body-file <file>` to create the issue. A temporary file might be needed for the body.
 6.  The script should be added to `package.json` as `npm run ai:create-gh-issue`.
 
-## Comments
+## Timeline
 
-### @ksanjeev284 - 2025-10-05 10:43
+- 2025-10-05T10:39:41Z @tobiu added the `enhancement` label
+- 2025-10-05T10:39:41Z @tobiu added the `help wanted` label
+- 2025-10-05T10:39:41Z @tobiu added parent issue #7364
+- 2025-10-05T10:39:41Z @tobiu added the `good first issue` label
+- 2025-10-05T10:39:42Z @tobiu added the `hacktoberfest` label
+- 2025-10-05T10:39:42Z @tobiu added the `ai` label
+### @ksanjeev284 - 2025-10-05T10:43:26Z
 
 can you assign me
 
-### @tobiu - 2025-10-05 10:48
+### @tobiu - 2025-10-05T10:48:17Z
 
 Hi, and thanks for your interest.
 
@@ -55,24 +61,16 @@ Since the epic subs strongly build on and relate to each other, I also strongly 
 https://join.slack.com/t/neomjs/shared_invite/zt-6c50ueeu-3E1~M4T9xkNnb~M_prEEOA
 https://discord.gg/6p8paPq
 
-### @ksanjeev284 - 2025-10-05 10:50
+- 2025-10-05T10:48:22Z @tobiu assigned to @ksanjeev284
+### @ksanjeev284 - 2025-10-05T10:50:00Z
 
 Hi @tobiu sure I have joiuned the channel and will start working on it
 
-### @tobiu - 2025-10-05 13:28
+### @tobiu - 2025-10-05T13:28:00Z
 
 ha, just noticed that the PR mentioned #7376 instead of #7367 (this one). almost closed the wrong ticket^^
 
 thx again for the contribution! closing this one as resolved.
 
-## Activity Log
-
-- 2025-10-05 @tobiu added the `enhancement` label
-- 2025-10-05 @tobiu added the `help wanted` label
-- 2025-10-05 @tobiu added parent issue #7364
-- 2025-10-05 @tobiu added the `good first issue` label
-- 2025-10-05 @tobiu added the `hacktoberfest` label
-- 2025-10-05 @tobiu added the `ai` label
-- 2025-10-05 @tobiu assigned to @ksanjeev284
-- 2025-10-05 @tobiu closed this issue
+- 2025-10-05T13:28:00Z @tobiu closed this issue
 

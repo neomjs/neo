@@ -43,10 +43,10 @@ closedAt: '2025-06-16T10:56:45Z'
         }
 ```
 
-## Activity Log
+## Timeline
 
-- 2025-06-16 @tobiu assigned to @tobiu
-- 2025-06-16 @tobiu added the `enhancement` label
-- 2025-06-16 @tobiu referenced in commit `1afddb7` - "worker.mixin.RemoteMethodAccess: onRemoteMethod() => log errors for async function calls into the console #6811"
-- 2025-06-16 @tobiu closed this issue
+- 2025-06-16T10:55:09Z @tobiu assigned to @tobiu
+- 2025-06-16T10:55:10Z @tobiu added the `enhancement` label
+- 2025-06-16T10:56:16Z @tobiu referenced in commit `1afddb7` - "worker.mixin.RemoteMethodAccess: onRemoteMethod() => log errors for async function calls into the console #6811"
+- 2025-06-16T10:56:45Z @tobiu closed this issue
 

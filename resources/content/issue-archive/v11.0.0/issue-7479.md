@@ -47,12 +47,12 @@ A meaningful health check has been implemented to verify that the `gh` CLI is in
 5.  Placeholder files for the pull request workflow are in place:
     - `routes/pullRequests.mjs`
 
-## Activity Log
+## Timeline
 
-- 2025-10-14 @tobiu assigned to @tobiu
-- 2025-10-14 @tobiu added the `enhancement` label
-- 2025-10-14 @tobiu added parent issue #7477
-- 2025-10-14 @tobiu added the `ai` label
-- 2025-10-14 @tobiu referenced in commit `25ea946` - "Scaffold GitHub Workflow MCP Server #7479"
-- 2025-10-14 @tobiu closed this issue
+- 2025-10-14T08:58:31Z @tobiu assigned to @tobiu
+- 2025-10-14T08:58:32Z @tobiu added the `enhancement` label
+- 2025-10-14T08:58:32Z @tobiu added parent issue #7477
+- 2025-10-14T08:58:32Z @tobiu added the `ai` label
+- 2025-10-14T08:59:20Z @tobiu referenced in commit `25ea946` - "Scaffold GitHub Workflow MCP Server #7479"
+- 2025-10-14T08:59:37Z @tobiu closed this issue
 

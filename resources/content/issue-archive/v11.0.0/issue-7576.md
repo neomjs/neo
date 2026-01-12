@@ -31,17 +31,15 @@ A code review has highlighted a critical potential bug: a mismatch between the J
 3.  All property accessors within the service's logic (e.g., `issue.createdAt` vs. `issue.created_at`) are updated to match the verified API response, ensuring consistency.
 4.  A new unit or integration test is created to validate the field name mappings for a sample issue and release payload, preventing future regressions.
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-10-20 14:03
+- 2025-10-20T13:21:01Z @tobiu assigned to @tobiu
+- 2025-10-20T13:21:02Z @tobiu added parent issue #7564
+- 2025-10-20T13:21:03Z @tobiu added the `bug` label
+- 2025-10-20T13:21:03Z @tobiu added the `ai` label
+### @tobiu - 2025-10-20T14:03:37Z
 
 verified field names, no changes needed.
 
-## Activity Log
-
-- 2025-10-20 @tobiu assigned to @tobiu
-- 2025-10-20 @tobiu added parent issue #7564
-- 2025-10-20 @tobiu added the `bug` label
-- 2025-10-20 @tobiu added the `ai` label
-- 2025-10-20 @tobiu closed this issue
+- 2025-10-20T14:03:37Z @tobiu closed this issue
 

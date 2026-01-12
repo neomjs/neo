@@ -90,13 +90,7 @@ export const FETCH_ISSUES_FOR_SYNC = `
           }
           
           comments(first: $maxComments) {
-            nodes {
-              author {
-                login
-              }
-              body
-              createdAt
-            }
+            totalCount
           }
           
           # Parent/child relationships
@@ -150,6 +144,11 @@ export const FETCH_ISSUES_FOR_SYNC = `
               ASSIGNED_EVENT,         # Assignee changes
               UNASSIGNED_EVENT,       # Assignee removals
               CLOSED_EVENT,           # Issue closed
+              ISSUE_COMMENT,          # Comments
+              REOPENED_EVENT,         # Issue reopened
+              RENAMED_TITLE_EVENT,    # Title updates
+              MILESTONED_EVENT,       # Added to milestone
+              DEMILESTONED_EVENT,     # Removed from milestone
               
               # Relationship Events
               # Critical for sync: Adding/removing sub-issues does not always bump the parent's updatedAt.
@@ -164,6 +163,11 @@ export const FETCH_ISSUES_FOR_SYNC = `
             ]) {
             nodes {
               __typename
+              ... on IssueComment {
+                createdAt
+                author { login }
+                body
+              }
               ... on ReferencedEvent {
                 createdAt
                 actor { login }
@@ -219,6 +223,26 @@ export const FETCH_ISSUES_FOR_SYNC = `
                 actor {
                   login
                 }
+              }
+              ... on ReopenedEvent {
+                createdAt
+                actor { login }
+              }
+              ... on RenamedTitleEvent {
+                createdAt
+                actor { login }
+                previousTitle
+                currentTitle
+              }
+              ... on MilestonedEvent {
+                createdAt
+                actor { login }
+                milestoneTitle
+              }
+              ... on DemilestonedEvent {
+                createdAt
+                actor { login }
+                milestoneTitle
               }
               ... on SubIssueAddedEvent {
                 createdAt
@@ -388,13 +412,7 @@ export const FETCH_SINGLE_ISSUE = `
           title
         }
         comments(first: $maxComments) {
-          nodes {
-            author {
-              login
-            }
-            body
-            createdAt
-          }
+          totalCount
         }
         parent {
           number
@@ -440,6 +458,11 @@ export const FETCH_SINGLE_ISSUE = `
               ASSIGNED_EVENT,         # Assignee changes
               UNASSIGNED_EVENT,       # Assignee removals
               CLOSED_EVENT,           # Issue closed
+              ISSUE_COMMENT,          # Comments
+              REOPENED_EVENT,         # Issue reopened
+              RENAMED_TITLE_EVENT,    # Title updates
+              MILESTONED_EVENT,       # Added to milestone
+              DEMILESTONED_EVENT,     # Removed from milestone
               
               # Relationship Events
               # Critical for sync: Adding/removing sub-issues does not always bump the parent's updatedAt.
@@ -454,6 +477,11 @@ export const FETCH_SINGLE_ISSUE = `
             ]) {
             nodes {
               __typename
+              ... on IssueComment {
+                createdAt
+                author { login }
+                body
+              }
               ... on ReferencedEvent {
                 createdAt
                 actor { login }
@@ -509,6 +537,26 @@ export const FETCH_SINGLE_ISSUE = `
                 actor {
                   login
                 }
+              }
+              ... on ReopenedEvent {
+                createdAt
+                actor { login }
+              }
+              ... on RenamedTitleEvent {
+                createdAt
+                actor { login }
+                previousTitle
+                currentTitle
+              }
+              ... on MilestonedEvent {
+                createdAt
+                actor { login }
+                milestoneTitle
+              }
+              ... on DemilestonedEvent {
+                createdAt
+                actor { login }
+                milestoneTitle
               }
               ... on SubIssueAddedEvent {
                 createdAt

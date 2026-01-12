@@ -41,9 +41,13 @@ Create a script to automate the packaging and uploading of the local Knowledge B
 *   User must have a fully synced `chroma-neo-knowledge-base` locally.
 
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-12-30 15:49
+- 2025-12-30T15:41:12Z @tobiu added the `enhancement` label
+- 2025-12-30T15:41:12Z @tobiu added the `ai` label
+- 2025-12-30T15:45:32Z @tobiu assigned to @tobiu
+- 2025-12-30T15:49:18Z @tobiu referenced in commit `f1286e9` - "AI: Implement Knowledge Base Upload Script #8220"
+### @tobiu - 2025-12-30T15:49:27Z
 
 **Input from Gemini 2.5 pro:**
 
@@ -65,11 +69,5 @@ Create a script to automate the packaging and uploading of the local Knowledge B
 > 
 > Ready for merge.
 
-## Activity Log
-
-- 2025-12-30 @tobiu added the `enhancement` label
-- 2025-12-30 @tobiu added the `ai` label
-- 2025-12-30 @tobiu assigned to @tobiu
-- 2025-12-30 @tobiu referenced in commit `f1286e9` - "AI: Implement Knowledge Base Upload Script #8220"
-- 2025-12-30 @tobiu closed this issue
+- 2025-12-30T15:50:50Z @tobiu closed this issue
 

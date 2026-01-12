@@ -27,17 +27,15 @@ It leads to:
 
 Selecting a country without clicking on a table row first switches the new country and the previous selection back and forth infinitely. Quite a performance demo, but definitely not intended this way.
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-07-29 11:44
+- 2025-07-29T11:23:48Z @tobiu assigned to @tobiu
+- 2025-07-29T11:23:49Z @tobiu added the `bug` label
+- 2025-07-29T11:38:17Z @tobiu referenced in commit `051a018` - "SharedCovid app: Regression bug => clicking on a table row throws an error #7122"
+- 2025-07-29T11:43:23Z @tobiu referenced in commit `6571054` - "#7122 applied the same fix to the single-window covid app"
+### @tobiu - 2025-07-29T11:44:25Z
 
 I will create a new ticket for the country selection, since it seems not related. The table selections work fine again.
 
-## Activity Log
-
-- 2025-07-29 @tobiu assigned to @tobiu
-- 2025-07-29 @tobiu added the `bug` label
-- 2025-07-29 @tobiu referenced in commit `051a018` - "SharedCovid app: Regression bug => clicking on a table row throws an error #7122"
-- 2025-07-29 @tobiu referenced in commit `6571054` - "#7122 applied the same fix to the single-window covid app"
-- 2025-07-29 @tobiu closed this issue
+- 2025-07-29T11:44:25Z @tobiu closed this issue
 

@@ -35,10 +35,10 @@ Modify the `buildScripts/docs/jsdocx.mjs` script to generate a new file at `docs
 4.  **Implementation:** This will be done within the existing `jsdocx.mjs` script, leveraging the already-parsed documentation data.
 5.  **Agent Integration:** Update `AGENTS.md` to instruct the agent to parse `docs/output/class-hierarchy.yaml` instead of the old `structure.json` file.
 
-## Activity Log
+## Timeline
 
-- 2025-09-24 @tobiu assigned to @tobiu
-- 2025-09-24 @tobiu added the `enhancement` label
-- 2025-09-24 @tobiu referenced in commit `d24d22c` - "Create Class Hierarchy YAML #7246"
-- 2025-09-24 @tobiu closed this issue
+- 2025-09-24T08:50:16Z @tobiu assigned to @tobiu
+- 2025-09-24T08:50:17Z @tobiu added the `enhancement` label
+- 2025-09-24T08:50:55Z @tobiu referenced in commit `d24d22c` - "Create Class Hierarchy YAML #7246"
+- 2025-09-24T08:50:59Z @tobiu closed this issue
 

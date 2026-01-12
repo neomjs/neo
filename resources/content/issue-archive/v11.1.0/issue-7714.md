@@ -41,10 +41,10 @@ Acceptance criteria
 - Tests cleanly report skipped when gate isn't enabled
 - PR references this issue and parent #7687
 
-## Activity Log
+## Timeline
 
-- 2025-11-07 @tobiu added parent issue #7687
-- 2025-11-07 @tobiu assigned to @MannXo
-- 2025-11-08 @MannXo cross-referenced by PR #7728
-- 2025-11-10 @tobiu closed this issue
+- 2025-11-07T08:38:20Z @tobiu added parent issue #7687
+- 2025-11-07T08:49:15Z @tobiu assigned to @MannXo
+- 2025-11-08T17:36:42Z @MannXo cross-referenced by PR #7728
+- 2025-11-10T20:17:37Z @tobiu closed this issue
 

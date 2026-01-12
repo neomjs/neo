@@ -60,29 +60,27 @@ This initiative will significantly improve developer onboarding, enhance discove
 *   `learn/comparisons/neo-vs-extjs.md` (new file)
 *   `learn/README.md` (update to link new section)
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-07-13 10:59
+- 2025-07-12T21:04:49Z @tobiu assigned to @tobiu
+- 2025-07-12T21:04:51Z @tobiu added the `documentation` label
+- 2025-07-12T21:04:51Z @tobiu added the `enhancement` label
+- 2025-07-12T21:04:51Z @tobiu added the `epic` label
+- 2025-07-12T21:07:07Z @tobiu added sub-issue #7030
+- 2025-07-12T21:09:32Z @tobiu added sub-issue #7031
+- 2025-07-12T21:15:49Z @tobiu added sub-issue #7032
+- 2025-07-12T22:15:32Z @tobiu added sub-issue #7033
+- 2025-07-12T22:30:20Z @tobiu added sub-issue #7034
+- 2025-07-12T22:36:21Z @tobiu added sub-issue #7035
+- 2025-07-13T09:06:38Z @tobiu added sub-issue #7036
+- 2025-07-13T10:20:04Z @tobiu added sub-issue #7037
+- 2025-07-13T10:26:54Z @tobiu added sub-issue #7038
+- 2025-07-13T10:31:01Z @tobiu added sub-issue #7039
+- 2025-07-13T10:55:52Z @tobiu added sub-issue #7040
+- 2025-07-13T10:57:45Z @tobiu added sub-issue #7041
+### @tobiu - 2025-07-13T10:59:57Z
 
 The initial versions are in place now, with huge Gemini support. Please open new tickets, in case there might be oversights or inaccuracies.
 
-## Activity Log
-
-- 2025-07-12 @tobiu assigned to @tobiu
-- 2025-07-12 @tobiu added the `documentation` label
-- 2025-07-12 @tobiu added the `enhancement` label
-- 2025-07-12 @tobiu added the `epic` label
-- 2025-07-12 @tobiu added sub-issue #7030
-- 2025-07-12 @tobiu added sub-issue #7031
-- 2025-07-12 @tobiu added sub-issue #7032
-- 2025-07-12 @tobiu added sub-issue #7033
-- 2025-07-12 @tobiu added sub-issue #7034
-- 2025-07-12 @tobiu added sub-issue #7035
-- 2025-07-13 @tobiu added sub-issue #7036
-- 2025-07-13 @tobiu added sub-issue #7037
-- 2025-07-13 @tobiu added sub-issue #7038
-- 2025-07-13 @tobiu added sub-issue #7039
-- 2025-07-13 @tobiu added sub-issue #7040
-- 2025-07-13 @tobiu added sub-issue #7041
-- 2025-07-13 @tobiu closed this issue
+- 2025-07-13T10:59:57Z @tobiu closed this issue
 

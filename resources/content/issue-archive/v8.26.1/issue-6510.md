@@ -24,10 +24,10 @@ closedAt: '2025-02-26T23:37:21Z'
 * It should to default to `false`
 * Specific implementations can then set it to true, if needed
 
-## Activity Log
+## Timeline
 
-- 2025-02-26 @tobiu added the `enhancement` label
-- 2025-02-26 @tobiu assigned to @tobiu
-- 2025-02-26 @tobiu referenced in commit `db53196` - "draggable.toolbar.SortZone: adjustItemRectsToParent #6510"
-- 2025-02-26 @tobiu closed this issue
+- 2025-02-26T23:32:29Z @tobiu added the `enhancement` label
+- 2025-02-26T23:32:29Z @tobiu assigned to @tobiu
+- 2025-02-26T23:32:44Z @tobiu referenced in commit `db53196` - "draggable.toolbar.SortZone: adjustItemRectsToParent #6510"
+- 2025-02-26T23:37:21Z @tobiu closed this issue
 

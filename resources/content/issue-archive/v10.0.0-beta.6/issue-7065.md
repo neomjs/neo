@@ -33,10 +33,10 @@ Obsolete now, since `state.Provider` cleans up binding effects on its own:
         });
 ```
 
-## Activity Log
+## Timeline
 
-- 2025-07-15 @tobiu assigned to @tobiu
-- 2025-07-15 @tobiu added the `enhancement` label
-- 2025-07-15 @tobiu referenced in commit `b59518a` - "component.Base: destroy() => remove parentStateProvider?.removeBindings(me.id) #7065"
-- 2025-07-15 @tobiu closed this issue
+- 2025-07-15T18:00:40Z @tobiu assigned to @tobiu
+- 2025-07-15T18:00:41Z @tobiu added the `enhancement` label
+- 2025-07-15T18:02:45Z @tobiu referenced in commit `b59518a` - "component.Base: destroy() => remove parentStateProvider?.removeBindings(me.id) #7065"
+- 2025-07-15T18:03:13Z @tobiu closed this issue
 

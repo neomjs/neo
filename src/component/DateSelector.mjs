@@ -167,7 +167,15 @@ class DateSelector extends Component {
 
         me.addDomListeners([
             {click: me.onComponentClick, scope: me},
-            {wheel: me.onComponentWheel, scope: me}
+            {
+                scope: me,
+                wheel: {
+                    bubble : false,
+                    fn     : me.onComponentWheel,
+                    local  : true,
+                    passive: false
+                }
+            }
         ])
     }
 

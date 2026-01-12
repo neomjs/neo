@@ -23,10 +23,10 @@ closedAt: '2025-05-14T20:45:11Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
-- 2025-05-14 @tobiu assigned to @tobiu
-- 2025-05-14 @tobiu added the `enhancement` label
-- 2025-05-14 @tobiu referenced in commit `f1bd559` - "container.Base: mergeConfig() => do not merge object & array based item combinations #6710"
-- 2025-05-14 @tobiu closed this issue
+- 2025-05-14T20:44:08Z @tobiu assigned to @tobiu
+- 2025-05-14T20:44:09Z @tobiu added the `enhancement` label
+- 2025-05-14T20:45:06Z @tobiu referenced in commit `f1bd559` - "container.Base: mergeConfig() => do not merge object & array based item combinations #6710"
+- 2025-05-14T20:45:11Z @tobiu closed this issue
 

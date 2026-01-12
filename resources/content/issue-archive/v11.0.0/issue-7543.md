@@ -34,12 +34,12 @@ This ticket covers refactoring `ai/mcp/server/memory-core/services/memoryService
 6.  Any other services that depend on `memoryService` are updated to use the new `MemoryService` singleton instance.
 7.  All related tools (e.g., `add_memory`, `get_session_memories`, `query_raw_memories`) continue to function correctly after the refactoring.
 
-## Activity Log
+## Timeline
 
-- 2025-10-18 @tobiu assigned to @tobiu
-- 2025-10-18 @tobiu added the `enhancement` label
-- 2025-10-18 @tobiu added parent issue #7536
-- 2025-10-18 @tobiu added the `ai` label
-- 2025-10-18 @tobiu referenced in commit `bfbe2db` - "Convert memoryService to MemoryService Neo.mjs Class #7543"
-- 2025-10-18 @tobiu closed this issue
+- 2025-10-18T13:06:33Z @tobiu assigned to @tobiu
+- 2025-10-18T13:06:34Z @tobiu added the `enhancement` label
+- 2025-10-18T13:06:34Z @tobiu added parent issue #7536
+- 2025-10-18T13:06:35Z @tobiu added the `ai` label
+- 2025-10-18T13:19:42Z @tobiu referenced in commit `bfbe2db` - "Convert memoryService to MemoryService Neo.mjs Class #7543"
+- 2025-10-18T13:19:49Z @tobiu closed this issue
 

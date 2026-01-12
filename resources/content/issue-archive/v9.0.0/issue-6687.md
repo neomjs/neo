@@ -28,10 +28,10 @@ looks like old code from @maxrahder, which no longer makes sense:
 
 I will just remove it. Max, if you ever need the `EditorConfig.json` part, feel free to create a ticket & PR (the file was never inside the repo).
 
-## Activity Log
+## Timeline
 
-- 2025-05-02 @tobiu added the `enhancement` label
-- 2025-05-02 @tobiu assigned to @tobiu
-- 2025-05-02 @tobiu referenced in commit `0c897ce` - "Portal.view.learn.MainContainerController: remove onConstructed() #6687"
-- 2025-05-02 @tobiu closed this issue
+- 2025-05-02T16:18:16Z @tobiu added the `enhancement` label
+- 2025-05-02T16:18:16Z @tobiu assigned to @tobiu
+- 2025-05-02T16:19:04Z @tobiu referenced in commit `0c897ce` - "Portal.view.learn.MainContainerController: remove onConstructed() #6687"
+- 2025-05-02T16:19:24Z @tobiu closed this issue
 

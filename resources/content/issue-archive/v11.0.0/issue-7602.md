@@ -57,11 +57,11 @@ This change was applied to the `toolService.mjs` file in all three MCP servers:
 
 This resolves the bug and makes the tool handling mechanism more robust and reliable.
 
-## Activity Log
+## Timeline
 
-- 2025-10-22 @tobiu assigned to @tobiu
-- 2025-10-22 @tobiu added the `bug` label
-- 2025-10-22 @tobiu added the `ai` label
-- 2025-10-22 @tobiu referenced in commit `b71126d` - "MCP Tool Handlers Lose this Context, Causing Private Field Errors #7602"
-- 2025-10-22 @tobiu closed this issue
+- 2025-10-22T10:17:19Z @tobiu assigned to @tobiu
+- 2025-10-22T10:17:20Z @tobiu added the `bug` label
+- 2025-10-22T10:17:20Z @tobiu added the `ai` label
+- 2025-10-22T10:17:56Z @tobiu referenced in commit `b71126d` - "MCP Tool Handlers Lose this Context, Causing Private Field Errors #7602"
+- 2025-10-22T10:18:06Z @tobiu closed this issue
 

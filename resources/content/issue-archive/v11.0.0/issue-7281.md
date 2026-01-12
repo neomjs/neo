@@ -30,11 +30,11 @@ This task is to migrate the unit test for `form/field/AfterSetValueSequence.mjs`
 3.  Ensure the new test runs successfully via `npm test`.
 4.  The new test must cover all the functionality of the original Siesta test.
 
-## Activity Log
+## Timeline
 
-- 2025-09-27 @tobiu added the `enhancement` label
-- 2025-09-27 @tobiu added parent issue #7262
-- 2025-10-01 @tobiu referenced in commit `b01068c` - "Convert form/field/AfterSetValueSequence.mjs Test from Siesta to Playwright #7281"
-- 2025-10-01 @tobiu closed this issue
-- 2025-10-07 @tobiu assigned to @tobiu
+- 2025-09-27T13:52:06Z @tobiu added the `enhancement` label
+- 2025-09-27T13:52:06Z @tobiu added parent issue #7262
+- 2025-10-01T18:26:55Z @tobiu referenced in commit `b01068c` - "Convert form/field/AfterSetValueSequence.mjs Test from Siesta to Playwright #7281"
+- 2025-10-01T18:27:02Z @tobiu closed this issue
+- 2025-10-07T19:25:00Z @tobiu assigned to @tobiu
 

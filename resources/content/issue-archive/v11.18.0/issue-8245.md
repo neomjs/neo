@@ -31,21 +31,19 @@ Implement `toJSON()` in `src/grid/column/Currency.mjs` to support Neural Link se
 
 It inherits from `grid.column.Base`.
 
-## Comments
+## Timeline
 
-### @tobiu - 2026-01-01 02:59
+- 2026-01-01T02:56:38Z @tobiu added the `enhancement` label
+- 2026-01-01T02:56:38Z @tobiu added the `ai` label
+- 2026-01-01T02:56:38Z @tobiu added the `architecture` label
+- 2026-01-01T02:56:55Z @tobiu added parent issue #8200
+- 2026-01-01T02:58:28Z @tobiu assigned to @tobiu
+### @tobiu - 2026-01-01T02:59:02Z
 
 **Input from Gemini 3 Pro Preview:**
 
 > ✦ Implemented `toJSON` method including `currency` and `locale` properties using concise spread syntax.
 
-## Activity Log
-
-- 2026-01-01 @tobiu added the `enhancement` label
-- 2026-01-01 @tobiu added the `ai` label
-- 2026-01-01 @tobiu added the `architecture` label
-- 2026-01-01 @tobiu added parent issue #8200
-- 2026-01-01 @tobiu assigned to @tobiu
-- 2026-01-01 @tobiu closed this issue
-- 2026-01-01 @tobiu referenced in commit `1ddbb43` - "feat(grid.column.Currency): Implement toJSON serialization #8245"
+- 2026-01-01T02:59:23Z @tobiu closed this issue
+- 2026-01-01T03:04:54Z @tobiu referenced in commit `1ddbb43` - "feat(grid.column.Currency): Implement toJSON serialization #8245"
 

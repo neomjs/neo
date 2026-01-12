@@ -39,21 +39,19 @@ This ticket is to fix the scoring algorithm to give a significant boost to any c
 4.  If a match is found, a substantial score boost (e.g., `score += 100`) should be applied. This boost should be high enough to ensure a literal content match is prioritized over a purely semantic one.
 5.  After the change is implemented, running the command `npm run ai:query -- -q "Tron" -t blog` must rank `/Users/Shared/github/neomjs/neo/learn/blog/ai-native-platform-answers-questions.md` as the top result.
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-10-13 09:22
+- 2025-10-13T09:20:44Z @tobiu assigned to @tobiu
+- 2025-10-13T09:20:45Z @tobiu added parent issue #7296
+- 2025-10-13T09:20:46Z @tobiu added the `enhancement` label
+- 2025-10-13T09:20:46Z @tobiu added the `help wanted` label
+- 2025-10-13T09:20:46Z @tobiu added the `good first issue` label
+- 2025-10-13T09:20:46Z @tobiu added the `hacktoberfest` label
+- 2025-10-13T09:20:47Z @tobiu added the `ai` label
+### @tobiu - 2025-10-13T09:22:02Z
 
 I am reserving this ticket for @SarthakBorude for 7 days.
 
-## Activity Log
-
-- 2025-10-13 @tobiu assigned to @tobiu
-- 2025-10-13 @tobiu added parent issue #7296
-- 2025-10-13 @tobiu added the `enhancement` label
-- 2025-10-13 @tobiu added the `help wanted` label
-- 2025-10-13 @tobiu added the `good first issue` label
-- 2025-10-13 @tobiu added the `hacktoberfest` label
-- 2025-10-13 @tobiu added the `ai` label
-- 2025-10-13 @tobiu cross-referenced by #7467
-- 2025-11-02 @tobiu closed this issue
+- 2025-10-13T09:34:46Z @tobiu cross-referenced by #7467
+- 2025-11-02T09:29:30Z @tobiu closed this issue
 

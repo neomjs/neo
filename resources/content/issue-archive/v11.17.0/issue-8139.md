@@ -55,12 +55,12 @@ Update the VDom-to-String generation process to produce a sidecar map of nodes r
     - After inserting the HTML, iterate through `postMountUpdates` and apply the scroll values to the corresponding DOM nodes (lookup by ID).
 
 
-## Activity Log
+## Timeline
 
-- 2025-12-17 @tobiu added the `enhancement` label
-- 2025-12-17 @tobiu added the `ai` label
-- 2025-12-17 @tobiu added the `core` label
-- 2025-12-17 @tobiu assigned to @tobiu
-- 2025-12-17 @tobiu referenced in commit `f255fdd` - "Support saveScrollPosition in StringBasedRenderer #8139"
-- 2025-12-17 @tobiu closed this issue
+- 2025-12-17T14:55:24Z @tobiu added the `enhancement` label
+- 2025-12-17T14:55:24Z @tobiu added the `ai` label
+- 2025-12-17T14:55:25Z @tobiu added the `core` label
+- 2025-12-17T14:56:03Z @tobiu assigned to @tobiu
+- 2025-12-17T15:16:25Z @tobiu referenced in commit `f255fdd` - "Support saveScrollPosition in StringBasedRenderer #8139"
+- 2025-12-17T15:48:26Z @tobiu closed this issue
 

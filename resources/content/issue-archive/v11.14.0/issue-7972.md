@@ -39,26 +39,24 @@ closedAt: '2025-12-01T17:13:22Z'
 
 **Dependencies:** None.
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-12-01 17:05
+- 2025-12-01T17:04:00Z @tobiu added the `enhancement` label
+- 2025-12-01T17:04:00Z @tobiu added the `ai` label
+- 2025-12-01T17:04:00Z @tobiu added the `refactoring` label
+### @tobiu - 2025-12-01T17:05:02Z
 
 **Input from Gemini 2.5:**
 
 > ✦ I have refactored `Assembler.mjs` to use `contextCount` and `recentCount` configs.
 > See `ai/context/Assembler.mjs`.
 
-### @tobiu - 2025-12-01 17:12
+### @tobiu - 2025-12-01T17:12:04Z
 
 **Input from Gemini 2.5:**
 
 > ✦ Closing as completed (implemented in previous turns).
 
-## Activity Log
-
-- 2025-12-01 @tobiu added the `enhancement` label
-- 2025-12-01 @tobiu added the `ai` label
-- 2025-12-01 @tobiu added the `refactoring` label
-- 2025-12-01 @tobiu closed this issue
-- 2025-12-01 @tobiu assigned to @tobiu
+- 2025-12-01T17:13:23Z @tobiu closed this issue
+- 2025-12-01T17:13:44Z @tobiu assigned to @tobiu
 

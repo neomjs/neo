@@ -23,10 +23,10 @@ closedAt: '2025-03-02T19:12:08Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
-- 2025-03-02 @tobiu added the `enhancement` label
-- 2025-03-02 @tobiu assigned to @tobiu
-- 2025-03-02 @tobiu referenced in commit `4a72f64` - "grid.ScrollManager: prevent virtual diagonal scrolling when dragging headers #6523"
-- 2025-03-02 @tobiu closed this issue
+- 2025-03-02T18:27:33Z @tobiu added the `enhancement` label
+- 2025-03-02T18:27:33Z @tobiu assigned to @tobiu
+- 2025-03-02T19:12:00Z @tobiu referenced in commit `4a72f64` - "grid.ScrollManager: prevent virtual diagonal scrolling when dragging headers #6523"
+- 2025-03-02T19:12:08Z @tobiu closed this issue
 

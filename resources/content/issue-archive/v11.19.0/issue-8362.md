@@ -63,31 +63,31 @@ Refactor the Portal's "Blog" section into a comprehensive "News" (or "Updates") 
 **Strategic Value:**
 This structure prepares the Portal for the upcoming Middleware deployment (SSR/SSG+), ensuring that high-value content like Release Notes is accessible, indexable, and organized alongside Blog posts.
 
-## Activity Log
+## Timeline
 
-- 2026-01-06 @tobiu added the `documentation` label
-- 2026-01-06 @tobiu added the `enhancement` label
-- 2026-01-06 @tobiu assigned to @tobiu
-- 2026-01-07 @tobiu removed the `enhancement` label
-- 2026-01-07 @tobiu added the `epic` label
-- 2026-01-07 @tobiu cross-referenced by #8386
-- 2026-01-07 @tobiu added sub-issue #8386
-- 2026-01-07 @tobiu added sub-issue #8388
-- 2026-01-07 @tobiu added sub-issue #8389
-- 2026-01-07 @tobiu added sub-issue #8390
-- 2026-01-07 @tobiu added sub-issue #8395
-- 2026-01-07 @tobiu added sub-issue #8396
-- 2026-01-07 @tobiu added sub-issue #8397
-- 2026-01-07 @tobiu added sub-issue #8399
-- 2026-01-07 @tobiu added sub-issue #8400
-- 2026-01-07 @tobiu added sub-issue #8401
-- 2026-01-08 @tobiu added sub-issue #8402
-- 2026-01-08 @tobiu added sub-issue #8403
-- 2026-01-08 @tobiu added sub-issue #8404
-- 2026-01-08 @tobiu added sub-issue #8405
-- 2026-01-08 @tobiu added sub-issue #8411
-- 2026-01-08 @tobiu added sub-issue #8413
-- 2026-01-08 @tobiu added sub-issue #8439
-- 2026-01-08 @tobiu added sub-issue #8440
-- 2026-01-08 @tobiu closed this issue
+- 2026-01-06T14:50:51Z @tobiu added the `documentation` label
+- 2026-01-06T14:50:51Z @tobiu added the `enhancement` label
+- 2026-01-06T14:51:05Z @tobiu assigned to @tobiu
+- 2026-01-07T14:39:26Z @tobiu removed the `enhancement` label
+- 2026-01-07T14:39:26Z @tobiu added the `epic` label
+- 2026-01-07T14:49:09Z @tobiu cross-referenced by #8386
+- 2026-01-07T14:53:45Z @tobiu added sub-issue #8386
+- 2026-01-07T15:49:39Z @tobiu added sub-issue #8388
+- 2026-01-07T15:59:27Z @tobiu added sub-issue #8389
+- 2026-01-07T18:11:50Z @tobiu added sub-issue #8390
+- 2026-01-07T20:32:15Z @tobiu added sub-issue #8395
+- 2026-01-07T20:46:32Z @tobiu added sub-issue #8396
+- 2026-01-07T21:06:30Z @tobiu added sub-issue #8397
+- 2026-01-07T22:28:48Z @tobiu added sub-issue #8399
+- 2026-01-07T23:12:45Z @tobiu added sub-issue #8400
+- 2026-01-07T23:35:57Z @tobiu added sub-issue #8401
+- 2026-01-08T00:06:14Z @tobiu added sub-issue #8402
+- 2026-01-08T00:06:20Z @tobiu added sub-issue #8403
+- 2026-01-08T00:11:39Z @tobiu added sub-issue #8404
+- 2026-01-08T00:29:42Z @tobiu added sub-issue #8405
+- 2026-01-08T09:13:05Z @tobiu added sub-issue #8411
+- 2026-01-08T09:40:47Z @tobiu added sub-issue #8413
+- 2026-01-08T19:48:35Z @tobiu added sub-issue #8439
+- 2026-01-08T20:23:12Z @tobiu added sub-issue #8440
+- 2026-01-08T22:51:34Z @tobiu closed this issue
 

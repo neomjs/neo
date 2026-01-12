@@ -83,26 +83,24 @@ Your contribution will be a new ticket file that serves as your official report.
 
 That's it! Your PR will be a valuable piece of R&D that helps us build a truly intelligent and reliable AI development partner. We can't wait to see what you discover.
 
-## Comments
+## Timeline
 
-### @SarthakJain29 - 2025-10-04 13:51
+- 2025-10-04T08:48:47Z @tobiu added the `help wanted` label
+- 2025-10-04T08:48:47Z @tobiu added the `good first issue` label
+- 2025-10-04T08:48:47Z @tobiu added parent issue #7296
+- 2025-10-04T08:48:47Z @tobiu added the `hacktoberfest` label
+- 2025-10-04T08:48:47Z @tobiu added the `ai` label
+### @SarthakJain29 - 2025-10-04T13:51:12Z
 
 Greetings! I would love to work on this issue, could you please assign it to me?
 Thankyou!
 
-### @tobiu - 2025-10-04 13:55
+- 2025-10-04T13:55:00Z @tobiu assigned to @SarthakJain29
+### @tobiu - 2025-10-04T13:55:28Z
 
 sure. feel free to join the slack and/or discord for questions!
 
-## Activity Log
-
-- 2025-10-04 @tobiu added the `help wanted` label
-- 2025-10-04 @tobiu added the `good first issue` label
-- 2025-10-04 @tobiu added parent issue #7296
-- 2025-10-04 @tobiu added the `hacktoberfest` label
-- 2025-10-04 @tobiu added the `ai` label
-- 2025-10-04 @tobiu assigned to @SarthakJain29
-- 2025-10-05 @SarthakJain29 cross-referenced by PR #7359
-- 2025-10-05 @SarthakJain29 cross-referenced by PR #7360
-- 2025-10-05 @tobiu closed this issue
+- 2025-10-05T06:32:59Z @SarthakJain29 cross-referenced by PR #7359
+- 2025-10-05T06:43:04Z @SarthakJain29 cross-referenced by PR #7360
+- 2025-10-05T18:30:33Z @tobiu closed this issue
 

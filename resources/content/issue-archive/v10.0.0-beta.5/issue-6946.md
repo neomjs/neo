@@ -22,15 +22,13 @@ closedAt: '2025-07-05T08:57:43Z'
 
 *(No description provided)*
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-07-05 08:57
+- 2025-07-05T08:56:25Z @tobiu added the `enhancement` label
+- 2025-07-05T08:57:06Z @tobiu referenced in commit `8aee95e` - "tests/config/Hierarchy #6946"
+### @tobiu - 2025-07-05T08:57:43Z
 
 <img width="888" height="657" alt="Image" src="https://github.com/user-attachments/assets/e27c2db3-4186-4eea-8358-edde26445138" />
 
-## Activity Log
-
-- 2025-07-05 @tobiu added the `enhancement` label
-- 2025-07-05 @tobiu referenced in commit `8aee95e` - "tests/config/Hierarchy #6946"
-- 2025-07-05 @tobiu closed this issue
+- 2025-07-05T08:57:43Z @tobiu closed this issue
 

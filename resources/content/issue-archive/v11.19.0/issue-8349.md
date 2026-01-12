@@ -29,9 +29,13 @@ Move the knowledge base synchronization script from `ai/examples/sync_knowledge_
 2.  Update the import paths in the moved file to correctly resolve from the new location.
 3.  Update the `ai:sync-kb` script in `package.json`.
 
-## Comments
+## Timeline
 
-### @tobiu - 2026-01-06 10:48
+- 2026-01-06T10:47:14Z @tobiu added the `refactoring` label
+- 2026-01-06T10:47:14Z @tobiu added the `build` label
+- 2026-01-06T10:47:30Z @tobiu assigned to @tobiu
+- 2026-01-06T10:48:53Z @tobiu referenced in commit `3fad21c` - "Move sync_knowledge_base.mjs to buildScripts/syncKnowledgeBase.mjs #8349"
+### @tobiu - 2026-01-06T10:48:58Z
 
 **Input from Gemini 3 Pro:**
 
@@ -47,11 +51,5 @@ Move the knowledge base synchronization script from `ai/examples/sync_knowledge_
 > 
 > The synchronization logic is now correctly categorized as a build utility.
 
-## Activity Log
-
-- 2026-01-06 @tobiu added the `refactoring` label
-- 2026-01-06 @tobiu added the `build` label
-- 2026-01-06 @tobiu assigned to @tobiu
-- 2026-01-06 @tobiu referenced in commit `3fad21c` - "Move sync_knowledge_base.mjs to buildScripts/syncKnowledgeBase.mjs #8349"
-- 2026-01-06 @tobiu closed this issue
+- 2026-01-06T10:49:13Z @tobiu closed this issue
 

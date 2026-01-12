@@ -170,30 +170,28 @@ This test plan was generated using the AI-Native workflow defined in the "Cookbo
 - [ ] **Styling States:** Test that `.neo-focus` and `.neo-hovered` classes are applied correctly on user interaction.
 ```
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-11-19 14:00
+- 2025-10-13T20:41:47Z @tobiu assigned to @tobiu
+- 2025-10-13T20:41:49Z @tobiu added the `help wanted` label
+- 2025-10-13T20:41:49Z @tobiu added the `good first issue` label
+- 2025-10-13T20:41:49Z @tobiu added the `epic` label
+- 2025-10-13T20:41:49Z @tobiu added the `hacktoberfest` label
+- 2025-10-13T20:41:49Z @tobiu added the `ai` label
+- 2025-10-13T20:46:11Z @tobiu added sub-issue #7476
+- 2025-10-13T20:46:11Z @tobiu cross-referenced by #7476
+- 2025-10-13T21:06:19Z @tobiu cross-referenced by #7435
+- 2025-10-14T16:14:00Z @tobiu added sub-issue #7488
+- 2025-10-14T16:14:00Z @tobiu cross-referenced by #7488
+- 2025-10-14T16:22:30Z @tobiu cross-referenced by #7489
+- 2025-10-14T16:22:31Z @tobiu added sub-issue #7489
+- 2025-10-14T16:34:40Z @tobiu referenced in commit `4a00ed1` - "#7475 ticket md files"
+- 2025-10-14T18:04:25Z @ritikrikm cross-referenced by PR #7490
+- 2025-10-24T08:52:57Z @tobiu cross-referenced by PR #7548
+- 2025-10-27T13:47:45Z @ad1tyayadav cross-referenced by PR #7676
+### @tobiu - 2025-11-19T14:00:20Z
 
 closing the ticket, since resolved.
 
-## Activity Log
-
-- 2025-10-13 @tobiu assigned to @tobiu
-- 2025-10-13 @tobiu added the `help wanted` label
-- 2025-10-13 @tobiu added the `good first issue` label
-- 2025-10-13 @tobiu added the `epic` label
-- 2025-10-13 @tobiu added the `hacktoberfest` label
-- 2025-10-13 @tobiu added the `ai` label
-- 2025-10-13 @tobiu added sub-issue #7476
-- 2025-10-13 @tobiu cross-referenced by #7476
-- 2025-10-13 @tobiu cross-referenced by #7435
-- 2025-10-14 @tobiu added sub-issue #7488
-- 2025-10-14 @tobiu cross-referenced by #7488
-- 2025-10-14 @tobiu cross-referenced by #7489
-- 2025-10-14 @tobiu added sub-issue #7489
-- 2025-10-14 @tobiu referenced in commit `4a00ed1` - "#7475 ticket md files"
-- 2025-10-14 @ritikrikm cross-referenced by PR #7490
-- 2025-10-24 @tobiu cross-referenced by PR #7548
-- 2025-10-27 @ad1tyayadav cross-referenced by PR #7676
-- 2025-11-19 @tobiu closed this issue
+- 2025-11-19T14:00:21Z @tobiu closed this issue
 

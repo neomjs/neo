@@ -29,13 +29,13 @@ The `manage_connection` tool fails because `x-pass-as-object: true` is missing i
 **Fix:**
 Add `x-pass-as-object: true` to `/connection/manage` in `openapi.yaml`.
 
-## Activity Log
+## Timeline
 
-- 2026-01-05 @tobiu added the `bug` label
-- 2026-01-05 @tobiu added the `ai` label
-- 2026-01-05 @tobiu added the `architecture` label
-- 2026-01-05 @tobiu assigned to @tobiu
-- 2026-01-05 @tobiu added parent issue #8169
-- 2026-01-05 @tobiu referenced in commit `ffeef5b` - "fix(ai): Add x-pass-as-object to manage_connection tool (#8332)"
-- 2026-01-05 @tobiu closed this issue
+- 2026-01-05T11:58:23Z @tobiu added the `bug` label
+- 2026-01-05T11:58:23Z @tobiu added the `ai` label
+- 2026-01-05T11:58:23Z @tobiu added the `architecture` label
+- 2026-01-05T11:58:45Z @tobiu assigned to @tobiu
+- 2026-01-05T11:58:57Z @tobiu added parent issue #8169
+- 2026-01-05T11:59:21Z @tobiu referenced in commit `ffeef5b` - "fix(ai): Add x-pass-as-object to manage_connection tool (#8332)"
+- 2026-01-05T11:59:39Z @tobiu closed this issue
 

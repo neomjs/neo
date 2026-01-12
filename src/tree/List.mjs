@@ -6,8 +6,24 @@ import TreeModel       from '../selection/TreeModel.mjs';
 import VDomUtil        from "../util/VDom.mjs";
 
 /**
+ * @summary A hierarchical list component supporting nested folders, expansion, and sticky headers.
+ *
+ * This component renders hierarchical data structures (trees) using a flat store managed by a `Neo.selection.TreeModel`.
+ * It provides built-in support for:
+ * - **Recursive rendering:** Efficiently renders deeply nested folder structures.
+ * - **Collapsible folders:** Interactive expand/collapse functionality for branch nodes.
+ * - **Sticky Headers:** Folder headers use CSS `position: sticky` to remain visible while scrolling through their content.
+ * - **Stuck State Detection:** When `saveScrollPosition` is enabled, the component tracks the sticky state via JS and applies
+ *   a `.neo-stuck` class to headers that are currently pinned. This is useful for visual customization, such as applying
+ *   backgrounds to transparent items.
+ * - **Drag and Drop:** Supports reordering via `dragResortable` or moving items between lists via `draggable`.
+ * - **Filtering:** Deep-filtering that preserves folder structures for matched leaf nodes.
+ *
+ * Keywords: `Hierarchical Data`, `Tree View`, `Recursive List`, `Sticky Headers`, `Folder View`
+ *
  * @class Neo.tree.List
  * @extends Neo.list.Base
+ * @see Neo.selection.TreeModel
  */
 class Tree extends Base {
     static config = {
@@ -60,6 +76,14 @@ class Tree extends Base {
          * @reactive
          */
         wrapperCls: [],
+        /**
+         * Set this config to true to monitor the scroll position of the list.
+         * This enables the `onScrollCapture` logic which calculates if sticky folder headers
+         * are currently in a "stuck" state (pinned to the top), applying the `.neo-stuck` CSS class.
+         * Useful for applying visual changes (e.g. background opacity) only when headers are sticking.
+         * @member {Boolean} saveScrollPosition=false
+         */
+        saveScrollPosition: false,
         /**
          * @member {Object} _vdom
          */
@@ -160,7 +184,7 @@ class Tree extends Base {
     collapseAll(silent=false) {
         let me       = this,
             hasMatch = false,
-            node;
+            nextSibling, node, parentNode, index;
 
         me.store.forEach(item => {
             if (!item.isLeaf) {
@@ -168,6 +192,14 @@ class Tree extends Base {
 
                 if (node.cls.includes('neo-folder-open')) {
                     NeoArray.remove(node.cls, 'neo-folder-open');
+
+                    ({parentNode, index} = VDomUtil.find(me.vdom, node.id));
+                    nextSibling          = parentNode.cn[index + 1];
+
+                    if (nextSibling?.tag === 'ul') {
+                        nextSibling.removeDom = true
+                    }
+
                     hasMatch = true
                 }
             }
@@ -179,9 +211,18 @@ class Tree extends Base {
     }
 
     /**
+     * Creates the VDOM object for a single tree item (leaf or folder).
      *
-     * @param {Object} record
-     * @returns {Object}
+     * This method is the core VDOM factory for the tree. It constructs the `li` element
+     * representing a record. Key responsibilities:
+     * 1.  **Class Assignment:** Applies `itemCls`, `folderCls`, and `iconCls` based on record state.
+     * 2.  **Hierarchy visualization:** Calculates `zIndex` and `padding` based on depth (`level`).
+     * 3.  **Sticky Positioning:** Sets `position: sticky` and calculates `top` offsets for folder nodes
+     *     to ensure they stack correctly while scrolling.
+     * 4.  **Content:** Creates the label and icon structure.
+     *
+     * @param {Object} record The data record from the store
+     * @returns {Object} The VDOM object for the list item
      */
     createItem(record) {
         let me                   = this,
@@ -212,8 +253,9 @@ class Tree extends Base {
         itemVdom = {
             tag: 'li',
             cls,
-            id : me.getItemId(record[keyProperty]),
-            cn : [{
+            id   : me.getItemId(record[keyProperty]),
+            level: record.level,
+            cn   : [{
                 tag  : 'span',
                 cls  : contentCls,
                 html : record[me.displayField],
@@ -222,9 +264,9 @@ class Tree extends Base {
             style: {
                 display : record.hidden ? 'none' : 'flex',
                 padding : '10px',
-                position: record.isLeaf ? null : 'sticky',
-                top     : record.isLeaf ? null : (record.level * 38) + 'px',
-                zIndex  : record.isLeaf ? null : (20 / (record.level + 1))
+                position: (record.isLeaf || record.collapsed) ? null : 'sticky',
+                top     : (record.isLeaf || record.collapsed) ? null : (record.level * 38) + 'px',
+                zIndex  : record.isLeaf ? 1 : (10000 + record.level)
             }
         };
 
@@ -236,10 +278,22 @@ class Tree extends Base {
     }
 
     /**
-     * @param {String} [parentId] The parent node
+     * Recursively generates the VDOM tree structure starting from a given parent.
+     *
+     * This method implements the recursive logic required to turn a flat store into a
+     * hierarchical DOM structure.
+     * - It finds all direct children of the `parentId`.
+     * - It creates a `ul` container for them.
+     * - For each child, it calls `createItem` to generate the node.
+     * - It recursively calls itself (`createItemLevel`) for each child to build the next level.
+     *
+     * This approach ensures that the visual hierarchy matches the data relationship,
+     * supporting arbitrary depth.
+     *
+     * @param {String} [parentId] The parent node id (null for root level)
      * @param {Object} [vdomRoot] The vdom template root for the current sub tree
-     * @param {Number} level The hierarchy level of the tree
-     * @param {Boolean} hidden=false
+     * @param {Number} level The current hierarchy level (depth)
+     * @param {Boolean} hidden=false Whether this branch is currently hidden (collapsed parent)
      * @returns {Object} vdomRoot
      * @protected
      */
@@ -255,11 +309,11 @@ class Tree extends Base {
 
             if (parentId !== null) {
                 vdomRoot.cn.push({
-                    tag  : 'ul',
-                    cls  : ['neo-list'],
-                    cn   : [],
-                    style: {
-                        display    : hidden ? 'none' : null,
+                    tag      : 'ul',
+                    cls      : ['neo-list'],
+                    cn       : [],
+                    removeDom: hidden,
+                    style    : {
                         paddingLeft: '15px'
                     }
                 });
@@ -274,7 +328,7 @@ class Tree extends Base {
 
                 tmpRoot.cn.push(me.createItem(record));
 
-                me.createItemLevel(record.id, tmpRoot, level + 1, record.hidden || hidden)
+                me.createItemLevel(record.id, tmpRoot, level + 1, record.hidden || hidden || record.collapsed)
             })
         }
 
@@ -282,6 +336,12 @@ class Tree extends Base {
     }
 
     /**
+     * The main entry point for rendering the tree's content.
+     *
+     * This method clears the current list content and initiates the recursive rendering process
+     * by calling `createItemLevel` starting from the root (null parent).
+     * It is typically called when the store is loaded or when a full refresh is needed.
+     *
      * @protected
      */
     createItems() {
@@ -301,7 +361,7 @@ class Tree extends Base {
     expandAll(silent=false) {
         let me       = this,
             hasMatch = false,
-            node;
+            nextSibling, node, parentNode, index;
 
         me.store.forEach(item => {
             if (!item.isLeaf) {
@@ -309,12 +369,59 @@ class Tree extends Base {
 
                 if (!node.cls.includes('neo-folder-open')) {
                     NeoArray.add(node.cls, 'neo-folder-open');
+
+                    ({parentNode, index} = VDomUtil.find(me.vdom, node.id));
+                    nextSibling          = parentNode.cn[index + 1];
+
+                    if (nextSibling?.tag === 'ul') {
+                        nextSibling.removeDom = false
+                    }
+
                     hasMatch = true
                 }
             }
         });
 
         if (hasMatch && !silent) {
+            me.update()
+        }
+    }
+
+    /**
+     * Expands all parent folders of a given item
+     * @param {String|Number} itemId
+     */
+    expandParents(itemId) {
+        let me       = this,
+            item     = me.store.get(itemId),
+            hasMatch = false,
+            nextSibling, node, parentId, parentNode, index;
+
+        if (item) {
+            parentId = item.parentId;
+
+            while (parentId) {
+                node = me.getVdomChild(me.getItemId(parentId));
+
+                if (node && !node.cls.includes('neo-folder-open')) {
+                    NeoArray.add(node.cls, 'neo-folder-open');
+
+                    ({parentNode, index} = VDomUtil.find(me.vdom, node.id));
+                    nextSibling          = parentNode.cn[index + 1];
+
+                    if (nextSibling?.tag === 'ul') {
+                        nextSibling.removeDom = false
+                    }
+
+                    hasMatch = true
+                }
+
+                item     = me.store.get(parentId);
+                parentId = item ? item.parentId : null
+            }
+        }
+
+        if (hasMatch) {
             me.update()
         }
     }
@@ -367,6 +474,19 @@ class Tree extends Base {
         }
 
         return isFiltered
+    }
+
+    /**
+     * Scrolls a list item into the visible area
+     * @param {String|Number} itemId
+     */
+    scrollToItem(itemId) {
+        let me = this;
+
+        Neo.main.DomAccess.scrollIntoView({
+            id      : me.getItemId(itemId),
+            windowId: me.windowId
+        })
     }
 
     /**
@@ -441,6 +561,18 @@ class Tree extends Base {
         if (item) {
             if (item.cls?.includes(me.folderCls)) {
                 NeoArray.toggle(item.cls, 'neo-folder-open');
+
+                let isOpen              = item.cls.includes('neo-folder-open'),
+                    {parentNode, index} = VDomUtil.find(me.vdom, item.id),
+                    nextSibling         = parentNode.cn[index + 1];
+
+                item.style.position = isOpen ? 'sticky' : null;
+                item.style.top      = isOpen ? (item.level * 38) + 'px' : null;
+
+                if (nextSibling?.tag === 'ul') {
+                    nextSibling.removeDom = !isOpen
+                }
+
                 me.update()
             } else {
                 me.onLeafItemClick(record);
@@ -476,6 +608,93 @@ class Tree extends Base {
             this.collapseAll()
         } else {
             this.expandAll()
+        }
+    }
+
+    /**
+     * Captures the scroll stream from the Main Thread to detect sticky states.
+     *
+     * When `saveScrollPosition` is true, this method calculates which folder headers are currently
+     * pinned ("stuck") to the top of the viewport by comparing their computed `top` style with
+     * the current `scrollTop`. It toggles the `neo-stuck` class on these items, allowing for
+     * conditional styling (e.g. background opacity) only when headers are sticking.
+     *
+     * @param {Object} data
+     * @param {Number} data.scrollTop The current scroll position
+     */
+    onScrollCapture(data) {
+        super.onScrollCapture(data);
+
+        let me = this;
+
+        if (me.saveScrollPosition) {
+            let scrollTop       = data.scrollTop,
+                needsUpdate     = false,
+                y               = 0,
+                stuckCandidates = {};
+
+            const traverse = (node) => {
+                if (!node.cn) return;
+
+                let lastFolderOpen = true;
+
+                node.cn.forEach(child => {
+                    if (child.tag === 'li') {
+                        if (child.cls.includes(me.folderCls)) {
+                            let topStyle = child.style.top;
+
+                            if (topStyle) {
+                                let isStuck = scrollTop > 0 && (y - scrollTop) <= parseInt(topStyle);
+
+                                if (isStuck) {
+                                    let level = child.level || 0;
+                                    stuckCandidates[level] ??= [];
+                                    stuckCandidates[level].push(child)
+                                } else {
+                                    if (child.cls.includes('neo-stuck')) {
+                                        NeoArray.remove(child.cls, 'neo-stuck');
+                                        needsUpdate = true
+                                    }
+                                }
+                            }
+
+                            lastFolderOpen = child.cls.includes('neo-folder-open')
+                        } else {
+                            lastFolderOpen = true
+                        }
+
+                        if (child.style?.display !== 'none' && !child.removeDom) {
+                            y += 51
+                        }
+                    } else if (child.tag === 'ul') {
+                        if (lastFolderOpen && !child.removeDom) {
+                            traverse(child)
+                        }
+                    }
+                })
+            };
+
+            if (me.vdom.cn && me.vdom.cn[0]) {
+                traverse(me.vdom.cn[0])
+            }
+
+            Object.values(stuckCandidates).forEach(items => {
+                let last = items[items.length - 1];
+
+                items.forEach(item => {
+                    let shouldBeStuck = (item === last),
+                        hasClass      = item.cls.includes('neo-stuck');
+
+                    if (shouldBeStuck !== hasClass) {
+                        NeoArray.toggle(item.cls, 'neo-stuck', shouldBeStuck);
+                        needsUpdate = true
+                    }
+                })
+            });
+
+            if (needsUpdate) {
+                me.update()
+            }
         }
     }
 

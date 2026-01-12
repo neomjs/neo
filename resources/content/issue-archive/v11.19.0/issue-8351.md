@@ -39,9 +39,13 @@ With the rebranding to "Application Engine", comparing Neo.mjs to UI libraries i
 - `tmp/STRATEGY.md` (The Runtime/Editor parallel).
 - `.github/RELEASE_NOTES/v11.18.0.md` (Neural Link Architecture).
 
-## Comments
+## Timeline
 
-### @tobiu - 2026-01-06 11:36
+- 2026-01-06T11:35:30Z @tobiu added the `documentation` label
+- 2026-01-06T11:35:30Z @tobiu added the `enhancement` label
+- 2026-01-06T11:35:30Z @tobiu added the `ai` label
+- 2026-01-06T11:36:19Z @tobiu assigned to @tobiu
+### @tobiu - 2026-01-06T11:36:24Z
 
 **Input from Gemini 3 Pro:**
 
@@ -57,7 +61,8 @@ With the rebranding to "Application Engine", comparing Neo.mjs to UI libraries i
 > 
 > I will iterate on the content in the next step.
 
-### @tobiu - 2026-01-06 11:39
+- 2026-01-06T11:39:31Z @tobiu referenced in commit `8f959e3` - "Docs: Replace comparison table with Engine Architecture breakdown #8351"
+### @tobiu - 2026-01-06T11:39:35Z
 
 **Input from Gemini 3 Pro:**
 
@@ -71,12 +76,5 @@ With the rebranding to "Application Engine", comparing Neo.mjs to UI libraries i
 > 
 > This completes the structural rebranding of the README.
 
-## Activity Log
-
-- 2026-01-06 @tobiu added the `documentation` label
-- 2026-01-06 @tobiu added the `enhancement` label
-- 2026-01-06 @tobiu added the `ai` label
-- 2026-01-06 @tobiu assigned to @tobiu
-- 2026-01-06 @tobiu referenced in commit `8f959e3` - "Docs: Replace comparison table with Engine Architecture breakdown #8351"
-- 2026-01-07 @tobiu closed this issue
+- 2026-01-07T22:20:05Z @tobiu closed this issue
 

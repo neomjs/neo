@@ -23,10 +23,10 @@ closedAt: '2025-03-03T20:06:31Z'
 
 * to ensure that every change gets one
 
-## Activity Log
+## Timeline
 
-- 2025-03-03 @tobiu added the `enhancement` label
-- 2025-03-03 @tobiu assigned to @tobiu
-- 2025-03-03 @tobiu referenced in commit `bd05e4d` - "grid.column.AnimatedChange: cellRenderer() => toggle animation class #6536"
-- 2025-03-03 @tobiu closed this issue
+- 2025-03-03T20:05:44Z @tobiu added the `enhancement` label
+- 2025-03-03T20:05:45Z @tobiu assigned to @tobiu
+- 2025-03-03T20:06:25Z @tobiu referenced in commit `bd05e4d` - "grid.column.AnimatedChange: cellRenderer() => toggle animation class #6536"
+- 2025-03-03T20:06:32Z @tobiu closed this issue
 

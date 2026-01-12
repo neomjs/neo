@@ -23,10 +23,10 @@ closedAt: '2025-06-13T21:39:33Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
-- 2025-06-13 @tobiu assigned to @tobiu
-- 2025-06-13 @tobiu added the `enhancement` label
-- 2025-06-13 @tobiu referenced in commit `5e2b1c0` - "Portal App: add the liquid glass demo into the examples sections for each env #6790"
-- 2025-06-13 @tobiu closed this issue
+- 2025-06-13T21:36:57Z @tobiu assigned to @tobiu
+- 2025-06-13T21:36:58Z @tobiu added the `enhancement` label
+- 2025-06-13T21:37:10Z @tobiu referenced in commit `5e2b1c0` - "Portal App: add the liquid glass demo into the examples sections for each env #6790"
+- 2025-06-13T21:39:33Z @tobiu closed this issue
 

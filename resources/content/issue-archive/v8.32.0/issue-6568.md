@@ -22,9 +22,9 @@ closedAt: '2025-03-10T18:29:41Z'
 
 * Buffered columns => the target node might not be mounted
 
-## Activity Log
+## Timeline
 
-- 2025-03-10 @tobiu added the `enhancement` label
-- 2025-03-10 @tobiu referenced in commit `564c66b` - "grid.column.AnimatedChange: onRecordChange() => check if the node exists #6568"
-- 2025-03-10 @tobiu closed this issue
+- 2025-03-10T18:29:15Z @tobiu added the `enhancement` label
+- 2025-03-10T18:29:34Z @tobiu referenced in commit `564c66b` - "grid.column.AnimatedChange: onRecordChange() => check if the node exists #6568"
+- 2025-03-10T18:29:41Z @tobiu closed this issue
 

@@ -47,15 +47,15 @@ The `openapi.yaml` file for each MCP server should become the single source of t
 2.  Ensure the `description` for every tool is comprehensive enough to not require external documentation.
 3.  Add rich, practical examples to the descriptions.
 
-## Activity Log
+## Timeline
 
-- 2025-10-26 @tobiu added the `documentation` label
-- 2025-10-26 @tobiu added the `enhancement` label
-- 2025-10-26 @tobiu added the `developer-experience` label
-- 2025-10-26 @tobiu added the `ai` label
-- 2025-10-26 @tobiu assigned to @tobiu
-- 2025-10-26 @tobiu added parent issue #7604
-- 2025-10-26 @tobiu referenced in commit `d06cb34` - "Docs: Create Self-Explanatory Tools via OpenAPI Descriptions #7659"
-- 2025-10-26 @tobiu closed this issue
-- 2025-10-26 @tobiu cross-referenced by #7663
+- 2025-10-26T09:54:06Z @tobiu added the `documentation` label
+- 2025-10-26T09:54:06Z @tobiu added the `enhancement` label
+- 2025-10-26T09:54:06Z @tobiu added the `developer-experience` label
+- 2025-10-26T09:54:06Z @tobiu added the `ai` label
+- 2025-10-26T09:54:26Z @tobiu assigned to @tobiu
+- 2025-10-26T09:54:38Z @tobiu added parent issue #7604
+- 2025-10-26T12:03:01Z @tobiu referenced in commit `d06cb34` - "Docs: Create Self-Explanatory Tools via OpenAPI Descriptions #7659"
+- 2025-10-26T12:03:37Z @tobiu closed this issue
+- 2025-10-26T12:11:27Z @tobiu cross-referenced by #7663
 

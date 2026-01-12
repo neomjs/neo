@@ -34,13 +34,13 @@ An outdated API specification is misleading for both human developers and AI age
 3.  Review all other relevant schemas in `openapi.yaml` (e.g., `PullRequest`, `Label`) to ensure they are aligned with the data now being returned by the GraphQL-backed services.
 4.  Ensure all examples in the OpenAPI specification are updated to reflect the new data structures.
 
-## Activity Log
+## Timeline
 
-- 2025-10-22 @tobiu assigned to @tobiu
-- 2025-10-22 @tobiu added the `documentation` label
-- 2025-10-22 @tobiu added the `enhancement` label
-- 2025-10-22 @tobiu added the `ai` label
-- 2025-10-22 @tobiu added parent issue #7590
-- 2025-10-22 @tobiu referenced in commit `ae5fb36` - "Update OpenAPI Specification to Reflect GraphQL Data Models #7600"
-- 2025-10-22 @tobiu closed this issue
+- 2025-10-22T09:17:02Z @tobiu assigned to @tobiu
+- 2025-10-22T09:17:03Z @tobiu added the `documentation` label
+- 2025-10-22T09:17:03Z @tobiu added the `enhancement` label
+- 2025-10-22T09:17:03Z @tobiu added the `ai` label
+- 2025-10-22T09:17:03Z @tobiu added parent issue #7590
+- 2025-10-22T09:32:34Z @tobiu referenced in commit `ae5fb36` - "Update OpenAPI Specification to Reflect GraphQL Data Models #7600"
+- 2025-10-22T09:32:53Z @tobiu closed this issue
 

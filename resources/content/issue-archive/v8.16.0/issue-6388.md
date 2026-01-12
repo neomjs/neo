@@ -26,16 +26,14 @@ closedAt: '2025-02-06T10:07:16Z'
 * However, when dragging out of the grid container, there might not be this much space
 * So, when over-dragging, the moveFactor should be way smaller
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-02-06 10:07
+- 2025-02-06T09:21:27Z @tobiu added the `enhancement` label
+- 2025-02-06T09:21:27Z @tobiu assigned to @tobiu
+- 2025-02-06T10:00:34Z @tobiu referenced in commit `b1abec6` - "draggable.toolbar.SortZone: reduce the moveFactor when over-dragging #6388"
+### @tobiu - 2025-02-06T10:07:16Z
 
 https://github.com/user-attachments/assets/b028b16b-e747-4ed3-b99e-b208bb14ba4b
 
-## Activity Log
-
-- 2025-02-06 @tobiu added the `enhancement` label
-- 2025-02-06 @tobiu assigned to @tobiu
-- 2025-02-06 @tobiu referenced in commit `b1abec6` - "draggable.toolbar.SortZone: reduce the moveFactor when over-dragging #6388"
-- 2025-02-06 @tobiu closed this issue
+- 2025-02-06T10:07:16Z @tobiu closed this issue
 

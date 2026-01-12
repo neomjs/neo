@@ -23,10 +23,10 @@ closedAt: '2025-02-03T14:26:20Z'
 
 * and remove the border for the grid container within the proxy vdom
 
-## Activity Log
+## Timeline
 
-- 2025-02-03 @tobiu added the `enhancement` label
-- 2025-02-03 @tobiu assigned to @tobiu
-- 2025-02-03 @tobiu referenced in commit `73a84f0` - "draggable.grid.header.toolbar.SortZone: createDragProxy() => add the header toolbar cls to the proxy vdom #6365"
-- 2025-02-03 @tobiu closed this issue
+- 2025-02-03T14:25:59Z @tobiu added the `enhancement` label
+- 2025-02-03T14:25:59Z @tobiu assigned to @tobiu
+- 2025-02-03T14:26:14Z @tobiu referenced in commit `73a84f0` - "draggable.grid.header.toolbar.SortZone: createDragProxy() => add the header toolbar cls to the proxy vdom #6365"
+- 2025-02-03T14:26:20Z @tobiu closed this issue
 

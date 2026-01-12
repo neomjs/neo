@@ -30,12 +30,12 @@ Update `.github/CODING_GUIDELINES.md` to:
 1.  Define the usage of `@summary` for a concise, one-sentence explanation of the class's purpose.
 2.  Mandate an empty line after the `@summary` tag (or the last single-line tag like `@class`, `@extends`) and before the detailed description of the class.
 
-## Activity Log
+## Timeline
 
-- 2025-11-24 @tobiu added the `documentation` label
-- 2025-11-24 @tobiu added the `enhancement` label
-- 2025-11-24 @tobiu added the `ai` label
-- 2025-11-24 @tobiu assigned to @tobiu
-- 2025-11-24 @tobiu referenced in commit `04b4d1f` - "Update Coding Guidelines for Class Top-Level JSDoc Comments and @summary Tag #7890"
-- 2025-11-24 @tobiu closed this issue
+- 2025-11-24T09:44:19Z @tobiu added the `documentation` label
+- 2025-11-24T09:44:19Z @tobiu added the `enhancement` label
+- 2025-11-24T09:44:19Z @tobiu added the `ai` label
+- 2025-11-24T09:44:42Z @tobiu assigned to @tobiu
+- 2025-11-24T10:06:03Z @tobiu referenced in commit `04b4d1f` - "Update Coding Guidelines for Class Top-Level JSDoc Comments and @summary Tag #7890"
+- 2025-11-24T10:06:10Z @tobiu closed this issue
 

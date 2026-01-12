@@ -28,10 +28,10 @@ This ticket covers a series of enhancements to the `learn/comparisons/NeoVsAngul
 - Refined the "Developer Experience" section to more clearly articulate the benefits of Neo.mjs's "zero-builds" workflow versus Angular's prescriptive, build-heavy process.
 - Preserved existing valuable content while integrating these new, more focused points.
 
-## Activity Log
+## Timeline
 
-- 2025-07-24 @tobiu assigned to @tobiu
-- 2025-07-24 @tobiu added the `enhancement` label
-- 2025-07-24 @tobiu referenced in commit `ea80a76` - "docs: Enhance Angular comparison article #7107"
-- 2025-07-24 @tobiu closed this issue
+- 2025-07-24T15:30:31Z @tobiu assigned to @tobiu
+- 2025-07-24T15:30:32Z @tobiu added the `enhancement` label
+- 2025-07-24T15:30:52Z @tobiu referenced in commit `ea80a76` - "docs: Enhance Angular comparison article #7107"
+- 2025-07-24T15:31:14Z @tobiu closed this issue
 

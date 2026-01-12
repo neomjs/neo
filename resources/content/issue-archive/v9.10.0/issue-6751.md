@@ -23,10 +23,10 @@ closedAt: '2025-06-03T19:09:47Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
-- 2025-06-03 @tobiu assigned to @tobiu
-- 2025-06-03 @tobiu added the `enhancement` label
-- 2025-06-03 @tobiu referenced in commit `dfa74a7` - "buildScripts/buildESModules: keep the neo-config.json main path the repo way for workspaces #6751"
-- 2025-06-03 @tobiu closed this issue
+- 2025-06-03T19:08:55Z @tobiu assigned to @tobiu
+- 2025-06-03T19:08:57Z @tobiu added the `enhancement` label
+- 2025-06-03T19:09:09Z @tobiu referenced in commit `dfa74a7` - "buildScripts/buildESModules: keep the neo-config.json main path the repo way for workspaces #6751"
+- 2025-06-03T19:09:47Z @tobiu closed this issue
 

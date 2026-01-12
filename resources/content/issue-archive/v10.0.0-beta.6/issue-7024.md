@@ -39,11 +39,11 @@ To break this loop, the component needed to apply the VDOM update *after* the ef
 -   The `run()` method correctly uses `get()` and `set()` on `isRunning`.
 -   The change successfully enables consumers to observe the effect's execution state, resolving the infinite loop problem in functional components.
 
-## Activity Log
+## Timeline
 
-- 2025-07-12 @tobiu assigned to @tobiu
-- 2025-07-12 @tobiu added the `enhancement` label
-- 2025-07-12 @tobiu referenced in commit `3090f97` - "Refactor Neo.core.Effect to Use a Reactive isRunning State #7024"
-- 2025-07-12 @tobiu closed this issue
-- 2025-07-12 @tobiu added parent issue #6992
+- 2025-07-12T14:48:36Z @tobiu assigned to @tobiu
+- 2025-07-12T14:48:38Z @tobiu added the `enhancement` label
+- 2025-07-12T14:49:00Z @tobiu referenced in commit `3090f97` - "Refactor Neo.core.Effect to Use a Reactive isRunning State #7024"
+- 2025-07-12T15:32:46Z @tobiu closed this issue
+- 2025-07-12T18:28:28Z @tobiu added parent issue #6992
 

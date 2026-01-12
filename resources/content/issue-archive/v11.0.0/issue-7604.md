@@ -54,24 +54,24 @@ This epic covers automating these startup procedures within the MCP servers them
 -   **Increased Reliability:** Automating these steps makes the system more robust and less prone to user or agent error.
 -   **Faster Session Startup:** Reduces the number of commands and checks required to start a new session.
 
-## Activity Log
+## Timeline
 
-- 2025-10-22 @tobiu added the `enhancement` label
-- 2025-10-22 @tobiu added the `epic` label
-- 2025-10-22 @tobiu added the `ai` label
-- 2025-10-23 @tobiu added sub-issue #7626
-- 2025-10-23 @tobiu cross-referenced by #7626
-- 2025-10-24 @tobiu added sub-issue #7630
-- 2025-10-24 @tobiu added sub-issue #7631
-- 2025-10-24 @tobiu cross-referenced by #7634
-- 2025-10-26 @tobiu cross-referenced by #7658
-- 2025-10-26 @tobiu added sub-issue #7658
-- 2025-10-26 @tobiu cross-referenced by #7659
-- 2025-10-26 @tobiu added sub-issue #7659
-- 2025-10-26 @tobiu added sub-issue #7660
-- 2025-10-26 @tobiu added sub-issue #7661
-- 2025-10-26 @tobiu added sub-issue #7662
-- 2025-10-26 @tobiu cross-referenced by #7664
-- 2025-10-26 @tobiu closed this issue
-- 2025-10-26 @tobiu assigned to @tobiu
+- 2025-10-22T11:43:56Z @tobiu added the `enhancement` label
+- 2025-10-22T11:43:57Z @tobiu added the `epic` label
+- 2025-10-22T11:43:57Z @tobiu added the `ai` label
+- 2025-10-23T15:06:26Z @tobiu added sub-issue #7626
+- 2025-10-23T15:06:26Z @tobiu cross-referenced by #7626
+- 2025-10-24T09:37:00Z @tobiu added sub-issue #7630
+- 2025-10-24T10:15:32Z @tobiu added sub-issue #7631
+- 2025-10-24T10:43:34Z @tobiu cross-referenced by #7634
+- 2025-10-26T09:53:17Z @tobiu cross-referenced by #7658
+- 2025-10-26T09:53:48Z @tobiu added sub-issue #7658
+- 2025-10-26T09:54:05Z @tobiu cross-referenced by #7659
+- 2025-10-26T09:54:38Z @tobiu added sub-issue #7659
+- 2025-10-26T10:21:06Z @tobiu added sub-issue #7660
+- 2025-10-26T10:34:24Z @tobiu added sub-issue #7661
+- 2025-10-26T11:37:39Z @tobiu added sub-issue #7662
+- 2025-10-26T13:53:16Z @tobiu cross-referenced by #7664
+- 2025-10-26T16:16:16Z @tobiu closed this issue
+- 2025-10-26T16:16:23Z @tobiu assigned to @tobiu
 

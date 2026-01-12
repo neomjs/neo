@@ -23,10 +23,10 @@ closedAt: '2025-07-01T15:06:28Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
-- 2025-07-01 @tobiu assigned to @tobiu
-- 2025-07-01 @tobiu added the `enhancement` label
-- 2025-07-01 @tobiu referenced in commit `719318e` - "Portal.view.learn.MainContainerController: onRouteLearnItem() => param destructuring #6924"
-- 2025-07-01 @tobiu closed this issue
+- 2025-07-01T15:05:59Z @tobiu assigned to @tobiu
+- 2025-07-01T15:06:01Z @tobiu added the `enhancement` label
+- 2025-07-01T15:06:19Z @tobiu referenced in commit `719318e` - "Portal.view.learn.MainContainerController: onRouteLearnItem() => param destructuring #6924"
+- 2025-07-01T15:06:29Z @tobiu closed this issue
 

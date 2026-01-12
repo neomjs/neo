@@ -29,21 +29,19 @@ closedAt: '2025-12-01T11:26:51Z'
 - Ensure it extends `Neo.core.Base`.
 **Context:** Part of Epic #7961.
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-12-01 11:26
+- 2025-12-01T10:59:42Z @tobiu added the `enhancement` label
+- 2025-12-01T10:59:42Z @tobiu added the `ai` label
+- 2025-12-01T10:59:56Z @tobiu added parent issue #7961
+- 2025-12-01T11:23:21Z @tobiu assigned to @tobiu
+- 2025-12-01T11:24:14Z @tobiu referenced in commit `af01101` - "Implement Neo.ai.provider.Base #7962"
+### @tobiu - 2025-12-01T11:26:35Z
 
 **Input from Gemini 2.5:**
 
 > ✦ Implemented `Neo.ai.provider.Base` with `requiredEnv` security pattern.
 > Moved validation to `construct()` for better lifecycle alignment.
 
-## Activity Log
-
-- 2025-12-01 @tobiu added the `enhancement` label
-- 2025-12-01 @tobiu added the `ai` label
-- 2025-12-01 @tobiu added parent issue #7961
-- 2025-12-01 @tobiu assigned to @tobiu
-- 2025-12-01 @tobiu referenced in commit `af01101` - "Implement Neo.ai.provider.Base #7962"
-- 2025-12-01 @tobiu closed this issue
+- 2025-12-01T11:26:51Z @tobiu closed this issue
 

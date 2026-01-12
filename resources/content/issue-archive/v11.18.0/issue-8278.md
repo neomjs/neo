@@ -34,14 +34,14 @@ To debug event delegation and interaction logic on a specific component.
 2.  **Server-Side:** Define `get_dom_event_listeners` tool in MCP.
 3.  **Schema:** Strict array response.
 
-## Activity Log
+## Timeline
 
-- 2026-01-01 @tobiu added the `enhancement` label
-- 2026-01-01 @tobiu added the `ai` label
-- 2026-01-01 @tobiu added parent issue #8169
-- 2026-01-01 @tobiu assigned to @tobiu
-- 2026-01-02 @tobiu closed this issue
-- 2026-01-04 @jonnyamsp referenced in commit `e8372da` - "feat(ai): Implement DOM Event introspection tools (#8278, #8279)
+- 2026-01-01T18:46:59Z @tobiu added the `enhancement` label
+- 2026-01-01T18:46:59Z @tobiu added the `ai` label
+- 2026-01-01T18:47:11Z @tobiu added parent issue #8169
+- 2026-01-01T18:47:54Z @tobiu assigned to @tobiu
+- 2026-01-02T09:42:45Z @tobiu closed this issue
+- 2026-01-04T03:10:29Z @jonnyamsp referenced in commit `e8372da` - "feat(ai): Implement DOM Event introspection tools (#8278, #8279)
 
 - Implement client-side logic for getDomEventListeners and getDomEventSummary in RuntimeService
 - Update Client.mjs to route get_dom_event requests

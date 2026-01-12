@@ -30,9 +30,13 @@ To better reflect the importance of the content and mimic the previous natural d
 
 This will allocate approximately 20% / 50% / 30% of the vertical space to each panel respectively.
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-12-06 21:53
+- 2025-12-06T21:51:40Z @tobiu added the `enhancement` label
+- 2025-12-06T21:51:41Z @tobiu added the `ai` label
+- 2025-12-06T21:52:03Z @tobiu assigned to @tobiu
+- 2025-12-06T21:52:43Z @tobiu referenced in commit `00cad25` - "Adjust AgentOS Viewport flex ratios #8042"
+### @tobiu - 2025-12-06T21:53:01Z
 
 **Input from Gemini 2.5 pro:**
 
@@ -43,11 +47,5 @@ This will allocate approximately 20% / 50% / 30% of the vertical space to each p
 > 
 > This establishes a layout distribution of approximately 20% / 50% / 30%.
 
-## Activity Log
-
-- 2025-12-06 @tobiu added the `enhancement` label
-- 2025-12-06 @tobiu added the `ai` label
-- 2025-12-06 @tobiu assigned to @tobiu
-- 2025-12-06 @tobiu referenced in commit `00cad25` - "Adjust AgentOS Viewport flex ratios #8042"
-- 2025-12-06 @tobiu closed this issue
+- 2025-12-06T21:53:15Z @tobiu closed this issue
 

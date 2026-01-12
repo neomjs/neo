@@ -35,9 +35,9 @@ We want to evolve the "Sighted Agent" concept into a first-class citizen of our 
 *   A new service in the AI SDK.
 
 
-## Activity Log
+## Timeline
 
-- 2025-11-29 @tobiu added the `enhancement` label
-- 2025-11-29 @tobiu added the `ai` label
-- 2025-11-29 @tobiu added parent issue #7919
+- 2025-11-29T15:20:05Z @tobiu added the `enhancement` label
+- 2025-11-29T15:20:05Z @tobiu added the `ai` label
+- 2025-11-29T15:22:23Z @tobiu added parent issue #7919
 

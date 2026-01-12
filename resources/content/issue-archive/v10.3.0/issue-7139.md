@@ -30,11 +30,11 @@ Implement the logic within the `parse5` processor to differentiate between stand
 - If it's a standard HTML tag, generate a standard VDOM object with a `tag` property.
 - A mechanism will be needed to resolve the string name (e.g., "GridContainer") to the actual class constructor (`GridContainer`) at runtime. This may involve a component registry or passing a scope object to the template processor.
 
-## Activity Log
+## Timeline
 
-- 2025-07-31 @tobiu assigned to @tobiu
-- 2025-07-31 @tobiu added parent issue #7130
-- 2025-07-31 @tobiu added the `enhancement` label
-- 2025-07-31 @tobiu referenced in commit `dd870b1` - "Parser: Component vs. HTML Tag Recognition #7139"
-- 2025-07-31 @tobiu closed this issue
+- 2025-07-31T07:34:18Z @tobiu assigned to @tobiu
+- 2025-07-31T07:34:19Z @tobiu added parent issue #7130
+- 2025-07-31T07:34:19Z @tobiu added the `enhancement` label
+- 2025-07-31T08:35:48Z @tobiu referenced in commit `dd870b1` - "Parser: Component vs. HTML Tag Recognition #7139"
+- 2025-07-31T08:35:55Z @tobiu closed this issue
 

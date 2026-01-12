@@ -55,13 +55,13 @@ We implemented a 2-phase strategy that bridges the physical and logical worlds w
 *   Added comprehensive tests in `test/playwright/unit/manager/domEvent/Delegation.spec.mjs` covering all scenarios.
 
 
-## Activity Log
+## Timeline
 
-- 2025-12-08 @tobiu added the `enhancement` label
-- 2025-12-08 @tobiu added the `ai` label
-- 2025-12-08 @tobiu added the `refactoring` label
-- 2025-12-08 @tobiu added the `architecture` label
-- 2025-12-08 @tobiu assigned to @tobiu
-- 2025-12-08 @tobiu referenced in commit `a6e475a` - "[DomEvent] Implement Physical Anchor Verification for Delegation #8058"
-- 2025-12-10 @tobiu closed this issue
+- 2025-12-08T08:38:21Z @tobiu added the `enhancement` label
+- 2025-12-08T08:38:21Z @tobiu added the `ai` label
+- 2025-12-08T08:38:22Z @tobiu added the `refactoring` label
+- 2025-12-08T08:38:22Z @tobiu added the `architecture` label
+- 2025-12-08T08:38:39Z @tobiu assigned to @tobiu
+- 2025-12-08T08:39:21Z @tobiu referenced in commit `a6e475a` - "[DomEvent] Implement Physical Anchor Verification for Delegation #8058"
+- 2025-12-10T14:07:48Z @tobiu closed this issue
 

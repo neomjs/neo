@@ -23,16 +23,14 @@ closedAt: '2025-02-26T20:22:10Z'
 
 *(No description provided)*
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-02-26 20:22
+- 2025-02-26T20:16:02Z @tobiu added the `enhancement` label
+- 2025-02-26T20:16:02Z @tobiu assigned to @tobiu
+- 2025-02-26T20:16:22Z @tobiu referenced in commit `8bb9fec` - "tab.Container: afterSetTabBarPosition() => bundle all changes into 1 update cycle #6504"
+### @tobiu - 2025-02-26T20:22:10Z
 
 <img width="1691" alt="Image" src="https://github.com/user-attachments/assets/e56a78fa-92b0-45fd-86ec-3c513cf6acc0" />
 
-## Activity Log
-
-- 2025-02-26 @tobiu added the `enhancement` label
-- 2025-02-26 @tobiu assigned to @tobiu
-- 2025-02-26 @tobiu referenced in commit `8bb9fec` - "tab.Container: afterSetTabBarPosition() => bundle all changes into 1 update cycle #6504"
-- 2025-02-26 @tobiu closed this issue
+- 2025-02-26T20:22:10Z @tobiu closed this issue
 

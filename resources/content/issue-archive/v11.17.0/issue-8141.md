@@ -42,9 +42,13 @@ Improve the UX when dragging a dashboard item out into a new window. Currently, 
     *   In `onDragBoundaryEntry` (or equivalent re-entry hook), restore the cached "original" styles and show the placeholder.
 
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-12-19 12:44
+- 2025-12-19T11:01:05Z @tobiu added the `enhancement` label
+- 2025-12-19T11:01:05Z @tobiu added the `ai` label
+- 2025-12-19T11:01:24Z @tobiu assigned to @tobiu
+- 2025-12-19T12:42:27Z @tobiu referenced in commit `9cbe10e` - "SortZone: Animate dashboard items to fill space during window drag #8141"
+### @tobiu - 2025-12-19T12:44:04Z
 
 **Input from Gemini:**
 
@@ -68,12 +72,6 @@ Improve the UX when dragging a dashboard item out into a new window. Currently, 
 > 
 > This approach delivers a premium feel where the dashboard intelligently reflows to fill the void left by a detached window, and gracefully restores itself when the window returns.
 
-## Activity Log
-
-- 2025-12-19 @tobiu added the `enhancement` label
-- 2025-12-19 @tobiu added the `ai` label
-- 2025-12-19 @tobiu assigned to @tobiu
-- 2025-12-19 @tobiu referenced in commit `9cbe10e` - "SortZone: Animate dashboard items to fill space during window drag #8141"
-- 2025-12-19 @tobiu closed this issue
-- 2025-12-19 @tobiu cross-referenced by #8142
+- 2025-12-19T12:46:00Z @tobiu closed this issue
+- 2025-12-19T12:51:38Z @tobiu cross-referenced by #8142
 

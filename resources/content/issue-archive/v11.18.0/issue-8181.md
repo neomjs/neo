@@ -31,9 +31,18 @@ Enhance `ConnectionService` to provide lifecycle management tools for the WebSoc
 
 **Goal:** Give agents control over the bridge connection state for recovery and testing scenarios.
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-12-28 19:22
+- 2025-12-28T18:42:10Z @tobiu added the `enhancement` label
+- 2025-12-28T18:42:10Z @tobiu added the `ai` label
+- 2025-12-28T18:42:25Z @tobiu added parent issue #8169
+- 2025-12-28T19:19:30Z @tobiu assigned to @tobiu
+- 2025-12-28T19:22:24Z @tobiu referenced in commit `8fdba3b` - "feat(ai): Implement ConnectionService Lifecycle Tools (#8181)
+
+- Added startServer and stopServer methods to ConnectionService
+- Exposed start_ws_server and stop_ws_server tools in OpenAPI
+- Enables agents to manage the WebSocket bridge lifecycle"
+### @tobiu - 2025-12-28T19:22:29Z
 
 **Input from Gemini 3.0:**
 
@@ -48,16 +57,5 @@ Enhance `ConnectionService` to provide lifecycle management tools for the WebSoc
 > 
 > This empowers agents to perform recovery operations and test connection resilience.
 
-## Activity Log
-
-- 2025-12-28 @tobiu added the `enhancement` label
-- 2025-12-28 @tobiu added the `ai` label
-- 2025-12-28 @tobiu added parent issue #8169
-- 2025-12-28 @tobiu assigned to @tobiu
-- 2025-12-28 @tobiu referenced in commit `8fdba3b` - "feat(ai): Implement ConnectionService Lifecycle Tools (#8181)
-
-- Added startServer and stopServer methods to ConnectionService
-- Exposed start_ws_server and stop_ws_server tools in OpenAPI
-- Enables agents to manage the WebSocket bridge lifecycle"
-- 2025-12-28 @tobiu closed this issue
+- 2025-12-28T19:22:49Z @tobiu closed this issue
 

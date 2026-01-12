@@ -32,16 +32,14 @@ Create a comprehensive guide to explain the purpose and trade-offs of using HTML
     - **Positioning:** Frame it as a "beginner-friendly" or "transitional" option that helps developers get started quickly, while encouraging them to explore the power and performance of the native JSON VDOM as they become more familiar with the framework.
     - **Best Practices:** Provide clear examples of when to use templates and when JSON VDOM might be a better choice (e.g., for highly dynamic or programmatically generated views).
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-08-02 13:06
+- 2025-07-31T10:50:07Z @tobiu assigned to @tobiu
+- 2025-07-31T10:50:08Z @tobiu added the `enhancement` label
+- 2025-07-31T10:50:08Z @tobiu added parent issue #7130
+### @tobiu - 2025-08-02T13:06:29Z
 
 resolved via https://github.com/neomjs/neo/blob/dev/learn/guides/uibuildingblocks/HtmlTemplates.md
 
-## Activity Log
-
-- 2025-07-31 @tobiu assigned to @tobiu
-- 2025-07-31 @tobiu added the `enhancement` label
-- 2025-07-31 @tobiu added parent issue #7130
-- 2025-08-02 @tobiu closed this issue
+- 2025-08-02T13:06:29Z @tobiu closed this issue
 

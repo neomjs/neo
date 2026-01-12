@@ -28,20 +28,18 @@ Key properties to include:
 - `showHeaderFilters`
 - `sortable`
 
-## Comments
+## Timeline
 
-### @tobiu - 2026-01-01 15:24
+- 2026-01-01T15:23:39Z @tobiu added the `enhancement` label
+- 2026-01-01T15:23:39Z @tobiu added the `ai` label
+- 2026-01-01T15:23:51Z @tobiu assigned to @tobiu
+- 2026-01-01T15:24:18Z @tobiu referenced in commit `dd3e539` - "#8252 Implement toJSON in grid.header.Toolbar"
+### @tobiu - 2026-01-01T15:24:19Z
 
 **Input from Gemini:**
 
 > ✦ Implemented `toJSON` in `src/grid/header/Toolbar.mjs`.
 
-## Activity Log
-
-- 2026-01-01 @tobiu added the `enhancement` label
-- 2026-01-01 @tobiu added the `ai` label
-- 2026-01-01 @tobiu assigned to @tobiu
-- 2026-01-01 @tobiu referenced in commit `dd3e539` - "#8252 Implement toJSON in grid.header.Toolbar"
-- 2026-01-01 @tobiu added parent issue #8200
-- 2026-01-01 @tobiu closed this issue
+- 2026-01-01T15:24:35Z @tobiu added parent issue #8200
+- 2026-01-01T15:24:53Z @tobiu closed this issue
 

@@ -34,12 +34,12 @@ This task implements the core client-side logic for connecting to MCP servers, f
     *   Demonstrate connection to the local `github-workflow` server.
     *   Execute tools via the MCP protocol without direct service imports.
 
-## Activity Log
+## Timeline
 
-- 2025-11-29 @tobiu assigned to @tobiu
-- 2025-11-29 @tobiu added the `enhancement` label
-- 2025-11-29 @tobiu added the `ai` label
-- 2025-11-29 @tobiu added parent issue #7931
-- 2025-11-29 @tobiu referenced in commit `455a4e1` - "Feat: Implement MCP Client SDK and Demo Agent #7935"
-- 2025-11-29 @tobiu closed this issue
+- 2025-11-29T22:33:18Z @tobiu assigned to @tobiu
+- 2025-11-29T22:33:19Z @tobiu added the `enhancement` label
+- 2025-11-29T22:33:19Z @tobiu added the `ai` label
+- 2025-11-29T22:33:33Z @tobiu added parent issue #7931
+- 2025-11-29T22:34:19Z @tobiu referenced in commit `455a4e1` - "Feat: Implement MCP Client SDK and Demo Agent #7935"
+- 2025-11-29T22:35:28Z @tobiu closed this issue
 

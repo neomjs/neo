@@ -34,11 +34,11 @@ Explain that while Neo.mjs code creates high-level abstractions, this tool allow
 
 **Tone:** Consistent with the "I am a Contributor" persona.
 
-## Activity Log
+## Timeline
 
-- 2025-11-20 @tobiu added the `documentation` label
-- 2025-11-20 @tobiu added the `ai` label
-- 2025-11-20 @tobiu assigned to @tobiu
-- 2025-11-20 @tobiu referenced in commit `638a041` - "Blog Update: Add chrome-devtools to MCP tooling list #7818"
-- 2025-11-20 @tobiu closed this issue
+- 2025-11-20T00:59:44Z @tobiu added the `documentation` label
+- 2025-11-20T00:59:44Z @tobiu added the `ai` label
+- 2025-11-20T01:01:01Z @tobiu assigned to @tobiu
+- 2025-11-20T01:03:02Z @tobiu referenced in commit `638a041` - "Blog Update: Add chrome-devtools to MCP tooling list #7818"
+- 2025-11-20T01:03:35Z @tobiu closed this issue
 

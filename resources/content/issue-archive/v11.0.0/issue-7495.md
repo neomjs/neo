@@ -33,12 +33,12 @@ This ticket covers the work to define the `outputSchema` using `zod`, based on t
 3.  The generated JSON Schema is added as the `outputSchema` property to each tool definition returned by `listTools`.
 4.  The `tools/list` response is verified to include the new `outputSchema` for each tool.
 
-## Activity Log
+## Timeline
 
-- 2025-10-15 @tobiu assigned to @tobiu
-- 2025-10-15 @tobiu added the `enhancement` label
-- 2025-10-15 @tobiu added parent issue #7477
-- 2025-10-15 @tobiu added the `ai` label
-- 2025-10-15 @tobiu referenced in commit `85094ca` - "Add outputSchema to MCP Tool Definitions #7495"
-- 2025-10-15 @tobiu closed this issue
+- 2025-10-15T11:44:17Z @tobiu assigned to @tobiu
+- 2025-10-15T11:44:19Z @tobiu added the `enhancement` label
+- 2025-10-15T11:44:19Z @tobiu added parent issue #7477
+- 2025-10-15T11:44:20Z @tobiu added the `ai` label
+- 2025-10-15T11:50:53Z @tobiu referenced in commit `85094ca` - "Add outputSchema to MCP Tool Definitions #7495"
+- 2025-10-15T11:51:06Z @tobiu closed this issue
 

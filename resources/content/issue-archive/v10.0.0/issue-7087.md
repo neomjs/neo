@@ -52,10 +52,10 @@ This implementation leverages the framework's existing automatic VDOM node ident
 -   The example application at `examples/functional/button` correctly displays and interacts with the functional button.
 -   The implementation correctly relies on the framework's automatic VDOM node ID generation.
 
-## Activity Log
+## Timeline
 
-- 2025-07-21 @tobiu assigned to @tobiu
-- 2025-07-21 @tobiu added the `enhancement` label
-- 2025-07-21 @tobiu referenced in commit `5d45b3b` - "Introduce Functional Button Component #7087"
-- 2025-07-21 @tobiu closed this issue
+- 2025-07-21T11:11:14Z @tobiu assigned to @tobiu
+- 2025-07-21T11:11:15Z @tobiu added the `enhancement` label
+- 2025-07-21T11:16:25Z @tobiu referenced in commit `5d45b3b` - "Introduce Functional Button Component #7087"
+- 2025-07-21T11:17:24Z @tobiu closed this issue
 

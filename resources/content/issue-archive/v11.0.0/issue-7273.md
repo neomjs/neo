@@ -33,14 +33,14 @@ This task is to migrate the unit test for `config/AfterSetConfig.mjs` from the S
 3.  Ensure the new test runs successfully via `npm test`.
 4.  The new test must cover all the functionality of the original Siesta test.
 
-## Activity Log
+## Timeline
 
-- 2025-09-27 @tobiu added parent issue #7262
-- 2025-09-27 @tobiu added the `enhancement` label
-- 2025-09-30 @tobiu referenced in commit `191c27f` - "Convert config/AfterSetConfig.mjs Test from Siesta to Playwright #7273"
-- 2025-09-30 @tobiu closed this issue
-- 2025-10-03 @tobiu added the `help wanted` label
-- 2025-10-03 @tobiu added the `good first issue` label
-- 2025-10-03 @tobiu added the `hacktoberfest` label
-- 2025-10-07 @tobiu assigned to @tobiu
+- 2025-09-27T13:17:59Z @tobiu added parent issue #7262
+- 2025-09-27T13:17:59Z @tobiu added the `enhancement` label
+- 2025-09-30T11:10:25Z @tobiu referenced in commit `191c27f` - "Convert config/AfterSetConfig.mjs Test from Siesta to Playwright #7273"
+- 2025-09-30T11:10:37Z @tobiu closed this issue
+- 2025-10-03T16:17:49Z @tobiu added the `help wanted` label
+- 2025-10-03T16:17:49Z @tobiu added the `good first issue` label
+- 2025-10-03T16:17:49Z @tobiu added the `hacktoberfest` label
+- 2025-10-07T19:24:17Z @tobiu assigned to @tobiu
 

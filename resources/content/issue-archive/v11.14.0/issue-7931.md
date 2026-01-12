@@ -58,28 +58,28 @@ To achieve true decoupling and enable agents to use *any* MCP server (not just o
 *   `@modelcontextprotocol/sdk`
 
 
-## Activity Log
+## Timeline
 
-- 2025-11-29 @tobiu added the `epic` label
-- 2025-11-29 @tobiu added the `ai` label
-- 2025-11-29 @tobiu assigned to @tobiu
-- 2025-11-29 @tobiu cross-referenced by #7935
-- 2025-11-29 @tobiu added sub-issue #7935
-- 2025-11-29 @tobiu added sub-issue #7936
-- 2025-11-29 @tobiu added sub-issue #7937
-- 2025-11-29 @tobiu added sub-issue #7938
-- 2025-11-29 @tobiu referenced in commit `fe69334` - "Epic: MCP Client Implementation for Agents #7931"
-- 2025-11-29 @tobiu added sub-issue #7939
-- 2025-11-29 @tobiu added sub-issue #7940
-- 2025-11-29 @tobiu added sub-issue #7941
-- 2025-11-29 @tobiu added sub-issue #7942
-- 2025-11-30 @tobiu added sub-issue #7945
-- 2025-11-30 @tobiu added sub-issue #7946
-- 2025-11-30 @tobiu cross-referenced by #7947
-- 2025-11-30 @tobiu added sub-issue #7949
-- 2025-11-30 @tobiu added sub-issue #7950
-- 2025-11-30 @tobiu added sub-issue #7951
-- 2025-11-30 @tobiu added sub-issue #7952
-- 2025-11-30 @tobiu added sub-issue #7953
-- 2025-12-01 @tobiu closed this issue
+- 2025-11-29T17:32:37Z @tobiu added the `epic` label
+- 2025-11-29T17:32:37Z @tobiu added the `ai` label
+- 2025-11-29T17:32:53Z @tobiu assigned to @tobiu
+- 2025-11-29T22:33:19Z @tobiu cross-referenced by #7935
+- 2025-11-29T22:33:33Z @tobiu added sub-issue #7935
+- 2025-11-29T22:45:05Z @tobiu added sub-issue #7936
+- 2025-11-29T22:48:54Z @tobiu added sub-issue #7937
+- 2025-11-29T22:56:38Z @tobiu added sub-issue #7938
+- 2025-11-29T22:57:59Z @tobiu referenced in commit `fe69334` - "Epic: MCP Client Implementation for Agents #7931"
+- 2025-11-29T23:03:43Z @tobiu added sub-issue #7939
+- 2025-11-29T23:19:12Z @tobiu added sub-issue #7940
+- 2025-11-29T23:30:02Z @tobiu added sub-issue #7941
+- 2025-11-29T23:57:29Z @tobiu added sub-issue #7942
+- 2025-11-30T00:50:51Z @tobiu added sub-issue #7945
+- 2025-11-30T11:00:51Z @tobiu added sub-issue #7946
+- 2025-11-30T12:24:18Z @tobiu cross-referenced by #7947
+- 2025-11-30T13:51:49Z @tobiu added sub-issue #7949
+- 2025-11-30T14:38:29Z @tobiu added sub-issue #7950
+- 2025-11-30T15:22:26Z @tobiu added sub-issue #7951
+- 2025-11-30T15:44:41Z @tobiu added sub-issue #7952
+- 2025-11-30T15:58:10Z @tobiu added sub-issue #7953
+- 2025-12-01T17:14:13Z @tobiu closed this issue
 

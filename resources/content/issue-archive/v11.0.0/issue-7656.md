@@ -141,19 +141,17 @@ Both servers now start successfully without manual ChromaDB startup:
 - **memory-core**: Port 8001, 205 memories, 16 summaries, auto-summarization works
 - **knowledge-base**: Port 8000, 0 documents (empty but healthy)
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-10-25 22:21
+- 2025-10-25T22:09:55Z @tobiu assigned to @tobiu
+- 2025-10-25T22:09:57Z @tobiu added the `bug` label
+- 2025-10-25T22:09:57Z @tobiu added the `enhancement` label
+- 2025-10-25T22:09:57Z @tobiu added the `ai` label
+- 2025-10-25T22:10:49Z @tobiu referenced in commit `5adb100` - "Auto-start ChromaDB on MCP Server Startup - Implementation Summary #7656"
+- 2025-10-25T22:20:42Z @tobiu referenced in commit `8d913cc` - "#7656 removing the debug flag"
+### @tobiu - 2025-10-25T22:21:03Z
 
 <img width="1045" height="608" alt="Image" src="https://github.com/user-attachments/assets/3e221f98-843f-4ba1-8ae2-c813ea50eab8" />
 
-## Activity Log
-
-- 2025-10-25 @tobiu assigned to @tobiu
-- 2025-10-25 @tobiu added the `bug` label
-- 2025-10-25 @tobiu added the `enhancement` label
-- 2025-10-25 @tobiu added the `ai` label
-- 2025-10-25 @tobiu referenced in commit `5adb100` - "Auto-start ChromaDB on MCP Server Startup - Implementation Summary #7656"
-- 2025-10-25 @tobiu referenced in commit `8d913cc` - "#7656 removing the debug flag"
-- 2025-10-25 @tobiu closed this issue
+- 2025-10-25T22:21:03Z @tobiu closed this issue
 

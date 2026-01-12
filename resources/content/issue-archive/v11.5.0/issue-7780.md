@@ -43,9 +43,12 @@ Process finished with exit code 0
 
 => using `process.exit(0)` breaks the entire harness. I will remove the 2 affected files for now, since they do not contain playwright based testing rules anyway.
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-11-15 21:34
+- 2025-11-15T21:32:47Z @tobiu assigned to @tobiu
+- 2025-11-15T21:32:48Z @tobiu added the `bug` label
+- 2025-11-15T21:34:04Z @tobiu referenced in commit `2e43470` - "test/playwright/mcp/github-workflow/ghIntegrationGate.spec.mjs breaks testing suite #7780"
+### @tobiu - 2025-11-15T21:34:26Z
 
 ```bash
 /usr/local/bin/npm test
@@ -67,19 +70,14 @@ Running 174 tests using 1 worker
 Process finished with exit code 0
 ```
 
-### @MannXo - 2025-11-18 06:45
+- 2025-11-15T21:34:26Z @tobiu closed this issue
+### @MannXo - 2025-11-18T06:45:55Z
 
 Thank you for informing me @tobiu 
 I'll make sure to run the full testing suite going forward.
 
-### @tobiu - 2025-11-18 08:55
+### @tobiu - 2025-11-18T08:55:06Z
 
 @MannXo Now that we do have playwright in place, we could most likely define a pre-commit and pre-pull-request hook inside `.github/workflows` to automate it. Let's see, I am distracted with the SSR topic.
 
-## Activity Log
-
-- 2025-11-15 @tobiu assigned to @tobiu
-- 2025-11-15 @tobiu added the `bug` label
-- 2025-11-15 @tobiu referenced in commit `2e43470` - "test/playwright/mcp/github-workflow/ghIntegrationGate.spec.mjs breaks testing suite #7780"
-- 2025-11-15 @tobiu closed this issue
 

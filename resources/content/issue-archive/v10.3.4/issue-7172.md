@@ -24,10 +24,10 @@ closedAt: '2025-08-09T00:50:47Z'
 * Rationale: a workspace which deletes the entire docs app, most likely does not want a docs output generation by default.
 * `npm run generate-docs-json` can still produce it.
 
-## Activity Log
+## Timeline
 
-- 2025-08-09 @tobiu assigned to @tobiu
-- 2025-08-09 @tobiu added the `enhancement` label
-- 2025-08-09 @tobiu referenced in commit `ee0468a` - "buildScripts/buildAll: exclude the docs output generation, in case the docs folder is not present #7172"
-- 2025-08-09 @tobiu closed this issue
+- 2025-08-09T00:50:21Z @tobiu assigned to @tobiu
+- 2025-08-09T00:50:22Z @tobiu added the `enhancement` label
+- 2025-08-09T00:50:40Z @tobiu referenced in commit `ee0468a` - "buildScripts/buildAll: exclude the docs output generation, in case the docs folder is not present #7172"
+- 2025-08-09T00:50:47Z @tobiu closed this issue
 

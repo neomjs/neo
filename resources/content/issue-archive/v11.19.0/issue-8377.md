@@ -39,13 +39,13 @@ To facilitate the usage of Mermaid diagrams in Neo.mjs applications, we should c
     - React to `value` changes by re-rendering.
     - Handle windowId propagation.
 
-## Activity Log
+## Timeline
 
-- 2026-01-07 @tobiu added the `enhancement` label
-- 2026-01-07 @tobiu added the `feature` label
-- 2026-01-07 @tobiu assigned to @tobiu
-- 2026-01-07 @tobiu closed this issue
-- 2026-01-07 @jonnyamsp referenced in commit `50d1966` - "feat: Create Mermaid wrapper component
+- 2026-01-07T12:10:01Z @tobiu added the `enhancement` label
+- 2026-01-07T12:10:02Z @tobiu added the `feature` label
+- 2026-01-07T12:19:53Z @tobiu assigned to @tobiu
+- 2026-01-07T12:20:07Z @tobiu closed this issue
+- 2026-01-07T13:25:10Z @jonnyamsp referenced in commit `50d1966` - "feat: Create Mermaid wrapper component
 
 Adds Neo.component.wrapper.Mermaid, a declarative wrapper for the Mermaid Main thread addon. This component allows developers to easily embed Mermaid diagrams using a 'value' config, handling lifecycle management and remote rendering automatically.
 

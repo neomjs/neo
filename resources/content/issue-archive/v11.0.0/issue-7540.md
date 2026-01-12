@@ -34,12 +34,12 @@ This ticket covers refactoring `ai/mcp/server/memory-core/services/dbService.mjs
 6.  Any other services that depend on `dbService` are updated to use the new `DatabaseService` singleton instance.
 7.  All related tools (e.g., `export_database`, `import_database`) continue to function correctly after the refactoring.
 
-## Activity Log
+## Timeline
 
-- 2025-10-18 @tobiu assigned to @tobiu
-- 2025-10-18 @tobiu added parent issue #7536
-- 2025-10-18 @tobiu added the `enhancement` label
-- 2025-10-18 @tobiu added the `ai` label
-- 2025-10-18 @tobiu referenced in commit `2823415` - "Convert dbService to DatabaseService Neo.mjs Class #7540"
-- 2025-10-18 @tobiu closed this issue
+- 2025-10-18T12:03:28Z @tobiu assigned to @tobiu
+- 2025-10-18T12:03:29Z @tobiu added parent issue #7536
+- 2025-10-18T12:03:29Z @tobiu added the `enhancement` label
+- 2025-10-18T12:03:30Z @tobiu added the `ai` label
+- 2025-10-18T12:17:18Z @tobiu referenced in commit `2823415` - "Convert dbService to DatabaseService Neo.mjs Class #7540"
+- 2025-10-18T12:17:22Z @tobiu closed this issue
 

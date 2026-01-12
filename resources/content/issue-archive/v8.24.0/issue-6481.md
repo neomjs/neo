@@ -23,10 +23,10 @@ closedAt: '2025-02-22T15:06:21Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
-- 2025-02-22 @tobiu added the `enhancement` label
-- 2025-02-22 @tobiu assigned to @tobiu
-- 2025-02-22 @tobiu referenced in commit `203bd98` - "Portal.view.home.parts.MainNeo: use component.MagicMoveText for the sub-headline #6481"
-- 2025-02-22 @tobiu closed this issue
+- 2025-02-22T15:05:45Z @tobiu added the `enhancement` label
+- 2025-02-22T15:05:46Z @tobiu assigned to @tobiu
+- 2025-02-22T15:06:09Z @tobiu referenced in commit `203bd98` - "Portal.view.home.parts.MainNeo: use component.MagicMoveText for the sub-headline #6481"
+- 2025-02-22T15:06:21Z @tobiu closed this issue
 

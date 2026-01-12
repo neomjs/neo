@@ -43,11 +43,11 @@ This creates a powerful, two-tiered memory system: a high-level index of session
 4.  The script successfully retrieves memories, generates a summary via the Gemini API, and stores it in the new collection.
 5.  The `aiConfig.mjs` file is updated with configuration for the new sessions collection.
 
-## Activity Log
+## Timeline
 
-- 2025-10-02 @tobiu assigned to @tobiu
-- 2025-10-02 @tobiu added parent issue #7316
-- 2025-10-02 @tobiu added the `enhancement` label
-- 2025-10-02 @tobiu referenced in commit `008061f` - "Create Session Summarization API #7325"
-- 2025-10-02 @tobiu closed this issue
+- 2025-10-02T09:50:52Z @tobiu assigned to @tobiu
+- 2025-10-02T09:50:53Z @tobiu added parent issue #7316
+- 2025-10-02T09:50:53Z @tobiu added the `enhancement` label
+- 2025-10-02T11:52:54Z @tobiu referenced in commit `008061f` - "Create Session Summarization API #7325"
+- 2025-10-02T11:52:58Z @tobiu closed this issue
 

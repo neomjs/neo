@@ -40,14 +40,14 @@ Anthropic's "Code Execution" pattern demonstrates that agents are more efficient
 - `ROADMAP_AI_AGENTS.md`: Strategic roadmap for future "Agent OS" features.
 
 
-## Activity Log
+## Timeline
 
-- 2025-11-21 @tobiu added the `enhancement` label
-- 2025-11-21 @tobiu added the `developer-experience` label
-- 2025-11-21 @tobiu added the `ai` label
-- 2025-11-21 @tobiu referenced in commit `8de1415` - "feat(ai): Add standalone AI SDK and Code Execution PoC (#7831)"
-- 2025-11-21 @tobiu assigned to @tobiu
-- 2025-11-21 @tobiu closed this issue
-- 2025-11-21 @tobiu cross-referenced by #7832
-- 2025-11-21 @tobiu cross-referenced by #7833
+- 2025-11-21T00:37:15Z @tobiu added the `enhancement` label
+- 2025-11-21T00:37:15Z @tobiu added the `developer-experience` label
+- 2025-11-21T00:37:15Z @tobiu added the `ai` label
+- 2025-11-21T00:38:19Z @tobiu referenced in commit `8de1415` - "feat(ai): Add standalone AI SDK and Code Execution PoC (#7831)"
+- 2025-11-21T00:45:34Z @tobiu assigned to @tobiu
+- 2025-11-21T00:45:39Z @tobiu closed this issue
+- 2025-11-21T00:50:54Z @tobiu cross-referenced by #7832
+- 2025-11-21T00:56:56Z @tobiu cross-referenced by #7833
 

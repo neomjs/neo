@@ -31,11 +31,11 @@ This task is to identify all remaining Siesta unit tests that need to be migrate
 4.  Each new ticket must follow the established format (e.g., "Ticket: Convert [filename] Test from Siesta to Playwright").
 5.  Update the main epic ticket (`epic-enhance-workflow-with-mandatory-unit-testing.md`) to list all newly created "To Do" tickets under the "Test Migrations" section.
 
-## Activity Log
+## Timeline
 
-- 2025-09-27 @tobiu assigned to @tobiu
-- 2025-09-27 @tobiu added parent issue #7262
-- 2025-09-27 @tobiu added the `enhancement` label
-- 2025-09-27 @tobiu referenced in commit `89cdd42` - "Plan Remaining Siesta to Playwright Test Migrations #7263"
-- 2025-09-27 @tobiu closed this issue
+- 2025-09-27T11:19:28Z @tobiu assigned to @tobiu
+- 2025-09-27T11:19:29Z @tobiu added parent issue #7262
+- 2025-09-27T11:19:30Z @tobiu added the `enhancement` label
+- 2025-09-27T14:12:22Z @tobiu referenced in commit `89cdd42` - "Plan Remaining Siesta to Playwright Test Migrations #7263"
+- 2025-09-27T14:12:31Z @tobiu closed this issue
 

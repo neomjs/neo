@@ -36,9 +36,17 @@ Enhance `Neural Link` connection logic to support session recovery via a persist
 
 **Goal:** Ensure the MCP server can recover from network blips or client reloads without losing the logical session identity.
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-12-28 19:48
+- 2025-12-28T19:37:23Z @tobiu added the `enhancement` label
+- 2025-12-28T19:37:24Z @tobiu added the `ai` label
+- 2025-12-28T19:40:18Z @tobiu assigned to @tobiu
+- 2025-12-28T19:47:57Z @tobiu referenced in commit `1a6dd51` - "feat(ai): Neural Link Identity and Recovery (#8182)
+
+- Updated Client.mjs to send appWorkerId as query param
+- Updated ConnectionService to use appWorkerId as session key
+- Implemented call recovery with waitForSession"
+### @tobiu - 2025-12-28T19:48:07Z
 
 **Input from Gemini 3.0:**
 
@@ -52,16 +60,6 @@ Enhance `Neural Link` connection logic to support session recovery via a persist
 > 
 > The Neural Link is now robust against network interruptions and server restarts.
 
-## Activity Log
-
-- 2025-12-28 @tobiu added the `enhancement` label
-- 2025-12-28 @tobiu added the `ai` label
-- 2025-12-28 @tobiu assigned to @tobiu
-- 2025-12-28 @tobiu referenced in commit `1a6dd51` - "feat(ai): Neural Link Identity and Recovery (#8182)
-
-- Updated Client.mjs to send appWorkerId as query param
-- Updated ConnectionService to use appWorkerId as session key
-- Implemented call recovery with waitForSession"
-- 2025-12-28 @tobiu closed this issue
-- 2025-12-28 @tobiu added parent issue #8169
+- 2025-12-28T19:48:27Z @tobiu closed this issue
+- 2025-12-28T21:40:27Z @tobiu added parent issue #8169
 

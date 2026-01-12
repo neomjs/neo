@@ -60,13 +60,13 @@ Implement a **3-Phase Verification Strategy** in `verifyDelegationPath` to balan
     *   Negative case (Random element)
 
 
-## Activity Log
+## Timeline
 
-- 2025-12-08 @tobiu added the `enhancement` label
-- 2025-12-08 @tobiu added the `ai` label
-- 2025-12-08 @tobiu added the `testing` label
-- 2025-12-08 @tobiu added the `architecture` label
-- 2025-12-08 @tobiu assigned to @tobiu
-- 2025-12-08 @tobiu referenced in commit `985249a` - "[DomEvent] Implement 3-Phase Boundary-Aware Delegation Verification #8057"
-- 2025-12-08 @tobiu closed this issue
+- 2025-12-08T07:32:27Z @tobiu added the `enhancement` label
+- 2025-12-08T07:32:27Z @tobiu added the `ai` label
+- 2025-12-08T07:32:27Z @tobiu added the `testing` label
+- 2025-12-08T07:32:27Z @tobiu added the `architecture` label
+- 2025-12-08T07:32:41Z @tobiu assigned to @tobiu
+- 2025-12-08T07:33:54Z @tobiu referenced in commit `985249a` - "[DomEvent] Implement 3-Phase Boundary-Aware Delegation Verification #8057"
+- 2025-12-08T07:34:30Z @tobiu closed this issue
 

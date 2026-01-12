@@ -26,11 +26,11 @@ closedAt: '2025-12-11T18:45:26Z'
 2. Update the selector to target direct children: `.neo-toolbar.neo-is-dragging > .neo-button`.
 3. Remove `resources/scss/src/draggable/toolbar/SortZone.scss`.
 
-## Activity Log
+## Timeline
 
-- 2025-12-11 @tobiu added the `ai` label
-- 2025-12-11 @tobiu added the `refactoring` label
-- 2025-12-11 @tobiu assigned to @tobiu
-- 2025-12-11 @tobiu referenced in commit `9b942f5` - "[Refactor] Move Toolbar SortZone SCSS to container/SortZone.scss #8090"
-- 2025-12-11 @tobiu closed this issue
+- 2025-12-11T18:42:20Z @tobiu added the `ai` label
+- 2025-12-11T18:42:20Z @tobiu added the `refactoring` label
+- 2025-12-11T18:44:59Z @tobiu assigned to @tobiu
+- 2025-12-11T18:45:19Z @tobiu referenced in commit `9b942f5` - "[Refactor] Move Toolbar SortZone SCSS to container/SortZone.scss #8090"
+- 2025-12-11T18:45:26Z @tobiu closed this issue
 

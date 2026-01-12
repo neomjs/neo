@@ -67,18 +67,39 @@ case 'blog':
 
 Given that the file path matches
 
-## Comments
+## Timeline
 
-### @SarthakBorude - 2025-10-12 18:58
+- 2025-10-12T11:08:07Z @tobiu added the `bug` label
+- 2025-10-12T11:08:07Z @tobiu added parent issue #7296
+- 2025-10-12T11:08:08Z @tobiu added the `help wanted` label
+- 2025-10-12T11:08:08Z @tobiu added the `good first issue` label
+- 2025-10-12T11:08:08Z @tobiu added the `hacktoberfest` label
+- 2025-10-12T11:08:08Z @tobiu added the `ai` label
+### @SarthakBorude - 2025-10-12T18:58:15Z
 
 hey i am a beginner and i would love to give it a try 
 
 
-### @harikrishna-au - 2025-10-13 02:01
+- 2025-10-13T01:53:00Z @harikrishna-au referenced in commit `2107d69` - "Fix AI query blog filtering issue #7467
+
+- Blog content is stored as type:'guide' with isBlog:true
+- Query filter was incorrectly looking for type:'blog'
+- Updated queryKnowledgeBase.mjs to handle blog type correctly
+- Blog queries now filter for type:'guide' AND isBlog:'true'
+- Resolves AI knowledge base blog content access issue"
+- 2025-10-13T01:54:33Z @harikrishna-au cross-referenced by PR #7472
+### @harikrishna-au - 2025-10-13T02:01:45Z
 
 Hi @tobiu, apologies for not asking to be assigned to this issue beforehand. I’ve submitted a PR with the fix. Please have a look and let me know if any changes are needed. Thank you!
 
-### @tobiu - 2025-10-13 09:34
+- 2025-10-13T08:39:32Z @tobiu referenced in commit `39032f4` - "Fix AI query blog filtering issue #7467
+
+- Blog content is stored as type:'guide' with isBlog:true
+- Query filter was incorrectly looking for type:'blog'
+- Updated queryKnowledgeBase.mjs to handle blog type correctly
+- Blog queries now filter for type:'guide' AND isBlog:'true'
+- Resolves AI knowledge base blog content access issue"
+### @tobiu - 2025-10-13T09:34:45Z
 
 > ✦ Hi @harikrishna-au and @SarthakBorude, and thank you both for your engagement on this ticket.
 > 
@@ -94,29 +115,6 @@ Hi @tobiu, apologies for not asking to be assigned to this issue beforehand. I�
 > 
 >   We're thrilled to have such high interest in the project and look forward to collaborating with all of you.
 
-## Activity Log
-
-- 2025-10-12 @tobiu added the `bug` label
-- 2025-10-12 @tobiu added parent issue #7296
-- 2025-10-12 @tobiu added the `help wanted` label
-- 2025-10-12 @tobiu added the `good first issue` label
-- 2025-10-12 @tobiu added the `hacktoberfest` label
-- 2025-10-12 @tobiu added the `ai` label
-- 2025-10-13 @harikrishna-au referenced in commit `2107d69` - "Fix AI query blog filtering issue #7467
-
-- Blog content is stored as type:'guide' with isBlog:true
-- Query filter was incorrectly looking for type:'blog'
-- Updated queryKnowledgeBase.mjs to handle blog type correctly
-- Blog queries now filter for type:'guide' AND isBlog:'true'
-- Resolves AI knowledge base blog content access issue"
-- 2025-10-13 @harikrishna-au cross-referenced by PR #7472
-- 2025-10-13 @tobiu referenced in commit `39032f4` - "Fix AI query blog filtering issue #7467
-
-- Blog content is stored as type:'guide' with isBlog:true
-- Query filter was incorrectly looking for type:'blog'
-- Updated queryKnowledgeBase.mjs to handle blog type correctly
-- Blog queries now filter for type:'guide' AND isBlog:'true'
-- Resolves AI knowledge base blog content access issue"
-- 2025-10-13 @tobiu closed this issue
-- 2025-10-13 @tobiu assigned to @harikrishna-au
+- 2025-10-13T09:34:45Z @tobiu closed this issue
+- 2025-10-13T09:35:29Z @tobiu assigned to @harikrishna-au
 

@@ -39,9 +39,15 @@ We avoid recursively serializing `items`.
 This is part of the Neural Link serialization epic.
 
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-12-31 13:55
+- 2025-12-31T13:45:33Z @tobiu added the `enhancement` label
+- 2025-12-31T13:45:33Z @tobiu added the `ai` label
+- 2025-12-31T13:45:34Z @tobiu added the `architecture` label
+- 2025-12-31T13:45:42Z @tobiu added parent issue #8200
+- 2025-12-31T13:48:04Z @tobiu assigned to @tobiu
+- 2025-12-31T13:55:27Z @tobiu referenced in commit `094b69c` - "feat(container): Implement toJSON in container.Base (#8228)"
+### @tobiu - 2025-12-31T13:55:41Z
 
 **Input from Gemini:**
 
@@ -52,13 +58,5 @@ This is part of the Neural Link serialization epic.
 > - `itemDefaults`
 > - `layout` (delegated serialization)
 
-## Activity Log
-
-- 2025-12-31 @tobiu added the `enhancement` label
-- 2025-12-31 @tobiu added the `ai` label
-- 2025-12-31 @tobiu added the `architecture` label
-- 2025-12-31 @tobiu added parent issue #8200
-- 2025-12-31 @tobiu assigned to @tobiu
-- 2025-12-31 @tobiu referenced in commit `094b69c` - "feat(container): Implement toJSON in container.Base (#8228)"
-- 2025-12-31 @tobiu closed this issue
+- 2025-12-31T13:55:49Z @tobiu closed this issue
 

@@ -22,9 +22,9 @@ closedAt: '2025-04-16T21:30:19Z'
 
 * it is crucial to not get cross row cell movement OPs
 
-## Activity Log
+## Timeline
 
-- 2025-04-16 @tobiu added the `enhancement` label
-- 2025-04-16 @tobiu referenced in commit `86a2fc9` - "grid.View: getCellId() => using getRowId() #6662"
-- 2025-04-16 @tobiu closed this issue
+- 2025-04-16T21:29:52Z @tobiu added the `enhancement` label
+- 2025-04-16T21:30:11Z @tobiu referenced in commit `86a2fc9` - "grid.View: getCellId() => using getRowId() #6662"
+- 2025-04-16T21:30:19Z @tobiu closed this issue
 

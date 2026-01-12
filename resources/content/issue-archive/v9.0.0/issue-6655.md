@@ -23,10 +23,10 @@ closedAt: '2025-04-15T23:44:06Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
-- 2025-04-15 @tobiu added the `enhancement` label
-- 2025-04-15 @tobiu assigned to @tobiu
-- 2025-04-15 @tobiu referenced in commit `fe5dd57` - "grid.View, table.View: applyRendererOutput() => resolve string based renderers #6655"
-- 2025-04-15 @tobiu closed this issue
+- 2025-04-15T23:43:17Z @tobiu added the `enhancement` label
+- 2025-04-15T23:43:17Z @tobiu assigned to @tobiu
+- 2025-04-15T23:43:38Z @tobiu referenced in commit `fe5dd57` - "grid.View, table.View: applyRendererOutput() => resolve string based renderers #6655"
+- 2025-04-15T23:44:06Z @tobiu closed this issue
 

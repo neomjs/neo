@@ -22,9 +22,9 @@ closedAt: '2025-06-23T09:41:27Z'
 
 * Since workers at this point get the neo config right away, we no longer need to manually pass config values (appPath(
 
-## Activity Log
+## Timeline
 
-- 2025-06-23 @tobiu added the `enhancement` label
-- 2025-06-23 @tobiu referenced in commit `137b936` - "worker.Manager: loadApplicaton() => reduce the signature #6857"
-- 2025-06-23 @tobiu closed this issue
+- 2025-06-23T09:37:10Z @tobiu added the `enhancement` label
+- 2025-06-23T09:41:19Z @tobiu referenced in commit `137b936` - "worker.Manager: loadApplicaton() => reduce the signature #6857"
+- 2025-06-23T09:41:27Z @tobiu closed this issue
 

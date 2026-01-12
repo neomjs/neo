@@ -23,9 +23,9 @@ closedAt: '2025-03-02T11:36:18Z'
 * we can now lazy-load the Stylesheet addon, instead of throwing an exception
 * data.theme needs to get honored too
 
-## Activity Log
+## Timeline
 
-- 2025-03-02 @tobiu added the `enhancement` label
-- 2025-03-02 @tobiu referenced in commit `5e988aa` - "worker.App: setCssVariable() => use getAddon() #6516"
-- 2025-03-02 @tobiu closed this issue
+- 2025-03-02T11:35:33Z @tobiu added the `enhancement` label
+- 2025-03-02T11:36:11Z @tobiu referenced in commit `5e988aa` - "worker.App: setCssVariable() => use getAddon() #6516"
+- 2025-03-02T11:36:18Z @tobiu closed this issue
 

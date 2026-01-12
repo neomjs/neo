@@ -53,29 +53,27 @@ This section outlines the key architectural decisions and strategic insights tha
 
 -   **Dynamic Windowing (Phase 3):** The implementation of this ambitious phase is significantly de-risked and accelerated by adapting existing, proven logic. The `apps/colors/view/ViewportController` already contains robust functionality for detaching a live widget into a separate popup window. Phase 3 will adapt this logic to trigger dynamically mid-drag. Furthermore, `Neo.util.Rectangle.getIntersection()` has been identified as the ideal utility for the boundary-check calculations.
 
-## Comments
+## Timeline
 
-### @github-actions - 2025-11-19 02:51
+- 2025-08-20T22:03:47Z @tobiu assigned to @tobiu
+- 2025-08-20T22:03:49Z @tobiu added the `enhancement` label
+- 2025-08-20T22:03:49Z @tobiu added the `epic` label
+- 2025-08-20T22:04:46Z @tobiu added sub-issue #7202
+- 2025-08-20T22:05:24Z @tobiu added sub-issue #7203
+- 2025-08-20T22:06:02Z @tobiu added sub-issue #7204
+- 2025-08-20T22:06:39Z @tobiu added sub-issue #7205
+- 2025-08-20T22:07:25Z @tobiu referenced in commit `01020b6` - "Dashboard Drag & Drop #7201: epic md file"
+- 2025-08-20T22:34:26Z @tobiu added sub-issue #7206
+- 2025-08-21T09:12:53Z @tobiu added sub-issue #7207
+- 2025-08-21T18:46:12Z @tobiu added sub-issue #7208
+- 2025-08-21T18:58:25Z @tobiu referenced in commit `57a5d97` - "#7201 switched drag-handles back to cursor pointer (important for e.g. tab header buttons)"
+- 2025-08-21T19:22:07Z @tobiu added sub-issue #7209
+- 2025-08-21T19:50:43Z @tobiu added sub-issue #7210
+### @github-actions - 2025-11-19T02:51:54Z
 
 This issue is stale because it has been open for 90 days with no activity.
 
-## Activity Log
-
-- 2025-08-20 @tobiu assigned to @tobiu
-- 2025-08-20 @tobiu added the `enhancement` label
-- 2025-08-20 @tobiu added the `epic` label
-- 2025-08-20 @tobiu added sub-issue #7202
-- 2025-08-20 @tobiu added sub-issue #7203
-- 2025-08-20 @tobiu added sub-issue #7204
-- 2025-08-20 @tobiu added sub-issue #7205
-- 2025-08-20 @tobiu referenced in commit `01020b6` - "Dashboard Drag & Drop #7201: epic md file"
-- 2025-08-20 @tobiu added sub-issue #7206
-- 2025-08-21 @tobiu added sub-issue #7207
-- 2025-08-21 @tobiu added sub-issue #7208
-- 2025-08-21 @tobiu referenced in commit `57a5d97` - "#7201 switched drag-handles back to cursor pointer (important for e.g. tab header buttons)"
-- 2025-08-21 @tobiu added sub-issue #7209
-- 2025-08-21 @tobiu added sub-issue #7210
-- 2025-11-19 @github-actions added the `stale` label
-- 2025-11-19 @tobiu removed the `stale` label
-- 2025-11-19 @tobiu added the `no auto close` label
+- 2025-11-19T02:51:54Z @github-actions added the `stale` label
+- 2025-11-19T14:01:09Z @tobiu removed the `stale` label
+- 2025-11-19T14:01:09Z @tobiu added the `no auto close` label
 

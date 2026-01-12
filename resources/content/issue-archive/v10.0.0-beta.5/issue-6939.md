@@ -34,10 +34,10 @@ This approach maintains the separation of concerns: `mergeStrategy` is applied o
 **Describe alternatives you've considered**
 Initially, I considered having `Neo.core.Config.set()` handle the `mergeStrategy` for all updates, but this was clarified to be incorrect as `mergeStrategy` is strictly for initial value merging during instance creation. Another alternative involved passing the default value from `staticConfig` directly to the `Config` constructor, which would have led to redundant `beforeSet`/`afterSet` calls.
 
-## Activity Log
+## Timeline
 
-- 2025-07-04 @tobiu assigned to @tobiu
-- 2025-07-04 @tobiu added the `enhancement` label
-- 2025-07-04 @tobiu referenced in commit `5e144eb` - "Pass Config Descriptors to Neo.core.Config Constructors #6939"
-- 2025-07-04 @tobiu closed this issue
+- 2025-07-04T17:18:52Z @tobiu assigned to @tobiu
+- 2025-07-04T17:18:53Z @tobiu added the `enhancement` label
+- 2025-07-04T17:21:35Z @tobiu referenced in commit `5e144eb` - "Pass Config Descriptors to Neo.core.Config Constructors #6939"
+- 2025-07-04T17:21:45Z @tobiu closed this issue
 

@@ -62,10 +62,10 @@ This feature was implemented through a series of commits, including the initial 
 
 These results demonstrate a dramatic reduction in the initial data processing time, especially for larger datasets, leading to a much more responsive user experience.
 
-## Activity Log
+## Timeline
 
-- 2025-08-12 @tobiu assigned to @tobiu
-- 2025-08-12 @tobiu added the `enhancement` label
-- 2025-08-12 @tobiu referenced in commit `a71be1d` - "Data: Implement Lazy Record Instantiation for Stores #7185"
-- 2025-08-12 @tobiu closed this issue
+- 2025-08-12T00:01:21Z @tobiu assigned to @tobiu
+- 2025-08-12T00:01:22Z @tobiu added the `enhancement` label
+- 2025-08-12T00:02:23Z @tobiu referenced in commit `a71be1d` - "Data: Implement Lazy Record Instantiation for Stores #7185"
+- 2025-08-12T00:02:31Z @tobiu closed this issue
 

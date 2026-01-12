@@ -33,11 +33,11 @@ When dragging a widget out of the dashboard into a popup window, the widget was 
 
 This combination ensures robust re-integration even after multiple drag interactions.
 
-## Activity Log
+## Timeline
 
-- 2025-12-19 @tobiu added the `bug` label
-- 2025-12-19 @tobiu added the `ai` label
-- 2025-12-19 @tobiu assigned to @tobiu
-- 2025-12-19 @tobiu referenced in commit `4b9ac67` - "Fix: StrategyPanelController widget re-integration fails to update DOM #8144"
-- 2025-12-19 @tobiu closed this issue
+- 2025-12-19T13:44:52Z @tobiu added the `bug` label
+- 2025-12-19T13:44:52Z @tobiu added the `ai` label
+- 2025-12-19T13:46:07Z @tobiu assigned to @tobiu
+- 2025-12-19T15:15:43Z @tobiu referenced in commit `4b9ac67` - "Fix: StrategyPanelController widget re-integration fails to update DOM #8144"
+- 2025-12-19T15:15:53Z @tobiu closed this issue
 

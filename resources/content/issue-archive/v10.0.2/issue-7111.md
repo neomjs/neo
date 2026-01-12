@@ -23,10 +23,10 @@ closedAt: '2025-07-25T21:17:46Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
-- 2025-07-25 @tobiu assigned to @tobiu
-- 2025-07-25 @tobiu added the `bug` label
-- 2025-07-25 @tobiu referenced in commit `0ed3055` - "DomApiRenderer: createDomTree() => not fully stable for void attributes #7111"
-- 2025-07-25 @tobiu closed this issue
+- 2025-07-25T21:17:23Z @tobiu assigned to @tobiu
+- 2025-07-25T21:17:24Z @tobiu added the `bug` label
+- 2025-07-25T21:17:39Z @tobiu referenced in commit `0ed3055` - "DomApiRenderer: createDomTree() => not fully stable for void attributes #7111"
+- 2025-07-25T21:17:47Z @tobiu closed this issue
 

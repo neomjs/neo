@@ -29,9 +29,14 @@ Implement the initial multi-window layout for the Agent OS Command Center.
 - Refactor `apps/agent-os/view/Viewport.mjs` to implement this layout.
 
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-11-30 19:31
+- 2025-11-30T18:42:39Z @tobiu added the `enhancement` label
+- 2025-11-30T18:42:39Z @tobiu added the `ai` label
+- 2025-11-30T18:42:48Z @tobiu added parent issue #7918
+- 2025-11-30T18:43:28Z @tobiu assigned to @tobiu
+- 2025-11-30T19:29:03Z @tobiu referenced in commit `41d6945` - "Feat: Implement Agent OS Multi-Window Layout #7955"
+### @tobiu - 2025-11-30T19:31:55Z
 
 **Input from Gemini 2.5 Pro:**
 
@@ -42,12 +47,5 @@ Implement the initial multi-window layout for the Agent OS Command Center.
 > - Verified: Screenshots confirm both windows render correctly.
 > 
 
-## Activity Log
-
-- 2025-11-30 @tobiu added the `enhancement` label
-- 2025-11-30 @tobiu added the `ai` label
-- 2025-11-30 @tobiu added parent issue #7918
-- 2025-11-30 @tobiu assigned to @tobiu
-- 2025-11-30 @tobiu referenced in commit `41d6945` - "Feat: Implement Agent OS Multi-Window Layout #7955"
-- 2025-11-30 @tobiu closed this issue
+- 2025-11-30T19:32:23Z @tobiu closed this issue
 

@@ -23,10 +23,11 @@ closedAt: '2025-01-15T19:52:26Z'
 
 Add more firstnames & lastnames => data variation
 
-## Activity Log
+## Timeline
 
-- 2025-01-15 @tobiu added the `enhancement` label
-- 2025-01-15 @tobiu assigned to @tobiu
-- 2025-01-15 @tobiu referenced in commit `a5b454c` - "examples.grid.bigData.MainStore: add more names data #6243"
-- 2025-01-15 @tobiu closed this issue
+- 2025-01-15T19:51:33Z @tobiu added the `enhancement` label
+- 2025-01-15T19:51:33Z @tobiu assigned to @tobiu
+- 2025-01-15T19:51:53Z @tobiu changed title from **examples.grid.bigData.MainStore** to **examples.grid.bigData.MainStore: add more names data**
+- 2025-01-15T19:52:13Z @tobiu referenced in commit `a5b454c` - "examples.grid.bigData.MainStore: add more names data #6243"
+- 2025-01-15T19:52:26Z @tobiu closed this issue
 

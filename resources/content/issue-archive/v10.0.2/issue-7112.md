@@ -26,10 +26,10 @@ closedAt: '2025-07-26T19:17:41Z'
 * the new base class got `null` instead
 * This breaks shared tooltips
 
-## Activity Log
+## Timeline
 
-- 2025-07-26 @tobiu assigned to @tobiu
-- 2025-07-26 @tobiu added the `bug` label
-- 2025-07-26 @tobiu referenced in commit `6f6bd29` - "component.Abstract: parentId default value #7112"
-- 2025-07-26 @tobiu closed this issue
+- 2025-07-26T19:16:11Z @tobiu assigned to @tobiu
+- 2025-07-26T19:16:13Z @tobiu added the `bug` label
+- 2025-07-26T19:17:25Z @tobiu referenced in commit `6f6bd29` - "component.Abstract: parentId default value #7112"
+- 2025-07-26T19:17:41Z @tobiu closed this issue
 

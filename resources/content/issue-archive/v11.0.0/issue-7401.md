@@ -57,17 +57,24 @@ To work on this ticket, please start your session with the following prompt:
 > 
 > You will need to read the epic context from @.github/ISSUE/epic-architect-ai-tooling-as-mcp.md and the specific ticket details from @.github/ISSUE/ticket-design-knowledge-mcp-api.md before we begin.
 
-## Comments
+## Timeline
 
-### @Chesblaw - 2025-10-08 03:45
+- 2025-10-07T10:05:49Z @tobiu added parent issue #7399
+- 2025-10-07T10:05:49Z @tobiu added the `enhancement` label
+- 2025-10-07T10:05:49Z @tobiu added the `help wanted` label
+- 2025-10-07T10:05:49Z @tobiu added the `good first issue` label
+- 2025-10-07T10:05:49Z @tobiu added the `hacktoberfest` label
+- 2025-10-07T10:05:49Z @tobiu added the `ai` label
+### @Chesblaw - 2025-10-08T03:45:10Z
 
 @tobiu sup can you assign me
 
-### @tobiu - 2025-10-08 09:32
+### @tobiu - 2025-10-08T09:32:20Z
 
 Hi, and thanks for your interest. Sure, I can assign the ticket to you. Please look into the parent epic first, since it requires the new "AI Native" workflows: https://github.com/neomjs/neo/issues/7399
 
-### @tobiu - 2025-10-24 09:26
+- 2025-10-08T09:32:26Z @tobiu assigned to @Chesblaw
+### @tobiu - 2025-10-24T09:26:09Z
 
 Hi @Chesblaw,
 
@@ -77,14 +84,5 @@ As there has been no activity for a couple of weeks and the project's architectu
 
 We're closing this ticket now. Thanks again for your willingness to contribute, and we hope to see you in other issues!
 
-## Activity Log
-
-- 2025-10-07 @tobiu added parent issue #7399
-- 2025-10-07 @tobiu added the `enhancement` label
-- 2025-10-07 @tobiu added the `help wanted` label
-- 2025-10-07 @tobiu added the `good first issue` label
-- 2025-10-07 @tobiu added the `hacktoberfest` label
-- 2025-10-07 @tobiu added the `ai` label
-- 2025-10-08 @tobiu assigned to @Chesblaw
-- 2025-10-24 @tobiu closed this issue
+- 2025-10-24T09:26:20Z @tobiu closed this issue
 

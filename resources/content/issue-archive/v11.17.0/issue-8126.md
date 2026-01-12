@@ -39,11 +39,11 @@ Refactor `onWorkerMessage` to eliminate code duplication by extracting the commo
 
 This will reduce file size and improve maintainability.
 
-## Activity Log
+## Timeline
 
-- 2025-12-16 @tobiu added the `refactoring` label
-- 2025-12-16 @tobiu assigned to @tobiu
-- 2025-12-16 @tobiu added the `ai` label
-- 2025-12-16 @tobiu referenced in commit `0137fd8` - "Manager.mjs: Refactor onWorkerMessage to remove redundancy #8126"
-- 2025-12-16 @tobiu closed this issue
+- 2025-12-16T18:37:30Z @tobiu added the `refactoring` label
+- 2025-12-16T18:37:41Z @tobiu assigned to @tobiu
+- 2025-12-16T18:48:16Z @tobiu added the `ai` label
+- 2025-12-16T18:48:36Z @tobiu referenced in commit `0137fd8` - "Manager.mjs: Refactor onWorkerMessage to remove redundancy #8126"
+- 2025-12-16T18:48:54Z @tobiu closed this issue
 

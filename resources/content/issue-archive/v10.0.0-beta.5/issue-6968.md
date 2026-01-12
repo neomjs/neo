@@ -68,11 +68,11 @@ This resulted in redundant computations and potential performance bottlenecks, e
 *   **Framework Consistency:** Aligns the `Effect` system's update cycle with the existing `core.Base#set()` batching pattern.
 *   **Robustness:** Provides a more reliable and efficient foundation for all reactive data flows in Neo.mjs.
 
-## Activity Log
+## Timeline
 
-- 2025-07-07 @tobiu assigned to @tobiu
-- 2025-07-07 @tobiu added the `enhancement` label
-- 2025-07-07 @tobiu referenced in commit `8cbebf3` - "Implement Synchronous Batching for Effect Executions #6968"
-- 2025-07-07 @tobiu closed this issue
-- 2025-07-09 @tobiu referenced in commit `37660e1` - "Implement Synchronous Batching for Effect Executions #6968"
+- 2025-07-07T01:26:01Z @tobiu assigned to @tobiu
+- 2025-07-07T01:26:02Z @tobiu added the `enhancement` label
+- 2025-07-07T01:27:11Z @tobiu referenced in commit `8cbebf3` - "Implement Synchronous Batching for Effect Executions #6968"
+- 2025-07-07T11:17:38Z @tobiu closed this issue
+- 2025-07-09T00:10:50Z @tobiu referenced in commit `37660e1` - "Implement Synchronous Batching for Effect Executions #6968"
 

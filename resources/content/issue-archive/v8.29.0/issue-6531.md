@@ -23,10 +23,10 @@ closedAt: '2025-03-03T13:48:19Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
-- 2025-03-03 @tobiu added the `enhancement` label
-- 2025-03-03 @tobiu assigned to @tobiu
-- 2025-03-03 @tobiu referenced in commit `2a56e07` - "grid.View: getColumn() => adjust to the new parent columns collection #6531"
-- 2025-03-03 @tobiu closed this issue
+- 2025-03-03T13:47:47Z @tobiu added the `enhancement` label
+- 2025-03-03T13:47:47Z @tobiu assigned to @tobiu
+- 2025-03-03T13:48:13Z @tobiu referenced in commit `2a56e07` - "grid.View: getColumn() => adjust to the new parent columns collection #6531"
+- 2025-03-03T13:48:19Z @tobiu closed this issue
 

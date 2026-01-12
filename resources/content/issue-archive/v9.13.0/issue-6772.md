@@ -22,9 +22,9 @@ closedAt: '2025-06-12T13:31:46Z'
 
 * Only used inside 1 spot, and the related method is always available inside the Neo namespace.
 
-## Activity Log
+## Timeline
 
-- 2025-06-12 @tobiu added the `enhancement` label
-- 2025-06-12 @tobiu referenced in commit `58f18ce` - "component.Base: remove the core.Util import #6772"
-- 2025-06-12 @tobiu closed this issue
+- 2025-06-12T13:29:52Z @tobiu added the `enhancement` label
+- 2025-06-12T13:31:38Z @tobiu referenced in commit `58f18ce` - "component.Base: remove the core.Util import #6772"
+- 2025-06-12T13:31:46Z @tobiu closed this issue
 

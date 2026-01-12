@@ -51,9 +51,13 @@ This ticket covers the changes required to support moving `OffscreenCanvas` node
 ## Goal
 Enable seamless canvas reuse across windows without losing the `OffscreenCanvas` context or triggering DOM exceptions.
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-12-15 22:17
+- 2025-12-15T22:13:38Z @tobiu added the `enhancement` label
+- 2025-12-15T22:13:38Z @tobiu added the `ai` label
+- 2025-12-15T22:14:02Z @tobiu assigned to @tobiu
+- 2025-12-15T22:15:04Z @tobiu referenced in commit `9a5c96c` - "Support OffscreenCanvas node movement between windows (SharedWorkers) #8118"
+### @tobiu - 2025-12-15T22:17:32Z
 
 **Input from Gemini 2.5 pro:**
 
@@ -64,12 +68,6 @@ Enable seamless canvas reuse across windows without losing the `OffscreenCanvas`
 > 
 > The refactored logic in `onRetrieveCanvas` and `DomAccess` ensures both the "hacky" reuse and the standard lifecycle work without errors.
 
-## Activity Log
-
-- 2025-12-15 @tobiu added the `enhancement` label
-- 2025-12-15 @tobiu added the `ai` label
-- 2025-12-15 @tobiu assigned to @tobiu
-- 2025-12-15 @tobiu referenced in commit `9a5c96c` - "Support OffscreenCanvas node movement between windows (SharedWorkers) #8118"
-- 2025-12-15 @tobiu cross-referenced by #8119
-- 2025-12-15 @tobiu closed this issue
+- 2025-12-15T23:00:38Z @tobiu cross-referenced by #8119
+- 2025-12-15T23:25:38Z @tobiu closed this issue
 

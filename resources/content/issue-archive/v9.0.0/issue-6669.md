@@ -23,10 +23,10 @@ closedAt: '2025-04-17T11:03:17Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
-- 2025-04-17 @tobiu added the `enhancement` label
-- 2025-04-17 @tobiu assigned to @tobiu
-- 2025-04-17 @tobiu referenced in commit `5282158` - "main.DomEvents: getTargetData() => include the role attribute #6669"
-- 2025-04-17 @tobiu closed this issue
+- 2025-04-17T11:02:23Z @tobiu added the `enhancement` label
+- 2025-04-17T11:02:23Z @tobiu assigned to @tobiu
+- 2025-04-17T11:03:12Z @tobiu referenced in commit `5282158` - "main.DomEvents: getTargetData() => include the role attribute #6669"
+- 2025-04-17T11:03:18Z @tobiu closed this issue
 

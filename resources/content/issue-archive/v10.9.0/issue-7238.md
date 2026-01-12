@@ -40,10 +40,10 @@ This also included fixing a bug where the `text` config was incorrectly used to 
 
 The Helix example is now a well-documented, self-explanatory resource that is easily discoverable by the AI knowledge base. It serves as a prime example of the high documentation standard expected for all framework code.
 
-## Activity Log
+## Timeline
 
-- 2025-09-23 @tobiu assigned to @tobiu
-- 2025-09-23 @tobiu added the `enhancement` label
-- 2025-09-23 @tobiu referenced in commit `80ad110` - "Enhance Helix Example with Query-Driven Comments #7238"
-- 2025-09-23 @tobiu closed this issue
+- 2025-09-23T13:34:21Z @tobiu assigned to @tobiu
+- 2025-09-23T13:34:22Z @tobiu added the `enhancement` label
+- 2025-09-23T13:35:14Z @tobiu referenced in commit `80ad110` - "Enhance Helix Example with Query-Driven Comments #7238"
+- 2025-09-23T13:35:20Z @tobiu closed this issue
 

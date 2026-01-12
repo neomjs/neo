@@ -24,10 +24,10 @@ closedAt: '2025-02-19T00:23:14Z'
 * similar to `mountedRows`
 * we need both: `mountedColumns` & `visibleColumns` for cell based selection models => navigating into not painted areas
 
-## Activity Log
+## Timeline
 
-- 2025-02-18 @tobiu added the `enhancement` label
-- 2025-02-18 @tobiu assigned to @tobiu
-- 2025-02-19 @tobiu referenced in commit `6550b48` - "grid.View: mountedColumns #6467"
-- 2025-02-19 @tobiu closed this issue
+- 2025-02-18T23:49:58Z @tobiu added the `enhancement` label
+- 2025-02-18T23:49:59Z @tobiu assigned to @tobiu
+- 2025-02-19T00:23:05Z @tobiu referenced in commit `6550b48` - "grid.View: mountedColumns #6467"
+- 2025-02-19T00:23:15Z @tobiu closed this issue
 

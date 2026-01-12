@@ -23,9 +23,9 @@ closedAt: '2025-06-13T02:38:10Z'
 * get() is for Maps
 * has() is for Sets
 
-## Activity Log
+## Timeline
 
-- 2025-06-13 @tobiu added the `bug` label
-- 2025-06-13 @tobiu referenced in commit `3c26b51` - "vdom.Helper: new Sets => switch get() to has() #6786"
-- 2025-06-13 @tobiu closed this issue
+- 2025-06-13T02:37:48Z @tobiu added the `bug` label
+- 2025-06-13T02:38:00Z @tobiu referenced in commit `3c26b51` - "vdom.Helper: new Sets => switch get() to has() #6786"
+- 2025-06-13T02:38:10Z @tobiu closed this issue
 

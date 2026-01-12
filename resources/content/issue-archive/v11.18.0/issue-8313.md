@@ -31,13 +31,13 @@ If the Bridge process takes time to spawn, or if `ConnectionService` hangs waiti
 **Fix:**
 Move the `transport.connect()` call to *before* the `ConnectionService.ready()` await. This ensures the MCP server is responsive to tool discovery requests immediately, even if the backend service (Bridge) is still initializing.
 
-## Activity Log
+## Timeline
 
-- 2026-01-04 @tobiu added the `bug` label
-- 2026-01-04 @tobiu added the `ai` label
-- 2026-01-04 @tobiu added the `architecture` label
-- 2026-01-04 @tobiu added parent issue #8169
-- 2026-01-04 @tobiu assigned to @tobiu
-- 2026-01-04 @tobiu referenced in commit `767d4b2` - "Fix Neural Link Server startup handshake deadlock #8313"
-- 2026-01-04 @tobiu closed this issue
+- 2026-01-04T15:00:27Z @tobiu added the `bug` label
+- 2026-01-04T15:00:27Z @tobiu added the `ai` label
+- 2026-01-04T15:00:27Z @tobiu added the `architecture` label
+- 2026-01-04T15:00:38Z @tobiu added parent issue #8169
+- 2026-01-04T15:01:30Z @tobiu assigned to @tobiu
+- 2026-01-04T15:02:18Z @tobiu referenced in commit `767d4b2` - "Fix Neural Link Server startup handshake deadlock #8313"
+- 2026-01-04T15:02:24Z @tobiu closed this issue
 

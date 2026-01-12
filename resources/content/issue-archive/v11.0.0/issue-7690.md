@@ -38,12 +38,12 @@ The `healthcheck` response should be enhanced to make this hybrid startup scenar
 
 This will provide a clearer picture to the agent, preventing incorrect assumptions and unnecessary actions.
 
-## Activity Log
+## Timeline
 
-- 2025-11-02 @tobiu added the `enhancement` label
-- 2025-11-02 @tobiu added the `developer-experience` label
-- 2025-11-02 @tobiu added the `ai` label
-- 2025-11-02 @tobiu assigned to @tobiu
-- 2025-11-02 @tobiu referenced in commit `701fd04` - "Enhancement: Clarify Memory Core healthcheck response for hybrid database strategy #7690"
-- 2025-11-02 @tobiu closed this issue
+- 2025-11-02T16:16:00Z @tobiu added the `enhancement` label
+- 2025-11-02T16:16:00Z @tobiu added the `developer-experience` label
+- 2025-11-02T16:16:00Z @tobiu added the `ai` label
+- 2025-11-02T16:18:58Z @tobiu assigned to @tobiu
+- 2025-11-02T16:22:01Z @tobiu referenced in commit `701fd04` - "Enhancement: Clarify Memory Core healthcheck response for hybrid database strategy #7690"
+- 2025-11-02T16:22:05Z @tobiu closed this issue
 

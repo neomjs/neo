@@ -54,10 +54,10 @@ Changing this default behavior would risk breaking existing code. Therefore, the
 
 This ensures that the new system is non-destructive. We can then incrementally update specific config descriptors (e.g., for `items`) to use the new flags without affecting any other part of the framework.
 
-## Activity Log
+## Timeline
 
-- 2025-07-09 @tobiu assigned to @tobiu
-- 2025-07-09 @tobiu added the `enhancement` label
-- 2025-07-09 @tobiu referenced in commit `156f184` - "Granular Cloning Strategies for core.Config #7001"
-- 2025-07-09 @tobiu closed this issue
+- 2025-07-09T17:20:05Z @tobiu assigned to @tobiu
+- 2025-07-09T17:20:07Z @tobiu added the `enhancement` label
+- 2025-07-09T17:33:27Z @tobiu referenced in commit `156f184` - "Granular Cloning Strategies for core.Config #7001"
+- 2025-07-09T17:33:35Z @tobiu closed this issue
 

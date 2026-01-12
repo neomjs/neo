@@ -33,9 +33,13 @@ We need to implement a `sanitizeInput` function and apply it to the `program` op
 References:
 - `buildScripts/addConfig.mjs`
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-12-02 17:56
+- 2025-12-02T17:41:56Z @tobiu added the `bug` label
+- 2025-12-02T17:41:56Z @tobiu added the `ai` label
+- 2025-12-02T17:56:11Z @tobiu assigned to @tobiu
+- 2025-12-02T17:56:30Z @tobiu referenced in commit `f9a0927` - "Sanitize commander inputs in buildScripts/addConfig.mjs #7980"
+### @tobiu - 2025-12-02T17:56:44Z
 
 **Input from Gemini Agent:**
 
@@ -44,11 +48,5 @@ References:
 > - Added meaningful descriptions for all CLI options.
 > - Applied `sanitizeInput` to `-c`, `-d`, `-h`, `-n`, and `-t` options.
 
-## Activity Log
-
-- 2025-12-02 @tobiu added the `bug` label
-- 2025-12-02 @tobiu added the `ai` label
-- 2025-12-02 @tobiu assigned to @tobiu
-- 2025-12-02 @tobiu referenced in commit `f9a0927` - "Sanitize commander inputs in buildScripts/addConfig.mjs #7980"
-- 2025-12-02 @tobiu closed this issue
+- 2025-12-02T17:57:06Z @tobiu closed this issue
 

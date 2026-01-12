@@ -31,12 +31,12 @@ Implement `toJSON` in `src/selection/grid/CellColumnModel.mjs`.
 
 **Parent Issue:** #8200
 
-## Activity Log
+## Timeline
 
-- 2026-01-01 @tobiu added the `enhancement` label
-- 2026-01-01 @tobiu added the `ai` label
-- 2026-01-01 @tobiu assigned to @tobiu
-- 2026-01-01 @tobiu added parent issue #8200
-- 2026-01-01 @tobiu referenced in commit `9dd9e02` - "feat(selection): Implement toJSON in grid.CellColumnModel #8264"
-- 2026-01-01 @tobiu closed this issue
+- 2026-01-01T16:56:29Z @tobiu added the `enhancement` label
+- 2026-01-01T16:56:30Z @tobiu added the `ai` label
+- 2026-01-01T16:57:18Z @tobiu assigned to @tobiu
+- 2026-01-01T16:57:27Z @tobiu added parent issue #8200
+- 2026-01-01T16:58:21Z @tobiu referenced in commit `9dd9e02` - "feat(selection): Implement toJSON in grid.CellColumnModel #8264"
+- 2026-01-01T16:58:36Z @tobiu closed this issue
 

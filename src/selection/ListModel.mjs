@@ -73,10 +73,19 @@ class ListModel extends Model {
      */
     onListNavigate(data) {
         let {view}  = this,
-            {store} = view;
+            {store} = view,
+            record;
 
-        data.record      = store.getAt(Math.min(data.activeIndex, store.getCount()));
-        view._focusIndex = store.indexOf(data.record); // silent update, no need to refocus
+        if (data.activeItem) {
+            record = store.get(view.getItemRecordId(data.activeItem))
+        }
+
+        if (!record) {
+            record = store.getAt(Math.min(data.activeIndex, store.getCount()))
+        }
+
+        data.record      = record;
+        view._focusIndex = store.indexOf(record); // silent update, no need to refocus
 
         view.fire('itemNavigate', data)
     }

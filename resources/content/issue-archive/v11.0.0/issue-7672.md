@@ -80,12 +80,12 @@ Refactor the query strategies into a single, more concise "Discovery Pattern".
 The `Do NOT` list at the end of the "When Queries Fail" section is redundant with the Anti-Hallucination Policy and should be removed from the `openapi.yaml` description.
 
 
-## Activity Log
+## Timeline
 
-- 2025-10-27 @tobiu added the `documentation` label
-- 2025-10-27 @tobiu added the `enhancement` label
-- 2025-10-27 @tobiu added the `ai` label
-- 2025-10-27 @tobiu assigned to @tobiu
-- 2025-10-27 @tobiu referenced in commit `599c2fc` - "Refactor: Refine Query Tool Documentation in openapi.yaml #7672"
-- 2025-10-27 @tobiu closed this issue
+- 2025-10-27T09:05:59Z @tobiu added the `documentation` label
+- 2025-10-27T09:05:59Z @tobiu added the `enhancement` label
+- 2025-10-27T09:06:00Z @tobiu added the `ai` label
+- 2025-10-27T09:06:49Z @tobiu assigned to @tobiu
+- 2025-10-27T09:13:46Z @tobiu referenced in commit `599c2fc` - "Refactor: Refine Query Tool Documentation in openapi.yaml #7672"
+- 2025-10-27T09:14:04Z @tobiu closed this issue
 

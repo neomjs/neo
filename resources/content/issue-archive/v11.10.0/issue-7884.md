@@ -34,12 +34,12 @@ This task involves updating `ai/mcp/server/github-workflow/openapi.yaml` to dras
 
 **Goal:** Ensure the agent never creates an issue without the user seeing exactly what will be created first.
 
-## Activity Log
+## Timeline
 
-- 2025-11-23 @tobiu added the `documentation` label
-- 2025-11-23 @tobiu added the `enhancement` label
-- 2025-11-23 @tobiu added the `ai` label
-- 2025-11-23 @tobiu assigned to @tobiu
-- 2025-11-23 @tobiu referenced in commit `7d40fdc` - "Enforce "Propose-First" workflow and Labeling in create_issue tool description #7884"
-- 2025-11-23 @tobiu closed this issue
+- 2025-11-23T18:28:45Z @tobiu added the `documentation` label
+- 2025-11-23T18:28:46Z @tobiu added the `enhancement` label
+- 2025-11-23T18:28:46Z @tobiu added the `ai` label
+- 2025-11-23T18:29:00Z @tobiu assigned to @tobiu
+- 2025-11-23T18:49:18Z @tobiu referenced in commit `7d40fdc` - "Enforce "Propose-First" workflow and Labeling in create_issue tool description #7884"
+- 2025-11-23T18:49:25Z @tobiu closed this issue
 

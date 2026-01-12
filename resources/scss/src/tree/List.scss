@@ -6,10 +6,6 @@
     overflow       : hidden;
     position       : relative;
 
-    // Allow item's scrollIntoView upwards to avoid
-    // being hidden below a sticky item stuck at the top.
-    scroll-padding-block-start : 3em;
-
     .neo-list {
         overflow   : visible;
         user-select: none;
@@ -23,13 +19,13 @@
         background-color: var(--list-container-background-color);
         border          : var(--list-container-border);
         overflow        : auto;
+
+        // Allow item's scrollIntoView upwards to avoid
+        // being hidden below a sticky item stuck at the top.
+        scroll-padding-block-start: 3em;
     }
 
     .neo-list-folder {
-        + .neo-list {
-            display: none;
-        }
-
         .neo-list-item-content:before {
             content    : "\f07b" !important;
             margin-left: 0;
@@ -37,10 +33,6 @@
     }
 
     .neo-list-folder.neo-folder-open {
-        + .neo-list {
-            display: block;
-        }
-
         .neo-list-item-content:before {
             content    : "\f07c" !important;
             margin-left: 0;

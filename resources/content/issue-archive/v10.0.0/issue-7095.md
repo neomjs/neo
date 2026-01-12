@@ -37,19 +37,19 @@ Technically-minded developers and architects who want to understand the framewor
 ## 4. Deliverable
 A complete draft of the blog post as a markdown file.
 
-## Activity Log
+## Timeline
 
-- 2025-07-22 @tobiu assigned to @tobiu
-- 2025-07-22 @tobiu added the `Blog Post` label
-- 2025-07-22 @tobiu added parent issue #7093
-- 2025-07-22 @tobiu referenced in commit `b9fcaba` - "Create Deep-Dive Blog Post for the Reactive Core #7095"
-- 2025-07-22 @tobiu referenced in commit `4316e07` - "Create Deep-Dive Blog Post for the Reactive Core #7095"
-- 2025-07-22 @tobiu referenced in commit `cbc5ef6` - "Create Deep-Dive Blog Post for the Reactive Core #7095 WIP"
-- 2025-07-22 @tobiu referenced in commit `3ce2e90` - "Create Deep-Dive Blog Post for the Reactive Core #7095 WIP"
-- 2025-07-22 @tobiu referenced in commit `b774baf` - "Create Deep-Dive Blog Post for the Reactive Core #7095 WIP"
-- 2025-07-22 @tobiu referenced in commit `62e4f58` - "Create Deep-Dive Blog Post for the Reactive Core #7095 formatting"
-- 2025-07-22 @tobiu referenced in commit `6531e6e` - "Create Deep-Dive Blog Post for the Reactive Core #7095 polishing"
-- 2025-07-22 @tobiu referenced in commit `5b11149` - "Create Deep-Dive Blog Post for the Reactive Core #7095"
-- 2025-07-22 @tobiu referenced in commit `d0d8749` - "Create Deep-Dive Blog Post for the Reactive Core #7095"
-- 2025-07-22 @tobiu closed this issue
+- 2025-07-22T06:26:49Z @tobiu assigned to @tobiu
+- 2025-07-22T06:26:50Z @tobiu added the `Blog Post` label
+- 2025-07-22T06:26:50Z @tobiu added parent issue #7093
+- 2025-07-22T10:39:07Z @tobiu referenced in commit `b9fcaba` - "Create Deep-Dive Blog Post for the Reactive Core #7095"
+- 2025-07-22T10:45:55Z @tobiu referenced in commit `4316e07` - "Create Deep-Dive Blog Post for the Reactive Core #7095"
+- 2025-07-22T10:50:08Z @tobiu referenced in commit `cbc5ef6` - "Create Deep-Dive Blog Post for the Reactive Core #7095 WIP"
+- 2025-07-22T11:25:39Z @tobiu referenced in commit `3ce2e90` - "Create Deep-Dive Blog Post for the Reactive Core #7095 WIP"
+- 2025-07-22T12:07:23Z @tobiu referenced in commit `b774baf` - "Create Deep-Dive Blog Post for the Reactive Core #7095 WIP"
+- 2025-07-22T12:20:23Z @tobiu referenced in commit `62e4f58` - "Create Deep-Dive Blog Post for the Reactive Core #7095 formatting"
+- 2025-07-22T12:48:56Z @tobiu referenced in commit `6531e6e` - "Create Deep-Dive Blog Post for the Reactive Core #7095 polishing"
+- 2025-07-22T13:06:02Z @tobiu referenced in commit `5b11149` - "Create Deep-Dive Blog Post for the Reactive Core #7095"
+- 2025-07-22T13:39:38Z @tobiu referenced in commit `d0d8749` - "Create Deep-Dive Blog Post for the Reactive Core #7095"
+- 2025-07-22T14:33:36Z @tobiu closed this issue
 

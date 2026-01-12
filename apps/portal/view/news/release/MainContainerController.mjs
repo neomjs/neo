@@ -15,6 +15,7 @@ class MainContainerController extends Controller {
          * @member {Object} routes
          */
         routes: {
+            '/news'                   : 'onRouteDefault',
             '/news/releases'          : 'onRouteDefault',
             '/news/releases/{*itemId}': 'onRouteItem'
         }
@@ -80,15 +81,18 @@ class MainContainerController extends Controller {
 
     /**
      * @param {Object} data
+     * @param {Object} value
+     * @param {Object} oldValue
      */
-    onRouteDefault(data) {
-        let store = this.getStateProvider().getStore('tree');
+    onRouteDefault(data, value, oldValue) {
+        let me    = this,
+            store = me.getStateProvider().getStore('tree');
 
         if (store.getCount() > 0) {
-            this.navigateTo(store.getAt(1).id)
+            me.navigateTo(store.getAt(1).id)
         } else {
             store.on({
-                load : () => this.navigateTo(store.getAt(1).id),
+                load : () => me.navigateTo(store.getAt(1).id),
                 delay: 10,
                 once : true
             })
@@ -98,22 +102,35 @@ class MainContainerController extends Controller {
     /**
      * @param {Object} data
      * @param {String} data.itemId
+     * @param {Object} value
+     * @param {Object} oldValue
      */
-    onRouteItem({itemId}) {
-        let stateProvider = this.getStateProvider(),
+    async onRouteItem({itemId}, value, oldValue) {
+        let me            = this,
+            stateProvider = me.getStateProvider(),
             store         = stateProvider.getStore('tree'),
-            tree          = this.getReference('tree');
+            tree          = me.getReference('tree');
 
         // Ensure the tree has the correct route prefix for this controller context
         if (tree.routePrefix !== '/news/releases') {
             tree.routePrefix = '/news/releases'
         }
 
+        const select = async () => {
+            stateProvider.data.currentPageRecord = store.get(itemId);
+            tree.expandParents(itemId);
+
+            if (!oldValue?.hashString?.startsWith('/news/releases')) {
+                await me.timeout(100);
+                tree.scrollToItem(itemId)
+            }
+        };
+
         if (store.getCount() > 0) {
-            stateProvider.data.currentPageRecord = store.get(itemId)
+            await select()
         } else {
             store.on({
-                load : () => {stateProvider.data.currentPageRecord = store.get(itemId)},
+                load : select,
                 delay: 10,
                 once : true
             })

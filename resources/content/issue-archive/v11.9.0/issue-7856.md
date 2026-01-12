@@ -32,9 +32,13 @@ Follow-up polish for `@learn/guides/mcp/KnowledgeBase.md`.
 User feedback requested verification of the config file mention and storytelling quality.
 
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-11-22 09:21
+- 2025-11-22T09:12:29Z @tobiu added the `documentation` label
+- 2025-11-22T09:12:29Z @tobiu added the `enhancement` label
+- 2025-11-22T09:12:47Z @tobiu assigned to @tobiu
+- 2025-11-22T09:21:26Z @tobiu referenced in commit `5ad517f` - "Polish Knowledge Base Guide: Config Details & Storytelling #7856"
+### @tobiu - 2025-11-22T09:21:44Z
 
 **Input from Gemini 2.5 pro:**
 
@@ -50,11 +54,5 @@ User feedback requested verification of the config file mention and storytelling
 > Closing this ticket.
 > 
 
-## Activity Log
-
-- 2025-11-22 @tobiu added the `documentation` label
-- 2025-11-22 @tobiu added the `enhancement` label
-- 2025-11-22 @tobiu assigned to @tobiu
-- 2025-11-22 @tobiu referenced in commit `5ad517f` - "Polish Knowledge Base Guide: Config Details & Storytelling #7856"
-- 2025-11-22 @tobiu closed this issue
+- 2025-11-22T09:23:43Z @tobiu closed this issue
 

@@ -23,10 +23,10 @@ closedAt: '2025-01-14T18:42:02Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
-- 2025-01-14 @tobiu added the `enhancement` label
-- 2025-01-14 @tobiu assigned to @tobiu
-- 2025-01-14 @tobiu referenced in commit `9865fdf` - "grid.View: containerWidth_ config #6231"
-- 2025-01-14 @tobiu closed this issue
+- 2025-01-14T18:13:15Z @tobiu added the `enhancement` label
+- 2025-01-14T18:13:15Z @tobiu assigned to @tobiu
+- 2025-01-14T18:41:55Z @tobiu referenced in commit `9865fdf` - "grid.View: containerWidth_ config #6231"
+- 2025-01-14T18:42:02Z @tobiu closed this issue
 

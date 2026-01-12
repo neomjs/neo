@@ -32,12 +32,12 @@ This ticket proposes refactoring the `IssueSyncer` to treat the frontmatter as t
 3.  Simplify the body-cleaning logic in `pushToGitHub` to reflect that only the `Reported by:` line and title need to be stripped before pushing.
 4.  The resulting local markdown files will be cleaner, containing only the issue title, the progress summary (if applicable), and the core body content.
 
-## Activity Log
+## Timeline
 
-- 2025-11-12 @tobiu added the `enhancement` label
-- 2025-11-12 @tobiu added the `ai` label
-- 2025-11-12 @tobiu added the `refactoring` label
-- 2025-11-12 @tobiu cross-referenced by PR #7741
-- 2025-11-13 @MannXo cross-referenced by PR #7762
-- 2025-11-13 @tobiu closed this issue
+- 2025-11-12T08:12:04Z @tobiu added the `enhancement` label
+- 2025-11-12T08:12:04Z @tobiu added the `ai` label
+- 2025-11-12T08:12:05Z @tobiu added the `refactoring` label
+- 2025-11-12T08:14:45Z @tobiu cross-referenced by PR #7741
+- 2025-11-13T06:11:14Z @MannXo cross-referenced by PR #7762
+- 2025-11-13T10:12:48Z @tobiu closed this issue
 

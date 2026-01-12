@@ -23,10 +23,10 @@ closedAt: '2025-01-29T22:19:28Z'
 
 * not needed plus staying in sync with `grid.View`
 
-## Activity Log
+## Timeline
 
-- 2025-01-29 @tobiu added the `enhancement` label
-- 2025-01-29 @tobiu assigned to @tobiu
-- 2025-01-29 @tobiu referenced in commit `cb91035` - "table.View: createViewData() => remove the param #6342"
-- 2025-01-29 @tobiu closed this issue
+- 2025-01-29T22:11:05Z @tobiu added the `enhancement` label
+- 2025-01-29T22:11:05Z @tobiu assigned to @tobiu
+- 2025-01-29T22:18:00Z @tobiu referenced in commit `cb91035` - "table.View: createViewData() => remove the param #6342"
+- 2025-01-29T22:19:28Z @tobiu closed this issue
 

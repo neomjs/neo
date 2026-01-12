@@ -31,12 +31,12 @@ Implement `toJSON` in `src/selection/HelixModel.mjs`.
 
 **Parent Issue:** #8200
 
-## Activity Log
+## Timeline
 
-- 2026-01-01 @tobiu added the `enhancement` label
-- 2026-01-01 @tobiu added the `ai` label
-- 2026-01-01 @tobiu referenced in commit `248b20e` - "feat(selection): Implement toJSON in HelixModel #8262"
-- 2026-01-01 @tobiu assigned to @tobiu
-- 2026-01-01 @tobiu added parent issue #8200
-- 2026-01-01 @tobiu closed this issue
+- 2026-01-01T16:49:43Z @tobiu added the `enhancement` label
+- 2026-01-01T16:49:43Z @tobiu added the `ai` label
+- 2026-01-01T16:52:28Z @tobiu referenced in commit `248b20e` - "feat(selection): Implement toJSON in HelixModel #8262"
+- 2026-01-01T16:53:25Z @tobiu assigned to @tobiu
+- 2026-01-01T16:53:31Z @tobiu added parent issue #8200
+- 2026-01-01T16:53:34Z @tobiu closed this issue
 

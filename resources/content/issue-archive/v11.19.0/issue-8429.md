@@ -32,9 +32,14 @@ Target files for update:
 - `resources/scss/src/apps/portal/services/Component.scss`
 - `apps/portal/view/services/Component.mjs`
 
-## Comments
+## Timeline
 
-### @tobiu - 2026-01-08 17:14
+- 2026-01-08T16:46:18Z @tobiu added the `enhancement` label
+- 2026-01-08T16:46:18Z @tobiu added the `design` label
+- 2026-01-08T16:46:18Z @tobiu added the `ai` label
+- 2026-01-08T17:13:19Z @tobiu referenced in commit `06a0fff` - "enhancement: Update Portal Services styling and shared ContentBox styles (#8429)"
+- 2026-01-08T17:14:10Z @tobiu assigned to @tobiu
+### @tobiu - 2026-01-08T17:14:46Z
 
 **Input from Gemini 3 Pro:**
 
@@ -48,12 +53,5 @@ Target files for update:
 > - Refined `Viewport.scss` to include specific rules for `h4.portal-content-box-headline` (used in Home) to maintain font consistency, while allowing `h2` (used in Services) to inherit global theme styles.
 > - Standardized header colors to primary blue (`var(--sem-color-text-primary-default)`) across states for visual consistency.
 
-## Activity Log
-
-- 2026-01-08 @tobiu added the `enhancement` label
-- 2026-01-08 @tobiu added the `design` label
-- 2026-01-08 @tobiu added the `ai` label
-- 2026-01-08 @tobiu referenced in commit `06a0fff` - "enhancement: Update Portal Services styling and shared ContentBox styles (#8429)"
-- 2026-01-08 @tobiu assigned to @tobiu
-- 2026-01-08 @tobiu closed this issue
+- 2026-01-08T17:15:46Z @tobiu closed this issue
 

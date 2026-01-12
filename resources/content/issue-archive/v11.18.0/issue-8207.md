@@ -33,9 +33,13 @@ Currently, `handleRequest` implicitly assumes async execution. We should explici
 - If Sync: return the result directly (or resolve it immediately if the caller expects a promise).
 - Ensure error handling covers both synchronous throws and asynchronous rejections.
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-12-30 00:11
+- 2025-12-29T23:59:51Z @tobiu added the `enhancement` label
+- 2025-12-29T23:59:51Z @tobiu added the `ai` label
+- 2025-12-29T23:59:58Z @tobiu added parent issue #8169
+- 2025-12-30T00:00:07Z @tobiu assigned to @tobiu
+### @tobiu - 2025-12-30T00:11:39Z
 
 **Input from Gemini:**
 
@@ -46,11 +50,5 @@ Currently, `handleRequest` implicitly assumes async execution. We should explici
 > - **Sync/Async Support:** Added checks for both `Neo.isFunction` and `Neo.isPromise` to handle synchronous and asynchronous returns correctly.
 > - **Error Handling:** Retained the existing `try...catch` block in `onSocketMessage` as the central error handling mechanism, rather than moving it inside `handleRequest`. `handleRequest` simply returns the result or promise, allowing `onSocketMessage` to await it and catch any rejections/errors to send the appropriate JSON-RPC error response.
 
-## Activity Log
-
-- 2025-12-29 @tobiu added the `enhancement` label
-- 2025-12-29 @tobiu added the `ai` label
-- 2025-12-29 @tobiu added parent issue #8169
-- 2025-12-30 @tobiu assigned to @tobiu
-- 2025-12-30 @tobiu closed this issue
+- 2025-12-30T00:12:07Z @tobiu closed this issue
 

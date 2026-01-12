@@ -23,10 +23,10 @@ closedAt: '2025-02-06T23:18:36Z'
 
 * There are a bunch of selectors in there which belong into `grid.View`
 
-## Activity Log
+## Timeline
 
-- 2025-02-06 @tobiu added the `enhancement` label
-- 2025-02-06 @tobiu assigned to @tobiu
-- 2025-02-06 @tobiu referenced in commit `cb30f9d` - "grid.Container: SCSS cleanup #6395"
-- 2025-02-06 @tobiu closed this issue
+- 2025-02-06T23:18:08Z @tobiu added the `enhancement` label
+- 2025-02-06T23:18:08Z @tobiu assigned to @tobiu
+- 2025-02-06T23:18:27Z @tobiu referenced in commit `cb30f9d` - "grid.Container: SCSS cleanup #6395"
+- 2025-02-06T23:18:36Z @tobiu closed this issue
 

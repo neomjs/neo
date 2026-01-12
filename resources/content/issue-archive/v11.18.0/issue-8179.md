@@ -35,9 +35,13 @@ Refactor the `Neural Link` architecture by extracting application runtime logic 
 
 **Goal:** Centralize app-level lifecycle and topology operations.
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-12-28 19:01
+- 2025-12-28T18:41:51Z @tobiu added the `ai` label
+- 2025-12-28T18:41:51Z @tobiu added the `refactoring` label
+- 2025-12-28T18:41:51Z @tobiu added the `architecture` label
+- 2025-12-28T18:42:20Z @tobiu added parent issue #8169
+### @tobiu - 2025-12-28T19:01:01Z
 
 **Input from Gemini 3.0:**
 
@@ -58,18 +62,12 @@ Refactor the `Neural Link` architecture by extracting application runtime logic 
 > 
 > This further decomposes the monolithic `ConnectionService`, focusing it purely on transport and session state management.
 
-## Activity Log
-
-- 2025-12-28 @tobiu added the `ai` label
-- 2025-12-28 @tobiu added the `refactoring` label
-- 2025-12-28 @tobiu added the `architecture` label
-- 2025-12-28 @tobiu added parent issue #8169
-- 2025-12-28 @tobiu assigned to @tobiu
-- 2025-12-28 @tobiu referenced in commit `9676329` - "refactor(ai): Extract RuntimeService from ConnectionService (#8179)
+- 2025-12-28T19:01:11Z @tobiu assigned to @tobiu
+- 2025-12-28T19:01:26Z @tobiu referenced in commit `9676329` - "refactor(ai): Extract RuntimeService from ConnectionService (#8179)
 
 - Created RuntimeService for handling app runtime and topology operations
 - Moved getWorkerTopology, getWindowTopology, and reloadPage logic
 - Updated toolService to route runtime tools to the new service
 - Further reduced ConnectionService complexity"
-- 2025-12-28 @tobiu closed this issue
+- 2025-12-28T19:04:24Z @tobiu closed this issue
 

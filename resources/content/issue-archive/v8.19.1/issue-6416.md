@@ -23,10 +23,10 @@ closedAt: '2025-02-09T14:45:40Z'
 
 * With the new setup, we no longer need it => the view can just use the real height value directly
 
-## Activity Log
+## Timeline
 
-- 2025-02-09 @tobiu added the `enhancement` label
-- 2025-02-09 @tobiu assigned to @tobiu
-- 2025-02-09 @tobiu referenced in commit `307ef57` - "grid.View: remove the .neo-grid-stretcher node #6416"
-- 2025-02-09 @tobiu closed this issue
+- 2025-02-09T14:44:41Z @tobiu added the `enhancement` label
+- 2025-02-09T14:44:42Z @tobiu assigned to @tobiu
+- 2025-02-09T14:45:05Z @tobiu referenced in commit `307ef57` - "grid.View: remove the .neo-grid-stretcher node #6416"
+- 2025-02-09T14:45:40Z @tobiu closed this issue
 

@@ -33,13 +33,13 @@ This update adds a `--cwd` command-line argument to the `mcp-stdio.mjs` entry po
 - `ConnectionService.mjs`: Updated `spawnBridge` to use the configured `cwd`.
 - `mcp_config.json`: Updated usage to use `--cwd` instead of the invalid `cwd` property.
 
-## Activity Log
+## Timeline
 
-- 2026-01-04 @tobiu added the `enhancement` label
-- 2026-01-04 @tobiu added the `ai-generated` label
-- 2026-01-04 @tobiu assigned to @tobiu
-- 2026-01-04 @tobiu removed the `ai-generated` label
-- 2026-01-04 @tobiu added the `ai` label
-- 2026-01-04 @tobiu referenced in commit `63ded45` - "[Neural Link] Feature: Support --cwd CLI argument #8314"
-- 2026-01-04 @tobiu closed this issue
+- 2026-01-04T15:58:37Z @tobiu added the `enhancement` label
+- 2026-01-04T15:58:37Z @tobiu added the `ai-generated` label
+- 2026-01-04T15:59:00Z @tobiu assigned to @tobiu
+- 2026-01-04T15:59:07Z @tobiu removed the `ai-generated` label
+- 2026-01-04T15:59:07Z @tobiu added the `ai` label
+- 2026-01-04T16:14:36Z @tobiu referenced in commit `63ded45` - "[Neural Link] Feature: Support --cwd CLI argument #8314"
+- 2026-01-04T16:15:26Z @tobiu closed this issue
 

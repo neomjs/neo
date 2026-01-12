@@ -23,10 +23,10 @@ closedAt: '2025-11-16T23:11:26Z'
 
 We need to bypass `new XMLHttpRequest()` which does not exist inside nodejs.
 
-## Activity Log
+## Timeline
 
-- 2025-11-16 @tobiu assigned to @tobiu
-- 2025-11-16 @tobiu added the `enhancement` label
-- 2025-11-16 @tobiu referenced in commit `4f141bb` - "data.Store: load() => add a fallback for nodejs #7781"
-- 2025-11-16 @tobiu closed this issue
+- 2025-11-16T23:10:56Z @tobiu assigned to @tobiu
+- 2025-11-16T23:10:57Z @tobiu added the `enhancement` label
+- 2025-11-16T23:11:18Z @tobiu referenced in commit `4f141bb` - "data.Store: load() => add a fallback for nodejs #7781"
+- 2025-11-16T23:11:27Z @tobiu closed this issue
 

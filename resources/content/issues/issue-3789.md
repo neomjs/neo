@@ -23,15 +23,13 @@ blocking: []
 this feature is super important for the neo framework, so we should keep track on the progress:
 https://github.com/WICG/import-maps/issues/2
 
-## Comments
+## Timeline
 
-### @TomDakan - 2025-08-02 03:15
+- 2023-01-05T15:11:51Z @tobiu added the `enhancement` label
+- 2024-08-27T20:45:09Z @tobiu added the `no auto close` label
+### @TomDakan - 2025-08-02T03:15:44Z
 
 It looks like this repo has been shutdown in favor of the whatwg/html repo. This pull request seems to be taking over from issue:
 https://github.com/whatwg/html/pull/10858
 
-## Activity Log
-
-- 2023-01-05 @tobiu added the `enhancement` label
-- 2024-08-27 @tobiu added the `no auto close` label
 

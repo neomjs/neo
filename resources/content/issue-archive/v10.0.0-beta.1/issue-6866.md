@@ -25,11 +25,11 @@ closedAt: '2025-06-25T21:42:48Z'
 * This is mostly intentional, since addons are supposed to now use the new core logic.
 * Time to make this happen (and required before the next release).
 
-## Activity Log
+## Timeline
 
-- 2025-06-24 @tobiu assigned to @tobiu
-- 2025-06-24 @tobiu added the `enhancement` label
-- 2025-06-25 @tobiu referenced in commit `e631fb5` - "main.addon.Base: use async initAsync() #6866 WIP"
-- 2025-06-25 @tobiu referenced in commit `ac571a4` - "main.addon.Base: use async initAsync() #6866"
-- 2025-06-25 @tobiu closed this issue
+- 2025-06-24T22:18:49Z @tobiu assigned to @tobiu
+- 2025-06-24T22:18:50Z @tobiu added the `enhancement` label
+- 2025-06-25T19:56:18Z @tobiu referenced in commit `e631fb5` - "main.addon.Base: use async initAsync() #6866 WIP"
+- 2025-06-25T20:28:58Z @tobiu referenced in commit `ac571a4` - "main.addon.Base: use async initAsync() #6866"
+- 2025-06-25T21:42:48Z @tobiu closed this issue
 

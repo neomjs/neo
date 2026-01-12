@@ -23,10 +23,10 @@ closedAt: '2025-01-14T11:40:05Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
-- 2025-01-14 @tobiu added the `enhancement` label
-- 2025-01-14 @tobiu assigned to @tobiu
-- 2025-01-14 @tobiu referenced in commit `e04ccb6` - "grid.Container: afterSetColumns() => for the mounted state (run-time change) we need to trigger passSizeToView() #6221"
-- 2025-01-14 @tobiu closed this issue
+- 2025-01-14T11:39:37Z @tobiu added the `enhancement` label
+- 2025-01-14T11:39:37Z @tobiu assigned to @tobiu
+- 2025-01-14T11:39:55Z @tobiu referenced in commit `e04ccb6` - "grid.Container: afterSetColumns() => for the mounted state (run-time change) we need to trigger passSizeToView() #6221"
+- 2025-01-14T11:40:05Z @tobiu closed this issue
 

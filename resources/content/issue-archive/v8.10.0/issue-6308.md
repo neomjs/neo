@@ -23,10 +23,10 @@ closedAt: '2025-01-26T20:27:28Z'
 
 Probably from the early days where class configs did not get cloned to ensure prototypes are not affected.
 
-## Activity Log
+## Timeline
 
-- 2025-01-26 @tobiu added the `enhancement` label
-- 2025-01-26 @tobiu assigned to @tobiu
-- 2025-01-26 @tobiu referenced in commit `54d0f8f` - "selection.grid & table: move the initialisation of custom item arrays outside of construct() #6308"
-- 2025-01-26 @tobiu closed this issue
+- 2025-01-26T20:26:50Z @tobiu added the `enhancement` label
+- 2025-01-26T20:26:50Z @tobiu assigned to @tobiu
+- 2025-01-26T20:27:25Z @tobiu referenced in commit `54d0f8f` - "selection.grid & table: move the initialisation of custom item arrays outside of construct() #6308"
+- 2025-01-26T20:27:28Z @tobiu closed this issue
 

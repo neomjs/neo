@@ -24,10 +24,10 @@ closedAt: '2025-01-29T14:34:39Z'
 * also switch `cursor` to move
 * `main.addon.DragDrop` => the `.neo-unselectable` toggle is no longer needed
 
-## Activity Log
+## Timeline
 
-- 2025-01-29 @tobiu added the `enhancement` label
-- 2025-01-29 @tobiu assigned to @tobiu
-- 2025-01-29 @tobiu referenced in commit `ae343da` - "draggable.DragProxyComponent: disable pointer events globally in case the body contains .neo-is-dragging #6330"
-- 2025-01-29 @tobiu closed this issue
+- 2025-01-29T14:34:18Z @tobiu added the `enhancement` label
+- 2025-01-29T14:34:18Z @tobiu assigned to @tobiu
+- 2025-01-29T14:34:31Z @tobiu referenced in commit `ae343da` - "draggable.DragProxyComponent: disable pointer events globally in case the body contains .neo-is-dragging #6330"
+- 2025-01-29T14:34:39Z @tobiu closed this issue
 

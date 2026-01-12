@@ -42,10 +42,10 @@ The fix was to change:
 to:
 `me.getVdomRoot()['aria-rowcount'] = finalCount + 1;`
 
-## Activity Log
+## Timeline
 
-- 2025-08-15 @tobiu assigned to @tobiu
-- 2025-08-15 @tobiu added the `bug` label
-- 2025-08-15 @tobiu referenced in commit `c7654ad` - "Incorrect aria-rowcount in grid #7192"
-- 2025-08-15 @tobiu closed this issue
+- 2025-08-15T07:55:57Z @tobiu assigned to @tobiu
+- 2025-08-15T07:55:58Z @tobiu added the `bug` label
+- 2025-08-15T07:56:33Z @tobiu referenced in commit `c7654ad` - "Incorrect aria-rowcount in grid #7192"
+- 2025-08-15T07:56:40Z @tobiu closed this issue
 

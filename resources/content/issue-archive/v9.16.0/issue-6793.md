@@ -31,10 +31,10 @@ The names should be more clear:
 * `<pre data-code-readonly>`
 * `<pre data-code-livepreview>`
 
-## Activity Log
+## Timeline
 
-- 2025-06-14 @tobiu assigned to @tobiu
-- 2025-06-14 @tobiu added the `enhancement` label
-- 2025-06-14 @tobiu referenced in commit `77e0780` - "Learning Section Content: code tags #6793"
-- 2025-06-14 @tobiu closed this issue
+- 2025-06-14T10:48:41Z @tobiu assigned to @tobiu
+- 2025-06-14T10:48:42Z @tobiu added the `enhancement` label
+- 2025-06-14T10:53:31Z @tobiu referenced in commit `77e0780` - "Learning Section Content: code tags #6793"
+- 2025-06-14T10:54:37Z @tobiu closed this issue
 

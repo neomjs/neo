@@ -23,16 +23,14 @@ closedAt: '2025-07-05T10:39:52Z'
 
 *(No description provided)*
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-07-05 10:39
+- 2025-07-05T10:38:29Z @tobiu assigned to @tobiu
+- 2025-07-05T10:38:30Z @tobiu added the `enhancement` label
+- 2025-07-05T10:38:57Z @tobiu referenced in commit `f14dcda` - "tests/config/AfterSetConfig #6952"
+### @tobiu - 2025-07-05T10:39:52Z
 
 <img width="944" height="625" alt="Image" src="https://github.com/user-attachments/assets/9ad74a23-5653-4bc3-89d6-066b285f72bb" />
 
-## Activity Log
-
-- 2025-07-05 @tobiu assigned to @tobiu
-- 2025-07-05 @tobiu added the `enhancement` label
-- 2025-07-05 @tobiu referenced in commit `f14dcda` - "tests/config/AfterSetConfig #6952"
-- 2025-07-05 @tobiu closed this issue
+- 2025-07-05T10:39:52Z @tobiu closed this issue
 

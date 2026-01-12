@@ -33,18 +33,16 @@ This ticket covers implementing a new endpoint to retrieve this complete convers
 3.  The service function uses the `gh pr view <PR_NUMBER> --json title,body,comments` command to fetch the data.
 4.  The `routes/pullRequests.mjs` file is updated with the new route and handler.
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-10-14 11:08
+- 2025-10-14T10:56:48Z @tobiu assigned to @tobiu
+- 2025-10-14T10:56:49Z @tobiu added the `enhancement` label
+- 2025-10-14T10:56:49Z @tobiu added parent issue #7477
+- 2025-10-14T10:56:49Z @tobiu added the `ai` label
+- 2025-10-14T11:08:43Z @tobiu referenced in commit `260d029` - "Get PR Conversation History #7484"
+### @tobiu - 2025-10-14T11:08:54Z
 
 <img width="841" height="782" alt="Image" src="https://github.com/user-attachments/assets/42db4bbe-2e71-4c37-a5e5-3d4d8e990a9b" />
 
-## Activity Log
-
-- 2025-10-14 @tobiu assigned to @tobiu
-- 2025-10-14 @tobiu added the `enhancement` label
-- 2025-10-14 @tobiu added parent issue #7477
-- 2025-10-14 @tobiu added the `ai` label
-- 2025-10-14 @tobiu referenced in commit `260d029` - "Get PR Conversation History #7484"
-- 2025-10-14 @tobiu closed this issue
+- 2025-10-14T11:08:54Z @tobiu closed this issue
 

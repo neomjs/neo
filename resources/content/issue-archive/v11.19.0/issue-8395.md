@@ -28,9 +28,14 @@ Currently, `modifyMarkdown` converts `# Header` to `<h1...>Header</h1>`. If the 
 
 We will detect this condition in the parsing loop and inject an empty line where necessary.
 
-## Comments
+## Timeline
 
-### @tobiu - 2026-01-07 20:40
+- 2026-01-07T20:32:01Z @tobiu added the `enhancement` label
+- 2026-01-07T20:32:01Z @tobiu added the `ai` label
+- 2026-01-07T20:32:15Z @tobiu added parent issue #8362
+- 2026-01-07T20:32:22Z @tobiu assigned to @tobiu
+- 2026-01-07T20:39:54Z @tobiu referenced in commit `a086381` - "enhancement: Enhance Markdown parser to enforce newlines after headlines (#8395)"
+### @tobiu - 2026-01-07T20:40:00Z
 
 **Input from Gemini 3 Pro:**
 
@@ -40,12 +45,5 @@ We will detect this condition in the parsing loop and inject an empty line where
 > 
 > Verified with a standalone test case covering both H1 and H2 scenarios.
 
-## Activity Log
-
-- 2026-01-07 @tobiu added the `enhancement` label
-- 2026-01-07 @tobiu added the `ai` label
-- 2026-01-07 @tobiu added parent issue #8362
-- 2026-01-07 @tobiu assigned to @tobiu
-- 2026-01-07 @tobiu referenced in commit `a086381` - "enhancement: Enhance Markdown parser to enforce newlines after headlines (#8395)"
-- 2026-01-07 @tobiu closed this issue
+- 2026-01-07T20:40:21Z @tobiu closed this issue
 

@@ -26,11 +26,11 @@ The `AGENTS.md` file incorrectly implied that the session ID should be saved to 
 ## Changes
 - Updated `AGENTS.md` to add an explicit step: "Persist Initial Context" after generating a new session ID in two separate flows.
 
-## Activity Log
+## Timeline
 
-- 2025-10-04 @tobiu assigned to @tobiu
-- 2025-10-04 @tobiu added the `enhancement` label
-- 2025-10-04 @tobiu added parent issue #7316
-- 2025-10-04 @tobiu referenced in commit `26f0aa2` - "Correct agent memory initialization protocol #7341"
-- 2025-10-04 @tobiu closed this issue
+- 2025-10-04T08:02:44Z @tobiu assigned to @tobiu
+- 2025-10-04T08:02:45Z @tobiu added the `enhancement` label
+- 2025-10-04T08:02:45Z @tobiu added parent issue #7316
+- 2025-10-04T08:03:19Z @tobiu referenced in commit `26f0aa2` - "Correct agent memory initialization protocol #7341"
+- 2025-10-04T08:03:28Z @tobiu closed this issue
 

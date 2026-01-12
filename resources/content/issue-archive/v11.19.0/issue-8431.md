@@ -34,13 +34,13 @@ Apply the shared background effect (`.portal-shared-background`) to the Portal N
 **Objective:**
 Ensure the consistent radial gradient background is visible throughout the News section (Blog and Release Notes) by applying it at the TabContainer level and ensuring child components are transparent where appropriate.
 
-## Activity Log
+## Timeline
 
-- 2026-01-08 @tobiu added the `enhancement` label
-- 2026-01-08 @tobiu added the `design` label
-- 2026-01-08 @tobiu added the `ai` label
-- 2026-01-08 @tobiu assigned to @tobiu
-- 2026-01-08 @tobiu removed the `ai` label
-- 2026-01-08 @tobiu referenced in commit `5c0052d` - "Apply Shared Background to Portal News and Remove Default Backgrounds #8431"
-- 2026-01-08 @tobiu closed this issue
+- 2026-01-08T17:31:31Z @tobiu added the `enhancement` label
+- 2026-01-08T17:31:32Z @tobiu added the `design` label
+- 2026-01-08T17:31:32Z @tobiu added the `ai` label
+- 2026-01-08T18:19:55Z @tobiu assigned to @tobiu
+- 2026-01-08T18:20:04Z @tobiu removed the `ai` label
+- 2026-01-08T18:20:24Z @tobiu referenced in commit `5c0052d` - "Apply Shared Background to Portal News and Remove Default Backgrounds #8431"
+- 2026-01-08T18:20:35Z @tobiu closed this issue
 

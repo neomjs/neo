@@ -23,11 +23,11 @@ closedAt: '2025-07-12T22:31:18Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
-- 2025-07-12 @tobiu assigned to @tobiu
-- 2025-07-12 @tobiu added the `enhancement` label
-- 2025-07-12 @tobiu added parent issue #7029
-- 2025-07-12 @tobiu referenced in commit `5e97d8a` - "Add the mutable vdom & state concept to all 3 guides #7034"
-- 2025-07-12 @tobiu closed this issue
+- 2025-07-12T22:30:18Z @tobiu assigned to @tobiu
+- 2025-07-12T22:30:19Z @tobiu added the `enhancement` label
+- 2025-07-12T22:30:20Z @tobiu added parent issue #7029
+- 2025-07-12T22:30:53Z @tobiu referenced in commit `5e97d8a` - "Add the mutable vdom & state concept to all 3 guides #7034"
+- 2025-07-12T22:31:18Z @tobiu closed this issue
 

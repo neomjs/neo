@@ -32,12 +32,12 @@ The `start_database` tool is not hybrid-aware. It doesn't check if a ChromaDB in
 4.  If the heartbeat is successful, it returns a status indicating the database is already running and does not spawn a new process.
 5.  If the heartbeat fails, it proceeds with spawning a new background process.
 
-## Activity Log
+## Timeline
 
-- 2025-10-17 @tobiu assigned to @tobiu
-- 2025-10-17 @tobiu added the `enhancement` label
-- 2025-10-17 @tobiu added the `ai` label
-- 2025-10-17 @tobiu added parent issue #7529
-- 2025-10-17 @tobiu referenced in commit `93f278f` - "Make start_database Hybrid-Aware #7532"
-- 2025-10-17 @tobiu closed this issue
+- 2025-10-17T13:03:34Z @tobiu assigned to @tobiu
+- 2025-10-17T13:03:35Z @tobiu added the `enhancement` label
+- 2025-10-17T13:03:35Z @tobiu added the `ai` label
+- 2025-10-17T13:03:35Z @tobiu added parent issue #7529
+- 2025-10-17T13:24:09Z @tobiu referenced in commit `93f278f` - "Make start_database Hybrid-Aware #7532"
+- 2025-10-17T13:24:15Z @tobiu closed this issue
 

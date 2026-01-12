@@ -37,10 +37,10 @@ The fix was implemented in `src/container/Base.mjs` inside the `onConstructed` m
 
 This ensures that each container instance works with its own unique layout configuration, resolving the regression.
 
-## Activity Log
+## Timeline
 
-- 2025-07-30 @tobiu assigned to @tobiu
-- 2025-07-30 @tobiu added the `bug` label
-- 2025-07-30 @tobiu referenced in commit `a8a57af` - "Regression: Layout ntype lost in lazy-loaded tabs #7134"
-- 2025-07-30 @tobiu closed this issue
+- 2025-07-30T12:11:08Z @tobiu assigned to @tobiu
+- 2025-07-30T12:11:09Z @tobiu added the `bug` label
+- 2025-07-30T12:11:42Z @tobiu referenced in commit `a8a57af` - "Regression: Layout ntype lost in lazy-loaded tabs #7134"
+- 2025-07-30T12:15:44Z @tobiu closed this issue
 

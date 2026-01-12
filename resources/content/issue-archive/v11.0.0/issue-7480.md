@@ -38,12 +38,12 @@ This ensures that the server only reports as "healthy" if it is fully capable of
 3.  The JSON response from the `/healthcheck` endpoint now includes a more detailed `githubCli` object with separate booleans for `installed`, `authenticated`, and `versionOk`.
 4.  The overall health status is set to `unhealthy` if any of the checks fail, with a descriptive error message included in the response.
 
-## Activity Log
+## Timeline
 
-- 2025-10-14 @tobiu assigned to @tobiu
-- 2025-10-14 @tobiu added the `enhancement` label
-- 2025-10-14 @tobiu added the `ai` label
-- 2025-10-14 @tobiu added parent issue #7477
-- 2025-10-14 @tobiu referenced in commit `f02b361` - "Refine Health Check for GitHub Workflow Server #7480"
-- 2025-10-14 @tobiu closed this issue
+- 2025-10-14T09:12:34Z @tobiu assigned to @tobiu
+- 2025-10-14T09:12:35Z @tobiu added the `enhancement` label
+- 2025-10-14T09:12:35Z @tobiu added the `ai` label
+- 2025-10-14T09:12:35Z @tobiu added parent issue #7477
+- 2025-10-14T09:13:13Z @tobiu referenced in commit `f02b361` - "Refine Health Check for GitHub Workflow Server #7480"
+- 2025-10-14T09:13:35Z @tobiu closed this issue
 

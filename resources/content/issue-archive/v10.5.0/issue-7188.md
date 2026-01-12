@@ -46,10 +46,10 @@ The ComboBox fix ensures a better user experience by correctly displaying pre-se
 **BigData Grid Example Enhancement:**
 *   `examples/grid/bigData/MainStore.mjs` was updated to include new column options.
 
-## Activity Log
+## Timeline
 
-- 2025-08-12 @tobiu assigned to @tobiu
-- 2025-08-12 @tobiu added the `enhancement` label
-- 2025-08-12 @tobiu referenced in commit `55af6a8` - "ComboBox Display Fix and BigData Grid Example Enhancement #7188"
-- 2025-08-12 @tobiu closed this issue
+- 2025-08-12T02:08:21Z @tobiu assigned to @tobiu
+- 2025-08-12T02:08:22Z @tobiu added the `enhancement` label
+- 2025-08-12T02:08:40Z @tobiu referenced in commit `55af6a8` - "ComboBox Display Fix and BigData Grid Example Enhancement #7188"
+- 2025-08-12T02:08:44Z @tobiu closed this issue
 

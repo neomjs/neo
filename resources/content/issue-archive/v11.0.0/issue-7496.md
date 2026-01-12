@@ -33,12 +33,12 @@ This ticket covers adding support for these annotations.
 3.  `toolService.mjs` is refactored to parse these annotations and include them in the tool definitions.
 4.  The `tools/list` response is verified to include the new `annotations` property for relevant tools.
 
-## Activity Log
+## Timeline
 
-- 2025-10-15 @tobiu assigned to @tobiu
-- 2025-10-15 @tobiu added the `enhancement` label
-- 2025-10-15 @tobiu added parent issue #7477
-- 2025-10-15 @tobiu added the `ai` label
-- 2025-10-15 @tobiu referenced in commit `f2a5af5` - "Add Annotations to MCP Tool Definitions #7496"
-- 2025-10-15 @tobiu closed this issue
+- 2025-10-15T11:45:10Z @tobiu assigned to @tobiu
+- 2025-10-15T11:45:11Z @tobiu added the `enhancement` label
+- 2025-10-15T11:45:11Z @tobiu added parent issue #7477
+- 2025-10-15T11:45:12Z @tobiu added the `ai` label
+- 2025-10-15T11:55:18Z @tobiu referenced in commit `f2a5af5` - "Add Annotations to MCP Tool Definitions #7496"
+- 2025-10-15T11:55:24Z @tobiu closed this issue
 

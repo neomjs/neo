@@ -109,10 +109,10 @@ This bug leads to a visual desynchronization between the data model and the rend
 
 **Priority:** High (Affects core grid functionality and performance showcase credibility)
 
-## Activity Log
+## Timeline
 
-- 2025-08-07 @tobiu assigned to @tobiu
-- 2025-08-07 @tobiu added the `bug` label
-- 2025-08-07 @tobiu referenced in commit `430d716` - "Grid Cells Display Stale Data After Record Updates (Surgical Update Issue) #7170"
-- 2025-08-07 @tobiu closed this issue
+- 2025-08-07T18:33:06Z @tobiu assigned to @tobiu
+- 2025-08-07T18:33:07Z @tobiu added the `bug` label
+- 2025-08-07T18:34:47Z @tobiu referenced in commit `430d716` - "Grid Cells Display Stale Data After Record Updates (Surgical Update Issue) #7170"
+- 2025-08-07T18:35:43Z @tobiu closed this issue
 

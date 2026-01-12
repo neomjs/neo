@@ -29,10 +29,10 @@ The current `README.md` creates confusion about the best place to seek community
 3.  List Slack second, describing it as an option for real-time chat and explicitly mentioning that its message history is temporary.
 4.  Remove the old, redundant "Join the Community" section from the bottom of the `README.md`.
 
-## Activity Log
+## Timeline
 
-- 2025-09-30 @tobiu assigned to @tobiu
-- 2025-09-30 @tobiu added the `enhancement` label
-- 2025-09-30 @tobiu referenced in commit `8013447` - "Improve Community Channel Discoverability in README #7310"
-- 2025-09-30 @tobiu closed this issue
+- 2025-09-30T09:32:48Z @tobiu assigned to @tobiu
+- 2025-09-30T09:32:50Z @tobiu added the `enhancement` label
+- 2025-09-30T09:40:59Z @tobiu referenced in commit `8013447` - "Improve Community Channel Discoverability in README #7310"
+- 2025-09-30T09:41:14Z @tobiu closed this issue
 

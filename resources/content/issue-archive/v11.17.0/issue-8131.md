@@ -48,12 +48,12 @@ Simplify the architecture to a strict **Read/Write** model, aligning with standa
 **Dependencies:**
 -   This relies on the previous `Manager.mjs` refactoring where `autoMount` was transformed into `updateVdom` with `deltas`.
 
-## Activity Log
+## Timeline
 
-- 2025-12-16 @tobiu added the `refactoring` label
-- 2025-12-16 @tobiu added the `architecture` label
-- 2025-12-16 @tobiu assigned to @tobiu
-- 2025-12-16 @tobiu added the `ai` label
-- 2025-12-16 @tobiu referenced in commit `4da6080` - "Main.mjs: Consolidate queues into Read/Write model #8131"
-- 2025-12-16 @tobiu closed this issue
+- 2025-12-16T20:14:01Z @tobiu added the `refactoring` label
+- 2025-12-16T20:14:01Z @tobiu added the `architecture` label
+- 2025-12-16T20:14:15Z @tobiu assigned to @tobiu
+- 2025-12-16T20:15:06Z @tobiu added the `ai` label
+- 2025-12-16T20:54:17Z @tobiu referenced in commit `4da6080` - "Main.mjs: Consolidate queues into Read/Write model #8131"
+- 2025-12-16T20:54:26Z @tobiu closed this issue
 

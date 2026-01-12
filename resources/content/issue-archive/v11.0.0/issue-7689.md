@@ -28,11 +28,11 @@ The ChromaDB client does not handle this gracefully and throws an error: `Expect
 
 The fix is to conditionally build the query parameters, only adding the `where` key if a `category` is provided.
 
-## Activity Log
+## Timeline
 
-- 2025-11-02 @tobiu added the `bug` label
-- 2025-11-02 @tobiu added the `ai` label
-- 2025-11-02 @tobiu assigned to @tobiu
-- 2025-11-02 @tobiu referenced in commit `59c3dba` - "Bug: Memory Core querySummaries fails when category is undefined #7689"
-- 2025-11-02 @tobiu closed this issue
+- 2025-11-02T16:14:10Z @tobiu added the `bug` label
+- 2025-11-02T16:14:10Z @tobiu added the `ai` label
+- 2025-11-02T16:14:42Z @tobiu assigned to @tobiu
+- 2025-11-02T16:15:05Z @tobiu referenced in commit `59c3dba` - "Bug: Memory Core querySummaries fails when category is undefined #7689"
+- 2025-11-02T16:15:28Z @tobiu closed this issue
 

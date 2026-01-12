@@ -23,9 +23,9 @@ closedAt: '2025-06-01T16:12:57Z'
 * When using `Neo.config.useServiceWorker = 'dist/production'`, this should also add it for the new `dist/esm` env.
 
 
-## Activity Log
+## Timeline
 
-- 2025-06-01 @tobiu added the `enhancement` label
-- 2025-06-01 @tobiu referenced in commit `c157b2a` - "Neo.Main: onDomContentLoaded() => add the service worker for dist/esm #6739"
-- 2025-06-01 @tobiu closed this issue
+- 2025-06-01T16:12:33Z @tobiu added the `enhancement` label
+- 2025-06-01T16:12:48Z @tobiu referenced in commit `c157b2a` - "Neo.Main: onDomContentLoaded() => add the service worker for dist/esm #6739"
+- 2025-06-01T16:12:57Z @tobiu closed this issue
 

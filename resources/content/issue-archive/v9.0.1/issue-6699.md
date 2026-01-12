@@ -23,11 +23,11 @@ closedAt: '2025-05-05T14:11:40Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
-- 2025-05-05 @tobiu assigned to @tobiu
-- 2025-05-05 @tobiu added parent issue #6696
-- 2025-05-05 @tobiu added the `enhancement` label
-- 2025-05-05 @tobiu referenced in commit `dd93512` - "layout.Cube: destroy() => move the transformation logic into removeRenderAttributes() #6699"
-- 2025-05-05 @tobiu closed this issue
+- 2025-05-05T14:07:49Z @tobiu assigned to @tobiu
+- 2025-05-05T14:07:51Z @tobiu added parent issue #6696
+- 2025-05-05T14:07:51Z @tobiu added the `enhancement` label
+- 2025-05-05T14:11:29Z @tobiu referenced in commit `dd93512` - "layout.Cube: destroy() => move the transformation logic into removeRenderAttributes() #6699"
+- 2025-05-05T14:11:40Z @tobiu closed this issue
 

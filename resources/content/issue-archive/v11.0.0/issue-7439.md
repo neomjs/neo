@@ -34,30 +34,28 @@ This task is to migrate the component test for `button/Base.mjs` from the Siesta
 3.  The new test must cover all the functionality of the original Siesta test (`test/components/files/button/Base.mjs`).
 4.  Ensure the new test runs successfully using the new component test harness.
 
-## Comments
+## Timeline
 
-### @ad1tyayadav - 2025-10-27 13:03
+- 2025-10-10T16:50:39Z @tobiu added the `enhancement` label
+- 2025-10-10T16:50:39Z @tobiu added the `help wanted` label
+- 2025-10-10T16:50:39Z @tobiu added the `hacktoberfest` label
+- 2025-10-10T16:50:39Z @tobiu added the `ai` label
+- 2025-10-10T16:50:39Z @tobiu added parent issue #7435
+- 2025-10-12T14:10:19Z @tobiu assigned to @tobiu
+- 2025-10-12T14:10:24Z @tobiu removed the `help wanted` label
+- 2025-10-12T14:10:24Z @tobiu removed the `hacktoberfest` label
+- 2025-10-12T14:25:46Z @tobiu referenced in commit `c006ab9` - "Convert Component Test button/Base.mjs to Playwright #7439"
+### @ad1tyayadav - 2025-10-27T13:03:45Z
 
 /assign
 
 
-### @tobiu - 2025-10-27 13:06
+### @tobiu - 2025-10-27T13:06:25Z
 
 @ad1tyayadav this one is already done, forgot to close the ticket:
 https://github.com/neomjs/neo/blob/dev/test/playwright/component/button/Base.spec.mjs
 
 however, there are vast amounts of items that still either need unit or component based testing.
 
-## Activity Log
-
-- 2025-10-10 @tobiu added the `enhancement` label
-- 2025-10-10 @tobiu added the `help wanted` label
-- 2025-10-10 @tobiu added the `hacktoberfest` label
-- 2025-10-10 @tobiu added the `ai` label
-- 2025-10-10 @tobiu added parent issue #7435
-- 2025-10-12 @tobiu assigned to @tobiu
-- 2025-10-12 @tobiu removed the `help wanted` label
-- 2025-10-12 @tobiu removed the `hacktoberfest` label
-- 2025-10-12 @tobiu referenced in commit `c006ab9` - "Convert Component Test button/Base.mjs to Playwright #7439"
-- 2025-10-27 @tobiu closed this issue
+- 2025-10-27T13:06:25Z @tobiu closed this issue
 

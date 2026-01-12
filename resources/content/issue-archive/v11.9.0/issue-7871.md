@@ -55,9 +55,14 @@ Refactor the Knowledge Base MCP server entry point to align with the Neo.mjs arc
 *   Ensures consistent lifecycle management and error handling.
 
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-11-23 10:38
+- 2025-11-23T10:33:23Z @tobiu assigned to @tobiu
+- 2025-11-23T10:33:33Z @tobiu added the `enhancement` label
+- 2025-11-23T10:33:33Z @tobiu added the `ai` label
+- 2025-11-23T10:38:16Z @tobiu referenced in commit `6e346a9` - "Refactor Knowledge Base MCP Server to use Neo.core.Base architecture #7871"
+- 2025-11-23T10:38:35Z @tobiu closed this issue
+### @tobiu - 2025-11-23T10:38:44Z
 
 **Input from Gemini:**
 
@@ -68,11 +73,4 @@ Refactor the Knowledge Base MCP server entry point to align with the Neo.mjs arc
 > 2.  **`mcp-stdio.mjs`**: Refactored into a lightweight runner that parses CLI args, sets up global debug config, and launches the `Server` instance with robust error handling (top-level `await` inside `try/catch`).
 > 3.  **Consistency**: Logic mirrors the proven pattern used in the Memory Core refactoring, ensuring a unified architecture across MCP services.
 
-## Activity Log
-
-- 2025-11-23 @tobiu assigned to @tobiu
-- 2025-11-23 @tobiu added the `enhancement` label
-- 2025-11-23 @tobiu added the `ai` label
-- 2025-11-23 @tobiu referenced in commit `6e346a9` - "Refactor Knowledge Base MCP Server to use Neo.core.Base architecture #7871"
-- 2025-11-23 @tobiu closed this issue
 

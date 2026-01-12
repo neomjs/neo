@@ -24,10 +24,10 @@ closedAt: '2025-04-05T16:07:25Z'
 * `examples.grid.cellEditing` uses a custom renderer which needs to access a state provider => easier with the given default scope
 * `grid.column.Component` needs to point the renderer scope to itself
 
-## Activity Log
+## Timeline
 
-- 2025-04-05 @tobiu added the `enhancement` label
-- 2025-04-05 @tobiu assigned to @tobiu
-- 2025-04-05 @tobiu referenced in commit `dd4572d` - "grid.View: applyRendererOutput() => pointing the default scope to the grid view #6620"
-- 2025-04-05 @tobiu closed this issue
+- 2025-04-05T16:06:59Z @tobiu added the `enhancement` label
+- 2025-04-05T16:06:59Z @tobiu assigned to @tobiu
+- 2025-04-05T16:07:22Z @tobiu referenced in commit `dd4572d` - "grid.View: applyRendererOutput() => pointing the default scope to the grid view #6620"
+- 2025-04-05T16:07:25Z @tobiu closed this issue
 

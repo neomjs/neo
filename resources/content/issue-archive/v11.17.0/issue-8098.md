@@ -36,12 +36,12 @@ The calendar's `YearComponent` exhibited a regression where changing the year re
 -   `YearComponent` navigation works correctly (no double logs, no reverted state).
 -   `StateProvider` clones `Date` objects on set.
 
-## Activity Log
+## Timeline
 
-- 2025-12-12 @tobiu added the `bug` label
-- 2025-12-12 @tobiu added the `ai` label
-- 2025-12-12 @tobiu added the `regression` label
-- 2025-12-12 @tobiu assigned to @tobiu
-- 2025-12-12 @tobiu referenced in commit `414d04b` - "Calendar: Fix YearComponent state regression & enhance State Provider #8098"
-- 2025-12-12 @tobiu closed this issue
+- 2025-12-12T21:17:21Z @tobiu added the `bug` label
+- 2025-12-12T21:17:21Z @tobiu added the `ai` label
+- 2025-12-12T21:17:21Z @tobiu added the `regression` label
+- 2025-12-12T21:17:41Z @tobiu assigned to @tobiu
+- 2025-12-12T21:18:20Z @tobiu referenced in commit `414d04b` - "Calendar: Fix YearComponent state regression & enhance State Provider #8098"
+- 2025-12-12T21:18:43Z @tobiu closed this issue
 

@@ -42,11 +42,11 @@ Add a new public method `observeConfig(publisher, configName, fn)` to `Neo.core.
 **Impact:**
 Replaces direct calls to `Neo.core.Config#subscribe` in `Neo.core.Base` subclasses with the new `observeConfig` method.
 
-## Activity Log
+## Timeline
 
-- 2025-07-06 @tobiu assigned to @tobiu
-- 2025-07-06 @tobiu added the `enhancement` label
-- 2025-07-06 @tobiu referenced in commit `b2c2e3f` - "Introduce Neo.core.Base#observeConfig() for Lifecycle-Aware Config Subscriptions #6957"
-- 2025-07-06 @tobiu closed this issue
-- 2025-07-06 @tobiu cross-referenced by #6958
+- 2025-07-06T00:23:54Z @tobiu assigned to @tobiu
+- 2025-07-06T00:23:56Z @tobiu added the `enhancement` label
+- 2025-07-06T00:25:58Z @tobiu referenced in commit `b2c2e3f` - "Introduce Neo.core.Base#observeConfig() for Lifecycle-Aware Config Subscriptions #6957"
+- 2025-07-06T00:27:52Z @tobiu closed this issue
+- 2025-07-06T00:40:00Z @tobiu cross-referenced by #6958
 

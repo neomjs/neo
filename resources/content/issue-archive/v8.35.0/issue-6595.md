@@ -23,10 +23,10 @@ closedAt: '2025-03-26T17:27:38Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
-- 2025-03-26 @tobiu added the `enhancement` label
-- 2025-03-26 @tobiu assigned to @tobiu
-- 2025-03-26 @tobiu referenced in commit `c95dfef` - "Finance.view.ViewportController: onStartButtonClick(), onStopButtonClick() logic #6595"
-- 2025-03-26 @tobiu closed this issue
+- 2025-03-26T17:27:16Z @tobiu added the `enhancement` label
+- 2025-03-26T17:27:16Z @tobiu assigned to @tobiu
+- 2025-03-26T17:27:31Z @tobiu referenced in commit `c95dfef` - "Finance.view.ViewportController: onStartButtonClick(), onStopButtonClick() logic #6595"
+- 2025-03-26T17:27:38Z @tobiu closed this issue
 

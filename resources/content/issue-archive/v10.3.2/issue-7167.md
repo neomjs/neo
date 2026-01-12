@@ -24,10 +24,10 @@ closedAt: '2025-08-03T00:45:55Z'
 * I just noticed 3 spots, where v6 was used manually. I will replace them with v7 now.
 * This affected e.g. the learning section lab summaries.
 
-## Activity Log
+## Timeline
 
-- 2025-08-03 @tobiu assigned to @tobiu
-- 2025-08-03 @tobiu added the `enhancement` label
-- 2025-08-03 @tobiu referenced in commit `8f05274` - "Font Awesome v7 update #7167"
-- 2025-08-03 @tobiu closed this issue
+- 2025-08-03T00:42:33Z @tobiu assigned to @tobiu
+- 2025-08-03T00:42:34Z @tobiu added the `enhancement` label
+- 2025-08-03T00:42:57Z @tobiu referenced in commit `8f05274` - "Font Awesome v7 update #7167"
+- 2025-08-03T00:45:55Z @tobiu closed this issue
 

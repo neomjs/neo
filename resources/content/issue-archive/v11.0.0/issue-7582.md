@@ -32,12 +32,12 @@ The `SyncService` implementation contains several hardcoded "magic numbers" and 
     - `maxReleases` (e.g., `1000`)
     - `commentSectionDelimiter` (e.g., `'
 
-## Activity Log
+## Timeline
 
-- 2025-10-20 @tobiu assigned to @tobiu
-- 2025-10-20 @tobiu added the `enhancement` label
-- 2025-10-20 @tobiu added the `ai` label
-- 2025-10-20 @tobiu added parent issue #7564
-- 2025-10-21 @tobiu referenced in commit `9e10ef2` - "Externalize Magic Numbers and Strings in SyncService #7582"
-- 2025-10-21 @tobiu closed this issue
+- 2025-10-20T13:30:42Z @tobiu assigned to @tobiu
+- 2025-10-20T13:30:43Z @tobiu added the `enhancement` label
+- 2025-10-20T13:30:44Z @tobiu added the `ai` label
+- 2025-10-20T13:30:44Z @tobiu added parent issue #7564
+- 2025-10-21T09:23:40Z @tobiu referenced in commit `9e10ef2` - "Externalize Magic Numbers and Strings in SyncService #7582"
+- 2025-10-21T09:26:29Z @tobiu closed this issue
 

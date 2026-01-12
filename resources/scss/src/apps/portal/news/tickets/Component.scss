@@ -1,0 +1,243 @@
+.portal-news-tickets-component {
+    .neo-badge {
+        align-items     : center;
+        background-color: #eff1f3; // Default fallback
+        border          : 1px solid rgba(0, 0, 0, 0.1);
+        border-radius   : 2em;
+        color           : #24292f;
+        display         : inline-flex;
+        font-size       : 12px;
+        font-weight     : 500;
+        line-height     : 22px;
+        padding         : 0 10px;
+        text-transform  : capitalize;
+
+        &.neo-state-badge {
+            border-radius: 2em;
+            color        : #ffffff;
+            gap          : 6px;
+            padding      : 2px 10px 2px 8px;
+
+            &.neo-state-closed {
+                background-color : #8250df;
+            }
+
+            &.neo-state-open {
+                background-color: #2da44e;
+            }
+        }
+    }
+
+    .neo-ticket-labels {
+        display      : flex;
+        flex-wrap    : wrap;
+        gap          : 8px;
+        margin-bottom: 20px;
+
+        .neo-release-badge {
+            background-color: var(--button-background-color);
+            color           : var(--button-text-color);
+            cursor          : pointer;
+            text-decoration : none;
+
+            &:hover {
+                opacity: 0.8;
+            }
+
+            i {
+                margin-right: 5px;
+            }
+        }
+    }
+
+    .neo-frontmatter-table {
+        .neo-sub-issue {
+            align-items  : center;
+            display      : flex;
+            gap          : 8px;
+            margin-bottom: 4px;
+
+            i {
+                &.fa-circle-check {
+                    color: #2da44e; // GitHub success green
+                }
+
+                &.fa-circle {
+                    color: #8c959f; // GitHub muted grey
+                }
+            }
+        }
+
+        .neo-state-badge {
+            height: 24px;
+        }
+
+        .neo-ticket-labels {
+            margin-bottom: 0;
+        }
+    }
+
+    .neo-ticket-timeline {
+        margin-top  : 2rem; // Reduced from 3rem to be closer to header
+        padding-left: 60px;
+        position    : relative;
+
+        // Vertical Line
+        &::before {
+            display: none; // Hiding it, since we use the canvas animation now
+            background-color: #d0d7de;
+            bottom          : 0;
+            content         : '';
+            left            : 30px;
+            position        : absolute;
+            top             : 0;
+            width           : 2px;
+            z-index         : 0;
+        }
+
+        .neo-timeline-item {
+            margin-bottom: 1.5rem;
+            position     : relative;
+
+            // Specific style for the body item to ensure it looks like the start
+            &.body-item {
+                margin-bottom: 2rem;
+            }
+
+            &.event {
+                .neo-timeline-badge {
+                    align-items     : center;
+                    background      : #eff1f3;
+                    border          : 2px solid #fff; // visual gap from line
+                    border-radius   : 50%;
+                    display         : flex;
+                    height          : 28px;
+                    justify-content : center;
+                    left            : -44px; // 30 (line) - 14 (half width) = 16 from left edge? No. Padding is 60. 30-60 = -30.
+                    // Let's calc: padding is 60. Line is at 30. Badge center is 30. Badge width 28. Left is 30 - 14 = 16.
+                    // Relative to content (which starts at 60): 16 - 60 = -44.
+                    position        : absolute;
+                    top             : -2px;
+                    width           : 28px;
+                    z-index         : 1;
+
+                    i {
+                        color    : #57606a;
+                        font-size: 14px;
+                    }
+                }
+
+                .neo-timeline-body {
+                    color      : #57606a;
+                    font-size  : 13px;
+                    padding-top: 2px;
+
+                    .neo-timeline-user {
+                        color          : #24292f;
+                        cursor         : pointer;
+                        font-weight    : 600;
+                        text-decoration: none;
+
+                        &:hover {
+                            text-decoration: underline;
+                        }
+                    }
+                }
+
+                &.purple .neo-timeline-badge i { color: #8250df; }
+                &.green  .neo-timeline-badge i { color: #2da44e; }
+            }
+
+            &.comment {
+                margin-top: 10px; // Move block further downwards
+
+                .neo-timeline-avatar {
+                    height  : 40px;
+                    left    : -50px; // Centered on 30px line (30 - 20 = 10; 10 - 60 = -50)
+                    position: absolute;
+                    top     : -6px;  // Slightly above the content box
+                    width   : 40px;
+                    z-index : 1;
+
+                    img {
+                        border       : 2px solid #fff;
+                        border-radius: 50%;
+                        width        : 100%;
+                    }
+                }
+
+                .neo-timeline-content {
+                    background   : white;
+                    border       : 1px solid #d0d7de;
+                    border-radius: 6px;
+                    position     : relative;
+
+                    // Beak (Triangle)
+                    &::before, &::after {
+                        border        : solid transparent;
+                        content       : ' ';
+                        height        : 0;
+                        pointer-events: none;
+                        position      : absolute;
+                        right         : 100%;
+                        top           : 13px; // Adjusted for better alignment
+                        width         : 0;
+                    }
+
+                    &::after {
+                        border-color      : rgba(255, 255, 255, 0);
+                        border-right-color: #f6f8fa;
+                        border-width      : 7px;
+                        margin-top        : -7px;
+                    }
+
+                    &::before {
+                        border-color      : rgba(208, 215, 222, 0);
+                        border-right-color: #d0d7de;
+                        border-width      : 8px;
+                        margin-top        : -8px;
+                    }
+
+                    .neo-timeline-header {
+                        align-items     : center;
+                        background-color: #f6f8fa;
+                        border-bottom   : 1px solid #d0d7de;
+                        border-radius   : 6px 6px 0 0;
+                        color           : #57606a;
+                        display         : flex;
+                        font-size       : 13px;
+                        justify-content : space-between;
+                        padding         : 8px 16px;
+
+                        .neo-timeline-user {
+                            color          : #24292f;
+                            cursor         : pointer;
+                            font-weight    : 600;
+                            margin-right   : 8px;
+                            text-decoration: none;
+
+                            &:hover {
+                                text-decoration: underline;
+                            }
+                        }
+                    }
+
+                    .neo-timeline-body {
+                        font-size    : 14px;
+                        overflow-wrap: anywhere;
+                        padding      : 16px;
+
+                        // Markdown content fixes
+                        p:last-child {
+                            margin-bottom: 0;
+                        }
+
+                        pre {
+                            overflow-x: auto;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

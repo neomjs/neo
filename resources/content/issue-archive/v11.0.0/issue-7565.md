@@ -39,12 +39,12 @@ This ticket covers the initial setup and scaffolding for the new `SyncService`, 
 -   Creates the necessary API endpoint for agents to trigger the synchronization.
 -   Provides the foundation for stateful, delta-based updates.
 
-## Activity Log
+## Timeline
 
-- 2025-10-20 @tobiu assigned to @tobiu
-- 2025-10-20 @tobiu added the `enhancement` label
-- 2025-10-20 @tobiu added the `ai` label
-- 2025-10-20 @tobiu added parent issue #7564
-- 2025-10-20 @tobiu referenced in commit `d58e368` - "Create Scaffold for the Issue Synchronization Service #7565"
-- 2025-10-20 @tobiu closed this issue
+- 2025-10-20T11:19:58Z @tobiu assigned to @tobiu
+- 2025-10-20T11:19:59Z @tobiu added the `enhancement` label
+- 2025-10-20T11:20:00Z @tobiu added the `ai` label
+- 2025-10-20T11:20:00Z @tobiu added parent issue #7564
+- 2025-10-20T11:38:27Z @tobiu referenced in commit `d58e368` - "Create Scaffold for the Issue Synchronization Service #7565"
+- 2025-10-20T11:38:36Z @tobiu closed this issue
 

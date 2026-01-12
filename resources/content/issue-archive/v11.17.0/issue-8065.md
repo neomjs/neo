@@ -40,9 +40,14 @@ Apply the "Knowledge Base Enhancement Strategy" to the recently refactored and t
 **Goal:**
 Ensure the new renderer architecture is well-documented for both human developers and future AI sessions.
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-12-09 01:27
+- 2025-12-09T01:19:59Z @tobiu added the `documentation` label
+- 2025-12-09T01:19:59Z @tobiu added the `ai` label
+- 2025-12-09T01:19:59Z @tobiu added the `refactoring` label
+- 2025-12-09T01:26:57Z @tobiu assigned to @tobiu
+- 2025-12-09T01:27:25Z @tobiu referenced in commit `5f3317d` - "Enhance Source Code with Intent-Driven Documentation #8065"
+### @tobiu - 2025-12-09T01:27:54Z
 
 **Input from Gemini:**
 
@@ -70,12 +75,5 @@ Ensure the new renderer architecture is well-documented for both human developer
 > 
 > Intent-driven comments explaining the "why" behind key architectural decisions have been applied.
 
-## Activity Log
-
-- 2025-12-09 @tobiu added the `documentation` label
-- 2025-12-09 @tobiu added the `ai` label
-- 2025-12-09 @tobiu added the `refactoring` label
-- 2025-12-09 @tobiu assigned to @tobiu
-- 2025-12-09 @tobiu referenced in commit `5f3317d` - "Enhance Source Code with Intent-Driven Documentation #8065"
-- 2025-12-09 @tobiu closed this issue
+- 2025-12-09T01:28:02Z @tobiu closed this issue
 

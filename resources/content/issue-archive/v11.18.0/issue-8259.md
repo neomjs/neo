@@ -34,12 +34,12 @@ Implement `toJSON` in `src/selection/Model.mjs` to support Neural Link inspectio
 
 **Parent Issue:** #8200
 
-## Activity Log
+## Timeline
 
-- 2026-01-01 @tobiu added the `enhancement` label
-- 2026-01-01 @tobiu added the `ai` label
-- 2026-01-01 @tobiu assigned to @tobiu
-- 2026-01-01 @tobiu added parent issue #8200
-- 2026-01-01 @tobiu referenced in commit `dcc9ff4` - "feat(selection): Implement toJSON in Model #8259"
-- 2026-01-01 @tobiu closed this issue
+- 2026-01-01T16:47:54Z @tobiu added the `enhancement` label
+- 2026-01-01T16:47:55Z @tobiu added the `ai` label
+- 2026-01-01T16:51:51Z @tobiu assigned to @tobiu
+- 2026-01-01T16:52:07Z @tobiu added parent issue #8200
+- 2026-01-01T16:52:27Z @tobiu referenced in commit `dcc9ff4` - "feat(selection): Implement toJSON in Model #8259"
+- 2026-01-01T16:52:35Z @tobiu closed this issue
 

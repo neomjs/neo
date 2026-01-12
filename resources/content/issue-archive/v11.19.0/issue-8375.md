@@ -30,11 +30,18 @@ Tasks:
 - Replace instances of "framework" with "Application Engine" or "core" where appropriate.
 - Ensure the document reflects the 4-server architecture (Knowledge Base, Memory Core, GitHub Workflow, Neural Link).
 
-## Activity Log
+## Timeline
 
-- 2026-01-07 @tobiu added the `documentation` label
-- 2026-01-07 @tobiu added the `enhancement` label
-- 2026-01-07 @tobiu added the `ai` label
-- 2026-01-07 @tobiu assigned to @tobiu
-- 2026-01-07 @tobiu closed this issue
+- 2026-01-07T03:35:40Z @tobiu added the `documentation` label
+- 2026-01-07T03:35:40Z @tobiu added the `enhancement` label
+- 2026-01-07T03:35:40Z @tobiu added the `ai` label
+- 2026-01-07T03:35:55Z @tobiu assigned to @tobiu
+- 2026-01-07T03:37:12Z @tobiu closed this issue
+- 2026-01-07T13:25:10Z @jonnyamsp referenced in commit `d8a0b7e` - "docs: Update Code Execution guide with Neural Link and branding
+
+- Added Neural Link to the list of key services available in the SDK.
+- Updated terminology to use 'Application Engine' instead of 'framework' or 'environment' where appropriate.
+- Clarified the 4-server architecture.
+
+Resolves #8375"
 

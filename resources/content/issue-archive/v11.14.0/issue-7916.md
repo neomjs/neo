@@ -53,13 +53,13 @@ Create a standalone Node.js script `ai/agents/pm.mjs` that acts as a "Headless P
 *   Use the `github-workflow` tools (via SDK import) for issue management.
 
 
-## Activity Log
+## Timeline
 
-- 2025-11-29 @tobiu added the `enhancement` label
-- 2025-11-29 @tobiu added the `ai` label
-- 2025-11-29 @tobiu cross-referenced by #7927
-- 2025-11-29 @tobiu assigned to @tobiu
-- 2025-11-29 @tobiu referenced in commit `bc5859f` - "Feat: Create 'PM Agent' MVP (Epic -> Ticket Breakdown) #7916"
-- 2025-11-29 @tobiu closed this issue
-- 2025-11-29 @tobiu cross-referenced by #7914
+- 2025-11-29T15:09:45Z @tobiu added the `enhancement` label
+- 2025-11-29T15:09:45Z @tobiu added the `ai` label
+- 2025-11-29T15:43:49Z @tobiu cross-referenced by #7927
+- 2025-11-29T16:19:59Z @tobiu assigned to @tobiu
+- 2025-11-29T16:20:48Z @tobiu referenced in commit `bc5859f` - "Feat: Create 'PM Agent' MVP (Epic -> Ticket Breakdown) #7916"
+- 2025-11-29T16:20:59Z @tobiu closed this issue
+- 2025-11-29T16:24:29Z @tobiu cross-referenced by #7914
 

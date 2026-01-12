@@ -23,10 +23,10 @@ closedAt: '2025-04-16T23:34:34Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
-- 2025-04-16 @tobiu added the `enhancement` label
-- 2025-04-16 @tobiu assigned to @tobiu
-- 2025-04-16 @tobiu referenced in commit `63388a7` - "selection.grid.RowModel: onRowClick() => adjust to index-based row ids #6668"
-- 2025-04-16 @tobiu closed this issue
+- 2025-04-16T23:33:59Z @tobiu added the `enhancement` label
+- 2025-04-16T23:33:59Z @tobiu assigned to @tobiu
+- 2025-04-16T23:34:26Z @tobiu referenced in commit `63388a7` - "selection.grid.RowModel: onRowClick() => adjust to index-based row ids #6668"
+- 2025-04-16T23:34:34Z @tobiu closed this issue
 

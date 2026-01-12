@@ -38,11 +38,11 @@ EventDragZone.mjs:243 Uncaught (in promise) TypeError: record.setSilent is not a
 * `src/calendar/view/week/EventDragZone.mjs`
 
 
-## Activity Log
+## Timeline
 
-- 2025-12-10 @tobiu added the `bug` label
-- 2025-12-10 @tobiu added the `ai` label
-- 2025-12-10 @tobiu assigned to @tobiu
-- 2025-12-10 @tobiu referenced in commit `31ee331` - "Fix JS error in Calendar Week View drag&drop creation due to lazy records #8076"
-- 2025-12-10 @tobiu closed this issue
+- 2025-12-10T10:28:07Z @tobiu added the `bug` label
+- 2025-12-10T10:28:08Z @tobiu added the `ai` label
+- 2025-12-10T10:29:57Z @tobiu assigned to @tobiu
+- 2025-12-10T10:30:25Z @tobiu referenced in commit `31ee331` - "Fix JS error in Calendar Week View drag&drop creation due to lazy records #8076"
+- 2025-12-10T10:30:39Z @tobiu closed this issue
 

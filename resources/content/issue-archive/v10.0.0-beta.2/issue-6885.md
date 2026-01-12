@@ -24,10 +24,10 @@ closedAt: '2025-06-27T15:39:58Z'
 * using `textContent`, it is no longer required.
 * we can also remove the top-level `text` config (now defined inside `component.Base`)
 
-## Activity Log
+## Timeline
 
-- 2025-06-27 @tobiu assigned to @tobiu
-- 2025-06-27 @tobiu added the `enhancement` label
-- 2025-06-27 @tobiu referenced in commit `8b176d5` - "component.MagicMoveText: afterSetText() => remove the custom blank char replacement #6885"
-- 2025-06-27 @tobiu closed this issue
+- 2025-06-27T15:39:26Z @tobiu assigned to @tobiu
+- 2025-06-27T15:39:27Z @tobiu added the `enhancement` label
+- 2025-06-27T15:39:49Z @tobiu referenced in commit `8b176d5` - "component.MagicMoveText: afterSetText() => remove the custom blank char replacement #6885"
+- 2025-06-27T15:39:58Z @tobiu closed this issue
 

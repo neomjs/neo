@@ -22,10 +22,10 @@ closedAt: '2025-06-15T16:15:25Z'
 
 * Same logic like inside `create()`
 
-## Activity Log
+## Timeline
 
-- 2025-06-15 @tobiu added the `enhancement` label
-- 2025-06-15 @tobiu added parent issue #6785
-- 2025-06-15 @tobiu referenced in commit `fe52385` - "vdom.Helper: insertNode() => only generate outerHTML in case Neo.config.useStringBasedMounting equals true #6804"
-- 2025-06-15 @tobiu closed this issue
+- 2025-06-15T15:45:25Z @tobiu added the `enhancement` label
+- 2025-06-15T15:45:25Z @tobiu added parent issue #6785
+- 2025-06-15T15:45:51Z @tobiu referenced in commit `fe52385` - "vdom.Helper: insertNode() => only generate outerHTML in case Neo.config.useStringBasedMounting equals true #6804"
+- 2025-06-15T16:15:25Z @tobiu closed this issue
 

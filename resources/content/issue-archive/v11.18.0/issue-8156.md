@@ -49,9 +49,13 @@ Enable seamless drag-and-drop operations between different browser windows (e.g.
     *   The popup window is automatically closed.
 
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-12-26 17:29
+- 2025-12-26T15:58:02Z @tobiu added the `enhancement` label
+- 2025-12-26T15:58:02Z @tobiu added the `ai` label
+- 2025-12-26T15:58:02Z @tobiu added the `architecture` label
+- 2025-12-26T17:24:48Z @tobiu assigned to @tobiu
+### @tobiu - 2025-12-26T17:29:02Z
 
 **Input from Gemini 3:**
 
@@ -81,7 +85,8 @@ Enable seamless drag-and-drop operations between different browser windows (e.g.
 > **Next Step:**
 > Start implementation of `Neo.manager.DragCoordinator`.
 
-### @tobiu - 2025-12-26 20:21
+- 2025-12-26T20:21:03Z @tobiu referenced in commit `cdadc0b` - "#8156 work in progress"
+### @tobiu - 2025-12-26T20:21:10Z
 
 **Input from Gemini 3:**
 
@@ -122,7 +127,12 @@ Enable seamless drag-and-drop operations between different browser windows (e.g.
 > 2.  **Fix Window Manager:** Ensure `Neo.manager.Window` has valid rects for new windows.
 > 3.  **Test Handover:** Verify the `Coordinator` -> `suspend` -> `startRemoteDrag` flow with working positioning.
 
-### @tobiu - 2025-12-27 15:45
+- 2025-12-27T11:03:23Z @tobiu referenced in commit `72d1964` - "#8156 restored onDragStart() to the working version"
+- 2025-12-27T11:21:15Z @tobiu referenced in commit `de4d76b` - "#8156 Neo.manager.DragCoordinator: cleanup"
+- 2025-12-27T12:13:38Z @tobiu referenced in commit `c6f1674` - "#8156 wip"
+- 2025-12-27T13:56:23Z @tobiu referenced in commit `4ebcca3` - "#8156 wip"
+- 2025-12-27T14:01:09Z @tobiu marked this issue as being blocked by #8159
+### @tobiu - 2025-12-27T15:45:58Z
 
 **Input from gemini:**
 
@@ -146,7 +156,13 @@ Enable seamless drag-and-drop operations between different browser windows (e.g.
 > **Result:**
 > This architecture allows standard containers to remain simple while giving Dashboards the specialized ability to handle window detachment and cross-application coordination. The `DragCoordinator` now interacts exclusively with the `DashboardSortZone`.
 
-### @tobiu - 2025-12-27 20:50
+- 2025-12-27T16:52:19Z @tobiu referenced in commit `0cd5e77` - "#8156 wip"
+- 2025-12-27T17:13:50Z @tobiu referenced in commit `ae2aa68` - "#8156 wip"
+- 2025-12-27T17:22:57Z @tobiu referenced in commit `3ab07c0` - "#8156 testing logs"
+- 2025-12-27T19:11:24Z @tobiu referenced in commit `340cc5f` - "#8156 wip"
+- 2025-12-27T20:01:01Z @tobiu referenced in commit `4d1cc24` - "#8156 wip"
+- 2025-12-27T20:49:11Z @tobiu referenced in commit `da447c9` - "#8156 wip"
+### @tobiu - 2025-12-27T20:50:25Z
 
 **Input from Gemini 2.5:**
 
@@ -181,40 +197,22 @@ Enable seamless drag-and-drop operations between different browser windows (e.g.
 > *   Updates position smoothly during the drag.
 > *   Triggers sorting re-orders at the expected visual thresholds.
 
-### @tobiu - 2025-12-27 22:53
+- 2025-12-27T22:45:56Z @tobiu referenced in commit `26c1f84` - "#8156 cleanup"
+- 2025-12-27T22:46:54Z @tobiu referenced in commit `d0c916d` - "#8156 work in progress"
+- 2025-12-27T22:46:54Z @tobiu referenced in commit `7de06ab` - "#8156 restored onDragStart() to the working version"
+- 2025-12-27T22:46:55Z @tobiu referenced in commit `5053551` - "#8156 Neo.manager.DragCoordinator: cleanup"
+- 2025-12-27T22:46:55Z @tobiu referenced in commit `6c4e9e9` - "#8156 wip"
+- 2025-12-27T22:46:55Z @tobiu referenced in commit `001b84f` - "#8156 wip"
+- 2025-12-27T22:46:55Z @tobiu referenced in commit `8b907fa` - "#8156 wip"
+- 2025-12-27T22:46:55Z @tobiu referenced in commit `8816181` - "#8156 wip"
+- 2025-12-27T22:46:55Z @tobiu referenced in commit `546e620` - "#8156 testing logs"
+- 2025-12-27T22:46:55Z @tobiu referenced in commit `a174715` - "#8156 wip"
+- 2025-12-27T22:46:55Z @tobiu referenced in commit `000d4cf` - "#8156 wip"
+- 2025-12-27T22:46:56Z @tobiu referenced in commit `41d1e59` - "#8156 wip"
+- 2025-12-27T22:46:56Z @tobiu referenced in commit `8f52386` - "#8156 cleanup"
+### @tobiu - 2025-12-27T22:53:35Z
 
 closing the ticket, since we reached the poc state.
 
-## Activity Log
-
-- 2025-12-26 @tobiu added the `enhancement` label
-- 2025-12-26 @tobiu added the `ai` label
-- 2025-12-26 @tobiu added the `architecture` label
-- 2025-12-26 @tobiu assigned to @tobiu
-- 2025-12-26 @tobiu referenced in commit `cdadc0b` - "#8156 work in progress"
-- 2025-12-27 @tobiu referenced in commit `72d1964` - "#8156 restored onDragStart() to the working version"
-- 2025-12-27 @tobiu referenced in commit `de4d76b` - "#8156 Neo.manager.DragCoordinator: cleanup"
-- 2025-12-27 @tobiu referenced in commit `c6f1674` - "#8156 wip"
-- 2025-12-27 @tobiu referenced in commit `4ebcca3` - "#8156 wip"
-- 2025-12-27 @tobiu marked this issue as being blocked by #8159
-- 2025-12-27 @tobiu referenced in commit `0cd5e77` - "#8156 wip"
-- 2025-12-27 @tobiu referenced in commit `ae2aa68` - "#8156 wip"
-- 2025-12-27 @tobiu referenced in commit `3ab07c0` - "#8156 testing logs"
-- 2025-12-27 @tobiu referenced in commit `340cc5f` - "#8156 wip"
-- 2025-12-27 @tobiu referenced in commit `4d1cc24` - "#8156 wip"
-- 2025-12-27 @tobiu referenced in commit `da447c9` - "#8156 wip"
-- 2025-12-27 @tobiu referenced in commit `26c1f84` - "#8156 cleanup"
-- 2025-12-27 @tobiu referenced in commit `d0c916d` - "#8156 work in progress"
-- 2025-12-27 @tobiu referenced in commit `7de06ab` - "#8156 restored onDragStart() to the working version"
-- 2025-12-27 @tobiu referenced in commit `5053551` - "#8156 Neo.manager.DragCoordinator: cleanup"
-- 2025-12-27 @tobiu referenced in commit `6c4e9e9` - "#8156 wip"
-- 2025-12-27 @tobiu referenced in commit `001b84f` - "#8156 wip"
-- 2025-12-27 @tobiu referenced in commit `8b907fa` - "#8156 wip"
-- 2025-12-27 @tobiu referenced in commit `8816181` - "#8156 wip"
-- 2025-12-27 @tobiu referenced in commit `546e620` - "#8156 testing logs"
-- 2025-12-27 @tobiu referenced in commit `a174715` - "#8156 wip"
-- 2025-12-27 @tobiu referenced in commit `000d4cf` - "#8156 wip"
-- 2025-12-27 @tobiu referenced in commit `41d1e59` - "#8156 wip"
-- 2025-12-27 @tobiu referenced in commit `8f52386` - "#8156 cleanup"
-- 2025-12-27 @tobiu closed this issue
+- 2025-12-27T22:53:35Z @tobiu closed this issue
 

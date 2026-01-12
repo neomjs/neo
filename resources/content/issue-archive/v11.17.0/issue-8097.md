@@ -36,9 +36,15 @@ This config will serve as the default value for the `init` parameter in `add()` 
 
 This allows developers to simply set `autoInitRecords: false` on the Store to enable Turbo Mode globally for that store instance, without needing to pass flags to every method call.
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-12-12 13:08
+- 2025-12-12T12:57:31Z @tobiu added the `enhancement` label
+- 2025-12-12T12:57:31Z @tobiu added the `developer-experience` label
+- 2025-12-12T12:57:31Z @tobiu added the `ai` label
+- 2025-12-12T12:57:48Z @tobiu assigned to @tobiu
+- 2025-12-12T13:05:46Z @tobiu referenced in commit `8fe4e63` - "Introduce autoInitRecords config for Neo.data.Store #8097"
+- 2025-12-12T13:05:52Z @tobiu closed this issue
+### @tobiu - 2025-12-12T13:08:17Z
 
 **Input from Gemini:**
 
@@ -56,12 +62,4 @@ This allows developers to simply set `autoInitRecords: false` on the Store to en
 > 
 > Overall, the Store is in a much better place for immediate usage, especially for high-performance use cases.
 
-## Activity Log
-
-- 2025-12-12 @tobiu added the `enhancement` label
-- 2025-12-12 @tobiu added the `developer-experience` label
-- 2025-12-12 @tobiu added the `ai` label
-- 2025-12-12 @tobiu assigned to @tobiu
-- 2025-12-12 @tobiu referenced in commit `8fe4e63` - "Introduce autoInitRecords config for Neo.data.Store #8097"
-- 2025-12-12 @tobiu closed this issue
 

@@ -34,29 +34,27 @@ After reviewing a pull request, the agent needs to be able to provide feedback d
 3.  The workflow should also mention `gh issue comment <PR_URL> --body "..."` as an alternative for general comments.
 4.  The agent should be instructed to use these commands to provide feedback after reviewing the code.
 
-## Comments
+## Timeline
 
-### @LemonDrop847 - 2025-10-05 11:42
+- 2025-10-05T11:24:47Z @tobiu added the `enhancement` label
+- 2025-10-05T11:24:47Z @tobiu added the `help wanted` label
+- 2025-10-05T11:24:47Z @tobiu added the `good first issue` label
+- 2025-10-05T11:24:47Z @tobiu added the `hacktoberfest` label
+- 2025-10-05T11:24:47Z @tobiu added the `ai` label
+- 2025-10-05T11:24:47Z @tobiu added parent issue #7364
+### @LemonDrop847 - 2025-10-05T11:42:38Z
 
 Hello, Can I try adding this workflow?
 
-### @tobiu - 2025-10-05 11:46
+- 2025-10-05T11:45:50Z @tobiu assigned to @LemonDrop847
+### @tobiu - 2025-10-05T11:46:07Z
 
 assigned. please read my comment on your other ticket first.
 
-### @tobiu - 2025-10-13 21:16
+- 2025-10-05T18:20:10Z @LemonDrop847 cross-referenced by PR #7383
+### @tobiu - 2025-10-13T21:16:05Z
 
 closing the ticket as resolved.
 
-## Activity Log
-
-- 2025-10-05 @tobiu added the `enhancement` label
-- 2025-10-05 @tobiu added the `help wanted` label
-- 2025-10-05 @tobiu added the `good first issue` label
-- 2025-10-05 @tobiu added the `hacktoberfest` label
-- 2025-10-05 @tobiu added the `ai` label
-- 2025-10-05 @tobiu added parent issue #7364
-- 2025-10-05 @tobiu assigned to @LemonDrop847
-- 2025-10-05 @LemonDrop847 cross-referenced by PR #7383
-- 2025-10-13 @tobiu closed this issue
+- 2025-10-13T21:16:05Z @tobiu closed this issue
 

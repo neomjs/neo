@@ -44,11 +44,11 @@ The build-time parser was wrapping raw JavaScript expressions (like `showDetails
 -   Expressions that resolve to a template or a falsy value are correctly represented in the final VDOM.
 -   The build output for components using this pattern is now functionally correct and matches the client-side rendering logic.
 
-## Activity Log
+## Timeline
 
-- 2025-08-01 @tobiu assigned to @tobiu
-- 2025-08-01 @tobiu added the `enhancement` label
-- 2025-08-01 @tobiu added parent issue #7130
-- 2025-08-01 @tobiu referenced in commit `505f9ef` - "Fix Build-Time Conditional Template Rendering #7155"
-- 2025-08-01 @tobiu closed this issue
+- 2025-08-01T14:40:36Z @tobiu assigned to @tobiu
+- 2025-08-01T14:40:37Z @tobiu added the `enhancement` label
+- 2025-08-01T14:40:37Z @tobiu added parent issue #7130
+- 2025-08-01T14:41:06Z @tobiu referenced in commit `505f9ef` - "Fix Build-Time Conditional Template Rendering #7155"
+- 2025-08-01T14:41:14Z @tobiu closed this issue
 

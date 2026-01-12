@@ -54,11 +54,11 @@ The model will be asked to provide a JSON object with the following structure:
 2.  **Parse Response:** Parse the JSON response from the model.
 3.  **Store Metadata:** Add the new fields (`title`, `category`, `quality`, `productivity`, `impact`, `complexity`, `technologies`) to the `metadatas` object being upserted into the `sessionsCollection`. The `summary` text will remain the main document content.
 
-## Activity Log
+## Timeline
 
-- 2025-10-03 @tobiu assigned to @tobiu
-- 2025-10-03 @tobiu added the `enhancement` label
-- 2025-10-03 @tobiu added parent issue #7316
-- 2025-10-03 @tobiu referenced in commit `52a2923` - "Enhance Session Summary with Rich Metadata #7332"
-- 2025-10-03 @tobiu closed this issue
+- 2025-10-03T08:41:27Z @tobiu assigned to @tobiu
+- 2025-10-03T08:41:29Z @tobiu added the `enhancement` label
+- 2025-10-03T08:41:29Z @tobiu added parent issue #7316
+- 2025-10-03T08:42:38Z @tobiu referenced in commit `52a2923` - "Enhance Session Summary with Rich Metadata #7332"
+- 2025-10-03T08:42:41Z @tobiu closed this issue
 

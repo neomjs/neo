@@ -70,16 +70,16 @@ The current browser-based  plugin is not compatible with Node.js as it relies on
 }
 ```
 
-## Activity Log
+## Timeline
 
-- 2025-11-18 @tobiu added the `enhancement` label
-- 2025-11-18 @tobiu added the `ai` label
-- 2025-11-18 @tobiu assigned to @tobiu
-- 2025-11-18 @tobiu cross-referenced by #7791
-- 2025-11-18 @tobiu added parent issue #7791
-- 2025-11-18 @tobiu cross-referenced by #7788
-- 2025-11-18 @tobiu referenced in commit `45b20ac` - "Create a utility for highlight.js line numbers #7789"
-- 2025-11-18 @tobiu referenced in commit `57ea8d9` - "#7789 theming"
-- 2025-11-18 @tobiu referenced in commit `fee73f6` - "#7789 load theme files"
-- 2025-11-18 @tobiu closed this issue
+- 2025-11-18T09:44:36Z @tobiu added the `enhancement` label
+- 2025-11-18T09:44:36Z @tobiu added the `ai` label
+- 2025-11-18T09:45:15Z @tobiu assigned to @tobiu
+- 2025-11-18T10:13:13Z @tobiu cross-referenced by #7791
+- 2025-11-18T10:13:37Z @tobiu added parent issue #7791
+- 2025-11-18T10:16:31Z @tobiu cross-referenced by #7788
+- 2025-11-18T13:12:17Z @tobiu referenced in commit `45b20ac` - "Create a utility for highlight.js line numbers #7789"
+- 2025-11-18T13:54:18Z @tobiu referenced in commit `57ea8d9` - "#7789 theming"
+- 2025-11-18T14:02:58Z @tobiu referenced in commit `fee73f6` - "#7789 load theme files"
+- 2025-11-18T14:16:00Z @tobiu closed this issue
 

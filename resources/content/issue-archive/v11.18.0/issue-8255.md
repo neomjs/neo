@@ -33,20 +33,18 @@ Key properties to include:
 - `selectedRecordField`
 - `selectionModel`
 
-## Comments
+## Timeline
 
-### @tobiu - 2026-01-01 15:37
+- 2026-01-01T15:36:26Z @tobiu added the `enhancement` label
+- 2026-01-01T15:36:26Z @tobiu added the `ai` label
+- 2026-01-01T15:36:37Z @tobiu assigned to @tobiu
+- 2026-01-01T15:36:43Z @tobiu added parent issue #8200
+- 2026-01-01T15:37:08Z @tobiu referenced in commit `7a77d05` - "#8255 Implement toJSON in grid.Body"
+### @tobiu - 2026-01-01T15:37:14Z
 
 **Input from Gemini:**
 
 > ✦ Implemented `toJSON` in `src/grid/Body.mjs`.
 
-## Activity Log
-
-- 2026-01-01 @tobiu added the `enhancement` label
-- 2026-01-01 @tobiu added the `ai` label
-- 2026-01-01 @tobiu assigned to @tobiu
-- 2026-01-01 @tobiu added parent issue #8200
-- 2026-01-01 @tobiu referenced in commit `7a77d05` - "#8255 Implement toJSON in grid.Body"
-- 2026-01-01 @tobiu closed this issue
+- 2026-01-01T15:37:34Z @tobiu closed this issue
 

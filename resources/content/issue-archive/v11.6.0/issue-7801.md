@@ -33,12 +33,12 @@ The `config.mjs` file should be the single source of truth used directly by the 
 3. Remove `DEFAULT_QUERY_LIMITS` from `ai/mcp/server/github-workflow/services/queries/pullRequestQueries.mjs`.
 4. Update `ai/mcp/server/github-workflow/services/PullRequestService.mjs` to assign query variables directly from `aiConfig.pullRequest` (or `aiConfig.issueSync` where applicable).
 
-## Activity Log
+## Timeline
 
-- 2025-11-19 @tobiu added the `enhancement` label
-- 2025-11-19 @tobiu added the `ai` label
-- 2025-11-19 @tobiu added the `refactoring` label
-- 2025-11-19 @tobiu assigned to @tobiu
-- 2025-11-19 @tobiu referenced in commit `669f85f` - "Refactor services to use config directly instead of DEFAULT_QUERY_LIMITS #7801"
-- 2025-11-19 @tobiu closed this issue
+- 2025-11-19T10:00:18Z @tobiu added the `enhancement` label
+- 2025-11-19T10:00:18Z @tobiu added the `ai` label
+- 2025-11-19T10:00:19Z @tobiu added the `refactoring` label
+- 2025-11-19T10:00:37Z @tobiu assigned to @tobiu
+- 2025-11-19T10:09:26Z @tobiu referenced in commit `669f85f` - "Refactor services to use config directly instead of DEFAULT_QUERY_LIMITS #7801"
+- 2025-11-19T10:09:35Z @tobiu closed this issue
 

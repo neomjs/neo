@@ -66,10 +66,10 @@ This allows developers to define rich button content using a standard VDOM struc
 
 3.  **Enables Granular Delta Updates:** When the button's content is part of the VDOM tree, the framework's diffing engine can perform highly efficient delta updates. If only one part of the button's content changes (e.g., a number in a label), only that specific text node will be updated in the DOM, rather than re-rendering the entire button's content. This significantly improves rendering performance for dynamic buttons.
 
-## Activity Log
+## Timeline
 
-- 2025-07-30 @tobiu assigned to @tobiu
-- 2025-07-30 @tobiu added the `enhancement` label
-- 2025-07-30 @tobiu referenced in commit `28e1ef9` - "Feature: Enhance button.Base text config to support VDOM cn arrays #7135"
-- 2025-07-30 @tobiu closed this issue
+- 2025-07-30T12:37:48Z @tobiu assigned to @tobiu
+- 2025-07-30T12:37:50Z @tobiu added the `enhancement` label
+- 2025-07-30T12:38:20Z @tobiu referenced in commit `28e1ef9` - "Feature: Enhance button.Base text config to support VDOM cn arrays #7135"
+- 2025-07-30T12:39:07Z @tobiu closed this issue
 

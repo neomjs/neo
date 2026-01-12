@@ -43,23 +43,21 @@ Consider parameters such as `limit`, `state` (e.g., `open`, `closed`, `all`), an
 **Documentation:**
 The tool's description in `openapi.yaml` should be comprehensive and self-explanatory, following the guidelines established in #7659.
 
-## Comments
+## Timeline
 
-### @MannXo - 2025-10-27 12:27
+- 2025-10-26T12:11:27Z @tobiu added the `enhancement` label
+- 2025-10-26T12:11:27Z @tobiu added the `ai` label
+### @MannXo - 2025-10-27T12:27:37Z
 
 Can I work on this one @tobiu ?
 
-### @tobiu - 2025-10-27 12:56
+### @tobiu - 2025-10-27T12:56:25Z
 
 @MannXo Sure. This one should be quite straight forward. Hint: all 3 MCP servers should now be fully functional, and I updated the AGENTS.md file => with a fresh/updated fork definitely worth some testing.
 
-## Activity Log
-
-- 2025-10-26 @tobiu added the `enhancement` label
-- 2025-10-26 @tobiu added the `ai` label
-- 2025-10-27 @tobiu assigned to @MannXo
-- 2025-10-27 @tobiu added the `hacktoberfest` label
-- 2025-10-28 @MannXo referenced in commit `7f720ed` - "feat(mcp/github-workflow): add list_issues tool, OpenAPI path/schemas and verification tests
+- 2025-10-27T12:56:31Z @tobiu assigned to @MannXo
+- 2025-10-27T12:56:38Z @tobiu added the `hacktoberfest` label
+- 2025-10-28T09:24:13Z @MannXo referenced in commit `7f720ed` - "feat(mcp/github-workflow): add list_issues tool, OpenAPI path/schemas and verification tests
 
 Closes: #7663 - Feat: Implement GitHub API-based 'list_issues' tool
 
@@ -69,9 +67,9 @@ Includes:
 - OpenAPI: GET /issues + IssueListResponse schema
 - lightweight file-based verification tests
 - HealthService robustness fix for gh stdout/stderr"
-- 2025-10-28 @MannXo cross-referenced by PR #7678
-- 2025-11-01 @tobiu closed this issue
-- 2025-11-01 @tobiu referenced in commit `be4f244` - "feat(mcp/github-workflow): add list_issues tool, OpenAPI path/schemas and verification tests
+- 2025-10-28T09:31:03Z @MannXo cross-referenced by PR #7678
+- 2025-11-01T18:22:03Z @tobiu closed this issue
+- 2025-11-01T18:22:03Z @tobiu referenced in commit `be4f244` - "feat(mcp/github-workflow): add list_issues tool, OpenAPI path/schemas and verification tests
 
 Closes: #7663 - Feat: Implement GitHub API-based 'list_issues' tool
 

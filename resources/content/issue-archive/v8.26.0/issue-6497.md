@@ -23,9 +23,9 @@ closedAt: '2025-02-26T16:15:23Z'
 * I just noticed that the 2 sequential updates no longer always work (cls & layout)
 * They should be merged into the same cycle anyway
 
-## Activity Log
+## Timeline
 
-- 2025-02-26 @tobiu added the `bug` label
-- 2025-02-26 @tobiu referenced in commit `bd431a0` - "toolbar.Base: afterSetDock() => use this.set() #6497"
-- 2025-02-26 @tobiu closed this issue
+- 2025-02-26T16:14:44Z @tobiu added the `bug` label
+- 2025-02-26T16:15:04Z @tobiu referenced in commit `bd431a0` - "toolbar.Base: afterSetDock() => use this.set() #6497"
+- 2025-02-26T16:15:23Z @tobiu closed this issue
 

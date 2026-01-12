@@ -24,10 +24,10 @@ closedAt: '2025-06-13T00:48:00Z'
 * Some tags must not convert `height, maxHeight, maxWidth, minHeight, minWidth, width` into styles.
 * Mostly SVG related
 
-## Activity Log
+## Timeline
 
-- 2025-06-13 @tobiu assigned to @tobiu
-- 2025-06-13 @tobiu added the `enhancement` label
-- 2025-06-13 @tobiu referenced in commit `bf818c9` - "vdom.Helper: rawDimensionTags #6782"
-- 2025-06-13 @tobiu closed this issue
+- 2025-06-13T00:46:25Z @tobiu assigned to @tobiu
+- 2025-06-13T00:46:26Z @tobiu added the `enhancement` label
+- 2025-06-13T00:46:55Z @tobiu referenced in commit `bf818c9` - "vdom.Helper: rawDimensionTags #6782"
+- 2025-06-13T00:48:00Z @tobiu closed this issue
 

@@ -43,10 +43,10 @@ During testing, it was discovered that `afterSetValue` is called twice for both 
 
 While the primary goal of ensuring the `change` event fires only once and at the correct time has been achieved, the redundant `afterSetValue` call remains.
 
-## Activity Log
+## Timeline
 
-- 2025-07-30 @tobiu assigned to @tobiu
-- 2025-07-30 @tobiu added the `enhancement` label
-- 2025-07-30 @tobiu referenced in commit `cbfef2c` - "Form Field afterSetValue Sequencing #7127"
-- 2025-07-30 @tobiu closed this issue
+- 2025-07-30T09:53:43Z @tobiu assigned to @tobiu
+- 2025-07-30T09:53:44Z @tobiu added the `enhancement` label
+- 2025-07-30T09:55:15Z @tobiu referenced in commit `cbfef2c` - "Form Field afterSetValue Sequencing #7127"
+- 2025-07-30T09:57:33Z @tobiu closed this issue
 

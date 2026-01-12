@@ -28,11 +28,11 @@ The guide is based on a real-world scenario where a model failed to use a tool c
 
 The new guide is located at `learn/guides/ai/TroubleshootingToolCalls.md` and is already added to the `learn/tree.json`.
 
-## Activity Log
+## Timeline
 
-- 2025-10-26 @tobiu added the `documentation` label
-- 2025-10-26 @tobiu added the `ai` label
-- 2025-10-26 @tobiu assigned to @tobiu
-- 2025-10-26 @tobiu referenced in commit `8598f45` - "Docs: Add guide for troubleshooting tool calls #7657"
-- 2025-10-26 @tobiu closed this issue
+- 2025-10-26T09:05:38Z @tobiu added the `documentation` label
+- 2025-10-26T09:05:39Z @tobiu added the `ai` label
+- 2025-10-26T09:24:53Z @tobiu assigned to @tobiu
+- 2025-10-26T09:25:51Z @tobiu referenced in commit `8598f45` - "Docs: Add guide for troubleshooting tool calls #7657"
+- 2025-10-26T09:26:12Z @tobiu closed this issue
 

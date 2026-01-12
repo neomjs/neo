@@ -23,10 +23,10 @@ closedAt: '2025-01-22T17:27:54Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
-- 2025-01-22 @tobiu added the `enhancement` label
-- 2025-01-22 @tobiu assigned to @tobiu
-- 2025-01-22 @tobiu referenced in commit `dc76e27` - "data.RecordFactory: setRecordFields() => pass initialFields to nested sub-calls #6271"
-- 2025-01-22 @tobiu closed this issue
+- 2025-01-22T17:27:34Z @tobiu added the `enhancement` label
+- 2025-01-22T17:27:34Z @tobiu assigned to @tobiu
+- 2025-01-22T17:27:46Z @tobiu referenced in commit `dc76e27` - "data.RecordFactory: setRecordFields() => pass initialFields to nested sub-calls #6271"
+- 2025-01-22T17:27:54Z @tobiu closed this issue
 

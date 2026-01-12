@@ -26,14 +26,14 @@ The Neural Link MCP Server crashes on startup with `TypeError: Cannot read prope
 This is caused by a recent change in `HealthService.healthcheck()` response structure (commit `9613d448`), where `health.session` was replaced by `health.sessions`.
 `Server.logStartupStatus` still tries to access `health.session.activeApps`.
 
-## Activity Log
+## Timeline
 
-- 2026-01-05 @tobiu added the `bug` label
-- 2026-01-05 @tobiu added the `ai` label
-- 2026-01-05 @tobiu assigned to @tobiu
-- 2026-01-05 @tobiu added parent issue #8169
-- 2026-01-05 @tobiu referenced in commit `4e5a9d2` - "fix(ai): Resolve Neural Link Server startup crash (#8333)
+- 2026-01-05T12:28:50Z @tobiu added the `bug` label
+- 2026-01-05T12:28:50Z @tobiu added the `ai` label
+- 2026-01-05T12:29:36Z @tobiu assigned to @tobiu
+- 2026-01-05T12:30:07Z @tobiu added parent issue #8169
+- 2026-01-05T12:30:55Z @tobiu referenced in commit `4e5a9d2` - "fix(ai): Resolve Neural Link Server startup crash (#8333)
 
 Updated Server.mjs to handle the new HealthService response structure (sessions/windows arrays). Fixed TypeError on startup."
-- 2026-01-05 @tobiu closed this issue
+- 2026-01-05T12:31:23Z @tobiu closed this issue
 

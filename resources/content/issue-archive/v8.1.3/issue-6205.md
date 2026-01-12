@@ -24,11 +24,11 @@ closedAt: '2025-01-12T12:42:06Z'
 * Move the logic outside of ´afterSetMounted()´
 * Add a check that the remotes API is ready
 
-## Activity Log
+## Timeline
 
-- 2025-01-12 @tobiu added the `enhancement` label
-- 2025-01-12 @tobiu assigned to @tobiu
-- 2025-01-12 @tobiu referenced in commit `449d99d` - "grid.Container: addResizeObserver() #6205"
-- 2025-01-12 @tobiu closed this issue
-- 2025-01-12 @tobiu referenced in commit `d83bd23` - "#6205 comment"
+- 2025-01-12T12:41:43Z @tobiu added the `enhancement` label
+- 2025-01-12T12:41:43Z @tobiu assigned to @tobiu
+- 2025-01-12T12:41:57Z @tobiu referenced in commit `449d99d` - "grid.Container: addResizeObserver() #6205"
+- 2025-01-12T12:42:06Z @tobiu closed this issue
+- 2025-01-12T12:46:03Z @tobiu referenced in commit `d83bd23` - "#6205 comment"
 

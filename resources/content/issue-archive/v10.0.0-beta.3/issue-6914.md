@@ -23,10 +23,10 @@ closedAt: '2025-06-30T22:17:51Z'
 
 * i noticed inside new learning section demos, that the rendering can look odd otherwise.
 
-## Activity Log
+## Timeline
 
-- 2025-06-30 @tobiu assigned to @tobiu
-- 2025-06-30 @tobiu added the `enhancement` label
-- 2025-06-30 @tobiu referenced in commit `929a7ea` - "form.field.ComboBox: add a default width #6914"
-- 2025-06-30 @tobiu closed this issue
+- 2025-06-30T21:53:57Z @tobiu assigned to @tobiu
+- 2025-06-30T21:53:58Z @tobiu added the `enhancement` label
+- 2025-06-30T21:54:19Z @tobiu referenced in commit `929a7ea` - "form.field.ComboBox: add a default width #6914"
+- 2025-06-30T22:17:51Z @tobiu closed this issue
 

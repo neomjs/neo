@@ -24,10 +24,10 @@ closedAt: '2025-02-22T17:25:41Z'
 * cleaner to have the interval callback as its own method
 * also trigger it right away => `setInterval()` does not start immediately
 
-## Activity Log
+## Timeline
 
-- 2025-02-22 @tobiu added the `enhancement` label
-- 2025-02-22 @tobiu assigned to @tobiu
-- 2025-02-22 @tobiu referenced in commit `5131dd7` - "component.MagicMoveText: cycleText() #6486"
-- 2025-02-22 @tobiu closed this issue
+- 2025-02-22T17:25:19Z @tobiu added the `enhancement` label
+- 2025-02-22T17:25:19Z @tobiu assigned to @tobiu
+- 2025-02-22T17:25:34Z @tobiu referenced in commit `5131dd7` - "component.MagicMoveText: cycleText() #6486"
+- 2025-02-22T17:25:41Z @tobiu closed this issue
 

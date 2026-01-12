@@ -23,10 +23,10 @@ closedAt: '2025-06-27T13:19:54Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
-- 2025-06-27 @tobiu assigned to @tobiu
-- 2025-06-27 @tobiu added the `enhancement` label
-- 2025-06-27 @tobiu referenced in commit `0717b7c` - "Neo.calendar.view.*: use text over html for vdom #6879"
-- 2025-06-27 @tobiu closed this issue
+- 2025-06-27T13:19:15Z @tobiu assigned to @tobiu
+- 2025-06-27T13:19:16Z @tobiu added the `enhancement` label
+- 2025-06-27T13:19:44Z @tobiu referenced in commit `0717b7c` - "Neo.calendar.view.*: use text over html for vdom #6879"
+- 2025-06-27T13:19:54Z @tobiu closed this issue
 

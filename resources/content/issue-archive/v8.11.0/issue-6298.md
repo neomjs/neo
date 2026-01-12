@@ -27,16 +27,14 @@ regression issue
 
 all other filter fields still work fine.
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-01-28 10:48
+- 2025-01-26T16:39:04Z @tobiu added the `bug` label
+- 2025-01-26T16:39:04Z @tobiu assigned to @tobiu
+- 2025-01-28T10:48:18Z @tobiu referenced in commit `de5ad5b` - "examples.tableFiltering.MainContainer: the country ComboBox filter no longer works #6298"
+### @tobiu - 2025-01-28T10:48:27Z
 
 ![Image](https://github.com/user-attachments/assets/891f202a-577a-43a5-ba13-63bccc7fe4b1)
 
-## Activity Log
-
-- 2025-01-26 @tobiu added the `bug` label
-- 2025-01-26 @tobiu assigned to @tobiu
-- 2025-01-28 @tobiu referenced in commit `de5ad5b` - "examples.tableFiltering.MainContainer: the country ComboBox filter no longer works #6298"
-- 2025-01-28 @tobiu closed this issue
+- 2025-01-28T10:48:27Z @tobiu closed this issue
 

@@ -23,10 +23,11 @@ closedAt: '2025-04-06T10:45:13Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
-- 2025-04-06 @tobiu added the `enhancement` label
-- 2025-04-06 @tobiu assigned to @tobiu
-- 2025-04-06 @tobiu referenced in commit `401fa6f` - "form.Container: validate() => fields without a validate() method should count as valid #6624"
-- 2025-04-06 @tobiu closed this issue
+- 2025-04-06T10:44:32Z @tobiu added the `enhancement` label
+- 2025-04-06T10:44:32Z @tobiu assigned to @tobiu
+- 2025-04-06T10:44:44Z @tobiu changed title from **form.Container: validare() => fields without a validate() method should count as valid** to **form.Container: validate() => fields without a validate() method should count as valid**
+- 2025-04-06T10:45:01Z @tobiu referenced in commit `401fa6f` - "form.Container: validate() => fields without a validate() method should count as valid #6624"
+- 2025-04-06T10:45:13Z @tobiu closed this issue
 

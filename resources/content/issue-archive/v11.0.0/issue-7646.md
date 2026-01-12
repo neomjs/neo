@@ -37,12 +37,12 @@ This ticket summarizes the refactoring changes made to improve consistency and e
 
 These changes streamline the data flow, reduce redundant processing, and align the handling of release metadata with that of issue metadata for improved consistency.
 
-## Activity Log
+## Timeline
 
-- 2025-10-25 @tobiu added the `ai` label
-- 2025-10-25 @tobiu added the `refactoring` label
-- 2025-10-25 @tobiu assigned to @tobiu
-- 2025-10-25 @tobiu added parent issue #7645
-- 2025-10-25 @tobiu referenced in commit `18a6e6b` - "Refactor: Streamline Release Metadata Handling in Sync Service #7646"
-- 2025-10-25 @tobiu closed this issue
+- 2025-10-25T13:53:27Z @tobiu added the `ai` label
+- 2025-10-25T13:53:27Z @tobiu added the `refactoring` label
+- 2025-10-25T13:53:57Z @tobiu assigned to @tobiu
+- 2025-10-25T13:54:32Z @tobiu added parent issue #7645
+- 2025-10-25T13:55:46Z @tobiu referenced in commit `18a6e6b` - "Refactor: Streamline Release Metadata Handling in Sync Service #7646"
+- 2025-10-25T13:55:51Z @tobiu closed this issue
 

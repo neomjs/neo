@@ -23,10 +23,10 @@ closedAt: '2025-06-29T13:07:55Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
-- 2025-06-29 @tobiu assigned to @tobiu
-- 2025-06-29 @tobiu added the `enhancement` label
-- 2025-06-29 @tobiu referenced in commit `32d6429` - "learn/guides/MainThreadAddons: add a visualization for remote method access #6893"
-- 2025-06-29 @tobiu closed this issue
+- 2025-06-29T13:07:23Z @tobiu assigned to @tobiu
+- 2025-06-29T13:07:24Z @tobiu added the `enhancement` label
+- 2025-06-29T13:07:50Z @tobiu referenced in commit `32d6429` - "learn/guides/MainThreadAddons: add a visualization for remote method access #6893"
+- 2025-06-29T13:07:55Z @tobiu closed this issue
 

@@ -2,7 +2,7 @@ import {buffer, debounce, intercept, resolveCallback, throttle} from '../util/Fu
 import Compare                                                  from '../core/Compare.mjs';
 import Util                                                     from '../core/Util.mjs';
 import Config                                                   from './Config.mjs';
-import {isDescriptor}                                           from './ConfigSymbols.mjs';
+import {isDescriptor, mergeFrom}                                from './ConfigSymbols.mjs';
 import IdGenerator                                              from './IdGenerator.mjs';
 import EffectManager                                            from './EffectManager.mjs';
 
@@ -643,6 +643,10 @@ class Base {
                         currentWorker.on('connected', () => resolve(), this, {once: true})
                     })
                 }
+            } else if (Neo.workerId === 'service') {
+                if (remote.app) {
+                    currentWorker.remotesToRegister.push({className, methods: remote.app})
+                }
             }
 
             await Base.promiseRemotes(className, remote)
@@ -785,33 +789,63 @@ class Base {
 
         if (items) {
             if (!Array.isArray(items)) {
+                if (Neo.isObject(items)) {
+                    Object.keys(items).forEach(key => {
+                        let item = items[key];
+
+                        if (item) {
+                            if (item[mergeFrom]) {
+                                if (me[item[mergeFrom]]) {
+                                    items[key] = Neo.mergeConfig(me[item[mergeFrom]], item, 'deep');
+                                    item = items[key];
+                                    delete item[mergeFrom]
+                                }
+                            }
+
+                            me.parseItemConfigs([item])
+                        }
+                    });
+                    return
+                }
                 items = [items]
             }
 
-            items.forEach(item => {
-                item && Object.entries(item).forEach(([key, value]) => {
-                    if (Array.isArray(value)) {
-                        me.parseItemConfigs(value);
-                    } else if (typeof value === 'string' && value.startsWith('@config:')) {
-                        nsArray = value.substring(8).trim().split('.');
-                        nsKey   = nsArray.pop();
-                        ns      = Neo.ns(nsArray, false, me);
-
-                        if (ns[nsKey] === undefined) {
-                            console.error('The used @config does not exist:', nsKey, nsArray.join('.'))
-                        } else {
-                            symbolNs = Neo.ns(nsArray, false, me[configSymbol]);
-
-                            // The config might not be processed yet, especially for configs
-                            // not ending with an underscore, so we need to check the configSymbol first.
-                            if (symbolNs && Object.hasOwn(symbolNs, nsKey)) {
-                                item[key] = symbolNs[nsKey]
-                            } else {
-                                item[key] = ns[nsKey]
-                            }
+            items.forEach((item, index) => {
+                if (item) {
+                    if (item[mergeFrom]) {
+                        if (me[item[mergeFrom]]) {
+                            items[index] = Neo.mergeConfig(me[item[mergeFrom]], item, 'deep');
+                            item = items[index];
+                            delete item[mergeFrom]
                         }
                     }
-                })
+
+                    Object.entries(item).forEach(([key, value]) => {
+                        if (Array.isArray(value)) {
+                            me.parseItemConfigs(value);
+                        } else if (Neo.isObject(value) && key === 'items') {
+                            me.parseItemConfigs(value)
+                        } else if (typeof value === 'string' && value.startsWith('@config:')) {
+                            nsArray = value.substring(8).trim().split('.');
+                            nsKey   = nsArray.pop();
+                            ns      = Neo.ns(nsArray, false, me);
+
+                            if (ns[nsKey] === undefined) {
+                                console.error('The used @config does not exist:', nsKey, nsArray.join('.'))
+                            } else {
+                                symbolNs = Neo.ns(nsArray, false, me[configSymbol]);
+
+                                // The config might not be processed yet, especially for configs
+                                // not ending with an underscore, so we need to check the configSymbol first.
+                                if (symbolNs && Object.hasOwn(symbolNs, nsKey)) {
+                                    item[key] = symbolNs[nsKey]
+                                } else {
+                                    item[key] = ns[nsKey]
+                                }
+                            }
+                        }
+                    })
+                }
             })
         }
     }

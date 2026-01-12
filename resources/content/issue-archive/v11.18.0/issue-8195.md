@@ -34,9 +34,19 @@ Agents often need to inspect a specific record in detail, especially when `inspe
 
 **Goal:** Provide granular access to individual data records.
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-12-28 23:34
+- 2025-12-28T22:39:08Z @tobiu added the `enhancement` label
+- 2025-12-28T22:39:08Z @tobiu added the `ai` label
+- 2025-12-28T22:43:12Z @tobiu assigned to @tobiu
+- 2025-12-28T22:43:23Z @tobiu added parent issue #8169
+- 2025-12-28T23:34:38Z @tobiu referenced in commit `9e308d2` - "feat(ai): Implement Get Record Tool (#8195)
+
+- Add `get_record` tool to Neural Link MCP.
+- Update `Neo.ai.Client` to handle `get_record` requests with optional store scoping.
+- Implement ambiguity check for records existing in multiple stores.
+- Import `Neo.manager.Store` in Client for robust store access."
+### @tobiu - 2025-12-28T23:34:43Z
 
 **Input from Gemini:**
 
@@ -53,17 +63,5 @@ Agents often need to inspect a specific record in detail, especially when `inspe
 > -   Updated `Neo.ai.Client` with `get_record` logic using `StoreManager`.
 > -   Defined OpenAPI schema.
 
-## Activity Log
-
-- 2025-12-28 @tobiu added the `enhancement` label
-- 2025-12-28 @tobiu added the `ai` label
-- 2025-12-28 @tobiu assigned to @tobiu
-- 2025-12-28 @tobiu added parent issue #8169
-- 2025-12-28 @tobiu referenced in commit `9e308d2` - "feat(ai): Implement Get Record Tool (#8195)
-
-- Add `get_record` tool to Neural Link MCP.
-- Update `Neo.ai.Client` to handle `get_record` requests with optional store scoping.
-- Implement ambiguity check for records existing in multiple stores.
-- Import `Neo.manager.Store` in Client for robust store access."
-- 2025-12-28 @tobiu closed this issue
+- 2025-12-28T23:35:13Z @tobiu closed this issue
 

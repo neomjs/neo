@@ -23,10 +23,10 @@ closedAt: '2025-08-04T09:09:06Z'
 
 https://itnext.io/the-surgical-update-from-json-blueprints-to-flawless-ui-fcba31575f44?source=friends_link&sk=d2084a1ed9d5fc512859320895550080
 
-## Activity Log
+## Timeline
 
-- 2025-08-04 @tobiu assigned to @tobiu
-- 2025-08-04 @tobiu added the `enhancement` label
-- 2025-08-04 @tobiu referenced in commit `591ee48` - "Add the new blog post to the portal app #7169"
-- 2025-08-04 @tobiu closed this issue
+- 2025-08-04T09:03:22Z @tobiu assigned to @tobiu
+- 2025-08-04T09:03:23Z @tobiu added the `enhancement` label
+- 2025-08-04T09:09:00Z @tobiu referenced in commit `591ee48` - "Add the new blog post to the portal app #7169"
+- 2025-08-04T09:09:06Z @tobiu closed this issue
 

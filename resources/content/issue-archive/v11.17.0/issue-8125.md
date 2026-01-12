@@ -30,11 +30,11 @@ This task is to modify `src/worker/Manager.mjs` to check for empty deltas in `on
 
 This optimization applies to both the `action: 'updateVdom'` path and the `action: 'reply'` (VDOM) path.
 
-## Activity Log
+## Timeline
 
-- 2025-12-16 @tobiu added the `enhancement` label
-- 2025-12-16 @tobiu assigned to @tobiu
-- 2025-12-16 @tobiu added the `ai` label
-- 2025-12-16 @tobiu referenced in commit `4902695` - "Manager: Optimization for zero-delta updates #8125"
-- 2025-12-16 @tobiu closed this issue
+- 2025-12-16T18:30:56Z @tobiu added the `enhancement` label
+- 2025-12-16T18:31:06Z @tobiu assigned to @tobiu
+- 2025-12-16T18:31:10Z @tobiu added the `ai` label
+- 2025-12-16T18:36:56Z @tobiu referenced in commit `4902695` - "Manager: Optimization for zero-delta updates #8125"
+- 2025-12-16T18:37:05Z @tobiu closed this issue
 

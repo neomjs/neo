@@ -35,13 +35,13 @@ This ticket covers the work to perform an in-depth review and rewrite the servic
 4.  High-quality, intent-driven JSDoc comments are added to all exported functions in the service, explaining their purpose and behavior.
 5.  The final implementation is functionally identical to running the two original scripts in sequence.
 
-## Activity Log
+## Timeline
 
-- 2025-10-16 @tobiu assigned to @tobiu
-- 2025-10-16 @tobiu added the `bug` label
-- 2025-10-16 @tobiu added parent issue #7501
-- 2025-10-16 @tobiu added the `enhancement` label
-- 2025-10-16 @tobiu added the `ai` label
-- 2025-10-16 @tobiu referenced in commit `8f2b808` - "Review and Correct Database Service Implementation #7512"
-- 2025-10-16 @tobiu closed this issue
+- 2025-10-16T12:16:21Z @tobiu assigned to @tobiu
+- 2025-10-16T12:16:22Z @tobiu added the `bug` label
+- 2025-10-16T12:16:22Z @tobiu added parent issue #7501
+- 2025-10-16T12:16:23Z @tobiu added the `enhancement` label
+- 2025-10-16T12:16:23Z @tobiu added the `ai` label
+- 2025-10-16T12:17:04Z @tobiu referenced in commit `8f2b808` - "Review and Correct Database Service Implementation #7512"
+- 2025-10-16T12:17:13Z @tobiu closed this issue
 

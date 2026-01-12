@@ -23,10 +23,10 @@ closedAt: '2025-11-19T01:58:16Z'
 
 Siesta got replaced by Playwright, so this one is obsolete
 
-## Activity Log
+## Timeline
 
-- 2025-11-19 @tobiu assigned to @tobiu
-- 2025-11-19 @tobiu added the `enhancement` label
-- 2025-11-19 @tobiu referenced in commit `b5e5465` - "Remove Neo.config.isInsideSiesta #7799"
-- 2025-11-19 @tobiu closed this issue
+- 2025-11-19T01:57:30Z @tobiu assigned to @tobiu
+- 2025-11-19T01:57:31Z @tobiu added the `enhancement` label
+- 2025-11-19T01:58:10Z @tobiu referenced in commit `b5e5465` - "Remove Neo.config.isInsideSiesta #7799"
+- 2025-11-19T01:58:16Z @tobiu closed this issue
 

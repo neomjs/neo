@@ -23,10 +23,10 @@ closedAt: '2025-06-09T13:08:53Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
-- 2025-06-09 @tobiu assigned to @tobiu
-- 2025-06-09 @tobiu added the `enhancement` label
-- 2025-06-09 @tobiu referenced in commit `5de8187` - "tab.Strip: getActiveTabRectThenMove() => opt out in case the old tab got removed #6762"
-- 2025-06-09 @tobiu closed this issue
+- 2025-06-09T12:33:38Z @tobiu assigned to @tobiu
+- 2025-06-09T12:33:39Z @tobiu added the `enhancement` label
+- 2025-06-09T12:33:53Z @tobiu referenced in commit `5de8187` - "tab.Strip: getActiveTabRectThenMove() => opt out in case the old tab got removed #6762"
+- 2025-06-09T13:08:53Z @tobiu closed this issue
 

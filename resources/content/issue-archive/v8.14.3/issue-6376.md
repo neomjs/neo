@@ -23,10 +23,10 @@ closedAt: '2025-02-04T11:35:38Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
-- 2025-02-04 @tobiu added the `enhancement` label
-- 2025-02-04 @tobiu assigned to @tobiu
-- 2025-02-04 @tobiu referenced in commit `e8d9fc8` - "main.DomAccess: scrollTo() => use param destructuring #6376"
-- 2025-02-04 @tobiu closed this issue
+- 2025-02-04T11:35:04Z @tobiu added the `enhancement` label
+- 2025-02-04T11:35:04Z @tobiu assigned to @tobiu
+- 2025-02-04T11:35:30Z @tobiu referenced in commit `e8d9fc8` - "main.DomAccess: scrollTo() => use param destructuring #6376"
+- 2025-02-04T11:35:38Z @tobiu closed this issue
 

@@ -20,18 +20,19 @@ class MainContainer extends SharedContainer {
          */
         cls: ['portal-release-maincontainer'],
         /**
-         * @member {String} buttonTextField='id'
-         */
-        buttonTextField: 'id',
-        /**
-         * @member {Neo.component.Base} contentComponent=ContentComponent
-         */
-        contentComponent: ContentComponent,
-        /**
          * @member {Neo.controller.Component} controller=MainContainerController
          * @reactive
          */
         controller: Controller,
+        /**
+         * @member {Object} pageContainerConfig
+         */
+        pageContainerConfig: {
+            buttonTextField: 'id',
+            contentConfig  : {
+                module: ContentComponent
+            }
+        },
         /**
          * @member {Neo.state.Provider} stateProvider=MainContainerStateProvider
          * @reactive

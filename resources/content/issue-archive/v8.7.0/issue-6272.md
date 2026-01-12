@@ -23,10 +23,10 @@ closedAt: '2025-01-22T17:38:12Z'
 
 the `boolean` param name should be more clear to highlight it is not the content of the `initialData` symbol.
 
-## Activity Log
+## Timeline
 
-- 2025-01-22 @tobiu added the `enhancement` label
-- 2025-01-22 @tobiu assigned to @tobiu
-- 2025-01-22 @tobiu referenced in commit `0c571d3` - "data.RecordFactory: setRecordFields() => initialData param => useInitialData #6272"
-- 2025-01-22 @tobiu closed this issue
+- 2025-01-22T17:29:09Z @tobiu added the `enhancement` label
+- 2025-01-22T17:29:09Z @tobiu assigned to @tobiu
+- 2025-01-22T17:38:05Z @tobiu referenced in commit `0c571d3` - "data.RecordFactory: setRecordFields() => initialData param => useInitialData #6272"
+- 2025-01-22T17:38:12Z @tobiu closed this issue
 

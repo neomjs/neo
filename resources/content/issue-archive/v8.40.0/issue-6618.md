@@ -23,10 +23,10 @@ closedAt: '2025-04-05T21:50:24Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
-- 2025-04-04 @tobiu added the `enhancement` label
-- 2025-04-04 @tobiu assigned to @tobiu
-- 2025-04-05 @tobiu referenced in commit `cc134a9` - "apps/colors: build-all does not copy the remotes api into dist #6618"
-- 2025-04-05 @tobiu closed this issue
+- 2025-04-04T18:02:37Z @tobiu added the `enhancement` label
+- 2025-04-04T18:02:37Z @tobiu assigned to @tobiu
+- 2025-04-05T21:50:15Z @tobiu referenced in commit `cc134a9` - "apps/colors: build-all does not copy the remotes api into dist #6618"
+- 2025-04-05T21:50:24Z @tobiu closed this issue
 

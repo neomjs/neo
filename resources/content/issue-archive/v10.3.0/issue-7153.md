@@ -44,11 +44,11 @@ Previously, the `HtmlTemplateProcessor` relied on a simple array (`attributeName
 -   The attribute mapping logic is robust against nested templates and conditional rendering.
 -   All related JSDoc comments are updated to reflect the new `attributeNameMap` parameter.
 
-## Activity Log
+## Timeline
 
-- 2025-08-01 @tobiu assigned to @tobiu
-- 2025-08-01 @tobiu added parent issue #7130
-- 2025-08-01 @tobiu added the `enhancement` label
-- 2025-08-01 @tobiu referenced in commit `026026b` - "Introduce attributeNameMap for Robust Attribute Handling #7153"
-- 2025-08-01 @tobiu closed this issue
+- 2025-08-01T13:01:29Z @tobiu assigned to @tobiu
+- 2025-08-01T13:01:31Z @tobiu added parent issue #7130
+- 2025-08-01T13:01:31Z @tobiu added the `enhancement` label
+- 2025-08-01T13:02:04Z @tobiu referenced in commit `026026b` - "Introduce attributeNameMap for Robust Attribute Handling #7153"
+- 2025-08-01T13:02:13Z @tobiu closed this issue
 

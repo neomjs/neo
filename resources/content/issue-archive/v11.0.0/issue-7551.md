@@ -33,12 +33,12 @@ This ticket covers refactoring `ai/mcp/server/knowledge-base/services/databaseSe
 5.  The `ai/mcp/server/knowledge-base/services/toolService.mjs` is updated to import the `DatabaseService` class and map its methods statically.
 6.  All related tools (`sync_database`, `create_knowledge_base`, `embed_knowledge_base`, `delete_database`) continue to function correctly after the refactoring.
 
-## Activity Log
+## Timeline
 
-- 2025-10-19 @tobiu assigned to @tobiu
-- 2025-10-19 @tobiu added the `enhancement` label
-- 2025-10-19 @tobiu added the `ai` label
-- 2025-10-19 @tobiu added parent issue #7536
-- 2025-10-19 @tobiu referenced in commit `b3ce94e` - "Convert databaseService to DatabaseService Neo.mjs Class #7551"
-- 2025-10-19 @tobiu closed this issue
+- 2025-10-19T21:19:09Z @tobiu assigned to @tobiu
+- 2025-10-19T21:19:11Z @tobiu added the `enhancement` label
+- 2025-10-19T21:19:11Z @tobiu added the `ai` label
+- 2025-10-19T21:19:11Z @tobiu added parent issue #7536
+- 2025-10-19T21:45:01Z @tobiu referenced in commit `b3ce94e` - "Convert databaseService to DatabaseService Neo.mjs Class #7551"
+- 2025-10-19T21:47:28Z @tobiu closed this issue
 

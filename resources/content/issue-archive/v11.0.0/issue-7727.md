@@ -24,10 +24,10 @@ closedAt: '2025-11-08T14:50:03Z'
 * stop auto-cycling when switching to a different browser tab
 * restart when coming back (with a cleared cache
 
-## Activity Log
+## Timeline
 
-- 2025-11-08 @tobiu assigned to @tobiu
-- 2025-11-08 @tobiu added the `enhancement` label
-- 2025-11-08 @tobiu referenced in commit `0cc4c5f` - "component.MagicMoveText: onVisibilityChange() #7727"
-- 2025-11-08 @tobiu closed this issue
+- 2025-11-08T14:49:13Z @tobiu assigned to @tobiu
+- 2025-11-08T14:49:15Z @tobiu added the `enhancement` label
+- 2025-11-08T14:49:48Z @tobiu referenced in commit `0cc4c5f` - "component.MagicMoveText: onVisibilityChange() #7727"
+- 2025-11-08T14:50:03Z @tobiu closed this issue
 

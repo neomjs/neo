@@ -40,10 +40,10 @@ The goal was to restructure the development workflow in `AGENTS.md` to make the 
 
 This task is complete. The changes have been applied to `AGENTS.md`.
 
-## Activity Log
+## Timeline
 
-- 2025-09-26 @tobiu assigned to @tobiu
-- 2025-09-26 @tobiu added the `enhancement` label
-- 2025-09-26 @tobiu referenced in commit `4cd67f5` - "Refine AI Agent Guidelines Workflow #7257"
-- 2025-09-26 @tobiu closed this issue
+- 2025-09-26T11:13:00Z @tobiu assigned to @tobiu
+- 2025-09-26T11:13:01Z @tobiu added the `enhancement` label
+- 2025-09-26T11:17:46Z @tobiu referenced in commit `4cd67f5` - "Refine AI Agent Guidelines Workflow #7257"
+- 2025-09-26T11:18:10Z @tobiu closed this issue
 

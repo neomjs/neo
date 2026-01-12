@@ -24,9 +24,9 @@ When adding the modified flags, i accidentally sneaked in a `position: relative`
 
 ![Image](https://github.com/user-attachments/assets/ec0769b8-8d0e-4d5b-a571-1a08bd7da640)
 
-## Activity Log
+## Timeline
 
-- 2025-01-27 @tobiu added the `bug` label
-- 2025-01-27 @tobiu referenced in commit `3ac58ab` - "table.View: wrong positioning for locked body cells #6312"
-- 2025-01-27 @tobiu closed this issue
+- 2025-01-27T10:02:52Z @tobiu added the `bug` label
+- 2025-01-27T10:03:23Z @tobiu referenced in commit `3ac58ab` - "table.View: wrong positioning for locked body cells #6312"
+- 2025-01-27T10:09:33Z @tobiu closed this issue
 

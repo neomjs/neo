@@ -43,17 +43,15 @@ Key Changes:
 
 These changes collectively ensure that complex, nested documentation views remain fully interactive and stable when moved between browser windows.
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-12-09 22:08
+- 2025-12-09T21:54:25Z @tobiu assigned to @tobiu
+- 2025-12-09T21:54:26Z @tobiu added the `enhancement` label
+- 2025-12-09T21:54:27Z @tobiu added the `architecture` label
+- 2025-12-09T21:55:19Z @tobiu referenced in commit `7ffe5ca` - "Enhance code.LivePreview to support nested windows #8074"
+### @tobiu - 2025-12-09T22:08:46Z
 
 <img width="1081" height="1375" alt="Image" src="https://github.com/user-attachments/assets/9f5a8634-468a-4d6d-b43a-08210a027842" />
 
-## Activity Log
-
-- 2025-12-09 @tobiu assigned to @tobiu
-- 2025-12-09 @tobiu added the `enhancement` label
-- 2025-12-09 @tobiu added the `architecture` label
-- 2025-12-09 @tobiu referenced in commit `7ffe5ca` - "Enhance code.LivePreview to support nested windows #8074"
-- 2025-12-09 @tobiu closed this issue
+- 2025-12-09T22:08:46Z @tobiu closed this issue
 

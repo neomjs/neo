@@ -39,15 +39,13 @@ Doc should be formatted with mixed description/instruction sections and code sni
 
 Same behavior in desktop browser (Chrome and Firefox) and Chrome on Android.
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-08-03 00:41
+- 2025-08-02T14:53:00Z @TomDakan added the `bug` label
+- 2025-08-03T00:34:20Z @tobiu referenced in commit `a544f1f` - "Earthquakes Lab documentation has html issue #7164"
+### @tobiu - 2025-08-03T00:41:10Z
 
 resolved locally, and will be inside the next patch release.
 
-## Activity Log
-
-- 2025-08-02 @TomDakan added the `bug` label
-- 2025-08-03 @tobiu referenced in commit `a544f1f` - "Earthquakes Lab documentation has html issue #7164"
-- 2025-08-03 @tobiu closed this issue
+- 2025-08-03T00:41:10Z @tobiu closed this issue
 

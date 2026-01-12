@@ -24,9 +24,9 @@ closedAt: '2025-06-15T15:16:56Z'
 * Inside the Portal app, we are using plain text items
 * In this case, we get and empty item into the classList
 
-## Activity Log
+## Timeline
 
-- 2025-06-15 @tobiu added the `enhancement` label
-- 2025-06-15 @tobiu referenced in commit `4dabd69` - "tree.List: createItem() => only add a record.iconCls in case it exists #6801"
-- 2025-06-15 @tobiu closed this issue
+- 2025-06-15T15:16:17Z @tobiu added the `enhancement` label
+- 2025-06-15T15:16:48Z @tobiu referenced in commit `4dabd69` - "tree.List: createItem() => only add a record.iconCls in case it exists #6801"
+- 2025-06-15T15:16:56Z @tobiu closed this issue
 

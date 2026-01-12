@@ -6,6 +6,7 @@
     "remotesApiUrl"   : "remotes-api.json",
     "themes"          : ["neo-theme-neo-light", "neo-theme-light", "neo-theme-dark"],
     "useAiClient"     : true,
+    "useCanvasWorker" : true,
     "useSharedWorkers": true,
     "useServiceWorker": "dist/production",
 

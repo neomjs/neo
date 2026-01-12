@@ -30,19 +30,17 @@ as a side effect, cmps can now get found twice => for the node id and for the wr
 
 changing the logger would be like fixing the symptoms. to address the root cause, `manager.Component` should not return duplicate matches => i might address this one instead.
 
-## Comments
+## Timeline
 
-### @github-actions - 2025-04-09 02:44
+- 2025-01-08T10:54:05Z @tobiu added the `enhancement` label
+- 2025-01-08T10:54:06Z @tobiu assigned to @tobiu
+### @github-actions - 2025-04-09T02:44:13Z
 
 This issue is stale because it has been open for 90 days with no activity.
 
-## Activity Log
-
-- 2025-01-08 @tobiu added the `enhancement` label
-- 2025-01-08 @tobiu assigned to @tobiu
-- 2025-04-09 @github-actions added the `stale` label
-- 2025-04-09 @tobiu removed the `stale` label
-- 2025-04-09 @tobiu added the `no auto close` label
-- 2025-04-09 @tobiu referenced in commit `2069db9` - "util.Logger: ensure component parent paths do not contain duplicate items #6191"
-- 2025-04-09 @tobiu closed this issue
+- 2025-04-09T02:44:13Z @github-actions added the `stale` label
+- 2025-04-09T08:35:53Z @tobiu removed the `stale` label
+- 2025-04-09T08:35:53Z @tobiu added the `no auto close` label
+- 2025-04-09T09:56:26Z @tobiu referenced in commit `2069db9` - "util.Logger: ensure component parent paths do not contain duplicate items #6191"
+- 2025-04-09T10:00:30Z @tobiu closed this issue
 

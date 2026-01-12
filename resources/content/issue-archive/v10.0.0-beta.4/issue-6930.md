@@ -23,10 +23,10 @@ closedAt: '2025-07-01T19:45:42Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
-- 2025-07-01 @tobiu assigned to @tobiu
-- 2025-07-01 @tobiu added the `enhancement` label
-- 2025-07-01 @tobiu referenced in commit `8efcaee` - "guides/StateProviders: add a bound label to the live preview example #6930"
-- 2025-07-01 @tobiu closed this issue
+- 2025-07-01T18:56:54Z @tobiu assigned to @tobiu
+- 2025-07-01T18:56:55Z @tobiu added the `enhancement` label
+- 2025-07-01T19:00:19Z @tobiu referenced in commit `8efcaee` - "guides/StateProviders: add a bound label to the live preview example #6930"
+- 2025-07-01T19:45:42Z @tobiu closed this issue
 

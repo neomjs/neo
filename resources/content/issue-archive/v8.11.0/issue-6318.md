@@ -23,10 +23,10 @@ closedAt: '2025-01-28T09:47:50Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
-- 2025-01-28 @tobiu added the `enhancement` label
-- 2025-01-28 @tobiu assigned to @tobiu
-- 2025-01-28 @tobiu referenced in commit `66c1e0c` - "selection.table.ColumnModel: decouple logic from event paths #6318"
-- 2025-01-28 @tobiu closed this issue
+- 2025-01-28T09:47:20Z @tobiu added the `enhancement` label
+- 2025-01-28T09:47:20Z @tobiu assigned to @tobiu
+- 2025-01-28T09:47:43Z @tobiu referenced in commit `66c1e0c` - "selection.table.ColumnModel: decouple logic from event paths #6318"
+- 2025-01-28T09:47:50Z @tobiu closed this issue
 

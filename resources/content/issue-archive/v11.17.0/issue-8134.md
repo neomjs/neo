@@ -39,11 +39,11 @@ Modify `src/mixin/VdomLifecycle.mjs`:
 
 This restores the mounting functionality for the non-worker VDOM configuration without relying on the now-circular `mount()` method.
 
-## Activity Log
+## Timeline
 
-- 2025-12-17 @tobiu added the `bug` label
-- 2025-12-17 @tobiu added the `ai` label
-- 2025-12-17 @tobiu assigned to @tobiu
-- 2025-12-17 @tobiu referenced in commit `6fe072a` - "Fix infinite recursion in mount() when useVdomWorker is false (#8134)"
-- 2025-12-17 @tobiu closed this issue
+- 2025-12-17T01:54:28Z @tobiu added the `bug` label
+- 2025-12-17T01:54:28Z @tobiu added the `ai` label
+- 2025-12-17T02:00:41Z @tobiu assigned to @tobiu
+- 2025-12-17T02:00:56Z @tobiu referenced in commit `6fe072a` - "Fix infinite recursion in mount() when useVdomWorker is false (#8134)"
+- 2025-12-17T02:01:17Z @tobiu closed this issue
 

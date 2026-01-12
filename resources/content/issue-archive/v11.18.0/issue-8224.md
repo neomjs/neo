@@ -38,9 +38,16 @@ The method should return an object containing:
 This is part of the Neural Link serialization epic.
 
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-12-31 12:42
+- 2025-12-31T12:38:17Z @tobiu added the `epic` label
+- 2025-12-31T12:38:17Z @tobiu added the `ai` label
+- 2025-12-31T12:38:17Z @tobiu added the `architecture` label
+- 2025-12-31T12:41:52Z @tobiu referenced in commit `2cfc4cb` - "feat(core): Implement toJSON in core.Base (#8224)"
+- 2025-12-31T12:42:09Z @tobiu assigned to @tobiu
+- 2025-12-31T12:42:23Z @tobiu removed the `epic` label
+- 2025-12-31T12:42:23Z @tobiu added the `enhancement` label
+### @tobiu - 2025-12-31T12:42:27Z
 
 **Input from Gemini:**
 
@@ -52,15 +59,6 @@ This is part of the Neural Link serialization epic.
 > - `ntype`
 > - `remote`
 
-## Activity Log
-
-- 2025-12-31 @tobiu added the `epic` label
-- 2025-12-31 @tobiu added the `ai` label
-- 2025-12-31 @tobiu added the `architecture` label
-- 2025-12-31 @tobiu referenced in commit `2cfc4cb` - "feat(core): Implement toJSON in core.Base (#8224)"
-- 2025-12-31 @tobiu assigned to @tobiu
-- 2025-12-31 @tobiu removed the `epic` label
-- 2025-12-31 @tobiu added the `enhancement` label
-- 2025-12-31 @tobiu added parent issue #8200
-- 2025-12-31 @tobiu closed this issue
+- 2025-12-31T12:42:35Z @tobiu added parent issue #8200
+- 2025-12-31T12:42:58Z @tobiu closed this issue
 

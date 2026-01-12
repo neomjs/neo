@@ -38,11 +38,11 @@ Add `/* webpackIgnore: true */` to the import statement in `src/util/HighlightJs
 module = await import(/* webpackIgnore: true */ path);
 ```
 
-## Activity Log
+## Timeline
 
-- 2025-11-19 @tobiu added the `bug` label
-- 2025-11-19 @tobiu added the `refactoring` label
-- 2025-11-19 @tobiu assigned to @tobiu
-- 2025-11-19 @tobiu referenced in commit `e72c5da` - "Fix Webpack critical dependency warning in HighlightJs dynamic import #7816"
-- 2025-11-19 @tobiu closed this issue
+- 2025-11-19T17:25:26Z @tobiu added the `bug` label
+- 2025-11-19T17:25:26Z @tobiu added the `refactoring` label
+- 2025-11-19T17:26:31Z @tobiu assigned to @tobiu
+- 2025-11-19T17:26:54Z @tobiu referenced in commit `e72c5da` - "Fix Webpack critical dependency warning in HighlightJs dynamic import #7816"
+- 2025-11-19T17:27:04Z @tobiu closed this issue
 

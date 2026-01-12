@@ -35,12 +35,12 @@ Implement `startServer()` and `stopServer()` in `ai/mcp/server/neural-link/servi
 This maintains the v2 architecture (ConnectionService as a client to a standalone Bridge process) while restoring the functionality of the lifecycle management tools.
 
 
-## Activity Log
+## Timeline
 
-- 2025-12-30 @tobiu added the `bug` label
-- 2025-12-30 @tobiu added the `ai` label
-- 2025-12-30 @tobiu assigned to @tobiu
-- 2025-12-30 @tobiu added parent issue #8169
-- 2025-12-30 @tobiu referenced in commit `ae5b10f` - "fix(ai): Implement start/stopServer in ConnectionService to resolve startup crash (#8216)"
-- 2025-12-30 @tobiu closed this issue
+- 2025-12-30T11:14:26Z @tobiu added the `bug` label
+- 2025-12-30T11:14:26Z @tobiu added the `ai` label
+- 2025-12-30T11:14:37Z @tobiu assigned to @tobiu
+- 2025-12-30T11:14:56Z @tobiu added parent issue #8169
+- 2025-12-30T11:19:51Z @tobiu referenced in commit `ae5b10f` - "fix(ai): Implement start/stopServer in ConnectionService to resolve startup crash (#8216)"
+- 2025-12-30T11:20:07Z @tobiu closed this issue
 

@@ -31,16 +31,16 @@ As the first step in the larger sync service refactoring (Epic: Refactor and Ext
 4.  Refactor `SyncService.mjs` to become a lean orchestrator that imports and calls the new `ReleaseSyncer` and `IssueSyncer` modules.
 5.  Update comments and method names within `SyncService` to be more generic and accurate.
 
-## Activity Log
+## Timeline
 
-- 2025-10-25 @tobiu added the `epic` label
-- 2025-10-25 @tobiu added the `ai` label
-- 2025-10-25 @tobiu added the `refactoring` label
-- 2025-10-25 @tobiu cross-referenced by #7645
-- 2025-10-25 @tobiu assigned to @tobiu
-- 2025-10-25 @tobiu removed the `epic` label
-- 2025-10-25 @tobiu added parent issue #7645
-- 2025-10-25 @tobiu referenced in commit `6debaaf` - "Refactor: Extract Release & Issue Syncers from SyncService #7642"
-- 2025-10-25 @tobiu referenced in commit `f390a54` - "#7642 cleanup"
-- 2025-10-25 @tobiu closed this issue
+- 2025-10-25T10:21:44Z @tobiu added the `epic` label
+- 2025-10-25T10:21:44Z @tobiu added the `ai` label
+- 2025-10-25T10:21:44Z @tobiu added the `refactoring` label
+- 2025-10-25T10:23:18Z @tobiu cross-referenced by #7645
+- 2025-10-25T10:24:41Z @tobiu assigned to @tobiu
+- 2025-10-25T10:24:45Z @tobiu removed the `epic` label
+- 2025-10-25T10:24:52Z @tobiu added parent issue #7645
+- 2025-10-25T11:21:51Z @tobiu referenced in commit `6debaaf` - "Refactor: Extract Release & Issue Syncers from SyncService #7642"
+- 2025-10-25T11:38:41Z @tobiu referenced in commit `f390a54` - "#7642 cleanup"
+- 2025-10-25T11:40:45Z @tobiu closed this issue
 

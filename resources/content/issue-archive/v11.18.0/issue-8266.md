@@ -32,12 +32,12 @@ Implement `toJSON` in `src/selection/table/CellColumnModel.mjs`.
 
 **Parent Issue:** #8200
 
-## Activity Log
+## Timeline
 
-- 2026-01-01 @tobiu added the `enhancement` label
-- 2026-01-01 @tobiu added the `ai` label
-- 2026-01-01 @tobiu assigned to @tobiu
-- 2026-01-01 @tobiu added parent issue #8200
-- 2026-01-01 @tobiu referenced in commit `c6fd172` - "feat(selection): Implement toJSON in table.CellColumnModel #8266"
-- 2026-01-01 @tobiu closed this issue
+- 2026-01-01T17:00:37Z @tobiu added the `enhancement` label
+- 2026-01-01T17:00:37Z @tobiu added the `ai` label
+- 2026-01-01T17:01:33Z @tobiu assigned to @tobiu
+- 2026-01-01T17:01:40Z @tobiu added parent issue #8200
+- 2026-01-01T17:03:03Z @tobiu referenced in commit `c6fd172` - "feat(selection): Implement toJSON in table.CellColumnModel #8266"
+- 2026-01-01T17:03:14Z @tobiu closed this issue
 

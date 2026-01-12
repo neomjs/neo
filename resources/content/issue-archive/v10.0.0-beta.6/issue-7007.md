@@ -35,10 +35,10 @@ The `Neo.state.createHierarchicalDataProxy` has been enhanced to directly expose
 
 Verified that the example in `learn/guides/datahandling/StateProviders.md` now correctly binds directly to `data.stores.mySharedStore.count` and updates reactively when the store's count changes.
 
-## Activity Log
+## Timeline
 
-- 2025-07-10 @tobiu assigned to @tobiu
-- 2025-07-10 @tobiu added the `enhancement` label
-- 2025-07-10 @tobiu referenced in commit `9ea7745` - "state.createHierarchicalDataProxy: Allow direct binding to store properties #7007"
-- 2025-07-10 @tobiu closed this issue
+- 2025-07-10T20:18:32Z @tobiu assigned to @tobiu
+- 2025-07-10T20:18:33Z @tobiu added the `enhancement` label
+- 2025-07-10T20:19:02Z @tobiu referenced in commit `9ea7745` - "state.createHierarchicalDataProxy: Allow direct binding to store properties #7007"
+- 2025-07-10T20:19:08Z @tobiu closed this issue
 

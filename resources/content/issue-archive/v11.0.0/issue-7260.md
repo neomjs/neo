@@ -30,11 +30,11 @@ The Playwright test runner was incorrectly creating a `test-results` directory a
 
 This combination ensures that all test artifacts are consistently and correctly placed in `test/playwright/test-results`.
 
-## Activity Log
+## Timeline
 
-- 2025-09-26 @tobiu assigned to @tobiu
-- 2025-09-26 @tobiu added the `enhancement` label
-- 2025-09-26 @tobiu referenced in commit `ff35fc5` - "Correct Playwright Output Directory #7260"
-- 2025-09-26 @tobiu closed this issue
-- 2025-09-27 @tobiu added parent issue #7262
+- 2025-09-26T14:09:00Z @tobiu assigned to @tobiu
+- 2025-09-26T14:09:01Z @tobiu added the `enhancement` label
+- 2025-09-26T14:10:03Z @tobiu referenced in commit `ff35fc5` - "Correct Playwright Output Directory #7260"
+- 2025-09-26T14:10:22Z @tobiu closed this issue
+- 2025-09-27T11:16:49Z @tobiu added parent issue #7262
 

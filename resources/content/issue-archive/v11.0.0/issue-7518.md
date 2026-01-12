@@ -34,12 +34,12 @@ This ticket is to make the `callTool` function in the shared `toolService.mjs` r
 4.  Tool calls with prefixed names now execute correctly.
 5.  Tool calls with non-prefixed names continue to work as before.
 
-## Activity Log
+## Timeline
 
-- 2025-10-17 @tobiu assigned to @tobiu
-- 2025-10-17 @tobiu added parent issue #7501
-- 2025-10-17 @tobiu added the `enhancement` label
-- 2025-10-17 @tobiu added the `ai` label
-- 2025-10-17 @tobiu referenced in commit `af0aeb8` - "Make toolService resilient to server-prefixed tool names #7518"
-- 2025-10-17 @tobiu closed this issue
+- 2025-10-17T10:46:42Z @tobiu assigned to @tobiu
+- 2025-10-17T10:46:43Z @tobiu added parent issue #7501
+- 2025-10-17T10:46:44Z @tobiu added the `enhancement` label
+- 2025-10-17T10:46:44Z @tobiu added the `ai` label
+- 2025-10-17T10:48:04Z @tobiu referenced in commit `af0aeb8` - "Make toolService resilient to server-prefixed tool names #7518"
+- 2025-10-17T10:48:12Z @tobiu closed this issue
 

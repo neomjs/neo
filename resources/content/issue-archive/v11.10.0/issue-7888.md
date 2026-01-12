@@ -62,12 +62,12 @@ Establish a strict standard for method signatures based on argument requirements
 **Note:**
 This refactoring ensures that calling a tool like `list_summaries` via MCP without passing an empty object `{}` (which some clients might do) will not cause a server-side error.
 
-## Activity Log
+## Timeline
 
-- 2025-11-24 @tobiu added the `enhancement` label
-- 2025-11-24 @tobiu added the `ai` label
-- 2025-11-24 @tobiu added the `refactoring` label
-- 2025-11-24 @tobiu assigned to @tobiu
-- 2025-11-24 @tobiu referenced in commit `a370f39` - "Standardize MCP Tool Method Signatures with Default Objects #7888"
-- 2025-11-24 @tobiu closed this issue
+- 2025-11-24T08:28:21Z @tobiu added the `enhancement` label
+- 2025-11-24T08:28:21Z @tobiu added the `ai` label
+- 2025-11-24T08:28:21Z @tobiu added the `refactoring` label
+- 2025-11-24T08:48:08Z @tobiu assigned to @tobiu
+- 2025-11-24T08:49:20Z @tobiu referenced in commit `a370f39` - "Standardize MCP Tool Method Signatures with Default Objects #7888"
+- 2025-11-24T08:49:32Z @tobiu closed this issue
 

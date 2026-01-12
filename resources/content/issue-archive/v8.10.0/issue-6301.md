@@ -24,10 +24,10 @@ closedAt: '2025-01-26T18:16:05Z'
 * Since the internal structure of cellIds could change, we need a clean API to get the matching `dataField`
 * Needed inside selection models
 
-## Activity Log
+## Timeline
 
-- 2025-01-26 @tobiu added the `enhancement` label
-- 2025-01-26 @tobiu assigned to @tobiu
-- 2025-01-26 @tobiu referenced in commit `45acb9b` - "grid.View: getDataField(cellId) #6301"
-- 2025-01-26 @tobiu closed this issue
+- 2025-01-26T18:15:06Z @tobiu added the `enhancement` label
+- 2025-01-26T18:15:06Z @tobiu assigned to @tobiu
+- 2025-01-26T18:15:52Z @tobiu referenced in commit `45acb9b` - "grid.View: getDataField(cellId) #6301"
+- 2025-01-26T18:16:05Z @tobiu closed this issue
 

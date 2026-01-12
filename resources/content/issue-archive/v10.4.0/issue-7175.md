@@ -55,10 +55,10 @@ This refactoring provides several key benefits:
 - **Consistency:** Both vertical and horizontal scrolling now share the same robust mechanism for managing the `isScrolling` state.
 - **Reduced Complexity:** The removal of manual timer management simplifies the `ScrollManager`'s implementation.
 
-## Activity Log
+## Timeline
 
-- 2025-08-11 @tobiu assigned to @tobiu
-- 2025-08-11 @tobiu added the `enhancement` label
-- 2025-08-11 @tobiu referenced in commit `d88f8ed` - "Refactor Grid ScrollManager to use delayable #7175"
-- 2025-08-11 @tobiu closed this issue
+- 2025-08-11T07:54:23Z @tobiu assigned to @tobiu
+- 2025-08-11T07:54:24Z @tobiu added the `enhancement` label
+- 2025-08-11T07:54:55Z @tobiu referenced in commit `d88f8ed` - "Refactor Grid ScrollManager to use delayable #7175"
+- 2025-08-11T07:56:45Z @tobiu closed this issue
 

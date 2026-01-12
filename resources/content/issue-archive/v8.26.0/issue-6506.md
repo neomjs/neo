@@ -23,10 +23,10 @@ closedAt: '2025-02-26T21:36:32Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
-- 2025-02-26 @tobiu added the `enhancement` label
-- 2025-02-26 @tobiu assigned to @tobiu
-- 2025-02-26 @tobiu referenced in commit `9fd0503` - "examples.grid.bigData.ControlsContainer: enable tab header resorting #6506"
-- 2025-02-26 @tobiu closed this issue
+- 2025-02-26T21:35:46Z @tobiu added the `enhancement` label
+- 2025-02-26T21:35:46Z @tobiu assigned to @tobiu
+- 2025-02-26T21:36:26Z @tobiu referenced in commit `9fd0503` - "examples.grid.bigData.ControlsContainer: enable tab header resorting #6506"
+- 2025-02-26T21:36:33Z @tobiu closed this issue
 

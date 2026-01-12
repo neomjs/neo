@@ -23,10 +23,10 @@ closedAt: '2025-02-10T20:56:59Z'
 
 * In case we want to keep using the plugin for the buffered grid, we need a better way to find the rows parent node
 
-## Activity Log
+## Timeline
 
-- 2025-02-10 @tobiu added the `enhancement` label
-- 2025-02-10 @tobiu assigned to @tobiu
-- 2025-02-10 @tobiu referenced in commit `391c420` - "table.plugin.CellEditing: unmountEditor() => smarter view vdom items access needed #6432"
-- 2025-02-10 @tobiu closed this issue
+- 2025-02-10T20:56:34Z @tobiu added the `enhancement` label
+- 2025-02-10T20:56:35Z @tobiu assigned to @tobiu
+- 2025-02-10T20:56:47Z @tobiu referenced in commit `391c420` - "table.plugin.CellEditing: unmountEditor() => smarter view vdom items access needed #6432"
+- 2025-02-10T20:56:59Z @tobiu closed this issue
 

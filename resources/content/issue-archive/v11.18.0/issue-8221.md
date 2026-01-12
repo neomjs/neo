@@ -43,11 +43,11 @@ Rewrite `.github/AI_QUICK_START.md` to reflect the new workflow:
 *   Misleading claims about speed and rate limits are corrected.
 
 
-## Activity Log
+## Timeline
 
-- 2025-12-30 @tobiu added the `documentation` label
-- 2025-12-30 @tobiu added the `ai` label
-- 2025-12-30 @tobiu assigned to @tobiu
-- 2025-12-30 @tobiu referenced in commit `ce45f99` - "AI: Update Quick Start Guide for Pre-Built Knowledge Base #8221"
-- 2025-12-30 @tobiu closed this issue
+- 2025-12-30T15:54:18Z @tobiu added the `documentation` label
+- 2025-12-30T15:54:18Z @tobiu added the `ai` label
+- 2025-12-30T15:54:37Z @tobiu assigned to @tobiu
+- 2025-12-30T16:33:56Z @tobiu referenced in commit `ce45f99` - "AI: Update Quick Start Guide for Pre-Built Knowledge Base #8221"
+- 2025-12-30T16:34:19Z @tobiu closed this issue
 

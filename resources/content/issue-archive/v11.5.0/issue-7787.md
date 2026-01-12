@@ -40,10 +40,10 @@ This ticket covers the implementation of the client-side logic required for the 
 
 These changes work together to enable a seamless and efficient takeover of the server-rendered application state by the client, and improve clarity for framework users.
 
-## Activity Log
+## Timeline
 
-- 2025-11-17 @tobiu added the `enhancement` label
-- 2025-11-17 @tobiu added the `ai` label
-- 2025-11-17 @tobiu referenced in commit `55fe150` - "Implement Client-Side SSR Takeover Logic and VdomLifecycle Clarifications #7787"
-- 2025-11-17 @tobiu closed this issue
+- 2025-11-17T23:14:05Z @tobiu added the `enhancement` label
+- 2025-11-17T23:14:06Z @tobiu added the `ai` label
+- 2025-11-17T23:34:35Z @tobiu referenced in commit `55fe150` - "Implement Client-Side SSR Takeover Logic and VdomLifecycle Clarifications #7787"
+- 2025-11-17T23:34:42Z @tobiu closed this issue
 

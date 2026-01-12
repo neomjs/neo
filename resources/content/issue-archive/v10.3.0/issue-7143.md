@@ -24,11 +24,11 @@ closedAt: '2025-07-31T15:25:44Z'
 **Description:**
 After the feature is functionally complete and well-tested, refactor the new modules (`HtmlTemplateProcessor`, etc.) to meet the high code quality standards of the neo.mjs framework. This includes adding comprehensive JSDoc comments, ensuring adherence to coding guidelines, and optimizing for clarity and performance.
 
-## Activity Log
+## Timeline
 
-- 2025-07-31 @tobiu assigned to @tobiu
-- 2025-07-31 @tobiu added parent issue #7130
-- 2025-07-31 @tobiu added the `enhancement` label
-- 2025-07-31 @tobiu referenced in commit `78cdf3c` - "Code Quality Refinement #7143"
-- 2025-07-31 @tobiu closed this issue
+- 2025-07-31T10:54:25Z @tobiu assigned to @tobiu
+- 2025-07-31T10:54:26Z @tobiu added parent issue #7130
+- 2025-07-31T10:54:27Z @tobiu added the `enhancement` label
+- 2025-07-31T15:25:38Z @tobiu referenced in commit `78cdf3c` - "Code Quality Refinement #7143"
+- 2025-07-31T15:25:44Z @tobiu closed this issue
 

@@ -27,20 +27,18 @@ Key properties to include:
 - `scrollLeft`
 - `scrollTop`
 
-## Comments
+## Timeline
 
-### @tobiu - 2026-01-01 15:26
+- 2026-01-01T15:25:22Z @tobiu added the `enhancement` label
+- 2026-01-01T15:25:22Z @tobiu added the `ai` label
+- 2026-01-01T15:26:36Z @tobiu assigned to @tobiu
+- 2026-01-01T15:26:46Z @tobiu referenced in commit `b49ae76` - "#8253 Implement toJSON in grid.ScrollManager"
+- 2026-01-01T15:26:57Z @tobiu added parent issue #8200
+### @tobiu - 2026-01-01T15:26:59Z
 
 **Input from Gemini:**
 
 > ✦ Implemented `toJSON` in `src/grid/ScrollManager.mjs`.
 
-## Activity Log
-
-- 2026-01-01 @tobiu added the `enhancement` label
-- 2026-01-01 @tobiu added the `ai` label
-- 2026-01-01 @tobiu assigned to @tobiu
-- 2026-01-01 @tobiu referenced in commit `b49ae76` - "#8253 Implement toJSON in grid.ScrollManager"
-- 2026-01-01 @tobiu added parent issue #8200
-- 2026-01-01 @tobiu closed this issue
+- 2026-01-01T15:27:17Z @tobiu closed this issue
 

@@ -23,10 +23,10 @@ closedAt: '2025-01-04T14:14:16Z'
 
 this should not affect / break the logic.
 
-## Activity Log
+## Timeline
 
-- 2025-01-04 @tobiu added the `enhancement` label
-- 2025-01-04 @tobiu assigned to @tobiu
-- 2025-01-04 @tobiu referenced in commit `358b85b` - "Use more meaningful internal class names for Base classes #6173"
-- 2025-01-04 @tobiu closed this issue
+- 2025-01-04T13:54:15Z @tobiu added the `enhancement` label
+- 2025-01-04T13:54:15Z @tobiu assigned to @tobiu
+- 2025-01-04T14:14:13Z @tobiu referenced in commit `358b85b` - "Use more meaningful internal class names for Base classes #6173"
+- 2025-01-04T14:14:16Z @tobiu closed this issue
 

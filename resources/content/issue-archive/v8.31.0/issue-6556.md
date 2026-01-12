@@ -23,10 +23,10 @@ closedAt: '2025-03-09T16:56:09Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
-- 2025-03-09 @tobiu added the `enhancement` label
-- 2025-03-09 @tobiu assigned to @tobiu
-- 2025-03-09 @tobiu referenced in commit `1180030` - "examples.grid.animatedRowSorting.Viewport: add a progress column #6556"
-- 2025-03-09 @tobiu closed this issue
+- 2025-03-09T16:55:36Z @tobiu added the `enhancement` label
+- 2025-03-09T16:55:36Z @tobiu assigned to @tobiu
+- 2025-03-09T16:55:50Z @tobiu referenced in commit `1180030` - "examples.grid.animatedRowSorting.Viewport: add a progress column #6556"
+- 2025-03-09T16:56:09Z @tobiu closed this issue
 

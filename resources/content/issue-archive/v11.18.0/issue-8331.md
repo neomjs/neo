@@ -42,18 +42,18 @@ Including basic dimensions (width/height) helps immediately distinguish between 
 
 Reference: #8169 (Epic)
 
-## Activity Log
+## Timeline
 
-- 2026-01-05 @tobiu added the `enhancement` label
-- 2026-01-05 @tobiu added the `ai` label
-- 2026-01-05 @tobiu added the `architecture` label
-- 2026-01-05 @tobiu assigned to @tobiu
-- 2026-01-05 @tobiu added parent issue #8169
-- 2026-01-05 @tobiu referenced in commit `9613d44` - "feat(ai): Enhance Neural Link health check response (#8331)
+- 2026-01-05T11:51:15Z @tobiu added the `enhancement` label
+- 2026-01-05T11:51:15Z @tobiu added the `ai` label
+- 2026-01-05T11:51:15Z @tobiu added the `architecture` label
+- 2026-01-05T11:51:31Z @tobiu assigned to @tobiu
+- 2026-01-05T11:51:36Z @tobiu added parent issue #8169
+- 2026-01-05T11:56:33Z @tobiu referenced in commit `9613d44` - "feat(ai): Enhance Neural Link health check response (#8331)
 
 - Remove redundant 'details' array
 - Add structured 'sessions', 'windows', and 'agents' lists
 - Include window dimensions in 'windows' list
 - Update openapi.yaml schema"
-- 2026-01-05 @tobiu closed this issue
+- 2026-01-05T12:16:08Z @tobiu closed this issue
 

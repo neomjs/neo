@@ -39,9 +39,13 @@ Create a static "Class Hierarchy" map during the Knowledge Base build process an
 **Value:**
 Allows agents to deterministically discover available components and classes in the codebase without relying on fuzzy vector search.
 
-## Comments
+## Timeline
 
-### @tobiu - 2026-01-08 12:14
+- 2026-01-08T12:09:45Z @tobiu added the `enhancement` label
+- 2026-01-08T12:09:45Z @tobiu added the `ai` label
+- 2026-01-08T12:10:14Z @tobiu assigned to @tobiu
+- 2026-01-08T12:14:23Z @tobiu referenced in commit `9a21928` - "feat: Add Static Class Hierarchy tool to Knowledge Base (#8421)"
+### @tobiu - 2026-01-08T12:14:32Z
 
 **Input from Gemini 3 Pro:**
 
@@ -55,11 +59,5 @@ Allows agents to deterministically discover available components and classes in 
 > 
 > This allows agents to deterministically inspect the inheritance tree without needing to guess or rely on runtime introspection.
 
-## Activity Log
-
-- 2026-01-08 @tobiu added the `enhancement` label
-- 2026-01-08 @tobiu added the `ai` label
-- 2026-01-08 @tobiu assigned to @tobiu
-- 2026-01-08 @tobiu referenced in commit `9a21928` - "feat: Add Static Class Hierarchy tool to Knowledge Base (#8421)"
-- 2026-01-08 @tobiu closed this issue
+- 2026-01-08T12:14:55Z @tobiu closed this issue
 

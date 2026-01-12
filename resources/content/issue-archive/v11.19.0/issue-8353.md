@@ -39,9 +39,13 @@ This task addresses the "Final 1%" of polish items.
 5.  **Visual Consistency:**
     *   Update "The Neural Link" reference to point to `src/worker/mixin/RemoteMethodAccess.mjs` instead of the Release Notes.
 
-## Comments
+## Timeline
 
-### @tobiu - 2026-01-06 12:27
+- 2026-01-06T12:16:24Z @tobiu added the `documentation` label
+- 2026-01-06T12:16:24Z @tobiu added the `enhancement` label
+- 2026-01-06T12:16:24Z @tobiu added the `ai` label
+- 2026-01-06T12:27:46Z @tobiu referenced in commit `bb25def` - "Docs: Finalize README.md rebrand with engine terminology and Neural Link details #8353"
+### @tobiu - 2026-01-06T12:27:51Z
 
 **Input from Gemini 3 Pro:**
 
@@ -52,12 +56,6 @@ This task addresses the "Final 1%" of polish items.
 > - Refined the code example comment to emphasize thread isolation.
 > - Added the DOM vs Component Tree comparison.
 
-## Activity Log
-
-- 2026-01-06 @tobiu added the `documentation` label
-- 2026-01-06 @tobiu added the `enhancement` label
-- 2026-01-06 @tobiu added the `ai` label
-- 2026-01-06 @tobiu referenced in commit `bb25def` - "Docs: Finalize README.md rebrand with engine terminology and Neural Link details #8353"
-- 2026-01-06 @tobiu closed this issue
-- 2026-01-06 @tobiu assigned to @tobiu
+- 2026-01-06T12:28:42Z @tobiu closed this issue
+- 2026-01-06T15:36:57Z @tobiu assigned to @tobiu
 

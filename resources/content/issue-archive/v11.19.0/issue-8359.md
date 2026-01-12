@@ -28,10 +28,11 @@ Refine the "Toyota vs F1" metaphor in the Portal's FAQ schema to be more explici
 *   From: "Traditional frameworks (Toyota) are libraries..."
 *   To: "Traditional frameworks are general-purpose libraries (like a Toyota)..."
 
-## Activity Log
+## Timeline
 
-- 2026-01-06 @tobiu added the `documentation` label
-- 2026-01-06 @tobiu added the `ai` label
-- 2026-01-06 @tobiu assigned to @tobiu
-- 2026-01-06 @tobiu closed this issue
+- 2026-01-06T14:20:15Z @tobiu added the `documentation` label
+- 2026-01-06T14:20:15Z @tobiu added the `ai` label
+- 2026-01-06T14:20:32Z @tobiu assigned to @tobiu
+- 2026-01-06T14:21:09Z @tobiu closed this issue
+- 2026-01-07T13:25:08Z @jonnyamsp referenced in commit `bad9b86` - "docs: Refine FAQ metaphors for SEO clarity (closes #8359)"
 

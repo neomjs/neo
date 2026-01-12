@@ -23,10 +23,10 @@ closedAt: '2025-02-03T11:25:18Z'
 
 * Optionally move the column content (cells) while dragging
 
-## Activity Log
+## Timeline
 
-- 2025-02-03 @tobiu added the `enhancement` label
-- 2025-02-03 @tobiu assigned to @tobiu
-- 2025-02-03 @tobiu referenced in commit `c6bd2c2` - "draggable.grid.header.toolbar.SortZone: switchItems() #6358"
-- 2025-02-03 @tobiu closed this issue
+- 2025-02-03T11:24:37Z @tobiu added the `enhancement` label
+- 2025-02-03T11:24:37Z @tobiu assigned to @tobiu
+- 2025-02-03T11:25:14Z @tobiu referenced in commit `c6bd2c2` - "draggable.grid.header.toolbar.SortZone: switchItems() #6358"
+- 2025-02-03T11:25:18Z @tobiu closed this issue
 

@@ -109,10 +109,10 @@ export default Neo.gatekeep(IdGenerator, 'Neo.core.IdGenerator', () => {
     *   src/core/IdGenerator.mjs
     *   src/vdom/VNode.mjs
 
-## Activity Log
+## Timeline
 
-- 2025-07-18 @tobiu assigned to @tobiu
-- 2025-07-18 @tobiu added the `enhancement` label
-- 2025-07-18 @tobiu referenced in commit `2253053` - "Introduce Neo.gatekeep() to Standardize Module Exports #7081"
-- 2025-07-18 @tobiu closed this issue
+- 2025-07-18T12:23:25Z @tobiu assigned to @tobiu
+- 2025-07-18T12:23:27Z @tobiu added the `enhancement` label
+- 2025-07-18T12:27:31Z @tobiu referenced in commit `2253053` - "Introduce Neo.gatekeep() to Standardize Module Exports #7081"
+- 2025-07-18T12:34:49Z @tobiu closed this issue
 

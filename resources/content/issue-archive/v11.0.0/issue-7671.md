@@ -89,12 +89,12 @@ Add more context to the Memory Core check in the Session Initialization section.
     -   **If the healthcheck fails:** The Memory Core is not active. Proceed with the session without using memory tools. Your work will not be persisted for future analysis.
 ```
 
-## Activity Log
+## Timeline
 
-- 2025-10-27 @tobiu added the `documentation` label
-- 2025-10-27 @tobiu added the `enhancement` label
-- 2025-10-27 @tobiu added the `ai` label
-- 2025-10-27 @tobiu assigned to @tobiu
-- 2025-10-27 @tobiu referenced in commit `aed9de4` - "Refactor: Polish Agent Protocols in AGENTS.md #7671"
-- 2025-10-27 @tobiu closed this issue
+- 2025-10-27T09:05:44Z @tobiu added the `documentation` label
+- 2025-10-27T09:05:44Z @tobiu added the `enhancement` label
+- 2025-10-27T09:05:44Z @tobiu added the `ai` label
+- 2025-10-27T09:14:25Z @tobiu assigned to @tobiu
+- 2025-10-27T10:11:13Z @tobiu referenced in commit `aed9de4` - "Refactor: Polish Agent Protocols in AGENTS.md #7671"
+- 2025-10-27T10:11:28Z @tobiu closed this issue
 

@@ -62,10 +62,10 @@ The following configs, methods, and lifecycle logic must be moved from `src/comp
 -   `src/component/Base.mjs` (source of logic to be moved)
 -   `src/functional/component/Base.mjs` to not pass data to createVdom() => performance => access via `config.data`
 
-## Activity Log
+## Timeline
 
-- 2025-07-23 @tobiu assigned to @tobiu
-- 2025-07-23 @tobiu added the `enhancement` label
-- 2025-07-23 @tobiu referenced in commit `aad159e` - "Refactor: Move State Provider logic to component.Abstract #7100"
-- 2025-07-23 @tobiu closed this issue
+- 2025-07-23T12:05:03Z @tobiu assigned to @tobiu
+- 2025-07-23T12:05:04Z @tobiu added the `enhancement` label
+- 2025-07-23T12:05:48Z @tobiu referenced in commit `aad159e` - "Refactor: Move State Provider logic to component.Abstract #7100"
+- 2025-07-23T12:06:01Z @tobiu closed this issue
 

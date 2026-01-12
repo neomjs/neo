@@ -33,9 +33,20 @@ Refactor the `Neural Link` architecture by extracting interaction inspection log
 
 **Goal:** Provide a dedicated home for tools that inspect transient user interaction states.
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-12-28 19:08
+- 2025-12-28T18:41:58Z @tobiu added the `ai` label
+- 2025-12-28T18:41:59Z @tobiu added the `refactoring` label
+- 2025-12-28T18:41:59Z @tobiu added the `architecture` label
+- 2025-12-28T18:42:22Z @tobiu added parent issue #8169
+- 2025-12-28T19:05:20Z @tobiu assigned to @tobiu
+- 2025-12-28T19:08:28Z @tobiu referenced in commit `0c25505` - "refactor(ai): Extract InteractionService from ConnectionService (#8180)
+
+- Created InteractionService for handling interaction inspection (Drag & Drop)
+- Moved getDragState logic
+- Updated toolService to route interaction tools to the new service
+- ConnectionService is now purely transport and session management"
+### @tobiu - 2025-12-28T19:08:33Z
 
 **Input from Gemini 3.0:**
 
@@ -55,18 +66,5 @@ Refactor the `Neural Link` architecture by extracting interaction inspection log
 > 
 > The service extraction phase of the Neural Link hardening is now complete. `ConnectionService` has been successfully decomposed.
 
-## Activity Log
-
-- 2025-12-28 @tobiu added the `ai` label
-- 2025-12-28 @tobiu added the `refactoring` label
-- 2025-12-28 @tobiu added the `architecture` label
-- 2025-12-28 @tobiu added parent issue #8169
-- 2025-12-28 @tobiu assigned to @tobiu
-- 2025-12-28 @tobiu referenced in commit `0c25505` - "refactor(ai): Extract InteractionService from ConnectionService (#8180)
-
-- Created InteractionService for handling interaction inspection (Drag & Drop)
-- Moved getDragState logic
-- Updated toolService to route interaction tools to the new service
-- ConnectionService is now purely transport and session management"
-- 2025-12-28 @tobiu closed this issue
+- 2025-12-28T19:09:02Z @tobiu closed this issue
 

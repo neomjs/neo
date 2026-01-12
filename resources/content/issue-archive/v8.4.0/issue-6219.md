@@ -23,10 +23,10 @@ closedAt: '2025-01-14T09:41:56Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
-- 2025-01-14 @tobiu added the `enhancement` label
-- 2025-01-14 @tobiu assigned to @tobiu
-- 2025-01-14 @tobiu referenced in commit `5422f44` - "examples.grid.bigData.MainContainer: create a theme file #6219"
-- 2025-01-14 @tobiu closed this issue
+- 2025-01-14T09:32:42Z @tobiu added the `enhancement` label
+- 2025-01-14T09:32:42Z @tobiu assigned to @tobiu
+- 2025-01-14T09:41:45Z @tobiu referenced in commit `5422f44` - "examples.grid.bigData.MainContainer: create a theme file #6219"
+- 2025-01-14T09:41:56Z @tobiu closed this issue
 

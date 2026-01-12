@@ -35,12 +35,12 @@ Standard JavaScript closure behavior means that two function instances, even wit
 ### JSDoc Update
 The JSDoc for the `handler_` config in `src/button/Base.mjs` should be updated to explain this behavior and the rationale behind the `isEqual` override.
 
-## Activity Log
+## Timeline
 
-- 2025-11-01 @tobiu added the `bug` label
-- 2025-11-01 @tobiu added the `enhancement` label
-- 2025-11-01 @tobiu added the `ai` label
-- 2025-11-01 @tobiu referenced in commit `78c0f33` - "Enhance button.Base handler config for proper reactivity with closures #7686"
-- 2025-11-01 @tobiu closed this issue
-- 2025-11-01 @tobiu assigned to @tobiu
+- 2025-11-01T10:42:25Z @tobiu added the `bug` label
+- 2025-11-01T10:42:25Z @tobiu added the `enhancement` label
+- 2025-11-01T10:42:25Z @tobiu added the `ai` label
+- 2025-11-01T10:51:42Z @tobiu referenced in commit `78c0f33` - "Enhance button.Base handler config for proper reactivity with closures #7686"
+- 2025-11-01T10:51:59Z @tobiu closed this issue
+- 2025-11-01T10:52:21Z @tobiu assigned to @tobiu
 

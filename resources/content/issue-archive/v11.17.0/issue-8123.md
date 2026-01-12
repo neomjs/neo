@@ -38,12 +38,12 @@ A race condition exists in `src/mixin/VdomLifecycle.mjs` where child components 
 2.  **Centralize Cleanup:** Move `me.isVdomUpdating = false` into `resolveVdomUpdate` to ensure the flag remains true until the entire transaction (including callbacks and mounting) is complete.
 3.  **Refactor:** Update `executeVdomUpdate` to rely on `resolveVdomUpdate` for clearing the flag, ensuring consistency.
 
-## Activity Log
+## Timeline
 
-- 2025-12-16 @tobiu added the `bug` label
-- 2025-12-16 @tobiu added the `ai` label
-- 2025-12-16 @tobiu assigned to @tobiu
-- 2025-12-16 @tobiu referenced in commit `f00d8f9` - "Fix VDOM initialization race condition causing child update collisions (#8123)
+- 2025-12-16T17:03:02Z @tobiu added the `bug` label
+- 2025-12-16T17:03:02Z @tobiu added the `ai` label
+- 2025-12-16T17:03:26Z @tobiu assigned to @tobiu
+- 2025-12-16T17:05:43Z @tobiu referenced in commit `f00d8f9` - "Fix VDOM initialization race condition causing child update collisions (#8123)
 
 The intermittent content duplication in Panel components was traced to a race condition where child components triggered VDOM updates concurrently with their parent's initialization phase. This occurred because  set  locally but failed to register with the  manager, causing hierarchical safeguards () to fail.
 
@@ -51,5 +51,5 @@ This commit refactors the VDOM lifecycle to ensure strict synchronization:
 1.  **Register:**  now calls  to formally lock the component tree during initialization.
 2.  **Centralize Cleanup:** The  logic has been moved into . This ensures that the "busy" state persists until the entire update transaction (including mounting and callbacks) is fully resolved, preventing premature child updates.
 3.  **Consistency:**  and  now share the same resolution path, eliminating redundancy and potential for drift."
-- 2025-12-16 @tobiu closed this issue
+- 2025-12-16T17:06:00Z @tobiu closed this issue
 

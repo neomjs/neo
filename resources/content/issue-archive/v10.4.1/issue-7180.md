@@ -45,10 +45,10 @@ A coordinated enhancement across `data.Store`, `grid.Body`, and `grid.Container`
 *   **Correct Layout & Accessibility:** The grid's scrollbar and `aria-rowcount` are sized correctly from the very beginning, preventing layout shifts and providing an accurate representation of the full dataset.
 *   **Improved User Experience:** Eliminates long freezes when loading large amounts of data, providing a much smoother and more informative experience.
 
-## Activity Log
+## Timeline
 
-- 2025-08-11 @tobiu assigned to @tobiu
-- 2025-08-11 @tobiu added the `enhancement` label
-- 2025-08-11 @tobiu referenced in commit `f2bde56` - "Enhance Store Chunking for Instant Grid Previews #7180"
-- 2025-08-11 @tobiu closed this issue
+- 2025-08-11T12:04:41Z @tobiu assigned to @tobiu
+- 2025-08-11T12:04:43Z @tobiu added the `enhancement` label
+- 2025-08-11T12:05:09Z @tobiu referenced in commit `f2bde56` - "Enhance Store Chunking for Instant Grid Previews #7180"
+- 2025-08-11T12:06:05Z @tobiu closed this issue
 

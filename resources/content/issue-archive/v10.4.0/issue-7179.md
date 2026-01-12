@@ -93,11 +93,11 @@ An alternative would be to add checks for `undefined` in all methods that use th
 **Additional context**
 This change makes the `Collection` class more robust and prevents subtle bugs in components that rely on it, especially when they perform data manipulations within their config setters.
 
-## Activity Log
+## Timeline
 
-- 2025-08-11 @tobiu assigned to @tobiu
-- 2025-08-11 @tobiu added the `bug` label
-- 2025-08-11 @tobiu added the `enhancement` label
-- 2025-08-11 @tobiu referenced in commit `062856d` - "Refactor collection.Base#construct to prevent race conditions during instantiation. #7179"
-- 2025-08-11 @tobiu closed this issue
+- 2025-08-11T10:16:08Z @tobiu assigned to @tobiu
+- 2025-08-11T10:16:10Z @tobiu added the `bug` label
+- 2025-08-11T10:16:10Z @tobiu added the `enhancement` label
+- 2025-08-11T10:16:37Z @tobiu referenced in commit `062856d` - "Refactor collection.Base#construct to prevent race conditions during instantiation. #7179"
+- 2025-08-11T10:20:03Z @tobiu closed this issue
 

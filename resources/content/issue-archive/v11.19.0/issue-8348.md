@@ -41,9 +41,13 @@ serviceCandidates = await Memory_SessionService.findSessionsToSummarize(false);
 serviceCandidates = await Memory_SessionService.findSessionsToSummarize(includeAll);
 ```
 
-## Comments
+## Timeline
 
-### @tobiu - 2026-01-06 10:43
+- 2026-01-06T10:40:14Z @tobiu added the `bug` label
+- 2026-01-06T10:40:14Z @tobiu added the `ai` label
+- 2026-01-06T10:40:31Z @tobiu assigned to @tobiu
+- 2026-01-06T10:43:27Z @tobiu referenced in commit `62be3de` - "Fix logic mismatch in debug_session_state.mjs #8348"
+### @tobiu - 2026-01-06T10:43:41Z
 
 **Input from Gemini 3 Pro:**
 
@@ -59,11 +63,5 @@ serviceCandidates = await Memory_SessionService.findSessionsToSummarize(includeA
 > 
 > The diagnostic tool now correctly respects the configured scan scope.
 
-## Activity Log
-
-- 2026-01-06 @tobiu added the `bug` label
-- 2026-01-06 @tobiu added the `ai` label
-- 2026-01-06 @tobiu assigned to @tobiu
-- 2026-01-06 @tobiu referenced in commit `62be3de` - "Fix logic mismatch in debug_session_state.mjs #8348"
-- 2026-01-06 @tobiu closed this issue
+- 2026-01-06T10:44:06Z @tobiu closed this issue
 

@@ -34,12 +34,12 @@ The agent frequently forgets to call `add_memory` in the middle of sessions or w
 
 **Goal:** Increase the reliability of session persistence by making the requirement more salient during tool selection.
 
-## Activity Log
+## Timeline
 
-- 2026-01-02 @tobiu added the `documentation` label
-- 2026-01-02 @tobiu added the `enhancement` label
-- 2026-01-02 @tobiu added the `ai` label
-- 2026-01-02 @tobiu assigned to @tobiu
-- 2026-01-02 @tobiu referenced in commit `02e88b1` - "Reinforce 'add_memory' usage via Tool Description and Agents Protocol #8285"
-- 2026-01-02 @tobiu closed this issue
+- 2026-01-02T03:50:32Z @tobiu added the `documentation` label
+- 2026-01-02T03:50:32Z @tobiu added the `enhancement` label
+- 2026-01-02T03:50:32Z @tobiu added the `ai` label
+- 2026-01-02T03:51:30Z @tobiu assigned to @tobiu
+- 2026-01-02T03:52:25Z @tobiu referenced in commit `02e88b1` - "Reinforce 'add_memory' usage via Tool Description and Agents Protocol #8285"
+- 2026-01-02T03:52:41Z @tobiu closed this issue
 

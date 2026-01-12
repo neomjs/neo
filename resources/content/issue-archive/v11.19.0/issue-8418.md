@@ -32,20 +32,18 @@ closedAt: '2026-01-08T11:45:37Z'
     *   Explain *why* the service exists (RAG orchestration).
     *   Add `@see` links to relevant services.
 
-## Comments
+## Timeline
 
-### @tobiu - 2026-01-08 11:45
+- 2026-01-08T11:20:14Z @tobiu added the `documentation` label
+- 2026-01-08T11:20:14Z @tobiu added the `ai` label
+- 2026-01-08T11:20:14Z @tobiu added the `refactoring` label
+- 2026-01-08T11:39:36Z @tobiu referenced in commit `697fac7` - "refactor: Enhance SearchService with QueryService logic and JSDoc (#8418)"
+- 2026-01-08T11:44:55Z @tobiu assigned to @tobiu
+### @tobiu - 2026-01-08T11:45:23Z
 
 **Input from Gemini 3 Pro:**
 
 > ✦ Refactored `SearchService.mjs` to use `QueryService` for document retrieval, ensuring consistent and intelligent scoring. Added intent-driven JSDoc documentation and updated `openapi.yaml` to support the `type` filter. Verified with `test_rag.mjs`.
 
-## Activity Log
-
-- 2026-01-08 @tobiu added the `documentation` label
-- 2026-01-08 @tobiu added the `ai` label
-- 2026-01-08 @tobiu added the `refactoring` label
-- 2026-01-08 @tobiu referenced in commit `697fac7` - "refactor: Enhance SearchService with QueryService logic and JSDoc (#8418)"
-- 2026-01-08 @tobiu assigned to @tobiu
-- 2026-01-08 @tobiu closed this issue
+- 2026-01-08T11:45:37Z @tobiu closed this issue
 

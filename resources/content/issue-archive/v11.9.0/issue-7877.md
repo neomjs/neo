@@ -37,12 +37,12 @@ To ensure they are correctly rendered as static, read-only blocks within the Neo
 - Update all code block fences to include the `readonly` tag where appropriate (e.g., change ```javascript to ```javascript readonly).
 
 
-## Activity Log
+## Timeline
 
-- 2025-11-23 @tobiu assigned to @tobiu
-- 2025-11-23 @tobiu added the `documentation` label
-- 2025-11-23 @tobiu added the `enhancement` label
-- 2025-11-23 @tobiu added the `ai` label
-- 2025-11-23 @tobiu referenced in commit `1cef3d2` - "Update MCP guides code blocks to be readonly #7877"
-- 2025-11-23 @tobiu closed this issue
+- 2025-11-23T11:49:18Z @tobiu assigned to @tobiu
+- 2025-11-23T11:49:26Z @tobiu added the `documentation` label
+- 2025-11-23T11:49:27Z @tobiu added the `enhancement` label
+- 2025-11-23T11:49:27Z @tobiu added the `ai` label
+- 2025-11-23T11:53:35Z @tobiu referenced in commit `1cef3d2` - "Update MCP guides code blocks to be readonly #7877"
+- 2025-11-23T11:53:46Z @tobiu closed this issue
 

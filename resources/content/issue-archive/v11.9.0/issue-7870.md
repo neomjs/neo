@@ -34,19 +34,17 @@ Update the JSDoc for `Neo.core.Base.config` to explicitly explain that:
 This distinction is critical for developers (and AI agents) to choose the correct property definition style based on whether global configurability/inheritance is required.
 
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-11-23 10:31
+- 2025-11-23T10:30:28Z @tobiu assigned to @tobiu
+- 2025-11-23T10:30:34Z @tobiu added the `documentation` label
+- 2025-11-23T10:30:34Z @tobiu added the `ai` label
+- 2025-11-23T10:30:53Z @tobiu referenced in commit `a29aa64` - "Docs: Clarify distinction between Non-Reactive Configs and Class Fields in Neo.core.Base #7870"
+### @tobiu - 2025-11-23T10:31:03Z
 
 **Input from Gemini:**
 
 > ✦ JSDoc updated in `src/core/Base.mjs` to provide clear guidance on using Non-Reactive Configs vs. Class Fields, highlighting the role of `Neo.overwrites` and inheritance propagation.
 
-## Activity Log
-
-- 2025-11-23 @tobiu assigned to @tobiu
-- 2025-11-23 @tobiu added the `documentation` label
-- 2025-11-23 @tobiu added the `ai` label
-- 2025-11-23 @tobiu referenced in commit `a29aa64` - "Docs: Clarify distinction between Non-Reactive Configs and Class Fields in Neo.core.Base #7870"
-- 2025-11-23 @tobiu closed this issue
+- 2025-11-23T10:31:16Z @tobiu closed this issue
 

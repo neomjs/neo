@@ -30,11 +30,11 @@ Refactor `DragZone.mjs` to rely on the built-in "auto-stealing" behavior of `Neo
 
 This change simplifies the code and aligns it with the framework's instance management best practices, ensuring better preservation of controller scopes during the move.
 
-## Activity Log
+## Timeline
 
-- 2025-12-07 @tobiu added the `ai` label
-- 2025-12-07 @tobiu added the `refactoring` label
-- 2025-12-07 @tobiu assigned to @tobiu
-- 2025-12-07 @tobiu referenced in commit `bb54f7b` - "[Draggable] Leverage auto-stealing for DragProxyContainer moves #8045"
-- 2025-12-07 @tobiu closed this issue
+- 2025-12-07T12:23:42Z @tobiu added the `ai` label
+- 2025-12-07T12:23:42Z @tobiu added the `refactoring` label
+- 2025-12-07T12:23:53Z @tobiu assigned to @tobiu
+- 2025-12-07T12:24:39Z @tobiu referenced in commit `bb54f7b` - "[Draggable] Leverage auto-stealing for DragProxyContainer moves #8045"
+- 2025-12-07T12:24:42Z @tobiu closed this issue
 

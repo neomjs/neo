@@ -34,13 +34,13 @@ To improve performance and maintain consistency with `Neo.util.VNode`, we need t
 ### Rationale
 `VNodeUtil.getById()` is already implemented. Adding `VDomUtil.getById()` ensures consistency and provides a faster lookup for ID-based searches in the VDOM tree, especially useful in hot-paths like scroll capturing.
 
-## Activity Log
+## Timeline
 
-- 2025-12-19 @tobiu added the `enhancement` label
-- 2025-12-19 @tobiu added the `ai` label
-- 2025-12-19 @tobiu added the `performance` label
-- 2025-12-19 @tobiu added the `core` label
-- 2025-12-19 @tobiu assigned to @tobiu
-- 2025-12-19 @tobiu referenced in commit `7a797ea` - "Implement VDom.getById() and optimize component.Base#onScrollCapture() #8140"
-- 2025-12-19 @tobiu closed this issue
+- 2025-12-19T09:11:53Z @tobiu added the `enhancement` label
+- 2025-12-19T09:11:53Z @tobiu added the `ai` label
+- 2025-12-19T09:11:54Z @tobiu added the `performance` label
+- 2025-12-19T09:11:54Z @tobiu added the `core` label
+- 2025-12-19T09:16:54Z @tobiu assigned to @tobiu
+- 2025-12-19T09:17:26Z @tobiu referenced in commit `7a797ea` - "Implement VDom.getById() and optimize component.Base#onScrollCapture() #8140"
+- 2025-12-19T09:17:48Z @tobiu closed this issue
 

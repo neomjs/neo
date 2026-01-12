@@ -57,11 +57,11 @@ As the framework evolves, there's a growing need for a standardized, efficient, 
 *   Improves the overall consistency and maintainability of the framework's reactivity model.
 *   Lays the groundwork for future enhancements in data binding, computed properties, and state management.
 
-## Activity Log
+## Timeline
 
-- 2025-07-06 @tobiu assigned to @tobiu
-- 2025-07-06 @tobiu added the `enhancement` label
-- 2025-07-06 @tobiu referenced in commit `8b2eb13` - "Feature: Introduce Neo.core.Effect and Neo.core.EffectManager for reactive computations #6964"
-- 2025-07-06 @tobiu closed this issue
-- 2025-07-09 @tobiu referenced in commit `8fec0ab` - "Feature: Introduce Neo.core.Effect and Neo.core.EffectManager for reactive computations #6964"
+- 2025-07-06T18:39:57Z @tobiu assigned to @tobiu
+- 2025-07-06T18:39:58Z @tobiu added the `enhancement` label
+- 2025-07-06T18:55:04Z @tobiu referenced in commit `8b2eb13` - "Feature: Introduce Neo.core.Effect and Neo.core.EffectManager for reactive computations #6964"
+- 2025-07-06T18:55:19Z @tobiu closed this issue
+- 2025-07-09T00:10:49Z @tobiu referenced in commit `8fec0ab` - "Feature: Introduce Neo.core.Effect and Neo.core.EffectManager for reactive computations #6964"
 

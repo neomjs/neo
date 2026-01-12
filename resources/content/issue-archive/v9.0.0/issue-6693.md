@@ -23,10 +23,10 @@ closedAt: '2025-05-02T22:36:17Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
-- 2025-05-02 @tobiu added the `bug` label
-- 2025-05-02 @tobiu assigned to @tobiu
-- 2025-05-02 @tobiu referenced in commit `a6c2163` - "Portal.view.ViewportController: afterSetMainContentLayout() => check if the LocalStorage item does exist #6693"
-- 2025-05-02 @tobiu closed this issue
+- 2025-05-02T22:35:34Z @tobiu added the `bug` label
+- 2025-05-02T22:35:34Z @tobiu assigned to @tobiu
+- 2025-05-02T22:36:00Z @tobiu referenced in commit `a6c2163` - "Portal.view.ViewportController: afterSetMainContentLayout() => check if the LocalStorage item does exist #6693"
+- 2025-05-02T22:36:17Z @tobiu closed this issue
 

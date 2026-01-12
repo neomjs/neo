@@ -35,11 +35,11 @@ Key changes include:
 
 The updated guide now accurately represents the current, more robust, and simplified SDK-based approach to MCP server integration.
 
-## Activity Log
+## Timeline
 
-- 2025-11-08 @tobiu added the `documentation` label
-- 2025-11-08 @tobiu added the `ai` label
-- 2025-11-08 @tobiu assigned to @tobiu
-- 2025-11-08 @tobiu referenced in commit `7df1992` - "Docs: Update Agent-Agnostic MCP Config Guide for SDK Architecture #7724"
-- 2025-11-08 @tobiu closed this issue
+- 2025-11-08T12:08:09Z @tobiu added the `documentation` label
+- 2025-11-08T12:08:10Z @tobiu added the `ai` label
+- 2025-11-08T12:08:26Z @tobiu assigned to @tobiu
+- 2025-11-08T12:08:44Z @tobiu referenced in commit `7df1992` - "Docs: Update Agent-Agnostic MCP Config Guide for SDK Architecture #7724"
+- 2025-11-08T12:12:03Z @tobiu closed this issue
 

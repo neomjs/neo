@@ -25,10 +25,10 @@ closedAt: '2025-01-25T20:54:02Z'
 * So, we need to ensure that the `oldValue` always does get removed on DOM level, even if the parent theme is the same
 * Only trigger an update, in case there is a real change
 
-## Activity Log
+## Timeline
 
-- 2025-01-25 @tobiu added the `enhancement` label
-- 2025-01-25 @tobiu assigned to @tobiu
-- 2025-01-25 @tobiu referenced in commit `72fd9e8` - "component.Base: afterSetTheme() #6293"
-- 2025-01-25 @tobiu closed this issue
+- 2025-01-25T20:53:37Z @tobiu added the `enhancement` label
+- 2025-01-25T20:53:37Z @tobiu assigned to @tobiu
+- 2025-01-25T20:53:53Z @tobiu referenced in commit `72fd9e8` - "component.Base: afterSetTheme() #6293"
+- 2025-01-25T20:54:02Z @tobiu closed this issue
 

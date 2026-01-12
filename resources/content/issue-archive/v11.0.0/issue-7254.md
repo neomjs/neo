@@ -41,11 +41,11 @@ This pattern allows for fast, browser-less unit testing of framework components 
 - [x] All tests are passing.
 - [x] Move `playwright.config.mjs` into `test/playwright/` and update paths.
 
-## Activity Log
+## Timeline
 
-- 2025-09-25 @tobiu assigned to @tobiu
-- 2025-09-25 @tobiu added the `enhancement` label
-- 2025-09-25 @tobiu referenced in commit `af081ad` - "Install Playwright and Convert First Siesta Test #7254"
-- 2025-09-25 @tobiu closed this issue
-- 2025-09-27 @tobiu added parent issue #7262
+- 2025-09-25T21:16:18Z @tobiu assigned to @tobiu
+- 2025-09-25T21:16:19Z @tobiu added the `enhancement` label
+- 2025-09-25T21:18:25Z @tobiu referenced in commit `af081ad` - "Install Playwright and Convert First Siesta Test #7254"
+- 2025-09-25T21:26:01Z @tobiu closed this issue
+- 2025-09-27T11:18:21Z @tobiu added parent issue #7262
 

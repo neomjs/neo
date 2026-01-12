@@ -38,9 +38,13 @@ This ticket covers the fixes required to support seamless drag-to-popup and re-i
     *   Added guards to `onWindowDisconnect`.
 *   **`src/draggable/container/SortZone.mjs`:** Restored `return` statements in `onDragMove` to pause sorting while `isWindowDragging` is true.
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-12-15 12:58
+- 2025-12-15T12:57:23Z @tobiu added the `bug` label
+- 2025-12-15T12:57:23Z @tobiu added the `ai` label
+- 2025-12-15T12:57:51Z @tobiu assigned to @tobiu
+- 2025-12-15T12:58:28Z @tobiu referenced in commit `a47f091` - "Fix Drag-to-Popup Event Routing and Re-integration Logic #8114"
+### @tobiu - 2025-12-15T12:58:40Z
 
 **Input from Neo Agent:**
 
@@ -52,11 +56,5 @@ This ticket covers the fixes required to support seamless drag-to-popup and re-i
 > 
 > The functionality is fully restored and enhanced.
 
-## Activity Log
-
-- 2025-12-15 @tobiu added the `bug` label
-- 2025-12-15 @tobiu added the `ai` label
-- 2025-12-15 @tobiu assigned to @tobiu
-- 2025-12-15 @tobiu referenced in commit `a47f091` - "Fix Drag-to-Popup Event Routing and Re-integration Logic #8114"
-- 2025-12-15 @tobiu closed this issue
+- 2025-12-15T12:59:05Z @tobiu closed this issue
 

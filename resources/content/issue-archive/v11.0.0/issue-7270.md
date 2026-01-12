@@ -33,15 +33,20 @@ This task is to migrate the unit test for `ManagerInstance.mjs` from the Siesta 
 3.  Ensure the new test runs successfully via `npm test`.
 4.  The new test must cover all the functionality of the original Siesta test.
 
-## Comments
+## Timeline
 
-### @nabeel001 - 2025-10-07 03:56
+- 2025-09-27T12:39:38Z @tobiu added parent issue #7262
+- 2025-09-27T12:39:38Z @tobiu added the `enhancement` label
+- 2025-10-03T16:24:41Z @tobiu added the `help wanted` label
+- 2025-10-03T16:24:41Z @tobiu added the `good first issue` label
+- 2025-10-03T16:24:41Z @tobiu added the `hacktoberfest` label
+### @nabeel001 - 2025-10-07T03:56:33Z
 
 Hi @tobiu 
 I would like to work on this issue. Kindly assign this to me.
 
 
-### @tobiu - 2025-10-07 07:04
+### @tobiu - 2025-10-07T07:04:05Z
 
 Sure, and thanks for the interest.
 
@@ -53,19 +58,12 @@ One strong hint: let the agent read the epic file first (since it mentions detai
 `.github/ISSUE/epic-enhance-workflow-with-mandatory-unit-testing.md`
 And your ticket afterwards (you can search for the GH ticket id).
 
-### @nabeel001 - 2025-10-08 03:14
+- 2025-10-07T07:04:27Z @tobiu assigned to @nabeel001
+- 2025-10-08T03:13:06Z @nabeel001 cross-referenced by PR #7415
+### @nabeel001 - 2025-10-08T03:14:29Z
 
 @tobiu 
 Kindly review and merge the PR.
 
-## Activity Log
-
-- 2025-09-27 @tobiu added parent issue #7262
-- 2025-09-27 @tobiu added the `enhancement` label
-- 2025-10-03 @tobiu added the `help wanted` label
-- 2025-10-03 @tobiu added the `good first issue` label
-- 2025-10-03 @tobiu added the `hacktoberfest` label
-- 2025-10-07 @tobiu assigned to @nabeel001
-- 2025-10-08 @nabeel001 cross-referenced by PR #7415
-- 2025-10-08 @tobiu closed this issue
+- 2025-10-08T11:53:39Z @tobiu closed this issue
 

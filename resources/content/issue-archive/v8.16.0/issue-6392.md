@@ -23,10 +23,10 @@ closedAt: '2025-02-06T12:06:11Z'
 
 * We need a sharper separation of the different cases for clarity & future maintainability
 
-## Activity Log
+## Timeline
 
-- 2025-02-06 @tobiu added the `enhancement` label
-- 2025-02-06 @tobiu assigned to @tobiu
-- 2025-02-06 @tobiu referenced in commit `7f28859` - "draggable.toolbar.SortZone: onDragMove() => simplify the logic #6392"
-- 2025-02-06 @tobiu closed this issue
+- 2025-02-06T12:05:30Z @tobiu added the `enhancement` label
+- 2025-02-06T12:05:30Z @tobiu assigned to @tobiu
+- 2025-02-06T12:05:47Z @tobiu referenced in commit `7f28859` - "draggable.toolbar.SortZone: onDragMove() => simplify the logic #6392"
+- 2025-02-06T12:06:11Z @tobiu closed this issue
 

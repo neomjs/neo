@@ -23,10 +23,10 @@ closedAt: '2025-02-07T14:58:40Z'
 
 * No longer needed => Own component with its own SCSS file
 
-## Activity Log
+## Timeline
 
-- 2025-02-07 @tobiu added the `enhancement` label
-- 2025-02-07 @tobiu assigned to @tobiu
-- 2025-02-07 @tobiu referenced in commit `c7c1bab` - "grid.Container: SCSS => remove the scrollbar styling #6400"
-- 2025-02-07 @tobiu closed this issue
+- 2025-02-07T14:58:08Z @tobiu added the `enhancement` label
+- 2025-02-07T14:58:08Z @tobiu assigned to @tobiu
+- 2025-02-07T14:58:33Z @tobiu referenced in commit `c7c1bab` - "grid.Container: SCSS => remove the scrollbar styling #6400"
+- 2025-02-07T14:58:40Z @tobiu closed this issue
 

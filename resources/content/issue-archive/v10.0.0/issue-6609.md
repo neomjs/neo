@@ -37,23 +37,21 @@ Creating an alternative first has a higher priority, but we need to get this add
 
 @maxrahder @gplanansky
 
-## Comments
+## Timeline
 
-### @gplanansky - 2025-04-09 17:23
+- 2025-04-01T19:59:24Z @tobiu added the `bug` label
+### @gplanansky - 2025-04-09T17:23:15Z
 
 I have had advanced markers working for some time.  I'll clean up and do a PR.
 
-### @github-actions - 2025-07-09 03:04
+### @github-actions - 2025-07-09T03:04:24Z
 
 This issue is stale because it has been open for 90 days with no activity.
 
-### @github-actions - 2025-07-23 03:12
+- 2025-07-09T03:04:25Z @github-actions added the `stale` label
+### @github-actions - 2025-07-23T03:12:45Z
 
 This issue was closed because it has been inactive for 14 days since being marked as stale.
 
-## Activity Log
-
-- 2025-04-01 @tobiu added the `bug` label
-- 2025-07-09 @github-actions added the `stale` label
-- 2025-07-23 @github-actions closed this issue
+- 2025-07-23T03:12:45Z @github-actions closed this issue
 

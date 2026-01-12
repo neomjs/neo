@@ -43,12 +43,12 @@ The current process parses every single `.mjs` file with `acorn`, which is compu
 -   Files that *do* contain `html` templates are still transformed correctly.
 -   The overall build time is measurably reduced.
 
-## Activity Log
+## Timeline
 
-- 2025-08-02 @tobiu assigned to @tobiu
-- 2025-08-02 @tobiu added the `enhancement` label
-- 2025-08-02 @tobiu added parent issue #7130
-- 2025-08-02 @tobiu cross-referenced by #7160
-- 2025-08-02 @tobiu referenced in commit `4945297` - "Optimize Build Process with a Pre-emptive Regex Check #7159"
-- 2025-08-02 @tobiu closed this issue
+- 2025-08-02T11:29:34Z @tobiu assigned to @tobiu
+- 2025-08-02T11:29:35Z @tobiu added the `enhancement` label
+- 2025-08-02T11:29:35Z @tobiu added parent issue #7130
+- 2025-08-02T11:31:49Z @tobiu cross-referenced by #7160
+- 2025-08-02T11:59:39Z @tobiu referenced in commit `4945297` - "Optimize Build Process with a Pre-emptive Regex Check #7159"
+- 2025-08-02T12:00:19Z @tobiu closed this issue
 

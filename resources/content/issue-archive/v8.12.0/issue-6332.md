@@ -24,10 +24,10 @@ closedAt: '2025-01-29T16:54:51Z'
 * The goal is to remove the entire `onDragStart()` logic inside `draggable.toolbar.SortZone`
 * We can not easily move the itemMargin into CSS, since it would kick in before the size of the parent container gets adjusted => wrong sizing
 
-## Activity Log
+## Timeline
 
-- 2025-01-29 @tobiu added the `enhancement` label
-- 2025-01-29 @tobiu assigned to @tobiu
-- 2025-01-29 @tobiu referenced in commit `1573261` - "draggable.toolbar.SortZone: adjustProxyRectToParent, itemMargin configs #6332"
-- 2025-01-29 @tobiu closed this issue
+- 2025-01-29T16:54:03Z @tobiu added the `enhancement` label
+- 2025-01-29T16:54:03Z @tobiu assigned to @tobiu
+- 2025-01-29T16:54:29Z @tobiu referenced in commit `1573261` - "draggable.toolbar.SortZone: adjustProxyRectToParent, itemMargin configs #6332"
+- 2025-01-29T16:54:51Z @tobiu closed this issue
 

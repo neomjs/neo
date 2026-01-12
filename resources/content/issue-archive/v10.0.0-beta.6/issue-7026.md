@@ -41,11 +41,11 @@ This feature provides fine-grained control over reactivity, preventing unintende
 *   `src/core/EffectManager.mjs`
 *   `src/functional/useConfig.mjs`
 
-## Activity Log
+## Timeline
 
-- 2025-07-12 @tobiu assigned to @tobiu
-- 2025-07-12 @tobiu added the `enhancement` label
-- 2025-07-12 @tobiu referenced in commit `eaf22d8` - "Feature: Fine-grained Reactivity Control with EffectManager.pause() #7026"
-- 2025-07-12 @tobiu closed this issue
-- 2025-07-12 @tobiu added parent issue #6992
+- 2025-07-12T18:10:14Z @tobiu assigned to @tobiu
+- 2025-07-12T18:10:15Z @tobiu added the `enhancement` label
+- 2025-07-12T18:12:21Z @tobiu referenced in commit `eaf22d8` - "Feature: Fine-grained Reactivity Control with EffectManager.pause() #7026"
+- 2025-07-12T18:13:09Z @tobiu closed this issue
+- 2025-07-12T18:29:43Z @tobiu added parent issue #6992
 

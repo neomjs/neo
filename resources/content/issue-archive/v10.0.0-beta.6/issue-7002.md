@@ -42,10 +42,10 @@ To optimize memory usage and instantiation performance, we will refactor the `Co
 
 This is a standard JavaScript optimization that is critical for the performance of a core framework component like `Config`.
 
-## Activity Log
+## Timeline
 
-- 2025-07-09 @tobiu assigned to @tobiu
-- 2025-07-09 @tobiu added the `enhancement` label
-- 2025-07-09 @tobiu referenced in commit `45e8800` - "Refactor: Move core.Config Defaults to Prototype #7002"
-- 2025-07-10 @tobiu closed this issue
+- 2025-07-09T17:34:12Z @tobiu assigned to @tobiu
+- 2025-07-09T17:34:13Z @tobiu added the `enhancement` label
+- 2025-07-09T17:52:15Z @tobiu referenced in commit `45e8800` - "Refactor: Move core.Config Defaults to Prototype #7002"
+- 2025-07-10T12:02:27Z @tobiu closed this issue
 

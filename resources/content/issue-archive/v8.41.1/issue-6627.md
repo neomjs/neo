@@ -25,10 +25,10 @@ closedAt: '2025-04-07T09:35:32Z'
 * `container.Base` needs to use `theme` as a default value inside `createItem()`
 * `calendar.view.MainContainer` needs to delegate the theme to `editCalendarContainer` & `editEventContainer`
 
-## Activity Log
+## Timeline
 
-- 2025-04-07 @tobiu added the `enhancement` label
-- 2025-04-07 @tobiu assigned to @tobiu
-- 2025-04-07 @tobiu referenced in commit `5b9656f` - "examples.calendar.basic.MainContainerController: smarter theme switching #6627"
-- 2025-04-07 @tobiu closed this issue
+- 2025-04-07T09:34:04Z @tobiu added the `enhancement` label
+- 2025-04-07T09:34:04Z @tobiu assigned to @tobiu
+- 2025-04-07T09:34:28Z @tobiu referenced in commit `5b9656f` - "examples.calendar.basic.MainContainerController: smarter theme switching #6627"
+- 2025-04-07T09:35:33Z @tobiu closed this issue
 

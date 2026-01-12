@@ -33,12 +33,12 @@ This ticket covers refactoring `ai/mcp/server/memory-core/services/healthService
 5.  Any other services that depend on `healthService` are updated to use the new `HealthService` singleton instance.
 6.  The `neo-memory-core__healthcheck` tool continues to function correctly after the refactoring.
 
-## Activity Log
+## Timeline
 
-- 2025-10-18 @tobiu assigned to @tobiu
-- 2025-10-18 @tobiu added the `enhancement` label
-- 2025-10-18 @tobiu added the `ai` label
-- 2025-10-18 @tobiu added parent issue #7536
-- 2025-10-18 @tobiu referenced in commit `de17f6e` - "Convert healthService to HealthService Neo.mjs Class #7542"
-- 2025-10-18 @tobiu closed this issue
+- 2025-10-18T12:49:46Z @tobiu assigned to @tobiu
+- 2025-10-18T12:49:47Z @tobiu added the `enhancement` label
+- 2025-10-18T12:49:48Z @tobiu added the `ai` label
+- 2025-10-18T12:49:48Z @tobiu added parent issue #7536
+- 2025-10-18T13:03:08Z @tobiu referenced in commit `de17f6e` - "Convert healthService to HealthService Neo.mjs Class #7542"
+- 2025-10-18T13:03:18Z @tobiu closed this issue
 

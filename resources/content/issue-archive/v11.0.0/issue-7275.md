@@ -30,11 +30,11 @@ This task is to migrate the unit test for `config/CircularDependencies.mjs` from
 3.  Ensure the new test runs successfully via `npm test`.
 4.  The new test must cover all the functionality of the original Siesta test.
 
-## Activity Log
+## Timeline
 
-- 2025-09-27 @tobiu added the `enhancement` label
-- 2025-09-27 @tobiu added parent issue #7262
-- 2025-09-30 @tobiu assigned to @tobiu
-- 2025-09-30 @tobiu referenced in commit `6d98f4e` - "Convert config/CircularDependencies.mjs Test from Siesta to Playwright #7275"
-- 2025-09-30 @tobiu closed this issue
+- 2025-09-27T13:33:19Z @tobiu added the `enhancement` label
+- 2025-09-27T13:33:19Z @tobiu added parent issue #7262
+- 2025-09-30T11:28:07Z @tobiu assigned to @tobiu
+- 2025-09-30T11:28:53Z @tobiu referenced in commit `6d98f4e` - "Convert config/CircularDependencies.mjs Test from Siesta to Playwright #7275"
+- 2025-09-30T11:29:03Z @tobiu closed this issue
 

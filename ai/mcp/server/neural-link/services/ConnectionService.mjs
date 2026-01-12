@@ -83,7 +83,9 @@ class ConnectionService extends Base {
      * @returns {Promise<void>}
      */
     async initAsync() {
-        await this.ensureBridgeAndConnect();
+        if (aiConfig.autoConnect) {
+            await this.ensureBridgeAndConnect();
+        }
     }
 
     /**

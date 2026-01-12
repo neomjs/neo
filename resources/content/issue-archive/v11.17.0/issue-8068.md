@@ -33,12 +33,12 @@ To improve separation of concerns and reuse, the headline parsing logic should b
 3.  Ensure `ContentComponent` removes the duplicated `updateContentSectionsStore` method.
 4.  Remove the duplicated regex definition.
 
-## Activity Log
+## Timeline
 
-- 2025-12-09 @tobiu added the `ai` label
-- 2025-12-09 @tobiu added the `refactoring` label
-- 2025-12-09 @tobiu added the `architecture` label
-- 2025-12-09 @tobiu assigned to @tobiu
-- 2025-12-09 @tobiu referenced in commit `50eafaa` - "Refactor Markdown Component to Handle Headline Parsing #8068"
-- 2025-12-09 @tobiu closed this issue
+- 2025-12-09T14:15:56Z @tobiu added the `ai` label
+- 2025-12-09T14:15:56Z @tobiu added the `refactoring` label
+- 2025-12-09T14:15:57Z @tobiu added the `architecture` label
+- 2025-12-09T14:16:08Z @tobiu assigned to @tobiu
+- 2025-12-09T14:16:51Z @tobiu referenced in commit `50eafaa` - "Refactor Markdown Component to Handle Headline Parsing #8068"
+- 2025-12-09T14:16:55Z @tobiu closed this issue
 

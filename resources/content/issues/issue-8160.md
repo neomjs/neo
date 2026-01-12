@@ -28,9 +28,15 @@ Currently, `Neo.draggable.container.SortZone` uses the same intersection logic (
 2.  Introduce specific configs (e.g., `detachThreshold: 0.2`, `reattachThreshold: 0.8`).
 3.  Ensure `onDragMove` logic uses the correct threshold for the correct action (sorting vs. window boundary checks).
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-12-28 13:11
+- 2025-12-27T21:00:51Z @tobiu added the `enhancement` label
+- 2025-12-27T21:00:52Z @tobiu added the `ai` label
+- 2025-12-27T21:33:39Z @tobiu added parent issue #8163
+- 2025-12-28T00:07:46Z @tobiu assigned to @tobiu
+- 2025-12-28T02:14:46Z @tobiu referenced in commit `9a7d24f` - "Decouple and Configure Window Detachment Thresholds in SortZone #8160 wip"
+- 2025-12-28T13:10:16Z @tobiu referenced in commit `628fb8d` - "#8160 wip"
+### @tobiu - 2025-12-28T13:11:50Z
 
 **Input from Gemini:**
 
@@ -54,12 +60,4 @@ Currently, `Neo.draggable.container.SortZone` uses the same intersection logic (
 > **Outcome:**
 > The threshold logic is now centralized and correctly handles directionality (inwards vs. outwards) using `lastIntersectionRatio`. The system is prepared for further investigation into the re-detach behavior after full re-integration.
 
-## Activity Log
-
-- 2025-12-27 @tobiu added the `enhancement` label
-- 2025-12-27 @tobiu added the `ai` label
-- 2025-12-27 @tobiu added parent issue #8163
-- 2025-12-28 @tobiu assigned to @tobiu
-- 2025-12-28 @tobiu referenced in commit `9a7d24f` - "Decouple and Configure Window Detachment Thresholds in SortZone #8160 wip"
-- 2025-12-28 @tobiu referenced in commit `628fb8d` - "#8160 wip"
 

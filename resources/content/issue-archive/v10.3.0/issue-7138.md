@@ -29,16 +29,14 @@ Enhance the `parse5` processor to correctly handle the mapping of interpolated v
 - When an attribute value is a placeholder for an interpolated value (e.g., `renderer="$[0]"`, where `$[0]` maps to the first expression), the parser must assign the raw expression value (the function object) to the VDOM config, not the placeholder string.
 - Implement logic to correctly handle and assign functions, objects, arrays, and other non-string data types to the appropriate VDOM properties.
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-07-31 10:25
+- 2025-07-31T07:33:13Z @tobiu assigned to @tobiu
+- 2025-07-31T07:33:14Z @tobiu added the `enhancement` label
+- 2025-07-31T07:33:14Z @tobiu added parent issue #7130
+### @tobiu - 2025-07-31T10:25:36Z
 
 resolved via the other subs commits
 
-## Activity Log
-
-- 2025-07-31 @tobiu assigned to @tobiu
-- 2025-07-31 @tobiu added the `enhancement` label
-- 2025-07-31 @tobiu added parent issue #7130
-- 2025-07-31 @tobiu closed this issue
+- 2025-07-31T10:25:36Z @tobiu closed this issue
 

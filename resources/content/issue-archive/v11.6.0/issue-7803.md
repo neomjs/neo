@@ -32,12 +32,12 @@ The current debugging implementation relies on manually parsing `process.argv` i
 
 This consolidation ensures a single source of truth for the debug state and leverages the CLI parsing library correctly.
 
-## Activity Log
+## Timeline
 
-- 2025-11-19 @tobiu added the `enhancement` label
-- 2025-11-19 @tobiu added the `ai` label
-- 2025-11-19 @tobiu added the `refactoring` label
-- 2025-11-19 @tobiu referenced in commit `9448679` - "Support --debug flag via commander in GitHub Workflow MCP Server #7803"
-- 2025-11-19 @tobiu assigned to @tobiu
-- 2025-11-19 @tobiu closed this issue
+- 2025-11-19T11:02:35Z @tobiu added the `enhancement` label
+- 2025-11-19T11:02:36Z @tobiu added the `ai` label
+- 2025-11-19T11:02:36Z @tobiu added the `refactoring` label
+- 2025-11-19T11:08:04Z @tobiu referenced in commit `9448679` - "Support --debug flag via commander in GitHub Workflow MCP Server #7803"
+- 2025-11-19T11:08:09Z @tobiu assigned to @tobiu
+- 2025-11-19T11:08:40Z @tobiu closed this issue
 

@@ -31,11 +31,11 @@ To enforce the project policy that GitHub issues, once closed, should not be reo
 4.  The workflow creates a new issue with the original content, clearly indicating it was reopened.
 5.  A comment is added to the original issue, explaining the policy and linking to the new issue.
 
-## Activity Log
+## Timeline
 
-- 2025-10-07 @tobiu assigned to @tobiu
-- 2025-10-07 @tobiu added the `enhancement` label
-- 2025-10-07 @tobiu added parent issue #7364
-- 2025-10-07 @tobiu referenced in commit `709feec` - "Implement GitHub Action to Prevent Issue Reopening #7414"
-- 2025-10-07 @tobiu closed this issue
+- 2025-10-07T15:43:02Z @tobiu assigned to @tobiu
+- 2025-10-07T15:43:04Z @tobiu added the `enhancement` label
+- 2025-10-07T15:43:04Z @tobiu added parent issue #7364
+- 2025-10-07T15:45:08Z @tobiu referenced in commit `709feec` - "Implement GitHub Action to Prevent Issue Reopening #7414"
+- 2025-10-07T15:45:19Z @tobiu closed this issue
 

@@ -23,10 +23,10 @@ closedAt: '2025-01-12T00:11:13Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
-- 2025-01-12 @tobiu added the `bug` label
-- 2025-01-12 @tobiu assigned to @tobiu
-- 2025-01-12 @tobiu referenced in commit `c0cb11f` - "component.Toast, examples.component.Toast broken #6201"
-- 2025-01-12 @tobiu closed this issue
+- 2025-01-12T00:10:50Z @tobiu added the `bug` label
+- 2025-01-12T00:10:50Z @tobiu assigned to @tobiu
+- 2025-01-12T00:11:05Z @tobiu referenced in commit `c0cb11f` - "component.Toast, examples.component.Toast broken #6201"
+- 2025-01-12T00:11:14Z @tobiu closed this issue
 

@@ -23,10 +23,10 @@ closedAt: '2025-07-27T00:26:15Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
-- 2025-07-27 @tobiu assigned to @tobiu
-- 2025-07-27 @tobiu added the `enhancement` label
-- 2025-07-27 @tobiu referenced in commit `d15386a` - "Neo.selection.Model: select() => pass potential record items to the selectionChange event #7116"
-- 2025-07-27 @tobiu closed this issue
+- 2025-07-27T00:25:09Z @tobiu assigned to @tobiu
+- 2025-07-27T00:25:10Z @tobiu added the `enhancement` label
+- 2025-07-27T00:26:09Z @tobiu referenced in commit `d15386a` - "Neo.selection.Model: select() => pass potential record items to the selectionChange event #7116"
+- 2025-07-27T00:26:15Z @tobiu closed this issue
 

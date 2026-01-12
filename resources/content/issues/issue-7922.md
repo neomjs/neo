@@ -38,9 +38,9 @@ When an agent sets its status to `agent-task:blocked`, the system must alert the
 *   A functional "Intervention Panel" component in the Command Center app.
 
 
-## Activity Log
+## Timeline
 
-- 2025-11-29 @tobiu added the `enhancement` label
-- 2025-11-29 @tobiu added the `ai` label
-- 2025-11-29 @tobiu added parent issue #7918
+- 2025-11-29T15:19:25Z @tobiu added the `enhancement` label
+- 2025-11-29T15:19:25Z @tobiu added the `ai` label
+- 2025-11-29T15:22:17Z @tobiu added parent issue #7918
 

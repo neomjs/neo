@@ -38,10 +38,10 @@ This new strategy ensures that the history of work remains portable and accessib
 
 This establishes a clear, scalable, and robust process for managing work items. It solves the problem of losing historical context for the AI, prevents repository bloat, and creates a clear path for linking version-controlled tickets with the GitHub issue tracker.
 
-## Activity Log
+## Timeline
 
-- 2025-09-23 @tobiu assigned to @tobiu
-- 2025-09-23 @tobiu added the `enhancement` label
-- 2025-09-23 @tobiu referenced in commit `f9aa958` - "Define and Document the Hybrid Archival Ticket Strategy #7239"
-- 2025-09-23 @tobiu closed this issue
+- 2025-09-23T13:53:42Z @tobiu assigned to @tobiu
+- 2025-09-23T13:53:43Z @tobiu added the `enhancement` label
+- 2025-09-23T13:55:17Z @tobiu referenced in commit `f9aa958` - "Define and Document the Hybrid Archival Ticket Strategy #7239"
+- 2025-09-23T13:55:20Z @tobiu closed this issue
 

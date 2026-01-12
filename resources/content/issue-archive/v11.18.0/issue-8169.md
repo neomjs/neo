@@ -113,62 +113,62 @@ Empower AI agents to "see" and "touch" the runtime application, moving beyond st
 -   An AI agent can inspect the state of a drag operation in real-time.
 
 
-## Activity Log
+## Timeline
 
-- 2025-12-28 @tobiu added the `epic` label
-- 2025-12-28 @tobiu added the `ai` label
-- 2025-12-28 @tobiu added the `architecture` label
-- 2025-12-28 @tobiu assigned to @tobiu
-- 2025-12-28 @tobiu added sub-issue #8170
-- 2025-12-28 @tobiu added sub-issue #8171
-- 2025-12-28 @tobiu added sub-issue #8172
-- 2025-12-28 @tobiu added sub-issue #8016
-- 2025-12-28 @tobiu added sub-issue #8173
-- 2025-12-28 @tobiu added sub-issue #8174
-- 2025-12-28 @tobiu added sub-issue #8175
-- 2025-12-28 @tobiu added sub-issue #8176
-- 2025-12-28 @tobiu added sub-issue #8177
-- 2025-12-28 @tobiu referenced in commit `21b8247` - "feat(ai): Implement Neural Link healing and standardize routing (#8169)
+- 2025-12-28T13:36:47Z @tobiu added the `epic` label
+- 2025-12-28T13:36:47Z @tobiu added the `ai` label
+- 2025-12-28T13:36:47Z @tobiu added the `architecture` label
+- 2025-12-28T13:36:59Z @tobiu assigned to @tobiu
+- 2025-12-28T13:37:23Z @tobiu added sub-issue #8170
+- 2025-12-28T13:37:39Z @tobiu added sub-issue #8171
+- 2025-12-28T13:38:06Z @tobiu added sub-issue #8172
+- 2025-12-28T13:39:04Z @tobiu added sub-issue #8016
+- 2025-12-28T14:25:49Z @tobiu added sub-issue #8173
+- 2025-12-28T15:40:48Z @tobiu added sub-issue #8174
+- 2025-12-28T17:39:41Z @tobiu added sub-issue #8175
+- 2025-12-28T17:39:44Z @tobiu added sub-issue #8176
+- 2025-12-28T17:58:00Z @tobiu added sub-issue #8177
+- 2025-12-28T18:15:55Z @tobiu referenced in commit `21b8247` - "feat(ai): Implement Neural Link healing and standardize routing (#8169)
 
 - Refactor API: Rename windowId to sessionId for clarity (#8174)
 - Feat: Implement window connect/disconnect notifications (#8175)
 - Feat: Add state rehydration on reconnect (#8176)
 - Update Client to track lifecycle and sync topology
 - Update ConnectionService to cache window state and serve topology instantly"
-- 2025-12-28 @tobiu added sub-issue #8178
-- 2025-12-28 @tobiu added sub-issue #8179
-- 2025-12-28 @tobiu added sub-issue #8180
-- 2025-12-28 @tobiu added sub-issue #8181
-- 2025-12-28 @tobiu added sub-issue #8183
-- 2025-12-28 @tobiu added sub-issue #8184
-- 2025-12-28 @tobiu added sub-issue #8185
-- 2025-12-28 @tobiu added sub-issue #8186
-- 2025-12-28 @tobiu added sub-issue #8187
-- 2025-12-28 @tobiu added sub-issue #8188
-- 2025-12-28 @tobiu added sub-issue #8189
-- 2025-12-28 @tobiu added sub-issue #8190
-- 2025-12-28 @tobiu added sub-issue #8191
-- 2025-12-28 @tobiu added sub-issue #8192
-- 2025-12-28 @tobiu added sub-issue #8193
-- 2025-12-28 @tobiu added sub-issue #8182
-- 2025-12-28 @tobiu added sub-issue #8194
-- 2025-12-28 @tobiu added sub-issue #8195
-- 2025-12-28 @tobiu added sub-issue #8196
-- 2025-12-29 @tobiu added sub-issue #8197
-- 2025-12-29 @tobiu added sub-issue #8206
-- 2025-12-29 @tobiu added sub-issue #8207
-- 2025-12-30 @tobiu added sub-issue #8208
-- 2025-12-30 @tobiu added sub-issue #8210
-- 2025-12-30 @tobiu added sub-issue #8211
-- 2025-12-30 @tobiu added sub-issue #8209
-- 2025-12-30 @tobiu added sub-issue #8212
-- 2025-12-30 @tobiu added sub-issue #8213
-- 2025-12-30 @tobiu added sub-issue #8214
-- 2025-12-30 @tobiu added sub-issue #8215
-- 2025-12-30 @tobiu added sub-issue #8216
-- 2025-12-30 @tobiu added sub-issue #8222
-- 2025-12-30 @tobiu added sub-issue #8223
-- 2026-01-01 @tobiu added sub-issue #8271
-- 2026-01-01 @tobiu added sub-issue #8272
-- 2026-01-01 @tobiu added sub-issue #8273
+- 2025-12-28T18:42:17Z @tobiu added sub-issue #8178
+- 2025-12-28T18:42:20Z @tobiu added sub-issue #8179
+- 2025-12-28T18:42:22Z @tobiu added sub-issue #8180
+- 2025-12-28T18:42:25Z @tobiu added sub-issue #8181
+- 2025-12-28T20:55:44Z @tobiu added sub-issue #8183
+- 2025-12-28T20:59:01Z @tobiu added sub-issue #8184
+- 2025-12-28T21:03:35Z @tobiu added sub-issue #8185
+- 2025-12-28T21:06:49Z @tobiu added sub-issue #8186
+- 2025-12-28T21:12:34Z @tobiu added sub-issue #8187
+- 2025-12-28T21:16:50Z @tobiu added sub-issue #8188
+- 2025-12-28T21:19:49Z @tobiu added sub-issue #8189
+- 2025-12-28T21:26:24Z @tobiu added sub-issue #8190
+- 2025-12-28T21:30:56Z @tobiu added sub-issue #8191
+- 2025-12-28T21:32:49Z @tobiu added sub-issue #8192
+- 2025-12-28T21:37:44Z @tobiu added sub-issue #8193
+- 2025-12-28T21:40:27Z @tobiu added sub-issue #8182
+- 2025-12-28T22:18:23Z @tobiu added sub-issue #8194
+- 2025-12-28T22:43:23Z @tobiu added sub-issue #8195
+- 2025-12-28T23:40:56Z @tobiu added sub-issue #8196
+- 2025-12-29T00:03:46Z @tobiu added sub-issue #8197
+- 2025-12-29T23:27:27Z @tobiu added sub-issue #8206
+- 2025-12-29T23:59:58Z @tobiu added sub-issue #8207
+- 2025-12-30T00:16:42Z @tobiu added sub-issue #8208
+- 2025-12-30T09:18:07Z @tobiu added sub-issue #8210
+- 2025-12-30T09:18:09Z @tobiu added sub-issue #8211
+- 2025-12-30T09:18:24Z @tobiu added sub-issue #8209
+- 2025-12-30T09:46:13Z @tobiu added sub-issue #8212
+- 2025-12-30T10:00:46Z @tobiu added sub-issue #8213
+- 2025-12-30T10:19:15Z @tobiu added sub-issue #8214
+- 2025-12-30T10:24:43Z @tobiu added sub-issue #8215
+- 2025-12-30T11:14:56Z @tobiu added sub-issue #8216
+- 2025-12-30T18:46:02Z @tobiu added sub-issue #8222
+- 2025-12-30T18:49:17Z @tobiu added sub-issue #8223
+- 2026-01-01T17:27:04Z @tobiu added sub-issue #8271
+- 2026-01-01T17:27:06Z @tobiu added sub-issue #8272
+- 2026-01-01T17:27:09Z @tobiu added sub-issue #8273
 

@@ -24,10 +24,10 @@ closedAt: '2025-07-16T02:46:50Z'
 * `Neo.setupClass()` is an excellent gatekeeper for handling multiple envs in parallel.
 * We need the same protection for modules which do not extend `core.Base`.
 
-## Activity Log
+## Timeline
 
-- 2025-07-16 @tobiu assigned to @tobiu
-- 2025-07-16 @tobiu added the `enhancement` label
-- 2025-07-16 @tobiu referenced in commit `8327e34` - "Add gatekeeping protection for non-neo singletons #7072"
-- 2025-07-16 @tobiu closed this issue
+- 2025-07-16T02:45:57Z @tobiu assigned to @tobiu
+- 2025-07-16T02:45:58Z @tobiu added the `enhancement` label
+- 2025-07-16T02:46:39Z @tobiu referenced in commit `8327e34` - "Add gatekeeping protection for non-neo singletons #7072"
+- 2025-07-16T02:46:51Z @tobiu closed this issue
 

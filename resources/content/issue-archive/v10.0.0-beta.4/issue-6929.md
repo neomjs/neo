@@ -33,10 +33,10 @@ Currently, developers need to listen to the `mutate` event on the collection and
 **Additional context**
 This enhancement would align `Neo.collection.Base` more closely with the reactive nature of other Neo.mjs components and improve integration with `Neo.state.Provider` for future enhancements (though direct binding via `stores.myStoreName.count` would still require a separate `Neo.state.Provider` enhancement).
 
-## Activity Log
+## Timeline
 
-- 2025-07-01 @tobiu assigned to @tobiu
-- 2025-07-01 @tobiu added the `enhancement` label
-- 2025-07-01 @tobiu referenced in commit `463b16c` - "Feature Request: Add reactive count_ config to Neo.collection.Base #6929"
-- 2025-07-01 @tobiu closed this issue
+- 2025-07-01T18:08:22Z @tobiu assigned to @tobiu
+- 2025-07-01T18:08:23Z @tobiu added the `enhancement` label
+- 2025-07-01T18:35:04Z @tobiu referenced in commit `463b16c` - "Feature Request: Add reactive count_ config to Neo.collection.Base #6929"
+- 2025-07-01T18:56:10Z @tobiu closed this issue
 

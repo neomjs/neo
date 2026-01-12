@@ -30,11 +30,11 @@ To provide a more personalized and effective onboarding experience for Hacktober
 3.  Based on the user's answers, the agent should recommend a suitable contribution path or a specific starter ticket.
 4.  The protocol should only be active for the duration of October 2025.
 
-## Activity Log
+## Timeline
 
-- 2025-09-28 @tobiu assigned to @tobiu
-- 2025-09-28 @tobiu added the `enhancement` label
-- 2025-09-28 @tobiu referenced in commit `47a0066` - "Add Temporary Hacktoberfest Onboarding Protocol to AGENTS.md #7303"
-- 2025-09-28 @tobiu closed this issue
-- 2025-09-28 @tobiu cross-referenced by #7304
+- 2025-09-28T13:53:01Z @tobiu assigned to @tobiu
+- 2025-09-28T13:53:02Z @tobiu added the `enhancement` label
+- 2025-09-28T13:53:24Z @tobiu referenced in commit `47a0066` - "Add Temporary Hacktoberfest Onboarding Protocol to AGENTS.md #7303"
+- 2025-09-28T13:53:31Z @tobiu closed this issue
+- 2025-09-28T13:56:57Z @tobiu cross-referenced by #7304
 

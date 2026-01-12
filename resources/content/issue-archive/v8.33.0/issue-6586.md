@@ -23,11 +23,11 @@ closedAt: '2025-03-25T17:12:17Z'
 
 * double-check, if there are no side effects
 
-## Activity Log
+## Timeline
 
-- 2025-03-25 @tobiu added the `enhancement` label
-- 2025-03-25 @tobiu assigned to @tobiu
-- 2025-03-25 @tobiu added parent issue #6584
-- 2025-03-25 @tobiu referenced in commit `6f3a39e` - "worker.ServiceBase: onInstall() => remove the skipWaiting() call #6586"
-- 2025-03-25 @tobiu closed this issue
+- 2025-03-25T10:30:35Z @tobiu added the `enhancement` label
+- 2025-03-25T10:30:35Z @tobiu assigned to @tobiu
+- 2025-03-25T10:30:37Z @tobiu added parent issue #6584
+- 2025-03-25T17:12:14Z @tobiu referenced in commit `6f3a39e` - "worker.ServiceBase: onInstall() => remove the skipWaiting() call #6586"
+- 2025-03-25T17:12:17Z @tobiu closed this issue
 

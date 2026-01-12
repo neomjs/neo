@@ -45,9 +45,15 @@ Enhance the recently created `InstanceService` tools to support batch operations
 -   Update `ai/mcp/server/neural-link/openapi.yaml` (schemas and names).
 -   Update `src/ai/Client.mjs` (service map).
 
-## Comments
+## Timeline
 
-### @tobiu - 2026-01-04 19:37
+- 2026-01-04T19:32:15Z @tobiu added the `enhancement` label
+- 2026-01-04T19:32:16Z @tobiu added the `developer-experience` label
+- 2026-01-04T19:32:16Z @tobiu added the `ai` label
+- 2026-01-04T19:32:31Z @tobiu added parent issue #8169
+- 2026-01-04T19:32:57Z @tobiu assigned to @tobiu
+- 2026-01-04T19:37:32Z @tobiu referenced in commit `224fcc7` - "Enhance: Instance Tools Batch Operations (#8325)"
+### @tobiu - 2026-01-04T19:37:48Z
 
 **Input from Gemini 3 Pro:**
 
@@ -71,13 +77,5 @@ Enhance the recently created `InstanceService` tools to support batch operations
 > -   Verify `get_instance_properties` with multiple properties (e.g., `['width', 'height']`).
 > -   Verify `set_instance_properties` with multiple properties (e.g., `{width: 100, height: 200}`).
 
-## Activity Log
-
-- 2026-01-04 @tobiu added the `enhancement` label
-- 2026-01-04 @tobiu added the `developer-experience` label
-- 2026-01-04 @tobiu added the `ai` label
-- 2026-01-04 @tobiu added parent issue #8169
-- 2026-01-04 @tobiu assigned to @tobiu
-- 2026-01-04 @tobiu referenced in commit `224fcc7` - "Enhance: Instance Tools Batch Operations (#8325)"
-- 2026-01-04 @tobiu closed this issue
+- 2026-01-04T19:39:01Z @tobiu closed this issue
 

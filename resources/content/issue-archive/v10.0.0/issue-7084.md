@@ -128,10 +128,10 @@ export default defineComponent({
 });
 ```
 
-## Activity Log
+## Timeline
 
-- 2025-07-19 @tobiu assigned to @tobiu
-- 2025-07-19 @tobiu added the `enhancement` label
-- 2025-07-19 @tobiu referenced in commit `589451a` - "Feature Request: Introduce beforeUpdate() Lifecycle Hook for Functional Components #7084"
-- 2025-07-19 @tobiu closed this issue
+- 2025-07-19T15:24:46Z @tobiu assigned to @tobiu
+- 2025-07-19T15:24:47Z @tobiu added the `enhancement` label
+- 2025-07-19T15:25:33Z @tobiu referenced in commit `589451a` - "Feature Request: Introduce beforeUpdate() Lifecycle Hook for Functional Components #7084"
+- 2025-07-19T15:25:38Z @tobiu closed this issue
 

@@ -72,6 +72,7 @@ To access bundled versions, prefix paths with `/dist/production/`, `/dist/develo
 - [Declarative Component Trees VS Imperative Vdom](https://neomjs.com/learn/guides/fundamentals/DeclarativeComponentTreesVsImperativeVdom)
 - [Declarative VDOM with Effects](https://neomjs.com/learn/guides/fundamentals/DeclarativeVDOMWithEffects)
 - [Config System Deep Dive](https://neomjs.com/learn/guides/fundamentals/ConfigSystemDeepDive)
+- [Declarative Config Merging](https://neomjs.com/learn/guides/fundamentals/DeclarativeConfigMerging)
 - [Extending Neo Classes](https://neomjs.com/learn/guides/fundamentals/ExtendingNeoClasses)
 - [Main Thread Addons](https://neomjs.com/learn/guides/fundamentals/MainThreadAddons)
 - [Component and Container Basics](https://neomjs.com/learn/guides/uibuildingblocks/ComponentsAndContainers)

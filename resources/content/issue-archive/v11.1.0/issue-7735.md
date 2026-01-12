@@ -24,11 +24,11 @@ closedAt: '2025-11-10T12:18:09Z'
 
 https://tobiasuhlig.medium.com/388-tickets-in-6-weeks-context-engineering-done-right-f8da8577b8c2?source=friends_link&sk=c9a9cac53d5f52a970a79a9493639eef
 
-## Activity Log
+## Timeline
 
-- 2025-11-10 @tobiu assigned to @tobiu
-- 2025-11-10 @tobiu added the `documentation` label
-- 2025-11-10 @tobiu added the `Blog Post` label
-- 2025-11-10 @tobiu referenced in commit `97d1909` - "Add the new blog post to the portal app #7735"
-- 2025-11-10 @tobiu closed this issue
+- 2025-11-10T12:16:54Z @tobiu assigned to @tobiu
+- 2025-11-10T12:16:55Z @tobiu added the `documentation` label
+- 2025-11-10T12:16:56Z @tobiu added the `Blog Post` label
+- 2025-11-10T12:17:19Z @tobiu referenced in commit `97d1909` - "Add the new blog post to the portal app #7735"
+- 2025-11-10T12:18:09Z @tobiu closed this issue
 

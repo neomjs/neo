@@ -23,10 +23,10 @@ closedAt: '2025-01-30T12:15:42Z'
 
 * Important for not breaking cell based selection models
 
-## Activity Log
+## Timeline
 
-- 2025-01-29 @tobiu added the `enhancement` label
-- 2025-01-29 @tobiu assigned to @tobiu
-- 2025-01-29 @tobiu referenced in commit `7f6e849` - "draggable.table.header.toolbar.SortZone: moveTo() => keep table container columns in sync #6341"
-- 2025-01-30 @tobiu closed this issue
+- 2025-01-29T22:08:33Z @tobiu added the `enhancement` label
+- 2025-01-29T22:08:33Z @tobiu assigned to @tobiu
+- 2025-01-29T22:09:00Z @tobiu referenced in commit `7f6e849` - "draggable.table.header.toolbar.SortZone: moveTo() => keep table container columns in sync #6341"
+- 2025-01-30T12:15:42Z @tobiu closed this issue
 

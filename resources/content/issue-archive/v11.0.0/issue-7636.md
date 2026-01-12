@@ -35,12 +35,12 @@ The Memory Core MCP server entry point (`mcp-stdio.mjs`) has been refactored to 
 
 These changes improve the server's resilience, provide better feedback to the user, and automate routine maintenance tasks.
 
-## Activity Log
+## Timeline
 
-- 2025-10-24 @tobiu added the `enhancement` label
-- 2025-10-24 @tobiu added the `ai` label
-- 2025-10-24 @tobiu added the `refactoring` label
-- 2025-10-24 @tobiu assigned to @tobiu
-- 2025-10-24 @tobiu referenced in commit `a0d5bbc` - "Refactor: Implement Robust Startup Sequence and Health Checks in Memory Core #7636"
-- 2025-10-24 @tobiu closed this issue
+- 2025-10-24T12:23:19Z @tobiu added the `enhancement` label
+- 2025-10-24T12:23:19Z @tobiu added the `ai` label
+- 2025-10-24T12:23:19Z @tobiu added the `refactoring` label
+- 2025-10-24T12:25:15Z @tobiu assigned to @tobiu
+- 2025-10-24T12:25:54Z @tobiu referenced in commit `a0d5bbc` - "Refactor: Implement Robust Startup Sequence and Health Checks in Memory Core #7636"
+- 2025-10-24T12:26:13Z @tobiu closed this issue
 

@@ -23,10 +23,10 @@ closedAt: '2025-07-10T13:26:31Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
-- 2025-07-10 @tobiu assigned to @tobiu
-- 2025-07-10 @tobiu added the `enhancement` label
-- 2025-07-10 @tobiu referenced in commit `1c199b3` - "Neo.effect() => register a shortcut to the Neo namespace for developer convenience #7005"
-- 2025-07-10 @tobiu closed this issue
+- 2025-07-10T13:25:58Z @tobiu assigned to @tobiu
+- 2025-07-10T13:25:59Z @tobiu added the `enhancement` label
+- 2025-07-10T13:26:21Z @tobiu referenced in commit `1c199b3` - "Neo.effect() => register a shortcut to the Neo namespace for developer convenience #7005"
+- 2025-07-10T13:26:31Z @tobiu closed this issue
 

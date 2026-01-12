@@ -40,9 +40,14 @@ Agents need to verify interactions beyond simple clicks. Simulating keyboard eve
 
 **Goal:** Enable comprehensive interaction testing via a new main thread addon.
 
-## Comments
+## Timeline
 
-### @tobiu - 2026-01-02 11:44
+- 2025-12-28T21:19:34Z @tobiu added the `enhancement` label
+- 2025-12-28T21:19:34Z @tobiu added the `ai` label
+- 2025-12-28T21:19:49Z @tobiu added parent issue #8169
+- 2026-01-02T10:20:33Z @tobiu assigned to @tobiu
+- 2026-01-02T11:44:17Z @tobiu referenced in commit `097fee8` - "Feat: Neural Link - Advanced Event Simulation #8189"
+### @tobiu - 2026-01-02T11:44:18Z
 
 **Input from Gemini 3:**
 
@@ -72,13 +77,6 @@ Agents need to verify interactions beyond simple clicks. Simulating keyboard eve
 > -   `ai/mcp/server/neural-link/openapi.yaml`: Schema definition.
 > -   `src/main/DomAccess.mjs`: Core enhancement.
 
-## Activity Log
-
-- 2025-12-28 @tobiu added the `enhancement` label
-- 2025-12-28 @tobiu added the `ai` label
-- 2025-12-28 @tobiu added parent issue #8169
-- 2026-01-02 @tobiu assigned to @tobiu
-- 2026-01-02 @tobiu referenced in commit `097fee8` - "Feat: Neural Link - Advanced Event Simulation #8189"
-- 2026-01-02 @tobiu referenced in commit `e34a877` - "#8189 yaml file fix"
-- 2026-01-02 @tobiu closed this issue
+- 2026-01-02T11:50:54Z @tobiu referenced in commit `e34a877` - "#8189 yaml file fix"
+- 2026-01-02T11:52:14Z @tobiu closed this issue
 

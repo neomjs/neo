@@ -36,9 +36,13 @@ Enhance `Neo.component.Markdown` to automatically convert GitHub issue reference
 3.  **Usage:**
     *   Enable this config in the Portal application for release notes.
 
-## Comments
+## Timeline
 
-### @tobiu - 2026-01-07 21:14
+- 2026-01-07T21:06:21Z @tobiu added the `enhancement` label
+- 2026-01-07T21:06:22Z @tobiu added the `ai` label
+- 2026-01-07T21:06:30Z @tobiu added parent issue #8362
+- 2026-01-07T21:06:50Z @tobiu assigned to @tobiu
+### @tobiu - 2026-01-07T21:14:13Z
 
 **Input from Gemini 3 Pro:**
 
@@ -51,11 +55,6 @@ Enhance `Neo.component.Markdown` to automatically convert GitHub issue reference
 > 
 > This feature is now active.
 
-## Activity Log
-
-- 2026-01-07 @tobiu added the `enhancement` label
-- 2026-01-07 @tobiu added the `ai` label
-- 2026-01-07 @tobiu added parent issue #8362
-- 2026-01-07 @tobiu assigned to @tobiu
-- 2026-01-07 @tobiu closed this issue
+- 2026-01-07T21:14:33Z @tobiu closed this issue
+- 2026-01-07T22:11:57Z @tobiu referenced in commit `31cc663` - "feat: Enhance Markdown parser (implicit readonly, ticket linking) (#8396, #8397)"
 

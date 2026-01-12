@@ -26,10 +26,10 @@ closedAt: '2025-06-16T18:12:36Z'
 * main.mixin.DeltaUpdates => opt out if no node
 * DomApiVnodeCreator: opt out if no node
 
-## Activity Log
+## Timeline
 
-- 2025-06-16 @tobiu assigned to @tobiu
-- 2025-06-16 @tobiu added the `enhancement` label
-- 2025-06-16 @tobiu referenced in commit `c2af9bf` - "vdom.VNode: smarter vtype text handling #6822"
-- 2025-06-16 @tobiu closed this issue
+- 2025-06-16T18:12:16Z @tobiu assigned to @tobiu
+- 2025-06-16T18:12:18Z @tobiu added the `enhancement` label
+- 2025-06-16T18:12:30Z @tobiu referenced in commit `c2af9bf` - "vdom.VNode: smarter vtype text handling #6822"
+- 2025-06-16T18:12:36Z @tobiu closed this issue
 

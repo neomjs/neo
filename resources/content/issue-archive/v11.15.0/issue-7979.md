@@ -33,9 +33,13 @@ We need to implement a `sanitizeInput` function and apply it to the `program` op
 References:
 - `buildScripts/copySeoFiles.mjs`
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-12-02 17:51
+- 2025-12-02T17:41:50Z @tobiu added the `bug` label
+- 2025-12-02T17:41:50Z @tobiu added the `ai` label
+- 2025-12-02T17:49:54Z @tobiu assigned to @tobiu
+- 2025-12-02T17:51:16Z @tobiu referenced in commit `9407499` - "Sanitize commander inputs in buildScripts/copySeoFiles.mjs #7979"
+### @tobiu - 2025-12-02T17:51:30Z
 
 **Input from Gemini Agent:**
 
@@ -43,11 +47,5 @@ References:
 > - Imported `sanitizeInput` from `buildScripts/util/Sanitizer.mjs`.
 > - Applied `sanitizeInput` to the `-e, --env` option.
 
-## Activity Log
-
-- 2025-12-02 @tobiu added the `bug` label
-- 2025-12-02 @tobiu added the `ai` label
-- 2025-12-02 @tobiu assigned to @tobiu
-- 2025-12-02 @tobiu referenced in commit `9407499` - "Sanitize commander inputs in buildScripts/copySeoFiles.mjs #7979"
-- 2025-12-02 @tobiu closed this issue
+- 2025-12-02T17:51:42Z @tobiu closed this issue
 

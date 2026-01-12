@@ -23,10 +23,10 @@ closedAt: '2025-02-07T13:37:49Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
-- 2025-02-07 @tobiu added the `enhancement` label
-- 2025-02-07 @tobiu assigned to @tobiu
-- 2025-02-07 @tobiu referenced in commit `9c5428b` - "main.addon.ScrollSync: register() => define the params & internal map to store data #6397"
-- 2025-02-07 @tobiu closed this issue
+- 2025-02-07T12:05:54Z @tobiu added the `enhancement` label
+- 2025-02-07T12:05:54Z @tobiu assigned to @tobiu
+- 2025-02-07T13:37:42Z @tobiu referenced in commit `9c5428b` - "main.addon.ScrollSync: register() => define the params & internal map to store data #6397"
+- 2025-02-07T13:37:49Z @tobiu closed this issue
 

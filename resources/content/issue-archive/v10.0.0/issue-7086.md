@@ -34,10 +34,10 @@ Benefits:
 
 **File to Change**: src/functional/component/Base.mjs
 
-## Activity Log
+## Timeline
 
-- 2025-07-21 @tobiu assigned to @tobiu
-- 2025-07-21 @tobiu added the `enhancement` label
-- 2025-07-21 @tobiu referenced in commit `0f8bcb4` - "Enhance Functional Component VDOM Reconciliation #7086"
-- 2025-07-21 @tobiu closed this issue
+- 2025-07-21T00:33:23Z @tobiu assigned to @tobiu
+- 2025-07-21T00:33:24Z @tobiu added the `enhancement` label
+- 2025-07-21T00:34:34Z @tobiu referenced in commit `0f8bcb4` - "Enhance Functional Component VDOM Reconciliation #7086"
+- 2025-07-21T09:49:53Z @tobiu closed this issue
 

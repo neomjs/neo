@@ -29,10 +29,10 @@ The fix is to use `me.constructor` instead of `Collection` when creating the `al
 
 This change is crucial for components like `Neo.form.field.ComboBox` that rely on stores and their filtering capabilities.
 
-## Activity Log
+## Timeline
 
-- 2025-10-01 @tobiu assigned to @tobiu
-- 2025-10-01 @tobiu added the `bug` label
-- 2025-10-01 @tobiu referenced in commit `ed6dc7b` - "collection.Base#filter() should use constructor for allItems #7315"
-- 2025-10-01 @tobiu closed this issue
+- 2025-10-01T17:46:42Z @tobiu assigned to @tobiu
+- 2025-10-01T17:46:43Z @tobiu added the `bug` label
+- 2025-10-01T17:47:08Z @tobiu referenced in commit `ed6dc7b` - "collection.Base#filter() should use constructor for allItems #7315"
+- 2025-10-01T17:47:47Z @tobiu closed this issue
 

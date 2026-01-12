@@ -57,25 +57,23 @@ This epic covers the migration of the Express-based `memory` server to a `stdio`
 - **Sub-Tasks:**
     - `ticket-mc-remove-express.md`: Remove the old `index.mjs` and any Express-related files and dependencies.
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-10-17 12:44
+- 2025-10-17T11:22:02Z @tobiu assigned to @tobiu
+- 2025-10-17T11:22:03Z @tobiu added the `epic` label
+- 2025-10-17T11:22:03Z @tobiu added the `ai` label
+- 2025-10-17T11:23:49Z @tobiu added sub-issue #7521
+- 2025-10-17T11:24:52Z @tobiu added sub-issue #7522
+- 2025-10-17T11:25:47Z @tobiu added sub-issue #7523
+- 2025-10-17T11:26:44Z @tobiu added sub-issue #7524
+- 2025-10-17T11:27:11Z @tobiu referenced in commit `76835af` - "#7520 tickets as md files"
+- 2025-10-17T12:06:15Z @tobiu added sub-issue #7525
+- 2025-10-17T12:14:08Z @tobiu added sub-issue #7526
+- 2025-10-17T12:19:45Z @tobiu added sub-issue #7527
+- 2025-10-17T12:24:37Z @tobiu added sub-issue #7528
+### @tobiu - 2025-10-17T12:44:19Z
 
 resolved.
 
-## Activity Log
-
-- 2025-10-17 @tobiu assigned to @tobiu
-- 2025-10-17 @tobiu added the `epic` label
-- 2025-10-17 @tobiu added the `ai` label
-- 2025-10-17 @tobiu added sub-issue #7521
-- 2025-10-17 @tobiu added sub-issue #7522
-- 2025-10-17 @tobiu added sub-issue #7523
-- 2025-10-17 @tobiu added sub-issue #7524
-- 2025-10-17 @tobiu referenced in commit `76835af` - "#7520 tickets as md files"
-- 2025-10-17 @tobiu added sub-issue #7525
-- 2025-10-17 @tobiu added sub-issue #7526
-- 2025-10-17 @tobiu added sub-issue #7527
-- 2025-10-17 @tobiu added sub-issue #7528
-- 2025-10-17 @tobiu closed this issue
+- 2025-10-17T12:44:19Z @tobiu closed this issue
 

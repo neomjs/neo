@@ -40,12 +40,12 @@ The following endpoints have been implemented:
 3.  The `routes/pullRequests.mjs` file is updated to call these new service functions.
 4.  The endpoints correctly handle requests and return the expected JSON data or plain text diff.
 
-## Activity Log
+## Timeline
 
-- 2025-10-14 @tobiu assigned to @tobiu
-- 2025-10-14 @tobiu added parent issue #7477
-- 2025-10-14 @tobiu added the `enhancement` label
-- 2025-10-14 @tobiu added the `ai` label
-- 2025-10-14 @tobiu referenced in commit `6f9954d` - "Implement Pull Request API Endpoints #7481"
-- 2025-10-14 @tobiu closed this issue
+- 2025-10-14T09:21:59Z @tobiu assigned to @tobiu
+- 2025-10-14T09:22:00Z @tobiu added parent issue #7477
+- 2025-10-14T09:22:00Z @tobiu added the `enhancement` label
+- 2025-10-14T09:22:00Z @tobiu added the `ai` label
+- 2025-10-14T09:22:45Z @tobiu referenced in commit `6f9954d` - "Implement Pull Request API Endpoints #7481"
+- 2025-10-14T09:22:53Z @tobiu closed this issue
 

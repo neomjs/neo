@@ -34,13 +34,13 @@ This ticket covers refactoring the configuration for the `memory-core` server by
 4.  All services within the `ai/mcp/server/memory-core/` directory are updated to use the new configuration paths (e.g., `aiConfig.memoryCore.memoryDb.port`).
 5.  The memory-core server continues to function correctly after the refactoring.
 
-## Activity Log
+## Timeline
 
-- 2025-10-19 @tobiu assigned to @tobiu
-- 2025-10-19 @tobiu added the `enhancement` label
-- 2025-10-19 @tobiu added the `ai` label
-- 2025-10-19 @tobiu added parent issue #7536
-- 2025-10-19 @tobiu referenced in commit `94c5c56` - "Refactor AI Config for Server-Specific Namespacing #7561"
-- 2025-10-19 @tobiu referenced in commit `0d90fc7` - "#7561 content order"
-- 2025-10-19 @tobiu closed this issue
+- 2025-10-19T23:09:11Z @tobiu assigned to @tobiu
+- 2025-10-19T23:09:12Z @tobiu added the `enhancement` label
+- 2025-10-19T23:09:12Z @tobiu added the `ai` label
+- 2025-10-19T23:09:12Z @tobiu added parent issue #7536
+- 2025-10-19T23:13:21Z @tobiu referenced in commit `94c5c56` - "Refactor AI Config for Server-Specific Namespacing #7561"
+- 2025-10-19T23:14:55Z @tobiu referenced in commit `0d90fc7` - "#7561 content order"
+- 2025-10-19T23:15:33Z @tobiu closed this issue
 

@@ -253,7 +253,14 @@ class Markdown extends Component {
         }
 
         if (me.replaceTicketIds) {
-            content = content.replace(regexTicketId, `$1<a href="${me.issuesUrl}$2" target="_blank">#$2</a>`)
+            content = content.replace(regexTicketId, (match, prefix, id) => {
+                const
+                    isInternal = me.issuesUrl.startsWith('#'),
+                    url        = me.issuesUrl + id,
+                    target     = isInternal ? '' : ' target="_blank"';
+
+                return `${prefix}<a href="${url}"${target}>#${id}</a>`
+            })
         }
 
         let rows          = content.split('\n'),

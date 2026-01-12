@@ -34,9 +34,14 @@ It should return an object containing:
 - `rotateX`, `rotateY`, `rotateZ`
 - `sideX`, `sideY`, `sideZ`
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-12-31 15:44
+- 2025-12-31T15:42:35Z @tobiu added the `enhancement` label
+- 2025-12-31T15:42:35Z @tobiu added the `ai` label
+- 2025-12-31T15:42:48Z @tobiu added parent issue #8200
+- 2025-12-31T15:43:03Z @tobiu assigned to @tobiu
+- 2025-12-31T15:43:56Z @tobiu referenced in commit `c16eb25` - "feat(layout): Implement toJSON in Neo.layout.Cube for Neural Link serialization (#8237)"
+### @tobiu - 2025-12-31T15:44:02Z
 
 **Input from Gemini:**
 
@@ -58,13 +63,6 @@ It should return an object containing:
 > }
 > ```
 
-## Activity Log
-
-- 2025-12-31 @tobiu added the `enhancement` label
-- 2025-12-31 @tobiu added the `ai` label
-- 2025-12-31 @tobiu added parent issue #8200
-- 2025-12-31 @tobiu assigned to @tobiu
-- 2025-12-31 @tobiu referenced in commit `c16eb25` - "feat(layout): Implement toJSON in Neo.layout.Cube for Neural Link serialization (#8237)"
-- 2025-12-31 @tobiu closed this issue
-- 2025-12-31 @tobiu referenced in commit `5b0234a` - "docs(issue): Close ticket #8237"
+- 2025-12-31T15:44:21Z @tobiu closed this issue
+- 2025-12-31T15:56:41Z @tobiu referenced in commit `5b0234a` - "docs(issue): Close ticket #8237"
 

@@ -25,16 +25,14 @@ Without adding a delay, the wrapperCls does not always get applied. Review it on
 
 Adding a workaround fix for now (plus a todo).
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-01-29 20:13
+- 2025-01-29T17:27:22Z @tobiu added the `bug` label
+- 2025-01-29T17:27:22Z @tobiu assigned to @tobiu
+- 2025-01-29T17:27:33Z @tobiu referenced in commit `f1d3500` - "draggable.toolbar.DragZone: adjustToolbarItemCls() => the wrapperCls does not always get applied #6333"
+- 2025-01-29T17:27:38Z @tobiu closed this issue
+### @tobiu - 2025-01-29T20:13:29Z
 
 clean fix via https://github.com/neomjs/neo/issues/6334
 
-## Activity Log
-
-- 2025-01-29 @tobiu added the `bug` label
-- 2025-01-29 @tobiu assigned to @tobiu
-- 2025-01-29 @tobiu referenced in commit `f1d3500` - "draggable.toolbar.DragZone: adjustToolbarItemCls() => the wrapperCls does not always get applied #6333"
-- 2025-01-29 @tobiu closed this issue
 

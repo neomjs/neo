@@ -22,9 +22,9 @@ closedAt: '2025-05-02T18:51:41Z'
 
 * Especially for multi-window apps, this will make moving widgets a lot easier
 
-## Activity Log
+## Timeline
 
-- 2025-05-02 @tobiu added the `enhancement` label
-- 2025-05-02 @tobiu referenced in commit `3893590` - "container.Base: createItem() => automatically remove items from existing parents #6689"
-- 2025-05-02 @tobiu closed this issue
+- 2025-05-02T18:51:13Z @tobiu added the `enhancement` label
+- 2025-05-02T18:51:35Z @tobiu referenced in commit `3893590` - "container.Base: createItem() => automatically remove items from existing parents #6689"
+- 2025-05-02T18:51:41Z @tobiu closed this issue
 

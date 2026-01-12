@@ -32,12 +32,12 @@ The component uses a `measureCache` to store character geometries for performanc
 2.  The fix should be verified on the `neomjs.com` portal's home page.
 3.  The "jumping" effect should be completely eliminated, resulting in a smooth transition when content changes.
 
-## Activity Log
+## Timeline
 
-- 2025-09-30 @tobiu assigned to @tobiu
-- 2025-09-30 @tobiu added the `bug` label
-- 2025-09-30 @tobiu added the `no auto close` label
-- 2025-09-30 @tobiu referenced in commit `1133c16` - "#7311 ticket as md file"
-- 2025-11-08 @tobiu referenced in commit `36b6366` - "Fix MagicMoveText component cache issue causing jumping scroll #7311"
-- 2025-11-08 @tobiu closed this issue
+- 2025-09-30T09:59:38Z @tobiu assigned to @tobiu
+- 2025-09-30T09:59:39Z @tobiu added the `bug` label
+- 2025-09-30T10:05:22Z @tobiu added the `no auto close` label
+- 2025-09-30T10:06:30Z @tobiu referenced in commit `1133c16` - "#7311 ticket as md file"
+- 2025-11-08T11:11:12Z @tobiu referenced in commit `36b6366` - "Fix MagicMoveText component cache issue causing jumping scroll #7311"
+- 2025-11-08T11:16:58Z @tobiu closed this issue
 

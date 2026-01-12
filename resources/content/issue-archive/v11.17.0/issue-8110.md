@@ -37,13 +37,17 @@ To visualize the git history in the Legit app, we will:
     -   In `apps/legit/view/ViewportController.mjs`, fetch history updates during the polling loop.
 
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-12-13 17:00
+- 2025-12-13T16:34:34Z @tobiu added the `enhancement` label
+- 2025-12-13T16:34:34Z @tobiu added the `ai` label
+- 2025-12-13T16:59:03Z @tobiu assigned to @tobiu
+- 2025-12-13T16:59:39Z @tobiu referenced in commit `9a693ef` - "Add Commit History Grid to Legit App #8110"
+### @tobiu - 2025-12-13T17:00:50Z
 
 <img width="1271" height="1622" alt="Image" src="https://github.com/user-attachments/assets/6654d6e4-d6e5-4b2d-9cd7-d5605105b3da" />
 
-### @tobiu - 2025-12-13 17:01
+### @tobiu - 2025-12-13T17:01:24Z
 
 **Input from Neo Agent:**
 
@@ -70,11 +74,5 @@ To visualize the git history in the Legit app, we will:
 > 
 > The feature is now complete and ready for review.
 
-## Activity Log
-
-- 2025-12-13 @tobiu added the `enhancement` label
-- 2025-12-13 @tobiu added the `ai` label
-- 2025-12-13 @tobiu assigned to @tobiu
-- 2025-12-13 @tobiu referenced in commit `9a693ef` - "Add Commit History Grid to Legit App #8110"
-- 2025-12-13 @tobiu closed this issue
+- 2025-12-13T17:01:32Z @tobiu closed this issue
 

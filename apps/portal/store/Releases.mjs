@@ -13,10 +13,6 @@ class Releases extends Store {
          */
         className: 'Portal.store.Releases',
         /**
-         * @member {String} keyProperty='id'
-         */
-        keyProperty: 'id',
-        /**
          * @member {Neo.data.Model} model=ReleaseModel
          * @reactive
          */

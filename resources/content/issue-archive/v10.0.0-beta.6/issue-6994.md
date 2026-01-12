@@ -68,10 +68,11 @@ class MyFunctionalButton extends FunctionalBase {
 -   The class works as described, using `VdomLifecycle` and a central `Effect`.
 -   A basic test case is created to verify that a simple `FunctionalBase` component can be rendered and updates when its configs change.
 
-## Activity Log
+## Timeline
 
-- 2025-07-09 @tobiu added parent issue #6992
-- 2025-07-09 @tobiu added the `enhancement` label
-- 2025-07-11 @tobiu referenced in commit `343b2ad` - "Create Neo.functional.component.Base #6994 early draft version"
-- 2025-07-11 @tobiu closed this issue
+- 2025-07-09T10:53:44Z @tobiu added parent issue #6992
+- 2025-07-09T10:53:45Z @tobiu added the `enhancement` label
+- 2025-07-11T00:13:12Z @tobiu changed title from **Create `Neo.component.FunctionalBase`** to **Create `Neo.functional.component.Base`**
+- 2025-07-11T00:45:48Z @tobiu referenced in commit `343b2ad` - "Create Neo.functional.component.Base #6994 early draft version"
+- 2025-07-11T01:56:24Z @tobiu closed this issue
 

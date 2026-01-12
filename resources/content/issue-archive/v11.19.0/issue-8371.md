@@ -41,14 +41,14 @@ Rewrite the introduction to align with the new strategic positioning found in th
 -   **The Architecture:** Briefly touch on Multi-threading (Performance) and The Neural Link (AI).
 -   **Conclusion:** Why this matters for the future of development.
 
-## Activity Log
+## Timeline
 
-- 2026-01-07 @tobiu added the `documentation` label
-- 2026-01-07 @tobiu added the `enhancement` label
-- 2026-01-07 @tobiu added the `ai` label
-- 2026-01-07 @tobiu assigned to @tobiu
-- 2026-01-07 @tobiu closed this issue
-- 2026-01-07 @tobiu referenced in commit `9e966a0` - "docs: Modernize Introduction.md with Application Engine identity
+- 2026-01-07T01:48:29Z @tobiu added the `documentation` label
+- 2026-01-07T01:48:29Z @tobiu added the `enhancement` label
+- 2026-01-07T01:48:29Z @tobiu added the `ai` label
+- 2026-01-07T01:58:44Z @tobiu assigned to @tobiu
+- 2026-01-07T01:58:50Z @tobiu closed this issue
+- 2026-01-07T02:01:07Z @tobiu referenced in commit `9e966a0` - "docs: Modernize Introduction.md with Application Engine identity
 
 Updates learn/benefits/Introduction.md to reflect the new 'Application Engine' positioning. Key changes include:
 - Replacing 'Platform/Framework' rhetoric with 'Application Engine'.

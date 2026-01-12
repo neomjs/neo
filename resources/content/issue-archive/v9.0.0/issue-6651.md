@@ -25,9 +25,11 @@ closedAt: '2025-04-15T19:29:26Z'
 * `util.Function: resolveCallback()` needs to honor view controllers
 * `core.Observable` needs a new `bindCallback()` method
 
-## Comments
+## Timeline
 
-### @gplanansky - 2025-04-15 19:01
+- 2025-04-15T14:32:10Z @tobiu added the `enhancement` label
+- 2025-04-15T14:32:25Z @tobiu referenced in commit `a32abb0` - "button.Base: onClick() => bind handler if string #6651"
+### @gplanansky - 2025-04-15T19:01:37Z
 
 @tobiu 
 https://github.com/neomjs/neo/blob/a32abb086068ef9caf0b0a2a502889b6c47f6d94/src/button/Base.mjs#L502
@@ -49,7 +51,7 @@ makes that error message go away.
 
 The neo/examples/table/nestedRecordfields   app   shows the same behavior, and also, for clicks to the Edit buttons, invokes a handler that does exist.
 
-### @tobiu - 2025-04-15 19:28
+### @tobiu - 2025-04-15T19:28:22Z
 
 Good catch George,
 
@@ -57,10 +59,6 @@ handlers need to stay optional. This only affects the dev branch => for the next
 
 I will create a follow-up ticket for header buttons using `onClick()` directly.
 
-## Activity Log
-
-- 2025-04-15 @tobiu added the `enhancement` label
-- 2025-04-15 @tobiu referenced in commit `a32abb0` - "button.Base: onClick() => bind handler if string #6651"
-- 2025-04-15 @tobiu referenced in commit `1b907d4` - "#6651 keeping handlers optional"
-- 2025-04-15 @tobiu closed this issue
+- 2025-04-15T19:28:51Z @tobiu referenced in commit `1b907d4` - "#6651 keeping handlers optional"
+- 2025-04-15T19:29:26Z @tobiu closed this issue
 

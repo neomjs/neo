@@ -40,13 +40,13 @@ This regression was introduced when the `isRunning` property of `Neo.core.Effect
 
 The fix involved strategically pausing and resuming `EffectManager`'s dependency tracking within the `Effect.run()` method to prevent the `Effect` from registering itself as a dependency of its own `isRunning` config during its execution, and to prevent recursive calls when `isRunning` was set.
 
-## Activity Log
+## Timeline
 
-- 2025-07-13 @tobiu assigned to @tobiu
-- 2025-07-13 @tobiu added the `enhancement` label
-- 2025-07-13 @tobiu added parent issue #6992
-- 2025-07-13 @tobiu removed the `enhancement` label
-- 2025-07-13 @tobiu added the `bug` label
-- 2025-07-13 @tobiu referenced in commit `95dbb0b` - "Regression: Neo.core.Effect.run() executes twice #7042"
-- 2025-07-13 @tobiu closed this issue
+- 2025-07-13T11:57:01Z @tobiu assigned to @tobiu
+- 2025-07-13T11:57:02Z @tobiu added the `enhancement` label
+- 2025-07-13T11:57:02Z @tobiu added parent issue #6992
+- 2025-07-13T11:57:16Z @tobiu removed the `enhancement` label
+- 2025-07-13T11:57:16Z @tobiu added the `bug` label
+- 2025-07-13T11:57:44Z @tobiu referenced in commit `95dbb0b` - "Regression: Neo.core.Effect.run() executes twice #7042"
+- 2025-07-13T11:58:46Z @tobiu closed this issue
 

@@ -45,23 +45,21 @@ This feature request proposes enhancing the system to support "Full-Tree Reactiv
 
 Implementing this feature would be a major step forward for the Neo.mjs state management system, providing a more robust and developer-friendly experience.
 
-## Comments
+## Timeline
 
-### @github-actions - 2025-10-06 02:42
+- 2025-07-07T11:20:47Z @tobiu added the `enhancement` label
+### @github-actions - 2025-10-06T02:42:13Z
 
 This issue is stale because it has been open for 90 days with no activity.
 
-### @tobiu - 2025-10-08 09:41
+- 2025-10-06T02:42:13Z @github-actions added the `stale` label
+- 2025-10-08T09:41:16Z @tobiu removed the `stale` label
+- 2025-10-08T09:41:16Z @tobiu added the `no auto close` label
+### @tobiu - 2025-10-08T09:41:44Z
 
 this one needs a review. might be that it is already implemented.
 
-## Activity Log
-
-- 2025-07-07 @tobiu added the `enhancement` label
-- 2025-10-06 @github-actions added the `stale` label
-- 2025-10-08 @tobiu removed the `stale` label
-- 2025-10-08 @tobiu added the `no auto close` label
-- 2025-10-08 @tobiu added the `help wanted` label
-- 2025-10-08 @tobiu added the `good first issue` label
-- 2025-10-08 @tobiu added the `hacktoberfest` label
+- 2025-10-08T09:41:54Z @tobiu added the `help wanted` label
+- 2025-10-08T09:41:54Z @tobiu added the `good first issue` label
+- 2025-10-08T09:41:54Z @tobiu added the `hacktoberfest` label
 

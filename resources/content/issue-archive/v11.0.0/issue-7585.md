@@ -35,12 +35,12 @@ This ticket covers the implementation of the missing authentication check.
     - `authenticated` should be `true` if login is successful, `false` otherwise.
     - `error` should contain an informative message if authentication fails.
 
-## Activity Log
+## Timeline
 
-- 2025-10-20 @tobiu assigned to @tobiu
-- 2025-10-20 @tobiu added the `bug` label
-- 2025-10-20 @tobiu added parent issue #7564
-- 2025-10-20 @tobiu added the `ai` label
-- 2025-10-20 @tobiu referenced in commit `b2de72b` - "Implement Missing #checkGhAuth Method in HealthService #7585"
-- 2025-10-20 @tobiu closed this issue
+- 2025-10-20T13:50:49Z @tobiu assigned to @tobiu
+- 2025-10-20T13:50:50Z @tobiu added the `bug` label
+- 2025-10-20T13:50:50Z @tobiu added parent issue #7564
+- 2025-10-20T13:50:51Z @tobiu added the `ai` label
+- 2025-10-20T13:56:22Z @tobiu referenced in commit `b2de72b` - "Implement Missing #checkGhAuth Method in HealthService #7585"
+- 2025-10-20T13:56:39Z @tobiu closed this issue
 

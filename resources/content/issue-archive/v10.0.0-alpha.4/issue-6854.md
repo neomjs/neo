@@ -60,16 +60,14 @@ The structure could become:
 ```
 This would make your learning content much more discoverable for LLM training while maintaining the same organizational structure within the moved directory.
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-06-22 20:46
+- 2025-06-22T20:43:53Z @tobiu assigned to @tobiu
+- 2025-06-22T20:43:54Z @tobiu added the `enhancement` label
+- 2025-06-22T20:45:45Z @tobiu referenced in commit `52db3f7` - "resources/data/deck/learnneo => learn/ #6854"
+### @tobiu - 2025-06-22T20:46:25Z
 
 FYI: the portal app has legacy support. it can still pull in the trainings deck from its old location if needed.
 
-## Activity Log
-
-- 2025-06-22 @tobiu assigned to @tobiu
-- 2025-06-22 @tobiu added the `enhancement` label
-- 2025-06-22 @tobiu referenced in commit `52db3f7` - "resources/data/deck/learnneo => learn/ #6854"
-- 2025-06-22 @tobiu closed this issue
+- 2025-06-22T20:46:25Z @tobiu closed this issue
 

@@ -23,10 +23,10 @@ closedAt: '2025-04-15T23:51:13Z'
 
 * form.field.Text: validator is the last spot for a get driven replacement
 
-## Activity Log
+## Timeline
 
-- 2025-04-15 @tobiu added the `enhancement` label
-- 2025-04-15 @tobiu assigned to @tobiu
-- 2025-04-15 @tobiu referenced in commit `455cbd3` - "controller.Component: remove parseConfig() #6656"
-- 2025-04-15 @tobiu closed this issue
+- 2025-04-15T23:50:44Z @tobiu added the `enhancement` label
+- 2025-04-15T23:50:44Z @tobiu assigned to @tobiu
+- 2025-04-15T23:51:05Z @tobiu referenced in commit `455cbd3` - "controller.Component: remove parseConfig() #6656"
+- 2025-04-15T23:51:13Z @tobiu closed this issue
 

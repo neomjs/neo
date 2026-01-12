@@ -22,9 +22,9 @@ closedAt: '2025-07-05T11:31:28Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
-- 2025-07-05 @tobiu added the `enhancement` label
-- 2025-07-05 @tobiu referenced in commit `d619f9d` - "tests/config/AfterSetConfig: add tests for non-reactive configs and class fields #6953"
-- 2025-07-05 @tobiu closed this issue
+- 2025-07-05T11:30:44Z @tobiu added the `enhancement` label
+- 2025-07-05T11:31:19Z @tobiu referenced in commit `d619f9d` - "tests/config/AfterSetConfig: add tests for non-reactive configs and class fields #6953"
+- 2025-07-05T11:31:28Z @tobiu closed this issue
 

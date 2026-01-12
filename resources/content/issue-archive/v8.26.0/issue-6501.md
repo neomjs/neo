@@ -23,10 +23,10 @@ closedAt: '2025-02-26T19:48:24Z'
 
 minor, but it should use the same coding style as `applyRenderAttributes()` for consistency.
 
-## Activity Log
+## Timeline
 
-- 2025-02-26 @tobiu added the `enhancement` label
-- 2025-02-26 @tobiu assigned to @tobiu
-- 2025-02-26 @tobiu referenced in commit `d9d0883` - "layout.Flexbox: removeRenderAttributes() => coding style #6501"
-- 2025-02-26 @tobiu closed this issue
+- 2025-02-26T19:32:47Z @tobiu added the `enhancement` label
+- 2025-02-26T19:32:47Z @tobiu assigned to @tobiu
+- 2025-02-26T19:34:30Z @tobiu referenced in commit `d9d0883` - "layout.Flexbox: removeRenderAttributes() => coding style #6501"
+- 2025-02-26T19:48:24Z @tobiu closed this issue
 

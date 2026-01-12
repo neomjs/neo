@@ -41,21 +41,19 @@ This will ensure that the tool definitions provided to AI agents are always a pe
 4.  The script merges the configuration values into the template to produce a final, valid OpenAPI specification.
 5.  The MCP server startup process is modified to either run this script or read the generated file, ensuring it always uses the dynamic spec.
 
-## Comments
+## Timeline
 
-### @SarthakJain29 - 2025-10-23 08:20
+- 2025-10-22T09:36:51Z @tobiu added the `enhancement` label
+- 2025-10-22T09:36:51Z @tobiu added the `ai` label
+### @SarthakJain29 - 2025-10-23T08:20:35Z
 
 Hey, Would love to work on this!
 
 
-### @tobiu - 2025-10-23 12:43
+### @tobiu - 2025-10-23T12:43:50Z
 
 @SarthakJain29 Hi! Sorry, I did not flag this item as "low prio backlog". I would strongly recommend to pick a different one: not much to learn here (e.g. just wrapping yaml files into template literals and parsing the config vars), but the bigger problem is: the mcp server APIs are not stable yet => we will add more endpoints, fetch more fields etc., so it would just be a maintenance burden with frequent rewrites.
 
 Feel free to ping me inside the slack / discord general channels => there are huge areas with higher impacts / more to learn / more fun to work on.
 
-## Activity Log
-
-- 2025-10-22 @tobiu added the `enhancement` label
-- 2025-10-22 @tobiu added the `ai` label
 

@@ -58,13 +58,18 @@ After making the changes, you can verify them by:
 2. Navigating to the portal app (`http://localhost:8080/apps/portal/`).
 3. Finding the "GitHub CLI Setup" guide in the "Guides" -> "AI" section of the side navigation and checking that your new content is there.
 
-## Comments
+## Timeline
 
-### @anmolsah - 2025-10-08 14:20
+- 2025-10-08T14:16:35Z @tobiu assigned to @tobiu
+- 2025-10-08T14:16:36Z @tobiu added the `enhancement` label
+- 2025-10-08T14:16:36Z @tobiu added the `good first issue` label
+- 2025-10-08T14:16:36Z @tobiu added parent issue #7364
+- 2025-10-08T14:16:37Z @tobiu added the `hacktoberfest` label
+### @anmolsah - 2025-10-08T14:20:52Z
 
 hey @tobiu can i work on this issue.
 
-### @tobiu - 2025-10-08 14:32
+### @tobiu - 2025-10-08T14:32:44Z
 
 Hi, and thanks for your interest. This specific sub-ticket is already reserved for @Mahita07 , since it is a direct follow-up item of https://github.com/neomjs/neo/pull/7384 .
 
@@ -73,23 +78,16 @@ https://github.com/neomjs/neo/issues?q=state%3Aopen%20label%3Ahacktoberfest
 
 In case there is no item of interest, you can use the new workflow mentioned inside https://github.com/neomjs/neo/issues/7296 to let e.g. Gemini create tickets for you. Then I can add the `hacktoberfest` label and assign it to you.
 
-### @Mahita07 - 2025-10-09 03:04
+### @Mahita07 - 2025-10-09T03:04:49Z
 
 Hey @tobiu could you please assign this ticket to me ?
 
-### @tobiu - 2025-10-10 10:51
+- 2025-10-09T09:47:23Z @tobiu assigned to @Mahita07
+- 2025-10-09T09:47:30Z @tobiu unassigned from @tobiu
+- 2025-10-09T13:00:51Z @Mahita07 cross-referenced by PR #7427
+### @tobiu - 2025-10-10T10:51:29Z
 
 closing the ticket as resolved.
 
-## Activity Log
-
-- 2025-10-08 @tobiu assigned to @tobiu
-- 2025-10-08 @tobiu added the `enhancement` label
-- 2025-10-08 @tobiu added the `good first issue` label
-- 2025-10-08 @tobiu added parent issue #7364
-- 2025-10-08 @tobiu added the `hacktoberfest` label
-- 2025-10-09 @tobiu assigned to @Mahita07
-- 2025-10-09 @tobiu unassigned from @tobiu
-- 2025-10-09 @Mahita07 cross-referenced by PR #7427
-- 2025-10-10 @tobiu closed this issue
+- 2025-10-10T10:51:30Z @tobiu closed this issue
 

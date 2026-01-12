@@ -23,13 +23,13 @@ closedAt: '2025-06-30T22:56:02Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
-- 2025-06-30 @tobiu assigned to @tobiu
-- 2025-06-30 @tobiu added the `enhancement` label
-- 2025-06-30 @tobiu referenced in commit `3392004` - "guides/ExtendingNeoClasses #6917"
-- 2025-06-30 @tobiu referenced in commit `fbea918` - "#6917 data.Model: example of using convert and calculate"
-- 2025-06-30 @tobiu referenced in commit `ef21ce3` - "#6917 polishing"
-- 2025-06-30 @tobiu referenced in commit `1166d24` - "#6917 polishing"
-- 2025-06-30 @tobiu closed this issue
+- 2025-06-30T22:32:42Z @tobiu assigned to @tobiu
+- 2025-06-30T22:32:43Z @tobiu added the `enhancement` label
+- 2025-06-30T22:33:17Z @tobiu referenced in commit `3392004` - "guides/ExtendingNeoClasses #6917"
+- 2025-06-30T22:44:33Z @tobiu referenced in commit `fbea918` - "#6917 data.Model: example of using convert and calculate"
+- 2025-06-30T22:50:51Z @tobiu referenced in commit `ef21ce3` - "#6917 polishing"
+- 2025-06-30T22:55:54Z @tobiu referenced in commit `1166d24` - "#6917 polishing"
+- 2025-06-30T22:56:02Z @tobiu closed this issue
 

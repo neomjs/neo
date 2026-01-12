@@ -30,10 +30,10 @@ The `BACKERS.md` file has been completely rewritten and restructured into an "In
 4.  **Removed Stale Offers:** The outdated "Special Offer" was removed to present a cleaner, more confident appeal.
 5.  **Modernized Tone:** The overall tone has been shifted from a personal appeal to a professional investment opportunity.
 
-## Activity Log
+## Timeline
 
-- 2025-10-10 @tobiu assigned to @tobiu
-- 2025-10-10 @tobiu added the `documentation` label
-- 2025-10-10 @tobiu referenced in commit `d13aab6` - "Restructure BACKERS.md into an Investment Prospectus #7434"
-- 2025-10-10 @tobiu closed this issue
+- 2025-10-10T15:38:48Z @tobiu assigned to @tobiu
+- 2025-10-10T15:38:50Z @tobiu added the `documentation` label
+- 2025-10-10T15:39:45Z @tobiu referenced in commit `d13aab6` - "Restructure BACKERS.md into an Investment Prospectus #7434"
+- 2025-10-10T15:39:53Z @tobiu closed this issue
 

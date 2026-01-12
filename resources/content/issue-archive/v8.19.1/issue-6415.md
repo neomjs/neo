@@ -24,10 +24,10 @@ closedAt: '2025-02-09T13:06:27Z'
 * Thinking more about it: when demos where hosted on pages.github.io, it made sense to find the repo.
 * Now demos are available on the neo domain, so finding the repo is trivial.
 
-## Activity Log
+## Timeline
 
-- 2025-02-09 @tobiu added the `enhancement` label
-- 2025-02-09 @tobiu assigned to @tobiu
-- 2025-02-09 @tobiu referenced in commit `bcfeb93` - "examples.grid.bigData.ControlsContainer: remove the gh button again #6415"
-- 2025-02-09 @tobiu closed this issue
+- 2025-02-09T13:00:43Z @tobiu added the `enhancement` label
+- 2025-02-09T13:00:43Z @tobiu assigned to @tobiu
+- 2025-02-09T13:02:09Z @tobiu referenced in commit `bcfeb93` - "examples.grid.bigData.ControlsContainer: remove the gh button again #6415"
+- 2025-02-09T13:06:28Z @tobiu closed this issue
 

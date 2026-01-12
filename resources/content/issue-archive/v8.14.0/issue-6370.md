@@ -23,10 +23,10 @@ closedAt: '2025-02-03T21:14:41Z'
 
 * We can delay the record class creation until the first record instance is needed
 
-## Activity Log
+## Timeline
 
-- 2025-02-03 @tobiu added the `enhancement` label
-- 2025-02-03 @tobiu assigned to @tobiu
-- 2025-02-03 @tobiu referenced in commit `9f0af13` - "data.Model: remove construct() #6370"
-- 2025-02-03 @tobiu closed this issue
+- 2025-02-03T21:14:19Z @tobiu added the `enhancement` label
+- 2025-02-03T21:14:19Z @tobiu assigned to @tobiu
+- 2025-02-03T21:14:32Z @tobiu referenced in commit `9f0af13` - "data.Model: remove construct() #6370"
+- 2025-02-03T21:14:41Z @tobiu closed this issue
 

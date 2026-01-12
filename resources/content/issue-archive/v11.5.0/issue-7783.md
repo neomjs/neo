@@ -29,11 +29,11 @@ This change will ensure that `Store.mjs` can be used seamlessly in web workers (
 **Proposed Change:**
 Modify the `load` method in `src/data/Store.mjs` to use a dynamic `import('fs/promises')` when `globalThis.process?.release` is true.
 
-## Activity Log
+## Timeline
 
-- 2025-11-17 @tobiu added the `enhancement` label
-- 2025-11-17 @tobiu added the `ai` label
-- 2025-11-17 @tobiu assigned to @tobiu
-- 2025-11-17 @tobiu referenced in commit `0f0ed92` - "Dynamically import fs/promises in Store.mjs for Node.js compatibility #7783"
-- 2025-11-17 @tobiu closed this issue
+- 2025-11-17T18:56:12Z @tobiu added the `enhancement` label
+- 2025-11-17T18:56:12Z @tobiu added the `ai` label
+- 2025-11-17T18:57:11Z @tobiu assigned to @tobiu
+- 2025-11-17T18:57:28Z @tobiu referenced in commit `0f0ed92` - "Dynamically import fs/promises in Store.mjs for Node.js compatibility #7783"
+- 2025-11-17T18:57:49Z @tobiu closed this issue
 

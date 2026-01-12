@@ -46,12 +46,12 @@ Release v11.8.0 introduced the Standalone AI SDK and "Code Execution" capabiliti
 **Strategic Value**
 This re-positioning captures the emerging "Agentic" market and differentiates Neo.mjs from traditional UI frameworks by claiming the "Agent OS" category.
 
-## Activity Log
+## Timeline
 
-- 2025-11-21 @tobiu added the `documentation` label
-- 2025-11-21 @tobiu added the `enhancement` label
-- 2025-11-21 @tobiu added the `ai` label
-- 2025-11-21 @tobiu assigned to @tobiu
-- 2025-11-21 @tobiu referenced in commit `c77df06` - "[Docs] Re-position Neo.mjs as "Agent Operating System" in Schema and Metadata #7844"
-- 2025-11-21 @tobiu closed this issue
+- 2025-11-21T16:11:14Z @tobiu added the `documentation` label
+- 2025-11-21T16:11:14Z @tobiu added the `enhancement` label
+- 2025-11-21T16:11:14Z @tobiu added the `ai` label
+- 2025-11-21T16:13:30Z @tobiu assigned to @tobiu
+- 2025-11-21T16:18:36Z @tobiu referenced in commit `c77df06` - "[Docs] Re-position Neo.mjs as "Agent Operating System" in Schema and Metadata #7844"
+- 2025-11-21T16:18:44Z @tobiu closed this issue
 

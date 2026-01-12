@@ -38,9 +38,15 @@ Refactor `ComponentService.queryComponent()` to align with the cleaner implement
 Verify `Neo.manager.Component.down()` behavior carefully as it might differ from `Neo.collection.Base.find()`.
 
 
-## Comments
+## Timeline
 
-### @tobiu - 2026-01-05 11:10
+- 2026-01-05T11:08:05Z @tobiu added the `developer-experience` label
+- 2026-01-05T11:08:05Z @tobiu added the `ai` label
+- 2026-01-05T11:08:05Z @tobiu added the `refactoring` label
+- 2026-01-05T11:08:18Z @tobiu added parent issue #8169
+- 2026-01-05T11:08:55Z @tobiu assigned to @tobiu
+- 2026-01-05T11:09:48Z @tobiu referenced in commit `a9005df` - "[Neural Link] Refactor: ComponentService.queryComponent logic #8329"
+### @tobiu - 2026-01-05T11:10:02Z
 
 **Input from Gemini 3 Pro:**
 
@@ -53,13 +59,5 @@ Verify `Neo.manager.Component.down()` behavior carefully as it might differ from
 > 
 > The implementation now aligns with the clean patterns established in `InstanceService.findInstances`.
 
-## Activity Log
-
-- 2026-01-05 @tobiu added the `developer-experience` label
-- 2026-01-05 @tobiu added the `ai` label
-- 2026-01-05 @tobiu added the `refactoring` label
-- 2026-01-05 @tobiu added parent issue #8169
-- 2026-01-05 @tobiu assigned to @tobiu
-- 2026-01-05 @tobiu referenced in commit `a9005df` - "[Neural Link] Refactor: ComponentService.queryComponent logic #8329"
-- 2026-01-05 @tobiu closed this issue
+- 2026-01-05T11:10:31Z @tobiu closed this issue
 

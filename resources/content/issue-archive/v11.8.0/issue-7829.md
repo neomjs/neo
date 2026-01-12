@@ -36,11 +36,11 @@ In `src/main/addon/Stylesheet.mjs`, inside the `construct` method:
 
 This prevents redundant network requests and double-loading of styles in SSR environments.
 
-## Activity Log
+## Timeline
 
-- 2025-11-20 @tobiu added the `enhancement` label
-- 2025-11-20 @tobiu added the `ai` label
-- 2025-11-20 @tobiu assigned to @tobiu
-- 2025-11-20 @tobiu referenced in commit `92b8bd5` - "Optimize Stylesheet addon for SSR mode #7829"
-- 2025-11-20 @tobiu closed this issue
+- 2025-11-20T21:02:43Z @tobiu added the `enhancement` label
+- 2025-11-20T21:02:43Z @tobiu added the `ai` label
+- 2025-11-20T21:05:33Z @tobiu assigned to @tobiu
+- 2025-11-20T21:06:24Z @tobiu referenced in commit `92b8bd5` - "Optimize Stylesheet addon for SSR mode #7829"
+- 2025-11-20T21:06:42Z @tobiu closed this issue
 

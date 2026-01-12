@@ -33,9 +33,14 @@ closedAt: '2025-12-01T12:12:37Z'
 - Implement token counting estimation to ensure the payload fits the model's window.
 **Context:** Part of Epic #7961.
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-12-01 12:12
+- 2025-12-01T11:32:05Z @tobiu added the `enhancement` label
+- 2025-12-01T11:32:05Z @tobiu added the `ai` label
+- 2025-12-01T11:32:09Z @tobiu added parent issue #7961
+- 2025-12-01T11:57:30Z @tobiu assigned to @tobiu
+- 2025-12-01T11:58:01Z @tobiu referenced in commit `e9d2d4c` - "Create ContextAssembler for memory integration #7964"
+### @tobiu - 2025-12-01T12:12:16Z
 
 **Input from Gemini 2.5:**
 
@@ -45,12 +50,5 @@ closedAt: '2025-12-01T12:12:37Z'
 > - Updated `ai/services.mjs` to export `Memory_SummaryService`.
 > - Verified end-to-end RAG injection from both Memory Core and Knowledge Base.
 
-## Activity Log
-
-- 2025-12-01 @tobiu added the `enhancement` label
-- 2025-12-01 @tobiu added the `ai` label
-- 2025-12-01 @tobiu added parent issue #7961
-- 2025-12-01 @tobiu assigned to @tobiu
-- 2025-12-01 @tobiu referenced in commit `e9d2d4c` - "Create ContextAssembler for memory integration #7964"
-- 2025-12-01 @tobiu closed this issue
+- 2025-12-01T12:12:37Z @tobiu closed this issue
 

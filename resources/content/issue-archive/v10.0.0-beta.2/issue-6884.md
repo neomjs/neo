@@ -24,9 +24,9 @@ closedAt: '2025-06-27T15:16:31Z'
 * Subclasses need to use `text` instead of `text_`, or remove the config in case it has a null value.
 * `afterSetText()` can of course get overridden.
 
-## Activity Log
+## Timeline
 
-- 2025-06-27 @tobiu added the `enhancement` label
-- 2025-06-27 @tobiu referenced in commit `056a420` - "component.Base: text_ #6884"
-- 2025-06-27 @tobiu closed this issue
+- 2025-06-27T15:13:12Z @tobiu added the `enhancement` label
+- 2025-06-27T15:13:33Z @tobiu referenced in commit `056a420` - "component.Base: text_ #6884"
+- 2025-06-27T15:16:31Z @tobiu closed this issue
 

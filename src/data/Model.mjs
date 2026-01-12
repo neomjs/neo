@@ -1,5 +1,6 @@
-import Base          from '../core/Base.mjs';
-import RecordFactory from './RecordFactory.mjs';
+import Base           from '../core/Base.mjs';
+import RecordFactory  from './RecordFactory.mjs';
+import {isDescriptor} from '../core/ConfigSymbols.mjs';
 
 /**
  * @class Neo.data.Model
@@ -18,10 +19,14 @@ class Model extends Base {
          */
         ntype: 'model',
         /**
-         * @member {Object[]|null} fields_=null
+         * @member {Object[]|null} fields_
          * @reactive
          */
-        fields_: null,
+        fields_: {
+            [isDescriptor]: true,
+            merge         : 'deepArrays',
+            value         : null
+        },
         /**
          * @member {String} keyProperty_='id'
          * @reactive

@@ -41,9 +41,9 @@ This epic tracks the architectural exploration and implementation of the **Neo A
 -   Implement the first "Decision Node" logic (e.g., simplistic Release automation).
 
 
-## Activity Log
+## Timeline
 
-- 2026-01-03 @tobiu added the `epic` label
-- 2026-01-03 @tobiu added the `ai` label
-- 2026-01-03 @tobiu added the `architecture` label
+- 2026-01-03T08:03:41Z @tobiu added the `epic` label
+- 2026-01-03T08:03:41Z @tobiu added the `ai` label
+- 2026-01-03T08:03:41Z @tobiu added the `architecture` label
 

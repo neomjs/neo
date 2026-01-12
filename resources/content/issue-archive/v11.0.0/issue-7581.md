@@ -32,14 +32,14 @@ To improve the long-term maintainability and clarity of the `SyncService`, all p
 3.  Methods that can throw errors are documented with the `@throws` tag.
 4.  At least one complex method, such as `#getIssuePath`, includes an `@example` block demonstrating its usage in different scenarios.
 
-## Activity Log
+## Timeline
 
-- 2025-10-20 @tobiu assigned to @tobiu
-- 2025-10-20 @tobiu added the `documentation` label
-- 2025-10-20 @tobiu added the `enhancement` label
-- 2025-10-20 @tobiu added the `ai` label
-- 2025-10-20 @tobiu added parent issue #7564
-- 2025-10-21 @tobiu referenced in commit `18cae72` - "Add Comprehensive JSDoc to SyncService #7581"
-- 2025-10-21 @tobiu closed this issue
-- 2025-10-21 @tobiu referenced in commit `9855a1e` - "#7581 runFullSync() docs example"
+- 2025-10-20T13:29:22Z @tobiu assigned to @tobiu
+- 2025-10-20T13:29:23Z @tobiu added the `documentation` label
+- 2025-10-20T13:29:23Z @tobiu added the `enhancement` label
+- 2025-10-20T13:29:23Z @tobiu added the `ai` label
+- 2025-10-20T13:29:23Z @tobiu added parent issue #7564
+- 2025-10-21T08:35:58Z @tobiu referenced in commit `18cae72` - "Add Comprehensive JSDoc to SyncService #7581"
+- 2025-10-21T08:36:08Z @tobiu closed this issue
+- 2025-10-21T08:41:57Z @tobiu referenced in commit `9855a1e` - "#7581 runFullSync() docs example"
 

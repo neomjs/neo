@@ -35,12 +35,12 @@ Update `AGENTS_STARTUP.md` (specifically Section 6: Check for Memory Core) to:
 - `AGENTS_STARTUP.md` clearly instructs agents to perform this action during initialization.
 - The instruction is framed as a mandatory step for "Memory Core Active" scenarios.
 
-## Activity Log
+## Timeline
 
-- 2025-12-29 @tobiu added the `documentation` label
-- 2025-12-29 @tobiu added the `developer-experience` label
-- 2025-12-29 @tobiu added the `ai` label
-- 2025-12-29 @tobiu assigned to @tobiu
-- 2025-12-29 @tobiu referenced in commit `04b85eb` - "[Process] Update AGENTS_STARTUP.md to mandate reading recent session summaries #8199"
-- 2025-12-29 @tobiu closed this issue
+- 2025-12-29T05:31:03Z @tobiu added the `documentation` label
+- 2025-12-29T05:31:04Z @tobiu added the `developer-experience` label
+- 2025-12-29T05:31:04Z @tobiu added the `ai` label
+- 2025-12-29T05:36:14Z @tobiu assigned to @tobiu
+- 2025-12-29T05:36:34Z @tobiu referenced in commit `04b85eb` - "[Process] Update AGENTS_STARTUP.md to mandate reading recent session summaries #8199"
+- 2025-12-29T05:36:43Z @tobiu closed this issue
 

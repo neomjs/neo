@@ -31,11 +31,11 @@ Additionally, JSDoc comments for `iconCls_` and `position_` in `src/component/To
 * `src/dashboard/Container.mjs`
 * `src/grid/Container.mjs`
 
-## Activity Log
+## Timeline
 
-- 2025-10-02 @tobiu assigned to @tobiu
-- 2025-10-02 @tobiu added the `bug` label
-- 2025-10-02 @tobiu added the `documentation` label
-- 2025-10-02 @tobiu referenced in commit `5fa3e78` - "Add missing @reactive tags and fix config JSDoc for trailing underscores #7329"
-- 2025-10-02 @tobiu closed this issue
+- 2025-10-02T18:01:16Z @tobiu assigned to @tobiu
+- 2025-10-02T18:01:17Z @tobiu added the `bug` label
+- 2025-10-02T18:01:17Z @tobiu added the `documentation` label
+- 2025-10-02T18:01:45Z @tobiu referenced in commit `5fa3e78` - "Add missing @reactive tags and fix config JSDoc for trailing underscores #7329"
+- 2025-10-02T18:01:49Z @tobiu closed this issue
 

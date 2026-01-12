@@ -37,11 +37,11 @@ Update the `mcpServers` configuration in `.gemini/settings.json` as follows:
 This change will be purely cosmetic at this stage, affecting only the display name within the Gemini CLI. Future steps would involve updating the internal server names and `package.json` files when these servers are externalized.
 
 
-## Activity Log
+## Timeline
 
-- 2025-10-25 @tobiu added the `enhancement` label
-- 2025-10-25 @tobiu added the `ai` label
-- 2025-10-25 @tobiu assigned to @tobiu
-- 2025-10-25 @tobiu referenced in commit `c47432c` - "Chore: Update MCP Server Names in .gemini/settings.json for Branding Consistency #7653"
-- 2025-10-25 @tobiu closed this issue
+- 2025-10-25T18:19:15Z @tobiu added the `enhancement` label
+- 2025-10-25T18:19:15Z @tobiu added the `ai` label
+- 2025-10-25T18:19:34Z @tobiu assigned to @tobiu
+- 2025-10-25T18:20:56Z @tobiu referenced in commit `c47432c` - "Chore: Update MCP Server Names in .gemini/settings.json for Branding Consistency #7653"
+- 2025-10-25T18:21:10Z @tobiu closed this issue
 

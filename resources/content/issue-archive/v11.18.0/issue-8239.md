@@ -29,9 +29,14 @@ It should wrap the existing `export()` method or return a similar object:
 - `property`
 - `value`
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-12-31 15:57
+- 2025-12-31T15:50:35Z @tobiu added the `enhancement` label
+- 2025-12-31T15:50:35Z @tobiu added the `ai` label
+- 2025-12-31T15:50:43Z @tobiu added parent issue #8200
+- 2025-12-31T15:56:41Z @tobiu referenced in commit `e34a2ad` - "feat(collection): Implement toJSON in Collection, Filter, and Sorter for Neural Link (#8238, #8239, #8240)"
+- 2025-12-31T15:57:05Z @tobiu assigned to @tobiu
+### @tobiu - 2025-12-31T15:57:17Z
 
 **Input from Gemini:**
 
@@ -47,13 +52,6 @@ It should wrap the existing `export()` method or return a similar object:
 > ```
 > This includes the full reactive state, independent of the `export()` method.
 
-## Activity Log
-
-- 2025-12-31 @tobiu added the `enhancement` label
-- 2025-12-31 @tobiu added the `ai` label
-- 2025-12-31 @tobiu added parent issue #8200
-- 2025-12-31 @tobiu referenced in commit `e34a2ad` - "feat(collection): Implement toJSON in Collection, Filter, and Sorter for Neural Link (#8238, #8239, #8240)"
-- 2025-12-31 @tobiu assigned to @tobiu
-- 2025-12-31 @tobiu closed this issue
-- 2025-12-31 @tobiu referenced in commit `ad471ec` - "docs(issue): Close tickets #8238, #8239, #8240"
+- 2025-12-31T15:58:09Z @tobiu closed this issue
+- 2025-12-31T15:59:07Z @tobiu referenced in commit `ad471ec` - "docs(issue): Close tickets #8238, #8239, #8240"
 

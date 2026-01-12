@@ -34,11 +34,11 @@ closedAt: '2025-11-20T20:36:45Z'
 **Note on `createNeoInstance`:**
 The fallback logic `let appName = Object.values(Neo.apps)[0]?.name` is preserved but becomes safe due to the initialization in step 1.
 
-## Activity Log
+## Timeline
 
-- 2025-11-20 @tobiu added the `enhancement` label
-- 2025-11-20 @tobiu added the `ai` label
-- 2025-11-20 @tobiu assigned to @tobiu
-- 2025-11-20 @tobiu referenced in commit `d6cb7fa` - "Initialize Neo.apps in App worker and optimize window-specific events #7827"
-- 2025-11-20 @tobiu closed this issue
+- 2025-11-20T20:28:39Z @tobiu added the `enhancement` label
+- 2025-11-20T20:28:39Z @tobiu added the `ai` label
+- 2025-11-20T20:29:12Z @tobiu assigned to @tobiu
+- 2025-11-20T20:36:36Z @tobiu referenced in commit `d6cb7fa` - "Initialize Neo.apps in App worker and optimize window-specific events #7827"
+- 2025-11-20T20:36:45Z @tobiu closed this issue
 

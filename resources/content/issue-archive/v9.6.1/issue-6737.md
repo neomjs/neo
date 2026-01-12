@@ -31,10 +31,10 @@ This works fine inside the dev mode as well as webpack-based dist envs, but `dis
 * We need to add `workerBasePath` for the new env.
 * We need to adjust related logic inside the main thread addons
 
-## Activity Log
+## Timeline
 
-- 2025-06-01 @tobiu assigned to @tobiu
-- 2025-06-01 @tobiu added the `enhancement` label
-- 2025-06-01 @tobiu referenced in commit `e0b7a0c` - "buildScripts/buildESModules: smarter way to handle node module imports #6737"
-- 2025-06-01 @tobiu closed this issue
+- 2025-06-01T13:32:04Z @tobiu assigned to @tobiu
+- 2025-06-01T13:32:05Z @tobiu added the `enhancement` label
+- 2025-06-01T13:32:19Z @tobiu referenced in commit `e0b7a0c` - "buildScripts/buildESModules: smarter way to handle node module imports #6737"
+- 2025-06-01T13:37:46Z @tobiu closed this issue
 

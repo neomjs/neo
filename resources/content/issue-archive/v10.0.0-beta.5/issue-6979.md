@@ -51,23 +51,21 @@ Expand the test suite for `Neo.state.Provider` to include the following:
 **Additional Context**
 The recent refactoring of `Neo.state.Provider` to use `Neo.core.Effect` and `Neo.state.createHierarchicalDataProxy` has introduced a powerful new reactivity model. Comprehensive testing is crucial to validate this new architecture and prevent future issues.
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-07-07 23:40
+- 2025-07-07T18:01:29Z @tobiu assigned to @tobiu
+- 2025-07-07T18:01:30Z @tobiu added the `enhancement` label
+- 2025-07-07T19:26:28Z @tobiu referenced in commit `4cbe250` - "#6979 Re-Implemented & tested 2-way bindings"
+- 2025-07-07T22:20:15Z @tobiu referenced in commit `44afd90` - "#6979 more test cases"
+- 2025-07-07T22:51:20Z @tobiu referenced in commit `489ab1a` - "Enhance StateProvider Test Coverage #6979"
+- 2025-07-07T22:53:21Z @tobiu referenced in commit `67a3221` - "#6979 Formulas in nested providers should combine own and parent data"
+### @tobiu - 2025-07-07T23:40:22Z
 
 <img width="934" height="649" alt="Image" src="https://github.com/user-attachments/assets/de06085b-c296-4704-aa91-844a486116f6" />
 
-## Activity Log
-
-- 2025-07-07 @tobiu assigned to @tobiu
-- 2025-07-07 @tobiu added the `enhancement` label
-- 2025-07-07 @tobiu referenced in commit `4cbe250` - "#6979 Re-Implemented & tested 2-way bindings"
-- 2025-07-07 @tobiu referenced in commit `44afd90` - "#6979 more test cases"
-- 2025-07-07 @tobiu referenced in commit `489ab1a` - "Enhance StateProvider Test Coverage #6979"
-- 2025-07-07 @tobiu referenced in commit `67a3221` - "#6979 Formulas in nested providers should combine own and parent data"
-- 2025-07-07 @tobiu closed this issue
-- 2025-07-09 @tobiu referenced in commit `f1176c0` - "#6979 Re-Implemented & tested 2-way bindings"
-- 2025-07-09 @tobiu referenced in commit `1596d71` - "#6979 more test cases"
-- 2025-07-09 @tobiu referenced in commit `f65ab86` - "Enhance StateProvider Test Coverage #6979"
-- 2025-07-09 @tobiu referenced in commit `19acac5` - "#6979 Formulas in nested providers should combine own and parent data"
+- 2025-07-07T23:40:22Z @tobiu closed this issue
+- 2025-07-09T00:10:51Z @tobiu referenced in commit `f1176c0` - "#6979 Re-Implemented & tested 2-way bindings"
+- 2025-07-09T00:10:51Z @tobiu referenced in commit `1596d71` - "#6979 more test cases"
+- 2025-07-09T00:10:51Z @tobiu referenced in commit `f65ab86` - "Enhance StateProvider Test Coverage #6979"
+- 2025-07-09T00:10:51Z @tobiu referenced in commit `19acac5` - "#6979 Formulas in nested providers should combine own and parent data"
 

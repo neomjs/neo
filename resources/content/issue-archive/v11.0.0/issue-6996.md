@@ -40,22 +40,20 @@ The `Neo.core.Effect` system automatically re-executes VDOM-generating methods w
 -   Clear guidelines for writing pure VDOM-generating methods are documented.
 -   The documentation explains the benefits of purity and provides examples.
 
-## Comments
+## Timeline
 
-### @github-actions - 2025-10-08 02:38
+- 2025-07-09T10:57:05Z @tobiu added parent issue #6992
+- 2025-07-09T10:57:05Z @tobiu added the `enhancement` label
+### @github-actions - 2025-10-08T02:38:39Z
 
 This issue is stale because it has been open for 90 days with no activity.
 
-### @tobiu - 2025-10-24 10:07
+- 2025-10-08T02:38:40Z @github-actions added the `stale` label
+- 2025-10-08T09:39:48Z @tobiu removed the `stale` label
+- 2025-10-08T09:39:48Z @tobiu added the `no auto close` label
+### @tobiu - 2025-10-24T10:07:09Z
 
 dropped
 
-## Activity Log
-
-- 2025-07-09 @tobiu added parent issue #6992
-- 2025-07-09 @tobiu added the `enhancement` label
-- 2025-10-08 @github-actions added the `stale` label
-- 2025-10-08 @tobiu removed the `stale` label
-- 2025-10-08 @tobiu added the `no auto close` label
-- 2025-10-24 @tobiu closed this issue
+- 2025-10-24T10:07:09Z @tobiu closed this issue
 

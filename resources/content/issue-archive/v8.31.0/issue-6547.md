@@ -25,8 +25,8 @@ ignore
 .
 
 
-## Activity Log
+## Timeline
 
-- 2025-03-08 @gplanansky added the `bug` label
-- 2025-03-08 @gplanansky closed this issue
+- 2025-03-08T06:08:15Z @gplanansky added the `bug` label
+- 2025-03-08T06:41:14Z @gplanansky closed this issue
 

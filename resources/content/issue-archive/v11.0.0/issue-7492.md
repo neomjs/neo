@@ -36,13 +36,13 @@ This ticket covers the refactoring of the GitHub Workflow MCP server to define t
 4.  All Express-related files (`index.mjs`, `app.mjs`, `config.mjs`, and the `routes` and `middleware` directories) are deleted.
 5.  The `ai:server-github-workflow-mcp` script in `package.json` is verified to work correctly with the refactored server.
 
-## Activity Log
+## Timeline
 
-- 2025-10-15 @tobiu assigned to @tobiu
-- 2025-10-15 @tobiu added parent issue #7477
-- 2025-10-15 @tobiu added the `enhancement` label
-- 2025-10-15 @tobiu added the `ai` label
-- 2025-10-15 @tobiu referenced in commit `6b0ac23` - "Refactor to Direct MCP Tool Definitions #7492"
-- 2025-10-15 @tobiu closed this issue
-- 2025-10-15 @tobiu referenced in commit `b9e5d04` - "Refactor to Direct MCP Tool Definitions #7492"
+- 2025-10-15T10:29:37Z @tobiu assigned to @tobiu
+- 2025-10-15T10:29:38Z @tobiu added parent issue #7477
+- 2025-10-15T10:29:39Z @tobiu added the `enhancement` label
+- 2025-10-15T10:29:39Z @tobiu added the `ai` label
+- 2025-10-15T10:34:58Z @tobiu referenced in commit `6b0ac23` - "Refactor to Direct MCP Tool Definitions #7492"
+- 2025-10-15T10:35:02Z @tobiu closed this issue
+- 2025-10-15T11:02:12Z @tobiu referenced in commit `b9e5d04` - "Refactor to Direct MCP Tool Definitions #7492"
 

@@ -23,10 +23,10 @@ closedAt: '2025-01-08T10:36:40Z'
 
 it should be possible for devs to change the amount of (up to) x rows before the first and after the last visible row, to fine-tune their scrolling behavior.
 
-## Activity Log
+## Timeline
 
-- 2025-01-07 @tobiu added the `enhancement` label
-- 2025-01-07 @tobiu assigned to @tobiu
-- 2025-01-08 @tobiu referenced in commit `59c3117` - "grid.View: bufferRowRange_ config #6186"
-- 2025-01-08 @tobiu closed this issue
+- 2025-01-07T18:42:00Z @tobiu added the `enhancement` label
+- 2025-01-07T18:42:00Z @tobiu assigned to @tobiu
+- 2025-01-08T10:36:26Z @tobiu referenced in commit `59c3117` - "grid.View: bufferRowRange_ config #6186"
+- 2025-01-08T10:36:40Z @tobiu closed this issue
 

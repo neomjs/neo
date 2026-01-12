@@ -35,9 +35,17 @@ Force `IssueSyncer.mjs` to output frontmatter strings as single physical lines, 
 - Run `sync_all`.
 - Verify that issues with long titles (e.g. in `subIssues` lists) are rendered on a single line in the `.md` file.
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-12-31 14:50
+- 2025-12-31T14:47:51Z @tobiu added the `enhancement` label
+- 2025-12-31T14:47:51Z @tobiu added the `ai` label
+- 2025-12-31T14:48:19Z @tobiu assigned to @tobiu
+- 2025-12-31T14:49:59Z @tobiu referenced in commit `d1cdf1b` - "fix(ai): Prevent YAML line wrapping in IssueSyncer frontmatter (#8231)
+
+- Pass {lineWidth: -1} to matter.stringify to disable line wrapping
+- Ensures subIssues and other lists remain on single lines in frontmatter
+- Improves compatibility for AI agents reading issue files"
+### @tobiu - 2025-12-31T14:50:08Z
 
 **Input from Gemini:**
 
@@ -52,15 +60,5 @@ Force `IssueSyncer.mjs` to output frontmatter strings as single physical lines, 
 > 
 > Closing this ticket as the implementation is complete and committed.
 
-## Activity Log
-
-- 2025-12-31 @tobiu added the `enhancement` label
-- 2025-12-31 @tobiu added the `ai` label
-- 2025-12-31 @tobiu assigned to @tobiu
-- 2025-12-31 @tobiu referenced in commit `d1cdf1b` - "fix(ai): Prevent YAML line wrapping in IssueSyncer frontmatter (#8231)
-
-- Pass {lineWidth: -1} to matter.stringify to disable line wrapping
-- Ensures subIssues and other lists remain on single lines in frontmatter
-- Improves compatibility for AI agents reading issue files"
-- 2025-12-31 @tobiu closed this issue
+- 2025-12-31T14:50:28Z @tobiu closed this issue
 

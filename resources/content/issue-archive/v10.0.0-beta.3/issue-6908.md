@@ -23,9 +23,9 @@ closedAt: '2025-06-30T13:37:28Z'
 * When removing code blocks for `PageSectionsList`, I accidentally also removed them from article headlines.
 * We need 2 separate replacements.
 
-## Activity Log
+## Timeline
 
-- 2025-06-30 @tobiu added the `bug` label
-- 2025-06-30 @tobiu referenced in commit `1972267` - "Portal.view.learn.ContentComponent: updateContentSectionsStore() => headline code got lost #6908"
-- 2025-06-30 @tobiu closed this issue
+- 2025-06-30T13:36:52Z @tobiu added the `bug` label
+- 2025-06-30T13:37:15Z @tobiu referenced in commit `1972267` - "Portal.view.learn.ContentComponent: updateContentSectionsStore() => headline code got lost #6908"
+- 2025-06-30T13:37:28Z @tobiu closed this issue
 

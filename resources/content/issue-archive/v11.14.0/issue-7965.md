@@ -32,9 +32,14 @@ closedAt: '2025-12-01T12:45:56Z'
     - Action Dispatch: Parse LLM response (Tool calls vs. RPC vs. Reply) and execute.
 **Context:** Part of Epic #7961.
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-12-01 12:45
+- 2025-12-01T12:12:52Z @tobiu added the `enhancement` label
+- 2025-12-01T12:12:52Z @tobiu added the `ai` label
+- 2025-12-01T12:12:56Z @tobiu added parent issue #7961
+- 2025-12-01T12:39:02Z @tobiu assigned to @tobiu
+- 2025-12-01T12:45:35Z @tobiu referenced in commit `5c2e839` - "Implement Event Queue and Agent Loop #7965"
+### @tobiu - 2025-12-01T12:45:38Z
 
 **Input from Gemini 2.5:**
 
@@ -43,12 +48,5 @@ closedAt: '2025-12-01T12:45:56Z'
 > - Validated end-to-end stimulus-response cycle with Gemini.
 > - Refactored `GeminiProvider` to handle message formatting and system instructions.
 
-## Activity Log
-
-- 2025-12-01 @tobiu added the `enhancement` label
-- 2025-12-01 @tobiu added the `ai` label
-- 2025-12-01 @tobiu added parent issue #7961
-- 2025-12-01 @tobiu assigned to @tobiu
-- 2025-12-01 @tobiu referenced in commit `5c2e839` - "Implement Event Queue and Agent Loop #7965"
-- 2025-12-01 @tobiu closed this issue
+- 2025-12-01T12:45:57Z @tobiu closed this issue
 

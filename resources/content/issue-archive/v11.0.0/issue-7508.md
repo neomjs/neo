@@ -42,12 +42,12 @@ Since this is a long-running, asynchronous process, the service should be design
 3.  The function is asynchronous and does not block the main thread.
 4.  The `toolService.mjs` `serviceMapping` is updated to point the `sync_database` operationId to the new service function.
 
-## Activity Log
+## Timeline
 
-- 2025-10-16 @tobiu assigned to @tobiu
-- 2025-10-16 @tobiu added parent issue #7501
-- 2025-10-16 @tobiu added the `enhancement` label
-- 2025-10-16 @tobiu added the `ai` label
-- 2025-10-16 @tobiu referenced in commit `fd2dc6e` - "Implement Sync Database Service #7508"
-- 2025-10-16 @tobiu closed this issue
+- 2025-10-16T10:56:58Z @tobiu assigned to @tobiu
+- 2025-10-16T10:56:59Z @tobiu added parent issue #7501
+- 2025-10-16T10:56:59Z @tobiu added the `enhancement` label
+- 2025-10-16T10:56:59Z @tobiu added the `ai` label
+- 2025-10-16T11:01:01Z @tobiu referenced in commit `fd2dc6e` - "Implement Sync Database Service #7508"
+- 2025-10-16T11:01:22Z @tobiu closed this issue
 

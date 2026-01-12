@@ -32,12 +32,12 @@ To standardize our naming convention, the `knowledgeBase.collectionName` should 
 2.  Any services that might have this value hardcoded (though they should not) are checked and updated.
 3.  This change implies that the old collection will be orphaned and a new one will be created on the next sync, which is the desired outcome for a clean switch.
 
-## Activity Log
+## Timeline
 
-- 2025-10-19 @tobiu assigned to @tobiu
-- 2025-10-19 @tobiu added the `enhancement` label
-- 2025-10-19 @tobiu added parent issue #7536
-- 2025-10-19 @tobiu added the `ai` label
-- 2025-10-19 @tobiu referenced in commit `59f3602` - "Standardize ChromaDB Collection Naming Convention #7563"
-- 2025-10-19 @tobiu closed this issue
+- 2025-10-19T23:24:12Z @tobiu assigned to @tobiu
+- 2025-10-19T23:24:13Z @tobiu added the `enhancement` label
+- 2025-10-19T23:24:13Z @tobiu added parent issue #7536
+- 2025-10-19T23:24:14Z @tobiu added the `ai` label
+- 2025-10-19T23:24:56Z @tobiu referenced in commit `59f3602` - "Standardize ChromaDB Collection Naming Convention #7563"
+- 2025-10-19T23:25:06Z @tobiu closed this issue
 

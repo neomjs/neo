@@ -23,11 +23,11 @@ closedAt: '2025-07-07T11:14:06Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
-- 2025-07-07 @tobiu assigned to @tobiu
-- 2025-07-07 @tobiu added the `enhancement` label
-- 2025-07-07 @tobiu referenced in commit `18267d9` - "tab.header.EffectButton: create a PoC to showcase that we can extend button.Effect #6971"
-- 2025-07-07 @tobiu closed this issue
-- 2025-07-09 @tobiu referenced in commit `bde646b` - "tab.header.EffectButton: create a PoC to showcase that we can extend button.Effect #6971"
+- 2025-07-07T11:13:24Z @tobiu assigned to @tobiu
+- 2025-07-07T11:13:25Z @tobiu added the `enhancement` label
+- 2025-07-07T11:13:57Z @tobiu referenced in commit `18267d9` - "tab.header.EffectButton: create a PoC to showcase that we can extend button.Effect #6971"
+- 2025-07-07T11:14:06Z @tobiu closed this issue
+- 2025-07-09T00:10:50Z @tobiu referenced in commit `bde646b` - "tab.header.EffectButton: create a PoC to showcase that we can extend button.Effect #6971"
 

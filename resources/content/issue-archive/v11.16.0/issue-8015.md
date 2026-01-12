@@ -26,13 +26,13 @@ The `ai/mcp/server/app-worker` implementation has been fully superseded by the n
 
 The `app-worker` directory has been deleted locally. This ticket tracks the commitment of this deletion to the repository to remove dead code and technical debt.
 
-## Activity Log
+## Timeline
 
-- 2025-12-03 @tobiu added the `ai` label
-- 2025-12-03 @tobiu added the `refactoring` label
-- 2025-12-03 @tobiu added the `dropped` label
-- 2025-12-03 @tobiu removed the `dropped` label
-- 2025-12-03 @tobiu assigned to @tobiu
-- 2025-12-03 @tobiu referenced in commit `7d4d11c` - "Remove deprecated App Worker MCP Server #8015"
-- 2025-12-03 @tobiu closed this issue
+- 2025-12-03T22:14:18Z @tobiu added the `ai` label
+- 2025-12-03T22:14:18Z @tobiu added the `refactoring` label
+- 2025-12-03T22:14:18Z @tobiu added the `dropped` label
+- 2025-12-03T22:14:37Z @tobiu removed the `dropped` label
+- 2025-12-03T22:14:40Z @tobiu assigned to @tobiu
+- 2025-12-03T22:15:19Z @tobiu referenced in commit `7d4d11c` - "Remove deprecated App Worker MCP Server #8015"
+- 2025-12-03T22:15:22Z @tobiu closed this issue
 

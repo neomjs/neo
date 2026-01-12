@@ -37,13 +37,13 @@ Add a new subsection to `AGENTS.md` under **"1. Your Role and Primary Directive"
 > - **When to Use Positive Reinforcement:** It is appropriate to acknowledge the user's contribution with positive reinforcement only when they have pointed out a significant flaw in your own reasoning or have proposed a demonstrably better solution. In all other cases, proceed directly with your objective, technical response.
 > - **Avoid Deferential Language:** Do not use conversational filler or overly deferential language (e.g., "You are absolutely right.").
 
-## Activity Log
+## Timeline
 
-- 2025-10-26 @tobiu added the `documentation` label
-- 2025-10-26 @tobiu added the `enhancement` label
-- 2025-10-26 @tobiu added the `ai` label
-- 2025-10-26 @tobiu assigned to @tobiu
-- 2025-10-26 @tobiu added parent issue #7604
-- 2025-10-26 @tobiu referenced in commit `4fe4c28` - "Docs: Add Communication Style Directive to AGENTS.md #7662"
-- 2025-10-26 @tobiu closed this issue
+- 2025-10-26T11:36:45Z @tobiu added the `documentation` label
+- 2025-10-26T11:36:45Z @tobiu added the `enhancement` label
+- 2025-10-26T11:36:45Z @tobiu added the `ai` label
+- 2025-10-26T11:37:30Z @tobiu assigned to @tobiu
+- 2025-10-26T11:37:39Z @tobiu added parent issue #7604
+- 2025-10-26T11:38:24Z @tobiu referenced in commit `4fe4c28` - "Docs: Add Communication Style Directive to AGENTS.md #7662"
+- 2025-10-26T11:38:50Z @tobiu closed this issue
 

@@ -24,10 +24,10 @@ closedAt: '2025-07-27T00:30:09Z'
 * `getCount()` is deprecated.
 * we will continue to keep it for a while, but should not use it on our own.
 
-## Activity Log
+## Timeline
 
-- 2025-07-27 @tobiu assigned to @tobiu
-- 2025-07-27 @tobiu added the `enhancement` label
-- 2025-07-27 @tobiu referenced in commit `ae7393b` - "collection.Base: replace internal getCount() calls with count #7117"
-- 2025-07-27 @tobiu closed this issue
+- 2025-07-27T00:28:59Z @tobiu assigned to @tobiu
+- 2025-07-27T00:29:00Z @tobiu added the `enhancement` label
+- 2025-07-27T00:29:20Z @tobiu referenced in commit `ae7393b` - "collection.Base: replace internal getCount() calls with count #7117"
+- 2025-07-27T00:30:09Z @tobiu closed this issue
 

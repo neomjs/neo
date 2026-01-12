@@ -34,12 +34,12 @@ This ticket covers refactoring `ai/mcp/server/memory-core/services/sessionServic
 6.  Any other services that depend on `sessionService` are updated to use the new `SessionService` singleton instance.
 7.  All related tools (e.g., `summarize_sessions`) continue to function correctly after the refactoring.
 
-## Activity Log
+## Timeline
 
-- 2025-10-18 @tobiu assigned to @tobiu
-- 2025-10-18 @tobiu added the `enhancement` label
-- 2025-10-18 @tobiu added parent issue #7536
-- 2025-10-18 @tobiu added the `ai` label
-- 2025-10-18 @tobiu referenced in commit `254c611` - "Convert sessionService to SessionService Neo.mjs Class #7544"
-- 2025-10-18 @tobiu closed this issue
+- 2025-10-18T13:23:16Z @tobiu assigned to @tobiu
+- 2025-10-18T13:23:17Z @tobiu added the `enhancement` label
+- 2025-10-18T13:23:17Z @tobiu added parent issue #7536
+- 2025-10-18T13:23:17Z @tobiu added the `ai` label
+- 2025-10-18T13:35:17Z @tobiu referenced in commit `254c611` - "Convert sessionService to SessionService Neo.mjs Class #7544"
+- 2025-10-18T13:35:33Z @tobiu closed this issue
 

@@ -64,9 +64,15 @@ Neo.currentWorker.sendMessage('uuid-123', {action: 'foo'});
     *   Eventually remove support for `'main'` as a destination string entirely.
 
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-12-19 23:13
+- 2025-12-19T22:27:51Z @tobiu added the `enhancement` label
+- 2025-12-19T22:27:52Z @tobiu added the `epic` label
+- 2025-12-19T22:27:52Z @tobiu added the `ai` label
+- 2025-12-19T22:27:52Z @tobiu added the `architecture` label
+- 2025-12-19T22:28:12Z @tobiu assigned to @tobiu
+- 2025-12-19T23:12:33Z @tobiu referenced in commit `8004744` - "#8149 phase 1"
+### @tobiu - 2025-12-19T23:13:44Z
 
 **Input from Gemini 2.5 pro:**
 
@@ -86,7 +92,17 @@ Neo.currentWorker.sendMessage('uuid-123', {action: 'foo'});
 > **Next Steps:**
 > Monitor the console for `sendMessage destination "main" is deprecated` warnings to identify and migrate any remaining edge cases (e.g., third-party addons or manual `sendMessage` calls).
 
-### @tobiu - 2025-12-21 11:46
+- 2025-12-19T23:58:29Z @tobiu referenced in commit `9d58900` - "#8149 wip"
+- 2025-12-20T00:04:25Z @tobiu cross-referenced by #8150
+- 2025-12-20T01:30:29Z @tobiu referenced in commit `e330d2f` - "#8149 wip"
+- 2025-12-20T01:31:07Z @tobiu referenced in commit `a7030bc` - "#8149 component.Base: waitForDomRect()"
+- 2025-12-20T01:42:15Z @tobiu referenced in commit `e33ad53` - "#8149 form.field.Text: afterSetDisabledChars(), destroy(9"
+- 2025-12-20T02:03:05Z @tobiu referenced in commit `94e2fa5` - "#8149 component.Base: alignTo(), code.LivePreview: createPopupWindow()"
+- 2025-12-20T02:06:33Z @tobiu referenced in commit `b10848a` - "#8149 AgentOS.view.StrategyPanelController, AgentOS.view.ViewportController: Neo.Main.windowOpen()"
+- 2025-12-20T11:44:11Z @tobiu referenced in commit `225b9fc` - "#8149 container.SortZone: startWindowDrag() => passing windowId"
+- 2025-12-21T10:50:21Z @tobiu referenced in commit `b4a405c` - "#8149 main.addon.Navigator: navigateTo() => object based param"
+- 2025-12-21T11:44:52Z @tobiu referenced in commit `d3d40dd` - "#8149 work in progress"
+### @tobiu - 2025-12-21T11:46:02Z
 
 **Input from Gemini 2.5 pro:**
 
@@ -127,7 +143,10 @@ Neo.currentWorker.sendMessage('uuid-123', {action: 'foo'});
 > *   Identified and tracked a technical debt item: **#8152** ("Combine DomAccess.addScript and loadScript into a unified API") to resolve the overlap between `addScript` (remote) and `loadScript` (local helper).
 > *   Verified that `DomAccess.loadScript` is currently a local helper and does not require remote method refactoring at this stage.
 
-### @tobiu - 2025-12-21 16:02
+- 2025-12-21T12:36:28Z @tobiu referenced in commit `7d4709e` - "#8149 ensuring all "main.addon" related remote calls pass windowId"
+- 2025-12-21T12:54:14Z @tobiu referenced in commit `51df23a` - "#8149 ensuring all "main.DomAccess" related remote calls pass windowId"
+- 2025-12-21T12:58:11Z @tobiu referenced in commit `93dea5a` - "#8149 ensuring all "main.DomEvents" related remote calls pass windowId"
+### @tobiu - 2025-12-21T16:02:30Z
 
 **Input from Gemini 2.5 pro:**
 
@@ -146,30 +165,10 @@ Neo.currentWorker.sendMessage('uuid-123', {action: 'foo'});
 > 
 > I will proceed with the understanding that Phase 3 "Removal" applies **only** to SharedWorker modes. No code changes are required to support this "allowance" as it is the current behavior, but we will ensure no future commits break this compatibility.
 
-### @tobiu - 2025-12-21 16:04
+### @tobiu - 2025-12-21T16:04:15Z
 
 Closing as Phase 3 requirements are already met by the current hybrid implementation. Strict  enforcement is applied only to SharedWorker environments, while  remains supported for standard SPAs.
 
-## Activity Log
-
-- 2025-12-19 @tobiu added the `enhancement` label
-- 2025-12-19 @tobiu added the `epic` label
-- 2025-12-19 @tobiu added the `ai` label
-- 2025-12-19 @tobiu added the `architecture` label
-- 2025-12-19 @tobiu assigned to @tobiu
-- 2025-12-19 @tobiu referenced in commit `8004744` - "#8149 phase 1"
-- 2025-12-19 @tobiu referenced in commit `9d58900` - "#8149 wip"
-- 2025-12-20 @tobiu cross-referenced by #8150
-- 2025-12-20 @tobiu referenced in commit `e330d2f` - "#8149 wip"
-- 2025-12-20 @tobiu referenced in commit `a7030bc` - "#8149 component.Base: waitForDomRect()"
-- 2025-12-20 @tobiu referenced in commit `e33ad53` - "#8149 form.field.Text: afterSetDisabledChars(), destroy(9"
-- 2025-12-20 @tobiu referenced in commit `94e2fa5` - "#8149 component.Base: alignTo(), code.LivePreview: createPopupWindow()"
-- 2025-12-20 @tobiu referenced in commit `b10848a` - "#8149 AgentOS.view.StrategyPanelController, AgentOS.view.ViewportController: Neo.Main.windowOpen()"
-- 2025-12-20 @tobiu referenced in commit `225b9fc` - "#8149 container.SortZone: startWindowDrag() => passing windowId"
-- 2025-12-21 @tobiu referenced in commit `b4a405c` - "#8149 main.addon.Navigator: navigateTo() => object based param"
-- 2025-12-21 @tobiu referenced in commit `d3d40dd` - "#8149 work in progress"
-- 2025-12-21 @tobiu referenced in commit `7d4709e` - "#8149 ensuring all "main.addon" related remote calls pass windowId"
-- 2025-12-21 @tobiu referenced in commit `51df23a` - "#8149 ensuring all "main.DomAccess" related remote calls pass windowId"
-- 2025-12-21 @tobiu referenced in commit `93dea5a` - "#8149 ensuring all "main.DomEvents" related remote calls pass windowId"
-- 2025-12-21 @tobiu closed this issue
+- 2025-12-21T16:04:16Z @tobiu closed this issue
+- 2026-01-05T19:30:55Z @tobiu cross-referenced by #8338
 

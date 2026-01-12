@@ -23,10 +23,10 @@ closedAt: '2025-02-11T19:45:54Z'
 
 * operator `like`
 
-## Activity Log
+## Timeline
 
-- 2025-02-11 @tobiu added the `enhancement` label
-- 2025-02-11 @tobiu assigned to @tobiu
-- 2025-02-11 @tobiu referenced in commit `c58dd54` - "examples.grid.bigData.ControlsContainer: add filter fields for the firstname & lastname columns #6440"
-- 2025-02-11 @tobiu closed this issue
+- 2025-02-11T19:03:07Z @tobiu added the `enhancement` label
+- 2025-02-11T19:03:07Z @tobiu assigned to @tobiu
+- 2025-02-11T19:03:31Z @tobiu referenced in commit `c58dd54` - "examples.grid.bigData.ControlsContainer: add filter fields for the firstname & lastname columns #6440"
+- 2025-02-11T19:45:54Z @tobiu closed this issue
 

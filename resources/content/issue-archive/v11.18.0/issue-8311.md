@@ -37,16 +37,16 @@ closedAt: '2026-01-04T13:47:40Z'
 **Goal:**
 Make Neural Link configuration more flexible and runtime-safe.
 
-## Activity Log
+## Timeline
 
-- 2026-01-04 @tobiu added the `enhancement` label
-- 2026-01-04 @tobiu added the `ai` label
-- 2026-01-04 @tobiu added the `architecture` label
-- 2026-01-04 @tobiu added parent issue #8169
-- 2026-01-04 @tobiu assigned to @tobiu
-- 2026-01-04 @tobiu referenced in commit `88e5191` - "refactor(ai): Use JSDoc-only definition for neuralLinkUrl (#8311)
+- 2026-01-04T13:34:41Z @tobiu added the `enhancement` label
+- 2026-01-04T13:34:42Z @tobiu added the `ai` label
+- 2026-01-04T13:34:42Z @tobiu added the `architecture` label
+- 2026-01-04T13:35:01Z @tobiu added parent issue #8169
+- 2026-01-04T13:35:06Z @tobiu assigned to @tobiu
+- 2026-01-04T13:46:46Z @tobiu referenced in commit `88e5191` - "refactor(ai): Use JSDoc-only definition for neuralLinkUrl (#8311)
 
 - Remove explicit value from DefaultConfig.mjs to keep it lightweight, matching the pattern of other optional configs."
-- 2026-01-04 @tobiu referenced in commit `91e1647` - "Feat: Neural Link - Configurable URL & Graceful Connection #8311"
-- 2026-01-04 @tobiu closed this issue
+- 2026-01-04T13:47:27Z @tobiu referenced in commit `91e1647` - "Feat: Neural Link - Configurable URL & Graceful Connection #8311"
+- 2026-01-04T13:47:40Z @tobiu closed this issue
 

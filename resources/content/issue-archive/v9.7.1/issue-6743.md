@@ -23,10 +23,10 @@ closedAt: '2025-06-02T09:54:34Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
-- 2025-06-02 @tobiu assigned to @tobiu
-- 2025-06-02 @tobiu added the `enhancement` label
-- 2025-06-02 @tobiu referenced in commit `0eaacf0` - "Portal App: add the new blog post #6743"
-- 2025-06-02 @tobiu closed this issue
+- 2025-06-02T09:19:45Z @tobiu assigned to @tobiu
+- 2025-06-02T09:19:46Z @tobiu added the `enhancement` label
+- 2025-06-02T09:54:11Z @tobiu referenced in commit `0eaacf0` - "Portal App: add the new blog post #6743"
+- 2025-06-02T09:54:34Z @tobiu closed this issue
 

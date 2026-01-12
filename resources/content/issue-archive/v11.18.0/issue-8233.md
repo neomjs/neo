@@ -31,9 +31,14 @@ It should return an object containing:
 - `containerCls`: The container CSS class
 - `windowId`: The window ID
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-12-31 15:16
+- 2025-12-31T15:14:44Z @tobiu added the `enhancement` label
+- 2025-12-31T15:14:44Z @tobiu added the `ai` label
+- 2025-12-31T15:14:57Z @tobiu added parent issue #8200
+- 2025-12-31T15:15:04Z @tobiu assigned to @tobiu
+- 2025-12-31T15:15:59Z @tobiu referenced in commit `b8600b2` - "feat(layout): Implement toJSON in Neo.layout.Base for Neural Link serialization (#8233)"
+### @tobiu - 2025-12-31T15:16:02Z
 
 **Input from Gemini:**
 
@@ -48,13 +53,6 @@ It should return an object containing:
 > }
 > ```
 
-## Activity Log
-
-- 2025-12-31 @tobiu added the `enhancement` label
-- 2025-12-31 @tobiu added the `ai` label
-- 2025-12-31 @tobiu added parent issue #8200
-- 2025-12-31 @tobiu assigned to @tobiu
-- 2025-12-31 @tobiu referenced in commit `b8600b2` - "feat(layout): Implement toJSON in Neo.layout.Base for Neural Link serialization (#8233)"
-- 2025-12-31 @tobiu closed this issue
-- 2025-12-31 @tobiu referenced in commit `a07f4f2` - "docs(issue): Close ticket #8233"
+- 2025-12-31T15:16:26Z @tobiu closed this issue
+- 2025-12-31T15:19:50Z @tobiu referenced in commit `a07f4f2` - "docs(issue): Close ticket #8233"
 

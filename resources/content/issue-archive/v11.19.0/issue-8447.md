@@ -44,12 +44,12 @@ Systematically replace remaining "framework" references with "engine", "platform
 
 Total remaining instances to evaluate: **148**.
 
-## Activity Log
+## Timeline
 
-- 2026-01-08 @tobiu added the `documentation` label
-- 2026-01-08 @tobiu added the `enhancement` label
-- 2026-01-08 @tobiu added the `ai` label
-- 2026-01-08 @tobiu assigned to @tobiu
-- 2026-01-08 @tobiu referenced in commit `d3ca8f5` - "docs: Rebrand learn/ files (Phase 3) to 'Application Engine' (#8447)"
-- 2026-01-08 @tobiu closed this issue
+- 2026-01-08T22:09:47Z @tobiu added the `documentation` label
+- 2026-01-08T22:09:47Z @tobiu added the `enhancement` label
+- 2026-01-08T22:09:47Z @tobiu added the `ai` label
+- 2026-01-08T22:13:59Z @tobiu assigned to @tobiu
+- 2026-01-08T22:14:03Z @tobiu referenced in commit `d3ca8f5` - "docs: Rebrand learn/ files (Phase 3) to 'Application Engine' (#8447)"
+- 2026-01-08T22:14:14Z @tobiu closed this issue
 

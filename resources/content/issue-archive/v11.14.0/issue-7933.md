@@ -44,13 +44,13 @@ requirements:
 ```
 
 
-## Activity Log
+## Timeline
 
-- 2025-11-29 @tobiu added the `documentation` label
-- 2025-11-29 @tobiu added the `ai` label
-- 2025-11-29 @tobiu assigned to @tobiu
-- 2025-11-29 @tobiu cross-referenced by PR #7934
-- 2025-11-29 @tobiu added the `agent-task:review` label
-- 2025-11-29 @tobiu cross-referenced by #7917
-- 2025-11-29 @tobiu closed this issue
+- 2025-11-29T21:21:54Z @tobiu added the `documentation` label
+- 2025-11-29T21:21:54Z @tobiu added the `ai` label
+- 2025-11-29T21:22:51Z @tobiu assigned to @tobiu
+- 2025-11-29T21:36:02Z @tobiu cross-referenced by PR #7934
+- 2025-11-29T21:43:45Z @tobiu added the `agent-task:review` label
+- 2025-11-29T21:43:58Z @tobiu cross-referenced by #7917
+- 2025-11-29T21:48:40Z @tobiu closed this issue
 

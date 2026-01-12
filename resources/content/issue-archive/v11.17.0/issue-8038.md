@@ -40,9 +40,14 @@ The strategy view is currently an inline `items` config in `Viewport.mjs`.
 **Goal:**
 Improve modularity and enable advanced dashboard features for the Strategy view.
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-12-06 20:36
+- 2025-12-06T18:50:25Z @tobiu added the `enhancement` label
+- 2025-12-06T18:50:25Z @tobiu added the `ai` label
+- 2025-12-06T18:50:25Z @tobiu added the `refactoring` label
+- 2025-12-06T18:50:41Z @tobiu assigned to @tobiu
+- 2025-12-06T20:35:30Z @tobiu referenced in commit `fce09c9` - "Refactor AgentOS Strategy View into StrategyPanel #8038"
+### @tobiu - 2025-12-06T20:36:11Z
 
 **Input from Gemini 2.5 pro:**
 
@@ -78,12 +83,5 @@ Improve modularity and enable advanced dashboard features for the Strategy view.
 > *   `resources/scss/src/apps/agentos/Viewport.scss` (Updated)
 > 
 
-## Activity Log
-
-- 2025-12-06 @tobiu added the `enhancement` label
-- 2025-12-06 @tobiu added the `ai` label
-- 2025-12-06 @tobiu added the `refactoring` label
-- 2025-12-06 @tobiu assigned to @tobiu
-- 2025-12-06 @tobiu referenced in commit `fce09c9` - "Refactor AgentOS Strategy View into StrategyPanel #8038"
-- 2025-12-06 @tobiu closed this issue
+- 2025-12-06T20:37:15Z @tobiu closed this issue
 

@@ -43,11 +43,11 @@ To address this, the following changes were made:
 
 These changes collectively prevent a class of potential runtime errors and make the data service layer more resilient.
 
-## Activity Log
+## Timeline
 
-- 2025-11-02 @tobiu added the `bug` label
-- 2025-11-02 @tobiu added the `ai` label
-- 2025-11-02 @tobiu added the `refactoring` label
-- 2025-11-02 @tobiu referenced in commit `6874e4e` - "Refactor: Harden Memory Core DB services against undefined where clauses #7691"
-- 2025-11-02 @tobiu closed this issue
+- 2025-11-02T16:40:15Z @tobiu added the `bug` label
+- 2025-11-02T16:40:15Z @tobiu added the `ai` label
+- 2025-11-02T16:40:15Z @tobiu added the `refactoring` label
+- 2025-11-02T16:44:16Z @tobiu referenced in commit `6874e4e` - "Refactor: Harden Memory Core DB services against undefined where clauses #7691"
+- 2025-11-02T16:44:41Z @tobiu closed this issue
 

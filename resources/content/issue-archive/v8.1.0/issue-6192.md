@@ -25,10 +25,10 @@ the first idea was to keep a `{removeDom: true}` flag to keep the internal struc
 
 however, in case there are big amounts of columns, this would increase the size of the worker messages to check for vdom updates quite a lot => not needed.
 
-## Activity Log
+## Timeline
 
-- 2025-01-08 @tobiu added the `enhancement` label
-- 2025-01-08 @tobiu assigned to @tobiu
-- 2025-01-08 @tobiu referenced in commit `4d7320c` - "grid.View: createRow() => completely exclude non-visible cells from the vdom #6192"
-- 2025-01-08 @tobiu closed this issue
+- 2025-01-08T11:02:55Z @tobiu added the `enhancement` label
+- 2025-01-08T11:02:55Z @tobiu assigned to @tobiu
+- 2025-01-08T11:03:12Z @tobiu referenced in commit `4d7320c` - "grid.View: createRow() => completely exclude non-visible cells from the vdom #6192"
+- 2025-01-08T11:03:19Z @tobiu closed this issue
 

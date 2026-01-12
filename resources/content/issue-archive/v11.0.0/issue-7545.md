@@ -34,13 +34,13 @@ This ticket covers refactoring `ai/mcp/server/memory-core/services/summaryServic
 6.  Any other services that depend on `summaryService` are updated to use the new `SummaryService` singleton instance.
 7.  All related tools (e.g., `delete_all_summaries`, `get_all_summaries`, `query_summaries`) continue to function correctly after the refactoring.
 
-## Activity Log
+## Timeline
 
-- 2025-10-18 @tobiu assigned to @tobiu
-- 2025-10-18 @tobiu added parent issue #7536
-- 2025-10-18 @tobiu added the `enhancement` label
-- 2025-10-18 @tobiu added the `ai` label
-- 2025-10-18 @tobiu referenced in commit `92e7e94` - "#7545 renamed the service first"
-- 2025-10-18 @tobiu referenced in commit `1ac045c` - "Convert summaryService to SummaryService Neo.mjs Class #7545"
-- 2025-10-18 @tobiu closed this issue
+- 2025-10-18T13:44:02Z @tobiu assigned to @tobiu
+- 2025-10-18T13:44:03Z @tobiu added parent issue #7536
+- 2025-10-18T13:44:04Z @tobiu added the `enhancement` label
+- 2025-10-18T13:44:04Z @tobiu added the `ai` label
+- 2025-10-18T13:45:09Z @tobiu referenced in commit `92e7e94` - "#7545 renamed the service first"
+- 2025-10-18T13:50:03Z @tobiu referenced in commit `1ac045c` - "Convert summaryService to SummaryService Neo.mjs Class #7545"
+- 2025-10-18T13:50:10Z @tobiu closed this issue
 

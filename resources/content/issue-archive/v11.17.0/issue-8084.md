@@ -33,11 +33,11 @@ Change `container.removeAll()` to `container.removeAll(true, true)` in both file
 The second argument `silent=true` suppresses the update after removal.
 The subsequent `add()` will trigger a full update that includes the cleared state and the new item, merging two updates into one.
 
-## Activity Log
+## Timeline
 
-- 2025-12-10 @tobiu added the `enhancement` label
-- 2025-12-10 @tobiu added the `ai` label
-- 2025-12-10 @tobiu assigned to @tobiu
-- 2025-12-10 @tobiu referenced in commit `4020dd5` - "Optimize LivePreview and NeoExecutor container updates by merging remove and add #8084"
-- 2025-12-10 @tobiu closed this issue
+- 2025-12-10T18:02:13Z @tobiu added the `enhancement` label
+- 2025-12-10T18:02:13Z @tobiu added the `ai` label
+- 2025-12-10T18:02:23Z @tobiu assigned to @tobiu
+- 2025-12-10T18:03:03Z @tobiu referenced in commit `4020dd5` - "Optimize LivePreview and NeoExecutor container updates by merging remove and add #8084"
+- 2025-12-10T18:03:12Z @tobiu closed this issue
 

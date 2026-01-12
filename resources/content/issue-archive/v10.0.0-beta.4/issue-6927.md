@@ -23,10 +23,10 @@ closedAt: '2025-07-01T16:29:19Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
-- 2025-07-01 @tobiu assigned to @tobiu
-- 2025-07-01 @tobiu added the `enhancement` label
-- 2025-07-01 @tobiu referenced in commit `d132e46` - "guides/extendingneoclasses: beforeSetInstance pattern #6927"
-- 2025-07-01 @tobiu closed this issue
+- 2025-07-01T16:22:34Z @tobiu assigned to @tobiu
+- 2025-07-01T16:22:35Z @tobiu added the `enhancement` label
+- 2025-07-01T16:29:14Z @tobiu referenced in commit `d132e46` - "guides/extendingneoclasses: beforeSetInstance pattern #6927"
+- 2025-07-01T16:29:19Z @tobiu closed this issue
 

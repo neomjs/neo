@@ -23,10 +23,10 @@ closedAt: '2025-07-04T18:15:45Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
-- 2025-07-04 @tobiu assigned to @tobiu
-- 2025-07-04 @tobiu added the `enhancement` label
-- 2025-07-04 @tobiu referenced in commit `a2245b9` - "container.Base: itemDefaults_ => use a config descriptor #6942"
-- 2025-07-04 @tobiu closed this issue
+- 2025-07-04T18:15:09Z @tobiu assigned to @tobiu
+- 2025-07-04T18:15:10Z @tobiu added the `enhancement` label
+- 2025-07-04T18:15:35Z @tobiu referenced in commit `a2245b9` - "container.Base: itemDefaults_ => use a config descriptor #6942"
+- 2025-07-04T18:15:46Z @tobiu closed this issue
 

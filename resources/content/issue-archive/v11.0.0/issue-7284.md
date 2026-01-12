@@ -33,34 +33,32 @@ This task is to migrate the unit test for `functional/Parse5Processor.mjs` from 
 3.  Ensure the new test runs successfully via `npm test`.
 4.  The new test must cover all the functionality of the original Siesta test.
 
-## Comments
+## Timeline
 
-### @kart-u - 2025-10-04 09:00
+- 2025-09-27T13:56:25Z @tobiu added the `enhancement` label
+- 2025-09-27T13:56:25Z @tobiu added parent issue #7262
+- 2025-10-02T19:24:38Z @tobiu added the `help wanted` label
+- 2025-10-02T19:24:38Z @tobiu added the `good first issue` label
+- 2025-10-02T19:24:38Z @tobiu added the `hacktoberfest` label
+### @kart-u - 2025-10-04T09:00:15Z
 
 hello @tobiu I would like to work on this can you please assign it to me?
 
-### @tobiu - 2025-10-04 09:21
+- 2025-10-04T09:21:51Z @tobiu assigned to @kart-u
+### @tobiu - 2025-10-04T09:21:57Z
 
 done.
 
-## Activity Log
-
-- 2025-09-27 @tobiu added the `enhancement` label
-- 2025-09-27 @tobiu added parent issue #7262
-- 2025-10-02 @tobiu added the `help wanted` label
-- 2025-10-02 @tobiu added the `good first issue` label
-- 2025-10-02 @tobiu added the `hacktoberfest` label
-- 2025-10-04 @tobiu assigned to @kart-u
-- 2025-10-04 @kart-u referenced in commit `4eb6e3f` - "Convert functional/Parse5Processor.mjs Test from Siesta to Playwright #7284"
-- 2025-10-04 @kart-u cross-referenced by PR #7353
-- 2025-10-04 @kart-u cross-referenced by #7286
-- 2025-10-04 @kart-u referenced in commit `34de2c3` - "Convert functional/Parse5Processor.mjs Test from Siesta to Playwright #7284"
-- 2025-10-04 @kart-u referenced in commit `903c27c` - "Convert functional/Parse5Processor.mjs Test from Siesta to Playwright #7284"
-- 2025-10-04 @kart-u referenced in commit `50246b6` - "Convert functional/Parse5Processor.mjs Test from Siesta to Playwright #7284"
-- 2025-10-04 @tobiu closed this issue
-- 2025-10-04 @tobiu referenced in commit `7887dbe` - "Convert functional/Parse5Processor.mjs Test from Siesta to Playwright #7284"
-- 2025-10-04 @tobiu referenced in commit `f73c1b8` - "Convert functional/Parse5Processor.mjs Test from Siesta to Playwright #7284"
-- 2025-10-04 @tobiu referenced in commit `b5ec37e` - "Convert functional/Parse5Processor.mjs Test from Siesta to Playwright #7284"
-- 2025-10-04 @tobiu referenced in commit `30f0198` - "Convert functional/Parse5Processor.mjs Test from Siesta to Playwright #7284"
-- 2025-10-04 @tobiu referenced in commit `924eaf1` - "#7284 ticket md file update"
+- 2025-10-04T11:30:34Z @kart-u referenced in commit `4eb6e3f` - "Convert functional/Parse5Processor.mjs Test from Siesta to Playwright #7284"
+- 2025-10-04T11:32:22Z @kart-u cross-referenced by PR #7353
+- 2025-10-04T12:23:03Z @kart-u cross-referenced by #7286
+- 2025-10-04T15:47:00Z @kart-u referenced in commit `34de2c3` - "Convert functional/Parse5Processor.mjs Test from Siesta to Playwright #7284"
+- 2025-10-04T17:02:25Z @kart-u referenced in commit `903c27c` - "Convert functional/Parse5Processor.mjs Test from Siesta to Playwright #7284"
+- 2025-10-04T17:32:43Z @kart-u referenced in commit `50246b6` - "Convert functional/Parse5Processor.mjs Test from Siesta to Playwright #7284"
+- 2025-10-04T17:52:12Z @tobiu closed this issue
+- 2025-10-04T17:52:13Z @tobiu referenced in commit `7887dbe` - "Convert functional/Parse5Processor.mjs Test from Siesta to Playwright #7284"
+- 2025-10-04T17:52:13Z @tobiu referenced in commit `f73c1b8` - "Convert functional/Parse5Processor.mjs Test from Siesta to Playwright #7284"
+- 2025-10-04T17:52:13Z @tobiu referenced in commit `b5ec37e` - "Convert functional/Parse5Processor.mjs Test from Siesta to Playwright #7284"
+- 2025-10-04T17:52:13Z @tobiu referenced in commit `30f0198` - "Convert functional/Parse5Processor.mjs Test from Siesta to Playwright #7284"
+- 2025-10-04T17:56:57Z @tobiu referenced in commit `924eaf1` - "#7284 ticket md file update"
 

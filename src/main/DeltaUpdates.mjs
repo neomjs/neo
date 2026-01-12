@@ -225,7 +225,59 @@ class DeltaUpdates extends Base {
     }
 
     /**
-     * Moves an existing DOM node to a new position within its parent or to a new parent.
+     * Inserts a batch of new nodes into the DOM tree.
+     * This optimization groups contiguous 'insertNode' deltas targeting the same parent
+     * into a single DocumentFragment insertion, minimizing browser reflows.
+     *
+     * @param {Object[]} batch Array of delta objects to insert.
+     * @protected
+     */
+    insertNodeBatch(batch) {
+        const
+            firstDelta = batch[0],
+            parentId   = firstDelta.parentId,
+            index      = firstDelta.index,
+            parentNode = DomAccess.getElementOrBody(parentId);
+
+        if (parentNode) {
+            const
+                fragment            = document.createDocumentFragment(),
+                {render}            = Neo.main,
+                allPostMountUpdates = [];
+
+            batch.forEach(delta => {
+                const postMountUpdates = delta.postMountUpdates || [];
+
+                const node = render.DomApiRenderer.createDomTree({
+                    index           : -1,
+                    isRoot          : true,
+                    parentNode      : null, // detached
+                    postMountUpdates,
+                    vnode           : delta.vnode
+                });
+
+                if (node) {
+                    fragment.appendChild(node);
+                    allPostMountUpdates.push(...postMountUpdates);
+                }
+            });
+
+            if (index < parentNode.childNodes.length) {
+                parentNode.insertBefore(fragment, parentNode.childNodes[index])
+            } else {
+                parentNode.appendChild(fragment)
+            }
+
+            // Apply all post-mount updates (e.g. scroll positions) after the batch insertion
+            allPostMountUpdates.forEach(({node, vnode}) => {
+                if (vnode.scrollLeft) {node.scrollLeft = vnode.scrollLeft}
+                if (vnode.scrollTop)  {node.scrollTop  = vnode.scrollTop}
+            })
+        }
+    }
+
+    /**
+     * Move an existing DOM node to a new position within its parent or to a new parent.
      * This method directly manipulates the DOM using the pre-calculated physical index,
      * accounting for potential text nodes wrapped in comments.
      * It performs a direct sibling swap when an element is immediately followed by its target position,
@@ -496,8 +548,41 @@ class DeltaUpdates extends Base {
             me.countDeltasPer250ms += len
         }
 
-        for (; i < len; i++) {
-            me[deltas[i].action || 'updateNode'](deltas[i])
+        while (i < len) {
+            const delta = deltas[i];
+
+            // Batching optimization for sequential insertNode operations
+            if (NeoConfig.useDomApiRenderer && delta.action === 'insertNode' && i < len - 1) {
+                let j     = i + 1,
+                    batch = [delta];
+
+                while (j < len) {
+                    const
+                        nextDelta = deltas[j],
+                        prevDelta = deltas[j - 1];
+
+                    if (
+                        nextDelta.action === 'insertNode' &&
+                        nextDelta.parentId === delta.parentId &&
+                        nextDelta.index === prevDelta.index + 1 // Ensure sequential indices
+                    ) {
+                        batch.push(nextDelta);
+                        j++
+                    } else {
+                        break
+                    }
+                }
+
+                if (batch.length > 1) {
+                    me.insertNodeBatch(batch);
+                    i = j; // Skip the processed batch
+                    continue
+                }
+            }
+
+            // Fallback for non-batched operations
+            me[delta.action || 'updateNode'](delta);
+            i++
         }
     }
 }

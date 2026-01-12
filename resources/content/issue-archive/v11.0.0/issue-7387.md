@@ -36,13 +36,21 @@ To ensure that human and AI developers can successfully set up and use the Chrom
 4.  The guide explains how the MCP server is configured in `.gemini/settings.json`.
 5.  The guide provides basic troubleshooting steps, including how to check the server status and log files.
 
-## Comments
+## Timeline
 
-### @kart-u - 2025-10-06 20:27
+- 2025-10-06T10:29:57Z @tobiu added the `documentation` label
+- 2025-10-06T10:29:57Z @tobiu added the `enhancement` label
+- 2025-10-06T10:29:57Z @tobiu added parent issue #7385
+- 2025-10-06T10:29:57Z @tobiu added the `help wanted` label
+- 2025-10-06T10:29:57Z @tobiu added the `good first issue` label
+- 2025-10-06T10:29:57Z @tobiu added the `hacktoberfest` label
+- 2025-10-06T10:29:58Z @tobiu added the `ai` label
+- 2025-10-06T10:32:24Z @tobiu referenced in commit `522e5d0` - "#7387 early draft version"
+### @kart-u - 2025-10-06T20:27:01Z
 
 @tobiu can you please assign this to me??
 
-### @tobiu - 2025-10-06 20:40
+### @tobiu - 2025-10-06T20:40:23Z
 
 This is a really exciting epic from a R&D perspective (literally bleeding edge).
 
@@ -64,20 +72,10 @@ Current testing:
 
 DOM access works, and this is indeed huge, since Gemini can now examine the output of code. After the MCP server is started, Gemini was self-aware of the available tools. However, I think this guide is still valuable, even when it means maintenance work for us when the server gets extended.
 
-## Activity Log
-
-- 2025-10-06 @tobiu added the `documentation` label
-- 2025-10-06 @tobiu added the `enhancement` label
-- 2025-10-06 @tobiu added parent issue #7385
-- 2025-10-06 @tobiu added the `help wanted` label
-- 2025-10-06 @tobiu added the `good first issue` label
-- 2025-10-06 @tobiu added the `hacktoberfest` label
-- 2025-10-06 @tobiu added the `ai` label
-- 2025-10-06 @tobiu referenced in commit `522e5d0` - "#7387 early draft version"
-- 2025-10-06 @tobiu assigned to @kart-u
-- 2025-10-08 @kart-u referenced in commit `dba46b3` - "Create Guide for Chrome DevTools MCP Server #7387"
-- 2025-10-08 @kart-u cross-referenced by PR #7421
-- 2025-10-08 @tobiu closed this issue
-- 2025-10-08 @tobiu referenced in commit `9ca5314` - "Create Guide for Chrome DevTools MCP Server #7387"
-- 2025-10-08 @tobiu referenced in commit `dc6ee30` - "#7387 md ticket update (issue number was missing)"
+- 2025-10-06T20:40:33Z @tobiu assigned to @kart-u
+- 2025-10-08T20:50:56Z @kart-u referenced in commit `dba46b3` - "Create Guide for Chrome DevTools MCP Server #7387"
+- 2025-10-08T20:51:52Z @kart-u cross-referenced by PR #7421
+- 2025-10-08T20:57:32Z @tobiu closed this issue
+- 2025-10-08T20:57:32Z @tobiu referenced in commit `9ca5314` - "Create Guide for Chrome DevTools MCP Server #7387"
+- 2025-10-08T21:01:06Z @tobiu referenced in commit `dc6ee30` - "#7387 md ticket update (issue number was missing)"
 

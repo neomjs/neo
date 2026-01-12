@@ -25,17 +25,15 @@ closedAt: '2025-03-01T15:16:01Z'
 * grid.View: applyRendererOutput() needs to honor it
 * onCellClick() and other change methods need to trigger grid.View: createViewData()
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-03-01 15:16
+- 2025-03-01T15:06:04Z @tobiu added the `enhancement` label
+- 2025-03-01T15:06:04Z @tobiu assigned to @tobiu
+- 2025-03-01T15:06:23Z @tobiu referenced in commit `e446ec3` - "selection.grid.ColumnModel: add support for buffered rendering #6514 WIP"
+- 2025-03-01T15:13:11Z @tobiu referenced in commit `43bdaef` - "selection.grid.ColumnModel: add support for buffered rendering #6514"
+### @tobiu - 2025-03-01T15:16:01Z
 
 https://github.com/user-attachments/assets/56ee0f26-164f-4198-b62e-901cd0a52cfb
 
-## Activity Log
-
-- 2025-03-01 @tobiu added the `enhancement` label
-- 2025-03-01 @tobiu assigned to @tobiu
-- 2025-03-01 @tobiu referenced in commit `e446ec3` - "selection.grid.ColumnModel: add support for buffered rendering #6514 WIP"
-- 2025-03-01 @tobiu referenced in commit `43bdaef` - "selection.grid.ColumnModel: add support for buffered rendering #6514"
-- 2025-03-01 @tobiu closed this issue
+- 2025-03-01T15:16:01Z @tobiu closed this issue
 

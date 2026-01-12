@@ -51,12 +51,13 @@ This PR introduces a robust, asynchronous mechanism for registering remote metho
 **Goal:**
 Eliminate race conditions during application startup and ensure that all remote methods are guaranteed to be registered before the application logic proceeds.
 
-## Activity Log
+## Timeline
 
-- 2025-12-19 @tobiu added the `enhancement` label
-- 2025-12-19 @tobiu added the `ai` label
-- 2025-12-19 @tobiu added the `core` label
-- 2025-12-19 @tobiu assigned to @tobiu
-- 2025-12-19 @tobiu referenced in commit `252196e` - "Enhancement: Async Remote Method Registration and Robust Worker Checking #8147"
-- 2025-12-19 @tobiu closed this issue
+- 2025-12-19T21:07:02Z @tobiu added the `enhancement` label
+- 2025-12-19T21:07:02Z @tobiu added the `ai` label
+- 2025-12-19T21:07:02Z @tobiu added the `core` label
+- 2025-12-19T21:07:17Z @tobiu assigned to @tobiu
+- 2025-12-19T21:20:12Z @tobiu referenced in commit `252196e` - "Enhancement: Async Remote Method Registration and Robust Worker Checking #8147"
+- 2025-12-19T21:27:42Z @tobiu closed this issue
+- 2026-01-05T19:30:55Z @tobiu cross-referenced by #8338
 

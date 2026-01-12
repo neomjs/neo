@@ -23,10 +23,10 @@ closedAt: '2025-02-17T12:38:26Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
-- 2025-02-17 @tobiu added the `enhancement` label
-- 2025-02-17 @tobiu assigned to @tobiu
-- 2025-02-17 @tobiu referenced in commit `afee3c6` - "main.DomAccess.scrollBy() => param destructuring #6456"
-- 2025-02-17 @tobiu closed this issue
+- 2025-02-17T12:34:42Z @tobiu added the `enhancement` label
+- 2025-02-17T12:34:42Z @tobiu assigned to @tobiu
+- 2025-02-17T12:35:06Z @tobiu referenced in commit `afee3c6` - "main.DomAccess.scrollBy() => param destructuring #6456"
+- 2025-02-17T12:38:26Z @tobiu closed this issue
 

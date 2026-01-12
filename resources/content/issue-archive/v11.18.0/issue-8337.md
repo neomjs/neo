@@ -39,16 +39,14 @@ await page.waitForFunction(() => window.Neo && window.Neo.worker && window.Neo.w
 Apply this fix to `test/playwright/component/list/Chip.spec.mjs` to verify the solution.
 
 
-## Comments
+## Timeline
 
-### @tobiu - 2026-01-05 19:40
+- 2026-01-05T19:14:56Z @tobiu added the `bug` label
+- 2026-01-05T19:14:56Z @tobiu added the `ai` label
+- 2026-01-05T19:14:56Z @tobiu added the `testing` label
+### @tobiu - 2026-01-05T19:40:19Z
 
 Closing as invalid. The root cause was identified as a regression in Neo.worker.Base.hasWorker (fixed in #8338), not a timing issue in the test itself.
 
-## Activity Log
-
-- 2026-01-05 @tobiu added the `bug` label
-- 2026-01-05 @tobiu added the `ai` label
-- 2026-01-05 @tobiu added the `testing` label
-- 2026-01-05 @tobiu closed this issue
+- 2026-01-05T19:40:20Z @tobiu closed this issue
 

@@ -34,11 +34,12 @@ The `onDragStart` logic in `src/draggable/container/SortZone.mjs` has been reord
 2. This ensures the layout is captured exactly as rendered, with all margins and gaps intact.
 3. Apply these correct coordinates after the drag operation has started.
 
-## Activity Log
+## Timeline
 
-- 2025-12-16 @tobiu added the `bug` label
-- 2025-12-16 @tobiu added the `ai` label
-- 2025-12-16 @tobiu added the `regression` label
-- 2025-12-16 @tobiu assigned to @tobiu
-- 2025-12-16 @tobiu closed this issue
+- 2025-12-16T10:58:46Z @tobiu added the `bug` label
+- 2025-12-16T10:58:46Z @tobiu added the `ai` label
+- 2025-12-16T10:58:46Z @tobiu added the `regression` label
+- 2025-12-16T10:59:01Z @tobiu assigned to @tobiu
+- 2025-12-16T11:09:38Z @tobiu changed title from **Regression: SortZone dragPlaceholder missing margins causing layout shift** to **Regression: SortZone calculates item layout after placeholder insertion, causing incorrect positioning**
+- 2025-12-16T11:10:54Z @tobiu closed this issue
 

@@ -24,10 +24,10 @@ closedAt: '2025-02-08T12:45:57Z'
 * The mask will always get applied as a child to the top-level vdom node
 * Using `cls` is not sufficient, because when using wrapper nodes, `neo-masked` and the loading mask node can end up as siblings, breaking the styling
 
-## Activity Log
+## Timeline
 
-- 2025-02-08 @tobiu added the `enhancement` label
-- 2025-02-08 @tobiu assigned to @tobiu
-- 2025-02-08 @tobiu referenced in commit `297b4cb` - "component.Base: afterSetIsLoading() => wrapperCls #6406"
-- 2025-02-08 @tobiu closed this issue
+- 2025-02-08T12:45:19Z @tobiu added the `enhancement` label
+- 2025-02-08T12:45:19Z @tobiu assigned to @tobiu
+- 2025-02-08T12:45:49Z @tobiu referenced in commit `297b4cb` - "component.Base: afterSetIsLoading() => wrapperCls #6406"
+- 2025-02-08T12:45:57Z @tobiu closed this issue
 

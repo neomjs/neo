@@ -36,12 +36,12 @@ This sub-task aims to:
 
 1.  `AGENTS.md` is updated with a clear, explicit, and tested method for the agent to generate a UUID for session IDs.
 
-## Activity Log
+## Timeline
 
-- 2025-10-06 @tobiu assigned to @tobiu
-- 2025-10-06 @tobiu added parent issue #7316
-- 2025-10-06 @tobiu added the `enhancement` label
-- 2025-10-06 @tobiu added the `ai` label
-- 2025-10-06 @tobiu referenced in commit `44dc6d5` - "Clarify UUID Generation for Agent Memory #7394"
-- 2025-10-06 @tobiu closed this issue
+- 2025-10-06T13:29:37Z @tobiu assigned to @tobiu
+- 2025-10-06T13:29:38Z @tobiu added parent issue #7316
+- 2025-10-06T13:29:39Z @tobiu added the `enhancement` label
+- 2025-10-06T13:29:39Z @tobiu added the `ai` label
+- 2025-10-06T13:30:20Z @tobiu referenced in commit `44dc6d5` - "Clarify UUID Generation for Agent Memory #7394"
+- 2025-10-06T13:31:57Z @tobiu closed this issue
 

@@ -112,58 +112,56 @@ The primary goal is to prevent regressions, especially in the complex core modul
     Neo.setupClass(MyTestClass); // Missing re-assignment
     ```
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-11-04 10:56
+- 2025-09-27T11:14:32Z @tobiu assigned to @tobiu
+- 2025-09-27T11:14:34Z @tobiu added the `enhancement` label
+- 2025-09-27T11:14:34Z @tobiu added the `epic` label
+- 2025-09-27T11:16:10Z @tobiu added sub-issue #7256
+- 2025-09-27T11:16:31Z @tobiu added sub-issue #7261
+- 2025-09-27T11:16:49Z @tobiu added sub-issue #7260
+- 2025-09-27T11:17:18Z @tobiu added sub-issue #7258
+- 2025-09-27T11:18:05Z @tobiu added sub-issue #7255
+- 2025-09-27T11:18:21Z @tobiu added sub-issue #7254
+- 2025-09-27T11:19:29Z @tobiu added sub-issue #7263
+- 2025-09-27T11:20:32Z @tobiu referenced in commit `0c4d5d2` - "#7262 Internal tickets"
+- 2025-09-27T12:05:33Z @tobiu added sub-issue #7266
+- 2025-09-27T12:06:30Z @tobiu referenced in commit `b21e045` - "#7262 Internal tickets"
+- 2025-09-27T12:33:57Z @tobiu added sub-issue #7267
+- 2025-09-27T12:36:17Z @tobiu added sub-issue #7268
+- 2025-09-27T12:37:42Z @tobiu added sub-issue #7269
+- 2025-09-27T12:39:38Z @tobiu added sub-issue #7270
+- 2025-09-27T12:40:56Z @tobiu added sub-issue #7271
+- 2025-09-27T12:47:59Z @tobiu added sub-issue #7272
+- 2025-09-27T13:17:59Z @tobiu added sub-issue #7273
+- 2025-09-27T13:19:28Z @tobiu added sub-issue #7274
+- 2025-09-27T13:33:19Z @tobiu added sub-issue #7275
+- 2025-09-27T13:34:47Z @tobiu added sub-issue #7276
+- 2025-09-27T13:36:16Z @tobiu added sub-issue #7277
+- 2025-09-27T13:37:48Z @tobiu added sub-issue #7278
+- 2025-09-27T13:39:02Z @tobiu added sub-issue #7279
+- 2025-09-27T13:40:02Z @tobiu added sub-issue #7280
+- 2025-09-27T13:52:06Z @tobiu added sub-issue #7281
+- 2025-09-27T13:54:09Z @tobiu added sub-issue #7282
+- 2025-09-27T13:55:26Z @tobiu added sub-issue #7283
+- 2025-09-27T13:56:25Z @tobiu added sub-issue #7284
+- 2025-09-27T13:57:44Z @tobiu added sub-issue #7285
+- 2025-09-27T13:58:46Z @tobiu added sub-issue #7286
+- 2025-09-27T13:59:49Z @tobiu added sub-issue #7287
+- 2025-09-27T14:01:28Z @tobiu added sub-issue #7288
+- 2025-09-27T14:02:38Z @tobiu added sub-issue #7289
+- 2025-09-27T14:04:19Z @tobiu added sub-issue #7290
+- 2025-09-27T14:05:15Z @tobiu added sub-issue #7291
+- 2025-09-27T14:06:31Z @tobiu added sub-issue #7292
+- 2025-09-27T14:07:48Z @tobiu added sub-issue #7293
+- 2025-09-27T14:09:13Z @tobiu added sub-issue #7294
+- 2025-09-27T14:41:22Z @tobiu referenced in commit `bfd1bf2` - "#7262 epic update => migration guide"
+- 2025-09-30T10:37:12Z @tobiu referenced in commit `f9c97b4` - "#7262 changed Button test filename to upper case, ClassConfigsAndFields.spec.mjs: reassigned classes when calling setupClass() for consistency"
+- 2025-10-02T19:57:53Z @tobiu referenced in commit `d9c4d4b` - "#7262 updated internal tickets"
+- 2025-11-04T10:56:16Z @tobiu removed sub-issue #7266
+### @tobiu - 2025-11-04T10:56:27Z
 
 resolved.
 
-## Activity Log
-
-- 2025-09-27 @tobiu assigned to @tobiu
-- 2025-09-27 @tobiu added the `enhancement` label
-- 2025-09-27 @tobiu added the `epic` label
-- 2025-09-27 @tobiu added sub-issue #7256
-- 2025-09-27 @tobiu added sub-issue #7261
-- 2025-09-27 @tobiu added sub-issue #7260
-- 2025-09-27 @tobiu added sub-issue #7258
-- 2025-09-27 @tobiu added sub-issue #7255
-- 2025-09-27 @tobiu added sub-issue #7254
-- 2025-09-27 @tobiu added sub-issue #7263
-- 2025-09-27 @tobiu referenced in commit `0c4d5d2` - "#7262 Internal tickets"
-- 2025-09-27 @tobiu added sub-issue #7266
-- 2025-09-27 @tobiu referenced in commit `b21e045` - "#7262 Internal tickets"
-- 2025-09-27 @tobiu added sub-issue #7267
-- 2025-09-27 @tobiu added sub-issue #7268
-- 2025-09-27 @tobiu added sub-issue #7269
-- 2025-09-27 @tobiu added sub-issue #7270
-- 2025-09-27 @tobiu added sub-issue #7271
-- 2025-09-27 @tobiu added sub-issue #7272
-- 2025-09-27 @tobiu added sub-issue #7273
-- 2025-09-27 @tobiu added sub-issue #7274
-- 2025-09-27 @tobiu added sub-issue #7275
-- 2025-09-27 @tobiu added sub-issue #7276
-- 2025-09-27 @tobiu added sub-issue #7277
-- 2025-09-27 @tobiu added sub-issue #7278
-- 2025-09-27 @tobiu added sub-issue #7279
-- 2025-09-27 @tobiu added sub-issue #7280
-- 2025-09-27 @tobiu added sub-issue #7281
-- 2025-09-27 @tobiu added sub-issue #7282
-- 2025-09-27 @tobiu added sub-issue #7283
-- 2025-09-27 @tobiu added sub-issue #7284
-- 2025-09-27 @tobiu added sub-issue #7285
-- 2025-09-27 @tobiu added sub-issue #7286
-- 2025-09-27 @tobiu added sub-issue #7287
-- 2025-09-27 @tobiu added sub-issue #7288
-- 2025-09-27 @tobiu added sub-issue #7289
-- 2025-09-27 @tobiu added sub-issue #7290
-- 2025-09-27 @tobiu added sub-issue #7291
-- 2025-09-27 @tobiu added sub-issue #7292
-- 2025-09-27 @tobiu added sub-issue #7293
-- 2025-09-27 @tobiu added sub-issue #7294
-- 2025-09-27 @tobiu referenced in commit `bfd1bf2` - "#7262 epic update => migration guide"
-- 2025-09-30 @tobiu referenced in commit `f9c97b4` - "#7262 changed Button test filename to upper case, ClassConfigsAndFields.spec.mjs: reassigned classes when calling setupClass() for consistency"
-- 2025-10-02 @tobiu referenced in commit `d9c4d4b` - "#7262 updated internal tickets"
-- 2025-11-04 @tobiu removed sub-issue #7266
-- 2025-11-04 @tobiu closed this issue
+- 2025-11-04T10:56:27Z @tobiu closed this issue
 

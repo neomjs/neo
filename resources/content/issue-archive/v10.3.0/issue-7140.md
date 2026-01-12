@@ -31,11 +31,11 @@ To adhere to the framework's "zero builds" development principle, the `parse5` l
 - **Script:** Create a new build script `buildScripts/bundleParse5.mjs` and an associated npm script `bundle-parse5` to perform the bundling and minification.
 - **Outcome:** The `HtmlTemplateProcessor` will be updated to import `../../../dist/parse5.mjs`.
 
-## Activity Log
+## Timeline
 
-- 2025-07-31 @tobiu assigned to @tobiu
-- 2025-07-31 @tobiu added the `enhancement` label
-- 2025-07-31 @tobiu added parent issue #7130
-- 2025-07-31 @tobiu referenced in commit `616d0a5` - "Bundle parse5 for Browser Compatibility #7140"
-- 2025-07-31 @tobiu closed this issue
+- 2025-07-31T07:55:33Z @tobiu assigned to @tobiu
+- 2025-07-31T07:55:35Z @tobiu added the `enhancement` label
+- 2025-07-31T07:55:35Z @tobiu added parent issue #7130
+- 2025-07-31T08:01:18Z @tobiu referenced in commit `616d0a5` - "Bundle parse5 for Browser Compatibility #7140"
+- 2025-07-31T08:01:32Z @tobiu closed this issue
 

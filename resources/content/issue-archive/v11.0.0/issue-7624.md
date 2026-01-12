@@ -49,12 +49,12 @@ The tool will return a single string representing the user's permission level. T
 
 An agent will call this tool once to determine its capability level. It can then use this information to decide whether to proceed with restricted actions. For example, to assign an issue, the agent would first call `get_viewer_permission` and only proceed to call `assign_issue` if the returned value is `ADMIN`, `MAINTAIN`, or `WRITE`.
 
-## Activity Log
+## Timeline
 
-- 2025-10-23 @tobiu assigned to @tobiu
-- 2025-10-23 @tobiu added the `enhancement` label
-- 2025-10-23 @tobiu added the `ai` label
-- 2025-10-23 @tobiu referenced in commit `097294e` - "Create Generic get_viewer_permission Tool #7624"
-- 2025-10-23 @tobiu closed this issue
-- 2025-10-23 @tobiu cross-referenced by #7625
+- 2025-10-23T14:41:48Z @tobiu assigned to @tobiu
+- 2025-10-23T14:41:49Z @tobiu added the `enhancement` label
+- 2025-10-23T14:41:49Z @tobiu added the `ai` label
+- 2025-10-23T14:56:22Z @tobiu referenced in commit `097294e` - "Create Generic get_viewer_permission Tool #7624"
+- 2025-10-23T14:56:52Z @tobiu closed this issue
+- 2025-10-23T15:21:21Z @tobiu cross-referenced by #7625
 

@@ -23,10 +23,10 @@ closedAt: '2025-09-20T11:27:34Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
-- 2025-09-20 @tobiu assigned to @tobiu
-- 2025-09-20 @tobiu added the `enhancement` label
-- 2025-09-20 @tobiu referenced in commit `eb6d380` - "AGENTS.md: When Queries Fail to Find Information - section #7221"
-- 2025-09-20 @tobiu closed this issue
+- 2025-09-20T11:27:04Z @tobiu assigned to @tobiu
+- 2025-09-20T11:27:05Z @tobiu added the `enhancement` label
+- 2025-09-20T11:27:23Z @tobiu referenced in commit `eb6d380` - "AGENTS.md: When Queries Fail to Find Information - section #7221"
+- 2025-09-20T11:27:34Z @tobiu closed this issue
 

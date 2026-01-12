@@ -31,11 +31,11 @@ closedAt: '2025-07-15T11:54:55Z'
 5.  **Event Handling:** The "Compose" button will set `isComposing` to `true`. The `ComposeView` will have a "Close" button that sets it back to `false`.
 6.  **Overlay Implementation:** We will build a custom functional overlay for this, as it's a good exercise and provides maximum flexibility.
 
-## Activity Log
+## Timeline
 
-- 2025-07-15 @tobiu assigned to @tobiu
-- 2025-07-15 @tobiu added the `enhancement` label
-- 2025-07-15 @tobiu added parent issue #7048
-- 2025-07-15 @tobiu referenced in commit `a07db5d` - "Phase 4: Compose Email Functionality #7056"
-- 2025-07-15 @tobiu closed this issue
+- 2025-07-15T11:53:54Z @tobiu assigned to @tobiu
+- 2025-07-15T11:53:55Z @tobiu added the `enhancement` label
+- 2025-07-15T11:53:55Z @tobiu added parent issue #7048
+- 2025-07-15T11:54:40Z @tobiu referenced in commit `a07db5d` - "Phase 4: Compose Email Functionality #7056"
+- 2025-07-15T11:54:55Z @tobiu closed this issue
 

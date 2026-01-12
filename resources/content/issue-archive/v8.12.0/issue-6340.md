@@ -24,10 +24,10 @@ closedAt: '2025-01-29T22:05:36Z'
 * Important for not breaking cell based selection models
 * Also trigger a column positions recalculation
 
-## Activity Log
+## Timeline
 
-- 2025-01-29 @tobiu added the `enhancement` label
-- 2025-01-29 @tobiu assigned to @tobiu
-- 2025-01-29 @tobiu referenced in commit `322f072` - "draggable.grid.header.toolbar.SortZone: moveTo() => keep grid container columns in sync #6340"
-- 2025-01-29 @tobiu closed this issue
+- 2025-01-29T22:04:51Z @tobiu added the `enhancement` label
+- 2025-01-29T22:04:51Z @tobiu assigned to @tobiu
+- 2025-01-29T22:05:05Z @tobiu referenced in commit `322f072` - "draggable.grid.header.toolbar.SortZone: moveTo() => keep grid container columns in sync #6340"
+- 2025-01-29T22:05:37Z @tobiu closed this issue
 

@@ -44,9 +44,15 @@ This is an exploration quest to refactor the manual worker messaging in the `Off
 ## Context
 Discussion originated from the refactoring of OffscreenCanvas support for shared workers (#8118).
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-12-15 23:42
+- 2025-12-15T23:00:38Z @tobiu added the `enhancement` label
+- 2025-12-15T23:00:38Z @tobiu added the `ai` label
+- 2025-12-15T23:00:38Z @tobiu added the `refactoring` label
+- 2025-12-15T23:00:38Z @tobiu added the `architecture` label
+- 2025-12-15T23:04:41Z @tobiu assigned to @tobiu
+- 2025-12-15T23:42:26Z @tobiu referenced in commit `c31a128` - "Refactor Canvas interactions to RMA & Support Return Value Transfers #8119"
+### @tobiu - 2025-12-15T23:42:34Z
 
 **Input from Gemini 2.5 pro:**
 
@@ -74,13 +80,5 @@ Discussion originated from the refactoring of OffscreenCanvas support for shared
 > 
 > Verified with logs confirming correct data flow for both new canvas transfer and re-integration scenarios.
 
-## Activity Log
-
-- 2025-12-15 @tobiu added the `enhancement` label
-- 2025-12-15 @tobiu added the `ai` label
-- 2025-12-15 @tobiu added the `refactoring` label
-- 2025-12-15 @tobiu added the `architecture` label
-- 2025-12-15 @tobiu assigned to @tobiu
-- 2025-12-15 @tobiu referenced in commit `c31a128` - "Refactor Canvas interactions to RMA & Support Return Value Transfers #8119"
-- 2025-12-15 @tobiu closed this issue
+- 2025-12-15T23:46:18Z @tobiu closed this issue
 

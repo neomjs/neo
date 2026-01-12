@@ -75,10 +75,10 @@ The `EffectBatchManager` singleton has been completely removed. Its functionalit
 4.  **Resilience**: The `try...finally` pattern guarantees application stability, even when errors occur in user-defined hooks.
 5.  **Simplified Architecture**: We have eliminated redundant logic, complex workarounds, and an entire singleton, making the system easier to understand and maintain.
 
-## Activity Log
+## Timeline
 
-- 2025-07-20 @tobiu assigned to @tobiu
-- 2025-07-20 @tobiu added the `enhancement` label
-- 2025-07-20 @tobiu referenced in commit `16bdebe` - "Foundational Refactoring of the Effect Management System #7085"
-- 2025-07-21 @tobiu closed this issue
+- 2025-07-20T17:29:29Z @tobiu assigned to @tobiu
+- 2025-07-20T17:29:30Z @tobiu added the `enhancement` label
+- 2025-07-20T17:30:05Z @tobiu referenced in commit `16bdebe` - "Foundational Refactoring of the Effect Management System #7085"
+- 2025-07-21T00:28:21Z @tobiu closed this issue
 

@@ -49,12 +49,13 @@ The successful passing of both test suites confirms that the abstraction holds a
 -   The test suite within this file passes completely.
 -   The tests successfully validate that `Neo.button.Base` produces the same VDOM deltas as its functional counterpart for identical operations.
 
-## Activity Log
+## Timeline
 
-- 2025-07-21 @tobiu assigned to @tobiu
-- 2025-07-21 @tobiu added the `enhancement` label
-- 2025-07-21 @tobiu referenced in commit `0bbad89` - "Create Parallel Test Suite for Classic Button #7088"
-- 2025-07-21 @tobiu closed this issue
-- 2025-07-21 @tobiu referenced in commit `f6195ca` - "Create Parallel Test Suite for Classic Button #7088"
-- 2025-07-21 @tobiu closed this issue
+- 2025-07-21T11:22:57Z @tobiu assigned to @tobiu
+- 2025-07-21T11:22:58Z @tobiu added the `enhancement` label
+- 2025-07-21T11:23:53Z @tobiu referenced in commit `0bbad89` - "Create Parallel Test Suite for Classic Button #7088"
+- 2025-07-21T11:23:57Z @tobiu closed this issue
+- 2025-07-21T11:27:50Z @tobiu reopened this issue
+- 2025-07-21T11:28:00Z @tobiu referenced in commit `f6195ca` - "Create Parallel Test Suite for Classic Button #7088"
+- 2025-07-21T11:28:03Z @tobiu closed this issue
 

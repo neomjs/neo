@@ -23,10 +23,10 @@ closedAt: '2025-01-14T23:46:30Z'
 
 * grid rows can no longer receive focus
 
-## Activity Log
+## Timeline
 
-- 2025-01-14 @tobiu added the `enhancement` label
-- 2025-01-14 @tobiu assigned to @tobiu
-- 2025-01-14 @tobiu referenced in commit `53e3d84` - "selection.grid.RowModel: onNavKeyRow() => decouple the logic from event data #6238"
-- 2025-01-14 @tobiu closed this issue
+- 2025-01-14T23:45:50Z @tobiu added the `enhancement` label
+- 2025-01-14T23:45:50Z @tobiu assigned to @tobiu
+- 2025-01-14T23:46:26Z @tobiu referenced in commit `53e3d84` - "selection.grid.RowModel: onNavKeyRow() => decouple the logic from event data #6238"
+- 2025-01-14T23:46:31Z @tobiu closed this issue
 

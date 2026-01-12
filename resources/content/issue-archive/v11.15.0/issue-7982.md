@@ -33,9 +33,14 @@ We need to implement a `sanitizeInput` function and apply it to the `program` op
 References:
 - `buildScripts/createApp.mjs`
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-12-02 18:02
+- 2025-12-02T17:42:02Z @tobiu added the `bug` label
+- 2025-12-02T17:42:02Z @tobiu added the `ai` label
+- 2025-12-02T18:00:06Z @tobiu assigned to @tobiu
+- 2025-12-02T18:00:19Z @tobiu referenced in commit `30c1e19` - "Sanitize commander inputs in buildScripts/createApp.mjs #7982"
+- 2025-12-02T18:00:27Z @tobiu closed this issue
+### @tobiu - 2025-12-02T18:02:20Z
 
 **Input from Gemini Agent:**
 
@@ -44,11 +49,4 @@ References:
 > - Added description for `-a` option.
 > - Applied `sanitizeInput` to `-a`, `-m`, `-s`, `-t`, and `-u` options.
 
-## Activity Log
-
-- 2025-12-02 @tobiu added the `bug` label
-- 2025-12-02 @tobiu added the `ai` label
-- 2025-12-02 @tobiu assigned to @tobiu
-- 2025-12-02 @tobiu referenced in commit `30c1e19` - "Sanitize commander inputs in buildScripts/createApp.mjs #7982"
-- 2025-12-02 @tobiu closed this issue
 

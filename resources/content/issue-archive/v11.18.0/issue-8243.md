@@ -35,13 +35,13 @@ Implement `toJSON()` method in `src/grid/column/Base.mjs` to support Neural Link
 
 **Note:** Inherits `id`, `className`, `ntype`, `isDestroyed`, and `remote` from `core.Base`.
 
-## Activity Log
+## Timeline
 
-- 2026-01-01 @tobiu added the `enhancement` label
-- 2026-01-01 @tobiu added the `ai` label
-- 2026-01-01 @tobiu added the `architecture` label
-- 2026-01-01 @tobiu assigned to @tobiu
-- 2026-01-01 @tobiu added parent issue #8200
-- 2026-01-01 @tobiu referenced in commit `21fd50e` - "feat(grid.column.Base): Implement toJSON serialization #8243"
-- 2026-01-01 @tobiu closed this issue
+- 2026-01-01T02:30:18Z @tobiu added the `enhancement` label
+- 2026-01-01T02:30:19Z @tobiu added the `ai` label
+- 2026-01-01T02:30:19Z @tobiu added the `architecture` label
+- 2026-01-01T02:30:33Z @tobiu assigned to @tobiu
+- 2026-01-01T02:30:37Z @tobiu added parent issue #8200
+- 2026-01-01T02:36:20Z @tobiu referenced in commit `21fd50e` - "feat(grid.column.Base): Implement toJSON serialization #8243"
+- 2026-01-01T02:36:26Z @tobiu closed this issue
 

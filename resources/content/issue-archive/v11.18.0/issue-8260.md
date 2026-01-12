@@ -31,12 +31,12 @@ Implement `toJSON` in `src/selection/DateSelectorModel.mjs`.
 
 **Parent Issue:** #8200
 
-## Activity Log
+## Timeline
 
-- 2026-01-01 @tobiu added the `enhancement` label
-- 2026-01-01 @tobiu added the `ai` label
-- 2026-01-01 @tobiu referenced in commit `f5bd586` - "feat(selection): Implement toJSON in DateSelectorModel #8260"
-- 2026-01-01 @tobiu assigned to @tobiu
-- 2026-01-01 @tobiu added parent issue #8200
-- 2026-01-01 @tobiu closed this issue
+- 2026-01-01T16:49:39Z @tobiu added the `enhancement` label
+- 2026-01-01T16:49:39Z @tobiu added the `ai` label
+- 2026-01-01T16:52:27Z @tobiu referenced in commit `f5bd586` - "feat(selection): Implement toJSON in DateSelectorModel #8260"
+- 2026-01-01T16:52:42Z @tobiu assigned to @tobiu
+- 2026-01-01T16:52:50Z @tobiu added parent issue #8200
+- 2026-01-01T16:52:55Z @tobiu closed this issue
 

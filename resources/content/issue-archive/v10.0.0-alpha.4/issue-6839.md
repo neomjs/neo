@@ -23,9 +23,9 @@ closedAt: '2025-06-18T19:34:16Z'
 * One of the main v10 benefits: we can now easily make any content XSS secure.
 * This does not only affect updates, but also the initial rendering tree.
 
-## Activity Log
+## Timeline
 
-- 2025-06-18 @tobiu added the `enhancement` label
-- 2025-06-18 @tobiu referenced in commit `8999dce` - "button.Base: map badgeText & text to vdom.text instead of vdom.html #6839"
-- 2025-06-18 @tobiu closed this issue
+- 2025-06-18T19:33:54Z @tobiu added the `enhancement` label
+- 2025-06-18T19:34:12Z @tobiu referenced in commit `8999dce` - "button.Base: map badgeText & text to vdom.text instead of vdom.html #6839"
+- 2025-06-18T19:34:16Z @tobiu closed this issue
 

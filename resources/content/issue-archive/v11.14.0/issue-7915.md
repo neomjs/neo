@@ -62,12 +62,12 @@ Define the exact YAML structure that agents must use in the Issue Body.
 *   A new file: `ai/agents/PROTOCOL.md` containing the full specification.
 
 
-## Activity Log
+## Timeline
 
-- 2025-11-29 @tobiu added the `documentation` label
-- 2025-11-29 @tobiu added the `ai` label
-- 2025-11-29 @tobiu assigned to @tobiu
-- 2025-11-29 @tobiu referenced in commit `420d11c` - "Task: Define Agent Task Protocol (Labels, Templates, Rules) #7915"
-- 2025-11-29 @tobiu closed this issue
-- 2025-11-29 @tobiu cross-referenced by #7914
+- 2025-11-29T15:09:40Z @tobiu added the `documentation` label
+- 2025-11-29T15:09:40Z @tobiu added the `ai` label
+- 2025-11-29T15:30:51Z @tobiu assigned to @tobiu
+- 2025-11-29T15:31:23Z @tobiu referenced in commit `420d11c` - "Task: Define Agent Task Protocol (Labels, Templates, Rules) #7915"
+- 2025-11-29T15:32:12Z @tobiu closed this issue
+- 2025-11-29T16:24:29Z @tobiu cross-referenced by #7914
 

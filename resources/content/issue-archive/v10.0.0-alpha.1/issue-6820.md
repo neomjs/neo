@@ -22,9 +22,9 @@ closedAt: '2025-06-16T17:04:26Z'
 
 * While these references should not get passed in the first place, a tiny check to ensure nothing bad happens feels needed. after all, dev could manually pass vnodes to main.
 
-## Activity Log
+## Timeline
 
-- 2025-06-16 @tobiu added the `enhancement` label
-- 2025-06-16 @tobiu referenced in commit `2ba31ab` - "main.mixin.DeltaUpdates: createDomTree() => add a check to skip component references #6820"
-- 2025-06-16 @tobiu closed this issue
+- 2025-06-16T16:56:20Z @tobiu added the `enhancement` label
+- 2025-06-16T17:04:17Z @tobiu referenced in commit `2ba31ab` - "main.mixin.DeltaUpdates: createDomTree() => add a check to skip component references #6820"
+- 2025-06-16T17:04:26Z @tobiu closed this issue
 

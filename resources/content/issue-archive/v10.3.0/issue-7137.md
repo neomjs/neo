@@ -39,9 +39,13 @@ Define a clear and comprehensive specification for the template syntax. This doc
 - **Complex Configs:** Document the recommended approach for handling deeply nested JSON configs, advocating for passing them as interpolated objects to maintain template clarity (e.g., `columns="${gridColumns}"`).
 - **DOM Events (Out of Scope):** Explicitly state that inline DOM event handlers (e.g., `onClick="..."`) are not supported. The framework's global, delegated event system (`domListeners` config or `useEvent()` hook) remains the sole, recommended approach for handling DOM events. This maintains performance and architectural consistency.
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-07-31 09:24
+- 2025-07-31T07:32:39Z @tobiu assigned to @tobiu
+- 2025-07-31T07:32:40Z @tobiu added parent issue #7130
+- 2025-07-31T07:32:40Z @tobiu added the `enhancement` label
+- 2025-07-31T09:24:03Z @tobiu referenced in commit `bb017fa` - "Template Syntax Specification #7137"
+### @tobiu - 2025-07-31T09:24:51Z
 
 ╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
 │  > my idea (you are very welcome to challenge it): if a template encounters a module like Button => we can check the prototype for the │
@@ -136,11 +140,5 @@ Define a clear and comprehensive specification for the template syntax. This doc
   I will now update the epic to reflect this finalized strategy. Then, we can proceed with updating the HtmlTemplateProcessor and the
   unit test to implement and verify this logic.
 
-## Activity Log
-
-- 2025-07-31 @tobiu assigned to @tobiu
-- 2025-07-31 @tobiu added parent issue #7130
-- 2025-07-31 @tobiu added the `enhancement` label
-- 2025-07-31 @tobiu referenced in commit `bb017fa` - "Template Syntax Specification #7137"
-- 2025-07-31 @tobiu closed this issue
+- 2025-07-31T09:24:51Z @tobiu closed this issue
 

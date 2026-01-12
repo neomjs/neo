@@ -24,11 +24,11 @@ closedAt: '2025-04-22T11:16:52Z'
 
 * For consistency, a click on an already selected column needs to deselect it.
 
-## Activity Log
+## Timeline
 
-- 2025-04-22 @tobiu added the `enhancement` label
-- 2025-04-22 @tobiu assigned to @tobiu
-- 2025-04-22 @tobiu added the `no auto close` label
-- 2025-04-22 @tobiu referenced in commit `e532916` - "selection.grid.ColumnModel: onCellClick() => add deselection logic #6676"
-- 2025-04-22 @tobiu closed this issue
+- 2025-04-22T11:05:32Z @tobiu added the `enhancement` label
+- 2025-04-22T11:05:32Z @tobiu assigned to @tobiu
+- 2025-04-22T11:10:14Z @tobiu added the `no auto close` label
+- 2025-04-22T11:16:43Z @tobiu referenced in commit `e532916` - "selection.grid.ColumnModel: onCellClick() => add deselection logic #6676"
+- 2025-04-22T11:16:52Z @tobiu closed this issue
 

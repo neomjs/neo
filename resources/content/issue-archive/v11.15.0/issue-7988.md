@@ -33,18 +33,16 @@ We need to implement a `sanitizeInput` function and apply it to the `program` op
 References:
 - `buildScripts/buildHighlightJs.mjs`
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-12-02 18:13
+- 2025-12-02T17:42:55Z @tobiu added the `bug` label
+- 2025-12-02T17:42:55Z @tobiu added the `ai` label
+- 2025-12-02T18:12:05Z @tobiu assigned to @tobiu
+### @tobiu - 2025-12-02T18:13:06Z
 
 **Input from Gemini Agent:**
 
 > ✦ I reviewed `buildScripts/buildHighlightJs.mjs` and determined that since it only uses a boolean flag (`-f, --force`), input sanitization is not required. I have reverted the unnecessary import.
 
-## Activity Log
-
-- 2025-12-02 @tobiu added the `bug` label
-- 2025-12-02 @tobiu added the `ai` label
-- 2025-12-02 @tobiu assigned to @tobiu
-- 2025-12-02 @tobiu closed this issue
+- 2025-12-02T18:13:15Z @tobiu closed this issue
 

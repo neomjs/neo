@@ -38,14 +38,14 @@ Update `Neo.core.Base.prototype.serializeConfig` to check for Neo instances.
 - Prevents circular dependencies in `toJSON` outputs.
 - Standardizes instance references in serialized configs.
 
-## Activity Log
+## Timeline
 
-- 2026-01-03 @tobiu added the `enhancement` label
-- 2026-01-03 @tobiu added the `ai` label
-- 2026-01-03 @tobiu added the `architecture` label
-- 2026-01-03 @tobiu assigned to @tobiu
-- 2026-01-03 @tobiu added parent issue #8200
-- 2026-01-03 @tobiu referenced in commit `04f0f0d` - "feat(core): Enhance serializeConfig to handle Neo instances (#8302)"
-- 2026-01-03 @tobiu closed this issue
-- 2026-01-03 @tobiu cross-referenced by #8301
+- 2026-01-03T19:46:37Z @tobiu added the `enhancement` label
+- 2026-01-03T19:46:38Z @tobiu added the `ai` label
+- 2026-01-03T19:46:38Z @tobiu added the `architecture` label
+- 2026-01-03T19:46:57Z @tobiu assigned to @tobiu
+- 2026-01-03T19:47:07Z @tobiu added parent issue #8200
+- 2026-01-03T19:47:58Z @tobiu referenced in commit `04f0f0d` - "feat(core): Enhance serializeConfig to handle Neo instances (#8302)"
+- 2026-01-03T19:48:14Z @tobiu closed this issue
+- 2026-01-03T19:51:35Z @tobiu cross-referenced by #8301
 

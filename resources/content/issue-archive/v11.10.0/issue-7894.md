@@ -25,12 +25,12 @@ closedAt: '2025-11-24T11:04:55Z'
 
 The coding guidelines (item 18) should explicitly state that the `@summary` tag must be the first item in the JSDoc block for classes, followed by an empty line and then the description. This ensures consistency across the codebase.
 
-## Activity Log
+## Timeline
 
-- 2025-11-24 @tobiu added the `documentation` label
-- 2025-11-24 @tobiu added the `enhancement` label
-- 2025-11-24 @tobiu added the `ai` label
-- 2025-11-24 @tobiu assigned to @tobiu
-- 2025-11-24 @tobiu referenced in commit `a48428b` - "Update Coding Guidelines to mandate @summary as first tag #7894"
-- 2025-11-24 @tobiu closed this issue
+- 2025-11-24T11:03:27Z @tobiu added the `documentation` label
+- 2025-11-24T11:03:27Z @tobiu added the `enhancement` label
+- 2025-11-24T11:03:27Z @tobiu added the `ai` label
+- 2025-11-24T11:04:15Z @tobiu assigned to @tobiu
+- 2025-11-24T11:04:32Z @tobiu referenced in commit `a48428b` - "Update Coding Guidelines to mandate @summary as first tag #7894"
+- 2025-11-24T11:04:55Z @tobiu closed this issue
 

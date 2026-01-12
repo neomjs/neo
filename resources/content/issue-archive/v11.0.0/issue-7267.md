@@ -30,12 +30,12 @@ This task is to migrate the unit test for `ClassConfigsAndFields.mjs` from the S
 3.  Ensure the new test runs successfully via `npm test`.
 4.  The new test must cover all the functionality of the original Siesta test.
 
-## Activity Log
+## Timeline
 
-- 2025-09-27 @tobiu added the `enhancement` label
-- 2025-09-27 @tobiu added parent issue #7262
-- 2025-09-27 @tobiu referenced in commit `b0c8db3` - "Convert ClassConfigsAndFields.mjs Test from Siesta to Playwright #7267"
-- 2025-09-27 @tobiu referenced in commit `0e24f62` - "#7267 intent driven comments, ticket updates"
-- 2025-09-27 @tobiu closed this issue
-- 2025-10-03 @tobiu assigned to @tobiu
+- 2025-09-27T12:33:57Z @tobiu added the `enhancement` label
+- 2025-09-27T12:33:57Z @tobiu added parent issue #7262
+- 2025-09-27T15:06:35Z @tobiu referenced in commit `b0c8db3` - "Convert ClassConfigsAndFields.mjs Test from Siesta to Playwright #7267"
+- 2025-09-27T15:10:57Z @tobiu referenced in commit `0e24f62` - "#7267 intent driven comments, ticket updates"
+- 2025-09-27T15:11:22Z @tobiu closed this issue
+- 2025-10-03T16:19:37Z @tobiu assigned to @tobiu
 

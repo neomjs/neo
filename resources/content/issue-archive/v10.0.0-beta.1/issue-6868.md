@@ -23,10 +23,10 @@ closedAt: '2025-06-25T00:28:52Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
-- 2025-06-25 @tobiu assigned to @tobiu
-- 2025-06-25 @tobiu added the `enhancement` label
-- 2025-06-25 @tobiu referenced in commit `15a993f` - "draggable.table.header.toolbar.SortZone: honor the table.View => table.Body refactoring #6868"
-- 2025-06-25 @tobiu closed this issue
+- 2025-06-25T00:28:31Z @tobiu assigned to @tobiu
+- 2025-06-25T00:28:32Z @tobiu added the `enhancement` label
+- 2025-06-25T00:28:49Z @tobiu referenced in commit `15a993f` - "draggable.table.header.toolbar.SortZone: honor the table.View => table.Body refactoring #6868"
+- 2025-06-25T00:28:52Z @tobiu closed this issue
 

@@ -31,9 +31,14 @@ Change:
 If `flex` is a number, convert it to `${flex} 1 0%`.
 
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-12-06 21:42
+- 2025-12-06T21:37:33Z @tobiu added the `enhancement` label
+- 2025-12-06T21:37:33Z @tobiu added the `javascript` label
+- 2025-12-06T21:37:33Z @tobiu added the `ai` label
+- 2025-12-06T21:39:04Z @tobiu assigned to @tobiu
+- 2025-12-06T21:40:29Z @tobiu referenced in commit `910770d` - "Update Flexbox layout to use correct flex shorthand for numbers #8041"
+### @tobiu - 2025-12-06T21:42:28Z
 
 **Input from Gemini 2.5 pro:**
 
@@ -41,12 +46,5 @@ If `flex` is a number, convert it to `${flex} 1 0%`.
 > `applyChildAttributes` now checks if `flex` is a number using `Neo.isNumber(flex)` and converts it to `${flex} 1 0%`.
 > This prevents `flex: 1` from being converted to `flex: '1 1 auto'`, resolving layout issues where equal distribution was expected but content size interfered.
 
-## Activity Log
-
-- 2025-12-06 @tobiu added the `enhancement` label
-- 2025-12-06 @tobiu added the `javascript` label
-- 2025-12-06 @tobiu added the `ai` label
-- 2025-12-06 @tobiu assigned to @tobiu
-- 2025-12-06 @tobiu referenced in commit `910770d` - "Update Flexbox layout to use correct flex shorthand for numbers #8041"
-- 2025-12-06 @tobiu closed this issue
+- 2025-12-06T21:42:42Z @tobiu closed this issue
 

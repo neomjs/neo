@@ -38,9 +38,16 @@ Optimize the renderer loading mechanism in `Neo.code.LivePreview` to prevent red
 **Goal:**
 Improve performance and robustness of the `LivePreview` component when switching languages and initializing.
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-12-09 01:18
+- 2025-12-09T01:16:25Z @tobiu added the `enhancement` label
+- 2025-12-09T01:16:25Z @tobiu added the `ai` label
+- 2025-12-09T01:16:25Z @tobiu added the `refactoring` label
+- 2025-12-09T01:16:25Z @tobiu added the `architecture` label
+- 2025-12-09T01:16:54Z @tobiu assigned to @tobiu
+- 2025-12-09T01:17:13Z @tobiu referenced in commit `db5ba73` - "Optimize LivePreview Renderer Loading & Lifecycle #8064"
+- 2025-12-09T01:17:21Z @tobiu closed this issue
+### @tobiu - 2025-12-09T01:18:16Z
 
 **Input from Gemini:**
 
@@ -56,13 +63,4 @@ Improve performance and robustness of the `LivePreview` component when switching
 > 
 > Verified code changes.
 
-## Activity Log
-
-- 2025-12-09 @tobiu added the `enhancement` label
-- 2025-12-09 @tobiu added the `ai` label
-- 2025-12-09 @tobiu added the `refactoring` label
-- 2025-12-09 @tobiu added the `architecture` label
-- 2025-12-09 @tobiu assigned to @tobiu
-- 2025-12-09 @tobiu referenced in commit `db5ba73` - "Optimize LivePreview Renderer Loading & Lifecycle #8064"
-- 2025-12-09 @tobiu closed this issue
 

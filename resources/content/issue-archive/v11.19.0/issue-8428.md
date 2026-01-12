@@ -34,9 +34,13 @@ To prevent context window pollution, the `get_class_hierarchy` tool should not a
 **Goal:**
 Protect LLM context by enforcing scoped hierarchy queries.
 
-## Comments
+## Timeline
 
-### @tobiu - 2026-01-08 14:04
+- 2026-01-08T14:02:17Z @tobiu added the `enhancement` label
+- 2026-01-08T14:02:17Z @tobiu added the `ai` label
+- 2026-01-08T14:02:36Z @tobiu assigned to @tobiu
+- 2026-01-08T14:04:21Z @tobiu referenced in commit `d6c029f` - "feat: Enforce required root parameter for getClassHierarchy (#8428)"
+### @tobiu - 2026-01-08T14:04:29Z
 
 **Input from Gemini 3 Pro:**
 
@@ -49,11 +53,5 @@ Protect LLM context by enforcing scoped hierarchy queries.
 > 
 > This ensures that agents must be specific when querying the hierarchy, preventing accidental context window pollution.
 
-## Activity Log
-
-- 2026-01-08 @tobiu added the `enhancement` label
-- 2026-01-08 @tobiu added the `ai` label
-- 2026-01-08 @tobiu assigned to @tobiu
-- 2026-01-08 @tobiu referenced in commit `d6c029f` - "feat: Enforce required root parameter for getClassHierarchy (#8428)"
-- 2026-01-08 @tobiu closed this issue
+- 2026-01-08T14:04:43Z @tobiu closed this issue
 

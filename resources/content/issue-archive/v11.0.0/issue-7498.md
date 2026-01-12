@@ -32,13 +32,13 @@ The Gemini CLI client was unable to correctly parse the `tools/list` response fr
 4.  `mcp-stdio.mjs` is modified to conditionally include `nextCursor` in the `tools/list` response only if it is not `undefined`.
 5.  The Gemini CLI client successfully lists all tools from the `neo-github-workflow` server without errors.
 
-## Activity Log
+## Timeline
 
-- 2025-10-15 @tobiu assigned to @tobiu
-- 2025-10-15 @tobiu added parent issue #7477
-- 2025-10-15 @tobiu added the `bug` label
-- 2025-10-15 @tobiu added the `ai` label
-- 2025-10-15 @tobiu referenced in commit `933919f` - "Fix Gemini CLI Client Compatibility for MCP tools/list Response #7498"
-- 2025-10-15 @tobiu closed this issue
-- 2025-10-25 @tobiu cross-referenced by #7652
+- 2025-10-15T13:41:05Z @tobiu assigned to @tobiu
+- 2025-10-15T13:41:06Z @tobiu added parent issue #7477
+- 2025-10-15T13:41:07Z @tobiu added the `bug` label
+- 2025-10-15T13:41:07Z @tobiu added the `ai` label
+- 2025-10-15T13:42:22Z @tobiu referenced in commit `933919f` - "Fix Gemini CLI Client Compatibility for MCP tools/list Response #7498"
+- 2025-10-15T13:42:30Z @tobiu closed this issue
+- 2025-10-25T17:52:10Z @tobiu cross-referenced by #7652
 

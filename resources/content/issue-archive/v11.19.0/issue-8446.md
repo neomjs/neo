@@ -39,12 +39,12 @@ Systematically replace "framework" with "engine", "platform", or "system" in the
 
 Total remaining instances to evaluate: **257**.
 
-## Activity Log
+## Timeline
 
-- 2026-01-08 @tobiu added the `documentation` label
-- 2026-01-08 @tobiu added the `enhancement` label
-- 2026-01-08 @tobiu added the `ai` label
-- 2026-01-08 @tobiu referenced in commit `aa8c382` - "docs: Rebrand top 10 learn/ files to 'Application Engine' (#8446)"
-- 2026-01-08 @tobiu closed this issue
-- 2026-01-08 @tobiu assigned to @tobiu
+- 2026-01-08T21:59:49Z @tobiu added the `documentation` label
+- 2026-01-08T21:59:49Z @tobiu added the `enhancement` label
+- 2026-01-08T21:59:49Z @tobiu added the `ai` label
+- 2026-01-08T22:06:15Z @tobiu referenced in commit `aa8c382` - "docs: Rebrand top 10 learn/ files to 'Application Engine' (#8446)"
+- 2026-01-08T22:06:26Z @tobiu closed this issue
+- 2026-01-08T22:06:35Z @tobiu assigned to @tobiu
 

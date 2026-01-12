@@ -25,10 +25,10 @@ closedAt: '2025-06-09T08:40:05Z'
 * consistency to the service worker implementation
 * update class extensions accordingly
 
-## Activity Log
+## Timeline
 
-- 2025-06-09 @tobiu assigned to @tobiu
-- 2025-06-09 @tobiu added the `enhancement` label
-- 2025-06-09 @tobiu referenced in commit `03c5ede` - "worker.Base: workerId => switch from config to class field #6758"
-- 2025-06-09 @tobiu closed this issue
+- 2025-06-09T08:39:33Z @tobiu assigned to @tobiu
+- 2025-06-09T08:39:34Z @tobiu added the `enhancement` label
+- 2025-06-09T08:39:50Z @tobiu referenced in commit `03c5ede` - "worker.Base: workerId => switch from config to class field #6758"
+- 2025-06-09T08:40:05Z @tobiu closed this issue
 

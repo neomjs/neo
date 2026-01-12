@@ -46,16 +46,16 @@ Move the logic for managing detached items (drag-to-window and re-integration) f
     *   Remove the redundant logic from `AgentOS` and `Colors` Viewport Controllers.
 
 
-## Activity Log
+## Timeline
 
-- 2025-12-26 @tobiu added the `enhancement` label
-- 2025-12-26 @tobiu added the `ai` label
-- 2025-12-26 @tobiu added the `refactoring` label
-- 2025-12-26 @tobiu cross-referenced by #8157
-- 2025-12-26 @tobiu assigned to @tobiu
-- 2025-12-26 @tobiu referenced in commit `4ac9f63` - "#8155 dashboard.Container: enhanced logic, updated the AgentOS main dashboard to use it."
-- 2025-12-26 @tobiu referenced in commit `cf8d18d` - "#8155 AgentOS.view.StrategyPanel: using the enhanced dashboard logic"
-- 2025-12-26 @tobiu referenced in commit `1fad668` - "#8155 dashboard.Container: documentation, apps/colors: using the new implementation"
-- 2025-12-26 @tobiu closed this issue
-- 2025-12-26 @tobiu cross-referenced by #8156
+- 2025-12-26T15:57:59Z @tobiu added the `enhancement` label
+- 2025-12-26T15:57:59Z @tobiu added the `ai` label
+- 2025-12-26T15:57:59Z @tobiu added the `refactoring` label
+- 2025-12-26T16:03:12Z @tobiu cross-referenced by #8157
+- 2025-12-26T16:08:29Z @tobiu assigned to @tobiu
+- 2025-12-26T16:36:11Z @tobiu referenced in commit `4ac9f63` - "#8155 dashboard.Container: enhanced logic, updated the AgentOS main dashboard to use it."
+- 2025-12-26T17:07:26Z @tobiu referenced in commit `cf8d18d` - "#8155 AgentOS.view.StrategyPanel: using the enhanced dashboard logic"
+- 2025-12-26T17:22:11Z @tobiu referenced in commit `1fad668` - "#8155 dashboard.Container: documentation, apps/colors: using the new implementation"
+- 2025-12-26T17:23:33Z @tobiu closed this issue
+- 2025-12-26T17:29:03Z @tobiu cross-referenced by #8156
 

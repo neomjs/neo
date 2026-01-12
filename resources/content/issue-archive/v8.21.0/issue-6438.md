@@ -24,10 +24,10 @@ closedAt: '2025-02-10T21:57:14Z'
 * it can happen that deltas arrive when nodes already got removed
 * also remove the testing log for updates
 
-## Activity Log
+## Timeline
 
-- 2025-02-10 @tobiu added the `enhancement` label
-- 2025-02-10 @tobiu assigned to @tobiu
-- 2025-02-10 @tobiu referenced in commit `80d9775` - "main.mixin.DeltaUpdates: add node checks to all methods #6438"
-- 2025-02-10 @tobiu closed this issue
+- 2025-02-10T21:56:40Z @tobiu added the `enhancement` label
+- 2025-02-10T21:56:40Z @tobiu assigned to @tobiu
+- 2025-02-10T21:57:09Z @tobiu referenced in commit `80d9775` - "main.mixin.DeltaUpdates: add node checks to all methods #6438"
+- 2025-02-10T21:57:15Z @tobiu closed this issue
 

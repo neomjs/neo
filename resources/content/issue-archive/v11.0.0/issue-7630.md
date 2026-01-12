@@ -36,14 +36,21 @@ These workflows have been entirely superseded by the new MCP (Model Context Prot
 5.  Remove the now-obsolete "Hacktoberfest 2025 Onboarding Protocol".
 6.  Ensure the entire document reflects the new, streamlined, tool-based workflow.
 
-## Comments
+## Timeline
 
-### @SarthakJain29 - 2025-10-24 14:36
+- 2025-10-24T09:35:53Z @tobiu added the `documentation` label
+- 2025-10-24T09:35:53Z @tobiu added the `enhancement` label
+- 2025-10-24T09:35:53Z @tobiu added the `ai` label
+- 2025-10-24T09:37:00Z @tobiu added parent issue #7604
+- 2025-10-24T09:39:42Z @tobiu cross-referenced by #7376
+- 2025-10-24T10:43:34Z @tobiu cross-referenced by #7634
+- 2025-10-24T12:41:27Z @tobiu assigned to @tobiu
+### @SarthakJain29 - 2025-10-24T14:36:41Z
 
 Hey I would like to work on this!
 Also if possible can you add the hacktoberfest label to this issue, thankyou.
 
-### @tobiu - 2025-10-26 09:43
+### @tobiu - 2025-10-26T09:43:26Z
 
 i highly discourage on this one, and dare to say: working on a new epic to e.g. get test files into the AI knowledge base is way easier. more input:
 
@@ -108,15 +115,6 @@ i highly discourage on this one, and dare to say: working on a new epic to e.g. 
 >    3. Present the "before" and "after" versions of this section to you for review and approval before any changes
 >        are made.
 
-## Activity Log
-
-- 2025-10-24 @tobiu added the `documentation` label
-- 2025-10-24 @tobiu added the `enhancement` label
-- 2025-10-24 @tobiu added the `ai` label
-- 2025-10-24 @tobiu added parent issue #7604
-- 2025-10-24 @tobiu cross-referenced by #7376
-- 2025-10-24 @tobiu cross-referenced by #7634
-- 2025-10-24 @tobiu assigned to @tobiu
-- 2025-10-26 @tobiu referenced in commit `0ce1ec2` - "docs: Update AGENTS.md to Reflect MCP Server Architecture #7630"
-- 2025-10-26 @tobiu closed this issue
+- 2025-10-26T11:21:02Z @tobiu referenced in commit `0ce1ec2` - "docs: Update AGENTS.md to Reflect MCP Server Architecture #7630"
+- 2025-10-26T11:21:13Z @tobiu closed this issue
 

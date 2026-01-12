@@ -23,10 +23,10 @@ closedAt: '2025-02-22T18:07:47Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
-- 2025-02-22 @tobiu added the `enhancement` label
-- 2025-02-22 @tobiu assigned to @tobiu
-- 2025-02-22 @tobiu referenced in commit `7053af8` - "component.MagicMoveText: onResize() => update contentHeight & contentWidth #6487"
-- 2025-02-22 @tobiu closed this issue
+- 2025-02-22T18:07:07Z @tobiu added the `enhancement` label
+- 2025-02-22T18:07:07Z @tobiu assigned to @tobiu
+- 2025-02-22T18:07:42Z @tobiu referenced in commit `7053af8` - "component.MagicMoveText: onResize() => update contentHeight & contentWidth #6487"
+- 2025-02-22T18:07:47Z @tobiu closed this issue
 

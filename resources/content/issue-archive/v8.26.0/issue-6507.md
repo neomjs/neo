@@ -26,18 +26,16 @@ closedAt: '2025-02-26T21:42:54Z'
 * To support such "edge cases", `onDragStart()` should subtract the parent rect x & y values from each item
 * `onDragMove()` then needs to honor it inside the delta check (also subtracting the owner rect)
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-02-26 21:42
+- 2025-02-26T21:40:32Z @tobiu added the `enhancement` label
+- 2025-02-26T21:40:32Z @tobiu assigned to @tobiu
+- 2025-02-26T21:41:03Z @tobiu referenced in commit `bcd9088` - "draggable.toolbar.SortZone: onDragMove(), onDragStart() => smarter positioning logic #6507"
+### @tobiu - 2025-02-26T21:42:54Z
 
 this was non-trivial for sure, but works now:
 
 https://github.com/user-attachments/assets/1bb4eac8-61cc-4504-a366-1adf5b5bb82b
 
-## Activity Log
-
-- 2025-02-26 @tobiu added the `enhancement` label
-- 2025-02-26 @tobiu assigned to @tobiu
-- 2025-02-26 @tobiu referenced in commit `bcd9088` - "draggable.toolbar.SortZone: onDragMove(), onDragStart() => smarter positioning logic #6507"
-- 2025-02-26 @tobiu closed this issue
+- 2025-02-26T21:42:54Z @tobiu closed this issue
 

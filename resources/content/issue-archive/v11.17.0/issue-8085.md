@@ -45,13 +45,13 @@ The JSDoc for `add` and `insert` in `Neo.data.Store` needs to be significantly e
 *   The return type variations (`Number` vs `Array`).
 
 
-## Activity Log
+## Timeline
 
-- 2025-12-11 @tobiu added the `documentation` label
-- 2025-12-11 @tobiu added the `developer-experience` label
-- 2025-12-11 @tobiu added the `ai` label
-- 2025-12-11 @tobiu added the `refactoring` label
-- 2025-12-11 @tobiu assigned to @tobiu
-- 2025-12-11 @tobiu referenced in commit `0abef4c` - "Refactor Store: Default to eager record init for DX and enhance JSDoc #8085"
-- 2025-12-11 @tobiu closed this issue
+- 2025-12-11T01:31:41Z @tobiu added the `documentation` label
+- 2025-12-11T01:31:41Z @tobiu added the `developer-experience` label
+- 2025-12-11T01:31:41Z @tobiu added the `ai` label
+- 2025-12-11T01:31:41Z @tobiu added the `refactoring` label
+- 2025-12-11T01:32:57Z @tobiu assigned to @tobiu
+- 2025-12-11T01:51:14Z @tobiu referenced in commit `0abef4c` - "Refactor Store: Default to eager record init for DX and enhance JSDoc #8085"
+- 2025-12-11T01:51:21Z @tobiu closed this issue
 

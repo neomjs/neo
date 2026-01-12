@@ -43,25 +43,23 @@ To work on this ticket, please start your session with the following prompt:
 > 
 > You will need to read the epic context from @.github/ISSUE/epic-architect-ai-tooling-as-mcp.md and the specific ticket details from @.github/ISSUE/ticket-implement-knowledge-create-update-endpoint.md before we begin.
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-10-07 10:53
+- 2025-10-07T10:48:10Z @tobiu added the `enhancement` label
+- 2025-10-07T10:48:10Z @tobiu added parent issue #7399
+- 2025-10-07T10:48:10Z @tobiu added the `help wanted` label
+- 2025-10-07T10:48:10Z @tobiu added the `good first issue` label
+- 2025-10-07T10:48:11Z @tobiu added the `hacktoberfest` label
+- 2025-10-07T10:48:11Z @tobiu added the `ai` label
+- 2025-10-07T10:52:53Z @tobiu removed parent issue #7399
+- 2025-10-07T10:53:01Z @tobiu removed the `enhancement` label
+- 2025-10-07T10:53:01Z @tobiu removed the `help wanted` label
+- 2025-10-07T10:53:01Z @tobiu removed the `good first issue` label
+- 2025-10-07T10:53:01Z @tobiu removed the `hacktoberfest` label
+- 2025-10-07T10:53:01Z @tobiu removed the `ai` label
+### @tobiu - 2025-10-07T10:53:33Z
 
 redundant. closing the ticket.
 
-## Activity Log
-
-- 2025-10-07 @tobiu added the `enhancement` label
-- 2025-10-07 @tobiu added parent issue #7399
-- 2025-10-07 @tobiu added the `help wanted` label
-- 2025-10-07 @tobiu added the `good first issue` label
-- 2025-10-07 @tobiu added the `hacktoberfest` label
-- 2025-10-07 @tobiu added the `ai` label
-- 2025-10-07 @tobiu removed parent issue #7399
-- 2025-10-07 @tobiu removed the `enhancement` label
-- 2025-10-07 @tobiu removed the `help wanted` label
-- 2025-10-07 @tobiu removed the `good first issue` label
-- 2025-10-07 @tobiu removed the `hacktoberfest` label
-- 2025-10-07 @tobiu removed the `ai` label
-- 2025-10-07 @tobiu closed this issue
+- 2025-10-07T10:53:34Z @tobiu closed this issue
 

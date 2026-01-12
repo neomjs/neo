@@ -24,10 +24,10 @@ closedAt: '2025-04-05T22:28:38Z'
 * I noticed that (only) inside `dist/development` it can happen that we try to access the API, before the namespaces got registered.
 * For now, I will make the method async, and a check if it does exist.
 
-## Activity Log
+## Timeline
 
-- 2025-04-05 @tobiu added the `enhancement` label
-- 2025-04-05 @tobiu assigned to @tobiu
-- 2025-04-05 @tobiu referenced in commit `fb2a43f` - "Colors.view.ViewportController: updateWidgets() => timing issue inside dist/dev #6622"
-- 2025-04-05 @tobiu closed this issue
+- 2025-04-05T22:27:45Z @tobiu added the `enhancement` label
+- 2025-04-05T22:27:45Z @tobiu assigned to @tobiu
+- 2025-04-05T22:28:23Z @tobiu referenced in commit `fb2a43f` - "Colors.view.ViewportController: updateWidgets() => timing issue inside dist/dev #6622"
+- 2025-04-05T22:28:38Z @tobiu closed this issue
 

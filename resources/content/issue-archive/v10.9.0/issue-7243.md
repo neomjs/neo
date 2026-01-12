@@ -43,10 +43,10 @@ This change follows the "Content-Type Priority" approach brainstormed to improve
 -   `AGENTS.md` contains the new directive for prioritizing query results.
 -   The new convention for versioning blog posts is documented.
 
-## Activity Log
+## Timeline
 
-- 2025-09-23 @tobiu assigned to @tobiu
-- 2025-09-23 @tobiu added the `enhancement` label
-- 2025-09-23 @tobiu referenced in commit `58b8cb9` - "Prioritize Guides Over Blogs in AI Queries #7243"
-- 2025-09-23 @tobiu closed this issue
+- 2025-09-23T15:05:22Z @tobiu assigned to @tobiu
+- 2025-09-23T15:05:24Z @tobiu added the `enhancement` label
+- 2025-09-23T15:07:29Z @tobiu referenced in commit `58b8cb9` - "Prioritize Guides Over Blogs in AI Queries #7243"
+- 2025-09-23T15:07:55Z @tobiu closed this issue
 

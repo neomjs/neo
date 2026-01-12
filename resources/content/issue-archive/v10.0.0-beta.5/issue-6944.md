@@ -23,10 +23,10 @@ closedAt: '2025-07-04T21:06:25Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
-- 2025-07-04 @tobiu assigned to @tobiu
-- 2025-07-04 @tobiu added the `enhancement` label
-- 2025-07-04 @tobiu referenced in commit `5248901` - "learn/guides/StateProvider: use modal: true for the dialog demo #6944"
-- 2025-07-04 @tobiu closed this issue
+- 2025-07-04T21:05:34Z @tobiu assigned to @tobiu
+- 2025-07-04T21:05:36Z @tobiu added the `enhancement` label
+- 2025-07-04T21:06:14Z @tobiu referenced in commit `5248901` - "learn/guides/StateProvider: use modal: true for the dialog demo #6944"
+- 2025-07-04T21:06:25Z @tobiu closed this issue
 

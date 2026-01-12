@@ -36,11 +36,11 @@ This ticket documents the changes made to enable the VDom worker to correctly ha
 
 These changes are crucial for the seamless integration of server-rendered content with the client-side VDom worker, supporting the overall SSR takeover strategy.
 
-## Activity Log
+## Timeline
 
-- 2025-11-17 @tobiu added the `enhancement` label
-- 2025-11-17 @tobiu added the `ai` label
-- 2025-11-17 @tobiu assigned to @tobiu
-- 2025-11-17 @tobiu referenced in commit `4749d34` - "Implement VDom Worker SSR Takeover Logic #7785"
-- 2025-11-17 @tobiu closed this issue
+- 2025-11-17T20:21:12Z @tobiu added the `enhancement` label
+- 2025-11-17T20:21:13Z @tobiu added the `ai` label
+- 2025-11-17T20:21:30Z @tobiu assigned to @tobiu
+- 2025-11-17T20:21:50Z @tobiu referenced in commit `4749d34` - "Implement VDom Worker SSR Takeover Logic #7785"
+- 2025-11-17T20:26:06Z @tobiu closed this issue
 

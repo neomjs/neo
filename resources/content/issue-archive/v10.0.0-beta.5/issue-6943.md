@@ -48,10 +48,11 @@ The current "overwrite" behavior is the alternative, which leads to the describe
 **Additional context**
 This change is crucial for the predictability and correctness of how `static config` values are inherited and combined across the class hierarchy. It allows developers to define complex default configurations that are intelligently merged by subclasses, rather than simply being overwritten. This is distinct from instance-level config merging (handled by `Base.mjs#mergeConfig`), as this change focuses on the final `static config` object that `Neo.setupClass` produces.
 
-## Activity Log
+## Timeline
 
-- 2025-07-04 @tobiu assigned to @tobiu
-- 2025-07-04 @tobiu added the `enhancement` label
-- 2025-07-04 @tobiu referenced in commit `b3cb219` - "Implement Hierarchical static config Value Merging based on configDescriptors in Neo.setupClass #6943"
-- 2025-07-04 @tobiu closed this issue
+- 2025-07-04T18:47:43Z @tobiu assigned to @tobiu
+- 2025-07-04T18:47:44Z @tobiu added the `enhancement` label
+- 2025-07-04T18:54:05Z @tobiu changed title from **Ensure Correct `merge` Strategy Inheritance for Config Values Across Class Hierarchy** to **Implement Hierarchical `static config` Value Merging based on `configDescriptors` in `Neo.setupClass`**
+- 2025-07-04T19:31:07Z @tobiu referenced in commit `b3cb219` - "Implement Hierarchical static config Value Merging based on configDescriptors in Neo.setupClass #6943"
+- 2025-07-04T19:31:12Z @tobiu closed this issue
 

@@ -24,6 +24,10 @@ class Component extends Markdown {
             record: data => data.currentPageRecord
         },
         /**
+         * @member {String} issuesUrl='#/news/tickets/'
+         */
+        issuesUrl: '#/news/tickets/',
+        /**
          * @member {Object} record_=null
          * @reactive
          */
@@ -36,7 +40,11 @@ class Component extends Markdown {
          * @member {String} tag='article'
          * @reactive
          */
-        tag: 'article'
+        tag: 'article',
+        /**
+         * @member {Boolean} updateSectionsStore=true
+         */
+        updateSectionsStore: true
     }
 
     /**
@@ -167,8 +175,12 @@ class Component extends Markdown {
     modifyMarkdown(content) {
         this.headlineData = [];
         const result = super.modifyMarkdown(content);
+
         // Using 'sections' store (generic name)
-        this.getStateProvider().getStore('sections').data = this.headlineData;
+        if (this.updateSectionsStore) {
+            this.getStateProvider().getStore('sections').data = this.headlineData
+        }
+
         this.headlineData = null;
         return result
     }

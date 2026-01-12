@@ -35,29 +35,27 @@ As part of the component test harness, a minimal Neo.mjs application is required
 3.  The application's `index.html` should be configured to load this app.
 4.  The `webServer` in the Playwright config should point to this application's entry point.
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-10-11 11:52
+- 2025-10-10T16:47:11Z @tobiu added the `enhancement` label
+- 2025-10-10T16:47:12Z @tobiu added the `help wanted` label
+- 2025-10-10T16:47:12Z @tobiu added the `hacktoberfest` label
+- 2025-10-10T16:47:12Z @tobiu added the `ai` label
+- 2025-10-10T16:47:12Z @tobiu added parent issue #7435
+- 2025-10-11T05:15:19Z @Aki-07 cross-referenced by PR #7458
+### @tobiu - 2025-10-11T11:52:48Z
 
 @Aki-07: you need to add a quick comment here, otherwise i can not assign the ticket to you (github security policies).
 
-### @Aki-07 - 2025-10-11 15:12
+### @Aki-07 - 2025-10-11T15:12:26Z
 
 Can I get this issue assigned on me @tobiu 
 
 
-### @tobiu - 2025-10-13 10:13
+- 2025-10-12T11:51:16Z @tobiu closed this issue
+- 2025-10-13T10:13:00Z @tobiu assigned to @Aki-07
+### @tobiu - 2025-10-13T10:13:48Z
 
 missed the assignment, and added it now for clarity. nothing left to do here => resolved.
 
-## Activity Log
-
-- 2025-10-10 @tobiu added the `enhancement` label
-- 2025-10-10 @tobiu added the `help wanted` label
-- 2025-10-10 @tobiu added the `hacktoberfest` label
-- 2025-10-10 @tobiu added the `ai` label
-- 2025-10-10 @tobiu added parent issue #7435
-- 2025-10-11 @Aki-07 cross-referenced by PR #7458
-- 2025-10-12 @tobiu closed this issue
-- 2025-10-13 @tobiu assigned to @Aki-07
 

@@ -35,13 +35,23 @@ The agent will have access to two sources of information for issues and PRs: the
 3.  The workflow instructs the agent to use the GitHub CLI (`gh`) to get the real-time status (e.g., open/closed, assignees, labels) of a *specific* issue or PR that it has already discovered (Verification).
 4.  The protocol should include a clear example of this two-step "Discover, then Verify" process.
 
-## Comments
+## Timeline
 
-### @kart-u - 2025-10-05 13:11
+- 2025-10-05T13:02:37Z @tobiu added the `documentation` label
+- 2025-10-05T13:02:37Z @tobiu added the `enhancement` label
+- 2025-10-05T13:02:37Z @tobiu added parent issue #7364
+- 2025-10-05T13:02:38Z @tobiu added the `help wanted` label
+- 2025-10-05T13:02:38Z @tobiu added the `good first issue` label
+- 2025-10-05T13:02:38Z @tobiu added the `hacktoberfest` label
+- 2025-10-05T13:02:38Z @tobiu added the `ai` label
+### @kart-u - 2025-10-05T13:11:28Z
 
 hello @tobiu I would like to contribute to this, can you please assign it to me
 
-### @tobiu - 2025-10-05 14:17
+- 2025-10-05T13:22:18Z @ksanjeev284 cross-referenced by PR #7374
+- 2025-10-05T13:28:01Z @tobiu cross-referenced by #7367
+- 2025-10-05T14:17:43Z @tobiu assigned to @kart-u
+### @tobiu - 2025-10-05T14:17:49Z
 
 sure. Gemini input:
 
@@ -59,7 +69,7 @@ sure. Gemini input:
 > 
 >   There are no technical blockers for this task. It is a documentation and workflow definition ticket that can be worked on in parallel with the other implementation tickets.
 
-### @tobiu - 2025-10-24 09:39
+### @tobiu - 2025-10-24T09:39:41Z
 
 Hi @kart-u,
 
@@ -69,17 +79,5 @@ This ticket was for updating the AGENTS.md file with a new strategic protocol. T
 
 We're closing this ticket as it is no longer relevant. The upcoming rewrite of AGENTS.md (covered in #7630) will include a new, more streamlined workflow. Thanks again for your willingness to contribute!
 
-## Activity Log
-
-- 2025-10-05 @tobiu added the `documentation` label
-- 2025-10-05 @tobiu added the `enhancement` label
-- 2025-10-05 @tobiu added parent issue #7364
-- 2025-10-05 @tobiu added the `help wanted` label
-- 2025-10-05 @tobiu added the `good first issue` label
-- 2025-10-05 @tobiu added the `hacktoberfest` label
-- 2025-10-05 @tobiu added the `ai` label
-- 2025-10-05 @ksanjeev284 cross-referenced by PR #7374
-- 2025-10-05 @tobiu cross-referenced by #7367
-- 2025-10-05 @tobiu assigned to @kart-u
-- 2025-10-24 @tobiu closed this issue
+- 2025-10-24T09:39:53Z @tobiu closed this issue
 

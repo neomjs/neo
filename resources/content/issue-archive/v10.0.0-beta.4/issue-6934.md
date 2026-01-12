@@ -222,15 +222,13 @@ this.cleanup?.(); // Simple, clean, and prevents memory leaks.
 
 This is a significant but cohesive architectural enhancement. Thanks to the symbol-based opt-in mechanism, it can be implemented in a **single phase** and targeted for the next major version, **v11.0.0**.
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-07-04 12:12
+- 2025-07-02T15:34:59Z @tobiu added the `enhancement` label
+- 2025-07-04T12:06:37Z @tobiu cross-referenced by PR #6936
+### @tobiu - 2025-07-04T12:12:50Z
 
 it is working stable now, closing the ticket, but there will be follow-ups.
 
-## Activity Log
-
-- 2025-07-02 @tobiu added the `enhancement` label
-- 2025-07-04 @tobiu cross-referenced by PR #6936
-- 2025-07-04 @tobiu closed this issue
+- 2025-07-04T12:12:50Z @tobiu closed this issue
 

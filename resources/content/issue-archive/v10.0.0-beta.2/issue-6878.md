@@ -23,10 +23,10 @@ closedAt: '2025-06-27T13:02:42Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
-- 2025-06-27 @tobiu assigned to @tobiu
-- 2025-06-27 @tobiu added the `enhancement` label
-- 2025-06-27 @tobiu referenced in commit `be4bbc3` - "Portal.view.*: use text over html for vdom props where appropriate #6878"
-- 2025-06-27 @tobiu closed this issue
+- 2025-06-27T13:01:32Z @tobiu assigned to @tobiu
+- 2025-06-27T13:01:33Z @tobiu added the `enhancement` label
+- 2025-06-27T13:02:12Z @tobiu referenced in commit `be4bbc3` - "Portal.view.*: use text over html for vdom props where appropriate #6878"
+- 2025-06-27T13:02:42Z @tobiu closed this issue
 

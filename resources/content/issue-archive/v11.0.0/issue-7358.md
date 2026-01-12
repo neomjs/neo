@@ -33,14 +33,14 @@ The current session summarization workflow is clunky, requiring one script to fi
 4.  The `ai:get-last-session` script is removed from `package.json`.
 5.  `AGENTS.md` is updated to reflect the new, simplified workflow for session summarization.
 
-## Activity Log
+## Timeline
 
-- 2025-10-04 @tobiu assigned to @tobiu
-- 2025-10-04 @tobiu added the `enhancement` label
-- 2025-10-04 @tobiu added parent issue #7316
-- 2025-10-04 @tobiu added the `ai` label
-- 2025-10-04 @tobiu added the `refactoring` label
-- 2025-10-04 @tobiu referenced in commit `fb5198a` - "#7358 ticket as md file"
-- 2025-10-05 @tobiu referenced in commit `cce0ffe` - "Refactor summarizeSession.mjs to automatically summarize all un-summarized sessions #7358"
-- 2025-10-05 @tobiu closed this issue
+- 2025-10-04T17:49:15Z @tobiu assigned to @tobiu
+- 2025-10-04T17:49:16Z @tobiu added the `enhancement` label
+- 2025-10-04T17:49:16Z @tobiu added parent issue #7316
+- 2025-10-04T17:49:16Z @tobiu added the `ai` label
+- 2025-10-04T17:49:52Z @tobiu added the `refactoring` label
+- 2025-10-04T17:51:32Z @tobiu referenced in commit `fb5198a` - "#7358 ticket as md file"
+- 2025-10-05T09:38:24Z @tobiu referenced in commit `cce0ffe` - "Refactor summarizeSession.mjs to automatically summarize all un-summarized sessions #7358"
+- 2025-10-05T09:38:33Z @tobiu closed this issue
 

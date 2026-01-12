@@ -9,6 +9,11 @@ const cwd = process.cwd();
  */
 const defaultConfig = {
     /**
+     * Automatically connect to the bridge on startup.
+     * @type {boolean}
+     */
+    autoConnect: true,
+    /**
      * Global debug flag.
      * @type {boolean}
      */

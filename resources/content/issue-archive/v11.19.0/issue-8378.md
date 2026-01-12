@@ -33,11 +33,11 @@ Add intent-driven comments to `src/main/addon/Mermaid.mjs`.
 **Why:**
 To improve codebase navigability and ensure developers understand where and how this addon is utilized.
 
-## Activity Log
+## Timeline
 
-- 2026-01-07 @tobiu added the `documentation` label
-- 2026-01-07 @tobiu added the `enhancement` label
-- 2026-01-07 @tobiu assigned to @tobiu
-- 2026-01-07 @tobiu referenced in commit `744449a` - "Add intent-driven comments to Mermaid Addon #8378"
-- 2026-01-07 @tobiu closed this issue
+- 2026-01-07T12:29:38Z @tobiu added the `documentation` label
+- 2026-01-07T12:29:38Z @tobiu added the `enhancement` label
+- 2026-01-07T12:36:44Z @tobiu assigned to @tobiu
+- 2026-01-07T12:37:07Z @tobiu referenced in commit `744449a` - "Add intent-driven comments to Mermaid Addon #8378"
+- 2026-01-07T12:37:24Z @tobiu closed this issue
 

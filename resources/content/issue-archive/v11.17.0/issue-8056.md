@@ -49,12 +49,12 @@ Implement a two-phase verification process to balance performance and correctnes
 *   The fallback check should verify that `targetId` is findable starting from `listener.vnodeId` within the listener component's VNode tree.
 
 
-## Activity Log
+## Timeline
 
-- 2025-12-08 @tobiu added the `enhancement` label
-- 2025-12-08 @tobiu added the `ai` label
-- 2025-12-08 @tobiu added the `architecture` label
-- 2025-12-08 @tobiu assigned to @tobiu
-- 2025-12-08 @tobiu referenced in commit `1c735a2` - "[DomEvent] Implement Boundary-Aware Delegation Verification #8056"
-- 2025-12-08 @tobiu closed this issue
+- 2025-12-08T06:45:35Z @tobiu added the `enhancement` label
+- 2025-12-08T06:45:35Z @tobiu added the `ai` label
+- 2025-12-08T06:45:35Z @tobiu added the `architecture` label
+- 2025-12-08T06:45:45Z @tobiu assigned to @tobiu
+- 2025-12-08T06:53:38Z @tobiu referenced in commit `1c735a2` - "[DomEvent] Implement Boundary-Aware Delegation Verification #8056"
+- 2025-12-08T06:55:10Z @tobiu closed this issue
 

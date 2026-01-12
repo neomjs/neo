@@ -25,11 +25,11 @@ closedAt: '2025-06-18T20:53:52Z'
 * VNodes get serialised to get passed via ´postMessage´, so there would be more iterations
 * Negligible from a performance perspective, but the main argument is purity
 
-## Activity Log
+## Timeline
 
-- 2025-06-18 @tobiu assigned to @tobiu
-- 2025-06-18 @tobiu added the `enhancement` label
-- 2025-06-18 @tobiu referenced in commit `76f15de` - "vdom.VNode: normalizeClassName() #6840"
-- 2025-06-18 @tobiu closed this issue
-- 2025-06-18 @tobiu referenced in commit `3f7684f` - "#6840 comment improvement"
+- 2025-06-18T20:53:29Z @tobiu assigned to @tobiu
+- 2025-06-18T20:53:30Z @tobiu added the `enhancement` label
+- 2025-06-18T20:53:47Z @tobiu referenced in commit `76f15de` - "vdom.VNode: normalizeClassName() #6840"
+- 2025-06-18T20:53:52Z @tobiu closed this issue
+- 2025-06-18T20:56:21Z @tobiu referenced in commit `3f7684f` - "#6840 comment improvement"
 

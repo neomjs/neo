@@ -62,9 +62,16 @@ Enable discovery of any Neo instance (StateProviders, Stores, Managers, etc.) by
 *   `find_instances`: Focused on abstract architecture (Stores, Providers), global scope, returns `instances`.
 
 
-## Comments
+## Timeline
 
-### @tobiu - 2026-01-05 11:06
+- 2026-01-04T19:47:48Z @tobiu added the `developer-experience` label
+- 2026-01-04T19:47:48Z @tobiu added the `ai` label
+- 2026-01-04T19:47:49Z @tobiu added the `feature` label
+- 2026-01-04T19:48:07Z @tobiu added parent issue #8169
+- 2026-01-04T20:09:32Z @tobiu cross-referenced by #8326
+- 2026-01-05T10:53:01Z @tobiu assigned to @tobiu
+- 2026-01-05T11:05:54Z @tobiu referenced in commit `2d91c80` - "[Neural Link] Feature: Tool find_instances #8327"
+### @tobiu - 2026-01-05T11:06:06Z
 
 **Input from Gemini 3 Pro:**
 
@@ -79,14 +86,5 @@ Enable discovery of any Neo instance (StateProviders, Stores, Managers, etc.) by
 > 
 > The tool uses `Neo.manager.Instance.find()` for global instance discovery and supports the `returnProperties` parameter for lean responses.
 
-## Activity Log
-
-- 2026-01-04 @tobiu added the `developer-experience` label
-- 2026-01-04 @tobiu added the `ai` label
-- 2026-01-04 @tobiu added the `feature` label
-- 2026-01-04 @tobiu added parent issue #8169
-- 2026-01-04 @tobiu cross-referenced by #8326
-- 2026-01-05 @tobiu assigned to @tobiu
-- 2026-01-05 @tobiu referenced in commit `2d91c80` - "[Neural Link] Feature: Tool find_instances #8327"
-- 2026-01-05 @tobiu closed this issue
+- 2026-01-05T11:06:35Z @tobiu closed this issue
 

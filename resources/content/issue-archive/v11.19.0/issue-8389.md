@@ -46,13 +46,13 @@ Display release notes in the Portal using the same "Tree Nav + Content + Section
 **Dependencies:**
 -   Depends on the completion of #8388 (Refactor Learn).
 
-## Activity Log
+## Timeline
 
-- 2026-01-07 @tobiu added the `documentation` label
-- 2026-01-07 @tobiu added the `feature` label
-- 2026-01-07 @tobiu assigned to @tobiu
-- 2026-01-07 @tobiu added parent issue #8362
-- 2026-01-07 @tobiu referenced in commit `c4e8020` - "feat(#8389): Implement Releases section with shared content view architecture
+- 2026-01-07T15:59:04Z @tobiu added the `documentation` label
+- 2026-01-07T15:59:05Z @tobiu added the `feature` label
+- 2026-01-07T15:59:22Z @tobiu assigned to @tobiu
+- 2026-01-07T15:59:27Z @tobiu added parent issue #8362
+- 2026-01-07T17:39:19Z @tobiu referenced in commit `c4e8020` - "feat(#8389): Implement Releases section with shared content view architecture
 
 - Refactor Shared Content View:
   - Extract generic content logic to apps/portal/view/shared/content/
@@ -69,6 +69,6 @@ Display release notes in the Portal using the same "Tree Nav + Content + Section
   - Update NewsTabContainer to use routes for tabs
   - Fix store auto-loading in Release state provider
   - Update ViewportController routing to handle nested news paths"
-- 2026-01-07 @tobiu referenced in commit `338e50b` - "fix(#8389): Add leading slash to NewsTabContainer routes"
-- 2026-01-07 @tobiu closed this issue
+- 2026-01-07T17:39:20Z @tobiu referenced in commit `338e50b` - "fix(#8389): Add leading slash to NewsTabContainer routes"
+- 2026-01-07T22:19:02Z @tobiu closed this issue
 

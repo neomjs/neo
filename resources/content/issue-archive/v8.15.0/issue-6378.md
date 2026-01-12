@@ -26,21 +26,19 @@ closedAt: '2025-02-05T23:47:40Z'
 
 When dragging a column header to the left or right edge of the container, the content needs to scroll.
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-02-05 23:47
+- 2025-02-04T14:33:40Z @tobiu added the `enhancement` label
+- 2025-02-04T14:33:41Z @tobiu assigned to @tobiu
+- 2025-02-05T17:09:03Z @tobiu referenced in commit `479653b` - "#6378 main.addon.DragDrop: passing the boundaryContainerRect to the app worker, draggable.toolbar.SortZone: onDragMove() => added a first check if a drag OP leaves the boundary rect"
+- 2025-02-05T21:38:28Z @tobiu referenced in commit `f6bf711` - "draggable.grid.header.toolbar.SortZone: add drag to scroll support #6378 WIP"
+- 2025-02-05T21:52:55Z @tobiu added sub-issue #6386
+- 2025-02-05T21:53:19Z @tobiu added sub-issue #6384
+- 2025-02-05T21:53:39Z @tobiu added sub-issue #6385
+- 2025-02-05T23:45:26Z @tobiu referenced in commit `8bf27c1` - "#6378 reducing the drag to scroll delay"
+### @tobiu - 2025-02-05T23:47:40Z
 
 https://github.com/user-attachments/assets/f3e0f93f-bd8e-4ee8-b432-a654fa90d4d4
 
-## Activity Log
-
-- 2025-02-04 @tobiu added the `enhancement` label
-- 2025-02-04 @tobiu assigned to @tobiu
-- 2025-02-05 @tobiu referenced in commit `479653b` - "#6378 main.addon.DragDrop: passing the boundaryContainerRect to the app worker, draggable.toolbar.SortZone: onDragMove() => added a first check if a drag OP leaves the boundary rect"
-- 2025-02-05 @tobiu referenced in commit `f6bf711` - "draggable.grid.header.toolbar.SortZone: add drag to scroll support #6378 WIP"
-- 2025-02-05 @tobiu added sub-issue #6386
-- 2025-02-05 @tobiu added sub-issue #6384
-- 2025-02-05 @tobiu added sub-issue #6385
-- 2025-02-05 @tobiu referenced in commit `8bf27c1` - "#6378 reducing the drag to scroll delay"
-- 2025-02-05 @tobiu closed this issue
+- 2025-02-05T23:47:40Z @tobiu closed this issue
 

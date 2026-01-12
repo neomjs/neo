@@ -35,9 +35,12 @@ closedAt: '2025-12-03T21:53:25Z'
 
 **Parent Issue:** #7960
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-12-03 10:16
+- 2025-12-03T09:56:02Z @tobiu added the `enhancement` label
+- 2025-12-03T09:56:02Z @tobiu added the `ai` label
+- 2025-12-03T09:56:02Z @tobiu added the `architecture` label
+### @tobiu - 2025-12-03T10:16:47Z
 
 **Input from Antigravity:**
 
@@ -48,13 +51,10 @@ closedAt: '2025-12-03T21:53:25Z'
 > 3.  **Scope**: This is a **dumb terminal**. It will NOT contain any Agent Runtime logic. It strictly handles JSON-RPC 2.0 command execution.
 > 
 
-## Activity Log
-
-- 2025-12-03 @tobiu added the `enhancement` label
-- 2025-12-03 @tobiu added the `ai` label
-- 2025-12-03 @tobiu added the `architecture` label
-- 2025-12-03 @tobiu assigned to @tobiu
-- 2025-12-03 @tobiu added parent issue #7960
-- 2025-12-03 @tobiu referenced in commit `e7d66e9` - "Implement Neo.ai.Client (App Worker) #8006"
-- 2025-12-03 @tobiu closed this issue
+- 2025-12-03T21:49:51Z @tobiu assigned to @tobiu
+- 2025-12-03T21:50:11Z @tobiu added parent issue #7960
+- 2025-12-03T21:52:35Z @tobiu changed title from **Implement Neo.ai.NeuralLink (App Worker)** to **Implement Neo.ai.Client (App Worker)**
+- 2025-12-03T21:53:16Z @tobiu referenced in commit `e7d66e9` - "Implement Neo.ai.Client (App Worker) #8006"
+- 2025-12-03T21:53:25Z @tobiu closed this issue
+- 2025-12-03T22:53:08Z @tobiu changed title from **Implement Neo.ai.Client (App Worker)** to **Implement Neo.ai.NeuralLink (App Worker)**
 

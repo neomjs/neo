@@ -27,11 +27,11 @@ The rewrite to fully embrace the new reactivity model in neo needs some adjustme
 * Restore the ability to store `data.Records` inside state provider data.
 * Polish edge-cases, where data access bypassed the proxy
 
-## Activity Log
+## Timeline
 
-- 2025-07-07 @tobiu assigned to @tobiu
-- 2025-07-07 @tobiu added the `enhancement` label
-- 2025-07-07 @tobiu referenced in commit `57e6da2` - "v10 state.Provider enhancements #6982"
-- 2025-07-07 @tobiu closed this issue
-- 2025-07-09 @tobiu referenced in commit `6b3010e` - "v10 state.Provider enhancements #6982"
+- 2025-07-07T22:19:05Z @tobiu assigned to @tobiu
+- 2025-07-07T22:19:06Z @tobiu added the `enhancement` label
+- 2025-07-07T22:19:33Z @tobiu referenced in commit `57e6da2` - "v10 state.Provider enhancements #6982"
+- 2025-07-07T22:19:43Z @tobiu closed this issue
+- 2025-07-09T00:10:51Z @tobiu referenced in commit `6b3010e` - "v10 state.Provider enhancements #6982"
 

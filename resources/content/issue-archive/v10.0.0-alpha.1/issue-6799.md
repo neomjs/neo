@@ -25,11 +25,11 @@ closedAt: '2025-06-15T13:44:56Z'
 * The method is returning an overloaded vnode object
 * Time to get rid of this technical debt, and separate both accordingly
 
-## Activity Log
+## Timeline
 
-- 2025-06-15 @tobiu assigned to @tobiu
-- 2025-06-15 @tobiu added the `enhancement` label
-- 2025-06-15 @tobiu added parent issue #6785
-- 2025-06-15 @tobiu referenced in commit `9315bfd` - "vdom.Helper: create() => refactoring needed #6799"
-- 2025-06-15 @tobiu closed this issue
+- 2025-06-15T13:44:04Z @tobiu assigned to @tobiu
+- 2025-06-15T13:44:05Z @tobiu added the `enhancement` label
+- 2025-06-15T13:44:05Z @tobiu added parent issue #6785
+- 2025-06-15T13:44:31Z @tobiu referenced in commit `9315bfd` - "vdom.Helper: create() => refactoring needed #6799"
+- 2025-06-15T13:44:56Z @tobiu closed this issue
 

@@ -36,12 +36,12 @@ This ticket proposes to enhance the `buildScripts/generate-seo-files.mjs` script
 - The value of the `<lastmod>` tag accurately reflects the last modification date of the corresponding content file, as determined by its Git history.
 - The date format adheres to the W3C Datetime format.
 
-## Activity Log
+## Timeline
 
-- 2025-11-11 @tobiu assigned to @tobiu
-- 2025-11-11 @tobiu added the `enhancement` label
-- 2025-11-11 @tobiu added the `ai` label
-- 2025-11-11 @tobiu added parent issue #7446
-- 2025-11-11 @tobiu referenced in commit `6d4e0d1` - "Enhance Sitemap Generation: Add lastmod based on Git History #7742"
-- 2025-11-11 @tobiu closed this issue
+- 2025-11-11T11:37:46Z @tobiu assigned to @tobiu
+- 2025-11-11T11:37:47Z @tobiu added the `enhancement` label
+- 2025-11-11T11:37:48Z @tobiu added the `ai` label
+- 2025-11-11T11:38:31Z @tobiu added parent issue #7446
+- 2025-11-11T11:39:35Z @tobiu referenced in commit `6d4e0d1` - "Enhance Sitemap Generation: Add lastmod based on Git History #7742"
+- 2025-11-11T11:55:15Z @tobiu closed this issue
 

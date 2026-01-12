@@ -34,13 +34,13 @@ Move the highlight.js build execution from the `postinstall` script in `package.
 2.  Add execution of `buildScripts/buildHighlightJs.mjs` to `buildScripts/buildAll.mjs`, ensuring it runs as part of the standard build process (e.g., after `bundleParse5`).
 
 
-## Activity Log
+## Timeline
 
-- 2025-11-18 @tobiu added the `enhancement` label
-- 2025-11-18 @tobiu added the `developer-experience` label
-- 2025-11-18 @tobiu added the `ai` label
-- 2025-11-18 @tobiu assigned to @tobiu
-- 2025-11-18 @tobiu referenced in commit `a9e30df` - "Move highlight.js build from postinstall to buildAll #7794"
-- 2025-11-18 @tobiu closed this issue
-- 2025-11-18 @tobiu referenced in commit `a8b33a0` - "Move highlight.js build from postinstall to buildAll #7794"
+- 2025-11-18T17:23:58Z @tobiu added the `enhancement` label
+- 2025-11-18T17:23:59Z @tobiu added the `developer-experience` label
+- 2025-11-18T17:23:59Z @tobiu added the `ai` label
+- 2025-11-18T17:25:58Z @tobiu assigned to @tobiu
+- 2025-11-18T17:26:20Z @tobiu referenced in commit `a9e30df` - "Move highlight.js build from postinstall to buildAll #7794"
+- 2025-11-18T17:26:27Z @tobiu closed this issue
+- 2025-11-18T17:37:05Z @tobiu referenced in commit `a8b33a0` - "Move highlight.js build from postinstall to buildAll #7794"
 

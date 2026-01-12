@@ -43,13 +43,13 @@ This PR fixes critical issues with remote method registration and message routin
 **Goal:**
 Ensure stable and correct message routing in complex multi-window environments, enabling features like `AgentOS` component detachment to work without crashing the original window or hanging the new one.
 
-## Activity Log
+## Timeline
 
-- 2025-12-19 @tobiu added the `bug` label
-- 2025-12-19 @tobiu added the `ai` label
-- 2025-12-19 @tobiu added the `core` label
-- 2025-12-19 @tobiu assigned to @tobiu
-- 2025-12-19 @tobiu referenced in commit `c45b566` - "Fix: Multi-Window Remote Registration and Message Routing #8148"
-- 2025-12-19 @tobiu closed this issue
-- 2025-12-19 @tobiu cross-referenced by #8149
+- 2025-12-19T22:09:48Z @tobiu added the `bug` label
+- 2025-12-19T22:09:49Z @tobiu added the `ai` label
+- 2025-12-19T22:09:49Z @tobiu added the `core` label
+- 2025-12-19T22:10:38Z @tobiu assigned to @tobiu
+- 2025-12-19T22:11:39Z @tobiu referenced in commit `c45b566` - "Fix: Multi-Window Remote Registration and Message Routing #8148"
+- 2025-12-19T22:11:50Z @tobiu closed this issue
+- 2025-12-19T22:27:52Z @tobiu cross-referenced by #8149
 

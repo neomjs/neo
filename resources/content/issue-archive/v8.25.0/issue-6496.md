@@ -22,9 +22,9 @@ closedAt: '2025-02-26T13:38:54Z'
 
 It feels cleaner (and more granular control) with splitting this config into 2.
 
-## Activity Log
+## Timeline
 
-- 2025-02-26 @tobiu added the `enhancement` label
-- 2025-02-26 @tobiu referenced in commit `c1b9623` - "grid.View: scrollPosition => scrollLeft & scrollTop #6496"
-- 2025-02-26 @tobiu closed this issue
+- 2025-02-26T13:38:26Z @tobiu added the `enhancement` label
+- 2025-02-26T13:38:45Z @tobiu referenced in commit `c1b9623` - "grid.View: scrollPosition => scrollLeft & scrollTop #6496"
+- 2025-02-26T13:38:54Z @tobiu closed this issue
 

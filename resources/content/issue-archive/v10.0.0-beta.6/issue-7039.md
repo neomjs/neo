@@ -43,11 +43,11 @@ This article will significantly improve developer onboarding for Vue.js develope
 *   `learn/comparisons/NeoVsVue.md` (new file)
 *   `learn/comparisons/Overview.md` (already updated to include this link)
 
-## Activity Log
+## Timeline
 
-- 2025-07-13 @tobiu assigned to @tobiu
-- 2025-07-13 @tobiu added the `enhancement` label
-- 2025-07-13 @tobiu added parent issue #7029
-- 2025-07-13 @tobiu referenced in commit `8ef8c96` - "Feature: Add Neo.mjs vs. Vue.js Comparison Article #7039"
-- 2025-07-13 @tobiu closed this issue
+- 2025-07-13T10:30:59Z @tobiu assigned to @tobiu
+- 2025-07-13T10:31:01Z @tobiu added the `enhancement` label
+- 2025-07-13T10:31:01Z @tobiu added parent issue #7029
+- 2025-07-13T10:34:08Z @tobiu referenced in commit `8ef8c96` - "Feature: Add Neo.mjs vs. Vue.js Comparison Article #7039"
+- 2025-07-13T10:34:24Z @tobiu closed this issue
 

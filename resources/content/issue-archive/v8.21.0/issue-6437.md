@@ -23,10 +23,10 @@ closedAt: '2025-02-10T21:46:26Z'
 
 * not all form fields do
 
-## Activity Log
+## Timeline
 
-- 2025-02-10 @tobiu added the `enhancement` label
-- 2025-02-10 @tobiu assigned to @tobiu
-- 2025-02-10 @tobiu referenced in commit `00ece8b` - "table.plugin.CellEditing: mountEditor() => check if an editor has a keyNav #6437"
-- 2025-02-10 @tobiu closed this issue
+- 2025-02-10T21:45:55Z @tobiu added the `enhancement` label
+- 2025-02-10T21:45:55Z @tobiu assigned to @tobiu
+- 2025-02-10T21:46:16Z @tobiu referenced in commit `00ece8b` - "table.plugin.CellEditing: mountEditor() => check if an editor has a keyNav #6437"
+- 2025-02-10T21:46:26Z @tobiu closed this issue
 

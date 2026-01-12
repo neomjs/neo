@@ -44,11 +44,11 @@ Create a new tool named `unassign_issue` that removes a specified list of assign
 
 *   Add `unassign_issue` to the `serviceMapping` to expose the new method as a tool.
 
-## Activity Log
+## Timeline
 
-- 2025-10-23 @tobiu assigned to @tobiu
-- 2025-10-23 @tobiu added the `enhancement` label
-- 2025-10-23 @tobiu added the `ai` label
-- 2025-10-23 @tobiu referenced in commit `fa7cc2a` - "Implement unassign_issue Tool to Remove Specific Contributors #7629"
-- 2025-10-23 @tobiu closed this issue
+- 2025-10-23T16:07:30Z @tobiu assigned to @tobiu
+- 2025-10-23T16:07:31Z @tobiu added the `enhancement` label
+- 2025-10-23T16:07:31Z @tobiu added the `ai` label
+- 2025-10-23T16:19:52Z @tobiu referenced in commit `fa7cc2a` - "Implement unassign_issue Tool to Remove Specific Contributors #7629"
+- 2025-10-23T16:20:13Z @tobiu closed this issue
 

@@ -48,11 +48,11 @@ The chosen solution was to make `Effect.isRunning` a reactive `Neo.core.Config` 
 -   The cleanup function returned by `subscribe` correctly removes the specific `fn`/`scope` subscription and cleans up parent data structures if they become empty.
 -   The code is documented with intent-driven comments explaining the data structure.
 
-## Activity Log
+## Timeline
 
-- 2025-07-12 @tobiu assigned to @tobiu
-- 2025-07-12 @tobiu added the `enhancement` label
-- 2025-07-12 @tobiu referenced in commit `f9935e0` - "Enhance Neo.core.Config for Robust Subscriptions with Scope #7023"
-- 2025-07-12 @tobiu closed this issue
-- 2025-07-12 @tobiu added parent issue #6992
+- 2025-07-12T14:41:16Z @tobiu assigned to @tobiu
+- 2025-07-12T14:41:17Z @tobiu added the `enhancement` label
+- 2025-07-12T14:41:52Z @tobiu referenced in commit `f9935e0` - "Enhance Neo.core.Config for Robust Subscriptions with Scope #7023"
+- 2025-07-12T14:42:02Z @tobiu closed this issue
+- 2025-07-12T18:29:12Z @tobiu added parent issue #6992
 

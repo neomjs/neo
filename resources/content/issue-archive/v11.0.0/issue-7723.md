@@ -30,11 +30,11 @@ Maintaining the old `mcp-servers.json` file is no longer necessary and creates c
 
 Future integrations with other agents (e.g., Claude) can be handled by creating new, agent-specific configuration files as needed, rather than trying to maintain a single, generic file that doesn't fully serve any specific agent.
 
-## Activity Log
+## Timeline
 
-- 2025-11-08 @tobiu added the `enhancement` label
-- 2025-11-08 @tobiu added the `ai` label
-- 2025-11-08 @tobiu assigned to @tobiu
-- 2025-11-08 @tobiu referenced in commit `bca1187` - "Deprecate and remove .github/mcp-servers.json #7723"
-- 2025-11-08 @tobiu closed this issue
+- 2025-11-08T11:32:59Z @tobiu added the `enhancement` label
+- 2025-11-08T11:32:59Z @tobiu added the `ai` label
+- 2025-11-08T11:33:16Z @tobiu assigned to @tobiu
+- 2025-11-08T11:33:54Z @tobiu referenced in commit `bca1187` - "Deprecate and remove .github/mcp-servers.json #7723"
+- 2025-11-08T11:34:03Z @tobiu closed this issue
 

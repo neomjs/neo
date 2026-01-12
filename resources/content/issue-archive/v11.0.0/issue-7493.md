@@ -35,12 +35,12 @@ This ticket corrects that architectural error. We will reinstate the use of `ope
 5.  The `callTool` function will dynamically execute the correct service function based on the parsed tool definitions.
 6.  The `mcp-stdio.mjs` entry point will remain unchanged and will function correctly with the refactored `toolService`.
 
-## Activity Log
+## Timeline
 
-- 2025-10-15 @tobiu assigned to @tobiu
-- 2025-10-15 @tobiu added parent issue #7477
-- 2025-10-15 @tobiu added the `enhancement` label
-- 2025-10-15 @tobiu added the `ai` label
-- 2025-10-15 @tobiu referenced in commit `5521758` - "#7493 making callTools => limit optional"
-- 2025-10-15 @tobiu closed this issue
+- 2025-10-15T10:44:03Z @tobiu assigned to @tobiu
+- 2025-10-15T10:44:04Z @tobiu added parent issue #7477
+- 2025-10-15T10:44:04Z @tobiu added the `enhancement` label
+- 2025-10-15T10:44:05Z @tobiu added the `ai` label
+- 2025-10-15T11:05:08Z @tobiu referenced in commit `5521758` - "#7493 making callTools => limit optional"
+- 2025-10-15T11:05:12Z @tobiu closed this issue
 

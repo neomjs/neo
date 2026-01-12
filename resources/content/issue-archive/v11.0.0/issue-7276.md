@@ -30,11 +30,11 @@ This task is to migrate the unit test for `config/CustomFunctions.mjs` from the 
 3.  Ensure the new test runs successfully via `npm test`.
 4.  The new test must cover all the functionality of the original Siesta test.
 
-## Activity Log
+## Timeline
 
-- 2025-09-27 @tobiu added the `enhancement` label
-- 2025-09-27 @tobiu added parent issue #7262
-- 2025-09-30 @tobiu assigned to @tobiu
-- 2025-09-30 @tobiu referenced in commit `0a05ce4` - "Convert config/CustomFunctions.mjs Test from Siesta to Playwright #7276"
-- 2025-09-30 @tobiu closed this issue
+- 2025-09-27T13:34:47Z @tobiu added the `enhancement` label
+- 2025-09-27T13:34:47Z @tobiu added parent issue #7262
+- 2025-09-30T12:25:19Z @tobiu assigned to @tobiu
+- 2025-09-30T12:31:54Z @tobiu referenced in commit `0a05ce4` - "Convert config/CustomFunctions.mjs Test from Siesta to Playwright #7276"
+- 2025-09-30T12:32:04Z @tobiu closed this issue
 

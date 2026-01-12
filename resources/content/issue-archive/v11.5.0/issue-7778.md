@@ -49,12 +49,12 @@ The previous version was heavily focused on the v10 architecture and did not ade
 
 The updated `README.md` now provides a more accurate, compelling, and up-to-date overview of the Neo.mjs platform for newcomers and existing community members alike.
 
-## Activity Log
+## Timeline
 
-- 2025-11-15 @tobiu added the `documentation` label
-- 2025-11-15 @tobiu added the `enhancement` label
-- 2025-11-15 @tobiu added the `ai` label
-- 2025-11-15 @tobiu assigned to @tobiu
-- 2025-11-15 @tobiu referenced in commit `8770133` - "feat(docs): Complete Overhaul of README.md for v11+ and AI-Native Focus #7778"
-- 2025-11-15 @tobiu closed this issue
+- 2025-11-15T13:55:52Z @tobiu added the `documentation` label
+- 2025-11-15T13:55:52Z @tobiu added the `enhancement` label
+- 2025-11-15T13:55:52Z @tobiu added the `ai` label
+- 2025-11-15T13:56:05Z @tobiu assigned to @tobiu
+- 2025-11-15T13:56:22Z @tobiu referenced in commit `8770133` - "feat(docs): Complete Overhaul of README.md for v11+ and AI-Native Focus #7778"
+- 2025-11-15T13:58:30Z @tobiu closed this issue
 

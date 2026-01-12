@@ -43,13 +43,14 @@ This epic is to enhance the script to automatically discover and include all rel
 3.  **File Scanning:** Use a glob pattern like `{apps,examples}/**/index.html` to find all example entry points. For each file found, create a route object.
 4.  **Update `getLlmsTxt`:** The `getLlmsTxt` function will need to be updated to handle the new example routes, possibly creating a new "Examples" section in the output.
 
-## Activity Log
+## Timeline
 
-- 2025-11-13 @tobiu added the `enhancement` label
-- 2025-11-13 @tobiu added the `epic` label
-- 2025-11-13 @tobiu added the `ai` label
-- 2025-11-13 @tobiu assigned to @tobiu
-- 2025-11-13 @tobiu removed the `epic` label
-- 2025-11-13 @tobiu referenced in commit `24d8cbb` - "Enhance SEO file generation to include all examples #7769"
-- 2025-11-13 @tobiu closed this issue
+- 2025-11-13T21:33:51Z @tobiu added the `enhancement` label
+- 2025-11-13T21:33:51Z @tobiu added the `epic` label
+- 2025-11-13T21:33:51Z @tobiu added the `ai` label
+- 2025-11-13T21:34:31Z @tobiu assigned to @tobiu
+- 2025-11-13T21:34:43Z @tobiu removed the `epic` label
+- 2025-11-13T21:36:54Z @tobiu changed title from **Epic: Enhance SEO file generation to include all examples** to **Enhance SEO file generation to include all examples**
+- 2025-11-13T22:12:19Z @tobiu referenced in commit `24d8cbb` - "Enhance SEO file generation to include all examples #7769"
+- 2025-11-13T22:12:31Z @tobiu closed this issue
 

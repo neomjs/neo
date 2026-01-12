@@ -35,17 +35,24 @@ After a GitHub issue is created from a local markdown ticket, the new GitHub iss
 4.  It will replace the placeholder `GH ticket id: #<number>` with the new issue URL and ID (e.g., `GH ticket id: #1234` and add the URL on a new line).
 5.  This ensures the local ticket is always synchronized with its remote counterpart on GitHub.
 
-## Comments
+## Timeline
 
-### @LemonDrop847 - 2025-10-05 12:08
+- 2025-10-05T10:54:08Z @tobiu added the `enhancement` label
+- 2025-10-05T10:54:08Z @tobiu added the `help wanted` label
+- 2025-10-05T10:54:08Z @tobiu added the `good first issue` label
+- 2025-10-05T10:54:08Z @tobiu added the `hacktoberfest` label
+- 2025-10-05T10:54:08Z @tobiu added parent issue #7364
+- 2025-10-05T10:54:09Z @tobiu added the `ai` label
+### @LemonDrop847 - 2025-10-05T12:08:55Z
 
 Would like to have a go at this as well!
 
-### @LemonDrop847 - 2025-10-05 12:25
+### @LemonDrop847 - 2025-10-05T12:25:09Z
 
 I believe this file isn't yet created maybe dependent on some other issue
 
-### @tobiu - 2025-10-05 13:55
+- 2025-10-05T13:55:31Z @tobiu assigned to @LemonDrop847
+### @tobiu - 2025-10-05T13:55:34Z
 
 sure. assigned.
 
@@ -62,18 +69,9 @@ more input from gemini:
 >   Recommendation:
 >   The ticket is available to be worked on, but it would be helpful to communicate to LemonDrop847 that they will need to set up and authenticate the gh CLI on their own as a first step, since the official project documentation for that process doesn't exist yet.
 
-## Activity Log
-
-- 2025-10-05 @tobiu added the `enhancement` label
-- 2025-10-05 @tobiu added the `help wanted` label
-- 2025-10-05 @tobiu added the `good first issue` label
-- 2025-10-05 @tobiu added the `hacktoberfest` label
-- 2025-10-05 @tobiu added parent issue #7364
-- 2025-10-05 @tobiu added the `ai` label
-- 2025-10-05 @tobiu assigned to @LemonDrop847
-- 2025-10-05 @LemonDrop847 cross-referenced by #7377
-- 2025-10-05 @tobiu closed this issue
-- 2025-10-05 @LemonDrop847 referenced in commit `5a7495c` - "Merge pull request #7380 from LemonDrop847/feat/issue-creation-script-sync-ghID-to-MD
+- 2025-10-05T15:51:44Z @LemonDrop847 cross-referenced by #7377
+- 2025-10-05T17:49:24Z @tobiu closed this issue
+- 2025-10-05T18:04:09Z @LemonDrop847 referenced in commit `5a7495c` - "Merge pull request #7380 from LemonDrop847/feat/issue-creation-script-sync-ghID-to-MD
 
 feat:issue creation script to Sync GitHub ID back to Markdown File (fixes: #7368)"
 

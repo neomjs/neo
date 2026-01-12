@@ -23,20 +23,19 @@ closedAt: '2025-06-01T09:56:49Z'
 
 *(No description provided)*
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-06-01 09:56
+- 2025-06-01T09:40:36Z @tobiu assigned to @tobiu
+- 2025-06-01T09:40:37Z @tobiu added the `enhancement` label
+- 2025-06-01T09:40:56Z @tobiu referenced in commit `3e4675d` - "buildScripts/buildAll: add the esm env #6732"
+- 2025-06-01T09:41:07Z @tobiu closed this issue
+### @tobiu - 2025-06-01T09:56:19Z
 
 Changing the strategy:
 * First I wanted to trigger the `dist/esm` build from within `buildThreads`, but this does not really make sense, since it is purely webpack related.
 * Instead, `buildAll` should trigger it directly.
 
-## Activity Log
-
-- 2025-06-01 @tobiu assigned to @tobiu
-- 2025-06-01 @tobiu added the `enhancement` label
-- 2025-06-01 @tobiu referenced in commit `3e4675d` - "buildScripts/buildAll: add the esm env #6732"
-- 2025-06-01 @tobiu closed this issue
-- 2025-06-01 @tobiu referenced in commit `65d9bee` - "buildScripts/buildAll: add the esm env #6732"
-- 2025-06-01 @tobiu closed this issue
+- 2025-06-01T09:56:19Z @tobiu reopened this issue
+- 2025-06-01T09:56:32Z @tobiu referenced in commit `65d9bee` - "buildScripts/buildAll: add the esm env #6732"
+- 2025-06-01T09:56:49Z @tobiu closed this issue
 

@@ -23,10 +23,10 @@ closedAt: '2025-01-30T19:39:15Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
-- 2025-01-30 @tobiu added the `enhancement` label
-- 2025-01-30 @tobiu assigned to @tobiu
-- 2025-01-30 @tobiu referenced in commit `cf1e9c5` - "main.addon.AmCharts: loadFiles() => adjust the fallback path for the GH pages deployment #6350"
-- 2025-01-30 @tobiu closed this issue
+- 2025-01-30T19:38:38Z @tobiu added the `enhancement` label
+- 2025-01-30T19:38:38Z @tobiu assigned to @tobiu
+- 2025-01-30T19:39:13Z @tobiu referenced in commit `cf1e9c5` - "main.addon.AmCharts: loadFiles() => adjust the fallback path for the GH pages deployment #6350"
+- 2025-01-30T19:39:15Z @tobiu closed this issue
 

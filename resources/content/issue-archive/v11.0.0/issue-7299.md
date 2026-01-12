@@ -34,26 +34,24 @@ The goal of this ticket is to enhance the existing JSDoc to meet our "intent-dri
 2.  For each method, add a concise summary sentence above the `@param` tags explaining what the method does.
 3.  Use `src/core/Base.mjs` as a reference for high-quality, intent-driven JSDoc style.
 
-## Comments
+## Timeline
 
-### @nikeshadhikari9 - 2025-09-29 09:37
+- 2025-09-28T12:53:03Z @tobiu added the `documentation` label
+- 2025-09-28T12:53:03Z @tobiu added the `help wanted` label
+- 2025-09-28T12:53:03Z @tobiu added parent issue #7296
+- 2025-09-28T12:53:03Z @tobiu added the `good first issue` label
+- 2025-09-28T12:53:03Z @tobiu added the `hacktoberfest` label
+### @nikeshadhikari9 - 2025-09-29T09:37:23Z
 
 Hi, I would also like to contribute to this issue along with issue #7301 .
 
 Could you please assign this documentation issue to me? I’d be happy to submit a PR with the updated comments.
 
-### @tobiu - 2025-09-29 09:42
+- 2025-09-29T09:42:09Z @tobiu assigned to @nikeshadhikari9
+### @tobiu - 2025-09-29T09:42:37Z
 
 Assigned. Please look at my comment inside your other ticket, since it relates to this one too.
 
-## Activity Log
-
-- 2025-09-28 @tobiu added the `documentation` label
-- 2025-09-28 @tobiu added the `help wanted` label
-- 2025-09-28 @tobiu added parent issue #7296
-- 2025-09-28 @tobiu added the `good first issue` label
-- 2025-09-28 @tobiu added the `hacktoberfest` label
-- 2025-09-29 @tobiu assigned to @nikeshadhikari9
-- 2025-10-01 @nikeshadhikari9 cross-referenced by PR #7314
-- 2025-10-01 @tobiu closed this issue
+- 2025-10-01T06:38:58Z @nikeshadhikari9 cross-referenced by PR #7314
+- 2025-10-01T08:00:00Z @tobiu closed this issue
 

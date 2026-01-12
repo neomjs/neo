@@ -32,12 +32,12 @@ Currently, `dbService.mjs` creates its own ChromaDB client, which is redundant w
 4.  The `exportDatabase` function is enhanced to support exporting both `memories` and `summaries` collections.
 5.  The functionality of the import/export tools remains correct.
 
-## Activity Log
+## Timeline
 
-- 2025-10-17 @tobiu assigned to @tobiu
-- 2025-10-17 @tobiu added the `enhancement` label
-- 2025-10-17 @tobiu added the `ai` label
-- 2025-10-17 @tobiu added parent issue #7520
-- 2025-10-17 @tobiu referenced in commit `31de4de` - "Refactor dbService to use chromaManager #7526"
-- 2025-10-17 @tobiu closed this issue
+- 2025-10-17T12:14:07Z @tobiu assigned to @tobiu
+- 2025-10-17T12:14:08Z @tobiu added the `enhancement` label
+- 2025-10-17T12:14:08Z @tobiu added the `ai` label
+- 2025-10-17T12:14:08Z @tobiu added parent issue #7520
+- 2025-10-17T12:17:12Z @tobiu referenced in commit `31de4de` - "Refactor dbService to use chromaManager #7526"
+- 2025-10-17T12:17:18Z @tobiu closed this issue
 

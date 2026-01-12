@@ -33,21 +33,19 @@ Extend the `create_comment` tool (or create a new one) to support adding comment
 **Additional context**
 Current tool limitation was identified during an interactive session where an issue comment was attempted but failed.
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-11-20 15:15
+- 2025-11-20T11:09:57Z @tobiu added the `enhancement` label
+- 2025-11-20T11:09:57Z @tobiu added the `ai` label
+- 2025-11-20T11:17:33Z @tobiu assigned to @tobiu
+- 2025-11-20T15:07:58Z @tobiu added the `testing` label
+- 2025-11-20T15:07:58Z @tobiu added the `QA` label
+### @tobiu - 2025-11-20T15:15:51Z
 
 **Input from Gemini:**
 
 > ✦ Testing comment from Gemini Agent to verify GitHub Workflow MCP server functionality.
 
-## Activity Log
-
-- 2025-11-20 @tobiu added the `enhancement` label
-- 2025-11-20 @tobiu added the `ai` label
-- 2025-11-20 @tobiu assigned to @tobiu
-- 2025-11-20 @tobiu added the `testing` label
-- 2025-11-20 @tobiu added the `QA` label
-- 2025-11-20 @tobiu referenced in commit `7940179` - "[MCP] Support issue comments in create_comment tool #7821"
-- 2025-11-20 @tobiu closed this issue
+- 2025-11-20T15:18:49Z @tobiu referenced in commit `7940179` - "[MCP] Support issue comments in create_comment tool #7821"
+- 2025-11-20T15:19:02Z @tobiu closed this issue
 

@@ -33,15 +33,20 @@ This task is to migrate the unit test for `state/ProviderNestedDataConfigs.mjs` 
 3.  Ensure the new test runs successfully via `npm test`.
 4.  The new test must cover all the functionality of the original Siesta test.
 
-## Comments
+## Timeline
 
-### @kart-u - 2025-10-03 09:28
+- 2025-09-27T14:02:38Z @tobiu added parent issue #7262
+- 2025-09-27T14:02:39Z @tobiu added the `enhancement` label
+- 2025-10-02T19:23:00Z @tobiu added the `help wanted` label
+- 2025-10-02T19:23:00Z @tobiu added the `good first issue` label
+- 2025-10-02T19:23:00Z @tobiu added the `hacktoberfest` label
+### @kart-u - 2025-10-03T09:28:08Z
 
 hello @tobiu ,
 I will like to work on this issue, could you please assign it to me?
 
 
-### @tobiu - 2025-10-03 16:13
+### @tobiu - 2025-10-03T16:13:57Z
 
 Hi and thanks for your interest. For the testing tickets, I strongly recommend trying out the "ai native" workflow.
 
@@ -54,11 +59,21 @@ https://github.com/neomjs/neo/blob/dev/.github/AI_QUICK_START.md
 
 e.g. gemini cli should be capable to complete it on its own.
 
-### @tobiu - 2025-10-04 14:49
+- 2025-10-03T16:14:04Z @tobiu assigned to @kart-u
+- 2025-10-04T09:35:19Z @kart-u referenced in commit `f60907c` - "Convert state/ProviderNestedDataConfigs.mjs Test from Siesta to Playwright #7289"
+- 2025-10-04T09:45:35Z @kart-u cross-referenced by PR #7347
+- 2025-10-04T09:58:12Z @kart-u cross-referenced by PR #7350
+- 2025-10-04T10:31:18Z @kart-u cross-referenced by PR #7351
+- 2025-10-04T12:23:03Z @kart-u cross-referenced by #7286
+- 2025-10-04T14:28:05Z @tobiu closed this issue
+- 2025-10-04T14:28:05Z @tobiu referenced in commit `d252f7e` - "Convert state/ProviderNestedDataConfigs.mjs Test from Siesta to Playwright #7289"
+### @tobiu - 2025-10-04T14:49:50Z
 
 reopening to fix the class definition to prevent breaking tests.
 
-### @tobiu - 2025-10-04 15:10
+- 2025-10-04T14:49:50Z @tobiu reopened this issue
+- 2025-10-04T14:52:39Z @tobiu referenced in commit `11c42a5` - "#7289 class definition fix, internal ticket update"
+### @tobiu - 2025-10-04T15:10:45Z
 
 i added a comment to the PR. i merged it anyways => i am not that strict to first-time contributors :)
 
@@ -66,25 +81,9 @@ i added a comment to the PR. i merged it anyways => i am not that strict to firs
 
 there was a hint about this in the epic. this is why i pointed out to tell gemini to read it first, smoothening your workflow.
 
-### @kart-u - 2025-10-04 15:23
+- 2025-10-04T15:10:45Z @tobiu closed this issue
+### @kart-u - 2025-10-04T15:23:05Z
 
 thank you for your understanding :)
 
-## Activity Log
-
-- 2025-09-27 @tobiu added parent issue #7262
-- 2025-09-27 @tobiu added the `enhancement` label
-- 2025-10-02 @tobiu added the `help wanted` label
-- 2025-10-02 @tobiu added the `good first issue` label
-- 2025-10-02 @tobiu added the `hacktoberfest` label
-- 2025-10-03 @tobiu assigned to @kart-u
-- 2025-10-04 @kart-u referenced in commit `f60907c` - "Convert state/ProviderNestedDataConfigs.mjs Test from Siesta to Playwright #7289"
-- 2025-10-04 @kart-u cross-referenced by PR #7347
-- 2025-10-04 @kart-u cross-referenced by PR #7350
-- 2025-10-04 @kart-u cross-referenced by PR #7351
-- 2025-10-04 @kart-u cross-referenced by #7286
-- 2025-10-04 @tobiu closed this issue
-- 2025-10-04 @tobiu referenced in commit `d252f7e` - "Convert state/ProviderNestedDataConfigs.mjs Test from Siesta to Playwright #7289"
-- 2025-10-04 @tobiu referenced in commit `11c42a5` - "#7289 class definition fix, internal ticket update"
-- 2025-10-04 @tobiu closed this issue
 

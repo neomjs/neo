@@ -23,16 +23,14 @@ closedAt: '2025-01-23T16:50:58Z'
 
 *(No description provided)*
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-01-23 16:50
+- 2025-01-23T16:50:28Z @tobiu added the `enhancement` label
+- 2025-01-23T16:50:28Z @tobiu assigned to @tobiu
+- 2025-01-23T16:50:45Z @tobiu referenced in commit `0ff177f` - "grid.View: highlightModifiedCells_ #6277"
+### @tobiu - 2025-01-23T16:50:58Z
 
 ![Image](https://github.com/user-attachments/assets/8952b2f5-2239-4e47-a13f-16d8ce84b80f)
 
-## Activity Log
-
-- 2025-01-23 @tobiu added the `enhancement` label
-- 2025-01-23 @tobiu assigned to @tobiu
-- 2025-01-23 @tobiu referenced in commit `0ff177f` - "grid.View: highlightModifiedCells_ #6277"
-- 2025-01-23 @tobiu closed this issue
+- 2025-01-23T16:50:58Z @tobiu closed this issue
 

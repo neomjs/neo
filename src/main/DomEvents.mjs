@@ -18,7 +18,7 @@ const globalDomEvents = [
     {name: 'mouseleave',  handler: 'onMouseLeave', options: {capture: true}},
     {name: 'mouseup',     handler: 'onMouseUp'},
     {name: 'scroll',      handler: 'onScroll',     options: {capture: true}},
-    {name: 'wheel',       handler: 'onWheel',      options: {passive: false}}
+    {name: 'wheel',       handler: 'onWheel',      options: {passive: true}}
 ];
 
 // Will get applied to the document.body in case Neo.config.hasTouchEvents === true
@@ -166,7 +166,7 @@ class DomEvents extends Base {
             }
 
             if (targetNode) {
-                targetNode.addEventListener(event.name, me[event.handler].bind(me))
+                targetNode.addEventListener(event.name, me[event.handler].bind(me), event.options)
             } else {
                 failedId = id
             }
@@ -722,7 +722,10 @@ class DomEvents extends Base {
             }
 
             if (!globalWheelTargetsKeepEvent.includes(targetCls)) {
-                event.preventDefault()
+                if (event.currentTarget !== document.body) {
+                    event.preventDefault();
+                    event.stopPropagation()
+                }
             }
         }
     }

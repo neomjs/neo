@@ -16,12 +16,9 @@ class ContentSection extends Model {
          */
         fields: [{
             name: 'id',
-            type: 'Int'
-        }, {
-            name: 'name',
             type: 'String'
         }, {
-            name: 'sourceId',
+            name: 'name',
             type: 'String'
         }, {
             name: 'tag',

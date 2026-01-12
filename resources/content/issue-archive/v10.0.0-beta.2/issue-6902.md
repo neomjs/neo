@@ -23,10 +23,10 @@ closedAt: '2025-06-30T01:04:54Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
-- 2025-06-30 @tobiu assigned to @tobiu
-- 2025-06-30 @tobiu added the `enhancement` label
-- 2025-06-30 @tobiu referenced in commit `b4f86cb` - "learn/benefits.MultiWindow: add more content #6902"
-- 2025-06-30 @tobiu closed this issue
+- 2025-06-30T01:04:26Z @tobiu assigned to @tobiu
+- 2025-06-30T01:04:27Z @tobiu added the `enhancement` label
+- 2025-06-30T01:04:46Z @tobiu referenced in commit `b4f86cb` - "learn/benefits.MultiWindow: add more content #6902"
+- 2025-06-30T01:04:55Z @tobiu closed this issue
 

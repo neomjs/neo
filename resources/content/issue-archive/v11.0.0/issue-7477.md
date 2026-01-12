@@ -92,48 +92,47 @@ We will employ a rapid and agile development approach. The scope and API specifi
 ### Future Scope
 - Integration of ticket and issue synchronization.
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-10-15 11:40
+- 2025-10-14T08:37:49Z @tobiu assigned to @tobiu
+- 2025-10-14T08:37:51Z @tobiu added the `epic` label
+- 2025-10-14T08:37:51Z @tobiu added the `ai` label
+- 2025-10-14T08:40:13Z @tobiu added sub-issue #7478
+- 2025-10-14T08:58:32Z @tobiu added sub-issue #7479
+- 2025-10-14T09:12:35Z @tobiu added sub-issue #7480
+- 2025-10-14T09:22:00Z @tobiu added sub-issue #7481
+- 2025-10-14T09:37:18Z @tobiu added sub-issue #7482
+- 2025-10-14T10:48:01Z @tobiu added sub-issue #7483
+- 2025-10-14T10:56:49Z @tobiu added sub-issue #7484
+- 2025-10-14T11:24:00Z @tobiu added sub-issue #7485
+- 2025-10-14T11:49:30Z @tobiu added sub-issue #7486
+- 2025-10-14T12:23:59Z @tobiu added sub-issue #7487
+- 2025-10-14T15:02:51Z @tobiu cross-referenced by #7403
+- 2025-10-15T10:12:52Z @tobiu added sub-issue #7491
+- 2025-10-15T10:29:38Z @tobiu added sub-issue #7492
+- 2025-10-15T10:35:43Z @tobiu closed this issue
+- 2025-10-15T10:44:04Z @tobiu added sub-issue #7493
+- 2025-10-15T11:37:47Z @tobiu cross-referenced by PR #7490
+### @tobiu - 2025-10-15T11:40:36Z
 
 closed the epic by accident. not done yet.
 
-### @tobiu - 2025-10-20 10:56
+- 2025-10-15T11:40:36Z @tobiu reopened this issue
+- 2025-10-15T11:43:13Z @tobiu added sub-issue #7494
+- 2025-10-15T11:44:19Z @tobiu added sub-issue #7495
+- 2025-10-15T11:45:11Z @tobiu added sub-issue #7496
+- 2025-10-15T12:13:32Z @tobiu added sub-issue #7497
+- 2025-10-15T12:17:52Z @tobiu referenced in commit `af7afb2` - "#7477 toolService.mjs: intent-driven comments"
+- 2025-10-15T13:41:06Z @tobiu added sub-issue #7498
+- 2025-10-15T13:55:23Z @tobiu added sub-issue #7499
+- 2025-10-15T14:07:10Z @tobiu added sub-issue #7500
+- 2025-10-15T14:12:42Z @tobiu referenced in commit `75979a4` - "#7477 deleted the obsolete tools.mjs file"
+- 2025-10-15T14:27:28Z @tobiu referenced in commit `c4a2c83` - "#7477 ensuring the return value of nextCursor is a string"
+- 2025-10-15T14:45:44Z @tobiu referenced in commit `4b9b403` - "#7477 added healthcheck as a tool"
+- 2025-10-15T17:42:54Z @tobiu referenced in commit `d52d356` - "#7477 pr service: author.login description (confusing, since it contains the name)"
+### @tobiu - 2025-10-20T10:56:45Z
 
 resolved. i will create more epics for specific enhancements.
 
-## Activity Log
-
-- 2025-10-14 @tobiu assigned to @tobiu
-- 2025-10-14 @tobiu added the `epic` label
-- 2025-10-14 @tobiu added the `ai` label
-- 2025-10-14 @tobiu added sub-issue #7478
-- 2025-10-14 @tobiu added sub-issue #7479
-- 2025-10-14 @tobiu added sub-issue #7480
-- 2025-10-14 @tobiu added sub-issue #7481
-- 2025-10-14 @tobiu added sub-issue #7482
-- 2025-10-14 @tobiu added sub-issue #7483
-- 2025-10-14 @tobiu added sub-issue #7484
-- 2025-10-14 @tobiu added sub-issue #7485
-- 2025-10-14 @tobiu added sub-issue #7486
-- 2025-10-14 @tobiu added sub-issue #7487
-- 2025-10-14 @tobiu cross-referenced by #7403
-- 2025-10-15 @tobiu added sub-issue #7491
-- 2025-10-15 @tobiu added sub-issue #7492
-- 2025-10-15 @tobiu closed this issue
-- 2025-10-15 @tobiu added sub-issue #7493
-- 2025-10-15 @tobiu cross-referenced by PR #7490
-- 2025-10-15 @tobiu added sub-issue #7494
-- 2025-10-15 @tobiu added sub-issue #7495
-- 2025-10-15 @tobiu added sub-issue #7496
-- 2025-10-15 @tobiu added sub-issue #7497
-- 2025-10-15 @tobiu referenced in commit `af7afb2` - "#7477 toolService.mjs: intent-driven comments"
-- 2025-10-15 @tobiu added sub-issue #7498
-- 2025-10-15 @tobiu added sub-issue #7499
-- 2025-10-15 @tobiu added sub-issue #7500
-- 2025-10-15 @tobiu referenced in commit `75979a4` - "#7477 deleted the obsolete tools.mjs file"
-- 2025-10-15 @tobiu referenced in commit `c4a2c83` - "#7477 ensuring the return value of nextCursor is a string"
-- 2025-10-15 @tobiu referenced in commit `4b9b403` - "#7477 added healthcheck as a tool"
-- 2025-10-15 @tobiu referenced in commit `d52d356` - "#7477 pr service: author.login description (confusing, since it contains the name)"
-- 2025-10-20 @tobiu closed this issue
+- 2025-10-20T10:56:45Z @tobiu closed this issue
 

@@ -23,10 +23,10 @@ closedAt: '2025-02-05T20:07:24Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
-- 2025-02-05 @tobiu added the `enhancement` label
-- 2025-02-05 @tobiu assigned to @tobiu
-- 2025-02-05 @tobiu referenced in commit `b11324a` - "grid.View: getColumnCells() => only add cells in case they exist #6383"
-- 2025-02-05 @tobiu closed this issue
+- 2025-02-05T20:06:49Z @tobiu added the `enhancement` label
+- 2025-02-05T20:06:50Z @tobiu assigned to @tobiu
+- 2025-02-05T20:07:16Z @tobiu referenced in commit `b11324a` - "grid.View: getColumnCells() => only add cells in case they exist #6383"
+- 2025-02-05T20:07:24Z @tobiu closed this issue
 

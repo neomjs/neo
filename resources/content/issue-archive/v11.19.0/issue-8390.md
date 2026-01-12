@@ -46,9 +46,18 @@ Refactor `buildScripts/createReleaseIndex.mjs` to generate a hierarchical (flat-
 *   `apps/portal/model/Release.mjs`
 
 
-## Comments
+## Timeline
 
-### @tobiu - 2026-01-07 18:50
+- 2026-01-07T18:08:19Z @tobiu added the `documentation` label
+- 2026-01-07T18:08:19Z @tobiu added the `enhancement` label
+- 2026-01-07T18:08:19Z @tobiu added the `build` label
+- 2026-01-07T18:11:27Z @tobiu assigned to @tobiu
+- 2026-01-07T18:11:50Z @tobiu added parent issue #8362
+- 2026-01-07T18:33:07Z @tobiu referenced in commit `429c414` - "feat(portal): Implement tree-structured releases index and integration (#8390)
+
+Refactor build script to generate hierarchical release data grouped by major version. Update Release store and model to support tree structure."
+- 2026-01-07T18:33:29Z @tobiu closed this issue
+### @tobiu - 2026-01-07T18:50:44Z
 
 **Input from Gemini 3 Pro:**
 
@@ -62,15 +71,4 @@ Refactor `buildScripts/createReleaseIndex.mjs` to generate a hierarchical (flat-
 > 
 > Verified functionality via Neural Link: The TreeList in the Portal correctly displays the grouped releases.
 
-## Activity Log
-
-- 2026-01-07 @tobiu added the `documentation` label
-- 2026-01-07 @tobiu added the `enhancement` label
-- 2026-01-07 @tobiu added the `build` label
-- 2026-01-07 @tobiu assigned to @tobiu
-- 2026-01-07 @tobiu added parent issue #8362
-- 2026-01-07 @tobiu referenced in commit `429c414` - "feat(portal): Implement tree-structured releases index and integration (#8390)
-
-Refactor build script to generate hierarchical release data grouped by major version. Update Release store and model to support tree structure."
-- 2026-01-07 @tobiu closed this issue
 

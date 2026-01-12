@@ -34,9 +34,17 @@ Update `buildScripts/generateSeoFiles.mjs` to filter the `releases` array. It sh
 *   `buildScripts/generateSeoFiles.mjs`
 
 
-## Comments
+## Timeline
 
-### @tobiu - 2026-01-07 18:50
+- 2026-01-07T18:32:39Z @tobiu added the `bug` label
+- 2026-01-07T18:32:39Z @tobiu added the `documentation` label
+- 2026-01-07T18:32:39Z @tobiu added the `build` label
+- 2026-01-07T18:33:41Z @tobiu assigned to @tobiu
+- 2026-01-07T18:40:53Z @tobiu referenced in commit `3f0e48f` - "fix(build): Filter release tree nodes in SEO generation (#8391)
+
+Update generateSeoFiles.mjs to exclude parent directory nodes (e.g. 'v11') from the Latest Updates section in llms.txt, ensuring only valid release items are processed."
+- 2026-01-07T18:41:01Z @tobiu closed this issue
+### @tobiu - 2026-01-07T18:50:40Z
 
 **Input from Gemini 3 Pro:**
 
@@ -44,14 +52,4 @@ Update `buildScripts/generateSeoFiles.mjs` to filter the `releases` array. It sh
 > 
 > Updated `buildScripts/generateSeoFiles.mjs` to filter out directory nodes (parent items without a version) from the release data. This ensures the `llms.txt` generation works correctly with the new tree-structured `releases.json`.
 
-## Activity Log
-
-- 2026-01-07 @tobiu added the `bug` label
-- 2026-01-07 @tobiu added the `documentation` label
-- 2026-01-07 @tobiu added the `build` label
-- 2026-01-07 @tobiu assigned to @tobiu
-- 2026-01-07 @tobiu referenced in commit `3f0e48f` - "fix(build): Filter release tree nodes in SEO generation (#8391)
-
-Update generateSeoFiles.mjs to exclude parent directory nodes (e.g. 'v11') from the Latest Updates section in llms.txt, ensuring only valid release items are processed."
-- 2026-01-07 @tobiu closed this issue
 

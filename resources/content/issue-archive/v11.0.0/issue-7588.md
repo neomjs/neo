@@ -295,12 +295,12 @@ if (result.timing.durationMs > 300000) {
 - "Did new PRs come in?" → Check `statistics.pulled.created`
 - "Which releases were synced?" → Check `statistics.releases.synced`
 
-## Activity Log
+## Timeline
 
-- 2025-10-21 @tobiu assigned to @tobiu
-- 2025-10-21 @tobiu added the `enhancement` label
-- 2025-10-21 @tobiu added the `ai` label
-- 2025-10-21 @tobiu added parent issue #7564
-- 2025-10-21 @tobiu referenced in commit `1c1f4e8` - "Enhance Sync Result Payload with Comprehensive Statistics #7588"
-- 2025-10-21 @tobiu closed this issue
+- 2025-10-21T07:55:29Z @tobiu assigned to @tobiu
+- 2025-10-21T07:55:30Z @tobiu added the `enhancement` label
+- 2025-10-21T07:55:30Z @tobiu added the `ai` label
+- 2025-10-21T07:55:30Z @tobiu added parent issue #7564
+- 2025-10-21T08:26:16Z @tobiu referenced in commit `1c1f4e8` - "Enhance Sync Result Payload with Comprehensive Statistics #7588"
+- 2025-10-21T08:26:32Z @tobiu closed this issue
 

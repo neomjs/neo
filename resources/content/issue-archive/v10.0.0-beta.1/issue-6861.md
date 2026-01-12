@@ -23,10 +23,10 @@ closedAt: '2025-06-24T14:45:04Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
-- 2025-06-24 @tobiu assigned to @tobiu
-- 2025-06-24 @tobiu added the `enhancement` label
-- 2025-06-24 @tobiu referenced in commit `cb1b119` - "grid.Body: applyRendererOutput() => param destructuring #6861"
-- 2025-06-24 @tobiu closed this issue
+- 2025-06-24T14:44:35Z @tobiu assigned to @tobiu
+- 2025-06-24T14:44:36Z @tobiu added the `enhancement` label
+- 2025-06-24T14:44:56Z @tobiu referenced in commit `cb1b119` - "grid.Body: applyRendererOutput() => param destructuring #6861"
+- 2025-06-24T14:45:05Z @tobiu closed this issue
 

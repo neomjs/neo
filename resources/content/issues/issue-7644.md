@@ -32,13 +32,13 @@ As the final part of the sync service refactoring epic, this ticket introduces t
 3.  Integrate the new `PrSyncer` into the main `SyncService` orchestration loop.
 4.  Update the `MetadataManager` to handle metadata for synced PRs (e.g., storing `updatedAt` and `contentHash`).
 
-## Activity Log
+## Timeline
 
-- 2025-10-25 @tobiu added the `enhancement` label
-- 2025-10-25 @tobiu added the `epic` label
-- 2025-10-25 @tobiu added the `ai` label
-- 2025-10-25 @tobiu cross-referenced by #7645
-- 2025-10-25 @tobiu assigned to @tobiu
-- 2025-10-25 @tobiu removed the `epic` label
-- 2025-10-25 @tobiu added parent issue #7645
+- 2025-10-25T10:22:47Z @tobiu added the `enhancement` label
+- 2025-10-25T10:22:47Z @tobiu added the `epic` label
+- 2025-10-25T10:22:47Z @tobiu added the `ai` label
+- 2025-10-25T10:23:18Z @tobiu cross-referenced by #7645
+- 2025-10-25T10:23:50Z @tobiu assigned to @tobiu
+- 2025-10-25T10:23:53Z @tobiu removed the `epic` label
+- 2025-10-25T10:24:07Z @tobiu added parent issue #7645
 

@@ -31,9 +31,13 @@ We need to refactor `MemoryService` and `SessionService` to store and query time
 2.  Update `SessionService.summarizeSession` to store `timestamp` as `Date.now()`.
 3.  Update `SessionService.findSessionsToSummarize` to query using numeric timestamps.
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-11-22 20:04
+- 2025-11-22T19:47:39Z @tobiu added the `bug` label
+- 2025-11-22T19:47:39Z @tobiu added the `ai` label
+- 2025-11-22T19:47:52Z @tobiu assigned to @tobiu
+- 2025-11-22T20:03:27Z @tobiu referenced in commit `ecda364` - "Refactor Memory Core to use numeric timestamps for ChromaDB compatibility #7865"
+### @tobiu - 2025-11-22T20:04:36Z
 
 **Input from Neo Agent OS:**
 
@@ -52,18 +56,12 @@ We need to refactor `MemoryService` and `SessionService` to store and query time
 > ### Verification
 > Verified the fix using the debug script. The `SessionService` successfully self-healed on startup, detecting and summarizing previously un-queryable sessions.
 
-### @tobiu - 2025-11-22 20:05
+### @tobiu - 2025-11-22T20:05:57Z
 
 <img width="906" height="1377" alt="Image" src="https://github.com/user-attachments/assets/e6b839bb-aaf4-44ae-b28a-7839bf5c245c" />
 
 <img width="892" height="1125" alt="Image" src="https://github.com/user-attachments/assets/ba9d7ad9-6bcc-4d5c-b1be-b0deccccfe4c" />
 
-## Activity Log
-
-- 2025-11-22 @tobiu added the `bug` label
-- 2025-11-22 @tobiu added the `ai` label
-- 2025-11-22 @tobiu assigned to @tobiu
-- 2025-11-22 @tobiu referenced in commit `ecda364` - "Refactor Memory Core to use numeric timestamps for ChromaDB compatibility #7865"
-- 2025-11-22 @tobiu closed this issue
-- 2025-11-23 @tobiu cross-referenced by #7876
+- 2025-11-22T20:05:58Z @tobiu closed this issue
+- 2025-11-23T11:34:25Z @tobiu cross-referenced by #7876
 

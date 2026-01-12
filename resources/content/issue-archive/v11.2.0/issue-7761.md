@@ -33,12 +33,12 @@ This `nestedCandidates` logic appears to be an incorrect assumption or a "halluc
 3.  **Accurate Extension Handling**: Ensure that the function correctly appends the appropriate file extension (e.g., `.md`, `.json`) to the `id` to find the corresponding content file.
 4.  **Validation**: Verify that all `id`s in `learn/tree.json` correctly resolve to their respective content files after the refactoring.
 
-## Activity Log
+## Timeline
 
-- 2025-11-12 @tobiu added the `bug` label
-- 2025-11-12 @tobiu added the `ai` label
-- 2025-11-12 @tobiu added the `refactoring` label
-- 2025-11-12 @tobiu assigned to @tobiu
-- 2025-11-12 @tobiu referenced in commit `5a84395` - "Refactor resolveContentFileFromId in generateSeoFiles.mjs for accurate content path resolution #7761"
-- 2025-11-12 @tobiu closed this issue
+- 2025-11-12T15:28:46Z @tobiu added the `bug` label
+- 2025-11-12T15:28:46Z @tobiu added the `ai` label
+- 2025-11-12T15:28:46Z @tobiu added the `refactoring` label
+- 2025-11-12T20:54:21Z @tobiu assigned to @tobiu
+- 2025-11-12T20:55:10Z @tobiu referenced in commit `5a84395` - "Refactor resolveContentFileFromId in generateSeoFiles.mjs for accurate content path resolution #7761"
+- 2025-11-12T20:55:19Z @tobiu closed this issue
 

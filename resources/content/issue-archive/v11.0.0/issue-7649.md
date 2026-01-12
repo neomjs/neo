@@ -38,11 +38,11 @@ Making the `agent` parameter required improves the contract of the `create_comme
 
 This change enhances the robustness of agent comments and simplifies the codebase.
 
-## Activity Log
+## Timeline
 
-- 2025-10-25 @tobiu added the `enhancement` label
-- 2025-10-25 @tobiu added the `ai` label
-- 2025-10-25 @tobiu assigned to @tobiu
-- 2025-10-25 @tobiu referenced in commit `7b3b100` - "Feat: Make agent parameter required for create_comment tool and simplify implementation #7649"
-- 2025-10-25 @tobiu closed this issue
+- 2025-10-25T16:04:59Z @tobiu added the `enhancement` label
+- 2025-10-25T16:05:00Z @tobiu added the `ai` label
+- 2025-10-25T16:07:21Z @tobiu assigned to @tobiu
+- 2025-10-25T16:07:51Z @tobiu referenced in commit `7b3b100` - "Feat: Make agent parameter required for create_comment tool and simplify implementation #7649"
+- 2025-10-25T16:08:10Z @tobiu closed this issue
 

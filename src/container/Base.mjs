@@ -766,7 +766,7 @@ class Container extends Component {
 
         super.onConstructed();
 
-        me.parseItemConfigs(me.items);
+        me.parseItemConfigs(me._items);
         me.createItems()
     }
 

@@ -41,11 +41,11 @@ Refactor Neo.manager.Window to extend Neo.manager.Base.
 - Simplified code (no manual Map management).
 
 
-## Activity Log
+## Timeline
 
-- 2025-11-23 @tobiu assigned to @tobiu
-- 2025-11-23 @tobiu added the `enhancement` label
-- 2025-11-23 @tobiu added the `ai` label
-- 2025-11-23 @tobiu referenced in commit `2467369` - "Refactor Neo.manager.Window to extend Neo.manager.Base #7875"
-- 2025-11-23 @tobiu closed this issue
+- 2025-11-23T11:19:23Z @tobiu assigned to @tobiu
+- 2025-11-23T11:19:31Z @tobiu added the `enhancement` label
+- 2025-11-23T11:19:31Z @tobiu added the `ai` label
+- 2025-11-23T11:24:54Z @tobiu referenced in commit `2467369` - "Refactor Neo.manager.Window to extend Neo.manager.Base #7875"
+- 2025-11-23T11:25:10Z @tobiu closed this issue
 

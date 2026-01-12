@@ -33,13 +33,13 @@ Export the following configs:
 **Goal:**
 Standardize serialization for Neural Link.
 
-## Activity Log
+## Timeline
 
-- 2026-01-03 @tobiu added the `enhancement` label
-- 2026-01-03 @tobiu added the `ai` label
-- 2026-01-03 @tobiu added the `architecture` label
-- 2026-01-03 @tobiu assigned to @tobiu
-- 2026-01-03 @tobiu added parent issue #8200
-- 2026-01-03 @tobiu referenced in commit `2ccf76b` - "feat(form): Implement toJSON in form.field.trigger.SpinUpDown (#8300)"
-- 2026-01-03 @tobiu closed this issue
+- 2026-01-03T19:29:10Z @tobiu added the `enhancement` label
+- 2026-01-03T19:29:10Z @tobiu added the `ai` label
+- 2026-01-03T19:29:10Z @tobiu added the `architecture` label
+- 2026-01-03T19:29:33Z @tobiu assigned to @tobiu
+- 2026-01-03T19:29:49Z @tobiu added parent issue #8200
+- 2026-01-03T19:30:31Z @tobiu referenced in commit `2ccf76b` - "feat(form): Implement toJSON in form.field.trigger.SpinUpDown (#8300)"
+- 2026-01-03T19:30:41Z @tobiu closed this issue
 

@@ -24,14 +24,14 @@ closedAt: '2026-01-01T17:52:09Z'
 
 Implement `toJSON` for the singleton `manager.DragCoordinator` to expose `activeTargetZone` and `sortZones` for AI inspection.
 
-## Activity Log
+## Timeline
 
-- 2026-01-01 @tobiu added the `enhancement` label
-- 2026-01-01 @tobiu added the `ai` label
-- 2026-01-01 @tobiu added parent issue #8200
-- 2026-01-01 @tobiu closed this issue
-- 2026-01-01 @tobiu assigned to @tobiu
-- 2026-01-04 @jonnyamsp referenced in commit `aaeaa6e` - "feat(ai): Implement Neural Link toJSON protocol for Client Services and Managers
+- 2026-01-01T17:26:34Z @tobiu added the `enhancement` label
+- 2026-01-01T17:26:34Z @tobiu added the `ai` label
+- 2026-01-01T17:26:59Z @tobiu added parent issue #8200
+- 2026-01-01T17:52:09Z @tobiu closed this issue
+- 2026-01-01T17:53:10Z @tobiu assigned to @tobiu
+- 2026-01-04T03:10:28Z @jonnyamsp referenced in commit `aaeaa6e` - "feat(ai): Implement Neural Link toJSON protocol for Client Services and Managers
 
 - Implement toJSON in manager.DragCoordinator
 - Implement toJSON in manager.Window

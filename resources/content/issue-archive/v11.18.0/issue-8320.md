@@ -34,9 +34,15 @@ To reduce the total tool count and comply with VSCode extension limits (Epic #83
 2. Update `ai/mcp/server/memory-core/services/toolService.mjs` to map the new tool.
 3. Refactor `ai/mcp/server/memory-core/services/DatabaseService.mjs` to support the unified interface.
 
-## Comments
+## Timeline
 
-### @tobiu - 2026-01-04 17:55
+- 2026-01-04T17:49:32Z @tobiu added the `enhancement` label
+- 2026-01-04T17:49:33Z @tobiu added the `ai` label
+- 2026-01-04T17:49:33Z @tobiu added the `refactoring` label
+- 2026-01-04T17:49:41Z @tobiu added parent issue #8315
+- 2026-01-04T17:49:51Z @tobiu assigned to @tobiu
+- 2026-01-04T17:55:24Z @tobiu referenced in commit `41019d1` - "Refactor Memory Core tools: consolidate database backup tools (Issue #8320)"
+### @tobiu - 2026-01-04T17:55:53Z
 
 **Input from neo-agent:**
 
@@ -46,15 +52,7 @@ To reduce the total tool count and comply with VSCode extension limits (Epic #83
 > 
 > OpenAPI and tool service mapping have been updated.
 
-## Activity Log
-
-- 2026-01-04 @tobiu added the `enhancement` label
-- 2026-01-04 @tobiu added the `ai` label
-- 2026-01-04 @tobiu added the `refactoring` label
-- 2026-01-04 @tobiu added parent issue #8315
-- 2026-01-04 @tobiu assigned to @tobiu
-- 2026-01-04 @tobiu referenced in commit `41019d1` - "Refactor Memory Core tools: consolidate database backup tools (Issue #8320)"
-- 2026-01-04 @tobiu closed this issue
-- 2026-01-04 @tobiu cross-referenced by #8315
-- 2026-01-04 @tobiu cross-referenced by #8321
+- 2026-01-04T17:56:16Z @tobiu closed this issue
+- 2026-01-04T17:56:28Z @tobiu cross-referenced by #8315
+- 2026-01-04T18:05:41Z @tobiu cross-referenced by #8321
 

@@ -25,16 +25,14 @@ this looks odd:
 
 https://github.com/user-attachments/assets/eac1798f-73e1-44c1-8bf4-e892db63894a
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-02-06 13:07
+- 2025-02-06T13:03:48Z @tobiu added the `enhancement` label
+- 2025-02-06T13:03:48Z @tobiu assigned to @tobiu
+- 2025-02-06T13:06:22Z @tobiu referenced in commit `9eaa0b6` - "grid.View: the horizontal scrollbar should be on top of the column drag proxy #6394"
+### @tobiu - 2025-02-06T13:07:53Z
 
 https://github.com/user-attachments/assets/cb02cb37-cdb5-4ce5-a0ce-da3ffce8e5c7
 
-## Activity Log
-
-- 2025-02-06 @tobiu added the `enhancement` label
-- 2025-02-06 @tobiu assigned to @tobiu
-- 2025-02-06 @tobiu referenced in commit `9eaa0b6` - "grid.View: the horizontal scrollbar should be on top of the column drag proxy #6394"
-- 2025-02-06 @tobiu closed this issue
+- 2025-02-06T13:07:54Z @tobiu closed this issue
 

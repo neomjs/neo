@@ -31,11 +31,11 @@ When `SessionService` is initialized (triggered by `HealthService` import), it a
 **Proposed Fix:**
 Remove the static import of `SessionService` in `HealthService.mjs` and access `SessionService` lazily inside `#performHealthCheck`.
 
-## Activity Log
+## Timeline
 
-- 2025-12-02 @tobiu added the `bug` label
-- 2025-12-02 @tobiu added the `ai` label
-- 2025-12-02 @tobiu assigned to @tobiu
-- 2025-12-02 @tobiu referenced in commit `9839409` - "Fix ReferenceError in Memory Core SessionService when GEMINI_API_KEY is missing #7999"
-- 2025-12-02 @tobiu closed this issue
+- 2025-12-02T19:49:26Z @tobiu added the `bug` label
+- 2025-12-02T19:49:26Z @tobiu added the `ai` label
+- 2025-12-02T19:50:55Z @tobiu assigned to @tobiu
+- 2025-12-02T19:56:32Z @tobiu referenced in commit `9839409` - "Fix ReferenceError in Memory Core SessionService when GEMINI_API_KEY is missing #7999"
+- 2025-12-02T19:56:46Z @tobiu closed this issue
 

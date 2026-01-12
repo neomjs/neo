@@ -35,12 +35,12 @@ This sub-task aims to:
 1.  The `curl` command in `AGENTS.md` for the memory core health check is updated to use the correct `/api/v2/healthcheck` endpoint.
 2.  A note is added to `AGENTS.md` mentioning the availability of the Swagger UI at the `/docs` endpoint for debugging purposes.
 
-## Activity Log
+## Timeline
 
-- 2025-10-07 @tobiu assigned to @tobiu
-- 2025-10-07 @tobiu added the `enhancement` label
-- 2025-10-07 @tobiu added the `ai` label
-- 2025-10-07 @tobiu added parent issue #7316
-- 2025-10-07 @tobiu referenced in commit `cc29481` - "Update AGENTS.md with Correct Health Check Endpoint #7397"
-- 2025-10-07 @tobiu closed this issue
+- 2025-10-07T07:28:29Z @tobiu assigned to @tobiu
+- 2025-10-07T07:28:30Z @tobiu added the `enhancement` label
+- 2025-10-07T07:28:30Z @tobiu added the `ai` label
+- 2025-10-07T07:28:30Z @tobiu added parent issue #7316
+- 2025-10-07T07:41:07Z @tobiu referenced in commit `cc29481` - "Update AGENTS.md with Correct Health Check Endpoint #7397"
+- 2025-10-07T07:41:42Z @tobiu closed this issue
 

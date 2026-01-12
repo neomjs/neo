@@ -29,11 +29,11 @@ In this scenario, the Child component becomes mounted, but its own pending `upda
 **Fix:**
 In `src/component/Abstract.mjs`, update `afterSetMounted` to call `VDomUpdate.executeCallbacks(me.id)` when `mounted` becomes `true`. This ensures that any pending promises waiting for the mount/update are resolved immediately.
 
-## Activity Log
+## Timeline
 
-- 2025-12-10 @tobiu added the `bug` label
-- 2025-12-10 @tobiu added the `ai` label
-- 2025-12-10 @tobiu assigned to @tobiu
-- 2025-12-10 @tobiu referenced in commit `977d7b9` - "Resolve pending VDOM update promises when a component is implicitly mounted #8082"
-- 2025-12-10 @tobiu closed this issue
+- 2025-12-10T17:12:42Z @tobiu added the `bug` label
+- 2025-12-10T17:12:43Z @tobiu added the `ai` label
+- 2025-12-10T17:13:23Z @tobiu assigned to @tobiu
+- 2025-12-10T17:13:57Z @tobiu referenced in commit `977d7b9` - "Resolve pending VDOM update promises when a component is implicitly mounted #8082"
+- 2025-12-10T17:14:01Z @tobiu closed this issue
 

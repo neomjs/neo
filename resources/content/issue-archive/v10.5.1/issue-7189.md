@@ -23,10 +23,10 @@ closedAt: '2025-08-12T23:37:55Z'
 
 * `onStoreLoad()` was changed to use destructured params, so we must pass something, or it results inside a JS bug
 
-## Activity Log
+## Timeline
 
-- 2025-08-12 @tobiu assigned to @tobiu
-- 2025-08-12 @tobiu added the `bug` label
-- 2025-08-12 @tobiu referenced in commit `65223f0` - "grid.Body: onStoreFilter() => pass arguments to onStoreLoad #7189"
-- 2025-08-12 @tobiu closed this issue
+- 2025-08-12T23:36:50Z @tobiu assigned to @tobiu
+- 2025-08-12T23:36:51Z @tobiu added the `bug` label
+- 2025-08-12T23:37:51Z @tobiu referenced in commit `65223f0` - "grid.Body: onStoreFilter() => pass arguments to onStoreLoad #7189"
+- 2025-08-12T23:37:55Z @tobiu closed this issue
 

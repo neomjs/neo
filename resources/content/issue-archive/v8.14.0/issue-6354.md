@@ -23,10 +23,10 @@ closedAt: '2025-02-01T16:19:57Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
-- 2025-02-01 @tobiu added the `bug` label
-- 2025-02-01 @tobiu assigned to @tobiu
-- 2025-02-01 @tobiu referenced in commit `1c82a30` - "examples.table.covid.Util: flag icons are not getting displayed inside the website deployment #6354"
-- 2025-02-01 @tobiu closed this issue
+- 2025-02-01T16:19:05Z @tobiu added the `bug` label
+- 2025-02-01T16:19:05Z @tobiu assigned to @tobiu
+- 2025-02-01T16:19:41Z @tobiu referenced in commit `1c82a30` - "examples.table.covid.Util: flag icons are not getting displayed inside the website deployment #6354"
+- 2025-02-01T16:19:57Z @tobiu closed this issue
 

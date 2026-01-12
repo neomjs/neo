@@ -32,9 +32,14 @@ The `SyncService` depends on specific features and output formats of the GitHub 
 4.  If the installed version is lower than the minimum requirement, the method must throw a clear, informative error that includes the current version, the required version, and instructions to upgrade.
 5.  The `runFullSync()` method is updated to call `#verifyGhVersion()` at the very beginning of the process, ensuring the check runs before any other logic.
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-10-20 13:34
+- 2025-10-20T13:22:38Z @tobiu assigned to @tobiu
+- 2025-10-20T13:22:40Z @tobiu added the `enhancement` label
+- 2025-10-20T13:22:40Z @tobiu added the `ai` label
+- 2025-10-20T13:22:40Z @tobiu added parent issue #7564
+- 2025-10-20T13:34:26Z @tobiu removed parent issue #7564
+### @tobiu - 2025-10-20T13:34:56Z
 
 closing this one as not needed:
 
@@ -65,12 +70,5 @@ closing this one as not needed:
 > 
 >   First, I will delete the now-obsolete ticket #7577.
 
-## Activity Log
-
-- 2025-10-20 @tobiu assigned to @tobiu
-- 2025-10-20 @tobiu added the `enhancement` label
-- 2025-10-20 @tobiu added the `ai` label
-- 2025-10-20 @tobiu added parent issue #7564
-- 2025-10-20 @tobiu removed parent issue #7564
-- 2025-10-20 @tobiu closed this issue
+- 2025-10-20T13:34:56Z @tobiu closed this issue
 

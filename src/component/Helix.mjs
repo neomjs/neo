@@ -284,9 +284,14 @@ class Helix extends Component {
         me.addDomListeners({
             click    : me.onClick,
             resize   : me.onResize,
+            scope    : me,
             touchmove: me.onTouchMove,
-            wheel    : me.onMouseWheel,
-            scope    : me
+            wheel    : {
+                bubble : false,
+                fn     : me.onMouseWheel,
+                local  : true,
+                passive: false
+            }
         })
     }
 

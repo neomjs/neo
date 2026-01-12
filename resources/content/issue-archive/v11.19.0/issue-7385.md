@@ -1,7 +1,7 @@
 ---
 id: 7385
 title: '''Sighted'' Agent - Chrome DevTools Integration'
-state: OPEN
+state: CLOSED
 labels:
   - help wanted
   - good first issue
@@ -12,21 +12,22 @@ labels:
 assignees:
   - tobiu
 createdAt: '2025-10-06T09:03:06Z'
-updatedAt: '2026-01-05T03:23:20Z'
+updatedAt: '2026-01-09T00:57:44Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7385'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: null
 subIssues:
   - '[x] 7386 Configure MCP Server for Project'
   - '[x] 7387 Create Guide for Chrome DevTools MCP Server'
   - '[ ] 7388 Define the "Sighted" Development Workflow'
-  - '[ ] 7389 Investigate Worker Console Access with MCP'
-  - '[ ] 7390 Create a "Sighted" Development Demo'
-subIssuesCompleted: 2
+  - '[x] 7389 Investigate Worker Console Access with MCP'
+  - '[x] 7390 Create a "Sighted" Development Demo'
+subIssuesCompleted: 4
 subIssuesTotal: 5
 blockedBy: []
 blocking: []
+closedAt: '2026-01-09T00:57:44Z'
 ---
 # 'Sighted' Agent - Chrome DevTools Integration
 
@@ -58,25 +59,42 @@ This initiative is a critical step towards building a more powerful and autonomo
 - **To Do:** ticket-investigate-worker-console-access-with-mcp.md
 - **To Do:** ticket-create-sighted-development-demo.md
 
-## Comments
+## Timeline
 
-### @github-actions - 2026-01-05 03:23
+- 2025-10-06T09:03:06Z @tobiu assigned to @tobiu
+- 2025-10-06T09:03:07Z @tobiu added the `epic` label
+- 2025-10-06T09:03:07Z @tobiu added the `ai` label
+- 2025-10-06T09:04:19Z @tobiu added sub-issue #7386
+- 2025-10-06T10:29:57Z @tobiu added sub-issue #7387
+- 2025-10-06T10:32:45Z @tobiu added the `help wanted` label
+- 2025-10-06T10:32:45Z @tobiu added the `good first issue` label
+- 2025-10-06T10:32:45Z @tobiu added the `hacktoberfest` label
+- 2025-10-06T10:34:37Z @tobiu added sub-issue #7388
+- 2025-10-06T10:36:48Z @tobiu added sub-issue #7389
+- 2025-10-06T10:38:42Z @tobiu added sub-issue #7390
+- 2025-10-06T10:41:42Z @tobiu referenced in commit `d071c95` - "#7385 ticket md files"
+### @github-actions - 2026-01-05T03:23:20Z
 
 This issue is stale because it has been open for 90 days with no activity.
 
-## Activity Log
+- 2026-01-05T03:23:20Z @github-actions added the `stale` label
+### @tobiu - 2026-01-09T00:57:19Z
 
-- 2025-10-06 @tobiu assigned to @tobiu
-- 2025-10-06 @tobiu added the `epic` label
-- 2025-10-06 @tobiu added the `ai` label
-- 2025-10-06 @tobiu added sub-issue #7386
-- 2025-10-06 @tobiu added sub-issue #7387
-- 2025-10-06 @tobiu added the `help wanted` label
-- 2025-10-06 @tobiu added the `good first issue` label
-- 2025-10-06 @tobiu added the `hacktoberfest` label
-- 2025-10-06 @tobiu added sub-issue #7388
-- 2025-10-06 @tobiu added sub-issue #7389
-- 2025-10-06 @tobiu added sub-issue #7390
-- 2025-10-06 @tobiu referenced in commit `d071c95` - "#7385 ticket md files"
-- 2026-01-05 @github-actions added the `stale` label
+**Input from Gemini 3 Pro:**
+
+> ✦ **Status Update: Obsolete**
+> 
+> This initiative has been superseded by the **Neural Link** architecture introduced in v11.18.0 and matured in v11.19.0.
+> 
+> **Rationale:**
+> The original goal was to give agents "sight" via the generic Chrome DevTools protocol. However, we found that a native, engine-aware introspection layer (Neural Link) provides vastly superior capabilities:
+> 1.  **Scene Graph Awareness:** The Neural Link understands `Neo.component.Base` instances, not just DOM nodes.
+> 2.  **State Mutation:** Agents can modify runtime state directly, which DevTools cannot do safely.
+> 3.  **Cross-Context:** The Neural Link bridges the Worker boundary natively.
+> 
+> As of v11.19.0, we have officially removed the Chrome DevTools MCP server from our default configuration in favor of the Neural Link.
+> 
+> **Action:** Closing as superseded.
+
+- 2026-01-09T00:57:44Z @tobiu closed this issue
 

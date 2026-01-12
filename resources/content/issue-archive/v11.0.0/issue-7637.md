@@ -50,11 +50,11 @@ Enhance `Neo.core.Base` to provide a standardized and reliable way to await the 
 
 This change will provide a clean, reusable, and framework-aligned solution for managing async initialization in Neo.mjs classes.
 
-## Activity Log
+## Timeline
 
-- 2025-10-25 @tobiu assigned to @tobiu
-- 2025-10-25 @tobiu added the `bug` label
-- 2025-10-25 @tobiu added the `ai` label
-- 2025-10-25 @tobiu referenced in commit `0b1bc90` - "Fix: Race condition in async service initialization #7637"
-- 2025-10-25 @tobiu closed this issue
+- 2025-10-25T08:50:53Z @tobiu assigned to @tobiu
+- 2025-10-25T08:51:01Z @tobiu added the `bug` label
+- 2025-10-25T08:51:01Z @tobiu added the `ai` label
+- 2025-10-25T08:51:26Z @tobiu referenced in commit `0b1bc90` - "Fix: Race condition in async service initialization #7637"
+- 2025-10-25T08:51:33Z @tobiu closed this issue
 

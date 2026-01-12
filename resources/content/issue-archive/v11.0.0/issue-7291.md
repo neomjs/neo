@@ -33,19 +33,26 @@ This task is to migrate the unit test for `vdom/VdomAsymmetricUpdates.mjs` from 
 3.  Ensure the new test runs successfully via `npm test`.
 4.  The new test must cover all the functionality of the original Siesta test.
 
-## Comments
+## Timeline
 
-### @KURO-1125 - 2025-10-03 09:23
+- 2025-09-27T14:05:15Z @tobiu added the `enhancement` label
+- 2025-09-27T14:05:15Z @tobiu added parent issue #7262
+- 2025-10-02T19:22:13Z @tobiu added the `help wanted` label
+- 2025-10-02T19:22:13Z @tobiu added the `good first issue` label
+- 2025-10-02T19:22:13Z @tobiu added the `hacktoberfest` label
+### @KURO-1125 - 2025-10-03T09:23:33Z
 
 Hi! I'd like to work on this VdomAsymmetricUpdates test migration using the AI native workflow.
 Could you please assign this to me?
 Thanks!
 
-### @tobiu - 2025-10-03 16:07
+- 2025-10-03T16:07:01Z @tobiu assigned to @KURO-1125
+### @tobiu - 2025-10-03T16:07:08Z
 
 done.
 
-### @KURO-1125 - 2025-10-04 09:54
+- 2025-10-04T09:53:26Z @KURO-1125 cross-referenced by PR #7348
+### @KURO-1125 - 2025-10-04T09:54:38Z
 
 Hi! All 4 assigned migrations are now complete:
 
@@ -59,15 +66,6 @@ All migrations used the AI native workflow and are ready for review.
 Thanks!
 
 
-## Activity Log
-
-- 2025-09-27 @tobiu added the `enhancement` label
-- 2025-09-27 @tobiu added parent issue #7262
-- 2025-10-02 @tobiu added the `help wanted` label
-- 2025-10-02 @tobiu added the `good first issue` label
-- 2025-10-02 @tobiu added the `hacktoberfest` label
-- 2025-10-03 @tobiu assigned to @KURO-1125
-- 2025-10-04 @KURO-1125 cross-referenced by PR #7348
-- 2025-10-04 @tobiu closed this issue
-- 2025-10-04 @tobiu referenced in commit `46eb4b9` - "#7291 internal ticket update"
+- 2025-10-04T13:46:14Z @tobiu closed this issue
+- 2025-10-04T13:50:15Z @tobiu referenced in commit `46eb4b9` - "#7291 internal ticket update"
 

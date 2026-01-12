@@ -40,18 +40,16 @@ As part of the Neo Command Center (Epic #7918), we need to design the "God View"
 *   A JSON Blueprint (Neo.mjs app definition) or detailed mockups describing this multi-window architecture.
 
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-12-04 03:44
+- 2025-11-29T15:19:19Z @tobiu added the `design` label
+- 2025-11-29T15:19:19Z @tobiu added the `ai` label
+- 2025-11-29T15:21:37Z @tobiu added parent issue #7918
+- 2025-12-04T03:36:57Z @tobiu assigned to @tobiu
+- 2025-12-04T03:37:59Z @tobiu referenced in commit `87046bc` - "Design: Agent Dashboard Layout (Multi-Window Architecture) #7920"
+### @tobiu - 2025-12-04T03:44:16Z
 
 <img width="840" height="1214" alt="Image" src="https://github.com/user-attachments/assets/02baced1-55ca-4426-bf87-dab233119601" />
 
-## Activity Log
-
-- 2025-11-29 @tobiu added the `design` label
-- 2025-11-29 @tobiu added the `ai` label
-- 2025-11-29 @tobiu added parent issue #7918
-- 2025-12-04 @tobiu assigned to @tobiu
-- 2025-12-04 @tobiu referenced in commit `87046bc` - "Design: Agent Dashboard Layout (Multi-Window Architecture) #7920"
-- 2025-12-04 @tobiu closed this issue
+- 2025-12-04T03:44:16Z @tobiu closed this issue
 

@@ -48,11 +48,11 @@ The previous `HealthService` in the Knowledge Base server was basic, lacking fea
 
 This enhancement significantly improves the reliability and diagnostic capabilities of the Knowledge Base MCP server.
 
-## Activity Log
+## Timeline
 
-- 2025-10-25 @tobiu added the `enhancement` label
-- 2025-10-25 @tobiu added the `ai` label
-- 2025-10-25 @tobiu assigned to @tobiu
-- 2025-10-25 @tobiu referenced in commit `e91a3c9` - "Feat: Enhance Knowledge Base Health Service and Update OpenAPI Schema #7654"
-- 2025-10-25 @tobiu closed this issue
+- 2025-10-25T19:16:26Z @tobiu added the `enhancement` label
+- 2025-10-25T19:16:26Z @tobiu added the `ai` label
+- 2025-10-25T19:17:17Z @tobiu assigned to @tobiu
+- 2025-10-25T19:20:08Z @tobiu referenced in commit `e91a3c9` - "Feat: Enhance Knowledge Base Health Service and Update OpenAPI Schema #7654"
+- 2025-10-25T19:37:35Z @tobiu closed this issue
 

@@ -46,11 +46,11 @@ Since `core.Effect` is a new class introduced in the v10 beta series, adding an 
 -   `functional.component.Base` correctly passes its ID when creating its `vdomEffect`.
 -   This change enables the `useConfig` hook to reliably get the current component instance.
 
-## Activity Log
+## Timeline
 
-- 2025-07-11 @tobiu assigned to @tobiu
-- 2025-07-11 @tobiu added parent issue #6992
-- 2025-07-11 @tobiu added the `enhancement` label
-- 2025-07-11 @tobiu referenced in commit `ddbd6eb` - "Enhance Neo.core.Effect Constructor #7015"
-- 2025-07-11 @tobiu closed this issue
+- 2025-07-11T10:27:56Z @tobiu assigned to @tobiu
+- 2025-07-11T10:27:57Z @tobiu added parent issue #6992
+- 2025-07-11T10:27:58Z @tobiu added the `enhancement` label
+- 2025-07-11T10:34:44Z @tobiu referenced in commit `ddbd6eb` - "Enhance Neo.core.Effect Constructor #7015"
+- 2025-07-11T10:34:53Z @tobiu closed this issue
 

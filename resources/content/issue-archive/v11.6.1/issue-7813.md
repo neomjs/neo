@@ -33,11 +33,11 @@ Crucially, this refactoring must remove the usage of `.html` (innerHTML) assignm
 
 **Note:** This does NOT involve renaming `labelText` to `label`, keeping the scope manageable while improving security and flexibility.
 
-## Activity Log
+## Timeline
 
-- 2025-11-19 @tobiu added the `enhancement` label
-- 2025-11-19 @tobiu added the `refactoring` label
-- 2025-11-19 @tobiu assigned to @tobiu
-- 2025-11-19 @tobiu referenced in commit `885fa35` - "Refactor: Enhance labelText to support VDOM and remove innerHTML usage #7813"
-- 2025-11-19 @tobiu closed this issue
+- 2025-11-19T16:07:42Z @tobiu added the `enhancement` label
+- 2025-11-19T16:07:42Z @tobiu added the `refactoring` label
+- 2025-11-19T16:08:26Z @tobiu assigned to @tobiu
+- 2025-11-19T16:23:19Z @tobiu referenced in commit `885fa35` - "Refactor: Enhance labelText to support VDOM and remove innerHTML usage #7813"
+- 2025-11-19T16:35:06Z @tobiu closed this issue
 

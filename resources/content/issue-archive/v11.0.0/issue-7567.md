@@ -36,12 +36,12 @@ The sync logic will follow the "push-then-pull" model, so this push operation sh
     - The title should be extracted from the main `#` heading.
     - The body should be the content of the file, excluding the frontmatter and the `
 
-## Activity Log
+## Timeline
 
-- 2025-10-20 @tobiu assigned to @tobiu
-- 2025-10-20 @tobiu added the `enhancement` label
-- 2025-10-20 @tobiu added the `ai` label
-- 2025-10-20 @tobiu added parent issue #7564
-- 2025-10-20 @tobiu referenced in commit `9980bd1` - "Implement Local to GitHub Sync (Push) #7567"
-- 2025-10-20 @tobiu closed this issue
+- 2025-10-20T11:24:17Z @tobiu assigned to @tobiu
+- 2025-10-20T11:24:18Z @tobiu added the `enhancement` label
+- 2025-10-20T11:24:18Z @tobiu added the `ai` label
+- 2025-10-20T11:24:18Z @tobiu added parent issue #7564
+- 2025-10-20T11:59:45Z @tobiu referenced in commit `9980bd1` - "Implement Local to GitHub Sync (Push) #7567"
+- 2025-10-20T11:59:56Z @tobiu closed this issue
 

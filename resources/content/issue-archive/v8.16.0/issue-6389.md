@@ -27,10 +27,10 @@ closedAt: '2025-02-06T09:43:40Z'
 * It would be nicer, if the scrolling continues as long as we drag & are outside the zone
 * Technically speaking: `onDragMove()` needs to call itself again in this case
 
-## Activity Log
+## Timeline
 
-- 2025-02-06 @tobiu added the `enhancement` label
-- 2025-02-06 @tobiu assigned to @tobiu
-- 2025-02-06 @tobiu referenced in commit `6fbc20f` - "draggable.toolbar.SortZone: onDragMove() => keep scrolling when over-dragging #6389"
-- 2025-02-06 @tobiu closed this issue
+- 2025-02-06T09:26:37Z @tobiu added the `enhancement` label
+- 2025-02-06T09:26:37Z @tobiu assigned to @tobiu
+- 2025-02-06T09:43:34Z @tobiu referenced in commit `6fbc20f` - "draggable.toolbar.SortZone: onDragMove() => keep scrolling when over-dragging #6389"
+- 2025-02-06T09:43:40Z @tobiu closed this issue
 

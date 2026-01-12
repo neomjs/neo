@@ -50,30 +50,29 @@ To refactor and enhance `Neo.draggable.container.SortZone` to support more compl
 - The `DashboardSortZone` can be refactored into a minimal subclass that primarily just configures the `dragHandleSelector`.
 - Existing functionalities that use `container.SortZone` (e.g., tab header reordering) remain unaffected and work as before.
 
-## Comments
+## Timeline
 
-### @github-actions - 2025-11-20 02:50
+- 2025-08-21T09:12:52Z @tobiu assigned to @tobiu
+- 2025-08-21T09:12:53Z @tobiu added the `enhancement` label
+- 2025-08-21T09:12:53Z @tobiu added parent issue #7201
+- 2025-08-21T09:24:10Z @tobiu referenced in commit `61692a5` - "#7207 dragHandleSelector config"
+- 2025-08-21T13:04:11Z @tobiu referenced in commit `6f2a206` - "#7207 wip"
+- 2025-08-21T14:22:45Z @tobiu referenced in commit `2e26e1f` - "#7207"
+### @github-actions - 2025-11-20T02:50:05Z
 
 This issue is stale because it has been open for 90 days with no activity.
 
-### @github-actions - 2025-12-04 02:57
+- 2025-11-20T02:50:06Z @github-actions added the `stale` label
+### @github-actions - 2025-12-04T02:57:41Z
 
 This issue was closed because it has been inactive for 14 days since being marked as stale.
 
-### @github-actions - 2025-12-04 02:59
+- 2025-12-04T02:57:42Z @github-actions closed this issue
+- 2025-12-04T02:59:24Z @tobiu reopened this issue
+- 2025-12-04T02:59:31Z @github-actions closed this issue
+### @github-actions - 2025-12-04T02:59:32Z
 
 ❌ Tickets cannot be reopened. Created new ticket: #8020
 
-## Activity Log
-
-- 2025-08-21 @tobiu assigned to @tobiu
-- 2025-08-21 @tobiu added the `enhancement` label
-- 2025-08-21 @tobiu added parent issue #7201
-- 2025-08-21 @tobiu referenced in commit `61692a5` - "#7207 dragHandleSelector config"
-- 2025-08-21 @tobiu referenced in commit `6f2a206` - "#7207 wip"
-- 2025-08-21 @tobiu referenced in commit `2e26e1f` - "#7207"
-- 2025-11-20 @github-actions added the `stale` label
-- 2025-12-04 @github-actions closed this issue
-- 2025-12-04 @github-actions closed this issue
-- 2025-12-04 @github-actions cross-referenced by #8020
+- 2025-12-04T02:59:33Z @github-actions cross-referenced by #8020
 

@@ -24,11 +24,11 @@ closedAt: '2025-07-05T22:14:01Z'
 * after introducing the reactive `count_` config, one unit test broke.
 * i will update the tests to switch from `getCount()` to `count`, since the get method is deprecated.
 
-## Activity Log
+## Timeline
 
-- 2025-07-05 @tobiu added the `enhancement` label
-- 2025-07-05 @tobiu assigned to @tobiu
-- 2025-07-05 @tobiu referenced in commit `30f4b97` - "collection.Base: pass a shallow copy of items to the creation of allItems #6954"
-- 2025-07-05 @tobiu closed this issue
-- 2025-07-05 @tobiu referenced in commit `bc4ed73` - "collection.Base: pass a shallow copy of items to the creation of allItems #6954"
+- 2025-07-05T22:12:24Z @tobiu added the `enhancement` label
+- 2025-07-05T22:12:27Z @tobiu assigned to @tobiu
+- 2025-07-05T22:12:58Z @tobiu referenced in commit `30f4b97` - "collection.Base: pass a shallow copy of items to the creation of allItems #6954"
+- 2025-07-05T22:14:01Z @tobiu closed this issue
+- 2025-07-05T22:35:25Z @tobiu referenced in commit `bc4ed73` - "collection.Base: pass a shallow copy of items to the creation of allItems #6954"
 

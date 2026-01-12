@@ -32,12 +32,12 @@ This ticket covers refactoring `ai/mcp/server/github-workflow/services/healthSer
 4.  The `ai/mcp/server/github-workflow/services/toolService.mjs` is updated to use the new `HealthService` class.
 5.  The `healthcheck` tool continues to function correctly after the refactoring.
 
-## Activity Log
+## Timeline
 
-- 2025-10-19 @tobiu assigned to @tobiu
-- 2025-10-19 @tobiu added the `enhancement` label
-- 2025-10-19 @tobiu added the `ai` label
-- 2025-10-19 @tobiu added parent issue #7536
-- 2025-10-19 @tobiu referenced in commit `0510414` - "Convert GitHub Workflow healthService to HealthService Neo.mjs Class #7556"
-- 2025-10-19 @tobiu closed this issue
+- 2025-10-19T22:23:51Z @tobiu assigned to @tobiu
+- 2025-10-19T22:23:52Z @tobiu added the `enhancement` label
+- 2025-10-19T22:23:52Z @tobiu added the `ai` label
+- 2025-10-19T22:23:52Z @tobiu added parent issue #7536
+- 2025-10-19T22:32:56Z @tobiu referenced in commit `0510414` - "Convert GitHub Workflow healthService to HealthService Neo.mjs Class #7556"
+- 2025-10-19T22:33:32Z @tobiu closed this issue
 

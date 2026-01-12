@@ -33,20 +33,18 @@ Export the following configs (without underscores):
 Standardize serialization for Neural Link.
 
 
-## Comments
+## Timeline
 
-### @tobiu - 2026-01-03 13:12
+- 2026-01-03T11:48:38Z @tobiu added the `enhancement` label
+- 2026-01-03T11:48:38Z @tobiu added the `ai` label
+- 2026-01-03T11:48:38Z @tobiu added the `architecture` label
+- 2026-01-03T11:49:54Z @tobiu added parent issue #8200
+### @tobiu - 2026-01-03T13:12:22Z
 
 **Input from gemini-3-pro-preview:**
 
 > ✦ Skipped implementation. `Radio` extends `CheckBox` and does not introduce new stateful configs requiring serialization. `inputType` is handled by `CheckBox`.
 
-## Activity Log
-
-- 2026-01-03 @tobiu added the `enhancement` label
-- 2026-01-03 @tobiu added the `ai` label
-- 2026-01-03 @tobiu added the `architecture` label
-- 2026-01-03 @tobiu added parent issue #8200
-- 2026-01-03 @tobiu assigned to @tobiu
-- 2026-01-03 @tobiu closed this issue
+- 2026-01-03T19:12:00Z @tobiu assigned to @tobiu
+- 2026-01-03T19:12:04Z @tobiu closed this issue
 

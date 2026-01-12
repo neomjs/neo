@@ -29,10 +29,10 @@ This also affects the code views:
 I will remove it here explicitly to get to:
 <img width="490" height="221" alt="Image" src="https://github.com/user-attachments/assets/c487159e-dd72-4451-93ee-5976400ca9dd" />
 
-## Activity Log
+## Timeline
 
-- 2025-07-15 @tobiu assigned to @tobiu
-- 2025-07-15 @tobiu added the `enhancement` label
-- 2025-07-15 @tobiu referenced in commit `4278a1b` - "Learning Content: Read only code block letter spacing #7063"
-- 2025-07-15 @tobiu closed this issue
+- 2025-07-15T17:45:27Z @tobiu assigned to @tobiu
+- 2025-07-15T17:45:28Z @tobiu added the `enhancement` label
+- 2025-07-15T17:46:11Z @tobiu referenced in commit `4278a1b` - "Learning Content: Read only code block letter spacing #7063"
+- 2025-07-15T17:46:20Z @tobiu closed this issue
 

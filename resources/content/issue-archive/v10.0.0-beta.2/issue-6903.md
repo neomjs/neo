@@ -23,10 +23,10 @@ closedAt: '2025-06-30T01:06:57Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
-- 2025-06-30 @tobiu assigned to @tobiu
-- 2025-06-30 @tobiu added the `enhancement` label
-- 2025-06-30 @tobiu referenced in commit `870f4ef` - "learn/benefits.RPCLayer: create a new guide #6903"
-- 2025-06-30 @tobiu closed this issue
+- 2025-06-30T01:05:34Z @tobiu assigned to @tobiu
+- 2025-06-30T01:05:35Z @tobiu added the `enhancement` label
+- 2025-06-30T01:06:47Z @tobiu referenced in commit `870f4ef` - "learn/benefits.RPCLayer: create a new guide #6903"
+- 2025-06-30T01:06:57Z @tobiu closed this issue
 

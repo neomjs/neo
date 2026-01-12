@@ -37,9 +37,13 @@ This is the highest priority task for the SEO epic, as it enables crawlers like 
     -   Listen for route changes.
     -   On route change, call the `HeadManager` addon's methods to update the title, meta description, and, most importantly, the canonical URL for the new route.
 
-## Comments
+## Timeline
 
-### @22Yash - 2025-10-17 14:36
+- 2025-10-10T20:09:36Z @tobiu assigned to @tobiu
+- 2025-10-10T20:09:37Z @tobiu added the `enhancement` label
+- 2025-10-10T20:09:37Z @tobiu added the `ai` label
+- 2025-10-10T20:09:37Z @tobiu added parent issue #7446
+### @22Yash - 2025-10-17T14:36:47Z
 
 @tobiu I would like to work on this issue!
 
@@ -51,22 +55,17 @@ My plan is:
 
 Please assign this to me. Thank you!
 
-### @tobiu - 2025-11-11 09:11
+- 2025-11-11T09:02:04Z @tobiu changed title from **Create HeadManager Addon with Canonical URL Support** to **Create DocumentHead Addon with Canonical URL Support**
+### @tobiu - 2025-11-11T09:11:14Z
 
 @22Yash sorry, missed your comment. the v11 release was insane. since this was already last month, i will tackle this one on my own.
 
-## Activity Log
-
-- 2025-10-10 @tobiu assigned to @tobiu
-- 2025-10-10 @tobiu added the `enhancement` label
-- 2025-10-10 @tobiu added the `ai` label
-- 2025-10-10 @tobiu added parent issue #7446
-- 2025-11-11 @tobiu referenced in commit `0d13b56` - "#7448 base class"
-- 2025-11-11 @tobiu referenced in commit `6cd886c` - "#7448 class name"
-- 2025-11-11 @tobiu referenced in commit `9134cf4` - "#7448 getCanonical, getTag, setCanonical, setTag, Portal.view.ViewportController WIP"
-- 2025-11-11 @tobiu referenced in commit `e721456` - "#7448 Portal.view.ViewportController"
-- 2025-11-11 @tobiu referenced in commit `1dc41c6` - "#7448 main.addon.DocumentHead: getLdJson, setLdJson"
-- 2025-11-11 @tobiu referenced in commit `d1417ee` - "#7448 main.addon.DocumentHead: refactoring & cleanup"
-- 2025-11-11 @tobiu referenced in commit `72c5260` - "#7448 main.addon.DocumentHead: intent driven JSDoc comments"
-- 2025-11-11 @tobiu closed this issue
+- 2025-11-11T09:11:49Z @tobiu referenced in commit `0d13b56` - "#7448 base class"
+- 2025-11-11T09:12:20Z @tobiu referenced in commit `6cd886c` - "#7448 class name"
+- 2025-11-11T09:52:07Z @tobiu referenced in commit `9134cf4` - "#7448 getCanonical, getTag, setCanonical, setTag, Portal.view.ViewportController WIP"
+- 2025-11-11T10:30:14Z @tobiu referenced in commit `e721456` - "#7448 Portal.view.ViewportController"
+- 2025-11-11T10:45:28Z @tobiu referenced in commit `1dc41c6` - "#7448 main.addon.DocumentHead: getLdJson, setLdJson"
+- 2025-11-11T10:56:19Z @tobiu referenced in commit `d1417ee` - "#7448 main.addon.DocumentHead: refactoring & cleanup"
+- 2025-11-11T10:59:21Z @tobiu referenced in commit `72c5260` - "#7448 main.addon.DocumentHead: intent driven JSDoc comments"
+- 2025-11-11T10:59:35Z @tobiu closed this issue
 

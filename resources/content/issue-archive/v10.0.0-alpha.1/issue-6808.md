@@ -23,11 +23,11 @@ closedAt: '2025-06-15T21:13:06Z'
 
 * especially mentioning the new physical index
 
-## Activity Log
+## Timeline
 
-- 2025-06-15 @tobiu assigned to @tobiu
-- 2025-06-15 @tobiu added the `enhancement` label
-- 2025-06-15 @tobiu added parent issue #6785
-- 2025-06-15 @tobiu referenced in commit `0da62b3` - "main.mixin.DeltaUpdates: du_moveNode() => add more comments #6808"
-- 2025-06-15 @tobiu closed this issue
+- 2025-06-15T21:12:31Z @tobiu assigned to @tobiu
+- 2025-06-15T21:12:32Z @tobiu added the `enhancement` label
+- 2025-06-15T21:12:32Z @tobiu added parent issue #6785
+- 2025-06-15T21:12:52Z @tobiu referenced in commit `0da62b3` - "main.mixin.DeltaUpdates: du_moveNode() => add more comments #6808"
+- 2025-06-15T21:13:06Z @tobiu closed this issue
 

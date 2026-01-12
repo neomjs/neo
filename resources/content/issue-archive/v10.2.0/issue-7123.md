@@ -23,19 +23,17 @@ closedAt: '2025-07-30T10:52:01Z'
 
 *(No description provided)*
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-07-30 10:52
+- 2025-07-29T11:46:03Z @tobiu assigned to @tobiu
+- 2025-07-29T11:46:04Z @tobiu added the `bug` label
+- 2025-07-29T18:41:37Z @tobiu referenced in commit `bac031f` - "#7123 adjusting all app-related twoWay bindings to the new syntax"
+- 2025-07-29T18:47:10Z @tobiu referenced in commit `66fcabd` - "#7123 adjusting all examples related twoWay bindings to the new syntax"
+- 2025-07-29T18:54:18Z @tobiu referenced in commit `a377556` - "#7123 adjusting all src-related twoWay bindings to the new syntax"
+- 2025-07-29T19:32:52Z @tobiu referenced in commit `9e6e5b3` - "#7123 more unit testing for twoWay bindings"
+### @tobiu - 2025-07-30T10:52:01Z
 
 resolved via https://github.com/neomjs/neo/issues/7129
 
-## Activity Log
-
-- 2025-07-29 @tobiu assigned to @tobiu
-- 2025-07-29 @tobiu added the `bug` label
-- 2025-07-29 @tobiu referenced in commit `bac031f` - "#7123 adjusting all app-related twoWay bindings to the new syntax"
-- 2025-07-29 @tobiu referenced in commit `66fcabd` - "#7123 adjusting all examples related twoWay bindings to the new syntax"
-- 2025-07-29 @tobiu referenced in commit `a377556` - "#7123 adjusting all src-related twoWay bindings to the new syntax"
-- 2025-07-29 @tobiu referenced in commit `9e6e5b3` - "#7123 more unit testing for twoWay bindings"
-- 2025-07-30 @tobiu closed this issue
+- 2025-07-30T10:52:01Z @tobiu closed this issue
 

@@ -38,26 +38,24 @@ This task is to migrate the component test for `component/Base.mjs` from the Sie
 3.  The new test must cover all the functionality of the original Siesta test (`test/components/files/component/Base.mjs`).
 4.  Ensure the new test runs successfully via the component test runner.
 
-## Comments
+## Timeline
 
-### @harikrishna-au - 2025-10-13 02:07
+- 2025-10-10T16:51:59Z @tobiu added parent issue #7435
+- 2025-10-10T16:52:00Z @tobiu added the `enhancement` label
+- 2025-10-10T16:52:00Z @tobiu added the `help wanted` label
+- 2025-10-10T16:52:00Z @tobiu added the `hacktoberfest` label
+- 2025-10-10T16:52:00Z @tobiu added the `ai` label
+### @harikrishna-au - 2025-10-13T02:07:25Z
 
 @tobiu please assign
 
-### @tobiu - 2025-10-13 10:06
+- 2025-10-13T10:06:20Z @tobiu assigned to @harikrishna-au
+### @tobiu - 2025-10-13T10:06:48Z
 
 assigned. please read my comment on your other assigned sub for cmp based testing first.
 
-## Activity Log
-
-- 2025-10-10 @tobiu added parent issue #7435
-- 2025-10-10 @tobiu added the `enhancement` label
-- 2025-10-10 @tobiu added the `help wanted` label
-- 2025-10-10 @tobiu added the `hacktoberfest` label
-- 2025-10-10 @tobiu added the `ai` label
-- 2025-10-13 @tobiu assigned to @harikrishna-au
-- 2025-11-04 @tobiu unassigned from @harikrishna-au
-- 2025-11-04 @tobiu assigned to @tobiu
-- 2025-11-04 @tobiu referenced in commit `f7d88f7` - "Convert Component Test component/Base.mjs to Playwright #7440"
-- 2025-11-04 @tobiu closed this issue
+- 2025-11-04T19:25:14Z @tobiu unassigned from @harikrishna-au
+- 2025-11-04T19:25:14Z @tobiu assigned to @tobiu
+- 2025-11-04T19:25:48Z @tobiu referenced in commit `f7d88f7` - "Convert Component Test component/Base.mjs to Playwright #7440"
+- 2025-11-04T19:26:04Z @tobiu closed this issue
 

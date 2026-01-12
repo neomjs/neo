@@ -23,10 +23,10 @@ closedAt: '2025-03-26T14:07:30Z'
 
 * create a first algorithm for random real-time cell updates
 
-## Activity Log
+## Timeline
 
-- 2025-03-26 @tobiu added the `enhancement` label
-- 2025-03-26 @tobiu assigned to @tobiu
-- 2025-03-26 @tobiu referenced in commit `7ed71c8` - "Finance.view.ViewportController: generateData() #6592"
-- 2025-03-26 @tobiu closed this issue
+- 2025-03-26T14:06:56Z @tobiu added the `enhancement` label
+- 2025-03-26T14:06:56Z @tobiu assigned to @tobiu
+- 2025-03-26T14:07:23Z @tobiu referenced in commit `7ed71c8` - "Finance.view.ViewportController: generateData() #6592"
+- 2025-03-26T14:07:30Z @tobiu closed this issue
 

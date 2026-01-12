@@ -23,10 +23,10 @@ closedAt: '2025-06-29T16:27:27Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
-- 2025-06-29 @tobiu assigned to @tobiu
-- 2025-06-29 @tobiu added the `enhancement` label
-- 2025-06-29 @tobiu referenced in commit `1569477` - "benefits.Features: enhance text content #6897"
-- 2025-06-29 @tobiu closed this issue
+- 2025-06-29T16:27:01Z @tobiu assigned to @tobiu
+- 2025-06-29T16:27:02Z @tobiu added the `enhancement` label
+- 2025-06-29T16:27:20Z @tobiu referenced in commit `1569477` - "benefits.Features: enhance text content #6897"
+- 2025-06-29T16:27:27Z @tobiu closed this issue
 

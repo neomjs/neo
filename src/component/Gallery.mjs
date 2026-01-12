@@ -193,8 +193,13 @@ class Gallery extends Component {
 
         me.addDomListeners({
             click: me.onClick,
-            wheel: me.onMouseWheel,
-            scope: me
+            scope: me,
+            wheel: {
+                bubble : false,
+                fn     : me.onMouseWheel,
+                local  : true,
+                passive: false
+            }
         })
     }
 

@@ -23,16 +23,14 @@ closedAt: '2025-01-14T13:37:26Z'
 
 *(No description provided)*
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-01-14 13:37
+- 2025-01-14T13:36:11Z @tobiu added the `enhancement` label
+- 2025-01-14T13:36:11Z @tobiu assigned to @tobiu
+- 2025-01-14T13:36:29Z @tobiu referenced in commit `102528a` - "Portal App: add the big data grid to the examples #6227"
+### @tobiu - 2025-01-14T13:37:26Z
 
 ![Image](https://github.com/user-attachments/assets/99fbebcc-c2b7-4d2d-9874-873f2085753a)
 
-## Activity Log
-
-- 2025-01-14 @tobiu added the `enhancement` label
-- 2025-01-14 @tobiu assigned to @tobiu
-- 2025-01-14 @tobiu referenced in commit `102528a` - "Portal App: add the big data grid to the examples #6227"
-- 2025-01-14 @tobiu closed this issue
+- 2025-01-14T13:37:27Z @tobiu closed this issue
 

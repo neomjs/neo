@@ -30,11 +30,11 @@ This ticket covers the creation of a new CLI command (`npm run ai:query-memory`)
 3.  It generates an embedding for the query and uses it to find the most relevant documents in the `neo-agent-memory` ChromaDB collection.
 4.  The script returns a ranked list of results, similar to the existing `ai:query` tool, allowing the agent to access its most relevant memories.
 
-## Activity Log
+## Timeline
 
-- 2025-10-01 @tobiu assigned to @tobiu
-- 2025-10-01 @tobiu added parent issue #7316
-- 2025-10-01 @tobiu added the `enhancement` label
-- 2025-10-02 @tobiu referenced in commit `2483ef4` - "Create Memory Query Tool #7319"
-- 2025-10-02 @tobiu closed this issue
+- 2025-10-01T20:55:16Z @tobiu assigned to @tobiu
+- 2025-10-01T20:55:17Z @tobiu added parent issue #7316
+- 2025-10-01T20:55:17Z @tobiu added the `enhancement` label
+- 2025-10-02T10:12:12Z @tobiu referenced in commit `2483ef4` - "Create Memory Query Tool #7319"
+- 2025-10-02T10:12:33Z @tobiu closed this issue
 

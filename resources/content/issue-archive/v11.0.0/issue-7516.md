@@ -33,12 +33,12 @@ This bug prevents the `query_documents` tool from functioning correctly, as its 
 3.  The `query` and `type` parameters are correctly passed from the MCP client to the `queryDocuments` service function.
 4.  The `query_documents` tool executes successfully with valid parameters.
 
-## Activity Log
+## Timeline
 
-- 2025-10-16 @tobiu assigned to @tobiu
-- 2025-10-16 @tobiu added the `bug` label
-- 2025-10-16 @tobiu added parent issue #7501
-- 2025-10-16 @tobiu added the `ai` label
-- 2025-10-16 @tobiu referenced in commit `819f7e0` - "Bug: query_documents input parameter mismatch #7516"
-- 2025-10-16 @tobiu closed this issue
+- 2025-10-16T14:07:47Z @tobiu assigned to @tobiu
+- 2025-10-16T14:07:49Z @tobiu added the `bug` label
+- 2025-10-16T14:07:49Z @tobiu added parent issue #7501
+- 2025-10-16T14:07:49Z @tobiu added the `ai` label
+- 2025-10-16T14:15:11Z @tobiu referenced in commit `819f7e0` - "Bug: query_documents input parameter mismatch #7516"
+- 2025-10-16T14:15:21Z @tobiu closed this issue
 

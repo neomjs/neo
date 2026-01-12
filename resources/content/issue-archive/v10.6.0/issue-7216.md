@@ -44,16 +44,14 @@ This ticket proposes enhancing the knowledge base by including these blog posts 
 *   The `createKnowledgeBase.mjs` script successfully processes the hidden blog entries.
 *   Queries made via `npm run ai:query` can return blog posts as relevant source files.
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-09-19 12:53
+- 2025-09-19T12:32:18Z @tobiu assigned to @tobiu
+- 2025-09-19T12:32:20Z @tobiu added the `enhancement` label
+- 2025-09-19T12:52:59Z @tobiu referenced in commit `920b8a1` - "Enhance AI Knowledge Base with Blog Content #7216"
+### @tobiu - 2025-09-19T12:53:14Z
 
 <img width="977" height="501" alt="Image" src="https://github.com/user-attachments/assets/230fd0b8-669f-4a8f-977b-a5076f735d15" />
 
-## Activity Log
-
-- 2025-09-19 @tobiu assigned to @tobiu
-- 2025-09-19 @tobiu added the `enhancement` label
-- 2025-09-19 @tobiu referenced in commit `920b8a1` - "Enhance AI Knowledge Base with Blog Content #7216"
-- 2025-09-19 @tobiu closed this issue
+- 2025-09-19T12:53:14Z @tobiu closed this issue
 

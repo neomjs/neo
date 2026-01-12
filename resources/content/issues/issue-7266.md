@@ -30,18 +30,16 @@ Once all unit tests have been migrated to the Playwright runner, their value as 
 2.  Modify the script and any related configuration to add the test files to the knowledge base.
 3.  Verify that queries made via `npm run ai:query` can successfully return results from within the test files.
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-11-04 10:55
+- 2025-09-27T12:05:33Z @tobiu added the `enhancement` label
+- 2025-09-27T12:05:33Z @tobiu added parent issue #7262
+- 2025-09-27T12:34:13Z @tobiu assigned to @tobiu
+### @tobiu - 2025-11-04T10:55:51Z
 
 detaching the ticket from the epic.
 
-## Activity Log
-
-- 2025-09-27 @tobiu added the `enhancement` label
-- 2025-09-27 @tobiu added parent issue #7262
-- 2025-09-27 @tobiu assigned to @tobiu
-- 2025-11-04 @tobiu added the `no auto close` label
-- 2025-11-04 @tobiu added the `ai` label
-- 2025-11-04 @tobiu removed parent issue #7262
+- 2025-11-04T10:56:04Z @tobiu added the `no auto close` label
+- 2025-11-04T10:56:04Z @tobiu added the `ai` label
+- 2025-11-04T10:56:16Z @tobiu removed parent issue #7262
 

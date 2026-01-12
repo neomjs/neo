@@ -44,11 +44,11 @@ const release = Object.values(ReleaseSyncer.releases).find(r => new Date(r.publi
 ```
 This ensures that the `find()` method is called on an array of release objects, resolving the error.
 
-## Activity Log
+## Timeline
 
-- 2025-10-25 @tobiu added the `bug` label
-- 2025-10-25 @tobiu added the `ai` label
-- 2025-10-25 @tobiu assigned to @tobiu
-- 2025-10-25 @tobiu referenced in commit `5586f8a` - "Fix: IssueSyncer fails to find releases after ReleaseSyncer refactoring #7651"
-- 2025-10-25 @tobiu closed this issue
+- 2025-10-25T17:47:40Z @tobiu added the `bug` label
+- 2025-10-25T17:47:40Z @tobiu added the `ai` label
+- 2025-10-25T17:47:57Z @tobiu assigned to @tobiu
+- 2025-10-25T17:48:52Z @tobiu referenced in commit `5586f8a` - "Fix: IssueSyncer fails to find releases after ReleaseSyncer refactoring #7651"
+- 2025-10-25T17:49:08Z @tobiu closed this issue
 

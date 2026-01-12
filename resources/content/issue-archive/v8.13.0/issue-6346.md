@@ -24,10 +24,10 @@ closedAt: '2025-01-30T15:51:10Z'
 * I guess I left the `todo` in the code for a reason :)
 * Sometimes when swapping grid columns with their siblings, I do run into issues
 
-## Activity Log
+## Timeline
 
-- 2025-01-30 @tobiu added the `enhancement` label
-- 2025-01-30 @tobiu assigned to @tobiu
-- 2025-01-30 @tobiu referenced in commit `81b3416` - "main.mixin.DeltaUpdates: du_moveNode() => improve the support for direct swap OPs #6346"
-- 2025-01-30 @tobiu closed this issue
+- 2025-01-30T15:50:50Z @tobiu added the `enhancement` label
+- 2025-01-30T15:50:50Z @tobiu assigned to @tobiu
+- 2025-01-30T15:51:07Z @tobiu referenced in commit `81b3416` - "main.mixin.DeltaUpdates: du_moveNode() => improve the support for direct swap OPs #6346"
+- 2025-01-30T15:51:11Z @tobiu closed this issue
 

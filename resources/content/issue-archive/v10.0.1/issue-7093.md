@@ -83,46 +83,46 @@ All web developers, including those from other framework ecosystems (React, Vue,
 ## 4. Deliverable
 A complete draft of the blog post as a markdown file, following this new structure.
 
-## Activity Log
+## Timeline
 
-- 2025-07-22 @tobiu assigned to @tobiu
-- 2025-07-22 @tobiu added the `enhancement` label
-- 2025-07-22 @tobiu added the `epic` label
-- 2025-07-22 @tobiu added sub-issue #7094
-- 2025-07-22 @tobiu removed the `enhancement` label
-- 2025-07-22 @tobiu added the `Blog Post` label
-- 2025-07-22 @tobiu added sub-issue #7095
-- 2025-07-22 @tobiu added sub-issue #7096
-- 2025-07-22 @tobiu added sub-issue #7097
-- 2025-07-22 @tobiu referenced in commit `59f3006` - "Create v10 Top-Level Blog Post #7093 initial ticket versions"
-- 2025-07-22 @tobiu referenced in commit `886b8c7` - "#7093 super early draft"
-- 2025-07-22 @tobiu referenced in commit `b111e4a` - "#7093 more "why" focussed draft"
-- 2025-07-22 @tobiu referenced in commit `28b1040` - "#7093 more "provocative" draft"
-- 2025-07-22 @tobiu referenced in commit `28e491f` - "#7093 thoughts on vdom"
-- 2025-07-22 @tobiu referenced in commit `4aa0152` - "#7093 WIP"
-- 2025-07-22 @tobiu referenced in commit `a3a878b` - "#7093 WIP"
-- 2025-07-22 @tobiu referenced in commit `b9f93b4` - "#7093 WIP"
-- 2025-07-22 @tobiu referenced in commit `26ddc83` - "#7093 WIP"
-- 2025-07-22 @tobiu referenced in commit `eae5048` - "#7093 WIP"
-- 2025-07-22 @tobiu referenced in commit `89f9fd2` - "#7093 WIP"
-- 2025-07-22 @tobiu referenced in commit `e88a5dd` - "#7093 alternative strategy"
-- 2025-07-22 @tobiu referenced in commit `bd6b650` - "#7093 alternative strategy"
-- 2025-07-22 @tobiu referenced in commit `b56391b` - "#7093 wip"
-- 2025-07-22 @tobiu referenced in commit `6d7286d` - "#7093 wip"
-- 2025-07-22 @tobiu referenced in commit `f6a1e7f` - "#7093 combined updates"
-- 2025-07-23 @tobiu referenced in commit `0031baf` - "#7093 more advanced example for fn cmps, moved main thread addons & initAsync() into the reactivity blog post"
-- 2025-07-23 @tobiu referenced in commit `281ac9b` - "#7093 article navigation"
-- 2025-07-23 @tobiu referenced in commit `5b5f115` - "#7093 top-level code example WIP"
-- 2025-07-23 @tobiu referenced in commit `caa6da0` - "#7093 formatting"
-- 2025-07-23 @tobiu referenced in commit `0dd48e4` - "#7093 WIP"
-- 2025-07-23 @tobiu referenced in commit `9697ad7` - "#7093 WIP"
-- 2025-07-23 @tobiu referenced in commit `b4e43f5` - "#7093 smarter series navigation"
-- 2025-07-23 @tobiu referenced in commit `fad2a01` - "#7093 personal note"
-- 2025-07-23 @tobiu referenced in commit `cf17848` - "#7093 polishing"
-- 2025-07-23 @tobiu referenced in commit `4d171a0` - "#7093 adding weight to "framework for ai""
-- 2025-07-23 @tobiu referenced in commit `41d3c05` - "#7093 more code examples"
-- 2025-07-23 @tobiu referenced in commit `51a2e42` - "#7093 main thread addon in-depth example"
-- 2025-07-23 @tobiu referenced in commit `b535909` - "#7093 examples polishing"
-- 2025-07-23 @tobiu referenced in commit `32f6719` - "#7093 cleanup"
-- 2025-07-24 @tobiu closed this issue
+- 2025-07-22T06:25:01Z @tobiu assigned to @tobiu
+- 2025-07-22T06:25:02Z @tobiu added the `enhancement` label
+- 2025-07-22T06:25:03Z @tobiu added the `epic` label
+- 2025-07-22T06:26:01Z @tobiu added sub-issue #7094
+- 2025-07-22T06:26:08Z @tobiu removed the `enhancement` label
+- 2025-07-22T06:26:08Z @tobiu added the `Blog Post` label
+- 2025-07-22T06:26:50Z @tobiu added sub-issue #7095
+- 2025-07-22T06:27:33Z @tobiu added sub-issue #7096
+- 2025-07-22T06:28:11Z @tobiu added sub-issue #7097
+- 2025-07-22T06:33:10Z @tobiu referenced in commit `59f3006` - "Create v10 Top-Level Blog Post #7093 initial ticket versions"
+- 2025-07-22T06:48:54Z @tobiu referenced in commit `886b8c7` - "#7093 super early draft"
+- 2025-07-22T07:02:10Z @tobiu referenced in commit `b111e4a` - "#7093 more "why" focussed draft"
+- 2025-07-22T07:04:59Z @tobiu referenced in commit `28b1040` - "#7093 more "provocative" draft"
+- 2025-07-22T07:10:43Z @tobiu referenced in commit `28e491f` - "#7093 thoughts on vdom"
+- 2025-07-22T07:15:10Z @tobiu referenced in commit `4aa0152` - "#7093 WIP"
+- 2025-07-22T07:23:11Z @tobiu referenced in commit `a3a878b` - "#7093 WIP"
+- 2025-07-22T07:37:38Z @tobiu referenced in commit `b9f93b4` - "#7093 WIP"
+- 2025-07-22T07:49:36Z @tobiu referenced in commit `26ddc83` - "#7093 WIP"
+- 2025-07-22T07:59:02Z @tobiu referenced in commit `eae5048` - "#7093 WIP"
+- 2025-07-22T08:53:51Z @tobiu referenced in commit `89f9fd2` - "#7093 WIP"
+- 2025-07-22T09:51:49Z @tobiu referenced in commit `e88a5dd` - "#7093 alternative strategy"
+- 2025-07-22T10:03:09Z @tobiu referenced in commit `bd6b650` - "#7093 alternative strategy"
+- 2025-07-22T10:24:14Z @tobiu referenced in commit `b56391b` - "#7093 wip"
+- 2025-07-22T10:28:48Z @tobiu referenced in commit `6d7286d` - "#7093 wip"
+- 2025-07-22T20:24:13Z @tobiu referenced in commit `f6a1e7f` - "#7093 combined updates"
+- 2025-07-23T11:25:59Z @tobiu referenced in commit `0031baf` - "#7093 more advanced example for fn cmps, moved main thread addons & initAsync() into the reactivity blog post"
+- 2025-07-23T12:55:08Z @tobiu referenced in commit `281ac9b` - "#7093 article navigation"
+- 2025-07-23T13:09:54Z @tobiu referenced in commit `5b5f115` - "#7093 top-level code example WIP"
+- 2025-07-23T13:42:08Z @tobiu referenced in commit `caa6da0` - "#7093 formatting"
+- 2025-07-23T14:11:17Z @tobiu referenced in commit `0dd48e4` - "#7093 WIP"
+- 2025-07-23T14:40:37Z @tobiu referenced in commit `9697ad7` - "#7093 WIP"
+- 2025-07-23T15:24:13Z @tobiu referenced in commit `b4e43f5` - "#7093 smarter series navigation"
+- 2025-07-23T20:15:32Z @tobiu referenced in commit `fad2a01` - "#7093 personal note"
+- 2025-07-23T20:43:34Z @tobiu referenced in commit `cf17848` - "#7093 polishing"
+- 2025-07-23T21:00:24Z @tobiu referenced in commit `4d171a0` - "#7093 adding weight to "framework for ai""
+- 2025-07-23T22:49:06Z @tobiu referenced in commit `41d3c05` - "#7093 more code examples"
+- 2025-07-23T23:18:03Z @tobiu referenced in commit `51a2e42` - "#7093 main thread addon in-depth example"
+- 2025-07-23T23:26:56Z @tobiu referenced in commit `b535909` - "#7093 examples polishing"
+- 2025-07-23T23:52:54Z @tobiu referenced in commit `32f6719` - "#7093 cleanup"
+- 2025-07-24T07:11:35Z @tobiu closed this issue
 

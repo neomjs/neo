@@ -32,13 +32,13 @@ Create a new guide `learn/guides/mcp/CodeExecution.md` explaining the "Thick Cli
 *   **Examples:** Walk through a simple code execution workflow (like the self-healing script).
 *   **Update `learn/tree.json`:** Add this new node to the navigation tree.
 
-## Activity Log
+## Timeline
 
-- 2025-11-22 @tobiu added the `documentation` label
-- 2025-11-22 @tobiu added the `enhancement` label
-- 2025-11-22 @tobiu added the `ai` label
-- 2025-11-22 @tobiu added parent issue #7848
-- 2025-11-22 @tobiu assigned to @tobiu
-- 2025-11-22 @tobiu referenced in commit `015bfda` - "Documentation: Create Guide for "Code Execution with MCP" #7853"
-- 2025-11-22 @tobiu closed this issue
+- 2025-11-22T08:15:39Z @tobiu added the `documentation` label
+- 2025-11-22T08:15:39Z @tobiu added the `enhancement` label
+- 2025-11-22T08:15:40Z @tobiu added the `ai` label
+- 2025-11-22T08:15:41Z @tobiu added parent issue #7848
+- 2025-11-22T08:33:20Z @tobiu assigned to @tobiu
+- 2025-11-22T08:33:45Z @tobiu referenced in commit `015bfda` - "Documentation: Create Guide for "Code Execution with MCP" #7853"
+- 2025-11-22T08:34:15Z @tobiu closed this issue
 

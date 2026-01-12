@@ -55,9 +55,10 @@ Profile Path	/data/user/0/com.android.chrome/app_chrome/Default
 Add any other context about the problem here.
 I saw a blog article about neo.mjs ,  got curious, found the website and this is the first example I looked at, as it was near the top of the list and apropos to my job as a dba.
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-07-26 22:16
+- 2025-07-26T22:07:19Z @TristanJamesBall added the `bug` label
+### @tobiu - 2025-07-26T22:16:59Z
 
 @TristanJamesBall Thanks a lot for the report!
 
@@ -67,7 +68,7 @@ https://github.com/user-attachments/assets/6b81b653-f721-43d7-83b5-03237e88c8bb
 
 Definitely a regression bug in v10. It looks like on the first resize or scroll, component based columns can duplicate. It seems to get stable after scrolling more, but I need to look into what is happen in detail. Might be related to the new vdom aggregation logic.
 
-### @TristanJamesBall - 2025-07-26 22:28
+### @TristanJamesBall - 2025-07-26T22:28:31Z
 
 Super quick and *polite* response to a drive by bug report  -  honestly that carries as much weight in my head as 10 fancy examples. Kudos, and thankyou.
 
@@ -76,7 +77,8 @@ Given you've reproduced anyway this is probably moot but :
 
 ![Image](https://github.com/user-attachments/assets/e535180d-24f3-4ac8-b519-b28c1ff8bf57)
 
-### @tobiu - 2025-07-27 10:50
+- 2025-07-27T10:40:57Z @tobiu referenced in commit `789f1cb` - "Neo gridcontainer example has rendering issues on chrome/android #7114"
+### @tobiu - 2025-07-27T10:50:20Z
 
 @TristanJamesBall I think I got it now.
 
@@ -92,16 +94,12 @@ With opening a bug ticket, you are giving me the chance to fix a bug which I did
 Best regards,
 Tobi
 
-### @tobiu - 2025-07-27 19:43
+- 2025-07-27T10:50:20Z @tobiu closed this issue
+### @tobiu - 2025-07-27T19:43:35Z
 
 @TristanJamesBall forgot to mention:
 https://neomjs.com/dist/production/examples/grid/bigData/index.html
 
 => The new version is deployed now. Please let me know if you encounter any other issues. I also fixed the grid column header drag&drop resorting. You can over-drag to the left or right and the grid will scroll accordingly.
 
-## Activity Log
-
-- 2025-07-26 @TristanJamesBall added the `bug` label
-- 2025-07-27 @tobiu referenced in commit `789f1cb` - "Neo gridcontainer example has rendering issues on chrome/android #7114"
-- 2025-07-27 @tobiu closed this issue
 

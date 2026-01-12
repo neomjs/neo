@@ -41,10 +41,10 @@ The `pullFromGitHub` method has been modified to dynamically use `metadata.lastS
 - Observe faster sync times for incremental updates.
 - Verify that deleting all local issue folders still triggers a full re-sync, which is expected behavior.
 
-## Activity Log
+## Timeline
 
-- 2025-10-22 @tobiu assigned to @tobiu
-- 2025-10-22 @tobiu added the `enhancement` label
-- 2025-10-22 @tobiu referenced in commit `6011365` - "Optimize GitHub Issue Sync: Dynamic syncStartDate for Delta Updates #7615"
-- 2025-10-22 @tobiu closed this issue
+- 2025-10-22T23:12:43Z @tobiu assigned to @tobiu
+- 2025-10-22T23:12:44Z @tobiu added the `enhancement` label
+- 2025-10-22T23:13:24Z @tobiu referenced in commit `6011365` - "Optimize GitHub Issue Sync: Dynamic syncStartDate for Delta Updates #7615"
+- 2025-10-22T23:14:16Z @tobiu closed this issue
 

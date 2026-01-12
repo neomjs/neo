@@ -23,10 +23,10 @@ closedAt: '2025-02-17T12:56:33Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
-- 2025-02-17 @tobiu added the `enhancement` label
-- 2025-02-17 @tobiu assigned to @tobiu
-- 2025-02-17 @tobiu referenced in commit `f87c97e` - "main.DomAccess.scrollToTableRow() => param destructuring #6457"
-- 2025-02-17 @tobiu closed this issue
+- 2025-02-17T12:38:44Z @tobiu added the `enhancement` label
+- 2025-02-17T12:38:44Z @tobiu assigned to @tobiu
+- 2025-02-17T12:39:58Z @tobiu referenced in commit `f87c97e` - "main.DomAccess.scrollToTableRow() => param destructuring #6457"
+- 2025-02-17T12:56:33Z @tobiu closed this issue
 

@@ -23,10 +23,10 @@ closedAt: '2025-07-24T08:20:06Z'
 
 https://tobiasuhlig.medium.com/frontend-reactivity-revolution-named-vs-anonymous-state-5428c1aa17b5?source=friends_link&sk=8391d8f6b8e18f68d37ac90129f355ff
 
-## Activity Log
+## Timeline
 
-- 2025-07-24 @tobiu assigned to @tobiu
-- 2025-07-24 @tobiu added the `Blog Post` label
-- 2025-07-24 @tobiu referenced in commit `eed9301` - "Add "Frontend Reactivity Revolution: Named vs. Anonymous State" to the neo website #7104"
-- 2025-07-24 @tobiu closed this issue
+- 2025-07-24T07:44:51Z @tobiu assigned to @tobiu
+- 2025-07-24T07:44:52Z @tobiu added the `Blog Post` label
+- 2025-07-24T08:19:55Z @tobiu referenced in commit `eed9301` - "Add "Frontend Reactivity Revolution: Named vs. Anonymous State" to the neo website #7104"
+- 2025-07-24T08:20:07Z @tobiu closed this issue
 

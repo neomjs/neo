@@ -34,33 +34,31 @@ As a foundational capability, the AI agent needs to be able to view open issues 
 3.  The workflow should include guidance on what to do with this information (e.g., "To get an overview of current work, you can run `gh pr list`.").
 4.  The agent should be instructed to use these commands when asked questions like "What are the current open PRs?" or "Are there any issues related to the dashboard?".
 
-## Comments
+## Timeline
 
-### @Mahita07 - 2025-10-05 10:39
+- 2025-10-05T10:37:15Z @tobiu added the `enhancement` label
+- 2025-10-05T10:37:16Z @tobiu added parent issue #7364
+- 2025-10-05T10:37:16Z @tobiu added the `help wanted` label
+- 2025-10-05T10:37:16Z @tobiu added the `good first issue` label
+- 2025-10-05T10:37:16Z @tobiu added the `hacktoberfest` label
+- 2025-10-05T10:37:16Z @tobiu added the `ai` label
+### @Mahita07 - 2025-10-05T10:39:37Z
 
 Hey @tobiu could you please assign me this issue ? I would love to work on it. 
 
-### @tobiu - 2025-10-05 10:49
+### @tobiu - 2025-10-05T10:49:42Z
 
 sure. please see the comment inside your other sub first.
 
-### @Mahita07 - 2025-10-05 11:13
+- 2025-10-05T10:49:47Z @tobiu assigned to @Mahita07
+### @Mahita07 - 2025-10-05T11:13:27Z
 
 Sure, thank you !
 
-### @tobiu - 2025-10-13 21:14
+- 2025-10-06T17:39:05Z @Mahita07 cross-referenced by PR #7396
+### @tobiu - 2025-10-13T21:14:11Z
 
 closing the ticket as resolved.
 
-## Activity Log
-
-- 2025-10-05 @tobiu added the `enhancement` label
-- 2025-10-05 @tobiu added parent issue #7364
-- 2025-10-05 @tobiu added the `help wanted` label
-- 2025-10-05 @tobiu added the `good first issue` label
-- 2025-10-05 @tobiu added the `hacktoberfest` label
-- 2025-10-05 @tobiu added the `ai` label
-- 2025-10-05 @tobiu assigned to @Mahita07
-- 2025-10-06 @Mahita07 cross-referenced by PR #7396
-- 2025-10-13 @tobiu closed this issue
+- 2025-10-13T21:14:12Z @tobiu closed this issue
 

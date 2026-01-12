@@ -23,10 +23,10 @@ closedAt: '2025-01-14T11:49:19Z'
 
 * consistency to `afterSetAmountRows()`
 
-## Activity Log
+## Timeline
 
-- 2025-01-14 @tobiu added the `enhancement` label
-- 2025-01-14 @tobiu assigned to @tobiu
-- 2025-01-14 @tobiu referenced in commit `98e9d93` - "examples.grid.bigData.MainStore: afterSetAmountColumns() => add record creation benchmarks #6223"
-- 2025-01-14 @tobiu closed this issue
+- 2025-01-14T11:49:01Z @tobiu added the `enhancement` label
+- 2025-01-14T11:49:02Z @tobiu assigned to @tobiu
+- 2025-01-14T11:49:15Z @tobiu referenced in commit `98e9d93` - "examples.grid.bigData.MainStore: afterSetAmountColumns() => add record creation benchmarks #6223"
+- 2025-01-14T11:49:19Z @tobiu closed this issue
 

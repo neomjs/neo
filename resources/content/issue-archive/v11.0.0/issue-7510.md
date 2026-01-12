@@ -33,12 +33,12 @@ To improve modularity and prepare for eventual packaging, we will create a centr
 3.  All service files within `ai/mcp/server/knowledge-base/services/` are updated to import the new config file (`../config.mjs`).
 4.  The old `buildScripts/ai/aiConfig.mjs` file is left untouched for now, as it is still in use by other scripts.
 
-## Activity Log
+## Timeline
 
-- 2025-10-16 @tobiu assigned to @tobiu
-- 2025-10-16 @tobiu added parent issue #7501
-- 2025-10-16 @tobiu added the `enhancement` label
-- 2025-10-16 @tobiu added the `ai` label
-- 2025-10-16 @tobiu referenced in commit `756c958` - "Refactor MCP Server Configuration #7510"
-- 2025-10-16 @tobiu closed this issue
+- 2025-10-16T11:21:55Z @tobiu assigned to @tobiu
+- 2025-10-16T11:21:56Z @tobiu added parent issue #7501
+- 2025-10-16T11:21:57Z @tobiu added the `enhancement` label
+- 2025-10-16T11:21:57Z @tobiu added the `ai` label
+- 2025-10-16T11:24:05Z @tobiu referenced in commit `756c958` - "Refactor MCP Server Configuration #7510"
+- 2025-10-16T11:24:27Z @tobiu closed this issue
 

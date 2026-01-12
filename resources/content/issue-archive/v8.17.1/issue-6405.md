@@ -25,10 +25,10 @@ regression issue.
 
 ![Image](https://github.com/user-attachments/assets/7b69514f-f46f-49a0-8814-7e8e3a05cd5d)
 
-## Activity Log
+## Timeline
 
-- 2025-02-07 @tobiu added the `bug` label
-- 2025-02-07 @tobiu assigned to @tobiu
-- 2025-02-07 @tobiu referenced in commit `d67506c` - "grid.View: hovering rows broken for even rows #6405"
-- 2025-02-07 @tobiu closed this issue
+- 2025-02-07T16:44:43Z @tobiu added the `bug` label
+- 2025-02-07T16:44:43Z @tobiu assigned to @tobiu
+- 2025-02-07T16:45:02Z @tobiu referenced in commit `d67506c` - "grid.View: hovering rows broken for even rows #6405"
+- 2025-02-07T16:45:18Z @tobiu closed this issue
 

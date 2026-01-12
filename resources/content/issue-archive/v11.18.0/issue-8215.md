@@ -32,12 +32,12 @@ The Neural Link Bridge knows which agents are connected. This information should
 
 This provides better observability into the multi-agent environment.
 
-## Activity Log
+## Timeline
 
-- 2025-12-30 @tobiu added the `enhancement` label
-- 2025-12-30 @tobiu added the `ai` label
-- 2025-12-30 @tobiu added parent issue #8169
-- 2025-12-30 @tobiu assigned to @tobiu
-- 2025-12-30 @tobiu referenced in commit `e071005` - "Expose connected agents in Neural Link health check #8215"
-- 2025-12-30 @tobiu closed this issue
+- 2025-12-30T10:24:35Z @tobiu added the `enhancement` label
+- 2025-12-30T10:24:36Z @tobiu added the `ai` label
+- 2025-12-30T10:24:43Z @tobiu added parent issue #8169
+- 2025-12-30T10:24:51Z @tobiu assigned to @tobiu
+- 2025-12-30T10:30:48Z @tobiu referenced in commit `e071005` - "Expose connected agents in Neural Link health check #8215"
+- 2025-12-30T10:30:58Z @tobiu closed this issue
 

@@ -43,13 +43,13 @@ This ticket proposes to refactor `buildScripts/generate-seo-files.mjs` to use th
 -   All existing command-line options are supported and function as before.
 -   The script's output and behavior are unchanged when invoked with the same arguments.
 
-## Activity Log
+## Timeline
 
-- 2025-11-11 @tobiu assigned to @tobiu
-- 2025-11-11 @tobiu added the `enhancement` label
-- 2025-11-11 @tobiu added the `ai` label
-- 2025-11-11 @tobiu added the `refactoring` label
-- 2025-11-11 @tobiu added parent issue #7446
-- 2025-11-11 @tobiu referenced in commit `450ea66` - "Refactor generate-seo-files.mjs: Implement CLI Option Parsing with Commander #7745"
-- 2025-11-11 @tobiu closed this issue
+- 2025-11-11T12:33:25Z @tobiu assigned to @tobiu
+- 2025-11-11T12:33:26Z @tobiu added the `enhancement` label
+- 2025-11-11T12:33:26Z @tobiu added the `ai` label
+- 2025-11-11T12:33:26Z @tobiu added the `refactoring` label
+- 2025-11-11T12:33:49Z @tobiu added parent issue #7446
+- 2025-11-11T12:59:21Z @tobiu referenced in commit `450ea66` - "Refactor generate-seo-files.mjs: Implement CLI Option Parsing with Commander #7745"
+- 2025-11-11T12:59:39Z @tobiu closed this issue
 

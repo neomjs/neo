@@ -36,16 +36,14 @@ This final ticket for the epic covers the creation of a guide for contributors o
 4.  The necessary configuration steps (e.g., environment variables, local config files) are clearly documented.
 5.  This ensures that any contributor can leverage a stateful, accountable AI partner in a way that best fits their workflow.
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-10-24 09:53
+- 2025-10-01T21:11:40Z @tobiu assigned to @tobiu
+- 2025-10-01T21:11:41Z @tobiu added the `enhancement` label
+- 2025-10-01T21:11:41Z @tobiu added parent issue #7316
+### @tobiu - 2025-10-24T09:53:17Z
 
 dropped.
 
-## Activity Log
-
-- 2025-10-01 @tobiu assigned to @tobiu
-- 2025-10-01 @tobiu added the `enhancement` label
-- 2025-10-01 @tobiu added parent issue #7316
-- 2025-10-24 @tobiu closed this issue
+- 2025-10-24T09:53:17Z @tobiu closed this issue
 

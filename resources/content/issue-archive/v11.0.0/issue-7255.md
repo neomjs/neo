@@ -30,11 +30,11 @@ To improve project organization, the Playwright configuration and test output ar
 - Set the JSON reporter's `outputFile` to be inside the new `outputDir`.
 - Updated `.gitignore` to correctly ignore the new test artifact locations.
 
-## Activity Log
+## Timeline
 
-- 2025-09-25 @tobiu assigned to @tobiu
-- 2025-09-25 @tobiu added the `enhancement` label
-- 2025-09-25 @tobiu referenced in commit `22ceb70` - "Refactor Playwright Test Configuration #7255"
-- 2025-09-25 @tobiu closed this issue
-- 2025-09-27 @tobiu added parent issue #7262
+- 2025-09-25T21:26:37Z @tobiu assigned to @tobiu
+- 2025-09-25T21:26:39Z @tobiu added the `enhancement` label
+- 2025-09-25T21:27:21Z @tobiu referenced in commit `22ceb70` - "Refactor Playwright Test Configuration #7255"
+- 2025-09-25T21:27:28Z @tobiu closed this issue
+- 2025-09-27T11:18:05Z @tobiu added parent issue #7262
 

@@ -43,11 +43,11 @@ This article will significantly improve developer onboarding for Solid.js develo
 *   `learn/comparisons/NeoVsSolid.md` (new file)
 *   `learn/comparisons/Overview.md` (already updated to include this link)
 
-## Activity Log
+## Timeline
 
-- 2025-07-12 @tobiu assigned to @tobiu
-- 2025-07-12 @tobiu added parent issue #7029
-- 2025-07-12 @tobiu added the `enhancement` label
-- 2025-07-12 @tobiu referenced in commit `46bfed4` - "Feature: Add Neo.mjs vs. Solid.js Comparison Article #7031"
-- 2025-07-12 @tobiu closed this issue
+- 2025-07-12T21:09:31Z @tobiu assigned to @tobiu
+- 2025-07-12T21:09:32Z @tobiu added parent issue #7029
+- 2025-07-12T21:09:32Z @tobiu added the `enhancement` label
+- 2025-07-12T21:10:15Z @tobiu referenced in commit `46bfed4` - "Feature: Add Neo.mjs vs. Solid.js Comparison Article #7031"
+- 2025-07-12T21:10:29Z @tobiu closed this issue
 

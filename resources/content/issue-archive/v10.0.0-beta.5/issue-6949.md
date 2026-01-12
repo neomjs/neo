@@ -23,10 +23,10 @@ closedAt: '2025-07-05T10:03:55Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
-- 2025-07-05 @tobiu assigned to @tobiu
-- 2025-07-05 @tobiu added the `enhancement` label
-- 2025-07-05 @tobiu referenced in commit `984208f` - "Neo.clone() => add support for copying symbol based object properties #6949"
-- 2025-07-05 @tobiu closed this issue
+- 2025-07-05T10:03:14Z @tobiu assigned to @tobiu
+- 2025-07-05T10:03:15Z @tobiu added the `enhancement` label
+- 2025-07-05T10:03:35Z @tobiu referenced in commit `984208f` - "Neo.clone() => add support for copying symbol based object properties #6949"
+- 2025-07-05T10:03:55Z @tobiu closed this issue
 

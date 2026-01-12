@@ -29,9 +29,17 @@ Explain why we need the 4 envs, what they do and how they play together
 * dist/production
 * dist/development
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-06-13 20:46
+- 2025-06-12T16:05:21Z @tobiu added the `enhancement` label
+- 2025-06-12T16:05:21Z @tobiu added the `no auto close` label
+- 2025-06-12T16:12:02Z @tobiu added the `documentation` label
+- 2025-06-13T19:36:07Z @tobiu referenced in commit `c9c52da` - "Learning Content: 4 envs #6776 => introduction, dev mode"
+- 2025-06-13T20:05:42Z @tobiu referenced in commit `5cb8a66` - "Learning Content: 4 envs #6776 => dist/esm"
+- 2025-06-13T20:17:58Z @tobiu referenced in commit `cd69ff6` - "Learning Content: 4 envs #6776 => dist/esm => h3 headlines, dist/prod"
+- 2025-06-13T20:25:29Z @tobiu referenced in commit `eef0307` - "Learning Content: 4 envs #6776 => dist/dev"
+- 2025-06-13T20:45:23Z @tobiu referenced in commit `12f5206` - "Learning Content: 4 envs #6776 => Environment Combinations"
+### @tobiu - 2025-06-13T20:46:05Z
 
 Final thoughts from Gemini:
 
@@ -67,15 +75,5 @@ These elements make the article highly scannable and digestible. A reader can ea
 
 In essence, the article effectively communicates a strong value proposition, backs it with solid technical explanations, and thoughtfully addresses potential concerns. It positions Neo.mjs not just as an alternative, but as a genuinely innovative and future-proof solution for modern web development.
 
-## Activity Log
-
-- 2025-06-12 @tobiu added the `enhancement` label
-- 2025-06-12 @tobiu added the `no auto close` label
-- 2025-06-12 @tobiu added the `documentation` label
-- 2025-06-13 @tobiu referenced in commit `c9c52da` - "Learning Content: 4 envs #6776 => introduction, dev mode"
-- 2025-06-13 @tobiu referenced in commit `5cb8a66` - "Learning Content: 4 envs #6776 => dist/esm"
-- 2025-06-13 @tobiu referenced in commit `cd69ff6` - "Learning Content: 4 envs #6776 => dist/esm => h3 headlines, dist/prod"
-- 2025-06-13 @tobiu referenced in commit `eef0307` - "Learning Content: 4 envs #6776 => dist/dev"
-- 2025-06-13 @tobiu referenced in commit `12f5206` - "Learning Content: 4 envs #6776 => Environment Combinations"
-- 2025-06-13 @tobiu closed this issue
+- 2025-06-13T20:46:05Z @tobiu closed this issue
 

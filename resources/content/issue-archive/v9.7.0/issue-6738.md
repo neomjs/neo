@@ -23,10 +23,10 @@ closedAt: '2025-06-01T14:46:42Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
-- 2025-06-01 @tobiu assigned to @tobiu
-- 2025-06-01 @tobiu added the `enhancement` label
-- 2025-06-01 @tobiu referenced in commit `643dc36` - "worker.ServiceBase: cache dist/esm files by default #6738"
-- 2025-06-01 @tobiu closed this issue
+- 2025-06-01T14:46:24Z @tobiu assigned to @tobiu
+- 2025-06-01T14:46:25Z @tobiu added the `enhancement` label
+- 2025-06-01T14:46:38Z @tobiu referenced in commit `643dc36` - "worker.ServiceBase: cache dist/esm files by default #6738"
+- 2025-06-01T14:46:42Z @tobiu closed this issue
 

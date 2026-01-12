@@ -32,11 +32,11 @@ The solution uses the CLI's default context-loading mechanism to provide a persi
 
 This approach ensures that the agent will always perform the correct initialization sequence upon receiving the first user prompt of a session.
 
-## Activity Log
+## Timeline
 
-- 2025-11-02 @tobiu added the `enhancement` label
-- 2025-11-02 @tobiu added the `ai` label
-- 2025-11-02 @tobiu assigned to @tobiu
-- 2025-11-02 @tobiu referenced in commit `aaba69c` - "Feat: Implement Automatic Agent Initialization via GEMINI.md #7694"
-- 2025-11-02 @tobiu closed this issue
+- 2025-11-02T18:38:40Z @tobiu added the `enhancement` label
+- 2025-11-02T18:38:40Z @tobiu added the `ai` label
+- 2025-11-02T18:39:54Z @tobiu assigned to @tobiu
+- 2025-11-02T18:40:26Z @tobiu referenced in commit `aaba69c` - "Feat: Implement Automatic Agent Initialization via GEMINI.md #7694"
+- 2025-11-02T18:40:37Z @tobiu closed this issue
 

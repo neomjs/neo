@@ -27,12 +27,12 @@ Create and maintain a Playwright test suite for the Neural Link architecture.
 - Verify JSON-RPC message passing (Client <-> Server).
 - Verify integration with the Neural Link Testbed App.
 
-## Activity Log
+## Timeline
 
-- 2025-12-03 @tobiu added the `ai` label
-- 2025-12-03 @tobiu added the `testing` label
-- 2025-12-03 @tobiu assigned to @tobiu
-- 2025-12-03 @tobiu referenced in commit `1b6a625` - "Implement End-to-End Tests for Neural Link #8013"
-- 2025-12-03 @tobiu added parent issue #7960
-- 2025-12-03 @tobiu closed this issue
+- 2025-12-03T21:38:08Z @tobiu added the `ai` label
+- 2025-12-03T21:38:09Z @tobiu added the `testing` label
+- 2025-12-03T21:38:50Z @tobiu assigned to @tobiu
+- 2025-12-03T21:40:05Z @tobiu referenced in commit `1b6a625` - "Implement End-to-End Tests for Neural Link #8013"
+- 2025-12-03T21:40:30Z @tobiu added parent issue #7960
+- 2025-12-03T21:40:35Z @tobiu closed this issue
 

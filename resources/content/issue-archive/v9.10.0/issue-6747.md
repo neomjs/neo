@@ -23,10 +23,10 @@ closedAt: '2025-06-03T14:14:47Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
-- 2025-06-03 @tobiu assigned to @tobiu
-- 2025-06-03 @tobiu added the `enhancement` label
-- 2025-06-03 @tobiu referenced in commit `533e3ce` - "buildScripts/webpack/buildThreads: add the task worker #6747"
-- 2025-06-03 @tobiu closed this issue
+- 2025-06-03T14:13:13Z @tobiu assigned to @tobiu
+- 2025-06-03T14:13:14Z @tobiu added the `enhancement` label
+- 2025-06-03T14:13:31Z @tobiu referenced in commit `533e3ce` - "buildScripts/webpack/buildThreads: add the task worker #6747"
+- 2025-06-03T14:14:47Z @tobiu closed this issue
 

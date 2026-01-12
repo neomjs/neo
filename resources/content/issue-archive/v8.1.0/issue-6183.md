@@ -23,10 +23,10 @@ closedAt: '2025-01-06T15:38:20Z'
 
 the method should rely on the `startIndex` config plus `this.store.items`, no exceptions.
 
-## Activity Log
+## Timeline
 
-- 2025-01-06 @tobiu added the `enhancement` label
-- 2025-01-06 @tobiu assigned to @tobiu
-- 2025-01-06 @tobiu referenced in commit `d4d8cdf` - "grid.View: createViewData() => remove the params #6183"
-- 2025-01-06 @tobiu closed this issue
+- 2025-01-06T15:37:59Z @tobiu added the `enhancement` label
+- 2025-01-06T15:37:59Z @tobiu assigned to @tobiu
+- 2025-01-06T15:38:15Z @tobiu referenced in commit `d4d8cdf` - "grid.View: createViewData() => remove the params #6183"
+- 2025-01-06T15:38:20Z @tobiu closed this issue
 

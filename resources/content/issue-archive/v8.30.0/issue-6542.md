@@ -26,9 +26,9 @@ the view controller or component tree hierarchy.
 In this case, it is helpful to know what the related record is, so we are adding the record
 to the component as a property. By default, as 'record', but this config can change the property name.
 
-## Activity Log
+## Timeline
 
-- 2025-03-04 @tobiu added the `enhancement` label
-- 2025-03-04 @tobiu referenced in commit `2614a87` - "grid.column.Component: recordProperty config #6542"
-- 2025-03-04 @tobiu closed this issue
+- 2025-03-04T18:19:58Z @tobiu added the `enhancement` label
+- 2025-03-04T18:20:15Z @tobiu referenced in commit `2614a87` - "grid.column.Component: recordProperty config #6542"
+- 2025-03-04T18:20:27Z @tobiu closed this issue
 

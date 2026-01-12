@@ -25,10 +25,10 @@ Right now, it triggers the Navigator inside `main`, even in case the list is not
 
 Instead, there should be a new method which triggers main if mounted or delays the main access until being mounted.
 
-## Activity Log
+## Timeline
 
-- 2025-01-21 @tobiu added the `enhancement` label
-- 2025-01-21 @tobiu assigned to @tobiu
-- 2025-01-21 @tobiu referenced in commit `1527a6f` - "list.Base: afterSetFocusIndex() => honor the mounted state #6265"
-- 2025-01-21 @tobiu closed this issue
+- 2025-01-21T18:03:50Z @tobiu added the `enhancement` label
+- 2025-01-21T18:03:50Z @tobiu assigned to @tobiu
+- 2025-01-21T18:29:26Z @tobiu referenced in commit `1527a6f` - "list.Base: afterSetFocusIndex() => honor the mounted state #6265"
+- 2025-01-21T18:29:33Z @tobiu closed this issue
 

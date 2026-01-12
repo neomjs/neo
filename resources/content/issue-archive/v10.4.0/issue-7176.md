@@ -48,10 +48,10 @@ A descriptive comment was also added to the code to explain the rationale behind
 - **Reduced CPU Load:** Avoids a large, unnecessary VDOM diffing operation.
 - **Improved Code Efficiency:** Handles a common, specific use case with a highly optimized, targeted solution.
 
-## Activity Log
+## Timeline
 
-- 2025-08-11 @tobiu assigned to @tobiu
-- 2025-08-11 @tobiu added the `enhancement` label
-- 2025-08-11 @tobiu referenced in commit `d19f6d8` - "GridBody onStoreLoad Fast Path for Clearing Rows #7176"
-- 2025-08-11 @tobiu closed this issue
+- 2025-08-11T08:33:21Z @tobiu assigned to @tobiu
+- 2025-08-11T08:33:22Z @tobiu added the `enhancement` label
+- 2025-08-11T08:34:04Z @tobiu referenced in commit `d19f6d8` - "GridBody onStoreLoad Fast Path for Clearing Rows #7176"
+- 2025-08-11T08:34:13Z @tobiu closed this issue
 

@@ -24,10 +24,10 @@ closedAt: '2025-04-06T16:42:37Z'
 * `draggable.toolbar.SortZone` checks for a `layout.direction`.
 * This works fine for the grid & tab header toolbar, but a table header toolbar is using `layout.Base` => has no direction
 
-## Activity Log
+## Timeline
 
-- 2025-04-06 @tobiu added the `bug` label
-- 2025-04-06 @tobiu assigned to @tobiu
-- 2025-04-06 @tobiu referenced in commit `ef008dc` - "table.header.Toolbar: drag&drop resorting broken #6625"
-- 2025-04-06 @tobiu closed this issue
+- 2025-04-06T16:42:11Z @tobiu added the `bug` label
+- 2025-04-06T16:42:17Z @tobiu assigned to @tobiu
+- 2025-04-06T16:42:30Z @tobiu referenced in commit `ef008dc` - "table.header.Toolbar: drag&drop resorting broken #6625"
+- 2025-04-06T16:42:37Z @tobiu closed this issue
 

@@ -61,14 +61,14 @@ The tutorial should guide the user through the following steps:
 -   The final result is a simple but functional multi-page application.
 -   The new tutorial is added to the `learn/tree.json` file.
 
-## Activity Log
+## Timeline
 
-- 2025-09-20 @tobiu assigned to @tobiu
-- 2025-09-20 @tobiu added the `documentation` label
-- 2025-09-20 @tobiu added the `enhancement` label
-- 2025-09-20 @tobiu added the `no auto close` label
-- 2025-09-20 @tobiu referenced in commit `355efab` - "#7223 Initial draft"
-- 2025-09-20 @tobiu referenced in commit `844cb94` - "#7223 Fully functional version"
-- 2025-09-20 @tobiu closed this issue
-- 2025-09-20 @tobiu referenced in commit `0fc27e0` - "#7223 cleanup"
+- 2025-09-20T12:00:30Z @tobiu assigned to @tobiu
+- 2025-09-20T12:00:31Z @tobiu added the `documentation` label
+- 2025-09-20T12:00:31Z @tobiu added the `enhancement` label
+- 2025-09-20T12:00:31Z @tobiu added the `no auto close` label
+- 2025-09-20T12:43:26Z @tobiu referenced in commit `355efab` - "#7223 Initial draft"
+- 2025-09-20T13:09:18Z @tobiu referenced in commit `844cb94` - "#7223 Fully functional version"
+- 2025-09-20T13:11:04Z @tobiu closed this issue
+- 2025-09-20T13:21:28Z @tobiu referenced in commit `0fc27e0` - "#7223 cleanup"
 

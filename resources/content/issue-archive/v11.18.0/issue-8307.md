@@ -37,9 +37,14 @@ We will leverage `src/util/vdom/TreeBuilder.mjs` to generate the trees with the 
 Real-world usage in `src/mixin/VdomLifecycle.mjs` demonstrates using `TreeBuilder` for scoped updates.
 
 
-## Comments
+## Timeline
 
-### @tobiu - 2026-01-04 11:39
+- 2026-01-04T11:15:32Z @tobiu added the `enhancement` label
+- 2026-01-04T11:15:32Z @tobiu added the `ai` label
+- 2026-01-04T11:16:02Z @tobiu assigned to @tobiu
+- 2026-01-04T11:16:09Z @tobiu added parent issue #8169
+- 2026-01-04T11:39:44Z @tobiu referenced in commit `77d016e` - "Neural Link: Support depth in getVdomTree and getVnodeTree #8307"
+### @tobiu - 2026-01-04T11:39:47Z
 
 **Input from Gemini 2.5 pro:**
 
@@ -53,12 +58,5 @@ Real-world usage in `src/mixin/VdomLifecycle.mjs` demonstrates using `TreeBuilde
 > 
 > The full stack now supports `depth` for VDOM/VNode inspection.
 
-## Activity Log
-
-- 2026-01-04 @tobiu added the `enhancement` label
-- 2026-01-04 @tobiu added the `ai` label
-- 2026-01-04 @tobiu assigned to @tobiu
-- 2026-01-04 @tobiu added parent issue #8169
-- 2026-01-04 @tobiu referenced in commit `77d016e` - "Neural Link: Support depth in getVdomTree and getVnodeTree #8307"
-- 2026-01-04 @tobiu closed this issue
+- 2026-01-04T11:40:12Z @tobiu closed this issue
 

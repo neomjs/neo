@@ -30,11 +30,11 @@ The key refinements include:
 3.  **Detailing the Decoupling Strategy:** A new section was added to outline the v11.1 plan to publish the Memory Core and GitHub Sync servers as standalone npm packages from within the mono-repo.
 4.  **Enhancing Initiative Descriptions:** The "Mandatory Unit Testing" initiative was expanded to explain the "why" behind the migration to a Node.js-based test runner (enabling agent self-verification and CI/CD).
 
-## Activity Log
+## Timeline
 
-- 2025-10-09 @tobiu assigned to @tobiu
-- 2025-10-09 @tobiu added the `documentation` label
-- 2025-10-09 @tobiu added parent issue #7264
-- 2025-10-09 @tobiu referenced in commit `c8dde33` - "Refine and Update Project Roadmap #7429"
-- 2025-10-09 @tobiu closed this issue
+- 2025-10-09T20:33:42Z @tobiu assigned to @tobiu
+- 2025-10-09T20:33:43Z @tobiu added the `documentation` label
+- 2025-10-09T20:33:43Z @tobiu added parent issue #7264
+- 2025-10-09T20:34:36Z @tobiu referenced in commit `c8dde33` - "Refine and Update Project Roadmap #7429"
+- 2025-10-09T20:34:45Z @tobiu closed this issue
 

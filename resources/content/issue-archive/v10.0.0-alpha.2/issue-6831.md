@@ -25,10 +25,10 @@ closedAt: '2025-06-18T00:15:01Z'
 * this lead to configs being moved into the mixin owner, as a workaround
 * now we can finally clean this part up
 
-## Activity Log
+## Timeline
 
-- 2025-06-18 @tobiu assigned to @tobiu
-- 2025-06-18 @tobiu added the `enhancement` label
-- 2025-06-18 @tobiu referenced in commit `5aaf6e3` - "main.DeltaUpdates: move relevant DomAccess configs over #6831"
-- 2025-06-18 @tobiu closed this issue
+- 2025-06-18T00:14:32Z @tobiu assigned to @tobiu
+- 2025-06-18T00:14:33Z @tobiu added the `enhancement` label
+- 2025-06-18T00:14:58Z @tobiu referenced in commit `5aaf6e3` - "main.DeltaUpdates: move relevant DomAccess configs over #6831"
+- 2025-06-18T00:15:01Z @tobiu closed this issue
 

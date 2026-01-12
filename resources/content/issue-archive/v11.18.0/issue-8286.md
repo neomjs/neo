@@ -37,13 +37,13 @@ Enhance `src/main/DomAccess.mjs` `getElement(id)` to support reserved keywords:
 Provides a single source of truth for DOM node resolution across the framework, avoiding duplicate logic in addons.
 
 
-## Activity Log
+## Timeline
 
-- 2026-01-02 @tobiu added the `enhancement` label
-- 2026-01-02 @tobiu added the `core` label
-- 2026-01-02 @tobiu added the `ai` label
-- 2026-01-02 @tobiu added parent issue #8169
-- 2026-01-02 @tobiu closed this issue
-- 2026-01-02 @tobiu assigned to @tobiu
-- 2026-01-04 @jonnyamsp referenced in commit `48f9a47` - "enhancement(main): Enhance DomAccess.getElement to support window, document and body targets. Resolves #8286"
+- 2026-01-02T10:50:34Z @tobiu added the `enhancement` label
+- 2026-01-02T10:50:34Z @tobiu added the `core` label
+- 2026-01-02T10:50:50Z @tobiu added the `ai` label
+- 2026-01-02T10:51:02Z @tobiu added parent issue #8169
+- 2026-01-02T11:04:31Z @tobiu closed this issue
+- 2026-01-02T11:05:05Z @tobiu assigned to @tobiu
+- 2026-01-04T03:10:29Z @jonnyamsp referenced in commit `48f9a47` - "enhancement(main): Enhance DomAccess.getElement to support window, document and body targets. Resolves #8286"
 

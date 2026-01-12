@@ -34,10 +34,10 @@ Implications:
 This refactoring makes sense for a utility like `IdGenerator` that doesn't need the full power of the Neo.mjs class
 system and is intended to be a simple, globally accessible singleton.
 
-## Activity Log
+## Timeline
 
-- 2025-07-10 @tobiu assigned to @tobiu
-- 2025-07-10 @tobiu added the `enhancement` label
-- 2025-07-10 @tobiu referenced in commit `afff146` - "core.IdGenerator: switch from singleton to plain object #7006"
-- 2025-07-10 @tobiu closed this issue
+- 2025-07-10T19:44:04Z @tobiu assigned to @tobiu
+- 2025-07-10T19:44:05Z @tobiu added the `enhancement` label
+- 2025-07-10T19:44:28Z @tobiu referenced in commit `afff146` - "core.IdGenerator: switch from singleton to plain object #7006"
+- 2025-07-10T19:44:34Z @tobiu closed this issue
 

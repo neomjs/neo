@@ -30,17 +30,15 @@ The `robots.txt` file gives instructions to web crawlers about which pages they 
 2.  Ensure the file includes a `Sitemap:` directive pointing to the absolute URL of the `sitemap.xml` file (e.g., `Sitemap: https://neomjs.com/sitemap.xml`).
 3.  Optionally, this process can be automated as part of the `generate-seo-files.mjs` build script.
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-11-11 12:27
+- 2025-10-10T20:20:28Z @tobiu assigned to @tobiu
+- 2025-10-10T20:20:29Z @tobiu added the `enhancement` label
+- 2025-10-10T20:20:29Z @tobiu added the `ai` label
+- 2025-10-10T20:20:29Z @tobiu added parent issue #7446
+### @tobiu - 2025-11-11T12:27:24Z
 
 resolved.
 
-## Activity Log
-
-- 2025-10-10 @tobiu assigned to @tobiu
-- 2025-10-10 @tobiu added the `enhancement` label
-- 2025-10-10 @tobiu added the `ai` label
-- 2025-10-10 @tobiu added parent issue #7446
-- 2025-11-11 @tobiu closed this issue
+- 2025-11-11T12:27:24Z @tobiu closed this issue
 

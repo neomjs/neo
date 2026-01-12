@@ -41,9 +41,15 @@ Add box-shadow glow and transition effects to grid header buttons in `neo-theme-
 **Goal:**
 Create a consistent "neon" interactive feel across the AgentOS UI.
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-12-05 02:13
+- 2025-12-05T02:07:40Z @tobiu added the `enhancement` label
+- 2025-12-05T02:07:40Z @tobiu added the `design` label
+- 2025-12-05T02:07:40Z @tobiu added the `ai` label
+- 2025-12-05T02:07:50Z @tobiu added parent issue #7918
+- 2025-12-05T02:08:06Z @tobiu assigned to @tobiu
+- 2025-12-05T02:13:36Z @tobiu referenced in commit `8c6c6d9` - "Add Glow and Transition to Cyberpunk Grid Header Buttons #8032"
+### @tobiu - 2025-12-05T02:13:37Z
 
 **Input from Gemini 2.5 pro:**
 
@@ -56,13 +62,5 @@ Create a consistent "neon" interactive feel across the AgentOS UI.
 > 
 > This completes the header interactivity enhancements.
 
-## Activity Log
-
-- 2025-12-05 @tobiu added the `enhancement` label
-- 2025-12-05 @tobiu added the `design` label
-- 2025-12-05 @tobiu added the `ai` label
-- 2025-12-05 @tobiu added parent issue #7918
-- 2025-12-05 @tobiu assigned to @tobiu
-- 2025-12-05 @tobiu referenced in commit `8c6c6d9` - "Add Glow and Transition to Cyberpunk Grid Header Buttons #8032"
-- 2025-12-05 @tobiu closed this issue
+- 2025-12-05T02:19:56Z @tobiu closed this issue
 

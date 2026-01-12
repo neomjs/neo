@@ -29,15 +29,13 @@ I will add follow-up tickets for `CellColumnModel`, `CellColumnRowModel`
 
 We could move parts of the new logic into `selection.grid.BaseModel` => follow-up story as well.
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-03-03 07:30
+- 2025-01-28T17:25:53Z @tobiu added the `enhancement` label
+- 2025-01-28T17:25:53Z @tobiu assigned to @tobiu
+### @tobiu - 2025-03-03T07:30:04Z
 
 the buffered rendering selection models story is resolved.
 
-## Activity Log
-
-- 2025-01-28 @tobiu added the `enhancement` label
-- 2025-01-28 @tobiu assigned to @tobiu
-- 2025-03-03 @tobiu closed this issue
+- 2025-03-03T07:30:04Z @tobiu closed this issue
 

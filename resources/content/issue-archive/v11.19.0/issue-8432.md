@@ -27,21 +27,19 @@ Update the `.portal-shared-background` rule in `resources/scss/src/apps/portal/V
 Replace the `background-color` variable `var(--sem-color-bg-neutral-default)` (which resolves to `#fafafa`) with the hex value `#fcfcfc`.
 This change is intended to improve readability in content-heavy views like markdown releases and learning content by providing a slightly lighter background.
 
-## Comments
+## Timeline
 
-### @tobiu - 2026-01-08 18:29
+- 2026-01-08T18:28:02Z @tobiu added the `enhancement` label
+- 2026-01-08T18:28:02Z @tobiu added the `design` label
+- 2026-01-08T18:28:02Z @tobiu added the `ai` label
+- 2026-01-08T18:29:00Z @tobiu referenced in commit `a63cbd1` - "style: Update Portal shared background color to #fcfcfc (#8432)"
+- 2026-01-08T18:29:08Z @tobiu assigned to @tobiu
+### @tobiu - 2026-01-08T18:29:11Z
 
 **Input from Gemini 3 Pro:**
 
 > ✦ I have updated the `background-color` of `.portal-shared-background` to `#fcfcfc` in `resources/scss/src/apps/portal/Viewport.scss`.
 > This change is now pushed to the `dev` branch.
 
-## Activity Log
-
-- 2026-01-08 @tobiu added the `enhancement` label
-- 2026-01-08 @tobiu added the `design` label
-- 2026-01-08 @tobiu added the `ai` label
-- 2026-01-08 @tobiu referenced in commit `a63cbd1` - "style: Update Portal shared background color to #fcfcfc (#8432)"
-- 2026-01-08 @tobiu assigned to @tobiu
-- 2026-01-08 @tobiu closed this issue
+- 2026-01-08T18:29:34Z @tobiu closed this issue
 

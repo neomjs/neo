@@ -33,9 +33,9 @@ Implement a robust validation hook or Topology Manager.
     *   Allow Child -> Parent drops, but block Parent -> Child.
     *   Enforce "One instance only" rules.
 
-## Activity Log
+## Timeline
 
-- 2025-12-27 @tobiu added the `enhancement` label
-- 2025-12-27 @tobiu added the `ai` label
-- 2025-12-27 @tobiu added parent issue #8163
+- 2025-12-27T21:33:20Z @tobiu added the `enhancement` label
+- 2025-12-27T21:33:20Z @tobiu added the `ai` label
+- 2025-12-27T21:33:50Z @tobiu added parent issue #8163
 

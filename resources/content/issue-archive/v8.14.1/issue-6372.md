@@ -29,10 +29,10 @@ This is a funny one. first thought was it is related to the vdom update changes.
 
 Long story short: when the callback gets triggered, we need to check if the cmp is already mounted. 
 
-## Activity Log
+## Timeline
 
-- 2025-02-03 @tobiu added the `bug` label
-- 2025-02-03 @tobiu assigned to @tobiu
-- 2025-02-03 @tobiu referenced in commit `24660d9` - "Portal.view.learn: moving a live preview into a popup sometimes renders the cmp into the same window again #6372"
-- 2025-02-03 @tobiu closed this issue
+- 2025-02-03T22:51:52Z @tobiu added the `bug` label
+- 2025-02-03T22:51:52Z @tobiu assigned to @tobiu
+- 2025-02-03T22:52:42Z @tobiu referenced in commit `24660d9` - "Portal.view.learn: moving a live preview into a popup sometimes renders the cmp into the same window again #6372"
+- 2025-02-03T22:52:51Z @tobiu closed this issue
 

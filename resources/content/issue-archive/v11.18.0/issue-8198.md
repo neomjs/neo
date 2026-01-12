@@ -30,11 +30,11 @@ The `get_all_summaries` tool fails with a schema validation error because it ret
 **Proposed Fix:**
 Update `ai/mcp/server/memory-core/services/SummaryService.mjs` to convert the `timestamp` metadata to an ISO string in both `listSummaries` and `querySummaries`.
 
-## Activity Log
+## Timeline
 
-- 2025-12-29 @tobiu added the `bug` label
-- 2025-12-29 @tobiu added the `ai` label
-- 2025-12-29 @tobiu assigned to @tobiu
-- 2025-12-29 @tobiu referenced in commit `d0eab0a` - "[Memory Core] Fix timestamp schema validation error in get_all_summaries #8198"
-- 2025-12-29 @tobiu closed this issue
+- 2025-12-29T05:13:29Z @tobiu added the `bug` label
+- 2025-12-29T05:13:29Z @tobiu added the `ai` label
+- 2025-12-29T05:13:50Z @tobiu assigned to @tobiu
+- 2025-12-29T05:20:36Z @tobiu referenced in commit `d0eab0a` - "[Memory Core] Fix timestamp schema validation error in get_all_summaries #8198"
+- 2025-12-29T05:20:45Z @tobiu closed this issue
 

@@ -33,12 +33,12 @@ This ticket covers refactoring the final service for the `github-workflow` serve
 5.  The `ai/mcp/server/github-workflow/services/toolService.mjs` is updated to use the new `PullRequestService` class.
 6.  All related tools (`list_pull_requests`, `checkout_pull_request`, etc.) continue to function correctly after the refactoring.
 
-## Activity Log
+## Timeline
 
-- 2025-10-19 @tobiu assigned to @tobiu
-- 2025-10-19 @tobiu added parent issue #7536
-- 2025-10-19 @tobiu added the `enhancement` label
-- 2025-10-19 @tobiu added the `ai` label
-- 2025-10-19 @tobiu referenced in commit `654e22e` - "Convert pullRequestService to PullRequestService Neo.mjs Class #7559"
-- 2025-10-19 @tobiu closed this issue
+- 2025-10-19T22:57:15Z @tobiu assigned to @tobiu
+- 2025-10-19T22:57:16Z @tobiu added parent issue #7536
+- 2025-10-19T22:57:17Z @tobiu added the `enhancement` label
+- 2025-10-19T22:57:17Z @tobiu added the `ai` label
+- 2025-10-19T22:57:58Z @tobiu referenced in commit `654e22e` - "Convert pullRequestService to PullRequestService Neo.mjs Class #7559"
+- 2025-10-19T22:58:05Z @tobiu closed this issue
 

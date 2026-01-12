@@ -30,11 +30,11 @@ This task is to migrate the unit test for `config/Basic.mjs` from the Siesta tes
 3.  Ensure the new test runs successfully via `npm test`.
 4.  The new test must cover all the functionality of the original Siesta test.
 
-## Activity Log
+## Timeline
 
-- 2025-09-27 @tobiu added parent issue #7262
-- 2025-09-27 @tobiu added the `enhancement` label
-- 2025-09-30 @tobiu referenced in commit `0294c93` - "Convert config/Basic.mjs Test from Siesta to Playwright #7274"
-- 2025-09-30 @tobiu assigned to @tobiu
-- 2025-09-30 @tobiu closed this issue
+- 2025-09-27T13:19:28Z @tobiu added parent issue #7262
+- 2025-09-27T13:19:28Z @tobiu added the `enhancement` label
+- 2025-09-30T11:15:58Z @tobiu referenced in commit `0294c93` - "Convert config/Basic.mjs Test from Siesta to Playwright #7274"
+- 2025-09-30T11:16:24Z @tobiu assigned to @tobiu
+- 2025-09-30T11:16:28Z @tobiu closed this issue
 

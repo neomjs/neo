@@ -25,10 +25,10 @@ closedAt: '2025-06-25T15:17:24Z'
 * The new method should contain the singleton check (instead of `initRemote()`)
 * a potential error will get thrown earlier inside the instance lifecycle
 
-## Activity Log
+## Timeline
 
-- 2025-06-25 @tobiu assigned to @tobiu
-- 2025-06-25 @tobiu added the `enhancement` label
-- 2025-06-25 @tobiu referenced in commit `ddda487` - "core.Base: remote => remote_ #6869"
-- 2025-06-25 @tobiu closed this issue
+- 2025-06-25T15:16:46Z @tobiu assigned to @tobiu
+- 2025-06-25T15:16:48Z @tobiu added the `enhancement` label
+- 2025-06-25T15:17:16Z @tobiu referenced in commit `ddda487` - "core.Base: remote => remote_ #6869"
+- 2025-06-25T15:17:24Z @tobiu closed this issue
 

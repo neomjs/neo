@@ -26,10 +26,10 @@ closedAt: '2025-02-26T20:04:04Z'
 * first call needs to create the flexbox layout
 * following calls need to change layout configs
 
-## Activity Log
+## Timeline
 
-- 2025-02-26 @tobiu added the `enhancement` label
-- 2025-02-26 @tobiu assigned to @tobiu
-- 2025-02-26 @tobiu referenced in commit `ef00079` - "toolbar.Base: afterSetDock() => re-use layout instances #6498"
-- 2025-02-26 @tobiu closed this issue
+- 2025-02-26T16:17:04Z @tobiu added the `enhancement` label
+- 2025-02-26T16:17:04Z @tobiu assigned to @tobiu
+- 2025-02-26T20:03:59Z @tobiu referenced in commit `ef00079` - "toolbar.Base: afterSetDock() => re-use layout instances #6498"
+- 2025-02-26T20:04:04Z @tobiu closed this issue
 

@@ -32,9 +32,13 @@ Currently, developers must rely on listening to the `mutate` event on the `Neo.d
 **Additional context**
 This enhancement is a prerequisite for enabling more seamless and idiomatic binding to individual record properties via `Neo.state.Provider` (as described in a separate feature request). It is crucial to implement this in a way that does not significantly increase the memory footprint or processing overhead for each `Neo.data.Record` instance, as records are often used in large quantities within collections.
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-07-01 20:32
+- 2025-07-01T19:54:05Z @tobiu added the `enhancement` label
+- 2025-07-01T20:08:23Z @tobiu referenced in commit `999b659` - "Enhance Neo.data.Record for Granular Change Notification #6933 => added notifyChange() as the single source of truth for record field changes => applied to the record prototype."
+- 2025-07-01T20:20:58Z @tobiu referenced in commit `0e895c3` - "#6933 notifyChange() doc comment enhancement"
+- 2025-07-01T20:27:07Z @tobiu referenced in commit `73e3c79` - "#6933 notifyChange() => signature fix"
+### @tobiu - 2025-07-01T20:32:45Z
 
 **Clarification on Solution / Current Implementation Status:**
 
@@ -44,11 +48,5 @@ External entities, such as `Neo.state.Provider`, can leverage this by using `Neo
 
 This approach allows for granular record-level change detection without requiring the `Neo.data.Record` class to implement a full `Observable` mixin, thus preserving its lightweight nature. The foundation for granular change notification at the record level appears to be in place through the `notifyChange()` method's design and its interaction with `createSequence()`.
 
-## Activity Log
-
-- 2025-07-01 @tobiu added the `enhancement` label
-- 2025-07-01 @tobiu referenced in commit `999b659` - "Enhance Neo.data.Record for Granular Change Notification #6933 => added notifyChange() as the single source of truth for record field changes => applied to the record prototype."
-- 2025-07-01 @tobiu referenced in commit `0e895c3` - "#6933 notifyChange() doc comment enhancement"
-- 2025-07-01 @tobiu referenced in commit `73e3c79` - "#6933 notifyChange() => signature fix"
-- 2025-07-01 @tobiu closed this issue
+- 2025-07-01T20:32:45Z @tobiu closed this issue
 

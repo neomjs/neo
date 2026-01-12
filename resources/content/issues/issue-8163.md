@@ -48,17 +48,17 @@ This epic tracks the advanced refinement and functional expansion of the Cross-W
     *   Review `DragCoordinator` responsibility (is it doing too much visual calculation?).
     *   Comprehensive JSDoc cleanup across `SortZone`, `DashboardSortZone`, and `DragCoordinator`.
 
-## Activity Log
+## Timeline
 
-- 2025-12-27 @tobiu added the `epic` label
-- 2025-12-27 @tobiu added the `ai` label
-- 2025-12-27 @tobiu added the `architecture` label
-- 2025-12-27 @tobiu added sub-issue #8160
-- 2025-12-27 @tobiu added sub-issue #8161
-- 2025-12-27 @tobiu added sub-issue #8162
-- 2025-12-27 @tobiu added sub-issue #8164
-- 2025-12-27 @tobiu added sub-issue #8165
-- 2025-12-27 @tobiu added sub-issue #8166
-- 2025-12-27 @tobiu added sub-issue #8167
-- 2025-12-27 @tobiu assigned to @tobiu
+- 2025-12-27T21:26:46Z @tobiu added the `epic` label
+- 2025-12-27T21:26:46Z @tobiu added the `ai` label
+- 2025-12-27T21:26:46Z @tobiu added the `architecture` label
+- 2025-12-27T21:33:39Z @tobiu added sub-issue #8160
+- 2025-12-27T21:33:42Z @tobiu added sub-issue #8161
+- 2025-12-27T21:33:44Z @tobiu added sub-issue #8162
+- 2025-12-27T21:33:46Z @tobiu added sub-issue #8164
+- 2025-12-27T21:33:48Z @tobiu added sub-issue #8165
+- 2025-12-27T21:33:50Z @tobiu added sub-issue #8166
+- 2025-12-27T21:33:52Z @tobiu added sub-issue #8167
+- 2025-12-27T22:48:29Z @tobiu assigned to @tobiu
 

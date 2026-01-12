@@ -90,9 +90,10 @@ Labels
 
 @tobiu , I'd love to work on this issue.
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-10-21 14:36
+- 2025-10-21T14:18:48Z @Alachi24 added the `bug` label
+### @tobiu - 2025-10-21T14:36:14Z
 
 this one is tricky. i would say, chroma should resolve it on their own, e.g.: https://github.com/chroma-core/chroma/issues/5188
 
@@ -110,22 +111,19 @@ https://github.com/neomjs/neo/blob/dev/ai/mcp/server/memory-core/services/Chroma
 
 creating a guide is definitely fine too.
 
-### @Alachi24 - 2025-10-21 14:47
+- 2025-10-21T14:37:17Z @tobiu assigned to @Alachi24
+### @Alachi24 - 2025-10-21T14:47:22Z
 
 Thank you, I'll start working on it.
 Can you also include the labels I requested, especially the `Documentation` & `Hacktoberfest` @tobiu 
 
-## Activity Log
-
-- 2025-10-21 @Alachi24 added the `bug` label
-- 2025-10-21 @tobiu assigned to @Alachi24
-- 2025-10-21 @tobiu added the `documentation` label
-- 2025-10-21 @tobiu added the `good first issue` label
-- 2025-10-21 @tobiu added the `hacktoberfest` label
-- 2025-10-22 @Alachi24 referenced in commit `c837a7a` - "docs: add setup guide for x64 systems using WSL to resolve ChromaDB binding issues (#7596)"
-- 2025-10-23 @Alachi24 cross-referenced by PR #7617
-- 2025-10-24 @Alachi24 referenced in commit `055fed6` - "docs: add guide for running AI/ChromaDB tooling on Windows via WSL (#7596)"
-- 2025-10-24 @tobiu referenced in commit `269b0da` - "docs: add setup guide for x64 systems using WSL to resolve ChromaDB binding issues (#7596)"
-- 2025-10-24 @tobiu closed this issue
-- 2025-10-24 @tobiu referenced in commit `fdfd63c` - "docs: add guide for running AI/ChromaDB tooling on Windows via WSL (#7596)"
+- 2025-10-21T14:48:30Z @tobiu added the `documentation` label
+- 2025-10-21T14:48:30Z @tobiu added the `good first issue` label
+- 2025-10-21T14:48:30Z @tobiu added the `hacktoberfest` label
+- 2025-10-22T18:24:15Z @Alachi24 referenced in commit `c837a7a` - "docs: add setup guide for x64 systems using WSL to resolve ChromaDB binding issues (#7596)"
+- 2025-10-23T04:30:08Z @Alachi24 cross-referenced by PR #7617
+- 2025-10-24T13:45:26Z @Alachi24 referenced in commit `055fed6` - "docs: add guide for running AI/ChromaDB tooling on Windows via WSL (#7596)"
+- 2025-10-24T14:17:43Z @tobiu referenced in commit `269b0da` - "docs: add setup guide for x64 systems using WSL to resolve ChromaDB binding issues (#7596)"
+- 2025-10-24T14:17:43Z @tobiu closed this issue
+- 2025-10-24T14:17:43Z @tobiu referenced in commit `fdfd63c` - "docs: add guide for running AI/ChromaDB tooling on Windows via WSL (#7596)"
 

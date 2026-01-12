@@ -23,10 +23,10 @@ closedAt: '2025-05-13T12:20:26Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
-- 2025-05-13 @tobiu assigned to @tobiu
-- 2025-05-13 @tobiu added the `enhancement` label
-- 2025-05-13 @tobiu referenced in commit `c092d5a` - "component.Helix: onResize() => update expanded items #6709"
-- 2025-05-13 @tobiu closed this issue
+- 2025-05-13T12:19:18Z @tobiu assigned to @tobiu
+- 2025-05-13T12:19:19Z @tobiu added the `enhancement` label
+- 2025-05-13T12:20:11Z @tobiu referenced in commit `c092d5a` - "component.Helix: onResize() => update expanded items #6709"
+- 2025-05-13T12:20:27Z @tobiu closed this issue
 

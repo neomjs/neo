@@ -38,13 +38,13 @@ This addresses the behavioral issue where an agent "forgets" to save a turn. The
 *   **Action:** We will introduce the concept of a **"Pre-Flight Check"** into the main "Consolidate-Then-Save" protocol. This will serve as a cognitive forcing function.
     1.  A new instruction will be added: Before executing any significant file modification (e.g., `replace`, `write_file`), the agent **MUST** add a "Pre-Flight Check" to its `thought` process, explicitly stating its plan to save the consolidated turn *before* executing the file change.
 
-## Activity Log
+## Timeline
 
-- 2025-10-26 @tobiu added the `documentation` label
-- 2025-10-26 @tobiu added the `enhancement` label
-- 2025-10-26 @tobiu added the `ai` label
-- 2025-10-26 @tobiu assigned to @tobiu
-- 2025-10-26 @tobiu added parent issue #7604
-- 2025-10-26 @tobiu referenced in commit `0f7ea6c` - "Refine Memory Protocol: Clarify Recovery and Prevent Skipped Turns #7661"
-- 2025-10-26 @tobiu closed this issue
+- 2025-10-26T10:33:22Z @tobiu added the `documentation` label
+- 2025-10-26T10:33:23Z @tobiu added the `enhancement` label
+- 2025-10-26T10:33:23Z @tobiu added the `ai` label
+- 2025-10-26T10:34:16Z @tobiu assigned to @tobiu
+- 2025-10-26T10:34:24Z @tobiu added parent issue #7604
+- 2025-10-26T10:38:01Z @tobiu referenced in commit `0f7ea6c` - "Refine Memory Protocol: Clarify Recovery and Prevent Skipped Turns #7661"
+- 2025-10-26T10:38:16Z @tobiu closed this issue
 

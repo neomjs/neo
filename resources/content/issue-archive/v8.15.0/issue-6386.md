@@ -23,11 +23,11 @@ closedAt: '2025-02-05T23:36:43Z'
 
 * `columnPositions` needs to get a hidden flag for the related entry
 
-## Activity Log
+## Timeline
 
-- 2025-02-05 @tobiu added the `enhancement` label
-- 2025-02-05 @tobiu assigned to @tobiu
-- 2025-02-05 @tobiu added parent issue #6378
-- 2025-02-05 @tobiu referenced in commit `b2d462b` - "grid.View: createRow() => hide cells for a column, in case it is currently being dragged #6386"
-- 2025-02-05 @tobiu closed this issue
+- 2025-02-05T21:51:35Z @tobiu added the `enhancement` label
+- 2025-02-05T21:51:35Z @tobiu assigned to @tobiu
+- 2025-02-05T21:52:55Z @tobiu added parent issue #6378
+- 2025-02-05T23:36:29Z @tobiu referenced in commit `b2d462b` - "grid.View: createRow() => hide cells for a column, in case it is currently being dragged #6386"
+- 2025-02-05T23:36:44Z @tobiu closed this issue
 

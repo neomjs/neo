@@ -27,10 +27,10 @@ closedAt: '2025-02-03T12:26:07Z'
 
 some tweaking needed for class extensions, especially inside the calendar.
 
-## Activity Log
+## Timeline
 
-- 2025-02-03 @tobiu added the `enhancement` label
-- 2025-02-03 @tobiu assigned to @tobiu
-- 2025-02-03 @tobiu referenced in commit `6c6f4cd` - "draggable.DragZone: createDragProxy() => convert to async #6360"
-- 2025-02-03 @tobiu closed this issue
+- 2025-02-03T12:25:26Z @tobiu added the `enhancement` label
+- 2025-02-03T12:25:26Z @tobiu assigned to @tobiu
+- 2025-02-03T12:25:58Z @tobiu referenced in commit `6c6f4cd` - "draggable.DragZone: createDragProxy() => convert to async #6360"
+- 2025-02-03T12:26:07Z @tobiu closed this issue
 

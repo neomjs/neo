@@ -23,10 +23,10 @@ closedAt: '2025-04-08T18:44:46Z'
 
 * Add a view controller to the example
 
-## Activity Log
+## Timeline
 
-- 2025-04-08 @tobiu added the `enhancement` label
-- 2025-04-08 @tobiu assigned to @tobiu
-- 2025-04-08 @tobiu referenced in commit `855389d` - "examples.grid.nestedRecordFields.ViewportController #6633"
-- 2025-04-08 @tobiu closed this issue
+- 2025-04-08T18:42:34Z @tobiu added the `enhancement` label
+- 2025-04-08T18:42:34Z @tobiu assigned to @tobiu
+- 2025-04-08T18:43:24Z @tobiu referenced in commit `855389d` - "examples.grid.nestedRecordFields.ViewportController #6633"
+- 2025-04-08T18:44:46Z @tobiu closed this issue
 

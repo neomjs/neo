@@ -47,13 +47,13 @@ Decouple styling from the view and logic from the renderer, creating a self-cont
 
 **Note:** This ticket focuses on the component creation and integration. Consolidating logic from `MarkdownRenderer` into the component itself is out of scope for this task and will be considered later.
 
-## Activity Log
+## Timeline
 
-- 2025-12-09 @tobiu added the `enhancement` label
-- 2025-12-09 @tobiu added the `ai` label
-- 2025-12-09 @tobiu added the `refactoring` label
-- 2025-12-09 @tobiu added the `architecture` label
-- 2025-12-09 @tobiu assigned to @tobiu
-- 2025-12-09 @tobiu referenced in commit `6026b5c` - "Create Neo.component.Markdown for Encapsulated Markdown Rendering #8067"
-- 2025-12-09 @tobiu closed this issue
+- 2025-12-09T12:29:44Z @tobiu added the `enhancement` label
+- 2025-12-09T12:29:44Z @tobiu added the `ai` label
+- 2025-12-09T12:29:45Z @tobiu added the `refactoring` label
+- 2025-12-09T12:29:45Z @tobiu added the `architecture` label
+- 2025-12-09T12:29:58Z @tobiu assigned to @tobiu
+- 2025-12-09T13:35:29Z @tobiu referenced in commit `6026b5c` - "Create Neo.component.Markdown for Encapsulated Markdown Rendering #8067"
+- 2025-12-09T13:55:29Z @tobiu closed this issue
 

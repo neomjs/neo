@@ -23,10 +23,10 @@ closedAt: '2025-04-05T22:40:19Z'
 
 * fine-tuning: inside `neo-config.json`, we can define the URL where to find the API definition, so we need to use this config value, instead of a static path.
 
-## Activity Log
+## Timeline
 
-- 2025-04-05 @tobiu added the `enhancement` label
-- 2025-04-05 @tobiu assigned to @tobiu
-- 2025-04-05 @tobiu referenced in commit `e2e04e1` - "buildScripts/webpack.config.appworker: honor different urls for remotes-api.json #6623"
-- 2025-04-05 @tobiu closed this issue
+- 2025-04-05T22:39:39Z @tobiu added the `enhancement` label
+- 2025-04-05T22:39:39Z @tobiu assigned to @tobiu
+- 2025-04-05T22:40:12Z @tobiu referenced in commit `e2e04e1` - "buildScripts/webpack.config.appworker: honor different urls for remotes-api.json #6623"
+- 2025-04-05T22:40:19Z @tobiu closed this issue
 

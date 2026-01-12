@@ -48,11 +48,11 @@ return { result: stdout };
 
 This will align the service's output with the tool's schema, resolving the validation error.
 
-## Activity Log
+## Timeline
 
-- 2025-10-22 @tobiu assigned to @tobiu
-- 2025-10-22 @tobiu added the `bug` label
-- 2025-10-22 @tobiu added the `ai` label
-- 2025-10-22 @tobiu referenced in commit `800b798` - "Bug: get_pull_request_diff Fails Schema Validation Due to Raw String Output #7608"
-- 2025-10-22 @tobiu closed this issue
+- 2025-10-22T12:29:59Z @tobiu assigned to @tobiu
+- 2025-10-22T12:30:00Z @tobiu added the `bug` label
+- 2025-10-22T12:30:01Z @tobiu added the `ai` label
+- 2025-10-22T12:30:24Z @tobiu referenced in commit `800b798` - "Bug: get_pull_request_diff Fails Schema Validation Due to Raw String Output #7608"
+- 2025-10-22T12:30:42Z @tobiu closed this issue
 

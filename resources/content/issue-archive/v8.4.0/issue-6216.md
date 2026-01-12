@@ -24,15 +24,13 @@ closedAt: '2025-01-14T13:11:31Z'
 * `data.Store` must subscribe to it
 * if fired, `data.RecordFactory` needs to recreate the record class
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-01-14 13:11
+- 2025-01-13T20:46:17Z @tobiu added the `enhancement` label
+- 2025-01-13T20:46:17Z @tobiu assigned to @tobiu
+### @tobiu - 2025-01-14T13:11:31Z
 
 i think we can close this one => records already adjust
 
-## Activity Log
-
-- 2025-01-13 @tobiu added the `enhancement` label
-- 2025-01-13 @tobiu assigned to @tobiu
-- 2025-01-14 @tobiu closed this issue
+- 2025-01-14T13:11:31Z @tobiu closed this issue
 

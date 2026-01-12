@@ -24,10 +24,10 @@ closedAt: '2025-02-05T16:01:52Z'
 * So far, the logic was only needed to check if the intersecting area was > 50% when dropping a dialog between 2 browser windows
 * However, to use it inside `main.addon.DragDrop`, we do need the real intersection rect
 
-## Activity Log
+## Timeline
 
-- 2025-02-05 @tobiu added the `enhancement` label
-- 2025-02-05 @tobiu assigned to @tobiu
-- 2025-02-05 @tobiu referenced in commit `74bd15b` - "util.Rectangle: getIntersection() => return an intersection rectangle #6382"
-- 2025-02-05 @tobiu closed this issue
+- 2025-02-05T15:53:05Z @tobiu added the `enhancement` label
+- 2025-02-05T15:53:06Z @tobiu assigned to @tobiu
+- 2025-02-05T16:01:45Z @tobiu referenced in commit `74bd15b` - "util.Rectangle: getIntersection() => return an intersection rectangle #6382"
+- 2025-02-05T16:01:53Z @tobiu closed this issue
 

@@ -65,9 +65,11 @@ export default defineComponent(function MyClickableDiv(config) {
 -   Necessary hooks/utilities (e.g., `useEvent`) are designed.
 -   Documentation and examples are provided.
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-07-13 20:21
+- 2025-07-11T01:59:24Z @tobiu added parent issue #6992
+- 2025-07-11T01:59:25Z @tobiu added the `enhancement` label
+### @tobiu - 2025-07-13T20:21:37Z
 
 ## Roadmap for `useEvent` Hook in Functional Components
 
@@ -120,11 +122,7 @@ The `useEvent` hook will allow functional components to declare their intent to 
 2.  **Integrate with `FunctionalBase`:** Modify `Neo.functional.component.Base` to manage the `_pendingDomEvents` property and integrate the `addDomListeners`/`removeDomListeners` calls within its lifecycle (`afterSetMounted` and `destroy`).
 3.  **Testing and Documentation:** Thoroughly test the new hook and provide clear documentation and examples.
 
-## Activity Log
-
-- 2025-07-11 @tobiu added parent issue #6992
-- 2025-07-11 @tobiu added the `enhancement` label
-- 2025-07-13 @tobiu referenced in commit `9c17d6d` - "DOM Event Handling for Beginner Mode Functional Components #7011 WIP"
-- 2025-07-13 @tobiu referenced in commit `23a3866` - "DOM Event Handling for Beginner Mode Functional Components #7011"
-- 2025-07-13 @tobiu closed this issue
+- 2025-07-13T20:22:46Z @tobiu referenced in commit `9c17d6d` - "DOM Event Handling for Beginner Mode Functional Components #7011 WIP"
+- 2025-07-13T20:54:01Z @tobiu referenced in commit `23a3866` - "DOM Event Handling for Beginner Mode Functional Components #7011"
+- 2025-07-13T23:27:20Z @tobiu closed this issue
 

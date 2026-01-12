@@ -23,10 +23,10 @@ closedAt: '2025-06-19T10:58:28Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
-- 2025-06-19 @tobiu assigned to @tobiu
-- 2025-06-19 @tobiu added the `enhancement` label
-- 2025-06-19 @tobiu referenced in commit `3727349` - "worker.Base: onRegisterNeoConfig() => use Neo.ns() #6841"
-- 2025-06-19 @tobiu closed this issue
+- 2025-06-19T10:57:21Z @tobiu assigned to @tobiu
+- 2025-06-19T10:57:22Z @tobiu added the `enhancement` label
+- 2025-06-19T10:57:42Z @tobiu referenced in commit `3727349` - "worker.Base: onRegisterNeoConfig() => use Neo.ns() #6841"
+- 2025-06-19T10:58:28Z @tobiu closed this issue
 

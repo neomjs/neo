@@ -27,21 +27,28 @@ inside the component tree, we are using `reference` as identifiers. inside the v
 
 it might be confusing to use the exact same name (2 different trees, controller.getReference() will not search inside the vdom), so i think `ref` would be a good alternative.
 
-## Comments
+## Timeline
 
-### @github-actions - 2025-02-17 02:34
+- 2024-11-18T11:03:03Z @tobiu added the `enhancement` label
+- 2024-11-18T11:03:03Z @tobiu assigned to @tobiu
+### @github-actions - 2025-02-17T02:34:43Z
 
 This issue is stale because it has been open for 90 days with no activity.
 
-### @github-actions - 2025-03-03 02:37
+- 2025-02-17T02:34:43Z @github-actions added the `stale` label
+### @github-actions - 2025-03-03T02:37:46Z
 
 This issue was closed because it has been inactive for 14 days since being marked as stale.
 
-### @tobiu - 2025-03-03 07:30
+- 2025-03-03T02:37:46Z @github-actions closed this issue
+- 2025-03-03T07:30:18Z @tobiu reopened this issue
+- 2025-03-03T07:30:34Z @tobiu removed the `stale` label
+- 2025-03-03T07:30:34Z @tobiu added the `no auto close` label
+### @tobiu - 2025-03-03T07:30:48Z
 
 this ticket is supposed to stay open.
 
-### @tobiu - 2025-06-13 00:23
+### @tobiu - 2025-06-13T00:23:23Z
 
 Input from Gemini:
 
@@ -66,12 +73,4 @@ If you make this change, it would be beneficial to:
 Update the proposed getVdomNodeByFlag helper: Rename it to something like getVdomNodeByRef or queryVdomRef, to align with the new property name.
 Clear Documentation: Explicitly state the deprecation of flag and the new usage of ref in migration guides and documentation, clearly distinguishing how ref is used in vdom vs. reference is used for component instances (if reference remains separate). However, the conceptual overlap is much smaller now.
 
-## Activity Log
-
-- 2024-11-18 @tobiu added the `enhancement` label
-- 2024-11-18 @tobiu assigned to @tobiu
-- 2025-02-17 @github-actions added the `stale` label
-- 2025-03-03 @github-actions closed this issue
-- 2025-03-03 @tobiu removed the `stale` label
-- 2025-03-03 @tobiu added the `no auto close` label
 

@@ -24,11 +24,11 @@ closedAt: '2025-06-11T18:58:33Z'
 
 *(No description provided)*
 
-## Activity Log
+## Timeline
 
-- 2025-06-11 @tobiu assigned to @tobiu
-- 2025-06-11 @tobiu added the `enhancement` label
-- 2025-06-11 @tobiu added the `Blog Post` label
-- 2025-06-11 @tobiu referenced in commit `86398e6` - "latest blog post: update the link (featured in ITNEXT) #6771"
-- 2025-06-11 @tobiu closed this issue
+- 2025-06-11T18:57:28Z @tobiu assigned to @tobiu
+- 2025-06-11T18:57:29Z @tobiu added the `enhancement` label
+- 2025-06-11T18:57:29Z @tobiu added the `Blog Post` label
+- 2025-06-11T18:58:22Z @tobiu referenced in commit `86398e6` - "latest blog post: update the link (featured in ITNEXT) #6771"
+- 2025-06-11T18:58:33Z @tobiu closed this issue
 

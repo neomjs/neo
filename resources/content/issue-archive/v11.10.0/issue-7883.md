@@ -35,11 +35,11 @@ Enhance the `query_documents` tool to allow users to specify the maximum number 
     *   Update the JSDoc for `queryDocuments` in `ai/mcp/server/knowledge-base/services/QueryService.mjs` to explicitly list the supported values for the `type` parameter (all, blog, guide, src, example, ticket, release), matching the OpenAPI specification.
 
 
-## Activity Log
+## Timeline
 
-- 2025-11-23 @tobiu assigned to @tobiu
-- 2025-11-23 @tobiu added the `enhancement` label
-- 2025-11-23 @tobiu added the `ai` label
-- 2025-11-23 @tobiu referenced in commit `4009089` - "Enhance query_documents tool with limit parameter and updated JSDoc #7883"
-- 2025-11-23 @tobiu closed this issue
+- 2025-11-23T18:22:28Z @tobiu assigned to @tobiu
+- 2025-11-23T18:22:37Z @tobiu added the `enhancement` label
+- 2025-11-23T18:22:37Z @tobiu added the `ai` label
+- 2025-11-23T18:24:46Z @tobiu referenced in commit `4009089` - "Enhance query_documents tool with limit parameter and updated JSDoc #7883"
+- 2025-11-23T18:26:05Z @tobiu closed this issue
 

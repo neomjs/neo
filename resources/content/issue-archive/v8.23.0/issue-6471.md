@@ -23,10 +23,10 @@ closedAt: '2025-02-21T05:43:02Z'
 
 this feature should be optional
 
-## Activity Log
+## Timeline
 
-- 2025-02-21 @tobiu added the `enhancement` label
-- 2025-02-21 @tobiu assigned to @tobiu
-- 2025-02-21 @tobiu referenced in commit `e403504` - "component.MagicMoveText: autoCycle_ config #6471"
-- 2025-02-21 @tobiu closed this issue
+- 2025-02-21T05:34:17Z @tobiu added the `enhancement` label
+- 2025-02-21T05:34:17Z @tobiu assigned to @tobiu
+- 2025-02-21T05:42:57Z @tobiu referenced in commit `e403504` - "component.MagicMoveText: autoCycle_ config #6471"
+- 2025-02-21T05:43:02Z @tobiu closed this issue
 

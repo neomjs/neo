@@ -24,9 +24,9 @@ closedAt: '2025-04-08T21:17:51Z'
 * data store: date data
 * EditUserDialog: date picker field
 
-## Activity Log
+## Timeline
 
-- 2025-04-08 @tobiu added the `enhancement` label
-- 2025-04-08 @tobiu referenced in commit `7acc664` - "examples.grid.nestedRecordFields.Viewport: add a date column #6634"
-- 2025-04-08 @tobiu closed this issue
+- 2025-04-08T21:17:30Z @tobiu added the `enhancement` label
+- 2025-04-08T21:17:46Z @tobiu referenced in commit `7acc664` - "examples.grid.nestedRecordFields.Viewport: add a date column #6634"
+- 2025-04-08T21:17:51Z @tobiu closed this issue
 

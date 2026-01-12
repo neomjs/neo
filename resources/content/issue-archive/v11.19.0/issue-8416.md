@@ -29,9 +29,13 @@ closedAt: '2026-01-08T10:50:02Z'
    - Perform a sample query (e.g., "What is a Viewport?").
    - Output the answer and references.
 
-## Comments
+## Timeline
 
-### @tobiu - 2026-01-08 10:49
+- 2026-01-08T10:35:32Z @tobiu added the `enhancement` label
+- 2026-01-08T10:35:33Z @tobiu added the `ai` label
+- 2026-01-08T10:48:54Z @tobiu referenced in commit `d8df3b3` - "feat: Integrate RAG service into SDK and add verification script (#8416)"
+- 2026-01-08T10:49:43Z @tobiu assigned to @tobiu
+### @tobiu - 2026-01-08T10:49:48Z
 
 **Input from Gemini 3 Pro:**
 
@@ -42,11 +46,5 @@ closedAt: '2026-01-08T10:50:02Z'
 >     - Read file content from disk for context (fallback to metadata).
 > 3.  Created `ai/examples/test_rag.mjs` which successfully verified the tool's end-to-end functionality.
 
-## Activity Log
-
-- 2026-01-08 @tobiu added the `enhancement` label
-- 2026-01-08 @tobiu added the `ai` label
-- 2026-01-08 @tobiu referenced in commit `d8df3b3` - "feat: Integrate RAG service into SDK and add verification script (#8416)"
-- 2026-01-08 @tobiu assigned to @tobiu
-- 2026-01-08 @tobiu closed this issue
+- 2026-01-08T10:50:02Z @tobiu closed this issue
 

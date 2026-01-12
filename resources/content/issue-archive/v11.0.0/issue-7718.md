@@ -34,12 +34,12 @@ This new protocol is designed to be more robust by:
 
 This change transforms the initialization from a passive, easily missed instruction into a direct, primary action. This ticket documents the implementation of this new protocol.
 
-## Activity Log
+## Timeline
 
-- 2025-11-07 @tobiu added the `bug` label
-- 2025-11-07 @tobiu added the `contributor-experience` label
-- 2025-11-07 @tobiu added the `ai` label
-- 2025-11-07 @tobiu referenced in commit `d8a4189` - "Architectural Fix: Implement 'FIRST ACTION PROTOCOL' to ensure reliable session initialization #7718"
-- 2025-11-07 @tobiu assigned to @tobiu
-- 2025-11-07 @tobiu closed this issue
+- 2025-11-07T09:57:23Z @tobiu added the `bug` label
+- 2025-11-07T09:57:24Z @tobiu added the `contributor-experience` label
+- 2025-11-07T09:57:24Z @tobiu added the `ai` label
+- 2025-11-07T09:57:55Z @tobiu referenced in commit `d8a4189` - "Architectural Fix: Implement 'FIRST ACTION PROTOCOL' to ensure reliable session initialization #7718"
+- 2025-11-07T09:58:08Z @tobiu assigned to @tobiu
+- 2025-11-07T09:58:12Z @tobiu closed this issue
 

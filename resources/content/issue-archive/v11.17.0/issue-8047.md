@@ -43,12 +43,12 @@ Update `Neo.container.Base.prototype.add` to accept a `silent` parameter and pas
     }
 ```
 
-## Activity Log
+## Timeline
 
-- 2025-12-07 @tobiu added the `enhancement` label
-- 2025-12-07 @tobiu added the `good first issue` label
-- 2025-12-07 @tobiu added the `ai` label
-- 2025-12-07 @tobiu assigned to @tobiu
-- 2025-12-07 @tobiu referenced in commit `ea56f18` - "[Container] Add silent parameter to add() method #8047"
-- 2025-12-07 @tobiu closed this issue
+- 2025-12-07T12:52:47Z @tobiu added the `enhancement` label
+- 2025-12-07T12:52:47Z @tobiu added the `good first issue` label
+- 2025-12-07T12:52:47Z @tobiu added the `ai` label
+- 2025-12-07T12:53:13Z @tobiu assigned to @tobiu
+- 2025-12-07T12:54:40Z @tobiu referenced in commit `ea56f18` - "[Container] Add silent parameter to add() method #8047"
+- 2025-12-07T12:54:59Z @tobiu closed this issue
 

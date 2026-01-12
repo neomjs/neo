@@ -32,17 +32,15 @@ Attempting to implement this complex class-aware merging directly within the sta
 **Additional context**
 This enhancement is a crucial architectural step towards a more robust and intuitive config system, particularly for applications with deep component hierarchies and extensive use of inheritance. It will significantly improve the predictability and correctness of how nested component configurations are merged across the class chain.
 
-## Comments
+## Timeline
 
-### @github-actions - 2025-10-03 02:37
+- 2025-07-04T17:43:26Z @tobiu added the `enhancement` label
+### @github-actions - 2025-10-03T02:37:08Z
 
 This issue is stale because it has been open for 90 days with no activity.
 
-## Activity Log
-
-- 2025-07-04 @tobiu added the `enhancement` label
-- 2025-10-03 @github-actions added the `stale` label
-- 2025-10-03 @tobiu removed the `stale` label
-- 2025-10-03 @tobiu added the `no auto close` label
-- 2025-12-31 @tobiu cross-referenced by #8230
+- 2025-10-03T02:37:09Z @github-actions added the `stale` label
+- 2025-10-03T09:11:50Z @tobiu removed the `stale` label
+- 2025-10-03T09:11:50Z @tobiu added the `no auto close` label
+- 2025-12-31T14:24:16Z @tobiu cross-referenced by #8230
 

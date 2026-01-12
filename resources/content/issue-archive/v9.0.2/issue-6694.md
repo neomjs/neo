@@ -33,9 +33,10 @@ fix:    ` view.parent.fire(isSelected ? 'select' : 'deselect', {record})`
 
 
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-05-05 08:33
+- 2025-05-05T04:02:28Z @gplanansky added the `bug` label
+### @tobiu - 2025-05-05T08:33:58Z
 
 Hi George,
 
@@ -61,7 +62,7 @@ From a technical perspective, it would be easy to fire more events, but does it 
 
 
 
-### @gplanansky - 2025-05-11 12:20
+### @gplanansky - 2025-05-11T12:20:27Z
 
 I don't know about your reasoning,  it's above my pay grade.  :-)   What I do find, is that this regression bug breaks Neo's most important and distinctive feature, its declarative class configuration system.   
 
@@ -170,7 +171,7 @@ properly yield console messages:
 ```
 Without the bug fix, the fired events do not register with the listeners.
 
-### @tobiu - 2025-05-12 07:42
+### @tobiu - 2025-05-12T07:42:42Z
 
 @gplanansky George, you are talking utter nonsense here.
 
@@ -232,8 +233,5 @@ onConstructed() {
 }
 ```
 
-## Activity Log
-
-- 2025-05-05 @gplanansky added the `bug` label
-- 2025-05-12 @tobiu closed this issue
+- 2025-05-12T07:42:42Z @tobiu closed this issue
 

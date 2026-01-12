@@ -23,16 +23,14 @@ closedAt: '2025-03-01T16:00:11Z'
 
 *(No description provided)*
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-03-01 16:00
+- 2025-03-01T15:57:39Z @tobiu added the `enhancement` label
+- 2025-03-01T15:57:39Z @tobiu assigned to @tobiu
+- 2025-03-01T15:58:07Z @tobiu referenced in commit `433542a` - "selection.grid.ColumnModel: onNavKeyColumn() => add support for navigating into non-painted columns #6515"
+### @tobiu - 2025-03-01T16:00:11Z
 
 https://github.com/user-attachments/assets/b1f2e68b-4b19-451c-a636-29eabeea5d1a
 
-## Activity Log
-
-- 2025-03-01 @tobiu added the `enhancement` label
-- 2025-03-01 @tobiu assigned to @tobiu
-- 2025-03-01 @tobiu referenced in commit `433542a` - "selection.grid.ColumnModel: onNavKeyColumn() => add support for navigating into non-painted columns #6515"
-- 2025-03-01 @tobiu closed this issue
+- 2025-03-01T16:00:11Z @tobiu closed this issue
 

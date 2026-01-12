@@ -24,11 +24,11 @@ closedAt: '2025-01-04T14:54:05Z'
 According to: https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Attributes/aria-rowindex,
 it should start with `1` and use this index for the column headers row, so real view based roles need to start with 2.
 
-## Activity Log
+## Timeline
 
-- 2025-01-04 @tobiu added the `enhancement` label
-- 2025-01-04 @tobiu assigned to @tobiu
-- 2025-01-04 @tobiu referenced in commit `11a8289` - "grid.View: aria rowindex #6175"
-- 2025-01-04 @tobiu referenced in commit `c434ca1` - "grid.View: aria rowindex #6175 cleanup"
-- 2025-01-04 @tobiu closed this issue
+- 2025-01-04T14:49:21Z @tobiu added the `enhancement` label
+- 2025-01-04T14:49:22Z @tobiu assigned to @tobiu
+- 2025-01-04T14:53:45Z @tobiu referenced in commit `11a8289` - "grid.View: aria rowindex #6175"
+- 2025-01-04T14:54:03Z @tobiu referenced in commit `c434ca1` - "grid.View: aria rowindex #6175 cleanup"
+- 2025-01-04T14:54:06Z @tobiu closed this issue
 

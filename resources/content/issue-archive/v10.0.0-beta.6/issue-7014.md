@@ -58,11 +58,11 @@ Using protected properties (e.g., `_hooks`) was considered but deemed insufficie
 -   The `vdomEffect` is correctly associated with the component's ID.
 -   The implementation provides the necessary foundation for the `useConfig` hook to function correctly.
 
-## Activity Log
+## Timeline
 
-- 2025-07-11 @tobiu assigned to @tobiu
-- 2025-07-11 @tobiu added parent issue #6992
-- 2025-07-11 @tobiu added the `enhancement` label
-- 2025-07-11 @tobiu referenced in commit `64c7b27` - "Enhance Neo.functional.component.Base for Hook Support #7014"
-- 2025-07-11 @tobiu closed this issue
+- 2025-07-11T10:23:24Z @tobiu assigned to @tobiu
+- 2025-07-11T10:23:25Z @tobiu added parent issue #6992
+- 2025-07-11T10:23:26Z @tobiu added the `enhancement` label
+- 2025-07-11T10:24:32Z @tobiu referenced in commit `64c7b27` - "Enhance Neo.functional.component.Base for Hook Support #7014"
+- 2025-07-11T10:24:43Z @tobiu closed this issue
 

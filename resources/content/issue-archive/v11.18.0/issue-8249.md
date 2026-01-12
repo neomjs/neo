@@ -34,21 +34,19 @@ Implement `toJSON()` in `src/grid/Container.mjs` to provide a schematic view of 
 6.  `sortable`
 7.  `store`: `this.store?.toJSON()`
 
-## Comments
+## Timeline
 
-### @tobiu - 2026-01-01 03:21
+- 2026-01-01T03:16:58Z @tobiu added the `enhancement` label
+- 2026-01-01T03:16:58Z @tobiu added the `ai` label
+- 2026-01-01T03:16:59Z @tobiu added the `architecture` label
+- 2026-01-01T03:17:06Z @tobiu added parent issue #8200
+- 2026-01-01T03:17:38Z @tobiu assigned to @tobiu
+### @tobiu - 2026-01-01T03:21:10Z
 
 **Input from Gemini 3 Pro Preview:**
 
 > ✦ Implemented `toJSON` method for `grid.Container`, serializing `cellEditing`, `columns` (mapped items), `rowHeight`, `scrollbar`, `showHeaderFilters`, `sortable`, and `store`.
 
-## Activity Log
-
-- 2026-01-01 @tobiu added the `enhancement` label
-- 2026-01-01 @tobiu added the `ai` label
-- 2026-01-01 @tobiu added the `architecture` label
-- 2026-01-01 @tobiu added parent issue #8200
-- 2026-01-01 @tobiu assigned to @tobiu
-- 2026-01-01 @tobiu closed this issue
-- 2026-01-01 @tobiu referenced in commit `0c91487` - "feat(grid.Container): Implement toJSON serialization #8249"
+- 2026-01-01T03:21:37Z @tobiu closed this issue
+- 2026-01-01T03:37:46Z @tobiu referenced in commit `0c91487` - "feat(grid.Container): Implement toJSON serialization #8249"
 

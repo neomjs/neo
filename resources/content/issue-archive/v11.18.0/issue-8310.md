@@ -37,16 +37,16 @@ Currently, `Neo.config.useAiClient` is a boolean. This means the Neural Link is 
 **Goal:**
 Allow developers to restrict Neural Link access to specific environments.
 
-## Activity Log
+## Timeline
 
-- 2026-01-04 @tobiu added the `enhancement` label
-- 2026-01-04 @tobiu added the `ai` label
-- 2026-01-04 @tobiu added the `architecture` label
-- 2026-01-04 @tobiu added parent issue #8169
-- 2026-01-04 @tobiu assigned to @tobiu
-- 2026-01-04 @tobiu referenced in commit `fd5152e` - "feat(ai): Environment-Aware Neural Link Config (#8310)
+- 2026-01-04T13:19:07Z @tobiu added the `enhancement` label
+- 2026-01-04T13:19:07Z @tobiu added the `ai` label
+- 2026-01-04T13:19:07Z @tobiu added the `architecture` label
+- 2026-01-04T13:19:27Z @tobiu added parent issue #8169
+- 2026-01-04T13:19:40Z @tobiu assigned to @tobiu
+- 2026-01-04T13:22:59Z @tobiu referenced in commit `fd5152e` - "feat(ai): Environment-Aware Neural Link Config (#8310)
 
 - Update Neo.config.useAiClient to support Boolean, String, or String[].
 - Implement environment validation in App.mjs to conditionally load Neo.ai.Client."
-- 2026-01-04 @tobiu closed this issue
+- 2026-01-04T13:23:36Z @tobiu closed this issue
 

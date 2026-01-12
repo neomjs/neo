@@ -31,13 +31,13 @@ It needs to be updated to import `ConnectionService` from the new `neural-link` 
 2. Update exports to reflect the change.
 3. Ensure `makeSafe` wrapper is applied if OpenAPI spec is available (or handle absence).
 
-## Activity Log
+## Timeline
 
-- 2025-12-03 @tobiu added the `enhancement` label
-- 2025-12-03 @tobiu added the `ai` label
-- 2025-12-03 @tobiu added the `refactoring` label
-- 2025-12-03 @tobiu assigned to @tobiu
-- 2025-12-03 @tobiu added parent issue #7960
-- 2025-12-03 @tobiu referenced in commit `65872b7` - "Update ai/services.mjs to use Neural Link #8014"
-- 2025-12-03 @tobiu closed this issue
+- 2025-12-03T22:10:57Z @tobiu added the `enhancement` label
+- 2025-12-03T22:10:57Z @tobiu added the `ai` label
+- 2025-12-03T22:10:57Z @tobiu added the `refactoring` label
+- 2025-12-03T22:11:38Z @tobiu assigned to @tobiu
+- 2025-12-03T22:12:02Z @tobiu added parent issue #7960
+- 2025-12-03T22:12:28Z @tobiu referenced in commit `65872b7` - "Update ai/services.mjs to use Neural Link #8014"
+- 2025-12-03T22:12:39Z @tobiu closed this issue
 

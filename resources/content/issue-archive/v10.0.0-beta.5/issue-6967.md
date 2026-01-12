@@ -69,13 +69,13 @@ code.
 *   **Foundation for Advanced Features:** These enhancements lay critical groundwork for more sophisticated reactive patterns, such as computed properties
 and highly optimized data flows.
 
-## Activity Log
+## Timeline
 
-- 2025-07-06 @tobiu assigned to @tobiu
-- 2025-07-06 @tobiu added the `enhancement` label
-- 2025-07-06 @tobiu referenced in commit `873cec0` - "Feature: Core Reactivity Enhancements: Effect Dependency Tracking & Dynamic Functions #6967"
-- 2025-07-06 @tobiu referenced in commit `2bf8804` - "#6967 tests/core/Effect: sum verification tests"
-- 2025-07-06 @tobiu closed this issue
-- 2025-07-09 @tobiu referenced in commit `a80f853` - "Feature: Core Reactivity Enhancements: Effect Dependency Tracking & Dynamic Functions #6967"
-- 2025-07-09 @tobiu referenced in commit `5d1db29` - "#6967 tests/core/Effect: sum verification tests"
+- 2025-07-06T22:48:16Z @tobiu assigned to @tobiu
+- 2025-07-06T22:48:18Z @tobiu added the `enhancement` label
+- 2025-07-06T23:29:53Z @tobiu referenced in commit `873cec0` - "Feature: Core Reactivity Enhancements: Effect Dependency Tracking & Dynamic Functions #6967"
+- 2025-07-06T23:45:05Z @tobiu referenced in commit `2bf8804` - "#6967 tests/core/Effect: sum verification tests"
+- 2025-07-06T23:45:42Z @tobiu closed this issue
+- 2025-07-09T00:10:49Z @tobiu referenced in commit `a80f853` - "Feature: Core Reactivity Enhancements: Effect Dependency Tracking & Dynamic Functions #6967"
+- 2025-07-09T00:10:50Z @tobiu referenced in commit `5d1db29` - "#6967 tests/core/Effect: sum verification tests"
 

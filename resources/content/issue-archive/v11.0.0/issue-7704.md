@@ -34,12 +34,12 @@ These methods should be updated to follow the pattern used by `loadModule`. They
 
 This change will significantly improve the developer experience for component testing by making worker-side errors immediately visible in the test results.
 
-## Activity Log
+## Timeline
 
-- 2025-11-04 @tobiu added the `enhancement` label
-- 2025-11-04 @tobiu added the `ai` label
-- 2025-11-04 @tobiu added the `testing` label
-- 2025-11-04 @tobiu assigned to @tobiu
-- 2025-11-04 @tobiu referenced in commit `1630b03` - "Enhance worker.App RMA methods to delegate worker errors #7704"
-- 2025-11-04 @tobiu closed this issue
+- 2025-11-04T18:56:06Z @tobiu added the `enhancement` label
+- 2025-11-04T18:56:06Z @tobiu added the `ai` label
+- 2025-11-04T18:56:06Z @tobiu added the `testing` label
+- 2025-11-04T18:56:22Z @tobiu assigned to @tobiu
+- 2025-11-04T19:15:02Z @tobiu referenced in commit `1630b03` - "Enhance worker.App RMA methods to delegate worker errors #7704"
+- 2025-11-04T19:15:16Z @tobiu closed this issue
 

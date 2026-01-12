@@ -31,22 +31,20 @@ To support the new Neural Link documentation, we need to enable Mermaid diagram 
 3.  **Main Thread (`Neo.main.addon.Mermaid`):** Create a new addon to handle the actual rendering, as Mermaid requires DOM access which is not available in the App Worker.
 4.  **Integration:** The Markdown component will trigger the main thread addon to render the diagrams after the content is mounted.
 
-## Comments
+## Timeline
 
-### @tobiu - 2026-01-07 12:05
+- 2026-01-07T11:30:10Z @tobiu added the `documentation` label
+- 2026-01-07T11:30:10Z @tobiu added the `enhancement` label
+- 2026-01-07T11:30:10Z @tobiu added the `ai` label
+- 2026-01-07T12:05:31Z @tobiu closed this issue
+### @tobiu - 2026-01-07T12:05:54Z
 
 <img width="735" height="740" alt="Image" src="https://github.com/user-attachments/assets/15842bd6-1dbe-4465-b8fd-d6f4a7ef75ae" />
 
-## Activity Log
-
-- 2026-01-07 @tobiu added the `documentation` label
-- 2026-01-07 @tobiu added the `enhancement` label
-- 2026-01-07 @tobiu added the `ai` label
-- 2026-01-07 @tobiu closed this issue
-- 2026-01-07 @jonnyamsp referenced in commit `047f56b` - "feat: Add Mermaid diagram support to Markdown component
+- 2026-01-07T13:25:10Z @jonnyamsp referenced in commit `047f56b` - "feat: Add Mermaid diagram support to Markdown component
 
 Implements support for rendering mermaid diagrams within markdown content using the 'mermaid' code block syntax. This involves a new App worker logic to identify blocks and a new Main thread addon to handle the rendering via the mermaid library.
 
 Closes #8376"
-- 2026-01-07 @tobiu assigned to @tobiu
+- 2026-01-07T14:42:07Z @tobiu assigned to @tobiu
 

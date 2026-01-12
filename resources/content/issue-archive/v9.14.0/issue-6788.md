@@ -32,11 +32,11 @@ Here's why it's beneficial, even if it's already in the blog section:
 3. Internal Linking & SEO: From an SEO perspective, relevant internal linking helps search engines understand the relationship between your content pieces and can improve the discoverability of both articles.
 4. Reinforces Key Arguments: The blog post expands on why Neo.mjs's architecture (which influences these environments) is so powerful for modern interfaces, especially those involving dynamic data. A direct link reinforces these core strengths.
 
-## Activity Log
+## Timeline
 
-- 2025-06-13 @tobiu assigned to @tobiu
-- 2025-06-13 @tobiu added the `enhancement` label
-- 2025-06-13 @tobiu referenced in commit `9b8354b` - "Learning Content: 4 envs => add the related blog post #6788"
-- 2025-06-13 @tobiu referenced in commit `f095291` - "Learning Content: 4 envs => add the related blog post #6788"
-- 2025-06-13 @tobiu closed this issue
+- 2025-06-13T21:00:45Z @tobiu assigned to @tobiu
+- 2025-06-13T21:00:47Z @tobiu added the `enhancement` label
+- 2025-06-13T21:01:09Z @tobiu referenced in commit `9b8354b` - "Learning Content: 4 envs => add the related blog post #6788"
+- 2025-06-13T21:02:24Z @tobiu referenced in commit `f095291` - "Learning Content: 4 envs => add the related blog post #6788"
+- 2025-06-13T21:06:00Z @tobiu closed this issue
 

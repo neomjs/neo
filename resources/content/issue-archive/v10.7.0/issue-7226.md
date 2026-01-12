@@ -24,11 +24,11 @@ closedAt: '2025-09-21T17:58:43Z'
 
 While the article already exists on Medium for a while, it needs to get into our new AI knowledge base inside the repo. I will "reverse-engineer" it as a markdown file.
 
-## Activity Log
+## Timeline
 
-- 2025-09-21 @tobiu assigned to @tobiu
-- 2025-09-21 @tobiu added the `enhancement` label
-- 2025-09-21 @tobiu added the `Blog Post` label
-- 2025-09-21 @tobiu referenced in commit `178464b` - "Blog: How JSON Blueprints & Shared Workers Power Next-Gen AI Interfaces #7226"
-- 2025-09-21 @tobiu closed this issue
+- 2025-09-21T17:57:45Z @tobiu assigned to @tobiu
+- 2025-09-21T17:57:47Z @tobiu added the `enhancement` label
+- 2025-09-21T17:57:47Z @tobiu added the `Blog Post` label
+- 2025-09-21T17:58:35Z @tobiu referenced in commit `178464b` - "Blog: How JSON Blueprints & Shared Workers Power Next-Gen AI Interfaces #7226"
+- 2025-09-21T17:58:43Z @tobiu closed this issue
 

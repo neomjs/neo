@@ -43,15 +43,15 @@ With the recent enhancements to the `neo.mjs-memory-core` MCP server (auto-start
 2.  Replace it with the new, simplified protocol described above.
 3.  Ensure the new instructions are clear, concise, and guide the agent to use the `healthcheck` and `add_memory` tools correctly.
 
-## Activity Log
+## Timeline
 
-- 2025-10-26 @tobiu added the `documentation` label
-- 2025-10-26 @tobiu added the `enhancement` label
-- 2025-10-26 @tobiu added the `ai` label
-- 2025-10-26 @tobiu added the `refactoring` label
-- 2025-10-26 @tobiu assigned to @tobiu
-- 2025-10-26 @tobiu added parent issue #7604
-- 2025-10-26 @tobiu referenced in commit `fa625fa` - "Refactor: Simplify Memory Core Protocol in AGENTS.md #7658"
-- 2025-10-26 @tobiu closed this issue
-- 2025-10-26 @tobiu cross-referenced by #7660
+- 2025-10-26T09:53:17Z @tobiu added the `documentation` label
+- 2025-10-26T09:53:17Z @tobiu added the `enhancement` label
+- 2025-10-26T09:53:17Z @tobiu added the `ai` label
+- 2025-10-26T09:53:17Z @tobiu added the `refactoring` label
+- 2025-10-26T09:53:41Z @tobiu assigned to @tobiu
+- 2025-10-26T09:53:48Z @tobiu added parent issue #7604
+- 2025-10-26T10:10:22Z @tobiu referenced in commit `fa625fa` - "Refactor: Simplify Memory Core Protocol in AGENTS.md #7658"
+- 2025-10-26T10:10:48Z @tobiu closed this issue
+- 2025-10-26T10:20:33Z @tobiu cross-referenced by #7660
 

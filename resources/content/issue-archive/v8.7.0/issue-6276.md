@@ -23,16 +23,14 @@ closedAt: '2025-01-23T14:41:31Z'
 
 *(No description provided)*
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-01-23 14:41
+- 2025-01-23T14:41:15Z @tobiu added the `enhancement` label
+- 2025-01-23T14:41:15Z @tobiu assigned to @tobiu
+- 2025-01-23T14:41:26Z @tobiu referenced in commit `ae1be30` - "data.RecordFactory: isModifiedField() => move the method to the record prototype #6276"
+### @tobiu - 2025-01-23T14:41:31Z
 
 ![Image](https://github.com/user-attachments/assets/c63db6b9-43e0-4f8c-b7b6-4286c3df88af)
 
-## Activity Log
-
-- 2025-01-23 @tobiu added the `enhancement` label
-- 2025-01-23 @tobiu assigned to @tobiu
-- 2025-01-23 @tobiu referenced in commit `ae1be30` - "data.RecordFactory: isModifiedField() => move the method to the record prototype #6276"
-- 2025-01-23 @tobiu closed this issue
+- 2025-01-23T14:41:31Z @tobiu closed this issue
 

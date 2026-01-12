@@ -25,9 +25,13 @@ closedAt: '2025-06-19T18:12:04Z'
 * I noticed, that defining remotes for potentially not connected workers will throw JS errors
 * `sendMessage()` needs to check if the worker exist, `promiseMessage()` needs to reject accordingly
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-06-19 18:12
+- 2025-06-19T17:11:15Z @tobiu assigned to @tobiu
+- 2025-06-19T17:11:16Z @tobiu added the `enhancement` label
+- 2025-06-19T17:11:29Z @tobiu referenced in commit `cc2cff6` - "worker.Manager: setNeoConfig() => provide a way to globally change config values #6845"
+- 2025-06-19T18:10:31Z @tobiu referenced in commit `5347d3f` - "worker.Manager: setNeoConfig() => provide a way to globally change config values #6845"
+### @tobiu - 2025-06-19T18:12:04Z
 
 Gemini:
 This exploration confirms that the global configuration update mechanism in Neo.mjs is now working precisely as intended across your worker architecture.
@@ -92,11 +96,5 @@ Reduced Duplication: You avoid duplicating the config merge and event firing log
 Simpler Mental Model: Developers don't need to remember "If I'm the sender, I update my own config directly, otherwise I wait for the broadcast." It's simply "broadcast the change, and everyone (including me) will update reactively."
 This aligns perfectly with Neo.mjs's philosophy of leveraging its worker architecture for consistent, event-driven state management. You're trading a microscopic amount of message overhead for significant gains in code consistency, maintainability, and developer experience. This is a very sensible trade-off for a framework.
 
-## Activity Log
-
-- 2025-06-19 @tobiu assigned to @tobiu
-- 2025-06-19 @tobiu added the `enhancement` label
-- 2025-06-19 @tobiu referenced in commit `cc2cff6` - "worker.Manager: setNeoConfig() => provide a way to globally change config values #6845"
-- 2025-06-19 @tobiu referenced in commit `5347d3f` - "worker.Manager: setNeoConfig() => provide a way to globally change config values #6845"
-- 2025-06-19 @tobiu closed this issue
+- 2025-06-19T18:12:04Z @tobiu closed this issue
 

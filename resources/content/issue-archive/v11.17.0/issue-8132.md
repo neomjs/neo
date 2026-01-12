@@ -59,13 +59,13 @@ We have decided that broadly improving runtime performance and codebase simplici
     *   Remove `afterSetHasUnmountedVdomChanges`.
     *   Remove logic setting `me.hasUnmountedVdomChanges` in `updateVdom`.
 
-## Activity Log
+## Timeline
 
-- 2025-12-17 @tobiu added the `discussion` label
-- 2025-12-17 @tobiu added the `ai` label
-- 2025-12-17 @tobiu added the `refactoring` label
-- 2025-12-17 @tobiu added the `architecture` label
-- 2025-12-17 @tobiu assigned to @tobiu
-- 2025-12-17 @tobiu referenced in commit `02b25aa` - "Refactor Component mount() and remove VdomLifecycle overhead #8132"
-- 2025-12-17 @tobiu closed this issue
+- 2025-12-17T00:51:53Z @tobiu added the `discussion` label
+- 2025-12-17T00:51:53Z @tobiu added the `ai` label
+- 2025-12-17T00:51:53Z @tobiu added the `refactoring` label
+- 2025-12-17T00:51:53Z @tobiu added the `architecture` label
+- 2025-12-17T00:52:53Z @tobiu assigned to @tobiu
+- 2025-12-17T01:10:07Z @tobiu referenced in commit `02b25aa` - "Refactor Component mount() and remove VdomLifecycle overhead #8132"
+- 2025-12-17T01:10:16Z @tobiu closed this issue
 

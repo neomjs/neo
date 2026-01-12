@@ -25,9 +25,6 @@ class Release extends Model {
             name: 'path', // "/.github/RELEASE_NOTES/v11.18.0.md"
             type: 'String'
         }, {
-            name: 'title', // "Neo.mjs v11.18.0 Release Notes"
-            type: 'String'
-        }, {
             name        : 'isLeaf',
             type        : 'Boolean',
             defaultValue: true
@@ -41,12 +38,11 @@ class Release extends Model {
             type: 'html',
             /**
              * @param {Object} data
+             * @param {String} data.date
+             * @param {String} data.id
              * @returns {String}
              */
-            calculate(data) {
-                const
-                    {date, id} = data;
-
+            calculate({date, id}) {
                 if (date) {
                     return `<b>${id}</b> <span class="release-date">[${new Date(date).toLocaleDateString()}]</span>`
                 }

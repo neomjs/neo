@@ -45,11 +45,11 @@ This ticket proposes enhancing the existing `create_issue` tool to support an op
 -   Providing assignees without sufficient permissions results in a clear error message and does not create the issue.
 -   Providing assignees with sufficient permissions creates the issue and assigns the specified users correctly.
 
-## Activity Log
+## Timeline
 
-- 2025-10-23 @tobiu assigned to @tobiu
-- 2025-10-23 @tobiu added the `enhancement` label
-- 2025-10-23 @tobiu added the `ai` label
-- 2025-10-23 @tobiu referenced in commit `bc2d4b8` - "Enhance create_issue Tool to Support Assignees #7628"
-- 2025-10-23 @tobiu closed this issue
+- 2025-10-23T15:56:27Z @tobiu assigned to @tobiu
+- 2025-10-23T15:56:28Z @tobiu added the `enhancement` label
+- 2025-10-23T15:56:28Z @tobiu added the `ai` label
+- 2025-10-23T16:01:44Z @tobiu referenced in commit `bc2d4b8` - "Enhance create_issue Tool to Support Assignees #7628"
+- 2025-10-23T16:01:57Z @tobiu closed this issue
 

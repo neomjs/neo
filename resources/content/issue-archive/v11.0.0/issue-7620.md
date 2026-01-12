@@ -53,12 +53,12 @@ This ticket proposes a two-pronged approach to optimize the sync process:
 -   The `#syncReleaseNotes` operation only writes files to disk when the corresponding release content on GitHub has actually changed.
 -   The `.sync-metadata.json` file is updated to store content hashes for release notes to enable this change detection.
 
-## Activity Log
+## Timeline
 
-- 2025-10-23 @tobiu assigned to @tobiu
-- 2025-10-23 @tobiu added the `enhancement` label
-- 2025-10-23 @tobiu added the `ai` label
-- 2025-10-23 @tobiu referenced in commit `4ec87f7` - "Optimize SyncService by Scoping Push and Hashing Releases #7620"
-- 2025-10-23 @tobiu referenced in commit `159bca2` - "#7620 minor formatting cleanup"
-- 2025-10-23 @tobiu closed this issue
+- 2025-10-23T12:05:17Z @tobiu assigned to @tobiu
+- 2025-10-23T12:05:18Z @tobiu added the `enhancement` label
+- 2025-10-23T12:05:18Z @tobiu added the `ai` label
+- 2025-10-23T12:28:49Z @tobiu referenced in commit `4ec87f7` - "Optimize SyncService by Scoping Push and Hashing Releases #7620"
+- 2025-10-23T12:37:35Z @tobiu referenced in commit `159bca2` - "#7620 minor formatting cleanup"
+- 2025-10-23T12:38:09Z @tobiu closed this issue
 

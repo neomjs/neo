@@ -29,11 +29,11 @@ The key refinements include:
 2.  **Pillar 2 (Simplicity):** Expanded on the **Unified Config System** to highlight that it applies to *all* classes (not just components), thus avoiding the "component-ize everything" trap common in other frameworks.
 3.  **Pillar 3 (AI Partnership):** Articulated that the framework's architecture is inherently AI-native due to its use of a **JSON Blueprint** instead of JSX, making the application's structure natively understandable to LLMs.
 
-## Activity Log
+## Timeline
 
-- 2025-10-09 @tobiu assigned to @tobiu
-- 2025-10-09 @tobiu added the `documentation` label
-- 2025-10-09 @tobiu added parent issue #7264
-- 2025-10-09 @tobiu referenced in commit `01f47fc` - "Refine Project VISION.md with Core Architectural Concepts #7431"
-- 2025-10-09 @tobiu closed this issue
+- 2025-10-09T22:02:02Z @tobiu assigned to @tobiu
+- 2025-10-09T22:02:03Z @tobiu added the `documentation` label
+- 2025-10-09T22:02:03Z @tobiu added parent issue #7264
+- 2025-10-09T22:02:39Z @tobiu referenced in commit `01f47fc` - "Refine Project VISION.md with Core Architectural Concepts #7431"
+- 2025-10-09T22:09:36Z @tobiu closed this issue
 

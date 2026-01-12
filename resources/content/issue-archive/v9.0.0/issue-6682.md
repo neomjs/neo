@@ -24,10 +24,10 @@ closedAt: '2025-04-22T12:42:23Z'
 * Setting `aria-selected` to false (default value) just adds overhead & inconsistency
 * Better delete the attribute completely
 
-## Activity Log
+## Timeline
 
-- 2025-04-22 @tobiu added the `enhancement` label
-- 2025-04-22 @tobiu assigned to @tobiu
-- 2025-04-22 @tobiu referenced in commit `698f508` - "selection.Model: deselect() => remove the aria-selected node attribute #6682"
-- 2025-04-22 @tobiu closed this issue
+- 2025-04-22T12:41:41Z @tobiu added the `enhancement` label
+- 2025-04-22T12:41:41Z @tobiu assigned to @tobiu
+- 2025-04-22T12:42:16Z @tobiu referenced in commit `698f508` - "selection.Model: deselect() => remove the aria-selected node attribute #6682"
+- 2025-04-22T12:42:23Z @tobiu closed this issue
 

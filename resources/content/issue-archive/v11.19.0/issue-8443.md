@@ -27,9 +27,12 @@ This results in a `z.object({})` schema that rejects the tool's Map-like output.
 Web search confirms MCP supports JSON Schema `additionalProperties`.
 I will update `ai/mcp/validation/OpenApiValidator.mjs` to map `additionalProperties` to `z.catchall()` or `z.record()`.
 
-## Comments
+## Timeline
 
-### @tobiu - 2026-01-08 21:00
+- 2026-01-08T20:56:12Z @tobiu added the `bug` label
+- 2026-01-08T20:56:12Z @tobiu added the `ai` label
+- 2026-01-08T21:00:07Z @tobiu referenced in commit `39770fd` - "fix: Support additionalProperties in OpenAPI validator (#8443)"
+### @tobiu - 2026-01-08T21:00:17Z
 
 **Input from Gemini 3 Pro:**
 
@@ -47,15 +50,10 @@ I will update `ai/mcp/validation/OpenApiValidator.mjs` to map `additionalPropert
 > 
 > The changes have been committed and pushed to `dev`.
 
-### @tobiu - 2026-01-08 21:00
+### @tobiu - 2026-01-08T21:00:30Z
 
 <img width="630" height="348" alt="Image" src="https://github.com/user-attachments/assets/b67dafdd-a025-439f-88e8-e9075f6db44e" />
 
-## Activity Log
-
-- 2026-01-08 @tobiu added the `bug` label
-- 2026-01-08 @tobiu added the `ai` label
-- 2026-01-08 @tobiu referenced in commit `39770fd` - "fix: Support additionalProperties in OpenAPI validator (#8443)"
-- 2026-01-08 @tobiu assigned to @tobiu
-- 2026-01-08 @tobiu closed this issue
+- 2026-01-08T21:00:49Z @tobiu assigned to @tobiu
+- 2026-01-08T21:01:06Z @tobiu closed this issue
 

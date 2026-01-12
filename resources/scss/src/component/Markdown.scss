@@ -27,11 +27,25 @@
     }
 
     details {
-        margin: 1em 0 1em 0;
+        interpolate-size: allow-keywords;
+        margin          : 1em 0 1em 0;
+    }
+
+    details::details-content {
+        block-size        : 0;
+        content-visibility: auto;
+        opacity           : 0;
+        overflow          : hidden;
+        transition        : block-size 300ms ease-out, content-visibility 300ms allow-discrete, opacity 300ms ease-out;
     }
 
     details[open] {
         margin-bottom: 2em;
+    }
+
+    details[open]::details-content {
+        block-size: auto;
+        opacity   : 1;
     }
 
     details summary {
@@ -41,23 +55,20 @@
         display    : flex;
         font-weight: bold;
         list-style : none;
-        transition : margin 300ms ease-out;
-    }
-
-    details summary::before {
-        content: "\f055";
     }
 
     details[open] summary::before {
-        content: "\f056";
+        transform: rotate(45deg);
     }
 
     details summary::before {
         color      : #c4c4c4;
+        content    : "\f055";
         font-family: var(--fa-style-family, "Font Awesome 7 Free");
         font-size  : 1em;
         font-weight: var(--fa-style, 900);
         margin     : 0.4em 0.4em 0.4em 0;
+        transition : transform 300ms ease-out;
     }
 
     h1.neo-h1 {

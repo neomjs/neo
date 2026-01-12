@@ -42,19 +42,18 @@ Update `verifyDelegationPath` to perform a "Logical Ancestry Check" if the stand
 **Impact:**
 This ensures that event delegation (e.g., `delegate: '.neo-draggable'`) works correctly for components that rely on logical bubbling, such as DragProxies, Modal Dialogs, and Multi-Window components.
 
-## Comments
+## Timeline
 
-### @github-actions - 2025-12-07 18:18
+- 2025-12-07T18:14:09Z @tobiu added the `enhancement` label
+- 2025-12-07T18:14:09Z @tobiu added the `ai` label
+- 2025-12-07T18:14:10Z @tobiu added the `architecture` label
+- 2025-12-07T18:14:41Z @tobiu assigned to @tobiu
+- 2025-12-07T18:16:20Z @tobiu referenced in commit `eab5cac` - "[DomEvent] Support Logical Ancestry in verifyDelegationPath #8051"
+- 2025-12-07T18:17:30Z @tobiu closed this issue
+- 2025-12-07T18:17:54Z @tobiu reopened this issue
+- 2025-12-07T18:18:00Z @github-actions closed this issue
+### @github-actions - 2025-12-07T18:18:01Z
 
 ❌ Tickets cannot be reopened. Created new ticket: #8052
 
-## Activity Log
-
-- 2025-12-07 @tobiu added the `enhancement` label
-- 2025-12-07 @tobiu added the `ai` label
-- 2025-12-07 @tobiu added the `architecture` label
-- 2025-12-07 @tobiu assigned to @tobiu
-- 2025-12-07 @tobiu referenced in commit `eab5cac` - "[DomEvent] Support Logical Ancestry in verifyDelegationPath #8051"
-- 2025-12-07 @tobiu closed this issue
-- 2025-12-07 @github-actions closed this issue
 

@@ -39,12 +39,12 @@ With the configuration now based on a `syncStartDate`, the `SyncService` must be
 -   Eliminates the need for manual configuration updates when a new version is released.
 -   Ensures the service has an accurate, up-to-date list of all relevant releases.
 
-## Activity Log
+## Timeline
 
-- 2025-10-20 @tobiu assigned to @tobiu
-- 2025-10-20 @tobiu added the `enhancement` label
-- 2025-10-20 @tobiu added parent issue #7564
-- 2025-10-20 @tobiu added the `ai` label
-- 2025-10-20 @tobiu referenced in commit `5d70430` - "Implement Dynamic Release Fetching in SyncService #7572"
-- 2025-10-20 @tobiu closed this issue
+- 2025-10-20T12:44:57Z @tobiu assigned to @tobiu
+- 2025-10-20T12:44:58Z @tobiu added the `enhancement` label
+- 2025-10-20T12:44:58Z @tobiu added parent issue #7564
+- 2025-10-20T12:44:59Z @tobiu added the `ai` label
+- 2025-10-20T12:55:01Z @tobiu referenced in commit `5d70430` - "Implement Dynamic Release Fetching in SyncService #7572"
+- 2025-10-20T12:55:43Z @tobiu closed this issue
 

@@ -23,11 +23,11 @@ closedAt: '2025-02-05T23:25:35Z'
 
 requires https://github.com/neomjs/neo/issues/6384 to be resolved
 
-## Activity Log
+## Timeline
 
-- 2025-02-05 @tobiu added the `enhancement` label
-- 2025-02-05 @tobiu assigned to @tobiu
-- 2025-02-05 @tobiu added parent issue #6378
-- 2025-02-05 @tobiu referenced in commit `2e94052` - "grid.View: createRow() => match columnPositions by dataField instead of index #6385"
-- 2025-02-05 @tobiu closed this issue
+- 2025-02-05T21:48:32Z @tobiu added the `enhancement` label
+- 2025-02-05T21:48:32Z @tobiu assigned to @tobiu
+- 2025-02-05T21:53:39Z @tobiu added parent issue #6378
+- 2025-02-05T23:25:31Z @tobiu referenced in commit `2e94052` - "grid.View: createRow() => match columnPositions by dataField instead of index #6385"
+- 2025-02-05T23:25:36Z @tobiu closed this issue
 

@@ -23,9 +23,12 @@ closedAt: '2025-01-14T22:22:57Z'
 
 *(No description provided)*
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-01-14 22:22
+- 2025-01-14T20:57:27Z @tobiu added the `enhancement` label
+- 2025-01-14T20:57:27Z @tobiu assigned to @tobiu
+- 2025-01-14T22:13:50Z @tobiu referenced in commit `889d725` - "grid.Container / View: add support for the keys PageDown, PageUp, End, Home to navigate #6233"
+### @tobiu - 2025-01-14T22:22:57Z
 
 https://github.com/user-attachments/assets/2065773c-07e7-4c05-aeaf-7381476a0823
 
@@ -33,10 +36,5 @@ Actually we do not even need to add a custom keyboard navigation for `grid.View`
 
 The `tabindex="-1"` DOM attributes for grid cells & rows had to get removed and instead the view wrapper node got it (see video). Now the selection models need work.
 
-## Activity Log
-
-- 2025-01-14 @tobiu added the `enhancement` label
-- 2025-01-14 @tobiu assigned to @tobiu
-- 2025-01-14 @tobiu referenced in commit `889d725` - "grid.Container / View: add support for the keys PageDown, PageUp, End, Home to navigate #6233"
-- 2025-01-14 @tobiu closed this issue
+- 2025-01-14T22:22:57Z @tobiu closed this issue
 

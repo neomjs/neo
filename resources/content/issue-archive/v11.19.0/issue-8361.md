@@ -45,10 +45,11 @@ Update the landing page `cycleTexts` to use the finalized 19-item list, replacin
 18. No Transpilation
 19. Instant Page Reloads
 
-## Activity Log
+## Timeline
 
-- 2026-01-06 @tobiu added the `documentation` label
-- 2026-01-06 @tobiu added the `ai` label
-- 2026-01-06 @tobiu assigned to @tobiu
-- 2026-01-06 @tobiu closed this issue
+- 2026-01-06T14:44:59Z @tobiu added the `documentation` label
+- 2026-01-06T14:44:59Z @tobiu added the `ai` label
+- 2026-01-06T14:45:20Z @tobiu assigned to @tobiu
+- 2026-01-06T14:45:47Z @tobiu closed this issue
+- 2026-01-07T13:25:09Z @jonnyamsp referenced in commit `d9ef915` - "docs: Refine Portal landing page cycleTexts for precision and Web Standards (closes #8361)"
 

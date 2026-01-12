@@ -36,12 +36,12 @@ Create a new test file `test/playwright/unit/manager/domEvent/Fire.spec.mjs` to 
 *   Remove the unused `findComponentReference` method from `src/manager/DomEvent.mjs`.
 
 
-## Activity Log
+## Timeline
 
-- 2025-12-08 @tobiu added the `ai` label
-- 2025-12-08 @tobiu added the `refactoring` label
-- 2025-12-08 @tobiu added the `testing` label
-- 2025-12-08 @tobiu assigned to @tobiu
-- 2025-12-08 @tobiu referenced in commit `f8bbe27` - "[DomEvent] Add Unit Tests for fire() and Cleanup #8059"
-- 2025-12-08 @tobiu closed this issue
+- 2025-12-08T09:13:26Z @tobiu added the `ai` label
+- 2025-12-08T09:13:27Z @tobiu added the `refactoring` label
+- 2025-12-08T09:13:27Z @tobiu added the `testing` label
+- 2025-12-08T09:13:40Z @tobiu assigned to @tobiu
+- 2025-12-08T09:14:07Z @tobiu referenced in commit `f8bbe27` - "[DomEvent] Add Unit Tests for fire() and Cleanup #8059"
+- 2025-12-08T09:14:10Z @tobiu closed this issue
 

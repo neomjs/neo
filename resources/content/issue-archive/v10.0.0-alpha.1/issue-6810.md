@@ -22,12 +22,12 @@ closedAt: '2025-06-16T10:19:57Z'
 
 * counterpart for: `vdom.util.StringFromVnode`
 
-## Activity Log
+## Timeline
 
-- 2025-06-16 @tobiu added parent issue #6785
-- 2025-06-16 @tobiu added the `enhancement` label
-- 2025-06-16 @tobiu referenced in commit `82c3efb` - "vdom.util.DomApiVnodeCreator #6810"
-- 2025-06-16 @tobiu referenced in commit `8ac52f5` - "#6810 vdom.util.DomApiVnodeCreator: smartly imported into vdom.Helper"
-- 2025-06-16 @tobiu referenced in commit `eda7a8a` - "#6810 vdom.util.DomApiVnodeCreator: used inside vdom.Helper: insert()"
-- 2025-06-16 @tobiu closed this issue
+- 2025-06-16T08:08:38Z @tobiu added parent issue #6785
+- 2025-06-16T08:08:38Z @tobiu added the `enhancement` label
+- 2025-06-16T08:21:07Z @tobiu referenced in commit `82c3efb` - "vdom.util.DomApiVnodeCreator #6810"
+- 2025-06-16T08:31:29Z @tobiu referenced in commit `8ac52f5` - "#6810 vdom.util.DomApiVnodeCreator: smartly imported into vdom.Helper"
+- 2025-06-16T08:37:53Z @tobiu referenced in commit `eda7a8a` - "#6810 vdom.util.DomApiVnodeCreator: used inside vdom.Helper: insert()"
+- 2025-06-16T10:19:58Z @tobiu closed this issue
 

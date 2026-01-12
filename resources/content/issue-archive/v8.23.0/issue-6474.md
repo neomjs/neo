@@ -23,17 +23,15 @@ closedAt: '2025-02-21T13:09:39Z'
 
 *(No description provided)*
 
-## Comments
+## Timeline
 
-### @tobiu - 2025-02-21 13:09
+- 2025-02-21T13:07:29Z @tobiu added the `enhancement` label
+- 2025-02-21T13:07:29Z @tobiu assigned to @tobiu
+- 2025-02-21T13:08:00Z @tobiu referenced in commit `b88d769` - "component.MagicMoveText: colorFadeIn, colorFadeOut, colorMove configs #6474"
+- 2025-02-21T13:09:16Z @tobiu referenced in commit `f6bacb0` - "#6474 clearable example fields"
+### @tobiu - 2025-02-21T13:09:39Z
 
 https://github.com/user-attachments/assets/d0d78b09-09b7-4e9a-9e51-02c191cf918e
 
-## Activity Log
-
-- 2025-02-21 @tobiu added the `enhancement` label
-- 2025-02-21 @tobiu assigned to @tobiu
-- 2025-02-21 @tobiu referenced in commit `b88d769` - "component.MagicMoveText: colorFadeIn, colorFadeOut, colorMove configs #6474"
-- 2025-02-21 @tobiu referenced in commit `f6bacb0` - "#6474 clearable example fields"
-- 2025-02-21 @tobiu closed this issue
+- 2025-02-21T13:09:39Z @tobiu closed this issue
 

@@ -41,11 +41,11 @@ Implement support for a custom JSDoc tag `@ignoreDocs`. When this tag is present
 *   Run `npm run generate-docs-json`.
 *   Verify `issueQueries` is no longer in `docs/output/structure.json`.
 
-## Activity Log
+## Timeline
 
-- 2025-11-24 @tobiu added the `documentation` label
-- 2025-11-24 @tobiu added the `enhancement` label
-- 2025-11-24 @tobiu assigned to @tobiu
-- 2025-11-24 @tobiu referenced in commit `219d620` - "Support @ignoreDocs JSDoc tag to exclude files from Docs app structure #7900"
-- 2025-11-24 @tobiu closed this issue
+- 2025-11-24T14:03:53Z @tobiu added the `documentation` label
+- 2025-11-24T14:03:53Z @tobiu added the `enhancement` label
+- 2025-11-24T14:04:11Z @tobiu assigned to @tobiu
+- 2025-11-24T14:17:08Z @tobiu referenced in commit `219d620` - "Support @ignoreDocs JSDoc tag to exclude files from Docs app structure #7900"
+- 2025-11-24T14:17:26Z @tobiu closed this issue
 

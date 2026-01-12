@@ -39,14 +39,14 @@ Developers who want to understand how to build UIs with the new API.
 ## 4. Deliverable
 A complete draft of the blog post as a markdown file.
 
-## Activity Log
+## Timeline
 
-- 2025-07-22 @tobiu assigned to @tobiu
-- 2025-07-22 @tobiu added the `Blog Post` label
-- 2025-07-22 @tobiu added parent issue #7093
-- 2025-07-22 @tobiu referenced in commit `dcd6c1d` - "#7097 early draft"
-- 2025-07-22 @tobiu referenced in commit `ecfcee1` - "#7097 WIP"
-- 2025-07-22 @tobiu referenced in commit `f7b6329` - "Create Deep-Dive Blog Post for Functional Components #7097"
-- 2025-07-22 @tobiu referenced in commit `e3db2d3` - "#7097 formatting"
-- 2025-07-22 @tobiu closed this issue
+- 2025-07-22T06:28:10Z @tobiu assigned to @tobiu
+- 2025-07-22T06:28:11Z @tobiu added the `Blog Post` label
+- 2025-07-22T06:28:11Z @tobiu added parent issue #7093
+- 2025-07-22T07:42:48Z @tobiu referenced in commit `dcd6c1d` - "#7097 early draft"
+- 2025-07-22T07:47:10Z @tobiu referenced in commit `ecfcee1` - "#7097 WIP"
+- 2025-07-22T14:34:20Z @tobiu referenced in commit `f7b6329` - "Create Deep-Dive Blog Post for Functional Components #7097"
+- 2025-07-22T14:37:33Z @tobiu referenced in commit `e3db2d3` - "#7097 formatting"
+- 2025-07-22T16:24:32Z @tobiu closed this issue
 

@@ -24,10 +24,10 @@ closedAt: '2025-06-18T16:28:10Z'
 * We are using the same logic within `insertNode()` and `moveNode()`
 * Time to give it a new home
 
-## Activity Log
+## Timeline
 
-- 2025-06-18 @tobiu assigned to @tobiu
-- 2025-06-18 @tobiu added the `enhancement` label
-- 2025-06-18 @tobiu referenced in commit `8a6c8a7` - "vdom.Helper: getPhysicalIndex() #6833"
-- 2025-06-18 @tobiu closed this issue
+- 2025-06-18T16:25:48Z @tobiu assigned to @tobiu
+- 2025-06-18T16:25:49Z @tobiu added the `enhancement` label
+- 2025-06-18T16:26:02Z @tobiu referenced in commit `8a6c8a7` - "vdom.Helper: getPhysicalIndex() #6833"
+- 2025-06-18T16:28:10Z @tobiu closed this issue
 

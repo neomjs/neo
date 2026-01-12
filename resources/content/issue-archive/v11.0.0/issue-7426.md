@@ -30,12 +30,12 @@ The following changes were made:
 
 2.  **Rewrote Outdated Introduction:** Section 1, which was written when the project was first released, has been completely rewritten. The new text removes outdated language ("just got released"), updates platform names (Twitter -> X), and adopts a more professional tone suitable for a mature open-source project.
 
-## Activity Log
+## Timeline
 
-- 2025-10-09 @tobiu assigned to @tobiu
-- 2025-10-09 @tobiu added the `documentation` label
-- 2025-10-09 @tobiu added the `enhancement` label
-- 2025-10-09 @tobiu referenced in commit `2c25700` - "Docs: Modernize CONTRIBUTING.md #7426"
-- 2025-10-09 @tobiu closed this issue
-- 2025-10-09 @tobiu cross-referenced by #7287
+- 2025-10-09T10:46:16Z @tobiu assigned to @tobiu
+- 2025-10-09T10:46:17Z @tobiu added the `documentation` label
+- 2025-10-09T10:46:17Z @tobiu added the `enhancement` label
+- 2025-10-09T10:47:00Z @tobiu referenced in commit `2c25700` - "Docs: Modernize CONTRIBUTING.md #7426"
+- 2025-10-09T10:47:07Z @tobiu closed this issue
+- 2025-10-09T10:52:44Z @tobiu cross-referenced by #7287
 

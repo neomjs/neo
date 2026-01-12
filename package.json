@@ -1,7 +1,7 @@
 {
     "name"           : "neo.mjs",
-    "version"        : "11.19.1",
-    "description"    : "The Application Engine for the AI Era. A multi-threaded, AI-native runtime with a persistent Scene Graph, enabling AI agents to introspect and manipulate the living application structure in real-time.",
+    "version"        : "11.20.0",
+    "description"    : "The Application Engine for the AI Era. A multi-threaded, AI-native runtime with a persistent Scene Graph, enabling AI agents to introspect and mutate the living application structure in real-time.",
     "type"           : "module",
     "repository"     : {
         "type": "git",
@@ -13,6 +13,8 @@
     "scripts"        : {
         "add-config"                   : "node ./buildScripts/addConfig.mjs",
         "add-reactive-tags"            : "node ./buildScripts/addReactiveTags.mjs",
+        "ai:defrag-kb"                 : "node ./buildScripts/defragChromaDB.mjs --target knowledge-base",
+        "ai:defrag-memory"             : "node ./buildScripts/defragChromaDB.mjs --target memory-core",
         "ai:download-kb"               : "node ./buildScripts/downloadKnowledgeBase.mjs",
         "ai:mcp-client"                : "node ./ai/mcp/client/mcp-cli.mjs",
         "ai:mcp-server-github-workflow": "node ./ai/mcp/server/github-workflow/mcp-stdio.mjs",

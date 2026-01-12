@@ -36,12 +36,12 @@ This ticket covers two improvements to the `pullRequestService`:
     - `checkoutPullRequest` now returns an object containing the `details` from the command's `stdout`.
 3.  The `pullRequests.mjs` route is updated to read the `state` from the query string and pass it to the service.
 
-## Activity Log
+## Timeline
 
-- 2025-10-14 @tobiu assigned to @tobiu
-- 2025-10-14 @tobiu added the `enhancement` label
-- 2025-10-14 @tobiu added parent issue #7477
-- 2025-10-14 @tobiu added the `ai` label
-- 2025-10-14 @tobiu referenced in commit `b5ef261` - "Enhance PR Listing and Checkout Logic #7482"
-- 2025-10-14 @tobiu closed this issue
+- 2025-10-14T09:37:17Z @tobiu assigned to @tobiu
+- 2025-10-14T09:37:18Z @tobiu added the `enhancement` label
+- 2025-10-14T09:37:18Z @tobiu added parent issue #7477
+- 2025-10-14T09:37:18Z @tobiu added the `ai` label
+- 2025-10-14T09:37:46Z @tobiu referenced in commit `b5ef261` - "Enhance PR Listing and Checkout Logic #7482"
+- 2025-10-14T09:37:52Z @tobiu closed this issue
 

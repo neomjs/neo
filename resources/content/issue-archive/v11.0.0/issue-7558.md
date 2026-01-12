@@ -33,12 +33,12 @@ This ticket covers refactoring `ai/mcp/server/github-workflow/services/labelServ
 5.  The `ai/mcp/server/github-workflow/services/toolService.mjs` is updated to use the new `LabelService` class.
 6.  The `list_labels` tool continues to function correctly after the refactoring.
 
-## Activity Log
+## Timeline
 
-- 2025-10-19 @tobiu assigned to @tobiu
-- 2025-10-19 @tobiu added parent issue #7536
-- 2025-10-19 @tobiu added the `enhancement` label
-- 2025-10-19 @tobiu added the `ai` label
-- 2025-10-19 @tobiu referenced in commit `f81ef7c` - "Convert labelService to LabelService Neo.mjs Class #7558"
-- 2025-10-19 @tobiu closed this issue
+- 2025-10-19T22:43:28Z @tobiu assigned to @tobiu
+- 2025-10-19T22:43:29Z @tobiu added parent issue #7536
+- 2025-10-19T22:43:29Z @tobiu added the `enhancement` label
+- 2025-10-19T22:43:29Z @tobiu added the `ai` label
+- 2025-10-19T22:45:46Z @tobiu referenced in commit `f81ef7c` - "Convert labelService to LabelService Neo.mjs Class #7558"
+- 2025-10-19T22:47:16Z @tobiu closed this issue
 

@@ -58,7 +58,7 @@ class IssueSyncer extends Base {
      * @returns {string} The fully formatted Markdown string.
      * @private
      */
-    #formatIssueMarkdown(issue, comments) {
+    #formatIssueMarkdown(issue) {
         const frontmatter = {
             id                : issue.number,
             title             : issue.title.replace(lineBreaksRegex, ' '),
@@ -69,7 +69,7 @@ class IssueSyncer extends Base {
             updatedAt         : issue.updatedAt,
             githubUrl         : issue.url,
             author            : issue.author.login,
-            commentsCount     : comments.length,
+            commentsCount     : issue.comments.totalCount,
             parentIssue       : issue.parent ? issue.parent.number : null,
             subIssues         : issue.subIssues?.nodes.map(sub => `[${sub.state === 'CLOSED' ? 'x' : ' '}] ${sub.number} ${sub.title.replace(lineBreaksRegex, ' ')}`) || [],
             subIssuesCompleted: issue.subIssuesSummary?.completed || 0,
@@ -90,20 +90,9 @@ class IssueSyncer extends Base {
         body += issue.body || '*(No description provided)*';
         body += '\n\n';
 
-        if (comments.length > 0) {
-            body += issueSyncConfig.commentSectionDelimiter + '\n\n';
-            for (const comment of comments) {
-                const date = comment.createdAt.split('T')[0];
-                const time = comment.createdAt.split('T')[1].substring(0, 5);
-                body += `### @${comment.author.login} - ${date} ${time}\n\n`;
-                body += comment.body;
-                body += '\n\n';
-            }
-        }
-
-        // Add Activity Log section
+        // Add Activity Log / Timeline section
         if (issue.timelineItems?.nodes.length > 0) {
-            body += '## Activity Log\n\n';
+            body += '## Timeline\n\n';
             for (const event of issue.timelineItems.nodes) {
                 body += this.#formatTimelineEvent(event);
             }
@@ -120,8 +109,12 @@ class IssueSyncer extends Base {
      * @private
      */
     #formatTimelineEvent(event) {
-        const date  = event.createdAt.split('T')[0];
-        const actor = event.actor?.login || 'Ghost';
+        const actor = event.actor?.login || event.author?.login || 'Ghost';
+
+        if (event.__typename === 'IssueComment') {
+            return `### @${actor} - ${event.createdAt}\n\n${event.body}\n\n`;
+        }
+
         let details = '';
 
         switch (event.__typename) {
@@ -139,6 +132,18 @@ class IssueSyncer extends Base {
                 break;
             case 'ClosedEvent':
                 details = `closed this issue`;
+                break;
+            case 'ReopenedEvent':
+                details = `reopened this issue`;
+                break;
+            case 'RenamedTitleEvent':
+                details = `changed title from **${event.previousTitle}** to **${event.currentTitle}**`;
+                break;
+            case 'MilestonedEvent':
+                details = `added this to the **${event.milestoneTitle}** milestone`;
+                break;
+            case 'DemilestonedEvent':
+                details = `removed this from the **${event.milestoneTitle}** milestone`;
                 break;
             case 'ReferencedEvent':
                 const commitMessage = event.commit.message.split('\\n')[0];
@@ -176,7 +181,7 @@ class IssueSyncer extends Base {
                 details = `performed a "${event.__typename}" event`;
         }
 
-        return `- ${date} @${actor} ${details}\n`;
+        return `- ${event.createdAt} @${actor} ${details}\n`;
     }
 
     /**
@@ -356,7 +361,7 @@ class IssueSyncer extends Base {
                 stats.pulled.issues.push(issueNumber);
 
                 // Comments are already in issue.comments - no separate fetch needed!
-                const markdown = this.#formatIssueMarkdown(issue, issue.comments.nodes);
+                const markdown = this.#formatIssueMarkdown(issue);
                 contentHash = this.#calculateContentHash(markdown);
 
                 await fs.mkdir(path.dirname(targetPath), { recursive: true });
@@ -474,7 +479,7 @@ class IssueSyncer extends Base {
                     const targetPath = this.#getIssuePath(issue);
                     if (!targetPath) continue;
 
-                    const markdown    = this.#formatIssueMarkdown(issue, issue.comments.nodes);
+                    const markdown    = this.#formatIssueMarkdown(issue);
                     const contentHash = this.#calculateContentHash(markdown);
 
                     await fs.mkdir(path.dirname(targetPath), { recursive: true });
@@ -569,12 +574,9 @@ class IssueSyncer extends Base {
                 const issueId = idData.repository.issue.id;
 
                 // Step 2: Prepare the updated content
-                // Remove comments section and everything after it
-                let bodyContent = parsed.content.split(issueSyncConfig.commentSectionDelimiter)[0];
-
-                // Remove Activity Log section and everything after it (if present)
-                // This prevents the read-only activity log from being pushed back to the issue body
-                bodyContent = bodyContent.split('## Activity Log')[0].trim();
+                // Remove Timeline section and everything after it
+                // This prevents the read-only timeline from being pushed back to the issue body
+                const bodyContent = parsed.content.split('## Timeline')[0].trim();
 
                 // Extract title from the markdown
                 const titleMatch = bodyContent.match(/^#\s+(.+)$/m);

@@ -47,7 +47,13 @@ const
     };
 
 /**
- * The base module to enhance classes, create instances and the Neo namespace
+ * The base module to enhance classes, create instances and the Neo namespace.
+ *
+ * **Note:** The `Neo` namespace is explicitly augmented by core modules like `src/core/Util.mjs`
+ * and `src/core/Compare.mjs`. Global utility methods (e.g. `Neo.isArray`, `Neo.isEqual`) are defined
+ * there and mapped here. To ensure these methods are available, make sure to import the core package:
+ * `import * as core from '../src/core/_export.mjs';` or the specific modules.
+ *
  * @module Neo
  * @singleton
  * @borrows Neo.core.Util.bindMethods       as bindMethods
@@ -63,6 +69,11 @@ const
  * @borrows Neo.core.Util.isString          as isString
  * @borrows Neo.core.Util.snakeToCamel      as snakeToCamel
  * @borrows Neo.core.Util.toArray           as toArray
+ * @borrows Neo.util.Logger.error           as error
+ * @borrows Neo.util.Logger.info            as info
+ * @borrows Neo.util.Logger.log             as log
+ * @borrows Neo.util.Logger.logError        as logError
+ * @borrows Neo.util.Logger.warn            as warn
  * @tutorial 01_Concept
  */
 let Neo = globalThis.Neo || {};
@@ -546,12 +557,54 @@ If you intended to create custom logic, use the 'beforeGet${Neo.capitalize(key)}
         if (!a) return b;
         if (!b) return a;
 
+        // If both are arrays, we need a smart merge strategy, not index-based merging
+        if (Array.isArray(a) && Array.isArray(b)) {
+            // Create a map of existing items for faster lookup if they have id/name
+            const
+                existingMap = new Map(),
+                mergedArray = Neo.clone(a, true, true); // Deep clone existing items
+
+            // Helper to generate a key for lookup
+            const getItemKey = (item) => {
+                if (item && typeof item === 'object') {
+                    return item.id ?? item.name ?? null
+                }
+                return null
+            };
+
+            mergedArray.forEach((item, index) => {
+                const key = getItemKey(item);
+                if (key !== null) existingMap.set(key, index)
+            });
+
+            b.forEach(newItem => {
+                const
+                    itemKey = getItemKey(newItem),
+                    existingIndex = itemKey !== null ? existingMap.get(itemKey) : -1;
+
+                if (existingIndex !== undefined && existingIndex > -1) {
+                    // Match found by ID/Name - Deep merge
+                    mergedArray[existingIndex] = Neo.mergeDeepArrays(mergedArray[existingIndex], newItem)
+                } else {
+                    // Check for deep equality for items without ID/Name or primitives
+                    const exactMatchIndex = mergedArray.findIndex(existingItem => Neo.isEqual(existingItem, newItem));
+
+                    if (exactMatchIndex === -1) {
+                        mergedArray.push(Neo.clone(newItem, true, true))
+                    }
+                    // If exact match exists, we do nothing (it's a duplicate)
+                }
+            });
+
+            return mergedArray
+        }
+
         let out = Neo.clone(a, true);
 
         Object.entries(b).forEach(([key, value]) => {
             if (out[key]) {
                 if (Array.isArray(out[key]) && Array.isArray(value)) {
-                    out[key] = [...new Set([...out[key], ...value])]
+                    out[key] = Neo.mergeDeepArrays(out[key], value) // Recursively call for nested arrays
                 } else if (Neo.isObject(out[key]) && Neo.isObject(value)) {
                     out[key] = Neo.mergeDeepArrays(out[key], value)
                 } else {
@@ -588,6 +641,8 @@ If you intended to create custom logic, use the 'beforeGet${Neo.capitalize(key)}
             }
         } else if (strategy === 'deepArrays') {
             if (defaultValueType === 'Object' && instanceValueType === 'Object') {
+                return Neo.mergeDeepArrays(defaultValue, instanceValue)
+            } else if (defaultValueType === 'Array' && instanceValueType === 'Array') {
                 return Neo.mergeDeepArrays(defaultValue, instanceValue)
             }
         } else if (typeof strategy === 'function') {
@@ -797,7 +852,11 @@ If you intended to create custom logic, use the 'beforeGet${Neo.capitalize(key)}
                 //    The 'value' property of the descriptor is then used as the actual config value.
                 if (Neo.isObject(value) && value[isDescriptor] === true) {
                     currentConfigDescriptors[baseKey] = Neo.clone(value, true); // Deep clone to prevent mutation
-                    value = value.value // Use the descriptor's value as the config value
+                    value = value.value; // Use the descriptor's value as the config value
+
+                    if (!isReactive) {
+                        cfg[key] = value
+                    }
                 }
 
                 // 2. Handle reactive vs. non-reactive configs: Generate getters/setters for reactive configs.
@@ -813,12 +872,14 @@ If you intended to create custom logic, use the 'beforeGet${Neo.capitalize(key)}
                 }
             });
 
-            // Merge configDescriptors: Apply "first-defined wins" strategy.
-            // If a descriptor for a key already exists (from a parent class), it is not overwritten.
+            // Merge configDescriptors: Apply "last-defined wins" strategy.
+            // If a descriptor for a key already exists (from a parent class), we merge the new one on top.
             if (Object.keys(currentConfigDescriptors).length > 0) {
                 for (const key in currentConfigDescriptors) {
                     if (!Object.hasOwn(configDescriptors, key)) {
                         configDescriptors[key] = currentConfigDescriptors[key];
+                    } else {
+                        Object.assign(configDescriptors[key], currentConfigDescriptors[key]);
                     }
                 }
             }

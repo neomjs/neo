@@ -50,11 +50,11 @@ Neo.windowConfigs[data.windowId] = Neo.clone(data, true);
 1.  `Neo.windowConfigs` stores a deep copy of the registration data.
 2.  Mutating `Neo.config` arrays at runtime does not affect the stored window config.
 
-## Activity Log
+## Timeline
 
-- 2026-01-04 @tobiu added the `bug` label
-- 2026-01-04 @tobiu added the `core` label
-- 2026-01-04 @tobiu assigned to @tobiu
-- 2026-01-04 @tobiu referenced in commit `c9b25d6` - "App Worker: Deep clone config in onRegisterNeoConfig to prevent side effects #8306"
-- 2026-01-04 @tobiu closed this issue
+- 2026-01-04T10:25:13Z @tobiu added the `bug` label
+- 2026-01-04T10:25:13Z @tobiu added the `core` label
+- 2026-01-04T10:26:40Z @tobiu assigned to @tobiu
+- 2026-01-04T10:35:20Z @tobiu referenced in commit `c9b25d6` - "App Worker: Deep clone config in onRegisterNeoConfig to prevent side effects #8306"
+- 2026-01-04T10:35:43Z @tobiu closed this issue
 

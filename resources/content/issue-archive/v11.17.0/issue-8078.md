@@ -50,12 +50,12 @@ const [record] = store.add(data, true);
 This overloads the `collection.Base` signature. While slightly impure, the DX benefit for Store usage is significant.
 
 
-## Activity Log
+## Timeline
 
-- 2025-12-10 @tobiu added the `enhancement` label
-- 2025-12-10 @tobiu added the `developer-experience` label
-- 2025-12-10 @tobiu added the `ai` label
-- 2025-12-10 @tobiu assigned to @tobiu
-- 2025-12-10 @tobiu referenced in commit `de32ae8` - "Enhance Store DX: Add 'init' parameter to add() and insert() for immediate record creation #8078"
-- 2025-12-10 @tobiu closed this issue
+- 2025-12-10T10:59:13Z @tobiu added the `enhancement` label
+- 2025-12-10T10:59:13Z @tobiu added the `developer-experience` label
+- 2025-12-10T10:59:14Z @tobiu added the `ai` label
+- 2025-12-10T11:00:28Z @tobiu assigned to @tobiu
+- 2025-12-10T11:07:12Z @tobiu referenced in commit `de32ae8` - "Enhance Store DX: Add 'init' parameter to add() and insert() for immediate record creation #8078"
+- 2025-12-10T11:07:21Z @tobiu closed this issue
 
