@@ -19,14 +19,18 @@ class MainContainer extends SharedContainer {
          */
         cls: ['portal-shared-background'],
         /**
-         * @member {Neo.component.Base} contentComponent=ContentComponent
-         */
-        contentComponent: ContentComponent,
-        /**
          * @member {Neo.controller.Component} controller=MainContainerController
          * @reactive
          */
         controller: Controller,
+        /**
+         * @member {Object} pageContainerConfig
+         */
+        pageContainerConfig: {
+            contentConfig: {
+                module: ContentComponent
+            }
+        },
         /**
          * @member {Neo.state.Provider} stateProvider=MainContainerStateProvider
          * @reactive

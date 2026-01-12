@@ -65,7 +65,7 @@ class PageContainer extends Container {
                     tag   : 'nav',
                     weight: 20,
                     items : {
-                        prevPageButton: {
+                        'prev-page-button': {
                             cls      : ['content-bottom-toolbar-previous'],
                             handler  : 'onPreviousPageButtonClick',
                             hidden   : true,
@@ -73,7 +73,7 @@ class PageContainer extends Container {
                             reference: 'prev-page-button',
                             ui       : 'secondary'
                         },
-                        nextPageButton: {
+                        'next-page-button': {
                             cls         : ['content-bottom-toolbar-next'],
                             handler     : 'onNextPageButtonClick',
                             hidden      : true,

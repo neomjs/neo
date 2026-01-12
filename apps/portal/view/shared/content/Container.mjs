@@ -28,7 +28,7 @@ class MainContainer extends Container {
             [isDescriptor]: true,
             merge         : 'deep',
             value         : {
-                sideNav: {
+                'sidenav-container': {
                     module   : Container,
                     cls      : ['sidenav-container'],
                     flex     : 'none',
@@ -64,7 +64,7 @@ class MainContainer extends Container {
                     [mergeFrom]: 'pageContainerConfig',
                     weight     : 30
                 },
-                sections: {
+                'page-sections-container': {
                     module   : SectionsContainer,
                     reference: 'page-sections-container',
                     weight   : 40
