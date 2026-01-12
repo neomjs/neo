@@ -39,6 +39,7 @@
             {"name": "Declarative Component Trees VS Imperative Vdom", "parentId": "guides/fundamentals",                                 "id": "guides/fundamentals/DeclarativeComponentTreesVsImperativeVdom"},
             {"name": "Declarative VDOM with Effects",                  "parentId": "guides/fundamentals",                                 "id": "guides/fundamentals/DeclarativeVDOMWithEffects"},
             {"name": "Config System Deep Dive",                        "parentId": "guides/fundamentals",                                 "id": "guides/fundamentals/ConfigSystemDeepDive"},
+            {"name": "Declarative Config Merging",                     "parentId": "guides/fundamentals",                                 "id": "guides/fundamentals/DeclarativeConfigMerging"},
             {"name": "Extending Neo Classes",                          "parentId": "guides/fundamentals",                                 "id": "guides/fundamentals/ExtendingNeoClasses"},
             {"name": "Main Thread Addons",                             "parentId": "guides/fundamentals",                                 "id": "guides/fundamentals/MainThreadAddons"},
         {"name": "UI Building Blocks",                                 "parentId": "guides",                             "isLeaf": false, "id": "guides/uibuildingblocks", "collapsed": true},
