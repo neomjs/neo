@@ -29,9 +29,11 @@ class MainContainer extends SharedContainer {
          * @member {Object} pageContainerConfig
          */
         pageContainerConfig: {
-            module          : PageContainer,
-            buttonTextField : 'id',
-            contentComponent: CanvasWrapper
+            module         : PageContainer,
+            buttonTextField: 'id',
+            contentConfig  : {
+                module: CanvasWrapper
+            }
         },
         /**
          * @member {Neo.state.Provider} stateProvider=MainContainerStateProvider

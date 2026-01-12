@@ -1,9 +1,9 @@
-import {isDescriptor}  from '../../../../../src/core/ConfigSymbols.mjs';
-import Container         from '../../../../../src/container/Base.mjs';
-import PageContainer     from './PageContainer.mjs';
-import SectionsContainer from './SectionsContainer.mjs';
-import Splitter          from '../../../../../src/component/Splitter.mjs';
-import TreeList          from './TreeList.mjs';
+import {isDescriptor, mergeFrom} from '../../../../../src/core/ConfigSymbols.mjs';
+import Container                 from '../../../../../src/container/Base.mjs';
+import PageContainer             from './PageContainer.mjs';
+import SectionsContainer         from './SectionsContainer.mjs';
+import Splitter                  from '../../../../../src/component/Splitter.mjs';
+import TreeList                  from './TreeList.mjs';
 
 /**
  * @class Portal.view.shared.content.Container
@@ -22,9 +22,9 @@ class MainContainer extends Container {
          */
         baseCls: ['portal-shared-content-container', 'neo-container'],
         /**
-         * @member {Object} contentItems_
+         * @member {Object} items
          */
-        contentItems_: {
+        items: {
             [isDescriptor]: true,
             merge         : 'deep',
             value         : {
@@ -38,8 +38,9 @@ class MainContainer extends Container {
                     weight   : 10,
                     items    : {
                         tree: {
-                            module   : TreeList,
-                            reference: 'tree'
+                            module     : TreeList,
+                            [mergeFrom]: 'treeConfig',
+                            reference  : 'tree'
                         },
                         toggleBtn: {
                             ntype  : 'button',
@@ -60,7 +61,8 @@ class MainContainer extends Container {
                     weight      : 20
                 },
                 pageContainer: {
-                    weight: 30
+                    [mergeFrom]: 'pageContainerConfig',
+                    weight     : 30
                 },
                 sections: {
                     module   : SectionsContainer,
@@ -84,9 +86,11 @@ class MainContainer extends Container {
             [isDescriptor]: true,
             merge         : 'deep',
             value         : {
-                module          : PageContainer,
-                buttonTextField : 'name',
-                contentComponent: null
+                module         : PageContainer,
+                buttonTextField: 'name',
+                contentConfig  : {
+                    module: null
+                }
             }
         },
         /**
@@ -97,26 +101,6 @@ class MainContainer extends Container {
             [isDescriptor]: true,
             merge         : 'deep',
             value         : null
-        }
-    }
-
-    /**
-     * @param {Object} value
-     * @param {Object} oldValue
-     */
-    afterSetContentItems(value, oldValue) {
-        let me = this;
-
-        if (value) {
-            if (me.treeConfig && value.sideNav?.items?.tree) {
-                Neo.assignDefaults(value.sideNav.items.tree, me.treeConfig);
-            }
-
-            if (me.pageContainerConfig && value.pageContainer) {
-                Neo.assignDefaults(value.pageContainer, me.pageContainerConfig);
-            }
-
-            me.items = value;
         }
     }
 }

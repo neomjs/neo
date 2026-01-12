@@ -1,7 +1,7 @@
-import {isDescriptor} from '../../../../../src/core/ConfigSymbols.mjs';
-import Component        from './Component.mjs';
-import Container        from '../../../../../src/container/Base.mjs';
-import Toolbar          from '../../../../../src/toolbar/Base.mjs';
+import {isDescriptor, mergeFrom} from '../../../../../src/core/ConfigSymbols.mjs';
+import Component                 from './Component.mjs';
+import Container                 from '../../../../../src/container/Base.mjs';
+import Toolbar                   from '../../../../../src/toolbar/Base.mjs';
 
 /**
  * @class Portal.view.shared.content.PageContainer
@@ -31,21 +31,28 @@ class PageContainer extends Container {
          */
         buttonTextField: 'name',
         /**
-         * @member {Neo.component.Base|null} contentComponent=null
+         * @member {Object} contentConfig_
+         * @reactive
          */
-        contentComponent: null,
+        contentConfig_: {
+            [isDescriptor]: true,
+            merge         : 'deep',
+            value         : {
+                module: Component
+            }
+        },
         /**
-         * Default items configuration using the Proxy Config Pattern
-         * @member {Object} contentItems_
+         * @member {Object} items
          */
-        contentItems_: {
+        items: {
             [isDescriptor]: true,
             merge         : 'deep',
             value         : {
                 content: {
-                    reference: 'content',
-                    weight   : 10,
-                    listeners: {
+                    [mergeFrom]: 'contentConfig',
+                    reference  : 'content',
+                    weight     : 10,
+                    listeners  : {
                         edit   : 'onContentEdit',
                         refresh: 'onContentRefresh'
                     }
@@ -89,19 +96,6 @@ class PageContainer extends Container {
          * @reactive
          */
         previousPageRecord_: null
-    }
-
-    /**
-     * @param {Object} value
-     * @param {Object} oldValue
-     */
-    afterSetContentItems(value, oldValue) {
-        if (value) {
-            if (value.content) {
-                value.content.module = this.contentComponent || Component;
-            }
-            this.items = value;
-        }
     }
 
     /**
