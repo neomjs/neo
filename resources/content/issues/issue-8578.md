@@ -1,7 +1,7 @@
 ---
 id: 8578
 title: Improve wheel event performance with passive listeners
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
@@ -9,7 +9,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-01-12T06:21:51Z'
-updatedAt: '2026-01-12T06:54:19Z'
+updatedAt: '2026-01-12T07:07:46Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8578'
 author: tobiu
 commentsCount: 1
@@ -19,6 +19,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-01-12T07:07:46Z'
 ---
 # Improve wheel event performance with passive listeners
 
@@ -69,4 +70,5 @@ Update `DomEvents.mjs` (Main Thread) and `DomEvent.mjs` (Manager) to support loc
 > By setting `bubble: false` on these local listeners, we ensure that the wheel event is consumed entirely by the component (e.g., spinning the Helix) and does not logically bubble up to scroll parent containers, fixing the regression where the parent page would scroll simultaneously.
 
 - 2026-01-12T06:54:19Z @tobiu assigned to @tobiu
+- 2026-01-12T07:07:46Z @tobiu closed this issue
 

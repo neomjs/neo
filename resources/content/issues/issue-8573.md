@@ -6,9 +6,10 @@ labels:
   - enhancement
   - ai
   - refactoring
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-01-12T02:20:42Z'
-updatedAt: '2026-01-12T02:28:40Z'
+updatedAt: '2026-01-12T07:08:30Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8573'
 author: tobiu
 commentsCount: 1
@@ -74,4 +75,6 @@ class MainContainer extends SharedContainer {
 > Closing as completed.
 
 - 2026-01-12T02:28:40Z @tobiu closed this issue
+- 2026-01-12T02:41:29Z @tobiu referenced in commit `6c60262` - "feat: Implement recursive mergeFrom and refactor Portal Containers (#8571, #8572, #8573)"
+- 2026-01-12T07:08:30Z @tobiu assigned to @tobiu
 
