@@ -228,4 +228,79 @@ test.describe('Container Items Merging', () => {
         expect(merged.flags.active).toBe(true);
         expect(merged.flags.highlighted).toBe(true);
     });
+
+    test('Structural Injection Pattern: Should inject separate config into items via afterSetContentItems', () => {
+        // 1. Define Base Container
+        class BaseContainer extends Container {
+            static config = {
+                className: 'Neo.test.BaseInjectionContainer',
+                // The Skeleton
+                contentItems_: {
+                    [isDescriptor]: true,
+                    merge         : 'deep',
+                    value         : {
+                        mainArea: {
+                            ntype : 'component',
+                            weight: 10,
+                            // Default props
+                            cls   : ['main-area']
+                        }
+                    }
+                },
+                // The Configuration Object to Inject
+                mainAreaConfig_: {
+                    [isDescriptor]: true,
+                    merge         : 'deep',
+                    value         : {
+                        text: 'Base Text',
+                        style: {
+                            color: 'red'
+                        }
+                    }
+                }
+            }
+
+            afterSetContentItems(value) {
+                if (value) {
+                    // Injection Logic
+                    if (this.mainAreaConfig && value.mainArea) {
+                        Neo.assignDefaults(value.mainArea, this.mainAreaConfig);
+                    }
+                    this.items = value;
+                }
+            }
+        }
+        BaseContainer = Neo.setupClass(BaseContainer);
+
+        // 2. Define Subclass overriding the injected config
+        class SubContainer extends BaseContainer {
+            static config = {
+                className: 'Neo.test.SubInjectionContainer',
+                // Override the config object, NOT the item directly
+                mainAreaConfig: {
+                    text: 'Sub Text',
+                    style: {
+                        fontSize: '20px'
+                    },
+                    extraProp: 'foo'
+                }
+            }
+        }
+        SubContainer = Neo.setupClass(SubContainer);
+
+        // 3. Create Instance
+        const instance = Neo.create(SubContainer);
+        const mainItem = instance.items[0];
+
+        // 4. Assertions
+        // Check Skeleton properties
+        expect(mainItem.reference).toBe('mainArea');
+        expect(mainItem.cls).toEqual(['main-area']);
+
+        // Check Injected & Merged properties
+        expect(mainItem.text).toBe('Sub Text'); // Overridden
+        expect(mainItem.style.color).toBe('red'); // Inherited from Base mainAreaConfig
+        expect(mainItem.style.fontSize).toBe('20px'); // Added in Sub mainAreaConfig
+        expect(mainItem.extraProp).toBe('foo'); // Added
+    });
 });

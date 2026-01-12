@@ -22,15 +22,6 @@ class MainContainer extends Container {
          */
         baseCls: ['portal-shared-content-container', 'neo-container'],
         /**
-         * @member {String} buttonTextField='name'
-         */
-        buttonTextField: 'name',
-        /**
-         * @member {Neo.component.Base|null} contentComponent=null
-         */
-        contentComponent: null,
-        /**
-         * Default items configuration using the Proxy Config Pattern
          * @member {Object} contentItems_
          */
         contentItems_: {
@@ -69,10 +60,7 @@ class MainContainer extends Container {
                     weight      : 20
                 },
                 pageContainer: {
-                    module          : '@config:pageContainerModule',
-                    buttonTextField : '@config:buttonTextField',
-                    contentComponent: '@config:contentComponent',
-                    weight          : 30
+                    weight: 30
                 },
                 sections: {
                     module   : SectionsContainer,
@@ -87,13 +75,29 @@ class MainContainer extends Container {
          */
         layout: {ntype: 'hbox', align: 'stretch'},
         /**
-         * @member {Neo.component.Base} pageContainerModule=PageContainer
+         * Configuration for the PageContainer item.
+         * Subclasses override this to swap the module or configure the content.
+         * @member {Object} pageContainerConfig_
+         * @reactive
          */
-        pageContainerModule: PageContainer,
+        pageContainerConfig_: {
+            [isDescriptor]: true,
+            merge         : 'deep',
+            value         : {
+                module          : PageContainer,
+                buttonTextField : 'name',
+                contentComponent: null
+            }
+        },
         /**
-         * @member {Object|null} treeConfig=null
+         * @member {Object|null} treeConfig_=null
+         * @reactive
          */
-        treeConfig: null
+        treeConfig_: {
+            [isDescriptor]: true,
+            merge         : 'deep',
+            value         : null
+        }
     }
 
     /**
@@ -104,10 +108,14 @@ class MainContainer extends Container {
         let me = this;
 
         if (value) {
-            // Manually merge treeConfig if it exists
             if (me.treeConfig && value.sideNav?.items?.tree) {
                 Neo.assignDefaults(value.sideNav.items.tree, me.treeConfig);
             }
+
+            if (me.pageContainerConfig && value.pageContainer) {
+                Neo.assignDefaults(value.pageContainer, me.pageContainerConfig);
+            }
+
             me.items = value;
         }
     }

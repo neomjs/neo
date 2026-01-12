@@ -21,22 +21,18 @@ class MainContainer extends SharedContainer {
          */
         cls: ['portal-tickets-maincontainer'],
         /**
-         * @member {String} buttonTextField='id'
-         */
-        buttonTextField: 'id',
-        /**
-         * @member {Neo.component.Base} contentComponent=CanvasWrapper
-         */
-        contentComponent: CanvasWrapper,
-        /**
          * @member {Neo.controller.Component} controller=MainContainerController
          * @reactive
          */
         controller: Controller,
         /**
-         * @member {Neo.component.Base} pageContainerModule=PageContainer
+         * @member {Object} pageContainerConfig
          */
-        pageContainerModule: PageContainer,
+        pageContainerConfig: {
+            module          : PageContainer,
+            buttonTextField : 'id',
+            contentComponent: CanvasWrapper
+        },
         /**
          * @member {Neo.state.Provider} stateProvider=MainContainerStateProvider
          * @reactive

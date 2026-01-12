@@ -43,7 +43,6 @@ class PageContainer extends Container {
             merge         : 'deep',
             value         : {
                 content: {
-                    module   : '@config:contentComponent',
                     reference: 'content',
                     weight   : 10,
                     listeners: {
@@ -98,18 +97,11 @@ class PageContainer extends Container {
      */
     afterSetContentItems(value, oldValue) {
         if (value) {
+            if (value.content) {
+                value.content.module = this.contentComponent || Component;
+            }
             this.items = value;
         }
-    }
-
-    /**
-     * Ensure contentComponent falls back to the default Component if null is passed
-     * @param {Neo.component.Base|null} value
-     * @param {Neo.component.Base|null} oldValue
-     * @returns {Neo.component.Base}
-     */
-    beforeSetContentComponent(value, oldValue) {
-        return value || Component;
     }
 
     /**
