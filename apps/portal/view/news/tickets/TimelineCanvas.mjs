@@ -15,6 +15,16 @@ import Canvas from '../../../../../src/component/Canvas.mjs';
  * @extends Neo.component.Canvas
  */
 class TimelineCanvas extends Canvas {
+    /**
+     * @member {Object} delayable
+     */
+    static delayable = {
+        ensureFinalAlignment: {
+            type : 'debounce',
+            timer: 200
+        }
+    }
+
     static config = {
         /**
          * @member {String} className='Portal.view.news.tickets.TimelineCanvas'
@@ -134,7 +144,19 @@ class TimelineCanvas extends Canvas {
         if (me.lastRecords) {
             // We don't need to re-fetch rects instantly, but it's safer to do so
             // to ensure alignment with the new layout.
-            me.onTimelineDataLoad(me.lastRecords, true)
+            me.onTimelineDataLoad(me.lastRecords, true);
+
+            // Debounced check to ensure the canvas is aligned after any transitions settle
+            me.ensureFinalAlignment()
+        }
+    }
+
+    /**
+     *
+     */
+    ensureFinalAlignment() {
+        if (this.lastRecords) {
+            this.onTimelineDataLoad(this.lastRecords, true)
         }
     }
 
