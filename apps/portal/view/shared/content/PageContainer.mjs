@@ -46,6 +46,7 @@ class PageContainer extends Container {
          */
         items: {
             [isDescriptor]: true,
+            clone         : 'deep',
             merge         : 'deep',
             value         : {
                 content: {

@@ -26,6 +26,7 @@ class MainContainer extends Container {
          */
         items: {
             [isDescriptor]: true,
+            clone         : 'deep',
             merge         : 'deep',
             value         : {
                 'sidenav-container': {
