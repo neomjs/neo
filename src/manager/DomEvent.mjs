@@ -14,6 +14,24 @@ const eventConfigKeys = [
     'vnodeId'
 ];
 
+const handlerMap = {
+    change     : 'onChange',
+    click      : 'onClick',
+    contextmenu: 'onContextMenu',
+    dblclick   : 'onDoubleClick',
+    focusin    : 'onFocusIn',
+    focusout   : 'onFocusOut',
+    input      : 'onChange',
+    keydown    : 'onKeyDown',
+    keyup      : 'onKeyUp',
+    mousedown  : 'onMouseDown',
+    mouseenter : 'onMouseEnter',
+    mouseleave : 'onMouseLeave',
+    mouseup    : 'onMouseUp',
+    scroll     : 'onScroll',
+    wheel      : 'onWheel'
+};
+
 const globalDomEvents = [
     'change',
     'click',
@@ -284,9 +302,24 @@ class DomEvent extends Base {
                     if (eventName === 'resize') {
                         this.addResizeObserver(component, event)
                     } else if (eventName && (event.local || !globalDomEvents.includes(eventName))) {
+                        let options = {};
+
+                        if (event.opts) {
+                            if (Object.hasOwn(event.opts, 'capture')) {
+                                options.capture = event.opts.capture
+                            }
+                            if (Object.hasOwn(event.opts, 'once')) {
+                                options.once = event.opts.once
+                            }
+                            if (Object.hasOwn(event.opts, 'passive')) {
+                                options.passive = event.opts.passive
+                            }
+                        }
+
                         localEvents.push({
                             name   : eventName,
-                            handler: 'domEventListener',
+                            handler: handlerMap[eventName] || 'domEventListener',
+                            options,
                             vnodeId: event.vnodeId
                         })
                     }
@@ -370,13 +403,16 @@ class DomEvent extends Base {
 
         config.listenerId = listenerId;
 
+        let local = config.local || (Neo.isObject(opts) && opts.local) || false;
+
         listenerConfig = {
             bubble        : config.hasOwnProperty('bubble') ? config.bubble : opts.hasOwnProperty('bubble') ? opts.bubble : true,
             delegate      : config.delegate,
             eventName,
             fn,
             id            : listenerId,
-            mounted       : !config.local && globalDomEvents.includes(eventName),
+            local,
+            mounted       : !local && globalDomEvents.includes(eventName),
             originalConfig: config.originalConfig,
             ownerId       : config.ownerId,
             priority      : config.priority || opts.priority || 1,

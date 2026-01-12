@@ -193,9 +193,14 @@ class Circle extends Component {
             scope     : me
         }, {
             contextmenu: me.onContextMenu,
-            wheel      : me.onMouseWheel,
             delegate   : 'neo-circle',
-            scope      : me
+            scope      : me,
+            wheel      : {
+                bubble : false,
+                fn     : me.onMouseWheel,
+                local  : true,
+                passive: false
+            }
         }]);
 
         me.store = Neo.create(Collection, {
