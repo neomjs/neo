@@ -131,6 +131,23 @@ The `mergeFrom` feature is **recursive**. It works for:
 
 This means you can inject configuration into a component nested 10 levels deep, as long as the hierarchy is defined within the same container class.
 
+## Advanced: Overriding Config Descriptors
+
+You might notice that we are redefining `items` in the example above, even though `Neo.container.Base` already defines it.
+
+Neo.mjs supports **Descriptor Merging** in `static config`. If a parent class defines a reactive config (like `items_`), a subclass can override its behavior by providing a new descriptor.
+
+```javascript
+        items: {
+            [isDescriptor]: true,
+            merge         : 'deep', // Overrides/Adds merge strategy
+            clone         : 'deep', // Overrides inherited clone strategy
+            value         : { ... }
+        }
+```
+
+The engine merges the subclass descriptor *on top* of the parent's descriptor. This allows you to refine behaviors (like changing `clone: 'shallow'` to `clone: 'deep'`) while keeping the property reactive.
+
 ## Prototype Pollution & `clone: 'deep'`
 
 When defining complex nested structures in `static config`, you must be careful about shared object references.
