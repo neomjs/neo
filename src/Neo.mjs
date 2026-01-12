@@ -841,7 +841,11 @@ If you intended to create custom logic, use the 'beforeGet${Neo.capitalize(key)}
                 //    The 'value' property of the descriptor is then used as the actual config value.
                 if (Neo.isObject(value) && value[isDescriptor] === true) {
                     currentConfigDescriptors[baseKey] = Neo.clone(value, true); // Deep clone to prevent mutation
-                    value = value.value // Use the descriptor's value as the config value
+                    value = value.value; // Use the descriptor's value as the config value
+
+                    if (!isReactive) {
+                        cfg[key] = value
+                    }
                 }
 
                 // 2. Handle reactive vs. non-reactive configs: Generate getters/setters for reactive configs.
