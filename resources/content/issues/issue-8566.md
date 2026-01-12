@@ -1,7 +1,7 @@
 ---
 id: 8566
 title: Refactor Portal Shared Containers to use Declarative Object-based Items
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
@@ -11,16 +11,17 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-01-11T23:59:41Z'
-updatedAt: '2026-01-12T01:25:11Z'
+updatedAt: '2026-01-12T01:45:12Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8566'
 author: tobiu
-commentsCount: 3
+commentsCount: 5
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-01-12T01:45:12Z'
 ---
 # Refactor Portal Shared Containers to use Declarative Object-based Items
 
@@ -127,4 +128,42 @@ Converted imperative construct() item definition to declarative contentItems_ co
 > 
 > I am pushing this state as a stable checkpoint. We can refine (remove `@config`, remove `treeConfig`) in subsequent steps.
 
+### @tobiu - 2026-01-12T01:44:29Z
+
+**Input from Gemini 3 Pro:**
+
+> ✦ I have refined the refactoring strategy to the **Structural Injection Pattern** to fully eliminate `@config` references and ensure strict type safety.
+> 
+> **The Strategy:**
+> 1.  **Shared.Container:**
+>     *   Replaced disparate pass-through configs (`buttonTextField`, `contentComponent`, etc.) with a unified `pageContainerConfig_` object.
+>     *   Converted `treeConfig` to a reactive `treeConfig_` object.
+>     *   Both configs use `{ [isDescriptor]: true, merge: 'deep' }`.
+>     *   `afterSetContentItems` now injects these config objects directly into the `sideNav` and `pageContainer` items using `Neo.assignDefaults`.
+> 
+> 2.  **PageContainer:**
+>     *   Removed `beforeSetContentComponent`.
+>     *   `afterSetContentItems` now accepts the injected `contentComponent` and applies it to the `content` item.
+> 
+> 3.  **Subclasses (Tickets/Release):**
+>     *   Now override `pageContainerConfig` and `treeConfig` declaratively in `static config`.
+>     *   No longer need to define `buttonTextField` or `contentComponent` as top-level configs.
+> 
+> This approach strictly separates the *Structural Skeleton* (in `contentItems_`) from the *Component Configuration* (in injected config objects).
+
+- 2026-01-12T01:44:37Z @tobiu referenced in commit `dca8a0f` - "refactor: Implement Structural Injection Pattern for Portal Containers (#8566)"
+### @tobiu - 2026-01-12T01:44:58Z
+
+**Input from Gemini 3 Pro:**
+
+> ✦ Refactoring complete.
+> - Implemented the Structural Injection Pattern.
+> - Added comprehensive unit tests in `ItemsMerging.spec.mjs`.
+> - Cleaned up subclasses to be purely declarative.
+> - Removed all `@config` references in the refactored files.
+> - Verified with `npx playwright test`.
+> 
+> Closing as completed.
+
+- 2026-01-12T01:45:12Z @tobiu closed this issue
 

@@ -1,14 +1,15 @@
 ---
 id: 8550
 title: Enhance Neo.mergeDeepArrays to support deep merging of objects within arrays
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
   - core
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-01-11T16:19:12Z'
-updatedAt: '2026-01-11T16:19:12Z'
+updatedAt: '2026-01-12T02:42:41Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8550'
 author: tobiu
 commentsCount: 0
@@ -18,6 +19,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-01-12T02:42:41Z'
 ---
 # Enhance Neo.mergeDeepArrays to support deep merging of objects within arrays
 
@@ -50,4 +52,6 @@ Allowing `Portal.model.TicketTimelineSection` to inherit `fields` from `Portal.m
 - Updates  to support merging array items by uid=501(tobiasuhlig) gid=20(staff) groups=20(staff),12(everyone),61(localaccounts),79(_appserverusr),80(admin),81(_appserveradm),98(_lpadmin),33(_appstore),100(_lpoperator),204(_developer),250(_analyticsusers),395(com.apple.access_ftp),398(com.apple.access_screensharing),399(com.apple.access_ssh),400(com.apple.access_remote_ae) or .
 - Updates  to use  merge strategy for .
 - Allows Models to inherit and extend fields from parent classes (applied to )."
+- 2026-01-12T02:42:39Z @tobiu assigned to @tobiu
+- 2026-01-12T02:42:41Z @tobiu closed this issue
 
