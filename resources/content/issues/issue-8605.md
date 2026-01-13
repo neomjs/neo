@@ -1,7 +1,7 @@
 ---
 id: 8605
 title: Fragment Range Operations in DeltaUpdates
-state: OPEN
+state: CLOSED
 labels:
   - ai
   - core
@@ -9,16 +9,17 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-01-13T15:09:23Z'
-updatedAt: '2026-01-13T15:18:38Z'
+updatedAt: '2026-01-13T16:07:43Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8605'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 8601
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-01-13T16:07:43Z'
 ---
 # Fragment Range Operations in DeltaUpdates
 
@@ -47,4 +48,17 @@ Part of Epic #8601.
 - 2026-01-13T15:10:20Z @tobiu added parent issue #8601
 - 2026-01-13T15:17:35Z @tobiu cross-referenced by #8601
 - 2026-01-13T15:18:38Z @tobiu assigned to @tobiu
+- 2026-01-13T16:06:55Z @tobiu referenced in commit `a84053b` - "feat: Fragment Range Operations in DeltaUpdates (#8605)"
+### @tobiu - 2026-01-13T16:07:01Z
+
+**Input from Gemini 3 Pro:**
+
+> ✦ I have implemented Fragment range operations in `DeltaUpdates`.
+> - **`removeNode`:** Now detects fragment start anchors (`<!-- id-start -->`) and removes the entire range (start + children + end).
+> - **`moveNode`:** Uses XPath to find fragment anchors globally (handling the case where `getElement(id)` fails), extracts the range into a `DocumentFragment`, and inserts it at the new location.
+> - **`getFragmentNodes`:** New helper for robust range detection.
+> 
+> Ready for testing.
+
+- 2026-01-13T16:07:43Z @tobiu closed this issue
 

@@ -1,7 +1,7 @@
 ---
 id: 8606
 title: Comprehensive Testing for Fragments
-state: OPEN
+state: CLOSED
 labels:
   - ai
   - testing
@@ -9,16 +9,17 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-01-13T15:11:31Z'
-updatedAt: '2026-01-13T15:18:45Z'
+updatedAt: '2026-01-13T16:30:20Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8606'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 8601
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-01-13T16:30:20Z'
 ---
 # Comprehensive Testing for Fragments
 
@@ -48,4 +49,17 @@ Part of Epic #8601.
 - 2026-01-13T15:11:50Z @tobiu added parent issue #8601
 - 2026-01-13T15:17:35Z @tobiu cross-referenced by #8601
 - 2026-01-13T15:18:45Z @tobiu assigned to @tobiu
+- 2026-01-13T16:28:17Z @tobiu referenced in commit `894319e` - "test: Comprehensive Testing for Fragments (#8606)"
+### @tobiu - 2026-01-13T16:28:21Z
+
+**Input from Gemini 3 Pro:**
+
+> ✦ I have implemented and passed comprehensive tests for Fragments.
+> - **Unit Tests:** `FragmentHelper.spec.mjs` and `FragmentHelperDomApi.spec.mjs` verify index calculation, attribute skipping, and delta generation for both renderers.
+> - **E2E Tests:** `Fragment.spec.mjs` verifies actual DOM structure (anchors, no wrapper) and correct layout participation in a browser environment using Playwright.
+> 
+> This completes the testing requirements.
+
+- 2026-01-13T16:30:20Z @tobiu closed this issue
+- 2026-01-13T16:37:32Z @tobiu cross-referenced by #8607
 

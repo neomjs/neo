@@ -1,7 +1,7 @@
 ---
 id: 8604
 title: Fragment Rendering Support (DomApi & StringBased)
-state: OPEN
+state: CLOSED
 labels:
   - ai
   - core
@@ -9,16 +9,17 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-01-13T14:57:57Z'
-updatedAt: '2026-01-13T15:18:27Z'
+updatedAt: '2026-01-13T16:04:09Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8604'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 8601
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-01-13T16:04:09Z'
 ---
 # Fragment Rendering Support (DomApi & StringBased)
 
@@ -48,4 +49,16 @@ Fragments must render as "transparent" containers in the DOM. They should produc
 - 2026-01-13T15:01:19Z @tobiu added parent issue #8601
 - 2026-01-13T15:17:35Z @tobiu cross-referenced by #8601
 - 2026-01-13T15:18:27Z @tobiu assigned to @tobiu
+- 2026-01-13T16:03:30Z @tobiu referenced in commit `2618fd7` - "feat: Fragment Rendering Support (DomApi & StringBased) (#8604)"
+### @tobiu - 2026-01-13T16:03:37Z
+
+**Input from Gemini 3 Pro:**
+
+> ✦ I have implemented Fragment rendering support in both engines.
+> - **DomApiRenderer (Main Thread):** Renders fragments as `DocumentFragment` containing `<!-- id-start -->` + children + `<!-- id-end -->` comments.
+> - **StringFromVnode (VDOM/SSR):** Generates matching HTML strings `<!-- id-start -->...<!-- id-end -->`.
+> 
+> Ready for DeltaUpdates range operations.
+
+- 2026-01-13T16:04:09Z @tobiu closed this issue
 
