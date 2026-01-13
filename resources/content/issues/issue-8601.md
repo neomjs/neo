@@ -29,10 +29,10 @@ subIssues:
   - '[x] 8614 Fix moveNode off-by-one error for forward moves in same parent'
   - '[x] 8615 Refactor Container to support atomic component moves'
   - '[ ] 8616 Create Fragment Example App (Form Grouping)'
-  - '[ ] 8617 Refactor StringBasedRenderer for API Parity (Separate Creation from Insertion)'
-  - '[ ] 8618 Implement insertNodeBatch support for StringBasedRenderer'
-  - '[ ] 8619 Create Playwright Test Fixtures for Neo.mjs VDOM & State Inspection'
-subIssuesCompleted: 12
+  - '[x] 8617 Refactor StringBasedRenderer for API Parity (Separate Creation from Insertion)'
+  - '[x] 8618 Implement insertNodeBatch support for StringBasedRenderer'
+  - '[x] 8619 Create Playwright Test Fixtures for Neo.mjs VDOM & State Inspection'
+subIssuesCompleted: 15
 subIssuesTotal: 16
 blockedBy: []
 blocking: []
