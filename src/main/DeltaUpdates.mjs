@@ -330,28 +330,43 @@ class DeltaUpdates extends Base {
         }
 
         if (parentNode) {
-            let newNode;
+            let localPostMountUpdates = [],
+                newNode;
 
             if (NeoConfig.useDomApiRenderer) {
                 newNode = render.DomApiRenderer.createDomTree({
-                    index     : -1,
-                    isRoot    : true,
-                    parentNode: null, // detached
+                    index           : -1,
+                    isRoot          : true,
+                    parentNode      : null, // detached
+                    postMountUpdates: localPostMountUpdates,
                     vnode
                 })
             } else {
-                newNode = render.StringBasedRenderer.htmlStringToElement(outerHTML)
+                newNode = render.StringBasedRenderer.createNode({outerHTML});
+
+                if (postMountUpdates?.length > 0) {
+                    localPostMountUpdates.push(...postMountUpdates)
+                }
             }
 
             if (newNode) {
                 parentNode.insertBefore(newNode, siblingRef || null);
 
-                if (postMountUpdates?.length > 0) {
-                    postMountUpdates.forEach(update => {
-                        let node = DomAccess.getElement(update.id);
-                        if (node) {
-                            if (update.scrollLeft) {node.scrollLeft = update.scrollLeft}
-                            if (update.scrollTop)  {node.scrollTop  = update.scrollTop}
+                if (localPostMountUpdates.length > 0) {
+                    localPostMountUpdates.forEach(update => {
+                        // DomApiRenderer format: {node, vnode}
+                        if (update.node) {
+                            if (update.vnode.scrollLeft) {update.node.scrollLeft = update.vnode.scrollLeft}
+                            if (update.vnode.scrollTop)  {update.node.scrollTop  = update.vnode.scrollTop}
+                        }
+                        // StringBasedRenderer format: {id, scrollLeft, scrollTop}
+                        else {
+                            let node = DomAccess.getElement(update.id);
+
+                            if (node) {
+                                if (update.scrollLeft) {node.scrollLeft = update.scrollLeft}
+                                if (update.scrollTop)  {node.scrollTop  = update.scrollTop}
+                            }
                         }
                     })
                 }

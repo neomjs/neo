@@ -217,4 +217,79 @@ test.describe('Neo.main.DeltaUpdates (Fragment Support)', () => {
         
         expect(order).toEqual(['B', 'C', 'A']);
     });
+
+    test('DomApiRenderer Insert with Scroll State', async ({page}) => {
+        await page.evaluate(async () => {
+            Neo.config.useDomApiRenderer = true;
+            await Neo.main.DeltaUpdates.importRenderer();
+
+            const root = document.getElementById('component-test-viewport');
+            root.innerHTML = '';
+        });
+
+        await page.evaluate(() => {
+            Neo.main.DeltaUpdates.update({
+                deltas: [{
+                    action: 'insertNode',
+                    parentId: 'component-test-viewport',
+                    index: 0,
+                    vnode: {
+                        nodeName: 'div',
+                        id: 'scroll-div',
+                        style: {
+                            height: '100px',
+                            overflow: 'auto'
+                        },
+                        scrollTop: 50,
+                        childNodes: [{
+                            nodeName: 'div',
+                            style: {height: '1000px'},
+                            childNodes: [],
+                            attributes: {},
+                            className: []
+                        }],
+                        attributes: {},
+                        className: []
+                    }
+                }]
+            });
+        });
+
+        const scrollTop = await page.evaluate(() => {
+            return document.getElementById('scroll-div').scrollTop;
+        });
+
+        expect(scrollTop).toBe(50);
+    });
+
+    test('StringBasedRenderer Insert with Scroll State', async ({page}) => {
+        await page.evaluate(async () => {
+            Neo.config.useDomApiRenderer = false;
+            await Neo.main.DeltaUpdates.importRenderer();
+
+            const root = document.getElementById('component-test-viewport');
+            root.innerHTML = '';
+        });
+
+        await page.evaluate(() => {
+            Neo.main.DeltaUpdates.update({
+                deltas: [{
+                    action: 'insertNode',
+                    parentId: 'component-test-viewport',
+                    index: 0,
+                    outerHTML: '<div id="scroll-div-string" style="height:100px;overflow:auto;"><div style="height:1000px;"></div></div>',
+                    postMountUpdates: [{
+                        id: 'scroll-div-string',
+                        scrollTop: 75
+                    }]
+                }]
+            });
+        });
+
+        const scrollTop = await page.evaluate(() => {
+            return document.getElementById('scroll-div-string').scrollTop;
+        });
+
+        expect(scrollTop).toBe(75);
+    });
 });
