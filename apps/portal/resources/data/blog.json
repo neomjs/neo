@@ -9,66 +9,74 @@
             "path": null
         },
         {
+            "collapsed": false,
+            "id": "2025",
+            "isLeaf": false,
+            "name": "2025",
+            "parentId": "Blog",
+            "path": null
+        },
+        {
             "id": "blog/context-engineering-done-right",
             "isLeaf": true,
             "name": "Context Engineering Done Right",
-            "parentId": "Blog",
+            "parentId": "2025",
             "path": "learn/blog/context-engineering-done-right.md"
         },
         {
             "id": "blog/ai-native-platform-answers-questions",
             "isLeaf": true,
             "name": "A Platform That Answers Your Questions",
-            "parentId": "Blog",
+            "parentId": "2025",
             "path": "learn/blog/ai-native-platform-answers-questions.md"
         },
         {
             "id": "blog/v10-deep-dive-state-provider",
             "isLeaf": true,
             "name": "v10 Deep Dive: State Provider",
-            "parentId": "Blog",
+            "parentId": "2025",
             "path": "learn/blog/v10-deep-dive-state-provider.md"
         },
         {
             "id": "blog/benchmarking-frontends-2025",
             "isLeaf": true,
             "name": "Benchmarking Frontends 2025",
-            "parentId": "Blog",
+            "parentId": "2025",
             "path": "learn/blog/benchmarking-frontends-2025.md"
         },
         {
             "id": "blog/v10-deep-dive-vdom-revolution",
             "isLeaf": true,
             "name": "v10 Deep Dive: VDOM Revolution",
-            "parentId": "Blog",
+            "parentId": "2025",
             "path": "learn/blog/v10-deep-dive-vdom-revolution.md"
         },
         {
             "id": "blog/v10-deep-dive-functional-components",
             "isLeaf": true,
             "name": "v10 Deep Dive: Functional Components",
-            "parentId": "Blog",
+            "parentId": "2025",
             "path": "learn/blog/v10-deep-dive-functional-components.md"
         },
         {
             "id": "blog/v10-deep-dive-reactivity",
             "isLeaf": true,
             "name": "v10 Deep Dive: Reactivity",
-            "parentId": "Blog",
+            "parentId": "2025",
             "path": "learn/blog/v10-deep-dive-reactivity.md"
         },
         {
             "id": "blog/v10-post1-love-story",
             "isLeaf": true,
             "name": "v10 Post 1: A Love Story",
-            "parentId": "Blog",
+            "parentId": "2025",
             "path": "learn/blog/v10-post1-love-story.md"
         },
         {
             "id": "blog/json-blueprints-and-shared-workers",
             "isLeaf": true,
             "name": "JSON Blueprints & Shared Workers",
-            "parentId": "Blog",
+            "parentId": "2025",
             "path": "learn/blog/json-blueprints-and-shared-workers.md"
         }
     ]
