@@ -21,9 +21,19 @@ subIssues:
   - '[x] 8604 Fragment Rendering Support (DomApi & StringBased)'
   - '[x] 8605 Fragment Range Operations in DeltaUpdates'
   - '[x] 8606 Comprehensive Testing for Fragments'
-  - '[ ] 8607 Advanced Fragment Lifecycle Testing (Moves & Nesting)'
-subIssuesCompleted: 5
-subIssuesTotal: 6
+  - '[x] 8607 Advanced Fragment Lifecycle Testing (Moves & Nesting)'
+  - '[x] 8609 Add Fragment Helper Methods to DeltaUpdates'
+  - '[x] 8613 Update DeltaUpdates.insertNodeBatch to support Fragments'
+  - '[x] 8611 Update DeltaUpdates.moveNode to support Fragments'
+  - '[x] 8612 Update DeltaUpdates.insertNode to support Fragments'
+  - '[x] 8614 Fix moveNode off-by-one error for forward moves in same parent'
+  - '[ ] 8615 Refactor Container to support atomic component moves'
+  - '[ ] 8616 Create Fragment Example App (Form Grouping)'
+  - '[ ] 8617 Refactor StringBasedRenderer for API Parity (Separate Creation from Insertion)'
+  - '[ ] 8618 Implement insertNodeBatch support for StringBasedRenderer'
+  - '[ ] 8619 Create Playwright Test Fixtures for Neo.mjs VDOM & State Inspection'
+subIssuesCompleted: 11
+subIssuesTotal: 16
 blockedBy: []
 blocking: []
 ---
@@ -88,4 +98,14 @@ Implement a `Neo.container.Fragment` that allows grouping items without renderin
 
 - 2026-01-13T16:37:32Z @tobiu cross-referenced by #8607
 - 2026-01-13T16:37:48Z @tobiu added sub-issue #8607
+- 2026-01-13T18:49:52Z @tobiu added sub-issue #8609
+- 2026-01-13T19:03:03Z @tobiu added sub-issue #8613
+- 2026-01-13T19:04:40Z @tobiu added sub-issue #8611
+- 2026-01-13T19:05:29Z @tobiu added sub-issue #8612
+- 2026-01-13T19:26:48Z @tobiu added sub-issue #8614
+- 2026-01-13T19:49:58Z @tobiu added sub-issue #8615
+- 2026-01-13T19:50:00Z @tobiu added sub-issue #8616
+- 2026-01-13T19:54:51Z @tobiu added sub-issue #8617
+- 2026-01-13T19:54:53Z @tobiu added sub-issue #8618
+- 2026-01-13T19:54:54Z @tobiu added sub-issue #8619
 
