@@ -413,31 +413,52 @@ class DeltaUpdates extends Base {
                 allPostMountUpdates = [];
 
             batch.forEach(delta => {
-                const postMountUpdates = delta.postMountUpdates || [];
+                let localPostMountUpdates = delta.postMountUpdates || [],
+                    node;
 
-                const node = render.DomApiRenderer.createDomTree({
-                    index           : -1,
-                    isRoot          : true,
-                    parentNode      : null, // detached
-                    postMountUpdates,
-                    vnode           : delta.vnode
-                });
+                if (NeoConfig.useDomApiRenderer) {
+                    node = render.DomApiRenderer.createDomTree({
+                        index           : -1,
+                        isRoot          : true,
+                        parentNode      : null, // detached
+                        postMountUpdates: localPostMountUpdates,
+                        vnode           : delta.vnode
+                    })
+                } else {
+                    node = render.StringBasedRenderer.createNode({outerHTML: delta.outerHTML})
+                }
 
                 if (node) {
                     fragment.appendChild(node);
-                    allPostMountUpdates.push(...postMountUpdates);
+                    if (localPostMountUpdates.length > 0) {
+                        allPostMountUpdates.push(...localPostMountUpdates)
+                    }
                 } else {
-                    console.error('insertNodeBatch: Failed to create node', delta.vnode);
+                    console.error('insertNodeBatch: Failed to create node', delta);
                 }
             });
 
             parentNode.insertBefore(fragment, siblingRef || null);
 
             // Apply all post-mount updates (e.g. scroll positions) after the batch insertion
-            allPostMountUpdates.forEach(({node, vnode}) => {
-                if (vnode.scrollLeft) {node.scrollLeft = vnode.scrollLeft}
-                if (vnode.scrollTop)  {node.scrollTop  = vnode.scrollTop}
-            })
+            if (allPostMountUpdates.length > 0) {
+                allPostMountUpdates.forEach(update => {
+                    // DomApiRenderer format: {node, vnode}
+                    if (update.node) {
+                        if (update.vnode.scrollLeft) {update.node.scrollLeft = update.vnode.scrollLeft}
+                        if (update.vnode.scrollTop)  {update.node.scrollTop  = update.vnode.scrollTop}
+                    }
+                    // StringBasedRenderer format: {id, scrollLeft, scrollTop}
+                    else {
+                        let node = DomAccess.getElement(update.id);
+
+                        if (node) {
+                            if (update.scrollLeft) {node.scrollLeft = update.scrollLeft}
+                            if (update.scrollTop)  {node.scrollTop  = update.scrollTop}
+                        }
+                    }
+                })
+            }
         } else {
             console.error('insertNodeBatch: Parent not found', {parentId, index});
         }
@@ -839,7 +860,7 @@ class DeltaUpdates extends Base {
             const delta = deltas[i];
 
             // Batching optimization for sequential insertNode operations
-            if (NeoConfig.useDomApiRenderer && delta.action === 'insertNode' && i < len - 1) {
+            if (delta.action === 'insertNode' && i < len - 1) {
                 let j     = i + 1,
                     batch = [delta];
 

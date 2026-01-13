@@ -183,6 +183,59 @@ test.describe('Neo.main.DeltaUpdates (Fragment Support)', () => {
         expect(result.order).toBe(true);
     });
 
+    test('Manual Fragment Batch Insert Update (StringBasedRenderer)', async ({page}) => {
+        await page.evaluate(async () => {
+            Neo.config.useDomApiRenderer = false; 
+            await Neo.main.DeltaUpdates.importRenderer();
+
+            const root = document.getElementById('component-test-viewport');
+            root.innerHTML = '';
+            
+            const start = document.createComment(' frag-sb-start ');
+            root.appendChild(start);
+            
+            const end = document.createComment(' frag-sb-end ');
+            root.appendChild(end);
+        });
+        
+        await page.evaluate(async () => {
+            Neo.main.DeltaUpdates.update({
+                deltas: [{
+                    action: 'insertNode',
+                    parentId: 'frag-sb',
+                    index: 0,
+                    outerHTML: '<div id="child-sb-1">Child SB 1</div>'
+                }, {
+                    action: 'insertNode',
+                    parentId: 'frag-sb',
+                    index: 1,
+                    outerHTML: '<div id="child-sb-2">Child SB 2</div>'
+                }]
+            });
+        });
+
+        const result = await page.evaluate(() => {
+            const item1 = document.getElementById('child-sb-1');
+            const item2 = document.getElementById('child-sb-2');
+            const start = document.evaluate(`//comment()[contains(., ' frag-sb-start ')]`, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+            const end = document.evaluate(`//comment()[contains(., ' frag-sb-end ')]`, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+            
+            if (!item1 || !item2) return { exists: false };
+
+            const startBefore1 = (start.compareDocumentPosition(item1) & Node.DOCUMENT_POSITION_FOLLOWING);
+            const item1Before2 = (item1.compareDocumentPosition(item2) & Node.DOCUMENT_POSITION_FOLLOWING);
+            const item2BeforeEnd = (item2.compareDocumentPosition(end) & Node.DOCUMENT_POSITION_FOLLOWING);
+            
+            return {
+                exists: true,
+                order: !!(startBefore1 && item1Before2 && item2BeforeEnd)
+            };
+        });
+        
+        expect(result.exists).toBe(true);
+        expect(result.order).toBe(true);
+    });
+
     test('Standard DOM Forward Move (Same Parent)', async ({page}) => {
         await page.evaluate(() => {
             const root = document.getElementById('component-test-viewport');
