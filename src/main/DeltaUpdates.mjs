@@ -314,6 +314,23 @@ class DeltaUpdates extends Base {
         let node       = DomAccess.getElement(id),
             parentNode = DomAccess.getElement(parentId);
 
+        // Fallback for Fragments
+        if (!node && parentNode) {
+            const
+                xpath     = `//comment()[.=' ${id}-start ']`,
+                startNode = document.evaluate(xpath, document.body, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+
+            if (startNode) {
+                const fragmentData = this.getFragmentNodes(startNode.parentNode, id);
+
+                if (fragmentData) {
+                    const fragment = document.createDocumentFragment();
+                    fragment.append(fragmentData.startNode, ...fragmentData.nodes, fragmentData.endNode);
+                    node = fragment
+                }
+            }
+        }
+
         if (node && parentNode) {
             // If the target index is at or beyond the end of the parent's current childNodes, append the node.
             if (index >= parentNode.childNodes.length) {
@@ -323,6 +340,7 @@ class DeltaUpdates extends Base {
                 let referenceNode = parentNode.childNodes[index];
 
                 // Only proceed if the node is not already at its target position.
+                // Note: For DocumentFragments (nodeType 11), we always move, as the fragment wrapper is transient.
                 if (node !== referenceNode) {
                     // Perform a direct swap operation if immediate element siblings.
                     if (node.nodeType === 1 && node === referenceNode.nextElementSibling) {
@@ -345,6 +363,47 @@ class DeltaUpdates extends Base {
         if (Object.hasOwn(config, 'useDomApiRenderer')) {
             await this.importRenderer()
         }
+    }
+
+    /**
+     * Helper to retrieve all DOM nodes belonging to a Fragment (or Text Node range).
+     * @param {HTMLElement} parentNode
+     * @param {String}      id
+     * @returns {Object|null} {startNode, endNode, nodes: []}
+     */
+    getFragmentNodes(parentNode, id) {
+        if (!parentNode) return null;
+
+        const
+            isComment = Node.COMMENT_NODE,
+            startStr  = ` ${id}-start `;
+
+        let startNode = Array.from(parentNode.childNodes).find(n =>
+            n.nodeType === isComment && n.nodeValue === startStr
+        );
+
+        // Fallback for text nodes (if we want to unify, though text nodes use ` id `)
+        // For now, let's strictly handle Fragments here.
+
+        if (!startNode) return null;
+
+        const
+            endStr = ` ${id}-end `,
+            nodes  = [];
+
+        let currentNode = startNode.nextSibling;
+
+        while (currentNode) {
+            // Check if we hit the end anchor
+            if (currentNode.nodeType === isComment && currentNode.nodeValue === endStr) {
+                return {startNode, endNode: currentNode, nodes};
+            }
+
+            nodes.push(currentNode);
+            currentNode = currentNode.nextSibling
+        }
+
+        return null // End anchor not found (should not happen in healthy DOM)
     }
 
     /**
@@ -379,13 +438,24 @@ class DeltaUpdates extends Base {
         if (node) {
             node.remove();
         }
-        // Potentially a vtype: 'text' node (wrapped between 2 comments)
+        // Potentially a vtype: 'text' node or a Fragment (wrapped between 2 comments)
         else if (parentId) {
-            const
-                parentNode = DomAccess.getElementOrBody(parentId),
-                isComment  = Node.COMMENT_NODE;
+            const parentNode = DomAccess.getElementOrBody(parentId);
 
             if (parentNode) {
+                // 1. Try Fragment Removal
+                const fragmentData = this.getFragmentNodes(parentNode, id);
+
+                if (fragmentData) {
+                    fragmentData.startNode.remove();
+                    fragmentData.endNode.remove();
+                    fragmentData.nodes.forEach(n => n.remove());
+                    return
+                }
+
+                // 2. Text Node Logic
+                const isComment = Node.COMMENT_NODE;
+
                 // Find the starting comment node using its id marker
                 const startComment = Array.from(parentNode.childNodes).find(n =>
                     n.nodeType === isComment && n.nodeValue.includes(` ${id} `)
