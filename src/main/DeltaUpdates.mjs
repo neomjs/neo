@@ -233,7 +233,7 @@ class DeltaUpdates extends Base {
      * @param {Number} index The logical index (relative to fragment content)
      * @returns {Node|null} The node to insert before, or null (append)
      */
-    getFragmentSibling(startNode, index) {
+    getFragmentSibling(startNode, index, nodeToSkip) {
         let currentNode = startNode.nextSibling,
             i           = 0;
 
@@ -241,8 +241,11 @@ class DeltaUpdates extends Base {
         // If index is 0, we want nextSibling (insert after start).
         // If index is 1, we want nextSibling.nextSibling.
         while (currentNode && i < index) {
-            currentNode = currentNode.nextSibling;
-            i++
+            if (currentNode !== nodeToSkip) {
+                i++
+            }
+
+            currentNode = currentNode.nextSibling
         }
 
         return currentNode
@@ -446,6 +449,16 @@ class DeltaUpdates extends Base {
             }
         } else {
             // Standard parent: resolve sibling by index
+            if (node && node.parentNode === parentNode) {
+                // Check if we are moving forward in the same parent.
+                // If so, the current node is taking up an index, shifting our target.
+                const currentIndex = Array.prototype.indexOf.call(parentNode.childNodes, node);
+
+                if (currentIndex > -1 && currentIndex < index) {
+                    index++
+                }
+            }
+
             if (index < parentNode.childNodes.length) {
                 siblingRef = parentNode.childNodes[index]
             } else {

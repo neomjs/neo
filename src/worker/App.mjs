@@ -510,7 +510,9 @@ class App extends Base {
         try {
             let component = Neo.getComponent(data.id),
                 parent    = Neo.getComponent(data.parentId),
-                index     = data.index;
+                index     = data.index,
+                oldParent = component?.parent,
+                silent    = false;
 
             if (!component) {
                 throw new Error(`Component with id ${data.id} not found`);
@@ -522,10 +524,20 @@ class App extends Base {
                 throw new Error(`Parent with id ${data.parentId} is not a Container`);
             }
 
+            // If we are moving within the same component tree structure, we want to prevent
+            // the removeNode delta from the old parent, since the insertNode / moveNode delta
+            // from the new parent will cover it.
+            const isAncestor = oldParent && (oldParent === parent || oldParent.up({id: parent.id}));
+
+            if (isAncestor) {
+                oldParent.remove(component, false, true);
+                silent = true
+            }
+
             if (Neo.isNumber(index)) {
-                parent.insert(index, component);
+                parent.insert(index, component, false, !silent);
             } else {
-                parent.add(component);
+                parent.add(component, false, !silent);
             }
 
             return {success: true};
