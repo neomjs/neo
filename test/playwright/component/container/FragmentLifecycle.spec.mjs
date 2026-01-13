@@ -1,29 +1,27 @@
-import {test, expect} from '@playwright/test';
+import {test, expect} from '../../fixtures.mjs';
 
 let rootId;
 
 test.describe('Neo.container.Fragment Lifecycle (Moves & Nesting)', () => {
-    test.beforeEach(async ({page}) => {
+    test.beforeEach(async ({neo, page}) => {
         // Use absolute path from server root (baseURL is http://localhost:8080)
         await page.goto('test/playwright/component/apps/empty-viewport/index.html');
         await page.waitForSelector('#component-test-viewport');
         
         // Preload classes
-        await page.evaluate(async () => {
-            await Neo.worker.App.loadModule({path: '../button/Base.mjs'});
-            await Neo.worker.App.loadModule({path: '../container/Base.mjs'});
-            await Neo.worker.App.loadModule({path: '../container/Fragment.mjs'});
-        });
+        await neo.loadModule('../button/Base.mjs');
+        await neo.loadModule('../container/Base.mjs');
+        await neo.loadModule('../container/Fragment.mjs');
     });
 
-    test.afterEach(async ({page}) => {
+    test.afterEach(async ({neo}) => {
         if (rootId) {
-            await page.evaluate((id) => Neo.worker.App.destroyNeoInstance(id), rootId);
+            await neo.destroyComponent(rootId);
             rootId = null;
         }
     });
 
-    test('Move In: Move a component from Container into a child Fragment', async ({page}) => {
+    test('Move In: Move a component from Container into a child Fragment', async ({neo, page}) => {
         const config = {
             importPath: '../container/Base.mjs',
             ntype     : 'container',
@@ -37,7 +35,7 @@ test.describe('Neo.container.Fragment Lifecycle (Moves & Nesting)', () => {
             ]
         };
 
-        const result = await page.evaluate(config => Neo.worker.App.createNeoInstance(config), config);
+        const result = await neo.createComponent(config);
         rootId = result.id;
 
         await expect(page.locator('#mover')).toBeVisible();
@@ -57,12 +55,10 @@ test.describe('Neo.container.Fragment Lifecycle (Moves & Nesting)', () => {
         expect(isBefore).toBeTruthy();
 
         // Move 'mover' into 'frag-target' at index 1 (after 'static')
-        await page.evaluate(async () => {
-            await Neo.worker.App.moveComponent({
-                id      : 'mover',
-                parentId: 'frag-target',
-                index   : 1
-            });
+        await neo.moveComponent({
+            id      : 'mover',
+            parentId: 'frag-target',
+            index   : 1
         });
 
         // Wait for move to settle (mover should be after start comment)
@@ -90,7 +86,7 @@ test.describe('Neo.container.Fragment Lifecycle (Moves & Nesting)', () => {
         expect(positionState.beforeEnd).toBeTruthy();
     });
 
-    test('Move Out: Move a component from Fragment into parent Container', async ({page}) => {
+    test('Move Out: Move a component from Fragment into parent Container', async ({neo, page}) => {
         const config = {
             importPath: '../container/Base.mjs',
             ntype     : 'container',
@@ -103,7 +99,7 @@ test.describe('Neo.container.Fragment Lifecycle (Moves & Nesting)', () => {
             ]
         };
 
-        const result = await page.evaluate(config => Neo.worker.App.createNeoInstance(config), config);
+        const result = await neo.createComponent(config);
         rootId = result.id;
 
         // Wait for comments
@@ -112,12 +108,10 @@ test.describe('Neo.container.Fragment Lifecycle (Moves & Nesting)', () => {
         });
 
         // Move 'mover' out of 'frag-source' into root container
-        await page.evaluate(async (rootId) => {
-            await Neo.worker.App.moveComponent({
-                id      : 'mover',
-                parentId: rootId
-            });
-        }, rootId);
+        await neo.moveComponent({
+            id      : 'mover',
+            parentId: rootId
+        });
 
         // Wait for move
         await page.waitForFunction(() => {
@@ -141,7 +135,7 @@ test.describe('Neo.container.Fragment Lifecycle (Moves & Nesting)', () => {
         expect(isAfterEnd).toBeTruthy();
     });
 
-    test('Cross-Fragment Move: Move component between sibling fragments', async ({page}) => {
+    test('Cross-Fragment Move: Move component between sibling fragments', async ({neo, page}) => {
         const config = {
             importPath: '../container/Base.mjs',
             ntype     : 'container',
@@ -155,7 +149,7 @@ test.describe('Neo.container.Fragment Lifecycle (Moves & Nesting)', () => {
             ]
         };
 
-        const result = await page.evaluate(config => Neo.worker.App.createNeoInstance(config), config);
+        const result = await neo.createComponent(config);
         rootId = result.id;
 
         // Wait for comments
@@ -164,11 +158,9 @@ test.describe('Neo.container.Fragment Lifecycle (Moves & Nesting)', () => {
         });
 
         // Move 'mover' from A to B
-        await page.evaluate(async () => {
-            await Neo.worker.App.moveComponent({
-                id      : 'mover',
-                parentId: 'frag-b'
-            });
+        await neo.moveComponent({
+            id      : 'mover',
+            parentId: 'frag-b'
         });
 
         // Wait for move (inside B)
@@ -193,7 +185,7 @@ test.describe('Neo.container.Fragment Lifecycle (Moves & Nesting)', () => {
         expect(inFragB).toBeTruthy();
     });
 
-    test('Nested Move: Move component deeper into nested fragment', async ({page}) => {
+    test('Nested Move: Move component deeper into nested fragment', async ({neo, page}) => {
         const config = {
             importPath: '../container/Base.mjs',
             ntype     : 'container',
@@ -207,7 +199,7 @@ test.describe('Neo.container.Fragment Lifecycle (Moves & Nesting)', () => {
             ]
         };
 
-        const result = await page.evaluate(config => Neo.worker.App.createNeoInstance(config), config);
+        const result = await neo.createComponent(config);
         rootId = result.id;
 
         // Wait for comments
@@ -216,11 +208,9 @@ test.describe('Neo.container.Fragment Lifecycle (Moves & Nesting)', () => {
         });
 
         // Move 'mover' from outer to inner
-        await page.evaluate(async () => {
-            await Neo.worker.App.moveComponent({
-                id      : 'mover',
-                parentId: 'frag-inner'
-            });
+        await neo.moveComponent({
+            id      : 'mover',
+            parentId: 'frag-inner'
         });
 
          // Wait for move (inside Inner)
