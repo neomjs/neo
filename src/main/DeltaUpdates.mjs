@@ -367,8 +367,21 @@ class DeltaUpdates extends Base {
         const
             firstDelta = batch[0],
             parentId   = firstDelta.parentId,
-            index      = firstDelta.index,
-            parentNode = DomAccess.getElementOrBody(parentId);
+            index      = firstDelta.index;
+
+        let parentNode = DomAccess.getElement(parentId),
+            siblingRef;
+
+        // 1. Resolve Target Parent & Sibling
+        if (!parentNode) {
+            const startNode = this.getFragmentStart(parentId);
+            if (startNode) {
+                parentNode = startNode.parentNode;
+                siblingRef = this.getFragmentSibling(startNode, index)
+            }
+        } else {
+            siblingRef = parentNode.childNodes[index]
+        }
 
         if (parentNode) {
             const
@@ -390,20 +403,20 @@ class DeltaUpdates extends Base {
                 if (node) {
                     fragment.appendChild(node);
                     allPostMountUpdates.push(...postMountUpdates);
+                } else {
+                    console.error('insertNodeBatch: Failed to create node', delta.vnode);
                 }
             });
 
-            if (index < parentNode.childNodes.length) {
-                parentNode.insertBefore(fragment, parentNode.childNodes[index])
-            } else {
-                parentNode.appendChild(fragment)
-            }
+            parentNode.insertBefore(fragment, siblingRef || null);
 
             // Apply all post-mount updates (e.g. scroll positions) after the batch insertion
             allPostMountUpdates.forEach(({node, vnode}) => {
                 if (vnode.scrollLeft) {node.scrollLeft = vnode.scrollLeft}
                 if (vnode.scrollTop)  {node.scrollTop  = vnode.scrollTop}
             })
+        } else {
+            console.error('insertNodeBatch: Parent not found', {parentId, index});
         }
     }
 
