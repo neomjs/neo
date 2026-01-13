@@ -34,9 +34,16 @@ class NewsTabContainer extends TabContainer {
          * @member {Object[]} items
          */
         items: [{
-            module: () => import('./blog/Container.mjs'),
+            module: () => import('./medium/Container.mjs'),
             header: {
-                iconCls: 'fa fa-blog',
+                iconCls: 'fab fa-medium',
+                route  : '/news/medium',
+                text   : 'Medium'
+            }
+        }, {
+            module: () => import('./blog/MainContainer.mjs'),
+            header: {
+                iconCls: 'neo-logo-blue',
                 route  : '/news/blog',
                 text   : 'Blog'
             }

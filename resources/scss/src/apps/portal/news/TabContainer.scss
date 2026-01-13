@@ -6,5 +6,18 @@
         @media (max-width: 640px) {
             padding-top: 50px;
         }
+
+        .neo-button {
+            .neo-button-glyph {
+                &.neo-logo-blue {
+                    background-image   : url("../../../../../../../resources/images/logo/neo_logo_primary.svg");
+                    background-position: center center;
+                    background-repeat  : no-repeat;
+                    background-size    : contain;
+                    height             : 16px;
+                    width              : 16px;
+                }
+            }
+        }
     }
 }

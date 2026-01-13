@@ -1,20 +1,20 @@
-@property --portal-blog-list-gradient-end {
+@property --portal-medium-list-gradient-end {
     syntax       : "<color>";
     initial-value: #333;
     inherits     : false;
 }
 
-@property --portal-blog-list-gradient-start {
+@property --portal-medium-list-gradient-start {
     syntax       : "<color>";
     initial-value: #777;
     inherits     : false;
 }
 
-.portal-blog-list-wrapper.neo-list-wrapper {
+.portal-medium-list-wrapper.neo-list-wrapper {
     background-color: transparent;
 }
 
-.portal-blog-list.neo-list {
+.portal-medium-list.neo-list {
     background-color: transparent;
     transition      : padding var(--portal-transition-duration) ease-out;
 
@@ -35,18 +35,18 @@
             outline: none;
 
             .preview-image {
-                --portal-blog-list-gradient-start: darkgreen;
+                --portal-medium-list-gradient-start: darkgreen;
             }
         }
 
         &:hover {
             .preview-image {
-                --portal-blog-list-gradient-start: #3E63DD;
+                --portal-medium-list-gradient-start: #3E63DD;
             }
 
             &:focus {
                 .preview-image {
-                    --portal-blog-list-gradient-end: darkgreen;
+                    --portal-medium-list-gradient-end: darkgreen;
                 }
             }
         }
@@ -136,8 +136,8 @@
             height               : 100%;
 
             transition:
-                --portal-blog-list-gradient-end   var(--portal-transition-duration) ease-out,
-                --portal-blog-list-gradient-start var(--portal-transition-duration) ease-out;
+                --portal-medium-list-gradient-end   var(--portal-transition-duration) ease-out,
+                --portal-medium-list-gradient-start var(--portal-transition-duration) ease-out;
         }
     }
 

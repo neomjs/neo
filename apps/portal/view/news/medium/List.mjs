@@ -3,7 +3,7 @@ import BlogPosts from '../../../store/BlogPosts.mjs';
 import VDomUtil  from '../../../../../src/util/VDom.mjs';
 
 /**
- * @class Portal.view.news.blog.List
+ * @class Portal.view.news.medium.List
  * @extends Neo.list.Base
  */
 class List extends BaseList {
@@ -17,14 +17,14 @@ class List extends BaseList {
 
     static config = {
         /**
-         * @member {String} className='Portal.view.news.blog.List'
+         * @member {String} className='Portal.view.news.medium.List'
          * @protected
          */
-        className: 'Portal.view.news.blog.List',
+        className: 'Portal.view.news.medium.List',
         /**
-         * @member {String[]} baseCls=['portal-blog-list','neo-list']
+         * @member {String[]} baseCls=['portal-medium-list', 'neo-list']
          */
-        baseCls: ['portal-blog-list', 'neo-list'],
+        baseCls: ['portal-medium-list', 'neo-list'],
         /**
          * Specify the amount of delayed observe() calls, in case the IntersectionObserver does not find targets.
          * This can happen when moving the component inside the DOM (e.g. cube layout)
@@ -47,10 +47,10 @@ class List extends BaseList {
          */
         useWrapperNode: true,
         /**
-         * @member wrapperCls=['portal-blog-list-wrapper']
+         * @member wrapperCls=['portal-medium-list-wrapper']
          * @reactive
          */
-        wrapperCls: ['portal-blog-list-wrapper'],
+        wrapperCls: ['portal-medium-list-wrapper'],
         /**
          * @member {Object} _vdom
          */
@@ -239,8 +239,8 @@ class List extends BaseList {
                     backgroundImage: [
                         `url('${imageBasePath}/blog/${record.image}'),`,
                         'linear-gradient(',
-                        'var(--portal-blog-list-gradient-start),',
-                        'var(--portal-blog-list-gradient-end)',
+                        'var(--portal-medium-list-gradient-start),',
+                        'var(--portal-medium-list-gradient-end)',
                         ')'
                     ].join('')
                 }

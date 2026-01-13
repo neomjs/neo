@@ -3,21 +3,21 @@ import List          from './List.mjs';
 import SearchField   from '../../../../../src/form/field/Search.mjs';
 
 /**
- * @class Portal.view.news.blog.Container
+ * @class Portal.view.news.medium.Container
  * @extends Neo.container.Base
  */
 class Container extends BaseContainer {
     static config = {
         /**
-         * @member {String} className='Portal.view.news.blog.Container'
+         * @member {String} className='Portal.view.news.medium.Container'
          * @protected
          */
-        className: 'Portal.view.news.blog.Container',
+        className: 'Portal.view.news.medium.Container',
         /**
-         * @member {String[]} cls=['portal-blog-container']
+         * @member {String[]} cls=['portal-medium-container']
          * @reactive
          */
-        cls: ['portal-blog-container'],
+        cls: ['portal-medium-container'],
         /**
          * @member {Object[]} items
          */
@@ -30,14 +30,14 @@ class Container extends BaseContainer {
             items: [{
                 module         : SearchField,
                 cls            : ['portal-blog-searchfield'],
-                listeners      : {change: 'onBlogSearchFieldChange'},
+                listeners      : {change: 'onMediumSearchFieldChange'},
                 placeholderText: 'Filter Blog Items',
                 width          : 240
             }]
         }, {
             module   : List,
             flex     : 1,
-            reference: 'blog-list'
+            reference: 'medium-list'
         }],
         /**
          * @member {Object} layout={ntype:'vbox',align:'stretch'}

@@ -17,6 +17,8 @@ class TabContainerController extends Controller {
         routes: {
             '/news'                   : 'onReleasesRoute',
             '/news/blog'              : 'onBlogRoute',
+            '/news/blog/{*itemId}'    : 'onBlogRoute',
+            '/news/medium'            : 'onMediumRoute',
             '/news/releases'          : 'onReleasesRoute',
             '/news/releases/{*itemId}': 'onReleasesRoute',
             '/news/tickets'           : 'onTicketsRoute',
@@ -28,7 +30,7 @@ class TabContainerController extends Controller {
      * @param {Object} data
      */
     onBlogRoute(data) {
-        this.component.activeIndex = 0
+        this.component.activeIndex = 1
     }
 
     /**
@@ -41,15 +43,22 @@ class TabContainerController extends Controller {
     /**
      * @param {Object} data
      */
+    onMediumRoute(data) {
+        this.component.activeIndex = 0
+    }
+
+    /**
+     * @param {Object} data
+     */
     onReleasesRoute(data) {
-        this.component.activeIndex = 2
+        this.component.activeIndex = 3
     }
 
     /**
      * @param {Object} data
      */
     onTicketsRoute(data) {
-        this.component.activeIndex = 1
+        this.component.activeIndex = 2
     }
 }
 

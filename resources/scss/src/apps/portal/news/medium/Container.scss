@@ -1,4 +1,4 @@
-.portal-blog-container {
+.portal-medium-container {
     background-color: transparent;
 
     .portal-blog-searchfield {
@@ -15,7 +15,7 @@
     }
 
     .portal-blog-toolbar {
-        background-color: var(--portal-blog-toolbar-background-color);
+        background-color: var(--portal-medium-toolbar-background-color);
         box-shadow      : 0 5px 10px rgba(0, 0, 0, 0.3);
         z-index         : 2;
     }
