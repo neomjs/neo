@@ -1,22 +1,24 @@
 ---
 id: 8592
 title: Fix TreeList scrolling artifacts and header styling
-state: OPEN
+state: CLOSED
 labels:
   - bug
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-01-13T11:22:42Z'
-updatedAt: '2026-01-13T11:22:42Z'
+updatedAt: '2026-01-13T13:37:43Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8592'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-01-13T13:37:43Z'
 ---
 # Fix TreeList scrolling artifacts and header styling
 
@@ -35,4 +37,10 @@ When using deep linking (e.g. `#/news/tickets/7112`) with the new `expandAndScro
 
 - 2026-01-13T11:22:43Z @tobiu added the `bug` label
 - 2026-01-13T11:22:43Z @tobiu added the `ai` label
+- 2026-01-13T13:37:33Z @tobiu assigned to @tobiu
+### @tobiu - 2026-01-13T13:37:43Z
+
+resolved via https://github.com/neomjs/neo/issues/8596
+
+- 2026-01-13T13:37:43Z @tobiu closed this issue
 
