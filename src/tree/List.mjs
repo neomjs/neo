@@ -315,6 +315,7 @@ class Tree extends Base {
                     tag      : 'ul',
                     cls      : ['neo-list'],
                     cn       : [],
+                    id       : me.getItemId(parentId) + '__ul',
                     removeDom: hidden,
                     style    : {
                         paddingLeft: '15px'
