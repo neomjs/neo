@@ -55,6 +55,11 @@ class DeltaUpdates extends Base {
      * @protected
      */
     logDeltasIntervalId = 0
+    /**
+     * @member {Boolean|null} nativeMoveBefore=null
+     * @protected
+     */
+    nativeMoveBefore = null
 
     /**
      * @param {Object} config
@@ -427,13 +432,15 @@ class DeltaUpdates extends Base {
      * Move an existing DOM node to a new position within its parent or to a new parent.
      * This method directly manipulates the DOM using the pre-calculated physical index,
      * accounting for potential text nodes wrapped in comments.
-     * It performs a direct sibling swap when an element is immediately followed by its target position,
-     * which is necessary to prevent attempting to replace a node with itself.
      *
-     * **Focus Preservation:**
-     * In WebKit/Blink browsers (Chrome, Safari), reparenting a focused element causes it to lose focus.
-     * This method detects if the moved node contains the active element and automatically restores focus
-     * immediately after the move operation to ensure a seamless user experience.
+     * **Atomic Moves & Focus Preservation:**
+     * If the browser supports `Element.moveBefore()`, it is used to atomically move the node
+     * without losing state (focus, iframe content, etc.).
+     *
+     * **Legacy Fallback:**
+     * For browsers without `moveBefore` (e.g. Safari), it falls back to `insertBefore` (or `replaceWith`).
+     * Since reparenting causes focus loss in these environments, it manually restores focus
+     * immediately after the move.
      *
      * @param {Object} delta
      * @param {String} delta.id       The ID of the DOM node to move.
@@ -492,19 +499,27 @@ class DeltaUpdates extends Base {
             // Only proceed if the node is not already at its target position.
             // Note: For DocumentFragments (nodeType 11), we always move, as the fragment wrapper is transient.
             if (node !== siblingRef) {
-                const
-                    activeElement = document.activeElement,
-                    containsFocus = activeElement && (node === activeElement || node.contains(activeElement));
-
-                // Perform a direct swap operation if immediate element siblings.
-                if (node.nodeType === 1 && siblingRef && node === siblingRef.nextElementSibling) {
-                    node.replaceWith(siblingRef)
+                if (this.nativeMoveBefore === null) {
+                    this.nativeMoveBefore = typeof parentNode.moveBefore === 'function'
                 }
 
-                parentNode.insertBefore(node, siblingRef || null);
+                if (this.nativeMoveBefore) {
+                    parentNode.moveBefore(node, siblingRef || null)
+                } else {
+                    const
+                        activeElement = document.activeElement,
+                        containsFocus = activeElement && (node === activeElement || node.contains(activeElement));
 
-                if (containsFocus) {
-                    activeElement.focus()
+                    // Perform a direct swap operation if immediate element siblings.
+                    if (node.nodeType === 1 && siblingRef && node === siblingRef.nextElementSibling) {
+                        node.replaceWith(siblingRef)
+                    }
+
+                    parentNode.insertBefore(node, siblingRef || null);
+
+                    if (containsFocus) {
+                        activeElement.focus()
+                    }
                 }
             }
         }
