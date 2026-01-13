@@ -429,46 +429,47 @@ class VDom extends Base {
         if (vnode && vdom) {
             // Sanity check: If the node types (tags) mismatch, we are likely looking at
             // a race condition where the VNode tree structure hasn't caught up with the VDOM yet.
-            // In this case, we must abort synchronization to prevent "Chimera" nodes (e.g. UL getting LI ID).
-            if (vnode.nodeName && vdom.tag && vnode.nodeName.toLowerCase() !== vdom.tag.toLowerCase()) {
-                return
-            }
+            // In this case, we do not sync the node props, but we do want to check the children.
+            // This is important for e.g. tag name changes (div => ul), where we want to keep the children stable.
+            const tagMismatch = vnode.nodeName && vdom.tag && vnode.nodeName.toLowerCase() !== vdom.tag.toLowerCase();
 
             vdom = VDom.getVdom(vdom);
 
             let childNodes = vdom.cn,
                 cn, i, len;
 
-            if (force) {
-                if (vnode.id && vdom.id !== vnode.id) {
-                    vdom.id = vnode.id
+            if (!tagMismatch) {
+                if (force) {
+                    if (vnode.id && vdom.id !== vnode.id) {
+                        vdom.id = vnode.id
+                    }
+                } else {
+                    // We only want to add an ID if the vdom node does not already have one.
+                    // This preserves developer-provided IDs while allowing the framework
+                    // to assign IDs to nodes that need them for reconciliation.
+                    // Also think of adding and removing nodes in parallel.
+                    if (vnode.id && (!vdom.id || vdom.id.startsWith('neo-vnode-'))) {
+                        vdom.id = vnode.id
+                    }
                 }
-            } else {
-                // We only want to add an ID if the vdom node does not already have one.
-                // This preserves developer-provided IDs while allowing the framework
-                // to assign IDs to nodes that need them for reconciliation.
-                // Also think of adding and removing nodes in parallel.
-                if (vnode.id && (!vdom.id || vdom.id.startsWith('neo-vnode-'))) {
-                    vdom.id = vnode.id
+
+                // 1. Rehydration (vnode -> vdom)
+                // Used by Functional Components (vdom is new)
+                if (Neo.isNumber(vnode.scrollTop) && !Neo.isNumber(vdom.scrollTop)) {
+                    vdom.scrollTop = vnode.scrollTop
                 }
-            }
+                if (Neo.isNumber(vnode.scrollLeft) && !Neo.isNumber(vdom.scrollLeft)) {
+                    vdom.scrollLeft = vnode.scrollLeft
+                }
 
-            // 1. Rehydration (vnode -> vdom)
-            // Used by Functional Components (vdom is new)
-            if (Neo.isNumber(vnode.scrollTop) && !Neo.isNumber(vdom.scrollTop)) {
-                vdom.scrollTop = vnode.scrollTop
-            }
-            if (Neo.isNumber(vnode.scrollLeft) && !Neo.isNumber(vdom.scrollLeft)) {
-                vdom.scrollLeft = vnode.scrollLeft
-            }
-
-            // 2. Preservation (vdom -> vnode)
-            // Used by Classic Components (vdom is source of truth via capture)
-            if (Neo.isNumber(vdom.scrollTop)) {
-                vnode.scrollTop = vdom.scrollTop
-            }
-            if (Neo.isNumber(vdom.scrollLeft)) {
-                vnode.scrollLeft = vdom.scrollLeft
+                // 2. Preservation (vdom -> vnode)
+                // Used by Classic Components (vdom is source of truth via capture)
+                if (Neo.isNumber(vdom.scrollTop)) {
+                    vnode.scrollTop = vdom.scrollTop
+                }
+                if (Neo.isNumber(vdom.scrollLeft)) {
+                    vnode.scrollLeft = vdom.scrollLeft
+                }
             }
 
             if (childNodes) {
