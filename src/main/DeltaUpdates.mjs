@@ -384,9 +384,26 @@ class DeltaUpdates extends Base {
      */
     moveNode({id, index, parentId}) {
         let node       = DomAccess.getElement(id),
-            parentNode = DomAccess.getElement(parentId);
+            parentNode = DomAccess.getElement(parentId),
+            siblingRef;
 
-        // Fallback for Fragments
+        // 1. Resolve Target Parent & Sibling
+        if (!parentNode) {
+            const startNode = this.getFragmentStart(parentId);
+            if (startNode) {
+                parentNode = startNode.parentNode;
+                siblingRef = this.getFragmentSibling(startNode, index)
+            }
+        } else {
+            // Standard parent: resolve sibling by index
+            if (index < parentNode.childNodes.length) {
+                siblingRef = parentNode.childNodes[index]
+            } else {
+                siblingRef = null // Append
+            }
+        }
+
+        // 2. Resolve Node to Move (Fragment fallback)
         if (!node && parentNode) {
             const
                 xpath     = `//comment()[.=' ${id}-start ']`,
@@ -404,23 +421,15 @@ class DeltaUpdates extends Base {
         }
 
         if (node && parentNode) {
-            // If the target index is at or beyond the end of the parent's current childNodes, append the node.
-            if (index >= parentNode.childNodes.length) {
-                parentNode.appendChild(node)
-            } else {
-                // Get the reference node at the target physical index.
-                let referenceNode = parentNode.childNodes[index];
-
-                // Only proceed if the node is not already at its target position.
-                // Note: For DocumentFragments (nodeType 11), we always move, as the fragment wrapper is transient.
-                if (node !== referenceNode) {
-                    // Perform a direct swap operation if immediate element siblings.
-                    if (node.nodeType === 1 && node === referenceNode.nextElementSibling) {
-                        node.replaceWith(referenceNode)
-                    }
-
-                    parentNode.insertBefore(node, referenceNode)
+            // Only proceed if the node is not already at its target position.
+            // Note: For DocumentFragments (nodeType 11), we always move, as the fragment wrapper is transient.
+            if (node !== siblingRef) {
+                // Perform a direct swap operation if immediate element siblings.
+                if (node.nodeType === 1 && siblingRef && node === siblingRef.nextElementSibling) {
+                    node.replaceWith(siblingRef)
                 }
+
+                parentNode.insertBefore(node, siblingRef || null)
             }
         }
     }
