@@ -249,6 +249,47 @@ class DeltaUpdates extends Base {
     }
 
     /**
+     * Helper to retrieve all DOM nodes belonging to a Fragment (or Text Node range).
+     * @param {HTMLElement} parentNode
+     * @param {String}      id
+     * @returns {Object|null} {startNode, endNode, nodes: []}
+     */
+    getFragmentNodes(parentNode, id) {
+        if (!parentNode) return null;
+
+        const
+            isComment = Node.COMMENT_NODE,
+            startStr  = ` ${id}-start `;
+
+        let startNode = Array.from(parentNode.childNodes).find(n =>
+            n.nodeType === isComment && n.nodeValue === startStr
+        );
+
+        // Fallback for text nodes (if we want to unify, though text nodes use ` id `)
+        // For now, let's strictly handle Fragments here.
+
+        if (!startNode) return null;
+
+        const
+            endStr = ` ${id}-end `,
+            nodes  = [];
+
+        let currentNode = startNode.nextSibling;
+
+        while (currentNode) {
+            // Check if we hit the end anchor
+            if (currentNode.nodeType === isComment && currentNode.nodeValue === endStr) {
+                return {startNode, endNode: currentNode, nodes};
+            }
+
+            nodes.push(currentNode);
+            currentNode = currentNode.nextSibling
+        }
+
+        return null // End anchor not found (should not happen in healthy DOM)
+    }
+
+    /**
      * Inserts a new node into the DOM tree based on delta updates.
      * This method handles both string-based (outerHTML) and direct DOM API (vnode) mounting.
      * It ensures the node is inserted at the correct index within the parent.
