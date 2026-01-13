@@ -19,7 +19,8 @@ test.describe('Neo.tree.List VDOM Structure', () => {
 
     test('expandParents should maintain correct VDOM structure', async () => {
         const tree = Neo.create(TreeList, {
-            id   : 'test-tree',
+            appName                   : 'TreeListTest',
+            id                        : 'test-tree',
             showCollapseExpandAllIcons: false,
             store: {
                 model: {
