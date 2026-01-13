@@ -35,7 +35,8 @@ class CanvasWrapper extends Container {
         let me = this;
 
         config.items = [{
-            module: TimelineCanvas,
+            module   : TimelineCanvas,
+            reference: 'timeline-canvas',
             style : {
                 position     : 'absolute',
                 top          : 0,
@@ -52,9 +53,8 @@ class CanvasWrapper extends Container {
                 zIndex  : 1
             },
             listeners: {
-                edit   : me.onContentEdit,
-                refresh: me.onContentRefresh,
-                scope  : me
+                toggleSummary: me.onToggleSummary,
+                scope        : me
             }
         }];
 
@@ -62,17 +62,14 @@ class CanvasWrapper extends Container {
     }
 
     /**
-     * @param {Object} data
+     *
      */
-    onContentEdit(data) {
-        this.fire('edit', data)
-    }
+    onToggleSummary() {
+        let canvas = this.getReference('timeline-canvas');
 
-    /**
-     * @param {Object} data
-     */
-    onContentRefresh(data) {
-        this.fire('refresh', data)
+        if (canvas?.lastRecords) {
+            canvas.onTimelineDataLoad(canvas.lastRecords, true)
+        }
     }
 }
 

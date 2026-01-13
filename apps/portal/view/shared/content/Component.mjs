@@ -48,6 +48,12 @@ class Component extends Markdown {
     }
 
     /**
+     * @member {Object[]} headlineData=null
+     * @private
+     */
+    headlineData = null
+
+    /**
      * @param {Object} config
      */
     construct(config) {
@@ -56,8 +62,7 @@ class Component extends Markdown {
         let me = this;
 
         me.addDomListeners({
-            click    : me.onClick,
-            intersect: 'onIntersect', // view controller
+            intersect: 'onIntersect',
             scope    : me
         })
     }
@@ -143,28 +148,6 @@ class Component extends Markdown {
      */
     getContentPath(record) {
         return null
-    }
-
-    /**
-     * @member {Object[]} headlineData=null
-     * @private
-     */
-    headlineData = null
-
-    /**
-     * @param {Object} data
-     */
-    onClick({altKey, metaKey, shiftKey}) {
-        let me       = this,
-            {record} = me;
-
-        if (altKey && !metaKey && shiftKey) {
-            me.fire('edit', {component: me, record})
-        }
-        // Command/windows shift click = refresh
-        else if (!altKey && metaKey && shiftKey) {
-            me.fire('refresh', {component: me, record})
-        }
     }
 
     /**

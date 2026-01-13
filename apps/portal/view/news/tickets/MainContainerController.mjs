@@ -33,20 +33,6 @@ class MainContainerController extends Controller {
     /**
      * @param {Object} data
      */
-    onContentEdit(data) {
-        // No-op for tickets
-    }
-
-    /**
-     * @param {Object} data
-     */
-    onContentRefresh(data) {
-        this.getReference('tree').doFetchContent(data.record)
-    }
-
-    /**
-     * @param {Object} data
-     */
     onIntersect(data) {
         let panel    = this.getReference('page-sections-container'),
             list     = panel.list,

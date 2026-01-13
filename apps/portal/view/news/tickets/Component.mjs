@@ -42,6 +42,12 @@ class Component extends ContentComponent {
          */
         commitsUrl: 'https://github.com/neomjs/neo/commit/',
         /**
+         * @member {Object} domListeners
+         */
+        domListeners: {
+            resize: 'onResize'
+        },
+        /**
          * @member {String} repoUserUrl='https://github.com/'
          */
         repoUserUrl: 'https://github.com/',
@@ -148,7 +154,7 @@ class Component extends ContentComponent {
         html += '</tbody></table>';
 
         if (me.useFrontmatterDetails) {
-            return `<details><summary>Frontmatter</summary>${html}</details>`
+            return `<details id="neo-ticket-summary-details-${me.id}"><summary>Frontmatter</summary>${html}</details>`
         }
 
         return html
@@ -386,6 +392,13 @@ class Component extends ContentComponent {
 
         // Return: Frontmatter + Title + Timeline
         return frontMatterHtml + titleHtml + timelineHtml
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onResize(data) {
+        this.fire('toggleSummary')
     }
 
     /**
