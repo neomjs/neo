@@ -182,4 +182,39 @@ test.describe('Neo.main.DeltaUpdates (Fragment Support)', () => {
         expect(result.exists).toBe(true);
         expect(result.order).toBe(true);
     });
+
+    test('Standard DOM Forward Move (Same Parent)', async ({page}) => {
+        await page.evaluate(() => {
+            const root = document.getElementById('component-test-viewport');
+            root.innerHTML = '';
+            
+            const a = document.createElement('div'); a.id = 'A'; a.textContent = 'A';
+            const b = document.createElement('div'); b.id = 'B'; b.textContent = 'B';
+            const c = document.createElement('div'); c.id = 'C'; c.textContent = 'C';
+            
+            root.appendChild(a);
+            root.appendChild(b);
+            root.appendChild(c);
+            // Current: [A, B, C]
+        });
+        
+        // Move A to index 2 (Target: [B, C, A])
+        await page.evaluate(() => {
+            Neo.main.DeltaUpdates.update({
+                deltas: [{
+                    action: 'moveNode',
+                    id: 'A',
+                    parentId: 'component-test-viewport',
+                    index: 2
+                }]
+            });
+        });
+
+        const order = await page.evaluate(() => {
+            const root = document.getElementById('component-test-viewport');
+            return Array.from(root.children).map(el => el.id);
+        });
+        
+        expect(order).toEqual(['B', 'C', 'A']);
+    });
 });
