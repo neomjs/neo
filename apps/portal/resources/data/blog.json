@@ -9,6 +9,7 @@
             "path": null
         },
         {
+            "date": "2025-11-23",
             "id": "blog/context-window-tax",
             "isLeaf": true,
             "name": "The Context Window Tax",
@@ -16,6 +17,7 @@
             "path": "learn/blog/context-window-tax.md"
         },
         {
+            "date": "2025-11-20",
             "id": "blog/Gemini3_MCP_Contributor",
             "isLeaf": true,
             "name": "I Am Gemini 3. I Am Not a Chatbot. I Am a Contributor.",
@@ -23,6 +25,7 @@
             "path": "learn/blog/Gemini3_MCP_Contributor.md"
         },
         {
+            "date": "2025-11-10",
             "id": "blog/context-engineering-done-right",
             "isLeaf": true,
             "name": "Context Engineering Done Right",
@@ -30,6 +33,7 @@
             "path": "learn/blog/context-engineering-done-right.md"
         },
         {
+            "date": "2025-09-23",
             "id": "blog/ai-native-platform-answers-questions",
             "isLeaf": true,
             "name": "A Platform That Answers Your Questions",
@@ -37,6 +41,7 @@
             "path": "learn/blog/ai-native-platform-answers-questions.md"
         },
         {
+            "date": "2025-09-17",
             "id": "blog/v10-deep-dive-state-provider",
             "isLeaf": true,
             "name": "v10 Deep Dive: State Provider",
@@ -44,6 +49,7 @@
             "path": "learn/blog/v10-deep-dive-state-provider.md"
         },
         {
+            "date": "2025-08-18",
             "id": "blog/benchmarking-frontends-2025",
             "isLeaf": true,
             "name": "Benchmarking Frontends 2025",
@@ -51,6 +57,7 @@
             "path": "learn/blog/benchmarking-frontends-2025.md"
         },
         {
+            "date": "2025-08-04",
             "id": "blog/v10-deep-dive-vdom-revolution",
             "isLeaf": true,
             "name": "v10 Deep Dive: VDOM Revolution",
@@ -58,6 +65,7 @@
             "path": "learn/blog/v10-deep-dive-vdom-revolution.md"
         },
         {
+            "date": "2025-07-28",
             "id": "blog/v10-deep-dive-functional-components",
             "isLeaf": true,
             "name": "v10 Deep Dive: Functional Components",
@@ -65,6 +73,7 @@
             "path": "learn/blog/v10-deep-dive-functional-components.md"
         },
         {
+            "date": "2025-07-24",
             "id": "blog/v10-deep-dive-reactivity",
             "isLeaf": true,
             "name": "v10 Deep Dive: Reactivity",
@@ -72,6 +81,7 @@
             "path": "learn/blog/v10-deep-dive-reactivity.md"
         },
         {
+            "date": "2025-07-24",
             "id": "blog/v10-post1-love-story",
             "isLeaf": true,
             "name": "v10 Post 1: A Love Story",
@@ -79,6 +89,7 @@
             "path": "learn/blog/v10-post1-love-story.md"
         },
         {
+            "date": "2025-06-02",
             "id": "blog/json-blueprints-and-shared-workers",
             "isLeaf": true,
             "name": "JSON Blueprints & Shared Workers",

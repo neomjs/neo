@@ -19,6 +19,9 @@ class Blog extends Model {
             type        : 'Boolean',
             defaultValue: true
         }, {
+            name: 'date',
+            type: 'String'
+        }, {
             name: 'name',
             type: 'String'
         }, {
@@ -35,13 +38,18 @@ class Blog extends Model {
         }, {
             // Computed field for TreeList display
             name: 'treeNodeName',
-            type: 'String',
+            type: 'html',
             /**
              * @param {Object} data
+             * @param {String} data.date
              * @param {String} data.name
              * @returns {String}
              */
-            calculate({name}) {
+            calculate({date, name}) {
+                if (date) {
+                    return `<span class="blog-date">[${new Date(date).toLocaleDateString()}]</span> <b>${name}</b>`
+                }
+
                 return name
             }
         }, {
