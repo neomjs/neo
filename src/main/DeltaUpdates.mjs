@@ -130,6 +130,14 @@ class DeltaUpdates extends Base {
                 clone.appendChild(node.firstChild)
             }
 
+            if (node.scrollTop > 0) {
+                clone.scrollTop = node.scrollTop
+            }
+
+            if (node.scrollLeft > 0) {
+                clone.scrollLeft = node.scrollLeft
+            }
+
             node.parentNode.replaceChild(clone, node)
         }
     }
