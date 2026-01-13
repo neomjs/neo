@@ -500,6 +500,10 @@ class App extends Base {
 
     /**
      * Moves a component to a new parent container via remote method access.
+     * This operation is **atomic** and state-preserving when moving within the same browser window.
+     * It relies on `Neo.container.Base.insert` to handle the silent removal from the old parent,
+     * ensuring that the DOM node is physically moved rather than destroyed and recreated.
+     *
      * @param {Object} data
      * @param {String} data.id The id of the component to move.
      * @param {String} data.parentId The id of the new parent container.

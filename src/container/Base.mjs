@@ -618,9 +618,19 @@ class Container extends Component {
     }
 
     /**
-     * Inserts an item or array of items at a specific index
+     * Inserts an item or array of items at a specific index.
+     *
+     * **Atomic Moves:**
+     * If the `item` is an existing `Neo.component.Base` instance that already has a parent container
+     * within the same browser window, this method performs an **atomic move**.
+     * 1. The item is silently removed from its old parent (without triggering a DOM removal).
+     * 2. The item is inserted into this container.
+     * 3. This container updates, sending an `insertNode` delta.
+     * 4. The `DeltaUpdates` system detects the existing DOM node and moves it physically, preserving
+     *    DOM state such as focus, input values, and iframe content.
+     *
      * @param {Number} index
-     * @param {Array|Object} item
+     * @param {Array|Object|Neo.component.Base} item
      * @param {Boolean} [silent=false]
      * @param {Boolean} [removeFromPreviousParent=true]
      * @returns {Neo.component.Base|Neo.component.Base[]}

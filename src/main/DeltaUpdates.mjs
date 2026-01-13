@@ -430,6 +430,11 @@ class DeltaUpdates extends Base {
      * It performs a direct sibling swap when an element is immediately followed by its target position,
      * which is necessary to prevent attempting to replace a node with itself.
      *
+     * **Focus Preservation:**
+     * In WebKit/Blink browsers (Chrome, Safari), reparenting a focused element causes it to lose focus.
+     * This method detects if the moved node contains the active element and automatically restores focus
+     * immediately after the move operation to ensure a seamless user experience.
+     *
      * @param {Object} delta
      * @param {String} delta.id       The ID of the DOM node to move.
      * @param {Number} delta.index    The physical index at which to insert the node within the target parent's childNodes.
