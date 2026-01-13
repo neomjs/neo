@@ -24,6 +24,10 @@ export const test = base.extend({
             async setConfig(id, config) {
                 return RmaHelpers.setComponentConfig(page, id, config);
             },
+
+            async moveComponent(opts) {
+                return RmaHelpers.moveComponent(page, opts);
+            },
             
             async getConfig(id, keyOrKeys) {
                 return RmaHelpers.getComponentConfig(page, id, keyOrKeys);
