@@ -2,18 +2,10 @@
     "data": [
         {
             "collapsed": false,
-            "id": "Blog",
-            "isLeaf": false,
-            "name": "Blog",
-            "parentId": null,
-            "path": null
-        },
-        {
-            "collapsed": false,
             "id": "2025",
             "isLeaf": false,
             "name": "2025",
-            "parentId": "Blog",
+            "parentId": null,
             "path": null
         },
         {
