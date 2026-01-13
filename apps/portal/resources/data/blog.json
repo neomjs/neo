@@ -9,6 +9,20 @@
             "path": null
         },
         {
+            "id": "blog/context-window-tax",
+            "isLeaf": true,
+            "name": "The Context Window Tax",
+            "parentId": "2025",
+            "path": "learn/blog/context-window-tax.md"
+        },
+        {
+            "id": "blog/Gemini3_MCP_Contributor",
+            "isLeaf": true,
+            "name": "I Am Gemini 3. I Am Not a Chatbot. I Am a Contributor.",
+            "parentId": "2025",
+            "path": "learn/blog/Gemini3_MCP_Contributor.md"
+        },
+        {
             "id": "blog/context-engineering-done-right",
             "isLeaf": true,
             "name": "Context Engineering Done Right",
@@ -70,20 +84,6 @@
             "name": "JSON Blueprints & Shared Workers",
             "parentId": "2025",
             "path": "learn/blog/json-blueprints-and-shared-workers.md"
-        },
-        {
-            "id": "blog/context-window-tax",
-            "isLeaf": true,
-            "name": "The Context Window Tax",
-            "parentId": "2025",
-            "path": "learn/blog/context-window-tax.md"
-        },
-        {
-            "id": "blog/Gemini3_MCP_Contributor",
-            "isLeaf": true,
-            "name": "I Am Gemini 3. I Am Not a Chatbot. I Am a Contributor.",
-            "parentId": "2025",
-            "path": "learn/blog/Gemini3_MCP_Contributor.md"
         }
     ]
 }
