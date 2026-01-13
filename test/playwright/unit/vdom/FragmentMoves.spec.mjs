@@ -58,8 +58,6 @@ test.describe('Neo.vdom.Helper (Fragment Moves)', () => {
         // If parentId is 'frag-1' (logical), index should be 1.
         // If parentId is 'root' (physical), index should be:
         // frag-start (0), static (1), mover (2), frag-end (3).
-        
-        console.log('Move In Delta:', moveDelta);
     });
 
     test('Move Out: Move a component from Fragment into parent Container', () => {
@@ -87,8 +85,6 @@ test.describe('Neo.vdom.Helper (Fragment Moves)', () => {
         const moveDelta = deltas.find(d => d.id === 'mover');
         expect(moveDelta).toBeDefined();
         expect(moveDelta.action).toBe('moveNode');
-        
-        console.log('Move Out Delta:', moveDelta);
     });
 
     test('Cross-Fragment Move: Move component between sibling fragments', () => {
@@ -119,8 +115,6 @@ test.describe('Neo.vdom.Helper (Fragment Moves)', () => {
         const moveDelta = deltas.find(d => d.id === 'mover');
         expect(moveDelta).toBeDefined();
         expect(moveDelta.action).toBe('moveNode');
-
-        console.log('Cross-Fragment Delta:', moveDelta);
     });
 
      test('Nested Move: Move component deeper into nested fragment', () => {
@@ -152,7 +146,5 @@ test.describe('Neo.vdom.Helper (Fragment Moves)', () => {
         const moveDelta = deltas.find(d => d.id === 'mover');
         expect(moveDelta).toBeDefined();
         expect(moveDelta.action).toBe('moveNode');
-
-        console.log('Nested Move Delta:', moveDelta);
     });
 });
