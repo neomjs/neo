@@ -1,5 +1,5 @@
 import ContentSectionStore from '../../../store/ContentSections.mjs';
-import BlogStore           from '../../../store/Blog.mjs';
+import BlogNeoStore           from '../../../store/BlogNeo.mjs';
 import StateProvider       from '../../../../../src/state/Provider.mjs';
 
 /**
@@ -50,7 +50,7 @@ class MainContainerStateProvider extends StateProvider {
             },
             tree: {
                 autoLoad: true,
-                module  : BlogStore
+                module  : BlogNeoStore
             }
         }
     }

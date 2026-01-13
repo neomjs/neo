@@ -1,16 +1,16 @@
 import Model from '../../../src/data/Model.mjs';
 
 /**
- * @class Portal.model.Blog
+ * @class Portal.model.BlogNeo
  * @extends Neo.data.Model
  */
-class Blog extends Model {
+class BlogNeo extends Model {
     static config = {
         /**
-         * @member {String} className='Portal.model.Blog'
+         * @member {String} className='Portal.model.BlogNeo'
          * @protected
          */
-        className: 'Portal.model.Blog',
+        className: 'Portal.model.BlogNeo',
         /**
          * @member {Object[]} fields
          */
@@ -59,4 +59,4 @@ class Blog extends Model {
     }
 }
 
-export default Neo.setupClass(Blog);
+export default Neo.setupClass(BlogNeo);

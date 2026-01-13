@@ -1,5 +1,5 @@
 import BaseList  from '../../../../../src/list/Base.mjs';
-import BlogPosts from '../../../store/BlogPosts.mjs';
+import BlogMedium from '../../../store/BlogMedium.mjs';
 import VDomUtil  from '../../../../../src/util/VDom.mjs';
 
 /**
@@ -40,7 +40,7 @@ class List extends BaseList {
          * @member {Neo.data.Store} store=BlogPosts
          * @reactive
          */
-        store: BlogPosts,
+        store: BlogMedium,
         /**
          * @member {Boolean} useWrapperNode=true
          * @reactive
