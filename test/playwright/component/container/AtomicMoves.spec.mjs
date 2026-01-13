@@ -1,27 +1,25 @@
-import {test, expect} from '@playwright/test';
+import {test, expect} from '../../fixtures.mjs';
 
 let rootId;
 
 test.describe('Neo.container.Base Atomic Moves', () => {
-    test.beforeEach(async ({page}) => {
+    test.beforeEach(async ({neo, page}) => {
         await page.goto('/test/playwright/component/apps/empty-viewport/index.html');
         await page.waitForSelector('#component-test-viewport');
 
-        await page.evaluate(async () => {
-            // Load core classes
-            await Neo.worker.App.loadModule({path: '../container/Base.mjs'});
-            await Neo.worker.App.loadModule({path: '../button/Base.mjs'});
-            await Neo.worker.App.loadModule({path: '../form/field/Text.mjs'});
-            // Ensure dependencies for Text field are loaded
-            await Neo.worker.App.loadModule({path: '../form/field/Base.mjs'});
-            await Neo.worker.App.loadModule({path: '../form/field/trigger/Base.mjs'});
-            await Neo.worker.App.loadModule({path: '../form/field/trigger/Clear.mjs'});
-        });
+        // Load core classes
+        await neo.loadModule('../container/Base.mjs');
+        await neo.loadModule('../button/Base.mjs');
+        await neo.loadModule('../form/field/Text.mjs');
+        // Ensure dependencies for Text field are loaded
+        await neo.loadModule('../form/field/Base.mjs');
+        await neo.loadModule('../form/field/trigger/Base.mjs');
+        await neo.loadModule('../form/field/trigger/Clear.mjs');
     });
 
-    test.afterEach(async ({page}) => {
+    test.afterEach(async ({neo}) => {
         if (rootId) {
-            await page.evaluate((id) => Neo.worker.App.destroyNeoInstance(id), rootId);
+            await neo.destroyComponent(rootId);
             rootId = null;
         }
     });
@@ -99,7 +97,7 @@ test.describe('Neo.container.Base Atomic Moves', () => {
         // console.log('Native moveBefore focus result:', moveBeforeResult);
     });
 
-    test('Atomic Move: Preserve DOM state (custom property) when moving between sibling containers', async ({page}) => {
+    test('Atomic Move: Preserve DOM state (custom property) when moving between sibling containers', async ({neo, page}) => {
         const config = {
             importPath: '../container/Base.mjs',
             ntype     : 'container',
@@ -113,7 +111,7 @@ test.describe('Neo.container.Base Atomic Moves', () => {
             ]
         };
 
-        const result = await page.evaluate(config => Neo.worker.App.createNeoInstance(config), config);
+        const result = await neo.createComponent(config);
         rootId = result.id;
 
         await expect(page.locator('#my-btn')).toBeVisible();
@@ -125,11 +123,9 @@ test.describe('Neo.container.Base Atomic Moves', () => {
         });
 
         // Move 'my-btn' from A to B
-        await page.evaluate(async () => {
-            await Neo.worker.App.moveComponent({
-                id      : 'my-btn',
-                parentId: 'container-b'
-            });
+        await neo.moveComponent({
+            id      : 'my-btn',
+            parentId: 'container-b'
         });
 
         // Wait for the move to propagate to DOM (parent change)
@@ -147,7 +143,7 @@ test.describe('Neo.container.Base Atomic Moves', () => {
         expect(state).toBe('alive');
     });
 
-    test('Atomic Move: Preserve input value when moving between sibling containers', async ({page}) => {
+    test('Atomic Move: Preserve input value when moving between sibling containers', async ({neo, page}) => {
         const config = {
             importPath: '../container/Base.mjs',
             ntype     : 'container',
@@ -161,7 +157,7 @@ test.describe('Neo.container.Base Atomic Moves', () => {
             ]
         };
 
-        const result = await page.evaluate(config => Neo.worker.App.createNeoInstance(config), config);
+        const result = await neo.createComponent(config);
         rootId = result.id;
 
         // Ensure the element is truly in the DOM
@@ -172,11 +168,9 @@ test.describe('Neo.container.Base Atomic Moves', () => {
         await page.fill('#my-field__input', 'Preserve Me');
 
         // Move 'my-field' from C to D
-        await page.evaluate(async () => {
-            await Neo.worker.App.moveComponent({
-                id      : 'my-field',
-                parentId: 'container-d'
-            });
+        await neo.moveComponent({
+            id      : 'my-field',
+            parentId: 'container-d'
         });
 
         // Wait for the move to propagate to DOM (parent change)
@@ -191,7 +185,7 @@ test.describe('Neo.container.Base Atomic Moves', () => {
         expect(value).toBe('Preserve Me');
     });
 
-    test('Atomic Move: Preserve focus when moving', async ({page}) => {
+    test('Atomic Move: Preserve focus when moving', async ({neo, page}) => {
          const config = {
             importPath: '../container/Base.mjs',
             ntype     : 'container',
@@ -205,7 +199,7 @@ test.describe('Neo.container.Base Atomic Moves', () => {
             ]
         };
 
-        const result = await page.evaluate(config => Neo.worker.App.createNeoInstance(config), config);
+        const result = await neo.createComponent(config);
         rootId = result.id;
 
         await page.waitForSelector('#focus-field__input', { state: 'attached', timeout: 10000 });
@@ -215,11 +209,9 @@ test.describe('Neo.container.Base Atomic Moves', () => {
         await page.focus('#focus-field__input');
 
         // Move 'focus-field' from 1 to 2
-        await page.evaluate(async () => {
-            await Neo.worker.App.moveComponent({
-                id      : 'focus-field',
-                parentId: 'container-2'
-            });
+        await neo.moveComponent({
+            id      : 'focus-field',
+            parentId: 'container-2'
         });
 
         // Wait for move
