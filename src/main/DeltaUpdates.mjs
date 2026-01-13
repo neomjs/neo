@@ -307,14 +307,51 @@ class DeltaUpdates extends Base {
         this.checkRendererAvailability();
 
         let {render}   = Neo.main,
-            parentNode = DomAccess.getElementOrBody(parentId);
+            parentNode = DomAccess.getElement(parentId),
+            siblingRef;
+
+        // 1. Resolve Target Parent & Sibling
+        if (!parentNode) {
+            const startNode = this.getFragmentStart(parentId);
+            if (startNode) {
+                parentNode = startNode.parentNode;
+                siblingRef = this.getFragmentSibling(startNode, index)
+            }
+        } else {
+            siblingRef = parentNode.childNodes[index]
+        }
 
         if (parentNode) {
+            let newNode;
+
             if (NeoConfig.useDomApiRenderer) {
-                render.DomApiRenderer.createDomTree({index, isRoot: true, parentNode, vnode})
+                newNode = render.DomApiRenderer.createDomTree({
+                    index     : -1,
+                    isRoot    : true,
+                    parentNode: null, // detached
+                    vnode
+                })
             } else {
-                render.StringBasedRenderer.insertNodeAsString({hasLeadingTextChildren, index, outerHTML, parentNode, postMountUpdates})
+                newNode = render.StringBasedRenderer.htmlStringToElement(outerHTML)
             }
+
+            if (newNode) {
+                parentNode.insertBefore(newNode, siblingRef || null);
+
+                if (postMountUpdates?.length > 0) {
+                    postMountUpdates.forEach(update => {
+                        let node = DomAccess.getElement(update.id);
+                        if (node) {
+                            if (update.scrollLeft) {node.scrollLeft = update.scrollLeft}
+                            if (update.scrollTop)  {node.scrollTop  = update.scrollTop}
+                        }
+                    })
+                }
+            } else {
+                console.error('insertNode: Failed to create newNode', {outerHTML, vnode});
+            }
+        } else {
+            console.error('insertNode: Parent not found', {parentId, index});
         }
     }
 
