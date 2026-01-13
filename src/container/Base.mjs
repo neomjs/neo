@@ -626,9 +626,10 @@ class Container extends Component {
      * @returns {Neo.component.Base|Neo.component.Base[]}
      */
     insert(index, item, silent=false, removeFromPreviousParent=true) {
-        let me      = this,
-            {items} = me,
-            i, len, returnArray;
+        let me          = this,
+            {items}     = me,
+            lca         = null,
+            i, len, oldParent, parentsA, parentsB, returnArray;
 
         if (Array.isArray(item)) {
             i           = 0;
@@ -642,6 +643,22 @@ class Container extends Component {
 
             item = returnArray
         } else {
+            if (Neo.typeOf(item) === 'NeoInstance' && item.parent && item.parent !== me && removeFromPreviousParent) {
+                oldParent = item.parent;
+
+                if (oldParent.windowId === me.windowId) {
+                    parentsA = [me,        ...me.getParents()];
+                    parentsB = [oldParent, ...oldParent.getParents()];
+
+                    lca = parentsA.find(p => parentsB.includes(p))
+                }
+
+                if (lca) {
+                    oldParent.remove(item, false, true, true);
+                    removeFromPreviousParent = false
+                }
+            }
+
             item = me.createItem(item, index, removeFromPreviousParent);
 
             // added the true param => for card layouts, we do not want a dynamically inserted cmp to get removed right away
@@ -656,9 +673,9 @@ class Container extends Component {
         }
 
         if (!silent) {
-            me.updateDepth = -1; // pass the full vdom tree to honor new nested component trees
+            (lca || me).updateDepth = -1; // pass the full vdom tree to honor new nested component trees
 
-            me.promiseUpdate().then(() => {
+            (lca || me).promiseUpdate().then(() => {
                 me.fire('insert', {index, item})
             })
         }
@@ -794,16 +811,17 @@ class Container extends Component {
      * @param {Neo.component.Base} component
      * @param {Boolean} [destroyItem=true]
      * @param {Boolean} [silent=false]
+     * @param {Boolean} [keepMounted=false]
      * @returns {Neo.component.Base|null}
      */
-    remove(component, destroyItem=true, silent=false) {
+    remove(component, destroyItem=true, silent=false, keepMounted=false) {
         let items = [...this.items],
             i     = 0,
             len   = items.length;
 
         for (; i < len; i++) {
             if (items[i].id === component.id) {
-                return this.removeAt(i, destroyItem, silent)
+                return this.removeAt(i, destroyItem, silent, keepMounted)
             }
         }
     }
@@ -838,9 +856,10 @@ class Container extends Component {
      * @param {Number} index
      * @param {Boolean} destroyItem=true
      * @param {Boolean} silent=false
+     * @param {Boolean} keepMounted=false
      * @returns {Neo.component.Base|null}
      */
-    removeAt(index, destroyItem=true, silent=false) {
+    removeAt(index, destroyItem=true, silent=false, keepMounted=false) {
         let me      = this,
             {items} = me,
             item;
@@ -864,7 +883,9 @@ class Container extends Component {
                 return null
             } else {
                 me.layout?.removeChildAttributes(item);
-                item.mounted = false;
+                if (!keepMounted) {
+                    item.mounted = false
+                }
                 return item
             }
         }

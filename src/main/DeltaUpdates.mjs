@@ -487,12 +487,20 @@ class DeltaUpdates extends Base {
             // Only proceed if the node is not already at its target position.
             // Note: For DocumentFragments (nodeType 11), we always move, as the fragment wrapper is transient.
             if (node !== siblingRef) {
+                const
+                    activeElement = document.activeElement,
+                    containsFocus = activeElement && (node === activeElement || node.contains(activeElement));
+
                 // Perform a direct swap operation if immediate element siblings.
                 if (node.nodeType === 1 && siblingRef && node === siblingRef.nextElementSibling) {
                     node.replaceWith(siblingRef)
                 }
 
-                parentNode.insertBefore(node, siblingRef || null)
+                parentNode.insertBefore(node, siblingRef || null);
+
+                if (containsFocus) {
+                    activeElement.focus()
+                }
             }
         }
     }
