@@ -130,6 +130,18 @@ class DeltaUpdates extends Base {
                 clone.appendChild(node.firstChild)
             }
 
+            if (node.value !== undefined && node.value !== clone.value) {
+                clone.value = node.value
+            }
+
+            if (node.checked !== undefined && node.checked !== clone.checked) {
+                clone.checked = node.checked
+            }
+
+            if (node.selectedIndex !== undefined && node.selectedIndex !== clone.selectedIndex) {
+                clone.selectedIndex = node.selectedIndex
+            }
+
             if (node.scrollTop > 0) {
                 clone.scrollTop = node.scrollTop
             }
