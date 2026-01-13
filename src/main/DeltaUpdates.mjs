@@ -218,6 +218,37 @@ class DeltaUpdates extends Base {
     }
 
     /**
+     * Helper to retrieve the start anchor comment of a Fragment.
+     * @param {String} id The Fragment ID
+     * @returns {Comment|null}
+     */
+    getFragmentStart(id) {
+        const xpath = `//comment()[.=' ${id}-start ']`;
+        return document.evaluate(xpath, document.body, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue
+    }
+
+    /**
+     * Helper to calculate the reference sibling for insertion into a Fragment.
+     * @param {Node} startNode The Fragment start anchor
+     * @param {Number} index The logical index (relative to fragment content)
+     * @returns {Node|null} The node to insert before, or null (append)
+     */
+    getFragmentSibling(startNode, index) {
+        let currentNode = startNode.nextSibling,
+            i           = 0;
+
+        // Traverse 'index' steps.
+        // If index is 0, we want nextSibling (insert after start).
+        // If index is 1, we want nextSibling.nextSibling.
+        while (currentNode && i < index) {
+            currentNode = currentNode.nextSibling;
+            i++
+        }
+
+        return currentNode
+    }
+
+    /**
      * Inserts a new node into the DOM tree based on delta updates.
      * This method handles both string-based (outerHTML) and direct DOM API (vnode) mounting.
      * It ensures the node is inserted at the correct index within the parent.
