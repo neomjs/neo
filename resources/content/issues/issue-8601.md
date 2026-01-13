@@ -27,12 +27,12 @@ subIssues:
   - '[x] 8611 Update DeltaUpdates.moveNode to support Fragments'
   - '[x] 8612 Update DeltaUpdates.insertNode to support Fragments'
   - '[x] 8614 Fix moveNode off-by-one error for forward moves in same parent'
-  - '[ ] 8615 Refactor Container to support atomic component moves'
+  - '[x] 8615 Refactor Container to support atomic component moves'
   - '[ ] 8616 Create Fragment Example App (Form Grouping)'
   - '[ ] 8617 Refactor StringBasedRenderer for API Parity (Separate Creation from Insertion)'
   - '[ ] 8618 Implement insertNodeBatch support for StringBasedRenderer'
   - '[ ] 8619 Create Playwright Test Fixtures for Neo.mjs VDOM & State Inspection'
-subIssuesCompleted: 11
+subIssuesCompleted: 12
 subIssuesTotal: 16
 blockedBy: []
 blocking: []
