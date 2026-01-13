@@ -512,12 +512,20 @@ class DeltaUpdates extends Base {
      * @param {String} delta.value    The new text content to be applied to the virtual text node.
      */
     updateVtext({id, parentId, value}) {
-        let node      = DomAccess.getElement(parentId),
-            innerHTML = node.innerHTML,
-            startTag  = `<!-- ${id} -->`,
-            reg       = new RegExp(startTag + '[\\s\\S]*?<!-- \/neo-vtext -->');
+        const
+            node      = DomAccess.getElement(parentId),
+            isComment = Node.COMMENT_NODE,
+            idString  = ` ${id} `;
 
-        node.innerHTML = innerHTML.replace(reg, value)
+        if (node) {
+            const startComment = Array.from(node.childNodes).find(n =>
+                n.nodeType === isComment && n.nodeValue === idString
+            );
+
+            if (startComment?.nextSibling) {
+                startComment.nextSibling.nodeValue = value
+            }
+        }
     }
 
     /**
