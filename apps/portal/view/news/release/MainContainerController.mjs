@@ -104,11 +104,11 @@ class MainContainerController extends Controller {
 
         const select = async () => {
             stateProvider.data.currentPageRecord = store.get(itemId);
-            tree.expandParents(itemId);
 
             if (!oldValue?.hashString?.startsWith('/news/releases')) {
-                await me.timeout(100);
-                tree.scrollToItem(itemId)
+                await tree.expandAndScrollToItem(itemId)
+            } else {
+                tree.expandParents(itemId)
             }
         };
 

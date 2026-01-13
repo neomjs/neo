@@ -388,6 +388,25 @@ class Tree extends Base {
     }
 
     /**
+     * Expands all parent nodes of a given item and scrolls it into view once mounted.
+     * @param {String|Number} itemId
+     * @returns {Promise<void>}
+     */
+    async expandAndScrollToItem(itemId) {
+        let me = this;
+
+        me.expandParents(itemId);
+
+        const
+            id   = me.getItemId(itemId),
+            rect = await me.waitForDomRect({id, attempts: 20, delay: 50});
+
+        if (rect) {
+            me.scrollToItem(itemId)
+        }
+    }
+
+    /**
      * Expands all parent folders of a given item
      * @param {String|Number} itemId
      */
