@@ -427,6 +427,13 @@ class VDom extends Base {
      */
     static syncVdomState(vnode, vdom, force=false) {
         if (vnode && vdom) {
+            // Sanity check: If the node types (tags) mismatch, we are likely looking at
+            // a race condition where the VNode tree structure hasn't caught up with the VDOM yet.
+            // In this case, we must abort synchronization to prevent "Chimera" nodes (e.g. UL getting LI ID).
+            if (vnode.nodeName && vdom.tag && vnode.nodeName.toLowerCase() !== vdom.tag.toLowerCase()) {
+                return
+            }
+
             vdom = VDom.getVdom(vdom);
 
             let childNodes = vdom.cn,

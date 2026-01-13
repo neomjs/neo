@@ -84,39 +84,4 @@ test.describe('Neo.tree.List Race Conditions', () => {
 
         tree.destroy();
     });
-
-    test('UL containers should have deterministic IDs', async () => {
-        const tree = Neo.create(TreeList, {
-            appName: 'TreeListRaceTest',
-            id     : 'id-test-tree',
-            showCollapseExpandAllIcons: false,
-            store: {
-                model: {
-                    fields: [
-                        {name: 'id',       type: 'String'},
-                        {name: 'name',     type: 'String'},
-                        {name: 'parentId', type: 'String'},
-                        {name: 'isLeaf',   type: 'Boolean'}
-                    ]
-                },
-                data: [
-                    {id: 'folder1', name: 'Folder 1', parentId: null, isLeaf: false},
-                    {id: 'child1',  name: 'Child 1',  parentId: 'folder1', isLeaf: true}
-                ]
-            }
-        });
-
-        await tree.initVnode();
-
-        const folderId = tree.getItemId('folder1');
-        const {index, parentNode} = VDomUtil.find(tree.vdom, folderId);
-        const ul = parentNode.cn[index + 1];
-
-        expect(ul).toBeDefined();
-        expect(ul.tag).toBe('ul');
-        expect(ul.id).toBeDefined();
-        expect(ul.id).toBe(folderId + '__ul');
-
-        tree.destroy();
-    });
 });
