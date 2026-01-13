@@ -126,7 +126,9 @@ class DeltaUpdates extends Base {
                 clone.setAttribute(attribute.nodeName, attribute.nodeValue)
             }
 
-            clone.innerHTML= node.innerHTML;
+            while (node.firstChild) {
+                clone.appendChild(node.firstChild)
+            }
 
             node.parentNode.replaceChild(clone, node)
         }
