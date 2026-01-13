@@ -646,7 +646,7 @@ class Container extends Component {
 
             // added the true param => for card layouts, we do not want a dynamically inserted cmp to get removed right away
             // since it will most likely get activated right away
-            me.layout.applyChildAttributes(item, index, true);
+            me.layout?.applyChildAttributes(item, index, true);
 
             items.splice(index, 0, item);
 
