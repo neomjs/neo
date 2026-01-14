@@ -212,9 +212,11 @@ class HeaderCanvas extends Base {
         }
 
         const
+            padding  = 10,
+            maxH     = (height - (padding * 2)) / 2, // Max amplitude allowed
             centerY  = height / 2,
             step     = 2, // px - smoother
-            baseAmp  = 5, // Idle amplitude - larger for helix visibility
+            baseAmp  = Math.min(5, maxH), // Idle amplitude
             hoverAmp = 4; // Additional noise amp
 
         // Create Gradients
