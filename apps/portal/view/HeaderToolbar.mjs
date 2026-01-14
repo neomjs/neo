@@ -1,4 +1,5 @@
 import Base from '../../../src/toolbar/Base.mjs';
+import HeaderCanvas from './HeaderCanvas.mjs';
 
 /**
  * @class Portal.view.HeaderToolbar
@@ -81,7 +82,13 @@ class HeaderToolbar extends Base {
                     hideDelay: 0
                 }
             }]
-        }]
+        }, {
+            module: HeaderCanvas
+        }],
+        /**
+         * @member {Object} style={position: 'relative'}
+         */
+        style: {position: 'relative'}
     }
 }
 

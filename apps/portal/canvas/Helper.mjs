@@ -19,6 +19,7 @@ class Helper extends Base {
          */
         remote: {
             app: [
+                'importHeaderCanvas',
                 'importTicketCanvas'
             ]
         },
@@ -27,6 +28,14 @@ class Helper extends Base {
          * @protected
          */
         singleton: true
+    }
+
+    /**
+     * @returns {Promise<void>}
+     */
+    async importHeaderCanvas() {
+        let module = await import('./HeaderCanvas.mjs');
+        await module.default.remotesReady()
     }
 
     /**
