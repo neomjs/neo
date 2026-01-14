@@ -1,5 +1,6 @@
 import Base from '../../../src/toolbar/Base.mjs';
 import HeaderCanvas from './HeaderCanvas.mjs';
+import HeaderToolbarController from './HeaderToolbarController.mjs';
 
 /**
  * @class Portal.view.HeaderToolbar
@@ -18,10 +19,14 @@ class HeaderToolbar extends Base {
          */
         cls: ['portal-header-toolbar'],
         /**
+         * @member {Neo.controller.Component} controller=HeaderToolbarController
+         */
+        controller: HeaderToolbarController,
+        /**
          * @member {Object[]} domListeners
          */
         domListeners: [{
-            click     : {fn: 'onClick', options: {capture: true}},
+            click     : 'onButtonClick',
             mouseleave: 'onMouseLeave',
             mousemove : {fn: 'onMouseMove', local: true}
         }],
@@ -29,8 +34,9 @@ class HeaderToolbar extends Base {
          * @member {Object} itemDefaults
          */
         itemDefaults: {
-            ntype: 'button',
-            ui   : 'ghost'
+            handler: 'onButtonClick',
+            ntype  : 'button',
+            ui     : 'ghost'
         },
         /**
          * @member {Object[]} items
@@ -61,8 +67,9 @@ class HeaderToolbar extends Base {
             reference: 'header-social-icons',
 
             itemDefaults: {
-                ntype: 'button',
-                ui   : 'ghost'
+                handler: 'onButtonClick',
+                ntype  : 'button',
+                ui     : 'ghost'
             },
 
             items: [{
@@ -98,27 +105,6 @@ class HeaderToolbar extends Base {
          * @member {Object} style={position: 'relative'}
          */
         style: {position: 'relative'}
-    }
-
-    /**
-     * @param {Object} data
-     */
-    onClick(data) {
-        this.getReference('header-canvas')?.onClick(data)
-    }
-
-    /**
-     * @param {Object} data
-     */
-    onMouseLeave(data) {
-        this.getReference('header-canvas')?.onMouseLeave(data)
-    }
-
-    /**
-     * @param {Object} data
-     */
-    onMouseMove(data) {
-        this.getReference('header-canvas')?.onMouseMove(data)
     }
 }
 
