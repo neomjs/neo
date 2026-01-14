@@ -154,6 +154,10 @@ class HeaderCanvas extends Base {
     drawAuras(ctx, width, height) {
         let me = this;
 
+        if (!Array.isArray(me.navRects)) {
+            return
+        }
+
         me.navRects.forEach(rect => {
             // Check if mouse is interacting with this rect (with some padding)
             let dx = me.mouse.x - (rect.x + rect.width / 2),
@@ -289,7 +293,12 @@ class HeaderCanvas extends Base {
      * @param {Object[]} rects
      */
     updateNavRects(rects) {
-        this.navRects = rects || []
+        if (Array.isArray(rects)) {
+            this.navRects = rects
+        } else {
+            // console.warn('HeaderCanvas.updateNavRects: Invalid input', rects);
+            this.navRects = []
+        }
     }
 
     /**
