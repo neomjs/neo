@@ -1,10 +1,9 @@
 import Base from '../../../src/core/Base.mjs';
 
 const
-    TWO_PI     = Math.PI * 2,
-    PRIMARY    = '#3E63DD',
-    SECONDARY  = '#8BA6FF',
-    HIGHLIGHT  = '#40C4FF';
+    PRIMARY   = '#3E63DD',
+    SECONDARY = '#8BA6FF',
+    HIGHLIGHT = '#40C4FF';
 
 /**
  * @summary SharedWorker renderer for the HeaderToolbar overlay.
@@ -165,7 +164,7 @@ class HeaderCanvas extends Base {
             let isNebula = Math.random() > 0.8; // 20% are large nebula orbs
 
             me.particles.push({
-                isNebula : isNebula,
+                isNebula,
                 x        : Math.random() * width,
                 y        : Math.random() * height,
                 vx       : isNebula ? (Math.random() * 0.2 + 0.05) : (Math.random() * 0.5 + 0.1), // Nebulae move slower
@@ -263,8 +262,8 @@ class HeaderCanvas extends Base {
             shimmerB = 0.75 + (Math.sin(me.time * 0.5 + Math.PI / 2 + Math.PI / 3) * 0.25);
 
         for (let i = 0; i < count; i++) {
-            let x = i * step;
-            let {offsetY, intensity, isIconZone} = me.getStreamOffset(x, height);
+            let x = i * step,
+                {offsetY, intensity, isIconZone} = me.getStreamOffset(x, height);
 
             // FREQUENCY MODULATION:
             let freqMod   = Math.sin(x * 0.002 + me.time * 0.1) * (20 + (intensity * 10)),
@@ -277,10 +276,9 @@ class HeaderCanvas extends Base {
             // We calculate noise once per frame per point to ensure that the Ribbon Fill and
             // Neon Stroke passes use identical geometry, preventing visual tearing.
             let noiseA = (Math.random() - 0.5) * hoverAmp * intensity,
-                noiseB = (Math.random() - 0.5) * hoverAmp * intensity;
-
-            let sine  = Math.sin(((x + freqMod) * 0.04) - timeShift) * localAmp,
-                sineB = Math.sin(((x + freqMod) * 0.04) - timeShift + Math.PI) * localAmp; // Inverted
+                noiseB = (Math.random() - 0.5) * hoverAmp * intensity,
+                sine   = Math.sin(((x + freqMod) * 0.04) - timeShift) * localAmp,
+                sineB  = Math.sin(((x + freqMod) * 0.04) - timeShift + Math.PI) * localAmp; // Inverted
 
             // SHOCKWAVE PHYSICS (Displacement)
             let shockY = 0;
@@ -293,7 +291,7 @@ class HeaderCanvas extends Base {
                     if (Math.abs(dist) < radius && Math.abs(dist) > radius - 60) {
                         // Pulse shape: Sine wave based on distance from center relative to radius
                         let pulse = Math.sin((dist / radius) * Math.PI * 10) * (1 - (wave.age / wave.life)) * 20;
-                        shockY += pulse;
+                        shockY += pulse
                     }
                 })
             }
@@ -358,9 +356,9 @@ class HeaderCanvas extends Base {
             // Interaction: Shockwave Repulsion
             if (me.shockwaves.length > 0) {
                 me.shockwaves.forEach(wave => {
-                    let wx = p.x - wave.x,
-                        wy = p.y - wave.y,
-                        wDist = Math.sqrt(wx*wx + wy*wy),
+                    let wx     = p.x - wave.x,
+                        wy     = p.y - wave.y,
+                        wDist  = Math.sqrt(wx * wx + wy * wy),
                         radius = wave.age * wave.speed;
 
                     // If particle is near the expanding ring (width 40px)
@@ -369,7 +367,7 @@ class HeaderCanvas extends Base {
                         // Push outward
                         p.x += (wx / wDist) * force * 5;
                         p.y += (wy / wDist) * force * 5;
-                        p.alpha = Math.min(p.alpha + 0.3, 1); // Flash bright
+                        p.alpha = Math.min(p.alpha + 0.3, 1) // Flash bright
                     }
                 })
             }
@@ -390,15 +388,15 @@ class HeaderCanvas extends Base {
                 g.addColorStop(1, 'rgba(255,255,255,0)');
                 ctx.fillStyle = g;
                 ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-                ctx.fill();
+                ctx.fill()
             } else {
                 ctx.fillStyle = HIGHLIGHT;
                 ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-                ctx.fill();
+                ctx.fill()
             }
         });
 
-        ctx.globalAlpha = 1;
+        ctx.globalAlpha = 1
     }
 
     /**
@@ -434,7 +432,7 @@ class HeaderCanvas extends Base {
         for (let i = 0; i < count; i++) {
             let x = i * step;
             bufA[i] = centerY + Math.sin((x * 0.01) + t) * amp;
-            bufB[i] = centerY + Math.sin((x * 0.01) + t + Math.PI) * amp;
+            bufB[i] = centerY + Math.sin((x * 0.01) + t + Math.PI) * amp
         }
 
         // --- 2. RIBBON FILL (Background Surface) ---
@@ -443,11 +441,11 @@ class HeaderCanvas extends Base {
 
         ctx.moveTo(0, bufA[0]);
         for (let i = 1; i < count; i++) {
-            ctx.lineTo(i * step, bufA[i]);
+            ctx.lineTo(i * step, bufA[i])
         }
 
         for (let i = count - 1; i >= 0; i--) {
-            ctx.lineTo(i * step, bufB[i]);
+            ctx.lineTo(i * step, bufB[i])
         }
         ctx.closePath();
         ctx.fill();
@@ -463,9 +461,9 @@ class HeaderCanvas extends Base {
             ctx.beginPath();
             ctx.moveTo(0, buffer[0]);
             for (let i = 1; i < count; i++) {
-                ctx.lineTo(i * step, buffer[i]);
+                ctx.lineTo(i * step, buffer[i])
             }
-            ctx.stroke();
+            ctx.stroke()
         };
 
         drawStroke(bufA, me.gradients.bgGrad1);
@@ -592,11 +590,11 @@ class HeaderCanvas extends Base {
                 // Discriminate between square-ish icons (socials) and wide text buttons
                 // to apply different diversion envelopes.
                 const
-                    ratio     = rect.width / rect.height,
-                    isIcon    = ratio < 1.5, // Threshold for "Circle" vs "Rectangle"
-                    centerX   = rect.x + rect.width / 2,
-                    span      = (rect.width / 2) + buffer,
-                    distX     = Math.abs(x - centerX);
+                    ratio   = rect.width / rect.height,
+                    isIcon  = ratio < 1.5, // Threshold for "Circle" vs "Rectangle"
+                    centerX = rect.x + rect.width / 2,
+                    span    = (rect.width / 2) + buffer,
+                    distX   = Math.abs(x - centerX);
 
                 if (distX < span) {
                     let envelope;
@@ -662,13 +660,14 @@ class HeaderCanvas extends Base {
 
             if (progress >= 1) {
                 me.shockwaves.splice(i, 1);
-                continue;
+                continue
             }
 
             // Draw two lines propagating out from the click point
-            let xLeft  = wave.x - (wave.speed * wave.age),
-                xRight = wave.x + (wave.speed * wave.age),
-                alpha  = 1 - progress;
+            let xLeft    = wave.x - (wave.speed * wave.age),
+                xRight   = wave.x + (wave.speed * wave.age),
+                alpha    = 1 - progress,
+                {height} = me.canvasSize;
 
             ctx.beginPath();
             ctx.strokeStyle = HIGHLIGHT; // Use constant
@@ -678,17 +677,17 @@ class HeaderCanvas extends Base {
             // Left Wave
             if (xLeft > 0) {
                 ctx.moveTo(xLeft, 0);
-                ctx.quadraticCurveTo(xLeft - 20, me.canvasSize.height / 2, xLeft, me.canvasSize.height);
+                ctx.quadraticCurveTo(xLeft - 20, height / 2, xLeft, height)
             }
 
             // Right Wave
             if (xRight < width) {
                 ctx.moveTo(xRight, 0);
-                ctx.quadraticCurveTo(xRight + 20, me.canvasSize.height / 2, xRight, me.canvasSize.height);
+                ctx.quadraticCurveTo(xRight + 20, height / 2, xRight, height)
             }
 
             ctx.stroke();
-            ctx.globalAlpha = 1; // Reset
+            ctx.globalAlpha = 1 // Reset
         }
     }
 
