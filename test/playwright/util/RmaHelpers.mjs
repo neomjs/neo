@@ -5,7 +5,9 @@
  * @param {import('@playwright/test').Page} page
  */
 export async function registerRmaHelpers(page) {
-    await page.addInitScript(() => {
+    const initFn = () => {
+        if (window.__neoRmaHelpers) return;
+        
         window.__neoRmaHelpers = {
             async loadModule(path) {
                 return Neo.worker.App.loadModule({path});
@@ -21,9 +23,15 @@ export async function registerRmaHelpers(page) {
             },
             async setComponentConfig(id, config) {
                 return Neo.worker.App.setConfigs({id, ...config});
+            },
+            async moveComponent(opts) {
+                return Neo.worker.App.moveComponent(opts);
             }
         };
-    });
+    };
+
+    await page.addInitScript(initFn);
+    await page.evaluate(initFn);
 }
 
 async function invoke(page, method, ...args) {
@@ -54,4 +62,8 @@ export async function getComponentConfig(page, id, keyOrKeys) {
 
 export async function setComponentConfig(page, id, config) {
     return invoke(page, 'setComponentConfig', id, config);
+}
+
+export async function moveComponent(page, opts) {
+    return invoke(page, 'moveComponent', opts);
 }

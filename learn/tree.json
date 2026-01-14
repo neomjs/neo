@@ -45,6 +45,7 @@
         {"name": "UI Building Blocks",                                 "parentId": "guides",                             "isLeaf": false, "id": "guides/uibuildingblocks", "collapsed": true},
             {"name": "Component and Container Basics",                 "parentId": "guides/uibuildingblocks",                             "id": "guides/uibuildingblocks/ComponentsAndContainers"},
             {"name": "Layouts",                                        "parentId": "guides/uibuildingblocks",                             "id": "guides/uibuildingblocks/Layouts"},
+            {"name": "Fragments",                                      "parentId": "guides/uibuildingblocks",                             "id": "guides/uibuildingblocks/Fragments"},
             {"name": "Custom Components",                              "parentId": "guides/uibuildingblocks",                             "id": "guides/uibuildingblocks/CustomComponents"},
             {"name": "Working with VDom",                              "parentId": "guides/uibuildingblocks",                             "id": "guides/uibuildingblocks/WorkingWithVDom"},
             {"name": "HTML Templates",                                 "parentId": "guides/uibuildingblocks",                             "id": "guides/uibuildingblocks/HtmlTemplates"},

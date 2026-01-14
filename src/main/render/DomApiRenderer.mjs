@@ -44,6 +44,11 @@ const DomApiRenderer = {
             fragment.append(commentStart, domNode, commentEnd);
             domNode = fragment
         }
+        // Handle Fragments
+        else if (vnode.nodeName === 'fragment') {
+            domNode = document.createDocumentFragment();
+            domNode.append(document.createComment(` ${vnode.id}-start `))
+        }
         // Handle regular elements
         else if (vnode.nodeName) {
             if (vnode.ns) { // For SVG, ensure correct namespace
@@ -109,6 +114,10 @@ const DomApiRenderer = {
         vnode.childNodes.forEach(childVnode => {
             this.createDomTree({parentNode: domNode, postMountUpdates, vnode: childVnode})
         })
+
+        if (vnode.nodeName === 'fragment') {
+            domNode.append(document.createComment(` ${vnode.id}-end `))
+        }
 
         // Final step: handle insertion based on `isRoot` and `parentNode`
         if (isRoot) {

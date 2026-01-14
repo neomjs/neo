@@ -50,34 +50,6 @@ class MainContainerController extends Controller {
         })
     }
 
-    /**
-     * @param {Object} data
-     * @returns {Promise<void>}
-     */
-    async onContentEdit(data) {
-        const vm = this.getStateProvider();
-        console.log(data);
-        const editorConfig = vm.getData('editorConfig');
-        const subDir = vm.getData('deck')
-        if (!editorConfig || !subDir) return;
-
-        const filePath = `${editorConfig.root}/${subDir}/pages/${data.record.id}.md`;
-
-        await fetch('http://localhost:3000/openInEditor', {
-            method: 'POST',
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({path: filePath, editor: editorConfig.editor})
-        })
-    }
-
-    /**
-     * @param {Object} data
-     */
-    onContentRefresh(data) {
-        this.getReference('tree').doFetchContent(data.record)
-    }
 
     /**
      * @param {Object} data

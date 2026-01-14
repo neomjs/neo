@@ -112,6 +112,10 @@ const StringFromVnode = {
                 // `vnode.textContent || ''` ensures robustness in case vnode.textContent is not a string (e.g., a number or null).
                 return `<!-- ${vnode.id} -->${vnode.textContent}<!-- /neo-vtext -->`
             case 'vnode':
+                if (vnode.nodeName === 'fragment') {
+                    return `<!-- ${vnode.id}-start -->` + me.createTagContent(vnode, movedNodes, postMountUpdates) + `<!-- ${vnode.id}-end -->`
+                }
+
                 if (vnode.scrollTop || vnode.scrollLeft) {
                     let update = {id};
 

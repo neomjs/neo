@@ -12,6 +12,7 @@ import {test, expect}  from '@playwright/test';
 import Neo             from '../../../../../src/Neo.mjs';
 import * as core       from '../../../../../src/core/_export.mjs';
 import InstanceManager from '../../../../../src/manager/Instance.mjs';
+import VdomHelper      from '../../../../../src/vdom/Helper.mjs';
 import Container       from '../../../../../src/container/Base.mjs';
 import SortZone        from '../../../../../src/draggable/container/SortZone.mjs';
 

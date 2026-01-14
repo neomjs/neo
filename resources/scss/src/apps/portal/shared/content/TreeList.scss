@@ -92,6 +92,8 @@
     }
 
     .neo-list-folder {
+        font-weight: bold;
+
         .neo-list-item-content {
             width           : 100%;
             display         : flex;
@@ -116,6 +118,14 @@
     .release-date {
         font-size   : 90%;
         margin-left : 5px;
+        opacity     : 0.8;
+        position    : relative;
+        top         : -1px;
+    }
+
+    .blog-date {
+        font-size   : 90%;
+        margin-right: 5px;
         opacity     : 0.8;
         position    : relative;
         top         : -1px;

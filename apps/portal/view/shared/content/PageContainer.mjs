@@ -52,11 +52,7 @@ class PageContainer extends Container {
                 content: {
                     [mergeFrom]: 'contentConfig',
                     reference  : 'content',
-                    weight     : 10,
-                    listeners  : {
-                        edit   : 'onContentEdit',
-                        refresh: 'onContentRefresh'
-                    }
+                    weight     : 10
                 },
                 toolbar: {
                     module: Toolbar,

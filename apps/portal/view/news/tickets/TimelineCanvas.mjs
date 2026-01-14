@@ -15,6 +15,16 @@ import Canvas from '../../../../../src/component/Canvas.mjs';
  * @extends Neo.component.Canvas
  */
 class TimelineCanvas extends Canvas {
+    /**
+     * @member {Object} delayable
+     */
+    static delayable = {
+        ensureFinalAlignment: {
+            type : 'debounce',
+            timer: 300
+        }
+    }
+
     static config = {
         /**
          * @member {String} className='Portal.view.news.tickets.TimelineCanvas'
@@ -52,13 +62,12 @@ class TimelineCanvas extends Canvas {
     /**
      *
      */
-    onConstructed() {
-        super.onConstructed();
+    ensureFinalAlignment() {
+        let me = this;
 
-        let me    = this,
-            store = me.getStateProvider().getStore('sections');
-
-        store.on('load', me.onTimelineDataLoad, me)
+        if (me.lastRecords) {
+            me.onTimelineDataLoad(me.lastRecords, true)
+        }
     }
 
     /**
@@ -121,6 +130,18 @@ class TimelineCanvas extends Canvas {
     }
 
     /**
+     *
+     */
+    onConstructed() {
+        super.onConstructed();
+
+        let me    = this,
+            store = me.getStateProvider().getStore('sections');
+
+        store.on('load', me.onTimelineDataLoad, me)
+    }
+
+    /**
      * @param {Object} data
      */
     async onResize(data) {
@@ -134,7 +155,10 @@ class TimelineCanvas extends Canvas {
         if (me.lastRecords) {
             // We don't need to re-fetch rects instantly, but it's safer to do so
             // to ensure alignment with the new layout.
-            me.onTimelineDataLoad(me.lastRecords, true)
+            await me.onTimelineDataLoad(me.lastRecords, true);
+
+            // Debounced check to ensure the canvas is aligned after any transitions settle
+            me.ensureFinalAlignment()
         }
     }
 
@@ -170,12 +194,18 @@ class TimelineCanvas extends Canvas {
             return
         }
 
+        let reset = !isResize;
+
+        // Smart Check: If it's a store load (reset=true) BUT the ticket ID is the same,
+        // it's a data refresh (e.g. comment added), so we should NOT reset the animation.
+        if (reset && me.lastRecords && records[0]?.id === me.lastRecords[0]?.id) {
+            reset = false
+        }
+
         me.lastRecords = records;
 
-        let ids         = records.map(r => `${r.id}-target`),
-            componentId = me.getStateProvider().getData('contentComponentId'),
-            timelineId  = `ticket-timeline-${componentId}`,
-            rects, timelineRect;
+        let ids = records.map(r => `${r.id}-target`),
+            rects;
 
         try {
             // Fetch DOM rects for the MARKERS (Avatars/Badges), not the containers
@@ -187,11 +217,6 @@ class TimelineCanvas extends Canvas {
 
             if (me.lastRecords !== records) {
                 return
-            }
-
-            // Fetch timeline container rect (optional, fallback)
-            if (componentId) {
-                timelineRect = await me.getDomRect(timelineId)
             }
 
             // Check if we got valid rects (at least one)
@@ -240,15 +265,14 @@ class TimelineCanvas extends Canvas {
                 }
             });
 
-            await Portal.canvas.TicketCanvas.updateGraphData({nodes, reset: !isResize, startY})
+            await Portal.canvas.TicketCanvas.updateGraphData({nodes, reset, startY})
         } catch (e) {
             console.error('TimelineCanvas update failed', e)
         }
     }
 
     /**
-     *
-     * @param rect
+     * @param {Object|null} rect
      * @returns {Promise<void>}
      */
     async updateSize(rect) {

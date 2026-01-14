@@ -34,20 +34,6 @@ class MainContainerController extends Controller {
     /**
      * @param {Object} data
      */
-    onContentEdit(data) {
-        // No-op for releases
-    }
-
-    /**
-     * @param {Object} data
-     */
-    onContentRefresh(data) {
-        this.getReference('tree').doFetchContent(data.record)
-    }
-
-    /**
-     * @param {Object} data
-     */
     onIntersect(data) {
         let panel    = this.getReference('page-sections-container'),
             list     = panel.list,
@@ -118,11 +104,11 @@ class MainContainerController extends Controller {
 
         const select = async () => {
             stateProvider.data.currentPageRecord = store.get(itemId);
-            tree.expandParents(itemId);
 
             if (!oldValue?.hashString?.startsWith('/news/releases')) {
-                await me.timeout(100);
-                tree.scrollToItem(itemId)
+                await tree.expandAndScrollToItem(itemId)
+            } else {
+                tree.expandParents(itemId)
             }
         };
 

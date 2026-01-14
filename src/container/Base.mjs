@@ -618,17 +618,28 @@ class Container extends Component {
     }
 
     /**
-     * Inserts an item or array of items at a specific index
+     * Inserts an item or array of items at a specific index.
+     *
+     * **Atomic Moves:**
+     * If the `item` is an existing `Neo.component.Base` instance that already has a parent container
+     * within the same browser window, this method performs an **atomic move**.
+     * 1. The item is silently removed from its old parent (without triggering a DOM removal).
+     * 2. The item is inserted into this container.
+     * 3. This container updates, sending an `insertNode` delta.
+     * 4. The `DeltaUpdates` system detects the existing DOM node and moves it physically, preserving
+     *    DOM state such as focus, input values, and iframe content.
+     *
      * @param {Number} index
-     * @param {Array|Object} item
+     * @param {Array|Object|Neo.component.Base} item
      * @param {Boolean} [silent=false]
      * @param {Boolean} [removeFromPreviousParent=true]
      * @returns {Neo.component.Base|Neo.component.Base[]}
      */
     insert(index, item, silent=false, removeFromPreviousParent=true) {
-        let me      = this,
-            {items} = me,
-            i, len, returnArray;
+        let me          = this,
+            {items}     = me,
+            lca         = null,
+            i, itemParent, itemType, len, oldParent, parentsA, parentsB, returnArray;
 
         if (Array.isArray(item)) {
             i           = 0;
@@ -642,11 +653,37 @@ class Container extends Component {
 
             item = returnArray
         } else {
+            itemType = Neo.typeOf(item);
+
+            if (itemType === 'NeoInstance') {
+                itemParent = item.parent;
+
+                if (itemParent === me && items.indexOf(item) === index) {
+                    return item
+                }
+
+                if (itemParent && itemParent !== me && removeFromPreviousParent) {
+                    oldParent = itemParent;
+
+                    if (oldParent.windowId === me.windowId) {
+                        parentsA = [me,        ...me.getParents()];
+                        parentsB = [oldParent, ...oldParent.getParents()];
+
+                        lca = parentsA.find(p => parentsB.includes(p))
+                    }
+
+                    if (lca) {
+                        oldParent.remove(item, false, true, true);
+                        removeFromPreviousParent = false
+                    }
+                }
+            }
+
             item = me.createItem(item, index, removeFromPreviousParent);
 
             // added the true param => for card layouts, we do not want a dynamically inserted cmp to get removed right away
             // since it will most likely get activated right away
-            me.layout.applyChildAttributes(item, index, true);
+            me.layout?.applyChildAttributes(item, index, true);
 
             items.splice(index, 0, item);
 
@@ -656,9 +693,9 @@ class Container extends Component {
         }
 
         if (!silent) {
-            me.updateDepth = -1; // pass the full vdom tree to honor new nested component trees
+            (lca || me).updateDepth = -1; // pass the full vdom tree to honor new nested component trees
 
-            me.promiseUpdate().then(() => {
+            (lca || me).promiseUpdate().then(() => {
                 me.fire('insert', {index, item})
             })
         }
@@ -794,16 +831,17 @@ class Container extends Component {
      * @param {Neo.component.Base} component
      * @param {Boolean} [destroyItem=true]
      * @param {Boolean} [silent=false]
+     * @param {Boolean} [keepMounted=false]
      * @returns {Neo.component.Base|null}
      */
-    remove(component, destroyItem=true, silent=false) {
+    remove(component, destroyItem=true, silent=false, keepMounted=false) {
         let items = [...this.items],
             i     = 0,
             len   = items.length;
 
         for (; i < len; i++) {
             if (items[i].id === component.id) {
-                return this.removeAt(i, destroyItem, silent)
+                return this.removeAt(i, destroyItem, silent, keepMounted)
             }
         }
     }
@@ -834,13 +872,17 @@ class Container extends Component {
     }
 
     /**
-     * Removes a container item at a given index
+     * Removes a container item at a given index.
+     *
      * @param {Number} index
      * @param {Boolean} destroyItem=true
      * @param {Boolean} silent=false
+     * @param {Boolean} keepMounted=false Set to `true` to keep the item's `mounted` state as `true`.
+     * This is critical for **Atomic Moves**, where the item is removed from one container and immediately added
+     * to another, and we do not want to trigger unmount lifecycle hooks in between.
      * @returns {Neo.component.Base|null}
      */
-    removeAt(index, destroyItem=true, silent=false) {
+    removeAt(index, destroyItem=true, silent=false, keepMounted=false) {
         let me      = this,
             {items} = me,
             item;
@@ -864,7 +906,9 @@ class Container extends Component {
                 return null
             } else {
                 me.layout?.removeChildAttributes(item);
-                item.mounted = false;
+                if (!keepMounted) {
+                    item.mounted = false
+                }
                 return item
             }
         }

@@ -55,6 +55,11 @@ class DeltaUpdates extends Base {
      * @protected
      */
     logDeltasIntervalId = 0
+    /**
+     * @member {Boolean|null} nativeMoveBefore=null
+     * @protected
+     */
+    nativeMoveBefore = null
 
     /**
      * @param {Object} config
@@ -126,7 +131,29 @@ class DeltaUpdates extends Base {
                 clone.setAttribute(attribute.nodeName, attribute.nodeValue)
             }
 
-            clone.innerHTML= node.innerHTML;
+            while (node.firstChild) {
+                clone.appendChild(node.firstChild)
+            }
+
+            if (node.value !== undefined && node.value !== clone.value) {
+                clone.value = node.value
+            }
+
+            if (node.checked !== undefined && node.checked !== clone.checked) {
+                clone.checked = node.checked
+            }
+
+            if (node.selectedIndex !== undefined && node.selectedIndex !== clone.selectedIndex) {
+                clone.selectedIndex = node.selectedIndex
+            }
+
+            if (node.scrollTop > 0) {
+                clone.scrollTop = node.scrollTop
+            }
+
+            if (node.scrollLeft > 0) {
+                clone.scrollLeft = node.scrollLeft
+            }
 
             node.parentNode.replaceChild(clone, node)
         }
@@ -196,6 +223,89 @@ class DeltaUpdates extends Base {
     }
 
     /**
+     * Helper to retrieve the start anchor comment of a Fragment using XPath.
+     * Fragments are rendered as a range anchored by `<!-- id-start -->` and `<!-- id-end -->`.
+     * @param {String} id The Fragment ID
+     * @returns {Comment|null}
+     */
+    getFragmentStart(id) {
+        const xpath = `//comment()[.=' ${id}-start ']`;
+        return document.evaluate(xpath, document.body, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue
+    }
+
+    /**
+     * Helper to calculate the reference sibling for insertion *inside* a Fragment's DOM range.
+     * Since a Fragment is not a real DOM parent, we must traverse its siblings to find the correct
+     * insertion point relative to the Start Anchor.
+     *
+     * @param {Node} startNode The Fragment start anchor
+     * @param {Number} index The logical index (relative to fragment content)
+     * @param {Node} [nodeToSkip] Optional node to skip during traversal (e.g. the node being moved)
+     * @returns {Node|null} The node to insert before, or null (append)
+     */
+    getFragmentSibling(startNode, index, nodeToSkip) {
+        let currentNode = startNode.nextSibling,
+            i           = 0;
+
+        // Traverse 'index' steps.
+        // If index is 0, we want nextSibling (insert after start).
+        // If index is 1, we want nextSibling.nextSibling.
+        while (currentNode && i < index) {
+            if (currentNode !== nodeToSkip) {
+                i++
+            }
+
+            currentNode = currentNode.nextSibling
+        }
+
+        return currentNode
+    }
+
+    /**
+     * Helper to retrieve all DOM nodes belonging to a Fragment.
+     * This walks the DOM from the Start Anchor until it hits the End Anchor, collecting all intermediate nodes.
+     * This is used for moving or removing the entire Fragment range.
+     *
+     * @param {HTMLElement} parentNode
+     * @param {String}      id
+     * @returns {Object|null} {startNode, endNode, nodes: []}
+     */
+    getFragmentNodes(parentNode, id) {
+        if (!parentNode) return null;
+
+        const
+            isComment = Node.COMMENT_NODE,
+            startStr  = ` ${id}-start `;
+
+        let startNode = Array.from(parentNode.childNodes).find(n =>
+            n.nodeType === isComment && n.nodeValue === startStr
+        );
+
+        // Fallback for text nodes (if we want to unify, though text nodes use ` id `)
+        // For now, let's strictly handle Fragments here.
+
+        if (!startNode) return null;
+
+        const
+            endStr = ` ${id}-end `,
+            nodes  = [];
+
+        let currentNode = startNode.nextSibling;
+
+        while (currentNode) {
+            // Check if we hit the end anchor
+            if (currentNode.nodeType === isComment && currentNode.nodeValue === endStr) {
+                return {startNode, endNode: currentNode, nodes};
+            }
+
+            nodes.push(currentNode);
+            currentNode = currentNode.nextSibling
+        }
+
+        return null // End anchor not found (should not happen in healthy DOM)
+    }
+
+    /**
      * Inserts a new node into the DOM tree based on delta updates.
      * This method handles both string-based (outerHTML) and direct DOM API (vnode) mounting.
      * It ensures the node is inserted at the correct index within the parent.
@@ -213,14 +323,66 @@ class DeltaUpdates extends Base {
         this.checkRendererAvailability();
 
         let {render}   = Neo.main,
-            parentNode = DomAccess.getElementOrBody(parentId);
+            parentNode = DomAccess.getElement(parentId),
+            siblingRef;
+
+        // 1. Resolve Target Parent & Sibling
+        if (!parentNode) {
+            const startNode = this.getFragmentStart(parentId);
+            if (startNode) {
+                parentNode = startNode.parentNode;
+                siblingRef = this.getFragmentSibling(startNode, index)
+            }
+        } else {
+            siblingRef = parentNode.childNodes[index]
+        }
 
         if (parentNode) {
+            let localPostMountUpdates = [],
+                newNode;
+
             if (NeoConfig.useDomApiRenderer) {
-                render.DomApiRenderer.createDomTree({index, isRoot: true, parentNode, vnode})
+                newNode = render.DomApiRenderer.createDomTree({
+                    index           : -1,
+                    isRoot          : true,
+                    parentNode      : null, // detached
+                    postMountUpdates: localPostMountUpdates,
+                    vnode
+                })
             } else {
-                render.StringBasedRenderer.insertNodeAsString({hasLeadingTextChildren, index, outerHTML, parentNode, postMountUpdates})
+                newNode = render.StringBasedRenderer.createNode({outerHTML});
+
+                if (postMountUpdates?.length > 0) {
+                    localPostMountUpdates.push(...postMountUpdates)
+                }
             }
+
+            if (newNode) {
+                parentNode.insertBefore(newNode, siblingRef || null);
+
+                if (localPostMountUpdates.length > 0) {
+                    localPostMountUpdates.forEach(update => {
+                        // DomApiRenderer format: {node, vnode}
+                        if (update.node) {
+                            if (update.vnode.scrollLeft) {update.node.scrollLeft = update.vnode.scrollLeft}
+                            if (update.vnode.scrollTop)  {update.node.scrollTop  = update.vnode.scrollTop}
+                        }
+                        // StringBasedRenderer format: {id, scrollLeft, scrollTop}
+                        else {
+                            let node = DomAccess.getElement(update.id);
+
+                            if (node) {
+                                if (update.scrollLeft) {node.scrollLeft = update.scrollLeft}
+                                if (update.scrollTop)  {node.scrollTop  = update.scrollTop}
+                            }
+                        }
+                    })
+                }
+            } else {
+                console.error('insertNode: Failed to create newNode', {outerHTML, vnode});
+            }
+        } else {
+            console.error('insertNode: Parent not found', {parentId, index});
         }
     }
 
@@ -236,8 +398,21 @@ class DeltaUpdates extends Base {
         const
             firstDelta = batch[0],
             parentId   = firstDelta.parentId,
-            index      = firstDelta.index,
-            parentNode = DomAccess.getElementOrBody(parentId);
+            index      = firstDelta.index;
+
+        let parentNode = DomAccess.getElement(parentId),
+            siblingRef;
+
+        // 1. Resolve Target Parent & Sibling
+        if (!parentNode) {
+            const startNode = this.getFragmentStart(parentId);
+            if (startNode) {
+                parentNode = startNode.parentNode;
+                siblingRef = this.getFragmentSibling(startNode, index)
+            }
+        } else {
+            siblingRef = parentNode.childNodes[index]
+        }
 
         if (parentNode) {
             const
@@ -246,33 +421,54 @@ class DeltaUpdates extends Base {
                 allPostMountUpdates = [];
 
             batch.forEach(delta => {
-                const postMountUpdates = delta.postMountUpdates || [];
+                let localPostMountUpdates = delta.postMountUpdates || [],
+                    node;
 
-                const node = render.DomApiRenderer.createDomTree({
-                    index           : -1,
-                    isRoot          : true,
-                    parentNode      : null, // detached
-                    postMountUpdates,
-                    vnode           : delta.vnode
-                });
+                if (NeoConfig.useDomApiRenderer) {
+                    node = render.DomApiRenderer.createDomTree({
+                        index           : -1,
+                        isRoot          : true,
+                        parentNode      : null, // detached
+                        postMountUpdates: localPostMountUpdates,
+                        vnode           : delta.vnode
+                    })
+                } else {
+                    node = render.StringBasedRenderer.createNode({outerHTML: delta.outerHTML})
+                }
 
                 if (node) {
                     fragment.appendChild(node);
-                    allPostMountUpdates.push(...postMountUpdates);
+                    if (localPostMountUpdates.length > 0) {
+                        allPostMountUpdates.push(...localPostMountUpdates)
+                    }
+                } else {
+                    console.error('insertNodeBatch: Failed to create node', delta);
                 }
             });
 
-            if (index < parentNode.childNodes.length) {
-                parentNode.insertBefore(fragment, parentNode.childNodes[index])
-            } else {
-                parentNode.appendChild(fragment)
-            }
+            parentNode.insertBefore(fragment, siblingRef || null);
 
             // Apply all post-mount updates (e.g. scroll positions) after the batch insertion
-            allPostMountUpdates.forEach(({node, vnode}) => {
-                if (vnode.scrollLeft) {node.scrollLeft = vnode.scrollLeft}
-                if (vnode.scrollTop)  {node.scrollTop  = vnode.scrollTop}
-            })
+            if (allPostMountUpdates.length > 0) {
+                allPostMountUpdates.forEach(update => {
+                    // DomApiRenderer format: {node, vnode}
+                    if (update.node) {
+                        if (update.vnode.scrollLeft) {update.node.scrollLeft = update.vnode.scrollLeft}
+                        if (update.vnode.scrollTop)  {update.node.scrollTop  = update.vnode.scrollTop}
+                    }
+                    // StringBasedRenderer format: {id, scrollLeft, scrollTop}
+                    else {
+                        let node = DomAccess.getElement(update.id);
+
+                        if (node) {
+                            if (update.scrollLeft) {node.scrollLeft = update.scrollLeft}
+                            if (update.scrollTop)  {node.scrollTop  = update.scrollTop}
+                        }
+                    }
+                })
+            }
+        } else {
+            console.error('insertNodeBatch: Parent not found', {parentId, index});
         }
     }
 
@@ -280,8 +476,20 @@ class DeltaUpdates extends Base {
      * Move an existing DOM node to a new position within its parent or to a new parent.
      * This method directly manipulates the DOM using the pre-calculated physical index,
      * accounting for potential text nodes wrapped in comments.
-     * It performs a direct sibling swap when an element is immediately followed by its target position,
-     * which is necessary to prevent attempting to replace a node with itself.
+     *
+     * **Atomic Moves & Focus Preservation:**
+     * If the browser supports `Element.moveBefore()`, it is used to atomically move the node
+     * without losing state (focus, iframe content, etc.).
+     *
+     * **Legacy Fallback:**
+     * For browsers without `moveBefore` (e.g. Safari), it falls back to `insertBefore` (or `replaceWith`).
+     * Since reparenting causes focus loss in these environments, it manually restores focus
+     * immediately after the move.
+     *
+     * **Fragment Support:**
+     * If the target `id` refers to a Fragment (which has no single DOM node), this method uses XPath
+     * to find the "Start Anchor", extracts the full range of nodes (Start...End) into a `DocumentFragment`,
+     * and moves that lightweight wrapper to the new location.
      *
      * @param {Object} delta
      * @param {String} delta.id       The ID of the DOM node to move.
@@ -290,24 +498,77 @@ class DeltaUpdates extends Base {
      */
     moveNode({id, index, parentId}) {
         let node       = DomAccess.getElement(id),
-            parentNode = DomAccess.getElement(parentId);
+            parentNode = DomAccess.getElement(parentId),
+            siblingRef;
+
+        // 1. Resolve Target Parent & Sibling
+        if (!parentNode) {
+            const startNode = this.getFragmentStart(parentId);
+            if (startNode) {
+                parentNode = startNode.parentNode;
+                siblingRef = this.getFragmentSibling(startNode, index)
+            }
+        } else {
+            // Standard parent: resolve sibling by index
+            if (node && node.parentNode === parentNode) {
+                // Check if we are moving forward in the same parent.
+                // If so, the current node is taking up an index, shifting our target.
+                const currentIndex = Array.prototype.indexOf.call(parentNode.childNodes, node);
+
+                if (currentIndex > -1 && currentIndex < index) {
+                    index++
+                }
+            }
+
+            if (index < parentNode.childNodes.length) {
+                siblingRef = parentNode.childNodes[index]
+            } else {
+                siblingRef = null // Append
+            }
+        }
+
+        // 2. Resolve Node to Move (Fragment fallback)
+        if (!node && parentNode) {
+            const
+                xpath     = `//comment()[.=' ${id}-start ']`,
+                startNode = document.evaluate(xpath, document.body, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+
+            if (startNode) {
+                const fragmentData = this.getFragmentNodes(startNode.parentNode, id);
+
+                if (fragmentData) {
+                    const fragment = document.createDocumentFragment();
+                    fragment.append(fragmentData.startNode, ...fragmentData.nodes, fragmentData.endNode);
+                    node = fragment
+                }
+            }
+        }
 
         if (node && parentNode) {
-            // If the target index is at or beyond the end of the parent's current childNodes, append the node.
-            if (index >= parentNode.childNodes.length) {
-                parentNode.appendChild(node)
-            } else {
-                // Get the reference node at the target physical index.
-                let referenceNode = parentNode.childNodes[index];
+            // Only proceed if the node is not already at its target position.
+            // Note: For DocumentFragments (nodeType 11), we always move, as the fragment wrapper is transient.
+            if (node !== siblingRef) {
+                if (this.nativeMoveBefore === null) {
+                    this.nativeMoveBefore = typeof parentNode.moveBefore === 'function'
+                }
 
-                // Only proceed if the node is not already at its target position.
-                if (node !== referenceNode) {
+                if (this.nativeMoveBefore) {
+                    parentNode.moveBefore(node, siblingRef || null)
+                } else {
+                    const
+                        activeElement = document.activeElement,
+                        containsFocus = activeElement && (node === activeElement || node.contains(activeElement));
+
                     // Perform a direct swap operation if immediate element siblings.
-                    if (node.nodeType === 1 && node === referenceNode.nextElementSibling) {
-                        node.replaceWith(referenceNode)
+                    if (node.nodeType === 1 && siblingRef && node === siblingRef.nextElementSibling) {
+                        node.replaceWith(siblingRef)
                     }
 
-                    parentNode.insertBefore(node, referenceNode)
+                    parentNode.insertBefore(node, siblingRef || null);
+
+                    if (containsFocus) {
+                        activeElement.focus()
+                    }
                 }
             }
         }
@@ -323,6 +584,47 @@ class DeltaUpdates extends Base {
         if (Object.hasOwn(config, 'useDomApiRenderer')) {
             await this.importRenderer()
         }
+    }
+
+    /**
+     * Helper to retrieve all DOM nodes belonging to a Fragment (or Text Node range).
+     * @param {HTMLElement} parentNode
+     * @param {String}      id
+     * @returns {Object|null} {startNode, endNode, nodes: []}
+     */
+    getFragmentNodes(parentNode, id) {
+        if (!parentNode) return null;
+
+        const
+            isComment = Node.COMMENT_NODE,
+            startStr  = ` ${id}-start `;
+
+        let startNode = Array.from(parentNode.childNodes).find(n =>
+            n.nodeType === isComment && n.nodeValue === startStr
+        );
+
+        // Fallback for text nodes (if we want to unify, though text nodes use ` id `)
+        // For now, let's strictly handle Fragments here.
+
+        if (!startNode) return null;
+
+        const
+            endStr = ` ${id}-end `,
+            nodes  = [];
+
+        let currentNode = startNode.nextSibling;
+
+        while (currentNode) {
+            // Check if we hit the end anchor
+            if (currentNode.nodeType === isComment && currentNode.nodeValue === endStr) {
+                return {startNode, endNode: currentNode, nodes};
+            }
+
+            nodes.push(currentNode);
+            currentNode = currentNode.nextSibling
+        }
+
+        return null // End anchor not found (should not happen in healthy DOM)
     }
 
     /**
@@ -357,13 +659,24 @@ class DeltaUpdates extends Base {
         if (node) {
             node.remove();
         }
-        // Potentially a vtype: 'text' node (wrapped between 2 comments)
+        // Potentially a vtype: 'text' node or a Fragment (wrapped between 2 comments)
         else if (parentId) {
-            const
-                parentNode = DomAccess.getElementOrBody(parentId),
-                isComment  = Node.COMMENT_NODE;
+            const parentNode = DomAccess.getElementOrBody(parentId);
 
             if (parentNode) {
+                // 1. Try Fragment Removal
+                const fragmentData = this.getFragmentNodes(parentNode, id);
+
+                if (fragmentData) {
+                    fragmentData.startNode.remove();
+                    fragmentData.endNode.remove();
+                    fragmentData.nodes.forEach(n => n.remove());
+                    return
+                }
+
+                // 2. Text Node Logic
+                const isComment = Node.COMMENT_NODE;
+
                 // Find the starting comment node using its id marker
                 const startComment = Array.from(parentNode.childNodes).find(n =>
                     n.nodeType === isComment && n.nodeValue.includes(` ${id} `)
@@ -502,12 +815,20 @@ class DeltaUpdates extends Base {
      * @param {String} delta.value    The new text content to be applied to the virtual text node.
      */
     updateVtext({id, parentId, value}) {
-        let node      = DomAccess.getElement(parentId),
-            innerHTML = node.innerHTML,
-            startTag  = `<!-- ${id} -->`,
-            reg       = new RegExp(startTag + '[\\s\\S]*?<!-- \/neo-vtext -->');
+        const
+            node      = DomAccess.getElement(parentId),
+            isComment = Node.COMMENT_NODE,
+            idString  = ` ${id} `;
 
-        node.innerHTML = innerHTML.replace(reg, value)
+        if (node) {
+            const startComment = Array.from(node.childNodes).find(n =>
+                n.nodeType === isComment && n.nodeValue === idString
+            );
+
+            if (startComment?.nextSibling) {
+                startComment.nextSibling.nodeValue = value
+            }
+        }
     }
 
     /**
@@ -552,7 +873,7 @@ class DeltaUpdates extends Base {
             const delta = deltas[i];
 
             // Batching optimization for sequential insertNode operations
-            if (NeoConfig.useDomApiRenderer && delta.action === 'insertNode' && i < len - 1) {
+            if (delta.action === 'insertNode' && i < len - 1) {
                 let j     = i + 1,
                     batch = [delta];
 

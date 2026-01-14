@@ -173,8 +173,8 @@ class ViewportController extends Controller {
     /**
      * @param {Object} data
      */
-    onBlogSearchFieldChange(data) {
-        this.getReference('blog-list').filterItems(data)
+    onMediumSearchFieldChange(data) {
+        this.getReference('medium-list').filterItems(data)
     }
 
     /**

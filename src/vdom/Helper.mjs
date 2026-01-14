@@ -54,6 +54,12 @@ class Helper extends Base {
             return deltas;
         }
 
+        // Fragments are "transparent" containers. They do not have physical DOM attributes or styles.
+        // Therefore, we skip attribute comparison entirely.
+        if (vnode.nodeName === 'fragment') {
+            return deltas
+        }
+
         let delta = {},
             attributes, value, keys, styles, add, remove;
 
@@ -481,20 +487,62 @@ class Helper extends Base {
     }
 
     /**
-     * For delta updates to work, every node inside the live DOM needs a unique ID.
-     * Text nodes need to get wrapped into comment nodes, which contain the ID to ensure consistency.
-     * As the result, we need a physical index which counts every text node as 3 nodes.
+     * Recursive helper to count the physical nodes a fragment expands to.
+     *
+     * **Formula:** `2 (Start/End Anchors) + Sum(Child Physical Counts)`
+     *
+     * This method is essential for converting a "Logical Index" (where the fragment is 1 item)
+     * into a "Physical Index" (where the fragment is a range of N DOM nodes).
+     *
+     * @param {Neo.vdom.VNode} fragmentNode
+     * @returns {Number}
+     */
+    getFragmentPhysicalCount(fragmentNode) {
+        let count = 2; // Start + End anchors
+
+        fragmentNode.childNodes?.forEach(child => {
+            if (child.vtype === 'text') {
+                count += 3
+            } else if (child.nodeName === 'fragment') {
+                count += this.getFragmentPhysicalCount(child)
+            } else {
+                count += 1
+            }
+        });
+
+        return count
+    }
+
+    /**
+     * Calculates the physical DOM index for a given logical child index.
+     *
+     * **The "Physical vs. Logical" Problem:**
+     * In the VDOM, a child list is simple: `[Div, Fragment, Span]`.
+     * In the real DOM, this expands to: `div`, `<!--frag-start-->`, `p`, `<!--frag-end-->`, `span`.
+     *
+     * This method iterates through the preceding siblings and sums up their "Physical Count":
+     * - Standard Element: 1
+     * - Text Node: 3 (`<!--text-->` + text + `<!--/text-->`)
+     * - Fragment: N (`2 + children`)
+     *
      * @param {Neo.vdom.VNode} parentNode
      * @param {Number}         logicalIndex
      * @returns {Number}
      */
     getPhysicalIndex(parentNode, logicalIndex) {
         let physicalIndex = logicalIndex,
-            i              = 0;
+            i             = 0,
+            child;
 
         for (; i < logicalIndex; i++) {
-            if (parentNode.childNodes[i]?.vtype === 'text') {
-                physicalIndex += 2 // Accounts for <!--neo-vtext--> wrappers
+            child = parentNode.childNodes[i];
+
+            if (child) {
+                if (child.vtype === 'text') {
+                    physicalIndex += 2 // Accounts for <!--neo-vtext--> wrappers
+                } else if (child.nodeName === 'fragment') {
+                    physicalIndex += (this.getFragmentPhysicalCount(child) - 1)
+                }
             }
         }
 
@@ -681,7 +729,7 @@ class Helper extends Base {
         let delta        = {action: 'removeNode', id: oldVnode.id},
             {parentNode} = oldVnodeMap.get(oldVnode.id);
 
-        if (oldVnode.vtype === 'text') {
+        if (oldVnode.vtype === 'text' || oldVnode.nodeName === 'fragment') {
             delta.parentId = parentNode.id
         }
 

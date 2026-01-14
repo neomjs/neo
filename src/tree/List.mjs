@@ -196,6 +196,9 @@ class Tree extends Base {
                     ({parentNode, index} = VDomUtil.find(me.vdom, node.id));
                     nextSibling          = parentNode.cn[index + 1];
 
+                    node.style.position = null;
+                    node.style.top      = null;
+
                     if (nextSibling?.tag === 'ul') {
                         nextSibling.removeDom = true
                     }
@@ -373,6 +376,9 @@ class Tree extends Base {
                     ({parentNode, index} = VDomUtil.find(me.vdom, node.id));
                     nextSibling          = parentNode.cn[index + 1];
 
+                    node.style.position = 'sticky';
+                    node.style.top      = (node.level * 38) + 'px';
+
                     if (nextSibling?.tag === 'ul') {
                         nextSibling.removeDom = false
                     }
@@ -384,6 +390,25 @@ class Tree extends Base {
 
         if (hasMatch && !silent) {
             me.update()
+        }
+    }
+
+    /**
+     * Expands all parent nodes of a given item and scrolls it into view once mounted.
+     * @param {String|Number} itemId
+     * @returns {Promise<void>}
+     */
+    async expandAndScrollToItem(itemId) {
+        let me = this;
+
+        me.expandParents(itemId);
+
+        const
+            id   = me.getItemId(itemId),
+            rect = await me.waitForDomRect({id, attempts: 20, delay: 50});
+
+        if (rect) {
+            me.scrollToItem(itemId)
         }
     }
 
@@ -408,6 +433,9 @@ class Tree extends Base {
 
                     ({parentNode, index} = VDomUtil.find(me.vdom, node.id));
                     nextSibling          = parentNode.cn[index + 1];
+
+                    node.style.position = 'sticky';
+                    node.style.top      = (node.level * 38) + 'px';
 
                     if (nextSibling?.tag === 'ul') {
                         nextSibling.removeDom = false
@@ -485,6 +513,7 @@ class Tree extends Base {
 
         Neo.main.DomAccess.scrollIntoView({
             id      : me.getItemId(itemId),
+            inline  : 'start',
             windowId: me.windowId
         })
     }
@@ -493,7 +522,14 @@ class Tree extends Base {
      * @returns {Object}
      */
     getListItemsRoot() {
-        return this.vdom.cn[this.showCollapseExpandAllIcons ? 2 : 0]
+        let me = this,
+            cn = me.vdom.cn;
+
+        if (cn.length >= 3 && cn[0].cls?.includes('neo-treelist-collapse-all-icon')) {
+            return cn[2]
+        }
+
+        return cn[0]
     }
 
     /**

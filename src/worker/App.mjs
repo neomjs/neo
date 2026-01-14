@@ -44,6 +44,7 @@ class App extends Base {
                 'fireEvent',
                 'getConfigs',
                 'loadModule',
+                'moveComponent',
                 'setConfigs',
                 'setGlobalConfig' // points to worker.Base: setGlobalConfig()
             ]
@@ -494,6 +495,47 @@ class App extends Base {
         } catch (error) {
             console.error(`Failed to load module via RMA: ${path}`, error);
             return {success: false, path, error};
+        }
+    }
+
+    /**
+     * Moves a component to a new parent container via remote method access.
+     * This operation is **atomic** and state-preserving when moving within the same browser window.
+     * It relies on `Neo.container.Base.insert` to handle the silent removal from the old parent,
+     * ensuring that the DOM node is physically moved rather than destroyed and recreated.
+     *
+     * @param {Object} data
+     * @param {String} data.id The id of the component to move.
+     * @param {String} data.parentId The id of the new parent container.
+     * @param {Number} [data.index] The index to insert the component at.
+     * @returns {Object} {success: true} or {success: false, error: ...}
+     */
+    moveComponent(data) {
+        try {
+            let component = Neo.getComponent(data.id),
+                parent    = Neo.getComponent(data.parentId),
+                index     = data.index;
+
+            if (!component) {
+                throw new Error(`Component with id ${data.id} not found`);
+            }
+            if (!parent) {
+                throw new Error(`Parent container with id ${data.parentId} not found`);
+            }
+            if (!parent.isContainer) {
+                throw new Error(`Parent with id ${data.parentId} is not a Container`);
+            }
+
+            if (Neo.isNumber(index)) {
+                parent.insert(index, component);
+            } else {
+                parent.add(component);
+            }
+
+            return {success: true};
+        } catch (error) {
+            console.error('Error in moveComponent:', error);
+            return {success: false, error: {className: error.name, message: error.message, stack: error.stack}};
         }
     }
 
