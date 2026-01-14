@@ -341,7 +341,7 @@ class HeaderCanvas extends Base {
     }
 
     /**
-     * Draws a subtle, large-scale background Helix pattern.
+     * Draws a subtle, large-scale background Helix pattern with a 3D Ribbon effect.
      *
      * **Intent:**
      * Provides a structural backbone to the negative space. Unlike the particle field (which is chaotic),
@@ -349,7 +349,7 @@ class HeaderCanvas extends Base {
      *
      * **Visuals:**
      * Uses wide, very low opacity strokes to create a "depth of field" effect, appearing to be
-     * far behind the sharp foreground strands.
+     * far behind the sharp foreground strands. Now enhanced with a volumetric Ribbon fill.
      *
      * @param {CanvasRenderingContext2D} ctx
      * @param {Number} width
@@ -359,41 +359,67 @@ class HeaderCanvas extends Base {
         let me = this,
             t  = me.time * 0.5, // Slower movement for background
             centerY = height / 2,
-            amp     = height * 0.4; // Large amplitude
+            amp     = height * 0.4, // Large amplitude
+            pointsA = [],
+            pointsB = [];
 
-        // Create Gradients for the background strands
+        // 1. Calculate Points
+        for (let x = 0; x <= width; x += 10) {
+            let yA = centerY + Math.sin((x * 0.01) + t) * amp,
+                yB = centerY + Math.sin((x * 0.01) + t + Math.PI) * amp; // Inverted phase
+
+            pointsA.push({x, y: yA});
+            pointsB.push({x, y: yB});
+        }
+
+        if (pointsA.length === 0) return;
+
+        // Create Gradients
         const grad1 = ctx.createLinearGradient(0, 0, width, 0);
-        grad1.addColorStop(0,   'rgba(62, 99, 221, 0.1)');  // Primary low alpha
-        grad1.addColorStop(0.5, 'rgba(64, 196, 255, 0.2)'); // Highlight low alpha
+        grad1.addColorStop(0,   'rgba(62, 99, 221, 0.1)');
+        grad1.addColorStop(0.5, 'rgba(64, 196, 255, 0.2)');
         grad1.addColorStop(1,   'rgba(62, 99, 221, 0.1)');
 
         const grad2 = ctx.createLinearGradient(0, 0, width, 0);
-        grad2.addColorStop(0,   'rgba(139, 166, 255, 0.1)'); // Secondary low alpha
-        grad2.addColorStop(0.5, 'rgba(64, 196, 255, 0.2)'); // Highlight low alpha
+        grad2.addColorStop(0,   'rgba(139, 166, 255, 0.1)');
+        grad2.addColorStop(0.5, 'rgba(64, 196, 255, 0.2)');
         grad2.addColorStop(1,   'rgba(139, 166, 255, 0.1)');
 
+        // --- 2. RIBBON FILL (Background Surface) ---
+        const ribbonGrad = ctx.createLinearGradient(0, 0, width, 0);
+        ribbonGrad.addColorStop(0,   'rgba(62, 99, 221, 0.02)'); // Extremely faint
+        ribbonGrad.addColorStop(0.5, 'rgba(64, 196, 255, 0.05)');
+        ribbonGrad.addColorStop(1,   'rgba(62, 99, 221, 0.02)');
+
+        ctx.fillStyle = ribbonGrad;
+        ctx.beginPath();
+        ctx.moveTo(pointsA[0].x, pointsA[0].y);
+        for (let i = 1; i < pointsA.length; i++) {
+            ctx.lineTo(pointsA[i].x, pointsA[i].y);
+        }
+        for (let i = pointsB.length - 1; i >= 0; i--) {
+            ctx.lineTo(pointsB[i].x, pointsB[i].y);
+        }
+        ctx.closePath();
+        ctx.fill();
+
+        // --- 3. STROKES ---
         ctx.lineWidth = 15; // Wide, soft lines
         ctx.lineCap   = 'round';
+        ctx.lineJoin  = 'round';
 
-        // --- Background Helix 1 ---
-        ctx.strokeStyle = grad1;
-        ctx.beginPath();
-        for (let x = 0; x <= width; x += 10) {
-            let y = centerY + Math.sin((x * 0.01) + t) * amp;
-            if (x === 0) ctx.moveTo(x, y);
-            else ctx.lineTo(x, y);
-        }
-        ctx.stroke();
+        const drawStroke = (points, strokeStyle) => {
+            ctx.strokeStyle = strokeStyle;
+            ctx.beginPath();
+            ctx.moveTo(points[0].x, points[0].y);
+            for (let i = 1; i < points.length; i++) {
+                ctx.lineTo(points[i].x, points[i].y);
+            }
+            ctx.stroke();
+        };
 
-        // --- Background Helix 2 ---
-        ctx.strokeStyle = grad2;
-        ctx.beginPath();
-        for (let x = 0; x <= width; x += 10) {
-            let y = centerY + Math.sin((x * 0.01) + t + Math.PI) * amp; // Inverted phase
-            if (x === 0) ctx.moveTo(x, y);
-            else ctx.lineTo(x, y);
-        }
-        ctx.stroke();
+        drawStroke(pointsA, grad1);
+        drawStroke(pointsB, grad2);
     }
 
     /**
