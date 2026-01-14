@@ -278,7 +278,7 @@ class DomEvents extends Base {
 
         if (path.length < 1) {
             // our draggable implementation will generate paths, so we do need to check for them
-            path = event.path;
+            path = event.path || [];
         }
 
         const result = {
