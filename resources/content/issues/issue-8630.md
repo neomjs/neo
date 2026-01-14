@@ -19,8 +19,18 @@ subIssues:
   - '[x] 8633 Fix HeaderCanvas navRects TypeError'
   - '[x] 8634 Fix HeaderCanvas Invalid Input Data Structure'
   - '[x] 8635 Tune Sonic Wave Visuals'
-subIssuesCompleted: 5
-subIssuesTotal: 5
+  - '[x] 8636 Enhance Header Canvas with Gradient Helix Theme'
+  - '[x] 8638 Strict Vertical Clamping for Header Waves'
+  - '[x] 8637 Add Vertical Padding to Header Canvas Waves'
+  - '[x] 8639 Implement Dynamic Life Effects for Header Canvas'
+  - '[x] 8641 Refine Header Canvas Dynamics (Phase & FM)'
+  - '[x] 8642 Adaptive Wave Geometry for Social Icons'
+  - '[x] 8643 Dampen Wave Amplitude for Social Icons'
+  - '[x] 8644 Add Synaptic Sparks at Reconnection Points'
+  - '[x] 8645 Implement Neo Ether Particle System'
+  - '[x] 8646 Enhance JSDoc for Header Canvas Visual Engine'
+subIssuesCompleted: 15
+subIssuesTotal: 15
 blockedBy: []
 blocking: []
 ---
@@ -69,4 +79,14 @@ Implement a high-performance, offscreen canvas overlay for the Portal's `HeaderT
 - 2026-01-14T15:23:39Z @tobiu added sub-issue #8633
 - 2026-01-14T15:29:10Z @tobiu added sub-issue #8634
 - 2026-01-14T15:58:12Z @tobiu added sub-issue #8635
+- 2026-01-14T16:45:58Z @tobiu added sub-issue #8636
+- 2026-01-14T16:53:49Z @tobiu added sub-issue #8638
+- 2026-01-14T16:56:11Z @tobiu added sub-issue #8637
+- 2026-01-14T17:12:40Z @tobiu added sub-issue #8639
+- 2026-01-14T17:21:03Z @tobiu added sub-issue #8641
+- 2026-01-14T17:28:59Z @tobiu added sub-issue #8642
+- 2026-01-14T17:40:27Z @tobiu added sub-issue #8643
+- 2026-01-14T17:42:59Z @tobiu added sub-issue #8644
+- 2026-01-14T18:03:38Z @tobiu added sub-issue #8645
+- 2026-01-14T18:33:40Z @tobiu added sub-issue #8646
 
