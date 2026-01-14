@@ -29,27 +29,32 @@ To bridge this gap, we implemented the **Coordinator Pattern**. The App Worker c
 
 ```mermaid
 sequenceDiagram
-    participant S as Data Store
-    participant C as Coordinator (App)
-    participant D as DOM
-    participant W as Worker (Canvas)
+    participant D as DOM (Main Thread)
 
-    S->>C: store.on('load', items)
+    box rgb(240, 255, 240) App Worker
+        participant S as Data Store
+        participant C as Coordinator
+    end
+
+    participant W as Canvas Worker (Shared)
+
+    S->>C: store.on('load')
     C->>C: Extract IDs
     C->>D: waitForDomRect([ids])
     D-->>C: [DOMRects]
-    C->>C: Translate to canvas coords
+    C->>C: Translate Coords
     C->>W: updateGraphData({nodes})
-    W->>W: Start render loop
-    loop Every 16ms
-        W->>W: Calculate physics
-        W->>W: Draw to OffscreenCanvas
+
+    rect rgb(240, 240, 255)
+        loop 60fps Loop
+            W->>W: Physics & Draw
+        end
     end
 
-    Note over C,D: On Resize
-    D->>C: ResizeObserver fires
-    C->>D: Re-measure rects
-    C->>W: updateGraphData (no reset)
+    Note over D,C: On Resize
+    D->>C: ResizeObserver
+    C->>D: Re-measure
+    C->>W: updateGraphData
 ```
 
 ### 1. The Coordinator (App Worker)
