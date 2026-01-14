@@ -321,21 +321,37 @@ class HeaderCanvas extends Base {
             if (x >= rect.x - buffer && x <= rect.x + rect.width + buffer) {
                 // We are inside the influence zone of this button
 
-                // 1. Calculate Envelope (0 at edges, 1 at center)
-                // Use cosine or parabola for smooth "bubble" shape
+                // DETECT SHAPE: Is this a square-ish icon or a wide text button?
+                // Icons (Socials) are approx square. Text buttons are wide.
                 const
-                    centerX = rect.x + rect.width / 2,
-                    span    = (rect.width / 2) + buffer,
-                    distX   = Math.abs(x - centerX);
+                    ratio     = rect.width / rect.height,
+                    isIcon    = ratio < 1.5, // Threshold for "Circle" vs "Rectangle"
+                    centerX   = rect.x + rect.width / 2,
+                    span      = (rect.width / 2) + buffer,
+                    distX     = Math.abs(x - centerX);
 
                 if (distX < span) {
-                    // Smooth envelope: (1 + cos(pi * dist / span)) / 2
-                    // This creates a bell curve from 0 to 1 to 0
-                    let envelope = (1 + Math.cos(Math.PI * distX / span)) / 2;
+                    let envelope;
 
-                    // Target diversion: Half button height + padding
+                    if (isIcon) {
+                        // TIGHT ORBIT (Sharper curve for icons)
+                        // Use a higher power cosine or bell curve to hug the circle
+                        // Smooth step: x^2 * (3 - 2x) approach or just tighter span mapping
+                        // Let's use a standard cosine but with a modified mapping
+                        let normDist = distX / span; // 0 to 1
+                        envelope = Math.pow((1 + Math.cos(Math.PI * normDist)) / 2, 3); // Cubed for sharper falloff
+                    } else {
+                        // WIDE FLOW (Standard smooth curve for text)
+                        envelope = (1 + Math.cos(Math.PI * distX / span)) / 2;
+                    }
+
+                    // Target diversion:
+                    // For icons, we might want to go slightly CLOSER to the edge (less padding)
+                    // Text buttons need more clearance.
+                    let targetH = isIcon ? (rect.height / 2) : ((rect.height / 2) + 4);
+
                     // CLAMP: We cap the target offset to what is physically safe
-                    let targetOffset = Math.min((rect.height / 2) + 4, maxSafeOffset);
+                    let targetOffset = Math.min(targetH, maxSafeOffset);
 
                     // Add to total offset (using max to handle overlaps cleanly)
                     offsetY = Math.max(offsetY, targetOffset * envelope);
