@@ -171,8 +171,8 @@ class HeaderCanvas extends Base {
                 vx       : isNebula ? (Math.random() * 0.2 + 0.05) : (Math.random() * 0.5 + 0.1), // Nebulae move slower
                 vy       : (Math.random() - 0.5) * 0.2,
                 size     : isNebula ? (Math.random() * 30 + 20) : (Math.random() * 2 + 0.5), // Large vs Small
-                alpha    : isNebula ? (Math.random() * 0.15 + 0.1) : (Math.random() * 0.3 + 0.1), // BOOSTED ALPHA
-                baseAlpha: isNebula ? (Math.random() * 0.15 + 0.1) : (Math.random() * 0.3 + 0.1)
+                alpha    : isNebula ? (Math.random() * 0.15 + 0.2) : (Math.random() * 0.4 + 0.2), // BOOSTED ALPHA
+                baseAlpha: isNebula ? (Math.random() * 0.15 + 0.2) : (Math.random() * 0.4 + 0.2)
             })
         }
     }
@@ -405,12 +405,12 @@ class HeaderCanvas extends Base {
         // --- 2. RIBBON FILL (Background Surface) ---
         ctx.fillStyle = me.gradients.bgRibbon;
         ctx.beginPath();
-        
+
         ctx.moveTo(0, bufA[0]);
         for (let i = 1; i < count; i++) {
             ctx.lineTo(i * step, bufA[i]);
         }
-        
+
         for (let i = count - 1; i >= 0; i--) {
             ctx.lineTo(i * step, bufB[i]);
         }
@@ -459,7 +459,7 @@ class HeaderCanvas extends Base {
 
         if (!geometry) return;
 
-        const 
+        const
             {shimmerA, shimmerB, count} = geometry,
             bufA = me.waveBuffers.fgA,
             bufB = me.waveBuffers.fgB,
@@ -468,12 +468,12 @@ class HeaderCanvas extends Base {
         // --- 2. RIBBON FILL (The 3D Surface) ---
         ctx.fillStyle = me.gradients.fgRibbon;
         ctx.beginPath();
-        
+
         ctx.moveTo(0, bufA[0]);
         for (let i = 1; i < count; i++) {
             ctx.lineTo(i * step, bufA[i]);
         }
-        
+
         for (let i = count - 1; i >= 0; i--) {
             ctx.lineTo(i * step, bufB[i]);
         }
@@ -491,7 +491,7 @@ class HeaderCanvas extends Base {
             ctx.strokeStyle = isCore ? '#FFFFFF' : gradient;
             ctx.lineWidth   = isCore ? 1 : 3;
             ctx.globalAlpha = isCore ? (shimmer + 0.2) : shimmer;
-            
+
             if (!isCore) {
                 ctx.shadowBlur  = 10;
                 ctx.shadowColor = color;
