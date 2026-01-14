@@ -21,7 +21,7 @@ class HeaderToolbar extends Base {
          * @member {Object[]} domListeners
          */
         domListeners: [{
-            click     : 'onClick',
+            click     : {fn: 'onClick', options: {capture: true}},
             mouseleave: 'onMouseLeave',
             mousemove : {fn: 'onMouseMove', local: true}
         }],

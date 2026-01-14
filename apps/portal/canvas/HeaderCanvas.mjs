@@ -282,9 +282,25 @@ class HeaderCanvas extends Base {
             let sine  = Math.sin(((x + freqMod) * 0.04) - timeShift) * localAmp,
                 sineB = Math.sin(((x + freqMod) * 0.04) - timeShift + Math.PI) * localAmp; // Inverted
 
+            // SHOCKWAVE PHYSICS (Displacement)
+            let shockY = 0;
+            if (me.shockwaves.length > 0) {
+                me.shockwaves.forEach(wave => {
+                    let radius = wave.age * wave.speed,
+                        dist   = x - wave.x; // Signed distance
+
+                    // Check if point is near the wave front (e.g. within 50px)
+                    if (Math.abs(dist) < radius && Math.abs(dist) > radius - 60) {
+                        // Pulse shape: Sine wave based on distance from center relative to radius
+                        let pulse = Math.sin((dist / radius) * Math.PI * 10) * (1 - (wave.age / wave.life)) * 20;
+                        shockY += pulse;
+                    }
+                })
+            }
+
             // Write Y values to buffers
-            bufA[i] = centerY + sine - offsetY + noiseA;
-            bufB[i] = centerY + sineB + offsetY + noiseB;
+            bufA[i] = centerY + sine - offsetY + noiseA + shockY;
+            bufB[i] = centerY + sineB + offsetY + noiseB + shockY;
         }
 
         return {shimmerA, shimmerB, count}
@@ -337,11 +353,30 @@ class HeaderCanvas extends Base {
                 p.y += (dy / dist) * force * (2 / mass);
                 // Brighten slightly
                 p.alpha = Math.min(p.baseAlpha + force * (p.isNebula ? 0.05 : 0.5), 0.8);
-            } else {
-                // Return to base alpha
-                if (p.alpha > p.baseAlpha) {
-                    p.alpha -= 0.005
-                }
+            }
+
+            // Interaction: Shockwave Repulsion
+            if (me.shockwaves.length > 0) {
+                me.shockwaves.forEach(wave => {
+                    let wx = p.x - wave.x,
+                        wy = p.y - wave.y,
+                        wDist = Math.sqrt(wx*wx + wy*wy),
+                        radius = wave.age * wave.speed;
+
+                    // If particle is near the expanding ring (width 40px)
+                    if (wDist < radius && wDist > radius - 40) {
+                        let force = (1 - (wave.age / wave.life)) * 2; // Decay force over time
+                        // Push outward
+                        p.x += (wx / wDist) * force * 5;
+                        p.y += (wy / wDist) * force * 5;
+                        p.alpha = Math.min(p.alpha + 0.3, 1); // Flash bright
+                    }
+                })
+            }
+
+            // Return to base alpha
+            if (p.alpha > p.baseAlpha) {
+                p.alpha -= 0.005
             }
 
             ctx.globalAlpha = p.alpha;
