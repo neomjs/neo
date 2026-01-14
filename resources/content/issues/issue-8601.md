@@ -35,8 +35,10 @@ subIssues:
   - '[x] 8625 Fragment Move Operation Instability'
   - '[x] 8626 Container.insert() should be a no-op for same-index moves'
   - '[x] 8627 Fragment hidden config fails: removeNode delta missing parentId'
-subIssuesCompleted: 19
-subIssuesTotal: 19
+  - '[x] 8628 [Docs] Apply Knowledge Base Enhancement Strategy to Fragment Implementation'
+  - '[x] 8629 [Docs] Create ''Fragments'' Guide in UI Building Blocks'
+subIssuesCompleted: 21
+subIssuesTotal: 21
 blockedBy: []
 blocking: []
 ---
@@ -114,4 +116,7 @@ Implement a `Neo.container.Fragment` that allows grouping items without renderin
 - 2026-01-14T00:15:59Z @tobiu added sub-issue #8625
 - 2026-01-14T00:16:02Z @tobiu added sub-issue #8626
 - 2026-01-14T00:49:15Z @tobiu added sub-issue #8627
+- 2026-01-14T01:14:13Z @tobiu cross-referenced by #8628
+- 2026-01-14T01:14:20Z @tobiu added sub-issue #8628
+- 2026-01-14T01:24:01Z @tobiu added sub-issue #8629
 
