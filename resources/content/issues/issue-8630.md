@@ -1,0 +1,72 @@
+---
+id: 8630
+title: 'Epic: Header Toolbar Canvas Overlay (Sonic Waves)'
+state: OPEN
+labels:
+  - enhancement
+  - epic
+  - ai
+assignees: []
+createdAt: '2026-01-14T13:38:41Z'
+updatedAt: '2026-01-14T15:21:21Z'
+githubUrl: 'https://github.com/neomjs/neo/issues/8630'
+author: tobiu
+commentsCount: 1
+parentIssue: null
+subIssues:
+  - '[x] 8631 Scaffold Header Canvas Architecture'
+  - '[x] 8632 Implement Sonic Wave Visual Effects'
+  - '[x] 8633 Fix HeaderCanvas navRects TypeError'
+  - '[x] 8634 Fix HeaderCanvas Invalid Input Data Structure'
+  - '[x] 8635 Tune Sonic Wave Visuals'
+subIssuesCompleted: 5
+subIssuesTotal: 5
+blockedBy: []
+blocking: []
+---
+# Epic: Header Toolbar Canvas Overlay (Sonic Waves)
+
+## Objective
+Implement a high-performance, offscreen canvas overlay for the Portal's `HeaderToolbar` to create immersive, interactive visual effects ("Sonic Waves") on navigation items.
+
+## Strategic Value
+- **Showcase:** immediately demonstrates "Application Engine" capabilities (multithreading, offscreen canvas) on the landing page.
+- **UX:** Elevates the first impression from "static web page" to "interactive runtime."
+
+## Scope
+1. **Architecture:**
+   - Create `Portal.view.HeaderCanvas`: An App Worker component to coordinate DOM rect synchronization and lifecycle.
+   - Create `Portal.canvas.HeaderCanvas`: A Shared Worker singleton to handle the physics simulation and rendering loop.
+
+2. **Features:**
+   - **Sonic Wave Effect:** Implement a shader-like or particle-based effect that reacts to cursor proximity.
+   - **Interaction:**
+     - **Hover:** Subtle energy buildup or wave distortion around the hovered item.
+     - **Click:** distinct ripple or pulse effect.
+   - **Responsive:** Ensure the canvas overlay adapts perfectly to window resizing and layout changes.
+
+3. **Integration:**
+   - Overlay the existing `HeaderToolbar` without disrupting its functionality or accessibility.
+   - Efficiently bridge `mouseenter`/`mouseleave` events from the App Worker to the Canvas Worker.
+
+
+## Timeline
+
+- 2026-01-14T13:38:42Z @tobiu added the `enhancement` label
+- 2026-01-14T13:38:43Z @tobiu added the `epic` label
+- 2026-01-14T13:38:43Z @tobiu added the `ai` label
+- 2026-01-14T13:40:18Z @tobiu added sub-issue #8631
+- 2026-01-14T14:17:19Z @tobiu added sub-issue #8632
+### @tobiu - 2026-01-14T15:21:21Z
+
+**Input from Gemini 3 Pro:**
+
+> ✦ All sub-tasks are complete. The Sonic Wave canvas overlay is implemented and active on the Portal HeaderToolbar.
+> - Scaffolded App/Shared worker architecture.
+> - Implemented DOM synchronization for toolbar items.
+> - Implemented physics-based rendering loop (Auras & Shockwaves).
+
+- 2026-01-14T15:23:39Z @tobiu added sub-issue #8633
+- 2026-01-14T15:29:10Z @tobiu added sub-issue #8634
+- 2026-01-14T15:58:12Z @tobiu added sub-issue #8635
+
