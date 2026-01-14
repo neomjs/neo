@@ -124,17 +124,20 @@ class HeaderCanvas extends Base {
     initParticles(width, height) {
         let me = this;
         me.particles = [];
-        const count = 80;
+        const count = 60;
 
         for (let i = 0; i < count; i++) {
+            let isNebula = Math.random() > 0.8; // 20% are large nebula orbs
+
             me.particles.push({
-                x: Math.random() * width,
-                y: Math.random() * height,
-                vx: (Math.random() * 0.5) + 0.1, // Drift velocity
-                vy: (Math.random() - 0.5) * 0.2,
-                size: Math.random() * 2 + 0.5,
-                alpha: Math.random() * 0.3 + 0.1, // Faint
-                baseAlpha: Math.random() * 0.3 + 0.1
+                isNebula : isNebula,
+                x        : Math.random() * width,
+                y        : Math.random() * height,
+                vx       : isNebula ? (Math.random() * 0.2 + 0.05) : (Math.random() * 0.5 + 0.1), // Nebulae move slower
+                vy       : (Math.random() - 0.5) * 0.2,
+                size     : isNebula ? (Math.random() * 30 + 20) : (Math.random() * 2 + 0.5), // Large vs Small
+                alpha    : isNebula ? (Math.random() * 0.15 + 0.1) : (Math.random() * 0.3 + 0.1), // BOOSTED ALPHA
+                baseAlpha: isNebula ? (Math.random() * 0.15 + 0.1) : (Math.random() * 0.3 + 0.1)
             })
         }
     }
@@ -161,8 +164,8 @@ class HeaderCanvas extends Base {
 
         me.time += 0.05;
 
-        // Auto-reinit particles if size changes significantly or empty
-        if (me.particles.length === 0) {
+        // Auto-reinit particles if size changes significantly or empty OR count mismatch (config update)
+        if (me.particles.length !== 60) {
             me.initParticles(width, height)
         }
 
@@ -195,43 +198,57 @@ class HeaderCanvas extends Base {
     drawParticles(ctx, width, height) {
         let me = this;
 
-        ctx.fillStyle = HIGHLIGHT;
-
         me.particles.forEach(p => {
             // Update Position
             p.x += p.vx;
             p.y += p.vy;
 
             // Wrap around
-            if (p.x > width) p.x = -10;
-            if (p.x < -10)   p.x = width;
-            if (p.y > height) p.y = -10;
-            if (p.y < -10)    p.y = height;
+            if (p.x > width + p.size) p.x = -p.size;
+            if (p.x < -p.size)        p.x = width + p.size;
+            if (p.y > height + p.size) p.y = -p.size;
+            if (p.y < -p.size)         p.y = height + p.size;
 
-            // Mouse Interaction (Repulsion)
+            // Mouse Interaction (Repulsion) - Only for small dust? Or both?
+            // Let's affect both but nebulae have high mass (less effect)
             let dx = p.x - me.mouse.x,
                 dy = p.y - me.mouse.y,
                 dist = Math.sqrt(dx*dx + dy*dy),
-                maxDist = 100;
+                maxDist = p.isNebula ? 150 : 100;
 
             if (dist < maxDist && dist > 0) {
                 let force = (maxDist - dist) / maxDist;
                 // Push away
-                p.x += (dx / dist) * force * 2;
-                p.y += (dy / dist) * force * 2;
-                // Brighten
-                p.alpha = Math.min(p.baseAlpha + force * 0.5, 0.8);
+                let mass = p.isNebula ? 5 : 1;
+                p.x += (dx / dist) * force * (2 / mass);
+                p.y += (dy / dist) * force * (2 / mass);
+                // Brighten slightly
+                p.alpha = Math.min(p.baseAlpha + force * (p.isNebula ? 0.05 : 0.5), 0.8);
             } else {
                 // Return to base alpha
                 if (p.alpha > p.baseAlpha) {
-                    p.alpha -= 0.01
+                    p.alpha -= 0.005
                 }
             }
 
             ctx.globalAlpha = p.alpha;
             ctx.beginPath();
-            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-            ctx.fill();
+
+            if (p.isNebula) {
+                // Soft gradient for nebula
+                // Since this is expensive, maybe just low alpha circle is enough?
+                // Gradient is better for "Cloud" look.
+                let g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size);
+                g.addColorStop(0, HIGHLIGHT);
+                g.addColorStop(1, 'rgba(255,255,255,0)');
+                ctx.fillStyle = g;
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+            } else {
+                ctx.fillStyle = HIGHLIGHT;
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
         });
 
         ctx.globalAlpha = 1;
