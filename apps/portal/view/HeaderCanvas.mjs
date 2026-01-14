@@ -31,7 +31,12 @@ class HeaderCanvas extends Canvas {
             zIndex       : 1 // Ensure it is above the background but below/above items as needed?
                              // If it's an overlay for effects *on* items, it might need to be on top.
                              // But buttons need to be clickable. pointerEvents: 'none' handles clicks.
-        }
+        },
+        /**
+         * @member {Object} _vdom
+         */
+        _vdom:
+        {tag: 'canvas'}
     }
 
     /**
@@ -68,11 +73,11 @@ class HeaderCanvas extends Canvas {
 
             // Listen to mouse events on the parent Toolbar
             me.addDomListeners([{
-                id        : me.parentId,
-                click     : me.onClick,
-                mousemove : {fn: me.onMouseMove, local: true},
+                click     : {fn: me.onClick, local: true},
                 mouseleave: me.onMouseLeave,
-                scope     : me
+                mousemove : {fn: me.onMouseMove, local: true},
+                scope     : me,
+                vnodeId   : me.parentId
             }]);
 
             await me.updateSize();
