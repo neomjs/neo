@@ -639,7 +639,7 @@ class Container extends Component {
         let me          = this,
             {items}     = me,
             lca         = null,
-            i, len, oldParent, parentsA, parentsB, returnArray;
+            i, itemParent, itemType, len, oldParent, parentsA, parentsB, returnArray;
 
         if (Array.isArray(item)) {
             i           = 0;
@@ -653,19 +653,29 @@ class Container extends Component {
 
             item = returnArray
         } else {
-            if (Neo.typeOf(item) === 'NeoInstance' && item.parent && item.parent !== me && removeFromPreviousParent) {
-                oldParent = item.parent;
+            itemType = Neo.typeOf(item);
 
-                if (oldParent.windowId === me.windowId) {
-                    parentsA = [me,        ...me.getParents()];
-                    parentsB = [oldParent, ...oldParent.getParents()];
+            if (itemType === 'NeoInstance') {
+                itemParent = item.parent;
 
-                    lca = parentsA.find(p => parentsB.includes(p))
+                if (itemParent === me && items.indexOf(item) === index) {
+                    return item
                 }
 
-                if (lca) {
-                    oldParent.remove(item, false, true, true);
-                    removeFromPreviousParent = false
+                if (itemParent && itemParent !== me && removeFromPreviousParent) {
+                    oldParent = itemParent;
+
+                    if (oldParent.windowId === me.windowId) {
+                        parentsA = [me,        ...me.getParents()];
+                        parentsB = [oldParent, ...oldParent.getParents()];
+
+                        lca = parentsA.find(p => parentsB.includes(p))
+                    }
+
+                    if (lca) {
+                        oldParent.remove(item, false, true, true);
+                        removeFromPreviousParent = false
+                    }
                 }
             }
 
