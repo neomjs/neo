@@ -223,7 +223,8 @@ class DeltaUpdates extends Base {
     }
 
     /**
-     * Helper to retrieve the start anchor comment of a Fragment.
+     * Helper to retrieve the start anchor comment of a Fragment using XPath.
+     * Fragments are rendered as a range anchored by `<!-- id-start -->` and `<!-- id-end -->`.
      * @param {String} id The Fragment ID
      * @returns {Comment|null}
      */
@@ -233,9 +234,13 @@ class DeltaUpdates extends Base {
     }
 
     /**
-     * Helper to calculate the reference sibling for insertion into a Fragment.
+     * Helper to calculate the reference sibling for insertion *inside* a Fragment's DOM range.
+     * Since a Fragment is not a real DOM parent, we must traverse its siblings to find the correct
+     * insertion point relative to the Start Anchor.
+     *
      * @param {Node} startNode The Fragment start anchor
      * @param {Number} index The logical index (relative to fragment content)
+     * @param {Node} [nodeToSkip] Optional node to skip during traversal (e.g. the node being moved)
      * @returns {Node|null} The node to insert before, or null (append)
      */
     getFragmentSibling(startNode, index, nodeToSkip) {
@@ -257,7 +262,10 @@ class DeltaUpdates extends Base {
     }
 
     /**
-     * Helper to retrieve all DOM nodes belonging to a Fragment (or Text Node range).
+     * Helper to retrieve all DOM nodes belonging to a Fragment.
+     * This walks the DOM from the Start Anchor until it hits the End Anchor, collecting all intermediate nodes.
+     * This is used for moving or removing the entire Fragment range.
+     *
      * @param {HTMLElement} parentNode
      * @param {String}      id
      * @returns {Object|null} {startNode, endNode, nodes: []}
@@ -477,6 +485,11 @@ class DeltaUpdates extends Base {
      * For browsers without `moveBefore` (e.g. Safari), it falls back to `insertBefore` (or `replaceWith`).
      * Since reparenting causes focus loss in these environments, it manually restores focus
      * immediately after the move.
+     *
+     * **Fragment Support:**
+     * If the target `id` refers to a Fragment (which has no single DOM node), this method uses XPath
+     * to find the "Start Anchor", extracts the full range of nodes (Start...End) into a `DocumentFragment`,
+     * and moves that lightweight wrapper to the new location.
      *
      * @param {Object} delta
      * @param {String} delta.id       The ID of the DOM node to move.

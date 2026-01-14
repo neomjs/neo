@@ -872,11 +872,14 @@ class Container extends Component {
     }
 
     /**
-     * Removes a container item at a given index
+     * Removes a container item at a given index.
+     *
      * @param {Number} index
      * @param {Boolean} destroyItem=true
      * @param {Boolean} silent=false
-     * @param {Boolean} keepMounted=false
+     * @param {Boolean} keepMounted=false Set to `true` to keep the item's `mounted` state as `true`.
+     * This is critical for **Atomic Moves**, where the item is removed from one container and immediately added
+     * to another, and we do not want to trigger unmount lifecycle hooks in between.
      * @returns {Neo.component.Base|null}
      */
     removeAt(index, destroyItem=true, silent=false, keepMounted=false) {
