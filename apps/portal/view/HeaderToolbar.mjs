@@ -18,6 +18,14 @@ class HeaderToolbar extends Base {
          */
         cls: ['portal-header-toolbar'],
         /**
+         * @member {Object[]} domListeners
+         */
+        domListeners: [{
+            click     : 'onClick',
+            mouseleave: 'onMouseLeave',
+            mousemove : {fn: 'onMouseMove', local: true}
+        }],
+        /**
          * @member {Object} itemDefaults
          */
         itemDefaults: {
@@ -83,12 +91,34 @@ class HeaderToolbar extends Base {
                 }
             }]
         }, {
-            module: HeaderCanvas
+            module   : HeaderCanvas,
+            reference: 'header-canvas'
         }],
         /**
          * @member {Object} style={position: 'relative'}
          */
         style: {position: 'relative'}
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onClick(data) {
+        this.getReference('header-canvas')?.onClick(data)
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onMouseLeave(data) {
+        this.getReference('header-canvas')?.onMouseLeave(data)
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onMouseMove(data) {
+        this.getReference('header-canvas')?.onMouseMove(data)
     }
 }
 

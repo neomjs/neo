@@ -71,15 +71,6 @@ class HeaderCanvas extends Canvas {
                 windowId: me.windowId
             });
 
-            // Listen to mouse events on the parent Toolbar
-            me.addDomListeners([{
-                click     : {fn: me.onClick, local: true},
-                mouseleave: me.onMouseLeave,
-                mousemove : {fn: me.onMouseMove, local: true},
-                scope     : me,
-                vnodeId   : me.parentId
-            }]);
-
             await me.updateSize();
             await me.updateNavRects()
         } else if (oldValue) {
