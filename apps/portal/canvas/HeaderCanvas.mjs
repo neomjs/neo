@@ -74,6 +74,10 @@ class HeaderCanvas extends Base {
      */
     context = null
     /**
+     * @member {Object} gradients={}
+     */
+    gradients = {}
+    /**
      * @member {Object} mouse={x: -1000, y: -1000}
      */
     mouse = {x: -1000, y: -1000}
@@ -93,18 +97,24 @@ class HeaderCanvas extends Base {
      * @member {Number} time=0
      */
     time = 0
+    /**
+     * @member {Object} waveBuffers={bgA: null, bgB: null, fgA: null, fgB: null}
+     */
+    waveBuffers = {bgA: null, bgB: null, fgA: null, fgB: null}
 
     /**
      * Clears the graph state and stops the render loop.
      */
     clearGraph() {
         let me = this;
-        me.context    = null;
-        me.canvasId   = null;
-        me.canvasSize = null;
-        me.navRects   = [];
-        me.particles  = [];
-        me.shockwaves = []
+        me.context     = null;
+        me.canvasId    = null;
+        me.canvasSize  = null;
+        me.navRects    = [];
+        me.particles   = [];
+        me.shockwaves  = [];
+        me.waveBuffers = {bgA: null, bgB: null, fgA: null, fgB: null};
+        me.gradients   = {}
     }
 
     /**
@@ -125,6 +135,7 @@ class HeaderCanvas extends Base {
             if (canvas) {
                 me.context = canvas.getContext('2d');
                 me.initParticles(canvas.width, canvas.height); // Init particles
+                me.updateResources(canvas.width, canvas.height); // Init buffers/gradients
                 hasChange && me.renderLoop()
             } else {
                 setTimeout(checkCanvas, 50)
@@ -207,24 +218,24 @@ class HeaderCanvas extends Base {
 
     /**
      * Calculates the points for the two energy strands based on physics and interaction.
-     * Separating this from drawing allows us to use the same points for both the
-     * **Ribbon Fill** (gradient surface between strands) and the **Neon Stroke** (volumetric tube on top).
+     * Writes directly to pre-allocated Float32Arrays to avoid GC.
      *
      * @param {Number} width
      * @param {Number} height
-     * @returns {Object} {pointsA: [], pointsB: [], shimmerA: Number, shimmerB: Number}
+     * @returns {Object} {shimmerA, shimmerB, count}
      */
-    calculateStrandPoints(width, height) {
+    calculateStrandGeometry(width, height) {
         let me = this;
 
-        if (!Array.isArray(me.navRects)) {
-            return {pointsA: [], pointsB: [], shimmerA: 0, shimmerB: 0}
+        if (!Array.isArray(me.navRects) || !me.waveBuffers.fgA) {
+            return null
         }
 
         const
-            pointsA = [],
-            pointsB = [],
+            bufA    = me.waveBuffers.fgA,
+            bufB    = me.waveBuffers.fgB,
             step    = 2,
+            count   = Math.ceil(width / step),
             centerY = height / 2,
             padding = 10,
             maxH    = (height - (padding * 2)) / 2,
@@ -240,7 +251,8 @@ class HeaderCanvas extends Base {
         let shimmerA = baseShimmer,
             shimmerB = 0.75 + (Math.sin(me.time * 0.5 + Math.PI / 2 + Math.PI / 3) * 0.25);
 
-        for (let x = 0; x <= width; x += step) {
+        for (let i = 0; i < count; i++) {
+            let x = i * step;
             let {offsetY, intensity, isIconZone} = me.getStreamOffset(x, height);
 
             // FREQUENCY MODULATION:
@@ -259,11 +271,12 @@ class HeaderCanvas extends Base {
             let sine  = Math.sin(((x + freqMod) * 0.04) - timeShift) * localAmp,
                 sineB = Math.sin(((x + freqMod) * 0.04) - timeShift + Math.PI) * localAmp; // Inverted
 
-            pointsA.push({x, y: centerY + sine - offsetY + noiseA});
-            pointsB.push({x, y: centerY + sineB + offsetY + noiseB});
+            // Write Y values to buffers
+            bufA[i] = centerY + sine - offsetY + noiseA;
+            bufB[i] = centerY + sineB + offsetY + noiseB;
         }
 
-        return {pointsA, pointsB, shimmerA, shimmerB}
+        return {shimmerA, shimmerB, count}
     }
 
     /**
@@ -358,70 +371,59 @@ class HeaderCanvas extends Base {
      * @param {Number} height
      */
     drawAmbientBackground(ctx, width, height) {
-        let me = this,
-            t  = me.time * 0.5, // Slower movement for background
+        let me = this;
+
+        // Ensure buffers exist
+        if (!me.waveBuffers.bgA) return;
+
+        let t       = me.time * 0.5,
             centerY = height / 2,
-            amp     = height * 0.4, // Large amplitude
-            pointsA = [],
-            pointsB = [];
+            amp     = height * 0.4,
+            step    = 10,
+            count   = Math.ceil(width / step),
+            bufA    = me.waveBuffers.bgA,
+            bufB    = me.waveBuffers.bgB;
 
-        // 1. Calculate Points
-        for (let x = 0; x <= width; x += 10) {
-            let yA = centerY + Math.sin((x * 0.01) + t) * amp,
-                yB = centerY + Math.sin((x * 0.01) + t + Math.PI) * amp; // Inverted phase
-
-            pointsA.push({x, y: yA});
-            pointsB.push({x, y: yB});
+        // 1. Calculate Points (Direct to Buffer)
+        for (let i = 0; i < count; i++) {
+            let x = i * step;
+            bufA[i] = centerY + Math.sin((x * 0.01) + t) * amp;
+            bufB[i] = centerY + Math.sin((x * 0.01) + t + Math.PI) * amp;
         }
-
-        if (pointsA.length === 0) return;
-
-        // Create Gradients
-        const grad1 = ctx.createLinearGradient(0, 0, width, 0);
-        grad1.addColorStop(0,   'rgba(62, 99, 221, 0.1)');
-        grad1.addColorStop(0.5, 'rgba(64, 196, 255, 0.2)');
-        grad1.addColorStop(1,   'rgba(62, 99, 221, 0.1)');
-
-        const grad2 = ctx.createLinearGradient(0, 0, width, 0);
-        grad2.addColorStop(0,   'rgba(139, 166, 255, 0.1)');
-        grad2.addColorStop(0.5, 'rgba(64, 196, 255, 0.2)');
-        grad2.addColorStop(1,   'rgba(139, 166, 255, 0.1)');
 
         // --- 2. RIBBON FILL (Background Surface) ---
-        const ribbonGrad = ctx.createLinearGradient(0, 0, width, 0);
-        ribbonGrad.addColorStop(0,   'rgba(62, 99, 221, 0.02)'); // Extremely faint
-        ribbonGrad.addColorStop(0.5, 'rgba(64, 196, 255, 0.05)');
-        ribbonGrad.addColorStop(1,   'rgba(62, 99, 221, 0.02)');
-
-        ctx.fillStyle = ribbonGrad;
+        ctx.fillStyle = me.gradients.bgRibbon;
         ctx.beginPath();
-        ctx.moveTo(pointsA[0].x, pointsA[0].y);
-        for (let i = 1; i < pointsA.length; i++) {
-            ctx.lineTo(pointsA[i].x, pointsA[i].y);
+        
+        ctx.moveTo(0, bufA[0]);
+        for (let i = 1; i < count; i++) {
+            ctx.lineTo(i * step, bufA[i]);
         }
-        for (let i = pointsB.length - 1; i >= 0; i--) {
-            ctx.lineTo(pointsB[i].x, pointsB[i].y);
+        
+        for (let i = count - 1; i >= 0; i--) {
+            ctx.lineTo(i * step, bufB[i]);
         }
         ctx.closePath();
         ctx.fill();
 
         // --- 3. STROKES ---
-        ctx.lineWidth = 15; // Wide, soft lines
+        ctx.lineWidth = 15;
         ctx.lineCap   = 'round';
         ctx.lineJoin  = 'round';
 
-        const drawStroke = (points, strokeStyle) => {
+        // Use cached gradients
+        const drawStroke = (buffer, strokeStyle) => {
             ctx.strokeStyle = strokeStyle;
             ctx.beginPath();
-            ctx.moveTo(points[0].x, points[0].y);
-            for (let i = 1; i < points.length; i++) {
-                ctx.lineTo(points[i].x, points[i].y);
+            ctx.moveTo(0, buffer[0]);
+            for (let i = 1; i < count; i++) {
+                ctx.lineTo(i * step, buffer[i]);
             }
             ctx.stroke();
         };
 
-        drawStroke(pointsA, grad1);
-        drawStroke(pointsB, grad2);
+        drawStroke(bufA, me.gradients.bgGrad1);
+        drawStroke(bufB, me.gradients.bgGrad2);
     }
 
     /**
@@ -441,39 +443,28 @@ class HeaderCanvas extends Base {
 
         if (!Array.isArray(me.navRects)) return;
 
-        // 1. Calculate Physics (Shared for Ribbon and Strands)
-        const {pointsA, pointsB, shimmerA, shimmerB} = me.calculateStrandPoints(width, height);
+        // 1. Calculate Physics (Shared for Ribbon and Strands) - Returns metadata, data is in buffers
+        const geometry = me.calculateStrandGeometry(width, height);
 
-        if (pointsA.length === 0) return;
+        if (!geometry) return;
 
-        // Create Gradients
-        const grad1 = ctx.createLinearGradient(0, 0, width, 0);
-        grad1.addColorStop(0,   PRIMARY);
-        grad1.addColorStop(0.5, HIGHLIGHT);
-        grad1.addColorStop(1,   PRIMARY);
-
-        const grad2 = ctx.createLinearGradient(0, 0, width, 0);
-        grad2.addColorStop(0,   SECONDARY);
-        grad2.addColorStop(0.5, HIGHLIGHT);
-        grad2.addColorStop(1,   SECONDARY);
+        const 
+            {shimmerA, shimmerB, count} = geometry,
+            bufA = me.waveBuffers.fgA,
+            bufB = me.waveBuffers.fgB,
+            step = 2;
 
         // --- 2. RIBBON FILL (The 3D Surface) ---
-        // We construct a shape that connects Strand A and Strand B
-        const ribbonGrad = ctx.createLinearGradient(0, 0, width, 0);
-        ribbonGrad.addColorStop(0,   'rgba(62, 99, 221, 0.05)'); // Very faint
-        ribbonGrad.addColorStop(0.5, 'rgba(64, 196, 255, 0.1)'); // Slightly visible in center
-        ribbonGrad.addColorStop(1,   'rgba(62, 99, 221, 0.05)');
-
-        ctx.fillStyle = ribbonGrad;
+        ctx.fillStyle = me.gradients.fgRibbon;
         ctx.beginPath();
-        // Move along Strand A forward
-        ctx.moveTo(pointsA[0].x, pointsA[0].y);
-        for (let i = 1; i < pointsA.length; i++) {
-            ctx.lineTo(pointsA[i].x, pointsA[i].y);
+        
+        ctx.moveTo(0, bufA[0]);
+        for (let i = 1; i < count; i++) {
+            ctx.lineTo(i * step, bufA[i]);
         }
-        // Move along Strand B backward
-        for (let i = pointsB.length - 1; i >= 0; i--) {
-            ctx.lineTo(pointsB[i].x, pointsB[i].y);
+        
+        for (let i = count - 1; i >= 0; i--) {
+            ctx.lineTo(i * step, bufB[i]);
         }
         ctx.closePath();
         ctx.fill();
@@ -483,14 +474,13 @@ class HeaderCanvas extends Base {
         ctx.lineCap     = 'round';
         ctx.lineJoin    = 'round';
 
-        // Helper to draw a strand
-        const drawStrand = (points, gradient, shimmer, color, isCore) => {
+        // Helper to draw a strand from buffer
+        const drawStrand = (buffer, gradient, shimmer, color, isCore) => {
             ctx.beginPath();
             ctx.strokeStyle = isCore ? '#FFFFFF' : gradient;
-            ctx.lineWidth   = isCore ? 1 : 3; // Core is thin, Glow is wide
-            ctx.globalAlpha = isCore ? (shimmer + 0.2) : shimmer; // Core is brighter
-
-            // Core doesn't need shadow, Glow does
+            ctx.lineWidth   = isCore ? 1 : 3;
+            ctx.globalAlpha = isCore ? (shimmer + 0.2) : shimmer;
+            
             if (!isCore) {
                 ctx.shadowBlur  = 10;
                 ctx.shadowColor = color;
@@ -498,23 +488,20 @@ class HeaderCanvas extends Base {
                 ctx.shadowBlur  = 0;
             }
 
-            if (points.length > 0) {
-                ctx.moveTo(points[0].x, points[0].y);
-                for (let i = 1; i < points.length; i++) {
-                    ctx.lineTo(points[i].x, points[i].y);
-                }
+            ctx.moveTo(0, buffer[0]);
+            for (let i = 1; i < count; i++) {
+                ctx.lineTo(i * step, buffer[i]);
             }
             ctx.stroke();
         };
 
         // Draw Glows (Outer Tube)
-        drawStrand(pointsA, grad1, shimmerA, PRIMARY, false);
-        drawStrand(pointsB, grad2, shimmerB, SECONDARY, false);
+        drawStrand(bufA, me.gradients.grad1, shimmerA, PRIMARY, false);
+        drawStrand(bufB, me.gradients.grad2, shimmerB, SECONDARY, false);
 
-        // Draw Cores (Inner Filament) - The "3D Pop"
-        // We draw these ON TOP of the glows for maximum contrast
-        drawStrand(pointsA, null, shimmerA, null, true);
-        drawStrand(pointsB, null, shimmerB, null, true);
+        // Draw Cores (Inner Filament)
+        drawStrand(bufA, null, shimmerA, null, true);
+        drawStrand(bufB, null, shimmerB, null, true);
 
         // Cleanup: Reset shadow and alpha to prevent bleeding into the next render pass
         ctx.shadowBlur  = 0;
@@ -710,6 +697,70 @@ class HeaderCanvas extends Base {
     }
 
     /**
+     * Creates and caches gradients and geometry buffers based on canvas size.
+     * This eliminates per-frame allocation of TypedArrays and CanvasGradients.
+     *
+     * @param {Number} width
+     * @param {Number} height
+     */
+    updateResources(width, height) {
+        let me  = this,
+            ctx = me.context;
+
+        // 1. Re-allocate Buffers (Float32Array)
+        // Background: step = 10
+        const bgCount = Math.ceil(width / 10) + 1;
+        me.waveBuffers.bgA = new Float32Array(bgCount);
+        me.waveBuffers.bgB = new Float32Array(bgCount);
+
+        // Foreground: step = 2
+        const fgCount = Math.ceil(width / 2) + 1;
+        me.waveBuffers.fgA = new Float32Array(fgCount);
+        me.waveBuffers.fgB = new Float32Array(fgCount);
+
+        // 2. Cache Gradients
+        if (!ctx) return;
+
+        // Foreground Gradients
+        const grad1 = ctx.createLinearGradient(0, 0, width, 0);
+        grad1.addColorStop(0,   PRIMARY);
+        grad1.addColorStop(0.5, HIGHLIGHT);
+        grad1.addColorStop(1,   PRIMARY);
+        me.gradients.grad1 = grad1;
+
+        const grad2 = ctx.createLinearGradient(0, 0, width, 0);
+        grad2.addColorStop(0,   SECONDARY);
+        grad2.addColorStop(0.5, HIGHLIGHT);
+        grad2.addColorStop(1,   SECONDARY);
+        me.gradients.grad2 = grad2;
+
+        const fgRibbon = ctx.createLinearGradient(0, 0, width, 0);
+        fgRibbon.addColorStop(0,   'rgba(62, 99, 221, 0.05)');
+        fgRibbon.addColorStop(0.5, 'rgba(64, 196, 255, 0.1)');
+        fgRibbon.addColorStop(1,   'rgba(62, 99, 221, 0.05)');
+        me.gradients.fgRibbon = fgRibbon;
+
+        // Background Gradients
+        const bgGrad1 = ctx.createLinearGradient(0, 0, width, 0);
+        bgGrad1.addColorStop(0,   'rgba(62, 99, 221, 0.1)');
+        bgGrad1.addColorStop(0.5, 'rgba(64, 196, 255, 0.2)');
+        bgGrad1.addColorStop(1,   'rgba(62, 99, 221, 0.1)');
+        me.gradients.bgGrad1 = bgGrad1;
+
+        const bgGrad2 = ctx.createLinearGradient(0, 0, width, 0);
+        bgGrad2.addColorStop(0,   'rgba(139, 166, 255, 0.1)');
+        bgGrad2.addColorStop(0.5, 'rgba(64, 196, 255, 0.2)');
+        bgGrad2.addColorStop(1,   'rgba(139, 166, 255, 0.1)');
+        me.gradients.bgGrad2 = bgGrad2;
+
+        const bgRibbon = ctx.createLinearGradient(0, 0, width, 0);
+        bgRibbon.addColorStop(0,   'rgba(62, 99, 221, 0.02)');
+        bgRibbon.addColorStop(0.5, 'rgba(64, 196, 255, 0.05)');
+        bgRibbon.addColorStop(1,   'rgba(62, 99, 221, 0.02)');
+        me.gradients.bgRibbon = bgRibbon;
+    }
+
+    /**
      * @param {Object} size
      * @param {Number} size.height
      * @param {Number} size.width
@@ -721,7 +772,9 @@ class HeaderCanvas extends Base {
 
         if (me.context) {
             me.context.canvas.width  = size.width;
-            me.context.canvas.height = size.height
+            me.context.canvas.height = size.height;
+            // Re-init resources on resize
+            me.updateResources(size.width, size.height)
         }
     }
 }
