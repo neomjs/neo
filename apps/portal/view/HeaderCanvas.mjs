@@ -200,7 +200,7 @@ class HeaderCanvas extends Canvas {
                     }
                 }).filter(Boolean);
 
-                Portal.canvas.HeaderCanvas.updateNavRects(me.navRects)
+                Portal.canvas.HeaderCanvas.updateNavRects({rects: me.navRects})
             }
         }
     }

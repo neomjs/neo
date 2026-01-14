@@ -290,13 +290,15 @@ class HeaderCanvas extends Base {
     }
 
     /**
-     * @param {Object[]} rects
+     * @param {Object} data
+     * @param {Object[]} data.rects
      */
-    updateNavRects(rects) {
+    updateNavRects(data) {
+        let rects = data?.rects;
+
         if (Array.isArray(rects)) {
             this.navRects = rects
         } else {
-            // console.warn('HeaderCanvas.updateNavRects: Invalid input', rects);
             this.navRects = []
         }
     }
