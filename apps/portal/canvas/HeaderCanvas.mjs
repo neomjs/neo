@@ -32,6 +32,7 @@ const
  * @class Portal.canvas.HeaderCanvas
  * @extends Neo.core.Base
  * @singleton
+ * @see Portal.view.HeaderCanvas
  */
 class HeaderCanvas extends Base {
     static config = {
@@ -152,6 +153,11 @@ class HeaderCanvas extends Base {
     }
 
     /**
+     * Initializes the particle system for the "Neo Ether" effect.
+     *
+     * Creates a mix of large, slow-moving "nebula" particles and smaller, faster "dust" particles
+     * to create depth and atmosphere.
+     *
      * @param {Number} width
      * @param {Number} height
      */
@@ -182,7 +188,16 @@ class HeaderCanvas extends Base {
     renderLoop = this.render.bind(this)
 
     /**
-     * Main render loop
+     * Main render loop.
+     *
+     * Orchestrates the rendering of all visual layers:
+     * 1. Ambient Background (Ribbon + Helix)
+     * 2. Neo Ether (Particles)
+     * 3. Split Stream (Foreground Auras)
+     * 4. Shockwaves (Interaction)
+     *
+     * Uses `setTimeout` instead of `requestAnimationFrame` because this runs in a SharedWorker
+     * where `rAF` is not available. Targets ~60fps (16ms).
      */
     render() {
         let me = this;
@@ -217,9 +232,6 @@ class HeaderCanvas extends Base {
         // 4. Draw "Shockwaves" (Click Effects)
         me.drawShockwaves(ctx, width);
 
-        // Keep loop running if there's activity or just always for ambient?
-        // Let's keep it running for ambient wave effects.
-        // We use setTimeout for SharedWorker compatibility (no rAF).
         setTimeout(me.renderLoop, 1000 / 60)
     }
 
@@ -825,3 +837,4 @@ class HeaderCanvas extends Base {
 }
 
 export default Neo.setupClass(HeaderCanvas);
+

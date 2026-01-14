@@ -1,9 +1,22 @@
-import Canvas from '../../../src/component/Canvas.mjs';
+import Canvas           from '../../../src/component/Canvas.mjs';
+import ComponentManager from '../../../src/manager/Component.mjs';
 
 /**
- * @summary Canvas overlay for the HeaderToolbar.
+ * @summary The App Worker component for the HeaderToolbar canvas overlay.
+ *
+ * This component coordinates the OffscreenCanvas transfer and lifecycle management.
+ * It serves as the App Worker's handle for the visual effect, responsible for:
+ *
+ * 1. **Lifecycle Management:** Instantiating and destroying the rendering graph in the `Canvas SharedWorker`.
+ * 2. **DOM Synchronization:** Tracking the size/position of the canvas and navigation buttons, forwarding these to the renderer.
+ * 3. **Input Bridging:** Capturing user interactions (mouse move, click) and forwarding coordinates to the renderer.
+ *
+ * The actual rendering loop and physics simulation happen in `Portal.canvas.HeaderCanvas` (SharedWorker),
+ * ensuring the main thread and App Worker remain unblocked.
+ *
  * @class Portal.view.HeaderCanvas
  * @extends Neo.component.Canvas
+ * @see Portal.canvas.HeaderCanvas
  */
 class HeaderCanvas extends Canvas {
     static config = {
@@ -13,24 +26,14 @@ class HeaderCanvas extends Canvas {
          */
         className: 'Portal.view.HeaderCanvas',
         /**
+         * @member {String[]} cls=['portal-header-canvas']
+         */
+        cls: ['portal-header-canvas'],
+        /**
          * @member {Object} listeners
          */
         listeners: {
             resize: 'onResize'
-        },
-        /**
-         * @member {Object} style
-         */
-        style: {
-            height       : '100%',
-            left         : '0',
-            pointerEvents: 'none',
-            position     : 'absolute',
-            top          : '0',
-            width        : '100%',
-            zIndex       : 1 // Ensure it is above the background but below/above items as needed?
-                             // If it's an overlay for effects *on* items, it might need to be on top.
-                             // But buttons need to be clickable. pointerEvents: 'none' handles clicks.
         },
         /**
          * @member {Object} _vdom
@@ -53,6 +56,9 @@ class HeaderCanvas extends Canvas {
     navRects = null
 
     /**
+     * Lifecycle hook triggered when the canvas is registered offscreen.
+     * Initializes the Shared Worker graph and sets up resize observation.
+     *
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
@@ -93,6 +99,7 @@ class HeaderCanvas extends Canvas {
     }
 
     /**
+     * Captures click events and forwards them to the Shared Worker to trigger shockwaves.
      * @param {Object} data
      */
     onClick(data) {
@@ -108,6 +115,7 @@ class HeaderCanvas extends Canvas {
     }
 
     /**
+     * Resets the mouse state in the Shared Worker when the cursor leaves the canvas.
      * @param {Object} data
      */
     onMouseLeave(data) {
@@ -117,24 +125,17 @@ class HeaderCanvas extends Canvas {
     }
 
     /**
+     * Forwards mouse coordinates to the Shared Worker for interaction effects.
+     * Coordinates are normalized relative to the canvas top-left corner.
+     *
      * @param {Object} data
      */
     onMouseMove(data) {
         let me = this;
 
         if (me.isCanvasReady) {
-            // We need coordinates relative to the canvas (which is at 0,0 of the toolbar)
-            // The mouse event clientX/Y are global.
-            // We need the canvas global rect to subtract.
-            // For now, let's assume we can get the local coordinates if we trust the target?
-            // No, the target is the button, not the canvas.
-            // We need to fetch the canvas rect once or cache it.
-            // Actually, we can just send clientX/Y and let the worker handle it if it knows the canvas global position?
-            // Or better: calculate relative here.
-
-            // Since this is high frequency, we don't want to await getDomRect every time.
-            // We should cache the canvasPageRect in onResize/updateSize.
-
+            // We use the cached canvasRect to calculate relative coordinates
+            // without needing an async DOM read on every frame.
             if (me.canvasRect) {
                 Portal.canvas.HeaderCanvas.updateMouseState({
                     x: data.clientX - me.canvasRect.left,
@@ -145,6 +146,7 @@ class HeaderCanvas extends Canvas {
     }
 
     /**
+     * Updates the canvas size and re-calculates navigation rects on resize.
      * @param {Object} data
      */
     async onResize(data) {
@@ -154,29 +156,19 @@ class HeaderCanvas extends Canvas {
     }
 
     /**
+     * Synchronizes the positions of the navigation buttons with the Shared Worker.
+     * This allows the physics engine to "divert" the energy streams around the buttons.
+     *
      * @returns {Promise<void>}
      */
     async updateNavRects() {
-        let me     = this,
-            parent = Neo.get(me.parentId),
-            ids    = [];
+        let me = this;
 
-        if (!parent || !me.isCanvasReady) return;
+        if (!me.isCanvasReady) return;
 
-        // Recursive helper to find all buttons
-        const findButtons = (container) => {
-            if (container.items) {
-                container.items.forEach(item => {
-                    if (item.ntype === 'button') {
-                        ids.push(item.id)
-                    } else if (item.items) {
-                        findButtons(item)
-                    }
-                })
-            }
-        };
-
-        findButtons(parent);
+        let parent  = Neo.get(me.parentId),
+            buttons = ComponentManager.down(parent, 'button', false),
+            ids     = buttons.map(button => button.id);
 
         if (ids.length > 0) {
             let rects      = await me.getDomRect(ids),
@@ -185,6 +177,7 @@ class HeaderCanvas extends Canvas {
             me.canvasRect = canvasRect; // Cache for mouse events
 
             if (rects && canvasRect) {
+                // Normalize button rects to be relative to the canvas
                 me.navRects = rects.map((r, index) => {
                     if (!r) return null;
                     return {
@@ -202,6 +195,7 @@ class HeaderCanvas extends Canvas {
     }
 
     /**
+     * Updates the canvas size in the Shared Worker.
      * @param {Object|null} rect
      */
     async updateSize(rect) {
