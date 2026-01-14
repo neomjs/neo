@@ -42,6 +42,10 @@ class HeaderCanvas extends Canvas {
      * @member {Boolean} isCanvasReady=false
      */
     isCanvasReady = false
+    /**
+     * @member {Object[]} navRects=null
+     */
+    navRects = null
 
     /**
      * @param {Boolean} value
@@ -62,7 +66,17 @@ class HeaderCanvas extends Canvas {
                 windowId: me.windowId
             });
 
-            await me.updateSize()
+            // Listen to mouse events on the parent Toolbar
+            me.addDomListeners([{
+                id        : me.parentId,
+                click     : me.onClick,
+                mousemove : me.onMouseMove,
+                mouseleave: me.onMouseLeave,
+                scope     : me
+            }]);
+
+            await me.updateSize();
+            await me.updateNavRects()
         } else if (oldValue) {
             me.isCanvasReady = false;
             await Portal.canvas.HeaderCanvas.clearGraph()
@@ -76,19 +90,62 @@ class HeaderCanvas extends Canvas {
         let me = this;
 
         if (!me.canvasId) {
-            // The Canvas component creates a canvas tag.
-            // Depending on implementation, we might need to find it.
-            // But base component usually handles getting the canvas node or id.
-            // Actually, Canvas.mjs transfers the *first child* if configured?
-            // Let's look at TicketCanvas implementation.
-            // It has `_vdom: {tag: 'div', cn: [{tag: 'canvas'}]}`.
-            // So it finds cn[0].id.
-            // Neo.component.Canvas by default *is* a canvas tag if not customized?
-            // Let's check Canvas.mjs.
-            // "src/component/Canvas.mjs" => _vdom is {tag: 'canvas'}.
             me.canvasId = me.id
         }
+
         return me.canvasId
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onClick(data) {
+        let me = this;
+
+        if (me.isCanvasReady && me.canvasRect) {
+            Portal.canvas.HeaderCanvas.updateMouseState({
+                click: true,
+                x    : data.clientX - me.canvasRect.left,
+                y    : data.clientY - me.canvasRect.top
+            })
+        }
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onMouseLeave(data) {
+        if (this.isCanvasReady) {
+            Portal.canvas.HeaderCanvas.updateMouseState({leave: true})
+        }
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onMouseMove(data) {
+        let me = this;
+
+        if (me.isCanvasReady) {
+            // We need coordinates relative to the canvas (which is at 0,0 of the toolbar)
+            // The mouse event clientX/Y are global.
+            // We need the canvas global rect to subtract.
+            // For now, let's assume we can get the local coordinates if we trust the target?
+            // No, the target is the button, not the canvas.
+            // We need to fetch the canvas rect once or cache it.
+            // Actually, we can just send clientX/Y and let the worker handle it if it knows the canvas global position?
+            // Or better: calculate relative here.
+
+            // Since this is high frequency, we don't want to await getDomRect every time.
+            // We should cache the canvasPageRect in onResize/updateSize.
+
+            if (me.canvasRect) {
+                Portal.canvas.HeaderCanvas.updateMouseState({
+                    x: data.clientX - me.canvasRect.left,
+                    y: data.clientY - me.canvasRect.top
+                })
+            }
+        }
     }
 
     /**
@@ -96,7 +153,56 @@ class HeaderCanvas extends Canvas {
      */
     async onResize(data) {
         let me = this;
-        await me.updateSize(data.contentRect)
+        await me.updateSize(data.contentRect);
+        await me.updateNavRects()
+    }
+
+    /**
+     * @returns {Promise<void>}
+     */
+    async updateNavRects() {
+        let me     = this,
+            parent = Neo.get(me.parentId),
+            ids    = [];
+
+        if (!parent || !me.isCanvasReady) return;
+
+        // Recursive helper to find all buttons
+        const findButtons = (container) => {
+            if (container.items) {
+                container.items.forEach(item => {
+                    if (item.ntype === 'button') {
+                        ids.push(item.id)
+                    } else if (item.items) {
+                        findButtons(item)
+                    }
+                })
+            }
+        };
+
+        findButtons(parent);
+
+        if (ids.length > 0) {
+            let rects      = await me.getDomRect(ids),
+                canvasRect = await me.getDomRect(me.id);
+
+            me.canvasRect = canvasRect; // Cache for mouse events
+
+            if (rects && canvasRect) {
+                me.navRects = rects.map((r, index) => {
+                    if (!r) return null;
+                    return {
+                        id    : ids[index],
+                        x     : r.x - canvasRect.x,
+                        y     : r.y - canvasRect.y,
+                        width : r.width,
+                        height: r.height
+                    }
+                }).filter(Boolean);
+
+                Portal.canvas.HeaderCanvas.updateNavRects(me.navRects)
+            }
+        }
     }
 
     /**
@@ -110,6 +216,7 @@ class HeaderCanvas extends Canvas {
         }
 
         if (rect) {
+            me.canvasRect = rect; // Cache for mouse events
             await Portal.canvas.HeaderCanvas.updateSize({width: rect.width, height: rect.height})
         }
     }
