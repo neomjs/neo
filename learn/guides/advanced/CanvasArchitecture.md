@@ -1,4 +1,4 @@
-# Advanced: Zero-Allocation Effects with Shared Workers
+# Zero-Allocation Effects with Shared Workers
 
 This guide explores the "Luminous Flux" visual engine (the Sonic Waves effect in the Portal App header) as a masterclass in advanced Neo.mjs architecture. It demonstrates how to combine **True Multithreading**, **Shared Workers**, and the **OffscreenCanvas API** to achieve high-performance, non-blocking visual effects.
 
