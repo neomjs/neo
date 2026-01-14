@@ -250,10 +250,9 @@ class HeaderCanvas extends Base {
             // DAMPING FOR ICONS:
             let localAmp = baseAmp * (1 - (isIconZone * 0.6));
 
-            // Noise (Randomness) needs to be consistent for this x if we want smooth
-            // but since we clear canvas every frame, random is fine as long as
-            // Fill and Stroke use the SAME random value.
-            // That's why we calculate points once.
+            // Noise Calculation
+            // We calculate noise once per frame per point to ensure that the Ribbon Fill and
+            // Neon Stroke passes use identical geometry, preventing visual tearing.
             let noiseA = (Math.random() - 0.5) * hoverAmp * intensity,
                 noiseB = (Math.random() - 0.5) * hoverAmp * intensity;
 
@@ -298,7 +297,9 @@ class HeaderCanvas extends Base {
             if (p.y > height + p.size) p.y = -p.size;
             if (p.y < -p.size)         p.y = height + p.size;
 
-            // Mouse Interaction (Repulsion)
+            // Interaction: Mouse Repulsion
+            // All particles react to the mouse, but "Nebula" particles have higher calculated mass,
+            // resulting in less displacement than the lighter "Dust" particles.
             let dx = p.x - me.mouse.x,
                 dy = p.y - me.mouse.y,
                 dist = Math.sqrt(dx*dx + dy*dy),
@@ -323,7 +324,8 @@ class HeaderCanvas extends Base {
             ctx.beginPath();
 
             if (p.isNebula) {
-                // Soft gradient for nebula
+                // Nebula Visualization
+                // Use a radial gradient to create a soft, cloud-like appearance.
                 let g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size);
                 g.addColorStop(0, HIGHLIGHT);
                 g.addColorStop(1, 'rgba(255,255,255,0)');
@@ -487,7 +489,7 @@ class HeaderCanvas extends Base {
             ctx.strokeStyle = isCore ? '#FFFFFF' : gradient;
             ctx.lineWidth   = isCore ? 1 : 3; // Core is thin, Glow is wide
             ctx.globalAlpha = isCore ? (shimmer + 0.2) : shimmer; // Core is brighter
-            
+
             // Core doesn't need shadow, Glow does
             if (!isCore) {
                 ctx.shadowBlur  = 10;
@@ -514,7 +516,7 @@ class HeaderCanvas extends Base {
         drawStrand(pointsA, null, shimmerA, null, true);
         drawStrand(pointsB, null, shimmerB, null, true);
 
-        // Reset
+        // Cleanup: Reset shadow and alpha to prevent bleeding into the next render pass
         ctx.shadowBlur  = 0;
         ctx.globalAlpha = 1;
     }
@@ -543,10 +545,9 @@ class HeaderCanvas extends Base {
             verticalPadding = 10,
             maxSafeOffset   = (height / 2) - verticalPadding;
 
-        // Check against all buttons
-        // Optimization: In a real app with many items, we'd use a spatial map/grid.
-        // For a header with < 20 items, loop is fine.
-
+        // Collision Detection
+        // Iterate through all navigation items to determine stream diversion.
+        // Given the low item count (<20), a simple linear scan is efficient.
         for (const rect of me.navRects) {
             // Buffer zone for smooth transition
             const buffer = 40;
@@ -554,8 +555,9 @@ class HeaderCanvas extends Base {
             if (x >= rect.x - buffer && x <= rect.x + rect.width + buffer) {
                 // We are inside the influence zone of this button
 
-                // DETECT SHAPE: Is this a square-ish icon or a wide text button?
-                // Icons (Socials) are approx square. Text buttons are wide.
+                // Shape Detection
+                // Discriminate between square-ish icons (socials) and wide text buttons
+                // to apply different diversion envelopes.
                 const
                     ratio     = rect.width / rect.height,
                     isIcon    = ratio < 1.5, // Threshold for "Circle" vs "Rectangle"
@@ -576,21 +578,20 @@ class HeaderCanvas extends Base {
                         envelope = (1 + Math.cos(Math.PI * distX / span)) / 2;
                     }
 
-                    // Target diversion:
-                    // For icons, we might want to go slightly CLOSER to the edge (less padding)
-                    // Text buttons need more clearance.
+                    // Diversion Amplitude
+                    // Text buttons require more visual clearance than icons due to their
+                    // rectangular nature. Icons allow for a tighter "orbit".
                     let targetH = isIcon ? (rect.height / 2) : ((rect.height / 2) + 4);
 
-                    // CLAMP: We cap the target offset to what is physically safe
+                    // Vertical Clamping
+                    // Cap the offset to ensure the stream stays within the canvas bounds.
                     let targetOffset = Math.min(targetH, maxSafeOffset);
 
                     // Add to total offset (using max to handle overlaps cleanly)
                     offsetY = Math.max(offsetY, targetOffset * envelope);
 
-                    // 2. Check Mouse Intensity
-                    // Is mouse hovering THIS button?
-                    // Or is mouse near this X?
-                    // Let's rely on button proximity.
+                    // Interaction: Proximity Check
+                    // Boost the wave intensity if the mouse is hovering over or near this specific button.
 
                     // Distance from mouse to button center
                     let dx = me.mouse.x - centerX,
@@ -605,10 +606,9 @@ class HeaderCanvas extends Base {
             }
         }
 
-        // Ensure baseline separation (Helix effect in empty space)
-        // Let's say we always want *some* separation or keep them crossing?
-        // Let's keep offsetY=0 in empty space for crossing strands.
-
+        // Baseline Separation
+        // By returning offsetY=0 in empty space, the strands will naturally cross (Helix effect)
+        // driven by the sine wave logic in calculateStrandPoints.
         return {offsetY, intensity, isIconZone};
     }
 
