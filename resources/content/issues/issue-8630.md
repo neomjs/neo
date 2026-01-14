@@ -29,8 +29,15 @@ subIssues:
   - '[x] 8644 Add Synaptic Sparks at Reconnection Points'
   - '[x] 8645 Implement Neo Ether Particle System'
   - '[x] 8646 Enhance JSDoc for Header Canvas Visual Engine'
-subIssuesCompleted: 15
-subIssuesTotal: 15
+  - '[x] 8647 Explore 3D Effects for Header Canvas (Neon Tube vs Ribbon)'
+  - '[x] 8648 Apply Ribbon Effect to Background Helix'
+  - '[x] 8649 Enhance JSDoc for Header Canvas 3D Effects'
+  - '[x] 8650 Clean up HeaderCanvas Comments (Remove Thought Chains)'
+  - '[x] 8651 Optimize HeaderCanvas Rendering (GC & Gradients)'
+  - '[x] 8652 Document Zero-Allocation Architecture in HeaderCanvas'
+  - '[x] 8653 Throttle MouseMove Events in HeaderCanvas'
+subIssuesCompleted: 22
+subIssuesTotal: 22
 blockedBy: []
 blocking: []
 ---
@@ -89,4 +96,11 @@ Implement a high-performance, offscreen canvas overlay for the Portal's `HeaderT
 - 2026-01-14T17:42:59Z @tobiu added sub-issue #8644
 - 2026-01-14T18:03:38Z @tobiu added sub-issue #8645
 - 2026-01-14T18:33:40Z @tobiu added sub-issue #8646
+- 2026-01-14T19:04:59Z @tobiu added sub-issue #8647
+- 2026-01-14T19:12:23Z @tobiu added sub-issue #8648
+- 2026-01-14T19:18:10Z @tobiu added sub-issue #8649
+- 2026-01-14T19:27:12Z @tobiu added sub-issue #8650
+- 2026-01-14T19:32:44Z @tobiu added sub-issue #8651
+- 2026-01-14T19:44:07Z @tobiu added sub-issue #8652
+- 2026-01-14T19:53:23Z @tobiu added sub-issue #8653
 
