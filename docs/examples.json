@@ -296,5 +296,12 @@
         "name"    : "Window",
         "parentId": 34,
         "path"    : "../../../examples/window/MainContainer.mjs"
+    },
+    {
+        "id"      : 43,
+        "isLeaf"  : true,
+        "name"    : "Fragment",
+        "parentId": 34,
+        "path"    : "../../../examples/container/fragment/MainContainer.mjs"
     }
 ]
