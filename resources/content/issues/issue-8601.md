@@ -28,12 +28,15 @@ subIssues:
   - '[x] 8612 Update DeltaUpdates.insertNode to support Fragments'
   - '[x] 8614 Fix moveNode off-by-one error for forward moves in same parent'
   - '[x] 8615 Refactor Container to support atomic component moves'
-  - '[ ] 8616 Create Fragment Example App (Form Grouping)'
+  - '[x] 8616 Create Fragment Example App (Form Grouping)'
   - '[x] 8617 Refactor StringBasedRenderer for API Parity (Separate Creation from Insertion)'
   - '[x] 8618 Implement insertNodeBatch support for StringBasedRenderer'
   - '[x] 8619 Create Playwright Test Fixtures for Neo.mjs VDOM & State Inspection'
-subIssuesCompleted: 15
-subIssuesTotal: 16
+  - '[x] 8625 Fragment Move Operation Instability'
+  - '[x] 8626 Container.insert() should be a no-op for same-index moves'
+  - '[x] 8627 Fragment hidden config fails: removeNode delta missing parentId'
+subIssuesCompleted: 19
+subIssuesTotal: 19
 blockedBy: []
 blocking: []
 ---
@@ -108,4 +111,7 @@ Implement a `Neo.container.Fragment` that allows grouping items without renderin
 - 2026-01-13T19:54:51Z @tobiu added sub-issue #8617
 - 2026-01-13T19:54:53Z @tobiu added sub-issue #8618
 - 2026-01-13T19:54:54Z @tobiu added sub-issue #8619
+- 2026-01-14T00:15:59Z @tobiu added sub-issue #8625
+- 2026-01-14T00:16:02Z @tobiu added sub-issue #8626
+- 2026-01-14T00:49:15Z @tobiu added sub-issue #8627
 
