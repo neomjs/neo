@@ -713,7 +713,7 @@ class Helper extends Base {
         let delta        = {action: 'removeNode', id: oldVnode.id},
             {parentNode} = oldVnodeMap.get(oldVnode.id);
 
-        if (oldVnode.vtype === 'text') {
+        if (oldVnode.vtype === 'text' || oldVnode.nodeName === 'fragment') {
             delta.parentId = parentNode.id
         }
 
