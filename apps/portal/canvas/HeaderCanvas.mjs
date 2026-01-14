@@ -1,8 +1,10 @@
 import Base from '../../../src/core/Base.mjs';
 
 const
-    TWO_PI = Math.PI * 2,
-    WAVE_COLOR = 'rgba(64, 196, 255, 0.8)'; // Neo Blue
+    TWO_PI     = Math.PI * 2,
+    PRIMARY    = '#3E63DD',
+    SECONDARY  = '#8BA6FF',
+    HIGHLIGHT  = '#40C4FF';
 
 /**
  * @summary SharedWorker renderer for the HeaderToolbar overlay.
@@ -133,16 +135,66 @@ class HeaderCanvas extends Base {
 
         ctx.clearRect(0, 0, width, height);
 
-        // 1. Draw "Auras" (Hover Effects)
+        // 1. Draw Ambient Background
+        me.drawAmbientBackground(ctx, width, height);
+
+        // 2. Draw "Auras" (Hover Effects)
         me.drawAuras(ctx, width, height);
 
-        // 2. Draw "Shockwaves" (Click Effects)
+        // 3. Draw "Shockwaves" (Click Effects)
         me.drawShockwaves(ctx, width);
 
         // Keep loop running if there's activity or just always for ambient?
         // Let's keep it running for ambient wave effects.
         // We use setTimeout for SharedWorker compatibility (no rAF).
         setTimeout(me.renderLoop, 1000 / 60)
+    }
+
+    /**
+     * Draws a subtle, large-scale background Helix pattern.
+     * @param {CanvasRenderingContext2D} ctx
+     * @param {Number} width
+     * @param {Number} height
+     */
+    drawAmbientBackground(ctx, width, height) {
+        let me = this,
+            t  = me.time * 0.5, // Slower movement for background
+            centerY = height / 2,
+            amp     = height * 0.4; // Large amplitude
+
+        // Create Gradients for the background strands
+        const grad1 = ctx.createLinearGradient(0, 0, width, 0);
+        grad1.addColorStop(0,   'rgba(62, 99, 221, 0.1)');  // Primary low alpha
+        grad1.addColorStop(0.5, 'rgba(64, 196, 255, 0.2)'); // Highlight low alpha
+        grad1.addColorStop(1,   'rgba(62, 99, 221, 0.1)');
+
+        const grad2 = ctx.createLinearGradient(0, 0, width, 0);
+        grad2.addColorStop(0,   'rgba(139, 166, 255, 0.1)'); // Secondary low alpha
+        grad2.addColorStop(0.5, 'rgba(64, 196, 255, 0.2)'); // Highlight low alpha
+        grad2.addColorStop(1,   'rgba(139, 166, 255, 0.1)');
+
+        ctx.lineWidth = 15; // Wide, soft lines
+        ctx.lineCap   = 'round';
+
+        // --- Background Helix 1 ---
+        ctx.strokeStyle = grad1;
+        ctx.beginPath();
+        for (let x = 0; x <= width; x += 10) {
+            let y = centerY + Math.sin((x * 0.01) + t) * amp;
+            if (x === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+
+        // --- Background Helix 2 ---
+        ctx.strokeStyle = grad2;
+        ctx.beginPath();
+        for (let x = 0; x <= width; x += 10) {
+            let y = centerY + Math.sin((x * 0.01) + t + Math.PI) * amp; // Inverted phase
+            if (x === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
     }
 
     /**
@@ -160,59 +212,69 @@ class HeaderCanvas extends Base {
         }
 
         const
-            centerY   = height / 2,
-            step      = 3, // px
-            baseAmp   = 3, // Idle amplitude
-            hoverAmp  = 6; // Active amplitude noise
+            centerY  = height / 2,
+            step     = 2, // px - smoother
+            baseAmp  = 5, // Idle amplitude - larger for helix visibility
+            hoverAmp = 4; // Additional noise amp
 
-        ctx.strokeStyle = WAVE_COLOR;
+        // Create Gradients
+        const grad1 = ctx.createLinearGradient(0, 0, width, 0);
+        grad1.addColorStop(0,   PRIMARY);
+        grad1.addColorStop(0.5, HIGHLIGHT);
+        grad1.addColorStop(1,   PRIMARY);
+
+        const grad2 = ctx.createLinearGradient(0, 0, width, 0);
+        grad2.addColorStop(0,   SECONDARY);
+        grad2.addColorStop(0.5, HIGHLIGHT);
+        grad2.addColorStop(1,   SECONDARY);
+
         ctx.lineWidth   = 2;
-        ctx.shadowBlur  = 5;
-        ctx.shadowColor = WAVE_COLOR;
+        ctx.lineCap     = 'round';
+        ctx.lineJoin    = 'round';
+        ctx.shadowBlur  = 10;
 
+        // --- Strand A (Top / Sine) ---
+        ctx.strokeStyle = grad1;
+        ctx.shadowColor = PRIMARY;
         ctx.beginPath();
 
-        // We will draw TWO paths: Top Strand and Bottom Strand
-        // To do this efficiently in one pass, we can store points or just draw twice?
-        // Drawing twice is easier to read.
-
-        // --- Top Strand ---
         for (let x = 0; x <= width; x += step) {
             let {offsetY, intensity} = me.getStreamOffset(x, height);
-            
-            // Base Sine Wave
-            // If near button (offsetY > 0), the wave separates up.
-            // If in open space (offsetY ~ 0), it flows near center.
-            
+
+            // Helix motion: sin(x - time)
             let timeShift = me.time * 2,
-                sine      = Math.sin((x * 0.05) + timeShift) * baseAmp,
+                sine      = Math.sin((x * 0.04) - timeShift) * baseAmp,
                 noise     = (Math.random() - 0.5) * hoverAmp * intensity;
-                
+
+            // When offsetting (diverting), we subtract offsetY to go UP
             let y = centerY + sine - offsetY + noise;
-            
+
             if (x === 0) ctx.moveTo(x, y);
             else         ctx.lineTo(x, y);
         }
         ctx.stroke();
 
-        // --- Bottom Strand ---
+        // --- Strand B (Bottom / Cosine or Inverted Sine) ---
+        ctx.strokeStyle = grad2;
+        ctx.shadowColor = SECONDARY;
         ctx.beginPath();
+
         for (let x = 0; x <= width; x += step) {
             let {offsetY, intensity} = me.getStreamOffset(x, height);
-            
-            // Invert sine phase for "Helix" look in empty space?
-            // Or same phase? Let's try offset phase.
+
+            // Inverted Helix: sin(x - time + PI)
             let timeShift = me.time * 2,
-                sine      = Math.sin((x * 0.05) + timeShift + Math.PI) * baseAmp,
+                sine      = Math.sin((x * 0.04) - timeShift + Math.PI) * baseAmp,
                 noise     = (Math.random() - 0.5) * hoverAmp * intensity;
 
+            // When offsetting, we add offsetY to go DOWN
             let y = centerY + sine + offsetY + noise;
-            
+
             if (x === 0) ctx.moveTo(x, y);
             else         ctx.lineTo(x, y);
         }
         ctx.stroke();
-        
+
         ctx.shadowBlur = 0;
     }
 
@@ -291,9 +353,9 @@ class HeaderCanvas extends Base {
 
         for (let i = me.shockwaves.length - 1; i >= 0; i--) {
             let wave = me.shockwaves[i];
-            
+
             wave.age += 1;
-            
+
             let progress = wave.age / wave.life;
 
             if (progress >= 1) {
@@ -307,25 +369,24 @@ class HeaderCanvas extends Base {
                 alpha  = 1 - progress;
 
             ctx.beginPath();
-            ctx.strokeStyle = `rgba(64, 196, 255, ${alpha})`;
-            ctx.lineWidth = 4 * (1 - progress); // Thins out
-            
-            // Draw a vertical "sonic boom" line? Or a circle?
-            // "Sonic waves" -> vertical curved lines traveling outwards
-            
+            ctx.strokeStyle = HIGHLIGHT; // Use constant
+            ctx.globalAlpha = alpha;     // Fade out via globalAlpha
+            ctx.lineWidth   = 4 * (1 - progress);
+
             // Left Wave
             if (xLeft > 0) {
                 ctx.moveTo(xLeft, 0);
                 ctx.quadraticCurveTo(xLeft - 20, me.canvasSize.height / 2, xLeft, me.canvasSize.height);
             }
-            
+
             // Right Wave
             if (xRight < width) {
                 ctx.moveTo(xRight, 0);
                 ctx.quadraticCurveTo(xRight + 20, me.canvasSize.height / 2, xRight, me.canvasSize.height);
             }
-            
+
             ctx.stroke();
+            ctx.globalAlpha = 1; // Reset
         }
     }
 
