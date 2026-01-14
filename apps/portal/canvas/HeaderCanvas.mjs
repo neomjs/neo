@@ -215,9 +215,11 @@ class HeaderCanvas extends Base {
             padding  = 10,
             maxH     = (height - (padding * 2)) / 2, // Max amplitude allowed
             centerY  = height / 2,
-            step     = 2, // px - smoother
-            baseAmp  = Math.min(5, maxH), // Idle amplitude
-            hoverAmp = 4; // Additional noise amp
+            step     = 2,
+            // BREATHING: Modulate base amplitude over time (slow pulse)
+            breath   = Math.sin(me.time * 0.5) * 2,
+            baseAmp  = Math.min(6 + breath, maxH),
+            hoverAmp = 4;
 
         // Create Gradients
         const grad1 = ctx.createLinearGradient(0, 0, width, 0);
@@ -235,20 +237,29 @@ class HeaderCanvas extends Base {
         ctx.lineJoin    = 'round';
         ctx.shadowBlur  = 10;
 
+        // We use globalAlpha to implement the "Shimmer" effect
+        // However, setting globalAlpha on the whole path makes it flash uniformly.
+        // To have "traveling" shimmer, we would need segments or a gradient mask.
+        // A simpler, performant approach: Use the "breath" to also modulate global intensity slightly?
+        // Or stick to the "Breathing" for geometry and keep opacity constant for now to avoid segmenting.
+        // User asked for "parts fading in or out".
+        // Let's use a subtle global pulse for the strands.
+
+        let shimmer = 0.8 + (Math.sin(me.time * 2) * 0.2); // 0.6 to 1.0
+
         // --- Strand A (Top / Sine) ---
         ctx.strokeStyle = grad1;
         ctx.shadowColor = PRIMARY;
+        ctx.globalAlpha = shimmer;
         ctx.beginPath();
 
         for (let x = 0; x <= width; x += step) {
             let {offsetY, intensity} = me.getStreamOffset(x, height);
 
-            // Helix motion: sin(x - time)
             let timeShift = me.time * 2,
                 sine      = Math.sin((x * 0.04) - timeShift) * baseAmp,
                 noise     = (Math.random() - 0.5) * hoverAmp * intensity;
 
-            // When offsetting (diverting), we subtract offsetY to go UP
             let y = centerY + sine - offsetY + noise;
 
             if (x === 0) ctx.moveTo(x, y);
@@ -259,17 +270,16 @@ class HeaderCanvas extends Base {
         // --- Strand B (Bottom / Cosine or Inverted Sine) ---
         ctx.strokeStyle = grad2;
         ctx.shadowColor = SECONDARY;
+        ctx.globalAlpha = shimmer; // Keep in sync or phase shift? Let's keep in sync for coherence.
         ctx.beginPath();
 
         for (let x = 0; x <= width; x += step) {
             let {offsetY, intensity} = me.getStreamOffset(x, height);
 
-            // Inverted Helix: sin(x - time + PI)
             let timeShift = me.time * 2,
                 sine      = Math.sin((x * 0.04) - timeShift + Math.PI) * baseAmp,
                 noise     = (Math.random() - 0.5) * hoverAmp * intensity;
 
-            // When offsetting, we add offsetY to go DOWN
             let y = centerY + sine + offsetY + noise;
 
             if (x === 0) ctx.moveTo(x, y);
@@ -277,7 +287,8 @@ class HeaderCanvas extends Base {
         }
         ctx.stroke();
 
-        ctx.shadowBlur = 0;
+        ctx.shadowBlur  = 0;
+        ctx.globalAlpha = 1;
     }
 
     /**
