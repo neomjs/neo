@@ -291,45 +291,50 @@ class HeaderCanvas extends Base {
             offsetY   = 0,
             intensity = 0; // 0 to 1 (Hover magnitude)
 
+        const
+            verticalPadding = 10,
+            maxSafeOffset   = (height / 2) - verticalPadding;
+
         // Check against all buttons
         // Optimization: In a real app with many items, we'd use a spatial map/grid.
         // For a header with < 20 items, loop is fine.
-        
+
         for (const rect of me.navRects) {
             // Buffer zone for smooth transition
-            const buffer = 40; 
-            
+            const buffer = 40;
+
             if (x >= rect.x - buffer && x <= rect.x + rect.width + buffer) {
                 // We are inside the influence zone of this button
-                
+
                 // 1. Calculate Envelope (0 at edges, 1 at center)
                 // Use cosine or parabola for smooth "bubble" shape
-                const 
+                const
                     centerX = rect.x + rect.width / 2,
                     span    = (rect.width / 2) + buffer,
                     distX   = Math.abs(x - centerX);
-                    
+
                 if (distX < span) {
                     // Smooth envelope: (1 + cos(pi * dist / span)) / 2
                     // This creates a bell curve from 0 to 1 to 0
                     let envelope = (1 + Math.cos(Math.PI * distX / span)) / 2;
-                    
+
                     // Target diversion: Half button height + padding
-                    let targetOffset = (rect.height / 2) + 4;
-                    
+                    // CLAMP: We cap the target offset to what is physically safe
+                    let targetOffset = Math.min((rect.height / 2) + 4, maxSafeOffset);
+
                     // Add to total offset (using max to handle overlaps cleanly)
                     offsetY = Math.max(offsetY, targetOffset * envelope);
-                    
+
                     // 2. Check Mouse Intensity
                     // Is mouse hovering THIS button?
                     // Or is mouse near this X?
                     // Let's rely on button proximity.
-                    
+
                     // Distance from mouse to button center
                     let dx = me.mouse.x - centerX,
                         dy = me.mouse.y - (rect.y + rect.height/2),
                         distMouse = Math.sqrt(dx*dx + dy*dy);
-                        
+
                     // If mouse is near this button, boost intensity
                     if (distMouse < Math.max(rect.width, rect.height)) {
                         intensity = Math.max(intensity, 1 - (distMouse / 150));
@@ -337,11 +342,11 @@ class HeaderCanvas extends Base {
                 }
             }
         }
-        
+
         // Ensure baseline separation (Helix effect in empty space)
         // Let's say we always want *some* separation or keep them crossing?
         // Let's keep offsetY=0 in empty space for crossing strands.
-        
+
         return {offsetY, intensity};
     }
 
