@@ -146,7 +146,8 @@ class HeaderCanvas extends Base {
     }
 
     /**
-     * Draws interactive frequency waves under/around hovered items.
+     * Draws a continuous "Split Stream" that flows across the header,
+     * diverting around buttons and reacting to hover.
      * @param {CanvasRenderingContext2D} ctx
      * @param {Number} width
      * @param {Number} height
@@ -158,51 +159,126 @@ class HeaderCanvas extends Base {
             return
         }
 
-        me.navRects.forEach(rect => {
-            // Check if mouse is interacting with this rect (with some padding)
-            let dx = me.mouse.x - (rect.x + rect.width / 2),
-                dy = me.mouse.y - (rect.y + rect.height / 2),
-                dist = Math.sqrt(dx * dx + dy * dy),
-                maxDist = Math.max(rect.width, rect.height) * 1.5;
+        const
+            centerY   = height / 2,
+            step      = 3, // px
+            baseAmp   = 3, // Idle amplitude
+            hoverAmp  = 6; // Active amplitude noise
 
-            if (dist < maxDist) {
-                // Calculate intensity based on proximity
-                let intensity = 1 - (dist / maxDist);
-                intensity = Math.max(0, intensity);
+        ctx.strokeStyle = WAVE_COLOR;
+        ctx.lineWidth   = 2;
+        ctx.shadowBlur  = 5;
+        ctx.shadowColor = WAVE_COLOR;
 
-                // Draw Sonic Wave Underline
-                ctx.beginPath();
-                ctx.strokeStyle = WAVE_COLOR;
-                ctx.lineWidth = 2;
+        ctx.beginPath();
 
-                let startX = rect.x,
-                    endX   = rect.x + rect.width,
-                    y      = rect.y + rect.height, // Bottom of the button
-                    steps  = 20,
-                    stepX  = (endX - startX) / steps;
+        // We will draw TWO paths: Top Strand and Bottom Strand
+        // To do this efficiently in one pass, we can store points or just draw twice?
+        // Drawing twice is easier to read.
 
-                ctx.moveTo(startX, y);
-
-                for (let i = 0; i <= steps; i++) {
-                    let cx = startX + (i * stepX);
-                    // Sine wave logic
-                    // Frequency increases with intensity
-                    // Amplitude increases with intensity
-                    // Phase shifts with time
-                    let waveY = y + Math.sin((i * 0.5) + (me.time * 2)) * (5 * intensity);
-                    
-                    // Add some noise/jitter for "Sonic" feel?
-                    // waveY += (Math.random() - 0.5) * 2 * intensity;
-
-                    ctx.lineTo(cx, waveY);
-                }
+        // --- Top Strand ---
+        for (let x = 0; x <= width; x += step) {
+            let {offsetY, intensity} = me.getStreamOffset(x, height);
+            
+            // Base Sine Wave
+            // If near button (offsetY > 0), the wave separates up.
+            // If in open space (offsetY ~ 0), it flows near center.
+            
+            let timeShift = me.time * 2,
+                sine      = Math.sin((x * 0.05) + timeShift) * baseAmp,
+                noise     = (Math.random() - 0.5) * hoverAmp * intensity;
                 
-                // Fade out at edges
-                ctx.globalAlpha = intensity;
-                ctx.stroke();
-                ctx.globalAlpha = 1.0;
+            let y = centerY + sine - offsetY + noise;
+            
+            if (x === 0) ctx.moveTo(x, y);
+            else         ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+
+        // --- Bottom Strand ---
+        ctx.beginPath();
+        for (let x = 0; x <= width; x += step) {
+            let {offsetY, intensity} = me.getStreamOffset(x, height);
+            
+            // Invert sine phase for "Helix" look in empty space?
+            // Or same phase? Let's try offset phase.
+            let timeShift = me.time * 2,
+                sine      = Math.sin((x * 0.05) + timeShift + Math.PI) * baseAmp,
+                noise     = (Math.random() - 0.5) * hoverAmp * intensity;
+
+            let y = centerY + sine + offsetY + noise;
+            
+            if (x === 0) ctx.moveTo(x, y);
+            else         ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+        
+        ctx.shadowBlur = 0;
+    }
+
+    /**
+     * Calculates the vertical diversion needed at a given X to avoid buttons.
+     * @param {Number} x
+     * @param {Number} height (Canvas height)
+     * @returns {Object} {offsetY, intensity}
+     */
+    getStreamOffset(x, height) {
+        let me        = this,
+            offsetY   = 0,
+            intensity = 0; // 0 to 1 (Hover magnitude)
+
+        // Check against all buttons
+        // Optimization: In a real app with many items, we'd use a spatial map/grid.
+        // For a header with < 20 items, loop is fine.
+        
+        for (const rect of me.navRects) {
+            // Buffer zone for smooth transition
+            const buffer = 40; 
+            
+            if (x >= rect.x - buffer && x <= rect.x + rect.width + buffer) {
+                // We are inside the influence zone of this button
+                
+                // 1. Calculate Envelope (0 at edges, 1 at center)
+                // Use cosine or parabola for smooth "bubble" shape
+                const 
+                    centerX = rect.x + rect.width / 2,
+                    span    = (rect.width / 2) + buffer,
+                    distX   = Math.abs(x - centerX);
+                    
+                if (distX < span) {
+                    // Smooth envelope: (1 + cos(pi * dist / span)) / 2
+                    // This creates a bell curve from 0 to 1 to 0
+                    let envelope = (1 + Math.cos(Math.PI * distX / span)) / 2;
+                    
+                    // Target diversion: Half button height + padding
+                    let targetOffset = (rect.height / 2) + 4;
+                    
+                    // Add to total offset (using max to handle overlaps cleanly)
+                    offsetY = Math.max(offsetY, targetOffset * envelope);
+                    
+                    // 2. Check Mouse Intensity
+                    // Is mouse hovering THIS button?
+                    // Or is mouse near this X?
+                    // Let's rely on button proximity.
+                    
+                    // Distance from mouse to button center
+                    let dx = me.mouse.x - centerX,
+                        dy = me.mouse.y - (rect.y + rect.height/2),
+                        distMouse = Math.sqrt(dx*dx + dy*dy);
+                        
+                    // If mouse is near this button, boost intensity
+                    if (distMouse < Math.max(rect.width, rect.height)) {
+                        intensity = Math.max(intensity, 1 - (distMouse / 150));
+                    }
+                }
             }
-        })
+        }
+        
+        // Ensure baseline separation (Helix effect in empty space)
+        // Let's say we always want *some* separation or keep them crossing?
+        // Let's keep offsetY=0 in empty space for crossing strands.
+        
+        return {offsetY, intensity};
     }
 
     /**
