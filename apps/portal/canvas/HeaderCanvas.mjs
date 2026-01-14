@@ -8,6 +8,22 @@ const
 
 /**
  * @summary SharedWorker renderer for the HeaderToolbar overlay.
+ *
+ * Implements the **"Luminous Flux"** visual theme, an ambient, interactive energy simulation that
+ * serves as the backdrop for the Portal header.
+ *
+ * **Visual Architecture:**
+ * 1. **Neo Ether (Background):** A volumetric particle field composed of faint "dust" and larger "nebula" orbs.
+ *    This provides atmospheric depth, fluid interactivity (mouse repulsion), and bridges the contrast gap
+ *    between the white background and the foreground elements.
+ * 2. **Ambient Helix (Midground):** A large-scale, slow-moving sine wave pattern that provides structural
+ *    texture to the negative space.
+ * 3. **Split Stream (Foreground):** Two intertwined energy strands (Helix/DNA) that flow across the canvas.
+ *    - **Adaptive Geometry:** The strands flow loosely around text buttons but tighten into a "high-gravity orbit"
+ *      around social icons (circular buttons).
+ *    - **Dynamic Life:** The strands "breathe" (amplitude modulation) and "shimmer" (opacity pulse) to feel alive.
+ *    - **Interactive Warp:** The frequency modulates (bunches up) around user interaction points.
+ *
  * @class Portal.canvas.HeaderCanvas
  * @extends Neo.core.Base
  * @singleton
@@ -190,7 +206,18 @@ class HeaderCanvas extends Base {
     }
 
     /**
-     * Draws the "Ether" particle field.
+     * Draws the "Ether" particle field to add volumetric depth and interactivity.
+     *
+     * **Intent:**
+     * Creates a living, breathing atmosphere ("Neo Ether") that fills the negative space.
+     * This bridges the visual gap between the stark white background and the high-contrast foreground lines.
+     *
+     * **Physics:**
+     * - **Drift:** Particles move with a constant `vx` to simulate data flow or wind.
+     * - **Repulsion:** The mouse cursor acts as a "repulsor field," pushing particles away and brightening them
+     *   to create a sense of fluid displacement.
+     * - **Nebulae:** Large, faint particles create a "fog" effect, while small, bright particles act as "dust."
+     *
      * @param {CanvasRenderingContext2D} ctx
      * @param {Number} width
      * @param {Number} height
@@ -256,6 +283,15 @@ class HeaderCanvas extends Base {
 
     /**
      * Draws a subtle, large-scale background Helix pattern.
+     *
+     * **Intent:**
+     * Provides a structural backbone to the negative space. Unlike the particle field (which is chaotic),
+     * this layer is ordered and rhythmic, reinforcing the "DNA/Helix" theme even in the background.
+     *
+     * **Visuals:**
+     * Uses wide, very low opacity strokes to create a "depth of field" effect, appearing to be
+     * far behind the sharp foreground strands.
+     *
      * @param {CanvasRenderingContext2D} ctx
      * @param {Number} width
      * @param {Number} height
@@ -302,8 +338,17 @@ class HeaderCanvas extends Base {
     }
 
     /**
-     * Draws a continuous "Split Stream" that flows across the header,
-     * diverting around buttons and reacting to hover.
+     * Draws the main foreground "Split Stream" energy strands.
+     *
+     * **Visual Philosophy:**
+     * Represents the "Active Application State." It is sharp, bright, and highly responsive.
+     *
+     * **Key Dynamics:**
+     * 1. **Phase Coupling:** "Shimmer" (opacity) leads "Breath" (amplitude) by 90 degrees.
+     *    This creates a "Charge Up" effect where the lines brighten just before they expand.
+     * 2. **Independent Shimmer:** Strand A and B have offset shimmer phases, creating a "Call and Response" interplay.
+     * 3. **Reaction:** The stream physically diverts around buttons (see `getStreamOffset`).
+     *
      * @param {CanvasRenderingContext2D} ctx
      * @param {Number} width
      * @param {Number} height
@@ -409,10 +454,18 @@ class HeaderCanvas extends Base {
     }
 
     /**
-     * Calculates the vertical diversion needed at a given X to avoid buttons.
+     * Calculates the physics for diverting the stream around UI elements.
+     *
+     * **Logic:**
+     * 1. **Detection:** Iterates through `navRects` to find if the current `x` is near a button.
+     * 2. **Adaptive Geometry:**
+     *    - **Text Buttons:** Uses a wide Cosine envelope for smooth flow.
+     *    - **Icon Buttons:** Uses a sharp Cubed envelope (`Math.pow(x, 3)`) to create a "Tight Orbit" effect.
+     * 3. **Vertical Clamping:** Ensures the diversion never pushes the wave off-canvas.
+     *
      * @param {Number} x
      * @param {Number} height (Canvas height)
-     * @returns {Object} {offsetY, intensity}
+     * @returns {Object} {offsetY, intensity, isIconZone}
      */
     getStreamOffset(x, height) {
         let me        = this,
