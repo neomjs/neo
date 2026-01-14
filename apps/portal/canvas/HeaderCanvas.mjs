@@ -237,29 +237,27 @@ class HeaderCanvas extends Base {
         ctx.lineJoin    = 'round';
         ctx.shadowBlur  = 10;
 
-        // We use globalAlpha to implement the "Shimmer" effect
-        // However, setting globalAlpha on the whole path makes it flash uniformly.
-        // To have "traveling" shimmer, we would need segments or a gradient mask.
-        // A simpler, performant approach: Use the "breath" to also modulate global intensity slightly?
-        // Or stick to the "Breathing" for geometry and keep opacity constant for now to avoid segmenting.
-        // User asked for "parts fading in or out".
-        // Let's use a subtle global pulse for the strands.
+        // REF 1: Linked Phase - Shimmer leads Breath by 90deg ("Charging up")
+        let baseShimmer = 0.75 + (Math.sin(me.time * 0.5 + Math.PI / 2) * 0.25);
 
-        let shimmer = 0.8 + (Math.sin(me.time * 2) * 0.2); // 0.6 to 1.0
+        // REF 2: Independent Strand Shimmer
+        // Strand A follows base shimmer
+        // Strand B follows base shimmer but slightly out of phase for "call and response"
+        let shimmerA = baseShimmer,
+            shimmerB = 0.75 + (Math.sin(me.time * 0.5 + Math.PI / 2 + Math.PI / 3) * 0.25);
 
         // --- Strand A (Top / Sine) ---
         ctx.strokeStyle = grad1;
         ctx.shadowColor = PRIMARY;
-        ctx.globalAlpha = shimmer;
+        ctx.globalAlpha = shimmerA;
         ctx.beginPath();
 
         for (let x = 0; x <= width; x += step) {
             let {offsetY, intensity} = me.getStreamOffset(x, height);
 
-            // FREQUENCY MODULATION:
-            // Vary the phase speed along X to stretch/compress the wave.
-            // We use a low-frequency sine to modulate the input to the high-frequency sine.
-            let freqMod   = Math.sin(x * 0.002 + me.time * 0.1) * 20, // Slowly changing warp
+            // REF 3: Interactive FM Warp
+            // Amplify frequency modulation near interactions
+            let freqMod   = Math.sin(x * 0.002 + me.time * 0.1) * (20 + (intensity * 10)),
                 timeShift = me.time * 2,
                 sine      = Math.sin(((x + freqMod) * 0.04) - timeShift) * baseAmp,
                 noise     = (Math.random() - 0.5) * hoverAmp * intensity;
@@ -274,14 +272,14 @@ class HeaderCanvas extends Base {
         // --- Strand B (Bottom / Cosine or Inverted Sine) ---
         ctx.strokeStyle = grad2;
         ctx.shadowColor = SECONDARY;
-        ctx.globalAlpha = shimmer; // Keep in sync or phase shift? Let's keep in sync for coherence.
+        ctx.globalAlpha = shimmerB;
         ctx.beginPath();
 
         for (let x = 0; x <= width; x += step) {
             let {offsetY, intensity} = me.getStreamOffset(x, height);
 
-            // Same FM for coherence, just inverted phase
-            let freqMod   = Math.sin(x * 0.002 + me.time * 0.1) * 20,
+            // Same FM with interaction boost
+            let freqMod   = Math.sin(x * 0.002 + me.time * 0.1) * (20 + (intensity * 10)),
                 timeShift = me.time * 2,
                 sine      = Math.sin(((x + freqMod) * 0.04) - timeShift + Math.PI) * baseAmp,
                 noise     = (Math.random() - 0.5) * hoverAmp * intensity;
