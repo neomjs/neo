@@ -193,7 +193,7 @@ class HeaderCanvas extends Base {
         // 2. Draw Ether Particles (Background Layer)
         me.drawParticles(ctx, width, height);
 
-        // 3. Draw "Auras" (Hover Effects)
+        // 3. Draw "Auras" (Hover Effects) => 3D Ribbon + Neon Tube
         me.drawAuras(ctx, width, height);
 
         // 4. Draw "Shockwaves" (Click Effects)
@@ -206,6 +206,68 @@ class HeaderCanvas extends Base {
     }
 
     /**
+     * Calculates the points for the two energy strands based on physics and interaction.
+     * Separating this from drawing allows us to use the same points for both the
+     * Ribbon fill (between strands) and the Neon stroke (on top of strands).
+     *
+     * @param {Number} width
+     * @param {Number} height
+     * @returns {Object} {pointsA: [], pointsB: [], shimmerA: Number, shimmerB: Number}
+     */
+    calculateStrandPoints(width, height) {
+        let me = this;
+
+        if (!Array.isArray(me.navRects)) {
+            return {pointsA: [], pointsB: [], shimmerA: 0, shimmerB: 0}
+        }
+
+        const
+            pointsA = [],
+            pointsB = [],
+            step    = 2,
+            centerY = height / 2,
+            padding = 10,
+            maxH    = (height - (padding * 2)) / 2,
+            // BREATHING: Modulate base amplitude over time (slow pulse)
+            breath   = Math.sin(me.time * 0.5) * 2,
+            baseAmp  = Math.min(6 + breath, maxH),
+            hoverAmp = 4;
+
+        // REF 1: Linked Phase - Shimmer leads Breath by 90deg ("Charging up")
+        let baseShimmer = 0.75 + (Math.sin(me.time * 0.5 + Math.PI / 2) * 0.25);
+
+        // REF 2: Independent Strand Shimmer
+        let shimmerA = baseShimmer,
+            shimmerB = 0.75 + (Math.sin(me.time * 0.5 + Math.PI / 2 + Math.PI / 3) * 0.25);
+
+        for (let x = 0; x <= width; x += step) {
+            let {offsetY, intensity, isIconZone} = me.getStreamOffset(x, height);
+
+            // FREQUENCY MODULATION:
+            let freqMod   = Math.sin(x * 0.002 + me.time * 0.1) * (20 + (intensity * 10)),
+                timeShift = me.time * 2;
+
+            // DAMPING FOR ICONS:
+            let localAmp = baseAmp * (1 - (isIconZone * 0.6));
+
+            // Noise (Randomness) needs to be consistent for this x if we want smooth
+            // but since we clear canvas every frame, random is fine as long as
+            // Fill and Stroke use the SAME random value.
+            // That's why we calculate points once.
+            let noiseA = (Math.random() - 0.5) * hoverAmp * intensity,
+                noiseB = (Math.random() - 0.5) * hoverAmp * intensity;
+
+            let sine  = Math.sin(((x + freqMod) * 0.04) - timeShift) * localAmp,
+                sineB = Math.sin(((x + freqMod) * 0.04) - timeShift + Math.PI) * localAmp; // Inverted
+
+            pointsA.push({x, y: centerY + sine - offsetY + noiseA});
+            pointsB.push({x, y: centerY + sineB + offsetY + noiseB});
+        }
+
+        return {pointsA, pointsB, shimmerA, shimmerB}
+    }
+
+    /**
      * Draws the "Ether" particle field to add volumetric depth and interactivity.
      *
      * **Intent:**
@@ -215,7 +277,7 @@ class HeaderCanvas extends Base {
      * **Physics:**
      * - **Drift:** Particles move with a constant `vx` to simulate data flow or wind.
      * - **Repulsion:** The mouse cursor acts as a "repulsor field," pushing particles away and brightening them
-     *   to create a sense of fluid displacement.
+     *   to create a "hole" in the fog.
      * - **Nebulae:** Large, faint particles create a "fog" effect, while small, bright particles act as "dust."
      *
      * @param {CanvasRenderingContext2D} ctx
@@ -236,8 +298,7 @@ class HeaderCanvas extends Base {
             if (p.y > height + p.size) p.y = -p.size;
             if (p.y < -p.size)         p.y = height + p.size;
 
-            // Mouse Interaction (Repulsion) - Only for small dust? Or both?
-            // Let's affect both but nebulae have high mass (less effect)
+            // Mouse Interaction (Repulsion)
             let dx = p.x - me.mouse.x,
                 dy = p.y - me.mouse.y,
                 dist = Math.sqrt(dx*dx + dy*dy),
@@ -263,8 +324,6 @@ class HeaderCanvas extends Base {
 
             if (p.isNebula) {
                 // Soft gradient for nebula
-                // Since this is expensive, maybe just low alpha circle is enough?
-                // Gradient is better for "Cloud" look.
                 let g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size);
                 g.addColorStop(0, HIGHLIGHT);
                 g.addColorStop(1, 'rgba(255,255,255,0)');
@@ -338,16 +397,12 @@ class HeaderCanvas extends Base {
     }
 
     /**
-     * Draws the main foreground "Split Stream" energy strands.
+     * Draws the main foreground "Split Stream" energy strands with 3D effects.
      *
-     * **Visual Philosophy:**
-     * Represents the "Active Application State." It is sharp, bright, and highly responsive.
-     *
-     * **Key Dynamics:**
-     * 1. **Phase Coupling:** "Shimmer" (opacity) leads "Breath" (amplitude) by 90 degrees.
-     *    This creates a "Charge Up" effect where the lines brighten just before they expand.
-     * 2. **Independent Shimmer:** Strand A and B have offset shimmer phases, creating a "Call and Response" interplay.
-     * 3. **Reaction:** The stream physically diverts around buttons (see `getStreamOffset`).
+     * **3D Architecture:**
+     * 1. **Ribbon Fill:** Draws a low-opacity gradient between Strand A and Strand B, creating a twisting surface.
+     * 2. **Neon Tube (Outer):** The colored glow of the strands.
+     * 3. **Neon Tube (Core):** A bright white inner core to simulate volumetric light.
      *
      * @param {CanvasRenderingContext2D} ctx
      * @param {Number} width
@@ -356,19 +411,12 @@ class HeaderCanvas extends Base {
     drawAuras(ctx, width, height) {
         let me = this;
 
-        if (!Array.isArray(me.navRects)) {
-            return
-        }
+        if (!Array.isArray(me.navRects)) return;
 
-        const
-            padding  = 10,
-            maxH     = (height - (padding * 2)) / 2, // Max amplitude allowed
-            centerY  = height / 2,
-            step     = 2,
-            // BREATHING: Modulate base amplitude over time (slow pulse)
-            breath   = Math.sin(me.time * 0.5) * 2,
-            baseAmp  = Math.min(6 + breath, maxH),
-            hoverAmp = 4;
+        // 1. Calculate Physics (Shared for Ribbon and Strands)
+        const {pointsA, pointsB, shimmerA, shimmerB} = me.calculateStrandPoints(width, height);
+
+        if (pointsA.length === 0) return;
 
         // Create Gradients
         const grad1 = ctx.createLinearGradient(0, 0, width, 0);
@@ -381,74 +429,66 @@ class HeaderCanvas extends Base {
         grad2.addColorStop(0.5, HIGHLIGHT);
         grad2.addColorStop(1,   SECONDARY);
 
-        ctx.lineWidth   = 2;
+        // --- 2. RIBBON FILL (The 3D Surface) ---
+        // We construct a shape that connects Strand A and Strand B
+        const ribbonGrad = ctx.createLinearGradient(0, 0, width, 0);
+        ribbonGrad.addColorStop(0,   'rgba(62, 99, 221, 0.05)'); // Very faint
+        ribbonGrad.addColorStop(0.5, 'rgba(64, 196, 255, 0.1)'); // Slightly visible in center
+        ribbonGrad.addColorStop(1,   'rgba(62, 99, 221, 0.05)');
+
+        ctx.fillStyle = ribbonGrad;
+        ctx.beginPath();
+        // Move along Strand A forward
+        ctx.moveTo(pointsA[0].x, pointsA[0].y);
+        for (let i = 1; i < pointsA.length; i++) {
+            ctx.lineTo(pointsA[i].x, pointsA[i].y);
+        }
+        // Move along Strand B backward
+        for (let i = pointsB.length - 1; i >= 0; i--) {
+            ctx.lineTo(pointsB[i].x, pointsB[i].y);
+        }
+        ctx.closePath();
+        ctx.fill();
+
+        // --- 3. NEON STRANDS (Tube Effect) ---
+
         ctx.lineCap     = 'round';
         ctx.lineJoin    = 'round';
-        ctx.shadowBlur  = 10;
 
-        // REF 1: Linked Phase - Shimmer leads Breath by 90deg ("Charging up")
-        let baseShimmer = 0.75 + (Math.sin(me.time * 0.5 + Math.PI / 2) * 0.25);
+        // Helper to draw a strand
+        const drawStrand = (points, gradient, shimmer, color, isCore) => {
+            ctx.beginPath();
+            ctx.strokeStyle = isCore ? '#FFFFFF' : gradient;
+            ctx.lineWidth   = isCore ? 1 : 3; // Core is thin, Glow is wide
+            ctx.globalAlpha = isCore ? (shimmer + 0.2) : shimmer; // Core is brighter
+            
+            // Core doesn't need shadow, Glow does
+            if (!isCore) {
+                ctx.shadowBlur  = 10;
+                ctx.shadowColor = color;
+            } else {
+                ctx.shadowBlur  = 0;
+            }
 
-        // REF 2: Independent Strand Shimmer
-        // Strand A follows base shimmer
-        // Strand B follows base shimmer but slightly out of phase for "call and response"
-        let shimmerA = baseShimmer,
-            shimmerB = 0.75 + (Math.sin(me.time * 0.5 + Math.PI / 2 + Math.PI / 3) * 0.25);
+            if (points.length > 0) {
+                ctx.moveTo(points[0].x, points[0].y);
+                for (let i = 1; i < points.length; i++) {
+                    ctx.lineTo(points[i].x, points[i].y);
+                }
+            }
+            ctx.stroke();
+        };
 
-        // --- Strand A (Top / Sine) ---
-        ctx.strokeStyle = grad1;
-        ctx.shadowColor = PRIMARY;
-        ctx.globalAlpha = shimmerA;
-        ctx.beginPath();
+        // Draw Glows (Outer Tube)
+        drawStrand(pointsA, grad1, shimmerA, PRIMARY, false);
+        drawStrand(pointsB, grad2, shimmerB, SECONDARY, false);
 
-        for (let x = 0; x <= width; x += step) {
-            let {offsetY, intensity, isIconZone} = me.getStreamOffset(x, height);
+        // Draw Cores (Inner Filament) - The "3D Pop"
+        // We draw these ON TOP of the glows for maximum contrast
+        drawStrand(pointsA, null, shimmerA, null, true);
+        drawStrand(pointsB, null, shimmerB, null, true);
 
-            // FREQUENCY MODULATION:
-            let freqMod   = Math.sin(x * 0.002 + me.time * 0.1) * (20 + (intensity * 10)),
-                timeShift = me.time * 2;
-
-            // DAMPING FOR ICONS:
-            // If we are in an icon zone (isIconZone > 0), we reduce the base amplitude
-            // so the orbit doesn't swing wildly.
-            // Text buttons (isIconZone ~ 0) keep full swing.
-            let localAmp = baseAmp * (1 - (isIconZone * 0.6)); // Reduce up to 60%
-
-            let sine  = Math.sin(((x + freqMod) * 0.04) - timeShift) * localAmp,
-                noise = (Math.random() - 0.5) * hoverAmp * intensity;
-
-            let y = centerY + sine - offsetY + noise;
-
-            if (x === 0) ctx.moveTo(x, y);
-            else         ctx.lineTo(x, y);
-        }
-        ctx.stroke();
-
-        // --- Strand B (Bottom / Cosine or Inverted Sine) ---
-        ctx.strokeStyle = grad2;
-        ctx.shadowColor = SECONDARY;
-        ctx.globalAlpha = shimmerB;
-        ctx.beginPath();
-
-        for (let x = 0; x <= width; x += step) {
-            let {offsetY, intensity, isIconZone} = me.getStreamOffset(x, height);
-
-            // Same FM and Damping
-            let freqMod   = Math.sin(x * 0.002 + me.time * 0.1) * (20 + (intensity * 10)),
-                timeShift = me.time * 2;
-
-            let localAmp = baseAmp * (1 - (isIconZone * 0.6));
-
-            let sine  = Math.sin(((x + freqMod) * 0.04) - timeShift + Math.PI) * localAmp,
-                noise = (Math.random() - 0.5) * hoverAmp * intensity;
-
-            let y = centerY + sine + offsetY + noise;
-
-            if (x === 0) ctx.moveTo(x, y);
-            else         ctx.lineTo(x, y);
-        }
-        ctx.stroke();
-
+        // Reset
         ctx.shadowBlur  = 0;
         ctx.globalAlpha = 1;
     }
