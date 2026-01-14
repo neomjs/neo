@@ -66,6 +66,10 @@ class HeaderCanvas extends Base {
      */
     navRects = []
     /**
+     * @member {Object[]} particles=[]
+     */
+    particles = []
+    /**
      * @member {Object[]} shockwaves=[]
      */
     shockwaves = []
@@ -83,6 +87,7 @@ class HeaderCanvas extends Base {
         me.canvasId   = null;
         me.canvasSize = null;
         me.navRects   = [];
+        me.particles  = [];
         me.shockwaves = []
     }
 
@@ -103,12 +108,35 @@ class HeaderCanvas extends Base {
 
             if (canvas) {
                 me.context = canvas.getContext('2d');
+                me.initParticles(canvas.width, canvas.height); // Init particles
                 hasChange && me.renderLoop()
             } else {
                 setTimeout(checkCanvas, 50)
             }
         };
         checkCanvas()
+    }
+
+    /**
+     * @param {Number} width
+     * @param {Number} height
+     */
+    initParticles(width, height) {
+        let me = this;
+        me.particles = [];
+        const count = 80;
+
+        for (let i = 0; i < count; i++) {
+            me.particles.push({
+                x: Math.random() * width,
+                y: Math.random() * height,
+                vx: (Math.random() * 0.5) + 0.1, // Drift velocity
+                vy: (Math.random() - 0.5) * 0.2,
+                size: Math.random() * 2 + 0.5,
+                alpha: Math.random() * 0.3 + 0.1, // Faint
+                baseAlpha: Math.random() * 0.3 + 0.1
+            })
+        }
     }
 
     /**
@@ -133,21 +161,80 @@ class HeaderCanvas extends Base {
 
         me.time += 0.05;
 
+        // Auto-reinit particles if size changes significantly or empty
+        if (me.particles.length === 0) {
+            me.initParticles(width, height)
+        }
+
         ctx.clearRect(0, 0, width, height);
 
         // 1. Draw Ambient Background
         me.drawAmbientBackground(ctx, width, height);
 
-        // 2. Draw "Auras" (Hover Effects)
+        // 2. Draw Ether Particles (Background Layer)
+        me.drawParticles(ctx, width, height);
+
+        // 3. Draw "Auras" (Hover Effects)
         me.drawAuras(ctx, width, height);
 
-        // 3. Draw "Shockwaves" (Click Effects)
+        // 4. Draw "Shockwaves" (Click Effects)
         me.drawShockwaves(ctx, width);
 
         // Keep loop running if there's activity or just always for ambient?
         // Let's keep it running for ambient wave effects.
         // We use setTimeout for SharedWorker compatibility (no rAF).
         setTimeout(me.renderLoop, 1000 / 60)
+    }
+
+    /**
+     * Draws the "Ether" particle field.
+     * @param {CanvasRenderingContext2D} ctx
+     * @param {Number} width
+     * @param {Number} height
+     */
+    drawParticles(ctx, width, height) {
+        let me = this;
+
+        ctx.fillStyle = HIGHLIGHT;
+
+        me.particles.forEach(p => {
+            // Update Position
+            p.x += p.vx;
+            p.y += p.vy;
+
+            // Wrap around
+            if (p.x > width) p.x = -10;
+            if (p.x < -10)   p.x = width;
+            if (p.y > height) p.y = -10;
+            if (p.y < -10)    p.y = height;
+
+            // Mouse Interaction (Repulsion)
+            let dx = p.x - me.mouse.x,
+                dy = p.y - me.mouse.y,
+                dist = Math.sqrt(dx*dx + dy*dy),
+                maxDist = 100;
+
+            if (dist < maxDist && dist > 0) {
+                let force = (maxDist - dist) / maxDist;
+                // Push away
+                p.x += (dx / dist) * force * 2;
+                p.y += (dy / dist) * force * 2;
+                // Brighten
+                p.alpha = Math.min(p.baseAlpha + force * 0.5, 0.8);
+            } else {
+                // Return to base alpha
+                if (p.alpha > p.baseAlpha) {
+                    p.alpha -= 0.01
+                }
+            }
+
+            ctx.globalAlpha = p.alpha;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            ctx.fill();
+        });
+
+        ctx.globalAlpha = 1;
     }
 
     /**
