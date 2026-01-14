@@ -6,6 +6,16 @@ import Canvas from '../../../src/component/Canvas.mjs';
  * @extends Neo.component.Canvas
  */
 class HeaderCanvas extends Canvas {
+    /**
+     * @member {Object} delayable
+     */
+    static delayable = {
+        onMouseMove: {
+            type : 'throttle',
+            delay: 16 // ~60fps
+        }
+    }
+
     static config = {
         /**
          * @member {String} className='Portal.view.HeaderCanvas'
