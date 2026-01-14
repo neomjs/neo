@@ -1,6 +1,6 @@
 {
     "name"           : "neo.mjs",
-    "version"        : "11.20.0",
+    "version"        : "11.21.0",
     "description"    : "The Application Engine for the AI Era. A multi-threaded, AI-native runtime with a persistent Scene Graph, enabling AI agents to introspect and mutate the living application structure in real-time.",
     "type"           : "module",
     "repository"     : {
