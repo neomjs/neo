@@ -17,12 +17,12 @@ const
  *    This provides atmospheric depth, fluid interactivity (mouse repulsion), and bridges the contrast gap
  *    between the white background and the foreground elements.
  * 2. **Ambient Helix (Midground):** A large-scale, slow-moving sine wave pattern that provides structural
- *    texture to the negative space.
+ *    texture to the negative space. Now enhanced with a **volumetric Ribbon fill** to add depth.
  * 3. **Split Stream (Foreground):** Two intertwined energy strands (Helix/DNA) that flow across the canvas.
+ *    - **3D Ribbon Effect:** A subtle gradient fills the space between strands, simulating a twisting surface.
+ *    - **Neon Tube Effect:** Strands are rendered with a bright white core inside a colored glow, creating a physical light-emitting look.
  *    - **Adaptive Geometry:** The strands flow loosely around text buttons but tighten into a "high-gravity orbit"
- *      around social icons (circular buttons).
- *    - **Dynamic Life:** The strands "breathe" (amplitude modulation) and "shimmer" (opacity pulse) to feel alive.
- *    - **Interactive Warp:** The frequency modulates (bunches up) around user interaction points.
+ *      around social icons.
  *
  * @class Portal.canvas.HeaderCanvas
  * @extends Neo.core.Base
@@ -208,7 +208,7 @@ class HeaderCanvas extends Base {
     /**
      * Calculates the points for the two energy strands based on physics and interaction.
      * Separating this from drawing allows us to use the same points for both the
-     * Ribbon fill (between strands) and the Neon stroke (on top of strands).
+     * **Ribbon Fill** (gradient surface between strands) and the **Neon Stroke** (volumetric tube on top).
      *
      * @param {Number} width
      * @param {Number} height
@@ -348,8 +348,8 @@ class HeaderCanvas extends Base {
      * this layer is ordered and rhythmic, reinforcing the "DNA/Helix" theme even in the background.
      *
      * **Visuals:**
-     * Uses wide, very low opacity strokes to create a "depth of field" effect, appearing to be
-     * far behind the sharp foreground strands. Now enhanced with a volumetric Ribbon fill.
+     * 1. **Ribbon Fill:** A barely-visible volumetric gradient fills the space between the helices.
+     * 2. **Depth of Field:** Uses wide, very low opacity strokes to appear "out of focus" behind the sharp foreground.
      *
      * @param {CanvasRenderingContext2D} ctx
      * @param {Number} width
