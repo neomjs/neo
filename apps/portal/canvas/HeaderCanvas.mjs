@@ -24,6 +24,12 @@ const
  *    - **Adaptive Geometry:** The strands flow loosely around text buttons but tighten into a "high-gravity orbit"
  *      around social icons.
  *
+ * **Performance Architecture (Zero-Allocation):**
+ * To maintain 60fps on high-refresh displays without GC stutters, this class employs a **Zero-Allocation** strategy during the render loop.
+ * 1. **TypedArray Buffers:** Wave geometry is stored in pre-allocated `Float32Array` buffers (`waveBuffers`), reused every frame.
+ * 2. **Gradient Caching:** CanvasGradients are created only on resize (`updateResources`) and cached, avoiding expensive generator calls per frame.
+ * 3. **Reusable Objects:** Physics calculations write directly to buffers instead of returning new Arrays of Objects.
+ *
  * @class Portal.canvas.HeaderCanvas
  * @extends Neo.core.Base
  * @singleton
@@ -98,6 +104,8 @@ class HeaderCanvas extends Base {
      */
     time = 0
     /**
+     * Pre-allocated buffers for wave geometry.
+     * Uses `Float32Array` to eliminate Garbage Collection pressure during the render loop.
      * @member {Object} waveBuffers={bgA: null, bgB: null, fgA: null, fgB: null}
      */
     waveBuffers = {bgA: null, bgB: null, fgA: null, fgB: null}
@@ -218,11 +226,14 @@ class HeaderCanvas extends Base {
 
     /**
      * Calculates the points for the two energy strands based on physics and interaction.
-     * Writes directly to pre-allocated Float32Arrays to avoid GC.
+     *
+     * **Zero-Allocation Contract:**
+     * This method writes directly to the pre-allocated `this.waveBuffers` `Float32Array`s.
+     * It does **not** allocate new arrays or objects, ensuring zero GC pressure.
      *
      * @param {Number} width
      * @param {Number} height
-     * @returns {Object} {shimmerA, shimmerB, count}
+     * @returns {Object} {shimmerA, shimmerB, count} Metadata for rendering (scalars only)
      */
     calculateStrandGeometry(width, height) {
         let me = this;
