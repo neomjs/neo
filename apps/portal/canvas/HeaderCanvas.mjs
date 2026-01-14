@@ -253,14 +253,20 @@ class HeaderCanvas extends Base {
         ctx.beginPath();
 
         for (let x = 0; x <= width; x += step) {
-            let {offsetY, intensity} = me.getStreamOffset(x, height);
+            let {offsetY, intensity, isIconZone} = me.getStreamOffset(x, height);
 
-            // REF 3: Interactive FM Warp
-            // Amplify frequency modulation near interactions
+            // FREQUENCY MODULATION:
             let freqMod   = Math.sin(x * 0.002 + me.time * 0.1) * (20 + (intensity * 10)),
-                timeShift = me.time * 2,
-                sine      = Math.sin(((x + freqMod) * 0.04) - timeShift) * baseAmp,
-                noise     = (Math.random() - 0.5) * hoverAmp * intensity;
+                timeShift = me.time * 2;
+
+            // DAMPING FOR ICONS:
+            // If we are in an icon zone (isIconZone > 0), we reduce the base amplitude
+            // so the orbit doesn't swing wildly.
+            // Text buttons (isIconZone ~ 0) keep full swing.
+            let localAmp = baseAmp * (1 - (isIconZone * 0.6)); // Reduce up to 60%
+
+            let sine  = Math.sin(((x + freqMod) * 0.04) - timeShift) * localAmp,
+                noise = (Math.random() - 0.5) * hoverAmp * intensity;
 
             let y = centerY + sine - offsetY + noise;
 
@@ -276,13 +282,16 @@ class HeaderCanvas extends Base {
         ctx.beginPath();
 
         for (let x = 0; x <= width; x += step) {
-            let {offsetY, intensity} = me.getStreamOffset(x, height);
+            let {offsetY, intensity, isIconZone} = me.getStreamOffset(x, height);
 
-            // Same FM with interaction boost
+            // Same FM and Damping
             let freqMod   = Math.sin(x * 0.002 + me.time * 0.1) * (20 + (intensity * 10)),
-                timeShift = me.time * 2,
-                sine      = Math.sin(((x + freqMod) * 0.04) - timeShift + Math.PI) * baseAmp,
-                noise     = (Math.random() - 0.5) * hoverAmp * intensity;
+                timeShift = me.time * 2;
+
+            let localAmp = baseAmp * (1 - (isIconZone * 0.6));
+
+            let sine  = Math.sin(((x + freqMod) * 0.04) - timeShift + Math.PI) * localAmp,
+                noise = (Math.random() - 0.5) * hoverAmp * intensity;
 
             let y = centerY + sine + offsetY + noise;
 
@@ -304,7 +313,8 @@ class HeaderCanvas extends Base {
     getStreamOffset(x, height) {
         let me        = this,
             offsetY   = 0,
-            intensity = 0; // 0 to 1 (Hover magnitude)
+            intensity = 0, // 0 to 1 (Hover magnitude)
+            isIconZone = 0; // 0 to 1 (Proximity to an Icon Button)
 
         const
             verticalPadding = 10,
@@ -335,11 +345,9 @@ class HeaderCanvas extends Base {
 
                     if (isIcon) {
                         // TIGHT ORBIT (Sharper curve for icons)
-                        // Use a higher power cosine or bell curve to hug the circle
-                        // Smooth step: x^2 * (3 - 2x) approach or just tighter span mapping
-                        // Let's use a standard cosine but with a modified mapping
                         let normDist = distX / span; // 0 to 1
                         envelope = Math.pow((1 + Math.cos(Math.PI * normDist)) / 2, 3); // Cubed for sharper falloff
+                        isIconZone = Math.max(isIconZone, envelope); // Track if we are in an icon zone
                     } else {
                         // WIDE FLOW (Standard smooth curve for text)
                         envelope = (1 + Math.cos(Math.PI * distX / span)) / 2;
@@ -378,7 +386,7 @@ class HeaderCanvas extends Base {
         // Let's say we always want *some* separation or keep them crossing?
         // Let's keep offsetY=0 in empty space for crossing strands.
 
-        return {offsetY, intensity};
+        return {offsetY, intensity, isIconZone};
     }
 
     /**
