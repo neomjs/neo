@@ -1,7 +1,7 @@
 ---
 id: 8601
 title: '[Epic] Implement Neo.container.Fragment'
-state: OPEN
+state: CLOSED
 labels:
   - epic
   - ai
@@ -10,7 +10,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-01-13T14:34:39Z'
-updatedAt: '2026-01-13T16:42:33Z'
+updatedAt: '2026-01-14T01:49:14Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8601'
 author: tobiu
 commentsCount: 1
@@ -41,6 +41,7 @@ subIssuesCompleted: 21
 subIssuesTotal: 21
 blockedBy: []
 blocking: []
+closedAt: '2026-01-14T01:49:14Z'
 ---
 # [Epic] Implement Neo.container.Fragment
 
@@ -119,4 +120,5 @@ Implement a `Neo.container.Fragment` that allows grouping items without renderin
 - 2026-01-14T01:14:13Z @tobiu cross-referenced by #8628
 - 2026-01-14T01:14:20Z @tobiu added sub-issue #8628
 - 2026-01-14T01:24:01Z @tobiu added sub-issue #8629
+- 2026-01-14T01:49:14Z @tobiu closed this issue
 
