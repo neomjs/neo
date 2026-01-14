@@ -256,8 +256,12 @@ class HeaderCanvas extends Base {
         for (let x = 0; x <= width; x += step) {
             let {offsetY, intensity} = me.getStreamOffset(x, height);
 
-            let timeShift = me.time * 2,
-                sine      = Math.sin((x * 0.04) - timeShift) * baseAmp,
+            // FREQUENCY MODULATION:
+            // Vary the phase speed along X to stretch/compress the wave.
+            // We use a low-frequency sine to modulate the input to the high-frequency sine.
+            let freqMod   = Math.sin(x * 0.002 + me.time * 0.1) * 20, // Slowly changing warp
+                timeShift = me.time * 2,
+                sine      = Math.sin(((x + freqMod) * 0.04) - timeShift) * baseAmp,
                 noise     = (Math.random() - 0.5) * hoverAmp * intensity;
 
             let y = centerY + sine - offsetY + noise;
@@ -276,8 +280,10 @@ class HeaderCanvas extends Base {
         for (let x = 0; x <= width; x += step) {
             let {offsetY, intensity} = me.getStreamOffset(x, height);
 
-            let timeShift = me.time * 2,
-                sine      = Math.sin((x * 0.04) - timeShift + Math.PI) * baseAmp,
+            // Same FM for coherence, just inverted phase
+            let freqMod   = Math.sin(x * 0.002 + me.time * 0.1) * 20,
+                timeShift = me.time * 2,
+                sine      = Math.sin(((x + freqMod) * 0.04) - timeShift + Math.PI) * baseAmp,
                 noise     = (Math.random() - 0.5) * hoverAmp * intensity;
 
             let y = centerY + sine + offsetY + noise;
