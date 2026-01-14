@@ -50,9 +50,9 @@ class Canvas extends Component {
     async afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
 
-        let me          = this,
-            id          = me.getCanvasId(),
-            {offscreen} = me;
+        let me                    = this,
+            id                    = me.getCanvasId(),
+            {offscreen, windowId} = me;
 
         if (value) {
             await me.timeout(30); // next rAF tick
@@ -67,23 +67,23 @@ class Canvas extends Component {
 
             if (offscreen) {
                 const data = await Neo.main.DomAccess.getOffscreenCanvas({
-                    nodeId  : id,
-                    windowId: me.windowId
+                    nodeId: id,
+                    windowId
                 });
 
                 if (data.offscreen) {
                     await Neo.worker.Canvas.registerCanvas({
-                        node    : data.offscreen,
-                        nodeId  : id,
-                        windowId: me.windowId
+                        node  : data.offscreen,
+                        nodeId: id,
+                        windowId
                     }, [data.offscreen]);
 
                     me.offscreenRegistered = true
                 } else if (data.transferred) {
                     if (Neo.config.useSharedWorkers) {
                         let retrieveData = await Neo.worker.Canvas.retrieveCanvas({
-                            nodeId  : id,
-                            windowId: me.windowId
+                            nodeId: id,
+                            windowId
                         });
 
                         if (retrieveData.hasCanvas) {
@@ -100,11 +100,13 @@ class Canvas extends Component {
 
     /**
      * Triggered after the windowId config got changed
-     * @param {Number|null} value
-     * @param {Number|null} oldValue
+     * @param {String|null} value
+     * @param {String|null} oldValue
      * @protected
      */
     afterSetWindowId(value, oldValue) {
+        super.afterSetWindowId(value, oldValue);
+
         if (oldValue) {
             this.offscreenRegistered = false
         }
