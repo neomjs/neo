@@ -36,8 +36,10 @@ subIssues:
   - '[x] 8651 Optimize HeaderCanvas Rendering (GC & Gradients)'
   - '[x] 8652 Document Zero-Allocation Architecture in HeaderCanvas'
   - '[x] 8653 Throttle MouseMove Events in HeaderCanvas'
-subIssuesCompleted: 22
-subIssuesTotal: 22
+  - '[x] 8655 Enhance Header Canvas Shockwave Physics & Interaction'
+  - '[x] 8654 Optimize Global MouseMove with rAF Throttling'
+subIssuesCompleted: 24
+subIssuesTotal: 24
 blockedBy: []
 blocking: []
 ---
@@ -103,4 +105,6 @@ Implement a high-performance, offscreen canvas overlay for the Portal's `HeaderT
 - 2026-01-14T19:32:44Z @tobiu added sub-issue #8651
 - 2026-01-14T19:44:07Z @tobiu added sub-issue #8652
 - 2026-01-14T19:53:23Z @tobiu added sub-issue #8653
+- 2026-01-14T22:10:02Z @tobiu added sub-issue #8655
+- 2026-01-14T22:11:39Z @tobiu added sub-issue #8654
 
