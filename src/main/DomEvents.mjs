@@ -114,10 +114,18 @@ class DomEvents extends Base {
     }
 
     /**
+     * @member {MouseEvent|null} lastMouseMoveEvent=null
+     */
+    lastMouseMoveEvent = null
+    /**
      *
      * @member {Object} touch
      */
     lastTouch = null
+    /**
+     * @member {Number|null} mouseMoveReqId=null
+     */
+    mouseMoveReqId = null
 
     /**
      * @param {Object} config
@@ -591,6 +599,33 @@ class DomEvents extends Base {
 
         me.sendMessageToApp(appEvent);
         me.fire('mouseLeave', appEvent)
+    }
+
+    /**
+     * @param {MouseEvent} event
+     */
+    onMouseMove(event) {
+        let me = this;
+
+        me.lastMouseMoveEvent = event;
+
+        if (!me.mouseMoveReqId) {
+            me.mouseMoveReqId = requestAnimationFrame(me.flushMouseMove.bind(me))
+        }
+    }
+
+    /**
+     *
+     */
+    flushMouseMove() {
+        let me = this;
+
+        if (me.lastMouseMoveEvent) {
+            me.sendMessageToApp(me.getMouseEventData(me.lastMouseMoveEvent));
+            me.lastMouseMoveEvent = null
+        }
+
+        me.mouseMoveReqId = null
     }
 
     /**

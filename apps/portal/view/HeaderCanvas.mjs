@@ -6,16 +6,6 @@ import Canvas from '../../../src/component/Canvas.mjs';
  * @extends Neo.component.Canvas
  */
 class HeaderCanvas extends Canvas {
-    /**
-     * @member {Object} delayable
-     */
-    static delayable = {
-        onMouseMove: {
-            type : 'throttle',
-            delay: 16 // ~60fps
-        }
-    }
-
     static config = {
         /**
          * @member {String} className='Portal.view.HeaderCanvas'
@@ -80,7 +70,7 @@ class HeaderCanvas extends Canvas {
             me.addDomListeners([{
                 id        : me.parentId,
                 click     : me.onClick,
-                mousemove : me.onMouseMove,
+                mousemove : {fn: me.onMouseMove, local: true},
                 mouseleave: me.onMouseLeave,
                 scope     : me
             }]);

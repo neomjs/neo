@@ -27,6 +27,7 @@ const handlerMap = {
     mousedown  : 'onMouseDown',
     mouseenter : 'onMouseEnter',
     mouseleave : 'onMouseLeave',
+    mousemove  : 'onMouseMove',
     mouseup    : 'onMouseUp',
     scroll     : 'onScroll',
     wheel      : 'onWheel'
