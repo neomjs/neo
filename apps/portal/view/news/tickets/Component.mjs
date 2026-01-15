@@ -318,14 +318,14 @@ class Component extends ContentComponent {
         });
 
         // 5. Construct Badges
-        if (labels.length > 0 || state || (parentId && parentId !== 'Latest')) {
+        if (labels.length > 0 || state || (parentId && parentId !== 'Backlog')) {
             badgesHtml = '<div class="neo-ticket-labels">';
 
             if (state) {
                 badgesHtml += me.getStateBadgeHtml(state)
             }
 
-            if (parentId && parentId !== 'Latest') {
+            if (parentId && parentId !== 'Backlog') {
                 badgesHtml += `
                     <a class="neo-badge neo-release-badge" href="#/news/releases/${parentId.substring(1)}">
                         <i class="fa-solid fa-code-branch"></i> ${parentId}
