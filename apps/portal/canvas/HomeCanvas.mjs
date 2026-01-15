@@ -5,7 +5,7 @@ const
     SECONDARY     = '#8BA6FF',
     HIGHLIGHT     = '#40C4FF',
     NODE_COUNT    = 150,
-    NODE_STRIDE   = 7, // x, y, vx, vy, radius, layer, parentId
+    NODE_STRIDE   = 8, // x, y, vx, vy, radius, layer, parentId, phase
     AGENT_COUNT   = 20,
     AGENT_STRIDE  = 6, // x, y, vx, vy, targetIdx, state
     PACKET_COUNT  = 20,
@@ -18,7 +18,7 @@ const
  * Uses a Zero-Allocation strategy (pre-allocated buffers) for high performance.
  *
  * **Node Buffer Layout (Float32Array):**
- * [x, y, vx, vy, radius, layer, parentId, ...]
+ * [x, y, vx, vy, radius, layer, parentId, phase]
  *
  * **Agent Buffer Layout (Float32Array):**
  * [x, y, vx, vy, targetIdx, state, ...]
@@ -239,7 +239,9 @@ class HomeCanvas extends Base {
                     distSq = dx*dx + dy*dy;
 
                 if (distSq < 40000) {
-                    let alpha = 1 - (Math.sqrt(distSq) / 200);
+                    let dist  = Math.sqrt(distSq),
+                        alpha = 1 - (dist / 200);
+                    
                     alpha *= (0.2 + (l1 * 0.1));
 
                     let mDx = (p1.x + p2.x)/2 - mx,
@@ -249,8 +251,11 @@ class HomeCanvas extends Base {
                     if (mDistSq < 10000) {
                         alpha = Math.min(alpha + 0.5, 1);
                         ctx.strokeStyle = HIGHLIGHT;
+                        ctx.lineWidth = 1.5; // Thicker near mouse
                     } else {
                         ctx.strokeStyle = l1 === 2 ? PRIMARY : SECONDARY;
+                        // Elasticity: Thicker when closer (Tension/Slack visualization)
+                        ctx.lineWidth = 0.5 + (1 - (dist / 200)); 
                     }
 
                     ctx.beginPath();
@@ -268,6 +273,7 @@ class HomeCanvas extends Base {
                 radius = buffer[idx + 4],
                 layer  = buffer[idx + 5],
                 parentId = buffer[idx + 6],
+                phase  = buffer[idx + 7],
                 pos    = getPos(idx, layer);
 
             let dx = pos.x - mx,
@@ -286,6 +292,10 @@ class HomeCanvas extends Base {
 
             ctx.beginPath();
             let r = parentId === -1 ? radius * 1.5 : radius;
+            
+            // Breathing Effect
+            r *= 1 + Math.sin(me.time * 2 + phase) * 0.15;
+
             if (isHover) r *= 1.5;
 
             ctx.arc(pos.x, pos.y, r, 0, Math.PI * 2);
@@ -293,6 +303,11 @@ class HomeCanvas extends Base {
             if (layer === 2) {
                 ctx.fillStyle = isHover ? '#FFFFFF' : PRIMARY;
                 ctx.globalAlpha = isHover ? 1 : 0.8;
+            } else if (parentId === -2) {
+                // Drifting Node Visual
+                ctx.fillStyle = HIGHLIGHT;
+                // Phase-based pulse for drifters
+                ctx.globalAlpha = 0.6 + Math.sin(me.time * 10 + phase) * 0.3; 
             } else if (layer === 1) {
                 ctx.fillStyle = isHover ? HIGHLIGHT : SECONDARY;
                 ctx.globalAlpha = 0.5;
@@ -469,12 +484,19 @@ class HomeCanvas extends Base {
             buffer[idx + 3] = (Math.random() - 0.5) * 0.2;
             
             let layer = Math.floor(Math.random() * 3);
-            buffer[idx + 5] = layer;
+            buffer[idx + 5] = layer; // layer
+
+            // Radius based on layer & role
             buffer[idx + 4] = isParent ? 4 + (layer * 2) : 2 + (layer * 1.5); 
+            
+            // Parent ID (-1 for parents, assigned later for children)
             buffer[idx + 6] = isParent ? -1 : -2; 
+            
+            // Phase (Breathing offset)
+            buffer[idx + 7] = Math.random() * Math.PI * 2;
         }
 
-        // Assign Children
+        // 2. Assign Children to nearest Parent
         for (let i = parentCount; i < NODE_COUNT; i++) {
             let idx = i * NODE_STRIDE,
                 x   = buffer[idx],
