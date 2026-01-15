@@ -29,13 +29,15 @@ subIssues:
   - '[x] 8673 Implement Elastic Connections & Breathing'
   - '[x] 8674 Implement Agent-Driven State'
   - '[x] 8675 Implement Interactive Physics (Drag/Throw)'
-  - '[ ] 8676 Fix Cluster Drift Bias & Boundaries'
-  - '[ ] 8677 Enhance Shockwave Visuals'
+  - '[x] 8676 Fix Cluster Drift Bias & Boundaries'
+  - '[x] 8677 Enhance Shockwave Visuals'
   - '[ ] 8678 Implement Hero Container Wrapper'
   - '[ ] 8679 Enhance Neural Swarm Documentation'
   - '[ ] 8680 Write Guide: The Neural Swarm'
-subIssuesCompleted: 14
-subIssuesTotal: 19
+  - '[x] 8681 Restore Shockwave Physics Interaction'
+  - '[x] 8682 Optimize Neural Swarm Contrast for Light Theme'
+subIssuesCompleted: 18
+subIssuesTotal: 21
 blockedBy: []
 blocking: []
 ---
@@ -104,4 +106,6 @@ A simulated ecosystem representing the "Living Graph" of a Neo.mjs application.
 - 2026-01-15T03:29:46Z @tobiu added sub-issue #8678
 - 2026-01-15T03:29:48Z @tobiu added sub-issue #8679
 - 2026-01-15T03:29:52Z @tobiu added sub-issue #8680
+- 2026-01-15T08:59:54Z @tobiu added sub-issue #8681
+- 2026-01-15T09:13:49Z @tobiu added sub-issue #8682
 
