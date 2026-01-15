@@ -1,9 +1,9 @@
 @font-face {
     font-family: "GT-Planar";
-    src        : url("../../../../../../../../resources/fonts/GT-Planar-Regular.otf") format("opentype");
+    src        : url("../../../../../../../../../resources/fonts/GT-Planar-Regular.otf") format("opentype");
 }
 
-.portal-home-main-neo.portal-home-content-view {
+.portal-home-hero-content.neo-container {
     /* Background moved to MainContainer for global engine effect */
     background-color: transparent;
     gap             : 2.5rem;
@@ -83,7 +83,7 @@
 
     .vector {
         background-color   : transparent;
-        background-image   : url("../../../../../../../../resources/images/logo/neo_logo_primary.svg");
+        background-image   : url("../../../../../../../../../resources/images/logo/neo_logo_primary.svg");
         background-position: center center;
         background-repeat  : no-repeat;
         background-size    : contain;

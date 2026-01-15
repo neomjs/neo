@@ -1,41 +1,29 @@
-import BaseContainer from './BaseContainer.mjs';
-import Button        from '../../../../../src/button/Base.mjs';
-import HomeCanvas    from '../HomeCanvas.mjs';
-import MagicMoveText from '../../../../../src/component/MagicMoveText.mjs';
+import BaseContainer     from '../../../../../../src/container/Base.mjs';
+import Button            from '../../../../../../src/button/Base.mjs';
+import MagicMoveText     from '../../../../../../src/component/MagicMoveText.mjs';
 
 /**
- * @class Portal.view.home.parts.MainNeo
- * @extends Portal.view.home.parts.BaseContainer
+ * @class Portal.view.home.parts.hero.Content
+ * @extends Neo.container.Base
  */
-class MainNeo extends BaseContainer {
+class Content extends BaseContainer {
     static config = {
         /**
-         * @member {String} className='Portal.view.home.parts.MainNeo'
+         * @member {String} className='Portal.view.home.parts.hero.Content'
          * @protected
          */
-        className: 'Portal.view.home.parts.MainNeo',
+        className: 'Portal.view.home.parts.hero.Content',
         /**
-         * @member {String[]} cls=['portal-home-main-neo']
+         * @member {String[]} cls=['portal-home-hero-content']
          * @reactive
          */
-        cls: ['portal-home-main-neo'],
+        cls: ['portal-home-hero-content'],
 
         layout: {ntype: 'vbox', align: 'center', pack: 'center'},
-        /**
-         * @member {Object} domListeners
-         */
-        domListeners: {
-            click     : 'onClick',
-            mouseleave: 'onMouseLeave',
-            mousemove : {fn: 'onMouseMove', local: true}
-        },
         /**
          * @member {Object[]} items
          */
         items: [{
-            module   : HomeCanvas,
-            reference: 'home-canvas'
-        }, {
             ntype: 'container',
             cls  : ['logo-container'],
             items: [{
@@ -109,38 +97,15 @@ class MainNeo extends BaseContainer {
      *
      */
     activate() {
-        this.getItem('magic-move').autoCycle = true;
-        this.getItem('home-canvas')?.resume()
+        this.getItem('magic-move').autoCycle = true
     }
 
     /**
      *
      */
     deactivate() {
-        this.getItem('magic-move').autoCycle = false;
-        this.getItem('home-canvas')?.pause()
-    }
-
-    /**
-     * @param {Object} data
-     */
-    onClick(data) {
-        this.getItem('home-canvas')?.onClick(data)
-    }
-
-    /**
-     * @param {Object} data
-     */
-    onMouseLeave(data) {
-        this.getItem('home-canvas')?.onMouseLeave(data)
-    }
-
-    /**
-     * @param {Object} data
-     */
-    onMouseMove(data) {
-        this.getItem('home-canvas')?.onMouseMove(data)
+        this.getItem('magic-move').autoCycle = false
     }
 }
 
-export default Neo.setupClass(MainNeo);
+export default Neo.setupClass(Content);

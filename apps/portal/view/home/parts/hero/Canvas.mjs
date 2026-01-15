@@ -1,26 +1,26 @@
-import Canvas           from '../../../../src/component/Canvas.mjs';
-import ComponentManager from '../../../../src/manager/Component.mjs';
+import Canvas           from '../../../../../../src/component/Canvas.mjs';
+import ComponentManager from '../../../../../../src/manager/Component.mjs';
 
 /**
- * @summary The App Worker component for the Home Hero "Neural Connectome" canvas.
+ * @summary The App Worker component for the Home Hero "Neural Swarm" canvas.
  *
  * Coordinates the OffscreenCanvas transfer and lifecycle management for the
  * Neural Network background visualization.
  *
- * @class Portal.view.home.HomeCanvas
+ * @class Portal.view.home.parts.hero.Canvas
  * @extends Neo.component.Canvas
  */
-class HomeCanvas extends Canvas {
+class CanvasComponent extends Canvas {
     static config = {
         /**
-         * @member {String} className='Portal.view.home.HomeCanvas'
+         * @member {String} className='Portal.view.home.parts.hero.Canvas'
          * @protected
          */
-        className: 'Portal.view.home.HomeCanvas',
+        className: 'Portal.view.home.parts.hero.Canvas',
         /**
-         * @member {String[]} cls=['portal-home-canvas']
+         * @member {String[]} cls=['portal-home-hero-canvas']
          */
-        cls: ['portal-home-canvas'],
+        cls: ['portal-home-hero-canvas'],
         /**
          * @member {Object} listeners
          */
@@ -105,7 +105,7 @@ class HomeCanvas extends Canvas {
      * Pauses the Shared Worker render loop.
      */
     pause() {
-        if (this.isCanvasReady) {
+        if (this.isCanvasReady) {console.log('pause');
             Portal.canvas.HomeCanvas.pause()
         }
     }
@@ -114,7 +114,7 @@ class HomeCanvas extends Canvas {
      * Resumes the Shared Worker render loop.
      */
     resume() {
-        if (this.isCanvasReady) {
+        if (this.isCanvasReady) {console.log('resume');
             Portal.canvas.HomeCanvas.resume()
         }
     }
@@ -177,4 +177,4 @@ class HomeCanvas extends Canvas {
     }
 }
 
-export default Neo.setupClass(HomeCanvas);
+export default Neo.setupClass(CanvasComponent);
