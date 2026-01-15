@@ -103,6 +103,10 @@ class HomeCanvas extends Base {
      */
     shockwaves = []
     /**
+     * @member {Object[]} sparks=[]
+     */
+    sparks = []
+    /**
      * @member {Number} time=0
      */
     time = 0
@@ -119,6 +123,7 @@ class HomeCanvas extends Base {
         me.agentBuffer  = null;
         me.packetBuffer = null;
         me.shockwaves   = [];
+        me.sparks       = [];
         me.isPaused     = false;
         me.gradients    = {};
     }
@@ -363,7 +368,7 @@ class HomeCanvas extends Base {
     }
 
     /**
-     * Draws expanding shockwaves from clicks.
+     * Draws expanding shockwaves from clicks with Chromatic Aberration and Composite Rings.
      * @param {CanvasRenderingContext2D} ctx
      */
     drawShockwaves(ctx) {
@@ -371,23 +376,89 @@ class HomeCanvas extends Base {
 
         if (me.shockwaves.length === 0) return;
 
-        ctx.strokeStyle = HIGHLIGHT;
-        ctx.lineWidth = 2;
+        ctx.lineCap = 'round';
 
         for (let i = me.shockwaves.length - 1; i >= 0; i--) {
             let wave = me.shockwaves[i];
             wave.age++;
 
-            if (wave.age * wave.speed > 1000) { // Max radius
+            let progress = wave.age / wave.maxAge;
+
+            if (progress >= 1) {
                 me.shockwaves.splice(i, 1);
                 continue;
             }
 
+            // Non-Linear Expansion (Explosive start, slow finish)
+            let eased = 1 - Math.pow(1 - progress, 3), 
+                radius = eased * wave.maxRadius,
+                alpha  = 1 - progress;
+
+            // Chromatic Aberration (RGB Shift)
+            ctx.globalCompositeOperation = 'screen'; 
+            
+            // 1. Red Channel (Lagging Fringe)
             ctx.beginPath();
-            ctx.globalAlpha = Math.max(0, 1 - (wave.age / 60)); // Fade out
-            ctx.arc(wave.x, wave.y, wave.age * wave.speed, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(255, 50, 50, ${alpha * 0.8})`;
+            ctx.lineWidth   = 4 * (1 - progress);
+            ctx.shadowBlur  = 10;
+            ctx.shadowColor = '#FF0000';
+            ctx.arc(wave.x, wave.y, radius * 0.99, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // 2. Blue Channel (Leading Fringe)
+            ctx.beginPath();
+            ctx.strokeStyle = `rgba(50, 50, 255, ${alpha * 0.8})`;
+            ctx.lineWidth   = 4 * (1 - progress);
+            ctx.shadowBlur  = 10;
+            ctx.shadowColor = '#0000FF';
+            ctx.arc(wave.x, wave.y, radius * 1.01, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // 3. Primary Wave (White Hot Center)
+            ctx.beginPath();
+            ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
+            ctx.lineWidth   = 6 * (1 - progress); 
+            ctx.shadowBlur  = 20;
+            ctx.shadowColor = '#FFFFFF';
+            ctx.arc(wave.x, wave.y, radius, 0, Math.PI * 2);
+            ctx.stroke();
+            
+            // 4. Pressure Fill (Refraction Fake)
+            // Faint white fill that fades out quickly
+            ctx.fillStyle = `rgba(255, 255, 255, ${alpha * 0.1})`;
+            ctx.fill();
+        }
+
+        ctx.shadowBlur = 0;
+        ctx.globalCompositeOperation = 'source-over'; // Reset
+        ctx.globalAlpha = 1;
+    }
+
+    /**
+     * Draws temporary spark particles (Data Debris).
+     * @param {CanvasRenderingContext2D} ctx
+     */
+    drawSparks(ctx) {
+        let me = this;
+
+        if (me.sparks.length === 0) return;
+
+        ctx.strokeStyle = '#40C4FF';
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = '#40C4FF';
+        ctx.lineWidth = 1.5;
+        
+        for (let s of me.sparks) {
+            ctx.globalAlpha = s.life;
+            ctx.beginPath();
+            // Draw Trail based on velocity
+            ctx.moveTo(s.x, s.y);
+            ctx.lineTo(s.x - s.vx * 2, s.y - s.vy * 2);
             ctx.stroke();
         }
+
+        ctx.shadowBlur = 0;
         ctx.globalAlpha = 1;
     }
 
@@ -588,6 +659,7 @@ class HomeCanvas extends Base {
         me.updatePhysics(width, height);
         me.updateAgents(width, height);
         me.updatePackets();
+        me.updateSparks();
 
         ctx.clearRect(0, 0, width, height);
 
@@ -600,6 +672,7 @@ class HomeCanvas extends Base {
         me.drawPackets(ctx);
         me.drawAgents(ctx);
         me.drawShockwaves(ctx);
+        me.drawSparks(ctx);
 
         setTimeout(me.renderLoop, 1000 / 60)
     }
@@ -626,8 +699,23 @@ class HomeCanvas extends Base {
                     x    : data.x,
                     y    : data.y,
                     age  : 0,
-                    speed: 15
-                })
+                    maxAge: 40, // Faster, punchier wave
+                    maxRadius: 300
+                });
+
+                // Spawn Sparks (Data Debris)
+                for(let i=0; i<40; i++) {
+                    let angle = Math.random() * Math.PI * 2,
+                        speed = Math.random() * 15 + 5; // Fast burst
+                    me.sparks.push({
+                        x    : data.x, 
+                        y    : data.y,
+                        vx   : Math.cos(angle) * speed,
+                        vy   : Math.sin(angle) * speed,
+                        life : 1.0,
+                        decay: 0.02 + Math.random() * 0.03
+                    })
+                }
             }
         }
     }
@@ -683,6 +771,25 @@ class HomeCanvas extends Base {
                 packets[idx]     += packets[idx + 2];
                 packets[idx + 1] += packets[idx + 3];
                 packets[idx + 4]--; // Decrease life
+            }
+        }
+    }
+
+    /**
+     * Updates spark particles with friction.
+     */
+    updateSparks() {
+        let me = this;
+        for (let i = me.sparks.length - 1; i >= 0; i--) {
+            let s = me.sparks[i];
+            s.x += s.vx;
+            s.y += s.vy;
+            // Friction (Drag)
+            s.vx *= 0.9;
+            s.vy *= 0.9;
+            s.life -= s.decay;
+            if (s.life <= 0) {
+                me.sparks.splice(i, 1)
             }
         }
     }
