@@ -1,11 +1,13 @@
 import Base from '../../../src/core/Base.mjs';
 
 const
-    PRIMARY    = '#3E63DD',
-    SECONDARY  = '#8BA6FF',
-    HIGHLIGHT  = '#40C4FF',
-    NODE_COUNT = 150,
-    STRIDE     = 7; // x, y, vx, vy, radius, layer, parentId
+    PRIMARY      = '#3E63DD',
+    SECONDARY    = '#8BA6FF',
+    HIGHLIGHT    = '#40C4FF',
+    NODE_COUNT   = 150,
+    NODE_STRIDE  = 7, // x, y, vx, vy, radius, layer, parentId
+    AGENT_COUNT  = 20,
+    AGENT_STRIDE = 6; // x, y, vx, vy, targetIdx, state (0=seek, 1=scan)
 
 /**
  * @summary SharedWorker renderer for the Portal Home "Neural Swarm" background.
@@ -13,8 +15,11 @@ const
  * Handles the physics simulation and rendering loop for the 2.5D network visualization.
  * Uses a Zero-Allocation strategy (pre-allocated buffers) for high performance.
  *
- * **Buffer Layout (Float32Array):**
+ * **Node Buffer Layout (Float32Array):**
  * [x, y, vx, vy, radius, layer, parentId, ...]
+ *
+ * **Agent Buffer Layout (Float32Array):**
+ * [x, y, vx, vy, targetIdx, state, ...]
  *
  * @class Portal.canvas.HomeCanvas
  * @extends Neo.core.Base
@@ -49,6 +54,11 @@ class HomeCanvas extends Base {
         singleton: true
     }
 
+    /**
+     * Pre-allocated buffer for agent data.
+     * @member {Float32Array|null} agentBuffer=null
+     */
+    agentBuffer = null
     /**
      * @member {String|null} canvasId=null
      */
@@ -88,12 +98,72 @@ class HomeCanvas extends Base {
      */
     clearGraph() {
         let me = this;
-        me.context    = null;
-        me.canvasId   = null;
-        me.canvasSize = null;
-        me.nodeBuffer = null;
-        me.isPaused   = false;
-        me.gradients  = {};
+        me.context     = null;
+        me.canvasId    = null;
+        me.canvasSize  = null;
+        me.nodeBuffer  = null;
+        me.agentBuffer = null;
+        me.isPaused    = false;
+        me.gradients   = {};
+    }
+
+    /**
+     * Draws the autonomous agents (Seeker Drones).
+     * @param {CanvasRenderingContext2D} ctx
+     */
+    drawAgents(ctx) {
+        let me = this;
+
+        if (!me.agentBuffer) return;
+
+        const
+            buffer = me.agentBuffer,
+            count  = AGENT_COUNT;
+
+        ctx.strokeStyle = HIGHLIGHT;
+        ctx.fillStyle   = '#FFFFFF';
+        ctx.lineCap     = 'round';
+
+        for (let i = 0; i < count; i++) {
+            let idx = i * AGENT_STRIDE,
+                x   = buffer[idx],
+                y   = buffer[idx + 1],
+                vx  = buffer[idx + 2],
+                vy  = buffer[idx + 3],
+                state = buffer[idx + 5];
+
+            // 1. Draw Trail (Motion Blur)
+            // Length depends on speed
+            let speed = Math.sqrt(vx*vx + vy*vy);
+            
+            if (speed > 0.1) {
+                ctx.beginPath();
+                ctx.lineWidth = 2;
+                ctx.globalAlpha = 0.6;
+                // Trail extends opposite to velocity
+                ctx.moveTo(x, y);
+                ctx.lineTo(x - vx * 4, y - vy * 4); 
+                ctx.stroke();
+            }
+
+            // 2. Draw Head
+            ctx.beginPath();
+            ctx.globalAlpha = state === 1 ? 1 : 0.8; // Brighten when scanning
+            let radius = state === 1 ? 3 : 2;
+            ctx.arc(x, y, radius, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 3. Scan Effect (Ring)
+            if (state === 1) {
+                ctx.beginPath();
+                ctx.lineWidth = 1;
+                ctx.globalAlpha = 0.3;
+                ctx.arc(x, y, 8 + Math.sin(me.time * 10) * 2, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+        }
+
+        ctx.globalAlpha = 1;
     }
 
     /**
@@ -142,13 +212,13 @@ class HomeCanvas extends Base {
         // 1. Draw Connections (behind nodes)
         // Optimization: Double loop, but limited by distance check.
         for (let i = 0; i < count; i++) {
-            let idx = i * STRIDE,
+            let idx = i * NODE_STRIDE,
                 l1  = buffer[idx + 5],
                 pid1 = buffer[idx + 6],
                 p1  = getPos(idx, l1);
 
             for (let j = i + 1; j < count; j++) {
-                let idx2 = j * STRIDE,
+                let idx2 = j * NODE_STRIDE,
                     l2   = buffer[idx2 + 5],
                     pid2 = buffer[idx2 + 6];
 
@@ -197,7 +267,7 @@ class HomeCanvas extends Base {
 
         // 2. Draw Nodes
         for (let i = 0; i < count; i++) {
-            let idx    = i * STRIDE,
+            let idx    = i * NODE_STRIDE,
                 radius = buffer[idx + 4],
                 layer  = buffer[idx + 5],
                 parentId = buffer[idx + 6],
@@ -236,6 +306,32 @@ class HomeCanvas extends Base {
     }
 
     /**
+     * Initializes the autonomous agents.
+     * @param {Number} width
+     * @param {Number} height
+     */
+    initAgents(width, height) {
+        let me = this;
+
+        if (!me.agentBuffer) {
+            me.agentBuffer = new Float32Array(AGENT_COUNT * AGENT_STRIDE);
+        }
+
+        const buffer = me.agentBuffer;
+
+        for (let i = 0; i < AGENT_COUNT; i++) {
+            let idx = i * AGENT_STRIDE;
+
+            buffer[idx]     = Math.random() * width;  // x
+            buffer[idx + 1] = Math.random() * height; // y
+            buffer[idx + 2] = (Math.random() - 0.5) * 4; // vx (Fast!)
+            buffer[idx + 3] = (Math.random() - 0.5) * 4; // vy
+            buffer[idx + 4] = -1; // targetIdx (none)
+            buffer[idx + 5] = 0;  // state (moving)
+        }
+    }
+
+    /**
      * Initializes the canvas context.
      * @param {Object} opts
      * @param {String} opts.canvasId
@@ -271,7 +367,7 @@ class HomeCanvas extends Base {
         let me = this;
 
         if (!me.nodeBuffer) {
-            me.nodeBuffer = new Float32Array(NODE_COUNT * STRIDE);
+            me.nodeBuffer = new Float32Array(NODE_COUNT * NODE_STRIDE);
         }
 
         const
@@ -286,7 +382,7 @@ class HomeCanvas extends Base {
         let parentIndices = [];
 
         for (let i = 0; i < NODE_COUNT; i++) {
-            let idx = i * STRIDE,
+            let idx = i * NODE_STRIDE,
                 isParent = i < parentCount;
 
             if (isParent) parentIndices.push(i);
@@ -320,7 +416,7 @@ class HomeCanvas extends Base {
 
         // 2. Assign Children to nearest Parent
         for (let i = parentCount; i < NODE_COUNT; i++) {
-            let idx = i * STRIDE,
+            let idx = i * NODE_STRIDE,
                 x   = buffer[idx],
                 y   = buffer[idx + 1],
                 bestDist = Infinity,
@@ -328,7 +424,7 @@ class HomeCanvas extends Base {
 
             // Find nearest parent
             for (let pid of parentIndices) {
-                let pIdx = pid * STRIDE,
+                let pIdx = pid * NODE_STRIDE,
                     px   = buffer[pIdx],
                     py   = buffer[pIdx + 1],
                     dx   = x - px,
@@ -390,9 +486,15 @@ class HomeCanvas extends Base {
         if (!me.nodeBuffer) {
             me.initNodes(width, height);
         }
+        
+        // Auto-init agents if missing
+        if (!me.agentBuffer) {
+            me.initAgents(width, height);
+        }
 
-        // Physics Step
+        // Physics Steps
         me.updatePhysics(width, height);
+        me.updateAgents(width, height);
 
         ctx.clearRect(0, 0, width, height);
 
@@ -404,8 +506,111 @@ class HomeCanvas extends Base {
 
         // Draw Network
         me.drawNetwork(ctx, width, height);
+        
+        // Draw Agents
+        me.drawAgents(ctx);
 
         setTimeout(me.renderLoop, 1000 / 60)
+    }
+
+    /**
+     * Updates agent positions (Boids + Seek).
+     * @param {Number} width
+     * @param {Number} height
+     */
+    updateAgents(width, height) {
+        let me = this;
+
+        if (!me.agentBuffer || !me.nodeBuffer) return;
+
+        const
+            agents = me.agentBuffer,
+            nodes  = me.nodeBuffer,
+            count  = AGENT_COUNT,
+            mx     = me.mouse.x,
+            my     = me.mouse.y;
+
+        for (let i = 0; i < count; i++) {
+            let idx = i * AGENT_STRIDE,
+                targetIdx = agents[idx + 4],
+                state = agents[idx + 5];
+
+            // --- Behavior 1: Pick a Target ---
+            if (targetIdx === -1 || Math.random() < 0.005) { // 0.5% chance to retarget randomly
+                // Pick a random Cluster Center (Parent)
+                const parentCount = Math.floor(NODE_COUNT * 0.1);
+                agents[idx + 4] = Math.floor(Math.random() * parentCount);
+                targetIdx = agents[idx + 4];
+                agents[idx + 5] = 0; // Set to moving
+            }
+
+            // --- Behavior 2: Seek Target ---
+            if (targetIdx !== -1 && state === 0) {
+                let nIdx = targetIdx * NODE_STRIDE,
+                    tx   = nodes[nIdx],
+                    ty   = nodes[nIdx + 1],
+                    dx   = tx - agents[idx],
+                    dy   = ty - agents[idx + 1],
+                    dist = Math.sqrt(dx*dx + dy*dy);
+
+                if (dist < 10) {
+                    // Arrived! Scan.
+                    agents[idx + 5] = 1; // Scan state
+                    agents[idx + 2] *= 0.1; // Slow down
+                    agents[idx + 3] *= 0.1;
+                } else {
+                    // Steer towards target
+                    let force = 0.05; // Steering force
+                    agents[idx + 2] += (dx / dist) * force;
+                    agents[idx + 3] += (dy / dist) * force;
+                }
+            } else if (state === 1) {
+                // Scanning (hovering)
+                // Randomly leave after a while
+                if (Math.random() < 0.02) {
+                    agents[idx + 4] = -1; // Reset target
+                    agents[idx + 5] = 0;  // Move
+                    // Boost speed
+                    agents[idx + 2] += (Math.random() - 0.5) * 4;
+                    agents[idx + 3] += (Math.random() - 0.5) * 4;
+                }
+            }
+
+            // --- Behavior 3: Mouse Repulsion (High Priority) ---
+            if (mx !== -1000) {
+                let dx = agents[idx] - mx,
+                    dy = agents[idx + 1] - my,
+                    distSq = dx*dx + dy*dy;
+
+                if (distSq < 10000) { // 100px radius
+                    let dist = Math.sqrt(distSq),
+                        force = (100 - dist) / 100;
+                    
+                    // Strong push
+                    agents[idx + 2] += (dx / dist) * force * 1.5;
+                    agents[idx + 3] += (dy / dist) * force * 1.5;
+                    agents[idx + 5] = 0; // Stop scanning if scared
+                }
+            }
+
+            // --- Physics Update ---
+            // Speed Limit
+            let speed = Math.sqrt(agents[idx + 2]**2 + agents[idx + 3]**2);
+            if (speed > 4) {
+                agents[idx + 2] *= 4 / speed;
+                agents[idx + 3] *= 4 / speed;
+            }
+
+            // Move
+            agents[idx]     += agents[idx + 2];
+            agents[idx + 1] += agents[idx + 3];
+
+            // Wrap around
+            if (agents[idx] < 0) agents[idx] = width;
+            if (agents[idx] > width) agents[idx] = 0;
+            if (agents[idx + 1] < 0) agents[idx + 1] = height;
+            if (agents[idx + 1] > height) agents[idx + 1] = 0;
+        }
     }
 
     /**
@@ -442,13 +647,13 @@ class HomeCanvas extends Base {
             my     = me.mouse.y;
 
         for (let i = 0; i < NODE_COUNT; i++) {
-            let idx = i * STRIDE,
+            let idx = i * NODE_STRIDE,
                 parentId = buffer[idx + 6],
                 isParent = parentId === -1;
 
             // 1. Cluster Cohesion (Children stick to Parent)
             if (!isParent) {
-                let pIdx = parentId * STRIDE,
+                let pIdx = parentId * NODE_STRIDE,
                     px   = buffer[pIdx],
                     py   = buffer[pIdx + 1],
                     dx   = px - buffer[idx],
@@ -533,8 +738,11 @@ class HomeCanvas extends Base {
         if (me.context) {
             me.context.canvas.width  = size.width;
             me.context.canvas.height = size.height;
-            // Re-init on significant resize? For now just re-init nodes to fix layout
-            me.initNodes(size.width, size.height);
+            // Re-distribute nodes on significant resize to fill space?
+            // For now, let them drift naturally or re-init if 0
+            if (!me.nodeBuffer) {
+                me.initNodes(size.width, size.height);
+            }
             me.updateResources(size.width, size.height);
         }
     }
