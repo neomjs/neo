@@ -1,7 +1,7 @@
 ---
 id: 8661
 title: 'Epic: Home Hero Canvas (The Neural Swarm)'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - epic
@@ -9,7 +9,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-01-15T01:05:08Z'
-updatedAt: '2026-01-15T02:14:30Z'
+updatedAt: '2026-01-15T11:37:59Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8661'
 author: tobiu
 commentsCount: 0
@@ -32,14 +32,16 @@ subIssues:
   - '[x] 8676 Fix Cluster Drift Bias & Boundaries'
   - '[x] 8677 Enhance Shockwave Visuals'
   - '[x] 8678 Implement Hero Container Wrapper'
-  - '[ ] 8679 Enhance Neural Swarm Documentation'
-  - '[ ] 8680 Write Guide: The Neural Swarm'
+  - '[x] 8679 Enhance Neural Swarm Documentation'
+  - '[x] 8680 Write Guide: The Neural Swarm'
   - '[x] 8681 Restore Shockwave Physics Interaction'
   - '[x] 8682 Optimize Neural Swarm Contrast for Light Theme'
-subIssuesCompleted: 19
-subIssuesTotal: 21
+  - '[x] 8683 Home Hero Canvas: Visual Polish (Blue Shockwave) & GC Optimization'
+subIssuesCompleted: 22
+subIssuesTotal: 22
 blockedBy: []
 blocking: []
+closedAt: '2026-01-15T11:37:59Z'
 ---
 # Epic: Home Hero Canvas (The Neural Swarm)
 
@@ -108,4 +110,6 @@ A simulated ecosystem representing the "Living Graph" of a Neo.mjs application.
 - 2026-01-15T03:29:52Z @tobiu added sub-issue #8680
 - 2026-01-15T08:59:54Z @tobiu added sub-issue #8681
 - 2026-01-15T09:13:49Z @tobiu added sub-issue #8682
+- 2026-01-15T10:56:56Z @tobiu added sub-issue #8683
+- 2026-01-15T11:37:59Z @tobiu closed this issue
 
