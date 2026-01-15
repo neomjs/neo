@@ -864,7 +864,7 @@ class HomeCanvas extends Base {
                 }
             }
 
-            // 3. Shockwave Repulsion
+            // 3. Shockwave Repulsion (Explosive Force)
             if (me.shockwaves.length > 0) {
                 me.shockwaves.forEach(wave => {
                     let dx = buffer[idx] - wave.x,
@@ -872,10 +872,12 @@ class HomeCanvas extends Base {
                         dist = Math.sqrt(dx*dx + dy*dy),
                         wRad = wave.age * wave.speed;
                     
+                    // Hit the "Wave Front"
                     if (Math.abs(dist - wRad) < 40) {
                         let force = (1 - (wave.age / 60)); 
-                        buffer[idx + 2] += (dx / dist) * force * 2;
-                        buffer[idx + 3] += (dy / dist) * force * 2;
+                        // Massive Impulse (Throwing)
+                        buffer[idx + 2] += (dx / dist) * force * 10;
+                        buffer[idx + 3] += (dy / dist) * force * 10;
                     }
                 });
             }

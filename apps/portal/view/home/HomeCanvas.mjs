@@ -86,6 +86,22 @@ class HomeCanvas extends Canvas {
     }
 
     /**
+     * Forwards click events to the Shared Worker to trigger Shockwaves.
+     * @param {Object} data
+     */
+    onClick(data) {
+        let me = this;
+
+        if (me.isCanvasReady && me.canvasRect) {
+            Portal.canvas.HomeCanvas.updateMouseState({
+                click: true,
+                x    : data.clientX - me.canvasRect.left,
+                y    : data.clientY - me.canvasRect.top
+            })
+        }
+    }
+
+    /**
      * Pauses the Shared Worker render loop.
      */
     pause() {
