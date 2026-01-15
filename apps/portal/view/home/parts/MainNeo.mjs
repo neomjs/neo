@@ -1,5 +1,6 @@
 import BaseContainer from './BaseContainer.mjs';
 import Button        from '../../../../../src/button/Base.mjs';
+import HomeCanvas    from '../HomeCanvas.mjs';
 import MagicMoveText from '../../../../../src/component/MagicMoveText.mjs';
 
 /**
@@ -24,6 +25,8 @@ class MainNeo extends BaseContainer {
          * @member {Object[]} items
          */
         items: [{
+            module: HomeCanvas
+        }, {
             ntype: 'container',
             cls  : ['logo-container'],
             items: [{
