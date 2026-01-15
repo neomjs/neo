@@ -72,6 +72,7 @@
             {"name": "Portal App",                                     "parentId": "guides/specificfeatures",                             "id": "guides/specificfeatures/PortalApp"},
         {"name": "Advanced Architecture",                              "parentId": "guides",                             "isLeaf": false, "id": "guides/advanced", "collapsed": true},
             {"name": "Canvas Architecture (Zero-Allocation)",          "parentId": "guides/advanced",                                     "id": "guides/advanced/CanvasArchitecture"},
+            {"name": "Neural Swarm (Autonomous Simulation)",           "parentId": "guides/advanced",                                     "id": "guides/advanced/NeuralSwarm"},
             {"name": "Neural Timeline (Coordinator Pattern)",          "parentId": "guides/advanced",                                     "id": "guides/advanced/NeuralTimeline"},
         {"name": "MCP & Agent OS",                                     "parentId": "guides",                             "isLeaf": false, "id": "guides/mcp", "collapsed": true},
             {"name": "Introduction",                                   "parentId": "guides/mcp",                                          "id": "guides/mcp/Introduction"},
