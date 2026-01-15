@@ -166,13 +166,13 @@ async function createTicketIndex(options = {}) {
 
     sortedGroups.forEach((groupName, index) => {
         // Create Parent Node
-        const isFirst = index === 0;
+        const isSecond = index === 1;
 
         const parentNode = {
             id       : groupName,
             isLeaf   : false,
             parentId : null,
-            collapsed: !isFirst // Expand first, collapse rest
+            collapsed: !isSecond // Expand second (latest release), collapse rest (Backlog & old)
         };
 
         flatTree.push(parentNode);

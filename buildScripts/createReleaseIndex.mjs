@@ -158,7 +158,7 @@ async function createReleaseIndex(options = {}) {
     // Flatten logic
     sortedMajors.forEach((majorNode, index) => {
         // Expand the latest major version (first one)
-        if (index === 1) {
+        if (index === 0) {
             majorNode.collapsed = false;
         }
 
