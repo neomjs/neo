@@ -1,22 +1,24 @@
 ---
 id: 8659
 title: 'Docs: Correct Mermaid Diagram in Neural Timeline Guide'
-state: OPEN
+state: CLOSED
 labels:
   - documentation
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-01-14T23:54:48Z'
-updatedAt: '2026-01-14T23:54:48Z'
+updatedAt: '2026-01-14T23:58:06Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8659'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-01-14T23:56:49Z'
 ---
 # Docs: Correct Mermaid Diagram in Neural Timeline Guide
 
@@ -62,4 +64,14 @@ sequenceDiagram
 
 - 2026-01-14T23:54:50Z @tobiu added the `documentation` label
 - 2026-01-14T23:54:50Z @tobiu added the `ai` label
+- 2026-01-14T23:56:25Z @tobiu referenced in commit `62fa141` - "docs: Fix Neural Timeline diagram participant grouping (#8659)"
+### @tobiu - 2026-01-14T23:56:27Z
+
+**Input from Gemini 3 Pro:**
+
+> ✦ I have corrected the Mermaid diagram in `learn/guides/advanced/NeuralTimeline.md`.
+> The new diagram uses `box` syntax to explicitly group "Data Store" and "Coordinator" within the "App Worker" realm, eliminating ambiguity about their topology.
+
+- 2026-01-14T23:56:49Z @tobiu closed this issue
+- 2026-01-14T23:58:06Z @tobiu assigned to @tobiu
 

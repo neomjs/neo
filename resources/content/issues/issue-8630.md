@@ -38,9 +38,10 @@ subIssues:
   - '[x] 8653 Throttle MouseMove Events in HeaderCanvas'
   - '[x] 8655 Enhance Header Canvas Shockwave Physics & Interaction'
   - '[x] 8654 Optimize Global MouseMove with rAF Throttling'
-  - '[ ] 8656 Refactor HeaderCanvas: ComponentManager, SCSS, and JSDoc'
-subIssuesCompleted: 24
-subIssuesTotal: 25
+  - '[x] 8656 Refactor HeaderCanvas: ComponentManager, SCSS, and JSDoc'
+  - '[x] 8657 Docs: Create ''Advanced Canvas Architecture'' Guide'
+subIssuesCompleted: 26
+subIssuesTotal: 26
 blockedBy: []
 blocking: []
 ---
@@ -109,4 +110,5 @@ Implement a high-performance, offscreen canvas overlay for the Portal's `HeaderT
 - 2026-01-14T22:10:02Z @tobiu added sub-issue #8655
 - 2026-01-14T22:11:39Z @tobiu added sub-issue #8654
 - 2026-01-14T23:12:50Z @tobiu added sub-issue #8656
+- 2026-01-14T23:35:22Z @tobiu added sub-issue #8657
 

@@ -285,12 +285,12 @@ class Container extends BaseContainer {
         });
 
         me.items = [{
-            module  : HeaderToolbar,
-            dock    : me.tabBarPosition,
+            module        : HeaderToolbar,
+            dock          : me.tabBarPosition,
             dragResortable: me.dragResortable,
-            flex    : 'none',
-            id      : me.tabBarId,
-            items   : tabButtons,
+            flex          : 'none',
+            id            : me.tabBarId,
+            items         : tabButtons,
             useActiveTabIndicator,
             ...me.headerToolbar
         }, {
