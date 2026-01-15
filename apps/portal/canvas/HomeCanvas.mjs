@@ -850,9 +850,21 @@ class HomeCanvas extends Base {
             buffer[idx + 2] *= 0.95; // Friction
             buffer[idx + 3] *= 0.95;
 
-            let drift = isParent ? 0.02 : 0.01;
-            if (Math.abs(buffer[idx + 2]) < 0.2) buffer[idx + 2] += (Math.random() - 0.5) * drift;
-            if (Math.abs(buffer[idx + 3]) < 0.2) buffer[idx + 3] += (Math.random() - 0.5) * drift;
+            // 4. Ambient Drift / Flow Field
+            if (isParent) {
+                // FLOW FIELD for Parents: Create organic currents
+                // Combine Sine/Cosine based on position and time
+                let angle = (Math.cos(buffer[idx] * 0.002 + me.time * 0.5) + 
+                             Math.sin(buffer[idx + 1] * 0.002 + me.time * 0.5)) * Math.PI;
+                
+                // Accelerate in flow direction
+                buffer[idx + 2] += Math.cos(angle) * 0.05;
+                buffer[idx + 3] += Math.sin(angle) * 0.05;
+            } else {
+                // Random wander for children
+                if (Math.abs(buffer[idx + 2]) < 0.2) buffer[idx + 2] += (Math.random() - 0.5) * 0.02;
+                if (Math.abs(buffer[idx + 3]) < 0.2) buffer[idx + 3] += (Math.random() - 0.5) * 0.02;
+            }
 
             buffer[idx]     += buffer[idx + 2];
             buffer[idx + 1] += buffer[idx + 3];
