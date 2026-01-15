@@ -318,14 +318,14 @@ class Component extends ContentComponent {
         });
 
         // 5. Construct Badges
-        if (labels.length > 0 || state || (parentId && parentId !== 'Latest')) {
+        if (labels.length > 0 || state || (parentId && parentId !== 'Backlog')) {
             badgesHtml = '<div class="neo-ticket-labels">';
 
             if (state) {
                 badgesHtml += me.getStateBadgeHtml(state)
             }
 
-            if (parentId && parentId !== 'Latest') {
+            if (parentId && parentId !== 'Backlog') {
                 badgesHtml += `
                     <a class="neo-badge neo-release-badge" href="#/news/releases/${parentId.substring(1)}">
                         <i class="fa-solid fa-code-branch"></i> ${parentId}
@@ -512,17 +512,30 @@ class Component extends ContentComponent {
 
                 // Extract a short action name for the list
                 let shortAction = action.split(' ')[0]; // 'added', 'closed', etc.
+                let entryName;
 
                 if (shortAction === 'added' || shortAction === 'removed') {
-                    let labelMatch = action.match(/`([^`]+)`/);
-                    shortAction = labelMatch ? labelMatch[1] : 'Label'
+                    if (action.includes('sub-issue')) {
+                        let subIssueMatch = action.match(/#(\d+)/);
+                        if (subIssueMatch) {
+                            entryName = `${Neo.capitalize(shortAction)} sub-issue #${subIssueMatch[1]}`
+                        } else {
+                            entryName = `${Neo.capitalize(shortAction)} sub-issue`
+                        }
+                    } else {
+                        let labelMatch = action.match(/`([^`]+)`/);
+                        shortAction = labelMatch ? labelMatch[1] : 'Label';
+                        entryName = `${Neo.capitalize(shortAction)} (${user})`
+                    }
+                } else {
+                    entryName = `${Neo.capitalize(shortAction)} (${user})`
                 }
 
                 me.timelineData.push({
                     color: color, // Pass resolved hex color
                     icon : icon,
                     id   : id,
-                    name : `${Neo.capitalize(shortAction)} (${user})`,
+                    name : entryName,
                     tag  : 'event'
                 });
 

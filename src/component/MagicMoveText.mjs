@@ -51,6 +51,13 @@ class MagicMoveText extends Component {
          */
         autoCycleInterval_: 2000,
         /**
+         * The number of text cycles before the measurement cache is automatically cleared.
+         * Set to 0 to disable automatic clearing.
+         * @member {Number} cacheClearInterval_=10
+         * @reactive
+         */
+        cacheClearInterval_: 10,
+        /**
          * @member {String[]} baseCls=['neo-magic-move-text']
          * @protected
          */
@@ -132,6 +139,12 @@ class MagicMoveText extends Component {
      * @protected
      */
     contentWidth = 0
+    /**
+     * Counter for the number of text cycles since the last cache clear.
+     * @member {Number} cycleCount=0
+     * @protected
+     */
+    cycleCount = 0
     /**
      * The index of the string currently displayed from the `cycleTexts` array.
      * @member {Number} currentIndex=0
@@ -321,6 +334,15 @@ class MagicMoveText extends Component {
         }
 
         if (value) {
+            if (me.cacheClearInterval > 0) {
+                me.cycleCount++;
+
+                if (me.cycleCount >= me.cacheClearInterval) {
+                    me.measureCache = {};
+                    me.cycleCount   = 0
+                }
+            }
+
             try {
                 me.chars = [];
                 measureElement.cn = [];
@@ -413,10 +435,10 @@ class MagicMoveText extends Component {
     async measureChars() {
         let me = this,
             {measureCache, measureElement, measureWrapper, text} = me,
-            parentRect, rects;
+            parentRect, rects, rootRect;
 
-        if (measureCache[text]) {
-            rects      = [...measureCache[text]];
+        if (measureCache[text] && measureCache[text].width === me.contentWidth && measureCache[text].height === me.contentHeight) {
+            rects      = [...measureCache[text].rects];
             parentRect = rects.shift()
         } else {
             measureWrapper.style = {
@@ -429,10 +451,25 @@ class MagicMoveText extends Component {
             await me.promiseUpdate();
             await me.timeout(20);
 
-            rects      = await me.getDomRect([measureWrapper.id, ...measureElement.cn.map(node => node.id)]);
+            rects      = await me.getDomRect([me.id, measureWrapper.id, ...measureElement.cn.map(node => node.id)]);
+            rootRect   = rects.shift();
             parentRect = rects.shift();
 
-            measureCache[text] = [parentRect, ...rects]
+            // Self-Correction: If the real DOM size differs from our expected size, we update and retry.
+            // We allow a small tolerance (2px) for sub-pixel rendering differences.
+            // We also check for > 0 to avoid zeroing out dimensions if the component is temporarily hidden.
+            if (rootRect.width > 0 && (Math.abs(rootRect.width - me.contentWidth) > 2 || Math.abs(rootRect.height - me.contentHeight) > 2)) {
+                me.contentWidth  = rootRect.width;
+                me.contentHeight = rootRect.height;
+
+                return me.measureChars()
+            }
+
+            measureCache[text] = {
+                height: me.contentHeight,
+                rects : [parentRect, ...rects],
+                width : me.contentWidth
+            }
         }
 
         rects.forEach((rect, index) => {

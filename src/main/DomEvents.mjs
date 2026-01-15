@@ -114,10 +114,18 @@ class DomEvents extends Base {
     }
 
     /**
+     * @member {Object|null} lastMouseMoveData=null
+     */
+    lastMouseMoveData = null
+    /**
      *
      * @member {Object} touch
      */
     lastTouch = null
+    /**
+     * @member {Number|null} mouseMoveReqId=null
+     */
+    mouseMoveReqId = null
 
     /**
      * @param {Object} config
@@ -270,7 +278,7 @@ class DomEvents extends Base {
 
         if (path.length < 1) {
             // our draggable implementation will generate paths, so we do need to check for them
-            path = event.path;
+            path = event.path || [];
         }
 
         const result = {
@@ -591,6 +599,33 @@ class DomEvents extends Base {
 
         me.sendMessageToApp(appEvent);
         me.fire('mouseLeave', appEvent)
+    }
+
+    /**
+     * @param {MouseEvent} event
+     */
+    onMouseMove(event) {
+        let me = this;
+
+        me.lastMouseMoveData = me.getMouseEventData(event);
+
+        if (!me.mouseMoveReqId) {
+            me.mouseMoveReqId = requestAnimationFrame(me.flushMouseMove.bind(me))
+        }
+    }
+
+    /**
+     *
+     */
+    flushMouseMove() {
+        let me = this;
+
+        if (me.lastMouseMoveData) {
+            me.sendMessageToApp(me.lastMouseMoveData);
+            me.lastMouseMoveData = null
+        }
+
+        me.mouseMoveReqId = null
     }
 
     /**

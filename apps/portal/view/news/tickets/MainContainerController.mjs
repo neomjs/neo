@@ -70,6 +70,31 @@ class MainContainerController extends Controller {
     }
 
     /**
+     * @returns {String}
+     */
+    getDefaultRouteId() {
+        let store     = this.getStateProvider().getStore('tree'),
+            rootCount = 0,
+            i         = 0,
+            len       = store.getCount(),
+            record;
+
+        for (; i < len; i++) {
+            record = store.getAt(i);
+
+            if (record.parentId === null) {
+                rootCount++;
+
+                if (rootCount === 2) {
+                    return store.getAt(i + 1)?.id
+                }
+            }
+        }
+
+        return store.getAt(1)?.id
+    }
+
+    /**
      * @param {Object} data
      */
     onRouteDefault(data) {
@@ -77,10 +102,10 @@ class MainContainerController extends Controller {
             store = me.getStateProvider().getStore('tree');
 
         if (store.getCount() > 0) {
-            me.navigateTo(store.getAt(1).id)
+            me.navigateTo(me.getDefaultRouteId())
         } else {
             store.on({
-                load : () => me.navigateTo(store.getAt(1).id),
+                load : () => me.navigateTo(me.getDefaultRouteId()),
                 delay: 10,
                 once : true
             })

@@ -27,6 +27,7 @@ const handlerMap = {
     mousedown  : 'onMouseDown',
     mouseenter : 'onMouseEnter',
     mouseleave : 'onMouseLeave',
+    mousemove  : 'onMouseMove',
     mouseup    : 'onMouseUp',
     scroll     : 'onScroll',
     wheel      : 'onWheel'
@@ -90,6 +91,12 @@ class DomEvent extends Base {
          */
         singleton: true
     }
+
+    /**
+     * @member {Object} mountTimeouts={}
+     * @private
+     */
+    mountTimeouts = {}
 
     /**
      *
@@ -291,7 +298,8 @@ class DomEvent extends Base {
      * @protected
      */
     mountDomListeners(component) {
-        let listeners   = this.items[component.id],
+        let me          = this,
+            listeners   = me.items[component.id],
             localEvents = [];
 
         if (listeners) {
@@ -300,7 +308,7 @@ class DomEvent extends Base {
                     eventName = event.eventName;
 
                     if (eventName === 'resize') {
-                        this.addResizeObserver(component, event)
+                        me.addResizeObserver(component, event)
                     } else if (eventName && (event.local || !globalDomEvents.includes(eventName))) {
                         let options = {};
 
@@ -503,9 +511,14 @@ class DomEvent extends Base {
             });
 
             if (component.mounted && domListeners?.length > 0) {
-                me.timeout(100).then(() => {
-                    me.mountDomListeners(component)
-                })
+                if (me.mountTimeouts[component.id]) {
+                    clearTimeout(me.mountTimeouts[component.id])
+                }
+
+                me.mountTimeouts[component.id] = setTimeout(() => {
+                    me.mountDomListeners(component);
+                    delete me.mountTimeouts[component.id]
+                }, 50)
             }
         } else {
             Logger.logError('Component.domListeners have to be an array', component)

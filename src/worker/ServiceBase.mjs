@@ -146,6 +146,25 @@ class ServiceBase extends Base {
     }
 
     /**
+     * Lazy cleanup of old caches.
+     * Iterates over all caches and removes those matching the prefix but not the current version.
+     * @returns {Promise<void>}
+     */
+    async cleanUpCaches() {
+        let me   = this,
+            keys = await caches.keys(),
+            key;
+
+        for (key of keys) {
+            // Clear caches for prior SW versions, without touching non-related caches
+            if (key.startsWith(me._cacheName) && key !== me.cacheName) {
+                console.log('Deleting old cache:', key);
+                await me.clearCache(key)
+            }
+        }
+    }
+
+    /**
      * Deletes a specific named cache.
      * Accessible remotely from the App Worker.
      * @param {String} name=this.cacheName
@@ -241,22 +260,13 @@ class ServiceBase extends Base {
      * @param {ExtendableMessageEvent} event
      */
     onActivate(event) {
-        event.waitUntil((async () => {
-            await globalThis.clients.claim();
+        console.log('Neo ServiceWorker activated:', this.version);
 
-            console.log('Neo ServiceWorker activated:', this.version);
+        // Claim clients immediately to take control of the page
+        event.waitUntil(globalThis.clients.claim());
 
-            let me   = this,
-                keys = await caches.keys(),
-                key;
-
-            for (key of keys) {
-                // Clear caches for prior SW versions, without touching non-related caches
-                if (key.startsWith(me._cacheName) && key !== me.cacheName) {
-                    await me.clearCache(key)
-                }
-            }
-        })());
+        // Perform cache cleanup lazily to avoid blocking the page load
+        this.cleanUpCaches()
     }
 
     /**
@@ -296,7 +306,8 @@ class ServiceBase extends Base {
                         return fetch(request).then(response => {
                             // Cache successful responses for future use
                             if (response.ok || response.status === 0) {
-                                cache.put(request, response.clone());
+                                // catch is important, e.g. in case the quota is full
+                                cache.put(request, response.clone()).catch(() => {});
                             }
                             return response;
                         });

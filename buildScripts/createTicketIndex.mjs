@@ -18,7 +18,7 @@ import {sanitizeInput} from './util/Sanitizer.mjs';
  * **Key Features:**
  * - **Dual-Source Scanning:** Reads from both active issues (`resources/content/issues`) and the issue archive (`resources/content/issue-archive`).
  * - **Intelligent Filtering:** Includes high-value tickets (bug, feature, epic) while excluding noise (chore, task) to ensure high signal-to-noise ratio for SEO and AI.
- * - **Hierarchical Grouping:** Groups tickets by "Latest" (active) or by Release Version (archived), sorted semantically.
+ * - **Hierarchical Grouping:** Groups tickets by "Backlog" (active) or by Release Version (archived), sorted semantically.
  * - **TreeList Optimization:** Outputs a flat-tree structure compatible with `Neo.tree.List` and `Neo.data.Store`.
  *
  * @see apps/portal/view/news/tickets/MainContainer.mjs
@@ -43,7 +43,7 @@ const EXCLUDE_LABELS = new Set(['chore', 'task', 'agent-task']);
  * 1.  Glob-scans the configured directories for `.md` files.
  * 2.  Parses YAML frontmatter to extract metadata (id, title, labels, dates).
  * 3.  Applies inclusion/exclusion label logic.
- * 4.  Groups tickets by version (directory name) or 'Latest'.
+ * 4.  Groups tickets by version (directory name) or 'Backlog'.
  * 5.  Sorts groups by SemVer and tickets by date/ID.
  * 6.  Flattens the result into a `Neo.data.Store` compatible array.
  *
@@ -116,10 +116,10 @@ async function createTicketIndex(options = {}) {
             return;
         }
 
-        // Determine Group (Version or Latest)
+        // Determine Group (Version or Backlog)
         let groupName;
         if (fileInfo.isActive) {
-            groupName = 'Latest';
+            groupName = 'Backlog';
         } else {
             // path/to/archive/v11.19.1/issue-123.md -> v11.19.1
             const parentDir = path.basename(path.dirname(filePath));
@@ -147,10 +147,10 @@ async function createTicketIndex(options = {}) {
     }));
 
     // Sort Groups
-    // 'Latest' first, then versions descending (using semver)
+    // 'Backlog' first, then versions descending (using semver)
     const sortedGroups = Array.from(ticketsByGroup.keys()).sort((a, b) => {
-        if (a === 'Latest') return -1;
-        if (b === 'Latest') return 1;
+        if (a === 'Backlog') return -1;
+        if (b === 'Backlog') return 1;
 
         // Clean versions for semver comparison
         const vA = a.replace(/^v/, '');
@@ -166,13 +166,13 @@ async function createTicketIndex(options = {}) {
 
     sortedGroups.forEach((groupName, index) => {
         // Create Parent Node
-        const isFirst = index === 0;
+        const isSecond = index === 1;
 
         const parentNode = {
             id       : groupName,
             isLeaf   : false,
             parentId : null,
-            collapsed: !isFirst // Expand first, collapse rest
+            collapsed: !isSecond // Expand second (latest release), collapse rest (Backlog & old)
         };
 
         flatTree.push(parentNode);

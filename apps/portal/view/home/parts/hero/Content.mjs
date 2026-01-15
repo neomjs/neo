@@ -1,23 +1,23 @@
-import BaseContainer from './BaseContainer.mjs';
-import Button        from '../../../../../src/button/Base.mjs';
-import MagicMoveText from '../../../../../src/component/MagicMoveText.mjs';
+import BaseContainer     from '../../../../../../src/container/Base.mjs';
+import Button            from '../../../../../../src/button/Base.mjs';
+import MagicMoveText     from '../../../../../../src/component/MagicMoveText.mjs';
 
 /**
- * @class Portal.view.home.parts.MainNeo
- * @extends Portal.view.home.parts.BaseContainer
+ * @class Portal.view.home.parts.hero.Content
+ * @extends Neo.container.Base
  */
-class MainNeo extends BaseContainer {
+class Content extends BaseContainer {
     static config = {
         /**
-         * @member {String} className='Portal.view.home.parts.MainNeo'
+         * @member {String} className='Portal.view.home.parts.hero.Content'
          * @protected
          */
-        className: 'Portal.view.home.parts.MainNeo',
+        className: 'Portal.view.home.parts.hero.Content',
         /**
-         * @member {String[]} cls=['portal-home-main-neo']
+         * @member {String[]} cls=['portal-home-hero-content']
          * @reactive
          */
-        cls: ['portal-home-main-neo'],
+        cls: ['portal-home-hero-content'],
 
         layout: {ntype: 'vbox', align: 'center', pack: 'center'},
         /**
@@ -108,4 +108,4 @@ class MainNeo extends BaseContainer {
     }
 }
 
-export default Neo.setupClass(MainNeo);
+export default Neo.setupClass(Content);
