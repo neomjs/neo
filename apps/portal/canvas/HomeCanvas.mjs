@@ -736,7 +736,10 @@ class HomeCanvas extends Base {
                     nodes[nIdx + 8] = 1.0;
                 } else {
                     // Steer towards target
-
+                    let force = 0.05;
+                    agents[idx + 2] += (dx / dist) * force;
+                    agents[idx + 3] += (dy / dist) * force;
+                }
             } else if (state === 1) {
                 if (Math.random() < 0.02) {
                     agents[idx + 4] = -1; 
