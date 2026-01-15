@@ -7,11 +7,11 @@ const
     SPARK_COLOR      = '#4B0082', // Indigo
     CONNECTION_COLOR = '#808080',
     NODE_COUNT       = 150,
-    NODE_STRIDE   = 9, // x, y, vx, vy, radius, layer, parentId, phase, energy
-    AGENT_COUNT   = 20,
-    AGENT_STRIDE  = 6, // x, y, vx, vy, targetIdx, state
-    PACKET_COUNT  = 20,
-    PACKET_STRIDE = 5; // x, y, vx, vy, life (0-1)
+    NODE_STRIDE      = 9, // x, y, vx, vy, radius, layer, parentId, phase, energy
+    AGENT_COUNT      = 20,
+    AGENT_STRIDE     = 6, // x, y, vx, vy, targetIdx, state
+    PACKET_COUNT     = 20,
+    PACKET_STRIDE    = 5; // x, y, vx, vy, life (0-1)
 
 /**
  * @summary SharedWorker renderer for the Portal Home "Neural Swarm" background.
@@ -127,7 +127,7 @@ class HomeCanvas extends Base {
         me.shockwaves   = [];
         me.sparks       = [];
         me.isPaused     = false;
-        me.gradients    = {};
+        me.gradients    = {}
     }
 
     /**
@@ -148,28 +148,28 @@ class HomeCanvas extends Base {
         ctx.lineCap     = 'round';
 
         for (let i = 0; i < count; i++) {
-            let idx = i * AGENT_STRIDE,
-                x   = buffer[idx],
-                y   = buffer[idx + 1],
-                vx  = buffer[idx + 2],
-                vy  = buffer[idx + 3],
+            let idx   = i * AGENT_STRIDE,
+                x     = buffer[idx],
+                y     = buffer[idx + 1],
+                vx    = buffer[idx + 2],
+                vy    = buffer[idx + 3],
                 state = buffer[idx + 5];
 
             // 1. Draw Trail (Motion Blur)
             let speed = Math.sqrt(vx*vx + vy*vy);
-            
+
             if (speed > 0.1) {
                 ctx.beginPath();
                 ctx.lineWidth = 2;
                 ctx.globalAlpha = 0.6;
                 ctx.moveTo(x, y);
-                ctx.lineTo(x - vx * 4, y - vy * 4); 
-                ctx.stroke();
+                ctx.lineTo(x - vx * 4, y - vy * 4);
+                ctx.stroke()
             }
 
             // 2. Draw Head
             ctx.beginPath();
-            ctx.globalAlpha = state === 1 ? 1 : 0.8; 
+            ctx.globalAlpha = state === 1 ? 1 : 0.8;
             let radius = state === 1 ? 3 : 2;
             ctx.arc(x, y, radius, 0, Math.PI * 2);
             ctx.fill();
@@ -180,11 +180,11 @@ class HomeCanvas extends Base {
                 ctx.lineWidth = 1;
                 ctx.globalAlpha = 0.3;
                 ctx.arc(x, y, 8 + Math.sin(me.time * 10) * 2, 0, Math.PI * 2);
-                ctx.stroke();
+                ctx.stroke()
             }
         }
 
-        ctx.globalAlpha = 1;
+        ctx.globalAlpha = 1
     }
 
     /**
@@ -224,19 +224,20 @@ class HomeCanvas extends Base {
 
         // 1. Draw Connections
         for (let i = 0; i < count; i++) {
-            let idx = i * NODE_STRIDE,
-                l1  = buffer[idx + 5],
+            let idx  = i * NODE_STRIDE,
+                l1   = buffer[idx + 5],
                 pid1 = buffer[idx + 6],
-                p1  = getPos(idx, l1);
+                p1   = getPos(idx, l1);
 
             for (let j = i + 1; j < count; j++) {
                 let idx2 = j * NODE_STRIDE,
                     l2   = buffer[idx2 + 5],
                     pid2 = buffer[idx2 + 6];
 
-                const sameCluster = pid1 === pid2 && pid1 !== -1;
-                const isParentChild = (pid1 === j) || (pid2 === i);
-                const isClusterLink = (pid1 === -1 && pid2 === -1);
+                const
+                    sameCluster   = pid1 === pid2 && pid1 !== -1,
+                    isParentChild = (pid1 === j) || (pid2 === i),
+                    isClusterLink = (pid1 === -1 && pid2 === -1);
 
                 if (!sameCluster && !isParentChild && !isClusterLink) continue;
 
@@ -248,7 +249,7 @@ class HomeCanvas extends Base {
                 if (distSq < 40000) {
                     let dist  = Math.sqrt(distSq),
                         alpha = 1 - (dist / 200);
-                    
+
                     alpha *= (0.2 + (l1 * 0.1));
 
                     let mDx = (p1.x + p2.x)/2 - mx,
@@ -258,79 +259,82 @@ class HomeCanvas extends Base {
                     if (mDistSq < 10000) {
                         alpha = Math.min(alpha + 0.5, 1);
                         ctx.strokeStyle = HIGHLIGHT;
-                        ctx.lineWidth = 1.5; // Thicker near mouse
+                        ctx.lineWidth   = 1.5 // Thicker near mouse
                     } else {
                         ctx.strokeStyle = l1 === 2 ? PRIMARY : SECONDARY;
                         // Elasticity: Thicker when closer (Tension/Slack visualization)
-                        ctx.lineWidth = 0.5 + (1 - (dist / 200)); 
+                        ctx.lineWidth = 0.5 + (1 - (dist / 200))
                     }
 
                     ctx.beginPath();
                     ctx.globalAlpha = alpha * 0.5;
                     ctx.moveTo(p1.x, p1.y);
                     ctx.lineTo(p2.x, p2.y);
-                    ctx.stroke();
+                    ctx.stroke()
                 }
             }
         }
 
         // 2. Draw Nodes
         for (let i = 0; i < count; i++) {
-            let idx    = i * NODE_STRIDE,
-                radius = buffer[idx + 4],
-                layer  = buffer[idx + 5],
+            let idx      = i * NODE_STRIDE,
+                radius   = buffer[idx + 4],
+                layer    = buffer[idx + 5],
                 parentId = buffer[idx + 6],
-                phase  = buffer[idx + 7],
-                energy = buffer[idx + 8],
-                pos    = getPos(idx, layer);
-
-            let dx = pos.x - mx,
-                dy = pos.y - my,
-                dist = Math.sqrt(dx*dx + dy*dy),
-                isHover = dist < 50;
+                phase    = buffer[idx + 7],
+                energy   = buffer[idx + 8],
+                pos      = getPos(idx, layer),
+                dx       = pos.x - mx,
+                dy       = pos.y - my,
+                dist     = Math.sqrt(dx * dx + dy * dy),
+                isHover  = dist < 50;
 
             // Shockwave Interaction
             if (me.shockwaves.length > 0) {
                 me.shockwaves.forEach(wave => {
                     let wDist = Math.sqrt((pos.x - wave.x)**2 + (pos.y - wave.y)**2),
                         wRad  = wave.age * wave.speed;
-                    if (Math.abs(wDist - wRad) < 20) isHover = true;
+                    if (Math.abs(wDist - wRad) < 20) {
+                        isHover = true;
+                    }
                 });
             }
 
             ctx.beginPath();
             let r = parentId === -1 ? radius * 1.5 : radius;
-            
+
             // Breathing + Energy
             r *= 1 + Math.sin(me.time * 2 + phase) * 0.15 + energy;
 
-            if (isHover) r *= 1.5;
+            if (isHover) {
+                r *= 1.5;
+            }
 
             ctx.arc(pos.x, pos.y, r, 0, Math.PI * 2);
 
             if (energy > 0.1) {
                 // Energetic Node (Agent Scanned)
                 ctx.fillStyle = HIGHLIGHT;
-                ctx.globalAlpha = Math.min(1, 0.5 + energy);
+                ctx.globalAlpha = Math.min(1, 0.5 + energy)
             } else if (layer === 2) {
                 ctx.fillStyle = isHover ? '#FFFFFF' : PRIMARY;
-                ctx.globalAlpha = isHover ? 1 : 0.8;
+                ctx.globalAlpha = isHover ? 1 : 0.8
             } else if (parentId === -2) {
                 // Drifting Node Visual
                 ctx.fillStyle = HIGHLIGHT;
-                ctx.globalAlpha = 0.6 + Math.sin(me.time * 10 + phase) * 0.3; 
+                ctx.globalAlpha = 0.6 + Math.sin(me.time * 10 + phase) * 0.3
             } else if (layer === 1) {
                 ctx.fillStyle = isHover ? HIGHLIGHT : SECONDARY;
-                ctx.globalAlpha = 0.5;
+                ctx.globalAlpha = 0.5
             } else {
                 ctx.fillStyle = CONNECTION_COLOR;
-                ctx.globalAlpha = 0.2;
+                ctx.globalAlpha = 0.2
             }
 
             ctx.fill();
         }
 
-        ctx.globalAlpha = 1;
+        ctx.globalAlpha = 1
     }
 
     /**
@@ -346,12 +350,12 @@ class HomeCanvas extends Base {
             buffer = me.packetBuffer,
             count  = PACKET_COUNT;
 
-        ctx.fillStyle = '#FFFFFF';
-        ctx.shadowBlur = 5;
+        ctx.fillStyle   = '#FFFFFF';
+        ctx.shadowBlur  = 5;
         ctx.shadowColor = HIGHLIGHT;
 
         for (let i = 0; i < count; i++) {
-            let idx = i * PACKET_STRIDE,
+            let idx  = i * PACKET_STRIDE,
                 life = buffer[idx + 4];
 
             if (life > 0) {
@@ -361,12 +365,12 @@ class HomeCanvas extends Base {
                 ctx.beginPath();
                 ctx.globalAlpha = Math.min(life * 2, 1); // Fade out at end
                 ctx.arc(x, y, 2, 0, Math.PI * 2);
-                ctx.fill();
+                ctx.fill()
             }
         }
 
-        ctx.shadowBlur = 0;
-        ctx.globalAlpha = 1;
+        ctx.shadowBlur  = 0;
+        ctx.globalAlpha = 1
     }
 
     /**
@@ -392,13 +396,13 @@ class HomeCanvas extends Base {
             }
 
             // Non-Linear Expansion (Explosive start, slow finish)
-            let eased = 1 - Math.pow(1 - progress, 3), 
+            let eased = 1 - Math.pow(1 - progress, 3),
                 radius = eased * wave.maxRadius,
                 alpha  = 1 - progress;
 
             // Chromatic Aberration (Inverted for Light Mode)
             // No screen blend mode, using dark saturated colors
-            
+
             // 1. Red Channel (Lagging Fringe)
             ctx.beginPath();
             ctx.strokeStyle = `rgba(220, 20, 60, ${alpha * 0.8})`; // Crimson
@@ -420,12 +424,12 @@ class HomeCanvas extends Base {
             // 3. Primary Wave (White Hot Center)
             ctx.beginPath();
             ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
-            ctx.lineWidth   = 6 * (1 - progress); 
+            ctx.lineWidth   = 6 * (1 - progress);
             ctx.shadowBlur  = 20;
             ctx.shadowColor = '#FFFFFF';
             ctx.arc(wave.x, wave.y, radius, 0, Math.PI * 2);
             ctx.stroke();
-            
+
             // 4. Pressure Fill (Refraction Fake)
             // Blue tint for light background
             ctx.fillStyle = `rgba(62, 99, 221, ${alpha * 0.05})`;
@@ -433,7 +437,7 @@ class HomeCanvas extends Base {
         }
 
         ctx.shadowBlur = 0;
-        ctx.globalAlpha = 1;
+        ctx.globalAlpha = 1
     }
 
     /**
@@ -448,17 +452,17 @@ class HomeCanvas extends Base {
         ctx.strokeStyle = SPARK_COLOR;
         ctx.shadowBlur = 0; // Crisp lines on white
         ctx.lineWidth = 2;
-        
+
         for (let s of me.sparks) {
             ctx.globalAlpha = s.life;
             ctx.beginPath();
             // Draw Trail based on velocity
             ctx.moveTo(s.x, s.y);
             ctx.lineTo(s.x - s.vx * 2, s.y - s.vy * 2);
-            ctx.stroke();
+            ctx.stroke()
         }
 
-        ctx.globalAlpha = 1;
+        ctx.globalAlpha = 1
     }
 
     /**
@@ -483,7 +487,7 @@ class HomeCanvas extends Base {
             buffer[idx + 2] = (Math.random() - 0.5) * 4; // vx (Fast!)
             buffer[idx + 3] = (Math.random() - 0.5) * 4; // vy
             buffer[idx + 4] = -1; // targetIdx (none)
-            buffer[idx + 5] = 0;  // state (moving)
+            buffer[idx + 5] = 0   // state (moving)
         }
     }
 
@@ -526,13 +530,12 @@ class HomeCanvas extends Base {
         }
 
         const
-            buffer = me.nodeBuffer,
-            cx     = width / 2,
-            cy     = height / 2,
-            phi    = (1 + Math.sqrt(5)) / 2,
-            scale  = Math.sqrt(width * height / NODE_COUNT) * 0.8;
-
-        const parentCount = Math.floor(NODE_COUNT * 0.1);
+            buffer        = me.nodeBuffer,
+            cx            = width / 2,
+            cy            = height / 2,
+            phi           = (1 + Math.sqrt(5)) / 2,
+            scale         = Math.sqrt(width * height / NODE_COUNT) * 0.8,
+            parentCount   = Math.floor(NODE_COUNT * 0.1);
         let parentIndices = [];
 
         for (let i = 0; i < NODE_COUNT; i++) {
@@ -556,29 +559,29 @@ class HomeCanvas extends Base {
             buffer[idx + 1] = y;
             buffer[idx + 2] = (Math.random() - 0.5) * 0.2;
             buffer[idx + 3] = (Math.random() - 0.5) * 0.2;
-            
+
             let layer = Math.floor(Math.random() * 3);
             buffer[idx + 5] = layer; // layer
 
             // Radius based on layer & role
-            buffer[idx + 4] = isParent ? 4 + (layer * 2) : 2 + (layer * 1.5); 
-            
+            buffer[idx + 4] = isParent ? 4 + (layer * 2) : 2 + (layer * 1.5);
+
             // Parent ID (-1 for parents, assigned later for children)
-            buffer[idx + 6] = isParent ? -1 : -2; 
-            
+            buffer[idx + 6] = isParent ? -1 : -2;
+
             // Phase (Breathing offset)
             buffer[idx + 7] = Math.random() * Math.PI * 2;
-            
+
             // Energy
             buffer[idx + 8] = 0;
         }
 
         // 2. Assign Children to nearest Parent
         for (let i = parentCount; i < NODE_COUNT; i++) {
-            let idx = i * NODE_STRIDE,
-                x   = buffer[idx],
-                y   = buffer[idx + 1],
-                bestDist = Infinity,
+            let idx        = i * NODE_STRIDE,
+                x          = buffer[idx],
+                y          = buffer[idx + 1],
+                bestDist   = Infinity,
                 bestParent = -1;
 
             for (let pid of parentIndices) {
@@ -594,8 +597,8 @@ class HomeCanvas extends Base {
                     bestParent = pid;
                 }
             }
-            
-            buffer[idx + 6] = bestParent;
+
+            buffer[idx + 6] = bestParent
         }
     }
 
@@ -605,7 +608,7 @@ class HomeCanvas extends Base {
     initPackets() {
         let me = this;
         if (!me.packetBuffer) {
-            me.packetBuffer = new Float32Array(PACKET_COUNT * PACKET_STRIDE);
+            me.packetBuffer = new Float32Array(PACKET_COUNT * PACKET_STRIDE)
         }
     }
 
@@ -664,7 +667,7 @@ class HomeCanvas extends Base {
 
         if (me.gradients.bgGradient) {
             ctx.fillStyle = me.gradients.bgGradient;
-            ctx.fillRect(0, 0, width, height);
+            ctx.fillRect(0, 0, width, height)
         }
 
         me.drawNetwork(ctx, width, height);
@@ -695,10 +698,10 @@ class HomeCanvas extends Base {
 
             if (data.click) {
                 me.shockwaves.push({
-                    x    : data.x,
-                    y    : data.y,
-                    age  : 0,
-                    maxAge: 40, // Faster, punchier wave
+                    x        : data.x,
+                    y        : data.y,
+                    age      : 0,
+                    maxAge   : 40, // Faster, punchier wave
                     maxRadius: 300
                 });
 
@@ -707,7 +710,7 @@ class HomeCanvas extends Base {
                     let angle = Math.random() * Math.PI * 2,
                         speed = Math.random() * 15 + 5; // Fast burst
                     me.sparks.push({
-                        x    : data.x, 
+                        x    : data.x,
                         y    : data.y,
                         vx   : Math.cos(angle) * speed,
                         vy   : Math.sin(angle) * speed,
@@ -748,20 +751,20 @@ class HomeCanvas extends Base {
                     // Simplified: Just go Child -> Parent for now (Data reporting)
                     if (pid !== -1) { // If it's a child
                         let idx2 = pid * NODE_STRIDE,
-                            x1 = nodes[idx1], y1 = nodes[idx1 + 1],
-                            x2 = nodes[idx2], y2 = nodes[idx2 + 1],
-                            dx = x2 - x1,
-                            dy = y2 - y1,
-                            dist = Math.sqrt(dx*dx + dy*dy);
+                            x1   = nodes[idx1], y1 = nodes[idx1 + 1],
+                            x2   = nodes[idx2], y2 = nodes[idx2 + 1],
+                            dx   = x2 - x1,
+                            dy   = y2 - y1,
+                            dist = Math.sqrt(dx * dx + dy * dy);
 
                         // Only spawn if connected and close
                         if (dist < 200) {
                             packets[idx]     = x1;
                             packets[idx + 1] = y1;
-                            let speed = 4;
+                            let speed        = 4;
                             packets[idx + 2] = (dx / dist) * speed;
                             packets[idx + 3] = (dy / dist) * speed;
-                            packets[idx + 4] = dist / speed; // Life = frames to reach target
+                            packets[idx + 4] = dist / speed // Life = frames to reach target
                         }
                     }
                 }
@@ -769,7 +772,7 @@ class HomeCanvas extends Base {
                 // Move
                 packets[idx]     += packets[idx + 2];
                 packets[idx + 1] += packets[idx + 3];
-                packets[idx + 4]--; // Decrease life
+                packets[idx + 4]-- // Decrease life
             }
         }
     }
@@ -816,11 +819,11 @@ class HomeCanvas extends Base {
                 state = agents[idx + 5];
 
             // Behavior 1: Pick a Target
-            if (targetIdx === -1 || Math.random() < 0.005) { 
+            if (targetIdx === -1 || Math.random() < 0.005) {
                 const parentCount = Math.floor(NODE_COUNT * 0.1);
                 agents[idx + 4] = Math.floor(Math.random() * parentCount);
                 targetIdx = agents[idx + 4];
-                agents[idx + 5] = 0; 
+                agents[idx + 5] = 0;
             }
 
             // Behavior 2: Seek Target
@@ -837,7 +840,7 @@ class HomeCanvas extends Base {
                     agents[idx + 5] = 1; // Scan state
                     agents[idx + 2] *= 0.1; // Slow down
                     agents[idx + 3] *= 0.1;
-                    
+
                     // Transfer Energy to Node
                     nodes[nIdx + 8] = 1.0;
                 } else {
@@ -848,7 +851,7 @@ class HomeCanvas extends Base {
                 }
             } else if (state === 1) {
                 if (Math.random() < 0.02) {
-                    agents[idx + 4] = -1; 
+                    agents[idx + 4] = -1;
                     agents[idx + 5] = 0;
                     agents[idx + 2] += (Math.random() - 0.5) * 4;
                     agents[idx + 3] += (Math.random() - 0.5) * 4;
@@ -862,11 +865,11 @@ class HomeCanvas extends Base {
                     distSq = dx*dx + dy*dy;
 
                 if (distSq < 10000) {
-                    let dist = Math.sqrt(distSq),
+                    let dist  = Math.sqrt(distSq),
                         force = (100 - dist) / 100;
                     agents[idx + 2] += (dx / dist) * force * 1.5;
                     agents[idx + 3] += (dy / dist) * force * 1.5;
-                    agents[idx + 5] = 0; 
+                    agents[idx + 5] = 0
                 }
             }
 
@@ -874,7 +877,7 @@ class HomeCanvas extends Base {
             let speed = Math.sqrt(agents[idx + 2]**2 + agents[idx + 3]**2);
             if (speed > 4) {
                 agents[idx + 2] *= 4 / speed;
-                agents[idx + 3] *= 4 / speed;
+                agents[idx + 3] *= 4 / speed
             }
 
             agents[idx]     += agents[idx + 2];
@@ -898,9 +901,9 @@ class HomeCanvas extends Base {
         if (!me.nodeBuffer) return;
 
         const
-            buffer = me.nodeBuffer,
-            mx     = me.mouse.x,
-            my     = me.mouse.y,
+            buffer      = me.nodeBuffer,
+            mx          = me.mouse.x,
+            my          = me.mouse.y,
             parentCount = Math.floor(NODE_COUNT * 0.1);
 
         for (let i = 0; i < NODE_COUNT; i++) {
@@ -915,7 +918,7 @@ class HomeCanvas extends Base {
                     buffer[idx + 6] = -2;
                     // Boost velocity to escape
                     buffer[idx + 2] += (Math.random() - 0.5) * 2;
-                    buffer[idx + 3] += (Math.random() - 0.5) * 2;
+                    buffer[idx + 3] += (Math.random() - 0.5) * 2
                 }
 
                 // 2. Re-attach Logic (if Drifting)
@@ -933,7 +936,7 @@ class HomeCanvas extends Base {
 
                         if (dist < 60) {
                             buffer[idx + 6] = p; // Snap to new parent
-                            break;
+                            break
                         }
                     }
                 }
@@ -952,21 +955,21 @@ class HomeCanvas extends Base {
                 if (dist > 50) { // Ideal distance
                     let force = (dist - 50) * 0.0005;
                     buffer[idx + 2] += dx * force;
-                    buffer[idx + 3] += dy * force;
+                    buffer[idx + 3] += dy * force
                 }
             }
 
             // 2. Mouse Repulsion (All nodes)
             if (mx !== -1000) {
-                let dx = buffer[idx] - mx,
-                    dy = buffer[idx + 1] - my,
-                    distSq = dx*dx + dy*dy;
+                let dx     = buffer[idx] - mx,
+                    dy     = buffer[idx + 1] - my,
+                    distSq = dx * dx + dy * dy;
 
                 if (distSq < 22500) {
-                    let dist = Math.sqrt(distSq),
+                    let dist  = Math.sqrt(distSq),
                         force = (150 - dist) / 150;
                     buffer[idx + 2] += (dx / dist) * force * 0.5;
-                    buffer[idx + 3] += (dy / dist) * force * 0.5;
+                    buffer[idx + 3] += (dy / dist) * force * 0.5
                 }
             }
 
@@ -974,20 +977,20 @@ class HomeCanvas extends Base {
             if (me.shockwaves.length > 0) {
                 me.shockwaves.forEach(wave => {
                     let progress = wave.age / wave.maxAge;
-                    
+
                     if (progress < 1) {
-                        let eased = 1 - Math.pow(1 - progress, 3), 
+                        let eased = 1 - Math.pow(1 - progress, 3),
                             wRad  = eased * wave.maxRadius,
                             dx    = buffer[idx] - wave.x,
                             dy    = buffer[idx + 1] - wave.y,
                             dist  = Math.sqrt(dx*dx + dy*dy);
-                        
+
                         // Hit the "Wave Front" (Width matches visual ring ~20px)
                         if (Math.abs(dist - wRad) < 20) {
-                            let force = (1 - progress); 
+                            let force = (1 - progress);
                             // Massive Impulse (Throwing)
                             buffer[idx + 2] += (dx / dist) * force * 10;
-                            buffer[idx + 3] += (dy / dist) * force * 10;
+                            buffer[idx + 3] += (dy / dist) * force * 10
                         }
                     }
                 });
@@ -996,7 +999,7 @@ class HomeCanvas extends Base {
             // 4. Physics
             buffer[idx + 2] *= 0.95; // Friction
             buffer[idx + 3] *= 0.95;
-            
+
             // Energy Decay
             buffer[idx + 8] *= 0.99;
 
@@ -1006,31 +1009,31 @@ class HomeCanvas extends Base {
             if (isParent) {
                 // FLOW FIELD for Parents: Create organic currents
                 // Combine Sine/Cosine based on position and time
-                let angle = (Math.cos(buffer[idx] * 0.002 + me.time * 0.5) + 
+                let angle = (Math.cos(buffer[idx]     * 0.002 + me.time * 0.5) +
                              Math.sin(buffer[idx + 1] * 0.002 + me.time * 0.5)) * Math.PI;
-                
+
                 // Accelerate in flow direction
                 buffer[idx + 2] += Math.cos(angle) * 0.05;
                 buffer[idx + 3] += Math.sin(angle) * 0.05;
 
                 // CONTAINMENT FIELD (Fix for Drift Bias)
                 // Gently push nodes back to center if they wander too far
-                let cx   = width / 2,
-                    cy   = height / 2,
-                    dx   = cx - buffer[idx],
-                    dy   = cy - buffer[idx + 1],
-                    dist = Math.sqrt(dx*dx + dy*dy),
+                let cx    = width / 2,
+                    cy    = height / 2,
+                    dx    = cx - buffer[idx],
+                    dy    = cy - buffer[idx + 1],
+                    dist  = Math.sqrt(dx * dx + dy * dy),
                     limit = Math.min(width, height) * 0.4; // Keep within 80% of screen center
 
                 if (dist > limit) {
                     let force = (dist - limit) * 0.001; // Soft spring
                     buffer[idx + 2] += (dx / dist) * force;
-                    buffer[idx + 3] += (dy / dist) * force;
+                    buffer[idx + 3] += (dy / dist) * force
                 }
             } else {
                 // Random wander for children
                 if (Math.abs(buffer[idx + 2]) < 0.2) buffer[idx + 2] += (Math.random() - 0.5) * 0.02;
-                if (Math.abs(buffer[idx + 3]) < 0.2) buffer[idx + 3] += (Math.random() - 0.5) * 0.02;
+                if (Math.abs(buffer[idx + 3]) < 0.2) buffer[idx + 3] += (Math.random() - 0.5) * 0.02
             }
 
             buffer[idx]     += buffer[idx + 2];
@@ -1038,9 +1041,9 @@ class HomeCanvas extends Base {
 
             // Bounce
             const pad = 20;
-            if (buffer[idx] < pad) { buffer[idx] = pad; buffer[idx + 2] *= -1; }
-            if (buffer[idx] > width - pad) { buffer[idx] = width - pad; buffer[idx + 2] *= -1; }
-            if (buffer[idx + 1] < pad) { buffer[idx + 1] = pad; buffer[idx + 3] *= -1; }
+            if (buffer[idx] < pad)              { buffer[idx] = pad; buffer[idx + 2] *= -1; }
+            if (buffer[idx] > width - pad)      { buffer[idx] = width - pad; buffer[idx + 2] *= -1; }
+            if (buffer[idx + 1] < pad)          { buffer[idx + 1] = pad; buffer[idx + 3] *= -1; }
             if (buffer[idx + 1] > height - pad) { buffer[idx + 1] = height - pad; buffer[idx + 3] *= -1; }
         }
     }
@@ -1051,7 +1054,7 @@ class HomeCanvas extends Base {
      * @param {Number} height
      */
     updateResources(width, height) {
-        let me = this,
+        let me  = this,
             ctx = me.context;
 
         if (!ctx) return;
@@ -1060,7 +1063,7 @@ class HomeCanvas extends Base {
         gradient.addColorStop(0, 'rgba(62, 99, 221, 0.05)'); // PRIMARY low alpha
         gradient.addColorStop(1, 'rgba(139, 166, 255, 0.05)'); // SECONDARY low alpha
 
-        me.gradients.bgGradient = gradient;
+        me.gradients.bgGradient = gradient
     }
 
     /**
@@ -1079,7 +1082,7 @@ class HomeCanvas extends Base {
             // FIX: Always re-init nodes on resize to fix "top-left blob" issue
             me.initNodes(size.width, size.height);
             me.initAgents(size.width, size.height);
-            me.updateResources(size.width, size.height);
+            me.updateResources(size.width, size.height)
         }
     }
 }
