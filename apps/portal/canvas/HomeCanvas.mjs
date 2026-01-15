@@ -1,6 +1,7 @@
 import Base from '../../../src/core/Base.mjs';
 
 const
+    hasRaf           = typeof requestAnimationFrame === 'function',
     PRIMARY          = '#3E63DD',
     SECONDARY        = '#8BA6FF',
     HIGHLIGHT        = '#00BFFF', // Deep Sky Blue (High Contrast)
@@ -754,7 +755,11 @@ class HomeCanvas extends Base {
         me.drawShockwaves(ctx);
         me.drawSparks(ctx);
 
-        setTimeout(me.renderLoop, 1000 / 60)
+        if (hasRaf) {
+            requestAnimationFrame(me.renderLoop)
+        } else {
+            setTimeout(me.renderLoop, 1000 / 60)
+        }
     }
 
     /**

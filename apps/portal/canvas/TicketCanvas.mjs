@@ -1,6 +1,7 @@
 import Base from '../../../src/core/Base.mjs';
 
 const
+    hasRaf         = typeof requestAnimationFrame === 'function',
     // Matches full hex codes (e.g., "#0033FF" or "0033FF")
     hexToRgbRegex  = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i,
     // Matches shorthand hex codes (e.g., "#03F" or "03F") for expansion
@@ -425,8 +426,11 @@ class TicketCanvas extends Base {
             }
         });
 
-        // Loop using setTimeout (SharedWorkers do not support rAF)
-        setTimeout(me.renderLoop, 1000 / 60)
+        if (hasRaf) {
+            requestAnimationFrame(me.renderLoop)
+        } else {
+            setTimeout(me.renderLoop, 1000 / 60)
+        }
     }
 }
 

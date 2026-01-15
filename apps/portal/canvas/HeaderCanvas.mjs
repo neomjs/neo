@@ -1,6 +1,7 @@
 import Base from '../../../src/core/Base.mjs';
 
 const
+    hasRaf    = typeof requestAnimationFrame === 'function',
     PRIMARY   = '#3E63DD',
     SECONDARY = '#8BA6FF',
     HIGHLIGHT = '#40C4FF';
@@ -242,7 +243,11 @@ class HeaderCanvas extends Base {
         // 4. Draw "Shockwaves" (Click Effects)
         me.drawShockwaves(ctx, width);
 
-        setTimeout(me.renderLoop, 1000 / 60)
+        if (hasRaf) {
+            requestAnimationFrame(me.renderLoop)
+        } else {
+            setTimeout(me.renderLoop, 1000 / 60)
+        }
     }
 
     /**
