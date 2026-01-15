@@ -62,6 +62,10 @@ class HomeCanvas extends Base {
      */
     context = null
     /**
+     * @member {Object} gradients={}
+     */
+    gradients = {}
+    /**
      * @member {Boolean} isPaused=false
      */
     isPaused = false
@@ -89,6 +93,7 @@ class HomeCanvas extends Base {
         me.canvasSize = null;
         me.nodeBuffer = null;
         me.isPaused   = false;
+        me.gradients  = {};
     }
 
     /**
@@ -320,6 +325,12 @@ class HomeCanvas extends Base {
 
         ctx.clearRect(0, 0, width, height);
 
+        // Use cached gradient
+        if (me.gradients.bgGradient) {
+            ctx.fillStyle = me.gradients.bgGradient;
+            ctx.fillRect(0, 0, width, height);
+        }
+
         // Draw Network
         me.drawNetwork(ctx, width, height);
 
@@ -399,6 +410,24 @@ class HomeCanvas extends Base {
     }
 
     /**
+     * Creates and caches gradients.
+     * @param {Number} width
+     * @param {Number} height
+     */
+    updateResources(width, height) {
+        let me = this,
+            ctx = me.context;
+
+        if (!ctx) return;
+
+        const gradient = ctx.createLinearGradient(0, 0, width, height);
+        gradient.addColorStop(0, 'rgba(62, 99, 221, 0.05)'); // PRIMARY low alpha
+        gradient.addColorStop(1, 'rgba(139, 166, 255, 0.05)'); // SECONDARY low alpha
+
+        me.gradients.bgGradient = gradient;
+    }
+
+    /**
      * @param {Object} size
      * @param {Number} size.height
      * @param {Number} size.width
@@ -416,6 +445,7 @@ class HomeCanvas extends Base {
             if (!me.nodeBuffer) {
                 me.initNodes(size.width, size.height);
             }
+            me.updateResources(size.width, size.height);
         }
     }
 }
