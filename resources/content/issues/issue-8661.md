@@ -31,12 +31,12 @@ subIssues:
   - '[x] 8675 Implement Interactive Physics (Drag/Throw)'
   - '[x] 8676 Fix Cluster Drift Bias & Boundaries'
   - '[x] 8677 Enhance Shockwave Visuals'
-  - '[ ] 8678 Implement Hero Container Wrapper'
+  - '[x] 8678 Implement Hero Container Wrapper'
   - '[ ] 8679 Enhance Neural Swarm Documentation'
   - '[ ] 8680 Write Guide: The Neural Swarm'
   - '[x] 8681 Restore Shockwave Physics Interaction'
   - '[x] 8682 Optimize Neural Swarm Contrast for Light Theme'
-subIssuesCompleted: 18
+subIssuesCompleted: 19
 subIssuesTotal: 21
 blockedBy: []
 blocking: []
