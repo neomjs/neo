@@ -1,14 +1,15 @@
 ---
 id: 8630
 title: 'Epic: Header Toolbar Canvas Overlay (Sonic Waves)'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - epic
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-01-14T13:38:41Z'
-updatedAt: '2026-01-14T15:21:21Z'
+updatedAt: '2026-01-15T00:52:49Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8630'
 author: tobiu
 commentsCount: 1
@@ -40,10 +41,12 @@ subIssues:
   - '[x] 8654 Optimize Global MouseMove with rAF Throttling'
   - '[x] 8656 Refactor HeaderCanvas: ComponentManager, SCSS, and JSDoc'
   - '[x] 8657 Docs: Create ''Advanced Canvas Architecture'' Guide'
-subIssuesCompleted: 26
-subIssuesTotal: 26
+  - '[x] 8660 HeaderCanvas: Visualize Active View State'
+subIssuesCompleted: 27
+subIssuesTotal: 27
 blockedBy: []
 blocking: []
+closedAt: '2026-01-15T00:52:49Z'
 ---
 # Epic: Header Toolbar Canvas Overlay (Sonic Waves)
 
@@ -111,4 +114,7 @@ Implement a high-performance, offscreen canvas overlay for the Portal's `HeaderT
 - 2026-01-14T22:11:39Z @tobiu added sub-issue #8654
 - 2026-01-14T23:12:50Z @tobiu added sub-issue #8656
 - 2026-01-14T23:35:22Z @tobiu added sub-issue #8657
+- 2026-01-15T00:43:41Z @tobiu added sub-issue #8660
+- 2026-01-15T00:52:43Z @tobiu assigned to @tobiu
+- 2026-01-15T00:52:50Z @tobiu closed this issue
 
