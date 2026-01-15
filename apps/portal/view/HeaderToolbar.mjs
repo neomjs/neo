@@ -45,22 +45,26 @@ class HeaderToolbar extends Base {
             cls     : ['logo'],
             iconCls : 'neo-logo-blue',
             minWidth: 60,
+            reference: 'home-button',
             route   : '/home',
             text    : 'Neo.mjs'
         }, '->', {
-            text : 'Learn',
-            route: '/learn'
+            reference: 'learn-button',
+            text     : 'Learn',
+            route    : '/learn'
         }, {
             bind     : {badgeText: 'blogPostCount'},
             reference: 'news-header-button',
             route    : '/news',
             text     : 'News'
         }, {
-            route: '/examples',
-            text : 'Examples'
+            reference: 'examples-button',
+            route    : '/examples',
+            text     : 'Examples'
         }, {
-            route: '/services',
-            text : 'Services'
+            reference: 'services-button',
+            route    : '/services',
+            text     : 'Services'
         }, {
             ntype    : 'container',
             layout   : 'hbox',

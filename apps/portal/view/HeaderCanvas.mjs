@@ -26,6 +26,11 @@ class HeaderCanvas extends Canvas {
          */
         className: 'Portal.view.HeaderCanvas',
         /**
+         * @member {String|null} activeId_=null
+         * @reactive
+         */
+        activeId_: null,
+        /**
          * @member {String[]} cls=['portal-header-canvas']
          */
         cls: ['portal-header-canvas'],
@@ -78,10 +83,24 @@ class HeaderCanvas extends Canvas {
             });
 
             await me.updateSize();
-            await me.updateNavRects()
+            await me.updateNavRects();
+
+            if (me.activeId) {
+                await Portal.canvas.HeaderCanvas.updateActiveId({id: me.activeId})
+            }
         } else if (oldValue) {
             me.isCanvasReady = false;
             await Portal.canvas.HeaderCanvas.clearGraph()
+        }
+    }
+
+    /**
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     */
+    async afterSetActiveId(value, oldValue) {
+        if (this.isCanvasReady) {
+            await Portal.canvas.HeaderCanvas.updateActiveId({id: value})
         }
     }
 

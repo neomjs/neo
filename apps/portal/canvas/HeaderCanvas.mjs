@@ -19,11 +19,13 @@ const
  *    texture to the negative space. Now enhanced with a **volumetric Ribbon fill** to add depth.
  * 3. **Split Stream (Foreground):** Two intertwined energy strands (Helix/DNA) that flow across the canvas.
  *    - **3D Ribbon Effect:** A subtle gradient fills the space between strands, simulating a twisting surface.
- *    - **Neon Tube Effect:** Strands are rendered with a bright white core inside a colored glow, creating a physical light-emitting look.
- *    - **Adaptive Geometry:** The strands flow loosely around text buttons but tighten into a "high-gravity orbit"
- *      around social icons.
- *
- * **Performance Architecture (Zero-Allocation):**
+  *   - **Neon Tube Effect:** Strands are rendered with a bright white core inside a colored glow, creating a physical light-emitting look.
+  *   - **Adaptive Geometry:** The strands flow loosely around text buttons but tighten into a "high-gravity orbit"
+  *     around social icons.
+  *   - **Energy Surge (Active State):** The segment of the stream passing through the active navigation item
+  *     is rendered with a high-intensity white glow and a nervous pulse, semantically highlighting the current view.
+  *
+  * **Performance Architecture (Zero-Allocation):**
  * To maintain 60fps on high-refresh displays without GC stutters, this class employs a **Zero-Allocation** strategy during the render loop.
  * 1. **TypedArray Buffers:** Wave geometry is stored in pre-allocated `Float32Array` buffers (`waveBuffers`), reused every frame.
  * 2. **Gradient Caching:** CanvasGradients are created only on resize (`updateResources`) and cached, avoiding expensive generator calls per frame.
@@ -50,6 +52,7 @@ class HeaderCanvas extends Base {
             app: [
                 'clearGraph',
                 'initGraph',
+                'updateActiveId',
                 'updateGraphData',
                 'updateMouseState',
                 'updateNavRects',
@@ -63,6 +66,10 @@ class HeaderCanvas extends Base {
         singleton: true
     }
 
+    /**
+     * @member {String|null} activeId=null
+     */
+    activeId = null
     /**
      * @member {Number|null} animationId=null
      */
@@ -228,6 +235,9 @@ class HeaderCanvas extends Base {
 
         // 3. Draw "Auras" (Hover Effects) => 3D Ribbon + Neon Tube
         me.drawAuras(ctx, width, height);
+
+        // 3b. Draw Active Overlay
+        me.drawActiveOverlay(ctx, width);
 
         // 4. Draw "Shockwaves" (Click Effects)
         me.drawShockwaves(ctx, width);
@@ -409,6 +419,65 @@ class HeaderCanvas extends Base {
         });
 
         ctx.globalAlpha = 1
+    }
+
+    /**
+     * Draws an additional highlight for the active navigation item.
+     * **"Energy Surge" Effect:**
+     * Renders a high-intensity pass of the energy strands *only* within the active zone.
+     * This makes the lines appear to "power up" or glow white-hot as they pass through the active view,
+     * fully integrated with the existing geometry.
+     *
+     * @param {CanvasRenderingContext2D} ctx
+     * @param {Number} width
+     */
+    drawActiveOverlay(ctx, width) {
+        let me = this;
+
+        if (!me.activeId || !me.waveBuffers.fgA) return;
+
+        const rect = me.navRects.find(r => r.id === me.activeId);
+        if (!rect) return;
+
+        const
+            step   = 2, // Must match calculateStrandGeometry
+            // Add padding to fade the effect in/out smoothly
+            pad    = 10,
+            startX = Math.max(0, rect.x - pad),
+            endX   = Math.min(width, rect.x + rect.width + pad),
+            startI = Math.floor(startX / step),
+            endI   = Math.ceil(endX / step),
+            bufA   = me.waveBuffers.fgA,
+            bufB   = me.waveBuffers.fgB;
+
+        ctx.save();
+        ctx.lineCap  = 'round';
+        ctx.lineJoin = 'round';
+
+        // High-Intensity Glow
+        ctx.shadowBlur  = 20;
+        ctx.shadowColor = '#FFFFFF'; // White glow
+        ctx.strokeStyle = '#FFFFFF'; // White core
+        ctx.lineWidth   = 2;
+
+        // Gradient Fade mask (manual alpha)
+        // We can't easily gradient-stroke a sub-path, so we rely on globalAlpha
+        // combined with the "hot" white color to make it pop.
+        ctx.globalAlpha = 0.6 + (Math.sin(me.time * 3) * 0.2); // Fast, nervous pulse
+
+        const drawSegment = (buffer) => {
+            ctx.beginPath();
+            ctx.moveTo(startI * step, buffer[startI]);
+            for (let i = startI + 1; i <= endI; i++) {
+                ctx.lineTo(i * step, buffer[i])
+            }
+            ctx.stroke()
+        };
+
+        drawSegment(bufA);
+        drawSegment(bufB);
+
+        ctx.restore()
     }
 
     /**
@@ -701,6 +770,14 @@ class HeaderCanvas extends Base {
             ctx.stroke();
             ctx.globalAlpha = 1 // Reset
         }
+    }
+
+    /**
+     * @param {Object} data
+     * @param {String} [data.id]
+     */
+    updateActiveId(data) {
+        this.activeId = data?.id || null
     }
 
     /**

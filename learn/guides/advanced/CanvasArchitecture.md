@@ -201,7 +201,39 @@ if (distX < span) {
 }
 ```
 
-### 4. Shockwaves
+### 4. Active State Visualization ("Energy Surge")
+A semantic highlighting effect that makes the currently active navigation item glow.
+
+**Implementation Challenge:**
+We needed to highlight the active section *without* disrupting the flow or adding clashing geometry (like a bounding box or overlay).
+
+**Solution: Localized Redraw**
+We use a **Multi-Pass Rendering** technique. After the main stream is drawn, we perform a second pass that draws *only* the segment of the stream corresponding to the active item's position.
+*   **Visuals:** This segment is drawn with `strokeStyle: 'white'` (simulating heat) and a high `shadowBlur` (glow).
+*   **Animation:** We apply a faster alpha oscillation ("nervous pulse") to this segment, making the energy feel "excited" compared to the calm rest of the stream.
+*   **Performance:** We reuse the *same* geometry buffers (`waveBuffers`) calculated for the main stream, meaning this effect has **zero additional physics cost**.
+
+```javascript
+// drawActiveOverlay()
+// 1. Determine index range for active item
+const startI = Math.floor(rect.x / step);
+const endI   = Math.ceil((rect.x + rect.width) / step);
+
+// 2. Set "Energy" styles
+ctx.shadowBlur  = 20;
+ctx.shadowColor = '#FFFFFF';
+ctx.strokeStyle = '#FFFFFF';
+
+// 3. Draw only that segment using existing buffers
+ctx.beginPath();
+ctx.moveTo(startI * step, bufA[startI]);
+for (let i = startI + 1; i <= endI; i++) {
+    ctx.lineTo(i * step, bufA[i]);
+}
+ctx.stroke();
+```
+
+### 5. Shockwaves
 Interactive pulses triggered by clicks. They displace the waves and repel particles.
 
 **Implementation:**

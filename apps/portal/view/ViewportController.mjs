@@ -343,6 +343,16 @@ class ViewportController extends Controller {
 
             headerSocialIcons.hidden = hidden
         }
+
+        if (Neo.isNumber(activeIndex)) {
+            let headerCanvas = me.getReference('header-canvas'),
+                refs         = ['home-button', 'learn-button', 'news-header-button', 'services-button', 'examples-button'],
+                activeBtn    = me.getReference(refs[activeIndex]);
+
+            if (headerCanvas) {
+                headerCanvas.activeId = activeBtn?.id || null
+            }
+        }
     }
 }
 
