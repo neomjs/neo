@@ -107,14 +107,16 @@ class MainNeo extends BaseContainer {
      *
      */
     activate() {
-        this.getItem('magic-move').autoCycle = true
+        this.getItem('magic-move').autoCycle = true;
+        this.getItem('home-canvas')?.resume()
     }
 
     /**
      *
      */
     deactivate() {
-        this.getItem('magic-move').autoCycle = false
+        this.getItem('magic-move').autoCycle = false;
+        this.getItem('home-canvas')?.pause()
     }
 
     /**

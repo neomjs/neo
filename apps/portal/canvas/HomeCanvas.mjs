@@ -36,6 +36,8 @@ class HomeCanvas extends Base {
             app: [
                 'clearGraph',
                 'initGraph',
+                'pause',
+                'resume',
                 'updateMouseState',
                 'updateSize'
             ]
@@ -60,6 +62,10 @@ class HomeCanvas extends Base {
      */
     context = null
     /**
+     * @member {Boolean} isPaused=false
+     */
+    isPaused = false
+    /**
      * @member {Object} mouse={x: -1000, y: -1000}
      */
     mouse = {x: -1000, y: -1000}
@@ -82,6 +88,7 @@ class HomeCanvas extends Base {
         me.canvasId   = null;
         me.canvasSize = null;
         me.nodeBuffer = null;
+        me.isPaused   = false;
     }
 
     /**
@@ -129,6 +136,7 @@ class HomeCanvas extends Base {
 
         // 1. Draw Connections (behind nodes)
         // We only connect nodes within the same layer or adjacent layers to reduce visual noise.
+        // Optimization: Double loop, but limited by distance check.
         for (let i = 0; i < count; i++) {
             let idx = i * STRIDE,
                 l1  = buffer[idx + 5],
@@ -262,6 +270,25 @@ class HomeCanvas extends Base {
     }
 
     /**
+     *
+     */
+    pause() {
+        this.isPaused = true
+    }
+
+    /**
+     *
+     */
+    resume() {
+        let me = this;
+
+        if (me.isPaused) {
+            me.isPaused = false;
+            me.renderLoop()
+        }
+    }
+
+    /**
      * @member {Function} renderLoop=this.render.bind(this)
      */
     renderLoop = this.render.bind(this)
@@ -272,7 +299,7 @@ class HomeCanvas extends Base {
     render() {
         let me = this;
 
-        if (!me.context) {
+        if (!me.context || me.isPaused) {
             return
         }
 
@@ -337,13 +364,6 @@ class HomeCanvas extends Base {
 
             // Mouse Repulsion
             if (mx !== -1000) {
-                // Since we apply parallax in draw, we must estimate the node's VISUAL position
-                // to apply the force correctly? No, physics should act on absolute position
-                // relative to the "world". The mouse is in "screen" space.
-                // For simplicity, we assume world == screen for physics interactions
-                // (ignoring parallax for physics, or applying inverse parallax to mouse).
-                // Let's just use raw coords for now, it's "close enough" for a background effect.
-
                 let dx = buffer[idx] - mx,
                     dy = buffer[idx + 1] - my,
                     distSq = dx*dx + dy*dy;
@@ -358,17 +378,17 @@ class HomeCanvas extends Base {
                 }
             }
 
-            // Drag / Friction (prevent infinite acceleration)
+            // Drag / Friction
             buffer[idx + 2] *= 0.98;
             buffer[idx + 3] *= 0.98;
 
-            // Ensure min velocity (ambient drift)
+            // Ambient Drift
             if (Math.abs(buffer[idx + 2]) < 0.2) buffer[idx + 2] += (Math.random() - 0.5) * 0.05;
             if (Math.abs(buffer[idx + 3]) < 0.2) buffer[idx + 3] += (Math.random() - 0.5) * 0.05;
 
             // Move
-            buffer[idx]     += buffer[idx + 2]; // x += vx
-            buffer[idx + 1] += buffer[idx + 3]; // y += vy
+            buffer[idx]     += buffer[idx + 2];
+            buffer[idx + 1] += buffer[idx + 3];
 
             // Bounce
             if (buffer[idx] < 0) { buffer[idx] = 0; buffer[idx + 2] *= -1; }

@@ -86,6 +86,24 @@ class HomeCanvas extends Canvas {
     }
 
     /**
+     * Pauses the Shared Worker render loop.
+     */
+    pause() {
+        if (this.isCanvasReady) {
+            Portal.canvas.HomeCanvas.pause()
+        }
+    }
+
+    /**
+     * Resumes the Shared Worker render loop.
+     */
+    resume() {
+        if (this.isCanvasReady) {
+            Portal.canvas.HomeCanvas.resume()
+        }
+    }
+
+    /**
      * Resets the mouse state in the Shared Worker when the cursor leaves the canvas.
      * @param {Object} data
      */
