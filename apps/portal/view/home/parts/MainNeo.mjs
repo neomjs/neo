@@ -22,10 +22,17 @@ class MainNeo extends BaseContainer {
 
         layout: {ntype: 'vbox', align: 'center', pack: 'center'},
         /**
+         * @member {Object} listeners
+         */
+        listeners: {
+            mousemove: 'onMouseMove'
+        },
+        /**
          * @member {Object[]} items
          */
         items: [{
-            module: HomeCanvas
+            module   : HomeCanvas,
+            reference: 'home-canvas'
         }, {
             ntype: 'container',
             cls  : ['logo-container'],
@@ -108,6 +115,13 @@ class MainNeo extends BaseContainer {
      */
     deactivate() {
         this.getItem('magic-move').autoCycle = false
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onMouseMove(data) {
+        this.getItem('home-canvas')?.onMouseMove(data)
     }
 }
 
