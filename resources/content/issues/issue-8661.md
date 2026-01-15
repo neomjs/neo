@@ -1,6 +1,6 @@
 ---
 id: 8661
-title: 'Epic: Home Hero Canvas (Neural Connectome)'
+title: 'Epic: Home Hero Canvas (The Neural Swarm)'
 state: OPEN
 labels:
   - enhancement
@@ -9,7 +9,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-01-15T01:05:08Z'
-updatedAt: '2026-01-15T01:05:08Z'
+updatedAt: '2026-01-15T02:14:30Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8661'
 author: tobiu
 commentsCount: 0
@@ -21,32 +21,62 @@ subIssues:
   - '[x] 8665 Refactor HomeCanvas Styling & Pointer Events'
   - '[x] 8666 Optimize HomeCanvas Lifecycle (Pause/Resume)'
   - '[x] 8667 Optimize HomeCanvas Rendering (Gradient Caching)'
-subIssuesCompleted: 6
-subIssuesTotal: 6
+  - '[x] 8668 Implement Cluster Physics & Mutable Topology'
+  - '[x] 8669 Implement Autonomous Agent Drones (Boids)'
+  - '[x] 8670 Implement Data Flow & Interaction Visuals'
+  - '[x] 8671 Implement Topology Mutation (Re-parenting)'
+  - '[x] 8672 Implement Cluster Drift (Flow Fields)'
+  - '[x] 8673 Implement Elastic Connections & Breathing'
+  - '[x] 8674 Implement Agent-Driven State'
+  - '[x] 8675 Implement Interactive Physics (Drag/Throw)'
+  - '[ ] 8676 Fix Cluster Drift Bias & Boundaries'
+  - '[ ] 8677 Enhance Shockwave Visuals'
+  - '[ ] 8678 Implement Hero Container Wrapper'
+  - '[ ] 8679 Enhance Neural Swarm Documentation'
+  - '[ ] 8680 Write Guide: The Neural Swarm'
+subIssuesCompleted: 14
+subIssuesTotal: 19
 blockedBy: []
 blocking: []
 ---
-# Epic: Home Hero Canvas (Neural Connectome)
+# Epic: Home Hero Canvas (The Neural Swarm)
 
 ## Objective
-Implement a full-screen, offscreen canvas visualization for the Portal Home Hero section (`MainNeo`) to eliminate whitespace and showcase the "Application Engine" identity.
+Implement a living, "Agent-Native" simulation for the Portal Home Hero section. Instead of a passive network background, this canvas will visualize the **Neo.mjs Application Engine** as a mutable, multi-threaded runtime inhabited by AI agents.
 
-## Concept
-**"The Neural Connectome"**: A multi-layered, parallax-enabled network visualization representing the connected state of the Neo.mjs runtime (Workers, Agents, Components). It serves as an ambient, intelligent backdrop for the landing page.
-
-## Architecture
-- **App Component:** `Portal.view.home.HomeCanvas` (new)
-  - Handles resizing, DOM placement (z-index: -1), and worker messaging.
-- **Shared Worker:** `Portal.canvas.HomeCanvas` (new)
-  - Handles the physics simulation and rendering loop.
-- **Pattern:** Reuse the **Zero-Allocation** strategy from `HeaderCanvas` (SharedWorker + OffscreenCanvas).
+## Concept: "The Neural Swarm"
+A simulated ecosystem representing the "Living Graph" of a Neo.mjs application.
+*   **The Nodes:** Represent persistent runtime objects (Components).
+*   **The Agents:** Represent the "Ghost in the Shell" (Neural Link).
+*   **The Topology:** Mutable, fluid, and reconfigurable (Atomic Moves).
 
 ## Features
-- **Deep Parallax:** 3-4 layers of network depth that shift subtly with mouse movement (2.5D).
-- **Dynamic Topology:** Nodes and links that breathe, pulse, and rearrange.
-- **Interaction:** Mouse repulsion/attraction or hover effects on nodes.
-- **Theme:** "Luminous Flux" (matching the Header colors: `#3E63DD`, `#8BA6FF`).
-- **Performance:** Target 60fps on high-refresh displays with zero GC pressure.
+
+### 1. Living Topology (Object Permanence)
+*   **Cluster Physics:** Nodes are not random; they form hierarchical clusters (Components inside Containers).
+*   **Mutation:** Occasionally, a sub-cluster will detach from its parent, drift, and re-attach to a new cluster, visualizing **Atomic Moves** (Release v11.21.0).
+*   **Initialization:** Use **Poisson Disk Sampling** or **Golden Spiral** distribution to ensure instant, uniform screen coverage (fixing the "expanding blob" issue).
+
+### 2. Autonomous Agents (The Neural Link)
+*   **Seeker Drones:** Fast-moving energy points that behave like autonomous agents (Boids behavior).
+*   **Inspection:** Agents fly between clusters, "scanning" nodes (triggering a highlight effect) and "repairing" links.
+*   **Trails:** Agents leave fading data trails, visualizing the high-frequency communication of the SharedWorker architecture.
+
+### 3. Data Flow & Pulse
+*   **Signal Packets:** Pulses of light travel along the connections between nodes, visualizing the data flow between Workers.
+*   **Deep Parallax:** 3-4 layers of depth to create a volumetric feel.
+
+## Architecture
+- **App Component:** `Portal.view.home.HomeCanvas`
+  - Resizing, DOM placement, lifecycle management.
+- **Shared Worker:** `Portal.canvas.HomeCanvas`
+  - **Physics Engine:** Custom Verlet integration for stability.
+  - **Boid System:** Separation, Alignment, Cohesion for Agents.
+  - **Render Loop:** Zero-Allocation implementation using `Float32Array` buffers for all entities.
+
+## Visual Theme
+- **Palette:** "Luminous Flux" (`#3E63DD`, `#8BA6FF`) with bright white/cyan highlights (`#40C4FF`) for Agents and Data Packets.
+- **Atmosphere:** Deep, premium, desktop-class aesthetic.
 
 ## Timeline
 
@@ -60,4 +90,18 @@ Implement a full-screen, offscreen canvas visualization for the Portal Home Hero
 - 2026-01-15T01:31:53Z @tobiu added sub-issue #8665
 - 2026-01-15T01:42:50Z @tobiu added sub-issue #8666
 - 2026-01-15T01:55:00Z @tobiu added sub-issue #8667
+- 2026-01-15T02:10:12Z @tobiu changed title from **Epic: Home Hero Canvas (Neural Connectome)** to **Epic: Home Hero Canvas (The Neural Swarm)**
+- 2026-01-15T02:12:51Z @tobiu added sub-issue #8668
+- 2026-01-15T02:13:16Z @tobiu added sub-issue #8669
+- 2026-01-15T02:13:39Z @tobiu added sub-issue #8670
+- 2026-01-15T02:39:43Z @tobiu added sub-issue #8671
+- 2026-01-15T02:39:49Z @tobiu added sub-issue #8672
+- 2026-01-15T02:39:51Z @tobiu added sub-issue #8673
+- 2026-01-15T02:39:53Z @tobiu added sub-issue #8674
+- 2026-01-15T02:39:55Z @tobiu added sub-issue #8675
+- 2026-01-15T03:29:40Z @tobiu added sub-issue #8676
+- 2026-01-15T03:29:43Z @tobiu added sub-issue #8677
+- 2026-01-15T03:29:46Z @tobiu added sub-issue #8678
+- 2026-01-15T03:29:48Z @tobiu added sub-issue #8679
+- 2026-01-15T03:29:52Z @tobiu added sub-issue #8680
 
