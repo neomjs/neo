@@ -901,6 +901,21 @@ class HomeCanvas extends Base {
                 // Accelerate in flow direction
                 buffer[idx + 2] += Math.cos(angle) * 0.05;
                 buffer[idx + 3] += Math.sin(angle) * 0.05;
+
+                // CONTAINMENT FIELD (Fix for Drift Bias)
+                // Gently push nodes back to center if they wander too far
+                let cx   = width / 2,
+                    cy   = height / 2,
+                    dx   = cx - buffer[idx],
+                    dy   = cy - buffer[idx + 1],
+                    dist = Math.sqrt(dx*dx + dy*dy),
+                    limit = Math.min(width, height) * 0.4; // Keep within 80% of screen center
+
+                if (dist > limit) {
+                    let force = (dist - limit) * 0.001; // Soft spring
+                    buffer[idx + 2] += (dx / dist) * force;
+                    buffer[idx + 3] += (dy / dist) * force;
+                }
             } else {
                 // Random wander for children
                 if (Math.abs(buffer[idx + 2]) < 0.2) buffer[idx + 2] += (Math.random() - 0.5) * 0.02;
