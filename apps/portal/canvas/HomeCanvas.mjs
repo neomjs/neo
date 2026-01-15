@@ -5,7 +5,7 @@ const
     SECONDARY     = '#8BA6FF',
     HIGHLIGHT     = '#40C4FF',
     NODE_COUNT    = 150,
-    NODE_STRIDE   = 8, // x, y, vx, vy, radius, layer, parentId, phase
+    NODE_STRIDE   = 9, // x, y, vx, vy, radius, layer, parentId, phase, energy
     AGENT_COUNT   = 20,
     AGENT_STRIDE  = 6, // x, y, vx, vy, targetIdx, state
     PACKET_COUNT  = 20,
@@ -18,7 +18,7 @@ const
  * Uses a Zero-Allocation strategy (pre-allocated buffers) for high performance.
  *
  * **Node Buffer Layout (Float32Array):**
- * [x, y, vx, vy, radius, layer, parentId, phase]
+ * [x, y, vx, vy, radius, layer, parentId, phase, energy]
  *
  * **Agent Buffer Layout (Float32Array):**
  * [x, y, vx, vy, targetIdx, state, ...]
@@ -274,6 +274,7 @@ class HomeCanvas extends Base {
                 layer  = buffer[idx + 5],
                 parentId = buffer[idx + 6],
                 phase  = buffer[idx + 7],
+                energy = buffer[idx + 8],
                 pos    = getPos(idx, layer);
 
             let dx = pos.x - mx,
@@ -281,7 +282,7 @@ class HomeCanvas extends Base {
                 dist = Math.sqrt(dx*dx + dy*dy),
                 isHover = dist < 50;
 
-            // Shockwave Interaction (Nodes Pulse)
+            // Shockwave Interaction
             if (me.shockwaves.length > 0) {
                 me.shockwaves.forEach(wave => {
                     let wDist = Math.sqrt((pos.x - wave.x)**2 + (pos.y - wave.y)**2),
@@ -293,20 +294,23 @@ class HomeCanvas extends Base {
             ctx.beginPath();
             let r = parentId === -1 ? radius * 1.5 : radius;
             
-            // Breathing Effect
-            r *= 1 + Math.sin(me.time * 2 + phase) * 0.15;
+            // Breathing + Energy
+            r *= 1 + Math.sin(me.time * 2 + phase) * 0.15 + energy;
 
             if (isHover) r *= 1.5;
 
             ctx.arc(pos.x, pos.y, r, 0, Math.PI * 2);
 
-            if (layer === 2) {
+            if (energy > 0.1) {
+                // Energetic Node (Agent Scanned)
+                ctx.fillStyle = HIGHLIGHT;
+                ctx.globalAlpha = Math.min(1, 0.5 + energy);
+            } else if (layer === 2) {
                 ctx.fillStyle = isHover ? '#FFFFFF' : PRIMARY;
                 ctx.globalAlpha = isHover ? 1 : 0.8;
             } else if (parentId === -2) {
                 // Drifting Node Visual
                 ctx.fillStyle = HIGHLIGHT;
-                // Phase-based pulse for drifters
                 ctx.globalAlpha = 0.6 + Math.sin(me.time * 10 + phase) * 0.3; 
             } else if (layer === 1) {
                 ctx.fillStyle = isHover ? HIGHLIGHT : SECONDARY;
@@ -494,6 +498,9 @@ class HomeCanvas extends Base {
             
             // Phase (Breathing offset)
             buffer[idx + 7] = Math.random() * Math.PI * 2;
+            
+            // Energy
+            buffer[idx + 8] = 0;
         }
 
         // 2. Assign Children to nearest Parent
@@ -720,14 +727,16 @@ class HomeCanvas extends Base {
                     dist = Math.sqrt(dx*dx + dy*dy);
 
                 if (dist < 10) {
-                    agents[idx + 5] = 1; // Scan
-                    agents[idx + 2] *= 0.1;
+                    // Arrived! Scan.
+                    agents[idx + 5] = 1; // Scan state
+                    agents[idx + 2] *= 0.1; // Slow down
                     agents[idx + 3] *= 0.1;
+                    
+                    // Transfer Energy to Node
+                    nodes[nIdx + 8] = 1.0;
                 } else {
-                    let force = 0.05;
-                    agents[idx + 2] += (dx / dist) * force;
-                    agents[idx + 3] += (dy / dist) * force;
-                }
+                    // Steer towards target
+
             } else if (state === 1) {
                 if (Math.random() < 0.02) {
                     agents[idx + 4] = -1; 
@@ -871,6 +880,11 @@ class HomeCanvas extends Base {
             // 4. Physics
             buffer[idx + 2] *= 0.95; // Friction
             buffer[idx + 3] *= 0.95;
+            
+            // Energy Decay
+            buffer[idx + 8] *= 0.99;
+
+            let drift = isParent ? 0.02 : 0.01;
 
             // 4. Ambient Drift / Flow Field
             if (isParent) {
