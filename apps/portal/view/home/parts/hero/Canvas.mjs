@@ -116,7 +116,7 @@ class CanvasComponent extends Canvas {
      * Pauses the Shared Worker render loop to save battery/CPU when not visible.
      */
     pause() {
-        if (this.isCanvasReady) {console.log('pause');
+        if (this.isCanvasReady) {
             Portal.canvas.HomeCanvas.pause()
         }
     }
@@ -125,7 +125,7 @@ class CanvasComponent extends Canvas {
      * Resumes the Shared Worker render loop.
      */
     resume() {
-        if (this.isCanvasReady) {console.log('resume');
+        if (this.isCanvasReady) {
             Portal.canvas.HomeCanvas.resume()
         }
     }
