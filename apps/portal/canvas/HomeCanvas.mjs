@@ -5,16 +5,16 @@ const
     SECONDARY  = '#8BA6FF',
     HIGHLIGHT  = '#40C4FF',
     NODE_COUNT = 150,
-    STRIDE     = 6; // x, y, vx, vy, radius, layer
+    STRIDE     = 7; // x, y, vx, vy, radius, layer, parentId
 
 /**
- * @summary SharedWorker renderer for the Portal Home "Neural Connectome" background.
+ * @summary SharedWorker renderer for the Portal Home "Neural Swarm" background.
  *
  * Handles the physics simulation and rendering loop for the 2.5D network visualization.
  * Uses a Zero-Allocation strategy (pre-allocated buffers) for high performance.
  *
  * **Buffer Layout (Float32Array):**
- * [x, y, vx, vy, radius, layer, ...]
+ * [x, y, vx, vy, radius, layer, parentId, ...]
  *
  * @class Portal.canvas.HomeCanvas
  * @extends Neo.core.Base
@@ -140,28 +140,36 @@ class HomeCanvas extends Base {
         };
 
         // 1. Draw Connections (behind nodes)
-        // We only connect nodes within the same layer or adjacent layers to reduce visual noise.
         // Optimization: Double loop, but limited by distance check.
         for (let i = 0; i < count; i++) {
             let idx = i * STRIDE,
                 l1  = buffer[idx + 5],
+                pid1 = buffer[idx + 6],
                 p1  = getPos(idx, l1);
 
             for (let j = i + 1; j < count; j++) {
                 let idx2 = j * STRIDE,
-                    l2   = buffer[idx2 + 5];
+                    l2   = buffer[idx2 + 5],
+                    pid2 = buffer[idx2 + 6];
 
-                // Only connect if layers are close
-                if (Math.abs(l1 - l2) > 1) continue;
+                // Only connect if:
+                // 1. Same cluster (Parent ID matches)
+                // 2. Or one is the parent of the other
+                // 3. Or both are parents (Cluster Links)
+                const sameCluster = pid1 === pid2 && pid1 !== -1;
+                const isParentChild = (pid1 === j) || (pid2 === i);
+                const isClusterLink = (pid1 === -1 && pid2 === -1);
+
+                if (!sameCluster && !isParentChild && !isClusterLink) continue;
 
                 let p2     = getPos(idx2, l2),
                     dx     = p1.x - p2.x,
                     dy     = p1.y - p2.y,
                     distSq = dx*dx + dy*dy;
 
-                // Max connection distance squared (e.g., 150px)
-                if (distSq < 22500) {
-                    let alpha = 1 - (Math.sqrt(distSq) / 150);
+                // Max connection distance squared (e.g., 200px)
+                if (distSq < 40000) {
+                    let alpha = 1 - (Math.sqrt(distSq) / 200);
 
                     // Fade out connections based on layer depth
                     alpha *= (0.2 + (l1 * 0.1));
@@ -192,6 +200,7 @@ class HomeCanvas extends Base {
             let idx    = i * STRIDE,
                 radius = buffer[idx + 4],
                 layer  = buffer[idx + 5],
+                parentId = buffer[idx + 6],
                 pos    = getPos(idx, layer);
 
             // Mouse Repulsion Visualization (Highlight)
@@ -201,7 +210,12 @@ class HomeCanvas extends Base {
                 isHover = dist < 50;
 
             ctx.beginPath();
-            ctx.arc(pos.x, pos.y, isHover ? radius * 1.5 : radius, 0, Math.PI * 2);
+            
+            // Cluster Centers (Parents) are bigger
+            let r = parentId === -1 ? radius * 1.5 : radius;
+            if (isHover) r *= 1.5;
+
+            ctx.arc(pos.x, pos.y, r, 0, Math.PI * 2);
 
             // Color based on layer
             if (layer === 2) {
@@ -248,7 +262,8 @@ class HomeCanvas extends Base {
     }
 
     /**
-     * Initializes or resets the node buffer.
+     * Initializes or resets the node buffer using Golden Spiral distribution.
+     * This ensures uniform screen coverage without clumping.
      * @param {Number} width
      * @param {Number} height
      */
@@ -259,18 +274,74 @@ class HomeCanvas extends Base {
             me.nodeBuffer = new Float32Array(NODE_COUNT * STRIDE);
         }
 
-        const buffer = me.nodeBuffer;
+        const
+            buffer = me.nodeBuffer,
+            cx     = width / 2,
+            cy     = height / 2,
+            phi    = (1 + Math.sqrt(5)) / 2, // Golden Ratio
+            scale  = Math.sqrt(width * height / NODE_COUNT) * 0.8; // Uniform density scaling
+
+        // 1. Create Cluster Centers (Parent Nodes) - 10% of nodes
+        const parentCount = Math.floor(NODE_COUNT * 0.1);
+        let parentIndices = [];
 
         for (let i = 0; i < NODE_COUNT; i++) {
             let idx = i * STRIDE,
-                layer = Math.floor(Math.random() * 3); // 0, 1, 2
+                isParent = i < parentCount;
 
-            buffer[idx]     = Math.random() * width;  // x
-            buffer[idx + 1] = Math.random() * height; // y
-            buffer[idx + 2] = (Math.random() - 0.5) * 0.5; // vx
-            buffer[idx + 3] = (Math.random() - 0.5) * 0.5; // vy
-            buffer[idx + 4] = 2 + (layer * 1.5); // radius: bigger for front layers
+            if (isParent) parentIndices.push(i);
+
+            // Golden Spiral Placement
+            let theta = i * 2 * Math.PI * phi, // Angle
+                r     = Math.sqrt(i) * scale;  // Radius
+
+            // Convert polar to cartesian + center offset
+            let x = cx + r * Math.cos(theta),
+                y = cy + r * Math.sin(theta);
+
+            // Wrap to screen bounds (if spiral exceeds screen)
+            x = (x + width) % width;
+            y = (y + height) % height;
+
+            buffer[idx]     = x;  // x
+            buffer[idx + 1] = y; // y
+            buffer[idx + 2] = (Math.random() - 0.5) * 0.2; // vx
+            buffer[idx + 3] = (Math.random() - 0.5) * 0.2; // vy
+            
+            let layer = Math.floor(Math.random() * 3);
             buffer[idx + 5] = layer; // layer
+
+            // Radius based on layer & role
+            buffer[idx + 4] = isParent ? 4 + (layer * 2) : 2 + (layer * 1.5); 
+            
+            // Parent ID (-1 for parents, assigned later for children)
+            buffer[idx + 6] = isParent ? -1 : -2; 
+        }
+
+        // 2. Assign Children to nearest Parent
+        for (let i = parentCount; i < NODE_COUNT; i++) {
+            let idx = i * STRIDE,
+                x   = buffer[idx],
+                y   = buffer[idx + 1],
+                bestDist = Infinity,
+                bestParent = -1;
+
+            // Find nearest parent
+            for (let pid of parentIndices) {
+                let pIdx = pid * STRIDE,
+                    px   = buffer[pIdx],
+                    py   = buffer[pIdx + 1],
+                    dx   = x - px,
+                    dy   = y - py,
+                    dSq  = dx*dx + dy*dy;
+
+                if (dSq < bestDist) {
+                    bestDist = dSq;
+                    bestParent = pid;
+                }
+            }
+            
+            buffer[idx + 6] = bestParent;
         }
     }
 
@@ -356,7 +427,7 @@ class HomeCanvas extends Base {
     }
 
     /**
-     * Updates node positions and handles boundary collisions.
+     * Updates node positions using Cluster Physics.
      * @param {Number} width
      * @param {Number} height
      */
@@ -371,9 +442,28 @@ class HomeCanvas extends Base {
             my     = me.mouse.y;
 
         for (let i = 0; i < NODE_COUNT; i++) {
-            let idx = i * STRIDE;
+            let idx = i * STRIDE,
+                parentId = buffer[idx + 6],
+                isParent = parentId === -1;
 
-            // Mouse Repulsion
+            // 1. Cluster Cohesion (Children stick to Parent)
+            if (!isParent) {
+                let pIdx = parentId * STRIDE,
+                    px   = buffer[pIdx],
+                    py   = buffer[pIdx + 1],
+                    dx   = px - buffer[idx],
+                    dy   = py - buffer[idx + 1],
+                    dist = Math.sqrt(dx*dx + dy*dy);
+
+                // Spring force towards parent
+                if (dist > 50) { // Ideal distance
+                    let force = (dist - 50) * 0.0005;
+                    buffer[idx + 2] += dx * force;
+                    buffer[idx + 3] += dy * force;
+                }
+            }
+
+            // 2. Mouse Repulsion (All nodes)
             if (mx !== -1000) {
                 let dx = buffer[idx] - mx,
                     dy = buffer[idx + 1] - my,
@@ -389,23 +479,26 @@ class HomeCanvas extends Base {
                 }
             }
 
-            // Drag / Friction
-            buffer[idx + 2] *= 0.98;
-            buffer[idx + 3] *= 0.98;
+            // 3. Drag / Friction
+            buffer[idx + 2] *= 0.95;
+            buffer[idx + 3] *= 0.95;
 
-            // Ambient Drift
-            if (Math.abs(buffer[idx + 2]) < 0.2) buffer[idx + 2] += (Math.random() - 0.5) * 0.05;
-            if (Math.abs(buffer[idx + 3]) < 0.2) buffer[idx + 3] += (Math.random() - 0.5) * 0.05;
+            // 4. Ambient Drift
+            // Parents drift more independently, children follow
+            let drift = isParent ? 0.02 : 0.01;
+            if (Math.abs(buffer[idx + 2]) < 0.2) buffer[idx + 2] += (Math.random() - 0.5) * drift;
+            if (Math.abs(buffer[idx + 3]) < 0.2) buffer[idx + 3] += (Math.random() - 0.5) * drift;
 
-            // Move
+            // 5. Move
             buffer[idx]     += buffer[idx + 2];
             buffer[idx + 1] += buffer[idx + 3];
 
-            // Bounce
-            if (buffer[idx] < 0) { buffer[idx] = 0; buffer[idx + 2] *= -1; }
-            if (buffer[idx] > width) { buffer[idx] = width; buffer[idx + 2] *= -1; }
-            if (buffer[idx + 1] < 0) { buffer[idx + 1] = 0; buffer[idx + 3] *= -1; }
-            if (buffer[idx + 1] > height) { buffer[idx + 1] = height; buffer[idx + 3] *= -1; }
+            // 6. Soft Boundary (Bounce)
+            const pad = 20;
+            if (buffer[idx] < pad) { buffer[idx] = pad; buffer[idx + 2] *= -1; }
+            if (buffer[idx] > width - pad) { buffer[idx] = width - pad; buffer[idx + 2] *= -1; }
+            if (buffer[idx + 1] < pad) { buffer[idx + 1] = pad; buffer[idx + 3] *= -1; }
+            if (buffer[idx + 1] > height - pad) { buffer[idx + 1] = height - pad; buffer[idx + 3] *= -1; }
         }
     }
 
@@ -440,11 +533,8 @@ class HomeCanvas extends Base {
         if (me.context) {
             me.context.canvas.width  = size.width;
             me.context.canvas.height = size.height;
-            // Re-distribute nodes on significant resize to fill space?
-            // For now, let them drift naturally or re-init if 0
-            if (!me.nodeBuffer) {
-                me.initNodes(size.width, size.height);
-            }
+            // Re-init on significant resize? For now just re-init nodes to fix layout
+            me.initNodes(size.width, size.height);
             me.updateResources(size.width, size.height);
         }
     }
