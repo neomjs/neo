@@ -1,6 +1,6 @@
 {
-  "lastSync": "2026-01-15T00:53:08.312Z",
-  "releasesLastFetched": "2026-01-15T00:53:08.327Z",
+  "lastSync": "2026-01-15T02:00:28.799Z",
+  "releasesLastFetched": "2026-01-15T02:00:28.817Z",
   "pushFailures": [],
   "issues": {
     "3789": {
@@ -16641,6 +16641,55 @@
       "closedAt": "2026-01-15T00:43:56Z",
       "updatedAt": "2026-01-15T00:43:56Z",
       "contentHash": "e4057a3d190bf88b97cea3d06d6ffe9f0eb2d1a98befdcf98a72a2d6c825cfdf"
+    },
+    "8661": {
+      "state": "OPEN",
+      "path": "resources/content/issues/issue-8661.md",
+      "closedAt": null,
+      "updatedAt": "2026-01-15T01:05:08Z",
+      "contentHash": "a41b60363afcc64abf03025ae07b81ec02d5030bfdb929e1307c6b7c194a3329"
+    },
+    "8662": {
+      "state": "CLOSED",
+      "path": "resources/content/issues/issue-8662.md",
+      "closedAt": "2026-01-15T01:10:56Z",
+      "updatedAt": "2026-01-15T01:13:09Z",
+      "contentHash": "dd22020bf0ed3d93d98b80a4b47a5da2623e71397a5a00b33047bbea7996368c"
+    },
+    "8663": {
+      "state": "CLOSED",
+      "path": "resources/content/issues/issue-8663.md",
+      "closedAt": "2026-01-15T01:13:46Z",
+      "updatedAt": "2026-01-15T01:13:46Z",
+      "contentHash": "f5c14a783e2d44165e7d37b29d67e26b23d45e6c994beee2379eebec4f31cafd"
+    },
+    "8664": {
+      "state": "CLOSED",
+      "path": "resources/content/issues/issue-8664.md",
+      "closedAt": "2026-01-15T01:16:04Z",
+      "updatedAt": "2026-01-15T01:16:04Z",
+      "contentHash": "13ad88e56791785c1c955fc0a56e70b720f9f568c72eafd426f40df90b921f96"
+    },
+    "8665": {
+      "state": "CLOSED",
+      "path": "resources/content/issues/issue-8665.md",
+      "closedAt": "2026-01-15T01:31:23Z",
+      "updatedAt": "2026-01-15T01:31:23Z",
+      "contentHash": "3cde8ab3a686bfb06860a6542c40da0d8be125fe7dd0c85743dc108cd0c36311"
+    },
+    "8666": {
+      "state": "CLOSED",
+      "path": "resources/content/issues/issue-8666.md",
+      "closedAt": "2026-01-15T01:53:38Z",
+      "updatedAt": "2026-01-15T01:53:38Z",
+      "contentHash": "57097c1cb522f0e43f0926459d9f158ad1a5245ced54376cac82f79b200b27b9"
+    },
+    "8667": {
+      "state": "CLOSED",
+      "path": "resources/content/issues/issue-8667.md",
+      "closedAt": "2026-01-15T01:59:42Z",
+      "updatedAt": "2026-01-15T01:59:43Z",
+      "contentHash": "f3ae3e0eafa617fbff9f38afc5c46c5822930103b37f9555522cb6cf0ed2c091"
     }
   },
   "releases": {
