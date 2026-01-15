@@ -1,10 +1,12 @@
 import Base from '../../../src/core/Base.mjs';
 
 const
-    PRIMARY       = '#3E63DD',
-    SECONDARY     = '#8BA6FF',
-    HIGHLIGHT     = '#40C4FF',
-    NODE_COUNT    = 150,
+    PRIMARY          = '#3E63DD',
+    SECONDARY        = '#8BA6FF',
+    HIGHLIGHT        = '#00BFFF', // Deep Sky Blue (High Contrast)
+    SPARK_COLOR      = '#4B0082', // Indigo
+    CONNECTION_COLOR = '#808080',
+    NODE_COUNT       = 150,
     NODE_STRIDE   = 9, // x, y, vx, vy, radius, layer, parentId, phase, energy
     AGENT_COUNT   = 20,
     AGENT_STRIDE  = 6, // x, y, vx, vy, targetIdx, state
@@ -321,7 +323,7 @@ class HomeCanvas extends Base {
                 ctx.fillStyle = isHover ? HIGHLIGHT : SECONDARY;
                 ctx.globalAlpha = 0.5;
             } else {
-                ctx.fillStyle = '#A0A0A0';
+                ctx.fillStyle = CONNECTION_COLOR;
                 ctx.globalAlpha = 0.2;
             }
 
@@ -394,24 +396,24 @@ class HomeCanvas extends Base {
                 radius = eased * wave.maxRadius,
                 alpha  = 1 - progress;
 
-            // Chromatic Aberration (RGB Shift)
-            ctx.globalCompositeOperation = 'screen'; 
+            // Chromatic Aberration (Inverted for Light Mode)
+            // No screen blend mode, using dark saturated colors
             
             // 1. Red Channel (Lagging Fringe)
             ctx.beginPath();
-            ctx.strokeStyle = `rgba(255, 50, 50, ${alpha * 0.8})`;
+            ctx.strokeStyle = `rgba(220, 20, 60, ${alpha * 0.8})`; // Crimson
             ctx.lineWidth   = 4 * (1 - progress);
             ctx.shadowBlur  = 10;
-            ctx.shadowColor = '#FF0000';
+            ctx.shadowColor = '#DC143C';
             ctx.arc(wave.x, wave.y, radius * 0.99, 0, Math.PI * 2);
             ctx.stroke();
 
             // 2. Blue Channel (Leading Fringe)
             ctx.beginPath();
-            ctx.strokeStyle = `rgba(50, 50, 255, ${alpha * 0.8})`;
+            ctx.strokeStyle = `rgba(0, 0, 205, ${alpha * 0.8})`; // Medium Blue
             ctx.lineWidth   = 4 * (1 - progress);
             ctx.shadowBlur  = 10;
-            ctx.shadowColor = '#0000FF';
+            ctx.shadowColor = '#0000CD';
             ctx.arc(wave.x, wave.y, radius * 1.01, 0, Math.PI * 2);
             ctx.stroke();
 
@@ -425,13 +427,12 @@ class HomeCanvas extends Base {
             ctx.stroke();
             
             // 4. Pressure Fill (Refraction Fake)
-            // Faint white fill that fades out quickly
-            ctx.fillStyle = `rgba(255, 255, 255, ${alpha * 0.1})`;
+            // Blue tint for light background
+            ctx.fillStyle = `rgba(62, 99, 221, ${alpha * 0.05})`;
             ctx.fill();
         }
 
         ctx.shadowBlur = 0;
-        ctx.globalCompositeOperation = 'source-over'; // Reset
         ctx.globalAlpha = 1;
     }
 
@@ -444,10 +445,9 @@ class HomeCanvas extends Base {
 
         if (me.sparks.length === 0) return;
 
-        ctx.strokeStyle = '#40C4FF';
-        ctx.shadowBlur = 10;
-        ctx.shadowColor = '#40C4FF';
-        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = SPARK_COLOR;
+        ctx.shadowBlur = 0; // Crisp lines on white
+        ctx.lineWidth = 2;
         
         for (let s of me.sparks) {
             ctx.globalAlpha = s.life;
@@ -458,7 +458,6 @@ class HomeCanvas extends Base {
             ctx.stroke();
         }
 
-        ctx.shadowBlur = 0;
         ctx.globalAlpha = 1;
     }
 
