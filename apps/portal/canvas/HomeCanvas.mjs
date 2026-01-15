@@ -208,26 +208,17 @@ class HomeCanvas extends Base {
 
         ctx.lineWidth = 1;
 
-        // Helper to get parallaxed position
-        const getPos = (idx, layer) => {
-            let factor = layer === 2 ? 0.05 : (layer === 1 ? 0.02 : 0.01),
-                dx     = (mx - cx) * factor,
-                dy     = (my - cy) * factor;
-
-            if (mx === -1000) { dx = 0; dy = 0; }
-
-            return {
-                x: buffer[idx] + dx,
-                y: buffer[idx + 1] + dy
-            }
-        };
-
         // 1. Draw Connections
         for (let i = 0; i < count; i++) {
             let idx  = i * NODE_STRIDE,
                 l1   = buffer[idx + 5],
                 pid1 = buffer[idx + 6],
-                p1   = getPos(idx, l1);
+                // Inline getPos logic for p1
+                f1   = l1 === 2 ? 0.05 : (l1 === 1 ? 0.02 : 0.01),
+                dx1  = (mx !== -1000 ? mx - cx : 0) * f1,
+                dy1  = (my !== -1000 ? my - cy : 0) * f1,
+                p1x  = buffer[idx] + dx1,
+                p1y  = buffer[idx + 1] + dy1;
 
             for (let j = i + 1; j < count; j++) {
                 let idx2 = j * NODE_STRIDE,
@@ -241,9 +232,13 @@ class HomeCanvas extends Base {
 
                 if (!sameCluster && !isParentChild && !isClusterLink) continue;
 
-                let p2     = getPos(idx2, l2),
-                    dx     = p1.x - p2.x,
-                    dy     = p1.y - p2.y,
+                let f2   = l2 === 2 ? 0.05 : (l2 === 1 ? 0.02 : 0.01),
+                    dx2  = (mx !== -1000 ? mx - cx : 0) * f2,
+                    dy2  = (my !== -1000 ? my - cy : 0) * f2,
+                    p2x  = buffer[idx2] + dx2,
+                    p2y  = buffer[idx2 + 1] + dy2,
+                    dx   = p1x - p2x,
+                    dy   = p1y - p2y,
                     distSq = dx*dx + dy*dy;
 
                 if (distSq < 40000) {
@@ -252,8 +247,8 @@ class HomeCanvas extends Base {
 
                     alpha *= (0.2 + (l1 * 0.1));
 
-                    let mDx = (p1.x + p2.x)/2 - mx,
-                        mDy = (p1.y + p2.y)/2 - my,
+                    let mDx = (p1x + p2x)/2 - mx,
+                        mDy = (p1y + p2y)/2 - my,
                         mDistSq = mDx*mDx + mDy*mDy;
 
                     if (mDistSq < 10000) {
@@ -268,8 +263,8 @@ class HomeCanvas extends Base {
 
                     ctx.beginPath();
                     ctx.globalAlpha = alpha * 0.5;
-                    ctx.moveTo(p1.x, p1.y);
-                    ctx.lineTo(p2.x, p2.y);
+                    ctx.moveTo(p1x, p1y);
+                    ctx.lineTo(p2x, p2y);
                     ctx.stroke()
                 }
             }
@@ -283,16 +278,21 @@ class HomeCanvas extends Base {
                 parentId = buffer[idx + 6],
                 phase    = buffer[idx + 7],
                 energy   = buffer[idx + 8],
-                pos      = getPos(idx, layer),
-                dx       = pos.x - mx,
-                dy       = pos.y - my,
+                // Inline getPos logic for pos
+                f        = layer === 2 ? 0.05 : (layer === 1 ? 0.02 : 0.01),
+                pDx      = (mx !== -1000 ? mx - cx : 0) * f,
+                pDy      = (my !== -1000 ? my - cy : 0) * f,
+                posX     = buffer[idx] + pDx,
+                posY     = buffer[idx + 1] + pDy,
+                dx       = posX - mx,
+                dy       = posY - my,
                 dist     = Math.sqrt(dx * dx + dy * dy),
                 isHover  = dist < 50;
 
             // Shockwave Interaction
             if (me.shockwaves.length > 0) {
                 me.shockwaves.forEach(wave => {
-                    let wDist = Math.sqrt((pos.x - wave.x)**2 + (pos.y - wave.y)**2),
+                    let wDist = Math.sqrt((posX - wave.x)**2 + (posY - wave.y)**2),
                         wRad  = wave.age * wave.speed;
                     if (Math.abs(wDist - wRad) < 20) {
                         isHover = true;
@@ -310,7 +310,7 @@ class HomeCanvas extends Base {
                 r *= 1.5;
             }
 
-            ctx.arc(pos.x, pos.y, r, 0, Math.PI * 2);
+            ctx.arc(posX, posY, r, 0, Math.PI * 2);
 
             if (energy > 0.1) {
                 // Energetic Node (Agent Scanned)
@@ -400,30 +400,32 @@ class HomeCanvas extends Base {
                 radius = eased * wave.maxRadius,
                 alpha  = 1 - progress;
 
-            // Chromatic Aberration (Inverted for Light Mode)
-            // No screen blend mode, using dark saturated colors
+            // Chromatic Aberration (Shifted to Neon Blue/Cyan theme)
 
-            // 1. Red Channel (Lagging Fringe)
+            // 1. Cyan Channel (Lagging Fringe) - Replaces Red
             ctx.beginPath();
-            ctx.strokeStyle = `rgba(220, 20, 60, ${alpha * 0.8})`; // Crimson
+            ctx.strokeStyle = HIGHLIGHT;
+            ctx.globalAlpha = alpha * 0.8;
             ctx.lineWidth   = 4 * (1 - progress);
             ctx.shadowBlur  = 10;
-            ctx.shadowColor = '#DC143C';
+            ctx.shadowColor = HIGHLIGHT;
             ctx.arc(wave.x, wave.y, radius * 0.99, 0, Math.PI * 2);
             ctx.stroke();
 
             // 2. Blue Channel (Leading Fringe)
             ctx.beginPath();
-            ctx.strokeStyle = `rgba(0, 0, 205, ${alpha * 0.8})`; // Medium Blue
+            ctx.strokeStyle = PRIMARY;
+            ctx.globalAlpha = alpha * 0.8;
             ctx.lineWidth   = 4 * (1 - progress);
             ctx.shadowBlur  = 10;
-            ctx.shadowColor = '#0000CD';
+            ctx.shadowColor = PRIMARY;
             ctx.arc(wave.x, wave.y, radius * 1.01, 0, Math.PI * 2);
             ctx.stroke();
 
             // 3. Primary Wave (White Hot Center)
             ctx.beginPath();
-            ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
+            ctx.strokeStyle = '#FFFFFF';
+            ctx.globalAlpha = alpha;
             ctx.lineWidth   = 6 * (1 - progress);
             ctx.shadowBlur  = 20;
             ctx.shadowColor = '#FFFFFF';
@@ -431,8 +433,8 @@ class HomeCanvas extends Base {
             ctx.stroke();
 
             // 4. Pressure Fill (Refraction Fake)
-            // Blue tint for light background
-            ctx.fillStyle = `rgba(62, 99, 221, ${alpha * 0.05})`;
+            ctx.fillStyle = PRIMARY;
+            ctx.globalAlpha = alpha * 0.05;
             ctx.fill();
         }
 
