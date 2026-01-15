@@ -251,15 +251,22 @@ if (Math.abs(dist) < radius && Math.abs(dist) > radius - 60) {
 
 ## Common Pitfalls
 
-### ❌ Don't: Use `requestAnimationFrame` in SharedWorker
-```javascript
-// This will NOT work - rAF doesn't exist in shared workers
-requestAnimationFrame(this.render);
-```
+### ❌ Don't: Assume `requestAnimationFrame` exists
+When using Shared Workers (`useSharedWorkers: true`, required for multi-window apps), `requestAnimationFrame` is not available. However, in the default Dedicated Worker mode, it is.
 
-**✅ Do:** Use `setTimeout`
+**✅ Do:** Use Feature Detection
+To support both modes, check if `requestAnimationFrame` is available.
+
 ```javascript
-setTimeout(this.renderLoop, 1000 / 60)
+// Top of your file
+const hasRaf = typeof requestAnimationFrame === 'function';
+
+// In your render loop
+if (hasRaf) {
+    requestAnimationFrame(this.renderLoop);
+} else {
+    setTimeout(this.renderLoop, 1000 / 60);
+}
 ```
 
 ### ❌ Don't: Create objects in the render loop
