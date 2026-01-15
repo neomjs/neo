@@ -760,15 +760,47 @@ class HomeCanvas extends Base {
         const
             buffer = me.nodeBuffer,
             mx     = me.mouse.x,
-            my     = me.mouse.y;
+            my     = me.mouse.y,
+            parentCount = Math.floor(NODE_COUNT * 0.1);
 
         for (let i = 0; i < NODE_COUNT; i++) {
             let idx = i * NODE_STRIDE,
                 parentId = buffer[idx + 6],
                 isParent = parentId === -1;
 
-            // 1. Cluster Cohesion
+            // --- MUTATION LOGIC (Re-Parenting) ---
             if (!isParent) {
+                // 1. Chance to detach (becomes Drifting: -2)
+                if (parentId !== -2 && Math.random() < 0.0005) { // Rare event
+                    buffer[idx + 6] = -2;
+                    // Boost velocity to escape
+                    buffer[idx + 2] += (Math.random() - 0.5) * 2;
+                    buffer[idx + 3] += (Math.random() - 0.5) * 2;
+                }
+
+                // 2. Re-attach Logic (if Drifting)
+                if (parentId === -2) {
+                    // Wander behavior
+                    buffer[idx + 2] += (Math.random() - 0.5) * 0.1;
+                    buffer[idx + 3] += (Math.random() - 0.5) * 0.1;
+
+                    // Check for new parent
+                    for (let p = 0; p < parentCount; p++) {
+                        let pIdx = p * NODE_STRIDE,
+                            px   = buffer[pIdx],
+                            py   = buffer[pIdx + 1],
+                            dist = Math.sqrt((px - buffer[idx])**2 + (py - buffer[idx + 1])**2);
+
+                        if (dist < 60) {
+                            buffer[idx + 6] = p; // Snap to new parent
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // 1. Cluster Cohesion (Children stick to Parent)
+            if (!isParent && buffer[idx + 6] !== -2) { // Normal Child
                 let pIdx = parentId * NODE_STRIDE,
                     px   = buffer[pIdx],
                     py   = buffer[pIdx + 1],
@@ -776,14 +808,15 @@ class HomeCanvas extends Base {
                     dy   = py - buffer[idx + 1],
                     dist = Math.sqrt(dx*dx + dy*dy);
 
-                if (dist > 50) {
+                // Spring force towards parent
+                if (dist > 50) { // Ideal distance
                     let force = (dist - 50) * 0.0005;
                     buffer[idx + 2] += dx * force;
                     buffer[idx + 3] += dy * force;
                 }
             }
 
-            // 2. Mouse Repulsion
+            // 2. Mouse Repulsion (All nodes)
             if (mx !== -1000) {
                 let dx = buffer[idx] - mx,
                     dy = buffer[idx + 1] - my,
