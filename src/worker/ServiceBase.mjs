@@ -306,7 +306,8 @@ class ServiceBase extends Base {
                         return fetch(request).then(response => {
                             // Cache successful responses for future use
                             if (response.ok || response.status === 0) {
-                                cache.put(request, response.clone());
+                                // catch is important, e.g. in case the quota is full
+                                cache.put(request, response.clone()).catch(() => {});
                             }
                             return response;
                         });
