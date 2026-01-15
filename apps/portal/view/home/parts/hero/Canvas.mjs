@@ -4,11 +4,21 @@ import ComponentManager from '../../../../../../src/manager/Component.mjs';
 /**
  * @summary The App Worker component for the Home Hero "Neural Swarm" canvas.
  *
- * Coordinates the OffscreenCanvas transfer and lifecycle management for the
- * Neural Network background visualization.
+ * This component acts as the **Controller** and **Bridge** for the visual effect.
+ * It does not perform any rendering itself. Instead, it coordinates the lifecycle and
+ * data transfer to the `Portal.canvas.HomeCanvas` (SharedWorker) which handles the physics and drawing.
+ *
+ * **Responsibilities:**
+ * 1. **Lifecycle Management:** Imports and initializes the SharedWorker graph when the canvas
+ *    becomes available offscreen.
+ * 2. **Resize Observation:** Tracks the DOM element's size via `ResizeObserver` and pushes
+ *    dimensions to the worker to ensure the simulation matches the viewport.
+ * 3. **Input Bridging:** Captures high-frequency mouse events (move, click, leave) and
+ *    forwards normalized coordinates to the worker for interactive physics.
  *
  * @class Portal.view.home.parts.hero.Canvas
  * @extends Neo.component.Canvas
+ * @see Portal.canvas.HomeCanvas
  */
 class CanvasComponent extends Canvas {
     static config = {
@@ -86,7 +96,8 @@ class CanvasComponent extends Canvas {
     }
 
     /**
-     * Forwards click events to the Shared Worker to trigger Shockwaves.
+     * Forwards click events to the Shared Worker to trigger visual Shockwaves.
+     * Calculates coordinates relative to the canvas bounding box.
      * @param {Object} data
      */
     onClick(data) {
@@ -102,7 +113,7 @@ class CanvasComponent extends Canvas {
     }
 
     /**
-     * Pauses the Shared Worker render loop.
+     * Pauses the Shared Worker render loop to save battery/CPU when not visible.
      */
     pause() {
         if (this.isCanvasReady) {console.log('pause');
@@ -121,6 +132,7 @@ class CanvasComponent extends Canvas {
 
     /**
      * Resets the mouse state in the Shared Worker when the cursor leaves the canvas.
+     * This prevents nodes from being "stuck" in a repulsion state.
      * @param {Object} data
      */
     onMouseLeave(data) {
@@ -131,7 +143,7 @@ class CanvasComponent extends Canvas {
 
     /**
      * Forwards mouse coordinates to the Shared Worker for interaction effects.
-     * Coordinates are normalized relative to the canvas top-left corner.
+     * Coordinates are normalized relative to the canvas top-left corner using the cached `canvasRect`.
      *
      * @param {Object} data
      */
@@ -151,7 +163,7 @@ class CanvasComponent extends Canvas {
     }
 
     /**
-     * Updates the canvas size in the Shared Worker.
+     * Updates the canvas size in the Shared Worker when the DOM element resizes.
      * @param {Object} data
      */
     async onResize(data) {
@@ -160,7 +172,7 @@ class CanvasComponent extends Canvas {
     }
 
     /**
-     * Updates the canvas size in the Shared Worker.
+     * Pushes the new dimensions to the Shared Worker and caches the bounding rect.
      * @param {Object|null} rect
      */
     async updateSize(rect) {

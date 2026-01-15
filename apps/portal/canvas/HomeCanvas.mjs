@@ -16,17 +16,52 @@ const
 /**
  * @summary SharedWorker renderer for the Portal Home "Neural Swarm" background.
  *
- * Handles the physics simulation and rendering loop for the 2.5D network visualization.
- * Uses a Zero-Allocation strategy (pre-allocated buffers) for high performance.
+ * Implements the **"Neural Swarm"** visual theme, a dynamic, mutable network simulation that
+ * visualizes the Neo.mjs Application Engine as a living ecosystem.
+ *
+ * **Visual Architecture:**
+ * 1. **Living Topology (The Graph):** Nodes are not static; they form hierarchical clusters representing
+ *    Components within Containers. The topology is mutable, with sub-clusters occasionally detaching,
+ * *    drifting, and re-parenting (Visualizing "Atomic Moves").
+ * 2. **Autonomous Agents (The Neural Link):** "Seeker Drones" roam the graph using Boid behavior
+ *    (Separation, Alignment, Cohesion). They "scan" nodes, transferring energy and triggering
+ *    visual highlights, representing the active intelligence of the framework.
+ * 3. **Data Flow (Signal Packets):** Pulses of light travel along connections from child to parent,
+ *    visualizing the flow of events and data upstream.
+ * 4. **Atmosphere (Parallax):** A multi-layered depth system creates a volumetric feel, distinguishing
+ *    foreground "active" nodes from background "context" nodes.
+ *
+ * **Performance Architecture (Zero-Allocation):**
+ * To maintain 60fps on high-refresh displays without GC stutters, this class employs a **Zero-Allocation** strategy during the render loop.
+ * 1. **TypedArray Buffers:** All entity data (Nodes, Agents, Packets) is stored in pre-allocated `Float32Array` buffers.
+ * 2. **Inlined Physics:** Vector calculations are performed inline without creating temporary Objects.
+ * 3. **Gradient Caching:** CanvasGradients are created only on resize (`updateResources`) and cached.
  *
  * **Node Buffer Layout (Float32Array):**
- * [x, y, vx, vy, radius, layer, parentId, phase, energy]
+ * - 0: x (Position X)
+ * - 1: y (Position Y)
+ * - 2: vx (Velocity X)
+ * - 3: vy (Velocity Y)
+ * - 4: radius (Visual size)
+ * - 5: layer (Parallax depth: 0=back, 1=mid, 2=front)
+ * - 6: parentId (Index of parent node, -1 if parent, -2 if drifting)
+ * - 7: phase (Animation offset for breathing)
+ * - 8: energy (Interaction state, 0-1)
  *
  * **Agent Buffer Layout (Float32Array):**
- * [x, y, vx, vy, targetIdx, state, ...]
+ * - 0: x
+ * - 1: y
+ * - 2: vx
+ * - 3: vy
+ * - 4: targetIdx (Index of target node, -1 if wandering)
+ * - 5: state (0=moving, 1=scanning)
  *
  * **Packet Buffer Layout (Float32Array):**
- * [x, y, vx, vy, life, ...]
+ * - 0: x
+ * - 1: y
+ * - 2: vx
+ * - 3: vy
+ * - 4: life (Frames remaining, 0-1 normalized for alpha)
  *
  * @class Portal.canvas.HomeCanvas
  * @extends Neo.core.Base
@@ -40,7 +75,8 @@ class HomeCanvas extends Base {
          */
         className: 'Portal.canvas.HomeCanvas',
         /**
-         * Remote method access
+         * Remote method access for the App Worker.
+         * Allows the UI to control the simulation state and input.
          * @member {Object} remote
          * @protected
          */
@@ -62,59 +98,70 @@ class HomeCanvas extends Base {
     }
 
     /**
-     * Pre-allocated buffer for agent data.
+     * Pre-allocated buffer for agent data (Seeker Drones).
      * @member {Float32Array|null} agentBuffer=null
      */
     agentBuffer = null
     /**
+     * ID of the canvas element in the DOM.
      * @member {String|null} canvasId=null
      */
     canvasId = null
     /**
+     * Current dimensions of the canvas.
      * @member {Object|null} canvasSize=null
      */
     canvasSize = null
     /**
-     * @member {Object|null} context=null
+     * The 2D rendering context.
+     * @member {OffscreenCanvasRenderingContext2D|null} context=null
      */
     context = null
     /**
+     * Cache for reusable gradients to prevent GC.
      * @member {Object} gradients={}
      */
     gradients = {}
     /**
+     * Flag to pause the render loop.
      * @member {Boolean} isPaused=false
      */
     isPaused = false
     /**
+     * Tracked mouse position for interactive physics.
+     * Initialize off-screen to prevent startup jitters.
      * @member {Object} mouse={x: -1000, y: -1000}
      */
     mouse = {x: -1000, y: -1000}
     /**
-     * Pre-allocated buffer for node data.
+     * Pre-allocated buffer for node data (The Graph).
      * @member {Float32Array|null} nodeBuffer=null
      */
     nodeBuffer = null
     /**
-     * Pre-allocated buffer for data packets.
+     * Pre-allocated buffer for data packets (Signal Pulses).
      * @member {Float32Array|null} packetBuffer=null
      */
     packetBuffer = null
     /**
+     * Active shockwave effects.
      * @member {Object[]} shockwaves=[]
      */
     shockwaves = []
     /**
+     * Active spark particles (Data Debris).
      * @member {Object[]} sparks=[]
      */
     sparks = []
     /**
+     * Global simulation time, used for procedural animations.
      * @member {Number} time=0
      */
     time = 0
 
     /**
      * Clears the graph state and stops the render loop.
+     * Used when the component is destroyed or the route changes.
      */
     clearGraph() {
         let me = this;
@@ -132,6 +179,12 @@ class HomeCanvas extends Base {
 
     /**
      * Draws the autonomous agents (Seeker Drones).
+     *
+     * **Visuals:**
+     * - **Head:** A solid circle indicating current position.
+     * - **Trail:** A fading line drawn opposite to velocity, simulating motion blur.
+     * - **Scan Effect:** A pulsing ring when the agent reaches a node (state=1).
+     *
      * @param {CanvasRenderingContext2D} ctx
      */
     drawAgents(ctx) {
@@ -189,6 +242,17 @@ class HomeCanvas extends Base {
 
     /**
      * Draws the neural network (nodes and connections).
+     *
+     * **Intent:**
+     * Visualizes the "Application Graph".
+     * - **Parallax:** Applies depth-based displacement based on mouse position.
+     * - **Connections:** Lines are drawn only between related nodes (Parent-Child or Siblings).
+     *   Lines thicken and brighten when near the mouse.
+     * - **Nodes:** Circles breathing in size. Colors indicate depth (Layer) and energy state.
+     *
+     * **Optimization:**
+     * Uses inlined math for parallax calculations to avoid allocating thousands of `{x,y}` objects per frame.
+     *
      * @param {CanvasRenderingContext2D} ctx
      * @param {Number} width
      * @param {Number} height
@@ -209,11 +273,13 @@ class HomeCanvas extends Base {
         ctx.lineWidth = 1;
 
         // 1. Draw Connections
+        // Iterates all unique pairs to draw lines between connected nodes.
+        // Connections are drawn if nodes share a parent (siblings) or are parent-child.
         for (let i = 0; i < count; i++) {
             let idx  = i * NODE_STRIDE,
                 l1   = buffer[idx + 5],
                 pid1 = buffer[idx + 6],
-                // Inline getPos logic for p1
+                // Inline getPos logic for p1 to avoid GC
                 f1   = l1 === 2 ? 0.05 : (l1 === 1 ? 0.02 : 0.01),
                 dx1  = (mx !== -1000 ? mx - cx : 0) * f1,
                 dy1  = (my !== -1000 ? my - cy : 0) * f1,
@@ -241,6 +307,7 @@ class HomeCanvas extends Base {
                     dy   = p1y - p2y,
                     distSq = dx*dx + dy*dy;
 
+                // Culling: Only draw connections within a certain distance
                 if (distSq < 40000) {
                     let dist  = Math.sqrt(distSq),
                         alpha = 1 - (dist / 200);
@@ -251,10 +318,11 @@ class HomeCanvas extends Base {
                         mDy = (p1y + p2y)/2 - my,
                         mDistSq = mDx*mDx + mDy*mDy;
 
+                    // Mouse Interaction: Highlight connections near cursor
                     if (mDistSq < 10000) {
                         alpha = Math.min(alpha + 0.5, 1);
                         ctx.strokeStyle = HIGHLIGHT;
-                        ctx.lineWidth   = 1.5 // Thicker near mouse
+                        ctx.lineWidth   = 1.5
                     } else {
                         ctx.strokeStyle = l1 === 2 ? PRIMARY : SECONDARY;
                         // Elasticity: Thicker when closer (Tension/Slack visualization)
@@ -339,7 +407,8 @@ class HomeCanvas extends Base {
 
     /**
      * Draws the data packets traveling along connections.
-     * @param {CanvasRenderingContext2D} ctx
+     * Packets represent signal flow between nodes.
+     * @param {OffscreenCanvasRenderingContext2D} ctx
      */
     drawPackets(ctx) {
         let me = this;
@@ -375,7 +444,8 @@ class HomeCanvas extends Base {
 
     /**
      * Draws expanding shockwaves from clicks with Chromatic Aberration and Composite Rings.
-     * @param {CanvasRenderingContext2D} ctx
+     * Uses optimized RGBA composition to reduce GC pressure.
+     * @param {OffscreenCanvasRenderingContext2D} ctx
      */
     drawShockwaves(ctx) {
         let me = this;
@@ -444,7 +514,7 @@ class HomeCanvas extends Base {
 
     /**
      * Draws temporary spark particles (Data Debris).
-     * @param {CanvasRenderingContext2D} ctx
+     * @param {OffscreenCanvasRenderingContext2D} ctx
      */
     drawSparks(ctx) {
         let me = this;
@@ -469,6 +539,7 @@ class HomeCanvas extends Base {
 
     /**
      * Initializes the autonomous agents.
+     * Agents start at random positions with random high-velocity vectors.
      * @param {Number} width
      * @param {Number} height
      */
@@ -495,6 +566,7 @@ class HomeCanvas extends Base {
 
     /**
      * Initializes the canvas context.
+     * Connects to the OffscreenCanvas transferred from the main thread.
      * @param {Object} opts
      * @param {String} opts.canvasId
      * @param {String} opts.windowId
@@ -520,7 +592,9 @@ class HomeCanvas extends Base {
     }
 
     /**
-     * Initializes the node buffer using Golden Spiral distribution.
+     * Initializes the node buffer using **Golden Spiral** distribution.
+     * This ensures a uniform but organic-looking distribution of nodes across the screen,
+     * preventing the "clumping" seen with random placement.
      * @param {Number} width
      * @param {Number} height
      */
@@ -615,14 +689,14 @@ class HomeCanvas extends Base {
     }
 
     /**
-     *
+     * Pauses the simulation.
      */
     pause() {
         this.isPaused = true
     }
 
     /**
-     *
+     * Resumes the simulation.
      */
     resume() {
         let me = this;
@@ -639,7 +713,8 @@ class HomeCanvas extends Base {
     renderLoop = this.render.bind(this)
 
     /**
-     * Main render loop.
+     * Main simulation and render loop.
+     * Executed ~60 times per second.
      */
     render() {
         let me = this;
@@ -659,12 +734,13 @@ class HomeCanvas extends Base {
         if (!me.agentBuffer) me.initAgents(width, height);
         if (!me.packetBuffer) me.initPackets();
 
-        // Physics
+        // Physics Update Steps
         me.updatePhysics(width, height);
         me.updateAgents(width, height);
         me.updatePackets();
         me.updateSparks();
 
+        // Rendering Steps
         ctx.clearRect(0, 0, width, height);
 
         if (me.gradients.bgGradient) {
@@ -682,6 +758,8 @@ class HomeCanvas extends Base {
     }
 
     /**
+     * Updates the local mouse state from main thread events.
+     * Triggers shockwaves on click.
      * @param {Object} data
      * @param {Boolean} [data.click]
      * @param {Boolean} [data.leave]
@@ -726,6 +804,8 @@ class HomeCanvas extends Base {
 
     /**
      * Updates packet logic (Data Flow).
+     * Packets spawn randomly at child nodes and travel to their parent nodes,
+     * representing data reporting upstream.
      */
     updatePackets() {
         let me = this;
@@ -780,7 +860,7 @@ class HomeCanvas extends Base {
     }
 
     /**
-     * Updates spark particles with friction.
+     * Updates spark particles with friction and decay.
      */
     updateSparks() {
         let me = this;
@@ -799,7 +879,9 @@ class HomeCanvas extends Base {
     }
 
     /**
-     * Updates agent positions (Boids + Seek).
+     * Updates agent positions using **Boid** logic (Seek, Separate).
+     * Agents randomly pick a target node, seek it, scan it (transferring energy),
+     * and then pick a new target. They also avoid the mouse cursor.
      * @param {Number} width
      * @param {Number} height
      */
@@ -893,7 +975,12 @@ class HomeCanvas extends Base {
     }
 
     /**
-     * Updates node positions using Cluster Physics.
+     * Updates node positions using **Cluster Physics**.
+     * Handles:
+     * 1.  **Cohesion:** Children stick to parents.
+     * 2.  **Flow Fields:** Parents drift in organic patterns.
+     * 3.  **Topology Mutation:** Nodes can detach and re-parent.
+     * 4.  **Interaction:** Mouse repulsion and shockwave explosion.
      * @param {Number} width
      * @param {Number} height
      */
