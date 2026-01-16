@@ -421,7 +421,8 @@ class ServicesCanvas extends Base {
             colStep  = size * 1.5,
             rowStep  = size * Math.sqrt(3),
             cols     = Math.ceil(width / colStep) + 2,
-            rows     = Math.ceil(height / rowStep) + 2,
+            // Extend rows upwards for perspective (Horizon Buffer)
+            rows     = Math.ceil(height / rowStep) + 12, 
             count    = cols * rows;
 
         if (!me.cellBuffer || me.cellBuffer.length !== count * STRIDE) {
@@ -431,8 +432,9 @@ class ServicesCanvas extends Base {
         const buffer = me.cellBuffer;
         
         let i = 0;
+        // Start 10 rows higher up to fill the distance
         for (let c = -1; c < cols; c++) {
-            for (let r = -1; r < rows; r++) {
+            for (let r = -10; r < rows - 10; r++) {
                 let x = c * colStep;
                 let y = r * rowStep;
                 if (c % 2 === 1) {
@@ -761,10 +763,11 @@ class ServicesCanvas extends Base {
             let currentEnergy = buffer[idx + 5];
             let targetEnergy = active * 0.8;
             
+            // Speed up hover reaction (0.1 -> 0.3)
             if (currentEnergy > targetEnergy) {
-                 buffer[idx + 5] *= 0.95; 
+                 buffer[idx + 5] *= 0.9; 
             } else {
-                 buffer[idx + 5] += (targetEnergy - currentEnergy) * 0.1;
+                 buffer[idx + 5] += (targetEnergy - currentEnergy) * 0.3;
             }
             
             if (buffer[idx + 5] < 0.001) buffer[idx + 5] = 0;
@@ -829,8 +832,10 @@ class ServicesCanvas extends Base {
                         cy   = runners[idx + 1],
                         tx   = cx + Math.cos(rad) * jump,
                         ty   = cy + Math.sin(rad) * jump;
-                        
-                    if (tx < -50 || tx > width + 50 || ty < -50 || ty > height + 50) {
+                    
+                    // Allow runners to exist further up (negative Y) for the horizon effect
+                    // Expanded bounds: -500 (top) to height+50 (bottom)
+                    if (tx < -50 || tx > width + 50 || ty < -500 || ty > height + 50) {
                         me.resetRunner(i, width, height);
                         continue;
                     }
