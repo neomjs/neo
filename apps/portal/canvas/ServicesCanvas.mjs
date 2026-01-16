@@ -12,7 +12,9 @@ const
     SUPER_HEX_MAX = 5,
     KERNEL_HEX_SIZE = 120,
     DEBRIS_COUNT = 200,
-    DEBRIS_STRIDE = 5; // x, y, vx, vy, life
+    DEBRIS_STRIDE = 5, // x, y, vx, vy, life
+    STRATA_COUNT = 15,
+    STRATA_STRIDE = 4; // x, y, z, size
 
 /**
  * @summary SharedWorker renderer for the Portal Services "Neural Lattice" background.
@@ -23,10 +25,11 @@ const
  *
  * **Visual Architecture:**
  * 1. **Kernel Layer (Parallax):** A deep, slow-moving background grid representing the framework core.
- * 2. **Application Layer (Lattice):** The main efficient structure (The App Engine).
- * 3. **Data Runners:** High-speed packets visualizing throughput and velocity.
- * 4. **Runtime Permutation:** Dynamic fusion of cells into "Super Modules".
- * 5. **Digital Debris:** Particle effects visualizing memory allocation (implosion) and garbage collection (fragmentation).
+ * 2. **Data Strata (Mid-Ground):** Floating clusters bridging the depth gap.
+ * 3. **Application Layer (Lattice):** The main efficient structure (The App Engine).
+ * 4. **Data Runners:** High-speed packets visualizing throughput and velocity.
+ * 5. **Runtime Permutation:** Dynamic fusion of cells into "Super Modules".
+ * 6. **Digital Debris:** Particle effects visualizing memory allocation (implosion) and garbage collection (fragmentation).
  *
  * @class Portal.canvas.ServicesCanvas
  * @extends Neo.core.Base
@@ -41,7 +44,8 @@ class ServicesCanvas extends Base {
             hexActive : 'rgba(0, 191, 255, 0.15)',
             kernel    : 'rgba(62, 99, 221, 0.03)',
             runner    : '#00BFFF',
-            superHex  : 'rgba(255, 255, 255, 0.03)'
+            superHex  : 'rgba(255, 255, 255, 0.03)',
+            strata    : 'rgba(139, 166, 255, 0.08)'
         },
         light: {
             background: ['rgba(255, 255, 255, 1)', 'rgba(245, 247, 255, 1)'],
@@ -50,7 +54,8 @@ class ServicesCanvas extends Base {
             hexActive : 'rgba(0, 191, 255, 0.2)',
             kernel    : 'rgba(62, 99, 221, 0.04)',
             runner    : '#00BFFF',
-            superHex  : 'rgba(62, 99, 221, 0.03)'
+            superHex  : 'rgba(62, 99, 221, 0.03)',
+            strata    : 'rgba(62, 99, 221, 0.05)'
         }
     }
 
@@ -81,6 +86,7 @@ class ServicesCanvas extends Base {
     cellBuffer   = null
     runnerBuffer = null
     kernelBuffer = null
+    strataBuffer = null
     
     /**
      * Buffer for Particle Debris.
@@ -102,6 +108,7 @@ class ServicesCanvas extends Base {
         me.cellBuffer   = null;
         me.runnerBuffer = null;
         me.kernelBuffer = null;
+        me.strataBuffer = null;
         me.debrisBuffer = null;
         me.superHexes   = [];
         me.isPaused     = false;
@@ -168,6 +175,33 @@ class ServicesCanvas extends Base {
             me.drawHex(ctx, x, y, 400, size, projection);
         }
         ctx.stroke();
+    }
+
+    drawStrata(ctx, width, height, projection) {
+        let me = this;
+        if (!me.strataBuffer) return;
+
+        const 
+            buffer = me.strataBuffer,
+            count  = STRATA_COUNT,
+            s      = me.scale,
+            themeColors = me.constructor.colors[me.theme];
+
+        ctx.fillStyle = themeColors.strata;
+
+        let panX = Math.sin(me.time * 0.15) * 30 * s,
+            panY = Math.cos(me.time * 0.15) * 30 * s;
+
+        for (let i = 0; i < count; i++) {
+            let idx = i * STRATA_STRIDE,
+                x   = buffer[idx] + panX,
+                y   = buffer[idx + 1] + panY,
+                z   = buffer[idx + 2],
+                size = buffer[idx + 3] * s;
+
+            me.drawHex(ctx, x, y, z, size, projection);
+            ctx.fill();
+        }
     }
 
     drawGraph(ctx, width, height, projection) {
@@ -260,6 +294,17 @@ class ServicesCanvas extends Base {
                 ctx.lineWidth = (1 + energy) * s;
                 ctx.globalAlpha = energy * 0.8;
                 ctx.stroke();
+                
+                // Holographic Pop (Ghost Hex)
+                if (energy > 0.3) {
+                    ctx.beginPath();
+                    let popZ = -50 * energy; // Float up
+                    me.drawHex(ctx, x, y, popZ, currentSize, projection);
+                    ctx.strokeStyle = HIGHLIGHT;
+                    ctx.globalAlpha = energy * 0.4;
+                    ctx.lineWidth = 1 * s;
+                    ctx.stroke();
+                }
                 
                 ctx.globalAlpha = 1;
                 ctx.lineWidth = 1 * s; 
@@ -472,6 +517,21 @@ class ServicesCanvas extends Base {
         }
     }
 
+    initStrata(width, height) {
+        let me = this;
+        
+        me.strataBuffer = new Float32Array(STRATA_COUNT * STRATA_STRIDE);
+        const buffer = me.strataBuffer;
+
+        for (let i = 0; i < STRATA_COUNT; i++) {
+            let idx = i * STRATA_STRIDE;
+            buffer[idx]     = (Math.random() - 0.5) * width * 2;
+            buffer[idx + 1] = (Math.random() - 0.5) * height * 3;
+            buffer[idx + 2] = 150 + Math.random() * 150; // Z depth 150-300
+            buffer[idx + 3] = (HEX_SIZE * 3) + Math.random() * HEX_SIZE * 4; // Size
+        }
+    }
+
     findNearestNode(x, y) {
         let me = this,
             buffer = me.cellBuffer,
@@ -589,6 +649,7 @@ class ServicesCanvas extends Base {
 
         if (!me.cellBuffer) me.initNodes(width, height);
         if (!me.kernelBuffer) me.initKernel(width, height);
+        if (!me.strataBuffer) me.initStrata(width, height);
         if (!me.runnerBuffer) me.initRunners(width, height);
         if (!me.debrisBuffer) me.initDebris();
 
@@ -608,6 +669,7 @@ class ServicesCanvas extends Base {
         let projection = me.getProjection(width, height);
 
         me.drawKernel(ctx, width, height, projection); 
+        me.drawStrata(ctx, width, height, projection);
         me.drawGraph(ctx, width, height, projection);
         me.drawRunners(ctx, projection);
         me.drawDebris(ctx, projection); // Render particles on top
@@ -997,6 +1059,7 @@ class ServicesCanvas extends Base {
             me.cellBuffer = null; 
             me.runnerBuffer = null;
             me.kernelBuffer = null;
+            me.strataBuffer = null;
             me.debrisBuffer = null;
             me.initNodes(size.width, size.height);
             me.updateResources(size.width, size.height)
