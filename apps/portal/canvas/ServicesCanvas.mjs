@@ -8,8 +8,8 @@ const
     RUNNER_STRIDE   = 8, // x, y, tx, ty, progress, speed, currentHexIdx, colorIdx
     SUPER_HEX_MAX   = 5,
     KERNEL_HEX_SIZE = 120,
-    DEBRIS_COUNT    = 200,
-    DEBRIS_STRIDE   = 6, // x, y, vx, vy, life, colorIdx
+    PARTICLE_COUNT  = 200,
+    PARTICLE_STRIDE = 8, // x, y, z, vx, vy, vz, life, colorIdx
     STRATA_COUNT    = 15,
     STRATA_STRIDE   = 4; // x, y, z, size
 
@@ -24,9 +24,9 @@ const
  * 1. **Kernel Layer (Parallax):** A deep, slow-moving background grid representing the framework core.
  * 2. **Data Strata (Mid-Ground):** Floating clusters bridging the depth gap.
  * 3. **Application Layer (Lattice):** The main efficient structure (The App Engine).
- * 4. **Data Runners:** High-speed packets visualizing throughput and velocity.
- * 5. **Runtime Permutation:** Dynamic fusion of cells into "Super Modules" (implosion/explosion effects).
- * 6. **Digital Debris:** Particle effects visualizing memory allocation and garbage collection.
+ * 4. **Neural Agents:** High-speed packets visualizing throughput and intelligent maintenance.
+ * 5. **Runtime Permutation:** Dynamic fusion of cells into "Super Modules" (construction/upload effects).
+ * 6. **Construction Particles:** Particle effects visualizing memory allocation and object assembly.
  *
  * **Performance Architecture (Zero-Allocation):**
  * To ensure 60fps performance on high-resolution displays, this class employs a strict **Zero-Allocation** strategy:
@@ -62,28 +62,28 @@ const
 class ServicesCanvas extends Base {
     static colors = {
         dark : {
-            background   : ['rgba(30, 30, 35, 1)', 'rgba(20, 20, 25, 1)'],
-            debrisPalette: ['#E0E0E0', '#00BFFF', '#3E63DD', '#8A2BE2'],
-            hexLine      : 'rgba(139, 166, 255, 0.1)', // Increased visibility
-            hexActive    : 'rgba(0, 191, 255, 0.15)',
-            activePalette: ['#00BFFF', '#536DFE', '#3E63DD', '#00E5FF'], // Cyan, Indigo, Neo Blue, Turquoise
-            kernel       : 'rgba(62, 99, 221, 0.08)',
-            runner       : '#00BFFF',
-            runnerPalette: ['#00BFFF', '#536DFE', '#3E63DD', '#00E5FF'],
-            superHex     : 'rgba(62, 99, 221, 0.3)',
-            strata       : 'rgba(139, 166, 255, 0.08)'
+            background     : ['rgba(30, 30, 35, 1)', 'rgba(20, 20, 25, 1)'],
+            particlePalette: ['#E0E0E0', '#00BFFF', '#3E63DD', '#8BA6FF'], // White, Cyan, Neo Blue, Light Blue
+            hexLine        : 'rgba(139, 166, 255, 0.1)',
+            hexActive      : 'rgba(0, 191, 255, 0.15)',
+            activePalette  : ['#00BFFF', '#536DFE', '#3E63DD', '#00E5FF'], // Cyan, Indigo, Neo Blue, Turquoise
+            kernel         : 'rgba(62, 99, 221, 0.08)',
+            runner         : '#00BFFF',
+            runnerPalette  : ['#00BFFF', '#536DFE', '#3E63DD', '#00E5FF'],
+            superHex       : 'rgba(62, 99, 221, 0.3)',
+            strata         : 'rgba(139, 166, 255, 0.08)'
         },
         light: {
-            background   : ['rgba(255, 255, 255, 1)', 'rgba(245, 247, 255, 1)'],
-            debrisPalette: ['#3E63DD', '#00BFFF', '#8A2BE2', '#283593'],
-            hexLine      : 'rgba(62, 99, 221, 0.25)', // Much darker for contrast
-            hexActive    : 'rgba(0, 191, 255, 0.2)',
-            activePalette: ['#00BFFF', '#536DFE', '#3E63DD', '#00E5FF'], // Cyan, Indigo, Neo Blue, Turquoise
-            kernel       : 'rgba(62, 99, 221, 0.08)',
-            runner       : '#00BFFF',
-            runnerPalette: ['#00BFFF', '#536DFE', '#3E63DD', '#00E5FF'],
-            superHex     : 'rgba(62, 99, 221, 0.3)',
-            strata       : 'rgba(62, 99, 221, 0.05)'
+            background     : ['rgba(255, 255, 255, 1)', 'rgba(245, 247, 255, 1)'],
+            particlePalette: ['#3E63DD', '#00BFFF', '#536DFE', '#283593'], // Neo Blue, Cyan, Indigo, Dark Blue
+            hexLine        : 'rgba(62, 99, 221, 0.25)',
+            hexActive      : 'rgba(0, 191, 255, 0.2)',
+            activePalette  : ['#00BFFF', '#536DFE', '#3E63DD', '#00E5FF'],
+            kernel         : 'rgba(62, 99, 221, 0.08)',
+            runner         : '#00BFFF',
+            runnerPalette  : ['#00BFFF', '#536DFE', '#3E63DD', '#00E5FF'],
+            superHex       : 'rgba(62, 99, 221, 0.3)',
+            strata         : 'rgba(62, 99, 221, 0.05)'
         }
     }
 
@@ -178,11 +178,11 @@ class ServicesCanvas extends Base {
     strataBuffer = null
 
     /**
-     * Buffer for Particle Debris.
-     * Stride: [x, y, vx, vy, life]
-     * @member {Float32Array|null} debrisBuffer
+     * Buffer for Construction Particles.
+     * Stride: [x, y, z, vx, vy, vz, life, colorIdx]
+     * @member {Float32Array|null} particleBuffer
      */
-    debrisBuffer = null
+    particleBuffer = null
 
     /**
      * Reusable object for projection calculations to avoid GC
@@ -232,7 +232,7 @@ class ServicesCanvas extends Base {
         me.runnerBuffer = null;
         me.kernelBuffer = null;
         me.strataBuffer = null;
-        me.debrisBuffer = null;
+        me.particleBuffer = null;
         me.superHexes   = [];
         me.isPaused     = false;
         me.gradients    = {};
@@ -570,38 +570,39 @@ class ServicesCanvas extends Base {
     }
 
     /**
-     * Draws particle debris (squares).
+     * Draws construction particles.
      * @param {CanvasRenderingContext2D} ctx
      */
-    drawDebris(ctx) {
+    drawParticles(ctx) {
         let me = this;
-        if (!me.debrisBuffer) {
+        if (!me.particleBuffer) {
             return;
         }
 
         const
-            buffer      = me.debrisBuffer,
-            count       = DEBRIS_COUNT,
+            buffer      = me.particleBuffer,
+            count       = PARTICLE_COUNT,
             themeColors = me.constructor.colors[me.theme],
             s           = me.scale,
             pp          = me.projectionPoint;
 
         for (let i = 0; i < count; i++) {
-            let idx  = i * DEBRIS_STRIDE,
-                life = buffer[idx + 4];
+            let idx  = i * PARTICLE_STRIDE,
+                life = buffer[idx + 6]; // life is now at index 6
 
             if (life > 0) {
                 let x    = buffer[idx],
                     y    = buffer[idx + 1],
+                    z    = buffer[idx + 2],
                     size = 3 * s * life; // Shrink as it dies
 
-                me.project(x, y, 0);
+                me.project(x, y, z);
 
                 if (pp.visible) {
                     let scaledSize = size * pp.scale,
-                        colorIdx   = buffer[idx + 5];
+                        colorIdx   = buffer[idx + 7]; // colorIdx at index 7
 
-                    ctx.fillStyle   = themeColors.debrisPalette[colorIdx];
+                    ctx.fillStyle   = themeColors.particlePalette[colorIdx];
                     ctx.globalAlpha = life;
                     ctx.fillRect(pp.x - scaledSize / 2, pp.y - scaledSize / 2, scaledSize, scaledSize);
                 }
@@ -638,12 +639,12 @@ class ServicesCanvas extends Base {
     }
 
     /**
-     * Allocates the Debris Buffer (Particles).
+     * Allocates the Particle Buffer (Construction Effects).
      */
-    initDebris() {
+    initParticles() {
         let me = this;
-        if (!me.debrisBuffer) {
-            me.debrisBuffer = new Float32Array(DEBRIS_COUNT * DEBRIS_STRIDE);
+        if (!me.particleBuffer) {
+            me.particleBuffer = new Float32Array(PARTICLE_COUNT * PARTICLE_STRIDE);
         }
     }
 
@@ -833,30 +834,30 @@ class ServicesCanvas extends Base {
     }
 
     /**
-     * Spawns debris particles at a location.
+     * Spawns construction particles.
      * @param {Number} x
      * @param {Number} y
      * @param {Number} count
-     * @param {String} type 'implode' or 'explode'
+     * @param {String} type 'implode' or 'upload'
      */
-    spawnDebris(x, y, count, type) {
+    spawnParticles(x, y, count, type) {
         let me = this;
-        if (!me.debrisBuffer) {
+        if (!me.particleBuffer) {
             return;
         }
 
         const
-            buffer = me.debrisBuffer,
-            total  = DEBRIS_COUNT,
+            buffer = me.particleBuffer,
+            total  = PARTICLE_COUNT,
             s      = me.scale;
 
         // Find empty slots
         let spawned = 0;
         for (let i = 0; i < total; i++) {
-            let idx = i * DEBRIS_STRIDE;
+            let idx = i * PARTICLE_STRIDE;
 
             // If slot is empty (life <= 0)
-            if (buffer[idx + 4] <= 0) {
+            if (buffer[idx + 6] <= 0) {
                 let angle = Math.random() * Math.PI * 2,
                     speed = (Math.random() * 3 + 2) * s;
 
@@ -865,18 +866,38 @@ class ServicesCanvas extends Base {
                     let radius      = 60 * s;
                     buffer[idx]     = x + Math.cos(angle) * radius;
                     buffer[idx + 1] = y + Math.sin(angle) * radius;
-                    buffer[idx + 2] = -Math.cos(angle) * speed; // Towards center
-                    buffer[idx + 3] = -Math.sin(angle) * speed;
+                    buffer[idx + 2] = 0; // z
+                    buffer[idx + 3] = -Math.cos(angle) * speed; // vx
+                    buffer[idx + 4] = -Math.sin(angle) * speed; // vy
+                    buffer[idx + 5] = 0; // vz
+                } else if (type === 'upload') {
+                    // Start CENTER, move UP (Z-axis)
+                    buffer[idx]     = x + (Math.random() - 0.5) * 20 * s;
+                    buffer[idx + 1] = y + (Math.random() - 0.5) * 20 * s;
+                    buffer[idx + 2] = 0; // z
+                    buffer[idx + 3] = 0; // vx
+                    buffer[idx + 4] = 0; // vy
+                    buffer[idx + 5] = -speed * 1.5; // vz (Upwards in 3D space is negative Z in our projection usually, or handle in render)
+                    // Let's assume negative Z is 'up/away' or just use Y for 'up'.
+                    // Actually, 'Up' in 3D world space (if Y is down) is negative Y.
+                    // But here we want a 'Holographic Upload' effect, which implies Z-axis lift.
+                    // Let's try Negative Z (towards camera? or away?).
+                    // In drawHex, Z is depth. Lower Z is closer?
+                    // Let's make them float 'up' in World Y (-Y) and 'out' in Z (-Z).
+                    buffer[idx + 4] = -1 * s; // Slow rise Y
+                    buffer[idx + 5] = -5 * s; // Fast rise Z (towards camera)
                 } else {
-                    // Start INSIDE, move OUT
-                    buffer[idx]     = x;
-                    buffer[idx + 1] = y;
-                    buffer[idx + 2] = Math.cos(angle) * speed;
-                    buffer[idx + 3] = Math.sin(angle) * speed;
+                    // Default explode
+                     buffer[idx]     = x;
+                     buffer[idx + 1] = y;
+                     buffer[idx + 2] = 0;
+                     buffer[idx + 3] = Math.cos(angle) * speed;
+                     buffer[idx + 4] = Math.sin(angle) * speed;
+                     buffer[idx + 5] = 0;
                 }
 
-                buffer[idx + 4] = 1.0; // Life
-                buffer[idx + 5] = Math.floor(Math.random() * 4); // Color Index
+                buffer[idx + 6] = 1.0; // Life
+                buffer[idx + 7] = Math.floor(Math.random() * 4); // Color Index
 
                 spawned++;
                 if (spawned >= count) {
@@ -939,15 +960,15 @@ class ServicesCanvas extends Base {
         if (!me.runnerBuffer) {
             me.initRunners(width, height);
         }
-        if (!me.debrisBuffer) {
-            me.initDebris();
+        if (!me.particleBuffer) {
+            me.initParticles();
         }
 
         me.updatePhysics(width, height);
         me.updateRotation(width, height);
         me.updateSuperHexes(width, height);
         me.updateRunners(width, height);
-        me.updateDebris();
+        me.updateParticles();
         me.updateProjection(width, height);
 
         ctx.clearRect(0, 0, width, height);
@@ -961,7 +982,7 @@ class ServicesCanvas extends Base {
         me.drawStrata(ctx, width, height);
         me.drawGraph(ctx, width, height);
         me.drawRunners(ctx);
-        me.drawDebris(ctx); // Render particles on top
+        me.drawParticles(ctx); // Render particles on top
 
         if (hasRaf) {
             requestAnimationFrame(me.renderLoop)
@@ -971,40 +992,27 @@ class ServicesCanvas extends Base {
     }
 
     /**
-     * Updates debris physics (movement, decay, repulsion).
+     * Updates particle physics (movement, decay).
      */
-    updateDebris() {
+    updateParticles() {
         let me = this;
-        if (!me.debrisBuffer) {
+        if (!me.particleBuffer) {
             return;
         }
 
-        const buffer = me.debrisBuffer,
-              count  = DEBRIS_COUNT,
-              mx     = me.mouse.x,
-              my     = me.mouse.y;
+        const buffer = me.particleBuffer,
+              count  = PARTICLE_COUNT;
 
         for (let i = 0; i < count; i++) {
-            let idx = i * DEBRIS_STRIDE;
-            if (buffer[idx + 4] > 0) {
-                // Move
-                buffer[idx] += buffer[idx + 2];
-                buffer[idx + 1] += buffer[idx + 3];
-                // Decay
-                buffer[idx + 4] -= 0.03;
+            let idx = i * PARTICLE_STRIDE;
+            if (buffer[idx + 6] > 0) { // Check life
+                // Move x, y, z by vx, vy, vz
+                buffer[idx]     += buffer[idx + 3];
+                buffer[idx + 1] += buffer[idx + 4];
+                buffer[idx + 2] += buffer[idx + 5];
 
-                // Repulsion
-                if (mx !== -1000) {
-                    let dx   = buffer[idx] - mx,
-                        dy   = buffer[idx + 1] - my,
-                        dist = Math.sqrt(dx * dx + dy * dy);
-
-                    if (dist < 150) {
-                        let force = (150 - dist) * 0.05;
-                        buffer[idx] += (dx / dist) * force;
-                        buffer[idx + 1] += (dy / dist) * force;
-                    }
-                }
+                // Decay life
+                buffer[idx + 6] -= 0.03;
             }
         }
     }
@@ -1041,7 +1049,7 @@ class ServicesCanvas extends Base {
                     // Trigger Implosion!
                     let x = buffer[idx + 2],
                         y = buffer[idx + 3];
-                    me.spawnDebris(x, y, 12, 'implode');
+                    me.spawnParticles(x, y, 12, 'implode');
 
                     buffer[idx + 6] = 0;
                     break;
@@ -1060,12 +1068,12 @@ class ServicesCanvas extends Base {
                 sh.state = 2;
                 sh.age   = 0;
             } else if (sh.state === 2 && sh.age > 30) {
-                // Done - Trigger Explosion (Fragmentation)
+                // Done - Trigger Upload
                 let idx = sh.centerIdx,
                     x   = me.cellBuffer[idx + 2],
                     y   = me.cellBuffer[idx + 3];
 
-                me.spawnDebris(x, y, 12, 'explode');
+                me.spawnParticles(x, y, 12, 'upload');
 
                 sh.neighbors.forEach(nIdx => {
                     me.cellBuffer[nIdx + 4] = 1;
