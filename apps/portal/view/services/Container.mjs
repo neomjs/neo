@@ -2,21 +2,28 @@ import Canvas    from './Canvas.mjs';
 import Container from '../../../../src/container/Base.mjs';
 
 /**
- * @class Portal.view.services.Component
+ * @class Portal.view.services.Container
  * @extends Neo.container.Base
  */
-class Component extends Container {
+class ServicesContainer extends Container {
     static config = {
         /**
-         * @member {String} className='Portal.view.services.Component'
+         * @member {String} className='Portal.view.services.Container'
          * @protected
          */
-        className: 'Portal.view.services.Component',
+        className: 'Portal.view.services.Container',
         /**
          * @member {String[]} cls=['portal-services-component']
          * @reactive
          */
         cls: ['portal-services-component'],
+        /**
+         * @member {Object} domListeners
+         */
+        domListeners: {
+            mouseleave: 'onMouseLeave',
+            mousemove : {fn: 'onMouseMove', local: true}
+        },
         /**
          * @member {Object} layout={ntype: 'fit'}
          */
@@ -25,8 +32,9 @@ class Component extends Container {
          * @member {Object[]} items
          */
         items: [{
-            module: Canvas,
-            style : {position: 'absolute', top: 0, left: 0, width: '100%', height: '100%'}
+            module   : Canvas,
+            reference: 'canvas',
+            style    : {position: 'absolute', top: 0, left: 0, width: '100%', height: '100%'}
         }, {
             ntype : 'container',
             cls   : ['portal-services-content-wrapper'],
@@ -95,6 +103,20 @@ class Component extends Container {
             }]
         }]
     }
+
+    /**
+     * @param {Object} data
+     */
+    onMouseLeave(data) {
+        this.getItem('canvas').onMouseLeave(data)
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onMouseMove(data) {
+        this.getItem('canvas').onMouseMove(data)
+    }
 }
 
-export default Neo.setupClass(Component);
+export default Neo.setupClass(ServicesContainer);
