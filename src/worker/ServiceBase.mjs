@@ -49,6 +49,8 @@ class ServiceBase extends Base {
          */
         mixins: [RemoteMethodAccess],
         /**
+         * Flag to enable the automatic 404 recovery strategy.
+         * If true, 404 errors on guarded paths will trigger a client reload.
          * @member {Boolean} reloadOn404=true
          */
         reloadOn404: true,
@@ -265,6 +267,12 @@ class ServiceBase extends Base {
     }
 
     /**
+     * Intercepts 404 errors on guarded paths (dist/production, src) to detect version mismatches.
+     * If a mismatch is suspected (old app asking for deleted asset), triggers a forced client reload.
+     *
+     * Use Case: "Reactive Recovery" for when the Boot-Time check passes (or hasn't run) but the
+     * environment changes mid-session (Atomic Deployment deletes assets).
+     *
      * @param {ExtendableMessageEvent} event
      */
     async on404(event) {
