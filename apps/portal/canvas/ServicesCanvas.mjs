@@ -5,7 +5,20 @@ const
     HEX_SIZE        = 30,
     STRIDE          = 8,  // q, r, x, y, scale, energy, buildCharge, colorIdx
     RUNNER_COUNT    = 30,
-    RUNNER_STRIDE   = 10, // x, y, tx, ty, progress, speed, currentHexIdx, colorIdx, state, scanTime
+    /**
+     * Agent Buffer Layout (Float32Array):
+     * - 0: x (Current X)
+     * - 1: y (Current Y)
+     * - 2: tx (Target X)
+     * - 3: ty (Target Y)
+     * - 4: progress (Animation progress, 0-1)
+     * - 5: speed (Movement speed)
+     * - 6: currentHexIdx (Index of occupied node)
+     * - 7: colorIdx (Palette index)
+     * - 8: state (0 = Moving, 1 = Scanning)
+     * - 9: scanTime (0-1 progress of the scan action)
+     */
+    RUNNER_STRIDE   = 10,
     SUPER_HEX_MAX   = 5,
     KERNEL_HEX_SIZE = 120,
     PARTICLE_COUNT  = 200,
@@ -883,9 +896,16 @@ class ServicesCanvas extends Base {
 
     /**
      * Spawns construction particles.
-     * @param {Number} x
-     * @param {Number} y
-     * @param {Number} count
+     *
+     * **Visual Metaphors:**
+     * - **'implode'**: Particles fly *inward* from a radius to the center. Represents **Assembly**,
+     *   **Memory Allocation**, or **Crystallization**. Used when a Super Hex is born.
+     * - **'upload'**: Particles fly *upward* (Z-axis) and fade out. Represents **Data Transfer**,
+     *   **Cloud Sync**, or **release**. Used when a Super Hex finishes its lifecycle.
+     *
+     * @param {Number} x World X
+     * @param {Number} y World Y
+     * @param {Number} count Number of particles to spawn
      * @param {String} type 'implode' or 'upload'
      */
     spawnParticles(x, y, count, type) {
@@ -1239,8 +1259,21 @@ class ServicesCanvas extends Base {
     }
 
     /**
-     * Updates Runner logic.
-     * Handles movement along edges, target acquisition, and magnetic mouse bias.
+     * Updates Neural Agent logic (The "Intelligence" Layer).
+     *
+     * Implements a 2-State Machine for Agents:
+     *
+     * **State 0: Moving**
+     * - Agents travel along grid edges to a target node.
+     * - Uses "Magnetic Pathfinding" to bias movement towards the mouse cursor.
+     * - Upon arrival, there is a **20% chance** to switch to "Scanning".
+     *
+     * **State 1: Scanning**
+     * - The Agent locks onto a node and performs a "Deep Scan" (visualized as a pulse).
+     * - **Construction Trigger:** When the scan completes, the Agent injects massive `BuildCharge` (+5)
+     *   into the node. This deterministically triggers the formation of a **Super Hex**, creating
+     *   a direct cause-and-effect relationship between "Agent Work" and "Structure Creation".
+     *
      * @param {Number} width
      * @param {Number} height
      */
