@@ -42,9 +42,9 @@ class ServicesCanvas extends Base {
             debris    : '#FFFFFF',
             hexLine   : 'rgba(139, 166, 255, 0.05)',
             hexActive : 'rgba(0, 191, 255, 0.15)',
-            kernel    : 'rgba(62, 99, 221, 0.03)',
+            kernel    : 'rgba(62, 99, 221, 0.08)', // Dark Blue Kernel
             runner    : '#00BFFF',
-            superHex  : 'rgba(255, 255, 255, 0.03)',
+            superHex  : 'rgba(62, 99, 221, 0.3)', // Dark Blue Super Hex
             strata    : 'rgba(139, 166, 255, 0.08)'
         },
         light: {
@@ -52,9 +52,9 @@ class ServicesCanvas extends Base {
             debris    : '#3E63DD',
             hexLine   : 'rgba(139, 166, 255, 0.15)',
             hexActive : 'rgba(0, 191, 255, 0.2)',
-            kernel    : 'rgba(62, 99, 221, 0.04)',
+            kernel    : 'rgba(62, 99, 221, 0.08)', // Dark Blue Kernel
             runner    : '#00BFFF',
-            superHex  : 'rgba(62, 99, 221, 0.03)',
+            superHex  : 'rgba(62, 99, 221, 0.3)', // Dark Blue Super Hex
             strata    : 'rgba(62, 99, 221, 0.05)'
         }
     }
@@ -351,8 +351,9 @@ class ServicesCanvas extends Base {
 
                 let g = ctx.createLinearGradient(p1.x, p1.y, p2.x, p2.y);
                 g.addColorStop(0, 'rgba(0,0,0,0)');
-                g.addColorStop(0.5, PRIMARY); 
-                g.addColorStop(1, '#FFFFFF'); 
+                g.addColorStop(0.2, PRIMARY); // Dark Blue Tail
+                g.addColorStop(0.6, HIGHLIGHT); // Cyan Body
+                g.addColorStop(1, '#FFFFFF'); // White Head
                 
                 ctx.beginPath();
                 ctx.strokeStyle = g;
