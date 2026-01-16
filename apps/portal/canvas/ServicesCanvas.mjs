@@ -5,7 +5,7 @@ const
     HEX_SIZE        = 30,
     STRIDE          = 8,  // q, r, x, y, scale, energy, buildCharge, colorIdx
     RUNNER_COUNT    = 30,
-    RUNNER_STRIDE   = 8, // x, y, tx, ty, progress, speed, currentHexIdx, colorIdx
+    RUNNER_STRIDE   = 10, // x, y, tx, ty, progress, speed, currentHexIdx, colorIdx, state, scanTime
     SUPER_HEX_MAX   = 5,
     KERNEL_HEX_SIZE = 120,
     PARTICLE_COUNT  = 200,
@@ -70,6 +70,7 @@ class ServicesCanvas extends Base {
             kernel         : 'rgba(62, 99, 221, 0.08)',
             runner         : '#00BFFF',
             runnerPalette  : ['#00BFFF', '#536DFE', '#3E63DD', '#00E5FF'],
+            agentHead      : '#FFFFFF',
             superHex       : 'rgba(62, 99, 221, 0.3)',
             strata         : 'rgba(139, 166, 255, 0.08)'
         },
@@ -82,6 +83,7 @@ class ServicesCanvas extends Base {
             kernel         : 'rgba(62, 99, 221, 0.08)',
             runner         : '#00BFFF',
             runnerPalette  : ['#00BFFF', '#536DFE', '#3E63DD', '#00E5FF'],
+            agentHead      : '#3E63DD',
             superHex       : 'rgba(62, 99, 221, 0.3)',
             strata         : 'rgba(62, 99, 221, 0.05)'
         }
@@ -525,47 +527,89 @@ class ServicesCanvas extends Base {
                 tx       = buffer[idx + 2],
                 ty       = buffer[idx + 3],
                 sp       = buffer[idx + 5],
-                colorIdx = buffer[idx + 7];
+                colorIdx = buffer[idx + 7],
+                state    = buffer[idx + 8],
+                scanTime = buffer[idx + 9];
 
-            let dx   = tx - x,
-                dy   = ty - y,
-                dist = Math.sqrt(dx * dx + dy * dy);
+            // Project Head (Always needed)
+            me.project(x, y, 0);
 
-            if (dist > 0) {
-                let tailLen = sp * 12 * s;
-                let dirX    = dx / dist,
-                    dirY    = dy / dist;
+            if (!pp.visible) {
+                continue;
+            }
+            let headX = pp.x,
+                headY = pp.y,
+                headS = pp.scale;
 
-                let tailX = x - dirX * tailLen,
-                    tailY = y - dirY * tailLen;
+            let color = themeColors.runnerPalette[colorIdx];
 
-                // Project Tail
-                me.project(tailX, tailY, 0);
-                let p1x   = pp.x,
-                    p1y   = pp.y,
-                    p1vis = pp.visible;
+            // STATE 0: MOVING (Draw Trail)
+            if (state === 0) {
+                let dx   = tx - x,
+                    dy   = ty - y,
+                    dist = Math.sqrt(dx * dx + dy * dy);
 
-                // Project Head
-                me.project(x, y, 0);
+                if (dist > 0) {
+                    let tailLen = sp * 12 * s;
+                    let dirX    = dx / dist,
+                        dirY    = dy / dist;
 
-                if (!p1vis || !pp.visible) {
-                    continue;
+                    let tailX = x - dirX * tailLen,
+                        tailY = y - dirY * tailLen;
+
+                    // Project Tail
+                    me.project(tailX, tailY, 0);
+                    let p1x   = pp.x,
+                        p1y   = pp.y;
+
+                    let g = ctx.createLinearGradient(p1x, p1y, headX, headY);
+                    g.addColorStop(0, 'rgba(0,0,0,0)');
+                    g.addColorStop(0.2, color);
+                    g.addColorStop(0.6, color);
+                    g.addColorStop(1, themeColors.agentHead);
+
+                    ctx.beginPath();
+                    ctx.strokeStyle = g;
+                    ctx.lineWidth   = 3 * s * headS;
+                    ctx.moveTo(p1x, p1y);
+                    ctx.lineTo(headX, headY);
+                    ctx.stroke();
                 }
-
-                let color = themeColors.runnerPalette[colorIdx];
-                let g     = ctx.createLinearGradient(p1x, p1y, pp.x, pp.y);
-                g.addColorStop(0, 'rgba(0,0,0,0)');
-                g.addColorStop(0.2, color); // Tail color
-                g.addColorStop(0.6, color); // Body color
-                g.addColorStop(1, '#FFFFFF'); // White Head
+            }
+            // STATE 1: SCANNING (Draw Pulse)
+            else if (state === 1) {
+                let radius = (HEX_SIZE * s * 1.5) * scanTime * headS;
 
                 ctx.beginPath();
-                ctx.strokeStyle = g;
-                ctx.lineWidth   = 3 * s * pp.scale; // Scale thickness
-                ctx.moveTo(p1x, p1y);
-                ctx.lineTo(pp.x, pp.y);
+                ctx.arc(headX, headY, radius, 0, Math.PI * 2);
+                ctx.strokeStyle = color;
+                ctx.lineWidth   = 2 * s * headS * (1 - scanTime); // Fade out
+                ctx.stroke();
+
+                // Scanning Beam (Vertical)
+                ctx.beginPath();
+                ctx.moveTo(headX, headY);
+                ctx.lineTo(headX, headY - (30 * s * headS * Math.sin(scanTime * Math.PI)));
+                ctx.strokeStyle = themeColors.agentHead;
+                ctx.lineWidth   = 2 * s * headS;
                 ctx.stroke();
             }
+
+            // Draw Head (Diamond Shape)
+            ctx.beginPath();
+            ctx.fillStyle = themeColors.agentHead;
+            let hs = 4 * s * headS; // Head Size
+            ctx.moveTo(headX, headY - hs);
+            ctx.lineTo(headX + hs, headY);
+            ctx.lineTo(headX, headY + hs);
+            ctx.lineTo(headX - hs, headY);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Glow
+            ctx.shadowBlur  = 10 * s;
+            ctx.shadowColor = color;
+            ctx.shadowBlur  = 0;
         }
     }
 
@@ -755,7 +799,9 @@ class ServicesCanvas extends Base {
         for (let i = 0; i < RUNNER_COUNT; i++) {
             me.resetRunner(i, width, height);
             let idx         = i * RUNNER_STRIDE;
-            buffer[idx + 4] = Math.random();
+            buffer[idx + 4] = Math.random(); // Random start progress
+            buffer[idx + 8] = 0; // State: Moving
+            buffer[idx + 9] = 0; // ScanTime
         }
     }
 
@@ -831,6 +877,8 @@ class ServicesCanvas extends Base {
         buffer[idx + 5] = (Math.random() * 4 + 5) * me.scale;
         buffer[idx + 6] = nIdx;
         buffer[idx + 7] = Math.floor(Math.random() * 4); // colorIdx
+        buffer[idx + 8] = 0; // State: Moving
+        buffer[idx + 9] = 0; // ScanTime
     }
 
     /**
@@ -1210,99 +1258,131 @@ class ServicesCanvas extends Base {
 
         for (let i = 0; i < count; i++) {
             let idx      = i * RUNNER_STRIDE,
-                progress = runners[idx + 4],
-                speed    = runners[idx + 5];
+                state    = runners[idx + 8];
 
-            if (progress < 1) {
-                let x  = runners[idx],
-                    y  = runners[idx + 1],
-                    tx = runners[idx + 2],
-                    ty = runners[idx + 3];
+            // STATE 0: MOVING
+            if (state === 0) {
+                let progress = runners[idx + 4],
+                    speed    = runners[idx + 5];
 
-                let dx   = tx - x,
-                    dy   = ty - y,
-                    dist = Math.sqrt(dx * dx + dy * dy);
+                if (progress < 1) {
+                    let x  = runners[idx],
+                        y  = runners[idx + 1],
+                        tx = runners[idx + 2],
+                        ty = runners[idx + 3];
 
-                if (dist < speed) {
-                    runners[idx]     = tx;
-                    runners[idx + 1] = ty;
-                    runners[idx + 4] = 1;
+                    let dx   = tx - x,
+                        dy   = ty - y,
+                        dist = Math.sqrt(dx * dx + dy * dy);
 
-                    let nodeIdx = me.findNearestNode(tx, ty);
-                    if (nodeIdx !== -1) {
-                        nodes[nodeIdx + 5] = 1.0;
-                        nodes[nodeIdx + 6] += 1;
-                        nodes[nodeIdx + 7] = runners[idx + 7]; // Transfer color to node
-                        runners[idx + 6]   = nodeIdx;
+                    if (dist < speed) {
+                        runners[idx]     = tx;
+                        runners[idx + 1] = ty;
+                        runners[idx + 4] = 1; // Arrived
+
+                        // Decision Point: Scan or Move?
+                        // 20% Chance to Scan, but only if on a valid node
+                        let nodeIdx = me.findNearestNode(tx, ty);
+
+                        if (nodeIdx !== -1 && Math.random() > 0.8) {
+                            runners[idx + 8] = 1; // Switch to Scanning
+                            runners[idx + 9] = 0; // Reset Scan Time
+                            runners[idx + 6] = nodeIdx; // Lock to node
+                        } else {
+                            // Just passing through - Standard Energy Boost
+                            if (nodeIdx !== -1) {
+                                nodes[nodeIdx + 5] = 1.0; // Flash
+                                nodes[nodeIdx + 6] += 0.5; // Small contribution
+                                nodes[nodeIdx + 7] = runners[idx + 7];
+                                runners[idx + 6]   = nodeIdx;
+                            }
+                        }
+                    } else {
+                        runners[idx]     += (dx / dist) * speed;
+                        runners[idx + 1] += (dy / dist) * speed;
                     }
                 } else {
-                    runners[idx] += (dx / dist) * speed;
-                    runners[idx + 1] += (dy / dist) * speed;
-                }
+                    // Pick Next Target
+                    let currentHexIdx = runners[idx + 6];
 
-            } else {
-                let currentHexIdx = runners[idx + 6];
+                    if (currentHexIdx !== undefined && currentHexIdx !== -1) {
+                        // Magnetic Logic: Bias direction towards mouse
+                        let bestDir   = -1,
+                            bestScore = -Infinity;
 
-                if (currentHexIdx !== undefined && currentHexIdx !== -1) {
-                    // Magnetic Logic: Bias direction towards mouse
-                    let bestDir   = -1,
-                        bestScore = -Infinity;
+                        let weights = [1, 1, 1, 1, 1, 1];
 
-                    // Standard random weights
-                    let weights = [1, 1, 1, 1, 1, 1];
+                        if (me.mouse.x !== -1000) {
+                            let cx = runners[idx],
+                                cy = runners[idx + 1];
 
-                    if (me.mouse.x !== -1000) {
-                        let cx = runners[idx],
-                            cy = runners[idx + 1];
+                            for (let d = 0; d < 6; d++) {
+                                let deg  = 30 + (d * 60),
+                                    rad  = deg * Math.PI / 180,
+                                    jump = HEX_SIZE * s * Math.sqrt(3),
+                                    tx   = cx + Math.cos(rad) * jump,
+                                    ty   = cy + Math.sin(rad) * jump;
+
+                                let distSq = (tx - me.mouse.x) ** 2 + (ty - me.mouse.y) ** 2;
+                                weights[d] += (100000 / (distSq + 100)) * 5;
+                            }
+                        }
+
+                        let totalWeight = weights.reduce((a, b) => a + b, 0),
+                            random      = Math.random() * totalWeight,
+                            sum         = 0,
+                            dir         = 0;
 
                         for (let d = 0; d < 6; d++) {
-                            let deg  = 30 + (d * 60),
-                                rad  = deg * Math.PI / 180,
-                                jump = HEX_SIZE * s * Math.sqrt(3),
-                                tx   = cx + Math.cos(rad) * jump,
-                                ty   = cy + Math.sin(rad) * jump;
-
-                            let distSq = (tx - me.mouse.x) ** 2 + (ty - me.mouse.y) ** 2;
-                            // Higher score = closer to mouse.
-                            // Invert distance squared for weight.
-                            weights[d] += (100000 / (distSq + 100)) * 5;
+                            sum += weights[d];
+                            if (random <= sum) {
+                                dir = d;
+                                break;
+                            }
                         }
-                    }
 
-                    // Weighted Random Choice
-                    let totalWeight = weights.reduce((a, b) => a + b, 0),
-                        random      = Math.random() * totalWeight,
-                        sum         = 0,
-                        dir         = 0;
+                        let deg  = 30 + (dir * 60),
+                            rad  = deg * Math.PI / 180,
+                            jump = HEX_SIZE * s * Math.sqrt(3),
+                            cx   = runners[idx],
+                            cy   = runners[idx + 1],
+                            tx   = cx + Math.cos(rad) * jump,
+                            ty   = cy + Math.sin(rad) * jump;
 
-                    for (let d = 0; d < 6; d++) {
-                        sum += weights[d];
-                        if (random <= sum) {
-                            dir = d;
-                            break;
+                        if (tx < -50 || tx > width + 50 || ty < -500 || ty > height + 50) {
+                            me.resetRunner(i, width, height);
+                            continue;
                         }
-                    }
 
-                    let deg  = 30 + (dir * 60),
-                        rad  = deg * Math.PI / 180,
-                        jump = HEX_SIZE * s * Math.sqrt(3),
-                        cx   = runners[idx],
-                        cy   = runners[idx + 1],
-                        tx   = cx + Math.cos(rad) * jump,
-                        ty   = cy + Math.sin(rad) * jump;
-
-                    // Allow runners to exist further up (negative Y) for the horizon effect
-                    // Expanded bounds: -500 (top) to height+50 (bottom)
-                    if (tx < -50 || tx > width + 50 || ty < -500 || ty > height + 50) {
+                        runners[idx + 2] = tx;
+                        runners[idx + 3] = ty;
+                        runners[idx + 4] = 0; // Reset progress
+                    } else {
                         me.resetRunner(i, width, height);
-                        continue;
                     }
+                }
+            }
+            // STATE 1: SCANNING
+            else if (state === 1) {
+                // Increment Scan Time
+                runners[idx + 9] += 0.02; // Scan speed
 
-                    runners[idx + 2] = tx;
-                    runners[idx + 3] = ty;
-                    runners[idx + 4] = 0;
-                } else {
-                    me.resetRunner(i, width, height);
+                // Visual Effect on Node (Pulse)
+                let nodeIdx = runners[idx + 6];
+                if (nodeIdx !== -1) {
+                     nodes[nodeIdx + 5] = 0.5 + (Math.sin(runners[idx + 9] * 10) * 0.5); // Pulse Energy
+                }
+
+                // Scan Complete?
+                if (runners[idx + 9] >= 1) {
+                    runners[idx + 8] = 0; // Resume Moving
+
+                    // THE PAYOFF: Massive BuildCharge injection
+                    if (nodeIdx !== -1) {
+                        nodes[nodeIdx + 6] += 5; // Instant Super Hex Trigger (>3)
+                        nodes[nodeIdx + 5] = 1.0; // Max Energy
+                        nodes[nodeIdx + 7] = runners[idx + 7]; // Color
+                    }
                 }
             }
         }
