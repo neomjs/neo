@@ -1,6 +1,6 @@
 :root .neo-theme-neo-dark {
-    --trigger-background-color-hover: #fff;
+    --trigger-background-color-hover: var(--sem-color-surface-neutral-highlighted);
     --trigger-border-width          : 1px;
-    --trigger-color                 : #bbb;
-    --trigger-color-hover           : #1c60a0;
+    --trigger-color                 : var(--sem-color-icon-neutral-subdued);
+    --trigger-color-hover           : var(--sem-color-icon-primary-default);
 }
