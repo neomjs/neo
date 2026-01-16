@@ -624,7 +624,9 @@ class ServicesCanvas extends Base {
         if (!me.debrisBuffer) return;
 
         const buffer = me.debrisBuffer,
-              count  = DEBRIS_COUNT;
+              count  = DEBRIS_COUNT,
+              mx     = me.mouse.x,
+              my     = me.mouse.y;
 
         for (let i = 0; i < count; i++) {
             let idx = i * DEBRIS_STRIDE;
@@ -634,6 +636,19 @@ class ServicesCanvas extends Base {
                 buffer[idx + 1] += buffer[idx + 3];
                 // Decay
                 buffer[idx + 4] -= 0.03;
+
+                // Repulsion
+                if (mx !== -1000) {
+                    let dx = buffer[idx] - mx,
+                        dy = buffer[idx + 1] - my,
+                        dist = Math.sqrt(dx*dx + dy*dy);
+                    
+                    if (dist < 150) {
+                        let force = (150 - dist) * 0.05;
+                        buffer[idx] += (dx / dist) * force;
+                        buffer[idx + 1] += (dy / dist) * force;
+                    }
+                }
             }
         }
     }
@@ -824,8 +839,46 @@ class ServicesCanvas extends Base {
                 let currentHexIdx = runners[idx + 6];
                 
                 if (currentHexIdx !== undefined && currentHexIdx !== -1) {
-                    let dir = Math.floor(Math.random() * 6),
-                        deg = 30 + (dir * 60),
+                    // Magnetic Logic: Bias direction towards mouse
+                    let bestDir = -1,
+                        bestScore = -Infinity;
+
+                    // Standard random weights
+                    let weights = [1, 1, 1, 1, 1, 1];
+
+                    if (me.mouse.x !== -1000) {
+                        let cx = runners[idx],
+                            cy = runners[idx + 1];
+
+                        for (let d = 0; d < 6; d++) {
+                            let deg = 30 + (d * 60),
+                                rad = deg * Math.PI / 180,
+                                jump = HEX_SIZE * s * Math.sqrt(3),
+                                tx   = cx + Math.cos(rad) * jump,
+                                ty   = cy + Math.sin(rad) * jump;
+
+                            let distSq = (tx - me.mouse.x)**2 + (ty - me.mouse.y)**2;
+                            // Higher score = closer to mouse. 
+                            // Invert distance squared for weight.
+                            weights[d] += (100000 / (distSq + 100)) * 5; 
+                        }
+                    }
+
+                    // Weighted Random Choice
+                    let totalWeight = weights.reduce((a, b) => a + b, 0),
+                        random = Math.random() * totalWeight,
+                        sum = 0,
+                        dir = 0;
+
+                    for (let d = 0; d < 6; d++) {
+                        sum += weights[d];
+                        if (random <= sum) {
+                            dir = d;
+                            break;
+                        }
+                    }
+
+                    let deg = 30 + (dir * 60),
                         rad = deg * Math.PI / 180,
                         jump = HEX_SIZE * s * Math.sqrt(3),
                         cx   = runners[idx],
