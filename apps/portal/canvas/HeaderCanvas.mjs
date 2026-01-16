@@ -38,6 +38,31 @@ const
  * @see Portal.view.HeaderCanvas
  */
 class HeaderCanvas extends Base {
+    static colors = {
+        dark: {
+            background: ['rgba(62, 99, 221, 0.1)', 'rgba(64, 196, 255, 0.2)', 'rgba(62, 99, 221, 0.1)'],
+            background2: ['rgba(139, 166, 255, 0.1)', 'rgba(64, 196, 255, 0.2)', 'rgba(139, 166, 255, 0.1)'],
+            bgRibbon: ['rgba(62, 99, 221, 0.02)', 'rgba(64, 196, 255, 0.05)', 'rgba(62, 99, 221, 0.02)'],
+            fgRibbon: ['rgba(62, 99, 221, 0.05)', 'rgba(64, 196, 255, 0.1)', 'rgba(62, 99, 221, 0.05)'],
+            grad1: [PRIMARY, HIGHLIGHT, PRIMARY],
+            grad2: [SECONDARY, HIGHLIGHT, SECONDARY],
+            particle: HIGHLIGHT,
+            particleAlpha: {nebula: 0.2, dust: 0.2},
+            shockwave: HIGHLIGHT
+        },
+        light: {
+            background: ['rgba(62, 99, 221, 0.1)', 'rgba(64, 196, 255, 0.2)', 'rgba(62, 99, 221, 0.1)'],
+            background2: ['rgba(139, 166, 255, 0.1)', 'rgba(64, 196, 255, 0.2)', 'rgba(139, 166, 255, 0.1)'],
+            bgRibbon: ['rgba(62, 99, 221, 0.02)', 'rgba(64, 196, 255, 0.05)', 'rgba(62, 99, 221, 0.02)'],
+            fgRibbon: ['rgba(62, 99, 221, 0.05)', 'rgba(64, 196, 255, 0.1)', 'rgba(62, 99, 221, 0.05)'],
+            grad1: [PRIMARY, HIGHLIGHT, PRIMARY],
+            grad2: [SECONDARY, HIGHLIGHT, SECONDARY],
+            particle: HIGHLIGHT,
+            particleAlpha: {nebula: 0.2, dust: 0.2},
+            shockwave: HIGHLIGHT
+        }
+    }
+
     static config = {
         /**
          * @member {String} className='Portal.canvas.HeaderCanvas'
@@ -53,6 +78,7 @@ class HeaderCanvas extends Base {
             app: [
                 'clearGraph',
                 'initGraph',
+                'setTheme',
                 'updateActiveId',
                 'updateGraphData',
                 'updateMouseState',
@@ -64,7 +90,11 @@ class HeaderCanvas extends Base {
          * @member {Boolean} singleton=true
          * @protected
          */
-        singleton: true
+        singleton: true,
+        /**
+         * @member {String} theme='light'
+         */
+        theme: 'light'
     }
 
     /**
@@ -134,6 +164,25 @@ class HeaderCanvas extends Base {
     }
 
     /**
+     * @param {String} value
+     * @param {String} oldValue
+     */
+    afterSetTheme(value, oldValue) {
+        let me = this;
+
+        if (value && me.canvasSize) {
+            me.updateResources(me.canvasSize.width, me.canvasSize.height)
+        }
+    }
+
+    /**
+     * @param {String} value
+     */
+    setTheme(value) {
+        this.theme = value
+    }
+
+    /**
      * Initializes the canvas context.
      * @param {Object} opts
      * @param {String} opts.canvasId
@@ -172,7 +221,10 @@ class HeaderCanvas extends Base {
     initParticles(width, height) {
         let me = this;
         me.particles = [];
-        const count = 60;
+        const
+            count       = 60,
+            themeColors = me.constructor.colors[me.theme],
+            alphas      = themeColors.particleAlpha;
 
         for (let i = 0; i < count; i++) {
             let isNebula = Math.random() > 0.8; // 20% are large nebula orbs
@@ -184,8 +236,8 @@ class HeaderCanvas extends Base {
                 vx       : isNebula ? (Math.random() * 0.2 + 0.05) : (Math.random() * 0.5 + 0.1), // Nebulae move slower
                 vy       : (Math.random() - 0.5) * 0.2,
                 size     : isNebula ? (Math.random() * 30 + 20) : (Math.random() * 2 + 0.5), // Large vs Small
-                alpha    : isNebula ? (Math.random() * 0.15 + 0.2) : (Math.random() * 0.4 + 0.2), // BOOSTED ALPHA
-                baseAlpha: isNebula ? (Math.random() * 0.15 + 0.2) : (Math.random() * 0.4 + 0.2)
+                alpha    : isNebula ? (Math.random() * 0.15 + alphas.nebula) : (Math.random() * 0.4 + alphas.dust),
+                baseAlpha: isNebula ? (Math.random() * 0.15 + alphas.nebula) : (Math.random() * 0.4 + alphas.dust)
             })
         }
     }
@@ -351,6 +403,10 @@ class HeaderCanvas extends Base {
     drawParticles(ctx, width, height) {
         let me = this;
 
+        const
+            themeColors = me.constructor.colors[me.theme],
+            pColor      = themeColors.particle;
+
         me.particles.forEach(p => {
             // Update Position
             p.x += p.vx;
@@ -411,13 +467,13 @@ class HeaderCanvas extends Base {
                 // Nebula Visualization
                 // Use a radial gradient to create a soft, cloud-like appearance.
                 let g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size);
-                g.addColorStop(0, HIGHLIGHT);
+                g.addColorStop(0, pColor);
                 g.addColorStop(1, 'rgba(255,255,255,0)');
                 ctx.fillStyle = g;
                 ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
                 ctx.fill()
             } else {
-                ctx.fillStyle = HIGHLIGHT;
+                ctx.fillStyle = pColor;
                 ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
                 ctx.fill()
             }
@@ -580,9 +636,10 @@ class HeaderCanvas extends Base {
 
         const
             {shimmerA, shimmerB, count} = geometry,
-            bufA = me.waveBuffers.fgA,
-            bufB = me.waveBuffers.fgB,
-            step = 2;
+            bufA        = me.waveBuffers.fgA,
+            bufB        = me.waveBuffers.fgB,
+            step        = 2,
+            themeColors = me.constructor.colors[me.theme];
 
         // --- 2. RIBBON FILL (The 3D Surface) ---
         ctx.fillStyle = me.gradients.fgRibbon;
@@ -626,8 +683,12 @@ class HeaderCanvas extends Base {
         };
 
         // Draw Glows (Outer Tube)
-        drawStrand(bufA, me.gradients.grad1, shimmerA, PRIMARY, false);
-        drawStrand(bufB, me.gradients.grad2, shimmerB, SECONDARY, false);
+        // Extract base color from gradient array for shadow
+        const color1 = themeColors.grad1[0];
+        const color2 = themeColors.grad2[0];
+
+        drawStrand(bufA, me.gradients.grad1, shimmerA, color1, false);
+        drawStrand(bufB, me.gradients.grad2, shimmerB, color2, false);
 
         // Draw Cores (Inner Filament)
         drawStrand(bufA, null, shimmerA, null, true);
@@ -737,6 +798,10 @@ class HeaderCanvas extends Base {
     drawShockwaves(ctx, width) {
         let me = this;
 
+        if (me.shockwaves.length === 0) return;
+
+        const themeColors = me.constructor.colors[me.theme];
+
         for (let i = me.shockwaves.length - 1; i >= 0; i--) {
             let wave = me.shockwaves[i];
 
@@ -756,7 +821,7 @@ class HeaderCanvas extends Base {
                 {height} = me.canvasSize;
 
             ctx.beginPath();
-            ctx.strokeStyle = HIGHLIGHT; // Use constant
+            ctx.strokeStyle = themeColors.shockwave; // Use theme color
             ctx.globalAlpha = alpha;     // Fade out via globalAlpha
             ctx.lineWidth   = 4 * (1 - progress);
 
@@ -860,42 +925,44 @@ class HeaderCanvas extends Base {
         // 2. Cache Gradients
         if (!ctx) return;
 
+        const themeColors = me.constructor.colors[me.theme];
+
         // Foreground Gradients
         const grad1 = ctx.createLinearGradient(0, 0, width, 0);
-        grad1.addColorStop(0,   PRIMARY);
-        grad1.addColorStop(0.5, HIGHLIGHT);
-        grad1.addColorStop(1,   PRIMARY);
+        grad1.addColorStop(0,   themeColors.grad1[0]);
+        grad1.addColorStop(0.5, themeColors.grad1[1]);
+        grad1.addColorStop(1,   themeColors.grad1[2]);
         me.gradients.grad1 = grad1;
 
         const grad2 = ctx.createLinearGradient(0, 0, width, 0);
-        grad2.addColorStop(0,   SECONDARY);
-        grad2.addColorStop(0.5, HIGHLIGHT);
-        grad2.addColorStop(1,   SECONDARY);
+        grad2.addColorStop(0,   themeColors.grad2[0]);
+        grad2.addColorStop(0.5, themeColors.grad2[1]);
+        grad2.addColorStop(1,   themeColors.grad2[2]);
         me.gradients.grad2 = grad2;
 
         const fgRibbon = ctx.createLinearGradient(0, 0, width, 0);
-        fgRibbon.addColorStop(0,   'rgba(62, 99, 221, 0.05)');
-        fgRibbon.addColorStop(0.5, 'rgba(64, 196, 255, 0.1)');
-        fgRibbon.addColorStop(1,   'rgba(62, 99, 221, 0.05)');
+        fgRibbon.addColorStop(0,   themeColors.fgRibbon[0]);
+        fgRibbon.addColorStop(0.5, themeColors.fgRibbon[1]);
+        fgRibbon.addColorStop(1,   themeColors.fgRibbon[2]);
         me.gradients.fgRibbon = fgRibbon;
 
         // Background Gradients
         const bgGrad1 = ctx.createLinearGradient(0, 0, width, 0);
-        bgGrad1.addColorStop(0,   'rgba(62, 99, 221, 0.1)');
-        bgGrad1.addColorStop(0.5, 'rgba(64, 196, 255, 0.2)');
-        bgGrad1.addColorStop(1,   'rgba(62, 99, 221, 0.1)');
+        bgGrad1.addColorStop(0,   themeColors.background[0]);
+        bgGrad1.addColorStop(0.5, themeColors.background[1]);
+        bgGrad1.addColorStop(1,   themeColors.background[2]);
         me.gradients.bgGrad1 = bgGrad1;
 
         const bgGrad2 = ctx.createLinearGradient(0, 0, width, 0);
-        bgGrad2.addColorStop(0,   'rgba(139, 166, 255, 0.1)');
-        bgGrad2.addColorStop(0.5, 'rgba(64, 196, 255, 0.2)');
-        bgGrad2.addColorStop(1,   'rgba(139, 166, 255, 0.1)');
+        bgGrad2.addColorStop(0,   themeColors.background2[0]);
+        bgGrad2.addColorStop(0.5, themeColors.background2[1]);
+        bgGrad2.addColorStop(1,   themeColors.background2[2]);
         me.gradients.bgGrad2 = bgGrad2;
 
         const bgRibbon = ctx.createLinearGradient(0, 0, width, 0);
-        bgRibbon.addColorStop(0,   'rgba(62, 99, 221, 0.02)');
-        bgRibbon.addColorStop(0.5, 'rgba(64, 196, 255, 0.05)');
-        bgRibbon.addColorStop(1,   'rgba(62, 99, 221, 0.02)');
+        bgRibbon.addColorStop(0,   themeColors.bgRibbon[0]);
+        bgRibbon.addColorStop(0.5, themeColors.bgRibbon[1]);
+        bgRibbon.addColorStop(1,   themeColors.bgRibbon[2]);
         me.gradients.bgRibbon = bgRibbon;
     }
 
