@@ -6,9 +6,10 @@ labels:
   - enhancement
   - design
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-01-16T18:06:54Z'
-updatedAt: '2026-01-16T18:11:34Z'
+updatedAt: '2026-01-16T19:38:19Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8722'
 author: tobiu
 commentsCount: 1
@@ -53,4 +54,6 @@ Refactor the visual effect to represent "Construction" or "Crystallization". The
 
 - 2026-01-16T18:11:13Z @tobiu referenced in commit `4b480df` - "feat(ServicesCanvas): Refactor 'Debris' to 'Construction' Visuals (#8722)"
 - 2026-01-16T18:11:34Z @tobiu closed this issue
+- 2026-01-16T19:17:30Z @tobiu cross-referenced by #8721
+- 2026-01-16T19:38:19Z @tobiu assigned to @tobiu
 
