@@ -31,6 +31,20 @@ const
  * 4. **Atmosphere (Parallax):** A multi-layered depth system creates a volumetric feel, distinguishing
  *    foreground "active" nodes from background "context" nodes.
  *
+ * **Responsive Architecture (Reference Viewport):**
+ * To ensure a consistent experience across devices (from Mobile to 4K), the simulation uses a **Reference Viewport Strategy**.
+ * - **Baseline:** 1920x1080 is defined as scale `1.0`.
+ * - **Dynamic Scaling:** On resize, a `scale` factor is calculated: `sqrt((width * height) / (1920 * 1080))`.
+ * - **Normalization:** All physics constants (velocity, force), spatial dimensions (distances, radii), and
+ *   visual properties (stroke width) are multiplied by this `scale`.
+ * - **Density Control:** On small screens (`scale < 0.5`), the background layer is culled to prevent visual noise.
+ *
+ * **Theme System:**
+ * Supports dynamic `light` and `dark` modes via the `theme` config.
+ * - **Palette:** A static `colors` map defines semantic color slots (agentHead, spark, etc.) for each mode.
+ * - **Hot-Swapping:** Changing the `theme` config triggers `updateResources` to regenerate gradients and
+ *   immediately alters rendering colors in the next frame without re-initializing buffers.
+ *
  * **Performance Architecture (Zero-Allocation):**
  * To maintain 60fps on high-refresh displays without GC stutters, this class employs a **Zero-Allocation** strategy during the render loop.
  * 1. **TypedArray Buffers:** All entity data (Nodes, Agents, Packets) is stored in pre-allocated `Float32Array` buffers.
