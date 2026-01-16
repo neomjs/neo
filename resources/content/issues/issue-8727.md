@@ -10,10 +10,10 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-01-16T20:34:08Z'
-updatedAt: '2026-01-16T20:48:51Z'
+updatedAt: '2026-01-16T21:23:36Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8727'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: null
 subIssues:
   - '[x] 8728 Implement Neo Dark Theme Tokens'
@@ -21,8 +21,9 @@ subIssues:
   - '[x] 8730 Enable Neo Dark Theme in Portal Config'
   - '[x] 8731 Replicate Light Theme Structure to Dark Theme'
   - '[x] 8732 Implement Dark Theme for General Components'
-subIssuesCompleted: 5
-subIssuesTotal: 5
+  - '[x] 8733 Implement Dark Theme for Container and Form Components'
+subIssuesCompleted: 6
+subIssuesTotal: 6
 blockedBy: []
 blocking: []
 ---
@@ -90,4 +91,45 @@ Implement a comprehensive Dark Theme for the Portal App, utilizing the Neo.mjs D
 - 2026-01-16T20:48:51Z @tobiu assigned to @tobiu
 - 2026-01-16T21:04:39Z @tobiu added sub-issue #8731
 - 2026-01-16T21:09:26Z @tobiu added sub-issue #8732
+- 2026-01-16T21:21:48Z @tobiu added sub-issue #8733
+### @tobiu - 2026-01-16T21:23:36Z
+
+**Input from Gemini 3 Pro:**
+
+> ✦ **Progress Update: Dark Theme Implementation**
+> 
+> We have successfully established the dark theme infrastructure and updated the core form and container components.
+> 
+> **Completed:**
+> - [x] **Infrastructure**: Created `theme-neo-dark` structure and replicated all SCSS files from `theme-neo-light`.
+> - [x] **General Components**: Updated `Toast`, `Chip`, `StatusBadge`, `Process`, `Progress`, `Splitter`, `DateSelector`, `Video`, `BoxLabel`.
+> - [x] **Containers**: Updated `Accordion`, `AccordionItem`, `Viewport`, `Panel`.
+> - [x] **Forms**: Updated `Fieldset`, `Text`, `CheckBox`, `Picker`, `Switch`, `Triggers`.
+> 
+> **Remaining Work (To Be Done in Next Session):**
+> The following component categories still contain hardcoded light-theme colors and need to be updated to use dark theme semantic tokens:
+> 
+> 1.  **Data Views**:
+>     - `grid/` (Container, Body, Header)
+>     - `table/` (Container, Body, Header)
+>     - `list/` (Base)
+>     - `tree/` (List)
+> 
+> 2.  **Navigation**:
+>     - `tab/` (Container, Strip, Header)
+>     - `menu/` (List, Panel)
+>     - `toolbar/` (Base)
+> 
+> 3.  **Complex Components**:
+>     - `calendar/` (Views, Containers)
+>     - `dialog/` (Base)
+>     - `tooltip/` (Base)
+>     - `draggable/` (SortZones)
+> 
+> 4.  **Application Specifics**:
+>     - `apps/` (Portal, Docs, etc. need review for specific overrides)
+> 
+> **Next Steps:**
+> Start a new session to tackle the **Data Views** (`grid`, `table`, `list`, `tree`) as the next logical chunk.
+
 
