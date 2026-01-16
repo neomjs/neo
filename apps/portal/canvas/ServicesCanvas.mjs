@@ -2,17 +2,14 @@ import Base from '../../../src/core/Base.mjs';
 
 const
     hasRaf    = typeof requestAnimationFrame === 'function',
-    PRIMARY   = '#3E63DD', // Neo Blue
-    SECONDARY = '#8BA6FF',
-    HIGHLIGHT = '#00BFFF', // Deep Sky Blue
     HEX_SIZE  = 30,
-    STRIDE    = 7,  // q, r, x, y, scale, energy, buildCharge
+    STRIDE    = 8,  // q, r, x, y, scale, energy, buildCharge, colorIdx
     RUNNER_COUNT = 30,
-    RUNNER_STRIDE = 7,
+    RUNNER_STRIDE = 8, // x, y, tx, ty, progress, speed, currentHexIdx, colorIdx
     SUPER_HEX_MAX = 5,
     KERNEL_HEX_SIZE = 120,
     DEBRIS_COUNT = 200,
-    DEBRIS_STRIDE = 5, // x, y, vx, vy, life
+    DEBRIS_STRIDE = 6, // x, y, vx, vy, life, colorIdx
     STRATA_COUNT = 15,
     STRATA_STRIDE = 4; // x, y, z, size
 
@@ -38,24 +35,28 @@ const
 class ServicesCanvas extends Base {
     static colors = {
         dark: {
-            background: ['rgba(30, 30, 35, 1)', 'rgba(20, 20, 25, 1)'],
-            debris    : '#FFFFFF',
-            hexLine   : 'rgba(139, 166, 255, 0.05)',
-            hexActive : 'rgba(0, 191, 255, 0.15)',
-            kernel    : 'rgba(62, 99, 221, 0.08)', // Dark Blue Kernel
-            runner    : '#00BFFF',
-            superHex  : 'rgba(62, 99, 221, 0.3)', // Dark Blue Super Hex
-            strata    : 'rgba(139, 166, 255, 0.08)'
+            background   : ['rgba(30, 30, 35, 1)', 'rgba(20, 20, 25, 1)'],
+            debrisPalette: ['#E0E0E0', '#00BFFF', '#3E63DD', '#8A2BE2'],
+            hexLine      : 'rgba(139, 166, 255, 0.1)', // Increased visibility
+            hexActive    : 'rgba(0, 191, 255, 0.15)',
+            activePalette: ['#00BFFF', '#536DFE', '#3E63DD', '#00E5FF'], // Cyan, Indigo, Neo Blue, Turquoise
+            kernel       : 'rgba(62, 99, 221, 0.08)',
+            runner       : '#00BFFF',
+            runnerPalette: ['#00BFFF', '#536DFE', '#3E63DD', '#00E5FF'],
+            superHex     : 'rgba(62, 99, 221, 0.3)',
+            strata       : 'rgba(139, 166, 255, 0.08)'
         },
         light: {
-            background: ['rgba(255, 255, 255, 1)', 'rgba(245, 247, 255, 1)'],
-            debris    : '#3E63DD',
-            hexLine   : 'rgba(139, 166, 255, 0.15)',
-            hexActive : 'rgba(0, 191, 255, 0.2)',
-            kernel    : 'rgba(62, 99, 221, 0.08)', // Dark Blue Kernel
-            runner    : '#00BFFF',
-            superHex  : 'rgba(62, 99, 221, 0.3)', // Dark Blue Super Hex
-            strata    : 'rgba(62, 99, 221, 0.05)'
+            background   : ['rgba(255, 255, 255, 1)', 'rgba(245, 247, 255, 1)'],
+            debrisPalette: ['#3E63DD', '#00BFFF', '#8A2BE2', '#283593'],
+            hexLine      : 'rgba(62, 99, 221, 0.25)', // Much darker for contrast
+            hexActive    : 'rgba(0, 191, 255, 0.2)',
+            activePalette: ['#00BFFF', '#536DFE', '#3E63DD', '#00E5FF'], // Cyan, Indigo, Neo Blue, Turquoise
+            kernel       : 'rgba(62, 99, 221, 0.08)',
+            runner       : '#00BFFF',
+            runnerPalette: ['#00BFFF', '#536DFE', '#3E63DD', '#00E5FF'],
+            superHex     : 'rgba(62, 99, 221, 0.3)',
+            strata       : 'rgba(62, 99, 221, 0.05)'
         }
     }
 
@@ -243,6 +244,7 @@ class ServicesCanvas extends Base {
             let idx = sh.centerIdx,
                 x   = buffer[idx + 2],
                 y   = buffer[idx + 3],
+                colorIdx = buffer[idx + 7],
                 progress = 0;
 
             if (sh.state === 0) progress = sh.age / 30; 
@@ -250,10 +252,12 @@ class ServicesCanvas extends Base {
             else progress = 1 - (sh.age / 30);          
 
             if (progress > 0) {
+                let color = themeColors.activePalette[colorIdx];
+                
                 ctx.beginPath();
                 me.drawHex(ctx, x, y, 0, baseSize * 2.5 * progress, projection); 
                 
-                ctx.strokeStyle = HIGHLIGHT;
+                ctx.strokeStyle = color;
                 ctx.globalAlpha = 0.3 * progress;
                 ctx.stroke();
                 
@@ -264,7 +268,7 @@ class ServicesCanvas extends Base {
 
                 ctx.beginPath();
                 ctx.arc(p.x, p.y, 4 * s * progress * p.scale, 0, Math.PI * 2);
-                ctx.fillStyle = HIGHLIGHT;
+                ctx.fillStyle = color;
                 ctx.globalAlpha = 0.8 * progress;
                 ctx.fill();
             }
@@ -278,10 +282,12 @@ class ServicesCanvas extends Base {
                 x      = buffer[idx + 2],
                 y      = buffer[idx + 3],
                 scale  = buffer[idx + 4],
-                energy = buffer[idx + 5];
+                energy = buffer[idx + 5],
+                colorIdx = buffer[idx + 7];
 
             if (energy > 0.01 && scale > 0.5) {
-                let currentSize = baseSize * (0.95 + (energy * 0.1)); 
+                let currentSize = baseSize * (0.95 + (energy * 0.1)),
+                    color = themeColors.activePalette[colorIdx];
 
                 ctx.beginPath();
                 me.drawHex(ctx, x, y, 0, currentSize, projection);
@@ -290,7 +296,7 @@ class ServicesCanvas extends Base {
                 ctx.globalAlpha = energy * 0.4; 
                 ctx.fill();
 
-                ctx.strokeStyle = HIGHLIGHT;
+                ctx.strokeStyle = color;
                 ctx.lineWidth = (1 + energy) * s;
                 ctx.globalAlpha = energy * 0.8;
                 ctx.stroke();
@@ -300,7 +306,7 @@ class ServicesCanvas extends Base {
                     ctx.beginPath();
                     let popZ = -50 * energy; // Float up
                     me.drawHex(ctx, x, y, popZ, currentSize, projection);
-                    ctx.strokeStyle = HIGHLIGHT;
+                    ctx.strokeStyle = color;
                     ctx.globalAlpha = energy * 0.4;
                     ctx.lineWidth = 1 * s;
                     ctx.stroke();
@@ -330,7 +336,8 @@ class ServicesCanvas extends Base {
                 y   = buffer[idx + 1],
                 tx  = buffer[idx + 2],
                 ty  = buffer[idx + 3],
-                sp  = buffer[idx + 5]; 
+                sp  = buffer[idx + 5],
+                colorIdx = buffer[idx + 7];
 
             let dx = tx - x,
                 dy = ty - y,
@@ -349,10 +356,11 @@ class ServicesCanvas extends Base {
 
                 if (!p1.visible || !p2.visible) continue;
 
+                let color = themeColors.runnerPalette[colorIdx];
                 let g = ctx.createLinearGradient(p1.x, p1.y, p2.x, p2.y);
                 g.addColorStop(0, 'rgba(0,0,0,0)');
-                g.addColorStop(0.2, PRIMARY); // Dark Blue Tail
-                g.addColorStop(0.6, HIGHLIGHT); // Cyan Body
+                g.addColorStop(0.2, color); // Tail color
+                g.addColorStop(0.6, color); // Body color
                 g.addColorStop(1, '#FFFFFF'); // White Head
                 
                 ctx.beginPath();
@@ -378,8 +386,6 @@ class ServicesCanvas extends Base {
             themeColors = me.constructor.colors[me.theme],
             s      = me.scale;
 
-        ctx.fillStyle = themeColors.debris;
-
         for (let i = 0; i < count; i++) {
             let idx  = i * DEBRIS_STRIDE,
                 life = buffer[idx + 4];
@@ -391,7 +397,10 @@ class ServicesCanvas extends Base {
 
                 let p = projection.project(x, y, 0);
                 if (p.visible) {
-                    let scaledSize = size * p.scale;
+                    let scaledSize = size * p.scale,
+                        colorIdx   = buffer[idx + 5];
+
+                    ctx.fillStyle   = themeColors.debrisPalette[colorIdx];
                     ctx.globalAlpha = life;
                     ctx.fillRect(p.x - scaledSize/2, p.y - scaledSize/2, scaledSize, scaledSize);
                 }
@@ -495,6 +504,7 @@ class ServicesCanvas extends Base {
                 buffer[idx + 4] = 1; 
                 buffer[idx + 5] = 0; 
                 buffer[idx + 6] = 0; 
+                buffer[idx + 7] = Math.floor(Math.random() * 4); // colorIdx
 
                 i++;
                 if (i >= count) break;
@@ -571,6 +581,7 @@ class ServicesCanvas extends Base {
         buffer[idx + 4] = 1; 
         buffer[idx + 5] = (Math.random() * 4 + 5) * me.scale; 
         buffer[idx + 6] = nIdx; 
+        buffer[idx + 7] = Math.floor(Math.random() * 4); // colorIdx
     }
 
     /**
@@ -615,6 +626,7 @@ class ServicesCanvas extends Base {
                 }
                 
                 buffer[idx + 4] = 1.0; // Life
+                buffer[idx + 5] = Math.floor(Math.random() * 4); // Color Index
                 
                 spawned++;
                 if (spawned >= count) break;
@@ -891,6 +903,7 @@ class ServicesCanvas extends Base {
                     if (nodeIdx !== -1) {
                         nodes[nodeIdx + 5] = 1.0; 
                         nodes[nodeIdx + 6] += 1; 
+                        nodes[nodeIdx + 7] = runners[idx + 7]; // Transfer color to node
                         runners[idx + 6] = nodeIdx; 
                     }
                 } else {
