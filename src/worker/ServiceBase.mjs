@@ -49,6 +49,10 @@ class ServiceBase extends Base {
          */
         mixins: [RemoteMethodAccess],
         /**
+         * @member {Boolean} reloadOn404=true
+         */
+        reloadOn404: true,
+        /**
          * Remote method access for other workers.
          * Defines which methods can be called via RPC from the App Worker.
          * @member {Object} remote={app: [//...]}
@@ -91,6 +95,12 @@ class ServiceBase extends Base {
      * @protected
      */
     lastClient = null
+    /**
+     * Timestamp of the last triggered reload to prevent loops.
+     * @member {Number|null} lastReload=null
+     * @protected
+     */
+    lastReload = null
     /**
      * @member {Object[]} promises=[]
      * @protected
@@ -255,6 +265,38 @@ class ServiceBase extends Base {
     }
 
     /**
+     * @param {ExtendableMessageEvent} event
+     */
+    async on404(event) {
+        let me = this;
+
+        if (me.reloadOn404) {
+            // Check paths: dist/production, dist/esm, src
+            let url = event.request.url;
+
+            if (url.includes('/dist/production/') || url.includes('/dist/esm/') || url.includes('/src/')) {
+                let now = Date.now();
+
+                if (!me.lastReload || now - me.lastReload > 5000) {
+                    me.lastReload = now;
+
+                    let client = await clients.get(event.clientId);
+
+                    if (client) {
+                        console.warn('Neo: 404 on guarded asset. Reloading.', url);
+                        client.postMessage({
+                            action         : 'remoteMethod',
+                            data           : {force: true},
+                            remoteClassName: 'Neo.Main',
+                            remoteMethod   : 'reloadWindow'
+                        })
+                    }
+                }
+            }
+        }
+    }
+
+    /**
      * Handle the 'activate' event.
      * Cleans up old caches that don't match the current version.
      * @param {ExtendableMessageEvent} event
@@ -308,6 +350,8 @@ class ServiceBase extends Base {
                             if (response.ok || response.status === 0) {
                                 // catch is important, e.g. in case the quota is full
                                 cache.put(request, response.clone()).catch(() => {});
+                            } else if (response.status === 404) {
+                                me.on404(event)
                             }
                             return response;
                         });
@@ -315,6 +359,14 @@ class ServiceBase extends Base {
                 })
             );
         }
+    }
+
+    /**
+     * @param {Object} msg
+     * @param {ExtendableMessageEvent} event
+     */
+    onGetVersion(msg, event) {
+        this.resolve({version: this.version}, msg)
     }
 
     /**

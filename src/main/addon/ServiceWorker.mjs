@@ -61,6 +61,16 @@ class ServiceWorker extends Base {
                 WorkerManager.serviceWorker = registration.active
             }
 
+            let swVersion = await WorkerManager.promiseMessage('service', {
+                action: 'getVersion'
+            });
+
+            if (swVersion?.version && swVersion.version !== config.version) {
+                console.error(`Version Mismatch! Client: ${config.version}, SW: ${swVersion.version}. Reloading.`);
+                location.reload(true);
+                return
+            }
+
             WorkerManager.sendMessage('service', {
                 action: 'registerNeoConfig',
                 data  : config

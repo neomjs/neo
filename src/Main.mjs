@@ -396,9 +396,10 @@ class Main extends core.Base {
 
     /**
      * @param {Object} data
+     * @param {Boolean} [data.force]
      */
     reloadWindow(data) {
-        location.reload()
+        location.reload(data?.force)
     }
 
     /**
