@@ -147,6 +147,11 @@ class Manager extends Base {
 
         !Neo.insideWorker && me.createWorkers();
 
+        if (navigator.serviceWorker) {
+            navigator.serviceWorker.onmessage = me.onWorkerMessage.bind(me);
+            me.checkServiceWorkerVersion()
+        }
+
         Neo.setGlobalConfig = me.setGlobalConfig.bind(me);
         Neo.workerId        = 'main';
 
@@ -175,6 +180,22 @@ class Manager extends Base {
                 me.sendMessage(name, msg)
             }
         })
+    }
+
+    /**
+     * @returns {Promise<void>}
+     */
+    async checkServiceWorkerVersion() {
+        if (navigator.serviceWorker?.controller) {
+            let swVersion = await this.promiseMessage('service', {
+                action: 'getVersion'
+            });
+
+            if (swVersion?.version && swVersion.version !== Neo.config.version) {
+                console.error(`Version Mismatch! Client: ${Neo.config.version}, SW: ${swVersion.version}. Reloading.`);
+                location.reload(true)
+            }
+        }
     }
 
     /**

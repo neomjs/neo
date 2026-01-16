@@ -50,8 +50,6 @@ class ServiceWorker extends Base {
 
             await serviceWorker.ready;
 
-            serviceWorker.onmessage = WorkerManager.onWorkerMessage.bind(WorkerManager);
-
             if (!WorkerManager.getWorker('service')) {
                 /*
                  * navigator.serviceWorker.controller can be null in case we load a page for the first time
@@ -59,16 +57,6 @@ class ServiceWorker extends Base {
                  * See: https://www.w3.org/TR/service-workers/#navigator-service-worker-controller
                  */
                 WorkerManager.serviceWorker = registration.active
-            }
-
-            let swVersion = await WorkerManager.promiseMessage('service', {
-                action: 'getVersion'
-            });
-
-            if (swVersion?.version && swVersion.version !== config.version) {
-                console.error(`Version Mismatch! Client: ${config.version}, SW: ${swVersion.version}. Reloading.`);
-                location.reload(true);
-                return
             }
 
             WorkerManager.sendMessage('service', {
