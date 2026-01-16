@@ -30,7 +30,7 @@
             justify-content: flex-start;
 
             &:not(:hover) {
-                background-color: #fff;
+                background-color: var(--portal-toolbar-btn-bg);
             }
 
             .neo-button-text, .neo-button-glyph {
@@ -45,7 +45,7 @@
         }
 
         .content-bottom-toolbar-previous:before {
-            color      : #000; // required for mobile
+            color      : var(--portal-toolbar-text-color); // required for mobile
             content    : 'Previous Page';
             font-family: var(--core-fontfamily-sans);
             left       : var(--cmp-button-spacinghorizontal);
@@ -57,7 +57,7 @@
             grid-column: 2/3;
 
             &:before {
-                color      : #000; // required for mobile
+                color      : var(--portal-toolbar-text-color); // required for mobile
                 content    : 'Next Page';
                 font-family: var(--core-fontfamily-sans);
                 position   : absolute;

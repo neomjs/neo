@@ -26,8 +26,8 @@
     }
 
     @media (max-width: 1296px) {
-        background-color: #fff;
-        box-shadow      : 0 5px 10px rgba(0,0,0,.3);
+        background-color: var(--portal-sections-bg);
+        box-shadow      : var(--portal-sections-shadow);
         right           : -250px;
         transition      : right 250ms ease-out;
         z-index         : 100;
@@ -37,8 +37,8 @@
         }
 
         .sections-container-button {
-            background-color: #fff;
-            box-shadow      : 0 5px 10px rgba(0,0,0,.3);
+            background-color: var(--portal-sections-btn-bg);
+            box-shadow      : var(--portal-sections-shadow);
             display         : flex;
             height          : 35px;
             min-width       : 35px;
@@ -47,12 +47,12 @@
             width           : 35px;
 
             &.neo-disabled {
-                background-color: lightgray;
+                background-color: var(--portal-sections-btn-disabled-bg);
                 opacity         : .5;
             }
 
             .neo-button-glyph {
-                color    : #000; // required for mobile
+                color    : var(--portal-sections-glyph-color); // required for mobile
                 font-size: 13px;
             }
         }
