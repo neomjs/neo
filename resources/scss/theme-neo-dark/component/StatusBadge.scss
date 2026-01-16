@@ -5,15 +5,15 @@
     --status-badge-font-weight                      : 600;
     --status-badge-line-height                      : 11px;
     --status-badge-padding                          : 0px 5px 0px 5px;
-    --status-badge-state-alert-background-color     : orange;
-    --status-badge-state-alert-text-color           : black;
-    --status-badge-state-error-background-color     : red;
-    --status-badge-state-error-text-color           : white;
-    --status-badge-state-info-background-color      : lightblue;
-    --status-badge-state-info-text-color            : black;
-    --status-badge-state-neutral-background-color   : white;
-    --status-badge-state-neutral-text-color         : black;
-    --status-badge-state-success-background-color   : green;
-    --status-badge-state-success-text-color         : white;
+    --status-badge-state-alert-background-color     : var(--orange-700);
+    --status-badge-state-alert-text-color           : var(--white);
+    --status-badge-state-error-background-color     : var(--red-800);
+    --status-badge-state-error-text-color           : var(--red-100);
+    --status-badge-state-info-background-color      : var(--blue-800);
+    --status-badge-state-info-text-color            : var(--blue-100);
+    --status-badge-state-neutral-background-color   : var(--gray-700);
+    --status-badge-state-neutral-text-color         : var(--white);
+    --status-badge-state-success-background-color   : var(--green-800);
+    --status-badge-state-success-text-color         : var(--green-100);
     --status-badge-transform                        : none;
 }

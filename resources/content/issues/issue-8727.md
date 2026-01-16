@@ -19,8 +19,9 @@ subIssues:
   - '[x] 8728 Implement Neo Dark Theme Tokens'
   - '[x] 8729 Update Portal Header Toolbar for Theme Switching'
   - '[x] 8730 Enable Neo Dark Theme in Portal Config'
-subIssuesCompleted: 3
-subIssuesTotal: 3
+  - '[x] 8731 Replicate Light Theme Structure to Dark Theme'
+subIssuesCompleted: 4
+subIssuesTotal: 4
 blockedBy: []
 blocking: []
 ---
@@ -86,4 +87,5 @@ Implement a comprehensive Dark Theme for the Portal App, utilizing the Neo.mjs D
 > The foundation is now in place. Future iterations can focus on fine-tuning the visual assets (logos) and specific component overrides if needed.
 
 - 2026-01-16T20:48:51Z @tobiu assigned to @tobiu
+- 2026-01-16T21:04:39Z @tobiu added sub-issue #8731
 
