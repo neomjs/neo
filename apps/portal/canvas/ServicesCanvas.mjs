@@ -14,16 +14,16 @@ const
     STRATA_STRIDE   = 4; // x, y, z, size
 
 /**
- * @summary SharedWorker renderer for the Portal Services "Neural Lattice" background.
+ * @summary SharedWorker renderer for the Portal Services "Neural Fabric" background.
  *
- * Implements a **Hexagonal Lattice** representing the engineered, structured nature of the Neo.mjs runtime.
+ * Implements a **Hexagonal Fabric** representing the engineered, structured nature of the Neo.mjs runtime.
  * The grid acts as a living "Motherboard" or "VDOM Registry" where cells (Components) can be inspected
  * and mutated.
  *
  * **Visual Architecture:**
  * 1. **Kernel Layer (Parallax):** A deep, slow-moving background grid representing the framework core.
  * 2. **Data Strata (Mid-Ground):** Floating clusters bridging the depth gap.
- * 3. **Application Layer (Lattice):** The main efficient structure (The App Engine).
+ * 3. **Application Layer (Fabric):** The main efficient structure (The App Engine).
  * 4. **Neural Agents:** High-speed packets visualizing throughput and intelligent maintenance.
  * 5. **Runtime Permutation:** Dynamic fusion of cells into "Super Modules" (construction/upload effects).
  * 6. **Construction Particles:** Particle effects visualizing memory allocation and object assembly.

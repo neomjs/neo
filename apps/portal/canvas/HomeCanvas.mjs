@@ -3,7 +3,7 @@ import Base from '../../../src/core/Base.mjs';
 const
     hasRaf           = typeof requestAnimationFrame === 'function',
     PRIMARY          = '#3E63DD',
-    SECONDARY        = '#8BA6FF',
+    SECONDARY        = '#536DFE',
     HIGHLIGHT        = '#00BFFF', // Deep Sky Blue (High Contrast)
     CONNECTION_COLOR = '#808080',
     NODE_COUNT       = 150,

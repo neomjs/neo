@@ -3,8 +3,8 @@ import Base from '../../../src/core/Base.mjs';
 const
     hasRaf    = typeof requestAnimationFrame === 'function',
     PRIMARY   = '#3E63DD',
-    SECONDARY = '#8BA6FF',
-    HIGHLIGHT = '#40C4FF';
+    SECONDARY = '#536DFE',
+    HIGHLIGHT = '#00BFFF';
 
 /**
  * @summary SharedWorker renderer for the HeaderToolbar overlay.
