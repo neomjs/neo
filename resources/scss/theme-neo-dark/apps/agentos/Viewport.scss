@@ -1,16 +1,13 @@
 :root .neo-theme-neo-dark {
-    --agent-bg-dark                 : #ffffff;
-    --agent-bg-panel                : #f6f8fa;
-    --agent-border                  : #d0d7de;
-    --agent-text-primary            : #24292f;
-    --agent-text-secondary          : #57606a;
+    --agent-bg-dark                 : #0d1117;
+    --agent-bg-panel                : #161b22;
+    --agent-border                  : #30363d;
+    --agent-text-primary            : #c9d1d9;
+    --agent-text-secondary          : #8b949e;
 
     --agent-accent-strategy         : #d3a600;
-    /* Darker Gold for contrast */
     --agent-accent-swarm            : #0095b3;
-    /* Darker Cyan for contrast */
     --agent-accent-intervention     : #cf222e;
-    /* Red */
 
     --agent-font-mono               : 'Courier New', monospace;
     --agent-font-ui                 : system-ui, -apple-system, sans-serif;
