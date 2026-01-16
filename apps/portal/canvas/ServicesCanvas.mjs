@@ -1,17 +1,17 @@
 import Base from '../../../src/core/Base.mjs';
 
 const
-    hasRaf    = typeof requestAnimationFrame === 'function',
-    HEX_SIZE  = 30,
-    STRIDE    = 8,  // q, r, x, y, scale, energy, buildCharge, colorIdx
-    RUNNER_COUNT = 30,
-    RUNNER_STRIDE = 8, // x, y, tx, ty, progress, speed, currentHexIdx, colorIdx
-    SUPER_HEX_MAX = 5,
+    hasRaf          = typeof requestAnimationFrame === 'function',
+    HEX_SIZE        = 30,
+    STRIDE          = 8,  // q, r, x, y, scale, energy, buildCharge, colorIdx
+    RUNNER_COUNT    = 30,
+    RUNNER_STRIDE   = 8, // x, y, tx, ty, progress, speed, currentHexIdx, colorIdx
+    SUPER_HEX_MAX   = 5,
     KERNEL_HEX_SIZE = 120,
-    DEBRIS_COUNT = 200,
-    DEBRIS_STRIDE = 6, // x, y, vx, vy, life, colorIdx
-    STRATA_COUNT = 15,
-    STRATA_STRIDE = 4; // x, y, z, size
+    DEBRIS_COUNT    = 200,
+    DEBRIS_STRIDE   = 6, // x, y, vx, vy, life, colorIdx
+    STRATA_COUNT    = 15,
+    STRATA_STRIDE   = 4; // x, y, z, size
 
 /**
  * @summary SharedWorker renderer for the Portal Services "Neural Lattice" background.
@@ -34,7 +34,7 @@ const
  */
 class ServicesCanvas extends Base {
     static colors = {
-        dark: {
+        dark : {
             background   : ['rgba(30, 30, 35, 1)', 'rgba(20, 20, 25, 1)'],
             debrisPalette: ['#E0E0E0', '#00BFFF', '#3E63DD', '#8A2BE2'],
             hexLine      : 'rgba(139, 166, 255, 0.1)', // Increased visibility
@@ -62,7 +62,7 @@ class ServicesCanvas extends Base {
 
     static config = {
         className: 'Portal.canvas.ServicesCanvas',
-        remote: {
+        remote   : {
             app: [
                 'clearGraph',
                 'initGraph',
@@ -74,7 +74,7 @@ class ServicesCanvas extends Base {
             ]
         },
         singleton: true,
-        theme: 'light'
+        theme    : 'light'
     }
 
     canvasId   = null
@@ -83,12 +83,12 @@ class ServicesCanvas extends Base {
     gradients  = {}
     isPaused   = false
     mouse      = {x: -1000, y: -1000}
-    
+
     cellBuffer   = null
     runnerBuffer = null
     kernelBuffer = null
     strataBuffer = null
-    
+
     /**
      * Buffer for Particle Debris.
      * Stride: [x, y, vx, vy, life]
@@ -102,7 +102,7 @@ class ServicesCanvas extends Base {
     rotation   = {x: -0.4, y: 0} // Base tilt (radians) - Floor Perspective
 
     clearGraph() {
-        let me = this;
+        let me          = this;
         me.context      = null;
         me.canvasId     = null;
         me.canvasSize   = null;
@@ -135,7 +135,7 @@ class ServicesCanvas extends Base {
         for (let i = 0; i < 6; i++) {
             const angle_deg = 60 * i + 30;
             const angle_rad = Math.PI / 180 * angle_deg;
-            
+
             const px = x + size * Math.cos(angle_rad);
             const py = y + size * Math.sin(angle_rad);
 
@@ -153,19 +153,21 @@ class ServicesCanvas extends Base {
 
     drawKernel(ctx, width, height, projection) {
         let me = this;
-        if (!me.kernelBuffer) return;
+        if (!me.kernelBuffer) {
+            return;
+        }
 
-        const 
-            buffer = me.kernelBuffer,
-            count  = buffer.length / 2,
-            s      = me.scale,
-            size   = KERNEL_HEX_SIZE * s,
+        const
+            buffer      = me.kernelBuffer,
+            count       = buffer.length / 2,
+            s           = me.scale,
+            size        = KERNEL_HEX_SIZE * s,
             themeColors = me.constructor.colors[me.theme];
 
         ctx.strokeStyle = themeColors.kernel;
         ctx.lineWidth   = 2 * s;
         ctx.lineJoin    = 'round';
-        
+
         let panX = Math.sin(me.time * 0.2) * 20 * s,
             panY = Math.cos(me.time * 0.2) * 20 * s;
 
@@ -180,12 +182,14 @@ class ServicesCanvas extends Base {
 
     drawStrata(ctx, width, height, projection) {
         let me = this;
-        if (!me.strataBuffer) return;
+        if (!me.strataBuffer) {
+            return;
+        }
 
-        const 
-            buffer = me.strataBuffer,
-            count  = STRATA_COUNT,
-            s      = me.scale,
+        const
+            buffer      = me.strataBuffer,
+            count       = STRATA_COUNT,
+            s           = me.scale,
             themeColors = me.constructor.colors[me.theme];
 
         ctx.fillStyle = themeColors.strata;
@@ -194,10 +198,10 @@ class ServicesCanvas extends Base {
             panY = Math.cos(me.time * 0.15) * 30 * s;
 
         for (let i = 0; i < count; i++) {
-            let idx = i * STRATA_STRIDE,
-                x   = buffer[idx] + panX,
-                y   = buffer[idx + 1] + panY,
-                z   = buffer[idx + 2],
+            let idx  = i * STRATA_STRIDE,
+                x    = buffer[idx] + panX,
+                y    = buffer[idx + 1] + panY,
+                z    = buffer[idx + 2],
                 size = buffer[idx + 3] * s;
 
             me.drawHex(ctx, x, y, z, size, projection);
@@ -208,7 +212,9 @@ class ServicesCanvas extends Base {
     drawGraph(ctx, width, height, projection) {
         let me = this;
 
-        if (!me.cellBuffer) return;
+        if (!me.cellBuffer) {
+            return;
+        }
 
         const
             buffer      = me.cellBuffer,
@@ -223,17 +229,17 @@ class ServicesCanvas extends Base {
         // Batch 1: Idle Hexes
         ctx.beginPath();
         ctx.strokeStyle = themeColors.hexLine;
-        
+
         for (let i = 0; i < count; i++) {
             let idx    = i * STRIDE,
                 x      = buffer[idx + 2],
                 y      = buffer[idx + 3],
-                scale  = buffer[idx + 4], 
+                scale  = buffer[idx + 4],
                 energy = buffer[idx + 5];
 
             if (energy <= 0.01 && scale > 0.1) {
                 let size = baseSize * 0.95 * scale;
-                me.drawHex(ctx, x, y, 0, size, projection); 
+                me.drawHex(ctx, x, y, 0, size, projection);
             }
         }
         ctx.stroke();
@@ -241,66 +247,70 @@ class ServicesCanvas extends Base {
         // Batch 2: Super Hexes
         ctx.lineWidth = 2 * s;
         for (let sh of me.superHexes) {
-            let idx = sh.centerIdx,
-                x   = buffer[idx + 2],
-                y   = buffer[idx + 3],
+            let idx      = sh.centerIdx,
+                x        = buffer[idx + 2],
+                y        = buffer[idx + 3],
                 colorIdx = buffer[idx + 7],
                 progress = 0;
 
-            if (sh.state === 0) progress = sh.age / 30; 
-            else if (sh.state === 1) progress = 1;      
-            else progress = 1 - (sh.age / 30);          
+            if (sh.state === 0) {
+                progress = sh.age / 30;
+            } else if (sh.state === 1) {
+                progress = 1;
+            } else {
+                progress = 1 - (sh.age / 30);
+            }
 
             if (progress > 0) {
                 let color = themeColors.activePalette[colorIdx];
-                
+
                 ctx.beginPath();
-                me.drawHex(ctx, x, y, 0, baseSize * 2.5 * progress, projection); 
-                
+                me.drawHex(ctx, x, y, 0, baseSize * 2.5 * progress, projection);
+
                 ctx.strokeStyle = color;
                 ctx.globalAlpha = 0.3 * progress;
                 ctx.stroke();
-                
+
                 ctx.fillStyle = themeColors.superHex;
                 ctx.fill();
-                
+
                 let p = projection.project(x, y, 0);
 
                 ctx.beginPath();
                 ctx.arc(p.x, p.y, 4 * s * progress * p.scale, 0, Math.PI * 2);
-                ctx.fillStyle = color;
+                ctx.fillStyle   = color;
                 ctx.globalAlpha = 0.8 * progress;
                 ctx.fill();
             }
         }
         ctx.globalAlpha = 1;
-        ctx.lineWidth = 1 * s;
+        ctx.lineWidth   = 1 * s;
 
         // Batch 3: Active / Energized Hexes
         for (let i = 0; i < count; i++) {
-            let idx    = i * STRIDE,
-                x      = buffer[idx + 2],
-                y      = buffer[idx + 3],
-                scale  = buffer[idx + 4],
-                energy = buffer[idx + 5],
+            let idx      = i * STRIDE,
+                x        = buffer[idx + 2],
+                y        = buffer[idx + 3],
+                scale    = buffer[idx + 4],
+                energy   = buffer[idx + 5],
                 colorIdx = buffer[idx + 7];
 
             if (energy > 0.01 && scale > 0.5) {
                 let currentSize = baseSize * (0.95 + (energy * 0.1)),
-                    color = themeColors.activePalette[colorIdx];
+                    color       = themeColors.activePalette[colorIdx];
 
                 ctx.beginPath();
                 me.drawHex(ctx, x, y, 0, currentSize, projection);
-                
-                ctx.fillStyle = themeColors.hexActive;
-                ctx.globalAlpha = energy * 0.4; 
+
+                ctx.fillStyle   = themeColors.hexActive;
+                ctx.globalAlpha = energy * 0.4;
                 ctx.fill();
 
                 ctx.strokeStyle = color;
-                ctx.lineWidth = (1 + energy) * s;
+                ctx.lineWidth   = (1 + energy) * s;
                 ctx.globalAlpha = energy * 0.8;
                 ctx.stroke();
-                
+
                 // Holographic Pop (Ghost Hex)
                 if (energy > 0.3) {
                     ctx.beginPath();
@@ -308,45 +318,47 @@ class ServicesCanvas extends Base {
                     me.drawHex(ctx, x, y, popZ, currentSize, projection);
                     ctx.strokeStyle = color;
                     ctx.globalAlpha = energy * 0.4;
-                    ctx.lineWidth = 1 * s;
+                    ctx.lineWidth   = 1 * s;
                     ctx.stroke();
                 }
-                
+
                 ctx.globalAlpha = 1;
-                ctx.lineWidth = 1 * s; 
+                ctx.lineWidth   = 1 * s;
             }
         }
     }
 
     drawRunners(ctx, projection) {
         let me = this;
-        if (!me.runnerBuffer) return;
+        if (!me.runnerBuffer) {
+            return;
+        }
 
-        const 
-            buffer = me.runnerBuffer,
-            count  = RUNNER_COUNT,
+        const
+            buffer      = me.runnerBuffer,
+            count       = RUNNER_COUNT,
             themeColors = me.constructor.colors[me.theme],
-            s = me.scale;
+            s           = me.scale;
 
         ctx.lineCap = 'round';
-        
+
         for (let i = 0; i < count; i++) {
-            let idx = i * RUNNER_STRIDE,
-                x   = buffer[idx],
-                y   = buffer[idx + 1],
-                tx  = buffer[idx + 2],
-                ty  = buffer[idx + 3],
-                sp  = buffer[idx + 5],
+            let idx      = i * RUNNER_STRIDE,
+                x        = buffer[idx],
+                y        = buffer[idx + 1],
+                tx       = buffer[idx + 2],
+                ty       = buffer[idx + 3],
+                sp       = buffer[idx + 5],
                 colorIdx = buffer[idx + 7];
 
-            let dx = tx - x,
-                dy = ty - y,
-                dist = Math.sqrt(dx*dx + dy*dy);
-            
+            let dx   = tx - x,
+                dy   = ty - y,
+                dist = Math.sqrt(dx * dx + dy * dy);
+
             if (dist > 0) {
-                let tailLen = sp * 12 * s; 
-                let dirX = dx / dist,
-                    dirY = dy / dist;
+                let tailLen = sp * 12 * s;
+                let dirX    = dx / dist,
+                    dirY    = dy / dist;
 
                 let tailX = x - dirX * tailLen,
                     tailY = y - dirY * tailLen;
@@ -354,18 +366,20 @@ class ServicesCanvas extends Base {
                 let p1 = projection.project(tailX, tailY, 0);
                 let p2 = projection.project(x, y, 0);
 
-                if (!p1.visible || !p2.visible) continue;
+                if (!p1.visible || !p2.visible) {
+                    continue;
+                }
 
                 let color = themeColors.runnerPalette[colorIdx];
-                let g = ctx.createLinearGradient(p1.x, p1.y, p2.x, p2.y);
+                let g     = ctx.createLinearGradient(p1.x, p1.y, p2.x, p2.y);
                 g.addColorStop(0, 'rgba(0,0,0,0)');
                 g.addColorStop(0.2, color); // Tail color
                 g.addColorStop(0.6, color); // Body color
                 g.addColorStop(1, '#FFFFFF'); // White Head
-                
+
                 ctx.beginPath();
                 ctx.strokeStyle = g;
-                ctx.lineWidth = 3 * s * p2.scale; // Scale thickness
+                ctx.lineWidth   = 3 * s * p2.scale; // Scale thickness
                 ctx.moveTo(p1.x, p1.y);
                 ctx.lineTo(p2.x, p2.y);
                 ctx.stroke();
@@ -378,21 +392,23 @@ class ServicesCanvas extends Base {
      */
     drawDebris(ctx, projection) {
         let me = this;
-        if (!me.debrisBuffer) return;
+        if (!me.debrisBuffer) {
+            return;
+        }
 
         const
-            buffer = me.debrisBuffer,
-            count  = DEBRIS_COUNT,
+            buffer      = me.debrisBuffer,
+            count       = DEBRIS_COUNT,
             themeColors = me.constructor.colors[me.theme],
-            s      = me.scale;
+            s           = me.scale;
 
         for (let i = 0; i < count; i++) {
             let idx  = i * DEBRIS_STRIDE,
                 life = buffer[idx + 4];
 
             if (life > 0) {
-                let x = buffer[idx],
-                    y = buffer[idx + 1],
+                let x    = buffer[idx],
+                    y    = buffer[idx + 1],
                     size = 3 * s * life; // Shrink as it dies
 
                 let p = projection.project(x, y, 0);
@@ -402,7 +418,7 @@ class ServicesCanvas extends Base {
 
                     ctx.fillStyle   = themeColors.debrisPalette[colorIdx];
                     ctx.globalAlpha = life;
-                    ctx.fillRect(p.x - scaledSize/2, p.y - scaledSize/2, scaledSize, scaledSize);
+                    ctx.fillRect(p.x - scaledSize / 2, p.y - scaledSize / 2, scaledSize, scaledSize);
                 }
             }
         }
@@ -437,19 +453,19 @@ class ServicesCanvas extends Base {
     }
 
     initKernel(width, height) {
-        let me = this;
+        let me      = this;
         const
-            s        = me.scale,
-            size     = KERNEL_HEX_SIZE * s,
-            colStep  = size * 1.5,
-            rowStep  = size * Math.sqrt(3),
-            cols     = Math.ceil(width / colStep) + 4,
-            rows     = Math.ceil(height / rowStep) + 4,
-            count    = cols * rows;
+            s       = me.scale,
+            size    = KERNEL_HEX_SIZE * s,
+            colStep = size * 1.5,
+            rowStep = size * Math.sqrt(3),
+            cols    = Math.ceil(width / colStep) + 4,
+            rows    = Math.ceil(height / rowStep) + 4,
+            count   = cols * rows;
 
         me.kernelBuffer = new Float32Array(count * 2);
-        
-        let i = 0;
+
+        let i      = 0;
         let startX = -(colStep * 2),
             startY = -(rowStep * 2);
 
@@ -471,21 +487,21 @@ class ServicesCanvas extends Base {
         let me = this;
 
         const
-            s        = me.scale,
-            size     = HEX_SIZE * s,
-            colStep  = size * 1.5,
-            rowStep  = size * Math.sqrt(3),
-            cols     = Math.ceil(width / colStep) + 2,
+            s       = me.scale,
+            size    = HEX_SIZE * s,
+            colStep = size * 1.5,
+            rowStep = size * Math.sqrt(3),
+            cols    = Math.ceil(width / colStep) + 2,
             // Extend rows upwards for perspective (Horizon Buffer)
-            rows     = Math.ceil(height / rowStep) + 12, 
-            count    = cols * rows;
+            rows    = Math.ceil(height / rowStep) + 12,
+            count   = cols * rows;
 
         if (!me.cellBuffer || me.cellBuffer.length !== count * STRIDE) {
             me.cellBuffer = new Float32Array(count * STRIDE);
         }
 
         const buffer = me.cellBuffer;
-        
+
         let i = 0;
         // Start 10 rows higher up to fill the distance
         for (let c = -1; c < cols; c++) {
@@ -496,18 +512,20 @@ class ServicesCanvas extends Base {
                     y += rowStep / 2;
                 }
 
-                let idx = i * STRIDE;
-                buffer[idx]     = c; 
-                buffer[idx + 1] = r; 
+                let idx         = i * STRIDE;
+                buffer[idx]     = c;
+                buffer[idx + 1] = r;
                 buffer[idx + 2] = x;
                 buffer[idx + 3] = y;
-                buffer[idx + 4] = 1; 
-                buffer[idx + 5] = 0; 
-                buffer[idx + 6] = 0; 
+                buffer[idx + 4] = 1;
+                buffer[idx + 5] = 0;
+                buffer[idx + 6] = 0;
                 buffer[idx + 7] = Math.floor(Math.random() * 4); // colorIdx
 
                 i++;
-                if (i >= count) break;
+                if (i >= count) {
+                    break;
+                }
             }
         }
     }
@@ -517,25 +535,25 @@ class ServicesCanvas extends Base {
         if (!me.runnerBuffer) {
             me.runnerBuffer = new Float32Array(RUNNER_COUNT * RUNNER_STRIDE);
         }
-        
-        const 
+
+        const
             buffer = me.runnerBuffer;
 
         for (let i = 0; i < RUNNER_COUNT; i++) {
             me.resetRunner(i, width, height);
-            let idx = i * RUNNER_STRIDE;
-            buffer[idx + 4] = Math.random(); 
+            let idx         = i * RUNNER_STRIDE;
+            buffer[idx + 4] = Math.random();
         }
     }
 
     initStrata(width, height) {
         let me = this;
-        
+
         me.strataBuffer = new Float32Array(STRATA_COUNT * STRATA_STRIDE);
-        const buffer = me.strataBuffer;
+        const buffer    = me.strataBuffer;
 
         for (let i = 0; i < STRATA_COUNT; i++) {
-            let idx = i * STRATA_STRIDE;
+            let idx         = i * STRATA_STRIDE;
             buffer[idx]     = (Math.random() - 0.5) * width * 2;
             buffer[idx + 1] = (Math.random() - 0.5) * height * 3;
             buffer[idx + 2] = 150 + Math.random() * 150; // Z depth 150-300
@@ -544,17 +562,17 @@ class ServicesCanvas extends Base {
     }
 
     findNearestNode(x, y) {
-        let me = this,
-            buffer = me.cellBuffer,
-            count = buffer.length / STRIDE,
+        let me      = this,
+            buffer  = me.cellBuffer,
+            count   = buffer.length / STRIDE,
             minDist = Infinity,
             bestIdx = -1;
 
         for (let i = 0; i < count; i++) {
-            let idx = i * STRIDE,
-                nx = buffer[idx + 2],
-                ny = buffer[idx + 3],
-                dist = (nx - x)**2 + (ny - y)**2;
+            let idx  = i * STRIDE,
+                nx   = buffer[idx + 2],
+                ny   = buffer[idx + 3],
+                dist = (nx - x) ** 2 + (ny - y) ** 2;
 
             if (dist < minDist) {
                 minDist = dist;
@@ -565,22 +583,22 @@ class ServicesCanvas extends Base {
     }
 
     resetRunner(index, width, height) {
-        let me = this,
-            buffer = me.runnerBuffer,
-            nodes  = me.cellBuffer,
-            idx    = index * RUNNER_STRIDE,
+        let me        = this,
+            buffer    = me.runnerBuffer,
+            nodes     = me.cellBuffer,
+            idx       = index * RUNNER_STRIDE,
             nodeCount = nodes.length / STRIDE;
 
         let nIdx = Math.floor(Math.random() * nodeCount) * STRIDE;
-        
-        buffer[idx]     = nodes[nIdx + 2]; 
-        buffer[idx + 1] = nodes[nIdx + 3]; 
-        
-        buffer[idx + 2] = buffer[idx]; 
+
+        buffer[idx]     = nodes[nIdx + 2];
+        buffer[idx + 1] = nodes[nIdx + 3];
+
+        buffer[idx + 2] = buffer[idx];
         buffer[idx + 3] = buffer[idx + 1];
-        buffer[idx + 4] = 1; 
-        buffer[idx + 5] = (Math.random() * 4 + 5) * me.scale; 
-        buffer[idx + 6] = nIdx; 
+        buffer[idx + 4] = 1;
+        buffer[idx + 5] = (Math.random() * 4 + 5) * me.scale;
+        buffer[idx + 6] = nIdx;
         buffer[idx + 7] = Math.floor(Math.random() * 4); // colorIdx
     }
 
@@ -593,9 +611,11 @@ class ServicesCanvas extends Base {
      */
     spawnDebris(x, y, count, type) {
         let me = this;
-        if (!me.debrisBuffer) return;
+        if (!me.debrisBuffer) {
+            return;
+        }
 
-        const 
+        const
             buffer = me.debrisBuffer,
             total  = DEBRIS_COUNT,
             s      = me.scale;
@@ -604,7 +624,7 @@ class ServicesCanvas extends Base {
         let spawned = 0;
         for (let i = 0; i < total; i++) {
             let idx = i * DEBRIS_STRIDE;
-            
+
             // If slot is empty (life <= 0)
             if (buffer[idx + 4] <= 0) {
                 let angle = Math.random() * Math.PI * 2,
@@ -612,7 +632,7 @@ class ServicesCanvas extends Base {
 
                 if (type === 'implode') {
                     // Start OUTSIDE, move IN
-                    let radius = 60 * s;
+                    let radius      = 60 * s;
                     buffer[idx]     = x + Math.cos(angle) * radius;
                     buffer[idx + 1] = y + Math.sin(angle) * radius;
                     buffer[idx + 2] = -Math.cos(angle) * speed; // Towards center
@@ -624,12 +644,14 @@ class ServicesCanvas extends Base {
                     buffer[idx + 2] = Math.cos(angle) * speed;
                     buffer[idx + 3] = Math.sin(angle) * speed;
                 }
-                
+
                 buffer[idx + 4] = 1.0; // Life
                 buffer[idx + 5] = Math.floor(Math.random() * 4); // Color Index
-                
+
                 spawned++;
-                if (spawned >= count) break;
+                if (spawned >= count) {
+                    break;
+                }
             }
         }
     }
@@ -651,20 +673,32 @@ class ServicesCanvas extends Base {
     render() {
         let me = this;
 
-        if (!me.context || me.isPaused) return;
+        if (!me.context || me.isPaused) {
+            return;
+        }
 
         const
             ctx    = me.context,
-            width  = me.canvasSize?.width  || 100,
+            width  = me.canvasSize?.width || 100,
             height = me.canvasSize?.height || 50;
 
         me.time += 0.01;
 
-        if (!me.cellBuffer) me.initNodes(width, height);
-        if (!me.kernelBuffer) me.initKernel(width, height);
-        if (!me.strataBuffer) me.initStrata(width, height);
-        if (!me.runnerBuffer) me.initRunners(width, height);
-        if (!me.debrisBuffer) me.initDebris();
+        if (!me.cellBuffer) {
+            me.initNodes(width, height);
+        }
+        if (!me.kernelBuffer) {
+            me.initKernel(width, height);
+        }
+        if (!me.strataBuffer) {
+            me.initStrata(width, height);
+        }
+        if (!me.runnerBuffer) {
+            me.initRunners(width, height);
+        }
+        if (!me.debrisBuffer) {
+            me.initDebris();
+        }
 
         me.updatePhysics(width, height);
         me.updateRotation(width, height);
@@ -681,7 +715,7 @@ class ServicesCanvas extends Base {
 
         let projection = me.getProjection(width, height);
 
-        me.drawKernel(ctx, width, height, projection); 
+        me.drawKernel(ctx, width, height, projection);
         me.drawStrata(ctx, width, height, projection);
         me.drawGraph(ctx, width, height, projection);
         me.drawRunners(ctx, projection);
@@ -696,7 +730,9 @@ class ServicesCanvas extends Base {
 
     updateDebris() {
         let me = this;
-        if (!me.debrisBuffer) return;
+        if (!me.debrisBuffer) {
+            return;
+        }
 
         const buffer = me.debrisBuffer,
               count  = DEBRIS_COUNT,
@@ -707,17 +743,17 @@ class ServicesCanvas extends Base {
             let idx = i * DEBRIS_STRIDE;
             if (buffer[idx + 4] > 0) {
                 // Move
-                buffer[idx]     += buffer[idx + 2];
+                buffer[idx] += buffer[idx + 2];
                 buffer[idx + 1] += buffer[idx + 3];
                 // Decay
                 buffer[idx + 4] -= 0.03;
 
                 // Repulsion
                 if (mx !== -1000) {
-                    let dx = buffer[idx] - mx,
-                        dy = buffer[idx + 1] - my,
-                        dist = Math.sqrt(dx*dx + dy*dy);
-                    
+                    let dx   = buffer[idx] - mx,
+                        dy   = buffer[idx + 1] - my,
+                        dist = Math.sqrt(dx * dx + dy * dy);
+
                     if (dist < 150) {
                         let force = (150 - dist) * 0.05;
                         buffer[idx] += (dx / dist) * force;
@@ -730,31 +766,33 @@ class ServicesCanvas extends Base {
 
     updateSuperHexes(width, height) {
         let me = this;
-        if (!me.cellBuffer) return;
+        if (!me.cellBuffer) {
+            return;
+        }
 
         if (me.superHexes.length < SUPER_HEX_MAX) {
             const buffer = me.cellBuffer,
                   count  = buffer.length / STRIDE;
-            
-            for (let i=0; i<20; i++) {
-                let idx = Math.floor(Math.random() * count) * STRIDE,
+
+            for (let i = 0; i < 20; i++) {
+                let idx    = Math.floor(Math.random() * count) * STRIDE,
                     charge = buffer[idx + 6];
-                
-                if (charge > 3) { 
+
+                if (charge > 3) {
                     me.superHexes.push({
                         centerIdx: idx,
-                        age: 0,
-                        state: 0, 
-                        neighbors: me.findNeighbors(idx) 
+                        age      : 0,
+                        state    : 0,
+                        neighbors: me.findNeighbors(idx)
                     });
-                    
+
                     // Trigger Implosion!
                     let x = buffer[idx + 2],
                         y = buffer[idx + 3];
                     me.spawnDebris(x, y, 12, 'implode');
 
                     buffer[idx + 6] = 0;
-                    break; 
+                    break;
                 }
             }
         }
@@ -764,30 +802,34 @@ class ServicesCanvas extends Base {
             sh.age++;
 
             if (sh.state === 0 && sh.age > 30) {
-                sh.state = 1; 
-                sh.age = 0;
-            } else if (sh.state === 1 && sh.age > 120) { 
-                sh.state = 2; 
-                sh.age = 0;
+                sh.state = 1;
+                sh.age   = 0;
+            } else if (sh.state === 1 && sh.age > 120) {
+                sh.state = 2;
+                sh.age   = 0;
             } else if (sh.state === 2 && sh.age > 30) {
                 // Done - Trigger Explosion (Fragmentation)
                 let idx = sh.centerIdx,
                     x   = me.cellBuffer[idx + 2],
                     y   = me.cellBuffer[idx + 3];
-                
+
                 me.spawnDebris(x, y, 12, 'explode');
 
                 sh.neighbors.forEach(nIdx => {
-                    me.cellBuffer[nIdx + 4] = 1; 
+                    me.cellBuffer[nIdx + 4] = 1;
                 });
                 me.superHexes.splice(i, 1);
                 continue;
             }
 
             let targetScale = 1;
-            if (sh.state === 0) targetScale = 1 - (sh.age / 30); 
-            else if (sh.state === 1) targetScale = 0;            
-            else targetScale = sh.age / 30;                      
+            if (sh.state === 0) {
+                targetScale = 1 - (sh.age / 30);
+            } else if (sh.state === 1) {
+                targetScale = 0;
+            } else {
+                targetScale = sh.age / 30;
+            }
 
             sh.neighbors.forEach(nIdx => {
                 me.cellBuffer[nIdx + 4] = targetScale;
@@ -796,22 +838,24 @@ class ServicesCanvas extends Base {
     }
 
     findNeighbors(centerIdx) {
-        let me = this,
-            buffer = me.cellBuffer,
-            cx = buffer[centerIdx + 2],
-            cy = buffer[centerIdx + 3],
+        let me        = this,
+            buffer    = me.cellBuffer,
+            cx        = buffer[centerIdx + 2],
+            cy        = buffer[centerIdx + 3],
             neighbors = [centerIdx],
-            count = buffer.length / STRIDE,
-            s = me.scale,
-            radius = HEX_SIZE * s * 2.1; 
+            count     = buffer.length / STRIDE,
+            s         = me.scale,
+            radius    = HEX_SIZE * s * 2.1;
 
         for (let i = 0; i < count; i++) {
             let idx = i * STRIDE;
-            if (idx === centerIdx) continue;
+            if (idx === centerIdx) {
+                continue;
+            }
 
-            let x = buffer[idx + 2],
-                y = buffer[idx + 3],
-                dist = Math.sqrt((x-cx)**2 + (y-cy)**2);
+            let x    = buffer[idx + 2],
+                y    = buffer[idx + 3],
+                dist = Math.sqrt((x - cx) ** 2 + (y - cy) ** 2);
 
             if (dist < radius) {
                 neighbors.push(idx);
@@ -822,7 +866,9 @@ class ServicesCanvas extends Base {
 
     updatePhysics(width, height) {
         let me = this;
-        if (!me.cellBuffer) return;
+        if (!me.cellBuffer) {
+            return;
+        }
 
         const
             buffer = me.cellBuffer,
@@ -840,71 +886,77 @@ class ServicesCanvas extends Base {
             if (mx !== -1000) {
                 let dx     = x - mx,
                     dy     = y - my,
-                    distSq = dx*dx + dy*dy,
+                    distSq = dx * dx + dy * dy,
                     radius = 250 * s;
 
                 if (distSq < radius * radius) {
                     let dist = Math.sqrt(distSq);
-                    active = (radius - dist) / radius; 
-                    active = Math.pow(active, 2); 
+                    active   = (radius - dist) / radius;
+                    active   = Math.pow(active, 2);
                 }
             }
 
             let currentEnergy = buffer[idx + 5];
-            let targetEnergy = active * 0.8;
-            
+            let targetEnergy  = active * 0.8;
+
             // Speed up hover reaction (0.1 -> 0.3)
             if (currentEnergy > targetEnergy) {
-                 buffer[idx + 5] *= 0.9; 
+                buffer[idx + 5] *= 0.9;
             } else {
-                 buffer[idx + 5] += (targetEnergy - currentEnergy) * 0.3;
+                buffer[idx + 5] += (targetEnergy - currentEnergy) * 0.3;
             }
-            
-            if (buffer[idx + 5] < 0.001) buffer[idx + 5] = 0;
-            
+
+            if (buffer[idx + 5] < 0.001) {
+                buffer[idx + 5] = 0;
+            }
+
             if (buffer[idx + 6] > 0) {
-                buffer[idx + 6] -= 0.05; 
-                if (buffer[idx + 6] < 0) buffer[idx + 6] = 0;
+                buffer[idx + 6] -= 0.05;
+                if (buffer[idx + 6] < 0) {
+                    buffer[idx + 6] = 0;
+                }
             }
         }
     }
 
     updateRunners(width, height) {
         let me = this;
-        if (!me.runnerBuffer) return;
+        if (!me.runnerBuffer) {
+            return;
+        }
 
-        const 
+        const
             runners = me.runnerBuffer,
             nodes   = me.cellBuffer,
             count   = RUNNER_COUNT,
             s       = me.scale;
 
         for (let i = 0; i < count; i++) {
-            let idx = i * RUNNER_STRIDE,
+            let idx      = i * RUNNER_STRIDE,
                 progress = runners[idx + 4],
                 speed    = runners[idx + 5];
 
             if (progress < 1) {
-                let x = runners[idx],
-                    y = runners[idx + 1],
+                let x  = runners[idx],
+                    y  = runners[idx + 1],
                     tx = runners[idx + 2],
                     ty = runners[idx + 3];
-                
-                let dx = tx - x,
-                    dy = ty - y,
-                    dist = Math.sqrt(dx*dx + dy*dy);
-                    
-                if (dist < speed) { 
-                    runners[idx] = tx;
+
+                let dx   = tx - x,
+                    dy   = ty - y,
+                    dist = Math.sqrt(dx * dx + dy * dy);
+
+                if (dist < speed) {
+                    runners[idx]     = tx;
                     runners[idx + 1] = ty;
-                    runners[idx + 4] = 1; 
-                    
+                    runners[idx + 4] = 1;
+
                     let nodeIdx = me.findNearestNode(tx, ty);
                     if (nodeIdx !== -1) {
-                        nodes[nodeIdx + 5] = 1.0; 
-                        nodes[nodeIdx + 6] += 1; 
+                        nodes[nodeIdx + 5] = 1.0;
+                        nodes[nodeIdx + 6] += 1;
                         nodes[nodeIdx + 7] = runners[idx + 7]; // Transfer color to node
-                        runners[idx + 6] = nodeIdx; 
+                        runners[idx + 6]   = nodeIdx;
                     }
                 } else {
                     runners[idx] += (dx / dist) * speed;
@@ -913,10 +965,10 @@ class ServicesCanvas extends Base {
 
             } else {
                 let currentHexIdx = runners[idx + 6];
-                
+
                 if (currentHexIdx !== undefined && currentHexIdx !== -1) {
                     // Magnetic Logic: Bias direction towards mouse
-                    let bestDir = -1,
+                    let bestDir   = -1,
                         bestScore = -Infinity;
 
                     // Standard random weights
@@ -927,24 +979,24 @@ class ServicesCanvas extends Base {
                             cy = runners[idx + 1];
 
                         for (let d = 0; d < 6; d++) {
-                            let deg = 30 + (d * 60),
-                                rad = deg * Math.PI / 180,
+                            let deg  = 30 + (d * 60),
+                                rad  = deg * Math.PI / 180,
                                 jump = HEX_SIZE * s * Math.sqrt(3),
                                 tx   = cx + Math.cos(rad) * jump,
                                 ty   = cy + Math.sin(rad) * jump;
 
-                            let distSq = (tx - me.mouse.x)**2 + (ty - me.mouse.y)**2;
-                            // Higher score = closer to mouse. 
+                            let distSq = (tx - me.mouse.x) ** 2 + (ty - me.mouse.y) ** 2;
+                            // Higher score = closer to mouse.
                             // Invert distance squared for weight.
-                            weights[d] += (100000 / (distSq + 100)) * 5; 
+                            weights[d] += (100000 / (distSq + 100)) * 5;
                         }
                     }
 
                     // Weighted Random Choice
                     let totalWeight = weights.reduce((a, b) => a + b, 0),
-                        random = Math.random() * totalWeight,
-                        sum = 0,
-                        dir = 0;
+                        random      = Math.random() * totalWeight,
+                        sum         = 0,
+                        dir         = 0;
 
                     for (let d = 0; d < 6; d++) {
                         sum += weights[d];
@@ -954,24 +1006,24 @@ class ServicesCanvas extends Base {
                         }
                     }
 
-                    let deg = 30 + (dir * 60),
-                        rad = deg * Math.PI / 180,
+                    let deg  = 30 + (dir * 60),
+                        rad  = deg * Math.PI / 180,
                         jump = HEX_SIZE * s * Math.sqrt(3),
                         cx   = runners[idx],
                         cy   = runners[idx + 1],
                         tx   = cx + Math.cos(rad) * jump,
                         ty   = cy + Math.sin(rad) * jump;
-                    
+
                     // Allow runners to exist further up (negative Y) for the horizon effect
                     // Expanded bounds: -500 (top) to height+50 (bottom)
                     if (tx < -50 || tx > width + 50 || ty < -500 || ty > height + 50) {
                         me.resetRunner(i, width, height);
                         continue;
                     }
-                    
+
                     runners[idx + 2] = tx;
                     runners[idx + 3] = ty;
-                    runners[idx + 4] = 0; 
+                    runners[idx + 4] = 0;
                 } else {
                     me.resetRunner(i, width, height);
                 }
@@ -985,8 +1037,12 @@ class ServicesCanvas extends Base {
             me.mouse.x = -1000;
             me.mouse.y = -1000
         } else {
-            if (data.x !== undefined) me.mouse.x = data.x;
-            if (data.y !== undefined) me.mouse.y = data.y
+            if (data.x !== undefined) {
+                me.mouse.x = data.x;
+            }
+            if (data.y !== undefined) {
+                me.mouse.y = data.y
+            }
         }
     }
 
@@ -1010,10 +1066,10 @@ class ServicesCanvas extends Base {
     }
 
     getProjection(width, height) {
-        let me = this,
-            fov = 1000,
-            cx  = width / 2,
-            cy  = height / 2,
+        let me   = this,
+            fov  = 1000,
+            cx   = width / 2,
+            cy   = height / 2,
             cosX = Math.cos(me.rotation.x),
             sinX = Math.sin(me.rotation.x),
             cosY = Math.cos(me.rotation.y),
@@ -1037,9 +1093,9 @@ class ServicesCanvas extends Base {
                 let scale = fov / (fov + z2);
 
                 return {
-                    x: x1 * scale + cx,
-                    y: y2 * scale + cy,
-                    scale: scale,
+                    x      : x1 * scale + cx,
+                    y      : y2 * scale + cy,
+                    scale  : scale,
                     visible: z2 > -fov // Clip if behind camera
                 };
             }
@@ -1050,7 +1106,9 @@ class ServicesCanvas extends Base {
         let me  = this,
             ctx = me.context;
 
-        if (!ctx) return;
+        if (!ctx) {
+            return;
+        }
 
         const
             themeColors = me.constructor.colors[me.theme],
@@ -1063,18 +1121,18 @@ class ServicesCanvas extends Base {
     }
 
     updateSize(size) {
-        let me = this;
+        let me        = this;
         me.canvasSize = size;
-        me.scale = Math.sqrt((size.width * size.height) / 2073600);
+        me.scale      = Math.sqrt((size.width * size.height) / 2073600);
 
         if (me.context) {
             me.context.canvas.width  = size.width;
             me.context.canvas.height = size.height;
-            me.cellBuffer = null; 
-            me.runnerBuffer = null;
-            me.kernelBuffer = null;
-            me.strataBuffer = null;
-            me.debrisBuffer = null;
+            me.cellBuffer            = null;
+            me.runnerBuffer          = null;
+            me.kernelBuffer          = null;
+            me.strataBuffer          = null;
+            me.debrisBuffer          = null;
             me.initNodes(size.width, size.height);
             me.updateResources(size.width, size.height)
         }
