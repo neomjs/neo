@@ -7,7 +7,7 @@
     max-width            : 1200px;
     padding              : 1.5em;
     place-content        : start;
-    scrollbar-color      : #3e63dd #f0f0f0;
+    scrollbar-color      : var(--portal-scrollbar-thumb) var(--portal-scrollbar-track);
     scrollbar-width      : thin;
 
     &::-webkit-scrollbar {
@@ -15,12 +15,12 @@
     }
 
     &::-webkit-scrollbar-track {
-        background   : #f0f0f0;
+        background   : var(--portal-scrollbar-track);
         border-radius: 10px;
     }
 
     &::-webkit-scrollbar-thumb {
-        background-color: #3e63dd;
+        background-color: var(--portal-scrollbar-thumb);
         border-radius   : 10px;
     }
 
