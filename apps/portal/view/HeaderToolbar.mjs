@@ -85,10 +85,11 @@ class HeaderToolbar extends Base {
                     hideDelay: 0
                 }
             }, {
-                iconCls: 'fa-brands fa-slack',
-                url    : 'https://join.slack.com/t/neomjs/shared_invite/zt-6c50ueeu-3E1~M4T9xkNnb~M_prEEOA',
+                handler: 'onSwitchTheme',
+                iconCls: 'fa-solid fa-moon',
+                reference: 'theme-switch-button',
                 tooltip: {
-                    text     : 'Join Slack',
+                    text     : 'Switch Theme',
                     showDelay: 0,
                     hideDelay: 0
                 }

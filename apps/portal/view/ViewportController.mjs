@@ -260,6 +260,24 @@ class ViewportController extends Controller {
     }
 
     /**
+     * @param {Object} data
+     */
+    onSwitchTheme(data) {
+        let me       = this,
+            btn      = me.getReference('theme-switch-button'),
+            viewport = me.component,
+            oldTheme = viewport.theme || 'neo-theme-neo-light',
+            newTheme = oldTheme === 'neo-theme-neo-light' ? 'neo-theme-neo-dark' : 'neo-theme-neo-light',
+            iconCls  = newTheme === 'neo-theme-neo-dark'  ? 'fa-solid fa-sun'  : 'fa-solid fa-moon';
+
+        viewport.theme = newTheme;
+
+        if (btn) {
+            btn.iconCls = iconCls
+        }
+    }
+
+    /**
      * This method orchestrates the visual transition between the main content cards.
      * It uses a "mixed" layout mode, which temporarily switches to a CubeLayout for
      * a 3D transition effect, and then back to a CardLayout for performance.
