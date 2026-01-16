@@ -74,6 +74,7 @@
             {"name": "Canvas Architecture (Zero-Allocation)",          "parentId": "guides/advanced",                                     "id": "guides/advanced/CanvasArchitecture"},
             {"name": "Neural Swarm (Autonomous Simulation)",           "parentId": "guides/advanced",                                     "id": "guides/advanced/NeuralSwarm"},
             {"name": "Neural Timeline (Coordinator Pattern)",          "parentId": "guides/advanced",                                     "id": "guides/advanced/NeuralTimeline"},
+            {"name": "Neural Fabric (2.5D Projection)",                "parentId": "guides/advanced",                                     "id": "guides/advanced/NeuralFabric"},
         {"name": "MCP & Agent OS",                                     "parentId": "guides",                             "isLeaf": false, "id": "guides/mcp", "collapsed": true},
             {"name": "Introduction",                                   "parentId": "guides/mcp",                                          "id": "guides/mcp/Introduction"},
             {"name": "The Knowledge Base Server",                      "parentId": "guides/mcp",                                          "id": "guides/mcp/KnowledgeBase"},
