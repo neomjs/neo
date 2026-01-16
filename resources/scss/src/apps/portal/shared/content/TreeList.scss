@@ -58,11 +58,12 @@
 
     .neo-list-container>.neo-list-item {
         font-size  : 18px !important;
-        font-weight: 500;
+        font-weight: 600;
     }
 
     .neo-list-item {
         border-radius   : 8px;
+        font-size       : 16px;
         margin-right    : 0 !important;
         padding         : 0 0 0 16px !important;
         height          : 48px;
@@ -92,7 +93,7 @@
     }
 
     .neo-list-folder {
-        font-weight: bold;
+        font-weight: 500;
 
         .neo-list-item-content {
             width           : 100%;
