@@ -145,8 +145,8 @@ let panX = Math.sin(time * 0.15) * 30;
 ## Terminology Check
 
 To align with the "Application Engine" narrative, we use specific terms:
--   **Neural Fabric:** The grid itself (formerly Lattice).
--   **Constructs:** The merged Super Hexes (formerly Debris).
+-   **Neural Fabric:** The grid itself.
+-   **Constructs:** The merged Super Hexes.
 -   **Agents:** The moving packets (Runners).
 -   **Kernel:** The deep background layer.
 
