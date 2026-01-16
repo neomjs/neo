@@ -38,8 +38,8 @@
         width                  : 100%;
 
         &:hover {
-            border-color: rgba(62, 99, 221, 0.4);
-            box-shadow  : 0 20px 40px rgba(0, 0, 0, 0.1); // Matches home/ContentBox
+            border-color: var(--portal-services-card-hover-border);
+            box-shadow  : var(--portal-services-card-hover-shadow); // Matches home/ContentBox
             transform   : translateY(-5px); // Matches home/ContentBox
         }
 
