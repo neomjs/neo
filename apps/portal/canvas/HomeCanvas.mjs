@@ -5,7 +5,6 @@ const
     PRIMARY          = '#3E63DD',
     SECONDARY        = '#8BA6FF',
     HIGHLIGHT        = '#00BFFF', // Deep Sky Blue (High Contrast)
-    SPARK_COLOR      = '#4B0082', // Indigo
     CONNECTION_COLOR = '#808080',
     NODE_COUNT       = 150,
     NODE_STRIDE      = 9, // x, y, vx, vy, radius, layer, parentId, phase, energy
@@ -69,6 +68,25 @@ const
  * @singleton
  */
 class HomeCanvas extends Base {
+    static colors = {
+        dark: {
+            agentHead : '#FFFFFF',
+            background: ['rgba(62, 99, 221, 0.15)', 'rgba(139, 166, 255, 0.15)'],
+            nodeHigh  : '#FFFFFF',
+            packet    : '#FFFFFF',
+            shockwave : '#FFFFFF',
+            spark     : '#4B0082'
+        },
+        light: {
+            agentHead : '#3E63DD', // PRIMARY
+            background: ['rgba(62, 99, 221, 0.05)', 'rgba(139, 166, 255, 0.05)'],
+            nodeHigh  : '#3E63DD', // PRIMARY
+            packet    : '#3E63DD', // PRIMARY
+            shockwave : '#3E63DD', // PRIMARY
+            spark     : '#4B0082'
+        }
+    }
+
     static config = {
         /**
          * @member {String} className='Portal.canvas.HomeCanvas'
@@ -87,6 +105,7 @@ class HomeCanvas extends Base {
                 'initGraph',
                 'pause',
                 'resume',
+                'setTheme',
                 'updateMouseState',
                 'updateSize'
             ]
@@ -95,7 +114,11 @@ class HomeCanvas extends Base {
          * @member {Boolean} singleton=true
          * @protected
          */
-        singleton: true
+        singleton: true,
+        /**
+         * @member {String} theme='light'
+         */
+        theme: 'light'
     }
 
     /**
@@ -179,6 +202,25 @@ class HomeCanvas extends Base {
     }
 
     /**
+     * @param {String} value
+     * @param {String} oldValue
+     */
+    afterSetTheme(value, oldValue) {
+        let me = this;
+
+        if (value && me.canvasSize) {
+            me.updateResources(me.canvasSize.width, me.canvasSize.height)
+        }
+    }
+
+    /**
+     * @param {String} value
+     */
+    setTheme(value) {
+        this.theme = value
+    }
+
+    /**
      * Draws the autonomous agents (Seeker Drones).
      *
      * **Visuals:**
@@ -194,11 +236,12 @@ class HomeCanvas extends Base {
         if (!me.agentBuffer) return;
 
         const
-            buffer = me.agentBuffer,
-            count  = AGENT_COUNT;
+            buffer      = me.agentBuffer,
+            count       = AGENT_COUNT,
+            themeColors = me.constructor.colors[me.theme];
 
         ctx.strokeStyle = HIGHLIGHT;
-        ctx.fillStyle   = '#FFFFFF';
+        ctx.fillStyle   = themeColors.agentHead;
         ctx.lineCap     = 'round';
 
         for (let i = 0; i < count; i++) {
@@ -264,12 +307,13 @@ class HomeCanvas extends Base {
         if (!me.nodeBuffer) return;
 
         const
-            buffer = me.nodeBuffer,
-            count  = NODE_COUNT,
-            mx     = me.mouse.x,
-            my     = me.mouse.y,
-            cx     = width / 2,
-            cy     = height / 2;
+            buffer      = me.nodeBuffer,
+            count       = NODE_COUNT,
+            mx          = me.mouse.x,
+            my          = me.mouse.y,
+            cx          = width / 2,
+            cy          = height / 2,
+            themeColors = me.constructor.colors[me.theme];
 
         ctx.lineWidth = 1;
 
@@ -386,7 +430,7 @@ class HomeCanvas extends Base {
                 ctx.fillStyle = HIGHLIGHT;
                 ctx.globalAlpha = Math.min(1, 0.5 + energy)
             } else if (layer === 2) {
-                ctx.fillStyle = isHover ? '#FFFFFF' : PRIMARY;
+                ctx.fillStyle = isHover ? themeColors.nodeHigh : PRIMARY;
                 ctx.globalAlpha = isHover ? 1 : 0.8
             } else if (parentId === -2) {
                 // Drifting Node Visual
@@ -417,10 +461,11 @@ class HomeCanvas extends Base {
         if (!me.packetBuffer) return;
 
         const
-            buffer = me.packetBuffer,
-            count  = PACKET_COUNT;
+            buffer      = me.packetBuffer,
+            count       = PACKET_COUNT,
+            themeColors = me.constructor.colors[me.theme];
 
-        ctx.fillStyle   = '#FFFFFF';
+        ctx.fillStyle   = themeColors.packet;
         ctx.shadowBlur  = 5;
         ctx.shadowColor = HIGHLIGHT;
 
@@ -452,6 +497,8 @@ class HomeCanvas extends Base {
         let me = this;
 
         if (me.shockwaves.length === 0) return;
+
+        const themeColors = me.constructor.colors[me.theme];
 
         ctx.lineCap = 'round';
 
@@ -495,11 +542,11 @@ class HomeCanvas extends Base {
 
             // 3. Primary Wave (White Hot Center)
             ctx.beginPath();
-            ctx.strokeStyle = '#FFFFFF';
+            ctx.strokeStyle = themeColors.shockwave;
             ctx.globalAlpha = alpha;
             ctx.lineWidth   = 6 * (1 - progress);
             ctx.shadowBlur  = 20;
-            ctx.shadowColor = '#FFFFFF';
+            ctx.shadowColor = themeColors.shockwave;
             ctx.arc(wave.x, wave.y, radius, 0, Math.PI * 2);
             ctx.stroke();
 
@@ -522,7 +569,9 @@ class HomeCanvas extends Base {
 
         if (me.sparks.length === 0) return;
 
-        ctx.strokeStyle = SPARK_COLOR;
+        const themeColors = me.constructor.colors[me.theme];
+
+        ctx.strokeStyle = themeColors.spark;
         ctx.shadowBlur = 0; // Crisp lines on white
         ctx.lineWidth = 2;
 
@@ -1153,9 +1202,12 @@ class HomeCanvas extends Base {
 
         if (!ctx) return;
 
-        const gradient = ctx.createLinearGradient(0, 0, width, height);
-        gradient.addColorStop(0, 'rgba(62, 99, 221, 0.05)'); // PRIMARY low alpha
-        gradient.addColorStop(1, 'rgba(139, 166, 255, 0.05)'); // SECONDARY low alpha
+        const
+            themeColors = me.constructor.colors[me.theme],
+            gradient    = ctx.createLinearGradient(0, 0, width, height);
+
+        gradient.addColorStop(0, themeColors.background[0]);
+        gradient.addColorStop(1, themeColors.background[1]);
 
         me.gradients.bgGradient = gradient
     }
