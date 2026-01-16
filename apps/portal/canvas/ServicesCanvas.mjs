@@ -4,12 +4,15 @@ const
     hasRaf    = typeof requestAnimationFrame === 'function',
     PRIMARY   = '#3E63DD', // Neo Blue
     SECONDARY = '#8BA6FF',
-    HIGHLIGHT = '#00BFFF',
-    HEX_SIZE  = 30, // Radius of a hex
+    HIGHLIGHT = '#00BFFF', // Deep Sky Blue
+    HEX_SIZE  = 30,
     STRIDE    = 7,  // q, r, x, y, scale, energy, buildCharge
     RUNNER_COUNT = 30,
     RUNNER_STRIDE = 7,
-    SUPER_HEX_MAX = 5; // Max number of active super-structures
+    SUPER_HEX_MAX = 5,
+    KERNEL_HEX_SIZE = 120,
+    DEBRIS_COUNT = 200,
+    DEBRIS_STRIDE = 5; // x, y, vx, vy, life
 
 /**
  * @summary SharedWorker renderer for the Portal Services "Neural Lattice" background.
@@ -19,12 +22,11 @@ const
  * and mutated.
  *
  * **Visual Architecture:**
- * 1. **Hexagonal Grid:** Represents efficient, tiling structure (The App Engine).
- * 2. **Reactive Surface:** Cells react to proximity (Mouse/Touch) by energizing (Governance/Inspection).
- * 3. **Data Runners:** High-speed packets traversing the grid edges, visualizing throughput and velocity.
- * 4. **Runtime Permutation:** When Runners congregate, they trigger a "Compilation" event, fusing 
- *    cells into larger "Super Modules" (Rosettes) which then dissolve back. This visualizes the 
- *    cause-and-effect of data flow driving structural change.
+ * 1. **Kernel Layer (Parallax):** A deep, slow-moving background grid representing the framework core.
+ * 2. **Application Layer (Lattice):** The main efficient structure (The App Engine).
+ * 3. **Data Runners:** High-speed packets visualizing throughput and velocity.
+ * 4. **Runtime Permutation:** Dynamic fusion of cells into "Super Modules".
+ * 5. **Digital Debris:** Particle effects visualizing memory allocation (implosion) and garbage collection (fragmentation).
  *
  * @class Portal.canvas.ServicesCanvas
  * @extends Neo.core.Base
@@ -34,18 +36,20 @@ class ServicesCanvas extends Base {
     static colors = {
         dark: {
             background: ['rgba(30, 30, 35, 1)', 'rgba(20, 20, 25, 1)'],
-            hexLine   : 'rgba(255, 255, 255, 0.05)',
-            hexActive : 'rgba(255, 255, 255, 0.15)',
-            highlight : '#FFFFFF',
-            runner    : '#FFFFFF',
+            debris    : '#FFFFFF',
+            hexLine   : 'rgba(139, 166, 255, 0.05)',
+            hexActive : 'rgba(0, 191, 255, 0.15)',
+            kernel    : 'rgba(62, 99, 221, 0.03)',
+            runner    : '#00BFFF',
             superHex  : 'rgba(255, 255, 255, 0.03)'
         },
         light: {
             background: ['rgba(255, 255, 255, 1)', 'rgba(245, 247, 255, 1)'],
-            hexLine   : 'rgba(62, 99, 221, 0.08)',
-            hexActive : 'rgba(62, 99, 221, 0.2)',
-            highlight : '#3E63DD',
-            runner    : '#3E63DD',
+            debris    : '#3E63DD',
+            hexLine   : 'rgba(139, 166, 255, 0.15)',
+            hexActive : 'rgba(0, 191, 255, 0.2)',
+            kernel    : 'rgba(62, 99, 221, 0.04)',
+            runner    : '#00BFFF',
             superHex  : 'rgba(62, 99, 221, 0.03)'
         }
     }
@@ -74,27 +78,18 @@ class ServicesCanvas extends Base {
     isPaused   = false
     mouse      = {x: -1000, y: -1000}
     
-    /**
-     * Buffer for Hex Cell Data.
-     * Stride: [q, r, x, y, scale, energy, buildCharge]
-     * @member {Float32Array|null} cellBuffer
-     */
-    cellBuffer = null
+    cellBuffer   = null
+    runnerBuffer = null
+    kernelBuffer = null
     
     /**
-     * Buffer for Runner Data.
-     * Stride: [x, y, targetX, targetY, progress, speed, currentHexIdx]
-     * @member {Float32Array|null} runnerBuffer
+     * Buffer for Particle Debris.
+     * Stride: [x, y, vx, vy, life]
+     * @member {Float32Array|null} debrisBuffer
      */
-    runnerBuffer = null
+    debrisBuffer = null
 
-    /**
-     * Active Super Hexagons (Merged Clusters).
-     * Objects: { centerIdx, age, maxAge, state (0=forming, 1=active, 2=dissolving) }
-     * @member {Object[]} superHexes=[]
-     */
     superHexes = []
-
     scale      = 1
     time       = 0
 
@@ -105,6 +100,8 @@ class ServicesCanvas extends Base {
         me.canvasSize   = null;
         me.cellBuffer   = null;
         me.runnerBuffer = null;
+        me.kernelBuffer = null;
+        me.debrisBuffer = null;
         me.superHexes   = [];
         me.isPaused     = false;
         me.gradients    = {};
@@ -122,17 +119,10 @@ class ServicesCanvas extends Base {
         this.theme = value
     }
 
-    /**
-     * Draw a single hexagon path
-     * @param {CanvasRenderingContext2D} ctx
-     * @param {Number} x center x
-     * @param {Number} y center y
-     * @param {Number} size radius
-     */
     drawHex(ctx, x, y, size) {
         ctx.beginPath();
         for (let i = 0; i < 6; i++) {
-            const angle_deg = 60 * i + 30; // Rotate 30deg for Pointy Top
+            const angle_deg = 60 * i + 30;
             const angle_rad = Math.PI / 180 * angle_deg;
             const px = x + size * Math.cos(angle_rad);
             const py = y + size * Math.sin(angle_rad);
@@ -140,6 +130,33 @@ class ServicesCanvas extends Base {
             else ctx.lineTo(px, py);
         }
         ctx.closePath();
+    }
+
+    drawKernel(ctx, width, height) {
+        let me = this;
+        if (!me.kernelBuffer) return;
+
+        const 
+            buffer = me.kernelBuffer,
+            count  = buffer.length / 2,
+            s      = me.scale,
+            size   = KERNEL_HEX_SIZE * s,
+            themeColors = me.constructor.colors[me.theme];
+
+        ctx.strokeStyle = themeColors.kernel;
+        ctx.lineWidth   = 2 * s;
+        ctx.lineJoin    = 'round';
+        
+        let panX = Math.sin(me.time * 0.2) * 20 * s,
+            panY = Math.cos(me.time * 0.2) * 20 * s;
+
+        ctx.beginPath();
+        for (let i = 0; i < count; i++) {
+            let x = buffer[i * 2] + panX,
+                y = buffer[i * 2 + 1] + panY;
+            me.drawHex(ctx, x, y, size);
+        }
+        ctx.stroke();
     }
 
     drawGraph(ctx, width, height) {
@@ -157,7 +174,7 @@ class ServicesCanvas extends Base {
         ctx.lineWidth = 1 * s;
         ctx.lineJoin  = 'round';
 
-        // Batch 1: Idle Hexes (Background Structure)
+        // Batch 1: Idle Hexes
         ctx.beginPath();
         ctx.strokeStyle = themeColors.hexLine;
         
@@ -165,19 +182,17 @@ class ServicesCanvas extends Base {
             let idx    = i * STRIDE,
                 x      = buffer[idx + 2],
                 y      = buffer[idx + 3],
-                scale  = buffer[idx + 4], // Used for hiding merged cells
+                scale  = buffer[idx + 4], 
                 energy = buffer[idx + 5];
 
-            // Only draw if visible (scale > 0)
             if (energy <= 0.01 && scale > 0.1) {
-                // If scale < 1, we are merging/dissolving
                 let size = baseSize * 0.95 * scale;
                 me.drawHex(ctx, x, y, size); 
             }
         }
         ctx.stroke();
 
-        // Batch 2: Super Hexes (Merged Modules)
+        // Batch 2: Super Hexes
         ctx.lineWidth = 2 * s;
         for (let sh of me.superHexes) {
             let idx = sh.centerIdx,
@@ -185,27 +200,24 @@ class ServicesCanvas extends Base {
                 y   = buffer[idx + 3],
                 progress = 0;
 
-            if (sh.state === 0) progress = sh.age / 30; // Forming
-            else if (sh.state === 1) progress = 1;      // Active
-            else progress = 1 - (sh.age / 30);          // Dissolving
+            if (sh.state === 0) progress = sh.age / 30; 
+            else if (sh.state === 1) progress = 1;      
+            else progress = 1 - (sh.age / 30);          
 
             if (progress > 0) {
                 ctx.beginPath();
-                // Draw large "Module" shape
-                // We use a simplified large Hex for the "Fused" look
-                me.drawHex(ctx, x, y, baseSize * 2.5 * progress); // Grow/Shrink
+                me.drawHex(ctx, x, y, baseSize * 2.5 * progress); 
                 
-                ctx.strokeStyle = themeColors.highlight;
+                ctx.strokeStyle = HIGHLIGHT;
                 ctx.globalAlpha = 0.3 * progress;
                 ctx.stroke();
                 
                 ctx.fillStyle = themeColors.superHex;
                 ctx.fill();
                 
-                // Tech marker in center?
                 ctx.beginPath();
                 ctx.arc(x, y, 4 * s * progress, 0, Math.PI * 2);
-                ctx.fillStyle = themeColors.highlight;
+                ctx.fillStyle = HIGHLIGHT;
                 ctx.globalAlpha = 0.8 * progress;
                 ctx.fill();
             }
@@ -213,7 +225,7 @@ class ServicesCanvas extends Base {
         ctx.globalAlpha = 1;
         ctx.lineWidth = 1 * s;
 
-        // Batch 3: Active / Energized Hexes (Overlay)
+        // Batch 3: Active / Energized Hexes
         for (let i = 0; i < count; i++) {
             let idx    = i * STRIDE,
                 x      = buffer[idx + 2],
@@ -221,7 +233,6 @@ class ServicesCanvas extends Base {
                 scale  = buffer[idx + 4],
                 energy = buffer[idx + 5];
 
-            // Don't draw energy on hidden cells
             if (energy > 0.01 && scale > 0.5) {
                 let currentSize = baseSize * (0.95 + (energy * 0.1)); 
 
@@ -232,7 +243,7 @@ class ServicesCanvas extends Base {
                 ctx.globalAlpha = energy * 0.4; 
                 ctx.fill();
 
-                ctx.strokeStyle = themeColors.highlight;
+                ctx.strokeStyle = HIGHLIGHT;
                 ctx.lineWidth = (1 + energy) * s;
                 ctx.globalAlpha = energy * 0.8;
                 ctx.stroke();
@@ -243,10 +254,6 @@ class ServicesCanvas extends Base {
         }
     }
 
-    /**
-     * Draws the data runners traversing the grid.
-     * @param {CanvasRenderingContext2D} ctx 
-     */
     drawRunners(ctx) {
         let me = this;
         if (!me.runnerBuffer) return;
@@ -265,15 +272,13 @@ class ServicesCanvas extends Base {
                 y   = buffer[idx + 1],
                 tx  = buffer[idx + 2],
                 ty  = buffer[idx + 3],
-                sp  = buffer[idx + 5]; // Speed
+                sp  = buffer[idx + 5]; 
 
             let dx = tx - x,
                 dy = ty - y,
                 dist = Math.sqrt(dx*dx + dy*dy);
             
             if (dist > 0) {
-                // Tuned Speed: 70% of previous
-                // Trail: Still long for velocity feel
                 let tailLen = sp * 12 * s; 
                 let dirX = dx / dist,
                     dirY = dy / dist;
@@ -283,7 +288,7 @@ class ServicesCanvas extends Base {
 
                 let g = ctx.createLinearGradient(tailX, tailY, x, y);
                 g.addColorStop(0, 'rgba(0,0,0,0)');
-                g.addColorStop(0.5, themeColors.runner); 
+                g.addColorStop(0.5, PRIMARY); 
                 g.addColorStop(1, '#FFFFFF'); 
                 
                 ctx.beginPath();
@@ -294,6 +299,38 @@ class ServicesCanvas extends Base {
                 ctx.stroke();
             }
         }
+    }
+
+    /**
+     * Draws particle debris (squares).
+     */
+    drawDebris(ctx) {
+        let me = this;
+        if (!me.debrisBuffer) return;
+
+        const
+            buffer = me.debrisBuffer,
+            count  = DEBRIS_COUNT,
+            themeColors = me.constructor.colors[me.theme],
+            s      = me.scale;
+
+        ctx.fillStyle = themeColors.debris;
+
+        for (let i = 0; i < count; i++) {
+            let idx  = i * DEBRIS_STRIDE,
+                life = buffer[idx + 4];
+
+            if (life > 0) {
+                let x = buffer[idx],
+                    y = buffer[idx + 1],
+                    size = 3 * s * life; // Shrink as it dies
+
+                ctx.globalAlpha = life;
+                // Draw Square (Data Bit)
+                ctx.fillRect(x - size/2, y - size/2, size, size);
+            }
+        }
+        ctx.globalAlpha = 1;
     }
 
     initGraph({canvasId, windowId}) {
@@ -314,6 +351,44 @@ class ServicesCanvas extends Base {
             }
         };
         checkCanvas()
+    }
+
+    initDebris() {
+        let me = this;
+        if (!me.debrisBuffer) {
+            me.debrisBuffer = new Float32Array(DEBRIS_COUNT * DEBRIS_STRIDE);
+        }
+    }
+
+    initKernel(width, height) {
+        let me = this;
+        const
+            s        = me.scale,
+            size     = KERNEL_HEX_SIZE * s,
+            colStep  = size * 1.5,
+            rowStep  = size * Math.sqrt(3),
+            cols     = Math.ceil(width / colStep) + 4,
+            rows     = Math.ceil(height / rowStep) + 4,
+            count    = cols * rows;
+
+        me.kernelBuffer = new Float32Array(count * 2);
+        
+        let i = 0;
+        let startX = -(colStep * 2),
+            startY = -(rowStep * 2);
+
+        for (let c = 0; c < cols; c++) {
+            for (let r = 0; r < rows; r++) {
+                let x = startX + c * colStep;
+                let y = startY + r * rowStep;
+                if (c % 2 === 1) {
+                    y += rowStep / 2;
+                }
+                me.kernelBuffer[i * 2]     = x;
+                me.kernelBuffer[i * 2 + 1] = y;
+                i++;
+            }
+        }
     }
 
     initNodes(width, height) {
@@ -344,13 +419,13 @@ class ServicesCanvas extends Base {
                 }
 
                 let idx = i * STRIDE;
-                buffer[idx]     = c; // q
-                buffer[idx + 1] = r; // r
+                buffer[idx]     = c; 
+                buffer[idx + 1] = r; 
                 buffer[idx + 2] = x;
                 buffer[idx + 3] = y;
-                buffer[idx + 4] = 1; // Scale
-                buffer[idx + 5] = 0; // Energy
-                buffer[idx + 6] = 0; // Build Charge
+                buffer[idx + 4] = 1; 
+                buffer[idx + 5] = 0; 
+                buffer[idx + 6] = 0; 
 
                 i++;
                 if (i >= count) break;
@@ -404,14 +479,63 @@ class ServicesCanvas extends Base {
 
         let nIdx = Math.floor(Math.random() * nodeCount) * STRIDE;
         
-        buffer[idx]     = nodes[nIdx + 2]; // x
-        buffer[idx + 1] = nodes[nIdx + 3]; // y
+        buffer[idx]     = nodes[nIdx + 2]; 
+        buffer[idx + 1] = nodes[nIdx + 3]; 
         
         buffer[idx + 2] = buffer[idx]; 
         buffer[idx + 3] = buffer[idx + 1];
-        buffer[idx + 4] = 1; // Force new target
+        buffer[idx + 4] = 1; 
         buffer[idx + 5] = (Math.random() * 4 + 5) * me.scale; 
         buffer[idx + 6] = nIdx; 
+    }
+
+    /**
+     * Spawns debris particles at a location.
+     * @param {Number} x
+     * @param {Number} y
+     * @param {Number} count
+     * @param {String} type 'implode' or 'explode'
+     */
+    spawnDebris(x, y, count, type) {
+        let me = this;
+        if (!me.debrisBuffer) return;
+
+        const 
+            buffer = me.debrisBuffer,
+            total  = DEBRIS_COUNT,
+            s      = me.scale;
+
+        // Find empty slots
+        let spawned = 0;
+        for (let i = 0; i < total; i++) {
+            let idx = i * DEBRIS_STRIDE;
+            
+            // If slot is empty (life <= 0)
+            if (buffer[idx + 4] <= 0) {
+                let angle = Math.random() * Math.PI * 2,
+                    speed = (Math.random() * 3 + 2) * s;
+
+                if (type === 'implode') {
+                    // Start OUTSIDE, move IN
+                    let radius = 60 * s;
+                    buffer[idx]     = x + Math.cos(angle) * radius;
+                    buffer[idx + 1] = y + Math.sin(angle) * radius;
+                    buffer[idx + 2] = -Math.cos(angle) * speed; // Towards center
+                    buffer[idx + 3] = -Math.sin(angle) * speed;
+                } else {
+                    // Start INSIDE, move OUT
+                    buffer[idx]     = x;
+                    buffer[idx + 1] = y;
+                    buffer[idx + 2] = Math.cos(angle) * speed;
+                    buffer[idx + 3] = Math.sin(angle) * speed;
+                }
+                
+                buffer[idx + 4] = 1.0; // Life
+                
+                spawned++;
+                if (spawned >= count) break;
+            }
+        }
     }
 
     pause() {
@@ -441,11 +565,14 @@ class ServicesCanvas extends Base {
         me.time += 0.01;
 
         if (!me.cellBuffer) me.initNodes(width, height);
+        if (!me.kernelBuffer) me.initKernel(width, height);
         if (!me.runnerBuffer) me.initRunners(width, height);
+        if (!me.debrisBuffer) me.initDebris();
 
         me.updatePhysics(width, height);
-        me.updateSuperHexes(width, height); // Logic for Mergers (Now charge-based)
+        me.updateSuperHexes(width, height);
         me.updateRunners(width, height);
+        me.updateDebris();
 
         ctx.clearRect(0, 0, width, height);
 
@@ -454,8 +581,10 @@ class ServicesCanvas extends Base {
             ctx.fillRect(0, 0, width, height)
         }
 
+        me.drawKernel(ctx, width, height); 
         me.drawGraph(ctx, width, height);
         me.drawRunners(ctx);
+        me.drawDebris(ctx); // Render particles on top
 
         if (hasRaf) {
             requestAnimationFrame(me.renderLoop)
@@ -464,70 +593,85 @@ class ServicesCanvas extends Base {
         }
     }
 
-    /**
-     * Manages the lifecycle of Super Hexagons (Mergers).
-     * Now driven by 'Build Charge' from Runners.
-     */
+    updateDebris() {
+        let me = this;
+        if (!me.debrisBuffer) return;
+
+        const buffer = me.debrisBuffer,
+              count  = DEBRIS_COUNT;
+
+        for (let i = 0; i < count; i++) {
+            let idx = i * DEBRIS_STRIDE;
+            if (buffer[idx + 4] > 0) {
+                // Move
+                buffer[idx]     += buffer[idx + 2];
+                buffer[idx + 1] += buffer[idx + 3];
+                // Decay
+                buffer[idx + 4] -= 0.03;
+            }
+        }
+    }
+
     updateSuperHexes(width, height) {
         let me = this;
         if (!me.cellBuffer) return;
 
-        // 1. Check for Charge Triggers (Triggered by Runners)
-        // We only scan if we have slots open
         if (me.superHexes.length < SUPER_HEX_MAX) {
             const buffer = me.cellBuffer,
                   count  = buffer.length / STRIDE;
             
-            // Random sample check to avoid full scan every frame?
-            // Or just scan 50 random nodes?
             for (let i=0; i<20; i++) {
                 let idx = Math.floor(Math.random() * count) * STRIDE,
                     charge = buffer[idx + 6];
                 
-                if (charge > 3) { // Threshold: 3 runner hits recently
-                    // Spawn Merger!
+                if (charge > 3) { 
                     me.superHexes.push({
                         centerIdx: idx,
                         age: 0,
-                        state: 0, // forming
+                        state: 0, 
                         neighbors: me.findNeighbors(idx) 
                     });
                     
-                    // Consume Charge
+                    // Trigger Implosion!
+                    let x = buffer[idx + 2],
+                        y = buffer[idx + 3];
+                    me.spawnDebris(x, y, 12, 'implode');
+
                     buffer[idx + 6] = 0;
-                    break; // One spawn per frame max
+                    break; 
                 }
             }
         }
 
-        // 2. Update Logic
         for (let i = me.superHexes.length - 1; i >= 0; i--) {
             let sh = me.superHexes[i];
-            
             sh.age++;
 
-            // State Machine
             if (sh.state === 0 && sh.age > 30) {
-                sh.state = 1; // Active
+                sh.state = 1; 
                 sh.age = 0;
-            } else if (sh.state === 1 && sh.age > 120) { // Hold for 2 seconds
-                sh.state = 2; // Dissolving
+            } else if (sh.state === 1 && sh.age > 120) { 
+                sh.state = 2; 
                 sh.age = 0;
             } else if (sh.state === 2 && sh.age > 30) {
-                // Done
-                // Restore cells
+                // Done - Trigger Explosion (Fragmentation)
+                let idx = sh.centerIdx,
+                    x   = me.cellBuffer[idx + 2],
+                    y   = me.cellBuffer[idx + 3];
+                
+                me.spawnDebris(x, y, 12, 'explode');
+
                 sh.neighbors.forEach(nIdx => {
-                    me.cellBuffer[nIdx + 4] = 1; // Reset scale
+                    me.cellBuffer[nIdx + 4] = 1; 
                 });
                 me.superHexes.splice(i, 1);
                 continue;
             }
 
-            // Animate Underlying Cells (Hide them)
             let targetScale = 1;
-            if (sh.state === 0) targetScale = 1 - (sh.age / 30); // Shrink to 0
-            else if (sh.state === 1) targetScale = 0;            // Stay hidden
-            else targetScale = sh.age / 30;                      // Grow back to 1
+            if (sh.state === 0) targetScale = 1 - (sh.age / 30); 
+            else if (sh.state === 1) targetScale = 0;            
+            else targetScale = sh.age / 30;                      
 
             sh.neighbors.forEach(nIdx => {
                 me.cellBuffer[nIdx + 4] = targetScale;
@@ -535,10 +679,6 @@ class ServicesCanvas extends Base {
         }
     }
 
-    /**
-     * Find 6 neighbors + center for a given node index.
-     * Simple geometric search.
-     */
     findNeighbors(centerIdx) {
         let me = this,
             buffer = me.cellBuffer,
@@ -547,7 +687,7 @@ class ServicesCanvas extends Base {
             neighbors = [centerIdx],
             count = buffer.length / STRIDE,
             s = me.scale,
-            radius = HEX_SIZE * s * 2.1; // Search radius (slightly larger than 2 hex widths)
+            radius = HEX_SIZE * s * 2.1; 
 
         for (let i = 0; i < count; i++) {
             let idx = i * STRIDE;
@@ -605,9 +745,8 @@ class ServicesCanvas extends Base {
             
             if (buffer[idx + 5] < 0.001) buffer[idx + 5] = 0;
             
-            // Build Charge Decay
             if (buffer[idx + 6] > 0) {
-                buffer[idx + 6] -= 0.05; // Decays over ~20 frames
+                buffer[idx + 6] -= 0.05; 
                 if (buffer[idx + 6] < 0) buffer[idx + 6] = 0;
             }
         }
@@ -646,10 +785,7 @@ class ServicesCanvas extends Base {
                     let nodeIdx = me.findNearestNode(tx, ty);
                     if (nodeIdx !== -1) {
                         nodes[nodeIdx + 5] = 1.0; 
-                        
-                        // Increment Build Charge!
                         nodes[nodeIdx + 6] += 1; 
-                        
                         runners[idx + 6] = nodeIdx; 
                     }
                 } else {
@@ -722,6 +858,8 @@ class ServicesCanvas extends Base {
             me.context.canvas.height = size.height;
             me.cellBuffer = null; 
             me.runnerBuffer = null;
+            me.kernelBuffer = null;
+            me.debrisBuffer = null;
             me.initNodes(size.width, size.height);
             me.updateResources(size.width, size.height)
         }
