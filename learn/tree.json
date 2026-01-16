@@ -102,15 +102,5 @@
         {"name": "Overriding Methods",                                 "parentId": "JavaScript",                                          "id": "javascript/Overrides"},
         {"name": "Other JavaScript Class Features",                    "parentId": "JavaScript",                                          "id": "javascript/ClassFeatures"},
         {"name": "Super",                                              "parentId": "JavaScript",                                          "id": "javascript/Super"},
-    {"name": "Glossary",                                               "parentId": null,                                                  "id": "Glossary"},
-    {"name": "Blog",                                                   "parentId": null,                                 "isLeaf": false, "id": "Blog", "hidden": true},
-        {"name": "Context Engineering Done Right",                     "parentId": "Blog",                                                "id": "blog/context-engineering-done-right"},
-        {"name": "A Platform That Answers Your Questions",             "parentId": "Blog",                                                "id": "blog/ai-native-platform-answers-questions"},
-        {"name": "v10 Deep Dive: State Provider",                      "parentId": "Blog",                                                "id": "blog/v10-deep-dive-state-provider"},
-        {"name": "Benchmarking Frontends 2025",                        "parentId": "Blog",                                                "id": "blog/benchmarking-frontends-2025"},
-        {"name": "v10 Deep Dive: VDOM Revolution",                     "parentId": "Blog",                                                "id": "blog/v10-deep-dive-vdom-revolution"},
-        {"name": "v10 Deep Dive: Functional Components",               "parentId": "Blog",                                                "id": "blog/v10-deep-dive-functional-components"},
-        {"name": "v10 Deep Dive: Reactivity",                          "parentId": "Blog",                                                "id": "blog/v10-deep-dive-reactivity"},
-        {"name": "v10 Post 1: A Love Story",                           "parentId": "Blog",                                                "id": "blog/v10-post1-love-story"},
-        {"name": "JSON Blueprints & Shared Workers",                   "parentId": "Blog",                                                "id": "blog/json-blueprints-and-shared-workers"}
+    {"name": "Glossary",                                               "parentId": null,                                                  "id": "Glossary"}
 ]}
