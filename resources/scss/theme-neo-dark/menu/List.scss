@@ -1,6 +1,6 @@
 :root .neo-theme-neo-dark { // .neo-menu-list
-    --menu-list-background-color              : #fff;
-    --menu-list-border-color                  : #1c60a0;
+    --menu-list-background-color              : var(--sem-color-surface-neutral-default);
+    --menu-list-border-color                  : var(--sem-color-border-default);
     --menu-list-item-background-color         : inherit;
     --menu-list-item-background-color-disabled: inherit;
     --menu-list-item-background-color-hover   : inherit;
@@ -8,9 +8,9 @@
     --menu-list-item-color                    : inherit;
     --menu-list-item-font-family              : inherit;
     --menu-list-item-font-weight              : inherit;
-    --menu-list-item-icon-color               : #1c60a0;
-    --menu-list-item-icon-color-disabled      : #1c60a0;
-    --menu-list-item-icon-color-selected      : #1c60a0;
+    --menu-list-item-icon-color               : var(--sem-color-icon-primary-default);
+    --menu-list-item-icon-color-disabled      : var(--sem-color-icon-neutral-subdued);
+    --menu-list-item-icon-color-selected      : var(--sem-color-icon-primary-default);
     --menu-list-item-icon-gap                 : .4em;
     --menu-list-item-height                   : inherit;
     --menu-list-item-line-height              : inherit;
