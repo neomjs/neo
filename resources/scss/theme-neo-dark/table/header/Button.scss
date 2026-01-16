@@ -1,9 +1,9 @@
 @use "sass:color";
 
 :root .neo-theme-neo-dark { // .neo-table-header-button
-    --table-header-button-background-color       : #5d83a7;
+    --table-header-button-background-color       : var(--sem-color-surface-neutral-highlighted);
     --table-header-button-background-image       : none;
-    --table-header-button-color                  : #fff;
-    --table-header-button-glyph-color            : #fff;
-    --table-header-button-ripple-background-color: #{color.adjust(#5d83a7, $lightness: -10%)};
+    --table-header-button-color                  : var(--sem-color-text-neutral-default);
+    --table-header-button-glyph-color            : var(--sem-color-icon-neutral-default);
+    --table-header-button-ripple-background-color: var(--sem-color-surface-neutral-hover);
 }
