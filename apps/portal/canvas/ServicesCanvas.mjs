@@ -92,6 +92,7 @@ class ServicesCanvas extends Base {
     superHexes = []
     scale      = 1
     time       = 0
+    rotation   = {x: -0.4, y: 0} // Base tilt (radians) - Floor Perspective
 
     clearGraph() {
         let me = this;
@@ -119,20 +120,30 @@ class ServicesCanvas extends Base {
         this.theme = value
     }
 
-    drawHex(ctx, x, y, size) {
+    drawHex(ctx, x, y, z, size, projection) {
         ctx.beginPath();
+        let first = true;
+
         for (let i = 0; i < 6; i++) {
             const angle_deg = 60 * i + 30;
             const angle_rad = Math.PI / 180 * angle_deg;
+            
             const px = x + size * Math.cos(angle_rad);
             const py = y + size * Math.sin(angle_rad);
-            if (i === 0) ctx.moveTo(px, py);
-            else ctx.lineTo(px, py);
+
+            let p = projection.project(px, py, z);
+
+            if (first) {
+                ctx.moveTo(p.x, p.y);
+                first = false;
+            } else {
+                ctx.lineTo(p.x, p.y);
+            }
         }
         ctx.closePath();
     }
 
-    drawKernel(ctx, width, height) {
+    drawKernel(ctx, width, height, projection) {
         let me = this;
         if (!me.kernelBuffer) return;
 
@@ -154,12 +165,12 @@ class ServicesCanvas extends Base {
         for (let i = 0; i < count; i++) {
             let x = buffer[i * 2] + panX,
                 y = buffer[i * 2 + 1] + panY;
-            me.drawHex(ctx, x, y, size);
+            me.drawHex(ctx, x, y, 400, size, projection);
         }
         ctx.stroke();
     }
 
-    drawGraph(ctx, width, height) {
+    drawGraph(ctx, width, height, projection) {
         let me = this;
 
         if (!me.cellBuffer) return;
@@ -187,7 +198,7 @@ class ServicesCanvas extends Base {
 
             if (energy <= 0.01 && scale > 0.1) {
                 let size = baseSize * 0.95 * scale;
-                me.drawHex(ctx, x, y, size); 
+                me.drawHex(ctx, x, y, 0, size, projection); 
             }
         }
         ctx.stroke();
@@ -206,7 +217,7 @@ class ServicesCanvas extends Base {
 
             if (progress > 0) {
                 ctx.beginPath();
-                me.drawHex(ctx, x, y, baseSize * 2.5 * progress); 
+                me.drawHex(ctx, x, y, 0, baseSize * 2.5 * progress, projection); 
                 
                 ctx.strokeStyle = HIGHLIGHT;
                 ctx.globalAlpha = 0.3 * progress;
@@ -215,8 +226,10 @@ class ServicesCanvas extends Base {
                 ctx.fillStyle = themeColors.superHex;
                 ctx.fill();
                 
+                let p = projection.project(x, y, 0);
+
                 ctx.beginPath();
-                ctx.arc(x, y, 4 * s * progress, 0, Math.PI * 2);
+                ctx.arc(p.x, p.y, 4 * s * progress * p.scale, 0, Math.PI * 2);
                 ctx.fillStyle = HIGHLIGHT;
                 ctx.globalAlpha = 0.8 * progress;
                 ctx.fill();
@@ -237,7 +250,7 @@ class ServicesCanvas extends Base {
                 let currentSize = baseSize * (0.95 + (energy * 0.1)); 
 
                 ctx.beginPath();
-                me.drawHex(ctx, x, y, currentSize);
+                me.drawHex(ctx, x, y, 0, currentSize, projection);
                 
                 ctx.fillStyle = themeColors.hexActive;
                 ctx.globalAlpha = energy * 0.4; 
@@ -254,7 +267,7 @@ class ServicesCanvas extends Base {
         }
     }
 
-    drawRunners(ctx) {
+    drawRunners(ctx, projection) {
         let me = this;
         if (!me.runnerBuffer) return;
 
@@ -286,16 +299,21 @@ class ServicesCanvas extends Base {
                 let tailX = x - dirX * tailLen,
                     tailY = y - dirY * tailLen;
 
-                let g = ctx.createLinearGradient(tailX, tailY, x, y);
+                let p1 = projection.project(tailX, tailY, 0);
+                let p2 = projection.project(x, y, 0);
+
+                if (!p1.visible || !p2.visible) continue;
+
+                let g = ctx.createLinearGradient(p1.x, p1.y, p2.x, p2.y);
                 g.addColorStop(0, 'rgba(0,0,0,0)');
                 g.addColorStop(0.5, PRIMARY); 
                 g.addColorStop(1, '#FFFFFF'); 
                 
                 ctx.beginPath();
                 ctx.strokeStyle = g;
-                ctx.lineWidth = 3 * s; 
-                ctx.moveTo(tailX, tailY);
-                ctx.lineTo(x, y);
+                ctx.lineWidth = 3 * s * p2.scale; // Scale thickness
+                ctx.moveTo(p1.x, p1.y);
+                ctx.lineTo(p2.x, p2.y);
                 ctx.stroke();
             }
         }
@@ -304,7 +322,7 @@ class ServicesCanvas extends Base {
     /**
      * Draws particle debris (squares).
      */
-    drawDebris(ctx) {
+    drawDebris(ctx, projection) {
         let me = this;
         if (!me.debrisBuffer) return;
 
@@ -325,9 +343,12 @@ class ServicesCanvas extends Base {
                     y = buffer[idx + 1],
                     size = 3 * s * life; // Shrink as it dies
 
-                ctx.globalAlpha = life;
-                // Draw Square (Data Bit)
-                ctx.fillRect(x - size/2, y - size/2, size, size);
+                let p = projection.project(x, y, 0);
+                if (p.visible) {
+                    let scaledSize = size * p.scale;
+                    ctx.globalAlpha = life;
+                    ctx.fillRect(p.x - scaledSize/2, p.y - scaledSize/2, scaledSize, scaledSize);
+                }
             }
         }
         ctx.globalAlpha = 1;
@@ -570,6 +591,7 @@ class ServicesCanvas extends Base {
         if (!me.debrisBuffer) me.initDebris();
 
         me.updatePhysics(width, height);
+        me.updateRotation(width, height);
         me.updateSuperHexes(width, height);
         me.updateRunners(width, height);
         me.updateDebris();
@@ -581,10 +603,12 @@ class ServicesCanvas extends Base {
             ctx.fillRect(0, 0, width, height)
         }
 
-        me.drawKernel(ctx, width, height); 
-        me.drawGraph(ctx, width, height);
-        me.drawRunners(ctx);
-        me.drawDebris(ctx); // Render particles on top
+        let projection = me.getProjection(width, height);
+
+        me.drawKernel(ctx, width, height, projection); 
+        me.drawGraph(ctx, width, height, projection);
+        me.drawRunners(ctx, projection);
+        me.drawDebris(ctx, projection); // Render particles on top
 
         if (hasRaf) {
             requestAnimationFrame(me.renderLoop)
@@ -830,6 +854,62 @@ class ServicesCanvas extends Base {
             if (data.x !== undefined) me.mouse.x = data.x;
             if (data.y !== undefined) me.mouse.y = data.y
         }
+    }
+
+    updateRotation(width, height) {
+        let me = this,
+            mx = me.mouse.x,
+            my = me.mouse.y,
+            tx = -0.4, // Base tilt X (pitch)
+            ty = 0;   // Base yaw
+
+        if (mx !== -1000) {
+            // Map mouse X to Yaw (+/- 0.2 rad)
+            ty = ((mx / width) - 0.5) * 0.4;
+            // Map mouse Y to Pitch (-0.6 to -0.2 rad)
+            tx = -0.4 + ((my / height) - 0.5) * 0.4;
+        }
+
+        // Smooth interpolate
+        me.rotation.x += (tx - me.rotation.x) * 0.05;
+        me.rotation.y += (ty - me.rotation.y) * 0.05;
+    }
+
+    getProjection(width, height) {
+        let me = this,
+            fov = 1000,
+            cx  = width / 2,
+            cy  = height / 2,
+            cosX = Math.cos(me.rotation.x),
+            sinX = Math.sin(me.rotation.x),
+            cosY = Math.cos(me.rotation.y),
+            sinY = Math.sin(me.rotation.y);
+
+        return {
+            project(x, y, z) {
+                let dx = x - cx,
+                    dy = y - cy,
+                    dz = z;
+
+                // Rotate Y
+                let x1 = dx * cosY - dz * sinY;
+                let z1 = dz * cosY + dx * sinY;
+
+                // Rotate X
+                let y2 = dy * cosX - z1 * sinX;
+                let z2 = z1 * cosX + dy * sinX;
+
+                // Project
+                let scale = fov / (fov + z2);
+
+                return {
+                    x: x1 * scale + cx,
+                    y: y2 * scale + cy,
+                    scale: scale,
+                    visible: z2 > -fov // Clip if behind camera
+                };
+            }
+        };
     }
 
     updateResources(width, height) {
