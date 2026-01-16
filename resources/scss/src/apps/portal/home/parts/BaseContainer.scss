@@ -34,7 +34,7 @@
     }
 
     .portal-content-wrapper {
-        background-color: lightgray;
+        background-color: var(--portal-home-base-bg);
         padding         : 20px;
 
         @media (max-width: 600px) {
