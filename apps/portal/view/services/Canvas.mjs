@@ -1,8 +1,23 @@
 import BaseCanvas from '../../../../src/component/Canvas.mjs';
 
 /**
+ * @summary The App Worker component for the Services "Neural Lattice" background.
+ *
+ * This component acts as the **Controller** and **Bridge** for the "Neural Lattice" visualization.
+ * It does not perform any rendering itself. Instead, it coordinates the lifecycle and
+ * data transfer to the `Portal.canvas.ServicesCanvas` (SharedWorker) which handles the physics and drawing.
+ *
+ * **Responsibilities:**
+ * 1. **Lifecycle Management:** Imports and initializes the SharedWorker graph when the canvas
+ *    becomes available offscreen via `afterSetOffscreenRegistered`.
+ * 2. **Resize Observation:** Tracks the DOM element's size via `Neo.main.addon.ResizeObserver` and pushes
+ *    dimensions to the worker to ensure the simulation matches the viewport.
+ * 3. **Input Bridging:** Captures high-frequency mouse events (move, leave) from the parent container
+ *    and forwards normalized coordinates to the worker for interactive physics.
+ *
  * @class Portal.view.services.Canvas
  * @extends Neo.component.Canvas
+ * @see Portal.canvas.ServicesCanvas
  */
 class Canvas extends BaseCanvas {
     static config = {
@@ -43,6 +58,9 @@ class Canvas extends BaseCanvas {
     isCanvasReady = false
 
     /**
+     * Lifecycle hook triggered when the canvas is registered offscreen.
+     * Initializes the Shared Worker graph and sets up resize observation.
+     *
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
@@ -80,6 +98,8 @@ class Canvas extends BaseCanvas {
     }
 
     /**
+     * Resets the mouse state in the Shared Worker when the cursor leaves the canvas.
+     * This prevents nodes from being "stuck" in a repulsion state.
      * @param {Object} data
      */
     onMouseLeave(data) {
@@ -89,6 +109,8 @@ class Canvas extends BaseCanvas {
     }
 
     /**
+     * Forwards mouse coordinates to the Shared Worker for interaction effects.
+     * Coordinates are normalized relative to the canvas top-left corner using the cached `canvasRect`.
      * @param {Object} data
      */
     onMouseMove(data) {
@@ -102,6 +124,7 @@ class Canvas extends BaseCanvas {
     }
 
     /**
+     * Updates the canvas size in the Shared Worker when the DOM element resizes.
      * @param {Object} data
      */
     async onResize(data) {
@@ -109,6 +132,7 @@ class Canvas extends BaseCanvas {
     }
 
     /**
+     * Pushes the new dimensions to the Shared Worker and caches the bounding rect.
      * @param {Object|null} rect
      */
     async updateSize(rect) {

@@ -2,8 +2,23 @@ import Canvas    from './Canvas.mjs';
 import Container from '../../../../src/container/Base.mjs';
 
 /**
+ * @summary The main container for the Portal's Services section, orchestrating the Neural Lattice background and content overlays.
+ *
+ * This container uses a `fit` layout to layer the interactive `Portal.view.services.Canvas` (background)
+ * beneath the scrollable content cards. It handles user interaction by capturing DOM events at the
+ * container level and delegating them to the canvas controller, ensuring smooth physics interactions
+ * even when the mouse is over the text content.
+ *
+ * **Key Responsibilities:**
+ * 1.  **Visual Layering:** Stacks the SharedWorker-driven canvas behind the UI content.
+ * 2.  **Event Delegation:** Captures `mousemove` and `mouseleave` events and forwards them to the
+ *     `Canvas` component to drive the "Neural Lattice" physics engine.
+ * 3.  **Content Structure:** Defines the layout for the "Professional Trainings" and "Professional Services" cards.
+ *
  * @class Portal.view.services.Container
  * @extends Neo.container.Base
+ * @see Portal.view.services.Canvas
+ * @see Portal.canvas.ServicesCanvas
  */
 class ServicesContainer extends Container {
     static config = {
@@ -18,6 +33,8 @@ class ServicesContainer extends Container {
          */
         cls: ['portal-services-component'],
         /**
+         * DOM listeners are set on the container to capture interactions across the entire view,
+         * including over the content cards.
          * @member {Object} domListeners
          */
         domListeners: {
@@ -105,6 +122,7 @@ class ServicesContainer extends Container {
     }
 
     /**
+     * Delegates mouse leave events to the canvas controller to reset physics state.
      * @param {Object} data
      */
     onMouseLeave(data) {
@@ -112,6 +130,7 @@ class ServicesContainer extends Container {
     }
 
     /**
+     * Delegates mouse move events to the canvas controller to update physics interactions.
      * @param {Object} data
      */
     onMouseMove(data) {

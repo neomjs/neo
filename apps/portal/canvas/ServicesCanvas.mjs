@@ -25,8 +25,35 @@ const
  * 2. **Data Strata (Mid-Ground):** Floating clusters bridging the depth gap.
  * 3. **Application Layer (Lattice):** The main efficient structure (The App Engine).
  * 4. **Data Runners:** High-speed packets visualizing throughput and velocity.
- * 5. **Runtime Permutation:** Dynamic fusion of cells into "Super Modules".
- * 6. **Digital Debris:** Particle effects visualizing memory allocation (implosion) and garbage collection (fragmentation).
+ * 5. **Runtime Permutation:** Dynamic fusion of cells into "Super Modules" (implosion/explosion effects).
+ * 6. **Digital Debris:** Particle effects visualizing memory allocation and garbage collection.
+ *
+ * **Performance Architecture (Zero-Allocation):**
+ * To ensure 60fps performance on high-resolution displays, this class employs a strict **Zero-Allocation** strategy:
+ * 1.  **TypedArray Buffers:** All entity data is stored in pre-allocated `Float32Array` buffers.
+ * 2.  **Persistent Objects:** Reusable objects (like `projectionPoint`, `projectionMatrix`) are used
+ *     instead of creating new objects per frame.
+ * 3.  **Inlined Math:** Projection and vector calculations are performed in-place.
+ *
+ * **Node Buffer Layout (Float32Array):**
+ * - 0: q (Axial Coord Q)
+ * - 1: r (Axial Coord R)
+ * - 2: x (Screen X)
+ * - 3: y (Screen Y)
+ * - 4: scale (Visual scale, 0-1)
+ * - 5: energy (Interaction state, 0-1)
+ * - 6: buildCharge (Accumulator for Super Hex formation)
+ * - 7: colorIdx (Palette index)
+ *
+ * **Runner Buffer Layout (Float32Array):**
+ * - 0: x (Current X)
+ * - 1: y (Current Y)
+ * - 2: tx (Target X)
+ * - 3: ty (Target Y)
+ * - 4: progress (Animation progress, 0-1)
+ * - 5: speed (Movement speed)
+ * - 6: currentHexIdx (Index of occupied node)
+ * - 7: colorIdx (Palette index)
  *
  * @class Portal.canvas.ServicesCanvas
  * @extends Neo.core.Base
@@ -61,8 +88,18 @@ class ServicesCanvas extends Base {
     }
 
     static config = {
+        /**
+         * @member {String} className='Portal.canvas.ServicesCanvas'
+         * @protected
+         */
         className: 'Portal.canvas.ServicesCanvas',
-        remote   : {
+        /**
+         * Remote method access for the App Worker.
+         * Allows the UI (Controller) to control the simulation state and input.
+         * @member {Object} remote
+         * @protected
+         */
+        remote: {
             app: [
                 'clearGraph',
                 'initGraph',
@@ -73,20 +110,71 @@ class ServicesCanvas extends Base {
                 'updateSize'
             ]
         },
+        /**
+         * @member {Boolean} singleton=true
+         * @protected
+         */
         singleton: true,
-        theme    : 'light'
+        /**
+         * The active color theme ('light' or 'dark').
+         * Changing this triggers a reactive update to the cached gradients and color resources.
+         * @member {String} theme='light'
+         * @reactive
+         */
+        theme: 'light'
     }
 
-    canvasId   = null
+    /**
+     * ID of the canvas element in the DOM.
+     * @member {String|null} canvasId=null
+     */
+    canvasId = null
+    /**
+     * Current dimensions of the canvas.
+     * @member {Object|null} canvasSize=null
+     */
     canvasSize = null
-    context    = null
-    gradients  = {}
-    isPaused   = false
-    mouse      = {x: -1000, y: -1000}
+    /**
+     * The 2D rendering context.
+     * @member {OffscreenCanvasRenderingContext2D|null} context=null
+     */
+    context = null
+    /**
+     * Cache for reusable gradients to prevent GC.
+     * @member {Object} gradients={}
+     */
+    gradients = {}
+    /**
+     * Flag to pause the render loop.
+     * @member {Boolean} isPaused=false
+     */
+    isPaused = false
+    /**
+     * Tracked mouse position for interactive physics.
+     * Initialize off-screen to prevent startup jitters.
+     * @member {Object} mouse={x: -1000, y: -1000}
+     */
+    mouse = {x: -1000, y: -1000}
 
-    cellBuffer   = null
+    /**
+     * Buffer for the main Application Lattice (The Graph).
+     * @member {Float32Array|null} cellBuffer
+     */
+    cellBuffer = null
+    /**
+     * Buffer for Data Runners (High-speed packets).
+     * @member {Float32Array|null} runnerBuffer
+     */
     runnerBuffer = null
+    /**
+     * Buffer for the Kernel Layer (Background Parallax).
+     * @member {Float32Array|null} kernelBuffer
+     */
     kernelBuffer = null
+    /**
+     * Buffer for Data Strata (Mid-ground Clusters).
+     * @member {Float32Array|null} strataBuffer
+     */
     strataBuffer = null
 
     /**
@@ -110,11 +198,31 @@ class ServicesCanvas extends Base {
      */
     projectionMatrix = {cx: 0, cy: 0, cosX: 0, sinX: 0, cosY: 0, sinY: 0}
 
+    /**
+     * List of active "Super Hexes" (Merged cells).
+     * @member {Object[]} superHexes=[]
+     */
     superHexes = []
-    scale      = 1
-    time       = 0
-    rotation   = {x: -0.4, y: 0} // Base tilt (radians) - Floor Perspective
+    /**
+     * Scaling factor relative to reference viewport.
+     * @member {Number} scale=1
+     */
+    scale = 1
+    /**
+     * Global simulation time.
+     * @member {Number} time=0
+     */
+    time = 0
+    /**
+     * Current camera rotation in radians (Pitch, Yaw).
+     * @member {Object} rotation={x: -0.4, y: 0}
+     */
+    rotation = {x: -0.4, y: 0} // Base tilt (radians) - Floor Perspective
 
+    /**
+     * Clears the graph state and stops the render loop.
+     * Used when the component is destroyed or the route changes to release memory.
+     */
     clearGraph() {
         let me          = this;
         me.context      = null;
@@ -131,6 +239,13 @@ class ServicesCanvas extends Base {
         me.scale        = 1
     }
 
+    /**
+     * Triggered after the `theme` config is changed.
+     * Updates the resource cache (gradients, colors) to reflect the new theme immediately.
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
     afterSetTheme(value, oldValue) {
         let me = this;
         if (value && me.canvasSize) {
@@ -138,10 +253,23 @@ class ServicesCanvas extends Base {
         }
     }
 
+    /**
+     * Sets the visual theme.
+     * @param {String} value 'light' or 'dark'
+     */
     setTheme(value) {
         this.theme = value
     }
 
+    /**
+     * Draws a single Hexagon projected into 3D space.
+     * Uses the reused `projectionPoint` to avoid allocations.
+     * @param {CanvasRenderingContext2D} ctx
+     * @param {Number} x World X
+     * @param {Number} y World Y
+     * @param {Number} z World Z
+     * @param {Number} size Radius in pixels
+     */
     drawHex(ctx, x, y, z, size) {
         let me    = this,
             first = true,
@@ -168,6 +296,13 @@ class ServicesCanvas extends Base {
         ctx.closePath();
     }
 
+    /**
+     * Draws the Kernel Layer (Background).
+     * This layer moves slowly (Parallax) to create depth.
+     * @param {CanvasRenderingContext2D} ctx
+     * @param {Number} width
+     * @param {Number} height
+     */
     drawKernel(ctx, width, height) {
         let me = this;
         if (!me.kernelBuffer) {
@@ -197,6 +332,13 @@ class ServicesCanvas extends Base {
         ctx.stroke();
     }
 
+    /**
+     * Draws the Data Strata (Mid-ground floating clusters).
+     * These elements sit between the background and the main lattice.
+     * @param {CanvasRenderingContext2D} ctx
+     * @param {Number} width
+     * @param {Number} height
+     */
     drawStrata(ctx, width, height) {
         let me = this;
         if (!me.strataBuffer) {
@@ -226,6 +368,16 @@ class ServicesCanvas extends Base {
         }
     }
 
+    /**
+     * Draws the main Application Lattice (Foreground).
+     * Handles 3 batches:
+     * 1. **Idle Hexes:** Faint outlines.
+     * 2. **Super Hexes:** Large, merged modules with fill and center glow.
+     * 3. **Active Hexes:** Energized nodes with "Holographic Pop" (3D extrusion).
+     * @param {CanvasRenderingContext2D} ctx
+     * @param {Number} width
+     * @param {Number} height
+     */
     drawGraph(ctx, width, height) {
         let me = this;
 
@@ -345,6 +497,12 @@ class ServicesCanvas extends Base {
         }
     }
 
+    /**
+     * Draws Data Runners (High-speed Packets).
+     * Visualized as a gradient line (Trail) leading to a white head.
+     * Uses optimized projection re-use.
+     * @param {CanvasRenderingContext2D} ctx
+     */
     drawRunners(ctx) {
         let me = this;
         if (!me.runnerBuffer) {
@@ -452,6 +610,13 @@ class ServicesCanvas extends Base {
         ctx.globalAlpha = 1;
     }
 
+    /**
+     * Initializes the graph context.
+     * Connects to the OffscreenCanvas transferred from the main thread.
+     * @param {Object} opts
+     * @param {String} opts.canvasId
+     * @param {String} opts.windowId
+     */
     initGraph({canvasId, windowId}) {
         let me        = this,
             hasChange = me.canvasId !== canvasId;
@@ -472,6 +637,9 @@ class ServicesCanvas extends Base {
         checkCanvas()
     }
 
+    /**
+     * Allocates the Debris Buffer (Particles).
+     */
     initDebris() {
         let me = this;
         if (!me.debrisBuffer) {
@@ -479,6 +647,12 @@ class ServicesCanvas extends Base {
         }
     }
 
+    /**
+     * Initializes the Kernel Buffer (Background Grid).
+     * Creates a large-scale Hex grid that extends beyond the viewport for parallax movement.
+     * @param {Number} width
+     * @param {Number} height
+     */
     initKernel(width, height) {
         let me      = this;
         const
@@ -510,6 +684,12 @@ class ServicesCanvas extends Base {
         }
     }
 
+    /**
+     * Initializes the Main Lattice (Application Layer).
+     * Creates a standard Hexagonal Grid covering the screen + margins.
+     * @param {Number} width
+     * @param {Number} height
+     */
     initNodes(width, height) {
         let me = this;
 
@@ -557,6 +737,11 @@ class ServicesCanvas extends Base {
         }
     }
 
+    /**
+     * Initializes Data Runners (Traffic).
+     * @param {Number} width
+     * @param {Number} height
+     */
     initRunners(width, height) {
         let me = this;
         if (!me.runnerBuffer) {
@@ -573,6 +758,12 @@ class ServicesCanvas extends Base {
         }
     }
 
+    /**
+     * Initializes Data Strata (Floating Mid-ground Clusters).
+     * Randomly placed 3D coordinates.
+     * @param {Number} width
+     * @param {Number} height
+     */
     initStrata(width, height) {
         let me = this;
 
@@ -588,6 +779,12 @@ class ServicesCanvas extends Base {
         }
     }
 
+    /**
+     * Finds the nearest hex node to a given screen position.
+     * @param {Number} x
+     * @param {Number} y
+     * @returns {Number} Index of the nearest node or -1
+     */
     findNearestNode(x, y) {
         let me      = this,
             buffer  = me.cellBuffer,
@@ -609,6 +806,12 @@ class ServicesCanvas extends Base {
         return bestIdx;
     }
 
+    /**
+     * Resets a runner to a random position.
+     * @param {Number} index
+     * @param {Number} width
+     * @param {Number} height
+     */
     resetRunner(index, width, height) {
         let me        = this,
             buffer    = me.runnerBuffer,
@@ -683,10 +886,16 @@ class ServicesCanvas extends Base {
         }
     }
 
+    /**
+     * Pauses the simulation.
+     */
     pause() {
         this.isPaused = true
     }
 
+    /**
+     * Resumes the simulation.
+     */
     resume() {
         let me = this;
         if (me.isPaused) {
@@ -695,8 +904,15 @@ class ServicesCanvas extends Base {
         }
     }
 
+    /**
+     * @member {Function} renderLoop=this.render.bind(this)
+     */
     renderLoop = this.render.bind(this)
 
+    /**
+     * Main Render Loop.
+     * Updates physics, projects geometry, and draws all layers.
+     */
     render() {
         let me = this;
 
@@ -754,6 +970,9 @@ class ServicesCanvas extends Base {
         }
     }
 
+    /**
+     * Updates debris physics (movement, decay, repulsion).
+     */
     updateDebris() {
         let me = this;
         if (!me.debrisBuffer) {
@@ -790,6 +1009,13 @@ class ServicesCanvas extends Base {
         }
     }
 
+    /**
+     * Manages the lifecycle of Super Hexes.
+     * Detects highly charged cells, triggers implosions to form Super Hexes,
+     * and manages their growth and final explosion.
+     * @param {Number} width
+     * @param {Number} height
+     */
     updateSuperHexes(width, height) {
         let me = this;
         if (!me.cellBuffer) {
@@ -863,6 +1089,11 @@ class ServicesCanvas extends Base {
         }
     }
 
+    /**
+     * Finds immediate neighbors for Super Hex formation.
+     * @param {Number} centerIdx
+     * @returns {Number[]} Array of neighbor indices
+     */
     findNeighbors(centerIdx) {
         let me        = this,
             buffer    = me.cellBuffer,
@@ -890,6 +1121,12 @@ class ServicesCanvas extends Base {
         return neighbors;
     }
 
+    /**
+     * Updates interaction physics for the main lattice.
+     * Handles mouse hover energy transfer and decay.
+     * @param {Number} width
+     * @param {Number} height
+     */
     updatePhysics(width, height) {
         let me = this;
         if (!me.cellBuffer) {
@@ -945,6 +1182,12 @@ class ServicesCanvas extends Base {
         }
     }
 
+    /**
+     * Updates Runner logic.
+     * Handles movement along edges, target acquisition, and magnetic mouse bias.
+     * @param {Number} width
+     * @param {Number} height
+     */
     updateRunners(width, height) {
         let me = this;
         if (!me.runnerBuffer) {
@@ -1057,6 +1300,13 @@ class ServicesCanvas extends Base {
         }
     }
 
+    /**
+     * Updates the mouse state from main thread events.
+     * @param {Object} data
+     * @param {Boolean} [data.leave]
+     * @param {Number} [data.x]
+     * @param {Number} [data.y]
+     */
     updateMouseState(data) {
         let me = this;
         if (data.leave) {
@@ -1072,6 +1322,12 @@ class ServicesCanvas extends Base {
         }
     }
 
+    /**
+     * Updates camera rotation based on mouse position.
+     * Creates a "Floor Perspective" tilt effect.
+     * @param {Number} width
+     * @param {Number} height
+     */
     updateRotation(width, height) {
         let me = this,
             mx = me.mouse.x,
@@ -1144,6 +1400,11 @@ class ServicesCanvas extends Base {
         return pp;
     }
 
+    /**
+     * Creates and caches gradients.
+     * @param {Number} width
+     * @param {Number} height
+     */
     updateResources(width, height) {
         let me  = this,
             ctx = me.context;
@@ -1162,6 +1423,13 @@ class ServicesCanvas extends Base {
         me.gradients.bgGradient = gradient
     }
 
+    /**
+     * Handles canvas resize.
+     * Re-calculates scale and re-initializes buffers.
+     * @param {Object} size
+     * @param {Number} size.height
+     * @param {Number} size.width
+     */
     updateSize(size) {
         let me        = this;
         me.canvasSize = size;
