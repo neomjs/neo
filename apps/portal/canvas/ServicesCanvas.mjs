@@ -96,6 +96,20 @@ class ServicesCanvas extends Base {
      */
     debrisBuffer = null
 
+    /**
+     * Reusable object for projection calculations to avoid GC
+     * @member {Object} projectionPoint
+     * @protected
+     */
+    projectionPoint = {x: 0, y: 0, scale: 0, visible: false}
+
+    /**
+     * Projection matrix cache
+     * @member {Object} projectionMatrix
+     * @protected
+     */
+    projectionMatrix = {cx: 0, cy: 0, cosX: 0, sinX: 0, cosY: 0, sinY: 0}
+
     superHexes = []
     scale      = 1
     time       = 0
@@ -128,9 +142,12 @@ class ServicesCanvas extends Base {
         this.theme = value
     }
 
-    drawHex(ctx, x, y, z, size, projection) {
+    drawHex(ctx, x, y, z, size) {
+        let me    = this,
+            first = true,
+            p;
+
         ctx.beginPath();
-        let first = true;
 
         for (let i = 0; i < 6; i++) {
             const angle_deg = 60 * i + 30;
@@ -139,7 +156,7 @@ class ServicesCanvas extends Base {
             const px = x + size * Math.cos(angle_rad);
             const py = y + size * Math.sin(angle_rad);
 
-            let p = projection.project(px, py, z);
+            p = me.project(px, py, z);
 
             if (first) {
                 ctx.moveTo(p.x, p.y);
@@ -151,7 +168,7 @@ class ServicesCanvas extends Base {
         ctx.closePath();
     }
 
-    drawKernel(ctx, width, height, projection) {
+    drawKernel(ctx, width, height) {
         let me = this;
         if (!me.kernelBuffer) {
             return;
@@ -175,12 +192,12 @@ class ServicesCanvas extends Base {
         for (let i = 0; i < count; i++) {
             let x = buffer[i * 2] + panX,
                 y = buffer[i * 2 + 1] + panY;
-            me.drawHex(ctx, x, y, 400, size, projection);
+            me.drawHex(ctx, x, y, 400, size);
         }
         ctx.stroke();
     }
 
-    drawStrata(ctx, width, height, projection) {
+    drawStrata(ctx, width, height) {
         let me = this;
         if (!me.strataBuffer) {
             return;
@@ -204,12 +221,12 @@ class ServicesCanvas extends Base {
                 z    = buffer[idx + 2],
                 size = buffer[idx + 3] * s;
 
-            me.drawHex(ctx, x, y, z, size, projection);
+            me.drawHex(ctx, x, y, z, size);
             ctx.fill();
         }
     }
 
-    drawGraph(ctx, width, height, projection) {
+    drawGraph(ctx, width, height) {
         let me = this;
 
         if (!me.cellBuffer) {
@@ -239,7 +256,7 @@ class ServicesCanvas extends Base {
 
             if (energy <= 0.01 && scale > 0.1) {
                 let size = baseSize * 0.95 * scale;
-                me.drawHex(ctx, x, y, 0, size, projection);
+                me.drawHex(ctx, x, y, 0, size);
             }
         }
         ctx.stroke();
@@ -265,7 +282,7 @@ class ServicesCanvas extends Base {
                 let color = themeColors.activePalette[colorIdx];
 
                 ctx.beginPath();
-                me.drawHex(ctx, x, y, 0, baseSize * 2.5 * progress, projection);
+                me.drawHex(ctx, x, y, 0, baseSize * 2.5 * progress);
 
                 ctx.strokeStyle = color;
                 ctx.globalAlpha = 0.3 * progress;
@@ -274,7 +291,7 @@ class ServicesCanvas extends Base {
                 ctx.fillStyle = themeColors.superHex;
                 ctx.fill();
 
-                let p = projection.project(x, y, 0);
+                let p = me.project(x, y, 0);
 
                 ctx.beginPath();
                 ctx.arc(p.x, p.y, 4 * s * progress * p.scale, 0, Math.PI * 2);
@@ -300,7 +317,7 @@ class ServicesCanvas extends Base {
                     color       = themeColors.activePalette[colorIdx];
 
                 ctx.beginPath();
-                me.drawHex(ctx, x, y, 0, currentSize, projection);
+                me.drawHex(ctx, x, y, 0, currentSize);
 
                 ctx.fillStyle   = themeColors.hexActive;
                 ctx.globalAlpha = energy * 0.4;
@@ -315,7 +332,7 @@ class ServicesCanvas extends Base {
                 if (energy > 0.3) {
                     ctx.beginPath();
                     let popZ = -50 * energy; // Float up
-                    me.drawHex(ctx, x, y, popZ, currentSize, projection);
+                    me.drawHex(ctx, x, y, popZ, currentSize);
                     ctx.strokeStyle = color;
                     ctx.globalAlpha = energy * 0.4;
                     ctx.lineWidth   = 1 * s;
@@ -328,7 +345,7 @@ class ServicesCanvas extends Base {
         }
     }
 
-    drawRunners(ctx, projection) {
+    drawRunners(ctx) {
         let me = this;
         if (!me.runnerBuffer) {
             return;
@@ -338,7 +355,8 @@ class ServicesCanvas extends Base {
             buffer      = me.runnerBuffer,
             count       = RUNNER_COUNT,
             themeColors = me.constructor.colors[me.theme],
-            s           = me.scale;
+            s           = me.scale,
+            pp          = me.projectionPoint; // Shortcut
 
         ctx.lineCap = 'round';
 
@@ -363,15 +381,21 @@ class ServicesCanvas extends Base {
                 let tailX = x - dirX * tailLen,
                     tailY = y - dirY * tailLen;
 
-                let p1 = projection.project(tailX, tailY, 0);
-                let p2 = projection.project(x, y, 0);
+                // Project Tail
+                me.project(tailX, tailY, 0);
+                let p1x   = pp.x,
+                    p1y   = pp.y,
+                    p1vis = pp.visible;
 
-                if (!p1.visible || !p2.visible) {
+                // Project Head
+                me.project(x, y, 0);
+
+                if (!p1vis || !pp.visible) {
                     continue;
                 }
 
                 let color = themeColors.runnerPalette[colorIdx];
-                let g     = ctx.createLinearGradient(p1.x, p1.y, p2.x, p2.y);
+                let g     = ctx.createLinearGradient(p1x, p1y, pp.x, pp.y);
                 g.addColorStop(0, 'rgba(0,0,0,0)');
                 g.addColorStop(0.2, color); // Tail color
                 g.addColorStop(0.6, color); // Body color
@@ -379,9 +403,9 @@ class ServicesCanvas extends Base {
 
                 ctx.beginPath();
                 ctx.strokeStyle = g;
-                ctx.lineWidth   = 3 * s * p2.scale; // Scale thickness
-                ctx.moveTo(p1.x, p1.y);
-                ctx.lineTo(p2.x, p2.y);
+                ctx.lineWidth   = 3 * s * pp.scale; // Scale thickness
+                ctx.moveTo(p1x, p1y);
+                ctx.lineTo(pp.x, pp.y);
                 ctx.stroke();
             }
         }
@@ -389,8 +413,9 @@ class ServicesCanvas extends Base {
 
     /**
      * Draws particle debris (squares).
+     * @param {CanvasRenderingContext2D} ctx
      */
-    drawDebris(ctx, projection) {
+    drawDebris(ctx) {
         let me = this;
         if (!me.debrisBuffer) {
             return;
@@ -400,7 +425,8 @@ class ServicesCanvas extends Base {
             buffer      = me.debrisBuffer,
             count       = DEBRIS_COUNT,
             themeColors = me.constructor.colors[me.theme],
-            s           = me.scale;
+            s           = me.scale,
+            pp          = me.projectionPoint;
 
         for (let i = 0; i < count; i++) {
             let idx  = i * DEBRIS_STRIDE,
@@ -411,14 +437,15 @@ class ServicesCanvas extends Base {
                     y    = buffer[idx + 1],
                     size = 3 * s * life; // Shrink as it dies
 
-                let p = projection.project(x, y, 0);
-                if (p.visible) {
-                    let scaledSize = size * p.scale,
+                me.project(x, y, 0);
+
+                if (pp.visible) {
+                    let scaledSize = size * pp.scale,
                         colorIdx   = buffer[idx + 5];
 
                     ctx.fillStyle   = themeColors.debrisPalette[colorIdx];
                     ctx.globalAlpha = life;
-                    ctx.fillRect(p.x - scaledSize / 2, p.y - scaledSize / 2, scaledSize, scaledSize);
+                    ctx.fillRect(pp.x - scaledSize / 2, pp.y - scaledSize / 2, scaledSize, scaledSize);
                 }
             }
         }
@@ -705,6 +732,7 @@ class ServicesCanvas extends Base {
         me.updateSuperHexes(width, height);
         me.updateRunners(width, height);
         me.updateDebris();
+        me.updateProjection(width, height);
 
         ctx.clearRect(0, 0, width, height);
 
@@ -713,13 +741,11 @@ class ServicesCanvas extends Base {
             ctx.fillRect(0, 0, width, height)
         }
 
-        let projection = me.getProjection(width, height);
-
-        me.drawKernel(ctx, width, height, projection);
-        me.drawStrata(ctx, width, height, projection);
-        me.drawGraph(ctx, width, height, projection);
-        me.drawRunners(ctx, projection);
-        me.drawDebris(ctx, projection); // Render particles on top
+        me.drawKernel(ctx, width, height);
+        me.drawStrata(ctx, width, height);
+        me.drawGraph(ctx, width, height);
+        me.drawRunners(ctx);
+        me.drawDebris(ctx); // Render particles on top
 
         if (hasRaf) {
             requestAnimationFrame(me.renderLoop)
@@ -1065,41 +1091,57 @@ class ServicesCanvas extends Base {
         me.rotation.y += (ty - me.rotation.y) * 0.05;
     }
 
-    getProjection(width, height) {
-        let me   = this,
-            fov  = 1000,
-            cx   = width / 2,
-            cy   = height / 2,
-            cosX = Math.cos(me.rotation.x),
-            sinX = Math.sin(me.rotation.x),
-            cosY = Math.cos(me.rotation.y),
-            sinY = Math.sin(me.rotation.y);
+    /**
+     * Updates the projection matrix based on current rotation and size.
+     * @param {Number} width
+     * @param {Number} height
+     */
+    updateProjection(width, height) {
+        let me = this,
+            pm = me.projectionMatrix;
 
-        return {
-            project(x, y, z) {
-                let dx = x - cx,
-                    dy = y - cy,
-                    dz = z;
+        pm.cx   = width / 2;
+        pm.cy   = height / 2;
+        pm.cosX = Math.cos(me.rotation.x);
+        pm.sinX = Math.sin(me.rotation.x);
+        pm.cosY = Math.cos(me.rotation.y);
+        pm.sinY = Math.sin(me.rotation.y);
+    }
 
-                // Rotate Y
-                let x1 = dx * cosY - dz * sinY;
-                let z1 = dz * cosY + dx * sinY;
+    /**
+     * Projects a 3D point to 2D screen space using the cached matrix.
+     * writes result to this.projectionPoint to avoid allocation.
+     * @param {Number} x
+     * @param {Number} y
+     * @param {Number} z
+     * @returns {Object} this.projectionPoint
+     */
+    project(x, y, z) {
+        let me  = this,
+            pm  = me.projectionMatrix,
+            pp  = me.projectionPoint,
+            fov = 1000,
+            dx  = x - pm.cx,
+            dy  = y - pm.cy,
+            dz  = z;
 
-                // Rotate X
-                let y2 = dy * cosX - z1 * sinX;
-                let z2 = z1 * cosX + dy * sinX;
+        // Rotate Y
+        let x1 = dx * pm.cosY - dz * pm.sinY;
+        let z1 = dz * pm.cosY + dx * pm.sinY;
 
-                // Project
-                let scale = fov / (fov + z2);
+        // Rotate X
+        let y2 = dy * pm.cosX - z1 * pm.sinX;
+        let z2 = z1 * pm.cosX + dy * pm.sinX;
 
-                return {
-                    x      : x1 * scale + cx,
-                    y      : y2 * scale + cy,
-                    scale  : scale,
-                    visible: z2 > -fov // Clip if behind camera
-                };
-            }
-        };
+        // Project
+        let scale = fov / (fov + z2);
+
+        pp.x       = x1 * scale + pm.cx;
+        pp.y       = y2 * scale + pm.cy;
+        pp.scale   = scale;
+        pp.visible = z2 > -fov; // Clip if behind camera
+
+        return pp;
     }
 
     updateResources(width, height) {
