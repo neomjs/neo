@@ -10,10 +10,10 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-01-16T20:34:08Z'
-updatedAt: '2026-01-16T21:23:36Z'
+updatedAt: '2026-01-16T22:22:32Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8727'
 author: tobiu
-commentsCount: 2
+commentsCount: 3
 parentIssue: null
 subIssues:
   - '[x] 8728 Implement Neo Dark Theme Tokens'
@@ -22,8 +22,13 @@ subIssues:
   - '[x] 8731 Replicate Light Theme Structure to Dark Theme'
   - '[x] 8732 Implement Dark Theme for General Components'
   - '[x] 8733 Implement Dark Theme for Container and Form Components'
-subIssuesCompleted: 6
-subIssuesTotal: 6
+  - '[x] 8734 Implement Dark Theme for Data Views'
+  - '[x] 8735 Implement Dark Theme for Navigation Components'
+  - '[x] 8736 Implement Dark Theme for Complex Components'
+  - '[x] 8737 Implement Dark Theme for Application Styles'
+  - '[x] 8738 Refactor Portal App Source SCSS for Theming'
+subIssuesCompleted: 11
+subIssuesTotal: 11
 blockedBy: []
 blocking: []
 ---
@@ -131,5 +136,44 @@ Implement a comprehensive Dark Theme for the Portal App, utilizing the Neo.mjs D
 > 
 > **Next Steps:**
 > Start a new session to tackle the **Data Views** (`grid`, `table`, `list`, `tree`) as the next logical chunk.
+
+- 2026-01-16T21:49:27Z @tobiu cross-referenced by #8734
+- 2026-01-16T21:49:35Z @tobiu added sub-issue #8734
+- 2026-01-16T21:54:11Z @tobiu cross-referenced by #8735
+- 2026-01-16T21:54:23Z @tobiu added sub-issue #8735
+- 2026-01-16T21:56:11Z @tobiu cross-referenced by #8736
+- 2026-01-16T21:56:20Z @tobiu added sub-issue #8736
+- 2026-01-16T21:59:46Z @tobiu cross-referenced by #8737
+- 2026-01-16T21:59:53Z @tobiu added sub-issue #8737
+- 2026-01-16T22:08:39Z @tobiu cross-referenced by #8738
+- 2026-01-16T22:08:45Z @tobiu added sub-issue #8738
+### @tobiu - 2026-01-16T22:22:32Z
+
+**Input from Gemini 3 Pro:**
+
+> ✦ **Progress Update & Handoff Instructions**
+> 
+> We have completed the implementation of dark theme support for all core component categories (Data Views, Navigation, Complex) and the main application overrides.
+> 
+> **Completed:**
+> - [x] #8734 Data Views
+> - [x] #8735 Navigation
+> - [x] #8736 Complex Components
+> - [x] #8737 Apps (Portal, Docs, AgentOS, Covid)
+> 
+> **In Progress: Portal App Refactoring (#8738)**
+> We started refactoring the Portal App's source SCSS to support theming, but significant work remains. Many source files (e.g., in `shared/content/`) still use hardcoded hex values.
+> 
+> **Instructions for Next Session:**
+> 1.  **Scan & Refactor**: Continue scanning `resources/scss/src/apps/portal/` (especially `shared/content/`) for hardcoded colors.
+> 2.  **Strategy**:
+>     - **Do NOT change the Light Theme**: Create app-specific CSS variables. In `resources/scss/theme-neo-light/apps/portal/...`, define these variables using the **original hardcoded hex values**.
+>     - **Dark Theme Mapping**: In `resources/scss/theme-neo-dark/apps/portal/...`, map these same variables to our semantic tokens (e.g., `var(--sem-color-bg-neutral-default)`).
+>     - **Flexibility**: This indirection allows us to tweak the dark theme implementation without risking any regressions in the default light theme.
+> 
+> **Next Targets:**
+> - `resources/scss/src/apps/portal/shared/content/SectionsContainer.scss`
+> - `resources/scss/src/apps/portal/shared/content/TreeList.scss`
+> - Any other files in `src/apps/portal` with hardcoded colors.
 
 
