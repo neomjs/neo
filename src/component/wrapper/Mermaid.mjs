@@ -26,6 +26,16 @@ class Mermaid extends Component {
          */
         ntype: 'mermaid',
         /**
+         * @member {Object} themeMap
+         */
+        themeMap: {
+            'neo-theme-cyberpunk': 'dark',
+            'neo-theme-dark'     : 'dark',
+            'neo-theme-light'    : 'default',
+            'neo-theme-neo-dark' : 'dark',
+            'neo-theme-neo-light': 'neutral'
+        },
+        /**
          * The mermaid diagram code.
          * Changing this value will automatically trigger a re-render of the diagram.
          * @member {String|null} value_=null
@@ -115,10 +125,13 @@ class Mermaid extends Component {
         if (me.mounted && me.value) {
             await me.ready();
 
+            const
+                theme = me.themeMap[me.theme] || 'default',
+                code  = `---\nconfig:\n  theme: ${theme}\n---\n${me.value}`;
+
             await me.addon.render({
-                code    : me.value,
+                code,
                 id      : me.id,
-                theme   : me.theme,
                 windowId: me.windowId
             })
         }
