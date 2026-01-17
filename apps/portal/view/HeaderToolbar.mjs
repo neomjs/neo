@@ -81,19 +81,19 @@ class HeaderToolbar extends Base {
             },
 
             items: [{
-                iconCls: 'fa-brands fa-github',
-                url    : 'https://github.com/neomjs/neo',
-                tooltip: {
-                    text     : 'GitHub',
-                    showDelay: 0,
-                    hideDelay: 0
-                }
-            }, {
                 handler: 'onSwitchTheme',
                 iconCls: 'fa-solid fa-moon',
                 reference: 'theme-switch-button',
                 tooltip: {
                     text     : 'Switch Theme',
+                    showDelay: 0,
+                    hideDelay: 0
+                }
+            }, {
+                iconCls: 'fa-brands fa-github',
+                url    : 'https://github.com/neomjs/neo',
+                tooltip: {
+                    text     : 'GitHub',
                     showDelay: 0,
                     hideDelay: 0
                 }
