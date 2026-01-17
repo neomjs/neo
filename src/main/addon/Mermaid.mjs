@@ -85,8 +85,16 @@ class Mermaid extends Base {
 
         if (element) {
             try {
-                const {svg} = await mermaid.render(data.id + '__svg', data.code);
-                element.innerHTML = svg
+                // Reset Mermaid state so it accepts the node again
+                element.removeAttribute('data-processed');
+
+                if (data.code) {
+                    element.textContent = data.code
+                }
+
+                mermaid.run({
+                    nodes: [element]
+                })
             } catch (e) {
                 console.error('Mermaid rendering failed:', e);
                 element.innerHTML = `<div style="color: red; padding: 10px;">Mermaid Error: ${e.message}</div>`
