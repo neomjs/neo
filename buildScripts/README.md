@@ -1,6 +1,6 @@
-# Neo.mjs Build Scripts & CLI Tools
+# Neo.mjs Application Engine Build Scripts & CLI Tools
 
-This directory contains the build tooling, CLI commands, and utility scripts that power the Neo.mjs framework.
+This directory contains the build tooling, CLI commands, and utility scripts that power the Neo.mjs Application Engine.
 The scripts are organized into subdirectories based on their function.
 
 Most of these scripts are exposed via `npm run` commands in the root `package.json`.
@@ -40,7 +40,7 @@ The core build pipeline. Note that Neo.mjs in **development mode** requires **ze
 | `all.mjs` | `npm run build-all` | Meta-script that runs all build steps: themes, workers, and docs. |
 | `esmodules.mjs` | `npm run build-dist-esm` | Generates the `dist/` production output (minified, native ES modules). |
 | `highlightJs.mjs` | `npm run build-highlightjs` | Builds the custom HighlightJS bundle used by the docs app. |
-| `parse5.mjs` | `npm run bundle-parse5` | Bundles the Parse5 HTML parser for the framework. |
+| `parse5.mjs` | `npm run bundle-parse5` | Bundles the Parse5 HTML parser for the platform. |
 | `themes.mjs` | `npm run build-themes` | Compiles SCSS files into CSS themes (dark/light) using Dart Sass. |
 
 ---
@@ -85,7 +85,7 @@ Utilities for maintaining code quality and developer experience.
 
 ## 6. Release Automation (`buildScripts/release/`)
 
-Scripts used by the maintainers to publish new versions of the framework.
+Scripts used by the maintainers to publish new versions of the platform.
 
 | Script | Description |
 | :--- | :--- |
@@ -297,7 +297,7 @@ Options:
 ## `npm run create-class`
 **Script:** `buildScripts/create/class.mjs`
 
-Generates a new class file extending a framework base class.
+Generates a new class file extending a core base class.
 
 ```bash
 Usage: neo.mjs create-class [options]
