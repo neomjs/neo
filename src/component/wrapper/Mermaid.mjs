@@ -62,6 +62,17 @@ class Mermaid extends Component {
     }
 
     /**
+     * Triggered after the theme config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetTheme(value, oldValue) {
+        super.afterSetTheme(value, oldValue);
+        this.render()
+    }
+
+    /**
      * Triggered when the mermaid code value changes.
      * Triggers a re-render to update the diagram.
      * @param {String|null} value
@@ -107,6 +118,7 @@ class Mermaid extends Component {
             await me.addon.render({
                 code    : me.value,
                 id      : me.id,
+                theme   : me.theme,
                 windowId: me.windowId
             })
         }

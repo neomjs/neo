@@ -102,6 +102,20 @@ class Markdown extends Component {
     }
 
     /**
+     * Triggered after the theme config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetTheme(value, oldValue) {
+        super.afterSetTheme(value, oldValue);
+
+        if (this.value) {
+            this.afterSetValue(this.value, null)
+        }
+    }
+
+    /**
      * Triggered after the value config got changed
      * @param {String|null} value
      * @param {String|null} oldValue
@@ -542,8 +556,9 @@ class Markdown extends Component {
 
             Object.keys(mermaidDivs).forEach(key => {
                 Mermaid.render({
-                    code: mermaidDivs[key],
-                    id  : key,
+                    code : mermaidDivs[key],
+                    id   : key,
+                    theme: me.theme,
                     windowId
                 })
             })

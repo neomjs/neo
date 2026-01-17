@@ -50,6 +50,22 @@ class Mermaid extends Base {
     }
 
     /**
+     * @member {String} currentTheme='default'
+     */
+    currentTheme = 'default'
+
+    /**
+     * @member {Object} themeMap
+     */
+    static themeMap = {
+        'neo-theme-cyberpunk': 'dark',
+        'neo-theme-dark'     : 'dark',
+        'neo-theme-light'    : 'default',
+        'neo-theme-neo-dark' : 'dark',
+        'neo-theme-neo-light': 'neutral'
+    }
+
+    /**
      * Loads the Mermaid library if it is not already present.
      * Initializes the library with `startOnLoad: false` to allow manual control over rendering.
      * @returns {Promise<void>}
@@ -66,13 +82,25 @@ class Mermaid extends Base {
      * @param {Object} data
      * @param {String} [data.code] The mermaid diagram syntax/code. If provided, it will replace the element's text content.
      * @param {String} data.id The DOM ID of the container element.
+     * @param {String} [data.theme] The neo theme to use.
      */
     render(data) {
-        const element = document.getElementById(data.id);
+        const
+            element = document.getElementById(data.id),
+            me      = this;
 
         if (element) {
             if (data.code) {
                 element.textContent = data.code
+            }
+
+            if (data.theme) {
+                const newTheme = me.constructor.themeMap[data.theme] || 'default';
+
+                if (me.currentTheme !== newTheme) {
+                    me.currentTheme = newTheme;
+                    mermaid.initialize({startOnLoad: false, theme: newTheme})
+                }
             }
 
             mermaid.run({
