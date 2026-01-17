@@ -35,7 +35,7 @@ We leverage the same **App Worker (Controller) <-> Shared Worker (Physics)** spl
 In the Neural Swarm, the Shared Worker holds the *authoritative state* of the simulation. The App Worker merely hints at inputs (mouse position, resize events).
 
 ```mermaid
-graph TD
+flowchart TD
     User(User Input) --> Main
     Main(Main Thread) -->|Input Events| App
     App(App Worker: Controller) -->|Normalized Input| Shared

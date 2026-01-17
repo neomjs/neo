@@ -28,7 +28,7 @@ We wanted to create a visually rich, interactive background for the Portal heade
 To solve this, we used a split architecture that leverages the unique strengths of different threads.
 
 ```mermaid
-graph TD
+flowchart TD
     User(User Interaction) --> Main
     Main(Main Thread: DOM/Input)
     App(App Worker: Orchestrator)

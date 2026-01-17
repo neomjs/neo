@@ -49,7 +49,7 @@ The Neural Link consists of three main components arranged in a star topology:
 3.  **The Server (MCP):** The Model Context Protocol server that exposes tools to AI agents (like Claude or Gemini).
 
 ```mermaid
-graph TD
+flowchart TD
     Agent[🤖 AI Agent] <-->|MCP| Server[📡 MCP Server]
     Server <-->|WebSocket| Bridge[🌉 Bridge :8081]
     Bridge <-->|WebSocket| App[⚙️ Neo.mjs Runtime]

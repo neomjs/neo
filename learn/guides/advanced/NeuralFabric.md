@@ -28,7 +28,7 @@ We wanted a "Cybernetic Motherboard" look: a 3D hexagonal grid that tilts, rotat
 The architecture relies on a **Shared Worker** (Physics/Render) and an **App Worker** (Controller), similar to other canvases. The core innovation here is the **Projection Pipeline**.
 
 ```mermaid
-graph TD
+flowchart TD
     Input(User Mouse) -->|Normalized Coords| App
     App(App Worker) -->|Update State| Shared
     
