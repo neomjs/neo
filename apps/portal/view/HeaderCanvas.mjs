@@ -105,6 +105,19 @@ class HeaderCanvas extends Canvas {
     }
 
     /**
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     */
+    afterSetTheme(value, oldValue) {
+        super.afterSetTheme(value, oldValue);
+
+        if (value) {
+            let mode = value.includes('dark') ? 'dark' : 'light';
+            Portal.canvas.HeaderCanvas.setTheme(mode)
+        }
+    }
+
+    /**
      * @returns {String}
      */
     getCanvasId() {
