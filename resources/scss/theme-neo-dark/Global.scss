@@ -48,7 +48,7 @@
 
     code {
         &:not(.hljs) {
-            background-color: var(--gray-800);
+            background-color: var(--sem-color-surface-primary-background);
             border          : 1px solid var(--sem-color-border-subtle);
             border-radius   : 4px;
             color           : var(--sem-color-fg-neutral-contrast);
