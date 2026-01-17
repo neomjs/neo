@@ -104,6 +104,22 @@ class ServiceBase extends Base {
      */
     lastReload = null
     /**
+     * List of path partials that should be forced to load from network first.
+     *
+     * **Strategy: Network First, Cache Fallback**
+     * These files (`DefaultConfig.mjs`, `neo-config.json`) contain the application version.
+     * If they are served from a stale cache, the App Worker will initialize with an old version string.
+     * It will then perform a handshake with the Service Worker (which is likely new).
+     * The SW will detect the mismatch (`App v1 !== SW v2`) and command a reload.
+     * Without Network First, the browser might serve the stale config again, causing an infinite reload loop.
+     *
+     * @member {String[]} networkFirstPaths=['DefaultConfig.mjs','neo-config.json']
+     */
+    networkFirstPaths = [
+        'DefaultConfig.mjs',
+        'neo-config.json'
+    ]
+    /**
      * @member {Object[]} promises=[]
      * @protected
      */
@@ -330,24 +346,55 @@ class ServiceBase extends Base {
 
     /**
      * The core interceptor for network requests.
-     * Implements a "Cache First, then Network" strategy for matched paths.
+     *
+     * Implements a hybrid caching strategy:
+     * 1.  **Network First:** For `networkFirstPaths` (Configs). Priority is getting the latest version to prevent handshake loops.
+     * 2.  **Cache First:** For `cachePaths` (Assets). Priority is speed and offline capability.
+     *
      * @param {ExtendableMessageEvent} event
      */
     onFetch(event) {
-        let hasMatch  = false,
-            {request} = event,
+        let me            = this,
+            hasCacheMatch = false,
+            hasNetMatch   = false,
+            {request}     = event,
             key;
 
-        for (key of this.cachePaths) {
+        // Check for Network First paths (Configs)
+        for (key of me.networkFirstPaths) {
             if (request.url.includes(key)) {
-                hasMatch = true;
+                hasNetMatch = true;
                 break
             }
         }
 
-        if (hasMatch && request.method === 'GET') {
+        if (hasNetMatch && request.method === 'GET') {
             event.respondWith(
-                caches.open(this.cacheName).then(cache => {
+                fetch(request, {cache: 'reload'}).then(response => {
+                    if (response.ok) {
+                        caches.open(me.cacheName).then(cache => {
+                            cache.put(request, response.clone()).catch(() => {})
+                        });
+                    }
+                    return response
+                }).catch(() => {
+                    return caches.match(request)
+                })
+            );
+            return
+        }
+
+        // Check for Cache First paths (Assets)
+        for (key of me.cachePaths) {
+            if (request.url.includes(key)) {
+                hasCacheMatch = true;
+                break
+            }
+        }
+
+        if (hasCacheMatch && request.method === 'GET') {
+            event.respondWith(
+                caches.open(me.cacheName).then(cache => {
                     return cache.match(request).then(cachedResponse => {
                         if (cachedResponse) {
                             return cachedResponse;
