@@ -388,7 +388,7 @@ class HeaderCanvas extends Base {
             }
 
             // Write Y values to buffers
-            bufA[i] = centerY + sine - offsetY + noiseA + shockY;
+            bufA[i] = centerY + sine  - offsetY + noiseA + shockY;
             bufB[i] = centerY + sineB + offsetY + noiseB + shockY;
         }
 
@@ -425,8 +425,8 @@ class HeaderCanvas extends Base {
             p.y += p.vy;
 
             // Wrap around
-            if (p.x > width + p.size) p.x = -p.size;
-            if (p.x < -p.size)        p.x = width + p.size;
+            if (p.x > width + p.size)  p.x = -p.size;
+            if (p.x < -p.size)         p.x = width + p.size;
             if (p.y > height + p.size) p.y = -p.size;
             if (p.y < -p.size)         p.y = height + p.size;
 
