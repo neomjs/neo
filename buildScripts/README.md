@@ -64,9 +64,7 @@ You can disable each step using the program options.
 build-all will delegate the env, framework & noquestions options to build-themes & build-threads.
 
 You can use the -e (environment) option in case you want to limit the build either to dist/development
-or dist/production.
-
-Source code: <a href="./buildAll.js">build-all</a>
+Source code: <a href="./build/all.mjs">build-all</a>
 
 ## build-all-questions
 > npm run build-all-questions
@@ -178,7 +176,7 @@ neo.mjs buildThemes
   no 
 ```
 
-Source code: <a href="./webpack/buildThemes.js">build-themes</a>
+Source code: <a href="./build/themes.mjs">build-themes</a>
 
 ## build-threads
 > npm run build-threads
@@ -226,7 +224,7 @@ neo.mjs buildThreads
   prod 
 ```
 
-Source code: <a href="./webpack/buildThreads.js">build-threads</a>
+Source code: <a href="./webpack/buildThreads.mjs">build-threads</a>
 
 ## create-app
 > npm run create-app
@@ -341,7 +339,7 @@ With normal Workers, you can get console logs & error messages inside your Brows
 Using SharedWorkers, you need to open a separate Window to inspect them:</br>
 > chrome://inspect/#workers
 
-Source code: <a href="./buildScripts/createApp.js">create-app</a>
+Source code: <a href="./create/app.mjs">create-app</a>
 
 ## generate-docs-json
 > npm run generate-docs-json
@@ -356,7 +354,7 @@ More precisely, our parser is based on:
 to get the output in json based format.
 There are several enhancements around it to polish it for our class system improvements. 
 
-Source code: <a href="./docs/jsdocx.js">generate-docs-json</a>
+Source code: <a href="./docs/jsdocx.mjs">generate-docs-json</a>
 
 ## server-start
 > npm run server-start

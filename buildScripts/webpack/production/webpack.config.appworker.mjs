@@ -42,7 +42,7 @@ export default async function(env) {
             childProcess, content, filePath;
 
         if (fs.existsSync(inputPath)) {
-            childProcess = spawnSync('node', [`${neoPath}/buildScripts/copyFolder.mjs -s ${inputPath} -t ${outputPath}`], cpOpts);
+            childProcess = spawnSync('node', [`${neoPath}/buildScripts/util/copyFolder.mjs -s ${inputPath} -t ${outputPath}`], cpOpts);
             childProcess.status && process.exit(childProcess.status);
 
             // Minify all json files inside the copied resources folder

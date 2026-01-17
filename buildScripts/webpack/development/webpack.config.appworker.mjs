@@ -40,7 +40,7 @@ export default env => {
             childProcess;
 
         if (fs.existsSync(inputPath)) {
-            childProcess = spawnSync('node', [`${neoPath}/buildScripts/copyFolder.mjs -s ${inputPath} -t ${outputPath}`], cpOpts);
+            childProcess = spawnSync('node', [`${neoPath}/buildScripts/util/copyFolder.mjs -s ${inputPath} -t ${outputPath}`], cpOpts);
             childProcess.status && process.exit(childProcess.status);
         }
     };
