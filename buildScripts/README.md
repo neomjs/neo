@@ -332,6 +332,13 @@ Options:
   -h, --help               display help for command
 ```
 
+## `npm run server-start`
+**Script:** `webpack serve -c ./buildScripts/webpack/webpack.server.config.mjs --open`
+
+Starts the development server with Hot Module Replacement (HMR).
+- Opens the App Store (portal) by default.
+- Serves the project on `localhost:8080`.
+
 ## `npm run test`
 **Script:** `playwright test`
 
@@ -345,3 +352,46 @@ Runs the automated test suite using Playwright.
 
 Watches the `resources/scss` directory and incrementally recompiles themes when files change.
 *Note: This script has no CLI options.*
+
+---
+
+# Advanced Tools
+
+## `npm run ai:mcp-client`
+**Script:** `ai/mcp/client/mcp-cli.mjs`
+
+A CLI tool for manually interacting with MCP servers. Useful for testing tool execution in isolation without an IDE extension.
+
+```bash
+# Example: List tools on the GitHub server
+npm run ai:mcp-client -- --server github-workflow --list-tools
+```
+
+## `npm run ai:server`
+**Script:** `chroma run --path ./chroma-neo-knowledge-base`
+
+Manually starts the ChromaDB instance for the **Knowledge Base**.
+Useful for debugging vector store operations outside of the MCP client.
+
+## `npm run ai:server-memory`
+**Script:** `chroma run --path ./chroma-neo-memory-core --port 8001`
+
+Manually starts the ChromaDB instance for the **Memory Core** on port 8001.
+
+## `npm run ai:server-neural-link`
+**Script:** `ai/mcp/server/neural-link/run-bridge.mjs`
+
+Starts the WebSocket bridge for the Neural Link, enabling the browser to communicate with the AI agent.
+
+---
+
+# Internal Infrastructure
+
+The following scripts are **automated entry points** used by IDE extensions (like the VSCode MCP Client). You generally **do not** need to run these manually.
+
+| NPM Command | Description |
+| :--- | :--- |
+| `ai:mcp-server-github-workflow` | StdIO entry point for the GitHub Agent. |
+| `ai:mcp-server-knowledge-base` | StdIO entry point for the Knowledge Base. |
+| `ai:mcp-server-memory-core` | StdIO entry point for the Memory Core. |
+| `ai:mcp-server-neural-link` | StdIO entry point for the Neural Link. |
