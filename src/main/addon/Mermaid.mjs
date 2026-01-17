@@ -2,10 +2,16 @@ import Base      from './Base.mjs';
 import DomAccess from '../DomAccess.mjs';
 
 /**
- * @summary Main Thread Addon to render Mermaid diagrams.
+ * @summary Main Thread Addon for rendering Mermaid diagrams with dynamic theme support.
  *
- * This addon is responsible for loading the Mermaid library and rendering diagrams into the DOM.
- * Since Mermaid requires direct DOM access, it must run on the Main Thread.
+ * This addon manages the lifecycle of the Mermaid.js library on the Main Thread. It provides a robust,
+ * theme-aware rendering engine that integrates seamlessly with the Neo.mjs component system.
+ *
+ * Key features:
+ * - **Lazy Loading:** Dynamically loads the Mermaid library only when needed.
+ * - **Theme Mapping:** Automatically translates Neo.mjs application themes (e.g., 'neo-theme-dark') to Mermaid's internal themes.
+ * - **Dynamic Re-rendering:** Handles theme switches at runtime by re-initializing the library.
+ * - **SVG Generation:** Uses `mermaid.render()` to generate idempotent SVG output, ensuring reliable DOM updates.
  *
  * It is primarily consumed by:
  * 1. `Neo.component.Markdown`: For rendering ```mermaid``` code blocks embedded in Markdown content.
@@ -13,8 +19,23 @@ import DomAccess from '../DomAccess.mjs';
  *
  * @class Neo.main.addon.Mermaid
  * @extends Neo.main.addon.Base
+ * @see Neo.component.wrapper.Mermaid
  */
 class Mermaid extends Base {
+    /**
+     * Maps Neo.mjs theme names to Mermaid.js theme names.
+     * This allows the addon to automatically select the most appropriate visual style
+     * based on the current application theme.
+     * @member {Object} themeMap
+     */
+    static themeMap = {
+        'neo-theme-cyberpunk': 'dark',
+        'neo-theme-dark'     : 'dark',
+        'neo-theme-light'    : 'default',
+        'neo-theme-neo-dark' : 'dark',
+        'neo-theme-neo-light': 'default'
+    }
+
     static config = {
         /**
          * @member {String} className='Neo.main.addon.Mermaid'
@@ -50,20 +71,10 @@ class Mermaid extends Base {
     }
 
     /**
+     * Tracks the currently active Mermaid theme to prevent redundant re-initialization.
      * @member {String} currentTheme='default'
      */
     currentTheme = 'default'
-
-    /**
-     * @member {Object} themeMap
-     */
-    static themeMap = {
-        'neo-theme-cyberpunk': 'dark',
-        'neo-theme-dark'     : 'dark',
-        'neo-theme-light'    : 'default',
-        'neo-theme-neo-dark' : 'dark',
-        'neo-theme-neo-light': 'neutral'
-    }
 
     /**
      * Loads the Mermaid library if it is not already present.
@@ -79,33 +90,41 @@ class Mermaid extends Base {
 
     /**
      * Renders a Mermaid diagram into a specific DOM element.
+     *
+     * This method orchestrates the full rendering pipeline:
+     * 1. **Theme Resolution:** Maps the requested Neo theme to a Mermaid theme.
+     * 2. **Re-initialization:** If the theme has changed, it re-configures Mermaid globally.
+     * 3. **SVG Generation:** Generates a fresh SVG string for the diagram code.
+     * 4. **DOM Injection:** Safely injects the SVG into the target container.
+     *
+     * It includes error handling to display rendering failures inline (e.g., syntax errors)
+     * instead of crashing the application.
+     *
      * @param {Object} data
-     * @param {String} [data.code] The mermaid diagram syntax/code. If provided, it will replace the element's text content.
+     * @param {String} [data.code] The mermaid diagram syntax/code.
      * @param {String} data.id The DOM ID of the container element.
-     * @param {String} [data.theme] The neo theme to use.
+     * @param {String} [data.theme] The neo theme to use (e.g. 'neo-theme-dark').
      */
-    render(data) {
+    async render(data) {
         const
             element = document.getElementById(data.id),
             me      = this;
 
         if (element) {
-            if (data.code) {
-                element.textContent = data.code
+            const theme = me.getStaticConfig('themeMap')[data.theme] || 'default';
+
+            if (me.currentTheme !== theme) {
+                me.currentTheme = theme;
+                mermaid.initialize({startOnLoad: false, theme})
             }
 
-            if (data.theme) {
-                const newTheme = me.constructor.themeMap[data.theme] || 'default';
-
-                if (me.currentTheme !== newTheme) {
-                    me.currentTheme = newTheme;
-                    mermaid.initialize({startOnLoad: false, theme: newTheme})
-                }
+            try {
+                const {svg} = await mermaid.render(data.id + '__svg', data.code);
+                element.innerHTML = svg
+            } catch (e) {
+                console.error('Mermaid rendering failed:', e);
+                element.innerHTML = `<div style="color: red; padding: 10px;">Mermaid Error: ${e.message}</div>`
             }
-
-            mermaid.run({
-                nodes: [element]
-            })
         }
     }
 }
