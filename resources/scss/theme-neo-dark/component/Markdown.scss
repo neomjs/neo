@@ -1,6 +1,6 @@
 :root .neo-theme-neo-dark {
     --markdown-bg                   : var(--sem-color-bg-neutral-default);
-    --markdown-blockquote-bg        : var(--sem-color-bg-neutral-highlighted);
+    --markdown-blockquote-bg        : color-mix(in srgb, var(--sem-color-surface-primary-background) 25%, var(--sem-color-bg-neutral-default));
     --markdown-blockquote-border    : var(--sem-color-surface-primary-default);
     --markdown-code-bg              : var(--sem-color-surface-primary-background);
     --markdown-code-border          : var(--sem-color-border-subtle);
