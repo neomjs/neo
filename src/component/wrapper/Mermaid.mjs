@@ -26,6 +26,10 @@ class Mermaid extends Component {
          */
         ntype: 'mermaid',
         /**
+         * @member {String[]} baseCls=['neo-mermaid']
+         */
+        baseCls: ['neo-mermaid'],
+        /**
          * @member {String|null} mermaidTheme=null
          */
         mermaidTheme: null,
@@ -45,11 +49,7 @@ class Mermaid extends Component {
          * @member {String|null} value_=null
          * @reactive
          */
-        value_: null,
-        /**
-         * @member {Object} _vdom={cls: ['neo-mermaid']}
-         */
-        _vdom: {cls: ['neo-mermaid']}
+        value_: null
     }
 
     /**
