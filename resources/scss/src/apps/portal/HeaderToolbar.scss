@@ -2,7 +2,7 @@
     box-shadow: var(--portal-header-shadow);
     z-index   : 8;
 
-    .neo-button {
+    .neo-button.neo-button-ghost {
         &:hover,
         &:active {
             background-color: transparent !important;
