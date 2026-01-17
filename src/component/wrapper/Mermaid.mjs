@@ -26,6 +26,10 @@ class Mermaid extends Component {
          */
         ntype: 'mermaid',
         /**
+         * @member {String|null} mermaidTheme=null
+         */
+        mermaidTheme: null,
+        /**
          * @member {Object} themeMap
          */
         themeMap: {
@@ -33,7 +37,7 @@ class Mermaid extends Component {
             'neo-theme-dark'     : 'dark',
             'neo-theme-light'    : 'default',
             'neo-theme-neo-dark' : 'dark',
-            'neo-theme-neo-light': 'neutral'
+            'neo-theme-neo-light': 'default'
         },
         /**
          * The mermaid diagram code.
@@ -126,7 +130,7 @@ class Mermaid extends Component {
             await me.ready();
 
             const
-                theme = me.themeMap[me.theme] || 'default',
+                theme = me.mermaidTheme || me.themeMap[me.theme] || 'default',
                 code  = `---\nconfig:\n  theme: ${theme}\n---\n${me.value}`;
 
             await me.addon.render({
