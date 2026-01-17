@@ -35,8 +35,16 @@ subIssues:
   - '[x] 8745 Optimize and Document HeaderCanvas Semantic Effects'
   - '[x] 8744 Implement Canvas-based Hover Effects for Portal Header'
   - '[x] 8743 Refactor Portal HeaderCanvas View for Theme Propagation'
-subIssuesCompleted: 19
-subIssuesTotal: 19
+  - '[x] 8747 Fix TreeList specificity preventing hover state'
+  - '[x] 8748 Update Portal TabContainer Dark Theme Colors'
+  - '[x] 8749 Update Global Dark Theme Inline Code Background'
+  - '[x] 8750 Refactor Markdown SCSS for Theming'
+  - '[x] 8751 Refine Markdown Details Icon Color'
+  - '[x] 8752 Refine Dark Theme Markdown Blockquote Background'
+  - '[x] 8753 Refine Dark Theme Link Color'
+  - '[ ] 8754 Implement Theme-Aware Mermaid Diagram Rendering'
+subIssuesCompleted: 26
+subIssuesTotal: 27
 blockedBy: []
 blocking: []
 ---
@@ -218,4 +226,12 @@ Implement a comprehensive Dark Theme for the Portal App, utilizing the Neo.mjs D
 - 2026-01-17T04:15:02Z @tobiu added sub-issue #8745
 - 2026-01-17T04:15:19Z @tobiu added sub-issue #8744
 - 2026-01-17T04:15:34Z @tobiu added sub-issue #8743
+- 2026-01-17T04:59:40Z @tobiu added sub-issue #8747
+- 2026-01-17T05:19:24Z @tobiu added sub-issue #8748
+- 2026-01-17T05:26:37Z @tobiu added sub-issue #8749
+- 2026-01-17T05:33:04Z @tobiu added sub-issue #8750
+- 2026-01-17T05:45:42Z @tobiu added sub-issue #8751
+- 2026-01-17T05:54:23Z @tobiu added sub-issue #8752
+- 2026-01-17T06:01:41Z @tobiu added sub-issue #8753
+- 2026-01-17T06:09:01Z @tobiu added sub-issue #8754
 
