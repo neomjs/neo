@@ -45,7 +45,7 @@ class HeaderCanvas extends Base {
             background   : ['rgba(62, 99, 221, 0.1)', 'rgba(64, 196, 255, 0.2)', 'rgba(62, 99, 221, 0.1)'],
             background2  : ['rgba(139, 166, 255, 0.1)', 'rgba(64, 196, 255, 0.2)', 'rgba(139, 166, 255, 0.1)'],
             bgRibbon     : ['rgba(62, 99, 221, 0.02)', 'rgba(64, 196, 255, 0.05)', 'rgba(62, 99, 221, 0.02)'],
-            fgRibbon     : ['rgba(62, 99, 221, 0.05)', 'rgba(64, 196, 255, 0.1)', 'rgba(62, 99, 221, 0.05)'],
+            fgRibbon     : ['rgba(62, 99, 221, 0.025)', 'rgba(64, 196, 255, 0.05)', 'rgba(62, 99, 221, 0.025)'],
             grad1        : [PRIMARY, HIGHLIGHT, PRIMARY],
             grad2        : [SECONDARY, HIGHLIGHT, SECONDARY],
             hover        : HIGHLIGHT,
