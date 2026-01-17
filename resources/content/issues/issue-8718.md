@@ -1,14 +1,15 @@
 ---
 id: 8718
 title: 'Feature: Add color diversity to ServicesCanvas debris'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
   - 'agent-task:completed'
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-01-16T17:13:56Z'
-updatedAt: '2026-01-16T17:35:27Z'
+updatedAt: '2026-01-17T18:31:00Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8718'
 author: tobiu
 commentsCount: 1
@@ -18,6 +19,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-01-17T18:31:00Z'
 ---
 # Feature: Add color diversity to ServicesCanvas debris
 
@@ -46,4 +48,6 @@ Update `apps/portal/canvas/ServicesCanvas.mjs` to support varied colors for debr
 > The changes are committed in `ea83abfcf`.
 
 - 2026-01-16T17:35:27Z @tobiu added the `agent-task:completed` label
+- 2026-01-17T18:30:55Z @tobiu assigned to @tobiu
+- 2026-01-17T18:31:00Z @tobiu closed this issue
 
