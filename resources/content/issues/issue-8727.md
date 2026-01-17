@@ -31,8 +31,12 @@ subIssues:
   - '[x] 8740 Refactor Portal Header Toolbar for Dark Theme'
   - '[x] 8741 Refactor Portal App Subdirectories for Dark Theme'
   - '[x] 8742 Refactor Portal TabContainer for Dark Theme'
-subIssuesCompleted: 15
-subIssuesTotal: 15
+  - '[x] 8746 Refine HeaderToolbar SCSS Specificity'
+  - '[x] 8745 Optimize and Document HeaderCanvas Semantic Effects'
+  - '[x] 8744 Implement Canvas-based Hover Effects for Portal Header'
+  - '[x] 8743 Refactor Portal HeaderCanvas View for Theme Propagation'
+subIssuesCompleted: 19
+subIssuesTotal: 19
 blockedBy: []
 blocking: []
 ---
@@ -210,4 +214,8 @@ Implement a comprehensive Dark Theme for the Portal App, utilizing the Neo.mjs D
 > 
 > We are now ready to tackle offscreen canvas theming in a separate effort.
 
+- 2026-01-17T04:07:50Z @tobiu added sub-issue #8746
+- 2026-01-17T04:15:02Z @tobiu added sub-issue #8745
+- 2026-01-17T04:15:19Z @tobiu added sub-issue #8744
+- 2026-01-17T04:15:34Z @tobiu added sub-issue #8743
 
