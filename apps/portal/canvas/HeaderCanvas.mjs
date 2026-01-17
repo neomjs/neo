@@ -25,6 +25,8 @@ const
   *     around social icons.
   *   - **Energy Surge (Active State):** The segment of the stream passing through the active navigation item
   *     is rendered with a high-intensity white glow and a nervous pulse, semantically highlighting the current view.
+  *   - **Preview Glow (Hover State):** A static, high-contrast glow highlights the item under the cursor,
+  *     providing immediate, distinct feedback separate from the active state.
   *
   * **Performance Architecture (Zero-Allocation):**
  * To maintain 60fps on high-refresh displays without GC stutters, this class employs a **Zero-Allocation** strategy during the render loop.
@@ -503,11 +505,19 @@ class HeaderCanvas extends Base {
      * @param {Number} width
      */
     drawActiveOverlay(ctx, width) {
-        let me = this;
+        let me = this,
+            rect;
 
         if (!me.activeId || !me.waveBuffers.fgA) return;
 
-        const rect = me.navRects.find(r => r.id === me.activeId);
+        // Zero-Allocation: Use for-loop instead of .find() to avoid closure creation
+        for (const r of me.navRects) {
+            if (r.id === me.activeId) {
+                rect = r;
+                break
+            }
+        }
+
         if (!rect) return;
 
         const
@@ -536,17 +546,20 @@ class HeaderCanvas extends Base {
         // combined with the "hot" white color to make it pop.
         ctx.globalAlpha = 0.6 + (Math.sin(me.time * 3) * 0.2); // Fast, nervous pulse
 
-        const drawSegment = (buffer) => {
-            ctx.beginPath();
-            ctx.moveTo(startI * step, buffer[startI]);
-            for (let i = startI + 1; i <= endI; i++) {
-                ctx.lineTo(i * step, buffer[i])
-            }
-            ctx.stroke()
-        };
+        // Inline drawing to avoid closure
+        ctx.beginPath();
+        ctx.moveTo(startI * step, bufA[startI]);
+        for (let i = startI + 1; i <= endI; i++) {
+            ctx.lineTo(i * step, bufA[i])
+        }
+        ctx.stroke();
 
-        drawSegment(bufA);
-        drawSegment(bufB);
+        ctx.beginPath();
+        ctx.moveTo(startI * step, bufB[startI]);
+        for (let i = startI + 1; i <= endI; i++) {
+            ctx.lineTo(i * step, bufB[i])
+        }
+        ctx.stroke();
 
         ctx.restore()
     }
@@ -561,11 +574,19 @@ class HeaderCanvas extends Base {
      * @param {Number} width
      */
     drawHoverOverlay(ctx, width) {
-        let me = this;
+        let me = this,
+            rect;
 
         if (!me.hoverId || !me.waveBuffers.fgA) return;
 
-        const rect = me.navRects.find(r => r.id === me.hoverId);
+        // Zero-Allocation: Use for-loop instead of .find() to avoid closure creation
+        for (const r of me.navRects) {
+            if (r.id === me.hoverId) {
+                rect = r;
+                break
+            }
+        }
+
         if (!rect) return;
 
         const
@@ -590,17 +611,20 @@ class HeaderCanvas extends Base {
         ctx.lineWidth   = 2;
         ctx.globalAlpha = 1;
 
-        const drawSegment = (buffer) => {
-            ctx.beginPath();
-            ctx.moveTo(startI * step, buffer[startI]);
-            for (let i = startI + 1; i <= endI; i++) {
-                ctx.lineTo(i * step, buffer[i])
-            }
-            ctx.stroke()
-        };
+        // Inline drawing to avoid closure
+        ctx.beginPath();
+        ctx.moveTo(startI * step, bufA[startI]);
+        for (let i = startI + 1; i <= endI; i++) {
+            ctx.lineTo(i * step, bufA[i])
+        }
+        ctx.stroke();
 
-        drawSegment(bufA);
-        drawSegment(bufB);
+        ctx.beginPath();
+        ctx.moveTo(startI * step, bufB[startI]);
+        for (let i = startI + 1; i <= endI; i++) {
+            ctx.lineTo(i * step, bufB[i])
+        }
+        ctx.stroke();
 
         ctx.restore()
     }
