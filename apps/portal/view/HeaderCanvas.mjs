@@ -35,6 +35,11 @@ class HeaderCanvas extends Canvas {
          */
         cls: ['portal-header-canvas'],
         /**
+         * @member {String|null} hoverId_=null
+         * @reactive
+         */
+        hoverId_: null,
+        /**
          * @member {Object} listeners
          */
         listeners: {
@@ -101,6 +106,16 @@ class HeaderCanvas extends Canvas {
     async afterSetActiveId(value, oldValue) {
         if (this.isCanvasReady) {
             await Portal.canvas.HeaderCanvas.updateActiveId({id: value})
+        }
+    }
+
+    /**
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     */
+    async afterSetHoverId(value, oldValue) {
+        if (this.isCanvasReady) {
+            await Portal.canvas.HeaderCanvas.updateHoverId({id: value})
         }
     }
 

@@ -23,6 +23,28 @@ class HeaderToolbarController extends Component {
     /**
      * @param {Object} data
      */
+    onButtonMouseEnter(data) {
+        let headerCanvas = this.getReference('header-canvas');
+
+        if (headerCanvas) {
+            headerCanvas.hoverId = data.path[0].id
+        }
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onButtonMouseLeave(data) {
+        let headerCanvas = this.getReference('header-canvas');
+
+        if (headerCanvas) {
+            headerCanvas.hoverId = null
+        }
+    }
+
+    /**
+     * @param {Object} data
+     */
     onMouseLeave(data) {
         this.getReference('header-canvas')?.onMouseLeave(data)
     }

@@ -29,6 +29,10 @@ class HeaderToolbar extends Base {
             click     : 'onButtonClick',
             mouseleave: 'onMouseLeave',
             mousemove : {fn: 'onMouseMove', local: true}
+        }, {
+            mouseenter: 'onButtonMouseEnter',
+            mouseleave: 'onButtonMouseLeave',
+            delegate  : '.neo-button'
         }],
         /**
          * @member {Object} itemDefaults

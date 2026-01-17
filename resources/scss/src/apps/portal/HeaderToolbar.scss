@@ -3,6 +3,12 @@
     z-index   : 8;
 
     .neo-button {
+        &:hover,
+        &:active {
+            background-color: transparent !important;
+            border-color    : transparent !important;
+        }
+
         &:not(:first-child) {
             margin-left: 10px;
         }

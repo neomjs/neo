@@ -46,6 +46,7 @@ class HeaderCanvas extends Base {
             fgRibbon: ['rgba(62, 99, 221, 0.05)', 'rgba(64, 196, 255, 0.1)', 'rgba(62, 99, 221, 0.05)'],
             grad1: [PRIMARY, HIGHLIGHT, PRIMARY],
             grad2: [SECONDARY, HIGHLIGHT, SECONDARY],
+            hover: HIGHLIGHT,
             particle: HIGHLIGHT,
             particleAlpha: {nebula: 0.2, dust: 0.2},
             shockwave: HIGHLIGHT
@@ -57,6 +58,7 @@ class HeaderCanvas extends Base {
             fgRibbon: ['rgba(62, 99, 221, 0.05)', 'rgba(64, 196, 255, 0.1)', 'rgba(62, 99, 221, 0.05)'],
             grad1: [PRIMARY, HIGHLIGHT, PRIMARY],
             grad2: [SECONDARY, HIGHLIGHT, SECONDARY],
+            hover: PRIMARY,
             particle: HIGHLIGHT,
             particleAlpha: {nebula: 0.2, dust: 0.2},
             shockwave: HIGHLIGHT
@@ -81,6 +83,7 @@ class HeaderCanvas extends Base {
                 'setTheme',
                 'updateActiveId',
                 'updateGraphData',
+                'updateHoverId',
                 'updateMouseState',
                 'updateNavRects',
                 'updateSize'
@@ -121,6 +124,10 @@ class HeaderCanvas extends Base {
      * @member {Object} gradients={}
      */
     gradients = {}
+    /**
+     * @member {String|null} hoverId=null
+     */
+    hoverId = null
     /**
      * @member {Object} mouse={x: -1000, y: -1000}
      */
@@ -292,6 +299,9 @@ class HeaderCanvas extends Base {
         // 3b. Draw Active Overlay
         me.drawActiveOverlay(ctx, width);
 
+        // 3c. Draw Hover Overlay
+        me.drawHoverOverlay(ctx, width);
+
         // 4. Draw "Shockwaves" (Click Effects)
         me.drawShockwaves(ctx, width);
 
@@ -342,7 +352,7 @@ class HeaderCanvas extends Base {
 
         for (let i = 0; i < count; i++) {
             let x = i * step,
-                {offsetY, intensity, isIconZone} = me.getStreamOffset(x, height);
+                {offsetY, intensity, isIconZone} = me.getStreamOffset(x, height, width);
 
             // FREQUENCY MODULATION:
             let freqMod   = Math.sin(x * 0.002 + me.time * 0.1) * (20 + (intensity * 10)),
@@ -542,6 +552,60 @@ class HeaderCanvas extends Base {
     }
 
     /**
+     * Draws an additional highlight for the hovered navigation item.
+     * **"Preview" Effect:**
+     * Renders a static intensity pass of the energy strands within the hovered zone.
+     * Uses the theme-specific hover color (Cyan/Blue) to distinguish it from the active state (White).
+     *
+     * @param {CanvasRenderingContext2D} ctx
+     * @param {Number} width
+     */
+    drawHoverOverlay(ctx, width) {
+        let me = this;
+
+        if (!me.hoverId || !me.waveBuffers.fgA) return;
+
+        const rect = me.navRects.find(r => r.id === me.hoverId);
+        if (!rect) return;
+
+        const
+            step        = 2, // Must match calculateStrandGeometry
+            pad         = 10,
+            startX      = Math.max(0, rect.x - pad),
+            endX        = Math.min(width - 3, rect.x + rect.width + pad),
+            startI      = Math.floor(startX / step),
+            endI        = Math.ceil(endX / step),
+            bufA        = me.waveBuffers.fgA,
+            bufB        = me.waveBuffers.fgB,
+            themeColors = me.constructor.colors[me.theme];
+
+        ctx.save();
+        ctx.lineCap  = 'round';
+        ctx.lineJoin = 'round';
+
+        // Hover Effect: Static Glow (No Pulse)
+        ctx.shadowBlur  = 15;
+        ctx.shadowColor = themeColors.hover;
+        ctx.strokeStyle = themeColors.hover;
+        ctx.lineWidth   = 2;
+        ctx.globalAlpha = 1;
+
+        const drawSegment = (buffer) => {
+            ctx.beginPath();
+            ctx.moveTo(startI * step, buffer[startI]);
+            for (let i = startI + 1; i <= endI; i++) {
+                ctx.lineTo(i * step, buffer[i])
+            }
+            ctx.stroke()
+        };
+
+        drawSegment(bufA);
+        drawSegment(bufB);
+
+        ctx.restore()
+    }
+
+    /**
      * Draws a subtle, large-scale background Helix pattern with a 3D Ribbon effect.
      *
      * **Intent:**
@@ -711,9 +775,10 @@ class HeaderCanvas extends Base {
      *
      * @param {Number} x
      * @param {Number} height (Canvas height)
+     * @param {Number} width (Canvas width)
      * @returns {Object} {offsetY, intensity, isIconZone}
      */
-    getStreamOffset(x, height) {
+    getStreamOffset(x, height, width) {
         let me        = this,
             offsetY   = 0,
             intensity = 0, // 0 to 1 (Hover magnitude)
@@ -855,6 +920,14 @@ class HeaderCanvas extends Base {
      */
     updateGraphData(data) {
         // Not used yet, but kept for interface consistency
+    }
+
+    /**
+     * @param {Object} data
+     * @param {String} [data.id]
+     */
+    updateHoverId(data) {
+        this.hoverId = data?.id || null
     }
 
     /**
