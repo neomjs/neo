@@ -7,9 +7,9 @@
         "type": "git",
         "url" : "https://github.com/neomjs/neo.git"
     },
-        "bin": {
-            "neo-cc": "./buildScripts/create/class.mjs"
-        },
+    "bin": {
+        "neo-cc": "./buildScripts/create/class.mjs"
+    },
     "scripts": {
         "add-config"                   : "node ./buildScripts/create/addConfig.mjs",
         "add-reactive-tags"            : "node ./buildScripts/helpers/addReactiveTags.mjs",
