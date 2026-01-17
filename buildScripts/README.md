@@ -124,6 +124,68 @@ Internal shared libraries used by the scripts above.
 
 Detailed usage for the primary command-line tools.
 
+## `npm run add-config`
+**Script:** `buildScripts/create/addConfig.mjs`
+
+Injects a new configuration property into an existing Neo.mjs class file.
+
+```bash
+Usage: neo.mjs add-config [options]
+
+Options:
+  -c, --className <value>     The name of the class (e.g. MyApp.view.Main)
+  -n, --configName <value>    The name of the config (e.g. myConfig)
+  -t, --type <value>          The type of the config (e.g. Boolean, String, Object)
+  -d, --defaultValue <value>  The default value
+  -h, --hooks <value>         List of hooks to generate (e.g. beforeSet, afterSet)
+```
+
+## `npm run add-reactive-tags`
+**Script:** `buildScripts/helpers/addReactiveTags.mjs`
+
+Automatically adds `@reactive` JSDoc tags to all reactive configuration properties (ending in `_`) across the codebase.
+*Note: This script has no CLI options.*
+
+## `npm run ai:defrag-kb` / `ai:defrag-memory`
+**Script:** `buildScripts/ai/defragChromaDB.mjs`
+
+Maintenance tool to defragment and optimize Vector Database instances.
+
+```bash
+Usage: defragChromaDB [options]
+
+Options:
+  -t, --target <name>  Database target (knowledge-base, memory-core)
+  -h, --help           display help for command
+```
+
+## `npm run ai:download-kb`
+**Script:** `buildScripts/ai/downloadKnowledgeBase.mjs`
+
+Downloads the pre-indexed Knowledge Base artifact matching the current `package.json` version from GitHub Releases.
+*Note: This script has no CLI options.*
+
+## `npm run ai:migrate-memory`
+**Script:** `buildScripts/ai/migrateMemoryCore.mjs`
+
+Migrates a Memory Core database backup to the current embedding model by clearing the existing collection and re-generating embeddings.
+
+```bash
+Usage: node buildScripts/migrateMemoryCore.mjs <backup-file.jsonl>
+
+Arguments:
+  <backup-file.jsonl>  Path to the JSONL backup file to import and re-embed.
+
+Options:
+  --test-mode          Use test collections (test-re-embed-*) instead of production DB.
+```
+
+## `npm run ai:sync-kb`
+**Script:** `buildScripts/ai/syncKnowledgeBase.mjs`
+
+Indexes the local codebase and updates the vector database.
+*Note: This script has no CLI options.*
+
 ## `npm run build-all`
 **Script:** `buildScripts/build/all.mjs`
 
@@ -181,6 +243,18 @@ Options:
   -h, --help             display help for command
 ```
 
+## `npm run check-reactive-tags`
+**Script:** `buildScripts/helpers/checkReactiveTags.mjs`
+
+Lints the codebase to identify reactive configuration properties that are missing the `@reactive` JSDoc tag.
+*Note: This script has no CLI options.*
+
+## `npm run convert-design-tokens`
+**Script:** `buildScripts/helpers/convertDesignTokens.mjs`
+
+Converts JSON design tokens from `resources/design-tokens/json` into SCSS variables.
+*Note: This script has no CLI options.*
+
 ## `npm run create-app`
 **Script:** `buildScripts/create/app.mjs`
 
@@ -195,6 +269,25 @@ Options:
   -a, --appName <value>           The name of your application
   -m, --mainThreadAddons <value>  Comma separated list (e.g., DragDrop, MapboxGL).
                                   Defaults to DragDrop, Navigator, Stylesheet
+  -s, --useServiceWorker <value>  "yes", "no"
+  -t, --themes <value>            all, neo-theme-dark, neo-theme-light, none
+  -u, --useSharedWorkers <value>  "yes", "no"
+  -h, --help                      display help for command
+```
+
+## `npm run create-app-minimal`
+**Script:** `buildScripts/create/appMinimal.mjs`
+
+Scaffolds a lightweight, single-window Neo.mjs application.
+
+```bash
+Usage: neo.mjs create-app [options]
+
+Options:
+  -V, --version                   output the version number
+  -i, --info                      print environment debug info
+  -a, --appName <value>           The name of your application
+  -m, --mainThreadAddons <value>  Comma separated list. Defaults to DragDrop, Navigator, Stylesheet
   -s, --useServiceWorker <value>  "yes", "no"
   -t, --themes <value>            all, neo-theme-dark, neo-theme-light, none
   -u, --useSharedWorkers <value>  "yes", "no"
@@ -239,36 +332,16 @@ Options:
   -h, --help               display help for command
 ```
 
-## `npm run ai:defrag-kb` / `ai:defrag-memory`
-**Script:** `buildScripts/ai/defragChromaDB.mjs`
+## `npm run test`
+**Script:** `playwright test`
 
-Maintenance tool to defragment and optimize Vector Database instances.
+Runs the automated test suite using Playwright.
+*   `npm run test`: Runs all tests.
+*   `npm run test-components`: Runs component-level tests.
+*   `npm run test-unit`: Runs unit tests.
 
-```bash
-Usage: defragChromaDB [options]
+## `npm run watch-themes`
+**Script:** `buildScripts/helpers/watchThemes.mjs`
 
-Options:
-  -t, --target <name>  Database target (knowledge-base, memory-core)
-  -h, --help           display help for command
-```
-
-## `npm run ai:migrate-memory`
-**Script:** `buildScripts/ai/migrateMemoryCore.mjs`
-
-Migrates a Memory Core database backup to the current embedding model by clearing the existing collection and re-generating embeddings.
-
-```bash
-Usage: node buildScripts/migrateMemoryCore.mjs <backup-file.jsonl>
-
-Arguments:
-  <backup-file.jsonl>  Path to the JSONL backup file to import and re-embed.
-
-Options:
-  --test-mode          Use test collections (test-re-embed-*) instead of production DB.
-```
-
-## `npm run ai:sync-kb`
-**Script:** `buildScripts/ai/syncKnowledgeBase.mjs`
-
-Indexes the local codebase and updates the vector database.
+Watches the `resources/scss` directory and incrementally recompiles themes when files change.
 *Note: This script has no CLI options.*
