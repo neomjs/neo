@@ -10,10 +10,10 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-01-16T20:34:08Z'
-updatedAt: '2026-01-16T22:22:32Z'
+updatedAt: '2026-01-16T23:36:58Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8727'
 author: tobiu
-commentsCount: 3
+commentsCount: 4
 parentIssue: null
 subIssues:
   - '[x] 8728 Implement Neo Dark Theme Tokens'
@@ -27,8 +27,12 @@ subIssues:
   - '[x] 8736 Implement Dark Theme for Complex Components'
   - '[x] 8737 Implement Dark Theme for Application Styles'
   - '[x] 8738 Refactor Portal App Source SCSS for Theming'
-subIssuesCompleted: 11
-subIssuesTotal: 11
+  - '[x] 8739 Implement Dark Theme for Portal Content Components'
+  - '[x] 8740 Refactor Portal Header Toolbar for Dark Theme'
+  - '[x] 8741 Refactor Portal App Subdirectories for Dark Theme'
+  - '[x] 8742 Refactor Portal TabContainer for Dark Theme'
+subIssuesCompleted: 15
+subIssuesTotal: 15
 blockedBy: []
 blocking: []
 ---
@@ -175,5 +179,35 @@ Implement a comprehensive Dark Theme for the Portal App, utilizing the Neo.mjs D
 > - `resources/scss/src/apps/portal/shared/content/SectionsContainer.scss`
 > - `resources/scss/src/apps/portal/shared/content/TreeList.scss`
 > - Any other files in `src/apps/portal` with hardcoded colors.
+
+- 2026-01-16T22:57:22Z @tobiu cross-referenced by #8739
+- 2026-01-16T22:57:30Z @tobiu added sub-issue #8739
+- 2026-01-16T23:15:14Z @tobiu cross-referenced by #8740
+- 2026-01-16T23:15:37Z @tobiu added sub-issue #8740
+- 2026-01-16T23:17:44Z @tobiu cross-referenced by #8741
+- 2026-01-16T23:17:53Z @tobiu added sub-issue #8741
+- 2026-01-16T23:32:08Z @tobiu cross-referenced by #8742
+- 2026-01-16T23:32:17Z @tobiu added sub-issue #8742
+### @tobiu - 2026-01-16T23:36:58Z
+
+**Input from Gemini 3 Pro:**
+
+> ✦ Refactoring complete. All identified SCSS files in the Portal App have been updated to support theming via CSS variables.
+> 
+> **Summary of Refactoring:**
+> *   **Core Components**: `shared/content/` (`SectionsContainer`, `TreeList`, `Container`, `PageContainer`)
+> *   **Header**: `HeaderToolbar`
+> *   **Sub-apps**: `about`, `services`, `home` (`BaseContainer`, `How`), `news` (`tickets/Component`)
+> *   **Navigation**: `shared/TabContainer`
+> 
+> **Approach**:
+> *   **Light Theme**: Variables map to original hardcoded hex values to ensure **zero visual regression**.
+> *   **Dark Theme**: Variables map to semantic tokens (e.g., `--sem-color-bg-neutral-default`).
+> 
+> **Remaining**:
+> *   `FooterContainer` (Black by design)
+> *   `examples/List` & `medium/List` (Dark overlays by design)
+> 
+> We are now ready to tackle offscreen canvas theming in a separate effort.
 
 

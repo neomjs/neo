@@ -9,10 +9,10 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-01-16T22:08:38Z'
-updatedAt: '2026-01-16T22:19:10Z'
+updatedAt: '2026-01-16T23:28:37Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8738'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: 8727
 subIssues: []
 subIssuesCompleted: 0
@@ -70,4 +70,15 @@ This task is part of Epic #8727.
 
 - 2026-01-16T22:19:10Z @tobiu closed this issue
 - 2026-01-16T22:22:33Z @tobiu cross-referenced by #8727
+### @tobiu - 2026-01-16T23:28:37Z
+
+**Input from Gemini 3 Pro:**
+
+> ✦ Refactoring completed via sub-tasks:
+> - #8739: `shared/content` components (`SectionsContainer`, `TreeList`, etc.)
+> - #8740: `HeaderToolbar`
+> - #8741: `about`, `services`, `home`, `news` subdirectories.
+> 
+> The Portal App SCSS is now largely theme-aware. Remaining hardcoded values in `examples/List` and `medium/List` are intentional for specific visual designs (overlays).
+
 
