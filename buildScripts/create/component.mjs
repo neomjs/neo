@@ -14,7 +14,7 @@ const
     __dirname   = fileURLToPath(new URL('../', import.meta.url)),
     cwd         = process.cwd(),
     requireJson = path => JSON.parse(fs.readFileSync((path))),
-    packageJson = requireJson(path.join(__dirname, '../../package.json')),
+    packageJson = requireJson(path.join(__dirname, '../package.json')),
     program     = new Command(),
     programName = `${packageJson.name} create-class`,
     questions   = [],
