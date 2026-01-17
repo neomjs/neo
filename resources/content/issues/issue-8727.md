@@ -42,8 +42,8 @@ subIssues:
   - '[x] 8751 Refine Markdown Details Icon Color'
   - '[x] 8752 Refine Dark Theme Markdown Blockquote Background'
   - '[x] 8753 Refine Dark Theme Link Color'
-  - '[ ] 8754 Implement Theme-Aware Mermaid Diagram Rendering'
-subIssuesCompleted: 26
+  - '[x] 8754 Implement Theme-Aware Mermaid Diagram Rendering'
+subIssuesCompleted: 27
 subIssuesTotal: 27
 blockedBy: []
 blocking: []

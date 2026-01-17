@@ -1,6 +1,6 @@
 {
-  "lastSync": "2026-01-17T09:39:27.548Z",
-  "releasesLastFetched": "2026-01-17T09:39:28.192Z",
+  "lastSync": "2026-01-17T12:29:34.878Z",
+  "releasesLastFetched": "2026-01-17T12:29:35.656Z",
   "pushFailures": [],
   "issues": {
     "3789": {
@@ -17095,7 +17095,7 @@
       "path": "resources/content/issues/issue-8727.md",
       "closedAt": null,
       "updatedAt": "2026-01-16T23:36:58Z",
-      "contentHash": "926a2c000e6d6eeedd6f5871f50c75c6f44d126fceed3a799937156739a01374"
+      "contentHash": "9b44017ccd7f9fbdb827210609ae2d760c2caeafdeb47e79d6775744a99e699e"
     },
     "8728": {
       "state": "CLOSED",
@@ -17280,11 +17280,32 @@
       "contentHash": "6e014f98c805938fb8f7e48bab32f26611e4f64c16d5115695db09392fec1c9b"
     },
     "8754": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "resources/content/issues/issue-8754.md",
+      "closedAt": "2026-01-17T10:44:14Z",
+      "updatedAt": "2026-01-17T10:44:14Z",
+      "contentHash": "e24a1f5f7720fbdb7add1aa30dbf42ca6e44afc58a9db0d8448476b8870a0dfb"
+    },
+    "8755": {
+      "state": "OPEN",
+      "path": "resources/content/issues/issue-8755.md",
       "closedAt": null,
-      "updatedAt": "2026-01-17T06:09:03Z",
-      "contentHash": "d940b76bde37ee3756e39d0e0208f7f69fce0834f71a4b552d2bb708a87b6618"
+      "updatedAt": "2026-01-17T10:46:30Z",
+      "contentHash": "e43ea9785bc3b642fdbdf19aa644607da7c1a7b1fe287f8952c9347a20a159c5"
+    },
+    "8756": {
+      "state": "CLOSED",
+      "path": "resources/content/issues/issue-8756.md",
+      "closedAt": "2026-01-17T11:03:24Z",
+      "updatedAt": "2026-01-17T11:03:24Z",
+      "contentHash": "833a33230d4683be93f68fed074d9bf5b78b6265422c326fa619c5bf10e9959a"
+    },
+    "8757": {
+      "state": "CLOSED",
+      "path": "resources/content/issues/issue-8757.md",
+      "closedAt": "2026-01-17T12:23:51Z",
+      "updatedAt": "2026-01-17T12:23:53Z",
+      "contentHash": "cb5c9081db02529e1e6dc1933ded5eff0a1ebed285063f35874b5f10c399eea6"
     }
   },
   "releases": {
