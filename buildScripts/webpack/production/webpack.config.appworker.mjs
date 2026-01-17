@@ -153,6 +153,10 @@ export default async function(env) {
         entry : {app: path.resolve(neoPath, './src/worker/App.mjs')},
         target: 'webworker',
 
+        experiments: {
+            outputModule: true
+        },
+
         plugins: [
             new webpack.ContextReplacementPlugin(/.*/, context => {
                 let con = context.context;
@@ -168,7 +172,9 @@ export default async function(env) {
         output: {
             chunkFilename: 'chunks/app/[id].js',
             filename     : filenameConfig.workers.app.output,
-            path         : path.resolve(cwd, buildTarget.folder)
+            library      : {type: 'module'},
+            path         : path.resolve(cwd, buildTarget.folder),
+            publicPath   : 'auto'
         },
 
         module: {
