@@ -13,6 +13,16 @@
             .neo-list-item {
                 &:not(.neo-list-item[aria-selected=true]) {
                     background-color: transparent;
+
+                    &:hover {
+                        background-color: var(--list-item-background-color-hover);
+                        color           : var(--list-container-list-color);
+                    }
+                }
+
+                &[aria-selected=true]:hover {
+                    background-color: var(--list-item-background-color-selected);
+                    color           : var(--list-item-color-selected);
                 }
 
                 &.neo-list-item-leaf {
