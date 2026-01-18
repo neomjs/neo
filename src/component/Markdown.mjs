@@ -4,7 +4,7 @@ import IdGenerator from '../core/IdGenerator.mjs';
 import {marked}    from '../../node_modules/marked/lib/marked.esm.js';
 
 const
-    regexFrontMatter  = /^---\n([\s\S]*?)\n---\n/,
+    regexFrontMatter  = /^---\r?\n([\s\S]*?)\r?\n---\r?\n/,
     regexLabClose     = /<!--\s*\/lab\s*-->/g,
     regexLabOpen      = /<!--\s*lab\s*-->/g,
     regexLivePreview  = /```(javascript|html|css|json)\s+live-preview\s*\n([\s\S]*?)\n\s*```/g,
