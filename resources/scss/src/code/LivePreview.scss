@@ -12,7 +12,7 @@
 
         .neo-tab-header-toolbar {
             background-color       : var(--sem-color-surface-neutral-default);
-            border                 : 1px solid #e6e6e6;
+            border                 : 1px solid var(--live-preview-border-color);
             border-top-left-radius : calc(var(--cmp-tab-strip-height) + var(--cmp-button-borderradius));
             border-top-right-radius: calc(var(--cmp-tab-strip-height) + var(--cmp-button-borderradius));
             padding                : var(--cmp-tab-strip-height);
@@ -24,7 +24,7 @@
 
         .neo-tab-body-container {
             background-color          : transparent;
-            border                    : 1px solid #e6e6e6;
+            border                    : 1px solid var(--live-preview-border-color);
             border-bottom-left-radius : calc(var(--cmp-tab-strip-height) + var(--cmp-button-borderradius));
             border-bottom-right-radius: calc(var(--cmp-tab-strip-height) + var(--cmp-button-borderradius));
             border-top                : 0;
