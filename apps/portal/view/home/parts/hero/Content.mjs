@@ -41,6 +41,8 @@ class Content extends BaseContainer {
             colorMove: '#3E63DD',
             flex     : 'none',
             reference: 'magic-move',
+            replaceWithTextNode: false,
+            useCache : false,
 
             cycleTexts: [
                 'The Application Engine for the AI Era',

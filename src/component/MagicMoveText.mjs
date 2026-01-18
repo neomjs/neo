@@ -96,6 +96,18 @@ class MagicMoveText extends Component {
          */
         transitionTime_: 500,
         /**
+         * Set to false to disable caching of the character positions.
+         * Useful if the component might be hidden/visible or resized while hidden.
+         * @member {Boolean} useCache_=true
+         * @reactive
+         */
+        useCache_: true,
+        /**
+         * Set to false to not replace the character spans with a text node after the animation.
+         * @member {Boolean} replaceWithTextNode=true
+         */
+        replaceWithTextNode: true,
+        /**
          * The VDOM structure for the component, including a content area and a hidden measurement element.
          * @member {Object} _vdom
          * @protected
@@ -386,6 +398,17 @@ class MagicMoveText extends Component {
     }
 
     /**
+     * Clears the cache if useCache is set to false
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     */
+    afterSetUseCache(value, oldValue) {
+        if (!value) {
+            this.measureCache = {}
+        }
+    }
+
+    /**
      * Creates the VDOM for new characters that are fading in. It filters out characters
      * that are already present (and will be moved instead).
      * @param {String[]} letters An array representing the new text, with `null` for characters that already existed.
@@ -434,10 +457,10 @@ class MagicMoveText extends Component {
      */
     async measureChars() {
         let me = this,
-            {measureCache, measureElement, measureWrapper, text} = me,
+            {measureCache, measureElement, measureWrapper, text, useCache} = me,
             parentRect, rects, rootRect;
 
-        if (measureCache[text] && measureCache[text].width === me.contentWidth && measureCache[text].height === me.contentHeight) {
+        if (useCache && measureCache[text] && measureCache[text].width === me.contentWidth && measureCache[text].height === me.contentHeight) {
             rects      = [...measureCache[text].rects];
             parentRect = rects.shift()
         } else {
@@ -465,10 +488,12 @@ class MagicMoveText extends Component {
                 return me.measureChars()
             }
 
-            measureCache[text] = {
-                height: me.contentHeight,
-                rects : [parentRect, ...rects],
-                width : me.contentWidth
+            if (useCache) {
+                measureCache[text] = {
+                    height: me.contentHeight,
+                    rects : [parentRect, ...rects],
+                    width : me.contentWidth
+                }
             }
         }
 
@@ -653,10 +678,12 @@ class MagicMoveText extends Component {
 
         me.charsVdom = [...charsContainer.cn];
 
-        charsContainer.cn.length = 0;
+        if (me.replaceWithTextNode) {
+            charsContainer.cn.length = 0;
 
-        charsContainer.cn.push({text: me.text});
-        await me.promiseUpdate();
+            charsContainer.cn.push({text: me.text});
+            await me.promiseUpdate()
+        }
 
         me.isTransitioning = false
     }
