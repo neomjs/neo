@@ -55,8 +55,9 @@ subIssues:
   - '[x] 8777 Robust Theme Switching for Portal Canvases'
   - '[x] 8778 Integrate Robust Theme Switching for Services Canvas'
   - '[x] 8779 Standardize HeaderCanvas Configuration'
-subIssuesCompleted: 39
-subIssuesTotal: 39
+  - '[x] 8788 Refine Portal News TreeList Dark Theme Styling'
+subIssuesCompleted: 40
+subIssuesTotal: 40
 blockedBy: []
 blocking: []
 ---
