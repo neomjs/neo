@@ -43,17 +43,17 @@ class TimelineCanvas extends Canvas {
         _vdom:
         {tag: 'div', cls: ['neo-ticket-timeline-wrapper'], style: {width: '100%', height: '100%'}, cn: [
             {tag: 'canvas', style: {width: '100%', height: '100%'}}
-        ]}
+        ]},
+        /**
+         * @member {Boolean} isCanvasReady_=false
+         */
+        isCanvasReady_: false
     }
 
     /**
      * @member {String} canvasId=null
      */
     canvasId = null
-    /**
-     * @member {Boolean} isCanvasReady=false
-     */
-    isCanvasReady = false
     /**
      * @member {Object[]} lastRecords=null
      */
@@ -67,6 +67,17 @@ class TimelineCanvas extends Canvas {
 
         if (me.lastRecords) {
             me.onTimelineDataLoad(me.lastRecords, true)
+        }
+    }
+
+    /**
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     */
+    afterSetIsCanvasReady(value, oldValue) {
+        if (value) {
+            let mode = this.theme?.includes('dark') ? 'dark' : 'light';
+            Portal.canvas.TicketCanvas.setTheme(mode)
         }
     }
 
@@ -124,7 +135,7 @@ class TimelineCanvas extends Canvas {
     afterSetTheme(value, oldValue) {
         super.afterSetTheme(value, oldValue);
 
-        if (value) {
+        if (value && this.isCanvasReady) {
             let mode = value.includes('dark') ? 'dark' : 'light';
             Portal.canvas.TicketCanvas.setTheme(mode)
         }
