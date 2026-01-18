@@ -26,9 +26,9 @@ class CanvasWrapper extends Container {
          */
         layout: null,
         /**
-         * @member {Object} style={minHeight:'100%',overflow:'visible',position:'relative'}
+         * @member {Object} style={overflow:'visible',paddingBottom:'20px',position:'relative'}
          */
-        style: {minHeight: '100%', overflow: 'visible', position: 'relative'}
+        style: {overflow: 'visible', paddingBottom: '20px', position: 'relative'}
     }
 
     construct(config) {
