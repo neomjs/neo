@@ -133,10 +133,10 @@ class ServicesCanvas extends Base {
         /**
          * The active color theme ('light' or 'dark').
          * Changing this triggers a reactive update to the cached gradients and color resources.
-         * @member {String} theme='light'
+         * @member {String} theme_='light'
          * @reactive
          */
-        theme: 'light'
+        theme_: 'light'
     }
 
     /**
@@ -618,7 +618,7 @@ class ServicesCanvas extends Base {
             ctx.lineTo(headX - hs, headY);
             ctx.closePath();
             ctx.fill();
-            
+
             // Glow
             ctx.shadowBlur  = 10 * s;
             ctx.shadowColor = color;

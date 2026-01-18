@@ -41,7 +41,11 @@ class Canvas extends BaseCanvas {
          * @member {Object} _vdom
          */
         _vdom:
-        {tag: 'canvas'}
+        {tag: 'canvas'},
+        /**
+         * @member {Boolean} isCanvasReady_=false
+         */
+        isCanvasReady_: false
     }
 
     /**
@@ -52,10 +56,17 @@ class Canvas extends BaseCanvas {
      * @member {Object|null} canvasRect=null
      */
     canvasRect = null
+
     /**
-     * @member {Boolean} isCanvasReady=false
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
      */
-    isCanvasReady = false
+    afterSetIsCanvasReady(value, oldValue) {
+        if (value) {
+            let mode = this.theme?.includes('dark') ? 'dark' : 'light';
+            Portal.canvas.ServicesCanvas.setTheme(mode)
+        }
+    }
 
     /**
      * Lifecycle hook triggered when the canvas is registered offscreen.
@@ -83,6 +94,19 @@ class Canvas extends BaseCanvas {
         } else if (oldValue) {
             me.isCanvasReady = false;
             await Portal.canvas.ServicesCanvas.clearGraph()
+        }
+    }
+
+    /**
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     */
+    afterSetTheme(value, oldValue) {
+        super.afterSetTheme(value, oldValue);
+
+        if (value && this.isCanvasReady) {
+            let mode = value.includes('dark') ? 'dark' : 'light';
+            Portal.canvas.ServicesCanvas.setTheme(mode)
         }
     }
 
