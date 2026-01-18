@@ -118,6 +118,19 @@ class TimelineCanvas extends Canvas {
     }
 
     /**
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     */
+    afterSetTheme(value, oldValue) {
+        super.afterSetTheme(value, oldValue);
+
+        if (value) {
+            let mode = value.includes('dark') ? 'dark' : 'light';
+            Portal.canvas.TicketCanvas.setTheme(mode)
+        }
+    }
+
+    /**
      * Override to return the inner canvas ID
      */
     getCanvasId() {

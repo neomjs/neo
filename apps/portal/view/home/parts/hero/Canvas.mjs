@@ -83,6 +83,19 @@ class CanvasComponent extends Canvas {
     }
 
     /**
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     */
+    afterSetTheme(value, oldValue) {
+        super.afterSetTheme(value, oldValue);
+
+        if (value) {
+            let mode = value.includes('dark') ? 'dark' : 'light';
+            Portal.canvas.HomeCanvas.setTheme(mode)
+        }
+    }
+
+    /**
      * @returns {String}
      */
     getCanvasId() {
