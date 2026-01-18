@@ -74,6 +74,10 @@ class HeaderCanvas extends Base {
          */
         className: 'Portal.canvas.HeaderCanvas',
         /**
+         * @member {Number|null} animationId_=null
+         */
+        animationId_: null,
+        /**
          * Remote method access
          * @member {Object} remote
          * @protected
@@ -106,10 +110,6 @@ class HeaderCanvas extends Base {
      * @member {String|null} activeId=null
      */
     activeId = null
-    /**
-     * @member {Number|null} animationId=null
-     */
-    animationId = null
     /**
      * @member {String|null} canvasId=null
      */
@@ -158,6 +158,21 @@ class HeaderCanvas extends Base {
     waveBuffers = {bgA: null, bgB: null, fgA: null, fgB: null}
 
     /**
+     * Triggered after the animationId config got changed
+     * @param {Number|null} value
+     * @param {Number|null} oldValue
+     */
+    afterSetAnimationId(value, oldValue) {
+        if (oldValue) {
+            if (hasRaf) {
+                cancelAnimationFrame(oldValue)
+            } else {
+                clearTimeout(oldValue)
+            }
+        }
+    }
+
+    /**
      * Clears the graph state and stops the render loop.
      */
     clearGraph() {
@@ -169,7 +184,8 @@ class HeaderCanvas extends Base {
         me.particles   = [];
         me.shockwaves  = [];
         me.waveBuffers = {bgA: null, bgB: null, fgA: null, fgB: null};
-        me.gradients   = {}
+        me.gradients   = {};
+        me.animationId = null
     }
 
     /**
@@ -308,9 +324,9 @@ class HeaderCanvas extends Base {
         me.drawShockwaves(ctx, width);
 
         if (hasRaf) {
-            requestAnimationFrame(me.renderLoop)
+            me.animationId = requestAnimationFrame(me.renderLoop)
         } else {
-            setTimeout(me.renderLoop, 1000 / 60)
+            me.animationId = setTimeout(me.renderLoop, 1000 / 60)
         }
     }
 

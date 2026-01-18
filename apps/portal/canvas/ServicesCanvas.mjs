@@ -109,6 +109,10 @@ class ServicesCanvas extends Base {
          */
         className: 'Portal.canvas.ServicesCanvas',
         /**
+         * @member {Number|null} animationId_=null
+         */
+        animationId_: null,
+        /**
          * Remote method access for the App Worker.
          * Allows the UI (Controller) to control the simulation state and input.
          * @member {Object} remote
@@ -235,6 +239,21 @@ class ServicesCanvas extends Base {
     rotation = {x: -0.4, y: 0} // Base tilt (radians) - Floor Perspective
 
     /**
+     * Triggered after the animationId config got changed
+     * @param {Number|null} value
+     * @param {Number|null} oldValue
+     */
+    afterSetAnimationId(value, oldValue) {
+        if (oldValue) {
+            if (hasRaf) {
+                cancelAnimationFrame(oldValue)
+            } else {
+                clearTimeout(oldValue)
+            }
+        }
+    }
+
+    /**
      * Clears the graph state and stops the render loop.
      * Used when the component is destroyed or the route changes to release memory.
      */
@@ -251,7 +270,8 @@ class ServicesCanvas extends Base {
         me.superHexes   = [];
         me.isPaused     = false;
         me.gradients    = {};
-        me.scale        = 1
+        me.scale        = 1;
+        me.animationId  = null
     }
 
     /**
@@ -1053,9 +1073,9 @@ class ServicesCanvas extends Base {
         me.drawParticles(ctx); // Render particles on top
 
         if (hasRaf) {
-            requestAnimationFrame(me.renderLoop)
+            me.animationId = requestAnimationFrame(me.renderLoop)
         } else {
-            setTimeout(me.renderLoop, 1000 / 60)
+            me.animationId = setTimeout(me.renderLoop, 1000 / 60)
         }
     }
 

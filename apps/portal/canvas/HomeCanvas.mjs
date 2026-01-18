@@ -108,6 +108,10 @@ class HomeCanvas extends Base {
          */
         className: 'Portal.canvas.HomeCanvas',
         /**
+         * @member {Number|null} animationId_=null
+         */
+        animationId_: null,
+        /**
          * Remote method access for the App Worker.
          * Allows the UI to control the simulation state and input.
          * @member {Object} remote
@@ -204,6 +208,21 @@ class HomeCanvas extends Base {
     time = 0
 
     /**
+     * Triggered after the animationId config got changed
+     * @param {Number|null} value
+     * @param {Number|null} oldValue
+     */
+    afterSetAnimationId(value, oldValue) {
+        if (oldValue) {
+            if (hasRaf) {
+                cancelAnimationFrame(oldValue)
+            } else {
+                clearTimeout(oldValue)
+            }
+        }
+    }
+
+    /**
      * Clears the graph state and stops the render loop.
      * Used when the component is destroyed or the route changes.
      */
@@ -219,7 +238,8 @@ class HomeCanvas extends Base {
         me.sparks       = [];
         me.isPaused     = false;
         me.gradients    = {};
-        me.scale        = 1
+        me.scale        = 1;
+        me.animationId  = null
     }
 
     /**
@@ -842,9 +862,9 @@ class HomeCanvas extends Base {
         me.drawSparks(ctx);
 
         if (hasRaf) {
-            requestAnimationFrame(me.renderLoop)
+            me.animationId = requestAnimationFrame(me.renderLoop)
         } else {
-            setTimeout(me.renderLoop, 1000 / 60)
+            me.animationId = setTimeout(me.renderLoop, 1000 / 60)
         }
     }
 
