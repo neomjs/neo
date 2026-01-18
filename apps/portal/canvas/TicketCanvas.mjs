@@ -52,6 +52,10 @@ class TicketCanvas extends Base {
          */
         className: 'Portal.canvas.TicketCanvas',
         /**
+         * @member {Number|null} animationId_=null
+         */
+        animationId_: null,
+        /**
          * Remote method access
          * @member {Object} remote
          * @protected
@@ -76,10 +80,6 @@ class TicketCanvas extends Base {
         theme: 'light'
     }
 
-    /**
-     * @member {Number} animationId=null
-     */
-    animationId = null
     /**
      * @member {Number} baseSpeed=0.5
      */
@@ -118,15 +118,31 @@ class TicketCanvas extends Base {
     startY = 0
 
     /**
+     * Triggered after the animationId config got changed
+     * @param {Number|null} value
+     * @param {Number|null} oldValue
+     */
+    afterSetAnimationId(value, oldValue) {
+        if (oldValue) {
+            if (hasRaf) {
+                cancelAnimationFrame(oldValue)
+            } else {
+                clearTimeout(oldValue)
+            }
+        }
+    }
+
+    /**
      * Clears the graph state and stops the render loop.
      * This is called when the view unmounts to prevent "Zombie Loops".
      */
     clearGraph() {
         let me = this;
-        me.nodes      = [];
-        me.context    = null; // This stops the render loop (see render() check)
-        me.canvasId   = null;
-        me.canvasSize = null
+        me.nodes       = [];
+        me.context     = null; // This stops the render loop (see render() check)
+        me.canvasId    = null;
+        me.canvasSize  = null;
+        me.animationId = null
     }
 
     /**
@@ -451,9 +467,9 @@ class TicketCanvas extends Base {
         });
 
         if (hasRaf) {
-            requestAnimationFrame(me.renderLoop)
+            me.animationId = requestAnimationFrame(me.renderLoop)
         } else {
-            setTimeout(me.renderLoop, 1000 / 60)
+            me.animationId = setTimeout(me.renderLoop, 1000 / 60)
         }
     }
 }
