@@ -36,6 +36,15 @@ const PHYSICS = {
  * @singleton
  */
 class TicketCanvas extends Base {
+    static colors = {
+        dark : {
+            spine: ['rgba(62, 99, 221, 0.2)', 'rgba(64, 196, 255, 0.4)', 'rgba(62, 99, 221, 0.2)']
+        },
+        light: {
+            spine: ['rgba(150, 150, 150, 0.1)', 'rgba(150, 150, 150, 0.3)', 'rgba(150, 150, 150, 0.1)']
+        }
+    }
+
     static config = {
         /**
          * @member {String} className='Portal.canvas.TicketCanvas'
@@ -51,6 +60,7 @@ class TicketCanvas extends Base {
             app: [
                 'clearGraph',
                 'initGraph',
+                'setTheme',
                 'updateGraphData',
                 'updateSize'
             ]
@@ -59,7 +69,11 @@ class TicketCanvas extends Base {
          * @member {Boolean} singleton=true
          * @protected
          */
-        singleton: true
+        singleton: true,
+        /**
+         * @member {String} theme='light'
+         */
+        theme: 'light'
     }
 
     /**
@@ -113,6 +127,13 @@ class TicketCanvas extends Base {
         me.context    = null; // This stops the render loop (see render() check)
         me.canvasId   = null;
         me.canvasSize = null
+    }
+
+    /**
+     * @param {String} value
+     */
+    setTheme(value) {
+        this.theme = value
     }
 
     /**
@@ -331,10 +352,13 @@ class TicketCanvas extends Base {
         ctx.clearRect(0, 0, width, height);
 
         // 3. Draw Neural Connections (The "Spine")
-        const gradient = ctx.createLinearGradient(0, 0, 0, height);
-        gradient.addColorStop(0,   'rgba(150, 150, 150, 0.1)');
-        gradient.addColorStop(0.5, 'rgba(150, 150, 150, 0.3)');
-        gradient.addColorStop(1,   'rgba(150, 150, 150, 0.1)');
+        const
+            themeColors = me.constructor.colors[me.theme],
+            gradient    = ctx.createLinearGradient(0, 0, 0, height);
+
+        gradient.addColorStop(0,   themeColors.spine[0]);
+        gradient.addColorStop(0.5, themeColors.spine[1]);
+        gradient.addColorStop(1,   themeColors.spine[2]);
 
         ctx.strokeStyle = gradient;
         ctx.lineWidth   = 2;
