@@ -128,7 +128,7 @@
                 }
 
                 .neo-timeline-body {
-                    color      : var(--gh-text-secondary);
+                    color      : var(--gh-event-text-color);
                     font-size  : 13px;
                     padding-top: 2px;
 
@@ -168,7 +168,7 @@
 
                 .neo-timeline-content {
                     background   : var(--gh-bg-default);
-                    border       : 1px solid var(--gh-border-default);
+                    border       : 1px solid var(--gh-timeline-border);
                     border-radius: 6px;
                     position     : relative;
 
@@ -193,7 +193,7 @@
 
                     &::before {
                         border-color      : rgba(208, 215, 222, 0);
-                        border-right-color: var(--gh-border-default);
+                        border-right-color: var(--gh-timeline-border);
                         border-width      : 8px;
                         margin-top        : -8px;
                     }
@@ -201,9 +201,9 @@
                     .neo-timeline-header {
                         align-items     : center;
                         background-color: var(--gh-bg-subtle);
-                        border-bottom   : 1px solid var(--gh-border-default);
+                        border-bottom   : 1px solid var(--gh-timeline-border);
                         border-radius   : 6px 6px 0 0;
-                        color           : var(--gh-text-secondary);
+                        color           : var(--gh-header-text-color);
                         display         : flex;
                         font-size       : 13px;
                         justify-content : space-between;
