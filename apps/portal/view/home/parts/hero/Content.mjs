@@ -55,6 +55,8 @@ class Content extends BaseContainer {
                 'Object Permanence',
                 'Context Engineering',
                 'True Multithreading',
+                'SharedWorker Simulations',
+                'Physics-Driven UI',
                 'Desktop-Class Performance',
                 'Linear Scalability',
                 'Multi-Window Orchestration',
