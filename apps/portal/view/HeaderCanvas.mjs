@@ -49,7 +49,11 @@ class HeaderCanvas extends Canvas {
          * @member {Object} _vdom
          */
         _vdom:
-        {tag: 'canvas'}
+        {tag: 'canvas'},
+        /**
+         * @member {Boolean} isCanvasReady_=false
+         */
+        isCanvasReady_: false
     }
 
     /**
@@ -57,13 +61,28 @@ class HeaderCanvas extends Canvas {
      */
     canvasId = null
     /**
-     * @member {Boolean} isCanvasReady=false
-     */
-    isCanvasReady = false
-    /**
      * @member {Object[]} navRects=null
      */
     navRects = null
+
+    /**
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     */
+    afterSetIsCanvasReady(value, oldValue) {
+        if (value) {
+            let me = this;
+
+            if (me.activeId) {
+                Portal.canvas.HeaderCanvas.updateActiveId({id: me.activeId})
+            }
+
+            if (me.theme) {
+                let mode = me.theme.includes('dark') ? 'dark' : 'light';
+                Portal.canvas.HeaderCanvas.setTheme(mode)
+            }
+        }
+    }
 
     /**
      * Lifecycle hook triggered when the canvas is registered offscreen.
@@ -90,9 +109,7 @@ class HeaderCanvas extends Canvas {
             await me.updateSize();
             await me.updateNavRects();
 
-            if (me.activeId) {
-                await Portal.canvas.HeaderCanvas.updateActiveId({id: me.activeId})
-            }
+            me.isCanvasReady = true
         } else if (oldValue) {
             me.isCanvasReady = false;
             await Portal.canvas.HeaderCanvas.clearGraph()
@@ -126,7 +143,7 @@ class HeaderCanvas extends Canvas {
     afterSetTheme(value, oldValue) {
         super.afterSetTheme(value, oldValue);
 
-        if (value) {
+        if (value && this.isCanvasReady) {
             let mode = value.includes('dark') ? 'dark' : 'light';
             Portal.canvas.HeaderCanvas.setTheme(mode)
         }
