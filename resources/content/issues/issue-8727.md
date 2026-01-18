@@ -43,8 +43,13 @@ subIssues:
   - '[x] 8752 Refine Dark Theme Markdown Blockquote Background'
   - '[x] 8753 Refine Dark Theme Link Color'
   - '[x] 8754 Implement Theme-Aware Mermaid Diagram Rendering'
-subIssuesCompleted: 27
-subIssuesTotal: 27
+  - '[x] 8768 Refine Dark Theme Paragraph Text Contrast'
+  - '[x] 8769 Formalize Dark Theme Blockquote Background Token'
+  - '[x] 8770 Refine Dark Theme Markdown Table Header Background'
+  - '[x] 8771 Refine Portal Header Canvas Ribbon Opacity for Dark Theme'
+  - '[x] 8772 Refine Dark Theme Markdown Text Color Consistency'
+subIssuesCompleted: 32
+subIssuesTotal: 32
 blockedBy: []
 blocking: []
 ---
@@ -234,4 +239,8 @@ Implement a comprehensive Dark Theme for the Portal App, utilizing the Neo.mjs D
 - 2026-01-17T05:54:23Z @tobiu added sub-issue #8752
 - 2026-01-17T06:01:41Z @tobiu added sub-issue #8753
 - 2026-01-17T06:09:01Z @tobiu added sub-issue #8754
+- 2026-01-17T23:10:42Z @tobiu added sub-issue #8768
+- 2026-01-17T23:20:13Z @tobiu added sub-issue #8769
+- 2026-01-17T23:26:54Z @tobiu added sub-issue #8770
+- 2026-01-17T23:46:42Z @tobiu added sub-issue #8771
 
