@@ -48,8 +48,15 @@ subIssues:
   - '[x] 8770 Refine Dark Theme Markdown Table Header Background'
   - '[x] 8771 Refine Portal Header Canvas Ribbon Opacity for Dark Theme'
   - '[x] 8772 Refine Dark Theme Markdown Text Color Consistency'
-subIssuesCompleted: 32
-subIssuesTotal: 32
+  - '[x] 8773 Refine Portal Home Feature Section Dark Theme'
+  - '[x] 8774 Refine Dark Theme for Ticket Timeline Components'
+  - '[x] 8775 Implement Dark Theme for Ticket Canvas'
+  - '[x] 8776 Integrate Theme Switching for Home and Ticket Canvases'
+  - '[x] 8777 Robust Theme Switching for Portal Canvases'
+  - '[x] 8778 Integrate Robust Theme Switching for Services Canvas'
+  - '[x] 8779 Standardize HeaderCanvas Configuration'
+subIssuesCompleted: 39
+subIssuesTotal: 39
 blockedBy: []
 blocking: []
 ---
