@@ -66,7 +66,8 @@ class Canvas extends Component {
             }
 
             if (offscreen) {
-                let data;
+                let data,
+                    delay = 50;
 
                 while (me.mounted && !me.offscreenRegistered && !me.isDestroyed) {
                     data = await Neo.main.DomAccess.getOffscreenCanvas({
@@ -97,7 +98,11 @@ class Canvas extends Component {
                         }
                     }
 
-                    await me.timeout(50)
+                    await me.timeout(delay);
+
+                    if (delay < 1000) {
+                        delay *= 2
+                    }
                 }
             }
         } else if (offscreen) {
