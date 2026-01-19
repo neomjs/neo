@@ -315,16 +315,16 @@ class VdomLifecycle extends Base {
 
     /**
      * Checks if a given updateDepth & distance would result in an update collision.
-     * The check must use `<` because `updateDepth` is 1-based.
+     * The check must use `<=` because `updateDepth` is 1-based.
      * - `updateDepth: 1` means the update is scoped to the component itself.
      * - A direct child is at `distance: 1`.
-     * Therefore, an update with depth 1 should NOT collide with a child at distance 1 (1 < 1 is false).
+     * Therefore, an update with depth 1 DOES collide with a child at distance 1.
      * @param {Number} updateDepth
      * @param {Number} distance
      * @returns {Boolean}
      */
     hasUpdateCollision(updateDepth, distance) {
-        return updateDepth === -1 ? true : distance < updateDepth
+        return updateDepth === -1 ? true : distance <= updateDepth
     }
 
     /**
@@ -400,6 +400,40 @@ class VdomLifecycle extends Base {
 
             return data
         }
+    }
+
+    /**
+     * Checks if any descendant component is currently updating.
+     * If so, registers a post-update callback to wait for it, preventing race conditions.
+     * @param {Function} [resolve] Gets passed by updateVdom()
+     * @returns {Boolean}
+     */
+    isChildUpdating(resolve) {
+        // We only care if our update depth is deep enough to cover children
+        if (this.updateDepth === -1 || this.updateDepth > 1) {
+            let inFlightMap = VDomUpdate.inFlightUpdateMap;
+
+            if (inFlightMap.size > 0) {
+                for (const [inFlightId] of inFlightMap) {
+                    if (inFlightId !== this.id) {
+                        // Check if the in-flight component is a descendant of this component
+                        if (Neo.manager.Component.hasParent(inFlightId, this.id)) {
+                            // Found a conflict! Wait for the child to finish.
+                            // We don't need to check all children, just one is enough to block.
+                            // The child's completion will trigger post-updates, which will wake us up.
+                            if (Neo.config.logVdomUpdateCollisions) {
+                                console.warn('vdom child update conflict with:', Neo.getComponent(inFlightId), 'for:', this)
+                            }
+
+                            VDomUpdate.registerPostUpdate(inFlightId, this.id, resolve);
+                            return true
+                        }
+                    }
+                }
+            }
+        }
+
+        return false
     }
 
     /**
@@ -680,6 +714,7 @@ class VdomLifecycle extends Base {
                 if (
                     !me.mergeIntoParentUpdate(parentId)
                     && !me.isParentUpdating(parentId, resolve)
+                    && !me.isChildUpdating(resolve)
                     && mounted
                     && vnode
                 ) {

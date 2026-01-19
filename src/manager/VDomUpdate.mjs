@@ -235,6 +235,39 @@ class VDomUpdate extends Collection {
     }
 
     /**
+     * Checks if any descendant of the given ownerId is currently updating (in-flight).
+     * This is used to detect reverse collisions where a Parent update might overwrite a concurrent Child update.
+     * @param {String} ownerId
+     * @param {Number} updateDepth
+     * @returns {Boolean}
+     */
+    hasInFlightDescendant(ownerId, updateDepth) {
+        let me          = this,
+            distance, hasConflict = false;
+
+        if (me.inFlightUpdateMap.size > 0) {
+            // We only need to check if the parent's update depth covers children
+            if (updateDepth === -1 || updateDepth > 1) {
+                // Iterate over all in-flight updates
+                for (const [inFlightId] of me.inFlightUpdateMap) {
+                    if (inFlightId !== ownerId) {
+                        distance = Neo.manager.Component.getDistance(inFlightId, ownerId);
+
+                        if (distance > 0) {
+                            if (updateDepth === -1 || distance < updateDepth) {
+                                hasConflict = true;
+                                break
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return hasConflict
+    }
+
+    /**
      * Marks a component's VDOM update as "in-flight," meaning it has been sent to the
      * worker for processing.
      * @param {String} ownerId     The `id` of the component owning the update.
