@@ -142,6 +142,14 @@ class SharedCanvas extends Canvas {
     }
 
     /**
+     * @param {...*} args
+     */
+    destroy(...args) {
+        this.renderer.clearGraph();
+        super.destroy(...args)
+    }
+
+    /**
      * Forwards click events to the Shared Worker.
      * @param {Object} data
      */
