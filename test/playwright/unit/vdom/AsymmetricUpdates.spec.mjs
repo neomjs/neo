@@ -194,7 +194,7 @@ test.describe('Neo.vdom.VdomAsymmetricUpdates', () => {
         expect(postUpdateQueue.children[0].childId).toBe(child.id);
     });
 
-    test('Should not detect a collision if updateDepth is insufficient', () => {
+    test('Should detect a collision if updateDepth covers the distance', () => {
         const grandchildVdom = {id: 'grandchild-1', text: 'grandchild'};
         const childVdom      = {id: 'child-1', cn: [{componentId: 'grandchild-1'}]};
         const parentVdom     = {id: 'parent-1', cn: [{componentId: 'child-1'}]};
@@ -208,9 +208,11 @@ test.describe('Neo.vdom.VdomAsymmetricUpdates', () => {
 
         let hasCollision = grandchild.isParentUpdating(grandchild.parentId, () => {});
 
-        expect(hasCollision).toBe(false);
+        // Depth 2. Distance 2. 2 <= 2 is TRUE.
+        expect(hasCollision).toBe(true);
+        
         const postUpdateQueue = VDomUpdate.postUpdateQueueMap.get(parent.id);
-        expect(postUpdateQueue).toBeFalsy();
+        expect(postUpdateQueue).toBeTruthy();
     });
 
     test('Should handle merged updates from multiple non-contiguous children', () => {

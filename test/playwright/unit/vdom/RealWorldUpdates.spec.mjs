@@ -121,6 +121,7 @@ test.describe('Neo.vdom.VdomRealWorldUpdates', () => {
 
     test('Should handle a simple parent-only update', async () => {
         parent.setSilent({heading: 'Updated Parent'});
+        console.log('Parent Update Depth:', parent.updateDepth); // DEBUG
         const {deltas} = await parent.promiseUpdate();
 
         expect(deltas.length).toBe(1);
