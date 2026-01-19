@@ -1,4 +1,4 @@
-import Base from '../../../src/core/Base.mjs';
+import Base from './Base.mjs';
 
 const
     hasRaf          = typeof requestAnimationFrame === 'function',
@@ -69,7 +69,7 @@ const
  * - 7: colorIdx (Palette index)
  *
  * @class Portal.canvas.ServicesCanvas
- * @extends Neo.core.Base
+ * @extends Portal.canvas.Base
  * @singleton
  */
 class ServicesCanvas extends Base {
@@ -116,11 +116,8 @@ class ServicesCanvas extends Base {
          */
         remote: {
             app: [
-                'clearGraph',
-                'initGraph',
                 'pause',
                 'resume',
-                'setTheme',
                 'updateMouseState',
                 'updateSize'
             ]
@@ -129,14 +126,7 @@ class ServicesCanvas extends Base {
          * @member {Boolean} singleton=true
          * @protected
          */
-        singleton: true,
-        /**
-         * The active color theme ('light' or 'dark').
-         * Changing this triggers a reactive update to the cached gradients and color resources.
-         * @member {String} theme_='light'
-         * @reactive
-         */
-        theme_: 'light'
+        singleton: true
     }
 
     /**
@@ -243,10 +233,8 @@ class ServicesCanvas extends Base {
      * Used when the component is destroyed or the route changes to release memory.
      */
     clearGraph() {
-        let me          = this;
-        me.context      = null;
-        me.canvasId     = null;
-        me.canvasSize   = null;
+        let me = this;
+        super.clearGraph();
         me.cellBuffer   = null;
         me.runnerBuffer = null;
         me.kernelBuffer = null;
@@ -255,30 +243,16 @@ class ServicesCanvas extends Base {
         me.superHexes   = [];
         me.isPaused     = false;
         me.gradients    = {};
-        me.scale        = 1;
-        me.animationId  = null
+        me.scale        = 1
     }
 
     /**
-     * Triggered after the `theme` config is changed.
-     * Updates the resource cache (gradients, colors) to reflect the new theme immediately.
-     * @param {String} value
-     * @param {String} oldValue
-     * @protected
+     * Hook to initialize nodes and buffers after context is ready
+     * @param {Number} width
+     * @param {Number} height
      */
-    afterSetTheme(value, oldValue) {
-        let me = this;
-        if (value && me.canvasSize) {
-            me.updateResources(me.canvasSize.width, me.canvasSize.height)
-        }
-    }
-
-    /**
-     * Sets the visual theme.
-     * @param {String} value 'light' or 'dark'
-     */
-    setTheme(value) {
-        this.theme = value
+    onGraphMounted(width, height) {
+        this.updateSize({width, height})
     }
 
     /**
@@ -674,35 +648,6 @@ class ServicesCanvas extends Base {
     }
 
     /**
-     * Initializes the graph context.
-     * Connects to the OffscreenCanvas transferred from the main thread.
-     * @param {Object} opts
-     * @param {String} opts.canvasId
-     * @param {String} opts.windowId
-     */
-    initGraph({canvasId, windowId}) {
-        let me        = this,
-            hasChange = me.canvasId !== canvasId;
-
-        me.canvasId = canvasId;
-
-        const checkCanvas = () => {
-            const canvas = Neo.currentWorker.canvasWindowMap[canvasId]?.[windowId];
-
-            if (canvas) {
-                me.context = canvas.getContext('2d');
-                me.updateSize({width: canvas.width, height: canvas.height});
-                if (hasChange && !me.animationId) {
-                    me.renderLoop()
-                }
-            } else {
-                setTimeout(checkCanvas, 50)
-            }
-        };
-        checkCanvas()
-    }
-
-    /**
      * Allocates the Particle Buffer (Construction Effects).
      */
     initParticles() {
@@ -999,11 +944,6 @@ class ServicesCanvas extends Base {
             me.renderLoop()
         }
     }
-
-    /**
-     * @member {Function} renderLoop=this.render.bind(this)
-     */
-    renderLoop = this.render.bind(this)
 
     /**
      * Main Render Loop.

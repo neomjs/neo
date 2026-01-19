@@ -1,4 +1,4 @@
-import Base from '../../../src/core/Base.mjs';
+import Base from './Base.mjs';
 
 const
     hasRaf    = typeof requestAnimationFrame === 'function',
@@ -35,7 +35,7 @@ const
  * 3. **Reusable Objects:** Physics calculations write directly to buffers instead of returning new Arrays of Objects.
  *
  * @class Portal.canvas.HeaderCanvas
- * @extends Neo.core.Base
+ * @extends Portal.canvas.Base
  * @singleton
  * @see Portal.view.HeaderCanvas
  */
@@ -80,48 +80,24 @@ class HeaderCanvas extends Base {
          */
         remote: {
             app: [
-                'clearGraph',
-                'initGraph',
-                'setTheme',
                 'updateActiveId',
                 'updateGraphData',
                 'updateHoverId',
                 'updateMouseState',
-                'updateNavRects',
-                'updateSize'
+                'updateNavRects'
             ]
         },
         /**
          * @member {Boolean} singleton=true
          * @protected
          */
-        singleton: true,
-        /**
-         * @member {String} theme='light'
-         */
-        theme: 'light'
+        singleton: true
     }
 
     /**
      * @member {String|null} activeId=null
      */
     activeId = null
-    /**
-     * @member {Number|null} animationId=null
-     */
-    animationId = null
-    /**
-     * @member {String|null} canvasId=null
-     */
-    canvasId = null
-    /**
-     * @member {Object|null} canvasSize=null
-     */
-    canvasSize = null
-    /**
-     * @member {Object|null} context=null
-     */
-    context = null
     /**
      * @member {Object} gradients={}
      */
@@ -162,63 +138,21 @@ class HeaderCanvas extends Base {
      */
     clearGraph() {
         let me = this;
-        me.context     = null;
-        me.canvasId    = null;
-        me.canvasSize  = null;
+        super.clearGraph();
         me.navRects    = [];
         me.particles   = [];
         me.shockwaves  = [];
         me.waveBuffers = {bgA: null, bgB: null, fgA: null, fgB: null};
-        me.gradients   = {};
-        me.animationId = null
+        me.gradients   = {}
     }
 
     /**
-     * @param {String} value
-     * @param {String} oldValue
+     * Hook to initialize particles after context is ready
+     * @param {Number} width
+     * @param {Number} height
      */
-    afterSetTheme(value, oldValue) {
-        let me = this;
-
-        if (value && me.canvasSize) {
-            me.updateResources(me.canvasSize.width, me.canvasSize.height)
-        }
-    }
-
-    /**
-     * @param {String} value
-     */
-    setTheme(value) {
-        this.theme = value
-    }
-
-    /**
-     * Initializes the canvas context.
-     * @param {Object} opts
-     * @param {String} opts.canvasId
-     * @param {String} opts.windowId
-     */
-    initGraph({canvasId, windowId}) {
-        let me        = this,
-            hasChange = me.canvasId !== canvasId;
-
-        me.canvasId = canvasId;
-
-        const checkCanvas = () => {
-            const canvas = Neo.currentWorker.canvasWindowMap[canvasId]?.[windowId];
-
-            if (canvas) {
-                me.context = canvas.getContext('2d');
-                me.initParticles(canvas.width, canvas.height); // Init particles
-                me.updateResources(canvas.width, canvas.height); // Init buffers/gradients
-                if (hasChange && !me.animationId) {
-                    me.renderLoop()
-                }
-            } else {
-                setTimeout(checkCanvas, 50)
-            }
-        };
-        checkCanvas()
+    onGraphMounted(width, height) {
+        this.initParticles(width, height)
     }
 
     /**
@@ -253,11 +187,6 @@ class HeaderCanvas extends Base {
             })
         }
     }
-
-    /**
-     * @member {Function} renderLoop=this.render.bind(this)
-     */
-    renderLoop = this.render.bind(this)
 
     /**
      * Main render loop.
@@ -1064,24 +993,6 @@ class HeaderCanvas extends Base {
         bgRibbon.addColorStop(0.5, themeColors.bgRibbon[1]);
         bgRibbon.addColorStop(1,   themeColors.bgRibbon[2]);
         me.gradients.bgRibbon = bgRibbon;
-    }
-
-    /**
-     * @param {Object} size
-     * @param {Number} size.height
-     * @param {Number} size.width
-     */
-    updateSize(size) {
-        let me = this;
-
-        me.canvasSize = size;
-
-        if (me.context) {
-            me.context.canvas.width  = size.width;
-            me.context.canvas.height = size.height;
-            // Re-init resources on resize
-            me.updateResources(size.width, size.height)
-        }
     }
 }
 

@@ -1,4 +1,4 @@
-import Base from '../../../src/core/Base.mjs';
+import Base from './Base.mjs';
 
 const
     hasRaf         = typeof requestAnimationFrame === 'function',
@@ -33,7 +33,7 @@ const PHYSICS = {
  *    nearest node (e.g., Red for Bugs, Green for Features) as it passes by.
  *
  * @class Portal.canvas.TicketCanvas
- * @extends Neo.core.Base
+ * @extends Portal.canvas.Base
  * @singleton
  */
 class TicketCanvas extends Base {
@@ -78,25 +78,9 @@ class TicketCanvas extends Base {
     }
 
     /**
-     * @member {Number|null} animationId=null
-     */
-    animationId = null
-    /**
      * @member {Number} baseSpeed=0.5
      */
     baseSpeed = 0.5
-    /**
-     * @member {String|null} canvasId=null
-     */
-    canvasId = null
-    /**
-     * @member {Object} canvasSize=null
-     */
-    canvasSize = null
-    /**
-     * @member {Object} context=null
-     */
-    context = null
     /**
      * @member {Number} lastFrameTime=0
      */
@@ -114,10 +98,6 @@ class TicketCanvas extends Base {
      */
     pulseBottom = 100
     /**
-     * @member {Function} renderLoop=this.render.bind(this)
-     */
-    renderLoop = this.render.bind(this)
-    /**
      * @member {Number} startY=0
      */
     startY = 0
@@ -128,20 +108,10 @@ class TicketCanvas extends Base {
      */
     clearGraph() {
         let me = this;
-        me.nodes       = [];
-        me.context     = null; // This stops the render loop (see render() check)
-        me.canvasId    = null;
-        me.canvasSize  = null;
-        me.animationId = null;
+        super.clearGraph();
+        me.nodes         = [];
         me.lastFrameTime = 0;
-        me.pulseBottom = 0
-    }
-
-    /**
-     * @param {String} value
-     */
-    setTheme(value) {
-        this.theme = value
+        me.pulseBottom   = 0
     }
 
     /**
@@ -225,43 +195,6 @@ class TicketCanvas extends Base {
     }
 
     /**
-     * Initializes the canvas context for the graph.
-     *
-     * **Async Initialization Pattern:**
-     * The `OffscreenCanvas` is transferred from the main thread to the `CanvasWorker` asynchronously.
-     * We cannot guarantee it exists in `Neo.currentWorker.canvasWindowMap` at the moment this method is called.
-     * Therefore, we use a polling mechanism (`checkCanvas`) to wait for the transfer to complete before
-     * starting the render loop.
-     *
-     * @param {Object} opts
-     * @param {String} opts.canvasId
-     * @param {String} opts.windowId
-     */
-    initGraph({canvasId, windowId}) {
-        let me        = this,
-            hasChange = me.canvasId !== canvasId;
-
-        me.canvasId = canvasId;
-
-        // Wait for the canvas to be available in the worker map.
-        // The OffscreenCanvas is transferred asynchronously to the CanvasWorker,
-        // so we need to poll until it arrives.
-        const checkCanvas = () => {
-            const canvas = Neo.currentWorker.canvasWindowMap[canvasId]?.[windowId];
-
-            if (canvas) {
-                me.context = canvas.getContext('2d');
-                if (hasChange && !me.animationId) {
-                    me.renderLoop()
-                }
-            } else {
-                setTimeout(checkCanvas, 50)
-            }
-        };
-        checkCanvas()
-    }
-
-    /**
      * Updates the graph with new timeline nodes.
      * When `reset` is true, it hard-resets the physics simulation (positions and time) to prevent
      * visual artifacts (jumping/flashing) when switching between different ticket contexts.
@@ -287,22 +220,6 @@ class TicketCanvas extends Base {
         // Ensure animation loop is running if we have data
         if (me.nodes.length > 0 && !me.animationId && me.context) {
             me.renderLoop()
-        }
-    }
-
-    /**
-     * @param {Object} size
-     * @param {Number} size.height
-     * @param {Number} size.width
-     */
-    updateSize(size) {
-        let me = this;
-
-        me.canvasSize = size;
-
-        if (me.context) {
-            me.context.canvas.width  = size.width;
-            me.context.canvas.height = size.height
         }
     }
 

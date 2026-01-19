@@ -1,4 +1,4 @@
-import Base from '../../../src/core/Base.mjs';
+import Base from './Base.mjs';
 
 const
     hasRaf           = typeof requestAnimationFrame === 'function',
@@ -78,7 +78,7 @@ const
  * - 4: life (Frames remaining, 0-1 normalized for alpha)
  *
  * @class Portal.canvas.HomeCanvas
- * @extends Neo.core.Base
+ * @extends Portal.canvas.Base
  * @singleton
  */
 class HomeCanvas extends Base {
@@ -115,24 +115,16 @@ class HomeCanvas extends Base {
          */
         remote: {
             app: [
-                'clearGraph',
-                'initGraph',
                 'pause',
                 'resume',
-                'setTheme',
-                'updateMouseState',
-                'updateSize'
+                'updateMouseState'
             ]
         },
         /**
          * @member {Boolean} singleton=true
          * @protected
          */
-        singleton: true,
-        /**
-         * @member {String} theme='light'
-         */
-        theme: 'light'
+        singleton: true
     }
 
     /**
@@ -140,25 +132,6 @@ class HomeCanvas extends Base {
      * @member {Float32Array|null} agentBuffer=null
      */
     agentBuffer = null
-    /**
-     * @member {Number|null} animationId=null
-     */
-    animationId = null
-    /**
-     * ID of the canvas element in the DOM.
-     * @member {String|null} canvasId=null
-     */
-    canvasId = null
-    /**
-     * Current dimensions of the canvas.
-     * @member {Object|null} canvasSize=null
-     */
-    canvasSize = null
-    /**
-     * The 2D rendering context.
-     * @member {OffscreenCanvasRenderingContext2D|null} context=null
-     */
-    context = null
     /**
      * Cache for reusable gradients to prevent GC.
      * @member {Object} gradients={}
@@ -213,9 +186,7 @@ class HomeCanvas extends Base {
      */
     clearGraph() {
         let me = this;
-        me.context      = null;
-        me.canvasId     = null;
-        me.canvasSize   = null;
+        super.clearGraph();
         me.nodeBuffer   = null;
         me.agentBuffer  = null;
         me.packetBuffer = null;
@@ -223,27 +194,16 @@ class HomeCanvas extends Base {
         me.sparks       = [];
         me.isPaused     = false;
         me.gradients    = {};
-        me.scale        = 1;
-        me.animationId  = null
+        me.scale        = 1
     }
 
     /**
-     * @param {String} value
-     * @param {String} oldValue
+     * Hook to initialize nodes and agents after context is ready
+     * @param {Number} width
+     * @param {Number} height
      */
-    afterSetTheme(value, oldValue) {
-        let me = this;
-
-        if (value && me.canvasSize) {
-            me.updateResources(me.canvasSize.width, me.canvasSize.height)
-        }
-    }
-
-    /**
-     * @param {String} value
-     */
-    setTheme(value) {
-        this.theme = value
+    onGraphMounted(width, height) {
+        this.updateSize({width, height})
     }
 
     /**
@@ -652,35 +612,6 @@ class HomeCanvas extends Base {
             buffer[idx + 4] = -1; // targetIdx (none)
             buffer[idx + 5] = 0   // state (moving)
         }
-    }
-
-    /**
-     * Initializes the canvas context.
-     * Connects to the OffscreenCanvas transferred from the main thread.
-     * @param {Object} opts
-     * @param {String} opts.canvasId
-     * @param {String} opts.windowId
-     */
-    initGraph({canvasId, windowId}) {
-        let me        = this,
-            hasChange = me.canvasId !== canvasId;
-
-        me.canvasId = canvasId;
-
-        const checkCanvas = () => {
-            const canvas = Neo.currentWorker.canvasWindowMap[canvasId]?.[windowId];
-
-            if (canvas) {
-                me.context = canvas.getContext('2d');
-                me.updateSize({width: canvas.width, height: canvas.height});
-                if (hasChange && !me.animationId) {
-                    me.renderLoop()
-                }
-            } else {
-                setTimeout(checkCanvas, 50)
-            }
-        };
-        checkCanvas()
     }
 
     /**
