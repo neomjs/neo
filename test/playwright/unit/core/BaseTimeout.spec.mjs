@@ -1,15 +1,15 @@
 import {test, expect} from '@playwright/test';
 import Neo            from '../../../../src/Neo.mjs';
-import Base           from '../../../../src/core/Base.mjs';
+import * as core      from '../../../../src/core/_export.mjs';
 
 test.describe('core/Base Timeout Handling', () => {
     test('timeout() should resolve after the specified delay', async () => {
-        class TestClass extends Base {
+        class TestClass extends core.Base {
             static config = {
                 className: 'Neo.test.TimeoutTestClass'
             }
         }
-        Neo.setupClass(TestClass);
+        TestClass = Neo.setupClass(TestClass);
 
         const instance = Neo.create(TestClass);
         const start = Date.now();
@@ -20,12 +20,12 @@ test.describe('core/Base Timeout Handling', () => {
     });
 
     test('timeout() should be rejected with Neo.isDestroyed when instance is destroyed', async () => {
-        class TestClass extends Base {
+        class TestClass extends core.Base {
             static config = {
                 className: 'Neo.test.TimeoutDestroyTestClass'
             }
         }
-        Neo.setupClass(TestClass);
+        TestClass = Neo.setupClass(TestClass);
 
         const instance = Neo.create(TestClass);
         let error;
@@ -46,12 +46,12 @@ test.describe('core/Base Timeout Handling', () => {
     });
 
     test('Multiple timeouts should be handled correctly', async () => {
-        class TestClass extends Base {
+        class TestClass extends core.Base {
             static config = {
                 className: 'Neo.test.MultipleTimeoutTestClass'
             }
         }
-        Neo.setupClass(TestClass);
+        TestClass = Neo.setupClass(TestClass);
 
         const instance = Neo.create(TestClass);
         let error1, error2;
@@ -78,17 +78,17 @@ test.describe('core/Base Timeout Handling', () => {
     });
 
     test('Completed timeouts should not prevent destruction or throw errors', async () => {
-        class TestClass extends Base {
+        class TestClass extends core.Base {
             static config = {
                 className: 'Neo.test.CompletedTimeoutTestClass'
             }
         }
-        Neo.setupClass(TestClass);
+        TestClass = Neo.setupClass(TestClass);
 
         const instance = Neo.create(TestClass);
-        
+
         await instance.timeout(50); // let it finish
-        
+
         // Should not throw
         instance.destroy();
         expect(instance.isDestroyed).toBe(true);
