@@ -344,6 +344,8 @@ class MagicMoveText extends Component {
 
                 await me.updateChars()
             } catch (e) {
+                if (e === Neo.isDestroyed) return;
+
                 if (!me.isRetrying) {
                     me.isRetrying    = true;
                     me.previousChars = [];
@@ -458,7 +460,6 @@ class MagicMoveText extends Component {
         await me.promiseUpdate();
         if (me.isDestroyed) return;
         await me.timeout(20);
-        if (me.isDestroyed) return;
 
         rects      = await me.getDomRect([me.id, measureWrapper.id, ...measureElement.cn.map(node => node.id)]);
         if (me.isDestroyed) return;
@@ -640,7 +641,6 @@ class MagicMoveText extends Component {
         await me.promiseUpdate();
         if (me.isDestroyed) return;
         await me.timeout(me.transitionTime);
-        if (me.isDestroyed) return;
 
         charsContainer.cn.sort(me.sortCharacters);
 
@@ -660,7 +660,6 @@ class MagicMoveText extends Component {
         await me.promiseUpdate();
         if (me.isDestroyed) return;
         await me.timeout(200);
-        if (me.isDestroyed) return;
 
         me.charsVdom = [...charsContainer.cn];
 

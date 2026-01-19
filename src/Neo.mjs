@@ -87,12 +87,19 @@ Neo = globalThis.Neo = Object.assign({
      */
     ntypeMap: {},
     /**
-     * Needed for Neo.create. False for the main thread, true for the App, Data & Vdom worker
+     * Needed for Neo.create. False for the main thread, true for the App, Data & VDom worker
      * @memberOf! module:Neo
      * @protected
      * @type Boolean
      */
     insideWorker: typeof DedicatedWorkerGlobalScope !== 'undefined' || typeof WorkerGlobalScope !== 'undefined',
+
+    /**
+     * A symbol to identify if a promise was rejected because the instance got destroyed.
+     * @memberOf! module:Neo
+     * @type {Symbol}
+     */
+    isDestroyed: Symbol.for('Neo.isDestroyed'),
 
     /**
      * Maps methods from one namespace to another one
@@ -1171,5 +1178,13 @@ function parseArrayFromString(str) {
 Neo.config ??= {};
 
 Neo.assignDefaults(Neo.config, DefaultConfig);
+
+if (typeof globalThis.addEventListener === 'function') {
+    globalThis.addEventListener('unhandledrejection', e => {
+        if (e.reason === Neo.isDestroyed) {
+            e.preventDefault()
+        }
+    })
+}
 
 export default Neo;

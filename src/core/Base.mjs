@@ -207,10 +207,10 @@ class Base {
     #remotesReadyResolver = null;
     /**
      * Internal cache for all timeout ids when using this.timeout()
-     * @member {Number[]} timeoutIds=[]
+     * @member {Map<Number, Function>} #timeouts=new Map()
      * @private
      */
-    #timeoutIds = []
+    #timeouts = new Map()
 
     /**
      * The main initializer for all Neo.mjs classes, invoked by `Neo.create()`.
@@ -510,9 +510,12 @@ class Base {
     destroy() {
         let me = this;
 
-        me.#timeoutIds.forEach(id => {
-            clearTimeout(id)
+        me.#timeouts.forEach((reject, id) => {
+            clearTimeout(id);
+            reject(Neo.isDestroyed)
         });
+
+        me.#timeouts.clear();
 
         me.#configSubscriptionCleanups.forEach(cleanup => {
             cleanup()
@@ -1086,11 +1089,15 @@ class Base {
      * @returns {Promise<any>}
      */
     timeout(time) {
-        return new Promise(resolve => {
-            let timeoutIds = this.#timeoutIds,
-                timeoutId  = setTimeout(() => {timeoutIds.splice(timeoutIds.indexOf(timeoutId), 1); resolve()}, time);
+        let me = this;
 
-            timeoutIds.push(timeoutId)
+        return new Promise((resolve, reject) => {
+            let id = setTimeout(() => {
+                me.#timeouts.delete(id);
+                resolve()
+            }, time);
+
+            me.#timeouts.set(id, reject)
         })
     }
 
