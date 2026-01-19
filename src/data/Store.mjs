@@ -632,7 +632,7 @@ class Store extends Collection {
             if (!service) {
                 console.error('Api is not defined', this)
             } else {
-                const response = await service[fn](params);
+                const response = await me.trap(service[fn](params));
 
                 if (response.success) {
                     me.totalCount = response.totalCount;
@@ -653,10 +653,10 @@ class Store extends Collection {
                 // Fallback for non-browser based envs like nodejs
                 if (globalThis.process?.release) {
                     const { readFile } = await import(/* webpackIgnore: true */ 'fs/promises');
-                    const content = await readFile(opts.url, 'utf-8');
+                    const content = await me.trap(readFile(opts.url, 'utf-8'));
                     data = {json: JSON.parse(content)};
                 } else {
-                    data = await Neo.Xhr.promiseJson(opts);
+                    data = await me.trap(Neo.Xhr.promiseJson(opts));
                 }
 
                 if (data) {
@@ -667,6 +667,10 @@ class Store extends Collection {
 
                 return data?.json || null
             } catch(err) {
+                if (err === Neo.isDestroyed) {
+                    throw err
+                }
+
                 console.error('Error for Neo.Xhr.request', {id: me.id, error: err, url: opts.url});
                 return null
             }
