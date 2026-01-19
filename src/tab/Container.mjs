@@ -96,13 +96,6 @@ class Container extends BaseContainer {
          */
         removeInactiveCards: true,
         /**
-         * If true, the activeIndex will be reset to null when the component is unmounted.
-         * This is useful for router-driven tab containers to prevent "phantom mounts"
-         * of the previous state before the router updates the active index.
-         * @member {Boolean} resetActiveIndexOnUnmount=false
-         */
-        resetActiveIndexOnUnmount: false,
-        /**
          * @member {String|null} tabBarId=null
          */
         tabBarId: null,
@@ -201,18 +194,6 @@ class Container extends BaseContainer {
     afterSetDragResortable(value, oldValue) {
         if (oldValue !== undefined) {
             this.getTabBar().dragResortable = value
-        }
-    }
-
-    /**
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
-     */
-    afterSetMounted(value, oldValue) {
-        super.afterSetMounted(value, oldValue);
-
-        if (!value && this.resetActiveIndexOnUnmount) {
-            this.activeIndex = null
         }
     }
 

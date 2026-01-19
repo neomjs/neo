@@ -63,9 +63,11 @@ class NewsTabContainer extends TabContainer {
             }
         }],
         /**
-         * @member {Boolean} resetActiveIndexOnUnmount=true
+         * @member {Object} unmountConfigs={activeIndex: null}
          */
-        resetActiveIndexOnUnmount: true
+        unmountConfigs: {
+            activeIndex: null
+        }
     }
 }
 
