@@ -296,8 +296,14 @@ class Base {
 
         // Triggers async logic after the construction chain is done.
         Promise.resolve().then(async () => {
-            await me.initAsync();
-            me.isReady = true
+            try {
+                await me.initAsync();
+                me.isReady = true
+            } catch (e) {
+                if (e !== Neo.isDestroyed) {
+                    throw e
+                }
+            }
         })
     }
 
