@@ -66,40 +66,38 @@ class Canvas extends Component {
             }
 
             if (offscreen) {
-                let data, i = 0;
+                let data;
 
-                for (; i < 5; i++) {
+                while (me.mounted && !me.offscreenRegistered && !me.isDestroyed) {
                     data = await Neo.main.DomAccess.getOffscreenCanvas({
                         nodeId: id,
                         windowId
                     });
 
-                    if (data?.result?.success === false) {
-                        await me.timeout(50)
-                    } else {
-                        break
-                    }
-                }
-
-                if (data.offscreen) {
-                    await Neo.worker.Canvas.registerCanvas({
-                        node  : data.offscreen,
-                        nodeId: id,
-                        windowId
-                    }, [data.offscreen]);
-
-                    me.offscreenRegistered = true
-                } else if (data.transferred) {
-                    if (Neo.config.useSharedWorkers) {
-                        let retrieveData = await Neo.worker.Canvas.retrieveCanvas({
+                    if (data.offscreen) {
+                        await Neo.worker.Canvas.registerCanvas({
+                            node  : data.offscreen,
                             nodeId: id,
                             windowId
-                        });
+                        }, [data.offscreen]);
 
-                        if (retrieveData.hasCanvas) {
-                            me.offscreenRegistered = true
+                        me.offscreenRegistered = true;
+                        break
+                    } else if (data.transferred) {
+                        if (Neo.config.useSharedWorkers) {
+                            let retrieveData = await Neo.worker.Canvas.retrieveCanvas({
+                                nodeId: id,
+                                windowId
+                            });
+
+                            if (retrieveData.hasCanvas) {
+                                me.offscreenRegistered = true;
+                                break
+                            }
                         }
                     }
+
+                    await me.timeout(50)
                 }
             }
         } else if (offscreen) {

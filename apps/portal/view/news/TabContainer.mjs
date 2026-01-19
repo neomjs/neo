@@ -63,6 +63,17 @@ class NewsTabContainer extends TabContainer {
             }
         }]
     }
+    /**
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     */
+    afterSetMounted(value, oldValue) {
+        super.afterSetMounted(value, oldValue);
+
+        if (value === false) {
+            this.activeIndex = null
+        }
+    }
 }
 
 export default Neo.setupClass(NewsTabContainer);
