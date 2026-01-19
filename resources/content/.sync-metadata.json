@@ -1,6 +1,6 @@
 {
-  "lastSync": "2026-01-19T09:44:05.449Z",
-  "releasesLastFetched": "2026-01-19T09:44:05.469Z",
+  "lastSync": "2026-01-19T11:32:56.362Z",
+  "releasesLastFetched": "2026-01-19T11:32:56.423Z",
   "pushFailures": [],
   "issues": {
     "3789": {
@@ -17602,11 +17602,46 @@
       "contentHash": "7f6846ff535c6175b81f7d50d743ef2dfca7edcc6c26e784979d55ed84a0136c"
     },
     "8801": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "resources/content/issues/issue-8801.md",
-      "closedAt": null,
-      "updatedAt": "2026-01-19T09:30:16Z",
-      "contentHash": "a759bc5efbb52412ca6fab1a3a3948431ccda54c6d77322f2852fc13f740fd17"
+      "closedAt": "2026-01-19T10:17:13Z",
+      "updatedAt": "2026-01-19T10:17:36Z",
+      "contentHash": "f4d56fe8fb5fe5d378f4c4bda5fb324f534f36a49bce6ef134398a286acace95"
+    },
+    "8802": {
+      "state": "CLOSED",
+      "path": "resources/content/issues/issue-8802.md",
+      "closedAt": "2026-01-19T10:45:01Z",
+      "updatedAt": "2026-01-19T10:46:51Z",
+      "contentHash": "c28f7a761063cea2bd4f4d53ba138442bf3d8c1a948fbfbcb32f835bbc82dfb3"
+    },
+    "8803": {
+      "state": "CLOSED",
+      "path": "resources/content/issues/issue-8803.md",
+      "closedAt": "2026-01-19T10:54:03Z",
+      "updatedAt": "2026-01-19T10:54:41Z",
+      "contentHash": "d6509b0d70d1fd1d083e0a789c04593bfbe3c10fb3de2181bb74160e8d10dc06"
+    },
+    "8804": {
+      "state": "CLOSED",
+      "path": "resources/content/issues/issue-8804.md",
+      "closedAt": "2026-01-19T11:01:40Z",
+      "updatedAt": "2026-01-19T11:01:40Z",
+      "contentHash": "34dd9d80512827ce781a51ba476bfa7fee91e6e141a84be381791f56df415c98"
+    },
+    "8805": {
+      "state": "CLOSED",
+      "path": "resources/content/issues/issue-8805.md",
+      "closedAt": "2026-01-19T11:18:33Z",
+      "updatedAt": "2026-01-19T11:18:33Z",
+      "contentHash": "6ca52e9062e4d854cbc927e83db7610d13b05621a8c48e8581d977deccc3e4d6"
+    },
+    "8806": {
+      "state": "CLOSED",
+      "path": "resources/content/issues/issue-8806.md",
+      "closedAt": "2026-01-19T11:29:40Z",
+      "updatedAt": "2026-01-19T11:29:40Z",
+      "contentHash": "66404fed7a84969e857d35fe8ea806be806954d18c96217a6deebdc004d3f8e5"
     }
   },
   "releases": {
