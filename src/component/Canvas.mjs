@@ -66,10 +66,20 @@ class Canvas extends Component {
             }
 
             if (offscreen) {
-                const data = await Neo.main.DomAccess.getOffscreenCanvas({
-                    nodeId: id,
-                    windowId
-                });
+                let data, i = 0;
+
+                for (; i < 5; i++) {
+                    data = await Neo.main.DomAccess.getOffscreenCanvas({
+                        nodeId: id,
+                        windowId
+                    });
+
+                    if (data?.result?.success === false) {
+                        await me.timeout(50)
+                    } else {
+                        break
+                    }
+                }
 
                 if (data.offscreen) {
                     await Neo.worker.Canvas.registerCanvas({
