@@ -108,17 +108,6 @@ class HomeCanvas extends Base {
          */
         className: 'Portal.canvas.HomeCanvas',
         /**
-         * Remote method access for the App Worker.
-         * Allows the UI to control the simulation state and input.
-         * @member {Object} remote
-         * @protected
-         */
-        remote: {
-            app: [
-                'updateMouseState'
-            ]
-        },
-        /**
          * @member {Boolean} singleton=true
          * @protected
          */
@@ -130,17 +119,6 @@ class HomeCanvas extends Base {
      * @member {Float32Array|null} agentBuffer=null
      */
     agentBuffer = null
-    /**
-     * Cache for reusable gradients to prevent GC.
-     * @member {Object} gradients={}
-     */
-    gradients = {}
-    /**
-     * Tracked mouse position for interactive physics.
-     * Initialize off-screen to prevent startup jitters.
-     * @member {Object} mouse={x: -1000, y: -1000}
-     */
-    mouse = {x: -1000, y: -1000}
     /**
      * Pre-allocated buffer for node data (The Graph).
      * @member {Float32Array|null} nodeBuffer=null
@@ -167,11 +145,6 @@ class HomeCanvas extends Base {
      * @member {Number} scale=1
      */
     scale = 1
-    /**
-     * Global simulation time, used for procedural animations.
-     * @member {Number} time=0
-     */
-    time = 0
 
     /**
      * Clears the graph state and stops the render loop.
@@ -185,7 +158,6 @@ class HomeCanvas extends Base {
         me.packetBuffer = null;
         me.shockwaves   = [];
         me.sparks       = [];
-        me.gradients    = {};
         me.scale        = 1
     }
 
@@ -760,49 +732,33 @@ class HomeCanvas extends Base {
     }
 
     /**
-     * Updates the local mouse state from main thread events.
      * Triggers shockwaves on click.
      * @param {Object} data
-     * @param {Boolean} [data.click]
-     * @param {Boolean} [data.leave]
-     * @param {Number} [data.x]
-     * @param {Number} [data.y]
      */
-    updateMouseState(data) {
-        let me = this;
+    onMouseClick(data) {
+        let me = this,
+            s  = me.scale;
 
-        if (data.leave) {
-            me.mouse.x = -1000;
-            me.mouse.y = -1000
-        } else {
-            if (data.x !== undefined) me.mouse.x = data.x;
-            if (data.y !== undefined) me.mouse.y = data.y;
+        me.shockwaves.push({
+            x        : data.x,
+            y        : data.y,
+            age      : 0,
+            maxAge   : 40, // Faster, punchier wave
+            maxRadius: 300 * s // Scaled radius
+        });
 
-            if (data.click) {
-                let s = me.scale;
-
-                me.shockwaves.push({
-                    x        : data.x,
-                    y        : data.y,
-                    age      : 0,
-                    maxAge   : 40, // Faster, punchier wave
-                    maxRadius: 300 * s // Scaled radius
-                });
-
-                // Spawn Sparks (Data Debris)
-                for(let i=0; i<40; i++) {
-                    let angle = Math.random() * Math.PI * 2,
-                        speed = (Math.random() * 15 + 5) * s; // Scaled speed
-                    me.sparks.push({
-                        x    : data.x,
-                        y    : data.y,
-                        vx   : Math.cos(angle) * speed,
-                        vy   : Math.sin(angle) * speed,
-                        life : 1.0,
-                        decay: 0.02 + Math.random() * 0.03
-                    })
-                }
-            }
+        // Spawn Sparks (Data Debris)
+        for(let i=0; i<40; i++) {
+            let angle = Math.random() * Math.PI * 2,
+                speed = (Math.random() * 15 + 5) * s; // Scaled speed
+            me.sparks.push({
+                x    : data.x,
+                y    : data.y,
+                vx   : Math.cos(angle) * speed,
+                vy   : Math.sin(angle) * speed,
+                life : 1.0,
+                decay: 0.02 + Math.random() * 0.03
+            })
         }
     }
 

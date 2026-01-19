@@ -83,7 +83,6 @@ class HeaderCanvas extends Base {
                 'updateActiveId',
                 'updateGraphData',
                 'updateHoverId',
-                'updateMouseState',
                 'updateNavRects'
             ]
         },
@@ -99,17 +98,9 @@ class HeaderCanvas extends Base {
      */
     activeId = null
     /**
-     * @member {Object} gradients={}
-     */
-    gradients = {}
-    /**
      * @member {String|null} hoverId=null
      */
     hoverId = null
-    /**
-     * @member {Object} mouse={x: -1000, y: -1000}
-     */
-    mouse = {x: -1000, y: -1000}
     /**
      * @member {Object[]} navRects=[]
      */
@@ -122,10 +113,6 @@ class HeaderCanvas extends Base {
      * @member {Object[]} shockwaves=[]
      */
     shockwaves = []
-    /**
-     * @member {Number} time=0
-     */
-    time = 0
     /**
      * Pre-allocated buffers for wave geometry.
      * Uses `Float32Array` to eliminate Garbage Collection pressure during the render loop.
@@ -142,8 +129,7 @@ class HeaderCanvas extends Base {
         me.navRects    = [];
         me.particles   = [];
         me.shockwaves  = [];
-        me.waveBuffers = {bgA: null, bgB: null, fgA: null, fgB: null};
-        me.gradients   = {}
+        me.waveBuffers = {bgA: null, bgB: null, fgA: null, fgB: null}
     }
 
     /**
@@ -887,32 +873,17 @@ class HeaderCanvas extends Base {
     }
 
     /**
+     * Hook to handle mouse clicks.
      * @param {Object} data
-     * @param {Boolean} [data.click]
-     * @param {Boolean} [data.leave]
-     * @param {Number} [data.x]
-     * @param {Number} [data.y]
      */
-    updateMouseState(data) {
-        let me = this;
-
-        if (data.leave) {
-            me.mouse.x = -1000;
-            me.mouse.y = -1000
-        } else {
-            if (data.x !== undefined) me.mouse.x = data.x;
-            if (data.y !== undefined) me.mouse.y = data.y;
-
-            if (data.click) {
-                me.shockwaves.push({
-                    x    : data.x,
-                    y    : data.y,
-                    age  : 0,
-                    life : 60, // frames
-                    speed: 15  // px per frame
-                })
-            }
-        }
+    onMouseClick(data) {
+        this.shockwaves.push({
+            x    : data.x,
+            y    : data.y,
+            age  : 0,
+            life : 60, // frames
+            speed: 15  // px per frame
+        })
     }
 
     /**

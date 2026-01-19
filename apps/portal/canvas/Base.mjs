@@ -26,6 +26,7 @@ class Base extends NeoBase {
                 'pause',
                 'resume',
                 'setTheme',
+                'updateMouseState',
                 'updateSize'
             ]
         },
@@ -54,10 +55,26 @@ class Base extends NeoBase {
      */
     context = null
     /**
+     * Cache for reusable gradients to prevent GC.
+     * @member {Object} gradients={}
+     */
+    gradients = {}
+    /**
      * Flag to pause the render loop.
      * @member {Boolean} isPaused=false
      */
     isPaused = false
+    /**
+     * Tracked mouse position for interactive physics.
+     * Initialize off-screen to prevent startup jitters.
+     * @member {Object} mouse={x: -1000, y: -1000}
+     */
+    mouse = {x: -1000, y: -1000}
+    /**
+     * Global simulation time.
+     * @member {Number} time=0
+     */
+    time = 0
 
     /**
      * @member {Function} renderLoop=this.render.bind(this)
@@ -85,7 +102,10 @@ class Base extends NeoBase {
         me.canvasId    = null;
         me.canvasSize  = null;
         me.animationId = null;
-        me.isPaused    = false
+        me.isPaused    = false;
+        me.gradients   = {};
+        me.mouse       = {x: -1000, y: -1000};
+        me.time        = 0
     }
 
     /**
@@ -103,6 +123,12 @@ class Base extends NeoBase {
 
         me.waitForCanvas(canvasId, windowId, hasChange)
     }
+
+    /**
+     * Hook for subclasses to handle mouse clicks.
+     * @param {Object} data
+     */
+    onMouseClick(data) {}
 
     /**
      * Pauses the simulation.
@@ -134,6 +160,30 @@ class Base extends NeoBase {
      */
     setTheme(value) {
         this.theme = value
+    }
+
+    /**
+     * Updates the local mouse state from main thread events.
+     * @param {Object} data
+     * @param {Boolean} [data.click]
+     * @param {Boolean} [data.leave]
+     * @param {Number} [data.x]
+     * @param {Number} [data.y]
+     */
+    updateMouseState(data) {
+        let me = this;
+
+        if (data.leave) {
+            me.mouse.x = -1000;
+            me.mouse.y = -1000
+        } else {
+            if (data.x !== undefined) me.mouse.x = data.x;
+            if (data.y !== undefined) me.mouse.y = data.y;
+
+            if (data.click) {
+                me.onMouseClick(data)
+            }
+        }
     }
 
     /**

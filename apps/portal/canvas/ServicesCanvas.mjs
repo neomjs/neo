@@ -116,7 +116,6 @@ class ServicesCanvas extends Base {
          */
         remote: {
             app: [
-                'updateMouseState',
                 'updateSize'
             ]
         },
@@ -146,17 +145,6 @@ class ServicesCanvas extends Base {
      * @member {OffscreenCanvasRenderingContext2D|null} context=null
      */
     context = null
-    /**
-     * Cache for reusable gradients to prevent GC.
-     * @member {Object} gradients={}
-     */
-    gradients = {}
-    /**
-     * Tracked mouse position for interactive physics.
-     * Initialize off-screen to prevent startup jitters.
-     * @member {Object} mouse={x: -1000, y: -1000}
-     */
-    mouse = {x: -1000, y: -1000}
 
     /**
      * Buffer for the main Application Lattice (The Graph).
@@ -211,11 +199,6 @@ class ServicesCanvas extends Base {
      */
     scale = 1
     /**
-     * Global simulation time.
-     * @member {Number} time=0
-     */
-    time = 0
-    /**
      * Current camera rotation in radians (Pitch, Yaw).
      * @member {Object} rotation={x: -0.4, y: 0}
      */
@@ -234,7 +217,6 @@ class ServicesCanvas extends Base {
         me.strataBuffer = null;
         me.particleBuffer = null;
         me.superHexes   = [];
-        me.gradients    = {};
         me.scale        = 1
     }
 
@@ -1338,28 +1320,6 @@ class ServicesCanvas extends Base {
                         nodes[nodeIdx + 7] = runners[idx + 7]; // Color
                     }
                 }
-            }
-        }
-    }
-
-    /**
-     * Updates the mouse state from main thread events.
-     * @param {Object} data
-     * @param {Boolean} [data.leave]
-     * @param {Number} [data.x]
-     * @param {Number} [data.y]
-     */
-    updateMouseState(data) {
-        let me = this;
-        if (data.leave) {
-            me.mouse.x = -1000;
-            me.mouse.y = -1000
-        } else {
-            if (data.x !== undefined) {
-                me.mouse.x = data.x;
-            }
-            if (data.y !== undefined) {
-                me.mouse.y = data.y
             }
         }
     }
