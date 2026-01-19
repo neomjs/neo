@@ -41,6 +41,7 @@ class Content extends BaseContainer {
             colorMove: '#3E63DD',
             flex     : 'none',
             reference: 'magic-move',
+            renderSeoList: true,
             replaceWithTextNode: false,
             useCache : false,
 

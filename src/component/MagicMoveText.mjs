@@ -103,6 +103,12 @@ class MagicMoveText extends Component {
          */
         useCache_: true,
         /**
+         * Set to true to render a semantic `<ul>` containing all cycleTexts for SEO.
+         * @member {Boolean} renderSeoList_=false
+         * @reactive
+         */
+        renderSeoList_: false,
+        /**
          * Set to false to not replace the character spans with a text node after the animation.
          * @member {Boolean} replaceWithTextNode=true
          */
@@ -114,9 +120,11 @@ class MagicMoveText extends Component {
          */
         _vdom:
         {style: {}, cn: [
-            {cls: ['neo-content'], cn: []},
-            {cls: ['neo-measure-element-wrapper'], removeDom: true, cn: [
-                {cls: ['neo-measure-element'], cn:[]}
+            {ariaHidden: true, cn: [
+                {cls: ['neo-content'], cn: []},
+                {cls: ['neo-measure-element-wrapper'], removeDom: true, cn: [
+                    {cls: ['neo-measure-element'], cn:[]}
+                ]}
             ]}
         ]}
     }
@@ -220,7 +228,15 @@ class MagicMoveText extends Component {
      * @protected
      */
     get measureWrapper() {
-        return this.vdom.cn[1]
+        return this.vdom.cn[0].cn[1]
+    }
+    /**
+     * A getter for the visual content container.
+     * @member {Object} visualWrapper
+     * @protected
+     */
+    get visualWrapper() {
+        return this.vdom.cn[0].cn[0]
     }
 
     /**
@@ -376,13 +392,39 @@ class MagicMoveText extends Component {
                     me.previousChars = [];
 
                     // Reset a transitioning state
-                    me.vdom.cn[0].cn.length = 0;
+                    me.visualWrapper.cn.length = 0;
 
                     await me.afterSetText(value, oldValue)
                 }
             }
 
             me.isRetrying = false
+        }
+    }
+
+    /**
+     * Updates the VDOM to include or remove the SEO-friendly list.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetRenderSeoList(value, oldValue) {
+        let me = this;
+
+        if (value) {
+            if (!me.vdom.cn[1]) {
+                me.vdom.cn.push({
+                    tag: 'ul',
+                    cls: ['neo-seo-list'],
+                    cn : me.cycleTexts?.map(text => ({tag: 'li', text})) || []
+                });
+                me.update();
+            }
+        } else {
+            if (me.vdom.cn[1] && me.vdom.cn[1].cls.includes('neo-seo-list')) {
+                me.vdom.cn.pop();
+                me.update();
+            }
         }
     }
 
@@ -611,7 +653,7 @@ class MagicMoveText extends Component {
     async updateChars() {
         let me                     = this,
             {chars, previousChars} = me,
-            charsContainer         = me.vdom.cn[0],
+            charsContainer         = me.visualWrapper,
             letters                = chars.map(char => char.name),
             charNode, index;
 
