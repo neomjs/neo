@@ -28,7 +28,7 @@ class MockComponent extends Component {
         userObject_: null
     }
 }
-Neo.setupClass(MockComponent);
+MockComponent = Neo.setupClass(MockComponent);
 
 // Helper function to convert a proxy to a plain object for deep comparison
 function proxyToObject(proxy) {
@@ -349,7 +349,7 @@ test.describe('Neo.state.Provider (Node.js)', () => {
                 }
             }
         }
-        Neo.setupClass(ClassLevelProvider);
+        ClassLevelProvider = Neo.setupClass(ClassLevelProvider);
 
         const provider1 = Neo.create(ClassLevelProvider);
         expect(proxyToObject(provider1.data)).toEqual({ a: 1, b: { c: 2, d: 3 }, arr: [1, 2] });
@@ -375,7 +375,7 @@ test.describe('Neo.state.Provider (Node.js)', () => {
                 data: { app: { name: 'My App', version: '1.0.0' }, user: { role: 'guest', settings: { theme: 'dark' } } }
             }
         }
-        Neo.setupClass(GrandparentProvider);
+        GrandparentProvider = Neo.setupClass(GrandparentProvider);
 
         class ParentProvider extends GrandparentProvider {
             static config = {
@@ -383,7 +383,7 @@ test.describe('Neo.state.Provider (Node.js)', () => {
                 data: { app: { version: '1.1.0', author: 'Neo' }, user: { id: 123, settings: { notifications: true } }, newParentProp: 'parentValue' }
             }
         }
-        Neo.setupClass(ParentProvider);
+        ParentProvider = Neo.setupClass(ParentProvider);
 
         class ChildProvider extends ParentProvider {
             static config = {
@@ -391,7 +391,7 @@ test.describe('Neo.state.Provider (Node.js)', () => {
                 data: { user: { role: 'admin', preferences: { language: 'en' } }, newChildProp: 'childValue' }
             }
         }
-        Neo.setupClass(ChildProvider);
+        ChildProvider = Neo.setupClass(ChildProvider);
 
         const provider1 = Neo.create(ChildProvider);
         expect(proxyToObject(provider1.data)).toEqual({

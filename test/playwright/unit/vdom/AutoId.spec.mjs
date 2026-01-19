@@ -66,8 +66,8 @@ class MyOtherComponent extends Component {
     }
 }
 
-Neo.setupClass(MyComponent);
-Neo.setupClass(MyOtherComponent);
+MyComponent = Neo.setupClass(MyComponent);
+MyOtherComponent = Neo.setupClass(MyOtherComponent);
 
 test.describe('VDOM Auto-ID Generation', () => {
 
@@ -128,7 +128,7 @@ test.describe('VDOM Auto-ID Generation', () => {
         const sharedVdom = { tag: 'div', cls: ['shared'] };
         BadComponent.prototype._vdom = sharedVdom; 
 
-        Neo.setupClass(BadComponent);
+        BadComponent = Neo.setupClass(BadComponent);
 
         // We simulate the vdom creation process for two "instances" using the shared configuration object.
         // VdomHelper.createVnode() should always return a new VNode instance with a unique ID,
@@ -159,7 +159,7 @@ test.describe('VDOM Auto-ID Generation', () => {
             getVdomRoot() { return this.vdom.cn[0]; }
             getVnodeRoot() { return this.vnode.childNodes[0]; }
         }
-        Neo.setupClass(WrapperComponent);
+        WrapperComponent = Neo.setupClass(WrapperComponent);
 
         // Verify that the first component gets the expected stable wrapper ID
         core.IdGenerator.idCounter['vnode'] = 0;

@@ -1,19 +1,19 @@
 import {test, expect} from '@playwright/test';
 import Neo            from '../../../../src/Neo.mjs';
-import Base           from '../../../../src/core/Base.mjs';
+import * as core      from '../../../../src/core/_export.mjs';
 
 test.describe('neo/MixinStaticConfig', () => {
     test('should merge static configs from mixins', () => {
-        class TestMixin extends Base {
+        class TestMixin extends core.Base {
             static config = {
                 className           : 'Neo.test.mixin.TestMixin',
                 mixinConfig         : 'mixinValue',
                 reactiveMixinConfig_: 'reactiveValue'
             }
         }
-        Neo.setupClass(TestMixin);
+        TestMixin = Neo.setupClass(TestMixin);
 
-        class TestClass extends Base {
+        class TestClass extends core.Base {
             static config = {
                 className           : 'Neo.test.mixin.TestClass',
                 classConfig         : 'classValue',
@@ -21,7 +21,7 @@ test.describe('neo/MixinStaticConfig', () => {
                 reactiveClassConfig_: 'reactiveValue'
             }
         }
-        Neo.setupClass(TestClass);
+        TestClass = Neo.setupClass(TestClass);
 
         const instance = Neo.create(TestClass);
         expect(instance.mixinConfig).toBe('mixinValue');
@@ -29,16 +29,16 @@ test.describe('neo/MixinStaticConfig', () => {
     });
 
     test('A class config should always win over a mixin config', () => {
-        class MixinWithConfigs extends Base {
+        class MixinWithConfigs extends core.Base {
             static config = {
                 className          : 'Neo.test.siesta.tests.neo.override.MixinWithConfigs',
                 nonReactiveConfig  : 'mixinValue',
                 reactiveConfig_    : 'mixinValue'
             }
         }
-        Neo.setupClass(MixinWithConfigs);
+        MixinWithConfigs = Neo.setupClass(MixinWithConfigs);
 
-        class ClassWithConfigs extends Base {
+        class ClassWithConfigs extends core.Base {
             static config = {
                 className        : 'Neo.test.siesta.tests.neo.override.ClassWithConfigs',
                 mixins           : [MixinWithConfigs],
@@ -46,7 +46,7 @@ test.describe('neo/MixinStaticConfig', () => {
                 reactiveConfig_  : 'classValue'
             }
         }
-        Neo.setupClass(ClassWithConfigs);
+        ClassWithConfigs = Neo.setupClass(ClassWithConfigs);
 
         const instance = Neo.create(ClassWithConfigs);
 
@@ -55,31 +55,31 @@ test.describe('neo/MixinStaticConfig', () => {
     });
 
     test('The first mixin in the array should win for conflicting configs', () => {
-        class MixinA extends Base {
+        class MixinA extends core.Base {
             static config = {
                 className        : 'Neo.test.siesta.tests.neo.override.MixinA',
                 a_reactive_      : 'a',
                 common_reactive_ : 'a'
             }
         }
-        Neo.setupClass(MixinA);
+        MixinA = Neo.setupClass(MixinA);
 
-        class MixinB extends Base {
+        class MixinB extends core.Base {
             static config = {
                 className        : 'Neo.test.siesta.tests.neo.override.MixinB',
                 b_reactive_      : 'b',
                 common_reactive_ : 'b'
             }
         }
-        Neo.setupClass(MixinB);
+        MixinB = Neo.setupClass(MixinB);
 
-        class ClassWithTwoMixins extends Base {
+        class ClassWithTwoMixins extends core.Base {
             static config = {
                 className: 'Neo.test.siesta.tests.neo.override.ClassWithTwoMixins',
                 mixins   : [MixinA, MixinB]
             }
         }
-        Neo.setupClass(ClassWithTwoMixins);
+        ClassWithTwoMixins = Neo.setupClass(ClassWithTwoMixins);
 
         const instance = Neo.create(ClassWithTwoMixins);
 
@@ -89,7 +89,7 @@ test.describe('neo/MixinStaticConfig', () => {
     });
 
     test('Mixin on base class should win over mixin on extended class', () => {
-        class MixinA extends Base {
+        class MixinA extends core.Base {
             static config = {
                 className         : 'Neo.test.siesta.tests.neo.inheritance.MixinA',
                 mixin_a_reactive_ : 'A',
@@ -97,9 +97,9 @@ test.describe('neo/MixinStaticConfig', () => {
             }
             methodA() { return 'A'; }
         }
-        Neo.setupClass(MixinA);
+        MixinA = Neo.setupClass(MixinA);
 
-        class MixinB extends Base {
+        class MixinB extends core.Base {
             static config = {
                 className         : 'Neo.test.siesta.tests.neo.inheritance.MixinB',
                 mixin_b_reactive_ : 'B',
@@ -107,15 +107,15 @@ test.describe('neo/MixinStaticConfig', () => {
             }
             methodB() { return 'B'; }
         }
-        Neo.setupClass(MixinB);
+        MixinB = Neo.setupClass(MixinB);
 
-        class BaseClassWithMixin extends Base {
+        class BaseClassWithMixin extends core.Base {
             static config = {
                 className: 'Neo.test.siesta.tests.neo.inheritance.BaseClassWithMixin',
                 mixins   : [MixinA]
             }
         }
-        Neo.setupClass(BaseClassWithMixin);
+        BaseClassWithMixin = Neo.setupClass(BaseClassWithMixin);
 
         class ExtendedClassWithMixin extends BaseClassWithMixin {
             static config = {
@@ -123,7 +123,7 @@ test.describe('neo/MixinStaticConfig', () => {
                 mixins   : [MixinB]
             }
         }
-        Neo.setupClass(ExtendedClassWithMixin);
+        ExtendedClassWithMixin = Neo.setupClass(ExtendedClassWithMixin);
 
         const instance = Neo.create(ExtendedClassWithMixin);
 

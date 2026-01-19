@@ -1180,10 +1180,20 @@ Neo.config ??= {};
 Neo.assignDefaults(Neo.config, DefaultConfig);
 
 if (typeof globalThis.addEventListener === 'function') {
+    // Browsers and Workers
     globalThis.addEventListener('unhandledrejection', e => {
         if (e.reason === Neo.isDestroyed) {
             e.preventDefault()
         }
+    })
+} else if (typeof process !== 'undefined' && typeof process.on === 'function') {
+    // Node.js
+    process.on('unhandledRejection', e => {
+        if (e === Neo.isDestroyed) {
+            return
+        }
+
+        throw e
     })
 }
 

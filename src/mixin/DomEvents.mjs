@@ -88,6 +88,10 @@ class DomEvents extends Base {
             // todo: the main thread reply of mount arrives after pushing the task into the queue which does not ensure the dom is mounted
             me.timeout(150).then(() => {
                 DomEventManager.mountDomListeners(me)
+            }).catch(err => {
+                if (err !== Neo.isDestroyed) {
+                    throw err
+                }
             })
         }
     }
