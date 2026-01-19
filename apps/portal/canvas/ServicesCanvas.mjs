@@ -116,8 +116,6 @@ class ServicesCanvas extends Base {
          */
         remote: {
             app: [
-                'pause',
-                'resume',
                 'updateMouseState',
                 'updateSize'
             ]
@@ -153,11 +151,6 @@ class ServicesCanvas extends Base {
      * @member {Object} gradients={}
      */
     gradients = {}
-    /**
-     * Flag to pause the render loop.
-     * @member {Boolean} isPaused=false
-     */
-    isPaused = false
     /**
      * Tracked mouse position for interactive physics.
      * Initialize off-screen to prevent startup jitters.
@@ -241,7 +234,6 @@ class ServicesCanvas extends Base {
         me.strataBuffer = null;
         me.particleBuffer = null;
         me.superHexes   = [];
-        me.isPaused     = false;
         me.gradients    = {};
         me.scale        = 1
     }
@@ -924,24 +916,6 @@ class ServicesCanvas extends Base {
                     break;
                 }
             }
-        }
-    }
-
-    /**
-     * Pauses the simulation.
-     */
-    pause() {
-        this.isPaused = true
-    }
-
-    /**
-     * Resumes the simulation.
-     */
-    resume() {
-        let me = this;
-        if (me.isPaused) {
-            me.isPaused = false;
-            me.renderLoop()
         }
     }
 

@@ -23,6 +23,8 @@ class Base extends NeoBase {
             app: [
                 'clearGraph',
                 'initGraph',
+                'pause',
+                'resume',
                 'setTheme',
                 'updateSize'
             ]
@@ -51,6 +53,11 @@ class Base extends NeoBase {
      * @member {OffscreenCanvasRenderingContext2D|null} context=null
      */
     context = null
+    /**
+     * Flag to pause the render loop.
+     * @member {Boolean} isPaused=false
+     */
+    isPaused = false
 
     /**
      * @member {Function} renderLoop=this.render.bind(this)
@@ -77,7 +84,8 @@ class Base extends NeoBase {
         me.context     = null;
         me.canvasId    = null;
         me.canvasSize  = null;
-        me.animationId = null
+        me.animationId = null;
+        me.isPaused    = false
     }
 
     /**
@@ -97,9 +105,28 @@ class Base extends NeoBase {
     }
 
     /**
+     * Pauses the simulation.
+     */
+    pause() {
+        this.isPaused = true
+    }
+
+    /**
      * Abstract render method
      */
     render() {}
+
+    /**
+     * Resumes the simulation.
+     */
+    resume() {
+        let me = this;
+
+        if (me.isPaused) {
+            me.isPaused = false;
+            me.renderLoop()
+        }
+    }
 
     /**
      * Exposed method for Remote Access to trigger the reactive config setter.

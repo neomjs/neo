@@ -115,8 +115,6 @@ class HomeCanvas extends Base {
          */
         remote: {
             app: [
-                'pause',
-                'resume',
                 'updateMouseState'
             ]
         },
@@ -137,11 +135,6 @@ class HomeCanvas extends Base {
      * @member {Object} gradients={}
      */
     gradients = {}
-    /**
-     * Flag to pause the render loop.
-     * @member {Boolean} isPaused=false
-     */
-    isPaused = false
     /**
      * Tracked mouse position for interactive physics.
      * Initialize off-screen to prevent startup jitters.
@@ -192,7 +185,6 @@ class HomeCanvas extends Base {
         me.packetBuffer = null;
         me.shockwaves   = [];
         me.sparks       = [];
-        me.isPaused     = false;
         me.gradients    = {};
         me.scale        = 1
     }
@@ -710,25 +702,6 @@ class HomeCanvas extends Base {
         let me = this;
         if (!me.packetBuffer) {
             me.packetBuffer = new Float32Array(PACKET_COUNT * PACKET_STRIDE)
-        }
-    }
-
-    /**
-     * Pauses the simulation.
-     */
-    pause() {
-        this.isPaused = true
-    }
-
-    /**
-     * Resumes the simulation.
-     */
-    resume() {
-        let me = this;
-
-        if (me.isPaused) {
-            me.isPaused = false;
-            me.renderLoop()
         }
     }
 
