@@ -689,7 +689,7 @@ class HomeCanvas extends Base {
     render() {
         let me = this;
 
-        if (!me.context || me.isPaused) {
+        if (!me.canRender) {
             return
         }
 

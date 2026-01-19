@@ -94,6 +94,15 @@ class Base extends NeoBase {
     }
 
     /**
+     * Checks if the canvas is ready to render.
+     * @returns {Boolean}
+     */
+    get canRender() {
+        let me = this;
+        return !!(me.context && !me.isPaused)
+    }
+
+    /**
      * Clears the graph state and stops the render loop.
      */
     clearGraph() {

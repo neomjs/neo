@@ -236,7 +236,7 @@ class TicketCanvas extends Base {
     render() {
         let me = this;
 
-        if (!me.context) {
+        if (!me.canRender) {
             return
         }
 

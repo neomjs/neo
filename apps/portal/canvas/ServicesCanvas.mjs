@@ -908,8 +908,8 @@ class ServicesCanvas extends Base {
     render() {
         let me = this;
 
-        if (!me.context || me.isPaused) {
-            return;
+        if (!me.canRender) {
+            return
         }
 
         const
