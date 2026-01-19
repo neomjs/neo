@@ -519,8 +519,17 @@ class VdomLifecycle extends Base {
      * @returns {Promise<any>}
      */
     promiseUpdate() {
+        let me = this;
+
         return new Promise((resolve, reject) => {
-            this.updateVdom(resolve, reject)
+            const id = Symbol();
+
+            me.registerAsync(id, reject);
+
+            me.updateVdom(
+                (val) => {me.unregisterAsync(id); resolve(val)},
+                (err) => {me.unregisterAsync(id); reject(err)}
+            )
         })
     }
 
