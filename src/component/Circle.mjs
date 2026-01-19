@@ -614,23 +614,27 @@ class Circle extends Component {
     /**
      *
      */
-    loadData() {
-        let me = this;
+    async loadData() {
+        let me = this,
+            data;
 
-        // todo: use a real store, not defined here for the examples
-        Neo.Xhr.promiseJson({
-            insideNeo: true,
-            url      : me.url
-        }).then(data => {
+        try {
+            data = await me.trap(Neo.Xhr.promiseJson({
+                insideNeo: true,
+                url      : me.url
+            }));
+
             me.store.items = data.json.data;
 
-            me.timeout(100).then(() => {
-                me.updateTitle();
-                me.createItems()
-            })
-        }).catch(err => {
-            console.log('Error for Neo.Xhr.request', err, me.id)
-        })
+            await me.timeout(100);
+
+            me.updateTitle();
+            me.createItems()
+        } catch (err) {
+            if (err !== Neo.isDestroyed) {
+                console.log('Error for Neo.Xhr.request', err, me.id)
+            }
+        }
     }
 
     /**

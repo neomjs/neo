@@ -797,18 +797,23 @@ class Helix extends Component {
     /**
      *
      */
-    loadData() {
-        let me = this;
+    async loadData() {
+        let me = this,
+            data;
 
-        Neo.Xhr.promiseJson({
-            insideNeo: true,
-            url      : me.url
-        }).catch(err => {
-            console.log('Error for Neo.Xhr.request', err, me.id)
-        }).then(data => {
+        try {
+            data = await me.trap(Neo.Xhr.promiseJson({
+                insideNeo: true,
+                url      : me.url
+            }));
+
             me.store.items = data.json.data;
             me.createItems()
-        })
+        } catch (err) {
+            if (err !== Neo.isDestroyed) {
+                console.log('Error for Neo.Xhr.request', err, me.id)
+            }
+        }
     }
 
     /**

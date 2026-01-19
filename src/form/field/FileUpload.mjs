@@ -489,7 +489,20 @@ class FileUpload extends Field {
         xhr.send(fileData);
     }
 
+    /**
+     * @param {Boolean} [updateParentVdom=true]
+     * @param {Boolean} [silent=false]
+     */
+    destroy(updateParentVdom, silent) {
+        this.abortUpload();
+        super.destroy(updateParentVdom, silent)
+    }
+
     onUploadProgress({ loaded, total }) {
+        if (this.isDestroyed) {
+            return
+        }
+
         const
             progress = this.progress = loaded / total,
             { vdom } = this;
@@ -503,17 +516,29 @@ class FileUpload extends Field {
     }
 
     onUploadAbort(e) {
+        if (this.isDestroyed) {
+            return
+        }
+
         this.xhr = null;
-        this.clear();
+        this.clear()
     }
 
     onUploadError(e) {
+        if (this.isDestroyed) {
+            return
+        }
+
         this.xhr = null;
         this.state = 'upload-failed';
-        this.error = `${this.uploadError}`;
+        this.error = `${this.uploadError}`
     }
 
     onUploadDone({ loaded, target : xhr }) {
+        if (this.isDestroyed) {
+            return
+        }
+
         const me = this;
 
         me.xhr = null;
@@ -605,10 +630,10 @@ class FileUpload extends Field {
         });
 
         // We ask the server to delete using our this.documentId
-        const statusResponse = await fetch(me.documentDeleteUrl, {
+        const statusResponse = await me.trap(fetch(me.documentDeleteUrl, {
             method : me.documentDeleteMethod,
             headers
-        });
+        }));
 
         // Success
         if (httpSuccessCodes[String(statusResponse.status)[0]]) {
@@ -630,9 +655,9 @@ class FileUpload extends Field {
                 headers
             });
 
-            const statusResponse = await fetch(me.documentStatusUrl, {
+            const statusResponse = await me.trap(fetch(me.documentStatusUrl, {
                 headers
-            });
+            }));
 
             // Success
             if (httpSuccessCodes[String(statusResponse.status)[0]]) {
