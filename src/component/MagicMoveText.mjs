@@ -340,6 +340,8 @@ class MagicMoveText extends Component {
                     await me.measureChars()
                 }
 
+                if (me.isDestroyed) return;
+
                 await me.updateChars()
             } catch (e) {
                 if (!me.isRetrying) {
@@ -454,9 +456,12 @@ class MagicMoveText extends Component {
         delete measureWrapper.removeDom;
 
         await me.promiseUpdate();
+        if (me.isDestroyed) return;
         await me.timeout(20);
+        if (me.isDestroyed) return;
 
         rects      = await me.getDomRect([me.id, measureWrapper.id, ...measureElement.cn.map(node => node.id)]);
+        if (me.isDestroyed) return;
         rootRect   = rects.shift();
         parentRect = rects.shift();
 
@@ -594,7 +599,8 @@ class MagicMoveText extends Component {
 
         if (me.charsVdom.length > 1) {
             charsContainer.cn = me.charsVdom;
-            await me.promiseUpdate()
+            await me.promiseUpdate();
+            if (me.isDestroyed) return;
         }
 
         previousChars.forEach((previousChar, previousIndex) => {
@@ -620,6 +626,7 @@ class MagicMoveText extends Component {
         charsContainer.cn.push(...me.createCharsVdom(letters));
 
         await me.promiseUpdate();
+        if (me.isDestroyed) return;
 
         charsContainer.cn.forEach(charNode => {
             if (charNode.flag === 'remove') {
@@ -631,7 +638,9 @@ class MagicMoveText extends Component {
         });
 
         await me.promiseUpdate();
+        if (me.isDestroyed) return;
         await me.timeout(me.transitionTime);
+        if (me.isDestroyed) return;
 
         charsContainer.cn.sort(me.sortCharacters);
 
@@ -649,7 +658,9 @@ class MagicMoveText extends Component {
         }
 
         await me.promiseUpdate();
+        if (me.isDestroyed) return;
         await me.timeout(200);
+        if (me.isDestroyed) return;
 
         me.charsVdom = [...charsContainer.cn];
 
