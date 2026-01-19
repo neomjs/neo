@@ -42,8 +42,6 @@ class Content extends BaseContainer {
             flex     : 'none',
             reference: 'magic-move',
             renderSeoList: true,
-            replaceWithTextNode: false,
-            useCache : false,
 
             cycleTexts: [
                 'The Application Engine for the AI Era',
