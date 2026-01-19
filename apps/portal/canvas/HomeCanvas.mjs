@@ -108,10 +108,6 @@ class HomeCanvas extends Base {
          */
         className: 'Portal.canvas.HomeCanvas',
         /**
-         * @member {Number|null} animationId_=null
-         */
-        animationId_: null,
-        /**
          * Remote method access for the App Worker.
          * Allows the UI to control the simulation state and input.
          * @member {Object} remote
@@ -144,6 +140,10 @@ class HomeCanvas extends Base {
      * @member {Float32Array|null} agentBuffer=null
      */
     agentBuffer = null
+    /**
+     * @member {Number|null} animationId=null
+     */
+    animationId = null
     /**
      * ID of the canvas element in the DOM.
      * @member {String|null} canvasId=null
@@ -206,21 +206,6 @@ class HomeCanvas extends Base {
      * @member {Number} time=0
      */
     time = 0
-
-    /**
-     * Triggered after the animationId config got changed
-     * @param {Number|null} value
-     * @param {Number|null} oldValue
-     */
-    afterSetAnimationId(value, oldValue) {
-        if (oldValue) {
-            if (hasRaf) {
-                cancelAnimationFrame(oldValue)
-            } else {
-                clearTimeout(oldValue)
-            }
-        }
-    }
 
     /**
      * Clears the graph state and stops the render loop.
@@ -688,7 +673,9 @@ class HomeCanvas extends Base {
             if (canvas) {
                 me.context = canvas.getContext('2d');
                 me.updateSize({width: canvas.width, height: canvas.height});
-                hasChange && me.renderLoop()
+                if (hasChange && !me.animationId) {
+                    me.renderLoop()
+                }
             } else {
                 setTimeout(checkCanvas, 50)
             }

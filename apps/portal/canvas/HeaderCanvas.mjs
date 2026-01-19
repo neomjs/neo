@@ -74,10 +74,6 @@ class HeaderCanvas extends Base {
          */
         className: 'Portal.canvas.HeaderCanvas',
         /**
-         * @member {Number|null} animationId_=null
-         */
-        animationId_: null,
-        /**
          * Remote method access
          * @member {Object} remote
          * @protected
@@ -110,6 +106,10 @@ class HeaderCanvas extends Base {
      * @member {String|null} activeId=null
      */
     activeId = null
+    /**
+     * @member {Number|null} animationId=null
+     */
+    animationId = null
     /**
      * @member {String|null} canvasId=null
      */
@@ -156,21 +156,6 @@ class HeaderCanvas extends Base {
      * @member {Object} waveBuffers={bgA: null, bgB: null, fgA: null, fgB: null}
      */
     waveBuffers = {bgA: null, bgB: null, fgA: null, fgB: null}
-
-    /**
-     * Triggered after the animationId config got changed
-     * @param {Number|null} value
-     * @param {Number|null} oldValue
-     */
-    afterSetAnimationId(value, oldValue) {
-        if (oldValue) {
-            if (hasRaf) {
-                cancelAnimationFrame(oldValue)
-            } else {
-                clearTimeout(oldValue)
-            }
-        }
-    }
 
     /**
      * Clears the graph state and stops the render loop.
@@ -226,7 +211,9 @@ class HeaderCanvas extends Base {
                 me.context = canvas.getContext('2d');
                 me.initParticles(canvas.width, canvas.height); // Init particles
                 me.updateResources(canvas.width, canvas.height); // Init buffers/gradients
-                hasChange && me.renderLoop()
+                if (hasChange && !me.animationId) {
+                    me.renderLoop()
+                }
             } else {
                 setTimeout(checkCanvas, 50)
             }
