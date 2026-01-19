@@ -530,6 +530,11 @@ class MagicMoveText extends Component {
                 return me.measureChars()
             }
 
+            // Race condition guard: If text changed while we were measuring, me.chars might be out of sync.
+            if (rects.length !== me.chars.length) {
+                return
+            }
+
             if (useCache) {
                 measureCache[text] = {
                     height: me.contentHeight,
@@ -537,6 +542,11 @@ class MagicMoveText extends Component {
                     width : me.contentWidth
                 }
             }
+        }
+
+        // Additional guard for cache hit case
+        if (rects.length !== me.chars.length) {
+            return
         }
 
         rects.forEach((rect, index) => {
