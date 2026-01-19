@@ -61,18 +61,11 @@ class NewsTabContainer extends TabContainer {
                 route  : '/news/releases',
                 text   : 'Release Notes'
             }
-        }]
-    }
-    /**
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
-     */
-    afterSetMounted(value, oldValue) {
-        super.afterSetMounted(value, oldValue);
-
-        if (value === false) {
-            this.activeIndex = null
-        }
+        }],
+        /**
+         * @member {Boolean} resetActiveIndexOnUnmount=true
+         */
+        resetActiveIndexOnUnmount: true
     }
 }
 
