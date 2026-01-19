@@ -93,26 +93,7 @@ class Base extends NeoBase {
 
         me.canvasId = canvasId;
 
-        const checkCanvas = () => {
-            const canvas = Neo.currentWorker.canvasWindowMap[canvasId]?.[windowId];
-
-            if (canvas) {
-                me.context = canvas.getContext('2d');
-
-                // Standardize size update
-                me.updateSize({width: canvas.width, height: canvas.height});
-
-                // Optional hook for subclasses
-                me.onGraphMounted?.(canvas.width, canvas.height);
-
-                if (hasChange && !me.animationId) {
-                    me.renderLoop()
-                }
-            } else {
-                setTimeout(checkCanvas, 50)
-            }
-        };
-        checkCanvas()
+        me.waitForCanvas(canvasId, windowId, hasChange)
     }
 
     /**
@@ -143,6 +124,34 @@ class Base extends NeoBase {
             me.context.canvas.height = size.height;
             // Calls the hook to re-generate resources if implemented
             me.updateResources?.(size.width, size.height)
+        }
+    }
+
+    /**
+     * Polls for the OffscreenCanvas until it is available.
+     * @param {String} canvasId
+     * @param {String} windowId
+     * @param {Boolean} hasChange
+     * @protected
+     */
+    waitForCanvas(canvasId, windowId, hasChange) {
+        let me     = this,
+            canvas = Neo.currentWorker.canvasWindowMap[canvasId]?.[windowId];
+
+        if (canvas) {
+            me.context = canvas.getContext('2d');
+
+            // Standardize size update
+            me.updateSize({width: canvas.width, height: canvas.height});
+
+            // Optional hook for subclasses
+            me.onGraphMounted?.(canvas.width, canvas.height);
+
+            if (hasChange && !me.animationId) {
+                me.renderLoop()
+            }
+        } else {
+            setTimeout(me.waitForCanvas.bind(me, canvasId, windowId, hasChange), 50)
         }
     }
 }
