@@ -1,8 +1,20 @@
 import NeoBase from '../../../src/core/Base.mjs';
 
 /**
- * Abstract base class for Portal Canvas Workers.
- * Provides standardized lifecycle management, context initialization, and render loop control.
+ * @summary Abstract base class for Portal Canvas Renderers.
+ *
+ * This class serves as the foundation for the specialized canvas visualizations (Header, Home, Services, Ticket)
+ * that run within the **Neo.mjs Canvas SharedWorker**.
+ *
+ * It creates helper singletons that manage their own `OffscreenCanvas` instances, providing a standardized
+ * architecture for:
+ * - **Lifecycle Management:** Initialization (`initGraph`), destruction (`clearGraph`), and resource cleanup.
+ * - **Render Loop Control:** Unified `render` loop with pause/resume capabilities and frame scheduling.
+ * - **Context Management:** Robust handling of `OffscreenCanvas` transfer and context acquisition via `waitForCanvas`.
+ * - **Shared State:** Common state management for mouse interaction, time, and theming.
+ *
+ * These renderers operate off the main thread to ensure high-performance, 60fps animations without
+ * blocking the UI.
  *
  * @class Portal.canvas.Base
  * @extends Neo.core.Base
@@ -95,6 +107,8 @@ class Base extends NeoBase {
 
     /**
      * Checks if the canvas is ready to render.
+     * Returns true only if the context exists and the simulation is not paused.
+     * Subclasses should call this at the start of their `render` loop.
      * @returns {Boolean}
      */
     get canRender() {
@@ -104,6 +118,7 @@ class Base extends NeoBase {
 
     /**
      * Clears the graph state and stops the render loop.
+     * Use this to cleanup resources when the component is destroyed or unmounted.
      */
     clearGraph() {
         let me = this;
@@ -119,7 +134,7 @@ class Base extends NeoBase {
 
     /**
      * Initializes the canvas context.
-     * Polling mechanism to wait for the OffscreenCanvas transfer.
+     * Starts the polling mechanism to wait for the OffscreenCanvas transfer from the Main Thread.
      * @param {Object} opts
      * @param {String} opts.canvasId
      * @param {String} opts.windowId
@@ -135,24 +150,28 @@ class Base extends NeoBase {
 
     /**
      * Hook for subclasses to handle mouse clicks.
+     * Called by `updateMouseState` when a click event is received.
      * @param {Object} data
      */
     onMouseClick(data) {}
 
     /**
      * Pauses the simulation.
+     * The render loop will exit early while `isPaused` is true.
      */
     pause() {
         this.isPaused = true
     }
 
     /**
-     * Abstract render method
+     * Abstract render method.
+     * Subclasses must implement this method to draw the frame.
      */
     render() {}
 
     /**
      * Resumes the simulation.
+     * If the simulation was paused, this restarts the render loop.
      */
     resume() {
         let me = this;
@@ -173,6 +192,7 @@ class Base extends NeoBase {
 
     /**
      * Updates the local mouse state from main thread events.
+     * Delegates click events to `onMouseClick`.
      * @param {Object} data
      * @param {Boolean} [data.click]
      * @param {Boolean} [data.leave]
@@ -196,6 +216,8 @@ class Base extends NeoBase {
     }
 
     /**
+     * Updates the canvas size and resizes the internal context.
+     * Triggers `updateResources` hook to allow subclasses to regenerate buffers/gradients.
      * @param {Object} size
      * @param {Number} size.height
      * @param {Number} size.width
@@ -214,7 +236,8 @@ class Base extends NeoBase {
     }
 
     /**
-     * Polls for the OffscreenCanvas until it is available.
+     * Polls for the OffscreenCanvas until it is available in the Worker's `canvasWindowMap`.
+     * Once found, it initializes the context and starts the render loop.
      * @param {String} canvasId
      * @param {String} windowId
      * @param {Boolean} hasChange
