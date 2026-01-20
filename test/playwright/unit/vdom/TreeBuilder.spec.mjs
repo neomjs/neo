@@ -26,8 +26,20 @@ class MockComponent extends Component {
 }
 MockComponent = Neo.setupClass(MockComponent);
 
+/**
+ * @summary Validates the logic of `Neo.util.vdom.TreeBuilder`.
+ * 
+ * Ensures that the VDOM tree is constructed correctly with respect to:
+ * 1. Optimization: Pruning mounted subtrees (`neoIgnore`) at depth boundaries.
+ * 2. Correctness: Expanding unmounted subtrees (Wake Up) even at depth boundaries.
+ */
 test.describe('Neo.util.vdom.TreeBuilder', () => {
 
+    /**
+     * Verifies the standard optimization: If a child component is already mounted (has vnode),
+     * and we are at the update depth limit (1), we should send a placeholder reference
+     * with `neoIgnore: true`. This tells `VdomHelper` to skip diffing this subtree.
+     */
     test('Should set neoIgnore: true for mounted components at depth 1', () => {
         const child = Neo.create(MockComponent, {
             id: 'child-1',
@@ -48,6 +60,11 @@ test.describe('Neo.util.vdom.TreeBuilder', () => {
         expect(tree.cn[0].neoIgnore).toBe(true);
     });
 
+    /**
+     * Verifies the "Wake Up" logic: If a child component is unmounted (missing vnode),
+     * we MUST expand it (send full VDOM) even if we are at the update depth limit.
+     * Sending `neoIgnore` for a missing node would prevent `VdomHelper` from inserting it.
+     */
     test('Should NOT set neoIgnore for unmounted components (no vnode) at depth 1', () => {
         const child = Neo.create(MockComponent, {
             id: 'child-2',

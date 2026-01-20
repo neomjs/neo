@@ -33,8 +33,24 @@ class MockComponent extends Component {
 }
 MockComponent = Neo.setupClass(MockComponent);
 
+/**
+ * @summary Verifies the state consistency of the VdomLifecycle mixin.
+ * 
+ * Focuses on critical state flags like `mounted` and properties like `vnode`
+ * during lifecycle events such as initialization, mounting, and hiding (removeDom).
+ * Ensuring these states are correct is essential for the reliability of the
+ * `TreeBuilder` and `VdomHelper` logic.
+ */
 test.describe('VdomLifecycle State', () => {
 
+    /**
+     * Verifies that `initVnode` correctly initializes the component state even if
+     * the component is configured to be hidden (`removeDom`) initially.
+     * 
+     * Expected behavior:
+     * 1. `mounted` should be true because `initVnode(true)` was called.
+     * 2. `vnode` should be populated (not null) because `initVnode` forces creation by clearing `removeDom`.
+     */
     test('vnode should be null for initially hidden (removeDom) components', async () => {
         const comp = Neo.create(MockComponent, {
             appName,
@@ -45,12 +61,19 @@ test.describe('VdomLifecycle State', () => {
 
         await comp.initVnode(true);
 
-        expect(comp.mounted).toBe(true); // mounted is true because initVnode(true) was called
-        expect(comp.vnode).not.toBeNull(); // initVnode deletes removeDom, so vnode IS created
+        expect(comp.mounted).toBe(true);
+        expect(comp.vnode).not.toBeNull();
 
         comp.destroy();
     });
 
+    /**
+     * Verifies that the `vnode` property persists when a visible component is hidden
+     * using `hideMode: 'removeDom'`.
+     * 
+     * This persistence is critical for race condition handling: logic that checks
+     * `component.vnode` relies on it being truthy even if the component is temporarily unmounted.
+     */
     test('vnode should PERSIST when component is hidden (removeDom) after being visible', async () => {
         const comp = Neo.create(MockComponent, {
             appName,
@@ -62,16 +85,15 @@ test.describe('VdomLifecycle State', () => {
         expect(comp.mounted).toBe(true);
         expect(comp.vnode).not.toBeNull();
 
-        // Hide it
+        // Hide the component (triggers removeDom logic)
         comp.hidden = true;
         
-        // Wait for update
+        // Wait for update cycle to complete
         await new Promise(resolve => setTimeout(resolve, 50));
 
-        // Is it still mounted?
-        // Is vnode still there?
-        
-        expect(comp.vnode).not.toBeNull(); // This is the suspected behavior
+        // Ensure vnode reference is not cleared upon unmounting
+        expect(comp.mounted).toBe(true); 
+        expect(comp.vnode).not.toBeNull(); 
 
         comp.destroy();
     });

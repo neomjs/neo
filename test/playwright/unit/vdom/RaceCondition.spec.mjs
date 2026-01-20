@@ -51,8 +51,34 @@ class RaceContainer extends Container {
 }
 RaceContainer = Neo.setupClass(RaceContainer);
 
+/**
+ * @summary Regression tests for VDOM Update Race Conditions (Ticket #8814).
+ * 
+ * These tests reproduce scenarios where concurrent updates between Parent and Child components
+ * previously led to duplicate DOM nodes or state inconsistencies.
+ * 
+ * Scenarios covered:
+ * 1. Rapid Visibility Toggle (Wake Up Race): Parent inserts child while child updates itself.
+ * 2. Parallel Sibling Updates: Siblings updating simultaneously shouldn't trigger parent interference.
+ * 3. Parent (Depth 1) vs Child (Depth 1): Confirms serialization when scopes potentially overlap.
+ * 4. Reverse Race: Parent starts update *after* child, risking overwrite.
+ */
 test.describe('VdomLifecycle Race Condition', () => {
 
+    /**
+     * Reproduces the original "Duplicate Button" bug.
+     * 
+     * Scenario:
+     * - Child components start hidden (`removeDom`).
+     * - Both are set to visible AND have a text change in the same tick.
+     * - This triggers:
+     *    1. Parent Update (due to visibility change, Depth -1).
+     *    2. Child Update (due to text change, Depth 1).
+     * 
+     * Expectations:
+     * - Updates should be serialized or handled such that only ONE `insertNode` occurs per child.
+     * - Final state should be 1 DOM node per child.
+     */
     test('Rapid visibility AND text changes should not duplicate nodes', async () => {
         // Mock applyDeltas to capture them
         const capturedDeltas = [];
@@ -88,6 +114,7 @@ test.describe('VdomLifecycle Race Condition', () => {
         await new Promise(resolve => setTimeout(resolve, 50));
 
         // Analyze Deltas
+        // We expect exactly ONE insertNode for child-2 (and child-1).
         const child2Inserts = capturedDeltas.filter(d =>
             d.action === 'insertNode' &&
             (d.id === 'child-2' || d.vnode?.id === 'child-2')
@@ -98,6 +125,10 @@ test.describe('VdomLifecycle Race Condition', () => {
         container.destroy();
     });
 
+    /**
+     * Verifies that two siblings updating strictly their own internal structure (Depth 1)
+     * do not cause conflicts or trigger unnecessary parent updates that lead to duplication.
+     */
     test('Parallel Sibling Updates should not conflict', async () => {
         // Mock applyDeltas to capture them
         const capturedDeltas = [];
@@ -120,11 +151,11 @@ test.describe('VdomLifecycle Race Condition', () => {
         const child1 = container.items[0];
         const child2 = container.items[1];
 
-        // Ensure visible initially for this test
+        // Ensure visible initially for this test and wait for settlement
         child1.hidden = false;
         child2.hidden = false;
         await container.promiseUpdate();
-        await new Promise(resolve => setTimeout(resolve, 50)); // Allow time for initial inserts to settle
+        await new Promise(resolve => setTimeout(resolve, 50)); 
         capturedDeltas.length = 0;
 
         // Trigger simultaneous internal updates (Depth 1 default)
@@ -140,12 +171,19 @@ test.describe('VdomLifecycle Race Condition', () => {
 
         expect(child1Update).toBeTruthy();
         expect(child2Update).toBeTruthy();
-        // Should be no clobbering or duplicates
+        
+        // Ensure we don't have duplicate inserts or excessive updates
         expect(capturedDeltas.length).toBe(2);
 
         container.destroy();
     });
 
+    /**
+     * Verifies the "Non-Collision" logic for disjoint scopes.
+     * Parent updates itself (Depth 1) and Child updates itself (Depth 1).
+     * Since scopes don't overlap (1 < 1 is false), they should ideally run in parallel.
+     * However, if Parent Update implies checking Child References, serialization might be enforced.
+     */
     test('Parent (Depth 1) and Child (Depth 1) should not conflict', async () => {
         const capturedDeltas = [];
         Neo.applyDeltas = async (appName, deltas) => {
@@ -172,7 +210,7 @@ test.describe('VdomLifecycle Race Condition', () => {
 
         // Parent updates its own property (e.g. style) - Depth 1
         container.style = {border: '1px solid red'};
-
+        
         // Child updates its own property - Depth 1
         child1.text = 'Child Updated';
 
@@ -189,10 +227,13 @@ test.describe('VdomLifecycle Race Condition', () => {
         container.destroy();
     });
 
+    /**
+     * Verifies the `isChildUpdating` guard.
+     * Scenario: Child starts update. Parent tries to start update (Depth -1) covering the Child.
+     * Expectation: Parent detects Child is in-flight and yields.
+     * Result: Parent update runs *after* Child, finding the node already exists (no clobber).
+     */
     test('Reverse Race: Parent starts AFTER Child has started (Reproduction)', async () => {
-        // This test attempts to simulate the condition where Parent overwrites Child
-        // It relies on manual timing or forcing the Parent to start late
-
         const capturedDeltas = [];
         Neo.applyDeltas = async (appName, deltas) => {
             if (Array.isArray(deltas)) {
@@ -218,30 +259,17 @@ test.describe('VdomLifecycle Race Condition', () => {
 
         // 1. Start Child Update
         child1.text = 'Child Starting...';
-
+        
         // 2. Force Parent Update (Depth -1 to cover children)
-        // We set silent to ensure it doesn't just queue locally
-        container.updateDepth = -1;
+        // We set silent to ensure it doesn't just queue locally if logic differs
+        container.updateDepth = -1; 
         container.style = {backgroundColor: 'blue'}; // Trigger update
 
         await new Promise(resolve => setTimeout(resolve, 50));
 
-        // If Parent clobbered Child, we might see:
-        // - Duplicate updates for Child
-        // - Child update missing (if Parent overwrote with old state)
-
-        // In a "Duplicate Node" bug, Parent sends an insert/update for Child
-        // that conflicts with Child's own update.
-
         const childUpdates = capturedDeltas.filter(d => d.id === child1.id || d.vnode?.id === child1.id);
-
-        // Ideally we want 1 clean update from Child, and Parent updating itself.
-        // If Parent included Child in its payload, we might see duplicates or conflicts.
-
-        // Expectation: If safeguards work, Parent should have waited or merged.
-        // If broken, we might see chaos.
-        // For now, let's just assert basic sanity and see if it fails.
-
+        
+        // Expect Child update to succeed.
         expect(childUpdates.length).toBeGreaterThan(0);
 
         container.destroy();
