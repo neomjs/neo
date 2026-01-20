@@ -93,6 +93,7 @@ test.describe('Neo.vdom.VdomRealWorldUpdates', () => {
     let parent, child, grandchild, testRun = 0;
 
     test.beforeEach(async () => {
+        await Promise.resolve();
         testRun++;
         parent = Neo.create(TestParent, {
             appName,
@@ -120,13 +121,17 @@ test.describe('Neo.vdom.VdomRealWorldUpdates', () => {
     });
 
     test('Should handle a simple parent-only update', async () => {
-        parent.setSilent({heading: 'Updated Parent'});
+        parent.setSilent({style: {color: 'red'}, heading: 'Updated Parent'});
         const {deltas} = await parent.promiseUpdate();
 
-        expect(deltas.length).toBe(1);
-        const parentUpdate = deltas[0];
-        expect(parentUpdate.id).toBe(parent.headingComponent.id);
-        expect(parentUpdate.textContent).toBe('Updated Parent');
+        expect(deltas.length).toBe(2); // Parent style + Heading component
+        const parentUpdate = deltas.find(d => d.id === parent.id);
+        const headingUpdate = deltas.find(d => d.id === parent.headingComponent.id);
+
+        expect(parentUpdate).toBeTruthy();
+        expect(parentUpdate.style.color).toBe('red');
+        expect(headingUpdate).toBeTruthy();
+        expect(headingUpdate.textContent).toBe('Updated Parent');
     });
 
     test('Should handle a simple child-only update', async () => {
@@ -142,46 +147,55 @@ test.describe('Neo.vdom.VdomRealWorldUpdates', () => {
     });
 
     test('Should merge a parent update and a reactively-triggered child update', async () => {
-        parent.setSilent({heading: 'Updated Parent'});
-        child.setSilent({title: 'Updated Child Title'});
+        parent.setSilent({style: {color: 'blue'}, heading: 'Updated Parent'});
+        child.setSilent({style: {color: 'cyan'}, title: 'Updated Child Title'});
         const {deltas} = await parent.promiseUpdate();
 
-        expect(deltas.length).toBe(2);
+        // Parent (style) + Heading (text) + Child (style) + Grandchild (text from title)
+        expect(deltas.length).toBe(4);
 
-        const parentUpdate = deltas.find(d => d.id === parent.headingComponent.id);
+        const parentUpdate = deltas.find(d => d.id === parent.id);
+        const headingUpdate = deltas.find(d => d.id === parent.headingComponent.id);
+        const childUpdate = deltas.find(d => d.id === child.id);
         const grandchildUpdate = deltas.find(d => d.id === grandchild.id);
 
         expect(parentUpdate).toBeTruthy();
-        expect(parentUpdate.textContent).toBe('Updated Parent');
+        expect(headingUpdate).toBeTruthy();
+        expect(headingUpdate.textContent).toBe('Updated Parent');
+        expect(childUpdate).toBeTruthy();
         expect(grandchildUpdate).toBeTruthy();
         expect(grandchildUpdate.textContent).toBe('Updated Child Title');
     });
 
     test('Should handle silent child update merged with parent update', async () => {
-        parent.setSilent({heading: 'Updated Parent'});
+        parent.setSilent({style: {color: 'green'}, heading: 'Updated Parent'});
         grandchild.setSilent({text: 'Silently Updated Grandchild'});
         const {deltas} = await parent.promiseUpdate();
 
-        expect(deltas.length).toBe(2);
-        const parentUpdate = deltas.find(d => d.id === parent.headingComponent.id);
+        expect(deltas.length).toBe(3); // Parent + Heading + Grandchild
+        const parentUpdate = deltas.find(d => d.id === parent.id);
+        const headingUpdate = deltas.find(d => d.id === parent.headingComponent.id);
         const grandchildUpdate = deltas.find(d => d.id === grandchild.id);
 
         expect(parentUpdate).toBeTruthy();
-        expect(parentUpdate.textContent).toBe('Updated Parent');
+        expect(headingUpdate).toBeTruthy();
+        expect(headingUpdate.textContent).toBe('Updated Parent');
         expect(grandchildUpdate).toBeTruthy();
         expect(grandchildUpdate.textContent).toBe('Silently Updated Grandchild');
     });
 
     test('Should handle structural change (add) in a silent child update', async () => {
-        parent.setSilent({heading: 'Updated Parent'});
+        parent.setSilent({style: {color: 'yellow'}, heading: 'Updated Parent'});
         const newGrandchild = child.insert(1, {ntype: 'test-grandchild', id: 'new-grandchild-' + testRun, text: 'New Grandchild'}, true);
         const {deltas} = await parent.promiseUpdate();
 
-        expect(deltas.length).toBe(2);
-        const parentUpdate = deltas.find(d => d.id === parent.headingComponent.id);
+        expect(deltas.length).toBe(3); // Parent + Heading + Child (insert)
+        const parentUpdate = deltas.find(d => d.id === parent.id);
+        const headingUpdate = deltas.find(d => d.id === parent.headingComponent.id);
         const insertionDelta = deltas.find(d => d.action === 'insertNode');
 
         expect(parentUpdate).toBeTruthy();
+        expect(headingUpdate).toBeTruthy();
         expect(insertionDelta).toBeTruthy();
         expect(insertionDelta.parentId).toBe(child.getVdomItemsRoot().id);
         expect(insertionDelta.vnode.id).toBe(newGrandchild.vdom.id);
@@ -191,25 +205,27 @@ test.describe('Neo.vdom.VdomRealWorldUpdates', () => {
     });
 
     test('Should handle structural change (remove) in a silent child update', async () => {
-        parent.setSilent({heading: 'Updated Parent'});
+        parent.setSilent({style: {color: 'purple'}, heading: 'Updated Parent'});
         child.removeAt(0, false, true);
         const {deltas} = await parent.promiseUpdate();
 
-        expect(deltas.length).toBe(2);
-        const parentUpdate = deltas.find(d => d.id === parent.headingComponent.id);
+        expect(deltas.length).toBe(3); // Parent + Heading + Child (remove)
+        const parentUpdate = deltas.find(d => d.id === parent.id);
+        const headingUpdate = deltas.find(d => d.id === parent.headingComponent.id);
         const removalDelta = deltas.find(d => d.action === 'removeNode');
 
         expect(parentUpdate).toBeTruthy();
+        expect(headingUpdate).toBeTruthy();
         expect(removalDelta).toBeTruthy();
         expect(removalDelta.id).toBe(grandchild.vdom.id);
     });
 
     test('Should handle silent insertion of a container with nested items', async () => {
-        parent.setSilent({heading: 'Updated Parent'});
+        parent.setSilent({style: {color: 'orange'}, heading: 'Updated Parent'});
         const newContainer = child.insert(1, {ntype: 'test-child-container', id: 'new-container-' + testRun}, true);
         const {deltas} = await parent.promiseUpdate();
 
-        expect(deltas.length).toBe(2);
+        expect(deltas.length).toBe(3); // Parent + Heading + Child (insert)
         const insertionDelta = deltas.find(d => d.action === 'insertNode');
 
         expect(insertionDelta).toBeTruthy();
@@ -224,20 +240,22 @@ test.describe('Neo.vdom.VdomRealWorldUpdates', () => {
     });
 
     test('Should merge multiple property updates on a child into a single parent update cycle', async () => {
-        parent.setSilent({heading: 'Updated Parent'});
+        parent.setSilent({style: {color: 'pink'}, heading: 'Updated Parent'});
         grandchild.setSilent({
             cls : ['new-class'],
             text: 'Updated Grandchild'
         });
         const {deltas} = await parent.promiseUpdate();
 
-        expect(deltas.length).toBe(2);
+        expect(deltas.length).toBe(3); // Parent + Heading + Grandchild
 
-        const parentUpdate     = deltas.find(d => d.id === parent.headingComponent.id);
+        const parentUpdate     = deltas.find(d => d.id === parent.id);
+        const headingUpdate    = deltas.find(d => d.id === parent.headingComponent.id);
         const grandchildUpdate = deltas.find(d => d.id === grandchild.id);
 
         expect(parentUpdate).toBeTruthy();
-        expect(parentUpdate.textContent).toBe('Updated Parent');
+        expect(headingUpdate).toBeTruthy();
+        expect(headingUpdate.textContent).toBe('Updated Parent');
 
         expect(grandchildUpdate).toBeTruthy();
         expect(grandchildUpdate.textContent).toBe('Updated Grandchild');

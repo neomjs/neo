@@ -314,6 +314,18 @@ class VdomLifecycle extends Base {
     }
 
     /**
+     * Checks if a child update can be merged into a parent update.
+     * This uses `<=` because we WANT to merge updates even if they don't strictly collide (e.g. Depth 1, Distance 1).
+     * Merging disjoint updates (Parent Depth 1 + Child Depth 1) is an optimization to reduce worker messages.
+     * @param {Number} updateDepth
+     * @param {Number} distance
+     * @returns {Boolean}
+     */
+    canMergeUpdate(updateDepth, distance) {
+        return updateDepth === -1 ? true : distance <= updateDepth
+    }
+
+    /**
      * Checks if a given updateDepth & distance would result in an update collision.
      * The check must use `<` because `updateDepth` is 1-based.
      *
@@ -492,7 +504,7 @@ class VdomLifecycle extends Base {
 
             if (parent) {
                 // We are checking for parent.updateDepth, since we care about the depth of the next update cycle
-                if (parent.needsVdomUpdate && me.hasUpdateCollision(parent.updateDepth, distance)) {
+                if (parent.needsVdomUpdate && me.canMergeUpdate(parent.updateDepth, distance)) {
                     VDomUpdate.registerMerged(parent.id, me.id, me.updateDepth, distance);
                     return true
                 }
