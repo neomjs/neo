@@ -206,39 +206,62 @@ class VdomLifecycle extends Base {
 
         try {
             const
-                {vdom, vnode} = me,
-                mergedChildIds = VDomUpdate.getMergedChildIds(me.id),
-                opts = {
-                    vdom : TreeBuilder.getVdomTree(vdom,   me.updateDepth, mergedChildIds),
-                    vnode: TreeBuilder.getVnodeTree(vnode, me.updateDepth, mergedChildIds)
-                };
+                batch     = [],
+                processed = new Set(); // Prevent duplicates and cycles
 
-            if (currentWorker?.isSharedWorker) {
-                opts.appName  = me.appName;
-                opts.windowId = me.windowId;
-            }
+            const collectPayloads = (componentId) => {
+                if (processed.has(componentId)) return;
+                processed.add(componentId);
 
-            // We cannot set the config directly => it could already be false,
-            // and we still want to pass it further into subtrees
-            me._needsVdomUpdate = false;
-            me.afterSetNeedsVdomUpdate?.(false, true);
+                const component = Neo.getComponent(componentId);
+                if (!component || component.isDestroyed) return;
 
-            // Reset the updateDepth to the default value for the next update cycle
-            me._updateDepth = me.constructor.config.updateDepth;
+                // For every component, we check its own merged children
+                const mergedChildIds = VDomUpdate.getMergedChildIds(componentId);
 
-            const data = await Promise.resolve(Neo.vdom.Helper.update(opts));
+                // Generate payload for this component (Pruned Disjoint Tree, Depth 1)
+                // We pass mergedChildIds so TreeBuilder knows which children to prune (placeholderize)
+                // We pass depth=1 to force disjoint boundary
+                batch.push(component.getVdomUpdatePayload(mergedChildIds, 1));
+
+                // Recursively collect merged children
+                if (mergedChildIds) {
+                    mergedChildIds.forEach(childId => collectPayloads(childId))
+                }
+            };
+
+            // Start collection from the root of the update (me)
+            collectPayloads(me.id);
+
+            console.log('executeVdomUpdate batch IDs:', batch.map(p => p.vnode.id));
+
+            const response = await Promise.resolve(Neo.vdom.Helper.updateBatch(batch));
 
             // Component could be destroyed while the update is running
             if (me.id) {
-                // It is crucial to delegate the vnode tree before resolving the cycle
-                me.vnode = data.vnode;
-
                 // When not using a VdomWorker, we need to apply the deltas inside the App worker
-                if (!Neo.config.useVdomWorker && data.deltas?.length > 0) {
-                    await Neo.applyDeltas(me.windowId, data.deltas)
+                if (!Neo.config.useVdomWorker && response.deltas?.length > 0) {
+                    await Neo.applyDeltas(me.windowId, response.deltas)
                 }
 
-                me.resolveVdomUpdate(data, mergedChildIds)
+                // Distribute results back to ALL components in the batch
+                response.results.forEach((result, index) => {
+                    const
+                        payload     = batch[index],
+                        componentId = payload.vnode?.id || payload.vdom?.id,
+                        component   = Neo.getComponent(componentId);
+
+                    if (component && !component.isDestroyed) {
+                        component.vnode = result.vnode;
+
+                        // Resolve the update for this component and its merged children
+                        // Note: response.deltas contains the aggregated deltas for the whole batch
+                        component.resolveVdomUpdate({
+                            deltas: response.deltas,
+                            vnode : result.vnode
+                        }, VDomUpdate.getMergedChildIds(componentId));
+                    }
+                });
             }
         } catch (err) {
             me.isVdomUpdating = false;
@@ -283,6 +306,37 @@ class VdomLifecycle extends Base {
                 index++
             }
         }
+    }
+
+    /**
+     * Generates the update payload for this component.
+     * @param {Set<String>|null} mergedChildIds
+     * @param {Number} [depth] Override the update depth
+     * @returns {Object} opts
+     */
+    getVdomUpdatePayload(mergedChildIds, depth) {
+        let me = this,
+            updateDepth = depth ?? me.updateDepth,
+            {vdom, vnode} = me,
+            opts = {
+                vdom : TreeBuilder.getVdomTree(vdom,   updateDepth, mergedChildIds),
+                vnode: TreeBuilder.getVnodeTree(vnode, updateDepth, mergedChildIds)
+            };
+
+        if (currentWorker?.isSharedWorker) {
+            opts.appName  = me.appName;
+            opts.windowId = me.windowId
+        }
+
+        // We cannot set the config directly => it could already be false,
+        // and we still want to pass it further into subtrees
+        me._needsVdomUpdate = false;
+        me.afterSetNeedsVdomUpdate?.(false, true);
+
+        // Reset the updateDepth to the default value for the next update cycle
+        me._updateDepth = me.constructor.config.updateDepth;
+
+        return opts
     }
 
     /**
@@ -387,48 +441,57 @@ class VdomLifecycle extends Base {
             app.isVnodeInitializing = true
         }
 
-        if (me.vdom) {
-            me.isVdomUpdating = true;
+        try {
+            if (me.vdom) {
+                me.isVdomUpdating = true;
 
-            me.ensureStableIds();
+                me.ensureStableIds();
 
-            // Ensure child components do not trigger updates while the vnode generation is in progress
-            VDomUpdate.registerInFlightUpdate(me.id, -1);
+                // Ensure child components do not trigger updates while the vnode generation is in progress
+                VDomUpdate.registerInFlightUpdate(me.id, -1);
 
-            delete me.vdom.removeDom;
+                delete me.vdom.removeDom;
 
-            me._needsVdomUpdate = false;
-            me.afterSetNeedsVdomUpdate?.(false, true);
+                me._needsVdomUpdate = false;
+                me.afterSetNeedsVdomUpdate?.(false, true);
 
-            const data = await Promise.resolve(Neo.vdom.Helper.create({
-                appName    : me.appName,
-                autoMount,
-                parentId   : autoMount ? me.getMountedParentId()    : undefined,
-                parentIndex: autoMount ? me.getMountedParentIndex() : undefined,
-                vdom       : TreeBuilder.getVdomTree(me.vdom, -1),
-                windowId   : me.windowId
-            }));
+                const data = await Promise.resolve(Neo.vdom.Helper.create({
+                    appName    : me.appName,
+                    autoMount,
+                    parentId   : autoMount ? me.getMountedParentId()    : undefined,
+                    parentIndex: autoMount ? me.getMountedParentIndex() : undefined,
+                    vdom       : TreeBuilder.getVdomTree(me.vdom, -1),
+                    windowId   : me.windowId
+                }));
 
-            me.onInitVnode(data.vnode, useVdomWorker ? autoMount : false);
+                me.onInitVnode(data.vnode, useVdomWorker ? autoMount : false);
 
-            if (autoMount && !useVdomWorker) {
-                // When running without a VdomWorker, Helper.create is local and returns a plain object.
-                // We must manually send the insertNode delta to the main thread.
-                await Neo.applyDeltas(me.windowId, [{
-                    action   : 'insertNode',
-                    id       : me.id,
-                    index    : me.getMountedParentIndex(),
-                    outerHTML: data.outerHTML,
-                    parentId : me.getMountedParentId(),
-                    vnode    : data.vnode
-                }]);
+                if (autoMount && !useVdomWorker) {
+                    // When running without a VdomWorker, Helper.create is local and returns a plain object.
+                    // We must manually send the insertNode delta to the main thread.
+                    await Neo.applyDeltas(me.windowId, [{
+                        action   : 'insertNode',
+                        id       : me.id,
+                        index    : me.getMountedParentIndex(),
+                        outerHTML: data.outerHTML,
+                        parentId : me.getMountedParentId(),
+                        vnode    : data.vnode
+                    }]);
 
-                me.mounted = true
+                    me.mounted = true
+                }
+
+                if (!data.deltas) {
+                    data.deltas = []
+                }
+
+                me.resolveVdomUpdate(data);
+
+                return data
             }
-
-            me.resolveVdomUpdate();
-
-            return data
+        } catch (err) {
+            console.error('initVnode error', err, me.id);
+            throw err
         }
     }
 
@@ -582,21 +645,13 @@ class VdomLifecycle extends Base {
     }
 
     /**
-     * Promise based vdom update
      * @returns {Promise<any>}
      */
     promiseUpdate() {
         let me = this;
 
         return new Promise((resolve, reject) => {
-            const id = Symbol();
-
-            me.registerAsync(id, reject);
-
-            me.updateVdom(
-                (val) => {me.unregisterAsync(id); resolve(val)},
-                (err) => {me.unregisterAsync(id); reject(err)}
-            )
+            me.updateVdom(resolve, reject)
         })
     }
 
@@ -753,11 +808,11 @@ class VdomLifecycle extends Base {
                     && vnode
                 ) {
                     // Check for merged child updates and adjust the update depth accordingly
-                    let adjustedDepth = VDomUpdate.getAdjustedUpdateDepth(me.id);
-
-                    if (adjustedDepth !== null) {
-                        me.updateDepth = adjustedDepth;
-                    }
+                    // let adjustedDepth = VDomUpdate.getAdjustedUpdateDepth(me.id);
+                    //
+                    // if (adjustedDepth !== null) {
+                    //     me.updateDepth = adjustedDepth;
+                    // }
 
                     // Verify that the critical rendering path => CSS files for the new tree is in place
                     if (!config.isMiddleware && !config.unitTestMode && currentWorker.countLoadingThemeFiles !== 0) {

@@ -28,7 +28,8 @@ class Helper extends Base {
         remote: {
             app: [
                 'create',
-                'update'
+                'update',
+                'updateBatch'
             ]
         },
         /**
@@ -773,7 +774,35 @@ class Helper extends Base {
         // so we need to execute the removeNode OPs last.
         deltas = deltas.default.concat(deltas.remove);
 
+        if (deltas.length > 0) {
+            console.log('Helper.update deltas for', vnode.id, JSON.stringify(deltas, null, 2));
+        }
+
         return {deltas, updateVdom: true, vnode}
+    }
+
+    /**
+     * Processes an array of updates sequentially and aggregates the results.
+     * @param {Object[]} updates An array of update config objects (same format as update() accepts)
+     * @returns {Object} { deltas: Object[], results: Object[] }
+     */
+    updateBatch(updates) {
+        let me          = this,
+            allDeltas   = [],
+            results     = [],
+            result;
+
+        updates.forEach(updateOpts => {
+            result = me.update(updateOpts);
+            allDeltas.push(...result.deltas);
+            results.push({vnode: result.vnode});
+        });
+
+        return {
+            deltas    : allDeltas,
+            results   : results,
+            updateVdom: true
+        }
     }
 }
 
