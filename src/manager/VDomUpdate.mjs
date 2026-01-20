@@ -160,11 +160,6 @@ class VDomUpdate extends Collection {
             item         = me.mergedCallbackMap.get(ownerId),
             callbackData = data ? [data] : [];
 
-        if (!data) {
-            console.log('executeCallbacks: undefined data for', ownerId);
-            console.trace();
-        }
-
         if (item && processedChildIds) {
             processedChildIds.forEach(childId => {
                 if (item.children.has(childId)) {
@@ -192,9 +187,6 @@ class VDomUpdate extends Collection {
             callbacks = me.promiseCallbackMap.get(ownerId);
 
         if (callbacks) {
-            if (data && data.deltas) {
-                console.log('executePromiseCallbacks deltas for', ownerId, JSON.stringify(data.deltas, null, 2));
-            }
             callbacks.forEach(callback => callback(data));
             me.promiseCallbackMap.delete(ownerId);
         }

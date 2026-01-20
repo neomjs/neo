@@ -774,10 +774,6 @@ class Helper extends Base {
         // so we need to execute the removeNode OPs last.
         deltas = deltas.default.concat(deltas.remove);
 
-        if (deltas.length > 0) {
-            console.log('Helper.update deltas for', vnode.id, JSON.stringify(deltas, null, 2));
-        }
-
         return {deltas, updateVdom: true, vnode}
     }
 
