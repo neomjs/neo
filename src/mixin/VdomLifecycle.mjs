@@ -315,8 +315,17 @@ class VdomLifecycle extends Base {
 
     /**
      * Checks if a child update can be merged into a parent update.
-     * This uses `<=` because we WANT to merge updates even if they don't strictly collide (e.g. Depth 1, Distance 1).
-     * Merging disjoint updates (Parent Depth 1 + Child Depth 1) is an optimization to reduce worker messages.
+     *
+     * **Merge Strategy (Optimization):**
+     * Merging is an optimization to reduce worker traffic. We use `<=` (not `<`) because
+     * we WANT to merge updates even if they don't strictly collide (e.g. Parent Depth 1,
+     * Child Distance 1).
+     *
+     * **Leapfrog Merging:**
+     * This logic allows for "Leapfrog Merging," where a deep descendant (Grandchild) can
+     * merge into an ancestor (Grandparent) even if the intermediate Parent is clean
+     * (not updating), provided the ancestor's `updateDepth` covers the distance.
+     *
      * @param {Number} updateDepth
      * @param {Number} distance
      * @returns {Boolean}
@@ -491,11 +500,19 @@ class VdomLifecycle extends Base {
     }
 
     /**
-     * Checks the needsVdomUpdate config inside the parent tree
+     * Traverses the parent chain to find an ancestor that is pending a VDOM update.
+     * If found, and if the update scope allows (see `canMergeUpdate`), this component's
+     * update is merged into the ancestor's cycle.
+     *
+     * **Recursive Traversal:**
+     * This method recursively walks up the component tree (`distance + 1`). This enables
+     * transitive merging (Grandchild -> Child -> Parent) and leapfrog merging (skipping
+     * clean parents).
+     *
      * @param {String} parentId=this.parentId
      * @param {Function} [resolve] gets passed by updateVdom()
      * @param {Number} distance=1 Distance inside the component tree
-     * @returns {Boolean}
+     * @returns {Boolean} True if the update was successfully merged.
      */
     mergeIntoParentUpdate(parentId=this.parentId, distance=1) {
         if (parentId !== 'document.body') {

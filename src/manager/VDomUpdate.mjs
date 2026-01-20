@@ -254,7 +254,15 @@ class VDomUpdate extends Collection {
 
     /**
      * Returns a Set of child component IDs that have been merged into a parent's update cycle.
-     * This is used by the parent to know which children it is responsible for updating.
+     * This is used by `VdomLifecycle` and `TreeBuilder` to determine which reference nodes
+     * in the parent's VDOM tree need to be expanded into full VDOM structures during the
+     * update process.
+     *
+     * **Optimization Strategy:**
+     * Selective expansion allows the framework to update only specific, dirty subtrees
+     * (the merged children) while keeping the rest of the parent's tree as lightweight
+     * references. This asymmetric tree generation is a key performance optimization.
+     *
      * @param {String} ownerId The `id` of the parent component.
      * @returns {Set<String>|null} A Set containing the IDs of the merged children, or `null`.
      */
@@ -293,7 +301,13 @@ class VDomUpdate extends Collection {
     /**
      * Registers a child's update request to be merged into its parent's update cycle.
      * This is called by a child component when it determines it can delegate its update
-     * to an ancestor.
+     * to an ancestor (see `VdomLifecycle.mergeIntoParentUpdate`).
+     *
+     * **Merging Logic:**
+     * Merging reduces VDOM worker traffic by bundling multiple component updates into
+     * a single message. The child effectively "cancels" its own standalone update and
+     * piggybacks on the parent's pending update.
+     *
      * @param {String} ownerId          The `id` of the parent component that will own the merged update.
      * @param {String} childId          The `id` of the child component requesting the merge.
      * @param {Number} childUpdateDepth The update depth required by the child.
