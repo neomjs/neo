@@ -61,7 +61,7 @@ CallbackComponent = Neo.setupClass(CallbackComponent);
 class MockContainer extends Container {
     static config = {
         className: 'Test.MockContainer',
-        ntype    : 'test-container',
+        ntype    : 'test-asymmetric-container',
         _vdom    : {tag: 'div', cls: ['child-container']}
     }
 }
