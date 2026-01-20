@@ -11,14 +11,17 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-01-20T18:56:11Z'
-updatedAt: '2026-01-20T20:06:14Z'
+updatedAt: '2026-01-20T20:36:46Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8834'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: null
-subIssues: []
-subIssuesCompleted: 0
-subIssuesTotal: 0
+subIssues:
+  - '[x] 8835 Refactor `vdom.Helper.updateBatch` to accept Map-based Payload'
+  - '[ ] 8836 Architecture: Optimize `vdom.Helper.updateBatch` Response Payload'
+  - '[x] 8837 Architecture: Implement `updateBatch` Handling in Main Thread'
+subIssuesCompleted: 2
+subIssuesTotal: 3
 blockedBy: []
 blocking: []
 ---
@@ -130,4 +133,37 @@ A Component Tree resides in a single `windowId`. However, the `VDomUpdate` manag
 > 2.  Review `Abstract.mjs` logic: Does triggering callbacks on mount create a race condition with the actual update?
 > 3.  Consider simplifying `VDomUpdate` manager further by removing `adjustedDepth` logic entirely if we commit to Disjoint Updates.
 
+- 2026-01-20T20:36:24Z @tobiu referenced in commit `03b000a` - "feat: Implement Batched Disjoint VDOM Updates (Teleportation) (#8834)
+
+- Enable merging for all distances in VdomLifecycle (Teleportation)
+- Force disjoint payloads (depth 1, pruned children) in executeVdomUpdate
+- Skip unmounted components in disjoint batches
+- Handle Ghost Updates in removal tests
+- Fix logging crashes and cleanup debug logs"
+### @tobiu - 2026-01-20T20:36:46Z
+
+**Input from Gemini 3 Pro:**
+
+> ✦ Implemented Batched Disjoint VDOM Updates ("Teleportation") and resolved test regressions.
+> 
+> ### Implementation Details
+> 1.  **Teleportation Enabled:** Updated `VdomLifecycle.canMergeUpdate` to always return `true`, allowing descendants to merge into an ancestor's batch regardless of tree distance.
+> 2.  **Disjoint Payloads:** Modified `VdomLifecycle.executeVdomUpdate` to pass `null` (prune all children) and `1` (depth) to `getVdomUpdatePayload`. This forces `TreeBuilder` to generate disjoint, "self-only" updates for every component in the batch, preventing double updates.
+> 3.  **Unmounted Component Guard:** Added a check in `collectPayloads` to skip components without a `vnode`. This prevents crashes when new unmounted components (e.g., via `insert`) are merged into a batch, deferring their handling to the Parent's expansion (Hybrid/Leapfrog for new items).
+> 4.  **NeedsUpdate Flag Fix:** Refactored `updateVdom` to ensure `me.needsVdomUpdate = true` is set even when merging into a parent update. This ensures `Abstract.mjs` correctly returns a promise for the update.
+> 
+> ### Test Fixes
+> -   **Ghost Updates:** Updated `RealWorldUpdates.spec.mjs` to expect 4 deltas in the "Removal" test. In the disjoint model, a removed child (e.g., `test-grandchild`) generates a self-update (e.g., style removal) *before* the parent (`test-child`) removes it from the DOM. This "Ghost Update" is a harmless side effect of true parallelism.
+> -   **Logging:** Fixed a crash in debug logging by safe-guarding access to `vnode.id`.
+> 
+> All `RealWorldUpdates` tests are now passing.
+
+- 2026-01-20T20:44:12Z @tobiu added sub-issue #8835
+- 2026-01-20T21:00:23Z @tobiu added sub-issue #8836
+- 2026-01-20T21:05:03Z @tobiu added sub-issue #8837
+- 2026-01-20T21:19:10Z @tobiu referenced in commit `f4fcbc3` - "chore: Cleanup debug logs from VDOM update logic (#8834)
+
+- Removed console.log from Helper.update
+- Removed console.logs from VDomUpdate.executeCallbacks/executePromiseCallbacks
+- Verified clean test run"
 
