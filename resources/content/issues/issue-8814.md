@@ -1,22 +1,23 @@
 ---
 id: 8814
 title: Race condition in Portal Toolbar causes duplicate DOM nodes
-state: OPEN
+state: CLOSED
 labels:
   - bug
   - ai
 assignees: []
 createdAt: '2026-01-19T15:08:24Z'
-updatedAt: '2026-01-19T16:49:57Z'
+updatedAt: '2026-01-20T03:31:18Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8814'
 author: tobiu
-commentsCount: 3
+commentsCount: 4
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-01-20T03:31:18Z'
 ---
 # Race condition in Portal Toolbar causes duplicate DOM nodes
 
@@ -99,4 +100,11 @@ The DOM should exactly match the VDOM (one button instance).
 > 
 > This branch captures the "broken" state where the fix works for the new bug but exposes the latent conflict with `RealWorldUpdates`. It serves as the starting point for resolving the "Merging vs. Blocking" architectural paradox.
 
+- 2026-01-20T03:25:36Z @tobiu cross-referenced by #8823
+- 2026-01-20T03:28:18Z @tobiu cross-referenced by #8824
+### @tobiu - 2026-01-20T03:31:07Z
+
+Fix implemented and verified with new test suite. Merging to dev.
+
+- 2026-01-20T03:31:18Z @tobiu closed this issue
 
