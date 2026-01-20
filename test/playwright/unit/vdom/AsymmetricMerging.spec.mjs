@@ -265,9 +265,12 @@ test.describe('Asymmetric VDOM Merging', () => {
      * Grandchild update to be lost.
      * 
      * This test validates if `VDomUpdate`/`TreeBuilder` correctly handles this "gap"
-     * or if the update depth is adjusted to ensure the path is traversed.
+     * by identifying the "Bridge Path" and expanding the clean Parent.
+     * 
+     * It also verifies "Sparse Tree Generation": A clean sibling of the Parent ("Uncle")
+     * should be pruned (ignored) if it is not on the bridge path.
      */
-    test('Leapfrog Merging: Grandparent -> Clean Parent -> Dirty Grandchild', async () => {
+    test('Leapfrog Merging: Grandparent -> Clean Parent -> Dirty Grandchild (Sparse)', async () => {
         container = Neo.create(MockContainer, {
             appName,
             id: 'grandparent-' + testRun,
@@ -279,6 +282,10 @@ test.describe('Asymmetric VDOM Merging', () => {
                     id: 'grandchild-' + testRun,
                     text: 'GC'
                 }]
+            }, {
+                module: MockComponent,
+                id: 'clean-uncle-' + testRun,
+                text: 'Uncle'
             }]
         });
 
@@ -287,26 +294,35 @@ test.describe('Asymmetric VDOM Merging', () => {
 
         const parent     = container.items[0];
         const grandChild = parent.items[0];
+        const uncle      = container.items[1];
 
-        // 1. Queue update on Grandparent (Depth 1 default)
+        // 1. Queue update on Grandparent
         container.setSilent({style: {color: 'purple'}});
 
-        // 2. Queue update on Grandchild (Depth 1)
+        // 2. Queue update on Grandchild
         // Grandchild should skip the clean Parent and recurse to Grandparent.
-        // We set Grandparent to Depth -1 to ensure it can absorb the deep update.
-        container.updateDepth = -1;
+        // We set Grandparent to Depth 2.
+        // This tests if the "Bridge Path" logic works:
+        // - Parent (Distance 1) is a Bridge -> Must be expanded.
+        // - Uncle (Distance 1) is NOT a Bridge -> Should be pruned.
+        container.updateDepth = 2;
         
         grandChild.setSilent({text: 'Leapfrog Update'});
 
         // 3. Trigger Grandparent
         const {deltas} = await container.promiseUpdate();
 
-        // 4. Verify
-        // The Grandchild update should be included in the Grandparent's delta bundle.
+        // 4. Verify Grandchild Update (Positive Case)
+        // The Grandchild update MUST be present. This proves the Bridge Parent was expanded.
         const gcDelta = deltas.find(d => d.id === grandChild.id);
         
         expect(gcDelta).toBeTruthy();
         expect(gcDelta.textContent).toBe('Leapfrog Update');
+
+        // 5. Verify Uncle (Negative Case)
+        // The Uncle should NOT be in the deltas (it was clean and pruned).
+        const uncleDelta = deltas.find(d => d.id === uncle.id);
+        expect(uncleDelta).toBeUndefined();
     });
 
     /**
