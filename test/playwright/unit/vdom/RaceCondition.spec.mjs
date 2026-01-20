@@ -36,17 +36,8 @@ RaceChildComponent = Neo.setupClass(RaceChildComponent);
 class RaceContainer extends Container {
     static config = {
         className: 'Test.RaceContainer',
-        items: [{
-            module: RaceChildComponent,
-            id: 'child-1',
-            hidden: true,
-            text: 'Child 1'
-        }, {
-            module: RaceChildComponent,
-            id: 'child-2',
-            hidden: true,
-            text: 'Child 2'
-        }]
+        // items defined dynamically in tests
+        items: []
     }
 }
 RaceContainer = Neo.setupClass(RaceContainer);
@@ -64,11 +55,18 @@ RaceContainer = Neo.setupClass(RaceContainer);
  * 4. Reverse Race: Parent starts update *after* child, risking overwrite.
  */
 test.describe('VdomLifecycle Race Condition', () => {
+    let testIdCounter = 0;
+    const getUniqueId = (prefix) => `${prefix}-${Date.now()}-${testIdCounter++}`;
+    let createdComponentIds = [];
+
     test.afterEach(() => {
-        const container = Neo.getComponent('test-container');
-        if (container) {
-            container.destroy();
-        }
+        createdComponentIds.forEach(id => {
+            const cmp = Neo.getComponent(id);
+            if (cmp) {
+                cmp.destroy();
+            }
+        });
+        createdComponentIds = [];
     });
 
     /**
@@ -96,9 +94,25 @@ test.describe('VdomLifecycle Race Condition', () => {
             }
         };
 
+        const containerId = getUniqueId('test-container');
+        const child1Id = getUniqueId('child-1');
+        const child2Id = getUniqueId('child-2');
+        createdComponentIds.push(containerId); // Cleanup tracking
+
         const container = Neo.create(RaceContainer, {
             appName,
-            id: 'test-container'
+            id: containerId,
+            items: [{
+                module: RaceChildComponent,
+                id: child1Id,
+                hidden: true,
+                text: 'Child 1'
+            }, {
+                module: RaceChildComponent,
+                id: child2Id,
+                hidden: true,
+                text: 'Child 2'
+            }]
         });
 
         // 1. Initial Mount (Children are hidden)
@@ -123,12 +137,10 @@ test.describe('VdomLifecycle Race Condition', () => {
         // We expect exactly ONE insertNode for child-2 (and child-1).
         const child2Inserts = capturedDeltas.filter(d =>
             d.action === 'insertNode' &&
-            (d.id === 'child-2' || d.vnode?.id === 'child-2')
+            (d.id === child2Id || d.vnode?.id === child2Id)
         );
 
         expect(child2Inserts.length).toBe(1);
-
-        container.destroy();
     });
 
     /**
@@ -146,9 +158,25 @@ test.describe('VdomLifecycle Race Condition', () => {
             }
         };
 
+        const containerId = getUniqueId('test-container');
+        const child1Id = getUniqueId('child-1');
+        const child2Id = getUniqueId('child-2');
+        createdComponentIds.push(containerId);
+
         const container = Neo.create(RaceContainer, {
             appName,
-            id: 'test-container'
+            id: containerId,
+            items: [{
+                module: RaceChildComponent,
+                id: child1Id,
+                hidden: true, // Start hidden to mimic prev setup
+                text: 'Child 1'
+            }, {
+                module: RaceChildComponent,
+                id: child2Id,
+                hidden: true, // Start hidden
+                text: 'Child 2'
+            }]
         });
 
         await container.initVnode(true);
@@ -180,8 +208,6 @@ test.describe('VdomLifecycle Race Condition', () => {
 
         // Ensure we don't have duplicate inserts or excessive updates
         expect(capturedDeltas.length).toBe(2);
-
-        container.destroy();
     });
 
     /**
@@ -200,9 +226,20 @@ test.describe('VdomLifecycle Race Condition', () => {
             }
         };
 
+        const containerId = getUniqueId('test-container');
+        const child1Id = getUniqueId('child-1');
+        const child2Id = getUniqueId('child-2'); // Add second child to match structure if needed, or stick to 1
+        createdComponentIds.push(containerId);
+
         const container = Neo.create(RaceContainer, {
             appName,
-            id: 'test-container'
+            id: containerId,
+            items: [{
+                module: RaceChildComponent,
+                id: child1Id,
+                hidden: true,
+                text: 'Child 1'
+            }]
         });
 
         await container.initVnode(true);
@@ -229,8 +266,6 @@ test.describe('VdomLifecycle Race Condition', () => {
         expect(childUpdate).toBeTruthy();
 
         expect(capturedDeltas.length).toBe(2);
-
-        container.destroy();
     });
 
     /**
@@ -249,9 +284,19 @@ test.describe('VdomLifecycle Race Condition', () => {
             }
         };
 
+        const containerId = getUniqueId('test-container');
+        const child1Id = getUniqueId('child-1');
+        createdComponentIds.push(containerId);
+
         const container = Neo.create(RaceContainer, {
             appName,
-            id: 'test-container'
+            id: containerId,
+            items: [{
+                module: RaceChildComponent,
+                id: child1Id,
+                hidden: true,
+                text: 'Child 1'
+            }]
         });
 
         await container.initVnode(true);
@@ -277,7 +322,5 @@ test.describe('VdomLifecycle Race Condition', () => {
 
         // Expect Child update to succeed.
         expect(childUpdates.length).toBeGreaterThan(0);
-
-        container.destroy();
     });
 });

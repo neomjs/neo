@@ -34,6 +34,8 @@ MockComponent = Neo.setupClass(MockComponent);
  * 2. Correctness: Expanding unmounted subtrees (Wake Up) even at depth boundaries.
  */
 test.describe('Neo.util.vdom.TreeBuilder', () => {
+    let testIdCounter = 0;
+    const getUniqueId = (prefix) => `${prefix}-${Date.now()}-${testIdCounter++}`;
 
     /**
      * Verifies the standard optimization: If a child component is already mounted (has vnode),
@@ -41,22 +43,23 @@ test.describe('Neo.util.vdom.TreeBuilder', () => {
      * with `neoIgnore: true`. This tells `VdomHelper` to skip diffing this subtree.
      */
     test('Should set neoIgnore: true for mounted components at depth 1', () => {
+        const childId = getUniqueId('child-1');
         const child = Neo.create(MockComponent, {
-            id: 'child-1',
+            id: childId,
             appName
         });
         
         // Simulate mounted state (has vnode)
-        child.vnode = {id: 'child-1', vtype: 'vnode'};
+        child.vnode = {id: childId, vtype: 'vnode'};
 
         const vdom = {
             id: 'parent',
-            cn: [{componentId: 'child-1'}]
+            cn: [{componentId: childId}]
         };
 
         const tree = TreeBuilder.getVdomTree(vdom, 1);
 
-        expect(tree.cn[0].componentId).toBe('child-1');
+        expect(tree.cn[0].componentId).toBe(childId);
         expect(tree.cn[0].neoIgnore).toBe(true);
     });
 
@@ -66,8 +69,9 @@ test.describe('Neo.util.vdom.TreeBuilder', () => {
      * Sending `neoIgnore` for a missing node would prevent `VdomHelper` from inserting it.
      */
     test('Should NOT set neoIgnore for unmounted components (no vnode) at depth 1', () => {
+        const childId = getUniqueId('child-2');
         const child = Neo.create(MockComponent, {
-            id: 'child-2',
+            id: childId,
             appName
         });
         
@@ -76,7 +80,7 @@ test.describe('Neo.util.vdom.TreeBuilder', () => {
 
         const vdom = {
             id: 'parent',
-            cn: [{componentId: 'child-2'}]
+            cn: [{componentId: childId}]
         };
 
         const tree = TreeBuilder.getVdomTree(vdom, 1);
