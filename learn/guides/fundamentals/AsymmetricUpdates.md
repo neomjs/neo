@@ -1,6 +1,23 @@
 # Asymmetric VDOM Updates: A Technical Deep Dive
 
-One of Neo.mjs's most powerful performance features is its ability to perform **Asymmetric VDOM Updates**. This capability allows the framework to update different parts of the component tree independently, in parallel, or merged into a single atomic transaction, depending on the most efficient strategy for the current state.
+## TL;DR
+
+Neo.mjs can update Parent and Child components **independently and in parallel**, or merge them into a single atomic transaction—whichever is most efficient.
+
+This is a fundamental shift from traditional frameworks where Parent updates typically force Child re-renders. We designed for multi-threaded, worker-based rendering from day one.
+
+**Key innovations:**
+- **Scoped Updates**: Disjoint updates (Depth 1) run in parallel.
+- **Automatic Merging**: Bundles child updates into parent messages (`dist <= updateDepth`).
+- **Leapfrog Merging**: Updates skip clean parents to merge with ancestors.
+- **Transaction Pattern**: Atomic multi-component updates via `setSilent`.
+
+---
+
+One of Neo.mjs's most powerful performance features is its ability to perform **Asymmetric VDOM Updates**.
+
+**The Problem:** In many frameworks, updating a Parent component forces a re-evaluation of its entire subtree. Even with memoization, the main thread must traverse the tree to decide what to skip.
+**The Solution:** Neo.mjs treats the component tree as a collection of disjoint sets. A Parent and a Child can update **independently and in parallel** because the VDOM engine runs off the main thread and understands "Scoped Updates".
 
 This guide provides a technical deep dive into the VDOM engine's update logic, the mechanics of "Scoped Updates," the "Merging" optimization algorithm, and the "Transaction Pattern."
 
@@ -159,6 +176,33 @@ This ensures that your code flow remains consistent regardless of whether the up
 await child.promiseUpdate();
 console.log('Update done (possibly merged)');
 ```
+
+## Neo.mjs vs React: VDOM Update Strategies
+
+| Scenario | React | Neo.mjs |
+| :--- | :--- | :--- |
+| **Parent style change, Child unchanged** | Re-renders Child by default (unless memoized). | Updates **only** Parent (Scoped Update). Child is a placeholder. |
+| **Parent + Child both changing** | Single render pass. Large payload. | Can **Merge** (atomic) OR **Parallelize** (disjoint). |
+| **Grandchild dirty, Parent clean** | Walks entire tree to find dirty node. | **Leapfrog Merge** (skips clean Parent entirely). |
+| **50 components updating** | 50 re-renders (unless batched). | **1 Transaction** (atomic paint via `setSilent`). |
+| **Multi-threaded environment** | Not designed for this. | Optimized for **Worker Bridge** traffic. |
+
+## When Does This Matter?
+
+### For Traditional Apps
+In typical single-page apps, these optimizations are nice-to-haves. React's main-thread scheduling is generally fast enough for standard forms and lists.
+
+### For AI-Driven & Multi-Window Apps
+This architecture becomes critical in two scenarios:
+
+1.  **Conversational UIs (AI Agents)**:
+    When an AI agent (like Gemini) decides to "update the chart, reset the filters, and change the grid selection" all at once, it triggers multiple state changes across the app.
+    *   **React**: Might trigger cascading re-renders and main-thread blocking.
+    *   **Neo.mjs**: Can batch these into a single worker message using the **Transaction Pattern**, ensuring the UI updates atomically without flicker.
+
+2.  **Multi-Window Applications**:
+    Neo.mjs runs the entire application in a SharedWorker (App Worker). This means one App Worker controls multiple browser windows.
+    *   **Disjoint Updates**: A chart updating in Window A should not block a form typing in Window B. Scoped Updates ensure these are processed as independent streams.
 
 ## Best Practices
 
