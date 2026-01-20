@@ -253,23 +253,42 @@ class VDomUpdate extends Collection {
     }
 
     /**
-     * Returns a Set of child component IDs that have been merged into a parent's update cycle.
-     * This is used by `VdomLifecycle` and `TreeBuilder` to determine which reference nodes
-     * in the parent's VDOM tree need to be expanded into full VDOM structures during the
-     * update process.
+     * Returns a Set of child component IDs that have been merged into a parent's update cycle,
+     * PLUS all intermediate "Bridge" components (ancestors) required to reach them.
      *
-     * **Optimization Strategy:**
-     * Selective expansion allows the framework to update only specific, dirty subtrees
-     * (the merged children) while keeping the rest of the parent's tree as lightweight
-     * references. This asymmetric tree generation is a key performance optimization.
+     * This set serves as an "AllowList" for TreeBuilder. When a parent updates with depth > 1,
+     * TreeBuilder will use this set to perform **Sparse Tree Generation**:
+     * 1. Components in this set are expanded (traversed).
+     * 2. Components NOT in this set are pruned (sent as placeholders), even if the depth allows expansion.
+     *
+     * This optimization allows clean siblings to be skipped, reducing payload size and enabling parallelism.
      *
      * @param {String} ownerId The `id` of the parent component.
-     * @returns {Set<String>|null} A Set containing the IDs of the merged children, or `null`.
+     * @returns {Set<String>|null} A Set containing IDs of merged children AND bridge ancestors, or `null`.
      */
     getMergedChildIds(ownerId) {
         const item = this.mergedCallbackMap.get(ownerId);
+
         if (item) {
-            return new Set(item.children.keys())
+            const
+                ids = new Set(item.children.keys()),
+                owner = Neo.getComponent(ownerId);
+
+            // Add Bridge Paths: Walk up from each merged child to the owner
+            item.children.forEach((meta, childId) => {
+                if (meta.distance > 1) {
+                    let component = Neo.getComponent(childId);
+
+                    while (component && component.parentId && component.parentId !== ownerId) {
+                        component = Neo.getComponent(component.parentId);
+                        if (component) {
+                            ids.add(component.id)
+                        }
+                    }
+                }
+            });
+
+            return ids
         }
         return null
     }

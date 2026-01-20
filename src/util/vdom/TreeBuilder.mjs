@@ -51,10 +51,15 @@ class TreeBuilder extends Base {
                 if (currentItem.componentId) {
                     const component = ComponentManager.get(currentItem.componentId);
 
-                    // Prune the branch only if we are at the boundary AND the child is not part of a merged update
-                    if (depth === 1 && !mergedChildIds?.has(currentItem.componentId)) {
-                        // We must not ignore child components which do not have a vnode yet (e.g. not mounted)
-                        if (component?.vnode) {
+                    // Sparse Tree Generation & Scoped Updates
+                    // We prune the branch (send a placeholder) if:
+                    // 1. We are at the depth boundary (depth === 1) AND it's not a merged update.
+                    // 2. We are in a Merged Update (mergedChildIds exists) AND this component is not in the AllowList (not dirty/bridge).
+                    // Exception: We never prune if depth is -1 (Full Tree) or if the component is not mounted yet.
+                    if (depth !== -1 && component?.vnode) {
+                        const isExpandable = mergedChildIds?.has(currentItem.componentId);
+
+                        if ((depth === 1 && !isExpandable) || (mergedChildIds && !isExpandable)) {
                             output[childKey].push({...currentItem, neoIgnore: true});
                             return // Stop processing this branch
                         }
