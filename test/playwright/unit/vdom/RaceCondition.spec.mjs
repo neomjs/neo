@@ -53,10 +53,10 @@ RaceContainer = Neo.setupClass(RaceContainer);
 
 /**
  * @summary Regression tests for VDOM Update Race Conditions (Ticket #8814).
- * 
+ *
  * These tests reproduce scenarios where concurrent updates between Parent and Child components
  * previously led to duplicate DOM nodes or state inconsistencies.
- * 
+ *
  * Scenarios covered:
  * 1. Rapid Visibility Toggle (Wake Up Race): Parent inserts child while child updates itself.
  * 2. Parallel Sibling Updates: Siblings updating simultaneously shouldn't trigger parent interference.
@@ -64,17 +64,23 @@ RaceContainer = Neo.setupClass(RaceContainer);
  * 4. Reverse Race: Parent starts update *after* child, risking overwrite.
  */
 test.describe('VdomLifecycle Race Condition', () => {
+    test.afterEach(() => {
+        const container = Neo.getComponent('test-container');
+        if (container) {
+            container.destroy();
+        }
+    });
 
     /**
      * Reproduces the original "Duplicate Button" bug.
-     * 
+     *
      * Scenario:
      * - Child components start hidden (`removeDom`).
      * - Both are set to visible AND have a text change in the same tick.
      * - This triggers:
      *    1. Parent Update (due to visibility change, Depth -1).
      *    2. Child Update (due to text change, Depth 1).
-     * 
+     *
      * Expectations:
      * - Updates should be serialized or handled such that only ONE `insertNode` occurs per child.
      * - Final state should be 1 DOM node per child.
@@ -155,7 +161,7 @@ test.describe('VdomLifecycle Race Condition', () => {
         child1.hidden = false;
         child2.hidden = false;
         await container.promiseUpdate();
-        await new Promise(resolve => setTimeout(resolve, 50)); 
+        await new Promise(resolve => setTimeout(resolve, 50));
         capturedDeltas.length = 0;
 
         // Trigger simultaneous internal updates (Depth 1 default)
@@ -171,7 +177,7 @@ test.describe('VdomLifecycle Race Condition', () => {
 
         expect(child1Update).toBeTruthy();
         expect(child2Update).toBeTruthy();
-        
+
         // Ensure we don't have duplicate inserts or excessive updates
         expect(capturedDeltas.length).toBe(2);
 
@@ -210,7 +216,7 @@ test.describe('VdomLifecycle Race Condition', () => {
 
         // Parent updates its own property (e.g. style) - Depth 1
         container.style = {border: '1px solid red'};
-        
+
         // Child updates its own property - Depth 1
         child1.text = 'Child Updated';
 
@@ -259,26 +265,19 @@ test.describe('VdomLifecycle Race Condition', () => {
 
         // 1. Start Child Update
         child1.text = 'Child Starting...';
-        
+
         // 2. Force Parent Update (Depth -1 to cover children)
         // We set silent to ensure it doesn't just queue locally if logic differs
-        container.updateDepth = -1; 
+        container.updateDepth = -1;
         container.style = {backgroundColor: 'blue'}; // Trigger update
 
         await new Promise(resolve => setTimeout(resolve, 50));
 
         const childUpdates = capturedDeltas.filter(d => d.id === child1.id || d.vnode?.id === child1.id);
-        
+
         // Expect Child update to succeed.
         expect(childUpdates.length).toBeGreaterThan(0);
 
         container.destroy();
-    });
-
-    test.afterEach(() => {
-        const container = Neo.getComponent('test-container');
-        if (container) {
-            container.destroy();
-        }
     });
 });

@@ -69,8 +69,6 @@ test.describe('Neo.vdom.VdomMerging', () => {
 
         const {deltas} = await container.promiseUpdate();
 
-        console.log('VdomMerging deltas:', JSON.stringify(deltas, null, 4));
-
         expect(deltas.length).toBe(2);
 
         const parentDelta = deltas.find(d => d.id === container.id);
@@ -80,6 +78,5 @@ test.describe('Neo.vdom.VdomMerging', () => {
         expect(parentDelta.style.color).toBe('red');
 
         expect(childDelta).toBeTruthy();
-        // expect(childDelta.vnode.innerHTML).toBe('Updated Button'); // Placeholder
     });
 });
