@@ -207,6 +207,7 @@ class VdomLifecycle extends Base {
         try {
             const
                 updates   = {},
+                depths    = new Map(),
                 processed = new Set(); // Prevent duplicates and cycles
 
             const collectPayloads = (componentId) => {
@@ -223,10 +224,14 @@ class VdomLifecycle extends Base {
                 // For every component, we check its own merged children
                 const mergedChildIds = VDomUpdate.getMergedChildIds(componentId);
 
-                // Generate payload for this component (Pruned Disjoint Tree, Depth 1)
-                // We pass null as mergedChildIds to force TreeBuilder to prune ALL children (placeholderize).
-                // This ensures the parent's payload is strictly disjoint from its children.
-                updates[componentId] = component.getVdomUpdatePayload(null, 1);
+                // Track depth for collision filtering
+                depths.set(componentId, component.updateDepth);
+
+                // Generate payload for this component.
+                // We pass null as mergedChildIds to force TreeBuilder to prune children that are NOT part of the merge.
+                // We DO NOT force depth: 1. We respect the component's configured updateDepth (e.g. -1 for CardLayout).
+                // If the component requests a full tree update (-1), it will generate it.
+                updates[componentId] = component.getVdomUpdatePayload(null, null);
 
                 // Recursively collect merged children
                 if (mergedChildIds) {
@@ -236,6 +241,27 @@ class VdomLifecycle extends Base {
 
             // Start collection from the root of the update (me)
             collectPayloads(me.id);
+
+            // Collision Filtering:
+            // If a parent update covers a child (due to depth -1 or depth > distance),
+            // the child payload is redundant and causes double updates. We must remove it.
+            Object.keys(updates).forEach(id => {
+                let parent   = Neo.getComponent(id)?.parent,
+                    distance = 1;
+
+                while (parent) {
+                    if (updates[parent.id]) {
+                        const parentDepth = depths.get(parent.id);
+                        // If parent covers this child, remove the child from the disjoint batch
+                        if (parentDepth === -1 || parentDepth > distance) {
+                            delete updates[id];
+                            return
+                        }
+                    }
+                    parent   = parent.parent;
+                    distance++
+                }
+            });
 
             const response = await Promise.resolve(Neo.vdom.Helper.updateBatch({updates}));
 

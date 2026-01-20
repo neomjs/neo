@@ -209,7 +209,7 @@ test.describe('Neo.vdom.VdomRealWorldUpdates', () => {
         child.removeAt(0, false, true);
         const {deltas} = await parent.promiseUpdate();
 
-        expect(deltas.length).toBe(4); // Parent + Heading + Grandchild (Ghost Update) + Child (remove)
+        expect(deltas.length).toBe(3); // Parent + Heading + Child (remove)
         const parentUpdate = deltas.find(d => d.id === parent.id);
         const headingUpdate = deltas.find(d => d.id === parent.headingComponent.id);
         const removalDelta = deltas.find(d => d.action === 'removeNode');
@@ -217,7 +217,7 @@ test.describe('Neo.vdom.VdomRealWorldUpdates', () => {
         expect(parentUpdate).toBeTruthy();
         expect(headingUpdate).toBeTruthy();
         expect(removalDelta).toBeTruthy();
-        expect(removalDelta.id).toBe(grandchild.vdom.id);
+        expect(removalDelta.id).toBe(grandchild.id);
     });
 
     test('Should handle silent insertion of a container with nested items', async () => {
