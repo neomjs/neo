@@ -249,6 +249,10 @@ test.describe('VdomLifecycle Race Condition', () => {
         // Ensure visible
         child1.hidden = false;
         await container.promiseUpdate();
+        
+        // Wait for any potential late-arriving deltas or queued updates to clear
+        await new Promise(resolve => setTimeout(resolve, 50));
+        
         capturedDeltas.length = 0;
 
         // Parent updates its own property (e.g. style) - Depth 1

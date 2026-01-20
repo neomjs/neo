@@ -206,9 +206,10 @@ class VdomLifecycle extends Base {
 
         try {
             const
-                updates   = {},
-                depths    = new Map(),
-                processed = new Set(); // Prevent duplicates and cycles
+                updates                 = {},
+                depths                  = new Map(),
+                processed               = new Set(), // Prevent duplicates and cycles
+                componentMergedChildren = new Map(); // Snapshot of merged children processed in this batch
 
             const collectPayloads = (componentId) => {
                 if (processed.has(componentId)) return;
@@ -227,12 +228,19 @@ class VdomLifecycle extends Base {
                 // Track depth for collision filtering
                 depths.set(componentId, component.updateDepth);
 
+                // Snapshot the merged children we are about to process.
+                // This prevents race conditions where a child merges *after* collection but *before* resolution,
+                // causing it to be acknowledged/cleared without actually being updated.
+                if (mergedChildIds) {
+                    componentMergedChildren.set(componentId, mergedChildIds);
+                }
+
                 // Generate payload for this component.
                 // - Depth 1 (Teleportation): Pass ids=null to force disjoint/pruned payload.
                 // - Depth > 1 (Hybrid): Pass ids=mergedChildIds to enable Sparse Tree generation (pruning clean siblings).
                 //   Note: Depth -1 (Full Tree) ignores ids and is always Dense.
                 const ids = component.updateDepth !== 1 ? mergedChildIds : null;
-                
+
                 // We pass null as the second arg to respect the component's configured updateDepth.
                 updates[componentId] = component.getVdomUpdatePayload(ids, null);
 
@@ -246,8 +254,7 @@ class VdomLifecycle extends Base {
             collectPayloads(me.id);
 
             // Collision Filtering:
-            // If a parent update covers a child (due to depth -1 or depth > distance),
-            // the child payload is redundant and causes double updates. We must remove it.
+            // If a parent update covers this child, remove the child from the disjoint batch
             Object.keys(updates).forEach(id => {
                 let parent   = Neo.getComponent(id)?.parent,
                     distance = 1;
@@ -287,7 +294,7 @@ class VdomLifecycle extends Base {
                         component.resolveVdomUpdate({
                             deltas: response.deltas,
                             vnode
-                        }, VDomUpdate.getMergedChildIds(id));
+                        }, componentMergedChildren.get(id));
                     }
                 });
             }
@@ -674,7 +681,14 @@ class VdomLifecycle extends Base {
         let me = this;
 
         return new Promise((resolve, reject) => {
-            me.updateVdom(resolve, reject)
+            const id = Symbol();
+
+            me.registerAsync(id, reject);
+
+            me.updateVdom(
+                (val) => {me.unregisterAsync(id); resolve(val)},
+                (err) => {me.unregisterAsync(id); reject(err)}
+            )
         })
     }
 
