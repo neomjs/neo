@@ -25,26 +25,27 @@ import DomApiVnodeCreator from '../../../../src/vdom/util/DomApiVnodeCreator.mjs
 // Mock applyDeltas to prevent errors during mount
 Neo.applyDeltas = async () => {};
 
-class MockComponent extends Component {
+class SparseMockComponent extends Component {
     static config = {
-        className: 'Test.MockComponent',
-        ntype    : 'test-component',
+        className: 'Test.SparseMockComponent',
+        ntype    : 'test-sparse-component',
         _vdom    : {tag: 'div', cls: ['child-component']}
     }
 }
-MockComponent = Neo.setupClass(MockComponent);
+SparseMockComponent = Neo.setupClass(SparseMockComponent);
 
-class MockContainer extends Container {
+class SparseMockContainer extends Container {
     static config = {
-        className: 'Test.MockContainer',
-        ntype    : 'test-asymmetric-container',
+        className: 'Test.SparseMockContainer',
+        ntype    : 'test-sparse-container',
         _vdom    : {tag: 'div', cls: ['child-container']}
     }
 }
-MockContainer = Neo.setupClass(MockContainer);
+SparseMockContainer = Neo.setupClass(SparseMockContainer);
 
 test.describe('Sparse VDOM Updates', () => {
     let container, dirtyChild, cleanChild, testRun = 0;
+    const uniquePrefix = Date.now() + Math.random();
 
     test.beforeEach(async () => {
         testRun++;
@@ -58,12 +59,12 @@ test.describe('Sparse VDOM Updates', () => {
     });
 
     test('Baseline: verify current wasteful expansion with updateDepth: 2', async () => {
-        container = Neo.create(MockContainer, {
+        container = Neo.create(SparseMockContainer, {
             appName,
-            id: 'parent-' + testRun,
+            id: `parent-${uniquePrefix}-${testRun}`,
             items: [
-                {module: MockComponent, id: 'dirty-child-' + testRun, text: 'Dirty'},
-                {module: MockComponent, id: 'clean-child-' + testRun, text: 'Clean'}
+                {module: SparseMockComponent, id: `dirty-child-${uniquePrefix}-${testRun}`, text: 'Dirty'},
+                {module: SparseMockComponent, id: `clean-child-${uniquePrefix}-${testRun}`, text: 'Clean'}
             ]
         });
 
@@ -117,12 +118,12 @@ test.describe('Sparse VDOM Updates', () => {
     });
 
     test('TreeBuilder: Direct verification of wasteful expansion', async () => {
-        container = Neo.create(MockContainer, {
+        container = Neo.create(SparseMockContainer, {
             appName,
-            id: 'parent-tb-' + testRun,
+            id: `parent-tb-${uniquePrefix}-${testRun}`,
             items: [
-                {module: MockComponent, id: 'dirty-tb-' + testRun, text: 'Dirty'},
-                {module: MockComponent, id: 'clean-tb-' + testRun, text: 'Clean'}
+                {module: SparseMockComponent, id: `dirty-tb-${uniquePrefix}-${testRun}`, text: 'Dirty'},
+                {module: SparseMockComponent, id: `clean-tb-${uniquePrefix}-${testRun}`, text: 'Clean'}
             ]
         });
 
