@@ -79,6 +79,20 @@ class VDomUpdate extends Collection {
     }
 
     /**
+     * A Map that tracks the in-flight update status of descendants for each component.
+     * This "Reverse Lookup" map allows ancestor components to check if any of their
+     * descendants are currently updating in O(1) time, without walking the tree downwards.
+     *
+     * Key: ancestorId, Value: Map<descendantId, true>
+     *
+     * This is crucial for the `VdomLifecycle.isChildUpdating` guard, which prevents
+     * race conditions where a parent update might clobber a concurrent child update.
+     *
+     * @member {Map<String, Map<String, Boolean>>} descendantInFlightMap=new Map()
+     * @protected
+     */
+    descendantInFlightMap = new Map()
+    /**
      * A Map that tracks VDOM updates that have been dispatched to the VDOM worker but
      * have not yet completed. This prevents redundant updates for the same component.
      *
@@ -212,6 +226,17 @@ class VDomUpdate extends Collection {
     }
 
     /**
+     * Checks if a component has any descendants currently undergoing a VDOM update.
+     * This method is used by `VdomLifecycle` to detect potential race conditions
+     * before starting a parent update.
+     * @param {String} ownerId The component ID to check.
+     * @returns {Boolean} True if any descendant is in-flight.
+     */
+    hasInFlightDescendants(ownerId) {
+        return this.descendantInFlightMap.has(ownerId)
+    }
+
+    /**
      * Retrieves the `updateDepth` for a component's update that is currently in-flight.
      * @param {String} ownerId The `id` of the component owning the update.
      * @returns {Number|undefined} The update depth, or `undefined` if no update is in-flight.
@@ -241,7 +266,21 @@ class VDomUpdate extends Collection {
      * @param {Number} updateDepth The depth of the in-flight update.
      */
     registerInFlightUpdate(ownerId, updateDepth) {
-        this.inFlightUpdateMap.set(ownerId, updateDepth)
+        this.inFlightUpdateMap.set(ownerId, updateDepth);
+
+        // Register this component as an in-flight descendant for all its parents
+        const parentIds = Neo.manager.Component.getParentIds(Neo.getComponent(ownerId));
+
+        parentIds.forEach(parentId => {
+            let map = this.descendantInFlightMap.get(parentId);
+
+            if (!map) {
+                map = new Map();
+                this.descendantInFlightMap.set(parentId, map)
+            }
+
+            map.set(ownerId, true)
+        })
     }
 
     /**
@@ -313,7 +352,22 @@ class VDomUpdate extends Collection {
      * @param {String} ownerId The `id` of the component owning the update.
      */
     unregisterInFlightUpdate(ownerId) {
-        this.inFlightUpdateMap.delete(ownerId)
+        this.inFlightUpdateMap.delete(ownerId);
+
+        // Remove this component from the in-flight descendant maps of all its parents
+        const parentIds = Neo.manager.Component.getParentIds(Neo.getComponent(ownerId));
+
+        parentIds.forEach(parentId => {
+            const map = this.descendantInFlightMap.get(parentId);
+
+            if (map) {
+                map.delete(ownerId);
+
+                if (map.size === 0) {
+                    this.descendantInFlightMap.delete(parentId)
+                }
+            }
+        })
     }
 }
 

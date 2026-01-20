@@ -403,6 +403,35 @@ class VdomLifecycle extends Base {
     }
 
     /**
+     * Synchronization Guard: Checks if any descendant component is currently updating its VDOM.
+     *
+     * If a descendant is in-flight, this method registers a post-update callback on the
+     * blocking descendant and returns `true`, signaling the caller (`updateVdom`) to yield.
+     * This prevents the Parent from starting an update that might overwrite or conflict
+     * with the Child's concurrent work, effectively serializing the updates.
+     *
+     * @param {Function} [resolve] Gets passed by updateVdom() to be called after the blocking update finishes.
+     * @returns {Boolean} True if a child update conflict exists (Parent should yield).
+     */
+    isChildUpdating(resolve) {
+        let me = this;
+
+        if (VDomUpdate.hasInFlightDescendants(me.id)) {
+            let map          = VDomUpdate.descendantInFlightMap.get(me.id),
+                descendantId = map.keys().next().value;
+
+            if (Neo.config.logVdomUpdateCollisions) {
+                console.warn('vdom child update conflict with:', descendantId, 'for:', me)
+            }
+
+            VDomUpdate.registerPostUpdate(descendantId, me.id, resolve);
+            return true
+        }
+
+        return false
+    }
+
+    /**
      * Checks for vdom updates inside the parent chain and if found.
      * Registers the component for a vdom update once done.
      * @param {String} parentId=this.parentId
@@ -680,6 +709,7 @@ class VdomLifecycle extends Base {
                 if (
                     !me.mergeIntoParentUpdate(parentId)
                     && !me.isParentUpdating(parentId, resolve)
+                    && !me.isChildUpdating(resolve)
                     && mounted
                     && vnode
                 ) {
