@@ -6,9 +6,10 @@ labels:
   - bug
   - ai
   - testing
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-01-20T03:25:35Z'
-updatedAt: '2026-01-20T03:25:35Z'
+updatedAt: '2026-01-20T03:55:30Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8823'
 author: tobiu
 commentsCount: 0
@@ -39,4 +40,5 @@ Reference: Paradox between `AsymmetricUpdates` (forbids merging Depth 1) and `Re
 - 2026-01-20T03:25:36Z @tobiu added the `bug` label
 - 2026-01-20T03:25:36Z @tobiu added the `ai` label
 - 2026-01-20T03:25:36Z @tobiu added the `testing` label
+- 2026-01-20T03:55:30Z @tobiu assigned to @tobiu
 

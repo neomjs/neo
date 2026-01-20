@@ -1,7 +1,7 @@
 ---
 id: 8824
 title: 'test: Add Regression Tests for VDOM Race Conditions'
-state: OPEN
+state: CLOSED
 labels:
   - ai
   - testing
@@ -9,16 +9,17 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-01-20T03:28:17Z'
-updatedAt: '2026-01-20T03:31:03Z'
+updatedAt: '2026-01-20T03:48:01Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8824'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-01-20T03:48:00Z'
 ---
 # test: Add Regression Tests for VDOM Race Conditions
 
@@ -38,4 +39,9 @@ These tests serve as the long-term guardrails for the VDOM engine stability.
 - 2026-01-20T03:28:18Z @tobiu added the `testing` label
 - 2026-01-20T03:28:18Z @tobiu added the `core` label
 - 2026-01-20T03:31:03Z @tobiu assigned to @tobiu
+### @tobiu - 2026-01-20T03:48:01Z
+
+already pushed.
+
+- 2026-01-20T03:48:01Z @tobiu closed this issue
 
