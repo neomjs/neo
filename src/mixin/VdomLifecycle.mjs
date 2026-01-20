@@ -316,9 +316,18 @@ class VdomLifecycle extends Base {
     /**
      * Checks if a given updateDepth & distance would result in an update collision.
      * The check must use `<` because `updateDepth` is 1-based.
+     *
+     * **Scoped VDOM Update Rationale:**
      * - `updateDepth: 1` means the update is scoped to the component itself.
+     * - The Parent's VDOM payload naturally contains only its own structure and **reference nodes**
+     *   (placeholders) for its children (e.g. `{componentId: '...'}`).
+     * - At Depth 1, these references are **not expanded** into the children's full VDOM trees.
+     * - Therefore, a Parent (Depth 1) update and a Child update operate on **disjoint** sets of DOM nodes.
+     * - They **do not collide** and **should not merge**. They should run as independent, parallel updates.
+     *
      * - A direct child is at `distance: 1`.
      * Therefore, an update with depth 1 should NOT collide with a child at distance 1 (1 < 1 is false).
+     *
      * @param {Number} updateDepth
      * @param {Number} distance
      * @returns {Boolean}
