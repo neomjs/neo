@@ -301,6 +301,11 @@ class Helper extends Base {
                 if (me.isMovedNode(childNode, oldVnodeMap)) {
                     me.moveNode({deltas, insertDelta, oldVnodeMap, vnode: childNode, vnodeMap})
                 } else {
+                    if (childNode.neoIgnore) {
+                        delete childNode.neoIgnore;
+                        continue
+                    }
+
                     me.insertNode({deltas, index: i + insertDelta, oldVnodeMap, vnode: childNode, vnodeMap})
                 }
 

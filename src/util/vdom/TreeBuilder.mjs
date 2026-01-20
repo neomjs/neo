@@ -49,14 +49,19 @@ class TreeBuilder extends Base {
                     childDepth;
 
                 if (currentItem.componentId) {
+                    const component = ComponentManager.get(currentItem.componentId);
+
                     // Prune the branch only if we are at the boundary AND the child is not part of a merged update
                     if (depth === 1 && !mergedChildIds?.has(currentItem.componentId)) {
-                        output[childKey].push({...currentItem, neoIgnore: true});
-                        return // Stop processing this branch
+                        // We must not ignore child components which do not have a vnode yet (e.g. not mounted)
+                        if (component?.vnode) {
+                            output[childKey].push({...currentItem, neoIgnore: true});
+                            return // Stop processing this branch
+                        }
                     }
-                    // Expand the branch if it's part of a merged update, or if the depth requires it
-                    else if (depth > 1 || depth === -1 || mergedChildIds?.has(currentItem.componentId)) {
-                        const component = ComponentManager.get(currentItem.componentId);
+
+                    // Expand the branch if it's part of a merged update, or if the depth requires it, OR if the vnode is missing
+                    if (depth > 1 || depth === -1 || mergedChildIds?.has(currentItem.componentId) || !component?.vnode) {
                         // Use the correct tree type based on the childKey
                         const componentTree = childKey === 'cn' ? component?.vdom : component?.vnode;
                         if (componentTree) {
