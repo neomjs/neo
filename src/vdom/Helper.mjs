@@ -782,17 +782,18 @@ class Helper extends Base {
     }
 
     /**
-     * Processes an array of updates sequentially and aggregates the results.
-     * @param {Object[]} updates An array of update config objects (same format as update() accepts)
+     * Processes a map of updates sequentially and aggregates the results.
+     * @param {Object} data
+     * @param {Object} data.updates A map of update config objects: {componentId: updateOpts}
      * @returns {Object} { deltas: Object[], results: Object[] }
      */
-    updateBatch(updates) {
-        let me          = this,
-            allDeltas   = [],
-            results     = [],
+    updateBatch(data) {
+        let me        = this,
+            allDeltas = [],
+            results   = [],
             result;
 
-        updates.forEach(updateOpts => {
+        Object.values(data.updates).forEach(updateOpts => {
             result = me.update(updateOpts);
             allDeltas.push(...result.deltas);
             results.push({vnode: result.vnode});

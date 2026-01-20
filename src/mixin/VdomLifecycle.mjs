@@ -206,7 +206,7 @@ class VdomLifecycle extends Base {
 
         try {
             const
-                batch     = [],
+                updates   = {},
                 processed = new Set(); // Prevent duplicates and cycles
 
             const collectPayloads = (componentId) => {
@@ -226,7 +226,7 @@ class VdomLifecycle extends Base {
                 // Generate payload for this component (Pruned Disjoint Tree, Depth 1)
                 // We pass null as mergedChildIds to force TreeBuilder to prune ALL children (placeholderize).
                 // This ensures the parent's payload is strictly disjoint from its children.
-                batch.push(component.getVdomUpdatePayload(null, 1));
+                updates[componentId] = component.getVdomUpdatePayload(null, 1);
 
                 // Recursively collect merged children
                 if (mergedChildIds) {
@@ -237,7 +237,7 @@ class VdomLifecycle extends Base {
             // Start collection from the root of the update (me)
             collectPayloads(me.id);
 
-            const response = await Promise.resolve(Neo.vdom.Helper.updateBatch(batch));
+            const response = await Promise.resolve(Neo.vdom.Helper.updateBatch({updates}));
 
             // Component could be destroyed while the update is running
             if (me.id) {
@@ -249,7 +249,7 @@ class VdomLifecycle extends Base {
                 // Distribute results back to ALL components in the batch
                 response.results.forEach((result, index) => {
                     const
-                        payload     = batch[index],
+                        payload     = Object.values(updates)[index],
                         componentId = payload.vnode?.id || payload.vdom?.id,
                         component   = Neo.getComponent(componentId);
 
