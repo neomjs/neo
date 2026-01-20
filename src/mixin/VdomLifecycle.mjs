@@ -228,10 +228,13 @@ class VdomLifecycle extends Base {
                 depths.set(componentId, component.updateDepth);
 
                 // Generate payload for this component.
-                // We pass null as mergedChildIds to force TreeBuilder to prune children that are NOT part of the merge.
-                // We DO NOT force depth: 1. We respect the component's configured updateDepth (e.g. -1 for CardLayout).
-                // If the component requests a full tree update (-1), it will generate it.
-                updates[componentId] = component.getVdomUpdatePayload(null, null);
+                // - Depth 1 (Teleportation): Pass ids=null to force disjoint/pruned payload.
+                // - Depth > 1 (Hybrid): Pass ids=mergedChildIds to enable Sparse Tree generation (pruning clean siblings).
+                //   Note: Depth -1 (Full Tree) ignores ids and is always Dense.
+                const ids = component.updateDepth !== 1 ? mergedChildIds : null;
+                
+                // We pass null as the second arg to respect the component's configured updateDepth.
+                updates[componentId] = component.getVdomUpdatePayload(ids, null);
 
                 // Recursively collect merged children
                 if (mergedChildIds) {
