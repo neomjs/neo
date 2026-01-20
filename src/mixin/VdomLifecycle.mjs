@@ -216,13 +216,17 @@ class VdomLifecycle extends Base {
                 const component = Neo.getComponent(componentId);
                 if (!component || component.isDestroyed) return;
 
+                // Skip unmounted components. They will be expanded by the Parent's TreeBuilder (Hybrid/Leapfrog)
+                // and handled via the Parent's resolveVdomUpdate -> syncVnodeTree.
+                if (!component.vnode) return;
+
                 // For every component, we check its own merged children
                 const mergedChildIds = VDomUpdate.getMergedChildIds(componentId);
 
                 // Generate payload for this component (Pruned Disjoint Tree, Depth 1)
-                // We pass mergedChildIds so TreeBuilder knows which children to prune (placeholderize)
-                // We pass depth=1 to force disjoint boundary
-                batch.push(component.getVdomUpdatePayload(mergedChildIds, 1));
+                // We pass null as mergedChildIds to force TreeBuilder to prune ALL children (placeholderize).
+                // This ensures the parent's payload is strictly disjoint from its children.
+                batch.push(component.getVdomUpdatePayload(null, 1));
 
                 // Recursively collect merged children
                 if (mergedChildIds) {
@@ -232,8 +236,6 @@ class VdomLifecycle extends Base {
 
             // Start collection from the root of the update (me)
             collectPayloads(me.id);
-
-            console.log('executeVdomUpdate batch IDs:', batch.map(p => p.vnode.id));
 
             const response = await Promise.resolve(Neo.vdom.Helper.updateBatch(batch));
 
@@ -371,21 +373,16 @@ class VdomLifecycle extends Base {
      * Checks if a child update can be merged into a parent update.
      *
      * **Merge Strategy (Optimization):**
-     * Merging is an optimization to reduce worker traffic. We use `<=` (not `<`) because
-     * we WANT to merge updates even if they don't strictly collide (e.g. Parent Depth 1,
-     * Child Distance 1).
-     *
-     * **Leapfrog Merging:**
-     * This logic allows for "Leapfrog Merging," where a deep descendant (Grandchild) can
-     * merge into an ancestor (Grandparent) even if the intermediate Parent is clean
-     * (not updating), provided the ancestor's `updateDepth` covers the distance.
+     * We allow merging regardless of distance (Teleportation).
+     * The `executeVdomUpdate` logic will distinguish between Connected (merged into tree)
+     * and Disjoint (batched separately) updates.
      *
      * @param {Number} updateDepth
      * @param {Number} distance
      * @returns {Boolean}
      */
     canMergeUpdate(updateDepth, distance) {
-        return updateDepth === -1 ? true : distance <= updateDepth
+        return true
     }
 
     /**
@@ -777,16 +774,22 @@ class VdomLifecycle extends Base {
             return
         }
 
+        me.ensureStableIds();
+
+        // If there's a promise, register it against this component's ID immediately.
+        // The manager will ensure it's called when the appropriate update cycle completes.
+        resolve && VDomUpdate.addPromiseCallback(me.id, resolve);
+
+        // Attempt to merge into a parent's update cycle (Teleportation/Leapfrog).
+        // We do this even if silent, to ensure we catch the bus if a parent is departing.
+        if (me.mergeIntoParentUpdate(parentId)) {
+            me.needsVdomUpdate = true;
+            return
+        }
+
         if (me.isVdomUpdating || !me.vnodeInitialized || me.silentVdomUpdate) {
-            resolve && VDomUpdate.addPromiseCallback(me.id, resolve);
             me.needsVdomUpdate = true
         } else {
-            me.ensureStableIds();
-
-            // If there's a promise, register it against this component's ID immediately.
-            // The manager will ensure it's called when the appropriate update cycle completes.
-            resolve && VDomUpdate.addPromiseCallback(me.id, resolve);
-
             // If an update is triggered on an unmounted component, we must wait for it to be mounted.
             if (!mounted) {
                 // Use a flag to prevent setting up multiple `then` listeners for subsequent updates
@@ -799,12 +802,11 @@ class VdomLifecycle extends Base {
                         me.vnode && me.update();
                     });
                 }
-            } else {
+            }
+            else {
                 if (
-                    !me.mergeIntoParentUpdate(parentId)
-                    && !me.isParentUpdating(parentId, resolve)
+                    !me.isParentUpdating(parentId, resolve)
                     && !me.isChildUpdating(resolve)
-                    && mounted
                     && vnode
                 ) {
                     // Check for merged child updates and adjust the update depth accordingly

@@ -209,7 +209,7 @@ test.describe('Neo.vdom.VdomRealWorldUpdates', () => {
         child.removeAt(0, false, true);
         const {deltas} = await parent.promiseUpdate();
 
-        expect(deltas.length).toBe(3); // Parent + Heading + Child (remove)
+        expect(deltas.length).toBe(4); // Parent + Heading + Grandchild (Ghost Update) + Child (remove)
         const parentUpdate = deltas.find(d => d.id === parent.id);
         const headingUpdate = deltas.find(d => d.id === parent.headingComponent.id);
         const removalDelta = deltas.find(d => d.action === 'removeNode');
