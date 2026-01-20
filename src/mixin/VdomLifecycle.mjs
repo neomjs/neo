@@ -247,21 +247,18 @@ class VdomLifecycle extends Base {
                 }
 
                 // Distribute results back to ALL components in the batch
-                response.results.forEach((result, index) => {
-                    const
-                        payload     = Object.values(updates)[index],
-                        componentId = payload.vnode?.id || payload.vdom?.id,
-                        component   = Neo.getComponent(componentId);
+                Object.entries(response.vnodes).forEach(([id, vnode]) => {
+                    const component = Neo.getComponent(id);
 
                     if (component && !component.isDestroyed) {
-                        component.vnode = result.vnode;
+                        component.vnode = vnode;
 
                         // Resolve the update for this component and its merged children
                         // Note: response.deltas contains the aggregated deltas for the whole batch
                         component.resolveVdomUpdate({
                             deltas: response.deltas,
-                            vnode : result.vnode
-                        }, VDomUpdate.getMergedChildIds(componentId));
+                            vnode
+                        }, VDomUpdate.getMergedChildIds(id));
                     }
                 });
             }

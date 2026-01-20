@@ -785,24 +785,24 @@ class Helper extends Base {
      * Processes a map of updates sequentially and aggregates the results.
      * @param {Object} data
      * @param {Object} data.updates A map of update config objects: {componentId: updateOpts}
-     * @returns {Object} { deltas: Object[], results: Object[] }
+     * @returns {Object} { deltas: Object[], vnodes: Object }
      */
     updateBatch(data) {
         let me        = this,
             allDeltas = [],
-            results   = [],
+            vnodes    = {},
             result;
 
-        Object.values(data.updates).forEach(updateOpts => {
+        Object.entries(data.updates).forEach(([id, updateOpts]) => {
             result = me.update(updateOpts);
             allDeltas.push(...result.deltas);
-            results.push({vnode: result.vnode});
+            vnodes[id] = result.vnode;
         });
 
         return {
             deltas    : allDeltas,
-            results   : results,
-            updateVdom: true
+            updateVdom: true,
+            vnodes
         }
     }
 }
