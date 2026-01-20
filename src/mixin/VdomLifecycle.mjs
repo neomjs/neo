@@ -238,7 +238,7 @@ class VdomLifecycle extends Base {
                     await Neo.applyDeltas(me.windowId, data.deltas)
                 }
 
-                me.resolveVdomUpdate(data)
+                me.resolveVdomUpdate(data, mergedChildIds)
             }
         } catch (err) {
             me.isVdomUpdating = false;
@@ -585,16 +585,17 @@ class VdomLifecycle extends Base {
 
     /**
      * Internal helper fn to resolve the Promise for updateVdom()
-     * @param {Object}   [data] The return value of vdom.Helper.update()
+     * @param {Object} [data] The return value of vdom.Helper.update()
+     * @param {Set<String>|null} [mergedChildIds] IDs of children included in this update
      * @protected
      */
-    resolveVdomUpdate(data) {
+    resolveVdomUpdate(data, mergedChildIds) {
         let me = this;
 
         me.isVdomUpdating = false;
 
         // Execute callbacks for merged updates
-        VDomUpdate.executeCallbacks(me.id, data);
+        VDomUpdate.executeCallbacks(me.id, data, mergedChildIds);
 
         // The update is no longer in-flight
         VDomUpdate.unregisterInFlightUpdate(me.id);

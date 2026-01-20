@@ -92,7 +92,7 @@ test.describe('VdomLifecycle State', () => {
         await new Promise(resolve => setTimeout(resolve, 50));
 
         // Ensure vnode reference is not cleared upon unmounting
-        expect(comp.mounted).toBe(true); 
+        expect(comp.mounted).toBe(false); 
         expect(comp.vnode).not.toBeNull(); 
 
         comp.destroy();

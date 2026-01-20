@@ -153,17 +153,24 @@ class VDomUpdate extends Collection {
      * update cycle, then executes the callbacks for the `ownerId` itself.
      * @param {String} ownerId The `id` of the component whose update has just completed.
      * @param {Object} [data]  Optional data to pass to the callbacks.
+     * @param {Set<String>|null} [processedChildIds] IDs of children actually included in this update.
      */
-    executeCallbacks(ownerId, data) {
+    executeCallbacks(ownerId, data, processedChildIds) {
         let me           = this,
             item         = me.mergedCallbackMap.get(ownerId),
             callbackData = data ? [data] : [];
 
-        if (item) {
-            item.children.forEach((value, key) => {
-                me.executePromiseCallbacks(key, ...callbackData)
+        if (item && processedChildIds) {
+            processedChildIds.forEach(childId => {
+                if (item.children.has(childId)) {
+                    me.executePromiseCallbacks(childId, ...callbackData);
+                    item.children.delete(childId)
+                }
             });
-            me.mergedCallbackMap.remove(item);
+
+            if (item.children.size === 0) {
+                me.mergedCallbackMap.remove(item)
+            }
         }
 
         me.executePromiseCallbacks(ownerId, ...callbackData)
