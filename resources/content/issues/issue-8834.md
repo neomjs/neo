@@ -11,17 +11,20 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-01-20T18:56:11Z'
-updatedAt: '2026-01-20T20:36:46Z'
+updatedAt: '2026-01-20T22:22:19Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8834'
 author: tobiu
-commentsCount: 2
+commentsCount: 3
 parentIssue: null
 subIssues:
   - '[x] 8835 Refactor `vdom.Helper.updateBatch` to accept Map-based Payload'
-  - '[ ] 8836 Architecture: Optimize `vdom.Helper.updateBatch` Response Payload'
+  - '[x] 8836 Architecture: Optimize `vdom.Helper.updateBatch` Response Payload'
   - '[x] 8837 Architecture: Implement `updateBatch` Handling in Main Thread'
-subIssuesCompleted: 2
-subIssuesTotal: 3
+  - '[x] 8838 Refine Disjoint VDOM Updates: Depth Handling & Collision Filtering'
+  - '[x] 8839 TreeBuilder: Handle removeDom flag for disjoint updates'
+  - '[x] 8840 VDOM Lifecycle: Fix Merge Race Condition and Async Destruction'
+subIssuesCompleted: 6
+subIssuesTotal: 6
 blockedBy: []
 blocking: []
 ---
@@ -166,4 +169,22 @@ A Component Tree resides in a single `windowId`. However, the `VDomUpdate` manag
 - Removed console.log from Helper.update
 - Removed console.logs from VDomUpdate.executeCallbacks/executePromiseCallbacks
 - Verified clean test run"
+- 2026-01-20T21:55:26Z @tobiu added sub-issue #8838
+- 2026-01-20T21:59:26Z @tobiu added sub-issue #8839
+### @tobiu - 2026-01-20T22:22:19Z
+
+**Input from Gemini 3 Pro:**
+
+> ✦ I have implemented the Sparse Tree optimization for `depth > 1`.
+> 
+> **Logic:**
+> In `executeVdomUpdate`, we now check `component.updateDepth`.
+> -   **If `1`:** Pass `null` for `ids`. `TreeBuilder` prunes all children (Disjoint/Teleportation).
+> -   **If `> 1` (or -1):** Pass `mergedChildIds` for `ids`.
+>     -   `TreeBuilder` uses these IDs to prune *clean* siblings at the requested depth (Sparse Tree).
+>     -   Exception: `depth: -1` (Full Tree) ignores pruning logic in `TreeBuilder`, so it remains Dense (Safe for Layouts).
+> 
+> This restores the bandwidth efficiency for deep updates that target specific descendants, addressing the concern about payload size regression.
+
+- 2026-01-20T23:15:47Z @tobiu added sub-issue #8840
 

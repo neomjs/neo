@@ -1,7 +1,7 @@
 ---
 id: 8836
 title: 'Architecture: Optimize `vdom.Helper.updateBatch` Response Payload'
-state: OPEN
+state: CLOSED
 labels:
   - ai
   - architecture
@@ -10,7 +10,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-01-20T21:00:14Z'
-updatedAt: '2026-01-20T21:01:56Z'
+updatedAt: '2026-01-20T22:06:07Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8836'
 author: tobiu
 commentsCount: 1
@@ -20,6 +20,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-01-20T22:06:07Z'
 ---
 # Architecture: Optimize `vdom.Helper.updateBatch` Response Payload
 
@@ -64,4 +65,5 @@ Split the response flow to avoid doubling the payload size.
 > - Pushed to `epic-8834`.
 
 - 2026-01-20T21:13:02Z @tobiu cross-referenced by #8837
+- 2026-01-20T22:06:07Z @tobiu closed this issue
 
