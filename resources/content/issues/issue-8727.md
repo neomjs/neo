@@ -64,8 +64,8 @@ subIssues:
   - '[x] 8848 Propagate Theme to Embedded Markdown Components'
   - '[x] 8852 Refactor Portal Footer SCSS for Theming'
   - '[x] 8853 Modernize Portal Footer Layout with CSS Grid'
-  - '[ ] 8854 Implement Footer OffscreenCanvas Overlay'
-subIssuesCompleted: 48
+  - '[x] 8854 Implement Footer OffscreenCanvas Overlay'
+subIssuesCompleted: 49
 subIssuesTotal: 49
 blockedBy: []
 blocking: []
