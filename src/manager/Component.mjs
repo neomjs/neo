@@ -76,11 +76,7 @@ class Component extends Manager {
 
                 if (component) {
                     componentId   = component.id;
-                    referenceNode = {componentId};
-
-                    if (componentId !== childNodeId) {
-                        referenceNode.id = childNodeId
-                    }
+                    referenceNode = {componentId, id: childNodeId}
                 }
             }
 

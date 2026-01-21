@@ -219,6 +219,12 @@ class VdomLifecycle extends Base {
         VDomUpdate.registerInFlightUpdate(me.id, me.updateDepth);
 
         try {
+            // We need to ensure that the task queue is empty before collecting payloads.
+            // This is critical for cases where a component state change (triggering update)
+            // is followed immediately by a structural change (e.g. remove) in the same tick.
+            // Using setTimeout forces a Macrotask yield, ensuring all sync operations complete.
+            await new Promise(resolve => setTimeout(resolve, 1));
+
             const
                 updates                 = {},
                 depths                  = new Map(),
@@ -235,6 +241,11 @@ class VdomLifecycle extends Base {
                 // Skip unmounted components. They will be expanded by the Parent's TreeBuilder
                 // and handled via the Parent's resolveVdomUpdate -> syncVnodeTree.
                 if (!component.vnode) return;
+
+                // IMPORTANT: In a multi-window SharedWorker environment, we must NOT batch
+                // updates from components that have moved to a different window.
+                // Doing so would cause deltas meant for Window B to be sent to Window A.
+                if (component.windowId !== me.windowId) return;
 
                 // For every component, we check its own merged children
                 const mergedChildIds = VDomUpdate.getMergedChildIds(componentId);

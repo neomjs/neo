@@ -409,12 +409,10 @@ class VDomUpdate extends Collection {
         this.inFlightUpdateMap.delete(ownerId);
 
         // Remove this component from the in-flight descendant maps of all its parents
-        const parentIds = Neo.manager.Component.getParentIds(Neo.getComponent(ownerId));
-
-        parentIds.forEach(parentId => {
-            const map = this.descendantInFlightMap.get(parentId);
-
-            if (map) {
+        // We need to iterate all registered ancestors to ensure we catch cases where
+        // the component moved (re-parented) during the update.
+        this.descendantInFlightMap.forEach((map, parentId) => {
+            if (map.has(ownerId)) {
                 map.delete(ownerId);
 
                 if (map.size === 0) {
