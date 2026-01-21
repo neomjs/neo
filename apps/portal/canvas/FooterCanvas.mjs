@@ -169,7 +169,9 @@ class FooterCanvas extends Base {
             cy = height * 0.8; // Center low
 
         // 1. Draw "The Core" (Glow)
-        let g = ctx.createRadialGradient(cx, cy, 0, cx, cy, 200);
+        // Global Engine Rev: Pulse the core radius based on gravityBoost
+        let coreRadius = 200 * (1 + (me.gravityBoost - 1) * 0.1);
+        let g = ctx.createRadialGradient(cx, cy, 0, cx, cy, coreRadius);
         g.addColorStop(0, colors.inner);
         g.addColorStop(1, colors.void);
 
@@ -177,7 +179,7 @@ class FooterCanvas extends Base {
         ctx.fillStyle = g;
         ctx.globalAlpha = 0.2;
         ctx.beginPath();
-        ctx.arc(cx, cy, 200, 0, Math.PI * 2);
+        ctx.arc(cx, cy, coreRadius, 0, Math.PI * 2);
         ctx.fill();
 
         // 2. Identify Attractor
@@ -221,7 +223,9 @@ class FooterCanvas extends Base {
                 // Boosted capture radius
                 const captureRadius = 150 * (1 + (me.gravityBoost - 1) * 0.5);
 
-                if (dist < captureRadius) {
+                // Partial Capture: Capture 33% of particles (indices divisible by 3)
+                // Balance between maintaining core structure and creating a visible swarm.
+                if (dist < captureRadius && i % 3 === 0) {
                     isCaptured = true;
                     // Move towards button center
                     // Boosted pull force
@@ -236,6 +240,10 @@ class FooterCanvas extends Base {
             if (!isCaptured) {
                 // Normal Spiral Physics
                 let velocity = spd * (1 + (500 / (rad + 10)));
+                
+                // Global Engine Rev: Accelerate spiral based on gravityBoost
+                velocity *= (1 + (me.gravityBoost - 1) * 0.2);
+
                 rad   -= velocity * 0.5;
                 angle += velocity * 0.005;
 
