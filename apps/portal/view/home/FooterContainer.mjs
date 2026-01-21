@@ -1,7 +1,8 @@
-import Button       from '../../../../src/button/Base.mjs';
-import Component    from '../../../../src/component/Base.mjs';
-import Container    from '../../../../src/container/Base.mjs';
-import FooterCanvas from './FooterCanvas.mjs';
+import Button                    from '../../../../src/button/Base.mjs';
+import Component                 from '../../../../src/component/Base.mjs';
+import Container                 from '../../../../src/container/Base.mjs';
+import FooterCanvas              from './FooterCanvas.mjs';
+import FooterContainerController from './FooterContainerController.mjs';
 
 /**
  * @class Portal.view.home.FooterContainer
@@ -20,10 +21,23 @@ class FooterContainer extends Container {
          */
         cls: ['portal-home-footer-container'],
         /**
+         * @member {Neo.controller.Component} controller=FooterContainerController
+         */
+        controller: FooterContainerController,
+        /**
+         * @member {Object[]} domListeners
+         */
+        domListeners: [{
+            mouseenter: 'onButtonMouseEnter',
+            mouseleave: 'onButtonMouseLeave',
+            delegate  : '.neo-button'
+        }],
+        /**
          * @member {Object[]} items
          */
         items: [{
-            module: FooterCanvas
+            module   : FooterCanvas,
+            reference: 'footer-canvas'
         }, {
             module: Container,
             cls   : ['portal-footer-content'],

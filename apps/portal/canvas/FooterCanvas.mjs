@@ -1,21 +1,20 @@
 import Base from './Base.mjs';
 
 const
-    hasRaf = typeof requestAnimationFrame === 'function';
+    hasRaf = typeof requestAnimationFrame === 'function',
+    PARTICLE_COUNT = 800, // High density for the "Well"
+    STRIDE         = 6;   // x, y, angle, radius, speed, size
 
 /**
- * @summary SharedWorker renderer for the Footer "Neural Mesh" overlay.
+ * @summary SharedWorker renderer for the Footer "Event Horizon" overlay with Gravity Interaction.
  *
- * Implements a "Neural Mesh" visualization representing the Neo.mjs Application Engine and Agent OS architecture.
+ * Implements the **"Event Horizon"** visual theme: A radial gravity well representing the core engine.
  *
  * **Visual Metaphor:**
- * - **Nodes:** Represent Workers and Agents in the distributed system.
- * - **Connections:** Dynamic links representing threads and the Neural Link communication.
- * - **Motion:** Slow, deliberate drift indicating a persistent, living system.
- *
- * **Performance:**
- * Uses a **Zero-Allocation** strategy with `Float32Array` buffers for particle state to ensure
- * smooth 60fps performance on the background thread.
+ * - **The Source:** A central singularity that draws everything in.
+ * - **Data Stream:** Particles spiral inward, accelerating as they approach the event horizon.
+ * - **Gravity Interaction:** Hovered buttons become local "Gravity Wells", pulling particles out of the
+ *   main stream into temporary orbit.
  *
  * @class Portal.canvas.FooterCanvas
  * @extends Portal.canvas.Base
@@ -24,16 +23,16 @@ const
 class FooterCanvas extends Base {
     static colors = {
         dark: {
-            node      : 'rgba(64, 196, 255, 0.4)',
-            link      : 'rgba(64, 196, 255, 0.1)',
-            linkActive: 'rgba(64, 196, 255, 0.3)',
-            highlight : '#40c4ff'
+            core  : '#FFFFFF',
+            inner : '#00BFFF', // Cyan
+            outer : '#3E63DD', // Neo Blue
+            void  : 'rgba(0,0,0,0)'
         },
         light: {
-            node      : 'rgba(62, 99, 221, 0.4)',
-            link      : 'rgba(62, 99, 221, 0.1)',
-            linkActive: 'rgba(62, 99, 221, 0.3)',
-            highlight : '#3e63dd'
+            core  : '#3E63DD', // Neo Blue
+            inner : '#536DFE', // Indigo
+            outer : '#8BA6FF', // Light Blue
+            void  : 'rgba(255,255,255,0)'
         }
     }
 
@@ -44,6 +43,18 @@ class FooterCanvas extends Base {
          */
         className: 'Portal.canvas.FooterCanvas',
         /**
+         * Remote method access
+         * @member {Object} remote
+         * @protected
+         */
+        remote: {
+            app: [
+                'updateActiveId',
+                'updateHoverId',
+                'updateNavRects'
+            ]
+        },
+        /**
          * @member {Boolean} singleton=true
          * @protected
          */
@@ -51,22 +62,23 @@ class FooterCanvas extends Base {
     }
 
     /**
-     * Particle Data Buffer
-     * Layout per particle (5 floats):
-     * [0] x
-     * [1] y
-     * [2] vx (velocity x)
-     * [3] vy (velocity y)
-     * [4] baseSize
-     *
-     * @member {Float32Array|null} particleBuffer=null
+     * Particle Buffer
+     * @member {Float32Array|null} buffer=null
      */
-    particleBuffer = null
+    buffer = null
     /**
-     * Number of particles
-     * @member {Number} particleCount=0
+     * @member {String|null} hoverId=null
      */
-    particleCount = 0
+    hoverId = null
+    /**
+     * @member {Object[]} navRects=[]
+     */
+    navRects = []
+    /**
+     * Transient gravity multiplier for snappy interactions.
+     * @member {Number} gravityBoost=1
+     */
+    gravityBoost = 1
 
     /**
      * Clears the graph state.
@@ -74,46 +86,53 @@ class FooterCanvas extends Base {
     clearGraph() {
         let me = this;
         super.clearGraph();
-        me.particleBuffer = null;
-        me.particleCount  = 0
+        me.buffer       = null;
+        me.hoverId      = null;
+        me.navRects     = [];
+        me.gravityBoost = 1
     }
 
     /**
-     * Initializes the particle mesh.
+     * Initializes the grid.
      * @param {Number} width
      * @param {Number} height
      */
     onGraphMounted(width, height) {
-        this.initMesh(width, height)
+        this.initParticles(width, height)
     }
 
     /**
-     * Creates the particle buffer based on canvas area.
+     * Creates the particle buffer.
      * @param {Number} width
      * @param {Number} height
      */
-    initMesh(width, height) {
+    initParticles(width, height) {
         let me = this,
-            area = width * height,
-            // Density: 1 particle per 9000px^2 (approx 100px x 90px grid equivalent)
-            count = Math.floor(area / 9000);
+            count = PARTICLE_COUNT;
 
-        // Cap count for performance on huge screens
-        count = Math.min(count, 150);
-        // Ensure minimum density
-        count = Math.max(count, 30);
-
-        me.particleCount  = count;
-        me.particleBuffer = new Float32Array(count * 5);
+        me.buffer = new Float32Array(count * STRIDE);
 
         for (let i = 0; i < count; i++) {
-            let idx = i * 5;
-            me.particleBuffer[idx]     = Math.random() * width;        // x
-            me.particleBuffer[idx + 1] = Math.random() * height;       // y
-            me.particleBuffer[idx + 2] = (Math.random() - 0.5) * 0.3;  // vx (Slow drift)
-            me.particleBuffer[idx + 3] = (Math.random() - 0.5) * 0.3;  // vy
-            me.particleBuffer[idx + 4] = Math.random() * 2 + 1;        // baseSize (1-3px)
+            me.resetParticle(i, width, height, true)
         }
+    }
+
+    /**
+     * Resets a particle to the outer rim.
+     * @param {Number} i Index
+     * @param {Number} w Width
+     * @param {Number} h Height
+     * @param {Boolean} randomRad Random radius (for initial fill)
+     */
+    resetParticle(i, w, h, randomRad=false) {
+        let me = this,
+            idx = i * STRIDE,
+            maxR = Math.max(w, h) * 0.7;
+
+        me.buffer[idx + 2] = Math.random() * Math.PI * 2; // Angle
+        me.buffer[idx + 3] = randomRad ? Math.random() * maxR : maxR; // Radius
+        me.buffer[idx + 4] = 0.5 + Math.random() * 1.5; // Base Speed
+        me.buffer[idx + 5] = Math.random() * 2 + 0.5; // Size
     }
 
     /**
@@ -128,90 +147,146 @@ class FooterCanvas extends Base {
             ctx    = me.context,
             width  = me.canvasSize?.width  || 100,
             height = me.canvasSize?.height || 50,
-            buffer = me.particleBuffer,
-            count  = me.particleCount,
-            colors = me.constructor.colors[me.theme],
-            mouse  = me.mouse;
+            buffer = me.buffer,
+            count  = PARTICLE_COUNT,
+            colors = me.constructor.colors[me.theme];
 
-        // Auto-reinit if buffer missing (e.g. rapid resize edge case)
+        // Auto-reinit
         if (!buffer) {
-            me.initMesh(width, height);
+            me.initParticles(width, height);
             return
+        }
+
+        // Decay Boost
+        if (me.gravityBoost > 1) {
+            me.gravityBoost *= 0.9;
         }
 
         ctx.clearRect(0, 0, width, height);
 
-        // Constants for interaction
         const
-            connectionDist    = 120, // Max distance to draw a line
-            connectionDistSq  = connectionDist * connectionDist,
-            mouseThreshold    = 150, // Mouse interaction radius
-            mouseThresholdSq  = mouseThreshold * mouseThreshold;
+            cx = width / 2,
+            cy = height * 0.8; // Center low
 
-        ctx.lineWidth = 1;
+        // 1. Draw "The Core" (Glow)
+        let g = ctx.createRadialGradient(cx, cy, 0, cx, cy, 200);
+        g.addColorStop(0, colors.inner);
+        g.addColorStop(1, colors.void);
 
-        // 1. Update Positions & Draw Nodes
-        for (let i = 0; i < count; i++) {
-            let idx = i * 5,
-                x   = buffer[idx],
-                y   = buffer[idx + 1],
-                vx  = buffer[idx + 2],
-                vy  = buffer[idx + 3],
-                s   = buffer[idx + 4];
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.fillStyle = g;
+        ctx.globalAlpha = 0.2;
+        ctx.beginPath();
+        ctx.arc(cx, cy, 200, 0, Math.PI * 2);
+        ctx.fill();
 
-            // Update
-            x += vx;
-            y += vy;
-
-            // Bounce / Wrap
-            if (x < 0 || x > width)  vx *= -1;
-            if (y < 0 || y > height) vy *= -1;
-
-            // Store updated
-            buffer[idx]     = x;
-            buffer[idx + 1] = y;
-            buffer[idx + 2] = vx;
-            buffer[idx + 3] = vy;
-
-            // Interaction: Mouse Proximity
-            let dx = x - mouse.x,
-                dy = y - mouse.y,
-                d2 = dx*dx + dy*dy,
-                isActive = d2 < mouseThresholdSq,
-                scale = isActive ? 1.5 : 1;
-
-            // Draw Node
-            ctx.fillStyle = isActive ? colors.highlight : colors.node;
-            ctx.beginPath();
-            ctx.arc(x, y, s * scale, 0, Math.PI * 2);
-            ctx.fill();
-
-            // 2. Connections (Nested Loop - Optimized)
-            // Only check particles with higher index to avoid double drawing
-            for (let j = i + 1; j < count; j++) {
-                let jdx = j * 5,
-                    jx  = buffer[jdx],
-                    jy  = buffer[jdx + 1],
-                    dx2 = x - jx,
-                    dy2 = y - jy,
-                    distSq = dx2*dx2 + dy2*dy2;
-
-                if (distSq < connectionDistSq) {
-                    let alpha = 1 - (distSq / connectionDistSq);
-
-                    // Boost alpha if either node is active
-                    if (isActive) alpha = Math.min(alpha + 0.2, 1);
-
-                    ctx.strokeStyle = isActive ? colors.linkActive : colors.link;
-                    ctx.globalAlpha = alpha;
-                    ctx.beginPath();
-                    ctx.moveTo(x, y);
-                    ctx.lineTo(jx, jy);
-                    ctx.stroke();
+        // 2. Identify Attractor
+        let attractor = null;
+        if (me.hoverId && me.navRects.length > 0) {
+            // Find rect
+            for (const r of me.navRects) {
+                if (r.id === me.hoverId) {
+                    attractor = {
+                        x: r.x + r.width / 2,
+                        y: r.y + r.height / 2,
+                        r: Math.max(r.width, r.height) / 2
+                    };
+                    break;
                 }
             }
         }
-        
+
+        // 3. Draw Particles
+        for (let i = 0; i < count; i++) {
+            let idx   = i * STRIDE,
+                angle = buffer[idx + 2],
+                rad   = buffer[idx + 3],
+                spd   = buffer[idx + 4],
+                size  = buffer[idx + 5];
+
+            // --- PHYSICS ---
+
+            // Base State: Polar -> Cartesian
+            let x = cx + Math.cos(angle) * rad;
+            let y = cy + Math.sin(angle) * (rad * 0.4);
+
+            let isCaptured = false;
+
+            // GRAVITY INTERACTION
+            if (attractor) {
+                let dx = attractor.x - x,
+                    dy = attractor.y - y,
+                    dist = Math.sqrt(dx*dx + dy*dy);
+
+                // Boosted capture radius
+                const captureRadius = 150 * (1 + (me.gravityBoost - 1) * 0.5);
+
+                if (dist < captureRadius) {
+                    isCaptured = true;
+                    // Move towards button center
+                    // Boosted pull force
+                    let force = (captureRadius - dist) / captureRadius;
+                    force *= me.gravityBoost; // Apply boost to velocity
+
+                    x += dx * force * 0.1;
+                    y += dy * force * 0.1;
+                }
+            }
+
+            if (!isCaptured) {
+                // Normal Spiral Physics
+                let velocity = spd * (1 + (500 / (rad + 10)));
+                rad   -= velocity * 0.5;
+                angle += velocity * 0.005;
+
+                // Reset
+                if (rad < 10) {
+                    let maxR = Math.max(width, height) * 0.7;
+                    rad = maxR;
+                    angle = Math.random() * Math.PI * 2;
+                }
+
+                // Update Cartesian from new Polar
+                x = cx + Math.cos(angle) * rad;
+                y = cy + Math.sin(angle) * (rad * 0.4);
+            }
+
+            // Save Polar State
+            buffer[idx + 2] = angle;
+            buffer[idx + 3] = rad;
+
+            // --- DRAW ---
+            let distRatio = rad / (Math.max(width, height) * 0.6);
+            let alpha = 1 - distRatio;
+
+            ctx.beginPath();
+            // Use 'inner' (Cyan/Indigo) for captured particles instead of 'core' (White)
+            if (isCaptured) {
+                ctx.fillStyle = colors.inner;
+                ctx.globalAlpha = 0.6;
+            } else {
+                ctx.fillStyle = distRatio < 0.3 ? colors.core : colors.outer;
+                ctx.globalAlpha = alpha;
+            }
+
+            if (rad < 100 && !isCaptured) {
+                // Spaghettification
+                let tailX = cx + Math.cos(angle - 0.2) * (rad + 20);
+                let tailY = cy + Math.sin(angle - 0.2) * ((rad + 20) * 0.4);
+
+                ctx.strokeStyle = colors.core;
+                ctx.lineWidth = size;
+                ctx.moveTo(x, y);
+                ctx.lineTo(tailX, tailY);
+                ctx.stroke();
+            } else {
+                // No size increase for captured particles
+                ctx.arc(x, y, size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        ctx.globalCompositeOperation = 'source-over';
         ctx.globalAlpha = 1;
 
         if (hasRaf) {
@@ -222,12 +297,38 @@ class FooterCanvas extends Base {
     }
 
     /**
-     * Re-init mesh on resize to maintain density.
+     * @param {Object} data
+     */
+    updateActiveId(data) {}
+
+    /**
+     * @param {Object} data
+     * @param {String} [data.id]
+     */
+    updateHoverId(data) {
+        let me = this;
+        if (me.hoverId !== data?.id) {
+            me.gravityBoost = 5; // Trigger Boost on change
+        }
+        me.hoverId = data?.id || null
+    }
+
+    /**
+     * @param {Object} data
+     * @param {Object[]} data.rects
+     */
+    updateNavRects(data) {
+        let rects = data?.rects;
+        this.navRects = Array.isArray(rects) ? rects : []
+    }
+
+    /**
+     * Re-init on resize.
      * @param {Number} width
      * @param {Number} height
      */
     updateResources(width, height) {
-        this.initMesh(width, height)
+        this.initParticles(width, height)
     }
 }
 
