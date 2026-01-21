@@ -497,6 +497,7 @@ class Markdown extends Component {
                 autoInitVnode  : true,
                 autoMount      : true,
                 parentComponent: me.parentComponent,
+                theme          : me.theme,
                 windowId
             },
             html, instance;
