@@ -10,10 +10,10 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-01-16T20:34:08Z'
-updatedAt: '2026-01-16T23:36:58Z'
+updatedAt: '2026-01-21T12:06:35Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8727'
 author: tobiu
-commentsCount: 4
+commentsCount: 10
 parentIssue: null
 subIssues:
   - '[x] 8728 Implement Neo Dark Theme Tokens'
@@ -56,8 +56,14 @@ subIssues:
   - '[x] 8778 Integrate Robust Theme Switching for Services Canvas'
   - '[x] 8779 Standardize HeaderCanvas Configuration'
   - '[x] 8788 Refine Portal News TreeList Dark Theme Styling'
-subIssuesCompleted: 40
-subIssuesTotal: 40
+  - '[x] 8843 Persist Portal Theme Selection'
+  - '[x] 8844 Auto-detect System Theme Preference'
+  - '[x] 8845 Sync Monaco Editor Theme in Portal'
+  - '[x] 8846 Fix Monaco Editor Background Glitch'
+  - '[x] 8847 Fix Dark Theme for HighlightJS'
+  - '[x] 8848 Propagate Theme to Embedded Markdown Components'
+subIssuesCompleted: 46
+subIssuesTotal: 46
 blockedBy: []
 blocking: []
 ---
