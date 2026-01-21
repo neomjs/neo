@@ -1,5 +1,6 @@
 import {program}       from 'commander';
 import {ChromaClient}  from 'chromadb';
+import {execSync}      from 'child_process';
 import fs              from 'fs-extra';
 import path            from 'path';
 import {fileURLToPath} from 'url';
@@ -148,6 +149,27 @@ async function getDirSize(dir) {
         }
     }
     return size;
+}
+
+/**
+ * Runs the SQLite VACUUM command on the chroma.sqlite3 file.
+ * This is critical for reclaiming disk space after mass deletions.
+ *
+ * @param {String} dbDir - The directory containing chroma.sqlite3.
+ */
+function vacuumSqlite(dbDir) {
+    const sqlitePath = path.join(dbDir, 'chroma.sqlite3');
+    if (fs.existsSync(sqlitePath)) {
+        console.log(`   🧹 Running SQLite VACUUM on ${sqlitePath}...`);
+        try {
+            execSync(`sqlite3 "${sqlitePath}" "VACUUM;"`, { stdio: 'inherit' });
+            console.log(`   ✅ VACUUM complete.`);
+        } catch (e) {
+            console.warn(`   ⚠️  VACUUM failed (sqlite3 CLI might be missing?): ${e.message}`);
+        }
+    } else {
+        console.log(`   ℹ️  No chroma.sqlite3 found to vacuum.`);
+    }
 }
 
 /**
@@ -372,6 +394,10 @@ async function defragChromaDB() {
                 }
             }
         }
+
+        // 7. Vacuum (SQLite)
+        console.log(`\n7️⃣  Vacuuming SQLite Database...`);
+        vacuumSqlite(DB_PATH);
 
         console.log(`\n🎉 Defragmentation Complete!`);
 
