@@ -1,7 +1,7 @@
 ---
 id: 8727
 title: 'Epic: Portal App Dark Theme'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - epic
@@ -10,7 +10,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-01-16T20:34:08Z'
-updatedAt: '2026-01-21T12:06:35Z'
+updatedAt: '2026-01-21T21:05:54Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8727'
 author: tobiu
 commentsCount: 10
@@ -69,6 +69,7 @@ subIssuesCompleted: 49
 subIssuesTotal: 49
 blockedBy: []
 blocking: []
+closedAt: '2026-01-21T21:05:54Z'
 ---
 # Epic: Portal App Dark Theme
 
