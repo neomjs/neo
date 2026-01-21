@@ -196,6 +196,8 @@ class ViewportController extends Controller {
         }).then(({value}) => {
             if (value) {
                 me.setTheme(value, false)
+            } else if (Neo.config.prefersDarkTheme) {
+                me.setTheme('neo-theme-neo-dark', false)
             }
         })
     }

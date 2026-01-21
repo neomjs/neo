@@ -320,8 +320,9 @@ class Manager extends Base {
     detectFeatures() {
         let me = this;
 
-        NeoConfig.hasMouseEvents = matchMedia('(pointer:fine)').matches;
-        NeoConfig.hasTouchEvents = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+        NeoConfig.hasMouseEvents   = matchMedia('(pointer:fine)').matches;
+        NeoConfig.hasTouchEvents   = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+        NeoConfig.prefersDarkTheme = matchMedia('(prefers-color-scheme: dark)').matches;
 
         // Useful for styling
         document.body.classList.add(NeoConfig.hasMouseEvents ? 'neo-mouse' : 'neo-no-mouse');

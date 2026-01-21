@@ -166,6 +166,17 @@ const DefaultConfig = {
      */
 
     /**
+     * This config is auto-detected inside `Neo.Main.mjs` based on the user's system preference
+     * using `window.matchMedia('(prefers-color-scheme: dark)')`. It defaults to `false` and
+     * is updated before the App Worker is initialized, allowing apps to default to the
+     * correct theme mode on startup.
+     * @default false
+     * @memberOf! module:Neo
+     * @name config.prefersDarkTheme
+     * @type Boolean
+     */
+    prefersDarkTheme: false,
+    /**
      * Pass the URL of a JSON-file, which contains the services and methods from your backend,
      * which you want to expose to the client.
      * See: https://github.com/neomjs/neo/projects/32
