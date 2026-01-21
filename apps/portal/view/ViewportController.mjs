@@ -188,6 +188,15 @@ class ViewportController extends Controller {
         Neo.currentWorker.on({
             disconnect: me.onAppDisconnect,
             scope     : me
+        });
+
+        Neo.main.addon.LocalStorage.readLocalStorageItem({
+            key     : 'portalTheme',
+            windowId: me.windowId
+        }).then(({value}) => {
+            if (value) {
+                me.setTheme(value, false)
+            }
         })
     }
 
@@ -264,17 +273,11 @@ class ViewportController extends Controller {
      */
     onSwitchTheme(data) {
         let me       = this,
-            btn      = me.getReference('theme-switch-button'),
             viewport = me.component,
             oldTheme = viewport.theme || 'neo-theme-neo-light',
-            newTheme = oldTheme === 'neo-theme-neo-light' ? 'neo-theme-neo-dark' : 'neo-theme-neo-light',
-            iconCls  = newTheme === 'neo-theme-neo-dark'  ? 'fa-solid fa-sun'  : 'fa-solid fa-moon';
+            newTheme = oldTheme === 'neo-theme-neo-light' ? 'neo-theme-neo-dark' : 'neo-theme-neo-light';
 
-        viewport.theme = newTheme;
-
-        if (btn) {
-            btn.iconCls = iconCls
-        }
+        me.setTheme(newTheme)
     }
 
     /**
@@ -330,6 +333,30 @@ class ViewportController extends Controller {
             if (updateLayout) {
                 container.layout.activeIndex = index
             }
+        }
+    }
+
+    /**
+     * @param {String} theme
+     * @param {Boolean} [updateStorage=true]
+     */
+    setTheme(theme, updateStorage=true) {
+        let me      = this,
+            btn     = me.getReference('theme-switch-button'),
+            iconCls = theme === 'neo-theme-neo-dark' ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
+
+        me.component.theme = theme;
+
+        if (btn) {
+            btn.iconCls = iconCls
+        }
+
+        if (updateStorage) {
+            Neo.main.addon.LocalStorage.updateLocalStorageItem({
+                key     : 'portalTheme',
+                value   : theme,
+                windowId: me.windowId
+            })
         }
     }
 
