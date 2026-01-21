@@ -23,8 +23,10 @@ subIssues:
   - '[x] 8838 Refine Disjoint VDOM Updates: Depth Handling & Collision Filtering'
   - '[x] 8839 TreeBuilder: Handle removeDom flag for disjoint updates'
   - '[x] 8840 VDOM Lifecycle: Fix Merge Race Condition and Async Destruction'
-subIssuesCompleted: 6
-subIssuesTotal: 6
+  - '[x] 8841 Knowledge Base Enhancement: Batched Disjoint VDOM Updates'
+  - '[ ] 8842 Documentation: Update AsymmetricUpdates.md for Teleportation'
+subIssuesCompleted: 7
+subIssuesTotal: 8
 blockedBy: []
 blocking: []
 ---
@@ -187,4 +189,11 @@ A Component Tree resides in a single `windowId`. However, the `VDomUpdate` manag
 > This restores the bandwidth efficiency for deep updates that target specific descendants, addressing the concern about payload size regression.
 
 - 2026-01-20T23:15:47Z @tobiu added sub-issue #8840
+- 2026-01-21T01:53:27Z @tobiu referenced in commit `955d5be` - "optimize: Enable Sparse Tree generation for depth > 1 (#8834)
+
+- Conditionally pass mergedChildIds to TreeBuilder for depths != 1
+- Restores payload reduction (pruning clean siblings) for deep hybrid updates
+- Maintains disjoint/teleportation behavior for depth 1"
+- 2026-01-21T01:58:15Z @tobiu added sub-issue #8841
+- 2026-01-21T02:12:05Z @tobiu added sub-issue #8842
 
