@@ -3,8 +3,10 @@
     color           : var(--portal-footer-text-color);
     display         : flex;
     flex-direction  : column;
+    isolation       : isolate;
     min-height      : 300px;
     padding         : 0 2em;
+    position        : relative;
     width           : 100%;
 
     .portal-footer-content {

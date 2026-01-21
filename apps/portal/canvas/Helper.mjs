@@ -19,6 +19,7 @@ class Helper extends Base {
          */
         remote: {
             app: [
+                'importFooterCanvas',
                 'importHeaderCanvas',
                 'importHomeCanvas',
                 'importServicesCanvas',
@@ -30,6 +31,14 @@ class Helper extends Base {
          * @protected
          */
         singleton: true
+    }
+
+    /**
+     * @returns {Promise<void>}
+     */
+    async importFooterCanvas() {
+        let module = await import('./FooterCanvas.mjs');
+        await module.default.remotesReady()
     }
 
     /**

@@ -1,6 +1,7 @@
-import Button    from '../../../../src/button/Base.mjs';
-import Component from '../../../../src/component/Base.mjs';
-import Container from '../../../../src/container/Base.mjs';
+import Button       from '../../../../src/button/Base.mjs';
+import Component    from '../../../../src/component/Base.mjs';
+import Container    from '../../../../src/container/Base.mjs';
+import FooterCanvas from './FooterCanvas.mjs';
 
 /**
  * @class Portal.view.home.FooterContainer
@@ -19,13 +20,15 @@ class FooterContainer extends Container {
          */
         cls: ['portal-home-footer-container'],
         /**
-         * @member {Object} itemDefaults
+         * @member {Object[]} items
          */
-        itemDefaults: {
+        items: [{
+            module: FooterCanvas
+        }, {
             module: Container,
             cls   : ['portal-footer-content'],
             layout: {ntype: 'hbox', align: 'start', pack: 'start'},
-            style : {width: '100%'},
+            style : {position: 'relative', width: '100%', zIndex: 1},
 
             itemDefaults: {
                 module: Container,
@@ -37,12 +40,8 @@ class FooterContainer extends Container {
                     module: Button,
                     ui    : 'ghost'
                 }
-            }
-        },
-        /**
-         * @member {Object[]} items
-         */
-        items: [{
+            },
+
             items: [{
                 items: [{
                     module: Component,
@@ -118,6 +117,7 @@ class FooterContainer extends Container {
             cls   : ['portal-footer-bottom'],
             flex  : 'none',
             layout: {ntype: 'hbox', align: 'center', pack: 'center'},
+            style : {position: 'relative', zIndex: 1},
             items : [{
                 module: Component,
                 cls   : ['neo-version'],
