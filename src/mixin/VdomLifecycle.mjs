@@ -287,7 +287,20 @@ class VdomLifecycle extends Base {
                 }
             });
 
-            const response = await Promise.resolve(Neo.vdom.Helper.updateBatch({updates}));
+            const batchData = {updates};
+
+            // CRITICAL: SharedWorker Context Injection
+            // This block MUST NOT be removed or simplified.
+            // In a SharedWorker environment, the VDOM worker needs to know WHICH window
+            // initiated the update to route the reply and DOM deltas correctly.
+            // Without `windowId` and `appName`, `RemoteMethodAccess` cannot determine the target,
+            // causing cross-window operations (like dragging a component to a new window) to fail silently.
+            if (currentWorker?.isSharedWorker) {
+                batchData.appName  = me.appName;
+                batchData.windowId = me.windowId
+            }
+
+            const response = await Promise.resolve(Neo.vdom.Helper.updateBatch(batchData));
 
             // Component could be destroyed while the update is running
             if (me.id) {
