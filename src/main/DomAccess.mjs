@@ -82,6 +82,7 @@ class DomAccess extends Base {
                 'selectNode',
                 'setBodyCls',
                 'setStyle',
+                'startViewTransition',
                 'syncModalMask',
                 'trapFocus',
                 'windowScrollTo'
@@ -860,6 +861,33 @@ class DomAccess extends Base {
             minWidth : align.configuredMinWidth,
             width    : align.configuredWidth
         })
+    }
+
+    /**
+     * @param {Object} data
+     * @param {Object} [data.animate]
+     * @param {Number} [data.delay=50]
+     * @returns {Promise<Boolean>}
+     */
+    async startViewTransition(data) {
+        if (!document.startViewTransition) {
+            return false
+        }
+
+        const transition = document.startViewTransition(async () => {
+            await this.timeout(data.delay || 50)
+        });
+
+        if (data.animate) {
+            transition.ready.then(() => {
+                document.documentElement.animate(
+                    data.animate.keyframes,
+                    data.animate.options
+                )
+            })
+        }
+
+        return true
     }
 
     /**

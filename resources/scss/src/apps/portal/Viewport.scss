@@ -7,6 +7,11 @@ body {
     }
 }
 
+::view-transition-old(root),
+::view-transition-new(root) {
+    animation     : none;
+    mix-blend-mode: normal;
+}
 
 .neo-viewport {
     // sometimes when transitioning between card & cube layouts, the flex value does get lost
