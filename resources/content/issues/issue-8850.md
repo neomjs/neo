@@ -1,7 +1,7 @@
 ---
 id: 8850
 title: Fix VDOM ID Mismatch in Cross-Window Move (LivePreview Helix Detach)
-state: OPEN
+state: CLOSED
 labels:
   - bug
   - ai
@@ -10,7 +10,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-01-21T12:46:02Z'
-updatedAt: '2026-01-21T14:13:11Z'
+updatedAt: '2026-01-21T15:18:12Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8850'
 author: tobiu
 commentsCount: 1
@@ -20,6 +20,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-01-21T15:18:12Z'
 ---
 # Fix VDOM ID Mismatch in Cross-Window Move (LivePreview Helix Detach)
 
@@ -81,4 +82,5 @@ We need to investigate `vdom.Helper.createDeltas` and `moveNode` logic, specific
 > The Helix example now correctly detaches and re-attaches the controls panel across windows without artifacts, ghost content, or errors.
 
 - 2026-01-21T14:17:03Z @tobiu referenced in commit `c3ebf6b` - "fix(Gallery): Fix re-attach race condition and add regression test (#8850)"
+- 2026-01-21T15:18:12Z @tobiu closed this issue
 

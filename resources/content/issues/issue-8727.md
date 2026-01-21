@@ -62,8 +62,11 @@ subIssues:
   - '[x] 8846 Fix Monaco Editor Background Glitch'
   - '[x] 8847 Fix Dark Theme for HighlightJS'
   - '[x] 8848 Propagate Theme to Embedded Markdown Components'
-subIssuesCompleted: 46
-subIssuesTotal: 46
+  - '[x] 8852 Refactor Portal Footer SCSS for Theming'
+  - '[x] 8853 Modernize Portal Footer Layout with CSS Grid'
+  - '[ ] 8854 Implement Footer OffscreenCanvas Overlay'
+subIssuesCompleted: 48
+subIssuesTotal: 49
 blockedBy: []
 blocking: []
 ---
