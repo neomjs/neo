@@ -12,6 +12,7 @@ const
     regexNeoComponent = /```json\s+neo-component\s*\n([\s\S]*?)\n\s*```/g,
     regexNewLines     = /^\n+|\n+$/g,
     regexCodeBlock    = /```(\w*)(?:[^\n]*)?\n([\s\S]*?)\n\s*```/g,
+    regexInlineCode   = /`([^`]+)`/g,
     regexTicketId     = /(^|[\s(])#(\d+)\b/g;
 
 /**
@@ -84,13 +85,6 @@ class Markdown extends Component {
      * @member {Neo.component.Base[]} activeComponents=[]
      */
     activeComponents = []
-
-    /**
-     * @member {RegExp} regexInlineCode=/`([^`]+)`/g
-     * @protected
-     * @static
-     */
-    static regexInlineCode = /`([^`]+)`/g
 
     /**
      * Triggered after the mounted config got changed
@@ -273,7 +267,26 @@ class Markdown extends Component {
             })
         }
 
+        // Ticket replacement logic with code block protection
         if (me.replaceTicketIds) {
+            const placeholders = [];
+            let placeholderIndex = 0;
+
+            // 1. Protect fenced code blocks
+            content = content.replace(regexCodeBlock, (match) => {
+                const token = `__NEO_CODE_BLOCK_${placeholderIndex++}__`;
+                placeholders.push({ token, value: match });
+                return token;
+            });
+
+            // 2. Protect inline code blocks
+            content = content.replace(regexInlineCode, (match) => {
+                const token = `__NEO_INLINE_CODE_${placeholderIndex++}__`;
+                placeholders.push({ token, value: match });
+                return token;
+            });
+
+            // 3. Perform ticket replacement
             content = content.replace(regexTicketId, (match, prefix, id) => {
                 const
                     isInternal = me.issuesUrl.startsWith('#'),
@@ -281,7 +294,13 @@ class Markdown extends Component {
                     target     = isInternal ? '' : ' target="_blank"';
 
                 return `${prefix}<a href="${url}"${target}>#${id}</a>`
-            })
+            });
+
+            // 4. Restore protected blocks (in reverse order to handle nesting if any, though regex usually handles top-level)
+            // Note: Simple loop is fine as tokens are unique strings
+            placeholders.forEach(item => {
+                content = content.replace(item.token, item.value);
+            });
         }
 
         let rows          = content.split('\n'),
@@ -328,7 +347,7 @@ class Markdown extends Component {
      * @returns {String}
      */
     onHeadline(tag, text, index) {
-        text = text.replace(this.constructor.regexInlineCode, '<code>$1</code>');
+        text = text.replace(regexInlineCode, '<code>$1</code>');
         return `<${tag} class="neo-${tag}">${text}</${tag}>`
     }
 
