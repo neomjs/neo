@@ -1,7 +1,7 @@
 ---
 id: 8834
 title: 'Architecture: Implement ''vdom.Helper.updateBatch'' for Disjoint Updates'
-state: OPEN
+state: CLOSED
 labels:
   - epic
   - ai
@@ -11,10 +11,10 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-01-20T18:56:11Z'
-updatedAt: '2026-01-20T22:22:19Z'
+updatedAt: '2026-01-21T02:21:28Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8834'
 author: tobiu
-commentsCount: 3
+commentsCount: 4
 parentIssue: null
 subIssues:
   - '[x] 8835 Refactor `vdom.Helper.updateBatch` to accept Map-based Payload'
@@ -24,11 +24,12 @@ subIssues:
   - '[x] 8839 TreeBuilder: Handle removeDom flag for disjoint updates'
   - '[x] 8840 VDOM Lifecycle: Fix Merge Race Condition and Async Destruction'
   - '[x] 8841 Knowledge Base Enhancement: Batched Disjoint VDOM Updates'
-  - '[ ] 8842 Documentation: Update AsymmetricUpdates.md for Teleportation'
-subIssuesCompleted: 7
+  - '[x] 8842 Documentation: Update AsymmetricUpdates.md for Teleportation'
+subIssuesCompleted: 8
 subIssuesTotal: 8
 blockedBy: []
 blocking: []
+closedAt: '2026-01-21T02:21:28Z'
 ---
 # Architecture: Implement 'vdom.Helper.updateBatch' for Disjoint Updates
 
@@ -196,4 +197,17 @@ A Component Tree resides in a single `windowId`. However, the `VDomUpdate` manag
 - Maintains disjoint/teleportation behavior for depth 1"
 - 2026-01-21T01:58:15Z @tobiu added sub-issue #8841
 - 2026-01-21T02:12:05Z @tobiu added sub-issue #8842
+### @tobiu - 2026-01-21T02:21:04Z
+
+**Input from Gemini 3 Pro:**
+
+> ✦ I have completed the "Batched Disjoint VDOM Updates" (Teleportation) epic.
+> All sub-tasks are resolved:
+> - Architecture implementation (`updateBatch`, Disjoint Payloads, Recursive Merging).
+> - Regression testing (`RaceCondition`, `RealWorldUpdates` with Ghost Update support).
+> - Documentation enhancement (`AsymmetricUpdates.md` updated, JSDoc improved).
+> 
+> The feature branch `epic-8834` has been merged into `dev`.
+
+- 2026-01-21T02:21:28Z @tobiu closed this issue
 
