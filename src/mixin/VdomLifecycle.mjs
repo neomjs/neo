@@ -190,7 +190,21 @@ class VdomLifecycle extends Base {
     }
 
     /**
-     * Internal method to send update requests to the vdom worker
+     * Internal method to send update requests to the vdom worker.
+     *
+     * **Teleportation / Batched Disjoint Updates:**
+     * This method implements the core logic for "Teleportation". Instead of merging child updates
+     * into the parent's VDOM tree (which requires expanding the parent's tree to reach the child),
+     * we collect all merged child updates and send them as a **batch of disjoint payloads**.
+     *
+     * 1. **Recursive Collection:** We recursively collect all `mergedChildIds` from the component
+     *    and its descendants.
+     * 2. **Disjoint Payloads:** For each component in the batch, we generate a "self-only" VDOM
+     *    payload (`updateDepth: 1`). This allows the VDOM engine to update the child directly
+     *    without needing the parent to "bridge" to it.
+     * 3. **Collision Filtering:** We filter out child updates that are already covered by a
+     *    parent update in the same batch (e.g., if the parent is doing a full tree update).
+     *
      * @param {function} [resolve] used by promiseUpdate()
      * @param {function} [reject] used by promiseUpdate()
      * @private
@@ -218,7 +232,7 @@ class VdomLifecycle extends Base {
                 const component = Neo.getComponent(componentId);
                 if (!component || component.isDestroyed) return;
 
-                // Skip unmounted components. They will be expanded by the Parent's TreeBuilder (Hybrid/Leapfrog)
+                // Skip unmounted components. They will be expanded by the Parent's TreeBuilder
                 // and handled via the Parent's resolveVdomUpdate -> syncVnodeTree.
                 if (!component.vnode) return;
 
@@ -599,8 +613,8 @@ class VdomLifecycle extends Base {
      *
      * **Recursive Traversal:**
      * This method recursively walks up the component tree (`distance + 1`). This enables
-     * transitive merging (Grandchild -> Child -> Parent) and leapfrog merging (skipping
-     * clean parents).
+     * transitive merging (Grandchild -> Child -> Parent) and merging into ancestors even
+     * if intermediate parents are not updating.
      *
      * @param {String} parentId=this.parentId
      * @param {Function} [resolve] gets passed by updateVdom()
@@ -820,7 +834,7 @@ class VdomLifecycle extends Base {
         // The manager will ensure it's called when the appropriate update cycle completes.
         resolve && VDomUpdate.addPromiseCallback(me.id, resolve);
 
-        // Attempt to merge into a parent's update cycle (Teleportation/Leapfrog).
+        // Attempt to merge into a parent's update cycle.
         // We do this even if silent, to ensure we catch the bus if a parent is departing.
         if (me.mergeIntoParentUpdate(parentId)) {
             me.needsVdomUpdate = true;

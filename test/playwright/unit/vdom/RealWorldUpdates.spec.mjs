@@ -89,6 +89,18 @@ class TestChildContainer extends Container {
 }
 TestChildContainer = Neo.setupClass(TestChildContainer);
 
+/**
+ * @summary Verification tests for Batched Disjoint VDOM Updates ("Teleportation").
+ *
+ * These tests cover complex, real-world update scenarios to ensure the VDOM engine
+ * correctly handles:
+ * 1. **Disjoint Updates:** Parent and Child updating in parallel without "Bridge Path" interference.
+ * 2. **Recursive Merging:** Grandchild merging into Parent's batch (skipping Child).
+ * 3. **Ghost Updates:** Updates triggered by components that are being removed/detached in the same tick.
+ * 4. **Structural Changes:** Inserts and removes within batched updates.
+ *
+ * This suite is the primary regression guard for the Teleportation architecture.
+ */
 test.describe('Neo.vdom.VdomRealWorldUpdates', () => {
     let parent, child, grandchild, testRun = 0;
 

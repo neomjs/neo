@@ -15,6 +15,11 @@ import Collection from '../collection/Base.mjs';
  *    more focused data for the VDOM worker to process. While the amount of final DOM
  *    modifications remains the same, this aggregation is key to performance.
  *
+ *    **Teleportation (Disjoint Updates):** The manager now supports processing multiple
+ *    disjoint components in a single "Teleportation" batch. This allows deep descendants
+ *    to update in parallel with their ancestors without requiring the ancestor to "bridge"
+ *    the gap, eliminating O(N) overhead for deep updates.
+ *
  * 2. **Asynchronous Flow Control:** Manages the asynchronous nature of VDOM updates, which
  *    are often processed in a worker thread. It ensures that code awaiting an update
  *    (e.g., via a returned Promise) is correctly notified upon completion.
@@ -151,6 +156,13 @@ class VDomUpdate extends Collection {
      * Executes all callbacks associated with a completed VDOM update for a given `ownerId`.
      * This method first processes callbacks for any children that were merged into this
      * update cycle, then executes the callbacks for the `ownerId` itself.
+     *
+     * **Teleportation / Batch Support:**
+     * The `processedChildIds` argument is crucial for Disjoint Updates. It ensures we only
+     * execute callbacks for children that were *actually* included in the VDOM payload.
+     * Children that were filtered out (e.g. due to collisions with a parent update) will
+     * NOT have their callbacks executed here; they will be handled by the covering parent's callback.
+     *
      * @param {String} ownerId The `id` of the component whose update has just completed.
      * @param {Object} [data]  Optional data to pass to the callbacks.
      * @param {Set<String>|null} [processedChildIds] IDs of children actually included in this update.

@@ -779,6 +779,10 @@ class Helper extends Base {
 
     /**
      * Processes a map of updates sequentially and aggregates the results.
+     * This method is the core of the "Teleportation" / Disjoint Updates architecture.
+     * Instead of building a single bridged VDOM tree, we process multiple components
+     * as separate, disjoint updates in a single batch.
+     *
      * @param {Object} data
      * @param {Object} data.updates A map of update config objects: {componentId: updateOpts}
      * @returns {Object} { deltas: Object[], vnodes: Object }
