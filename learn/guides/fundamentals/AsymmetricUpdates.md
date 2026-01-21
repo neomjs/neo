@@ -8,8 +8,8 @@ This is a fundamental shift from traditional frameworks where Parent updates typ
 
 **Key innovations:**
 - **Scoped Updates**: Disjoint updates (Depth 1) run in parallel.
-- **Automatic Merging**: Bundles child updates into parent messages (`dist <= updateDepth`).
-- **Leapfrog Merging**: Updates skip clean parents to merge with ancestors.
+- **Teleportation**: Updates can "teleport" across the component tree, allowing deep descendants to update without parent involvement.
+- **Recursive Merging**: Bundles child updates into parent messages (`dist <= updateDepth`).
 - **Transaction Pattern**: Atomic multi-component updates via `setSilent`.
 
 ---
@@ -49,8 +49,8 @@ sequenceDiagram
     
     Note over P, C: Independent Updates (Scoped)
 
-    P->>VW: Update (Depth 1) - Payload: { id: 'parent', cn: [{componentId: 'child'}] }
-    C->>VW: Update (Depth 1) - Payload: { id: 'child', text: 'New Text' }
+    P->>VW: updateBatch([Parent Payload]) - { id: 'parent', cn: [{componentId: 'child'}] }
+    C->>VW: updateBatch([Child Payload]) - { id: 'child', text: 'New Text' }
     
     par Parallel Processing
         VW->>P: Deltas for Parent
@@ -58,24 +58,23 @@ sequenceDiagram
     end
 ```
 
-## Merging: The Optimization
+## Merging: The Optimization (Teleportation)
 
 While parallel updates are safe, sending two messages to the worker is less efficient than sending one. If we know that a Parent and a Child are both updating at the same time, we can **merge** the Child's update into the Parent's payload.
 
+With the **Teleportation** architecture, merging does **not** mean expanding the Child inside the Parent's VDOM tree (which would require updating the Parent's structure). Instead, it means bundling the Child's disjoint update payload into the same `updateBatch` message as the Parent.
+
 This is controlled by the `canMergeUpdate` logic in `Neo.mixin.VdomLifecycle`.
 
-### The Logic (`<=`)
+### The Logic
 
-A child update can merge into a parent update if:
-`distanceToParent <= parent.updateDepth`
-
-Since the default `updateDepth` is `1`, a direct child (distance 1) *can* merge if the timing aligns.
+A child update can merge into a parent update regardless of distance. The `executeVdomUpdate` method recursively collects all merged children and generates a batch of disjoint payloads.
 
 ### The Benefit
 
 1.  **Reduced Traffic**: One message to the VDOM worker instead of N.
 2.  **Atomic Paint**: The browser paints the Parent and Child changes in the same frame, preventing visual "pop-in" or layout thrashing.
-3.  **Leapfrog Merging**: A Grandchild can merge into a Grandparent even if the intermediate Parent is not updating.
+3.  **Recursive Merging**: A Grandchild can merge into a Grandparent even if the intermediate Parent is not updating.
 
 ```mermaid
 sequenceDiagram
@@ -84,7 +83,7 @@ sequenceDiagram
     participant M as VDom Manager
     participant VW as VDom Worker
     
-    Note over P, C: Merged Update (Transaction)
+    Note over P, C: Merged Update (Teleportation Batch)
 
     P->>P: setSilent({style: ...})
     C->>C: setSilent({text: ...})
@@ -92,14 +91,14 @@ sequenceDiagram
     P->>P: update()
     
     Note right of P: VDOM Traversal
-    P->>C: check needsVdomUpdate?
+    P->>C: check merged updates?
     C-->>P: Yes
     
-    Note right of P: Tree Builder expands Child
+    Note right of P: Collect Disjoint Payloads
     
-    P->>VW: Single Message: { id: 'parent', cn: [{id: 'child', text: ...}] }
+    P->>VW: updateBatch({ updates: { parent: {...}, child: {...} } })
     
-    VW->>P: Single Delta Bundle
+    VW->>P: Aggregated Deltas + VNodes
     P->>M: Update Complete
     M->>C: Trigger Child Callbacks
 ```
@@ -130,15 +129,19 @@ toolbar.update();
 
 1.  `setSilent` flags the components as `needsVdomUpdate` but does not trigger the `updateVdom` scheduler.
 2.  `toolbar.update()` starts the cycle for the parent.
-3.  The framework traverses the VDOM. When it encounters the placeholders for the buttons, it checks if they need an update.
-4.  Since `needsVdomUpdate` is true for the buttons, and they are within range (`distance <= updateDepth`), the framework **expands** their VDOM into the parent's tree instead of leaving them as placeholders.
-5.  The VDOM worker receives one large tree, diffs it, and produces one set of DOM deltas.
+3.  The framework recursively collects `mergedChildIds`.
+4.  It generates a **disjoint payload** for the Toolbar and one for each Button.
+5.  It sends a single `updateBatch` message containing all 4 payloads.
+6.  The VDOM worker processes them sequentially and returns a single set of deltas.
 
-## Leapfrog Merging
+## Recursive Merging (formerly Leapfrog)
 
-One of the most advanced capabilities of the engine is **Leapfrog Merging**. This occurs when a deep descendant (Grandchild) needs to update, but its direct Parent does not. If the Grandparent is updating, the Grandchild can "leap" over the clean Parent and merge into the Grandparent's cycle.
+One of the most advanced capabilities of the engine is **Recursive Merging**. This occurs when a deep descendant (Grandchild) needs to update, but its direct Parent does not. If the Grandparent is updating, the Grandchild can merge into the Grandparent's cycle.
 
-This solves the "Pruning Problem": if the Parent is clean, the VDOM engine normally wouldn't even look at its children. By explicitly registering the merge, the engine knows to traverse through the clean Parent to find the dirty Grandchild.
+In a traditional merge model, the Grandparent would have to "bridge" to the Grandchild by expanding the clean Parent.
+With **Teleportation**, this is much simpler: The Grandchild simply adds its disjoint payload to the Grandparent's batch. The clean Parent is ignored entirely.
+
+This solves the "Pruning Problem" without the O(N) overhead of bridging.
 
 ```mermaid
 sequenceDiagram
@@ -146,17 +149,17 @@ sequenceDiagram
     participant P as Parent (Clean)
     participant GC as Grandchild (Dirty)
     
-    Note over GP, GC: Leapfrog Merging
+    Note over GP, GC: Recursive Merging (Teleportation)
     
-    GC->>P: Check needs update? (No)
-    GC->>GP: Check needs update? (Yes)
+    GC->>P: Merge? (No, P not updating)
+    GC->>GP: Merge? (Yes, GP updating)
     
     GC->>GP: Register Merge
     
-    GP->>GP: Generate VDOM
-    Note right of GP: Traverse P (Clean) -> Expand GC (Dirty)
+    GP->>GP: Collect Payloads
     
-    GP->>GP: Result: { id: 'gp', cn: [{ id: 'p', cn: [{ id: 'gc', text: '...' }] }] }
+    GP->>GP: Result: { updates: { gp: {...}, gc: {...} } }
+    Note right of GP: P is skipped entirely
 ```
 
 ## The Promise Lifecycle
@@ -183,7 +186,7 @@ console.log('Update done (possibly merged)');
 | :--- | :--- | :--- |
 | **Parent style change, Child unchanged** | Re-renders Child by default (unless memoized). | Updates **only** Parent (Scoped Update). Child is a placeholder. |
 | **Parent + Child both changing** | Single render pass. Large payload. | Can **Merge** (atomic) OR **Parallelize** (disjoint). |
-| **Grandchild dirty, Parent clean** | Walks entire tree to find dirty node. | **Leapfrog Merge** (skips clean Parent entirely). |
+| **Grandchild dirty, Parent clean** | Walks entire tree to find dirty node. | **Teleportation** (Grandchild updates in batch, skipping Parent). |
 | **50 components updating** | 50 re-renders (unless batched). | **1 Transaction** (atomic paint via `setSilent`). |
 | **Multi-threaded environment** | Not designed for this. | Optimized for **Worker Bridge** traffic. |
 
@@ -220,5 +223,5 @@ This architecture becomes critical in two scenarios:
 | Feature | Default | Purpose | Logic |
 | :--- | :--- | :--- | :--- |
 | **Scoped Update** | `updateDepth: 1` | Performance, Parallelism | Update only self, use placeholders for children. |
-| **Merging** | Automatic | Optimization, Atomicity | Bundle child updates into parent if `dist <= depth`. |
+| **Teleportation** | Automatic | Optimization, Atomicity | Bundle child updates into parent batch (`updateBatch`). |
 | **Transaction** | `setSilent` | Coordinated State Changes | Manually queue updates, flush with `parent.update()`. |
