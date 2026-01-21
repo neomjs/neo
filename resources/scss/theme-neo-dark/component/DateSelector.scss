@@ -1,0 +1,24 @@
+:root .neo-theme-neo-dark { // .neo-dateselector
+    --dateselector-background-color              : rgba(0,0,0,0.5);
+    --dateselector-border-color                  : var(--sem-color-border-default);
+    --dateselector-cell-background-color         : var(--sem-color-surface-neutral-default);
+    --dateselector-cell-background-color-disabled: var(--sem-color-surface-disabled);
+    --dateselector-cell-color                    : var(--sem-color-text-neutral-default);
+    --dateselector-cell-color-disabled           : var(--sem-color-text-disabled);
+    --dateselector-cell-color-selected           : var(--sem-color-text-neutral-reversed);
+    --dateselector-cell-opacity-disabled         : 0.5;
+    --dateselector-cell-today-border-color       : var(--sem-color-border-focus);
+    --dateselector-color                         : var(--sem-color-text-neutral-default);
+    --dateselector-content-border-top            : none;
+    --dateselector-header-background-color       : var(--sem-color-surface-neutral-default);
+    --dateselector-header-border-bottom          : none;
+    --dateselector-header-cell-background-color  : var(--sem-color-surface-primary-default);
+    --dateselector-header-cell-border-bottom     : none;
+    --dateselector-header-cell-color             : var(--sem-color-text-neutral-reversed);
+    --dateselector-header-month-text-color       : var(--sem-color-text-neutral-default);
+    --dateselector-header-year-text-color        : var(--sem-color-text-primary-default);
+    --dateselector-nav-button-background-color   : var(--sem-color-surface-neutral-default);
+    --dateselector-nav-button-color              : var(--sem-color-icon-neutral-subdued);
+    --dateselector-nav-button-color-hover        : var(--sem-color-icon-primary-default);
+    --dateselector-nav-button-inner-border       : none;
+}

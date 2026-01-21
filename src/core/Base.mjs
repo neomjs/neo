@@ -206,11 +206,11 @@ class Base {
      */
     #remotesReadyResolver = null;
     /**
-     * Internal cache for all timeout ids when using this.timeout()
-     * @member {Number[]} timeoutIds=[]
+     * Internal cache for all async reject functions (timeouts, remote calls, promises).
+     * @member {Map<Number|Symbol, Function>} #asyncRejects=new Map()
      * @private
      */
-    #timeoutIds = []
+    #asyncRejects = new Map()
 
     /**
      * The main initializer for all Neo.mjs classes, invoked by `Neo.create()`.
@@ -296,8 +296,14 @@ class Base {
 
         // Triggers async logic after the construction chain is done.
         Promise.resolve().then(async () => {
-            await me.initAsync();
-            me.isReady = true
+            try {
+                await me.initAsync();
+                me.isReady = true
+            } catch (e) {
+                if (e !== Neo.isDestroyed) {
+                    throw e
+                }
+            }
         })
     }
 
@@ -510,9 +516,15 @@ class Base {
     destroy() {
         let me = this;
 
-        me.#timeoutIds.forEach(id => {
-            clearTimeout(id)
+        me.#asyncRejects.forEach((reject, id) => {
+            if (Neo.isNumber(id)) {
+                clearTimeout(id)
+            }
+
+            reject(Neo.isDestroyed)
         });
+
+        me.#asyncRejects.clear();
 
         me.#configSubscriptionCleanups.forEach(cleanup => {
             cleanup()
@@ -1086,12 +1098,57 @@ class Base {
      * @returns {Promise<any>}
      */
     timeout(time) {
-        return new Promise(resolve => {
-            let timeoutIds = this.#timeoutIds,
-                timeoutId  = setTimeout(() => {timeoutIds.splice(timeoutIds.indexOf(timeoutId), 1); resolve()}, time);
+        let me = this;
 
-            timeoutIds.push(timeoutId)
+        return new Promise((resolve, reject) => {
+            let id = setTimeout(() => {
+                me.unregisterAsync(id);
+                resolve()
+            }, time);
+
+            me.registerAsync(id, reject)
         })
+    }
+
+    /**
+     * Wraps a promise to ensure it rejects if the component is destroyed before completion.
+     * @param {Promise} promise - The promise to wrap.
+     * @returns {Promise}
+     */
+    trap(promise) {
+        let me = this;
+
+        return new Promise((resolve, reject) => {
+            const id = Symbol();
+
+            me.registerAsync(id, reject);
+
+            promise.then(val => {
+                me.unregisterAsync(id);
+                resolve(val)
+            }).catch(err => {
+                me.unregisterAsync(id);
+                reject(err)
+            })
+        })
+    }
+
+    /**
+     * Unregisters an async operation.
+     * @param {Number|Symbol} id - The unique ID for the async operation.
+     */
+    unregisterAsync(id) {
+        this.#asyncRejects.delete(id)
+    }
+
+    /**
+     * Registers an async operation (via its reject function) to be cancelled (rejected)
+     * when the component is destroyed.
+     * @param {Number|Symbol} id - The unique ID for the async operation.
+     * @param {Function} reject - The reject function of the promise.
+     */
+    registerAsync(id, reject) {
+        this.#asyncRejects.set(id, reject)
     }
 
     /**

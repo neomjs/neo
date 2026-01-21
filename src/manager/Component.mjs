@@ -76,11 +76,7 @@ class Component extends Manager {
 
                 if (component) {
                     componentId   = component.id;
-                    referenceNode = {componentId};
-
-                    if (componentId !== childNodeId) {
-                        referenceNode.id = childNodeId
-                    }
+                    referenceNode = {componentId, id: childNodeId}
                 }
             }
 
@@ -250,6 +246,28 @@ class Component extends Manager {
     }
 
     /**
+     * Returns the distance between a child and a parent component
+     * @param {String} childId
+     * @param {String} parentId
+     * @returns {Number} -1 if not found
+     */
+    getDistance(childId, parentId) {
+        let child    = this.get(childId),
+            distance = 0;
+
+        while (child?.parentId) {
+            distance++;
+
+            if (child.parentId === parentId) {
+                return distance
+            }
+            child = this.get(child.parentId)
+        }
+
+        return -1
+    }
+
+    /**
      * !! For debugging purposes only !!
      *
      * Get the first component based on the ntype or other properties
@@ -402,6 +420,25 @@ class Component extends Manager {
         }
 
         return parents
+    }
+
+    /**
+     * Checks if a component is a descendant of another component
+     * @param {String} childId
+     * @param {String} parentId
+     * @returns {Boolean}
+     */
+    hasParent(childId, parentId) {
+        let child = this.get(childId);
+
+        while (child?.parentId) {
+            if (child.parentId === parentId) {
+                return true
+            }
+            child = this.get(child.parentId)
+        }
+
+        return false
     }
 
     /**

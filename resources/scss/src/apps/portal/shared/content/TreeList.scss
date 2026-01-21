@@ -13,6 +13,16 @@
             .neo-list-item {
                 &:not(.neo-list-item[aria-selected=true]) {
                     background-color: transparent;
+
+                    &:hover {
+                        background-color: var(--list-item-background-color-hover);
+                        color           : var(--list-container-list-color);
+                    }
+                }
+
+                &[aria-selected=true]:hover {
+                    background-color: var(--list-item-background-color-selected);
+                    color           : var(--list-item-color-selected);
                 }
 
                 &.neo-list-item-leaf {
@@ -58,11 +68,12 @@
 
     .neo-list-container>.neo-list-item {
         font-size  : 18px !important;
-        font-weight: 500;
+        font-weight: 600;
     }
 
     .neo-list-item {
         border-radius   : 8px;
+        font-size       : 16px;
         margin-right    : 0 !important;
         padding         : 0 0 0 16px !important;
         height          : 48px;
@@ -76,6 +87,10 @@
             overflow      : hidden;
             text-overflow : ellipsis;
             white-space   : nowrap;
+
+            b {
+                color: var(--portal-treelist-bold-color, inherit);
+            }
         }
     }
 
@@ -92,7 +107,7 @@
     }
 
     .neo-list-folder {
-        font-weight: bold;
+        font-weight: 500;
 
         .neo-list-item-content {
             width           : 100%;
@@ -116,17 +131,25 @@
     }
 
     .release-date {
+        color       : var(--portal-treelist-meta-color, inherit);
         font-size   : 90%;
         margin-left : 5px;
-        opacity     : 0.8;
         position    : relative;
         top         : -1px;
     }
 
     .blog-date {
+        color       : var(--portal-treelist-meta-color, inherit);
         font-size   : 90%;
         margin-right: 5px;
-        opacity     : 0.8;
+        position    : relative;
+        top         : -1px;
+    }
+
+    .ticket-title {
+        color       : var(--portal-treelist-ticket-title-color, inherit);
+        font-size   : 90%;
+        margin-left : 5px;
         position    : relative;
         top         : -1px;
     }

@@ -16,7 +16,7 @@
     }
 
     .neo-h1 {
-        color      : #3e63dd !important;
+        color      : var(--portal-headline-primary) !important;
         font-family: "GT-Planar", sans-serif;
         font-size  : 4rem;
         line-height: 1.1;

@@ -1233,7 +1233,7 @@ class Component extends Abstract {
      * @returns {Promise<Neo.util.Rectangle|Neo.util.Rectangle[]>}
      */
     async getDomRect(id=this.id, windowId=this.windowId) {
-        let result = await Neo.main.DomAccess.getBoundingClientRect({id, windowId});
+        let result = await this.trap(Neo.main.DomAccess.getBoundingClientRect({id, windowId}));
 
         if (Array.isArray(result)) {
             return result.map(rect => Rectangle.clone(rect))
@@ -1395,7 +1395,7 @@ class Component extends Abstract {
                 value = parseFloat(value)
             } else if (lengthRE.test(value)) {
                 let {id, windowId} = this;
-                value = await Neo.main.DomAccess.measure({id, value, windowId})
+                value = await this.trap(Neo.main.DomAccess.measure({id, value, windowId}))
             } else if (!isNaN(value)) {
                 value = parseFloat(value)
             }

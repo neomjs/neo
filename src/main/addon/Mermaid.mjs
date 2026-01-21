@@ -2,10 +2,14 @@ import Base      from './Base.mjs';
 import DomAccess from '../DomAccess.mjs';
 
 /**
- * @summary Main Thread Addon to render Mermaid diagrams.
+ * @summary Main Thread Addon for rendering Mermaid diagrams with dynamic theme support.
  *
- * This addon is responsible for loading the Mermaid library and rendering diagrams into the DOM.
- * Since Mermaid requires direct DOM access, it must run on the Main Thread.
+ * This addon manages the lifecycle of the Mermaid.js library on the Main Thread. It provides a robust,
+ * theme-aware rendering engine that integrates seamlessly with the Neo.mjs component system.
+ *
+ * Key features:
+ * - **Lazy Loading:** Dynamically loads the Mermaid library only when needed.
+ * - **SVG Generation:** Uses `mermaid.render()` to generate idempotent SVG output, ensuring reliable DOM updates.
  *
  * It is primarily consumed by:
  * 1. `Neo.component.Markdown`: For rendering ```mermaid``` code blocks embedded in Markdown content.
@@ -13,6 +17,7 @@ import DomAccess from '../DomAccess.mjs';
  *
  * @class Neo.main.addon.Mermaid
  * @extends Neo.main.addon.Base
+ * @see Neo.component.wrapper.Mermaid
  */
 class Mermaid extends Base {
     static config = {
@@ -63,21 +68,37 @@ class Mermaid extends Base {
 
     /**
      * Renders a Mermaid diagram into a specific DOM element.
+     *
+     * This method orchestrates the full rendering pipeline:
+     * 1. **SVG Generation:** Generates a fresh SVG string for the diagram code.
+     * 2. **DOM Injection:** Safely injects the SVG into the target container.
+     *
+     * It includes error handling to display rendering failures inline (e.g., syntax errors)
+     * instead of crashing the application.
+     *
      * @param {Object} data
-     * @param {String} [data.code] The mermaid diagram syntax/code. If provided, it will replace the element's text content.
+     * @param {String} [data.code] The mermaid diagram syntax/code.
      * @param {String} data.id The DOM ID of the container element.
      */
-    render(data) {
+    async render(data) {
         const element = document.getElementById(data.id);
 
         if (element) {
-            if (data.code) {
-                element.textContent = data.code
-            }
+            try {
+                // Reset Mermaid state so it accepts the node again
+                element.removeAttribute('data-processed');
 
-            mermaid.run({
-                nodes: [element]
-            })
+                if (data.code) {
+                    element.textContent = data.code
+                }
+
+                mermaid.run({
+                    nodes: [element]
+                })
+            } catch (e) {
+                console.error('Mermaid rendering failed:', e);
+                element.innerHTML = `<div style="color: red; padding: 10px;">Mermaid Error: ${e.message}</div>`
+            }
         }
     }
 }

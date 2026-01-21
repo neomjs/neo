@@ -1,0 +1,13 @@
+:root .neo-theme-neo-dark { // .neo-calendar-weekcomponent
+    --c-w-background-color                  : var(--sem-color-bg-neutral-default);
+    --c-w-border-color                      : var(--sem-color-border-default);
+    --c-w-event-resizable-color             : var(--sem-color-border-focus);
+    --c-w-header-background-color           : var(--sem-color-surface-neutral-default);
+    --c-w-header-date-background-color-hover: var(--sem-color-bg-neutral-hover);
+    --c-w-header-date-color                 : var(--sem-color-text-neutral-default);
+    --c-w-header-date-color-hover           : var(--sem-color-text-neutral-default);
+    --c-w-header-day-color                  : var(--sem-color-text-neutral-subdued);
+    --c-w-header-today-background-color     : red;
+    --c-w-header-today-color                : var(--sem-color-text-neutral-contrast);
+    --c-w-weekend-background-color          : var(--sem-color-bg-subtle);
+}

@@ -8,18 +8,19 @@ import Component from '../component/Base.mjs';
  * while old characters fade out and new characters fade in.
  *
  * This effect is achieved using a two-phase process that leverages Neo.mjs's VDOM and rendering pipeline:
- * 1.  **Measurement Phase (`measureChars`):** When the text changes, the component first needs to know the exact
- *     final position of every character. It does this by briefly rendering all characters into a hidden
- *     `measure-element` div, getting their `DOMRect` values, and caching the results. This is a critical
- *     performance optimization that avoids layout thrashing.
- * 2.  **Animation Phase (`updateChars`):** With the character positions known, the component calculates the delta
- *     between the old and new text. It then manipulates the VDOM by applying CSS classes and styles to
- *     individual character `<span>` elements to trigger CSS transitions for movement and opacity.
+ * 1.  **Measurement Phase (`measureChars`):** When the text changes, the component determines the exact final
+ *     position of every character by briefly rendering them into a hidden `measure-element` div and retrieving
+ *     their `DOMRect` values. This ensures pixel-perfect transitions even when fonts or dimensions change.
+ * 2.  **Animation Phase (`updateChars`):** Using the measured positions, the component calculates the delta
+ *     between the old and new text. It manipulates the VDOM to apply CSS transforms for movement and opacity
+ *     to individual `<span>` elements.
  *
- * This component is a prime example of using the framework for complex, declarative, and performant animations.
- * It is useful for grabbing user attention on landing pages or for creating dynamic, keynote-style presentations.
+ * **SEO & Accessibility:**
+ * The component supports a `renderSeoList` config which injects a hidden, semantically correct `<ul>` containing
+ * all cycle texts. This ensures that search engines and screen readers can index and access the full content
+ * without being hindered by the visual animation DOM structure.
  *
- * Relevant concepts: `text animation`, `character transition`, `magic move`, `declarative animation`, `CSS transitions`.
+ * Relevant concepts: `text animation`, `character transition`, `magic move`, `declarative animation`, `CSS transitions`, `SEO`, `accessibility`.
  *
  * Deeply inspired by https://github.com/yangshun 's video on LinkedIn
  * as well as Apple's Keynote Magic Move effect.
@@ -50,13 +51,6 @@ class MagicMoveText extends Component {
          * @reactive
          */
         autoCycleInterval_: 2000,
-        /**
-         * The number of text cycles before the measurement cache is automatically cleared.
-         * Set to 0 to disable automatic clearing.
-         * @member {Number} cacheClearInterval_=10
-         * @reactive
-         */
-        cacheClearInterval_: 10,
         /**
          * @member {String[]} baseCls=['neo-magic-move-text']
          * @protected
@@ -96,15 +90,23 @@ class MagicMoveText extends Component {
          */
         transitionTime_: 500,
         /**
+         * Set to true to render a semantic `<ul>` containing all cycleTexts for SEO.
+         * @member {Boolean} renderSeoList_=false
+         * @reactive
+         */
+        renderSeoList_: false,
+        /**
          * The VDOM structure for the component, including a content area and a hidden measurement element.
          * @member {Object} _vdom
          * @protected
          */
         _vdom:
         {style: {}, cn: [
-            {cls: ['neo-content'], cn: []},
-            {cls: ['neo-measure-element-wrapper'], removeDom: true, cn: [
-                {cls: ['neo-measure-element'], cn:[]}
+            {ariaHidden: true, cn: [
+                {cls: ['neo-content'], cn: []},
+                {cls: ['neo-measure-element-wrapper'], removeDom: true, cn: [
+                    {cls: ['neo-measure-element'], cn:[]}
+                ]}
             ]}
         ]}
     }
@@ -140,12 +142,6 @@ class MagicMoveText extends Component {
      */
     contentWidth = 0
     /**
-     * Counter for the number of text cycles since the last cache clear.
-     * @member {Number} cycleCount=0
-     * @protected
-     */
-    cycleCount = 0
-    /**
      * The index of the string currently displayed from the `cycleTexts` array.
      * @member {Number} currentIndex=0
      * @protected
@@ -178,14 +174,6 @@ class MagicMoveText extends Component {
      */
     isTransitioning = false
     /**
-     * A performance-critical cache. Maps a text string to an array of `DOMRect` objects
-     * for each of its characters. This avoids costly DOM measurements if the same text is
-     * displayed again. It is invalidated when the component resizes or its font changes.
-     * @member {Object} measureCache={}
-     * @protected
-     */
-    measureCache = {}
-    /**
      * Stores the `chars` array from the *previous* text state. This is essential for calculating
      * the transition, as it's compared against the new `chars` array to determine which characters
      * need to move, fade in, or fade out.
@@ -208,7 +196,15 @@ class MagicMoveText extends Component {
      * @protected
      */
     get measureWrapper() {
-        return this.vdom.cn[1]
+        return this.vdom.cn[0].cn[1]
+    }
+    /**
+     * A getter for the visual content container.
+     * @member {Object} visualWrapper
+     * @protected
+     */
+    get visualWrapper() {
+        return this.vdom.cn[0].cn[0]
     }
 
     /**
@@ -280,8 +276,6 @@ class MagicMoveText extends Component {
     afterSetFontFamily(value, oldValue) {
         let me = this;
 
-        me.measureCache = {};
-
         me.vdom.style.fontFamily = value;
         me.update()
     }
@@ -304,7 +298,6 @@ class MagicMoveText extends Component {
                 me.contentWidth  = rect.width;
             })
         } else {
-            me.measureCache  = {};
             me.previousChars = []
         }
 
@@ -334,15 +327,6 @@ class MagicMoveText extends Component {
         }
 
         if (value) {
-            if (me.cacheClearInterval > 0) {
-                me.cycleCount++;
-
-                if (me.cycleCount >= me.cacheClearInterval) {
-                    me.measureCache = {};
-                    me.cycleCount   = 0
-                }
-            }
-
             try {
                 me.chars = [];
                 measureElement.cn = [];
@@ -356,21 +340,50 @@ class MagicMoveText extends Component {
                     await me.measureChars()
                 }
 
+                if (me.isDestroyed) return;
+
                 await me.updateChars()
             } catch (e) {
+                if (e === Neo.isDestroyed) return;
+
                 if (!me.isRetrying) {
                     me.isRetrying    = true;
-                    me.measureCache  = {};
                     me.previousChars = [];
 
                     // Reset a transitioning state
-                    me.vdom.cn[0].cn.length = 0;
+                    me.visualWrapper.cn.length = 0;
 
                     await me.afterSetText(value, oldValue)
                 }
             }
 
             me.isRetrying = false
+        }
+    }
+
+    /**
+     * Updates the VDOM to include or remove the SEO-friendly list.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetRenderSeoList(value, oldValue) {
+        let me = this;
+
+        if (value) {
+            if (!me.vdom.cn[1]) {
+                me.vdom.cn.push({
+                    tag: 'ul',
+                    cls: ['neo-seo-list'],
+                    cn : me.cycleTexts?.map(text => ({tag: 'li', text})) || []
+                });
+                me.update();
+            }
+        } else {
+            if (me.vdom.cn[1] && me.vdom.cn[1].cls.includes('neo-seo-list')) {
+                me.vdom.cn.pop();
+                me.update();
+            }
         }
     }
 
@@ -434,42 +447,38 @@ class MagicMoveText extends Component {
      */
     async measureChars() {
         let me = this,
-            {measureCache, measureElement, measureWrapper, text} = me,
+            {measureElement, measureWrapper} = me,
             parentRect, rects, rootRect;
 
-        if (measureCache[text] && measureCache[text].width === me.contentWidth && measureCache[text].height === me.contentHeight) {
-            rects      = [...measureCache[text].rects];
-            parentRect = rects.shift()
-        } else {
-            measureWrapper.style = {
-                height: me.contentHeight + 'px',
-                width : me.contentWidth  + 'px'
-            };
+        measureWrapper.style = {
+            height: me.contentHeight + 'px',
+            width : me.contentWidth  + 'px'
+        };
 
-            delete measureWrapper.removeDom;
+        delete measureWrapper.removeDom;
 
-            await me.promiseUpdate();
-            await me.timeout(20);
+        await me.promiseUpdate();
+        if (me.isDestroyed) return;
+        await me.timeout(20);
 
-            rects      = await me.getDomRect([me.id, measureWrapper.id, ...measureElement.cn.map(node => node.id)]);
-            rootRect   = rects.shift();
-            parentRect = rects.shift();
+        rects      = await me.getDomRect([me.id, measureWrapper.id, ...measureElement.cn.map(node => node.id)]);
+        if (me.isDestroyed) return;
+        rootRect   = rects.shift();
+        parentRect = rects.shift();
 
-            // Self-Correction: If the real DOM size differs from our expected size, we update and retry.
-            // We allow a small tolerance (2px) for sub-pixel rendering differences.
-            // We also check for > 0 to avoid zeroing out dimensions if the component is temporarily hidden.
-            if (rootRect.width > 0 && (Math.abs(rootRect.width - me.contentWidth) > 2 || Math.abs(rootRect.height - me.contentHeight) > 2)) {
-                me.contentWidth  = rootRect.width;
-                me.contentHeight = rootRect.height;
+        // Self-Correction: If the real DOM size differs from our expected size, we update and retry.
+        // We allow a small tolerance (2px) for sub-pixel rendering differences.
+        // We also check for > 0 to avoid zeroing out dimensions if the component is temporarily hidden.
+        if (rootRect.width > 0 && (Math.abs(rootRect.width - me.contentWidth) > 2 || Math.abs(rootRect.height - me.contentHeight) > 2)) {
+            me.contentWidth  = rootRect.width;
+            me.contentHeight = rootRect.height;
 
-                return me.measureChars()
-            }
+            return me.measureChars()
+        }
 
-            measureCache[text] = {
-                height: me.contentHeight,
-                rects : [parentRect, ...rects],
-                width : me.contentWidth
-            }
+        // Race condition guard: If text changed while we were measuring, me.chars might be out of sync.
+        if (rects.length !== me.chars.length) {
+            return
         }
 
         rects.forEach((rect, index) => {
@@ -493,8 +502,6 @@ class MagicMoveText extends Component {
 
         me.contentHeight = rect.height;
         me.contentWidth  = rect.width;
-
-        me.measureCache = {};
 
         if (!me.initialResizeEvent) {
             if (!me.isTransitioning) {
@@ -522,7 +529,6 @@ class MagicMoveText extends Component {
                 me.startAutoCycle(false)
             } else {
                 me.isRetrying    = false;
-                me.measureCache  = {};
                 me.previousChars = [];
 
                 me.startAutoCycle()
@@ -586,7 +592,7 @@ class MagicMoveText extends Component {
     async updateChars() {
         let me                     = this,
             {chars, previousChars} = me,
-            charsContainer         = me.vdom.cn[0],
+            charsContainer         = me.visualWrapper,
             letters                = chars.map(char => char.name),
             charNode, index;
 
@@ -594,7 +600,8 @@ class MagicMoveText extends Component {
 
         if (me.charsVdom.length > 1) {
             charsContainer.cn = me.charsVdom;
-            await me.promiseUpdate()
+            await me.promiseUpdate();
+            if (me.isDestroyed) return;
         }
 
         previousChars.forEach((previousChar, previousIndex) => {
@@ -620,6 +627,7 @@ class MagicMoveText extends Component {
         charsContainer.cn.push(...me.createCharsVdom(letters));
 
         await me.promiseUpdate();
+        if (me.isDestroyed) return;
 
         charsContainer.cn.forEach(charNode => {
             if (charNode.flag === 'remove') {
@@ -631,6 +639,7 @@ class MagicMoveText extends Component {
         });
 
         await me.promiseUpdate();
+        if (me.isDestroyed) return;
         await me.timeout(me.transitionTime);
 
         charsContainer.cn.sort(me.sortCharacters);
@@ -649,14 +658,10 @@ class MagicMoveText extends Component {
         }
 
         await me.promiseUpdate();
+        if (me.isDestroyed) return;
         await me.timeout(200);
 
         me.charsVdom = [...charsContainer.cn];
-
-        charsContainer.cn.length = 0;
-
-        charsContainer.cn.push({text: me.text});
-        await me.promiseUpdate();
 
         me.isTransitioning = false
     }

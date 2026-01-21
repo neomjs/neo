@@ -1,0 +1,10 @@
+:root .neo-theme-neo-dark { // .neo-accordion-item
+  --accordion-item-arrow-bg-color  : var(--sem-color-surface-neutral-active);
+  --accordion-item-arrow-shadow    : 0 4px 16px rgba(0 0 0 / .1);
+  --accordion-item-bg-color        : var(--sem-color-surface-neutral-highlighted);
+  --accordion-item-border-color    : var(--sem-color-border-default);
+  --accordion-item-content-bg-color: var(--sem-color-surface-neutral-default);
+  --accordion-item-header-height   : 50px;
+  --accordion-item-radius          : 5px;
+  --accordion-item-shadow          : 0 4px 16px rgba(0 0 0 / .1);
+}

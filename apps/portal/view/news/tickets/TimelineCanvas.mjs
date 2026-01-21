@@ -1,4 +1,4 @@
-import Canvas from '../../../../../src/component/Canvas.mjs';
+import SharedCanvas from '../../shared/Canvas.mjs';
 
 /**
  * @summary The "Coordinator" component for the Neural Timeline, bridging the App Worker and Canvas Worker.
@@ -12,9 +12,9 @@ import Canvas from '../../../../../src/component/Canvas.mjs';
  * It uses the `Portal.canvas.TicketCanvas` singleton (via Remote Method Access) to drive the actual animation.
  *
  * @class Portal.view.news.tickets.TimelineCanvas
- * @extends Neo.component.Canvas
+ * @extends Portal.view.shared.Canvas
  */
-class TimelineCanvas extends Canvas {
+class TimelineCanvas extends SharedCanvas {
     /**
      * @member {Object} delayable
      */
@@ -32,11 +32,13 @@ class TimelineCanvas extends Canvas {
          */
         className: 'Portal.view.news.tickets.TimelineCanvas',
         /**
-         * @member {Object} listeners
+         * @member {String} importMethodName='importTicketCanvas'
          */
-        listeners: {
-            resize: 'onResize'
-        },
+        importMethodName: 'importTicketCanvas',
+        /**
+         * @member {String} rendererClassName='Portal.canvas.TicketCanvas'
+         */
+        rendererClassName: 'Portal.canvas.TicketCanvas',
         /**
          * @member {Object} _vdom
          */
@@ -46,14 +48,6 @@ class TimelineCanvas extends Canvas {
         ]}
     }
 
-    /**
-     * @member {String} canvasId=null
-     */
-    canvasId = null
-    /**
-     * @member {Boolean} isCanvasReady=false
-     */
-    isCanvasReady = false
     /**
      * @member {Object[]} lastRecords=null
      */
@@ -86,34 +80,15 @@ class TimelineCanvas extends Canvas {
     async afterSetOffscreenRegistered(value, oldValue) {
         let me = this;
 
+        await super.afterSetOffscreenRegistered(value, oldValue);
+
         if (value) {
-            // Ensure the logic is loaded in the worker
-            await Portal.canvas.Helper.importTicketCanvas();
-
-            // Direct Remote Method Access call
-            await Portal.canvas.TicketCanvas.initGraph({canvasId: me.getCanvasId(), windowId: me.windowId});
-
-            me.isCanvasReady = true;
-
-            // Register ResizeObserver for the canvas wrapper (me.id)
-            Neo.main.addon.ResizeObserver.register({
-                id      : me.id,
-                windowId: me.windowId
-            });
-
-            // Initial sizing
-            await me.updateSize();
-
             // Initial load check
             let store = me.getStateProvider().getStore('sections');
 
             if (store.getCount() > 0) {
                 me.onTimelineDataLoad(store.items)
             }
-        } else if (oldValue) {
-            me.isCanvasReady = false;
-            // Stop the worker loop to prevent "Zombie Canvas" CPU usage
-            await Portal.canvas.TicketCanvas.clearGraph()
         }
     }
 
@@ -265,24 +240,10 @@ class TimelineCanvas extends Canvas {
                 }
             });
 
-            await Portal.canvas.TicketCanvas.updateGraphData({nodes, reset, startY})
+            await me.renderer.updateGraphData({nodes, reset, startY})
         } catch (e) {
             console.error('TimelineCanvas update failed', e)
         }
-    }
-
-    /**
-     * @param {Object|null} rect
-     * @returns {Promise<void>}
-     */
-    async updateSize(rect) {
-        let me = this;
-
-        if (!rect || rect.width === 0 || rect.height === 0) {
-            rect = await me.waitForDomRect({id: me.getCanvasId()})
-        }
-
-        await Portal.canvas.TicketCanvas.updateSize({width: rect.width, height: rect.height})
     }
 }
 

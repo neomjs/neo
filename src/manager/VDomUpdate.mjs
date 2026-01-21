@@ -15,6 +15,11 @@ import Collection from '../collection/Base.mjs';
  *    more focused data for the VDOM worker to process. While the amount of final DOM
  *    modifications remains the same, this aggregation is key to performance.
  *
+ *    **Teleportation (Disjoint Updates):** The manager now supports processing multiple
+ *    disjoint components in a single "Teleportation" batch. This allows deep descendants
+ *    to update in parallel with their ancestors without requiring the ancestor to "bridge"
+ *    the gap, eliminating O(N) overhead for deep updates.
+ *
  * 2. **Asynchronous Flow Control:** Manages the asynchronous nature of VDOM updates, which
  *    are often processed in a worker thread. It ensures that code awaiting an update
  *    (e.g., via a returned Promise) is correctly notified upon completion.
@@ -79,6 +84,20 @@ class VDomUpdate extends Collection {
     }
 
     /**
+     * A Map that tracks the in-flight update status of descendants for each component.
+     * This "Reverse Lookup" map allows ancestor components to check if any of their
+     * descendants are currently updating in O(1) time, without walking the tree downwards.
+     *
+     * Key: ancestorId, Value: Map<descendantId, true>
+     *
+     * This is crucial for the `VdomLifecycle.isChildUpdating` guard, which prevents
+     * race conditions where a parent update might clobber a concurrent child update.
+     *
+     * @member {Map<String, Map<String, Boolean>>} descendantInFlightMap=new Map()
+     * @protected
+     */
+    descendantInFlightMap = new Map()
+    /**
      * A Map that tracks VDOM updates that have been dispatched to the VDOM worker but
      * have not yet completed. This prevents redundant updates for the same component.
      *
@@ -137,19 +156,33 @@ class VDomUpdate extends Collection {
      * Executes all callbacks associated with a completed VDOM update for a given `ownerId`.
      * This method first processes callbacks for any children that were merged into this
      * update cycle, then executes the callbacks for the `ownerId` itself.
+     *
+     * **Teleportation / Batch Support:**
+     * The `processedChildIds` argument is crucial for Disjoint Updates. It ensures we only
+     * execute callbacks for children that were *actually* included in the VDOM payload.
+     * Children that were filtered out (e.g. due to collisions with a parent update) will
+     * NOT have their callbacks executed here; they will be handled by the covering parent's callback.
+     *
      * @param {String} ownerId The `id` of the component whose update has just completed.
      * @param {Object} [data]  Optional data to pass to the callbacks.
+     * @param {Set<String>|null} [processedChildIds] IDs of children actually included in this update.
      */
-    executeCallbacks(ownerId, data) {
+    executeCallbacks(ownerId, data, processedChildIds) {
         let me           = this,
             item         = me.mergedCallbackMap.get(ownerId),
             callbackData = data ? [data] : [];
 
-        if (item) {
-            item.children.forEach((value, key) => {
-                me.executePromiseCallbacks(key, ...callbackData)
+        if (item && processedChildIds) {
+            processedChildIds.forEach(childId => {
+                if (item.children.has(childId)) {
+                    me.executePromiseCallbacks(childId, ...callbackData);
+                    item.children.delete(childId)
+                }
             });
-            me.mergedCallbackMap.remove(item);
+
+            if (item.children.size === 0) {
+                me.mergedCallbackMap.remove(ownerId)
+            }
         }
 
         me.executePromiseCallbacks(ownerId, ...callbackData)
@@ -165,8 +198,10 @@ class VDomUpdate extends Collection {
         let me        = this,
             callbacks = me.promiseCallbackMap.get(ownerId);
 
-        callbacks?.forEach(callback => callback(data));
-        me.promiseCallbackMap.delete(ownerId);
+        if (callbacks) {
+            callbacks.forEach(callback => callback(data));
+            me.promiseCallbackMap.delete(ownerId);
+        }
     }
 
     /**
@@ -212,6 +247,17 @@ class VDomUpdate extends Collection {
     }
 
     /**
+     * Checks if a component has any descendants currently undergoing a VDOM update.
+     * This method is used by `VdomLifecycle` to detect potential race conditions
+     * before starting a parent update.
+     * @param {String} ownerId The component ID to check.
+     * @returns {Boolean} True if any descendant is in-flight.
+     */
+    hasInFlightDescendants(ownerId) {
+        return this.descendantInFlightMap.has(ownerId)
+    }
+
+    /**
      * Retrieves the `updateDepth` for a component's update that is currently in-flight.
      * @param {String} ownerId The `id` of the component owning the update.
      * @returns {Number|undefined} The update depth, or `undefined` if no update is in-flight.
@@ -221,15 +267,42 @@ class VDomUpdate extends Collection {
     }
 
     /**
-     * Returns a Set of child component IDs that have been merged into a parent's update cycle.
-     * This is used by the parent to know which children it is responsible for updating.
+     * Returns a Set of child component IDs that have been merged into a parent's update cycle,
+     * PLUS all intermediate "Bridge" components (ancestors) required to reach them.
+     *
+     * This set serves as an "AllowList" for TreeBuilder. When a parent updates with depth > 1,
+     * TreeBuilder will use this set to perform **Sparse Tree Generation**:
+     * 1. Components in this set are expanded (traversed).
+     * 2. Components NOT in this set are pruned (sent as placeholders), even if the depth allows expansion.
+     *
+     * This optimization allows clean siblings to be skipped, reducing payload size and enabling parallelism.
+     *
      * @param {String} ownerId The `id` of the parent component.
-     * @returns {Set<String>|null} A Set containing the IDs of the merged children, or `null`.
+     * @returns {Set<String>|null} A Set containing IDs of merged children AND bridge ancestors, or `null`.
      */
     getMergedChildIds(ownerId) {
         const item = this.mergedCallbackMap.get(ownerId);
+
         if (item) {
-            return new Set(item.children.keys())
+            const
+                ids = new Set(item.children.keys()),
+                owner = Neo.getComponent(ownerId);
+
+            // Add Bridge Paths: Walk up from each merged child to the owner
+            item.children.forEach((meta, childId) => {
+                if (meta.distance > 1) {
+                    let component = Neo.getComponent(childId);
+
+                    while (component && component.parentId && component.parentId !== ownerId) {
+                        component = Neo.getComponent(component.parentId);
+                        if (component) {
+                            ids.add(component.id)
+                        }
+                    }
+                }
+            });
+
+            return ids
         }
         return null
     }
@@ -241,13 +314,33 @@ class VDomUpdate extends Collection {
      * @param {Number} updateDepth The depth of the in-flight update.
      */
     registerInFlightUpdate(ownerId, updateDepth) {
-        this.inFlightUpdateMap.set(ownerId, updateDepth)
+        this.inFlightUpdateMap.set(ownerId, updateDepth);
+
+        // Register this component as an in-flight descendant for all its parents
+        const parentIds = Neo.manager.Component.getParentIds(Neo.getComponent(ownerId));
+
+        parentIds.forEach(parentId => {
+            let map = this.descendantInFlightMap.get(parentId);
+
+            if (!map) {
+                map = new Map();
+                this.descendantInFlightMap.set(parentId, map)
+            }
+
+            map.set(ownerId, true)
+        })
     }
 
     /**
      * Registers a child's update request to be merged into its parent's update cycle.
      * This is called by a child component when it determines it can delegate its update
-     * to an ancestor.
+     * to an ancestor (see `VdomLifecycle.mergeIntoParentUpdate`).
+     *
+     * **Merging Logic:**
+     * Merging reduces VDOM worker traffic by bundling multiple component updates into
+     * a single message. The child effectively "cancels" its own standalone update and
+     * piggybacks on the parent's pending update.
+     *
      * @param {String} ownerId          The `id` of the parent component that will own the merged update.
      * @param {String} childId          The `id` of the child component requesting the merge.
      * @param {Number} childUpdateDepth The update depth required by the child.
@@ -313,7 +406,20 @@ class VDomUpdate extends Collection {
      * @param {String} ownerId The `id` of the component owning the update.
      */
     unregisterInFlightUpdate(ownerId) {
-        this.inFlightUpdateMap.delete(ownerId)
+        this.inFlightUpdateMap.delete(ownerId);
+
+        // Remove this component from the in-flight descendant maps of all its parents
+        // We need to iterate all registered ancestors to ensure we catch cases where
+        // the component moved (re-parented) during the update.
+        this.descendantInFlightMap.forEach((map, parentId) => {
+            if (map.has(ownerId)) {
+                map.delete(ownerId);
+
+                if (map.size === 0) {
+                    this.descendantInFlightMap.delete(parentId)
+                }
+            }
+        })
     }
 }
 

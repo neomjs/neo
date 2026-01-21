@@ -1,0 +1,19 @@
+:root .neo-theme-neo-light {
+    --markdown-bg                   : #ffffff;
+    --markdown-blockquote-bg        : var(--gray-100);
+    --markdown-blockquote-border    : var(--sem-color-surface-primary-background);
+    --markdown-code-bg              : #f8f8f8;
+    --markdown-code-border          : lightgray;
+    --markdown-details-summary-color: #555555;
+    --markdown-details-icon-color   : #8ba6ff;
+    --markdown-h1-color             : #3e63dd;
+    --markdown-hr-border            : lightgray;
+    --markdown-lab-shadow           : 0 4px 8px 0 rgba(0, 0, 0, 0.2);
+    --markdown-lab-shadow-hover     : 0 8px 16px 0 rgba(0, 0, 0, 0.2);
+    --markdown-link-color           : #3e63dd;
+    --markdown-list-marker-color    : #3e63dd;
+    --markdown-pre-border           : lightgray;
+    --markdown-table-border         : lightgray;
+    --markdown-table-header-bg      : #f8f8f8;
+    --markdown-text-color           : var(--sem-color-text-neutral-default);
+}

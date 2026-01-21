@@ -1,8 +1,14 @@
 .portal-header-toolbar {
-    box-shadow: 0 5px 10px rgba(0,0,0,.3);
+    box-shadow: var(--portal-header-shadow);
     z-index   : 8;
 
-    .neo-button {
+    .neo-button.neo-button-ghost {
+        &:hover,
+        &:active {
+            background-color: transparent !important;
+            border-color    : transparent !important;
+        }
+
         &:not(:first-child) {
             margin-left: 10px;
         }
@@ -36,7 +42,7 @@
 
     .separate-bar {
         animation     : fade-in-animation 200ms linear;
-        box-shadow    : 0 5px 10px rgba(0,0,0,.3);
+        box-shadow    : var(--portal-header-shadow);
         flex-direction: column;
         position      : absolute;
         right         : 0;

@@ -1,0 +1,21 @@
+:root .neo-theme-neo-dark { // .neo-list-container
+    --list-container-background-color    : var(--sem-color-surface-neutral-default);
+    --list-container-border              : none;
+    --list-container-list-color          : var(--sem-color-text-neutral-default);
+
+    //Background Color
+    --list-item-background-color         : var(--cmp-list-item-surface-default);
+    --list-item-background-color-hover   : var(--cmp-list-item-surface-hover);
+    --list-item-background-color-active  : var(--cmp-list-item-surface-active);
+    --list-item-background-color-selected: var(--cmp-list-item-surface-selected);
+
+    //Text Color
+    --list-item-color-selected           : var(--sem-color-text-primary-default);
+
+    --list-item-focus-outline            : 3px solid var(--sem-color-border-focus);
+    --list-item-focus-outline-offset     : -1px;
+    --list-item-glyph-color              : var(--sem-color-icon-neutral-default);
+
+    --list-item-highlight-search-color   : red;
+    --list-item-padding                  : 5px;
+}

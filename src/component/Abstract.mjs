@@ -6,6 +6,7 @@ import Observable       from '../core/Observable.mjs';
 import VdomLifecycle    from '../mixin/VdomLifecycle.mjs';
 import VDomUpdate       from '../manager/VDomUpdate.mjs';
 import VNodeUtil        from '../util/VNode.mjs';
+import {isDescriptor}   from '../core/ConfigSymbols.mjs';
 
 const
     closestController   = Symbol.for('closestController'),
@@ -110,6 +111,17 @@ class Abstract extends Base {
          * @reactive
          */
         stateProvider_: null,
+        /**
+         * A map of config names and values to reset to when the component unmounts.
+         * @member {Object|null} unmountConfigs_={[isDescriptor]:true,merge:'deep',value:null}
+         * @example {activeIndex: null, value: ''}
+         * @reactive
+         */
+        unmountConfigs_: {
+            [isDescriptor]: true,
+            merge         : 'deep',
+            value         : null
+        },
         /**
          * The custom windowIs (timestamp) this component belongs to
          * @member {Number|null} windowId_=null
@@ -227,9 +239,16 @@ class Abstract extends Base {
                 // this component's own pending update cycle might be skipped or not yet triggered.
                 // We explicitly execute the callbacks here to ensure those pending promises are resolved immediately
                 // upon mount, preventing deadlocks where code awaits a VDOM update that effectively already happened.
-                VDomUpdate.executeCallbacks(me.id)
+                VDomUpdate.executeCallbacks(me.id, {
+                    deltas: [],
+                    vnode : me.vnode
+                })
             } else { // unmount
-                delete me._mountedPromise
+                delete me._mountedPromise;
+
+                if (me.unmountConfigs) {
+                    me.set(me.unmountConfigs)
+                }
             }
         }
     }

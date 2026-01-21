@@ -1,0 +1,19 @@
+:root .neo-theme-neo-dark {
+    --status-badge-align-items                      : center;
+    --status-badge-font-size                        : 11px;
+    --status-badge-font-family                      : var(--neo-font-family);
+    --status-badge-font-weight                      : 600;
+    --status-badge-line-height                      : 11px;
+    --status-badge-padding                          : 0px 5px 0px 5px;
+    --status-badge-state-alert-background-color     : var(--orange-700);
+    --status-badge-state-alert-text-color           : var(--white);
+    --status-badge-state-error-background-color     : var(--red-800);
+    --status-badge-state-error-text-color           : var(--red-100);
+    --status-badge-state-info-background-color      : var(--blue-800);
+    --status-badge-state-info-text-color            : var(--blue-100);
+    --status-badge-state-neutral-background-color   : var(--gray-700);
+    --status-badge-state-neutral-text-color         : var(--white);
+    --status-badge-state-success-background-color   : var(--green-800);
+    --status-badge-state-success-text-color         : var(--green-100);
+    --status-badge-transform                        : none;
+}

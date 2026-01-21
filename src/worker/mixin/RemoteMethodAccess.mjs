@@ -213,7 +213,13 @@ class RemoteMethodAccess extends Base {
                  *     reject?.()
                  * }).then(data => {...})
                  */
-                .catch(err => {console.error(err); me.reject(msg, err)})
+                .catch(err => {
+                    if (err !== Neo.isDestroyed) {
+                        console.error(err)
+                    }
+
+                    me.reject(msg, err)
+                })
                 .then(data => {me.resolve(msg, data)})
         } else {
             me.resolve(msg, out)

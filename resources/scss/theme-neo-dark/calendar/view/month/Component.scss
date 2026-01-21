@@ -1,0 +1,10 @@
+:root .neo-theme-neo-dark { // .neo-calendar-monthcomponent
+    --c-m-background-color        : var(--sem-color-bg-neutral-default);
+    --c-m-border-color            : var(--sem-color-border-default);
+    --c-m-day-name-color          : var(--sem-color-text-neutral-subdued);
+    --c-m-day-number-color        : var(--sem-color-text-neutral-default);
+    --c-m-month-name-color        : var(--sem-color-text-neutral-default);
+    --c-m-scroll-box-shadow       : 0 0 1.56em 0.78em var(--sem-color-bg-neutral-default), 0 0 3.9em 1.95em var(--sem-color-surface-primary-default);
+    --c-m-weekend-background-color: var(--sem-color-bg-subtle);
+    --c-m-year-color              : var(--sem-color-text-primary-default);
+}

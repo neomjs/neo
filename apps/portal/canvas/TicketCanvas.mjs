@@ -1,6 +1,7 @@
-import Base from '../../../src/core/Base.mjs';
+import Base from './Base.mjs';
 
 const
+    hasRaf         = typeof requestAnimationFrame === 'function',
     // Matches full hex codes (e.g., "#0033FF" or "0033FF")
     hexToRgbRegex  = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i,
     // Matches shorthand hex codes (e.g., "#03F" or "03F") for expansion
@@ -25,16 +26,26 @@ const PHYSICS = {
  * Key Visual Concepts:
  * 1. **The Spine**: A continuous, gradient-stroked line connecting all nodes.
  * 2. **The Pulse**: A "data packet" that travels along the spine.
- * 3. **Traffic Model Physics**: The pulse does not move at constant speed. It accelerates in empty space
- *    and decelerates when approaching nodes ("interest points"), creating a sense of "observing" the data.
+ * 3. **Dual-Point Physics**: The pulse Head and Tail are simulated as independent particles moving through the
+ *    speed field. This creates organic "Squash and Stretch" behavior: compressing when entering a node (Head slows, Tail fast)
+ *    and stretching when leaving (Head fast, Tail slow), without requiring complex constraints or causing visual artifacts.
  * 4. **Chameleon Effect**: The pulse dynamically changes its color to match the semantic color of the
  *    nearest node (e.g., Red for Bugs, Green for Features) as it passes by.
  *
  * @class Portal.canvas.TicketCanvas
- * @extends Neo.core.Base
+ * @extends Portal.canvas.Base
  * @singleton
  */
 class TicketCanvas extends Base {
+    static colors = {
+        dark : {
+            spine: ['rgba(62, 99, 221, 0.2)', 'rgba(64, 196, 255, 0.4)', 'rgba(62, 99, 221, 0.2)']
+        },
+        light: {
+            spine: ['rgba(150, 150, 150, 0.1)', 'rgba(150, 150, 150, 0.3)', 'rgba(150, 150, 150, 0.1)']
+        }
+    }
+
     static config = {
         /**
          * @member {String} className='Portal.canvas.TicketCanvas'
@@ -50,6 +61,7 @@ class TicketCanvas extends Base {
             app: [
                 'clearGraph',
                 'initGraph',
+                'setTheme',
                 'updateGraphData',
                 'updateSize'
             ]
@@ -58,29 +70,17 @@ class TicketCanvas extends Base {
          * @member {Boolean} singleton=true
          * @protected
          */
-        singleton: true
+        singleton: true,
+        /**
+         * @member {String} theme='light'
+         */
+        theme: 'light'
     }
 
-    /**
-     * @member {Number} animationId=null
-     */
-    animationId = null
     /**
      * @member {Number} baseSpeed=0.5
      */
     baseSpeed = 0.5
-    /**
-     * @member {String|null} canvasId=null
-     */
-    canvasId = null
-    /**
-     * @member {Object} canvasSize=null
-     */
-    canvasSize = null
-    /**
-     * @member {Object} context=null
-     */
-    context = null
     /**
      * @member {Number} lastFrameTime=0
      */
@@ -94,9 +94,9 @@ class TicketCanvas extends Base {
      */
     pulseY = 0
     /**
-     * @member {Function} renderLoop=this.render.bind(this)
+     * @member {Number} pulseBottom=100
      */
-    renderLoop = this.render.bind(this)
+    pulseBottom = 100
     /**
      * @member {Number} startY=0
      */
@@ -108,10 +108,10 @@ class TicketCanvas extends Base {
      */
     clearGraph() {
         let me = this;
-        me.nodes      = [];
-        me.context    = null; // This stops the render loop (see render() check)
-        me.canvasId   = null;
-        me.canvasSize = null
+        super.clearGraph();
+        me.nodes         = [];
+        me.lastFrameTime = 0;
+        me.pulseBottom   = 0
     }
 
     /**
@@ -144,6 +144,38 @@ class TicketCanvas extends Base {
     }
 
     /**
+     * Calculates the physics state (speed, nearest node) for a given Y position.
+     * This acts as the "Traffic Model" engine, determining the local speed limit based on proximity
+     * to nodes. Particles slow down near nodes (observation) and accelerate in empty space (travel).
+     *
+     * @param {Number} y
+     * @returns {Object} {speedModifier, nearNode, minDist}
+     */
+    getPhysics(y) {
+        let me       = this,
+            minDist  = Infinity,
+            nearNode = null;
+
+        me.nodes.forEach(node => {
+            let dist = Math.abs(y - node.y);
+            if (dist < minDist) {
+                minDist  = dist;
+                nearNode = node;
+            }
+        });
+
+        const {influenceRange, minMod, maxMod} = PHYSICS;
+        let speedModifier = maxMod;
+
+        if (minDist < influenceRange) {
+            let ratio = minDist / influenceRange;
+            speedModifier = minMod + (maxMod - minMod) * (ratio * ratio);
+        }
+
+        return {speedModifier, nearNode, minDist}
+    }
+
+    /**
      * Helper to parse hex to rgb
      * @param {String} hex
      * @returns {Object} {r,g,b}
@@ -163,41 +195,10 @@ class TicketCanvas extends Base {
     }
 
     /**
-     * Initializes the canvas context for the graph.
+     * Updates the graph with new timeline nodes.
+     * When `reset` is true, it hard-resets the physics simulation (positions and time) to prevent
+     * visual artifacts (jumping/flashing) when switching between different ticket contexts.
      *
-     * **Async Initialization Pattern:**
-     * The `OffscreenCanvas` is transferred from the main thread to the `CanvasWorker` asynchronously.
-     * We cannot guarantee it exists in `Neo.currentWorker.canvasWindowMap` at the moment this method is called.
-     * Therefore, we use a polling mechanism (`checkCanvas`) to wait for the transfer to complete before
-     * starting the render loop.
-     *
-     * @param {Object} opts
-     * @param {String} opts.canvasId
-     * @param {String} opts.windowId
-     */
-    initGraph({canvasId, windowId}) {
-        let me        = this,
-            hasChange = me.canvasId !== canvasId;
-
-        me.canvasId = canvasId;
-
-        // Wait for the canvas to be available in the worker map.
-        // The OffscreenCanvas is transferred asynchronously to the CanvasWorker,
-        // so we need to poll until it arrives.
-        const checkCanvas = () => {
-            const canvas = Neo.currentWorker.canvasWindowMap[canvasId]?.[windowId];
-
-            if (canvas) {
-                me.context = canvas.getContext('2d');
-                hasChange && me.renderLoop()
-            } else {
-                setTimeout(checkCanvas, 50)
-            }
-        };
-        checkCanvas()
-    }
-
-    /**
      * @param {Object} data
      * @param {Array}  data.nodes
      * @param {Boolean} [data.reset]
@@ -211,28 +212,14 @@ class TicketCanvas extends Base {
         }
 
         if (data.reset) {
-            me.pulseY = PHYSICS.pulseBounds
+            me.pulseY      = PHYSICS.pulseBounds;
+            me.pulseBottom = PHYSICS.pulseBounds + 100;
+            me.lastFrameTime = 0
         }
 
         // Ensure animation loop is running if we have data
         if (me.nodes.length > 0 && !me.animationId && me.context) {
             me.renderLoop()
-        }
-    }
-
-    /**
-     * @param {Object} size
-     * @param {Number} size.height
-     * @param {Number} size.width
-     */
-    updateSize(size) {
-        let me = this;
-
-        me.canvasSize = size;
-
-        if (me.context) {
-            me.context.canvas.width  = size.width;
-            me.context.canvas.height = size.height
         }
     }
 
@@ -249,7 +236,7 @@ class TicketCanvas extends Base {
     render() {
         let me = this;
 
-        if (!me.context) {
+        if (!me.canRender) {
             return
         }
 
@@ -274,29 +261,36 @@ class TicketCanvas extends Base {
         if (dt > 100) dt = 16;
 
         // 1. Calculate Physics
-        // "Traffic Model": We want the pulse to slow down when it passes "interesting" things (nodes)
-        // so the user has time to see the connection. It accelerates in the empty space between nodes.
-        let minDist   = Infinity,
-            nearNode  = null;
+        // "Dual-Point Physics": We simulate the Head and Tail of the pulse as independent particles
+        // moving through the "Traffic Model" speed field.
+        // - When Head hits a node (slow zone), it slows down. Tail (in fast zone) catches up. -> Squash.
+        // - When Head leaves a node, it speeds up. Tail (in slow zone) lags behind. -> Stretch.
+        // This creates organic, physically correct deformation without "retraction" glitches or artificial stalls.
 
-        me.nodes.forEach(node => {
-            let dist = Math.abs(me.pulseY - node.y);
-            if (dist < minDist) {
-                minDist  = dist;
-                nearNode = node;
-            }
-        });
+        const
+            physicsTop    = me.getPhysics(me.pulseY),
+            physicsBottom = me.getPhysics(me.pulseBottom),
+            {nearNode, minDist} = physicsTop; // Use Top for color/proximity logic to match original feel
 
-        // Speed Modifier logic
-        const {influenceRange, minMod, maxMod, pulseBounds} = PHYSICS;
+        // Apply Independent Velocities
+        me.pulseY      += me.baseSpeed * physicsTop.speedModifier    * dt;
+        me.pulseBottom += me.baseSpeed * physicsBottom.speedModifier * dt;
 
-        let speedModifier = maxMod;
-
-        if (minDist < influenceRange) {
-            // Parabolic easing for smooth deceleration/acceleration
-            let ratio = minDist / influenceRange;
-            speedModifier = minMod + (maxMod - minMod) * (ratio * ratio);
+        // Constraint: Minimum Length (e.g. 15px).
+        // While Dual-Point Physics naturally handles compression, extreme deceleration can theoretically
+        // cause the Head to move slower than the Tail for too long, inverting the pulse.
+        // This hard constraint preserves physical plausibility (matter cannot have negative length).
+        if (me.pulseBottom < me.pulseY + 15) {
+            me.pulseBottom = me.pulseY + 15
         }
+
+        // Wrap Around
+        if (me.pulseY > maxY - PHYSICS.pulseBounds) {
+            me.pulseY      = PHYSICS.pulseBounds;
+            me.pulseBottom = PHYSICS.pulseBounds + 100 // Reset length on loop
+        }
+
+        const pulseLength = me.pulseBottom - me.pulseY;
 
         // Color Interpolation (Chameleon Effect)
         // The pulse "absorbs" the color of the node it is currently passing.
@@ -315,25 +309,17 @@ class TicketCanvas extends Base {
 
         const pulseColorStr = `rgba(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)}`; // leaves alpha open
 
-        // Apply Velocity
-        me.pulseY += me.baseSpeed * speedModifier * dt;
-        if (me.pulseY > maxY - pulseBounds) {
-            me.pulseY = pulseBounds; // Restart above
-        }
-
-        // Dynamic Pulse Length
-        const
-            baseLength  = 100,
-            pulseLength = baseLength * (speedModifier * 0.8);
-
         // 2. Clear
         ctx.clearRect(0, 0, width, height);
 
         // 3. Draw Neural Connections (The "Spine")
-        const gradient = ctx.createLinearGradient(0, 0, 0, height);
-        gradient.addColorStop(0,   'rgba(150, 150, 150, 0.1)');
-        gradient.addColorStop(0.5, 'rgba(150, 150, 150, 0.3)');
-        gradient.addColorStop(1,   'rgba(150, 150, 150, 0.1)');
+        const
+            themeColors = me.constructor.colors[me.theme],
+            gradient    = ctx.createLinearGradient(0, 0, 0, height);
+
+        gradient.addColorStop(0,   themeColors.spine[0]);
+        gradient.addColorStop(0.5, themeColors.spine[1]);
+        gradient.addColorStop(1,   themeColors.spine[2]);
 
         ctx.strokeStyle = gradient;
         ctx.lineWidth   = 2;
@@ -395,15 +381,16 @@ class TicketCanvas extends Base {
                 nBottom = y + radius;
 
             if (pBottom > nTop && pTop < nBottom) {
-                const getProgress = (val) => {
-                    return Math.max(0, Math.min(1, (val - nTop) / (2 * radius)))
+                const getAngle = (val) => {
+                    let dy = val - y;
+                    // Clamp to radius to avoid NaN in asin
+                    dy = Math.max(-radius, Math.min(radius, dy));
+                    return Math.asin(dy / radius)
                 };
 
                 const
-                    startP    = getProgress(pTop),
-                    endP      = getProgress(pBottom),
-                    angleTail = -Math.PI / 2 + (startP * Math.PI),
-                    angleHead = -Math.PI / 2 + (endP * Math.PI);
+                    angleTail = getAngle(pTop),
+                    angleHead = getAngle(pBottom);
 
                 // Use the DYNAMIC color here too!
                 ctx.strokeStyle = `${pulseColorStr}, 1)`;
@@ -416,8 +403,8 @@ class TicketCanvas extends Base {
 
                 // Left Arc
                 const
-                    leftTail = -Math.PI/2 - (startP * Math.PI),
-                    leftHead = -Math.PI/2 - (endP * Math.PI);
+                    leftTail = Math.PI - angleTail,
+                    leftHead = Math.PI - angleHead;
 
                 ctx.beginPath();
                 ctx.arc(x, y, radius + 2, leftTail, leftHead, true);
@@ -425,8 +412,11 @@ class TicketCanvas extends Base {
             }
         });
 
-        // Loop using setTimeout (SharedWorkers do not support rAF)
-        setTimeout(me.renderLoop, 1000 / 60)
+        if (hasRaf) {
+            me.animationId = requestAnimationFrame(me.renderLoop)
+        } else {
+            me.animationId = setTimeout(me.renderLoop, 1000 / 60)
+        }
     }
 }
 

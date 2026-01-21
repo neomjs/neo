@@ -26,16 +26,30 @@ class Mermaid extends Component {
          */
         ntype: 'mermaid',
         /**
+         * @member {String[]} baseCls=['neo-mermaid']
+         */
+        baseCls: ['neo-mermaid'],
+        /**
+         * @member {String|null} mermaidTheme=null
+         */
+        mermaidTheme: null,
+        /**
+         * @member {Object} themeMap
+         */
+        themeMap: {
+            'neo-theme-cyberpunk': 'dark',
+            'neo-theme-dark'     : 'dark',
+            'neo-theme-light'    : 'default',
+            'neo-theme-neo-dark' : 'dark',
+            'neo-theme-neo-light': 'default'
+        },
+        /**
          * The mermaid diagram code.
          * Changing this value will automatically trigger a re-render of the diagram.
          * @member {String|null} value_=null
          * @reactive
          */
-        value_: null,
-        /**
-         * @member {Object} _vdom={cls: ['neo-mermaid']}
-         */
-        _vdom: {cls: ['neo-mermaid']}
+        value_: null
     }
 
     /**
@@ -59,6 +73,17 @@ class Mermaid extends Component {
         if (value) {
             this.render()
         }
+    }
+
+    /**
+     * Triggered after the theme config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetTheme(value, oldValue) {
+        super.afterSetTheme(value, oldValue);
+        this.render()
     }
 
     /**
@@ -104,8 +129,12 @@ class Mermaid extends Component {
         if (me.mounted && me.value) {
             await me.ready();
 
+            const
+                theme = me.mermaidTheme || me.themeMap[me.theme] || 'default',
+                code  = `---\nconfig:\n  theme: ${theme}\n---\n${me.value}`;
+
             await me.addon.render({
-                code    : me.value,
+                code,
                 id      : me.id,
                 windowId: me.windowId
             })

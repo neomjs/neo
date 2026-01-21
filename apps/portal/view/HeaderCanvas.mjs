@@ -1,5 +1,5 @@
-import Canvas           from '../../../src/component/Canvas.mjs';
 import ComponentManager from '../../../src/manager/Component.mjs';
+import SharedCanvas     from './shared/Canvas.mjs';
 
 /**
  * @summary The App Worker component for the HeaderToolbar canvas overlay.
@@ -15,10 +15,10 @@ import ComponentManager from '../../../src/manager/Component.mjs';
  * ensuring the main thread and App Worker remain unblocked.
  *
  * @class Portal.view.HeaderCanvas
- * @extends Neo.component.Canvas
+ * @extends Portal.view.shared.Canvas
  * @see Portal.canvas.HeaderCanvas
  */
-class HeaderCanvas extends Canvas {
+class HeaderCanvas extends SharedCanvas {
     static config = {
         /**
          * @member {String} className='Portal.view.HeaderCanvas'
@@ -35,30 +35,36 @@ class HeaderCanvas extends Canvas {
          */
         cls: ['portal-header-canvas'],
         /**
-         * @member {Object} listeners
+         * @member {String|null} hoverId_=null
+         * @reactive
          */
-        listeners: {
-            resize: 'onResize'
-        },
+        hoverId_: null,
         /**
-         * @member {Object} _vdom
+         * @member {String} importMethodName='importHeaderCanvas'
          */
-        _vdom:
-        {tag: 'canvas'}
+        importMethodName: 'importHeaderCanvas',
+        /**
+         * @member {String} rendererClassName='Portal.canvas.HeaderCanvas'
+         */
+        rendererClassName: 'Portal.canvas.HeaderCanvas'
     }
 
-    /**
-     * @member {String|null} canvasId=null
-     */
-    canvasId = null
-    /**
-     * @member {Boolean} isCanvasReady=false
-     */
-    isCanvasReady = false
     /**
      * @member {Object[]} navRects=null
      */
     navRects = null
+
+    /**
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     */
+    afterSetIsCanvasReady(value, oldValue) {
+        super.afterSetIsCanvasReady(value, oldValue);
+
+        if (value && this.activeId) {
+            this.renderer.updateActiveId({id: this.activeId})
+        }
+    }
 
     /**
      * Lifecycle hook triggered when the canvas is registered offscreen.
@@ -69,28 +75,10 @@ class HeaderCanvas extends Canvas {
      * @protected
      */
     async afterSetOffscreenRegistered(value, oldValue) {
-        let me = this;
+        await super.afterSetOffscreenRegistered(value, oldValue);
 
         if (value) {
-            await Portal.canvas.Helper.importHeaderCanvas();
-            await Portal.canvas.HeaderCanvas.initGraph({canvasId: me.getCanvasId(), windowId: me.windowId});
-
-            me.isCanvasReady = true;
-
-            Neo.main.addon.ResizeObserver.register({
-                id      : me.id,
-                windowId: me.windowId
-            });
-
-            await me.updateSize();
-            await me.updateNavRects();
-
-            if (me.activeId) {
-                await Portal.canvas.HeaderCanvas.updateActiveId({id: me.activeId})
-            }
-        } else if (oldValue) {
-            me.isCanvasReady = false;
-            await Portal.canvas.HeaderCanvas.clearGraph()
+            await this.updateNavRects()
         }
     }
 
@@ -100,67 +88,17 @@ class HeaderCanvas extends Canvas {
      */
     async afterSetActiveId(value, oldValue) {
         if (this.isCanvasReady) {
-            await Portal.canvas.HeaderCanvas.updateActiveId({id: value})
+            await this.renderer.updateActiveId({id: value})
         }
     }
 
     /**
-     * @returns {String}
+     * @param {String|null} value
+     * @param {String|null} oldValue
      */
-    getCanvasId() {
-        let me = this;
-
-        if (!me.canvasId) {
-            me.canvasId = me.id
-        }
-
-        return me.canvasId
-    }
-
-    /**
-     * Captures click events and forwards them to the Shared Worker to trigger shockwaves.
-     * @param {Object} data
-     */
-    onClick(data) {
-        let me = this;
-
-        if (me.isCanvasReady && me.canvasRect) {
-            Portal.canvas.HeaderCanvas.updateMouseState({
-                click: true,
-                x    : data.clientX - me.canvasRect.left,
-                y    : data.clientY - me.canvasRect.top
-            })
-        }
-    }
-
-    /**
-     * Resets the mouse state in the Shared Worker when the cursor leaves the canvas.
-     * @param {Object} data
-     */
-    onMouseLeave(data) {
+    async afterSetHoverId(value, oldValue) {
         if (this.isCanvasReady) {
-            Portal.canvas.HeaderCanvas.updateMouseState({leave: true})
-        }
-    }
-
-    /**
-     * Forwards mouse coordinates to the Shared Worker for interaction effects.
-     * Coordinates are normalized relative to the canvas top-left corner.
-     *
-     * @param {Object} data
-     */
-    onMouseMove(data) {
-        let me = this;
-
-        if (me.isCanvasReady) {
-            // We use the cached canvasRect to calculate relative coordinates
-            // without needing an async DOM read on every frame.
-            if (me.canvasRect) {
-                Portal.canvas.HeaderCanvas.updateMouseState({
-                    x: data.clientX - me.canvasRect.left,
-                    y: data.clientY - me.canvasRect.top
-                })
-            }
+            await this.renderer.updateHoverId({id: value})
         }
     }
 
@@ -169,9 +107,8 @@ class HeaderCanvas extends Canvas {
      * @param {Object} data
      */
     async onResize(data) {
-        let me = this;
-        await me.updateSize(data.contentRect);
-        await me.updateNavRects()
+        await super.onResize(data);
+        await this.updateNavRects()
     }
 
     /**
@@ -208,25 +145,8 @@ class HeaderCanvas extends Canvas {
                     }
                 }).filter(Boolean);
 
-                Portal.canvas.HeaderCanvas.updateNavRects({rects: me.navRects})
+                me.renderer.updateNavRects({rects: me.navRects})
             }
-        }
-    }
-
-    /**
-     * Updates the canvas size in the Shared Worker.
-     * @param {Object|null} rect
-     */
-    async updateSize(rect) {
-        let me = this;
-
-        if (!rect || rect.width === 0 || rect.height === 0) {
-            rect = await me.getDomRect(me.id)
-        }
-
-        if (rect) {
-            me.canvasRect = rect; // Cache for mouse events
-            await Portal.canvas.HeaderCanvas.updateSize({width: rect.width, height: rect.height})
         }
     }
 }

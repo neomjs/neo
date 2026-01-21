@@ -1,10 +1,10 @@
 .portal-news-tickets-component {
     .neo-badge {
         align-items     : center;
-        background-color: #eff1f3; // Default fallback
-        border          : 1px solid rgba(0, 0, 0, 0.1);
+        background-color: var(--gh-badge-bg); // Default fallback
+        border          : 1px solid var(--gh-badge-border);
         border-radius   : 2em;
-        color           : #24292f;
+        color           : var(--gh-text-primary);
         display         : inline-flex;
         font-size       : 12px;
         font-weight     : 500;
@@ -14,16 +14,16 @@
 
         &.neo-state-badge {
             border-radius: 2em;
-            color        : #ffffff;
+            color        : var(--gh-text-inverse);
             gap          : 6px;
             padding      : 2px 10px 2px 8px;
 
             &.neo-state-closed {
-                background-color : #8250df;
+                background-color : var(--gh-state-closed-bg);
             }
 
             &.neo-state-open {
-                background-color: #2da44e;
+                background-color: var(--gh-state-open-bg);
             }
         }
     }
@@ -59,11 +59,11 @@
 
             i {
                 &.fa-circle-check {
-                    color: #2da44e; // GitHub success green
+                    color: var(--gh-state-open-bg); // GitHub success green
                 }
 
                 &.fa-circle {
-                    color: #8c959f; // GitHub muted grey
+                    color: var(--gh-icon-muted); // GitHub muted grey
                 }
             }
         }
@@ -85,7 +85,7 @@
         // Vertical Line
         &::before {
             display: none; // Hiding it, since we use the canvas animation now
-            background-color: #d0d7de;
+            background-color: var(--gh-border-default);
             bottom          : 0;
             content         : '';
             left            : 30px;
@@ -107,8 +107,8 @@
             &.event {
                 .neo-timeline-badge {
                     align-items     : center;
-                    background      : #eff1f3;
-                    border          : 2px solid #fff; // visual gap from line
+                    background      : var(--gh-badge-bg);
+                    border          : 2px solid var(--gh-bg-default); // visual gap from line
                     border-radius   : 50%;
                     display         : flex;
                     height          : 28px;
@@ -122,18 +122,18 @@
                     z-index         : 1;
 
                     i {
-                        color    : #57606a;
+                        color    : var(--gh-text-secondary);
                         font-size: 14px;
                     }
                 }
 
                 .neo-timeline-body {
-                    color      : #57606a;
+                    color      : var(--gh-event-text-color);
                     font-size  : 13px;
                     padding-top: 2px;
 
                     .neo-timeline-user {
-                        color          : #24292f;
+                        color          : var(--gh-text-primary);
                         cursor         : pointer;
                         font-weight    : 600;
                         text-decoration: none;
@@ -144,8 +144,8 @@
                     }
                 }
 
-                &.purple .neo-timeline-badge i { color: #8250df; }
-                &.green  .neo-timeline-badge i { color: #2da44e; }
+                &.purple .neo-timeline-badge i { color: var(--gh-state-closed-bg); }
+                &.green  .neo-timeline-badge i { color: var(--gh-state-open-bg); }
             }
 
             &.comment {
@@ -160,15 +160,15 @@
                     z-index : 1;
 
                     img {
-                        border       : 2px solid #fff;
+                        border       : 2px solid var(--gh-bg-default);
                         border-radius: 50%;
                         width        : 100%;
                     }
                 }
 
                 .neo-timeline-content {
-                    background   : white;
-                    border       : 1px solid #d0d7de;
+                    background   : var(--gh-bg-default);
+                    border       : 1px solid var(--gh-timeline-border);
                     border-radius: 6px;
                     position     : relative;
 
@@ -186,31 +186,31 @@
 
                     &::after {
                         border-color      : rgba(255, 255, 255, 0);
-                        border-right-color: #f6f8fa;
+                        border-right-color: var(--gh-bg-subtle);
                         border-width      : 7px;
                         margin-top        : -7px;
                     }
 
                     &::before {
                         border-color      : rgba(208, 215, 222, 0);
-                        border-right-color: #d0d7de;
+                        border-right-color: var(--gh-timeline-border);
                         border-width      : 8px;
                         margin-top        : -8px;
                     }
 
                     .neo-timeline-header {
                         align-items     : center;
-                        background-color: #f6f8fa;
-                        border-bottom   : 1px solid #d0d7de;
+                        background-color: var(--gh-bg-subtle);
+                        border-bottom   : 1px solid var(--gh-timeline-border);
                         border-radius   : 6px 6px 0 0;
-                        color           : #57606a;
+                        color           : var(--gh-header-text-color);
                         display         : flex;
                         font-size       : 13px;
                         justify-content : space-between;
                         padding         : 8px 16px;
 
                         .neo-timeline-user {
-                            color          : #24292f;
+                            color          : var(--gh-text-primary);
                             cursor         : pointer;
                             font-weight    : 600;
                             margin-right   : 8px;

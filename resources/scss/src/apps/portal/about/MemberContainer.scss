@@ -19,7 +19,7 @@
         }
 
         .portal-profile-location {
-            color       : #777;
+            color       : var(--portal-member-location-color);
             font-family : "Font Awesome 7 Free";
             font-style  : normal;
             font-weight : 600;

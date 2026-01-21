@@ -29,6 +29,10 @@ class HeaderToolbar extends Base {
             click     : 'onButtonClick',
             mouseleave: 'onMouseLeave',
             mousemove : {fn: 'onMouseMove', local: true}
+        }, {
+            mouseenter: 'onButtonMouseEnter',
+            mouseleave: 'onButtonMouseLeave',
+            delegate  : '.neo-button'
         }],
         /**
          * @member {Object} itemDefaults
@@ -77,18 +81,19 @@ class HeaderToolbar extends Base {
             },
 
             items: [{
-                iconCls: 'fa-brands fa-github',
-                url    : 'https://github.com/neomjs/neo',
+                handler: 'onSwitchTheme',
+                iconCls: 'fa-solid fa-moon',
+                reference: 'theme-switch-button',
                 tooltip: {
-                    text     : 'GitHub',
+                    text     : 'Switch Theme',
                     showDelay: 0,
                     hideDelay: 0
                 }
             }, {
-                iconCls: 'fa-brands fa-slack',
-                url    : 'https://join.slack.com/t/neomjs/shared_invite/zt-6c50ueeu-3E1~M4T9xkNnb~M_prEEOA',
+                iconCls: 'fa-brands fa-github',
+                url    : 'https://github.com/neomjs/neo',
                 tooltip: {
-                    text     : 'Join Slack',
+                    text     : 'GitHub',
                     showDelay: 0,
                     hideDelay: 0
                 }

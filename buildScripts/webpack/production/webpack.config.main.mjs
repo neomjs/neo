@@ -12,9 +12,12 @@ const cwd            = process.cwd(),
       buildTarget    = requireJson(path.resolve(neoPath, 'buildScripts/webpack/production/buildTarget.json')),
       filenameConfig = requireJson(path.resolve(neoPath, 'buildScripts/webpack/json/build.json')),
       entry          = {main: path.resolve(neoPath, filenameConfig.mainInput)},
-      copyFolder     = path.resolve(neoPath, 'buildScripts/copyFolder.mjs'),
+      copyFolder     = path.resolve(neoPath, 'buildScripts/util/copyFolder.mjs'),
+      defConfigFrom  = path.resolve(neoPath, 'src/DefaultConfig.mjs'),
+      defConfigTo    = path.resolve(cwd, buildTarget.folder, 'DefaultConfig.mjs'),
       faFrom         = path.resolve(cwd, 'node_modules/@fortawesome/fontawesome-free'),
       faTo           = path.resolve(cwd, buildTarget.folder, 'resources/fontawesome-free'),
+      minifyFile     = path.resolve(neoPath, 'buildScripts/util/minifyFile.mjs'),
       nodeCmd        = os.platform().startsWith('win') ? 'node.exe' : 'node',
       plugins        = [];
 
@@ -41,6 +44,16 @@ export default {
     entry,
     target: 'web',
 
+    experiments: {
+        outputModule: true
+    },
+
+    externals: {
+        './DefaultConfig.mjs': './DefaultConfig.mjs'
+    },
+
+    externalsType: 'module',
+
     plugins: [
         // Only for the non workspace based build scope, we have to ignore workspace related addons.
         // This might be a fit for webpack.ContextExclusionPlugin, but I did not get it working.
@@ -54,7 +67,10 @@ export default {
             }
         }),
         new WebpackHookPlugin({
-            onBuildEnd: [`${nodeCmd} ${copyFolder} -s ${faFrom} -t ${faTo}`]
+            onBuildEnd: [
+                `${nodeCmd} ${copyFolder} -s ${faFrom} -t ${faTo}`,
+                `${nodeCmd} ${minifyFile} ${defConfigFrom} ${defConfigTo}`
+            ]
         }),
         ...plugins
     ],
@@ -62,7 +78,8 @@ export default {
     output: {
         chunkFilename: 'chunks/main/[id].js',
         filename     : filenameConfig.mainOutput,
+        library      : {type: 'module'},
         path         : path.resolve(cwd, buildTarget.folder),
-        publicPath   : ''
+        publicPath   : 'auto'
     }
 };

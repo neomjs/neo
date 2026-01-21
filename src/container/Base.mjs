@@ -716,18 +716,19 @@ class Container extends Component {
      * @returns {Promise<Object[]>}
      */
     async loadItems({options={}, url}) {
-        let response   = await fetch(url, options),
-            remoteData = await response.json();
+        let me         = this,
+            response   = await me.trap(fetch(url, options)),
+            remoteData = await me.trap(response.json());
 
         if (remoteData.modules?.length > 0) {
-            await Promise.all(remoteData.modules.map(modulePath => {
+            await me.trap(Promise.all(remoteData.modules.map(modulePath => {
                 // Adjust relative URLs
                 if (!modulePath.startsWith('http')) {
                     modulePath = (Neo.config.environment === 'development' ? '../../' : '../../../../') + modulePath
                 }
 
                 return import(/* webpackIgnore: true */ modulePath)
-            }))
+            })))
         }
 
         return remoteData.items

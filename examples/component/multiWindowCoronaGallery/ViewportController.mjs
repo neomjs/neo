@@ -93,9 +93,8 @@ class ViewportController extends Controller {
             {appName, windowId} = data;
 
         if (appName === 'GalleryControls') {
-            me.getReference('header-toolbar').hidden = false;
-
-            me.component.add(me.getReference('controls-panel'))
+            me.component.add(me.getReference('controls-panel'));
+            me.getReference('header-toolbar').hidden = false
         }
         // Close popup windows when closing or reloading the main window
         else if (appName === 'Neo.examples.component.multiWindowCoronaGallery') {

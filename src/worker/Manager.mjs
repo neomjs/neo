@@ -147,6 +147,19 @@ class Manager extends Base {
 
         !Neo.insideWorker && me.createWorkers();
 
+        if (navigator.serviceWorker) {
+            // Bind the message handler globally to ensure even "unmanaged" apps (those not using the SW addon)
+            // can receive critical recovery commands (like 'reloadWindow') from the Service Worker.
+            //
+            // CRITICAL: We must bind this even if Neo.config.useServiceWorker is false.
+            // Scenario: User visits App A (uses SW), then navigates to App B (no SW). The SW from App A
+            // *still controls* App B (if in scope). If App B hits a version mismatch (404), the SW will
+            // send a 'reloadWindow' command. App B must be listening to execute this recovery command,
+            // otherwise it will crash with a blank page.
+            navigator.serviceWorker.onmessage = me.onWorkerMessage.bind(me);
+            me.checkServiceWorkerVersion()
+        }
+
         Neo.setGlobalConfig = me.setGlobalConfig.bind(me);
         Neo.workerId        = 'main';
 
@@ -175,6 +188,40 @@ class Manager extends Base {
                 me.sendMessage(name, msg)
             }
         })
+    }
+
+    /**
+     * Proactively checks if the controlling Service Worker's version matches the client's version.
+     * This is the primary defense against "Zombie Apps" (stale client code running against a new Service Worker).
+     *
+     * If a mismatch is detected, it forces a hard reload to fetch fresh assets.
+     * Includes a throttle mechanism (via sessionStorage) to prevent infinite reload loops in case of persistent mismatches.
+     *
+     * @returns {Promise<void>}
+     */
+    async checkServiceWorkerVersion() {
+        if (navigator.serviceWorker?.controller) {
+            let swVersion = await this.promiseMessage('service', {
+                action: 'getVersion'
+            });
+
+            if (swVersion?.version && swVersion.version !== Neo.config.version) {
+                const
+                    key        = 'neoVersionReload',
+                    lastReload = parseInt(sessionStorage.getItem(key) || '0'),
+                    now        = Date.now();
+
+                if (now - lastReload < 5000) {
+                    console.error('Reload loop detected. Aborting version enforcement.');
+                    return
+                }
+
+                sessionStorage.setItem(key, String(now));
+
+                console.error(`Version Mismatch! Client: ${Neo.config.version}, SW: ${swVersion.version}. Reloading.`);
+                location.reload(true)
+            }
+        }
     }
 
     /**
@@ -273,8 +320,9 @@ class Manager extends Base {
     detectFeatures() {
         let me = this;
 
-        NeoConfig.hasMouseEvents = matchMedia('(pointer:fine)').matches;
-        NeoConfig.hasTouchEvents = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+        NeoConfig.hasMouseEvents   = matchMedia('(pointer:fine)').matches;
+        NeoConfig.hasTouchEvents   = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+        NeoConfig.prefersDarkTheme = matchMedia('(prefers-color-scheme: dark)').matches;
 
         // Useful for styling
         document.body.classList.add(NeoConfig.hasMouseEvents ? 'neo-mouse' : 'neo-no-mouse');

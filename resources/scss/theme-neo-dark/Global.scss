@@ -1,0 +1,68 @@
+@use "design-tokens/all";
+
+:root .neo-theme-neo-dark {
+    --neo-background-color: var(--sem-color-bg-neutral-default);
+    --neo-color           : var(--sem-color-text-neutral-default);
+    --neo-disabled-opacity: 0.5;
+    --neo-font-family     : 'Source Sans 3', sans-serif;
+    --neo-font-smoothing  : antialiased;
+
+    h1 {
+        color           : var(--sem-color-fg-neutral-contrast);
+        font-family     : var(--core-fontfamily-sans);
+        font-size       : var(--core-fontsize-h1);
+        font-weight     : var(--core-fontweight-semibold);
+        letter-spacing  : -0.02em;
+        line-height     : var(--core-lineheight-headline);
+    }
+
+    h2 {
+        color           : var(--sem-color-fg-neutral-contrast);
+        font-family     : var(--core-fontfamily-sans);
+        font-size       : var(--core-fontsize-h2);
+        font-weight     : var(--core-fontweight-semibold);
+        letter-spacing  : -0.02em;
+        line-height     : var(--core-lineheight-headline);
+    }
+
+    h3 {
+        color           : var(--sem-color-fg-neutral-contrast);
+        font-family     : var(--core-fontfamily-sans);
+        font-size       : var(--core-fontsize-h3);
+        font-weight     : var(--core-fontweight-semibold);
+        letter-spacing  : -0.02em;
+        line-height     : var(--core-lineheight-headline);
+    }
+
+    p {
+        color           : var(--white-off);
+        font-family     : var(--core-fontfamily-sans);
+        font-size       : var(--core-fontsize-body);
+        font-weight     : var(--core-fontweight-regular);
+        line-height     : var(--core-lineheight-paragraph);
+    }
+
+    i, em {
+        font-style: italic;
+    }
+
+    code {
+        &:not(.hljs) {
+            background-color: var(--sem-color-surface-primary-background);
+            border          : 1px solid var(--sem-color-border-subtle);
+            border-radius   : 4px;
+            color           : var(--sem-color-fg-neutral-contrast);
+            font-family     : var(--core-fontfamily-mono);
+            font-size       : 14px;
+            font-weight     : var(--core-fontweight-regular);
+            line-height     : var(--core-lineheight-headline);
+            padding         : 2px 0.3em;
+        }
+    }
+
+    mark {
+        background-color: var(--green-900);
+        color           : var(--white);
+        padding         : 0.1em 0.2em;
+    }
+}

@@ -49,14 +49,24 @@ class TreeBuilder extends Base {
                     childDepth;
 
                 if (currentItem.componentId) {
-                    // Prune the branch only if we are at the boundary AND the child is not part of a merged update
-                    if (depth === 1 && !mergedChildIds?.has(currentItem.componentId)) {
-                        output[childKey].push({...currentItem, neoIgnore: true});
-                        return // Stop processing this branch
+                    const component = ComponentManager.get(currentItem.componentId);
+
+                    // Sparse Tree Generation & Scoped Updates
+                    // We prune the branch (send a placeholder) if:
+                    // 1. We are at the depth boundary (depth === 1) AND it's not a merged update.
+                    // 2. We are in a Merged Update (mergedChildIds exists) AND this component is not in the AllowList (not dirty/bridge).
+                    // Exception: We never prune if depth is -1 (Full Tree) or if the component is not mounted yet.
+                    if (depth !== -1 && component?.vnode) {
+                        const isExpandable = mergedChildIds?.has(currentItem.componentId);
+
+                        if ((depth === 1 && !isExpandable) || (mergedChildIds && !isExpandable)) {
+                            output[childKey].push({...currentItem, neoIgnore: true});
+                            return // Stop processing this branch
+                        }
                     }
-                    // Expand the branch if it's part of a merged update, or if the depth requires it
-                    else if (depth > 1 || depth === -1 || mergedChildIds?.has(currentItem.componentId)) {
-                        const component = ComponentManager.get(currentItem.componentId);
+
+                    // Expand the branch if it's part of a merged update, or if the depth requires it, OR if the vnode is missing
+                    if (depth > 1 || depth === -1 || mergedChildIds?.has(currentItem.componentId) || !component?.vnode) {
                         // Use the correct tree type based on the childKey
                         const componentTree = childKey === 'cn' ? component?.vdom : component?.vnode;
                         if (componentTree) {

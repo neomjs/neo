@@ -1,6 +1,7 @@
 .neo-markdown-component {
-    background-color: white;
+    background-color: var(--markdown-bg);
     border-radius   : 8px;
+    color           : var(--markdown-text-color);
     letter-spacing  : 1px;
     margin          : 0 auto;
     max-width       : 1200px;
@@ -14,12 +15,12 @@
     }
 
     a {
-        color: #3E63DD;;
+        color: var(--markdown-link-color);
     }
 
     blockquote {
-        background-color: var(--gray-100);
-        border-left     : 4px solid var(--sem-color-surface-primary-background);
+        background-color: var(--markdown-blockquote-bg);
+        border-left     : 4px solid var(--markdown-blockquote-border);
         font-style      : italic;
         margin-left     : 0;
         margin-right    : 0;
@@ -50,7 +51,7 @@
 
     details summary {
         align-items: center;
-        color      : #555;
+        color      : var(--markdown-details-summary-color);
         cursor     : pointer;
         display    : flex;
         font-weight: bold;
@@ -62,7 +63,7 @@
     }
 
     details summary::before {
-        color      : #c4c4c4;
+        color      : var(--markdown-details-icon-color);
         content    : "\f055";
         font-family: var(--fa-style-family, "Font Awesome 7 Free");
         font-size  : 1em;
@@ -72,7 +73,7 @@
     }
 
     h1.neo-h1 {
-        color: #3E63DD;
+        color: var(--markdown-h1-color);
     }
 
     h2.neo-h2,
@@ -86,12 +87,12 @@
 
     hr {
         border    : 0;
-        border-top: 1px solid lightgray;
+        border-top: 1px solid var(--markdown-hr-border);
         margin    : 2rem 0;
     }
 
     .lab {
-        box-shadow   : 0 4px 8px 0 rgba(0, 0, 0, 0.2);
+        box-shadow   : var(--markdown-lab-shadow);
         font-size    : 1em;
         margin-bottom: 1em;
         padding      : 2px 16px;
@@ -99,12 +100,12 @@
 
         &:hover {
             /* On mouse-over, add a deeper shadow */
-            box-shadow: 0 8px 16px 0 rgba(0, 0, 0, 0.2);
+            box-shadow: var(--markdown-lab-shadow-hover);
         }
     }
 
     li::marker {
-        color: #3E63DD;
+        color: var(--markdown-list-marker-color);
     }
 
     p {
@@ -113,8 +114,8 @@
 
     pre code.language-text {
         &:not(.hljs) {
-            background-color: #F8F8F8;
-            border          : thin solid lightgray;
+            background-color: var(--markdown-code-bg);
+            border          : thin solid var(--markdown-code-border);
             display         : block;
             font-size       : 13px;
             overflow-x      : auto;
@@ -124,7 +125,7 @@
     }
 
     pre.hljs {
-        border        : thin solid lightgray;
+        border        : thin solid var(--markdown-pre-border);
         border-radius : 4px;
         letter-spacing: 0;
         overflow-x    : scroll;
@@ -137,7 +138,7 @@
 
     .neo-frontmatter-table,
     > table {
-        border         : 1px solid lightgray;
+        border         : 1px solid var(--markdown-table-border);
         border-collapse: separate;
         border-radius  : 4px;
         border-spacing : 0;
@@ -146,8 +147,8 @@
         width          : 100%;
 
         th, td {
-            border-bottom: 1px solid lightgray;
-            border-right : 1px solid lightgray;
+            border-bottom: 1px solid var(--markdown-table-border);
+            border-right : 1px solid var(--markdown-table-border);
             padding      : 8px 12px;
             text-align   : left;
         }
@@ -162,7 +163,7 @@
         }
 
         th {
-            background-color: #f8f8f8;
+            background-color: var(--markdown-table-header-bg);
             font-weight     : bold;
         }
     }

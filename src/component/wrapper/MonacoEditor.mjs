@@ -121,7 +121,12 @@ class MonacoEditor extends Base {
          * @member {String|String[]} value_=''
          * @reactive
          */
-        value_: ''
+        value_: '',
+        /**
+         * @member {Boolean} useThemeAwareness_=true
+         * @reactive
+         */
+        useThemeAwareness_: true
     }
 
     /**
@@ -285,6 +290,16 @@ class MonacoEditor extends Base {
     }
 
     /**
+     * Triggered after the useThemeAwareness config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetUseThemeAwareness(value, oldValue) {
+        value && this.afterSetTheme(this.theme, null)
+    }
+
+    /**
      * Triggered after the value config got changed
      * @param {String|String[]} value
      * @param {String|String[]} oldValue
@@ -299,6 +314,18 @@ class MonacoEditor extends Base {
                 value   : me.stringifyValue(me.value),
                 windowId: me.windowId
             })
+        }
+    }
+
+    /**
+     * Triggered after the theme config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetTheme(value, oldValue) {
+        if (this.useThemeAwareness && value) {
+            this.editorTheme = value.includes('dark') ? 'vs-dark' : 'vs'
         }
     }
 

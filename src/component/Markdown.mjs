@@ -4,7 +4,7 @@ import IdGenerator from '../core/IdGenerator.mjs';
 import {marked}    from '../../node_modules/marked/lib/marked.esm.js';
 
 const
-    regexFrontMatter  = /^---\n([\s\S]*?)\n---\n/,
+    regexFrontMatter  = /^---\r?\n([\s\S]*?)\r?\n---\r?\n/,
     regexLabClose     = /<!--\s*\/lab\s*-->/g,
     regexLabOpen      = /<!--\s*lab\s*-->/g,
     regexLivePreview  = /```(javascript|html|css|json)\s+live-preview\s*\n([\s\S]*?)\n\s*```/g,
@@ -20,9 +20,11 @@ const
  * This component provides a declarative way to display Markdown within a Neo.mjs application.
  * It encapsulates the rendering logic and styling, ensuring consistency across different views.
  *
- * It supports:
+ * **Key Architectural Features:**
  * - **Reactive Content**: Updates automatically when the `value` config changes.
- * - **Interactive Elements**: Properly mounts and manages embedded Neo.mjs components (`live-preview`, `neo-component`).
+ * - **Multi-Pass Compilation**: Uses a sophisticated pipeline to extract, process, and re-inject dynamic content (components, live previews).
+ * - **Lazy Loading**: Dynamically imports heavy dependencies (like the Mermaid wrapper) only when needed, optimizing initial bundle size.
+ * - **Targeted Updates**: efficiently propagates theme changes to embedded components without re-parsing the entire markdown document.
  * - **Lifecycle Management**: Handles the destruction of embedded components when this component is destroyed.
  *
  * @class Neo.component.Markdown
@@ -99,6 +101,25 @@ class Markdown extends Component {
     afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
         this.updateComponentState(value)
+    }
+
+    /**
+     * Triggered after the theme config got changed.
+     *
+     * **Optimization:**
+     * Instead of triggering a full re-render (which would re-parse the markdown and destroy/recreate all components),
+     * this method performs a **Targeted Component Update**. It iterates over all active embedded components
+     * (like LivePreviews or Mermaid diagrams) and updates their `theme` config directly.
+     *
+     * This ensures smooth transitions and maintains the state of components that support dynamic theming.
+     *
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetTheme(value, oldValue) {
+        super.afterSetTheme(value, oldValue);
+        this.activeComponents.forEach(component => component.theme = value)
     }
 
     /**
@@ -449,13 +470,17 @@ class Markdown extends Component {
      * This method implements a **multi-pass compilation strategy** to overcome the limitations of standard Markdown parsers
      * when dealing with dynamic content and asynchronous operations:
      *
-     * 1.  **Extraction Pass**: It first scans the raw markdown to extract `neo-component` and `live-preview` blocks. These are
-     *     replaced with placeholder DIVs. This prevents the Markdown parser from mangling the JSON/code configurations.
-     * 2.  **Highlighting Pass**: It asynchronously processes `readonly` code blocks using HighlightJS. Since `marked.js` is synchronous,
-     *     we must handle this pre-processing step to support syntax highlighting.
-     * 3.  **Parsing Pass**: The transformed content (with placeholders and highlighted code) is converted to HTML using `marked.parse`.
-     * 4.  **Injection Pass**: Finally, it iterates over the extracted component maps (`neoComponents`, `neoDivs`) and instantiates
-     *     the actual Neo.mjs components, rendering them into the placeholder DIVs within the generated HTML.
+     * 1.  **Extraction Pass**: It first scans the raw markdown to extract `neo-component`, `mermaid`, and `live-preview` blocks.
+     *     These are replaced with placeholder DIVs to protect them from the markdown parser.
+     * 2.  **Highlighting Pass**: It asynchronously processes `readonly` code blocks using HighlightJS.
+     * 3.  **Parsing Pass**: The transformed content is converted to HTML using `marked.parse`.
+     * 4.  **Injection Pass**: It iterates over the extracted component maps (`neoComponents`, `neoDivs`, `mermaidDivs`) and instantiates
+     *     the actual Neo.mjs components into the placeholders.
+     *
+     * **Lazy Loading Optimization:**
+     * Heavy dependencies like the `Mermaid` wrapper and `LivePreview` editor are imported dynamically via `await import()`
+     * only when their respective blocks are detected. This minimizes the initial bundle size.
+     *
      * @param {Object} data
      * @param {String} data.code
      * @returns {Promise<Object>}
@@ -472,6 +497,7 @@ class Markdown extends Component {
                 autoInitVnode  : true,
                 autoMount      : true,
                 parentComponent: me.parentComponent,
+                theme          : me.theme,
                 windowId
             },
             html, instance;
@@ -538,14 +564,18 @@ class Markdown extends Component {
         }
 
         if (Object.keys(mermaidDivs).length > 0) {
-            const Mermaid = await Neo.currentWorker.getAddon('Mermaid', windowId);
+            const MermaidModule = await import('./wrapper/Mermaid.mjs');
+            const MermaidClass  = MermaidModule.default;
 
             Object.keys(mermaidDivs).forEach(key => {
-                Mermaid.render({
-                    code: mermaidDivs[key],
-                    id  : key,
-                    windowId
-                })
+                instance = Neo.create({
+                    ...baseConfigs,
+                    module  : MermaidClass,
+                    parentId: key,
+                    theme   : me.theme,
+                    value   : mermaidDivs[key]
+                });
+                me.activeComponents.push(instance)
             })
         }
 

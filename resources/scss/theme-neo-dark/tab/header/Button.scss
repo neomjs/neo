@@ -1,0 +1,40 @@
+:root .neo-theme-neo-dark { // .neo-tab-header-button
+    --tab-button-background-color               : var(--cmp-tab-unselected-bg-default);
+    --tab-button-background-color-active        : var(--cmp-tab-unselected-bg-active);
+    --tab-button-background-color-disabled      : transparent;
+    --tab-button-background-color-hover         : var(--cmp-tab-unselected-bg-hover);
+    --tab-button-background-image               : none;
+    --tab-button-background-image-bottom        : none;
+    --tab-button-background-image-left          : none;
+    --tab-button-background-image-pressed       : none;
+    --tab-button-background-image-pressed-bottom: none;
+    --tab-button-background-image-pressed-left  : none;
+    --tab-button-background-image-pressed-right : none;
+    --tab-button-background-image-right         : none;
+    --tab-button-border                         : none;
+    --tab-button-border-bottom                  : none;
+    --tab-button-border-bottom-pressed          : none;
+    --tab-button-border-pressed                 : none;
+    --tab-button-border-radius                  : var(--cmp-tab-borderradius);
+    --tab-button-gap                            : 0;
+    --tab-button-glyph-color                    : var(--sem-color-fg-neutral-subdued);
+    --tab-button-glyph-color-active             : inherit;
+    --tab-button-glyph-color-hover              : inherit;
+    --tab-button-glyph-color-pressed            : inherit;
+    --tab-button-height                         : var(--cmp-tab-height);
+    --tab-button-height-pressed                 : var(--cmp-tab-height);
+    --tab-button-margin-bottom                  : 0;
+    --tab-button-padding                        : 7px var(--cmp-tab-spacinghorizontal) 6px;
+    --tab-button-text-color                     : var(--sem-color-fg-neutral-subdued);
+    --tab-button-text-font-size                 : var(--sem-typo-label-regular-fontSize);
+    --tab-button-text-transform                 : uppercase;
+
+    // custom overrides
+    .neo-tab-header-button.neo-button {
+        .pressed {
+            .neo-button-glyph, .neo-button-text {
+                color: var(--sem-color-fg-neutral-contrast);
+            }
+        }
+    }
+}

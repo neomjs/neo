@@ -6,14 +6,15 @@ labels:
   - enhancement
   - help wanted
   - good first issue
+  - stale
   - hacktoberfest
   - ai
 assignees: []
 createdAt: '2025-10-06T10:34:36Z'
-updatedAt: '2025-10-22T22:51:27Z'
+updatedAt: '2026-01-21T03:13:23Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7388'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: 7385
 subIssues: []
 subIssuesCompleted: 0
@@ -47,4 +48,9 @@ This ticket is for defining the new interactive development workflow that levera
 Hello @tobiu, I’d like to take up this issue. Could you please assign it to me?
 Also, it’s my first time contributing here, so any quick guidance would be really helpful. Thanks!
 
+### @github-actions - 2026-01-21T03:13:22Z
+
+This issue is stale because it has been open for 90 days with no activity.
+
+- 2026-01-21T03:13:23Z @github-actions added the `stale` label
 

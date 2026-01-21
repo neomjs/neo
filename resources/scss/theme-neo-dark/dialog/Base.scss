@@ -1,0 +1,16 @@
+:root .neo-theme-neo-dark { // .neo-dialog
+    --dialog-border-color: var(--sem-color-border-default);
+    --dialog-box-shadow  : 0 5px 10px rgba(0,0,0,.8);
+    --dialog-header-color: var(--sem-color-text-primary-default);
+    --dialog-icon-color  : var(--sem-color-icon-primary-default);
+
+    .neo-dialog {
+        .neo-header-toolbar {
+            .neo-button {
+                background-color: transparent;
+                height          : unset;
+                min-width       : unset;
+            }
+        }
+    }
+}

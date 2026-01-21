@@ -17,7 +17,7 @@
 
     @media (max-width: 640px) {
         .sidenav-container {
-            box-shadow: 0 5px 10px rgba(0,0,0,.3);
+            box-shadow: var(--portal-sidenav-shadow);
             height    : 100%;
             left      : -350px;
             overflow  : visible;
@@ -30,8 +30,8 @@
             }
 
             .sidenav-button {
-                background-color: #fff;
-                box-shadow      : 0 5px 10px rgba(0,0,0,.3);
+                background-color: var(--portal-sidenav-btn-bg);
+                box-shadow      : var(--portal-sidenav-shadow);
                 display         : flex;
                 height          : 35px;
                 min-width       : 35px;

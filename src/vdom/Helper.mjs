@@ -28,7 +28,8 @@ class Helper extends Base {
         remote: {
             app: [
                 'create',
-                'update'
+                'update',
+                'updateBatch'
             ]
         },
         /**
@@ -301,6 +302,11 @@ class Helper extends Base {
                 if (me.isMovedNode(childNode, oldVnodeMap)) {
                     me.moveNode({deltas, insertDelta, oldVnodeMap, vnode: childNode, vnodeMap})
                 } else {
+                    if (childNode.neoIgnore) {
+                        delete childNode.neoIgnore;
+                        continue
+                    }
+
                     me.insertNode({deltas, index: i + insertDelta, oldVnodeMap, vnode: childNode, vnodeMap})
                 }
 
@@ -769,6 +775,35 @@ class Helper extends Base {
         deltas = deltas.default.concat(deltas.remove);
 
         return {deltas, updateVdom: true, vnode}
+    }
+
+    /**
+     * Processes a map of updates sequentially and aggregates the results.
+     * This method is the core of the "Teleportation" / Disjoint Updates architecture.
+     * Instead of building a single bridged VDOM tree, we process multiple components
+     * as separate, disjoint updates in a single batch.
+     *
+     * @param {Object} data
+     * @param {Object} data.updates A map of update config objects: {componentId: updateOpts}
+     * @returns {Object} { deltas: Object[], vnodes: Object }
+     */
+    updateBatch(data) {
+        let me        = this,
+            allDeltas = [],
+            vnodes    = {},
+            result;
+
+        Object.entries(data.updates).forEach(([id, updateOpts]) => {
+            result = me.update(updateOpts);
+            allDeltas.push(...result.deltas);
+            vnodes[id] = result.vnode;
+        });
+
+        return {
+            deltas    : allDeltas,
+            updateVdom: true,
+            vnodes
+        }
     }
 }
 

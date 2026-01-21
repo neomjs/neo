@@ -28,6 +28,10 @@ export default env => {
         entry,
         target: 'webworker',
 
+        experiments: {
+            outputModule: true
+        },
+
         plugins: [
             new webpack.ContextReplacementPlugin(/.*/, context => {
                 if (!insideNeo && context.context.includes('/src/worker')) {
@@ -47,7 +51,9 @@ export default env => {
                 }
             },
 
-            path: path.resolve(cwd, buildTarget.folder)
+            library   : {type: 'module'},
+            path      : path.resolve(cwd, buildTarget.folder),
+            publicPath: 'auto'
         }
     }
 };

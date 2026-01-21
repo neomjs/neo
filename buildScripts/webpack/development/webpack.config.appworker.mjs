@@ -40,7 +40,7 @@ export default env => {
             childProcess;
 
         if (fs.existsSync(inputPath)) {
-            childProcess = spawnSync('node', [`${neoPath}/buildScripts/copyFolder.mjs -s ${inputPath} -t ${outputPath}`], cpOpts);
+            childProcess = spawnSync('node', [`${neoPath}/buildScripts/util/copyFolder.mjs -s ${inputPath} -t ${outputPath}`], cpOpts);
             childProcess.status && process.exit(childProcess.status);
         }
     };
@@ -146,6 +146,10 @@ export default env => {
         entry : {app: path.resolve(neoPath, './src/worker/App.mjs')},
         target: 'webworker',
 
+        experiments: {
+            outputModule: true
+        },
+
         plugins: [
             new webpack.ContextReplacementPlugin(/.*/, context => {
                 let con = context.context;
@@ -161,7 +165,9 @@ export default env => {
         output: {
             chunkFilename: 'chunks/app/[id].js',
             filename     : filenameConfig.workers.app.output,
-            path         : path.resolve(cwd, buildTarget.folder)
+            library      : {type: 'module'},
+            path         : path.resolve(cwd, buildTarget.folder),
+            publicPath   : 'auto'
         },
 
         module: {

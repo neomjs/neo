@@ -5,14 +5,15 @@ state: OPEN
 labels:
   - documentation
   - enhancement
+  - stale
   - ai
 assignees:
   - tobiu
 createdAt: '2025-10-22T22:48:26Z'
-updatedAt: '2025-10-22T22:48:26Z'
+updatedAt: '2026-01-21T03:13:21Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7614'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
@@ -40,4 +41,9 @@ To provide clear, up-to-date documentation for the project's ticket management s
 - 2025-10-22T22:48:27Z @tobiu added the `documentation` label
 - 2025-10-22T22:48:27Z @tobiu added the `enhancement` label
 - 2025-10-22T22:48:27Z @tobiu added the `ai` label
+### @github-actions - 2026-01-21T03:13:21Z
+
+This issue is stale because it has been open for 90 days with no activity.
+
+- 2026-01-21T03:13:21Z @github-actions added the `stale` label
 

@@ -61,7 +61,13 @@ class NewsTabContainer extends TabContainer {
                 route  : '/news/releases',
                 text   : 'Release Notes'
             }
-        }]
+        }],
+        /**
+         * @member {Object} unmountConfigs={activeIndex: null}
+         */
+        unmountConfigs: {
+            activeIndex: null
+        }
     }
 }
 

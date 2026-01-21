@@ -1,0 +1,17 @@
+@use "sass:color";
+
+:root .neo-theme-neo-dark { // .neo-table-body
+    --table-cell-background-color-hover                    : var(--sem-color-surface-neutral-hover);
+    --table-cell-ismodified-color                          : orange;
+    --table-cell-ismodified-size                           : 10px;
+    --table-cellmodel-selected-cell-background-color       : var(--sem-color-surface-primary-default);
+    --table-cellmodel-selected-cell-color                  : var(--sem-color-text-neutral-reversed);
+    --table-cellmodel-selected-column-cell-background-color: var(--sem-color-surface-primary-active);
+    --table-cellmodel-selected-column-cell-color           : var(--sem-color-text-neutral-reversed);
+    --table-cellrowmodel-selected-cell-background-color    : var(--sem-color-surface-primary-default);
+    --table-cellrowmodel-selected-cell-color               : var(--sem-color-text-neutral-reversed);
+    --table-cellrowmodel-selected-row-cell-background-color: var(--sem-color-surface-primary-active);
+    --table-cellrowmodel-selected-row-cell-color           : var(--sem-color-text-neutral-reversed);
+    --table-rowmodel-selected-cell-background-color        : var(--sem-color-surface-primary-default);
+    --table-rowmodel-selected-cell-color                   : var(--sem-color-text-neutral-reversed);
+}

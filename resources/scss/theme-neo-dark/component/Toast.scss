@@ -1,0 +1,9 @@
+:root .neo-theme-neo-dark { // .neo-toast
+    --toast-background-color        : var(--sem-color-surface-neutral-highlighted);
+    --toast-color                   : var(--sem-color-text-neutral-default);
+    --toast-danger-background-color : var(--red-900);
+    --toast-danger-color            : var(--red-100);
+    --toast-shadow-color            : rgba(0, 0, 0, 0.5);
+    --toast-success-background-color: var(--green-900);
+    --toast-success-color           : var(--green-100);
+}

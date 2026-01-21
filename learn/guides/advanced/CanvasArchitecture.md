@@ -28,7 +28,7 @@ We wanted to create a visually rich, interactive background for the Portal heade
 To solve this, we used a split architecture that leverages the unique strengths of different threads.
 
 ```mermaid
-graph TD
+flowchart TD
     User(User Interaction) --> Main
     Main(Main Thread: DOM/Input)
     App(App Worker: Orchestrator)
@@ -201,7 +201,11 @@ if (distX < span) {
 }
 ```
 
-### 4. Active State Visualization ("Energy Surge")
+## Semantic State Visualization
+
+A key innovation in the Header Canvas is the use of the canvas itself to provide semantic feedback for UI states (Active and Hover), replacing traditional CSS effects. This creates a deeply integrated "living UI".
+
+### 1. The "Energy Surge" (Active State)
 A semantic highlighting effect that makes the currently active navigation item glow.
 
 **Implementation Challenge:**
@@ -211,20 +215,24 @@ We needed to highlight the active section *without* disrupting the flow or addin
 We use a **Multi-Pass Rendering** technique. After the main stream is drawn, we perform a second pass that draws *only* the segment of the stream corresponding to the active item's position.
 *   **Visuals:** This segment is drawn with `strokeStyle: 'white'` (simulating heat) and a high `shadowBlur` (glow).
 *   **Animation:** We apply a faster alpha oscillation ("nervous pulse") to this segment, making the energy feel "excited" compared to the calm rest of the stream.
-*   **Performance:** We reuse the *same* geometry buffers (`waveBuffers`) calculated for the main stream, meaning this effect has **zero additional physics cost**.
+*   **Zero-Cost Physics:** We reuse the *same* geometry buffers (`waveBuffers`) calculated for the main stream. No new physics are run.
 
 ```javascript
-// drawActiveOverlay()
-// 1. Determine index range for active item
-const startI = Math.floor(rect.x / step);
-const endI   = Math.ceil((rect.x + rect.width) / step);
+// drawActiveOverlay(ctx, width)
+// 1. Find the active rect (Zero-Allocation: use for-loop)
+for (const r of me.navRects) {
+    if (r.id === me.activeId) {
+        rect = r;
+        break;
+    }
+}
 
 // 2. Set "Energy" styles
-ctx.shadowBlur  = 20;
-ctx.shadowColor = '#FFFFFF';
 ctx.strokeStyle = '#FFFFFF';
+ctx.shadowBlur  = 20;
+ctx.globalAlpha = 0.6 + (Math.sin(me.time * 3) * 0.2); // Fast pulse
 
-// 3. Draw only that segment using existing buffers
+// 3. Draw segment (Inline loop to avoid closures)
 ctx.beginPath();
 ctx.moveTo(startI * step, bufA[startI]);
 for (let i = startI + 1; i <= endI; i++) {
@@ -233,7 +241,28 @@ for (let i = startI + 1; i <= endI; i++) {
 ctx.stroke();
 ```
 
-### 5. Shockwaves
+### 2. The "Preview Glow" (Hover State)
+We replaced the standard CSS `background-color` hover effect with a canvas-based glow. This solves contrast issues (ghost buttons on complex backgrounds) and reinforces the visual theme.
+
+*   **Bridge Pattern:** The `HeaderToolbar` (App Worker) captures `mouseenter` events and updates the `hoverId` in the `HeaderCanvas` (Shared Worker).
+*   **Visual Distinction:** Unlike the Active state (White, Pulsing), the Hover state is drawn in **Cyan** (Theme Highlight) with a **Static Alpha** (No Pulse). This clearly distinguishes "current location" from "interaction focus".
+*   **Priority:** The Hover effect is drawn *after* the Active effect, ensuring interaction feedback is always visible.
+
+```javascript
+// drawHoverOverlay(ctx, width)
+// ... find rect ...
+
+// Hover Style: Cyan, Static
+ctx.strokeStyle = themeColors.hover; // e.g. Cyan
+ctx.shadowBlur  = 15;
+ctx.globalAlpha = 1; // No pulse = Stable feedback
+
+// Edge Handling:
+// Special logic clamps the drawing range near the canvas edge to prevent visual artifacts.
+endX = Math.min(width - 3, rect.x + rect.width + pad);
+```
+
+## Shockwaves
 Interactive pulses triggered by clicks. They displace the waves and repel particles.
 
 **Implementation:**
@@ -251,15 +280,22 @@ if (Math.abs(dist) < radius && Math.abs(dist) > radius - 60) {
 
 ## Common Pitfalls
 
-### ❌ Don't: Use `requestAnimationFrame` in SharedWorker
-```javascript
-// This will NOT work - rAF doesn't exist in shared workers
-requestAnimationFrame(this.render);
-```
+### ❌ Don't: Assume `requestAnimationFrame` exists
+When using Shared Workers (`useSharedWorkers: true`, required for multi-window apps), `requestAnimationFrame` is not available. However, in the default Dedicated Worker mode, it is.
 
-**✅ Do:** Use `setTimeout`
+**✅ Do:** Use Feature Detection
+To support both modes, check if `requestAnimationFrame` is available.
+
 ```javascript
-setTimeout(this.renderLoop, 1000 / 60)
+// Top of your file
+const hasRaf = typeof requestAnimationFrame === 'function';
+
+// In your render loop
+if (hasRaf) {
+    requestAnimationFrame(this.renderLoop);
+} else {
+    setTimeout(this.renderLoop, 1000 / 60);
+}
 ```
 
 ### ❌ Don't: Create objects in the render loop

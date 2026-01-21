@@ -104,3 +104,5 @@ chroma-neo-memory-core/
 
 # Playwright test results
 test/playwright/test-results/
+# Single-file Playwright runs via npx
+test-results/

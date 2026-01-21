@@ -50,8 +50,6 @@ class ServiceWorker extends Base {
 
             await serviceWorker.ready;
 
-            serviceWorker.onmessage = WorkerManager.onWorkerMessage.bind(WorkerManager);
-
             if (!WorkerManager.getWorker('service')) {
                 /*
                  * navigator.serviceWorker.controller can be null in case we load a page for the first time

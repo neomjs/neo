@@ -77,7 +77,7 @@ test.describe('ClassConfigsAndFields', () => {
             }
         }
 
-        Neo.setupClass(NeoCtorTest);
+        NeoCtorTest = Neo.setupClass(NeoCtorTest);
 
         Neo.create(NeoCtorTest);
 

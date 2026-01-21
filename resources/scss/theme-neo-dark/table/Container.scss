@@ -1,0 +1,10 @@
+:root .neo-theme-neo-dark { // .neo-table-container
+    --table-container-border-color              : var(--sem-color-border-default);
+    --table-container-cell-background-color     : var(--sem-color-surface-neutral-default);
+    --table-container-cell-background-color-even: var(--sem-color-surface-neutral-highlighted);
+    --table-container-cell-border-bottom        : 1px solid var(--sem-color-border-default);
+    --table-container-cell-height               : 32px;
+    --table-container-cell-padding              : 2px 10px 2px;
+    --table-container-color                     : var(--sem-color-text-neutral-default);
+    --table-container-header-cell-border-bottom : 1px solid var(--sem-color-border-default);
+}

@@ -127,20 +127,20 @@ The Webpack build pipeline in `dist/production` applies aggressive optimizations
 * ***Dead Code Elimination*** (Tree Shaking): Removing any code that is not actually used by the application, further
   reducing bundle size.
 
-### Simplified Single-File Deployment
+### Simplified Bundle Deployment
 
-For environments where serving multiple module files isn't optimal, or for legacy server setups, `dist/production`
-provides the convenience of deploying just a few highly optimized bundle files.
+For environments where serving thousands of individual module files isn't optimal, `dist/production` provides the
+convenience of deploying a few highly optimized **Native ES Module bundles**. This significantly reduces the number of
+network requests compared to `dist/esm` while maintaining full compatibility with the browser's module loader.
 
-In summary, `dist/production` is Neo.mjs's answer for maximum compatibility and minimal payload, offering a robust,
-Webpack-powered build that respects the engine's multi-threaded nature to deliver highly optimized bundles for each
-part of your application.
+In summary, `dist/production` is Neo.mjs's answer for maximum performance and minimal payload, offering a robust,
+Webpack-powered build that outputs modern, standard-compliant ESM bundles for each thread.
 
 ## dist/development: The Classic "Dev Mode"
 
 The `dist/development` environment is Neo.mjs's response to what most other JavaScript frameworks—like Angular, React,
-Vue, or Solid—typically refer to as their "development mode." This environment generates a bundled but unminified version
-of your application, designed for a more traditional development workflow that includes a build step.
+Vue, or Solid—typically refer to as their "development mode." This environment generates **bundled Native ES Modules**
+(unminified), designed for a more traditional development workflow that includes a build step.
 
 You'll primarily find yourself needing `dist/development` in very specific scenarios:
 

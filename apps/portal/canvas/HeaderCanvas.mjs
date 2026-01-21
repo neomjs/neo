@@ -1,9 +1,10 @@
-import Base from '../../../src/core/Base.mjs';
+import Base from './Base.mjs';
 
 const
+    hasRaf    = typeof requestAnimationFrame === 'function',
     PRIMARY   = '#3E63DD',
-    SECONDARY = '#8BA6FF',
-    HIGHLIGHT = '#40C4FF';
+    SECONDARY = '#536DFE',
+    HIGHLIGHT = '#00BFFF';
 
 /**
  * @summary SharedWorker renderer for the HeaderToolbar overlay.
@@ -24,6 +25,8 @@ const
   *     around social icons.
   *   - **Energy Surge (Active State):** The segment of the stream passing through the active navigation item
   *     is rendered with a high-intensity white glow and a nervous pulse, semantically highlighting the current view.
+  *   - **Preview Glow (Hover State):** A static, high-contrast glow highlights the item under the cursor,
+  *     providing immediate, distinct feedback separate from the active state.
   *
   * **Performance Architecture (Zero-Allocation):**
  * To maintain 60fps on high-refresh displays without GC stutters, this class employs a **Zero-Allocation** strategy during the render loop.
@@ -32,11 +35,38 @@ const
  * 3. **Reusable Objects:** Physics calculations write directly to buffers instead of returning new Arrays of Objects.
  *
  * @class Portal.canvas.HeaderCanvas
- * @extends Neo.core.Base
+ * @extends Portal.canvas.Base
  * @singleton
  * @see Portal.view.HeaderCanvas
  */
 class HeaderCanvas extends Base {
+    static colors = {
+        dark : {
+            background   : ['rgba(62, 99, 221, 0.1)', 'rgba(64, 196, 255, 0.2)', 'rgba(62, 99, 221, 0.1)'],
+            background2  : ['rgba(139, 166, 255, 0.1)', 'rgba(64, 196, 255, 0.2)', 'rgba(139, 166, 255, 0.1)'],
+            bgRibbon     : ['rgba(62, 99, 221, 0.02)', 'rgba(64, 196, 255, 0.05)', 'rgba(62, 99, 221, 0.02)'],
+            fgRibbon     : ['rgba(62, 99, 221, 0.025)', 'rgba(64, 196, 255, 0.05)', 'rgba(62, 99, 221, 0.025)'],
+            grad1        : [PRIMARY, HIGHLIGHT, PRIMARY],
+            grad2        : [SECONDARY, HIGHLIGHT, SECONDARY],
+            hover        : HIGHLIGHT,
+            particle     : HIGHLIGHT,
+            particleAlpha: {nebula: 0.2, dust: 0.2},
+            shockwave    : HIGHLIGHT
+        },
+        light: {
+            background   : ['rgba(62, 99, 221, 0.1)', 'rgba(64, 196, 255, 0.2)', 'rgba(62, 99, 221, 0.1)'],
+            background2  : ['rgba(139, 166, 255, 0.1)', 'rgba(64, 196, 255, 0.2)', 'rgba(139, 166, 255, 0.1)'],
+            bgRibbon     : ['rgba(62, 99, 221, 0.02)', 'rgba(64, 196, 255, 0.05)', 'rgba(62, 99, 221, 0.02)'],
+            fgRibbon     : ['rgba(62, 99, 221, 0.05)', 'rgba(64, 196, 255, 0.1)', 'rgba(62, 99, 221, 0.05)'],
+            grad1        : [PRIMARY, HIGHLIGHT, PRIMARY],
+            grad2        : [SECONDARY, HIGHLIGHT, SECONDARY],
+            hover        : PRIMARY,
+            particle     : HIGHLIGHT,
+            particleAlpha: {nebula: 0.2, dust: 0.2},
+            shockwave    : HIGHLIGHT
+        }
+    }
+
     static config = {
         /**
          * @member {String} className='Portal.canvas.HeaderCanvas'
@@ -50,13 +80,10 @@ class HeaderCanvas extends Base {
          */
         remote: {
             app: [
-                'clearGraph',
-                'initGraph',
                 'updateActiveId',
                 'updateGraphData',
-                'updateMouseState',
-                'updateNavRects',
-                'updateSize'
+                'updateHoverId',
+                'updateNavRects'
             ]
         },
         /**
@@ -71,29 +98,9 @@ class HeaderCanvas extends Base {
      */
     activeId = null
     /**
-     * @member {Number|null} animationId=null
+     * @member {String|null} hoverId=null
      */
-    animationId = null
-    /**
-     * @member {String|null} canvasId=null
-     */
-    canvasId = null
-    /**
-     * @member {Object|null} canvasSize=null
-     */
-    canvasSize = null
-    /**
-     * @member {Object|null} context=null
-     */
-    context = null
-    /**
-     * @member {Object} gradients={}
-     */
-    gradients = {}
-    /**
-     * @member {Object} mouse={x: -1000, y: -1000}
-     */
-    mouse = {x: -1000, y: -1000}
+    hoverId = null
     /**
      * @member {Object[]} navRects=[]
      */
@@ -107,10 +114,6 @@ class HeaderCanvas extends Base {
      */
     shockwaves = []
     /**
-     * @member {Number} time=0
-     */
-    time = 0
-    /**
      * Pre-allocated buffers for wave geometry.
      * Uses `Float32Array` to eliminate Garbage Collection pressure during the render loop.
      * @member {Object} waveBuffers={bgA: null, bgB: null, fgA: null, fgB: null}
@@ -122,41 +125,20 @@ class HeaderCanvas extends Base {
      */
     clearGraph() {
         let me = this;
-        me.context     = null;
-        me.canvasId    = null;
-        me.canvasSize  = null;
+        super.clearGraph();
         me.navRects    = [];
         me.particles   = [];
         me.shockwaves  = [];
-        me.waveBuffers = {bgA: null, bgB: null, fgA: null, fgB: null};
-        me.gradients   = {}
+        me.waveBuffers = {bgA: null, bgB: null, fgA: null, fgB: null}
     }
 
     /**
-     * Initializes the canvas context.
-     * @param {Object} opts
-     * @param {String} opts.canvasId
-     * @param {String} opts.windowId
+     * Hook to initialize particles after context is ready
+     * @param {Number} width
+     * @param {Number} height
      */
-    initGraph({canvasId, windowId}) {
-        let me        = this,
-            hasChange = me.canvasId !== canvasId;
-
-        me.canvasId = canvasId;
-
-        const checkCanvas = () => {
-            const canvas = Neo.currentWorker.canvasWindowMap[canvasId]?.[windowId];
-
-            if (canvas) {
-                me.context = canvas.getContext('2d');
-                me.initParticles(canvas.width, canvas.height); // Init particles
-                me.updateResources(canvas.width, canvas.height); // Init buffers/gradients
-                hasChange && me.renderLoop()
-            } else {
-                setTimeout(checkCanvas, 50)
-            }
-        };
-        checkCanvas()
+    onGraphMounted(width, height) {
+        this.initParticles(width, height)
     }
 
     /**
@@ -171,7 +153,10 @@ class HeaderCanvas extends Base {
     initParticles(width, height) {
         let me = this;
         me.particles = [];
-        const count = 60;
+        const
+            count       = 60,
+            themeColors = me.constructor.colors[me.theme],
+            alphas      = themeColors.particleAlpha;
 
         for (let i = 0; i < count; i++) {
             let isNebula = Math.random() > 0.8; // 20% are large nebula orbs
@@ -183,16 +168,11 @@ class HeaderCanvas extends Base {
                 vx       : isNebula ? (Math.random() * 0.2 + 0.05) : (Math.random() * 0.5 + 0.1), // Nebulae move slower
                 vy       : (Math.random() - 0.5) * 0.2,
                 size     : isNebula ? (Math.random() * 30 + 20) : (Math.random() * 2 + 0.5), // Large vs Small
-                alpha    : isNebula ? (Math.random() * 0.15 + 0.2) : (Math.random() * 0.4 + 0.2), // BOOSTED ALPHA
-                baseAlpha: isNebula ? (Math.random() * 0.15 + 0.2) : (Math.random() * 0.4 + 0.2)
+                alpha    : isNebula ? (Math.random() * 0.15 + alphas.nebula) : (Math.random() * 0.4 + alphas.dust),
+                baseAlpha: isNebula ? (Math.random() * 0.15 + alphas.nebula) : (Math.random() * 0.4 + alphas.dust)
             })
         }
     }
-
-    /**
-     * @member {Function} renderLoop=this.render.bind(this)
-     */
-    renderLoop = this.render.bind(this)
 
     /**
      * Main render loop.
@@ -209,7 +189,7 @@ class HeaderCanvas extends Base {
     render() {
         let me = this;
 
-        if (!me.context) {
+        if (!me.canRender) {
             return
         }
 
@@ -239,10 +219,17 @@ class HeaderCanvas extends Base {
         // 3b. Draw Active Overlay
         me.drawActiveOverlay(ctx, width);
 
+        // 3c. Draw Hover Overlay
+        me.drawHoverOverlay(ctx, width);
+
         // 4. Draw "Shockwaves" (Click Effects)
         me.drawShockwaves(ctx, width);
 
-        setTimeout(me.renderLoop, 1000 / 60)
+        if (hasRaf) {
+            me.animationId = requestAnimationFrame(me.renderLoop)
+        } else {
+            me.animationId = setTimeout(me.renderLoop, 1000 / 60)
+        }
     }
 
     /**
@@ -285,7 +272,7 @@ class HeaderCanvas extends Base {
 
         for (let i = 0; i < count; i++) {
             let x = i * step,
-                {offsetY, intensity, isIconZone} = me.getStreamOffset(x, height);
+                {offsetY, intensity, isIconZone} = me.getStreamOffset(x, height, width);
 
             // FREQUENCY MODULATION:
             let freqMod   = Math.sin(x * 0.002 + me.time * 0.1) * (20 + (intensity * 10)),
@@ -319,7 +306,7 @@ class HeaderCanvas extends Base {
             }
 
             // Write Y values to buffers
-            bufA[i] = centerY + sine - offsetY + noiseA + shockY;
+            bufA[i] = centerY + sine  - offsetY + noiseA + shockY;
             bufB[i] = centerY + sineB + offsetY + noiseB + shockY;
         }
 
@@ -346,14 +333,18 @@ class HeaderCanvas extends Base {
     drawParticles(ctx, width, height) {
         let me = this;
 
+        const
+            themeColors = me.constructor.colors[me.theme],
+            pColor      = themeColors.particle;
+
         me.particles.forEach(p => {
             // Update Position
             p.x += p.vx;
             p.y += p.vy;
 
             // Wrap around
-            if (p.x > width + p.size) p.x = -p.size;
-            if (p.x < -p.size)        p.x = width + p.size;
+            if (p.x > width + p.size)  p.x = -p.size;
+            if (p.x < -p.size)         p.x = width + p.size;
             if (p.y > height + p.size) p.y = -p.size;
             if (p.y < -p.size)         p.y = height + p.size;
 
@@ -406,13 +397,13 @@ class HeaderCanvas extends Base {
                 // Nebula Visualization
                 // Use a radial gradient to create a soft, cloud-like appearance.
                 let g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size);
-                g.addColorStop(0, HIGHLIGHT);
+                g.addColorStop(0, pColor);
                 g.addColorStop(1, 'rgba(255,255,255,0)');
                 ctx.fillStyle = g;
                 ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
                 ctx.fill()
             } else {
-                ctx.fillStyle = HIGHLIGHT;
+                ctx.fillStyle = pColor;
                 ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
                 ctx.fill()
             }
@@ -432,11 +423,19 @@ class HeaderCanvas extends Base {
      * @param {Number} width
      */
     drawActiveOverlay(ctx, width) {
-        let me = this;
+        let me = this,
+            rect;
 
         if (!me.activeId || !me.waveBuffers.fgA) return;
 
-        const rect = me.navRects.find(r => r.id === me.activeId);
+        // Zero-Allocation: Use for-loop instead of .find() to avoid closure creation
+        for (const r of me.navRects) {
+            if (r.id === me.activeId) {
+                rect = r;
+                break
+            }
+        }
+
         if (!rect) return;
 
         const
@@ -465,17 +464,85 @@ class HeaderCanvas extends Base {
         // combined with the "hot" white color to make it pop.
         ctx.globalAlpha = 0.6 + (Math.sin(me.time * 3) * 0.2); // Fast, nervous pulse
 
-        const drawSegment = (buffer) => {
-            ctx.beginPath();
-            ctx.moveTo(startI * step, buffer[startI]);
-            for (let i = startI + 1; i <= endI; i++) {
-                ctx.lineTo(i * step, buffer[i])
-            }
-            ctx.stroke()
-        };
+        // Inline drawing to avoid closure
+        ctx.beginPath();
+        ctx.moveTo(startI * step, bufA[startI]);
+        for (let i = startI + 1; i <= endI; i++) {
+            ctx.lineTo(i * step, bufA[i])
+        }
+        ctx.stroke();
 
-        drawSegment(bufA);
-        drawSegment(bufB);
+        ctx.beginPath();
+        ctx.moveTo(startI * step, bufB[startI]);
+        for (let i = startI + 1; i <= endI; i++) {
+            ctx.lineTo(i * step, bufB[i])
+        }
+        ctx.stroke();
+
+        ctx.restore()
+    }
+
+    /**
+     * Draws an additional highlight for the hovered navigation item.
+     * **"Preview" Effect:**
+     * Renders a static intensity pass of the energy strands within the hovered zone.
+     * Uses the theme-specific hover color (Cyan/Blue) to distinguish it from the active state (White).
+     *
+     * @param {CanvasRenderingContext2D} ctx
+     * @param {Number} width
+     */
+    drawHoverOverlay(ctx, width) {
+        let me = this,
+            rect;
+
+        if (!me.hoverId || !me.waveBuffers.fgA) return;
+
+        // Zero-Allocation: Use for-loop instead of .find() to avoid closure creation
+        for (const r of me.navRects) {
+            if (r.id === me.hoverId) {
+                rect = r;
+                break
+            }
+        }
+
+        if (!rect) return;
+
+        const
+            step        = 2, // Must match calculateStrandGeometry
+            pad         = 10,
+            startX      = Math.max(0, rect.x - pad),
+            endX        = Math.min(width - 3, rect.x + rect.width + pad),
+            startI      = Math.floor(startX / step),
+            endI        = Math.ceil(endX / step),
+            bufA        = me.waveBuffers.fgA,
+            bufB        = me.waveBuffers.fgB,
+            themeColors = me.constructor.colors[me.theme];
+
+        ctx.save();
+        ctx.lineCap  = 'round';
+        ctx.lineJoin = 'round';
+
+        // Hover Effect: Static Glow (No Pulse)
+        ctx.shadowBlur  = 15;
+        ctx.shadowColor = themeColors.hover;
+        ctx.strokeStyle = themeColors.hover;
+        ctx.lineWidth   = 2;
+        ctx.globalAlpha = 1;
+
+        // Inline drawing to avoid closure
+        ctx.beginPath();
+        ctx.moveTo(startI * step, bufA[startI]);
+        for (let i = startI + 1; i <= endI; i++) {
+            ctx.lineTo(i * step, bufA[i])
+        }
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(startI * step, bufB[startI]);
+        for (let i = startI + 1; i <= endI; i++) {
+            ctx.lineTo(i * step, bufB[i])
+        }
+        ctx.stroke();
 
         ctx.restore()
     }
@@ -575,9 +642,10 @@ class HeaderCanvas extends Base {
 
         const
             {shimmerA, shimmerB, count} = geometry,
-            bufA = me.waveBuffers.fgA,
-            bufB = me.waveBuffers.fgB,
-            step = 2;
+            bufA        = me.waveBuffers.fgA,
+            bufB        = me.waveBuffers.fgB,
+            step        = 2,
+            themeColors = me.constructor.colors[me.theme];
 
         // --- 2. RIBBON FILL (The 3D Surface) ---
         ctx.fillStyle = me.gradients.fgRibbon;
@@ -621,8 +689,12 @@ class HeaderCanvas extends Base {
         };
 
         // Draw Glows (Outer Tube)
-        drawStrand(bufA, me.gradients.grad1, shimmerA, PRIMARY, false);
-        drawStrand(bufB, me.gradients.grad2, shimmerB, SECONDARY, false);
+        // Extract base color from gradient array for shadow
+        const color1 = themeColors.grad1[0];
+        const color2 = themeColors.grad2[0];
+
+        drawStrand(bufA, me.gradients.grad1, shimmerA, color1, false);
+        drawStrand(bufB, me.gradients.grad2, shimmerB, color2, false);
 
         // Draw Cores (Inner Filament)
         drawStrand(bufA, null, shimmerA, null, true);
@@ -645,9 +717,10 @@ class HeaderCanvas extends Base {
      *
      * @param {Number} x
      * @param {Number} height (Canvas height)
+     * @param {Number} width (Canvas width)
      * @returns {Object} {offsetY, intensity, isIconZone}
      */
-    getStreamOffset(x, height) {
+    getStreamOffset(x, height, width) {
         let me        = this,
             offsetY   = 0,
             intensity = 0, // 0 to 1 (Hover magnitude)
@@ -732,6 +805,10 @@ class HeaderCanvas extends Base {
     drawShockwaves(ctx, width) {
         let me = this;
 
+        if (me.shockwaves.length === 0) return;
+
+        const themeColors = me.constructor.colors[me.theme];
+
         for (let i = me.shockwaves.length - 1; i >= 0; i--) {
             let wave = me.shockwaves[i];
 
@@ -751,7 +828,7 @@ class HeaderCanvas extends Base {
                 {height} = me.canvasSize;
 
             ctx.beginPath();
-            ctx.strokeStyle = HIGHLIGHT; // Use constant
+            ctx.strokeStyle = themeColors.shockwave; // Use theme color
             ctx.globalAlpha = alpha;     // Fade out via globalAlpha
             ctx.lineWidth   = 4 * (1 - progress);
 
@@ -789,31 +866,24 @@ class HeaderCanvas extends Base {
 
     /**
      * @param {Object} data
-     * @param {Boolean} [data.click]
-     * @param {Boolean} [data.leave]
-     * @param {Number} [data.x]
-     * @param {Number} [data.y]
+     * @param {String} [data.id]
      */
-    updateMouseState(data) {
-        let me = this;
+    updateHoverId(data) {
+        this.hoverId = data?.id || null
+    }
 
-        if (data.leave) {
-            me.mouse.x = -1000;
-            me.mouse.y = -1000
-        } else {
-            if (data.x !== undefined) me.mouse.x = data.x;
-            if (data.y !== undefined) me.mouse.y = data.y;
-
-            if (data.click) {
-                me.shockwaves.push({
-                    x    : data.x,
-                    y    : data.y,
-                    age  : 0,
-                    life : 60, // frames
-                    speed: 15  // px per frame
-                })
-            }
-        }
+    /**
+     * Hook to handle mouse clicks.
+     * @param {Object} data
+     */
+    onMouseClick(data) {
+        this.shockwaves.push({
+            x    : data.x,
+            y    : data.y,
+            age  : 0,
+            life : 60, // frames
+            speed: 15  // px per frame
+        })
     }
 
     /**
@@ -855,61 +925,45 @@ class HeaderCanvas extends Base {
         // 2. Cache Gradients
         if (!ctx) return;
 
+        const themeColors = me.constructor.colors[me.theme];
+
         // Foreground Gradients
         const grad1 = ctx.createLinearGradient(0, 0, width, 0);
-        grad1.addColorStop(0,   PRIMARY);
-        grad1.addColorStop(0.5, HIGHLIGHT);
-        grad1.addColorStop(1,   PRIMARY);
+        grad1.addColorStop(0,   themeColors.grad1[0]);
+        grad1.addColorStop(0.5, themeColors.grad1[1]);
+        grad1.addColorStop(1,   themeColors.grad1[2]);
         me.gradients.grad1 = grad1;
 
         const grad2 = ctx.createLinearGradient(0, 0, width, 0);
-        grad2.addColorStop(0,   SECONDARY);
-        grad2.addColorStop(0.5, HIGHLIGHT);
-        grad2.addColorStop(1,   SECONDARY);
+        grad2.addColorStop(0,   themeColors.grad2[0]);
+        grad2.addColorStop(0.5, themeColors.grad2[1]);
+        grad2.addColorStop(1,   themeColors.grad2[2]);
         me.gradients.grad2 = grad2;
 
         const fgRibbon = ctx.createLinearGradient(0, 0, width, 0);
-        fgRibbon.addColorStop(0,   'rgba(62, 99, 221, 0.05)');
-        fgRibbon.addColorStop(0.5, 'rgba(64, 196, 255, 0.1)');
-        fgRibbon.addColorStop(1,   'rgba(62, 99, 221, 0.05)');
+        fgRibbon.addColorStop(0,   themeColors.fgRibbon[0]);
+        fgRibbon.addColorStop(0.5, themeColors.fgRibbon[1]);
+        fgRibbon.addColorStop(1,   themeColors.fgRibbon[2]);
         me.gradients.fgRibbon = fgRibbon;
 
         // Background Gradients
         const bgGrad1 = ctx.createLinearGradient(0, 0, width, 0);
-        bgGrad1.addColorStop(0,   'rgba(62, 99, 221, 0.1)');
-        bgGrad1.addColorStop(0.5, 'rgba(64, 196, 255, 0.2)');
-        bgGrad1.addColorStop(1,   'rgba(62, 99, 221, 0.1)');
+        bgGrad1.addColorStop(0,   themeColors.background[0]);
+        bgGrad1.addColorStop(0.5, themeColors.background[1]);
+        bgGrad1.addColorStop(1,   themeColors.background[2]);
         me.gradients.bgGrad1 = bgGrad1;
 
         const bgGrad2 = ctx.createLinearGradient(0, 0, width, 0);
-        bgGrad2.addColorStop(0,   'rgba(139, 166, 255, 0.1)');
-        bgGrad2.addColorStop(0.5, 'rgba(64, 196, 255, 0.2)');
-        bgGrad2.addColorStop(1,   'rgba(139, 166, 255, 0.1)');
+        bgGrad2.addColorStop(0,   themeColors.background2[0]);
+        bgGrad2.addColorStop(0.5, themeColors.background2[1]);
+        bgGrad2.addColorStop(1,   themeColors.background2[2]);
         me.gradients.bgGrad2 = bgGrad2;
 
         const bgRibbon = ctx.createLinearGradient(0, 0, width, 0);
-        bgRibbon.addColorStop(0,   'rgba(62, 99, 221, 0.02)');
-        bgRibbon.addColorStop(0.5, 'rgba(64, 196, 255, 0.05)');
-        bgRibbon.addColorStop(1,   'rgba(62, 99, 221, 0.02)');
+        bgRibbon.addColorStop(0,   themeColors.bgRibbon[0]);
+        bgRibbon.addColorStop(0.5, themeColors.bgRibbon[1]);
+        bgRibbon.addColorStop(1,   themeColors.bgRibbon[2]);
         me.gradients.bgRibbon = bgRibbon;
-    }
-
-    /**
-     * @param {Object} size
-     * @param {Number} size.height
-     * @param {Number} size.width
-     */
-    updateSize(size) {
-        let me = this;
-
-        me.canvasSize = size;
-
-        if (me.context) {
-            me.context.canvas.width  = size.width;
-            me.context.canvas.height = size.height;
-            // Re-init resources on resize
-            me.updateResources(size.width, size.height)
-        }
     }
 }
 

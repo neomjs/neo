@@ -7,6 +7,11 @@ body {
     }
 }
 
+::view-transition-old(root),
+::view-transition-new(root) {
+    animation     : none;
+    mix-blend-mode: normal;
+}
 
 .neo-viewport {
     // sometimes when transitioning between card & cube layouts, the flex value does get lost
@@ -57,7 +62,7 @@ body {
 
     .portal-shared-background {
         background-attachment: fixed;
-        background-color: #fcfcfc;
+        background-color: var(--portal-bg-main);
         background-image:
             radial-gradient(at 0% 0%, rgba(62, 99, 221, 0.05) 0px, transparent 50%),
             radial-gradient(at 100% 100%, rgba(138, 43, 226, 0.05) 0px, transparent 50%);

@@ -47,7 +47,7 @@ class Ticket extends Model {
              * @returns {String}
              */
             calculate({id, isLeaf, title}) {
-                return isLeaf ? `<b>${id}</b> ${title}` : id
+                return isLeaf ? `<b>${id}</b> <span class="ticket-title">${title}</span>` : id
             }
         }]
     }

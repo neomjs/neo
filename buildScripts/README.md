@@ -1,380 +1,397 @@
-# Command-Line Interface
-In case you want to create an App (workspace) based on neo.mjs, you don't need to clone this repository.</br>
-Please take a look at the <a href="https://github.com/neomjs/create-app">create-app repository</a> (npx neo-app).
+# Neo.mjs Application Engine Build Scripts & CLI Tools
 
-This guide explains the different scripts (programs) which are included inside the
-<a href="../package.json">package.json</a>.</br>
-They are important for working on the framework code base.
+This directory contains the build tooling, CLI commands, and utility scripts that power the Neo.mjs Application Engine.
+The scripts are organized into subdirectories based on their function.
 
-You can run each script inside your terminal. E.g.:
-> npm run build-all
+Most of these scripts are exposed via `npm run` commands in the root `package.json`.
 
-Make sure to call them on the top-level folder (the one containing the package.json).
+## Directory Structure
 
-In case you want to pass program options, use -- before adding options. E.g.:
-> npm run build-all -- -h
+- **`ai/`**: Model Context Protocol (MCP) servers and Knowledge Base management.
+- **`build/`**: Core build scripts (ES Modules, Themes, Workers).
+- **`create/`**: Scaffolding generators for apps, components, and classes.
+- **`docs/`**: Documentation generation and SEO tools.
+- **`helpers/`**: Development helpers (linters, token converters, watchers).
+- **`release/`**: Automated release and publishing workflows.
+- **`util/`**: Shared low-level utilities (file ops, sanitizers).
+- **`webpack/`**: Webpack configurations for development and production.
 
-All programs which are using options also have the visual inquirer interface in place.</br>
-So it is up to you if you prefer adding the options manually (e.g. for adding them into your own CI),</br>
-or selecting them without memorising the shortcuts.
+---
 
-You will notice that most programs are using the -f (framework) option here.
-The reason is that you can call them inside your neo.mjs workspaces as well,
-where the framework is included as a node module, but needs to deploy to a top-level dist folder.
+## 1. AI & Knowledge Base (`buildScripts/ai/`)
 
-## Content
-1. <a href="#build-all">build-all</a>
-2. <a href="#build-all-questions">build-all-questions</a>
-3. <a href="#build-themes">build-themes</a>
-4. <a href="#build-threads">build-threads</a>
-5. <a href="#create-app">create-app</a>
-6. <a href="#generate-docs-json">generate-docs-json</a>
-7. <a href="#server-start">server-start</a>
+Tools for managing the AI infrastructure, including Vector Database operations and Memory Core migration.
 
-## build-all
-> npm run build-all
+| Script | NPM Command | Description |
+| :--- | :--- | :--- |
+| `defragChromaDB.mjs` | `npm run ai:defrag-kb`<br>`npm run ai:defrag-memory` | Vacuums and optimizes the ChromaDB collections to reclaim space. |
+| `downloadKnowledgeBase.mjs` | `npm run ai:download-kb` | Downloads the latest pre-indexed Knowledge Base from the remote source. |
+| `migrateMemoryCore.mjs` | `npm run ai:migrate-memory` | Migrates the Memory Core schema when breaking changes occur. |
+| `syncKnowledgeBase.mjs` | `npm run ai:sync-kb` | Indexes the local codebase and updates the vector database with changes. |
 
-It is strongly recommended to run this program after each git pull on this repo.
+---
+
+## 2. Build Operations (`buildScripts/build/`)
+
+The core build pipeline. Note that Neo.mjs in **development mode** requires **zero builds**. These scripts are for production deployment, publishing, or generating static assets.
+
+| Script | NPM Command | Description |
+| :--- | :--- | :--- |
+| `all.mjs` | `npm run build-all` | Meta-script that runs all build steps: themes, workers, and docs. |
+| `esmodules.mjs` | `npm run build-dist-esm` | Generates the `dist/` production output (minified, native ES modules). |
+| `highlightJs.mjs` | `npm run build-highlightjs` | Builds the custom HighlightJS bundle used by the docs app. |
+| `parse5.mjs` | `npm run bundle-parse5` | Bundles the Parse5 HTML parser for the platform. |
+| `themes.mjs` | `npm run build-themes` | Compiles SCSS files into CSS themes (dark/light) using Dart Sass. |
+
+---
+
+## 3. Scaffolding Generators (`buildScripts/create/`)
+
+Generators to quickly scaffold new code structures following project conventions.
+
+| Script | NPM Command | Description |
+| :--- | :--- | :--- |
+| `app.mjs` | `npm run create-app` | Creates a new multi-window application structure. |
+| `appMinimal.mjs` | `npm run create-app-minimal` | Creates a lightweight, single-window app. |
+| `class.mjs` | `npm run create-class` | Generates a new Neo.mjs class file with standard boilerplate. |
+| `component.mjs` | `npm run create-component` | Scaffolds a new UI component with SCSS and JS. |
+| `addConfig.mjs` | `npm run add-config` | Injects configuration into an existing application. |
+
+---
+
+## 4. Documentation (`buildScripts/docs/`)
+
+Tools for generating the API documentation and handling SEO for the portal.
+
+| Script | NPM Command | Description |
+| :--- | :--- | :--- |
+| `jsdocx.mjs` | `npm run generate-docs-json` | Parses JSDoc comments across the codebase and generates `docs/output/db.json` for the Docs App. |
+| `seo/generate.mjs` | N/A | Generates static HTML snapshots for Search Engine Optimization. |
+
+---
+
+## 5. Helpers & Maintenance (`buildScripts/helpers/`)
+
+Utilities for maintaining code quality and developer experience.
+
+| Script | NPM Command | Description |
+| :--- | :--- | :--- |
+| `addReactiveTags.mjs` | `npm run add-reactive-tags` | Automatically adds `@reactive` JSDoc tags to config properties ending in `_`. |
+| `checkReactiveTags.mjs` | `npm run check-reactive-tags` | Lints the codebase to ensure all reactive configs have the correct JSDoc tags. |
+| `convertDesignTokens.mjs` | `npm run convert-design-tokens` | Converts JSON design tokens into SCSS variables and CSS custom properties. |
+| `watchThemes.mjs` | `npm run watch-themes` | Watches SCSS files for changes and recompiles themes incrementally. |
+
+---
+
+## 6. Release Automation (`buildScripts/release/`)
+
+Scripts used by the maintainers to publish new versions of the platform.
+
+| Script | Description |
+| :--- | :--- |
+| `prepare.mjs` | Handles version bumping, changelog generation, and git tagging. |
+| `publish.mjs` | Automates the NPM publish process, ensuring clean builds. |
+
+---
+
+## 7. Webpack Configurations (`buildScripts/webpack/`)
+
+Webpack is used **only** for:
+1. Running the development server (`npm run server-start`).
+2. Creating the production builds (`dist/`).
+
+It is **not** used for the daily development workflow, which uses native ES modules directly.
+
+| Folder | Description |
+| :--- | :--- |
+| `development/` | Configs for the dev server (mapped to source). |
+| `production/` | Configs for the production build (minification, tree-shaking). |
+| `loader/` | Custom loaders for Neo.mjs templates. |
+
+---
+
+## 8. Utilities (`buildScripts/util/`)
+
+Internal shared libraries used by the scripts above.
+
+- `copyFile.mjs` / `copyFolder.mjs`: File system operations.
+- `minifyFile.mjs` / `minifyHtml.mjs`: Terser/HTMLMinifier wrappers.
+- `Sanitizer.mjs`: Input sanitization for CLI prompts.
+
+---
+
+# CLI Reference
+
+Detailed usage for the primary command-line tools.
+
+## `npm run add-config`
+**Script:** `buildScripts/create/addConfig.mjs`
+
+Injects a new configuration property into an existing Neo.mjs class file.
 
 ```bash
+Usage: neo.mjs add-config [options]
+
+Options:
+  -c, --className <value>     The name of the class (e.g. MyApp.view.Main)
+  -n, --configName <value>    The name of the config (e.g. myConfig)
+  -t, --type <value>          The type of the config (e.g. Boolean, String, Object)
+  -d, --defaultValue <value>  The default value
+  -h, --hooks <value>         List of hooks to generate (e.g. beforeSet, afterSet)
+```
+
+## `npm run add-reactive-tags`
+**Script:** `buildScripts/helpers/addReactiveTags.mjs`
+
+Automatically adds `@reactive` JSDoc tags to all reactive configuration properties (ending in `_`) across the codebase.
+*Note: This script has no CLI options.*
+
+## `npm run ai:defrag-kb` / `ai:defrag-memory`
+**Script:** `buildScripts/ai/defragChromaDB.mjs`
+
+Maintenance tool to defragment and optimize Vector Database instances.
+
+```bash
+Usage: defragChromaDB [options]
+
+Options:
+  -t, --target <name>  Database target (knowledge-base, memory-core)
+  -h, --help           display help for command
+```
+
+## `npm run ai:download-kb`
+**Script:** `buildScripts/ai/downloadKnowledgeBase.mjs`
+
+Downloads the pre-indexed Knowledge Base artifact matching the current `package.json` version from GitHub Releases.
+*Note: This script has no CLI options.*
+
+## `npm run ai:migrate-memory`
+**Script:** `buildScripts/ai/migrateMemoryCore.mjs`
+
+Migrates a Memory Core database backup to the current embedding model by clearing the existing collection and re-generating embeddings.
+
+```bash
+Usage: node buildScripts/migrateMemoryCore.mjs <backup-file.jsonl>
+
+Arguments:
+  <backup-file.jsonl>  Path to the JSONL backup file to import and re-embed.
+
+Options:
+  --test-mode          Use test collections (test-re-embed-*) instead of production DB.
+```
+
+## `npm run ai:sync-kb`
+**Script:** `buildScripts/ai/syncKnowledgeBase.mjs`
+
+Indexes the local codebase and updates the vector database.
+*Note: This script has no CLI options.*
+
+## `npm run build-all`
+**Script:** `buildScripts/build/all.mjs`
+
+A meta-script that orchestrates the entire build process.
+
+```bash
+Usage: neo.mjs buildAll [options]
+
 Options:
   -V, --version             output the version number
   -i, --info                print environment debug info
-  -e, --env <value>         "all", "dev", "prod"
+  -e, --env <value>         "all", "dev", "esm", "prod"
   -l, --npminstall <value>  "yes", "no"
-  -f, --framework          
-  -n, --noquestions        
+  -f, --framework
+  -n, --noquestions
   -p, --parsedocs <value>   "yes", "no"
   -t, --themes <value>      "yes", "no"
   -w, --threads <value>     "yes", "no"
   -h, --help                display help for command
 ```
 
-The build-all program is using the -n (noquestions) option.
-Take a look at the next section for details on those.
+## `npm run build-themes`
+**Script:** `buildScripts/build/themes.mjs`
 
-1. The program starts with a npm install(-l option).
-2. It builds the themes next (-t option) => <a href="#build-themes">build-themes</a>.
-3. It builds the threads (-w option) => <a href="#build-threads">build-threads</a>.</br>
-(-w is a shortcut for "workers", since -t was already taken.)
-4. It parses the docs comments (-p option) => <a href="#generate-docs-json">generate-docs-json</a>.
-
-You can disable each step using the program options.
-
-build-all will delegate the env, framework & noquestions options to build-themes & build-threads.
-
-You can use the -e (environment) option in case you want to limit the build either to dist/development
-or dist/production.
-
-Source code: <a href="./buildAll.js">build-all</a>
-
-## build-all-questions
-> npm run build-all-questions
-
-This entry point is running the build-all program without passing options,
-so we can select them using the inquirer interface.
-
-Let us take a look at the different inquirer steps:
-1. Pick the -l (npminstall) option:
-```bash
-neo % npm run build-all-questions
-
-> neo.mjs@1.4.14 build-all-questions /Users/Shared/github/neomjs/neo
-> node ./buildScripts/buildAll.js -f
-
-neo.mjs buildAll
-? Run npm install?: (Use arrow keys)
-❯ yes 
-  no 
-```
-2. Pick the -e (env) option:
-```bash
-neo.mjs buildAll
-? Run npm install?: yes
-? Please choose the environment: (Use arrow keys)
-❯ all 
-  dev 
-  prod 
-```
-3. Pick the -t (themes) option:
-```bash
-neo.mjs buildAll
-? Run npm install?: yes
-? Please choose the environment: all
-? Build the themes? (Use arrow keys)
-❯ yes 
-  no 
-```
-4. Pick the -w (threads) option:
-```bash
-neo.mjs buildAll
-? Run npm install?: yes
-? Please choose the environment: all
-? Build the themes? yes
-? Build the threads? (Use arrow keys)
-❯ yes 
-  no 
-```
-5. Pick the -p (parsedocs) option:
-```bash
-neo.mjs buildAll
-? Run npm install?: yes
-? Please choose the environment: all
-? Build the themes? yes
-? Build the threads? yes
-? Trigger the jsdocx parsing? (Use arrow keys)
-❯ yes 
-  no 
-```
-
-Source code: <a href="./buildAll.js">build-all</a>
-
-## build-themes
-> npm run build-themes
+Compiles SCSS into CSS.
 
 ```bash
+Usage: neo.mjs buildThemes [options]
+
 Options:
-  -V, --version          output the version number
-  -i, --info             print environment debug info
-  -c, --cssVars <value>  "all", "true", "false"
-  -e, --env <value>      "all", "dev", "prod"
-  -f, --framework       
-  -n, --noquestions     
-  -t, --themes <value>   "all", "dark", "light"
-  -h, --help             display help for command
+  -V, --version         output the version number
+  -i, --info            print environment debug info
+  -e, --env <value>     "all", "dev", "esm", "prod"
+  -f, --framework
+  -n, --noquestions
+  -t, --themes <value>  all, theme-cyberpunk, theme-dark, theme-light, theme-neo-dark, theme-neo-light
+  -h, --help            display help for command
 ```
 
-Let us take a look at the different inquirer steps:
-1. Pick the -t (themes) option:
-```bash
-neo % npm run build-themes
+## `npm run build-threads`
+**Script:** `buildScripts/webpack/buildThreads.mjs`
 
-> neo.mjs@1.4.14 build-themes /Users/Shared/github/neomjs/neo
-> node ./buildScripts/webpack/buildThemes.js -f
-
-neo.mjs buildThemes
-? Please choose the themes to build: (Use arrow keys)
-❯ all 
-  dark 
-  light 
-```
-2. Pick the -e (env) option:
-```bash
-neo.mjs buildThemes
-? Please choose the themes to build: all
-? Please choose the environment: (Use arrow keys)
-❯ all 
-  dev 
-  prod 
-```
-3. Pick the -c (cssVars) option:
-```bash
-neo.mjs buildThemes
-? Please choose the themes to build: all
-? Please choose the environment: all
-? Build using CSS variables? (Use arrow keys)
-  all 
-❯ yes 
-  no 
-```
-
-Source code: <a href="./webpack/buildThemes.js">build-themes</a>
-
-## build-threads
-> npm run build-threads
-
-Since the default neo.mjs setup is using 3 workers, we have the following 4 threads to build:</br>
-"app", "data", "main", "vdom"
-
-Most of the framework code base & the apps you build with it run inside the App Worker,</br>
-so most of the time you only need to build the app thread.
+Builds the worker and main thread entry points using Webpack.
 
 ```bash
+Usage: neo.mjs buildThreads [options]
+
 Options:
   -V, --version          output the version number
   -i, --info             print environment debug info
   -e, --env <value>      "all", "dev", "prod"
-  -f, --framework       
-  -n, --noquestions     
-  -t, --threads <value>  "all", "app", "data", "main", "vdom"
+  -f, --framework
+  -n, --noquestions
+  -t, --threads <value>  "all", "app", "canvas", "data", "main", "service", "task", "vdom"
   -h, --help             display help for command
 ```
 
-Let us take a look at the different inquirer steps:
-1. Pick the -t (threads) option:
-```bash
-neo % npm run build-threads
+## `npm run check-reactive-tags`
+**Script:** `buildScripts/helpers/checkReactiveTags.mjs`
 
-> neo.mjs@1.4.14 build-threads /Users/Shared/github/neomjs/neo
-> node ./buildScripts/webpack/buildThreads.js -f
+Lints the codebase to identify reactive configuration properties that are missing the `@reactive` JSDoc tag.
+*Note: This script has no CLI options.*
 
-neo.mjs buildThreads
-? Please choose the threads to build: (Use arrow keys)
-❯ all 
-  app 
-  data 
-  main 
-  vdom 
-```
-2. Pick the -e (env) option:
-```bash
-neo.mjs buildThreads
-? Please choose the threads to build: all
-? Please choose the environment: (Use arrow keys)
-❯ all 
-  dev 
-  prod 
-```
+## `npm run convert-design-tokens`
+**Script:** `buildScripts/helpers/convertDesignTokens.mjs`
 
-Source code: <a href="./webpack/buildThreads.js">build-threads</a>
+Converts JSON design tokens from `resources/design-tokens/json` into SCSS variables.
+*Note: This script has no CLI options.*
 
-## create-app
-> npm run create-app
+## `npm run create-app`
+**Script:** `buildScripts/create/app.mjs`
 
-Again: In case you want to create an App (workspace) based on neo.mjs, you don't need to clone this repository.</br>
-Please take a look at the <a href="https://github.com/neomjs/create-app">create-app repository</a> (npx neo-app).
-
-If you want to create a new Demo App inside the framework repo,
-using the create-app program makes sense, since you can work on the app & framework code in parallel.
-
-Using the default options, this will generate the following 4 files:
-```
-neo
- | - apps
- |    | - myapp
- |    |    | - view
- |    |    |    | - MainContainer.mjs
- |    |    | - app.mjs
- |    |    | - index.html
- |    |    | - neo-config.json
-```
-
-The program will also add the App config into buildScripts/webpack/json/myApps.json.
-```json
-"apps": [
-    "Docs",
-    "MyApp"
-]
-```
-This file is added inside the .gitignore.</br>
-If the file does not exist yet, the program will copy buildScripts/webpack/json/myApps.template.json to create it.
+Scaffolds a new Neo.mjs application.
 
 ```bash
+Usage: neo.mjs create-app [options]
+
 Options:
   -V, --version                   output the version number
   -i, --info                      print environment debug info
-  -a, --appName <value>           
-  -m, --mainThreadAddons <value>  Comma separated list of AmCharts, AnalyticsByGoogle, HighlightJS, LocalStorage,
-                                  MapboxGL, Markdown, Siesta, Stylesheet.
-                                  Defaults to Stylesheet
-  -t, --themes <value>            "all", "dark", "light"
+  -a, --appName <value>           The name of your application
+  -m, --mainThreadAddons <value>  Comma separated list (e.g., DragDrop, MapboxGL).
+                                  Defaults to DragDrop, Navigator, Stylesheet
+  -s, --useServiceWorker <value>  "yes", "no"
+  -t, --themes <value>            all, neo-theme-dark, neo-theme-light, none
   -u, --useSharedWorkers <value>  "yes", "no"
   -h, --help                      display help for command
 ```
 
-Let us take a look at the different inquirer steps:
-1. Pick the -a (appName) option:
+## `npm run create-app-minimal`
+**Script:** `buildScripts/create/appMinimal.mjs`
+
+Scaffolds a lightweight, single-window Neo.mjs application.
+
 ```bash
-neo % npm run create-app
+Usage: neo.mjs create-app [options]
 
-> neo.mjs@1.4.14 create-app /Users/Shared/github/neomjs/neo
-> node ./buildScripts/createApp.js
-
-neo.mjs create-app
-? Please choose a name for your neo app: (MyApp) 
+Options:
+  -V, --version                   output the version number
+  -i, --info                      print environment debug info
+  -a, --appName <value>           The name of your application
+  -m, --mainThreadAddons <value>  Comma separated list. Defaults to DragDrop, Navigator, Stylesheet
+  -s, --useServiceWorker <value>  "yes", "no"
+  -t, --themes <value>            all, neo-theme-dark, neo-theme-light, none
+  -u, --useSharedWorkers <value>  "yes", "no"
+  -h, --help                      display help for command
 ```
-2. Pick the -t (themes) option:
+
+## `npm run create-class`
+**Script:** `buildScripts/create/class.mjs`
+
+Generates a new class file extending a core base class.
+
 ```bash
-neo.mjs create-app
-? Please choose a name for your neo app: MyApp
-? Please choose a theme for your neo app: (Use arrow keys)
-  neo-theme-dark 
-  neo-theme-light 
-❯ both 
+Usage: neo.mjs create-class [options]
+
+Options:
+  -V, --version            output the version number
+  -i, --info               print environment debug info
+  -d, --drop               drops class in the currently selected folder
+  -n, --singleton <value>  Create a singleton? Pick "yes" or "no"
+  -s, --source <value>     name of the folder containing the project (default: apps)
+  -b, --baseClass <value>  The base class to extend (e.g. component.Base)
+  -c, --className <value>  The fully qualified class name (e.g. MyApp.view.Main)
+  -r, --scss <value>       The scss class name
+  -h, --help               display help for command
 ```
-3. Pick the -m (mainThreadAddons) option:
+
+## `npm run create-component`
+**Script:** `buildScripts/create/component.mjs`
+
+Scaffolds a component with SCSS, JS, and optional example code.
+
 ```bash
-neo.mjs create-app
-? Please choose a name for your neo app: MyApp
-? Please choose a theme for your neo app: both
-? Please choose your main thread addons: (Press <space> to select, <a> to toggle all, <i> to invert selection)
-❯◯ AmCharts
- ◯ AnalyticsByGoogle
- ◯ HighlightJS
- ◯ LocalStorage
- ◯ MapboxGL
- ◯ Markdown
- ◯ Siesta
-(Move up and down to reveal more choices)
+Usage: neo.mjs create-component [options]
+
+Options:
+  -V, --version            output the version number
+  -i, --info               print environment debug info
+  -n, --singleton <value>  Create a singleton? Pick "yes" or "no"
+  -s, --source <value>     name of the folder containing the project (default: apps)
+  -b, --baseClass <value>  The base class to extend
+  -c, --className <value>  The fully qualified class name
+  -h, --help               display help for command
 ```
-4. Pick the -u (useSharedWorkers) option:
+
+## `npm run server-start`
+**Script:** `webpack serve -c ./buildScripts/webpack/webpack.server.config.mjs --open`
+
+Starts the development server with Hot Module Replacement (HMR).
+- Opens the App Store (portal) by default.
+- Serves the project on `localhost:8080`.
+
+## `npm run test`
+**Script:** `playwright test`
+
+Runs the automated test suite using Playwright.
+*   `npm run test`: Runs all tests.
+*   `npm run test-components`: Runs component-level tests.
+*   `npm run test-unit`: Runs unit tests.
+
+## `npm run watch-themes`
+**Script:** `buildScripts/helpers/watchThemes.mjs`
+
+Watches the `resources/scss` directory and incrementally recompiles themes when files change.
+*Note: This script has no CLI options.*
+
+---
+
+# Advanced Tools
+
+## `npm run ai:mcp-client`
+**Script:** `ai/mcp/client/mcp-cli.mjs`
+
+A CLI tool for manually interacting with MCP servers. Useful for testing tool execution in isolation without an IDE extension.
+
 ```bash
-neo.mjs create-app
-? Please choose a name for your neo app: MyApp
-? Please choose a theme for your neo app: both
-? Please choose your main thread addons: Stylesheet
-? Do you want to use SharedWorkers? Pick yes for multiple main threads (Browser Windows): (Use arrow keys)
-  yes 
-❯ no 
+# Example: List tools on the GitHub server
+npm run ai:mcp-client -- --server github-workflow --list-tools
 ```
 
-No worries, you can easily change the options after you created your App shell.
+## `npm run ai:server`
+**Script:** `chroma run --path ./chroma-neo-knowledge-base`
 
-E.g. in case you want to add the MapboxGL main thread addon later on,
-you can add it inside your neo-config.json file:
-```json
-{
-    "appPath"         : "apps/myapp/app.mjs",
-    "basePath"        : "../../",
-    "environment"     : "development",
-    "mainPath"        : "./Main.mjs",
-    "mainThreadAddons": ["DragDrop", "MapboxGL", "Navigator", "Stylesheet"]
-}
-```
+Manually starts the ChromaDB instance for the **Knowledge Base**.
+Useful for debugging vector store operations outside of the MCP client.
 
-Regarding the -u (SharedWorkers) option:</br>
-Only use it in case you want to create an App which uses multiple main threads (Browser Windows).</br>
-Even in this case I recommend to start without it and switch at the point when your App is ready to connect
-a second one, since it does make the debugging more complicated.
+## `npm run ai:server-memory`
+**Script:** `chroma run --path ./chroma-neo-memory-core --port 8001`
 
-With normal Workers, you can get console logs & error messages inside your Browser Tab dev tools.</br>
-Using SharedWorkers, you need to open a separate Window to inspect them:</br>
-> chrome://inspect/#workers
+Manually starts the ChromaDB instance for the **Memory Core** on port 8001.
 
-Source code: <a href="./buildScripts/createApp.js">create-app</a>
+## `npm run ai:server-neural-link`
+**Script:** `ai/mcp/server/neural-link/run-bridge.mjs`
 
-## generate-docs-json
-> npm run generate-docs-json
+Starts the WebSocket bridge for the Neural Link, enabling the browser to communicate with the AI agent.
 
-neo.mjs is using jsdoc
-> https://github.com/jsdoc/jsdoc
+---
 
-to parse code comments and get the input we need for the Docs App.
-More precisely, our parser is based on:
-> https://github.com/onury/jsdoc-x
+# Internal Infrastructure
 
-to get the output in json based format.
-There are several enhancements around it to polish it for our class system improvements. 
+The following scripts are **automated entry points** used by IDE extensions (like the VSCode MCP Client). You generally **do not** need to run these manually.
 
-Source code: <a href="./docs/jsdocx.js">generate-docs-json</a>
-
-## server-start
-> npm run server-start
-
-To open JS modules locally inside your Browser you need a web-server, since importing files is not possible
-otherwise for security reasons. You could enable this on an OS level, but this is definitely not recommended.
-
-One option is to use
-> https://github.com/webpack/webpack-dev-server
-
-We are running the server on the repository root folder, since we want to access the apps & examples
-folders directly for the development mode.
-
-Normally this server does get mapped to the dist folder, which enables hot module replacements for
-dist/development. Since the neo.mjs development mode runs without any JS builds or transpilations,
-this is not really needed.
-
-There is a ticket for it (low prio):
-> https://github.com/neomjs/neo/issues/96
-
-I am mostly using the WebStorm IDE web-server instead, which works fine as well.
+| NPM Command | Description |
+| :--- | :--- |
+| `ai:mcp-server-github-workflow` | StdIO entry point for the GitHub Agent. |
+| `ai:mcp-server-knowledge-base` | StdIO entry point for the Knowledge Base. |
+| `ai:mcp-server-memory-core` | StdIO entry point for the Memory Core. |
+| `ai:mcp-server-neural-link` | StdIO entry point for the Neural Link. |

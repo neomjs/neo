@@ -49,6 +49,12 @@ class ServiceBase extends Base {
          */
         mixins: [RemoteMethodAccess],
         /**
+         * Flag to enable the automatic 404 recovery strategy.
+         * If true, 404 errors on guarded paths will trigger a client reload.
+         * @member {Boolean} reloadOn404=true
+         */
+        reloadOn404: true,
+        /**
          * Remote method access for other workers.
          * Defines which methods can be called via RPC from the App Worker.
          * @member {Object} remote={app: [//...]}
@@ -91,6 +97,28 @@ class ServiceBase extends Base {
      * @protected
      */
     lastClient = null
+    /**
+     * Timestamp of the last triggered reload to prevent loops.
+     * @member {Number|null} lastReload=null
+     * @protected
+     */
+    lastReload = null
+    /**
+     * List of path partials that should be forced to load from network first.
+     *
+     * **Strategy: Network First, Cache Fallback**
+     * These files (`DefaultConfig.mjs`, `neo-config.json`) contain the application version.
+     * If they are served from a stale cache, the App Worker will initialize with an old version string.
+     * It will then perform a handshake with the Service Worker (which is likely new).
+     * The SW will detect the mismatch (`App v1 !== SW v2`) and command a reload.
+     * Without Network First, the browser might serve the stale config again, causing an infinite reload loop.
+     *
+     * @member {String[]} networkFirstPaths=['DefaultConfig.mjs','neo-config.json']
+     */
+    networkFirstPaths = [
+        'DefaultConfig.mjs',
+        'neo-config.json'
+    ]
     /**
      * @member {Object[]} promises=[]
      * @protected
@@ -255,6 +283,44 @@ class ServiceBase extends Base {
     }
 
     /**
+     * Intercepts 404 errors on guarded paths (dist/production, src) to detect version mismatches.
+     * If a mismatch is suspected (old app asking for deleted asset), triggers a forced client reload.
+     *
+     * Use Case: "Reactive Recovery" for when the Boot-Time check passes (or hasn't run) but the
+     * environment changes mid-session (Atomic Deployment deletes assets).
+     *
+     * @param {ExtendableMessageEvent} event
+     */
+    async on404(event) {
+        let me = this;
+
+        if (me.reloadOn404) {
+            // Check paths: dist/production, dist/esm, src
+            let url = event.request.url;
+
+            if (url.includes('/dist/production/') || url.includes('/dist/esm/') || url.includes('/src/')) {
+                let now = Date.now();
+
+                if (!me.lastReload || now - me.lastReload > 5000) {
+                    me.lastReload = now;
+
+                    let client = await clients.get(event.clientId);
+
+                    if (client) {
+                        console.warn('Neo: 404 on guarded asset. Reloading.', url);
+                        client.postMessage({
+                            action         : 'remoteMethod',
+                            data           : {force: true},
+                            remoteClassName: 'Neo.Main',
+                            remoteMethod   : 'reloadWindow'
+                        })
+                    }
+                }
+            }
+        }
+    }
+
+    /**
      * Handle the 'activate' event.
      * Cleans up old caches that don't match the current version.
      * @param {ExtendableMessageEvent} event
@@ -280,24 +346,55 @@ class ServiceBase extends Base {
 
     /**
      * The core interceptor for network requests.
-     * Implements a "Cache First, then Network" strategy for matched paths.
+     *
+     * Implements a hybrid caching strategy:
+     * 1.  **Network First:** For `networkFirstPaths` (Configs). Priority is getting the latest version to prevent handshake loops.
+     * 2.  **Cache First:** For `cachePaths` (Assets). Priority is speed and offline capability.
+     *
      * @param {ExtendableMessageEvent} event
      */
     onFetch(event) {
-        let hasMatch  = false,
-            {request} = event,
+        let me            = this,
+            hasCacheMatch = false,
+            hasNetMatch   = false,
+            {request}     = event,
             key;
 
-        for (key of this.cachePaths) {
+        // Check for Network First paths (Configs)
+        for (key of me.networkFirstPaths) {
             if (request.url.includes(key)) {
-                hasMatch = true;
+                hasNetMatch = true;
                 break
             }
         }
 
-        if (hasMatch && request.method === 'GET') {
+        if (hasNetMatch && request.method === 'GET') {
             event.respondWith(
-                caches.open(this.cacheName).then(cache => {
+                fetch(request, {cache: 'reload'}).then(response => {
+                    if (response.ok) {
+                        caches.open(me.cacheName).then(cache => {
+                            cache.put(request, response.clone()).catch(() => {})
+                        });
+                    }
+                    return response
+                }).catch(() => {
+                    return caches.match(request)
+                })
+            );
+            return
+        }
+
+        // Check for Cache First paths (Assets)
+        for (key of me.cachePaths) {
+            if (request.url.includes(key)) {
+                hasCacheMatch = true;
+                break
+            }
+        }
+
+        if (hasCacheMatch && request.method === 'GET') {
+            event.respondWith(
+                caches.open(me.cacheName).then(cache => {
                     return cache.match(request).then(cachedResponse => {
                         if (cachedResponse) {
                             return cachedResponse;
@@ -308,6 +405,8 @@ class ServiceBase extends Base {
                             if (response.ok || response.status === 0) {
                                 // catch is important, e.g. in case the quota is full
                                 cache.put(request, response.clone()).catch(() => {});
+                            } else if (response.status === 404) {
+                                me.on404(event)
                             }
                             return response;
                         });
@@ -315,6 +414,14 @@ class ServiceBase extends Base {
                 })
             );
         }
+    }
+
+    /**
+     * @param {Object} msg
+     * @param {ExtendableMessageEvent} event
+     */
+    onGetVersion(msg, event) {
+        this.resolve({version: this.version}, msg)
     }
 
     /**

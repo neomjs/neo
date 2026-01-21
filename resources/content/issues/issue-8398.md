@@ -1,7 +1,7 @@
 ---
 id: 8398
 title: Create 'Tickets' Knowledge Base section in Portal (Mirror GitHub Issues)
-state: OPEN
+state: CLOSED
 labels:
   - documentation
   - enhancement
@@ -10,10 +10,10 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-01-07T21:26:28Z'
-updatedAt: '2026-01-10T14:32:26Z'
+updatedAt: '2026-01-17T23:00:38Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8398'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: null
 subIssues:
   - '[x] 8501 Implement Ticket Index Generation Script'
@@ -62,6 +62,7 @@ subIssuesCompleted: 42
 subIssuesTotal: 42
 blockedBy: []
 blocking: []
+closedAt: '2026-01-17T23:00:38Z'
 ---
 # Create 'Tickets' Knowledge Base section in Portal (Mirror GitHub Issues)
 

@@ -1,0 +1,11 @@
+:root .neo-theme-neo-dark { // .portal-services-component
+    --portal-services-card-hover-border: var(--sem-color-border-focus);
+    --portal-services-card-hover-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+    --portal-services-glass-background : rgba(0, 0, 0, 0.6);
+    --portal-services-glass-border     : 1px solid var(--sem-color-border-subtle);
+    --portal-services-glass-shadow     : 0 4px 30px rgba(0, 0, 0, 0.5);
+    --portal-services-headline-shadow  : 0 0 20px rgba(62, 99, 221, 0.3);
+    --portal-services-link-color       : var(--sem-color-text-primary-default);
+    --portal-services-link-hover-color : var(--sem-color-fg-primary-highlighted);
+    --portal-services-text-opacity     : 0.85;
+}

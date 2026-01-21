@@ -1,0 +1,19 @@
+:root .neo-theme-neo-dark {
+    --markdown-bg                   : var(--sem-color-bg-neutral-default);
+    --markdown-blockquote-bg        : var(--purple-950);
+    --markdown-blockquote-border    : var(--sem-color-surface-primary-default);
+    --markdown-code-bg              : var(--sem-color-surface-primary-background);
+    --markdown-code-border          : var(--sem-color-border-subtle);
+    --markdown-details-summary-color: var(--sem-color-text-neutral-default);
+    --markdown-details-icon-color   : var(--sem-color-icon-primary-default);
+    --markdown-h1-color             : var(--sem-color-text-primary-default);
+    --markdown-hr-border            : var(--sem-color-border-subtle);
+    --markdown-lab-shadow           : 0 4px 8px 0 rgba(0, 0, 0, 0.5);
+    --markdown-lab-shadow-hover     : 0 8px 16px 0 rgba(0, 0, 0, 0.5);
+    --markdown-link-color           : var(--purple-200);
+    --markdown-list-marker-color    : var(--sem-color-text-primary-default);
+    --markdown-pre-border           : var(--sem-color-border-subtle);
+    --markdown-table-border         : var(--sem-color-border-subtle);
+    --markdown-table-header-bg      : var(--purple-900);
+    --markdown-text-color           : var(--white-off);
+}

@@ -41,25 +41,30 @@ class Content extends BaseContainer {
             colorMove: '#3E63DD',
             flex     : 'none',
             reference: 'magic-move',
+            renderSeoList: true,
 
             cycleTexts: [
                 'The Application Engine for the AI Era',
-                'True Multithreading',
+                'Conversational UIs',
+                'Agentic Control',
                 'The Neural Link',
+                'Live Runtime Mutation',
+                'AI-Native Runtime',
+                'JSON Blueprints since 2019',
                 'Object Permanence',
                 'Context Engineering',
-                'AI-Native Runtime',
-                'Live Runtime Mutation',
+                'True Multithreading',
+                'SharedWorker Simulations',
+                'Physics-Driven UI',
                 'Desktop-Class Performance',
                 'Linear Scalability',
                 'Multi-Window Orchestration',
                 'Cross-Window Messaging',
-                'JSON Blueprints',
                 'Hierarchical State Management',
                 'Clean Architecture',
                 'Separation of Concerns',
-                '100% Web Standards',
                 'Zero Build Step',
+                '100% Web Standards',
                 'No Transpilation',
                 'Instant Page Reloads'
             ]
@@ -69,8 +74,8 @@ class Content extends BaseContainer {
             tag : 'h3',
 
             text: [
-                'Neo.mjs is the Application Engine for the AI Era. Build desktop-class, multi-window apps with ',
-                'a true multi-threaded runtime and an AI co-developer.'
+                'Neo.mjs is the Application Engine for the AI Era. Build desktop-class, multi-window apps where ',
+                'AI agents can see, understand, and control the runtime—enabling the next generation of Conversational UIs.'
             ].join('')
         }, {
             ntype: 'container',

@@ -1,0 +1,24 @@
+:root .neo-theme-neo-dark { // .neo-calendar-maincontainer
+    --calendar-border-color              : var(--sem-color-border-default);
+
+    --event-blue-background-color        : rgba(  0,  80, 181, 0.3);
+    --event-blue-background-color-focus  : rgba(  0,  80, 181, 0.7);
+    --event-blue-color                   : rgb(100, 149, 237);
+    --event-green-background-color       : rgba(  0, 128,   0, 0.3);
+    --event-green-background-color-focus : rgba(  0, 128,   0, 0.7);
+    --event-green-color                  : rgb(144, 238, 144);
+    --event-orange-background-color      : rgba(255, 100,   0, 0.3);
+    --event-orange-background-color-focus: rgba(255, 100,   0, 0.7);
+    --event-orange-color                 : rgb( 255, 165,   0);
+    --event-pink-background-color        : rgba(255,  20, 147, 0.3);
+    --event-pink-background-color-focus  : rgba(255,  20, 147, 0.7);
+    --event-pink-color                   : rgb( 255, 105, 180);
+    --event-red-background-color         : rgba(255,   0,   0, 0.3);
+    --event-red-background-color-focus   : rgba(255,   0,   0, 0.7);
+    --event-red-color                    : rgb( 255,  99,  71);
+    --event-yellow-background-color      : rgba(255, 204,   0, 0.3);
+    --event-yellow-background-color-focus: rgba(255, 204,   0, 0.7);
+    --event-yellow-border-color          : rgb( 255, 204,   0);
+    --event-yellow-color                 : rgb( 255, 215,   0);
+    --event-yellow-color-focus           : rgb( 255, 215,   0);
+}

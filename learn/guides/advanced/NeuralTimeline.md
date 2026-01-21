@@ -98,6 +98,8 @@ let rects = await me.waitForDomRect({id: ids});
 
 The Shared Worker receives a list of abstract "Nodes." It doesn't know what a "Ticket" or a "DOM" is. It just knows it has points `(x, y)` to connect.
 
+**Note:** While this specific implementation relies on `setTimeout` because it runs in a **Shared Worker**, the same architecture works seamlessly in a **Dedicated Worker** (the default in Neo.mjs). In that context, you should use `requestAnimationFrame` for optimal battery life and V-Sync. Ideally, use feature detection to support both.
+
 ## Physics Engine: The "Traffic Model"
 
 To make the animation feel organic, we didn't want a pulse that moves at a constant boring speed. We implemented a **Traffic Model**:

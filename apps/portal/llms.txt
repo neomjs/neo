@@ -69,8 +69,10 @@ To access bundled versions, prefix paths with `/dist/production/`, `/dist/develo
 - [Application Bootstrap](https://neomjs.com/learn/guides/fundamentals/ApplicationBootstrap)
 - [Instance Lifecycle](https://neomjs.com/learn/guides/fundamentals/InstanceLifecycle)
 - [Worker Architecture & Messaging](https://neomjs.com/learn/guides/fundamentals/WorkerArchitecture)
+- [Async Destruction & The Trap Pattern](https://neomjs.com/learn/guides/fundamentals/AsyncDestruction)
 - [Declarative Component Trees VS Imperative Vdom](https://neomjs.com/learn/guides/fundamentals/DeclarativeComponentTreesVsImperativeVdom)
 - [Declarative VDOM with Effects](https://neomjs.com/learn/guides/fundamentals/DeclarativeVDOMWithEffects)
+- [Asymmetric VDOM Updates](https://neomjs.com/learn/guides/fundamentals/AsymmetricUpdates)
 - [Config System Deep Dive](https://neomjs.com/learn/guides/fundamentals/ConfigSystemDeepDive)
 - [Declarative Config Merging](https://neomjs.com/learn/guides/fundamentals/DeclarativeConfigMerging)
 - [Extending Neo Classes](https://neomjs.com/learn/guides/fundamentals/ExtendingNeoClasses)
@@ -99,6 +101,7 @@ To access bundled versions, prefix paths with `/dist/production/`, `/dist/develo
 - [Canvas Architecture (Zero-Allocation)](https://neomjs.com/learn/guides/advanced/CanvasArchitecture)
 - [Neural Swarm (Autonomous Simulation)](https://neomjs.com/learn/guides/advanced/NeuralSwarm)
 - [Neural Timeline (Coordinator Pattern)](https://neomjs.com/learn/guides/advanced/NeuralTimeline)
+- [Neural Fabric (2.5D Projection)](https://neomjs.com/learn/guides/advanced/NeuralFabric)
 - [Introduction](https://neomjs.com/learn/guides/mcp/Introduction)
 - [The Knowledge Base Server](https://neomjs.com/learn/guides/mcp/KnowledgeBase)
 - [The Memory Core Server](https://neomjs.com/learn/guides/mcp/MemoryCore)
@@ -128,18 +131,6 @@ To access bundled versions, prefix paths with `/dist/production/`, `/dist/develo
 - [Overriding Methods](https://neomjs.com/learn/javascript/Overrides)
 - [Other JavaScript Class Features](https://neomjs.com/learn/javascript/ClassFeatures)
 - [Super](https://neomjs.com/learn/javascript/Super)
-
-## Blog
-
-- [Context Engineering Done Right](https://neomjs.com/learn/blog/context-engineering-done-right)
-- [A Platform That Answers Your Questions](https://neomjs.com/learn/blog/ai-native-platform-answers-questions)
-- [v10 Deep Dive: State Provider](https://neomjs.com/learn/blog/v10-deep-dive-state-provider)
-- [Benchmarking Frontends 2025](https://neomjs.com/learn/blog/benchmarking-frontends-2025)
-- [v10 Deep Dive: VDOM Revolution](https://neomjs.com/learn/blog/v10-deep-dive-vdom-revolution)
-- [v10 Deep Dive: Functional Components](https://neomjs.com/learn/blog/v10-deep-dive-functional-components)
-- [v10 Deep Dive: Reactivity](https://neomjs.com/learn/blog/v10-deep-dive-reactivity)
-- [v10 Post 1: A Love Story](https://neomjs.com/learn/blog/v10-post1-love-story)
-- [JSON Blueprints & Shared Workers](https://neomjs.com/learn/blog/json-blueprints-and-shared-workers)
 
 ## Demo Apps and Examples
 

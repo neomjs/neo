@@ -1,73 +1,91 @@
 .portal-home-footer-container {
-    background-color: black;
-    height          : 35%;
-    padding         : 2em;
+    background-color: var(--portal-footer-background-color);
+    color           : var(--portal-footer-text-color);
+    display         : flex;
+    flex-direction  : column;
+    isolation       : isolate;
+    min-height      : 300px;
+    padding         : 0 2em;
+    position        : relative;
+    width           : 100%;
 
-    .neo-button.neo-button-ghost {
-        justify-content: start;
-        min-width      : 10em;
+    .portal-footer-content {
+        background-color: transparent;
+        color           : inherit;
+        gap             : 2em;
+        margin          : 0 auto;
+        max-width       : 1200px;
+        padding         : 4em 0;
+        width           : 100%;
 
-        &:hover {
-            background-color: #333;
+        @media (max-width: 800px) {
+            flex-direction: column !important;
+            gap           : 3em;
+            padding       : 3em 0;
         }
-
-        .neo-button-glyph {
-            color    : white;
-            font-size: 16px;
-        }
-
-        .neo-button-text {
-            color: white;
-        }
-    }
-
-    h2.neo-h2 {
-        color: white;
-    }
-
-    .neo-version {
-        align-items: center;
-        display    : flex;
-        padding    : var(--button-padding);
-    }
-
-    .neo-version {
-        height: var(--button-height);
-        margin: var(--button-margin);
-    }
-
-    .portal-home-footer-spacer {
-        height: calc(2 * var(--button-height));
-        margin: calc(2 * var(--button-margin));
     }
 
     .portal-home-footer-section {
         background-color: transparent;
-        color           : white;
-    }
+        color           : inherit;
+        flex            : 1;
 
-    .portal-home-footer-spacer {
-        height: calc(2 * var(--button-height));
-        margin: calc(2 * var(--button-margin));
-    }
-
-    @media (max-width: 800px) {
-        max-height: 18em;
-        min-height: 18em;
-        padding   : 1em;
-
-        h2.neo-h2 {
-            font-size: 1.2rem;
+        h3.neo-h3 {
+            color         : var(--portal-footer-text-color);
+            font-size     : 1.1rem;
+            font-weight   : 600;
+            letter-spacing: 0.5px;
+            margin-bottom : 1.5em;
+            opacity       : 0.9;
+            text-transform: uppercase;
         }
 
-        .neo-button,
+        .neo-button.neo-button-ghost {
+            --button-ghost-glyph-color           : var(--portal-footer-text-color);
+            --button-ghost-glyph-color-hover     : var(--portal-footer-highlight-color);
+            --button-ghost-text-color            : var(--portal-footer-text-color);
+            --button-ghost-text-color-hover      : var(--portal-footer-highlight-color);
+
+            justify-content: flex-start;
+            margin-bottom  : 0.5em;
+            padding-left   : 0;
+
+            &:hover {
+                background-color: var(--portal-footer-button-hover-background-color);
+                border-radius   : 4px;
+            }
+
+            .neo-button-glyph {
+                font-size   : 14px;
+                margin-right: 0.8em;
+                opacity     : 0.7;
+                width       : 16px;
+            }
+
+            .neo-button-text {
+                font-size: 0.95rem;
+                opacity  : 0.8;
+            }
+
+            &:hover .neo-button-text,
+            &:hover .neo-button-glyph {
+                opacity: 1;
+            }
+        }
+    }
+
+    .portal-footer-bottom {
+        background-color: transparent;
+        border-top      : 1px solid rgba(128, 128, 128, 0.2);
+        color           : inherit;
+        padding         : 2em 0;
+
         .neo-version {
-            padding: 0 3px;
+            color     : var(--portal-footer-text-color);
+            font-size : 0.85rem;
+            opacity   : 0.6;
+            text-align: center;
+            width     : 100%;
         }
-    }
-
-    @media (max-width: 500px) {
-        max-height: 15em;
-        min-height: 15em;
     }
 }

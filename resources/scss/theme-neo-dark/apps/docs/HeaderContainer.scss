@@ -1,0 +1,10 @@
+:root .neo-theme-neo-dark { // .neo-docs-header-container
+    --docs-header-container-background-color         : var(--sem-color-bg-neutral-default);
+    --docs-header-container-background-image         : none;
+    --docs-header-container-logo-text-background-clip: text;
+    --docs-header-container-logo-text-color          : var(--sem-color-text-neutral-default);
+    --docs-header-container-logo-text-font-size      : 28px;
+    --docs-header-container-logo-text-font-weight    : 800;
+    --docs-header-container-logo-padding             : 10px;
+    --docs-header-container-logo-text-shadow         : 2px 2px 3px rgba(0,0,0,0.5);
+}
