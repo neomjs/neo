@@ -207,6 +207,38 @@ This architecture becomes critical in two scenarios:
     Neo.mjs runs the entire application in a SharedWorker (App Worker). This means one App Worker controls multiple browser windows.
     *   **Disjoint Updates**: A chart updating in Window A should not block a form typing in Window B. Scoped Updates ensure these are processed as independent streams.
 
+## Architecture Constraints & Race Conditions
+
+Implementing disjoint updates in a high-performance, multi-threaded, multi-window environment introduces unique challenges. The application engine handles these automatically, but understanding them is crucial for advanced architecture.
+
+### 1. The Lazy Snapshot (Avoiding "Ghost Content")
+
+When a component triggers an update (e.g., `header.hidden = true`), the framework must decide *when* to calculate the VDOM diff.
+If we snapshot the VDOM synchronously at the moment of the trigger, we risk missing subsequent changes that happen in the same execution tick (e.g., a synchronous `remove()` call).
+
+**Solution:** The VDOM lifecycle uses a **Lazy Snapshot** model.
+1.  `updateVdom()` marks the component as dirty (`isVdomUpdating = true`).
+2.  The process **yields to the Macrotask queue** (`await setTimeout`).
+3.  This allows pending synchronous operations (like layout reflows or removals) to complete.
+4.  Only then does `collectPayloads` run, ensuring it captures the *final* state of the transaction.
+
+This prevents "Ghost Content" where a component is removed from the DOM but persists in the VDOM update payload because the snapshot was taken too early.
+
+### 2. SharedWorker Window Isolation
+
+In a SharedWorker environment, a single App Worker manages multiple Browser Windows.
+A `Viewport` in Window A might have a `mergedChildIds` list containing a `Panel`. If that `Panel` moves to Window B (popout), it is physically gone from Window A.
+
+**Constraint:** We must strictly **filter update payloads by Window ID**.
+If `Viewport` (Window A) batches updates, it must **exclude** any merged children that have moved to Window B. Failing to do so would cause "Cross-Window Leaks", where deltas meant for the Popup are applied to the Main Window, causing corruption.
+
+### 3. Zombie Parents (In-Flight Registry)
+
+When a parent component starts an update, it registers itself in the `VDomUpdate` manager. This blocks it from starting overlapping updates (`isChildUpdating` check).
+If a child component **moves** to a new parent while an update is in-flight, the manager must be smart enough to clear the registry for the **old parent**, not just the new one.
+
+**Solution:** The registry tracks dependencies via a direct map (`descendantInFlightMap`). Cleanup iterates this map directly rather than walking the live component tree (which might have changed). This prevents "Zombie Parents" from being permanently blocked by children they no longer own.
+
 ## Best Practices
 
 ### When to use Independent Updates (Default)
