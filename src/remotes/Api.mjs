@@ -39,16 +39,16 @@ class Api extends Base {
      *
      */
     load() {
-        let {config}     = Neo,
-            hasJsModules = config.environment === 'development' || config.environment === 'dist/esm',
-            path         = config.remotesApiUrl;
+        let {config}    = Neo,
+            useMjsFiles = config.environment === 'development' || config.environment === 'dist/esm',
+            path        = config.remotesApiUrl;
 
         // Relative paths need a special treatment
         if (!path.includes('http')) {
             path = config.appPath.split('/');
             path.pop();
             path = `${path.join('/')}/${config.remotesApiUrl}`;
-            path = (hasJsModules ? '../../' : './') + path
+            path = (useMjsFiles ? '../../' : './') + path
         }
 
         fetch(path)
