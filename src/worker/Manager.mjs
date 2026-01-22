@@ -139,11 +139,11 @@ class Manager extends Base {
      * @param {Object} config
      */
     construct(config) {
-        super.construct(config);
-
         let me = this;
 
         me.promises = {};
+
+        super.construct(config);
 
         me.detectFeatures();
 
@@ -345,8 +345,10 @@ class Manager extends Base {
             return navigator.serviceWorker?.controller || this.serviceWorker
         }
 
-        if (this.workers[name]) {
-            return name instanceof Worker ? name : this.workers[name].worker
+        const item = this.workers[name];
+
+        if (item) {
+            return name instanceof Worker ? name : item.worker
         }
 
         return null
