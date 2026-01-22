@@ -143,6 +143,8 @@ class Manager extends Base {
 
         let me = this;
 
+        me.promises = {};
+
         me.detectFeatures();
 
         !Neo.insideWorker && me.createWorkers();
@@ -162,8 +164,6 @@ class Manager extends Base {
 
         Neo.setGlobalConfig = me.setGlobalConfig.bind(me);
         Neo.workerId        = 'main';
-
-        me.promises = {};
 
         me.on({
             'message:addDomListener'    : {fn: DomEvents.addDomListener,       scope: DomEvents},
@@ -345,7 +345,11 @@ class Manager extends Base {
             return navigator.serviceWorker?.controller || this.serviceWorker
         }
 
-        return name instanceof Worker ? name : this.workers[name].worker
+        if (this.workers[name]) {
+            return name instanceof Worker ? name : this.workers[name].worker
+        }
+
+        return null
     }
 
     /**

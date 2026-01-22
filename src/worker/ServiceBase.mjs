@@ -372,8 +372,9 @@ class ServiceBase extends Base {
             event.respondWith(
                 fetch(request, {cache: 'reload'}).then(response => {
                     if (response.ok) {
+                        const responseClone = response.clone();
                         caches.open(me.cacheName).then(cache => {
-                            cache.put(request, response.clone()).catch(() => {})
+                            cache.put(request, responseClone).catch(() => {})
                         });
                     }
                     return response
@@ -404,7 +405,8 @@ class ServiceBase extends Base {
                             // Cache successful responses for future use
                             if (response.ok || response.status === 0) {
                                 // catch is important, e.g. in case the quota is full
-                                cache.put(request, response.clone()).catch(() => {});
+                                const responseClone = response.clone();
+                                cache.put(request, responseClone).catch(() => {});
                             } else if (response.status === 404) {
                                 me.on404(event)
                             }
