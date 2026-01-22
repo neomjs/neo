@@ -33,10 +33,10 @@ class ServiceWorker extends Base {
                 {environment}   = config,
                 devMode         = environment === 'development',
                 distEsm         = environment === 'dist/esm',
-                hasJsModules    = devMode || distEsm,
-                fileName        = hasJsModules ? 'ServiceWorker.mjs' : 'serviceworker.js',
-                opts            = hasJsModules ? {type: 'module'} : {},
-                path            = (hasJsModules ? config.basePath : config.workerBasePath) + fileName,
+                useMjsFiles     = devMode || distEsm,
+                fileName        = useMjsFiles ? 'ServiceWorker.mjs' : 'serviceworker.js',
+                opts            = {type: 'module'},
+                path            = (useMjsFiles ? config.basePath : config.workerBasePath) + fileName,
                 {serviceWorker} = navigator,
                 registration;
 

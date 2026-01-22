@@ -99,6 +99,7 @@ To access bundled versions, prefix paths with `/dist/production/`, `/dist/develo
 - [Mixins](https://neomjs.com/learn/guides/specificfeatures/Mixins)
 - [Portal App](https://neomjs.com/learn/guides/specificfeatures/PortalApp)
 - [Canvas Architecture (Zero-Allocation)](https://neomjs.com/learn/guides/advanced/CanvasArchitecture)
+- [Build Architecture & Service Workers](https://neomjs.com/learn/guides/advanced/BuildArchitecture)
 - [Neural Swarm (Autonomous Simulation)](https://neomjs.com/learn/guides/advanced/NeuralSwarm)
 - [Neural Timeline (Coordinator Pattern)](https://neomjs.com/learn/guides/advanced/NeuralTimeline)
 - [Neural Fabric (2.5D Projection)](https://neomjs.com/learn/guides/advanced/NeuralFabric)
