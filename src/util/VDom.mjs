@@ -152,6 +152,10 @@ class VDom extends Base {
     static getById(vdom, id) {
         vdom = VDom.getVdom(vdom);
 
+        if (!vdom) {
+            return null
+        }
+
         let childNodes = vdom.cn || [],
             i          = 0,
             len        = childNodes.length,
@@ -164,14 +168,16 @@ class VDom extends Base {
         for (; i < len; i++) {
             childNode = VDom.getVdom(childNodes[i]);
 
-            if (childNode.id === id) {
-                return childNode
-            }
-
-            childNode = VDom.getById(childNode, id);
-
             if (childNode) {
-                return childNode
+                if (childNode.id === id) {
+                    return childNode
+                }
+
+                childNode = VDom.getById(childNode, id);
+
+                if (childNode) {
+                    return childNode
+                }
             }
         }
 
