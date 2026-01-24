@@ -42,7 +42,7 @@ Neo.applyDeltas = async () => {};
 
 class ChildComponent extends Component {
     static config = {
-        className: 'Test.ChildComponent',
+        className: 'Test.ParentIdChange.ChildComponent',
         _vdom: {tag: 'div', cls: ['child']}
     }
 }
@@ -50,7 +50,7 @@ ChildComponent = Neo.setupClass(ChildComponent);
 
 class ParentComponent extends Container {
     static config = {
-        className: 'Test.ParentComponent'
+        className: 'Test.ParentIdChange.ParentComponent'
     }
 }
 ParentComponent = Neo.setupClass(ParentComponent);

@@ -574,20 +574,24 @@ class Component extends Manager {
             if (Neo.isString(item)) {
                 me.wrapperNodes.delete(item);
                 component = me.get(item)
-            } else if (item.id !== item.vdom.id) {
-                me.wrapperNodes.delete(item.vdom.id)
             }
 
-            const {id, parentId} = component || {};
+            if (component) {
+                const {id, parentId, vdom} = component;
 
-            if (parentId) {
-                let set = me.childMap.get(parentId);
+                if (vdom && id !== vdom.id) {
+                    me.wrapperNodes.delete(vdom.id)
+                }
 
-                if (set) {
-                    set.delete(id);
+                if (parentId) {
+                    let set = me.childMap.get(parentId);
 
-                    if (set.size === 0) {
-                        me.childMap.delete(parentId)
+                    if (set) {
+                        set.delete(id);
+
+                        if (set.size === 0) {
+                            me.childMap.delete(parentId)
+                        }
                     }
                 }
             }
