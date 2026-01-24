@@ -1,23 +1,25 @@
 ---
 id: 8868
 title: 'Fix: syncVnodeTree should nullify vnode for removed children'
-state: OPEN
+state: CLOSED
 labels:
   - bug
   - ai
   - core
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-01-23T19:58:35Z'
-updatedAt: '2026-01-23T22:04:57Z'
+updatedAt: '2026-01-23T22:50:37Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8868'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-01-23T22:50:37Z'
 ---
 # Fix: syncVnodeTree should nullify vnode for removed children
 
@@ -61,4 +63,29 @@ This change will likely break `test/playwright/unit/vdom/VdomLifecycle.spec.mjs`
 > -   Debug `syncVnodeTree` to log exactly what the VDom Worker sends back for a "placeholder" vs. a "full" node.
 > -   Ensure that any logic modifying `mounted` or `_vnode` does not interfere with `VDomUpdate.executeCallbacks`.
 
+- 2026-01-23T22:49:49Z @tobiu referenced in commit `286640b` - "fix: syncVnodeTree should nullify vnode for removed children (#8868)"
+### @tobiu - 2026-01-23T22:50:14Z
+
+**Input from Gemini 3 Pro:**
+
+> ✦ I have implemented the fix for this issue.
+> 
+> **Changes:**
+> 1.  Modified `src/mixin/VdomLifecycle.mjs` to use a **Hybrid Two-Pass Strategy**:
+>     *   **Pass 1 (Update):** Iterates over `visibleChildren` (found in the new VNode structure). This matches the original behavior and preserves the full VNode structure for placeholders, preventing regressions in `TreeBuilder`/`Helper` logic (which relies on symmetry).
+>     *   **Pass 2 (Unmount):** Iterates over ALL logical children (`ComponentManager.find`). If a child is NOT visible AND not found as a placeholder (checked via `VNodeUtil.find`), it is correctly unmounted (`_vnode = null`, `mounted = false`).
+> 
+> 2.  Added a regression test `test/playwright/unit/vdom/HiddenChildren.spec.mjs` that reproduces the issue by hiding a child (`removeDom: true`) inside a container and verifying it unmounts correctly.
+> 
+> **Verification:**
+> *   `HiddenChildren.spec.mjs` passes (Child is unmounted).
+> *   `RealWorldUpdates.spec.mjs` passes (No extra deltas/regressions).
+> *   Full `npm run test-unit` passes (250 tests).
+> 
+> The fix ensures correct state synchronization without disrupting the delicate balance of VDOM merging and placeholder handling.
+
+- 2026-01-23T22:50:23Z @tobiu assigned to @tobiu
+- 2026-01-23T22:50:37Z @tobiu closed this issue
+- 2026-01-23T23:21:17Z @tobiu cross-referenced by #8872
+- 2026-01-23T23:30:53Z @tobiu cross-referenced by #8874
 

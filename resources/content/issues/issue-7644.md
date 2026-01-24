@@ -4,14 +4,15 @@ title: 'Feat: Implement PR Syncer for GitHub Workflow'
 state: OPEN
 labels:
   - enhancement
+  - stale
   - ai
 assignees:
   - tobiu
 createdAt: '2025-10-25T10:22:46Z'
-updatedAt: '2025-10-25T10:23:53Z'
+updatedAt: '2026-01-24T03:07:13Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7644'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 7645
 subIssues: []
 subIssuesCompleted: 0
@@ -41,4 +42,9 @@ As the final part of the sync service refactoring epic, this ticket introduces t
 - 2025-10-25T10:23:50Z @tobiu assigned to @tobiu
 - 2025-10-25T10:23:53Z @tobiu removed the `epic` label
 - 2025-10-25T10:24:07Z @tobiu added parent issue #7645
+### @github-actions - 2026-01-24T03:07:13Z
+
+This issue is stale because it has been open for 90 days with no activity.
+
+- 2026-01-24T03:07:13Z @github-actions added the `stale` label
 
