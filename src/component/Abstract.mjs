@@ -254,6 +254,16 @@ class Abstract extends Base {
     }
 
     /**
+     * Triggered after the parentId config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetParentId(value, oldValue) {
+        ComponentManager.onParentIdChange(this, oldValue)
+    }
+
+    /**
      * Triggered after the stateProvider config got changed
      * @param {Neo.state.Provider} value
      * @param {Object|Neo.state.Provider|null} oldValue

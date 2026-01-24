@@ -830,7 +830,7 @@ class VdomLifecycle extends Base {
         });
 
         // New logic to handle unmounting of removed children
-        ComponentManager.find({parentId: me.id}).forEach(component => {
+        ComponentManager.getDirectChildren(me.id).forEach(component => {
             if (!childComponents.includes(component)) {
                 // Check if it exists in the tree (as placeholder)
                 // We use VNodeUtil.find which resolves placeholders
