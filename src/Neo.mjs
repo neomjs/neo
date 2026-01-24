@@ -813,6 +813,10 @@ If you intended to create custom logic, use the 'beforeGet${Neo.capitalize(key)}
          * Example: code.LivePreview running inside a dist/production app.
          */
         if (ns) {
+            if (Neo.config.unitTestMode) {
+                throw new Error('Namespace collision in unitTestMode for ' + proto.constructor.config.className)
+            }
+
             return ns
         }
 

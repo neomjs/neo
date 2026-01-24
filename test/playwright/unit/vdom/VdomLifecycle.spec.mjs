@@ -25,8 +25,8 @@ Neo.applyDeltas = async () => {};
 
 class MockComponent extends Component {
     static config = {
-        className: 'Test.MockComponent',
-        ntype: 'test-mock',
+        className: 'Test.Unit.Vdom.VdomLifecycle.MockComponent',
+        ntype: 'test-unit-vdom-vdomlifecycle-mock',
         hideMode: 'removeDom',
         _vdom: {tag: 'div', cls: ['child']}
     }
