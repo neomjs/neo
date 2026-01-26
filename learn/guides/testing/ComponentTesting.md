@@ -191,3 +191,36 @@ await neo.createComponent({
 **Recommendation:**
 *   Use **Unit Tests** for 90% of your logic (Controllers, Stores, VDOM logic).
 *   Use **Component Tests** only when you verify actual DOM interaction, CSS rendering, or complex browser-specific behaviors.
+
+## Beyond the Empty Viewport
+
+While the `empty-viewport` app is great for isolated component testing, the Playwright harness is flexible enough to handle broader scenarios.
+
+### 1. Testing Full Applications (E2E)
+You are not limited to the test harness. You can point your test to *any* Neo.mjs application entry point to perform Integration or E2E tests.
+
+```javascript
+test.beforeEach(async ({ page }) => {
+    // Load a real application
+    await page.goto('apps/realworld/index.html');
+    await page.waitForSelector('.neo-viewport');
+});
+```
+
+This allows you to test user flows (e.g., "Login -> Navigate -> Submit Form") using the same API.
+
+### 2. Custom Test Harnesses
+If you find yourself repeatedly setting up complex component trees (e.g., a Grid with specific stores and plugins), you can create a dedicated test app (e.g., `test/harness/my-grid-harness/index.html`).
+
+Instead of `createComponent()`, your test would simply load this custom app, which comes pre-configured with the state you want to verify.
+
+## Future Roadmap: Deep E2E
+
+The current component testing bridge ("RMA Helpers") provides basic interactions but has limited visibility into the App Worker's internal state (Stores, Managers, Worker Threads).
+
+We are actively exploring **"Deep E2E"** testing powered by the **Neural Link**. This will allow tests to:
+*   Inspect internal Store data directly (White-Box testing).
+*   Verify state across multiple windows seamlessly.
+*   Hot-patch code during runtime for advanced assertions.
+
+This capability is tracked in **[Issue #8851](https://github.com/neomjs/neo/issues/8851)**. If this feature is important to your workflow, please leave a comment on the ticket to help us prioritize it.
