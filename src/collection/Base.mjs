@@ -503,6 +503,11 @@ class Collection extends Base {
     destroy() {
         let me = this;
 
+        me.allItems?.destroy();
+
+        me.filters?.forEach(item => item?.destroy());
+        me.sorters?.forEach(item => item?.destroy());
+
         me._items.splice(0, me._items.length);
         me.map.clear();
 
