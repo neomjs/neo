@@ -23,6 +23,10 @@ class MainStore extends Store {
          */
         amountRows_: 1000,
         /**
+         * @member {Boolean} autoInitRecords=false
+         */
+        autoInitRecords: false,
+        /**
          * @member {Object[]} filters
          * @reactive
          */
