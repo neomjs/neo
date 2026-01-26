@@ -193,7 +193,10 @@ class Collection extends Base {
 
             for (; i < len; i++) {
                 item = value[i];
-                me.map.set(item[keyProperty], item)
+
+                if (item) {
+                    me.map.set(item[keyProperty], item)
+                }
             }
 
             me.count = len

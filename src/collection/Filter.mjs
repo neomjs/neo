@@ -191,6 +191,10 @@ class Filter extends Base {
             return false
         }
 
+        if (!item) {
+            return true
+        }
+
         if (me._filterBy) {
             return me.filterBy.call(me.scope || me, {
                 allItems,

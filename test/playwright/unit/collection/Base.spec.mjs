@@ -329,4 +329,29 @@ test.describe.serial('Neo.collection.Base', () => {
         moveCollection.move(4, 0);
         expect(moveCollection.getRange()).toEqual([{id: 'a'}, {id: 'b'}, {id: 'c'}, {id: 'd'}, {id: 'e'}]);
     });
+
+    test('Filter collection with undefined items', () => {
+        let collection = Neo.create(Collection, {
+            items: [
+                {id: 1, value: 'a'},
+                {id: 2, value: 'b'}
+            ]
+        });
+
+        // Simulate data corruption
+        collection._items.push(undefined);
+        collection.count++;
+
+        // Apply filter
+        collection.filters = [{
+            property: 'value',
+            value   : 'a'
+        }];
+
+        // Should not throw and result should exclude undefined
+        expect(collection.count).toBe(1);
+        expect(collection.getAt(0).id).toBe(1);
+    });
 });
+    
+    
