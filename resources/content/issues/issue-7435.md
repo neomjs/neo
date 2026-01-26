@@ -5,15 +5,16 @@ state: OPEN
 labels:
   - help wanted
   - epic
+  - stale
   - hacktoberfest
   - ai
 assignees:
   - tobiu
 createdAt: '2025-10-10T16:38:20Z'
-updatedAt: '2025-10-27T13:59:12Z'
+updatedAt: '2026-01-26T03:26:32Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7435'
 author: tobiu
-commentsCount: 7
+commentsCount: 8
 parentIssue: null
 subIssues:
   - '[x] 7436 Create Component Test Harness Config'
@@ -390,4 +391,9 @@ into the new epic, we can now drop big amounts of subs.
 - 2025-10-27T14:00:20Z @tobiu added sub-issue #7677
 - 2025-11-04T18:48:03Z @tobiu added sub-issue #7703
 - 2025-11-10T20:25:51Z @tobiu added sub-issue #7737
+### @github-actions - 2026-01-26T03:26:31Z
+
+This issue is stale because it has been open for 90 days with no activity.
+
+- 2026-01-26T03:26:32Z @github-actions added the `stale` label
 
