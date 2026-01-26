@@ -148,10 +148,35 @@ The `neo` fixture provides the following methods:
 
 ## Advanced: Loading Modules
 
-If you need to test a custom component that isn't loaded by default, you can dynamically load the module:
+Sometimes you need to test a component that isn't loaded by default in the `empty-viewport` app. You have two options to load modules dynamically.
+
+**Warning:** These methods rely on dynamic imports that are ignored by webpack (`/* webpackIgnore: true */`). They work in development and testing environments but will fail in production builds if the chunks are not available.
+
+### Option 1: The `loadModule` Helper
+
+You can manually load a module before using it.
 
 ```javascript
-await neo.loadModule('../../../src/my/CustomComponent.mjs');
+// Load the class definition first
+await neo.loadModule('../../src/button/Base.mjs');
+
+// Then create the instance
+await neo.createComponent({
+    className: 'Neo.button.Base',
+    text     : 'Loaded Manually'
+});
+```
+
+### Option 2: The `importPath` Shortcut
+
+The `createComponent` method accepts an `importPath` config. This is a convenient shortcut that loads the module *before* attempting to create the instance.
+
+```javascript
+await neo.createComponent({
+    className : 'Neo.button.Base',
+    importPath: '../../src/button/Base.mjs', // <--- Lazy load and create in one step
+    text      : 'Lazy Loaded Button'
+});
 ```
 
 ## When to use Component vs. Unit Tests?
