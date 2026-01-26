@@ -441,6 +441,8 @@ class Collection extends Base {
     clearSilent() {
         let me = this;
 
+        me.allItems?.clearSilent();
+
         me._items.splice(0, me.count);
         me.map.clear()
     }
