@@ -699,7 +699,10 @@ class Collection extends Base {
                 needsSorting = true
             }
 
-            me.clearSilent();
+            // We cannot use clearSilent() here, since it would clear allItems as well
+            me._items.splice(0, me.count);
+            me.map.clear();
+            me.initialIndexCounter = 0;
 
             me.items = [...me.allItems._items]
         } else {
