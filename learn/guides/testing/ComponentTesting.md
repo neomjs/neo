@@ -82,10 +82,10 @@ Use `neo.createComponent()` to instantiate a component inside the App Worker. Yo
 test('should render a button', async ({ neo, page }) => {
     // 1. Create the component
     const result = await neo.createComponent({
-        module  : 'Neo.button.Base', // or importPath: '../button/Base.mjs'
-        parentId: 'component-test-viewport', // Render into the main viewport
-        text    : 'Click Me',
-        iconCls : 'fa fa-home'
+        className: 'Neo.button.Base',
+        parentId : 'component-test-viewport', // Render into the main viewport
+        text     : 'Click Me',
+        iconCls  : 'fa fa-home'
     });
 
     const buttonId = result.id;
