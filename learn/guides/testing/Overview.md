@@ -19,10 +19,12 @@ Component tests run your actual application code inside a real browser environme
 [Read the Component Testing Guide](ComponentTesting.md)
 
 ## 3. Benchmarking (Performance & Resilience)
-**Focus:** Concurrency, FPS, Memory Leaks, Resilience under Load.
+**Focus:** Concurrency, FPS, Resilience under Load, Cross-Framework Comparison.
 **Environment:** Specialized High-Precision Harness (Separate Repository).
 
-Standard functional tests pass if the UI "eventually" reaches the correct state. Benchmarks measure *how* it gets there. We focus on "Resilience Testing"—measuring if the application can handle high-frequency updates, massive datasets, and background calculations without dropping frames.
+Standard functional tests pass if the UI "eventually" reaches the correct state. Benchmarks measure *how* it gets there. We focus on "Resilience Testing"—measuring if the application can handle high-frequency updates (e.g., 100k rows) without dropping frames.
+
+Our harness uses **Atomic In-Browser Measurement** (MutationObservers) to eliminate test-runner latency, allowing us to generate fair, high-precision comparisons between Neo.mjs, React, and Angular.
 
 **Note:** The benchmarking suite is maintained in a separate repository to ensure a sterile, isolation-focused environment.
 
