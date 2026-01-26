@@ -57,7 +57,7 @@ test.describe('Issue 8868: SyncVnodeTree Child Removal', () => {
         });
 
         await parent.initVnode(true);
-        
+
         const child = parent.getItem('myChild');
 
         expect(child).toBeDefined();
@@ -67,15 +67,13 @@ test.describe('Issue 8868: SyncVnodeTree Child Removal', () => {
         // Hide the child using removeDom
         // This triggers a VDOM update in the parent (see Component.mjs hide())
         child.hidden = true;
-        
+
         // Wait for update cycle to complete
         await new Promise(resolve => setTimeout(resolve, 100));
 
-        console.log('Child mounted state:', child.mounted);
-        
         // With the bug, child.mounted remains true because syncVnodeTree skips it.
         // With the fix, child.mounted should be false.
-        expect(child.mounted).toBe(false); 
+        expect(child.mounted).toBe(false);
         expect(child.vnode).toBeNull();
 
         parent.destroy();
