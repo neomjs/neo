@@ -422,9 +422,11 @@ class Collection extends Base {
      * Removes all items and clears the map
      */
     clear() {
-        this.allItems?.clear();
-        this.splice(0, this.count);
-        this.initialIndexCounter = 0
+        let me = this;
+
+        me.allItems?.clear();
+        me.splice(0, me.count);
+        me.initialIndexCounter = 0
     }
 
     /**
@@ -444,7 +446,8 @@ class Collection extends Base {
         me.allItems?.clearSilent();
 
         me._items.splice(0, me.count);
-        me.map.clear()
+        me.map.clear();
+        me.initialIndexCounter = 0
     }
 
     /**
