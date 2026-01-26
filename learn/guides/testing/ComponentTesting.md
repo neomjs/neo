@@ -27,6 +27,29 @@ npm run test-components
 
 **Note:** Component tests run sequentially (single worker) to prevent state pollution in the shared `empty-viewport` app.
 
+## Developer Workflow
+
+### 1. Running a Single File
+To run a specific component test file, point to the component config:
+
+```bash
+npx playwright test test/playwright/component/my/file.spec.mjs -c test/playwright/playwright.config.component.mjs
+```
+
+### 2. Visual Debugging
+Component tests are visual by nature. Use `--headed` to watch the browser execution:
+
+```bash
+# Run with a visible browser window
+npx playwright test test/playwright/component/my/file.spec.mjs -c test/playwright/playwright.config.component.mjs --headed
+
+# Run with the Inspector to step through
+npx playwright test test/playwright/component/my/file.spec.mjs -c test/playwright/playwright.config.component.mjs --debug
+```
+
+### 3. Verify Isolation
+Since component tests share the same `apps/empty-viewport`, ensure you run the full suite (`npm run test-components`) before committing to verify that your tests clean up after themselves (using `neo.destroyComponent`) and don't leave artifacts that break subsequent tests.
+
 ## Writing a Component Test
 
 The recommended way to write component tests is using the custom `neo` fixture provided by `test/playwright/fixtures.mjs`.

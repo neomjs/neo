@@ -16,6 +16,37 @@ To run the logic-heavy unit tests in the simulated Node.js environment:
 npm run test-unit
 ```
 
+## Developer Workflow (Best Practices)
+
+### 1. Running a Single File (Focus Mode)
+During development, you don't want to wait for the entire suite. You can run a specific test file using `npx playwright`.
+
+**Critical:** You **MUST** specify the unit test config (`-c test/playwright/playwright.config.unit.mjs`). If you don't, Playwright will default to the generic config and fail to load the environment correctly.
+
+```bash
+# Correct way to run a single unit test file
+npx playwright test test/playwright/unit/my/file.spec.mjs -c test/playwright/playwright.config.unit.mjs
+```
+
+### 2. Debugging
+To step through your tests visually or pause execution:
+```bash
+# Opens the Playwright Inspector
+npx playwright test test/playwright/unit/my/file.spec.mjs -c test/playwright/playwright.config.unit.mjs --debug
+```
+
+To filter tests by name (e.g., only run tests with "sort" in the title):
+```bash
+npx playwright test -c test/playwright/playwright.config.unit.mjs -g "sort"
+```
+
+### 3. The "Safety Net" (Cross-Test Side Effects)
+**Warning:** Playwright distributes test files across multiple **Node.js worker processes** to run them in parallel. However, within a *single* Playwright worker process, the environment (and the global `Neo` namespace) persists across multiple test files.
+
+*   **The Risk:** We do *not* clean up the `Neo` namespace between tests (doing so would be slow). If Test File A defines a class `Test.MockComponent` and Test File B tries to define the same class with different behavior, `Neo.setupClass` will throw a "Namespace Collision" error.
+*   **The Strategy:** Ensure every test class has a **unique namespace**, ideally scoped to the test file (e.g., `Test.Unit.MyFeature.MockComponent`).
+*   **The Rule:** Even if your specific test file passes, you **MUST** run the full suite (`npm run test-unit`) before committing. This verifies that your new namespaces don't accidentally collide with existing ones when Playwright groups them together.
+
 ## Unit Testing Architecture
 
 The unit tests located in `test/playwright/unit/` are the backbone of our testing strategy. They run in a **Node.js environment**, effectively simulating the Neo.mjs App Worker (and parts of the VDom/Data workers) within a single thread.
