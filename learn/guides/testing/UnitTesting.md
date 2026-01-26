@@ -1,37 +1,19 @@
-# Testing with Playwright
+# Unit Testing with Playwright
 
-Neo.mjs uses [Playwright](https://playwright.dev/) as its primary testing framework. This replaces the legacy Siesta setup to provide a modern, faster, and more robust testing environment.
+Neo.mjs uses a unique "Single-Thread Simulation" architecture for its unit tests. By running the core framework logic inside a single Node.js thread (via Playwright), we can test complex multi-threaded interactions without the complexity or overhead of real browser workers.
 
-## Why Playwright?
+## Why Unit Test This Way?
 
-1.  **Speed & Stability**: Playwright is extremely fast and reliable, especially for running tests in headless mode.
-2.  **Single-Thread Unit Testing**: We have engineered a unique setup where unit tests run inside a single Node.js thread. This allows us to test complex, multi-threaded worker logic (App, VDom, Data) in a simplified environment without the overhead of real browser workers.
-3.  **Standardization**: Playwright is an industry standard, making it easier for developers to onboard.
-4.  **Agent Friendly**: The CLI-first nature of Playwright makes it easy for AI agents to run tests and analyze results.
+1.  **Speed**: Logic tests run instantly in Node.js, bypassing browser rendering and worker thread startup costs.
+2.  **Simplified Debugging**: Since the App, VDom, and Data layers run in the same scope, you can step through code execution across "workers" without context switching.
+3.  **Stability**: Removing the asynchronous nature of `postMessage` for testing allows us to deterministically test race conditions and state management logic.
 
-## Running Tests
+## Running Unit Tests
 
-We provide several npm scripts to run different subsets of the test suite:
-
-### 1. Unit Tests (Fast & Focused)
-Runs the logic-heavy unit tests in a simulated Node.js environment. These tests mock the worker architecture to run in a single thread, allowing for extremely fast validation of core logic, VDOM diffing, and state management.
+To run the logic-heavy unit tests in the simulated Node.js environment:
 
 ```bash
 npm run test-unit
-```
-
-### 2. Component Tests (Browser-Based)
-Runs tests that require a real browser environment (e.g., verifying DOM event handling, complex layout interactions).
-
-```bash
-npm run test-components
-```
-
-### 3. All Tests
-Runs the entire suite (Unit + Components).
-
-```bash
-npm run test
 ```
 
 ## Unit Testing Architecture
@@ -352,21 +334,11 @@ test('expandParents followed by store update should not break VDOM', async () =>
 });
 ```
 
-### Key Concepts
-
-1.  **`setup()`**: This function (imported from `test/playwright/setup.mjs`) is mandatory. It initializes the global `Neo` namespace, mocks the worker environment, and configures the `Neo.config` object for testing.
-2.  **`Neo.create()`**: We use the standard factory method to create component instances.
-3.  **`initVnode()`**: In unit tests, we manually trigger the initial VDOM generation because the usual app lifecycle is short-circuited.
-4.  **`button.mounted = true`**: For tests that verify updates (`button.set(...)`), we often need to manually flag the component as mounted so the framework attempts to generate deltas.
-5.  **Direct Imports**: Notice we import source files directly (e.g., `src/button/Base.mjs`). This is possible because we are in a Node.js module environment.
-
 ## Directory Structure
 
 *   `test/playwright/unit/`: Logic tests running in Node.js (App Worker + VDom Worker logic simulation).
-*   `test/playwright/component/`: Browser-based tests.
 *   `test/playwright/setup.mjs`: The test environment bootstrapper.
-*   `playwright.config.*.mjs`: Configuration files for different test modes.
 
 ## Next Steps
 
-This guide covers Unit Testing. For information on **Component Testing** (running tests in a real browser environment to test DOM events and layout), please refer to the Component Testing Guide (Coming Soon).
+This guide covers Unit Testing. For information on **Component Testing** (running tests in a real browser environment to test DOM events and layout), please refer to the [Component Testing Guide](ComponentTesting.md).
