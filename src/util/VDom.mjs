@@ -478,6 +478,13 @@ class VDom extends Base {
                 vnode.scrollLeft = vdom.scrollLeft
             }
 
+            // Abort child synchronization if the node IDs mismatch.
+            // This prevents mapping stale Worker IDs (from Old Structure) onto New App Nodes
+            // when the structure has shifted (e.g. Row Recycling).
+            if (vnode.id && vdom.id && vnode.id !== vdom.id) {
+                return
+            }
+
             if (childNodes) {
                 cn  = childNodes.map(item => VDom.getVdom(item));
                 // The vnode.childNodes array is already filtered by the worker.
