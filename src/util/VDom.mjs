@@ -496,6 +496,10 @@ class VDom extends Base {
                 i   = 0;
                 len = cn?.length || 0;
 
+                if (vnode.childNodes && vnode.childNodes.length !== len) {
+                    return
+                }
+
                 for (; i < len; i++) {
                     if (vnode.childNodes) {
                         VDom.syncVdomState(vnode.childNodes[i], cn[i], force)
