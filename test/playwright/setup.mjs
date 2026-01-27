@@ -51,14 +51,4 @@ export function setup(options = {}) {
     Neo.apps ??= {};
     Neo.apps[appConfig.windowId || 1] = finalAppConfig;
     Neo.appsByName = {[finalAppConfig.name]: [finalAppConfig]};
-
-    // Global safeguard: Intercept and suppress Neo.isDestroyed unhandled rejections.
-    // This allows floating promises (like timeouts) to reject safely during test teardown.
-    const originalEmit = process.emit;
-    process.emit = function (name, data, ...args) {
-        if (name === 'unhandledRejection' && data === Symbol.for('Neo.isDestroyed')) {
-            return true;
-        }
-        return originalEmit.apply(this, arguments);
-    };
 }
