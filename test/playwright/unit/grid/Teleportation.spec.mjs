@@ -208,9 +208,27 @@ test.describe('Grid Teleportation & VDOM Deltas', () => {
 
         // Log Captured Deltas for detailed inspection
         if (capturedDeltas.length > 0) {
-            // console.log('--- CAPTURED DELTAS ---');
-            // We verify that we are NOT seeing "insertNode" for the text span without "removeNode"
-            // console.log(JSON.stringify(capturedDeltas, null, 2));
+             // console.log('--- CAPTURED DELTAS ---');
+             // We verify that we are NOT seeing "insertNode" for the text span without "removeNode"
+             // console.log(JSON.stringify(capturedDeltas, null, 2));
+
+             const moveNodes = capturedDeltas.filter(d => d.action === 'moveNode');
+             const insertNodes = capturedDeltas.filter(d => d.action === 'insertNode');
+             const removeNodes = capturedDeltas.filter(d => d.action === 'removeNode');
+             const textUpdates = capturedDeltas.filter(d => d.textContent && d.id?.startsWith('neo-vnode-'));
+
+             // In a clean recycle scroll (800px / 40px rowHeight):
+             // We observed 8 moves, 3 insertions (new rows at bottom), and 11 text updates.
+             expect(moveNodes.length).toBe(8);
+             expect(insertNodes.length).toBe(3);
+             expect(textUpdates.length).toBe(11);
+
+             // Specific check: We should NOT be inserting 'text' vtypes (span wrapper for text) into existing buttons.
+             // The text span is part of the button structure and should be stable.
+             // Valid insertions are new Rows (parentId = grid body).
+             // Invalid insertions (Duplication Bug) would be text spans inserted into Buttons (parentId = button id).
+             const textSpanInsertions = insertNodes.filter(d => d.parentId.includes('component') && d.vnode?.className?.includes('neo-button-text'));
+             expect(textSpanInsertions.length).toBe(0);
         }
 
         // Now inspect the DOM (VNode) of a recycled row.
@@ -292,11 +310,71 @@ test.describe('Grid Teleportation & VDOM Deltas', () => {
             if (capturedDeltas.length > 0) {
                 // console.log('--- CAPTURED DELTAS (RACE) ---');
 
-                // Check for insertions of text nodes
-                const insertions = capturedDeltas.filter(d => d.action === 'insertNode' && d.vnode?.vtype === 'text');
-                if (insertions.length > 0) {
-                     // console.log(`Found ${insertions.length} text node insertions. Checking for duplicates...`);
-                }
+                const moveNodes = capturedDeltas.filter(d => d.action === 'moveNode');
+                const insertNodes = capturedDeltas.filter(d => d.action === 'insertNode');
+                const textUpdates = capturedDeltas.filter(d => d.textContent && d.id?.startsWith('neo-vnode-'));
+
+                // Verify we have activity
+                // In this specific race scenario with bufferRowRange=0:
+                // We observe 3 moves, 0 row insertions (pure recycling!), and 8 text updates.
+                // The presence of 3 'removeNode' deltas (seen in analysis) confirms the grid is pruning rows 8, 9, 10.
+                expect(moveNodes.length).toBe(3);
+                expect(insertNodes.length).toBe(0);
+                expect(textUpdates.length).toBe(8);
+
+                // Diagnosis: The test currently PASSES because 'VdomLifecycle' correctly serializes the updates
+                // via 'isVdomUpdating' / 'needsVdomUpdate'. The second scroll waits for the first to finish.
+                // To reproduce the bug, we likely need to trigger a disjoint component update (e.g. Button text)
+                // that falsely believes it does not collide with the Grid update.
+                // We observe 3 moves, 0 row insertions (pure recycling!), and 8 text updates.
+                expect(moveNodes.length).toBe(3);
+                expect(insertNodes.length).toBe(0);
+                expect(textUpdates.length).toBe(8);
+
+                // Specific check: We should NOT be inserting 'text' vtypes (span wrapper for text).
+                // The duplication bug manifests as inserting a NEW text span instead of updating the existing one.
+                const textSpanInsertions = insertNodes.filter(d => d.parentId.includes('component') && d.vnode?.className?.includes('neo-button-text'));
+                
+                // Ideally, we should have 0 text span insertions in a clean recycle
+                expect(textSpanInsertions.length).toBe(0);
+
+                // Verify that deltas target valid nodes
+                capturedDeltas.forEach(delta => {
+                    if (delta.action === 'updateVtext' || delta.action === 'moveNode') {
+                        // Ensure we are not targeting undefined or null IDs
+                        expect(delta.id).toBeTruthy();
+                        // Ideally, we would check if ID exists in a snapshot, but for now we ensure it's not a known bad pattern
+                        expect(delta.id).not.toContain('undefined');
+                        expect(delta.id).not.toContain('null');
+                    }
+                });
+
+                // Analysis of Real Breaking Deltas:
+                // The logs show a pattern where a node (neo-vnode-121) is MOVED (index 0) and then immediately updated (textContent).
+                // 1: {action: 'moveNode', id: 'neo-vnode-121', parentId: 'neo-base-10-component-36', index: 0}
+                // 2: {textContent: 'Emily ++', id: 'neo-vnode-121'}
+                //
+                // We must verify if this pattern exists in our captured deltas.
+                const movedIds = new Set(moveNodes.map(d => d.id));
+                const updatedIds = new Set(textUpdates.map(d => d.id));
+                
+                // Find IDs that are BOTH moved and updated
+                const intersection = [...movedIds].filter(id => updatedIds.has(id));
+                
+                // In a clean recycle, we DO expect the row container to move, and the text content to update.
+                // However, the text NODE itself (neo-vnode-XXX) usually just updates content. 
+                // Does it move? 
+                // If it is inside a Button, and the Button moves (recycled), the text node moves with it implicitly.
+                // Explicitly moving the text node implies it was re-ordered within the Button?
+                // The Button only has [Icon, Text, Badge, Ripple].
+                // If the Text node is index 1, and stays index 1, it should NOT have a moveNode delta.
+                
+                // Filter for "text node" moves (neo-vnode-XXX inside a component)
+                // We assume 'neo-vnode-' IDs are the internal ones.
+                const textNodeMoves = moveNodes.filter(d => d.id.startsWith('neo-vnode-'));
+                
+                // We expect 0 explicit moves for the internal text span if the structure is stable.
+                expect(textNodeMoves.length).toBe(0);
             }
 
             // Inspect the final state
@@ -327,10 +405,22 @@ test.describe('Grid Teleportation & VDOM Deltas', () => {
             // Assertion: There should be EXACTLY ONE text span.
             const textNodes = buttonVnode.childNodes.filter(c => c.className?.includes('neo-button-text'));
 
-            if (textNodes.length > 1) {
-                 console.error('DUPLICATION DETECTED!');
-            }
-
             expect(textNodes.length).toBe(1);
+
+            // Verify ALL visible rows have correct text
+            body.getVdomRoot().cn.forEach(row => {
+                if (!row.attributes) return; // Skip spacers or non-row nodes
+                
+                const cell = row.cn?.[1]; // Component column
+                if (!cell) return;
+
+                const btnRef = cell.cn?.[0];
+                if (btnRef?.componentId) {
+                    const btn = Neo.getComponent(btnRef.componentId);
+                    if (btn && btn.record) {
+                        expect(btn.text).toBe(`Row ${btn.record.id}`);
+                    }
+                }
+            });
     });
 });
