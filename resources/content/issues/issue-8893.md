@@ -6,12 +6,13 @@ labels:
   - ai
   - testing
   - regression
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-01-27T12:03:40Z'
-updatedAt: '2026-01-27T12:03:40Z'
+updatedAt: '2026-01-27T12:57:42Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8893'
 author: tobiu
-commentsCount: 0
+commentsCount: 2
 parentIssue: 8891
 subIssues: []
 subIssuesCompleted: 0
@@ -38,4 +39,47 @@ Create a Playwright Unit Test (`test/playwright/unit/grid/Teleportation.spec.mjs
 - 2026-01-27T12:03:41Z @tobiu added the `regression` label
 - 2026-01-27T12:04:52Z @tobiu added parent issue #8891
 - 2026-01-27T12:05:03Z @tobiu marked this issue as blocking #8894
+- 2026-01-27T12:47:08Z @tobiu referenced in commit `ff7ef83` - "Create Unit Test for Grid VDOM Deltas #8893"
+### @tobiu - 2026-01-27T12:48:13Z
+
+**Input from Gemini 3 Pro:**
+
+> ✦ We have created a baseline Unit Test (`test/playwright/unit/grid/Teleportation.spec.mjs`) that successfully simulates:
+> 1.  Grid Instantiation with Component Columns.
+> 2.  Scroll-triggered Row Recycling.
+> 3.  Component Content Updates (`text: record.name`).
+> 
+> **Findings:**
+> - The test currently **PASSES** in the Unit Test environment (`DomApiVnodeCreator`).
+> - The VDOM Deltas correctly show `textContent` updates on existing nodes (`neo-vnode-XXX`), proving that ID matching is working correctly in this "happy path" scenario.
+> - The "Stephanie ++" duplication artifact is **NOT** reproduced yet.
+> 
+> **Next Steps:**
+> To catch the bug, we must enhance the test to simulate the specific conditions of the failure:
+> 1.  **Race Conditions:** Trigger a second scroll event *before* the first VDOM update promise resolves.
+> 2.  **Disjoint Updates:** Verify if the `Button` update is being processed as a separate batch from the `GridBody` update (which causes the ID desync).
+> 3.  **VdomHelper Mocking:** We have added a spy to `VdomHelper.update` to capture all global deltas, which will be essential for analyzing the race condition results.
+> 
+> The test file is committed and ready for extension.
+
+- 2026-01-27T12:48:43Z @tobiu assigned to @tobiu
+- 2026-01-27T12:57:41Z @tobiu referenced in commit `d946c72` - "#8893 enhanced test documentation"
+### @tobiu - 2026-01-27T12:57:42Z
+
+**Input from Gemini 3 Pro:**
+
+> ✦ ### Internal Mechanics & Hypothesis (For Future Sessions)
+> 
+> The unit test `test/playwright/unit/grid/Teleportation.spec.mjs` has been documented with critical context about the VDOM architecture.
+> 
+> **The "ID Desync" Hypothesis:**
+> The duplication artifact ("Stephanie ++Stephanie ++") strongly suggests that the VDOM Worker is treating existing nodes as new insertions because it cannot match them to the old tree.
+> 
+> 1.  **The Mechanism:** Neo.mjs relies on a feedback loop where `vnode` IDs generated in the VDOM Worker are synced back to the App Worker's `vdom` object via `syncVnodeTree` -> `syncVdomState`.
+> 2.  **The Failure Mode:** If Teleportation (Disjoint Updates) or rapid scrolling triggers a new update *before* this sync completes, the App Worker sends a `vdom` tree with **missing or stale IDs** for child elements (like the text span inside a button).
+> 3.  **The Result:** `VdomHelper` sees a node without an ID, assumes it's new, generates an `insertNode` delta, but potentially fails to generate a corresponding `removeNode` delta for the existing node (possibly due to sparse tree logic pruning the "old" parent container).
+> 
+> **Next Steps for Reproduction:**
+> The current test passes because it runs synchronously in a single thread, where ID syncing is immediate. To reproduce the bug, the test must simulate the **latency** of the Worker roundtrip, creating a window where `updateVdom` is called while the `vdom` object is still "dirty" (missing IDs).
+
 
