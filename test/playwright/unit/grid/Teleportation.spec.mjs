@@ -123,7 +123,7 @@ test.describe('Grid Teleportation & VDOM Deltas', () => {
     });
 
     /**
-     * @summary Baseline Teleportation Test
+     * @summary Baseline Teleportation Test & Internal Mechanics
      * 
      * This test establishes the baseline behavior for VDOM Teleportation in the Grid.
      * It simulates a scroll event that triggers row recycling and component updates.
@@ -131,10 +131,24 @@ test.describe('Grid Teleportation & VDOM Deltas', () => {
      * Current State: PASSING
      * This means the basic "Happy Path" of scrolling works correctly in the Unit Test environment.
      * 
-     * To reproduce the "Stephanie ++" artifact (duplication), we likely need to simulate:
-     * 1. Race Conditions: Trigger a second scroll *before* the first update completes.
-     * 2. Component State Changes: Update the component state (e.g. click) while scrolling.
-     * 3. Disjoint Updates: Force the component update to be processed separately from the grid body.
+     * **Internal Mechanics & The "ID Desync" Hypothesis:**
+     * 
+     * 1. **Stable IDs (`ensureStableIds`):** 
+     *    - `Neo.mixin.VdomLifecycle` forces stable IDs on component VDOM roots (`this.id`) and wrappers (`this.id + '__wrapper'`).
+     *    - However, children of components (like the text span inside a button) rely on auto-generated IDs from the VDOM Worker.
+     * 
+     * 2. **ID Synchronization (`syncVnodeTree`):**
+     *    - When the App Worker receives a VNode from the VDOM Worker (via `onInitVnode` or `resolveVdomUpdate`), it calls `syncVnodeTree`.
+     *    - Crucially, `syncVdomState` copies the auto-generated IDs from the `vnode` back into the App Worker's `vdom` object.
+     *    - This feedback loop ensures that the *next* update sent by the App Worker includes the correct IDs, allowing the VDOM Worker to match nodes (Update vs Replace).
+     * 
+     * 3. **The Trap (Hypothesis):**
+     *    - If "Teleportation" (Disjoint Updates) causes an update to be sent *before* the previous ID sync cycle completes (Race Condition), the App Worker sends a `vdom` tree with missing or stale IDs.
+     *    - The VDOM Worker sees a node without an ID (or a mismatched ID) and assumes it's a new node.
+     *    - It generates an `insertNode` delta.
+     *    - If the "removeNode" logic fails (e.g., due to sparse tree pruning or mismatching parent pointers), we get duplication (The "Stephanie ++Stephanie ++" artifact).
+     * 
+     * To reproduce the bug, we must break the ID sync loop by triggering a new update while the previous one is in-flight.
      */
     test('Scrolling should generate correct replacement deltas, not appends', async () => {
         const body = grid.body;
