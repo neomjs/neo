@@ -267,10 +267,10 @@ class FunctionalBase extends Abstract {
             root.id = me.id
         }
 
-        // Re-hydrate the new vdom with stable IDs from the previous vnode tree.
-        // This is crucial for functional components where the vdom is recreated on every render,
-        // ensuring the diffing algorithm can track nodes correctly.
-        me.syncVdomState();
+        // Apply Scoped Deterministic IDs to the new VDOM tree.
+        // This ensures stable, persistent identities for stateless functional components
+        // without relying on the VDOM Worker's state.
+        me.generateIds(processedVdom);
 
         if (me.beforeUpdate() !== false) {
             me.updateVdom()
@@ -365,6 +365,36 @@ class FunctionalBase extends Abstract {
                 this.htmlTemplateProcessor = module.default
             }
         }
+    }
+
+    /**
+     * Traverses the VDOM tree and assigns deterministic IDs to nodes that lack them.
+     * Uses a "Scoped" strategy:
+     * - If a node has a custom ID, that ID becomes the new prefix for its descendants.
+     * - If a node lacks an ID, it gets `prefix + '__' + index`.
+     * - Indices reset for each new scope (prefix).
+     *
+     * This ensures that inserting/removing nodes only affects the indices within the immediate
+     * parent scope, while sub-trees with custom IDs remain stable.
+     *
+     * @param {Object} vdom
+     * @param {String} [prefix=this.id]
+     * @param {Map} [scopeMap=new Map()] Tracks the counter for each prefix
+     */
+    generateIds(vdom, prefix=this.id, scopeMap=new Map()) {
+        if (!vdom) return;
+
+        // If the node has an ID, it becomes the new prefix for its children
+        if (vdom.id) {
+            prefix = vdom.id
+        } else {
+            // Otherwise, generate an ID based on the current prefix and its counter
+            let count = scopeMap.get(prefix) || 0;
+            vdom.id = prefix + '__' + count;
+            scopeMap.set(prefix, count + 1)
+        }
+
+        vdom.cn?.forEach(child => this.generateIds(child, prefix, scopeMap))
     }
 
     /**
