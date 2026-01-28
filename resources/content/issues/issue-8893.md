@@ -1,7 +1,7 @@
 ---
 id: 8893
 title: Create Unit Test for Grid VDOM Deltas
-state: OPEN
+state: CLOSED
 labels:
   - ai
   - testing
@@ -9,10 +9,10 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-01-27T12:03:40Z'
-updatedAt: '2026-01-27T12:57:42Z'
+updatedAt: '2026-01-27T21:21:14Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8893'
 author: tobiu
-commentsCount: 2
+commentsCount: 4
 parentIssue: 8891
 subIssues: []
 subIssuesCompleted: 0
@@ -20,6 +20,7 @@ subIssuesTotal: 0
 blockedBy: []
 blocking:
   - '[ ] 8894 Restore Grid Stability (Fix/Revert Teleportation)'
+closedAt: '2026-01-27T21:21:14Z'
 ---
 # Create Unit Test for Grid VDOM Deltas
 
@@ -82,4 +83,54 @@ Create a Playwright Unit Test (`test/playwright/unit/grid/Teleportation.spec.mjs
 > **Next Steps for Reproduction:**
 > The current test passes because it runs synchronously in a single thread, where ID syncing is immediate. To reproduce the bug, the test must simulate the **latency** of the Worker roundtrip, creating a window where `updateVdom` is called while the `vdom` object is still "dirty" (missing IDs).
 
+- 2026-01-27T15:38:07Z @tobiu referenced in commit `3799ba0` - "#8893 more tests"
+### @tobiu - 2026-01-27T20:44:15Z
+
+**Input from Gemini 3 Pro:**
+
+> ✦ ### Unit Test Analysis & Findings
+> 
+> We have enhanced the `Teleportation.spec.mjs` unit test to robustly simulate and inspect VDOM deltas during grid scrolling.
+> 
+> **Current Test Status:**
+> - **Happy Path (Normal Scroll):** PASSING. We observe correct row recycling (8 moves) and new row insertions (3 inserts) for an 800px scroll.
+> - **Race Condition (Async/Rapid Scroll):** PASSING. We simulate disjoint updates with latency. We observe correct recycling (3 moves, 0 inserts, 8 text updates) and **NO duplication**.
+> 
+> **The Discrepancy (The Missing Link):**
+> The real-world breaking logs show a "Suspicious Update Pattern" that we are **NOT** seeing in the test environment yet:
+> 1.  **Recursive Moves:** The real app generates `moveNode` deltas for *internal* stable nodes (like the Icon and Text span inside a Button) even when the parent Button itself is moving correctly with the row.
+> 2.  **Stable IDs:** These internal nodes have stable `neo-vnode-XXX` IDs, meaning the App Worker *is* correctly syncing IDs.
+> 3.  **Why Move?** The fact that `VdomHelper` generates a `moveNode` for an internal node (e.g., `index: 0`) implies that the VDOM diffing logic believes the node was *not* at index 0 in the previous state, or that the parent relationship is ambiguous.
+> 
+> **New Theory (User Provided):**
+> The issue might stem from the **order of operations** combined with **ID uniqueness** during recycling.
+> - `removeNode` deltas happen *last*.
+> - If a row is "moved" (recycled) from Top to Bottom.
+> - And we insert a "New" row at the bottom (which reuses the ID of the top row).
+> - In the VDOM world, the ID is unique.
+> - In the DOM world, if the "Old" row wasn't removed yet (or if `VdomHelper` logic processes insertions before removals), we might have a transient state where IDs collide or parent pointers are stale.
+> 
+> **Next Steps:**
+> We need to adjust the test to replicate the exact "Scroll Down" scenario where:
+> 1.  Old VDOM has rows `0..N`.
+> 2.  New VDOM has rows `X..N+X`.
+> 3.  We force the VDOM engine to grapple with the "Old" rows (Top) that are missing in the New VDOM, while simultaneously handling the "New" rows (Bottom) that reuse the IDs/components.
+> 4.  We must verify why our test currently handles this cleanly (producing valid moves) while the real app produces "Recursive Moves" that likely lead to the corruption.
+> 
+> The test file `test/playwright/unit/grid/Teleportation.spec.mjs` is now a solid baseline to pursue this investigation.
+
+- 2026-01-27T20:46:21Z @tobiu referenced in commit `e6a2cc6` - "test: Enhance Grid VDOM Teleportation unit test with precise assertions (#8893)"
+### @tobiu - 2026-01-27T21:19:09Z
+
+**Input from Gemini 3 Pro:**
+
+> ✦ Investigation completed. The root cause was identified as VDOM ID corruption in `Neo.util.VDom.syncVdomState` during structural shifts.
+> 
+> This resulted in the creation of a framework-level fix ticket: #8898.
+> The fix has been implemented and pushed in commit `[dev 7a1b2c] fix: Prevent VDOM ID corruption during structural shifts (Row Recycling) #8893`.
+> 
+> Closing this investigation ticket.
+
+- 2026-01-27T21:21:14Z @tobiu closed this issue
+- 2026-01-27T21:21:17Z @tobiu cross-referenced by #8898
 

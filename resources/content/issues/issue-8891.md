@@ -15,10 +15,11 @@ commentsCount: 0
 parentIssue: null
 subIssues:
   - '[ ] 8892 Create Component Test for Grid Teleportation Artifacts'
-  - '[ ] 8893 Create Unit Test for Grid VDOM Deltas'
+  - '[x] 8893 Create Unit Test for Grid VDOM Deltas'
   - '[ ] 8894 Restore Grid Stability (Fix/Revert Teleportation)'
-subIssuesCompleted: 0
-subIssuesTotal: 3
+  - '[x] 8898 Fix VDOM ID Corruption during Component Recycling (Structural Shifts)'
+subIssuesCompleted: 2
+subIssuesTotal: 4
 blockedBy: []
 blocking: []
 ---
@@ -41,4 +42,5 @@ The Grid is a flagship component, and its stability is critical.
 - 2026-01-27T12:04:48Z @tobiu added sub-issue #8892
 - 2026-01-27T12:04:52Z @tobiu added sub-issue #8893
 - 2026-01-27T12:04:55Z @tobiu added sub-issue #8894
+- 2026-01-27T21:20:53Z @tobiu added sub-issue #8898
 
