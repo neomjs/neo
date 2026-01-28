@@ -103,9 +103,9 @@ test.describe('Neo.vdom.Helper (Fragments)', () => {
         let vdom = {
             tag: 'div', id: 'root', cn: [
                 {tag: 'fragment', id: 'frag-1', cn: [
-                    {vtype: 'text', text: 'Hello'}
+                    {vtype: 'text', id: 'txt-1', text: 'Hello'}
                 ]},
-                {vtype: 'text', text: 'World'}
+                {vtype: 'text', id: 'txt-2', text: 'World'}
             ]
         };
 

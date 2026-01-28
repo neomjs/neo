@@ -49,7 +49,7 @@ test.describe('Neo.vdom.VdomAsymmetricUpdates', () => {
     });
 
     test('Should handle asymmetric update with depth 2 using DomApiRenderer', () => {
-        const childVdomInitial = { id: 'child-1', cn: [{ tag: 'span', text: 'Initial' }] };
+        const childVdomInitial = { id: 'child-1', cn: [{ tag: 'span', id: 'span-1', text: 'Initial' }] };
         const parentVdom = {
             id: 'parent-1',
             cn: [{ componentId: 'child-1' }]
@@ -86,7 +86,7 @@ test.describe('Neo.vdom.VdomAsymmetricUpdates', () => {
     });
 
     test('Should handle nested asymmetric update (grandchild update)', () => {
-        const grandchildVdomInitial = { id: 'grandchild-1', cn: [{ tag: 'span', text: 'Initial' }] };
+        const grandchildVdomInitial = { id: 'grandchild-1', cn: [{ tag: 'span', id: 'gc-span-1', text: 'Initial' }] };
         const childVdom = {
             id: 'child-1',
             cn: [{ componentId: 'grandchild-1' }]
@@ -130,7 +130,7 @@ test.describe('Neo.vdom.VdomAsymmetricUpdates', () => {
     });
 
     test('Should handle structural change in a deeply nested component', () => {
-        const grandchildVdomInitial = { id: 'grandchild-1', cn: [{ tag: 'span', text: 'Initial' }] };
+        const grandchildVdomInitial = { id: 'grandchild-1', cn: [{ tag: 'span', id: 'gc-span-1', text: 'Initial' }] };
         const childVdom = {
             id: 'child-1',
             cn: [{ componentId: 'grandchild-1' }]
@@ -214,7 +214,7 @@ test.describe('Neo.vdom.VdomAsymmetricUpdates', () => {
     });
 
     test('Should handle merged updates from multiple non-contiguous children', () => {
-        const grandchildVdom = { id: 'grandchild-1', cn: [{ tag: 'span', text: 'Initial GC' }] };
+        const grandchildVdom = { id: 'grandchild-1', cn: [{ tag: 'span', id: 'gc-span-1', text: 'Initial GC' }] };
         const child1Vdom = { id: 'child-1', cn: [{ componentId: 'grandchild-1' }] };
         const child2Vdom = { id: 'child-2', text: 'Initial C2' };
         const child3Vdom = { id: 'child-3', text: 'Initial C3' };
