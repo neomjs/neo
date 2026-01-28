@@ -433,32 +433,10 @@ class VDom extends Base {
      */
     static syncVdomState(vnode, vdom, force=false) {
         if (vnode && vdom) {
-            // Sanity check: If the node types (tags) mismatch, we are likely looking at
-            // a race condition where the VNode tree structure hasn't caught up with the VDOM yet.
-            // In this case, we do not sync the node props, but we do want to check the children.
-            // This is important for e.g. tag name changes (div => ul), where we want to keep the children stable.
-            const tagMismatch = vnode.nodeName && vdom.tag && vnode.nodeName.toLowerCase() !== vdom.tag.toLowerCase();
-
             vdom = VDom.getVdom(vdom);
 
             let childNodes = vdom.cn,
                 cn, i, len;
-
-            if (!tagMismatch) {
-                if (force) {
-                    if (vnode.id && vdom.id !== vnode.id) {
-                        vdom.id = vnode.id
-                    }
-                } else {
-                    // We only want to add an ID if the vdom node does not already have one.
-                    // This preserves developer-provided IDs while allowing the framework
-                    // to assign IDs to nodes that need them for reconciliation.
-                    // Also think of adding and removing nodes in parallel.
-                    if (vnode.id && (!vdom.id || vdom.id.startsWith('neo-vnode-'))) {
-                        vdom.id = vnode.id
-                    }
-                }
-            }
 
             // 1. Rehydration (vnode -> vdom)
             // Used by Functional Components (vdom is new)
@@ -476,13 +454,6 @@ class VDom extends Base {
             }
             if (Neo.isNumber(vdom.scrollLeft)) {
                 vnode.scrollLeft = vdom.scrollLeft
-            }
-
-            // Abort child synchronization if the node IDs mismatch.
-            // This prevents mapping stale Worker IDs (from Old Structure) onto New App Nodes
-            // when the structure has shifted (e.g. Row Recycling).
-            if (vnode.id && vdom.id && vnode.id !== vdom.id) {
-                return
             }
 
             if (childNodes) {
