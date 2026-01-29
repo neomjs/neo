@@ -438,16 +438,7 @@ class VDom extends Base {
             let childNodes = vdom.cn,
                 cn, i, len;
 
-            // 1. Rehydration (vnode -> vdom)
-            // Used by Functional Components (vdom is new)
-            if (Neo.isNumber(vnode.scrollTop) && !Neo.isNumber(vdom.scrollTop)) {
-                vdom.scrollTop = vnode.scrollTop
-            }
-            if (Neo.isNumber(vnode.scrollLeft) && !Neo.isNumber(vdom.scrollLeft)) {
-                vdom.scrollLeft = vnode.scrollLeft
-            }
-
-            // 2. Preservation (vdom -> vnode)
+            // Preservation (vdom -> vnode)
             // Used by Classic Components (vdom is source of truth via capture)
             if (Neo.isNumber(vdom.scrollTop)) {
                 vnode.scrollTop = vdom.scrollTop

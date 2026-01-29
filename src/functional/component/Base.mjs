@@ -208,13 +208,46 @@ class FunctionalBase extends Abstract {
     continueUpdateWithVdom(parsedVdom) {
         const me = this;
 
+        // 1. Apply new VDOM to instance immediately so getVdomRoot() works on the new structure
+        for (const key in me.vdom) delete me.vdom[key];
+        Object.assign(me.vdom, parsedVdom);
+
+        // 2. Identify Root and Apply ID (User's Requirement)
+        const root = me.getVdomRoot();
+
+        if (me.id) {
+            root.id = me.id
+        }
+
+        // 3. Generate IDs (now using correct root ID as prefix)
+        me.generateIds(root);
+
+        // 4. Prepare Optimization Map
+        const vnodeMap = new Map();
+
+        if (me.vnode) {
+            const populateMap = (node) => {
+                if (node.id) vnodeMap.set(node.id, node);
+                node.childNodes?.forEach(populateMap);
+            };
+            populateMap(me.vnode);
+        }
+
+        // 5. Process Components & Preserve State (modifies root in-place)
         // Create a new map for components instantiated in this render cycle
         me.#nextChildComponents = new Map();
 
         // Process the newVdom to instantiate components
         // The parentId for these components will be the functional component's id
-        const processedVdom = me.processVdomForComponents(parsedVdom, me.id);
+        const processedVdom = me.processVdomForComponents(root, me.id, undefined, vnodeMap);
 
+        if (processedVdom !== root) {
+             for (const key in me.vdom) delete me.vdom[key];
+             Object.assign(me.vdom, processedVdom)
+        }
+
+
+        // 6. Cleanup Child Components
         // Destroy components that are no longer present in the new VDOM
         if (me.childComponents?.size > 0) {
             [...me.childComponents].forEach(([key, childData]) => {
@@ -225,6 +258,7 @@ class FunctionalBase extends Abstract {
             })
         }
 
+        // 7. Update Child References
         // If this component created other classic or functional components,
         // include their full vdom into the next update cycle.
         const oldKeys = me.childComponents ? new Set(me.childComponents.keys()) : new Set();
@@ -247,35 +281,20 @@ class FunctionalBase extends Abstract {
         // Update the main map of instantiated components
         me.childComponents = me.#nextChildComponents;
 
-        // Clear the old vdom properties
-        for (const key in me.vdom) {
-            delete me.vdom[key]
-        }
-
-        // Assign the new properties
-        Object.assign(me.vdom, processedVdom); // Use processedVdom here
-
-        me[vdomToApplySymbol] = null;
-
-        const root = me.getVdomRoot();
-
+        // 8. CLS Merging
         if (me.cls) {
             root.cls = NeoArray.union(me.cls, root.cls)
         }
 
-        if (me.id) {
-            root.id = me.id
-        }
+        // 9. Reset Symbol
+        me[vdomToApplySymbol] = null;
 
-        // Apply Scoped Deterministic IDs to the new VDOM tree.
-        // This ensures stable, persistent identities for stateless functional components
-        // without relying on the VDOM Worker's state.
-        me.generateIds(processedVdom);
-
+        // 10. Update Call
         if (me.beforeUpdate() !== false) {
             me.updateVdom()
         }
 
+        // 11. Listeners
         // Update DOM event listeners based on the new render
         if (me.mounted) {
             me.applyPendingDomListeners()
@@ -435,10 +454,11 @@ class FunctionalBase extends Abstract {
      * @param {Object} vdomTree The VDOM node to process.
      * @param {String} parentId The ID of the parent component (the functional component hosting it).
      * @param {Number} [parentIndex] The index of the vdomNode within its parent's children.
+     * @param {Map<String, Object>} [vnodeMap] Optimization map for O(1) VNode lookups.
      * @returns {Object} The processed VDOM node, potentially replaced with a component reference.
      * @private
      */
-    processVdomForComponents(vdomTree, parentId, parentIndex) {
+    processVdomForComponents(vdomTree, parentId, parentIndex, vnodeMap) {
         if (!vdomTree) {
             return vdomTree
         }
@@ -504,8 +524,23 @@ class FunctionalBase extends Abstract {
         // Recursively process children
         if (vdomTree.cn && Array.isArray(vdomTree.cn)) {
             vdomTree.cn = vdomTree.cn.map((child, index) =>
-                me.processVdomForComponents(child, parentId, index)
+                me.processVdomForComponents(child, parentId, index, vnodeMap)
             )
+        }
+
+        // Preservation: if this node matches an existing node in the persistent VNODE by ID,
+        // copy over the scroll state. The VNODE is the source of truth for scroll state
+        // as it is updated directly by onScrollCapture (Main Thread -> App Worker).
+        if (vdomTree.id && vnodeMap) {
+            const vnode = vnodeMap.get(vdomTree.id);
+            if (vnode) {
+                if (Neo.isNumber(vnode.scrollTop)) {
+                    vdomTree.scrollTop = vnode.scrollTop
+                }
+                if (Neo.isNumber(vnode.scrollLeft)) {
+                    vdomTree.scrollLeft = vnode.scrollLeft
+                }
+            }
         }
 
         return vdomTree
