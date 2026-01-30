@@ -4,13 +4,13 @@ import Base from './Base.mjs';
  * @summary Main Thread Addon for High-Performance Grid Drag Scrolling.
  *
  * This addon moves the drag-to-scroll logic from the App Worker to the Main Thread.
- * By handling `mousemove` events directly in the UI thread, it eliminates the latency
+ * By handling `mousemove` and `touchmove` events directly in the UI thread, it eliminates the latency
  * and overhead of passing high-frequency messages between workers, resulting in
- * smoother, native-like scrolling performance for mouse users.
+ * smoother, native-like scrolling performance for both mouse and touch users.
  *
- * It listens for `mousedown` on the grid body, then attaches global `mousemove` and
- * `mouseup` listeners to handle the drag operation, supporting "over-drag" (scrolling
- * continues even if the mouse leaves the grid bounds).
+ * It listens for `mousedown` or `touchstart` on the grid body, then attaches global `mousemove` / `touchmove` and
+ * `mouseup` / `touchend` listeners to handle the drag operation, supporting "over-drag" (scrolling
+ * continues even if the mouse / finger leaves the grid bounds).
  *
  * @class Neo.main.addon.GridDragScroll
  * @extends Neo.main.addon.Base
@@ -136,10 +136,94 @@ class GridDragScroll extends Base {
     }
 
     /**
+     * @param {TouchEvent} event
+     */
+    onTouchEnd(event) {
+        let me = this;
+
+        if (me.activeDrag) {
+            document.removeEventListener('touchmove', me.activeDrag.listeners.touchmove, {capture: true, passive: false});
+            document.removeEventListener('touchend',  me.activeDrag.listeners.touchend,  {capture: true});
+            me.activeDrag = null
+        }
+    }
+
+    /**
+     * @param {TouchEvent} event
+     */
+    onTouchMove(event) {
+        let me   = this,
+            drag = me.activeDrag;
+
+        if (!drag) {
+            return
+        }
+
+        event.preventDefault(); // Disable native scrolling
+
+        let {registration} = drag,
+            touch          = event.touches[0],
+            deltaX         = drag.lastX - touch.clientX,
+            deltaY         = drag.lastY - touch.clientY;
+
+        if (deltaX !== 0 && registration.containerElement) {
+            registration.containerElement.scrollLeft += deltaX
+        }
+
+        if (deltaY !== 0 && registration.bodyElement) {
+            registration.bodyElement.scrollTop += deltaY
+        }
+
+        drag.lastX = touch.clientX;
+        drag.lastY = touch.clientY
+    }
+
+    /**
+     * @param {TouchEvent} event
+     */
+    onTouchStart(event) {
+        let me    = this,
+            path  = event.composedPath(),
+            touch = event.touches[0],
+            id, registration;
+
+        // Find the registration associated with the target element
+        for (const [key, reg] of me.registrations) {
+            if (path.includes(reg.bodyElement)) {
+                id           = key;
+                registration = reg;
+                break
+            }
+        }
+
+        if (!registration) {
+            return
+        }
+
+        if (path.some(el => el.classList?.contains('neo-draggable'))) {
+            return
+        }
+
+        me.activeDrag = {
+            id,
+            registration,
+            lastX: touch.clientX,
+            lastY: touch.clientY,
+            listeners: {
+                touchmove: me.onTouchMove.bind(me),
+                touchend : me.onTouchEnd .bind(me)
+            }
+        };
+
+        document.addEventListener('touchmove', me.activeDrag.listeners.touchmove, {capture: true, passive: false});
+        document.addEventListener('touchend',  me.activeDrag.listeners.touchend,  {capture: true})
+    }
+
+    /**
      * Registers a grid for drag scrolling.
      * @param {Object} data
      * @param {String} data.bodyId      The ID of the grid body (vertical scroll target)
-     * @param {String} data.containerId The ID of the grid container (horizontal scroll target)
+     * @param {String} data.containerId The ID of the grid container (horizontal scroll target)  
      * @param {String} data.id          Unique identifier for the registration (e.g. ScrollManager id)
      */
     register({bodyId, containerId, id}) {
@@ -156,11 +240,17 @@ class GridDragScroll extends Base {
             let registration = {
                 bodyElement,
                 containerElement,
-                id,
-                mouseDownListener: me.onMouseDown.bind(me)
+                id
             };
 
-            bodyElement.addEventListener('mousedown', registration.mouseDownListener, {capture: true});
+            if (Neo.config.hasTouchEvents) {
+                registration.touchStartListener = me.onTouchStart.bind(me);
+                bodyElement.addEventListener('touchstart', registration.touchStartListener, {capture: true, passive: false})
+            } else {
+                registration.mouseDownListener = me.onMouseDown.bind(me);
+                bodyElement.addEventListener('mousedown', registration.mouseDownListener, {capture: true})
+            }
+
             me.registrations.set(id, registration)
         }
     }
@@ -176,12 +266,20 @@ class GridDragScroll extends Base {
 
         if (registration) {
             if (registration.bodyElement) {
-                registration.bodyElement.removeEventListener('mousedown', registration.mouseDownListener, {capture: true})
+                if (Neo.config.hasTouchEvents) {
+                    registration.bodyElement.removeEventListener('touchstart', registration.touchStartListener, {capture: true, passive: false})
+                } else {
+                    registration.bodyElement.removeEventListener('mousedown', registration.mouseDownListener, {capture: true})
+                }
             }
 
             // If this registration was active, cancel the drag
             if (me.activeDrag?.id === id) {
-                me.onMouseUp()
+                if (Neo.config.hasTouchEvents) {
+                    me.onTouchEnd()
+                } else {
+                    me.onMouseUp()
+                }
             }
 
             me.registrations.delete(id)
