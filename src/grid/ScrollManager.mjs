@@ -24,6 +24,12 @@ class ScrollManager extends Base {
          */
         className: 'Neo.grid.ScrollManager',
         /**
+         * @member {Boolean} mounted_=false
+         * @protected
+         * @reactive
+         */
+        mounted_: false,
+        /**
          * @member {Boolean} mouseDragScroll_=true
          * @reactive
          */
@@ -52,21 +58,6 @@ class ScrollManager extends Base {
      * @protected
      */
     gridContainer = null
-    /**
-     * @member {Boolean} isMouseDragging=false
-     * @protected
-     */
-    isMouseDragging = false
-    /**
-     * @member {Number} lastMouseX=0
-     * @protected
-     */
-    lastMouseX = 0
-    /**
-     * @member {Number} lastMouseY=0
-     * @protected
-     */
-    lastMouseY = 0
     /**
      * Storing touchmove position for mobile envs
      * @member {Number} lastTouchX=0
@@ -98,16 +89,11 @@ class ScrollManager extends Base {
             me.mouseDragScroll = false
         }
 
-        me.gridBody.addDomListeners([{
-            mousedown: me.onMouseDown,
-            mousemove: {fn: me.onMouseMove, local: true},
-            mouseup  : me.onMouseUp,
-            scope    : me
-        }, {
+        me.gridBody.addDomListeners({
             touchcancel: me.onTouchCancel,
             touchend   : me.onTouchEnd,
             scope      : me
-        }])
+        })
     }
 
     /**
@@ -121,6 +107,22 @@ class ScrollManager extends Base {
             this.gridBody.addCls(cls)
         } else if (oldValue) {
             this.gridBody.removeCls(cls)
+        }
+
+        if (this.mounted) {
+            this.updateDragScrollAddon(value)
+        }
+    }
+
+    /**
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     */
+    afterSetMounted(value, oldValue) {
+        if (value) {
+            this.mouseDragScroll && this.updateDragScrollAddon(true)
+        } else if (oldValue) {
+            this.updateDragScrollAddon(false)
         }
     }
 
@@ -214,57 +216,6 @@ class ScrollManager extends Base {
     /**
      * @param {Object} data
      */
-    onMouseDown(data) {
-        if (this.mouseDragScroll && data.button === 0 && !data.path.some(e => e.cls.includes('neo-draggable'))) {
-            this.isMouseDragging = true;
-            this.lastMouseX      = data.clientX;
-            this.lastMouseY      = data.clientY
-        }
-    }
-
-    /**
-     * @param {Object} data
-     */
-    onMouseMove(data) {
-        let me = this;
-
-        if (me.isMouseDragging && data.buttons === 1) {
-            let deltaX = me.lastMouseX - data.clientX,
-                deltaY = me.lastMouseY - data.clientY;
-
-            if (deltaX !== 0) {
-                Neo.main.DomAccess.scrollTo({
-                    direction: 'left',
-                    id       : me.gridContainer.id,
-                    value    : me.scrollLeft + deltaX,
-                    windowId : me.windowId
-                })
-            }
-
-            if (deltaY !== 0) {
-                Neo.main.DomAccess.scrollTo({
-                    direction: 'top',
-                    id       : me.gridBody.vdom.id,
-                    value    : me.scrollTop + deltaY,
-                    windowId : me.windowId
-                })
-            }
-
-            me.lastMouseX = data.clientX;
-            me.lastMouseY = data.clientY
-        }
-    }
-
-    /**
-     * @param {Object} data
-     */
-    onMouseUp(data) {
-        this.isMouseDragging = false
-    }
-
-    /**
-     * @param {Object} data
-     */
     onTouchCancel(data) {
         this.onTouchEnd(data)
     }
@@ -278,6 +229,29 @@ class ScrollManager extends Base {
         me.touchMoveOwner = null;
         me.lastTouchX     = 0;
         me.lastTouchY     = 0
+    }
+
+    /**
+     * @param {Boolean} active
+     * @returns {Promise<void>}
+     */
+    async updateDragScrollAddon(active) {
+        if (Neo.config.hasTouchEvents) {
+            return
+        }
+
+        let me    = this,
+            addon = await Neo.currentWorker.getAddon('GridDragScroll', me.windowId);
+
+        if (active) {
+            addon.register({
+                bodyId     : me.gridBody.id + '__wrapper',
+                containerId: me.gridContainer.id,
+                id         : me.id
+            })
+        } else {
+            addon.unregister({id: me.id})
+        }
     }
 
     /**
