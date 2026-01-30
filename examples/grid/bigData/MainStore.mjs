@@ -71,8 +71,6 @@ class MainStore extends Store {
      * @protected
      */
     afterSetAmountColumns(value, oldValue) {
-        if (this.sourceId) return;
-
         if (oldValue !== undefined) {
             let me    = this,
                 data  = me.generateData(me.amountRows, value),
@@ -83,7 +81,7 @@ class MainStore extends Store {
             console.log('Start generating data and adding to collection');
 
             if (me.items?.length > 0) {
-                me.clear()
+                me.clear(false)
             }
 
             // Turbo Mode: Passing false as the 2nd argument disables the eager Record creation.
@@ -101,8 +99,6 @@ class MainStore extends Store {
      * @protected
      */
     afterSetAmountRows(value, oldValue) {
-        if (this.sourceId) return;
-
         let me    = this,
             data  = me.generateData(value, me.amountColumns),
             start = performance.now();
@@ -110,7 +106,7 @@ class MainStore extends Store {
         console.log('Start generating data and adding to collection');
 
                 if (me.items?.length > 0) {
-                        me.clear()
+                        me.clear(false)
                     }
         
                     // Turbo Mode: Passing false as the 2nd argument disables the eager Record creation.

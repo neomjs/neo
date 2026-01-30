@@ -420,11 +420,18 @@ class Collection extends Base {
 
     /**
      * Removes all items and clears the map
+     * @param {Boolean} [reset=true] True to also clear the allItems collection.
+     * This is useful for filtering: You can clear the filtered state (the collection items),
+     * but keep the unfiltered source (allItems) intact.
+     * This enables re-filtering the dataset.
      */
-    clear() {
+    clear(reset=true) {
         let me = this;
 
-        me.allItems?.clear();
+        if (reset) {
+            me.allItems?.clear();
+        }
+
         me.splice(0, me.count);
         me.initialIndexCounter = 0
     }
@@ -439,11 +446,17 @@ class Collection extends Base {
 
     /**
      * Removes all items and clears the map, without firing a mutate event
+     * @param {Boolean} [reset=true] True to also clear the allItems collection.
+     * This is useful for filtering: You can clear the filtered state (the collection items),
+     * but keep the unfiltered source (allItems) intact.
+     * This enables re-filtering the dataset.
      */
-    clearSilent() {
+    clearSilent(reset=true) {
         let me = this;
 
-        me.allItems?.clearSilent();
+        if (reset) {
+            me.allItems?.clearSilent();
+        }
 
         me._items.splice(0, me.count);
         me.map.clear();
