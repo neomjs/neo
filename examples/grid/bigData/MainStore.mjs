@@ -71,6 +71,8 @@ class MainStore extends Store {
      * @protected
      */
     afterSetAmountColumns(value, oldValue) {
+        if (this.sourceId) return;
+
         if (oldValue !== undefined) {
             let me    = this,
                 data  = me.generateData(me.amountRows, value),
@@ -99,6 +101,8 @@ class MainStore extends Store {
      * @protected
      */
     afterSetAmountRows(value, oldValue) {
+        if (this.sourceId) return;
+
         let me    = this,
             data  = me.generateData(value, me.amountColumns),
             start = performance.now();
