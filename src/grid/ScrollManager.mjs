@@ -98,22 +98,16 @@ class ScrollManager extends Base {
             me.mouseDragScroll = false
         }
 
-        me.gridBody.addDomListeners([
-            {
-                touchcancel: me.onTouchCancel,
-                touchend   : me.onTouchEnd,
-                scope      : me
-            },
-            {
-                mousedown: me.onMouseDown,
-                mouseup  : me.onMouseUp,
-                scope    : me
-            },
-            {
-                mousemove: {fn: me.onMouseMove, local: true},
-                scope    : me
-            }
-        ])
+        me.gridBody.addDomListeners([{
+            mousedown: me.onMouseDown,
+            mousemove: {fn: me.onMouseMove, local: true},
+            mouseup  : me.onMouseUp,
+            scope    : me
+        }, {
+            touchcancel: me.onTouchCancel,
+            touchend   : me.onTouchEnd,
+            scope      : me
+        }])
     }
 
     /**
@@ -125,7 +119,7 @@ class ScrollManager extends Base {
 
         if (value) {
             this.gridBody.addCls(cls)
-        } else if (oldValue !== undefined) {
+        } else if (oldValue) {
             this.gridBody.removeCls(cls)
         }
     }
