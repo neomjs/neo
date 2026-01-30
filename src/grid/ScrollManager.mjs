@@ -13,7 +13,8 @@ class ScrollManager extends Base {
     static delayable = {
         onBodyScroll     : {type: 'throttle', timer:  16},
         onBodyScrollEnd  : {type: 'buffer',   timer: 150},
-        onContainerScroll: {type: 'throttle', timer:  16}
+        onContainerScroll: {type: 'throttle', timer:  16},
+        onMouseMove      : {type: 'throttle', timer:  16}
     }
 
     static config = {
@@ -22,6 +23,11 @@ class ScrollManager extends Base {
          * @protected
          */
         className: 'Neo.grid.ScrollManager',
+        /**
+         * @member {Boolean} mouseDragScroll_=true
+         * @reactive
+         */
+        mouseDragScroll_: true,
         /**
          * @member {Number} scrollLeft_=0
          * @protected
@@ -46,6 +52,21 @@ class ScrollManager extends Base {
      * @protected
      */
     gridContainer = null
+    /**
+     * @member {Boolean} isMouseDragging=false
+     * @protected
+     */
+    isMouseDragging = false
+    /**
+     * @member {Number} lastMouseX=0
+     * @protected
+     */
+    lastMouseX = 0
+    /**
+     * @member {Number} lastMouseY=0
+     * @protected
+     */
+    lastMouseY = 0
     /**
      * Storing touchmove position for mobile envs
      * @member {Number} lastTouchX=0
@@ -73,11 +94,41 @@ class ScrollManager extends Base {
 
         let me = this;
 
-        me.gridBody.addDomListeners({
-            touchcancel: me.onTouchCancel,
-            touchend   : me.onTouchEnd,
-            scope      : me
-        })
+        if (Neo.config.hasTouchEvents) {
+            me.mouseDragScroll = false
+        }
+
+        me.gridBody.addDomListeners([
+            {
+                touchcancel: me.onTouchCancel,
+                touchend   : me.onTouchEnd,
+                scope      : me
+            },
+            {
+                mousedown : me.onMouseDown,
+                mouseleave: me.onMouseLeave,
+                mouseup   : me.onMouseUp,
+                scope     : me
+            },
+            {
+                mousemove: {fn: me.onMouseMove, local: true},
+                scope    : me
+            }
+        ])
+    }
+
+    /**
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     */
+    afterSetMouseDragScroll(value, oldValue) {
+        let cls = 'neo-mouse-drag-scroll';
+
+        if (value) {
+            this.gridBody.addCls(cls)
+        } else if (oldValue !== undefined) {
+            this.gridBody.removeCls(cls)
+        }
     }
 
     /**
@@ -165,6 +216,64 @@ class ScrollManager extends Base {
                 }
             }
         }
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onMouseDown(data) {
+        if (this.mouseDragScroll && !data.path.some(e => e.cls.includes('neo-draggable'))) {
+            this.isMouseDragging = true;
+            this.lastMouseX      = data.clientX;
+            this.lastMouseY      = data.clientY
+        }
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onMouseLeave(data) {
+        this.isMouseDragging = false
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onMouseMove(data) {
+        let me = this;
+
+        if (me.isMouseDragging) {
+            let deltaX = me.lastMouseX - data.clientX,
+                deltaY = me.lastMouseY - data.clientY;
+
+            if (deltaX !== 0) {
+                Neo.main.DomAccess.scrollTo({
+                    direction: 'left',
+                    id       : me.gridContainer.id,
+                    value    : me.scrollLeft + deltaX,
+                    windowId : me.windowId
+                })
+            }
+
+            if (deltaY !== 0) {
+                Neo.main.DomAccess.scrollTo({
+                    direction: 'top',
+                    id       : me.gridBody.vdom.id,
+                    value    : me.scrollTop + deltaY,
+                    windowId : me.windowId
+                })
+            }
+
+            me.lastMouseX = data.clientX;
+            me.lastMouseY = data.clientY
+        }
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onMouseUp(data) {
+        this.isMouseDragging = false
     }
 
     /**

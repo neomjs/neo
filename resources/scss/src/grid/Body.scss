@@ -31,6 +31,10 @@
         }
     }
 
+    &.neo-mouse-drag-scroll {
+        user-select: none;
+    }
+
     &.neo-is-scrolling * {
         pointer-events: none !important;
     }
