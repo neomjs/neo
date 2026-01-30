@@ -227,7 +227,9 @@ class DomEvents extends Base {
                 Object.assign(config.data, me.getMouseEventData(event));
                 break
             default:
-                event.preventDefault();
+                if (event.cancelable) {
+                    event.preventDefault()
+                }
                 break
         }
 
