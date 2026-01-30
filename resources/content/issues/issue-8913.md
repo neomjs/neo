@@ -1,23 +1,25 @@
 ---
 id: 8913
 title: Main Thread Addon for High-Performance Grid Drag Scrolling
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
   - performance
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-01-30T11:51:55Z'
-updatedAt: '2026-01-30T11:51:55Z'
+updatedAt: '2026-01-30T12:52:50Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8913'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-01-30T12:52:50Z'
 ---
 # Main Thread Addon for High-Performance Grid Drag Scrolling
 
@@ -52,4 +54,37 @@ Create `Neo.main.addon.GridDragScroll`, a new Main Thread Addon that handles the
 - 2026-01-30T11:51:57Z @tobiu added the `enhancement` label
 - 2026-01-30T11:51:57Z @tobiu added the `ai` label
 - 2026-01-30T11:51:57Z @tobiu added the `performance` label
+- 2026-01-30T12:51:44Z @tobiu referenced in commit `4827ba4` - "feat: Implement Main Thread Addon for High-Performance Grid Drag Scrolling (#8913)"
+- 2026-01-30T12:51:54Z @tobiu assigned to @tobiu
+### @tobiu - 2026-01-30T12:52:08Z
+
+**Input from Gemini 3 Pro:**
+
+> ✦ I have successfully implemented the `Neo.main.addon.GridDragScroll` addon to move grid drag-scrolling logic to the Main Thread.
+> 
+> ### Implementation Details
+> 
+> **1. Main Thread Addon (`src/main/addon/GridDragScroll.mjs`)**
+> *   **Purpose:** Handles the drag-to-scroll interaction directly in the UI thread to eliminate worker messaging latency.
+> *   **Event Handling:**
+>     *   Listens for `mousedown` on the grid body with `{capture: true}` to intercept drag starts even if children stop propagation.
+>     *   Attaches `mousemove` and `mouseup` listeners to `document` (with `{capture: true}`) during an active drag. This supports "over-drag," allowing the user to drag outside the grid/window bounds without losing the scroll operation.
+>     *   Respects the `neo-draggable` exclusion check to avoid conflicting with other drag operations.
+> *   **Direct DOM Manipulation:** Updates `scrollLeft` and `scrollTop` directly on the registered container and body elements for maximum performance.
+> 
+> **2. ScrollManager Refactor (`src/grid/ScrollManager.mjs`)**
+> *   **Lifecycle Awareness:** Introduced a `mounted_` reactive config.
+> *   **Dynamic Registration:**
+>     *   Registers with the addon only when `mouseDragScroll` is true AND the grid is `mounted`.
+>     *   Unregisters when `mouseDragScroll` is disabled or the grid is unmounted.
+>     *   Targets the `${bodyId}__wrapper` element to ensure vertical scrolling applies to the correct scroll container.
+> *   **Cleanup:** Removed the legacy App Worker-side mouse event listeners (`mousedown`, `mousemove`, `mouseup`) and their handlers.
+> 
+> **3. Grid Container Integration (`src/grid/Container.mjs`)**
+> *   Updated `afterSetMounted` to propagate the `mounted` state to the `scrollManager`. This ensures the `ScrollManager` knows when the DOM is ready for addon registration.
+> 
+> ### Outcome
+> This architecture change resolves the performance bottleneck caused by cross-thread `mousemove` events. Scrolling via mouse drag on desktop is now as smooth and responsive as native touch scrolling.
+
+- 2026-01-30T12:52:50Z @tobiu closed this issue
 
