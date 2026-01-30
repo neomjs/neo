@@ -16,9 +16,9 @@ parentIssue: null
 subIssues:
   - '[ ] 8892 Create Component Test for Grid Teleportation Artifacts'
   - '[x] 8893 Create Unit Test for Grid VDOM Deltas'
-  - '[ ] 8894 Restore Grid Stability (Fix/Revert Teleportation)'
+  - '[x] 8894 Restore Grid Stability (Fix/Revert Teleportation)'
   - '[x] 8898 Fix VDOM ID Corruption during Component Recycling (Structural Shifts)'
-subIssuesCompleted: 2
+subIssuesCompleted: 3
 subIssuesTotal: 4
 blockedBy: []
 blocking: []

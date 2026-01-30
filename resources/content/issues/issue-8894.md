@@ -1,25 +1,27 @@
 ---
 id: 8894
 title: Restore Grid Stability (Fix/Revert Teleportation)
-state: OPEN
+state: CLOSED
 labels:
   - bug
   - ai
   - core
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-01-27T12:04:27Z'
-updatedAt: '2026-01-27T12:10:52Z'
+updatedAt: '2026-01-30T23:51:24Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8894'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 8891
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy:
-  - '[ ] 8893 Create Unit Test for Grid VDOM Deltas'
+  - '[x] 8893 Create Unit Test for Grid VDOM Deltas'
   - '[ ] 8892 Create Component Test for Grid Teleportation Artifacts'
 blocking: []
+closedAt: '2026-01-30T23:51:23Z'
 ---
 # Restore Grid Stability (Fix/Revert Teleportation)
 
@@ -44,4 +46,10 @@ The Buffered Grid is already highly optimized. Teleportation is expected to offe
 - 2026-01-27T12:04:55Z @tobiu added parent issue #8891
 - 2026-01-27T12:04:58Z @tobiu marked this issue as being blocked by #8892
 - 2026-01-27T12:05:03Z @tobiu marked this issue as being blocked by #8893
+- 2026-01-30T23:51:19Z @tobiu assigned to @tobiu
+### @tobiu - 2026-01-30T23:51:24Z
+
+we did update the grid inside separate tickets already, closing this one.
+
+- 2026-01-30T23:51:24Z @tobiu closed this issue
 
