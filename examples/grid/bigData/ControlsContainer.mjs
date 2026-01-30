@@ -207,20 +207,26 @@ class ControlsContainer extends Container {
     /**
      * @param {Object} data
      */
-    onAmountColumnsChange(data) {
+    async onAmountColumnsChange(data) {
         if (data.oldValue) {
-            this.grid.isLoading = 'Is Loading';
-            this.grid.amountColumns = parseInt(data.value.id)
+            let me = this;
+
+            me.grid.isLoading = 'Is Loading';
+            await me.timeout(5);
+            me.grid.amountColumns = parseInt(data.value.id)
         }
     }
 
     /**
      * @param {Object} data
      */
-    onAmountRowsChange(data) {
+    async onAmountRowsChange(data) {
         if (data.oldValue) {
-            this.grid.isLoading = 'Is Loading';
-            this.grid.store.amountRows = parseInt(data.value.id)
+            let me = this;
+
+            me.grid.isLoading = 'Is Loading';
+            await me.timeout(5);
+            me.grid.store.amountRows = parseInt(data.value.id)
         }
     }
 
@@ -275,12 +281,13 @@ class ControlsContainer extends Container {
     /**
      * @param {Object} data
      */
-    onFilterFieldChange(data) {
+    async onFilterFieldChange(data) {
         let me = this;
 
         if (me.firstFiltering) {
             me.firstFiltering = false;
-            me.grid.isLoading = 'Is Loading'
+            me.grid.isLoading = 'Is Loading';
+            await me.timeout(5);
         }
 
         me.grid.store.getFilter(data.component.name).value = data.value;
