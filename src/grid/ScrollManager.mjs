@@ -105,10 +105,9 @@ class ScrollManager extends Base {
                 scope      : me
             },
             {
-                mousedown : me.onMouseDown,
-                mouseleave: me.onMouseLeave,
-                mouseup   : me.onMouseUp,
-                scope     : me
+                mousedown: me.onMouseDown,
+                mouseup  : me.onMouseUp,
+                scope    : me
             },
             {
                 mousemove: {fn: me.onMouseMove, local: true},
@@ -222,7 +221,7 @@ class ScrollManager extends Base {
      * @param {Object} data
      */
     onMouseDown(data) {
-        if (this.mouseDragScroll && !data.path.some(e => e.cls.includes('neo-draggable'))) {
+        if (this.mouseDragScroll && data.button === 0 && !data.path.some(e => e.cls.includes('neo-draggable'))) {
             this.isMouseDragging = true;
             this.lastMouseX      = data.clientX;
             this.lastMouseY      = data.clientY
@@ -232,17 +231,10 @@ class ScrollManager extends Base {
     /**
      * @param {Object} data
      */
-    onMouseLeave(data) {
-        this.isMouseDragging = false
-    }
-
-    /**
-     * @param {Object} data
-     */
     onMouseMove(data) {
         let me = this;
 
-        if (me.isMouseDragging) {
+        if (me.isMouseDragging && data.buttons === 1) {
             let deltaX = me.lastMouseX - data.clientX,
                 deltaY = me.lastMouseY - data.clientY;
 

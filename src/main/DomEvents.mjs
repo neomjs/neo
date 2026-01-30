@@ -322,11 +322,13 @@ class DomEvents extends Base {
      * @returns {Object}
      */
     getMouseEventData(event) {
-        let {altKey, clientX, clientY, ctrlKey, detail, metaKey, offsetX, offsetY, pageX, pageY, screenX, screenY, shiftKey} = event;
+        let {altKey, button, buttons, clientX, clientY, ctrlKey, detail, metaKey, offsetX, offsetY, pageX, pageY, screenX, screenY, shiftKey} = event;
 
         return {
             ...this.getEventData(event),
             altKey,
+            button,
+            buttons,
             clientX,
             clientY,
             ctrlKey,
