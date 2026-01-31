@@ -77,6 +77,23 @@ class InstanceService extends Base {
             properties
         })
     }
+
+    /**
+     * Calls a method on a specific instance.
+     * @param {Object} opts
+     * @param {String} opts.sessionId
+     * @param {String} opts.id
+     * @param {String} opts.method
+     * @param {Array}  [opts.args]
+     * @returns {Promise<Object>}
+     */
+    async callMethod({sessionId, id, method, args}) {
+        return await ConnectionService.call(sessionId, 'call_method', {
+            id,
+            method,
+            args
+        })
+    }
 }
 
 export default Neo.setupClass(InstanceService);

@@ -97,6 +97,7 @@ class Client extends Base {
             query_component       : component,
             query_vdom            : component,
 
+            call_method            : instance,
             find_instances         : instance,
             get_instance_properties: instance,
             set_instance_properties: instance,

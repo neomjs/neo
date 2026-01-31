@@ -83,6 +83,35 @@ class InstanceService extends Service {
 
         return {success: true}
     }
+
+    /**
+     * Calls a method on a specific instance.
+     * @param {Object} params
+     * @param {String} params.id
+     * @param {String} params.method
+     * @param {Array}  [params.args]
+     * @returns {Object}
+     */
+    async callMethod({id, method, args=[]}) {
+        const instance = Neo.get(id);
+
+        if (!instance) {
+            throw new Error(`Instance not found: ${id}`)
+        }
+
+        const
+            pathArray  = method.split('.'),
+            methodName = pathArray.pop(),
+            scope      = pathArray.length < 1 ? instance : Neo.ns(pathArray.join('.'), false, instance);
+
+        if (!scope || typeof scope[methodName] !== 'function') {
+            throw new Error(`Method not found: ${method} on instance ${id}`)
+        }
+
+        const result = await scope[methodName].call(scope, ...args);
+
+        return {result: this.safeSerialize(result)}
+    }
 }
 
 export default Neo.setupClass(InstanceService);
