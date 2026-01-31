@@ -348,6 +348,7 @@ class Markdown extends Component {
      */
     onHeadline(tag, text, index) {
         text = text.replace(regexInlineCode, '<code>$1</code>');
+        text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
         return `<${tag} class="neo-${tag}">${text}</${tag}>`
     }
 
