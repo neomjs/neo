@@ -103,14 +103,20 @@ class ComponentService extends Service {
     }
 
     /**
-     * @param {Object} params
-     * @param {Number} [params.depth]
+     * @param {Object}  params
+     * @param {Number}  [params.depth]
      * @param {Boolean} [params.lean=true]
-     * @param {String} [params.rootId]
+     * @param {String}  [params.rootId]
      * @returns {Object}
      */
     getComponentTree({depth, lean=true, rootId}) {
-        return {tree: this.serializeComponent(this.getComponentRoot(rootId), depth || -1, 1, lean)}
+        return {
+            tree: this.serializeComponent({
+                component: this.getComponentRoot(rootId),
+                lean,
+                maxDepth : depth || -1
+            })
+        }
     }
 
     /**
@@ -228,13 +234,14 @@ class ComponentService extends Service {
     }
 
     /**
-     * @param {Neo.component.Base} component
-     * @param {Number} maxDepth
-     * @param {Number} currentDepth
-     * @param {Boolean} lean
+     * @param {Object} data
+     * @param {Neo.component.Base} data.component
+     * @param {Number}             [data.currentDepth=1]
+     * @param {Boolean}            [data.lean=true]
+     * @param {Number}             [data.maxDepth=-1]
      * @returns {Object}
      */
-    serializeComponent(component, maxDepth, currentDepth=1, lean=true) {
+    serializeComponent({component, currentDepth=1, lean=true, maxDepth=-1}) {
         if (!component) return null;
 
         let result;
@@ -252,7 +259,12 @@ class ComponentService extends Service {
             const children = Neo.manager.Component.getChildComponents(component);
 
             if (children && children.length > 0) {
-                result.items = children.map(child => this.serializeComponent(child, maxDepth, currentDepth + 1, lean))
+                result.items = children.map(child => this.serializeComponent({
+                    component   : child,
+                    currentDepth: currentDepth + 1,
+                    lean,
+                    maxDepth
+                }))
             }
         }
 
