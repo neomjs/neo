@@ -72,12 +72,13 @@ class ComponentService extends Base {
      * Retrieves the full component tree of the application.
      * @param {Object} opts             The options object.
      * @param {Number} [opts.depth]     The depth limit.
+     * @param {Boolean} [opts.lean]     If true, returns optimized output.
      * @param {String} [opts.rootId]    Optional root component ID.
      * @param {String} [opts.sessionId] The target session ID.
      * @returns {Promise<Object>} The component tree structure.
      */
-    async getComponentTree({depth, rootId, sessionId}) {
-        return await ConnectionService.call(sessionId, 'get_component_tree', {depth, rootId});
+    async getComponentTree({depth, lean, rootId, sessionId}) {
+        return await ConnectionService.call(sessionId, 'get_component_tree', {depth, lean, rootId});
     }
 
     /**

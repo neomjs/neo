@@ -1432,6 +1432,10 @@ components:
         depth:
           type: integer
           description: Depth limit. 1=Self, 2=Self+Children, -1=Infinite.
+        lean:
+          type: boolean
+          default: true
+          description: If true, returns a strict subset of properties (id, className, items) for token efficiency.
         sessionId:
           type: string
           description: The target App Worker Session ID
