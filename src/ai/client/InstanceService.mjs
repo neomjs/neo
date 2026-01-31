@@ -31,7 +31,7 @@ class InstanceService extends Service {
         }
 
         properties.forEach(property => {
-            result[property] = this.safeSerialize(instance[property])
+            result[property] = this.safeSerialize(Neo.ns(property, false, instance))
         });
 
         return {properties: result}
@@ -49,7 +49,7 @@ class InstanceService extends Service {
             if (Array.isArray(returnProperties) && returnProperties.length > 0) {
                 const props = {};
                 returnProperties.forEach(prop => {
-                    props[prop] = this.safeSerialize(instance[prop])
+                    props[prop] = this.safeSerialize(Neo.ns(prop, false, instance))
                 });
 
                 return {
