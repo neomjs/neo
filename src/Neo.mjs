@@ -813,6 +813,10 @@ If you intended to create custom logic, use the 'beforeGet${Neo.capitalize(key)}
          * Example: code.LivePreview running inside a dist/production app.
          */
         if (ns) {
+            if (Neo.config.unitTestMode) {
+                throw new Error('Namespace collision in unitTestMode for ' + proto.constructor.config.className)
+            }
+
             return ns
         }
 
@@ -1186,15 +1190,19 @@ if (typeof globalThis.addEventListener === 'function') {
             e.preventDefault()
         }
     })
-} else if (typeof process !== 'undefined' && typeof process.on === 'function') {
+} else if (typeof process !== 'undefined' && typeof process.emit === 'function') {
     // Node.js
-    process.on('unhandledRejection', e => {
-        if (e === Neo.isDestroyed) {
-            return
+    // We need to intercept the emit, since test runners like Playwright
+    // will listen to unhandledRejection and fail the test
+    const originalEmit = process.emit;
+
+    process.emit = function(name, data, ...args) {
+        if (name === 'unhandledRejection' && data === Neo.isDestroyed) {
+            return true
         }
 
-        throw e
-    })
+        return originalEmit.apply(this, arguments)
+    }
 }
 
 export default Neo;

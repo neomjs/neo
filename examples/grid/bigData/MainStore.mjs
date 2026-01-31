@@ -23,6 +23,10 @@ class MainStore extends Store {
          */
         amountRows_: 1000,
         /**
+         * @member {Boolean} autoInitRecords=false
+         */
+        autoInitRecords: false,
+        /**
          * @member {Object[]} filters
          * @reactive
          */
@@ -77,7 +81,7 @@ class MainStore extends Store {
             console.log('Start generating data and adding to collection');
 
             if (me.items?.length > 0) {
-                me.clear()
+                me.clear(false)
             }
 
             // Turbo Mode: Passing false as the 2nd argument disables the eager Record creation.
@@ -102,7 +106,7 @@ class MainStore extends Store {
         console.log('Start generating data and adding to collection');
 
                 if (me.items?.length > 0) {
-                        me.clear()
+                        me.clear(false)
                     }
         
                     // Turbo Mode: Passing false as the 2nd argument disables the eager Record creation.

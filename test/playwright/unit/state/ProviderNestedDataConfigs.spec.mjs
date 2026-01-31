@@ -15,7 +15,7 @@ import StateProvider   from '../../../../src/state/Provider.mjs';
 
 class MockComponent extends Component {
     static config = {
-        className: 'Mock.Component',
+        className: 'Test.Unit.State.ProviderNestedDataConfigs.MockComponent',
         appName  : 'test-app',
         user_    : null,
         userName_: null

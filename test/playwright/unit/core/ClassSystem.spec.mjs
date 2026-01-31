@@ -22,7 +22,7 @@ test.describe('ClassSystem', () => {
 
         class TestClass extends core.Base {
             static config = {
-                className: 'Neo.TestClass',
+                className: 'Test.Unit.Core.ClassSystem.TestClass',
                 a_       : valueA,
                 b_       : valueB
             }

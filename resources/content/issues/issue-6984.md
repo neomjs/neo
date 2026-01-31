@@ -3,16 +3,14 @@ id: 6984
 title: Refactor - Store Composition with Collection
 state: OPEN
 labels:
-  - help wanted
-  - good first issue
   - epic
-  - hacktoberfest
+  - no auto close
 assignees: []
 createdAt: '2025-07-07T23:52:22Z'
-updatedAt: '2025-10-30T18:56:31Z'
+updatedAt: '2026-01-29T15:07:25Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/6984'
 author: tobiu
-commentsCount: 3
+commentsCount: 4
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
@@ -80,4 +78,14 @@ this one could get refined to via the ai native workflows into new subs, and bas
 
 @tobiu I'd like to work on this, pls assign.
 
+### @github-actions - 2026-01-29T03:36:41Z
+
+This issue is stale because it has been open for 90 days with no activity.
+
+- 2026-01-29T03:36:41Z @github-actions added the `stale` label
+- 2026-01-29T15:07:25Z @tobiu removed the `help wanted` label
+- 2026-01-29T15:07:25Z @tobiu removed the `good first issue` label
+- 2026-01-29T15:07:25Z @tobiu removed the `stale` label
+- 2026-01-29T15:07:25Z @tobiu removed the `hacktoberfest` label
+- 2026-01-29T15:07:25Z @tobiu added the `no auto close` label
 

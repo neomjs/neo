@@ -39,6 +39,13 @@ class TreeBuilder extends Base {
             return node
         }
 
+        // JIT ID Generation (App Authority)
+        // If we are processing a VDOM tree (childKey === 'cn') and the node has no ID,
+        // we must generate one now to ensure deterministic identity before the VDOM leaves the App Worker.
+        if (childKey === 'cn' && !node.id) {
+            node.id = Neo.getId(node.vtype === 'text' ? 'vtext' : 'vnode')
+        }
+
         let output = {...node}; // Shallow copy
 
         if (node[childKey]) {

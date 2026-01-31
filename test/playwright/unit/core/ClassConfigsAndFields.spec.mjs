@@ -11,7 +11,7 @@ class TestClass extends core.Base {
     fieldB = 2;
 
     static config = {
-        className: 'Neo.TestClass',
+        className: 'Test.Unit.Core.ClassConfigsAndFields.TestClass',
         configA_ : 3,
         configB_ : 4
     }
@@ -65,6 +65,10 @@ test.describe('ClassConfigsAndFields', () => {
 
     test('Neo default class fields inside constructors', () => {
         class NeoCtorTest extends core.Base {
+            static config = {
+                className: 'Test.Unit.Core.ClassConfigsAndFields.NeoCtorTest'
+            }
+
             fieldA = 1;
             fieldB = 2;
 
@@ -153,7 +157,7 @@ test.describe('ClassConfigsAndFields', () => {
 
     test('Class based class configs and fields', () => {
         const instance = Neo.create({
-            className: 'Neo.TestClass'
+            className: 'Test.Unit.Core.ClassConfigsAndFields.TestClass'
         });
 
         expect(instance.configA).toBe(4); // 1 + 3
@@ -164,7 +168,7 @@ test.describe('ClassConfigsAndFields', () => {
 
     test('Instance based class configs and fields', () => {
         const instance = Neo.create({
-            className: 'Neo.TestClass',
+            className: 'Test.Unit.Core.ClassConfigsAndFields.TestClass',
             fieldA   : 5,
             configA  : 6,
             configB  : 7,
@@ -177,7 +181,7 @@ test.describe('ClassConfigsAndFields', () => {
         expect(instance.fieldB).toBe(8);
 
         const instance2 = Neo.create({
-            className: 'Neo.TestClass',
+            className: 'Test.Unit.Core.ClassConfigsAndFields.TestClass',
             fieldB   : 8,
             configB  : 7,
             configA  : 6,
@@ -192,7 +196,7 @@ test.describe('ClassConfigsAndFields', () => {
 
     test('Dynamically changed class configs and fields', () => {
         const instance = Neo.create({
-            className: 'Neo.TestClass'
+            className: 'Test.Unit.Core.ClassConfigsAndFields.TestClass'
         });
 
         instance.set({
@@ -208,7 +212,7 @@ test.describe('ClassConfigsAndFields', () => {
         expect(instance.fieldB).toBe(8);
 
         const instance2 = Neo.create({
-            className: 'Neo.TestClass'
+            className: 'Test.Unit.Core.ClassConfigsAndFields.TestClass'
         });
 
         instance2.set({

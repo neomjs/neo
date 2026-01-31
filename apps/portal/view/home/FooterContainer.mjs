@@ -135,7 +135,7 @@ class FooterContainer extends Container {
             items : [{
                 module: Component,
                 cls   : ['neo-version'],
-                text  : '© 2026 Neo.mjs • v11.22.0 • MIT License'
+                text  : `© ${new Date().getFullYear()} Neo.mjs • v11.24.0 • MIT License`
             }]
         }],
         /**

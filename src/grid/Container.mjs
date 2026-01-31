@@ -260,7 +260,13 @@ class GridContainer extends BaseContainer {
      */
     afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
-        oldValue !== undefined && this.addResizeObserver(value)
+        oldValue !== undefined && this.addResizeObserver(value);
+
+        let {scrollManager} = this;
+
+        if (scrollManager) {
+            scrollManager.mounted = value
+        }
     }
 
     /**

@@ -26,8 +26,8 @@ import VdomHelper         from '../../../../src/vdom/Helper.mjs';
 
 class TestContainer extends Container {
     static config = {
-        className: 'Test.Container',
-        ntype    : 'test-container',
+        className: 'Test.Unit.Vdom.VdomMerging.Container',
+        ntype    : 'test-unit-vdom-vdommerging-container',
         layout   : {ntype: 'vbox'},
         style    : {color: 'black'}
     }

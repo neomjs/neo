@@ -76,7 +76,7 @@ if (insideNeo) {
         for (; i < len; i++) {
             if (footerContentArray[i].includes('neo-version')) {
                 // Update the version string displayed in the UI.
-                footerContentArray[i + 1] = footerContentArray[i + 1].replace(/'\w.+'/, `'v${packageJson.version}'`);
+                footerContentArray[i + 1] = footerContentArray[i + 1].replace(/v\d+\.\d+\.\d+/, `v${packageJson.version}`);
                 break;
             }
         }

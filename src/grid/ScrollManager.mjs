@@ -23,6 +23,17 @@ class ScrollManager extends Base {
          */
         className: 'Neo.grid.ScrollManager',
         /**
+         * @member {Boolean} dragScroll_=true
+         * @reactive
+         */
+        dragScroll_: true,
+        /**
+         * @member {Boolean} mounted_=false
+         * @protected
+         * @reactive
+         */
+        mounted_: false,
+        /**
          * @member {Number} scrollLeft_=0
          * @protected
          * @reactive
@@ -46,38 +57,35 @@ class ScrollManager extends Base {
      * @protected
      */
     gridContainer = null
-    /**
-     * Storing touchmove position for mobile envs
-     * @member {Number} lastTouchX=0
-     * @protected
-     */
-    lastTouchX = 0
-    /**
-     * Storing touchmove position for mobile envs
-     * @member {Number} lastTouchY=0
-     * @protected
-     */
-    lastTouchY = 0
-    /**
-     * Flag for identifying the ownership of a touchmove operation
-     * @member {'body'|'container'|null} touchMoveOwner=null
-     * @protected
-     */
-    touchMoveOwner = null
 
     /**
-     * @param {Object} config
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
      */
-    construct(config) {
-        super.construct(config);
+    afterSetDragScroll(value, oldValue) {
+        let cls = 'neo-mouse-drag-scroll';
 
-        let me = this;
+        if (value) {
+            this.gridBody.addCls(cls)
+        } else if (oldValue) {
+            this.gridBody.removeCls(cls)
+        }
 
-        me.gridBody.addDomListeners({
-            touchcancel: me.onTouchCancel,
-            touchend   : me.onTouchEnd,
-            scope      : me
-        })
+        if (this.mounted) {
+            this.updateDragScrollAddon(value)
+        }
+    }
+
+    /**
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     */
+    afterSetMounted(value, oldValue) {
+        if (value) {
+            this.dragScroll && this.updateDragScrollAddon(true)
+        } else if (oldValue) {
+            this.updateDragScrollAddon(false)
+        }
     }
 
     /**
@@ -85,36 +93,15 @@ class ScrollManager extends Base {
      * @param {Object} data
      * @protected
      */
-    onBodyScroll({scrollTop, touches}) {
+    onBodyScroll({scrollTop}) {
         let me   = this,
-            body = me.gridBody,
-            deltaX, lastTouchX;
+            body = me.gridBody;
 
         me.scrollTop = scrollTop;
 
         body.set({isScrolling: true, scrollTop});
 
-        me.onBodyScrollEnd();
-
-        if (touches) {
-            if (me.touchMoveOwner !== 'container') {
-                me.touchMoveOwner = 'body'
-            }
-
-            if (me.touchMoveOwner === 'body') {
-                lastTouchX = touches.lastTouch.clientX - touches.firstTouch.clientX;
-                deltaX     = me.lastTouchX - lastTouchX;
-
-                deltaX !== 0 && Neo.main.DomAccess.scrollTo({
-                    direction: 'left',
-                    id       : me.gridContainer.id,
-                    value    : me.scrollLeft + deltaX,
-                    windowId : me.windowId
-                })
-
-                me.lastTouchX = lastTouchX
-            }
-        }
+        me.onBodyScrollEnd()
     }
 
     /**
@@ -128,12 +115,10 @@ class ScrollManager extends Base {
      * @param {Object} data
      * @param {Number} data.scrollLeft
      * @param {Object} data.target
-     * @param {Object} data.touches
      */
-    onContainerScroll({scrollLeft, target, touches}) {
-        let me    = this,
-            body = me.gridBody,
-            deltaY, lastTouchY;
+    onContainerScroll({scrollLeft, target}) {
+        let me   = this,
+            body = me.gridBody;
 
         // We must ignore events for grid-scrollbar
         if (target.id.includes('grid-container')) {
@@ -143,46 +128,27 @@ class ScrollManager extends Base {
             me  .scrollLeft = scrollLeft;
             body.scrollLeft = scrollLeft;
 
-            me.gridContainer.headerToolbar.scrollLeft = scrollLeft;
-
-            if (touches && !me.gridContainer.headerToolbar.cls.includes('neo-is-dragging')) {
-                if (me.touchMoveOwner !== 'body') {
-                    me.touchMoveOwner = 'container'
-                }
-
-                if (me.touchMoveOwner === 'container') {
-                    lastTouchY = touches.lastTouch.clientY - touches.firstTouch.clientY;
-                    deltaY     = me.lastTouchY - lastTouchY;
-
-                    deltaY !== 0 && Neo.main.DomAccess.scrollTo({
-                        direction: 'top',
-                        id       : body.vdom.id,
-                        value    : me.scrollTop + deltaY,
-                        windowId : me.windowId
-                    })
-
-                    me.lastTouchY = lastTouchY
-                }
-            }
+            me.gridContainer.headerToolbar.scrollLeft = scrollLeft
         }
     }
 
     /**
-     * @param {Object} data
+     * @param {Boolean} active
+     * @returns {Promise<void>}
      */
-    onTouchCancel(data) {
-        this.onTouchEnd(data)
-    }
+    async updateDragScrollAddon(active) {
+        let me    = this,
+            addon = await Neo.currentWorker.getAddon('GridDragScroll', me.windowId);
 
-    /**
-     * @param {Object} data
-     */
-    onTouchEnd(data) {
-        let me = this;
-
-        me.touchMoveOwner = null;
-        me.lastTouchX     = 0;
-        me.lastTouchY     = 0
+        if (active) {
+            addon.register({
+                bodyId     : me.gridBody.id + '__wrapper',
+                containerId: me.gridContainer.id,
+                id         : me.id
+            })
+        } else {
+            addon.unregister({id: me.id})
+        }
     }
 
     /**

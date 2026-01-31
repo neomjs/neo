@@ -117,6 +117,10 @@ class VNode extends Base {
     static getById(vnode, id) {
         vnode = VNode.getVnode(vnode);
 
+        if (!vnode) {
+            return null
+        }
+
         let childNodes = vnode.childNodes || [],
             i          = 0,
             len        = childNodes.length,
@@ -129,14 +133,16 @@ class VNode extends Base {
         for (; i < len; i++) {
             childNode = VNode.getVnode(childNodes[i]);
 
-            if (childNode.id === id) {
-                return childNode
-            }
-
-            childNode = VNode.getById(childNode, id);
-
             if (childNode) {
-                return childNode
+                if (childNode.id === id) {
+                    return childNode
+                }
+
+                childNode = VNode.getById(childNode, id);
+
+                if (childNode) {
+                    return childNode
+                }
             }
         }
 

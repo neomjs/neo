@@ -771,6 +771,17 @@ class VdomLifecycle extends Base {
      * - sync the vdom ids
      * - setting vnodeInitialized to true for child components
      * - updating the parent component to ensure that the vnode tree stays persistent
+     *
+     * **Implementation Detail:**
+     * This method uses a two-pass strategy to handle child updates:
+     * 1. **Update Visible Children:** We iterate over children found directly in the new VNode structure
+     *    (via `ComponentManager.getChildren`). This preserves the baseline behavior where fully expanded
+     *    VNode trees (e.g., from `Helper.create`) are synced without unnecessary "downgrading" to references.
+     * 2. **Unmount Missing Children:** We iterate over ALL logical children (via `ComponentManager.find`)
+     *    to detect any that are absent from the new VNode tree (e.g., `removeDom: true`).
+     *    Crucially, we use `VNodeUtil.find` to distinguish between a "Placeholder" (valid, do nothing)
+     *    and a "Removal" (invalid, unmount).
+     *
      * @param {Neo.vdom.VNode} [vnode=this.vnode]
      */
     syncVnodeTree(vnode=this.vnode) {
@@ -815,6 +826,24 @@ class VdomLifecycle extends Base {
                 component.mounted          = true
             } else {
                 console.warn('syncVnodeTree: Could not replace the child vnode for', component.id)
+            }
+        });
+
+        // New logic to handle unmounting of removed children
+        ComponentManager.getDirectChildren(me.id).forEach(component => {
+            if (!childComponents.includes(component)) {
+                childVnode = null;
+
+                // Check if it exists in the tree (as placeholder)
+                // We use VNodeUtil.find which resolves placeholders
+                if (me.vnode) {
+                    childVnode = VNodeUtil.find(me.vnode, component.vdom.id)?.vnode
+                }
+
+                if (!childVnode && !component.floating) {
+                    component._vnode = null;
+                    component.mounted = false
+                }
             }
         });
 

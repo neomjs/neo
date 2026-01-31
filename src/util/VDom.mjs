@@ -152,6 +152,10 @@ class VDom extends Base {
     static getById(vdom, id) {
         vdom = VDom.getVdom(vdom);
 
+        if (!vdom) {
+            return null
+        }
+
         let childNodes = vdom.cn || [],
             i          = 0,
             len        = childNodes.length,
@@ -164,14 +168,16 @@ class VDom extends Base {
         for (; i < len; i++) {
             childNode = VDom.getVdom(childNodes[i]);
 
-            if (childNode.id === id) {
-                return childNode
-            }
-
-            childNode = VDom.getById(childNode, id);
-
             if (childNode) {
-                return childNode
+                if (childNode.id === id) {
+                    return childNode
+                }
+
+                childNode = VDom.getById(childNode, id);
+
+                if (childNode) {
+                    return childNode
+                }
             }
         }
 
@@ -427,43 +433,12 @@ class VDom extends Base {
      */
     static syncVdomState(vnode, vdom, force=false) {
         if (vnode && vdom) {
-            // Sanity check: If the node types (tags) mismatch, we are likely looking at
-            // a race condition where the VNode tree structure hasn't caught up with the VDOM yet.
-            // In this case, we do not sync the node props, but we do want to check the children.
-            // This is important for e.g. tag name changes (div => ul), where we want to keep the children stable.
-            const tagMismatch = vnode.nodeName && vdom.tag && vnode.nodeName.toLowerCase() !== vdom.tag.toLowerCase();
-
             vdom = VDom.getVdom(vdom);
 
             let childNodes = vdom.cn,
                 cn, i, len;
 
-            if (!tagMismatch) {
-                if (force) {
-                    if (vnode.id && vdom.id !== vnode.id) {
-                        vdom.id = vnode.id
-                    }
-                } else {
-                    // We only want to add an ID if the vdom node does not already have one.
-                    // This preserves developer-provided IDs while allowing the framework
-                    // to assign IDs to nodes that need them for reconciliation.
-                    // Also think of adding and removing nodes in parallel.
-                    if (vnode.id && (!vdom.id || vdom.id.startsWith('neo-vnode-'))) {
-                        vdom.id = vnode.id
-                    }
-                }
-            }
-
-            // 1. Rehydration (vnode -> vdom)
-            // Used by Functional Components (vdom is new)
-            if (Neo.isNumber(vnode.scrollTop) && !Neo.isNumber(vdom.scrollTop)) {
-                vdom.scrollTop = vnode.scrollTop
-            }
-            if (Neo.isNumber(vnode.scrollLeft) && !Neo.isNumber(vdom.scrollLeft)) {
-                vdom.scrollLeft = vnode.scrollLeft
-            }
-
-            // 2. Preservation (vdom -> vnode)
+            // Preservation (vdom -> vnode)
             // Used by Classic Components (vdom is source of truth via capture)
             if (Neo.isNumber(vdom.scrollTop)) {
                 vnode.scrollTop = vdom.scrollTop
@@ -482,6 +457,10 @@ class VDom extends Base {
                 cn  = cn.filter(item => item && item.removeDom !== true);
                 i   = 0;
                 len = cn?.length || 0;
+
+                if (vnode.childNodes && vnode.childNodes.length !== len) {
+                    return
+                }
 
                 for (; i < len; i++) {
                     if (vnode.childNodes) {

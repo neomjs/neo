@@ -19,8 +19,8 @@ import TreeBuilder    from '../../../../src/util/vdom/TreeBuilder.mjs';
 
 class MockComponent extends Component {
     static config = {
-        className: 'Test.MockComponent',
-        ntype: 'test-mock',
+        className: 'Test.Unit.Vdom.TreeBuilder.MockComponent',
+        ntype: 'test-unit-vdom-treebuilder-mock',
         _vdom: {tag: 'div'}
     }
 }

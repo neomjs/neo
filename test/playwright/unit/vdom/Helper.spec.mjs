@@ -20,25 +20,25 @@ import VDomUtil        from '../../../../src/util/VDom.mjs';
 
 test.describe('Neo.vdom.Helper', () => {
     test('Create Vnode', () => {
-        let vdom = {tag: 'div'};
+        let vdom = {tag: 'div', id: 'my-id'};
         let { vnode } = VdomHelper.create({vdom});
 
         expect(vnode).toEqual({
             attributes: {},
             childNodes: [],
             className : [],
-            id        : expect.any(String),
+            id        : 'my-id',
             nodeName  : 'div',
             style     : {},
             vtype     : 'vnode'
         });
 
         VDomUtil.syncVdomState(vnode, vdom);
-        expect(vdom.id).toBe(vnode.id);
+        expect(vdom.id).toBe('my-id');
     });
 
     test('Modify vdom.cls', () => {
-        let vdom = {tag: 'div'};
+        let vdom = {tag: 'div', id: 'my-div'};
         let { vnode } = VdomHelper.create({vdom});
         VDomUtil.syncVdomState(vnode, vdom);
         const vnodeId = vnode.id;
@@ -74,7 +74,7 @@ test.describe('Neo.vdom.Helper', () => {
     });
 
     test('Modify vdom.style', () => {
-        let vdom = {tag: 'div', cls: ['neo-container']};
+        let vdom = {tag: 'div', id: 'my-div', cls: ['neo-container']};
         let { vnode } = VdomHelper.create({vdom});
         VDomUtil.syncVdomState(vnode, vdom);
         const vnodeId = vnode.id;
@@ -102,7 +102,7 @@ test.describe('Neo.vdom.Helper', () => {
     });
 
     test('Modify vdom attributes', () => {
-        let vdom = {tag: 'div', cls: ['neo-container'], style: {color: 'green'}};
+        let vdom = {tag: 'div', id: 'my-div', cls: ['neo-container'], style: {color: 'green'}};
         let { vnode } = VdomHelper.create({vdom});
         VDomUtil.syncVdomState(vnode, vdom);
         const vnodeId = vnode.id;
@@ -130,13 +130,13 @@ test.describe('Neo.vdom.Helper', () => {
     });
 
     test('Modify vdom cn (childNodes)', () => {
-        let vdom = {tag: 'div', cls: ['neo-container'], style: {color: 'green'}};
+        let vdom = {tag: 'div', id: 'my-div', cls: ['neo-container'], style: {color: 'green'}};
         let { vnode } = VdomHelper.create({vdom});
         VDomUtil.syncVdomState(vnode, vdom);
         const vnodeId = vnode.id;
 
         // 1. Add childNodes
-        vdom.cn = [{tag: 'div'}, {tag: 'div', id: 'neo-button-1'}, {tag: 'div'}];
+        vdom.cn = [{tag: 'div', id: 'child-1'}, {tag: 'div', id: 'neo-button-1'}, {tag: 'div', id: 'child-3'}];
         let output = VdomHelper.update({vdom, vnode});
         let deltas = output.deltas;
         vnode = output.vnode;
