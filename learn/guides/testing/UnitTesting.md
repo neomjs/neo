@@ -19,12 +19,20 @@ npm run test-unit
 ## Developer Workflow (Best Practices)
 
 ### 1. Running a Single File (Focus Mode)
-During development, you don't want to wait for the entire suite. You can run a specific test file using `npx playwright`.
+During development, you don't want to wait for the entire suite. You can run a specific test file using `npx playwright` or the npm script shortcut.
 
+**Option A: NPM Script (Recommended)**
+Use the double-dash `--` to pass arguments to the underlying Playwright command. This is cleaner as it automatically handles the config file.
+
+```bash
+npm run test-unit -- test/playwright/unit/my/file.spec.mjs
+```
+
+**Option B: Direct Playwright Command**
 **Critical:** You **MUST** specify the unit test config (`-c test/playwright/playwright.config.unit.mjs`). If you don't, Playwright will default to the generic config and fail to load the environment correctly.
 
 ```bash
-# Correct way to run a single unit test file
+# Correct way to run a single unit test file directly
 npx playwright test test/playwright/unit/my/file.spec.mjs -c test/playwright/playwright.config.unit.mjs
 ```
 
