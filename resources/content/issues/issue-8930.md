@@ -21,10 +21,12 @@ subIssues:
   - '[x] 8936 Fix: RecordFactory mapping logic not triggering for missing source keys'
   - '[ ] 8937 Feat: Discovery Engine - The Spider'
   - '[ ] 8938 Feat: UI Filtering Logic'
-  - '[ ] 8939 Feat: Country Flag Column'
+  - '[x] 8939 Feat: Country Flag Column'
   - '[ ] 8940 Feat: Activity Sparkline Column'
-subIssuesCompleted: 6
-subIssuesTotal: 10
+  - '[ ] 8941 Feat: Implement Neo.form.field.CountryFlagPicker'
+  - '[x] 8942 Refactor: DevRank Grid Location Column (VDOM + SCSS)'
+subIssuesCompleted: 8
+subIssuesTotal: 12
 blockedBy: []
 blocking: []
 ---
@@ -60,4 +62,6 @@ The goal is to create a meritocratic index of the open-source ecosystem, powered
 - 2026-02-01T16:43:54Z @tobiu added sub-issue #8938
 - 2026-02-01T16:44:12Z @tobiu added sub-issue #8939
 - 2026-02-01T16:44:35Z @tobiu added sub-issue #8940
+- 2026-02-01T17:31:28Z @tobiu added sub-issue #8941
+- 2026-02-01T17:59:01Z @tobiu added sub-issue #8942
 
