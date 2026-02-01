@@ -344,7 +344,7 @@ class CountryFlags extends Base {
 
         for (const country of sortedCountries) {
             // Check for whole word match to avoid "Mali" matching "Somalia"
-            const regex = new RegExp(`\b${country.name}\b`, 'i');
+            const regex = new RegExp(`\\b${country.name}\\b`, 'i');
             if (regex.test(normalized)) {
                 return country.code
             }
@@ -352,7 +352,7 @@ class CountryFlags extends Base {
 
         // 5. Check alias map for substring match
         for (const [alias, code] of Object.entries(aliasMap)) {
-             const regex = new RegExp(`\b${alias}\b`, 'i');
+             const regex = new RegExp(`\\b${alias}\\b`, 'i');
              if (regex.test(normalized)) {
                  return code
              }
