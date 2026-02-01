@@ -3,7 +3,6 @@ import fs from 'fs';
 import path from 'path';
 
 const CACHE_FILE = 'apps/devrank/resources/data.json';
-const PROCESSED_USERS_FILE = 'apps/devrank/resources/processed.json';
 const BATCH_SIZE = 10; // Process 10 users at a time to be kind to the rate limit
 
 // Ensure directories exist
@@ -20,9 +19,11 @@ ensureDir(CACHE_FILE);
 let results = [];
 let processedUsers = new Set();
 
+// We want to re-process existing users to enrich their data
 if (fs.existsSync(CACHE_FILE)) {
     results = JSON.parse(fs.readFileSync(CACHE_FILE, 'utf8'));
-    results.forEach(r => processedUsers.add(r.login));
+    // We do NOT add them to processedUsers yet because we want to update them
+    console.log(`ℹ️  Found ${results.length} existing records. Will attempt to enrich them.`);
 }
 
 // Helper: Run Shell Command
@@ -30,7 +31,6 @@ const run = (cmd) => {
     try {
         return JSON.parse(execSync(cmd, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] }));
     } catch (e) {
-        // console.error(`Command failed: ${cmd}`); // Too noisy
         return null;
     }
 };
@@ -50,7 +50,6 @@ let candidateQueue = new Set(['tobiu']); // Start with Seed
 
 // Add top contributors from these repos
 repos.forEach(repo => {
-    // console.log(`  Scanning repo: ${repo.full_name}`);
     const contribsCmd = `gh api "repos/${repo.full_name}/contributors?per_page=5"`;
     const contributors = run(contribsCmd);
     
@@ -63,20 +62,39 @@ repos.forEach(repo => {
     }
 });
 
+// Also add existing users from cache to the queue to ensure they get updated
+results.forEach(r => candidateQueue.add(r.login));
+
 console.log(`✅ Candidates found: ${candidateQueue.size}`);
 
 // 2. Deep Scan Processing
-const queueArray = Array.from(candidateQueue).filter(u => !processedUsers.has(u));
-console.log(`⚡ New candidates to scan: ${queueArray.length}`);
+const queueArray = Array.from(candidateQueue);
+console.log(`⚡ Candidates to scan: ${queueArray.length}`);
 
 const processUser = (username) => {
-    // Get Creation Date
-    const userCmd = `gh api graphql -f query='query { user(login: "${username}") { createdAt avatarUrl name } }'`;
+    // Get Enrichment Data
+    const userQuery = `
+    query { 
+      user(login: "${username}") { 
+        createdAt 
+        avatarUrl 
+        name 
+        location
+        company
+        bio
+        followers {
+          totalCount
+        }
+      } 
+    }`;
+    
+    // Use proper escaping for the query string in shell
+    const userCmd = `gh api graphql -f query='${userQuery.replace(/\n/g, ' ')}'`;
     const userRes = run(userCmd);
     
     if (!userRes || !userRes.data || !userRes.data.user) return null;
 
-    const { createdAt, avatarUrl, name } = userRes.data.user;
+    const { createdAt, avatarUrl, name, location, company, bio, followers } = userRes.data.user;
     const startYear = new Date(createdAt).getFullYear();
     const currentYear = new Date().getFullYear();
 
@@ -109,6 +127,10 @@ const processUser = (username) => {
         login: username,
         name: name || username,
         avatar_url: avatarUrl,
+        location: location,
+        company: company,
+        bio: bio,
+        followers: followers.totalCount,
         total_contributions: total,
         years: yearsData,
         first_year: startYear,
@@ -117,25 +139,28 @@ const processUser = (username) => {
 };
 
 // Process Queue
+// We create a new results array to replace the old one with enriched data
+let newResults = [];
 let processedCount = 0;
+
 for (const user of queueArray) {
     process.stdout.write(`  Processing ${user}... `);
     const data = processUser(user);
     
     if (data) {
-        results.push(data);
+        newResults.push(data);
         console.log(`OK (${data.total_contributions})`);
     } else {
         console.log('FAILED');
     }
     
     processedCount++;
-    if (processedCount >= 50) break; // Safety limit for dev run
+    if (processedCount >= 100) break; // Increased safety limit
 }
 
 // 3. Save Results
 // Sort by Total Contributions
-results.sort((a, b) => b.total_contributions - a.total_contributions);
+newResults.sort((a, b) => b.total_contributions - a.total_contributions);
 
-fs.writeFileSync(CACHE_FILE, JSON.stringify(results, null, 2));
-console.log(`\n💾 Saved ${results.length} users to ${CACHE_FILE}`);
+fs.writeFileSync(CACHE_FILE, JSON.stringify(newResults, null, 2));
+console.log(`\n💾 Saved ${newResults.length} users to ${CACHE_FILE}`);
