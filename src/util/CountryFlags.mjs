@@ -368,8 +368,9 @@ class CountryFlags extends Base {
     static getFlagUrl(nameOrCode) {
         const code = CountryFlags.getCountryCode(nameOrCode);
 
-        if (!code) {
-            return null // Or return a default 'unknown' icon?
+        // Ensure we only use valid 2-letter codes
+        if (!code || !/^[a-z]{2}$/.test(code)) {
+            return null
         }
 
         // Using HatScripts/circle-flags CDN

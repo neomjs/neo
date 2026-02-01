@@ -1,4 +1,5 @@
 import BaseGridContainer from '../../../src/grid/Container.mjs';
+import Component         from '../../../src/component/Base.mjs';
 import Contributors      from '../store/Contributors.mjs';
 import CountryFlags      from '../../../src/util/CountryFlags.mjs';
 
@@ -54,62 +55,100 @@ class GridContainer extends BaseGridContainer {
     buildDynamicColumns() {
         const columns = [
             {
-                type: 'index',
-                dataField: 'id',
-                text: '#',
+                type: 'index', 
+                dataField: 'id', 
+                text: '#', 
                 width: 60,
                 cellAlign: 'right'
             },
             {
-                dataField: 'login',
-                text: 'User',
+                dataField: 'login', 
+                text: 'User', 
                 width: 250,
-                renderer: ({record}) => {
-                    return `<div style="display:flex; align-items:center; gap:10px;">
-                        <img src="${record.avatar_url}" style="width:32px; height:32px; border-radius:50%;">
-                        <div style="display:flex; flex-direction:column; line-height: 1.2;">
-                            <a href="https://github.com/${record.login}" target="_blank" style="font-weight:bold; color:inherit; text-decoration:none;">${record.login}</a>
-                            ${record.name && record.name !== record.login ? `<span style="font-size:0.85em; opacity:0.8;">${record.name}</span>` : ''}
-                        </div>
-                    </div>`
-                }
+                type: 'component',
+                component: ({record}) => ({
+                    module: Component,
+                    cls: ['user-cell'],
+                    vdom: {
+                        cls: ['user-cell'],
+                        cn : [{
+                            tag: 'img',
+                            cls: ['avatar'],
+                            src: record.avatar_url
+                        }, {
+                            cls: ['user-info'],
+                            cn : [{
+                                tag   : 'a',
+                                cls   : ['username'],
+                                href  : `https://github.com/${record.login}`,
+                                target: '_blank',
+                                html  : record.login
+                            }, {
+                                tag : 'span',
+                                cls : ['name'],
+                                html: record.name && record.name !== record.login ? record.name : ''
+                            }]
+                        }]
+                    }
+                })
             },
             {
-                dataField: 'total_contributions',
-                text: 'Total',
+                dataField: 'total_contributions', 
+                text: 'Total', 
                 width: 100,
                 cellAlign: 'right',
                 defaultSortDirection: 'DESC',
                 renderer: ({value}) => new Intl.NumberFormat().format(value)
             },
-                        {
-                            dataField: 'followers', 
-                            text: 'Followers', 
-                            width: 100,
-                            cellAlign: 'right',
-                            renderer: ({value}) => value ? new Intl.NumberFormat().format(value) : '-'
-                        },
-                        {
-                            dataField: 'company', 
-                            text: 'Company', 
-                            width: 200,
-                            renderer: ({value}) => value ? value.replace(/^@/, '') : ''
-                        },
-                                                {
-                                                    dataField: 'location', 
-                                                    text: 'Location', 
-                                                    width: 200,
-                                                    renderer: ({value}) => {
-                                                        const url = CountryFlags.getFlagUrl(value);
-                                                        const flag = url 
-                                                            ? `<img src="${url}" title="${value}" style="width:20px; height:20px; vertical-align:middle; margin-right:8px;">`
-                                                            : `<span style="display:inline-block; min-width:20px; height:20px; margin-right:8px;"></span>`;
-                                                            
-                                                        return `<div style="display:flex; align-items:center;">${flag}<span>${value || ''}</span></div>`;
-                                                    }
-                                                },                        {
-                            dataField: 'first_year', 
-                            text: 'Since',                width: 80,
+            {
+                dataField: 'followers', 
+                text: 'Followers', 
+                width: 100,
+                cellAlign: 'right',
+                renderer: ({value}) => value ? new Intl.NumberFormat().format(value) : '-'
+            },
+            {
+                dataField: 'company', 
+                text: 'Company', 
+                width: 200,
+                renderer: ({value}) => value ? value.replace(/^@/, '') : ''
+            },
+            {
+                dataField: 'location', 
+                text: 'Location', 
+                width: 200,
+                type: 'component',
+                component: ({record}) => {
+                    const value = record.location;
+                    const url   = CountryFlags.getFlagUrl(value);
+                    
+                    return {
+                        module: Component,
+                        cls: ['location-cell'],
+                        vdom: {
+                            cls: ['location-cell'],
+                            cn : [
+                                url ? {
+                                    tag: 'img',
+                                    cls: ['country-flag'],
+                                    src: url,
+                                    title: value
+                                } : {
+                                    tag: 'span',
+                                    cls: ['country-placeholder']
+                                }, {
+                                    tag : 'span',
+                                    cls : ['location-text'],
+                                    html: value || ''
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            {
+                dataField: 'first_year', 
+                text: 'Since',                width: 80,
                 cellAlign: 'center'
             },
             {
