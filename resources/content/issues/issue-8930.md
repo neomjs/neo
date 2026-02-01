@@ -1,0 +1,63 @@
+---
+id: 8930
+title: 'Epic: DevRank - The GitHub Meritocracy Index'
+state: OPEN
+labels:
+  - epic
+  - ai
+assignees: []
+createdAt: '2026-02-01T15:19:40Z'
+updatedAt: '2026-02-01T15:19:40Z'
+githubUrl: 'https://github.com/neomjs/neo/issues/8930'
+author: tobiu
+commentsCount: 0
+parentIssue: null
+subIssues:
+  - '[x] 8931 Feat: DevRank Scaffolding & Data PoC'
+  - '[x] 8932 Feat: DevRank UI - Grid & Controls Implementation'
+  - '[x] 8933 Feat: Discovery Engine Data Enrichment'
+  - '[x] 8934 Feat: DevRank Grid Expansion'
+  - '[x] 8935 Feat: Yearly Breakdown Columns & Heatmap'
+  - '[x] 8936 Fix: RecordFactory mapping logic not triggering for missing source keys'
+  - '[ ] 8937 Feat: Discovery Engine - The Spider'
+  - '[ ] 8938 Feat: UI Filtering Logic'
+  - '[ ] 8939 Feat: Country Flag Column'
+  - '[ ] 8940 Feat: Activity Sparkline Column'
+subIssuesCompleted: 6
+subIssuesTotal: 10
+blockedBy: []
+blocking: []
+---
+# Epic: DevRank - The GitHub Meritocracy Index
+
+This epic tracks the development of "DevRank", a Neo.mjs application designed to index and rank GitHub contributors based on their all-time total contributions, irrespective of repository popularity or follower count.
+
+The goal is to create a meritocratic index of the open-source ecosystem, powered by a sophisticated discovery engine ("The Spider") and a high-performance Neo.mjs frontend.
+
+### Core Components
+1.  **Data Pipeline:** A Node.js-based discovery engine to fetch, validate, and aggregate user contribution data from the GitHub GraphQL API.
+2.  **The Index:** A local JSON database of contributors, initially populated via "Impact" (Top Repos) and "Network" (Spider) vectors.
+3.  **The UI:** A Neo.mjs application to visualize the index with advanced filtering, sorting, and performance metrics.
+
+### Roadmap
+- [ ] **Scaffolding & PoC:** Initialize the App structure and implement the "Deep Scan" data fetching proof-of-concept.
+- [ ] **Discovery Engine:** Implement the "Spider" algorithm to expand the contributor graph.
+- [ ] **UI Implementation:** Build the Grid and Analytics view.
+- [ ] **Optimization:** Refine data storage and API usage.
+
+
+## Timeline
+
+- 2026-02-01T15:19:41Z @tobiu added the `epic` label
+- 2026-02-01T15:19:41Z @tobiu added the `ai` label
+- 2026-02-01T15:20:36Z @tobiu added sub-issue #8931
+- 2026-02-01T15:26:53Z @tobiu added sub-issue #8932
+- 2026-02-01T15:38:42Z @tobiu added sub-issue #8933
+- 2026-02-01T15:38:58Z @tobiu added sub-issue #8934
+- 2026-02-01T15:59:36Z @tobiu added sub-issue #8935
+- 2026-02-01T16:25:59Z @tobiu added sub-issue #8936
+- 2026-02-01T16:43:26Z @tobiu added sub-issue #8937
+- 2026-02-01T16:43:54Z @tobiu added sub-issue #8938
+- 2026-02-01T16:44:12Z @tobiu added sub-issue #8939
+- 2026-02-01T16:44:35Z @tobiu added sub-issue #8940
+
