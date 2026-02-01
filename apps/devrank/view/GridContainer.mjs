@@ -13,6 +13,10 @@ class GridContainer extends BaseGridContainer {
          */
         className: 'DevRank.view.GridContainer',
         /**
+         * @member {String[]} cls=['devrank-grid-container', 'neo-grid-container']
+         */
+        cls: ['devrank-grid-container', 'neo-grid-container'],
+        /**
          * @member {Object} body
          */
         body: {
@@ -29,9 +33,25 @@ class GridContainer extends BaseGridContainer {
             width               : 150
         },
         /**
-         * @member {Object[]} columns
+         * @member {Object[]} store=Contributors
+         * @reactive
          */
-        columns: [
+        store: Contributors
+    }
+
+    /**
+     * @param {Object} config
+     */
+    construct(config) {
+        super.construct(config);
+        this.createColumns();
+    }
+
+    /**
+     * 
+     */
+    createColumns() {
+        const columns = [
             {
                 type: 'index', 
                 dataField: 'id', 
@@ -55,8 +75,8 @@ class GridContainer extends BaseGridContainer {
             },
             {
                 dataField: 'total_contributions', 
-                text: 'Contributions', 
-                width: 130,
+                text: 'Total', 
+                width: 100,
                 cellAlign: 'right',
                 defaultSortDirection: 'DESC',
                 renderer: ({value}) => new Intl.NumberFormat().format(value)
@@ -92,12 +112,27 @@ class GridContainer extends BaseGridContainer {
                 cellAlign: 'right',
                 renderer: ({value}) => new Date(value).toISOString().split('T')[0]
             }
-        ],
-        /**
-         * @member {Object[]} store=Contributors
-         * @reactive
-         */
-        store: Contributors
+        ];
+
+        // Add Year Columns
+        const currentYear = new Date().getFullYear();
+        for (let year = currentYear; year >= 2010; year--) {
+            columns.push({
+                dataField: `y${year}`,
+                text: String(year),
+                width: 80,
+                cellAlign: 'center',
+                renderer: ({value}) => value || '',
+                cellCls: ({value}) => {
+                    if (!value) return 'heatmap-cell-0';
+                    if (value < 100) return 'heatmap-cell-1';
+                    if (value < 1000) return 'heatmap-cell-2';
+                    return 'heatmap-cell-3';
+                }
+            });
+        }
+
+        this.columns = columns;
     }
 }
 
