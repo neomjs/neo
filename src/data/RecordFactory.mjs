@@ -49,6 +49,20 @@ class RecordFactory extends Base {
                 } else if (data[fieldName] === undefined) {
                     data[fieldName] = defaultValue
                 }
+            } else if (field.mapping && !Object.hasOwn(data, fieldName)) {
+                let ns  = field.mapping.split('.'),
+                    key = ns.pop(),
+                    source;
+
+                if (ns.length > 0) {
+                    source = Neo.ns(ns, false, data)
+                } else {
+                    source = data
+                }
+
+                if (source && Object.hasOwn(source, key)) {
+                    data[fieldName] = source[key]
+                }
             }
         });
 
