@@ -44,13 +44,13 @@ class GridContainer extends BaseGridContainer {
      */
     construct(config) {
         super.construct(config);
-        this.createColumns();
+        this.buildDynamicColumns();
     }
 
     /**
      * 
      */
-    createColumns() {
+    buildDynamicColumns() {
         const columns = [
             {
                 type: 'index', 
