@@ -1,4 +1,7 @@
 import ComboBox from './ComboBox.mjs';
+import CountryFlags from '../../util/CountryFlags.mjs';
+import CountryList from '../../list/Country.mjs';
+import VDomUtil from '../../util/VDom.mjs';
 
 /**
  * @class Neo.form.field.Country
@@ -17,11 +20,83 @@ class Country extends ComboBox {
          */
         ntype: 'countryfield',
         /**
+         * @member {Boolean} showFlags_=false
+         * @reactive
+         */
+        showFlags_: false,
+        /**
          * You can either pass a field instance or a field reference
          * @member {Neo.form.field.Base|String|null} zipCodeField_=null
          * @reactive
          */
         zipCodeField_: null
+    }
+
+    /**
+     * @param {Object} config
+     */
+    construct(config) {
+        super.construct(config);
+
+        let me           = this,
+            inputWrapper = VDomUtil.find(me.vdom, me.getInputWrapperId());
+
+        inputWrapper.vdom.cn.unshift({
+            cls      : 'neo-country-flag-icon',
+            id       : me.getFlagIconId(),
+            tag      : 'img',
+            removeDom: true,
+            style: {
+                height : '15px',
+                width  : '15px',
+                margin : 'auto 5px auto 5px'
+            }
+        });
+    }
+
+    /**
+     * Triggered after the showFlags config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetShowFlags(value, oldValue) {
+        let me       = this,
+            flagIcon = VDomUtil.find(me.vdom, me.getFlagIconId());
+
+        if (flagIcon) {
+            flagIcon.vdom.removeDom = !value;
+            me.update()
+        }
+    }
+
+    /**
+     * Triggered after the value config got changed
+     * @param {Number|String|null} value
+     * @param {Number|String|null} oldValue
+     * @param {Boolean} [preventFilter=false]
+     * @protected
+     */
+    afterSetValue(value, oldValue, preventFilter=false) {
+        super.afterSetValue(value, oldValue, preventFilter);
+
+        let me = this;
+
+        if (me.showFlags) {
+            let flagIcon = VDomUtil.find(me.vdom, me.getFlagIconId());
+
+            if (flagIcon) {
+                if (value) {
+                    flagIcon.vdom.src       = CountryFlags.getFlagUrl(value);
+                    flagIcon.vdom.removeDom = false
+                } else {
+                    flagIcon.vdom.src       = '';
+                    flagIcon.vdom.removeDom = true
+                }
+
+                me.update()
+            }
+        }
     }
 
     /**
@@ -34,6 +109,20 @@ class Country extends ComboBox {
         if (value && value instanceof Neo.form.field.Base) {
             value.countryField = this
         }
+    }
+
+    /**
+     * Triggered before the showFlags config gets changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    beforeSetShowFlags(value, oldValue) {
+        if (value) {
+            this.listConfig = {module: CountryList, ...this.listConfig}
+        }
+
+        return value
     }
 
     /**
@@ -51,6 +140,13 @@ class Country extends ComboBox {
         }
 
         return value
+    }
+
+    /**
+     * @returns {String}
+     */
+    getFlagIconId() {
+        return `${this.id}__flag-icon`
     }
 }
 
