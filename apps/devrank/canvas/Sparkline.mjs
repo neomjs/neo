@@ -41,7 +41,7 @@ class Sparkline extends Base {
          * @protected
          */
         remote: {
-            app: ['onMouseLeave', 'onMouseMove', 'register', 'updateData', 'updateSize']
+            app: ['onMouseLeave', 'onMouseMove', 'register', 'updateConfig', 'updateData', 'updateSize']
         },
         /**
          * @member {Boolean} singleton=true
@@ -95,6 +95,7 @@ class Sparkline extends Base {
      * @param {String} data.canvasId
      * @param {Number} [data.devicePixelRatio=1]
      * @param {String} [data.theme='light']
+     * @param {Boolean} [data.usePulse=true]
      * @param {String} data.windowId
      */
     register(data) {
@@ -113,6 +114,7 @@ class Sparkline extends Base {
                 mouseX          : 0,
                 pulseProgress   : 0,
                 theme           : data.theme || 'light',
+                usePulse        : data.usePulse !== false,
                 width           : canvas.width
             });
 
@@ -135,7 +137,7 @@ class Sparkline extends Base {
         // 1. Spawn new pulse?
         // Random interval between 1s and 4s
         if (now - me.lastPulseSpawn > (Math.random() * 3000 + 1000)) {
-            let candidates = Array.from(me.items.values()).filter(item => !me.activeItems.has(item));
+            let candidates = Array.from(me.items.values()).filter(item => !me.activeItems.has(item) && item.usePulse);
             
             if (candidates.length > 0) {
                 // Pick random candidate
@@ -149,6 +151,13 @@ class Sparkline extends Base {
         // 2. Animate active items
         if (me.activeItems.size > 0) {
             me.activeItems.forEach(item => {
+                // Remove from active set if usePulse got disabled mid-animation
+                if (!item.usePulse) {
+                    me.activeItems.delete(item);
+                    me.draw(item);
+                    return;
+                }
+
                 // Speed: Full crossing in ~1.5s
                 item.pulseProgress += 0.015;
 
@@ -166,6 +175,22 @@ class Sparkline extends Base {
             me.animationId = requestAnimationFrame(me.renderLoop.bind(me))
         } else {
             me.animationId = setTimeout(me.renderLoop.bind(me), 16)
+        }
+    }
+
+    /**
+     * @param {Object} data
+     * @param {String} data.canvasId
+     * @param {Boolean} [data.usePulse]
+     */
+    updateConfig(data) {
+        let me   = this,
+            item = me.items.get(data.canvasId);
+
+        if (item) {
+            if (data.usePulse !== undefined) {
+                item.usePulse = data.usePulse;
+            }
         }
     }
 

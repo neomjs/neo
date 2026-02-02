@@ -34,6 +34,10 @@ class SparklineComponent extends Canvas {
          */
         ntype: 'sparkline',
         /**
+         * @member {Boolean} usePulse_=true
+         */
+        usePulse_: true,
+        /**
          * @member {Number[]|null} values_=null
          */
         values_: null,
@@ -48,6 +52,19 @@ class SparklineComponent extends Canvas {
             cn: [{
                 tag: 'canvas'
             }]
+        }
+    }
+
+    /**
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     */
+    afterSetUsePulse(value, oldValue) {
+        if (this.offscreenRegistered && value !== undefined) {
+            this.renderer.updateConfig({
+                canvasId: this.id,
+                usePulse: value
+            })
         }
     }
 
@@ -79,6 +96,7 @@ class SparklineComponent extends Canvas {
                 canvasId        : me.id,
                 devicePixelRatio: Neo.config.devicePixelRatio,
                 theme           : me.theme || 'light',
+                usePulse        : me.usePulse,
                 windowId        : me.windowId
             });
 
