@@ -135,8 +135,8 @@ class Sparkline extends Base {
             now = Date.now();
 
         // 1. Spawn new pulse?
-        // Random interval between 1s and 4s
-        if (now - me.lastPulseSpawn > (Math.random() * 3000 + 1000)) {
+        // Random interval between 200ms and 1.2s
+        if (now - me.lastPulseSpawn > (Math.random() * 1000 + 200)) {
             let candidates = Array.from(me.items.values()).filter(item => !me.activeItems.has(item) && item.usePulse);
             
             if (candidates.length > 0) {
@@ -268,14 +268,41 @@ class Sparkline extends Base {
         // Calculate or retrieve cached points
         if (!item.points || pulseProgress === undefined) {
             item.points = [];
+            item.totalLength = 0;
+
             values.forEach((val, index) => {
-                let normalized = (val - min) / range;
-                item.points.push({
-                    x: index * stepX,
-                    y: height - padding - (normalized * h),
-                    val: val,
-                    year: 2010 + index
-                });
+                let normalized = (val - min) / range,
+                    x = index * stepX,
+                    y = height - padding - (normalized * h),
+                    point = {
+                        x: x,
+                        y: y,
+                        val: val,
+                        year: 2010 + index,
+                        dist: 0,
+                        accumDist: 0
+                    };
+
+                if (index > 0) {
+                    let prev = item.points[index - 1],
+                        dx = x - prev.x,
+                        dy = y - prev.y;
+                    
+                    point.dist = Math.sqrt(dx * dx + dy * dy);
+                    item.totalLength += point.dist;
+                    point.accumDist = item.totalLength;
+                    
+                    // Trend Color
+                    // Up (y decreases) -> Green, Down (y increases) -> Red
+                    point.color = (y < prev.y) ? '#3E63DD' : (y > prev.y) ? '#FF4444' : '#3E63DD';
+                }
+
+                item.points.push(point);
+            });
+            
+            // Normalize distances
+            item.points.forEach(p => {
+                p.normalizedPos = p.accumDist / (item.totalLength || 1);
             });
         }
 
@@ -402,21 +429,54 @@ class Sparkline extends Base {
             }
         } else if (pulseProgress !== undefined) {
              // 3. Draw Pulse Effect ("Data Packet")
-             // Interpolate position along the path
-             let totalSegments  = len - 1,
-                 currentSegment = Math.floor(pulseProgress * totalSegments),
-                 segmentProgress = (pulseProgress * totalSegments) - currentSegment;
-
-             // Safety clamp
-             if (currentSegment >= totalSegments) {
-                 currentSegment = totalSegments - 1;
-                 segmentProgress = 1;
+             
+             // A. Speed Normalization
+             // Find the segment based on distance traveled (normalizedPos)
+             let segmentIndex = 0;
+             for (let i = 1; i < points.length; i++) {
+                 if (pulseProgress <= points[i].normalizedPos) {
+                     segmentIndex = i - 1;
+                     break;
+                 }
              }
 
-             let p0 = points[currentSegment],
-                 p1 = points[currentSegment + 1],
-                 x  = p0.x + (p1.x - p0.x) * segmentProgress,
-                 y  = p0.y + (p1.y - p0.y) * segmentProgress;
+             // Interpolate within the segment
+             let p0 = points[segmentIndex];
+             let p1 = points[segmentIndex + 1];
+             
+             // Handle edge case where totalLength might be 0 or pulseProgress > 1
+             if (!p1) {
+                 p0 = points[points.length - 2];
+                 p1 = points[points.length - 1];
+             }
+
+             let segmentDist = p1.normalizedPos - p0.normalizedPos;
+             let segmentProgress = (segmentDist === 0) ? 0 : (pulseProgress - p0.normalizedPos) / segmentDist;
+
+             let x = p0.x + (p1.x - p0.x) * segmentProgress;
+             let y = p0.y + (p1.y - p0.y) * segmentProgress;
+
+             // B. Trend Coloring
+             // Use the color of the target point (p1)
+             let pulseColor = p1.color || '#FFFFFF';
+
+             // C. Peak Flash
+             // Check if we are near the absolute max
+             if (p0.val === max || p1.val === max) {
+                 // Check distance to peak
+                 let peak = (p0.val === max) ? p0 : p1;
+                 let dx = x - peak.x;
+                 let dy = y - peak.y;
+                 let dist = Math.sqrt(dx*dx + dy*dy);
+
+                 if (dist < 10) {
+                     let alpha = 1 - (dist / 10);
+                     ctx.beginPath();
+                     ctx.arc(peak.x, peak.y, 10, 0, Math.PI * 2);
+                     ctx.fillStyle = `rgba(255, 255, 255, ${alpha * 0.5})`;
+                     ctx.fill();
+                 }
+             }
 
              // Draw Glow
              let gradient = ctx.createRadialGradient(x, y, 0, x, y, 6);
@@ -432,7 +492,7 @@ class Sparkline extends Base {
              // Draw Core
              ctx.beginPath();
              ctx.arc(x, y, 1.5, 0, Math.PI * 2);
-             ctx.fillStyle = '#FFFFFF';
+             ctx.fillStyle = pulseColor; // Trend Color
              ctx.fill();
         } else {
             // Only draw End Point
