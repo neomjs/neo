@@ -1,5 +1,4 @@
 import Base from '../../../src/core/Base.mjs';
-import Neo  from '../../../src/Neo.mjs';
 
 const hasRaf = typeof requestAnimationFrame === 'function';
 
@@ -99,7 +98,7 @@ class Sparkline extends Base {
         let item = this.items.get(data.canvasId);
         if (item) {
             item.mouseActive = false;
-            this.draw(item); // Redraw to clear overlay
+            this.draw(item) // Redraw to clear overlay
         }
     }
 
@@ -115,7 +114,7 @@ class Sparkline extends Base {
         if (item) {
             item.mouseActive = true;
             item.mouseX      = data.x;
-            this.draw(item);
+            this.draw(item)
         }
     }
 
@@ -129,9 +128,9 @@ class Sparkline extends Base {
      * @param {String} data.windowId
      */
     register(data) {
-        let me = this,
+        let me         = this,
             {canvasId} = data,
-            canvas = Neo.worker.Canvas.map[canvasId];
+            canvas     = Neo.worker.Canvas.map[canvasId];
 
         if (canvas) {
             me.items.set(canvasId, {
@@ -169,13 +168,13 @@ class Sparkline extends Base {
         // Random interval between 200ms and 1.2s
         if (now - me.lastPulseSpawn > (Math.random() * 1000 + 200)) {
             let candidates = Array.from(me.items.values()).filter(item => !me.activeItems.has(item) && item.usePulse);
-            
+
             if (candidates.length > 0) {
                 // Pick random candidate
                 let winner = candidates[Math.floor(Math.random() * candidates.length)];
                 winner.pulseProgress = 0;
                 me.activeItems.add(winner);
-                me.lastPulseSpawn = now;
+                me.lastPulseSpawn = now
             }
         }
 
@@ -186,7 +185,7 @@ class Sparkline extends Base {
                 if (!item.usePulse) {
                     me.activeItems.delete(item);
                     me.draw(item);
-                    return;
+                    return
                 }
 
                 // Speed: Full crossing in ~1.5s
@@ -195,9 +194,9 @@ class Sparkline extends Base {
                 if (item.pulseProgress >= 1) {
                     item.pulseProgress = 0;
                     me.activeItems.delete(item);
-                    me.draw(item); // Final clean draw
+                    me.draw(item) // Final clean draw
                 } else {
-                    me.draw(item, {pulseProgress: item.pulseProgress});
+                    me.draw(item, {pulseProgress: item.pulseProgress})
                 }
             });
         }
@@ -221,7 +220,7 @@ class Sparkline extends Base {
 
         if (item) {
             if (data.usePulse !== undefined) {
-                item.usePulse = data.usePulse;
+                item.usePulse = data.usePulse
             }
         }
     }
@@ -240,7 +239,7 @@ class Sparkline extends Base {
         if (item) {
             item.values = data.values;
             item.points = null; // Invalidate cache
-            me.draw(item);
+            me.draw(item)
         }
     }
 
@@ -262,7 +261,7 @@ class Sparkline extends Base {
             item.height           = data.height;
             item.width            = data.width;
             item.points           = null; // Invalidate cache
-            me.draw(item);
+            me.draw(item)
         }
     }
 
@@ -279,20 +278,20 @@ class Sparkline extends Base {
      * @param {Number} [config.pulseProgress] - 0 to 1 progress for the pulse animation
      */
     draw(item, config) {
-        let me = this,
+        let me            = this,
             {ctx, devicePixelRatio, height, values, width, theme} = item,
-            colors = me.constructor.colors[theme] || me.constructor.colors.light,
+            colors        = me.constructor.colors[theme] || me.constructor.colors.light,
             pulseProgress = config?.pulseProgress;
 
         // Handle DPR Scaling
         // Only reset transform if we are doing a full redraw (no pulse config)
         if (pulseProgress === undefined) {
-            item.canvas.width  = width * devicePixelRatio;
+            item.canvas.width  = width  * devicePixelRatio;
             item.canvas.height = height * devicePixelRatio;
-            ctx.scale(devicePixelRatio, devicePixelRatio);
+            ctx.scale(devicePixelRatio, devicePixelRatio)
         } else {
             // For pulse, we clear the canvas to redraw this frame
-            ctx.clearRect(0, 0, width, height);
+            ctx.clearRect(0, 0, width, height)
         }
 
         if (!Array.isArray(values) || values.length < 2) {
@@ -318,11 +317,11 @@ class Sparkline extends Base {
                     x = index * stepX,
                     y = height - padding - (normalized * h),
                     point = {
-                        x: x,
-                        y: y,
-                        val: val,
-                        year: 2010 + index,
-                        dist: 0,
+                        x        : x,
+                        y        : y,
+                        val      : val,
+                        year     : 2010 + index,
+                        dist     : 0,
                         accumDist: 0
                     };
 
@@ -330,11 +329,11 @@ class Sparkline extends Base {
                     let prev = item.points[index - 1],
                         dx = x - prev.x,
                         dy = y - prev.y;
-                    
+
                     point.dist = Math.sqrt(dx * dx + dy * dy);
                     item.totalLength += point.dist;
                     point.accumDist = item.totalLength;
-                    
+
                     // Trend Color
                     // Up (y decreases) -> Green, Down (y increases) -> Red
                     point.color = (y < prev.y) ? '#3E63DD' : (y > prev.y) ? '#FF4444' : '#3E63DD';
@@ -342,10 +341,10 @@ class Sparkline extends Base {
 
                 item.points.push(point);
             });
-            
+
             // Normalize distances
             item.points.forEach(p => {
-                p.normalizedPos = p.accumDist / (item.totalLength || 1);
+                p.normalizedPos = p.accumDist / (item.totalLength || 1)
             });
         }
 
@@ -356,7 +355,7 @@ class Sparkline extends Base {
         // Fortunately, simple paths are cheap.
 
         if (pulseProgress === undefined) {
-             ctx.clearRect(0, 0, width, height);
+             ctx.clearRect(0, 0, width, height)
         }
 
         // 1. Draw Base Chart
@@ -370,15 +369,15 @@ class Sparkline extends Base {
         ctx.lineTo(points[0].x, points[0].y);
 
         for (let i = 0; i < len - 1; i++) {
-            let p0 = points[i],
-                p1 = points[i + 1],
+            let p0   = points[i],
+                p1   = points[i + 1],
                 midX = (p0.x + p1.x) / 2,
                 midY = (p0.y + p1.y) / 2;
-            
+
             if (i === len - 2) {
-                ctx.quadraticCurveTo(p0.x, p0.y, p1.x, p1.y);
+                ctx.quadraticCurveTo(p0.x, p0.y, p1.x, p1.y)
             } else {
-                ctx.quadraticCurveTo(p0.x, p0.y, midX, midY);
+                ctx.quadraticCurveTo(p0.x, p0.y, midX, midY)
             }
         }
 
@@ -392,15 +391,15 @@ class Sparkline extends Base {
         ctx.moveTo(points[0].x, points[0].y);
 
         for (let i = 0; i < len - 1; i++) {
-            let p0 = points[i],
-                p1 = points[i + 1],
+            let p0   = points[i],
+                p1   = points[i + 1],
                 midX = (p0.x + p1.x) / 2,
                 midY = (p0.y + p1.y) / 2;
 
             if (i === len - 2) {
-                ctx.quadraticCurveTo(p0.x, p0.y, p1.x, p1.y);
+                ctx.quadraticCurveTo(p0.x, p0.y, p1.x, p1.y)
             } else {
-                ctx.quadraticCurveTo(p0.x, p0.y, midX, midY);
+                ctx.quadraticCurveTo(p0.x, p0.y, midX, midY)
             }
         }
 
@@ -419,8 +418,8 @@ class Sparkline extends Base {
             points.forEach(p => {
                 let dist = Math.abs(p.x - item.mouseX);
                 if (dist < nearestDist) {
-                    nearestDist = dist;
-                    nearestPoint = p;
+                    nearestDist  = dist;
+                    nearestPoint = p
                 }
             });
 
@@ -448,17 +447,17 @@ class Sparkline extends Base {
                 // Text Label
                 ctx.font = 'bold 10px sans-serif';
                 ctx.textAlign = 'center';
-                
+
                 let textY = 10;
                 let x = nearestPoint.x;
 
                 // Adjust text alignment if near edges
                 if (x < 30) {
                     ctx.textAlign = 'left';
-                    x += 5;
+                    x += 5
                 } else if (x > width - 30) {
                     ctx.textAlign = 'right';
-                    x -= 5;
+                    x -= 5
                 }
 
                 // Draw Year
@@ -468,29 +467,29 @@ class Sparkline extends Base {
                 // Draw Value
                 let valueText = new Intl.NumberFormat().format(nearestPoint.val);
                 ctx.fillStyle = colors.textValue;
-                ctx.fillText(valueText, x, textY + 12);
+                ctx.fillText(valueText, x, textY + 12)
             }
         } else if (pulseProgress !== undefined) {
              // 3. Draw Pulse Effect ("Data Packet")
-             
+
              // A. Speed Normalization
              // Find the segment based on distance traveled (normalizedPos)
              let segmentIndex = 0;
              for (let i = 1; i < points.length; i++) {
                  if (pulseProgress <= points[i].normalizedPos) {
                      segmentIndex = i - 1;
-                     break;
+                     break
                  }
              }
 
              // Interpolate within the segment
              let p0 = points[segmentIndex];
              let p1 = points[segmentIndex + 1];
-             
+
              // Handle edge case where totalLength might be 0 or pulseProgress > 1
              if (!p1) {
                  p0 = points[points.length - 2];
-                 p1 = points[points.length - 1];
+                 p1 = points[points.length - 1]
              }
 
              let segmentDist = p1.normalizedPos - p0.normalizedPos;
@@ -517,7 +516,7 @@ class Sparkline extends Base {
                      ctx.beginPath();
                      ctx.arc(peak.x, peak.y, 10, 0, Math.PI * 2);
                      ctx.fillStyle = `rgba(255, 255, 255, ${alpha * 0.5})`;
-                     ctx.fill();
+                     ctx.fill()
                  }
              }
 
@@ -536,14 +535,14 @@ class Sparkline extends Base {
              ctx.beginPath();
              ctx.arc(x, y, 1.5, 0, Math.PI * 2);
              ctx.fillStyle = pulseColor; // Trend Color
-             ctx.fill();
+             ctx.fill()
         } else {
             // Only draw End Point
             let lastPoint = points[len - 1];
             ctx.beginPath();
             ctx.arc(lastPoint.x, lastPoint.y, 1.5, 0, Math.PI * 2);
             ctx.fillStyle = colors.marker;
-            ctx.fill();
+            ctx.fill()
         }
     }
 }
