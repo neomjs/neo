@@ -2,6 +2,7 @@ import BaseGridContainer from '../../../src/grid/Container.mjs';
 import Component         from '../../../src/component/Base.mjs';
 import Contributors      from '../store/Contributors.mjs';
 import CountryFlags      from '../../../src/util/CountryFlags.mjs';
+import SparklineComponent from './SparklineComponent.mjs';
 
 /**
  * @class DevRank.view.GridContainer
@@ -23,7 +24,8 @@ class GridContainer extends BaseGridContainer {
          */
         body: {
             bufferColumnRange: 3,
-            bufferRowRange   : 5
+            bufferRowRange   : 5,
+            rowHeight        : 60
         },
         /**
          * Default configs for each column
@@ -99,6 +101,27 @@ class GridContainer extends BaseGridContainer {
                 cellAlign: 'right',
                 defaultSortDirection: 'DESC',
                 renderer: ({value}) => new Intl.NumberFormat().format(value)
+            },
+            {
+                dataField: 'activity',
+                text: 'Activity (15y)',
+                width: 160,
+                type: 'component',
+                component: ({record}) => {
+                    const data = [];
+                    // Iterate from 2010 to 2025
+                    for (let i = 2010; i <= 2025; i++) {
+                        data.push(record[`y${i}`] || 0);
+                    }
+
+                    return {
+                        module: SparklineComponent,
+                        values: data,
+                        height: 40,
+                        style : {marginTop: '10px'},
+                        width : 140
+                    }
+                }
             },
             {
                 dataField: 'followers', 
