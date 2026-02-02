@@ -1,7 +1,8 @@
 {
-    "appPath"        : "examples/component/canvas/app.mjs",
-    "basePath"       : "../../../",
-    "environment"    : "development",
-    "mainPath"       : "./Main.mjs",
-    "useCanvasWorker": true
+    "appPath"                     : "examples/component/canvas/app.mjs",
+    "basePath"                    : "../../../",
+    "environment"                 : "development",
+    "mainPath"                    : "./Main.mjs",
+    "useCanvasWorker"             : true,
+    "useCanvasWorkerStartingPoint": true
 }

@@ -242,6 +242,15 @@ const DefaultConfig = {
      */
     useCanvasWorker: false,
     /**
+     * Set this to true in case your app has a canvas.mjs entry point.
+     * Only relevant if useCanvasWorker is set to true.
+     * @default false
+     * @memberOf! module:Neo
+     * @name config.useCanvasWorkerStartingPoint
+     * @type Boolean
+     */
+    useCanvasWorkerStartingPoint: false,
+    /**
      * `true` will enable the advanced, secure, and performant direct DOM API rendering strategy (recommended).
      * In this mode, `Neo.vdom.Helper` will create and send structured VNode object graphs to the Main Thread.
      * `Neo.main.DeltaUpdates` will then use `Neo.main.render.DomApiRenderer` to directly manipulate the DOM.

@@ -128,19 +128,21 @@ class Canvas extends Base {
     onRegisterNeoConfig(msg) {
         super.onRegisterNeoConfig(msg);
 
-        let path = Neo.config.appPath;
+        if (Neo.config.useCanvasWorkerStartingPoint) {
+            let path = Neo.config.appPath;
 
-        if (path.endsWith('.mjs')) {
-            path = path.slice(0, -8); // removing "/app.mjs"
+            if (path.endsWith('.mjs')) {
+                path = path.slice(0, -8); // removing "/app.mjs"
+            }
+
+            import(
+                /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules)/ */
+                /* webpackMode: "lazy" */
+                `../../${path}/canvas.mjs`
+            ).then(module => {
+                module.onStart()
+            })
         }
-
-        import(
-            /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules)/ */
-            /* webpackMode: "lazy" */
-            `../../${path}/canvas.mjs`
-        ).then(module => {
-            module.onStart()
-        })
     }
 }
 
