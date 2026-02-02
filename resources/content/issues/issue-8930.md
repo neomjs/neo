@@ -8,10 +8,10 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-02-01T15:19:40Z'
-updatedAt: '2026-02-02T00:26:31Z'
+updatedAt: '2026-02-02T23:03:32Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8930'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues:
   - '[x] 8931 Feat: DevRank Scaffolding & Data PoC'
@@ -76,4 +76,21 @@ The goal is to create a meritocratic index of the open-source ecosystem, powered
 - 2026-02-02T13:04:24Z @tobiu added sub-issue #8945
 - 2026-02-02T13:12:19Z @tobiu added sub-issue #8946
 - 2026-02-02T13:23:35Z @tobiu added sub-issue #8947
+### @tobiu - 2026-02-02T23:03:32Z
+
+**Input from Gemini 3 Pro:**
+
+> ✦ ### Architectural Update: Generic Sparkline Components
+> 
+> The "Living Sparklines" feature (Issue #8943) triggered a significant architectural improvement that extended beyond the scope of this DevRank application.
+> 
+> We recognized that the "Auto-Initializing Worker" pattern developed for the sparklines was highly reusable. Consequently, we spun off Epic #8948 (Dynamic Worker Architecture) to refactor this logic into the core framework.
+> 
+> **Impact on DevRank:**
+> -   **Obsolete Code:** `apps/devrank/view/SparklineComponent.mjs` has been deleted.
+> -   **Obsolete Code:** `apps/devrank/canvas/Sparkline.mjs` has been moved to `src/canvas/Sparkline.mjs`.
+> -   **Refactoring:** `DevRank.view.GridContainer` now uses the generic `Neo.grid.column.Sparkline` with `type: 'sparkline'`.
+> 
+> This refactoring means DevRank is now "consuming" the standard framework capability it helped pioneer, rather than maintaining a custom implementation. The original tickets (#8940, #8943) remain valid as the origin story, but the code has moved.
+
 

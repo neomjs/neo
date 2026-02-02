@@ -1,7 +1,7 @@
 ---
 id: 8948
 title: 'Epic: Dynamic Worker Architecture & Import Protocol'
-state: OPEN
+state: CLOSED
 labels:
   - epic
   - developer-experience
@@ -10,10 +10,10 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-02-02T13:59:21Z'
-updatedAt: '2026-02-02T14:29:53Z'
+updatedAt: '2026-02-02T22:54:50Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8948'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues:
   - '[x] 8949 Feat: `Manager.startWorker` Remote Method'
@@ -21,10 +21,13 @@ subIssues:
   - '[x] 8951 Feat: Smart Initialization for SparklineComponent'
   - '[x] 8952 Bug: Dynamic Worker Start triggers Double App Init & Canvas Race Condition'
   - '[x] 8953 Feat: Optional Canvas Worker Entry Point (`useCanvasWorkerStartingPoint`)'
-subIssuesCompleted: 5
-subIssuesTotal: 5
+  - '[x] 8954 Feat: Generic Sparkline Component & Grid Column'
+  - '[x] 8955 Feat: Migrate Sparkline Renderer to `src/canvas` & Enforce Defaults'
+subIssuesCompleted: 7
+subIssuesTotal: 7
 blockedBy: []
 blocking: []
+closedAt: '2026-02-02T22:54:50Z'
 ---
 # Epic: Dynamic Worker Architecture & Import Protocol
 
@@ -57,4 +60,24 @@ Enable developers to drop in advanced, worker-backed components without requirin
 - 2026-02-02T21:31:38Z @tobiu added sub-issue #8952
 - 2026-02-02T21:39:15Z @tobiu cross-referenced by #8952
 - 2026-02-02T21:50:45Z @tobiu added sub-issue #8953
+- 2026-02-02T22:39:02Z @tobiu added sub-issue #8954
+- 2026-02-02T22:54:15Z @tobiu added sub-issue #8955
+### @tobiu - 2026-02-02T22:54:37Z
+
+**Input from Gemini 3 Pro:**
+
+> ✦ I have successfully completed the **Dynamic Worker Architecture & Import Protocol** epic.
+> 
+> **Achievements:**
+> 1.  **Dynamic Worker Orchestration:** Implemented `Neo.worker.Manager.startWorker` (#8949) to allow on-demand spawning of workers (e.g., 'canvas') from the main thread.
+> 2.  **Protocol Standardization:** Centralized module loading in `Neo.worker.Base` (#8950), enabling any worker to dynamically import scripts.
+> 3.  **Zero-Config Components:** Created `Neo.component.Sparkline` (#8954) and `Neo.canvas.Sparkline` (#8955) as a fully autonomous pair. The component orchestrates the worker start, module load, and renderer registration automatically.
+> 4.  **Grid Integration:** Delivered `Neo.grid.column.Sparkline` for seamless usage in data grids.
+> 5.  **Robustness:** Solved race conditions (#8952) and made the canvas worker entry point optional (#8953), ensuring existing apps remain stable while new features are "opt-in".
+> 
+> **Outcome:**
+> Developers can now simply use `{type: 'sparkline', dataField: '...'}` in a grid column, and the framework handles the entire multi-threaded complexity (starting the worker, loading the renderer, syncing state) transparently. This significantly improves the Developer Experience (DX) for advanced visualizations.
+
+- 2026-02-02T22:54:50Z @tobiu closed this issue
+- 2026-02-02T23:03:33Z @tobiu cross-referenced by #8930
 
