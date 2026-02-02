@@ -1,8 +1,21 @@
 import Canvas from '../../../src/component/Canvas.mjs';
 
 /**
+ * @summary The App Worker component for the DevRank "Living Sparklines".
+ *
+ * This component acts as the **Controller** and **Bridge** for the sparkline visualization.
+ * It does not perform any rendering itself. Instead, it delegates all visual logic to
+ * `DevRank.canvas.Sparkline` (SharedWorker), ensuring the main thread remains responsive.
+ *
+ * **Responsibilities:**
+ * 1.  **Lifecycle Management:** Registers the canvas with the SharedWorker when it becomes available.
+ * 2.  **State Synchronization:** Pushes data changes (`values`, `usePulse`, `theme`) to the worker.
+ * 3.  **Input Bridging:** Captures mouse events (move, leave) and forwards normalized coordinates
+ *     to the worker for the interactive "Scanner" effect.
+ *
  * @class DevRank.view.SparklineComponent
  * @extends Neo.component.Canvas
+ * @see DevRank.canvas.Sparkline
  */
 class SparklineComponent extends Canvas {
     static config = {
@@ -34,6 +47,8 @@ class SparklineComponent extends Canvas {
          */
         ntype: 'sparkline',
         /**
+         * Controls the "Living Pulse" animation.
+         * Set to `false` to disable the background animation (e.g., for power saving).
          * @member {Boolean} usePulse_=true
          */
         usePulse_: true,
@@ -56,6 +71,7 @@ class SparklineComponent extends Canvas {
     }
 
     /**
+     * Updates the pulse configuration in the worker when `usePulse` changes.
      * @param {Boolean} value
      * @param {Boolean} oldValue
      */

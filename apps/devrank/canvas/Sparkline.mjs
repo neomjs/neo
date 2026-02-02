@@ -4,6 +4,28 @@ import Neo  from '../../../src/Neo.mjs';
 const hasRaf = typeof requestAnimationFrame === 'function';
 
 /**
+ * @summary SharedWorker renderer for the DevRank "Living Sparklines".
+ *
+ * Implements a high-performance, canvas-based visualization for activity trends.
+ * Unlike standard charts, these sparklines are designed to feel "alive" without consuming excessive resources.
+ *
+ * **Visual Architecture:**
+ * 1.  **Living Sparklines:** The grid is not static. A "Pulse" effect randomly travels through different
+ *     charts, creating the impression of a busy, active system ("The Server Room Effect").
+ * 2.  **Sparse Animation Strategy:** Instead of animating all 50+ visible charts simultaneously (which would
+ *     kill performance), a single **Master Loop** randomly selects *one* chart to animate every few seconds.
+ *     This reduces the GPU load to that of a single active chart while maintaining a dynamic atmosphere.
+ * 3.  **Data Packets:** The pulse is visualized as a glowing data packet traversing the timeline.
+ * 4.  **Physics & Visuals:**
+ *     - **Speed Normalization:** The pulse travels at constant speed along the path (Euclidean distance),
+ *       regardless of slope steepness.
+ *     - **Trend Coloring:** The pulse color dynamically shifts based on the local trend (Green for up, Red for down).
+ *     - **Peak Flash:** A subtle halo expands when the pulse hits the all-time maximum value.
+ *
+ * **Interaction:**
+ * -   **Mouse Scanning:** Hovering overrides the idle animation, creating a "Scanner" effect that snaps
+ *     to the nearest data point and displays precise values.
+ *
  * @class DevRank.canvas.Sparkline
  * @extends Neo.core.Base
  * @singleton
@@ -37,6 +59,7 @@ class Sparkline extends Base {
          */
         className: 'DevRank.canvas.Sparkline',
         /**
+         * Remote method access
          * @member {Object} remote
          * @protected
          */
@@ -51,19 +74,24 @@ class Sparkline extends Base {
     }
 
     /**
+     * Set of currently animating items (the "Pulse" candidates).
      * @member {Set} activeItems=new Set()
      */
     activeItems = new Set()
     /**
+     * Map of registered canvas items.
+     * Key: canvasId, Value: {canvas, ctx, values, points...}
      * @member {Map<String, Object>} items=new Map()
      */
     items = new Map()
     /**
+     * Timestamp of the last pulse spawn.
      * @member {Number} lastPulseSpawn=0
      */
     lastPulseSpawn = 0
 
     /**
+     * Clears the interaction overlay when mouse leaves the canvas.
      * @param {Object} data
      * @param {String} data.canvasId
      */
@@ -76,6 +104,7 @@ class Sparkline extends Base {
     }
 
     /**
+     * Handles mouse movement to update the "Scanner" overlay.
      * @param {Object} data
      * @param {String} data.canvasId
      * @param {Number} data.x
@@ -91,6 +120,7 @@ class Sparkline extends Base {
     }
 
     /**
+     * Registers a new offscreen canvas for rendering.
      * @param {Object} data
      * @param {String} data.canvasId
      * @param {Number} [data.devicePixelRatio=1]
@@ -128,7 +158,8 @@ class Sparkline extends Base {
      * Main animation loop for the "Living Sparklines" effect.
      * Implements a "Sparse Animation" strategy:
      * - Only animates a few items at a time to save performance.
-     * - Randomly picks an item to "pulse" every 1-4 seconds.
+     * - Randomly picks an item to "pulse" every 200ms-1.2s.
+     * - Updates the animation state of active items.
      */
     renderLoop() {
         let me  = this,
@@ -179,6 +210,7 @@ class Sparkline extends Base {
     }
 
     /**
+     * Updates the configuration for a specific canvas.
      * @param {Object} data
      * @param {String} data.canvasId
      * @param {Boolean} [data.usePulse]
@@ -195,6 +227,8 @@ class Sparkline extends Base {
     }
 
     /**
+     * Updates the data values for a specific chart.
+     * Invalidates the geometry cache to force a recalculation on next draw.
      * @param {Object} data
      * @param {String} data.canvasId
      * @param {Number[]} data.values
@@ -211,6 +245,8 @@ class Sparkline extends Base {
     }
 
     /**
+     * Handles resize events from the main thread.
+     * Updates dimensions and triggers a redraw.
      * @param {Object} data
      * @param {String} data.canvasId
      * @param {Number} [data.devicePixelRatio]
@@ -231,9 +267,16 @@ class Sparkline extends Base {
     }
 
     /**
-     * @param {Object} item
-     * @param {Object} [config]
-     * @param {Number} [config.pulseProgress] 0 to 1
+     * The core rendering method.
+     * Handles:
+     * 1. **Geometry Calculation:** Caches point coordinates and path lengths for consistent speed.
+     * 2. **Base Chart:** Draws the gradient area and the line stroke.
+     * 3. **Scanner Overlay:** Draws the interactive cursor if `mouseActive` is true.
+     * 4. **Pulse Effect:** Draws the "Data Packet" if `pulseProgress` is active.
+     *
+     * @param {Object} item - The canvas item state
+     * @param {Object} [config] - Optional render config
+     * @param {Number} [config.pulseProgress] - 0 to 1 progress for the pulse animation
      */
     draw(item, config) {
         let me = this,
