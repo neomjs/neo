@@ -1,7 +1,6 @@
 {
-    "appPath"        : "apps/devrank/app.mjs",
-    "basePath"       : "../../",
-    "environment"    : "development",
-    "mainPath"       : "./Main.mjs",
-    "useCanvasWorker": true
+    "appPath"    : "apps/devrank/app.mjs",
+    "basePath"   : "../../",
+    "environment": "development",
+    "mainPath"   : "./Main.mjs"
 }
