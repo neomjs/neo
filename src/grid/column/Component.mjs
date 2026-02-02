@@ -157,6 +157,10 @@ class Component extends Column {
             out.component = me.serializeConfig(me.component)
         }
 
+        if (Neo.isObject(me.defaults)) {
+            out.defaults = me.serializeConfig(me.defaults)
+        }
+
         return out
     }
 }

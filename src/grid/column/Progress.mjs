@@ -37,17 +37,6 @@ class Progress extends ComponentColumn {
             ...config
         }
     }
-
-    /**
-     * Serializes the instance into a JSON-compatible object for the Neural Link.
-     * @returns {Object}
-     */
-    toJSON() {
-        return {
-            ...super.toJSON(),
-            defaults: this.serializeConfig(this.defaults)
-        }
-    }
 }
 
 export default Neo.setupClass(Progress);

@@ -62,17 +62,6 @@ class Sparkline extends ComponentColumn {
             }
         }
     }
-
-    /**
-     * Serializes the instance into a JSON-compatible object for the Neural Link.
-     * @returns {Object}
-     */
-    toJSON() {
-        return {
-            ...super.toJSON(),
-            defaults: this.serializeConfig(this.defaults)
-        }
-    }
 }
 
 export default Neo.setupClass(Sparkline);
