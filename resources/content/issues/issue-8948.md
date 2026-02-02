@@ -18,9 +18,10 @@ parentIssue: null
 subIssues:
   - '[x] 8949 Feat: `Manager.startWorker` Remote Method'
   - '[x] 8950 Refactor: Move `loadModule` to `Neo.worker.Base`'
-  - '[ ] 8951 Feat: Smart Initialization for SparklineComponent'
-subIssuesCompleted: 2
-subIssuesTotal: 3
+  - '[x] 8951 Feat: Smart Initialization for SparklineComponent'
+  - '[ ] 8952 Bug: Dynamic Worker Start triggers Double App Init & Canvas Race Condition'
+subIssuesCompleted: 3
+subIssuesTotal: 4
 blockedBy: []
 blocking: []
 ---
@@ -52,4 +53,5 @@ Enable developers to drop in advanced, worker-backed components without requirin
 - 2026-02-02T14:00:52Z @tobiu added sub-issue #8950
 - 2026-02-02T14:01:18Z @tobiu added sub-issue #8951
 - 2026-02-02T14:29:53Z @tobiu assigned to @tobiu
+- 2026-02-02T21:31:38Z @tobiu added sub-issue #8952
 
