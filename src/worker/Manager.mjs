@@ -66,7 +66,7 @@ class Manager extends Base {
          * @protected
          */
         remote: {
-            app   : ['setNeoConfig'],
+            app   : ['setNeoConfig', 'startWorker'],
             canvas: ['setNeoConfig'],
             data  : ['setNeoConfig'],
             task  : ['setNeoConfig'],
@@ -649,6 +649,62 @@ class Manager extends Base {
         me.fire('neoConfigChange', config);
 
         broadcast && me.broadcast({action: 'setNeoConfig', config}, excludeOrigin)
+    }
+
+    /**
+     * Starts a worker in case it is not running yet
+     * @param {Object} data
+     * @param {String} data.name
+     * @returns {Boolean} true in case the worker was started or is already running
+     */
+    startWorker({name}) {
+        let me = this;
+
+        if (me.hasWorker(name)) {
+            return true
+        }
+
+        let item = me.workers[name];
+
+        if (!item) {
+            console.error(`Worker with name '${name}' is not defined.`);
+            return false
+        }
+
+        // 1. Update Config (in case it was false)
+        let configKey = 'use' + Neo.capitalize(name) + 'Worker';
+
+        if (NeoConfig[configKey] === false) {
+            NeoConfig[configKey] = true
+        }
+
+        // 2. Create
+        item.worker = me.createWorker(item);
+
+        // 3. Register Config
+        let config               = Neo.clone(NeoConfig, true),
+            {hash, href, search} = location,
+            {windowId}           = me;
+
+        delete config.cesiumJsToken;
+        config.url = {href, search};
+
+        if (hash) {
+            config.hash = {
+                hash      : DomEvents.parseHash(hash.substring(1)),
+                hashString: hash.substring(1),
+                windowId
+            }
+        }
+
+        let workerConfig = {...config, windowId};
+
+        me.sendMessage(name, {
+            action: 'registerNeoConfig',
+            data  : workerConfig
+        });
+
+        return true
     }
 }
 
