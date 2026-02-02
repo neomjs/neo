@@ -105,8 +105,6 @@ class GridContainer extends BaseGridContainer {
             text              : 'Activity (15y)',
             width             : 160,
             type              : 'sparkline',
-            rendererClassName : 'DevRank.canvas.Sparkline',
-            rendererImportPath: 'apps/devrank/canvas/Sparkline.mjs',
             component         : ({record}) => {
                 const data = [];
                 // Iterate from 2010 to 2025

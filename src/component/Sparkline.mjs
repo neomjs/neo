@@ -35,14 +35,14 @@ class Sparkline extends Canvas {
         ntype: 'sparkline',
         /**
          * The class name of the renderer to use in the worker.
-         * @member {String|null} rendererClassName=null
+         * @member {String} rendererClassName='Neo.canvas.Sparkline'
          */
-        rendererClassName: null,
+        rendererClassName: 'Neo.canvas.Sparkline',
         /**
          * The import path for the renderer module.
-         * @member {String|null} rendererImportPath=null
+         * @member {String} rendererImportPath='src/canvas/Sparkline.mjs'
          */
-        rendererImportPath: null,
+        rendererImportPath: 'src/canvas/Sparkline.mjs',
         /**
          * Controls the "Living Pulse" animation.
          * Set to `false` to disable the background animation.

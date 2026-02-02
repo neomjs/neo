@@ -1,4 +1,4 @@
-import Base from '../../../src/core/Base.mjs';
+import Base from '../../src/core/Base.mjs';
 
 const hasRaf = typeof requestAnimationFrame === 'function';
 
@@ -25,7 +25,7 @@ const hasRaf = typeof requestAnimationFrame === 'function';
  * -   **Mouse Scanning:** Hovering overrides the idle animation, creating a "Scanner" effect that snaps
  *     to the nearest data point and displays precise values.
  *
- * @class DevRank.canvas.Sparkline
+ * @class Neo.canvas.Sparkline
  * @extends Neo.core.Base
  * @singleton
  */
@@ -53,10 +53,10 @@ class Sparkline extends Base {
 
     static config = {
         /**
-         * @member {String} className='DevRank.canvas.Sparkline'
+         * @member {String} className='Neo.canvas.Sparkline'
          * @protected
          */
-        className: 'DevRank.canvas.Sparkline',
+        className: 'Neo.canvas.Sparkline',
         /**
          * Remote method access
          * @member {Object} remote
