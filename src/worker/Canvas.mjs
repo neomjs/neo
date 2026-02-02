@@ -32,6 +32,7 @@ class Canvas extends Base {
          */
         remote: {
             app: [
+                'loadModule',
                 'registerCanvas',
                 'retrieveCanvas'
             ]
@@ -62,6 +63,30 @@ class Canvas extends Base {
         me.sendMessage('app', {action: 'registerPort', transfer: port2}, [port2]);
 
         me.channelPorts.app = port1
+    }
+
+    /**
+     * @summary Remotely loads an ES module into the Canvas Worker.
+     * This method uses a scoped dynamic import to ensure Webpack only bundles
+     * relevant modules (inside 'canvas/' directories) for this worker.
+     *
+     * @param {Object} data
+     * @param {String} data.path The path to the module to load (e.g., 'apps/MyApp/canvas/MyShape.mjs').
+     * @returns {Promise<Object>} {success: true, path} or {success: false, path, error}
+     */
+    async loadModule({path}) {
+        try {
+            await import(
+                /* webpackInclude: /canvas\/.*\.mjs$/ */
+                /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules)/ */
+                /* webpackMode: "lazy" */
+                `../../${path}`
+            );
+            return {success: true, path}
+        } catch (e) {
+            console.error(`Canvas Worker: Failed to load module ${path}`, e);
+            return {success: false, path, error: e.message}
+        }
     }
 
     /**
