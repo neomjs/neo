@@ -20,8 +20,8 @@ subIssues:
   - '[x] 8950 Refactor: Move `loadModule` to `Neo.worker.Base`'
   - '[x] 8951 Feat: Smart Initialization for SparklineComponent'
   - '[x] 8952 Bug: Dynamic Worker Start triggers Double App Init & Canvas Race Condition'
-  - '[ ] 8953 Feat: Optional Canvas Worker Entry Point (`useCanvasWorkerStartingPoint`)'
-subIssuesCompleted: 4
+  - '[x] 8953 Feat: Optional Canvas Worker Entry Point (`useCanvasWorkerStartingPoint`)'
+subIssuesCompleted: 5
 subIssuesTotal: 5
 blockedBy: []
 blocking: []
