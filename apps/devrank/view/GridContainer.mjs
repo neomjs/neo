@@ -24,8 +24,7 @@ class GridContainer extends BaseGridContainer {
          */
         body: {
             bufferColumnRange: 3,
-            bufferRowRange   : 5,
-            rowHeight        : 60
+            bufferRowRange   : 5
         },
         /**
          * Default configs for each column
@@ -36,6 +35,10 @@ class GridContainer extends BaseGridContainer {
             defaultSortDirection: 'DESC',
             width               : 150
         },
+        /**
+         * @member {Number} rowHeight=50
+         */
+        rowHeight: 50,
         /**
          * @member {Object[]} store=Contributors
          * @reactive
@@ -117,8 +120,6 @@ class GridContainer extends BaseGridContainer {
                     return {
                         module: SparklineComponent,
                         values: data,
-                        height: 40,
-                        style : {marginTop: '10px'},
                         width : 140
                     }
                 }

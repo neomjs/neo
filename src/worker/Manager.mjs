@@ -318,6 +318,7 @@ class Manager extends Base {
     detectFeatures() {
         let me = this;
 
+        NeoConfig.devicePixelRatio = window.devicePixelRatio || 1;
         NeoConfig.hasMouseEvents   = matchMedia('(pointer:fine)').matches;
         NeoConfig.hasTouchEvents   = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
         NeoConfig.prefersDarkTheme = matchMedia('(prefers-color-scheme: dark)').matches;
