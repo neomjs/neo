@@ -81,44 +81,100 @@ class Sparkline extends Base {
         let len     = values.length,
             max     = Math.max(...values),
             min     = Math.min(...values),
-            range   = max - min || 1, // Prevent division by zero
+            range   = max - min || 1,
+            padding = 4, // Increased padding for marker radius
+            h       = height - (padding * 2),
             stepX   = width / (len - 1),
-            padding = 2,
-            h       = height - (padding * 2);
+            points  = [];
 
-        ctx.clearRect(0, 0, width, height);
-        
-        // Style
-        ctx.strokeStyle = '#3498db';
-        ctx.lineWidth   = 2;
-        ctx.lineJoin    = 'round';
-        ctx.lineCap     = 'round';
-
-        ctx.beginPath();
-
+        // Pre-calculate points
         values.forEach((val, index) => {
-            let x = index * stepX,
-                // Invert Y because canvas 0,0 is top-left
-                // Normalize value to 0-1, then scale to height
-                normalized = (val - min) / range,
-                y = height - padding - (normalized * h);
-
-            if (index === 0) {
-                ctx.moveTo(x, y);
-            } else {
-                ctx.lineTo(x, y);
-            }
+            let normalized = (val - min) / range;
+            points.push({
+                x: index * stepX,
+                y: height - padding - (normalized * h),
+                val: val
+            });
         });
 
+        ctx.clearRect(0, 0, width, height);
+
+        // 1. Create Gradient
+        let gradient = ctx.createLinearGradient(0, 0, 0, height);
+        gradient.addColorStop(0, 'rgba(62, 99, 221, 0.4)'); // Primary #3E63DD
+        gradient.addColorStop(1, 'rgba(62, 99, 221, 0.0)');
+
+        // 2. Draw Area (Fill)
+        ctx.beginPath();
+        ctx.moveTo(points[0].x, height); // Start bottom-left
+        ctx.lineTo(points[0].x, points[0].y);
+
+        // Smooth curve loop
+        for (let i = 0; i < len - 1; i++) {
+            let p0 = points[i],
+                p1 = points[i + 1],
+                midX = (p0.x + p1.x) / 2,
+                midY = (p0.y + p1.y) / 2;
+            
+            if (i === len - 2) {
+                ctx.quadraticCurveTo(p0.x, p0.y, p1.x, p1.y);
+            } else {
+                ctx.quadraticCurveTo(p0.x, p0.y, midX, midY);
+            }
+        }
+
+        ctx.lineTo(points[len - 1].x, height); // Close to bottom-right
+        ctx.closePath();
+        ctx.fillStyle = gradient;
+        ctx.fill();
+
+        // 3. Draw Line (Stroke)
+        ctx.beginPath();
+        ctx.moveTo(points[0].x, points[0].y);
+
+        for (let i = 0; i < len - 1; i++) {
+            let p0 = points[i],
+                p1 = points[i + 1],
+                midX = (p0.x + p1.x) / 2,
+                midY = (p0.y + p1.y) / 2;
+
+            if (i === len - 2) {
+                ctx.quadraticCurveTo(p0.x, p0.y, p1.x, p1.y);
+            } else {
+                ctx.quadraticCurveTo(p0.x, p0.y, midX, midY);
+            }
+        }
+
+        ctx.strokeStyle = '#3E63DD'; // Primary
+        ctx.lineWidth   = 2;
+        ctx.lineCap     = 'round';
+        ctx.lineJoin    = 'round';
         ctx.stroke();
 
-        // Optional: Draw end point
-        let lastX = (len - 1) * stepX,
-            lastY = height - padding - ((values[len - 1] - min) / range * h);
+        // 4. Draw Max Value Marker (if distinct)
+        if (max > min) {
+            let maxIndex = values.indexOf(max),
+                maxPoint = points[maxIndex];
 
-        ctx.fillStyle = '#e74c3c';
+            ctx.beginPath();
+            ctx.arc(maxPoint.x, maxPoint.y, 2, 0, Math.PI * 2);
+            ctx.fillStyle = '#3E63DD';
+            ctx.fill();
+        }
+
+        // 5. Draw End Point (Glowing)
+        let lastPoint = points[len - 1];
+        
+        // Glow
         ctx.beginPath();
-        ctx.arc(lastX, lastY, 3, 0, Math.PI * 2);
+        ctx.arc(lastPoint.x, lastPoint.y, 4, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(62, 99, 221, 0.3)';
+        ctx.fill();
+
+        // Dot
+        ctx.beginPath();
+        ctx.arc(lastPoint.x, lastPoint.y, 2, 0, Math.PI * 2);
+        ctx.fillStyle = '#3E63DD';
         ctx.fill();
     }
 }
