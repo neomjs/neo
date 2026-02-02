@@ -100,6 +100,20 @@ class SparklineComponent extends Canvas {
     }
 
     /**
+     * Triggered after the mounted config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    async afterSetMounted(value, oldValue) {
+        if (value) {
+            await this.ready()
+        }
+
+        super.afterSetMounted(value, oldValue)
+    }
+
+    /**
      * @param {Boolean} value
      * @param {Boolean} oldValue
      */
@@ -107,8 +121,6 @@ class SparklineComponent extends Canvas {
         if (value) {
             let me       = this,
                 {values} = me;
-
-            await me.ready();
 
             await me.renderer.register({
                 canvasId        : me.id,

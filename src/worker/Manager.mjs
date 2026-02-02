@@ -51,12 +51,16 @@ class Manager extends Base {
          * @protected
          */
         appNames: [],
-        /**
-         * @member {Number} constructedThreads=0
-         * @protected
-         */
-        constructedThreads: 0,
-        /**
+            /**
+             * @member {Boolean} applicationLoaded=false
+             * @protected
+             */
+            applicationLoaded: false,
+            /**
+             * @member {Boolean} constructedThreads=0
+             * @protected
+             */
+            constructedThreads: 0,        /**
          * @member {String[]|Neo.core.Base[]|null} mixins=[Observable, RemoteMethodAccess]
          */
         mixins: [Observable, RemoteMethodAccess],
@@ -411,7 +415,9 @@ class Manager extends Base {
         me.constructedThreads++;
 
         // To include the main thread as ready, we must wait for activeWorkers + 1
-        if (me.constructedThreads === me.activeWorkers + 1) {
+        if (!me.applicationLoaded && me.constructedThreads === me.activeWorkers + 1) {
+            me.applicationLoaded = true;
+
             // better safe than sorry => all remotes need to be registered
             NeoConfig.appPath && me.timeout(NeoConfig.loadApplicationDelay).then(() => {
                 me.loadApplication()
