@@ -27,8 +27,12 @@ subIssues:
   - '[ ] 8941 Feat: Implement Neo.form.field.CountryFlagPicker'
   - '[x] 8942 Refactor: DevRank Grid Location Column (VDOM + SCSS)'
   - '[x] 8943 Feat: Interactive Living Sparklines'
-subIssuesCompleted: 10
-subIssuesTotal: 13
+  - '[x] 8944 Feat: Sparkline Pulse Animation'
+  - '[x] 8945 Feat: Sparkline `usePulse` Config'
+  - '[x] 8946 Feat: Sparkline Physics & Visuals'
+  - '[x] 8947 Docs: Sparkline Knowledge Base Enhancement'
+subIssuesCompleted: 14
+subIssuesTotal: 17
 blockedBy: []
 blocking: []
 ---
@@ -68,4 +72,8 @@ The goal is to create a meritocratic index of the open-source ecosystem, powered
 - 2026-02-01T17:59:01Z @tobiu added sub-issue #8942
 - 2026-02-02T00:26:10Z @tobiu added sub-issue #8943
 - 2026-02-02T00:26:31Z @tobiu assigned to @tobiu
+- 2026-02-02T12:57:40Z @tobiu added sub-issue #8944
+- 2026-02-02T13:04:24Z @tobiu added sub-issue #8945
+- 2026-02-02T13:12:19Z @tobiu added sub-issue #8946
+- 2026-02-02T13:23:35Z @tobiu added sub-issue #8947
 
