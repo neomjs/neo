@@ -26,7 +26,8 @@ class GridContainer extends BaseContainer {
         component       : column.Component,
         currency        : column.Currency,
         index           : column.Index,
-        progress        : column.Progress
+        progress        : column.Progress,
+        sparkline       : column.Sparkline
     }
     /**
      * @member {Object} delayable

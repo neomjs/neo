@@ -6,5 +6,6 @@ import DateSelector from './DateSelector.mjs';
 import Gallery      from './Gallery.mjs';
 import Helix        from './Helix.mjs';
 import Label        from './Label.mjs';
+import Sparkline    from './Sparkline.mjs';
 
-export {Component, BoxLabel, Chip, Circle, DateSelector, Gallery, Helix, Label};
+export {Component, BoxLabel, Chip, Circle, DateSelector, Gallery, Helix, Label, Sparkline};

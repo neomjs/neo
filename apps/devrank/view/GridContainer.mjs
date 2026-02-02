@@ -2,7 +2,6 @@ import BaseGridContainer  from '../../../src/grid/Container.mjs';
 import Component          from '../../../src/component/Base.mjs';
 import Contributors       from '../store/Contributors.mjs';
 import CountryFlags       from '../../../src/util/CountryFlags.mjs';
-import SparklineComponent from './SparklineComponent.mjs';
 
 /**
  * @class DevRank.view.GridContainer
@@ -102,11 +101,13 @@ class GridContainer extends BaseGridContainer {
             defaultSortDirection: 'DESC',
             renderer            : ({value}) => new Intl.NumberFormat().format(value)
         }, {
-            dataField: 'activity',
-            text     : 'Activity (15y)',
-            width    : 160,
-            type     : 'component',
-            component: ({record}) => {
+            dataField         : 'activity',
+            text              : 'Activity (15y)',
+            width             : 160,
+            type              : 'sparkline',
+            rendererClassName : 'DevRank.canvas.Sparkline',
+            rendererImportPath: 'apps/devrank/canvas/Sparkline.mjs',
+            component         : ({record}) => {
                 const data = [];
                 // Iterate from 2010 to 2025
                 for (let i = 2010; i <= 2025; i++) {
@@ -114,7 +115,6 @@ class GridContainer extends BaseGridContainer {
                 }
 
                 return {
-                    module: SparklineComponent,
                     values: data
                 }
             }

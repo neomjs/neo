@@ -5,5 +5,6 @@ import Component        from './Component.mjs';
 import Currency         from './Currency.mjs';
 import Index            from './Index.mjs';
 import Progress         from './Progress.mjs';
+import Sparkline        from './Sparkline.mjs';
 
-export {AnimatedChange, AnimatedCurrency, Base, Component, Currency, Index, Progress};
+export {AnimatedChange, AnimatedCurrency, Base, Component, Currency, Index, Progress, Sparkline};
