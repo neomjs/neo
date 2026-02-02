@@ -5,9 +5,10 @@ state: OPEN
 labels:
   - epic
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-02-01T15:19:40Z'
-updatedAt: '2026-02-01T15:19:40Z'
+updatedAt: '2026-02-02T00:26:31Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8930'
 author: tobiu
 commentsCount: 0
@@ -22,11 +23,12 @@ subIssues:
   - '[ ] 8937 Feat: Discovery Engine - The Spider'
   - '[ ] 8938 Feat: UI Filtering Logic'
   - '[x] 8939 Feat: Country Flag Column'
-  - '[ ] 8940 Feat: Activity Sparkline Column'
+  - '[x] 8940 Feat: Activity Sparkline Column'
   - '[ ] 8941 Feat: Implement Neo.form.field.CountryFlagPicker'
   - '[x] 8942 Refactor: DevRank Grid Location Column (VDOM + SCSS)'
-subIssuesCompleted: 8
-subIssuesTotal: 12
+  - '[x] 8943 Feat: Interactive Living Sparklines'
+subIssuesCompleted: 10
+subIssuesTotal: 13
 blockedBy: []
 blocking: []
 ---
@@ -64,4 +66,6 @@ The goal is to create a meritocratic index of the open-source ecosystem, powered
 - 2026-02-01T16:44:35Z @tobiu added sub-issue #8940
 - 2026-02-01T17:31:28Z @tobiu added sub-issue #8941
 - 2026-02-01T17:59:01Z @tobiu added sub-issue #8942
+- 2026-02-02T00:26:10Z @tobiu added sub-issue #8943
+- 2026-02-02T00:26:31Z @tobiu assigned to @tobiu
 

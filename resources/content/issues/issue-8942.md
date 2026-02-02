@@ -5,9 +5,10 @@ state: CLOSED
 labels:
   - ai
   - refactoring
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-02-01T17:58:48Z'
-updatedAt: '2026-02-01T18:21:59Z'
+updatedAt: '2026-02-01T23:55:45Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8942'
 author: tobiu
 commentsCount: 2
@@ -61,4 +62,5 @@ The 'Location' column in the DevRank grid suffers from layout issues when the te
 > ✦ I have also hardened the `CountryFlags.getFlagUrl()` method to strictly validate that the resolved country code is a 2-letter lowercase string (a-z). This prevents the generation of invalid URLs when the location field contains non-standard characters (like '☁︎') that might have slipped through the normalization logic.
 
 - 2026-02-01T18:21:59Z @tobiu closed this issue
+- 2026-02-01T23:55:45Z @tobiu assigned to @tobiu
 
