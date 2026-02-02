@@ -108,6 +108,8 @@ class SparklineComponent extends Canvas {
             let me       = this,
                 {values} = me;
 
+            await me.ready();
+
             await me.renderer.register({
                 canvasId        : me.id,
                 devicePixelRatio: Neo.config.devicePixelRatio,
@@ -155,6 +157,35 @@ class SparklineComponent extends Canvas {
      */
     getVnodeRoot() {
         return this.vnode.childNodes[0]
+    }
+
+    /**
+     * @returns {Promise<void>}
+     */
+    async initAsync() {
+        await super.initAsync();
+
+        // Ensure Canvas Worker is running
+        await Neo.worker.Manager.startWorker({name: 'canvas'});
+
+        // Wait for the Canvas Worker remote to be available.
+        // The startWorker call returns when the Main thread has created the worker,
+        // but the worker needs to boot and register its remotes (including loadModule).
+        let i = 0;
+
+        while (!Neo.ns('Neo.worker.Canvas.loadModule') && i < 40) {
+            await this.timeout(50);
+            i++
+        }
+
+        if (Neo.ns('Neo.worker.Canvas.loadModule')) {
+            // Load the specific renderer module for this component
+            await Neo.worker.Canvas.loadModule({
+                path: 'apps/devrank/canvas/Sparkline.mjs'
+            })
+        } else {
+            console.error('SparklineComponent: Canvas Worker failed to register remote methods.')
+        }
     }
 
     /**
