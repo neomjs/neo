@@ -1,6 +1,6 @@
 {
-  "lastSync": "2026-02-03T20:05:17.722Z",
-  "releasesLastFetched": "2026-02-03T20:05:17.741Z",
+  "lastSync": "2026-02-03T23:18:17.699Z",
+  "releasesLastFetched": "2026-02-03T23:18:18.187Z",
   "pushFailures": [],
   "issues": {
     "3789": {
@@ -18677,7 +18677,7 @@
       "path": "resources/content/issues/issue-8964.md",
       "closedAt": null,
       "updatedAt": "2026-02-03T19:06:29Z",
-      "contentHash": "28a15e7f3dd36dc2f3dbc5e27eb5e294607e936c4d6a26e8985a9de26625b53e"
+      "contentHash": "6c7a3fa6ffe43b048de7f51bbe88865e213609839c9e32b06d7d1fa7e4495568"
     },
     "8965": {
       "state": "CLOSED",
@@ -18713,6 +18713,41 @@
       "closedAt": null,
       "updatedAt": "2026-02-03T18:31:11Z",
       "contentHash": "37cda282b89169c337ecacec29fe0b18980d63d090577adcfac65a2a7519a7e8"
+    },
+    "8970": {
+      "state": "CLOSED",
+      "path": "resources/content/issues/issue-8970.md",
+      "closedAt": "2026-02-03T20:52:11Z",
+      "updatedAt": "2026-02-03T20:52:11Z",
+      "contentHash": "00c9a66a482f988849ce0d975d6ce0a22eadb89e5b22d0ca5d2e3b0ae08358b7"
+    },
+    "8971": {
+      "state": "CLOSED",
+      "path": "resources/content/issues/issue-8971.md",
+      "closedAt": "2026-02-03T21:07:35Z",
+      "updatedAt": "2026-02-03T21:07:35Z",
+      "contentHash": "3d99bd84f1fb7e0d250a3ee5fe95389f0e2d24112dc16c7bb9e0f031661a6884"
+    },
+    "8972": {
+      "state": "CLOSED",
+      "path": "resources/content/issues/issue-8972.md",
+      "closedAt": "2026-02-03T21:14:23Z",
+      "updatedAt": "2026-02-03T21:14:23Z",
+      "contentHash": "304a37e0dd6edd35bb41ffbec62e6dc6a1f7f592fa0b65f6b90a72f59028ed82"
+    },
+    "8973": {
+      "state": "CLOSED",
+      "path": "resources/content/issues/issue-8973.md",
+      "closedAt": "2026-02-03T21:29:12Z",
+      "updatedAt": "2026-02-03T21:30:53Z",
+      "contentHash": "bb0487d4790f5556ebd1aa98989a8aded05ea96015e66ae3daee2e860d1a28dc"
+    },
+    "8974": {
+      "state": "OPEN",
+      "path": "resources/content/issues/issue-8974.md",
+      "closedAt": null,
+      "updatedAt": "2026-02-03T21:34:36Z",
+      "contentHash": "b46ea24a8cb0fe1171c237639ee684a1381b26c0a6c451d4d3a8318df2ecb842"
     }
   },
   "releases": {
