@@ -31,8 +31,10 @@ subIssues:
   - '[x] 8945 Feat: Sparkline `usePulse` Config'
   - '[x] 8946 Feat: Sparkline Physics & Visuals'
   - '[x] 8947 Docs: Sparkline Knowledge Base Enhancement'
-subIssuesCompleted: 14
-subIssuesTotal: 17
+  - '[x] 8957 Fix: Sparkline Pulse Artifact Persistence'
+  - '[x] 8958 Enhancement: Sparkline Scanner Text Positioning'
+subIssuesCompleted: 16
+subIssuesTotal: 19
 blockedBy: []
 blocking: []
 ---
@@ -93,4 +95,6 @@ The goal is to create a meritocratic index of the open-source ecosystem, powered
 > 
 > This refactoring means DevRank is now "consuming" the standard framework capability it helped pioneer, rather than maintaining a custom implementation. The original tickets (#8940, #8943) remain valid as the origin story, but the code has moved.
 
+- 2026-02-03T10:24:39Z @tobiu added sub-issue #8957
+- 2026-02-03T10:39:03Z @tobiu added sub-issue #8958
 
