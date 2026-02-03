@@ -448,7 +448,11 @@ class GridBody extends Container {
         if (!value) {
             this._columnPositions = value = Neo.create({
                 module     : Collection,
-                keyProperty: 'dataField'
+                keyProperty: 'dataField',
+                listeners  : {
+                    mutate: this.onColumnPositionsMutate,
+                    scope : this
+                }
             })
         }
 
@@ -536,8 +540,9 @@ class GridBody extends Container {
 
     /**
      * @param {Boolean} silent=false
+     * @param {Boolean} force=false
      */
-    createViewData(silent=false) {
+    createViewData(silent=false, force=false) {
         let me                   = this,
             {mountedRows, store} = me,
             endIndex, i, item, itemIndex, poolSize, range;
@@ -575,6 +580,8 @@ class GridBody extends Container {
                     record  : store.getAt(i),
                     rowIndex: i
                 })
+            } else if (force) {
+                item.createVdom()
             }
         }
 
@@ -800,6 +807,13 @@ class GridBody extends Container {
      */
     onCellDoubleClick(data) {
         this.fireCellEvent(data, 'cellDoubleClick')
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onColumnPositionsMutate(data) {
+        this.createViewData(false, true)
     }
 
     /**

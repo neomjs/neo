@@ -75,9 +75,7 @@ class Row extends Component {
             column.rendererScope = column;
         }
 
-        me.bindCallback(column.renderer, 'renderer', column.rendererScope || me, column);
-
-        rendererOutput = column.renderer.call(column.rendererScope || me, {
+        rendererOutput = column.renderer.call(column.rendererScope || column, {
             column,
             columnIndex,
             component: me.components?.[column.dataField],
@@ -217,7 +215,7 @@ class Row extends Component {
             vdom['aria-selected'] = true;
             // Note: fire('select') should ideally be handled by the SelectionModel observing the store/records,
             // or we keep it here but suppress events during rendering if needed.
-            // gridContainer.fire('select', {record}) 
+            // gridContainer.fire('select', {record})
         }
 
         vdom.cls = rowCls;
@@ -237,6 +235,10 @@ class Row extends Component {
             }
 
             columnPosition = gridBody.columnPositions.get(column.dataField);
+
+            if (!columnPosition) {
+                continue
+            }
 
             cellConfig.style = {
                 ...cellConfig.style,
@@ -260,7 +262,8 @@ class Row extends Component {
             vdom.cn.push(cellConfig)
         }
 
-        me.vdom = vdom;
+        me._vdom = vdom;
+        me.update()
     }
 
     /**
