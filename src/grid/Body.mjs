@@ -1251,19 +1251,37 @@ class GridBody extends Component {
      *
      */
     updateMountedAndVisibleRows() {
-        let me           = this,
-            {bufferRowRange, startIndex, store} = me,
-            countRecords = store.getCount(),
-            endIndex     = Math.min(countRecords, startIndex + me.availableRows);
+        let me             = this,
+            {bufferRowRange, availableRows, startIndex, store} = me,
+            countRecords   = store.getCount(),
+            windowSize     = availableRows + 2 * bufferRowRange,
+            endIndex       = Math.min(countRecords, startIndex + availableRows),
+            mountedStart   = startIndex - bufferRowRange,
+            mountedEnd     = endIndex   + bufferRowRange;
 
         me.visibleRows[0] = startIndex; // update the array inline
         me.visibleRows[1] = endIndex;
 
-        startIndex = Math.max(0, startIndex - bufferRowRange);
-        endIndex   = Math.min(countRecords, endIndex + bufferRowRange);
+        // We want to maintain a constant window size (Modulus) to ensure row recycling works
+        // via moveNode operations instead of removeNode + insertNode.
+        // If we are at the top, extend the end to fill the window.
+        if (mountedStart < 0) {
+            mountedEnd  += Math.abs(mountedStart);
+            mountedStart = 0
+        }
 
-        me.mountedRows[0] = startIndex; // update the array inline
-        me.mountedRows[1] = endIndex
+        // Clamp to record count
+        mountedEnd = Math.min(countRecords, mountedEnd);
+
+        // If we are at the bottom (hit the ceiling), pull the start back to fill the window.
+        // This ensures we keep the DOM nodes alive for as long as possible.
+        if (mountedEnd - mountedStart < windowSize) {
+            let needed   = windowSize - (mountedEnd - mountedStart);
+            mountedStart = Math.max(0, mountedStart - needed)
+        }
+
+        me.mountedRows[0] = mountedStart; // update the array inline
+        me.mountedRows[1] = mountedEnd
     }
 
     /**
