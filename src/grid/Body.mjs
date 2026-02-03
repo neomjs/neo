@@ -1,9 +1,10 @@
-import Collection   from '../collection/Base.mjs';
-import Container    from '../container/Base.mjs';
-import NeoArray     from '../util/Array.mjs';
-import Row          from './Row.mjs';
-import RowModel     from '../selection/grid/RowModel.mjs';
-import VDomUtil     from '../util/VDom.mjs';
+import ClassSystemUtil from '../util/ClassSystem.mjs';
+import Collection      from '../collection/Base.mjs';
+import Container       from '../container/Base.mjs';
+import NeoArray        from '../util/Array.mjs';
+import Row             from './Row.mjs';
+import RowModel        from '../selection/grid/RowModel.mjs';
+import VDomUtil        from '../util/VDom.mjs';
 
 /**
  * @class Neo.grid.Body
@@ -463,7 +464,7 @@ class GridBody extends Container {
     beforeSetSelectionModel(value, oldValue) {
         oldValue?.destroy();
 
-        return Neo.ClassSystemUtil.beforeSetInstance(value, RowModel)
+        return ClassSystemUtil.beforeSetInstance(value, RowModel)
     }
 
     /**
