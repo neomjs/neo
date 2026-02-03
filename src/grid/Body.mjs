@@ -353,7 +353,7 @@ class GridBody extends Container {
      * @protected
      */
     afterSetMountedColumns(value, oldValue) {
-        oldValue && this.createViewData()
+        oldValue && this.createViewData(false, true)
     }
 
     /**
