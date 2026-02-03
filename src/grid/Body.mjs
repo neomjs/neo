@@ -353,7 +353,7 @@ class GridBody extends Container {
      * @protected
      */
     afterSetMountedColumns(value, oldValue) {
-        oldValue && this.createViewData(false, true)
+        oldValue && this.createViewData()
     }
 
     /**
@@ -540,9 +540,8 @@ class GridBody extends Container {
 
     /**
      * @param {Boolean} silent=false
-     * @param {Boolean} force=false
      */
-    createViewData(silent=false, force=false) {
+    createViewData(silent=false) {
         let me                   = this,
             {mountedRows, store} = me,
             endIndex, i, item, itemIndex, poolSize, range;
@@ -574,15 +573,10 @@ class GridBody extends Container {
             itemIndex = i % poolSize;
             item      = me.items[itemIndex];
 
-            // Only update if changed (Row component will handle VDOM diff)
-            if (item.rowIndex !== i) {
-                item.set({
-                    record  : store.getAt(i),
-                    rowIndex: i
-                })
-            } else if (force) {
-                item.createVdom()
-            }
+            item.updateContent({
+                record  : store.getAt(i),
+                rowIndex: i
+            })
         }
 
         me.parent.isLoading = false;
@@ -813,7 +807,7 @@ class GridBody extends Container {
      * @param {Object} data
      */
     onColumnPositionsMutate(data) {
-        this.createViewData(false, true)
+        this.createViewData()
     }
 
     /**

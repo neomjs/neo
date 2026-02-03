@@ -23,15 +23,13 @@ class Row extends Component {
          */
         baseCls: ['neo-grid-row'],
         /**
-         * @member {Object|null} record_=null
-         * @reactive
+         * @member {Object|null} record=null
          */
-        record_: null,
+        record: null,
         /**
-         * @member {Number|null} rowIndex_=null
-         * @reactive
+         * @member {Number|null} rowIndex=null
          */
-        rowIndex_: null,
+        rowIndex: null,
         /**
          * @member {Object} _vdom={cn: []}
          */
@@ -280,15 +278,17 @@ class Row extends Component {
     }
 
     /**
-     * Triggered after the record config got changed
-     * @param {Object} value
-     * @param {Object} oldValue
-     * @protected
+     * @param {Object} data
+     * @param {Object} data.record
+     * @param {Number} data.rowIndex
      */
-    afterSetRecord(value, oldValue) {
-        if (value) {
-            this.createVdom()
-        }
+    updateContent({record, rowIndex}) {
+        let me = this;
+
+        me.record   = record;
+        me.rowIndex = rowIndex;
+
+        me.createVdom()
     }
 }
 
