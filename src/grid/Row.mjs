@@ -176,9 +176,9 @@ class Row extends Component {
     }
 
     /**
-     * @param {Object} config
+     *
      */
-    createVdom(config) {
+    createVdom() {
         let me            = this,
             record        = me.record,
             rowIndex      = me.rowIndex,

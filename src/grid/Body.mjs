@@ -447,11 +447,7 @@ class GridBody extends Container {
         if (!value) {
             this._columnPositions = value = Neo.create({
                 module     : Collection,
-                keyProperty: 'dataField',
-                listeners  : {
-                    mutate: this.onColumnPositionsMutate,
-                    scope : this
-                }
+                keyProperty: 'dataField'
             })
         }
 
@@ -664,7 +660,7 @@ class GridBody extends Container {
             cells       = [],
             columnIndex = -1,
             vdomRoot    = me.getVdomRoot(),
-            firstRow    = vdomRoot.cn[0],
+            firstRow    = me.items[0].vdom,
             i           = 0,
             len         = firstRow.cn.length,
             cell;
@@ -801,13 +797,6 @@ class GridBody extends Container {
      */
     onCellDoubleClick(data) {
         this.fireCellEvent(data, 'cellDoubleClick')
-    }
-
-    /**
-     * @param {Object} data
-     */
-    onColumnPositionsMutate(data) {
-        this.createViewData()
     }
 
     /**
