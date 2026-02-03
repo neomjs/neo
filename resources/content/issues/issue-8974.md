@@ -1,14 +1,14 @@
 ---
 id: 8974
 title: 'refactor: Cleanup Neo.grid.Body and optimize Row/Body responsibilities (#8964)'
-state: OPEN
+state: CLOSED
 labels:
   - ai
   - refactoring
 assignees:
   - tobiu
 createdAt: '2026-02-03T21:34:15Z'
-updatedAt: '2026-02-03T21:34:36Z'
+updatedAt: '2026-02-03T23:19:55Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8974'
 author: tobiu
 commentsCount: 0
@@ -18,6 +18,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-02-03T23:19:54Z'
 ---
 # refactor: Cleanup Neo.grid.Body and optimize Row/Body responsibilities (#8964)
 
@@ -56,4 +57,6 @@ Let's start by analyzing the files.
 - 2026-02-03T22:17:55Z @tobiu referenced in commit `2582e3a` - "#8974 cleanup"
 - 2026-02-03T22:26:50Z @tobiu referenced in commit `7ad37de` - "#8974 fixed getColumnCells()"
 - 2026-02-03T22:57:58Z @tobiu referenced in commit `ef16f69` - "#8974 fixed getRecordByRowId()"
+- 2026-02-03T23:19:07Z @tobiu referenced in commit `2e1c58a` - "#8974 removed getRowClass()"
+- 2026-02-03T23:19:55Z @tobiu closed this issue
 

@@ -24,8 +24,8 @@ subIssues:
   - '[x] 8970 feat: Commit base implementation of Neo.grid.Row and refactored GridBody (#8964)'
   - '[x] 8971 fix: Enable horizontal scrolling by forcing Row VDOM updates on column mount change (#8964)'
   - '[x] 8973 fix: Component Columns disappear after horizontal scroll due to stale mounted state (#8964)'
-  - '[ ] 8974 refactor: Cleanup Neo.grid.Body and optimize Row/Body responsibilities (#8964)'
-subIssuesCompleted: 7
+  - '[x] 8974 refactor: Cleanup Neo.grid.Body and optimize Row/Body responsibilities (#8964)'
+subIssuesCompleted: 8
 subIssuesTotal: 9
 blockedBy: []
 blocking: []
