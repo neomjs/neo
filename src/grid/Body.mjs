@@ -571,14 +571,19 @@ class GridBody extends Container {
 
             item.updateContent({
                 record  : store.getAt(i),
-                rowIndex: i
+                rowIndex: i,
+                silent  : true
             })
         }
 
         me.parent.isLoading = false;
 
         me.updateScrollHeight(true, range); // silent
-        !silent && me.update()
+
+        if (!silent) {
+            me.updateDepth = -1;
+            me.update()
+        }
     }
 
     /**
@@ -735,6 +740,16 @@ class GridBody extends Container {
         }
 
         return null
+    }
+
+    /**
+     * Override this method to apply custom CSS rules to grid rows
+     * @param {Object} record
+     * @param {Number} rowIndex
+     * @returns {String[]}
+     */
+    getRowClass(record, rowIndex) {
+        return ['neo-grid-row']
     }
 
     /**

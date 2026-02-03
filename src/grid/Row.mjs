@@ -176,9 +176,9 @@ class Row extends Component {
     }
 
     /**
-     *
+     * @param {Boolean} [silent=false]
      */
-    createVdom() {
+    createVdom(silent=false) {
         let me            = this,
             record        = me.record,
             rowIndex      = me.rowIndex,
@@ -189,9 +189,10 @@ class Row extends Component {
             recordId      = record[gridBody.store.getKeyProperty()],
             countColumns  = columns.getCount(),
             {mountedColumns} = gridBody,
-            cellConfig, column, columnPosition, i, isMounted;
+            cellConfig, column, columnPosition, i, isMounted,
+            vdom = me.vdom;
 
-        let vdom = {
+        Object.assign(vdom, {
             'aria-rowindex': rowIndex + 2, // header row => 1, first body row => 2
             cn             : [],
             data           : {recordId},
@@ -200,7 +201,7 @@ class Row extends Component {
                 height   : gridBody.rowHeight + 'px',
                 transform: `translate3d(0px, ${rowIndex * gridBody.rowHeight}px, 0px)`
             }
-        };
+        });
 
         let rowCls = gridBody.getRowClass(record, rowIndex);
 
@@ -218,6 +219,8 @@ class Row extends Component {
             // Note: fire('select') should ideally be handled by the SelectionModel observing the store/records,
             // or we keep it here but suppress events during rendering if needed.
             // gridContainer.fire('select', {record})
+        } else {
+            delete vdom['aria-selected']
         }
 
         vdom.cls = rowCls;
@@ -264,8 +267,7 @@ class Row extends Component {
             vdom.cn.push(cellConfig)
         }
 
-        me._vdom = vdom;
-        me.update()
+        !silent && me.update()
     }
 
     /**
@@ -293,14 +295,15 @@ class Row extends Component {
      * @param {Object} data
      * @param {Object} data.record
      * @param {Number} data.rowIndex
+     * @param {Boolean} [data.silent=false]
      */
-    updateContent({record, rowIndex}) {
+    updateContent({record, rowIndex, silent=false}) {
         let me = this;
 
         me.record   = record;
         me.rowIndex = rowIndex;
 
-        me.createVdom()
+        me.createVdom(silent)
     }
 }
 
