@@ -34,7 +34,8 @@ class Canvas extends Base {
             app: [
                 'loadModule',
                 'registerCanvas',
-                'retrieveCanvas'
+                'retrieveCanvas',
+                'unregisterCanvas'
             ]
         },
         /**
@@ -120,6 +121,22 @@ class Canvas extends Base {
         }
 
         return {hasCanvas: !!canvas}
+    }
+
+    /**
+     * @param {Object} data
+     * @param {String} data.nodeId
+     */
+    unregisterCanvas(data) {
+        let me = this;
+
+        delete me.map[data.nodeId];
+
+        // We could also cleanup canvasWindowMap, but it might be overkill since
+        // windowIds are reused. However, for correctness:
+        if (me.canvasWindowMap[data.nodeId]) {
+            delete me.canvasWindowMap[data.nodeId]
+        }
     }
 
     /**

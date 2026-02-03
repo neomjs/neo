@@ -97,14 +97,33 @@ class Sparkline extends Canvas {
     }
 
     /**
+     * @param {...*} args
+     */
+    destroy(...args) {
+        if (this.offscreenRegistered) {
+            this.renderer?.unregister({
+                canvasId: this.id
+            })
+        }
+
+        super.destroy(...args)
+    }
+
+    /**
      * Triggered after the mounted config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
      */
     async afterSetMounted(value, oldValue) {
+        let me = this;
+
         if (value) {
-            await this.ready()
+            await me.ready()
+        } else if (me.offscreenRegistered) {
+            me.renderer?.unregister({
+                canvasId: me.id
+            })
         }
 
         super.afterSetMounted(value, oldValue)

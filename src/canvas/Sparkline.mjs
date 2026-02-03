@@ -63,7 +63,15 @@ class Sparkline extends Base {
          * @protected
          */
         remote: {
-            app: ['onMouseLeave', 'onMouseMove', 'register', 'updateConfig', 'updateData', 'updateSize']
+            app: [
+                'onMouseLeave',
+                'onMouseMove',
+                'register',
+                'unregister',
+                'updateConfig',
+                'updateData',
+                'updateSize'
+            ]
         },
         /**
          * @member {Boolean} singleton=true
@@ -150,6 +158,21 @@ class Sparkline extends Base {
             if (!me.animationId) {
                 me.renderLoop()
             }
+        }
+    }
+
+    /**
+     * Unregisters a canvas.
+     * @param {Object} data
+     * @param {String} data.canvasId
+     */
+    unregister(data) {
+        let me   = this,
+            item = me.items.get(data.canvasId);
+
+        if (item) {
+            me.activeItems.delete(item);
+            me.items.delete(data.canvasId)
         }
     }
 

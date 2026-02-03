@@ -106,6 +106,12 @@ class Canvas extends Component {
                 }
             }
         } else if (offscreen) {
+            if (me.offscreenRegistered) {
+                Neo.worker.Canvas.unregisterCanvas({
+                    nodeId: id
+                })
+            }
+
             me.offscreenRegistered = false
         }
     }
@@ -123,6 +129,19 @@ class Canvas extends Component {
         if (oldValue) {
             this.offscreenRegistered = false
         }
+    }
+
+    /**
+     * @param {...*} args
+     */
+    destroy(...args) {
+        if (this.offscreenRegistered) {
+            Neo.worker.Canvas.unregisterCanvas({
+                nodeId: this.id
+            })
+        }
+
+        super.destroy(...args)
     }
 
     /**
