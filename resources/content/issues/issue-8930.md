@@ -33,8 +33,13 @@ subIssues:
   - '[x] 8947 Docs: Sparkline Knowledge Base Enhancement'
   - '[x] 8957 Fix: Sparkline Pulse Artifact Persistence'
   - '[x] 8958 Enhancement: Sparkline Scanner Text Positioning'
-subIssuesCompleted: 16
-subIssuesTotal: 19
+  - '[x] 8959 Feat: Implement hideMode for Grid Columns to support OffscreenCanvas buffering'
+  - '[x] 8960 Fix: Vertical scrolling causes OffscreenCanvas loss in Grid cells'
+  - '[x] 8961 Fix: Memory Leak in Neo.component.Canvas due to missing destroy()'
+  - '[x] 8962 Perf: Apply CSS containment to Grid Rows'
+  - '[x] 8963 Feat: Smooth Data Transitions for Sparklines'
+subIssuesCompleted: 21
+subIssuesTotal: 24
 blockedBy: []
 blocking: []
 ---
@@ -97,4 +102,9 @@ The goal is to create a meritocratic index of the open-source ecosystem, powered
 
 - 2026-02-03T10:24:39Z @tobiu added sub-issue #8957
 - 2026-02-03T10:39:03Z @tobiu added sub-issue #8958
+- 2026-02-03T12:32:20Z @tobiu added sub-issue #8959
+- 2026-02-03T12:43:12Z @tobiu added sub-issue #8960
+- 2026-02-03T13:01:53Z @tobiu added sub-issue #8961
+- 2026-02-03T13:01:55Z @tobiu added sub-issue #8962
+- 2026-02-03T13:01:57Z @tobiu added sub-issue #8963
 
