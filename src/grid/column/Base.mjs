@@ -6,6 +6,14 @@ import {resolveCallback} from '../../util/Function.mjs';
  * @extends Neo.core.Base
  */
 class Column extends Base {
+    /**
+     * Valid values for hideMode
+     * @member {String[]} hideModes=['display','removeDom','visibility']
+     * @protected
+     * @static
+     */
+    static hideModes = ['display', 'removeDom', 'visibility']
+
     static config = {
         /**
          * @member {String} className='Neo.grid.column.Base'
@@ -16,6 +24,10 @@ class Column extends Base {
          * @member {String|null} dataField=null
          */
         dataField: null,
+        /**
+         * @member {String} hideMode_='removeDom'
+         */
+        hideMode_: 'removeDom',
         /**
          * @member {Neo.grid.Container|null} parent=null
          */
@@ -52,6 +64,16 @@ class Column extends Base {
      */
     afterSetWindowId(value, oldValue) {
         value && Neo.currentWorker.insertThemeFiles(value, this.__proto__)
+    }
+
+    /**
+     * Triggered before the hideMode config gets changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    beforeSetHideMode(value, oldValue) {
+        return this.beforeSetEnumValue(value, oldValue, 'hideMode')
     }
 
     /**

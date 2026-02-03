@@ -643,7 +643,8 @@ class GridBody extends Component {
             id            = me.getRowId(rowIndex),
             recordId      = record[me.store.getKeyProperty()],
             rowCls        = me.getRowClass(record, rowIndex),
-            config, column, columnPosition,  gridRow, i;
+            countColumns  = columns.getCount(),
+            config, column, columnPosition, gridRow, i, isMounted;
 
         if (rowIndex % 2 !== 0) {
             rowCls.push('neo-even')
@@ -673,8 +674,14 @@ class GridBody extends Component {
             gridContainer.fire('select', {record})
         }
 
-        for (i=mountedColumns[0]; i <= mountedColumns[1]; i++) {
-            column = columns.getAt(i);
+        for (i=0; i < countColumns; i++) {
+            isMounted = i >= mountedColumns[0] && i <= mountedColumns[1];
+            column    = columns.getAt(i);
+
+            if (!isMounted && column.hideMode === 'removeDom') {
+                continue
+            }
+
             config = me.applyRendererOutput({column, columnIndex: i, record, rowIndex});
 
             if (column.dock) {
@@ -687,11 +694,19 @@ class GridBody extends Component {
                 ...config.style,
                 left : columnPosition.x     + 'px',
                 width: columnPosition.width + 'px'
-            }
+            };
 
             // Happens during a column header drag OP, when leaving the painted range
-            if (columnPosition.hidden) {
-                config.style.visibility = 'hidden'
+            if (isMounted) {
+                if (columnPosition.hidden) {
+                    config.style.visibility = 'hidden'
+                }
+            } else {
+                if (column.hideMode === 'visibility') {
+                    config.style.visibility = 'hidden'
+                } else if (column.hideMode === 'display') {
+                    config.style.display = 'none'
+                }
             }
 
             gridRow.cn.push(config)

@@ -20,6 +20,10 @@ class Sparkline extends ComponentColumn {
             module: SparklineComponent
         },
         /**
+         * @member {String} hideMode='visibility'
+         */
+        hideMode: 'visibility',
+        /**
          * @member {String|null} rendererClassName=null
          */
         rendererClassName: null,
