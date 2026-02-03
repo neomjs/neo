@@ -738,16 +738,6 @@ class GridBody extends Container {
     }
 
     /**
-     * Override this method to apply custom CSS rules to grid rows
-     * @param {Object} record
-     * @param {Number} rowIndex
-     * @returns {String[]}
-     */
-    getRowClass(record, rowIndex) {
-        return ['neo-grid-row']
-    }
-
-    /**
      * @param {Number} rowIndex
      * @returns {String}
      */
