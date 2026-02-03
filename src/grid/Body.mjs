@@ -708,7 +708,7 @@ class GridBody extends Container {
         parentNodes = VDomUtil.getParentNodes(me.vdom, nodeId);
 
         for (node of parentNodes || []) {
-            record = me.getRecordByRowId(node.id);
+            record = me.getRecordByRowId(node.componentId || node.id);
 
             if (record) {
                 return record
@@ -724,8 +724,8 @@ class GridBody extends Container {
      */
     getRecordByRowId(rowId) {
         let me       = this,
-            node     = me.getVdomChild(rowId),
-            rowIndex = node['aria-rowindex'];
+            node     = Neo.getComponent(rowId)?.vdom,
+            rowIndex = node?.['aria-rowindex'];
 
         if (Neo.isNumber(rowIndex)) {
             // aria-rowindex is 1 based & also includes the header
