@@ -135,7 +135,7 @@ class Row extends Component {
         }
 
         if (!cellId) {
-            cellId = gridBody.getCellId(rowIndex, column.dataField)
+            cellId = me.getCellId(column.dataField)
         }
 
         if (selectedCells.includes(cellId)) {
@@ -279,6 +279,14 @@ class Row extends Component {
         }
 
         super.destroy()
+    }
+
+    /**
+     * @param {String} dataField
+     * @returns {String}
+     */
+    getCellId(dataField) {
+        return `${this.id}__${dataField}`
     }
 
     /**

@@ -1,7 +1,6 @@
 import ClassSystemUtil from '../util/ClassSystem.mjs';
 import Collection      from '../collection/Base.mjs';
 import Container       from '../container/Base.mjs';
-import NeoArray        from '../util/Array.mjs';
 import Row             from './Row.mjs';
 import RowModel        from '../selection/grid/RowModel.mjs';
 import VDomUtil        from '../util/VDom.mjs';
@@ -527,6 +526,7 @@ class GridBody extends Container {
                 newRows.push({
                     module       : Row,
                     gridContainer: me.parent,
+                    id           : me.getRowId(current + i),
                     record       : null,
                     rowIndex     : -1
                 })
