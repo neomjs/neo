@@ -31,6 +31,10 @@ class Row extends Component {
          */
         rowIndex: null,
         /**
+         * @member {Number} updateDepth=-1
+         */
+        updateDepth: -1,
+        /**
          * @member {Object} _vdom={cn: []}
          */
         _vdom:
