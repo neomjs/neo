@@ -50,6 +50,11 @@ class Sparkline extends Canvas {
          */
         usePulse_: true,
         /**
+         * Set to `false` to disable the data change animation.
+         * @member {Boolean} useTransition_=true
+         */
+        useTransition_: true,
+        /**
          * @member {Number[]|null} values_=null
          */
         values_: null,
@@ -77,6 +82,20 @@ class Sparkline extends Canvas {
             this.renderer?.updateConfig({
                 canvasId: this.id,
                 usePulse: value
+            })
+        }
+    }
+
+    /**
+     * Updates the transition configuration in the worker when `useTransition` changes.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     */
+    afterSetUseTransition(value, oldValue) {
+        if (this.offscreenRegistered && value !== undefined) {
+            this.renderer?.updateConfig({
+                canvasId     : this.id,
+                useTransition: value
             })
         }
     }
@@ -143,6 +162,7 @@ class Sparkline extends Canvas {
                 devicePixelRatio: Neo.config.devicePixelRatio,
                 theme           : me.theme || 'light',
                 usePulse        : me.usePulse,
+                useTransition   : me.useTransition,
                 windowId        : me.windowId
             });
 

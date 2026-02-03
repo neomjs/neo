@@ -133,6 +133,7 @@ class Sparkline extends Base {
      * @param {Number} [data.devicePixelRatio=1]
      * @param {String} [data.theme='light']
      * @param {Boolean} [data.usePulse=true]
+     * @param {Boolean} [data.useTransition=true]
      * @param {String} data.windowId
      */
     register(data) {
@@ -152,6 +153,7 @@ class Sparkline extends Base {
                 pulseProgress   : 0,
                 theme           : data.theme || 'light',
                 usePulse        : data.usePulse !== false,
+                useTransition   : data.useTransition !== false,
                 width           : canvas.width
             });
 
@@ -204,21 +206,55 @@ class Sparkline extends Base {
         // 2. Animate active items
         if (me.activeItems.size > 0) {
             me.activeItems.forEach(item => {
+                let needsDraw = false;
+
+                // Handle Data Transition
+                if (item.isTransitioning) {
+                    let progress = (now - item.transitionStartTime) / item.transitionDuration;
+
+                    if (progress >= 1) {
+                        item.values          = item.targetValues;
+                        item.isTransitioning = false;
+                        progress             = 1
+                    } else {
+                        // Cubic Ease Out
+                        progress = 1 - Math.pow(1 - progress, 3);
+
+                        item.values = item.startValues.map((val, i) => {
+                            return val + (item.targetValues[i] - val) * progress
+                        })
+                    }
+
+                    item.points = null; // Force geometry recalc
+                    needsDraw   = true
+                }
+
+                // Handle Pulse Animation
                 // Remove from active set if usePulse got disabled mid-animation
-                if (!item.usePulse) {
+                if (!item.usePulse && !item.isTransitioning) {
                     me.activeItems.delete(item);
-                    me.draw(item);
+                    if (needsDraw) me.draw(item);
                     return
                 }
 
-                // Speed: Full crossing in ~1.5s
-                item.pulseProgress += 0.015;
+                if (item.usePulse && !item.mouseActive) { // Pause pulse on hover? No, just render
+                    // Speed: Full crossing in ~1.5s
+                    item.pulseProgress += 0.015;
 
-                if (item.pulseProgress >= 1) {
-                    item.pulseProgress = 0;
-                    me.activeItems.delete(item);
-                    me.draw(item) // Final clean draw
-                } else {
+                    if (item.pulseProgress >= 1) {
+                        item.pulseProgress = 0;
+                        // Only remove if not transitioning
+                        if (!item.isTransitioning) {
+                            me.activeItems.delete(item);
+                            me.draw(item) // Final clean draw
+                            return
+                        }
+                    } else {
+                        needsDraw = true
+                    }
+                }
+
+                if (needsDraw) {
                     me.draw(item, {pulseProgress: item.pulseProgress})
                 }
             });
@@ -236,6 +272,7 @@ class Sparkline extends Base {
      * @param {Object} data
      * @param {String} data.canvasId
      * @param {Boolean} [data.usePulse]
+     * @param {Boolean} [data.useTransition]
      */
     updateConfig(data) {
         let me   = this,
@@ -244,6 +281,9 @@ class Sparkline extends Base {
         if (item) {
             if (data.usePulse !== undefined) {
                 item.usePulse = data.usePulse
+            }
+            if (data.useTransition !== undefined) {
+                item.useTransition = data.useTransition
             }
         }
     }
@@ -256,13 +296,32 @@ class Sparkline extends Base {
      * @param {Number[]} data.values
      */
     updateData(data) {
-        let me = this,
+        let me   = this,
             item = me.items.get(data.canvasId);
 
         if (item) {
-            item.values = data.values;
-            item.points = null; // Invalidate cache
-            me.draw(item)
+            // Initial load or invalid data: snap instantly
+            // Or if transitions are disabled
+            if (!item.useTransition || !item.values || !Array.isArray(data.values) || item.values.length !== data.values.length) {
+                item.values = data.values;
+                item.points = null; // Invalidate cache
+                me.draw(item)
+            } else {
+                // Start transition
+                item.targetValues = data.values;
+                item.startValues  = [...item.values];
+                item.transitionStartTime = Date.now();
+                item.transitionDuration  = 300; // ms
+
+                if (!item.isTransitioning) {
+                    item.isTransitioning = true;
+                    me.activeItems.add(item);
+                    
+                    if (!me.animationId) {
+                        me.renderLoop()
+                    }
+                }
+            }
         }
     }
 
