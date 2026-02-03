@@ -1,3 +1,4 @@
+import Collection   from '../collection/Base.mjs';
 import Container    from '../container/Base.mjs';
 import NeoArray     from '../util/Array.mjs';
 import Row          from './Row.mjs';
