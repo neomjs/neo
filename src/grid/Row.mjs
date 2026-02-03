@@ -80,13 +80,25 @@ class Row extends Component {
         rendererOutput = column.renderer.call(column.rendererScope || me, {
             column,
             columnIndex,
+            component: me.components?.[column.dataField],
             dataField,
             gridContainer,
             record,
+            row: me,
             rowIndex,
             store,
             value: fieldValue
         });
+
+        if (rendererOutput instanceof Neo.component.Base) {
+            me.components ??= {};
+
+            if (!me.components[column.dataField]) {
+                me.components[column.dataField] = rendererOutput
+            }
+
+            rendererOutput = rendererOutput.createVdomReference()
+        }
 
         switch (Neo.typeOf(rendererOutput)) {
             case 'Object': {
@@ -249,6 +261,19 @@ class Row extends Component {
         }
 
         me.vdom = vdom;
+    }
+
+    /**
+     *
+     */
+    destroy() {
+        let me = this;
+
+        if (me.components) {
+            Object.values(me.components).forEach(component => component.destroy())
+        }
+
+        super.destroy()
     }
 
     /**

@@ -47,12 +47,6 @@ class Component extends Column {
     }
 
     /**
-     * @member {Map} map=new Map()
-     * @protected
-     */
-    map = new Map()
-
-    /**
      * Override as needed inside class extensions
      * @param {Object} config
      * @param {Record} record
@@ -66,21 +60,21 @@ class Component extends Column {
      * @param {Object}             data
      * @param {Neo.column.Base}    data.column
      * @param {Number}             data.columnIndex
+     * @param {Neo.component.Base} [data.component]
      * @param {String}             data.dataField
      * @param {Neo.grid.Container} data.gridContainer
      * @param {Object}             data.record
+     * @param {Neo.grid.Row}       data.row
      * @param {Number}             data.rowIndex
      * @param {Neo.data.Store}     data.store
      * @param {Number|String}      data.value
      * @returns {*}
      */
     cellRenderer(data) {
-        let {gridContainer, record, rowIndex} = data,
-            {appName, body, windowId}         = gridContainer,
+        let {component, gridContainer, record, row} = data,
+            {appName, windowId} = gridContainer,
             me               = this,
             {recordProperty} = me,
-            id               = me.getComponentId(rowIndex),
-            component        = me.map.get(id),
             componentConfig  = me.component;
 
         if (Neo.typeOf(componentConfig) === 'Function') {
@@ -103,43 +97,17 @@ class Component extends Column {
                 ...me.defaults,
                 ...componentConfig,
                 appName,
-                id,
-                parentComponent : body,
+                parentComponent : row,
                 [recordProperty]: record,
                 windowId
-            });
-
-            // We need to ensure that wrapped components always get the same index-based id.
-            if (!component.vdom.id) {
-                component.vdom.id = id + '__wrapper'
-            }
-
-            me.map.set(id, component)
+            })
         }
 
         if (me.useBindings) {
-            body.getStateProvider()?.createBindings(component)
+            gridContainer.body.getStateProvider()?.createBindings(component)
         }
 
-        body.updateDepth = -1;
-
-        return component.createVdomReference()
-    }
-
-    /**
-     * @param {Number} rowIndex
-     * @returns {String}
-     */
-    getComponentId(rowIndex) {
-        let me     = this,
-            {body} = me.parent,
-            store  = body.store; // Access the store from the body
-
-        if (store.chunkingTotal) { // Check if chunking is active
-            return `${me.id}-component-${rowIndex}`; // Use rowIndex directly
-        } else {
-            return `${me.id}-component-${rowIndex % (body.availableRows + 2 * body.bufferRowRange)}`
-        }
+        return component
     }
 
     /**
