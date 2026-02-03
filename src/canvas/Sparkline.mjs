@@ -446,18 +446,16 @@ class Sparkline extends Base {
 
                 // Text Label
                 ctx.font = 'bold 10px sans-serif';
-                ctx.textAlign = 'center';
-
                 let textY = 10;
                 let x = nearestPoint.x;
 
-                // Adjust text alignment if near edges
-                if (x < 30) {
-                    ctx.textAlign = 'left';
-                    x += 5
-                } else if (x > width - 30) {
+                // Always align left (text on right) unless near right edge
+                if (x > width - 50) {
                     ctx.textAlign = 'right';
-                    x -= 5
+                    x -= 6
+                } else {
+                    ctx.textAlign = 'left';
+                    x += 6
                 }
 
                 // Draw Year
