@@ -283,39 +283,47 @@ class Sparkline extends Base {
             colors        = me.constructor.colors[theme] || me.constructor.colors.light,
             pulseProgress = config?.pulseProgress;
 
-        // Handle DPR Scaling
-        // Only reset transform if we are doing a full redraw (no pulse config)
+        // Handle DPR Scaling & Clearing
         if (pulseProgress === undefined) {
-            item.canvas.width  = width  * devicePixelRatio;
-            item.canvas.height = height * devicePixelRatio;
-            ctx.scale(devicePixelRatio, devicePixelRatio)
+            let pixelWidth  = width  * devicePixelRatio,
+                pixelHeight = height * devicePixelRatio;
+
+            // Only resize if dimensions changed (avoids context reset)
+            if (item.canvas.width !== pixelWidth || item.canvas.height !== pixelHeight) {
+                item.canvas.width  = pixelWidth;
+                item.canvas.height = pixelHeight;
+                ctx.scale(devicePixelRatio, devicePixelRatio)
+            } else {
+                ctx.clearRect(0, 0, width, height)
+            }
         } else {
             // For pulse, we clear the canvas to redraw this frame
             ctx.clearRect(0, 0, width, height)
         }
 
         if (!Array.isArray(values) || values.length < 2) {
-            ctx.clearRect(0, 0, width, height);
             return
         }
 
-        let len     = values.length,
-            max     = Math.max(...values),
-            min     = Math.min(...values),
-            range   = max - min || 1,
-            padding = 4,
-            h       = height - (padding * 2),
-            stepX   = width / (len - 1);
+        let len      = values.length,
+            max      = Math.max(...values),
+            min      = Math.min(...values),
+            range    = max - min || 1,
+            paddingY = 6,
+            paddingX = 4,
+            h        = height - (paddingY * 2),
+            w        = width  - (paddingX * 2),
+            stepX    = w / (len - 1);
 
         // Calculate or retrieve cached points
-        if (!item.points || pulseProgress === undefined) {
+        if (!item.points) {
             item.points = [];
             item.totalLength = 0;
 
             values.forEach((val, index) => {
                 let normalized = (val - min) / range,
-                    x = index * stepX,
-                    y = height - padding - (normalized * h),
+                    x = paddingX + index * stepX,
+                    y = height - paddingY - (normalized * h),
                     point = {
                         x        : x,
                         y        : y,
@@ -349,14 +357,6 @@ class Sparkline extends Base {
         }
 
         let points = item.points;
-
-        // Note: For pulse animation, we might want to optimize by NOT clearing/redrawing the base chart
-        // if we could draw on a layer, but since we are single-canvas per item, we must redraw the scene.
-        // Fortunately, simple paths are cheap.
-
-        if (pulseProgress === undefined) {
-             ctx.clearRect(0, 0, width, height)
-        }
 
         // 1. Draw Base Chart
         // Gradient
@@ -536,13 +536,6 @@ class Sparkline extends Base {
              ctx.arc(x, y, 1.5, 0, Math.PI * 2);
              ctx.fillStyle = pulseColor; // Trend Color
              ctx.fill()
-        } else {
-            // Only draw End Point
-            let lastPoint = points[len - 1];
-            ctx.beginPath();
-            ctx.arc(lastPoint.x, lastPoint.y, 1.5, 0, Math.PI * 2);
-            ctx.fillStyle = colors.marker;
-            ctx.fill()
         }
     }
 }
