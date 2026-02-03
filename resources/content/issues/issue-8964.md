@@ -10,14 +10,19 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-02-03T13:44:03Z'
-updatedAt: '2026-02-03T13:50:43Z'
+updatedAt: '2026-02-03T19:06:29Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8964'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: null
-subIssues: []
-subIssuesCompleted: 0
-subIssuesTotal: 0
+subIssues:
+  - '[x] 8965 feat: Create Neo.grid.Row component (#8964)'
+  - '[x] 8966 refactor: Upgrade Neo.grid.Body to Container and implement Row Pooling (#8964)'
+  - '[x] 8967 feat: Implement Reactive Record Updates in Neo.grid.Row (#8964)'
+  - '[x] 8968 refactor: Migrate Component Columns to use Neo.grid.Row lifecycle (#8964)'
+  - '[ ] 8969 perf: Implement Batching and Silent Updates for Grid Scrolling (#8964)'
+subIssuesCompleted: 4
+subIssuesTotal: 5
 blockedBy: []
 blocking: []
 ---
@@ -93,4 +98,62 @@ Refactor the Grid to use a "Composed Architecture" where each row is a `Neo.comp
 > 3.  Triggers a single, consolidated update from the `Grid.Body` (or utilizes the `VdomUpdate` manager's batching capabilities explicitly) to flush all changes in one go.
 > This ensures the Grid updates atomically, preventing "tearing" artifacts and minimizing IPC overhead.
 
+### @tobiu - 2026-02-03T18:05:00Z
+
+**Input from Gemini 3 Pro:**
+
+> ✦ I have analyzed the RFC and the codebase. This is a transformative refactor.
+> 
+> Here is the proposed breakdown of sub-tickets to tackle Epic #8964.
+> 
+> ### **Phase 1: Foundation**
+> 
+> **1. Scaffold `Neo.grid.Row` Component**
+>    - **Goal:** Create the `Neo.grid.Row` class.
+>    - **Scope:**
+>      - Create `src/grid/Row.mjs` extending `Neo.component.Base`.
+>      - Migrate the cell rendering logic (HTML/Text cells) from `Body.createRow` to `Row.mjs`.
+>      - Define configs: `record`, `rowIndex`, `columns` (passed from Body).
+>      - **Deliverable:** A Row component that can generate its own VDOM for standard cells.
+> 
+> **2. Refactor `Neo.grid.Body` to use Row Pooling**
+>    - **Goal:** Replace monolithic VDOM generation with a pool of Row components.
+>    - **Scope:**
+>      - **Architectural Decision:** Should `Neo.grid.Body` be upgraded to extend `Neo.container.Base` to natively handle `items`? Or should we manually manage the lifecycle of Row components within `Component` to avoid Layout overhead? (RFC implies "standard items", suggesting `Container`).
+>      - Implement `createRowPool(size)` to instantiate `Neo.grid.Row` instances.
+>      - Update `createViewData` and `updateMountedAndVisibleRows` to recycle these instances (`row.set({record, rowIndex})`) instead of creating raw VDOM.
+>      - **Deliverable:** The Grid renders using `Neo.grid.Row` instances.
+> 
+> ### **Phase 2: Reactivity & Features**
+> 
+> **3. Implement Granular Updates (Data Binding)**
+>    - **Goal:** Enable O(1) updates for single record changes.
+>    - **Scope:**
+>      - Refactor `Body.onStoreRecordChange`.
+>      - Remove manual VDOM manipulation (`updateCellNode`).
+>      - Logic: Find the matching `Row` instance $\rightarrow$ call `row.set({record})` $\rightarrow$ Row updates its own VDOM.
+>      - **Deliverable:** Editing a record updates only that Row's VDOM.
+> 
+> **4. Migrate Component Columns (The "Zombie Canvas" Fix)**
+>    - **Goal:** Move component cell management to the Row.
+>    - **Scope:**
+>      - Refactor `Neo.grid.column.Component`.
+>      - Move `cleanupComponentInstances` logic from Body to Row.
+>      - `Row` automatically instantiates/destroys cell components (like Sparklines) based on its state.
+>      - **Deliverable:** Sparklines/Widgets work inside the new Row architecture.
+> 
+> ### **Phase 3: Optimization**
+> 
+> **5. Performance: Batching & Silent Updates**
+>    - **Goal:** Ensure scrolling performance matches or exceeds the current implementation.
+>    - **Scope:**
+>      - Implement `silentVdomUpdate: true` for Row updates during scroll.
+>      - Implement the batch flush in `Grid.Body` (as noted in the RFC).
+>      - Benchmarking.
+
+- 2026-02-03T18:31:24Z @tobiu added sub-issue #8965
+- 2026-02-03T18:31:26Z @tobiu added sub-issue #8966
+- 2026-02-03T18:31:28Z @tobiu added sub-issue #8967
+- 2026-02-03T18:31:30Z @tobiu added sub-issue #8968
+- 2026-02-03T18:31:32Z @tobiu added sub-issue #8969
 
