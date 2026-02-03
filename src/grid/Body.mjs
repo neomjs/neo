@@ -659,7 +659,6 @@ class GridBody extends Container {
         let me          = this,
             cells       = [],
             columnIndex = -1,
-            vdomRoot    = me.getVdomRoot(),
             firstRow    = me.items[0].vdom,
             i           = 0,
             len         = firstRow.cn.length,
@@ -674,8 +673,8 @@ class GridBody extends Container {
         }
 
         if (columnIndex > -1) {
-            vdomRoot.cn.forEach(row => {
-                cell = row.cn[columnIndex];
+            me.items.forEach(row => {
+                cell = row.vdom.cn[columnIndex];
                 cell && cells.push(cell)
             })
         }
