@@ -1,7 +1,7 @@
 ---
 id: 8964
 title: 'RFC: Component-Based Grid Rows (Neo.grid.Row) for Granular Updates'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - epic
@@ -10,10 +10,10 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-02-03T13:44:03Z'
-updatedAt: '2026-02-03T19:06:29Z'
+updatedAt: '2026-02-04T14:05:38Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8964'
 author: tobiu
-commentsCount: 2
+commentsCount: 3
 parentIssue: null
 subIssues:
   - '[x] 8965 feat: Create Neo.grid.Row component (#8964)'
@@ -32,10 +32,12 @@ subIssues:
   - '[x] 8979 Refactor Selection Models: Phase 2 (Cell & Column)'
   - '[x] 8984 Fix Grid Row Reactivity & AnimatedChange Column for In-Place Updates'
   - '[x] 8985 refactor: Add getRow helper to GridBody'
-subIssuesCompleted: 16
-subIssuesTotal: 16
+  - '[x] 8986 docs: Knowledge Base Enhancement Strategy for Grid Classes (#8964)'
+subIssuesCompleted: 17
+subIssuesTotal: 17
 blockedBy: []
 blocking: []
+closedAt: '2026-02-04T14:05:38Z'
 ---
 # RFC: Component-Based Grid Rows (Neo.grid.Row) for Granular Updates
 
@@ -178,4 +180,16 @@ Refactor the Grid to use a "Composed Architecture" where each row is a `Neo.comp
 - 2026-02-04T10:23:17Z @tobiu added sub-issue #8979
 - 2026-02-04T13:10:39Z @tobiu added sub-issue #8984
 - 2026-02-04T13:33:28Z @tobiu added sub-issue #8985
+- 2026-02-04T13:51:35Z @tobiu added sub-issue #8986
+- 2026-02-04T14:00:16Z @tobiu referenced in commit `875ed77` - "docs: Knowledge Base Enhancement Strategy for Grid Classes (#8964) #8986"
+- 2026-02-04T14:03:39Z @tobiu referenced in commit `126ae36` - "feat: Grid Row Architecture Refactor (Epic #8964)
+
+# Conflicts:
+#	resources/content/.sync-metadata.json
+#	resources/content/issues/issue-8964.md"
+### @tobiu - 2026-02-04T14:05:38Z
+
+resolved.
+
+- 2026-02-04T14:05:38Z @tobiu closed this issue
 
