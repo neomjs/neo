@@ -918,23 +918,18 @@ class GridBody extends Container {
             rowIndex                      = me.store.indexOf(record),
             {mountedRows, selectionModel} = me,
             poolSize                      = me.items.length,
-            column, itemIndex, needsUpdate, recordId, row;
+            itemIndex, recordId, row;
 
         if (fieldNames.includes(me.colspanField)) {
-            // Full row rebuild needed? Row component handles it via createVdom
-            needsUpdate = true
+            me.createViewData()
         } else {
             if (rowIndex >= mountedRows[0] && rowIndex <= mountedRows[1]) {
                 itemIndex = rowIndex % poolSize;
                 row       = me.items[itemIndex];
 
                 if (row) {
-                    row.record = record; // Triggers update
+                    row.createVdom()
                 }
-
-                // Component columns might need manual triggers?
-                // No, Row component should handle this eventually.
-                // For now, we assume Row component handles content.
 
                 fields.forEach(field => {
                     if (field.name === me.selectedRecordField) {
