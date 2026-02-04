@@ -72,15 +72,8 @@ class Row extends Component {
             colspan                = record[gridBody.colspanField],
             {dataField}            = column,
             {model}                = store,
-            fieldValue             = record[dataField],
+            fieldValue             = record.get(dataField),
             cellConfig, rendererOutput;
-
-        if (!model.getField(dataField)) {
-            let nsArray   = dataField.split('.'),
-                fieldName = nsArray.pop();
-
-            fieldValue = Neo.ns(nsArray, false, record[Symbol.for('data')])?.[fieldName]
-        }
 
         if (fieldValue === null || fieldValue === undefined) {
             fieldValue = ''

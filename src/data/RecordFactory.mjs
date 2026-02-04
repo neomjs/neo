@@ -182,6 +182,22 @@ class RecordFactory extends Base {
                     }
 
                     /**
+                     * @param {String} field
+                     * @returns {*}
+                     */
+                    get(field) {
+                        if (model.getField(field)) {
+                            return this[field]
+                        }
+
+                        if (field.includes('.')) {
+                            return Neo.ns(field, false, this[dataSymbol])
+                        }
+
+                        return this[dataSymbol][field]
+                    }
+
+                    /**
                      * @param {String} fieldName
                      * @returns {Boolean|null} null in case the model does not use trackModifiedFields, true in case a change was found
                      */
