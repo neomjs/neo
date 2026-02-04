@@ -36,6 +36,32 @@ class BaseModel extends Model {
     }
 
     /**
+     * @param {Object} item
+     * @param {Boolean} [silent] true to prevent a vdom update
+     * @param {Object[]|String[]} itemCollection=this.items
+     * @param {String} [selectedCls]
+     */
+    deselect(item, silent, itemCollection, selectedCls) {
+        if (!silent) {
+            this.view.updateDepth = 2
+        }
+
+        super.deselect(item, silent, itemCollection, selectedCls)
+    }
+
+    /**
+     * @param {Boolean} [silent] true to prevent a vdom update
+     * @param {Object[]|String[]} itemCollection=this.items
+     */
+    deselectAll(silent, itemCollection) {
+        if (!silent) {
+            this.view.updateDepth = 2
+        }
+
+        super.deselectAll(silent, itemCollection)
+    }
+
+    /**
      * @param {Boolean} [silent=false] true to prevent a vdom update
      */
     deselectAllRows(silent=false) {
@@ -152,6 +178,16 @@ class BaseModel extends Model {
      */
     isSelectedRow(recordId) {
         return this.selectedRows.includes(recordId)
+    }
+
+    /**
+     * @param {Object|Object[]|String[]} items
+     * @param {Object[]|String[]} itemCollection=this.items
+     * @param {String} [selectedCls]
+     */
+    select(items, itemCollection, selectedCls) {
+        this.view.updateDepth = 2;
+        super.select(items, itemCollection, selectedCls)
     }
 
     /**
