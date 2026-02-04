@@ -9,10 +9,10 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-02-04T00:37:27Z'
-updatedAt: '2026-02-04T01:02:38Z'
+updatedAt: '2026-02-04T01:07:35Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8977'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: 8964
 subIssues: []
 subIssuesCompleted: 0
@@ -88,4 +88,8 @@ Instead of creating new component instances, we will "borrow" the DOM content fr
 > Drag operations for heavy components like `OffscreenCanvas` are now performant (no re-instantiation) and visually perfect (live state preserved).
 
 - 2026-02-04T01:02:38Z @tobiu closed this issue
+### @tobiu - 2026-02-04T01:07:35Z
+
+resolved.
+
 
