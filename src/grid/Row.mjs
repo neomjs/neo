@@ -79,7 +79,7 @@ class Row extends Component {
             let nsArray   = dataField.split('.'),
                 fieldName = nsArray.pop();
 
-            fieldValue = Neo.ns(nsArray, false, record[Symbol.for('data')])?.[fieldName]
+            fieldValue = Neo.ns(nsArray, false, record.get(fieldName))
         }
 
         if (fieldValue === null || fieldValue === undefined) {
@@ -239,20 +239,26 @@ class Row extends Component {
 
         vdom.cls = rowCls;
 
-        // Pass 1: Render Pooled Cells (hideMode === 'removeDom')
-        // We only render these if they are within the mounted range.
-        // This loop is O(Viewport) - highly efficient.
+        let activeCellMap = {},
+            poolSize      = gridBody.cellPoolSize;
+
+        // Step 1: Map active columns to their pool indices
         for (i=mountedColumns[0]; i <= mountedColumns[1]; i++) {
             column = columns.getAt(i);
+            if (column && column.hideMode === 'removeDom') {
+                activeCellMap[i % poolSize] = {column, i};
+            }
+        }
 
-            // Sanity check for bounds (e.g. if column count changed)
-            if (!column) continue;
+        // Step 2: Render the full pool to maintain stable VDOM structure
+        for (i=0; i < poolSize; i++) {
+            if (activeCellMap[i]) {
+                let {column, i: columnIndex} = activeCellMap[i];
 
-            if (column.hideMode === 'removeDom') {
                 cellConfig = me.applyRendererOutput({
-                    cellId     : `${me.id}__cell-${i % gridBody.cellPoolSize}`,
+                    cellId     : `${me.id}__cell-${i}`,
                     column,
-                    columnIndex: i,
+                    columnIndex,
                     record,
                     rowIndex,
                     silent
@@ -264,22 +270,28 @@ class Row extends Component {
 
                 columnPosition = gridBody.columnPositions.get(column.dataField);
 
-                if (!columnPosition) {
-                    continue
-                }
+                if (columnPosition) {
+                    cellConfig.style = {
+                        ...cellConfig.style,
+                        left : columnPosition.x     + 'px',
+                        width: columnPosition.width + 'px'
+                    };
 
-                cellConfig.style = {
-                    ...cellConfig.style,
-                    left : columnPosition.x     + 'px',
-                    width: columnPosition.width + 'px'
-                };
-
-                // Happens during a column header drag OP, when leaving the painted range
-                if (columnPosition.hidden) {
-                    cellConfig.style.visibility = 'hidden'
+                    if (columnPosition.hidden) {
+                        cellConfig.style.visibility = 'hidden'
+                    }
+                } else {
+                    cellConfig.style = {display: 'none'}
                 }
 
                 vdom.cn.push(cellConfig)
+            } else {
+                // Render placeholder to keep ID stable
+                vdom.cn.push({
+                    id   : `${me.id}__cell-${i}`,
+                    cls  : ['neo-grid-cell'],
+                    style: {display: 'none'}
+                })
             }
         }
 
