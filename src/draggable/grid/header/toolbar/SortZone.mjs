@@ -67,23 +67,54 @@ class SortZone extends BaseSortZone {
 
         config.style.height = `${rect.height - 2}px`; // minus border-bottom & border-top
 
+        let moveDeltas = [],
+            proxyCell, proxyCellId;
+
+        me.movedComponents = [];
+
         cells.forEach((cell, index) => {
             rowComponent = body.items[index];
 
             row = VdomUtil.clone({ // clone to remove ids
                 cls  : rowComponent.vdom.cls,
-                cn   : [cell],
                 style: rowComponent.vdom.style
             });
 
-            delete row.cn[0].style.left;
+            proxyCell = VdomUtil.clone(cell);
+            delete proxyCell.id;
+            delete proxyCell.style.left;
 
+            proxyCellId  = Neo.getId('proxy-cell');
+            proxyCell.id = proxyCellId;
+
+            if (cell.cn && cell.cn.length > 0) {
+                let content   = cell.cn[0],
+                    contentId = content.id || content.componentId;
+
+                if (contentId) {
+                    proxyCell.cn = [];
+
+                    moveDeltas.push({
+                        action  : 'moveNode',
+                        id      : contentId,
+                        index   : 0,
+                        parentId: proxyCellId
+                    });
+
+                    me.movedComponents.push({
+                        id              : contentId,
+                        originalParentId: cell.id
+                    })
+                }
+            }
+
+            row.cn = [proxyCell];
             rows.push(row)
         });
 
         config.vdom =
         {cn: [
-            {cls: ['neo-grid-container'], cn: [
+            {cls: ['neo-grid-container', ...grid.cls], cn: [
                 {...config.vdom, cls: ['neo-grid-header-toolbar', 'neo-toolbar']},
                 {cls: ['neo-grid-body-wrapper'], id: bodyWrapperId, cn: [
                     {cls: ['neo-grid-body'], cn: rows},
@@ -98,7 +129,11 @@ class SortZone extends BaseSortZone {
                     id      : bodyWrapperId,
                     value   : body.scrollTop,
                     windowId: me.windowId
-                })
+                });
+
+                if (moveDeltas.length > 0) {
+                    Neo.applyDeltas(me.windowId, moveDeltas)
+                }
             }
         };
 
@@ -122,6 +157,18 @@ class SortZone extends BaseSortZone {
      * @param {Object} data
      */
     async onDragEnd(data) {
+        if (this.movedComponents?.length > 0) {
+            let restoreDeltas = this.movedComponents.map(item => ({
+                action  : 'moveNode',
+                id      : item.id,
+                index   : 0,
+                parentId: item.originalParentId
+            }));
+
+            await Neo.applyDeltas(this.windowId, restoreDeltas);
+            this.movedComponents = null
+        }
+
         await super.onDragEnd(data);
 
         let {owner} = this;
