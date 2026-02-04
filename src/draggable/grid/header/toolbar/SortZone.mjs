@@ -160,6 +160,7 @@ class SortZone extends BaseSortZone {
                 cell.style.visibility = 'hidden'
             });
 
+            body.updateDepth = -1;
             body.update()
         }
     }
@@ -203,6 +204,7 @@ class SortZone extends BaseSortZone {
                 node.style.width = column2Position.width + 'px'
             });
 
+            body.updateDepth = -1;
             body.update()
         }
     }
