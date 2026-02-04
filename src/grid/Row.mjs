@@ -2,8 +2,20 @@ import Component from '../component/Base.mjs';
 import NeoArray  from '../util/Array.mjs';
 
 /**
+ * @summary Represents a single visible row in the Grid.
+ *
+ * `Neo.grid.Row` is a specialized component designed for the **Row Pooling** architecture.
+ * It is NOT destroyed when a record scrolls off-screen. Instead, it is **recycled**:
+ * its `record` and `rowIndex` configs are updated to display new data.
+ *
+ * Key Responsibilities:
+ * -   **Cell Rendering:** Generates the VDOM for all cells in the row based on the columns config.
+ * -   **Granular Updates:** When a bound record changes, only this specific Row instance updates its VDOM, avoiding a full Grid re-render.
+ * -   **Component Management:** Manages the lifecycle of cell components (e.g., Sparklines, Widgets) defined in `Neo.grid.column.Component`.
+ *
  * @class Neo.grid.Row
  * @extends Neo.component.Base
+ * @see Neo.grid.Body
  */
 class Row extends Component {
     static config = {
@@ -292,10 +304,16 @@ class Row extends Component {
     }
 
     /**
+     * Updates the content of this Row instance to display a new record.
+     *
+     * This is the core method of the Row Pooling architecture. It is called by `Neo.grid.Body`
+     * during scrolling or rendering. It updates the internal state (`record`, `rowIndex`)
+     * and triggers a VDOM update to reflect the new data.
+     *
      * @param {Object} data
-     * @param {Object} data.record
-     * @param {Number} data.rowIndex
-     * @param {Boolean} [data.silent=false]
+     * @param {Object} data.record The new record to display.
+     * @param {Number} data.rowIndex The new row index.
+     * @param {Boolean} [data.silent=false] True to prevent an immediate VDOM update (useful for batching).
      */
     updateContent({record, rowIndex, silent=false}) {
         let me = this;

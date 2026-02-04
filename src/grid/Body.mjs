@@ -6,8 +6,22 @@ import RowModel        from '../selection/grid/RowModel.mjs';
 import VDomUtil        from '../util/VDom.mjs';
 
 /**
+ * @summary Manages the scrollable viewport and row rendering for the Grid.
+ *
+ * `Neo.grid.Body` is the engine behind the Grid's virtual scrolling. Instead of creating a component for every record
+ * in the store, it uses a **Row Pooling** architecture:
+ *
+ * 1.  It creates a fixed pool of {@link Neo.grid.Row} components based on the visible height + a buffer.
+ * 2.  As the user scrolls, these Row instances are recycled. Their `record` and `rowIndex` configs are updated via
+ *     {@link Neo.grid.Row#updateContent}, triggering a lightweight VDOM update.
+ * 3.  It calculates the `mountedRows` (rendered DOM nodes) and `visibleRows` (viewport intersection) to optimize rendering.
+ *
+ * This architecture ensures O(1) performance for record updates and constant memory usage regardless of dataset size.
+ *
  * @class Neo.grid.Body
  * @extends Neo.container.Base
+ * @see Neo.grid.Row
+ * @see Neo.grid.Container
  */
 class GridBody extends Container {
     static config = {
@@ -507,7 +521,12 @@ class GridBody extends Container {
     }
 
     /**
-     * Ensures we have enough Row components in the pool
+     * Initializes or expands the pool of `Neo.grid.Row` instances.
+     *
+     * This method calculates the number of rows needed to cover the viewport plus the buffer range.
+     * If the current number of child items (Rows) is less than required, it creates new instances
+     * and adds them to the container. This ensures we have enough "physical" rows to recycle during scrolling.
+     *
      * @protected
      */
     createRowPool() {
@@ -535,7 +554,16 @@ class GridBody extends Container {
     }
 
     /**
-     * @param {Boolean} silent=false
+     * The main rendering loop for the Grid Body.
+     *
+     * This method:
+     * 1.  Calculates the range of records to render based on scroll position.
+     * 2.  Calls `createRowPool` to ensure enough Row components exist.
+     * 3.  Iterates through the visible record range.
+     * 4.  **Recycles** existing Row components by calling {@link Neo.grid.Row#updateContent} with the new record data.
+     * 5.  Updates the scroll spacer height.
+     *
+     * @param {Boolean} silent=false True to suppress the final VDOM update (used when batching).
      */
     createViewData(silent=false) {
         let me                   = this,
