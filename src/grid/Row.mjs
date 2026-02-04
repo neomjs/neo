@@ -60,9 +60,10 @@ class Row extends Component {
      * @param {Number} data.columnIndex
      * @param {Object} data.record
      * @param {Number} data.rowIndex
+     * @param {Boolean} [data.silent]
      * @returns {Object}
      */
-    applyRendererOutput({cellId, column, columnIndex, record, rowIndex}) {
+    applyRendererOutput({cellId, column, columnIndex, record, rowIndex, silent}) {
         let me                     = this,
             gridContainer          = me.parent.parent, // Row -> Body -> GridContainer
             gridBody               = me.parent,
@@ -98,6 +99,7 @@ class Row extends Component {
             record,
             row: me,
             rowIndex,
+            silent,
             store,
             value: fieldValue
         });
@@ -191,18 +193,18 @@ class Row extends Component {
      * @param {Boolean} [silent=false]
      */
     createVdom(silent=false) {
-        let me            = this,
-            record        = me.record,
-            rowIndex      = me.rowIndex,
-            gridBody      = me.parent, // The Row is an item of Body
-            gridContainer = gridBody.parent,
-            {columns}     = gridContainer,
-            {selectedRows} = gridBody,
-            recordId      = record[gridBody.store.getKeyProperty()],
-            countColumns  = columns.getCount(),
+        let me               = this,
+            record           = me.record,
+            rowIndex         = me.rowIndex,
+            gridBody         = me.parent, // The Row is an item of Body
+            gridContainer    = gridBody.parent,
+            {columns}        = gridContainer,
+            {selectedRows}   = gridBody,
+            recordId         = record[gridBody.store.getKeyProperty()],
+            countColumns     = columns.getCount(),
             {mountedColumns} = gridBody,
-            cellConfig, column, columnPosition, i, isMounted,
-            vdom = me.vdom;
+            vdom = me.vdom,
+            cellConfig, column, columnPosition, i, isMounted;
 
         Object.assign(vdom, {
             'aria-rowindex': rowIndex + 2, // header row => 1, first body row => 2
@@ -245,7 +247,7 @@ class Row extends Component {
                 continue
             }
 
-            cellConfig = me.applyRendererOutput({column, columnIndex: i, record, rowIndex});
+            cellConfig = me.applyRendererOutput({column, columnIndex: i, record, rowIndex, silent});
 
             if (column.dock) {
                 cellConfig.cls = ['neo-locked', ...cellConfig.cls || []]

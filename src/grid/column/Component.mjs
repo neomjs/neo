@@ -71,7 +71,7 @@ class Component extends Column {
      * @returns {*}
      */
     cellRenderer(data) {
-        let {component, gridContainer, record, row} = data,
+        let {component, gridContainer, record, row, silent} = data,
             {appName, windowId} = gridContainer,
             me               = this,
             {recordProperty} = me,
@@ -91,7 +91,7 @@ class Component extends Column {
 
             componentConfig[recordProperty] = record;
 
-            component.set(componentConfig)
+            component.set(componentConfig, silent)
         } else {
             component = Neo.create({
                 ...me.defaults,
