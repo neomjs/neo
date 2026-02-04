@@ -55,24 +55,25 @@ class SortZone extends BaseSortZone {
             grid          = me.owner.parent,
             {body}        = grid,
             bodyWrapperId = Neo.getId('grid-body-wrapper'),
-            gridRows      = body.getVdomRoot().cn,
             columnIndex   = me.dragElement['aria-colindex'] - 1,
             {dataField}   = body.columnPositions.getAt(columnIndex),
             cells         = body.getColumnCells(dataField),
             rows          = [],
             config        = await super.createDragProxy(data, false),
             rect          = await grid.getDomRect(),
-            row;
+            row, rowComponent;
 
         config.cls = ['neo-grid-wrapper', me.owner.getTheme()];
 
         config.style.height = `${rect.height - 2}px`; // minus border-bottom & border-top
 
         cells.forEach((cell, index) => {
+            rowComponent = body.items[index];
+
             row = VdomUtil.clone({ // clone to remove ids
-                cls  : gridRows[index].cls,
+                cls  : rowComponent.vdom.cls,
                 cn   : [cell],
-                style: gridRows[index].style
+                style: rowComponent.vdom.style
             });
 
             delete row.cn[0].style.left;
