@@ -347,8 +347,6 @@ class GridBody extends Container {
         value > 0 && this.updateMountedAndVisibleColumns()
     }
 
-
-
     /**
      * Triggered after the isScrolling config got changed
      * @param {Number} value
@@ -566,8 +564,13 @@ class GridBody extends Container {
      * @param {Boolean} silent=false True to suppress the final VDOM update (used when batching).
      */
     createViewData(silent=false) {
-        let me                   = this,
-            {mountedRows, store} = me,
+        let me = this;
+
+        if (me.skipCreateViewData) {
+            return
+        }
+
+        let {mountedRows, store} = me,
             endIndex, i, item, itemIndex, poolSize, range;
 
         if (

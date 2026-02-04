@@ -11,9 +11,10 @@ class ScrollManager extends Base {
      * @static
      */
     static delayable = {
-        onBodyScroll     : {type: 'throttle', timer:  16},
+       // onBodyScroll     : {type: 'throttle', timer:  10},
         onBodyScrollEnd  : {type: 'buffer',   timer: 150},
-        onContainerScroll: {type: 'throttle', timer:  16}
+       // onContainerScroll: {type: 'throttle', timer:  16},
+        syncGridBody     : {type: 'throttle', timer:  10}
     }
 
     static config = {
@@ -94,14 +95,13 @@ class ScrollManager extends Base {
      * @protected
      */
     onBodyScroll({scrollTop}) {
-        let me   = this,
-            body = me.gridBody;
+        let me = this;
 
-        me.scrollTop = scrollTop;
+        me.scrollTop           = scrollTop;
+        me.gridBody.isScrolling = true;
 
-        body.set({isScrolling: true, scrollTop});
-
-        me.onBodyScrollEnd()
+        me.onBodyScrollEnd();
+        me.syncGridBody()
     }
 
     /**
@@ -117,19 +117,36 @@ class ScrollManager extends Base {
      * @param {Object} data.target
      */
     onContainerScroll({scrollLeft, target}) {
-        let me   = this,
-            body = me.gridBody;
+        let me = this;
 
         // We must ignore events for grid-scrollbar
         if (target.id.includes('grid-container')) {
-            body.isScrolling = true;
+            me.scrollLeft          = scrollLeft;
+            me.gridBody.isScrolling = true;
+
             me.onBodyScrollEnd();
-
-            me  .scrollLeft = scrollLeft;
-            body.scrollLeft = scrollLeft;
-
-            me.gridContainer.headerToolbar.scrollLeft = scrollLeft
+            me.syncGridBody()
         }
+    }
+
+    /**
+     * @protected
+     */
+    syncGridBody() {
+        let me   = this,
+            body = me.gridBody;
+
+        body.skipCreateViewData = true;
+
+        body.set({
+            scrollLeft: me.scrollLeft,
+            scrollTop : me.scrollTop
+        });
+
+        body.skipCreateViewData = false;
+        body.createViewData();
+
+        me.gridContainer.headerToolbar.scrollLeft = me.scrollLeft
     }
 
     /**
