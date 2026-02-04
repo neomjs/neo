@@ -743,6 +743,23 @@ class GridBody extends Container {
     }
 
     /**
+     * @param {Object} record
+     * @returns {Neo.grid.Row|null}
+     */
+    getRow(record) {
+        let me       = this,
+            rowIndex = me.store.indexOf(record),
+            itemIndex;
+
+        if (rowIndex > -1 && rowIndex >= me.mountedRows[0] && rowIndex <= me.mountedRows[1]) {
+            itemIndex = rowIndex % me.items.length;
+            return me.items[itemIndex]
+        }
+
+        return null
+    }
+
+    /**
      * Override this method to apply custom CSS rules to grid rows
      * @param {Object} record
      * @param {Number} rowIndex

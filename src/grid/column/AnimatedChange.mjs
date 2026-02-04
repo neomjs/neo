@@ -63,7 +63,7 @@ class AnimatedChange extends Column {
                 await me.timeout(20);
 
                 let {body} = me.parent,
-                    row    = body.items[body.store.indexOf(record) % body.items.length],
+                    row    = body.getRow(record),
                     cellId, node;
 
                 if (row) {
