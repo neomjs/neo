@@ -2,5 +2,6 @@
     "appPath"    : "apps/devrank/app.mjs",
     "basePath"   : "../../",
     "environment": "development",
-    "mainPath"   : "./Main.mjs"
+    "mainPath"   : "./Main.mjs",
+    "themes"     : ["neo-theme-neo-dark", "neo-theme-neo-light"]
 }
