@@ -239,46 +239,99 @@ class Row extends Component {
 
         vdom.cls = rowCls;
 
-        for (i=0; i < countColumns; i++) {
-            isMounted = i >= mountedColumns[0] && i <= mountedColumns[1];
-            column    = columns.getAt(i);
+        // Pass 1: Render Pooled Cells (hideMode === 'removeDom')
+        // We only render these if they are within the mounted range.
+        // This loop is O(Viewport) - highly efficient.
+        for (i=mountedColumns[0]; i <= mountedColumns[1]; i++) {
+            column = columns.getAt(i);
 
-            if (!isMounted && column.hideMode === 'removeDom') {
-                continue
-            }
+            // Sanity check for bounds (e.g. if column count changed)
+            if (!column) continue;
 
-            cellConfig = me.applyRendererOutput({column, columnIndex: i, record, rowIndex, silent});
+            if (column.hideMode === 'removeDom') {
+                cellConfig = me.applyRendererOutput({
+                    cellId     : `${me.id}__cell-${i % gridBody.cellPoolSize}`,
+                    column,
+                    columnIndex: i,
+                    record,
+                    rowIndex,
+                    silent
+                });
 
-            if (column.dock) {
-                cellConfig.cls = ['neo-locked', ...cellConfig.cls || []]
-            }
+                if (column.dock) {
+                    cellConfig.cls = ['neo-locked', ...cellConfig.cls || []]
+                }
 
-            columnPosition = gridBody.columnPositions.get(column.dataField);
+                columnPosition = gridBody.columnPositions.get(column.dataField);
 
-            if (!columnPosition) {
-                continue
-            }
+                if (!columnPosition) {
+                    continue
+                }
 
-            cellConfig.style = {
-                ...cellConfig.style,
-                left : columnPosition.x     + 'px',
-                width: columnPosition.width + 'px'
-            };
+                cellConfig.style = {
+                    ...cellConfig.style,
+                    left : columnPosition.x     + 'px',
+                    width: columnPosition.width + 'px'
+                };
 
-            // Happens during a column header drag OP, when leaving the painted range
-            if (isMounted) {
+                // Happens during a column header drag OP, when leaving the painted range
                 if (columnPosition.hidden) {
                     cellConfig.style.visibility = 'hidden'
                 }
-            } else {
-                if (column.hideMode === 'visibility') {
-                    cellConfig.style.visibility = 'hidden'
-                } else if (column.hideMode === 'display') {
-                    cellConfig.style.display = 'none'
-                }
-            }
 
-            vdom.cn.push(cellConfig)
+                vdom.cn.push(cellConfig)
+            }
+        }
+
+        // Pass 2: Render Permanent Cells (hideMode !== 'removeDom')
+        // We MUST render these even if they are off-screen to preserve their DOM state (e.g. Canvas context).
+        // This loop is O(TotalColumns), but typically few columns use this mode.
+        for (i=0; i < countColumns; i++) {
+            column = columns.getAt(i);
+
+            if (column.hideMode !== 'removeDom') {
+                isMounted = i >= mountedColumns[0] && i <= mountedColumns[1];
+
+                cellConfig = me.applyRendererOutput({
+                    cellId     : `${me.id}__${column.dataField}`,
+                    column,
+                    columnIndex: i,
+                    record,
+                    rowIndex,
+                    silent
+                });
+
+                if (column.dock) {
+                    cellConfig.cls = ['neo-locked', ...cellConfig.cls || []]
+                }
+
+                columnPosition = gridBody.columnPositions.get(column.dataField);
+
+                if (!columnPosition) {
+                    continue
+                }
+
+                cellConfig.style = {
+                    ...cellConfig.style,
+                    left : columnPosition.x     + 'px',
+                    width: columnPosition.width + 'px'
+                };
+
+                // Visibility Logic
+                if (isMounted) {
+                    if (columnPosition.hidden) {
+                        cellConfig.style.visibility = 'hidden'
+                    }
+                } else {
+                    if (column.hideMode === 'visibility') {
+                        cellConfig.style.visibility = 'hidden'
+                    } else if (column.hideMode === 'display') {
+                        cellConfig.style.display = 'none'
+                    }
+                }
+
+                vdom.cn.push(cellConfig)
+            }
         }
 
         !silent && me.update()

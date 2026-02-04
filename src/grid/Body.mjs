@@ -78,6 +78,14 @@ class GridBody extends Container {
          */
         bufferRowRange_: 3,
         /**
+         * The pool size for recyclable cells.
+         * Auto-calculated based on mounted columns range.
+         * @member {Number} cellPoolSize_=20
+         * @protected
+         * @reactive
+         */
+        cellPoolSize_: 20,
+        /**
          * Define which model field contains the value of colspan definitions
          * @member {String} colspanField='colspan'
          */
@@ -671,7 +679,16 @@ class GridBody extends Container {
      * @returns {String}
      */
     getCellId(rowIndex, dataField) {
-        return this.getRowId(rowIndex) + '__' + dataField
+        let me          = this,
+            column      = me.getColumn(dataField),
+            columnIndex = me.getColumn(dataField, true),
+            rowId       = me.getRowId(rowIndex);
+
+        if (column.hideMode === 'removeDom') {
+            return `${rowId}__cell-${columnIndex % me.cellPoolSize}`
+        }
+
+        return `${rowId}__${dataField}`
     }
 
     /**
@@ -1051,12 +1068,12 @@ class GridBody extends Container {
      */
     updateMountedAndVisibleColumns() {
         let me       = this,
-            {bufferColumnRange, columnPositions, mountedColumns, visibleColumns} = me,
+            {bufferColumnRange, cellPoolSize, columnPositions, mountedColumns, visibleColumns} = me,
             i            = 0,
             countColumns = columnPositions.getCount(),
             endIndex     = countColumns - 1,
             x            = me.scrollLeft,
-            column, startIndex;
+            column, newPoolSize, startIndex;
 
         if (countColumns < 1) {
             return
@@ -1082,7 +1099,14 @@ class GridBody extends Container {
             startIndex = Math.max(0, visibleColumns[0] - bufferColumnRange);
             endIndex   = Math.min(countColumns - 1, visibleColumns[1] + bufferColumnRange);
 
-            me.mountedColumns = [startIndex, endIndex]
+            if (endIndex - startIndex >= cellPoolSize) {
+                newPoolSize = endIndex - startIndex + 5;
+            }
+
+            me.set({
+                cellPoolSize  : newPoolSize || cellPoolSize,
+                mountedColumns: [startIndex, endIndex]
+            })
         }
     }
 
