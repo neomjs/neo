@@ -281,12 +281,13 @@ class DomAccess extends Base {
 
     /**
      * Calls focus() on a node for a given dom node id
-     * @param {Object} data
+     * @param {Object}  data
      * @param {Boolean} data.children
-     * @param {String} data.id
+     * @param {String}  data.id
+     * @param {Boolean} [data.preventScroll=false]
      * @returns {Object} obj.id => the passed id
      */
-    focus({children, id}) {
+    focus({children, id, preventScroll}) {
         let node = this.getElement(id);
 
         if (node) {
@@ -297,7 +298,7 @@ class DomAccess extends Base {
             }
 
             if (node) {
-                node.focus();
+                node.focus({preventScroll});
 
                 if (Neo.isNumber(node.selectionStart)) {
                     node.selectionStart = node.selectionEnd = node.value.length

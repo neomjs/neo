@@ -1181,9 +1181,10 @@ class Component extends Abstract {
      * Calls focus() on the top level DOM node of this component or on a given node via id
      * @param {String} id=this.id
      * @param {Boolean} children=false
+     * @param {Boolean} preventScroll
      */
-    focus(id=this.id, children=false) {
-        Neo.main.DomAccess.focus({children, id, windowId: this.windowId})
+    focus(id=this.id, children=false, preventScroll) {
+        Neo.main.DomAccess.focus({children, id, preventScroll, windowId: this.windowId})
     }
 
     /**

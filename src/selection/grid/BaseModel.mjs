@@ -36,11 +36,37 @@ class BaseModel extends Model {
     }
 
     /**
+     * @param {Object} item
+     * @param {Boolean} [silent] true to prevent a vdom update
+     * @param {Object[]|String[]} itemCollection=this.items
+     * @param {String} [selectedCls]
+     */
+    deselect(item, silent, itemCollection, selectedCls) {
+        if (!silent) {
+            this.view.updateDepth = 2
+        }
+
+        super.deselect(item, silent, itemCollection, selectedCls)
+    }
+
+    /**
+     * @param {Boolean} [silent] true to prevent a vdom update
+     * @param {Object[]|String[]} itemCollection=this.items
+     */
+    deselectAll(silent, itemCollection) {
+        if (!silent) {
+            this.view.updateDepth = 2
+        }
+
+        super.deselectAll(silent, itemCollection)
+    }
+
+    /**
      * @param {Boolean} [silent=false] true to prevent a vdom update
      */
     deselectAllRows(silent=false) {
-        let me     = this,
-            items  = [...me.selectedRows],
+        let me    = this,
+            items = [...me.selectedRows],
             {view} = me;
 
         if (items.length) {
@@ -48,7 +74,8 @@ class BaseModel extends Model {
                 me.deselectRow(item, true)
             });
 
-            if (!silent && items.length > 0) {
+            if (!silent) {
+                view.updateDepth = 2;
                 view.update()
             }
 
@@ -66,33 +93,33 @@ class BaseModel extends Model {
      * @param {Boolean}       [silent=false]
      */
     deselectRow(recordId, silent=false) {
-        let me      = this,
-            {view}  = me,
-            {store} = view,
-            record  = store.get(recordId),
-            rowId   = view.getRowId(store.indexOf(record)),
-            node    = view.getVdomChild(rowId);
+        let me = this,
+            row;
 
-        if (node) {
-            node.cls = NeoArray.remove(node.cls || [], me.selectedCls);
-            delete node['aria-selected']
+        NeoArray.remove(me.selectedRows, recordId);
+
+        row = me.getRowComponent(recordId);
+
+        if (row) {
+            NeoArray.remove(row.vdom.cls, me.selectedCls);
+            delete row.vdom['aria-selected']
         }
 
-        me.selectedRows = [recordId];
-
-        !silent && view.update()
+        if (!silent) {
+            me.view.updateDepth = 2;
+            me.view.update()
+        }
     }
 
     /**
-     * Get the record for a given event path
-     * @param {Object[]} path
+     * @param {Object} path
      * @returns {Number|String|null}
      */
     getRecord(path) {
         let node, rowIndex;
 
         for (node of path) {
-            if (node.aria.rowindex) {
+            if (node.aria?.rowindex) {
                 rowIndex = parseInt(node.aria.rowindex);
 
                 // aria-rowindex is 1 based & also includes the header
@@ -103,6 +130,14 @@ class BaseModel extends Model {
         }
 
         return null
+    }
+
+    /**
+     * @param {Number|String} recordId
+     * @returns {Neo.grid.Row|null}
+     */
+    getRowComponent(recordId) {
+        return this.view.items.find(row => row.record && row.record[this.view.store.getKeyProperty()] === recordId) || null
     }
 
     /**
@@ -146,29 +181,40 @@ class BaseModel extends Model {
     }
 
     /**
+     * @param {Object|Object[]|String[]} items
+     * @param {Object[]|String[]} itemCollection=this.items
+     * @param {String} [selectedCls]
+     */
+    select(items, itemCollection, selectedCls) {
+        this.view.updateDepth = 2;
+        super.select(items, itemCollection, selectedCls)
+    }
+
+    /**
      * @param {Number|String} recordId
      * @param {Boolean}       [silent=false]
      */
     selectRow(recordId, silent=false) {
-        let me      = this,
-            {view}  = me,
-            {store} = view,
-            record  = store.get(recordId),
-            rowId   = view.getRowId(store.indexOf(record)),
-            node    = view.getVdomChild(rowId);
+        let me = this,
+            row;
 
         if (me.singleSelect) {
-            me.deselectAllRows(true)
+            [...me.selectedRows].forEach(id => me.deselectRow(id, true))
         }
 
-        if (node) {
-            node.cls = NeoArray.add(node.cls || [], me.selectedCls);
-            node['aria-selected'] = true
+        NeoArray.add(me.selectedRows, recordId);
+
+        row = me.getRowComponent(recordId);
+
+        if (row) {
+            NeoArray.add(row.vdom.cls, me.selectedCls);
+            row.vdom['aria-selected'] = true
         }
 
-        me.selectedRows = [recordId];
-
-        !silent && view.update()
+        if (!silent) {
+            me.view.updateDepth = 2;
+            me.view.update()
+        }
     }
 
     /**

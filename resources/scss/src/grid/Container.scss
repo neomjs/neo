@@ -1,7 +1,7 @@
 .neo-grid-wrapper {
     overflow-anchor    : none;
     overflow-x         : auto;
-    overflow-y         : hidden;
+    overflow-y         : clip;
     overscroll-behavior: none;
     position           : relative;
 

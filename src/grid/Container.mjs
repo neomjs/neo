@@ -10,8 +10,24 @@ import * as header       from './header/_export.mjs';
 import {isDescriptor}    from '../core/ConfigSymbols.mjs';
 
 /**
+ * @summary The main entry point for creating Data Grids in Neo.mjs.
+ *
+ * `Neo.grid.Container` orchestrates the entire Grid component. It uses a composite architecture consisting of:
+ * 1.  `headerToolbar` ({@link Neo.grid.header.Toolbar}): Manages column headers, sorting, and filtering UI.
+ * 2.  `body` ({@link Neo.grid.Body}): The scrollable area containing the data rows.
+ * 3.  `scrollbar` ({@link Neo.grid.VerticalScrollbar}): A virtualized scrollbar for handling large datasets.
+ *
+ * Key features include:
+ * -   **Virtual Scrolling:** Only renders visible rows and columns (plus a small buffer) for high performance with large datasets.
+ * -   **Store Integration:** Binds directly to a {@link Neo.data.Store} for data management, sorting, and filtering.
+ * -   **Column Management:** Supports various column types (text, component, widget) via the `columns` config.
+ * -   **Multi-Threaded:** Logic runs in the App Worker, ensuring the UI stays responsive.
+ *
  * @class Neo.grid.Container
  * @extends Neo.container.Base
+ * @see Neo.grid.Body
+ * @see Neo.grid.Row
+ * @see Neo.data.Store
  */
 class GridContainer extends BaseContainer {
     /**
@@ -687,7 +703,7 @@ class GridContainer extends BaseContainer {
 
             Neo.main.DomAccess.scrollTo({
                 direction: 'left',
-                id       : me.id,
+                id       : me.vdom.id,
                 value    : scrollLeft,
                 windowId : me.windowId
             })

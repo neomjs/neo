@@ -284,9 +284,7 @@ class VDomUpdate extends Collection {
         const item = this.mergedCallbackMap.get(ownerId);
 
         if (item) {
-            const
-                ids = new Set(item.children.keys()),
-                owner = Neo.getComponent(ownerId);
+            const ids = new Set(item.children.keys());
 
             // Add Bridge Paths: Walk up from each merged child to the owner
             item.children.forEach((meta, childId) => {
@@ -304,6 +302,7 @@ class VDomUpdate extends Collection {
 
             return ids
         }
+
         return null
     }
 

@@ -1,15 +1,29 @@
 import ClassSystemUtil from '../util/ClassSystem.mjs';
 import Collection      from '../collection/Base.mjs';
-import Component       from '../component/Base.mjs';
-import NeoArray        from '../util/Array.mjs';
+import Container       from '../container/Base.mjs';
+import Row             from './Row.mjs';
 import RowModel        from '../selection/grid/RowModel.mjs';
 import VDomUtil        from '../util/VDom.mjs';
 
 /**
+ * @summary Manages the scrollable viewport and row rendering for the Grid.
+ *
+ * `Neo.grid.Body` is the engine behind the Grid's virtual scrolling. Instead of creating a component for every record
+ * in the store, it uses a **Row Pooling** architecture:
+ *
+ * 1.  It creates a fixed pool of {@link Neo.grid.Row} components based on the visible height + a buffer.
+ * 2.  As the user scrolls, these Row instances are recycled. Their `record` and `rowIndex` configs are updated via
+ *     {@link Neo.grid.Row#updateContent}, triggering a lightweight VDOM update.
+ * 3.  It calculates the `mountedRows` (rendered DOM nodes) and `visibleRows` (viewport intersection) to optimize rendering.
+ *
+ * This architecture ensures O(1) performance for record updates and constant memory usage regardless of dataset size.
+ *
  * @class Neo.grid.Body
- * @extends Neo.component.Base
+ * @extends Neo.container.Base
+ * @see Neo.grid.Row
+ * @see Neo.grid.Container
  */
-class GridBody extends Component {
+class GridBody extends Container {
     static config = {
         /**
          * @member {String} className='Neo.grid.Body'
@@ -172,6 +186,10 @@ class GridBody extends Component {
          * @reactive
          */
         wrapperCls: ['neo-grid-body-wrapper'],
+        /**
+         * @member {Object} layout=null
+         */
+        layout: null,
         /**
          * @member {Object} _vdom
          */
@@ -435,130 +453,7 @@ class GridBody extends Component {
     }
 
     /**
-     * @param {Object} data
-     * @param {String} [data.cellId]
-     * @param {Object} data.column
-     * @param {Number} data.columnIndex
-     * @param {Object} data.record
-     * @param {Number} data.rowIndex
-     * @returns {Object}
-     */
-    applyRendererOutput({cellId, column, columnIndex, record, rowIndex}) {
-        let me                     = this,
-            gridContainer          = me.parent,
-            {selectedCells, store} = me,
-            cellCls                = ['neo-grid-cell'],
-            colspan                = record[me.colspanField],
-            {dataField}            = column,
-            {model}                = store,
-            fieldValue             = record[dataField],
-            cellConfig, rendererOutput;
-
-        if (!model.getField(dataField)) {
-            let nsArray   = dataField.split('.'),
-                fieldName = nsArray.pop();
-
-            fieldValue = Neo.ns(nsArray, false, record[Symbol.for('data')])?.[fieldName]
-        }
-
-        if (fieldValue === null || fieldValue === undefined) {
-            fieldValue = ''
-        }
-
-        if (column.rendererScope === 'me' || column.rendererScope === 'this') {
-            column.rendererScope = column;
-        }
-
-        me.bindCallback(column.renderer, 'renderer', column.rendererScope || me, column);
-
-        rendererOutput = column.renderer.call(column.rendererScope || me, {
-            column,
-            columnIndex,
-            dataField,
-            gridContainer,
-            record,
-            rowIndex,
-            store,
-            value: fieldValue
-        });
-
-        switch (Neo.typeOf(rendererOutput)) {
-            case 'Object': {
-                if (rendererOutput.html || rendererOutput.text) {
-                    rendererOutput.cls && cellCls.push(...rendererOutput.cls);
-                } else {
-                    rendererOutput = [rendererOutput];
-                }
-                break
-            }
-            case 'Date':
-            case 'Number':
-            case 'String': {
-                rendererOutput = {
-                    cls : cellCls,
-                    html: rendererOutput?.toString()
-                };
-                break
-            }
-        }
-
-        if (rendererOutput === null || rendererOutput === undefined) {
-            rendererOutput = ''
-        }
-
-        if (column.cellAlign !== 'left') {
-            cellCls.push('neo-' + column.cellAlign)
-        }
-
-        if (me.highlightModifiedCells) {
-            if (record.isModifiedField(dataField)) {
-                cellCls.push('neo-is-modified')
-            }
-        }
-
-        if (!cellId) {
-            cellId = me.getCellId(rowIndex, column.dataField)
-        }
-
-        if (selectedCells.includes(cellId)) {
-            cellCls.push('neo-selected')
-        }
-
-        if (me.selectionModel?.selectedColumns?.includes(dataField)) {
-            NeoArray.add(cellCls, me.selectionModel.selectedColumnCellCls || 'neo-selected')
-        }
-
-        cellConfig = {
-            'aria-colindex': columnIndex + 1, // 1 based
-            id             : cellId,
-            cls            : cellCls,
-            role           : 'gridcell',
-            style          : rendererOutput.style || {}
-        };
-
-        if (column.width) {
-            cellConfig.style.minWidth = `${column.width}px`
-        }
-
-        if (colspan && Object.keys(colspan).includes(dataField)) {
-            cellConfig.colspan = colspan[dataField]
-        }
-
-        if (Neo.typeOf(rendererOutput) === 'Object') {
-            if (Object.hasOwn(rendererOutput, 'html')) {
-                cellConfig.html = rendererOutput.html  || ''
-            } else {
-                cellConfig.text = rendererOutput.text  || ''
-            }
-        } else {
-            cellConfig.cn = rendererOutput
-        }
-
-        return cellConfig
-    }
-
-    /**
-     * Triggered when accessing the columnPositions config
+     * Triggered after the columnPositions config got changed
      * @param {Object} value
      * @protected
      */
@@ -626,103 +521,54 @@ class GridBody extends Component {
     }
 
     /**
-     * @param {Object} opts
-     * @param {Object} opts.record
-     * @param {Number} [opts.rowIndex]
-     * @returns {Object}
+     * Initializes or expands the pool of `Neo.grid.Row` instances.
+     *
+     * This method calculates the number of rows needed to cover the viewport plus the buffer range.
+     * If the current number of child items (Rows) is less than required, it creates new instances
+     * and adds them to the container. This ensures we have enough "physical" rows to recycle during scrolling.
+     *
+     * @protected
      */
-    createRow({record, rowIndex}) {
-        if (!Neo.isNumber(rowIndex)) {
-            rowIndex = this.store.indexOf(record)
-        }
+    createRowPool() {
+        let me          = this,
+            needed      = me.availableRows + 2 * me.bufferRowRange,
+            current     = me.items ? me.items.length : 0,
+            delta       = needed - current,
+            newRows     = [];
 
-        let me            = this,
-            {mountedColumns, selectedRows} = me,
-            gridContainer = me.parent,
-            {columns}     = gridContainer,
-            id            = me.getRowId(rowIndex),
-            recordId      = record[me.store.getKeyProperty()],
-            rowCls        = me.getRowClass(record, rowIndex),
-            countColumns  = columns.getCount(),
-            config, column, columnPosition, gridRow, i, isMounted;
-
-        if (rowIndex % 2 !== 0) {
-            rowCls.push('neo-even')
-        }
-
-        if (selectedRows && record[me.selectedRecordField]) {
-            NeoArray.add(selectedRows, recordId)
-        }
-
-        gridRow = {
-            id,
-            'aria-rowindex': rowIndex + 2, // header row => 1, first body row => 2
-            cls            : rowCls,
-            cn             : [],
-            data           : {recordId},
-            role           : 'row',
-
-            style: {
-                height   : me.rowHeight + 'px',
-                transform: `translate3d(0px, ${rowIndex * me.rowHeight}px, 0px)`
+        if (delta > 0) {
+            for (let i = 0; i < delta; i++) {
+                newRows.push({
+                    module       : Row,
+                    gridContainer: me.parent,
+                    id           : me.getRowId(current + i),
+                    record       : null,
+                    rowIndex     : -1
+                })
             }
-        };
-
-        if (selectedRows?.includes(recordId)) {
-            rowCls.push('neo-selected');
-            gridRow['aria-selected'] = true;
-            gridContainer.fire('select', {record})
+            me.add(newRows)
+        } else if (delta < 0) {
+            // Optional: Destroy excess rows if we want to reclaim memory strictly
+            // For now, we keep them as a buffer
         }
-
-        for (i=0; i < countColumns; i++) {
-            isMounted = i >= mountedColumns[0] && i <= mountedColumns[1];
-            column    = columns.getAt(i);
-
-            if (!isMounted && column.hideMode === 'removeDom') {
-                continue
-            }
-
-            config = me.applyRendererOutput({column, columnIndex: i, record, rowIndex});
-
-            if (column.dock) {
-                config.cls = ['neo-locked', ...config.cls || []]
-            }
-
-            columnPosition = me.columnPositions.get(column.dataField);
-
-            config.style = {
-                ...config.style,
-                left : columnPosition.x     + 'px',
-                width: columnPosition.width + 'px'
-            };
-
-            // Happens during a column header drag OP, when leaving the painted range
-            if (isMounted) {
-                if (columnPosition.hidden) {
-                    config.style.visibility = 'hidden'
-                }
-            } else {
-                if (column.hideMode === 'visibility') {
-                    config.style.visibility = 'hidden'
-                } else if (column.hideMode === 'display') {
-                    config.style.display = 'none'
-                }
-            }
-
-            gridRow.cn.push(config)
-        }
-
-        return gridRow
     }
 
     /**
-     * @param {Boolean} silent=false
+     * The main rendering loop for the Grid Body.
+     *
+     * This method:
+     * 1.  Calculates the range of records to render based on scroll position.
+     * 2.  Calls `createRowPool` to ensure enough Row components exist.
+     * 3.  Iterates through the visible record range.
+     * 4.  **Recycles** existing Row components by calling {@link Neo.grid.Row#updateContent} with the new record data.
+     * 5.  Updates the scroll spacer height.
+     *
+     * @param {Boolean} silent=false True to suppress the final VDOM update (used when batching).
      */
     createViewData(silent=false) {
         let me                   = this,
             {mountedRows, store} = me,
-            rows                 = [],
-            endIndex, i, range;
+            endIndex, i, item, itemIndex, poolSize, range;
 
         if (
             store.isLoading                   ||
@@ -743,16 +589,29 @@ class GridBody extends Component {
             endIndex = mountedRows[1]
         }
 
-        for (i=mountedRows[0]; i < endIndex; i++) {
-            rows.push(me.createRow({record: store.getAt(i), rowIndex: i}))
-        }
+        me.createRowPool();
 
-        me.getVdomRoot().cn = rows;
+        poolSize = me.items.length;
+
+        for (i=mountedRows[0]; i < endIndex; i++) {
+            itemIndex = i % poolSize;
+            item      = me.items[itemIndex];
+
+            item.updateContent({
+                record  : store.getAt(i),
+                rowIndex: i,
+                silent  : true
+            })
+        }
 
         me.parent.isLoading = false;
 
         me.updateScrollHeight(true, range); // silent
-        !silent && me.update()
+
+        if (!silent) {
+            me.updateDepth = -1;
+            me.update()
+        }
     }
 
     /**
@@ -833,8 +692,7 @@ class GridBody extends Component {
         let me          = this,
             cells       = [],
             columnIndex = -1,
-            vdomRoot    = me.getVdomRoot(),
-            firstRow    = vdomRoot.cn[0],
+            firstRow    = me.items[0].vdom,
             i           = 0,
             len         = firstRow.cn.length,
             cell;
@@ -848,8 +706,8 @@ class GridBody extends Component {
         }
 
         if (columnIndex > -1) {
-            vdomRoot.cn.forEach(row => {
-                cell = row.cn[columnIndex];
+            me.items.forEach(row => {
+                cell = row.vdom.cn[columnIndex];
                 cell && cells.push(cell)
             })
         }
@@ -883,7 +741,7 @@ class GridBody extends Component {
         parentNodes = VDomUtil.getParentNodes(me.vdom, nodeId);
 
         for (node of parentNodes || []) {
-            record = me.getRecordByRowId(node.id);
+            record = me.getRecordByRowId(node.componentId || node.id);
 
             if (record) {
                 return record
@@ -899,14 +757,31 @@ class GridBody extends Component {
      */
     getRecordByRowId(rowId) {
         let me       = this,
-            node     = me.getVdomChild(rowId),
-            rowIndex = node['aria-rowindex'];
+            node     = Neo.getComponent(rowId)?.vdom,
+            rowIndex = node?.['aria-rowindex'];
 
         if (Neo.isNumber(rowIndex)) {
             // aria-rowindex is 1 based & also includes the header
             rowIndex -= 2;
 
             return me.store.getAt(rowIndex)
+        }
+
+        return null
+    }
+
+    /**
+     * @param {Object} record
+     * @returns {Neo.grid.Row|null}
+     */
+    getRow(record) {
+        let me       = this,
+            rowIndex = me.store.indexOf(record),
+            itemIndex;
+
+        if (rowIndex > -1 && rowIndex >= me.mountedRows[0] && rowIndex <= me.mountedRows[1]) {
+            itemIndex = rowIndex % me.items.length;
+            return me.items[itemIndex]
         }
 
         return null
@@ -985,6 +860,7 @@ class GridBody extends Component {
      * @param {Object} data
      */
     onRowClick(data) {
+        this.focus(this.vdom.id, false, true);
         this.fireRowEvent(data, 'rowClick')
     }
 
@@ -1084,25 +960,20 @@ class GridBody extends Component {
     onStoreRecordChange({fields, record}) {
         let me                            = this,
             fieldNames                    = fields.map(field => field.name),
-            needsUpdate                   = false,
             rowIndex                      = me.store.indexOf(record),
             {mountedRows, selectionModel} = me,
-            column, needsCellUpdate, recordId;
+            poolSize                      = me.items.length,
+            itemIndex, recordId, row;
 
         if (fieldNames.includes(me.colspanField)) {
-            me.vdom.cn[rowIndex] = me.createRow({record, rowIndex});
-            me.update()
+            me.createViewData()
         } else {
             if (rowIndex >= mountedRows[0] && rowIndex <= mountedRows[1]) {
-                for (column of me.parent.columns.items) {
-                    if (
-                        column instanceof Neo.grid.column.Component &&
-                        Neo.typeOf(column.component === 'Function') &&
-                        !fieldNames.includes(column.dataField)
-                    ) {
-                        needsCellUpdate = me.updateCellNode(record, column.dataField);
-                        needsUpdate     = needsUpdate || needsCellUpdate
-                    }
+                itemIndex = rowIndex % poolSize;
+                row       = me.items[itemIndex];
+
+                if (row) {
+                    row.createVdom()
                 }
 
                 fields.forEach(field => {
@@ -1112,15 +983,10 @@ class GridBody extends Component {
 
                             selectionModel[field.value ? 'selectRow' : 'deselectRow'](recordId)
                         }
-                    } else {
-                        needsCellUpdate = me.updateCellNode(record, field.name);
-                        needsUpdate     = needsUpdate || needsCellUpdate
                     }
                 })
             }
         }
-
-        needsUpdate && me.update()
     }
 
     /**
@@ -1170,41 +1036,6 @@ class GridBody extends Component {
                 windowId: me.windowId
             })
         }
-    }
-
-    /**
-     * Update the cell vdom silently
-     * @param {Record} record
-     * @param {String} dataField
-     * @returns {Boolean} true in case the view needs an update
-     */
-    updateCellNode(record, dataField) {
-        let me          = this,
-            rowIndex    = me.store.indexOf(record),
-            cellId      = me.getCellId(rowIndex, dataField),
-            cellNode    = VDomUtil.find(me.vdom, cellId),
-            needsUpdate = false,
-            cellStyle, cellVdom, column, columnIndex;
-
-        // The vdom might not exist yet => nothing to do in this case
-        if (cellNode?.vdom) {
-            cellStyle   = cellNode.vdom.style;
-            column      = me.getColumn(dataField);
-            columnIndex = cellNode.index;
-            cellVdom    = me.applyRendererOutput({cellId, column, columnIndex, record, rowIndex});
-            needsUpdate = true;
-
-            // The cell-positioning logic happens outside applyRendererOutput()
-            // We need to preserve these styles
-            Object.assign(cellVdom.style, {
-                left : cellStyle.left,
-                width: cellStyle.width
-            });
-
-            cellNode.parentNode.cn[columnIndex] = cellVdom
-        }
-
-        return needsUpdate
     }
 
     /**

@@ -1,7 +1,7 @@
 ---
 id: 7614
 title: Rewrite TICKET_STRATEGY.md for GitHub Workflow MCP Server & 2-Way Sync
-state: OPEN
+state: CLOSED
 labels:
   - documentation
   - enhancement
@@ -10,16 +10,17 @@ labels:
 assignees:
   - tobiu
 createdAt: '2025-10-22T22:48:26Z'
-updatedAt: '2026-01-21T03:13:21Z'
+updatedAt: '2026-02-04T03:41:09Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7614'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-02-04T03:41:09Z'
 ---
 # Rewrite TICKET_STRATEGY.md for GitHub Workflow MCP Server & 2-Way Sync
 
@@ -46,4 +47,9 @@ To provide clear, up-to-date documentation for the project's ticket management s
 This issue is stale because it has been open for 90 days with no activity.
 
 - 2026-01-21T03:13:21Z @github-actions added the `stale` label
+### @github-actions - 2026-02-04T03:41:08Z
+
+This issue was closed because it has been inactive for 14 days since being marked as stale.
+
+- 2026-02-04T03:41:09Z @github-actions closed this issue
 
