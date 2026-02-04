@@ -30,8 +30,10 @@ subIssues:
   - '[x] 8977 Implement Surgical DOM Move for Component Columns in Drag Proxy'
   - '[x] 8978 Refactor Selection Models: Phase 1 (Base & Row)'
   - '[x] 8979 Refactor Selection Models: Phase 2 (Cell & Column)'
-subIssuesCompleted: 14
-subIssuesTotal: 14
+  - '[x] 8984 Fix Grid Row Reactivity & AnimatedChange Column for In-Place Updates'
+  - '[x] 8985 refactor: Add getRow helper to GridBody'
+subIssuesCompleted: 16
+subIssuesTotal: 16
 blockedBy: []
 blocking: []
 ---
@@ -174,4 +176,6 @@ Refactor the Grid to use a "Composed Architecture" where each row is a `Neo.comp
 - 2026-02-04T00:37:34Z @tobiu added sub-issue #8977
 - 2026-02-04T10:21:46Z @tobiu added sub-issue #8978
 - 2026-02-04T10:23:17Z @tobiu added sub-issue #8979
+- 2026-02-04T13:10:39Z @tobiu added sub-issue #8984
+- 2026-02-04T13:33:28Z @tobiu added sub-issue #8985
 
