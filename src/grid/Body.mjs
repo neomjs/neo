@@ -815,6 +815,7 @@ class GridBody extends Container {
      * @param {Object} data
      */
     onRowClick(data) {
+        this.focus(this.vdom.id, false, true);
         this.fireRowEvent(data, 'rowClick')
     }
 
