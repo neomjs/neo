@@ -2,6 +2,24 @@ import BaseSortZone from '../../../container/SortZone.mjs';
 import VdomUtil     from  '../../../../util/VDom.mjs';
 
 /**
+ * @summary Manages drag-and-drop column reordering for Grids.
+ *
+ * This class handles the complexity of visualizing column moves in a highly optimized, multi-threaded environment.
+ *
+ * **Key Architectural Patterns:**
+ *
+ * 1.  **Surgical DOM Move (High-Fidelity Proxy):**
+ *     For component-based columns (e.g., Sparklines using OffscreenCanvas), creating clones for the drag proxy
+ *     is expensive and breaks context. Instead, this class uses `Neo.applyDeltas` to temporarily *move* the
+ *     live DOM content (the first child of the cell) from the Grid into the Proxy. This preserves the
+ *     component's state and canvas context without overhead. The content is restored to the Grid on drop.
+ *
+ * 2.  **Disjoint Updates (Deep Refresh):**
+ *     The Grid uses disjoint `Neo.grid.Row` components which update silently. To ensure the Grid body
+ *     reflects drag operations (like hiding the original column or shuffling cells), this class forces
+ *     a deep update (`updateDepth: -1`) on the `Grid.Body`. This flushes the state of all Row components
+ *     to the VDOM worker in a single batch.
+ *
  * @class Neo.draggable.grid.header.toolbar.SortZone
  * @extends Neo.draggable.container.SortZone
  */
@@ -42,6 +60,13 @@ class SortZone extends BaseSortZone {
     }
 
     /**
+     * Creates the drag proxy.
+     *
+     * **Surgical DOM Move Implementation:**
+     * Detects if a cell contains component content (checking `cell.cn`). If found, it creates an empty
+     * container in the proxy's VDOM and schedules a `moveNode` delta to transfer the live content
+     * from the Grid to the Proxy after mounting. This bypasses VDOM cloning for heavy components.
+     *
      * @param {Object}  data
      * @param {Boolean} createComponent=true
      * @returns {Object|Neo.draggable.DragProxyComponent}
@@ -157,18 +182,6 @@ class SortZone extends BaseSortZone {
      * @param {Object} data
      */
     async onDragEnd(data) {
-        if (this.movedComponents?.length > 0) {
-            let restoreDeltas = this.movedComponents.map(item => ({
-                action  : 'moveNode',
-                id      : item.id,
-                index   : 0,
-                parentId: item.originalParentId
-            }));
-
-            await Neo.applyDeltas(this.windowId, restoreDeltas);
-            this.movedComponents = null
-        }
-
         await super.onDragEnd(data);
 
         let {owner} = this;
@@ -183,6 +196,19 @@ class SortZone extends BaseSortZone {
         await owner.passSizeToBody();
 
         await this.timeout(20);
+
+        // Restore moved nodes BEFORE destroying the proxy to ensure they return to the Grid.
+        if (this.movedComponents?.length > 0) {
+            let restoreDeltas = this.movedComponents.map(item => ({
+                action  : 'moveNode',
+                id      : item.id,
+                index   : 0,
+                parentId: item.originalParentId
+            }));
+
+            await Neo.applyDeltas(this.windowId, restoreDeltas);
+            this.movedComponents = null
+        }
 
         owner.parent.body.createViewData()
     }
@@ -207,6 +233,7 @@ class SortZone extends BaseSortZone {
                 cell.style.visibility = 'hidden'
             });
 
+            // Force a deep update to propagate Row component VDOM changes (visibility) to the worker.
             body.updateDepth = -1;
             body.update()
         }
@@ -251,6 +278,7 @@ class SortZone extends BaseSortZone {
                 node.style.width = column2Position.width + 'px'
             });
 
+            // Force a deep update to propagate Row component VDOM changes (position) to the worker.
             body.updateDepth = -1;
             body.update()
         }
