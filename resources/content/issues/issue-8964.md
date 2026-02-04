@@ -20,13 +20,16 @@ subIssues:
   - '[x] 8966 refactor: Upgrade Neo.grid.Body to Container and implement Row Pooling (#8964)'
   - '[x] 8967 feat: Implement Reactive Record Updates in Neo.grid.Row (#8964)'
   - '[x] 8968 refactor: Migrate Component Columns to use Neo.grid.Row lifecycle (#8964)'
-  - '[ ] 8969 perf: Implement Batching and Silent Updates for Grid Scrolling (#8964)'
+  - '[x] 8969 perf: Implement Batching and Silent Updates for Grid Scrolling (#8964)'
   - '[x] 8970 feat: Commit base implementation of Neo.grid.Row and refactored GridBody (#8964)'
   - '[x] 8971 fix: Enable horizontal scrolling by forcing Row VDOM updates on column mount change (#8964)'
   - '[x] 8973 fix: Component Columns disappear after horizontal scroll due to stale mounted state (#8964)'
   - '[x] 8974 refactor: Cleanup Neo.grid.Body and optimize Row/Body responsibilities (#8964)'
-subIssuesCompleted: 8
-subIssuesTotal: 9
+  - '[x] 8975 Fix Grid Header Drag Proxy for Row Component Architecture'
+  - '[x] 8976 Fix Grid Cell Animations During Column Reordering'
+  - '[x] 8977 Implement Surgical DOM Move for Component Columns in Drag Proxy'
+subIssuesCompleted: 12
+subIssuesTotal: 12
 blockedBy: []
 blocking: []
 ---
@@ -164,4 +167,7 @@ Refactor the Grid to use a "Composed Architecture" where each row is a `Neo.comp
 - 2026-02-03T21:12:28Z @tobiu added sub-issue #8971
 - 2026-02-03T21:17:44Z @tobiu added sub-issue #8973
 - 2026-02-03T21:34:44Z @tobiu added sub-issue #8974
+- 2026-02-04T00:01:32Z @tobiu added sub-issue #8975
+- 2026-02-04T00:13:41Z @tobiu added sub-issue #8976
+- 2026-02-04T00:37:34Z @tobiu added sub-issue #8977
 

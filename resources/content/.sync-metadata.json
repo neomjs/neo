@@ -1,6 +1,6 @@
 {
-  "lastSync": "2026-02-03T23:20:14.863Z",
-  "releasesLastFetched": "2026-02-03T23:20:15.494Z",
+  "lastSync": "2026-02-04T01:06:26.726Z",
+  "releasesLastFetched": "2026-02-04T01:06:27.254Z",
   "pushFailures": [],
   "issues": {
     "3789": {
@@ -18677,7 +18677,7 @@
       "path": "resources/content/issues/issue-8964.md",
       "closedAt": null,
       "updatedAt": "2026-02-03T19:06:29Z",
-      "contentHash": "e074d5dd21fabb9b1c4464f8d00c5adb553e550450edcf031b8792e086927dff"
+      "contentHash": "da5bf4dcbfb51bc5b183f6c8da5ff32a39647f74f81436ca951b355cb07ef29a"
     },
     "8965": {
       "state": "CLOSED",
@@ -18708,11 +18708,11 @@
       "contentHash": "00c7447a575b8d57c091735dc6026887c99b2ba537748b10cb8d255cfc2fb18d"
     },
     "8969": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "resources/content/issues/issue-8969.md",
-      "closedAt": null,
-      "updatedAt": "2026-02-03T18:31:11Z",
-      "contentHash": "37cda282b89169c337ecacec29fe0b18980d63d090577adcfac65a2a7519a7e8"
+      "closedAt": "2026-02-03T23:52:53Z",
+      "updatedAt": "2026-02-03T23:52:53Z",
+      "contentHash": "57eac159cb88572849431cf1c137ea5ca5ed1e344353aa3825fc5d71be2b80cd"
     },
     "8970": {
       "state": "CLOSED",
@@ -18748,6 +18748,27 @@
       "closedAt": "2026-02-03T23:19:54Z",
       "updatedAt": "2026-02-03T23:19:55Z",
       "contentHash": "dfe6aec4f3e3f3a7b79a3a21494e1eaf4785522d9c5a76ede231379f901e811f"
+    },
+    "8975": {
+      "state": "CLOSED",
+      "path": "resources/content/issues/issue-8975.md",
+      "closedAt": "2026-02-04T00:09:06Z",
+      "updatedAt": "2026-02-04T00:09:06Z",
+      "contentHash": "9408b79048694b6a6e9f2ea2d9215754209a9e208449a48a08447357010ecd57"
+    },
+    "8976": {
+      "state": "CLOSED",
+      "path": "resources/content/issues/issue-8976.md",
+      "closedAt": "2026-02-04T00:19:18Z",
+      "updatedAt": "2026-02-04T00:19:18Z",
+      "contentHash": "221f7bb4752c5b65446b11fe1355f8c3c9c47b82aef24ccb4af2ea81a63e7c84"
+    },
+    "8977": {
+      "state": "CLOSED",
+      "path": "resources/content/issues/issue-8977.md",
+      "closedAt": "2026-02-04T01:02:38Z",
+      "updatedAt": "2026-02-04T01:02:38Z",
+      "contentHash": "042dc5385325dea1f2ff97a7f4efedc27a57ae0ae8f190fd5e8ce6fc7fd0daff"
     }
   },
   "releases": {
