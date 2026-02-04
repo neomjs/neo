@@ -596,6 +596,9 @@ class GridBody extends Container {
 
         poolSize = me.items.length;
 
+        let vdomRoot = me.getVdomRoot();
+        vdomRoot.cn = [];
+
         for (i=mountedRows[0]; i < endIndex; i++) {
             itemIndex = i % poolSize;
             item      = me.items[itemIndex];
@@ -604,7 +607,9 @@ class GridBody extends Container {
                 record  : store.getAt(i),
                 rowIndex: i,
                 silent  : true
-            })
+            });
+
+            vdomRoot.cn.push(item.createVdomReference())
         }
 
         me.parent.isLoading = false;
