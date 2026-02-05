@@ -1,12 +1,18 @@
 :root .neo-theme-dark { // .neo-grid-header
     --grid-header-button-background-color        : #323232;
+    --grid-header-button-background-color-hover  : #393c3e;
     --grid-header-button-background-image        : linear-gradient(#3c3f41, #323232);
     --grid-header-button-border-hover-color      : transparent;
     --grid-header-button-border-right-color      : var(--grid-container-border-color);
     --grid-header-button-border-right-hover-color: var(--grid-container-border-color);
     --grid-header-button-box-shadow-hover        : none;
     --grid-header-button-color                   : #bbb;
+    --grid-header-button-color-hover             : #bbb;
     --grid-header-button-font-size               : 11px;
+    --grid-header-button-font-weight             : 600;
     --grid-header-button-glyph-color             : #bbb;
+    --grid-header-button-glyph-color-hover       : #bbb;
+    --grid-header-button-justify-content         : flex-end;
+    --grid-header-button-padding                 : var(--button-padding);
     --grid-header-button-transition              : none;
 }

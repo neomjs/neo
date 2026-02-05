@@ -1,7 +1,8 @@
 :root .neo-theme-neo-dark { // .neo-grid-container
-    --grid-container-border-color              : var(--sem-color-border-default);
+    --grid-container-border-color              : var(--purple-800);
     --grid-container-cell-background-color     : var(--sem-color-surface-neutral-default);
-    --grid-container-cell-background-color-even: var(--sem-color-surface-neutral-highlighted);
+    --grid-container-cell-background-color-even: var(--purple-950);
     --grid-container-color                     : var(--sem-color-text-neutral-default);
-    --grid-container-header-cell-border-bottom : 1px solid var(--sem-color-border-default);
+    --grid-container-font-size                 : 13px;
+    --grid-container-header-cell-border-bottom : 1px solid var(--purple-800);
 }
