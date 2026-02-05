@@ -49,6 +49,24 @@ class ViewportController extends Controller {
     }
 
     /**
+     * @param {Object} data
+     */
+    async onControlsToggleButtonClick(data) {
+        let me       = this,
+            button   = data.component,
+            controls = me.getReference('controls'),
+            grid     = me.getReference('grid');
+
+        button.expanded = !button.expanded;
+
+        controls.toggleCls('neo-expanded');
+
+        await me.timeout(button.expanded ? 250 : 0);
+
+        grid.toggleCls('neo-extend-margin-right');
+    }
+
+    /**
      * @param {Object} params
      * @param {Object} value
      * @param {Object} oldValue

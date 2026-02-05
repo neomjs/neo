@@ -23,11 +23,6 @@ class ControlsContainer extends Container {
          * @member {Object[]} items
          */
         items: [{
-            ntype  : 'button',
-            cls    : ['controls-container-button'],
-            handler: 'up.onControlsToggleButtonClick',
-            iconCls: 'fas fa-bars'
-        }, {
             module        : TabContainer,
             cls           : ['devrank-controls-container-content'],
             dragResortable: true,
@@ -120,22 +115,6 @@ class ControlsContainer extends Container {
 
     get grid() {
         return this.parent.getItem('grid')
-    }
-
-    /**
-     * @param {Object} data
-     */
-    async onControlsToggleButtonClick(data) {
-        let me     = this,
-            button = data.component;
-
-        button.expanded = !button.expanded;
-
-        me.toggleCls('neo-expanded');
-
-        await me.timeout(button.expanded ? 250 : 0);
-
-        me.grid.toggleCls('neo-extend-margin-right');
     }
 
     onConstructed() {

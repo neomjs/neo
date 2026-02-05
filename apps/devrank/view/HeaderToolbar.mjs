@@ -61,6 +61,15 @@ class HeaderToolbar extends Toolbar {
                     showDelay: 0,
                     hideDelay: 0
                 }
+            }, {
+                handler  : 'onControlsToggleButtonClick',
+                iconCls  : 'fas fa-bars',
+                reference: 'controls-toggle-button',
+                tooltip  : {
+                    text     : 'Toggle Controls',
+                    showDelay: 0,
+                    hideDelay: 0
+                }
             }]
         }]
     }

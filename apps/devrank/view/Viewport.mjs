@@ -49,7 +49,8 @@ class Viewport extends BaseViewport {
                     reference: 'grid',
                     flex     : 1
                 }, {
-                    module: ControlsContainer
+                    module   : ControlsContainer,
+                    reference: 'controls'
                 }]
             }, {
                 ntype: 'container',
