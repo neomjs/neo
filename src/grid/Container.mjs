@@ -703,7 +703,7 @@ class GridContainer extends BaseContainer {
 
             Neo.main.DomAccess.scrollTo({
                 direction: 'left',
-                id       : me.vdom.id,
+                id       : me.getVdomRoot().id,
                 value    : scrollLeft,
                 windowId : me.windowId
             })
