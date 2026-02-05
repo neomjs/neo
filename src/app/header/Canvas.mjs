@@ -1,5 +1,5 @@
-import SharedCanvas     from '../SharedCanvas.mjs';
 import ComponentManager from '../../manager/Component.mjs';
+import SharedCanvas     from '../SharedCanvas.mjs';
 
 /**
  * @summary The App Worker component for the HeaderToolbar canvas overlay.
@@ -31,9 +31,9 @@ class Canvas extends SharedCanvas {
          */
         activeId_: null,
         /**
-         * @member {String[]} cls=['neo-header-canvas']
+         * @member {String[]} cls=['app-header-canvas']
          */
-        cls: ['neo-header-canvas'],
+        cls: ['app-header-canvas'],
         /**
          * @member {String|null} hoverId_=null
          * @reactive
@@ -61,8 +61,10 @@ class Canvas extends SharedCanvas {
     afterSetIsCanvasReady(value, oldValue) {
         super.afterSetIsCanvasReady(value, oldValue);
 
-        if (value && this.activeId) {
-            this.renderer.updateActiveId({id: this.activeId})
+        let me = this;
+
+        if (value && me.activeId) {
+            me.renderer.updateActiveId({id: me.activeId})
         }
     }
 
