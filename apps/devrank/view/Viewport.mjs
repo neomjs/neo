@@ -1,13 +1,14 @@
-import ControlsContainer from './ControlsContainer.mjs';
-import GridContainer     from './GridContainer.mjs';
-import Header            from './HeaderToolbar.mjs';
-import Viewport          from '../../../src/container/Viewport.mjs';
+import ControlsContainer  from './ControlsContainer.mjs';
+import GridContainer      from './GridContainer.mjs';
+import Header             from './HeaderToolbar.mjs';
+import BaseViewport       from '../../../src/container/Viewport.mjs';
+import ViewportController from './ViewportController.mjs';
 
 /**
  * @class DevRank.view.Viewport
  * @extends Neo.container.Viewport
  */
-class MainViewport extends Viewport {
+class Viewport extends BaseViewport {
     static config = {
         /**
          * @member {String} className='DevRank.view.Viewport'
@@ -19,6 +20,11 @@ class MainViewport extends Viewport {
          * @reactive
          */
         cls: ['devrank-viewport', 'neo-viewport'],
+        /**
+         * @member {Neo.controller.Component} controller=ViewportController
+         * @reactive
+         */
+        controller: ViewportController,
         /**
          * @member {Object} layout={ntype:'vbox',align:'stretch'}
          * @reactive
@@ -55,4 +61,4 @@ class MainViewport extends Viewport {
     }
 }
 
-export default Neo.setupClass(MainViewport);
+export default Neo.setupClass(Viewport);

@@ -25,16 +25,15 @@ class HeaderToolbar extends Toolbar {
             minWidth: 60,
             reference: 'home-button',
             route   : '/home',
-            text    : 'Neo.mjs'
+            text    : 'DevRank'
         }, '->', {
             ntype    : 'container',
             layout   : 'hbox',
             reference: 'header-social-icons',
 
             itemDefaults: {
-                handler: 'onButtonClick',
-                ntype  : 'button',
-                ui     : 'ghost'
+                ntype: 'button',
+                ui   : 'ghost'
             },
 
             items: [{
