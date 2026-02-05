@@ -591,6 +591,13 @@ class GridBody extends Container {
             return
         }
 
+        if (me.isVdomUpdating) {
+            Neo.manager.VDomUpdate.registerPreUpdate(me.id, () => {
+                me.createViewData(silent)
+            });
+            return
+        }
+
         if (me.#initialChunkSize > 0) {
             endIndex = me.#initialChunkSize;
             range    = endIndex;

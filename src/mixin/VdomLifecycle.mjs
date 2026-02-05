@@ -750,6 +750,9 @@ class VdomLifecycle extends Base {
         // Trigger updates for components that were in-flight
         VDomUpdate.triggerPostUpdates(me.id);
 
+        // Execute callbacks which wanted to run before the next update cycle
+        VDomUpdate.executePreUpdates(me.id);
+
         if (me.needsVdomUpdate) {
             // any new promise callbacks will get picked up by the next update cycle
             me.update()
