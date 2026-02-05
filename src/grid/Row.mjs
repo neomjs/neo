@@ -8,6 +8,19 @@ import NeoArray  from '../util/Array.mjs';
  * It is NOT destroyed when a record scrolls off-screen. Instead, it is **recycled**:
  * its `record` and `rowIndex` configs are updated to display new data.
  *
+ * **Full Pool Rendering Strategy:**
+ * To ensure O(1) scrolling performance and eliminate Garbage Collection (GC) pauses, this class
+ * implements a "Full Pool Rendering" strategy for cell content. It renders a stable, fixed-size
+ * array of cell nodes matching `gridBody.cellPoolSize`.
+ *
+ * - **Active Cells:** Cells corresponding to visible columns are rendered with content.
+ * - **Inactive Cells:** Slots in the pool not currently needed by a column are rendered as
+ *   lightweight placeholders (`display: none`).
+ *
+ * This guarantees that the VDOM structure (the number and order of child nodes) *never changes*
+ * during horizontal scrolling. The browser only processes efficient attribute updates (style, content),
+ * with **zero** DOM node insertions, removals, or reordering operations.
+ *
  * Key Responsibilities:
  * -   **Cell Rendering:** Generates the VDOM for all cells in the row based on the columns config.
  * -   **Granular Updates:** When a bound record changes, only this specific Row instance updates its VDOM, avoiding a full Grid re-render.
@@ -54,15 +67,17 @@ class Row extends Component {
     }
 
     /**
+     * Generates the VDOM configuration for a single cell.
+     *
      * @param {Object} data
      * @param {String} [data.cellId]
      * @param {Object} data.column
      * @param {Number} data.columnIndex
-     * @param {Boolean} [data.isLastColumn]
+     * @param {Boolean} [data.isLastColumn] True if this is the visually last column (for border styling).
      * @param {Object} data.record
      * @param {Number} data.rowIndex
      * @param {Boolean} [data.silent]
-     * @returns {Object}
+     * @returns {Object} VDOM object for the cell
      */
     applyRendererOutput({cellId, column, columnIndex, isLastColumn, record, rowIndex, silent}) {
         let me                     = this,
@@ -187,6 +202,23 @@ class Row extends Component {
     }
 
     /**
+     * Generates the VDOM for the row.
+     *
+     * This method implements the **Full Pool Rendering** strategy.
+     * It iterates through two passes:
+     *
+     * 1.  **Pooled Cells (O(1) Stability):**
+     *     - Iterates through the currently `mountedColumns`.
+     *     - Maps each column to a fixed slot in the `pooledCells` array based on `poolIndex = columnIndex % cellPoolSize`.
+     *     - Fills any unused slots in the `pooledCells` array with hidden placeholders.
+     *     - Appends the *entire* dense `pooledCells` array to the VDOM.
+     *     - This ensures the VDOM children list length and IDs remain constant during horizontal scrolling,
+     *       resulting in zero structural deltas (no `moveNode`, `insertNode`, or `removeNode`).
+     *
+     * 2.  **Permanent Cells:**
+     *     - Appends cells that opt-out of pooling (e.g., complex components like Charts/Canvas).
+     *     - These are always rendered to preserve their internal state (e.g. Canvas context).
+     *
      * @param {Boolean} [silent=false]
      */
     createVdom(silent=false) {
