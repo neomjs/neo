@@ -1,16 +1,21 @@
-import HeaderToolbar from '../../../src/app/header/Toolbar.mjs';
+import BaseHeaderToolbar from '../../../src/app/header/Toolbar.mjs';
 
 /**
  * @class Portal.view.HeaderToolbar
  * @extends Neo.app.header.Toolbar
  */
-class Toolbar extends HeaderToolbar {
+class HeaderToolbar extends BaseHeaderToolbar {
     static config = {
         /**
          * @member {String} className='Portal.view.HeaderToolbar'
          * @protected
          */
         className: 'Portal.view.HeaderToolbar',
+        /**
+         * @member {String[]} cls=['portal-header-toolbar']
+         * @reactive
+         */
+        cls: ['portal-header-toolbar'],
         /**
          * @member {Object[]} items
          */
@@ -79,4 +84,4 @@ class Toolbar extends HeaderToolbar {
     }
 }
 
-export default Neo.setupClass(Toolbar);
+export default Neo.setupClass(HeaderToolbar);
