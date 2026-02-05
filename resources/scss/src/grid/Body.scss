@@ -85,7 +85,7 @@
              position        : absolute;
              width           : fit-content;
 
-             &:last-child {
+             &.neo-last-column {
                  border-right-width : 0;
              }
 

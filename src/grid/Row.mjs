@@ -58,12 +58,13 @@ class Row extends Component {
      * @param {String} [data.cellId]
      * @param {Object} data.column
      * @param {Number} data.columnIndex
+     * @param {Boolean} [data.isLastColumn]
      * @param {Object} data.record
      * @param {Number} data.rowIndex
      * @param {Boolean} [data.silent]
      * @returns {Object}
      */
-    applyRendererOutput({cellId, column, columnIndex, record, rowIndex, silent}) {
+    applyRendererOutput({cellId, column, columnIndex, isLastColumn, record, rowIndex, silent}) {
         let me                     = this,
             gridContainer          = me.parent.parent, // Row -> Body -> GridContainer
             gridBody               = me.parent,
@@ -152,6 +153,10 @@ class Row extends Component {
             NeoArray.add(cellCls, gridBody.selectionModel.selectedColumnCellCls || 'neo-selected')
         }
 
+        if (isLastColumn) {
+            cellCls.push('neo-last-column')
+        }
+
         cellConfig = {
             'aria-colindex': columnIndex + 1, // 1 based
             id             : cellId,
@@ -231,6 +236,8 @@ class Row extends Component {
 
         vdom.cls = rowCls;
 
+        let lastColumnIndex = gridBody.columnPositions.getCount() - 1;
+
         // Pass 1: Render Pooled Cells (hideMode === 'removeDom')
         // We only render these if they are within the mounted range.
         // This loop is O(Viewport) - highly efficient.
@@ -242,9 +249,10 @@ class Row extends Component {
 
             if (column.hideMode === 'removeDom') {
                 cellConfig = me.applyRendererOutput({
-                    cellId     : `${me.id}__cell-${i % gridBody.cellPoolSize}`,
+                    cellId      : `${me.id}__cell-${i % gridBody.cellPoolSize}`,
                     column,
-                    columnIndex: i,
+                    columnIndex : i,
+                    isLastColumn: i === lastColumnIndex,
                     record,
                     rowIndex,
                     silent
@@ -285,9 +293,10 @@ class Row extends Component {
                 isMounted = i >= mountedColumns[0] && i <= mountedColumns[1];
 
                 cellConfig = me.applyRendererOutput({
-                    cellId     : `${me.id}__${column.dataField}`,
+                    cellId      : `${me.id}__${column.dataField}`,
                     column,
-                    columnIndex: i,
+                    columnIndex : i,
+                    isLastColumn: i === lastColumnIndex,
                     record,
                     rowIndex,
                     silent
