@@ -281,7 +281,7 @@ class Row extends Component {
                 }
 
                 // Add logical ID for Selection Models
-                cellConfig.ds = {
+                cellConfig.data = {
                     cellId: `${me.id}__${column.dataField}`
                 };
 
@@ -350,7 +350,7 @@ class Row extends Component {
                 }
 
                 // Add logical ID for Selection Models
-                cellConfig.ds = {
+                cellConfig.data = {
                     cellId: `${me.id}__${column.dataField}`
                 };
 
