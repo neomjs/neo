@@ -1,23 +1,24 @@
 ---
 id: 7601
 title: Create Dynamic OpenAPI Specification Generator for the MCP servers
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - stale
   - ai
 assignees: []
 createdAt: '2025-10-22T09:36:50Z'
-updatedAt: '2026-01-22T03:17:21Z'
+updatedAt: '2026-02-05T03:42:33Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7601'
 author: tobiu
-commentsCount: 3
+commentsCount: 4
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-02-05T03:42:33Z'
 ---
 # Create Dynamic OpenAPI Specification Generator for the MCP servers
 
@@ -62,4 +63,9 @@ Feel free to ping me inside the slack / discord general channels => there are hu
 This issue is stale because it has been open for 90 days with no activity.
 
 - 2026-01-22T03:17:21Z @github-actions added the `stale` label
+### @github-actions - 2026-02-05T03:42:32Z
+
+This issue was closed because it has been inactive for 14 days since being marked as stale.
+
+- 2026-02-05T03:42:33Z @github-actions closed this issue
 

@@ -38,8 +38,9 @@ subIssues:
   - '[x] 8961 Fix: Memory Leak in Neo.component.Canvas due to missing destroy()'
   - '[x] 8962 Perf: Apply CSS containment to Grid Rows'
   - '[x] 8963 Feat: Smooth Data Transitions for Sparklines'
-subIssuesCompleted: 21
-subIssuesTotal: 24
+  - '[x] 8997 Feat: DevRank Selection Model Tab'
+subIssuesCompleted: 22
+subIssuesTotal: 25
 blockedBy: []
 blocking: []
 ---
@@ -107,4 +108,6 @@ The goal is to create a meritocratic index of the open-source ecosystem, powered
 - 2026-02-03T13:01:53Z @tobiu added sub-issue #8961
 - 2026-02-03T13:01:55Z @tobiu added sub-issue #8962
 - 2026-02-03T13:01:57Z @tobiu added sub-issue #8963
+- 2026-02-04T17:21:26Z @tobiu referenced in commit `abe67c3` - "#8930 "neo-theme-neo-dark", "neo-theme-neo-light""
+- 2026-02-05T09:31:30Z @tobiu added sub-issue #8997
 

@@ -1,7 +1,7 @@
 ---
 id: 8987
 title: 'enhancement: GridDragScroll: Add delay and minDistance to prevent accidental drags'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
@@ -9,7 +9,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-02-04T16:05:47Z'
-updatedAt: '2026-02-04T16:13:03Z'
+updatedAt: '2026-02-05T09:05:13Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8987'
 author: tobiu
 commentsCount: 1
@@ -19,6 +19,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-02-05T09:05:13Z'
 ---
 # enhancement: GridDragScroll: Add delay and minDistance to prevent accidental drags
 
@@ -63,4 +64,5 @@ Improve the "feel" of grid interactions by preventing accidental drags during no
 > - Added `onMonitorMove` to check both time and distance criteria before transitioning to active drag.
 > - This ensures drag operations are intentional and prevents accidental cursor changes on simple clicks.
 
+- 2026-02-05T09:05:13Z @tobiu closed this issue
 
