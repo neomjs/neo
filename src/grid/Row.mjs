@@ -71,7 +71,6 @@ class Row extends Component {
             cellCls                = ['neo-grid-cell'],
             colspan                = record[gridBody.colspanField],
             {dataField}            = column,
-            {model}                = store,
             fieldValue             = record.get(dataField),
             cellConfig, rendererOutput;
 
