@@ -40,8 +40,9 @@ subIssues:
   - '[x] 8963 Feat: Smooth Data Transitions for Sparklines'
   - '[x] 8997 Feat: DevRank Selection Model Tab'
   - '[ ] 9005 Feat: Refactor Portal Header to Framework (using Dynamic Worker Arch)'
-subIssuesCompleted: 22
-subIssuesTotal: 26
+  - '[x] 9006 Refactor DevRank Controls Button to Header Toolbar'
+subIssuesCompleted: 23
+subIssuesTotal: 27
 blockedBy: []
 blocking: []
 ---
@@ -112,4 +113,5 @@ The goal is to create a meritocratic index of the open-source ecosystem, powered
 - 2026-02-04T17:21:26Z @tobiu referenced in commit `abe67c3` - "#8930 "neo-theme-neo-dark", "neo-theme-neo-light""
 - 2026-02-05T09:31:30Z @tobiu added sub-issue #8997
 - 2026-02-05T14:51:36Z @tobiu added sub-issue #9005
+- 2026-02-05T17:44:24Z @tobiu added sub-issue #9006
 
