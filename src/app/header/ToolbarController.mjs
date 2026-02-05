@@ -1,10 +1,10 @@
-import Component from '../../controller/Component.mjs';
+import Controller from '../../controller/Component.mjs';
 
 /**
  * @class Neo.app.header.ToolbarController
  * @extends Neo.controller.Component
  */
-class ToolbarController extends Component {
+class ToolbarController extends Controller {
     static config = {
         /**
          * @member {String} className='Neo.app.header.ToolbarController'

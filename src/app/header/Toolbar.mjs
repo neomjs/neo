@@ -4,7 +4,7 @@ import Controller from './ToolbarController.mjs';
 
 /**
  * @class Neo.app.header.Toolbar
- * @extends Neo.container.Base
+ * @extends Neo.toolbar.Base
  */
 class Toolbar extends Base {
     static config = {

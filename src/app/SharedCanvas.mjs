@@ -171,33 +171,38 @@ class SharedCanvas extends Canvas {
     async initAsync() {
         await super.initAsync();
 
-        if (this.rendererImportPath) {
+        let me = this;
+
+        if (me.rendererImportPath) {
              // Ensure Canvas Worker is running
-            await Neo.worker.Manager.startWorker({name: 'canvas'});
+            await Neo.worker.Manager.startWorker({
+                name    : 'canvas',
+                windowId: me.windowId
+            });
 
             // Wait for the Canvas Worker remote to be available.
             let i = 0;
 
             while (!Neo.ns('Neo.worker.Canvas.loadModule') && i < 40) {
-                await this.timeout(50);
+                await me.timeout(50);
                 i++
             }
 
             if (Neo.ns('Neo.worker.Canvas.loadModule')) {
                 // Load the specific renderer module for this component
                 await Neo.worker.Canvas.loadModule({
-                    path: this.rendererImportPath
+                    path: me.rendererImportPath
                 });
 
                 // Wait for the remote stub to be created
                 let j = 0;
-                while (!this.renderer && j < 40) {
-                    await this.timeout(50);
+                while (!me.renderer && j < 40) {
+                    await me.timeout(50);
                     j++
                 }
 
-                if (!this.renderer) {
-                     console.error('Renderer Remote Stub not found:', this.rendererClassName)
+                if (!me.renderer) {
+                     console.error('Renderer Remote Stub not found:', me.rendererClassName)
                 }
             } else {
                 console.error('Neo.component.CanvasShared: Canvas Worker failed to register remote methods.')
