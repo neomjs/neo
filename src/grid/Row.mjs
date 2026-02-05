@@ -236,11 +236,12 @@ class Row extends Component {
 
         vdom.cls = rowCls;
 
-        let lastColumnIndex = gridBody.columnPositions.getCount() - 1;
+        let lastColumnIndex = gridBody.columnPositions.getCount() - 1,
+            poolSize        = gridBody.cellPoolSize,
+            pooledCells     = new Array(poolSize);
 
         // Pass 1: Render Pooled Cells (hideMode === 'removeDom')
-        // We only render these if they are within the mounted range.
-        // This loop is O(Viewport) - highly efficient.
+        // We render the FULL pool to ensure stable VDOM structure (0 inserts/moves).
         for (i=mountedColumns[0]; i <= mountedColumns[1]; i++) {
             column = columns.getAt(i);
 
@@ -249,7 +250,7 @@ class Row extends Component {
 
             if (column.hideMode === 'removeDom') {
                 cellConfig = me.applyRendererOutput({
-                    cellId      : `${me.id}__cell-${i % gridBody.cellPoolSize}`,
+                    cellId      : `${me.id}__cell-${i % poolSize}`,
                     column,
                     columnIndex : i,
                     isLastColumn: i === lastColumnIndex,
@@ -279,9 +280,26 @@ class Row extends Component {
                     cellConfig.style.visibility = 'hidden'
                 }
 
-                vdom.cn.push(cellConfig)
+                // Add logical ID for Selection Models
+                cellConfig.ds = {
+                    cellId: `${me.id}__${column.dataField}`
+                };
+
+                pooledCells[i % poolSize] = cellConfig
             }
         }
+
+        // Fill gaps with placeholders to maintain O(1) stability
+        for (i = 0; i < poolSize; i++) {
+            if (!pooledCells[i]) {
+                pooledCells[i] = {
+                    id   : `${me.id}__cell-${i}`,
+                    style: {display: 'none'}
+                }
+            }
+        }
+
+        vdom.cn.push(...pooledCells);
 
         // Pass 2: Render Permanent Cells (hideMode !== 'removeDom')
         // We MUST render these even if they are off-screen to preserve their DOM state (e.g. Canvas context).
@@ -330,6 +348,11 @@ class Row extends Component {
                         cellConfig.style.display = 'none'
                     }
                 }
+
+                // Add logical ID for Selection Models
+                cellConfig.ds = {
+                    cellId: `${me.id}__${column.dataField}`
+                };
 
                 vdom.cn.push(cellConfig)
             }
