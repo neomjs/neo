@@ -11,8 +11,8 @@ class ScrollManager extends Base {
      * @static
      */
     static delayable = {
-        onBodyScrollEnd: {type: 'buffer', timer: 150},
-        syncGridBody   : {type: 'throttle', timer: 10}
+        onBodyScrollEnd: {type: 'buffer',   timer: 150},
+        syncGridBody   : {type: 'throttle', timer:  48}
     }
 
     static config = {
