@@ -1,16 +1,21 @@
-import HeaderToolbar from '../../../src/app/header/Toolbar.mjs';
+import Toolbar from '../../../src/app/header/Toolbar.mjs';
 
 /**
  * @class DevRank.view.HeaderToolbar
  * @extends Neo.app.header.Toolbar
  */
-class Toolbar extends HeaderToolbar {
+class HeaderToolbar extends Toolbar {
     static config = {
         /**
          * @member {String} className='DevRank.view.HeaderToolbar'
          * @protected
          */
         className: 'DevRank.view.HeaderToolbar',
+        /**
+         * @member {String[]} cls=['devrank-header-toolbar']
+         * @reactive
+         */
+        cls: ['devrank-header-toolbar'],
         /**
          * @member {Object[]} items
          */
@@ -62,4 +67,4 @@ class Toolbar extends HeaderToolbar {
     }
 }
 
-export default Neo.setupClass(Toolbar);
+export default Neo.setupClass(HeaderToolbar);
