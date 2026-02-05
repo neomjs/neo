@@ -41,8 +41,9 @@ subIssues:
   - '[x] 8997 Feat: DevRank Selection Model Tab'
   - '[ ] 9005 Feat: Refactor Portal Header to Framework (using Dynamic Worker Arch)'
   - '[x] 9006 Refactor DevRank Controls Button to Header Toolbar'
-subIssuesCompleted: 23
-subIssuesTotal: 27
+  - '[x] 9007 Feat: Enhance DevRank Grid Styling (Dark Theme)'
+subIssuesCompleted: 24
+subIssuesTotal: 28
 blockedBy: []
 blocking: []
 ---
@@ -114,4 +115,5 @@ The goal is to create a meritocratic index of the open-source ecosystem, powered
 - 2026-02-05T09:31:30Z @tobiu added sub-issue #8997
 - 2026-02-05T14:51:36Z @tobiu added sub-issue #9005
 - 2026-02-05T17:44:24Z @tobiu added sub-issue #9006
+- 2026-02-05T19:32:12Z @tobiu added sub-issue #9007
 
