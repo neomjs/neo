@@ -677,7 +677,7 @@ class GridBody extends Container {
      * @returns {String}
      */
     getCellDataField(cellId) {
-        return cellId.split('__')[2]
+        return this.getDataField(cellId)
     }
 
     /**
@@ -752,6 +752,26 @@ class GridBody extends Container {
      * @returns {String}
      */
     getDataField(cellId) {
+        if (cellId.includes('__cell-')) {
+            let me            = this,
+                poolIndex     = parseInt(cellId.split('__cell-')[1]),
+                columns       = me.parent.columns,
+                {cellPoolSize, mountedColumns} = me,
+                i             = mountedColumns[0],
+                len           = mountedColumns[1],
+                column;
+
+            for (; i <= len; i++) {
+                if (i % cellPoolSize === poolIndex) {
+                    column = columns.getAt(i);
+                    // Sanity check: ensure this column is actually pooled
+                    if (column && column.hideMode === 'removeDom') {
+                        return column.dataField
+                    }
+                }
+            }
+        }
+
         return cellId.split('__')[2]
     }
 
