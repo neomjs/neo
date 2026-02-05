@@ -1,7 +1,7 @@
-import Canvas from '../../../../src/component/Canvas.mjs';
+import Canvas from '../component/Canvas.mjs';
 
 /**
- * @summary Abstract base class for App Worker Canvas components.
+ * @summary Abstract base class for SharedWorker Canvas components.
  *
  * This class abstracts the common logic for connecting an App Worker component to a
  * SharedWorker canvas renderer. It handles:
@@ -11,24 +11,19 @@ import Canvas from '../../../../src/component/Canvas.mjs';
  * 4.  **Theming**: Syncing the component's theme to the worker.
  *
  * Subclasses must define:
- * - `rendererClassName`: String name of the SharedWorker singleton (e.g. 'Portal.canvas.HomeCanvas')
- * - `importMethodName`: String name of the helper import method (e.g. 'importHomeCanvas')
+ * - `rendererClassName`: String name of the SharedWorker singleton (e.g. 'Neo.canvas.Header')
+ * - `rendererImportPath`: Import path for the renderer module (e.g. 'src/canvas/Header.mjs')
  *
- * @class Portal.view.shared.Canvas
+ * @class Neo.app.SharedCanvas
  * @extends Neo.component.Canvas
  */
 class SharedCanvas extends Canvas {
     static config = {
         /**
-         * @member {String} className='Portal.view.shared.Canvas'
+         * @member {String} className='Neo.app.SharedCanvas'
          * @protected
          */
-        className: 'Portal.view.shared.Canvas',
-        /**
-         * The name of the method on Portal.canvas.Helper to call for importing the worker code.
-         * @member {String|null} importMethodName=null
-         */
-        importMethodName: null,
+        className: 'Neo.app.SharedCanvas',
         /**
          * @member {Boolean} isCanvasReady_=false
          */
@@ -44,6 +39,11 @@ class SharedCanvas extends Canvas {
          * @member {String|null} rendererClassName=null
          */
         rendererClassName: null,
+        /**
+         * The import path for the renderer module.
+         * @member {String|null} rendererImportPath=null
+         */
+        rendererImportPath: null,
         /**
          * @member {Object} _vdom
          */
@@ -67,8 +67,26 @@ class SharedCanvas extends Canvas {
     afterSetIsCanvasReady(value, oldValue) {
         if (value) {
             let mode = this.theme?.includes('dark') ? 'dark' : 'light';
-            this.renderer.setTheme(mode)
+            this.renderer?.setTheme(mode)
         }
+    }
+
+    /**
+     * Lifecycle hook triggered when the mounted config gets changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    async afterSetMounted(value, oldValue) {
+        let me = this;
+
+        if (value) {
+            await me.ready()
+        } else if (me.offscreenRegistered) {
+            me.renderer?.clearGraph()
+        }
+
+        super.afterSetMounted(value, oldValue)
     }
 
     /**
@@ -83,11 +101,12 @@ class SharedCanvas extends Canvas {
         let me = this;
 
         if (value) {
-            if (!me.importMethodName) {
-                throw new Error('Canvas component missing importMethodName config')
+            await me.ready();
+
+            if (!me.rendererClassName) {
+                throw new Error('Canvas component missing rendererClassName config')
             }
 
-            await Portal.canvas.Helper[me.importMethodName]();
             await me.renderer.initGraph({canvasId: me.getCanvasId(), windowId: me.windowId});
 
             me.isCanvasReady = true;
@@ -135,18 +154,55 @@ class SharedCanvas extends Canvas {
      * @returns {Object} The renderer singleton
      */
     get renderer() {
-        if (!this.rendererClassName) {
-            throw new Error('Canvas component missing rendererClassName config')
-        }
-        return Neo.ns(this.rendererClassName)
+        return this.rendererClassName ? Neo.ns(this.rendererClassName) : null
     }
 
     /**
      * @param {...*} args
      */
     destroy(...args) {
-        this.renderer.clearGraph();
+        this.renderer?.clearGraph();
         super.destroy(...args)
+    }
+
+    /**
+     * @returns {Promise<void>}
+     */
+    async initAsync() {
+        await super.initAsync();
+
+        if (this.rendererImportPath) {
+             // Ensure Canvas Worker is running
+            await Neo.worker.Manager.startWorker({name: 'canvas'});
+
+            // Wait for the Canvas Worker remote to be available.
+            let i = 0;
+
+            while (!Neo.ns('Neo.worker.Canvas.loadModule') && i < 40) {
+                await this.timeout(50);
+                i++
+            }
+
+            if (Neo.ns('Neo.worker.Canvas.loadModule')) {
+                // Load the specific renderer module for this component
+                await Neo.worker.Canvas.loadModule({
+                    path: this.rendererImportPath
+                });
+
+                // Wait for the remote stub to be created
+                let j = 0;
+                while (!this.renderer && j < 40) {
+                    await this.timeout(50);
+                    j++
+                }
+
+                if (!this.renderer) {
+                     console.error('Renderer Remote Stub not found:', this.rendererClassName)
+                }
+            } else {
+                console.error('Neo.component.CanvasShared: Canvas Worker failed to register remote methods.')
+            }
+        }
     }
 
     /**
@@ -225,13 +281,15 @@ class SharedCanvas extends Canvas {
     async updateSize(rect) {
         let me = this;
 
+        await me.ready();
+
         if (!rect || rect.width === 0 || rect.height === 0) {
             rect = await me.getDomRect(me.id)
         }
 
         if (rect) {
             me.canvasRect = rect;
-            await me.renderer.updateSize({width: rect.width, height: rect.height})
+            await me.renderer?.updateSize({width: rect.width, height: rect.height})
         }
     }
 }

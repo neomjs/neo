@@ -1,16 +1,16 @@
 import HeaderToolbar from '../../../src/app/header/Toolbar.mjs';
 
 /**
- * @class Portal.view.HeaderToolbar
+ * @class DevRank.view.HeaderToolbar
  * @extends Neo.app.header.Toolbar
  */
 class Toolbar extends HeaderToolbar {
     static config = {
         /**
-         * @member {String} className='Portal.view.HeaderToolbar'
+         * @member {String} className='DevRank.view.HeaderToolbar'
          * @protected
          */
-        className: 'Portal.view.HeaderToolbar',
+        className: 'DevRank.view.HeaderToolbar',
         /**
          * @member {Object[]} items
          */
@@ -22,23 +22,6 @@ class Toolbar extends HeaderToolbar {
             route   : '/home',
             text    : 'Neo.mjs'
         }, '->', {
-            reference: 'learn-button',
-            text     : 'Learn',
-            route    : '/learn'
-        }, {
-            bind     : {badgeText: 'blogPostCount'},
-            reference: 'news-header-button',
-            route    : '/news',
-            text     : 'News'
-        }, {
-            reference: 'examples-button',
-            route    : '/examples',
-            text     : 'Examples'
-        }, {
-            reference: 'services-button',
-            route    : '/services',
-            text     : 'Services'
-        }, {
             ntype    : 'container',
             layout   : 'hbox',
             reference: 'header-social-icons',

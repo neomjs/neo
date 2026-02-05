@@ -1,16 +1,16 @@
-import Component from '../../../src/controller/Component.mjs';
+import Component from '../../controller/Component.mjs';
 
 /**
- * @class Portal.view.HeaderToolbarController
+ * @class Neo.app.header.ToolbarController
  * @extends Neo.controller.Component
  */
-class HeaderToolbarController extends Component {
+class ToolbarController extends Component {
     static config = {
         /**
-         * @member {String} className='Portal.view.HeaderToolbarController'
+         * @member {String} className='Neo.app.header.ToolbarController'
          * @protected
          */
-        className: 'Portal.view.HeaderToolbarController'
+        className: 'Neo.app.header.ToolbarController'
     }
 
     /**
@@ -57,4 +57,4 @@ class HeaderToolbarController extends Component {
     }
 }
 
-export default Neo.setupClass(HeaderToolbarController);
+export default Neo.setupClass(ToolbarController);

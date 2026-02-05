@@ -1,5 +1,5 @@
-import ComponentManager from '../../../src/manager/Component.mjs';
-import SharedCanvas     from './shared/Canvas.mjs';
+import SharedCanvas     from '../SharedCanvas.mjs';
+import ComponentManager from '../../manager/Component.mjs';
 
 /**
  * @summary The App Worker component for the HeaderToolbar canvas overlay.
@@ -11,42 +11,42 @@ import SharedCanvas     from './shared/Canvas.mjs';
  * 2. **DOM Synchronization:** Tracking the size/position of the canvas and navigation buttons, forwarding these to the renderer.
  * 3. **Input Bridging:** Capturing user interactions (mouse move, click) and forwarding coordinates to the renderer.
  *
- * The actual rendering loop and physics simulation happen in `Portal.canvas.HeaderCanvas` (SharedWorker),
+ * The actual rendering loop and physics simulation happen in `Neo.canvas.Header` (SharedWorker),
  * ensuring the main thread and App Worker remain unblocked.
  *
- * @class Portal.view.HeaderCanvas
- * @extends Portal.view.shared.Canvas
- * @see Portal.canvas.HeaderCanvas
+ * @class Neo.app.header.Canvas
+ * @extends Neo.app.SharedCanvas
+ * @see Neo.canvas.Header
  */
-class HeaderCanvas extends SharedCanvas {
+class Canvas extends SharedCanvas {
     static config = {
         /**
-         * @member {String} className='Portal.view.HeaderCanvas'
+         * @member {String} className='Neo.app.header.Canvas'
          * @protected
          */
-        className: 'Portal.view.HeaderCanvas',
+        className: 'Neo.app.header.Canvas',
         /**
          * @member {String|null} activeId_=null
          * @reactive
          */
         activeId_: null,
         /**
-         * @member {String[]} cls=['portal-header-canvas']
+         * @member {String[]} cls=['neo-header-canvas']
          */
-        cls: ['portal-header-canvas'],
+        cls: ['neo-header-canvas'],
         /**
          * @member {String|null} hoverId_=null
          * @reactive
          */
         hoverId_: null,
         /**
-         * @member {String} importMethodName='importHeaderCanvas'
+         * @member {String} rendererClassName='Neo.canvas.Header'
          */
-        importMethodName: 'importHeaderCanvas',
+        rendererClassName: 'Neo.canvas.Header',
         /**
-         * @member {String} rendererClassName='Portal.canvas.HeaderCanvas'
+         * @member {String} rendererImportPath='src/canvas/Header.mjs'
          */
-        rendererClassName: 'Portal.canvas.HeaderCanvas'
+        rendererImportPath: 'src/canvas/Header.mjs'
     }
 
     /**
@@ -151,4 +151,4 @@ class HeaderCanvas extends SharedCanvas {
     }
 }
 
-export default Neo.setupClass(HeaderCanvas);
+export default Neo.setupClass(Canvas);

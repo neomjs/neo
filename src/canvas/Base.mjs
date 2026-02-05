@@ -1,7 +1,7 @@
-import NeoBase from '../../../src/core/Base.mjs';
+import NeoBase from '../core/Base.mjs';
 
 /**
- * @summary Abstract base class for Portal Canvas Renderers.
+ * @summary Abstract base class for Canvas Renderers.
  *
  * This class serves as the foundation for the specialized canvas visualizations (Header, Home, Services, Ticket)
  * that run within the **Neo.mjs Canvas SharedWorker**.
@@ -16,16 +16,16 @@ import NeoBase from '../../../src/core/Base.mjs';
  * These renderers operate off the main thread to ensure high-performance, 60fps animations without
  * blocking the UI.
  *
- * @class Portal.canvas.Base
+ * @class Neo.canvas.Base
  * @extends Neo.core.Base
  */
 class Base extends NeoBase {
     static config = {
         /**
-         * @member {String} className='Portal.canvas.Base'
+         * @member {String} className='Neo.canvas.Base'
          * @protected
          */
-        className: 'Portal.canvas.Base',
+        className: 'Neo.canvas.Base',
         /**
          * Remote method access
          * @member {Object} remote

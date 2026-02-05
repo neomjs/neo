@@ -34,12 +34,12 @@ const
  * 2. **Gradient Caching:** CanvasGradients are created only on resize (`updateResources`) and cached, avoiding expensive generator calls per frame.
  * 3. **Reusable Objects:** Physics calculations write directly to buffers instead of returning new Arrays of Objects.
  *
- * @class Portal.canvas.HeaderCanvas
- * @extends Portal.canvas.Base
+ * @class Neo.canvas.Header
+ * @extends Neo.canvas.Base
  * @singleton
  * @see Portal.view.HeaderCanvas
  */
-class HeaderCanvas extends Base {
+class Header extends Base {
     static colors = {
         dark : {
             background   : ['rgba(62, 99, 221, 0.1)', 'rgba(64, 196, 255, 0.2)', 'rgba(62, 99, 221, 0.1)'],
@@ -69,10 +69,10 @@ class HeaderCanvas extends Base {
 
     static config = {
         /**
-         * @member {String} className='Portal.canvas.HeaderCanvas'
+         * @member {String} className='Neo.canvas.Header'
          * @protected
          */
-        className: 'Portal.canvas.HeaderCanvas',
+        className: 'Neo.canvas.Header',
         /**
          * Remote method access
          * @member {Object} remote
@@ -967,5 +967,5 @@ class HeaderCanvas extends Base {
     }
 }
 
-export default Neo.setupClass(HeaderCanvas);
+export default Neo.setupClass(Header);
 

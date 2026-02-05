@@ -1,4 +1,4 @@
-import SharedCanvas from '../../shared/Canvas.mjs';
+import SharedCanvas from '../../../../../src/app/SharedCanvas.mjs';
 
 /**
  * @summary The "Coordinator" component for the Neural Timeline, bridging the App Worker and Canvas Worker.
@@ -12,7 +12,7 @@ import SharedCanvas from '../../shared/Canvas.mjs';
  * It uses the `Portal.canvas.TicketCanvas` singleton (via Remote Method Access) to drive the actual animation.
  *
  * @class Portal.view.news.tickets.TimelineCanvas
- * @extends Portal.view.shared.Canvas
+ * @extends Neo.app.SharedCanvas
  */
 class TimelineCanvas extends SharedCanvas {
     /**
@@ -32,13 +32,13 @@ class TimelineCanvas extends SharedCanvas {
          */
         className: 'Portal.view.news.tickets.TimelineCanvas',
         /**
-         * @member {String} importMethodName='importTicketCanvas'
-         */
-        importMethodName: 'importTicketCanvas',
-        /**
          * @member {String} rendererClassName='Portal.canvas.TicketCanvas'
          */
         rendererClassName: 'Portal.canvas.TicketCanvas',
+        /**
+         * @member {String} rendererImportPath='apps/portal/canvas/TicketCanvas.mjs'
+         */
+        rendererImportPath: 'apps/portal/canvas/TicketCanvas.mjs',
         /**
          * @member {Object} _vdom
          */
