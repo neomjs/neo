@@ -49,11 +49,11 @@ class BaseModel extends Model {
             {view}    = me,
             {store}   = view,
             isCell    = me.ntype.includes('cell'),
-            keyProp   = store.getKeyProperty(),
             processed = new Set();
 
         items.forEach(item => {
-            let recordId, row;
+            let hasChanged = false,
+                recordId, row;
 
             if (isCell) {
                 // item is a logical ID: recordId__dataField
@@ -66,16 +66,19 @@ class BaseModel extends Model {
                         processed.add(item); // Process each logical cell only once per batch
 
                         // Find the cell node in the row's VDOM
-                        let dataField = view.getDataField(item),
-                            cellNode  = row.vdom.cn.find(n => n.data?.field === dataField);
+                        let dataField     = view.getDataField(item),
+                            cellNode      = row.vdom.cn.find(n => n.data?.field === dataField),
+                            shouldSelect  = me.isSelected(item),
+                            alreadySelect = cellNode.cls?.includes(me.selectedCls);
 
-                        if (cellNode) {
+                        if (cellNode && shouldSelect !== alreadySelect) {
                             // Mutate VDOM directly: Toggle selection class
-                            NeoArray.toggle(cellNode.cls, me.selectedCls, me.isSelected(item))
+                            NeoArray[shouldSelect ? 'add' : 'remove'](cellNode.cls, me.selectedCls);
+                            hasChanged = true
                         }
 
                         // We must trigger the update on the row to flush the VDOM change
-                        if (!silent) {
+                        if (hasChanged && !silent) {
                             row.update()
                         }
                     }
@@ -91,18 +94,23 @@ class BaseModel extends Model {
                     if (record) {
                         row = view.getRow(record);
                         if (row) {
-                            let isSelected = me.isSelectedRow(recordId);
+                            let isSelected    = me.isSelectedRow(recordId),
+                                alreadySelect = row.vdom.cls?.includes(me.selectedCls);
 
-                            // Mutate VDOM directly: Toggle selection class on the row
-                            NeoArray.toggle(row.vdom.cls, me.selectedCls, isSelected);
+                            if (isSelected !== alreadySelect) {
+                                // Mutate VDOM directly: Toggle selection class on the row
+                                NeoArray[isSelected ? 'add' : 'remove'](row.vdom.cls, me.selectedCls);
 
-                            if (isSelected) {
-                                row.vdom['aria-selected'] = true
-                            } else {
-                                delete row.vdom['aria-selected']
+                                if (isSelected) {
+                                    row.vdom['aria-selected'] = true
+                                } else {
+                                    delete row.vdom['aria-selected']
+                                }
+
+                                hasChanged = true
                             }
 
-                            if (!silent) {
+                            if (hasChanged && !silent) {
                                 row.update()
                             }
                         }
@@ -194,12 +202,7 @@ class BaseModel extends Model {
 
         NeoArray.remove(me.selectedRows, recordId);
 
-        me.updateRows(recordId, true);
-
-        if (!silent) {
-            me.view.updateDepth = 2;
-            me.view.update()
-        }
+        me.updateRows(recordId, silent)
     }
 
     /**
@@ -284,12 +287,7 @@ class BaseModel extends Model {
 
         NeoArray.add(me.selectedRows, recordId);
 
-        me.updateRows(recordId, true);
-
-        if (!silent) {
-            me.view.updateDepth = 2;
-            me.view.update()
-        }
+        me.updateRows(recordId, silent)
     }
 
     /**
