@@ -87,6 +87,8 @@ class Row extends Component {
             cellCls                = ['neo-grid-cell'],
             colspan                = record[gridBody.colspanField],
             {dataField}            = column,
+            recordId               = record[store.getKeyProperty()],
+            logicalCellId          = gridBody.getLogicalCellId(record, dataField),
             fieldValue             = record.get(dataField),
             cellConfig, rendererOutput;
 
@@ -174,7 +176,7 @@ class Row extends Component {
             cellId = me.getCellId(column.dataField)
         }
 
-        if (selectedCells.includes(cellId)) {
+        if (selectedCells.includes(logicalCellId)) {
             cellCls.push('neo-selected')
         }
 
@@ -188,6 +190,7 @@ class Row extends Component {
 
         cellConfig = {
             'aria-colindex': columnIndex + 1, // 1 based
+            data           : {field: dataField, recordId},
             id             : cellId,
             cls            : cellCls,
             role           : 'gridcell',
@@ -241,20 +244,28 @@ class Row extends Component {
             rowIndex         = me.rowIndex,
             gridBody         = me.parent, // The Row is an item of Body
             gridContainer    = gridBody.parent,
+            vdom             = me.vdom,
             {columns}        = gridContainer,
+            cellConfig, column, columnPosition, i, isMounted, lastColumnIndex, poolSize, pooledCells;
+
+        if (!record) {
+            vdom.style = {display: 'none'};
+            !silent && me.update();
+            return
+        }
+
+        let {mountedColumns} = gridBody,
             {selectedRows}   = gridBody,
             recordId         = record[gridBody.store.getKeyProperty()],
-            countColumns     = columns.getCount(),
-            {mountedColumns} = gridBody,
-            vdom = me.vdom,
-            cellConfig, column, columnPosition, i, isMounted;
+            countColumns     = columns.getCount();
 
         Object.assign(vdom, {
             'aria-rowindex': rowIndex + 2, // header row => 1, first body row => 2
             cn             : [],
-            data           : {recordId},
+            data           : {recordId, rowId: rowIndex},
             role           : 'row',
             style          : {
+                display  : null, // Reset display in case it was hidden
                 height   : gridBody.rowHeight + 'px',
                 transform: `translate3d(0px, ${rowIndex * gridBody.rowHeight}px, 0px)`
             }
@@ -282,9 +293,9 @@ class Row extends Component {
 
         vdom.cls = rowCls;
 
-        let lastColumnIndex = gridBody.columnPositions.getCount() - 1,
-            poolSize        = gridBody.cellPoolSize,
-            pooledCells     = new Array(poolSize);
+        lastColumnIndex = gridBody.columnPositions.getCount() - 1;
+        poolSize        = gridBody.cellPoolSize;
+        pooledCells     = new Array(poolSize);
 
         // Pass 1: Render Pooled Cells (hideMode === 'removeDom')
         // We render the FULL pool to ensure stable VDOM structure (0 inserts/moves).
@@ -325,11 +336,6 @@ class Row extends Component {
                 if (columnPosition.hidden) {
                     cellConfig.style.visibility = 'hidden'
                 }
-
-                // Add logical ID for Selection Models
-                cellConfig.data = {
-                    cellId: `${me.id}__${column.dataField}`
-                };
 
                 pooledCells[i % poolSize] = cellConfig
             }
@@ -394,11 +400,6 @@ class Row extends Component {
                         cellConfig.style.display = 'none'
                     }
                 }
-
-                // Add logical ID for Selection Models
-                cellConfig.data = {
-                    cellId: `${me.id}__${column.dataField}`
-                };
 
                 vdom.cn.push(cellConfig)
             }
