@@ -1,6 +1,6 @@
 import ClassSystemUtil from '../util/ClassSystem.mjs';
+import Component       from '../component/Base.mjs';
 import Collection      from '../collection/Base.mjs';
-import Container       from '../container/Base.mjs';
 import Row             from './Row.mjs';
 import RowModel        from '../selection/grid/RowModel.mjs';
 import VDomUtil        from '../util/VDom.mjs';
@@ -8,8 +8,16 @@ import VDomUtil        from '../util/VDom.mjs';
 /**
  * @summary Manages the scrollable viewport and row rendering for the Grid.
  *
- * `Neo.grid.Body` is the engine behind the Grid's virtual scrolling. Instead of creating a component for every record
- * in the store, it uses a **Row Pooling** architecture:
+ * `Neo.grid.Body` is the engine behind the Grid's virtual scrolling. It extends {@link Neo.component.Base} rather than
+ * `Neo.container.Base` to enforce a strict **Row Pooling** architecture.
+ *
+ * **Why Component and not Container?**
+ * Since the Grid uses a **Fixed-DOM-Order** strategy, the standard Container APIs (`add`, `remove`, `move`) are
+ * fundamentally incompatible with the row pooling logic. By extending `Component`, we hide these unsafe methods
+ * while manually implementing the necessary config propagation (theme, appName, windowId) to the managed Row instances.
+ *
+ * **Row Pooling:**
+ * Instead of creating a component for every record in the store, it uses a pool:
  *
  * 1.  It creates a fixed pool of {@link Neo.grid.Row} components based on the visible height + a buffer.
  * 2.  As the user scrolls, these Row instances are recycled. Their `record` and `rowIndex` configs are updated via
@@ -28,11 +36,11 @@ import VDomUtil        from '../util/VDom.mjs';
  *   zero layout thrashing during scrolling.
  *
  * @class Neo.grid.Body
- * @extends Neo.container.Base
+ * @extends Neo.component.Base
  * @see Neo.grid.Row
  * @see Neo.grid.Container
  */
-class GridBody extends Container {
+class GridBody extends Component {
     static config = {
         /**
          * @member {String} className='Neo.grid.Body'
@@ -204,10 +212,6 @@ class GridBody extends Container {
          */
         wrapperCls: ['neo-grid-body-wrapper'],
         /**
-         * @member {Object} layout=null
-         */
-        layout: null,
-        /**
          * @member {Object} _vdom
          */
         _vdom:
@@ -226,6 +230,10 @@ class GridBody extends Container {
      * @member {Number} #initialChunkSize=0
      */
     #initialTotalSize = 0
+    /**
+     * @member {Object[]} items=[]
+     */
+    items = []
 
     /**
      * @member {String[]} selectedCells
@@ -292,6 +300,24 @@ class GridBody extends Container {
                 });
 
                 me.plugins = plugins
+            })
+        }
+    }
+
+    /**
+     * Triggered after the appName config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetAppName(value, oldValue) {
+        let me = this;
+
+        super.afterSetAppName(value, oldValue);
+
+        if (value) {
+            me.items.forEach(item => {
+                item.appName = value
             })
         }
     }
@@ -372,6 +398,24 @@ class GridBody extends Container {
      */
     afterSetIsScrolling(value, oldValue) {
         this.toggleCls('neo-is-scrolling', value)
+    }
+
+    /**
+     * Triggered after the mounted config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetMounted(value, oldValue) {
+        super.afterSetMounted(value, oldValue);
+
+        if (oldValue !== undefined) {
+            this.items.forEach(item => {
+                if (!item.vdom.removeDom) {
+                    item.mounted = value
+                }
+            })
+        }
     }
 
     /**
@@ -468,6 +512,42 @@ class GridBody extends Container {
     }
 
     /**
+     * Triggered after the theme config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetTheme(value, oldValue) {
+        let me = this;
+
+        super.afterSetTheme(value, oldValue);
+
+        if (value) {
+            me.items.forEach(item => {
+                item.theme = value
+            })
+        }
+    }
+
+    /**
+     * Triggered after the windowId config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetWindowId(value, oldValue) {
+        let me = this;
+
+        super.afterSetWindowId(value, oldValue);
+
+        if (value) {
+            me.items.forEach(item => {
+                item.windowId = value
+            })
+        }
+    }
+
+    /**
      * Triggered after the columnPositions config got changed
      * @param {Object} value
      * @protected
@@ -545,23 +625,30 @@ class GridBody extends Container {
      * @protected
      */
     createRowPool() {
-        let me          = this,
-            needed      = me.availableRows + 2 * me.bufferRowRange,
-            current     = me.items ? me.items.length : 0,
-            delta       = needed - current,
-            newRows     = [];
+        let me      = this,
+            needed  = me.availableRows + 2 * me.bufferRowRange,
+            current = me.items.length,
+            delta   = needed - current,
+            newRows = [],
+            config;
 
         if (delta > 0) {
             for (let i = 0; i < delta; i++) {
-                newRows.push({
+                config = {
                     module       : Row,
+                    appName      : me.appName,
                     gridContainer: me.parent,
                     id           : me.getRowId(current + i),
+                    parentId     : me.id,
                     record       : null,
-                    rowIndex     : -1
-                })
+                    rowIndex     : -1,
+                    theme        : me.theme,
+                    windowId     : me.windowId
+                };
+
+                newRows.push(Neo.create(config))
             }
-            me.add(newRows)
+            me.items.push(...newRows)
         } else if (delta < 0) {
             // Optional: Destroy excess rows if we want to reclaim memory strictly
             // For now, we keep them as a buffer
@@ -673,8 +760,12 @@ class GridBody extends Container {
      * @param args
      */
     destroy(...args) {
-        this.store = null; // remove the listeners
-        this.clearComponentColumnMaps(); // Destroy component instances
+        let me = this;
+
+        me.items.forEach(item => item.destroy());
+
+        me.store = null; // remove the listeners
+        me.clearComponentColumnMaps(); // Destroy component instances
 
         super.destroy(...args)
     }
