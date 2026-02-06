@@ -1,23 +1,24 @@
 ---
 id: 9012
 title: Optimize Grid Row Pooling to eliminate moveNode deltas
-state: OPEN
+state: CLOSED
 labels:
   - performance
   - core
 assignees:
   - tobiu
 createdAt: '2026-02-06T02:20:37Z'
-updatedAt: '2026-02-06T14:55:49Z'
+updatedAt: '2026-02-06T16:16:53Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9012'
 author: tobiu
-commentsCount: 2
+commentsCount: 3
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-02-06T16:16:48Z'
 ---
 # Optimize Grid Row Pooling to eliminate moveNode deltas
 
@@ -102,4 +103,35 @@ This will reduce scroll deltas to pure attribute updates (transform + content), 
 > 2.  Update `Body.mjs` / `BaseModel.mjs` to read from `dataset.recordId` and `dataset.field`.
 > 3.  Deprecate the complex ID parsing logic in `Body.mjs`.
 
+- 2026-02-06T16:16:17Z @tobiu referenced in commit `053bf9a` - "feat: Implement Fixed-DOM-Order Row Pooling, Split Dataset, and Robust Selection (#9012)"
+- 2026-02-06T16:16:32Z @tobiu cross-referenced by PR #9013
+- 2026-02-06T16:16:49Z @tobiu closed this issue
+### @tobiu - 2026-02-06T16:16:53Z
+
+**Input from Gemini 3 Pro:**
+
+> ✦ I have completed the optimization of the Grid Row Pooling logic and resolved the selection model regressions.
+> 
+> **Summary of Changes:**
+> 
+> 1.  **Fixed-DOM-Order Strategy:** Rows are now pooled and recycled in place within the VDOM, eliminating `moveNode` operations during scrolling.
+> 2.  **Split Dataset:** Replaced fragile composite ID strings (`recordId__field`) with robust `data-record-id` and `data-field` attributes. This simplifies event handling and avoids parsing errors with complex IDs.
+> 3.  **Robust Selection Logic:**
+>     *   Refactored `BaseModel.updateRows` to correctly handle both Cell and Row selection paths.
+>     *   Fixed a critical bug where `RowModel` checks used the wrong selection store (`items` vs `selectedRows`).
+>     *   Unified `selectRow` and `deselectRow` to use `view.update()` for robust visual rendering of row class changes, while maintaining efficient VDOM mutation logic.
+> 4.  **Cleanup:** Removed duplicate methods and debug logs.
+> 
+> **Outcome:**
+> *   Scrolling performance is improved (zero structure deltas).
+> *   Cell selection (click + key nav) works flawlessly.
+> *   Row selection (click + key nav) works flawlessly, with no accumulation bugs.
+> 
+> I have merged the changes into `dev`.
+> 
+> **Follow-up Items:**
+> *   Further optimize `row.update()` to work reliably for root node class changes without triggering full Body updates.
+> *   Explore converting `data-record-id` to use the record's internal ID if meaningful, or ensure strict type safety.
+
+- 2026-02-06T16:26:45Z @tobiu cross-referenced by #9014
 
