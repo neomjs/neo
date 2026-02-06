@@ -98,7 +98,7 @@ class Row extends Component {
             column.rendererScope = column;
         }
 
-        rendererOutput = column.renderer.call(column.rendererScope || column, {
+        let rendererConfig = {
             column,
             columnIndex,
             component: me.components?.[column.dataField],
@@ -110,7 +110,21 @@ class Row extends Component {
             silent,
             store,
             value: fieldValue
-        });
+        };
+
+        rendererOutput = column.renderer.call(column.rendererScope || column, rendererConfig);
+
+        if (column.cellCls) {
+            let extraCls = column.cellCls;
+
+            if (Neo.typeOf(extraCls) === 'Function') {
+                extraCls = extraCls.call(column.rendererScope || column, rendererConfig)
+            }
+
+            if (extraCls) {
+                NeoArray.add(cellCls, extraCls)
+            }
+        }
 
         if (rendererOutput instanceof Neo.component.Base) {
             me.components ??= {};

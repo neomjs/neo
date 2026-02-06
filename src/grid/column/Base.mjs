@@ -21,6 +21,10 @@ class Column extends Base {
          */
         className: 'Neo.grid.column.Base',
         /**
+         * @member {Function|String|String[]|null} cellCls=null
+         */
+        cellCls: null,
+        /**
          * @member {String|null} dataField=null
          */
         dataField: null,
