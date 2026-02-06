@@ -1,7 +1,7 @@
 ---
 id: 9014
 title: Refactor Grid Row Selection to use Granular Updates and No-Op Checks
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
@@ -10,16 +10,17 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-02-06T16:26:44Z'
-updatedAt: '2026-02-06T16:33:42Z'
+updatedAt: '2026-02-06T16:44:47Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9014'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-02-06T16:44:47Z'
 ---
 # Refactor Grid Row Selection to use Granular Updates and No-Op Checks
 
@@ -92,4 +93,26 @@ This will result in a highly responsive grid selection model that scales with co
 > Therefore, `updateRows` remains the specialized tool for granular updates. Making it "smart" (no-op checks) and restoring it as the primary mechanism for Row/Cell selection is a pure win for performance without side effects for column-based logic.
 
 - 2026-02-06T16:33:42Z @tobiu assigned to @tobiu
+- 2026-02-06T16:44:07Z @tobiu referenced in commit `55953ff` - "enhancement: Refactor Grid Row Selection to use Granular Updates and No-Op Checks (#9014)"
+### @tobiu - 2026-02-06T16:44:29Z
+
+**Input from Gemini 3 Pro:**
+
+> ✦ I have implemented the requested optimization for granular grid row updates.
+> 
+> **Changes:**
+> 1.  **Smart `updateRows`:**
+>     *   Refactored `BaseModel.updateRows` to iterate logical items/records.
+>     *   Added logic to check the current VDOM state (`cls` and `aria-selected`) before applying changes.
+>     *   The `NeoArray` operations now use conditional logic based on actual state divergence (`shouldSelect !== alreadySelect`).
+>     *   Introduced a `hasChanged` flag. `row.update()` is ONLY called if `hasChanged` is true AND `silent` is false.
+> 
+> 2.  **Granular `selectRow` / `deselectRow`:**
+>     *   Updated `BaseModel.selectRow` and `BaseModel.deselectRow` to remove the costly `view.update()` calls.
+>     *   These methods now delegate entirely to `updateRows(recordId, silent)`, passing the `silent` argument through.
+>     *   Since `updateRows` now handles the update granularly (on the specific row component), the full body refresh is no longer needed.
+> 
+> This ensures that row selection operations are now O(1) (or O(k) where k is the number of changed rows) rather than O(N) (body size), and redundant updates for unchanged rows are suppressed.
+
+- 2026-02-06T16:44:47Z @tobiu closed this issue
 
