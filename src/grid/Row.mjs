@@ -21,6 +21,15 @@ import NeoArray  from '../util/Array.mjs';
  * during horizontal scrolling. The browser only processes efficient attribute updates (style, content),
  * with **zero** DOM node insertions, removals, or reordering operations.
  *
+ * **Split Dataset Strategy:**
+ * To support the Fixed-DOM-Order strategy and robust event delegation, this class renders split data attributes
+ * instead of composite IDs:
+ *
+ * - `data-record-id`: The stable ID of the record currently bound to this row.
+ * - `data-field`: The data field name of the column (for cells).
+ *
+ * This avoids the need for fragile string parsing (e.g. `split('__')`) in event handlers.
+ *
  * Key Responsibilities:
  * -   **Cell Rendering:** Generates the VDOM for all cells in the row based on the columns config.
  * -   **Granular Updates:** When a bound record changes, only this specific Row instance updates its VDOM, avoiding a full Grid re-render.

@@ -18,6 +18,15 @@ import VDomUtil        from '../util/VDom.mjs';
  *
  * This architecture ensures O(1) performance for record updates and constant memory usage regardless of dataset size.
  *
+ * **Fixed-DOM-Order Strategy:**
+ * To maximize scrolling performance, `Body` uses a "recycling in place" strategy. The Row components in the `items`
+ * array and the corresponding DOM nodes in `vdom.cn` **never change their order**.
+ *
+ * - When a row scrolls off the top, it remains the "first" child in the DOM but is visually repositioned
+ *   to the bottom via CSS transform (`translate3d`) and updated with new record content.
+ * - This approach eliminates `moveNode`, `insertNode`, and `removeNode` operations, resulting in
+ *   zero layout thrashing during scrolling.
+ *
  * @class Neo.grid.Body
  * @extends Neo.container.Base
  * @see Neo.grid.Row

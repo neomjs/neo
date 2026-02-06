@@ -36,7 +36,18 @@ class BaseModel extends Model {
     }
 
     /**
-     * @param {Object[]|String[]} items
+     * Updates the visual state (selection class) of specific rows or cells without triggering a full Body update.
+     *
+     * This method implements the **Granular Update** strategy:
+     * 1.  It iterates over the provided items (logical cell IDs or record IDs).
+     * 2.  It resolves the corresponding `Neo.grid.Row` component.
+     * 3.  It inspects the **current VDOM state** of the target node (row or cell).
+     * 4.  It ONLY mutates the VDOM and triggers `row.update()` if the selection state has actually changed.
+     *
+     * This ensures O(1) performance for selection operations, regardless of grid size, and eliminates redundant VDOM traffic.
+     *
+     * @param {Object[]|String[]} items - Array of Record IDs (for RowModel) or Logical Cell IDs (for CellModel).
+     * @param {Boolean} [silent=false] - If true, mutates the VDOM but suppresses the `row.update()` call.
      */
     updateRows(items, silent=false) {
         if (!items || items.length === 0) return;
