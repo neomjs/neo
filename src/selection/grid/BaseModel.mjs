@@ -69,11 +69,18 @@ class BaseModel extends Model {
                         let dataField     = view.getDataField(item),
                             cellNode      = row.vdom.cn.find(n => n.data?.field === dataField),
                             shouldSelect  = me.isSelected(item),
-                            alreadySelect = cellNode.cls?.includes(me.selectedCls);
+                            alreadySelect = cellNode?.cls?.includes(me.selectedCls);
 
                         if (cellNode && shouldSelect !== alreadySelect) {
                             // Mutate VDOM directly: Toggle selection class
                             NeoArray[shouldSelect ? 'add' : 'remove'](cellNode.cls, me.selectedCls);
+
+                            if (shouldSelect) {
+                                cellNode['aria-selected'] = true
+                            } else {
+                                delete cellNode['aria-selected']
+                            }
+
                             hasChanged = true
                         }
 

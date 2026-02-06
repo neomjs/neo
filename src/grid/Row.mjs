@@ -176,10 +176,6 @@ class Row extends Component {
             cellId = me.getCellId(column.dataField)
         }
 
-        if (selectedCells.includes(logicalCellId)) {
-            cellCls.push('neo-selected')
-        }
-
         if (gridBody.selectionModel?.selectedColumns?.includes(dataField)) {
             NeoArray.add(cellCls, gridBody.selectionModel.selectedColumnCellCls || 'neo-selected')
         }
@@ -196,6 +192,11 @@ class Row extends Component {
             role           : 'gridcell',
             style          : rendererOutput.style || {}
         };
+
+        if (selectedCells.includes(logicalCellId)) {
+            cellCls.push('neo-selected');
+            cellConfig['aria-selected'] = true
+        }
 
         if (column.width) {
             cellConfig.style.minWidth = `${column.width}px`
