@@ -21,6 +21,8 @@ class Column extends Base {
          */
         className: 'Neo.grid.column.Base',
         /**
+         * Additional CSS classes to add to the cell.
+         * These classes are appended to the default ones (e.g. 'neo-grid-cell').
          * @member {Function|String|String[]|null} cellCls=null
          */
         cellCls: null,

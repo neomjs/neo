@@ -15,8 +15,28 @@
         }
     }
 
-    .heatmap-cell-0 { background-color: transparent; color: var(--neo-text-color-2); opacity: 0.5; }
-    .heatmap-cell-1 { background-color: rgba(14, 233, 175, 0.15); color: var(--neo-text-color-1); }
-    .heatmap-cell-2 { background-color: rgba(14, 233, 175, 0.35); color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.5); }
-    .heatmap-cell-3 { background-color: rgba(14, 233, 175, 0.65); color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.8); font-weight: bold; }
+    .neo-grid-body .neo-grid-row .neo-grid-cell {
+        &.heatmap-cell-0 {
+            background-color: var(--heatmap-bg-0);
+            color           : var(--heatmap-text-0);
+        }
+
+        &.heatmap-cell-1 {
+            background-color: var(--heatmap-bg-1);
+            color           : var(--heatmap-text-1);
+        }
+
+        &.heatmap-cell-2 {
+            background-color: var(--heatmap-bg-2);
+            color           : var(--heatmap-text-2);
+            text-shadow     : var(--heatmap-shadow-2);
+        }
+
+        &.heatmap-cell-3 {
+            background-color: var(--heatmap-bg-3);
+            color           : var(--heatmap-text-3);
+            font-weight     : bold;
+            text-shadow     : var(--heatmap-shadow-3);
+        }
+    }
 }
