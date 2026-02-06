@@ -504,11 +504,6 @@ class GridBody extends Component {
 
         oldValue?.un(listeners);
         value   ?.on(listeners);
-
-        // Clear component instances when the store changes or is replaced
-        if (oldValue) {
-            me.clearComponentColumnMaps();
-        }
     }
 
     /**
@@ -573,46 +568,6 @@ class GridBody extends Component {
         oldValue?.destroy();
 
         return ClassSystemUtil.beforeSetInstance(value, RowModel)
-    }
-
-    /**
-     * Destroys all component instances created by component columns.
-     * @protected
-     */
-    clearComponentColumnMaps() {
-        let me      = this,
-            columns = me.parent.columns.items;
-
-        columns.forEach(column => {
-            if (column instanceof Neo.grid.column.Component) {
-                column.map.forEach(component => {
-                    component.destroy()
-                });
-                column.map.clear()
-            }
-        });
-    }
-
-    /**
-     * Cleans up component instances that are no longer visible or needed.
-     * @protected
-     */
-    cleanupComponentInstances() {
-        let me = this;
-
-        me.parent.columns.items.forEach(column => {
-            if (column instanceof Neo.grid.column.Component) {
-                column.map.forEach((component, id) => {
-                    // Extract rowIndex from component ID (e.g., "grid-body-1-component-950")
-                    const componentRowIndex = parseInt(id.split('-').pop());
-
-                    if (componentRowIndex < me.mountedRows[0] || componentRowIndex > me.mountedRows[1]) {
-                        component.destroy();
-                        column.map.delete(id)
-                    }
-                });
-            }
-        });
     }
 
     /**
@@ -765,7 +720,6 @@ class GridBody extends Component {
         me.items.forEach(item => item.destroy());
 
         me.store = null; // remove the listeners
-        me.clearComponentColumnMaps(); // Destroy component instances
 
         super.destroy(...args)
     }
@@ -1179,11 +1133,6 @@ class GridBody extends Component {
                     windowId
                 })
             })
-        }
-
-        // Cleanup component instances after chunked load
-        if (postChunkLoad) {
-            me.cleanupComponentInstances()
         }
     }
 
