@@ -27,16 +27,20 @@ class CellRowModel extends CellModel {
      * @param {Object} data
      */
     onCellClick(data) {
-        let me     = this,
-            {view} = me,
-            cellId = data.data.currentTarget,
-            record = me.getRecord(data.data.path);
+        let me        = this,
+            {view}    = me,
+            cellId    = data.data.currentTarget,
+            dataField = view.getCellDataField(cellId),
+            record    = me.getRecord(data.data.path),
+            logicalId;
 
-        if (record) {
+        if (record && dataField) {
+            logicalId = view.getLogicalCellId(record, dataField);
+
             if (me.hasAnnotations(record)) {
                 me.updateAnnotations(record)
             } else {
-                me[me.isSelected(cellId) ? 'deselectRow' : 'selectRow'](record[view.store.getKeyProperty()], true)
+                me[me.isSelected(logicalId) ? 'deselectRow' : 'selectRow'](record[view.store.getKeyProperty()], true)
             }
         }
 

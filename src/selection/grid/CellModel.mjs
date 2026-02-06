@@ -47,7 +47,15 @@ class CellModel extends BaseModel {
      * @param {Object} data
      */
     onCellClick(data) {
-        this.toggleSelection(data.data.currentTarget)
+        let me        = this,
+            {view}    = me,
+            cellId    = data.data.currentTarget,
+            dataField = view.getCellDataField(cellId),
+            record    = view.getRecord(cellId);
+
+        if (record && dataField) {
+            me.toggleSelection(view.getLogicalCellId(record, dataField))
+        }
     }
 
     /**
@@ -89,10 +97,14 @@ class CellModel extends BaseModel {
 
         if (me.hasSelection()) {
             currentColumn = view.getDataField(me.items[0]);
-            record        = view.getRecord(me.items[0])
+            record        = view.getRecordFromLogicalId(me.items[0])
         } else {
             currentColumn = dataFields[0];
             record        = store.getAt(0)
+        }
+
+        if (!record) {
+            return
         }
 
         currentIndex = dataFields.indexOf(currentColumn);
@@ -102,7 +114,7 @@ class CellModel extends BaseModel {
             newIndex += dataFields.length
         }
 
-        me.select(view.getCellId(store.indexOf(record), dataFields[newIndex]));
+        me.select(view.getLogicalCellId(record, dataFields[newIndex]));
 
         view.parent.scrollByColumns(currentIndex, step)
     }
@@ -119,10 +131,14 @@ class CellModel extends BaseModel {
             dataField, newIndex;
 
         if (me.hasSelection()) {
-            currentIndex = store.indexOf(view.getRecord(me.items[0]));
+            currentIndex = store.indexOf(view.getRecordFromLogicalId(me.items[0]));
             dataField    = view.getDataField(me.items[0])
         } else {
             dataField = me.dataFields[0]
+        }
+
+        if (countRecords < 1) {
+            return
         }
 
         newIndex = (currentIndex + step) % countRecords;
@@ -131,7 +147,7 @@ class CellModel extends BaseModel {
             newIndex += countRecords
         }
 
-        me.select(view.getCellId(newIndex, dataField));
+        me.select(view.getLogicalCellId(store.getAt(newIndex), dataField));
         view.scrollByRows(currentIndex, step)
     }
 

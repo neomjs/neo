@@ -557,6 +557,11 @@ class GridBody extends Container {
             // Optional: Destroy excess rows if we want to reclaim memory strictly
             // For now, we keep them as a buffer
         }
+
+        // Fixed-DOM-Order Strategy:
+        // We ensure the VDOM children (cn) matches the full pool of items exactly.
+        // We never remove or reorder these nodes. We only update their content and transform.
+        me.getVdomRoot().cn = me.items.map(item => item.createVdomReference())
     }
 
     /**
@@ -611,20 +616,38 @@ class GridBody extends Container {
 
         poolSize = me.items.length;
 
-        let vdomRoot = me.getVdomRoot();
-        vdomRoot.cn = [];
+        // Fixed-DOM-Order Strategy:
+        // We do NOT clear vdomRoot.cn. The Row components remain in the VDOM array.
+        // We iterate the logical range, mapping records to the fixed pool items via modulo.
+
+        let usedMap = new Array(poolSize).fill(false);
 
         for (i=mountedRows[0]; i < endIndex; i++) {
             itemIndex = i % poolSize;
             item      = me.items[itemIndex];
+
+            usedMap[itemIndex] = true;
 
             item.updateContent({
                 record  : store.getAt(i),
                 rowIndex: i,
                 silent  : true
             });
+        }
 
-            vdomRoot.cn.push(item.createVdomReference())
+        // Hide unused pool items (e.g. when filtering or at the end of the store)
+        for (i = 0; i < poolSize; i++) {
+            if (!usedMap[i]) {
+                item = me.items[i];
+                // Only update if it currently has a record (was visible)
+                if (item.record) {
+                    item.updateContent({
+                        record  : null,
+                        rowIndex: -1,
+                        silent  : true
+                    })
+                }
+            }
         }
 
         me.parent.isLoading = false;
@@ -696,6 +719,15 @@ class GridBody extends Container {
         }
 
         return `${rowId}__${dataField}`
+    }
+
+    /**
+     * @param {Object} record
+     * @param {String} dataField
+     * @returns {String}
+     */
+    getLogicalCellId(record, dataField) {
+        return `${record[this.store.getKeyProperty()]}__${dataField}`
     }
 
     /**
@@ -772,7 +804,7 @@ class GridBody extends Container {
             }
         }
 
-        return cellId.split('__')[2]
+        return cellId.split('__').pop()
     }
 
     /**
@@ -801,6 +833,23 @@ class GridBody extends Container {
         }
 
         return null
+    }
+
+    /**
+     * @param {String} logicalId
+     * @returns {Neo.data.Model|null}
+     */
+    getRecordFromLogicalId(logicalId) {
+        let me        = this,
+            dataField = me.getDataField(logicalId),
+            recordId  = logicalId.substring(0, logicalId.length - dataField.length - 2),
+            record    = me.store.get(recordId);
+
+        if (!record) {
+            record = me.store.get(parseInt(recordId))
+        }
+
+        return record
     }
 
     /**

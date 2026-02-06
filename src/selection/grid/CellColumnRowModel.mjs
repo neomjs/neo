@@ -35,10 +35,13 @@ class CellColumnRowModel extends CellRowModel {
         let me        = this,
             {view}    = me,
             cellId    = data.data.currentTarget,
-            dataField = cellId && view.getDataField(cellId);
+            dataField = cellId && view.getDataField(cellId),
+            record    = view.getRecord(cellId),
+            logicalId;
 
-        if (dataField) {
-            me.selectedColumns = me.isSelected(cellId) ? [] : [dataField];
+        if (dataField && record) {
+            logicalId = view.getLogicalCellId(record, dataField);
+            me.selectedColumns = me.isSelected(logicalId) ? [] : [dataField];
             view.createViewData(true)
         }
 
