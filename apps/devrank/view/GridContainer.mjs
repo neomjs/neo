@@ -1,7 +1,7 @@
 import BaseGridContainer  from '../../../src/grid/Container.mjs';
-import Component          from '../../../src/component/Base.mjs';
 import Contributors       from '../store/Contributors.mjs';
-import CountryFlags       from '../../../src/util/CountryFlags.mjs';
+import LocationCell       from './cell/LocationCell.mjs';
+import UserCell           from './cell/UserCell.mjs';
 
 /**
  * @class DevRank.view.GridContainer
@@ -69,29 +69,8 @@ class GridContainer extends BaseGridContainer {
             width    : 250,
             type     : 'component',
             component: ({record}) => ({
-                module: Component,
-                cls   : ['user-cell'],
-                vdom  : {
-                    cls: ['user-cell'],
-                    cn : [{
-                        tag: 'img',
-                        cls: ['avatar'],
-                        src: record.avatar_url
-                    }, {
-                        cls: ['user-info'],
-                        cn : [{
-                            tag   : 'a',
-                            cls   : ['username'],
-                            href  : `https://github.com/${record.login}`,
-                            target: '_blank',
-                            text  : record.login
-                        }, {
-                            tag : 'span',
-                            cls : ['name'],
-                            text: record.name && record.name !== record.login ? record.name : ''
-                        }]
-                    }]
-                }
+                module: UserCell,
+                record: record
             })
         }, {
             dataField           : 'total_contributions',
@@ -132,33 +111,10 @@ class GridContainer extends BaseGridContainer {
             text     : 'Location',
             width    : 200,
             type     : 'component',
-            component: ({record}) => {
-                const value = record.location;
-                const url   = CountryFlags.getFlagUrl(value);
-
-                return {
-                    module: Component,
-                    cls   : ['location-cell'],
-                    vdom  : {
-                        cls: ['location-cell'],
-                        cn : [
-                            url ? {
-                                tag  : 'img',
-                                cls  : ['country-flag'],
-                                src  : url,
-                                title: value
-                            } : {
-                                tag: 'span',
-                                cls: ['country-placeholder']
-                            }, {
-                                tag : 'span',
-                                cls : ['location-text'],
-                                text: value || ''
-                            }
-                        ]
-                    }
-                }
-            }
+            component: ({record}) => ({
+                module: LocationCell,
+                record: record
+            })
         }, {
             dataField: 'first_year',
             text     : 'Since', width: 80,
