@@ -40,7 +40,9 @@ class GridContainer extends BaseContainer {
         animatedCurrency: column.AnimatedCurrency,
         column          : column.Base,
         component       : column.Component,
+        countryFlag     : column.CountryFlag,
         currency        : column.Currency,
+        githubUser      : column.GitHubUser,
         index           : column.Index,
         progress        : column.Progress,
         sparkline       : column.Sparkline

@@ -1,7 +1,5 @@
-import BaseGridContainer  from '../../../src/grid/Container.mjs';
-import Contributors       from '../store/Contributors.mjs';
-import LocationCell       from './cell/LocationCell.mjs';
-import UserCell           from './cell/UserCell.mjs';
+import BaseGridContainer from '../../../src/grid/Container.mjs';
+import Contributors      from '../store/Contributors.mjs';
 
 /**
  * @class DevRank.view.GridContainer
@@ -64,14 +62,10 @@ class GridContainer extends BaseGridContainer {
             width    : 60,
             cellAlign: 'right'
         }, {
+            type     : 'githubUser',
             dataField: 'login',
             text     : 'User',
-            width    : 250,
-            type     : 'component',
-            component: ({record}) => ({
-                module: UserCell,
-                record: record
-            })
+            width    : 250
         }, {
             dataField           : 'total_contributions',
             text                : 'Total',
@@ -107,14 +101,10 @@ class GridContainer extends BaseGridContainer {
             width    : 200,
             renderer : ({value}) => value ? value.replace(/^@/, '') : ''
         }, {
+            type     : 'countryFlag',
             dataField: 'location',
             text     : 'Location',
-            width    : 200,
-            type     : 'component',
-            component: ({record}) => ({
-                module: LocationCell,
-                record: record
-            })
+            width    : 200
         }, {
             dataField: 'first_year',
             text     : 'Since', width: 80,
