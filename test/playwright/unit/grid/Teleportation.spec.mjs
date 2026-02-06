@@ -203,6 +203,9 @@ test.describe('Grid Teleportation & VDOM Deltas', () => {
         // Wait for the update to complete
         await updatePromise;
 
+        // Allow time for child component updates (Button VNode sync) to settle
+        await grid.timeout(50);
+
         // Restore VdomHelper
         VdomHelper.updateBatch = originalUpdateBatch;
 
@@ -219,9 +222,12 @@ test.describe('Grid Teleportation & VDOM Deltas', () => {
 
              // In a clean recycle scroll (800px / 40px rowHeight):
              // We observed 8 moves, 3 insertions (new rows at bottom), and 11 text updates.
-             expect(moveNodes.length).toBe(8);
-             expect(insertNodes.length).toBe(3);
-             expect(textUpdates.length).toBe(11);
+             // UPDATE: With Fixed-DOM-Order, we expect 0 moves for rows.
+             expect(moveNodes.length).toBe(0);
+             // UPDATE: With Fixed-DOM-Order and row recycling, we expect 0 insertions (pool is reused).
+             expect(insertNodes.length).toBe(0);
+             // UPDATE: 14 updates (11 previous + 3 rows that were previously inserted are now recycled)
+             expect(textUpdates.length).toBe(14);
 
              // Specific check: We should NOT be inserting 'text' vtypes (span wrapper for text) into existing buttons.
              // The text span is part of the button structure and should be stable.
@@ -233,16 +239,37 @@ test.describe('Grid Teleportation & VDOM Deltas', () => {
 
         // Now inspect the DOM (VNode) of a recycled row.
         // With 100 items and 40px height, row 20 should be at 800px.
-        const firstRenderedRow = body.getVdomRoot().cn[0];
-        const rowIndex = parseInt(firstRenderedRow['aria-rowindex']) - 2;
-        // console.log(`First rendered row index: ${rowIndex}`);
+        const expectedRowIndex = 20; // 800 / 40
+        const rows = body.getVdomRoot().cn;
+        let rowComponent;
 
-        const cell = firstRenderedRow.cn[1];
+        // Find the row component that corresponds to the expected index
+        // In Fixed-DOM-Order, the physical order (cn) doesn't change, but logical content does.
+        for (const rowRef of rows) {
+            const cmp = Neo.getComponent(rowRef.componentId);
+            if (cmp && cmp.rowIndex === expectedRowIndex) {
+                rowComponent = cmp;
+                break;
+            }
+        }
+
+        expect(rowComponent).toBeDefined();
+        // console.log(`Found row index: ${rowComponent.rowIndex} for scrollTop: ${scrollAmount}`);
+
+        // Access the Row's own VDOM to find cells
+        const cell = rowComponent.vdom.cn[1];
         const buttonRef = cell.cn[0];
         const button = Neo.getComponent(buttonRef.componentId);
 
-        const expectedText = `Row ${rowIndex}`;
+        const expectedText = `Row ${expectedRowIndex}`;
         expect(button.text).toBe(expectedText);
+
+        // Verify VDOM state (JS Object) - should be updated synchronously/immediately
+        const vdomTextNode = button.vdom.cn?.find(c => c.cls?.includes('neo-button-text'));
+        // If vdom structure is different (e.g. wrapper), adjust as needed.
+        // Button vdom usually: {tag: 'button', cn: [..., {cls: 'neo-button-text', text: '...'}, ...]}
+        const vdomText = button.vdom.cn?.find(n => n.cls?.includes('neo-button-text'))?.text;
+        expect(vdomText).toBe(expectedText);
 
         const buttonVnode = button.vnode;
         // console.log('Button VNode:', JSON.stringify(buttonVnode, null, 2));
@@ -303,6 +330,9 @@ test.describe('Grid Teleportation & VDOM Deltas', () => {
             // Wait for the updates to complete (handles the 20ms latency)
             await updatePromise;
 
+            // Allow time for child component updates to settle
+            await grid.timeout(50);
+
             // Restore VdomHelper
             VdomHelper.updateBatch = originalUpdateBatch;
 
@@ -316,9 +346,9 @@ test.describe('Grid Teleportation & VDOM Deltas', () => {
 
                 // Verify we have activity
                 // In this specific race scenario with bufferRowRange=0:
-                // We observe 3 moves, 0 row insertions (pure recycling!), and 8 text updates.
+                // We observe 0 moves (Fixed-DOM-Order), 0 row insertions (pure recycling!), and 8 text updates.
                 // The presence of 3 'removeNode' deltas (seen in analysis) confirms the grid is pruning rows 8, 9, 10.
-                expect(moveNodes.length).toBe(3);
+                expect(moveNodes.length).toBe(0);
                 expect(insertNodes.length).toBe(0);
                 expect(textUpdates.length).toBe(8);
 
@@ -326,8 +356,8 @@ test.describe('Grid Teleportation & VDOM Deltas', () => {
                 // via 'isVdomUpdating' / 'needsVdomUpdate'. The second scroll waits for the first to finish.
                 // To reproduce the bug, we likely need to trigger a disjoint component update (e.g. Button text)
                 // that falsely believes it does not collide with the Grid update.
-                // We observe 3 moves, 0 row insertions (pure recycling!), and 8 text updates.
-                expect(moveNodes.length).toBe(3);
+                // We observe 0 moves (Fixed-DOM-Order), 0 row insertions (pure recycling!), and 8 text updates.
+                expect(moveNodes.length).toBe(0);
                 expect(insertNodes.length).toBe(0);
                 expect(textUpdates.length).toBe(8);
 
@@ -380,16 +410,28 @@ test.describe('Grid Teleportation & VDOM Deltas', () => {
             // Inspect the final state
             // Scroll 800 -> Row 20. Scroll 840 -> Row 21.
             const finalScrollTop = 840;
-            const firstRenderedRow = body.getVdomRoot().cn[0];
-            const firstRowIndex = parseInt(firstRenderedRow['aria-rowindex']) - 2;
-            // console.log(`First rendered row index (RACE): ${firstRowIndex}`);
+            const expectedRowIndex = 21; // 840 / 40
+            const rows = body.getVdomRoot().cn;
+            let rowComponent;
+
+            // Find the row component that corresponds to the expected index
+            for (const rowRef of rows) {
+                const cmp = Neo.getComponent(rowRef.componentId);
+                if (cmp && cmp.rowIndex === expectedRowIndex) {
+                    rowComponent = cmp;
+                    break;
+                }
+            }
+
+            expect(rowComponent).toBeDefined();
+            // console.log(`Found row index (RACE): ${rowComponent.rowIndex}`);
 
             // Let's inspect the FIRST row in the VDOM.
-            const cell = firstRenderedRow.cn[1];
+            const cell = rowComponent.vdom.cn[1];
             const buttonRef = cell.cn[0];
             const button = Neo.getComponent(buttonRef.componentId);
 
-            const expectedText = `Row ${firstRowIndex}`;
+            const expectedText = `Row ${expectedRowIndex}`;
 
             // console.log(`Button Text: "${button.text}", Expected: "${expectedText}"`);
             expect(button.text).toBe(expectedText);
