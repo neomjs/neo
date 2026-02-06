@@ -38,10 +38,8 @@ class BaseModel extends Model {
     /**
      * @param {Object[]|String[]} items
      */
-    updateRows(items) {
+    updateRows(items, silent=false) {
         if (!items || items.length === 0) return;
-
-        console.log('updateRows', items);
 
         if (!Array.isArray(items)) {
             items = [items]
@@ -62,51 +60,51 @@ class BaseModel extends Model {
                 // We resolve the record to find the row.
                 let record = view.getRecordFromLogicalId(item);
                 if (record) {
-                    recordId = record[keyProp];
-                    row      = view.getRow(record);
-
-                    console.log('Cell Update:', item, 'Record:', !!record, 'Row:', !!row);
+                    row = view.getRow(record);
 
                     if (row && !processed.has(item)) {
                         processed.add(item); // Process each logical cell only once per batch
 
                         // Find the cell node in the row's VDOM
-                        let cellNode = row.vdom.cn.find(n => n.data?.cellId === item);
-
-                        console.log('Cell Node found:', !!cellNode, item);
+                        let dataField = view.getDataField(item),
+                            cellNode  = row.vdom.cn.find(n => n.data?.field === dataField);
 
                         if (cellNode) {
                             // Mutate VDOM directly: Toggle selection class
                             NeoArray.toggle(cellNode.cls, me.selectedCls, me.isSelected(item))
                         }
-                        
+
                         // We must trigger the update on the row to flush the VDOM change
-                        row.update()
+                        if (!silent) {
+                            row.update()
+                        }
                     }
-                } else {
-                    console.warn('Record not found for logical ID:', item);
                 }
             } else {
                 // item is a recordId (RowModel)
                 recordId = item;
-                
+
                 if (!processed.has(recordId)) {
                     processed.add(recordId);
                     let record = store.get(recordId);
-                    
+
                     if (record) {
                         row = view.getRow(record);
                         if (row) {
+                            let isSelected = me.isSelectedRow(recordId);
+
                             // Mutate VDOM directly: Toggle selection class on the row
-                            NeoArray.toggle(row.vdom.cls, me.selectedCls, me.isSelected(recordId));
-                            
-                            if (me.isSelected(recordId)) {
+                            NeoArray.toggle(row.vdom.cls, me.selectedCls, isSelected);
+
+                            if (isSelected) {
                                 row.vdom['aria-selected'] = true
                             } else {
                                 delete row.vdom['aria-selected']
                             }
-                            
-                            row.update()
+
+                            if (!silent) {
+                                row.update()
+                            }
                         }
                     }
                 }
@@ -144,9 +142,7 @@ class BaseModel extends Model {
         super.deselectAll(silent, itemCollection);
         me.view.silentSelect = false;
 
-        if (!silent) {
-            me.updateRows(items)
-        }
+        me.updateRows(items)
     }
 
     /**
@@ -198,8 +194,11 @@ class BaseModel extends Model {
 
         NeoArray.remove(me.selectedRows, recordId);
 
+        me.updateRows(recordId, true);
+
         if (!silent) {
-            me.updateRows(recordId)
+            me.view.updateDepth = 2;
+            me.view.update()
         }
     }
 
@@ -273,35 +272,19 @@ class BaseModel extends Model {
     }
 
     /**
-     * @param {Object|Object[]|String[]} items
-     * @param {Object[]|String[]} itemCollection=this.items
-     * @param {String} [selectedCls]
-     */
-    select(items, itemCollection, selectedCls) {
-        this.view.updateDepth = 2;
-        super.select(items, itemCollection, selectedCls)
-    }
-
-    /**
      * @param {Number|String} recordId
      * @param {Boolean}       [silent=false]
      */
     selectRow(recordId, silent=false) {
-        let me = this,
-            row;
+        let me = this;
 
         if (me.singleSelect) {
-            [...me.selectedRows].forEach(id => me.deselectRow(id, true))
+            [...me.selectedRows].forEach(id => me.deselectRow(id))
         }
 
         NeoArray.add(me.selectedRows, recordId);
 
-        row = me.getRowComponent(recordId);
-
-        if (row) {
-            NeoArray.add(row.vdom.cls, me.selectedCls);
-            row.vdom['aria-selected'] = true
-        }
+        me.updateRows(recordId, true);
 
         if (!silent) {
             me.view.updateDepth = 2;

@@ -677,8 +677,26 @@ class GridBody extends Container {
     fireCellEvent(data, eventName) {
         let me        = this,
             id        = data.currentTarget,
-            dataField = me.getCellDataField(id),
-            record    = me.getRecord(id);
+            dataField, record, recordId, target;
+
+        for (target of data.path) {
+            if (target.data?.field) {
+                dataField = target.data.field;
+                recordId  = target.data.recordId;
+
+                if (me.store.getKeyType()?.startsWith('int')) {
+                    recordId = parseInt(recordId)
+                }
+
+                record = me.store.get(recordId);
+                break
+            }
+        }
+
+        if (!dataField) {
+            dataField = me.getCellDataField(id);
+            record    = me.getRecord(id)
+        }
 
         me.parent.fire(eventName, {body: me, data, dataField, record})
     }
@@ -690,7 +708,24 @@ class GridBody extends Container {
     fireRowEvent(data, eventName) {
         let me     = this,
             id     = data.currentTarget,
-            record = me.getRecord(id);
+            record, recordId, target;
+
+        for (target of data.path) {
+            if (target.cls?.includes('neo-grid-row') && target.data?.recordId) {
+                recordId = target.data.recordId;
+
+                if (me.store.getKeyType()?.startsWith('int')) {
+                    recordId = parseInt(recordId)
+                }
+
+                record = me.store.get(recordId);
+                break
+            }
+        }
+
+        if (!record) {
+            record = me.getRecord(id)
+        }
 
         me.parent.fire(eventName, {body: me, data, record})
     }

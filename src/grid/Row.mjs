@@ -190,7 +190,7 @@ class Row extends Component {
 
         cellConfig = {
             'aria-colindex': columnIndex + 1, // 1 based
-            data           : {cellId: logicalCellId},
+            data           : {field: dataField, recordId},
             id             : cellId,
             cls            : cellCls,
             role           : 'gridcell',

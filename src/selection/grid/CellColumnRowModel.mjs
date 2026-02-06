@@ -34,9 +34,7 @@ class CellColumnRowModel extends CellRowModel {
     onCellClick(data) {
         let me        = this,
             {view}    = me,
-            cellId    = data.data.currentTarget,
-            dataField = cellId && view.getDataField(cellId),
-            record    = view.getRecord(cellId),
+            {dataField, record} = data,
             logicalId;
 
         if (dataField && record) {

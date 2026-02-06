@@ -29,9 +29,7 @@ class CellRowModel extends CellModel {
     onCellClick(data) {
         let me        = this,
             {view}    = me,
-            cellId    = data.data.currentTarget,
-            dataField = view.getCellDataField(cellId),
-            record    = me.getRecord(data.data.path),
+            {dataField, record} = data,
             logicalId;
 
         if (record && dataField) {
