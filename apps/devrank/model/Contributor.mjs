@@ -14,6 +14,8 @@ class Contributor extends Model {
             {name: 'total_contributions', type: 'Integer'},
             {name: 'first_year',          type: 'Integer'},
             {name: 'last_updated',        type: 'Date'},
+            {name: 'linkedin_url',        type: 'String'},
+            {name: 'organizations',       type: 'Array'},
             {name: 'years',               type: 'Object'}, // Map of year -> count
             
             // Year mappings
