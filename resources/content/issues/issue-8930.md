@@ -60,9 +60,14 @@ subIssues:
   - '[x] 9037 Refactor: Dynamic Year Fields in Contributor Model'
   - '[x] 9038 Style: DevRank Grid Selection Overrides Heatmap'
   - '[x] 9039 Feat: Support .env token auth for DevRank Services'
-  - '[ ] 9040 Refactor: Make DevRank Manager a Singleton'
-subIssuesCompleted: 44
-subIssuesTotal: 47
+  - '[x] 9040 Refactor: Make DevRank Manager a Singleton'
+  - '[x] 9041 Enhancement: Add Spider Summary Logs'
+  - '[x] 9042 Enhancement: Dynamic High Star Ranges for Spider'
+  - '[x] 9043 Enhancement: DevRank Updater Smart Scheduling & Logs'
+  - '[x] 9044 Fix: DevRank Updater Infinite Loop & Tracker Pruning'
+  - '[ ] 9045 Feat: DevRank Active Pruning & Auto-Cleanup'
+subIssuesCompleted: 49
+subIssuesTotal: 52
 blockedBy: []
 blocking: []
 ---
