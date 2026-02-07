@@ -1,35 +1,5 @@
 [
   {
-    "login": "bors",
-    "name": "bors",
-    "avatar_url": "https://avatars.githubusercontent.com/u/3372342?v=4",
-    "location": null,
-    "company": null,
-    "bio": "Bot managed by the @rust-lang infrastructure team.",
-    "followers": 606,
-    "total_contributions": 974215,
-    "years": {
-      "2013": 5368,
-      "2014": 6416,
-      "2015": 5552,
-      "2016": 4567,
-      "2017": 4914,
-      "2018": 5141,
-      "2019": 6303,
-      "2020": 6043,
-      "2021": 6512,
-      "2022": 8865,
-      "2023": 11349,
-      "2024": 265837,
-      "2025": 547980,
-      "2026": 89368
-    },
-    "first_year": 2013,
-    "last_updated": "2026-02-07T17:50:15.915Z",
-    "linkedin_url": null,
-    "organizations": []
-  },
-  {
     "login": "wizardforcel",
     "name": "布客飞龙",
     "avatar_url": "https://avatars.githubusercontent.com/u/5080126?u=2d361d2615985d8e7c1535094cb521d43cba2ae0&v=4",
