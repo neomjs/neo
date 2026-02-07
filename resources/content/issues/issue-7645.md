@@ -1,7 +1,7 @@
 ---
 id: 7645
 title: 'Epic: Refactor and Extend GitHub Sync Service'
-state: OPEN
+state: CLOSED
 labels:
   - epic
   - stale
@@ -9,20 +9,21 @@ labels:
 assignees:
   - tobiu
 createdAt: '2025-10-25T10:23:17Z'
-updatedAt: '2026-01-24T03:07:12Z'
+updatedAt: '2026-02-07T03:35:17Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7645'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: null
 subIssues:
-  - '[ ] 7644 Feat: Implement PR Syncer for GitHub Workflow'
+  - '[x] 7644 Feat: Implement PR Syncer for GitHub Workflow'
   - '[x] 7643 Refactor: Implement MetadataManager for Sync Service'
   - '[x] 7642 Refactor: Extract Release & Issue Syncers from SyncService'
   - '[x] 7646 Refactor: Streamline Release Metadata Handling in Sync Service'
-subIssuesCompleted: 3
+subIssuesCompleted: 4
 subIssuesTotal: 4
 blockedBy: []
 blocking: []
+closedAt: '2026-02-07T03:35:17Z'
 ---
 # Epic: Refactor and Extend GitHub Sync Service
 
@@ -44,4 +45,9 @@ The current `SyncService` is monolithic, has a bloated metadata file, and needs 
 This issue is stale because it has been open for 90 days with no activity.
 
 - 2026-01-24T03:07:12Z @github-actions added the `stale` label
+### @github-actions - 2026-02-07T03:35:17Z
+
+This issue was closed because it has been inactive for 14 days since being marked as stale.
+
+- 2026-02-07T03:35:17Z @github-actions closed this issue
 
