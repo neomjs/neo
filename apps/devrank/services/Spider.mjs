@@ -72,7 +72,8 @@ class Spider extends Base {
             blacklist,
             existingLogins,
             newCandidates: new Set(),
-            newVisited: new Set()
+            newVisited: new Set(),
+            totalFound: 0
         };
 
         // 2. Pick Strategy
@@ -88,6 +89,11 @@ class Spider extends Base {
             }
         } catch (error) {
             console.error('[Spider] Fatal error:', error);
+        } finally {
+            console.log('--------------------------------------------------');
+            console.log(`[Spider] Run Complete.`);
+            console.log(`[Spider] Total New Candidates Discovered: ${state.totalFound}`);
+            console.log('--------------------------------------------------');
         }
     }
 
@@ -271,6 +277,10 @@ class Spider extends Base {
             }));
 
             await Storage.updateTracker(updates);
+            
+            // Track total
+            state.totalFound = (state.totalFound || 0) + newCandidates.size;
+            
             newCandidates.clear();
         }
 
