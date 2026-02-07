@@ -1,14 +1,15 @@
 ---
 id: 9005
 title: 'Feat: Refactor Portal Header to Framework (using Dynamic Worker Arch)'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
   - refactoring
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-02-05T14:51:17Z'
-updatedAt: '2026-02-05T16:01:37Z'
+updatedAt: '2026-02-07T16:01:27Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9005'
 author: tobiu
 commentsCount: 1
@@ -18,6 +19,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-02-07T16:01:23Z'
 ---
 # Feat: Refactor Portal Header to Framework (using Dynamic Worker Arch)
 
@@ -98,4 +100,6 @@ Leverage the new **Dynamic Worker Architecture** (Epic #8948) used by `Sparkline
 - 2026-02-05T16:47:14Z @tobiu referenced in commit `a260fbc` - "#9005 class names and cleanup"
 - 2026-02-05T16:54:45Z @tobiu referenced in commit `5e34471` - "#9005 DevRank.view.HeaderToolbar: theming"
 - 2026-02-05T17:16:29Z @tobiu referenced in commit `bcabba3` - "#9005 DevRank.view.ViewportController, styling, main thread addons, favicon"
+- 2026-02-07T16:01:24Z @tobiu closed this issue
+- 2026-02-07T16:01:27Z @tobiu assigned to @tobiu
 
