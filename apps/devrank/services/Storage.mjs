@@ -46,7 +46,7 @@ class Storage extends Base {
     async ensureFiles() {
         const files = [
             { path: config.paths.data,      default: [] },
-            { path: config.paths.users,     default: [] },
+            { path: config.paths.users,     default: {} },
             { path: config.paths.visited,   default: [] },
             { path: config.paths.blacklist, default: [] }
         ];
@@ -109,7 +109,19 @@ class Storage extends Base {
      * @returns {Promise<Array<{login: String, lastUpdate: String}>>}
      */
     async getUsersIndex() {
-        return this.readJson(config.paths.users, []);
+        const raw = await this.readJson(config.paths.users, {});
+        
+        // Migration: If array (legacy), convert to Object and Save
+        if (Array.isArray(raw)) {
+            console.log('[Storage] Migrating users.json from Array to Object...');
+            const map = {};
+            raw.forEach(u => map[u.login] = u.lastUpdate);
+            await this.writeJson(config.paths.users, map);
+            return raw;
+        }
+
+        // Return as Array for Consumers
+        return Object.entries(raw).map(([login, lastUpdate]) => ({ login, lastUpdate }));
     }
 
     /**
@@ -119,29 +131,27 @@ class Storage extends Base {
      * @returns {Promise<void>}
      */
     async updateUsersIndex(updates) {
-        const current = await this.getUsersIndex();
-        const map = new Map(current.map(u => [u.login, u]));
+        const current = await this.readJson(config.paths.users, {});
+        // Handle case where we might read legacy array before migration triggers in a getter
+        const map = Array.isArray(current) 
+            ? current.reduce((acc, u) => { acc[u.login] = u.lastUpdate; return acc; }, {}) 
+            : current;
+
         let changed = false;
 
         for (const update of updates) {
-            const existing = map.get(update.login);
+            const existingTime = map[update.login];
             
-            // Update if new or if timestamp is newer (lexicographical string comparison works for ISO dates)
-            if (!existing || (update.lastUpdate && (!existing.lastUpdate || update.lastUpdate > existing.lastUpdate))) {
-                map.set(update.login, {
-                    login: update.login,
-                    lastUpdate: update.lastUpdate || existing?.lastUpdate || null
-                });
+            // Update if new or if timestamp is newer
+            // Note: We accept null updates (from Spider) only if entry doesn't exist
+            if (existingTime === undefined || (update.lastUpdate && update.lastUpdate > existingTime)) {
+                map[update.login] = update.lastUpdate || existingTime || null;
                 changed = true;
             }
         }
 
         if (changed) {
-            const sorted = Array.from(map.values());
-            // Sort logic can be handled here or by the consumer. 
-            // Saving it sorted by login might be nice for stability, 
-            // but the Updater will sort by date anyway.
-            await this.writeJson(config.paths.users, sorted);
+            await this.writeJson(config.paths.users, map);
         }
     }
 
