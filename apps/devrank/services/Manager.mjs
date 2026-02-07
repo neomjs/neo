@@ -85,10 +85,24 @@ class Manager extends Base {
     async runUpdate(limit) {
         console.log(`[Manager] Running Update Mode (Limit: ${limit})...`);
         const users = await Storage.getTracker();
+        const today = new Date().toISOString().split('T')[0];
+
+        // Filter out users already updated today
+        const staleUsers = users.filter(u => {
+            if (!u.lastUpdate) return true;
+            return !u.lastUpdate.startsWith(today);
+        });
+        
+        const backlogSize = staleUsers.length;
+        console.log(`[Manager] Backlog size: ${backlogSize} users (pending update today).`);
+
+        if (backlogSize === 0) {
+            console.log('[Manager] All users are up to date.');
+            return;
+        }
 
         // Sort: Oldest updates first. Null/undefined comes first.
-        // We use a simple string comparison for ISO dates.
-        const sorted = users.sort((a, b) => {
+        const sorted = staleUsers.sort((a, b) => {
             if (!a.lastUpdate) return -1;
             if (!b.lastUpdate) return 1;
             return a.lastUpdate.localeCompare(b.lastUpdate);
@@ -96,12 +110,7 @@ class Manager extends Base {
 
         const candidates = sorted.slice(0, limit).map(u => u.login);
 
-        if (candidates.length === 0) {
-            console.log('[Manager] No users found to update.');
-            return;
-        }
-
-        await Updater.processBatch(candidates);
+        await Updater.processBatch(candidates, backlogSize);
     }
 
     /**
