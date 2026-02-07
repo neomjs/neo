@@ -36,8 +36,9 @@ class Updater extends Base {
         if (!logins || logins.length === 0) return;
 
         console.log(`[Updater] Processing batch of ${logins.length} users...`);
-        const results = [];
-        const indexUpdates = [];
+        let results = [];
+        let indexUpdates = [];
+        const saveInterval = config.updater.saveInterval;
 
         for (const login of logins) {
             try {
@@ -55,14 +56,32 @@ class Updater extends Base {
                 console.log(`FAILED: ${error.message}`);
                 // Continue with next user even if one fails
             }
+
+            // Checkpoint Save
+            if (results.length >= saveInterval) {
+                await this.saveCheckpoint(results, indexUpdates);
+                results = [];
+                indexUpdates = [];
+            }
         }
 
-        // Batch save to storage
+        // Final Save for remaining items
         if (results.length > 0) {
-            await Storage.updateData(results);
-            await Storage.updateUsersIndex(indexUpdates);
-            console.log(`[Updater] Batch complete. Saved ${results.length} records.`);
+            await this.saveCheckpoint(results, indexUpdates);
         }
+        
+        console.log('[Updater] Batch processing complete.');
+    }
+
+    /**
+     * Helper to save partial results.
+     * @param {Array} results 
+     * @param {Array} indexUpdates 
+     */
+    async saveCheckpoint(results, indexUpdates) {
+        await Storage.updateData(results);
+        await Storage.updateUsersIndex(indexUpdates);
+        console.log(`[Updater] Checkpoint: Saved ${results.length} records.`);
     }
 
     /**
