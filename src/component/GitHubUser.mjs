@@ -12,6 +12,12 @@ class GitHubUser extends Component {
          */
         className: 'Neo.component.GitHubUser',
         /**
+         * Size in px for the avatar image request.
+         * Recommended to use 2x the display size for high DPI screens.
+         * @member {Number} avatarSize=64
+         */
+        avatarSize: 64,
+        /**
          * @member {String|null} avatarUrl_=null
          */
         avatarUrl_: null,
@@ -34,7 +40,7 @@ class GitHubUser extends Component {
         {cn: [
             {tag: 'img', cls: ['neo-avatar']},
             {cls: ['neo-user-info'], cn: [
-                {tag: 'a', cls: ['neo-username'], target: '_blank'},
+                {tag: 'a',    cls: ['neo-username'], target: '_blank'},
                 {tag: 'span', cls: ['neo-name']}
             ]}
         ]}
@@ -48,7 +54,10 @@ class GitHubUser extends Component {
         let me = this;
 
         if (value) {
-            me.vdom.cn[0].src = value;
+            let url = new URL(value);
+            url.searchParams.set('s', me.avatarSize);
+
+            me.vdom.cn[0].src = url.toString();
             me.update()
         }
     }

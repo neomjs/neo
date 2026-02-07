@@ -12,6 +12,12 @@ class GitHubOrgs extends Component {
          */
         className: 'Neo.component.GitHubOrgs',
         /**
+         * Size in px for the avatar image request.
+         * Recommended to use 2x the display size for high DPI screens.
+         * @member {Number} avatarSize=40
+         */
+        avatarSize: 40,
+        /**
          * @member {String[]} baseCls=['neo-github-orgs']
          */
         baseCls: ['neo-github-orgs'],
@@ -40,6 +46,14 @@ class GitHubOrgs extends Component {
 
         if (Array.isArray(value)) {
             value.slice(0, me.maxItems).forEach(org => {
+                let avatarUrl = org.avatar_url;
+
+                if (avatarUrl) {
+                    let url = new URL(avatarUrl);
+                    url.searchParams.set('s', me.avatarSize);
+                    avatarUrl = url.toString()
+                }
+
                 items.push({
                     tag   : 'a',
                     cls   : ['neo-org-link'],
@@ -49,7 +63,7 @@ class GitHubOrgs extends Component {
                     cn    : [{
                         tag: 'img',
                         cls: ['neo-org-avatar'],
-                        src: org.avatar_url
+                        src: avatarUrl
                     }]
                 })
             })
