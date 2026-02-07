@@ -132,22 +132,44 @@ class Storage extends Base {
      */
     async updateTracker(updates) {
         const current = await this.readJson(config.paths.tracker, {});
-        const map = current; // It's already an object
+        // Normalize keys to lowercase to prevent duplicates
+        const map = {};
+        Object.entries(current).forEach(([k, v]) => map[k.toLowerCase()] = { originalKey: k, val: v });
 
         let changed = false;
 
         for (const update of updates) {
-            const existingTime = map[update.login];
+            const key = update.login.toLowerCase();
+            const existing = map[key];
             
             // Update if new or if timestamp is newer
+            // Note: We might be updating the key casing if the new login has different casing, 
+            // but for the map we stick to the original unless it's new.
+            // Actually, we want to canonicalize to the most recent login casing? 
+            // Let's just use the update.login as the key if we write it back.
+            
+            const existingTime = existing ? existing.val : undefined;
+
             if (existingTime === undefined || (update.lastUpdate && update.lastUpdate > existingTime)) {
-                map[update.login] = update.lastUpdate || existingTime || null;
+                // If it exists, update the entry. If not, create new.
+                if (existing) {
+                    existing.val = update.lastUpdate || existingTime || null;
+                    // Optionally update originalKey if we want to prefer the new casing
+                    existing.originalKey = update.login;
+                } else {
+                    map[key] = { originalKey: update.login, val: update.lastUpdate || null };
+                }
                 changed = true;
             }
         }
 
         if (changed) {
-            await this.writeJson(config.paths.tracker, map);
+            // Reconstruct object with original keys
+            const out = {};
+            Object.values(map).forEach(item => {
+                out[item.originalKey] = item.val;
+            });
+            await this.writeJson(config.paths.tracker, out);
         }
     }
 
