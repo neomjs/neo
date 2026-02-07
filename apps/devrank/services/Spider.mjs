@@ -105,13 +105,20 @@ class Spider extends Base {
     pickStrategy(existingUsers) {
         const rand = Math.random();
 
-        // 40% Chance: High Stars (Core Strategy)
+        // 40% Chance: Core High Stars (Dynamic Ranges)
         if (rand < 0.4) {
+            // Pick a random lower bound to slice the high-star spectrum
+            // Range: minStars (1000) to 20000
+            const minStars = config.github.minStars;
+            const randomOffset = Math.floor(Math.random() * 19000); 
+            const lowerBound = minStars + randomOffset;
+            const upperBound = lowerBound + 1000 + Math.floor(Math.random() * 2000); // 1000-3000 width
+
             return {
-                name: 'Core: High Stars',
-                description: `stars:>${config.github.minStars}`,
+                name: 'Core: High Stars (Sliced)',
+                description: `stars:${lowerBound}..${upperBound}`,
                 type: 'search',
-                query: `stars:>${config.github.minStars}`
+                query: `stars:${lowerBound}..${upperBound}`
             };
         }
 
