@@ -127,8 +127,8 @@
     "location": "Germany",
     "company": "N/A",
     "bio": "",
-    "followers": 71,
-    "total_contributions": 29523,
+    "followers": 72,
+    "total_contributions": 29766,
     "years": {
       "2011": 1,
       "2012": 0,
@@ -145,10 +145,12 @@
       "2023": 3563,
       "2024": 3728,
       "2025": 5839,
-      "2026": 1715
+      "2026": 1958
     },
     "first_year": 2011,
-    "last_updated": "2026-02-01T15:42:51.260Z"
+    "last_updated": "2026-02-07T16:42:05.411Z",
+    "linkedin_url": "https://www.linkedin.com/in/tobiasuhlig/",
+    "organizations": []
   },
   {
     "login": "RichardLitt",
