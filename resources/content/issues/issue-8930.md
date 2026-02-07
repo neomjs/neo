@@ -52,15 +52,17 @@ subIssues:
   - '[x] 9029 Feat: DevRank Relevance Threshold'
   - '[x] 9030 Refactor: DevRank Data Naming Convention & Whitelist'
   - '[x] 9031 Feat: DevRank Cleanup Service'
-  - '[ ] 9032 Feat: DevRank Spider Random Walk Strategy'
+  - '[x] 9032 Feat: DevRank Spider Random Walk Strategy'
   - '[x] 9033 Refactor: DevRank Spider Checkpointing'
   - '[x] 9034 Feat: DevRank Grid - LinkedIn & Organizations Columns'
   - '[x] 9035 Feat: GitHubOrgs Component & Grid Column'
   - '[x] 9036 Perf: Optimize GitHub Avatar Sizes'
   - '[x] 9037 Refactor: Dynamic Year Fields in Contributor Model'
   - '[x] 9038 Style: DevRank Grid Selection Overrides Heatmap'
-subIssuesCompleted: 42
-subIssuesTotal: 45
+  - '[x] 9039 Feat: Support .env token auth for DevRank Services'
+  - '[ ] 9040 Refactor: Make DevRank Manager a Singleton'
+subIssuesCompleted: 44
+subIssuesTotal: 47
 blockedBy: []
 blocking: []
 ---
