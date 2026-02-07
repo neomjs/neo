@@ -46,64 +46,57 @@ class Spider extends Base {
         const newVisited = new Set();
 
         // 2. Discover Repositories
-        // We use a random offset or different criteria to vary results?
-        // For now, let's stick to the high-star query but maybe random page?
-        // Actually, let's just use the config default.
         const minStars = config.github.minStars;
         const query = `stars:>${minStars}`;
-        const page = 1; // TODO: Randomize or track page state?
+        const maxPages = 5; // Crawl top 5 pages (~150 repos)
 
-        console.log(`[Spider] Searching repos with ${query}...`);
+        console.log(`[Spider] Searching repos with ${query} (Pages 1-${maxPages})...`);
         
         try {
-            const searchRes = await GitHub.rest(`search/repositories?q=${query}&sort=stars&per_page=${config.github.perPage}&page=${page}`);
-            
-            if (!searchRes || !searchRes.items) {
-                console.error('[Spider] Failed to find repositories.');
-                return;
-            }
-
-            const repos = searchRes.items;
-            console.log(`[Spider] Found ${repos.length} repositories.`);
-
-            // 3. Process Repositories
-            for (const repo of repos) {
-                const repoKey = `repo:${repo.full_name}`;
+            for (let page = 1; page <= maxPages; page++) {
+                console.log(`[Spider] Fetching page ${page}...`);
+                const searchRes = await GitHub.rest(`search/repositories?q=${query}&sort=stars&per_page=${config.github.perPage}&page=${page}`);
                 
-                // Skip if we've fully processed this repo recently?
-                // For now, we process it again to check for new contributors, 
-                // but maybe we should skip it to go wide first.
-                // Let's check visited.
-                if (visited.has(repoKey)) {
-                    // console.log(`  [Skipping] Visited repo: ${repo.full_name}`);
-                    // continue; 
-                    // Actually, contributors change. Let's re-scan but maybe lower priority?
-                    // For this MVP, let's process it.
+                if (!searchRes || !searchRes.items) {
+                    console.error('[Spider] Failed to find repositories on page', page);
+                    continue;
                 }
 
-                newVisited.add(repoKey);
-                process.stdout.write(`  Scanning ${repo.full_name}... `);
+                const repos = searchRes.items;
+                console.log(`[Spider] Page ${page}: Found ${repos.length} repositories.`);
 
-                const contributors = await this.fetchContributors(repo.full_name);
-                let addedCount = 0;
-
-                for (const login of contributors) {
-                    const lowerLogin = login.toLowerCase();
-
-                    // Filter Logic
-                    if (blacklist.has(lowerLogin)) continue;
-                    if (login.includes('[bot]')) continue;
+                // 3. Process Repositories
+                for (const repo of repos) {
+                    const repoKey = `repo:${repo.full_name}`;
                     
-                    // If we already know this user, skip adding to candidates (unless we want to force update?)
-                    // The Manager handles updates. Spider just finds NEW people.
-                    if (existingLogins.has(lowerLogin)) continue;
-
-                    if (!newCandidates.has(login)) {
-                        newCandidates.add(login);
-                        addedCount++;
+                    if (visited.has(repoKey)) {
+                        // console.log(`  [Skipping] Visited repo: ${repo.full_name}`);
+                        // continue; 
                     }
+
+                    newVisited.add(repoKey);
+                    process.stdout.write(`  Scanning ${repo.full_name}... `);
+
+                    const contributors = await this.fetchContributors(repo.full_name);
+                    let addedCount = 0;
+
+                    for (const login of contributors) {
+                        const lowerLogin = login.toLowerCase();
+
+                        // Filter Logic
+                        if (blacklist.has(lowerLogin)) continue;
+                        if (login.includes('[bot]')) continue;
+                        
+                        // If we already know this user, skip adding to candidates
+                        if (existingLogins.has(lowerLogin)) continue;
+
+                        if (!newCandidates.has(login)) {
+                            newCandidates.add(login);
+                            addedCount++;
+                        }
+                    }
+                    console.log(`Found ${contributors.length} contributors, ${addedCount} new.`);
                 }
-                console.log(`Found ${contributors.length} contributors, ${addedCount} new.`);
             }
 
             // 4. Save Results
