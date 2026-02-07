@@ -54,8 +54,13 @@ subIssues:
   - '[x] 9031 Feat: DevRank Cleanup Service'
   - '[ ] 9032 Feat: DevRank Spider Random Walk Strategy'
   - '[x] 9033 Refactor: DevRank Spider Checkpointing'
-subIssuesCompleted: 37
-subIssuesTotal: 40
+  - '[x] 9034 Feat: DevRank Grid - LinkedIn & Organizations Columns'
+  - '[x] 9035 Feat: GitHubOrgs Component & Grid Column'
+  - '[x] 9036 Perf: Optimize GitHub Avatar Sizes'
+  - '[x] 9037 Refactor: Dynamic Year Fields in Contributor Model'
+  - '[x] 9038 Style: DevRank Grid Selection Overrides Heatmap'
+subIssuesCompleted: 42
+subIssuesTotal: 45
 blockedBy: []
 blocking: []
 ---
@@ -140,4 +145,9 @@ The goal is to create a meritocratic index of the open-source ecosystem, powered
 - 2026-02-07T18:31:08Z @tobiu added sub-issue #9031
 - 2026-02-07T18:44:23Z @tobiu added sub-issue #9032
 - 2026-02-07T19:01:40Z @tobiu added sub-issue #9033
+- 2026-02-07T19:26:45Z @tobiu added sub-issue #9034
+- 2026-02-07T19:39:55Z @tobiu added sub-issue #9035
+- 2026-02-07T19:48:04Z @tobiu added sub-issue #9036
+- 2026-02-07T19:58:09Z @tobiu added sub-issue #9037
+- 2026-02-07T20:08:43Z @tobiu added sub-issue #9038
 
