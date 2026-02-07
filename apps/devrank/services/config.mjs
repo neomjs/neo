@@ -110,10 +110,15 @@ const defaultConfig = {
 };
 
 /**
- * @summary Configuration manager for the DevRank Backend.
+ * @summary Configuration Manager for the DevRank Backend Pipeline.
  *
- * Centralizes configuration for paths, API settings, and limits.
- * Supports loading custom overrides if needed.
+ * This class provides a centralized, read-only configuration interface for all backend services.
+ * It defines critical constants for the GitHub API (rate limits, timeouts), the discovery algorithms
+ * (spider depth, batch size), and the file system paths for data persistence.
+ *
+ * **Architecture Note:**
+ * This class uses a `Proxy` pattern to expose the `data` object properties directly on the default export,
+ * providing a cleaner API for consumers (e.g., `config.github.minStars` instead of `config.data.github.minStars`).
  *
  * @class DevRank.services.Config
  * @extends Neo.core.Base

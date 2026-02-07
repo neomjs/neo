@@ -3,14 +3,22 @@ import Base from '../../../src/core/Base.mjs';
 import config from './config.mjs';
 
 /**
- * @summary Storage Service for DevRank.
+ * @summary DevRank Persistence Layer (JSON File System).
  *
- * Handles all file I/O operations for the DevRank backend.
- * Manages the persistence of:
- * - Rich Data (data.json)
- * - User Index (users.json)
- * - Visited Nodes (visited.json)
- * - Blacklist (blacklist.json)
+ * This service manages all file I/O operations, acting as a simple, flat-file database abstraction.
+ * It ensures atomic-ish writes (by overwriting files completely) and handles the normalization of data.
+ *
+ * **Managed Resources:**
+ * - **`users.json` (Rich Data Store):** Contains the full, enriched profile data for all users who met the threshold.
+ *   This is the source of truth for the Frontend UI.
+ * - **`tracker.json` (The Index):** A lightweight map (`login` -> `lastUpdate`) used by the Backend to schedule updates.
+ *   It includes "Pending" users (`lastUpdate: null`) discovered by the Spider but not yet processed.
+ * - **`visited.json` (Cache):** A Set of keys (e.g., `repo:owner/name`) to prevent the Spider from re-scanning the same sources.
+ * - **`blacklist.json` / `whitelist.json`:** Configuration files for manual overrides.
+ *
+ * **Key Features:**
+ * - **Case Insensitivity:** Automatically normalizes login keys to lowercase to prevent duplicates.
+ * - **Deletion Support:** The `updateTracker` method supports a `delete: true` flag for active pruning.
  *
  * @class DevRank.services.Storage
  * @extends Neo.core.Base
@@ -125,9 +133,16 @@ class Storage extends Base {
     }
 
     /**
-     * Updates the tracker index.
-     * Merges new entries or updates existing ones.
-     * @param {Array<{login: String, lastUpdate: String}>} updates
+     * Updates the Tracker Index with new states or timestamps.
+     * 
+     * Handles three types of operations based on the input:
+     * 1.  **Insert (Discovery):** Adds a new user with `lastUpdate: null`.
+     * 2.  **Update (Success):** Updates an existing user with a new `lastUpdate` timestamp.
+     * 3.  **Delete (Pruning):** Removes a user if `delete: true` is present in the update object.
+     * 
+     * Performs a case-insensitive lookup to prevent duplicate entries for the same user.
+     *
+     * @param {Array<{login: String, lastUpdate: String, delete?: Boolean}>} updates List of update operations.
      * @returns {Promise<void>}
      */
     async updateTracker(updates) {
@@ -187,9 +202,15 @@ class Storage extends Base {
     }
 
     /**
-     * Updates the rich users data store.
-     * Performs a deep merge or replacement of records based on login.
-     * @param {Array<Object>} newRecords
+     * Persists enriched user profiles to the Rich Data Store (`users.json`).
+     * 
+     * Performs a **Merge & Sort** operation:
+     * 1.  Loads existing data.
+     * 2.  Overwrites or adds new records based on the `login` key.
+     * 3.  **Sorts** the entire dataset by `total_contributions` (descending) to ensure the file is always ready for UI consumption.
+     * 4.  Writes the result back to disk atomically.
+     *
+     * @param {Array<Object>} newRecords Array of user objects to upsert.
      * @returns {Promise<void>}
      */
     async updateUsers(newRecords) {

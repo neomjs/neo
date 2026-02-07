@@ -6,10 +6,17 @@ import config      from './config.mjs';
 const execAsync = promisify(exec);
 
 /**
- * @summary GitHub API Service for DevRank.
+ * @summary GitHub API Client Wrapper (GraphQL & REST).
  *
- * Handles authentication and API requests (GraphQL & REST) to GitHub.
- * Centralizes token management and error handling.
+ * This service abstracts the complexity of communicating with the GitHub API. It handles:
+ * 1.  **Authentication:** Smart token resolution, prioritizing environment variables (`GH_TOKEN`, `GITHUB_TOKEN`)
+ *     for CI/CD environments, and falling back to the `gh` CLI for local development.
+ * 2.  **Protocol Abstraction:** Provides unified methods for both `query` (GraphQL) and `rest` (v3 API) requests.
+ * 3.  **Error Handling:** Standardizes error reporting for API failures.
+ *
+ * **Key Concepts:**
+ * - **Hybrid API Usage:** Uses GraphQL for efficient, deep data fetching (e.g., multi-year contribution graphs in one RTT)
+ *   and REST for simpler endpoints or those with different scope requirements (e.g., public organization memberships).
  *
  * @class DevRank.services.GitHub
  * @extends Neo.core.Base

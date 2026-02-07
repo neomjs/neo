@@ -4,16 +4,21 @@ import GitHub from './GitHub.mjs';
 import Storage from './Storage.mjs';
 
 /**
- * @summary The Spider (Discovery Engine).
+ * @summary The Spider (Discovery Engine) - A Multi-Strategy Graph Crawler.
  *
- * Crawls GitHub for new user candidates using a "Random Walk" strategy to ensure
- * diverse discovery and avoid filter bubbles.
+ * The Spider is responsible for expanding the DevRank user index by discovering new candidates on GitHub.
+ * Unlike simple scrapers, it employs a **"Random Walk"** architecture to avoid "Filter Bubbles" (repeatedly
+ * scanning the same top 100 repositories).
  *
- * Strategies:
- * 1. Core: High Stars (Standard top-down approach)
- * 2. Temporal: Random date range search (Hidden gems)
- * 3. Keyword: Random dictionary attack (Topic based)
- * 4. Stargazer: Network traversal via random user stars
+ * **Discovery Strategies (Weighted):**
+ * 1.  **Core: High Stars (40%):** Scans repositories with high star counts, but uses **Dynamic Range Slicing**
+ *     (e.g., `stars:2000..3000`) to jump into the middle of the dataset and bypass GitHub's 1000-result search limit.
+ * 2.  **Discovery: Keyword (30%):** Performs a "Dictionary Attack" using 60+ developer-centric keywords (e.g., "wasm",
+ *     "compiler", "neural") to find niche experts in specific domains.
+ * 3.  **Discovery: Temporal (20%):** Slices the last 10 years into random 1-week windows to find "hidden gems"
+ *     created at specific times, regardless of their total star count.
+ * 4.  **Discovery: Stargazer Leap (10%):** Picks a random user already in the index and scans their *starred repositories*,
+ *     effectively traversing the social graph to find adjacent communities.
  *
  * @class DevRank.services.Spider
  * @extends Neo.core.Base
@@ -55,7 +60,15 @@ class Spider extends Base {
     ]
 
     /**
-     * Main entry point for the spider.
+     * Executes the Discovery Workflow.
+     * 
+     * 1.  **State Loading:** Loads the `visited` cache and `blacklist`.
+     * 2.  **Strategy Selection:** Uses a weighted random algorithm to pick a discovery method (Core, Keyword, Temporal, or Stargazer).
+     * 3.  **Execution:** Runs the selected strategy to find repositories.
+     * 4.  **Extraction:** Scans found repositories for top contributors.
+     * 5.  **Filtering:** Ignores bots, blacklisted users, and users already in the tracker.
+     * 6.  **Persistence:** Saves new candidates to `tracker.json` (as pending) and updates `visited.json`.
+     *
      * @returns {Promise<void>}
      */
     async run() {
@@ -98,9 +111,15 @@ class Spider extends Base {
     }
 
     /**
-     * Selects a random discovery strategy.
-     * @param {Array} existingUsers
-     * @returns {Object} Strategy definition
+     * Selects a discovery strategy based on a weighted probability distribution.
+     * 
+     * - **High Stars (40%):** Finds established projects but uses slicing to go deeper.
+     * - **Keyword (30%):** Finds niche projects based on tech terms.
+     * - **Temporal (20%):** Finds hidden gems from specific time periods.
+     * - **Stargazer (10%):** Traverses the social graph (requires existing users).
+     * 
+     * @param {Array} existingUsers The current list of tracked users (needed for Stargazer strategy).
+     * @returns {Object} Strategy definition object containing `type`, `query`, and `description`.
      */
     pickStrategy(existingUsers) {
         const rand = Math.random();
@@ -299,9 +318,12 @@ class Spider extends Base {
     }
 
     /**
-     * Fetches top contributors for a repository.
-     * @param {String} fullName "owner/repo"
-     * @returns {Promise<String[]>} Array of logins
+     * Fetches the top 10 contributors for a given repository.
+     * 
+     * Filters the results to ensure only real users (type 'User') are returned, ignoring Organizations or Bots.
+     * 
+     * @param {String} fullName The full repository name ("owner/repo").
+     * @returns {Promise<String[]>} Array of contributor login names.
      * @private
      */
     async fetchContributors(fullName) {

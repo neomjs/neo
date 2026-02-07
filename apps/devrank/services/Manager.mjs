@@ -8,10 +8,18 @@ import Spider from './Spider.mjs';
 import Cleanup from './Cleanup.mjs';
 
 /**
- * @summary DevRank Backend Orchestrator.
+ * @summary DevRank Backend Orchestrator & CLI Entry Point.
  *
- * The main entry point for the CLI. Parses arguments and delegates to
- * specific services (Updater, Spider).
+ * This singleton acts as the **Controller** for the DevRank data pipeline. It utilizes `commander` to parse
+ * CLI arguments and `inquirer` to provide interactive prompts, offering a robust Developer Experience (DX).
+ *
+ * **Key Responsibilities:**
+ * 1.  **Command Routing:** Delegates high-level commands (`spider`, `update`, `add`) to the appropriate micro-services.
+ * 2.  **Lifecycle Orchestration:** Enforces data hygiene by automatically triggering `Cleanup.run()` *before* any
+ *     operation that reads or modifies the data index. This "Pre-Run Cleanup" pattern ensures the pipeline always
+ *     operates on valid, sorted, and pruned data.
+ * 3.  **Smart Scheduling:** In the `update` command, it implements logic to skip users who have already been
+ *     processed in the current calendar day, optimizing API quota usage.
  *
  * @class DevRank.services.Manager
  * @extends Neo.core.Base
@@ -93,8 +101,15 @@ class Manager extends Base {
     }
 
     /**
-     * Logic for the 'update' command.
-     * @param {Number} limit
+     * Executes the Batch Update Workflow.
+     * 
+     * 1.  **Filter:** Loads the Tracker and filters out users who have already been updated *today*.
+     * 2.  **Prioritize:** Sorts the remaining users by `lastUpdate` timestamp (ascending), so that `null` (new) 
+     *     and oldest records are processed first.
+     * 3.  **Batch:** Slices the list to the requested `limit`.
+     * 4.  **Execute:** Delegates the actual processing to `Updater.processBatch`.
+     *
+     * @param {Number} limit The maximum number of users to update in this run.
      */
     async runUpdate(limit) {
         console.log(`[Manager] Running Update Mode (Limit: ${limit})...`);
