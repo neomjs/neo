@@ -200,8 +200,20 @@ test.describe('Grid & Store Interactions', () => {
         
         const newFirstRow = grid.body.items.find(r => r.rowIndex === 0);
         expect(newFirstRow.record.name).toBe('New Row');
+
+        // 2. Verify VDOM State (The blueprint)
+        // Access the cell for the 'name' column (index 1)
+        const vdomCell = newFirstRow.vdom.cn[1];
+        // The cell content might be direct html or a child node depending on renderer
+        const vdomContent = vdomCell.html || vdomCell.cn?.[0]?.html || vdomCell.text;
+        expect(vdomContent).toContain('New Row');
+
+        // 3. Verify VNode State (The simulated live DOM)
+        // Access the cell node in the VNode tree
+        const vnodeCell = newFirstRow.vnode.childNodes[1]; // Name column
+        expect(vnodeCell.innerHTML).toContain('New Row');
         
-        // 2. Verify Deltas
+        // 4. Verify Deltas
         const moveNodes   = deltas.filter(d => d.action === 'moveNode');
         const insertNodes = deltas.filter(d => d.action === 'insertNode');
         const removeNodes = deltas.filter(d => d.action === 'removeNode');
@@ -231,6 +243,14 @@ test.describe('Grid & Store Interactions', () => {
         // Was 'Row 0', now 'Row 1' shifted up to index 0
         expect(newFirstRow.record.name).toBe('Row 1');
 
+        // Verify VDOM & VNode
+        const vdomCell = newFirstRow.vdom.cn[1];
+        const vdomContent = vdomCell.html || vdomCell.cn?.[0]?.html || vdomCell.text;
+        expect(vdomContent).toContain('Row 1');
+
+        const vnodeCell = newFirstRow.vnode.childNodes[1];
+        expect(vnodeCell.innerHTML).toContain('Row 1');
+
         const moveNodes = deltas.filter(d => d.action === 'moveNode');
         const insertNodes = deltas.filter(d => d.action === 'insertNode');
         const removeNodes = deltas.filter(d => d.action === 'removeNode');
@@ -254,6 +274,13 @@ test.describe('Grid & Store Interactions', () => {
 
         const newFirstRow = grid.body.items.find(r => r.rowIndex === 0);
         expect(newFirstRow.record.name).toBe('Row 19'); // Last item is now first
+
+        // Verify VDOM & VNode
+        const vdomCell = newFirstRow.vdom.cn[1];
+        expect(vdomCell.html || vdomCell.cn?.[0]?.html).toContain('Row 19');
+
+        const vnodeCell = newFirstRow.vnode.childNodes[1];
+        expect(vnodeCell.innerHTML).toContain('Row 19');
 
         const moveNodes = deltas.filter(d => d.action === 'moveNode');
         const insertNodes = deltas.filter(d => d.action === 'insertNode');
@@ -281,6 +308,18 @@ test.describe('Grid & Store Interactions', () => {
         });
 
         expect(grid.body.store.count).toBe(2);
+
+        // Verify Visible Row (Index 0)
+        const visibleRow = grid.body.items.find(r => r.rowIndex === 0);
+        expect(visibleRow.record.name).toBe('Row 0');
+        expect(visibleRow.vdom.style.display).toBeNull(); // Should be visible (null removes display:none)
+        
+        // Verify Hidden Row (Index 2 - effectively unused/recycled to empty)
+        // With Fixed-DOM-Order, unused items in the pool have rowIndex = -1
+        const hiddenRow = grid.body.items.find(r => r.rowIndex === -1);
+        expect(hiddenRow).toBeDefined();
+        expect(hiddenRow.vdom.style.display).toBe('none');
+        expect(hiddenRow.vnode.style.display).toBe('none');
 
         const moveNodes = deltas.filter(d => d.action === 'moveNode');
         const insertNodes = deltas.filter(d => d.action === 'insertNode');
