@@ -97,26 +97,36 @@ class Spider extends Base {
                     }
                     console.log(`Found ${contributors.length} contributors, ${addedCount} new.`);
                 }
-            }
 
-            // 4. Save Results
-            if (newCandidates.size > 0) {
-                console.log(`[Spider] Discovered ${newCandidates.size} new candidates.`);
-                const updates = Array.from(newCandidates).map(login => ({
-                    login,
-                    lastUpdate: null // Null means "never updated", high priority for Updater
-                }));
-                
-                await Storage.updateTracker(updates);
-            } else {
-                console.log('[Spider] No new candidates discovered this run.');
+                // Checkpoint Save after each page
+                await this.saveCheckpoint(newCandidates, newVisited);
+                newCandidates.clear();
+                newVisited.clear();
             }
-
-            // Update Visited Log
-            await Storage.updateVisited(newVisited);
 
         } catch (error) {
             console.error('[Spider] Fatal error:', error);
+        }
+    }
+
+    /**
+     * Helper to save partial results.
+     * @param {Set} newCandidates
+     * @param {Set} newVisited
+     */
+    async saveCheckpoint(newCandidates, newVisited) {
+        if (newCandidates.size > 0) {
+            console.log(`[Spider] Checkpoint: Discovered ${newCandidates.size} new candidates.`);
+            const updates = Array.from(newCandidates).map(login => ({
+                login,
+                lastUpdate: null // Null means "never updated", high priority for Updater
+            }));
+            
+            await Storage.updateTracker(updates);
+        }
+
+        if (newVisited.size > 0) {
+            await Storage.updateVisited(newVisited);
         }
     }
 
