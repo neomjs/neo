@@ -14,6 +14,7 @@ import Cleanup from './Cleanup.mjs';
  *
  * @class DevRank.services.Manager
  * @extends Neo.core.Base
+ * @singleton
  */
 class Manager extends Base {
     static config = {
@@ -21,7 +22,12 @@ class Manager extends Base {
          * @member {String} className='DevRank.services.Manager'
          * @protected
          */
-        className: 'DevRank.services.Manager'
+        className: 'DevRank.services.Manager',
+        /**
+         * @member {Boolean} singleton=true
+         * @protected
+         */
+        singleton: true
     }
 
     /**

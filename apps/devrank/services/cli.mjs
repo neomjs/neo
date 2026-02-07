@@ -6,8 +6,7 @@ import Manager   from './Manager.mjs';
 dotenv.config({quiet: true});
 
 async function start() {
-    const manager = Neo.create(Manager);
-    await manager.main();
+    await Manager.main();
 }
 
 start().catch(console.error);
