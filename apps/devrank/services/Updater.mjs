@@ -65,6 +65,9 @@ class Updater extends Base {
                         console.log(`SKIPPED (Low Activity: ${data.total_contributions})`);
                     }
                 } else {
+                    // Update tracker even if no data (e.g. bot, not found) to prevent infinite retry loop
+                    indexUpdates.push({ login, lastUpdate: new Date().toISOString() });
+                    successCount++;
                     console.log('SKIPPED (No Data/Bot)');
                 }
             } catch (error) {

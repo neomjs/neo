@@ -67,14 +67,35 @@ class Cleanup extends Base {
         });
 
         // 3. Filter Tracker (Index)
-        // Criteria: Not Blacklisted.
-        // Note: We keep "below threshold" users in tracker to prevent re-crawling them immediately?
-        // Actually, if we remove them from users.json, we probably want to keep them in tracker 
-        // to remember "we saw them, and they are not worth fetching again yet".
-        // BUT, if we add them to blacklist, we remove them from everywhere.
+        // Criteria: Not Blacklisted AND (Threshold Met OR Whitelisted)
         tracker = tracker.filter(t => {
             const lowerLogin = t.login.toLowerCase();
+            
             if (blacklist.has(lowerLogin)) return false;
+
+            // Optional: Also prune from tracker if we have rich data proving they are low value?
+            // If we don't have rich data (yet), we keep them to be scanned.
+            // If we DO have rich data and they were filtered out of `users` array above, 
+            // we should probably remove them from tracker too?
+            
+            // Actually, `users` array is already filtered.
+            // So if a user is NOT in `users` array, but IS in `tracker`, it means either:
+            // a) They haven't been scanned yet (lastUpdate: null) -> KEEP
+            // b) They were scanned and pruned (lastUpdate: valid) -> REMOVE
+            
+            // To implement (b), we need to check if they were in the original rich data but got removed.
+            // Or simpler: If they have a lastUpdate (meaning scanned), check if they survived the `users` filter.
+            
+            if (t.lastUpdate) {
+                // If they have been updated, they must be in the filtered `users` list to stay in tracker.
+                // We need a quick lookup set for the filtered users.
+                const userExists = users.some(u => u.login.toLowerCase() === lowerLogin);
+                if (!userExists) {
+                    // They were scanned but didn't make the cut. Prune from tracker.
+                    return false; 
+                }
+            }
+
             return true;
         });
 
