@@ -70,7 +70,7 @@ class Manager extends Base {
      */
     async runUpdate(limit) {
         console.log(`[Manager] Running Update Mode (Limit: ${limit})...`);
-        const users = await Storage.getUsersIndex();
+        const users = await Storage.getTracker();
 
         // Sort: Oldest updates first. Null/undefined comes first.
         // We use a simple string comparison for ISO dates.

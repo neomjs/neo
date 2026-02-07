@@ -39,7 +39,7 @@ class Spider extends Base {
         // 1. Load State
         const visited = await Storage.getVisited();
         const blacklist = await Storage.getBlacklist();
-        const existingUsers = await Storage.getUsersIndex();
+        const existingUsers = await Storage.getTracker();
         const existingLogins = new Set(existingUsers.map(u => u.login.toLowerCase()));
         
         const newCandidates = new Set();
@@ -107,7 +107,7 @@ class Spider extends Base {
                     lastUpdate: null // Null means "never updated", high priority for Updater
                 }));
                 
-                await Storage.updateUsersIndex(updates);
+                await Storage.updateTracker(updates);
             } else {
                 console.log('[Spider] No new candidates discovered this run.');
             }
