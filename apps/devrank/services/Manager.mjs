@@ -1,4 +1,5 @@
 import { Command } from 'commander';
+import inquirer from 'inquirer';
 import Base from '../../../src/core/Base.mjs';
 import config from './config.mjs';
 import Storage from './Storage.mjs';
@@ -53,9 +54,20 @@ class Manager extends Base {
             });
 
         program
-            .command('add <username>')
+            .command('add [username]')
             .description('Add or update a specific user')
             .action(async (username) => {
+                if (!username) {
+                    const answers = await inquirer.prompt([
+                        {
+                            type: 'input',
+                            name: 'username',
+                            message: 'Enter GitHub username to add:',
+                            validate: input => input.trim() !== '' ? true : 'Username is required'
+                        }
+                    ]);
+                    username = answers.username;
+                }
                 await this.runAdd(username);
             });
 
