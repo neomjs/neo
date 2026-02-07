@@ -27,6 +27,11 @@ const defaultConfig = {
          */
         minStars: 1000,
         /**
+         * Minimum total contributions to be included in the DevRank index.
+         * @type {number}
+         */
+        minTotalContributions: 1000,
+        /**
          * Number of items per page for API requests.
          * @type {number}
          */

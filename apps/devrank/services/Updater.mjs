@@ -46,9 +46,16 @@ class Updater extends Base {
                 const data = await this.fetchUserData(login);
                 
                 if (data) {
-                    results.push(data);
-                    indexUpdates.push({ login, lastUpdate: data.last_updated });
-                    console.log(`OK (${data.total_contributions})`);
+                    if (data.total_contributions >= config.github.minTotalContributions) {
+                        results.push(data);
+                        indexUpdates.push({ login, lastUpdate: data.last_updated });
+                        console.log(`OK (${data.total_contributions})`);
+                    } else {
+                        // Mark as updated in users.json so we don't re-scan immediately, 
+                        // but do NOT add to rich data store.
+                        indexUpdates.push({ login, lastUpdate: data.last_updated });
+                        console.log(`SKIPPED (Low Activity: ${data.total_contributions})`);
+                    }
                 } else {
                     console.log('SKIPPED (No Data/Bot)');
                 }
