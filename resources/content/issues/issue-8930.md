@@ -53,8 +53,9 @@ subIssues:
   - '[x] 9030 Refactor: DevRank Data Naming Convention & Whitelist'
   - '[x] 9031 Feat: DevRank Cleanup Service'
   - '[ ] 9032 Feat: DevRank Spider Random Walk Strategy'
+  - '[ ] 9033 Refactor: DevRank Spider Checkpointing'
 subIssuesCompleted: 36
-subIssuesTotal: 39
+subIssuesTotal: 40
 blockedBy: []
 blocking: []
 ---
@@ -138,4 +139,5 @@ The goal is to create a meritocratic index of the open-source ecosystem, powered
 - 2026-02-07T18:20:58Z @tobiu added sub-issue #9030
 - 2026-02-07T18:31:08Z @tobiu added sub-issue #9031
 - 2026-02-07T18:44:23Z @tobiu added sub-issue #9032
+- 2026-02-07T19:01:40Z @tobiu added sub-issue #9033
 

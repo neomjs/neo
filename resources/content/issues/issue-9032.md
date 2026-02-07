@@ -5,9 +5,10 @@ state: OPEN
 labels:
   - enhancement
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-02-07T18:44:14Z'
-updatedAt: '2026-02-07T18:44:14Z'
+updatedAt: '2026-02-07T18:44:46Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9032'
 author: tobiu
 commentsCount: 0
@@ -34,4 +35,8 @@ Enhance the Spider's discovery algorithm to avoid "Filter Bubbles" (repeatedly s
 - 2026-02-07T18:44:15Z @tobiu added the `enhancement` label
 - 2026-02-07T18:44:15Z @tobiu added the `ai` label
 - 2026-02-07T18:44:23Z @tobiu added parent issue #8930
+- 2026-02-07T18:44:46Z @tobiu assigned to @tobiu
+- 2026-02-07T18:45:13Z @tobiu referenced in commit `40236b2` - "chore: Exclude DevRank Data from NPM Package (#9032)
+
+- Added 'apps/devrank/resources/*.json' to .npmignore to prevent package bloat."
 
