@@ -1,7 +1,7 @@
-import { exec } from 'child_process';
-import { promisify } from 'util';
-import Base from '../../../src/core/Base.mjs';
-import config from './config.mjs';
+import {exec}      from 'child_process';
+import {promisify} from 'util';
+import Base        from '../../../src/core/Base.mjs';
+import config      from './config.mjs';
 
 const execAsync = promisify(exec);
 
@@ -54,13 +54,20 @@ class GitHub extends Base {
     async #getAuthToken() {
         if (this.#authToken) return this.#authToken;
 
+        const envToken = process.env.GH_TOKEN || process.env.GITHUB_TOKEN;
+
+        if (envToken) {
+            this.#authToken = envToken.trim();
+            return this.#authToken;
+        }
+
         try {
             const { stdout } = await execAsync('gh auth token');
             this.#authToken = stdout.trim();
             return this.#authToken;
         } catch (e) {
-            console.error('[GitHub] Failed to get auth token from `gh` CLI.');
-            throw new Error('Authentication failed. Please run `gh auth login`.');
+            console.error('[GitHub] Failed to get auth token from environment or `gh` CLI.');
+            throw new Error('Authentication failed. Please set GH_TOKEN/GITHUB_TOKEN or run `gh auth login`.');
         }
     }
 
@@ -72,7 +79,7 @@ class GitHub extends Base {
      */
     async query(query, variables = {}) {
         const token = await this.#getAuthToken();
-        
+
         try {
             const response = await fetch(this.graphqlUrl, {
                 method: 'POST',
@@ -91,7 +98,7 @@ class GitHub extends Base {
             const json = await response.json();
 
             if (json.errors) {
-                // Log but don't throw immediately if partial data exists? 
+                // Log but don't throw immediately if partial data exists?
                 // For now, throw to be safe.
                 const messages = json.errors.map(e => e.message).join(', ');
                 throw new Error(`GraphQL Query Errors: ${messages}`);
