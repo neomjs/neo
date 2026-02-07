@@ -1,12 +1,13 @@
 ---
 id: 9030
 title: 'Refactor: DevRank Data Naming Convention & Whitelist'
-state: OPEN
+state: CLOSED
 labels:
   - refactoring
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-02-07T18:20:45Z'
-updatedAt: '2026-02-07T18:20:45Z'
+updatedAt: '2026-02-07T18:27:04Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9030'
 author: tobiu
 commentsCount: 0
@@ -16,6 +17,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-02-07T18:27:04Z'
 ---
 # Refactor: DevRank Data Naming Convention & Whitelist
 
@@ -32,4 +34,13 @@ Rename data files to be more semantic and introduce a whitelist policy.
 
 - 2026-02-07T18:20:46Z @tobiu added the `refactoring` label
 - 2026-02-07T18:20:58Z @tobiu added parent issue #8930
+- 2026-02-07T18:21:16Z @tobiu assigned to @tobiu
+- 2026-02-07T18:26:52Z @tobiu referenced in commit `febce15` - "refactor: DevRank Data Naming Convention & Whitelist (#9030)
+
+- Renamed data.json -> users.json (Rich Data).
+- Renamed users.json -> tracker.json (Backend Index).
+- Updated Storage, Config, Updater, Manager, and Spider to use semantic naming.
+- Implemented Whitelist support in Updater.
+- Initialized empty whitelist.json."
+- 2026-02-07T18:27:04Z @tobiu closed this issue
 
