@@ -45,6 +45,20 @@ class Cleanup extends Base {
         const initialUserCount = users.length;
         const initialTrackerCount = tracker.length;
 
+        // 1.5. Sync Whitelist -> Tracker (Resurrection)
+        // Ensure all whitelisted users are in the tracker so they get scheduled.
+        whitelist.forEach(login => {
+            const lowerLogin = login.toLowerCase();
+            // Check if already in tracker (case-insensitive check needed, or rely on normalization)
+            // Tracker is an array of objects.
+            const exists = tracker.some(t => t.login.toLowerCase() === lowerLogin);
+            
+            if (!exists && !blacklist.has(lowerLogin)) {
+                console.log(`[Cleanup] Resurrecting whitelisted user: ${login}`);
+                tracker.push({ login, lastUpdate: null });
+            }
+        });
+
         // 2. Filter Users (Rich Data)
         // Criteria: Not Blacklisted AND (Threshold Met OR Whitelisted)
         users = users.filter(u => {
@@ -72,6 +86,7 @@ class Cleanup extends Base {
             const lowerLogin = t.login.toLowerCase();
             
             if (blacklist.has(lowerLogin)) return false;
+            if (whitelist.has(lowerLogin)) return true; // Explicit protection
 
             // Optional: Also prune from tracker if we have rich data proving they are low value?
             // If we don't have rich data (yet), we keep them to be scanned.
