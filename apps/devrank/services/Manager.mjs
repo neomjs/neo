@@ -48,6 +48,7 @@ class Manager extends Base {
             .option('-l, --limit <number>', 'Number of users to update', (val) => parseInt(val, 10), config.spider.batchSize)
             .action(async (options) => {
                 console.log('[Manager] Options:', options);
+                await Cleanup.run(); // Pre-run hygiene
                 await this.runUpdate(options.limit);
             });
 
@@ -62,6 +63,7 @@ class Manager extends Base {
             .command('spider')
             .description('Run the discovery spider to find new users')
             .action(async () => {
+                await Cleanup.run(); // Pre-run hygiene
                 await Spider.run();
             });
 
