@@ -72,7 +72,7 @@ class Updater extends Base {
      * @private
      */
     async fetchUserData(username) {
-        // 1. Fetch Basic Profile
+        // 1. Fetch Basic Profile & Social Accounts
         const profileQuery = `
             query { 
                 user(login: "${username}") { 
@@ -86,6 +86,12 @@ class Updater extends Base {
                     isHireable
                     twitterUsername
                     websiteUrl
+                    socialAccounts(first: 5) {
+                        nodes {
+                            provider
+                            url
+                        }
+                    }
                 } 
             }`;
 
@@ -100,12 +106,37 @@ class Updater extends Base {
 
         if (!profileRes?.user) return null;
 
-        const { createdAt, avatarUrl, name, location, company, bio, followers } = profileRes.user;
+        const { createdAt, avatarUrl, name, location, company, bio, followers, socialAccounts } = profileRes.user;
         const startYear = new Date(createdAt).getFullYear();
         const currentYear = new Date().getFullYear();
 
-        // 2. Build Multi-Year Contribution Query
-        // We construct a single dynamic query aliasing each year
+        // Extract LinkedIn URL
+        let linkedin_url = null;
+        
+        const linkedInAccount = socialAccounts?.nodes?.find(acc => acc.provider === 'LINKEDIN');
+        if (linkedInAccount) {
+            linkedin_url = linkedInAccount.url;
+        } else if (profileRes.user.websiteUrl && profileRes.user.websiteUrl.includes('linkedin.com/in/')) {
+            linkedin_url = profileRes.user.websiteUrl;
+        }
+
+        // 2. Fetch Organizations (REST API for Public Memberships)
+        // GraphQL requires 'read:org' scope even for public orgs, whereas REST /users/:username/orgs does not.
+        let orgs = [];
+        try {
+            const orgRes = await GitHub.rest(`users/${username}/orgs`);
+            if (Array.isArray(orgRes)) {
+                orgs = orgRes.map(org => ({
+                    name: org.login, // REST API often just gives login, description is separate.
+                    avatar_url: org.avatar_url,
+                    login: org.login
+                }));
+            }
+        } catch (e) {
+            console.warn(`[Updater] Skipped orgs for ${username} (REST Error): ${e.message}`);
+        }
+
+        // 3. Build Multi-Year Contribution Query
         let contribQuery = `query { user(login: "${username}") {`;
         for (let year = startYear; year <= currentYear; year++) {
             contribQuery += ` y${year}: contributionsCollection(from: "${year}-01-01T00:00:00Z", to: "${year}-12-31T23:59:59Z") { contributionCalendar { totalContributions } }`;
@@ -115,7 +146,7 @@ class Updater extends Base {
         const contribRes = await GitHub.query(contribQuery);
         if (!contribRes?.user) return null;
 
-        // 3. Aggregate Data
+        // 4. Aggregate Data
         let total = 0;
         const yearsData = {};
         
@@ -139,7 +170,9 @@ class Updater extends Base {
             total_contributions: total,
             years: yearsData,
             first_year: startYear,
-            last_updated: new Date().toISOString()
+            last_updated: new Date().toISOString(),
+            linkedin_url,
+            organizations: orgs
         };
     }
 }
