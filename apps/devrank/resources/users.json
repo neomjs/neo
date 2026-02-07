@@ -959,6 +959,38 @@
     ]
   },
   {
+    "login": "torvalds",
+    "name": "Linus Torvalds",
+    "avatar_url": "https://avatars.githubusercontent.com/u/1024025?v=4",
+    "location": "Portland, OR",
+    "company": "Linux Foundation",
+    "bio": null,
+    "followers": 283148,
+    "total_contributions": 36226,
+    "years": {
+      "2011": 2087,
+      "2012": 2289,
+      "2013": 2046,
+      "2014": 2086,
+      "2015": 2010,
+      "2016": 2275,
+      "2017": 2333,
+      "2018": 2198,
+      "2019": 2401,
+      "2020": 2661,
+      "2021": 2425,
+      "2022": 2618,
+      "2023": 2510,
+      "2024": 2892,
+      "2025": 3100,
+      "2026": 295
+    },
+    "first_year": 2011,
+    "last_updated": "2026-02-07T18:47:52.695Z",
+    "linkedin_url": null,
+    "organizations": []
+  },
+  {
     "login": "calmh",
     "name": "Jakob Borg",
     "avatar_url": "https://avatars.githubusercontent.com/u/125426?u=43157627b33d10997db7ee408a0557ab54c40146&v=4",
@@ -2017,6 +2049,78 @@
     "last_updated": "2026-02-07T17:57:19.837Z",
     "linkedin_url": null,
     "organizations": []
+  },
+  {
+    "login": "yangshun",
+    "name": "Yangshun Tay",
+    "avatar_url": "https://avatars.githubusercontent.com/u/1315101?u=0072fd0322e6b282bba91092eb379f985377a1f0&v=4",
+    "location": null,
+    "company": "@greatfrontend",
+    "bio": "Building @greatfrontend. Ex-@facebook, @docusaurus, Flux. Authored Blind 75 and Grind 75",
+    "followers": 13010,
+    "total_contributions": 25649,
+    "years": {
+      "2012": 3,
+      "2013": 1751,
+      "2014": 2436,
+      "2015": 1097,
+      "2016": 1579,
+      "2017": 1753,
+      "2018": 919,
+      "2019": 1429,
+      "2020": 1102,
+      "2021": 1221,
+      "2022": 2793,
+      "2023": 2982,
+      "2024": 3482,
+      "2025": 2726,
+      "2026": 376
+    },
+    "first_year": 2012,
+    "last_updated": "2026-02-07T18:48:09.079Z",
+    "linkedin_url": "https://www.linkedin.com/in/yangshun",
+    "organizations": [
+      {
+        "name": "NUSSOC",
+        "avatar_url": "https://avatars.githubusercontent.com/u/1294761?v=4",
+        "login": "NUSSOC"
+      },
+      {
+        "name": "cs3216",
+        "avatar_url": "https://avatars.githubusercontent.com/u/2061356?v=4",
+        "login": "cs3216"
+      },
+      {
+        "name": "rubysg",
+        "avatar_url": "https://avatars.githubusercontent.com/u/5369344?v=4",
+        "login": "rubysg"
+      },
+      {
+        "name": "ruby-bench",
+        "avatar_url": "https://avatars.githubusercontent.com/u/6201139?v=4",
+        "login": "ruby-bench"
+      },
+      {
+        "name": "nusmodifications",
+        "avatar_url": "https://avatars.githubusercontent.com/u/7428865?v=4",
+        "login": "nusmodifications"
+      },
+      {
+        "name": "cs3217",
+        "avatar_url": "https://avatars.githubusercontent.com/u/24710296?v=4",
+        "login": "cs3217"
+      },
+      {
+        "name": "react-native-website-migration",
+        "avatar_url": "https://avatars.githubusercontent.com/u/70369214?v=4",
+        "login": "react-native-website-migration"
+      },
+      {
+        "name": "greatfrontend",
+        "avatar_url": "https://avatars.githubusercontent.com/u/110718673?v=4",
+        "login": "greatfrontend"
+      }
+    ]
   },
   {
     "login": "sophiebits",
