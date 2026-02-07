@@ -155,7 +155,7 @@ class Storage extends Base {
                     delete map[key];
                     changed = true;
                 }
-            } else if (existingTime === undefined || (update.lastUpdate && update.lastUpdate > existingTime)) {
+            } else if (existingTime == null || (update.lastUpdate && update.lastUpdate > existingTime)) {
                 // If it exists, update the entry. If not, create new.
                 if (existing) {
                     existing.val = update.lastUpdate || existingTime || null;
