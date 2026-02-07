@@ -3,7 +3,7 @@ import Base from '../../../src/core/Base.mjs';
 import config from './config.mjs';
 import Storage from './Storage.mjs';
 import Updater from './Updater.mjs';
-// import Spider from './Spider.mjs'; // To be implemented
+import Spider from './Spider.mjs';
 
 /**
  * @summary DevRank Backend Orchestrator.
@@ -54,8 +54,7 @@ class Manager extends Base {
             .command('spider')
             .description('Run the discovery spider to find new users')
             .action(async () => {
-                console.log('Spider not yet implemented.');
-                // await Spider.run();
+                await Spider.run();
             });
 
         // Initialize Services
