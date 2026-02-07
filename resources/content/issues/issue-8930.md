@@ -53,8 +53,8 @@ subIssues:
   - '[x] 9030 Refactor: DevRank Data Naming Convention & Whitelist'
   - '[x] 9031 Feat: DevRank Cleanup Service'
   - '[ ] 9032 Feat: DevRank Spider Random Walk Strategy'
-  - '[ ] 9033 Refactor: DevRank Spider Checkpointing'
-subIssuesCompleted: 36
+  - '[x] 9033 Refactor: DevRank Spider Checkpointing'
+subIssuesCompleted: 37
 subIssuesTotal: 40
 blockedBy: []
 blocking: []
