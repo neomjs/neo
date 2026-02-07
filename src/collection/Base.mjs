@@ -1285,7 +1285,7 @@ class Collection extends Base {
                 item = toAddArray[i];
                 key  = item[keyProperty];
 
-                if (!key) {
+                if (key == null) {
                     item[keyProperty] = key = me.keyPropertyIndex;
                     me.keyPropertyIndex--
                 }

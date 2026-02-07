@@ -220,11 +220,20 @@ test.describe('Grid & Store Interactions', () => {
         
         // Content updates: 'name' column
         const contentUpdates = deltas.filter(d => d.textContent || d.innerHTML);
+        // Transform updates: Rows moving visually
+        const transformUpdates = deltas.filter(d => d.style?.transform);
         
         // STRICT ASSERTION: No structural changes to rows
         expect(moveNodes.length).toBe(0);
         expect(insertNodes.length).toBe(0); 
         expect(removeNodes.length).toBe(0);
+
+        // Verification of Modulo-Pooling (Fixed-DOM-Order) Behavior:
+        // Inserting at Index 0 shifts the data index for every visible row.
+        // Since DOM slots are fixed (Index % PoolSize), every slot stays at the same Y position
+        // but receives a NEW record (Waterfall Effect).
+        // Result: 0 Transform changes, but N*Cols Content changes.
+        expect(transformUpdates.length).toBe(0);
 
         // Expect significant content updates (shifting rows)
         // 10 visible rows * 3 columns = 30 potential cell updates.
