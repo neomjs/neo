@@ -4,6 +4,7 @@ import config from './config.mjs';
 import Storage from './Storage.mjs';
 import Updater from './Updater.mjs';
 import Spider from './Spider.mjs';
+import Cleanup from './Cleanup.mjs';
 
 /**
  * @summary DevRank Backend Orchestrator.
@@ -56,6 +57,13 @@ class Manager extends Base {
             .description('Run the discovery spider to find new users')
             .action(async () => {
                 await Spider.run();
+            });
+
+        program
+            .command('cleanup')
+            .description('Run data hygiene checks (purge, sort, filter)')
+            .action(async () => {
+                await Cleanup.run();
             });
 
         // Initialize Services
