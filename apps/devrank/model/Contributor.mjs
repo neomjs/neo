@@ -1,9 +1,20 @@
 import Model from '../../../src/data/Model.mjs';
 
+/**
+ * @class DevRank.model.Contributor
+ * @extends Neo.data.Model
+ */
 class Contributor extends Model {
     static config = {
+        /**
+         * @member {String} className='DevRank.model.Contributor'
+         * @protected
+         */
         className: 'DevRank.model.Contributor',
-        fields   : [
+        /**
+         * @member {Object[]} fields
+         */
+        fields: [
             {name: 'login',               type: 'String'},
             {name: 'name',                type: 'String'},
             {name: 'avatar_url',          type: 'String'},
@@ -16,26 +27,31 @@ class Contributor extends Model {
             {name: 'last_updated',        type: 'Date'},
             {name: 'linkedin_url',        type: 'String'},
             {name: 'organizations',       type: 'Array'},
-            {name: 'years',               type: 'Object'}, // Map of year -> count
-            
-            // Year mappings
-            {name: 'y2025', mapping: 'years.2025', type: 'Integer'},
-            {name: 'y2024', mapping: 'years.2024', type: 'Integer'},
-            {name: 'y2023', mapping: 'years.2023', type: 'Integer'},
-            {name: 'y2022', mapping: 'years.2022', type: 'Integer'},
-            {name: 'y2021', mapping: 'years.2021', type: 'Integer'},
-            {name: 'y2020', mapping: 'years.2020', type: 'Integer'},
-            {name: 'y2019', mapping: 'years.2019', type: 'Integer'},
-            {name: 'y2018', mapping: 'years.2018', type: 'Integer'},
-            {name: 'y2017', mapping: 'years.2017', type: 'Integer'},
-            {name: 'y2016', mapping: 'years.2016', type: 'Integer'},
-            {name: 'y2015', mapping: 'years.2015', type: 'Integer'},
-            {name: 'y2014', mapping: 'years.2014', type: 'Integer'},
-            {name: 'y2013', mapping: 'years.2013', type: 'Integer'},
-            {name: 'y2012', mapping: 'years.2012', type: 'Integer'},
-            {name: 'y2011', mapping: 'years.2011', type: 'Integer'},
-            {name: 'y2010', mapping: 'years.2010', type: 'Integer'}
+            {name: 'years',               type: 'Object'} // Map of year -> count
         ]
+    }
+
+    /**
+     * @param {Object} config
+     */
+    construct(config) {
+        super.construct(config);
+        this.addYearFields()
+    }
+
+    /**
+     * Dynamically add fields for each year from 2010 to current year
+     */
+    addYearFields() {
+        let me          = this,
+            currentYear = new Date().getFullYear(),
+            fields      = [...me.fields]; // Create a copy of the current fields
+
+        for (let i = currentYear; i >= 2010; i--) {
+            fields.push({name: `y${i}`, mapping: `years.${i}`, type: 'Integer'})
+        }
+
+        me.fields = fields
     }
 }
 
