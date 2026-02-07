@@ -55,6 +55,17 @@ const defaultConfig = {
     },
 
     /**
+     * Updater (Enrichment) Configuration
+     */
+    updater: {
+        /**
+         * Number of users to process before saving a checkpoint.
+         * @type {number}
+         */
+        saveInterval: 10
+    },
+
+    /**
      * Data Paths
      */
     paths: {
