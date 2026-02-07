@@ -39,6 +39,7 @@ class Updater extends Base {
         let results = [];
         let indexUpdates = [];
         const saveInterval = config.updater.saveInterval;
+        const whitelist = await Storage.getWhitelist();
 
         for (const login of logins) {
             try {
@@ -46,13 +47,16 @@ class Updater extends Base {
                 const data = await this.fetchUserData(login);
                 
                 if (data) {
-                    if (data.total_contributions >= config.github.minTotalContributions) {
+                    const isWhitelisted = whitelist.has(login.toLowerCase());
+                    const meetsThreshold = data.total_contributions >= config.github.minTotalContributions;
+
+                    if (meetsThreshold || isWhitelisted) {
                         results.push(data);
                         indexUpdates.push({ login, lastUpdate: data.last_updated });
-                        console.log(`OK (${data.total_contributions})`);
+                        console.log(`OK (${data.total_contributions})` + (isWhitelisted && !meetsThreshold ? ' [WHITELISTED]' : ''));
                     } else {
-                        // Mark as updated in users.json so we don't re-scan immediately, 
-                        // but do NOT add to rich data store.
+                        // Mark as updated in tracker so we don't re-scan immediately, 
+                        // but do NOT add to rich user store.
                         indexUpdates.push({ login, lastUpdate: data.last_updated });
                         console.log(`SKIPPED (Low Activity: ${data.total_contributions})`);
                     }
@@ -73,7 +77,7 @@ class Updater extends Base {
         }
 
         // Final Save for remaining items
-        if (results.length > 0) {
+        if (results.length > 0 || indexUpdates.length > 0) {
             await this.saveCheckpoint(results, indexUpdates);
         }
         
@@ -86,8 +90,8 @@ class Updater extends Base {
      * @param {Array} indexUpdates 
      */
     async saveCheckpoint(results, indexUpdates) {
-        await Storage.updateData(results);
-        await Storage.updateUsersIndex(indexUpdates);
+        if (results.length > 0) await Storage.updateUsers(results);
+        if (indexUpdates.length > 0) await Storage.updateTracker(indexUpdates);
         console.log(`[Updater] Checkpoint: Saved ${results.length} records.`);
     }
 

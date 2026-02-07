@@ -45,10 +45,11 @@ class Storage extends Base {
      */
     async ensureFiles() {
         const files = [
-            { path: config.paths.data,      default: [] },
-            { path: config.paths.users,     default: {} },
+            { path: config.paths.users,     default: [] },
+            { path: config.paths.tracker,   default: {} },
             { path: config.paths.visited,   default: [] },
-            { path: config.paths.blacklist, default: [] }
+            { path: config.paths.blacklist, default: [] },
+            { path: config.paths.whitelist, default: [] }
         ];
 
         for (const file of files) {
@@ -67,7 +68,15 @@ class Storage extends Base {
      */
     async getBlacklist() {
         const list = await this.readJson(config.paths.blacklist, []);
-        // Normalize to lowercase for case-insensitive matching
+        return new Set(list.map(item => item.toLowerCase()));
+    }
+
+    /**
+     * Reads the whitelist.
+     * @returns {Promise<Set<String>>} Set of whitelisted logins.
+     */
+    async getWhitelist() {
+        const list = await this.readJson(config.paths.whitelist, []);
         return new Set(list.map(item => item.toLowerCase()));
     }
 
@@ -105,37 +114,25 @@ class Storage extends Base {
     }
 
     /**
-     * Reads the lightweight user index.
+     * Reads the tracker index (formerly users.json).
      * @returns {Promise<Array<{login: String, lastUpdate: String}>>}
      */
-    async getUsersIndex() {
-        const raw = await this.readJson(config.paths.users, {});
+    async getTracker() {
+        const raw = await this.readJson(config.paths.tracker, {});
         
-        // Migration: If array (legacy), convert to Object and Save
-        if (Array.isArray(raw)) {
-            console.log('[Storage] Migrating users.json from Array to Object...');
-            const map = {};
-            raw.forEach(u => map[u.login] = u.lastUpdate);
-            await this.writeJson(config.paths.users, map);
-            return raw;
-        }
-
         // Return as Array for Consumers
         return Object.entries(raw).map(([login, lastUpdate]) => ({ login, lastUpdate }));
     }
 
     /**
-     * Updates the user index.
+     * Updates the tracker index.
      * Merges new entries or updates existing ones.
      * @param {Array<{login: String, lastUpdate: String}>} updates
      * @returns {Promise<void>}
      */
-    async updateUsersIndex(updates) {
-        const current = await this.readJson(config.paths.users, {});
-        // Handle case where we might read legacy array before migration triggers in a getter
-        const map = Array.isArray(current) 
-            ? current.reduce((acc, u) => { acc[u.login] = u.lastUpdate; return acc; }, {}) 
-            : current;
+    async updateTracker(updates) {
+        const current = await this.readJson(config.paths.tracker, {});
+        const map = current; // It's already an object
 
         let changed = false;
 
@@ -143,7 +140,6 @@ class Storage extends Base {
             const existingTime = map[update.login];
             
             // Update if new or if timestamp is newer
-            // Note: We accept null updates (from Spider) only if entry doesn't exist
             if (existingTime === undefined || (update.lastUpdate && update.lastUpdate > existingTime)) {
                 map[update.login] = update.lastUpdate || existingTime || null;
                 changed = true;
@@ -151,26 +147,26 @@ class Storage extends Base {
         }
 
         if (changed) {
-            await this.writeJson(config.paths.users, map);
+            await this.writeJson(config.paths.tracker, map);
         }
     }
 
     /**
-     * Reads the rich data.
+     * Reads the rich users data (formerly data.json).
      * @returns {Promise<Array<Object>>}
      */
-    async getData() {
-        return this.readJson(config.paths.data, []);
+    async getUsers() {
+        return this.readJson(config.paths.users, []);
     }
 
     /**
-     * Updates the rich data store.
+     * Updates the rich users data store.
      * Performs a deep merge or replacement of records based on login.
      * @param {Array<Object>} newRecords
      * @returns {Promise<void>}
      */
-    async updateData(newRecords) {
-        const current = await this.getData();
+    async updateUsers(newRecords) {
+        const current = await this.getUsers();
         const map = new Map(current.map(r => [r.login, r]));
         let changed = false;
 
@@ -184,10 +180,10 @@ class Storage extends Base {
             // Convert back to array
             let result = Array.from(map.values());
             
-            // Sort by total contributions (descending) as per requirement
+            // Sort by total contributions (descending)
             result.sort((a, b) => (b.total_contributions || 0) - (a.total_contributions || 0));
             
-            await this.writeJson(config.paths.data, result);
+            await this.writeJson(config.paths.users, result);
         }
     }
 

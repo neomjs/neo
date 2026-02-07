@@ -75,19 +75,19 @@ const defaultConfig = {
      */
     paths: {
         /**
-         * The main rich data store for the frontend.
+         * The main rich data store for the frontend (formerly data.json).
          * Contains full profiles, contributions, etc.
          * @type {string}
          */
-        data: path.resolve(projectRoot, 'apps/devrank/resources/data.json'),
+        users: path.resolve(projectRoot, 'apps/devrank/resources/users.json'),
         
         /**
-         * The lightweight user index.
+         * The backend discovery index (formerly users.json).
          * Contains login, id, lastUpdate timestamp.
          * Used for prioritizing updates.
          * @type {string}
          */
-        users: path.resolve(projectRoot, 'apps/devrank/resources/users.json'),
+        tracker: path.resolve(projectRoot, 'apps/devrank/resources/tracker.json'),
 
         /**
          * Tracks visited resources (repos, users) to prevent cycles.
@@ -99,7 +99,13 @@ const defaultConfig = {
          * List of excluded usernames (bots, banned users).
          * @type {string}
          */
-        blacklist: path.resolve(projectRoot, 'apps/devrank/resources/blacklist.json')
+        blacklist: path.resolve(projectRoot, 'apps/devrank/resources/blacklist.json'),
+
+        /**
+         * List of users to always track, ignoring thresholds.
+         * @type {string}
+         */
+        whitelist: path.resolve(projectRoot, 'apps/devrank/resources/whitelist.json')
     }
 };
 
