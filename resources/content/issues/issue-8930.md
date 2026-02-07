@@ -20,7 +20,7 @@ subIssues:
   - '[x] 8934 Feat: DevRank Grid Expansion'
   - '[x] 8935 Feat: Yearly Breakdown Columns & Heatmap'
   - '[x] 8936 Fix: RecordFactory mapping logic not triggering for missing source keys'
-  - '[ ] 8937 Feat: Discovery Engine - The Spider'
+  - '[x] 8937 Feat: Discovery Engine - The Spider'
   - '[ ] 8938 Feat: UI Filtering Logic'
   - '[x] 8939 Feat: Country Flag Column'
   - '[x] 8940 Feat: Activity Sparkline Column'
@@ -39,11 +39,20 @@ subIssues:
   - '[x] 8962 Perf: Apply CSS containment to Grid Rows'
   - '[x] 8963 Feat: Smooth Data Transitions for Sparklines'
   - '[x] 8997 Feat: DevRank Selection Model Tab'
-  - '[ ] 9005 Feat: Refactor Portal Header to Framework (using Dynamic Worker Arch)'
+  - '[x] 9005 Feat: Refactor Portal Header to Framework (using Dynamic Worker Arch)'
   - '[x] 9006 Refactor DevRank Controls Button to Header Toolbar'
   - '[x] 9007 Feat: Enhance DevRank Grid Styling (Dark Theme)'
-subIssuesCompleted: 24
-subIssuesTotal: 28
+  - '[x] 9022 Feat: DevRank Backend Service Architecture'
+  - '[x] 9023 Feat: DevRank User Lifecycle Management'
+  - '[x] 9024 Refactor: Optimize DevRank User Index Storage'
+  - '[x] 9025 Feat: DevRank Data Enrichment (LinkedIn & Orgs)'
+  - '[x] 9026 Chore: Commit DevRank Data Artifacts'
+  - '[x] 9027 Chore: Add DevRank CLI Scripts to package.json'
+  - '[x] 9028 Refactor: DevRank Updater Checkpointing'
+  - '[x] 9029 Feat: DevRank Relevance Threshold'
+  - '[ ] 9030 Refactor: DevRank Data Naming Convention & Whitelist'
+subIssuesCompleted: 34
+subIssuesTotal: 37
 blockedBy: []
 blocking: []
 ---
@@ -116,4 +125,13 @@ The goal is to create a meritocratic index of the open-source ecosystem, powered
 - 2026-02-05T14:51:36Z @tobiu added sub-issue #9005
 - 2026-02-05T17:44:24Z @tobiu added sub-issue #9006
 - 2026-02-05T19:32:12Z @tobiu added sub-issue #9007
+- 2026-02-07T16:18:00Z @tobiu added sub-issue #9022
+- 2026-02-07T16:18:05Z @tobiu added sub-issue #9023
+- 2026-02-07T16:31:47Z @tobiu added sub-issue #9024
+- 2026-02-07T16:34:23Z @tobiu added sub-issue #9025
+- 2026-02-07T16:49:32Z @tobiu added sub-issue #9026
+- 2026-02-07T18:07:27Z @tobiu added sub-issue #9027
+- 2026-02-07T18:11:44Z @tobiu added sub-issue #9028
+- 2026-02-07T18:17:24Z @tobiu added sub-issue #9029
+- 2026-02-07T18:20:58Z @tobiu added sub-issue #9030
 
