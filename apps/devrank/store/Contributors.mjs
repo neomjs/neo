@@ -7,7 +7,7 @@ class Contributors extends Store {
         model    : Contributor,
         keyProperty: 'login',
         autoLoad : true,
-        url      : '../../apps/devrank/resources/data.json',
+        url      : '../../apps/devrank/resources/users.json',
         sorters  : [
             {property: 'total_contributions', direction: 'DESC'}
         ]
