@@ -30,14 +30,16 @@ class Updater extends Base {
     /**
      * Processes a batch of users.
      * @param {String[]} logins Array of usernames to process.
+     * @param {Number} [initialBacklog=0] Total backlog size before this batch.
      * @returns {Promise<void>}
      */
-    async processBatch(logins) {
+    async processBatch(logins, initialBacklog = 0) {
         if (!logins || logins.length === 0) return;
 
         console.log(`[Updater] Processing batch of ${logins.length} users...`);
         let results = [];
         let indexUpdates = [];
+        let successCount = 0;
         const saveInterval = config.updater.saveInterval;
         const whitelist = await Storage.getWhitelist();
 
@@ -53,11 +55,13 @@ class Updater extends Base {
                     if (meetsThreshold || isWhitelisted) {
                         results.push(data);
                         indexUpdates.push({ login, lastUpdate: data.last_updated });
+                        successCount++;
                         console.log(`OK (${data.total_contributions})` + (isWhitelisted && !meetsThreshold ? ' [WHITELISTED]' : ''));
                     } else {
                         // Mark as updated in tracker so we don't re-scan immediately, 
                         // but do NOT add to rich user store.
                         indexUpdates.push({ login, lastUpdate: data.last_updated });
+                        successCount++; // Count as handled/updated even if pruned from rich store
                         console.log(`SKIPPED (Low Activity: ${data.total_contributions})`);
                     }
                 } else {
@@ -81,7 +85,16 @@ class Updater extends Base {
             await this.saveCheckpoint(results, indexUpdates);
         }
         
-        console.log('[Updater] Batch processing complete.');
+        console.log('--------------------------------------------------');
+        console.log('[Updater] Run Complete.');
+        console.log(`[Updater] Successfully Updated: ${successCount}`);
+        
+        if (initialBacklog > 0) {
+            const remaining = Math.max(0, initialBacklog - successCount);
+            console.log(`[Updater] Remaining Backlog: ${remaining}`);
+        }
+        
+        console.log('--------------------------------------------------');
     }
 
     /**
