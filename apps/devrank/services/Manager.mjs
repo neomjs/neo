@@ -38,8 +38,9 @@ class Manager extends Base {
         program
             .command('update')
             .description('Update existing users with stale data')
-            .option('-l, --limit <number>', 'Number of users to update', parseInt, config.spider.batchSize)
+            .option('-l, --limit <number>', 'Number of users to update', (val) => parseInt(val, 10), config.spider.batchSize)
             .action(async (options) => {
+                console.log('[Manager] Options:', options);
                 await this.runUpdate(options.limit);
             });
 
