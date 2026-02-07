@@ -150,7 +150,12 @@ class Storage extends Base {
             
             const existingTime = existing ? existing.val : undefined;
 
-            if (existingTime === undefined || (update.lastUpdate && update.lastUpdate > existingTime)) {
+            if (update.delete) {
+                if (existing) {
+                    delete map[key];
+                    changed = true;
+                }
+            } else if (existingTime === undefined || (update.lastUpdate && update.lastUpdate > existingTime)) {
                 // If it exists, update the entry. If not, create new.
                 if (existing) {
                     existing.val = update.lastUpdate || existingTime || null;

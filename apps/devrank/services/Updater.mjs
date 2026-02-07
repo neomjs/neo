@@ -58,11 +58,11 @@ class Updater extends Base {
                         successCount++;
                         console.log(`OK (${data.total_contributions})` + (isWhitelisted && !meetsThreshold ? ' [WHITELISTED]' : ''));
                     } else {
-                        // Mark as updated in tracker so we don't re-scan immediately, 
-                        // but do NOT add to rich user store.
-                        indexUpdates.push({ login, lastUpdate: data.last_updated });
-                        successCount++; // Count as handled/updated even if pruned from rich store
-                        console.log(`SKIPPED (Low Activity: ${data.total_contributions})`);
+                        // Prune from tracker if low value.
+                        // We use delete: true to signal Storage to remove it.
+                        indexUpdates.push({ login, delete: true });
+                        successCount++; // Count as handled
+                        console.log(`SKIPPED (Low Activity: ${data.total_contributions}) [PRUNED]`);
                     }
                 } else {
                     // Update tracker even if no data (e.g. bot, not found) to prevent infinite retry loop
