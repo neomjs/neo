@@ -116,13 +116,10 @@ class GridContainer extends BaseGridContainer {
             cellAlign: 'center',
             renderer : ({value}) => value ? `<a href="${value}" target="_blank" class="fa-brands fa-linkedin" style="color: #0077b5; font-size: 20px;"></a>` : ''
         }, {
+            type     : 'githubOrgs',
             dataField: 'organizations',
             text     : 'Orgs',
-            width    : 150,
-            renderer : ({value}) => {
-                if (!value || !Array.isArray(value)) return '';
-                return value.map(org => `<a href="https://github.com/${org.login}" target="_blank"><img src="${org.avatar_url}" title="${org.name}" style="width: 20px; height: 20px; border-radius: 4px; margin-right: 4px; vertical-align: middle;"></a>`).join('')
-            }
+            width    : 150
         }];
 
         // Add Year Columns
