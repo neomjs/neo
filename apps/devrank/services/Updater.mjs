@@ -4,10 +4,18 @@ import GitHub from './GitHub.mjs';
 import Storage from './Storage.mjs';
 
 /**
- * @summary User Enrichment Service.
+ * @summary User Enrichment & Filtering Service.
  *
- * Responsible for fetching detailed user data and contribution history from GitHub.
- * Updates both the rich data store and the lightweight user index.
+ * This service is the "Worker Bee" of the pipeline. It takes a batch of raw usernames (from the Tracker)
+ * and turns them into rich, structured data profiles for the application.
+ *
+ * **Core Workflow:**
+ * 1.  **Fetch:** Queries GitHub (GraphQL) for the user's profile and a multi-year contribution history matrix.
+ * 2.  **Enrich:** Augments the profile with Organization memberships via the REST API.
+ * 3.  **Filter:** Applies the "Meritocracy Logic". If a user falls below the `minTotalContributions` threshold
+ *     (and is not whitelisted), they are marked for immediate deletion from the Tracker ("Active Pruning").
+ * 4.  **Persist:** Saves valid users to the Rich Data Store and updates their timestamp in the Tracker.
+ * 5.  **Rescue:** Handles "Not Found" or "Bot" errors by setting a dummy timestamp to prevent infinite retry loops.
  *
  * @class DevRank.services.Updater
  * @extends Neo.core.Base
@@ -28,9 +36,17 @@ class Updater extends Base {
     }
 
     /**
-     * Processes a batch of users.
-     * @param {String[]} logins Array of usernames to process.
-     * @param {Number} [initialBacklog=0] Total backlog size before this batch.
+     * Orchestrates the update process for a specific batch of users.
+     * 
+     * Iterates through the provided list of logins, fetching their latest data from GitHub.
+     * Enforces the "Meritocracy Logic" by checking the contribution threshold and whitelist status.
+     * - **Pass:** Persists rich data to `users.json` and updates the timestamp in `tracker.json`.
+     * - **Fail:** Signals `Storage` to DELETE the user from `tracker.json` (Active Pruning).
+     * 
+     * Finally, it logs a summary of the run, including the number of successful updates and remaining backlog.
+     *
+     * @param {String[]} logins             Array of usernames to process in this batch.
+     * @param {Number}   [initialBacklog=0] The total size of the backlog *before* this batch started, used for reporting.
      * @returns {Promise<void>}
      */
     async processBatch(logins, initialBacklog = 0) {
@@ -112,9 +128,17 @@ class Updater extends Base {
     }
 
     /**
-     * Fetches full profile and contribution history for a single user.
-     * @param {String} username
-     * @returns {Promise<Object|null>} Enriched user object or null.
+     * Fetches and aggregates comprehensive profile data for a single user.
+     *
+     * This method combines data from multiple sources:
+     * 1.  **GraphQL User Query:** Fetches profile info (bio, company, location) and social accounts.
+     * 2.  **GraphQL Contribution Graph:** Fetches the *entire* contribution history (total contributions) for every year since account creation.
+     * 3.  **REST API Organizations:** Fetches public organization memberships (bypassing GraphQL scope limitations).
+     *
+     * Returns `null` if the user is not found (404) or flagged as a bot, allowing the caller to handle the error gracefull.
+     *
+     * @param {String} username The GitHub login to fetch.
+     * @returns {Promise<Object|null>} The enriched user object matching the `users.json` schema, or null.
      * @private
      */
     async fetchUserData(username) {

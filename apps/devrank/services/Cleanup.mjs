@@ -3,12 +3,24 @@ import config from './config.mjs';
 import Storage from './Storage.mjs';
 
 /**
- * @summary DevRank Cleanup Service.
+ * @summary DevRank Cleanup Service (Data Hygiene & Lifecycle Management).
  *
- * Enforces data hygiene by:
- * 1. Filtering users below the contribution threshold (unless whitelisted).
- * 2. Removing blacklisted users from all datasets.
- * 3. Sorting all data files to ensure canonical ordering (minimizing git diffs).
+ * This singleton service acts as the **"Garbage Collector" and "State Enforcer"** for the DevRank data pipeline.
+ * It is automatically invoked by the `Manager` before any `spider` or `update` operation to ensure the system
+ * starts with a clean, consistent state.
+ *
+ * **Core Responsibilities:**
+ * 1.  **Threshold Pruning:** Removes users from both the Rich Data Store (`users.json`) and the Tracker Index (`tracker.json`)
+ *     if they fall below the `minTotalContributions` threshold. This prevents the index from bloating with low-value data.
+ * 2.  **Blacklist Enforcement:** Hard-deletes any user present in `blacklist.json` from all data files.
+ * 3.  **Whitelist Protection:** "Resurrects" any user found in `whitelist.json` who is missing from the tracker, ensuring
+ *     VIPs are always scheduled for updates. Also protects them from being pruned, regardless of their contribution count.
+ * 4.  **Canonical Sorting:** Re-writes all JSON files with deterministic sorting (by contributions or login) to minimize
+ *     git diff noise and ensure O(1) human readability.
+ *
+ * **Key Concepts:**
+ * - **Active Pruning:** The proactive removal of "dead weight" users to optimize the `Updater` loop.
+ * - **Resurrection:** The mechanism to bring a user back into the tracking loop via the whitelist.
  *
  * @class DevRank.services.Cleanup
  * @extends Neo.core.Base
@@ -29,7 +41,16 @@ class Cleanup extends Base {
     }
 
     /**
-     * Executes the cleanup process.
+     * Executes the comprehensive cleanup and data hygiene workflow.
+     * 
+     * **Steps:**
+     * 1.  **Load State:** Reads all JSON data files into memory.
+     * 2.  **Resurrection:** Checks `whitelist.json` against `tracker.json`. If a VIP is missing, they are added back to the queue.
+     * 3.  **User Pruning:** Filters `users.json`. Removes any user who is in the blacklist OR (below threshold AND not whitelisted).
+     * 4.  **Tracker Pruning:** Filters `tracker.json`. Removes users who have been scanned (`lastUpdate` exists) but failed the threshold check (are not in the filtered `users` list). Explicitly protects whitelisted users.
+     * 5.  **Canonical Sorting:** Sorts all datasets (Users by contributions, others alphabetically) to minimize git diffs.
+     * 6.  **Persistence:** Writes clean, sorted data back to disk.
+     *
      * @returns {Promise<void>}
      */
     async run() {
