@@ -42,6 +42,7 @@ class GridContainer extends BaseContainer {
         component       : column.Component,
         countryFlag     : column.CountryFlag,
         currency        : column.Currency,
+        githubOrgs      : column.GitHubOrgs,
         githubUser      : column.GitHubUser,
         index           : column.Index,
         progress        : column.Progress,
