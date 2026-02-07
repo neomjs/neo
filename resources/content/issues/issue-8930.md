@@ -50,9 +50,11 @@ subIssues:
   - '[x] 9027 Chore: Add DevRank CLI Scripts to package.json'
   - '[x] 9028 Refactor: DevRank Updater Checkpointing'
   - '[x] 9029 Feat: DevRank Relevance Threshold'
-  - '[ ] 9030 Refactor: DevRank Data Naming Convention & Whitelist'
-subIssuesCompleted: 34
-subIssuesTotal: 37
+  - '[x] 9030 Refactor: DevRank Data Naming Convention & Whitelist'
+  - '[x] 9031 Feat: DevRank Cleanup Service'
+  - '[ ] 9032 Feat: DevRank Spider Random Walk Strategy'
+subIssuesCompleted: 36
+subIssuesTotal: 39
 blockedBy: []
 blocking: []
 ---
@@ -134,4 +136,6 @@ The goal is to create a meritocratic index of the open-source ecosystem, powered
 - 2026-02-07T18:11:44Z @tobiu added sub-issue #9028
 - 2026-02-07T18:17:24Z @tobiu added sub-issue #9029
 - 2026-02-07T18:20:58Z @tobiu added sub-issue #9030
+- 2026-02-07T18:31:08Z @tobiu added sub-issue #9031
+- 2026-02-07T18:44:23Z @tobiu added sub-issue #9032
 
