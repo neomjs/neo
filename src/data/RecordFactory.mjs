@@ -40,16 +40,7 @@ class RecordFactory extends Base {
      */
     assignDefaultValues(data, model) {
         model.fieldsMap.forEach((field, fieldName) => {
-            if (Object.hasOwn(field, 'defaultValue')) {
-                const defaultValue = Neo.isFunction(field.defaultValue) ? field.defaultValue() : field.defaultValue;
-
-                // We could always use Neo.assignToNs() => the check is just for improving the performance
-                if (model.hasNestedFields) {
-                    Neo.assignToNs(fieldName, defaultValue, data, false)
-                } else if (data[fieldName] === undefined) {
-                    data[fieldName] = defaultValue
-                }
-            } else if (field.mapping && !Object.hasOwn(data, fieldName)) {
+            if (field.mapping && !Object.hasOwn(data, fieldName)) {
                 let ns  = field.mapping.split('.'),
                     key = ns.pop(),
                     source;
@@ -62,6 +53,17 @@ class RecordFactory extends Base {
 
                 if (source && Object.hasOwn(source, key)) {
                     data[fieldName] = source[key]
+                }
+            }
+
+            if (Object.hasOwn(field, 'defaultValue')) {
+                const defaultValue = Neo.isFunction(field.defaultValue) ? field.defaultValue() : field.defaultValue;
+
+                // We could always use Neo.assignToNs() => the check is just for improving the performance
+                if (model.hasNestedFields) {
+                    Neo.assignToNs(fieldName, defaultValue, data, false)
+                } else if (data[fieldName] === undefined) {
+                    data[fieldName] = defaultValue
                 }
             }
         });
