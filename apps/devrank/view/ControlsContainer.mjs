@@ -40,24 +40,23 @@ class ControlsContainer extends Container {
                 layout: 'vbox',
 
                 items: [{
-                    ntype     : 'textfield',
-                    clearable : true,
-                    editable  : true,
-                    labelText : 'Search User',
-                    labelWidth: 90,
-                    listeners : {change: 'up.onSearchFieldChange'},
-                    name      : 'search',
-                    style     : {marginTop: '.3em'},
-                    width     : 200
+                    ntype        : 'textfield',
+                    clearable    : true,
+                    editable     : true,
+                    labelPosition: 'inline',
+                    labelText    : 'Search User',
+                    listeners    : {change: 'up.onSearchFieldChange'},
+                    name         : 'search',
+                    style        : {marginTop: '.3em'},
+                    width        : 200
                 }, {
-                    module    : Country,
-                    clearable : true,
-                    labelText : 'Country',
-                    labelWidth: 65,
-                    pickerWidth: null,
-                    showFlags : true,
-                    style     : {marginTop: '.3em'},
-                    width     : 200
+                    module       : Country,
+                    clearable    : true,
+                    labelPosition: 'inline',
+                    labelText    : 'Country',
+                    showFlags    : true,
+                    style        : {marginTop: '.3em'},
+                    width        : 200
                 }, {
                     ntype    : 'label',
                     reference: 'count-rows-label',

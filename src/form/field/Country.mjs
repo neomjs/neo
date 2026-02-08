@@ -20,9 +20,9 @@ class Country extends ComboBox {
          */
         ntype: 'countryfield',
         /**
-         * @member {Number} pickerWidth=200
+         * @member {String[]} baseCls=['neo-countryfield','neo-combobox','neo-pickerfield','neo-textfield']
          */
-        pickerWidth: 300,
+        baseCls: ['neo-countryfield', 'neo-combobox', 'neo-pickerfield', 'neo-textfield'],
         /**
          * @member {Boolean} showFlags_=false
          * @reactive
@@ -58,40 +58,31 @@ class Country extends ComboBox {
     }
 
     /**
-     * @param {Object} config
+     * Triggered after the triggers config got changed
+     * @param {Object[]} value
+     * @param {Object[]} oldValue
+     * @protected
      */
-    construct(config) {
-        super.construct(config);
+    afterSetTriggers(value, oldValue) {
+        super.afterSetTriggers(value, oldValue);
 
         let me           = this,
             inputWrapper = VDomUtil.find(me.vdom, me.getInputWrapperId());
 
-        inputWrapper.vdom.cn.unshift({
-            cls      : 'neo-country-flag-icon',
-            id       : me.getFlagIconId(),
-            tag      : 'img',
-            removeDom: true,
-            style: {
-                height : '15px',
-                width  : '15px',
-                margin : 'auto 5px auto 5px'
-            }
-        });
-    }
+        if (inputWrapper) {
+            inputWrapper.vdom.cn.unshift({
+                cls      : 'neo-country-flag-icon',
+                id       : me.getFlagIconId(),
+                tag      : 'img',
+                removeDom: true,
+                style: {
+                    height : '15px',
+                    width  : '15px',
+                    margin : 'auto 5px auto 5px'
+                }
+            });
 
-    /**
-     * Triggered after the showFlags config got changed
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
-     * @protected
-     */
-    afterSetShowFlags(value, oldValue) {
-        let me       = this,
-            flagIcon = VDomUtil.find(me.vdom, me.getFlagIconId());
-
-        if (flagIcon) {
-            flagIcon.vdom.removeDom = !value;
-            me.update()
+            me.updateFlag()
         }
     }
 
@@ -104,29 +95,7 @@ class Country extends ComboBox {
      */
     afterSetValue(value, oldValue, preventFilter=false) {
         super.afterSetValue(value, oldValue, preventFilter);
-
-        let me = this;
-
-        if (me.showFlags) {
-            let flagIcon = VDomUtil.find(me.vdom, me.getFlagIconId()),
-                flagUrl  = CountryFlags.getFlagUrl(value);
-
-            if (flagIcon) {
-                if (Neo.isRecord(value)) {
-                    value = value.code
-                }
-
-                if (value && flagUrl) {
-                    flagIcon.vdom.src       = flagUrl;
-                    flagIcon.vdom.removeDom = false
-                } else {
-                    flagIcon.vdom.src       = '';
-                    flagIcon.vdom.removeDom = true
-                }
-
-                me.update()
-            }
-        }
+        this.updateFlag()
     }
 
     /**
@@ -156,20 +125,36 @@ class Country extends ComboBox {
     }
 
     /**
-     * Triggered before the zipCodeField config gets changed
-     * @param {Neo.form.field.Base|String|null} value
-     * @param {Neo.form.field.Base|String|null} oldValue
-     * @returns {Neo.form.field.Base|null}
+     * Triggered after the showFlags config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
      * @protected
      */
-    beforeSetZipCodeField(value, oldValue) {
-        let me = this;
+    afterSetShowFlags(value, oldValue) {
+        this.updateFlag()
+    }
 
-        if (Neo.isString(value)) {
-            return me.up().getReference(value)
+    /**
+     *
+     */
+    updateFlag() {
+        let me       = this,
+            flagIcon = VDomUtil.find(me.vdom, me.getFlagIconId()),
+            flagUrl, value;
+
+        if (flagIcon) {
+            value   = me.value;
+            flagUrl = me.showFlags ? CountryFlags.getFlagUrl(Neo.isRecord(value) ? value.code : value) : null;
+
+            if (flagUrl) {
+                flagIcon.vdom.src       = flagUrl;
+                flagIcon.vdom.removeDom = false
+            } else {
+                flagIcon.vdom.removeDom = true
+            }
+
+            me.update()
         }
-
-        return value
     }
 
     /**
