@@ -16,7 +16,11 @@ class Country extends List {
          * @member {String} ntype='countrylist'
          * @protected
          */
-        ntype: 'countrylist'
+        ntype: 'countrylist',
+        /**
+         * @member {String[]} baseCls=['neo-country-list','neo-list']
+         */
+        baseCls: ['neo-country-list', 'neo-list']
     }
 
     /**
@@ -33,15 +37,9 @@ class Country extends List {
 
         if (flagUrl) {
             flagNode = {
-                tag  : 'img',
-                cls  : ['neo-country-flag'],
-                src  : flagUrl,
-                style: {
-                    height     : '20px',
-                    marginRight: '10px',
-                    verticalAlign: 'middle',
-                    width      : '20px'
-                }
+                tag: 'img',
+                cls: ['neo-country-flag'],
+                src: flagUrl
             }
         }
 
@@ -53,7 +51,7 @@ class Country extends List {
 
         return [
             flagNode,
-            {tag: 'span', html: itemText, style: {verticalAlign: 'middle'}}
+            {tag: 'span', cls: ['neo-country-text'], html: itemText}
         ]
     }
 }

@@ -20,10 +20,35 @@ class Country extends ComboBox {
          */
         ntype: 'countryfield',
         /**
+         * @member {Number} pickerWidth=200
+         */
+        pickerWidth: 300,
+        /**
          * @member {Boolean} showFlags_=false
          * @reactive
          */
         showFlags_: false,
+        /**
+         * @member {Object} store
+         */
+        store: {
+            data       : CountryFlags.countries,
+            keyProperty: 'code',
+            model      : {
+                fields: [
+                    {name: 'name', type: 'String'},
+                    {name: 'code', type: 'String'}
+                ]
+            },
+            sorters: [{
+                property : 'name',
+                direction: 'ASC'
+            }]
+        },
+        /**
+         * @member {String} valueField='name'
+         */
+        valueField: 'name',
         /**
          * You can either pass a field instance or a field reference
          * @member {Neo.form.field.Base|String|null} zipCodeField_=null
@@ -83,11 +108,16 @@ class Country extends ComboBox {
         let me = this;
 
         if (me.showFlags) {
-            let flagIcon = VDomUtil.find(me.vdom, me.getFlagIconId());
+            let flagIcon = VDomUtil.find(me.vdom, me.getFlagIconId()),
+                flagUrl  = CountryFlags.getFlagUrl(value);
 
             if (flagIcon) {
-                if (value) {
-                    flagIcon.vdom.src       = CountryFlags.getFlagUrl(value);
+                if (Neo.isRecord(value)) {
+                    value = value.code
+                }
+
+                if (value && flagUrl) {
+                    flagIcon.vdom.src       = flagUrl;
                     flagIcon.vdom.removeDom = false
                 } else {
                     flagIcon.vdom.src       = '';
