@@ -90,6 +90,42 @@ class LocationNormalizer extends Base {
         if (/\b(poland|polska)\b/.test(text)) return 'PL';
         if (/\b(italy|italia)\b/.test(text)) return 'IT';
         if (/\b(spain|españa)\b/.test(text)) return 'ES';
+        if (/\b(israel)\b/.test(text)) return 'IL';
+        if (/\b(south korea|korea)\b/.test(text)) return 'KR';
+        if (/\b(taiwan)\b/.test(text)) return 'TW';
+        if (/\b(singapore)\b/.test(text)) return 'SG';
+        if (/\b(vietnam)\b/.test(text)) return 'VN';
+        if (/\b(indonesia)\b/.test(text)) return 'ID';
+        if (/\b(thailand)\b/.test(text)) return 'TH';
+        if (/\b(malaysia)\b/.test(text)) return 'MY';
+        if (/\b(philippines)\b/.test(text)) return 'PH';
+        if (/\b(turkey|türkiye)\b/.test(text)) return 'TR';
+        if (/\b(egypt)\b/.test(text)) return 'EG';
+        if (/\b(nigeria)\b/.test(text)) return 'NG';
+        if (/\b(kenya)\b/.test(text)) return 'KE';
+        if (/\b(south africa)\b/.test(text)) return 'ZA';
+        if (/\b(argentina)\b/.test(text)) return 'AR';
+        if (/\b(mexico)\b/.test(text)) return 'MX';
+        if (/\b(colombia)\b/.test(text)) return 'CO';
+        if (/\b(chile)\b/.test(text)) return 'CL';
+        if (/\b(peru)\b/.test(text)) return 'PE';
+        if (/\b(czech republic|czechia)\b/.test(text)) return 'CZ';
+        if (/\b(hungary)\b/.test(text)) return 'HU';
+        if (/\b(romania)\b/.test(text)) return 'RO';
+        if (/\b(bulgaria)\b/.test(text)) return 'BG';
+        if (/\b(serbia)\b/.test(text)) return 'RS';
+        if (/\b(croatia)\b/.test(text)) return 'HR';
+        if (/\b(slovenia)\b/.test(text)) return 'SI';
+        if (/\b(slovakia)\b/.test(text)) return 'SK';
+        if (/\b(ireland)\b/.test(text)) return 'IE';
+        if (/\b(portugal)\b/.test(text)) return 'PT';
+        if (/\b(greece)\b/.test(text)) return 'GR';
+        if (/\b(belgium)\b/.test(text)) return 'BE';
+        if (/\b(new zealand)\b/.test(text)) return 'NZ';
+        if (/\b(pakistan)\b/.test(text)) return 'PK';
+        if (/\b(bangladesh)\b/.test(text)) return 'BD';
+        if (/\b(sri lanka)\b/.test(text)) return 'LK';
+        if (/\b(nepal)\b/.test(text)) return 'NP';
 
         // 3. Check City Map
         // We look for known cities in the string (e.g. "Berlin, Wedding")
