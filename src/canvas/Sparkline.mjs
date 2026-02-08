@@ -74,6 +74,11 @@ class Sparkline extends Base {
             ]
         },
         /**
+         * Max concurrent data transitions allowed before snapping.
+         * @member {Number} maxConcurrentTransitions=30
+         */
+        maxConcurrentTransitions: 30,
+        /**
          * @member {Boolean} singleton=true
          * @protected
          */
@@ -86,16 +91,32 @@ class Sparkline extends Base {
      */
     activeItems = new Set()
     /**
+     * Smoothed average frame time (ms).
+     * @member {Number} avgFrameTime=16
+     */
+    avgFrameTime = 16
+    /**
      * Map of registered canvas items.
      * Key: canvasId, Value: {canvas, ctx, values, points...}
      * @member {Map<String, Object>} items=new Map()
      */
     items = new Map()
     /**
+     * Timestamp of the last frame.
+     * @member {Number} lastFrameTime=0
+     */
+    lastFrameTime = 0
+    /**
      * Timestamp of the last pulse spawn.
      * @member {Number} lastPulseSpawn=0
      */
     lastPulseSpawn = 0
+    /**
+     * Calculated stress level (avgFrameTime / 16).
+     * > 1.0 means we are dropping frames.
+     * @member {Number} stressLevel=0
+     */
+    stressLevel = 0
 
     /**
      * Clears the interaction overlay when mouse leaves the canvas.
@@ -187,7 +208,20 @@ class Sparkline extends Base {
      */
     renderLoop() {
         let me  = this,
-            now = Date.now();
+            now = performance.now(); // High precision timer for frame budget
+
+        // 0. Performance Monitoring (Adaptive Backpressure)
+        if (me.lastFrameTime > 0) {
+            let delta = now - me.lastFrameTime;
+
+            // Only update average if delta is sanity-checked (ignore tab suspension pauses)
+            if (delta < 500) {
+                // Exponential Moving Average (alpha = 0.05 for smooth stability)
+                me.avgFrameTime = (me.avgFrameTime * 0.95) + (delta * 0.05);
+                me.stressLevel  = me.avgFrameTime / 16;
+            }
+        }
+        me.lastFrameTime = now;
 
         // 1. Spawn new pulse?
         // Random interval between 200ms and 1.2s
@@ -300,9 +334,16 @@ class Sparkline extends Base {
             item = me.items.get(data.canvasId);
 
         if (item) {
+            // Adaptive Backpressure:
+            // If the worker is stressed (> 16ms/frame) OR we have too many active transitions,
+            // we force a "Snap" update (skip transition) to recover performance.
+            let isStressed    = me.stressLevel > 1.1, // Allow small jitter (55fps)
+                isOverloaded  = me.activeItems.size >= me.maxConcurrentTransitions,
+                canTransition = item.useTransition && !isStressed && !isOverloaded;
+
             // Initial load or invalid data: snap instantly
-            // Or if transitions are disabled
-            if (!item.useTransition || !item.values || !Array.isArray(data.values) || item.values.length !== data.values.length) {
+            // Or if transitions are disabled/throttled
+            if (!canTransition || !item.values || !Array.isArray(data.values) || item.values.length !== data.values.length) {
                 item.values = data.values;
                 item.points = null; // Invalidate cache
                 me.draw(item)
@@ -310,7 +351,7 @@ class Sparkline extends Base {
                 // Start transition
                 item.targetValues = data.values;
                 item.startValues  = [...item.values];
-                item.transitionStartTime = Date.now();
+                item.transitionStartTime = performance.now();
                 item.transitionDuration  = 300; // ms
 
                 if (!item.isTransitioning) {
