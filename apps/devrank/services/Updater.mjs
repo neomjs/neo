@@ -1,6 +1,7 @@
 import Base from '../../../src/core/Base.mjs';
 import config from './config.mjs';
 import GitHub from './GitHub.mjs';
+import LocationNormalizer from './LocationNormalizer.mjs';
 import Storage from './Storage.mjs';
 
 /**
@@ -234,6 +235,7 @@ class Updater extends Base {
             name: name || username,
             avatar_url: avatarUrl,
             location: location,
+            country_code: LocationNormalizer.normalize(location),
             company: company,
             bio: bio,
             followers: followers.totalCount,
