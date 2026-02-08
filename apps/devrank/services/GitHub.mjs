@@ -132,8 +132,13 @@ class GitHub extends Base {
             return json.data;
         } catch (error) {
             // Also catch network errors for retry
-            if (retries > 0 && (error.message.includes('fetch') || error.message.includes('network'))) {
-                console.log(`${prefix} Network Error: ${error.message}. Retrying...`);
+            // 'terminated' likely means connection closed by server/proxy
+            if (retries > 0 && (
+                error.message.includes('fetch') || 
+                error.message.includes('network') ||
+                error.message.includes('terminated')
+            )) {
+                console.log(`${prefix} Network/Terminated Error: ${error.message}. Retrying...`);
                 await new Promise(r => setTimeout(r, 2000));
                 return this.query(query, variables, retries - 1, logContext);
             }
