@@ -43,30 +43,6 @@ class Contributor extends Model {
                         avatar_url: `https://avatars.githubusercontent.com/u/${item[1]}?v=4`
                     }))
                 }
-            },
-            {
-                name   : 'years',
-                mapping: 'y',
-                type   : 'Object',
-                convert: (value, record) => {
-                    // Reconstruct year map from array
-                    // record is the raw data object here during read? No, in Neo it depends.
-                    // If convert is called, 'value' is data['y']. We need 'first_year' (data['fy']).
-                    
-                    // Note: In Neo.data.Model, `convert` signature might vary, but typically has access to record/data.
-                    // Assuming we can access sibling data. If not, we might need a safer check.
-                    
-                    // Accessing raw data property 'fy' directly since 'first_year' might not be processed yet.
-                    let startYear = record.fy || record.first_year; 
-                    
-                    if (!value || !startYear) return {};
-                    
-                    const map = {};
-                    value.forEach((count, index) => {
-                        map[startYear + index] = count
-                    });
-                    return map
-                }
             }
         ]
     }
