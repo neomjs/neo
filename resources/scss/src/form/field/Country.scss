@@ -1,0 +1,11 @@
+.neo-countryfield.neo-combobox {
+    .neo-textfield-input {
+        text-transform: capitalize;
+    }
+
+    &.label-inline {
+        .neo-textfield-input {
+            padding-left: 5px;
+        }
+    }
+}
