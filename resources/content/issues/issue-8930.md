@@ -76,8 +76,13 @@ subIssues:
   - '[x] 9052 Perf: Optimize Sparkline Backpressure & Investigate Grid Reflows'
   - '[x] 9051 Enhancement: Polish Country Field & Inline Label Support'
   - '[x] 9050 Perf: Optimize DomAccess.syncAligns to avoid scroll thrashing'
-subIssuesCompleted: 61
-subIssuesTotal: 62
+  - '[x] 9056 Fix: CountryFlag not resetting when value is null'
+  - '[x] 9057 Refactor DevRank Controls: Split Search & Reorder Fields'
+  - '[x] 9058 Feat: DevRank Location Normalizer & Data Enrichment'
+  - '[x] 9059 Optimize & Minify DevRank Data Schema'
+  - '[x] 9062 Fix: Cleanup Service incompatible with minified schema'
+subIssuesCompleted: 66
+subIssuesTotal: 67
 blockedBy: []
 blocking: []
 ---
