@@ -41,11 +41,33 @@ class GitHubOrgs extends Component {
      * @param {Object[]|null} oldValue
      */
     afterSetOrgs(value, oldValue) {
-        let me    = this,
-            items = [];
+        let me       = this,
+            maxItems = me.maxItems,
+            vdom     = me.vdom;
 
-        if (Array.isArray(value)) {
-            value.slice(0, me.maxItems).forEach(org => {
+        // Initialize pool if empty
+        if (vdom.cn.length < maxItems) {
+            for (let i = vdom.cn.length; i < maxItems; i++) {
+                vdom.cn.push({
+                    tag   : 'a',
+                    cls   : ['neo-org-link'],
+                    target: '_blank',
+                    cn    : [{
+                        tag: 'img',
+                        cls: ['neo-org-avatar']
+                    }]
+                })
+            }
+        }
+
+        let items = Array.isArray(value) ? value : [];
+
+        // Recycle nodes
+        vdom.cn.forEach((node, index) => {
+            let org = items[index],
+                img = node.cn[0];
+
+            if (org) {
                 let avatarUrl = org.avatar_url;
 
                 if (avatarUrl) {
@@ -54,22 +76,20 @@ class GitHubOrgs extends Component {
                     avatarUrl = url.toString()
                 }
 
-                items.push({
-                    tag   : 'a',
-                    cls   : ['neo-org-link'],
-                    href  : `https://github.com/${org.login}`,
-                    target: '_blank',
-                    title : org.name || org.login,
-                    cn    : [{
-                        tag: 'img',
-                        cls: ['neo-org-avatar'],
-                        src: avatarUrl
-                    }]
-                })
-            })
-        }
+                node.href  = `https://github.com/${org.login}`;
+                node.title = org.name || org.login;
+                node.style = null; // Remove visibility: hidden
 
-        me.vdom.cn = items;
+                img.src = avatarUrl;
+            } else {
+                delete node.href;
+                delete node.title;
+                node.style = {visibility: 'hidden'};
+
+                delete img.src;
+            }
+        });
+
         me.update()
     }
 }
