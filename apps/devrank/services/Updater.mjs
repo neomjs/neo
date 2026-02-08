@@ -59,38 +59,41 @@ class Updater extends Base {
         let successCount = 0;
         const saveInterval = config.updater.saveInterval;
         const whitelist = await Storage.getWhitelist();
+        const concurrency = 5;
 
-        for (const login of logins) {
+        // Helper to process a single user
+        const processUser = async (login) => {
             try {
-                process.stdout.write(`  Fetching ${login}... `);
                 const data = await this.fetchUserData(login);
                 
                 if (data) {
                     const isWhitelisted = whitelist.has(login.toLowerCase());
-                    const meetsThreshold = data.total_contributions >= config.github.minTotalContributions;
+                    const meetsThreshold = data.tc >= config.github.minTotalContributions;
 
                     if (meetsThreshold || isWhitelisted) {
                         results.push(data);
-                        indexUpdates.push({ login, lastUpdate: data.last_updated });
+                        indexUpdates.push({ login, lastUpdate: data.lu });
                         successCount++;
-                        console.log(`OK (${data.total_contributions})` + (isWhitelisted && !meetsThreshold ? ' [WHITELISTED]' : ''));
+                        console.log(`[${login}] OK (${data.tc})` + (isWhitelisted && !meetsThreshold ? ' [WHITELISTED]' : ''));
                     } else {
-                        // Prune from tracker if low value.
-                        // We use delete: true to signal Storage to remove it.
                         indexUpdates.push({ login, delete: true });
-                        successCount++; // Count as handled
-                        console.log(`SKIPPED (Low Activity: ${data.total_contributions}) [PRUNED]`);
+                        successCount++;
+                        console.log(`[${login}] SKIPPED (Low Activity: ${data.tc}) [PRUNED]`);
                     }
                 } else {
-                    // Update tracker even if no data (e.g. bot, not found) to prevent infinite retry loop
                     indexUpdates.push({ login, lastUpdate: new Date().toISOString() });
                     successCount++;
-                    console.log('SKIPPED (No Data/Bot)');
+                    console.log(`[${login}] SKIPPED (No Data/Bot)`);
                 }
             } catch (error) {
-                console.log(`FAILED: ${error.message}`);
-                // Continue with next user even if one fails
+                console.log(`[${login}] FAILED: ${error.message}`);
             }
+        };
+
+        // Process in chunks
+        for (let i = 0; i < logins.length; i += concurrency) {
+            const chunk = logins.slice(i, i + concurrency);
+            await Promise.all(chunk.map(login => processUser(login)));
 
             // Checkpoint Save
             if (results.length >= saveInterval) {
@@ -143,7 +146,7 @@ class Updater extends Base {
      * @private
      */
     async fetchUserData(username) {
-        // 1. Fetch Basic Profile & Social Accounts
+        // 1. Fetch Basic Profile & Social Accounts (GraphQL)
         const profileQuery = `
             query { 
                 user(login: "${username}") { 
@@ -166,9 +169,25 @@ class Updater extends Base {
                 } 
             }`;
 
-        let profileRes;
+        // 2. Fetch Organizations (REST API for Public Memberships)
+        // GraphQL requires 'read:org' scope even for public orgs, whereas REST /users/:username/orgs does not.
+        // We run this in parallel with the profile query.
+        const orgsPromise = GitHub.rest(`users/${username}/orgs`)
+            .then(res => Array.isArray(res) ? res.map(org => ({
+                name: org.login, // REST API often just gives login, description is separate.
+                avatar_url: org.avatar_url,
+                login: org.login
+            })) : [])
+            .catch(e => {
+                console.warn(`[Updater] Skipped orgs for ${username} (REST Error): ${e.message}`);
+                return [];
+            });
+
+        const profilePromise = GitHub.query(profileQuery);
+
+        let profileRes, orgs;
         try {
-            profileRes = await GitHub.query(profileQuery);
+            [profileRes, orgs] = await Promise.all([profilePromise, orgsPromise]);
         } catch (e) {
             // If user not found (404), return null
             if (e.message.includes('NOT_FOUND')) return null;
@@ -191,26 +210,15 @@ class Updater extends Base {
             linkedin_url = profileRes.user.websiteUrl;
         }
 
-        // 2. Fetch Organizations (REST API for Public Memberships)
-        // GraphQL requires 'read:org' scope even for public orgs, whereas REST /users/:username/orgs does not.
-        let orgs = [];
-        try {
-            const orgRes = await GitHub.rest(`users/${username}/orgs`);
-            if (Array.isArray(orgRes)) {
-                orgs = orgRes.map(org => ({
-                    name: org.login, // REST API often just gives login, description is separate.
-                    avatar_url: org.avatar_url,
-                    login: org.login
-                }));
-            }
-        } catch (e) {
-            console.warn(`[Updater] Skipped orgs for ${username} (REST Error): ${e.message}`);
-        }
-
         // 3. Build Multi-Year Contribution Query
         let contribQuery = `query { user(login: "${username}") {`;
         for (let year = startYear; year <= currentYear; year++) {
-            contribQuery += ` y${year}: contributionsCollection(from: "${year}-01-01T00:00:00Z", to: "${year}-12-31T23:59:59Z") { contributionCalendar { totalContributions } }`;
+            contribQuery += ` y${year}: contributionsCollection(from: "${year}-01-01T00:00:00Z", to: "${year}-12-31T23:59:59Z") { 
+                totalCommitContributions
+                totalIssueContributions
+                totalPullRequestContributions
+                totalPullRequestReviewContributions
+            }`;
         }
         contribQuery += ` } }`;
 
@@ -224,7 +232,15 @@ class Updater extends Base {
         // Ensure years are sorted and fill the array sequentially from startYear
         for (let year = startYear; year <= currentYear; year++) {
             const key = `y${year}`;
-            const val = contribRes.user[key]?.contributionCalendar?.totalContributions || 0;
+            const collection = contribRes.user[key];
+            
+            // Sum up the lightweight counters
+            // We expressly EXCLUDE restrictedContributionsCount as we don't have access (and it triggers 502s)
+            const val = (collection?.totalCommitContributions || 0) +
+                        (collection?.totalIssueContributions || 0) +
+                        (collection?.totalPullRequestContributions || 0) +
+                        (collection?.totalPullRequestReviewContributions || 0);
+
             yearsArr.push(val);
             total += val;
         }
