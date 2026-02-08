@@ -59,7 +59,7 @@ class Updater extends Base {
         let successCount = 0;
         const saveInterval = config.updater.saveInterval;
         const whitelist = await Storage.getWhitelist();
-        const concurrency = 2; // Reduced from 5 to prevent 403/502 errors
+        const concurrency = 10; // Increased to 10 for throughput
 
         // Helper to process a single user
         const processUser = async (login) => {
@@ -172,18 +172,19 @@ class Updater extends Base {
         // 2. Fetch Organizations (REST API for Public Memberships)
         // GraphQL requires 'read:org' scope even for public orgs, whereas REST /users/:username/orgs does not.
         // We run this in parallel with the profile query.
-        const orgsPromise = GitHub.rest(`users/${username}/orgs`)
+        const orgsPromise = GitHub.rest(`users/${username}/orgs`, username)
             .then(res => Array.isArray(res) ? res.map(org => ({
                 name: org.login, // REST API often just gives login, description is separate.
                 avatar_url: org.avatar_url,
                 login: org.login
             })) : [])
             .catch(e => {
-                console.warn(`[Updater] Skipped orgs for ${username} (REST Error): ${e.message}`);
+                console.warn(`[Updater] [${username}] Skipped orgs (REST Error): ${e.message}`);
                 return [];
             });
 
-        const profilePromise = GitHub.query(profileQuery);
+        // Pass username as logContext
+        const profilePromise = GitHub.query(profileQuery, {}, 3, username);
 
         let profileRes, orgs;
         try {
@@ -211,7 +212,7 @@ class Updater extends Base {
         }
 
         // 3. Build Multi-Year Contribution Query
-        // BATCHING: We split the years into chunks of 6 to prevent 502/504 errors on large accounts.
+        // BATCHING: We split the years into chunks of 4 to prevent 502/504 errors on large accounts.
         const contribData = {};
 
         const fetchYears = async (fromYear, toYear) => {
@@ -225,12 +226,13 @@ class Updater extends Base {
                 }`;
             }
             query += ` } }`;
-            const res = await GitHub.query(query);
+            // Pass username as logContext
+            const res = await GitHub.query(query, {}, 3, username);
             if (res?.user) Object.assign(contribData, res.user);
         };
 
         const yearChunks = [];
-        const chunkSize = 6;
+        const chunkSize = 4; // Reduced to 4
         for (let y = startYear; y <= currentYear; y += chunkSize) {
             const end = Math.min(y + chunkSize - 1, currentYear);
             yearChunks.push({ start: y, end });
