@@ -40,21 +40,33 @@ class ControlsContainer extends Container {
                 layout: 'vbox',
 
                 items: [{
-                    ntype        : 'textfield',
-                    clearable    : true,
-                    editable     : true,
-                    labelPosition: 'inline',
-                    labelText    : 'Search User',
-                    listeners    : {change: 'up.onSearchFieldChange'},
-                    name         : 'search',
-                    style        : {marginTop: '.3em'},
-                    width        : 200
-                }, {
                     module       : Country,
                     clearable    : true,
                     labelPosition: 'inline',
                     labelText    : 'Country',
+                    listeners    : {change: 'up.onFilterChange'},
+                    name         : 'location',
                     showFlags    : true,
+                    style        : {marginTop: '.3em'},
+                    width        : 200
+                }, {
+                    ntype        : 'textfield',
+                    clearable    : true,
+                    editable     : true,
+                    labelPosition: 'inline',
+                    labelText    : 'Username',
+                    listeners    : {change: 'up.onFilterChange'},
+                    name         : 'login',
+                    style        : {marginTop: '.3em'},
+                    width        : 200
+                }, {
+                    ntype        : 'textfield',
+                    clearable    : true,
+                    editable     : true,
+                    labelPosition: 'inline',
+                    labelText    : 'Fullname',
+                    listeners    : {change: 'up.onFilterChange'},
+                    name         : 'name',
                     style        : {marginTop: '.3em'},
                     width        : 200
                 }, {
@@ -142,12 +154,8 @@ class ControlsContainer extends Container {
     /**
      * @param {Object} data
      */
-    async onSearchFieldChange(data) {
-        let me = this;
-
-        // Simple single-field filter for now
-        // We can expand this to search multiple fields if needed
-        me.grid.store.getFilter('login').value = data.value;
+    onFilterChange(data) {
+        this.grid.store.getFilter(data.component.name).value = data.value
     }
 
     /**
