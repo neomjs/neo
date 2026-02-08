@@ -17,7 +17,8 @@ class GitHubOrgs extends ComponentColumn {
          * @protected
          */
         defaults: {
-            module: GitHubOrgsComponent
+            module        : GitHubOrgsComponent,
+            renderFullPool: true
         },
         /**
          * @member {String} type='githubOrgs'
