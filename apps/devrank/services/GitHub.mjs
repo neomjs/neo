@@ -83,10 +83,12 @@ class GitHub extends Base {
      * @param {String} query
      * @param {Object} [variables={}]
      * @param {Number} [retries=3]
+     * @param {String} [logContext='']
      * @returns {Promise<Object>} The `data` property of the response.
      */
-    async query(query, variables = {}, retries = 3) {
+    async query(query, variables = {}, retries = 3, logContext = '') {
         const token = await this.#getAuthToken();
+        const prefix = logContext ? `[GitHub] [${logContext}]` : '[GitHub]';
 
         try {
             const response = await fetch(this.graphqlUrl, {
@@ -103,9 +105,9 @@ class GitHub extends Base {
                 // Retry on 5xx (Server Error) or 403 (Rate Limit/Abuse)
                 if ((response.status >= 500 || response.status === 403) && retries > 0) {
                     const delay = (4 - retries) * 2000; // 2s, 4s, 6s
-                    console.log(`[GitHub] Error ${response.status}. Retrying in ${delay}ms...`);
+                    console.log(`${prefix} Error ${response.status}. Retrying in ${delay}ms...`);
                     await new Promise(r => setTimeout(r, delay));
-                    return this.query(query, variables, retries - 1);
+                    return this.query(query, variables, retries - 1, logContext);
                 }
                 throw new Error(`GraphQL Error: ${response.status} ${response.statusText}`);
             }
@@ -118,9 +120,9 @@ class GitHub extends Base {
                 
                 if (isGatewayError && retries > 0) {
                     const delay = (4 - retries) * 2000;
-                    console.log(`[GitHub] Gateway Error in body. Retrying in ${delay}ms...`);
+                    console.log(`${prefix} Gateway Error in body. Retrying in ${delay}ms...`);
                     await new Promise(r => setTimeout(r, delay));
-                    return this.query(query, variables, retries - 1);
+                    return this.query(query, variables, retries - 1, logContext);
                 }
 
                 const messages = json.errors.map(e => e.message).join(', ');
@@ -131,11 +133,11 @@ class GitHub extends Base {
         } catch (error) {
             // Also catch network errors for retry
             if (retries > 0 && (error.message.includes('fetch') || error.message.includes('network'))) {
-                console.log(`[GitHub] Network Error: ${error.message}. Retrying...`);
+                console.log(`${prefix} Network Error: ${error.message}. Retrying...`);
                 await new Promise(r => setTimeout(r, 2000));
-                return this.query(query, variables, retries - 1);
+                return this.query(query, variables, retries - 1, logContext);
             }
-            console.error('[GitHub] GraphQL Query Failed:', error.message);
+            console.error(`${prefix} GraphQL Query Failed:`, error.message);
             throw error;
         }
     }
@@ -143,11 +145,13 @@ class GitHub extends Base {
     /**
      * Executes a REST API request.
      * @param {String} endpoint Relative path (e.g. 'search/repositories?q=...')
+     * @param {String} [logContext='']
      * @returns {Promise<Object>} JSON response
      */
-    async rest(endpoint) {
+    async rest(endpoint, logContext = '') {
         const token = await this.#getAuthToken();
         const url = `${this.restUrl}/${endpoint.startsWith('/') ? endpoint.slice(1) : endpoint}`;
+        const prefix = logContext ? `[GitHub] [${logContext}]` : '[GitHub]';
 
         try {
             const response = await fetch(url, {
@@ -165,7 +169,7 @@ class GitHub extends Base {
 
             return await response.json();
         } catch (error) {
-            console.error(`[GitHub] REST Request Failed (${endpoint}):`, error.message);
+            console.error(`${prefix} REST Request Failed (${endpoint}):`, error.message);
             throw error;
         }
     }
