@@ -85,10 +85,24 @@ class Contributor extends Model {
     addYearFields() {
         let me          = this,
             currentYear = new Date().getFullYear(),
-            fields      = [...me.fields]; // Create a copy of the current fields
+            fields      = [...me.fields];
 
         for (let i = currentYear; i >= 2010; i--) {
-            fields.push({name: `y${i}`, mapping: `years.${i}`, type: 'Integer'})
+            fields.push({
+                name   : `y${i}`,
+                mapping: 'y', // Map to the raw years array
+                type   : 'Integer',
+                convert: (value, record) => {
+                    // value is the raw 'y' array. record contains raw 'fy' or mapped 'first_year'.
+                    if (!value || !Array.isArray(value)) return 0;
+                    
+                    const firstYear = record.fy || record.first_year;
+                    if (!firstYear) return 0;
+
+                    const index = i - firstYear;
+                    return (index >= 0 && index < value.length) ? value[index] : 0;
+                }
+            })
         }
 
         me.fields = fields
