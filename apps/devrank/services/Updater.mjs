@@ -246,20 +246,24 @@ class Updater extends Base {
         // 4. Aggregate Data & Minify
         let total = 0;
         const yearsArr = [];
+        const commitsArr = [];
         
         // Ensure years are sorted and fill the array sequentially from startYear
         for (let year = startYear; year <= currentYear; year++) {
             const key = `y${year}`;
             const collection = contribData[key];
             
+            const commits = collection?.totalCommitContributions || 0;
+
             // Sum up the lightweight counters
             // We expressly EXCLUDE restrictedContributionsCount as we don't have access (and it triggers 502s)
-            const val = (collection?.totalCommitContributions || 0) +
+            const val = (commits) +
                         (collection?.totalIssueContributions || 0) +
                         (collection?.totalPullRequestContributions || 0) +
                         (collection?.totalPullRequestReviewContributions || 0);
 
             yearsArr.push(val);
+            commitsArr.push(commits);
             total += val;
         }
 
@@ -274,7 +278,8 @@ class Updater extends Base {
             tc: total,
             fy: startYear,
             lu: new Date().toISOString(),
-            y: yearsArr
+            y: yearsArr,
+            cy: commitsArr
         };
 
         if (name && name !== username) minified.n = name;
