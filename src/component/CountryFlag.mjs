@@ -42,6 +42,11 @@ class CountryFlag extends Component {
                 vdom = me.vdom,
                 [flag, text] = vdom.cn;
 
+            // Performance Optimization:
+            // We maintain a persistent <img> tag in the VDOM structure to ensure a stable DOM.
+            // Swapping tags (e.g. img <-> span) or removing nodes triggers layout thrashing
+            // during rapid recycling (e.g. Grid scrolling).
+            // We toggle visibility instead of structural changes.
             if (url) {
                 flag.src   = url;
                 flag.style = null; // Remove visibility: hidden
