@@ -1036,12 +1036,16 @@ class DomAccess extends Base {
     }
 
     /**
-     *
+     * @param {Event|ResizeObserverEntry[]} [arg1]
      */
-    syncAligns() {
+    syncAligns(arg1) {
         const
-            me        = this,
-            {_aligns} = me;
+            me          = this,
+            {_aligns}   = me,
+            isScroll    = arg1?.type === 'scroll',
+            evtTarget   = isScroll ? arg1.target : null,
+            // Document scroll (window) target is document.
+            isDocScroll = isScroll && (evtTarget === document || evtTarget === document.documentElement);
 
         // Keep all registered aligns aligned on any detected change
         _aligns?.forEach(align => {
@@ -1049,6 +1053,17 @@ class DomAccess extends Base {
 
             // Align subject and target still in the DOM - correct its alignment
             if (document.contains(align.subject) && targetPresent) {
+                // If it's a scroll event, optimization:
+                if (isScroll && !isDocScroll) {
+                    // If the scrolling element does NOT contain the reference target,
+                    // then the reference target did not move relative to viewport.
+                    const targetMoved = evtTarget.contains(align.targetElement) || (align.constrainToElement && evtTarget.contains(align.constrainToElement));
+
+                    if (!targetMoved) {
+                        return // Skip this alignment
+                    }
+                }
+
                 me.align(align)
             }
             // Align subject or target no longer in the DOM - remove it.
