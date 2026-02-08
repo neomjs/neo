@@ -1,5 +1,6 @@
 [
   "bors",
+  "dotnet-bot",
   "k8s-ci-robot",
   "renovate-bot",
   "scala-steward",
