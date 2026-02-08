@@ -1,5 +1,7 @@
 [
   "bors",
+  "k8s-ci-robot",
+  "renovate-bot",
   "spring-builds",
   "wizardforcel"
 ]
