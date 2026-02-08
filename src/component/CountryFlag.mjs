@@ -25,7 +25,7 @@ class CountryFlag extends Component {
          */
         _vdom:
         {cn: [
-            {tag: 'span', cls: ['neo-country-placeholder']},
+            {tag: 'img', cls: ['neo-country-flag']},
             {tag: 'span', cls: ['neo-location-text']}
         ]}
     }
@@ -43,15 +43,13 @@ class CountryFlag extends Component {
                 [flag, text] = vdom.cn;
 
             if (url) {
-                flag.tag   = 'img';
-                flag.cls   = ['neo-country-flag'];
                 flag.src   = url;
+                flag.style = null; // Remove visibility: hidden
                 flag.title = value;
             } else {
-                flag.tag = 'span';
-                flag.cls = ['neo-country-placeholder'];
                 delete flag.src;
                 delete flag.title;
+                flag.style = {visibility: 'hidden'};
             }
 
             text.text = value || '';
