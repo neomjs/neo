@@ -1,6 +1,6 @@
 {
-  "lastSync": "2026-02-08T14:36:46.213Z",
-  "releasesLastFetched": "2026-02-08T14:36:46.968Z",
+  "lastSync": "2026-02-08T17:17:01.010Z",
+  "releasesLastFetched": "2026-02-08T17:17:01.896Z",
   "pushFailures": [],
   "issues": {
     "3789": {
@@ -18439,7 +18439,7 @@
       "path": "resources/content/issues/issue-8930.md",
       "closedAt": null,
       "updatedAt": "2026-02-02T23:03:32Z",
-      "contentHash": "9f38e12b6e7c71d6912f713b2a889eec609bf6339f0bb451f1d57f5a88ef994f"
+      "contentHash": "781f372516ea0568092c9db00ca71b14c277e75988b286852c5df970a6c20e76"
     },
     "8931": {
       "state": "CLOSED",
@@ -18512,11 +18512,11 @@
       "contentHash": "a08cb397edd768d5653fe2568d1a9fb4cf5e879c31b05488336121d794fbb634"
     },
     "8941": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "resources/content/issues/issue-8941.md",
-      "closedAt": null,
-      "updatedAt": "2026-02-01T17:31:14Z",
-      "contentHash": "d55c082560296701d9756dedfcbe6adca62438b44d0a61f479dd472ee0c34866"
+      "closedAt": "2026-02-08T15:53:58Z",
+      "updatedAt": "2026-02-08T15:53:58Z",
+      "contentHash": "42314bf558a5763af357f2e3049b444e8414eacf23308cc42f580ebefaf6ef6a"
     },
     "8942": {
       "state": "CLOSED",
@@ -19259,6 +19259,20 @@
       "closedAt": "2026-02-07T22:51:08Z",
       "updatedAt": "2026-02-07T22:51:08Z",
       "contentHash": "85fe44b678dfe1a5b7e2dac2e811a72be35deb51d6aabcac111c65582acec3ed"
+    },
+    "9050": {
+      "state": "CLOSED",
+      "path": "resources/content/issues/issue-9050.md",
+      "closedAt": "2026-02-08T16:29:38Z",
+      "updatedAt": "2026-02-08T16:29:38Z",
+      "contentHash": "b6c87f971344363a8633f999659061917a89043686d833a341747889b531571b"
+    },
+    "9051": {
+      "state": "CLOSED",
+      "path": "resources/content/issues/issue-9051.md",
+      "closedAt": "2026-02-08T17:10:13Z",
+      "updatedAt": "2026-02-08T17:10:13Z",
+      "contentHash": "ee04244592bcb1fdfa688fa0a43e324cb17756d1737c816b2bdb1c445d4efb5e"
     }
   },
   "releases": {
