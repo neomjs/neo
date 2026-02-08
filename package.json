@@ -42,7 +42,7 @@
         "devrank:add"                  : "node ./apps/devrank/services/cli.mjs add",
         "devrank:cleanup"              : "node ./apps/devrank/services/cli.mjs cleanup",
         "devrank:spider"               : "node ./apps/devrank/services/cli.mjs spider",
-        "devrank:update"               : "node ./apps/devrank/services/cli.mjs update --limit 250",
+        "devrank:update"               : "node ./apps/devrank/services/cli.mjs update --limit 500",
         "generate-docs-json"           : "node ./buildScripts/docs/jsdocx.mjs",
         "prepare"                      : "node ./buildScripts/ai/downloadKnowledgeBase.mjs",
         "server-start"                 : "webpack serve -c ./buildScripts/webpack/webpack.server.config.mjs --open",
