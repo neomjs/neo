@@ -18,20 +18,21 @@ class Contributor extends Model {
             {name: 'login',               mapping: 'l',  type: 'String'},
             {name: 'name',                mapping: 'n',  type: 'String'},
             {
-                name   : 'avatar_url',
-                mapping: 'i',
-                type   : 'String',
-                convert: value => value ? `https://avatars.githubusercontent.com/u/${value}?v=4` : null
+                name        : 'avatar_url',
+                mapping     : 'i',
+                type        : 'String',
+                defaultValue: null,
+                convert     : value => value ? `https://avatars.githubusercontent.com/u/${value}?v=4` : null
             },
-            {name: 'location',            mapping: 'lc', type: 'String'},
-            {name: 'country_code',        mapping: 'cc', type: 'String'},
-            {name: 'company',             mapping: 'c',  type: 'String'},
-            {name: 'bio',                 mapping: 'b',  type: 'String'},
+            {name: 'location',            mapping: 'lc', type: 'String', defaultValue: null},
+            {name: 'country_code',        mapping: 'cc', type: 'String', defaultValue: null},
+            {name: 'company',             mapping: 'c',  type: 'String', defaultValue: null},
+            {name: 'bio',                 mapping: 'b',  type: 'String', defaultValue: null},
             {name: 'followers',           mapping: 'fl', type: 'Integer'},
             {name: 'total_contributions', mapping: 'tc', type: 'Integer'},
             {name: 'first_year',          mapping: 'fy', type: 'Integer'},
             {name: 'last_updated',        mapping: 'lu', type: 'Date'},
-            {name: 'linkedin_url',        mapping: 'li', type: 'String'},
+            {name: 'linkedin_url',        mapping: 'li', type: 'String', defaultValue: null},
             {
                 name   : 'organizations',
                 mapping: 'o',
@@ -71,7 +72,7 @@ class Contributor extends Model {
                 convert: (value, record) => {
                     // value is the raw 'y' array. record contains raw 'fy' or mapped 'first_year'.
                     if (!value || !Array.isArray(value)) return 0;
-                    
+
                     const firstYear = record.fy || record.first_year;
                     if (!firstYear) return 0;
 
