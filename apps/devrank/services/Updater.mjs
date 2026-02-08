@@ -59,7 +59,7 @@ class Updater extends Base {
         let successCount = 0;
         const saveInterval = config.updater.saveInterval;
         const whitelist = await Storage.getWhitelist();
-        const concurrency = 5;
+        const concurrency = 2; // Reduced from 5 to prevent 403/502 errors
 
         // Helper to process a single user
         const processUser = async (login) => {
@@ -211,19 +211,35 @@ class Updater extends Base {
         }
 
         // 3. Build Multi-Year Contribution Query
-        let contribQuery = `query { user(login: "${username}") {`;
-        for (let year = startYear; year <= currentYear; year++) {
-            contribQuery += ` y${year}: contributionsCollection(from: "${year}-01-01T00:00:00Z", to: "${year}-12-31T23:59:59Z") { 
-                totalCommitContributions
-                totalIssueContributions
-                totalPullRequestContributions
-                totalPullRequestReviewContributions
-            }`;
-        }
-        contribQuery += ` } }`;
+        // BATCHING: We split the years into chunks of 6 to prevent 502/504 errors on large accounts.
+        const contribData = {};
 
-        const contribRes = await GitHub.query(contribQuery);
-        if (!contribRes?.user) return null;
+        const fetchYears = async (fromYear, toYear) => {
+            let query = `query { user(login: "${username}") {`;
+            for (let year = fromYear; year <= toYear; year++) {
+                query += ` y${year}: contributionsCollection(from: "${year}-01-01T00:00:00Z", to: "${year}-12-31T23:59:59Z") { 
+                    totalCommitContributions
+                    totalIssueContributions
+                    totalPullRequestContributions
+                    totalPullRequestReviewContributions
+                }`;
+            }
+            query += ` } }`;
+            const res = await GitHub.query(query);
+            if (res?.user) Object.assign(contribData, res.user);
+        };
+
+        const yearChunks = [];
+        const chunkSize = 6;
+        for (let y = startYear; y <= currentYear; y += chunkSize) {
+            const end = Math.min(y + chunkSize - 1, currentYear);
+            yearChunks.push({ start: y, end });
+        }
+
+        // Fetch year chunks sequentially to be safe
+        for (const chunk of yearChunks) {
+            await fetchYears(chunk.start, chunk.end);
+        }
 
         // 4. Aggregate Data & Minify
         let total = 0;
@@ -232,7 +248,7 @@ class Updater extends Base {
         // Ensure years are sorted and fill the array sequentially from startYear
         for (let year = startYear; year <= currentYear; year++) {
             const key = `y${year}`;
-            const collection = contribRes.user[key];
+            const collection = contribData[key];
             
             // Sum up the lightweight counters
             // We expressly EXCLUDE restrictedContributionsCount as we don't have access (and it triggers 502s)

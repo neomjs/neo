@@ -82,9 +82,10 @@ class GitHub extends Base {
      * Executes a GraphQL query.
      * @param {String} query
      * @param {Object} [variables={}]
+     * @param {Number} [retries=3]
      * @returns {Promise<Object>} The `data` property of the response.
      */
-    async query(query, variables = {}) {
+    async query(query, variables = {}, retries = 3) {
         const token = await this.#getAuthToken();
 
         try {
@@ -99,20 +100,41 @@ class GitHub extends Base {
             });
 
             if (!response.ok) {
+                // Retry on 5xx (Server Error) or 403 (Rate Limit/Abuse)
+                if ((response.status >= 500 || response.status === 403) && retries > 0) {
+                    const delay = (4 - retries) * 2000; // 2s, 4s, 6s
+                    console.log(`[GitHub] Error ${response.status}. Retrying in ${delay}ms...`);
+                    await new Promise(r => setTimeout(r, delay));
+                    return this.query(query, variables, retries - 1);
+                }
                 throw new Error(`GraphQL Error: ${response.status} ${response.statusText}`);
             }
 
             const json = await response.json();
 
             if (json.errors) {
-                // Log but don't throw immediately if partial data exists?
-                // For now, throw to be safe.
+                // Sometimes 502s come as 200 OK with errors body
+                const isGatewayError = json.errors.some(e => e.message?.includes('502') || e.message?.includes('504'));
+                
+                if (isGatewayError && retries > 0) {
+                    const delay = (4 - retries) * 2000;
+                    console.log(`[GitHub] Gateway Error in body. Retrying in ${delay}ms...`);
+                    await new Promise(r => setTimeout(r, delay));
+                    return this.query(query, variables, retries - 1);
+                }
+
                 const messages = json.errors.map(e => e.message).join(', ');
                 throw new Error(`GraphQL Query Errors: ${messages}`);
             }
 
             return json.data;
         } catch (error) {
+            // Also catch network errors for retry
+            if (retries > 0 && (error.message.includes('fetch') || error.message.includes('network'))) {
+                console.log(`[GitHub] Network Error: ${error.message}. Retrying...`);
+                await new Promise(r => setTimeout(r, 2000));
+                return this.query(query, variables, retries - 1);
+            }
             console.error('[GitHub] GraphQL Query Failed:', error.message);
             throw error;
         }
