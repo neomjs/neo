@@ -3,6 +3,7 @@
   "bors",
   "browser-automation-bot",
   "dotnet-bot",
+  "engine-flutter-autoroll",
   "k8s-ci-robot",
   "renovate-bot",
   "robobun",
