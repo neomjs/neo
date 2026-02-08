@@ -1,5 +1,6 @@
 import * as selection from '../../../src/selection/grid/_export.mjs';
 import Container from '../../../src/container/Base.mjs';
+import Country   from '../../../src/form/field/Country.mjs';
 import Radio     from '../../../src/form/field/Radio.mjs';
 import TabContainer from '../../../src/tab/Container.mjs';
 
@@ -46,6 +47,15 @@ class ControlsContainer extends Container {
                     labelWidth: 90,
                     listeners : {change: 'up.onSearchFieldChange'},
                     name      : 'search',
+                    style     : {marginTop: '.3em'},
+                    width     : 200
+                }, {
+                    module    : Country,
+                    clearable : true,
+                    labelText : 'Country',
+                    labelWidth: 65,
+                    pickerWidth: null,
+                    showFlags : true,
                     style     : {marginTop: '.3em'},
                     width     : 200
                 }, {
