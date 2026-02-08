@@ -24,7 +24,7 @@ subIssues:
   - '[ ] 8938 Feat: UI Filtering Logic'
   - '[x] 8939 Feat: Country Flag Column'
   - '[x] 8940 Feat: Activity Sparkline Column'
-  - '[ ] 8941 Feat: Implement Neo.form.field.CountryFlagPicker'
+  - '[x] 8941 Feat: Implement Neo.form.field.CountryFlagPicker'
   - '[x] 8942 Refactor: DevRank Grid Location Column (VDOM + SCSS)'
   - '[x] 8943 Feat: Interactive Living Sparklines'
   - '[x] 8944 Feat: Sparkline Pulse Animation'
@@ -70,7 +70,7 @@ subIssues:
   - '[x] 9047 Feat: DevRank Whitelist Synchronization & Protection'
   - '[x] 9048 Feat: DevRank CLI Interactive Prompts (Inquirer)'
   - '[x] 9049 Docs: Knowledge Base Enhancement for DevRank Services'
-subIssuesCompleted: 54
+subIssuesCompleted: 55
 subIssuesTotal: 56
 blockedBy: []
 blocking: []
