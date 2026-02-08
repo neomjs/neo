@@ -25,6 +25,10 @@ class Contributors extends Store {
          */
         autoLoad: true,
         /**
+         * @member {Boolean} autoInitRecords=false
+         */
+        autoInitRecords: false,
+        /**
          * @member {Object[]} filters
          */
         filters: [
