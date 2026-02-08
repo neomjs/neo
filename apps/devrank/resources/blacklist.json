@@ -1,10 +1,12 @@
 [
+  "angular-robot",
   "bors",
   "browser-automation-bot",
   "dotnet-bot",
   "k8s-ci-robot",
   "renovate-bot",
   "scala-steward",
+  "skia-flutter-autoroll",
   "spring-builds",
   "wizardforcel"
 ]
