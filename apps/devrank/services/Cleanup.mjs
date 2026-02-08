@@ -83,18 +83,18 @@ class Cleanup extends Base {
         // 2. Filter Users (Rich Data)
         // Criteria: Not Blacklisted AND (Threshold Met OR Whitelisted)
         users = users.filter(u => {
-            const lowerLogin = u.login.toLowerCase();
+            const lowerLogin = u.l.toLowerCase();
             
             if (blacklist.has(lowerLogin)) {
-                console.log(`[Cleanup] Removing blacklisted user: ${u.login}`);
+                console.log(`[Cleanup] Removing blacklisted user: ${u.l}`);
                 return false;
             }
 
-            const meetsThreshold = u.total_contributions >= config.github.minTotalContributions;
+            const meetsThreshold = u.tc >= config.github.minTotalContributions;
             const isWhitelisted = whitelist.has(lowerLogin);
 
             if (!meetsThreshold && !isWhitelisted) {
-                console.log(`[Cleanup] Pruning user below threshold (${u.total_contributions}): ${u.login}`);
+                console.log(`[Cleanup] Pruning user below threshold (${u.tc}): ${u.l}`);
                 return false;
             }
 
@@ -125,7 +125,7 @@ class Cleanup extends Base {
             if (t.lastUpdate) {
                 // If they have been updated, they must be in the filtered `users` list to stay in tracker.
                 // We need a quick lookup set for the filtered users.
-                const userExists = users.some(u => u.login.toLowerCase() === lowerLogin);
+                const userExists = users.some(u => u.l.toLowerCase() === lowerLogin);
                 if (!userExists) {
                     // They were scanned but didn't make the cut. Prune from tracker.
                     return false; 
@@ -137,7 +137,7 @@ class Cleanup extends Base {
 
         // 4. Sort Data
         // Users: Total Contributions DESC
-        users.sort((a, b) => (b.total_contributions || 0) - (a.total_contributions || 0));
+        users.sort((a, b) => (b.tc || 0) - (a.tc || 0));
 
         // Tracker: Login ASC (Canonical order)
         tracker.sort((a, b) => a.login.localeCompare(b.login));
