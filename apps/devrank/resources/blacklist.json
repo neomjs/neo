@@ -5,6 +5,8 @@
   "dotnet-bot",
   "k8s-ci-robot",
   "renovate-bot",
+  "robobun",
+  "robocdnjs",
   "scala-steward",
   "skia-flutter-autoroll",
   "spring-builds",
