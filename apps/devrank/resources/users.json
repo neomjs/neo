@@ -1455,6 +1455,79 @@
     ]
   },
   {
+    "login": "GrantBirki",
+    "name": "Grant Birkinbine",
+    "avatar_url": "https://avatars.githubusercontent.com/u/23362539?u=18b9b6f7ee2de076c1c0074edf2ea641143c329f&v=4",
+    "location": "San Francisco, CA",
+    "company": "OpenAI",
+    "bio": "Security Engineer at @OpenAI. ex-@GitHub, ex-@Nordstrom. I love to build things and maybe break a few things too.",
+    "followers": 488,
+    "total_contributions": 60116,
+    "years": {
+      "2016": 9,
+      "2017": 0,
+      "2018": 0,
+      "2019": 56,
+      "2020": 328,
+      "2021": 8834,
+      "2022": 15790,
+      "2023": 14837,
+      "2024": 8888,
+      "2025": 10024,
+      "2026": 1350
+    },
+    "first_year": 2016,
+    "last_updated": "2026-02-08T11:30:07.668Z",
+    "linkedin_url": "https://www.linkedin.com/in/grantbirkinbine/",
+    "organizations": [
+      {
+        "name": "kemalcr",
+        "avatar_url": "https://avatars.githubusercontent.com/u/15321198?v=4",
+        "login": "kemalcr"
+      },
+      {
+        "name": "watch-duty",
+        "avatar_url": "https://avatars.githubusercontent.com/u/83732941?v=4",
+        "login": "watch-duty"
+      },
+      {
+        "name": "DevOpsDaysLA",
+        "avatar_url": "https://avatars.githubusercontent.com/u/86573399?v=4",
+        "login": "DevOpsDaysLA"
+      },
+      {
+        "name": "the-hideout",
+        "avatar_url": "https://avatars.githubusercontent.com/u/101240793?v=4",
+        "login": "the-hideout"
+      },
+      {
+        "name": "caragolfoundation",
+        "avatar_url": "https://avatars.githubusercontent.com/u/121310517?v=4",
+        "login": "caragolfoundation"
+      },
+      {
+        "name": "runwaylab",
+        "avatar_url": "https://avatars.githubusercontent.com/u/129739360?v=4",
+        "login": "runwaylab"
+      },
+      {
+        "name": "birki-sandbox",
+        "avatar_url": "https://avatars.githubusercontent.com/u/192255011?v=4",
+        "login": "birki-sandbox"
+      },
+      {
+        "name": "noot-app",
+        "avatar_url": "https://avatars.githubusercontent.com/u/229516604?v=4",
+        "login": "noot-app"
+      },
+      {
+        "name": "birki-placeholder-org",
+        "avatar_url": "https://avatars.githubusercontent.com/u/247215141?v=4",
+        "login": "birki-placeholder-org"
+      }
+    ]
+  },
+  {
     "login": "ljharb",
     "name": "Jordan Harband",
     "avatar_url": "https://avatars.githubusercontent.com/u/45469?u=6ab74b3b934f9659a90b588062c2c4328e40c6be&v=4",
@@ -2482,6 +2555,53 @@
     "organizations": []
   },
   {
+    "login": "corneliusroemer",
+    "name": "Cornelius Roemer",
+    "avatar_url": "https://avatars.githubusercontent.com/u/25161793?u=65e2a148a3cb8720de96415b45d9ddd54370fc7b&v=4",
+    "location": "Switzerland",
+    "company": "@neherlab @nextstrain ",
+    "bio": "",
+    "followers": 258,
+    "total_contributions": 51218,
+    "years": {
+      "2017": 3,
+      "2018": 0,
+      "2019": 13,
+      "2020": 161,
+      "2021": 2020,
+      "2022": 11602,
+      "2023": 13258,
+      "2024": 13831,
+      "2025": 10241,
+      "2026": 89
+    },
+    "first_year": 2017,
+    "last_updated": "2026-02-08T11:34:54.047Z",
+    "linkedin_url": null,
+    "organizations": [
+      {
+        "name": "neherlab",
+        "avatar_url": "https://avatars.githubusercontent.com/u/8996580?v=4",
+        "login": "neherlab"
+      },
+      {
+        "name": "conda-forge",
+        "avatar_url": "https://avatars.githubusercontent.com/u/11897326?v=4",
+        "login": "conda-forge"
+      },
+      {
+        "name": "bioconda",
+        "avatar_url": "https://avatars.githubusercontent.com/u/14253259?v=4",
+        "login": "bioconda"
+      },
+      {
+        "name": "nextstrain",
+        "avatar_url": "https://avatars.githubusercontent.com/u/22159334?v=4",
+        "login": "nextstrain"
+      }
+    ]
+  },
+  {
     "login": "targos",
     "name": "Michaël Zasso",
     "avatar_url": "https://avatars.githubusercontent.com/u/2352663?u=6d0db159fb863f7648118acf92b7960701228bf9&v=4",
@@ -3213,6 +3333,43 @@
     "last_updated": "2026-02-08T11:18:10.769Z",
     "linkedin_url": null,
     "organizations": []
+  },
+  {
+    "login": "bvssvni",
+    "name": "Sven Nilsen",
+    "avatar_url": "https://avatars.githubusercontent.com/u/1743862?u=eafaa1ff561b90ded01a284401ff0367f18b80f1&v=4",
+    "location": "Norway",
+    "company": "Cutout Pro",
+    "bio": "Computer and AI engineer with 20+ experience in prof. software dev. Founder of Piston, creator of Dyon. Deep math. intuition thinker, Rust \"friend of the tree\"",
+    "followers": 321,
+    "total_contributions": 47833,
+    "years": {
+      "2012": 331,
+      "2013": 883,
+      "2014": 8441,
+      "2015": 7788,
+      "2016": 3286,
+      "2017": 2612,
+      "2018": 2397,
+      "2019": 2558,
+      "2020": 5920,
+      "2021": 2658,
+      "2022": 3888,
+      "2023": 4169,
+      "2024": 830,
+      "2025": 1950,
+      "2026": 122
+    },
+    "first_year": 2012,
+    "last_updated": "2026-02-08T11:42:59.908Z",
+    "linkedin_url": null,
+    "organizations": [
+      {
+        "name": "PistonDevelopers",
+        "avatar_url": "https://avatars.githubusercontent.com/u/7623406?v=4",
+        "login": "PistonDevelopers"
+      }
+    ]
   },
   {
     "login": "antfu",
@@ -5093,6 +5250,56 @@
         "name": "superhandy",
         "avatar_url": "https://avatars.githubusercontent.com/u/50846370?v=4",
         "login": "superhandy"
+      }
+    ]
+  },
+  {
+    "login": "jackpot51",
+    "name": "Jeremy Soller",
+    "avatar_url": "https://avatars.githubusercontent.com/u/7741236?u=51950e26cd2bf1d865e1daa7f3873398888804b4&v=4",
+    "location": "Colorado",
+    "company": "System76",
+    "bio": "System76 Principal Engineer, Pop!_OS maintainer, and Redox OS BDFL, NOT LOOKING FOR WORK",
+    "followers": 2447,
+    "total_contributions": 40124,
+    "years": {
+      "2014": 1,
+      "2015": 280,
+      "2016": 2828,
+      "2017": 5238,
+      "2018": 4702,
+      "2019": 3647,
+      "2020": 3067,
+      "2021": 2406,
+      "2022": 3149,
+      "2023": 3286,
+      "2024": 5212,
+      "2025": 5620,
+      "2026": 688
+    },
+    "first_year": 2014,
+    "last_updated": "2026-02-08T11:29:14.503Z",
+    "linkedin_url": null,
+    "organizations": [
+      {
+        "name": "system76",
+        "avatar_url": "https://avatars.githubusercontent.com/u/2448433?v=4",
+        "login": "system76"
+      },
+      {
+        "name": "redox-os",
+        "avatar_url": "https://avatars.githubusercontent.com/u/14909902?v=4",
+        "login": "redox-os"
+      },
+      {
+        "name": "pop-os",
+        "avatar_url": "https://avatars.githubusercontent.com/u/33131755?v=4",
+        "login": "pop-os"
+      },
+      {
+        "name": "rust-windowing",
+        "avatar_url": "https://avatars.githubusercontent.com/u/49372933?v=4",
+        "login": "rust-windowing"
       }
     ]
   },
@@ -10323,6 +10530,44 @@
     "organizations": []
   },
   {
+    "login": "heiskr",
+    "name": "Kevin Heis",
+    "avatar_url": "https://avatars.githubusercontent.com/u/1221423?u=37a6df4f066062bdf52ef7c98b6bdcd3d0076d4e&v=4",
+    "location": "Beaverton, Oregon",
+    "company": "@github ",
+    "bio": "👨🏻‍💻📊🍵🐶🎹🥾🧘🏻🎮🌈",
+    "followers": 1157,
+    "total_contributions": 29707,
+    "years": {
+      "2011": 1,
+      "2012": 300,
+      "2013": 573,
+      "2014": 953,
+      "2015": 570,
+      "2016": 214,
+      "2017": 505,
+      "2018": 793,
+      "2019": 1696,
+      "2020": 2302,
+      "2021": 5009,
+      "2022": 5102,
+      "2023": 5598,
+      "2024": 2202,
+      "2025": 3535,
+      "2026": 354
+    },
+    "first_year": 2011,
+    "last_updated": "2026-02-08T11:29:28.427Z",
+    "linkedin_url": null,
+    "organizations": [
+      {
+        "name": "sagefy",
+        "avatar_url": "https://avatars.githubusercontent.com/u/4336496?v=4",
+        "login": "sagefy"
+      }
+    ]
+  },
+  {
     "login": "emilyistoofunky",
     "name": "Emily Gould",
     "avatar_url": "https://avatars.githubusercontent.com/u/4822039?u=740616d7f290c45ca354feeced2682513e4a2982&v=4",
@@ -12326,6 +12571,52 @@
     ]
   },
   {
+    "login": "cdluminate",
+    "name": "M. Zhou",
+    "avatar_url": "https://avatars.githubusercontent.com/u/5723047?u=3e74988768d025265a501c99e5660e671ce13987&v=4",
+    "location": "Baltimore, MD",
+    "company": "Johns Hopkins University",
+    "bio": "PhD@JHU; @Debian Developer.",
+    "followers": 352,
+    "total_contributions": 26888,
+    "years": {
+      "2013": 1,
+      "2014": 208,
+      "2015": 365,
+      "2016": 1202,
+      "2017": 1415,
+      "2018": 2561,
+      "2019": 3402,
+      "2020": 3005,
+      "2021": 3954,
+      "2022": 5470,
+      "2023": 3416,
+      "2024": 1425,
+      "2025": 387,
+      "2026": 77
+    },
+    "first_year": 2013,
+    "last_updated": "2026-02-08T11:40:41.078Z",
+    "linkedin_url": null,
+    "organizations": [
+      {
+        "name": "Debian",
+        "avatar_url": "https://avatars.githubusercontent.com/u/1854028?v=4",
+        "login": "Debian"
+      },
+      {
+        "name": "tuna",
+        "avatar_url": "https://avatars.githubusercontent.com/u/9341563?v=4",
+        "login": "tuna"
+      },
+      {
+        "name": "jhlug",
+        "avatar_url": "https://avatars.githubusercontent.com/u/96268200?v=4",
+        "login": "jhlug"
+      }
+    ]
+  },
+  {
     "login": "mgechev",
     "name": "Minko Gechev",
     "avatar_url": "https://avatars.githubusercontent.com/u/455023?u=6fa5836fd67018cf1d853b746a56811cc4a13ff7&v=4",
@@ -13567,6 +13858,61 @@
         "name": "fsharp",
         "avatar_url": "https://avatars.githubusercontent.com/u/485415?v=4",
         "login": "fsharp"
+      }
+    ]
+  },
+  {
+    "login": "brentvatne",
+    "name": "Brent Vatne",
+    "avatar_url": "https://avatars.githubusercontent.com/u/90494?u=a7ad2e06021c9547dcf8638a6a38ccc93a76b6fe&v=4",
+    "location": "Vancouver, Canada",
+    "company": "@expo  ",
+    "bio": "",
+    "followers": 4470,
+    "total_contributions": 25586,
+    "years": {
+      "2009": 1,
+      "2010": 0,
+      "2011": 325,
+      "2012": 580,
+      "2013": 1461,
+      "2014": 1762,
+      "2015": 1253,
+      "2016": 2645,
+      "2017": 2404,
+      "2018": 2445,
+      "2019": 1561,
+      "2020": 3229,
+      "2021": 2363,
+      "2022": 1414,
+      "2023": 1120,
+      "2024": 1622,
+      "2025": 786,
+      "2026": 615
+    },
+    "first_year": 2009,
+    "last_updated": "2026-02-08T11:43:55.407Z",
+    "linkedin_url": null,
+    "organizations": [
+      {
+        "name": "reactjs",
+        "avatar_url": "https://avatars.githubusercontent.com/u/6412038?v=4",
+        "login": "reactjs"
+      },
+      {
+        "name": "expo",
+        "avatar_url": "https://avatars.githubusercontent.com/u/12504344?v=4",
+        "login": "expo"
+      },
+      {
+        "name": "react-community",
+        "avatar_url": "https://avatars.githubusercontent.com/u/24483500?v=4",
+        "login": "react-community"
+      },
+      {
+        "name": "react-navigation",
+        "avatar_url": "https://avatars.githubusercontent.com/u/29647600?v=4",
+        "login": "react-navigation"
       }
     ]
   },
@@ -16515,6 +16861,33 @@
     ]
   },
   {
+    "login": "christyjacob4",
+    "name": "Christy Jacob",
+    "avatar_url": "https://avatars.githubusercontent.com/u/20852629?u=75dd77937ce05182c533c1caf7839d8dcb8ece45&v=4",
+    "location": "Dubai",
+    "company": null,
+    "bio": "",
+    "followers": 473,
+    "total_contributions": 23070,
+    "years": {
+      "2016": 14,
+      "2017": 5,
+      "2018": 16,
+      "2019": 403,
+      "2020": 518,
+      "2021": 3212,
+      "2022": 5257,
+      "2023": 5183,
+      "2024": 5041,
+      "2025": 3405,
+      "2026": 16
+    },
+    "first_year": 2016,
+    "last_updated": "2026-02-08T11:37:32.761Z",
+    "linkedin_url": "https://www.linkedin.com/in/christyjacob4/",
+    "organizations": []
+  },
+  {
     "login": "kisvegabor",
     "name": "Gabor Kiss-Vamosi",
     "avatar_url": "https://avatars.githubusercontent.com/u/7599318?u=6f2fc2db47632afd91c6718fcccb34061b63d97c&v=4",
@@ -16644,6 +17017,27 @@
     },
     "first_year": 2010,
     "last_updated": "2026-02-08T10:24:40.724Z",
+    "linkedin_url": null,
+    "organizations": []
+  },
+  {
+    "login": "chncaption",
+    "name": "caption",
+    "avatar_url": "https://avatars.githubusercontent.com/u/101684156?u=e569df7c7e957e9daf22abc7c7829b9cf2613593&v=4",
+    "location": "beijing",
+    "company": "CHN",
+    "bio": "OSCS white hat hacker",
+    "followers": 5,
+    "total_contributions": 22980,
+    "years": {
+      "2022": 281,
+      "2023": 4848,
+      "2024": 10006,
+      "2025": 6947,
+      "2026": 898
+    },
+    "first_year": 2022,
+    "last_updated": "2026-02-08T11:38:09.321Z",
     "linkedin_url": null,
     "organizations": []
   },
@@ -17180,6 +17574,71 @@
         "name": "protolude",
         "avatar_url": "https://avatars.githubusercontent.com/u/59441380?v=4",
         "login": "protolude"
+      }
+    ]
+  },
+  {
+    "login": "elliot-nelson",
+    "name": "Elliot Nelson",
+    "avatar_url": "https://avatars.githubusercontent.com/u/58273?u=489b5296b1de6b6cc9de75235323e9a2bc6ef769&v=4",
+    "location": "Michigan, USA",
+    "company": "HBO",
+    "bio": "",
+    "followers": 42,
+    "total_contributions": 22443,
+    "years": {
+      "2009": 1,
+      "2010": 5,
+      "2011": 1,
+      "2012": 3,
+      "2013": 1,
+      "2014": 1,
+      "2015": 13,
+      "2016": 1549,
+      "2017": 1927,
+      "2018": 1977,
+      "2019": 1764,
+      "2020": 1844,
+      "2021": 1813,
+      "2022": 1889,
+      "2023": 2202,
+      "2024": 5289,
+      "2025": 2145,
+      "2026": 19
+    },
+    "first_year": 2009,
+    "last_updated": "2026-02-08T11:31:15.943Z",
+    "linkedin_url": null,
+    "organizations": [
+      {
+        "name": "HBOCodeLabs",
+        "avatar_url": "https://avatars.githubusercontent.com/u/2342721?v=4",
+        "login": "HBOCodeLabs"
+      },
+      {
+        "name": "discovery-digital",
+        "avatar_url": "https://avatars.githubusercontent.com/u/5000537?v=4",
+        "login": "discovery-digital"
+      },
+      {
+        "name": "sywac",
+        "avatar_url": "https://avatars.githubusercontent.com/u/29853772?v=4",
+        "login": "sywac"
+      },
+      {
+        "name": "rushstack",
+        "avatar_url": "https://avatars.githubusercontent.com/u/54727625?v=4",
+        "login": "rushstack"
+      },
+      {
+        "name": "WarnerMedia",
+        "avatar_url": "https://avatars.githubusercontent.com/u/61422124?v=4",
+        "login": "WarnerMedia"
+      },
+      {
+        "name": "wbd-streaming",
+        "avatar_url": "https://avatars.githubusercontent.com/u/112006584?v=4",
+        "login": "wbd-streaming"
       }
     ]
   },
@@ -19951,6 +20410,34 @@
     ]
   },
   {
+    "login": "cjheppell",
+    "name": "Chris Heppell",
+    "avatar_url": "https://avatars.githubusercontent.com/u/12884767?u=70531a77309340f325e59f30c3e4e41875486ff9&v=4",
+    "location": "Cambridge",
+    "company": "@snyk",
+    "bio": "Senior Software Engineer @snyk ",
+    "followers": 10,
+    "total_contributions": 20655,
+    "years": {
+      "2015": 440,
+      "2016": 1543,
+      "2017": 2545,
+      "2018": 1688,
+      "2019": 2321,
+      "2020": 2912,
+      "2021": 4343,
+      "2022": 2000,
+      "2023": 273,
+      "2024": 1156,
+      "2025": 1282,
+      "2026": 152
+    },
+    "first_year": 2015,
+    "last_updated": "2026-02-08T11:37:11.797Z",
+    "linkedin_url": null,
+    "organizations": []
+  },
+  {
     "login": "paganotoni",
     "name": "Antonio Pagano",
     "avatar_url": "https://avatars.githubusercontent.com/u/645522?u=39b7ae98b8664d5da25ff1b7e5cf5ec332b9e11f&v=4",
@@ -20174,6 +20661,35 @@
         "login": "theaentmachine"
       }
     ]
+  },
+  {
+    "login": "chenshuai2144",
+    "name": "陈帅",
+    "avatar_url": "https://avatars.githubusercontent.com/u/8186664?u=a583e7221b1be534d587185223cab48fe47cb74d&v=4",
+    "location": "浙江杭州",
+    "company": "ʕʘ̅͜ʘ̅ʔ ",
+    "bio": "When I'm not writing compilers, I'm writing JavaScript.\r\n",
+    "followers": 1590,
+    "total_contributions": 20543,
+    "years": {
+      "2014": 1,
+      "2015": 0,
+      "2016": 8,
+      "2017": 135,
+      "2018": 2781,
+      "2019": 3419,
+      "2020": 2755,
+      "2021": 1936,
+      "2022": 1533,
+      "2023": 1338,
+      "2024": 2434,
+      "2025": 3994,
+      "2026": 209
+    },
+    "first_year": 2014,
+    "last_updated": "2026-02-08T11:38:59.602Z",
+    "linkedin_url": null,
+    "organizations": []
   },
   {
     "login": "kaviththiranga",
@@ -20572,6 +21088,48 @@
     ]
   },
   {
+    "login": "hanford",
+    "name": "Jack Hanford",
+    "avatar_url": "https://avatars.githubusercontent.com/u/2148168?u=5d8e8353eb10cf186255f4dd02f494041a1d4882&v=4",
+    "location": "San Francisco, CA",
+    "company": "Owner",
+    "bio": "",
+    "followers": 372,
+    "total_contributions": 20106,
+    "years": {
+      "2012": 3,
+      "2013": 280,
+      "2014": 616,
+      "2015": 1405,
+      "2016": 1734,
+      "2017": 2358,
+      "2018": 1839,
+      "2019": 1332,
+      "2020": 1895,
+      "2021": 1833,
+      "2022": 1600,
+      "2023": 1677,
+      "2024": 1610,
+      "2025": 1735,
+      "2026": 189
+    },
+    "first_year": 2012,
+    "last_updated": "2026-02-08T11:29:46.961Z",
+    "linkedin_url": null,
+    "organizations": [
+      {
+        "name": "voteplz",
+        "avatar_url": "https://avatars.githubusercontent.com/u/21152048?v=4",
+        "login": "voteplz"
+      },
+      {
+        "name": "rehooks",
+        "avatar_url": "https://avatars.githubusercontent.com/u/44476557?v=4",
+        "login": "rehooks"
+      }
+    ]
+  },
+  {
     "login": "llimllib",
     "name": "Bill Mill",
     "avatar_url": "https://avatars.githubusercontent.com/u/7150?v=4",
@@ -20644,6 +21202,46 @@
         "name": "ant-design",
         "avatar_url": "https://avatars.githubusercontent.com/u/12101536?v=4",
         "login": "ant-design"
+      }
+    ]
+  },
+  {
+    "login": "camenduru",
+    "name": "camenduru",
+    "avatar_url": "https://avatars.githubusercontent.com/u/54370274?u=e490582e592184c953cbb0ff434e6727d683937d&v=4",
+    "location": null,
+    "company": "🍞 tost.ai",
+    "bio": "",
+    "followers": 5261,
+    "total_contributions": 20075,
+    "years": {
+      "2019": 4,
+      "2020": 959,
+      "2021": 2209,
+      "2022": 1822,
+      "2023": 8506,
+      "2024": 4389,
+      "2025": 1835,
+      "2026": 351
+    },
+    "first_year": 2019,
+    "last_updated": "2026-02-08T11:42:10.641Z",
+    "linkedin_url": null,
+    "organizations": [
+      {
+        "name": "NVIDIAGameWorks",
+        "avatar_url": "https://avatars.githubusercontent.com/u/7717624?v=4",
+        "login": "NVIDIAGameWorks"
+      },
+      {
+        "name": "CRYTEK",
+        "avatar_url": "https://avatars.githubusercontent.com/u/17707180?v=4",
+        "login": "CRYTEK"
+      },
+      {
+        "name": "TostAI",
+        "avatar_url": "https://avatars.githubusercontent.com/u/136951746?v=4",
+        "login": "TostAI"
       }
     ]
   },
@@ -21284,6 +21882,64 @@
         "name": "slic3r",
         "avatar_url": "https://avatars.githubusercontent.com/u/38015467?v=4",
         "login": "slic3r"
+      }
+    ]
+  },
+  {
+    "login": "brunolemos",
+    "name": "Bruno Lemos",
+    "avatar_url": "https://avatars.githubusercontent.com/u/619186?v=4",
+    "location": null,
+    "company": null,
+    "bio": "",
+    "followers": 1177,
+    "total_contributions": 19761,
+    "years": {
+      "2011": 1,
+      "2012": 0,
+      "2013": 2,
+      "2014": 101,
+      "2015": 277,
+      "2016": 1713,
+      "2017": 3661,
+      "2018": 4476,
+      "2019": 4027,
+      "2020": 989,
+      "2021": 1022,
+      "2022": 847,
+      "2023": 542,
+      "2024": 1090,
+      "2025": 800,
+      "2026": 213
+    },
+    "first_year": 2011,
+    "last_updated": "2026-02-08T11:43:28.374Z",
+    "linkedin_url": "https://linkedin.com/in/brunohplemos",
+    "organizations": [
+      {
+        "name": "react-brasil",
+        "avatar_url": "https://avatars.githubusercontent.com/u/16929016?v=4",
+        "login": "react-brasil"
+      },
+      {
+        "name": "styled-components",
+        "avatar_url": "https://avatars.githubusercontent.com/u/20658825?v=4",
+        "login": "styled-components"
+      },
+      {
+        "name": "unlayer",
+        "avatar_url": "https://avatars.githubusercontent.com/u/32661111?v=4",
+        "login": "unlayer"
+      },
+      {
+        "name": "devhubapp",
+        "avatar_url": "https://avatars.githubusercontent.com/u/44731800?v=4",
+        "login": "devhubapp"
+      },
+      {
+        "name": "graphql-brasil",
+        "avatar_url": "https://avatars.githubusercontent.com/u/48294218?v=4",
+        "login": "graphql-brasil"
       }
     ]
   },
@@ -25223,6 +25879,44 @@
     ]
   },
   {
+    "login": "gnumoksha",
+    "name": "Tobias Sette",
+    "avatar_url": "https://avatars.githubusercontent.com/u/696797?u=8f26a54cfa00d9b32c8189475a4f04f4fbaa41e6&v=4",
+    "location": "São Paulo - Brazil",
+    "company": "@Talentify ",
+    "bio": "dweller of the shell. gardener of git trees. FLOSS evangelist. building software that will resist through time",
+    "followers": 87,
+    "total_contributions": 17842,
+    "years": {
+      "2011": 3,
+      "2012": 0,
+      "2013": 3,
+      "2014": 11,
+      "2015": 41,
+      "2016": 13,
+      "2017": 78,
+      "2018": 1978,
+      "2019": 2831,
+      "2020": 2690,
+      "2021": 3600,
+      "2022": 2583,
+      "2023": 1648,
+      "2024": 1123,
+      "2025": 1154,
+      "2026": 86
+    },
+    "first_year": 2011,
+    "last_updated": "2026-02-08T11:30:30.579Z",
+    "linkedin_url": null,
+    "organizations": [
+      {
+        "name": "Talentify",
+        "avatar_url": "https://avatars.githubusercontent.com/u/2691930?v=4",
+        "login": "Talentify"
+      }
+    ]
+  },
+  {
     "login": "baseballyama",
     "name": "Yuichiro Yamashita",
     "avatar_url": "https://avatars.githubusercontent.com/u/19153718?u=bd6dd66bcf8ef23c5fe91d51fb46e3f93f0cb366&v=4",
@@ -27035,6 +27729,56 @@
     ]
   },
   {
+    "login": "carljm",
+    "name": "Carl Meyer",
+    "avatar_url": "https://avatars.githubusercontent.com/u/61586?v=4",
+    "location": "Bellingham, WA",
+    "company": "Astral",
+    "bio": "building Python dev tools in Rust at Astral",
+    "followers": 992,
+    "total_contributions": 16964,
+    "years": {
+      "2009": 29,
+      "2010": 218,
+      "2011": 1691,
+      "2012": 1470,
+      "2013": 2041,
+      "2014": 3881,
+      "2015": 2961,
+      "2016": 635,
+      "2017": 304,
+      "2018": 142,
+      "2019": 227,
+      "2020": 100,
+      "2021": 136,
+      "2022": 154,
+      "2023": 436,
+      "2024": 932,
+      "2025": 1430,
+      "2026": 177
+    },
+    "first_year": 2009,
+    "last_updated": "2026-02-08T11:41:48.536Z",
+    "linkedin_url": null,
+    "organizations": [
+      {
+        "name": "django",
+        "avatar_url": "https://avatars.githubusercontent.com/u/27804?v=4",
+        "login": "django"
+      },
+      {
+        "name": "oddbird",
+        "avatar_url": "https://avatars.githubusercontent.com/u/780830?v=4",
+        "login": "oddbird"
+      },
+      {
+        "name": "python",
+        "avatar_url": "https://avatars.githubusercontent.com/u/1525981?v=4",
+        "login": "python"
+      }
+    ]
+  },
+  {
     "login": "gilles-duboscq",
     "name": "Gilles Duboscq",
     "avatar_url": "https://avatars.githubusercontent.com/u/341830?u=2e823b42fef177ad594da6e8674aebd09247db5c&v=4",
@@ -27359,6 +28103,34 @@
     },
     "first_year": 2012,
     "last_updated": "2026-02-08T01:27:46.964Z",
+    "linkedin_url": null,
+    "organizations": []
+  },
+  {
+    "login": "craigmiller160",
+    "name": "Craig Miller",
+    "avatar_url": "https://avatars.githubusercontent.com/u/12954037?v=4",
+    "location": "Tampa",
+    "company": "Cigna",
+    "bio": "I'm a professional software engineer. This GitHub is a combination of personal projects I've done for fun, or just reference code to lookup.",
+    "followers": 4,
+    "total_contributions": 16757,
+    "years": {
+      "2015": 446,
+      "2016": 1181,
+      "2017": 453,
+      "2018": 803,
+      "2019": 1413,
+      "2020": 2937,
+      "2021": 2569,
+      "2022": 3128,
+      "2023": 2385,
+      "2024": 1440,
+      "2025": 2,
+      "2026": 0
+    },
+    "first_year": 2015,
+    "last_updated": "2026-02-08T11:34:34.183Z",
     "linkedin_url": null,
     "organizations": []
   },
@@ -29070,6 +29842,76 @@
         "name": "keralavue",
         "avatar_url": "https://avatars.githubusercontent.com/u/59804442?v=4",
         "login": "keralavue"
+      }
+    ]
+  },
+  {
+    "login": "codetheweb",
+    "name": "Max Isom",
+    "avatar_url": "https://avatars.githubusercontent.com/u/7410405?u=47276f3aab3bfda0b8a14079d82caa8fb898f86a&v=4",
+    "location": "San Fransisco",
+    "company": "@archil-data",
+    "bio": "Developer.  Likes starting side projects and occasionally finishes them.",
+    "followers": 284,
+    "total_contributions": 16199,
+    "years": {
+      "2014": 10,
+      "2015": 83,
+      "2016": 123,
+      "2017": 145,
+      "2018": 396,
+      "2019": 754,
+      "2020": 2321,
+      "2021": 1950,
+      "2022": 2245,
+      "2023": 2834,
+      "2024": 2251,
+      "2025": 3070,
+      "2026": 17
+    },
+    "first_year": 2014,
+    "last_updated": "2026-02-08T11:35:49.546Z",
+    "linkedin_url": null,
+    "organizations": [
+      {
+        "name": "3299",
+        "avatar_url": "https://avatars.githubusercontent.com/u/12278454?v=4",
+        "login": "3299"
+      },
+      {
+        "name": "TuyaAPI",
+        "avatar_url": "https://avatars.githubusercontent.com/u/38702756?v=4",
+        "login": "TuyaAPI"
+      },
+      {
+        "name": "Film-Board",
+        "avatar_url": "https://avatars.githubusercontent.com/u/58669574?v=4",
+        "login": "Film-Board"
+      },
+      {
+        "name": "link-here",
+        "avatar_url": "https://avatars.githubusercontent.com/u/61635465?v=4",
+        "login": "link-here"
+      },
+      {
+        "name": "XKCDY",
+        "avatar_url": "https://avatars.githubusercontent.com/u/67395657?v=4",
+        "login": "XKCDY"
+      },
+      {
+        "name": "Keweenaw-Kube",
+        "avatar_url": "https://avatars.githubusercontent.com/u/73715201?v=4",
+        "login": "Keweenaw-Kube"
+      },
+      {
+        "name": "Baton-donation",
+        "avatar_url": "https://avatars.githubusercontent.com/u/75949009?v=4",
+        "login": "Baton-donation"
+      },
+      {
+        "name": "Michigan-Tech-Courses",
+        "avatar_url": "https://avatars.githubusercontent.com/u/76756189?v=4",
+        "login": "Michigan-Tech-Courses"
       }
     ]
   },
@@ -32201,6 +33043,37 @@
     ]
   },
   {
+    "login": "nipunn1313",
+    "name": "Nipunn Koorapati",
+    "avatar_url": "https://avatars.githubusercontent.com/u/1300387?u=0400fce4b72131f81097dc812011d3dd03d448fe&v=4",
+    "location": "San Francisco",
+    "company": "Convex",
+    "bio": "Engineer at Convex (@get-convex)\r\n\r\nFormerly at @dropbox",
+    "followers": 147,
+    "total_contributions": 15000,
+    "years": {
+      "2012": 365,
+      "2013": 43,
+      "2014": 6,
+      "2015": 34,
+      "2016": 226,
+      "2017": 115,
+      "2018": 144,
+      "2019": 98,
+      "2020": 352,
+      "2021": 986,
+      "2022": 3077,
+      "2023": 2510,
+      "2024": 3351,
+      "2025": 3421,
+      "2026": 272
+    },
+    "first_year": 2012,
+    "last_updated": "2026-02-08T11:28:12.859Z",
+    "linkedin_url": null,
+    "organizations": []
+  },
+  {
     "login": "pavelfeldman",
     "name": "Pavel Feldman",
     "avatar_url": "https://avatars.githubusercontent.com/u/883973?v=4",
@@ -33298,6 +34171,39 @@
     ]
   },
   {
+    "login": "CaptainCodeman",
+    "name": "Simon Green",
+    "avatar_url": "https://avatars.githubusercontent.com/u/304910?v=4",
+    "location": "Calgary, Canada",
+    "company": null,
+    "bio": null,
+    "followers": 199,
+    "total_contributions": 14602,
+    "years": {
+      "2010": 2,
+      "2011": 152,
+      "2012": 318,
+      "2013": 702,
+      "2014": 343,
+      "2015": 681,
+      "2016": 451,
+      "2017": 1137,
+      "2018": 932,
+      "2019": 2206,
+      "2020": 1829,
+      "2021": 762,
+      "2022": 1362,
+      "2023": 1704,
+      "2024": 1200,
+      "2025": 769,
+      "2026": 52
+    },
+    "first_year": 2010,
+    "last_updated": "2026-02-08T11:42:03.869Z",
+    "linkedin_url": null,
+    "organizations": []
+  },
+  {
     "login": "cvrebert",
     "name": "Chris Rebert",
     "avatar_url": "https://avatars.githubusercontent.com/u/419884?v=4",
@@ -34043,6 +34949,56 @@
         "name": "graalvm",
         "avatar_url": "https://avatars.githubusercontent.com/u/10176827?v=4",
         "login": "graalvm"
+      }
+    ]
+  },
+  {
+    "login": "eerhardt",
+    "name": "Eric Erhardt",
+    "avatar_url": "https://avatars.githubusercontent.com/u/8291187?u=2ec1ddfc859b89bb30af5fb284db4ab787402662&v=4",
+    "location": "Bismarck, ND",
+    "company": "@Microsoft",
+    "bio": "",
+    "followers": 281,
+    "total_contributions": 14413,
+    "years": {
+      "2014": 1,
+      "2015": 229,
+      "2016": 2030,
+      "2017": 1811,
+      "2018": 1348,
+      "2019": 869,
+      "2020": 953,
+      "2021": 1066,
+      "2022": 907,
+      "2023": 1486,
+      "2024": 1774,
+      "2025": 1821,
+      "2026": 118
+    },
+    "first_year": 2014,
+    "last_updated": "2026-02-08T11:31:21.473Z",
+    "linkedin_url": null,
+    "organizations": [
+      {
+        "name": "microsoft",
+        "avatar_url": "https://avatars.githubusercontent.com/u/6154722?v=4",
+        "login": "microsoft"
+      },
+      {
+        "name": "Azure",
+        "avatar_url": "https://avatars.githubusercontent.com/u/6844498?v=4",
+        "login": "Azure"
+      },
+      {
+        "name": "dotnet",
+        "avatar_url": "https://avatars.githubusercontent.com/u/9141961?v=4",
+        "login": "dotnet"
+      },
+      {
+        "name": "dotnet-foundation",
+        "avatar_url": "https://avatars.githubusercontent.com/u/51926930?v=4",
+        "login": "dotnet-foundation"
       }
     ]
   },
@@ -35252,6 +36208,70 @@
     ]
   },
   {
+    "login": "casualjim",
+    "name": "Ivan Porto Carrero",
+    "avatar_url": "https://avatars.githubusercontent.com/u/456109?v=4",
+    "location": "San Jose, CA",
+    "company": null,
+    "bio": "",
+    "followers": 356,
+    "total_contributions": 14112,
+    "years": {
+      "2010": 391,
+      "2011": 2224,
+      "2012": 2130,
+      "2013": 670,
+      "2014": 730,
+      "2015": 1301,
+      "2016": 1482,
+      "2017": 705,
+      "2018": 918,
+      "2019": 672,
+      "2020": 338,
+      "2021": 324,
+      "2022": 387,
+      "2023": 183,
+      "2024": 150,
+      "2025": 1125,
+      "2026": 382
+    },
+    "first_year": 2010,
+    "last_updated": "2026-02-08T11:41:15.052Z",
+    "linkedin_url": null,
+    "organizations": [
+      {
+        "name": "wordnik",
+        "avatar_url": "https://avatars.githubusercontent.com/u/118978?v=4",
+        "login": "wordnik"
+      },
+      {
+        "name": "scalatra",
+        "avatar_url": "https://avatars.githubusercontent.com/u/322549?v=4",
+        "login": "scalatra"
+      },
+      {
+        "name": "backchatio",
+        "avatar_url": "https://avatars.githubusercontent.com/u/456112?v=4",
+        "login": "backchatio"
+      },
+      {
+        "name": "json4s",
+        "avatar_url": "https://avatars.githubusercontent.com/u/2207799?v=4",
+        "login": "json4s"
+      },
+      {
+        "name": "go-swagger",
+        "avatar_url": "https://avatars.githubusercontent.com/u/10362650?v=4",
+        "login": "go-swagger"
+      },
+      {
+        "name": "go-openapi",
+        "avatar_url": "https://avatars.githubusercontent.com/u/15724843?v=4",
+        "login": "go-openapi"
+      }
+    ]
+  },
+  {
     "login": "antonmedv",
     "name": "Anton Medvedev",
     "avatar_url": "https://avatars.githubusercontent.com/u/141232?u=32c3c767d77f4bf7eb66499cb4898f88472d7d52&v=4",
@@ -36182,6 +37202,36 @@
     "organizations": []
   },
   {
+    "login": "cpacker",
+    "name": "Charles Packer",
+    "avatar_url": "https://avatars.githubusercontent.com/u/5475622?u=d5b68b5396a75cb55e2d45afae51e348bc1686c9&v=4",
+    "location": "San Francisco, CA",
+    "company": "@letta-ai ",
+    "bio": "building the self-improving machine // co-founder & ceo @letta-ai ",
+    "followers": 982,
+    "total_contributions": 13749,
+    "years": {
+      "2013": 32,
+      "2014": 51,
+      "2015": 91,
+      "2016": 320,
+      "2017": 801,
+      "2018": 803,
+      "2019": 220,
+      "2020": 93,
+      "2021": 142,
+      "2022": 228,
+      "2023": 3430,
+      "2024": 2892,
+      "2025": 3546,
+      "2026": 1100
+    },
+    "first_year": 2013,
+    "last_updated": "2026-02-08T11:34:43.297Z",
+    "linkedin_url": "https://www.linkedin.com/in/charles-packer/",
+    "organizations": []
+  },
+  {
     "login": "ngxson",
     "name": "Xuan-Son Nguyen",
     "avatar_url": "https://avatars.githubusercontent.com/u/7702203?u=c998d920dbca6506c9dda1df1b28adae9842720e&v=4",
@@ -36591,6 +37641,34 @@
     "organizations": []
   },
   {
+    "login": "codehz",
+    "name": "Neko Hz",
+    "avatar_url": "https://avatars.githubusercontent.com/u/13158903?u=62b1e2b3fb160318bf07eaffd676054e66557420&v=4",
+    "location": "China",
+    "company": null,
+    "bio": "I love everything and create value",
+    "followers": 513,
+    "total_contributions": 13545,
+    "years": {
+      "2015": 79,
+      "2016": 482,
+      "2017": 268,
+      "2018": 1073,
+      "2019": 1226,
+      "2020": 2554,
+      "2021": 1136,
+      "2022": 983,
+      "2023": 1897,
+      "2024": 1501,
+      "2025": 1890,
+      "2026": 456
+    },
+    "first_year": 2015,
+    "last_updated": "2026-02-08T11:35:59.098Z",
+    "linkedin_url": null,
+    "organizations": []
+  },
+  {
     "login": "domesticmouse",
     "name": "Brett Morgan",
     "avatar_url": "https://avatars.githubusercontent.com/u/30503?v=4",
@@ -36760,6 +37838,37 @@
         "login": "hearme"
       }
     ]
+  },
+  {
+    "login": "danielwii",
+    "name": "Daniel Wei",
+    "avatar_url": "https://avatars.githubusercontent.com/u/2157052?u=95067643976d1ebfcb9d270bf18076c7e546a98c&v=4",
+    "location": null,
+    "company": null,
+    "bio": "Full Stack Developer | Freelancer",
+    "followers": 37,
+    "total_contributions": 13521,
+    "years": {
+      "2012": 1,
+      "2013": 0,
+      "2014": 33,
+      "2015": 259,
+      "2016": 728,
+      "2017": 496,
+      "2018": 1911,
+      "2019": 2920,
+      "2020": 2548,
+      "2021": 1312,
+      "2022": 866,
+      "2023": 575,
+      "2024": 401,
+      "2025": 1132,
+      "2026": 339
+    },
+    "first_year": 2012,
+    "last_updated": "2026-02-08T11:32:30.587Z",
+    "linkedin_url": null,
+    "organizations": []
   },
   {
     "login": "wdouglass",
@@ -37299,6 +38408,32 @@
     ]
   },
   {
+    "login": "damisparks",
+    "name": "Dami Sparks",
+    "avatar_url": "https://avatars.githubusercontent.com/u/28821368?u=9ced25797b8d19d84c700468f82579ddf5ac2b6d&v=4",
+    "location": "undefined",
+    "company": null,
+    "bio": "Co-founder of @actifage\r\n🧑🏾‍🤝‍🧑🏾 Clarity in systems, harmony in design🌱 ",
+    "followers": 186,
+    "total_contributions": 13294,
+    "years": {
+      "2017": 4,
+      "2018": 112,
+      "2019": 397,
+      "2020": 563,
+      "2021": 1340,
+      "2022": 4874,
+      "2023": 2622,
+      "2024": 1921,
+      "2025": 1327,
+      "2026": 134
+    },
+    "first_year": 2017,
+    "last_updated": "2026-02-08T11:33:06.942Z",
+    "linkedin_url": "https://www.linkedin.com/in/damisparks/",
+    "organizations": []
+  },
+  {
     "login": "daniel-jonathan",
     "name": "Daniel Jonathan",
     "avatar_url": "https://avatars.githubusercontent.com/u/9982123?u=41081e7df4e7dfbe36a66a3e773bf4abdbafcc2d&v=4",
@@ -37556,6 +38691,52 @@
     "organizations": []
   },
   {
+    "login": "chrisvest",
+    "name": "Chris Vest",
+    "avatar_url": "https://avatars.githubusercontent.com/u/7993?u=6a5ae4cf5fa739b5456d3c029fd0554a79a257b4&v=4",
+    "location": "taskset 0x00000001 ./chrisvest",
+    "company": "A lifestyle company in Cupertino",
+    "bio": "Kernel page table entries added and removed here 🙃",
+    "followers": 200,
+    "total_contributions": 13156,
+    "years": {
+      "2008": 88,
+      "2009": 236,
+      "2010": 73,
+      "2011": 633,
+      "2012": 334,
+      "2013": 393,
+      "2014": 1500,
+      "2015": 911,
+      "2016": 1018,
+      "2017": 881,
+      "2018": 826,
+      "2019": 1313,
+      "2020": 841,
+      "2021": 883,
+      "2022": 926,
+      "2023": 221,
+      "2024": 698,
+      "2025": 1249,
+      "2026": 132
+    },
+    "first_year": 2008,
+    "last_updated": "2026-02-08T11:37:25.184Z",
+    "linkedin_url": null,
+    "organizations": [
+      {
+        "name": "netty",
+        "avatar_url": "https://avatars.githubusercontent.com/u/473791?v=4",
+        "login": "netty"
+      },
+      {
+        "name": "cphjig",
+        "avatar_url": "https://avatars.githubusercontent.com/u/2743776?v=4",
+        "login": "cphjig"
+      }
+    ]
+  },
+  {
     "login": "yongtang",
     "name": "Yong Tang",
     "avatar_url": "https://avatars.githubusercontent.com/u/6932348?v=4",
@@ -37736,6 +38917,82 @@
     "last_updated": "2026-02-07T23:13:56.275Z",
     "linkedin_url": null,
     "organizations": []
+  },
+  {
+    "login": "davvid",
+    "name": "David Aguilar",
+    "avatar_url": "https://avatars.githubusercontent.com/u/13196?u=a37d732ca41cea44514c97a52ee96d71684e6260&v=4",
+    "location": "Los Angeles",
+    "company": "Walt Disney Animation Studios",
+    "bio": "",
+    "followers": 343,
+    "total_contributions": 13045,
+    "years": {
+      "2008": 556,
+      "2009": 1033,
+      "2010": 324,
+      "2011": 736,
+      "2012": 398,
+      "2013": 686,
+      "2014": 582,
+      "2015": 555,
+      "2016": 687,
+      "2017": 667,
+      "2018": 1148,
+      "2019": 748,
+      "2020": 441,
+      "2021": 539,
+      "2022": 548,
+      "2023": 1109,
+      "2024": 1501,
+      "2025": 702,
+      "2026": 85
+    },
+    "first_year": 2008,
+    "last_updated": "2026-02-08T11:31:58.636Z",
+    "linkedin_url": null,
+    "organizations": [
+      {
+        "name": "wdas",
+        "avatar_url": "https://avatars.githubusercontent.com/u/125487?v=4",
+        "login": "wdas"
+      },
+      {
+        "name": "jsonpickle",
+        "avatar_url": "https://avatars.githubusercontent.com/u/165337?v=4",
+        "login": "jsonpickle"
+      },
+      {
+        "name": "mockfs",
+        "avatar_url": "https://avatars.githubusercontent.com/u/167300?v=4",
+        "login": "mockfs"
+      },
+      {
+        "name": "imageworks",
+        "avatar_url": "https://avatars.githubusercontent.com/u/320618?v=4",
+        "login": "imageworks"
+      },
+      {
+        "name": "git-cola",
+        "avatar_url": "https://avatars.githubusercontent.com/u/1091817?v=4",
+        "login": "git-cola"
+      },
+      {
+        "name": "vfx-rs",
+        "avatar_url": "https://avatars.githubusercontent.com/u/73561388?v=4",
+        "login": "vfx-rs"
+      },
+      {
+        "name": "aousd",
+        "avatar_url": "https://avatars.githubusercontent.com/u/134009737?v=4",
+        "login": "aousd"
+      },
+      {
+        "name": "garden-rs",
+        "avatar_url": "https://avatars.githubusercontent.com/u/162104967?v=4",
+        "login": "garden-rs"
+      }
+    ]
   },
   {
     "login": "brendanzab",
@@ -39715,6 +40972,60 @@
     "last_updated": "2026-02-08T02:24:04.060Z",
     "linkedin_url": null,
     "organizations": []
+  },
+  {
+    "login": "calebeby",
+    "name": "Caleb Eby",
+    "avatar_url": "https://avatars.githubusercontent.com/u/13206945?v=4",
+    "location": "Spokane, WA",
+    "company": "Spokane Valley Tech",
+    "bio": "Physics/Math/Engineering Teacher!\r\nSometimes Web Developer @cloudfour",
+    "followers": 45,
+    "total_contributions": 12380,
+    "years": {
+      "2015": 181,
+      "2016": 2524,
+      "2017": 912,
+      "2018": 1862,
+      "2019": 1460,
+      "2020": 1269,
+      "2021": 708,
+      "2022": 841,
+      "2023": 613,
+      "2024": 794,
+      "2025": 1146,
+      "2026": 70
+    },
+    "first_year": 2015,
+    "last_updated": "2026-02-08T11:42:27.309Z",
+    "linkedin_url": null,
+    "organizations": [
+      {
+        "name": "cloudfour",
+        "avatar_url": "https://avatars.githubusercontent.com/u/1273956?v=4",
+        "login": "cloudfour"
+      },
+      {
+        "name": "jstransformers",
+        "avatar_url": "https://avatars.githubusercontent.com/u/9823543?v=4",
+        "login": "jstransformers"
+      },
+      {
+        "name": "team1432",
+        "avatar_url": "https://avatars.githubusercontent.com/u/15491546?v=4",
+        "login": "team1432"
+      },
+      {
+        "name": "Pigmice2733",
+        "avatar_url": "https://avatars.githubusercontent.com/u/16840570?v=4",
+        "login": "Pigmice2733"
+      },
+      {
+        "name": "chuck2147",
+        "avatar_url": "https://avatars.githubusercontent.com/u/57739729?v=4",
+        "login": "chuck2147"
+      }
+    ]
   },
   {
     "login": "flimzy",
@@ -42492,6 +43803,50 @@
     ]
   },
   {
+    "login": "bxcodec",
+    "name": "Iman Tumorang",
+    "avatar_url": "https://avatars.githubusercontent.com/u/11002383?v=4",
+    "location": "Tallinn, Estonia",
+    "company": "@softwarearchitectid",
+    "bio": "Software Architect | Blogger | Open Source Enthusiast | Startup Enthusiast",
+    "followers": 994,
+    "total_contributions": 11794,
+    "years": {
+      "2015": 11,
+      "2016": 11,
+      "2017": 498,
+      "2018": 765,
+      "2019": 1452,
+      "2020": 1810,
+      "2021": 969,
+      "2022": 893,
+      "2023": 1730,
+      "2024": 1673,
+      "2025": 1777,
+      "2026": 205
+    },
+    "first_year": 2015,
+    "last_updated": "2026-02-08T11:42:49.251Z",
+    "linkedin_url": "https://www.linkedin.com/in/imantumorang/",
+    "organizations": [
+      {
+        "name": "golangid",
+        "avatar_url": "https://avatars.githubusercontent.com/u/42196748?v=4",
+        "login": "golangid"
+      },
+      {
+        "name": "imantumorang",
+        "avatar_url": "https://avatars.githubusercontent.com/u/46465132?v=4",
+        "login": "imantumorang"
+      },
+      {
+        "name": "softwarearchitectid",
+        "avatar_url": "https://avatars.githubusercontent.com/u/105094962?v=4",
+        "login": "softwarearchitectid"
+      }
+    ]
+  },
+  {
     "login": "MishaDemianenko",
     "name": "MishaDemianenko",
     "avatar_url": "https://avatars.githubusercontent.com/u/12656787?u=27d599b6d1e26edd50c968bb50047c548fe3b836&v=4",
@@ -43480,6 +44835,62 @@
     ]
   },
   {
+    "login": "chfw",
+    "name": "jaska",
+    "avatar_url": "https://avatars.githubusercontent.com/u/4280312?v=4",
+    "location": "Universe",
+    "company": null,
+    "bio": "",
+    "followers": 273,
+    "total_contributions": 11556,
+    "years": {
+      "2013": 8,
+      "2014": 789,
+      "2015": 754,
+      "2016": 1799,
+      "2017": 2847,
+      "2018": 1744,
+      "2019": 1474,
+      "2020": 1532,
+      "2021": 103,
+      "2022": 69,
+      "2023": 1,
+      "2024": 130,
+      "2025": 294,
+      "2026": 12
+    },
+    "first_year": 2013,
+    "last_updated": "2026-02-08T11:38:44.426Z",
+    "linkedin_url": null,
+    "organizations": [
+      {
+        "name": "pyexcel",
+        "avatar_url": "https://avatars.githubusercontent.com/u/16431467?v=4",
+        "login": "pyexcel"
+      },
+      {
+        "name": "moremoban",
+        "avatar_url": "https://avatars.githubusercontent.com/u/29818510?v=4",
+        "login": "moremoban"
+      },
+      {
+        "name": "pyexcel-renderers",
+        "avatar_url": "https://avatars.githubusercontent.com/u/31725937?v=4",
+        "login": "pyexcel-renderers"
+      },
+      {
+        "name": "pyexcel-webwares",
+        "avatar_url": "https://avatars.githubusercontent.com/u/31726281?v=4",
+        "login": "pyexcel-webwares"
+      },
+      {
+        "name": "pyecharts",
+        "avatar_url": "https://avatars.githubusercontent.com/u/34701774?v=4",
+        "login": "pyecharts"
+      }
+    ]
+  },
+  {
     "login": "crosire",
     "name": "crosire",
     "avatar_url": "https://avatars.githubusercontent.com/u/2057233?u=72c3c4e1a4cfd72c0e11d949e148caf4e968726c&v=4",
@@ -44196,6 +45607,82 @@
     "last_updated": "2026-02-08T11:26:06.272Z",
     "linkedin_url": null,
     "organizations": []
+  },
+  {
+    "login": "dandv",
+    "name": "Dan Dascalescu",
+    "avatar_url": "https://avatars.githubusercontent.com/u/33569?u=32ed489e19258c7fd3b7c91bf2826c8c4c4d3094&v=4",
+    "location": "Geoflexible US Green Card / EU passport",
+    "company": "@anthropic",
+    "bio": "Consultant @anthropics. Ex @weaviate, @google, @yahoo.  Founded the Quantified Self Forum, Blueseed (the visa-free startup ship project) and 3 web startups.",
+    "followers": 709,
+    "total_contributions": 11427,
+    "years": {
+      "2008": 1,
+      "2009": 160,
+      "2010": 21,
+      "2011": 69,
+      "2012": 381,
+      "2013": 243,
+      "2014": 2028,
+      "2015": 1983,
+      "2016": 1000,
+      "2017": 472,
+      "2018": 688,
+      "2019": 847,
+      "2020": 1609,
+      "2021": 190,
+      "2022": 149,
+      "2023": 612,
+      "2024": 567,
+      "2025": 397,
+      "2026": 10
+    },
+    "first_year": 2008,
+    "last_updated": "2026-02-08T11:33:03.562Z",
+    "linkedin_url": "https://linkedin.com/in/dandv",
+    "organizations": [
+      {
+        "name": "component",
+        "avatar_url": "https://avatars.githubusercontent.com/u/1687071?v=4",
+        "login": "component"
+      },
+      {
+        "name": "oortcloud",
+        "avatar_url": "https://avatars.githubusercontent.com/u/2210468?v=4",
+        "login": "oortcloud"
+      },
+      {
+        "name": "mojomojo",
+        "avatar_url": "https://avatars.githubusercontent.com/u/2297403?v=4",
+        "login": "mojomojo"
+      },
+      {
+        "name": "meteorhacks",
+        "avatar_url": "https://avatars.githubusercontent.com/u/4592287?v=4",
+        "login": "meteorhacks"
+      },
+      {
+        "name": "ephemerisle",
+        "avatar_url": "https://avatars.githubusercontent.com/u/7885687?v=4",
+        "login": "ephemerisle"
+      },
+      {
+        "name": "Wylio",
+        "avatar_url": "https://avatars.githubusercontent.com/u/8850962?v=4",
+        "login": "Wylio"
+      },
+      {
+        "name": "MeteorCommunity",
+        "avatar_url": "https://avatars.githubusercontent.com/u/9997944?v=4",
+        "login": "MeteorCommunity"
+      },
+      {
+        "name": "typhonjs-node-tjsdoc",
+        "avatar_url": "https://avatars.githubusercontent.com/u/24959627?v=4",
+        "login": "typhonjs-node-tjsdoc"
+      }
+    ]
   },
   {
     "login": "wongjiahau",
@@ -46061,6 +47548,41 @@
     ]
   },
   {
+    "login": "brandyscarney",
+    "name": "Brandy Smith",
+    "avatar_url": "https://avatars.githubusercontent.com/u/6577830?u=ec9f50e64a99ca40b775e69d3d2ad5e806cdf568&v=4",
+    "location": "Jacksonville, FL",
+    "company": "@ionic-team ",
+    "bio": "Software Engineer at @ionic-team ",
+    "followers": 1099,
+    "total_contributions": 11039,
+    "years": {
+      "2014": 1,
+      "2015": 2068,
+      "2016": 2580,
+      "2017": 840,
+      "2018": 757,
+      "2019": 911,
+      "2020": 736,
+      "2021": 185,
+      "2022": 231,
+      "2023": 588,
+      "2024": 1070,
+      "2025": 1005,
+      "2026": 67
+    },
+    "first_year": 2014,
+    "last_updated": "2026-02-08T11:44:09.946Z",
+    "linkedin_url": "https://www.linkedin.com/in/brandyssmith",
+    "organizations": [
+      {
+        "name": "ionic-team",
+        "avatar_url": "https://avatars.githubusercontent.com/u/3171503?v=4",
+        "login": "ionic-team"
+      }
+    ]
+  },
+  {
     "login": "hyoshioka0128",
     "name": "Hiroshi Yoshioka",
     "avatar_url": "https://avatars.githubusercontent.com/u/40815708?v=4",
@@ -47029,6 +48551,94 @@
     "last_updated": "2026-02-08T00:30:09.032Z",
     "linkedin_url": null,
     "organizations": []
+  },
+  {
+    "login": "cubxxw",
+    "name": "熊鑫伟 Xinwei Xiong",
+    "avatar_url": "https://avatars.githubusercontent.com/u/86140903?u=996215dff724b6ff842f08e0ba48ddcf13daeee4&v=4",
+    "location": "@shanghai",
+    "company": null,
+    "bio": "⚡ Do the hard things and you'll get it\r\n🚀 Never go to bed mad. Stay up and fight.",
+    "followers": 595,
+    "total_contributions": 10748,
+    "years": {
+      "2021": 4,
+      "2022": 1397,
+      "2023": 4610,
+      "2024": 2949,
+      "2025": 1785,
+      "2026": 3
+    },
+    "first_year": 2021,
+    "last_updated": "2026-02-08T11:33:57.776Z",
+    "linkedin_url": null,
+    "organizations": [
+      {
+        "name": "EddieHubCommunity",
+        "avatar_url": "https://avatars.githubusercontent.com/u/66388388?v=4",
+        "login": "EddieHubCommunity"
+      },
+      {
+        "name": "EngineerCN",
+        "avatar_url": "https://avatars.githubusercontent.com/u/70883978?v=4",
+        "login": "EngineerCN"
+      },
+      {
+        "name": "Magic-Academy",
+        "avatar_url": "https://avatars.githubusercontent.com/u/95528872?v=4",
+        "login": "Magic-Academy"
+      },
+      {
+        "name": "cit965",
+        "avatar_url": "https://avatars.githubusercontent.com/u/95734170?v=4",
+        "login": "cit965"
+      },
+      {
+        "name": "kubecub",
+        "avatar_url": "https://avatars.githubusercontent.com/u/105645360?v=4",
+        "login": "kubecub"
+      },
+      {
+        "name": "openkf",
+        "avatar_url": "https://avatars.githubusercontent.com/u/137784435?v=4",
+        "login": "openkf"
+      },
+      {
+        "name": "openim-sigs",
+        "avatar_url": "https://avatars.githubusercontent.com/u/139494448?v=4",
+        "login": "openim-sigs"
+      },
+      {
+        "name": "ai-sigs",
+        "avatar_url": "https://avatars.githubusercontent.com/u/139494595?v=4",
+        "login": "ai-sigs"
+      },
+      {
+        "name": "prows",
+        "avatar_url": "https://avatars.githubusercontent.com/u/139494870?v=4",
+        "login": "prows"
+      },
+      {
+        "name": "aicworld",
+        "avatar_url": "https://avatars.githubusercontent.com/u/157884450?v=4",
+        "login": "aicworld"
+      },
+      {
+        "name": "SoraEase",
+        "avatar_url": "https://avatars.githubusercontent.com/u/161103300?v=4",
+        "login": "SoraEase"
+      },
+      {
+        "name": "awesome-sora",
+        "avatar_url": "https://avatars.githubusercontent.com/u/161112346?v=4",
+        "login": "awesome-sora"
+      },
+      {
+        "name": "telepace",
+        "avatar_url": "https://avatars.githubusercontent.com/u/171150029?v=4",
+        "login": "telepace"
+      }
+    ]
   },
   {
     "login": "overbit",
@@ -51523,6 +53133,38 @@
     "organizations": []
   },
   {
+    "login": "chexiongsheng",
+    "name": "chexiongsheng",
+    "avatar_url": "https://avatars.githubusercontent.com/u/992807?u=58118fa107373fa72e5239d561991d77f22c38f8&v=4",
+    "location": null,
+    "company": null,
+    "bio": "",
+    "followers": 640,
+    "total_contributions": 9766,
+    "years": {
+      "2011": 1,
+      "2012": 1,
+      "2013": 8,
+      "2014": 34,
+      "2015": 15,
+      "2016": 26,
+      "2017": 457,
+      "2018": 289,
+      "2019": 126,
+      "2020": 955,
+      "2021": 1855,
+      "2022": 1679,
+      "2023": 1223,
+      "2024": 1642,
+      "2025": 1340,
+      "2026": 115
+    },
+    "first_year": 2011,
+    "last_updated": "2026-02-08T11:38:47.805Z",
+    "linkedin_url": null,
+    "organizations": []
+  },
+  {
     "login": "kcc",
     "name": "Kostya Serebryany",
     "avatar_url": "https://avatars.githubusercontent.com/u/1789297?u=0b74df6cc01700ffe44945ab639ad9e542ca84e6&v=4",
@@ -52361,6 +54003,46 @@
     ]
   },
   {
+    "login": "danmoseley",
+    "name": "Dan Moseley",
+    "avatar_url": "https://avatars.githubusercontent.com/u/6385855?u=8aceca309734645b8a172bb62945168fbac876cb&v=4",
+    "location": "Jackson, WY",
+    "company": "Microsoft",
+    "bio": "Group manager for ASP.NET Core, previously of .NET Libraries. ",
+    "followers": 367,
+    "total_contributions": 9518,
+    "years": {
+      "2014": 2,
+      "2015": 222,
+      "2016": 349,
+      "2017": 1690,
+      "2018": 1141,
+      "2019": 851,
+      "2020": 759,
+      "2021": 896,
+      "2022": 893,
+      "2023": 987,
+      "2024": 714,
+      "2025": 1009,
+      "2026": 5
+    },
+    "first_year": 2014,
+    "last_updated": "2026-02-08T11:32:18.459Z",
+    "linkedin_url": null,
+    "organizations": [
+      {
+        "name": "microsoft",
+        "avatar_url": "https://avatars.githubusercontent.com/u/6154722?v=4",
+        "login": "microsoft"
+      },
+      {
+        "name": "dotnet",
+        "avatar_url": "https://avatars.githubusercontent.com/u/9141961?v=4",
+        "login": "dotnet"
+      }
+    ]
+  },
+  {
     "login": "rekram1-node",
     "name": "Aiden Cline",
     "avatar_url": "https://avatars.githubusercontent.com/u/63023139?u=dba2c8cc825dbba667cd3a6c2f709eb06b5324d2&v=4",
@@ -52532,6 +54214,44 @@
         "name": "CISC3140TeamSquadron",
         "avatar_url": "https://avatars.githubusercontent.com/u/3494534?v=4",
         "login": "CISC3140TeamSquadron"
+      }
+    ]
+  },
+  {
+    "login": "btea",
+    "name": "btea",
+    "avatar_url": "https://avatars.githubusercontent.com/u/24516654?u=770b9622d0640c7afca868cdeea74f2b8fb93af4&v=4",
+    "location": "HangZhou,China",
+    "company": null,
+    "bio": "天空高远，大风吟唱······\r\n",
+    "followers": 275,
+    "total_contributions": 9467,
+    "years": {
+      "2016": 1,
+      "2017": 101,
+      "2018": 298,
+      "2019": 361,
+      "2020": 516,
+      "2021": 1392,
+      "2022": 1082,
+      "2023": 1328,
+      "2024": 1547,
+      "2025": 2518,
+      "2026": 323
+    },
+    "first_year": 2016,
+    "last_updated": "2026-02-08T11:43:10.454Z",
+    "linkedin_url": null,
+    "organizations": [
+      {
+        "name": "pnpm",
+        "avatar_url": "https://avatars.githubusercontent.com/u/21320719?v=4",
+        "login": "pnpm"
+      },
+      {
+        "name": "element-plus",
+        "avatar_url": "https://avatars.githubusercontent.com/u/68583457?v=4",
+        "login": "element-plus"
       }
     ]
   },
@@ -52835,6 +54555,36 @@
         "login": "django-cms"
       }
     ]
+  },
+  {
+    "login": "bsouthga",
+    "name": "Ben Southgate",
+    "avatar_url": "https://avatars.githubusercontent.com/u/4740806?u=6e797fad17c7f501cb51fa77bd4f3ab0bbd33a14&v=4",
+    "location": "Seattle, WA",
+    "company": "@facebook",
+    "bio": "Software Whittler",
+    "followers": 66,
+    "total_contributions": 9395,
+    "years": {
+      "2013": 32,
+      "2014": 98,
+      "2015": 1911,
+      "2016": 2833,
+      "2017": 2868,
+      "2018": 1187,
+      "2019": 0,
+      "2020": 165,
+      "2021": 85,
+      "2022": 78,
+      "2023": 69,
+      "2024": 11,
+      "2025": 51,
+      "2026": 7
+    },
+    "first_year": 2013,
+    "last_updated": "2026-02-08T11:43:20.284Z",
+    "linkedin_url": null,
+    "organizations": []
   },
   {
     "login": "leestott",
@@ -54168,6 +55918,44 @@
     ]
   },
   {
+    "login": "breuleux",
+    "name": "Olivier Breuleux",
+    "avatar_url": "https://avatars.githubusercontent.com/u/599820?u=d8f89bcaffd2a621647a1acd0e79f27309cd60b6&v=4",
+    "location": "Montreal, Canada",
+    "company": null,
+    "bio": null,
+    "followers": 147,
+    "total_contributions": 9106,
+    "years": {
+      "2011": 32,
+      "2012": 123,
+      "2013": 195,
+      "2014": 308,
+      "2015": 1946,
+      "2016": 502,
+      "2017": 325,
+      "2018": 444,
+      "2019": 342,
+      "2020": 1114,
+      "2021": 780,
+      "2022": 702,
+      "2023": 743,
+      "2024": 755,
+      "2025": 756,
+      "2026": 39
+    },
+    "first_year": 2011,
+    "last_updated": "2026-02-08T11:43:45.678Z",
+    "linkedin_url": null,
+    "organizations": [
+      {
+        "name": "mila-iqia",
+        "avatar_url": "https://avatars.githubusercontent.com/u/11724251?v=4",
+        "login": "mila-iqia"
+      }
+    ]
+  },
+  {
     "login": "spencerwooo",
     "name": "Shangbo Wu",
     "avatar_url": "https://avatars.githubusercontent.com/u/32114380?u=9dd843e9bf3d4a209ec814c94d9d0b152154e5fe&v=4",
@@ -54957,6 +56745,39 @@
         "login": "rust-lang-nursery"
       }
     ]
+  },
+  {
+    "login": "chrisbanes",
+    "name": "Chris Banes",
+    "avatar_url": "https://avatars.githubusercontent.com/u/227486?u=4a13213e5ca361c28e16d6a2292ef03956a96cdf&v=4",
+    "location": "Bath, UK",
+    "company": "Android Engineer",
+    "bio": "",
+    "followers": 18869,
+    "total_contributions": 8972,
+    "years": {
+      "2010": 1,
+      "2011": 10,
+      "2012": 18,
+      "2013": 19,
+      "2014": 31,
+      "2015": 9,
+      "2016": 1,
+      "2017": 368,
+      "2018": 695,
+      "2019": 1316,
+      "2020": 1396,
+      "2021": 1613,
+      "2022": 447,
+      "2023": 1557,
+      "2024": 764,
+      "2025": 408,
+      "2026": 319
+    },
+    "first_year": 2010,
+    "last_updated": "2026-02-08T11:37:54.264Z",
+    "linkedin_url": null,
+    "organizations": []
   },
   {
     "login": "SaschaWillems",
@@ -58079,6 +59900,31 @@
     ]
   },
   {
+    "login": "cardosofede",
+    "name": "Fede Cardoso",
+    "avatar_url": "https://avatars.githubusercontent.com/u/36869960?u=bf4d89adfe34c0b9dc2afe759c291b82b9b85c5d&v=4",
+    "location": null,
+    "company": null,
+    "bio": "CTO @hummingbot & ML professor at University of Buenos Aires.\r\n\r\n\r\nX: https://twitter.com/cardosofede",
+    "followers": 280,
+    "total_contributions": 8411,
+    "years": {
+      "2018": 2,
+      "2019": 0,
+      "2020": 20,
+      "2021": 76,
+      "2022": 403,
+      "2023": 2418,
+      "2024": 2184,
+      "2025": 3042,
+      "2026": 266
+    },
+    "first_year": 2018,
+    "last_updated": "2026-02-08T11:41:57.800Z",
+    "linkedin_url": null,
+    "organizations": []
+  },
+  {
     "login": "lukejacksonn",
     "name": "Luke Jackson",
     "avatar_url": "https://avatars.githubusercontent.com/u/1457604?u=d9d97c4fd4fa68499276f5f578c19961ebcdac8d&v=4",
@@ -58303,6 +60149,36 @@
         "login": "The-Algorithms-Bot"
       }
     ]
+  },
+  {
+    "login": "crazyguitar",
+    "name": "CHANG-NING TSAI",
+    "avatar_url": "https://avatars.githubusercontent.com/u/3689606?v=4",
+    "location": "Mountain View",
+    "company": "Amazon Web Services",
+    "bio": "",
+    "followers": 356,
+    "total_contributions": 8375,
+    "years": {
+      "2013": 19,
+      "2014": 1,
+      "2015": 256,
+      "2016": 454,
+      "2017": 301,
+      "2018": 498,
+      "2019": 443,
+      "2020": 1160,
+      "2021": 1370,
+      "2022": 1450,
+      "2023": 1053,
+      "2024": 442,
+      "2025": 642,
+      "2026": 286
+    },
+    "first_year": 2013,
+    "last_updated": "2026-02-08T11:34:28.538Z",
+    "linkedin_url": "https://www.linkedin.com/in/crazyguitar/",
+    "organizations": []
   },
   {
     "login": "sameerajayasoma",
@@ -62172,6 +64048,41 @@
     "organizations": []
   },
   {
+    "login": "cuavas",
+    "name": "Vas Crabb",
+    "avatar_url": "https://avatars.githubusercontent.com/u/9678431?v=4",
+    "location": null,
+    "company": null,
+    "bio": null,
+    "followers": 77,
+    "total_contributions": 7819,
+    "years": {
+      "2014": 7,
+      "2015": 372,
+      "2016": 902,
+      "2017": 795,
+      "2018": 776,
+      "2019": 521,
+      "2020": 599,
+      "2021": 691,
+      "2022": 807,
+      "2023": 760,
+      "2024": 710,
+      "2025": 768,
+      "2026": 111
+    },
+    "first_year": 2014,
+    "last_updated": "2026-02-08T11:34:02.440Z",
+    "linkedin_url": null,
+    "organizations": [
+      {
+        "name": "mamedev",
+        "avatar_url": "https://avatars.githubusercontent.com/u/9024458?v=4",
+        "login": "mamedev"
+      }
+    ]
+  },
+  {
     "login": "WickyNilliams",
     "name": "Nick Williams",
     "avatar_url": "https://avatars.githubusercontent.com/u/1091390?v=4",
@@ -62324,6 +64235,95 @@
     "last_updated": "2026-02-08T03:45:33.420Z",
     "linkedin_url": null,
     "organizations": []
+  },
+  {
+    "login": "colinrymer",
+    "name": "Colin Rymer",
+    "avatar_url": "https://avatars.githubusercontent.com/u/724007?u=923b1a7cf2e4bc0cc90b568f6e76d8bcbf341b87&v=4",
+    "location": "Chattanooga, TN",
+    "company": "@kobiton ",
+    "bio": "",
+    "followers": 32,
+    "total_contributions": 7793,
+    "years": {
+      "2011": 92,
+      "2012": 536,
+      "2013": 539,
+      "2014": 180,
+      "2015": 386,
+      "2016": 248,
+      "2017": 153,
+      "2018": 341,
+      "2019": 246,
+      "2020": 276,
+      "2021": 1682,
+      "2022": 1943,
+      "2023": 794,
+      "2024": 163,
+      "2025": 128,
+      "2026": 86
+    },
+    "first_year": 2011,
+    "last_updated": "2026-02-08T11:35:25.483Z",
+    "linkedin_url": null,
+    "organizations": []
+  },
+  {
+    "login": "crispgm",
+    "name": "David Zhang",
+    "avatar_url": "https://avatars.githubusercontent.com/u/1425636?u=3c8e5c041c2bdfd922d85c91209738c6a88b8806&v=4",
+    "location": null,
+    "company": null,
+    "bio": "A minimalist life hacker ☮️",
+    "followers": 181,
+    "total_contributions": 7790,
+    "years": {
+      "2012": 1,
+      "2013": 22,
+      "2014": 296,
+      "2015": 78,
+      "2016": 2010,
+      "2017": 1593,
+      "2018": 658,
+      "2019": 666,
+      "2020": 359,
+      "2021": 1051,
+      "2022": 359,
+      "2023": 262,
+      "2024": 229,
+      "2025": 181,
+      "2026": 25
+    },
+    "first_year": 2012,
+    "last_updated": "2026-02-08T11:34:23.635Z",
+    "linkedin_url": null,
+    "organizations": [
+      {
+        "name": "jekyll",
+        "avatar_url": "https://avatars.githubusercontent.com/u/3083652?v=4",
+        "login": "jekyll"
+      },
+      {
+        "name": "URLAutoRedirector",
+        "avatar_url": "https://avatars.githubusercontent.com/u/20267409?v=4",
+        "login": "URLAutoRedirector"
+      },
+      {
+        "name": "dripcoffee",
+        "avatar_url": "https://avatars.githubusercontent.com/u/24243301?v=4",
+        "login": "dripcoffee"
+      },
+      {
+        "name": "crisp-archive",
+        "avatar_url": "https://avatars.githubusercontent.com/u/28761016?v=4",
+        "login": "crisp-archive"
+      },
+      {
+        "name": "rugby-board",
+        "avatar_url": "https://avatars.githubusercontent.com/u/29589354?v=4",
+        "login": "rugby-board"
+      }
+    ]
   },
   {
     "login": "matthewmcgarvey",
@@ -64208,6 +66208,96 @@
     "organizations": []
   },
   {
+    "login": "Daniel15",
+    "name": "Daniel Lo Nigro",
+    "avatar_url": "https://avatars.githubusercontent.com/u/91933?u=13584ac6a9f66c40a2ae30fce469e2ce11c5709d&v=4",
+    "location": "San Francisco Bay Area",
+    "company": "@Facebook",
+    "bio": "Senior Frontend Developer at Meta. C# / .NET fan. @dotnet-foundation member. Australian 🇦🇺",
+    "followers": 1473,
+    "total_contributions": 7490,
+    "years": {
+      "2009": 82,
+      "2010": 26,
+      "2011": 459,
+      "2012": 333,
+      "2013": 527,
+      "2014": 783,
+      "2015": 715,
+      "2016": 1148,
+      "2017": 1134,
+      "2018": 213,
+      "2019": 672,
+      "2020": 326,
+      "2021": 228,
+      "2022": 128,
+      "2023": 175,
+      "2024": 299,
+      "2025": 202,
+      "2026": 40
+    },
+    "first_year": 2009,
+    "last_updated": "2026-02-08T11:32:42.059Z",
+    "linkedin_url": null,
+    "organizations": [
+      {
+        "name": "facebook",
+        "avatar_url": "https://avatars.githubusercontent.com/u/69631?v=4",
+        "login": "facebook"
+      },
+      {
+        "name": "jenkinsci",
+        "avatar_url": "https://avatars.githubusercontent.com/u/107424?v=4",
+        "login": "jenkinsci"
+      },
+      {
+        "name": "badges",
+        "avatar_url": "https://avatars.githubusercontent.com/u/6254238?v=4",
+        "login": "badges"
+      },
+      {
+        "name": "reactjs",
+        "avatar_url": "https://avatars.githubusercontent.com/u/6412038?v=4",
+        "login": "reactjs"
+      },
+      {
+        "name": "prestodb",
+        "avatar_url": "https://avatars.githubusercontent.com/u/6882181?v=4",
+        "login": "prestodb"
+      },
+      {
+        "name": "babel",
+        "avatar_url": "https://avatars.githubusercontent.com/u/9637642?v=4",
+        "login": "babel"
+      },
+      {
+        "name": "codemods",
+        "avatar_url": "https://avatars.githubusercontent.com/u/18361234?v=4",
+        "login": "codemods"
+      },
+      {
+        "name": "yarnpkg",
+        "avatar_url": "https://avatars.githubusercontent.com/u/22247014?v=4",
+        "login": "yarnpkg"
+      },
+      {
+        "name": "package-community",
+        "avatar_url": "https://avatars.githubusercontent.com/u/29317256?v=4",
+        "login": "package-community"
+      },
+      {
+        "name": "BuildSizeTest",
+        "avatar_url": "https://avatars.githubusercontent.com/u/31597874?v=4",
+        "login": "BuildSizeTest"
+      },
+      {
+        "name": "gpgme-sharp",
+        "avatar_url": "https://avatars.githubusercontent.com/u/47257257?v=4",
+        "login": "gpgme-sharp"
+      }
+    ]
+  },
+  {
     "login": "Beyley",
     "name": "Beyley Cardellio",
     "avatar_url": "https://avatars.githubusercontent.com/u/34501060?u=4394f2c2a0a3ae757413a7de6d3481ac93eccfeb&v=4",
@@ -65093,6 +67183,38 @@
     "organizations": []
   },
   {
+    "login": "ClaireNeveu",
+    "name": "Claire Neveu",
+    "avatar_url": "https://avatars.githubusercontent.com/u/1002726?u=07574f05415da66db89e7bc70ed12ab9ceeda001&v=4",
+    "location": "New York City",
+    "company": null,
+    "bio": "",
+    "followers": 32,
+    "total_contributions": 7346,
+    "years": {
+      "2011": 16,
+      "2012": 57,
+      "2013": 98,
+      "2014": 557,
+      "2015": 740,
+      "2016": 682,
+      "2017": 983,
+      "2018": 1285,
+      "2019": 175,
+      "2020": 623,
+      "2021": 729,
+      "2022": 427,
+      "2023": 204,
+      "2024": 169,
+      "2025": 599,
+      "2026": 2
+    },
+    "first_year": 2011,
+    "last_updated": "2026-02-08T11:36:49.551Z",
+    "linkedin_url": "https://www.linkedin.com/in/claireneveu/",
+    "organizations": []
+  },
+  {
     "login": "xrkffgg",
     "name": "xrkffgg",
     "avatar_url": "https://avatars.githubusercontent.com/u/29775873?u=97ba7e9850cb238625be976e7d247125cfd2295a&v=4",
@@ -65942,6 +68064,42 @@
     "last_updated": "2026-02-08T01:51:31.168Z",
     "linkedin_url": "https://www.linkedin.com/in/baryhuang/",
     "organizations": []
+  },
+  {
+    "login": "CrazyBoy49z",
+    "name": "Yurij Finiv",
+    "avatar_url": "https://avatars.githubusercontent.com/u/3448603?u=13808451b6bb96138e734986b1ae54a68ed73a72&v=4",
+    "location": "Ukraine",
+    "company": "@step2dev ",
+    "bio": "Full stack Laravel and MODX developer",
+    "followers": 37,
+    "total_contributions": 7246,
+    "years": {
+      "2013": 1,
+      "2014": 0,
+      "2015": 0,
+      "2016": 1,
+      "2017": 2,
+      "2018": 142,
+      "2019": 403,
+      "2020": 511,
+      "2021": 865,
+      "2022": 1456,
+      "2023": 1588,
+      "2024": 1142,
+      "2025": 1017,
+      "2026": 118
+    },
+    "first_year": 2013,
+    "last_updated": "2026-02-08T11:34:31.261Z",
+    "linkedin_url": null,
+    "organizations": [
+      {
+        "name": "step2dev",
+        "avatar_url": "https://avatars.githubusercontent.com/u/57872353?v=4",
+        "login": "step2dev"
+      }
+    ]
   },
   {
     "login": "robbyrussell",
@@ -67576,6 +69734,29 @@
     ]
   },
   {
+    "login": "damien-schneider",
+    "name": "Damien Schneider",
+    "avatar_url": "https://avatars.githubusercontent.com/u/74979845?u=dce3118555aeabee28d34c066b095c39c081bccd&v=4",
+    "location": null,
+    "company": null,
+    "bio": "Currently refactoring reality.",
+    "followers": 114,
+    "total_contributions": 7026,
+    "years": {
+      "2020": 1,
+      "2021": 0,
+      "2022": 16,
+      "2023": 1100,
+      "2024": 2244,
+      "2025": 2661,
+      "2026": 1004
+    },
+    "first_year": 2020,
+    "last_updated": "2026-02-08T11:33:09.091Z",
+    "linkedin_url": "https://www.linkedin.com/in/schneider-damien/",
+    "organizations": []
+  },
+  {
     "login": "gemantzu",
     "name": "George Mantzouranis",
     "avatar_url": "https://avatars.githubusercontent.com/u/4966172?u=a2b1a6d9571665e573a85e5e8e65d946dfb4b771&v=4",
@@ -67823,6 +70004,42 @@
         "name": "ohminteractive",
         "avatar_url": "https://avatars.githubusercontent.com/u/332026?v=4",
         "login": "ohminteractive"
+      }
+    ]
+  },
+  {
+    "login": "cdisselkoen",
+    "name": "Craig Disselkoen",
+    "avatar_url": "https://avatars.githubusercontent.com/u/4458638?u=88842b4c10825adc26a2e681d91d74bb0723c852&v=4",
+    "location": null,
+    "company": "AWS",
+    "bio": "Sr. Applied Scientist at AWS.  PhD '22 from UC San Diego",
+    "followers": 95,
+    "total_contributions": 6992,
+    "years": {
+      "2013": 55,
+      "2014": 43,
+      "2015": 0,
+      "2016": 0,
+      "2017": 106,
+      "2018": 564,
+      "2019": 1301,
+      "2020": 1378,
+      "2021": 650,
+      "2022": 86,
+      "2023": 598,
+      "2024": 1192,
+      "2025": 854,
+      "2026": 165
+    },
+    "first_year": 2013,
+    "last_updated": "2026-02-08T11:40:44.996Z",
+    "linkedin_url": null,
+    "organizations": [
+      {
+        "name": "correctcomputation",
+        "avatar_url": "https://avatars.githubusercontent.com/u/71393622?v=4",
+        "login": "correctcomputation"
       }
     ]
   },
@@ -68475,6 +70692,47 @@
     ]
   },
   {
+    "login": "caridy",
+    "name": "Caridy Patiño",
+    "avatar_url": "https://avatars.githubusercontent.com/u/38969?v=4",
+    "location": "Miami, FL.",
+    "company": "Salesforce, Inc.",
+    "bio": "Computer Scientist, ECMA TC39 Member, Former Editor of ECMA402 Spec. Principal Architect at Salesforce. Yahoo! Alumni and Former YUI Core Team Member.",
+    "followers": 470,
+    "total_contributions": 6909,
+    "years": {
+      "2008": 3,
+      "2009": 74,
+      "2010": 118,
+      "2011": 23,
+      "2012": 396,
+      "2013": 1760,
+      "2014": 720,
+      "2015": 506,
+      "2016": 595,
+      "2017": 547,
+      "2018": 628,
+      "2019": 558,
+      "2020": 465,
+      "2021": 141,
+      "2022": 162,
+      "2023": 78,
+      "2024": 33,
+      "2025": 101,
+      "2026": 1
+    },
+    "first_year": 2008,
+    "last_updated": "2026-02-08T11:41:53.349Z",
+    "linkedin_url": null,
+    "organizations": [
+      {
+        "name": "yui",
+        "avatar_url": "https://avatars.githubusercontent.com/u/38181?v=4",
+        "login": "yui"
+      }
+    ]
+  },
+  {
     "login": "douglasshuang",
     "name": "Douglass Huang",
     "avatar_url": "https://avatars.githubusercontent.com/u/13798383?u=c1cb007b22f64ef62fff839a02bdfcf19327e95d&v=4",
@@ -68501,6 +70759,42 @@
     "last_updated": "2026-02-08T11:23:15.678Z",
     "linkedin_url": null,
     "organizations": []
+  },
+  {
+    "login": "chriswblake",
+    "name": "Christopher W. Blake",
+    "avatar_url": "https://avatars.githubusercontent.com/u/37269996?u=de644db782b4fd1fd484ee187a59db02f93470a6&v=4",
+    "location": "United States",
+    "company": "GitHub",
+    "bio": "Public Learning @github :octocat:",
+    "followers": 457,
+    "total_contributions": 6905,
+    "years": {
+      "2018": 188,
+      "2019": 311,
+      "2020": 133,
+      "2021": 1124,
+      "2022": 1375,
+      "2023": 1476,
+      "2024": 837,
+      "2025": 1309,
+      "2026": 152
+    },
+    "first_year": 2018,
+    "last_updated": "2026-02-08T11:37:17.813Z",
+    "linkedin_url": "https://www.linkedin.com/in/chriswblake/",
+    "organizations": [
+      {
+        "name": "github",
+        "avatar_url": "https://avatars.githubusercontent.com/u/9919?v=4",
+        "login": "github"
+      },
+      {
+        "name": "skills",
+        "avatar_url": "https://avatars.githubusercontent.com/u/103777734?v=4",
+        "login": "skills"
+      }
+    ]
   },
   {
     "login": "ieedan",
@@ -68985,6 +71279,41 @@
     "organizations": []
   },
   {
+    "login": "corasaurus-hex",
+    "name": "Cora Sutton",
+    "avatar_url": "https://avatars.githubusercontent.com/u/130?u=eb5fd125a860793911455c364d1352b017a096fe&v=4",
+    "location": "Milwaukee, WI",
+    "company": "@acuitymd",
+    "bio": "keyboard cowgirl. Lift while you climb. People > technology.",
+    "followers": 132,
+    "total_contributions": 6833,
+    "years": {
+      "2008": 25,
+      "2009": 6,
+      "2010": 141,
+      "2011": 486,
+      "2012": 368,
+      "2013": 405,
+      "2014": 178,
+      "2015": 450,
+      "2016": 184,
+      "2017": 203,
+      "2018": 115,
+      "2019": 505,
+      "2020": 123,
+      "2021": 711,
+      "2022": 1583,
+      "2023": 961,
+      "2024": 84,
+      "2025": 294,
+      "2026": 11
+    },
+    "first_year": 2008,
+    "last_updated": "2026-02-08T11:34:58.366Z",
+    "linkedin_url": null,
+    "organizations": []
+  },
+  {
     "login": "happppp",
     "name": "hap",
     "avatar_url": "https://avatars.githubusercontent.com/u/9270613?u=ebabf32930b10e9c82ace5bbd7ad5e3a4418008f&v=4",
@@ -69016,6 +71345,44 @@
         "name": "mamedev",
         "avatar_url": "https://avatars.githubusercontent.com/u/9024458?v=4",
         "login": "mamedev"
+      }
+    ]
+  },
+  {
+    "login": "chickenlj",
+    "name": "Ken Liu",
+    "avatar_url": "https://avatars.githubusercontent.com/u/18097545?v=4",
+    "location": "Hangzhou, China",
+    "company": "Alibaba",
+    "bio": "",
+    "followers": 729,
+    "total_contributions": 6821,
+    "years": {
+      "2016": 1,
+      "2017": 360,
+      "2018": 723,
+      "2019": 864,
+      "2020": 410,
+      "2021": 420,
+      "2022": 551,
+      "2023": 1108,
+      "2024": 1114,
+      "2025": 1167,
+      "2026": 103
+    },
+    "first_year": 2016,
+    "last_updated": "2026-02-08T11:38:40.155Z",
+    "linkedin_url": null,
+    "organizations": [
+      {
+        "name": "dubbo",
+        "avatar_url": "https://avatars.githubusercontent.com/u/11751992?v=4",
+        "login": "dubbo"
+      },
+      {
+        "name": "spring-ai-alibaba",
+        "avatar_url": "https://avatars.githubusercontent.com/u/230275642?v=4",
+        "login": "spring-ai-alibaba"
       }
     ]
   },
@@ -69813,6 +72180,39 @@
     "organizations": []
   },
   {
+    "login": "DaveDavenport",
+    "name": "Dave Davenport",
+    "avatar_url": "https://avatars.githubusercontent.com/u/406245?u=e2f948bce70ba67317f3bfac2ba9f090f1eb2e26&v=4",
+    "location": null,
+    "company": null,
+    "bio": "",
+    "followers": 209,
+    "total_contributions": 6684,
+    "years": {
+      "2010": 374,
+      "2011": 610,
+      "2012": 283,
+      "2013": 256,
+      "2014": 745,
+      "2015": 906,
+      "2016": 821,
+      "2017": 852,
+      "2018": 94,
+      "2019": 144,
+      "2020": 188,
+      "2021": 354,
+      "2022": 310,
+      "2023": 265,
+      "2024": 199,
+      "2025": 272,
+      "2026": 11
+    },
+    "first_year": 2010,
+    "last_updated": "2026-02-08T11:32:06.528Z",
+    "linkedin_url": null,
+    "organizations": []
+  },
+  {
     "login": "michaldudak",
     "name": "Michał Dudak",
     "avatar_url": "https://avatars.githubusercontent.com/u/4696105?u=71db238cdf2ab78cf8315d1dc72e9a21a4fb2443&v=4",
@@ -70548,6 +72948,38 @@
         "login": "haxe-react"
       }
     ]
+  },
+  {
+    "login": "chrishoage",
+    "name": "Christopher Hoage",
+    "avatar_url": "https://avatars.githubusercontent.com/u/1056886?u=3043b48f33a2cdc801d49f91bea922d996fac9e6&v=4",
+    "location": "San Luis Obispo",
+    "company": "1Password",
+    "bio": "",
+    "followers": 34,
+    "total_contributions": 6564,
+    "years": {
+      "2011": 1,
+      "2012": 1,
+      "2013": 81,
+      "2014": 127,
+      "2015": 287,
+      "2016": 245,
+      "2017": 776,
+      "2018": 962,
+      "2019": 783,
+      "2020": 1290,
+      "2021": 1052,
+      "2022": 105,
+      "2023": 112,
+      "2024": 182,
+      "2025": 517,
+      "2026": 43
+    },
+    "first_year": 2011,
+    "last_updated": "2026-02-08T11:37:47.711Z",
+    "linkedin_url": null,
+    "organizations": []
   },
   {
     "login": "TimKraemer",
@@ -72709,6 +75141,35 @@
     ]
   },
   {
+    "login": "chaopaoo12",
+    "name": "chaopaoo12",
+    "avatar_url": "https://avatars.githubusercontent.com/u/8869837?v=4",
+    "location": null,
+    "company": null,
+    "bio": null,
+    "followers": 5,
+    "total_contributions": 6261,
+    "years": {
+      "2014": 1,
+      "2015": 10,
+      "2016": 0,
+      "2017": 0,
+      "2018": 10,
+      "2019": 911,
+      "2020": 2493,
+      "2021": 1321,
+      "2022": 964,
+      "2023": 356,
+      "2024": 166,
+      "2025": 29,
+      "2026": 0
+    },
+    "first_year": 2014,
+    "last_updated": "2026-02-08T11:39:55.080Z",
+    "linkedin_url": null,
+    "organizations": []
+  },
+  {
     "login": "Lockyc",
     "name": "Lachlan Collins",
     "avatar_url": "https://avatars.githubusercontent.com/u/1438799?u=fdfbceec5f35d773b13128564f4347c3229e01b0&v=4",
@@ -73259,6 +75720,43 @@
     "organizations": []
   },
   {
+    "login": "chipsenkbeil",
+    "name": "Chip Senkbeil",
+    "avatar_url": "https://avatars.githubusercontent.com/u/2481802?u=dad81a6b3e053ae2bc19a61d7c766abf3e087222&v=4",
+    "location": "Austin, TX",
+    "company": "@facebook ",
+    "bio": "",
+    "followers": 198,
+    "total_contributions": 6199,
+    "years": {
+      "2012": 1,
+      "2013": 103,
+      "2014": 122,
+      "2015": 933,
+      "2016": 721,
+      "2017": 169,
+      "2018": 208,
+      "2019": 139,
+      "2020": 921,
+      "2021": 874,
+      "2022": 454,
+      "2023": 435,
+      "2024": 1056,
+      "2025": 59,
+      "2026": 4
+    },
+    "first_year": 2012,
+    "last_updated": "2026-02-08T11:38:12.684Z",
+    "linkedin_url": null,
+    "organizations": [
+      {
+        "name": "vimwiki",
+        "avatar_url": "https://avatars.githubusercontent.com/u/2800895?v=4",
+        "login": "vimwiki"
+      }
+    ]
+  },
+  {
     "login": "mhalbritter",
     "name": "Moritz Halbritter",
     "avatar_url": "https://avatars.githubusercontent.com/u/98899556?u=036a4aec3133256c0a4af53c14bf9e450bbba626&v=4",
@@ -73422,6 +75920,37 @@
     "first_year": 2013,
     "last_updated": "2026-02-08T00:42:36.307Z",
     "linkedin_url": null,
+    "organizations": []
+  },
+  {
+    "login": "caseyyee",
+    "name": "Casey Yee",
+    "avatar_url": "https://avatars.githubusercontent.com/u/1560884?u=43867ad879dbf02f00a7b9be4c4ce4286e3afa27&v=4",
+    "location": "Vancouver, BC",
+    "company": null,
+    "bio": "I copied that floppy!",
+    "followers": 159,
+    "total_contributions": 6162,
+    "years": {
+      "2012": 13,
+      "2013": 18,
+      "2014": 769,
+      "2015": 725,
+      "2016": 326,
+      "2017": 731,
+      "2018": 554,
+      "2019": 617,
+      "2020": 421,
+      "2021": 271,
+      "2022": 238,
+      "2023": 225,
+      "2024": 358,
+      "2025": 816,
+      "2026": 80
+    },
+    "first_year": 2012,
+    "last_updated": "2026-02-08T11:41:18.943Z",
+    "linkedin_url": "https://www.linkedin.com/in/whoyee/",
     "organizations": []
   },
   {
@@ -74477,6 +77006,36 @@
     "organizations": []
   },
   {
+    "login": "carlosgcampos",
+    "name": "Carlos Garcia Campos",
+    "avatar_url": "https://avatars.githubusercontent.com/u/5434964?u=f6a09c35383dd9edab9229e6865065f4360e4685&v=4",
+    "location": null,
+    "company": null,
+    "bio": "",
+    "followers": 13,
+    "total_contributions": 6044,
+    "years": {
+      "2013": 317,
+      "2014": 341,
+      "2015": 334,
+      "2016": 350,
+      "2017": 659,
+      "2018": 356,
+      "2019": 339,
+      "2020": 322,
+      "2021": 245,
+      "2022": 350,
+      "2023": 607,
+      "2024": 903,
+      "2025": 831,
+      "2026": 90
+    },
+    "first_year": 2013,
+    "last_updated": "2026-02-08T11:41:39.832Z",
+    "linkedin_url": null,
+    "organizations": []
+  },
+  {
     "login": "masenf",
     "name": "Masen Furer",
     "avatar_url": "https://avatars.githubusercontent.com/u/1524005?u=b77ec4aa35a645f1f25e84a76030dcc946e2de9a&v=4",
@@ -75485,6 +78044,39 @@
     "organizations": []
   },
   {
+    "login": "cch123",
+    "name": "Xargin",
+    "avatar_url": "https://avatars.githubusercontent.com/u/384546?u=b9f101045b6b9c0322ed6a41aad316c4f2ac5704&v=4",
+    "location": "Beijing, China, Singapore",
+    "company": null,
+    "bio": "Avatar generated by stable diffusion",
+    "followers": 4319,
+    "total_contributions": 5915,
+    "years": {
+      "2010": 15,
+      "2011": 0,
+      "2012": 0,
+      "2013": 0,
+      "2014": 5,
+      "2015": 20,
+      "2016": 288,
+      "2017": 1005,
+      "2018": 1801,
+      "2019": 1060,
+      "2020": 586,
+      "2021": 229,
+      "2022": 87,
+      "2023": 219,
+      "2024": 157,
+      "2025": 440,
+      "2026": 3
+    },
+    "first_year": 2010,
+    "last_updated": "2026-02-08T11:41:06.451Z",
+    "linkedin_url": null,
+    "organizations": []
+  },
+  {
     "login": "eindiran",
     "name": "Elliott Indiran",
     "avatar_url": "https://avatars.githubusercontent.com/u/10067154?u=d369722cac977bd115e94e58e29aab876b114149&v=4",
@@ -75566,6 +78158,46 @@
     "last_updated": "2026-02-08T02:40:39.645Z",
     "linkedin_url": null,
     "organizations": []
+  },
+  {
+    "login": "ckaiser",
+    "name": "Christian Kaiser",
+    "avatar_url": "https://avatars.githubusercontent.com/u/138269?u=fc2cdd9115abc20357db3b2316e7bfdf87be403a&v=4",
+    "location": "Argentina",
+    "company": null,
+    "bio": "",
+    "followers": 57,
+    "total_contributions": 5887,
+    "years": {
+      "2009": 1,
+      "2010": 0,
+      "2011": 58,
+      "2012": 21,
+      "2013": 3,
+      "2014": 6,
+      "2015": 320,
+      "2016": 2885,
+      "2017": 1618,
+      "2018": 296,
+      "2019": 160,
+      "2020": 194,
+      "2021": 10,
+      "2022": 10,
+      "2023": 5,
+      "2024": 135,
+      "2025": 158,
+      "2026": 7
+    },
+    "first_year": 2009,
+    "last_updated": "2026-02-08T11:36:52.721Z",
+    "linkedin_url": null,
+    "organizations": [
+      {
+        "name": "aseprite",
+        "avatar_url": "https://avatars.githubusercontent.com/u/3853896?v=4",
+        "login": "aseprite"
+      }
+    ]
   },
   {
     "login": "lologarithm",
@@ -76238,6 +78870,50 @@
     "organizations": []
   },
   {
+    "login": "briandealwis",
+    "name": "Brian de Alwis",
+    "avatar_url": "https://avatars.githubusercontent.com/u/202851?v=4",
+    "location": "Guelph, Canada",
+    "company": "@GoogleCloudPlatform",
+    "bio": "I help pack stuff in containers and then figure out how it all went wrong.",
+    "followers": 80,
+    "total_contributions": 5829,
+    "years": {
+      "2010": 26,
+      "2011": 71,
+      "2012": 200,
+      "2013": 21,
+      "2014": 95,
+      "2015": 65,
+      "2016": 721,
+      "2017": 879,
+      "2018": 825,
+      "2019": 761,
+      "2020": 861,
+      "2021": 1034,
+      "2022": 209,
+      "2023": 28,
+      "2024": 5,
+      "2025": 27,
+      "2026": 1
+    },
+    "first_year": 2010,
+    "last_updated": "2026-02-08T11:43:39.125Z",
+    "linkedin_url": null,
+    "organizations": [
+      {
+        "name": "GoogleCloudPlatform",
+        "avatar_url": "https://avatars.githubusercontent.com/u/2810941?v=4",
+        "login": "GoogleCloudPlatform"
+      },
+      {
+        "name": "GoogleContainerTools",
+        "avatar_url": "https://avatars.githubusercontent.com/u/38444003?v=4",
+        "login": "GoogleContainerTools"
+      }
+    ]
+  },
+  {
     "login": "cviebrock",
     "name": "Colin Viebrock",
     "avatar_url": "https://avatars.githubusercontent.com/u/166810?u=062a8715c7bae434a083163fd17f4d7e7a26ddb9&v=4",
@@ -76407,6 +79083,42 @@
         "name": "metacraft-labs",
         "avatar_url": "https://avatars.githubusercontent.com/u/35196499?v=4",
         "login": "metacraft-labs"
+      }
+    ]
+  },
+  {
+    "login": "coolbeevip",
+    "name": "Lei Zhang",
+    "avatar_url": "https://avatars.githubusercontent.com/u/4271525?u=48b8843a3feb1329aee385171363a3be85eb23e1&v=4",
+    "location": null,
+    "company": null,
+    "bio": "AI & Open Source Engineer | ASF PMC & Committer @ Apache ServiceComb",
+    "followers": 81,
+    "total_contributions": 5802,
+    "years": {
+      "2013": 2,
+      "2014": 0,
+      "2015": 0,
+      "2016": 1,
+      "2017": 1,
+      "2018": 38,
+      "2019": 809,
+      "2020": 196,
+      "2021": 932,
+      "2022": 747,
+      "2023": 660,
+      "2024": 641,
+      "2025": 1594,
+      "2026": 181
+    },
+    "first_year": 2013,
+    "last_updated": "2026-02-08T11:35:04.360Z",
+    "linkedin_url": "https://www.linkedin.com/in/lei-zhang-045981140",
+    "organizations": [
+      {
+        "name": "apache",
+        "avatar_url": "https://avatars.githubusercontent.com/u/47359?v=4",
+        "login": "apache"
       }
     ]
   },
@@ -76810,6 +79522,40 @@
         "name": "emqx",
         "avatar_url": "https://avatars.githubusercontent.com/u/25221711?v=4",
         "login": "emqx"
+      }
+    ]
+  },
+  {
+    "login": "Deali-Axy",
+    "name": "DealiAxy",
+    "avatar_url": "https://avatars.githubusercontent.com/u/11494144?u=2071411dbe28fc1173fa9efdf87b90ace2aef282&v=4",
+    "location": "Earth",
+    "company": "CodeInstitute",
+    "bio": "Full-stack dev focused on C#/Python/Go/TypeScript/Kotlin · Building AI tools & internal platforms ",
+    "followers": 204,
+    "total_contributions": 5748,
+    "years": {
+      "2015": 11,
+      "2016": 26,
+      "2017": 33,
+      "2018": 252,
+      "2019": 346,
+      "2020": 354,
+      "2021": 368,
+      "2022": 1501,
+      "2023": 525,
+      "2024": 329,
+      "2025": 1776,
+      "2026": 227
+    },
+    "first_year": 2015,
+    "last_updated": "2026-02-08T11:31:38.656Z",
+    "linkedin_url": null,
+    "organizations": [
+      {
+        "name": "cppstudio",
+        "avatar_url": "https://avatars.githubusercontent.com/u/50073611?v=4",
+        "login": "cppstudio"
       }
     ]
   },
@@ -78731,7 +81477,7 @@
       "2026": 13
     },
     "first_year": 2009,
-    "last_updated": "2026-02-07T17:18:35.711Z",
+    "last_updated": "2026-02-08T11:36:41.051Z",
     "linkedin_url": null,
     "organizations": [
       {
@@ -79197,6 +81943,37 @@
         "login": "tweakphp"
       }
     ]
+  },
+  {
+    "login": "danielschmitz",
+    "name": "Daniel Schmitz",
+    "avatar_url": "https://avatars.githubusercontent.com/u/1509692?v=4",
+    "location": "Juiz de Fora / Brazil",
+    "company": "UFJF",
+    "bio": "\r\n",
+    "followers": 501,
+    "total_contributions": 5484,
+    "years": {
+      "2012": 1,
+      "2013": 58,
+      "2014": 23,
+      "2015": 193,
+      "2016": 580,
+      "2017": 190,
+      "2018": 869,
+      "2019": 1545,
+      "2020": 432,
+      "2021": 267,
+      "2022": 291,
+      "2023": 383,
+      "2024": 331,
+      "2025": 285,
+      "2026": 36
+    },
+    "first_year": 2012,
+    "last_updated": "2026-02-08T11:32:33.048Z",
+    "linkedin_url": null,
+    "organizations": []
   },
   {
     "login": "leops",
@@ -81555,6 +84332,35 @@
     ]
   },
   {
+    "login": "ccwanggl",
+    "name": "Guoliang WANG",
+    "avatar_url": "https://avatars.githubusercontent.com/u/8803306?u=66fd420d872addc8d9e19ad3fccf273cf651536b&v=4",
+    "location": "changchun",
+    "company": "changli nano bioTech",
+    "bio": "",
+    "followers": 36,
+    "total_contributions": 5255,
+    "years": {
+      "2014": 1,
+      "2015": 0,
+      "2016": 2,
+      "2017": 6,
+      "2018": 16,
+      "2019": 35,
+      "2020": 133,
+      "2021": 1493,
+      "2022": 609,
+      "2023": 1355,
+      "2024": 1144,
+      "2025": 446,
+      "2026": 15
+    },
+    "first_year": 2014,
+    "last_updated": "2026-02-08T11:40:47.200Z",
+    "linkedin_url": null,
+    "organizations": []
+  },
+  {
     "login": "angiejones",
     "name": "Angie Jones",
     "avatar_url": "https://avatars.githubusercontent.com/u/15972783?v=4",
@@ -82041,6 +84847,38 @@
     ]
   },
   {
+    "login": "clly",
+    "name": "Connor",
+    "avatar_url": "https://avatars.githubusercontent.com/u/778297?v=4",
+    "location": null,
+    "company": null,
+    "bio": "",
+    "followers": 47,
+    "total_contributions": 5207,
+    "years": {
+      "2011": 1,
+      "2012": 24,
+      "2013": 36,
+      "2014": 13,
+      "2015": 16,
+      "2016": 21,
+      "2017": 68,
+      "2018": 31,
+      "2019": 54,
+      "2020": 63,
+      "2021": 1387,
+      "2022": 1738,
+      "2023": 1280,
+      "2024": 121,
+      "2025": 244,
+      "2026": 110
+    },
+    "first_year": 2011,
+    "last_updated": "2026-02-08T11:36:24.361Z",
+    "linkedin_url": null,
+    "organizations": []
+  },
+  {
     "login": "YuriSizov",
     "name": "Yuri Sizov",
     "avatar_url": "https://avatars.githubusercontent.com/u/11782833?u=9b611535dcce173382235e4a3e89bfed77129487&v=4",
@@ -82383,6 +85221,31 @@
         "login": "MetaParticle"
       }
     ]
+  },
+  {
+    "login": "Bubobubobubobubo",
+    "name": "Raphaël Forment",
+    "avatar_url": "https://avatars.githubusercontent.com/u/45191785?u=80ccc68039515f7d750f9b22681e2101f9d420cb&v=4",
+    "location": "Paris | Lyon | Toulouse",
+    "company": null,
+    "bio": "PhD, live-coder and developer.",
+    "followers": 127,
+    "total_contributions": 5174,
+    "years": {
+      "2018": 2,
+      "2019": 2,
+      "2020": 1,
+      "2021": 134,
+      "2022": 975,
+      "2023": 2394,
+      "2024": 389,
+      "2025": 1131,
+      "2026": 146
+    },
+    "first_year": 2018,
+    "last_updated": "2026-02-08T11:43:04.105Z",
+    "linkedin_url": null,
+    "organizations": []
   },
   {
     "login": "alangpierce",
@@ -83084,6 +85947,35 @@
     },
     "first_year": 2012,
     "last_updated": "2026-02-08T09:54:57.967Z",
+    "linkedin_url": null,
+    "organizations": []
+  },
+  {
+    "login": "cvgw",
+    "name": "Cole Wippern",
+    "avatar_url": "https://avatars.githubusercontent.com/u/6496969?u=3cc933beb792043988dcf077c5d640560d529b11&v=4",
+    "location": "SF",
+    "company": null,
+    "bio": null,
+    "followers": 23,
+    "total_contributions": 5080,
+    "years": {
+      "2014": 571,
+      "2015": 1100,
+      "2016": 616,
+      "2017": 653,
+      "2018": 1132,
+      "2019": 821,
+      "2020": 187,
+      "2021": 0,
+      "2022": 0,
+      "2023": 0,
+      "2024": 0,
+      "2025": 0,
+      "2026": 0
+    },
+    "first_year": 2014,
+    "last_updated": "2026-02-08T11:33:47.066Z",
     "linkedin_url": null,
     "organizations": []
   },
@@ -85667,6 +88559,54 @@
     "organizations": []
   },
   {
+    "login": "chenjiandongx",
+    "name": "dongdong",
+    "avatar_url": "https://avatars.githubusercontent.com/u/19553554?u=7d08b121f77915acf4533bd734548ac347d8a4f8&v=4",
+    "location": "China",
+    "company": null,
+    "bio": "🌈   =(◉ᴥ◉)= he/him ",
+    "followers": 2702,
+    "total_contributions": 4788,
+    "years": {
+      "2016": 1,
+      "2017": 914,
+      "2018": 813,
+      "2019": 907,
+      "2020": 507,
+      "2021": 255,
+      "2022": 151,
+      "2023": 154,
+      "2024": 611,
+      "2025": 475,
+      "2026": 0
+    },
+    "first_year": 2016,
+    "last_updated": "2026-02-08T11:39:05.087Z",
+    "linkedin_url": null,
+    "organizations": [
+      {
+        "name": "pyecharts",
+        "avatar_url": "https://avatars.githubusercontent.com/u/34701774?v=4",
+        "login": "pyecharts"
+      },
+      {
+        "name": "echarts-maps",
+        "avatar_url": "https://avatars.githubusercontent.com/u/36695455?v=4",
+        "login": "echarts-maps"
+      },
+      {
+        "name": "go-echarts",
+        "avatar_url": "https://avatars.githubusercontent.com/u/55340962?v=4",
+        "login": "go-echarts"
+      },
+      {
+        "name": "cutecharts",
+        "avatar_url": "https://avatars.githubusercontent.com/u/62844088?v=4",
+        "login": "cutecharts"
+      }
+    ]
+  },
+  {
     "login": "therustmonk",
     "name": "Denis Kolodin",
     "avatar_url": "https://avatars.githubusercontent.com/u/418920?u=2b722b917eb2643c396c606d52111f9813952081&v=4",
@@ -87984,6 +90924,44 @@
     "organizations": []
   },
   {
+    "login": "cybersaksham",
+    "name": "Saksham Bindal",
+    "avatar_url": "https://avatars.githubusercontent.com/u/77567538?u=f0251483cec6db6c8a513162267e4a246c687a12&v=4",
+    "location": "Bengaluru, KA",
+    "company": "Newton School",
+    "bio": "Software Developer at Newton School",
+    "followers": 34,
+    "total_contributions": 4571,
+    "years": {
+      "2021": 109,
+      "2022": 475,
+      "2023": 398,
+      "2024": 1421,
+      "2025": 2061,
+      "2026": 107
+    },
+    "first_year": 2021,
+    "last_updated": "2026-02-08T11:33:36.840Z",
+    "linkedin_url": "https://www.linkedin.com/in/cybersaksham",
+    "organizations": [
+      {
+        "name": "EpicGames",
+        "avatar_url": "https://avatars.githubusercontent.com/u/6615685?v=4",
+        "login": "EpicGames"
+      },
+      {
+        "name": "Penzoid",
+        "avatar_url": "https://avatars.githubusercontent.com/u/115728638?v=4",
+        "login": "Penzoid"
+      },
+      {
+        "name": "rollovermoney",
+        "avatar_url": "https://avatars.githubusercontent.com/u/124344200?v=4",
+        "login": "rollovermoney"
+      }
+    ]
+  },
+  {
     "login": "edwinjosechittilappilly",
     "name": "Edwin Jose",
     "avatar_url": "https://avatars.githubusercontent.com/u/15969583?u=649fa9cd047df6584b2ea905a5a1ebf994505043&v=4",
@@ -88209,6 +91187,29 @@
     },
     "first_year": 2015,
     "last_updated": "2026-02-07T22:33:27.537Z",
+    "linkedin_url": null,
+    "organizations": []
+  },
+  {
+    "login": "coding-parrot",
+    "name": "Gaurav Sen",
+    "avatar_url": "https://avatars.githubusercontent.com/u/59478396?u=d322b104313f23d16c8fdf2b6506bab0bf8192d4&v=4",
+    "location": "Mumbai, India",
+    "company": "InterviewReady",
+    "bio": "CEO of InterviewReady",
+    "followers": 2925,
+    "total_contributions": 4556,
+    "years": {
+      "2020": 28,
+      "2021": 406,
+      "2022": 1563,
+      "2023": 1083,
+      "2024": 974,
+      "2025": 422,
+      "2026": 80
+    },
+    "first_year": 2020,
+    "last_updated": "2026-02-08T11:35:38.586Z",
     "linkedin_url": null,
     "organizations": []
   },
@@ -88983,6 +91984,34 @@
     "organizations": []
   },
   {
+    "login": "chiphuyen",
+    "name": "Chip Huyen",
+    "avatar_url": "https://avatars.githubusercontent.com/u/11997567?u=53a5591a265a57dc2edc648ebdce277317101c14&v=4",
+    "location": "San Francisco",
+    "company": null,
+    "bio": "AI x stuff",
+    "followers": 21731,
+    "total_contributions": 4467,
+    "years": {
+      "2015": 1,
+      "2016": 141,
+      "2017": 345,
+      "2018": 236,
+      "2019": 300,
+      "2020": 646,
+      "2021": 331,
+      "2022": 483,
+      "2023": 470,
+      "2024": 177,
+      "2025": 872,
+      "2026": 465
+    },
+    "first_year": 2015,
+    "last_updated": "2026-02-08T11:38:20.260Z",
+    "linkedin_url": "https://www.linkedin.com/in/chiphuyen/",
+    "organizations": []
+  },
+  {
     "login": "gz65555",
     "name": "Hu Song",
     "avatar_url": "https://avatars.githubusercontent.com/u/6926263?u=dd2c9bf02031fd473da612011c664e85b2d33bcf&v=4",
@@ -89240,6 +92269,40 @@
     },
     "first_year": 2013,
     "last_updated": "2026-02-08T02:26:52.816Z",
+    "linkedin_url": null,
+    "organizations": []
+  },
+  {
+    "login": "cweider",
+    "name": "Chad Weider",
+    "avatar_url": "https://avatars.githubusercontent.com/u/45040?v=4",
+    "location": "San Francisco, CA",
+    "company": null,
+    "bio": "",
+    "followers": 34,
+    "total_contributions": 4451,
+    "years": {
+      "2009": 32,
+      "2010": 74,
+      "2011": 166,
+      "2012": 524,
+      "2013": 1,
+      "2014": 0,
+      "2015": 0,
+      "2016": 0,
+      "2017": 0,
+      "2018": 0,
+      "2019": 0,
+      "2020": 0,
+      "2021": 0,
+      "2022": 5,
+      "2023": 662,
+      "2024": 1160,
+      "2025": 1827,
+      "2026": 0
+    },
+    "first_year": 2009,
+    "last_updated": "2026-02-08T11:33:42.425Z",
     "linkedin_url": null,
     "organizations": []
   },
@@ -90863,6 +93926,39 @@
     ]
   },
   {
+    "login": "C4illin",
+    "name": "Emrik Östling",
+    "avatar_url": "https://avatars.githubusercontent.com/u/20753603?u=fa4667de4968e743c089b88b336de141346daf6e&v=4",
+    "location": "Gothenburg, Sweden",
+    "company": "Evinova",
+    "bio": "Programming when I find the time.",
+    "followers": 167,
+    "total_contributions": 4295,
+    "years": {
+      "2016": 1,
+      "2017": 50,
+      "2018": 81,
+      "2019": 12,
+      "2020": 308,
+      "2021": 374,
+      "2022": 312,
+      "2023": 722,
+      "2024": 1015,
+      "2025": 1345,
+      "2026": 75
+    },
+    "first_year": 2016,
+    "last_updated": "2026-02-08T11:42:40.524Z",
+    "linkedin_url": "https://www.linkedin.com/in/emrik/",
+    "organizations": [
+      {
+        "name": "gudchalmers",
+        "avatar_url": "https://avatars.githubusercontent.com/u/75036478?v=4",
+        "login": "gudchalmers"
+      }
+    ]
+  },
+  {
     "login": "ShalokShalom",
     "name": "ShalokShalom",
     "avatar_url": "https://avatars.githubusercontent.com/u/6344099?u=7cec3d9d15e4fad1d0d0f4c34f3598dc3fcbbc19&v=4",
@@ -91049,6 +94145,46 @@
         "name": "freeCodeCamp",
         "avatar_url": "https://avatars.githubusercontent.com/u/9892522?v=4",
         "login": "freeCodeCamp"
+      }
+    ]
+  },
+  {
+    "login": "codediodeio",
+    "name": "Jeff Delaney",
+    "avatar_url": "https://avatars.githubusercontent.com/u/10172199?u=da57a3907eedd829c3c48b16def4392666a722d2&v=4",
+    "location": "Phoenix, AZ",
+    "company": "Fireship LLC",
+    "bio": "GDE. Creator of @fireship-io",
+    "followers": 23031,
+    "total_contributions": 4280,
+    "years": {
+      "2014": 1,
+      "2015": 306,
+      "2016": 141,
+      "2017": 421,
+      "2018": 814,
+      "2019": 739,
+      "2020": 916,
+      "2021": 317,
+      "2022": 352,
+      "2023": 123,
+      "2024": 64,
+      "2025": 86,
+      "2026": 0
+    },
+    "first_year": 2014,
+    "last_updated": "2026-02-08T11:36:12.483Z",
+    "linkedin_url": null,
+    "organizations": [
+      {
+        "name": "AngularFirebase",
+        "avatar_url": "https://avatars.githubusercontent.com/u/32017647?v=4",
+        "login": "AngularFirebase"
+      },
+      {
+        "name": "fireship-io",
+        "avatar_url": "https://avatars.githubusercontent.com/u/46283609?v=4",
+        "login": "fireship-io"
       }
     ]
   },
@@ -92218,6 +95354,52 @@
     ]
   },
   {
+    "login": "davidmehren",
+    "name": "David Mehren",
+    "avatar_url": "https://avatars.githubusercontent.com/u/5023650?u=b4f8bb59611682a1359eee3ea094f6a5a50f1ffc&v=4",
+    "location": "Dortmund",
+    "company": "Rhein-Ruhr Systemtechnik",
+    "bio": "Computer Science @ TU Dortmund",
+    "followers": 57,
+    "total_contributions": 4157,
+    "years": {
+      "2013": 1,
+      "2014": 0,
+      "2015": 48,
+      "2016": 184,
+      "2017": 152,
+      "2018": 145,
+      "2019": 56,
+      "2020": 449,
+      "2021": 2114,
+      "2022": 529,
+      "2023": 301,
+      "2024": 82,
+      "2025": 91,
+      "2026": 5
+    },
+    "first_year": 2013,
+    "last_updated": "2026-02-08T11:32:02.022Z",
+    "linkedin_url": null,
+    "organizations": [
+      {
+        "name": "foss-ag",
+        "avatar_url": "https://avatars.githubusercontent.com/u/29146178?v=4",
+        "login": "foss-ag"
+      },
+      {
+        "name": "codimd",
+        "avatar_url": "https://avatars.githubusercontent.com/u/48181221?v=4",
+        "login": "codimd"
+      },
+      {
+        "name": "hedgedoc",
+        "avatar_url": "https://avatars.githubusercontent.com/u/67865462?v=4",
+        "login": "hedgedoc"
+      }
+    ]
+  },
+  {
     "login": "KiritoDv",
     "name": "Lywx",
     "avatar_url": "https://avatars.githubusercontent.com/u/36680385?u=ed6602e62a691b1affa488a43f55da8f177ddd58&v=4",
@@ -93269,6 +96451,48 @@
     "organizations": []
   },
   {
+    "login": "chipitsine",
+    "name": "Ilya Shipitsin",
+    "avatar_url": "https://avatars.githubusercontent.com/u/2217296?v=4",
+    "location": null,
+    "company": null,
+    "bio": "tox:7DABD06D229180D12281EE6F3252143CD5659F266BD77B4FA258AADCB0A6EC41A937C1D3835A",
+    "followers": 110,
+    "total_contributions": 4067,
+    "years": {
+      "2012": 32,
+      "2013": 14,
+      "2014": 3,
+      "2015": 31,
+      "2016": 331,
+      "2017": 270,
+      "2018": 598,
+      "2019": 410,
+      "2020": 454,
+      "2021": 377,
+      "2022": 292,
+      "2023": 294,
+      "2024": 509,
+      "2025": 384,
+      "2026": 68
+    },
+    "first_year": 2012,
+    "last_updated": "2026-02-08T11:38:16.369Z",
+    "linkedin_url": null,
+    "organizations": [
+      {
+        "name": "SoftEtherVPN",
+        "avatar_url": "https://avatars.githubusercontent.com/u/6303100?v=4",
+        "login": "SoftEtherVPN"
+      },
+      {
+        "name": "haproxy",
+        "avatar_url": "https://avatars.githubusercontent.com/u/38220289?v=4",
+        "login": "haproxy"
+      }
+    ]
+  },
+  {
     "login": "viarotel",
     "name": "viarotel",
     "avatar_url": "https://avatars.githubusercontent.com/u/38282758?u=4e54297a13acfb10a63d8082c6e7703e95cbeb06&v=4",
@@ -93922,6 +97146,61 @@
     "organizations": []
   },
   {
+    "login": "ceeram",
+    "name": "ceeram",
+    "avatar_url": "https://avatars.githubusercontent.com/u/111448?v=4",
+    "location": "Amsterdam, The Netherlands",
+    "company": null,
+    "bio": null,
+    "followers": 204,
+    "total_contributions": 4025,
+    "years": {
+      "2009": 52,
+      "2010": 115,
+      "2011": 259,
+      "2012": 735,
+      "2013": 324,
+      "2014": 250,
+      "2015": 474,
+      "2016": 343,
+      "2017": 698,
+      "2018": 419,
+      "2019": 198,
+      "2020": 116,
+      "2021": 39,
+      "2022": 0,
+      "2023": 2,
+      "2024": 0,
+      "2025": 1,
+      "2026": 0
+    },
+    "first_year": 2009,
+    "last_updated": "2026-02-08T11:40:24.198Z",
+    "linkedin_url": null,
+    "organizations": [
+      {
+        "name": "infinitas",
+        "avatar_url": "https://avatars.githubusercontent.com/u/171397?v=4",
+        "login": "infinitas"
+      },
+      {
+        "name": "Infinitas-Plugins",
+        "avatar_url": "https://avatars.githubusercontent.com/u/353070?v=4",
+        "login": "Infinitas-Plugins"
+      },
+      {
+        "name": "opauth",
+        "avatar_url": "https://avatars.githubusercontent.com/u/1791209?v=4",
+        "login": "opauth"
+      },
+      {
+        "name": "FriendsOfCake",
+        "avatar_url": "https://avatars.githubusercontent.com/u/5203126?v=4",
+        "login": "FriendsOfCake"
+      }
+    ]
+  },
+  {
     "login": "hackerb9",
     "name": "hackerb9",
     "avatar_url": "https://avatars.githubusercontent.com/u/10174223?u=d520f0ca7eaf857559e92456ad0faef28dd96363&v=4",
@@ -94312,6 +97591,52 @@
     ]
   },
   {
+    "login": "carpedm20",
+    "name": "Taehoon",
+    "avatar_url": "https://avatars.githubusercontent.com/u/3346407?u=066fee5dfe83dd1a0cce9da40a184f9aa3ef284e&v=4",
+    "location": "Seoul",
+    "company": null,
+    "bio": "ex @openai. a machine like human",
+    "followers": 9228,
+    "total_contributions": 3959,
+    "years": {
+      "2013": 147,
+      "2014": 1051,
+      "2015": 1173,
+      "2016": 671,
+      "2017": 418,
+      "2018": 198,
+      "2019": 129,
+      "2020": 50,
+      "2021": 3,
+      "2022": 27,
+      "2023": 18,
+      "2024": 35,
+      "2025": 32,
+      "2026": 7
+    },
+    "first_year": 2013,
+    "last_updated": "2026-02-08T11:41:28.159Z",
+    "linkedin_url": null,
+    "organizations": [
+      {
+        "name": "symbiote-ai",
+        "avatar_url": "https://avatars.githubusercontent.com/u/46788856?v=4",
+        "login": "symbiote-ai"
+      },
+      {
+        "name": "love-fury",
+        "avatar_url": "https://avatars.githubusercontent.com/u/152689795?v=4",
+        "login": "love-fury"
+      },
+      {
+        "name": "ai-compiler-study",
+        "avatar_url": "https://avatars.githubusercontent.com/u/161802289?v=4",
+        "login": "ai-compiler-study"
+      }
+    ]
+  },
+  {
     "login": "cwebber",
     "name": "Christine Lemmer-Webber",
     "avatar_url": "https://avatars.githubusercontent.com/u/55698?u=fd6a6ce1045699c88fb2a0adbbe21116fec51ea8&v=4",
@@ -94382,6 +97707,32 @@
     },
     "first_year": 2014,
     "last_updated": "2026-02-08T11:22:17.237Z",
+    "linkedin_url": null,
+    "organizations": []
+  },
+  {
+    "login": "cristianrdu",
+    "name": "Cristian",
+    "avatar_url": "https://avatars.githubusercontent.com/u/34180169?u=1d93316466a2c23bef4e1213e13546e6b11f873f&v=4",
+    "location": null,
+    "company": null,
+    "bio": "eng @anaralabs ",
+    "followers": 11,
+    "total_contributions": 3951,
+    "years": {
+      "2017": 1,
+      "2018": 0,
+      "2019": 165,
+      "2020": 151,
+      "2021": 105,
+      "2022": 258,
+      "2023": 996,
+      "2024": 646,
+      "2025": 1477,
+      "2026": 152
+    },
+    "first_year": 2017,
+    "last_updated": "2026-02-08T11:34:20.082Z",
     "linkedin_url": null,
     "organizations": []
   },
@@ -94462,6 +97813,45 @@
     ]
   },
   {
+    "login": "CaselIT",
+    "name": "Federico Caselli",
+    "avatar_url": "https://avatars.githubusercontent.com/u/16175304?u=d7c57b1f0c84857590eb70002a5ecaf156ccc11d&v=4",
+    "location": "Italy",
+    "company": null,
+    "bio": null,
+    "followers": 74,
+    "total_contributions": 3946,
+    "years": {
+      "2015": 13,
+      "2016": 232,
+      "2017": 92,
+      "2018": 99,
+      "2019": 106,
+      "2020": 486,
+      "2021": 936,
+      "2022": 398,
+      "2023": 575,
+      "2024": 582,
+      "2025": 405,
+      "2026": 22
+    },
+    "first_year": 2015,
+    "last_updated": "2026-02-08T11:41:23.449Z",
+    "linkedin_url": null,
+    "organizations": [
+      {
+        "name": "sqlalchemy",
+        "avatar_url": "https://avatars.githubusercontent.com/u/6043126?v=4",
+        "login": "sqlalchemy"
+      },
+      {
+        "name": "falconry",
+        "avatar_url": "https://avatars.githubusercontent.com/u/11353642?v=4",
+        "login": "falconry"
+      }
+    ]
+  },
+  {
     "login": "LemonBoy",
     "name": "LemonBoy",
     "avatar_url": "https://avatars.githubusercontent.com/u/77388?u=4749bbeb2b6d7e7c5350b01c19b33a204dcb194b&v=4",
@@ -94528,6 +97918,38 @@
     },
     "first_year": 2013,
     "last_updated": "2026-02-08T09:47:43.602Z",
+    "linkedin_url": null,
+    "organizations": []
+  },
+  {
+    "login": "cypressious",
+    "name": "Kirill Rakhman",
+    "avatar_url": "https://avatars.githubusercontent.com/u/1191816?u=2d18314072e045e4f5cb0d509356c0c28daaa9b9&v=4",
+    "location": "Karlsruhe, Germany",
+    "company": "JetBrains",
+    "bio": "",
+    "followers": 131,
+    "total_contributions": 3941,
+    "years": {
+      "2011": 1,
+      "2012": 0,
+      "2013": 15,
+      "2014": 37,
+      "2015": 179,
+      "2016": 383,
+      "2017": 308,
+      "2018": 153,
+      "2019": 123,
+      "2020": 140,
+      "2021": 78,
+      "2022": 55,
+      "2023": 503,
+      "2024": 676,
+      "2025": 1289,
+      "2026": 1
+    },
+    "first_year": 2011,
+    "last_updated": "2026-02-08T11:33:29.980Z",
     "linkedin_url": null,
     "organizations": []
   },
@@ -95453,6 +98875,32 @@
     "organizations": []
   },
   {
+    "login": "dadav",
+    "name": "Daniel",
+    "avatar_url": "https://avatars.githubusercontent.com/u/33197631?u=cc24e37647a9e484ebfb66fb78f327633679a744&v=4",
+    "location": null,
+    "company": null,
+    "bio": "",
+    "followers": 86,
+    "total_contributions": 3861,
+    "years": {
+      "2017": 114,
+      "2018": 224,
+      "2019": 396,
+      "2020": 387,
+      "2021": 196,
+      "2022": 605,
+      "2023": 754,
+      "2024": 570,
+      "2025": 270,
+      "2026": 345
+    },
+    "first_year": 2017,
+    "last_updated": "2026-02-08T11:33:13.370Z",
+    "linkedin_url": null,
+    "organizations": []
+  },
+  {
     "login": "dmah42",
     "name": "dominic",
     "avatar_url": "https://avatars.githubusercontent.com/u/510002?u=d05a5c7d58639f979a06f459631e1696576bcf2a&v=4",
@@ -95701,6 +99149,52 @@
     "last_updated": "2026-02-08T01:40:46.640Z",
     "linkedin_url": null,
     "organizations": []
+  },
+  {
+    "login": "crosleyzack",
+    "name": "Zack Crosley",
+    "avatar_url": "https://avatars.githubusercontent.com/u/4088903?u=474fb982701512bdb838447c5ccaa717b2b59d1e&v=4",
+    "location": null,
+    "company": "@chainguard-dev",
+    "bio": "1x Engineer",
+    "followers": 42,
+    "total_contributions": 3829,
+    "years": {
+      "2013": 1,
+      "2014": 0,
+      "2015": 0,
+      "2016": 1,
+      "2017": 4,
+      "2018": 9,
+      "2019": 32,
+      "2020": 1,
+      "2021": 82,
+      "2022": 110,
+      "2023": 486,
+      "2024": 999,
+      "2025": 1863,
+      "2026": 241
+    },
+    "first_year": 2013,
+    "last_updated": "2026-02-08T11:34:17.495Z",
+    "linkedin_url": "https://www.linkedin.com/in/crosleyzack/",
+    "organizations": [
+      {
+        "name": "chainguard-dev",
+        "avatar_url": "https://avatars.githubusercontent.com/u/87436699?v=4",
+        "login": "chainguard-dev"
+      },
+      {
+        "name": "wolfi-dev",
+        "avatar_url": "https://avatars.githubusercontent.com/u/112963370?v=4",
+        "login": "wolfi-dev"
+      },
+      {
+        "name": "chainguard-images",
+        "avatar_url": "https://avatars.githubusercontent.com/u/113198545?v=4",
+        "login": "chainguard-images"
+      }
+    ]
   },
   {
     "login": "ianyh",
@@ -96349,6 +99843,38 @@
     "organizations": []
   },
   {
+    "login": "clayzermk1",
+    "name": "Clay Walker",
+    "avatar_url": "https://avatars.githubusercontent.com/u/1075015?v=4",
+    "location": "San Francisco Bay Area, California, USA",
+    "company": "NVIDIA",
+    "bio": "Software engineer by day, asleep at night.",
+    "followers": 17,
+    "total_contributions": 3763,
+    "years": {
+      "2011": 6,
+      "2012": 12,
+      "2013": 54,
+      "2014": 142,
+      "2015": 53,
+      "2016": 126,
+      "2017": 1265,
+      "2018": 663,
+      "2019": 698,
+      "2020": 590,
+      "2021": 132,
+      "2022": 16,
+      "2023": 0,
+      "2024": 6,
+      "2025": 0,
+      "2026": 0
+    },
+    "first_year": 2011,
+    "last_updated": "2026-02-08T11:36:34.907Z",
+    "linkedin_url": null,
+    "organizations": []
+  },
+  {
     "login": "CyC2018",
     "name": "CyC2018",
     "avatar_url": "https://avatars.githubusercontent.com/u/36260787?u=70a8c2cbcaeb2f7dbcf84c1c40eea8c87a6d9bc3&v=4",
@@ -96613,6 +100139,60 @@
     "last_updated": "2026-02-08T10:29:25.590Z",
     "linkedin_url": null,
     "organizations": []
+  },
+  {
+    "login": "codeyu",
+    "name": "codeYu",
+    "avatar_url": "https://avatars.githubusercontent.com/u/230674?v=4",
+    "location": "Japan",
+    "company": null,
+    "bio": "write idiomatic code",
+    "followers": 182,
+    "total_contributions": 3748,
+    "years": {
+      "2010": 1,
+      "2011": 6,
+      "2012": 5,
+      "2013": 4,
+      "2014": 11,
+      "2015": 27,
+      "2016": 453,
+      "2017": 762,
+      "2018": 411,
+      "2019": 393,
+      "2020": 312,
+      "2021": 135,
+      "2022": 106,
+      "2023": 79,
+      "2024": 304,
+      "2025": 728,
+      "2026": 11
+    },
+    "first_year": 2010,
+    "last_updated": "2026-02-08T11:35:41.354Z",
+    "linkedin_url": null,
+    "organizations": [
+      {
+        "name": "b3log",
+        "avatar_url": "https://avatars.githubusercontent.com/u/1627618?v=4",
+        "login": "b3log"
+      },
+      {
+        "name": "cn",
+        "avatar_url": "https://avatars.githubusercontent.com/u/7347958?v=4",
+        "login": "cn"
+      },
+      {
+        "name": "holiday-jp",
+        "avatar_url": "https://avatars.githubusercontent.com/u/22077026?v=4",
+        "login": "holiday-jp"
+      },
+      {
+        "name": "fileuploaddemo",
+        "avatar_url": "https://avatars.githubusercontent.com/u/27621418?v=4",
+        "login": "fileuploaddemo"
+      }
+    ]
   },
   {
     "login": "mcarton",
@@ -96904,6 +100484,44 @@
         "name": "apache",
         "avatar_url": "https://avatars.githubusercontent.com/u/47359?v=4",
         "login": "apache"
+      }
+    ]
+  },
+  {
+    "login": "brgnepal",
+    "name": "Budh Ram Gurung (BRG)",
+    "avatar_url": "https://avatars.githubusercontent.com/u/1132451?u=1eb429e0146fd05a59e5756e4d14ec7eb08dd660&v=4",
+    "location": "Gorkha, Nepal",
+    "company": "Self-employed",
+    "bio": "Open Source Advocate, Software Developer, IT Career Coach and Entrepreneur",
+    "followers": 103,
+    "total_contributions": 3719,
+    "years": {
+      "2011": 1,
+      "2012": 0,
+      "2013": 0,
+      "2014": 147,
+      "2015": 209,
+      "2016": 418,
+      "2017": 810,
+      "2018": 470,
+      "2019": 244,
+      "2020": 824,
+      "2021": 397,
+      "2022": 52,
+      "2023": 113,
+      "2024": 32,
+      "2025": 2,
+      "2026": 0
+    },
+    "first_year": 2011,
+    "last_updated": "2026-02-08T11:43:42.762Z",
+    "linkedin_url": "https://linkedin.com/in/brgnepal",
+    "organizations": [
+      {
+        "name": "ettindia",
+        "avatar_url": "https://avatars.githubusercontent.com/u/43768886?v=4",
+        "login": "ettindia"
       }
     ]
   },
@@ -99407,6 +103025,33 @@
     "organizations": []
   },
   {
+    "login": "bxb100",
+    "name": "Lemon",
+    "avatar_url": "https://avatars.githubusercontent.com/u/20685961?u=82155673a044030ec831487e43f36d07c76dff03&v=4",
+    "location": null,
+    "company": null,
+    "bio": "Looking for a backend job",
+    "followers": 52,
+    "total_contributions": 3500,
+    "years": {
+      "2016": 4,
+      "2017": 65,
+      "2018": 5,
+      "2019": 4,
+      "2020": 46,
+      "2021": 388,
+      "2022": 1274,
+      "2023": 447,
+      "2024": 719,
+      "2025": 429,
+      "2026": 119
+    },
+    "first_year": 2016,
+    "last_updated": "2026-02-08T11:42:51.041Z",
+    "linkedin_url": null,
+    "organizations": []
+  },
+  {
     "login": "martabal",
     "name": "martin",
     "avatar_url": "https://avatars.githubusercontent.com/u/74269598?u=6c3a68e998c3bd5ae4638197b5010a76b8d3c619&v=4",
@@ -101151,6 +104796,31 @@
     "organizations": []
   },
   {
+    "login": "brianpopow",
+    "name": "Brian Popow",
+    "avatar_url": "https://avatars.githubusercontent.com/u/38701097?u=d8fda5596a6a29778551052bbf2baa0ffabb7fb1&v=4",
+    "location": "Berlin Germany",
+    "company": null,
+    "bio": "Maintainer of ImageSharp,\r\nMember of @SixLabors",
+    "followers": 22,
+    "total_contributions": 3349,
+    "years": {
+      "2018": 128,
+      "2019": 262,
+      "2020": 572,
+      "2021": 1714,
+      "2022": 496,
+      "2023": 108,
+      "2024": 36,
+      "2025": 26,
+      "2026": 7
+    },
+    "first_year": 2018,
+    "last_updated": "2026-02-08T11:43:33.990Z",
+    "linkedin_url": null,
+    "organizations": []
+  },
+  {
     "login": "jeremeamia",
     "name": "Jeremy Lindblom",
     "avatar_url": "https://avatars.githubusercontent.com/u/107867?u=bfc226537631ab946e10d851a572a9d1fcfda39a&v=4",
@@ -101602,6 +105272,52 @@
     ]
   },
   {
+    "login": "chesstrian",
+    "name": "Christian Gutierrez",
+    "avatar_url": "https://avatars.githubusercontent.com/u/3923412?u=8ea9bea6cfb5e6c64dc81be65ac2a9aaf23c5d47&v=4",
+    "location": "New York, USA",
+    "company": "Avanan, a Check Point Company",
+    "bio": "Technology enthusiast, Software Engineer at @Avanan, a @CheckPointSW Company. 🛩️ From 🇨🇴 in 🗽.",
+    "followers": 42,
+    "total_contributions": 3308,
+    "years": {
+      "2013": 150,
+      "2014": 76,
+      "2015": 41,
+      "2016": 64,
+      "2017": 299,
+      "2018": 3,
+      "2019": 282,
+      "2020": 476,
+      "2021": 740,
+      "2022": 729,
+      "2023": 338,
+      "2024": 59,
+      "2025": 49,
+      "2026": 2
+    },
+    "first_year": 2013,
+    "last_updated": "2026-02-08T11:38:50.371Z",
+    "linkedin_url": null,
+    "organizations": [
+      {
+        "name": "unosmartmobility",
+        "avatar_url": "https://avatars.githubusercontent.com/u/68786548?v=4",
+        "login": "unosmartmobility"
+      },
+      {
+        "name": "ricksanchezlabs",
+        "avatar_url": "https://avatars.githubusercontent.com/u/129972510?v=4",
+        "login": "ricksanchezlabs"
+      },
+      {
+        "name": "camiloARData",
+        "avatar_url": "https://avatars.githubusercontent.com/u/145047678?v=4",
+        "login": "camiloARData"
+      }
+    ]
+  },
+  {
     "login": "mgramin",
     "name": "Maksim Gramin",
     "avatar_url": "https://avatars.githubusercontent.com/u/487470?u=7cd1d819c0fb1887d130e297926eac9b3980bec0&v=4",
@@ -101752,6 +105468,38 @@
     "first_year": 2020,
     "last_updated": "2026-02-08T00:54:17.403Z",
     "linkedin_url": "www.linkedin.com/in/dev-igor-carvalho",
+    "organizations": []
+  },
+  {
+    "login": "caronc",
+    "name": "Chris Caron",
+    "avatar_url": "https://avatars.githubusercontent.com/u/850374?u=34fb1e493c2b27b73566f89c0db67ed7d3a5cf42&v=4",
+    "location": "Ottawa, Ontario, Canada",
+    "company": null,
+    "bio": "If it ain't broke, then I haven't tried to fix it yet.",
+    "followers": 304,
+    "total_contributions": 3299,
+    "years": {
+      "2011": 1,
+      "2012": 0,
+      "2013": 7,
+      "2014": 356,
+      "2015": 227,
+      "2016": 219,
+      "2017": 312,
+      "2018": 163,
+      "2019": 414,
+      "2020": 333,
+      "2021": 191,
+      "2022": 214,
+      "2023": 260,
+      "2024": 263,
+      "2025": 217,
+      "2026": 122
+    },
+    "first_year": 2011,
+    "last_updated": "2026-02-08T11:41:30.719Z",
+    "linkedin_url": null,
     "organizations": []
   },
   {
@@ -102052,6 +105800,36 @@
         "login": "codeRIT"
       }
     ]
+  },
+  {
+    "login": "deanvanniekerk",
+    "name": "Dean van Niekerk",
+    "avatar_url": "https://avatars.githubusercontent.com/u/3798908?u=229cc46e5d54376d36ceb966ac3c2d58307b01a1&v=4",
+    "location": "Port Elizabeth, South Africa",
+    "company": "Monax",
+    "bio": "Software Engineer at Monax",
+    "followers": 6,
+    "total_contributions": 3271,
+    "years": {
+      "2013": 1,
+      "2014": 0,
+      "2015": 14,
+      "2016": 35,
+      "2017": 28,
+      "2018": 360,
+      "2019": 357,
+      "2020": 443,
+      "2021": 84,
+      "2022": 3,
+      "2023": 9,
+      "2024": 305,
+      "2025": 1433,
+      "2026": 199
+    },
+    "first_year": 2013,
+    "last_updated": "2026-02-08T11:31:36.560Z",
+    "linkedin_url": null,
+    "organizations": []
   },
   {
     "login": "Schahen",
@@ -102358,6 +106136,30 @@
     ]
   },
   {
+    "login": "clement-bonnet",
+    "name": "Clément Bonnet",
+    "avatar_url": "https://avatars.githubusercontent.com/u/56230714?u=d47abd659d073aa9d2a539ede7531724dce96dc4&v=4",
+    "location": "Paris, France",
+    "company": null,
+    "bio": "",
+    "followers": 60,
+    "total_contributions": 3232,
+    "years": {
+      "2019": 1,
+      "2020": 189,
+      "2021": 190,
+      "2022": 238,
+      "2023": 758,
+      "2024": 646,
+      "2025": 1208,
+      "2026": 2
+    },
+    "first_year": 2019,
+    "last_updated": "2026-02-08T11:36:27.535Z",
+    "linkedin_url": "https://www.linkedin.com/in/clement-bonnet16/",
+    "organizations": []
+  },
+  {
     "login": "mrxiaozhuox",
     "name": "YuKun Liu",
     "avatar_url": "https://avatars.githubusercontent.com/u/41265098?u=78149d4d07cf42b858a958bc53fb36ad7d5711d7&v=4",
@@ -102661,6 +106463,55 @@
         "name": "plutomonkey",
         "avatar_url": "https://avatars.githubusercontent.com/u/19979102?v=4",
         "login": "plutomonkey"
+      }
+    ]
+  },
+  {
+    "login": "cheeseandcereal",
+    "name": "Adam",
+    "avatar_url": "https://avatars.githubusercontent.com/u/11189778?u=444d63980a78b871c36e9f7392541f96d2343aaf&v=4",
+    "location": "Washington, United States",
+    "company": "@aws ",
+    "bio": "Back-end software engineer.\r\n\r\nSpecializations in large systems, cloud services, and kubernetes, with interests in cryptography and devops.",
+    "followers": 90,
+    "total_contributions": 3210,
+    "years": {
+      "2015": 5,
+      "2016": 2,
+      "2017": 10,
+      "2018": 613,
+      "2019": 1609,
+      "2020": 556,
+      "2021": 82,
+      "2022": 16,
+      "2023": 22,
+      "2024": 72,
+      "2025": 222,
+      "2026": 1
+    },
+    "first_year": 2015,
+    "last_updated": "2026-02-08T11:39:19.139Z",
+    "linkedin_url": null,
+    "organizations": [
+      {
+        "name": "aws",
+        "avatar_url": "https://avatars.githubusercontent.com/u/2232217?v=4",
+        "login": "aws"
+      },
+      {
+        "name": "aws-cloudformation",
+        "avatar_url": "https://avatars.githubusercontent.com/u/19900777?v=4",
+        "login": "aws-cloudformation"
+      },
+      {
+        "name": "TeamBattleNet",
+        "avatar_url": "https://avatars.githubusercontent.com/u/59788088?v=4",
+        "login": "TeamBattleNet"
+      },
+      {
+        "name": "eksctl-io",
+        "avatar_url": "https://avatars.githubusercontent.com/u/126004790?v=4",
+        "login": "eksctl-io"
       }
     ]
   },
@@ -102994,6 +106845,29 @@
         "login": "Kernel-SU"
       }
     ]
+  },
+  {
+    "login": "codeofandrin",
+    "name": "Andrin Schaller",
+    "avatar_url": "https://avatars.githubusercontent.com/u/65789180?u=71d512cb6c423d494c92bb7de0baebe2d2b90e39&v=4",
+    "location": "Switzerland",
+    "company": null,
+    "bio": "CS Student at HSLU",
+    "followers": 8,
+    "total_contributions": 3190,
+    "years": {
+      "2020": 1,
+      "2021": 440,
+      "2022": 670,
+      "2023": 450,
+      "2024": 953,
+      "2025": 672,
+      "2026": 4
+    },
+    "first_year": 2020,
+    "last_updated": "2026-02-08T11:35:54.666Z",
+    "linkedin_url": null,
+    "organizations": []
   },
   {
     "login": "bashonly",
@@ -104261,6 +108135,29 @@
     ]
   },
   {
+    "login": "CW-B-W",
+    "name": "Chiao-Wei Wang",
+    "avatar_url": "https://avatars.githubusercontent.com/u/76680670?u=040864af08e44662738e5828ebc5f08dfc86d559&v=4",
+    "location": null,
+    "company": null,
+    "bio": "",
+    "followers": 10,
+    "total_contributions": 3057,
+    "years": {
+      "2020": 15,
+      "2021": 785,
+      "2022": 1034,
+      "2023": 670,
+      "2024": 476,
+      "2025": 76,
+      "2026": 1
+    },
+    "first_year": 2020,
+    "last_updated": "2026-02-08T11:33:44.029Z",
+    "linkedin_url": null,
+    "organizations": []
+  },
+  {
     "login": "Alek99",
     "name": "Alek Petuskey",
     "avatar_url": "https://avatars.githubusercontent.com/u/38776361?u=bd6c163fe787c2de1a26c881598e54b67e2482dd&v=4",
@@ -104377,6 +108274,33 @@
         "login": "0Hz"
       }
     ]
+  },
+  {
+    "login": "ChayimFriedman2",
+    "name": "Chayim Refael Friedman",
+    "avatar_url": "https://avatars.githubusercontent.com/u/24700207?v=4",
+    "location": "Israel",
+    "company": null,
+    "bio": "",
+    "followers": 33,
+    "total_contributions": 3051,
+    "years": {
+      "2016": 1,
+      "2017": 0,
+      "2018": 0,
+      "2019": 95,
+      "2020": 205,
+      "2021": 134,
+      "2022": 267,
+      "2023": 49,
+      "2024": 412,
+      "2025": 1761,
+      "2026": 127
+    },
+    "first_year": 2016,
+    "last_updated": "2026-02-08T11:39:24.258Z",
+    "linkedin_url": null,
+    "organizations": []
   },
   {
     "login": "enochkan",
@@ -104827,6 +108751,36 @@
     },
     "first_year": 2016,
     "last_updated": "2026-02-07T23:50:14.060Z",
+    "linkedin_url": null,
+    "organizations": []
+  },
+  {
+    "login": "carnager",
+    "name": "Rasmus Steinke",
+    "avatar_url": "https://avatars.githubusercontent.com/u/3321178?u=7336284242f51d6242f6feb68152868245a68b93&v=4",
+    "location": "Germany",
+    "company": null,
+    "bio": null,
+    "followers": 60,
+    "total_contributions": 3016,
+    "years": {
+      "2013": 132,
+      "2014": 757,
+      "2015": 977,
+      "2016": 387,
+      "2017": 460,
+      "2018": 118,
+      "2019": 13,
+      "2020": 12,
+      "2021": 4,
+      "2022": 8,
+      "2023": 49,
+      "2024": 21,
+      "2025": 78,
+      "2026": 0
+    },
+    "first_year": 2013,
+    "last_updated": "2026-02-08T11:41:32.562Z",
     "linkedin_url": null,
     "organizations": []
   },
@@ -105297,6 +109251,31 @@
     "organizations": []
   },
   {
+    "login": "Daliseiy",
+    "name": "Daliseiy",
+    "avatar_url": "https://avatars.githubusercontent.com/u/44264075?u=0411f1fd4ff2eac1d188b2f4c978e727c831d2df&v=4",
+    "location": "Nigeria",
+    "company": "@huddlesportsapp ",
+    "bio": "Software Engineer| Youtuber(codeDIY)",
+    "followers": 37,
+    "total_contributions": 2950,
+    "years": {
+      "2018": 1,
+      "2019": 3,
+      "2020": 134,
+      "2021": 118,
+      "2022": 421,
+      "2023": 209,
+      "2024": 770,
+      "2025": 1249,
+      "2026": 45
+    },
+    "first_year": 2018,
+    "last_updated": "2026-02-08T11:33:11.060Z",
+    "linkedin_url": "https://www.linkedin.com/in/obakunleoluseye/",
+    "organizations": []
+  },
+  {
     "login": "fizker",
     "name": "Benjamin Horsleben",
     "avatar_url": "https://avatars.githubusercontent.com/u/736545?u=177370d272e307410d106e42f45176368078ea79&v=4",
@@ -105525,6 +109504,76 @@
         "name": "twbs",
         "avatar_url": "https://avatars.githubusercontent.com/u/2918581?v=4",
         "login": "twbs"
+      }
+    ]
+  },
+  {
+    "login": "danilowhk",
+    "name": "danilowhk",
+    "avatar_url": "https://avatars.githubusercontent.com/u/12735159?u=2383bac7310297676a66b3505bf0385e81248c2e&v=4",
+    "location": null,
+    "company": null,
+    "bio": "Contributor at:\r\n\r\nKakarot, Beerus and TAZ",
+    "followers": 83,
+    "total_contributions": 2933,
+    "years": {
+      "2015": 1,
+      "2016": 0,
+      "2017": 0,
+      "2018": 0,
+      "2019": 0,
+      "2020": 0,
+      "2021": 12,
+      "2022": 1259,
+      "2023": 740,
+      "2024": 236,
+      "2025": 402,
+      "2026": 283
+    },
+    "first_year": 2015,
+    "last_updated": "2026-02-08T11:32:22.296Z",
+    "linkedin_url": null,
+    "organizations": [
+      {
+        "name": "Livus-AI",
+        "avatar_url": "https://avatars.githubusercontent.com/u/170647285?v=4",
+        "login": "Livus-AI"
+      }
+    ]
+  },
+  {
+    "login": "clearbluejar",
+    "name": "clearbluejar",
+    "avatar_url": "https://avatars.githubusercontent.com/u/3752074?u=57fdfa6824f49f372f51425f1c27eee770bbe87e&v=4",
+    "location": null,
+    "company": "@clearseclabs ",
+    "bio": "",
+    "followers": 186,
+    "total_contributions": 2932,
+    "years": {
+      "2013": 1,
+      "2014": 0,
+      "2015": 0,
+      "2016": 0,
+      "2017": 0,
+      "2018": 0,
+      "2019": 0,
+      "2020": 2,
+      "2021": 30,
+      "2022": 608,
+      "2023": 1155,
+      "2024": 537,
+      "2025": 550,
+      "2026": 49
+    },
+    "first_year": 2013,
+    "last_updated": "2026-02-08T11:36:32.283Z",
+    "linkedin_url": null,
+    "organizations": [
+      {
+        "name": "cve-north-stars",
+        "avatar_url": "https://avatars.githubusercontent.com/u/111145466?v=4",
+        "login": "cve-north-stars"
       }
     ]
   },
@@ -107388,6 +111437,40 @@
     ]
   },
   {
+    "login": "CarlosLecval",
+    "name": "Carlos N. Lecona Valdespino",
+    "avatar_url": "https://avatars.githubusercontent.com/u/61945879?u=d3e4132a78cb9efa6d49765075304e44d23771c9&v=4",
+    "location": "Ciudad de México",
+    "company": "Capital One",
+    "bio": "SWE",
+    "followers": 30,
+    "total_contributions": 2822,
+    "years": {
+      "2020": 24,
+      "2021": 278,
+      "2022": 539,
+      "2023": 1285,
+      "2024": 491,
+      "2025": 205,
+      "2026": 0
+    },
+    "first_year": 2020,
+    "last_updated": "2026-02-08T11:41:34.591Z",
+    "linkedin_url": "https://www.linkedin.com/in/carlos-lecona-966492245/",
+    "organizations": [
+      {
+        "name": "Panteras-Coding",
+        "avatar_url": "https://avatars.githubusercontent.com/u/63756401?v=4",
+        "login": "Panteras-Coding"
+      },
+      {
+        "name": "TofuDotTech",
+        "avatar_url": "https://avatars.githubusercontent.com/u/111480173?v=4",
+        "login": "TofuDotTech"
+      }
+    ]
+  },
+  {
     "login": "Bouncey",
     "name": "Stuart Taylor",
     "avatar_url": "https://avatars.githubusercontent.com/u/18572518?u=b839be0e1e0d4f65fb06151b63c8d179f951e181&v=4",
@@ -107949,6 +112032,38 @@
         "login": "ultimaille"
       }
     ]
+  },
+  {
+    "login": "colriot",
+    "name": "Sergey Ryabov",
+    "avatar_url": "https://avatars.githubusercontent.com/u/944361?u=fe33c9cc854f22d2eb85d409a5adfc79257722b6&v=4",
+    "location": "London, UK",
+    "company": "@facebook",
+    "bio": "",
+    "followers": 80,
+    "total_contributions": 2769,
+    "years": {
+      "2011": 1,
+      "2012": 33,
+      "2013": 11,
+      "2014": 12,
+      "2015": 51,
+      "2016": 3,
+      "2017": 28,
+      "2018": 223,
+      "2019": 183,
+      "2020": 204,
+      "2021": 72,
+      "2022": 9,
+      "2023": 57,
+      "2024": 477,
+      "2025": 1216,
+      "2026": 189
+    },
+    "first_year": 2011,
+    "last_updated": "2026-02-08T11:35:20.773Z",
+    "linkedin_url": null,
+    "organizations": []
   },
   {
     "login": "Meakk",
@@ -110394,6 +114509,33 @@
     "organizations": []
   },
   {
+    "login": "cipher-shad0w",
+    "name": "Cipher Shad0w",
+    "avatar_url": "https://avatars.githubusercontent.com/u/107557730?u=5e87d7f8b4e07a9346dedf0eda6da4be8d3f7e5b&v=4",
+    "location": "Germany",
+    "company": null,
+    "bio": "",
+    "followers": 7,
+    "total_contributions": 2603,
+    "years": {
+      "2022": 1,
+      "2023": 100,
+      "2024": 365,
+      "2025": 1774,
+      "2026": 363
+    },
+    "first_year": 2022,
+    "last_updated": "2026-02-08T11:37:13.915Z",
+    "linkedin_url": null,
+    "organizations": [
+      {
+        "name": "JAM-Solutionss",
+        "avatar_url": "https://avatars.githubusercontent.com/u/177039368?v=4",
+        "login": "JAM-Solutionss"
+      }
+    ]
+  },
+  {
     "login": "citkane",
     "name": "Michael Jonker",
     "avatar_url": "https://avatars.githubusercontent.com/u/998947?v=4",
@@ -112016,6 +116158,37 @@
     "organizations": []
   },
   {
+    "login": "cparadis6191",
+    "name": "Chad Paradis",
+    "avatar_url": "https://avatars.githubusercontent.com/u/1832252?u=0198ca35eb5636374022c3e17e3611e7cc866df1&v=4",
+    "location": null,
+    "company": null,
+    "bio": "",
+    "followers": 3,
+    "total_contributions": 2502,
+    "years": {
+      "2012": 260,
+      "2013": 265,
+      "2014": 86,
+      "2015": 350,
+      "2016": 43,
+      "2017": 48,
+      "2018": 91,
+      "2019": 51,
+      "2020": 278,
+      "2021": 140,
+      "2022": 142,
+      "2023": 208,
+      "2024": 85,
+      "2025": 440,
+      "2026": 15
+    },
+    "first_year": 2012,
+    "last_updated": "2026-02-08T11:34:37.660Z",
+    "linkedin_url": null,
+    "organizations": []
+  },
+  {
     "login": "prife",
     "name": "prife",
     "avatar_url": "https://avatars.githubusercontent.com/u/1572684?v=4",
@@ -112570,6 +116743,30 @@
     ]
   },
   {
+    "login": "brsbl",
+    "name": "brsbl",
+    "avatar_url": "https://avatars.githubusercontent.com/u/57682038?u=af280732ff94a84419a0d53b0fd0f1376da1acec&v=4",
+    "location": null,
+    "company": null,
+    "bio": "",
+    "followers": 2,
+    "total_contributions": 2453,
+    "years": {
+      "2019": 16,
+      "2020": 274,
+      "2021": 76,
+      "2022": 23,
+      "2023": 14,
+      "2024": 1,
+      "2025": 1488,
+      "2026": 561
+    },
+    "first_year": 2019,
+    "last_updated": "2026-02-08T11:43:30.831Z",
+    "linkedin_url": null,
+    "organizations": []
+  },
+  {
     "login": "danieldaeschle",
     "name": "Daniel Däschle",
     "avatar_url": "https://avatars.githubusercontent.com/u/30751516?u=49cfadc3e7513e96f7934c77f914a26d235f3be8&v=4",
@@ -112624,6 +116821,29 @@
     },
     "first_year": 2017,
     "last_updated": "2026-02-08T01:08:48.633Z",
+    "linkedin_url": null,
+    "organizations": []
+  },
+  {
+    "login": "charankamarapu",
+    "name": "Charan Kamarapu",
+    "avatar_url": "https://avatars.githubusercontent.com/u/72094895?u=5e9e47df13ab07f63a097ca953184c85b50ef241&v=4",
+    "location": "Banglore, India",
+    "company": "PDPM IIITDM Jabalpur",
+    "bio": "while (!succeed) : try()",
+    "followers": 32,
+    "total_contributions": 2446,
+    "years": {
+      "2020": 1,
+      "2021": 240,
+      "2022": 0,
+      "2023": 257,
+      "2024": 771,
+      "2025": 1039,
+      "2026": 138
+    },
+    "first_year": 2020,
+    "last_updated": "2026-02-08T11:39:52.622Z",
     "linkedin_url": null,
     "organizations": []
   },
@@ -114419,6 +118639,32 @@
     "organizations": []
   },
   {
+    "login": "dawdle-deer",
+    "name": "Hazel Kennedy",
+    "avatar_url": "https://avatars.githubusercontent.com/u/29020074?u=75a10a4154f3d386e5823d163b92df5e83c9e4ef&v=4",
+    "location": null,
+    "company": null,
+    "bio": "Software Developer, Technical Artist for Games",
+    "followers": 75,
+    "total_contributions": 2338,
+    "years": {
+      "2017": 18,
+      "2018": 6,
+      "2019": 0,
+      "2020": 0,
+      "2021": 238,
+      "2022": 1152,
+      "2023": 299,
+      "2024": 330,
+      "2025": 294,
+      "2026": 1
+    },
+    "first_year": 2017,
+    "last_updated": "2026-02-08T11:31:53.648Z",
+    "linkedin_url": null,
+    "organizations": []
+  },
+  {
     "login": "vais",
     "name": "Vais Salikhov",
     "avatar_url": "https://avatars.githubusercontent.com/u/77592?u=4250f9fd2531ce1476d52e62a5880219d69c12ba&v=4",
@@ -114478,6 +118724,39 @@
     "first_year": 2015,
     "last_updated": "2026-02-08T09:51:06.239Z",
     "linkedin_url": null,
+    "organizations": []
+  },
+  {
+    "login": "chenshuo",
+    "name": "Shuo Chen",
+    "avatar_url": "https://avatars.githubusercontent.com/u/231074?v=4",
+    "location": "California",
+    "company": "Google",
+    "bio": "",
+    "followers": 10838,
+    "total_contributions": 2325,
+    "years": {
+      "2010": 170,
+      "2011": 183,
+      "2012": 349,
+      "2013": 155,
+      "2014": 279,
+      "2015": 61,
+      "2016": 197,
+      "2017": 102,
+      "2018": 68,
+      "2019": 68,
+      "2020": 110,
+      "2021": 85,
+      "2022": 63,
+      "2023": 144,
+      "2024": 180,
+      "2025": 110,
+      "2026": 1
+    },
+    "first_year": 2010,
+    "last_updated": "2026-02-08T11:38:55.075Z",
+    "linkedin_url": "linkedin.com/in/shuochen/",
     "organizations": []
   },
   {
@@ -115172,6 +119451,44 @@
     "last_updated": "2026-02-08T03:13:25.107Z",
     "linkedin_url": null,
     "organizations": []
+  },
+  {
+    "login": "cebarks",
+    "name": "Anten Skrabec",
+    "avatar_url": "https://avatars.githubusercontent.com/u/551065?u=6d97a57abaabf4bb99a12ac800d00c06e3d7b7b0&v=4",
+    "location": "Denver, Colorado, USA",
+    "company": "@RedHatOfficial",
+    "bio": "Red Hat Product Security Engineer | Hobby Game Developer | All around Nerd",
+    "followers": 42,
+    "total_contributions": 2276,
+    "years": {
+      "2011": 1,
+      "2012": 0,
+      "2013": 41,
+      "2014": 103,
+      "2015": 60,
+      "2016": 2,
+      "2017": 16,
+      "2018": 548,
+      "2019": 493,
+      "2020": 156,
+      "2021": 291,
+      "2022": 74,
+      "2023": 75,
+      "2024": 129,
+      "2025": 241,
+      "2026": 46
+    },
+    "first_year": 2011,
+    "last_updated": "2026-02-08T11:40:26.501Z",
+    "linkedin_url": "https://www.linkedin.com/in/cebarks/",
+    "organizations": [
+      {
+        "name": "the-sanctuary",
+        "avatar_url": "https://avatars.githubusercontent.com/u/71995991?v=4",
+        "login": "the-sanctuary"
+      }
+    ]
   },
   {
     "login": "EdwardoSunny",
@@ -116024,6 +120341,38 @@
     ]
   },
   {
+    "login": "codealchemist",
+    "name": "Alberto Miranda",
+    "avatar_url": "https://avatars.githubusercontent.com/u/1118293?u=675d8349cfd4b9d98216dbc21e8b777c741b7785&v=4",
+    "location": null,
+    "company": null,
+    "bio": "",
+    "followers": 84,
+    "total_contributions": 2220,
+    "years": {
+      "2011": 3,
+      "2012": 21,
+      "2013": 39,
+      "2014": 55,
+      "2015": 34,
+      "2016": 503,
+      "2017": 549,
+      "2018": 287,
+      "2019": 134,
+      "2020": 205,
+      "2021": 126,
+      "2022": 33,
+      "2023": 152,
+      "2024": 22,
+      "2025": 35,
+      "2026": 22
+    },
+    "first_year": 2011,
+    "last_updated": "2026-02-08T11:36:16.371Z",
+    "linkedin_url": null,
+    "organizations": []
+  },
+  {
     "login": "ilmat192",
     "name": "Ilya Matveev",
     "avatar_url": "https://avatars.githubusercontent.com/u/7298542?u=eac353deb70d64d75b1d7aea59debb458db1bc6e&v=4",
@@ -116508,6 +120857,44 @@
         "name": "falconry",
         "avatar_url": "https://avatars.githubusercontent.com/u/11353642?v=4",
         "login": "falconry"
+      }
+    ]
+  },
+  {
+    "login": "brendangregg",
+    "name": "Brendan Gregg",
+    "avatar_url": "https://avatars.githubusercontent.com/u/1101211?u=fdc065e959dc60cddaf2db45ec6595a48a9e38a3&v=4",
+    "location": "Sydney, Australia",
+    "company": "Intel",
+    "bio": "Cloud computing performance engineer.",
+    "followers": 8611,
+    "total_contributions": 2179,
+    "years": {
+      "2011": 15,
+      "2012": 10,
+      "2013": 31,
+      "2014": 277,
+      "2015": 269,
+      "2016": 357,
+      "2017": 266,
+      "2018": 471,
+      "2019": 386,
+      "2020": 38,
+      "2021": 14,
+      "2022": 8,
+      "2023": 16,
+      "2024": 20,
+      "2025": 1,
+      "2026": 0
+    },
+    "first_year": 2011,
+    "last_updated": "2026-02-08T11:44:02.263Z",
+    "linkedin_url": null,
+    "organizations": [
+      {
+        "name": "iovisor",
+        "avatar_url": "https://avatars.githubusercontent.com/u/12766186?v=4",
+        "login": "iovisor"
       }
     ]
   },
@@ -118164,6 +122551,32 @@
     "organizations": []
   },
   {
+    "login": "CyberSecurityUP",
+    "name": "Joas A Santos",
+    "avatar_url": "https://avatars.githubusercontent.com/u/34966120?u=04e7f5ad1944b8b42fe2037be089253b89822be0&v=4",
+    "location": "Brasil",
+    "company": null,
+    "bio": "Academic and Professional experience in Cyber Security / Red Team Lead / Information Security Researcher.",
+    "followers": 4971,
+    "total_contributions": 2092,
+    "years": {
+      "2017": 6,
+      "2018": 23,
+      "2019": 58,
+      "2020": 110,
+      "2021": 240,
+      "2022": 232,
+      "2023": 229,
+      "2024": 400,
+      "2025": 734,
+      "2026": 60
+    },
+    "first_year": 2017,
+    "last_updated": "2026-02-08T11:33:33.903Z",
+    "linkedin_url": "https://www.linkedin.com/in/joas-antonio-dos-santos",
+    "organizations": []
+  },
+  {
     "login": "daemyung",
     "name": "Daemyung Jang",
     "avatar_url": "https://avatars.githubusercontent.com/u/7459074?u=ea1bb04fbc27303530c1ac347acbff6f67005bc1&v=4",
@@ -118507,6 +122920,36 @@
         "login": "inngest"
       }
     ]
+  },
+  {
+    "login": "dangarfield",
+    "name": "Dan Garfield",
+    "avatar_url": "https://avatars.githubusercontent.com/u/4086513?u=c2a06a7277d70943d720c659f5307362bf580b7c&v=4",
+    "location": null,
+    "company": null,
+    "bio": "Principal Architect at TUI Group.\r\nI love innovation, family and coding.",
+    "followers": 18,
+    "total_contributions": 2065,
+    "years": {
+      "2013": 2,
+      "2014": 0,
+      "2015": 0,
+      "2016": 31,
+      "2017": 10,
+      "2018": 74,
+      "2019": 317,
+      "2020": 600,
+      "2021": 375,
+      "2022": 362,
+      "2023": 53,
+      "2024": 196,
+      "2025": 29,
+      "2026": 16
+    },
+    "first_year": 2013,
+    "last_updated": "2026-02-08T11:32:54.654Z",
+    "linkedin_url": null,
+    "organizations": []
   },
   {
     "login": "abcfy2",
@@ -119916,6 +124359,38 @@
     "organizations": []
   },
   {
+    "login": "chr1st1ank",
+    "name": "Christian Krudewig",
+    "avatar_url": "https://avatars.githubusercontent.com/u/1138025?u=8a454a163ad50ba3a2983fc08a635732d9a88eee&v=4",
+    "location": "Bonn, Germany",
+    "company": null,
+    "bio": "IoT for fun, ML for a living, bricks & mortar for the familiy. Usually you find me building something.",
+    "followers": 17,
+    "total_contributions": 1987,
+    "years": {
+      "2011": 13,
+      "2012": 3,
+      "2013": 0,
+      "2014": 0,
+      "2015": 0,
+      "2016": 0,
+      "2017": 0,
+      "2018": 26,
+      "2019": 169,
+      "2020": 255,
+      "2021": 389,
+      "2022": 697,
+      "2023": 168,
+      "2024": 80,
+      "2025": 175,
+      "2026": 12
+    },
+    "first_year": 2011,
+    "last_updated": "2026-02-08T11:37:57.132Z",
+    "linkedin_url": null,
+    "organizations": []
+  },
+  {
     "login": "agroszer",
     "name": "Adam Groszer",
     "avatar_url": "https://avatars.githubusercontent.com/u/350912?v=4",
@@ -120178,6 +124653,47 @@
         "name": "tiny-ui",
         "avatar_url": "https://avatars.githubusercontent.com/u/89208247?v=4",
         "login": "tiny-ui"
+      }
+    ]
+  },
+  {
+    "login": "counterleft",
+    "name": "Brian Mathiyakom",
+    "avatar_url": "https://avatars.githubusercontent.com/u/4782?u=b1a028b0fa7e7a4f7fe4f2bf82c5d675bb761410&v=4",
+    "location": null,
+    "company": null,
+    "bio": "meow.",
+    "followers": 34,
+    "total_contributions": 1973,
+    "years": {
+      "2008": 1,
+      "2009": 56,
+      "2010": 55,
+      "2011": 67,
+      "2012": 36,
+      "2013": 159,
+      "2014": 102,
+      "2015": 168,
+      "2016": 151,
+      "2017": 28,
+      "2018": 48,
+      "2019": 157,
+      "2020": 50,
+      "2021": 45,
+      "2022": 85,
+      "2023": 338,
+      "2024": 131,
+      "2025": 291,
+      "2026": 5
+    },
+    "first_year": 2008,
+    "last_updated": "2026-02-08T11:34:48.902Z",
+    "linkedin_url": null,
+    "organizations": [
+      {
+        "name": "unitedstates",
+        "avatar_url": "https://avatars.githubusercontent.com/u/2200203?v=4",
+        "login": "unitedstates"
       }
     ]
   },
@@ -121300,6 +125816,32 @@
         "login": "GoogleChrome"
       }
     ]
+  },
+  {
+    "login": "chebyrash",
+    "name": "Petr",
+    "avatar_url": "https://avatars.githubusercontent.com/u/26906365?u=b9c5220e1a20bb02cb89fa5d2fe0c66589728c7a&v=4",
+    "location": null,
+    "company": null,
+    "bio": "",
+    "followers": 78,
+    "total_contributions": 1916,
+    "years": {
+      "2017": 18,
+      "2018": 178,
+      "2019": 289,
+      "2020": 124,
+      "2021": 188,
+      "2022": 46,
+      "2023": 54,
+      "2024": 479,
+      "2025": 331,
+      "2026": 209
+    },
+    "first_year": 2017,
+    "last_updated": "2026-02-08T11:39:20.843Z",
+    "linkedin_url": null,
+    "organizations": []
   },
   {
     "login": "dmedov",
@@ -122723,6 +127265,39 @@
     ]
   },
   {
+    "login": "charsyam",
+    "name": "charsyam",
+    "avatar_url": "https://avatars.githubusercontent.com/u/439301?u=014397f72479cc4dd58a2ea87dd3e34321052130&v=4",
+    "location": null,
+    "company": null,
+    "bio": null,
+    "followers": 302,
+    "total_contributions": 1831,
+    "years": {
+      "2010": 1,
+      "2011": 10,
+      "2012": 114,
+      "2013": 249,
+      "2014": 94,
+      "2015": 176,
+      "2016": 133,
+      "2017": 130,
+      "2018": 180,
+      "2019": 102,
+      "2020": 119,
+      "2021": 336,
+      "2022": 20,
+      "2023": 22,
+      "2024": 61,
+      "2025": 84,
+      "2026": 0
+    },
+    "first_year": 2010,
+    "last_updated": "2026-02-08T11:39:28.171Z",
+    "linkedin_url": null,
+    "organizations": []
+  },
+  {
     "login": "vankop",
     "name": "Ivan Kopeykin",
     "avatar_url": "https://avatars.githubusercontent.com/u/10380560?u=6db6fef660c63a6d74d6168e4c7c7b05fa398d28&v=4",
@@ -123252,6 +127827,36 @@
     ]
   },
   {
+    "login": "danillewin",
+    "name": "Danya",
+    "avatar_url": "https://avatars.githubusercontent.com/u/6246972?u=d26abb0f2f638c750b7da1ca715a6b1fc9a34122&v=4",
+    "location": "Yerevan",
+    "company": null,
+    "bio": "@Raiffeisen, ex-Yandex, ex-X5tech",
+    "followers": 11,
+    "total_contributions": 1799,
+    "years": {
+      "2013": 1,
+      "2014": 9,
+      "2015": 198,
+      "2016": 0,
+      "2017": 39,
+      "2018": 26,
+      "2019": 20,
+      "2020": 216,
+      "2021": 455,
+      "2022": 139,
+      "2023": 518,
+      "2024": 175,
+      "2025": 3,
+      "2026": 0
+    },
+    "first_year": 2013,
+    "last_updated": "2026-02-08T11:32:27.693Z",
+    "linkedin_url": null,
+    "organizations": []
+  },
+  {
     "login": "zhongfly",
     "name": "zhongfly",
     "avatar_url": "https://avatars.githubusercontent.com/u/11155705?u=8e0bd22057041cd48113634a90caf218354664fa&v=4",
@@ -123658,6 +128263,35 @@
         "login": "falconry"
       }
     ]
+  },
+  {
+    "login": "Chikanz",
+    "name": "Zac Lucarelli",
+    "avatar_url": "https://avatars.githubusercontent.com/u/9968865?u=c369a85504db806d7e5be202cf4c418341a53898&v=4",
+    "location": "Melbourne, Australia",
+    "company": null,
+    "bio": "🦆🍕",
+    "followers": 27,
+    "total_contributions": 1780,
+    "years": {
+      "2014": 1,
+      "2015": 49,
+      "2016": 97,
+      "2017": 112,
+      "2018": 201,
+      "2019": 153,
+      "2020": 196,
+      "2021": 136,
+      "2022": 107,
+      "2023": 216,
+      "2024": 224,
+      "2025": 287,
+      "2026": 1
+    },
+    "first_year": 2014,
+    "last_updated": "2026-02-08T11:38:36.030Z",
+    "linkedin_url": null,
+    "organizations": []
   },
   {
     "login": "CrazyHZM",
@@ -124073,6 +128707,44 @@
     "last_updated": "2026-02-08T11:21:08.837Z",
     "linkedin_url": null,
     "organizations": []
+  },
+  {
+    "login": "ButchersBoy",
+    "name": "James Willock",
+    "avatar_url": "https://avatars.githubusercontent.com/u/658107?u=c69acd3fdb526e8d088a19f6834033678d958744&v=4",
+    "location": "London",
+    "company": "Mulholland Software Ltd",
+    "bio": "Project owner & contributor to some of the biggest WPF projects, forWindows Development MVP.  On the web front  I enjoy ASP, Node, React etc.  @james_willock\r\nm",
+    "followers": 656,
+    "total_contributions": 1748,
+    "years": {
+      "2011": 1,
+      "2012": 0,
+      "2013": 0,
+      "2014": 85,
+      "2015": 708,
+      "2016": 656,
+      "2017": 242,
+      "2018": 19,
+      "2019": 5,
+      "2020": 1,
+      "2021": 1,
+      "2022": 4,
+      "2023": 1,
+      "2024": 2,
+      "2025": 23,
+      "2026": 0
+    },
+    "first_year": 2011,
+    "last_updated": "2026-02-08T11:43:01.852Z",
+    "linkedin_url": null,
+    "organizations": [
+      {
+        "name": "codejar",
+        "avatar_url": "https://avatars.githubusercontent.com/u/10974012?v=4",
+        "login": "codejar"
+      }
+    ]
   },
   {
     "login": "petioptrv",
@@ -124537,6 +129209,34 @@
     "last_updated": "2026-02-08T10:07:26.767Z",
     "linkedin_url": null,
     "organizations": []
+  },
+  {
+    "login": "cmwilson21",
+    "name": "cmwilson21",
+    "avatar_url": "https://avatars.githubusercontent.com/u/77312589?u=a7c93563b3af47b3d393c323b2ff8b0f4da714af&v=4",
+    "location": null,
+    "company": null,
+    "bio": "React || Redux || NextJS || Rails",
+    "followers": 669,
+    "total_contributions": 1735,
+    "years": {
+      "2021": 421,
+      "2022": 665,
+      "2023": 502,
+      "2024": 122,
+      "2025": 23,
+      "2026": 2
+    },
+    "first_year": 2021,
+    "last_updated": "2026-02-08T11:36:20.879Z",
+    "linkedin_url": null,
+    "organizations": [
+      {
+        "name": "wolfi-dev",
+        "avatar_url": "https://avatars.githubusercontent.com/u/112963370?v=4",
+        "login": "wolfi-dev"
+      }
+    ]
   },
   {
     "login": "mattpannella",
@@ -125850,6 +130550,73 @@
     ]
   },
   {
+    "login": "dansysanalyst",
+    "name": "Dan",
+    "avatar_url": "https://avatars.githubusercontent.com/u/79267265?u=2978df3cee7f2b1994052df1603a119f882399dd&v=4",
+    "location": null,
+    "company": null,
+    "bio": "",
+    "followers": 76,
+    "total_contributions": 1652,
+    "years": {
+      "2021": 498,
+      "2022": 565,
+      "2023": 199,
+      "2024": 315,
+      "2025": 75,
+      "2026": 0
+    },
+    "first_year": 2021,
+    "last_updated": "2026-02-08T11:32:08.678Z",
+    "linkedin_url": null,
+    "organizations": [
+      {
+        "name": "beerandcodeteam",
+        "avatar_url": "https://avatars.githubusercontent.com/u/69223337?v=4",
+        "login": "beerandcodeteam"
+      },
+      {
+        "name": "Power-Components",
+        "avatar_url": "https://avatars.githubusercontent.com/u/82120973?v=4",
+        "login": "Power-Components"
+      },
+      {
+        "name": "laradumps",
+        "avatar_url": "https://avatars.githubusercontent.com/u/99480620?v=4",
+        "login": "laradumps"
+      }
+    ]
+  },
+  {
+    "login": "Clarence-pan",
+    "name": "牧毅",
+    "avatar_url": "https://avatars.githubusercontent.com/u/8750132?u=cce4a530a6563540812fad2f077b9314f39eb652&v=4",
+    "location": null,
+    "company": null,
+    "bio": "....",
+    "followers": 52,
+    "total_contributions": 1652,
+    "years": {
+      "2014": 43,
+      "2015": 116,
+      "2016": 294,
+      "2017": 815,
+      "2018": 158,
+      "2019": 36,
+      "2020": 74,
+      "2021": 4,
+      "2022": 77,
+      "2023": 14,
+      "2024": 0,
+      "2025": 17,
+      "2026": 4
+    },
+    "first_year": 2014,
+    "last_updated": "2026-02-08T11:36:43.219Z",
+    "linkedin_url": null,
+    "organizations": []
+  },
+  {
     "login": "akim-bow",
     "name": "Akim",
     "avatar_url": "https://avatars.githubusercontent.com/u/59872966?u=98649d6f43781336c1994fe6dd67a8f824919a0b&v=4",
@@ -125918,6 +130685,37 @@
         "login": "in100gramm"
       }
     ]
+  },
+  {
+    "login": "danielimmke",
+    "name": "Daniel Immke",
+    "avatar_url": "https://avatars.githubusercontent.com/u/1744366?u=1346a35d80daffb6e22a4570a7dc020a9260667f&v=4",
+    "location": "Atlanta, GA",
+    "company": null,
+    "bio": "",
+    "followers": 47,
+    "total_contributions": 1650,
+    "years": {
+      "2012": 1,
+      "2013": 0,
+      "2014": 0,
+      "2015": 25,
+      "2016": 0,
+      "2017": 11,
+      "2018": 15,
+      "2019": 132,
+      "2020": 308,
+      "2021": 400,
+      "2022": 79,
+      "2023": 381,
+      "2024": 267,
+      "2025": 23,
+      "2026": 8
+    },
+    "first_year": 2012,
+    "last_updated": "2026-02-08T11:32:35.300Z",
+    "linkedin_url": null,
+    "organizations": []
   },
   {
     "login": "guillaumecledat",
@@ -127753,6 +132551,28 @@
     "organizations": []
   },
   {
+    "login": "Coooolfan",
+    "name": "Coooolfan",
+    "avatar_url": "https://avatars.githubusercontent.com/u/78391548?u=bacabb72222fdd94dbc7094ffca8ee9acb5165d2&v=4",
+    "location": "Shanghai",
+    "company": null,
+    "bio": "Coding! ",
+    "followers": 17,
+    "total_contributions": 1556,
+    "years": {
+      "2021": 17,
+      "2022": 1,
+      "2023": 104,
+      "2024": 421,
+      "2025": 860,
+      "2026": 153
+    },
+    "first_year": 2021,
+    "last_updated": "2026-02-08T11:35:00.535Z",
+    "linkedin_url": null,
+    "organizations": []
+  },
+  {
     "login": "emmanouil",
     "name": "emmanouil",
     "avatar_url": "https://avatars.githubusercontent.com/u/3530737?u=f2ba351cc4e71586376f6ad53618dc423bddfc21&v=4",
@@ -128238,6 +133058,34 @@
     "last_updated": "2026-02-08T01:45:12.018Z",
     "linkedin_url": null,
     "organizations": []
+  },
+  {
+    "login": "braydonk",
+    "name": "Braydon Kains",
+    "avatar_url": "https://avatars.githubusercontent.com/u/93549768?u=2c9f75598cea131911513a67a989b6b373f2734d&v=4",
+    "location": null,
+    "company": "Google",
+    "bio": "Working for Google Cloud on observability tools. Creator and maintainer of yamlfmt.",
+    "followers": 35,
+    "total_contributions": 1529,
+    "years": {
+      "2021": 16,
+      "2022": 274,
+      "2023": 340,
+      "2024": 313,
+      "2025": 545,
+      "2026": 41
+    },
+    "first_year": 2021,
+    "last_updated": "2026-02-08T11:44:04.730Z",
+    "linkedin_url": null,
+    "organizations": [
+      {
+        "name": "googlers",
+        "avatar_url": "https://avatars.githubusercontent.com/u/49722973?v=4",
+        "login": "googlers"
+      }
+    ]
   },
   {
     "login": "dmitrii-khizbullin",
@@ -129416,6 +134264,36 @@
     "organizations": []
   },
   {
+    "login": "coderbirju",
+    "name": "Arjun",
+    "avatar_url": "https://avatars.githubusercontent.com/u/47769978?u=e823567f5946475027d166412a2021094dff84aa&v=4",
+    "location": "Seattle, USA",
+    "company": "AWS",
+    "bio": "SDE - Container Runtime\r\n",
+    "followers": 3,
+    "total_contributions": 1477,
+    "years": {
+      "2019": 2,
+      "2020": 18,
+      "2021": 2,
+      "2022": 355,
+      "2023": 326,
+      "2024": 304,
+      "2025": 423,
+      "2026": 47
+    },
+    "first_year": 2019,
+    "last_updated": "2026-02-08T11:35:52.925Z",
+    "linkedin_url": null,
+    "organizations": [
+      {
+        "name": "Org-Arjun-Raja-002964082",
+        "avatar_url": "https://avatars.githubusercontent.com/u/114449812?v=4",
+        "login": "Org-Arjun-Raja-002964082"
+      }
+    ]
+  },
+  {
     "login": "megian",
     "name": "Megian",
     "avatar_url": "https://avatars.githubusercontent.com/u/3739758?u=5b9632f3fc63f8022f854caddfda4139cfee2503&v=4",
@@ -129547,6 +134425,44 @@
     "last_updated": "2026-02-07T23:17:18.468Z",
     "linkedin_url": "https://linkedin.com/in/rohtan",
     "organizations": []
+  },
+  {
+    "login": "cobalamin",
+    "name": "Simon Welker",
+    "avatar_url": "https://avatars.githubusercontent.com/u/669103?u=d3c64e8d7503c1c22e181d6e14a49c39123582a3&v=4",
+    "location": "Hamburg",
+    "company": "CFEL & University of Hamburg @sp-uhh",
+    "bio": "Doctoral candidate in CS for Signal and Image Processing, Bioinformatics MSc, Computing in Science BSc, professional software dev",
+    "followers": 71,
+    "total_contributions": 1470,
+    "years": {
+      "2011": 11,
+      "2012": 0,
+      "2013": 0,
+      "2014": 166,
+      "2015": 68,
+      "2016": 100,
+      "2017": 210,
+      "2018": 380,
+      "2019": 193,
+      "2020": 103,
+      "2021": 13,
+      "2022": 46,
+      "2023": 32,
+      "2024": 78,
+      "2025": 70,
+      "2026": 0
+    },
+    "first_year": 2011,
+    "last_updated": "2026-02-08T11:36:18.726Z",
+    "linkedin_url": null,
+    "organizations": [
+      {
+        "name": "sp-uhh",
+        "avatar_url": "https://avatars.githubusercontent.com/u/56726747?v=4",
+        "login": "sp-uhh"
+      }
+    ]
   },
   {
     "login": "ozonelmy",
@@ -130590,6 +135506,35 @@
     "organizations": []
   },
   {
+    "login": "C-BJ",
+    "name": "Cai Bingjun",
+    "avatar_url": "https://avatars.githubusercontent.com/u/62678643?u=17e8487a98c5a2bcc57bc0ad54410d55e66b8a36&v=4",
+    "location": "Xiamen, China",
+    "company": null,
+    "bio": "Programmer (game engine, programming language) / Game Developer",
+    "followers": 46,
+    "total_contributions": 1422,
+    "years": {
+      "2020": 1,
+      "2021": 0,
+      "2022": 769,
+      "2023": 545,
+      "2024": 72,
+      "2025": 34,
+      "2026": 1
+    },
+    "first_year": 2020,
+    "last_updated": "2026-02-08T11:42:42.090Z",
+    "linkedin_url": null,
+    "organizations": [
+      {
+        "name": "erg-lang",
+        "avatar_url": "https://avatars.githubusercontent.com/u/48616212?v=4",
+        "login": "erg-lang"
+      }
+    ]
+  },
+  {
     "login": "skywind3000",
     "name": "Linwei",
     "avatar_url": "https://avatars.githubusercontent.com/u/3035071?u=082cfef5e6dbd57bf6ee4c481e163d103014a1f3&v=4",
@@ -131370,6 +136315,56 @@
     "last_updated": "2026-02-08T10:28:54.565Z",
     "linkedin_url": null,
     "organizations": []
+  },
+  {
+    "login": "ccoenen",
+    "name": "Claudius Coenen",
+    "avatar_url": "https://avatars.githubusercontent.com/u/124909?v=4",
+    "location": "Germany",
+    "company": "Hochschule Darmstadt",
+    "bio": "",
+    "followers": 93,
+    "total_contributions": 1385,
+    "years": {
+      "2009": 2,
+      "2010": 3,
+      "2011": 7,
+      "2012": 42,
+      "2013": 87,
+      "2014": 143,
+      "2015": 124,
+      "2016": 68,
+      "2017": 106,
+      "2018": 150,
+      "2019": 239,
+      "2020": 140,
+      "2021": 81,
+      "2022": 73,
+      "2023": 54,
+      "2024": 34,
+      "2025": 25,
+      "2026": 7
+    },
+    "first_year": 2009,
+    "last_updated": "2026-02-08T11:40:50.374Z",
+    "linkedin_url": null,
+    "organizations": [
+      {
+        "name": "meso-unimpressed",
+        "avatar_url": "https://avatars.githubusercontent.com/u/571170?v=4",
+        "login": "meso-unimpressed"
+      },
+      {
+        "name": "cccmzwi",
+        "avatar_url": "https://avatars.githubusercontent.com/u/1140428?v=4",
+        "login": "cccmzwi"
+      },
+      {
+        "name": "codimd",
+        "avatar_url": "https://avatars.githubusercontent.com/u/48181221?v=4",
+        "login": "codimd"
+      }
+    ]
   },
   {
     "login": "staeff",
@@ -132573,6 +137568,38 @@
     "organizations": []
   },
   {
+    "login": "carriepl",
+    "name": "carriepl",
+    "avatar_url": "https://avatars.githubusercontent.com/u/832811?v=4",
+    "location": null,
+    "company": null,
+    "bio": null,
+    "followers": 6,
+    "total_contributions": 1330,
+    "years": {
+      "2011": 1,
+      "2012": 3,
+      "2013": 16,
+      "2014": 301,
+      "2015": 765,
+      "2016": 134,
+      "2017": 4,
+      "2018": 4,
+      "2019": 3,
+      "2020": 1,
+      "2021": 0,
+      "2022": 0,
+      "2023": 78,
+      "2024": 20,
+      "2025": 0,
+      "2026": 0
+    },
+    "first_year": 2011,
+    "last_updated": "2026-02-08T11:41:25.702Z",
+    "linkedin_url": null,
+    "organizations": []
+  },
+  {
     "login": "DogeDark",
     "name": "Miles Murgaw",
     "avatar_url": "https://avatars.githubusercontent.com/u/30190859?u=cb5c8c14d04c9396d3352223dc687c358af05ba0&v=4",
@@ -133151,6 +138178,52 @@
     "organizations": []
   },
   {
+    "login": "christopherdro",
+    "name": "Chris Dro",
+    "avatar_url": "https://avatars.githubusercontent.com/u/3741055?u=94b10c0f398acea457a0d96d3cbf48bd701b1257&v=4",
+    "location": "Los Angeles, CA",
+    "company": null,
+    "bio": "",
+    "followers": 297,
+    "total_contributions": 1295,
+    "years": {
+      "2013": 4,
+      "2014": 21,
+      "2015": 305,
+      "2016": 176,
+      "2017": 386,
+      "2018": 112,
+      "2019": 71,
+      "2020": 48,
+      "2021": 81,
+      "2022": 62,
+      "2023": 13,
+      "2024": 1,
+      "2025": 15,
+      "2026": 0
+    },
+    "first_year": 2013,
+    "last_updated": "2026-02-08T11:37:39.157Z",
+    "linkedin_url": null,
+    "organizations": [
+      {
+        "name": "react-native-community",
+        "avatar_url": "https://avatars.githubusercontent.com/u/20269980?v=4",
+        "login": "react-native-community"
+      },
+      {
+        "name": "async-la",
+        "avatar_url": "https://avatars.githubusercontent.com/u/26663049?v=4",
+        "login": "async-la"
+      },
+      {
+        "name": "a01-ai",
+        "avatar_url": "https://avatars.githubusercontent.com/u/188396294?v=4",
+        "login": "a01-ai"
+      }
+    ]
+  },
+  {
     "login": "jstmaxlol",
     "name": "czjstmax",
     "avatar_url": "https://avatars.githubusercontent.com/u/87650746?u=4e76f54b76699a5f449f4c856ac3bb7e6581ba92&v=4",
@@ -133646,6 +138719,41 @@
     "last_updated": "2026-02-08T10:27:57.234Z",
     "linkedin_url": null,
     "organizations": []
+  },
+  {
+    "login": "bWFuanVzYWth",
+    "name": "linlin",
+    "avatar_url": "https://avatars.githubusercontent.com/u/52383012?u=adf2090f3ea981a00ba6d9c706c6f25d7b4bdcbd&v=4",
+    "location": null,
+    "company": null,
+    "bio": "",
+    "followers": 157,
+    "total_contributions": 1268,
+    "years": {
+      "2019": 1,
+      "2020": 0,
+      "2021": 64,
+      "2022": 257,
+      "2023": 263,
+      "2024": 118,
+      "2025": 563,
+      "2026": 2
+    },
+    "first_year": 2019,
+    "last_updated": "2026-02-08T11:42:52.124Z",
+    "linkedin_url": null,
+    "organizations": [
+      {
+        "name": "SurvivalApparatusCommunication",
+        "avatar_url": "https://avatars.githubusercontent.com/u/110690711?v=4",
+        "login": "SurvivalApparatusCommunication"
+      },
+      {
+        "name": "DSPBluePrints",
+        "avatar_url": "https://avatars.githubusercontent.com/u/111007908?v=4",
+        "login": "DSPBluePrints"
+      }
+    ]
   },
   {
     "login": "sondavidb",
@@ -134325,6 +139433,33 @@
         "name": "pwndbg",
         "avatar_url": "https://avatars.githubusercontent.com/u/19614813?v=4",
         "login": "pwndbg"
+      }
+    ]
+  },
+  {
+    "login": "coolwednesday",
+    "name": "Divya Darshana",
+    "avatar_url": "https://avatars.githubusercontent.com/u/98943137?u=8a47a1eb8f84db3c4a376168517ff0628af6e63d&v=4",
+    "location": "Bangalore, India",
+    "company": "Software Engineer @zopdev, Maintainer @gofr-dev",
+    "bio": "",
+    "followers": 25,
+    "total_contributions": 1245,
+    "years": {
+      "2022": 84,
+      "2023": 38,
+      "2024": 333,
+      "2025": 711,
+      "2026": 79
+    },
+    "first_year": 2022,
+    "last_updated": "2026-02-08T11:35:02.136Z",
+    "linkedin_url": "https://www.linkedin.com/in/divya-darshana-258b84208/",
+    "organizations": [
+      {
+        "name": "gofr-dev",
+        "avatar_url": "https://avatars.githubusercontent.com/u/146108433?v=4",
+        "login": "gofr-dev"
       }
     ]
   },
@@ -137497,6 +142632,28 @@
     ]
   },
   {
+    "login": "chansee97",
+    "name": "Rock Chen",
+    "avatar_url": "https://avatars.githubusercontent.com/u/90271994?u=eae696e4e5882038968768d89277f0ee14ba8b28&v=4",
+    "location": "China",
+    "company": null,
+    "bio": "Never expect any compliments",
+    "followers": 38,
+    "total_contributions": 1097,
+    "years": {
+      "2021": 5,
+      "2022": 134,
+      "2023": 404,
+      "2024": 349,
+      "2025": 203,
+      "2026": 2
+    },
+    "first_year": 2021,
+    "last_updated": "2026-02-08T11:39:56.293Z",
+    "linkedin_url": null,
+    "organizations": []
+  },
+  {
     "login": "jay-m-dev",
     "name": "Jay Moran",
     "avatar_url": "https://avatars.githubusercontent.com/u/20008149?u=ec1e473dfdcc3d1486cf6daf9b21969f717225e2&v=4",
@@ -138193,6 +143350,50 @@
     "organizations": []
   },
   {
+    "login": "chr1sj0nes",
+    "name": "Chris Jones",
+    "avatar_url": "https://avatars.githubusercontent.com/u/387854?u=6310398ffc8ae374b745be265763ee1f2a486220&v=4",
+    "location": "London, UK",
+    "company": "DeepMind (@deepmind)",
+    "bio": "",
+    "followers": 268,
+    "total_contributions": 1065,
+    "years": {
+      "2010": 1,
+      "2011": 0,
+      "2012": 0,
+      "2013": 0,
+      "2014": 40,
+      "2015": 0,
+      "2016": 4,
+      "2017": 3,
+      "2018": 7,
+      "2019": 62,
+      "2020": 102,
+      "2021": 106,
+      "2022": 180,
+      "2023": 152,
+      "2024": 45,
+      "2025": 330,
+      "2026": 33
+    },
+    "first_year": 2010,
+    "last_updated": "2026-02-08T11:38:00.205Z",
+    "linkedin_url": null,
+    "organizations": [
+      {
+        "name": "google",
+        "avatar_url": "https://avatars.githubusercontent.com/u/1342004?v=4",
+        "login": "google"
+      },
+      {
+        "name": "google-deepmind",
+        "avatar_url": "https://avatars.githubusercontent.com/u/8596759?v=4",
+        "login": "google-deepmind"
+      }
+    ]
+  },
+  {
     "login": "devvoid",
     "name": "Void",
     "avatar_url": "https://avatars.githubusercontent.com/u/33298798?v=4",
@@ -138661,6 +143862,37 @@
     "last_updated": "2026-02-08T01:01:41.193Z",
     "linkedin_url": null,
     "organizations": []
+  },
+  {
+    "login": "chenqi146",
+    "name": "Joker",
+    "avatar_url": "https://avatars.githubusercontent.com/u/36069431?u=e68893c59b6601987d64c8d4c822f3de4692bac4&v=4",
+    "location": "China",
+    "company": "localhost",
+    "bio": "Hello everyone!",
+    "followers": 13,
+    "total_contributions": 1045,
+    "years": {
+      "2018": 13,
+      "2019": 23,
+      "2020": 109,
+      "2021": 217,
+      "2022": 207,
+      "2023": 213,
+      "2024": 111,
+      "2025": 143,
+      "2026": 9
+    },
+    "first_year": 2018,
+    "last_updated": "2026-02-08T11:39:01.322Z",
+    "linkedin_url": null,
+    "organizations": [
+      {
+        "name": "smart-doc-group",
+        "avatar_url": "https://avatars.githubusercontent.com/u/62381339?v=4",
+        "login": "smart-doc-group"
+      }
+    ]
   },
   {
     "login": "frappacchio",
@@ -139180,6 +144412,30 @@
         "login": "llvm"
       }
     ]
+  },
+  {
+    "login": "CreepySkeleton",
+    "name": "CreepySkeleton",
+    "avatar_url": "https://avatars.githubusercontent.com/u/50968528?u=ac65c7d29cab0023a8a03d2e53ab8775835acbe9&v=4",
+    "location": null,
+    "company": null,
+    "bio": "Is creepy. Very creepy.",
+    "followers": 14,
+    "total_contributions": 1022,
+    "years": {
+      "2019": 300,
+      "2020": 710,
+      "2021": 7,
+      "2022": 4,
+      "2023": 1,
+      "2024": 0,
+      "2025": 0,
+      "2026": 0
+    },
+    "first_year": 2019,
+    "last_updated": "2026-02-08T11:34:25.274Z",
+    "linkedin_url": null,
+    "organizations": []
   },
   {
     "login": "McJacko",
