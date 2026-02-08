@@ -215,12 +215,12 @@ class Storage extends Base {
      */
     async updateUsers(newRecords) {
         const current = await this.getUsers();
-        const map = new Map(current.map(r => [r.login, r]));
+        const map = new Map(current.map(r => [r.l, r])); // 'l' is login
         let changed = false;
 
         for (const record of newRecords) {
             // For rich data, we generally assume 'record' is the latest full snapshot
-            map.set(record.login, record);
+            map.set(record.l, record);
             changed = true;
         }
 
@@ -228,8 +228,8 @@ class Storage extends Base {
             // Convert back to array
             let result = Array.from(map.values());
             
-            // Sort by total contributions (descending)
-            result.sort((a, b) => (b.total_contributions || 0) - (a.total_contributions || 0));
+            // Sort by total contributions (descending). 'tc' is total_contributions
+            result.sort((a, b) => (b.tc || 0) - (a.tc || 0));
             
             await this.writeJson(config.paths.users, result);
         }
@@ -264,7 +264,17 @@ class Storage extends Base {
      * @private
      */
     async writeJson(path, data) {
-        await fs.writeFile(path, JSON.stringify(data, null, 2), 'utf-8');
+        let content;
+        
+        if (path === config.paths.users && Array.isArray(data)) {
+            // Custom formatter for users.json: One record per line, no internal whitespace
+            const lines = data.map(item => JSON.stringify(item));
+            content = `[\n${lines.join(',\n')}\n]`;
+        } else {
+            content = JSON.stringify(data, null, 2);
+        }
+
+        await fs.writeFile(path, content, 'utf-8');
     }
 }
 

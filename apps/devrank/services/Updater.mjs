@@ -217,35 +217,56 @@ class Updater extends Base {
         const contribRes = await GitHub.query(contribQuery);
         if (!contribRes?.user) return null;
 
-        // 4. Aggregate Data
+        // 4. Aggregate Data & Minify
         let total = 0;
-        const yearsData = {};
+        const yearsArr = [];
         
-        Object.keys(contribRes.user).forEach(key => {
-            if (key.startsWith('y')) {
-                const year = key.replace('y', '');
-                const val = contribRes.user[key].contributionCalendar.totalContributions;
-                yearsData[year] = val;
-                total += val;
-            }
-        });
+        // Ensure years are sorted and fill the array sequentially from startYear
+        for (let year = startYear; year <= currentYear; year++) {
+            const key = `y${year}`;
+            const val = contribRes.user[key]?.contributionCalendar?.totalContributions || 0;
+            yearsArr.push(val);
+            total += val;
+        }
 
-        return {
-            login: username,
-            name: name || username,
-            avatar_url: avatarUrl,
-            location: location,
-            country_code: LocationNormalizer.normalize(location),
-            company: company,
-            bio: bio,
-            followers: followers.totalCount,
-            total_contributions: total,
-            years: yearsData,
-            first_year: startYear,
-            last_updated: new Date().toISOString(),
-            linkedin_url,
-            organizations: orgs
+        const extractId = (url) => {
+            if (!url) return null;
+            const match = url.match(/\/u\/(\d+)/);
+            return match ? parseInt(match[1], 10) : null;
         };
+
+        const minified = {
+            l: username,
+            tc: total,
+            fy: startYear,
+            lu: new Date().toISOString(),
+            y: yearsArr
+        };
+
+        if (name && name !== username) minified.n = name;
+        
+        const avatarId = extractId(avatarUrl);
+        if (avatarId) minified.i = avatarId;
+
+        if (location) minified.lc = location;
+        
+        const countryCode = LocationNormalizer.normalize(location);
+        if (countryCode) minified.cc = countryCode;
+
+        if (company) minified.c = company;
+        if (bio) minified.b = bio;
+        if (followers?.totalCount > 0) minified.fl = followers.totalCount;
+        if (linkedin_url) minified.li = linkedin_url;
+
+        if (orgs.length > 0) {
+            // Take top 5, map to [login, id]
+            minified.o = orgs.slice(0, 5).map(org => [
+                org.login,
+                extractId(org.avatar_url)
+            ]);
+        }
+
+        return minified;
     }
 }
 
