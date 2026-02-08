@@ -2,6 +2,7 @@
   "bors",
   "k8s-ci-robot",
   "renovate-bot",
+  "scala-steward",
   "spring-builds",
   "wizardforcel"
 ]
