@@ -745,12 +745,7 @@ class GridBody extends Component {
             if (target.data?.field) {
                 dataField = target.data.field;
                 recordId  = target.data.recordId;
-
-                if (!me.useInternalId && me.store.getKeyType()?.startsWith('int')) {
-                    recordId = parseInt(recordId)
-                }
-
-                record = me.store.get(recordId);
+                record    = me.getRecord(recordId);
                 break
             }
         }
@@ -775,12 +770,7 @@ class GridBody extends Component {
         for (target of data.path) {
             if (target.cls?.includes('neo-grid-row') && target.data?.recordId) {
                 recordId = target.data.recordId;
-
-                if (!me.useInternalId && me.store.getKeyType()?.startsWith('int')) {
-                    recordId = parseInt(recordId)
-                }
-
-                record = me.store.get(recordId);
+                record   = me.getRecord(recordId);
                 break
             }
         }
@@ -919,6 +909,15 @@ class GridBody extends Component {
             return record;
         }
 
+        // Check if nodeId is a recordId (internalId or PK)
+        if (me.useInternalId) {
+            record = me.store.items.find(r => me.store.getInternalId(r) === nodeId);
+            if (record) return record;
+        } else {
+            record = me.store.get(nodeId);
+            if (record) return record;
+        }
+
         parentNodes = VDomUtil.getParentNodes(me.vdom, nodeId);
 
         for (node of parentNodes || []) {
@@ -948,7 +947,7 @@ class GridBody extends Component {
         let me        = this,
             dataField = me.getDataField(logicalId),
             recordId  = logicalId.substring(0, logicalId.length - dataField.length - 2),
-            record    = me.store.get(recordId);
+            record    = me.getRecord(recordId); // Uses the new robust getRecord()
 
         if (!record) {
             record = me.store.get(parseInt(recordId))
