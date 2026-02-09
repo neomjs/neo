@@ -59,6 +59,11 @@ class Model extends Base {
      */
     fieldsMap = new Map()
     /**
+     * @member {Boolean} hasComplexFields=false
+     * @protected
+     */
+    hasComplexFields = false
+    /**
      * @member {Boolean} hasNestedFields=false
      * @protected
      */
@@ -131,7 +136,8 @@ class Model extends Base {
         if (isRoot) {
             calculatedFieldsMap.clear();
             fieldsMap.clear();
-            me.hasNestedFields = false
+            me.hasComplexFields = false; // Reset flag
+            me.hasNestedFields  = false
         }
 
         fields.forEach(field => {
@@ -145,6 +151,11 @@ class Model extends Base {
 
                 if (field.calculate) {
                     calculatedFieldsMap.set(fieldName, field)
+                }
+
+                // Check for complex fields (Soft Hydration Optimization)
+                if (field.calculate || field.convert || field.mapping) {
+                    me.hasComplexFields = true
                 }
             }
         })
