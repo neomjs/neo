@@ -182,6 +182,19 @@ class SortZone extends BaseSortZone {
      * @param {Object} data
      */
     async onDragEnd(data) {
+        // Restore moved nodes BEFORE destroying the proxy to ensure they return to the Grid.
+        if (this.movedComponents?.length > 0) {
+            let restoreDeltas = this.movedComponents.map(item => ({
+                action  : 'moveNode',
+                id      : item.id,
+                index   : 0,
+                parentId: item.originalParentId
+            }));
+
+            await Neo.applyDeltas(this.windowId, restoreDeltas);
+            this.movedComponents = null
+        }
+
         await super.onDragEnd(data);
 
         let {owner} = this;
@@ -196,19 +209,6 @@ class SortZone extends BaseSortZone {
         await owner.passSizeToBody();
 
         await this.timeout(20);
-
-        // Restore moved nodes BEFORE destroying the proxy to ensure they return to the Grid.
-        if (this.movedComponents?.length > 0) {
-            let restoreDeltas = this.movedComponents.map(item => ({
-                action  : 'moveNode',
-                id      : item.id,
-                index   : 0,
-                parentId: item.originalParentId
-            }));
-
-            await Neo.applyDeltas(this.windowId, restoreDeltas);
-            this.movedComponents = null
-        }
 
         owner.parent.body.createViewData()
     }
