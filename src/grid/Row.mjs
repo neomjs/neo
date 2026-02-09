@@ -96,7 +96,7 @@ class Row extends Component {
             cellCls                = ['neo-grid-cell'],
             colspan                = record[gridBody.colspanField],
             {dataField}            = column,
-            recordId               = record[store.getKeyProperty()],
+            recordId               = store.getKey(record),
             logicalCellId          = gridBody.getLogicalCellId(record, dataField),
             fieldValue             = record.get(dataField),
             cellConfig, rendererOutput;
@@ -266,7 +266,7 @@ class Row extends Component {
 
         let {mountedColumns} = gridBody,
             {selectedRows}   = gridBody,
-            recordId         = record[gridBody.store.getKeyProperty()],
+            recordId         = gridBody.store.getKey(record),
             countColumns     = columns.getCount();
 
         Object.assign(vdom, {
