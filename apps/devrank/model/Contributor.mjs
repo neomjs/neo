@@ -45,7 +45,14 @@ class Contributor extends Model {
                     }))
                 }
             },
-            {name: 'commits_array', mapping: 'cy', type: 'Array'}
+            {name: 'commits_array', mapping: 'cy', type: 'Array'},
+            {
+                name   : 'total_commits',
+                type   : 'Integer',
+                calculate: data => {
+                    return data.commits_array?.reduce((a, b) => a + b, 0) || 0;
+                }
+            }
         ]
     }
 
