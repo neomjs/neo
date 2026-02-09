@@ -816,7 +816,7 @@ class GridBody extends Component {
      * @returns {String}
      */
     getLogicalCellId(record, dataField) {
-        return `${record[this.store.getKeyProperty()]}__${dataField}`
+        return `${this.store.getKey(record)}__${dataField}`
     }
 
     /**
