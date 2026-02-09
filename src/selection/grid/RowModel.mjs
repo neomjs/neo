@@ -79,7 +79,7 @@ class RowModel extends BaseModel {
         if (me.hasAnnotations(record)) {
             me.updateAnnotations(record)
         } else {
-            recordId = store.getKey(record);
+            recordId = view.getRecordId(record);
 
             if (recordId) {
                 me.selectRow(recordId);
@@ -103,7 +103,7 @@ class RowModel extends BaseModel {
             if (me.hasAnnotations(record)) {
                 me.updateAnnotations(record)
             } else {
-                recordId = view.store.getKey(record);
+                recordId = view.getRecordId(record);
 
                 me.toggleRowSelection(recordId);
 
@@ -147,7 +147,7 @@ class RowModel extends BaseModel {
         let me               = this,
             {view}           = me,
             {store}          = view,
-            recordId         = store.getKey(record),
+            recordId         = view.getRecordId(record),
             isSelected       = me.isSelectedRow(recordId),
             annotationsField = view.selectedRecordField;
 

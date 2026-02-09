@@ -141,6 +141,11 @@ class GridContainer extends BaseContainer {
          */
         sortable_: true,
         /**
+         * @member {Boolean} useInternalId_=true
+         * @reactive
+         */
+        useInternalId_: true,
+        /**
          * @member {Neo.data.Store} store_=null
          * @reactive
          */
@@ -357,6 +362,18 @@ class GridContainer extends BaseContainer {
     }
 
     /**
+     * Triggered after the useInternalId config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetUseInternalId(value, oldValue) {
+        if (oldValue !== undefined && this.body) {
+            this.body.useInternalId = value
+        }
+    }
+
+    /**
      * Triggered before the body config gets changed.
      * @param {Object|Neo.grid.Body|null} value
      * @param {Object|Neo.grid.Body|null} oldValue
@@ -369,7 +386,8 @@ class GridContainer extends BaseContainer {
             flex         : 1,
             gridContainer: me,
             parentId     : me.id,
-            store        : me.store
+            store        : me.store,
+            useInternalId: me.useInternalId
         })
     }
 
