@@ -778,6 +778,95 @@ class Store extends Collection {
             }
         }
     }
+
+    /**
+     * Overrides collection.Base:doSort() to handle "Turbo Mode" (autoInitRecords: false).
+     * In this mode, items are raw objects which may lack the canonical field names used by Sorters.
+     * This method "soft hydrates" the raw items by resolving and caching the sort values.
+     * @param {Object[]} items
+     * @param {Boolean} silent
+     * @protected
+     */
+    doSort(items=this._items, silent=false) {
+        let me = this;
+
+        if (!me.autoInitRecords && me.model && me.sorters.length > 0) {
+            const
+                sortProperties = me.sorters.map(s => s.property),
+                len            = sortProperties.length;
+
+            items.forEach(item => {
+                // Ensure item is not already a Record (mixed mode safety)
+                if (!RecordFactory.isRecord(item)) {
+                    for (let i = 0; i < len; i++) {
+                        const property = sortProperties[i];
+
+                        // Only resolve if the property is missing on the raw object
+                        if (!Object.hasOwn(item, property)) {
+                            item[property] = me.resolveField(item, property)
+                        }
+                    }
+                }
+            })
+        }
+
+        super.doSort(items, silent)
+    }
+
+    /**
+     * Helper to resolve a field value from a raw data object using the Model definition.
+     * Handles mapping, calculate, and convert.
+     *
+     * **Limitations & "Turbo-Safe" Requirement:**
+     * This method resolves a *single* field in isolation. It does **not** recursively resolve dependencies.
+     *
+     * If Field A relies on Field B (e.g., via `calculate` or `convert`), and Field B is also a mapped/calculated field:
+     * - **On a Record:** Field B is accessible via its getter.
+     * - **On a Raw Object:** Field B is `undefined`.
+     *
+     * Therefore, Model logic (calculate/convert functions) MUST be written to be "Turbo-Safe" / "Polymorphic".
+     * They must check for both the canonical field name (for Records) AND the raw data key (for Turbo Mode).
+     *
+     * @example
+     * calculate: data => (data.mappedName || data.rawKey) + 1
+     *
+     * @param {Object} item The raw data object
+     * @param {String} fieldName The canonical field name
+     * @returns {*} The resolved value
+     * @protected
+     */
+    resolveField(item, fieldName) {
+        let me    = this,
+            field = me.model.getField(fieldName),
+            value;
+
+        if (!field) return undefined;
+
+        if (field.calculate) {
+            value = field.calculate(item)
+        } else {
+            // Handle Mapping
+            if (field.mapping) {
+                let ns     = field.mapping.split('.'),
+                    key    = ns.pop(),
+                    source = ns.length > 0 ? Neo.ns(ns, false, item) : item;
+
+                if (source && Object.hasOwn(source, key)) {
+                    value = source[key]
+                }
+            } else {
+                value = item[fieldName]
+            }
+
+            // Handle Convert
+            if (field.convert) {
+                value = field.convert(value, item)
+            }
+        }
+
+        return value
+    }
+
     /**
      * Serializes the instance into a JSON-compatible object for the Neural Link.
      * @returns {Object}
