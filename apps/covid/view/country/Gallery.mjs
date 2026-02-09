@@ -122,7 +122,7 @@ class CountryGallery extends Gallery {
             fN         = Util.formatNumber,
             table      = firstChild.cn[1];
 
-        vdomItem.id = me.getItemVnodeId(record[me.keyProperty]);
+        vdomItem.id = me.getItemVnodeId(me.store.getKey(record));
 
         vdomItem.cn[0].style.height = me.itemHeight + 'px';
 
@@ -148,7 +148,13 @@ class CountryGallery extends Gallery {
      * @returns {String} itemId
      */
     getItemId(vnodeId) {
-        return vnodeId.split('__')[1];
+        let itemId = vnodeId.split('__')[1];
+
+        if (this.store.getKeyType()?.includes('int')) {
+            itemId = parseInt(itemId)
+        }
+
+        return itemId
     }
 
     /**

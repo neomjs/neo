@@ -472,7 +472,7 @@ class List extends Component {
             hasItemWidth     = me.itemWidth !== null,
             isHeader         = me.useHeaders && record.isHeader,
             itemContent      = me.createItemContent(record, index),
-            itemId           = me.getItemId(record[me.getKeyProperty()]),
+            itemId           = me.getItemId(me.store.getKey(record)),
             {selectionModel} = me,
             isSelected       = !me.disableSelection && selectionModel?.isSelected(itemId),
             item, removeDom;
@@ -701,12 +701,9 @@ class List extends Component {
      * @returns {String|Number} itemId
      */
     getItemRecordId(vnodeId) {
-        let itemId   = vnodeId.split('__')[1],
-            {model}  = this.store,
-            keyField = model?.getField(this.getKeyProperty()),
-            keyType  = keyField?.type?.toLowerCase();
+        let itemId = vnodeId.split('__')[1];
 
-        if (keyType === 'int' || keyType === 'integer') {
+        if (this.store.getKeyType()?.includes('int')) {
             itemId = parseInt(itemId)
         }
 
@@ -874,7 +871,7 @@ class List extends Component {
             } else if (value) {
                 navigateTo({
                     data    : me.navigator,
-                    target  : me.getItemId(value[me.getKeyProperty()]),
+                    target  : me.getItemId(me.store.getKey(value)),
                     windowId: me.windowId
                 })
             }

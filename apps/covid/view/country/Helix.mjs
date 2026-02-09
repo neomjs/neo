@@ -143,7 +143,7 @@ class CountryHelix extends Helix {
             fN         = Util.formatNumber,
             table      = firstChild.cn[1];
 
-        vdomItem.id = me.getItemVnodeId(record[me.keyProperty]);
+        vdomItem.id = me.getItemVnodeId(me.store.getKey(record));
 
         firstChild.cn[0].cn[0].src  = Util.getCountryFlagUrl(record.country);
         firstChild.cn[0].cn[1].text = record.country;
@@ -175,7 +175,13 @@ class CountryHelix extends Helix {
      * @returns {String}
      */
     getItemId(vnodeId) {
-        return vnodeId.split('__')[1];
+        let itemId = vnodeId.split('__')[1];
+
+        if (this.store.getKeyType()?.includes('int')) {
+            itemId = parseInt(itemId)
+        }
+
+        return itemId
     }
 
     /**

@@ -57,7 +57,7 @@ class ColorsList extends List {
 
         if (value && oldValue !== undefined && !me.disableSelection) {
             record = me.store.find('name', value)[0];
-            me.selectionModel?.select(me.getItemId(record[me.getKeyProperty()]))
+            me.selectionModel?.select(me.getItemId(me.store.getKey(record)))
         }
     }
 

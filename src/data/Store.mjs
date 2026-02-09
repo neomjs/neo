@@ -234,7 +234,7 @@ class Store extends Collection {
 
             me.isLoaded = true;
 
-            return items.map(i => me.get(i[me.getKeyProperty()]))
+            return items.map(i => me.get(me.getKey(i)))
         }
 
         if (threshold > 0 && items.length > threshold) {
@@ -448,9 +448,9 @@ class Store extends Collection {
         const result = super.find(property, value, returnFirstMatch);
 
         if (returnFirstMatch) {
-            return result ? this.get(result[this.keyProperty]) : null;
+            return result ? this.get(this.getKey(result)) : null;
         } else {
-            return result.map(item => this.get(item[this.keyProperty]));
+            return result.map(item => this.get(this.getKey(item)));
         }
     }
 
@@ -464,7 +464,7 @@ class Store extends Collection {
      */
     findBy(fn, scope=this, start=0, end=this.count) {
         const result = super.findBy(fn, scope, start, end);
-        return result.map(item => this.get(item[this.keyProperty]));
+        return result.map(item => this.get(this.getKey(item)));
     }
 
     /**
@@ -570,7 +570,7 @@ class Store extends Collection {
             return data
         }
 
-        return this.get(data[this.getKeyProperty()])
+        return this.get(this.getKey(data))
     }
 
     /**
@@ -594,7 +594,7 @@ class Store extends Collection {
             items = super.insert(index, item);
 
         if (init) {
-            return items.map(i => me.get(i[me.getKeyProperty()]))
+            return items.map(i => me.get(me.getKey(i)))
         }
 
         return items

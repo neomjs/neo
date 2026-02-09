@@ -187,7 +187,7 @@ class List extends BaseList {
     createItemContent(record, index) {
         let me        = this,
             {iconCls} = record,
-            id        = record[me.store.keyProperty],
+            id        = me.store.getKey(record),
             vdomCn    = [{tag: 'span', cls: ['neo-content'], text: record[me.displayField]}];
 
         if (iconCls && iconCls !== '') {
@@ -368,7 +368,7 @@ class List extends BaseList {
         const
             me           = this,
             {store}      = me,
-            recordId     = record[store.keyProperty],
+            recordId     = store.getKey(record),
             subMenuMap   = me.subMenuMap || (me.subMenuMap = {}),
             subMenuMapId = me.getMenuMapId(recordId),
             subMenu      = subMenuMap[subMenuMapId] || (subMenuMap[subMenuMapId] = Neo.create({
@@ -404,7 +404,7 @@ class List extends BaseList {
      */
     toggleSubMenu(nodeId, record) {
         let me       = this,
-            recordId = record[me.getKeyProperty()],
+            recordId = me.store.getKey(record),
             submenu  = me.subMenuMap?.[me.getMenuMapId(recordId)];
 
         if (!submenu?.mounted) {

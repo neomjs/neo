@@ -568,9 +568,9 @@ class Helix extends Component {
     createItem(vdomItem, record, index) {
         let me = this;
 
-        vdomItem.id = me.getItemVnodeId(record[me.keyProperty]);
+        vdomItem.id = me.getItemVnodeId(me.store.getKey(record));
 
-        vdomItem.cn[0].id  = me.getItemVnodeId(record[me.keyProperty]) + '_img';
+        vdomItem.cn[0].id  = me.getItemVnodeId(me.store.getKey(record)) + '_img';
         vdomItem.cn[0].src = me.imageSource + Neo.ns(me.imageField, false, record);
 
         return vdomItem
@@ -775,7 +775,13 @@ class Helix extends Component {
      * @returns {Number}
      */
     getItemId(vnodeId) {
-        return parseInt(vnodeId.split('__')[1])
+        let itemId = vnodeId.split('__')[1];
+
+        if (this.store.getKeyType()?.includes('int')) {
+            itemId = parseInt(itemId)
+        }
+
+        return itemId
     }
 
     /**
@@ -1004,7 +1010,7 @@ class Helix extends Component {
             });
 
             deltas.push({
-                id   : me.getItemVnodeId(item[me.keyProperty]),
+                id   : me.getItemVnodeId(me.store.getKey(item)),
                 style: {
                     opacity,
                     transform: transformStyle
@@ -1035,7 +1041,7 @@ class Helix extends Component {
         for (; i < len; i++) {
             deltas.push({
                 action: 'moveNode',
-                id    : me.getItemVnodeId(me.store.getAt(i)[me.keyProperty]),
+                id    : me.getItemVnodeId(me.store.getKey(me.store.getAt(i))),
                 index : i,
                 parentId
             })
