@@ -44,7 +44,8 @@ class Contributor extends Model {
                         avatar_url: `https://avatars.githubusercontent.com/u/${item[1]}?v=4`
                     }))
                 }
-            }
+            },
+            {name: 'commits_array', mapping: 'cy', type: 'Array'}
         ]
     }
 
@@ -65,6 +66,7 @@ class Contributor extends Model {
             fields      = [...me.fields];
 
         for (let i = currentYear; i >= 2010; i--) {
+            // Total Contributions
             fields.push({
                 name   : `y${i}`,
                 mapping: 'y', // Map to the raw years array
@@ -79,7 +81,23 @@ class Contributor extends Model {
                     const index = i - firstYear;
                     return (index >= 0 && index < value.length) ? value[index] : 0;
                 }
-            })
+            });
+
+            // Commits Only
+            fields.push({
+                name   : `cy${i}`,
+                mapping: 'cy', // Map to the raw commits array
+                type   : 'Integer',
+                convert: (value, record) => {
+                    if (!value || !Array.isArray(value)) return 0;
+
+                    const firstYear = record.fy || record.first_year;
+                    if (!firstYear) return 0;
+
+                    const index = i - firstYear;
+                    return (index >= 0 && index < value.length) ? value[index] : 0;
+                }
+            });
         }
 
         me.fields = fields
