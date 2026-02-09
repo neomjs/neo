@@ -1,5 +1,6 @@
-import Base  from '../core/Base.mjs';
-import Model from './Model.mjs';
+import {internalId} from '../core/ConfigSymbols.mjs';
+import Base         from '../core/Base.mjs';
+import Model        from './Model.mjs';
 
 const
     dataSymbol         = Symbol.for('data'),
@@ -148,7 +149,13 @@ class RecordFactory extends Base {
                     static name = 'Record';
 
                     [dataSymbol]         = {};
-                    [initialIndexSymbol] = null
+                    [initialIndexSymbol] = null;
+
+                    /**
+                     * The stable, globally unique internal ID for this record instance.
+                     * @member {String} internalId
+                     */
+                    [internalId] = Neo.getId('record');
 
                     get isModified() {
                         let me = this;

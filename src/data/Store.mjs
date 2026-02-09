@@ -1,3 +1,4 @@
+import {internalId}    from '../core/ConfigSymbols.mjs';
 import ClassSystemUtil from '../util/ClassSystem.mjs';
 import Collection      from '../collection/Base.mjs';
 import Model           from './Model.mjs';
@@ -170,6 +171,10 @@ class Store extends Collection {
 
         let me = this;
 
+        // Assign the identity hook.
+        // We use a bound method to ensure 'this' context if passed to a composed collection later.
+        me.itemFactory = me.assignInternalId.bind(me);
+
         // todo
         me.on({
             mutate: me.onCollectionMutate,
@@ -187,6 +192,18 @@ class Store extends Collection {
         StoreManager.unregister(this);
 
         super.destroy()
+    }
+
+    /**
+     * Identity Provider Hook.
+     * Assigns a stable, globally unique 'internalId' to items (Records or Raw Objects).
+     * This ensures DOM stability and security by decoupling the DOM ID from the data ID.
+     * @param {Object} item
+     */
+    assignInternalId(item) {
+        if (!item[internalId]) {
+            item[internalId] = Neo.getId('record')
+        }
     }
 
     /**
@@ -538,6 +555,15 @@ class Store extends Collection {
             return record
         }
         return item // Already a record or undefined
+    }
+
+    /**
+     * Retrieves the stable internal ID of an item.
+     * @param {Object|Neo.data.Record} item
+     * @returns {String} e.g. 'neo-record-1'
+     */
+    getInternalId(item) {
+        return item[internalId]
     }
 
     /**
