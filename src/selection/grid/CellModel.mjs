@@ -50,9 +50,8 @@ class CellModel extends BaseModel {
         let me        = this,
             {view}    = me,
             {dataField, record} = data;
-        console.log('onCellClick', record, dataField);
+
         if (record && dataField) {
-            console.log('getLogicalCellId', view.getLogicalCellId(record, dataField));
             me.toggleSelection(view.getLogicalCellId(record, dataField))
         }
     }
