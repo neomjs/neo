@@ -1290,6 +1290,9 @@ class Collection extends Base {
         if (toAddArray && (len = toAddArray.length) > 0) {
             for (i=0; i < len; i++) {
                 item = toAddArray[i];
+
+                me.itemFactory?.(item);
+
                 key  = me.getKey(item);
 
                 if (key == null) {
