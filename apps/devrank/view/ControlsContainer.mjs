@@ -1,4 +1,5 @@
 import * as selection from '../../../src/selection/grid/_export.mjs';
+import CheckBox  from '../../../src/form/field/CheckBox.mjs';
 import Container from '../../../src/container/Base.mjs';
 import Country   from '../../../src/form/field/Country.mjs';
 import Radio     from '../../../src/form/field/Radio.mjs';
@@ -68,6 +69,14 @@ class ControlsContainer extends Container {
                     listeners    : {change: 'up.onFilterChange'},
                     name         : 'name',
                     style        : {marginTop: '.3em'},
+                    width        : 200
+                }, {
+                    module       : CheckBox,
+                    checked      : false,
+                    hideLabel    : true,
+                    listeners    : {change: 'up.onCommitsOnlyChange'},
+                    style        : {marginTop: '1em'},
+                    valueLabel   : 'Commits Only',
                     width        : 200
                 }, {
                     ntype    : 'label',
@@ -149,6 +158,13 @@ class ControlsContainer extends Container {
             load  : me.updateRowsLabel,
             scope : me
         })
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onCommitsOnlyChange(data) {
+        this.grid.commitsOnly = data.value
     }
 
     /**
