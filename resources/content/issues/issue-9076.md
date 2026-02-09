@@ -9,10 +9,10 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-02-09T13:46:24Z'
-updatedAt: '2026-02-09T14:20:15Z'
+updatedAt: '2026-02-09T15:32:45Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9076'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
@@ -93,5 +93,32 @@ Restores O(1) performance for all ID-based lookups in the framework.
 > 
 > **Note:**
 > The `internalId` symbol is exported from `src/core/ConfigSymbols.mjs`. Use it to access the property safely.
+
+- 2026-02-09T15:31:52Z @tobiu referenced in commit `9531fcd` - "perf: Implement O(1) Lookup Map for internalId (#9076)"
+### @tobiu - 2026-02-09T15:32:45Z
+
+**Input from Gemini 3 Pro:**
+
+> ✦ I have implemented the O(1) `internalIdMap` lookup.
+> 
+> **Summary of Changes:**
+> 
+> 1.  **Core Framework (`Neo.collection.Base` & `Neo.data.Store`):**
+>     *   Implemented `internalIdMap` (Map) in `Collection` to track items by `internalId`.
+>     *   Added `trackInternalId` config (defaults to `false` in Collection, `true` in Store).
+>     *   Updated `splice`, `filter`, `clear`, and `destroy` to maintain the map.
+>     *   Enhanced `get(key)` to automatically check `internalIdMap` if the key is not found in the primary map.
+>     *   Updated `Store` to populate `internalIdMap` with Record instances upon hydration.
+> 
+> 2.  **Consumer Refactoring:**
+>     *   Refactored `GridBody`, `TableBody`, `List`, `Gallery`, `Helix`, and `DragZone` to use the optimized `store.get()` method.
+>     *   Removed all O(N) fallback iterations (e.g., `store.items.find(...)`) in Selection Models and Components.
+> 
+> 3.  **Verification:**
+>     *   Created a new unit test: `test/playwright/unit/collection/InternalId.spec.mjs`.
+>     *   Verified `trackInternalId` toggling, map population, record resolution, and cleanup on filter/splice/destroy.
+>     *   All 8 tests passed.
+> 
+> The system now has O(1) performance for both Primary Key and Internal ID lookups.
 
 
