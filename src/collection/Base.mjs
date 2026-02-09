@@ -948,13 +948,21 @@ class Collection extends Base {
     }
 
     /**
+     * @param {Object} item
+     * @returns {String|Number}
+     */
+    getKey(item) {
+        return item[this.keyProperty]
+    }
+
+    /**
      * Returns the key for a given index
      * @param {Number} index
      * @returns {Number|String|undefined}
      */
     getKeyAt(index) {
         let item = this._items[index];
-        return item?.[this.keyProperty]
+        return item && this.getKey(item)
     }
 
     /**
@@ -991,7 +999,7 @@ class Collection extends Base {
      * @returns {Boolean}
      */
     hasItem(item) {
-        return this.map.has(item[this.keyProperty])
+        return this.map.has(this.getKey(item))
     }
 
     /**
@@ -1250,12 +1258,12 @@ class Collection extends Base {
 
         if (toRemoveArray && (len = toRemoveArray.length) > 0) {
             if (toAddArray && toAddArray.length > 0) {
-                toAddMap = toAddArray.map(e => e[keyProperty])
+                toAddMap = toAddArray.map(e => me.getKey(e))
             }
 
             for (i=0; i < len; i++) {
                 item = toRemoveArray[i];
-                key  = me.isItem(item) ? item[keyProperty] : item;
+                key  = me.isItem(item) ? me.getKey(item) : item;
 
                 if (map.has(key)) {
                     if (!toAddMap || (toAddMap && toAddMap.indexOf(key) < 0)) {
@@ -1275,7 +1283,7 @@ class Collection extends Base {
 
                 // For partial removals, iterate and delete individual items from the map
                 removedItems.forEach(e => {
-                    map.delete(e[keyProperty])
+                    map.delete(me.getKey(e))
                 })
             }
         }
@@ -1283,7 +1291,7 @@ class Collection extends Base {
         if (toAddArray && (len = toAddArray.length) > 0) {
             for (i=0; i < len; i++) {
                 item = toAddArray[i];
-                key  = item[keyProperty];
+                key  = me.getKey(item);
 
                 if (key == null) {
                     item[keyProperty] = key = me.keyPropertyIndex;
