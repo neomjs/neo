@@ -136,9 +136,15 @@ class DragZone extends BaseDragZone {
     setData(data={}) {
         let me       = this,
             {owner}  = me,
-            recordId = owner.getItemRecordId(me.getDragElementRoot().id);
+            {store}  = owner,
+            recordId = owner.getItemRecordId(me.getDragElementRoot().id),
+            record   = store.get(recordId);
 
-        data.record = owner.store.get(recordId);
+        if (!record) {
+            record = store.items.find(r => store.getInternalId(r) === recordId)
+        }
+
+        data.record = record;
 
         super.setData(data)
     }
