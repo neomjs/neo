@@ -790,7 +790,7 @@ class Store extends Collection {
     doSort(items=this._items, silent=false) {
         let me = this;
 
-        if (!me.autoInitRecords && me.model && me.sorters.length > 0) {
+        if (!me.autoInitRecords && me.model?.hasComplexFields && me.sorters.length > 0) {
             const
                 sortProperties = me.sorters.map(s => s.property),
                 len            = sortProperties.length;
@@ -811,6 +811,44 @@ class Store extends Collection {
         }
 
         super.doSort(items, silent)
+    }
+
+    /**
+     * Overrides collection.Base:filter() to handle "Turbo Mode" (autoInitRecords: false).
+     * In this mode, items are raw objects which may lack the canonical field names used by Filters.
+     * This method "soft hydrates" the raw items by resolving and caching the filter values.
+     * @protected
+     */
+    filter() {
+        let me = this;
+
+        if (!me.autoInitRecords && me.model?.hasComplexFields && me.filters.length > 0) {
+            const
+                filterProperties = me.filters.map(f => f.property),
+                len              = filterProperties.length;
+
+            // We iterate over allItems (unfiltered source) or current items depending on state,
+            // but Collection.filter() uses allItems if it exists. Ideally we hydrate the source.
+            // Since we can't easily know which source Collection.filter will use without duplicating logic,
+            // we will hydrate both if they exist, or just the active one.
+            // Safest bet: Hydrate the source that filter() will use.
+            // Collection.filter uses: items = me.allItems?._items || me._items
+            const itemsToHydrate = me.allItems ? me.allItems._items : me._items;
+
+            itemsToHydrate.forEach(item => {
+                if (!RecordFactory.isRecord(item)) {
+                    for (let i = 0; i < len; i++) {
+                        const property = filterProperties[i];
+
+                        if (!Object.hasOwn(item, property)) {
+                            item[property] = me.resolveField(item, property)
+                        }
+                    }
+                }
+            })
+        }
+
+        super.filter()
     }
 
     /**
