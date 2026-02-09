@@ -44,6 +44,31 @@ class CellModel extends BaseModel {
     }
 
     /**
+     * Resolves a record from a logical cell ID.
+     * @param {String} logicalId
+     * @returns {Neo.data.Record|null}
+     */
+    getRecord(logicalId) {
+        let me        = this,
+            {view}    = me,
+            {store}   = view,
+            dataField = view.getDataField(logicalId),
+            // logicalId format: tableId__recordId__dataField
+            recordId  = logicalId.split('__')[1],
+            record    = store.get(recordId);
+
+        if (record) return record;
+
+        // Slow path: Scan store (Table doesn't expose components in items like Grid does)
+        if (view.useInternalId) {
+            record = store.items.find(r => store.getInternalId(r) === recordId);
+            if (record) return record
+        }
+
+        return null
+    }
+
+    /**
      * @param {Object} data
      */
     onCellClick(data) {
@@ -89,7 +114,7 @@ class CellModel extends BaseModel {
 
         if (me.hasSelection()) {
             currentColumn = view.getDataField(me.items[0]);
-            record        = view.getRecord(me.items[0])
+            record        = me.getRecord(me.items[0])
         } else {
             currentColumn = dataFields[0];
             record        = store.getAt(0)
@@ -115,7 +140,7 @@ class CellModel extends BaseModel {
             dataField, newIndex;
 
         if (me.hasSelection()) {
-            currentIndex = store.indexOf(view.getRecord(me.items[0]));
+            currentIndex = store.indexOf(me.getRecord(me.items[0]));
             dataField    = view.getDataField(me.items[0])
         } else {
             dataField = me.dataFields[0]

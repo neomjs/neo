@@ -65,8 +65,8 @@ class RowModel extends BaseModel {
             {view}       = me,
             {store}      = view,
             countRecords = store.getCount(),
-            recordId     = me.selectedRows[0] || store.getKey(store.getAt(0)),
-            record       = store.get(recordId),
+            recordId     = me.selectedRows[0] || view.getRecordId(store.getAt(0)),
+            record       = me.getRowRecord(recordId),
             index        = store.indexOf(record),
             newIndex     = (index + step) % countRecords;
 

@@ -77,7 +77,8 @@ class RowModel extends BaseModel {
             newIndex, record, rowId;
 
         if (me.hasSelection()) {
-            currentIndex = store.indexOf(view.getRecordByRowId(me.items[0]))
+            record       = me.getRowRecord(me.items[0]);
+            currentIndex = store.indexOf(record)
         }
 
         newIndex = (currentIndex + step) % countRecords;

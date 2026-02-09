@@ -38,7 +38,7 @@ class CellRowModel extends CellModel {
             if (me.hasAnnotations(record)) {
                 me.updateAnnotations(record)
             } else {
-                me[me.isSelected(logicalId) ? 'deselectRow' : 'selectRow'](view.store.getKey(record), true)
+                me[me.isSelected(logicalId) ? 'deselectRow' : 'selectRow'](view.getRecordId(record), true)
             }
         }
 
@@ -53,8 +53,8 @@ class CellRowModel extends CellModel {
             {view}       = me,
             {store}      = view,
             countRecords = store.getCount(),
-            recordId     = me.selectedRows[0] || store.getKey(store.getAt(0)),
-            record       = store.get(recordId),
+            recordId     = me.selectedRows[0] || view.getRecordId(store.getAt(0)),
+            record       = me.getRowRecord(recordId),
             index        = store.indexOf(record),
             newIndex     = (index + step) % countRecords;
 
@@ -67,7 +67,7 @@ class CellRowModel extends CellModel {
         if (me.hasAnnotations(record)) {
             me.updateAnnotations(record)
         } else {
-            recordId = store.getKey(record);
+            recordId = view.getRecordId(record);
 
             if (recordId) {
                 me.selectRow(recordId, true) // silent

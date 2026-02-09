@@ -44,6 +44,37 @@ class CellModel extends BaseModel {
     }
 
     /**
+     * Resolves a record from a logical cell ID.
+     * @param {String} logicalId
+     * @returns {Neo.data.Record|null}
+     */
+    getRecord(logicalId) {
+        let me        = this,
+            {view}    = me,
+            {store}   = view,
+            dataField = view.getDataField(logicalId),
+            // logicalId format: recordId__dataField
+            recordId  = logicalId.substring(0, logicalId.length - dataField.length - 2),
+            record    = store.get(recordId);
+
+        if (record) return record;
+
+        // Fast path: Check visible rows
+        if (view.items) {
+            let row = view.items.find(r => view.getRecordId(r.record) === recordId);
+            if (row) return row.record
+        }
+
+        // Slow path: Scan store
+        if (view.useInternalId) {
+            record = store.items.find(r => store.getInternalId(r) === recordId);
+            if (record) return record
+        }
+
+        return null
+    }
+
+    /**
      * @param {Object} data
      */
     onCellClick(data) {
@@ -95,7 +126,7 @@ class CellModel extends BaseModel {
 
         if (me.hasSelection()) {
             currentColumn = view.getDataField(me.items[0]);
-            record        = view.getRecordFromLogicalId(me.items[0])
+            record        = me.getRecord(me.items[0])
         } else {
             currentColumn = dataFields[0];
             record        = store.getAt(0)
@@ -129,7 +160,7 @@ class CellModel extends BaseModel {
             dataField, newIndex;
 
         if (me.hasSelection()) {
-            currentIndex = store.indexOf(view.getRecordFromLogicalId(me.items[0]));
+            currentIndex = store.indexOf(me.getRecord(me.items[0]));
             dataField    = view.getDataField(me.items[0])
         } else {
             dataField = me.dataFields[0]

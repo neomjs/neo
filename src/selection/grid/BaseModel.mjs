@@ -59,11 +59,11 @@ class BaseModel extends Model {
         let me        = this,
             {view}    = me,
             {store}   = view,
-            isCell    = me.ntype.includes('cell'),
             processed = new Set();
 
         items.forEach(item => {
             let hasChanged = false,
+                isCell     = item.toString().includes('__'),
                 recordId, row;
 
             if (isCell) {
@@ -108,6 +108,25 @@ class BaseModel extends Model {
                 if (!processed.has(recordId)) {
                     processed.add(recordId);
                     let record = store.get(recordId);
+
+                    // If record not found by PK, check if it's an internalId
+                    if (!record && view.useInternalId) {
+                        // 1. Fast path: Check currently rendered rows
+                        // This covers the 99% case where user clicks a visible row
+                        for (let i = 0; i < view.items.length; i++) {
+                            let r = view.items[i].record;
+                            if (r && view.getRecordId(r) === recordId) {
+                                record = r;
+                                break
+                            }
+                        }
+
+                        // 2. Slow path: Iteration (only if we need to select an off-screen row by internalId)
+                        // This is rare for internalIds which are mostly UI-driven
+                        /* if (!record) {
+                             // todo: store.findByInternalId(recordId) or similar optimization
+                        } */
+                    }
 
                     if (record) {
                         row = view.getRow(record);
@@ -239,6 +258,36 @@ class BaseModel extends Model {
 
                 return this.view.store.getAt(rowIndex)
             }
+        }
+
+        return null
+    }
+
+    /**
+     * Resolves a record from an ID (PK or internalId).
+     * @param {String|Number} id
+     * @returns {Neo.data.Record|null}
+     */
+    getRowRecord(id) {
+        if (!id) return null;
+
+        let me    = this,
+            {view} = me,
+            {store}= view,
+            record = store.get(id);
+
+        if (record) return record;
+
+        // Fast path: Check visible rows
+        if (view.items) {
+            let row = view.items.find(r => r.record && view.getRecordId(r.record) === id);
+            if (row) return row.record
+        }
+
+        // Slow path: Scan store
+        if (view.useInternalId) {
+            record = store.items.find(r => store.getInternalId(r) === id);
+            if (record) return record
         }
 
         return null
