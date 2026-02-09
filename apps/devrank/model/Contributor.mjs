@@ -49,8 +49,25 @@ class Contributor extends Model {
             {
                 name   : 'total_commits',
                 type   : 'Integer',
+                /**
+                 * Calculates the total commits from the yearly breakdown.
+                 *
+                 * **Turbo Mode / Soft Hydration Compatibility:**
+                 * In "Turbo Mode" (autoInitRecords: false), the Store sorts raw JSON objects, not Record instances.
+                 * The `Neo.data.Store#doSort` "Soft Hydration" logic resolves this field (`total_commits`)
+                 * by calling this `calculate` function on the raw object.
+                 *
+                 * - **Record Context:** `data` is a Record. `data.commits_array` exists (via getter/mapping).
+                 * - **Raw Context:** `data` is a POJO. `data.commits_array` is undefined. `data.cy` exists.
+                 *
+                 * To support both contexts without forcing full record instantiation (performance killer),
+                 * we must check for both the canonical name AND the raw data key.
+                 *
+                 * @param {Object|Neo.data.Record} data
+                 * @returns {Number}
+                 */
                 calculate: data => {
-                    return data.commits_array?.reduce((a, b) => a + b, 0) || 0;
+                    return (data.commits_array || data.cy)?.reduce((a, b) => a + b, 0) || 0;
                 }
             }
         ]
