@@ -670,10 +670,6 @@ class Helix extends Component {
                 id     = me.getItemId(item.id);
                 record = store.get(id);
 
-                if (!record && me.useInternalId) {
-                    record = store.items.find(r => me.getRecordId(r) === id)
-                }
-
                 if (record) {
                     record.expanded = false;
 
@@ -722,10 +718,6 @@ class Helix extends Component {
             {appName, store} = me,
             record           = store.get(itemId),
             index, isExpanded, group, itemVdom;
-
-        if (!record && me.useInternalId) {
-            record = store.items.find(r => me.getRecordId(r) === itemId)
-        }
 
         index      = store.indexOf(record);
         isExpanded = !!record.expanded;
@@ -853,10 +845,6 @@ class Helix extends Component {
     moveToSelectedItem(itemId) {
         let me     = this,
             record = me.store.get(itemId);
-
-        if (!record && me.useInternalId) {
-            record = me.store.items.find(r => me.getRecordId(r) === itemId)
-        }
 
         me.rotationAngle = record.rotationAngle + me.rotationAngle
     }

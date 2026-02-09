@@ -54,24 +54,9 @@ class CellModel extends BaseModel {
             {store}   = view,
             dataField = view.getDataField(logicalId),
             // logicalId format: recordId__dataField
-            recordId  = logicalId.substring(0, logicalId.length - dataField.length - 2),
-            record    = store.get(recordId);
+            recordId  = logicalId.substring(0, logicalId.length - dataField.length - 2);
 
-        if (record) return record;
-
-        // Fast path: Check visible rows
-        if (view.items) {
-            let row = view.items.find(r => view.getRecordId(r.record) === recordId);
-            if (row) return row.record
-        }
-
-        // Slow path: Scan store
-        if (view.useInternalId) {
-            record = store.items.find(r => store.getInternalId(r) === recordId);
-            if (record) return record
-        }
-
-        return null
+        return store.get(recordId)
     }
 
     /**

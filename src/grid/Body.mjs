@@ -910,13 +910,8 @@ class GridBody extends Component {
         }
 
         // Check if nodeId is a recordId (internalId or PK)
-        if (me.useInternalId) {
-            record = me.store.items.find(r => me.store.getInternalId(r) === nodeId);
-            if (record) return record;
-        } else {
-            record = me.store.get(nodeId);
-            if (record) return record;
-        }
+        record = me.store.get(nodeId);
+        if (record) return record;
 
         parentNodes = VDomUtil.getParentNodes(me.vdom, nodeId);
 

@@ -54,18 +54,9 @@ class CellModel extends BaseModel {
             {store}   = view,
             dataField = view.getDataField(logicalId),
             // logicalId format: tableId__recordId__dataField
-            recordId  = logicalId.split('__')[1],
-            record    = store.get(recordId);
+            recordId  = logicalId.split('__')[1];
 
-        if (record) return record;
-
-        // Slow path: Scan store (Table doesn't expose components in items like Grid does)
-        if (view.useInternalId) {
-            record = store.items.find(r => store.getInternalId(r) === recordId);
-            if (record) return record
-        }
-
-        return null
+        return store.get(recordId)
     }
 
     /**
