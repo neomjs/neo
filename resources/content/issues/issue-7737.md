@@ -4,15 +4,16 @@ title: Create Playwright Component Test for Neo.component.Label
 state: OPEN
 labels:
   - enhancement
+  - stale
   - ai
   - testing
 assignees:
   - Alachi24
 createdAt: '2025-11-10T20:25:50Z'
-updatedAt: '2025-11-10T21:03:48Z'
+updatedAt: '2026-02-09T04:01:19Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7737'
 author: tobiu
-commentsCount: 3
+commentsCount: 4
 parentIssue: 7435
 subIssues: []
 subIssuesCompleted: 0
@@ -91,4 +92,9 @@ Acceptable... Thank you
 - 2025-11-13T14:07:23Z @Alachi24 referenced in commit `b2d74a6` - "docs: add playwright test for Neo.component.label (#7737)"
 - 2025-11-13T14:16:52Z @Alachi24 cross-referenced by PR #7768
 - 2025-11-15T20:53:25Z @Alachi24 referenced in commit `822b65c` - "docs: update on add playwright test for Neo.component.label (#7737)"
+### @github-actions - 2026-02-09T04:01:19Z
+
+This issue is stale because it has been open for 90 days with no activity.
+
+- 2026-02-09T04:01:19Z @github-actions added the `stale` label
 
