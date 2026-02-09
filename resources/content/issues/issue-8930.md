@@ -81,8 +81,11 @@ subIssues:
   - '[x] 9058 Feat: DevRank Location Normalizer & Data Enrichment'
   - '[x] 9059 Optimize & Minify DevRank Data Schema'
   - '[x] 9062 Fix: Cleanup Service incompatible with minified schema'
-subIssuesCompleted: 66
-subIssuesTotal: 67
+  - '[x] 9063 Perf: Refactor Updater to use Lightweight Contribution Counters'
+  - '[x] 9064 Feat: Implement ''Commits Only'' Toggle for DevRank Grid'
+  - '[x] 9065 Feat: Persist Yearly Commits Array in DevRank Data'
+subIssuesCompleted: 69
+subIssuesTotal: 70
 blockedBy: []
 blocking: []
 ---
