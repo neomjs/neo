@@ -65,7 +65,7 @@ class CountryGallery extends Gallery {
             fn    = CountryGallery.formatNumber,
             style = {height: (me.itemHeight - 70) + 'px', width: me.itemWidth  + 'px'};
 
-        return {cls, id: me.getItemVnodeId(record[me.keyProperty]), tabIndex: '-1', cn: [
+        return {cls, id: me.getItemVnodeId(me.store.getKey(record)), tabIndex: '-1', cn: [
             {cls: ['neo-item-wrapper'], style: {height: me.itemHeight + 'px'}, cn: [
                 {cls: ['neo-country-gallery-item'], style, cn: [
                     {cls: ['neo-item-header'], cn: [
@@ -178,7 +178,13 @@ class CountryGallery extends Gallery {
      * @returns {String} itemId
      */
     getItemId(vnodeId) {
-        return vnodeId.split('__')[1]
+        let itemId = vnodeId.split('__')[1];
+
+        if (this.store.getKeyType()?.includes('int')) {
+            itemId = parseInt(itemId)
+        }
+
+        return itemId
     }
 
     /**

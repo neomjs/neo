@@ -185,17 +185,16 @@ class Collection extends Base {
      */
     afterSetItems(value, oldValue) {
         if (value) {
-            let me            = this,
-                {keyProperty} = me,
-                i             = 0,
-                len           = value.length,
+            let me = this,
+                i  = 0,
+                len = value.length,
                 item;
 
             for (; i < len; i++) {
                 item = value[i];
 
                 if (item) {
-                    me.map.set(item[keyProperty], item)
+                    me.map.set(me.getKey(item), item)
                 }
             }
 
@@ -762,7 +761,7 @@ class Collection extends Base {
 
                     if (isIncluded) {
                         filteredItems.push(item);
-                        me.map.set(item[me.keyProperty], item)
+                        me.map.set(me.getKey(item), item)
                     }
                 }
 

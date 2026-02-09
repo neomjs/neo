@@ -401,7 +401,7 @@ class Gallery extends Component {
         let me        = this,
             imageVdom = vdomItem.cn[0].cn[0];
 
-        vdomItem.id = me.getItemVnodeId(record[me.keyProperty]);
+        vdomItem.id = me.getItemVnodeId(me.store.getKey(record));
 
         imageVdom.src = Neo.config.resourcesPath + 'examples/' + record.image;
 
@@ -505,7 +505,13 @@ class Gallery extends Component {
      * @returns {Number} itemId
      */
     getItemId(vnodeId) {
-        return parseInt(vnodeId.split('__')[1])
+        let itemId = vnodeId.split('__')[1];
+
+        if (this.store.getKeyType()?.includes('int')) {
+            itemId = parseInt(itemId)
+        }
+
+        return itemId
     }
 
     /**
@@ -692,7 +698,7 @@ class Gallery extends Component {
 
             if (items.length > 0) {
                 items.forEach((item, index) => {
-                    vdomId    = me.getItemVnodeId(item[me.keyProperty]);
+                    vdomId    = me.getItemVnodeId(me.store.getKey(item));
                     fromIndex = vdomMap.indexOf(vdomId);
 
                     newCn.push(view.cn[fromIndex]);
