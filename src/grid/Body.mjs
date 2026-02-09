@@ -212,6 +212,14 @@ class GridBody extends Component {
          */
         wrapperCls: ['neo-grid-body-wrapper'],
         /**
+         * @member {Boolean} useRowRecordIds=true
+         */
+        useRowRecordIds: true,
+        /**
+         * @member {Boolean} useInternalId=true
+         */
+        useInternalId: true,
+        /**
          * @member {Object} _vdom
          */
         _vdom:
@@ -738,7 +746,7 @@ class GridBody extends Component {
                 dataField = target.data.field;
                 recordId  = target.data.recordId;
 
-                if (me.store.getKeyType()?.startsWith('int')) {
+                if (!me.useInternalId && me.store.getKeyType()?.startsWith('int')) {
                     recordId = parseInt(recordId)
                 }
 
@@ -768,7 +776,7 @@ class GridBody extends Component {
             if (target.cls?.includes('neo-grid-row') && target.data?.recordId) {
                 recordId = target.data.recordId;
 
-                if (me.store.getKeyType()?.startsWith('int')) {
+                if (!me.useInternalId && me.store.getKeyType()?.startsWith('int')) {
                     recordId = parseInt(recordId)
                 }
 
@@ -816,7 +824,7 @@ class GridBody extends Component {
      * @returns {String}
      */
     getLogicalCellId(record, dataField) {
-        return `${this.store.getKey(record)}__${dataField}`
+        return `${this.getRecordId(record)}__${dataField}`
     }
 
     /**
@@ -922,6 +930,14 @@ class GridBody extends Component {
         }
 
         return null
+    }
+
+    /**
+     * @param {Object} record
+     * @returns {String|Number}
+     */
+    getRecordId(record) {
+        return this.useInternalId ? this.store.getInternalId(record) : this.store.getKey(record)
     }
 
     /**
@@ -1164,7 +1180,7 @@ class GridBody extends Component {
                 fields.forEach(field => {
                     if (field.name === me.selectedRecordField) {
                         if (selectionModel.ntype === 'selection-grid-rowmodel') {
-                            recordId = record[me.store.getKeyProperty()];
+                            recordId = me.getRecordId(record);
 
                             selectionModel[field.value ? 'selectRow' : 'deselectRow'](recordId)
                         }

@@ -84,6 +84,11 @@ class Container extends BaseContainer {
          */
         sortable_: true,
         /**
+         * @member {Boolean} useInternalId_=true
+         * @reactive
+         */
+        useInternalId_: true,
+        /**
          * @member {Neo.data.Store} store_=null
          * @reactive
          */
@@ -143,10 +148,11 @@ class Container extends BaseContainer {
             sortable         : me.sortable,
             ...me.headerToolbarConfig
         }, {
-            module     : TableBody,
-            containerId: me.id,
-            id         : me.bodyId,
-            store      : me.store,
+            module       : TableBody,
+            containerId  : me.id,
+            id           : me.bodyId,
+            store        : me.store,
+            useInternalId: me.useInternalId,
             ...me.bodyConfig
         }];
 
@@ -219,6 +225,18 @@ class Container extends BaseContainer {
     afterSetSortable(value, oldValue) {
         if (oldValue !== undefined) {
             this.headerToolbar.sortable = value
+        }
+    }
+
+    /**
+     * Triggered after the useInternalId config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetUseInternalId(value, oldValue) {
+        if (oldValue !== undefined && this.body) {
+            this.body.useInternalId = value
         }
     }
 
