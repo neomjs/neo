@@ -167,6 +167,10 @@ class Gallery extends Component {
          */
         translateZ_: 0,
         /**
+         * @member {Boolean} useInternalId=true
+         */
+        useInternalId: true,
+        /**
          * @member {Object} _vdom
          */
         _vdom:
@@ -285,7 +289,7 @@ class Gallery extends Component {
                         if (!key) {
                             let index = parseInt(Math.min(me.maxItems, me.store.getCount()) / me.amountRows);
 
-                            key = me.store.getKeyAt(index)
+                            key = me.getRecordId(me.store.getAt(index))
                         }
 
                         selectionModel.select(key)
@@ -401,7 +405,7 @@ class Gallery extends Component {
         let me        = this,
             imageVdom = vdomItem.cn[0].cn[0];
 
-        vdomItem.id = me.getItemVnodeId(me.store.getKey(record));
+        vdomItem.id = me.getItemVnodeId(me.getRecordId(record));
 
         imageVdom.src = Neo.config.resourcesPath + 'examples/' + record.image;
 
@@ -507,11 +511,19 @@ class Gallery extends Component {
     getItemId(vnodeId) {
         let itemId = vnodeId.split('__')[1];
 
-        if (this.store.getKeyType()?.includes('int')) {
+        if (!this.useInternalId && this.store.getKeyType()?.includes('int')) {
             itemId = parseInt(itemId)
         }
 
         return itemId
+    }
+
+    /**
+     * @param {Object} record
+     * @returns {String|Number}
+     */
+    getRecordId(record) {
+        return this.useInternalId ? this.store.getInternalId(record) : this.store.getKey(record)
     }
 
     /**
@@ -602,9 +614,22 @@ class Gallery extends Component {
      * @param {Array} value
      */
     onSelectionChange(value) {
-        let me             = this,
-            index          = me.store.indexOf(value?.[0] || 0),
-            {appName, id, itemHeight, itemWidth, windowId} = me,
+        let me       = this,
+            selected = value?.[0] || 0,
+            record   = me.store.get(selected),
+            index;
+
+        if (!record && me.useInternalId) {
+            record = me.store.items.find(r => me.getRecordId(r) === selected)
+        }
+
+        index = me.store.indexOf(record);
+
+        if (index === -1) {
+            index = 0
+        }
+
+        let {appName, id, itemHeight, itemWidth, windowId} = me,
             camera         = me.vdom.cn[0].cn[0],
             cameraStyle    = camera.style,
             dollyTransform = me.getCameraTransformForCell(index),
@@ -698,7 +723,7 @@ class Gallery extends Component {
 
             if (items.length > 0) {
                 items.forEach((item, index) => {
-                    vdomId    = me.getItemVnodeId(me.store.getKey(item));
+                    vdomId    = me.getItemVnodeId(me.getRecordId(item));
                     fromIndex = vdomMap.indexOf(vdomId);
 
                     newCn.push(view.cn[fromIndex]);

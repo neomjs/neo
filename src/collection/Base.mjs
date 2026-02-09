@@ -193,6 +193,8 @@ class Collection extends Base {
             for (; i < len; i++) {
                 item = value[i];
 
+                me.itemFactory?.(item);
+
                 if (item) {
                     me.map.set(me.getKey(item), item)
                 }

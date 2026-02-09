@@ -167,13 +167,12 @@ class Store extends Collection {
      * @param {Object} config
      */
     construct(config) {
+        config = config || {};
+        config.itemFactory = this.assignInternalId.bind(this);
+
         super.construct(config);
 
         let me = this;
-
-        // Assign the identity hook.
-        // We use a bound method to ensure 'this' context if passed to a composed collection later.
-        me.itemFactory = me.assignInternalId.bind(me);
 
         // todo
         me.on({
@@ -563,6 +562,10 @@ class Store extends Collection {
      * @returns {String} e.g. 'neo-record-1'
      */
     getInternalId(item) {
+        if (!item[internalId]) {
+            item[internalId] = Neo.getId('record')
+        }
+
         return item[internalId]
     }
 
