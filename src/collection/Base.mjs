@@ -70,6 +70,14 @@ class Collection extends Base {
          */
         filters_: [],
         /**
+         * A map containing the internalId & reference of each collection item for faster access.
+         * Only populated if trackInternalId is true.
+         * @member {Map} internalIdMap_=null
+         * @protected
+         * @reactive
+         */
+        internalIdMap_: null,
+        /**
          * @member {Object[]|null} items_=null
          * @reactive
          */
@@ -115,7 +123,12 @@ class Collection extends Base {
          * @member {String|null} sourceId_=null
          * @reactive
          */
-        sourceId_: null
+        sourceId_: null,
+        /**
+         * True to track internalIds in a separate map for O(1) lookup
+         * @member {Boolean} trackInternalId=false
+         */
+        trackInternalId: false
     }
 
     /**
@@ -188,7 +201,7 @@ class Collection extends Base {
             let me = this,
                 i  = 0,
                 len = value.length,
-                item;
+                internalId, item;
 
             for (; i < len; i++) {
                 item = value[i];
@@ -196,7 +209,15 @@ class Collection extends Base {
                 me.itemFactory?.(item);
 
                 if (item) {
-                    me.map.set(me.getKey(item), item)
+                    me.map.set(me.getKey(item), item);
+
+                    if (me.trackInternalId) {
+                        internalId = me.getInternalKey(item);
+
+                        if (internalId) {
+                            me.internalIdMap.set(internalId, item)
+                        }
+                    }
                 }
             }
 
@@ -238,6 +259,10 @@ class Collection extends Base {
 
             me._items = [...source._items];
             me.map    = new Map(source.map); // creates a clone of the original map
+
+            if (me.trackInternalId && source.trackInternalId) {
+                me.internalIdMap = new Map(source.internalIdMap)
+            }
 
             const listenersConfig = {
                 mutate: me.onMutate,
@@ -324,6 +349,15 @@ class Collection extends Base {
         }
 
         return value
+    }
+
+    /**
+     * @param {Map|null} value
+     * @param {Map|null} oldValue
+     * @protected
+     */
+    beforeSetInternalIdMap(value, oldValue) {
+        return !value && this.trackInternalId ? new Map() : value
     }
 
     /**
@@ -461,6 +495,7 @@ class Collection extends Base {
 
         me._items.splice(0, me.count);
         me.map.clear();
+        me.internalIdMap?.clear();
         me.initialIndexCounter = 0
     }
 
@@ -524,6 +559,7 @@ class Collection extends Base {
 
         me._items.splice(0, me._items.length);
         me.map.clear();
+        me.internalIdMap?.clear();
 
         super.destroy()
     }
@@ -721,6 +757,7 @@ class Collection extends Base {
             // We cannot use clearSilent() here, since it would clear allItems as well
             me._items.splice(0, me.count);
             me.map.clear();
+            me.internalIdMap?.clear();
             me.initialIndexCounter = 0;
 
             me.items = [...me.allItems._items]
@@ -746,6 +783,7 @@ class Collection extends Base {
             }
 
             me.map.clear();
+            me.internalIdMap?.clear();
 
             if (me.filterMode === 'primitive') {
                 // using for loops on purpose -> performance
@@ -763,7 +801,15 @@ class Collection extends Base {
 
                     if (isIncluded) {
                         filteredItems.push(item);
-                        me.map.set(me.getKey(item), item)
+                        me.map.set(me.getKey(item), item);
+
+                        if (me.trackInternalId) {
+                            const internalId = me.getInternalKey(item);
+
+                            if (internalId) {
+                                me.internalIdMap.set(internalId, item)
+                            }
+                        }
                     }
                 }
 
@@ -901,7 +947,7 @@ class Collection extends Base {
      * @returns {Object|null}
      */
     get(key) {
-        return this.map.get(key) || null
+        return this.map.get(key) || (this.trackInternalId && this.internalIdMap?.get(key)) || null
     }
 
     /**
@@ -911,6 +957,15 @@ class Collection extends Base {
      */
     getAt(index) {
         return this._items[index]
+    }
+
+    /**
+     * Returns the object associated to the internalId, or null if there is none.
+     * @param {String} internalId
+     * @returns {Object|null}
+     */
+    getByInternalId(internalId) {
+        return this.internalIdMap?.get(internalId) || null
     }
 
     /**
@@ -945,6 +1000,16 @@ class Collection extends Base {
             }
         }
 
+        return null
+    }
+
+    /**
+     * Hook to get the internal key of an item.
+     * To be overridden by subclasses (e.g. Store).
+     * @param {Object} item
+     * @returns {String|Number|null}
+     */
+    getInternalKey(item) {
         return null
     }
 
@@ -1249,7 +1314,7 @@ class Collection extends Base {
             removedItems       = [],
             removeCountAtIndex = Neo.isNumber(removeCountOrToRemoveArray) ? removeCountOrToRemoveArray : null,
             toRemoveArray      = Array.isArray(removeCountOrToRemoveArray) ? removeCountOrToRemoveArray : null,
-            i, item, key, len, toAddMap;
+            internalId, i, item, key, len, toAddMap;
 
         if (!Neo.isNumber(index) && removeCountAtIndex) {
             Logger.error(me.id + ': If index is not passed, removeCountAtIndex cannot be used')
@@ -1268,8 +1333,17 @@ class Collection extends Base {
 
                 if (map.has(key)) {
                     if (!toAddMap || (toAddMap && toAddMap.indexOf(key) < 0)) {
-                        removedItems.push(items.splice(me.indexOfKey(key), 1)[0]);
-                        map.delete(key)
+                        const removedItem = items.splice(me.indexOfKey(key), 1)[0];
+                        removedItems.push(removedItem);
+                        map.delete(key);
+
+                        if (me.trackInternalId) {
+                            internalId = me.getInternalKey(removedItem);
+
+                            if (internalId) {
+                                me.internalIdMap.delete(internalId)
+                            }
+                        }
                     }
                 }
             }
@@ -1278,13 +1352,22 @@ class Collection extends Base {
             if (index === 0 && removeCountAtIndex === me.count) {
                 removedItems = items;
                 me._items = [];
-                map.clear()
+                map.clear();
+                me.internalIdMap?.clear()
             } else {
                 removedItems = items.splice(index, removeCountAtIndex);
 
                 // For partial removals, iterate and delete individual items from the map
                 removedItems.forEach(e => {
-                    map.delete(me.getKey(e))
+                    map.delete(me.getKey(e));
+
+                    if (me.trackInternalId) {
+                        internalId = me.getInternalKey(e);
+
+                        if (internalId) {
+                            me.internalIdMap.delete(internalId)
+                        }
+                    }
                 })
             }
         }
@@ -1312,7 +1395,15 @@ class Collection extends Base {
 
                 if (!map.has(key) && !me.isFilteredItem(item)) {
                     addedItems.push(item);
-                    map.set(key, item)
+                    map.set(key, item);
+
+                    if (me.trackInternalId) {
+                        internalId = me.getInternalKey(item);
+
+                        if (internalId) {
+                            me.internalIdMap.set(internalId, item)
+                        }
+                    }
                 }
             }
 

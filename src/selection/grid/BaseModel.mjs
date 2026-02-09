@@ -109,27 +109,9 @@ class BaseModel extends Model {
                     processed.add(recordId);
                     let record = store.get(recordId);
 
-                    // If record not found by PK, check if it's an internalId
-                    if (!record && view.useInternalId) {
-                        // 1. Fast path: Check currently rendered rows
-                        // This covers the 99% case where user clicks a visible row
-                        for (let i = 0; i < view.items.length; i++) {
-                            let r = view.items[i].record;
-                            if (r && view.getRecordId(r) === recordId) {
-                                record = r;
-                                break
-                            }
-                        }
-
-                        // 2. Slow path: Iteration (only if we need to select an off-screen row by internalId)
-                        // This is rare for internalIds which are mostly UI-driven
-                        /* if (!record) {
-                             // todo: store.findByInternalId(recordId) or similar optimization
-                        } */
-                    }
-
                     if (record) {
                         row = view.getRow(record);
+
                         if (row) {
                             let isSelected    = me.isSelectedRow(recordId),
                                 alreadySelect = row.vdom.cls?.includes(me.selectedCls);
@@ -282,12 +264,6 @@ class BaseModel extends Model {
         if (view.items) {
             let row = view.items.find(r => r.record && view.getRecordId(r.record) === id);
             if (row) return row.record
-        }
-
-        // Slow path: Scan store
-        if (view.useInternalId) {
-            record = store.items.find(r => store.getInternalId(r) === id);
-            if (record) return record
         }
 
         return null

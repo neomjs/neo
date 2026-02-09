@@ -157,6 +157,11 @@ class Store extends Collection {
          */
         totalCount: 0,
         /**
+         * True to track internalIds in a separate map for O(1) lookup
+         * @member {Boolean} trackInternalId=true
+         */
+        trackInternalId: true,
+        /**
          * Url for Ajax requests
          * @member {String|null} url=null
          */
@@ -507,19 +512,37 @@ class Store extends Collection {
         if (item && !RecordFactory.isRecord(item)) {
             const record = RecordFactory.createRecord(me.model, item);
             const index  = me.indexOf(item);
+            const pk     = record[me.keyProperty]; // Use the actual PK from the record
 
             // Replace the raw data with the record instance in the current (filtered) collection
-            me.map.set(key, record);
+            me.map.set(pk, record);
+
             if (index !== -1) {
                 me._items[index] = record
+            }
+
+            // If we are tracking internalIds, we need to update the map to point to the new record
+            // instead of the raw object
+            if (me.trackInternalId) {
+                const internalKey = me.getInternalKey(record);
+                if (internalKey) {
+                    me.internalIdMap.set(internalKey, record)
+                }
             }
 
             // If this collection is filtered, we must also update the master 'allItems' collection
             if (me.allItems) {
                 const masterIndex = me.allItems.indexOf(item);
                 if (masterIndex !== -1) {
-                    me.allItems.map.set(key, record);
-                    me.allItems._items[masterIndex] = record
+                    me.allItems.map.set(pk, record);
+                    me.allItems._items[masterIndex] = record;
+
+                    if (me.allItems.trackInternalId) {
+                        const internalKey = me.getInternalKey(record);
+                        if (internalKey) {
+                            me.allItems.internalIdMap.set(internalKey, record)
+                        }
+                    }
                 }
             }
             return record
@@ -543,12 +566,28 @@ class Store extends Collection {
             me.map.set(record[me.keyProperty], record);
             me._items[index] = record;
 
+            // If we are tracking internalIds, we need to update the map to point to the new record
+            // instead of the raw object
+            if (me.trackInternalId) {
+                const internalKey = me.getInternalKey(record);
+                if (internalKey) {
+                    me.internalIdMap.set(internalKey, record)
+                }
+            }
+
             // If this collection is filtered, we must also update the master 'allItems' collection
             if (me.allItems) {
                 const masterIndex = me.allItems.indexOf(item);
                 if (masterIndex !== -1) {
                     me.allItems.map.set(record[me.keyProperty], record);
-                    me.allItems._items[masterIndex] = record
+                    me.allItems._items[masterIndex] = record;
+
+                    if (me.allItems.trackInternalId) {
+                        const internalKey = me.getInternalKey(record);
+                        if (internalKey) {
+                            me.allItems.internalIdMap.set(internalKey, record)
+                        }
+                    }
                 }
             }
             return record
@@ -566,6 +605,15 @@ class Store extends Collection {
             item[internalId] = Neo.getId('record')
         }
 
+        return item[internalId]
+    }
+
+    /**
+     * Hook to get the internal key of an item.
+     * @param {Object} item
+     * @returns {String|Number|null}
+     */
+    getInternalKey(item) {
         return item[internalId]
     }
 

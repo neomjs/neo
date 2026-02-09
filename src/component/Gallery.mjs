@@ -617,13 +617,7 @@ class Gallery extends Component {
         let me       = this,
             selected = value?.[0] || 0,
             record   = me.store.get(selected),
-            index;
-
-        if (!record && me.useInternalId) {
-            record = me.store.items.find(r => me.getRecordId(r) === selected)
-        }
-
-        index = me.store.indexOf(record);
+            index    = me.store.indexOf(record);
 
         if (index === -1) {
             index = 0

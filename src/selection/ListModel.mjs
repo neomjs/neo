@@ -62,10 +62,6 @@ class ListModel extends Model {
             id     = view.getItemRecordId(currentTarget),
             record = view.store.get(id);
 
-        if (!record && view.useInternalId) {
-            record = view.store.items.find(r => view.store.getInternalId(r) === id)
-        }
-
         if (!view.disableSelection) {
             record && this.select(record)
         }
@@ -82,10 +78,6 @@ class ListModel extends Model {
         if (data.activeItem) {
             recordId = view.getItemRecordId(data.activeItem);
             record   = store.get(recordId);
-
-            if (!record && view.useInternalId) {
-                record = store.items.find(r => store.getInternalId(r) === recordId)
-            }
         }
 
         if (!record) {

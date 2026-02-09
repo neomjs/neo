@@ -29,25 +29,7 @@ class BaseModel extends Model {
      * @returns {Neo.data.Record|null}
      */
     getRowRecord(id) {
-        if (!id) return null;
-
-        let me    = this,
-            {view} = me,
-            {store}= view,
-            record = store.get(id);
-
-        if (record) return record;
-
-        // Table Body creates rows directly in vdom, not as components in items (mostly).
-        // But getRecordByRowId might help if we have the row ID.
-        // For internalId we need to check store.
-
-        if (view.useInternalId) {
-            record = store.items.find(r => store.getInternalId(r) === id);
-            if (record) return record
-        }
-
-        return null
+        return id && this.view.store.get(id) || null
     }
 }
 
