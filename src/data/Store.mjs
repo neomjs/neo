@@ -906,6 +906,44 @@ class Store extends Collection {
     }
 
     /**
+     * Resolves the key of a given item, supporting both raw data objects and Record instances.
+     * This handles the edge case where `keyProperty` refers to a mapped source key (e.g. 'l')
+     * which exists on the raw object but not on the Record instance (where it is mapped to e.g. 'login').
+     * @param {Object|Neo.data.Record} item
+     * @returns {String|Number}
+     */
+    getKey(item) {
+        let me          = this,
+            keyProperty = me.getKeyProperty(),
+            value;
+
+        if (RecordFactory.isRecord(item)) {
+            return item.get(keyProperty)
+        }
+
+        if (keyProperty.includes('.')) {
+            value = Neo.ns(keyProperty, false, item)
+        } else {
+            value = item[keyProperty]
+        }
+
+        // If direct access failed, check for mapping (Reverse Lookup)
+        if (value === undefined && me.model) {
+            let field = me.model.getField(keyProperty);
+            if (field?.mapping) {
+                let mapping = field.mapping;
+                if (mapping.includes('.')) {
+                    value = Neo.ns(mapping, false, item)
+                } else {
+                    value = item[mapping]
+                }
+            }
+        }
+
+        return value
+    }
+
+    /**
      * Serializes the instance into a JSON-compatible object for the Neural Link.
      * @returns {Object}
      */

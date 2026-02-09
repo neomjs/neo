@@ -249,7 +249,7 @@ class BaseModel extends Model {
      * @returns {Neo.grid.Row|null}
      */
     getRowComponent(recordId) {
-        return this.view.items.find(row => row.record && row.record[this.view.store.getKeyProperty()] === recordId) || null
+        return this.view.items.find(row => row.record && this.view.store.getKey(row.record) === recordId) || null
     }
 
     /**

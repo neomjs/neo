@@ -17,9 +17,9 @@ class Contributors extends Store {
          */
         model: ContributorModel,
         /**
-         * @member {String} keyProperty='l'
+         * @member {String} keyProperty='login'
          */
-        keyProperty: 'l',
+        keyProperty: 'login',
         /**
          * @member {Boolean} autoLoad=true
          */
