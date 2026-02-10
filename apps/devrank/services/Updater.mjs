@@ -91,7 +91,7 @@ class Updater extends Base {
                 // Kill-switch: If we hit a rate limit error, force internal state to 0 to trigger graceful shutdown
                 if (error.message.includes('rate limit')) {
                     console.warn(`[Updater] 🚨 Rate limit hit for ${login}. Forcing shutdown sequence.`);
-                    GitHub.rateLimit.remaining = 0;
+                    GitHub.rateLimit.core.remaining = 0;
                 }
             }
         };
@@ -99,10 +99,10 @@ class Updater extends Base {
         // Process in chunks
         for (let i = 0; i < logins.length; i += concurrency) {
             // Rate Limit Check
-            if (GitHub.rateLimit.remaining < 50) {
-                console.warn(`\n[Updater] ⚠️ RATE LIMIT CRITICAL: ${GitHub.rateLimit.remaining} requests remaining.`);
-                if (GitHub.rateLimit.reset) {
-                    const resetDate = new Date(GitHub.rateLimit.reset * 1000);
+            if (GitHub.rateLimit.core.remaining < 50) {
+                console.warn(`\n[Updater] ⚠️ RATE LIMIT CRITICAL: ${GitHub.rateLimit.core.remaining} requests remaining.`);
+                if (GitHub.rateLimit.core.reset) {
+                    const resetDate = new Date(GitHub.rateLimit.core.reset * 1000);
                     console.warn(`[Updater] Limit resets at: ${resetDate.toLocaleString()}`);
                 }
                 console.warn(`[Updater] Stopping gracefully to preserve quota.\n`);
@@ -145,7 +145,7 @@ class Updater extends Base {
     async saveCheckpoint(results, indexUpdates) {
         if (results.length > 0) await Storage.updateUsers(results);
         if (indexUpdates.length > 0) await Storage.updateTracker(indexUpdates);
-        console.log(`[Updater] Checkpoint: Saved ${results.length} records. (API Quota: ${GitHub.rateLimit.remaining}/${GitHub.rateLimit.limit})`);
+        console.log(`[Updater] Checkpoint: Saved ${results.length} records. (API Quota: ${GitHub.rateLimit.core.remaining}/${GitHub.rateLimit.core.limit})`);
     }
 
     /**
