@@ -59,7 +59,7 @@ class Updater extends Base {
         let successCount = 0;
         const saveInterval = config.updater.saveInterval;
         const whitelist = await Storage.getWhitelist();
-        const concurrency = 10; // Increased to 10 for throughput
+        const concurrency = 8; // Slightly reduced from 10 to balance speed vs stability
 
         // Helper to process a single user
         const processUser = async (login) => {
