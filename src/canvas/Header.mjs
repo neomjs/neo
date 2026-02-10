@@ -85,6 +85,7 @@ class Header extends Base {
         remote: {
             app: [
                 'updateActiveId',
+                'updateConfig',
                 'updateGraphData',
                 'updateHoverId',
                 'updateNavRects',
@@ -134,6 +135,10 @@ class Header extends Base {
      * @member {Number} timeScale=1
      */
     timeScale = 1
+    /**
+     * @member {Boolean} usePulse=true
+     */
+    usePulse = true
     /**
      * Pre-allocated buffers for wave geometry.
      * Uses `Float32Array` to eliminate Garbage Collection pressure during the render loop.
@@ -242,7 +247,11 @@ class Header extends Base {
             }
         }
 
-        me.time += 0.05 * me.timeScale;
+        // If animations are enabled, use dynamic timeScale (1x to 2x).
+        // If disabled, use a fixed "Reduced Motion" drift (0.2x).
+        let speed = me.usePulse ? me.timeScale : 0.2;
+
+        me.time += 0.05 * speed;
 
         // Auto-reinit particles if size changes significantly or empty OR count mismatch (config update)
         if (me.particles.length !== 60) {
@@ -763,8 +772,8 @@ class Header extends Base {
         // Extract base color from gradient array for shadow
         const color1 = themeColors.grad1[0];
         const color2 = themeColors.grad2[0];
-        // Disable heat if stressed to save fill-rate
-        const heat   = isStressed ? 0 : Math.max(0, me.timeScale - 1);
+        // Disable heat if stressed OR if animations are globally disabled
+        const heat   = (isStressed || !me.usePulse) ? 0 : Math.max(0, me.timeScale - 1);
 
         drawStrand(bufA, me.gradients.grad1, shimmerA, color1, false, me.gradients.grad1Hot, heat);
         drawStrand(bufB, me.gradients.grad2, shimmerB, color2, false, me.gradients.grad2Hot, heat);
@@ -957,6 +966,13 @@ class Header extends Base {
             life : 60, // frames
             speed: 15  // px per frame
         })
+    }
+
+    /**
+     * @param {Object} data
+     */
+    updateConfig(data) {
+        this.set(data)
     }
 
     /**

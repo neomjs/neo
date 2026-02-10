@@ -79,6 +79,14 @@ class ControlsContainer extends Container {
                     valueLabel   : 'Commits Only',
                     width        : 200
                 }, {
+                    module       : CheckBox,
+                    checked      : true,
+                    hideLabel    : true,
+                    listeners    : {change: 'up.onShowAnimationsChange'},
+                    style        : {marginTop: '1em'},
+                    valueLabel   : 'Show Animations',
+                    width        : 200
+                }, {
                     ntype    : 'label',
                     reference: 'count-rows-label',
                     style    : {marginTop: '1em'}
@@ -179,6 +187,13 @@ class ControlsContainer extends Container {
      */
     onSelectionModelChange(data) {
         this.grid.body.selectionModel = data.component.selectionModel
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onShowAnimationsChange(data) {
+        this.grid.animateVisuals = data.value
     }
 
     /**

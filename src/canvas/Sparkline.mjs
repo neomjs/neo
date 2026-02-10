@@ -267,7 +267,7 @@ class Sparkline extends Base {
                 // Remove from active set if usePulse got disabled mid-animation
                 if (!item.usePulse && !item.isTransitioning) {
                     me.activeItems.delete(item);
-                    if (needsDraw) me.draw(item);
+                    me.draw(item); // Force redraw to clear artifacts
                     return
                 }
 
@@ -280,7 +280,7 @@ class Sparkline extends Base {
                         // Only remove if not transitioning
                         if (!item.isTransitioning) {
                             me.activeItems.delete(item);
-                            me.draw(item) // Final clean draw
+                            me.draw(item); // Final clean draw
                             return
                         }
                     } else {
@@ -289,7 +289,9 @@ class Sparkline extends Base {
                 }
 
                 if (needsDraw) {
-                    me.draw(item, {pulseProgress: item.pulseProgress})
+                    me.draw(item, {
+                        pulseProgress: item.usePulse ? item.pulseProgress : undefined
+                    })
                 }
             });
         }

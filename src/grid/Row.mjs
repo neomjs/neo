@@ -440,6 +440,31 @@ class Row extends Component {
     }
 
     /**
+     * Updates components inside the row matching a specific identifier (ntype, className or Class)
+     * @param {String|Neo.core.Base} identifier
+     * @param {Object} config
+     */
+    updateCellComponents(identifier, config) {
+        let me = this,
+            isString, proto;
+
+        if (me.components) {
+            isString = Neo.isString(identifier);
+
+            if (!isString) {
+                proto      = identifier.prototype;
+                identifier = proto.ntype || proto.className
+            }
+
+            Object.values(me.components).forEach(component => {
+                if (isString ? (component.ntype === identifier || component.className === identifier) : (component instanceof identifier)) {
+                    component.set(config)
+                }
+            })
+        }
+    }
+
+    /**
      * Updates the content of this Row instance to display a new record.
      *
      * This is the core method of the Row Pooling architecture. It is called by `Neo.grid.Body`
