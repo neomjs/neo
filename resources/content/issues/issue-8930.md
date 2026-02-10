@@ -91,8 +91,10 @@ subIssues:
   - '[ ] 9082 Refactor Portal Content Viewer to Framework Component'
   - '[x] 9083 Feat: DevRank GitHub API Rate Limit Protection'
   - '[x] 9084 Enhancement: DevRank Atomic File Persistence'
-subIssuesCompleted: 75
-subIssuesTotal: 77
+  - '[x] 9085 Feat: DevRank Spider Community Discovery Strategy'
+  - '[x] 9086 Feat: DevRank Spider CLI Strategy Selection'
+subIssuesCompleted: 77
+subIssuesTotal: 79
 blockedBy: []
 blocking: []
 ---
