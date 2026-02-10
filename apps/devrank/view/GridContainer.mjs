@@ -26,7 +26,10 @@ class GridContainer extends BaseGridContainer {
          */
         body: {
             bufferColumnRange: 3,
-            bufferRowRange   : 5
+            bufferRowRange   : 5,
+            listeners        : {
+                isScrollingChange: 'onGridIsScrollingChange'
+            }
         },
         /**
          * Default configs for each column
