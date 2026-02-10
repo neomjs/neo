@@ -82,9 +82,31 @@ class Manager extends Base {
         program
             .command('spider')
             .description('Run the discovery spider to find new users')
-            .action(async () => {
+            .option('-s, --strategy <type>', 'Force specific strategy (community, keyword, temporal, stargazer, search)')
+            .action(async (options) => {
+                let strategy = options.strategy;
+
+                if (!strategy) {
+                    const answers = await inquirer.prompt([
+                        {
+                            type: 'list',
+                            name: 'strategy',
+                            message: 'Select Discovery Strategy:',
+                            choices: [
+                                {name: '🎲 Random (Default)', value: null},
+                                {name: '👩‍💻 Community Scan (Diversity)', value: 'community'},
+                                {name: '🔑 Keyword Search', value: 'keyword'},
+                                {name: '⏳ Temporal Slicing', value: 'temporal'},
+                                {name: '🌟 Stargazer Leap', value: 'stargazer'},
+                                {name: '🔍 Core High Stars', value: 'search'}
+                            ]
+                        }
+                    ]);
+                    strategy = answers.strategy;
+                }
+
                 await Cleanup.run(); // Pre-run hygiene
-                await Spider.run();
+                await Spider.run(strategy);
             });
 
         program
