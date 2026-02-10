@@ -100,6 +100,32 @@ class GitHub extends Base {
         if (remaining !== null) this.rateLimit.remaining = parseInt(remaining, 10);
         if (reset !== null) this.rateLimit.reset = parseInt(reset, 10);
         if (limit !== null) this.rateLimit.limit = parseInt(limit, 10);
+
+        // Debug: Warn if headers are missing but we are at default (implying no update ever happened)
+        if (remaining === null && this.rateLimit.remaining === 5000) {
+            // Only log once or sparsely to avoid spam
+            if (!this._headerWarned) {
+                console.warn('[GitHub] Warning: `x-rate-limit-*` headers not found. Falling back to body (if available).');
+                this._headerWarned = true;
+            }
+        }
+    }
+
+    /**
+     * Updates rate limit from GraphQL body.
+     * @param {Object} rateLimit
+     * @private
+     */
+    #updateFromBody(rateLimit) {
+        if (!rateLimit) return;
+        
+        if (rateLimit.remaining !== undefined) this.rateLimit.remaining = rateLimit.remaining;
+        if (rateLimit.limit !== undefined)     this.rateLimit.limit     = rateLimit.limit;
+        
+        if (rateLimit.resetAt) {
+            // GraphQL returns ISO string, we store epoch seconds
+            this.rateLimit.reset = Math.floor(new Date(rateLimit.resetAt).getTime() / 1000);
+        }
     }
 
     /**
@@ -139,6 +165,11 @@ class GitHub extends Base {
             }
 
             const json = await response.json();
+
+            // Hook for body-based rate limit (more reliable for GraphQL)
+            if (json.data?.rateLimit) {
+                this.#updateFromBody(json.data.rateLimit);
+            }
 
             if (json.errors) {
                 // Sometimes 502s come as 200 OK with errors body
@@ -197,6 +228,9 @@ class GitHub extends Base {
             this.#updateRateLimit(response.headers);
 
             if (!response.ok) {
+                if (response.status === 403) {
+                    this.rateLimit.remaining = 0;
+                }
                 throw new Error(`REST Error: ${response.status} ${response.statusText}`);
             }
 

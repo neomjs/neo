@@ -514,6 +514,12 @@ class Spider extends Base {
                 .filter(c => c.type === 'User')
                 .map(c => c.login);
         } catch (e) {
+            // Kill-switch for rate limits
+            if (e.message.includes('403') || e.message.includes('rate limit')) {
+                console.warn(`[Spider] 🚨 Rate limit hit scanning ${fullName}. Forcing shutdown.`);
+                GitHub.rateLimit.remaining = 0;
+            }
+
             console.error(`[Spider] Failed to fetch contributors for ${fullName}: ${e.message}`);
             return [];
         }

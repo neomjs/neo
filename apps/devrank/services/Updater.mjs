@@ -87,6 +87,12 @@ class Updater extends Base {
                 }
             } catch (error) {
                 console.log(`[${login}] FAILED: ${error.message}`);
+                
+                // Kill-switch: If we hit a rate limit error, force internal state to 0 to trigger graceful shutdown
+                if (error.message.includes('rate limit')) {
+                    console.warn(`[Updater] 🚨 Rate limit hit for ${login}. Forcing shutdown sequence.`);
+                    GitHub.rateLimit.remaining = 0;
+                }
             }
         };
 
@@ -160,6 +166,7 @@ class Updater extends Base {
         // 1. Fetch Basic Profile & Social Accounts (GraphQL)
         const profileQuery = `
             query { 
+                rateLimit { remaining limit resetAt }
                 user(login: "${username}") { 
                     createdAt 
                     avatarUrl 
@@ -227,7 +234,9 @@ class Updater extends Base {
         const contribData = {};
 
         const fetchYears = async (fromYear, toYear) => {
-            let query = `query { user(login: "${username}") {`;
+            let query = `query { 
+                rateLimit { remaining limit resetAt }
+                user(login: "${username}") {`;
             for (let year = fromYear; year <= toYear; year++) {
                 query += ` y${year}: contributionsCollection(from: "${year}-01-01T00:00:00Z", to: "${year}-12-31T23:59:59Z") { 
                     totalCommitContributions
