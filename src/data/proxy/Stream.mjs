@@ -15,7 +15,12 @@ class Stream extends Base {
          * @member {String} ntype='proxy-stream'
          * @protected
          */
-        ntype: 'proxy-stream'
+        ntype: 'proxy-stream',
+        /**
+         * Number of records to batch before firing a 'data' event.
+         * @member {Number} chunkSize=500
+         */
+        chunkSize: 500
     }
 
     /**
@@ -23,9 +28,11 @@ class Stream extends Base {
      * @returns {Promise}
      */
     async read(operation) {
-        let me  = this,
-            url = me.url || operation.url,
-            count = 0;
+        let me        = this,
+            chunk     = [],
+            chunkSize = me.chunkSize,
+            count     = 0,
+            url       = me.url || operation.url;
 
         if (!url) {
             throw new Error('No URL specified');
@@ -53,8 +60,12 @@ class Stream extends Base {
             if (done) {
                 // Process any remaining buffer
                 if (buffer.trim()) {
-                    me.processLine(buffer);
+                    me.processLine(buffer, chunk);
                     count++;
+                }
+                // Flush remaining chunk
+                if (chunk.length > 0) {
+                    me.fire('data', chunk);
                 }
                 break;
             }
@@ -66,8 +77,13 @@ class Stream extends Base {
 
             for (const line of lines) {
                 if (line.trim()) {
-                    me.processLine(line);
+                    me.processLine(line, chunk);
                     count++;
+
+                    if (chunk.length >= chunkSize) {
+                        me.fire('data', chunk);
+                        chunk = [];
+                    }
                 }
             }
         }
@@ -77,11 +93,11 @@ class Stream extends Base {
 
     /**
      * @param {String} line
+     * @param {Array} chunk
      */
-    processLine(line) {
+    processLine(line, chunk) {
         try {
-            const data = JSON.parse(line);
-            this.fire('data', data);
+            chunk.push(JSON.parse(line));
         } catch (e) {
             console.warn('JSON parse error in Stream proxy:', e, line);
         }
