@@ -103,9 +103,17 @@ class Header extends Base {
      */
     activeId = null
     /**
+     * @member {Number} avgFrameTime=16
+     */
+    avgFrameTime = 16
+    /**
      * @member {String|null} hoverId=null
      */
     hoverId = null
+    /**
+     * @member {Number} lastFrameTime=0
+     */
+    lastFrameTime = 0
     /**
      * @member {Object[]} navRects=[]
      */
@@ -209,7 +217,20 @@ class Header extends Base {
         const
             ctx    = me.context,
             width  = me.canvasSize?.width  || 100,
-            height = me.canvasSize?.height || 50;
+            height = me.canvasSize?.height || 50,
+            now    = performance.now();
+
+        // 0. Performance Monitoring (Adaptive Backpressure)
+        if (me.lastFrameTime > 0) {
+            let delta = now - me.lastFrameTime;
+
+            // Only update average if delta is sanity-checked (ignore tab suspension pauses)
+            if (delta < 500) {
+                // Exponential Moving Average (alpha = 0.05 for smooth stability)
+                me.avgFrameTime = (me.avgFrameTime * 0.95) + (delta * 0.05);
+            }
+        }
+        me.lastFrameTime = now;
 
         // Smooth transition for timeScale
         if (me.timeScale !== me.targetTimeScale) {
@@ -237,7 +258,9 @@ class Header extends Base {
         me.drawParticles(ctx, width, height);
 
         // 3. Draw "Auras" (Hover Effects) => 3D Ribbon + Neon Tube
-        me.drawAuras(ctx, width, height);
+        // Backpressure: If we are dropping frames (> 32ms), disable the hot overlay
+        const isStressed = me.avgFrameTime > 32;
+        me.drawAuras(ctx, width, height, isStressed);
 
         // 3b. Draw Active Overlay
         me.drawActiveOverlay(ctx, width);
@@ -660,8 +683,9 @@ class Header extends Base {
      * @param {CanvasRenderingContext2D} ctx
      * @param {Number} width
      * @param {Number} height
+     * @param {Boolean} [isStressed=false]
      */
-    drawAuras(ctx, width, height) {
+    drawAuras(ctx, width, height, isStressed=false) {
         let me = this;
 
         if (!Array.isArray(me.navRects)) return;
@@ -739,7 +763,8 @@ class Header extends Base {
         // Extract base color from gradient array for shadow
         const color1 = themeColors.grad1[0];
         const color2 = themeColors.grad2[0];
-        const heat   = Math.max(0, me.timeScale - 1); // 0 at idle, 1 at full speed
+        // Disable heat if stressed to save fill-rate
+        const heat   = isStressed ? 0 : Math.max(0, me.timeScale - 1);
 
         drawStrand(bufA, me.gradients.grad1, shimmerA, color1, false, me.gradients.grad1Hot, heat);
         drawStrand(bufB, me.gradients.grad2, shimmerB, color2, false, me.gradients.grad2Hot, heat);
