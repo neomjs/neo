@@ -1,16 +1,16 @@
-import BaseTreeList from '../../../../../src/tree/List.mjs';
+import BaseTreeList from '../../tree/List.mjs';
 
 /**
- * @class Portal.view.shared.content.TreeList
+ * @class Neo.app.content.TreeList
  * @extends Neo.tree.List
  */
 class TreeList extends BaseTreeList {
     static config = {
         /**
-         * @member {String} className='Portal.view.shared.content.TreeList'
+         * @member {String} className='Neo.app.content.TreeList'
          * @protected
          */
-        className: 'Portal.view.shared.content.TreeList',
+        className: 'Neo.app.content.TreeList',
         /**
          * @member {Object} bind
          */
@@ -20,10 +20,10 @@ class TreeList extends BaseTreeList {
             store            : 'stores.tree'
         },
         /**
-         * @member {String[]} cls=['portal-content-tree-list']
+         * @member {String[]} cls=['neo-app-content-tree-list']
          * @reactive
          */
-        cls: ['portal-content-tree-list'],
+        cls: ['neo-app-content-tree-list'],
         /**
          * @member {String|null} contentPath_=null
          * @reactive

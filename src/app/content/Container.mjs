@@ -1,26 +1,26 @@
-import {isDescriptor, mergeFrom} from '../../../../../src/core/ConfigSymbols.mjs';
-import Container                 from '../../../../../src/container/Base.mjs';
+import {isDescriptor, mergeFrom} from '../../core/ConfigSymbols.mjs';
+import Container                 from '../../container/Base.mjs';
 import PageContainer             from './PageContainer.mjs';
 import SectionsContainer         from './SectionsContainer.mjs';
-import Splitter                  from '../../../../../src/component/Splitter.mjs';
+import Splitter                  from '../../component/Splitter.mjs';
 import TreeList                  from './TreeList.mjs';
 
 /**
- * @class Portal.view.shared.content.Container
+ * @class Neo.app.content.Container
  * @extends Neo.container.Base
  */
 class MainContainer extends Container {
     static config = {
         /**
-         * @member {String} className='Portal.view.shared.content.Container'
+         * @member {String} className='Neo.app.content.Container'
          * @protected
          */
-        className: 'Portal.view.shared.content.Container',
+        className: 'Neo.app.content.Container',
         /**
-         * @member {String[]} baseCls=['portal-shared-content-container','neo-container']
+         * @member {String[]} baseCls=['neo-app-content-container','neo-container']
          * @reactive
          */
-        baseCls: ['portal-shared-content-container', 'neo-container'],
+        baseCls: ['neo-app-content-container', 'neo-container'],
         /**
          * @member {Object} items
          */

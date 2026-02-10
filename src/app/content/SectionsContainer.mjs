@@ -1,22 +1,22 @@
-import Container    from '../../../../../src/container/Base.mjs';
+import Container    from '../../container/Base.mjs';
 import SectionsList from './SectionsList.mjs';
 
 /**
- * @class Portal.view.shared.content.SectionsContainer
+ * @class Neo.app.content.SectionsContainer
  * @extends Neo.container.Base
  */
 class SectionsContainer extends Container {
     static config = {
         /**
-         * @member {String} className='Portal.view.shared.content.SectionsContainer'
+         * @member {String} className='Neo.app.content.SectionsContainer'
          * @protected
          */
-        className: 'Portal.view.shared.content.SectionsContainer',
+        className: 'Neo.app.content.SectionsContainer',
         /**
-         * @member {String[]} cls=['portal-shared-content-sections-container']
+         * @member {String[]} cls=['neo-app-content-sections-container']
          * @reactive
          */
-        cls: ['portal-shared-content-sections-container'],
+        cls: ['neo-app-content-sections-container'],
         /**
          * @member {Object[]} items
          */
@@ -55,7 +55,7 @@ class SectionsContainer extends Container {
 
     /**
      * Convenience shortcut
-     * @member {Portal.view.shared.content.SectionsList} list
+     * @member {Neo.app.content.SectionsList} list
      */
     get list() {
         return this.getReference('list')

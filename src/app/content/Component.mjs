@@ -1,22 +1,22 @@
-import Markdown from '../../../../../src/component/Markdown.mjs';
+import Markdown from '../../component/Markdown.mjs';
 
 /**
  * @summary Displays interactive content (Markdown) within the Portal application.
- * @class Portal.view.shared.content.Component
+ * @class Neo.app.content.Component
  * @extends Neo.component.Markdown
  */
 class Component extends Markdown {
     static config = {
         /**
-         * @member {String} className='Portal.view.shared.content.Component'
+         * @member {String} className='Neo.app.content.Component'
          * @protected
          */
-        className: 'Portal.view.shared.content.Component',
+        className: 'Neo.app.content.Component',
         /**
-         * @member {String[]} baseCls=['portal-content-component','neo-markdown-component']
+         * @member {String[]} baseCls=['neo-app-content-component','neo-markdown-component']
          * @protected
          */
-        baseCls: ['portal-content-component', 'neo-markdown-component'],
+        baseCls: ['neo-app-content-component', 'neo-markdown-component'],
         /**
          * @member {Object} bind
          */

@@ -1,4 +1,4 @@
-.portal-shared-content-page-container {
+.neo-app-content-page-container {
     background-color: transparent;
     flex-shrink     : 1 !important;
     min-width       : 0;
@@ -30,7 +30,7 @@
             justify-content: flex-start;
 
             &:not(:hover) {
-                background-color: var(--portal-toolbar-btn-bg);
+                background-color: var(--neo-app-content-toolbar-btn-bg);
             }
 
             .neo-button-text, .neo-button-glyph {
@@ -45,7 +45,7 @@
         }
 
         .content-bottom-toolbar-previous:before {
-            color      : var(--portal-toolbar-text-color); // required for mobile
+            color      : var(--neo-app-content-toolbar-text-color); // required for mobile
             content    : 'Previous Page';
             font-family: var(--core-fontfamily-sans);
             left       : var(--cmp-button-spacinghorizontal);
@@ -57,7 +57,7 @@
             grid-column: 2/3;
 
             &:before {
-                color      : var(--portal-toolbar-text-color); // required for mobile
+                color      : var(--neo-app-content-toolbar-text-color); // required for mobile
                 content    : 'Next Page';
                 font-family: var(--core-fontfamily-sans);
                 position   : absolute;

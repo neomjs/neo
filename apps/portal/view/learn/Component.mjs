@@ -1,8 +1,8 @@
-import ContentComponent from '../shared/content/Component.mjs';
+import ContentComponent from '../../../../src/app/content/Component.mjs';
 
 /**
  * @class Portal.view.learn.Component
- * @extends Portal.view.shared.content.Component
+ * @extends Neo.app.content.Component
  */
 class Component extends ContentComponent {
     static config = {

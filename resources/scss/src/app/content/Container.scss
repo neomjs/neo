@@ -1,4 +1,4 @@
-.portal-shared-content-container {
+.neo-app-content-container {
     flex-shrink: 1 !important;
     min-width  : 0;
 
@@ -17,7 +17,7 @@
 
     @media (max-width: 640px) {
         .sidenav-container {
-            box-shadow: var(--portal-sidenav-shadow);
+            box-shadow: var(--neo-app-content-sidenav-shadow);
             height    : 100%;
             left      : -350px;
             overflow  : visible;
@@ -30,8 +30,8 @@
             }
 
             .sidenav-button {
-                background-color: var(--portal-sidenav-btn-bg);
-                box-shadow      : var(--portal-sidenav-shadow);
+                background-color: var(--neo-app-content-sidenav-btn-bg);
+                box-shadow      : var(--neo-app-content-sidenav-shadow);
                 display         : flex;
                 height          : 35px;
                 min-width       : 35px;

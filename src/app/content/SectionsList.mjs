@@ -1,16 +1,16 @@
-import List from '../../../../../src/list/Base.mjs';
+import List from '../../list/Base.mjs';
 
 /**
- * @class Portal.view.shared.content.SectionsList
+ * @class Neo.app.content.SectionsList
  * @extends Neo.list.Base
  */
 class SectionsList extends List {
     static config = {
         /**
-         * @member {String} className='Portal.view.shared.content.SectionsList'
+         * @member {String} className='Neo.app.content.SectionsList'
          * @protected
          */
-        className: 'Portal.view.shared.content.SectionsList',
+        className: 'Neo.app.content.SectionsList',
         /**
          * @member {Object} bind
          */
@@ -18,10 +18,10 @@ class SectionsList extends List {
             store: 'stores.sections'
         },
         /**
-         * @member {String[]} cls=['portal-shared-content-sections-list','portal-content-tree-list']
+         * @member {String[]} cls=['neo-app-content-sections-list','neo-app-content-tree-list']
          * @reactive
          */
-        cls: ['portal-shared-content-sections-list', 'portal-content-tree-list']
+        cls: ['neo-app-content-sections-list', 'neo-app-content-tree-list']
     }
 
     /**

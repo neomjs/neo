@@ -2,7 +2,7 @@
     background-color: transparent;
 }
 
-.portal-content-tree-list {
+.neo-app-content-tree-list {
     background-color: transparent;
     padding         : 8px 2px 8px 8px;
 
@@ -89,7 +89,7 @@
             white-space   : nowrap;
 
             b {
-                color: var(--portal-treelist-bold-color, inherit);
+                color: var(--neo-app-content-treelist-bold-color, inherit);
             }
         }
     }
@@ -131,7 +131,7 @@
     }
 
     .release-date {
-        color       : var(--portal-treelist-meta-color, inherit);
+        color       : var(--neo-app-content-treelist-meta-color, inherit);
         font-size   : 90%;
         margin-left : 5px;
         position    : relative;
@@ -139,7 +139,7 @@
     }
 
     .blog-date {
-        color       : var(--portal-treelist-meta-color, inherit);
+        color       : var(--neo-app-content-treelist-meta-color, inherit);
         font-size   : 90%;
         margin-right: 5px;
         position    : relative;
@@ -147,7 +147,7 @@
     }
 
     .ticket-title {
-        color       : var(--portal-treelist-ticket-title-color, inherit);
+        color       : var(--neo-app-content-treelist-ticket-title-color, inherit);
         font-size   : 90%;
         margin-left : 5px;
         position    : relative;
