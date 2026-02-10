@@ -79,7 +79,7 @@ const defaultConfig = {
          * Contains full profiles, contributions, etc.
          * @type {string}
          */
-        users: path.resolve(projectRoot, 'apps/devrank/resources/users.json'),
+        users: path.resolve(projectRoot, 'apps/devrank/resources/users.jsonl'),
         
         /**
          * The backend discovery index (formerly users.json).

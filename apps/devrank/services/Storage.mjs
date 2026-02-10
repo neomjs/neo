@@ -238,7 +238,7 @@ class Storage extends Base {
     // --- Low Level Helpers ---
 
     /**
-     * Reads a JSON file.
+     * Reads a JSON or JSONL file.
      * @param {String} path
      * @param {*} defaultValue
      * @returns {Promise<*>}
@@ -247,6 +247,15 @@ class Storage extends Base {
     async readJson(path, defaultValue) {
         try {
             const content = await fs.readFile(path, 'utf-8');
+            
+            if (path.endsWith('.jsonl')) {
+                if (!content.trim()) return [];
+                return content
+                    .split('\n')
+                    .filter(line => line.trim())
+                    .map(line => JSON.parse(line));
+            }
+
             return JSON.parse(content);
         } catch (error) {
             if (error.code === 'ENOENT') {
@@ -257,7 +266,7 @@ class Storage extends Base {
     }
 
     /**
-     * Writes data to a JSON file.
+     * Writes data to a JSON or JSONL file.
      * @param {String} path
      * @param {*} data
      * @returns {Promise<void>}
@@ -266,8 +275,14 @@ class Storage extends Base {
     async writeJson(path, data) {
         let content;
         
-        if (path === config.paths.users && Array.isArray(data)) {
-            // Custom formatter for users.json: One record per line, no internal whitespace
+        if (path.endsWith('.jsonl')) {
+            if (Array.isArray(data)) {
+                content = data.map(item => JSON.stringify(item)).join('\n');
+            } else {
+                throw new Error('JSONL writer expects an Array');
+            }
+        } else if (path === config.paths.users && Array.isArray(data)) {
+            // Legacy/Fallback formatter for users.json
             const lines = data.map(item => JSON.stringify(item));
             content = `[\n${lines.join(',\n')}\n]`;
         } else {
