@@ -638,16 +638,10 @@ class Gallery extends Component {
 
         me.transitionTimeouts.splice(0, me.transitionTimeouts.length);
 
-        Neo.currentWorker.promiseMessage('main', {
-            action : 'updateDom',
-            appName,
-            windowId,
-
-            deltas: {
-                id   : id + '__dolly',
-                style: {
-                    transform: me.translate3d(...dollyTransform)
-                }
+        Neo.applyDeltas(windowId, {
+            id   : id + '__dolly',
+            style: {
+                transform: me.translate3d(...dollyTransform)
             }
         }).then(() => {
             Neo.currentWorker.promiseMessage('main', {

@@ -77,7 +77,7 @@ class GalleryModel extends Model {
                 this.select(key);
 
                 view.fire('select', {
-                    record: view.store.get(key) || view.store.items.find(r => view.getRecordId(r) === key)
+                    record: view.store.get(key)
                 });
 
                 break
@@ -125,7 +125,7 @@ class GalleryModel extends Model {
             index, record;
 
         if (selected) {
-            record = store.get(selected) || store.items.find(r => view.getRecordId(r) === selected);
+            record = store.get(selected);
             index  = store.indexOf(record) + step
         } else {
             index = 0
@@ -164,7 +164,7 @@ class GalleryModel extends Model {
         step *= amountRows;
 
         if (selected) {
-            record = store.get(selected) || store.items.find(r => view.getRecordId(r) === selected);
+            record = store.get(selected);
             index  = store.indexOf(record) + step
         } else {
             index = 0
