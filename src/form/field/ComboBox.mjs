@@ -599,7 +599,8 @@ class ComboBox extends Picker {
                 record;
 
             if (typeof selected === 'string') {
-                record = store.get(selected);
+                selected = list.getItemRecordId(selected);
+                record   = store.get(selected);
 
                 if (!record && list.useInternalId) {
                     record = store.items.find(r => list.getRecordId(r) === selected)
