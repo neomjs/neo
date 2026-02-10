@@ -274,7 +274,9 @@ class Storage extends Base {
             content = JSON.stringify(data, null, 2);
         }
 
-        await fs.writeFile(path, content, 'utf-8');
+        const tempPath = `${path}.tmp`;
+        await fs.writeFile(tempPath, content, 'utf-8');
+        await fs.rename(tempPath, path);
     }
 }
 
