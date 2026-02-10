@@ -215,6 +215,11 @@ class Spider extends Base {
         console.log(`[Spider] Search Query: ${query}`);
 
         for (let page = 1; page <= maxPages; page++) {
+            if (GitHub.rateLimit.remaining < 50) {
+                console.warn(`[Spider] RATE LIMIT CRITICAL: ${GitHub.rateLimit.remaining}. Stopping search.`);
+                break;
+            }
+
             console.log(`[Spider] Fetching page ${page}...`);
             const searchRes = await GitHub.rest(`search/repositories?q=${query}&sort=stars&per_page=${config.github.perPage}&page=${page}`);
 
@@ -234,6 +239,11 @@ class Spider extends Base {
      * @param {Object} state
      */
     async runStargazer(username, state) {
+        if (GitHub.rateLimit.remaining < 50) {
+             console.warn(`[Spider] RATE LIMIT CRITICAL: ${GitHub.rateLimit.remaining}. Skipping Stargazer run.`);
+             return;
+        }
+
         console.log(`[Spider] Fetching starred repos for ${username}...`);
 
         // Fetch recent stars (first page only)
@@ -259,6 +269,12 @@ class Spider extends Base {
         console.log(`[Spider] Processing ${repos.length} repositories...`);
 
         for (const repo of repos) {
+            // Rate Limit Check
+            if (GitHub.rateLimit.remaining < 50) {
+                console.warn(`[Spider] RATE LIMIT CRITICAL: ${GitHub.rateLimit.remaining}. Stopping repo processing.`);
+                break;
+            }
+
             const repoKey = `repo:${repo.full_name}`;
 
             if (visited.has(repoKey)) {
@@ -296,7 +312,7 @@ class Spider extends Base {
         const { newCandidates, newVisited, visited } = state;
 
         if (newCandidates.size > 0) {
-            console.log(`[Spider] Checkpoint: Discovered ${newCandidates.size} new candidates.`);
+            console.log(`[Spider] Checkpoint: Discovered ${newCandidates.size} new candidates. (API Quota: ${GitHub.rateLimit.remaining})`);
             const updates = Array.from(newCandidates).map(login => ({
                 login,
                 lastUpdate: null // Null means "never updated", high priority for Updater
