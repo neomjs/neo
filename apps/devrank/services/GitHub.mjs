@@ -43,7 +43,16 @@ class GitHub extends Base {
          * REST API Base URL
          * @member {String} restUrl='https://api.github.com'
          */
-        restUrl: 'https://api.github.com'
+        restUrl: 'https://api.github.com',
+        /**
+         * Current Rate Limit Status
+         * @member {Object} rateLimit
+         */
+        rateLimit: {
+            remaining: 5000,
+            reset: null,
+            limit: 5000
+        }
     }
 
     /**
@@ -79,6 +88,21 @@ class GitHub extends Base {
     }
 
     /**
+     * Updates the internal rate limit state from response headers.
+     * @param {Headers} headers
+     * @private
+     */
+    #updateRateLimit(headers) {
+        const remaining = headers.get('x-rate-limit-remaining');
+        const reset = headers.get('x-rate-limit-reset');
+        const limit = headers.get('x-rate-limit-limit');
+
+        if (remaining !== null) this.rateLimit.remaining = parseInt(remaining, 10);
+        if (reset !== null) this.rateLimit.reset = parseInt(reset, 10);
+        if (limit !== null) this.rateLimit.limit = parseInt(limit, 10);
+    }
+
+    /**
      * Executes a GraphQL query.
      * @param {String} query
      * @param {Object} [variables={}]
@@ -100,6 +124,8 @@ class GitHub extends Base {
                 },
                 body: JSON.stringify({ query, variables })
             });
+
+            this.#updateRateLimit(response.headers);
 
             if (!response.ok) {
                 // Retry on 5xx (Server Error) or 403 (Rate Limit/Abuse)
@@ -167,6 +193,8 @@ class GitHub extends Base {
                     'User-Agent': 'Neo.mjs-DevRank/1.0'
                 }
             });
+
+            this.#updateRateLimit(response.headers);
 
             if (!response.ok) {
                 throw new Error(`REST Error: ${response.status} ${response.statusText}`);

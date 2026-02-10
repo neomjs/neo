@@ -92,6 +92,17 @@ class Updater extends Base {
 
         // Process in chunks
         for (let i = 0; i < logins.length; i += concurrency) {
+            // Rate Limit Check
+            if (GitHub.rateLimit.remaining < 50) {
+                console.warn(`\n[Updater] ⚠️ RATE LIMIT CRITICAL: ${GitHub.rateLimit.remaining} requests remaining.`);
+                if (GitHub.rateLimit.reset) {
+                    const resetDate = new Date(GitHub.rateLimit.reset * 1000);
+                    console.warn(`[Updater] Limit resets at: ${resetDate.toLocaleString()}`);
+                }
+                console.warn(`[Updater] Stopping gracefully to preserve quota.\n`);
+                break;
+            }
+
             const chunk = logins.slice(i, i + concurrency);
             await Promise.all(chunk.map(login => processUser(login)));
 
@@ -128,7 +139,7 @@ class Updater extends Base {
     async saveCheckpoint(results, indexUpdates) {
         if (results.length > 0) await Storage.updateUsers(results);
         if (indexUpdates.length > 0) await Storage.updateTracker(indexUpdates);
-        console.log(`[Updater] Checkpoint: Saved ${results.length} records.`);
+        console.log(`[Updater] Checkpoint: Saved ${results.length} records. (API Quota: ${GitHub.rateLimit.remaining}/${GitHub.rateLimit.limit})`);
     }
 
     /**
