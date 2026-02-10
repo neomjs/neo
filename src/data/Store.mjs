@@ -417,13 +417,6 @@ class Store extends Collection {
     }
 
     /**
-     * @param {Object} data
-     */
-    onProxyData(data) {
-        this.add(data);
-    }
-
-    /**
      * @param {Object[]|Neo.data.Model[]} value
      * @param {Object[]|Neo.data.Model[]} oldValue
      * @protected
@@ -752,10 +745,21 @@ class Store extends Collection {
                 me.clear();
             }
 
-            me.isLoading     = true;
-            me.suspendEvents = true;
+            me.isLoading = true;
 
-            const onData = me.onProxyData.bind(me);
+            const onData = (data) => {
+                me.add(data);
+                
+                // Progressive Rendering:
+                // As soon as we have data, we want the grid to render.
+                if (me.isLoading) {
+                    me.isLoading = false;
+                }
+                
+                // Fire load event to trigger grid updates (row count, scrollbar)
+                // GridBody checks data.total or store.count.
+                me.fire('load', {items: me.items, total: me.count});
+            };
 
             me.proxy.on('data', onData);
 
@@ -768,12 +772,11 @@ class Store extends Collection {
                 const response = await me.proxy.read(params);
 
                 me.proxy.un('data', onData);
-                me.suspendEvents = false;
 
                 if (response.success) {
                     me.totalCount = response.totalCount || me.count;
                     me.isLoaded   = true;
-                    me.isLoading  = false;
+                    me.isLoading  = false; // Ensure it's false at the end
                     me.fire('load', {items: me.items, total: me.totalCount});
                     return me.items;
                 } else {
@@ -782,8 +785,7 @@ class Store extends Collection {
                 }
             } catch (e) {
                 me.proxy.un('data', onData);
-                me.suspendEvents = false;
-                me.isLoading     = false;
+                me.isLoading = false;
                 throw e;
             }
         } else {

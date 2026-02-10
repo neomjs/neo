@@ -57,7 +57,8 @@ test.describe.serial('Neo.data.proxy.Stream', () => {
 
         const items = [];
         proxy.on('data', (data) => {
-            items.push(data);
+            // data is now an array
+            items.push(...data);
         });
 
         const result = await proxy.read({url: 'http://test.com/data.jsonl'});
@@ -98,7 +99,7 @@ ${JSON.stringify(mockData[1])}
 
         const items = [];
         proxy.on('data', (data) => {
-            items.push(data);
+            items.push(...data);
         });
 
         const result = await proxy.read({url: 'http://test.com/data.jsonl'});
