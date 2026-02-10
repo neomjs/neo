@@ -3,6 +3,22 @@ import Base from './Base.mjs';
 /**
  * @class Neo.data.proxy.Stream
  * @extends Neo.data.proxy.Base
+ * 
+ * @summary A Proxy implementation for streaming newline-delimited JSON (NDJSON/JSONL).
+ * 
+ * This proxy uses the modern `fetch` and `ReadableStream` APIs to process data incrementally.
+ * Unlike standard JSON parsing (which requires the entire file to be downloaded and parsed at once),
+ * this proxy yields records as they arrive.
+ * 
+ * **Performance & Batching:**
+ * To avoid overwhelming the main thread (App Worker) with thousands of micro-events, this class
+ * implements a buffering strategy. It accumulates parsed records into a chunk (defined by `chunkSize`)
+ * and fires a single `data` event containing the array of records. This allows the consumer (Store)
+ * to perform bulk updates, drastically reducing overhead.
+ * 
+ * **Requirements:**
+ * - The backend must serve data in NDJSON format (one valid JSON object per line).
+ * - The environment must support `TextDecoderStream` (Modern Browsers, Workers).
  */
 class Stream extends Base {
     static config = {
