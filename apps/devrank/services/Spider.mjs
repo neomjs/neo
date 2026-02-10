@@ -60,10 +60,22 @@ class Spider extends Base {
     ]
 
     /**
+     * Target organizations for Community Scan strategy.
+     * @member {String[]} communityTargets
+     * @protected
+     * @static
+     */
+    static communityTargets = [
+        'PyLadies', 'WomenWhoCode', 'RLadies', 'DjangoGirls',
+        'RailsGirls', 'Outreachy', 'GirlDevelopIt', 'SheCodes',
+        'ladies-of-code', 'womentechmakers'
+    ]
+
+    /**
      * Executes the Discovery Workflow.
      * 
      * 1.  **State Loading:** Loads the `visited` cache and `blacklist`.
-     * 2.  **Strategy Selection:** Uses a weighted random algorithm to pick a discovery method (Core, Keyword, Temporal, or Stargazer).
+     * 2.  **Strategy Selection:** Uses a weighted random algorithm to pick a discovery method (Core, Keyword, Temporal, Stargazer, or Community).
      * 3.  **Execution:** Runs the selected strategy to find repositories.
      * 4.  **Extraction:** Scans found repositories for top contributors.
      * 5.  **Filtering:** Ignores bots, blacklisted users, and users already in the tracker.
@@ -99,6 +111,8 @@ class Spider extends Base {
                 await this.runSearch(strategy.query, state);
             } else if (strategy.type === 'stargazer') {
                 await this.runStargazer(strategy.username, state);
+            } else if (strategy.type === 'community_scan') {
+                await this.runCommunityScan(strategy.target, state);
             }
         } catch (error) {
             console.error('[Spider] Fatal error:', error);
@@ -113,9 +127,10 @@ class Spider extends Base {
     /**
      * Selects a discovery strategy based on a weighted probability distribution.
      * 
-     * - **High Stars (40%):** Finds established projects but uses slicing to go deeper.
-     * - **Keyword (30%):** Finds niche projects based on tech terms.
-     * - **Temporal (20%):** Finds hidden gems from specific time periods.
+     * - **High Stars (35%):** Finds established projects but uses slicing to go deeper.
+     * - **Keyword (25%):** Finds niche projects based on tech terms.
+     * - **Temporal (15%):** Finds hidden gems from specific time periods.
+     * - **Community (15%):** Scans diversity-focused organizations.
      * - **Stargazer (10%):** Traverses the social graph (requires existing users).
      * 
      * @param {Array} existingUsers The current list of tracked users (needed for Stargazer strategy).
@@ -124,8 +139,8 @@ class Spider extends Base {
     pickStrategy(existingUsers) {
         const rand = Math.random();
 
-        // 40% Chance: Core High Stars (Dynamic Ranges)
-        if (rand < 0.4) {
+        // 35% Chance: Core High Stars (Dynamic Ranges)
+        if (rand < 0.35) {
             // Pick a random lower bound to slice the high-star spectrum
             // Range: minStars (1000) to 20000
             const minStars = config.github.minStars;
@@ -141,8 +156,8 @@ class Spider extends Base {
             };
         }
 
-        // 30% Chance: Dictionary Attack
-        if (rand < 0.7) {
+        // 25% Chance: Dictionary Attack
+        if (rand < 0.60) {
             const keyword = Spider.keywords[Math.floor(Math.random() * Spider.keywords.length)];
             return {
                 name: 'Discovery: Keyword',
@@ -152,14 +167,25 @@ class Spider extends Base {
             };
         }
 
-        // 20% Chance: Temporal Slicing
-        if (rand < 0.9) {
+        // 15% Chance: Temporal Slicing
+        if (rand < 0.75) {
             const dateRange = this.getRandomDateRange();
             return {
                 name: 'Discovery: Temporal',
                 description: `created:${dateRange}`,
                 type: 'search',
                 query: `created:${dateRange} stars:>50`
+            };
+        }
+
+        // 15% Chance: Community Scan (Diversity Pivot)
+        if (rand < 0.90) {
+            const targetOrg = Spider.communityTargets[Math.floor(Math.random() * Spider.communityTargets.length)];
+            return {
+                name: 'Discovery: Community Scan',
+                description: `org:${targetOrg}`,
+                type: 'community_scan',
+                target: targetOrg
             };
         }
 
@@ -174,13 +200,12 @@ class Spider extends Base {
             };
         }
 
-        // Fallback to Temporal if no users yet
-        const dateRange = this.getRandomDateRange();
+        // Fallback: Bio Signals (The "Bio-Keyword" Attack)
         return {
-            name: 'Discovery: Temporal (Fallback)',
-            description: `created:${dateRange}`,
+            name: 'Discovery: Bio Signals',
+            description: 'bio keywords',
             type: 'search',
-            query: `created:${dateRange} stars:>50`
+            query: 'bio:"she/her" OR bio:"woman in tech" OR bio:"mom" OR bio:"mother" OR bio:"girl" OR bio:"female" stars:>10'
         };
     }
 
@@ -202,6 +227,52 @@ class Spider extends Base {
 
         const fmt = d => d.toISOString().split('T')[0];
         return `${fmt(dateStart)}..${fmt(dateEnd)}`;
+    }
+
+    /**
+     * Executes a Community Scan strategy.
+     * Scans public members and repository contributors of a target organization.
+     * @param {String} targetOrg
+     * @param {Object} state
+     */
+    async runCommunityScan(targetOrg, state) {
+        if (GitHub.rateLimit.remaining < 50) {
+             console.warn(`[Spider] RATE LIMIT CRITICAL: ${GitHub.rateLimit.remaining}. Skipping Community Scan.`);
+             return;
+        }
+
+        console.log(`[Spider] 👩‍💻 Scanning Community Cluster: ${targetOrg}`);
+        const { newCandidates, existingLogins, blacklist } = state;
+
+        try {
+            // 1. Get Org Members (High signal)
+            console.log(`[Spider] Fetching members for ${targetOrg}...`);
+            const members = await GitHub.rest(`orgs/${targetOrg}/public_members?per_page=100`);
+            
+            if (Array.isArray(members)) {
+                for (const member of members) {
+                    const login = member.login;
+                    const lowerLogin = login.toLowerCase();
+                    if (!blacklist.has(lowerLogin) && !existingLogins.has(lowerLogin)) {
+                        newCandidates.add(login);
+                    }
+                }
+                console.log(`[Spider] Found ${members.length} members.`);
+            }
+
+            // 2. Get Contributors to their main repos
+            console.log(`[Spider] Fetching top repos for ${targetOrg}...`);
+            const repos = await GitHub.rest(`orgs/${targetOrg}/repos?sort=updated&per_page=5`);
+            
+            if (Array.isArray(repos) && repos.length > 0) {
+                await this.processRepositories(repos, state);
+            }
+
+            await this.saveCheckpoint(state);
+
+        } catch (e) {
+             console.error(`[Spider] Community Scan failed for ${targetOrg}: ${e.message}`);
+        }
     }
 
     /**
