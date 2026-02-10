@@ -94,8 +94,9 @@ subIssues:
   - '[x] 9085 Feat: DevRank Spider Community Discovery Strategy'
   - '[x] 9086 Feat: DevRank Spider CLI Strategy Selection'
   - '[x] 9087 Fix: Broken GitHub Rate Limit Detection and Graceful Exit'
-subIssuesCompleted: 78
-subIssuesTotal: 80
+  - '[x] 9088 Fix: DevRank Spider Premature Exit (Split Core/Search Rate Limits)'
+subIssuesCompleted: 79
+subIssuesTotal: 81
 blockedBy: []
 blocking: []
 ---
