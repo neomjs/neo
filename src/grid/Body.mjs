@@ -58,6 +58,11 @@ class GridBody extends Component {
          */
         animatedRowSorting_: false,
         /**
+         * @member {Boolean} animateVisuals_=true
+         * @reactive
+         */
+        animateVisuals_: true,
+        /**
          * Internal flag. Gets calculated when mounting the grid.Container
          * @member {Number} availableHeight_=0
          * @reactive
@@ -308,6 +313,22 @@ class GridBody extends Component {
                 });
 
                 me.plugins = plugins
+            })
+        }
+    }
+
+    /**
+     * Triggered after the animateVisuals config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetAnimateVisuals(value, oldValue) {
+        if (oldValue !== undefined) {
+            this.items.forEach(row => {
+                row.updateCellComponents('sparkline', {
+                    usePulse: value
+                })
             })
         }
     }

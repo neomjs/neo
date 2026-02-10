@@ -22,6 +22,11 @@ class GridContainer extends BaseGridContainer {
          */
         commitsOnly_: false,
         /**
+         * @member {Boolean} animateVisuals_=true
+         * @reactive
+         */
+        animateVisuals_: true,
+        /**
          * @member {Object} body
          */
         body: {
@@ -57,6 +62,17 @@ class GridContainer extends BaseGridContainer {
     construct(config) {
         super.construct(config);
         this.buildDynamicColumns()
+    }
+
+    /**
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     */
+    afterSetAnimateVisuals(value, oldValue) {
+        if (oldValue !== undefined) {
+            this.body.animateVisuals = value;
+            this.fire('animateVisualsChange', {value})
+        }
     }
 
     /**
@@ -107,7 +123,7 @@ class GridContainer extends BaseGridContainer {
         // 2. Update Active Sorter if needed
         if (activeSorter) {
             let {property} = activeSorter;
-            
+
             // Check if we are sorting by a year (either yXXXX or cyXXXX)
             if (/^(y|cy)\d{4}$/.test(property)) {
                 let year = property.replace(/^(y|cy)/, '');
