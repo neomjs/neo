@@ -81,9 +81,10 @@ class Spider extends Base {
      * 5.  **Filtering:** Ignores bots, blacklisted users, and users already in the tracker.
      * 6.  **Persistence:** Saves new candidates to `tracker.json` (as pending) and updates `visited.json`.
      *
+     * @param {String} [forcedStrategy] Optional strategy name to enforce (community, keyword, temporal, stargazer, search)
      * @returns {Promise<void>}
      */
-    async run() {
+    async run(forcedStrategy = null) {
         console.log('[Spider] Starting discovery run...');
 
         // 1. Load State
@@ -102,7 +103,7 @@ class Spider extends Base {
         };
 
         // 2. Pick Strategy
-        const strategy = this.pickStrategy(existingUsers);
+        const strategy = this.pickStrategy(existingUsers, forcedStrategy);
         console.log(`[Spider] Strategy Selected: ${strategy.name} (${strategy.description})`);
 
         // 3. Execute Strategy
@@ -134,13 +135,61 @@ class Spider extends Base {
      * - **Stargazer (10%):** Traverses the social graph (requires existing users).
      * 
      * @param {Array} existingUsers The current list of tracked users (needed for Stargazer strategy).
+     * @param {String} [forcedStrategy] Optional strategy name to enforce.
      * @returns {Object} Strategy definition object containing `type`, `query`, and `description`.
      */
-    pickStrategy(existingUsers) {
+    pickStrategy(existingUsers, forcedStrategy = null) {
         const rand = Math.random();
 
+        // Handle Forced Strategy
+        if (forcedStrategy) {
+            switch (forcedStrategy) {
+                case 'community':
+                case 'community_scan':
+                    const targetOrg = Spider.communityTargets[Math.floor(Math.random() * Spider.communityTargets.length)];
+                    return {
+                        name: 'Discovery: Community Scan (Forced)',
+                        description: `org:${targetOrg}`,
+                        type: 'community_scan',
+                        target: targetOrg
+                    };
+                case 'keyword':
+                    const keyword = Spider.keywords[Math.floor(Math.random() * Spider.keywords.length)];
+                    return {
+                        name: 'Discovery: Keyword (Forced)',
+                        description: `topic:${keyword}`,
+                        type: 'search',
+                        query: `topic:${keyword} stars:>50`
+                    };
+                case 'temporal':
+                    const dateRange = this.getRandomDateRange();
+                    return {
+                        name: 'Discovery: Temporal (Forced)',
+                        description: `created:${dateRange}`,
+                        type: 'search',
+                        query: `created:${dateRange} stars:>50`
+                    };
+                case 'stargazer':
+                    if (existingUsers.length > 0) {
+                        const randomUser = existingUsers[Math.floor(Math.random() * existingUsers.length)];
+                        return {
+                            name: 'Discovery: Stargazer Leap (Forced)',
+                            description: `user:${randomUser.login}`,
+                            type: 'stargazer',
+                            username: randomUser.login
+                        };
+                    }
+                    console.warn('[Spider] Cannot force Stargazer: No existing users. Falling back to Core.');
+                    break;
+                case 'search':
+                default:
+                    // Fall through to Core High Stars logic below
+                    break;
+            }
+        }
+
         // 35% Chance: Core High Stars (Dynamic Ranges)
-        if (rand < 0.35) {
+        if (forcedStrategy === 'search' || rand < 0.35) {
             // Pick a random lower bound to slice the high-star spectrum
             // Range: minStars (1000) to 20000
             const minStars = config.github.minStars;
