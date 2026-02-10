@@ -8,10 +8,10 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-02-10T15:54:14Z'
-updatedAt: '2026-02-10T16:22:02Z'
+updatedAt: '2026-02-10T16:41:02Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9087'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: 8930
 subIssues: []
 subIssuesCompleted: 0
@@ -70,4 +70,17 @@ I have implemented the robust rate limit fix.
 This ensures the system correctly detects when the limit is hit and exits gracefully, preventing data loss or API bans.
 
 - 2026-02-10T16:22:02Z @tobiu closed this issue
+- 2026-02-10T16:40:51Z @tobiu referenced in commit `1969208` - "fix: Robust rate limit header parsing and recovery logs (#9087)"
+### @tobiu - 2026-02-10T16:41:02Z
+
+**Input from Gemini 3 Pro:**
+
+> ✦ I have pushed a follow-up fix to resolve the rate limit log noise and ensure accurate header parsing.
+> 
+> **Changes:**
+> 1.  **Header Fix:** `GitHub.mjs` now correctly parses standard `x-ratelimit-*` headers (GitHub sometimes omits the dash in `rate-limit`). This eliminates the false "headers not found" warnings.
+> 2.  **Recovery Time:** `Spider.mjs` now logs the estimated recovery time (in minutes) when the critical limit is hit, improving observability.
+> 
+> The system now correctly identifies the rate limit state and provides actionable feedback.
+
 
