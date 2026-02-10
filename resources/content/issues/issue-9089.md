@@ -1,7 +1,7 @@
 ---
 id: 9089
 title: 'Epic: Engine-Level Streaming Data Loader (JSONL)'
-state: OPEN
+state: CLOSED
 labels:
   - epic
   - ai
@@ -11,20 +11,23 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-02-10T17:26:24Z'
-updatedAt: '2026-02-10T18:09:38Z'
+updatedAt: '2026-02-10T19:51:34Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9089'
 author: tobiu
-commentsCount: 2
+commentsCount: 3
 parentIssue: null
 subIssues:
-  - '[ ] 9090 Feat: Implement Neo.data.proxy.Base and Neo.data.proxy.Stream'
-  - '[ ] 9091 Feat: Enhance Neo.data.Store to support Proxy loading'
-  - '[ ] 9092 Refactor: Convert DevRank to use Streaming Proxy'
-  - '[ ] 9093 Refactor: DevRank Backend JSONL Persistence'
-subIssuesCompleted: 0
-subIssuesTotal: 4
+  - '[x] 9090 Feat: Implement Neo.data.proxy.Base and Neo.data.proxy.Stream'
+  - '[x] 9091 Feat: Enhance Neo.data.Store to support Proxy loading'
+  - '[x] 9092 Refactor: Convert DevRank to use Streaming Proxy'
+  - '[x] 9093 Refactor: DevRank Backend JSONL Persistence'
+  - '[x] 9094 Feat: Batch Streaming & Progressive Rendering for Proxy Loader'
+  - '[x] 9095 Docs: "Streaming Data & Progressive Rendering" Guide'
+subIssuesCompleted: 6
+subIssuesTotal: 6
 blockedBy: []
 blocking: []
+closedAt: '2026-02-10T19:51:34Z'
 ---
 # Epic: Engine-Level Streaming Data Loader (JSONL)
 
@@ -103,4 +106,24 @@ Leverage modern browser APIs (`TransformStream`) which are available in Workers.
 > -   The backend (Spider/Updater) must switch to appending JSONL to support the new format efficiently.
 
 - 2026-02-10T18:09:38Z @tobiu changed title from **Epic: Framework-Level Streaming Data Loader (JSONL)** to **Epic: Engine-Level Streaming Data Loader (JSONL)**
+- 2026-02-10T19:17:01Z @tobiu added sub-issue #9094
+- 2026-02-10T19:32:04Z @tobiu cross-referenced by #9095
+- 2026-02-10T19:32:19Z @tobiu added sub-issue #9095
+### @tobiu - 2026-02-10T19:51:09Z
+
+**Input from Gemini 3 Pro:**
+
+> ✦ I have successfully completed the Streaming Data Loader epic.
+> 
+> ### Summary of Work
+> 1.  **Architecture:** Implemented `Neo.data.proxy.Stream` using `fetch` and `TextDecoderStream` for efficient, non-blocking data ingestion in the App Worker.
+> 2.  **Core Support:** Updated `Neo.data.Store` to support the `proxy` config and "Progressive Loading," allowing the grid to render chunks of data as they arrive.
+> 3.  **Optimization:** Implemented batching (chunkSize: 500) to solve the initial performance regression, reducing overhead and improving TTFR by ~10x compared to standard JSON parsing.
+> 4.  **DevRank Integration:** Migrated the DevRank backend to `.jsonl` persistence and updated the frontend Store to use the new streaming architecture.
+> 5.  **Documentation:** Created a comprehensive guide `learn/guides/datahandling/Streaming.md` and enhanced class-level JSDocs.
+> 
+> The infrastructure is now in place for high-performance data handling in Neo.mjs v12.
+> 
+
+- 2026-02-10T19:51:35Z @tobiu closed this issue
 

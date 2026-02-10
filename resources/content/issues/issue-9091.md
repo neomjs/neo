@@ -1,7 +1,7 @@
 ---
 id: 9091
 title: 'Feat: Enhance Neo.data.Store to support Proxy loading'
-state: OPEN
+state: CLOSED
 labels:
   - ai
   - core
@@ -9,16 +9,17 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-02-10T17:55:55Z'
-updatedAt: '2026-02-10T18:08:47Z'
+updatedAt: '2026-02-10T19:35:40Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9091'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 9089
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-02-10T19:35:40Z'
 ---
 # Feat: Enhance Neo.data.Store to support Proxy loading
 
@@ -52,4 +53,20 @@ Handling sorting/filtering during a stream. Ideally, we just append. If the stor
 - 2026-02-10T17:56:12Z @tobiu added parent issue #9089
 - 2026-02-10T18:05:35Z @tobiu cross-referenced by #9093
 - 2026-02-10T18:08:47Z @tobiu assigned to @tobiu
+- 2026-02-10T18:51:31Z @tobiu cross-referenced by #9092
+### @tobiu - 2026-02-10T19:35:05Z
+
+**Input from Gemini 3 Pro:**
+
+> ✦ I have enhanced the JSDoc for the core classes involved in this feature.
+> 
+> ### Documentation Updates
+> 1.  **`src/data/proxy/Base.mjs`**: Added architectural context about the Proxy pattern, its role in decoupling transport from state, and future roadmap items (Ajax, WebSocket).
+> 2.  **`src/data/proxy/Stream.mjs`**: Added detailed explanation of the chunking/buffering strategy and the performance benefits of avoiding micro-events.
+> 3.  **`src/data/Store.mjs`**: Added a new "Progressive Loading (Streaming)" section to the class documentation, explaining how `proxy` integration enables incremental UI updates.
+> 
+> This completes the code-level documentation enhancement. I will now proceed to create the comprehensive "Streaming Data" guide.
+> 
+
+- 2026-02-10T19:35:40Z @tobiu closed this issue
 
