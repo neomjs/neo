@@ -89,8 +89,10 @@ subIssues:
   - '[x] 9080 Perf: DevRank Header Adaptive Backpressure'
   - '[x] 9081 Feat: DevRank Global Animation Toggle'
   - '[ ] 9082 Refactor Portal Content Viewer to Framework Component'
-subIssuesCompleted: 73
-subIssuesTotal: 75
+  - '[x] 9083 Feat: DevRank GitHub API Rate Limit Protection'
+  - '[x] 9084 Enhancement: DevRank Atomic File Persistence'
+subIssuesCompleted: 75
+subIssuesTotal: 77
 blockedBy: []
 blocking: []
 ---
