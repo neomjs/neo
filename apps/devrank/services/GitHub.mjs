@@ -169,7 +169,18 @@ class GitHub extends Base {
             if (!response.ok) {
                 // Retry on 5xx (Server Error) or 403 (Rate Limit/Abuse)
                 if ((response.status >= 500 || response.status === 403) && retries > 0) {
-                    const delay = (4 - retries) * 2000; // 2s, 4s, 6s
+                    let delay = (4 - retries) * 2000; // Default: 2s, 4s, 6s
+
+                    // Special handling for 403 Secondary Rate Limit (Abuse Detection)
+                    // If we have quota remaining but get a 403, it's an abuse trigger.
+                    if (response.status === 403) {
+                        const bucket = this.rateLimit.graphql;
+                        if (bucket.remaining > 0) {
+                            console.warn(`${prefix} ⚠️ Abuse Detection triggered (403 with quota). Backing off for 10s...`);
+                            delay = 10000; // 10s penalty box
+                        }
+                    }
+
                     console.log(`${prefix} Error ${response.status}. Retrying in ${delay}ms...`);
                     await new Promise(r => setTimeout(r, delay));
                     return this.query(query, variables, retries - 1, logContext);
