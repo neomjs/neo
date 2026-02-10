@@ -49,9 +49,10 @@ class GitHub extends Base {
          * @member {Object} rateLimit
          */
         rateLimit: {
-            remaining: 5000,
-            reset: null,
-            limit: 5000
+            core: { remaining: 5000, reset: null, limit: 5000 },
+            search: { remaining: 30, reset: null, limit: 30 },
+            graphql: { remaining: 5000, reset: null, limit: 5000 },
+            integration_manifest: { remaining: 5000, reset: null, limit: 5000 }
         }
     }
 
@@ -94,19 +95,24 @@ class GitHub extends Base {
      */
     #updateRateLimit(response) {
         const headers = response.headers;
+        const resource = headers.get('x-ratelimit-resource');
         
+        // If resource is unknown, fallback to core (safest assumption)
+        const bucketName = (resource && this.rateLimit[resource]) ? resource : 'core';
+        const bucket = this.rateLimit[bucketName];
+
         // GitHub sends headers as `x-ratelimit-*` (standard)
         const remaining = headers.get('x-ratelimit-remaining');
         const reset     = headers.get('x-ratelimit-reset');
         const limit     = headers.get('x-ratelimit-limit');
 
-        if (remaining !== null) this.rateLimit.remaining = parseInt(remaining, 10);
-        if (reset !== null)     this.rateLimit.reset     = parseInt(reset, 10);
-        if (limit !== null)     this.rateLimit.limit     = parseInt(limit, 10);
+        if (remaining !== null) bucket.remaining = parseInt(remaining, 10);
+        if (reset !== null)     bucket.reset     = parseInt(reset, 10);
+        if (limit !== null)     bucket.limit     = parseInt(limit, 10);
 
         // Debug: Warn if headers are missing but we are at default (implying no update ever happened)
         // Only warn on successful requests to avoid noise on 4xx/5xx errors (which might lack headers)
-        if (response.ok && remaining === null && this.rateLimit.remaining === 5000) {
+        if (response.ok && remaining === null && bucket.remaining === 5000) {
             // Only log once or sparsely to avoid spam
             if (!this._headerWarned) {
                 console.warn('[GitHub] Warning: `x-ratelimit-*` headers not found. Falling back to body (if available).');
@@ -123,12 +129,15 @@ class GitHub extends Base {
     #updateFromBody(rateLimit) {
         if (!rateLimit) return;
         
-        if (rateLimit.remaining !== undefined) this.rateLimit.remaining = rateLimit.remaining;
-        if (rateLimit.limit !== undefined)     this.rateLimit.limit     = rateLimit.limit;
+        // GraphQL usually maps to 'graphql' resource (which shares quota with 'core')
+        const bucket = this.rateLimit.graphql;
+
+        if (rateLimit.remaining !== undefined) bucket.remaining = rateLimit.remaining;
+        if (rateLimit.limit !== undefined)     bucket.limit     = rateLimit.limit;
         
         if (rateLimit.resetAt) {
             // GraphQL returns ISO string, we store epoch seconds
-            this.rateLimit.reset = Math.floor(new Date(rateLimit.resetAt).getTime() / 1000);
+            bucket.reset = Math.floor(new Date(rateLimit.resetAt).getTime() / 1000);
         }
     }
 
@@ -233,7 +242,7 @@ class GitHub extends Base {
 
             if (!response.ok) {
                 if (response.status === 403) {
-                    this.rateLimit.remaining = 0;
+                    this.rateLimit.core.remaining = 0;
                 }
                 throw new Error(`REST Error: ${response.status} ${response.statusText}`);
             }

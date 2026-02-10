@@ -309,8 +309,8 @@ class Spider extends Base {
      * @param {Object} state
      */
     async runCommunityScan(targetOrg, state) {
-        if (GitHub.rateLimit.remaining < 50) {
-             this.logRateLimit('Skipping Community Scan');
+        if (GitHub.rateLimit.core.remaining < 50) {
+             this.logRateLimit('Skipping Community Scan', 'core');
              return;
         }
 
@@ -375,8 +375,8 @@ class Spider extends Base {
         console.log(`[Spider] Search Query: ${query} (Sort: ${sort} ${order})`);
 
         for (let page = 1; page <= maxPages; page++) {
-            if (GitHub.rateLimit.remaining < 50) {
-                this.logRateLimit('Stopping search');
+            if (GitHub.rateLimit.search.remaining < 2) { // 2 is safer than 0 for search
+                this.logRateLimit('Stopping search', 'search');
                 break;
             }
 
@@ -399,8 +399,8 @@ class Spider extends Base {
      * @param {Object} state
      */
     async runStargazer(username, state) {
-        if (GitHub.rateLimit.remaining < 50) {
-             this.logRateLimit('Skipping Stargazer run');
+        if (GitHub.rateLimit.core.remaining < 50) {
+             this.logRateLimit('Skipping Stargazer run', 'core');
              return;
         }
 
@@ -430,8 +430,8 @@ class Spider extends Base {
 
         for (const repo of repos) {
             // Rate Limit Check
-            if (GitHub.rateLimit.remaining < 50) {
-                this.logRateLimit('Stopping repo processing');
+            if (GitHub.rateLimit.core.remaining < 50) {
+                this.logRateLimit('Stopping repo processing', 'core');
                 break;
             }
 
@@ -472,7 +472,7 @@ class Spider extends Base {
         const { newCandidates, newVisited, visited } = state;
 
         if (newCandidates.size > 0) {
-            console.log(`[Spider] Checkpoint: Discovered ${newCandidates.size} new candidates. (API Quota: ${GitHub.rateLimit.remaining})`);
+            console.log(`[Spider] Checkpoint: Discovered ${newCandidates.size} new candidates. (API Quota: ${GitHub.rateLimit.core.remaining})`);
             const updates = Array.from(newCandidates).map(login => ({
                 login,
                 lastUpdate: null // Null means "never updated", high priority for Updater
@@ -496,10 +496,11 @@ class Spider extends Base {
     /**
      * Logs the critical rate limit warning with estimated recovery time.
      * @param {String} context - The context of the operation (e.g. "Stopping search")
+     * @param {String} [bucketName='core'] - The rate limit bucket to check ('core' or 'search')
      * @private
      */
-    logRateLimit(context) {
-        const { remaining, reset } = GitHub.rateLimit;
+    logRateLimit(context, bucketName = 'core') {
+        const { remaining, reset } = GitHub.rateLimit[bucketName];
         const now = Math.floor(Date.now() / 1000);
         let recoveryMsg = '';
 
@@ -508,7 +509,7 @@ class Spider extends Base {
             recoveryMsg = ` Recovers in ~${minutes} minutes.`;
         }
 
-        console.warn(`[Spider] RATE LIMIT CRITICAL: ${remaining}. ${context}.${recoveryMsg}`);
+        console.warn(`[Spider] RATE LIMIT CRITICAL (${bucketName}): ${remaining}. ${context}.${recoveryMsg}`);
     }
 
     /**
@@ -535,7 +536,7 @@ class Spider extends Base {
             // Kill-switch for rate limits
             if (e.message.includes('403') || e.message.includes('rate limit')) {
                 console.warn(`[Spider] 🚨 Rate limit hit scanning ${fullName}. Forcing shutdown.`);
-                GitHub.rateLimit.remaining = 0;
+                GitHub.rateLimit.core.remaining = 0;
             }
 
             console.error(`[Spider] Failed to fetch contributors for ${fullName}: ${e.message}`);
