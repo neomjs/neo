@@ -1,12 +1,12 @@
 import CanvasWrapper    from './CanvasWrapper.mjs';
 import Controller       from './MainContainerController.mjs';
 import PageContainer    from './PageContainer.mjs';
-import SharedContainer  from '../../shared/content/Container.mjs';
+import SharedContainer  from '../../../../../src/app/content/Container.mjs';
 import StateProvider    from './MainContainerStateProvider.mjs';
 
 /**
  * @class Portal.view.news.tickets.MainContainer
- * @extends Portal.view.shared.content.Container
+ * @extends Neo.app.content.Container
  */
 class MainContainer extends SharedContainer {
     static config = {

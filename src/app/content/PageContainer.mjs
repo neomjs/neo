@@ -1,24 +1,24 @@
-import {isDescriptor, mergeFrom} from '../../../../../src/core/ConfigSymbols.mjs';
+import {isDescriptor, mergeFrom} from '../../core/ConfigSymbols.mjs';
 import Component                 from './Component.mjs';
-import Container                 from '../../../../../src/container/Base.mjs';
-import Toolbar                   from '../../../../../src/toolbar/Base.mjs';
+import Container                 from '../../container/Base.mjs';
+import Toolbar                   from '../../toolbar/Base.mjs';
 
 /**
- * @class Portal.view.shared.content.PageContainer
+ * @class Neo.app.content.PageContainer
  * @extends Neo.container.Base
  */
 class PageContainer extends Container {
     static config = {
         /**
-         * @member {String} className='Portal.view.shared.content.PageContainer'
+         * @member {String} className='Neo.app.content.PageContainer'
          * @protected
          */
-        className: 'Portal.view.shared.content.PageContainer',
+        className: 'Neo.app.content.PageContainer',
         /**
-         * @member {String[]} baseCls=['portal-shared-content-page-container','neo-container']
+         * @member {String[]} baseCls=['neo-app-content-page-container','neo-container']
          * @protected
          */
-        baseCls: ['portal-shared-content-page-container', 'neo-container'],
+        baseCls: ['neo-app-content-page-container', 'neo-container'],
         /**
          * @member {Object} bind
          */

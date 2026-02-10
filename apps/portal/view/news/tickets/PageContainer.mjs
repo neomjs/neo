@@ -1,8 +1,8 @@
-import PageContainer from '../../shared/content/PageContainer.mjs';
+import PageContainer from '../../../../../src/app/content/PageContainer.mjs';
 
 /**
  * @class Portal.view.news.tickets.PageContainer
- * @extends Portal.view.shared.content.PageContainer
+ * @extends Neo.app.content.PageContainer
  */
 class TicketPageContainer extends PageContainer {
     static config = {

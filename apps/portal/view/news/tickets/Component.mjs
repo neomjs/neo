@@ -1,4 +1,4 @@
-import ContentComponent from '../../shared/content/Component.mjs';
+import ContentComponent from '../../../../../src/app/content/Component.mjs';
 import {marked}         from '../../../../../node_modules/marked/lib/marked.esm.js';
 
 const
@@ -24,7 +24,7 @@ const
  *    pushed to the `sections` store to drive the `TimelineCanvas` visualization.
  *
  * @class Portal.view.news.tickets.Component
- * @extends Portal.view.shared.content.Component
+ * @extends Neo.app.content.Component
  */
 class Component extends ContentComponent {
     static config = {

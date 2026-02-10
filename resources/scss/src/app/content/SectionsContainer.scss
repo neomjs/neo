@@ -1,4 +1,4 @@
-.portal-shared-content-sections-container.neo-container {
+.neo-app-content-sections-container.neo-container {
     background-color: transparent;
     border          : none; // reset the default 1px
     display         : block;
@@ -20,14 +20,14 @@
         display: none;
     }
 
-    .portal-content-tree-list {
+    .neo-app-content-tree-list {
         height        : 100%;
         padding-bottom: 8em;
     }
 
     @media (max-width: 1296px) {
-        background-color: var(--portal-sections-bg);
-        box-shadow      : var(--portal-sections-shadow);
+        background-color: var(--neo-app-content-sections-bg);
+        box-shadow      : var(--neo-app-content-sections-shadow);
         right           : -250px;
         transition      : right 250ms ease-out;
         z-index         : 100;
@@ -37,8 +37,8 @@
         }
 
         .sections-container-button {
-            background-color: var(--portal-sections-btn-bg);
-            box-shadow      : var(--portal-sections-shadow);
+            background-color: var(--neo-app-content-sections-btn-bg);
+            box-shadow      : var(--neo-app-content-sections-shadow);
             display         : flex;
             height          : 35px;
             min-width       : 35px;
@@ -47,12 +47,12 @@
             width           : 35px;
 
             &.neo-disabled {
-                background-color: var(--portal-sections-btn-disabled-bg);
+                background-color: var(--neo-app-content-sections-btn-disabled-bg);
                 opacity         : .5;
             }
 
             .neo-button-glyph {
-                color    : var(--portal-sections-glyph-color); // required for mobile
+                color    : var(--neo-app-content-sections-glyph-color); // required for mobile
                 font-size: 13px;
             }
         }
