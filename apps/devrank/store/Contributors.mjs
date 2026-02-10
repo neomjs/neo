@@ -1,5 +1,6 @@
 import ContributorModel from '../model/Contributor.mjs';
 import Store            from '../../../src/data/Store.mjs';
+import StreamProxy      from '../../../src/data/proxy/Stream.mjs';
 
 /**
  * @class DevRank.store.Contributors
@@ -37,15 +38,18 @@ class Contributors extends Store {
             {property: 'name',     operator: 'like', value: null}
         ],
         /**
+         * @member {Object} proxy
+         */
+        proxy: {
+            module: StreamProxy,
+            url   : '../../apps/devrank/resources/users.jsonl'
+        },
+        /**
          * @member {Object[]} sorters
          */
         sorters: [
             {property: 'total_contributions', direction: 'DESC'}
-        ],
-        /**
-         * @member {String} url='../../apps/devrank/resources/users.json'
-         */
-        url: '../../apps/devrank/resources/users.json'
+        ]
     }
 }
 
