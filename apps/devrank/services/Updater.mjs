@@ -243,6 +243,7 @@ class Updater extends Base {
                     totalIssueContributions
                     totalPullRequestContributions
                     totalPullRequestReviewContributions
+                    totalRepositoryContributions
                 }`;
             }
             query += ` } }`;
@@ -280,7 +281,8 @@ class Updater extends Base {
             const val = (commits) +
                         (collection?.totalIssueContributions || 0) +
                         (collection?.totalPullRequestContributions || 0) +
-                        (collection?.totalPullRequestReviewContributions || 0);
+                        (collection?.totalPullRequestReviewContributions || 0) +
+                        (collection?.totalRepositoryContributions || 0);
 
             yearsArr.push(val);
             commitsArr.push(commits);
