@@ -84,8 +84,13 @@ subIssues:
   - '[x] 9063 Perf: Refactor Updater to use Lightweight Contribution Counters'
   - '[x] 9064 Feat: Implement ''Commits Only'' Toggle for DevRank Grid'
   - '[x] 9065 Feat: Persist Yearly Commits Array in DevRank Data'
-subIssuesCompleted: 69
-subIssuesTotal: 70
+  - '[x] 9078 Feat: DevRank Heatmap CSS Transitions'
+  - '[x] 9079 Feat: DevRank Header "Show Off" Kinetic Scroll Effect'
+  - '[x] 9080 Perf: DevRank Header Adaptive Backpressure'
+  - '[x] 9081 Feat: DevRank Global Animation Toggle'
+  - '[ ] 9082 Refactor Portal Content Viewer to Framework Component'
+subIssuesCompleted: 73
+subIssuesTotal: 75
 blockedBy: []
 blocking: []
 ---
