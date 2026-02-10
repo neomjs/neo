@@ -200,10 +200,19 @@ class GridContainer extends BaseGridContainer {
                 cellAlign: 'center',
                 renderer : ({value}) => value || '',
                 cellCls  : ({value}) => {
-                    if (!value)       return 'heatmap-cell-0';
-                    if (value < 100)  return 'heatmap-cell-1';
-                    if (value < 1000) return 'heatmap-cell-2';
-                    return 'heatmap-cell-3';
+                    let cls = ['neo-heatmap'];
+
+                    if (!value) {
+                        cls.push('heatmap-cell-0')
+                    } else if (value < 100) {
+                        cls.push('heatmap-cell-1')
+                    } else if (value < 1000) {
+                        cls.push('heatmap-cell-2')
+                    } else {
+                        cls.push('heatmap-cell-3')
+                    }
+
+                    return cls
                 }
             });
         }

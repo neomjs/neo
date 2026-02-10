@@ -2,17 +2,22 @@
     border-radius: 8px;
 
     .devrank-sparkline-wrapper {
-        height: 100%;
+        height  : 100%;
         position: relative;
-        width: 100%;
+        width   : 100%;
 
         .devrank-sparkline-canvas {
-            height: 100%;
-            left: 0;
+            height  : 100%;
+            left    : 0;
             position: absolute;
-            top: 0;
-            width: 100%;
+            top     : 0;
+            width   : 100%;
         }
+    }
+
+    // Only animate heatmap transitions when NOT scrolling to prevent ghosting and repaint costs
+    .neo-grid-body:not(.neo-is-scrolling) .neo-grid-row .neo-grid-cell.neo-heatmap {
+        transition: background-color 150ms ease-out, color 150ms ease-out;
     }
 
     .neo-grid-body .neo-grid-row {
