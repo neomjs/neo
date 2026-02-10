@@ -48,6 +48,14 @@ const initialIndexSymbol = Symbol.for('initialIndex');
  *      // Per-call override
  *      store.add(hugeArrayOfData, false);
  *      ```
+ * 
+ * ### Progressive Loading (Streaming)
+ * 
+ * When using a `proxy` (e.g., {@link Neo.data.proxy.Stream}), the Store supports **Progressive Loading**.
+ * Instead of waiting for the entire dataset to load, the Store updates itself incrementally as chunks of data arrive.
+ * 
+ * - **Events:** The `load` event fires multiple times (once per chunk) with the cumulative `total`.
+ * - **UI Integration:** Components like `Neo.grid.Container` listen to these events to update their scrollbars and render rows immediately.
  */
 class Store extends Collection {
     /**
