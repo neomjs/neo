@@ -67,13 +67,12 @@ class Spider extends Base {
      */
     static communityTargets = [
         'PyLadies', 'WomenWhoCode', 'RLadies', 'DjangoGirls',
-        'RailsGirls', 'Outreachy', 'GirlDevelopIt', 'SheCodes',
-        'ladies-of-code', 'womentechmakers'
+        'RailsGirls', 'GirlDevelopIt', 'ladies-of-code'
     ]
 
     /**
      * Executes the Discovery Workflow.
-     * 
+     *
      * 1.  **State Loading:** Loads the `visited` cache and `blacklist`.
      * 2.  **Strategy Selection:** Uses a weighted random algorithm to pick a discovery method (Core, Keyword, Temporal, Stargazer, or Community).
      * 3.  **Execution:** Runs the selected strategy to find repositories.
@@ -109,7 +108,7 @@ class Spider extends Base {
         // 3. Execute Strategy
         try {
             if (strategy.type === 'search') {
-                await this.runSearch(strategy.query, state);
+                await this.runSearch(strategy.query, state, strategy.sort, strategy.order);
             } else if (strategy.type === 'stargazer') {
                 await this.runStargazer(strategy.username, state);
             } else if (strategy.type === 'community_scan') {
@@ -127,13 +126,13 @@ class Spider extends Base {
 
     /**
      * Selects a discovery strategy based on a weighted probability distribution.
-     * 
+     *
      * - **High Stars (35%):** Finds established projects but uses slicing to go deeper.
      * - **Keyword (25%):** Finds niche projects based on tech terms.
      * - **Temporal (15%):** Finds hidden gems from specific time periods.
      * - **Community (15%):** Scans diversity-focused organizations.
      * - **Stargazer (10%):** Traverses the social graph (requires existing users).
-     * 
+     *
      * @param {Array} existingUsers The current list of tracked users (needed for Stargazer strategy).
      * @param {String} [forcedStrategy] Optional strategy name to enforce.
      * @returns {Object} Strategy definition object containing `type`, `query`, and `description`.
@@ -146,13 +145,18 @@ class Spider extends Base {
             switch (forcedStrategy) {
                 case 'community':
                 case 'community_scan':
-                    const targetOrg = Spider.communityTargets[Math.floor(Math.random() * Spider.communityTargets.length)];
-                    return {
-                        name: 'Discovery: Community Scan (Forced)',
-                        description: `org:${targetOrg}`,
-                        type: 'community_scan',
-                        target: targetOrg
-                    };
+                    // 50/50 Split for Forced Community Strategy
+                    if (Math.random() < 0.5) {
+                        const targetOrg = Spider.communityTargets[Math.floor(Math.random() * Spider.communityTargets.length)];
+                        return {
+                            name: 'Discovery: Community Scan (Forced)',
+                            description: `org:${targetOrg}`,
+                            type: 'community_scan',
+                            target: targetOrg
+                        };
+                    } else {
+                        return this.getBioSignalStrategy();
+                    }
                 case 'keyword':
                     const keyword = Spider.keywords[Math.floor(Math.random() * Spider.keywords.length)];
                     return {
@@ -229,13 +233,18 @@ class Spider extends Base {
 
         // 15% Chance: Community Scan (Diversity Pivot)
         if (rand < 0.90) {
-            const targetOrg = Spider.communityTargets[Math.floor(Math.random() * Spider.communityTargets.length)];
-            return {
-                name: 'Discovery: Community Scan',
-                description: `org:${targetOrg}`,
-                type: 'community_scan',
-                target: targetOrg
-            };
+            // 50/50 Split between Org Scan and Bio-Signal Search
+            if (Math.random() < 0.5) {
+                const targetOrg = Spider.communityTargets[Math.floor(Math.random() * Spider.communityTargets.length)];
+                return {
+                    name: 'Discovery: Community Scan',
+                    description: `org:${targetOrg}`,
+                    type: 'community_scan',
+                    target: targetOrg
+                };
+            } else {
+                return this.getBioSignalStrategy();
+            }
         }
 
         // 10% Chance: Stargazer Leap (only if we have users)
@@ -249,12 +258,27 @@ class Spider extends Base {
             };
         }
 
-        // Fallback: Bio Signals (The "Bio-Keyword" Attack)
+        // Fallback: Bio Signals
+        return this.getBioSignalStrategy();
+    }
+
+    /**
+     * Generates a Bio-Signal Search Strategy with dynamic sorting to improve coverage.
+     * @returns {Object}
+     */
+    getBioSignalStrategy() {
+        const sorts = ['stars', 'forks', 'updated'];
+        const sort = sorts[Math.floor(Math.random() * sorts.length)];
+        const order = Math.random() < 0.5 ? 'desc' : 'asc';
+        
         return {
             name: 'Discovery: Bio Signals',
-            description: 'bio keywords',
+            description: `topic search (sort:${sort}-${order})`,
             type: 'search',
-            query: 'bio:"she/her" OR bio:"woman in tech" OR bio:"mom" OR bio:"mother" OR bio:"girl" OR bio:"female" stars:>10'
+            sort: sort,
+            order: order,
+            // Using topic search as a proxy for diversity communities since 'bio:' doesn't work on repo search endpoints
+            query: `topic:women-in-tech OR topic:pyladies OR topic:django-girls OR topic:rails-girls stars:>5`
         };
     }
 
@@ -296,8 +320,22 @@ class Spider extends Base {
         try {
             // 1. Get Org Members (High signal)
             console.log(`[Spider] Fetching members for ${targetOrg}...`);
-            const members = await GitHub.rest(`orgs/${targetOrg}/public_members?per_page=100`);
-            
+            let members = [];
+
+            try {
+                members = await GitHub.rest(`orgs/${targetOrg}/public_members?per_page=100`);
+            } catch (memberError) {
+                // Fallback: If it's not an Org, it might be a user account (e.g. some communities operate as Users)
+                if (memberError.message.includes('404')) {
+                    console.warn(`[Spider] ${targetOrg} is not an Org. Trying as User...`);
+                    // There is no "members" for users, but we can check their following or starred
+                    // For now, let's treat it as a Stargazer run if it's a User
+                    await this.runStargazer(targetOrg, state);
+                    return;
+                }
+                throw memberError;
+            }
+
             if (Array.isArray(members)) {
                 for (const member of members) {
                     const login = member.login;
@@ -312,7 +350,7 @@ class Spider extends Base {
             // 2. Get Contributors to their main repos
             console.log(`[Spider] Fetching top repos for ${targetOrg}...`);
             const repos = await GitHub.rest(`orgs/${targetOrg}/repos?sort=updated&per_page=5`);
-            
+
             if (Array.isArray(repos) && repos.length > 0) {
                 await this.processRepositories(repos, state);
             }
@@ -328,11 +366,13 @@ class Spider extends Base {
      * Executes a search-based discovery strategy.
      * @param {String} query
      * @param {Object} state
+     * @param {String} [sort='stars']
+     * @param {String} [order='desc']
      */
-    async runSearch(query, state) {
+    async runSearch(query, state, sort = 'stars', order = 'desc') {
         const maxPages = 3; // Reduced from 5 to avoid quota burnout on random walks
 
-        console.log(`[Spider] Search Query: ${query}`);
+        console.log(`[Spider] Search Query: ${query} (Sort: ${sort} ${order})`);
 
         for (let page = 1; page <= maxPages; page++) {
             if (GitHub.rateLimit.remaining < 50) {
@@ -341,7 +381,7 @@ class Spider extends Base {
             }
 
             console.log(`[Spider] Fetching page ${page}...`);
-            const searchRes = await GitHub.rest(`search/repositories?q=${query}&sort=stars&per_page=${config.github.perPage}&page=${page}`);
+            const searchRes = await GitHub.rest(`search/repositories?q=${query}&sort=${sort}&order=${order}&per_page=${config.github.perPage}&page=${page}`);
 
             if (!searchRes || !searchRes.items || searchRes.items.length === 0) {
                 console.log('[Spider] No more results.');
@@ -439,10 +479,10 @@ class Spider extends Base {
             }));
 
             await Storage.updateTracker(updates);
-            
+
             // Track total
             state.totalFound = (state.totalFound || 0) + newCandidates.size;
-            
+
             newCandidates.clear();
         }
 
@@ -455,9 +495,9 @@ class Spider extends Base {
 
     /**
      * Fetches the top 10 contributors for a given repository.
-     * 
+     *
      * Filters the results to ensure only real users (type 'User') are returned, ignoring Organizations or Bots.
-     * 
+     *
      * @param {String} fullName The full repository name ("owner/repo").
      * @returns {Promise<String[]>} Array of contributor login names.
      * @private
