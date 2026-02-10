@@ -1,11 +1,11 @@
-import { Command } from 'commander';
-import inquirer from 'inquirer';
-import Base from '../../../src/core/Base.mjs';
-import config from './config.mjs';
-import Storage from './Storage.mjs';
-import Updater from './Updater.mjs';
-import Spider from './Spider.mjs';
-import Cleanup from './Cleanup.mjs';
+import {Command} from 'commander';
+import inquirer  from 'inquirer';
+import Base      from '../../../src/core/Base.mjs';
+import config    from './config.mjs';
+import Storage   from './Storage.mjs';
+import Updater   from './Updater.mjs';
+import Spider    from './Spider.mjs';
+import Cleanup   from './Cleanup.mjs';
 
 /**
  * @summary DevRank Backend Orchestrator & CLI Entry Point.
@@ -87,21 +87,19 @@ class Manager extends Base {
                 let strategy = options.strategy;
 
                 if (!strategy) {
-                    const answers = await inquirer.prompt([
-                        {
-                            type: 'list',
-                            name: 'strategy',
-                            message: 'Select Discovery Strategy:',
-                            choices: [
-                                {name: '🎲 Random (Default)', value: null},
-                                {name: '👩‍💻 Community Scan (Diversity)', value: 'community'},
-                                {name: '🔑 Keyword Search', value: 'keyword'},
-                                {name: '⏳ Temporal Slicing', value: 'temporal'},
-                                {name: '🌟 Stargazer Leap', value: 'stargazer'},
-                                {name: '🔍 Core High Stars', value: 'search'}
-                            ]
-                        }
-                    ]);
+                    const answers = await inquirer.prompt([{
+                        type   : 'select',
+                        name   : 'strategy',
+                        message: 'Select Discovery Strategy:',
+                        choices: [
+                            {name: '🎲 Random (Default)',           value: null},
+                            {name: '👩‍💻 Community Scan (Diversity)', value: 'community'},
+                            {name: '🔑 Keyword Search',             value: 'keyword'},
+                            {name: '⏳ Temporal Slicing',           value: 'temporal'},
+                            {name: '🌟 Stargazer Leap',             value: 'stargazer'},
+                            {name: '🔍 Core High Stars',            value: 'search'}
+                        ]
+                    }]);
                     strategy = answers.strategy;
                 }
 
@@ -124,9 +122,9 @@ class Manager extends Base {
 
     /**
      * Executes the Batch Update Workflow.
-     * 
+     *
      * 1.  **Filter:** Loads the Tracker and filters out users who have already been updated *today*.
-     * 2.  **Prioritize:** Sorts the remaining users by `lastUpdate` timestamp (ascending), so that `null` (new) 
+     * 2.  **Prioritize:** Sorts the remaining users by `lastUpdate` timestamp (ascending), so that `null` (new)
      *     and oldest records are processed first.
      * 3.  **Batch:** Slices the list to the requested `limit`.
      * 4.  **Execute:** Delegates the actual processing to `Updater.processBatch`.
@@ -143,7 +141,7 @@ class Manager extends Base {
             if (!u.lastUpdate) return true;
             return !u.lastUpdate.startsWith(today);
         });
-        
+
         const backlogSize = staleUsers.length;
         console.log(`[Manager] Backlog size: ${backlogSize} users (pending update today).`);
 
