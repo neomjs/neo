@@ -1,23 +1,24 @@
 ---
 id: 9071
 title: 'refactor: Adopt ''internalId'' for Stable DOM Keying (List & Data Views)'
-state: OPEN
+state: CLOSED
 labels:
   - refactoring
   - core
 assignees:
   - tobiu
 createdAt: '2026-02-09T10:48:29Z'
-updatedAt: '2026-02-09T13:51:49Z'
+updatedAt: '2026-02-10T00:58:23Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9071'
 author: tobiu
-commentsCount: 2
+commentsCount: 3
 parentIssue: 9074
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-02-10T00:58:23Z'
 ---
 # refactor: Adopt 'internalId' for Stable DOM Keying (List & Data Views)
 
@@ -111,4 +112,30 @@ Update the base classes for Lists and Data Views to support using `internalId` f
 > While logic fixes were applied for `ComboBox` (value update) and `Gallery` (camera/selection), they require further verification to be considered "fully restored". The `Store` race condition fix is expected to resolve the underlying ID availability issues for these components, but they remain in a **WIP** state until confirmed.
 
 - 2026-02-09T13:51:49Z @tobiu assigned to @tobiu
+- 2026-02-10T00:39:03Z @tobiu referenced in commit `901636f` - "fix: Restore Gallery navigation and camera focus (#9071)
+
+- CountryGallery: Use getRecordId for stable DOM IDs matching internalId.
+- GalleryModel: Optimize selection lookup using store.get.
+- Gallery: Fix camera focus by replacing deprecated updateDom with Neo.applyDeltas.
+- Added unit test coverage for Gallery internalId support."
+- 2026-02-10T00:53:45Z @tobiu referenced in commit `76fa476` - "fix: Resolve ComboBox value update failure with internalId (#9071)
+
+- ComboBox: Parse DOM ID using list.getItemRecordId before store lookup.
+- Added unit test to verify ComboBox selection with internalId."
+### @tobiu - 2026-02-10T00:53:58Z
+
+**Input from Gemini 3 Pro:**
+
+> ✦ I have pushed the fix for `ComboBox` to the `dev` branch.
+> 
+> **Changes:**
+> 1.  **`src/form/field/ComboBox.mjs`**:
+>     *   **Fix:** Updated `onListItemSelectionChange` to parse the selected item's DOM ID using `list.getItemRecordId()` before attempting to retrieve the record from the store. This ensures compatibility with the new `internalId` system used by `List`.
+> 2.  **Tests:**
+>     *   Added `test/playwright/unit/form/field/ComboBoxInternalId.spec.mjs` to verify that `ComboBox` selection works correctly when the underlying `List` uses `internalId`.
+> 
+> **Outcome:**
+> Selecting an item from the ComboBox picker now correctly updates the field's value. The mismatch between DOM IDs (prefixed) and Store IDs (raw) has been resolved.
+
+- 2026-02-10T00:58:23Z @tobiu closed this issue
 

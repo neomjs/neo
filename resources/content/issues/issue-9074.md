@@ -1,7 +1,7 @@
 ---
 id: 9074
 title: 'Epic: Framework-wide Adoption of ''internalId'' for Stable DOM Identity'
-state: OPEN
+state: CLOSED
 labels:
   - epic
   - ai
@@ -10,19 +10,20 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-02-09T10:51:43Z'
-updatedAt: '2026-02-09T12:33:54Z'
+updatedAt: '2026-02-10T00:58:35Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9074'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues:
-  - '[ ] 9071 refactor: Adopt ''internalId'' for Stable DOM Keying (List & Data Views)'
+  - '[x] 9071 refactor: Adopt ''internalId'' for Stable DOM Keying (List & Data Views)'
   - '[x] 9072 refactor: Adopt ''internalId'' for Stable DOM Keying (Grid & Table)'
   - '[x] 9073 refactor: Ensure Drag & Drop Stability via ''internalId'''
-subIssuesCompleted: 2
+subIssuesCompleted: 3
 subIssuesTotal: 3
 blockedBy: []
 blocking: []
+closedAt: '2026-02-10T00:58:35Z'
 ---
 # Epic: Framework-wide Adoption of 'internalId' for Stable DOM Identity
 
@@ -57,4 +58,9 @@ Systematic rollout across three key areas:
 - 2026-02-09T10:52:05Z @tobiu added sub-issue #9072
 - 2026-02-09T10:52:09Z @tobiu added sub-issue #9073
 - 2026-02-09T12:33:55Z @tobiu assigned to @tobiu
+### @tobiu - 2026-02-10T00:58:35Z
+
+resolved.
+
+- 2026-02-10T00:58:36Z @tobiu closed this issue
 

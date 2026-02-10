@@ -1,13 +1,13 @@
 ---
 id: 9068
 title: 'Refactor: Global Audit & Fix for ''keyProperty'' Access (Turbo Mode Compatibility)'
-state: OPEN
+state: CLOSED
 labels:
   - core
 assignees:
   - tobiu
 createdAt: '2026-02-09T02:44:45Z'
-updatedAt: '2026-02-09T10:02:47Z'
+updatedAt: '2026-02-10T01:10:37Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9068'
 author: tobiu
 commentsCount: 1
@@ -17,6 +17,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-02-10T01:10:37Z'
 ---
 # Refactor: Global Audit & Fix for 'keyProperty' Access (Turbo Mode Compatibility)
 
@@ -85,4 +86,5 @@ Replace them with `store.getKey(item)`.
 > **Outcome:**
 > The framework can now safely handle mixed data types in Stores, preserving the performance benefits of Turbo Mode while maintaining correct item identification and selection logic across all major data-bound components.
 
+- 2026-02-10T01:10:38Z @tobiu closed this issue
 
