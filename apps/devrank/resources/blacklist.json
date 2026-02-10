@@ -11,5 +11,6 @@
   "robocdnjs",
   "scala-steward",
   "skia-flutter-autoroll",
-  "spring-builds"
+  "spring-builds",
+  "yoshi-automation"
 ]
