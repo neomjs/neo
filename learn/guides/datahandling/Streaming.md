@@ -20,7 +20,7 @@ Neo.mjs introduces a **Streaming Data Architecture** that solves these problems 
 
 ### The Flow
 
-<div class="mermaid">
+```mermaid
 sequenceDiagram
     participant S as Server
     participant P as StreamProxy (App Worker)
@@ -38,7 +38,7 @@ sequenceDiagram
     end
     S->>P: End of Stream
     P->>St: Promise Resolve
-</div>
+```
 
 ## Implementation
 
@@ -99,10 +99,10 @@ Benchmarks (10k Records, Local Network):
 | Metric | Standard JSON | Streaming JSONL | Improvement |
 | :--- | :--- | :--- | :--- |
 | **Time to First Render** | ~450ms | **~40ms** | **10x Faster** |
-| **Main Thread Block** | High (Parse) | **Zero** | **Non-Blocking** |
+| **App Worker Block** | High (200ms+ freeze) | **Zero (Chunked)** | **Responsive UI** |
 | **Memory Peak** | 2x File Size | **O(ChunkSize)** | **Constant** |
 
-## Best Practices
+> **Note:** In Neo.mjs, the **Main Thread** (which handles DOM painting) is *never* blocked by data processing, regardless of the method used. However, blocking the **App Worker** (with a massive `JSON.parse`) freezes all application logic, making the UI feel unresponsive to clicks or interactions. Streaming solves this by processing data in micro-tasks, keeping the App Worker alive and responsive.
 
 1.  **Chunk Size:** Keep `chunkSize` between 100 and 1000.
     -   Too small (e.g., 1): Too many events/updates. Overhead kills performance.
