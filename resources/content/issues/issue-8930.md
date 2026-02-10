@@ -93,8 +93,9 @@ subIssues:
   - '[x] 9084 Enhancement: DevRank Atomic File Persistence'
   - '[x] 9085 Feat: DevRank Spider Community Discovery Strategy'
   - '[x] 9086 Feat: DevRank Spider CLI Strategy Selection'
-subIssuesCompleted: 77
-subIssuesTotal: 79
+  - '[x] 9087 Fix: Broken GitHub Rate Limit Detection and Graceful Exit'
+subIssuesCompleted: 78
+subIssuesTotal: 80
 blockedBy: []
 blocking: []
 ---
