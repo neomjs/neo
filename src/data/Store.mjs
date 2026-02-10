@@ -135,6 +135,11 @@ class Store extends Collection {
          */
         pageSize_: 0,
         /**
+         * @member {Object|Neo.data.proxy.Base|null} proxy_=null
+         * @reactive
+         */
+        proxy_: null,
+        /**
          * True to let the backend handle the filtering.
          * Useful for buffered stores
          * @member {Boolean} remoteFilter=false
@@ -398,10 +403,31 @@ class Store extends Collection {
     }
 
     /**
-     * @param value
-     * @param oldValue
+     * @param {Object|Neo.data.proxy.Base} value
+     * @param {Object|Neo.data.proxy.Base} oldValue
      * @protected
-     * @returns {*}
+     * @returns {Neo.data.proxy.Base}
+     */
+    beforeSetProxy(value, oldValue) {
+        if (oldValue) {
+            oldValue.destroy();
+        }
+
+        return ClassSystemUtil.beforeSetInstance(value);
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onProxyData(data) {
+        this.add(data);
+    }
+
+    /**
+     * @param {Object[]|Neo.data.Model[]} value
+     * @param {Object[]|Neo.data.Model[]} oldValue
+     * @protected
+     * @returns {Object[]|Neo.data.Model[]}
      */
     beforeSetData(value, oldValue) {
         if (value) {
@@ -720,6 +746,45 @@ class Store extends Collection {
                 }
 
                 return null
+            }
+        } else if (me.proxy) {
+            if (me.items.length > 0 && !opts.append) {
+                me.clear();
+            }
+
+            me.isLoading     = true;
+            me.suspendEvents = true;
+
+            const onData = me.onProxyData.bind(me);
+
+            me.proxy.on('data', onData);
+
+            try {
+                // params.url can override proxy url
+                if (opts.url) {
+                    params.url = opts.url;
+                }
+
+                const response = await me.proxy.read(params);
+
+                me.proxy.un('data', onData);
+                me.suspendEvents = false;
+
+                if (response.success) {
+                    me.totalCount = response.totalCount || me.count;
+                    me.isLoaded   = true;
+                    me.isLoading  = false;
+                    me.fire('load', {items: me.items, total: me.totalCount});
+                    return me.items;
+                } else {
+                    me.isLoading = false;
+                    return null;
+                }
+            } catch (e) {
+                me.proxy.un('data', onData);
+                me.suspendEvents = false;
+                me.isLoading     = false;
+                throw e;
             }
         } else {
             opts.url ??= me.url;
