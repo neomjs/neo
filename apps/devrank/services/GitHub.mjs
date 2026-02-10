@@ -89,23 +89,27 @@ class GitHub extends Base {
 
     /**
      * Updates the internal rate limit state from response headers.
-     * @param {Headers} headers
+     * @param {Response} response
      * @private
      */
-    #updateRateLimit(headers) {
-        const remaining = headers.get('x-rate-limit-remaining');
-        const reset = headers.get('x-rate-limit-reset');
-        const limit = headers.get('x-rate-limit-limit');
+    #updateRateLimit(response) {
+        const headers = response.headers;
+        
+        // GitHub sends headers as `x-ratelimit-*` (standard)
+        const remaining = headers.get('x-ratelimit-remaining');
+        const reset     = headers.get('x-ratelimit-reset');
+        const limit     = headers.get('x-ratelimit-limit');
 
         if (remaining !== null) this.rateLimit.remaining = parseInt(remaining, 10);
-        if (reset !== null) this.rateLimit.reset = parseInt(reset, 10);
-        if (limit !== null) this.rateLimit.limit = parseInt(limit, 10);
+        if (reset !== null)     this.rateLimit.reset     = parseInt(reset, 10);
+        if (limit !== null)     this.rateLimit.limit     = parseInt(limit, 10);
 
         // Debug: Warn if headers are missing but we are at default (implying no update ever happened)
-        if (remaining === null && this.rateLimit.remaining === 5000) {
+        // Only warn on successful requests to avoid noise on 4xx/5xx errors (which might lack headers)
+        if (response.ok && remaining === null && this.rateLimit.remaining === 5000) {
             // Only log once or sparsely to avoid spam
             if (!this._headerWarned) {
-                console.warn('[GitHub] Warning: `x-rate-limit-*` headers not found. Falling back to body (if available).');
+                console.warn('[GitHub] Warning: `x-ratelimit-*` headers not found. Falling back to body (if available).');
                 this._headerWarned = true;
             }
         }
@@ -151,7 +155,7 @@ class GitHub extends Base {
                 body: JSON.stringify({ query, variables })
             });
 
-            this.#updateRateLimit(response.headers);
+            this.#updateRateLimit(response);
 
             if (!response.ok) {
                 // Retry on 5xx (Server Error) or 403 (Rate Limit/Abuse)
@@ -225,7 +229,7 @@ class GitHub extends Base {
                 }
             });
 
-            this.#updateRateLimit(response.headers);
+            this.#updateRateLimit(response);
 
             if (!response.ok) {
                 if (response.status === 403) {

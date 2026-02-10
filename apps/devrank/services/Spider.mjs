@@ -310,7 +310,7 @@ class Spider extends Base {
      */
     async runCommunityScan(targetOrg, state) {
         if (GitHub.rateLimit.remaining < 50) {
-             console.warn(`[Spider] RATE LIMIT CRITICAL: ${GitHub.rateLimit.remaining}. Skipping Community Scan.`);
+             this.logRateLimit('Skipping Community Scan');
              return;
         }
 
@@ -376,7 +376,7 @@ class Spider extends Base {
 
         for (let page = 1; page <= maxPages; page++) {
             if (GitHub.rateLimit.remaining < 50) {
-                console.warn(`[Spider] RATE LIMIT CRITICAL: ${GitHub.rateLimit.remaining}. Stopping search.`);
+                this.logRateLimit('Stopping search');
                 break;
             }
 
@@ -400,7 +400,7 @@ class Spider extends Base {
      */
     async runStargazer(username, state) {
         if (GitHub.rateLimit.remaining < 50) {
-             console.warn(`[Spider] RATE LIMIT CRITICAL: ${GitHub.rateLimit.remaining}. Skipping Stargazer run.`);
+             this.logRateLimit('Skipping Stargazer run');
              return;
         }
 
@@ -431,7 +431,7 @@ class Spider extends Base {
         for (const repo of repos) {
             // Rate Limit Check
             if (GitHub.rateLimit.remaining < 50) {
-                console.warn(`[Spider] RATE LIMIT CRITICAL: ${GitHub.rateLimit.remaining}. Stopping repo processing.`);
+                this.logRateLimit('Stopping repo processing');
                 break;
             }
 
@@ -491,6 +491,24 @@ class Spider extends Base {
             newVisited.forEach(item => visited.add(item));
             newVisited.clear();
         }
+    }
+
+    /**
+     * Logs the critical rate limit warning with estimated recovery time.
+     * @param {String} context - The context of the operation (e.g. "Stopping search")
+     * @private
+     */
+    logRateLimit(context) {
+        const { remaining, reset } = GitHub.rateLimit;
+        const now = Math.floor(Date.now() / 1000);
+        let recoveryMsg = '';
+
+        if (reset) {
+            const minutes = Math.ceil((reset - now) / 60);
+            recoveryMsg = ` Recovers in ~${minutes} minutes.`;
+        }
+
+        console.warn(`[Spider] RATE LIMIT CRITICAL: ${remaining}. ${context}.${recoveryMsg}`);
     }
 
     /**
