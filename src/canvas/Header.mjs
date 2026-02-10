@@ -47,7 +47,9 @@ class Header extends Base {
             bgRibbon     : ['rgba(62, 99, 221, 0.02)', 'rgba(64, 196, 255, 0.05)', 'rgba(62, 99, 221, 0.02)'],
             fgRibbon     : ['rgba(62, 99, 221, 0.025)', 'rgba(64, 196, 255, 0.05)', 'rgba(62, 99, 221, 0.025)'],
             grad1        : [PRIMARY, HIGHLIGHT, PRIMARY],
+            grad1Hot     : [HIGHLIGHT, '#FFFFFF', HIGHLIGHT],
             grad2        : [SECONDARY, HIGHLIGHT, SECONDARY],
+            grad2Hot     : [HIGHLIGHT, '#FFFFFF', HIGHLIGHT],
             hover        : HIGHLIGHT,
             particle     : HIGHLIGHT,
             particleAlpha: {nebula: 0.2, dust: 0.2},
@@ -59,7 +61,9 @@ class Header extends Base {
             bgRibbon     : ['rgba(62, 99, 221, 0.02)', 'rgba(64, 196, 255, 0.05)', 'rgba(62, 99, 221, 0.02)'],
             fgRibbon     : ['rgba(62, 99, 221, 0.05)', 'rgba(64, 196, 255, 0.1)', 'rgba(62, 99, 221, 0.05)'],
             grad1        : [PRIMARY, HIGHLIGHT, PRIMARY],
+            grad1Hot     : [HIGHLIGHT, '#FFFFFF', HIGHLIGHT],
             grad2        : [SECONDARY, HIGHLIGHT, SECONDARY],
+            grad2Hot     : [HIGHLIGHT, '#FFFFFF', HIGHLIGHT],
             hover        : PRIMARY,
             particle     : HIGHLIGHT,
             particleAlpha: {nebula: 0.2, dust: 0.2},
@@ -83,7 +87,8 @@ class Header extends Base {
                 'updateActiveId',
                 'updateGraphData',
                 'updateHoverId',
-                'updateNavRects'
+                'updateNavRects',
+                'updateTimeScale'
             ]
         },
         /**
@@ -113,6 +118,14 @@ class Header extends Base {
      * @member {Object[]} shockwaves=[]
      */
     shockwaves = []
+    /**
+     * @member {Number} targetTimeScale=1
+     */
+    targetTimeScale = 1
+    /**
+     * @member {Number} timeScale=1
+     */
+    timeScale = 1
     /**
      * Pre-allocated buffers for wave geometry.
      * Uses `Float32Array` to eliminate Garbage Collection pressure during the render loop.
@@ -198,7 +211,17 @@ class Header extends Base {
             width  = me.canvasSize?.width  || 100,
             height = me.canvasSize?.height || 50;
 
-        me.time += 0.05;
+        // Smooth transition for timeScale
+        if (me.timeScale !== me.targetTimeScale) {
+            let diff = me.targetTimeScale - me.timeScale;
+            if (Math.abs(diff) < 0.01) {
+                me.timeScale = me.targetTimeScale
+            } else {
+                me.timeScale += diff * 0.05 // Ease-out
+            }
+        }
+
+        me.time += 0.05 * me.timeScale;
 
         // Auto-reinit particles if size changes significantly or empty OR count mismatch (config update)
         if (me.particles.length !== 60) {
@@ -230,6 +253,14 @@ class Header extends Base {
         } else {
             me.animationId = setTimeout(me.renderLoop, 1000 / 60)
         }
+    }
+
+    /**
+     * @param {Object} data
+     * @param {Number} data.value
+     */
+    updateTimeScale(data) {
+        this.targetTimeScale = data.value
     }
 
     /**
@@ -668,7 +699,7 @@ class Header extends Base {
         ctx.lineJoin    = 'round';
 
         // Helper to draw a strand from buffer
-        const drawStrand = (buffer, gradient, shimmer, color, isCore) => {
+        const drawStrand = (buffer, gradient, shimmer, color, isCore, overlayGradient, heat) => {
             ctx.beginPath();
             ctx.strokeStyle = isCore ? '#FFFFFF' : gradient;
             ctx.lineWidth   = isCore ? 1 : 3;
@@ -686,15 +717,32 @@ class Header extends Base {
                 ctx.lineTo(i * step, buffer[i]);
             }
             ctx.stroke();
+
+            // Hot Overlay Pass
+            if (!isCore && heat > 0.05 && overlayGradient) {
+                ctx.beginPath();
+                ctx.strokeStyle = overlayGradient;
+                ctx.lineWidth   = 3;
+                ctx.globalAlpha = heat; // Fade in based on scroll speed
+                ctx.shadowBlur  = 20;   // Hotter glow
+                ctx.shadowColor = '#FFFFFF';
+
+                ctx.moveTo(0, buffer[0]);
+                for (let i = 1; i < count; i++) {
+                    ctx.lineTo(i * step, buffer[i]);
+                }
+                ctx.stroke();
+            }
         };
 
         // Draw Glows (Outer Tube)
         // Extract base color from gradient array for shadow
         const color1 = themeColors.grad1[0];
         const color2 = themeColors.grad2[0];
+        const heat   = Math.max(0, me.timeScale - 1); // 0 at idle, 1 at full speed
 
-        drawStrand(bufA, me.gradients.grad1, shimmerA, color1, false);
-        drawStrand(bufB, me.gradients.grad2, shimmerB, color2, false);
+        drawStrand(bufA, me.gradients.grad1, shimmerA, color1, false, me.gradients.grad1Hot, heat);
+        drawStrand(bufB, me.gradients.grad2, shimmerB, color2, false, me.gradients.grad2Hot, heat);
 
         // Draw Cores (Inner Filament)
         drawStrand(bufA, null, shimmerA, null, true);
@@ -939,6 +987,18 @@ class Header extends Base {
         grad2.addColorStop(0.5, themeColors.grad2[1]);
         grad2.addColorStop(1,   themeColors.grad2[2]);
         me.gradients.grad2 = grad2;
+
+        const grad1Hot = ctx.createLinearGradient(0, 0, width, 0);
+        grad1Hot.addColorStop(0,   themeColors.grad1Hot[0]);
+        grad1Hot.addColorStop(0.5, themeColors.grad1Hot[1]);
+        grad1Hot.addColorStop(1,   themeColors.grad1Hot[2]);
+        me.gradients.grad1Hot = grad1Hot;
+
+        const grad2Hot = ctx.createLinearGradient(0, 0, width, 0);
+        grad2Hot.addColorStop(0,   themeColors.grad2Hot[0]);
+        grad2Hot.addColorStop(0.5, themeColors.grad2Hot[1]);
+        grad2Hot.addColorStop(1,   themeColors.grad2Hot[2]);
+        me.gradients.grad2Hot = grad2Hot;
 
         const fgRibbon = ctx.createLinearGradient(0, 0, width, 0);
         fgRibbon.addColorStop(0,   themeColors.fgRibbon[0]);

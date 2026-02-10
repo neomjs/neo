@@ -405,7 +405,8 @@ class GridBody extends Component {
      * @protected
      */
     afterSetIsScrolling(value, oldValue) {
-        this.toggleCls('neo-is-scrolling', value)
+        this.toggleCls('neo-is-scrolling', value);
+        this.fire('isScrollingChange', {value})
     }
 
     /**

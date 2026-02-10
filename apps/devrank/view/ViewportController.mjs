@@ -67,6 +67,15 @@ class ViewportController extends Controller {
     }
 
     /**
+     * @param {Object} data
+     */
+    onGridIsScrollingChange(data) {
+        this.getReference('header-canvas')?.renderer?.updateTimeScale({
+            value: data.value ? 2 : 1
+        })
+    }
+
+    /**
      * @param {Object} params
      * @param {Object} value
      * @param {Object} oldValue
