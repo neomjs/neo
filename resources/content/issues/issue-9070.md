@@ -1,22 +1,24 @@
 ---
 id: 9070
 title: 'feat: Implement ''internalId'' via Collection Identity Hook'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - core
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-02-09T10:24:25Z'
-updatedAt: '2026-02-09T10:46:05Z'
+updatedAt: '2026-02-10T01:10:21Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9070'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-02-10T01:10:21Z'
 ---
 # feat: Implement 'internalId' via Collection Identity Hook
 
@@ -116,4 +118,10 @@ To maintain the separation of concerns between `Neo.collection.Base` (dumb conta
 - 2026-02-09T10:51:44Z @tobiu cross-referenced by #9074
 - 2026-02-09T12:18:07Z @tobiu cross-referenced by #9075
 - 2026-02-09T13:46:25Z @tobiu cross-referenced by #9076
+- 2026-02-10T01:10:05Z @tobiu assigned to @tobiu
+### @tobiu - 2026-02-10T01:10:21Z
+
+resolved.
+
+- 2026-02-10T01:10:21Z @tobiu closed this issue
 

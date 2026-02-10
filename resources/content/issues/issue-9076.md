@@ -1,7 +1,7 @@
 ---
 id: 9076
 title: 'perf: Implement O(1) Lookup Map for internalId'
-state: OPEN
+state: CLOSED
 labels:
   - ai
   - performance
@@ -9,7 +9,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-02-09T13:46:24Z'
-updatedAt: '2026-02-09T15:32:45Z'
+updatedAt: '2026-02-10T01:09:35Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9076'
 author: tobiu
 commentsCount: 2
@@ -19,6 +19,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-02-10T01:09:35Z'
 ---
 # perf: Implement O(1) Lookup Map for internalId
 
@@ -121,4 +122,5 @@ Restores O(1) performance for all ID-based lookups in the framework.
 > 
 > The system now has O(1) performance for both Primary Key and Internal ID lookups.
 
+- 2026-02-10T01:09:35Z @tobiu closed this issue
 
