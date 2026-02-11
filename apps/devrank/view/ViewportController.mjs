@@ -5,20 +5,16 @@ import Controller from '../../../src/controller/Component.mjs';
  * @extends Neo.controller.Component
  */
 class ViewportController extends Controller {
-    /**
-     * Valid values for mainContentLayout
-     * @member {String[]} mainContentLayouts=['card','cube','mixed']
-     * @protected
-     * @static
-     */
-    static mainContentLayouts = ['card', 'cube', 'mixed']
-
     static config = {
         /**
          * @member {String} className='DevRank.view.ViewportController'
          * @protected
          */
         className: 'DevRank.view.ViewportController',
+        /**
+         * @member {String} defaultHash='/home'
+         */
+        defaultHash: '/home',
         /**
          * @member {Object} routes
          */

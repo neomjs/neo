@@ -1,7 +1,4 @@
-import ControlsContainer  from './home/ControlsContainer.mjs';
-import GridContainer      from './home/GridContainer.mjs';
 import Header             from './HeaderToolbar.mjs';
-import LearnContainer     from './learn/MainContainer.mjs';
 import BaseViewport       from '../../../src/container/Viewport.mjs';
 import ViewportController from './ViewportController.mjs';
 
@@ -38,26 +35,14 @@ class Viewport extends BaseViewport {
             module: Header,
             flex  : 'none'
         }, {
-            ntype      : 'container',
-            activeIndex: 0,
-            flex       : 1,
-            layout     : 'card',
-            reference  : 'main-content',
-            items      : [{
-                ntype : 'container',
-                layout: {ntype: 'hbox', align: 'stretch'},
-                items : [{
-                    module   : GridContainer,
-                    reference: 'grid',
-                    flex     : 1
-                }, {
-                    module   : ControlsContainer,
-                    reference: 'controls'
-                }]
-            }, {
-                module   : LearnContainer,
-                reference: 'learn-container'
-            }]
+            ntype    : 'container',
+            flex     : 1,
+            layout   : {ntype: 'card', activeIndex: null},
+            reference: 'main-content',
+            items    : [
+                {module: () => import('./home/MainContainer.mjs')},
+                {module: () => import('./learn/MainContainer.mjs')}
+            ]
         }]
     }
 }
