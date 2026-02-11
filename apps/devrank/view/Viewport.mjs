@@ -1,5 +1,5 @@
-import ControlsContainer  from './ControlsContainer.mjs';
-import GridContainer      from './GridContainer.mjs';
+import ControlsContainer  from './home/ControlsContainer.mjs';
+import GridContainer      from './home/GridContainer.mjs';
 import Header             from './HeaderToolbar.mjs';
 import LearnContainer     from './learn/MainContainer.mjs';
 import BaseViewport       from '../../../src/container/Viewport.mjs';

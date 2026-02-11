@@ -1,21 +1,21 @@
-import * as selection from '../../../src/selection/grid/_export.mjs';
-import CheckBox  from '../../../src/form/field/CheckBox.mjs';
-import Container from '../../../src/container/Base.mjs';
-import Country   from '../../../src/form/field/Country.mjs';
-import Radio     from '../../../src/form/field/Radio.mjs';
-import TabContainer from '../../../src/tab/Container.mjs';
+import * as selection from '../../../../src/selection/grid/_export.mjs';
+import CheckBox       from '../../../../src/form/field/CheckBox.mjs';
+import Container      from '../../../../src/container/Base.mjs';
+import Country        from '../../../../src/form/field/Country.mjs';
+import Radio          from '../../../../src/form/field/Radio.mjs';
+import TabContainer   from '../../../../src/tab/Container.mjs';
 
 /**
- * @class DevRank.view.ControlsContainer
+ * @class DevRank.view.home.ControlsContainer
  * @extends Neo.container.Base
  */
 class ControlsContainer extends Container {
     static config = {
         /**
-         * @member {String} className='DevRank.view.ControlsContainer'
+         * @member {String} className='DevRank.view.home.ControlsContainer'
          * @protected
          */
-        className: 'DevRank.view.ControlsContainer',
+        className: 'DevRank.view.home.ControlsContainer',
         /**
          * @member {String[]} cls=['devrank-controls-container']
          * @reactive
