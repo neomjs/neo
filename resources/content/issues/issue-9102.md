@@ -1,14 +1,14 @@
 ---
 id: 9102
 title: Fix Memory Core MCP Server failing to load GEMINI_API_KEY from .env
-state: OPEN
+state: CLOSED
 labels:
   - bug
   - ai
 assignees:
   - tobiu
 createdAt: '2026-02-11T14:11:20Z'
-updatedAt: '2026-02-11T14:15:14Z'
+updatedAt: '2026-02-11T14:18:18Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9102'
 author: tobiu
 commentsCount: 1
@@ -18,6 +18,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-02-11T14:18:18Z'
 ---
 # Fix Memory Core MCP Server failing to load GEMINI_API_KEY from .env
 
@@ -42,4 +43,5 @@ Explicitly import `dotenv/config` in `ai/mcp/server/memory-core/mcp-stdio.mjs` t
 > 
 > I verified the fix by inspecting the file and confirming the `dotenv` import is now present.
 
+- 2026-02-11T14:18:18Z @tobiu closed this issue
 
