@@ -97,8 +97,11 @@ subIssues:
   - '[x] 9088 Fix: DevRank Spider Premature Exit (Split Core/Search Rate Limits)'
   - '[x] 9096 Feat: GitHub API Secondary Rate Limit Handling & Concurrency Tuning'
   - '[x] 9097 Feat: Include Repository Creations in DevRank Contributions'
-subIssuesCompleted: 82
-subIssuesTotal: 83
+  - '[x] 9098 Feat: Integrate Documentation Viewer into DevRank'
+  - '[x] 9099 Fix: Add missing Google Fonts to DevRank index.html'
+  - '[x] 9100 Perf: Remove unused Material Icons from Portal index.html'
+subIssuesCompleted: 85
+subIssuesTotal: 86
 blockedBy: []
 blocking: []
 ---
