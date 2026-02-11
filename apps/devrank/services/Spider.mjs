@@ -381,7 +381,7 @@ class Spider extends Base {
             }
 
             console.log(`[Spider] Fetching page ${page}...`);
-            const searchRes = await GitHub.rest(`search/repositories?q=${query}&sort=${sort}&order=${order}&per_page=${config.github.perPage}&page=${page}`);
+            const searchRes = await GitHub.rest(`search/repositories?q=${encodeURIComponent(query)}&sort=${sort}&order=${order}&per_page=${config.github.perPage}&page=${page}`);
 
             if (!searchRes || !searchRes.items || searchRes.items.length === 0) {
                 console.log('[Spider] No more results.');
