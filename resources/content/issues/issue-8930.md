@@ -88,7 +88,7 @@ subIssues:
   - '[x] 9079 Feat: DevRank Header "Show Off" Kinetic Scroll Effect'
   - '[x] 9080 Perf: DevRank Header Adaptive Backpressure'
   - '[x] 9081 Feat: DevRank Global Animation Toggle'
-  - '[ ] 9082 Refactor Portal Content Viewer to Framework Component'
+  - '[x] 9082 Refactor Portal Content Viewer to Framework Component'
   - '[x] 9083 Feat: DevRank GitHub API Rate Limit Protection'
   - '[x] 9084 Enhancement: DevRank Atomic File Persistence'
   - '[x] 9085 Feat: DevRank Spider Community Discovery Strategy'
@@ -97,7 +97,7 @@ subIssues:
   - '[x] 9088 Fix: DevRank Spider Premature Exit (Split Core/Search Rate Limits)'
   - '[x] 9096 Feat: GitHub API Secondary Rate Limit Handling & Concurrency Tuning'
   - '[x] 9097 Feat: Include Repository Creations in DevRank Contributions'
-subIssuesCompleted: 81
+subIssuesCompleted: 82
 subIssuesTotal: 83
 blockedBy: []
 blocking: []
