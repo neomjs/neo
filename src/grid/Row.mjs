@@ -76,6 +76,22 @@ class Row extends Component {
     }
 
     /**
+     * Triggered after the mounted config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetMounted(value, oldValue) {
+        super.afterSetMounted(value, oldValue);
+
+        if (this.components) {
+            Object.values(this.components).forEach(component => {
+                component.mounted = value
+            })
+        }
+    }
+
+    /**
      * Generates the VDOM configuration for a single cell.
      *
      * @param {Object} data
