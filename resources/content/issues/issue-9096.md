@@ -5,9 +5,10 @@ state: CLOSED
 labels:
   - enhancement
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-02-10T20:09:20Z'
-updatedAt: '2026-02-10T20:22:15Z'
+updatedAt: '2026-02-11T14:02:37Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9096'
 author: tobiu
 commentsCount: 1
@@ -58,4 +59,5 @@ The Updater is experiencing sporadic bursts of 403 errors despite having plenty 
 > 
 
 - 2026-02-10T20:22:16Z @tobiu closed this issue
+- 2026-02-11T14:02:37Z @tobiu assigned to @tobiu
 
