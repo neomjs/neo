@@ -1,17 +1,17 @@
-import BaseGridContainer from '../../../src/grid/Container.mjs';
-import Contributors      from '../store/Contributors.mjs';
+import BaseGridContainer from '../../../../src/grid/Container.mjs';
+import Contributors      from '../../store/Contributors.mjs';
 
 /**
- * @class DevRank.view.GridContainer
+ * @class DevRank.view.home.GridContainer
  * @extends Neo.grid.Container
  */
 class GridContainer extends BaseGridContainer {
     static config = {
         /**
-         * @member {String} className='DevRank.view.GridContainer'
+         * @member {String} className='DevRank.view.home.GridContainer'
          * @protected
          */
-        className: 'DevRank.view.GridContainer',
+        className: 'DevRank.view.home.GridContainer',
         /**
          * @member {String[]} cls=['devrank-grid-container']
          */
