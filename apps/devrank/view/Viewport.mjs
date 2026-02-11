@@ -1,6 +1,7 @@
 import ControlsContainer  from './ControlsContainer.mjs';
 import GridContainer      from './GridContainer.mjs';
 import Header             from './HeaderToolbar.mjs';
+import LearnContainer     from './learn/MainContainer.mjs';
 import BaseViewport       from '../../../src/container/Viewport.mjs';
 import ViewportController from './ViewportController.mjs';
 
@@ -41,6 +42,7 @@ class Viewport extends BaseViewport {
             activeIndex: 0,
             flex       : 1,
             layout     : 'card',
+            reference  : 'main-content',
             items      : [{
                 ntype : 'container',
                 layout: {ntype: 'hbox', align: 'stretch'},
@@ -53,10 +55,8 @@ class Viewport extends BaseViewport {
                     reference: 'controls'
                 }]
             }, {
-                ntype: 'container',
-                cls  : ['devrank-about'],
-                style: {padding: '20px'},
-                html : '<h1>About DevRank</h1><p>Data Source: GitHub GraphQL API</p><p>Todo: Write about the methodology...</p>'
+                module   : LearnContainer,
+                reference: 'learn-container'
             }]
         }]
     }

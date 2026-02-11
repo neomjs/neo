@@ -27,6 +27,10 @@ class HeaderToolbar extends Toolbar {
             route   : '/home',
             text    : 'DevRank'
         }, '->', {
+            reference: 'learn-button',
+            route    : '/learn',
+            text     : 'Learn'
+        }, {
             ntype    : 'container',
             layout   : 'hbox',
             reference: 'header-social-icons',
