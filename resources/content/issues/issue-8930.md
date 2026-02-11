@@ -100,8 +100,9 @@ subIssues:
   - '[x] 9098 Feat: Integrate Documentation Viewer into DevRank'
   - '[x] 9099 Fix: Add missing Google Fonts to DevRank index.html'
   - '[x] 9100 Perf: Remove unused Material Icons from Portal index.html'
-subIssuesCompleted: 85
-subIssuesTotal: 86
+  - '[x] 9103 Fix: DevRank Spider 422 Error on Complex Queries'
+subIssuesCompleted: 86
+subIssuesTotal: 87
 blockedBy: []
 blocking: []
 ---
