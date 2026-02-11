@@ -49,6 +49,19 @@ class TreeList extends BaseTreeList {
     }
 
     /**
+     * Triggered after the store config got changed
+     * @param {Object|Neo.data.Store} value
+     * @param {Object|Neo.data.Store} oldValue
+     */
+    afterSetStore(value, oldValue) {
+        super.afterSetStore(value, oldValue);
+
+        if (value && this.contentPath) {
+            this.doLoadStore()
+        }
+    }
+
+    /**
      * Triggered after the contentPath config got changed
      * @param {String|null} value
      * @param {String|null} oldValue
@@ -72,7 +85,9 @@ class TreeList extends BaseTreeList {
      *
      */
     doLoadStore() {
-        this.store.load({url: `${this.contentPath}tree.json`})
+        if (Neo.isFunction(this.store?.load)) {
+            this.store.load({url: `${this.contentPath}tree.json`})
+        }
     }
 
     /**
