@@ -1,0 +1,9 @@
+.devindex-viewport {
+    .neo-grid-wrapper {
+        margin: 1em;
+
+        &:has(.neo-extend-margin-right) {
+            margin-right: calc(235px + 1em);
+        }
+    }
+}

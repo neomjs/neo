@@ -1,0 +1,38 @@
+.devindex-controls-container {
+    border     : none;
+    bottom     : 16px;
+    display    : block;
+    flex-shrink: 0;
+    min-width  : 235px;
+    overflow   : visible;
+    position   : absolute;
+    right      : -235px;
+    top        : 76px;
+    transition : right 250ms ease-out;
+    width      : 235px;
+    z-index    : 100;
+
+    .devindex-controls-container-content {
+        box-shadow: 0 5px 10px rgba(75,75,75,.3);
+        opacity   : 0;
+        transition: opacity 250ms ease-out;
+
+        > .neo-container {
+            overflow-y: auto;
+            padding   : .5em 1em;
+
+            > .neo-container {
+                flex  : none;
+                height: fit-content;
+            }
+        }
+    }
+
+    &.neo-expanded {
+        right: 0;
+
+        .devindex-controls-container-content {
+            opacity: 1;
+        }
+    }
+}
