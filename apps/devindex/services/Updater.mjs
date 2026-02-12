@@ -57,6 +57,8 @@ class Updater extends Base {
         let results = [];
         let indexUpdates = [];
         let successCount = 0;
+        let failCount = 0;
+        let skipCount = 0;
         const saveInterval = config.updater.saveInterval;
         const whitelist = await Storage.getWhitelist();
         const concurrency = 8; // Slightly reduced from 10 to balance speed vs stability
@@ -77,12 +79,12 @@ class Updater extends Base {
                         console.log(`[${login}] OK (${data.tc})` + (isWhitelisted && !meetsThreshold ? ' [WHITELISTED]' : ''));
                     } else {
                         indexUpdates.push({ login, delete: true });
-                        successCount++;
+                        skipCount++;
                         console.log(`[${login}] SKIPPED (Low Activity: ${data.tc}) [PRUNED]`);
                     }
                 } else {
                     indexUpdates.push({ login, lastUpdate: new Date().toISOString() });
-                    successCount++;
+                    skipCount++;
                     console.log(`[${login}] SKIPPED (No Data/Bot)`);
                 }
             } catch (error) {
@@ -91,7 +93,7 @@ class Updater extends Base {
                 // Penalty Box: Update timestamp to push failed users to the back of the queue
                 // This prevents them from blocking the pipeline in the next run
                 indexUpdates.push({ login, lastUpdate: new Date().toISOString() });
-                successCount++; // Count as processed even if failed
+                failCount++; // Count as processed even if failed
 
                 // Kill-switch: If we hit a rate limit error, force internal state to 0 to trigger graceful shutdown
                 if (error.message.includes('rate limit')) {
@@ -133,9 +135,12 @@ class Updater extends Base {
         console.log('--------------------------------------------------');
         console.log('[Updater] Run Complete.');
         console.log(`[Updater] Successfully Updated: ${successCount}`);
+        console.log(`[Updater] Skipped/Pruned: ${skipCount}`);
+        console.log(`[Updater] Failed (Penalty Box): ${failCount}`);
         
         if (initialBacklog > 0) {
-            const remaining = Math.max(0, initialBacklog - successCount);
+            const totalProcessed = successCount + skipCount + failCount;
+            const remaining = Math.max(0, initialBacklog - totalProcessed);
             console.log(`[Updater] Remaining Backlog: ${remaining}`);
         }
         
