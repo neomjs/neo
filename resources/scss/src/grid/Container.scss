@@ -28,6 +28,8 @@
         border             : 1px solid var(--grid-container-border-color);
         border-spacing     : 0;
         color              : var(--grid-container-color);
+        display            : flex;
+        flex-direction     : column;
         font-size          : var(--grid-container-font-size);
         font-weight        : 400;
         height             : 100%;

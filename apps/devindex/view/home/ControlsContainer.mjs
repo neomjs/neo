@@ -91,10 +91,6 @@ class ControlsContainer extends Container {
                     style        : {marginTop: '1em'},
                     valueLabel   : 'Show Animations',
                     width        : 200
-                }, {
-                    ntype    : 'label',
-                    reference: 'count-rows-label',
-                    style    : {marginTop: '1em'}
                 }]
             }, {
                 module   : Profile,
@@ -166,15 +162,6 @@ class ControlsContainer extends Container {
 
     onConstructed() {
         super.onConstructed();
-
-        let me      = this,
-            {store} = me.grid;
-
-        store.on({
-            filter: me.updateRowsLabel,
-            load  : me.updateRowsLabel,
-            scope : me
-        })
     }
 
     /**
@@ -209,17 +196,6 @@ class ControlsContainer extends Container {
      */
     onShowAnimationsChange(data) {
         this.grid.animateVisuals = data.value
-    }
-
-    /**
-     *
-     */
-    updateRowsLabel() {
-        let {store} = this.grid;
-
-        if (!store.isLoading) {
-            this.getItem('count-rows-label').text = 'Visible: ' + store.getCount()
-        }
     }
 }
 

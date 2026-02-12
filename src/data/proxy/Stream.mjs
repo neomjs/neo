@@ -64,11 +64,12 @@ class Stream extends Base {
             throw new Error('ReadableStream not supported in this environment.');
         }
 
-        const reader = response.body
-            .pipeThrough(new TextDecoderStream())
-            .getReader();
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
 
         let buffer = '';
+        let loaded = 0;
+        const total = parseInt(response.headers.get('content-length') || 0, 10);
 
         while (true) {
             const { value, done } = await reader.read();
@@ -86,7 +87,10 @@ class Stream extends Base {
                 break;
             }
 
-            buffer += value;
+            loaded += value.byteLength;
+            me.fire('progress', {loaded, total});
+
+            buffer += decoder.decode(value, {stream: true});
             const lines = buffer.split('\n');
             // Keep the last partial line in the buffer
             buffer = lines.pop();
