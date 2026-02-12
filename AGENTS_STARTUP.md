@@ -205,3 +205,19 @@ When invoking a sub-agent to analyze code or investigate an issue, you **MUST** 
 
 **Why this is required:**
 Without this context, sub-agents will hallucinate bugs where none exist (e.g., claiming `this.store` is undefined because they don't see an explicit assignment, missing the fact that it's a reactive config managed by `Neo.core.Base`).
+
+## 8. The Visual Verification Protocol (UI/Layout Tasks)
+
+**Context:** Agents often "hallucinate" layout behavior based on static SCSS/JS analysis, leading to "shotgun debugging" (guessing fixes) that wastes turns and frustrates users.
+
+**Mandate:** You are **FORBIDDEN** from modifying CSS or Layout Configs based solely on static code analysis when a visual bug (e.g., "cut off", "misalignment") is reported.
+
+**Workflow:**
+1.  **Stop & Observe:** Do not propose a fix immediately.
+2.  **Inspect Runtime State:** Use the `neural_link` tool suite:
+    -   `find_instances`: Locate the component.
+    -   `get_computed_styles`: Check `width`, `height`, `flex`, `display`, `overflow`.
+    -   `get_dom_rect`: Check actual dimensions and parent constraints.
+3.  **Consult the Expert:** If tools are insufficient or the hierarchy is complex, **ASK THE USER**.
+    -   *Template:* "I cannot see the parent container's computed styles. Could you please paste the computed `height` and `overflow` of the element wrapping `.my-component`?"
+4.  **Verify Assumptions:** Never assume a class like `neo-label` behaves standardly. Verify its computed style.
