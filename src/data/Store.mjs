@@ -48,12 +48,12 @@ const initialIndexSymbol = Symbol.for('initialIndex');
  *      // Per-call override
  *      store.add(hugeArrayOfData, false);
  *      ```
- * 
+ *
  * ### Progressive Loading (Streaming)
- * 
+ *
  * When using a `proxy` (e.g., {@link Neo.data.proxy.Stream}), the Store supports **Progressive Loading**.
  * Instead of waiting for the entire dataset to load, the Store updates itself incrementally as chunks of data arrive.
- * 
+ *
  * - **Events:** The `load` event fires multiple times (once per chunk) with the cumulative `total`.
  * - **UI Integration:** Components like `Neo.grid.Container` listen to these events to update their scrollbars and render rows immediately.
  */
@@ -421,7 +421,9 @@ class Store extends Collection {
             oldValue.destroy();
         }
 
-        return ClassSystemUtil.beforeSetInstance(value);
+        return ClassSystemUtil.beforeSetInstance(value, null, {
+            store: this
+        });
     }
 
     /**
@@ -432,9 +434,7 @@ class Store extends Collection {
      */
     beforeSetData(value, oldValue) {
         if (value) {
-            this.isLoading = true;
-
-            // value = this.createRecord(value)
+            this.isLoading = true
         }
 
         return value
@@ -757,16 +757,14 @@ class Store extends Collection {
 
             const onData = (data) => {
                 me.add(data);
-                
+
                 // Progressive Rendering:
                 // As soon as we have data, we want the grid to render.
                 if (me.isLoading) {
-                    me.isLoading = false;
+                    me.isLoading = false
                 }
-                
-                // Fire load event to trigger grid updates (row count, scrollbar)
-                // GridBody checks data.total or store.count.
-                me.fire('load', {items: me.items, total: me.count});
+
+                // We do not need to fire a load event here, since onCollectionMutate will handle this.
             };
 
             const onProgress = (data) => {
@@ -795,11 +793,11 @@ class Store extends Collection {
                     me.totalCount = response.totalCount || me.count;
                     me.isLoaded   = true;
                     me.isLoading  = false; // Ensure it's false at the end
-                    me.fire('load', {items: me.items, total: me.totalCount});
-                    return me.items;
+                    me.fire('load', {isLoading: false, items: me.items, total: me.totalCount});
+                    return me.items
                 } else {
                     me.isLoading = false;
-                    return null;
+                    return null
                 }
             } catch (e) {
                 me.proxy.un({
@@ -807,7 +805,7 @@ class Store extends Collection {
                     progress: onProgress
                 });
                 me.isLoading = false;
-                throw e;
+                throw e
             }
         } else {
             opts.url ??= me.url;
@@ -849,7 +847,7 @@ class Store extends Collection {
         let me = this;
 
         if (me.isConstructed && !me.isLoading) {
-            me.fire('load', {items: me.items, total: me.chunkingTotal});
+            me.fire('load', {isLoading: !!me.isStreaming, items: me.items, total: me.chunkingTotal});
         }
     }
 
