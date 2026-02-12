@@ -2,6 +2,7 @@ import * as selection from '../../../../src/selection/grid/_export.mjs';
 import CheckBox       from '../../../../src/form/field/CheckBox.mjs';
 import Container      from '../../../../src/container/Base.mjs';
 import Country        from '../../../../src/form/field/Country.mjs';
+import Profile        from './ProfileContainer.mjs';
 import Radio          from '../../../../src/form/field/Radio.mjs';
 import TabContainer   from '../../../../src/tab/Container.mjs';
 
@@ -28,6 +29,7 @@ class ControlsContainer extends Container {
             module        : TabContainer,
             cls           : ['devindex-controls-container-content'],
             dragResortable: true,
+            reference     : 'controls-tab-container',
 
             headerToolbar: {
                 sortZoneConfig: {
@@ -94,6 +96,10 @@ class ControlsContainer extends Container {
                     reference: 'count-rows-label',
                     style    : {marginTop: '1em'}
                 }]
+            }, {
+                module   : Profile,
+                header   : {text: 'Profile'},
+                reference: 'profile-container'
             }, {
                 module: Container,
                 header: {text: 'Selection'},
