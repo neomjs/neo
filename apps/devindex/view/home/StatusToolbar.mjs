@@ -4,6 +4,18 @@ import Toolbar  from '../../../../src/grid/footer/Toolbar.mjs';
 /**
  * @class DevIndex.view.home.StatusToolbar
  * @extends Neo.grid.footer.Toolbar
+ *
+ * @summary A status toolbar for the DevIndex grid, displaying streaming progress and row counts.
+ *
+ * This component demonstrates the usage of `Neo.grid.footer.Toolbar` by implementing the
+ * store event hooks (`onStoreLoad`, `onStoreProgress`, `onStoreFilter`).
+ *
+ * Key features:
+ * - **Progressive Loading Indicator:** Uses a `Neo.component.Progress` to visualize data arrival from the
+ *   `Neo.data.proxy.Stream`. The progress bar updates in real-time via `onStoreProgress`.
+ * - **Visible Row Count:** Updates a label with the current number of records in the store
+ *   whenever the store loads or filters change.
+ * - **Auto-Hiding:** The progress bar automatically hides itself shortly after the load completes.
  */
 class StatusToolbar extends Toolbar {
     static config = {
@@ -21,11 +33,6 @@ class StatusToolbar extends Toolbar {
          * @member {String[]} cls=['devindex-status-toolbar']
          */
         cls: ['devindex-status-toolbar'],
-        /**
-         * @member {Neo.data.Store|null} store_=null
-         * @reactive
-         */
-        store_: null,
         /**
          * @member {Object[]} items
          */
@@ -51,32 +58,6 @@ class StatusToolbar extends Toolbar {
     }
 
     /**
-     * Triggered before the store config gets changed.
-     * @param {Neo.data.Store|Object|null} value
-     * @param {Neo.data.Store|null} oldValue
-     * @returns {Neo.data.Store}
-     * @protected
-     */
-    beforeSetStore(value, oldValue) {
-        let me        = this,
-            listeners = {
-                filter  : me.updateRowsLabel,
-                load    : me.onStoreLoad,
-                progress: me.onStoreProgress,
-                scope   : me
-            };
-
-        oldValue?.un(listeners);
-
-        // Store might be passed as an instance or config
-        if (value && value.on) {
-            value.on(listeners);
-        }
-
-        return value
-    }
-
-    /**
      * @param {Object} data
      */
     onStoreLoad(data) {
@@ -96,32 +77,28 @@ class StatusToolbar extends Toolbar {
     }
 
     /**
+     * @param {Object} data
+     */
+    onStoreFilter(data) {
+        this.updateRowsLabel()
+    }
+
+    /**
      * @param {Object} data {loaded, total}
      */
     onStoreProgress(data) {
-        let progress = this.getItem('progress');
-
-        if (progress) {
-             progress.hidden = false;
-             progress.max    = data.total || 100;
-             progress.value  = data.loaded;
-
-             // Indeterminate state if total is unknown
-             if (!data.total) {
-                 progress.value = null
-             }
-        }
+        this.getReference('progress')?.set({
+            hidden: false,
+            max   : data.total || 100,
+            value : data.total ? data.loaded : null // Indeterminate state if total is unknown
+        })
     }
 
     /**
      *
      */
     updateRowsLabel() {
-        let {store} = this;
-
-        if (store) {
-            this.getItem('count-rows-label').text = 'Visible Rows: ' + store.count
-        }
+        this.getReference('count-rows-label').text = 'Visible Rows: ' + this.store.count
     }
 }
 
