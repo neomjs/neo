@@ -769,7 +769,14 @@ class Store extends Collection {
                 me.fire('load', {items: me.items, total: me.count});
             };
 
-            me.proxy.on('data', onData);
+            const onProgress = (data) => {
+                me.fire('progress', data)
+            };
+
+            me.proxy.on({
+                data    : onData,
+                progress: onProgress
+            });
 
             try {
                 // params.url can override proxy url
@@ -779,7 +786,10 @@ class Store extends Collection {
 
                 const response = await me.proxy.read(params);
 
-                me.proxy.un('data', onData);
+                me.proxy.un({
+                    data    : onData,
+                    progress: onProgress
+                });
 
                 if (response.success) {
                     me.totalCount = response.totalCount || me.count;
@@ -792,7 +802,10 @@ class Store extends Collection {
                     return null;
                 }
             } catch (e) {
-                me.proxy.un('data', onData);
+                me.proxy.un({
+                    data    : onData,
+                    progress: onProgress
+                });
                 me.isLoading = false;
                 throw e;
             }

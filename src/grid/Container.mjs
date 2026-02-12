@@ -5,6 +5,7 @@ import GridBody          from './Body.mjs';
 import ScrollManager     from './ScrollManager.mjs';
 import Store             from '../data/Store.mjs';
 import VerticalScrollbar from './VerticalScrollbar.mjs';
+import FooterToolbar     from './footer/Toolbar.mjs';
 import * as column       from './column/_export.mjs';
 import * as header       from './header/_export.mjs';
 import {isDescriptor}    from '../core/ConfigSymbols.mjs';
@@ -100,8 +101,18 @@ class GridContainer extends BaseContainer {
          */
         columns_: [],
         /**
+         * Configs for Neo.toolbar.Base
+         * @member {Object|null} [footerToolbar_={[isDescriptor]:true,merge:'deep',value:null}]
+         * @reactive
+         */
+        footerToolbar_: {
+            [isDescriptor]: true,
+            merge         : 'deep',
+            value         : null
+        },
+        /**
          * Configs for Neo.grid.header.Toolbar
-         * @member {Object|null} [headerToolbar_={[isDescriptor]: true, merge: 'deep', value: null}]
+         * @member {Object|null} [headerToolbar_={[isDescriptor]:true,merge:'deep',value:null}]
          * @reactive
          */
         headerToolbar_: {
@@ -110,10 +121,10 @@ class GridContainer extends BaseContainer {
             value         : null
         },
         /**
-         * @member {String} layout='base'
+         * @member {Object} layout={ntype: 'vbox', align: 'stretch'}
          * @reactive
          */
-        layout: 'base',
+        layout: {ntype: 'vbox', align: 'stretch'},
         /**
          * @member {String} role='grid'
          * @reactive
@@ -187,6 +198,10 @@ class GridContainer extends BaseContainer {
             {appName, rowHeight, store, windowId} = me;
 
         me.items = [me.headerToolbar, me.body];
+
+        if (me.footerToolbar) {
+            me.items.push(me.footerToolbar)
+        }
 
         me.scrollbar = Neo.create({
             module  : VerticalScrollbar,
@@ -278,6 +293,18 @@ class GridContainer extends BaseContainer {
     }
 
     /**
+     * Triggered after the footerToolbar config got changed
+     * @param {Neo.toolbar.Base} value
+     * @param {Neo.toolbar.Base} oldValue
+     * @protected
+     */
+    afterSetFooterToolbar(value, oldValue) {
+        if (value && this.store && value.store !== this.store) {
+            value.store = this.store
+        }
+    }
+
+    /**
      * Triggered after the mounted config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -359,6 +386,10 @@ class GridContainer extends BaseContainer {
         if (me.body) {
             me.body.store = value
         }
+
+        if (me.footerToolbar && me.footerToolbar.store !== value) {
+            me.footerToolbar.store = value
+        }
     }
 
     /**
@@ -406,6 +437,21 @@ class GridContainer extends BaseContainer {
     }
 
     /**
+     * Triggered before.footerToolbar config gets changed.
+     * @param {Object|Neo.toolbar.Base|null} value
+     * @param {Object|Neo.toolbar.Base|null} oldValue
+     * @protected
+     */
+    beforeSetFooterToolbar(value, oldValue) {
+        const me = this;
+
+        return ClassSystemUtil.beforeSetInstance(value, FooterToolbar, {
+            flex    : 'none',
+            parentId: me.id
+        })
+    }
+
+    /**
      * Triggered before the headerToolbar config gets changed.
      * @param {Object|Neo.grid.header.Toolbar|null} value
      * @param {Object|Neo.grid.header.Toolbar|null} oldValue
@@ -415,6 +461,7 @@ class GridContainer extends BaseContainer {
         const me = this;
 
         return ClassSystemUtil.beforeSetInstance(value, header.Toolbar, {
+            flex             : 'none',
             parentId         : me.id,
             showHeaderFilters: me.showHeaderFilters,
             sortable         : me.sortable
@@ -651,8 +698,16 @@ class GridContainer extends BaseContainer {
      * @returns {Promise<void>}
      */
     async passSizeToBody(silent=false) {
-        let me                          = this,
-            [containerRect, headerRect] = await me.getDomRect([me.id, me.headerToolbar.id]);
+        let me            = this,
+            {footerToolbar, headerToolbar} = me,
+            domRects      = [me.id, headerToolbar.id],
+            containerRect, footerRect, headerRect;
+
+        if (footerToolbar) {
+            domRects.push(footerToolbar.id)
+        }
+
+        [containerRect, headerRect, footerRect] = await me.getDomRect(domRects);
 
         // delay for slow connections, where the container-sizing is not done yet
         if (containerRect.height === headerRect.height) {
@@ -660,7 +715,7 @@ class GridContainer extends BaseContainer {
             await me.passSizeToBody(silent)
         } else {
             me.body[silent ? 'setSilent' : 'set']({
-                availableHeight: containerRect.height - headerRect.height,
+                availableHeight: containerRect.height - headerRect.height - (footerRect?.height || 0),
                 containerWidth : containerRect.width
             })
         }
@@ -743,6 +798,7 @@ class GridContainer extends BaseContainer {
             body             : me.body?.toJSON(),
             cellEditing      : me.cellEditing,
             columns          : me.columns?.items.map(item => item.toJSON()),
+            footerToolbar    : me.footerToolbar?.toJSON(),
             headerToolbar    : me.headerToolbar?.toJSON(),
             rowHeight        : me.rowHeight,
             scrollbar        : me.scrollbar?.toJSON(),
