@@ -57,7 +57,8 @@ class Storage extends Base {
             { path: config.paths.tracker,   default: {} },
             { path: config.paths.visited,   default: [] },
             { path: config.paths.blacklist, default: [] },
-            { path: config.paths.whitelist, default: [] }
+            { path: config.paths.whitelist, default: [] },
+            { path: config.paths.failed,    default: [] }
         ];
 
         for (const file of files) {
@@ -86,6 +87,45 @@ class Storage extends Base {
     async getWhitelist() {
         const list = await this.readJson(config.paths.whitelist, []);
         return new Set(list.map(item => item.toLowerCase()));
+    }
+
+    /**
+     * Reads the failed list (Penalty Box).
+     * @returns {Promise<Set<String>>} Set of failed logins.
+     */
+    async getFailed() {
+        const list = await this.readJson(config.paths.failed, []);
+        return new Set(list.map(item => item.toLowerCase()));
+    }
+
+    /**
+     * Updates the failed list (Penalty Box).
+     * @param {Array<String>} logins List of logins to add or remove.
+     * @param {Boolean} [add=true] True to add, False to remove.
+     * @returns {Promise<void>}
+     */
+    async updateFailed(logins, add=true) {
+        const current = await this.getFailed();
+        let changed = false;
+
+        logins.forEach(login => {
+            const key = login.toLowerCase();
+            if (add) {
+                if (!current.has(key)) {
+                    current.add(key);
+                    changed = true;
+                }
+            } else {
+                if (current.has(key)) {
+                    current.delete(key);
+                    changed = true;
+                }
+            }
+        });
+
+        if (changed) {
+            await this.writeJson(config.paths.failed, Array.from(current).sort());
+        }
     }
 
     /**

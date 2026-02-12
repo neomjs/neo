@@ -56,6 +56,8 @@ class Updater extends Base {
         console.log(`[Updater] Processing batch of ${logins.length} users...`);
         let results = [];
         let indexUpdates = [];
+        let failedLogins = [];
+        let recoveredLogins = [];
         let successCount = 0;
         let failCount = 0;
         let skipCount = 0;
@@ -75,6 +77,7 @@ class Updater extends Base {
                     if (meetsThreshold || isWhitelisted) {
                         results.push(data);
                         indexUpdates.push({ login, lastUpdate: data.lu });
+                        recoveredLogins.push(login); // Remove from Penalty Box
                         successCount++;
                         console.log(`[${login}] OK (${data.tc})` + (isWhitelisted && !meetsThreshold ? ' [WHITELISTED]' : ''));
                     } else {
@@ -93,6 +96,7 @@ class Updater extends Base {
                 // Penalty Box: Update timestamp to push failed users to the back of the queue
                 // This prevents them from blocking the pipeline in the next run
                 indexUpdates.push({ login, lastUpdate: new Date().toISOString() });
+                failedLogins.push(login); // Add to Penalty Box
                 failCount++; // Count as processed even if failed
 
                 // Kill-switch: If we hit a rate limit error, force internal state to 0 to trigger graceful shutdown
@@ -121,15 +125,17 @@ class Updater extends Base {
 
             // Checkpoint Save
             if (results.length >= saveInterval) {
-                await this.saveCheckpoint(results, indexUpdates);
+                await this.saveCheckpoint(results, indexUpdates, failedLogins, recoveredLogins);
                 results = [];
                 indexUpdates = [];
+                failedLogins = [];
+                recoveredLogins = [];
             }
         }
 
         // Final Save for remaining items
-        if (results.length > 0 || indexUpdates.length > 0) {
-            await this.saveCheckpoint(results, indexUpdates);
+        if (results.length > 0 || indexUpdates.length > 0 || failedLogins.length > 0) {
+            await this.saveCheckpoint(results, indexUpdates, failedLogins, recoveredLogins);
         }
         
         console.log('--------------------------------------------------');
@@ -151,10 +157,17 @@ class Updater extends Base {
      * Helper to save partial results.
      * @param {Array} results 
      * @param {Array} indexUpdates 
+     * @param {Array} failedLogins 
+     * @param {Array} recoveredLogins 
      */
-    async saveCheckpoint(results, indexUpdates) {
+    async saveCheckpoint(results, indexUpdates, failedLogins = [], recoveredLogins = []) {
         if (results.length > 0) await Storage.updateUsers(results);
         if (indexUpdates.length > 0) await Storage.updateTracker(indexUpdates);
+        
+        // Manage Penalty Box
+        if (failedLogins.length > 0) await Storage.updateFailed(failedLogins, true);
+        if (recoveredLogins.length > 0) await Storage.updateFailed(recoveredLogins, false);
+
         console.log(`[Updater] Checkpoint: Saved ${results.length} records. (API Quota: ${GitHub.rateLimit.core.remaining}/${GitHub.rateLimit.core.limit})`);
     }
 
