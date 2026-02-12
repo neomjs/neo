@@ -47,6 +47,7 @@ class ControlsContainer extends Container {
                     labelText    : 'Country',
                     listeners    : {change: 'up.onFilterChange'},
                     name         : 'location',
+                    reference    : 'country-field',
                     showFlags    : true,
                     style        : {marginTop: '.3em'},
                     width        : 200
