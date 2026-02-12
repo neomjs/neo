@@ -36,7 +36,18 @@ class Stream extends Base {
          * Number of records to batch before firing a 'data' event.
          * @member {Number} chunkSize=500
          */
-        chunkSize: 500
+        chunkSize: 500,
+        /**
+         * How many chunks to send at initialChunkSize before switching to chunkSize.
+         * @member {Number} initialBurstCount=5
+         */
+        initialBurstCount: 5,
+        /**
+         * The chunk size for the first few batches.
+         * Useful to speed up the initial render (Time To First Content).
+         * @member {Number|null} initialChunkSize=100
+         */
+        initialChunkSize: 100
     }
 
     /**
@@ -44,11 +55,13 @@ class Stream extends Base {
      * @returns {Promise}
      */
     async read(operation) {
-        let me        = this,
-            chunk     = [],
-            chunkSize = me.chunkSize,
-            count     = 0,
-            url       = me.url || operation.url;
+        let me               = this,
+            chunk            = [],
+            {chunkSize}      = me,
+            currentChunkSize = me.initialChunkSize || chunkSize,
+            burstCount       = 0,
+            count            = 0,
+            url              = me.url || operation.url;
 
         if (!url) {
             throw new Error('No URL specified')
@@ -102,8 +115,14 @@ class Stream extends Base {
                     me.processLine(line, chunk);
                     count++;
 
-                    if (chunk.length >= chunkSize) {
+                    if (chunk.length >= currentChunkSize) {
                         me.fire('data', chunk);
+
+                        burstCount++;
+
+                        if (burstCount >= me.initialBurstCount) {
+                            currentChunkSize = chunkSize
+                        }
 
                         // Give the App Worker 5ms time to breathe, so that logic can act upon events.
                         // E.g., sending out vdom updates.
