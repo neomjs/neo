@@ -41,7 +41,11 @@ class Proxy extends Base {
          */
         ntype: 'proxy',
         /**
-         * @member {String|null} url=null
+         * @member {Neo.data.Store|null} store=null
+         */
+        store: null,
+        /**
+         * @member {String|null} store=null
          */
         url: null
     }
