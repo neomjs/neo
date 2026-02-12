@@ -1,6 +1,6 @@
 ---
 id: 8930
-title: 'Epic: DevRank - The GitHub Meritocracy Index'
+title: 'Epic: DevIndex - The GitHub Meritocracy Index'
 state: OPEN
 labels:
   - epic
@@ -8,7 +8,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-02-01T15:19:40Z'
-updatedAt: '2026-02-02T23:03:32Z'
+updatedAt: '2026-02-12T00:56:37Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8930'
 author: tobiu
 commentsCount: 1
@@ -108,7 +108,7 @@ subIssuesTotal: 89
 blockedBy: []
 blocking: []
 ---
-# Epic: DevRank - The GitHub Meritocracy Index
+# Epic: DevIndex - The GitHub Meritocracy Index
 
 This epic tracks the development of "DevRank", a Neo.mjs application designed to index and rank GitHub contributors based on their all-time total contributions, irrespective of repository popularity or follower count.
 
