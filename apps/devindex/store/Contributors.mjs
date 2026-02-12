@@ -33,9 +33,9 @@ class Contributors extends Store {
          * @member {Object[]} filters
          */
         filters: [
-            {property: 'location', operator: 'like', value: null},
-            {property: 'login',    operator: 'like', value: null},
-            {property: 'name',     operator: 'like', value: null}
+            {property: 'country_code', operator: '===',  value: null},
+            {property: 'login',        operator: 'like', value: null},
+            {property: 'name',         operator: 'like', value: null}
         ],
         /**
          * @member {Object} proxy
