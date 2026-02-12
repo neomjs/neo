@@ -1,4 +1,5 @@
 import Container         from '../../../../src/container/Base.mjs';
+import Controller        from './MainContainerController.mjs';
 import ControlsContainer from './ControlsContainer.mjs';
 import GridContainer     from './GridContainer.mjs';
 
@@ -13,6 +14,10 @@ class MainContainer extends Container {
          * @protected
          */
         className: 'DevIndex.view.home.MainContainer',
+        /**
+         * @member {Neo.controller.Component} controller=Controller
+         */
+        controller: Controller,
         /**
          * @member {Object[]} items
          */
