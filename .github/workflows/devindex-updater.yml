@@ -1,0 +1,40 @@
+name: DevIndex Updater
+
+on:
+  schedule:
+    - cron: '0 * * * *' # Run hourly
+  workflow_dispatch: # Allow manual trigger
+
+concurrency:
+  group: devindex-updater
+  cancel-in-progress: false
+
+jobs:
+  update-index:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Required to push changes
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run DevIndex Updater
+        run: npm run devindex:update -- --limit=200
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Commit and Push Changes
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore(devindex): Hourly index update [skip ci]"
+          file_pattern: "apps/devindex/resources/users.jsonl apps/devindex/resources/tracker.json"
+          branch: dev
