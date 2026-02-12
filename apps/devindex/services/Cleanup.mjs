@@ -62,6 +62,7 @@ class Cleanup extends Base {
         let blacklist = await Storage.getBlacklist(); // Set<string>
         let whitelist = await Storage.getWhitelist(); // Set<string>
         let visited = await Storage.getVisited(); // Set<string>
+        let failed = await Storage.getFailed(); // Set<string>
 
         const initialUserCount = users.length;
         const initialTrackerCount = tracker.length;
@@ -101,6 +102,9 @@ class Cleanup extends Base {
             return true;
         });
 
+        // Create a Set for O(1) lookups
+        const userLogins = new Set(users.map(u => u.l.toLowerCase()));
+
         // 3. Filter Tracker (Index)
         // Criteria: Not Blacklisted AND (Threshold Met OR Whitelisted)
         tracker = tracker.filter(t => {
@@ -109,25 +113,17 @@ class Cleanup extends Base {
             if (blacklist.has(lowerLogin)) return false;
             if (whitelist.has(lowerLogin)) return true; // Explicit protection
 
-            // Optional: Also prune from tracker if we have rich data proving they are low value?
-            // If we don't have rich data (yet), we keep them to be scanned.
-            // If we DO have rich data and they were filtered out of `users` array above, 
-            // we should probably remove them from tracker too?
-            
-            // Actually, `users` array is already filtered.
-            // So if a user is NOT in `users` array, but IS in `tracker`, it means either:
-            // a) They haven't been scanned yet (lastUpdate: null) -> KEEP
-            // b) They were scanned and pruned (lastUpdate: valid) -> REMOVE
-            
-            // To implement (b), we need to check if they were in the original rich data but got removed.
-            // Or simpler: If they have a lastUpdate (meaning scanned), check if they survived the `users` filter.
-            
             if (t.lastUpdate) {
                 // If they have been updated, they must be in the filtered `users` list to stay in tracker.
-                // We need a quick lookup set for the filtered users.
-                const userExists = users.some(u => u.l.toLowerCase() === lowerLogin);
-                if (!userExists) {
+                if (!userLogins.has(lowerLogin)) {
+                    // Check for Penalty Box (failed updates)
+                    if (failed.has(lowerLogin)) {
+                        console.warn(`[Cleanup] Keeping failed user in tracker (Penalty Box): ${t.login}`);
+                        return true;
+                    }
+
                     // They were scanned but didn't make the cut. Prune from tracker.
+                    console.log(`[Cleanup] Pruning orphaned user (scanned but low value): ${t.login}`);
                     return false; 
                 }
             }

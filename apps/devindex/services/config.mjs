@@ -105,7 +105,13 @@ const defaultConfig = {
          * List of users to always track, ignoring thresholds.
          * @type {string}
          */
-        whitelist: path.resolve(projectRoot, 'apps/devindex/resources/whitelist.json')
+        whitelist: path.resolve(projectRoot, 'apps/devindex/resources/whitelist.json'),
+
+        /**
+         * List of users who failed update processing (Penalty Box).
+         * @type {string}
+         */
+        failed: path.resolve(projectRoot, 'apps/devindex/resources/failed.json')
     }
 };
 
