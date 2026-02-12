@@ -20,8 +20,10 @@ subIssues:
   - '[x] 9110 DevIndex: Support ''country'' URL search parameter'
   - '[x] 9111 Support ISO 2 country codes in CountryFlag component and grid column'
   - '[x] 9112 DevIndex: Add Profile Tab to Controls Panel'
-subIssuesCompleted: 6
-subIssuesTotal: 6
+  - '[x] 9116 DevIndex: Polish StatusToolbar Styling and Logic'
+  - '[x] 9117 Refactor Grid Footer Toolbar for Store Integration'
+subIssuesCompleted: 8
+subIssuesTotal: 8
 blockedBy: []
 blocking: []
 ---
@@ -43,4 +45,6 @@ It focuses on UI/UX improvements, bug fixes, and ensuring a smooth user experien
 - 2026-02-12T08:55:11Z @tobiu added sub-issue #9110
 - 2026-02-12T09:15:36Z @tobiu added sub-issue #9111
 - 2026-02-12T13:21:47Z @tobiu added sub-issue #9112
+- 2026-02-12T18:51:19Z @tobiu added sub-issue #9116
+- 2026-02-12T19:11:54Z @tobiu added sub-issue #9117
 
