@@ -17,8 +17,10 @@ subIssues:
   - '[x] 9107 OffscreenCanvas charts in Grid Component Columns do not recover after VDOM purge'
   - '[x] 9108 Grid Body fast path fails to update Row mounted state, breaking OffscreenCanvas recovery'
   - '[x] 9109 Refactor: Rename DevRank to DevIndex'
-subIssuesCompleted: 3
-subIssuesTotal: 3
+  - '[x] 9110 DevIndex: Support ''country'' URL search parameter'
+  - '[x] 9111 Support ISO 2 country codes in CountryFlag component and grid column'
+subIssuesCompleted: 5
+subIssuesTotal: 5
 blockedBy: []
 blocking: []
 ---
@@ -37,4 +39,6 @@ It focuses on UI/UX improvements, bug fixes, and ensuring a smooth user experien
 - 2026-02-11T23:28:59Z @tobiu added sub-issue #9108
 - 2026-02-12T00:42:46Z @tobiu added sub-issue #9109
 - 2026-02-12T00:56:49Z @tobiu changed title from **DevRank App Polishing** to **DevIndex App Polishing**
+- 2026-02-12T08:55:11Z @tobiu added sub-issue #9110
+- 2026-02-12T09:15:36Z @tobiu added sub-issue #9111
 
