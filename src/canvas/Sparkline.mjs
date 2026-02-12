@@ -3,7 +3,7 @@ import Base from '../../src/core/Base.mjs';
 const hasRaf = typeof requestAnimationFrame === 'function';
 
 /**
- * @summary SharedWorker renderer for the DevRank "Living Sparklines".
+ * @summary SharedWorker renderer for the DevIndex "Living Sparklines".
  *
  * Implements a high-performance, canvas-based visualization for activity trends.
  * Unlike standard charts, these sparklines are designed to feel "alive" without consuming excessive resources.

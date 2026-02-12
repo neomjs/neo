@@ -1,5 +1,5 @@
 # Additional rules, which are solely npm related, to not bloat the package size.
-apps/devrank/resources/*.json
+apps/devindex/resources/*.json
 resources/content/issues
 resources/content/issue-archive
 resources/content/release-notes

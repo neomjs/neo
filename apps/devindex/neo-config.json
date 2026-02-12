@@ -1,0 +1,16 @@
+{
+    "appPath"    : "apps/devindex/app.mjs",
+    "basePath"   : "../../",
+    "environment": "development",
+    "mainPath"   : "./Main.mjs",
+    "themes"     : ["neo-theme-neo-dark", "neo-theme-neo-light"],
+
+    "mainThreadAddons": [
+        "DragDrop",
+        "IntersectionObserver",
+        "LocalStorage",
+        "Navigator",
+        "ResizeObserver",
+        "Stylesheet"
+    ]
+}

@@ -27,9 +27,9 @@
 !/apps/email/index.html
 !/apps/email/**/*.mjs
 !/apps/email/neo-config.json
-!/apps/devrank/index.html
-!/apps/devrank/**/*.mjs
-!/apps/devrank/neo-config.json
+!/apps/devindex/index.html
+!/apps/devindex/**/*.mjs
+!/apps/devindex/neo-config.json
 !/apps/finance/index.html
 !/apps/finance/**/*.mjs
 !/apps/finance/neo-config.json
