@@ -30,10 +30,15 @@ class StatusToolbar extends Toolbar {
          * @member {Object[]} items
          */
         items: [{
+            ntype    : 'label',
+            reference: 'progress-label',
+            text     : 'Streaming Users:'
+        }, {
             module   : Progress,
             flex     : 1,
             max      : 100,
             reference: 'progress',
+            style    : {marginLeft: '10px'},
             value    : 0
         }, {
             ntype: 'component',
@@ -41,8 +46,7 @@ class StatusToolbar extends Toolbar {
         }, {
             ntype    : 'label',
             reference: 'count-rows-label',
-            style    : {marginLeft: '10px'},
-            text     : 'Visible: 0'
+            text     : 'Visible Rows: 0'
         }]
     }
 
@@ -76,15 +80,17 @@ class StatusToolbar extends Toolbar {
      * @param {Object} data
      */
     onStoreLoad(data) {
-        this.updateRowsLabel();
+        let me = this;
 
-        let progress = this.getItem('progress');
+        me.updateRowsLabel();
 
-        if (progress) {
-            progress.value = progress.max;
+        if (!data.isLoading) {
+            me.timeout(500).then(() => {
+                let progress      = me.getReference('progress');
+                let progressLabel = me.getReference('progress-label');
 
-            this.timeout(500).then(() => {
-                 progress.hidden = true
+                progress     .hidden = true;
+                progressLabel.hidden = true
             })
         }
     }
@@ -114,7 +120,7 @@ class StatusToolbar extends Toolbar {
         let {store} = this;
 
         if (store) {
-            this.getItem('count-rows-label').text = 'Visible: ' + store.count
+            this.getItem('count-rows-label').text = 'Visible Rows: ' + store.count
         }
     }
 }
