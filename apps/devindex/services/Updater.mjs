@@ -88,6 +88,11 @@ class Updater extends Base {
             } catch (error) {
                 console.log(`[${login}] FAILED: ${error.message}`);
                 
+                // Penalty Box: Update timestamp to push failed users to the back of the queue
+                // This prevents them from blocking the pipeline in the next run
+                indexUpdates.push({ login, lastUpdate: new Date().toISOString() });
+                successCount++; // Count as processed even if failed
+
                 // Kill-switch: If we hit a rate limit error, force internal state to 0 to trigger graceful shutdown
                 if (error.message.includes('rate limit')) {
                     console.warn(`[Updater] 🚨 Rate limit hit for ${login}. Forcing shutdown sequence.`);
