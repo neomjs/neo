@@ -176,6 +176,7 @@ class Updater extends Base {
                     bio
                     followers { totalCount }
                     isHireable
+                    hasSponsorsListing
                     twitterUsername
                     websiteUrl
                     socialAccounts(first: 5) {
@@ -215,7 +216,7 @@ class Updater extends Base {
 
         if (!profileRes?.user) return null;
 
-        const { createdAt, avatarUrl, name, location, company, bio, followers, socialAccounts } = profileRes.user;
+        const { createdAt, avatarUrl, name, location, company, bio, followers, socialAccounts, isHireable, hasSponsorsListing, twitterUsername, websiteUrl } = profileRes.user;
         const startYear = new Date(createdAt).getFullYear();
         const currentYear = new Date().getFullYear();
 
@@ -244,6 +245,7 @@ class Updater extends Base {
                     totalPullRequestContributions
                     totalPullRequestReviewContributions
                     totalRepositoryContributions
+                    restrictedContributionsCount
                 }`;
             }
             query += ` } }`;
@@ -268,6 +270,7 @@ class Updater extends Base {
         let total = 0;
         const yearsArr = [];
         const commitsArr = [];
+        const privateArr = [];
         
         // Ensure years are sorted and fill the array sequentially from startYear
         for (let year = startYear; year <= currentYear; year++) {
@@ -275,17 +278,19 @@ class Updater extends Base {
             const collection = contribData[key];
             
             const commits = collection?.totalCommitContributions || 0;
+            const privateStats = collection?.restrictedContributionsCount || 0;
 
             // Sum up the lightweight counters
-            // We expressly EXCLUDE restrictedContributionsCount as we don't have access (and it triggers 502s)
             const val = (commits) +
                         (collection?.totalIssueContributions || 0) +
                         (collection?.totalPullRequestContributions || 0) +
                         (collection?.totalPullRequestReviewContributions || 0) +
-                        (collection?.totalRepositoryContributions || 0);
+                        (collection?.totalRepositoryContributions || 0) +
+                        privateStats;
 
             yearsArr.push(val);
             commitsArr.push(commits);
+            privateArr.push(privateStats);
             total += val;
         }
 
@@ -301,7 +306,8 @@ class Updater extends Base {
             fy: startYear,
             lu: new Date().toISOString(),
             y: yearsArr,
-            cy: commitsArr
+            cy: commitsArr,
+            py: privateArr
         };
 
         if (name && name !== username) minified.n = name;
@@ -318,6 +324,12 @@ class Updater extends Base {
         if (bio) minified.b = bio;
         if (followers?.totalCount > 0) minified.fl = followers.totalCount;
         if (linkedin_url) minified.li = linkedin_url;
+
+        // Metadata
+        if (isHireable) minified.h = 1;
+        if (hasSponsorsListing) minified.s = 1;
+        if (twitterUsername) minified.t = twitterUsername;
+        if (websiteUrl) minified.w = websiteUrl;
 
         if (orgs.length > 0) {
             // Take top 5, map to [login, id]
