@@ -4,6 +4,7 @@
     "environment": "development",
     "mainPath"   : "./Main.mjs",
     "themes"     : ["neo-theme-neo-dark", "neo-theme-neo-light"],
+    "useAiClient": true,
 
     "mainThreadAddons": [
         "DragDrop",

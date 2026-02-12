@@ -22,7 +22,22 @@ class MainContainerController extends Controller {
         // Setup Grid Listeners
         let grid = me.getReference('grid');
         if (grid) {
-            grid.on('select', me.onGridSelect, me);
+            grid.body.on('select', me.onGridSelect, me);
+        }
+
+        // Setup Tab Listeners
+        let tabContainer = me.getReference('controls')?.down({reference: 'controls-tab-container'});
+        // Note: Using down() here because controls-tab-container might not be registered if controls has no controller?
+        // Wait, I fixed that assumption. references bubble.
+        // But controls-tab-container is inside controls items.
+        // Let's rely on getReference('controls-tab-container') which should work if bubble is true.
+        // But to be safe and consistent with previous discovery:
+        // me.getReference('controls-tab-container') should be available if I trust my previous fix.
+        // Let's use getReference().
+        
+        let tabs = me.getReference('controls-tab-container');
+        if (tabs) {
+            tabs.on('activeIndexChange', me.onControlsTabChange, me);
         }
 
         Neo.Main.getByPath({
@@ -48,23 +63,27 @@ class MainContainerController extends Controller {
     /**
      * @param {Object} data
      */
+    onControlsTabChange(data) {
+        let me = this;
+
+        if (data.value === 1 && me.selectedRecord) { // 1 = Profile Tab
+            me.getReference('profile-container')?.updateRecord(me.selectedRecord)
+        }
+    }
+
+    /**
+     * @param {Object} data
+     */
     onGridSelect(data) {
         let me           = this,
             record       = data.record,
-            controls     = me.getReference('controls'),
-            profile      = controls?.down({reference: 'profile-container'}),
-            tabContainer = controls?.down({reference: 'controls-tab-container'});
+            profile      = me.getReference('profile-container'),
+            tabContainer = me.getReference('controls-tab-container');
 
-        if (record && profile) {
-            profile.updateRecord(record);
+        me.selectedRecord = record;
 
-            if (tabContainer) {
-                tabContainer.activeIndex = 1; // Switch to Profile Tab
-            }
-
-            if (controls && !controls.cls.includes('neo-expanded')) {
-                controls.addCls('neo-expanded');
-            }
+        if (record && profile && tabContainer?.activeIndex === 1) {
+            profile.updateRecord(record)
         }
     }
 }

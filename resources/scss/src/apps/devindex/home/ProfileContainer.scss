@@ -1,0 +1,96 @@
+.devindex-profile-container {
+    max-width: 100%;
+
+    .profile-details-wrapper {
+        flex: none;
+    }
+
+    .profile-header {
+        align-items: center;
+        display: flex;
+        flex: none;
+        flex-direction: row;
+        gap: 10px;
+        margin-bottom: 1em;
+
+        .profile-avatar-wrapper {
+            flex-shrink: 0;
+            height: 64px;
+            width : 64px;
+
+            .profile-avatar {
+                border-radius: 50%;
+                height       : 100%;
+                object-fit   : cover;
+                width        : 100%;
+            }
+        }
+
+        .profile-names {
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            
+            .profile-name {
+                font-size: 1.1em;
+                font-weight: bold;
+                line-height: 1.2;
+                word-break: break-word; 
+            }
+            
+            .profile-login {
+                color: var(--sem-color-text-neutral-subdued);
+                font-size: 0.9em;
+                line-height: 1.2;
+                word-break: break-all;
+            }
+        }
+    }
+
+    .profile-bio {
+        flex: none;
+        font-style: italic;
+        line-height: 1.4;
+        margin-bottom: 1em;
+        white-space: normal;
+        word-break: break-word;
+    }
+
+    .profile-details-label {
+        flex: none;
+        font-weight: bold;
+        margin-bottom: 0.5em;
+    }
+
+    .profile-detail {
+        flex: none;
+        margin-bottom: 0.3em;
+        white-space: normal;
+        word-break: break-word;
+    }
+
+    .profile-orgs {
+        flex: none;
+        gap: 5px;
+        margin-top: 1em;
+        
+        .org-label {
+            flex: none;
+            font-weight: bold;
+            margin-bottom: 5px;
+            width: 100%;
+        }
+        
+        img {
+            border-radius: 4px;
+        }
+    }
+    
+    .profile-placeholder {
+        color: var(--sem-color-text-neutral-subdued);
+        flex: none;
+        font-style: italic;
+        margin: 1em;
+        text-align: center;
+    }
+}
