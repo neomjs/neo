@@ -19,8 +19,9 @@ subIssues:
   - '[x] 9109 Refactor: Rename DevRank to DevIndex'
   - '[x] 9110 DevIndex: Support ''country'' URL search parameter'
   - '[x] 9111 Support ISO 2 country codes in CountryFlag component and grid column'
-subIssuesCompleted: 5
-subIssuesTotal: 5
+  - '[x] 9112 DevIndex: Add Profile Tab to Controls Panel'
+subIssuesCompleted: 6
+subIssuesTotal: 6
 blockedBy: []
 blocking: []
 ---
@@ -41,4 +42,5 @@ It focuses on UI/UX improvements, bug fixes, and ensuring a smooth user experien
 - 2026-02-12T00:56:49Z @tobiu changed title from **DevRank App Polishing** to **DevIndex App Polishing**
 - 2026-02-12T08:55:11Z @tobiu added sub-issue #9110
 - 2026-02-12T09:15:36Z @tobiu added sub-issue #9111
+- 2026-02-12T13:21:47Z @tobiu added sub-issue #9112
 
