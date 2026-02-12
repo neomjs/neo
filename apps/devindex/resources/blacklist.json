@@ -1,7 +1,9 @@
 [
   "angular-robot",
   "bors",
+  "brewtestbot",
   "browser-automation-bot",
+  "codacy-badger",
   "dotnet-bot",
   "engine-flutter-autoroll",
   "k8s-ci-robot",
@@ -12,5 +14,6 @@
   "scala-steward",
   "skia-flutter-autoroll",
   "spring-builds",
+  "weblate",
   "yoshi-automation"
 ]
