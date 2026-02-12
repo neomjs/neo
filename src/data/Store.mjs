@@ -1004,6 +1004,28 @@ class Store extends Collection {
     }
 
     /**
+     * Overrides collection.Base:isFilteredItem() to handle "Turbo Mode" (autoInitRecords: false).
+     * In this mode, items are raw objects which may lack the canonical field names used by Filters.
+     * This method "soft hydrates" the raw item by resolving and caching the filter values.
+     * @param {Object} item
+     * @returns {boolean}
+     * @protected
+     */
+    isFilteredItem(item) {
+        let me = this;
+
+        if (!me.autoInitRecords && !RecordFactory.isRecord(item) && me.filters.length > 0) {
+            me.filters.forEach(filter => {
+                if (!filter.disabled && !Object.hasOwn(item, filter.property)) {
+                    item[filter.property] = me.resolveField(item, filter.property)
+                }
+            })
+        }
+
+        return super.isFilteredItem(item)
+    }
+
+    /**
      * Helper to resolve a field value from a raw data object using the Model definition.
      * Handles mapping, calculate, and convert.
      *

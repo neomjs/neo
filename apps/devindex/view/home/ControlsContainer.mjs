@@ -41,16 +41,18 @@ class ControlsContainer extends Container {
                 layout: 'vbox',
 
                 items: [{
-                    module       : Country,
-                    clearable    : true,
-                    labelPosition: 'inline',
-                    labelText    : 'Country',
-                    listeners    : {change: 'up.onFilterChange'},
-                    name         : 'location',
-                    reference    : 'country-field',
-                    showFlags    : true,
-                    style        : {marginTop: '.3em'},
-                    width        : 200
+                    module        : Country,
+                    clearable     : true,
+                    forceSelection: true,
+                    labelPosition : 'inline',
+                    labelText     : 'Country',
+                    listeners     : {change: 'up.onFilterChange'},
+                    name          : 'country_code',
+                    reference     : 'country-field',
+                    showFlags     : true,
+                    style         : {marginTop: '.3em'},
+                    valueField    : 'code',
+                    width         : 200
                 }, {
                     ntype        : 'textfield',
                     clearable    : true,
@@ -180,7 +182,13 @@ class ControlsContainer extends Container {
      * @param {Object} data
      */
     onFilterChange(data) {
-        this.grid.store.getFilter(data.component.name).value = data.value
+        let value = data.component.getSubmitValue();
+
+        if (data.component.name === 'country_code' && value) {
+            value = value.toUpperCase()
+        }
+
+        this.grid.store.getFilter(data.component.name).value = value
     }
 
     /**

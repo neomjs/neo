@@ -17,9 +17,17 @@ class CountryFlag extends Component {
          */
         baseCls: ['neo-country-flag'],
         /**
+         * @member {String|null} countryCode_=null
+         */
+        countryCode_: null,
+        /**
          * @member {String|null} location_=null
          */
         location_: null,
+        /**
+         * @member {Boolean} resolveCountryCode_=false
+         */
+        resolveCountryCode_: false,
         /**
          * @member {Object} _vdom
          */
@@ -34,12 +42,50 @@ class CountryFlag extends Component {
      * @param {String|null} value
      * @param {String|null} oldValue
      */
+    afterSetCountryCode(value, oldValue) {
+        this.updateFlag()
+    }
+
+    /**
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     */
     afterSetLocation(value, oldValue) {
         let me = this;
 
-        let url  = value ? CountryFlags.getFlagUrl(value) : null,
-            vdom = me.vdom,
-            [flag, text] = vdom.cn;
+        me.vdom.cn[1].text = value || '';
+
+        if (me.resolveCountryCode) {
+            me.updateFlag()
+        } else {
+            me.update()
+        }
+    }
+
+    /**
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     */
+    afterSetResolveCountryCode(value, oldValue) {
+        if (oldValue !== undefined) {
+            this.updateFlag()
+        }
+    }
+
+    /**
+     *
+     */
+    updateFlag() {
+        let me              = this,
+            {countryCode, location, resolveCountryCode, vdom} = me,
+            flag            = vdom.cn[0],
+            url;
+
+        if (countryCode) {
+            url = CountryFlags.getFlagUrl(countryCode)
+        } else if (resolveCountryCode && location) {
+            url = CountryFlags.getFlagUrl(location)
+        }
 
         // Performance Optimization:
         // We maintain a persistent <img> tag in the VDOM structure to ensure a stable DOM.
@@ -49,14 +95,12 @@ class CountryFlag extends Component {
         if (url) {
             flag.src   = url;
             flag.style = null; // Remove visibility: hidden
-            flag.title = value;
+            flag.title = location || countryCode;
         } else {
             delete flag.src;
             delete flag.title;
             flag.style = {visibility: 'hidden'};
         }
-
-        text.text = value || '';
 
         me.update()
     }

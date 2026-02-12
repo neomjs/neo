@@ -189,7 +189,8 @@ class GridContainer extends BaseGridContainer {
             renderer : ({value}) => value ? value.replace(/^@/, '') : ''
         }, {
             type     : 'countryFlag',
-            dataField: 'location',
+            dataField: 'country_code',
+            sortable : false,
             text     : 'Location',
             width    : 200
         }, {

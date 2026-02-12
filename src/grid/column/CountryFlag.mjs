@@ -13,6 +13,10 @@ class CountryFlag extends ComponentColumn {
          */
         className: 'Neo.grid.column.CountryFlag',
         /**
+         * @member {String} contentField='location'
+         */
+        contentField: 'location',
+        /**
          * @member {Object} defaults
          * @protected
          */
@@ -33,7 +37,8 @@ class CountryFlag extends ComponentColumn {
      */
     applyRecordConfigs(config, record) {
         return {
-            location: record[this.dataField],
+            countryCode: record[this.dataField],
+            location   : record[this.contentField],
             ...config
         }
     }
