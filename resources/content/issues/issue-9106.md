@@ -22,8 +22,12 @@ subIssues:
   - '[x] 9112 DevIndex: Add Profile Tab to Controls Panel'
   - '[x] 9116 DevIndex: Polish StatusToolbar Styling and Logic'
   - '[x] 9117 Refactor Grid Footer Toolbar for Store Integration'
-subIssuesCompleted: 8
-subIssuesTotal: 8
+  - '[x] 9118 DevIndex: Enhance Updater with Private Contributions & Metadata'
+  - '[x] 9119 DevIndex: Add Scheduled Hourly Updater Workflow'
+  - '[x] 9121 DevIndex: Implement "Penalty Box" for Failed User Updates'
+  - '[x] 9122 DevIndex: Refine Updater Metrics (Success vs Failure)'
+subIssuesCompleted: 12
+subIssuesTotal: 12
 blockedBy: []
 blocking: []
 ---
@@ -47,4 +51,8 @@ It focuses on UI/UX improvements, bug fixes, and ensuring a smooth user experien
 - 2026-02-12T13:21:47Z @tobiu added sub-issue #9112
 - 2026-02-12T18:51:19Z @tobiu added sub-issue #9116
 - 2026-02-12T19:11:54Z @tobiu added sub-issue #9117
+- 2026-02-12T20:04:35Z @tobiu added sub-issue #9118
+- 2026-02-12T20:31:48Z @tobiu added sub-issue #9119
+- 2026-02-12T20:50:48Z @tobiu added sub-issue #9121
+- 2026-02-12T20:55:43Z @tobiu added sub-issue #9122
 
