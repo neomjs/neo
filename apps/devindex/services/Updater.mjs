@@ -433,7 +433,7 @@ class Updater extends Base {
         // 5. Apply Heuristics (Anomaly Detection & Cyborg Metrics)
         const heuristics = Heuristics.analyze(minified);
         if (heuristics) {
-            minified.h = heuristics;
+            minified.hm = heuristics;
         }
 
         return minified;
