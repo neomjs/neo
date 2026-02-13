@@ -315,8 +315,12 @@ class GitHub extends Base {
 
     /**
      * Resolves a GitHub Database ID (Integer) to the current login.
+     * 
+     * This method is critical for handling username changes (renames). When a stored login returns 404,
+     * this method allows us to look up the new login associated with the immutable Database ID, preventing data loss.
+     * 
      * @param {Number} dbId The integer user ID.
-     * @returns {Promise<String|null>}
+     * @returns {Promise<String|null>} The current login, or null if the ID is invalid/deleted.
      */
     async getLoginByDatabaseId(dbId) {
         const query = `

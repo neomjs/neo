@@ -48,6 +48,9 @@ class Updater extends Base {
      * 2.  **Fatal Errors (404, Not a User):**
      *     -   **If User Has History:** If the user exists in `users.jsonl`, we assume the 404 is a glitch or temporary suspension. They are **Protected** and moved to the Penalty Box.
      *     -   **If User Is New:** If the user has *never* been successfully indexed, they are classified as a "Bad Seed" (e.g., leaked Organization, Typo). They are **Pruned** (deleted) from the tracker immediately.
+     * 3.  **Rename Recovery:** If a user returns a 404 but exists in our Rich Data Store with a valid GitHub Database ID,
+     *     we query the API for their current login. If found, the old record is pruned and the new login is immediately
+     *     fetched and indexed, preserving history.
      * 
      * @param {String[]} logins             Array of usernames to process in this batch.
      * @param {Number}   [initialBacklog=0] The total size of the backlog *before* this batch started, used for reporting.
