@@ -43,8 +43,9 @@ subIssues:
   - '[x] 9141 [DevIndex] Fix Washington DC Location Resolution'
   - '[x] 9142 [DevIndex] Create Country Code Repair Script'
   - '[x] 9147 Refactor Contributor Model: CamelCase & New Schema Sync'
-subIssuesCompleted: 29
-subIssuesTotal: 29
+  - '[x] 9148 DevIndex: Use locale formatting for StatusToolbar row count'
+subIssuesCompleted: 30
+subIssuesTotal: 30
 blockedBy: []
 blocking: []
 ---
@@ -90,4 +91,6 @@ It focuses on UI/UX improvements, bug fixes, and ensuring a smooth user experien
 - 2026-02-13T12:19:34Z @tobiu added sub-issue #9142
 - 2026-02-13T14:47:15Z @tobiu added sub-issue #9147
 - 2026-02-13T14:59:37Z @tobiu cross-referenced by #9143
+- 2026-02-13T17:17:20Z @tobiu referenced in commit `7adf867` - "fix(devindex): Pass random strategy to spider workflow to prevent CI hang (#9106)"
+- 2026-02-13T17:38:52Z @tobiu added sub-issue #9148
 
