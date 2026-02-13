@@ -35,15 +35,16 @@ subIssues:
   - '[x] 9133 Tune Spider Strategy Probabilities and Enhance Documentation'
   - '[x] 9134 Fix Organization Leakage in DevIndex and Updater Retries'
   - '[x] 9135 Implement Safe Purge for Invalid Users in DevIndex Updater'
-  - '[ ] 9136 Implement 30-Day Retention Policy for DevIndex Penalty Box'
-  - '[ ] 9137 Implement ID-Based Rename Handling for DevIndex'
+  - '[x] 9136 Implement 30-Day Retention Policy for DevIndex Penalty Box'
+  - '[x] 9137 Implement ID-Based Rename Handling for DevIndex'
   - '[x] 9138 Fix DevIndex Updater Workflow Unstaged Changes Error'
   - '[x] 9139 Fix DevIndex Updater Workflow: Stage All Data Files'
   - '[x] 9140 Implement Scheduled DevIndex Spider Workflow'
   - '[x] 9141 [DevIndex] Fix Washington DC Location Resolution'
   - '[x] 9142 [DevIndex] Create Country Code Repair Script'
-subIssuesCompleted: 26
-subIssuesTotal: 28
+  - '[x] 9147 Refactor Contributor Model: CamelCase & New Schema Sync'
+subIssuesCompleted: 29
+subIssuesTotal: 29
 blockedBy: []
 blocking: []
 ---
@@ -87,4 +88,6 @@ It focuses on UI/UX improvements, bug fixes, and ensuring a smooth user experien
 - 2026-02-13T11:10:53Z @tobiu added sub-issue #9140
 - 2026-02-13T11:58:55Z @tobiu added sub-issue #9141
 - 2026-02-13T12:19:34Z @tobiu added sub-issue #9142
+- 2026-02-13T14:47:15Z @tobiu added sub-issue #9147
+- 2026-02-13T14:59:37Z @tobiu cross-referenced by #9143
 
