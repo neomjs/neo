@@ -1,6 +1,7 @@
 import Base from '../../../src/core/Base.mjs';
 import config from './config.mjs';
 import GitHub from './GitHub.mjs';
+import Heuristics from './Heuristics.mjs';
 import LocationNormalizer from './LocationNormalizer.mjs';
 import Storage from './Storage.mjs';
 
@@ -427,6 +428,12 @@ class Updater extends Base {
                 org.login,
                 extractId(org.avatar_url)
             ]);
+        }
+
+        // 5. Apply Heuristics (Anomaly Detection & Cyborg Metrics)
+        const heuristics = Heuristics.analyze(minified);
+        if (heuristics) {
+            minified.h = heuristics;
         }
 
         return minified;
