@@ -44,7 +44,7 @@ class Cleanup extends Base {
 
     /**
      * Executes the comprehensive cleanup and data hygiene workflow.
-     * 
+     *
      * **Steps:**
      * 1.  **Load State:** Reads all JSON data files into memory.
      * 1.5. **Retention Check:** Scans `failed.json` for expired entries (>30 days). Expired users are removed from the penalty box protection, effectively allowing them to be pruned if they remain invalid.
@@ -60,20 +60,20 @@ class Cleanup extends Base {
         console.log('[Cleanup] Starting data hygiene check...');
 
         // 1. Load All Data
-        let users = await Storage.getUsers();
-        let tracker = await Storage.getTracker();
+        let users     = await Storage.getUsers();
+        let tracker   = await Storage.getTracker();
         let blacklist = await Storage.getBlacklist(); // Set<string>
         let whitelist = await Storage.getWhitelist(); // Set<string>
-        let visited = await Storage.getVisited(); // Set<string>
-        let failed = await Storage.getFailed(); // Map<string, string> (login -> timestamp)
+        let visited   = await Storage.getVisited(); // Set<string>
+        let failed    = await Storage.getFailed(); // Map<string, string> (login -> timestamp)
 
-        const initialUserCount = users.length;
+        const initialUserCount    = users.length;
         const initialTrackerCount = tracker.length;
 
         // 1.25. Enforce Retention Policy (Penalty Box TTL)
         const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
-        const now = Date.now();
-        const expiredLogins = [];
+        const now            = Date.now();
+        const expiredLogins  = [];
 
         for (const [login, timestamp] of failed) {
             const ts = new Date(timestamp).getTime();
@@ -83,7 +83,7 @@ class Cleanup extends Base {
                 failed.delete(login); // Remove from memory map immediately (removes Tracker protection)
             }
         }
-        
+
         const expiredSet = new Set(expiredLogins);
 
         // 1.5. Sync Whitelist -> Tracker (Resurrection)
@@ -93,7 +93,7 @@ class Cleanup extends Base {
             // Check if already in tracker (case-insensitive check needed, or rely on normalization)
             // Tracker is an array of objects.
             const exists = tracker.some(t => t.login.toLowerCase() === lowerLogin);
-            
+
             if (!exists && !blacklist.has(lowerLogin)) {
                 console.log(`[Cleanup] Resurrecting whitelisted user: ${login}`);
                 tracker.push({ login, lastUpdate: null });
@@ -104,7 +104,7 @@ class Cleanup extends Base {
         // Criteria: Not Blacklisted AND Not Expired AND (Threshold Met OR Whitelisted)
         users = users.filter(u => {
             const lowerLogin = u.l.toLowerCase();
-            
+
             if (blacklist.has(lowerLogin)) {
                 console.log(`[Cleanup] Removing blacklisted user: ${u.l}`);
                 return false;
@@ -133,7 +133,7 @@ class Cleanup extends Base {
         // Criteria: Not Blacklisted AND (Threshold Met OR Whitelisted)
         tracker = tracker.filter(t => {
             const lowerLogin = t.login.toLowerCase();
-            
+
             if (blacklist.has(lowerLogin)) return false;
             if (whitelist.has(lowerLogin)) return true; // Explicit protection
 
@@ -148,7 +148,7 @@ class Cleanup extends Base {
 
                     // They were scanned but didn't make the cut. Prune from tracker.
                     console.log(`[Cleanup] Pruning orphaned user (scanned but low value): ${t.login}`);
-                    return false; 
+                    return false;
                 }
             }
 
@@ -165,23 +165,12 @@ class Cleanup extends Base {
         // Blacklist/Whitelist/Visited: Convert to Array, Sort ASC
         const sortedBlacklist = Array.from(blacklist).sort();
         const sortedWhitelist = Array.from(whitelist).sort();
-        const sortedVisited = Array.from(visited).sort();
+        const sortedVisited   = Array.from(visited).sort();
 
         // 5. Save Changes
         // We use lower-level writeJson to enforce the sorted arrays for simple lists
         await Storage.writeJson(config.paths.users, users);
-        // Tracker is usually an object map in storage, but getTracker returns array.
-        // Storage.updateTracker expects array updates but handles map internally.
-        // We want to overwrite the whole file with sorted structure? 
-        // Actually, Storage.writeJson writes what we give it.
-        // Let's Convert tracker array back to Map object for storage consistency?
-        // Wait, Storage.mjs:
-        // getTracker -> returns Array
-        // updateTracker -> reads Object, updates, writes Object.
-        // We want to REWRITE the file cleanly.
-        // Let's perform a direct write of the Object (sorted keys?).
-        // JSON.stringify keys order is not guaranteed but usually follows insertion order.
-        
+
         const trackerMap = {};
         tracker.forEach(t => trackerMap[t.login] = t.lastUpdate);
         await Storage.writeJson(config.paths.tracker, trackerMap);
