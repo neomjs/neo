@@ -1,15 +1,16 @@
 ---
 id: 9123
 title: Enhance Stream Proxy with Adaptive Chunking for Faster TTFC
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
   - performance
   - core
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-02-12T21:40:17Z'
-updatedAt: '2026-02-12T21:40:17Z'
+updatedAt: '2026-02-12T22:07:21Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9123'
 author: tobiu
 commentsCount: 0
@@ -19,6 +20,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-02-12T22:07:21Z'
 ---
 # Enhance Stream Proxy with Adaptive Chunking for Faster TTFC
 
@@ -45,4 +47,6 @@ This ensures the first paint happens ~5x faster (100 items vs 500), while mainta
 - 2026-02-12T21:40:18Z @tobiu added the `performance` label
 - 2026-02-12T21:40:19Z @tobiu added the `core` label
 - 2026-02-12T21:56:25Z @tobiu referenced in commit `73003b1` - "feat: Enhance Stream Proxy with Adaptive Chunking (100x5) (#9123)"
+- 2026-02-12T22:06:00Z @tobiu assigned to @tobiu
+- 2026-02-12T22:07:22Z @tobiu closed this issue
 
