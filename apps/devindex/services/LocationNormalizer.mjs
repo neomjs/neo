@@ -62,7 +62,9 @@ class LocationNormalizer extends Base {
         ['hawaii', 'US'], ['hope, ri', 'US'],
         ['columbus', 'US'], ['charlotte', 'US'], ['phoenix', 'US'], ['philadelphia', 'US'],
         ['san antonio', 'US'], ['san diego', 'US'], ['dallas', 'US'], ['san jose', 'US'],
-        ['jacksonville', 'US'], ['indianapolis', 'US']
+        ['jacksonville', 'US'], ['indianapolis', 'US'], ['atlanta', 'US'], ['salt lake city', 'US'],
+        ['genoa', 'IT'],
+        ['tbilisi', 'GE']
     ]);
 
     /**
@@ -98,6 +100,11 @@ class LocationNormalizer extends Base {
             // We exclude major country codes (CA, DE, IN, ID) to prevent false positives.
             // Minor collisions (IL=Israel, GA=Gabon, MT=Malta) are accepted as they are
             // statistically more likely to represent US states in this specific dataset.
+            return 'US';
+        }
+
+        // 2.6 Full US State Names
+        if (/\b(alabama|alaska|arizona|arkansas|california|colorado|connecticut|delaware|florida|georgia|hawaii|idaho|illinois|indiana|iowa|kansas|kentucky|louisiana|maine|maryland|massachusetts|michigan|minnesota|mississippi|missouri|montana|nebraska|nevada|new hampshire|new jersey|new mexico|new york|north carolina|north dakota|ohio|oklahoma|oregon|pennsylvania|rhode island|south carolina|south dakota|tennessee|texas|utah|vermont|virginia|washington|west virginia|wisconsin|wyoming)\b/.test(text)) {
             return 'US';
         }
         if (/\b(canada)\b/.test(text)) return 'CA';
