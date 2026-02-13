@@ -37,8 +37,9 @@ subIssues:
   - '[x] 9135 Implement Safe Purge for Invalid Users in DevIndex Updater'
   - '[ ] 9136 Implement 30-Day Retention Policy for DevIndex Penalty Box'
   - '[ ] 9137 Implement ID-Based Rename Handling for DevIndex'
-subIssuesCompleted: 21
-subIssuesTotal: 23
+  - '[x] 9138 Fix DevIndex Updater Workflow Unstaged Changes Error'
+subIssuesCompleted: 22
+subIssuesTotal: 24
 blockedBy: []
 blocking: []
 ---
@@ -77,4 +78,5 @@ It focuses on UI/UX improvements, bug fixes, and ensuring a smooth user experien
 - 2026-02-13T02:13:34Z @tobiu added sub-issue #9135
 - 2026-02-13T02:23:05Z @tobiu added sub-issue #9136
 - 2026-02-13T02:24:25Z @tobiu added sub-issue #9137
+- 2026-02-13T11:00:04Z @tobiu added sub-issue #9138
 
