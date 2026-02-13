@@ -87,9 +87,9 @@ class Spider extends Base {
         console.log('[Spider] Starting discovery run...');
 
         // 1. Load State
-        const visited = await Storage.getVisited();
-        const blacklist = await Storage.getBlacklist();
-        const existingUsers = await Storage.getTracker();
+        const visited        = await Storage.getVisited();
+        const blacklist      = await Storage.getBlacklist();
+        const existingUsers  = await Storage.getTracker();
         const existingLogins = new Set(existingUsers.map(u => u.login.toLowerCase()));
 
         const state = {
@@ -97,8 +97,8 @@ class Spider extends Base {
             blacklist,
             existingLogins,
             newCandidates: new Set(),
-            newVisited: new Set(),
-            totalFound: 0
+            newVisited   : new Set(),
+            totalFound   : 0
         };
 
         // 2. Pick Strategy
@@ -152,10 +152,10 @@ class Spider extends Base {
                     if (Math.random() < 0.5) {
                         const targetOrg = Spider.communityTargets[Math.floor(Math.random() * Spider.communityTargets.length)];
                         return {
-                            name: 'Discovery: Community Scan (Forced)',
+                            name       : 'Discovery: Community Scan (Forced)',
                             description: `org:${targetOrg}`,
-                            type: 'community_scan',
-                            target: targetOrg
+                            type       : 'community_scan',
+                            target     : targetOrg
                         };
                     } else {
                         return this.getBioSignalStrategy();
@@ -163,27 +163,27 @@ class Spider extends Base {
                 case 'keyword':
                     const keyword = Spider.keywords[Math.floor(Math.random() * Spider.keywords.length)];
                     return {
-                        name: 'Discovery: Keyword (Forced)',
+                        name       : 'Discovery: Keyword (Forced)',
                         description: `topic:${keyword}`,
-                        type: 'search',
-                        query: `topic:${keyword} stars:>50`
+                        type       : 'search',
+                        query      : `topic:${keyword} stars:>50`
                     };
                 case 'temporal':
                     const dateRange = this.getRandomDateRange();
                     return {
-                        name: 'Discovery: Temporal (Forced)',
+                        name       : 'Discovery: Temporal (Forced)',
                         description: `created:${dateRange}`,
-                        type: 'search',
-                        query: `created:${dateRange} stars:>50`
+                        type       : 'search',
+                        query      : `created:${dateRange} stars:>50`
                     };
                 case 'network_walker':
                     if (existingUsers.length > 0) {
                         const randomUser = existingUsers[Math.floor(Math.random() * existingUsers.length)];
                         return {
-                            name: 'Discovery: Network Walker (Forced)',
+                            name       : 'Discovery: Network Walker (Forced)',
                             description: `following of ${randomUser.login}`,
-                            type: 'network_walker',
-                            username: randomUser.login
+                            type       : 'network_walker',
+                            username   : randomUser.login
                         };
                     }
                     console.warn('[Spider] Cannot force Network Walker: No existing users. Falling back to Core.');
@@ -192,10 +192,10 @@ class Spider extends Base {
                     if (existingUsers.length > 0) {
                         const randomUser = existingUsers[Math.floor(Math.random() * existingUsers.length)];
                         return {
-                            name: 'Discovery: Stargazer Leap (Forced)',
+                            name       : 'Discovery: Stargazer Leap (Forced)',
                             description: `user:${randomUser.login}`,
-                            type: 'stargazer',
-                            username: randomUser.login
+                            type       : 'stargazer',
+                            username   : randomUser.login
                         };
                     }
                     console.warn('[Spider] Cannot force Stargazer: No existing users. Falling back to Core.');
@@ -211,16 +211,16 @@ class Spider extends Base {
         if (forcedStrategy === 'search' || rand < 0.25) {
             // Pick a random lower bound to slice the high-star spectrum
             // Range: minStars (1000) to 20000
-            const minStars = config.github.minStars;
-            const randomOffset = Math.floor(Math.random() * 19000); 
-            const lowerBound = minStars + randomOffset;
-            const upperBound = lowerBound + 1000 + Math.floor(Math.random() * 2000); // 1000-3000 width
+            const minStars     = config.github.minStars;
+            const randomOffset = Math.floor(Math.random() * 19000);
+            const lowerBound   = minStars + randomOffset;
+            const upperBound   = lowerBound + 1000 + Math.floor(Math.random() * 2000); // 1000-3000 width
 
             return {
-                name: 'Core: High Stars (Sliced)',
+                name       : 'Core: High Stars (Sliced)',
                 description: `stars:${lowerBound}..${upperBound}`,
-                type: 'search',
-                query: `stars:${lowerBound}..${upperBound}`
+                type       : 'search',
+                query      : `stars:${lowerBound}..${upperBound}`
             };
         }
 
@@ -228,10 +228,10 @@ class Spider extends Base {
         if (rand < 0.45) {
             const keyword = Spider.keywords[Math.floor(Math.random() * Spider.keywords.length)];
             return {
-                name: 'Discovery: Keyword',
+                name       : 'Discovery: Keyword',
                 description: `topic:${keyword}`,
-                type: 'search',
-                query: `topic:${keyword} stars:>50` // Lower threshold for topics
+                type       : 'search',
+                query      : `topic:${keyword} stars:>50` // Lower threshold for topics
             };
         }
 
@@ -239,10 +239,10 @@ class Spider extends Base {
         if (rand < 0.60) {
             const dateRange = this.getRandomDateRange();
             return {
-                name: 'Discovery: Temporal',
+                name       : 'Discovery: Temporal',
                 description: `created:${dateRange}`,
-                type: 'search',
-                query: `created:${dateRange} stars:>50`
+                type       : 'search',
+                query      : `created:${dateRange} stars:>50`
             };
         }
 
@@ -251,10 +251,10 @@ class Spider extends Base {
             if (existingUsers.length > 0) {
                 const randomUser = existingUsers[Math.floor(Math.random() * existingUsers.length)];
                 return {
-                    name: 'Discovery: Network Walker',
+                    name       : 'Discovery: Network Walker',
                     description: `following of ${randomUser.login}`,
-                    type: 'network_walker',
-                    username: randomUser.login
+                    type       : 'network_walker',
+                    username   : randomUser.login
                 };
             }
         }
@@ -265,10 +265,10 @@ class Spider extends Base {
             if (Math.random() < 0.5) {
                 const targetOrg = Spider.communityTargets[Math.floor(Math.random() * Spider.communityTargets.length)];
                 return {
-                    name: 'Discovery: Community Scan',
+                    name       : 'Discovery: Community Scan',
                     description: `org:${targetOrg}`,
-                    type: 'community_scan',
-                    target: targetOrg
+                    type       : 'community_scan',
+                    target     : targetOrg
                 };
             } else {
                 return this.getBioSignalStrategy();
@@ -279,10 +279,10 @@ class Spider extends Base {
         if (existingUsers.length > 0) {
             const randomUser = existingUsers[Math.floor(Math.random() * existingUsers.length)];
             return {
-                name: 'Discovery: Stargazer Leap',
+                name       : 'Discovery: Stargazer Leap',
                 description: `user:${randomUser.login}`,
-                type: 'stargazer',
-                username: randomUser.login
+                type       : 'stargazer',
+                username   : randomUser.login
             };
         }
 
@@ -296,15 +296,15 @@ class Spider extends Base {
      */
     getBioSignalStrategy() {
         const sorts = ['stars', 'forks', 'updated'];
-        const sort = sorts[Math.floor(Math.random() * sorts.length)];
+        const sort  = sorts[Math.floor(Math.random() * sorts.length)];
         const order = Math.random() < 0.5 ? 'desc' : 'asc';
-        
+
         return {
-            name: 'Discovery: Bio Signals',
+            name       : 'Discovery: Bio Signals',
             description: `topic search (sort:${sort}-${order})`,
-            type: 'search',
-            sort: sort,
-            order: order,
+            type       : 'search',
+            sort       : sort,
+            order      : order,
             // Using broad keyword search with OR as it covers topics and descriptions reliably
             query: `women-in-tech+OR+pyladies+OR+django-girls+OR+rails-girls`
         };
@@ -316,15 +316,15 @@ class Spider extends Base {
      */
     getRandomDateRange() {
         const startYear = 2015;
-        const endYear = 2025;
-        const year = Math.floor(Math.random() * (endYear - startYear + 1)) + startYear;
-        const month = Math.floor(Math.random() * 12) + 1;
+        const endYear   = 2025;
+        const year      = Math.floor(Math.random() * (endYear - startYear + 1)) + startYear;
+        const month     = Math.floor(Math.random() * 12) + 1;
 
         // Get a random week start
         const day = Math.floor(Math.random() * 20) + 1; // 1-20 to be safe
 
         const dateStart = new Date(year, month - 1, day);
-        const dateEnd = new Date(year, month - 1, day + 7);
+        const dateEnd   = new Date(year, month - 1, day + 7);
 
         const fmt = d => d.toISOString().split('T')[0];
         return `${fmt(dateStart)}..${fmt(dateEnd)}`;
@@ -447,7 +447,7 @@ class Spider extends Base {
 
                     const login = user.login;
                     const lowerLogin = login.toLowerCase();
-                    
+
                     if (!blacklist.has(lowerLogin) && !existingLogins.has(lowerLogin)) {
                         newCandidates.add(login);
                     }
