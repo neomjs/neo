@@ -62,10 +62,26 @@ class Cleanup extends Base {
         let blacklist = await Storage.getBlacklist(); // Set<string>
         let whitelist = await Storage.getWhitelist(); // Set<string>
         let visited = await Storage.getVisited(); // Set<string>
-        let failed = await Storage.getFailed(); // Set<string>
+        let failed = await Storage.getFailed(); // Map<string, string> (login -> timestamp)
 
         const initialUserCount = users.length;
         const initialTrackerCount = tracker.length;
+
+        // 1.25. Enforce Retention Policy (Penalty Box TTL)
+        const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+        const now = Date.now();
+        const expiredLogins = [];
+
+        for (const [login, timestamp] of failed) {
+            const ts = new Date(timestamp).getTime();
+            if (now - ts > THIRTY_DAYS_MS) {
+                console.log(`[Cleanup] Expiring failed user (TTL > 30d): ${login}`);
+                expiredLogins.push(login);
+                failed.delete(login); // Remove from memory map immediately (removes Tracker protection)
+            }
+        }
+        
+        const expiredSet = new Set(expiredLogins);
 
         // 1.5. Sync Whitelist -> Tracker (Resurrection)
         // Ensure all whitelisted users are in the tracker so they get scheduled.
@@ -82,12 +98,17 @@ class Cleanup extends Base {
         });
 
         // 2. Filter Users (Rich Data)
-        // Criteria: Not Blacklisted AND (Threshold Met OR Whitelisted)
+        // Criteria: Not Blacklisted AND Not Expired AND (Threshold Met OR Whitelisted)
         users = users.filter(u => {
             const lowerLogin = u.l.toLowerCase();
             
             if (blacklist.has(lowerLogin)) {
                 console.log(`[Cleanup] Removing blacklisted user: ${u.l}`);
+                return false;
+            }
+
+            if (expiredSet.has(lowerLogin)) {
+                console.log(`[Cleanup] Pruning expired failed user: ${u.l}`);
                 return false;
             }
 
@@ -165,6 +186,11 @@ class Cleanup extends Base {
         await Storage.writeJson(config.paths.blacklist, sortedBlacklist);
         await Storage.writeJson(config.paths.whitelist, sortedWhitelist);
         await Storage.writeJson(config.paths.visited, sortedVisited);
+        await Storage.saveFailed(failed); // Persist map (migrates legacy array & removes expired)
+
+        if (expiredLogins.length > 0) {
+            console.log(`[Cleanup] Removed ${expiredLogins.length} expired users from Penalty Box.`);
+        }
 
         console.log(`[Cleanup] Complete.`);
         console.log(`  Users: ${initialUserCount} -> ${users.length} (-${initialUserCount - users.length})`);

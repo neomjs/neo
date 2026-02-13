@@ -58,7 +58,7 @@ class Storage extends Base {
             { path: config.paths.visited,   default: [] },
             { path: config.paths.blacklist, default: [] },
             { path: config.paths.whitelist, default: [] },
-            { path: config.paths.failed,    default: [] }
+            { path: config.paths.failed,    default: {} }
         ];
 
         for (const file of files) {
@@ -91,11 +91,22 @@ class Storage extends Base {
 
     /**
      * Reads the failed list (Penalty Box).
-     * @returns {Promise<Set<String>>} Set of failed logins.
+     * Handles legacy Array format by migrating to Map with current timestamp.
+     * @returns {Promise<Map<String, String>>} Map of login -> timestamp.
      */
     async getFailed() {
-        const list = await this.readJson(config.paths.failed, []);
-        return new Set(list.map(item => item.toLowerCase()));
+        const raw = await this.readJson(config.paths.failed, {});
+        const map = new Map();
+        
+        if (Array.isArray(raw)) {
+            // Migration: Convert legacy array to Object with current timestamp
+            const now = new Date().toISOString();
+            raw.forEach(login => map.set(login.toLowerCase(), now));
+        } else {
+            Object.entries(raw).forEach(([login, ts]) => map.set(login.toLowerCase(), ts));
+        }
+        
+        return map;
     }
 
     /**
@@ -112,7 +123,7 @@ class Storage extends Base {
             const key = login.toLowerCase();
             if (add) {
                 if (!current.has(key)) {
-                    current.add(key);
+                    current.set(key, new Date().toISOString());
                     changed = true;
                 }
             } else {
@@ -124,8 +135,21 @@ class Storage extends Base {
         });
 
         if (changed) {
-            await this.writeJson(config.paths.failed, Array.from(current).sort());
+            await this.saveFailed(current);
         }
+    }
+
+    /**
+     * Persists the failed map to disk.
+     * @param {Map<String, String>} map
+     * @returns {Promise<void>}
+     */
+    async saveFailed(map) {
+        const sorted = {};
+        Array.from(map.keys()).sort().forEach(key => {
+            sorted[key] = map.get(key);
+        });
+        await this.writeJson(config.paths.failed, sorted);
     }
 
     /**
