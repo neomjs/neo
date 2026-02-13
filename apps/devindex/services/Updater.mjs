@@ -61,13 +61,14 @@ class Updater extends Base {
         let indexUpdates = [];
         let failedLogins = [];
         let recoveredLogins = [];
+        let prunedLogins = []; // Users to remove from users.jsonl (e.g. Renames)
         let successCount = 0;
         let failCount = 0;
         let skipCount = 0;
         const saveInterval = config.updater.saveInterval;
         const whitelist = await Storage.getWhitelist();
         const richUsers = await Storage.getUsers();
-        const richUserLogins = new Set(richUsers.map(u => u.l.toLowerCase()));
+        const richUserMap = new Map(richUsers.map(u => [u.l.toLowerCase(), u]));
         const concurrency = 8; // Slightly reduced from 10 to balance speed vs stability
 
         // Helper to process a single user
@@ -96,10 +97,38 @@ class Updater extends Base {
                     console.log(`[${login}] SKIPPED (No Data/Bot)`);
                 }
             } catch (error) {
+                const lowerLogin = login.toLowerCase();
                 const isFatal = error.message.includes('Could not resolve to a User') || error.message.includes('NOT_FOUND') || error.message.includes('GraphQL Fatal Error');
-                const hasRichData = richUserLogins.has(login.toLowerCase());
+                const richUser = richUserMap.get(lowerLogin);
 
-                if (isFatal && !hasRichData) {
+                // ID-Based Rename Handling
+                if (isFatal && richUser && richUser.i) {
+                     try {
+                         const newLogin = await GitHub.getLoginByDatabaseId(richUser.i);
+                         if (newLogin && newLogin.toLowerCase() !== lowerLogin) {
+                             console.log(`[${login}] 🔄 RENAME DETECTED -> ${newLogin}`);
+                             
+                             // 1. Mark old login for removal
+                             indexUpdates.push({ login, delete: true }); // Tracker
+                             prunedLogins.push(login); // Rich Data
+                             
+                             // 2. Fetch data for new login immediately
+                             const newData = await this.fetchUserData(newLogin);
+                             if (newData) {
+                                 results.push(newData);
+                                 indexUpdates.push({ login: newLogin, lastUpdate: newData.lu });
+                                 // Success for new user implies we handled the 'slot' for the old user effectively
+                                 successCount++;
+                                 console.log(`[${newLogin}] Rename recovery successful.`);
+                                 return; // Done
+                             }
+                         }
+                     } catch (renameErr) {
+                         console.warn(`[${login}] Rename check failed: ${renameErr.message}`);
+                     }
+                }
+
+                if (isFatal && !richUser) {
                     // Safe Purge: User is invalid AND has never been indexed before.
                     console.log(`[${login}] PERMANENT FAILURE: Invalid User/Org. [PRUNED]`);
                     indexUpdates.push({ login, delete: true });
@@ -141,17 +170,18 @@ class Updater extends Base {
 
             // Checkpoint Save
             if (results.length >= saveInterval) {
-                await this.saveCheckpoint(results, indexUpdates, failedLogins, recoveredLogins);
+                await this.saveCheckpoint(results, indexUpdates, failedLogins, recoveredLogins, prunedLogins);
                 results = [];
                 indexUpdates = [];
                 failedLogins = [];
                 recoveredLogins = [];
+                prunedLogins = [];
             }
         }
 
         // Final Save for remaining items
-        if (results.length > 0 || indexUpdates.length > 0 || failedLogins.length > 0) {
-            await this.saveCheckpoint(results, indexUpdates, failedLogins, recoveredLogins);
+        if (results.length > 0 || indexUpdates.length > 0 || failedLogins.length > 0 || prunedLogins.length > 0) {
+            await this.saveCheckpoint(results, indexUpdates, failedLogins, recoveredLogins, prunedLogins);
         }
         
         console.log('--------------------------------------------------');
@@ -175,16 +205,18 @@ class Updater extends Base {
      * @param {Array} indexUpdates 
      * @param {Array} failedLogins 
      * @param {Array} recoveredLogins 
+     * @param {Array} prunedLogins
      */
-    async saveCheckpoint(results, indexUpdates, failedLogins = [], recoveredLogins = []) {
+    async saveCheckpoint(results, indexUpdates, failedLogins = [], recoveredLogins = [], prunedLogins = []) {
         if (results.length > 0) await Storage.updateUsers(results);
         if (indexUpdates.length > 0) await Storage.updateTracker(indexUpdates);
+        if (prunedLogins.length > 0) await Storage.deleteUsers(prunedLogins);
         
         // Manage Penalty Box
         if (failedLogins.length > 0) await Storage.updateFailed(failedLogins, true);
         if (recoveredLogins.length > 0) await Storage.updateFailed(recoveredLogins, false);
 
-        console.log(`[Updater] Checkpoint: Saved ${results.length} records. (API Quota: ${GitHub.rateLimit.core.remaining}/${GitHub.rateLimit.core.limit})`);
+        console.log(`[Updater] Checkpoint: Saved ${results.length} records, Pruned ${prunedLogins.length} old logins. (API Quota: ${GitHub.rateLimit.core.remaining}/${GitHub.rateLimit.core.limit})`);
     }
 
     /**
