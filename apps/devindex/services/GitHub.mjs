@@ -196,6 +196,13 @@ class GitHub extends Base {
             }
 
             if (json.errors) {
+                // Check for "Not Found" or "Not a User" errors to abort retry immediately
+                const messages = json.errors.map(e => e.message).join(', ');
+                
+                if (messages.includes('Could not resolve to a User') || messages.includes('NOT_FOUND')) {
+                    throw new Error(`GraphQL Fatal Error: ${messages}`);
+                }
+
                 // Sometimes 502s come as 200 OK with errors body
                 const isGatewayError = json.errors.some(e => e.message?.includes('502') || e.message?.includes('504'));
                 
@@ -206,12 +213,16 @@ class GitHub extends Base {
                     return this.query(query, variables, retries - 1, logContext);
                 }
 
-                const messages = json.errors.map(e => e.message).join(', ');
                 throw new Error(`GraphQL Query Errors: ${messages}`);
             }
 
             return json.data;
         } catch (error) {
+            // Fatal errors (Do not retry)
+            if (error.message.includes('Could not resolve to a User') || error.message.includes('NOT_FOUND') || error.message.includes('GraphQL Fatal Error')) {
+                throw error;
+            }
+
             // Also catch network errors for retry
             // 'terminated' likely means connection closed by server/proxy
             if (retries > 0 && (

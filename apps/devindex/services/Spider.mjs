@@ -442,6 +442,9 @@ class Spider extends Base {
 
             if (Array.isArray(following)) {
                 for (const user of following) {
+                    // STRICT FILTER: Only index real users, not Organizations or Bots
+                    if (user.type !== 'User') continue;
+
                     const login = user.login;
                     const lowerLogin = login.toLowerCase();
                     
