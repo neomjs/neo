@@ -111,6 +111,8 @@ class Spider extends Base {
                 await this.runSearch(strategy.query, state, strategy.sort, strategy.order);
             } else if (strategy.type === 'stargazer') {
                 await this.runStargazer(strategy.username, state);
+            } else if (strategy.type === 'network_walker') {
+                await this.runNetworkWalker(strategy.username, state);
             } else if (strategy.type === 'community_scan') {
                 await this.runCommunityScan(strategy.target, state);
             }
@@ -173,6 +175,18 @@ class Spider extends Base {
                         type: 'search',
                         query: `created:${dateRange} stars:>50`
                     };
+                case 'network_walker':
+                    if (existingUsers.length > 0) {
+                        const randomUser = existingUsers[Math.floor(Math.random() * existingUsers.length)];
+                        return {
+                            name: 'Discovery: Network Walker (Forced)',
+                            description: `following of ${randomUser.login}`,
+                            type: 'network_walker',
+                            username: randomUser.login
+                        };
+                    }
+                    console.warn('[Spider] Cannot force Network Walker: No existing users. Falling back to Core.');
+                    break;
                 case 'stargazer':
                     if (existingUsers.length > 0) {
                         const randomUser = existingUsers[Math.floor(Math.random() * existingUsers.length)];
@@ -231,7 +245,20 @@ class Spider extends Base {
             };
         }
 
-        // 15% Chance: Community Scan (Diversity Pivot)
+        // 15% Chance: Network Walker (Social Graph)
+        if (rand < 0.80) {
+            if (existingUsers.length > 0) {
+                const randomUser = existingUsers[Math.floor(Math.random() * existingUsers.length)];
+                return {
+                    name: 'Discovery: Network Walker',
+                    description: `following of ${randomUser.login}`,
+                    type: 'network_walker',
+                    username: randomUser.login
+                };
+            }
+        }
+
+        // 10% Chance: Community Scan (Diversity Pivot)
         if (rand < 0.90) {
             // 50/50 Split between Org Scan and Bio-Signal Search
             if (Math.random() < 0.5) {
@@ -390,6 +417,44 @@ class Spider extends Base {
 
             await this.processRepositories(searchRes.items, state);
             await this.saveCheckpoint(state);
+        }
+    }
+
+    /**
+     * Executes a Network Walker strategy.
+     * Scans the 'following' list of a target user to find their network.
+     * @param {String} username
+     * @param {Object} state
+     */
+    async runNetworkWalker(username, state) {
+        if (GitHub.rateLimit.core.remaining < 50) {
+             this.logRateLimit('Skipping Network Walker run', 'core');
+             return;
+        }
+
+        console.log(`[Spider] 🕸️ Walking network of ${username}...`);
+        const { newCandidates, existingLogins, blacklist } = state;
+
+        try {
+            // Fetch following (up to 100)
+            const following = await GitHub.rest(`users/${username}/following?per_page=100`);
+
+            if (Array.isArray(following)) {
+                for (const user of following) {
+                    const login = user.login;
+                    const lowerLogin = login.toLowerCase();
+                    
+                    if (!blacklist.has(lowerLogin) && !existingLogins.has(lowerLogin)) {
+                        newCandidates.add(login);
+                    }
+                }
+                console.log(`[Spider] Found ${following.length} following, ${newCandidates.size} new candidates.`);
+            }
+
+            await this.saveCheckpoint(state);
+
+        } catch (e) {
+             console.error(`[Spider] Network Walker failed for ${username}: ${e.message}`);
         }
     }
 
