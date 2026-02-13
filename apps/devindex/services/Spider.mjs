@@ -1,6 +1,6 @@
-import Base from '../../../src/core/Base.mjs';
-import config from './config.mjs';
-import GitHub from './GitHub.mjs';
+import Base    from '../../../src/core/Base.mjs';
+import config  from './config.mjs';
+import GitHub  from './GitHub.mjs';
 import Storage from './Storage.mjs';
 
 /**
