@@ -58,6 +58,11 @@ class StatusToolbar extends Toolbar {
     }
 
     /**
+     * @member {Intl.NumberFormat} numberFormatter=new Intl.NumberFormat()
+     */
+    numberFormatter = new Intl.NumberFormat()
+
+    /**
      * @param {Object} data
      */
     onStoreLoad(data) {
@@ -98,7 +103,9 @@ class StatusToolbar extends Toolbar {
      *
      */
     updateRowsLabel() {
-        this.getReference('count-rows-label').text = 'Visible Rows: ' + this.store.count
+        let me = this;
+
+        me.getReference('count-rows-label').text = 'Visible Rows: ' + me.numberFormatter.format(me.store.count)
     }
 }
 
