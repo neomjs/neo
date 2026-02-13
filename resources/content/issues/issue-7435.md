@@ -30,10 +30,10 @@ subIssues:
   - '[x] 7469 Refactor: Consolidate and Refine Playwright Test Harness'
   - '[x] 7470 PoC: Create Component Test for component.Image'
   - '[x] 7471 Refactor: Implement Granular Playwright Test Configurations'
-  - '[ ] 7677 Create Playwright Component Test for Neo.form.field.Password'
+  - '[x] 7677 Create Playwright Component Test for Neo.form.field.Password'
   - '[x] 7703 Convert Component Test list/Chip.mjs to Playwright'
   - '[ ] 7737 Create Playwright Component Test for Neo.component.Label'
-subIssuesCompleted: 14
+subIssuesCompleted: 15
 subIssuesTotal: 16
 blockedBy: []
 blocking: []
