@@ -39,10 +39,10 @@ class Updater extends Base {
 
     /**
      * Orchestrates the update process for a specific batch of users.
-     * 
+     *
      * Iterates through the provided list of logins, fetching their latest data from GitHub.
      * Enforces the "Meritocracy Logic" by checking the contribution threshold and whitelist status.
-     * 
+     *
      * **Safe Purge Protocol (Self-Healing):**
      * This method implements a defensive strategy for handling API errors:
      * 1.  **Transient Errors (5xx, Rate Limits):** Users are moved to the "Penalty Box" (`failed.json`) to be retried later.
@@ -52,7 +52,7 @@ class Updater extends Base {
      * 3.  **Rename Recovery:** If a user returns a 404 but exists in our Rich Data Store with a valid GitHub Database ID,
      *     we query the API for their current login. If found, the old record is pruned and the new login is immediately
      *     fetched and indexed, preserving history.
-     * 
+     *
      * @param {String[]} logins             Array of usernames to process in this batch.
      * @param {Number}   [initialBacklog=0] The total size of the backlog *before* this batch started, used for reporting.
      * @returns {Promise<void>}
@@ -61,27 +61,27 @@ class Updater extends Base {
         if (!logins || logins.length === 0) return;
 
         console.log(`[Updater] Processing batch of ${logins.length} users...`);
-        let results = [];
-        let indexUpdates = [];
-        let failedLogins = [];
+        let results         = [];
+        let indexUpdates    = [];
+        let failedLogins    = [];
         let recoveredLogins = [];
-        let prunedLogins = []; // Users to remove from users.jsonl (e.g. Renames)
-        let successCount = 0;
-        let failCount = 0;
-        let skipCount = 0;
-        const saveInterval = config.updater.saveInterval;
-        const whitelist = await Storage.getWhitelist();
-        const richUsers = await Storage.getUsers();
-        const richUserMap = new Map(richUsers.map(u => [u.l.toLowerCase(), u]));
-        const concurrency = 8; // Slightly reduced from 10 to balance speed vs stability
+        let prunedLogins    = []; // Users to remove from users.jsonl (e.g. Renames)
+        let successCount    = 0;
+        let failCount       = 0;
+        let skipCount       = 0;
+        const saveInterval  = config.updater.saveInterval;
+        const whitelist     = await Storage.getWhitelist();
+        const richUsers     = await Storage.getUsers();
+        const richUserMap   = new Map(richUsers.map(u => [u.l.toLowerCase(), u]));
+        const concurrency   = 8; // Slightly reduced from 10 to balance speed vs stability
 
         // Helper to process a single user
         const processUser = async (login) => {
             try {
                 const data = await this.fetchUserData(login);
-                
+
                 if (data) {
-                    const isWhitelisted = whitelist.has(login.toLowerCase());
+                    const isWhitelisted  = whitelist.has(login.toLowerCase());
                     const meetsThreshold = data.tc >= config.github.minTotalContributions;
 
                     if (meetsThreshold || isWhitelisted) {
@@ -102,8 +102,8 @@ class Updater extends Base {
                 }
             } catch (error) {
                 const lowerLogin = login.toLowerCase();
-                const isFatal = error.message.includes('Could not resolve to a User') || error.message.includes('NOT_FOUND') || error.message.includes('GraphQL Fatal Error');
-                const richUser = richUserMap.get(lowerLogin);
+                const isFatal    = error.message.includes('Could not resolve to a User') || error.message.includes('NOT_FOUND') || error.message.includes('GraphQL Fatal Error');
+                const richUser   = richUserMap.get(lowerLogin);
 
                 // ID-Based Rename Handling
                 if (isFatal && richUser && richUser.i) {
@@ -111,11 +111,11 @@ class Updater extends Base {
                          const newLogin = await GitHub.getLoginByDatabaseId(richUser.i);
                          if (newLogin && newLogin.toLowerCase() !== lowerLogin) {
                              console.log(`[${login}] 🔄 RENAME DETECTED -> ${newLogin}`);
-                             
+
                              // 1. Mark old login for removal
                              indexUpdates.push({ login, delete: true }); // Tracker
                              prunedLogins.push(login); // Rich Data
-                             
+
                              // 2. Fetch data for new login immediately
                              const newData = await this.fetchUserData(newLogin);
                              if (newData) {
@@ -141,7 +141,7 @@ class Updater extends Base {
                 } else {
                     // Transient Error OR User has History (Protect them)
                     console.log(`[${login}] FAILED: ${error.message}`);
-                    
+
                     // Penalty Box: Update timestamp to push failed users to the back of the queue
                     indexUpdates.push({ login, lastUpdate: new Date().toISOString() });
                     failedLogins.push(login); // Add to Penalty Box
@@ -175,11 +175,11 @@ class Updater extends Base {
             // Checkpoint Save
             if (results.length >= saveInterval) {
                 await this.saveCheckpoint(results, indexUpdates, failedLogins, recoveredLogins, prunedLogins);
-                results = [];
-                indexUpdates = [];
-                failedLogins = [];
+                results         = [];
+                indexUpdates    = [];
+                failedLogins    = [];
                 recoveredLogins = [];
-                prunedLogins = [];
+                prunedLogins    = [];
             }
         }
 
@@ -187,37 +187,37 @@ class Updater extends Base {
         if (results.length > 0 || indexUpdates.length > 0 || failedLogins.length > 0 || prunedLogins.length > 0) {
             await this.saveCheckpoint(results, indexUpdates, failedLogins, recoveredLogins, prunedLogins);
         }
-        
+
         console.log('--------------------------------------------------');
         console.log('[Updater] Run Complete.');
         console.log(`[Updater] Successfully Updated: ${successCount}`);
         console.log(`[Updater] Skipped/Pruned: ${skipCount}`);
         console.log(`[Updater] Failed (Penalty Box): ${failCount}`);
-        
+
         if (initialBacklog > 0) {
             const totalProcessed = successCount + skipCount + failCount;
-            const remaining = Math.max(0, initialBacklog - totalProcessed);
+            const remaining      = Math.max(0, initialBacklog - totalProcessed);
             console.log(`[Updater] Remaining Backlog: ${remaining}`);
         }
-        
+
         console.log('--------------------------------------------------');
     }
 
     /**
      * Helper to save partial results.
-     * @param {Array} results 
-     * @param {Array} indexUpdates 
-     * @param {Array} failedLogins 
-     * @param {Array} recoveredLogins 
+     * @param {Array} results
+     * @param {Array} indexUpdates
+     * @param {Array} failedLogins
+     * @param {Array} recoveredLogins
      * @param {Array} prunedLogins
      */
     async saveCheckpoint(results, indexUpdates, failedLogins = [], recoveredLogins = [], prunedLogins = []) {
-        if (results.length > 0) await Storage.updateUsers(results);
+        if (results.length      > 0) await Storage.updateUsers(results);
         if (indexUpdates.length > 0) await Storage.updateTracker(indexUpdates);
         if (prunedLogins.length > 0) await Storage.deleteUsers(prunedLogins);
-        
+
         // Manage Penalty Box
-        if (failedLogins.length > 0) await Storage.updateFailed(failedLogins, true);
+        if (failedLogins.length    > 0) await Storage.updateFailed(failedLogins, true);
         if (recoveredLogins.length > 0) await Storage.updateFailed(recoveredLogins, false);
 
         console.log(`[Updater] Checkpoint: Saved ${results.length} records, Pruned ${prunedLogins.length} old logins. (API Quota: ${GitHub.rateLimit.core.remaining}/${GitHub.rateLimit.core.limit})`);
@@ -268,9 +268,9 @@ class Updater extends Base {
         // We run this in parallel with the profile query.
         const orgsPromise = GitHub.rest(`users/${username}/orgs`, username)
             .then(res => Array.isArray(res) ? res.map(org => ({
-                name: org.login, // REST API often just gives login, description is separate.
+                name      : org.login, // REST API often just gives login, description is separate.
                 avatar_url: org.avatar_url,
-                login: org.login
+                login     : org.login
             })) : [])
             .catch(e => {
                 console.warn(`[Updater] [${username}] Skipped orgs (REST Error): ${e.message}`);
@@ -292,12 +292,12 @@ class Updater extends Base {
         if (!profileRes?.user) return null;
 
         const { createdAt, avatarUrl, name, location, company, bio, followers, socialAccounts, isHireable, hasSponsorsListing, twitterUsername, websiteUrl } = profileRes.user;
-        const startYear = new Date(createdAt).getFullYear();
+        const startYear   = new Date(createdAt).getFullYear();
         const currentYear = new Date().getFullYear();
 
         // Extract LinkedIn URL
         let linkedin_url = null;
-        
+
         const linkedInAccount = socialAccounts?.nodes?.find(acc => acc.provider === 'LINKEDIN');
         if (linkedInAccount) {
             linkedin_url = linkedInAccount.url;
@@ -334,7 +334,7 @@ class Updater extends Base {
         };
 
         const yearChunks = [];
-        const chunkSize = 4; // Reduced to 4
+        const chunkSize  = 4; // Reduced to 4
         for (let y = startYear; y <= currentYear; y += chunkSize) {
             const end = Math.min(y + chunkSize - 1, currentYear);
             yearChunks.push({ start: y, end });
@@ -362,17 +362,17 @@ class Updater extends Base {
         }
 
         // 4. Aggregate Data & Minify
-        let total = 0;
-        const yearsArr = [];
+        let total        = 0;
+        const yearsArr   = [];
         const commitsArr = [];
         const privateArr = [];
-        const repoMap = new Map(); // name -> total
-        
+        const repoMap    = new Map(); // name -> total
+
         // Ensure years are sorted and fill the array sequentially from startYear
         for (let year = startYear; year <= currentYear; year++) {
             const key = `y${year}`;
             const collection = contribData[key];
-            
+
             const commits = collection?.totalCommitContributions || 0;
             const privateStats = collection?.restrictedContributionsCount || 0;
 
@@ -387,7 +387,7 @@ class Updater extends Base {
             // Aggregate Repos (Focus Metric)
             if (collection?.commitContributionsByRepository) {
                 collection.commitContributionsByRepository.forEach(repo => {
-                    const name = repo.repository.name;
+                    const name  = repo.repository.name;
                     const count = repo.contributions.totalCount;
                     repoMap.set(name, (repoMap.get(name) || 0) + count);
                 });
@@ -406,39 +406,39 @@ class Updater extends Base {
         };
 
         const minified = {
-            l: username,
+            l : username,
             tc: total,
             fy: startYear,
             lu: new Date().toISOString(),
-            y: yearsArr,
+            y : yearsArr,
             cy: commitsArr,
             py: privateArr
         };
 
         // Top Repo (Focus Metric)
         if (repoMap.size > 0) {
-            let topRepoName = null;
+            let topRepoName  = null;
             let topRepoCount = -1;
-            
+
             for (const [name, count] of repoMap) {
                 if (count > topRepoCount) {
                     topRepoCount = count;
                     topRepoName = name;
                 }
             }
-            
+
             if (topRepoName) {
                 minified.tr = [topRepoName, topRepoCount];
             }
         }
 
         if (name && name !== username) minified.n = name;
-        
+
         const avatarId = extractId(avatarUrl);
         if (avatarId) minified.i = avatarId;
 
         if (location) minified.lc = location;
-        
+
         const countryCode = LocationNormalizer.normalize(location);
         if (countryCode) minified.cc = countryCode;
 
