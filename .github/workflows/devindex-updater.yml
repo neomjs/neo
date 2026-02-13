@@ -39,11 +39,11 @@ jobs:
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           # Check for changes in specific files
-          if [[ -n $(git status -s apps/devindex/resources/users.jsonl apps/devindex/resources/tracker.json) ]]; then
+          if [[ -n $(git status -s apps/devindex/resources/users.jsonl apps/devindex/resources/tracker.json apps/devindex/resources/failed.json) ]]; then
             echo "Changes detected in data files."
 
             # Stage the files
-            git add apps/devindex/resources/users.jsonl apps/devindex/resources/tracker.json
+            git add apps/devindex/resources/users.jsonl apps/devindex/resources/tracker.json apps/devindex/resources/failed.json
 
             # Commit
             git commit -m "chore(devindex): Hourly index update [skip ci]"
