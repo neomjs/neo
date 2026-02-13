@@ -32,13 +32,13 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "Starting Spider Run 1/3..."
-          npm run devindex:spider
+          npm run devindex:spider -- --strategy random
           
           echo "Starting Spider Run 2/3..."
-          npm run devindex:spider
+          npm run devindex:spider -- --strategy random
           
           echo "Starting Spider Run 3/3..."
-          npm run devindex:spider
+          npm run devindex:spider -- --strategy random
 
       - name: Commit, Rebase and Push
         run: |

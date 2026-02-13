@@ -82,7 +82,7 @@ class Manager extends Base {
         program
             .command('spider')
             .description('Run the discovery spider to find new users')
-            .option('-s, --strategy <type>', 'Force specific strategy (community, keyword, temporal, stargazer, search)')
+            .option('-s, --strategy <type>', 'Force specific strategy (random, community, keyword, temporal, stargazer, search)')
             .action(async (options) => {
                 let strategy = options.strategy;
 
