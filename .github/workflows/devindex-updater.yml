@@ -28,7 +28,7 @@ jobs:
         run: npm ci
 
       - name: Run DevIndex Updater
-        run: npm run devindex:update -- --limit=200
+        run: npm run devindex:update -- --limit=500
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
