@@ -48,6 +48,9 @@ jobs:
             # Commit
             git commit -m "chore(devindex): Hourly index update [skip ci]"
 
+            # Discard any other unstaged changes to allow rebase
+            git reset --hard
+
             # Rebase on top of remote changes to handle concurrent pushes
             git pull origin dev --rebase
 
