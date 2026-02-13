@@ -299,6 +299,25 @@ class Storage extends Base {
         }
     }
 
+    /**
+     * Removes users from the Rich Data Store (`users.jsonl`).
+     * @param {Array<String>} logins The list of logins to remove.
+     * @returns {Promise<Boolean>} True if any were removed.
+     */
+    async deleteUsers(logins) {
+        const current = await this.getUsers();
+        const targets = new Set(logins.map(l => l.toLowerCase()));
+        const initialLen = current.length;
+        
+        const filtered = current.filter(u => !targets.has(u.l.toLowerCase()));
+        
+        if (filtered.length !== initialLen) {
+            await this.writeJson(config.paths.users, filtered);
+            return true;
+        }
+        return false;
+    }
+
     // --- Low Level Helpers ---
 
     /**

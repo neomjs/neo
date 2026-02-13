@@ -275,6 +275,70 @@ class GitHub extends Base {
             throw error;
         }
     }
+
+    /**
+     * Resolves a GitHub Node ID to the current login.
+     * Used for tracking user renames.
+     * 
+     * @param {String} nodeId The global node ID (Base64).
+     * @returns {Promise<String|null>} The current login, or null if not found.
+     */
+    async getLoginById(nodeId) {
+        // We use 'node' interface which is polymorphic.
+        // If the ID belongs to a User, it will return the User object.
+        const query = `
+            query { 
+                node(id: "${nodeId}") {
+                    ... on User {
+                        login
+                    }
+                    ... on Organization {
+                        login
+                    }
+                }
+            }`;
+
+        try {
+            const data = await this.query(query, {}, 1, `ID:${nodeId}`);
+            if (data?.node?.login) {
+                return data.node.login;
+            }
+            return null;
+        } catch (error) {
+            // 404/Not Found on Node ID means hard deletion
+            if (error.message.includes('NOT_FOUND') || error.message.includes('Could not resolve')) {
+                return null;
+            }
+            throw error;
+        }
+    }
+
+    /**
+     * Resolves a GitHub Database ID (Integer) to the current login.
+     * @param {Number} dbId The integer user ID.
+     * @returns {Promise<String|null>}
+     */
+    async getLoginByDatabaseId(dbId) {
+        const query = `
+            query { 
+                user(databaseId: ${dbId}) {
+                    login
+                } 
+            }`;
+
+        try {
+            const data = await this.query(query, {}, 1, `DB_ID:${dbId}`);
+            if (data?.user?.login) {
+                return data.user.login;
+            }
+            return null;
+        } catch (error) {
+            if (error.message.includes('NOT_FOUND') || error.message.includes('Could not resolve')) {
+                return null;
+            }
+            throw error;
+        }
+    }
 }
 
 export default Neo.setupClass(GitHub);
