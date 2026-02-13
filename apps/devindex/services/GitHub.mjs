@@ -49,10 +49,10 @@ class GitHub extends Base {
          * @member {Object} rateLimit
          */
         rateLimit: {
-            core: { remaining: 5000, reset: null, limit: 5000 },
-            search: { remaining: 30, reset: null, limit: 30 },
-            graphql: { remaining: 5000, reset: null, limit: 5000 },
-            integration_manifest: { remaining: 5000, reset: null, limit: 5000 }
+            core                : {remaining: 5000, reset: null, limit: 5000},
+            search              : {remaining:   30, reset: null, limit:   30},
+            graphql             : {remaining: 5000, reset: null, limit: 5000},
+            integration_manifest: {remaining: 5000, reset: null, limit: 5000}
         }
     }
 
@@ -94,12 +94,12 @@ class GitHub extends Base {
      * @private
      */
     #updateRateLimit(response) {
-        const headers = response.headers;
+        const headers  = response.headers;
         const resource = headers.get('x-ratelimit-resource');
-        
+
         // If resource is unknown, fallback to core (safest assumption)
         const bucketName = (resource && this.rateLimit[resource]) ? resource : 'core';
-        const bucket = this.rateLimit[bucketName];
+        const bucket     = this.rateLimit[bucketName];
 
         // GitHub sends headers as `x-ratelimit-*` (standard)
         const remaining = headers.get('x-ratelimit-remaining');
@@ -128,13 +128,13 @@ class GitHub extends Base {
      */
     #updateFromBody(rateLimit) {
         if (!rateLimit) return;
-        
+
         // GraphQL usually maps to 'graphql' resource (which shares quota with 'core')
         const bucket = this.rateLimit.graphql;
 
         if (rateLimit.remaining !== undefined) bucket.remaining = rateLimit.remaining;
         if (rateLimit.limit !== undefined)     bucket.limit     = rateLimit.limit;
-        
+
         if (rateLimit.resetAt) {
             // GraphQL returns ISO string, we store epoch seconds
             bucket.reset = Math.floor(new Date(rateLimit.resetAt).getTime() / 1000);
@@ -157,9 +157,9 @@ class GitHub extends Base {
             const response = await fetch(this.graphqlUrl, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
+                    'Content-Type' : 'application/json',
                     'Authorization': `bearer ${token}`,
-                    'User-Agent': 'Neo.mjs-DevIndex/1.0'
+                    'User-Agent'   : 'Neo.mjs-DevIndex/1.0'
                 },
                 body: JSON.stringify({ query, variables })
             });
@@ -198,14 +198,14 @@ class GitHub extends Base {
             if (json.errors) {
                 // Check for "Not Found" or "Not a User" errors to abort retry immediately
                 const messages = json.errors.map(e => e.message).join(', ');
-                
+
                 if (messages.includes('Could not resolve to a User') || messages.includes('NOT_FOUND')) {
                     throw new Error(`GraphQL Fatal Error: ${messages}`);
                 }
 
                 // Sometimes 502s come as 200 OK with errors body
                 const isGatewayError = json.errors.some(e => e.message?.includes('502') || e.message?.includes('504'));
-                
+
                 if (isGatewayError && retries > 0) {
                     const delay = (4 - retries) * 2000;
                     console.log(`${prefix} Gateway Error in body. Retrying in ${delay}ms...`);
@@ -226,7 +226,7 @@ class GitHub extends Base {
             // Also catch network errors for retry
             // 'terminated' likely means connection closed by server/proxy
             if (retries > 0 && (
-                error.message.includes('fetch') || 
+                error.message.includes('fetch') ||
                 error.message.includes('network') ||
                 error.message.includes('terminated')
             )) {
@@ -254,9 +254,9 @@ class GitHub extends Base {
             const response = await fetch(url, {
                 method: 'GET',
                 headers: {
-                    'Accept': 'application/vnd.github.v3+json',
+                    'Accept'       : 'application/vnd.github.v3+json',
                     'Authorization': `bearer ${token}`,
-                    'User-Agent': 'Neo.mjs-DevIndex/1.0'
+                    'User-Agent'   : 'Neo.mjs-DevIndex/1.0'
                 }
             });
 
@@ -279,7 +279,7 @@ class GitHub extends Base {
     /**
      * Resolves a GitHub Node ID to the current login.
      * Used for tracking user renames.
-     * 
+     *
      * @param {String} nodeId The global node ID (Base64).
      * @returns {Promise<String|null>} The current login, or null if not found.
      */
@@ -315,10 +315,10 @@ class GitHub extends Base {
 
     /**
      * Resolves a GitHub Database ID (Integer) to the current login.
-     * 
+     *
      * This method is critical for handling username changes (renames). When a stored login returns 404,
      * this method allows us to look up the new login associated with the immutable Database ID, preventing data loss.
-     * 
+     *
      * @param {Number} dbId The integer user ID.
      * @returns {Promise<String|null>} The current login, or null if the ID is invalid/deleted.
      */
