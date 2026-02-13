@@ -321,6 +321,10 @@ class Updater extends Base {
                     totalPullRequestReviewContributions
                     totalRepositoryContributions
                     restrictedContributionsCount
+                    commitContributionsByRepository(maxRepositories: 5) {
+                        repository { name }
+                        contributions { totalCount }
+                    }
                 }`;
             }
             query += ` } }`;
@@ -362,6 +366,7 @@ class Updater extends Base {
         const yearsArr = [];
         const commitsArr = [];
         const privateArr = [];
+        const repoMap = new Map(); // name -> total
         
         // Ensure years are sorted and fill the array sequentially from startYear
         for (let year = startYear; year <= currentYear; year++) {
@@ -378,6 +383,15 @@ class Updater extends Base {
                         (collection?.totalPullRequestReviewContributions || 0) +
                         (collection?.totalRepositoryContributions || 0) +
                         privateStats;
+
+            // Aggregate Repos (Focus Metric)
+            if (collection?.commitContributionsByRepository) {
+                collection.commitContributionsByRepository.forEach(repo => {
+                    const name = repo.repository.name;
+                    const count = repo.contributions.totalCount;
+                    repoMap.set(name, (repoMap.get(name) || 0) + count);
+                });
+            }
 
             yearsArr.push(val);
             commitsArr.push(commits);
@@ -400,6 +414,23 @@ class Updater extends Base {
             cy: commitsArr,
             py: privateArr
         };
+
+        // Top Repo (Focus Metric)
+        if (repoMap.size > 0) {
+            let topRepoName = null;
+            let topRepoCount = -1;
+            
+            for (const [name, count] of repoMap) {
+                if (count > topRepoCount) {
+                    topRepoCount = count;
+                    topRepoName = name;
+                }
+            }
+            
+            if (topRepoName) {
+                minified.tr = [topRepoName, topRepoCount];
+            }
+        }
 
         if (name && name !== username) minified.n = name;
         
