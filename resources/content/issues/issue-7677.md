@@ -1,23 +1,24 @@
 ---
 id: 7677
 title: Create Playwright Component Test for Neo.form.field.Password
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - stale
   - ai
 assignees: []
 createdAt: '2025-10-27T14:00:18Z'
-updatedAt: '2026-01-30T03:37:14Z'
+updatedAt: '2026-02-13T03:57:05Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7677'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: 7435
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-02-13T03:57:05Z'
 ---
 # Create Playwright Component Test for Neo.form.field.Password
 
@@ -90,4 +91,9 @@ The test should be created at: `test/playwright/component/form/field/Password.sp
 This issue is stale because it has been open for 90 days with no activity.
 
 - 2026-01-30T03:37:14Z @github-actions added the `stale` label
+### @github-actions - 2026-02-13T03:57:04Z
+
+This issue was closed because it has been inactive for 14 days since being marked as stale.
+
+- 2026-02-13T03:57:05Z @github-actions closed this issue
 

@@ -26,8 +26,19 @@ subIssues:
   - '[x] 9119 DevIndex: Add Scheduled Hourly Updater Workflow'
   - '[x] 9121 DevIndex: Implement "Penalty Box" for Failed User Updates'
   - '[x] 9122 DevIndex: Refine Updater Metrics (Success vs Failure)'
-subIssuesCompleted: 12
-subIssuesTotal: 12
+  - '[x] 9127 Fix DevIndex Updater Workflow Rebase Logic'
+  - '[x] 9128 Implement Adaptive Chunking for DevIndex Updater to Fix 504 Timeouts'
+  - '[x] 9129 Fix DevIndex Updater Workflow Unstaged Changes Error (failed.json)'
+  - '[x] 9130 Increase DevIndex Updater Throughput to 500 Users/Hour'
+  - '[x] 9131 Fix Spider Bio-Signal Search Query 422 Error'
+  - '[x] 9132 Implement ''Network Walker'' Discovery Strategy (Social Graph)'
+  - '[x] 9133 Tune Spider Strategy Probabilities and Enhance Documentation'
+  - '[x] 9134 Fix Organization Leakage in DevIndex and Updater Retries'
+  - '[x] 9135 Implement Safe Purge for Invalid Users in DevIndex Updater'
+  - '[ ] 9136 Implement 30-Day Retention Policy for DevIndex Penalty Box'
+  - '[ ] 9137 Implement ID-Based Rename Handling for DevIndex'
+subIssuesCompleted: 21
+subIssuesTotal: 23
 blockedBy: []
 blocking: []
 ---
@@ -55,4 +66,15 @@ It focuses on UI/UX improvements, bug fixes, and ensuring a smooth user experien
 - 2026-02-12T20:31:48Z @tobiu added sub-issue #9119
 - 2026-02-12T20:50:48Z @tobiu added sub-issue #9121
 - 2026-02-12T20:55:43Z @tobiu added sub-issue #9122
+- 2026-02-13T00:50:50Z @tobiu added sub-issue #9127
+- 2026-02-13T01:02:10Z @tobiu added sub-issue #9128
+- 2026-02-13T01:09:44Z @tobiu added sub-issue #9129
+- 2026-02-13T01:24:21Z @tobiu added sub-issue #9130
+- 2026-02-13T01:29:45Z @tobiu added sub-issue #9131
+- 2026-02-13T01:39:44Z @tobiu added sub-issue #9132
+- 2026-02-13T01:45:49Z @tobiu added sub-issue #9133
+- 2026-02-13T02:06:32Z @tobiu added sub-issue #9134
+- 2026-02-13T02:13:34Z @tobiu added sub-issue #9135
+- 2026-02-13T02:23:05Z @tobiu added sub-issue #9136
+- 2026-02-13T02:24:25Z @tobiu added sub-issue #9137
 
