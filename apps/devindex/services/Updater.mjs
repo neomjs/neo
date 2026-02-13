@@ -286,7 +286,23 @@ class Updater extends Base {
 
         // Fetch year chunks sequentially to be safe
         for (const chunk of yearChunks) {
-            await fetchYears(chunk.start, chunk.end);
+            try {
+                // 1. Try Fast Path (Batch of 4)
+                await fetchYears(chunk.start, chunk.end);
+            } catch (err) {
+                // 2. Detect Failure (504/502/Timeout)
+                console.warn(`[Updater] [${username}] Batch failed (${chunk.start}-${chunk.end}). Falling back to single years...`);
+
+                // 3. Fallback: Process year by year
+                for (let y = chunk.start; y <= chunk.end; y++) {
+                    try {
+                        await fetchYears(y, y);
+                    } catch (innerErr) {
+                        console.error(`[Updater] [${username}] Year ${y} failed even individually.`);
+                        throw innerErr; // If even 1 year fails, the user is truly broken
+                    }
+                }
+            }
         }
 
         // 4. Aggregate Data & Minify
