@@ -37,6 +37,7 @@ class LocationNormalizer extends Base {
         ['nyc', 'US'], ['seattle', 'US'], ['austin', 'US'], ['boston', 'US'],
         ['los angeles', 'US'], ['chicago', 'US'], ['denver', 'US'], ['palo alto', 'US'],
         ['mountain view', 'US'], ['cupertino', 'US'], ['redmond', 'US'],
+        ['washington', 'US'], ['washington dc', 'US'], ['washington d.c.', 'US'], ['dc', 'US'],
 
         // UK
         ['london', 'GB'], ['manchester', 'GB'], ['edinburgh', 'GB'], ['cambridge', 'GB'],
