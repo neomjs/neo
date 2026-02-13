@@ -38,8 +38,9 @@ subIssues:
   - '[ ] 9136 Implement 30-Day Retention Policy for DevIndex Penalty Box'
   - '[ ] 9137 Implement ID-Based Rename Handling for DevIndex'
   - '[x] 9138 Fix DevIndex Updater Workflow Unstaged Changes Error'
-subIssuesCompleted: 22
-subIssuesTotal: 24
+  - '[x] 9139 Fix DevIndex Updater Workflow: Stage All Data Files'
+subIssuesCompleted: 23
+subIssuesTotal: 25
 blockedBy: []
 blocking: []
 ---
@@ -79,4 +80,5 @@ It focuses on UI/UX improvements, bug fixes, and ensuring a smooth user experien
 - 2026-02-13T02:23:05Z @tobiu added sub-issue #9136
 - 2026-02-13T02:24:25Z @tobiu added sub-issue #9137
 - 2026-02-13T11:00:04Z @tobiu added sub-issue #9138
+- 2026-02-13T11:06:18Z @tobiu added sub-issue #9139
 
