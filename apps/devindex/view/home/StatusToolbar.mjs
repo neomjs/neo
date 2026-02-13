@@ -52,6 +52,14 @@ class StatusToolbar extends Toolbar {
             flex : 1
         }, {
             ntype    : 'label',
+            reference: 'total-contributions-label',
+            text     : 'Total Contributions: 0'
+        }, {
+            ntype: 'label',
+            style: {marginLeft: '10px', marginRight: '10px'},
+            text : '•'
+        }, {
+            ntype    : 'label',
             reference: 'count-rows-label',
             text     : 'Visible Rows: 0'
         }]
@@ -68,7 +76,7 @@ class StatusToolbar extends Toolbar {
     onStoreLoad(data) {
         let me = this;
 
-        me.updateRowsLabel();
+        me.updateRowsLabels();
 
         if (!data.isLoading) {
             me.timeout(500).then(() => {
@@ -85,7 +93,7 @@ class StatusToolbar extends Toolbar {
      * @param {Object} data
      */
     onStoreFilter(data) {
-        this.updateRowsLabel()
+        this.updateRowsLabels()
     }
 
     /**
@@ -102,10 +110,22 @@ class StatusToolbar extends Toolbar {
     /**
      *
      */
-    updateRowsLabel() {
-        let me = this;
+    updateRowsLabels() {
+        let me             = this,
+            {store}        = me,
+            {count, items} = store,
+            total          = 0,
+            i              = 0,
+            item;
 
-        me.getReference('count-rows-label').text = 'Visible Rows: ' + me.numberFormatter.format(me.store.count)
+        for (; i < count; i++) {
+            item = items[i];
+            // Handle Turbo Mode (raw object) vs Record instance
+            total += (item.tc ?? item.totalContributions ?? 0)
+        }
+
+        me.getReference('count-rows-label').text          = 'Visible Rows: '        + me.numberFormatter.format(count);
+        me.getReference('total-contributions-label').text = 'Total Contributions: ' + me.numberFormatter.format(total)
     }
 }
 
