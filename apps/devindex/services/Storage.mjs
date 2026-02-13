@@ -97,7 +97,7 @@ class Storage extends Base {
     async getFailed() {
         const raw = await this.readJson(config.paths.failed, {});
         const map = new Map();
-        
+
         if (Array.isArray(raw)) {
             // Migration: Convert legacy array to Object with current timestamp
             const now = new Date().toISOString();
@@ -105,7 +105,7 @@ class Storage extends Base {
         } else {
             Object.entries(raw).forEach(([login, ts]) => map.set(login.toLowerCase(), ts));
         }
-        
+
         return map;
     }
 
@@ -167,9 +167,9 @@ class Storage extends Base {
      * @returns {Promise<void>}
      */
     async updateVisited(newItems) {
-        const current = await this.readJson(config.paths.visited, []);
+        const current    = await this.readJson(config.paths.visited, []);
         const currentSet = new Set(current);
-        let changed = false;
+        let changed      = false;
 
         const items = Array.isArray(newItems) ? newItems : Array.from(newItems);
 
@@ -191,19 +191,19 @@ class Storage extends Base {
      */
     async getTracker() {
         const raw = await this.readJson(config.paths.tracker, {});
-        
+
         // Return as Array for Consumers
         return Object.entries(raw).map(([login, lastUpdate]) => ({ login, lastUpdate }));
     }
 
     /**
      * Updates the Tracker Index with new states or timestamps.
-     * 
+     *
      * Handles three types of operations based on the input:
      * 1.  **Insert (Discovery):** Adds a new user with `lastUpdate: null`.
      * 2.  **Update (Success):** Updates an existing user with a new `lastUpdate` timestamp.
      * 3.  **Delete (Pruning):** Removes a user if `delete: true` is present in the update object.
-     * 
+     *
      * Performs a case-insensitive lookup to prevent duplicate entries for the same user.
      *
      * @param {Array<{login: String, lastUpdate: String, delete?: Boolean}>} updates List of update operations.
@@ -218,15 +218,15 @@ class Storage extends Base {
         let changed = false;
 
         for (const update of updates) {
-            const key = update.login.toLowerCase();
+            const key      = update.login.toLowerCase();
             const existing = map[key];
-            
+
             // Update if new or if timestamp is newer
-            // Note: We might be updating the key casing if the new login has different casing, 
+            // Note: We might be updating the key casing if the new login has different casing,
             // but for the map we stick to the original unless it's new.
-            // Actually, we want to canonicalize to the most recent login casing? 
+            // Actually, we want to canonicalize to the most recent login casing?
             // Let's just use the update.login as the key if we write it back.
-            
+
             const existingTime = existing ? existing.val : undefined;
 
             if (update.delete) {
@@ -267,7 +267,7 @@ class Storage extends Base {
 
     /**
      * Persists enriched user profiles to the Rich Data Store (`users.json`).
-     * 
+     *
      * Performs a **Merge & Sort** operation:
      * 1.  Loads existing data.
      * 2.  Overwrites or adds new records based on the `login` key.
@@ -279,8 +279,8 @@ class Storage extends Base {
      */
     async updateUsers(newRecords) {
         const current = await this.getUsers();
-        const map = new Map(current.map(r => [r.l, r])); // 'l' is login
-        let changed = false;
+        const map     = new Map(current.map(r => [r.l, r])); // 'l' is login
+        let changed   = false;
 
         for (const record of newRecords) {
             // For rich data, we generally assume 'record' is the latest full snapshot
@@ -291,10 +291,10 @@ class Storage extends Base {
         if (changed) {
             // Convert back to array
             let result = Array.from(map.values());
-            
+
             // Sort by total contributions (descending). 'tc' is total_contributions
             result.sort((a, b) => (b.tc || 0) - (a.tc || 0));
-            
+
             await this.writeJson(config.paths.users, result);
         }
     }
@@ -305,12 +305,11 @@ class Storage extends Base {
      * @returns {Promise<Boolean>} True if any were removed.
      */
     async deleteUsers(logins) {
-        const current = await this.getUsers();
-        const targets = new Set(logins.map(l => l.toLowerCase()));
+        const current    = await this.getUsers();
+        const targets    = new Set(logins.map(l => l.toLowerCase()));
         const initialLen = current.length;
-        
-        const filtered = current.filter(u => !targets.has(u.l.toLowerCase()));
-        
+        const filtered   = current.filter(u => !targets.has(u.l.toLowerCase()));
+
         if (filtered.length !== initialLen) {
             await this.writeJson(config.paths.users, filtered);
             return true;
@@ -330,7 +329,7 @@ class Storage extends Base {
     async readJson(path, defaultValue) {
         try {
             const content = await fs.readFile(path, 'utf-8');
-            
+
             if (path.endsWith('.jsonl')) {
                 if (!content.trim()) return [];
                 return content
@@ -357,7 +356,7 @@ class Storage extends Base {
      */
     async writeJson(path, data) {
         let content;
-        
+
         if (path.endsWith('.jsonl')) {
             if (Array.isArray(data)) {
                 content = data.map(item => JSON.stringify(item)).join('\n');
