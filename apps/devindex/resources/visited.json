@@ -1732,6 +1732,7 @@
   "repo:cure53/DOMPurify",
   "repo:cvat-ai/cvat",
   "repo:cvg/LightGlue",
+  "repo:cvxgrp/cvxportfolio",
   "repo:cvxpy/cvxpy",
   "repo:cweill/gotests",
   "repo:cxinping/PyQt5",
@@ -4906,6 +4907,5 @@
   "repo:zxh326/kite",
   "repo:zxwk1998/vue-admin-better",
   "repo:zziz/pwc",
-  "repo:zzzgydi/clash-verge",
-  "repo:cvxgrp/cvxportfolio"
+  "repo:zzzgydi/clash-verge"
 ]
