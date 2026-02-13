@@ -68,9 +68,9 @@ class Manager extends Base {
                 if (!username) {
                     const answers = await inquirer.prompt([
                         {
-                            type: 'input',
-                            name: 'username',
-                            message: 'Enter GitHub username to add:',
+                            type    : 'input',
+                            name    : 'username',
+                            message : 'Enter GitHub username to add:',
                             validate: input => input.trim() !== '' ? true : 'Username is required'
                         }
                     ]);
@@ -92,13 +92,13 @@ class Manager extends Base {
                         name   : 'strategy',
                         message: 'Select Discovery Strategy:',
                         choices: [
-                            {name: '🎲 Random (Default)',           value: null},
+                            {name: '🎲 Random (Default)',              value: null},
                             {name: '🕸️ Network Walker (Social Graph)', value: 'network_walker'},
-                            {name: '👩‍💻 Community Scan (Diversity)', value: 'community'},
-                            {name: '🔑 Keyword Search',             value: 'keyword'},
-                            {name: '⏳ Temporal Slicing',           value: 'temporal'},
-                            {name: '🌟 Stargazer Leap',             value: 'stargazer'},
-                            {name: '🔍 Core High Stars',            value: 'search'}
+                            {name: '👩‍💻 Community Scan (Diversity)',    value: 'community'},
+                            {name: '🔑 Keyword Search',                value: 'keyword'},
+                            {name: '⏳ Temporal Slicing',              value: 'temporal'},
+                            {name: '🌟 Stargazer Leap',                value: 'stargazer'},
+                            {name: '🔍 Core High Stars',               value: 'search'}
                         ]
                     }]);
                     strategy = answers.strategy;
