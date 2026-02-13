@@ -41,11 +41,14 @@ class Updater extends Base {
      * 
      * Iterates through the provided list of logins, fetching their latest data from GitHub.
      * Enforces the "Meritocracy Logic" by checking the contribution threshold and whitelist status.
-     * - **Pass:** Persists rich data to `users.json` and updates the timestamp in `tracker.json`.
-     * - **Fail:** Signals `Storage` to DELETE the user from `tracker.json` (Active Pruning).
      * 
-     * Finally, it logs a summary of the run, including the number of successful updates and remaining backlog.
-     *
+     * **Safe Purge Protocol (Self-Healing):**
+     * This method implements a defensive strategy for handling API errors:
+     * 1.  **Transient Errors (5xx, Rate Limits):** Users are moved to the "Penalty Box" (`failed.json`) to be retried later.
+     * 2.  **Fatal Errors (404, Not a User):**
+     *     -   **If User Has History:** If the user exists in `users.jsonl`, we assume the 404 is a glitch or temporary suspension. They are **Protected** and moved to the Penalty Box.
+     *     -   **If User Is New:** If the user has *never* been successfully indexed, they are classified as a "Bad Seed" (e.g., leaked Organization, Typo). They are **Pruned** (deleted) from the tracker immediately.
+     * 
      * @param {String[]} logins             Array of usernames to process in this batch.
      * @param {Number}   [initialBacklog=0] The total size of the backlog *before* this batch started, used for reporting.
      * @returns {Promise<void>}
@@ -63,6 +66,8 @@ class Updater extends Base {
         let skipCount = 0;
         const saveInterval = config.updater.saveInterval;
         const whitelist = await Storage.getWhitelist();
+        const richUsers = await Storage.getUsers();
+        const richUserLogins = new Set(richUsers.map(u => u.l.toLowerCase()));
         const concurrency = 8; // Slightly reduced from 10 to balance speed vs stability
 
         // Helper to process a single user
@@ -91,13 +96,24 @@ class Updater extends Base {
                     console.log(`[${login}] SKIPPED (No Data/Bot)`);
                 }
             } catch (error) {
-                console.log(`[${login}] FAILED: ${error.message}`);
-                
-                // Penalty Box: Update timestamp to push failed users to the back of the queue
-                // This prevents them from blocking the pipeline in the next run
-                indexUpdates.push({ login, lastUpdate: new Date().toISOString() });
-                failedLogins.push(login); // Add to Penalty Box
-                failCount++; // Count as processed even if failed
+                const isFatal = error.message.includes('Could not resolve to a User') || error.message.includes('NOT_FOUND') || error.message.includes('GraphQL Fatal Error');
+                const hasRichData = richUserLogins.has(login.toLowerCase());
+
+                if (isFatal && !hasRichData) {
+                    // Safe Purge: User is invalid AND has never been indexed before.
+                    console.log(`[${login}] PERMANENT FAILURE: Invalid User/Org. [PRUNED]`);
+                    indexUpdates.push({ login, delete: true });
+                    // Do NOT add to failedLogins (Penalty Box), just delete.
+                    skipCount++; // Count as skipped/pruned
+                } else {
+                    // Transient Error OR User has History (Protect them)
+                    console.log(`[${login}] FAILED: ${error.message}`);
+                    
+                    // Penalty Box: Update timestamp to push failed users to the back of the queue
+                    indexUpdates.push({ login, lastUpdate: new Date().toISOString() });
+                    failedLogins.push(login); // Add to Penalty Box
+                    failCount++; // Count as processed even if failed
+                }
 
                 // Kill-switch: If we hit a rate limit error, force internal state to 0 to trigger graceful shutdown
                 if (error.message.includes('rate limit')) {
