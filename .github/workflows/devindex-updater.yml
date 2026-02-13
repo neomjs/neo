@@ -32,15 +32,27 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Pull latest changes
+      - name: Commit, Rebase and Push
         run: |
+          # Configure Git
           git config --global user.name "github-actions[bot]"
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git pull origin dev --rebase
 
-      - name: Commit and Push Changes
-        uses: stefanzweifel/git-auto-commit-action@v5
-        with:
-          commit_message: "chore(devindex): Hourly index update [skip ci]"
-          file_pattern: "apps/devindex/resources/users.jsonl apps/devindex/resources/tracker.json"
-          branch: dev
+          # Check for changes in specific files
+          if [[ -n $(git status -s apps/devindex/resources/users.jsonl apps/devindex/resources/tracker.json) ]]; then
+            echo "Changes detected in data files."
+
+            # Stage the files
+            git add apps/devindex/resources/users.jsonl apps/devindex/resources/tracker.json
+
+            # Commit
+            git commit -m "chore(devindex): Hourly index update [skip ci]"
+
+            # Rebase on top of remote changes to handle concurrent pushes
+            git pull origin dev --rebase
+
+            # Push changes
+            git push origin dev
+          else
+            echo "No changes detected. Skipping commit."
+          fi
