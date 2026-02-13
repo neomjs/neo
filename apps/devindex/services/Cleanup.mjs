@@ -17,6 +17,8 @@ import Storage from './Storage.mjs';
  *     VIPs are always scheduled for updates. Also protects them from being pruned, regardless of their contribution count.
  * 4.  **Canonical Sorting:** Re-writes all JSON files with deterministic sorting (by contributions or login) to minimize
  *     git diff noise and ensure O(1) human readability.
+ * 5.  **Penalty Box Retention:** Enforces a 30-day Time-To-Live (TTL) on failed users. If a user remains in the "Penalty Box"
+ *     (`failed.json`) for >30 days, they are permanently expunged.
  *
  * **Key Concepts:**
  * - **Active Pruning:** The proactive removal of "dead weight" users to optimize the `Updater` loop.
@@ -45,6 +47,7 @@ class Cleanup extends Base {
      * 
      * **Steps:**
      * 1.  **Load State:** Reads all JSON data files into memory.
+     * 1.5. **Retention Check:** Scans `failed.json` for expired entries (>30 days). Expired users are removed from the penalty box protection, effectively allowing them to be pruned if they remain invalid.
      * 2.  **Resurrection:** Checks `whitelist.json` against `tracker.json`. If a VIP is missing, they are added back to the queue.
      * 3.  **User Pruning:** Filters `users.json`. Removes any user who is in the blacklist OR (below threshold AND not whitelisted).
      * 4.  **Tracker Pruning:** Filters `tracker.json`. Removes users who have been scanned (`lastUpdate` exists) but failed the threshold check (are not in the filtered `users` list). Explicitly protects whitelisted users.
