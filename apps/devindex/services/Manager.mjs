@@ -93,6 +93,7 @@ class Manager extends Base {
                         message: 'Select Discovery Strategy:',
                         choices: [
                             {name: '🎲 Random (Default)',           value: null},
+                            {name: '🕸️ Network Walker (Social Graph)', value: 'network_walker'},
                             {name: '👩‍💻 Community Scan (Diversity)', value: 'community'},
                             {name: '🔑 Keyword Search',             value: 'keyword'},
                             {name: '⏳ Temporal Slicing',           value: 'temporal'},

@@ -11,14 +11,14 @@ import Storage from './Storage.mjs';
  * scanning the same top 100 repositories).
  *
  * **Discovery Strategies (Weighted):**
- * 1.  **Core: High Stars (40%):** Scans repositories with high star counts, but uses **Dynamic Range Slicing**
- *     (e.g., `stars:2000..3000`) to jump into the middle of the dataset and bypass GitHub's 1000-result search limit.
- * 2.  **Discovery: Keyword (30%):** Performs a "Dictionary Attack" using 60+ developer-centric keywords (e.g., "wasm",
- *     "compiler", "neural") to find niche experts in specific domains.
- * 3.  **Discovery: Temporal (20%):** Slices the last 10 years into random 1-week windows to find "hidden gems"
- *     created at specific times, regardless of their total star count.
- * 4.  **Discovery: Stargazer Leap (10%):** Picks a random user already in the index and scans their *starred repositories*,
- *     effectively traversing the social graph to find adjacent communities.
+ * 1.  **Network Walker (30%):** The primary engine. Picks a random qualified user from our index and traverses
+ *     their "following" graph. This "Depth-First" approach finds high-quality engineers who may not have
+ *     massively starred repos but are respected by their peers.
+ * 2.  **Core: High Stars (25%):** Scans repositories with high star counts, using **Dynamic Range Slicing**
+ *     to bypass GitHub's 1000-result search limit.
+ * 3.  **Discovery: Keyword (20%):** Performs a "Dictionary Attack" using developer-centric keywords.
+ * 4.  **Discovery: Temporal (15%):** Finds "hidden gems" from specific historical time windows.
+ * 5.  **Community / Stargazer (10%):** Niche strategies for diversity and repository-graph traversal.
  *
  * @class DevIndex.services.Spider
  * @extends Neo.core.Base
@@ -129,11 +129,12 @@ class Spider extends Base {
     /**
      * Selects a discovery strategy based on a weighted probability distribution.
      *
-     * - **High Stars (35%):** Finds established projects but uses slicing to go deeper.
-     * - **Keyword (25%):** Finds niche projects based on tech terms.
+     * - **Network Walker (30%):** Traverses the social graph.
+     * - **High Stars (25%):** Finds established projects but uses slicing to go deeper.
+     * - **Keyword (20%):** Finds niche projects based on tech terms.
      * - **Temporal (15%):** Finds hidden gems from specific time periods.
-     * - **Community (15%):** Scans diversity-focused organizations.
-     * - **Stargazer (10%):** Traverses the social graph (requires existing users).
+     * - **Community (5%):** Scans diversity-focused organizations.
+     * - **Stargazer (5%):** Traverses the repo graph.
      *
      * @param {Array} existingUsers The current list of tracked users (needed for Stargazer strategy).
      * @param {String} [forcedStrategy] Optional strategy name to enforce.
@@ -206,8 +207,8 @@ class Spider extends Base {
             }
         }
 
-        // 35% Chance: Core High Stars (Dynamic Ranges)
-        if (forcedStrategy === 'search' || rand < 0.35) {
+        // 25% Chance: Core High Stars (Dynamic Ranges)
+        if (forcedStrategy === 'search' || rand < 0.25) {
             // Pick a random lower bound to slice the high-star spectrum
             // Range: minStars (1000) to 20000
             const minStars = config.github.minStars;
@@ -223,8 +224,8 @@ class Spider extends Base {
             };
         }
 
-        // 25% Chance: Dictionary Attack
-        if (rand < 0.60) {
+        // 20% Chance: Dictionary Attack (Cumulative: 45%)
+        if (rand < 0.45) {
             const keyword = Spider.keywords[Math.floor(Math.random() * Spider.keywords.length)];
             return {
                 name: 'Discovery: Keyword',
@@ -234,8 +235,8 @@ class Spider extends Base {
             };
         }
 
-        // 15% Chance: Temporal Slicing
-        if (rand < 0.75) {
+        // 15% Chance: Temporal Slicing (Cumulative: 60%)
+        if (rand < 0.60) {
             const dateRange = this.getRandomDateRange();
             return {
                 name: 'Discovery: Temporal',
@@ -245,8 +246,8 @@ class Spider extends Base {
             };
         }
 
-        // 15% Chance: Network Walker (Social Graph)
-        if (rand < 0.80) {
+        // 30% Chance: Network Walker (Social Graph) (Cumulative: 90%)
+        if (rand < 0.90) {
             if (existingUsers.length > 0) {
                 const randomUser = existingUsers[Math.floor(Math.random() * existingUsers.length)];
                 return {
@@ -258,8 +259,8 @@ class Spider extends Base {
             }
         }
 
-        // 10% Chance: Community Scan (Diversity Pivot)
-        if (rand < 0.90) {
+        // 5% Chance: Community Scan (Cumulative: 95%)
+        if (rand < 0.95) {
             // 50/50 Split between Org Scan and Bio-Signal Search
             if (Math.random() < 0.5) {
                 const targetOrg = Spider.communityTargets[Math.floor(Math.random() * Spider.communityTargets.length)];
@@ -274,7 +275,7 @@ class Spider extends Base {
             }
         }
 
-        // 10% Chance: Stargazer Leap (only if we have users)
+        // 5% Chance: Stargazer Leap (Remaining 5%)
         if (existingUsers.length > 0) {
             const randomUser = existingUsers[Math.floor(Math.random() * existingUsers.length)];
             return {
