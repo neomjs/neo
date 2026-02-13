@@ -40,8 +40,10 @@ subIssues:
   - '[x] 9138 Fix DevIndex Updater Workflow Unstaged Changes Error'
   - '[x] 9139 Fix DevIndex Updater Workflow: Stage All Data Files'
   - '[x] 9140 Implement Scheduled DevIndex Spider Workflow'
-subIssuesCompleted: 24
-subIssuesTotal: 26
+  - '[x] 9141 [DevIndex] Fix Washington DC Location Resolution'
+  - '[x] 9142 [DevIndex] Create Country Code Repair Script'
+subIssuesCompleted: 26
+subIssuesTotal: 28
 blockedBy: []
 blocking: []
 ---
@@ -83,4 +85,6 @@ It focuses on UI/UX improvements, bug fixes, and ensuring a smooth user experien
 - 2026-02-13T11:00:04Z @tobiu added sub-issue #9138
 - 2026-02-13T11:06:18Z @tobiu added sub-issue #9139
 - 2026-02-13T11:10:53Z @tobiu added sub-issue #9140
+- 2026-02-13T11:58:55Z @tobiu added sub-issue #9141
+- 2026-02-13T12:19:34Z @tobiu added sub-issue #9142
 
