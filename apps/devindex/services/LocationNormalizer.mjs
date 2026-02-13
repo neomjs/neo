@@ -50,7 +50,19 @@ class LocationNormalizer extends Base {
         ['toronto', 'CA'], ['vancouver', 'CA'], ['montreal', 'CA'],
         ['sydney', 'AU'], ['melbourne', 'AU'],
         ['tokyo', 'JP'], ['beijing', 'CN'], ['shanghai', 'CN'], ['shenzhen', 'CN'],
-        ['bangalore', 'IN'], ['bengaluru', 'IN'], ['mumbai', 'IN'], ['delhi', 'IN']
+        ['bangalore', 'IN'], ['bengaluru', 'IN'], ['mumbai', 'IN'], ['delhi', 'IN'], ['gurugram', 'IN'],
+        ['são paulo', 'BR'],
+        ['amsterdam', 'NL'], ['the hague', 'NL'],
+        ['brooklyn', 'US'], ['sammamish', 'US'], ['bend', 'US'],
+        ['california', 'US'], ['texas', 'US'],
+        ['whangarei', 'NZ'],
+        ['lisbon', 'PT'],
+        ['bonn', 'DE'],
+        ['copenhagen', 'DK'], ['stockholm', 'SE'],
+        ['hawaii', 'US'], ['hope, ri', 'US'],
+        ['columbus', 'US'], ['charlotte', 'US'], ['phoenix', 'US'], ['philadelphia', 'US'],
+        ['san antonio', 'US'], ['san diego', 'US'], ['dallas', 'US'], ['san jose', 'US'],
+        ['jacksonville', 'US'], ['indianapolis', 'US']
     ]);
 
     /**
@@ -74,6 +86,20 @@ class LocationNormalizer extends Base {
         if (/\b(united states|usa|u\.s\.a|us)\b/.test(text)) return 'US';
         if (/\b(united kingdom|uk|great britain|england|scotland|wales)\b/.test(text)) return 'GB';
         if (/\b(france)\b/.test(text)) return 'FR';
+        if (/\b(australia|au)\b/.test(text)) return 'AU';
+        if (/\b(malta)\b/.test(text)) return 'MT';
+
+        // 2.5 US State Codes (Word Boundary Check)
+        // Avoids matching "Doha" for "OH"
+        // We only include states that do NOT conflict with ISO Country Codes
+        // e.g. CA (Canada), DE (Germany), IN (India), ID (Indonesia) are excluded here.
+        if (/\b(oh|wa|or|ri|ny|nj|tx|fl|ut|az|nm|nv|mn|mi|il|mo|tn|ky|wv|va|nc|sc|ga|al|ms|la|ar|ok|ks|ne|sd|nd|wy|mt|vt|ct|ma|pa)\b/.test(text)) {
+            // Heuristic: Map common US state codes to 'US'.
+            // We exclude major country codes (CA, DE, IN, ID) to prevent false positives.
+            // Minor collisions (IL=Israel, GA=Gabon, MT=Malta) are accepted as they are
+            // statistically more likely to represent US states in this specific dataset.
+            return 'US';
+        }
         if (/\b(canada)\b/.test(text)) return 'CA';
         if (/\b(china|prc)\b/.test(text)) return 'CN';
         if (/\b(india)\b/.test(text)) return 'IN';
