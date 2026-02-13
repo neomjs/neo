@@ -33,9 +33,9 @@ class Contributors extends Store {
          * @member {Object[]} filters
          */
         filters: [
-            {property: 'country_code', operator: '===',  value: null},
-            {property: 'login',        operator: 'like', value: null},
-            {property: 'name',         operator: 'like', value: null}
+            {property: 'countryCode', operator: '===',  value: null},
+            {property: 'login',       operator: 'like', value: null},
+            {property: 'name',        operator: 'like', value: null}
         ],
         /**
          * @member {Object} proxy
@@ -48,7 +48,7 @@ class Contributors extends Store {
          * @member {Object[]} sorters
          */
         sorters: [
-            {property: 'total_contributions', direction: 'DESC'}
+            {property: 'totalContributions', direction: 'DESC'}
         ]
     }
 }

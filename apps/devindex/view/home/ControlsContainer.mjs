@@ -49,7 +49,7 @@ class ControlsContainer extends Container {
                     labelPosition : 'inline',
                     labelText     : 'Country',
                     listeners     : {change: 'up.onFilterChange'},
-                    name          : 'country_code',
+                    name          : 'countryCode',
                     reference     : 'country-field',
                     showFlags     : true,
                     style         : {marginTop: '.3em'},
@@ -177,7 +177,7 @@ class ControlsContainer extends Container {
     onFilterChange(data) {
         let value = data.component.getSubmitValue();
 
-        if (data.component.name === 'country_code' && value) {
+        if (data.component.name === 'countryCode' && value) {
             value = value.toUpperCase()
         }
 

@@ -107,10 +107,10 @@ class GridContainer extends BaseGridContainer {
                 } else {
                     column.renderer = ({value}) => value || ''; // Restore default
                 }
-            } else if (dataField === 'total_contributions') {
+            } else if (dataField === 'totalContributions') {
                 if (value) {
                     column.renderer = ({record}) => {
-                        const total = record.commits_array?.reduce((a, b) => a + b, 0) || 0;
+                        const total = record.commitsArray?.reduce((a, b) => a + b, 0) || 0;
                         return new Intl.NumberFormat().format(total);
                     };
                 } else {
@@ -137,8 +137,8 @@ class GridContainer extends BaseGridContainer {
                 let year = property.replace(/^(y|cy)/, '');
                 // Switch to the target prefix
                 activeSorter.property = `${prefix}${year}`;
-            } else if (property === 'total_contributions' || property === 'total_commits') {
-                activeSorter.property = value ? 'total_commits' : 'total_contributions';
+            } else if (property === 'totalContributions' || property === 'totalCommits') {
+                activeSorter.property = value ? 'totalCommits' : 'totalContributions';
             }
         }
 
@@ -162,7 +162,7 @@ class GridContainer extends BaseGridContainer {
             text     : 'User',
             width    : 250
         }, {
-            dataField           : 'total_contributions',
+            dataField           : 'totalContributions',
             text                : 'Total',
             width               : 100,
             cellAlign           : 'right',
@@ -197,16 +197,16 @@ class GridContainer extends BaseGridContainer {
             renderer : ({value}) => value ? value.replace(/^@/, '') : ''
         }, {
             type     : 'countryFlag',
-            dataField: 'country_code',
+            dataField: 'countryCode',
             sortable : false,
             text     : 'Location',
             width    : 200
         }, {
-            dataField: 'first_year',
+            dataField: 'firstYear',
             text     : 'Since', width: 80,
             cellAlign: 'center'
         }, {
-            dataField: 'linkedin_url',
+            dataField: 'linkedinUrl',
             text     : 'LI',
             width    : 50,
             cellAlign: 'center',
@@ -246,7 +246,7 @@ class GridContainer extends BaseGridContainer {
         }
 
         columns.push({
-            dataField: 'last_updated',
+            dataField: 'lastUpdated',
             text     : 'Updated',
             width    : 120,
             cellAlign: 'right',
@@ -264,8 +264,8 @@ class GridContainer extends BaseGridContainer {
         if (this.commitsOnly) {
             if (/^y\d{4}$/.test(opts.property)) {
                 opts.property = 'c' + opts.property; // y2020 -> cy2020
-            } else if (opts.property === 'total_contributions') {
-                opts.property = 'total_commits';
+            } else if (opts.property === 'totalContributions') {
+                opts.property = 'totalCommits';
             }
         }
         super.onSortColumn(opts);
