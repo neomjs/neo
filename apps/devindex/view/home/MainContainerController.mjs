@@ -19,26 +19,9 @@ class MainContainerController extends Controller {
     onComponentConstructed() {
         let me = this;
 
-        // Setup Grid Listeners
-        let grid = me.getReference('grid');
-        if (grid) {
-            grid.body.on('select', me.onGridSelect, me);
-        }
+        me.getReference('grid').body.on('select', me.onGridSelect, me);
 
-        // Setup Tab Listeners
-        let tabContainer = me.getReference('controls')?.down({reference: 'controls-tab-container'});
-        // Note: Using down() here because controls-tab-container might not be registered if controls has no controller?
-        // Wait, I fixed that assumption. references bubble.
-        // But controls-tab-container is inside controls items.
-        // Let's rely on getReference('controls-tab-container') which should work if bubble is true.
-        // But to be safe and consistent with previous discovery:
-        // me.getReference('controls-tab-container') should be available if I trust my previous fix.
-        // Let's use getReference().
-        
-        let tabs = me.getReference('controls-tab-container');
-        if (tabs) {
-            tabs.on('activeIndexChange', me.onControlsTabChange, me);
-        }
+        me.getReference('controls-tab-container').on('activeIndexChange', me.onControlsTabChange, me);
 
         Neo.Main.getByPath({
             path    : 'location.search',
