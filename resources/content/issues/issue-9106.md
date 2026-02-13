@@ -39,8 +39,9 @@ subIssues:
   - '[ ] 9137 Implement ID-Based Rename Handling for DevIndex'
   - '[x] 9138 Fix DevIndex Updater Workflow Unstaged Changes Error'
   - '[x] 9139 Fix DevIndex Updater Workflow: Stage All Data Files'
-subIssuesCompleted: 23
-subIssuesTotal: 25
+  - '[x] 9140 Implement Scheduled DevIndex Spider Workflow'
+subIssuesCompleted: 24
+subIssuesTotal: 26
 blockedBy: []
 blocking: []
 ---
@@ -81,4 +82,5 @@ It focuses on UI/UX improvements, bug fixes, and ensuring a smooth user experien
 - 2026-02-13T02:24:25Z @tobiu added sub-issue #9137
 - 2026-02-13T11:00:04Z @tobiu added sub-issue #9138
 - 2026-02-13T11:06:18Z @tobiu added sub-issue #9139
+- 2026-02-13T11:10:53Z @tobiu added sub-issue #9140
 
