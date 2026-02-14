@@ -1019,6 +1019,7 @@
   "repo:PowerShellMafia/PowerSploit",
   "repo:Pr0teus/aws-trail-recon",
   "repo:PragTob/rails-girls-tuesday",
+  "repo:Predidit/Kazumi",
   "repo:Predidit/KazumiRules",
   "repo:PrefectHQ/prefect",
   "repo:Prinzhorn/skrollr",
@@ -4125,6 +4126,7 @@
   "repo:linnovate/mean",
   "repo:linsa-io/books",
   "repo:linsa-io/linsa",
+  "repo:linshenkx/prompt-optimizer",
   "repo:lint-staged/lint-staged",
   "repo:linuxserver/docker-plex",
   "repo:linx4200/vue-color",
@@ -6750,7 +6752,5 @@
   "repo:zxh326/kite",
   "repo:zxwk1998/vue-admin-better",
   "repo:zziz/pwc",
-  "repo:zzzgydi/clash-verge",
-  "repo:linshenkx/prompt-optimizer",
-  "repo:Predidit/Kazumi"
+  "repo:zzzgydi/clash-verge"
 ]
