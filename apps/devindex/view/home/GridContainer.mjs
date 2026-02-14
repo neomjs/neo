@@ -2,6 +2,12 @@ import BaseGridContainer from '../../../../src/grid/Container.mjs';
 import Contributors      from '../../store/Contributors.mjs';
 import StatusToolbar     from './StatusToolbar.mjs';
 
+const
+    regexPrefixC          = /^c/,
+    regexPrefixCy         = /^(c?y)/,
+    regexYearColumn       = /^(c?y)\d{4}$/,
+    regexContributionYear = /^y\d{4}$/;
+
 /**
  * @class DevIndex.view.home.GridContainer
  * @extends Neo.grid.Container
@@ -90,41 +96,35 @@ class GridContainer extends BaseGridContainer {
     afterSetCommitsOnly(value, oldValue) {
         if (oldValue === undefined) return;
 
-        let me           = this,
-            {store}      = me,
-            activeSorter = store.sorters?.[0],
-            prefix       = value ? 'cy' : 'y';
+        let me              = this,
+            {footerToolbar} = me,
+            {store}         = me,
+            activeSorter    = store.sorters?.[0],
+            prefix          = value ? 'cy' : 'y';
 
-        // 1. Update Column Renderers & Components
+        if (footerToolbar) {
+            footerToolbar.commitsOnly = value
+        }
+
+        // 1. Update Column DataFields & Components
         me.columns.items.forEach(column => {
             let {dataField} = column;
 
-            if (/^y\d{4}$/.test(dataField)) {
-                // Swap renderer to read from 'cy' field if commitsOnly is true
-                // Note: We keep the dataField as 'yXXXX' to preserve pooling stability.
-                if (value) {
-                    column.renderer = ({record}) => record['c' + dataField] || '';
-                } else {
-                    column.renderer = ({value}) => value || ''; // Restore default
-                }
-            } else if (dataField === 'totalContributions') {
-                if (value) {
-                    column.renderer = ({record}) => {
-                        const total = record.commitsArray?.reduce((a, b) => a + b, 0) || 0;
-                        return new Intl.NumberFormat().format(total);
-                    };
-                } else {
-                    column.renderer = ({value}) => new Intl.NumberFormat().format(value);
-                }
+            if (regexYearColumn.test(dataField)) {
+                // Switch between 'y2020' and 'cy2020'
+                // This triggers generic map update in Column.afterSetDataField
+                column.dataField = value ? 'c' + dataField.replace(regexPrefixC, '') : dataField.replace(regexPrefixC, '')
+            } else if (dataField === 'totalContributions' || dataField === 'totalCommits') {
+                column.dataField = value ? 'totalCommits' : 'totalContributions'
             } else if (dataField === 'activity') {
                 // Update Sparkline Component to read from correct prefix
                 column.component = ({record}) => {
                     const data = [];
                     for (let i = 2010; i <= 2025; i++) {
-                        data.push(record[`${prefix}${i}`] || 0);
+                        data.push(record[`${prefix}${i}`] || 0)
                     }
-                    return {values: data};
-                };
+                    return {values: data}
+                }
             }
         });
 
@@ -132,18 +132,16 @@ class GridContainer extends BaseGridContainer {
         if (activeSorter) {
             let {property} = activeSorter;
 
-            // Check if we are sorting by a year (either yXXXX or cyXXXX)
-            if (/^(y|cy)\d{4}$/.test(property)) {
-                let year = property.replace(/^(y|cy)/, '');
-                // Switch to the target prefix
-                activeSorter.property = `${prefix}${year}`;
+            if (regexYearColumn.test(property)) {
+                let year = property.replace(regexPrefixCy, '');
+                activeSorter.property = `${prefix}${year}`
             } else if (property === 'totalContributions' || property === 'totalCommits') {
-                activeSorter.property = value ? 'totalCommits' : 'totalContributions';
+                activeSorter.property = value ? 'totalCommits' : 'totalContributions'
             }
         }
 
         // 3. Refresh Grid View
-        me.body.createViewData();
+        me.body.createViewData()
     }
 
     /**
@@ -262,13 +260,13 @@ class GridContainer extends BaseGridContainer {
     onSortColumn(opts) {
         // Intercept sort on year columns to use correct field
         if (this.commitsOnly) {
-            if (/^y\d{4}$/.test(opts.property)) {
-                opts.property = 'c' + opts.property; // y2020 -> cy2020
+            if (regexContributionYear.test(opts.property)) {
+                opts.property = 'c' + opts.property // y2020 -> cy2020
             } else if (opts.property === 'totalContributions') {
-                opts.property = 'totalCommits';
+                opts.property = 'totalCommits'
             }
         }
-        super.onSortColumn(opts);
+        super.onSortColumn(opts)
     }
 }
 

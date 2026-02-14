@@ -34,6 +34,10 @@ class StatusToolbar extends Toolbar {
          */
         cls: ['devindex-status-toolbar'],
         /**
+         * @member {Boolean} commitsOnly_=false
+         */
+        commitsOnly_: false,
+        /**
          * @member {Object[]} items
          */
         items: [{
@@ -64,11 +68,27 @@ class StatusToolbar extends Toolbar {
             text     : 'Visible Rows: 0'
         }]
     }
-
     /**
      * @member {Intl.NumberFormat} numberFormatter=new Intl.NumberFormat()
      */
     numberFormatter = new Intl.NumberFormat()
+
+    /**
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     */
+    afterSetCommitsOnly(value, oldValue) {
+        if (oldValue !== undefined) {
+            this.updateLabels()
+        }
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onStoreFilter(data) {
+        this.updateLabels()
+    }
 
     /**
      * @param {Object} data
@@ -76,7 +96,7 @@ class StatusToolbar extends Toolbar {
     onStoreLoad(data) {
         let me = this;
 
-        me.updateRowsLabels();
+        me.updateLabels();
 
         if (!data.isLoading) {
             me.timeout(500).then(() => {
@@ -87,13 +107,6 @@ class StatusToolbar extends Toolbar {
                 progressLabel.hidden = true
             })
         }
-    }
-
-    /**
-     * @param {Object} data
-     */
-    onStoreFilter(data) {
-        this.updateRowsLabels()
     }
 
     /**
@@ -110,22 +123,28 @@ class StatusToolbar extends Toolbar {
     /**
      *
      */
-    updateRowsLabels() {
-        let me             = this,
-            {store}        = me,
-            {count, items} = store,
-            total          = 0,
-            i              = 0,
+    updateLabels() {
+        let me                   = this,
+            {commitsOnly, store} = me,
+            {count, items}       = store,
+            total                = 0,
+            i                    = 0,
             item;
 
         for (; i < count; i++) {
             item = items[i];
-            // Handle Turbo Mode (raw object) vs Record instance
-            total += (item.tc ?? item.totalContributions ?? 0)
+
+            if (commitsOnly) {
+                // Use soft-hydrated value or resolve it on-the-fly (Model logic)
+                total += (item.totalCommits ?? store.resolveField(item, 'totalCommits') ?? 0)
+            } else {
+                // Handle Turbo Mode (raw object) vs Record instance
+                total += (item.tc ?? item.totalContributions ?? 0)
+            }
         }
 
-        me.getReference('count-rows-label').text          = 'Visible Rows: '        + me.numberFormatter.format(count);
-        me.getReference('total-contributions-label').text = 'Total Contributions: ' + me.numberFormatter.format(total)
+        me.getReference('count-rows-label')         .text = 'Visible Rows: ' + me.numberFormatter.format(count);
+        me.getReference('total-contributions-label').text = `Total ${commitsOnly ? 'Commits' : 'Contributions'}: ${me.numberFormatter.format(total)}`
     }
 }
 
