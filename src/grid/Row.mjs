@@ -488,12 +488,19 @@ class Row extends Component {
      * and triggers a VDOM update to reflect the new data.
      *
      * @param {Object} data
+     * @param {Boolean} [data.force=false] True to force a VDOM update even if record and rowIndex are unchanged.
      * @param {Object} data.record The new record to display.
      * @param {Number} data.rowIndex The new row index.
      * @param {Boolean} [data.silent=false] True to prevent an immediate VDOM update (useful for batching).
      */
-    updateContent({record, rowIndex, silent=false}) {
+    updateContent({force=false, record, rowIndex, silent=false}) {
         let me = this;
+
+        // Optimization: Skip VDOM generation if the state hasn't changed.
+        // This prevents thousands of redundant updates during simple scrolling.
+        if (!force && me.record === record && me.rowIndex === rowIndex) {
+            return
+        }
 
         me.record   = record;
         me.rowIndex = rowIndex;
