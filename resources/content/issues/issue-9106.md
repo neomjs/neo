@@ -44,8 +44,10 @@ subIssues:
   - '[x] 9142 [DevIndex] Create Country Code Repair Script'
   - '[x] 9147 Refactor Contributor Model: CamelCase & New Schema Sync'
   - '[x] 9148 DevIndex: Use locale formatting for StatusToolbar row count'
-subIssuesCompleted: 30
-subIssuesTotal: 30
+  - '[x] 9149 DevIndex: Add Total Contributions label to StatusToolbar'
+  - '[x] 9150 DevIndex: Client-Side "Commits Only" Toggle & Total Commits Implementation'
+subIssuesCompleted: 32
+subIssuesTotal: 32
 blockedBy: []
 blocking: []
 ---
@@ -93,4 +95,6 @@ It focuses on UI/UX improvements, bug fixes, and ensuring a smooth user experien
 - 2026-02-13T14:59:37Z @tobiu cross-referenced by #9143
 - 2026-02-13T17:17:20Z @tobiu referenced in commit `7adf867` - "fix(devindex): Pass random strategy to spider workflow to prevent CI hang (#9106)"
 - 2026-02-13T17:38:52Z @tobiu added sub-issue #9148
+- 2026-02-13T23:24:13Z @tobiu added sub-issue #9149
+- 2026-02-14T00:10:39Z @tobiu added sub-issue #9150
 
