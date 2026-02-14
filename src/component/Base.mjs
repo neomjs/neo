@@ -914,7 +914,15 @@ class Component extends Abstract {
     }
 
     /**
-     * Triggered when accessing the wrapperStyle config
+     * Triggered when accessing the wrapperStyle config.
+     *
+     * It merges the current `vdom.style` into the result to ensure that runtime style mutations
+     * (hacks) or initial VDOM styles are preserved and not overwritten by the config value.
+     *
+     * **Warning:** This creates the persistent state loop described in the `style_` config.
+     * Reading the output (`vdom.style`) as the default for the input (`wrapperStyle`) means
+     * merged styles become permanent unless explicitly cleared with `null`.
+     *
      * @param {Object} value
      * @protected
      */
