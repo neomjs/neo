@@ -89,17 +89,17 @@ class ControlsContainer extends Container {
                     module       : CheckBox,
                     checked      : false,
                     hideLabel    : true,
-                    listeners    : {change: 'onHireableChange'},
+                    listeners    : {change: 'onCommitsOnlyChange'},
                     style        : {marginTop: '1em'},
-                    valueLabel   : 'Hireable Only',
+                    valueLabel   : 'Commits Only',
                     width        : 200
                 }, {
                     module       : CheckBox,
                     checked      : false,
                     hideLabel    : true,
-                    listeners    : {change: 'onCommitsOnlyChange'},
+                    listeners    : {change: 'onHireableChange'},
                     style        : {marginTop: '1em'},
-                    valueLabel   : 'Commits Only',
+                    valueLabel   : 'Hireable Only',
                     width        : 200
                 }, {
                     module       : CheckBox,
@@ -167,15 +167,6 @@ class ControlsContainer extends Container {
          * @reactive
          */
         tag: 'aside'
-    }
-
-    /**
-     * @member {Boolean} firstFiltering=true
-     */
-    firstFiltering = true
-
-    onConstructed() {
-        super.onConstructed();
     }
 }
 
