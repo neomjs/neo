@@ -8,6 +8,7 @@
   "engine-flutter-autoroll",
   "k8s-ci-robot",
   "nextcloud-bot",
+  "openshift-merge-robot",
   "renovate-bot",
   "robobun",
   "robocdnjs",
