@@ -205,25 +205,28 @@ class GridContainer extends BaseGridContainer {
             cellAlign: 'center'
         }, {
             type     : 'iconLink',
+            cellAlign: 'center',
             dataField: 'website',
-            defaults : {style: {fontSize: '16px'}},
+            cellCls  : 'devindex-column-website',
             iconCls  : 'fa fa-home',
             text     : 'Website',
-            width    : 70
+            width    : 65
         }, {
             type     : 'iconLink',
+            cellAlign: 'center',
             dataField: 'linkedinUrl',
-            defaults : {style: {color   : '#0077b5', fontSize: '20px'}},
+            cellCls  : 'devindex-column-linkedin',
             iconCls  : 'fa-brands fa-linkedin',
             text     : 'LI',
             width    : 40
         }, {
             type     : 'icon',
+            cellAlign: 'center',
             dataField: 'isHireable',
-            defaults : {style: {color   : '#28a745', fontSize: '16px'}},
+            cellCls  : 'devindex-column-hireable',
             iconCls  : 'fas fa-circle-check',
             text     : 'Hireable',
-            width    : 75
+            width    : 65
         }, {
             type     : 'githubOrgs',
             dataField: 'organizations',
