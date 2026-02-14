@@ -71,16 +71,16 @@ class GridFooterToolbar extends Toolbar {
     }
 
     /**
-     * Overwrite as needed
-     * @param {Object} data
-     */
-    onStoreLoad(data) {}
-
-    /**
      Overwrite as needed
      * @param {Object} data
      */
     onStoreFilter(data) {}
+
+    /**
+     * Overwrite as needed
+     * @param {Object} data
+     */
+    onStoreLoad(data) {}
 
     /**
      Overwrite as needed
