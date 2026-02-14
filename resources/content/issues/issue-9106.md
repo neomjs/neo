@@ -46,9 +46,12 @@ subIssues:
   - '[x] 9148 DevIndex: Use locale formatting for StatusToolbar row count'
   - '[x] 9149 DevIndex: Add Total Contributions label to StatusToolbar'
   - '[x] 9150 DevIndex: Client-Side "Commits Only" Toggle & Total Commits Implementation'
-  - '[ ] 9152 [DevIndex] Add Hireable and Website columns to Grid'
-subIssuesCompleted: 32
-subIssuesTotal: 33
+  - '[x] 9152 [DevIndex] Add Hireable and Website columns to Grid'
+  - '[x] 9153 [DevIndex] Add Bio Filter and Hireable Checkbox'
+  - '[ ] 9154 [DevIndex] Add TopRepo, Twitter, and Sponsors columns'
+  - '[x] 9155 [DevIndex] Grid Icon Columns fail to update on Filter change'
+subIssuesCompleted: 35
+subIssuesTotal: 36
 blockedBy: []
 blocking: []
 ---
@@ -99,4 +102,7 @@ It focuses on UI/UX improvements, bug fixes, and ensuring a smooth user experien
 - 2026-02-13T23:24:13Z @tobiu added sub-issue #9149
 - 2026-02-14T00:10:39Z @tobiu added sub-issue #9150
 - 2026-02-14T13:05:00Z @tobiu added sub-issue #9152
+- 2026-02-14T17:55:04Z @tobiu added sub-issue #9153
+- 2026-02-14T17:55:09Z @tobiu added sub-issue #9154
+- 2026-02-14T18:46:32Z @tobiu added sub-issue #9155
 
