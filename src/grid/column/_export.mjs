@@ -6,6 +6,8 @@ import CountryFlag      from './CountryFlag.mjs';
 import Currency         from './Currency.mjs';
 import GitHubOrgs       from './GitHubOrgs.mjs';
 import GitHubUser       from './GitHubUser.mjs';
+import Icon             from './Icon.mjs';
+import IconLink         from './IconLink.mjs';
 import Index            from './Index.mjs';
 import Progress         from './Progress.mjs';
 import Sparkline        from './Sparkline.mjs';
@@ -19,6 +21,8 @@ export {
     Currency,
     GitHubOrgs,
     GitHubUser,
+    Icon,
+    IconLink,
     Index,
     Progress,
     Sparkline
