@@ -48,7 +48,7 @@ class ControlsContainer extends Container {
                     forceSelection: true,
                     labelPosition : 'inline',
                     labelText     : 'Country',
-                    listeners     : {change: 'up.onFilterChange'},
+                    listeners     : {change: 'onFilterChange'},
                     name          : 'countryCode',
                     reference     : 'country-field',
                     showFlags     : true,
@@ -61,7 +61,7 @@ class ControlsContainer extends Container {
                     editable     : true,
                     labelPosition: 'inline',
                     labelText    : 'Username',
-                    listeners    : {change: 'up.onFilterChange'},
+                    listeners    : {change: 'onFilterChange'},
                     name         : 'login',
                     style        : {marginTop: '.3em'},
                     width        : 200
@@ -71,15 +71,33 @@ class ControlsContainer extends Container {
                     editable     : true,
                     labelPosition: 'inline',
                     labelText    : 'Fullname',
-                    listeners    : {change: 'up.onFilterChange'},
+                    listeners    : {change: 'onFilterChange'},
                     name         : 'name',
+                    style        : {marginTop: '.3em'},
+                    width        : 200
+                }, {
+                    ntype        : 'textfield',
+                    clearable    : true,
+                    editable     : true,
+                    labelPosition: 'inline',
+                    labelText    : 'Bio Search',
+                    listeners    : {change: 'onFilterChange'},
+                    name         : 'bio',
                     style        : {marginTop: '.3em'},
                     width        : 200
                 }, {
                     module       : CheckBox,
                     checked      : false,
                     hideLabel    : true,
-                    listeners    : {change: 'up.onCommitsOnlyChange'},
+                    listeners    : {change: 'onHireableChange'},
+                    style        : {marginTop: '1em'},
+                    valueLabel   : 'Hireable Only',
+                    width        : 200
+                }, {
+                    module       : CheckBox,
+                    checked      : false,
+                    hideLabel    : true,
+                    listeners    : {change: 'onCommitsOnlyChange'},
                     style        : {marginTop: '1em'},
                     valueLabel   : 'Commits Only',
                     width        : 200
@@ -87,7 +105,7 @@ class ControlsContainer extends Container {
                     module       : CheckBox,
                     checked      : true,
                     hideLabel    : true,
-                    listeners    : {change: 'up.onShowAnimationsChange'},
+                    listeners    : {change: 'onShowAnimationsChange'},
                     style        : {marginTop: '1em'},
                     valueLabel   : 'Show Animations',
                     width        : 200
@@ -106,7 +124,7 @@ class ControlsContainer extends Container {
                     hideLabel     : true,
                     hideValueLabel: false,
                     labelText     : '',
-                    listeners     : {change: 'up.onSelectionModelChange'},
+                    listeners     : {change: 'onSelectionModelChange'},
                     name          : 'selectionModel',
                     style         : {marginTop: '.3em'},
                     width         : 200
@@ -156,46 +174,8 @@ class ControlsContainer extends Container {
      */
     firstFiltering = true
 
-    get grid() {
-        return this.parent.getItem('grid')
-    }
-
     onConstructed() {
         super.onConstructed();
-    }
-
-    /**
-     * @param {Object} data
-     */
-    onCommitsOnlyChange(data) {
-        this.grid.commitsOnly = data.value
-    }
-
-    /**
-     * @param {Object} data
-     */
-    onFilterChange(data) {
-        let value = data.component.getSubmitValue();
-
-        if (data.component.name === 'countryCode' && value) {
-            value = value.toUpperCase()
-        }
-
-        this.grid.store.getFilter(data.component.name).value = value
-    }
-
-    /**
-     * @param {Object} data
-     */
-    onSelectionModelChange(data) {
-        this.grid.body.selectionModel = data.component.selectionModel
-    }
-
-    /**
-     * @param {Object} data
-     */
-    onShowAnimationsChange(data) {
-        this.grid.animateVisuals = data.value
     }
 }
 

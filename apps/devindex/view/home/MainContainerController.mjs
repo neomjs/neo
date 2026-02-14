@@ -14,6 +14,13 @@ class MainContainerController extends Controller {
     }
 
     /**
+     * @param {Object} data
+     */
+    onCommitsOnlyChange(data) {
+        this.getReference('grid').commitsOnly = data.value
+    }
+
+    /**
      *
      */
     onComponentConstructed() {
@@ -57,6 +64,20 @@ class MainContainerController extends Controller {
     /**
      * @param {Object} data
      */
+    onFilterChange(data) {
+        let grid  = this.getReference('grid'),
+            value = data.component.getSubmitValue();
+
+        if (data.component.name === 'countryCode' && value) {
+            value = value.toUpperCase()
+        }
+
+        grid.store.getFilter(data.component.name).value = value
+    }
+
+    /**
+     * @param {Object} data
+     */
     onGridSelect(data) {
         let me           = this,
             record       = data.record,
@@ -68,6 +89,27 @@ class MainContainerController extends Controller {
         if (record && profile && tabContainer?.activeIndex === 1) {
             profile.updateRecord(record)
         }
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onHireableChange(data) {
+        this.getReference('grid').store.getFilter('isHireable').value = data.value ? true : null
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onSelectionModelChange(data) {
+        this.getReference('grid').body.selectionModel = data.component.selectionModel
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onShowAnimationsChange(data) {
+        this.getReference('grid').animateVisuals = data.value
     }
 }
 
