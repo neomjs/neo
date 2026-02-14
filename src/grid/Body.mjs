@@ -244,6 +244,12 @@ class GridBody extends Component {
      */
     #initialTotalSize = 0
     /**
+     * Internal cache for the last mountedColumns state.
+     * Used to detect horizontal scrolling/resizing to force row updates.
+     * @member {Number[]|null} #lastMountedColumns=null
+     */
+    #lastMountedColumns = null
+    /**
      * @member {Object[]} items=[]
      */
     items = []
@@ -655,9 +661,10 @@ class GridBody extends Component {
      * 4.  **Recycles** existing Row components by calling {@link Neo.grid.Row#updateContent} with the new record data.
      * 5.  Updates the scroll spacer height.
      *
-     * @param {Boolean} silent=false True to suppress the final VDOM update (used when batching).
+     * @param {Boolean} [silent=false] True to suppress the final VDOM update (used when batching).
+     * @param {Boolean} [force=false] True to force row updates even if records haven't changed (e.g. column resize).
      */
-    createViewData(silent=false) {
+    createViewData(silent=false, force=false) {
         let me = this;
 
         if (me.skipCreateViewData) {
@@ -679,10 +686,16 @@ class GridBody extends Component {
 
         if (me.isVdomUpdating) {
             Neo.manager.VDomUpdate.registerPreUpdate(me.id, () => {
-                me.createViewData(silent)
+                me.createViewData(silent, force)
             });
             return
         }
+
+        // Auto-detect if columns changed (horizontal scroll or resize)
+        if (!force && !Neo.isEqual(me.mountedColumns, me.#lastMountedColumns)) {
+            force = true
+        }
+        me.#lastMountedColumns = [...me.mountedColumns];
 
         if (me.#initialChunkSize > 0) {
             endIndex = me.#initialChunkSize;
@@ -710,6 +723,7 @@ class GridBody extends Component {
             usedMap[itemIndex] = true;
 
             item.updateContent({
+                force,
                 record  : store.getAt(i),
                 rowIndex: i,
                 silent  : true

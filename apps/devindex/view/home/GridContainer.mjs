@@ -141,7 +141,7 @@ class GridContainer extends BaseGridContainer {
         }
 
         // 3. Refresh Grid View
-        me.body.createViewData()
+        me.body.createViewData(false, true)
     }
 
     /**
