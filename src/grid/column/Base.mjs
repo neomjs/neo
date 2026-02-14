@@ -27,9 +27,13 @@ class Column extends Base {
          */
         cellCls: null,
         /**
-         * @member {String|null} dataField=null
+         * The field name of the data.Model to read the value from.
+         * Must be unique within the grid instance.
+         * Can be changed at runtime to swap the data source for this column.
+         * @member {String|null} dataField_=null
+         * @reactive
          */
-        dataField: null,
+        dataField_: null,
         /**
          * @member {String} hideMode_='removeDom'
          */
@@ -60,6 +64,37 @@ class Column extends Base {
          * @reactive
          */
         windowId_: null
+    }
+
+    /**
+     * Triggered after the dataField config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     */
+    afterSetDataField(value, oldValue) {
+        if (oldValue !== undefined) {
+            let me            = this,
+                gridContainer = me.parent,
+                body          = gridContainer?.body,
+                headerToolbar = gridContainer?.headerToolbar,
+                colPositions  = body?.columnPositions,
+                button        = headerToolbar?.getColumn(oldValue),
+                pos           = colPositions?.get(oldValue);
+
+            if (pos) {
+                // The columnPositions collection is keyed by 'dataField'.
+                // To update the key in the internal Map, we must remove the item (using the old key),
+                // update the property, and re-add it (indexing with the new key).
+                // Modifying it in-place would break the Map index.
+                colPositions.remove(pos);
+                pos.dataField = value;
+                colPositions.add(pos)
+            }
+
+            if (button) {
+                button.dataField = value
+            }
+        }
     }
 
     /**
