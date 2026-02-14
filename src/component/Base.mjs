@@ -205,6 +205,13 @@ class Component extends Abstract {
         scrollable_: false,
         /**
          * Style attributes added to this vdom root. see: getVdomRoot()
+         *
+         * **Important:** When `vdom === vdomRoot` (single node component), the `wrapperStyle` mechanism
+         * creates a persistent state loop to support runtime VDOM mutations.
+         * This means that to *remove* a style property you previously set, you MUST set it to `null`.
+         * Using `delete` or setting `undefined` will revert to the "previous state", which unfortunately
+         * includes the very value you are trying to remove if it has leaked into `wrapperStyle`.
+         *
          * @member {Object} style={[isDescriptor]: true, merge: 'shallow', value: null}
          */
         style_: {
@@ -265,6 +272,10 @@ class Component extends Abstract {
         wrapperCls_: null,
         /**
          * Top level style attributes. Useful in case getVdomRoot() does not point to the top level DOM node.
+         *
+         * **Note:** The getter for this config reads `vdom.style` as a default value to support runtime mutations.
+         * This creates the persistent state loop described in the `style_` config documentation.
+         *
          * @member {Object|null} wrapperStyle_={[isDescriptor]: true, merge: 'shallow', value: null}
          * @reactive
          */
@@ -1577,7 +1588,9 @@ class Component extends Abstract {
             }
         } else {
             let style = me.style;
-            delete style.visibility;
+            // We need to set null, since the style might be inside wrapperStyle,
+            // which would get re-applied in case we just delete the property.
+            style.visibility = null;
             me.style = style
         }
 
