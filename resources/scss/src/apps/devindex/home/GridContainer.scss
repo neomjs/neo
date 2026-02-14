@@ -65,6 +65,37 @@
                 font-weight     : bold;
                 text-shadow     : var(--heatmap-shadow-3);
             }
+
+            &.devindex-column-website {
+                .neo-icon-link {
+                    color     : var(--devindex-website-color);
+                    font-size : 16px;
+                    transition: color 200ms ease-out;
+
+                    &:hover {
+                        color: var(--devindex-website-hover-color);
+                    }
+                }
+            }
+
+            &.devindex-column-linkedin {
+                .neo-icon-link {
+                    color     : var(--devindex-linkedin-color);
+                    font-size : 20px;
+                    transition: color 200ms ease-out;
+
+                    &:hover {
+                        color: var(--devindex-linkedin-hover-color);
+                    }
+                }
+            }
+
+            &.devindex-column-hireable {
+                .neo-icon {
+                    color    : var(--devindex-hireable-color);
+                    font-size: 16px;
+                }
+            }
         }
     }
 }

@@ -20,6 +20,11 @@ class IconLink extends ComponentColumn {
             module: IconLinkComponent
         },
         /**
+         * @member {String} hideMode='visibility'
+         * @reactive
+         */
+        hideMode: 'visibility',
+        /**
          * @member {String|null} iconCls=null
          */
         iconCls: null,

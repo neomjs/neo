@@ -97,9 +97,14 @@ class Component extends Column {
 
             componentConfig[recordProperty] = record;
 
+            if (componentConfig.hideMode === undefined) {
+                componentConfig.hideMode = me.hideMode
+            }
+
             component.set(componentConfig, silent)
         } else {
             component = Neo.create({
+                hideMode: me.hideMode,
                 ...me.defaults,
                 ...componentConfig,
                 appName,
