@@ -45,6 +45,8 @@ class GridContainer extends BaseContainer {
         currency        : column.Currency,
         githubOrgs      : column.GitHubOrgs,
         githubUser      : column.GitHubUser,
+        icon            : column.Icon,
+        iconLink        : column.IconLink,
         index           : column.Index,
         progress        : column.Progress,
         sparkline       : column.Sparkline

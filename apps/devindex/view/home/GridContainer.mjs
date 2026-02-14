@@ -204,11 +204,26 @@ class GridContainer extends BaseGridContainer {
             text     : 'Since', width: 80,
             cellAlign: 'center'
         }, {
+            type     : 'iconLink',
+            dataField: 'website',
+            defaults : {style: {fontSize: '16px'}},
+            iconCls  : 'fa fa-home',
+            text     : 'Website',
+            width    : 70
+        }, {
+            type     : 'iconLink',
             dataField: 'linkedinUrl',
+            defaults : {style: {color   : '#0077b5', fontSize: '20px'}},
+            iconCls  : 'fa-brands fa-linkedin',
             text     : 'LI',
-            width    : 50,
-            cellAlign: 'center',
-            renderer : ({value}) => value ? `<a href="${value}" target="_blank" class="fa-brands fa-linkedin" style="color: #0077b5; font-size: 20px;"></a>` : ''
+            width    : 40
+        }, {
+            type     : 'icon',
+            dataField: 'isHireable',
+            defaults : {style: {color   : '#28a745', fontSize: '16px'}},
+            iconCls  : 'fas fa-circle-check',
+            text     : 'Hireable',
+            width    : 75
         }, {
             type     : 'githubOrgs',
             dataField: 'organizations',

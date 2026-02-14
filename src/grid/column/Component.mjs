@@ -1,4 +1,5 @@
-import Column from './Base.mjs';
+import {isDescriptor} from '../../core/ConfigSymbols.mjs';
+import Column         from './Base.mjs';
 
 /**
  * @class Neo.grid.column.Component
@@ -16,10 +17,15 @@ class Component extends Column {
          */
         component: null,
         /**
-         * @member {Object} defaults
+         * @member {Object} defaults_
          * @protected
+         * @reactive
          */
-        defaults: null,
+        defaults_: {
+            [isDescriptor]: true,
+            merge         : 'deep',
+            value         : null
+        },
         /**
          * Components can delegate event listeners (or button handlers) into methods somewhere inside
          * the view controller or component tree hierarchy.
