@@ -16,6 +16,24 @@ class MainContainerController extends Controller {
     /**
      * @param {Object} data
      */
+    onBufferColumnRangeChange(data) {
+        if (data.oldValue) {
+            this.getReference('grid').body.bufferColumnRange = parseInt(data.value)
+        }
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onBufferRowRangeChange(data) {
+        if (data.oldValue) {
+            this.getReference('grid').body.bufferRowRange = parseInt(data.value)
+        }
+    }
+
+    /**
+     * @param {Object} data
+     */
     onCommitsOnlyChange(data) {
         this.getReference('grid').commitsOnly = data.value
     }
