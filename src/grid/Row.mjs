@@ -258,12 +258,19 @@ class Row extends Component {
      *     - This ensures the VDOM children list length and IDs remain constant during horizontal scrolling,
      *       resulting in zero structural deltas (no `moveNode`, `insertNode`, or `removeNode`).
      *
+     *     **Cell Recycling (Horizontal Scroll Optimization):**
+     *     If `recycle=true`, the method attempts to reuse existing VDOM nodes for cells that are still visible
+     *     but have moved to a new pool index (due to horizontal scroll).
+     *     - It captures the previous VDOM children (`oldCn`) into a Map keyed by `dataField`.
+     *     - If a match is found for the current column and record, the old node is reused directly.
+     *     - This skips the expensive `applyRendererOutput` and `updateCellComponents` calls, ensuring O(1) performance for horizontal scrolling.
+     *
      * 2.  **Permanent Cells:**
      *     - Appends cells that opt-out of pooling (e.g., complex components like Charts/Canvas).
      *     - These are always rendered to preserve their internal state (e.g. Canvas context).
      *
      * @param {Boolean} [silent=false]
-     * @param {Boolean} [recycle=true]
+     * @param {Boolean} [recycle=true] True to attempt reusing existing cell VDOMs.
      */
     createVdom(silent=false, recycle=true) {
         let me               = this,
