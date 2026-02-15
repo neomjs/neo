@@ -636,10 +636,10 @@ class GridBody extends Component {
             current = me.items.length,
             delta   = needed - current,
             newRows = [],
-            config;
+            config, i;
 
         if (delta > 0) {
-            for (let i = 0; i < delta; i++) {
+            for (i = 0; i < delta; i++) {
                 config = {
                     module       : Row,
                     appName      : me.appName,
@@ -656,8 +656,12 @@ class GridBody extends Component {
             }
             me.items.push(...newRows)
         } else if (delta < 0) {
-            // Optional: Destroy excess rows if we want to reclaim memory strictly
-            // For now, we keep them as a buffer
+            // Self-Healing: Destroy excess rows to free memory and VDOM overhead.
+            // This restores performance if the buffer is reduced after being large.
+            for (i = current - 1; i >= needed; i--) {
+                me.items[i].destroy();
+                me.items.pop()
+            }
         }
 
         // Fixed-DOM-Order Strategy:
