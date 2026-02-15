@@ -402,7 +402,12 @@ class GridBody extends Component {
      * @protected
      */
     afterSetBufferColumnRange(value, oldValue) {
-        oldValue !== undefined && this.createViewData()
+        if (oldValue !== undefined) {
+            this.skipCreateViewData = true;
+            this.updateMountedAndVisibleColumns(true);
+            this.skipCreateViewData = false;
+            this.createViewData(false, true)
+        }
     }
 
     /**
@@ -412,7 +417,7 @@ class GridBody extends Component {
      * @protected
      */
     afterSetBufferRowRange(value, oldValue) {
-        oldValue !== undefined && this.createViewData()
+        oldValue !== undefined && this.createViewData(false, true)
     }
 
     /**
@@ -1258,16 +1263,16 @@ class GridBody extends Component {
     }
 
     /**
-     *
+     * @param {Boolean} [force=false]
      */
-    updateMountedAndVisibleColumns() {
+    updateMountedAndVisibleColumns(force=false) {
         let me       = this,
             {bufferColumnRange, cellPoolSize, columnPositions, mountedColumns, visibleColumns} = me,
             i            = 0,
             countColumns = columnPositions.getCount(),
             endIndex     = countColumns - 1,
             x            = me.scrollLeft,
-            column, newPoolSize, startIndex;
+            column, newPoolSize, startIndex = 0;
 
         if (countColumns < 1) {
             return
@@ -1289,7 +1294,7 @@ class GridBody extends Component {
         visibleColumns[0] = startIndex; // update the array inline
         visibleColumns[1] = endIndex;
 
-        if (visibleColumns[0] <= mountedColumns[0] || visibleColumns[1] >= mountedColumns[1]) {
+        if (force || visibleColumns[0] <= mountedColumns[0] || visibleColumns[1] >= mountedColumns[1]) {
             startIndex = Math.max(0, visibleColumns[0] - bufferColumnRange);
             endIndex   = Math.min(countColumns - 1, visibleColumns[1] + bufferColumnRange);
 

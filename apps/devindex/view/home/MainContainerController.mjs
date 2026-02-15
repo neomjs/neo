@@ -18,7 +18,13 @@ class MainContainerController extends Controller {
      */
     onBufferColumnRangeChange(data) {
         if (data.oldValue) {
-            this.getReference('grid').body.bufferColumnRange = parseInt(data.value)
+            let value = data.value;
+
+            if (Neo.isRecord(value)) {
+                value = value.id
+            }
+
+            this.getReference('grid').body.bufferColumnRange = parseInt(value)
         }
     }
 
@@ -27,7 +33,13 @@ class MainContainerController extends Controller {
      */
     onBufferRowRangeChange(data) {
         if (data.oldValue) {
-            this.getReference('grid').body.bufferRowRange = parseInt(data.value)
+            let value = data.value;
+
+            if (Neo.isRecord(value)) {
+                value = value.id
+            }
+
+            this.getReference('grid').body.bufferRowRange = parseInt(value)
         }
     }
 
