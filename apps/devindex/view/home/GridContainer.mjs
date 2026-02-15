@@ -207,11 +207,10 @@ class GridContainer extends BaseGridContainer {
             text     : 'Website',
             width    : 65
         }, {
-            type     : 'iconLink',
+            type     : 'linkedin',
             cellAlign: 'center',
             dataField: 'linkedinUrl',
             cellCls  : 'devindex-column-linkedin',
-            iconCls  : 'fa-brands fa-linkedin',
             text     : 'LI',
             width    : 40
         }, {

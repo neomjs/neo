@@ -48,6 +48,7 @@ class GridContainer extends BaseContainer {
         icon            : column.Icon,
         iconLink        : column.IconLink,
         index           : column.Index,
+        linkedin        : column.LinkedIn,
         progress        : column.Progress,
         sparkline       : column.Sparkline
     }
