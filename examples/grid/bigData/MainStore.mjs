@@ -18,10 +18,10 @@ class MainStore extends Store {
          */
         amountColumns_: 50,
         /**
-         * @member {Number} amountRows_=1000
+         * @member {Number} amountRows_=20000
          * @reactive
          */
-        amountRows_: 1000,
+        amountRows_: 20000,
         /**
          * @member {Boolean} autoInitRecords=false
          */
