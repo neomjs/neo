@@ -406,7 +406,7 @@ class GridBody extends Component {
             this.skipCreateViewData = true;
             this.updateMountedAndVisibleColumns(true);
             this.skipCreateViewData = false;
-            this.createViewData(false, true)
+            this.createViewData()
         }
     }
 
@@ -417,7 +417,17 @@ class GridBody extends Component {
      * @protected
      */
     afterSetBufferRowRange(value, oldValue) {
-        oldValue !== undefined && this.createViewData(false, true)
+        if (oldValue !== undefined) {
+            let current = Math.floor(this.scrollTop / this.rowHeight);
+
+            if (Math.abs(this.startIndex - current) >= value) {
+                this.skipCreateViewData = true;
+                this.startIndex = current;
+                this.skipCreateViewData = false;
+            }
+
+            this.createViewData(false, true)
+        }
     }
 
     /**
