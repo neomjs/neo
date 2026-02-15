@@ -455,6 +455,17 @@ class Store extends Collection {
     }
 
     /**
+     * Overrides collection.Base to prevent the allItems collection from auto-loading
+     * @param {Object} config
+     * @returns {Neo.collection.Base}
+     * @protected
+     */
+    createAllItems(config) {
+        config.autoLoad = false;
+        return super.createAllItems(config)
+    }
+
+    /**
      * Converts an object or array of objects into records
      * @param {Object|Object[]} config
      * @returns {Object|Object[]} Array in case an array was passed
