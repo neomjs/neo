@@ -119,8 +119,11 @@ class GridContainer extends BaseGridContainer {
             } else if (dataField === 'activity') {
                 // Update Sparkline Component to read from correct prefix
                 column.component = ({record}) => {
-                    const data = [];
-                    for (let i = 2010; i <= 2025; i++) {
+                    const
+                        data    = [],
+                        endYear = new Date().getFullYear();
+
+                    for (let i = 2010; i <= endYear; i++) {
                         data.push(record[`${prefix}${i}`] || 0)
                     }
                     return {values: data}
@@ -148,41 +151,45 @@ class GridContainer extends BaseGridContainer {
      *
      */
     buildDynamicColumns() {
-        const columns = [{
-            type     : 'index',
-            dataField: 'id',
-            text     : '#',
-            width    : 60,
-            cellAlign: 'right'
-        }, {
-            type     : 'githubUser',
-            dataField: 'login',
-            text     : 'User',
-            width    : 250
-        }, {
-            dataField           : 'totalContributions',
-            text                : 'Total',
-            width               : 100,
-            cellAlign           : 'right',
-            defaultSortDirection: 'DESC',
-            renderer            : ({value}) => new Intl.NumberFormat().format(value)
-        }, {
-            dataField         : 'activity',
-            text              : 'Activity (15y)',
-            width             : 160,
-            type              : 'sparkline',
-            component         : ({record}) => {
-                const data = [];
-                // Iterate from 2010 to 2025
-                for (let i = 2010; i <= 2025; i++) {
-                    data.push(record[`y${i}`] || 0);
-                }
+        const
+            currentYear      = new Date().getFullYear(),
+            endYear          = currentYear,
+            activityDuration = endYear - 2010 + 1,
+            columns          = [{
+                type     : 'index',
+                dataField: 'id',
+                text     : '#',
+                width    : 60,
+                cellAlign: 'right'
+            }, {
+                type     : 'githubUser',
+                dataField: 'login',
+                text     : 'User',
+                width    : 250
+            }, {
+                dataField           : 'totalContributions',
+                text                : 'Total',
+                width               : 100,
+                cellAlign           : 'right',
+                defaultSortDirection: 'DESC',
+                renderer            : ({value}) => new Intl.NumberFormat().format(value)
+            }, {
+                dataField         : 'activity',
+                text              : `Activity (${activityDuration}y)`,
+                width             : 160,
+                type              : 'sparkline',
+                component         : ({record}) => {
+                    const data = [];
+                    // Iterate from 2010 to endYear
+                    for (let i = 2010; i <= endYear; i++) {
+                        data.push(record[`y${i}`] || 0)
+                    }
 
-                return {
-                    values: data
+                    return {
+                        values: data
+                    }
                 }
-            }
-        }, {
+            }, {
             dataField: 'company',
             text     : 'Company',
             width    : 200,
@@ -260,8 +267,7 @@ class GridContainer extends BaseGridContainer {
         }];
 
         // Add Year Columns
-        const currentYear = new Date().getFullYear();
-        for (let year = currentYear; year >= 2010; year--) {
+        for (let year = endYear; year >= 2010; year--) {
             columns.push({
                 dataField: `y${year}`,
                 text     : String(year),
