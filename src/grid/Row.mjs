@@ -263,8 +263,9 @@ class Row extends Component {
      *     - These are always rendered to preserve their internal state (e.g. Canvas context).
      *
      * @param {Boolean} [silent=false]
+     * @param {Boolean} [recycle=true]
      */
-    createVdom(silent=false) {
+    createVdom(silent=false, recycle=true) {
         let me               = this,
             record           = me.record,
             rowIndex         = me.rowIndex,
@@ -272,7 +273,7 @@ class Row extends Component {
             gridContainer    = gridBody.parent,
             vdom             = me.vdom,
             {columns}        = gridContainer,
-            cellConfig, column, columnPosition, i, isMounted, lastColumnIndex, poolSize, pooledCells;
+            cellConfig, column, columnPosition, i, isMounted, lastColumnIndex, oldCn, poolIndex, poolSize, pooledCells;
 
         if (!record) {
             vdom.style = {display: 'none'};
@@ -287,7 +288,6 @@ class Row extends Component {
 
         Object.assign(vdom, {
             'aria-rowindex': rowIndex + 2, // header row => 1, first body row => 2
-            cn             : [],
             data           : {recordId, rowId: rowIndex},
             role           : 'row',
             style          : {
@@ -296,6 +296,22 @@ class Row extends Component {
                 transform: `translate3d(0px, ${rowIndex * gridBody.rowHeight}px, 0px)`
             }
         });
+
+        // Capture previous children for recycling check
+        oldCn   = vdom.cn;
+        vdom.cn = [];
+
+        let oldCellMap = null;
+
+        if (recycle && oldCn) {
+            oldCellMap = new Map();
+            // Map existing cells by dataField for robust retrieval regardless of pool index changes
+            oldCn.forEach(node => {
+                if (node.data?.field) {
+                    oldCellMap.set(node.data.field, node)
+                }
+            })
+        }
 
         let rowCls = gridBody.getRowClass(record, rowIndex);
 
@@ -332,8 +348,40 @@ class Row extends Component {
             if (!column) continue;
 
             if (column.hideMode === 'removeDom') {
+                poolIndex = i % poolSize;
+
+                // Cell Recycling: Reuse existing VDOM if record and column match
+                if (recycle && oldCellMap) {
+                    let oldNode = oldCellMap.get(column.dataField);
+
+                    if (oldNode && oldNode.data?.recordId === recordId) {
+                        // We must update the ID and colindex to match the new physical slot
+                        oldNode.id = `${me.id}__cell-${poolIndex}`;
+                        oldNode['aria-colindex'] = i + 1;
+
+                        // Update position
+                        columnPosition = gridBody.columnPositions.get(column.dataField);
+                        if (columnPosition) {
+                            oldNode.style.left  = columnPosition.x + 'px';
+                            oldNode.style.width = columnPosition.width + 'px';
+                            // Reset visibility in case it was hidden by drag
+                            if (!columnPosition.hidden) {
+                                oldNode.style.visibility = null
+                            }
+                        }
+
+                        if (column.dock) {
+                            // Ensure neo-locked class is present/absent correctly? 
+                            // Usually static, but good to be safe if dock state changed (unlikely during scroll)
+                        }
+
+                        pooledCells[poolIndex] = oldNode;
+                        continue
+                    }
+                }
+
                 cellConfig = me.applyRendererOutput({
-                    cellId      : `${me.id}__cell-${i % poolSize}`,
+                    cellId      : `${me.id}__cell-${poolIndex}`,
                     column,
                     columnIndex : i,
                     isLastColumn: i === lastColumnIndex,
@@ -363,7 +411,7 @@ class Row extends Component {
                     cellConfig.style.visibility = 'hidden'
                 }
 
-                pooledCells[i % poolSize] = cellConfig
+                pooledCells[poolIndex] = cellConfig
             }
         }
 
@@ -490,10 +538,11 @@ class Row extends Component {
      * @param {Object} data
      * @param {Boolean} [data.force=false] True to force a VDOM update even if record and rowIndex are unchanged.
      * @param {Object} data.record The new record to display.
+     * @param {Boolean} [data.recycle=true] True to attempt reusing existing cell VDOMs (performance optimization).
      * @param {Number} data.rowIndex The new row index.
      * @param {Boolean} [data.silent=false] True to prevent an immediate VDOM update (useful for batching).
      */
-    updateContent({force=false, record, rowIndex, silent=false}) {
+    updateContent({force=false, record, recycle=true, rowIndex, silent=false}) {
         let me = this;
 
         // Optimization: Skip VDOM generation if the state hasn't changed.
@@ -505,7 +554,7 @@ class Row extends Component {
         me.record   = record;
         me.rowIndex = rowIndex;
 
-        me.createVdom(silent)
+        me.createVdom(silent, recycle)
     }
 }
 

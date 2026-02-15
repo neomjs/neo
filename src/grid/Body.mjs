@@ -672,7 +672,7 @@ class GridBody extends Component {
         }
 
         let {mountedRows, store} = me,
-            endIndex, i, item, itemIndex, poolSize, range;
+            endIndex, i, item, itemIndex, poolSize, range, recycle = true;
 
         if (
             store.isLoading                   ||
@@ -695,6 +695,13 @@ class GridBody extends Component {
         if (!force && !Neo.isEqual(me.mountedColumns, me.#lastMountedColumns)) {
             force = true
         }
+        // If force was explicitly passed (e.g. column dataField change), we must disable recycling
+        // to ensure new dataField values are picked up.
+        // If force was implicit (scroll), recycling is safe and desired.
+        else if (force) {
+            recycle = false
+        }
+
         me.#lastMountedColumns = [...me.mountedColumns];
 
         if (me.#initialChunkSize > 0) {
@@ -725,6 +732,7 @@ class GridBody extends Component {
             item.updateContent({
                 force,
                 record  : store.getAt(i),
+                recycle,
                 rowIndex: i,
                 silent  : true
             });
