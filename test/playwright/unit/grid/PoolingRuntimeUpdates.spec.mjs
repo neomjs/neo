@@ -73,7 +73,7 @@ test.describe('Grid Pooling Runtime Updates', () => {
         };
 
         const data = [];
-        for (let i = 0; i < 50; i++) {
+        for (let i = 0; i < 200; i++) {
             data.push({
                 id: i,
                 name: `Row ${i}`,
@@ -210,5 +210,80 @@ test.describe('Grid Pooling Runtime Updates', () => {
         // Expected State
         // Should add 2 columns.
         expect(body.mountedColumns[1]).toBeGreaterThan(initialEndIndex);
+    });
+
+    test('Reproduction: Decrease bufferRowRange from 25 to 0 after scrolling should maintain visible rows', async () => {
+        const body = grid.body;
+        
+        // 1. Start with buffer 5 (default in test setup is 2, user says 5, let's set it)
+        body.bufferRowRange = 5;
+        await body.promiseUpdate();
+        await grid.timeout(50);
+
+        // 2. Change range to 25
+        body.bufferRowRange = 25;
+        await body.promiseUpdate();
+        await grid.timeout(50);
+
+        // 3. Scroll down until seeing rows 50-74 (Top 50)
+        // rowHeight 40. 50 * 40 = 2000.
+        body.scrollTop = 2000; 
+        await body.promiseUpdate();
+        await grid.timeout(50);
+
+        // Verify Row 50 is visible
+        let visibleRow = body.items.find(r => r.rowIndex === 50);
+        expect(visibleRow).toBeDefined();
+        expect(visibleRow.record.name).toBe('Row 50');
+
+        // 4. Reduce buffer to 0
+        body.bufferRowRange = 0;
+        await body.promiseUpdate();
+        await grid.timeout(50);
+
+        // 5. Verify Row 50 is STILL visible
+        visibleRow = body.items.find(r => r.rowIndex === 50);
+        
+        if (!visibleRow || visibleRow.vdom.style.display === 'none') {
+            const activeRows = body.items.filter(r => r.rowIndex > -1).map(r => r.rowIndex).sort((a,b)=>a-b);
+            console.log('Row 50 missing. Mounted:', body.mountedRows, 'Visible:', body.visibleRows);
+            console.log('Active Indices:', activeRows);
+        }
+
+        expect(visibleRow).toBeDefined();
+        expect(visibleRow.vdom.style.display).not.toBe('none');
+        expect(visibleRow.record.name).toBe('Row 50');
+    });
+
+    test('Reproduction 2: Decrease bufferRowRange from 50 to 0 after deep scrolling', async () => {
+        const body = grid.body;
+        
+        // 1. Range 50
+        body.bufferRowRange = 50;
+        await body.promiseUpdate();
+        await grid.timeout(50);
+
+        // 2. Scroll to 100 (100 * 40 = 4000)
+        body.scrollTop = 4000;
+        await body.promiseUpdate();
+        await grid.timeout(50);
+
+        // 3. Range 0
+        body.bufferRowRange = 0;
+        await body.promiseUpdate();
+        await grid.timeout(50);
+
+        // 4. Verify Row 100 is visible
+        const visibleRow = body.items.find(r => r.rowIndex === 100);
+        
+        if (!visibleRow || visibleRow.vdom.style.display === 'none') {
+            const activeRows = body.items.filter(r => r.rowIndex > -1).map(r => r.rowIndex).sort((a,b)=>a-b);
+            console.log('Row 100 missing. Mounted:', body.mountedRows, 'Visible:', body.visibleRows);
+            console.log('Active Indices:', activeRows);
+        }
+
+        expect(visibleRow).toBeDefined();
+        expect(visibleRow.vdom.style.display).not.toBe('none');
+        expect(visibleRow.record.name).toBe('Row 100');
     });
 });
