@@ -77,7 +77,7 @@ class Heuristics extends Component {
                 if (badge) {
                     node.cls   = ['devindex-badge', badge.cls];
                     node.title = badge.title;
-                    node.html  = badge.icon; // Using html for emoji chars is fine, but text is safer? Emoji IS text.
+                    node.text  = badge.icon;
                     node.style = null        // Remove visibility: hidden
                 } else {
                     node.style = {visibility: 'hidden'}
