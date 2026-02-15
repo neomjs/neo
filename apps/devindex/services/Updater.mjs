@@ -458,7 +458,12 @@ class Updater extends Base {
         if (company) minified.c = company;
         if (bio) minified.b = bio;
         if (followers?.totalCount > 0) minified.fl = followers.totalCount;
-        if (linkedin_url) minified.li = linkedin_url;
+
+        if (linkedin_url) {
+            // Extract username (handle trailing slash)
+            const match = linkedin_url.match(/linkedin\.com\/in\/([^/]+)/);
+            if (match) minified.li = match[1];
+        }
 
         // Metadata
         if (isHireable) minified.h = 1;

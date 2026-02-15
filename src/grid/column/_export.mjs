@@ -9,6 +9,7 @@ import GitHubUser       from './GitHubUser.mjs';
 import Icon             from './Icon.mjs';
 import IconLink         from './IconLink.mjs';
 import Index            from './Index.mjs';
+import LinkedIn         from './LinkedIn.mjs';
 import Progress         from './Progress.mjs';
 import Sparkline        from './Sparkline.mjs';
 
@@ -24,6 +25,7 @@ export {
     Icon,
     IconLink,
     Index,
+    LinkedIn,
     Progress,
     Sparkline
 };
