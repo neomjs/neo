@@ -70,7 +70,7 @@ class ControlsContainer extends Container {
                     labelWidth: 120,
                     listeners : {change: 'up.onAmountRowsChange'},
                     store     : ['1000', '5000', '10000', '20000', '50000', '100000'],
-                    value     : '1000',
+                    value     : '20000',
                     width     : 200
                 }, {
                     labelText : 'Amount Columns',
