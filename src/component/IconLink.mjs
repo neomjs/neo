@@ -27,6 +27,11 @@ class IconLink extends Component {
          */
         iconCls_: null,
         /**
+         * @member {String|null} label_=null
+         * @reactive
+         */
+        label_: null,
+        /**
          * @member {String} tag='a'
          */
         tag: 'a',
@@ -45,7 +50,8 @@ class IconLink extends Component {
          */
         _vdom:
         {cn: [
-            {tag: 'i', cls: []}
+            {tag: 'i', cls: []},
+            {tag: 'span', cls: ['neo-link-label'], style: {visibility: 'hidden'}}
         ]}
     }
 
@@ -62,6 +68,25 @@ class IconLink extends Component {
         NeoArray.removeAdd(cls, oldValue, value);
 
         node.cls = cls;
+        me.update()
+    }
+
+    /**
+     * Triggered after the label config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     */
+    afterSetLabel(value, oldValue) {
+        let me   = this,
+            node = me.vdom.cn[1];
+
+        if (value) {
+            node.html = value;
+            delete node.style
+        } else {
+            node.style = {visibility: 'hidden'}
+        }
+
         me.update()
     }
 
