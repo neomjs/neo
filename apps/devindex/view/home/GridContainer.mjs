@@ -174,11 +174,11 @@ class GridContainer extends BaseGridContainer {
                 defaultSortDirection: 'DESC',
                 renderer            : ({value}) => new Intl.NumberFormat().format(value)
             }, {
-                dataField         : 'activity',
-                text              : `Activity (${activityDuration}y)`,
-                width             : 160,
-                type              : 'sparkline',
-                component         : ({record}) => {
+                dataField: 'activity',
+                text     : `Activity (${activityDuration}y)`,
+                width    : 160,
+                type     : 'sparkline',
+                component: ({record}) => {
                     const data = [];
                     // Iterate from 2010 to endYear
                     for (let i = 2010; i <= endYear; i++) {
@@ -190,81 +190,81 @@ class GridContainer extends BaseGridContainer {
                     }
                 }
             }, {
-            dataField: 'company',
-            text     : 'Company',
-            width    : 200,
-            renderer : ({value}) => value ? value.replace(/^@/, '') : ''
-        }, {
-            type          : 'iconLink',
-            dataField     : 'topRepo',
-            iconCls       : 'fa-brands fa-github',
-            labelFormatter: val => val?.[0],
-            text          : 'Top Repo',
-            urlFormatter  : val => val ? `https://github.com/${val[0]}` : null,
-            width         : 200
-        }, {
-            type     : 'countryFlag',
-            dataField: 'countryCode',
-            sortable : false,
-            text     : 'Location',
-            width    : 200
-        }, {
-            type     : 'iconLink',
-            cellAlign: 'center',
-            dataField: 'website',
-            cellCls  : 'devindex-column-website',
-            iconCls  : 'fa fa-home',
-            text     : 'Website',
-            width    : 65
-        }, {
-            type     : 'linkedin',
-            cellAlign: 'center',
-            dataField: 'linkedinUrl',
-            cellCls  : 'devindex-column-linkedin',
-            text     : 'LI',
-            width    : 40
-        }, {
-            type     : 'icon',
-            cellAlign: 'center',
-            dataField: 'isHireable',
-            cellCls  : 'devindex-column-hireable',
-            iconCls  : 'fas fa-circle-check',
-            text     : 'Hireable',
-            width    : 65
-        }, {
-            type     : 'iconLink',
-            cellAlign: 'center',
-            dataField: 'twitter',
-            cellCls  : 'devindex-column-twitter',
-            iconCls  : 'fa-brands fa-x-twitter',
-            text     : 'X',
-            width    : 40
-        }, {
-            type     : 'githubOrgs',
-            dataField: 'organizations',
-            text     : 'Orgs',
-            width    : 150
-        }, {
-            dataField: 'followers',
-            text     : 'Followers',
-            width    : 100,
-            cellAlign: 'right',
-            renderer : ({value}) => value ? new Intl.NumberFormat().format(value) : '-'
-        }, {
-            type          : 'iconLink',
-            cellAlign     : 'center',
-            cellCls       : 'devindex-column-sponsors',
-            dataField     : 'hasSponsors',
-            iconCls       : 'fa-regular fa-heart',
-            labelFormatter: val => val != null ? String(val) : null,
-            text          : 'Sponsors',
-            urlFormatter  : (val, record) => val != null ? `https://github.com/sponsors/${record.login}` : null,
-            width         : 80
-        }, {
-            dataField: 'firstYear',
-            text     : 'Since', width: 80,
-            cellAlign: 'center'
-        }];
+                type          : 'iconLink',
+                dataField     : 'topRepo',
+                iconCls       : 'fa-brands fa-github',
+                labelFormatter: val => val?.[1] ? new Intl.NumberFormat().format(val[1]) : null,
+                text          : 'Top Repo',
+                urlFormatter  : val => val ? `https://github.com/${val[0]}` : null,
+                width         : 100
+            }, {
+                dataField: 'company',
+                text     : 'Company',
+                width    : 200,
+                renderer : ({value}) => value ? value.replace(/^@/, '') : ''
+            }, {
+                type     : 'countryFlag',
+                dataField: 'countryCode',
+                sortable : false,
+                text     : 'Location',
+                width    : 200
+            }, {
+                type     : 'iconLink',
+                cellAlign: 'center',
+                dataField: 'website',
+                cellCls  : 'devindex-column-website',
+                iconCls  : 'fa fa-home',
+                text     : 'Website',
+                width    : 65
+            }, {
+                type     : 'linkedin',
+                cellAlign: 'center',
+                dataField: 'linkedinUrl',
+                cellCls  : 'devindex-column-linkedin',
+                text     : 'LI',
+                width    : 40
+            }, {
+                type     : 'icon',
+                cellAlign: 'center',
+                dataField: 'isHireable',
+                cellCls  : 'devindex-column-hireable',
+                iconCls  : 'fas fa-circle-check',
+                text     : 'Hireable',
+                width    : 65
+            }, {
+                type     : 'iconLink',
+                cellAlign: 'center',
+                dataField: 'twitter',
+                cellCls  : 'devindex-column-twitter',
+                iconCls  : 'fa-brands fa-x-twitter',
+                text     : 'X',
+                width    : 40
+            }, {
+                type     : 'githubOrgs',
+                dataField: 'organizations',
+                text     : 'Orgs',
+                width    : 150
+            }, {
+                dataField: 'followers',
+                text     : 'Followers',
+                width    : 100,
+                cellAlign: 'right',
+                renderer : ({value}) => value ? new Intl.NumberFormat().format(value) : '-'
+            }, {
+                type          : 'iconLink',
+                cellAlign     : 'center',
+                cellCls       : 'devindex-column-sponsors',
+                dataField     : 'hasSponsors',
+                iconCls       : 'fa-regular fa-heart',
+                labelFormatter: val => val != null ? String(val) : null,
+                text          : 'Sponsors',
+                urlFormatter  : (val, record) => val != null ? `https://github.com/sponsors/${record.login}` : null,
+                width         : 80
+            }, {
+                dataField: 'firstYear',
+                text     : 'Since', width: 80,
+                cellAlign: 'center'
+            }];
 
         // Add Year Columns
         for (let year = endYear; year >= 2010; year--) {
