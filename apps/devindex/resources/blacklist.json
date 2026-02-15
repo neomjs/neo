@@ -4,6 +4,8 @@
   "brewtestbot",
   "browser-automation-bot",
   "codacy-badger",
+  "dependabot",
+  "dependabot-preview",
   "dotnet-bot",
   "engine-flutter-autoroll",
   "k8s-ci-robot",
@@ -13,8 +15,10 @@
   "robobun",
   "robocdnjs",
   "scala-steward",
+  "snyk-bot",
   "skia-flutter-autoroll",
   "spring-builds",
+  "vercel-bot",
   "weblate",
   "yoshi-automation"
 ]
