@@ -6,6 +6,7 @@
   "codacy-badger",
   "dependabot",
   "dependabot-preview",
+  "docker-library-bot",
   "dotnet-bot",
   "engine-flutter-autoroll",
   "k8s-ci-robot",
