@@ -142,7 +142,7 @@ class ControlsContainer extends Container {
                     listeners     : {change: 'onBufferRowRangeChange'},
                     store         : ['0', '3', '5', '10', '25', '50'],
                     style         : {marginTop: '1em'},
-                    value         : '3',
+                    value         : '5',
                     width         : 200
                 }, {
                     module        : ComboBox,
@@ -155,7 +155,7 @@ class ControlsContainer extends Container {
                     listeners     : {change: 'onBufferColumnRangeChange'},
                     store         : ['0', '3', '5', '10', '20'],
                     style         : {marginTop: '.3em'},
-                    value         : '0',
+                    value         : '3',
                     width         : 200
                 }, {
                     ntype: 'label',
