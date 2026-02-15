@@ -238,6 +238,12 @@ class GridContainer extends BaseGridContainer {
             text     : 'Orgs',
             width    : 150
         }, {
+            dataField: 'followers',
+            text     : 'Followers',
+            width    : 100,
+            cellAlign: 'right',
+            renderer : ({value}) => value ? new Intl.NumberFormat().format(value) : '-'
+        }, {
             type          : 'iconLink',
             cellAlign     : 'center',
             cellCls       : 'devindex-column-sponsors',
@@ -247,12 +253,6 @@ class GridContainer extends BaseGridContainer {
             text          : 'Sponsors',
             urlFormatter  : (val, record) => val != null ? `https://github.com/sponsors/${record.login}` : null,
             width         : 80
-        }, {
-            dataField: 'followers',
-            text     : 'Followers',
-            width    : 100,
-            cellAlign: 'right',
-            renderer : ({value}) => value ? new Intl.NumberFormat().format(value) : '-'
         }, {
             dataField: 'firstYear',
             text     : 'Since', width: 80,

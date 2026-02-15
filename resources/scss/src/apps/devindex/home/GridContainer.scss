@@ -96,6 +96,18 @@
                     font-size: 16px;
                 }
             }
+
+            &.devindex-column-sponsors {
+                .neo-icon-link {
+                    color     : var(--devindex-sponsors-color, #ea4aaa);
+                    font-size : 16px;
+                    transition: color 200ms ease-out;
+
+                    &:hover {
+                        color: var(--devindex-sponsors-hover-color, #ff6cc5);
+                    }
+                }
+            }
         }
     }
 }
