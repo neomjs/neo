@@ -661,6 +661,11 @@ class GridBody extends Component {
      * 4.  **Recycles** existing Row components by calling {@link Neo.grid.Row#updateContent} with the new record data.
      * 5.  Updates the scroll spacer height.
      *
+     * **Optimization Strategies:**
+     * - **Row Skipping:** If `force` is false and the record/rowIndex match, `Row.updateContent` skips VDOM generation.
+     * - **Cell Recycling:** If horizontal scrolling is detected (implicit force), `recycle=true` is passed to Rows, allowing them to reuse existing cell VDOM nodes.
+     * - **Forced Updates:** Explicit `force=true` (e.g. from column resize) disables recycling to ensure full re-render.
+     *
      * @param {Boolean} [silent=false] True to suppress the final VDOM update (used when batching).
      * @param {Boolean} [force=false] True to force row updates even if records haven't changed (e.g. column resize).
      */
