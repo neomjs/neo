@@ -54,8 +54,10 @@ subIssues:
   - '[x] 9172 DevIndex: Optimize LinkedIn URL Storage'
   - '[x] 9173 Enhance IconLink with Label Support and Update Sponsors Logic'
   - '[x] 9175 DevIndex: Restore 2026 Data and Polish Activity Column'
-subIssuesCompleted: 40
-subIssuesTotal: 40
+  - '[x] 9177 DevIndex: Add ''Commits %'' Column and Automation Filter'
+  - '[x] 9178 DevIndex: Add ''Impact'' Column (Heuristics Visualization)'
+subIssuesCompleted: 42
+subIssuesTotal: 42
 blockedBy: []
 blocking: []
 ---
@@ -113,4 +115,6 @@ It focuses on UI/UX improvements, bug fixes, and ensuring a smooth user experien
 - 2026-02-15T17:14:50Z @tobiu added sub-issue #9172
 - 2026-02-15T17:56:25Z @tobiu added sub-issue #9173
 - 2026-02-15T18:36:16Z @tobiu added sub-issue #9175
+- 2026-02-15T21:07:26Z @tobiu added sub-issue #9177
+- 2026-02-15T21:51:53Z @tobiu added sub-issue #9178
 
