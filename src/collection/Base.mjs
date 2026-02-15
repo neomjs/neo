@@ -547,6 +547,17 @@ class Collection extends Base {
     }
 
     /**
+     * Creates the allItems collection used for filtering.
+     * Can be overridden by subclasses.
+     * @param {Object} config
+     * @returns {Neo.collection.Base}
+     * @protected
+     */
+    createAllItems(config) {
+        return Neo.create(this.constructor, config)
+    }
+
+    /**
      * Clears the map & items array before the super call
      */
     destroy() {
@@ -773,7 +784,7 @@ class Collection extends Base {
                 // which stores the unfiltered data. It is crucial to use `me.constructor` here.
                 // If we hardcode `Collection`, subclasses like `data.Store` would lose their specific
                 // functionalities (e.g., lazy record instantiation on `get()`) for the `allItems` collection.
-                me.allItems = Neo.create(me.constructor, {
+                me.allItems = me.createAllItems({
                     ...Neo.clone(config, true, true),
                     id         : me.id + '-all',
                     items      : [...me._items], // Initialize with a shallow copy of current items
