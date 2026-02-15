@@ -5,9 +5,10 @@ state: OPEN
 labels:
   - enhancement
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-02-14T17:54:56Z'
-updatedAt: '2026-02-14T17:54:56Z'
+updatedAt: '2026-02-15T02:51:08Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9154'
 author: tobiu
 commentsCount: 0
@@ -33,4 +34,5 @@ Enhance the DevIndex grid with additional columns based on the updated Contribut
 - 2026-02-14T17:54:57Z @tobiu added the `enhancement` label
 - 2026-02-14T17:54:57Z @tobiu added the `ai` label
 - 2026-02-14T17:55:09Z @tobiu added parent issue #9106
+- 2026-02-15T02:51:08Z @tobiu assigned to @tobiu
 
