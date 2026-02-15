@@ -34,6 +34,7 @@ class Contributors extends Store {
          */
         filters: [
             {property: 'bio',         operator: 'like', value: null},
+            {property: 'commitRatio', operator: '<=',   value: null},
             {property: 'countryCode', operator: '===',  value: null},
             {property: 'isHireable',  operator: '===',  value: null},
             {property: 'login',       operator: 'like', value: null},

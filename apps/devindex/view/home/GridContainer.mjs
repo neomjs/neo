@@ -174,6 +174,13 @@ class GridContainer extends BaseGridContainer {
                 defaultSortDirection: 'DESC',
                 renderer            : ({value}) => new Intl.NumberFormat().format(value)
             }, {
+                dataField           : 'commitRatio',
+                text                : 'Commits %',
+                width               : 110,
+                cellAlign           : 'right',
+                defaultSortDirection: 'DESC',
+                renderer            : ({value}) => (value || 0).toFixed(2)
+            }, {
                 dataField: 'activity',
                 text     : `Activity (${activityDuration}y)`,
                 width    : 160,

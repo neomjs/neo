@@ -77,6 +77,28 @@ class Contributor extends Model {
                 calculate: data => {
                     return (data.commitsArray || data.cy)?.reduce((a, b) => a + b, 0) || 0
                 }
+            },
+            {
+                name: 'commitRatio',
+                type: 'Float',
+                /**
+                 * Calculates the ratio of commits to total contributions (0-100).
+                 * @param {Object|Neo.data.Record} data
+                 * @returns {Number}
+                 */
+                calculate: data => {
+                    // Optimization: Use totalCommits if already calculated (Record context)
+                    // Fallback: Calculate from raw array (Raw/Store context)
+                    let commits = data.totalCommits;
+
+                    if (commits === undefined) {
+                        commits = (data.commitsArray || data.cy)?.reduce((a, b) => a + b, 0) || 0
+                    }
+
+                    const total = data.totalContributions || data.tc || 0;
+
+                    return total === 0 ? 0 : (commits / total) * 100
+                }
             }
         ]
     }

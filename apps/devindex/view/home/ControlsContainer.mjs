@@ -102,6 +102,14 @@ class ControlsContainer extends Container {
                     style        : {marginTop: '1em'},
                     valueLabel   : 'Hireable Only',
                     width        : 200
+                }, {
+                    module       : CheckBox,
+                    checked      : false,
+                    hideLabel    : true,
+                    listeners    : {change: 'onHideAutomationChange'},
+                    style        : {marginTop: '1em'},
+                    valueLabel   : 'Hide Commit Ratio > 90%',
+                    width        : 200
                 }]
             }, {
                 module   : Profile,

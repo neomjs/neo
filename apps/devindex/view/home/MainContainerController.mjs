@@ -124,6 +124,13 @@ class MainContainerController extends Controller {
     /**
      * @param {Object} data
      */
+    onHideAutomationChange(data) {
+        this.getReference('grid').store.getFilter('commitRatio').value = data.value ? 90 : null
+    }
+
+    /**
+     * @param {Object} data
+     */
     onHireableChange(data) {
         this.getReference('grid').store.getFilter('isHireable').value = data.value ? true : null
     }
