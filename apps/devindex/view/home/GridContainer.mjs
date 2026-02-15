@@ -183,26 +183,21 @@ class GridContainer extends BaseGridContainer {
                 }
             }
         }, {
-            dataField: 'followers',
-            text     : 'Followers',
-            width    : 100,
-            cellAlign: 'right',
-            renderer : ({value}) => value ? new Intl.NumberFormat().format(value) : '-'
-        }, {
             dataField: 'company',
             text     : 'Company',
             width    : 200,
             renderer : ({value}) => value ? value.replace(/^@/, '') : ''
+        }, {
+            dataField: 'topRepo',
+            text     : 'Top Repo',
+            width    : 200,
+            renderer : ({value}) => value?.[0] || ''
         }, {
             type     : 'countryFlag',
             dataField: 'countryCode',
             sortable : false,
             text     : 'Location',
             width    : 200
-        }, {
-            dataField: 'firstYear',
-            text     : 'Since', width: 80,
-            cellAlign: 'center'
         }, {
             type     : 'iconLink',
             cellAlign: 'center',
@@ -228,10 +223,36 @@ class GridContainer extends BaseGridContainer {
             text     : 'Hireable',
             width    : 65
         }, {
+            type     : 'iconLink',
+            cellAlign: 'center',
+            dataField: 'twitter',
+            cellCls  : 'devindex-column-twitter',
+            iconCls  : 'fa-brands fa-x-twitter',
+            text     : 'X',
+            width    : 40
+        }, {
             type     : 'githubOrgs',
             dataField: 'organizations',
             text     : 'Orgs',
             width    : 150
+        }, {
+            type     : 'icon',
+            cellAlign: 'center',
+            dataField: 'hasSponsors',
+            cellCls  : 'devindex-column-sponsors',
+            iconCls  : 'fa-regular fa-heart',
+            text     : 'Sponsors',
+            width    : 65
+        }, {
+            dataField: 'followers',
+            text     : 'Followers',
+            width    : 100,
+            cellAlign: 'right',
+            renderer : ({value}) => value ? new Intl.NumberFormat().format(value) : '-'
+        }, {
+            dataField: 'firstYear',
+            text     : 'Since', width: 80,
+            cellAlign: 'center'
         }];
 
         // Add Year Columns
