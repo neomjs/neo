@@ -50,8 +50,12 @@ subIssues:
   - '[x] 9153 [DevIndex] Add Bio Filter and Hireable Checkbox'
   - '[x] 9154 [DevIndex] Add TopRepo, Twitter, and Sponsors columns'
   - '[x] 9155 [DevIndex] Grid Icon Columns fail to update on Filter change'
-subIssuesCompleted: 36
-subIssuesTotal: 36
+  - '[x] 9171 DevIndex: Include Repo Owner in Top Repo Logic'
+  - '[x] 9172 DevIndex: Optimize LinkedIn URL Storage'
+  - '[x] 9173 Enhance IconLink with Label Support and Update Sponsors Logic'
+  - '[x] 9175 DevIndex: Restore 2026 Data and Polish Activity Column'
+subIssuesCompleted: 40
+subIssuesTotal: 40
 blockedBy: []
 blocking: []
 ---
@@ -105,4 +109,8 @@ It focuses on UI/UX improvements, bug fixes, and ensuring a smooth user experien
 - 2026-02-14T17:55:04Z @tobiu added sub-issue #9153
 - 2026-02-14T17:55:09Z @tobiu added sub-issue #9154
 - 2026-02-14T18:46:32Z @tobiu added sub-issue #9155
+- 2026-02-15T17:12:10Z @tobiu added sub-issue #9171
+- 2026-02-15T17:14:50Z @tobiu added sub-issue #9172
+- 2026-02-15T17:56:25Z @tobiu added sub-issue #9173
+- 2026-02-15T18:36:16Z @tobiu added sub-issue #9175
 
