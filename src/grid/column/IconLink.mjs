@@ -29,10 +29,22 @@ class IconLink extends ComponentColumn {
          */
         iconCls: null,
         /**
+         * @member {String|null} labelField=null
+         */
+        labelField: null,
+        /**
+         * @member {Function|null} labelFormatter=null
+         */
+        labelFormatter: null,
+        /**
          * @member {String} type='iconLink'
          * @protected
          */
-        type: 'iconLink'
+        type: 'iconLink',
+        /**
+         * @member {Function|null} urlFormatter=null
+         */
+        urlFormatter: null
     }
 
     /**
@@ -41,11 +53,23 @@ class IconLink extends ComponentColumn {
      * @returns {Object}
      */
     applyRecordConfigs(config, record) {
-        let me = this;
+        let me        = this,
+            dataValue = record[me.dataField],
+            url       = dataValue,
+            label     = me.labelField ? record[me.labelField] : null;
+
+        if (me.urlFormatter) {
+            url = me.urlFormatter(dataValue, record)
+        }
+
+        if (me.labelFormatter) {
+            label = me.labelFormatter(me.labelField ? label : dataValue, record)
+        }
 
         return {
             iconCls: me.iconCls,
-            url    : record[me.dataField],
+            label,
+            url,
             ...config
         }
     }

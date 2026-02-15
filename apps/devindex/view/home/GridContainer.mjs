@@ -188,10 +188,13 @@ class GridContainer extends BaseGridContainer {
             width    : 200,
             renderer : ({value}) => value ? value.replace(/^@/, '') : ''
         }, {
-            dataField: 'topRepo',
-            text     : 'Top Repo',
-            width    : 200,
-            renderer : ({value}) => value?.[0] || ''
+            type          : 'iconLink',
+            dataField     : 'topRepo',
+            iconCls       : 'fa-brands fa-github',
+            labelFormatter: val => val?.[0],
+            text          : 'Top Repo',
+            urlFormatter  : val => val ? `https://github.com/${val[0]}` : null,
+            width         : 200
         }, {
             type     : 'countryFlag',
             dataField: 'countryCode',
@@ -235,13 +238,15 @@ class GridContainer extends BaseGridContainer {
             text     : 'Orgs',
             width    : 150
         }, {
-            type     : 'icon',
-            cellAlign: 'center',
-            dataField: 'hasSponsors',
-            cellCls  : 'devindex-column-sponsors',
-            iconCls  : 'fa-regular fa-heart',
-            text     : 'Sponsors',
-            width    : 65
+            type          : 'iconLink',
+            cellAlign     : 'center',
+            cellCls       : 'devindex-column-sponsors',
+            dataField     : 'hasSponsors',
+            iconCls       : 'fa-regular fa-heart',
+            labelFormatter: val => val != null ? String(val) : null,
+            text          : 'Sponsors',
+            urlFormatter  : (val, record) => val != null ? `https://github.com/sponsors/${record.login}` : null,
+            width         : 80
         }, {
             dataField: 'followers',
             text     : 'Followers',
