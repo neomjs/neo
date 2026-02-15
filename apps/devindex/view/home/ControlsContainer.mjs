@@ -1,5 +1,6 @@
 import * as selection from '../../../../src/selection/grid/_export.mjs';
 import CheckBox       from '../../../../src/form/field/CheckBox.mjs';
+import ComboBox       from '../../../../src/form/field/ComboBox.mjs';
 import Container      from '../../../../src/container/Base.mjs';
 import Country        from '../../../../src/form/field/Country.mjs';
 import Profile        from './ProfileContainer.mjs';
@@ -39,7 +40,7 @@ class ControlsContainer extends Container {
 
             items: [{
                 module: Container,
-                header: {text: 'Filters'},
+                header: {text: 'Search'},
                 layout: 'vbox',
 
                 items: [{
@@ -101,14 +102,6 @@ class ControlsContainer extends Container {
                     style        : {marginTop: '1em'},
                     valueLabel   : 'Hireable Only',
                     width        : 200
-                }, {
-                    module       : CheckBox,
-                    checked      : true,
-                    hideLabel    : true,
-                    listeners    : {change: 'onShowAnimationsChange'},
-                    style        : {marginTop: '1em'},
-                    valueLabel   : 'Show Animations',
-                    width        : 200
                 }]
             }, {
                 module   : Profile,
@@ -116,7 +109,7 @@ class ControlsContainer extends Container {
                 reference: 'profile-container'
             }, {
                 module: Container,
-                header: {text: 'Selection'},
+                header: {text: 'Settings'},
                 layout: 'vbox',
 
                 itemDefaults: {
@@ -131,11 +124,45 @@ class ControlsContainer extends Container {
                 },
 
                 items: [{
+                    module       : CheckBox,
+                    checked      : true,
+                    hideLabel    : true,
+                    listeners    : {change: 'onShowAnimationsChange'},
+                    style        : {marginTop: 0},
+                    valueLabel   : 'Show Animations',
+                    width        : 200
+                }, {
+                    module        : ComboBox,
+                    clearable     : false,
+                    editable      : false,
+                    forceSelection: true,
+                    labelText     : 'Buffer Row Range',
+                    labelPosition : 'inline',
+                    labelWidth    : 135,
+                    listeners     : {change: 'onBufferRowRangeChange'},
+                    store         : ['0', '3', '5', '10', '25', '50'],
+                    style         : {marginTop: '1em'},
+                    value         : '3',
+                    width         : 200
+                }, {
+                    module        : ComboBox,
+                    clearable     : false,
+                    editable      : false,
+                    forceSelection: true,
+                    labelText     : 'Buffer Column Range',
+                    labelPosition : 'inline',
+                    labelWidth    : 135,
+                    listeners     : {change: 'onBufferColumnRangeChange'},
+                    store         : ['0', '3', '5', '10', '20'],
+                    style         : {marginTop: '.3em'},
+                    value         : '0',
+                    width         : 200
+                }, {
                     ntype: 'label',
-                    style: {marginTop: 0},
+                    style: {marginTop: '1em'},
                     text : 'Pick the Selection Model'
                 }, {
-                    style         : {marginTop: '1em'},
+                    style         : {marginTop: '.3em'},
                     selectionModel: selection.CellModel,
                     valueLabel    : 'Cell'
                 }, {
