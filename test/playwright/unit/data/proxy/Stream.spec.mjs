@@ -23,7 +23,9 @@ test.describe.serial('Neo.data.proxy.Stream', () => {
     // In Playwright Node environment, ReadableStream/TextDecoderStream should be available.
     
     test.beforeEach(() => {
-        proxy = Neo.create(StreamProxy);
+        proxy = Neo.create(StreamProxy, {
+            store: {}
+        });
     });
 
     test('read() should stream and parse NDJSON data', async () => {
@@ -39,6 +41,9 @@ test.describe.serial('Neo.data.proxy.Stream', () => {
         const originalFetch = globalThis.fetch;
         globalThis.fetch = async (url) => {
             return {
+                headers: {
+                    get: () => 0
+                },
                 ok: true,
                 body: new ReadableStream({
                     start(controller) {
@@ -86,6 +91,9 @@ ${JSON.stringify(mockData[1])}
         const originalFetch = globalThis.fetch;
         globalThis.fetch = async (url) => {
             return {
+                headers: {
+                    get: () => 0
+                },
                 ok: true,
                 body: new ReadableStream({
                     start(controller) {
