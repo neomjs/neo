@@ -307,6 +307,16 @@ class Updater extends Base {
 
         // 3. Build Multi-Year Contribution Query
         // BATCHING: We split the years into chunks of 4 to prevent 502/504 errors on large accounts.
+        //
+        // TOP REPO STRATEGY:
+        // We want to identify the user's "Lifetime Top Repository" (highest commit count).
+        // - Ideally, we would fetch ALL contributions for ALL years, but fetching `commitContributionsByRepository`
+        //   without a limit is too expensive and slow.
+        // - GitHub API sorts this list by `OCCURRED_AT` (default), not by count.
+        // - We use `maxRepositories: 10` as a statistical trade-off. For prolific users (contributing to >10 repos/year),
+        //   we might miss a high-count repo if it wasn't recently active in that year.
+        // - We aggregate these counts across all years.
+        // - We MUST use `${owner}/${name}` as the key, because `name` alone is ambiguous (forks, common names).
         const contribData = {};
 
         const fetchYears = async (fromYear, toYear) => {
@@ -321,8 +331,8 @@ class Updater extends Base {
                     totalPullRequestReviewContributions
                     totalRepositoryContributions
                     restrictedContributionsCount
-                    commitContributionsByRepository(maxRepositories: 5) {
-                        repository { name }
+                    commitContributionsByRepository(maxRepositories: 10) {
+                        repository { name, owner { login } }
                         contributions { totalCount }
                     }
                 }`;
@@ -387,9 +397,12 @@ class Updater extends Base {
             // Aggregate Repos (Focus Metric)
             if (collection?.commitContributionsByRepository) {
                 collection.commitContributionsByRepository.forEach(repo => {
-                    const name  = repo.repository.name;
-                    const count = repo.contributions.totalCount;
-                    repoMap.set(name, (repoMap.get(name) || 0) + count);
+                    const name     = repo.repository.name;
+                    const owner    = repo.repository.owner.login;
+                    const fullName = `${owner}/${name}`;
+                    const count    = repo.contributions.totalCount;
+
+                    repoMap.set(fullName, (repoMap.get(fullName) || 0) + count);
                 });
             }
 
