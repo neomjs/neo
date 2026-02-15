@@ -1,7 +1,7 @@
 ---
 id: 9165
 title: '[Grid] Fix Runtime Buffer Updates Breaking Row/Cell Pooling'
-state: OPEN
+state: CLOSED
 labels:
   - bug
   - ai
@@ -10,16 +10,19 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-02-15T03:32:01Z'
-updatedAt: '2026-02-15T03:47:55Z'
+updatedAt: '2026-02-15T13:27:13Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9165'
 author: tobiu
 commentsCount: 0
 parentIssue: null
-subIssues: []
-subIssuesCompleted: 0
-subIssuesTotal: 0
+subIssues:
+  - '[x] 9167 [Grid] Fix Runtime Buffer Updates (Phase 1: Functional)'
+  - '[x] 9168 [Grid] Optimize Runtime Buffer Updates (Phase 2: Performance)'
+subIssuesCompleted: 2
+subIssuesTotal: 2
 blockedBy: []
 blocking: []
+closedAt: '2026-02-15T13:27:13Z'
 ---
 # [Grid] Fix Runtime Buffer Updates Breaking Row/Cell Pooling
 
@@ -40,4 +43,9 @@ Runtime changes to `bufferRowRange` and `bufferColumnRange` currently break the 
 - 2026-02-15T03:32:02Z @tobiu added the `regression` label
 - 2026-02-15T03:32:02Z @tobiu added the `architecture` label
 - 2026-02-15T03:47:55Z @tobiu assigned to @tobiu
+- 2026-02-15T12:00:38Z @tobiu cross-referenced by #9167
+- 2026-02-15T12:00:43Z @tobiu cross-referenced by #9168
+- 2026-02-15T12:01:21Z @tobiu added sub-issue #9167
+- 2026-02-15T12:01:47Z @tobiu added sub-issue #9168
+- 2026-02-15T13:27:13Z @tobiu closed this issue
 
