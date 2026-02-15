@@ -1,5 +1,6 @@
 import BaseGridContainer from '../../../../src/grid/Container.mjs';
 import Contributors      from '../../store/Contributors.mjs';
+import Heuristics        from './component/Heuristics.mjs';
 import StatusToolbar     from './StatusToolbar.mjs';
 
 const
@@ -180,6 +181,15 @@ class GridContainer extends BaseGridContainer {
                 cellAlign           : 'right',
                 defaultSortDirection: 'DESC',
                 renderer            : ({value}) => (value || 0).toFixed(2)
+            }, {
+                type     : 'component',
+                dataField: 'heuristics',
+                text     : 'Impact',
+                width    : 100,
+                component: ({record}) => ({
+                    module     : Heuristics,
+                    heuristics : record.heuristics || record.hm
+                })
             }, {
                 dataField: 'activity',
                 text     : `Activity (${activityDuration}y)`,
