@@ -48,9 +48,9 @@ subIssues:
   - '[x] 9150 DevIndex: Client-Side "Commits Only" Toggle & Total Commits Implementation'
   - '[x] 9152 [DevIndex] Add Hireable and Website columns to Grid'
   - '[x] 9153 [DevIndex] Add Bio Filter and Hireable Checkbox'
-  - '[ ] 9154 [DevIndex] Add TopRepo, Twitter, and Sponsors columns'
+  - '[x] 9154 [DevIndex] Add TopRepo, Twitter, and Sponsors columns'
   - '[x] 9155 [DevIndex] Grid Icon Columns fail to update on Filter change'
-subIssuesCompleted: 35
+subIssuesCompleted: 36
 subIssuesTotal: 36
 blockedBy: []
 blocking: []
