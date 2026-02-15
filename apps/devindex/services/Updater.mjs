@@ -252,6 +252,7 @@ class Updater extends Base {
                     followers { totalCount }
                     isHireable
                     hasSponsorsListing
+                    sponsorshipsAsMaintainer { totalCount }
                     twitterUsername
                     websiteUrl
                     socialAccounts(first: 5) {
@@ -291,7 +292,7 @@ class Updater extends Base {
 
         if (!profileRes?.user) return null;
 
-        const { createdAt, avatarUrl, name, location, company, bio, followers, socialAccounts, isHireable, hasSponsorsListing, twitterUsername, websiteUrl } = profileRes.user;
+        const { createdAt, avatarUrl, name, location, company, bio, followers, socialAccounts, isHireable, hasSponsorsListing, sponsorshipsAsMaintainer, twitterUsername, websiteUrl } = profileRes.user;
         const startYear   = new Date(createdAt).getFullYear();
         const currentYear = new Date().getFullYear();
 
@@ -467,7 +468,9 @@ class Updater extends Base {
 
         // Metadata
         if (isHireable) minified.h = 1;
-        if (hasSponsorsListing) minified.s = 1;
+        if (hasSponsorsListing || sponsorshipsAsMaintainer?.totalCount > 0) {
+            minified.s = sponsorshipsAsMaintainer?.totalCount || 0;
+        }
         if (twitterUsername) minified.t = twitterUsername;
         if (websiteUrl) minified.w = websiteUrl;
 

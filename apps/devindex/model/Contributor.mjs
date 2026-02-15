@@ -37,7 +37,7 @@ class Contributor extends Model {
             {name: 'twitter',              mapping: 't',  type: 'String',  defaultValue: null},
             {name: 'website',              mapping: 'w',  type: 'String',  defaultValue: null},
             {name: 'isHireable',           mapping: 'h',  type: 'Boolean', defaultValue: false, convert: v => !!v},
-            {name: 'hasSponsors',          mapping: 's',  type: 'Boolean', defaultValue: false, convert: v => !!v},
+            {name: 'hasSponsors',          mapping: 's',  type: 'Integer', defaultValue: null},
             {name: 'heuristics',           mapping: 'hm', type: 'Object',  defaultValue: null},
             {name: 'topRepo',              mapping: 'tr', type: 'Array',   defaultValue: null},
             {name: 'privateContributions', mapping: 'py', type: 'Array',   defaultValue: []},
