@@ -140,7 +140,7 @@ class ControlsContainer extends Container {
                     labelPosition : 'inline',
                     labelWidth    : 135,
                     listeners     : {change: 'onBufferRowRangeChange'},
-                    store         : ['0', '3', '5', '10', '25', '50'],
+                    store         : ['0', '1', '3', '5', '10', '25', '50'],
                     style         : {marginTop: '1em'},
                     value         : '5',
                     width         : 200
@@ -153,7 +153,7 @@ class ControlsContainer extends Container {
                     labelPosition : 'inline',
                     labelWidth    : 135,
                     listeners     : {change: 'onBufferColumnRangeChange'},
-                    store         : ['0', '3', '5', '10', '20'],
+                    store         : ['0', '1', '3', '5', '10', '20'],
                     style         : {marginTop: '.3em'},
                     value         : '3',
                     width         : 200
