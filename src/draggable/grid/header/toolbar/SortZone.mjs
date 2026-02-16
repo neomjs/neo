@@ -210,7 +210,7 @@ class SortZone extends BaseSortZone {
 
         await this.timeout(20);
 
-        owner.parent.body.createViewData()
+        owner.parent.body.createViewData(false, true)
     }
 
     /**
