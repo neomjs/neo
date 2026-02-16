@@ -45,6 +45,7 @@ class Contributors extends Store {
          */
         proxy: {
             module: StreamProxy,
+            progressiveChunkSize: true,
             url   : '../../apps/devindex/resources/users.jsonl'
         },
         /**
