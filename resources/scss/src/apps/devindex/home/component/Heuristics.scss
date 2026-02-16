@@ -1,9 +1,10 @@
 .devindex-heuristics {
     align-items: center;
-    contain    : layout paint style;
+    contain    : strict;
     display    : flex;
     gap        : 4px;
     height     : 100%;
+    width      : 100%;
 
     .devindex-badge {
         align-items    : center;
