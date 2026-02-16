@@ -223,6 +223,7 @@
   "repo:Azure/Azure-Sentinel",
   "repo:Azure/DotNetty",
   "repo:Azure/Enterprise-Scale",
+  "repo:Azure/aztfexport",
   "repo:Azure/azure-mcp",
   "repo:Azure/azure-quickstart-templates",
   "repo:Azure/azure-sdk-for-python",
@@ -9435,6 +9436,5 @@
   "repo:zxwk1998/vue-admin-better",
   "repo:zyantific/zydis",
   "repo:zziz/pwc",
-  "repo:zzzgydi/clash-verge",
-  "repo:Azure/aztfexport"
+  "repo:zzzgydi/clash-verge"
 ]
