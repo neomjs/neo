@@ -20,11 +20,6 @@ class Icon extends ComponentColumn {
             module: IconComponent
         },
         /**
-         * @member {String} hideMode='visibility'
-         * @reactive
-         */
-        hideMode: 'visibility',
-        /**
          * @member {String|null} iconCls=null
          */
         iconCls: null,
