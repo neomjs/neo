@@ -27,6 +27,10 @@ class Component extends Column {
             value         : null
         },
         /**
+         * @member {String} hideMode='visibility'
+         */
+        hideMode: 'visibility',
+        /**
          * Components can delegate event listeners (or button handlers) into methods somewhere inside
          * the view controller or component tree hierarchy.
          *

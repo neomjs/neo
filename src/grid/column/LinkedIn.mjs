@@ -20,11 +20,6 @@ class LinkedIn extends ComponentColumn {
             module: IconLinkComponent
         },
         /**
-         * @member {String} hideMode='visibility'
-         * @reactive
-         */
-        hideMode: 'visibility',
-        /**
          * @member {String|null} iconCls='fa-brands fa-linkedin'
          */
         iconCls: 'fa-brands fa-linkedin',
