@@ -47,7 +47,24 @@ class Stream extends Base {
          * Useful to speed up the initial render (Time To First Content).
          * @member {Number|null} initialChunkSize=100
          */
-        initialChunkSize: 100
+        initialChunkSize: 100,
+        /**
+         * True to automatically increase the chunkSize based on the total number of loaded items.
+         *
+         * **Progressive Enhancement Strategy:**
+         * When loading large datasets (e.g., 30k+ records), the cost of `store.add()` (sorting + event propagation)
+         * becomes the dominant bottleneck. However, the user needs immediate feedback.
+         *
+         * - **Phase 1 (Start):** Small chunks (100-250) for immediate "Time to First Content" and frequent UI updates.
+         * - **Phase 2 (Ramp):** Medium chunks (500-1500) as the user processes the initial data.
+         * - **Phase 3 (Bulk):** Massive chunks (2500-10000) for the tail end of the dataset. At this point,
+         *   throughput matters more than interactivity, as the user already has a screen full of data.
+         *
+         * This mode overrides `initialBurstCount` and `chunkSize`.
+         *
+         * @member {Boolean} progressiveChunkSize_=false
+         */
+        progressiveChunkSize_: false
     }
 
     /**
@@ -57,7 +74,7 @@ class Stream extends Base {
     async read(operation) {
         let me               = this,
             chunk            = [],
-            {chunkSize}      = me,
+            {chunkSize, progressiveChunkSize} = me,
             currentChunkSize = me.initialChunkSize || chunkSize,
             burstCount       = 0,
             count            = 0,
@@ -120,13 +137,15 @@ class Stream extends Base {
 
                         burstCount++;
 
-                        if (burstCount >= me.initialBurstCount) {
+                        if (progressiveChunkSize) {
+                            currentChunkSize = me.getProgressiveChunkSize(count);
+                        } else if (burstCount >= me.initialBurstCount) {
                             currentChunkSize = chunkSize
                         }
 
-                        // Give the App Worker 5ms time to breathe, so that logic can act upon events.
-                        // E.g., sending out vdom updates.
-                        await me.timeout(5);
+                        // Give the App Worker a minimal amount of time to breathe,
+                        // so that logic can act upon events (e.g. sending out vdom updates).
+                        await me.timeout(1);
 
                         chunk = []
                     }
@@ -135,6 +154,24 @@ class Stream extends Base {
         }
 
         return {success: true, count}
+    }
+
+    /**
+     * Calculates the next chunk size based on the total number of records processed so far.
+     * Implements a tiered ramping strategy to balance initial responsiveness with long-term throughput.
+     *
+     * @param {Number} total The total number of records processed
+     * @returns {Number} The recommended chunk size for the next batch
+     */
+    getProgressiveChunkSize(total) {
+        if (total < 100)   return 100;
+        if (total < 250)   return 150;
+        if (total < 500)   return 250;
+        if (total < 1000)  return 500;
+        if (total < 2500)  return 1500;
+        if (total < 10000) return 2500;
+        if (total < 20000) return 5000;
+        return 10000
     }
 
     /**
