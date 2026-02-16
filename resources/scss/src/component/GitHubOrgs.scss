@@ -1,9 +1,10 @@
 .neo-github-orgs {
     align-items: center;
-    contain    : layout paint style;
+    contain    : strict;
     display    : flex;
     gap        : 4px;
     height     : 100%;
+    width      : 100%;
 
     .neo-org-link {
         display: flex;
