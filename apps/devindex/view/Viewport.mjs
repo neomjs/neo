@@ -1,6 +1,7 @@
-import Header             from './HeaderToolbar.mjs';
-import BaseViewport       from '../../../src/container/Viewport.mjs';
-import ViewportController from './ViewportController.mjs';
+import Header                from './HeaderToolbar.mjs';
+import BaseViewport          from '../../../src/container/Viewport.mjs';
+import ViewportController    from './ViewportController.mjs';
+import ViewportStateProvider from './ViewportStateProvider.mjs';
 
 /**
  * @class DevIndex.view.Viewport
@@ -23,6 +24,11 @@ class Viewport extends BaseViewport {
          * @reactive
          */
         controller: ViewportController,
+        /**
+         * @member {Neo.state.Provider} stateProvider=ViewportStateProvider
+         * @reactive
+         */
+        stateProvider: ViewportStateProvider,
         /**
          * @member {Object} layout={ntype:'vbox',align:'stretch'}
          * @reactive

@@ -28,18 +28,7 @@ class ViewportController extends Controller {
      *
      */
     onComponentConstructed() {
-        let me           = this,
-            grid         = me.getReference('grid'),
-            headerCanvas = me.getReference('header-canvas');
-
-        if (grid && headerCanvas) {
-            grid.on({
-                animateVisualsChange: me.onGridAnimateVisualsChange,
-                scope               : me
-            });
-
-            grid.body.on('isScrollingChange', me.onGridIsScrollingChange, me)
-        }
+        let me = this;
 
         Neo.main.addon.LocalStorage.readLocalStorageItem({
             key     : 'devindexTheme',
@@ -69,24 +58,6 @@ class ViewportController extends Controller {
         await me.timeout(button.expanded ? 250 : 0);
 
         grid.toggleCls('neo-extend-margin-right');
-    }
-
-    /**
-     * @param {Object} data
-     */
-    onGridAnimateVisualsChange(data) {
-        this.getReference('header-canvas')?.renderer?.updateConfig({
-            usePulse: data.value
-        })
-    }
-
-    /**
-     * @param {Object} data
-     */
-    onGridIsScrollingChange(data) {
-        this.getReference('header-canvas')?.renderer?.updateTimeScale({
-            value: data.value ? 2 : 1
-        })
     }
 
     /**

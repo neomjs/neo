@@ -12,10 +12,27 @@ class HeaderToolbar extends Toolbar {
          */
         className: 'DevIndex.view.HeaderToolbar',
         /**
+         * @member {Boolean} animateVisuals_=true
+         * @reactive
+         */
+        animateVisuals_: true,
+        /**
+         * @member {Object} bind
+         */
+        bind: {
+            animateVisuals: data => data.animateVisuals,
+            isScrolling   : data => data.isScrolling
+        },
+        /**
          * @member {String[]} cls=['devindex-header-toolbar']
          * @reactive
          */
         cls: ['devindex-header-toolbar'],
+        /**
+         * @member {Boolean} isScrolling_=false
+         * @reactive
+         */
+        isScrolling_: false,
         /**
          * @member {Object[]} items
          */
@@ -76,6 +93,25 @@ class HeaderToolbar extends Toolbar {
                 }
             }]
         }]
+    }
+    /**
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     */
+    afterSetAnimateVisuals(value, oldValue) {
+        if (value !== undefined) {
+            this.getReference('header-canvas')?.renderer?.updateConfig({usePulse: value})
+        }
+    }
+
+    /**
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     */
+    afterSetIsScrolling(value, oldValue) {
+        if (value !== undefined) {
+            this.getReference('header-canvas')?.renderer?.updateTimeScale({value: value ? 2 : 1})
+        }
     }
 }
 
