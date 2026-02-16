@@ -804,7 +804,12 @@ class Store extends Collection {
                     me.totalCount = response.totalCount || me.count;
                     me.isLoaded   = true;
                     me.isLoading  = false; // Ensure it's false at the end
-                    me.fire('load', {isLoading: false, items: me.items, total: me.totalCount});
+                    me.fire('load', {
+                        isLoading    : false,
+                        items        : me.items,
+                        postChunkLoad: me.proxy?.ntype === 'proxy-stream',
+                        total        : me.totalCount
+                    });
                     return me.items
                 } else {
                     me.isLoading = false;
@@ -858,7 +863,14 @@ class Store extends Collection {
         let me = this;
 
         if (me.isConstructed && !me.isLoading) {
-            me.fire('load', {isLoading: !!me.isStreaming, items: me.items, total: me.chunkingTotal});
+            const isFirstChunk = opts.addedItems && me.count === opts.addedItems.length;
+
+            me.fire('load', {
+                isLoading    : !!me.isStreaming,
+                items        : me.items,
+                postChunkLoad: !!me.isStreaming && !isFirstChunk,
+                total        : me.chunkingTotal
+            });
         }
     }
 
