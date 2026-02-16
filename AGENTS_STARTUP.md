@@ -159,6 +159,22 @@ To make fully informed decisions, you must leverage both the project's technical
 
 Your final plan or response should be a synthesis of both queries. Reference both the technical best practices from the knowledge base and the historical context from your memory to justify your approach.
 
+### 3.4. The "Ask the Expert" Protocol (Syntax Verification)
+
+**Problem:** Your training data contains outdated syntax for rapidly evolving features (e.g., State Provider bindings, Reactive Configs, Worker messaging).
+
+**Solution:** You must treat `ask_knowledge_base` as an **Embedded RAG Sub-Agent**. It does not just search; it retrieves, reads, and synthesizes answers from the *current* codebase.
+
+**Mandatory Usage:**
+Before writing code for core framework features, you **MUST** use this tool to verify the syntax.
+
+**Workflow:**
+1.  **Identify the Hazard:** "I am about to write a binding. My training says strings, but the framework might use functions."
+2.  **Ask the Expert:** Call `ask_knowledge_base` with a specific question.
+    -   `ask_knowledge_base(query='current syntax for state provider bindings')`
+    -   `ask_knowledge_base(query='how to define a reactive config in a component')`
+3.  **Trust the Answer:** The tool reads the actual files in the repository. Its answer is the single source of truth.
+
 ## 4. The Implementation Loop
 
 Once you have passed the "Ticket-First" Gate (see `AGENTS.md`) and handled the Memory Core check, you may proceed with the task.
