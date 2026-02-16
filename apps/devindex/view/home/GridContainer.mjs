@@ -21,6 +21,11 @@ class GridContainer extends BaseGridContainer {
          */
         className: 'DevIndex.view.home.GridContainer',
         /**
+         * @member {Boolean} animateVisuals_=true
+         * @reactive
+         */
+        animateVisuals_: true,
+        /**
          * @member {String[]} cls=['devindex-grid-container']
          */
         cls: ['devindex-grid-container'],
@@ -30,10 +35,11 @@ class GridContainer extends BaseGridContainer {
          */
         commitsOnly_: false,
         /**
-         * @member {Boolean} animateVisuals_=true
-         * @reactive
+         * @member {Object} bind
          */
-        animateVisuals_: true,
+        bind: {
+            animateVisuals: data => data.animateVisuals
+        },
         /**
          * @member {Object} body
          */
@@ -85,8 +91,7 @@ class GridContainer extends BaseGridContainer {
      */
     afterSetAnimateVisuals(value, oldValue) {
         if (oldValue !== undefined) {
-            this.body.animateVisuals = value;
-            this.fire('animateVisualsChange', {value})
+            this.body.animateVisuals = value
         }
     }
 

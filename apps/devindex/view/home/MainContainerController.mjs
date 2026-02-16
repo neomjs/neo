@@ -108,6 +108,13 @@ class MainContainerController extends Controller {
     /**
      * @param {Object} data
      */
+    onGridIsScrollingChange(data) {
+        this.setState('isScrolling', data.value)
+    }
+
+    /**
+     * @param {Object} data
+     */
     onGridSelect(data) {
         let me           = this,
             record       = data.record,
@@ -146,7 +153,7 @@ class MainContainerController extends Controller {
      * @param {Object} data
      */
     onShowAnimationsChange(data) {
-        this.getReference('grid').animateVisuals = data.value
+        this.setState('animateVisuals', data.value)
     }
 }
 
