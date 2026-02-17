@@ -3,6 +3,19 @@ import Model from '../../../src/data/Model.mjs';
 /**
  * @class DevIndex.model.Contributor
  * @extends Neo.data.Model
+ *
+ * @summary Data model representing a GitHub contributor with advanced year-based field mapping.
+ *
+ * This model utilizes `Neo.data.RecordFactory`'s advanced capabilities to map array-based data
+ * (compact JSON for network efficiency) into addressable fields (required for Grid sorting and binding)
+ * with zero per-record memory overhead.
+ *
+ * **Performance Architecture:**
+ * - **Raw Data:** stored as compact arrays: `y` (Total), `cy` (Commits), `py` (Private).
+ * - **Virtual Fields:** The `addYearFields()` method generates field configurations for every year (e.g., `y2024`, `py2024`).
+ * - **Zero Overhead:** These fields are processed by `RecordFactory` to create **prototype-based getters** on the generated
+ *   Record class. They read directly from the raw data arrays using the calculated index. This means adding 60+ year fields
+ *   adds 0 bytes to the individual record instances, maintaining a flat memory profile even with 50k+ records.
  */
 class Contributor extends Model {
     static config = {
@@ -88,6 +101,26 @@ class Contributor extends Model {
                  */
                 calculate: data => {
                     return (data.privateContributions || data.py)?.reduce((a, b) => a + b, 0) || 0
+                }
+            },
+            {
+                name   : 'totalPublicContributions',
+                type   : 'Integer',
+                /**
+                 * Calculates the total public contributions (Total - Private).
+                 * @param {Object|Neo.data.Record} data
+                 * @returns {Number}
+                 */
+                calculate: data => {
+                    // Optimization: Use pre-calculated fields if available (Record context)
+                    let total   = data.totalContributions || data.tc || 0,
+                        privateContribs = data.totalPrivateContributions;
+
+                    if (privateContribs === undefined) {
+                         privateContribs = (data.privateContributions || data.py)?.reduce((a, b) => a + b, 0) || 0
+                    }
+
+                    return total - privateContribs
                 }
             },
             {
@@ -184,6 +217,42 @@ class Contributor extends Model {
 
                     const index = i - firstYear;
                     return (index >= 0 && index < value.length) ? value[index] : 0;
+                }
+            });
+
+            // Private Contributions
+            fields.push({
+                name   : `py${i}`,
+                mapping: 'py', // Map to the raw private array
+                type   : 'Integer',
+                convert: (value, record) => {
+                    if (!value || !Array.isArray(value)) return 0;
+
+                    const firstYear = record.fy || record.firstYear;
+                    if (!firstYear) return 0;
+
+                    const index = i - firstYear;
+                    return (index >= 0 && index < value.length) ? value[index] : 0;
+                }
+            });
+
+            // Public Contributions (Calculated: Total - Private)
+            fields.push({
+                name: `puy${i}`,
+                type: 'Integer',
+                calculate: (data) => {
+                    // We can reuse the logic above or rely on the already resolved fields if available.
+                    // Ideally, we access raw data for speed.
+                    const firstYear = data.fy || data.firstYear;
+                    if (!firstYear) return 0;
+
+                    const index = i - firstYear;
+                    if (index < 0) return 0;
+
+                    const total      = (data.y  && data.y [index]) || 0;
+                    const privateVal = (data.py && data.py[index]) || 0;
+
+                    return total - privateVal;
                 }
             });
         }
