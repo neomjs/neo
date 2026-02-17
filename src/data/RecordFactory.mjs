@@ -41,6 +41,8 @@ class RecordFactory extends Base {
      */
     assignDefaultValues(data, model) {
         model.fieldsMap.forEach((field, fieldName) => {
+            if (field.virtual) return;
+
             if (field.mapping && !Object.hasOwn(data, fieldName)) {
                 let ns  = field.mapping.split('.'),
                     key = ns.pop(),
@@ -89,26 +91,38 @@ class RecordFactory extends Base {
                 this.createField({field: childField, model, path: fieldPath, proto})
             })
         } else {
-            properties = {
-                [fieldPath]: {
-                    configurable: true,
-                    enumerable  : true,
-                    get() {
-                        if (model.hasNestedFields) {
-                            return Neo.ns(fieldPath, false, this[dataSymbol])
+            if (field.virtual) {
+                properties = {
+                    [fieldPath]: {
+                        configurable: true,
+                        enumerable  : true,
+                        get() {
+                            return field.calculate(this[dataSymbol], this)
                         }
-
-                        return this[dataSymbol][fieldName]
-                    },
-                    set(value) {
-                        this.notifyChange({
-                            fields: {[fieldPath]: instance.parseRecordValue({record: this, field, value})},
-                            model,
-                            record: this
-                        })
                     }
                 }
-            };
+            } else {
+                properties = {
+                    [fieldPath]: {
+                        configurable: true,
+                        enumerable  : true,
+                        get() {
+                            if (model.hasNestedFields) {
+                                return Neo.ns(fieldPath, false, this[dataSymbol])
+                            }
+
+                            return this[dataSymbol][fieldName]
+                        },
+                        set(value) {
+                            this.notifyChange({
+                                fields: {[fieldPath]: instance.parseRecordValue({record: this, field, value})},
+                                model,
+                                record: this
+                            })
+                        }
+                    }
+                }
+            }
 
             Object.defineProperties(proto, properties)
         }
@@ -500,6 +514,8 @@ class RecordFactory extends Base {
 
         if (hasChangedFields) {
             calculatedFieldsMap.forEach((value, key) => {
+                if (value.virtual) return;
+
                 oldValue = record[key];
                 value    = me.parseRecordValue({record, field: model.getField(key), useOriginalData});
 
