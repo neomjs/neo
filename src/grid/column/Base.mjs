@@ -86,9 +86,9 @@ class Column extends Base {
                 // To update the key in the internal Map, we must remove the item (using the old key),
                 // update the property, and re-add it (indexing with the new key).
                 // Modifying it in-place would break the Map index.
-                colPositions.remove(pos);
+                colPositions.map.delete(oldValue);
                 pos.dataField = value;
-                colPositions.add(pos)
+                colPositions.map.set(value, pos)
             }
 
             if (button) {
