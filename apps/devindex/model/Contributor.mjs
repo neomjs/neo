@@ -67,6 +67,7 @@ class Contributor extends Model {
                 }
             },
             {name: 'commitsArray', mapping: 'cy', type: 'Array'},
+            {name: 'yearsArray',   mapping: 'y',  type: 'Array'},
             {
                 name   : 'totalCommits',
                 type   : 'Integer',
@@ -189,70 +190,55 @@ class Contributor extends Model {
         for (let i = currentYear; i >= 2010; i--) {
             // Total Contributions
             fields.push({
-                name   : `y${i}`,
-                mapping: 'y', // Map to the raw years array
-                type   : 'Integer',
-                convert: (value, record) => {
-                    // value is the raw 'y' array. record contains raw 'fy' or mapped 'firstYear'.
-                    if (!value || !Array.isArray(value)) return 0;
-
-                    const firstYear = record.fy || record.firstYear;
+                name     : `y${i}`,
+                type     : 'Integer',
+                virtual  : true,
+                calculate: data => {
+                    const firstYear = data.fy || data.firstYear;
                     if (!firstYear) return 0;
-
-                    const index = i - firstYear;
-                    return (index >= 0 && index < value.length) ? value[index] : 0;
+                    return (data.yearsArray || data.y)?.[i - firstYear] || 0
                 }
             });
 
             // Commits Only
             fields.push({
-                name   : `cy${i}`,
-                mapping: 'cy', // Map to the raw commits array
-                type   : 'Integer',
-                convert: (value, record) => {
-                    if (!value || !Array.isArray(value)) return 0;
-
-                    const firstYear = record.fy || record.firstYear;
+                name     : `cy${i}`,
+                type     : 'Integer',
+                virtual  : true,
+                calculate: data => {
+                    const firstYear = data.fy || data.firstYear;
                     if (!firstYear) return 0;
-
-                    const index = i - firstYear;
-                    return (index >= 0 && index < value.length) ? value[index] : 0;
+                    return (data.commitsArray || data.cy)?.[i - firstYear] || 0
                 }
             });
 
             // Private Contributions
             fields.push({
-                name   : `py${i}`,
-                mapping: 'py', // Map to the raw private array
-                type   : 'Integer',
-                convert: (value, record) => {
-                    if (!value || !Array.isArray(value)) return 0;
-
-                    const firstYear = record.fy || record.firstYear;
+                name     : `py${i}`,
+                type     : 'Integer',
+                virtual  : true,
+                calculate: data => {
+                    const firstYear = data.fy || data.firstYear;
                     if (!firstYear) return 0;
-
-                    const index = i - firstYear;
-                    return (index >= 0 && index < value.length) ? value[index] : 0;
+                    return (data.privateContributions || data.py)?.[i - firstYear] || 0
                 }
             });
 
             // Public Contributions (Calculated: Total - Private)
             fields.push({
-                name: `puy${i}`,
-                type: 'Integer',
-                calculate: (data) => {
-                    // We can reuse the logic above or rely on the already resolved fields if available.
-                    // Ideally, we access raw data for speed.
+                name     : `puy${i}`,
+                type     : 'Integer',
+                virtual  : true,
+                calculate: data => {
                     const firstYear = data.fy || data.firstYear;
                     if (!firstYear) return 0;
 
-                    const index = i - firstYear;
-                    if (index < 0) return 0;
+                    const
+                        index      = i - firstYear,
+                        total      = (data.yearsArray || data.y)?.[index] || 0,
+                        privateVal = (data.privateContributions || data.py)?.[index] || 0;
 
-                    const total      = (data.y  && data.y [index]) || 0;
-                    const privateVal = (data.py && data.py[index]) || 0;
-
-                    return total - privateVal;
+                    return total - privateVal
                 }
             });
         }

@@ -57,6 +57,7 @@
             {"name": "Collections",                                    "parentId": "guides/datahandling",                                 "id": "guides/datahandling/Collections"},
             {"name": "Records",                                        "parentId": "guides/datahandling",                                 "id": "guides/datahandling/Records"},
             {"name": "Grids",                                          "parentId": "guides/datahandling",                                 "id": "guides/datahandling/Grids"},
+            {"name": "Dynamic Grids & Virtualization",                 "parentId": "guides/datahandling",                                 "id": "guides/datahandling/DynamicGrids"},
             {"name": "Streaming Data & Progressive Rendering",         "parentId": "guides/datahandling",                                 "id": "guides/datahandling/Streaming"},
             {"name": "Tables (Stores)",                                "parentId": "guides/datahandling",                                 "id": "guides/datahandling/Tables", "hidden": true},
             {"name": "Shared Bindable Data (State Providers)",         "parentId": "guides/datahandling",                                 "id": "guides/datahandling/StateProviders"},
