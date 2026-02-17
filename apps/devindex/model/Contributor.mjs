@@ -79,6 +79,40 @@ class Contributor extends Model {
                 }
             },
             {
+                name   : 'totalPrivateContributions',
+                type   : 'Integer',
+                /**
+                 * Calculates the total private contributions from the yearly breakdown.
+                 * @param {Object|Neo.data.Record} data
+                 * @returns {Number}
+                 */
+                calculate: data => {
+                    return (data.privateContributions || data.py)?.reduce((a, b) => a + b, 0) || 0
+                }
+            },
+            {
+                name: 'privateContributionsRatio',
+                type: 'Float',
+                /**
+                 * Calculates the ratio of private to total contributions (0-100).
+                 * @param {Object|Neo.data.Record} data
+                 * @returns {Number}
+                 */
+                calculate: data => {
+                    // Optimization: Use totalPrivateContributions if already calculated (Record context)
+                    // Fallback: Calculate from raw array (Raw/Store context)
+                    let privateContribs = data.totalPrivateContributions;
+
+                    if (privateContribs === undefined) {
+                        privateContribs = (data.privateContributions || data.py)?.reduce((a, b) => a + b, 0) || 0
+                    }
+
+                    const total = data.totalContributions || data.tc || 0;
+
+                    return total === 0 ? 0 : (privateContribs / total) * 100
+                }
+            },
+            {
                 name: 'commitRatio',
                 type: 'Float',
                 /**
