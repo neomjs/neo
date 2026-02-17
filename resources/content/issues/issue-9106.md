@@ -61,8 +61,9 @@ subIssues:
   - '[x] 9183 Enforce hideMode: ''visibility'' for Component Grid Columns'
   - '[x] 9184 Optimize Component Columns with contain: strict'
   - '[x] 9186 Fix Scroll Thrashing during Store Streaming'
-subIssuesCompleted: 47
-subIssuesTotal: 47
+  - '[x] 9188 Implement Stop Stream Capability for DevIndex'
+subIssuesCompleted: 48
+subIssuesTotal: 48
 blockedBy: []
 blocking: []
 ---
