@@ -16,6 +16,11 @@ import Base from './Base.mjs';
  * and fires a single `data` event containing the array of records. This allows the consumer (Store)
  * to perform bulk updates, drastically reducing overhead.
  *
+ * **Compression Support:**
+ * You can configure the proxy to use `DecompressionStream` (gzip/deflate) by setting the `compression` config.
+ * This allows serving pre-compressed files (`.jsonl.gz`), significantly reducing network transfer size
+ * (often >60% reduction) while keeping the client-side parsing logic identical.
+ *
  * **Requirements:**
  * - The backend must serve data in NDJSON format (one valid JSON object per line).
  * - The environment must support `TextDecoderStream` (Modern Browsers, Workers).
@@ -37,6 +42,16 @@ class Stream extends Base {
          * @member {Number} chunkSize=500
          */
         chunkSize: 500,
+        /**
+         * Set the compression algorithm to use for the stream.
+         * Valid values: 'gzip', 'deflate', null.
+         *
+         * Uses the browser's `DecompressionStream` API to transparently unzip data on the fly.
+         * This can reduce bandwidth usage by 60-80% for JSONL data, enabling significantly larger datasets.
+         *
+         * @member {String|null} compression=null
+         */
+        compression: null,
         /**
          * How many chunks to send at initialChunkSize before switching to chunkSize.
          * @member {Number} initialBurstCount=5
@@ -62,9 +77,9 @@ class Stream extends Base {
          *
          * This mode overrides `initialBurstCount` and `chunkSize`.
          *
-         * @member {Boolean} progressiveChunkSize_=false
+         * @member {Boolean} progressiveChunkSize=false
          */
-        progressiveChunkSize_: false
+        progressiveChunkSize: false
     }
 
     /**
@@ -111,7 +126,16 @@ class Stream extends Base {
                 throw new Error('ReadableStream not supported in this environment.')
             }
 
-            const reader = response.body.getReader();
+            let stream = response.body;
+
+            if (me.compression) {
+                if (typeof DecompressionStream === 'undefined') {
+                    throw new Error('DecompressionStream not supported in this environment.')
+                }
+                stream = stream.pipeThrough(new DecompressionStream(me.compression))
+            }
+
+            const reader = stream.getReader();
             const decoder = new TextDecoder();
 
             let buffer = '';
