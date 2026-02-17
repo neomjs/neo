@@ -68,6 +68,19 @@ class Stream extends Base {
     }
 
     /**
+     * @member {AbortController|null} abortController=null
+     * @protected
+     */
+    abortController = null
+
+    /**
+     * Aborts the current stream request.
+     */
+    abort() {
+        this.abortController?.abort()
+    }
+
+    /**
      * @param {Object} operation
      * @returns {Promise}
      */
@@ -84,76 +97,90 @@ class Stream extends Base {
             throw new Error('No URL specified')
         }
 
+        me.abortController = new AbortController();
         me.store.isStreaming = true;
-        const response = await fetch(url);
 
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`)
-        }
+        try {
+            const response = await fetch(url, {signal: me.abortController.signal});
 
-        if (!response.body) {
-            throw new Error('ReadableStream not supported in this environment.')
-        }
-
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-
-        let buffer = '';
-        let loaded = 0;
-        const total = parseInt(response.headers.get('content-length') || 0, 10);
-
-        while (true) {
-            const { value, done } = await reader.read();
-
-            if (done) {
-                // Process any remaining buffer
-                if (buffer.trim()) {
-                    me.processLine(buffer, chunk);
-                    count++
-                }
-                // Flush remaining chunk
-                if (chunk.length > 0) {
-                    me.fire('data', chunk);
-                    me.store.isStreaming = false
-                }
-                break
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`)
             }
 
-            loaded += value.byteLength;
-            me.fire('progress', {loaded, total});
+            if (!response.body) {
+                throw new Error('ReadableStream not supported in this environment.')
+            }
 
-            buffer += decoder.decode(value, {stream: true});
-            const lines = buffer.split('\n');
-            // Keep the last partial line in the buffer
-            buffer = lines.pop();
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
 
-            for (const line of lines) {
-                if (line.trim()) {
-                    me.processLine(line, chunk);
-                    count++;
+            let buffer = '';
+            let loaded = 0;
+            const total = parseInt(response.headers.get('content-length') || 0, 10);
 
-                    if (chunk.length >= currentChunkSize) {
+            while (true) {
+                const {value, done} = await reader.read();
+
+                if (done) {
+                    // Process any remaining buffer
+                    if (buffer.trim()) {
+                        me.processLine(buffer, chunk);
+                        count++
+                    }
+                    // Flush remaining chunk
+                    if (chunk.length > 0) {
                         me.fire('data', chunk);
+                        me.store.isStreaming = false
+                    }
+                    break
+                }
 
-                        burstCount++;
+                loaded += value.byteLength;
+                me.fire('progress', {loaded, total});
 
-                        if (progressiveChunkSize) {
-                            currentChunkSize = me.getProgressiveChunkSize(count);
-                        } else if (burstCount >= me.initialBurstCount) {
-                            currentChunkSize = chunkSize
+                buffer += decoder.decode(value, {stream: true});
+                const lines = buffer.split('\n');
+                // Keep the last partial line in the buffer
+                buffer = lines.pop();
+
+                for (const line of lines) {
+                    if (line.trim()) {
+                        me.processLine(line, chunk);
+                        count++;
+
+                        if (chunk.length >= currentChunkSize) {
+                            me.fire('data', chunk);
+
+                            burstCount++;
+
+                            if (progressiveChunkSize) {
+                                currentChunkSize = me.getProgressiveChunkSize(count);
+                            } else if (burstCount >= me.initialBurstCount) {
+                                currentChunkSize = chunkSize
+                            }
+
+                            // Give the App Worker a minimal amount of time to breathe,
+                            // so that logic can act upon events (e.g. sending out vdom updates).
+                            await me.timeout(1);
+
+                            chunk = []
                         }
-
-                        // Give the App Worker a minimal amount of time to breathe,
-                        // so that logic can act upon events (e.g. sending out vdom updates).
-                        await me.timeout(1);
-
-                        chunk = []
                     }
                 }
             }
-        }
 
-        return {success: true, count}
+            return {success: true, count}
+        } catch (e) {
+            if (e.name === 'AbortError') {
+                console.log('Stream request aborted');
+                me.store.isStreaming = false;
+                // Treat abort as a valid "partial success"
+                return {success: true, count, aborted: true}
+            }
+            throw e
+        } finally {
+            me.abortController = null
+        }
     }
 
     /**
