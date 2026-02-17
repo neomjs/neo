@@ -135,11 +135,14 @@ class ControlsContainer extends Container {
                     valueLabel    : 'Total Commits',
                     width         : 200
                 }, {
+                    ntype: 'label',
+                    style: {marginTop: '1em'},
+                    text : 'Filters'
+                }, {
                     module       : CheckBox,
                     checked      : false,
                     hideLabel    : true,
                     listeners    : {change: 'onHireableChange'},
-                    style        : {marginTop: '1em'},
                     valueLabel   : 'Hireable Only',
                     width        : 200
                 }, {
@@ -147,7 +150,7 @@ class ControlsContainer extends Container {
                     checked      : false,
                     hideLabel    : true,
                     listeners    : {change: 'onHideAutomationChange'},
-                    style        : {marginTop: '1em'},
+                    style        : {marginTop: '.3em'},
                     valueLabel   : 'Hide Commit Ratio > 90%',
                     width        : 200
                 }]
