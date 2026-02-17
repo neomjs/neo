@@ -30,10 +30,10 @@ class GridContainer extends BaseGridContainer {
          */
         cls: ['devindex-grid-container'],
         /**
-         * @member {Boolean} commitsOnly_=false
+         * @member {String} dataMode_='total'
          * @reactive
          */
-        commitsOnly_: false,
+        dataMode_: 'total',
         /**
          * @member {Object} bind
          */
@@ -96,20 +96,19 @@ class GridContainer extends BaseGridContainer {
     }
 
     /**
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
+     * @param {String} value
+     * @param {String} oldValue
      */
-    afterSetCommitsOnly(value, oldValue) {
+    afterSetDataMode(value, oldValue) {
         if (oldValue === undefined) return;
 
         let me              = this,
             {footerToolbar} = me,
             {store}         = me,
-            activeSorter    = store.sorters?.[0],
-            prefix          = value ? 'cy' : 'y';
+            activeSorter    = store.sorters?.[0];
 
         if (footerToolbar) {
-            footerToolbar.commitsOnly = value
+            footerToolbar.dataMode = value
         }
 
         // 1. Update Column DataFields & Components
@@ -117,11 +116,40 @@ class GridContainer extends BaseGridContainer {
             let {dataField} = column;
 
             if (regexYearColumn.test(dataField)) {
-                // Switch between 'y2020' and 'cy2020'
-                // This triggers generic map update in Column.afterSetDataField
-                column.dataField = value ? 'c' + dataField.replace(regexPrefixC, '') : dataField.replace(regexPrefixC, '')
-            } else if (dataField === 'totalContributions' || dataField === 'totalCommits') {
-                column.dataField = value ? 'totalCommits' : 'totalContributions'
+                // Switch between 'y2020', 'cy2020', 'py2020'
+                let year   = dataField.replace(regexPrefixC, '').replace(/^p/, ''), // normalize to y2020
+                    prefix = '';
+
+                if (value === 'commits') {
+                    prefix = 'c'
+                } else if (value === 'private') {
+                    prefix = 'p'
+                }
+
+                // Public mode uses 'y' but needs renderer adjustment (handled via column.renderer not dataField for simple map)
+                // Actually, for public mode we might need a calculated field if we want sorting on public-year-data.
+                // For now, let's stick to simple prefix switching for data binding.
+                // Public mode for specific years is complex without calculated fields for every year.
+                // Fallback: Show total (y) for public mode in year columns for now, or implement dynamic calculation.
+                // Given the constraint, let's map 'public' to 'y' (Total) for year columns as a close enough proxy,
+                // or keep it as is.
+
+                column.dataField = prefix + year
+            } else if (['totalContributions', 'totalCommits', 'totalPrivateContributions', 'totalPublicContributions'].includes(dataField)) {
+                switch (value) {
+                    case 'commits':
+                        column.dataField = 'totalCommits';
+                        break;
+                    case 'private':
+                        column.dataField = 'totalPrivateContributions';
+                        break;
+                    case 'public':
+                        column.dataField = 'totalPublicContributions';
+                        break;
+                    default:
+                        column.dataField = 'totalContributions';
+                        break
+                }
             } else if (dataField === 'activity') {
                 // Update Sparkline Component to read from correct prefix
                 column.component = ({record}) => {
@@ -130,7 +158,19 @@ class GridContainer extends BaseGridContainer {
                         endYear = new Date().getFullYear();
 
                     for (let i = 2010; i <= endYear; i++) {
-                        data.push(record[`${prefix}${i}`] || 0)
+                        let yearVal = 0;
+
+                        if (value === 'commits') {
+                            yearVal = record[`cy${i}`] || 0
+                        } else if (value === 'private') {
+                            yearVal = record[`py${i}`] || 0
+                        } else if (value === 'public') {
+                            yearVal = (record[`y${i}`] || 0) - (record[`py${i}`] || 0)
+                        } else {
+                            yearVal = record[`y${i}`] || 0
+                        }
+
+                        data.push(yearVal)
                     }
                     return {values: data}
                 }
@@ -141,11 +181,31 @@ class GridContainer extends BaseGridContainer {
         if (activeSorter) {
             let {property} = activeSorter;
 
-            if (regexYearColumn.test(property)) {
-                let year = property.replace(regexPrefixCy, '');
-                activeSorter.property = `${prefix}${year}`
-            } else if (property === 'totalContributions' || property === 'totalCommits') {
-                activeSorter.property = value ? 'totalCommits' : 'totalContributions'
+            if (regexYearColumn.test(property) || property.startsWith('py')) {
+                let year   = property.replace(/^(c|p)?y/, 'y'),
+                    prefix = '';
+
+                if (value === 'commits') {
+                    prefix = 'c'
+                } else if (value === 'private') {
+                    prefix = 'p'
+                }
+                activeSorter.property = prefix + year
+            } else if (['totalContributions', 'totalCommits', 'totalPrivateContributions', 'totalPublicContributions'].includes(property)) {
+                switch (value) {
+                    case 'commits':
+                        activeSorter.property = 'totalCommits';
+                        break;
+                    case 'private':
+                        activeSorter.property = 'totalPrivateContributions';
+                        break;
+                    case 'public':
+                        activeSorter.property = 'totalPublicContributions';
+                        break;
+                    default:
+                        activeSorter.property = 'totalContributions';
+                        break
+                }
             }
         }
 
@@ -336,12 +396,36 @@ class GridContainer extends BaseGridContainer {
      * @param {Object} opts
      */
     onSortColumn(opts) {
+        let me         = this,
+            {dataMode} = me;
+
         // Intercept sort on year columns to use correct field
-        if (this.commitsOnly) {
+        if (dataMode !== 'total') {
             if (regexContributionYear.test(opts.property)) {
-                opts.property = 'c' + opts.property // y2020 -> cy2020
+                let year   = opts.property.replace('y', ''),
+                    prefix = '';
+
+                if (dataMode === 'commits') {
+                    prefix = 'c'
+                } else if (dataMode === 'private') {
+                    prefix = 'p'
+                }
+
+                if (prefix) {
+                    opts.property = prefix + 'y' + year
+                }
             } else if (opts.property === 'totalContributions') {
-                opts.property = 'totalCommits'
+                switch (dataMode) {
+                    case 'commits':
+                        opts.property = 'totalCommits';
+                        break;
+                    case 'private':
+                        opts.property = 'totalPrivateContributions';
+                        break;
+                    case 'public':
+                        opts.property = 'totalPublicContributions';
+                        break
+                }
             }
         }
         super.onSortColumn(opts)

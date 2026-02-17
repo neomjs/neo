@@ -34,9 +34,9 @@ class StatusToolbar extends Toolbar {
          */
         cls: ['devindex-status-toolbar'],
         /**
-         * @member {Boolean} commitsOnly_=false
+         * @member {String} dataMode_='total'
          */
-        commitsOnly_: false,
+        dataMode_: 'total',
         /**
          * @member {Object[]} items
          */
@@ -87,10 +87,10 @@ class StatusToolbar extends Toolbar {
     numberFormatter = new Intl.NumberFormat()
 
     /**
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
+     * @param {String} value
+     * @param {String} oldValue
      */
-    afterSetCommitsOnly(value, oldValue) {
+    afterSetDataMode(value, oldValue) {
         if (oldValue !== undefined) {
             this.updateLabels()
         }
@@ -150,27 +150,44 @@ class StatusToolbar extends Toolbar {
      *
      */
     updateLabels() {
-        let me                   = this,
-            {commitsOnly, store} = me,
-            {count, items}       = store,
-            total                = 0,
-            i                    = 0,
-            item;
+        let me                = this,
+            {dataMode, store} = me,
+            {count, items}    = store,
+            total             = 0,
+            i                 = 0,
+            item, labelText;
+
+        switch (dataMode) {
+            case 'commits':
+                labelText = 'Total Commits';
+                break;
+            case 'private':
+                labelText = 'Private Contributions';
+                break;
+            case 'public':
+                labelText = 'Public Contributions';
+                break;
+            default: // total
+                labelText = 'Total Contributions';
+                break
+        }
 
         for (; i < count; i++) {
             item = items[i];
 
-            if (commitsOnly) {
-                // Use soft-hydrated value or resolve it on-the-fly (Model logic)
+            if (dataMode === 'commits') {
                 total += (item.totalCommits ?? store.resolveField(item, 'totalCommits') ?? 0)
-            } else {
-                // Handle Turbo Mode (raw object) vs Record instance
+            } else if (dataMode === 'private') {
+                total += (item.totalPrivateContributions ?? store.resolveField(item, 'totalPrivateContributions') ?? 0)
+            } else if (dataMode === 'public') {
+                total += (item.totalPublicContributions ?? store.resolveField(item, 'totalPublicContributions') ?? 0)
+            } else { // total
                 total += (item.tc ?? item.totalContributions ?? 0)
             }
         }
 
         me.getReference('count-rows-label')         .text = 'Visible Rows: ' + me.numberFormatter.format(count);
-        me.getReference('total-contributions-label').text = `Total ${commitsOnly ? 'Commits' : 'Contributions'}: ${me.numberFormatter.format(total)}`
+        me.getReference('total-contributions-label').text = `${labelText}: ${me.numberFormatter.format(total)}`
     }
 }
 

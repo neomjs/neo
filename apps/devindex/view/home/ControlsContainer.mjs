@@ -85,15 +85,52 @@ class ControlsContainer extends Container {
                     listeners    : {change: 'onFilterChange'},
                     name         : 'bio',
                     style        : {marginTop: '.3em'},
-                    width        : 200
+                    width         : 200
                 }, {
-                    module       : CheckBox,
-                    checked      : false,
-                    hideLabel    : true,
-                    listeners    : {change: 'onCommitsOnlyChange'},
-                    style        : {marginTop: '1em'},
-                    valueLabel   : 'Commits Only',
-                    width        : 200
+                    module        : Radio,
+                    checked       : true,
+                    dataMode      : 'total',
+                    hideLabel     : true,
+                    hideValueLabel: false,
+                    labelText     : '',
+                    listeners     : {change: 'onDataModeChange'},
+                    name          : 'dataMode',
+                    style         : {marginTop: '1em'},
+                    valueLabel    : 'Total Contributions',
+                    width         : 200
+                }, {
+                    module        : Radio,
+                    dataMode      : 'public',
+                    hideLabel     : true,
+                    hideValueLabel: false,
+                    labelText     : '',
+                    listeners     : {change: 'onDataModeChange'},
+                    name          : 'dataMode',
+                    style         : {marginTop: '.3em'},
+                    valueLabel    : 'Public Contributions',
+                    width         : 200
+                }, {
+                    module        : Radio,
+                    dataMode      : 'private',
+                    hideLabel     : true,
+                    hideValueLabel: false,
+                    labelText     : '',
+                    listeners     : {change: 'onDataModeChange'},
+                    name          : 'dataMode',
+                    style         : {marginTop: '.3em'},
+                    valueLabel    : 'Private Contributions',
+                    width         : 200
+                }, {
+                    module        : Radio,
+                    dataMode      : 'commits',
+                    hideLabel     : true,
+                    hideValueLabel: false,
+                    labelText     : '',
+                    listeners     : {change: 'onDataModeChange'},
+                    name          : 'dataMode',
+                    style         : {marginTop: '.3em'},
+                    valueLabel    : 'Total Commits',
+                    width         : 200
                 }, {
                     module       : CheckBox,
                     checked      : false,

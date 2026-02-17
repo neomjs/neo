@@ -46,8 +46,10 @@ class MainContainerController extends Controller {
     /**
      * @param {Object} data
      */
-    onCommitsOnlyChange(data) {
-        this.getReference('grid').commitsOnly = data.value
+    onDataModeChange(data) {
+        if (data.value) { // Radio group: only react to the newly checked item
+            this.getReference('grid').dataMode = data.component.dataMode
+        }
     }
 
     /**
