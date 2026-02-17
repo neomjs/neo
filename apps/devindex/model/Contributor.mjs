@@ -31,7 +31,7 @@ class Contributor extends Model {
             {name: 'login', mapping: 'l',  type: 'String'},
             {name: 'name',  mapping: 'n',  type: 'String'},
             {
-                name        : 'avatar_url', // Keeping snake_case for external URL convention? No, let's keep consistency? Wait, strict instruction said rename specific fields. I will stick to the list. `avatar_url` was not in the rename list. I'll leave it or rename it? The prompt didn't ask to rename avatar_url. I'll stick to the requested list to be safe, but `avatar_url` is inconsistent. I will rename `avatar_url` to `avatarUrl` for consistency as it is a "Refactor to camelCase" task.
+                name        : 'avatar_url',
                 mapping     : 'i',
                 type        : 'String',
                 defaultValue: null,
