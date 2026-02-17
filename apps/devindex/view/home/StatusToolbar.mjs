@@ -46,14 +46,27 @@ class StatusToolbar extends Toolbar {
             text     : 'Streaming Users:'
         }, {
             module   : Progress,
-            flex     : 1,
+            flex     : 'none',
             max      : 100,
             reference: 'progress',
             style    : {marginLeft: '10px'},
-            value    : 0
+            value    : 0,
+            width    : 100
         }, {
-            ntype: 'component',
-            flex : 1
+            ntype    : 'button',
+            cls      : ['devindex-stop-stream-button'],
+            flex     : 'none',
+            handler  : 'up.onStopButtonClick',
+            height   : 22,
+            iconCls  : 'fa fa-ban',
+            reference: 'stop-button',
+            style    : {marginLeft: '10px'},
+            text     : 'Stop',
+            ui       : 'secondary'
+        }, {
+            ntype : 'component',
+            flex  : 1,
+            height: 22,
         }, {
             ntype    : 'label',
             reference: 'total-contributions-label',
@@ -84,6 +97,13 @@ class StatusToolbar extends Toolbar {
     }
 
     /**
+     *
+     */
+    onStopButtonClick() {
+        this.store.abort()
+    }
+
+    /**
      * @param {Object} data
      */
     onStoreFilter(data) {
@@ -102,9 +122,11 @@ class StatusToolbar extends Toolbar {
             me.timeout(500).then(() => {
                 let progress      = me.getReference('progress');
                 let progressLabel = me.getReference('progress-label');
+                let stopButton    = me.getReference('stop-button');
 
                 progress     .hidden = true;
-                progressLabel.hidden = true
+                progressLabel.hidden = true;
+                stopButton   .hidden = true
             })
         }
     }
@@ -113,11 +135,15 @@ class StatusToolbar extends Toolbar {
      * @param {Object} data {loaded, total}
      */
     onStoreProgress(data) {
-        this.getReference('progress')?.set({
+        let me = this;
+
+        me.getReference('progress')?.set({
             hidden: false,
             max   : data.total || 100,
             value : data.total ? data.loaded : null // Indeterminate state if total is unknown
-        })
+        });
+
+        me.getReference('stop-button').hidden = false
     }
 
     /**

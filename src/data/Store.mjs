@@ -224,6 +224,13 @@ class Store extends Collection {
     }
 
     /**
+     * Aborts the current proxy operation if the proxy supports it.
+     */
+    abort() {
+        this.proxy?.abort?.()
+    }
+
+    /**
      * Overrides collection.Base: add() to convert items into records if needed.
      *
      * **1. Eager Mode (`init=true` - Default):**
