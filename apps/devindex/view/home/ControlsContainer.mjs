@@ -85,7 +85,11 @@ class ControlsContainer extends Container {
                     listeners    : {change: 'onFilterChange'},
                     name         : 'bio',
                     style        : {marginTop: '.3em'},
-                    width         : 200
+                    width        : 200
+                }, {
+                    ntype: 'label',
+                    style: {marginTop: '1em'},
+                    text : 'Data Mode'
                 }, {
                     module        : Radio,
                     checked       : true,
@@ -95,7 +99,6 @@ class ControlsContainer extends Container {
                     labelText     : '',
                     listeners     : {change: 'onDataModeChange'},
                     name          : 'dataMode',
-                    style         : {marginTop: '1em'},
                     valueLabel    : 'Total Contributions',
                     width         : 200
                 }, {
