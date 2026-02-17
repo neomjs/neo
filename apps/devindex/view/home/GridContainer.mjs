@@ -172,17 +172,7 @@ class GridContainer extends BaseGridContainer {
 
             if (newDataField && newDataField !== dataField) {
                 // Update Column
-                column.dataField = newDataField;
-
-                // Sync Body ColumnPositions Map (Crucial for horizontal scrolling)
-                if (positions) {
-                    let posItem = positions.get(dataField);
-                    if (posItem) {
-                        positions.map.delete(dataField);
-                        posItem.dataField = newDataField;
-                        positions.map.set(newDataField, posItem);
-                    }
-                }
+                column.dataField = newDataField
             }
         });
 
