@@ -29,7 +29,13 @@ class Column extends Base {
         /**
          * The field name of the data.Model to read the value from.
          * Must be unique within the grid instance.
-         * Can be changed at runtime to swap the data source for this column.
+         *
+         * **Runtime Updates:**
+         * You can change this config at runtime to point the column to a different model field.
+         * The Grid will automatically:
+         * 1. Update the internal `columnPositions` map (preserving sort order).
+         * 2. Refresh the visible rows to display the new data.
+         *
          * @member {String|null} dataField_=null
          * @reactive
          */
