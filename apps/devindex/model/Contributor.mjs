@@ -37,7 +37,7 @@ class Contributor extends Model {
                 defaultValue: null,
                 convert     : value => value ? `https://avatars.githubusercontent.com/u/${value}?v=4` : null
             },
-            {name: 'avatarUrl',            mapping: 'i',  type: 'String',  defaultValue: null, convert: value => value ? `https://avatars.githubusercontent.com/u/${value}?v=4` : null}, // Duplicate for safety or replacement? I will REPLACE.
+            {name: 'avatarUrl',            mapping: 'i',  type: 'String',  defaultValue: null, convert: value => value ? `https://avatars.githubusercontent.com/u/${value}?v=4` : null},
             {name: 'location',             mapping: 'lc', type: 'String',  defaultValue: null},
             {name: 'countryCode',          mapping: 'cc', type: 'String',  defaultValue: null},
             {name: 'company',              mapping: 'c',  type: 'String',  defaultValue: null},
@@ -113,7 +113,7 @@ class Contributor extends Model {
                  */
                 calculate: data => {
                     // Optimization: Use pre-calculated fields if available (Record context)
-                    let total   = data.totalContributions || data.tc || 0,
+                    let total           = data.totalContributions || data.tc || 0,
                         privateContribs = data.totalPrivateContributions;
 
                     if (privateContribs === undefined) {
