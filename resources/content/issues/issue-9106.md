@@ -62,8 +62,11 @@ subIssues:
   - '[x] 9184 Optimize Component Columns with contain: strict'
   - '[x] 9186 Fix Scroll Thrashing during Store Streaming'
   - '[x] 9188 Implement Stop Stream Capability for DevIndex'
-subIssuesCompleted: 48
-subIssuesTotal: 48
+  - '[x] 9190 DevIndex: Add ''Private %'' Column'
+  - '[x] 9191 DevIndex: Implement 4-Mode Data Toggle (Total, Public, Private, Commits)'
+  - '[x] 9192 DevIndex: Swap ''Private %'' and ''Commits %'' Columns'
+subIssuesCompleted: 51
+subIssuesTotal: 51
 blockedBy: []
 blocking: []
 ---
