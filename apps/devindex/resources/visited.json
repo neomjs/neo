@@ -2250,6 +2250,7 @@
   "repo:VolodymyrBaydalka/docxjs",
   "repo:VoltAgent/awesome-agent-skills",
   "repo:VoltAgent/awesome-claude-code-subagents",
+  "repo:VoltAgent/awesome-openclaw-skills",
   "repo:VoltAgent/voltagent",
   "repo:VonChange/utao",
   "repo:Vonng/ddia",
@@ -4838,6 +4839,7 @@
   "repo:getzep/zep",
   "repo:getzola/zola",
   "repo:gfx-rs/gfx",
+  "repo:gfx-rs/wgpu",
   "repo:gfxfundamentals/webgl-fundamentals",
   "repo:ggez/ggez",
   "repo:ggml-org/llama.cpp",
@@ -8941,6 +8943,7 @@
   "repo:stevenjoezhang/live2d-widget",
   "repo:stevenschobert/instafeed.js",
   "repo:steveruizok/perfect-freehand",
+  "repo:steveyegge/beads",
   "repo:steveyegge/gastown",
   "repo:stianaske/pybotvac",
   "repo:stickerdaniel/linkedin-mcp-server",
@@ -9012,6 +9015,7 @@
   "repo:supermacro/neverthrow",
   "repo:superman66/vue-axios-github",
   "repo:supermemoryai/apple-mcp",
+  "repo:supermemoryai/supermemory",
   "repo:suren-atoyan/monaco-react",
   "repo:surfbryce/beautiful-lyrics",
   "repo:surmon-china/vue-awesome-swiper",
@@ -10297,9 +10301,5 @@
   "repo:zxwk1998/vue-admin-better",
   "repo:zyantific/zydis",
   "repo:zziz/pwc",
-  "repo:zzzgydi/clash-verge",
-  "repo:steveyegge/beads",
-  "repo:supermemoryai/supermemory",
-  "repo:VoltAgent/awesome-openclaw-skills",
-  "repo:gfx-rs/wgpu"
+  "repo:zzzgydi/clash-verge"
 ]
