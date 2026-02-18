@@ -5193,6 +5193,7 @@
   "repo:harishsg993010/damn-vulnerable-MCP-server",
   "repo:harleyszhang/cv_note",
   "repo:harthur/brain",
+  "repo:harvard-edge/cs249r_book",
   "repo:harvardnlp/annotated-transformer",
   "repo:has2k1/plotnine",
   "repo:hashicorp/go-plugin",
@@ -10216,6 +10217,5 @@
   "repo:zxwk1998/vue-admin-better",
   "repo:zyantific/zydis",
   "repo:zziz/pwc",
-  "repo:zzzgydi/clash-verge",
-  "repo:harvard-edge/cs249r_book"
+  "repo:zzzgydi/clash-verge"
 ]
