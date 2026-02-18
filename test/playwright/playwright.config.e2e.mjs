@@ -26,6 +26,11 @@ export default defineConfig({
 
     projects: [{
         name: 'chromium',
-        use : {...devices['Desktop Chrome']}
+        use : {
+            ...devices['Desktop Chrome'],
+            launchOptions: {
+                args: ['--js-flags=--max_old_space_size=4096']
+            }
+        }
     }]
 });
