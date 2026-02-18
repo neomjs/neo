@@ -21,10 +21,12 @@ subIssues:
   - '[x] 9195 Fix GridBody Column Position Sync on DataField Change'
   - '[x] 9197 Add Regression Test for Dynamic Grid Columns'
   - '[x] 9198 Cleanup Redundant GridContainer Logic'
-  - '[ ] 9199 Benchmark Grid Horizontal Scroll Performance'
+  - '[x] 9199 Benchmark Grid Horizontal Scroll Performance'
   - '[x] 9201 Docs: Dynamic Grids Guide'
-subIssuesCompleted: 5
-subIssuesTotal: 6
+  - '[ ] 9202 Investigate CSS Optimizations for Grid Rendering (Desktop Scaling)'
+  - '[ ] 9203 Investigate Grid Scrolling Performance via Column Ablation Strategy'
+subIssuesCompleted: 6
+subIssuesTotal: 8
 blockedBy: []
 blocking: []
 ---
@@ -61,4 +63,6 @@ To achieve a flat memory profile for `Neo.data.Record` instances even with hundr
 - 2026-02-17T14:20:31Z @tobiu added sub-issue #9198
 - 2026-02-17T14:33:53Z @tobiu added sub-issue #9199
 - 2026-02-17T15:13:23Z @tobiu added sub-issue #9201
+- 2026-02-18T11:53:00Z @tobiu added sub-issue #9202
+- 2026-02-18T12:08:35Z @tobiu added sub-issue #9203
 
