@@ -6,9 +6,10 @@ labels:
   - enhancement
   - performance
   - core
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-02-17T15:02:10Z'
-updatedAt: '2026-02-17T15:02:10Z'
+updatedAt: '2026-02-17T19:01:55Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9200'
 author: tobiu
 commentsCount: 0
@@ -47,4 +48,5 @@ Significant reduction in scripting time during horizontal scrolling and redundan
 - 2026-02-17T15:02:11Z @tobiu added the `enhancement` label
 - 2026-02-17T15:02:12Z @tobiu added the `performance` label
 - 2026-02-17T15:02:12Z @tobiu added the `core` label
+- 2026-02-17T19:01:55Z @tobiu assigned to @tobiu
 
