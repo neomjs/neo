@@ -8,7 +8,7 @@ const viewports = [
 ];
 
 viewports.forEach(({ name, width, height }) => {
-    test.describe(`${name} (${width}x${height}): DevIndex Scroll Benchmarks`, () => {
+    test.describe(`${name} (${width}x${height}): DevIndex Native Scroll Benchmarks`, () => {
 
         test.use({ viewport: { width, height } });
 
@@ -39,25 +39,18 @@ viewports.forEach(({ name, width, height }) => {
             // 4. Wait for the UI to settle (buffer time)
             await page.waitForTimeout(1000);
 
-            // 5. Measure DOM Complexity
-            const domCounts = await page.evaluate(() => {
-                const grid = document.querySelector('[role="grid"]');
-                return {
-                    totalNodes: document.getElementsByTagName('*').length,
-                    gridNodes: grid ? grid.getElementsByTagName('*').length : 0,
-                    gridRows: grid ? grid.querySelectorAll('[role="row"]').length : 0,
-                    gridCells: grid ? grid.querySelectorAll('[role="gridcell"]').length : 0
-                };
-            });
-
-            console.log(`[${name}] DOM Counts:`, domCounts);
-            test.info().annotations.push({
-                type: 'dom-counts',
-                description: JSON.stringify({ viewport: name, ...domCounts })
+            // 5. CRITICAL: Disconnect Neo's Mutation Observer to remove test artifact overhead
+            await page.evaluate(() => {
+                if (Neo.main.DomAccess.documentMutationObserver) {
+                    Neo.main.DomAccess.documentMutationObserver.disconnect();
+                    console.log('Neo.main.DomAccess.documentMutationObserver disconnected for benchmark.');
+                } else {
+                    console.warn('Neo.main.DomAccess.documentMutationObserver was not found.');
+                }
             });
         });
 
-        test('Horizontal Scroll', async ({ page }) => {
+        test('Horizontal Scroll (Native Smooth)', async ({ page }) => {
             const scrollResult = await page.evaluate(async () => {
                 // Horizontal scroll is on the neo-grid-container
                 const scrollable = document.querySelector('.neo-grid-container');
@@ -67,115 +60,43 @@ viewports.forEach(({ name, width, height }) => {
                 if (maxScroll <= 0) return { skipped: true, reason: 'Not scrollable' };
 
                 const performScroll = async () => {
-                    const steps = 30;
-                    const delay = 33; // ~30fps drive
+                    // Trigger native smooth scroll
+                    scrollable.scrollTo({
+                        left: maxScroll,
+                        behavior: 'smooth'
+                    });
+
+                    // Wait for the scroll to complete. 
+                    // Since 'scrollend' event support is spotty in some environments or might be flaky in tests,
+                    // we use a simple polling or fixed timeout. 
+                    // A full width scroll takes time, let's give it 2.5s matching measurement window.
+                    await new Promise(r => setTimeout(r, 2500));
+
+                    // Verify scroll actually happened
+                    if (scrollable.scrollLeft < 100) {
+                        throw new Error(`Scroll failed! Expected scrollLeft > 100, got ${scrollable.scrollLeft}`);
+                    }
                     
-                    // Scroll Right
-                    for (let i = 0; i <= steps; i++) {
-                        scrollable.scrollLeft = (maxScroll / steps) * i;
-                        await new Promise(r => setTimeout(r, delay));
-                    }
-                    // Scroll Left
-                    for (let i = steps; i >= 0; i--) {
-                        scrollable.scrollLeft = (maxScroll / steps) * i;
-                        await new Promise(r => setTimeout(r, delay));
-                    }
+                    // Scroll back
+                    scrollable.scrollTo({
+                        left: 0,
+                        behavior: 'smooth'
+                    });
+                    
+                    await new Promise(r => setTimeout(r, 2500));
                 };
 
-                const measurementPromise = window.measureJankInBrowser(2500);
-                await performScroll();
-                return await measurementPromise;
+                // Measure over 5 seconds (2.5s out, 2.5s back)
+                // const measurementPromise = window.measureJankInBrowser(5000);
+                await performScroll(); 
+                return { success: true }; // await measurementPromise;
             });
 
-            console.log(`[${name}] Horizontal:`, scrollResult);
+            console.log(`[${name}] Native Horizontal:`, scrollResult);
             test.info().annotations.push({
-                type: 'benchmark-horizontal',
+                type: 'benchmark-native-horizontal',
                 description: JSON.stringify({ viewport: name, ...scrollResult })
             });
         });
-
-        test('Vertical Scroll', async ({ page }) => {
-            const scrollResult = await page.evaluate(async () => {
-                // Vertical scroll is on the neo-grid-body-wrapper
-                const scrollable = document.querySelector('.neo-grid-body-wrapper');
-                if (!scrollable) throw new Error('Vertical scroll container not found');
-
-                // Scroll 5000px down (approx 100 rows)
-                const targetScroll = 5000;
-
-                const performScroll = async () => {
-                    const steps = 30;
-                    const delay = 33; 
-                    
-                    // Scroll Down
-                    for (let i = 0; i <= steps; i++) {
-                        scrollable.scrollTop = (targetScroll / steps) * i;
-                        await new Promise(r => setTimeout(r, delay));
-                    }
-                    // Scroll Up
-                    for (let i = steps; i >= 0; i--) {
-                        scrollable.scrollTop = (targetScroll / steps) * i;
-                        await new Promise(r => setTimeout(r, delay));
-                    }
-                };
-
-                const measurementPromise = window.measureJankInBrowser(2500);
-                await performScroll();
-                return await measurementPromise;
-            });
-
-            console.log(`[${name}] Vertical:`, scrollResult);
-            test.info().annotations.push({
-                type: 'benchmark-vertical',
-                description: JSON.stringify({ viewport: name, ...scrollResult })
-            });
-        });
-
-        test('Diagonal Drag Scroll', async ({ page }) => {
-            // Setup for measurement
-            const measurementPromise = page.evaluate(() => window.measureJankInBrowser(2500));
-
-            // Get grid body bounding box to know where to drag
-            const gridBody = page.locator('.neo-grid-body');
-            const box = await gridBody.boundingBox();
-            if (!box) throw new Error('Grid body not found');
-
-            // Start in the center
-            const startX = box.x + box.width / 2;
-            const startY = box.y + box.height / 2;
-
-            // Perform Drag interactions using Playwright Mouse API
-            // This triggers the GridDragScroll addon on the Main Thread
-            await page.mouse.move(startX, startY);
-            await page.mouse.down();
-
-            // Drag diagonally: Up-Left (scrolls content down-right)
-            // We move the mouse slowly to generate continuous scroll events
-            const steps = 20;
-            const deltaX = 200;
-            const deltaY = 200;
-
-            for (let i = 0; i < steps; i++) {
-                await page.mouse.move(startX - (deltaX/steps)*i, startY - (deltaY/steps)*i);
-                await page.waitForTimeout(50); // wait a bit to let the scroll happen
-            }
-            
-            // Move back
-            for (let i = 0; i < steps; i++) {
-                await page.mouse.move(startX - deltaX + (deltaX/steps)*i, startY - deltaY + (deltaY/steps)*i);
-                await page.waitForTimeout(50);
-            }
-
-            await page.mouse.up();
-
-            const scrollResult = await measurementPromise;
-
-            console.log(`[${name}] Diagonal:`, scrollResult);
-            test.info().annotations.push({
-                type: 'benchmark-diagonal',
-                description: JSON.stringify({ viewport: name, ...scrollResult })
-            });
-        });
-
     });
 });

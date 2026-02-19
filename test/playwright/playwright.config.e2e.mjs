@@ -29,7 +29,13 @@ export default defineConfig({
         use : {
             ...devices['Desktop Chrome'],
             launchOptions: {
-                args: ['--js-flags=--max_old_space_size=4096']
+                args: [
+                    '--use-gl=desktop',
+                    '--js-flags=--max_old_space_size=4096',
+                    '--disable-background-timer-throttling',
+                    '--disable-backgrounding-occluded-windows',
+                    '--disable-renderer-backgrounding'
+                ]
             }
         }
     }]
