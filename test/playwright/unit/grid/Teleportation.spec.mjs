@@ -163,6 +163,16 @@ test.describe('Grid Teleportation & VDOM Deltas', () => {
      *    - If the "removeNode" logic fails (e.g., due to sparse tree pruning or mismatching parent pointers), we get duplication (The "Stephanie ++Stephanie ++" artifact).
      *
      * To reproduce the bug, we must break the ID sync loop by triggering a new update while the previous one in-flight.
+     *
+     * **Grid Row VDOM Structure & Testing Strategy:**
+     * `Neo.grid.Row` implements a "Full Pool Rendering" strategy which complicates VDOM inspection:
+     * 1. **Pooled Cells (`hideMode: 'removeDom'`):** Rendered in a fixed-size dense array at the start of `cn`.
+     *    Their physical index corresponds to `columnIndex % cellPoolSize`.
+     * 2. **Permanent Cells (`hideMode: 'visibility'`):** Used by default for Component Columns.
+     *    These are **appended** after the pooled cells array to preserve their state.
+     *
+     * **Testing Consequence:** You cannot assume `row.vdom.cn[columnIndex]` corresponds to the logical column.
+     * Always use robust lookup (e.g., `cn.find()`) to locate cells by content or component ID.
      */
     test('Scrolling should generate correct replacement deltas, not appends', async () => {
         const body = grid.body;
@@ -257,7 +267,14 @@ test.describe('Grid Teleportation & VDOM Deltas', () => {
         // console.log(`Found row index: ${rowComponent.rowIndex} for scrollTop: ${scrollAmount}`);
 
         // Access the Row's own VDOM to find cells
-        const cell = rowComponent.vdom.cn[1];
+        // Robust lookup: Find the cell that contains the component (button)
+        // Components use 'visibility' hideMode by default, so they are appended AFTER the pooled cells.
+        const cell = rowComponent.vdom.cn.find(c => c.cn?.[0]?.componentId);
+        
+        if (!cell) {
+            console.error('Failed to find component cell in row VDOM:', rowComponent.vdom);
+        }
+
         const buttonRef = cell.cn[0];
         const button = Neo.getComponent(buttonRef.componentId);
 
@@ -427,7 +444,8 @@ test.describe('Grid Teleportation & VDOM Deltas', () => {
             // console.log(`Found row index (RACE): ${rowComponent.rowIndex}`);
 
             // Let's inspect the FIRST row in the VDOM.
-            const cell = rowComponent.vdom.cn[1];
+            // Robust lookup: Find the cell that contains the component (button)
+            const cell = rowComponent.vdom.cn.find(c => c.cn?.[0]?.componentId);
             const buttonRef = cell.cn[0];
             const button = Neo.getComponent(buttonRef.componentId);
 
