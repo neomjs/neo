@@ -87,6 +87,17 @@ class Component extends Column {
             {recordProperty} = me,
             componentConfig  = me.component;
 
+        /**
+         * Optimization: If the record instance AND its version haven't changed, we can short-circuit.
+         * This skips:
+         * 1. Executing the 'component' config function (if it is one).
+         * 2. Calling component.set() which triggers the config system overhead.
+         * 3. Unnecessary VDOM updates.
+         */
+        if (component && component[recordProperty] === record && component.lastRecordVersion === record.version) {
+            return component
+        }
+
         if (Neo.typeOf(componentConfig) === 'Function') {
             componentConfig = componentConfig(data)
         }
@@ -95,6 +106,8 @@ class Component extends Column {
         componentConfig = {...componentConfig};
 
         if (component) {
+            component.lastRecordVersion = record.version;
+
             delete componentConfig.className;
             delete componentConfig.module;
             delete componentConfig.ntype;
@@ -114,6 +127,7 @@ class Component extends Column {
                 appName,
                 parentComponent : row,
                 [recordProperty]: record,
+                lastRecordVersion: record.version,
                 windowId
             })
         }
