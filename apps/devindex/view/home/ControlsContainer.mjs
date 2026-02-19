@@ -192,9 +192,9 @@ class ControlsContainer extends Container {
                     labelPosition : 'inline',
                     labelWidth    : 135,
                     listeners     : {change: 'onBufferRowRangeChange'},
-                    store         : ['0', '1', '3', '5', '10', '25', '50'],
+                    store         : ['1', '2', '3', '5'],
                     style         : {marginTop: '1em'},
-                    value         : '5',
+                    value         : '1',
                     width         : 200
                 }, {
                     module        : ComboBox,
@@ -206,9 +206,9 @@ class ControlsContainer extends Container {
                     labelPosition : 'inline',
                     labelWidth    : 135,
                     listeners     : {change: 'onBufferColumnRangeChange'},
-                    store         : ['0', '1', '3', '5', '10', '20'],
+                    store         : ['1', '2', '3', '5'],
                     style         : {marginTop: '.3em'},
-                    value         : '3',
+                    value         : '1',
                     width         : 200
                 }, {
                     ntype: 'label',

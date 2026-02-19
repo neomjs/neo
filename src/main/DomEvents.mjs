@@ -82,15 +82,6 @@ class DomEvents extends Base {
      */
     static observable = true
 
-    /**
-     * @member {Object} delayable
-     * @protected
-     * @static
-     */
-    static delayable = {
-        onScroll: {type: 'throttle', timer: 16}
-    }
-
     static config = {
         /**
          * @member {String} className='Neo.main.DomEvents'

@@ -42,8 +42,8 @@ class GridContainer extends BaseGridContainer {
          * @member {Object} body
          */
         body: {
-            bufferColumnRange: 3,
-            bufferRowRange   : 5,
+            bufferColumnRange: 1,
+            bufferRowRange   : 1,
             listeners        : {
                 isScrollingChange: 'onGridIsScrollingChange'
             }
