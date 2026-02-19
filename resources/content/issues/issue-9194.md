@@ -24,9 +24,12 @@ subIssues:
   - '[x] 9199 Benchmark Grid Horizontal Scroll Performance'
   - '[x] 9201 Docs: Dynamic Grids Guide'
   - '[ ] 9202 Investigate CSS Optimizations for Grid Rendering (Desktop Scaling)'
-  - '[ ] 9203 Investigate Grid Scrolling Performance via Column Ablation Strategy'
-subIssuesCompleted: 6
-subIssuesTotal: 8
+  - '[x] 9203 Investigate Grid Scrolling Performance via Column Ablation Strategy'
+  - '[x] 9204 Profile Main Thread Activity for Desktop Grid Scrolling'
+  - '[x] 9205 Debug SyncAligns Layout Thrashing during Grid Scroll'
+  - '[x] 9206 Commit Playwright Profiling Infrastructure & DomEvents Optimization'
+subIssuesCompleted: 10
+subIssuesTotal: 11
 blockedBy: []
 blocking: []
 ---
@@ -65,4 +68,8 @@ To achieve a flat memory profile for `Neo.data.Record` instances even with hundr
 - 2026-02-17T15:13:23Z @tobiu added sub-issue #9201
 - 2026-02-18T11:53:00Z @tobiu added sub-issue #9202
 - 2026-02-18T12:08:35Z @tobiu added sub-issue #9203
+- 2026-02-18T13:12:31Z @tobiu added sub-issue #9204
+- 2026-02-18T14:23:23Z @tobiu added sub-issue #9205
+- 2026-02-18T15:07:26Z @tobiu cross-referenced by #9206
+- 2026-02-18T15:07:38Z @tobiu added sub-issue #9206
 
