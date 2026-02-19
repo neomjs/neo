@@ -6,7 +6,8 @@ const
     dataSymbol         = Symbol.for('data'),
     initialIndexSymbol = Symbol.for('initialIndex'),
     isModifiedSymbol   = Symbol.for('isModified'),
-    originalDataSymbol = Symbol.for('originalData');
+    originalDataSymbol = Symbol.for('originalData'),
+    versionSymbol      = Symbol.for('version');
 
 let instance;
 
@@ -164,6 +165,12 @@ class RecordFactory extends Base {
 
                     [dataSymbol]         = {};
                     [initialIndexSymbol] = null;
+                    /**
+                     * The current version of the record. Increments on every modification.
+                     * Used for change tracking and optimization (e.g. short-circuiting grid rendering).
+                     * @member {Number} [versionSymbol]=0
+                     */
+                    [versionSymbol] = 0;
 
                     /**
                      * The stable, globally unique internal ID for this record instance.
@@ -179,6 +186,14 @@ class RecordFactory extends Base {
                         }
 
                         return me[isModifiedSymbol]
+                    }
+
+                    /**
+                     * Returns the current version of the record.
+                     * @returns {Number}
+                     */
+                    get version() {
+                        return this[versionSymbol]
                     }
 
                     /**
@@ -513,6 +528,8 @@ class RecordFactory extends Base {
         hasChangedFields = Object.keys(changedFields).length > 0;
 
         if (hasChangedFields) {
+            record[versionSymbol]++;
+
             calculatedFieldsMap.forEach((value, key) => {
                 if (value.virtual) return;
 
