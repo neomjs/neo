@@ -28,8 +28,9 @@ subIssues:
   - '[x] 9204 Profile Main Thread Activity for Desktop Grid Scrolling'
   - '[x] 9205 Debug SyncAligns Layout Thrashing during Grid Scroll'
   - '[x] 9206 Commit Playwright Profiling Infrastructure & DomEvents Optimization'
-subIssuesCompleted: 10
-subIssuesTotal: 11
+  - '[x] 9207 Verify Playwright Overhead with Native Scroll Benchmark'
+subIssuesCompleted: 11
+subIssuesTotal: 12
 blockedBy: []
 blocking: []
 ---
@@ -72,4 +73,11 @@ To achieve a flat memory profile for `Neo.data.Record` instances even with hundr
 - 2026-02-18T14:23:23Z @tobiu added sub-issue #9205
 - 2026-02-18T15:07:26Z @tobiu cross-referenced by #9206
 - 2026-02-18T15:07:38Z @tobiu added sub-issue #9206
+- 2026-02-19T10:17:28Z @tobiu added sub-issue #9207
+- 2026-02-19T11:57:35Z @tobiu referenced in commit `6ca0d13` - "feat: Add GPU-accelerated E2E benchmark infrastructure (#9194)
+
+- Add GridScrollBenchmark.spec.mjs with native smooth scrolling
+- Add custom-reporter.js for system stats
+- Update playwright.config.e2e.mjs with GPU optimization flags (--use-gl=desktop) to fix headless performance throttling
+- Consolidate browser-test-helpers.mjs"
 

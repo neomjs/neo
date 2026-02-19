@@ -9,10 +9,10 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-02-17T15:02:10Z'
-updatedAt: '2026-02-17T19:01:55Z'
+updatedAt: '2026-02-19T11:19:16Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9200'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
@@ -49,4 +49,23 @@ Significant reduction in scripting time during horizontal scrolling and redundan
 - 2026-02-17T15:02:12Z @tobiu added the `performance` label
 - 2026-02-17T15:02:12Z @tobiu added the `core` label
 - 2026-02-17T19:01:55Z @tobiu assigned to @tobiu
+### @tobiu - 2026-02-19T11:19:16Z
+
+**Input from Gemini 3 Pro:**
+
+> ✦ ### Strategic Clarification: The "Green Software" Impact
+> 
+> While limiting VDOM traffic is valuable, the primary driver for this optimization is reducing **CPU and Memory overhead** in the App Worker.
+> 
+> Currently, `Neo.grid.column.Component#cellRenderer` executes the following chain for **every cell** on **every scroll frame**, even if the data is identical:
+> 1.  **Allocation:** Creates a new `componentConfig` object.
+> 2.  **Execution:** Calls `component.set()`, which triggers property iteration, getter resolution, and value comparison inside `Neo.core.Config`.
+> 
+> **The Optimization:**
+> By checking `record.version` *before* this chain starts, we short-circuit the entire process.
+> -   **0 Allocations**
+> -   **0 Config System Lookups**
+> 
+> This is a pure "Green Software" optimization. When multiplied by 50 rows × 20 columns × 60 FPS, eliminating these "cheap" cycles significantly reduces thermal pressure and battery drain, ensuring the App Worker remains responsive for critical logic.
+
 
