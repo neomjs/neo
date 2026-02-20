@@ -268,7 +268,7 @@
             }
 
             .neo-textfield-label {
-                color    : #777;
+                color    : var(--textfield-label-color);
                 transform: translateX(4px) translateY(calc(-62% - 0.5 * var(--textfield-border-width))) scale(.7);
             }
         }
