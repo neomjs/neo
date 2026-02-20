@@ -27,9 +27,10 @@
         }
 
         .devindex-tab-header-toolbar.neo-tab-header-toolbar {
-            --tab-button-height       : 30px;
-            --tab-button-margin-bottom: 0;
-            --tab-button-padding      : 0 10px;
+            --tab-button-height        : 30px;
+            --tab-button-height-pressed: 30px;
+            --tab-button-margin-bottom : 0;
+            --tab-button-padding       : 0 10px;
 
             background-color: var(--devindex-tab-toolbar-bg);
             min-height      : 30px;
