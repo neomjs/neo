@@ -13,9 +13,18 @@
     z-index    : 100;
 
     .devindex-controls-container-content {
-        box-shadow: 0 5px 10px rgba(75,75,75,.3);
-        opacity   : 0;
-        transition: opacity 250ms ease-out;
+        border                   : 1px solid var(--grid-container-border-color);
+        border-bottom-left-radius: 8px;
+        border-right             : none;
+        border-top-left-radius   : 8px;
+        box-shadow               : var(--devindex-header-shadow);
+        opacity                  : 0;
+        transition               : opacity 250ms ease-out;
+
+        .neo-tab-body-container {
+            background-color: transparent;
+            border          : none !important;
+        }
 
         > .neo-container {
             overflow-y: auto;
