@@ -33,6 +33,7 @@ class ControlsContainer extends Container {
             reference     : 'controls-tab-container',
 
             headerToolbar: {
+                cls           : ['devindex-tab-header-toolbar'],
                 sortZoneConfig: {
                     adjustItemRectsToParent: true
                 }
