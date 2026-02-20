@@ -1692,6 +1692,7 @@
   "repo:OpenRCT2/OpenRCT2",
   "repo:OpenRLHF/OpenRLHF",
   "repo:OpenRefine/OpenRefine",
+  "repo:OpenSWE1R/openswe1r",
   "repo:OpenShot/openshot-qt",
   "repo:OpenTTD/OpenTTD",
   "repo:OpenTalker/SadTalker",
@@ -3124,6 +3125,7 @@
   "repo:anmoljagetia/Flatabulous",
   "repo:anomalyco/opencode",
   "repo:anomalyco/opentui",
+  "repo:anomalyco/sst",
   "repo:anseki/leader-line",
   "repo:ansible/ansible-examples",
   "repo:ansible/awx",
@@ -11651,7 +11653,5 @@
   "repo:zxwk1998/vue-admin-better",
   "repo:zyantific/zydis",
   "repo:zziz/pwc",
-  "repo:zzzgydi/clash-verge",
-  "repo:anomalyco/sst",
-  "repo:OpenSWE1R/openswe1r"
+  "repo:zzzgydi/clash-verge"
 ]
