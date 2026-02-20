@@ -1,11 +1,5 @@
 .devindex-grid-container {
-    border-radius: 8px;
-
-    .devindex-stop-stream-button {
-        .neo-button-glyph {
-            color: var(--devindex-stop-stream-button-color);
-        }
-    }
+    border-bottom: none;
 
     .devindex-sparkline-wrapper {
         height  : 100%;

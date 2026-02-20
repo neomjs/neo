@@ -1,7 +1,9 @@
-import Container         from '../../../../src/container/Base.mjs';
-import Controller        from './MainContainerController.mjs';
-import ControlsContainer from './ControlsContainer.mjs';
-import GridContainer     from './GridContainer.mjs';
+import Container                  from '../../../../src/container/Base.mjs';
+import Controller                 from './MainContainerController.mjs';
+import ControlsContainer          from './ControlsContainer.mjs';
+import GridContainer              from './GridContainer.mjs';
+import MainContainerStateProvider from './MainContainerStateProvider.mjs';
+import StatusToolbar              from './StatusToolbar.mjs';
 
 /**
  * @class DevIndex.view.home.MainContainer
@@ -15,25 +17,46 @@ class MainContainer extends Container {
          */
         className: 'DevIndex.view.home.MainContainer',
         /**
+         * @member {String[]} baseCls=['devindex-home-maincontainer','neo-container']
+         * @protected
+         */
+        baseCls: ['devindex-home-maincontainer', 'neo-container'],
+        /**
          * @member {Neo.controller.Component} controller=Controller
          */
         controller: Controller,
         /**
-         * @member {Object[]} items
+         * @member {Neo.state.Provider} stateProvider=MainContainerStateProvider
          */
-        items: [{
-            module   : GridContainer,
-            reference: 'grid',
-            flex     : 1
-        }, {
-            module   : ControlsContainer,
-            reference: 'controls'
-        }],
+        stateProvider: MainContainerStateProvider,
         /**
          * @member {Object} layout={ntype:'hbox',align:'stretch'}
          * @reactive
          */
-        layout: {ntype: 'hbox', align: 'stretch'}
+        layout: {ntype: 'hbox', align: 'stretch'},
+        /**
+         * @member {Object[]} items
+         */
+        items: [{
+            module   : Container,
+            cls      : ['devindex-grid-wrapper'],
+            flex     : 1,
+            layout   : {ntype: 'vbox', align: 'stretch'},
+            reference: 'grid-wrapper',
+            items    : [{
+                module   : GridContainer,
+                bind     : {store: 'stores.contributors'},
+                reference: 'grid',
+                flex     : 1
+            }, {
+                module: StatusToolbar,
+                bind     : {store: 'stores.contributors'},
+                flex  : 'none'
+            }]
+        }, {
+            module   : ControlsContainer,
+            reference: 'controls'
+        }]
     }
 }
 
