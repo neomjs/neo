@@ -58,11 +58,13 @@
                     }
                 }
             }
-
-            .neo-tab-strip .neo-active-tab-indicator {
-                background-color: var(--devindex-tab-indicator-bg);
-            }
         }
+
+                .neo-tab-strip {
+                    .neo-active-tab-indicator {
+                        background-color: var(--devindex-tab-indicator-bg);
+                    }
+                }
 
         > .neo-container {
             overflow-y: auto;
