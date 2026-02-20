@@ -32,8 +32,9 @@
             --tab-button-margin-bottom : 0;
             --tab-button-padding       : 0 10px;
 
-            background-color: var(--devindex-tab-toolbar-bg);
-            min-height      : 30px;
+            background-color      : var(--devindex-tab-toolbar-bg);
+            border-top-left-radius: 8px;
+            min-height            : 30px;
 
             .neo-tab-header-button.neo-button {
                 .neo-button-glyph {
