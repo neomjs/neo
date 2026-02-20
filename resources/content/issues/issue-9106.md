@@ -65,8 +65,13 @@ subIssues:
   - '[x] 9190 DevIndex: Add ''Private %'' Column'
   - '[x] 9191 DevIndex: Implement 4-Mode Data Toggle (Total, Public, Private, Commits)'
   - '[x] 9192 DevIndex: Swap ''Private %'' and ''Commits %'' Columns'
-subIssuesCompleted: 51
-subIssuesTotal: 51
+  - '[x] 9213 DevIndex: Polish Grid & Controls Layout (Shadows, Borders)'
+  - '[x] 9214 DevIndex: Style ControlsContainer Tabs to match Portal Theme'
+  - '[x] 9215 Update neo-dark theme form fields to match Deep Blue/Purple aesthetic'
+  - '[x] 9216 DevIndex (Light Theme): Align Tab Header Colors with Grid Header'
+  - '[x] 9217 Update remaining neo-dark form fields and fix inline label color'
+subIssuesCompleted: 56
+subIssuesTotal: 56
 blockedBy: []
 blocking: []
 ---
