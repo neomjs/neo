@@ -26,6 +26,43 @@
             border          : none !important;
         }
 
+        .devindex-tab-header-toolbar.neo-tab-header-toolbar {
+            --tab-button-height       : 30px;
+            --tab-button-margin-bottom: 0;
+            --tab-button-padding      : 0 10px;
+
+            background-color: var(--devindex-tab-toolbar-bg);
+            min-height      : 30px;
+
+            .neo-tab-header-button.neo-button {
+                .neo-button-glyph {
+                    color: var(--devindex-tab-text-color);
+                }
+
+                .neo-button-ripple {
+                    background-color: var(--devindex-tab-indicator-bg);
+                }
+
+                .neo-button-text {
+                    color: var(--devindex-tab-text-color);
+                }
+
+                &.pressed {
+                    .neo-button-glyph {
+                        color: var(--devindex-tab-text-color-pressed);
+                    }
+
+                    .neo-tab-button-indicator {
+                        background-color: var(--devindex-tab-indicator-bg);
+                    }
+                }
+            }
+
+            .neo-tab-strip .neo-active-tab-indicator {
+                background-color: var(--devindex-tab-indicator-bg);
+            }
+        }
+
         > .neo-container {
             overflow-y: auto;
             padding   : .5em 1em;
