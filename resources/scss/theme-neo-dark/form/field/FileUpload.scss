@@ -1,12 +1,12 @@
 :root .neo-theme-neo-dark { // .neo-fileuploadfield
-    --fileuploadfield-background-color        : #fff;
-    --fileuploadfield-border-color            : #d5d5d5;
-    --fileuploadfield-color                   : #000;
-    --fileuploadfield-downloadable-state-color: #d9d9d9;
-    --fileuploadfield-error-color             : #f00;
-    --fileuploadfield-focus-color             : #80d3f4;
-    --fileuploadfield-hover-color             : #f0f0f0;
-    --fileuploadfield-pressed-color           : #e0e0e0;
-    --fileuploadfield-progress-color          : #5d94f3;
-    --fileuploadfield-success-color           : rgb(112, 169, 112);
+    --fileuploadfield-background-color        : var(--purple-950);
+    --fileuploadfield-border-color            : var(--purple-700);
+    --fileuploadfield-color                   : var(--white);
+    --fileuploadfield-downloadable-state-color: var(--gray-400);
+    --fileuploadfield-error-color             : var(--red-500);
+    --fileuploadfield-focus-color             : var(--purple-400);
+    --fileuploadfield-hover-color             : var(--purple-900);
+    --fileuploadfield-pressed-color           : var(--purple-800);
+    --fileuploadfield-progress-color          : var(--purple-400);
+    --fileuploadfield-success-color           : var(--green-400);
 }

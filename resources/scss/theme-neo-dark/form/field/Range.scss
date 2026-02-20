@@ -1,4 +1,4 @@
 :root .neo-theme-neo-dark { // .neo-rangefield
-    --rangefield-thumb-background: #1c60a0;
-    --rangefield-track-background: #ddd;
+    --rangefield-thumb-background: var(--purple-400);
+    --rangefield-track-background: var(--gray-600);
 }
