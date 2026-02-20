@@ -1,7 +1,5 @@
 import BaseGridContainer from '../../../../src/grid/Container.mjs';
-import Contributors      from '../../store/Contributors.mjs';
 import Heuristics        from './component/Heuristics.mjs';
-import StatusToolbar     from './StatusToolbar.mjs';
 
 const
     regexPrefixCy   = /^(c?y)/,
@@ -49,13 +47,6 @@ class GridContainer extends BaseGridContainer {
             }
         },
         /**
-         * @member {Object} footerToolbar
-         */
-        footerToolbar: {
-            module: StatusToolbar,
-            flex  : 'none'
-        },
-        /**
          * Default configs for each column
          * @member {Object} columnDefaults
          */
@@ -67,12 +58,7 @@ class GridContainer extends BaseGridContainer {
         /**
          * @member {Number} rowHeight=50
          */
-        rowHeight: 50,
-        /**
-         * @member {Object[]} store=Contributors
-         * @reactive
-         */
-        store: Contributors
+        rowHeight: 50
     }
 
     /**

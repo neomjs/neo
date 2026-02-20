@@ -443,9 +443,12 @@ class GridContainer extends BaseContainer {
      * Triggered before.footerToolbar config gets changed.
      * @param {Object|Neo.toolbar.Base|null} value
      * @param {Object|Neo.toolbar.Base|null} oldValue
+     * @returns {Neo.toolbar.Base|null}
      * @protected
      */
     beforeSetFooterToolbar(value, oldValue) {
+        if (!value) return null;
+
         const me = this;
 
         return ClassSystemUtil.beforeSetInstance(value, FooterToolbar, {
@@ -458,6 +461,7 @@ class GridContainer extends BaseContainer {
      * Triggered before the headerToolbar config gets changed.
      * @param {Object|Neo.grid.header.Toolbar|null} value
      * @param {Object|Neo.grid.header.Toolbar|null} oldValue
+     * @returns {Neo.toolbar.Base|null}
      * @protected
      */
     beforeSetHeaderToolbar(value, oldValue) {
