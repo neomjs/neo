@@ -1,5 +1,6 @@
 .devindex-grid-container {
     border-radius: 8px;
+    box-shadow   : var(--devindex-header-shadow);
 
     .devindex-stop-stream-button {
         .neo-button-glyph {
