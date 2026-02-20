@@ -1,5 +1,5 @@
 .devindex-header-toolbar {
-    box-shadow: var(--portal-header-shadow);
+    box-shadow: var(--devindex-header-shadow);
     z-index   : 8;
 
     .neo-button.neo-button-ghost {
@@ -42,7 +42,7 @@
 
     .separate-bar {
         animation     : fade-in-animation 200ms linear;
-        box-shadow    : var(--portal-header-shadow);
+        box-shadow    : var(--devindex-header-shadow);
         flex-direction: column;
         position      : absolute;
         right         : 0;
@@ -60,14 +60,6 @@
     }
 }
 
-.logo-container {
-    animation: fade-and-scale-animation auto linear;
-    animation-timeline: --page-scroll;
-}
-
-.portal-home-maincontainer {
-    scroll-timeline: --page-scroll block;
-}
 
 @keyframes rotateAnimation {
     from {
@@ -78,16 +70,6 @@
     }
 }
 
-@keyframes fade-and-scale-animation {
-    0% {
-        opacity  : 1;
-        transform: scale(1);
-    }
-    12%, 100% {
-        opacity  : 0;
-        transform: scale(1.5);
-    }
-}
 
 @keyframes fade-in-animation {
     from {
