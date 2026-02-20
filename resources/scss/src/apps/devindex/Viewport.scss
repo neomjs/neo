@@ -1,6 +1,8 @@
 .devindex-viewport {
     .neo-grid-wrapper {
-        margin: 1em;
+        border-radius: 8px;
+        box-shadow   : var(--devindex-header-shadow);
+        margin       : 1em;
 
         &:has(.neo-extend-margin-right) {
             margin-right: calc(235px + 1em);
