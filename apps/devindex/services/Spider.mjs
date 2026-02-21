@@ -91,6 +91,14 @@ class Spider extends Base {
         const blacklist      = await Storage.getBlacklist();
         const existingUsers  = await Storage.getTracker();
         const existingLogins = new Set(existingUsers.map(u => u.login.toLowerCase()));
+        
+        // Backpressure Valve: Abort if tracker backlog is too large
+        const pendingCount = existingUsers.filter(u => u.lastUpdate === null).length;
+        if (pendingCount >= config.spider.maxPendingUsers) {
+            console.log(`[Spider] Backpressure Valve Triggered: Backlog (${pendingCount}) exceeds threshold (${config.spider.maxPendingUsers}).`);
+            console.log(`[Spider] Aborting discovery run to let the Updater catch up.`);
+            return;
+        }
 
         const state = {
             visited,
