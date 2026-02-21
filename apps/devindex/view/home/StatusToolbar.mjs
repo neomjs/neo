@@ -38,6 +38,10 @@ class StatusToolbar extends Toolbar {
          */
         dataMode_: 'total',
         /**
+         * @member {Object} layout
+         */
+        layout: {ntype: 'hbox', align: 'center', wrap: 'wrap'},
+        /**
          * @member {Object[]} items
          */
         items: [{
@@ -49,7 +53,6 @@ class StatusToolbar extends Toolbar {
             flex     : 'none',
             max      : 100,
             reference: 'progress',
-            style    : {marginLeft: '10px'},
             value    : 0,
             width    : 100
         }, {
@@ -60,25 +63,24 @@ class StatusToolbar extends Toolbar {
             height   : 22,
             iconCls  : 'fa fa-ban',
             reference: 'stop-button',
-            style    : {marginLeft: '10px'},
             text     : 'Stop',
             ui       : 'secondary'
         }, {
-            ntype : 'component',
-            flex  : 1,
-            height: 22,
-        }, {
-            ntype    : 'label',
-            reference: 'total-contributions-label',
-            text     : 'Total Contributions: 0'
-        }, {
-            ntype: 'label',
-            style: {marginLeft: '10px', marginRight: '10px'},
-            text : '•'
-        }, {
-            ntype    : 'label',
-            reference: 'count-rows-label',
-            text     : 'Visible Rows: 0'
+            ntype : 'container',
+            cls   : ['devindex-stats-container'],
+            layout: {ntype: 'hbox', align: 'center'},
+            items : [{
+                ntype    : 'label',
+                reference: 'total-contributions-label',
+                text     : 'Total Contributions: 0'
+            }, {
+                ntype: 'label',
+                text : '•'
+            }, {
+                ntype    : 'label',
+                reference: 'count-rows-label',
+                text     : 'Visible Rows: 0'
+            }]
         }]
     }
     /**
