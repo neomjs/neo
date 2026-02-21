@@ -1,4 +1,4 @@
-name: DevIndex Updater
+name: DevIndex Pipeline
 
 on:
   schedule:
@@ -6,11 +6,11 @@ on:
   workflow_dispatch: # Allow manual trigger
 
 concurrency:
-  group: devindex-updater
+  group: devindex-pipeline
   cancel-in-progress: false
 
 jobs:
-  update-index:
+  run-pipeline:
     runs-on: ubuntu-latest
     permissions:
       contents: write # Required to push changes
@@ -26,6 +26,15 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Run DevIndex Spider (3x Loop)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for i in 1 2 3; do
+            echo "Starting Spider Run $i/3..."
+            npm run devindex:spider -- --strategy random
+          done
 
       - name: Run DevIndex Updater
         run: npm run devindex:update -- --limit=800
@@ -46,7 +55,7 @@ jobs:
             git add apps/devindex/resources/*.json*
 
             # Commit
-            git commit -m "chore(devindex): Hourly index update [skip ci]"
+            git commit -m "chore(devindex): Hourly pipeline update [skip ci]"
 
             # Discard any other unstaged changes to allow rebase
             git reset --hard

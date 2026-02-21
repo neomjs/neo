@@ -68,7 +68,13 @@ const defaultConfig = {
          * Maximum depth for crawling (if applicable).
          * @type {number}
          */
-        maxDepth: 2
+        maxDepth: 2,
+        /**
+         * Backpressure Valve: If the tracker backlog of pending users (`lastUpdate: null`)
+         * exceeds this amount, the Spider will abort its run to let the Updater catch up.
+         * @type {number}
+         */
+        maxPendingUsers: 2000
     },
 
     /**
