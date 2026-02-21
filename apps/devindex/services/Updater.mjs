@@ -368,6 +368,10 @@ class Updater extends Base {
                     try {
                         await fetchYears(y, y);
                     } catch (innerErr) {
+                        if (innerErr.message.includes('IP allow list enabled')) {
+                            console.warn(`[Updater] [${username}] Year ${y} blocked by IP allow list. Skipping year.`);
+                            continue;
+                        }
                         console.error(`[Updater] [${username}] Year ${y} failed even individually.`);
                         throw innerErr; // If even 1 year fails, the user is truly broken
                     }
