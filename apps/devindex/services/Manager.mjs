@@ -7,6 +7,7 @@ import Updater   from './Updater.mjs';
 import Spider    from './Spider.mjs';
 import Cleanup   from './Cleanup.mjs';
 import OptOut    from './OptOut.mjs';
+import OptIn     from './OptIn.mjs';
 
 /**
  * @summary DevIndex Backend Orchestrator & CLI Entry Point.
@@ -123,8 +124,15 @@ class Manager extends Base {
                 await OptOut.run();
             });
 
+        program
+            .command('optin')
+            .description('Process star-based opt-ins')
+            .action(async () => {
+                await OptIn.run();
+            });
+
         // Initialize Services
-        await Storage.initAsync();
+        await Storage.ready();
 
         await program.parseAsync(process.argv);
     }

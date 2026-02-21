@@ -141,7 +141,13 @@ const defaultConfig = {
          * State tracking for the Opt-Out service (last processed timestamp).
          * @type {string}
          */
-        optoutSync: path.resolve(projectRoot, 'apps/devindex/resources/optout-sync.json')
+        optoutSync: path.resolve(projectRoot, 'apps/devindex/resources/optout-sync.json'),
+
+        /**
+         * State tracking for the Opt-In service (last processed timestamp).
+         * @type {string}
+         */
+        optinSync: path.resolve(projectRoot, 'apps/devindex/resources/optin-sync.json')
     }
 };
 
