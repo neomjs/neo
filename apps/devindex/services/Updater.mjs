@@ -16,6 +16,9 @@ import Storage from './Storage.mjs';
  * 2.  **Enrich:** Augments the profile with Organization memberships via the REST API.
  * 3.  **Filter:** Applies the "Meritocracy Logic". If a user falls below the `minTotalContributions` threshold
  *     (and is not whitelisted), they are marked for immediate deletion from the Tracker ("Active Pruning").
+ *     **Dynamic Threshold:** Once the database hits the `maxUsers` cap (managed by `Storage`), this
+ *     threshold dynamically rises to match the lowest performer in the database, ensuring only superior
+ *     candidates displace existing ones.
  * 4.  **Persist:** Saves valid users to the Rich Data Store and updates their timestamp in the Tracker.
  * 5.  **Rescue:** Handles "Not Found" or "Bot" errors by setting a dummy timestamp to prevent infinite retry loops.
  *

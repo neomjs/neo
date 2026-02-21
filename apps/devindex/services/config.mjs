@@ -43,6 +43,13 @@ const defaultConfig = {
         timeout: 10000,
         /**
          * Maximum number of users to keep in the index.
+         *
+         * **Rationale:** A 50,000 user cap results in a ~20MB `users.jsonl` file. While the file is gzipped
+         * and streamed over the network, allowing the index to grow unbounded (e.g., 100k users / ~40MB)
+         * would introduce significant client-side memory constraints and parsing overhead, eventually degrading
+         * the application's responsiveness. The cap ensures the app remains fast and "fun to use" while forcing
+         * a "Meritocracy" where only the most active developers remain in the index.
+         *
          * @type {number}
          */
         maxUsers: 50000
