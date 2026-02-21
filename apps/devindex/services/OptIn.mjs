@@ -142,9 +142,7 @@ class OptIn extends Base {
             }
 
             // 2. Add to tracker
-            // We want to avoid adding users who are already indexed OR already in the tracker.
-            const users = await Storage.getUsers();
-            const existingUsers = new Set(users.map(u => u.l.toLowerCase()));
+            // We want to avoid adding users who are already in the tracker.
             const tracker = await Storage.getTracker();
             const existingTracker = new Set(tracker.map(t => t.login.toLowerCase()));
 
@@ -154,7 +152,7 @@ class OptIn extends Base {
 
             const toAdd = uniqueLogins.filter(login => {
                 const lLogin = login.toLowerCase();
-                return !existingUsers.has(lLogin) && !existingTracker.has(lLogin) && !currentBlocklist.has(lLogin);
+                return !existingTracker.has(lLogin) && !currentBlocklist.has(lLogin);
             });
 
             if (toAdd.length > 0) {
@@ -162,7 +160,7 @@ class OptIn extends Base {
                 const trackerUpdates = toAdd.map(login => ({ login, lastUpdate: null }));
                 await Storage.updateTracker(trackerUpdates);
             } else {
-                console.log(`[OptIn] All opted-in users are already tracked, indexed, or blocked.`);
+                console.log(`[OptIn] All opted-in users are already tracked or blocked.`);
             }
 
             await Storage.saveOptInSync({ lastCheck: newLastCheck });
@@ -173,7 +171,11 @@ class OptIn extends Base {
 
         // 3. Close Issues and Leave Comment
         if (issuesToClose.length > 0) {
-            await this.closeIssues(issuesToClose);
+            const tracker = await Storage.getTracker();
+            const existingTracker = new Set(tracker.map(t => t.login.toLowerCase()));
+            const currentBlocklist = await Storage.getBlocklist();
+
+            await this.closeIssues(issuesToClose, existingTracker, currentBlocklist);
         }
     }
 
@@ -274,16 +276,46 @@ class OptIn extends Base {
         return { selfLogins, othersLogins, issuesToClose };
     }
 
-    async closeIssues(issues) {
+    async closeIssues(issues, existingTracker, currentBlocklist) {
         for (const issue of issues) {
             try {
                 let commentBody = "";
                 if (issue.type === 'self') {
-                    commentBody = `Thank you for opting in! @${issue.logins[0]} has been added to our tracking queue.\n\n*This issue has been automatically closed.*`;
+                    const login = issue.logins[0];
+                    if (existingTracker.has(login.toLowerCase())) {
+                         commentBody = `Thank you for opting in! @${login} is already in our tracking queue and will be processed soon.\n\n*This issue has been automatically closed.*`;
+                    } else {
+                         commentBody = `Thank you for opting in! @${login} has been added to our tracking queue.\n\n*This issue has been automatically closed.*`;
+                    }
                 } else if (issue.type === 'others') {
                     if (issue.validLogins && issue.validLogins.length > 0) {
                         commentBody = `Thank you for your nominations!\n\n`;
-                        commentBody += `**Successfully Added:**\n${issue.validLogins.map(u => `- @${u}`).join('\n')}\n\n`;
+                        
+                        const newlyAdded = [];
+                        const alreadyTracked = [];
+                        const blocked = [];
+
+                        issue.validLogins.forEach(u => {
+                            const lLogin = u.toLowerCase();
+                            if (currentBlocklist.has(lLogin)) {
+                                blocked.push(u);
+                            } else if (existingTracker.has(lLogin)) {
+                                alreadyTracked.push(u);
+                            } else {
+                                newlyAdded.push(u);
+                            }
+                        });
+
+                        if (newlyAdded.length > 0) {
+                            commentBody += `**Successfully Added to Queue:**\n${newlyAdded.map(u => `- @${u}`).join('\n')}\n\n`;
+                        }
+                        if (alreadyTracked.length > 0) {
+                            commentBody += `**Already in Queue (Skipped):**\n${alreadyTracked.map(u => `- @${u}`).join('\n')}\n\n`;
+                        }
+                        if (blocked.length > 0) {
+                            commentBody += `**Opted Out (Skipped):**\n${blocked.map(u => `- @${u}`).join('\n')}\n\n`;
+                        }
+
                         if (issue.invalidLogins && issue.invalidLogins.length > 0) {
                             commentBody += `**Failed Validation (Not Found):**\n${issue.invalidLogins.map(u => `- ${u}`).join('\n')}\n\n`;
                         }
