@@ -4,7 +4,7 @@ title: DevIndex Methodology
 
 # DevIndex Methodology
 
-> **Legal Disclaimer:** DevIndex is an independent, MIT-licensed open-source project created by the Neo.mjs team. It is **not officially affiliated with, endorsed by, or associated with GitHub, Inc.** in any way. The project serves as a high-performance technological showcase for the Neo.mjs application engine (demonstrating world-class buffered data grids streaming 50,000+ records) and utilizes publicly available data provided by the GitHub API. We respect user privacy, utilize no tracking cookies, and run no advertisements.
+> **Legal Disclaimer:** DevIndex is an independent, MIT-licensed open-source project created by the Neo.mjs team. It is **not officially affiliated with, endorsed by, or associated with GitHub, Inc.** in any way. The project serves as a high-performance technological showcase for the Neo.mjs application engine (demonstrating world-class buffered data grids streaming up to 50,000 records) and utilizes publicly available data provided by the GitHub API. We respect user privacy, utilize no tracking cookies, and run no advertisements.
 
 ## Project Motivation & The "Invisibility" Problem
 
@@ -38,7 +38,9 @@ This aggregated, clean dataset opens up entirely new avenues for data science wi
 - **Ecosystem Health:** Measuring the sustainability of open-source communities by analyzing contribution distribution (e.g., identifying "bus factor" risks across top repositories).
 - **AI Impact:** Studying the shifting contribution patterns as AI agents and LLMs become more prevalent in the development lifecycle.
 
-Because a client-side web application cannot efficiently render 180 million records, we enforce a strict **Meritocracy Filter**. We cap our active database at the top 50,000 most active developers. Once the cap is reached, the entry threshold dynamically rises, ensuring only the most prolific contributors remain in the index.
+Because a client-side web application cannot practically download 180 million records, we enforce a strict **Meritocracy Filter** with a hard cap at the top 50,000 most active developers. The rationale is purely network-based: at 50,000 users, our raw JSONL data file reaches ~20MB (around 8MB gzipped). While the Neo.mjs UI engine itself can effortlessly render significantly more records without performance degradation, forcing casual visitors to download larger payloads would be unreasonable. 
+
+To mitigate load times, the data is **streamed** to the client. The application becomes fully functional with the initially loaded subset of data, and users can stop the ongoing data stream at any given moment. Once the 50k cap is reached, the entry threshold dynamically rises, ensuring only the most prolific contributors remain in the index.
 
 ## Rich Data & Inclusivity
 
