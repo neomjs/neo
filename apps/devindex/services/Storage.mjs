@@ -64,7 +64,8 @@ class Storage extends Base {
             { path: config.paths.blacklist, default: [] },
             { path: config.paths.whitelist, default: [] },
             { path: config.paths.failed,    default: {} },
-            { path: config.paths.threshold, default: { tc: config.github.minTotalContributions } }
+            { path: config.paths.threshold, default: { tc: config.github.minTotalContributions } },
+            { path: config.paths.optoutSync, default: { lastCheck: null } }
         ];
 
         for (const file of files) {
@@ -84,6 +85,46 @@ class Storage extends Base {
     async getBlacklist() {
         const list = await this.readJson(config.paths.blacklist, []);
         return new Set(list.map(item => item.toLowerCase()));
+    }
+
+    /**
+     * Adds users to the blacklist.
+     * @param {Array<String>} logins
+     * @returns {Promise<void>}
+     */
+    async addToBlacklist(logins) {
+        const current = await this.readJson(config.paths.blacklist, []);
+        const currentSet = new Set(current.map(item => item.toLowerCase()));
+        let changed = false;
+
+        for (const login of logins) {
+            if (!currentSet.has(login.toLowerCase())) {
+                current.push(login);
+                currentSet.add(login.toLowerCase());
+                changed = true;
+            }
+        }
+
+        if (changed) {
+            await this.writeJson(config.paths.blacklist, current);
+        }
+    }
+
+    /**
+     * Reads the opt-out sync state.
+     * @returns {Promise<Object>}
+     */
+    async getOptOutSync() {
+        return this.readJson(config.paths.optoutSync, { lastCheck: null });
+    }
+
+    /**
+     * Saves the opt-out sync state.
+     * @param {Object} data
+     * @returns {Promise<void>}
+     */
+    async saveOptOutSync(data) {
+        await this.writeJson(config.paths.optoutSync, data);
     }
 
     /**

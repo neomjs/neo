@@ -6,6 +6,7 @@ import Storage   from './Storage.mjs';
 import Updater   from './Updater.mjs';
 import Spider    from './Spider.mjs';
 import Cleanup   from './Cleanup.mjs';
+import OptOut    from './OptOut.mjs';
 
 /**
  * @summary DevIndex Backend Orchestrator & CLI Entry Point.
@@ -113,6 +114,13 @@ class Manager extends Base {
             .description('Run data hygiene checks (purge, sort, filter)')
             .action(async () => {
                 await Cleanup.run();
+            });
+
+        program
+            .command('optout')
+            .description('Process star-based opt-outs')
+            .action(async () => {
+                await OptOut.run();
             });
 
         // Initialize Services
