@@ -47,14 +47,14 @@ To mitigate load times, the data is **streamed** to the client. The application 
 
 ## Anomaly Detection & Pattern Recognition
 
-To help identify unusual or extraordinary contribution patterns, we compute heuristic scores for each profile, generating visual "Impact Badges" in the UI. These are based on:
-- **Velocity (v):** Extremely high average contributions per day (e.g., >100/day receives ⚡, >1000/day receives 🔥).
-- **Acceleration (a):** Explosive growth in contributions relative to previous baselines (e.g., >2x growth receives 📈, >10x receives 🚀).
-- **Consistency (c):** Longevity of active contribution to the ecosystem (e.g., >5 years receives 🛡️, >10 years receives 🏛️).
+To help identify unusual or extraordinary contribution patterns, we compute heuristic scores for each profile, generating visual "Impact Badges" in the UI. These are based on actual code metrics:
+- **Velocity (v):** The maximum contributions per day during their peak year (e.g., >100/day receives ⚡, >1,000/day receives 🔥).
+- **Acceleration (a):** The growth rate of their peak year compared to their median baseline of active years (e.g., >2x growth receives 📈, >10x receives 🚀).
+- **Consistency (c):** The number of active years (years with >100 contributions) in the ecosystem (e.g., >5 active years receives 🛡️, >10 active years receives 🏛️).
 
-These scores aren't judgments—they're signals. An incredibly active maintainer, a prolific code reviewer, or an AI agent will all generate unique footprints.
+These scores aren't judgments—they're signals. An incredibly active maintainer, a package automation system, or an AI agent will all generate unique footprints. The badges help researchers understand *what kind* of contributor they're looking at without making value judgments.
 
-For transparency, even profiles with mathematically impossible human patterns (e.g., 2.1 million contributions in a single year) remain in the index. We do not editorialize or delete data based on high volume. However, the UI does provide built-in filters (such as `Hide Commit Ratio > 90%`) allowing researchers and users to dynamically filter out profiles that are highly likely to be automated systems rather than organic human contributors.
+For transparency, even profiles with mathematically impossible human patterns (e.g., 2.1 million contributions in a single year) remain in the index. We do not editorialize or delete data based on high volume. However, the UI provides built-in filters (such as `Hide Commit Ratio > 90%`) allowing researchers and users to dynamically filter out profiles that are highly likely to be automated systems rather than organic human contributors.
 
 ## Rich Data & Inclusivity
 
