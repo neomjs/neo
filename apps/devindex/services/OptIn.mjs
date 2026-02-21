@@ -112,14 +112,29 @@ class OptIn extends Base {
             cursor = stargazers.pageInfo.endCursor;
         }
 
-        const uniqueLogins = [...new Set(optedInLogins)];
+        // 2. Check Issues
+        const issueResults = await this.processIssues();
+        
+        let uniqueLogins = [...new Set(optedInLogins)];
+        let loginsToReAdd = [...uniqueLogins]; // Stars can reverse blocklist
+        let issuesToClose = [];
+
+        if (issueResults) {
+            uniqueLogins.push(...issueResults.selfLogins);
+            uniqueLogins.push(...issueResults.othersLogins);
+            loginsToReAdd.push(...issueResults.selfLogins); // ONLY self issues reverse blocklist
+            issuesToClose.push(...issueResults.issuesToClose);
+            
+            uniqueLogins = [...new Set(uniqueLogins)];
+            loginsToReAdd = [...new Set(loginsToReAdd)];
+        }
 
         if (uniqueLogins.length > 0) {
             console.log(`[OptIn] Found ${uniqueLogins.length} new opt-in requests:`, uniqueLogins);
             
-            // 1. Remove from blocklist if they are there
+            // 1. Remove from blocklist if they are there (ONLY stargazers and self-issues)
             const blocklist = await Storage.getBlocklist();
-            const blockedUsersToReAdd = uniqueLogins.filter(login => blocklist.has(login.toLowerCase()));
+            const blockedUsersToReAdd = loginsToReAdd.filter(login => blocklist.has(login.toLowerCase()));
             
             if (blockedUsersToReAdd.length > 0) {
                 console.log(`[OptIn] Removing from blocklist:`, blockedUsersToReAdd);
@@ -133,9 +148,13 @@ class OptIn extends Base {
             const tracker = await Storage.getTracker();
             const existingTracker = new Set(tracker.map(t => t.login.toLowerCase()));
 
+            // We must also ensure we don't add "othersLogins" that are on the blocklist, 
+            // since we didn't remove them above.
+            const currentBlocklist = await Storage.getBlocklist();
+
             const toAdd = uniqueLogins.filter(login => {
                 const lLogin = login.toLowerCase();
-                return !existingUsers.has(lLogin) && !existingTracker.has(lLogin);
+                return !existingUsers.has(lLogin) && !existingTracker.has(lLogin) && !currentBlocklist.has(lLogin);
             });
 
             if (toAdd.length > 0) {
@@ -143,13 +162,166 @@ class OptIn extends Base {
                 const trackerUpdates = toAdd.map(login => ({ login, lastUpdate: null }));
                 await Storage.updateTracker(trackerUpdates);
             } else {
-                console.log(`[OptIn] All opted-in users are already tracked or indexed.`);
+                console.log(`[OptIn] All opted-in users are already tracked, indexed, or blocked.`);
             }
 
             await Storage.saveOptInSync({ lastCheck: newLastCheck });
             console.log(`[OptIn] Processed opt-ins and updated sync state to ${newLastCheck}.`);
         } else {
             console.log('[OptIn] No new opt-in requests found.');
+        }
+
+        // 3. Close Issues and Leave Comment
+        if (issuesToClose.length > 0) {
+            await this.closeIssues(issuesToClose);
+        }
+    }
+
+    async processIssues() {
+        console.log('[OptIn] Checking for new opt-in issue requests...');
+        let hasNextPage = true;
+        let cursor = null;
+        let selfLogins = [];
+        let othersLogins = [];
+        let issuesToClose = [];
+
+        while (hasNextPage) {
+            const query = `
+                query($owner: String!, $name: String!, $cursor: String) {
+                    repository(owner: $owner, name: $name) {
+                        issues(first: 100, states: OPEN, labels: ["devindex-opt-in"], after: $cursor) {
+                            pageInfo {
+                                hasNextPage
+                                endCursor
+                            }
+                            nodes {
+                                id
+                                number
+                                title
+                                body
+                                author {
+                                    login
+                                }
+                            }
+                        }
+                    }
+                }`;
+
+            const variables = {
+                owner: this.optInRepoOwner,
+                name:  this.optInRepoName,
+                cursor: cursor
+            };
+
+            let data;
+            try {
+                data = await GitHub.query(query, variables, 3, 'OptIn Issues');
+            } catch (err) {
+                if (err.message.includes('NOT_FOUND') || err.message.includes('Could not resolve')) {
+                    return null;
+                }
+                throw err;
+            }
+
+            const issues = data?.repository?.issues;
+            if (!issues) break;
+
+            const nodes = issues.nodes || [];
+
+            for (const issue of nodes) {
+                if (issue.title.includes('Opt-In Request:')) {
+                    if (issue.author && issue.author.login) {
+                        selfLogins.push(issue.author.login);
+                        issuesToClose.push({ id: issue.id, type: 'self', logins: [issue.author.login] });
+                    }
+                } else if (issue.title.includes('Opt-In Nomination:')) {
+                    const match = issue.body.match(/### GitHub Usernames\s*([\s\S]*?)(?:###|$)/);
+                    if (match) {
+                        const text = match[1];
+                        const usernames = text.split('\n')
+                            .map(u => u.trim())
+                            .filter(u => u && !u.startsWith('-') && !u.startsWith('['));
+                        
+                        const validUsernames = [];
+                        const invalidUsernames = [];
+                        
+                        for (const uname of usernames) {
+                            try {
+                                await GitHub.rest(`users/${uname}`);
+                                validUsernames.push(uname);
+                                othersLogins.push(uname);
+                            } catch (e) {
+                                invalidUsernames.push(uname);
+                            }
+                        }
+                        
+                        issuesToClose.push({ 
+                            id: issue.id, 
+                            type: 'others', 
+                            validLogins: validUsernames,
+                            invalidLogins: invalidUsernames
+                        });
+                    } else {
+                        issuesToClose.push({ id: issue.id, type: 'invalid' });
+                    }
+                }
+            }
+
+            hasNextPage = issues.pageInfo.hasNextPage;
+            cursor = issues.pageInfo.endCursor;
+        }
+
+        return { selfLogins, othersLogins, issuesToClose };
+    }
+
+    async closeIssues(issues) {
+        for (const issue of issues) {
+            try {
+                let commentBody = "";
+                if (issue.type === 'self') {
+                    commentBody = `Thank you for opting in! @${issue.logins[0]} has been added to our tracking queue.\n\n*This issue has been automatically closed.*`;
+                } else if (issue.type === 'others') {
+                    if (issue.validLogins && issue.validLogins.length > 0) {
+                        commentBody = `Thank you for your nominations!\n\n`;
+                        commentBody += `**Successfully Added:**\n${issue.validLogins.map(u => `- @${u}`).join('\n')}\n\n`;
+                        if (issue.invalidLogins && issue.invalidLogins.length > 0) {
+                            commentBody += `**Failed Validation (Not Found):**\n${issue.invalidLogins.map(u => `- ${u}`).join('\n')}\n\n`;
+                        }
+                    } else if (issue.invalidLogins && issue.invalidLogins.length > 0) {
+                        commentBody = `We could not validate any of the provided usernames. Please double-check them and submit a new request if needed.\n\n`;
+                        commentBody += `**Failed Validation (Not Found):**\n${issue.invalidLogins.map(u => `- ${u}`).join('\n')}\n\n`;
+                    } else {
+                        commentBody = `We could not parse any usernames from this issue. Please ensure you follow the issue template format.\n\n`;
+                    }
+                    commentBody += `*This issue has been automatically closed.*`;
+                } else {
+                    commentBody = `We could not parse the usernames from this issue. Please ensure you follow the issue template format.\n\n*This issue has been automatically closed.*`;
+                }
+
+                // Add Comment
+                const commentQuery = `
+                    mutation($subjectId: ID!, $body: String!) {
+                        addComment(input: {subjectId: $subjectId, body: $body}) {
+                            clientMutationId
+                        }
+                    }`;
+                await GitHub.query(commentQuery, {
+                    subjectId: issue.id,
+                    body: commentBody
+                }, 3, `OptIn Comment ${issue.id}`);
+
+                // Close Issue
+                const closeQuery = `
+                    mutation($issueId: ID!) {
+                        closeIssue(input: {issueId: $issueId}) {
+                            clientMutationId
+                        }
+                    }`;
+                await GitHub.query(closeQuery, { issueId: issue.id }, 3, `OptIn Close ${issue.id}`);
+                console.log(`[OptIn] Closed issue ${issue.id}`);
+            } catch (err) {
+                console.error(`[OptIn] Failed to close issue ${issue.id}:`, err.message);
+            }
         }
     }
 }
