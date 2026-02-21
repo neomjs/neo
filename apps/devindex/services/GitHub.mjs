@@ -213,6 +213,16 @@ class GitHub extends Base {
                     return this.query(query, variables, retries - 1, logContext);
                 }
 
+                // IP Allow List restriction usually returns partial data (public contributions).
+                // We log the warning but RETURN the data instead of throwing an error,
+                // so the Updater can still process the public metrics.
+                if (messages.includes('IP allow list enabled')) {
+                    console.warn(`${prefix} Partial Data Warning: ${messages}`);
+                    if (json.data) {
+                        return json.data;
+                    }
+                }
+
                 throw new Error(`GraphQL Query Errors: ${messages}`);
             }
 
