@@ -58,7 +58,8 @@ class Storage extends Base {
             { path: config.paths.visited,   default: [] },
             { path: config.paths.blacklist, default: [] },
             { path: config.paths.whitelist, default: [] },
-            { path: config.paths.failed,    default: {} }
+            { path: config.paths.failed,    default: {} },
+            { path: config.paths.threshold, default: { tc: config.github.minTotalContributions } }
         ];
 
         for (const file of files) {
@@ -87,6 +88,15 @@ class Storage extends Base {
     async getWhitelist() {
         const list = await this.readJson(config.paths.whitelist, []);
         return new Set(list.map(item => item.toLowerCase()));
+    }
+
+    /**
+     * Reads the minimum required total contributions from the threshold file.
+     * @returns {Promise<Number>}
+     */
+    async getLowestContributionThreshold() {
+        const data = await this.readJson(config.paths.threshold, { tc: config.github.minTotalContributions });
+        return data.tc;
     }
 
     /**
@@ -295,7 +305,27 @@ class Storage extends Base {
             // Sort by total contributions (descending). 'tc' is total_contributions
             result.sort((a, b) => (b.tc || 0) - (a.tc || 0));
 
+            const maxUsers   = config.github.maxUsers;
+            let prunedLogins = [];
+
+            if (maxUsers && result.length > maxUsers) {
+                const pruned = result.slice(maxUsers);
+                prunedLogins = pruned.map(u => u.l);
+                result       = result.slice(0, maxUsers);
+
+                // Update threshold
+                const lowestTc = result[result.length - 1].tc || config.github.minTotalContributions;
+                await this.writeJson(config.paths.threshold, { tc: lowestTc });
+            }
+
             await this.writeJson(config.paths.users, result);
+
+            // Clean up tracker and penalty box if we pruned
+            if (prunedLogins.length > 0) {
+                const trackerUpdates = prunedLogins.map(login => ({ login, delete: true }));
+                await this.updateTracker(trackerUpdates);
+                await this.updateFailed(prunedLogins, false);
+            }
         }
     }
 

@@ -40,7 +40,12 @@ const defaultConfig = {
          * Request timeout in milliseconds.
          * @type {number}
          */
-        timeout: 10000
+        timeout: 10000,
+        /**
+         * Maximum number of users to keep in the index.
+         * @type {number}
+         */
+        maxUsers: 50000
     },
 
     /**
@@ -111,7 +116,13 @@ const defaultConfig = {
          * List of users who failed update processing (Penalty Box).
          * @type {string}
          */
-        failed: path.resolve(projectRoot, 'apps/devindex/resources/failed.json')
+        failed: path.resolve(projectRoot, 'apps/devindex/resources/failed.json'),
+
+        /**
+         * Stores the minimum total contributions required to enter the index.
+         * @type {string}
+         */
+        threshold: path.resolve(projectRoot, 'apps/devindex/resources/threshold.json')
     }
 };
 
