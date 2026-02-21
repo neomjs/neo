@@ -5927,6 +5927,7 @@
   "repo:hacksider/Deep-Live-Cam",
   "repo:hackware1993/MagicIndicator",
   "repo:hadolint/hadolint",
+  "repo:hagezi/dns-blocklists",
   "repo:haierkeys/obsidian-fast-note-sync",
   "repo:haifengl/smile",
   "repo:haiibo/OpenWrt",
@@ -11035,6 +11036,7 @@
   "repo:vercel/nextjs-postgres-auth-starter",
   "repo:vercel/nft",
   "repo:vercel/og-image",
+  "repo:vercel/openchat",
   "repo:vercel/pkg",
   "repo:vercel/satori",
   "repo:vercel/serve",
@@ -11792,7 +11794,5 @@
   "repo:zxwk1998/vue-admin-better",
   "repo:zyantific/zydis",
   "repo:zziz/pwc",
-  "repo:zzzgydi/clash-verge",
-  "repo:hagezi/dns-blocklists",
-  "repo:vercel/openchat"
+  "repo:zzzgydi/clash-verge"
 ]
