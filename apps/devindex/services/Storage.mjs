@@ -353,12 +353,19 @@ class Storage extends Base {
             result.sort((a, b) => (b.tc || 0) - (a.tc || 0));
 
             const maxUsers   = config.github.maxUsers;
+            const allowlist  = await this.getAllowlist();
+
+            // We calculate `effectiveMax` as `maxUsers + allowlist.size` to protect the Meritocracy.
+            // If we simply sliced at `maxUsers`, manually allowlisted users (e.g., conference speakers)
+            // would unfairly consume slots that belong to organic, high-performing developers.
+            // By adding the allowlist size to the cap, we guarantee 50,000 organic slots remain open.
+            const effectiveMax = maxUsers ? maxUsers + allowlist.size : null;
             let prunedLogins = [];
 
-            if (maxUsers && result.length > maxUsers) {
-                const pruned = result.slice(maxUsers);
+            if (effectiveMax && result.length > effectiveMax) {
+                const pruned = result.slice(effectiveMax);
                 prunedLogins = pruned.map(u => u.l);
-                result       = result.slice(0, maxUsers);
+                result       = result.slice(0, effectiveMax);
 
                 // Update threshold
                 const lowestTc = result[result.length - 1].tc || config.github.minTotalContributions;
