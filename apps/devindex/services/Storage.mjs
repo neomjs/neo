@@ -19,7 +19,7 @@ import config from './config.mjs';
  * - **`tracker.json` (The Index):** A lightweight map (`login` -> `lastUpdate`) used by the Backend to schedule updates.
  *   It includes "Pending" users (`lastUpdate: null`) discovered by the Spider but not yet processed.
  * - **`visited.json` (Cache):** A Set of keys (e.g., `repo:owner/name`) to prevent the Spider from re-scanning the same sources.
- * - **`blacklist.json` / `whitelist.json`:** Configuration files for manual overrides.
+ * - **`blocklist.json` / `allowlist.json`:** Configuration files for manual overrides.
  *
  * **Key Features:**
  * - **Case Insensitivity:** Automatically normalizes login keys to lowercase to prevent duplicates.
@@ -61,8 +61,8 @@ class Storage extends Base {
             { path: config.paths.users,     default: [] },
             { path: config.paths.tracker,   default: {} },
             { path: config.paths.visited,   default: [] },
-            { path: config.paths.blacklist, default: [] },
-            { path: config.paths.whitelist, default: [] },
+            { path: config.paths.blocklist, default: [] },
+            { path: config.paths.allowlist, default: [] },
             { path: config.paths.failed,    default: {} },
             { path: config.paths.threshold, default: { tc: config.github.minTotalContributions } },
             { path: config.paths.optoutSync, default: { lastCheck: null } }
@@ -79,21 +79,21 @@ class Storage extends Base {
     }
 
     /**
-     * Reads the blacklist.
-     * @returns {Promise<Set<String>>} Set of blacklisted logins.
+     * Reads the blocklist.
+     * @returns {Promise<Set<String>>} Set of blocklisted logins.
      */
-    async getBlacklist() {
-        const list = await this.readJson(config.paths.blacklist, []);
+    async getBlocklist() {
+        const list = await this.readJson(config.paths.blocklist, []);
         return new Set(list.map(item => item.toLowerCase()));
     }
 
     /**
-     * Adds users to the blacklist.
+     * Adds users to the blocklist.
      * @param {Array<String>} logins
      * @returns {Promise<void>}
      */
-    async addToBlacklist(logins) {
-        const current = await this.readJson(config.paths.blacklist, []);
+    async addToBlocklist(logins) {
+        const current = await this.readJson(config.paths.blocklist, []);
         const currentSet = new Set(current.map(item => item.toLowerCase()));
         let changed = false;
 
@@ -106,7 +106,7 @@ class Storage extends Base {
         }
 
         if (changed) {
-            await this.writeJson(config.paths.blacklist, current);
+            await this.writeJson(config.paths.blocklist, current);
         }
     }
 
@@ -128,11 +128,11 @@ class Storage extends Base {
     }
 
     /**
-     * Reads the whitelist.
-     * @returns {Promise<Set<String>>} Set of whitelisted logins.
+     * Reads the allowlist.
+     * @returns {Promise<Set<String>>} Set of allowlisted logins.
      */
-    async getWhitelist() {
-        const list = await this.readJson(config.paths.whitelist, []);
+    async getAllowlist() {
+        const list = await this.readJson(config.paths.allowlist, []);
         return new Set(list.map(item => item.toLowerCase()));
     }
 

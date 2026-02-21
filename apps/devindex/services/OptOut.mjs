@@ -117,8 +117,8 @@ class OptOut extends Base {
         if (optedOutLogins.length > 0) {
             console.log(`[OptOut] Found ${optedOutLogins.length} new opt-out requests.`);
             
-            // 1. Add to blacklist
-            await Storage.addToBlacklist(optedOutLogins);
+            // 1. Add to blocklist
+            await Storage.addToBlocklist(optedOutLogins);
             
             // 2. Remove from rich data (users.jsonl)
             await Storage.deleteUsers(optedOutLogins);
