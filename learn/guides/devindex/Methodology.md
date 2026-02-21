@@ -4,11 +4,13 @@ title: DevIndex Methodology
 
 # DevIndex Methodology
 
+> **Legal Disclaimer:** DevIndex is an independent, MIT-licensed open-source project created by the Neo.mjs team. It is **not officially affiliated with, endorsed by, or associated with GitHub, Inc.** in any way. The project serves as a high-performance technological showcase for the Neo.mjs application engine (demonstrating world-class buffered data grids streaming 50,000+ records) and utilizes publicly available data provided by the GitHub API. We respect user privacy, utilize no tracking cookies, and run no advertisements.
+
 ## Project Motivation & The "Invisibility" Problem
 
 The genesis of DevIndex stemmed from a simple frustration. Our creator, with over 30,000 GitHub contributions, wanted to understand how that volume compared to other active developers in the ecosystem. 
 
-A search revealed that the available tools were severely lacking. The few existing "Top GitHub Users" lists were either highly localized, niche, or wildly inaccurate—often entirely missing developers with tens or hundreds of thousands of contributions. Even when querying advanced Large Language Models (LLMs) like ChatGPT or Claude for a "Top 20" list, the results were hallucinated or based on severely outdated and incomplete data (e.g., listing developers with 4k contributions in the Top 20, while the actual top 100 all have over 105,000 contributions).
+A search revealed that the available tools were severely lacking. The few existing "Top GitHub Users" lists can be highly localized or niche, but universally, they are all severely inaccurate—often entirely missing developers with tens or hundreds of thousands of contributions. Even when querying advanced Large Language Models (LLMs) like ChatGPT or Claude for a "Top 20" list, the results were hallucinated or based on severely outdated and incomplete data (e.g., listing developers with 4k contributions in the Top 20, while the actual top 100 all have over 105,000 contributions).
 
 This highlighted a major "Invisibility Problem" in the Open Source ecosystem.
 
@@ -25,6 +27,17 @@ To overcome this, we built a highly specialized backend architecture:
 - **The Spider (Discovery Engine):** Uses a multi-strategy algorithm (including random graph walks and heuristic slicing) to discover highly active developers who might otherwise remain hidden.
 - **The Updater (Enrichment Engine):** Queries the GraphQL API to meticulously aggregate year-by-year contribution graphs for every discovered user, calculating their true lifetime metrics.
 
+### Accuracy and The Need for Participation
+It is crucial to understand that while our data is vastly more accurate than existing lists, **it is still an approximation and will have gaps.** Because the Spider relies on graph traversal and heuristics rather than a full database dump, it is statistically probable that we are still missing highly prolific contributors—perhaps even the true #1 contributor globally.
+
+The longer our Spider runs, the more accurate the index becomes. However, the true success of the DevIndex relies on active participation. This is why we have implemented explicit **Opt-In** features alongside our Opt-Out mechanisms. If you or a developer you know has a high contribution count but isn't listed, we encourage you to manually submit the profile for indexing.
+
+### Data Science Use Cases
+This aggregated, clean dataset opens up entirely new avenues for data science within the open-source ecosystem:
+- **Trend Analysis:** Tracking the rise and fall of specific technologies or frameworks based on the activity of top contributors.
+- **Ecosystem Health:** Measuring the sustainability of open-source communities by analyzing contribution distribution (e.g., identifying "bus factor" risks across top repositories).
+- **AI Impact:** Studying the shifting contribution patterns as AI agents and LLMs become more prevalent in the development lifecycle.
+
 Because a client-side web application cannot efficiently render 180 million records, we enforce a strict **Meritocracy Filter**. We cap our active database at the top 50,000 most active developers. Once the cap is reached, the entry threshold dynamically rises, ensuring only the most prolific contributors remain in the index.
 
 ## Rich Data & Inclusivity
@@ -34,8 +47,6 @@ DevIndex goes far beyond simple contribution counts. We provide extremely rich d
 - **Hiring & Talent Scouting:** We index the "Is Hireable" flag (even though it's less prominent on GitHub now). Talent scouts can use our platform to instantly filter the world's top contributors by country and hireable status.
 
 We aim to be a "home" for developers worldwide, as well as AI agents and LLMs that actively contribute to the ecosystem. We are radically inclusive: the only GitHub accounts we actively filter out are those strictly flagged as "automation bots."
-
-*(Note: DevIndex is an independent, MIT-licensed FOSS project and is not officially affiliated with GitHub. We respect user privacy, utilize no tracking cookies, and run no advertisements.)*
 
 ## Scoring
 
