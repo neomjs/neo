@@ -21,6 +21,11 @@
             "parentId": null
         },
         {
+            "id"      : "OptIn",
+            "name"    : "Opt-In & Nominations",
+            "parentId": null
+        },
+        {
             "id"      : "OptOut",
             "name"    : "Privacy & Opt-Out",
             "parentId": null
