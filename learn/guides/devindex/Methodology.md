@@ -14,7 +14,12 @@ A search revealed that the available tools were severely lacking. The few existi
 
 This highlighted a major "Invisibility Problem" in the Open Source ecosystem.
 
-As we enter the **AI Era**, understanding and recognizing human contribution to open-source software becomes even more critical. Furthermore, with initiatives in regions like Europe aiming to provide structured funding for Free and Open Source Software (FOSS), there is a pressing need for accurate data. Currently, it is almost impossible for organizations to answer a simple question: *"Who are the most active open-source developers in our country?"*
+### The AI Era & Open Source Sustainability
+As we enter the **AI Era**, understanding and recognizing human contribution to open-source software becomes even more critical. Modern Large Language Models (LLMs) are heavily trained on the vast corpus of open-source repositories. When developers ask coding questions, the answers are frequently derived directly from solved problems in these FOSS projects.
+
+However, this creates a profound friction point: almost all open-source licenses (even permissive ones like the MIT license) require attribution. LLMs fundamentally strip away this context—they do not know where their training data originated, nor do they provide attribution to the original authors. Consequently, a handful of major corporations (e.g., OpenAI, Anthropic, Google) are generating billions in value by ingesting open-source labor, often in violation of the spirit (and letter) of these licenses, while giving almost nothing back to the developers who built the foundation.
+
+Furthermore, with initiatives in regions like Europe aiming to provide structured funding for Free and Open Source Software (FOSS), there is a pressing need for accurate data. Currently, it is almost impossible for organizations to answer a simple question: *"Who are the most active open-source developers in our country?"*
 
 DevIndex was built to solve this problem.
 
