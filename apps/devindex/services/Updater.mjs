@@ -75,6 +75,9 @@ class Updater extends Base {
         const richUserMap   = new Map(richUsers.map(u => [u.l.toLowerCase(), u]));
         const concurrency   = 8; // Slightly reduced from 10 to balance speed vs stability
 
+        const threshold     = await Storage.getLowestContributionThreshold();
+        const minTc         = Math.max(config.github.minTotalContributions, threshold);
+
         // Helper to process a single user
         const processUser = async (login) => {
             try {
@@ -82,7 +85,7 @@ class Updater extends Base {
 
                 if (data) {
                     const isWhitelisted  = whitelist.has(login.toLowerCase());
-                    const meetsThreshold = data.tc >= config.github.minTotalContributions;
+                    const meetsThreshold = data.tc >= minTc;
 
                     if (meetsThreshold || isWhitelisted) {
                         results.push(data);
