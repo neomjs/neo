@@ -218,9 +218,11 @@ class Spider extends Base {
         // 25% Chance: Core High Stars (Dynamic Ranges)
         if (forcedStrategy === 'search' || rand < 0.25) {
             // Pick a random lower bound to slice the high-star spectrum
-            // Range: minStars (1000) to 20000
+            // Range: minStars (1000) to 20000.
+            // Using Math.pow(Math.random(), 3) creates a power-law distribution
+            // skewing heavily towards the dense 1k-5k range, saving API quota.
             const minStars     = config.github.minStars;
-            const randomOffset = Math.floor(Math.random() * 19000);
+            const randomOffset = Math.floor(Math.pow(Math.random(), 3) * 19000);
             const lowerBound   = minStars + randomOffset;
             const upperBound   = lowerBound + 1000 + Math.floor(Math.random() * 2000); // 1000-3000 width
 
