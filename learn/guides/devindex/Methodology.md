@@ -37,6 +37,7 @@ The longer our Spider runs, the more accurate the index becomes. However, the tr
 
 ### Data Science Use Cases
 This aggregated, clean dataset opens up entirely new avenues for data science within the open-source ecosystem:
+- **Macro-Economic Analysis:** The UI features a real-time Status Toolbar calculating the global or country-specific Total Contributions (TC) against the active user count (e.g., a Global TC of ~383M from 45,000 users). Data scientists can compare these exact, massive output metrics against actual government open-source funding budgets per country. The resulting ratios often serve as a sobering, heartbreaking wake-up call regarding the lack of financial support for critical digital infrastructure. Exposing this disparity was a core motivation for the project.
 - **Trend Analysis:** Tracking the rise and fall of specific technologies or frameworks based on the activity of top contributors.
 - **Ecosystem Health:** Measuring the sustainability of open-source communities by analyzing contribution distribution (e.g., identifying "bus factor" risks across top repositories).
 - **AI Impact:** Studying the shifting contribution patterns as AI agents and LLMs become more prevalent in the development lifecycle. As AI-augmented development becomes mainstream, we track the ratio of commits to total contributions as a longitudinal signal of how developer workflows are evolving. *Example: In 2022-2023, researchers can observe how aggregate commit ratios shift across countries as tools like Copilot accelerate code generation.*
