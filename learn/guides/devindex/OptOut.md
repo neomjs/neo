@@ -25,12 +25,19 @@ This approach is entirely automated, requires zero interaction with our team, an
 
 ---
 
-## Option 2: The Issue-Template-Based Opt-Out (Coming Soon)
+## Option 2: The Issue-Template-Based Opt-Out (Public Audit Log)
 
-*(This feature is currently under active development.)*
+If you prefer to have a concrete, verifiable record that your opt-out request was processed, you can use our automated issue template. This acts as a "Public Audit Log" while still ensuring your data is swiftly removed from our active systems.
 
-In the near future, we will also provide an explicit issue-based opt-out mechanism. Users will be able to navigate to our deployment repository (`neomjs/pages`) and create a new issue using a specific "Opt-Out" template.
+### How it works:
+1. **Create an Issue**: Navigate to [neomjs/devindex-opt-out](https://github.com/neomjs/devindex-opt-out/issues/new/choose) and select the **"DevIndex Opt-Out Request"** template.
+2. **Confirm**: The template provides a simple checkbox acknowledging that you understand you will be removed from the DevIndex (with the option to opt back in later if desired). Submit the issue.
+3. **Automated Processing**: Our backend pipeline runs every hour and scans for open issues with the `devindex-opt-out` label. Because you must be logged into GitHub to create the issue, the pipeline automatically verifies your identity as the issue author.
+4. **Removal and Confirmation**: The pipeline automatically:
+    - Adds your GitHub username to our internal blocklist.
+    - Removes your profile from our rich data store (`users.jsonl`).
+    - Purges you from our discovery tracking files.
+    - Leaves an official, automated comment on your issue confirming the removal.
+    - **Automatically closes the issue.**
 
-To maintain your privacy, the pipeline will be designed to automatically process the request, apply the blocklist logic, and then immediately close (and potentially delete) the issue so that it does not remain as a permanent public association.
-
-*Detailed instructions for this method will be provided here once the feature is live.*
+**Privacy Warning:** Unlike the "Stealth" Star-Based option, this issue will remain visible in the repository's history as a closed ticket. If you prefer a completely stealth option with zero public trace, please use **Option 1** instead.
