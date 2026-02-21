@@ -10877,6 +10877,7 @@
   "repo:typeorm/typeorm",
   "repo:typestack/class-validator",
   "repo:typicode/hotel",
+  "repo:typicode/json-server",
   "repo:typicode/jsonplaceholder",
   "repo:typicode/lowdb",
   "repo:typst/typst",
@@ -11808,6 +11809,5 @@
   "repo:zxwk1998/vue-admin-better",
   "repo:zyantific/zydis",
   "repo:zziz/pwc",
-  "repo:zzzgydi/clash-verge",
-  "repo:typicode/json-server"
+  "repo:zzzgydi/clash-verge"
 ]
