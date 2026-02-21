@@ -313,7 +313,7 @@ class OptIn extends Base {
                             commentBody += `**Already in Queue (Skipped):**\n${alreadyTracked.map(u => `- @${u}`).join('\n')}\n\n`;
                         }
                         if (blocked.length > 0) {
-                            commentBody += `**Opted Out (Skipped):**\n${blocked.map(u => `- @${u}`).join('\n')}\n\n`;
+                            commentBody += `**Opted Out (Skipped):**\n${blocked.map(u => `- @${u}`).join('\n')}\n*(Note: Users who have explicitly opted out can only opt back in themselves.)*\n\n`;
                         }
 
                         if (issue.invalidLogins && issue.invalidLogins.length > 0) {
