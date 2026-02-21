@@ -73,11 +73,11 @@ class Spider extends Base {
     /**
      * Executes the Discovery Workflow.
      *
-     * 1.  **State Loading:** Loads the `visited` cache and `blacklist`.
+     * 1.  **State Loading:** Loads the `visited` cache and `blocklist`.
      * 2.  **Strategy Selection:** Uses a weighted random algorithm to pick a discovery method (Core, Keyword, Temporal, Stargazer, or Community).
      * 3.  **Execution:** Runs the selected strategy to find repositories.
      * 4.  **Extraction:** Scans found repositories for top contributors.
-     * 5.  **Filtering:** Ignores bots, blacklisted users, and users already in the tracker.
+     * 5.  **Filtering:** Ignores bots, blocklisted users, and users already in the tracker.
      * 6.  **Persistence:** Saves new candidates to `tracker.json` (as pending) and updates `visited.json`.
      *
      * @param {String} [forcedStrategy] Optional strategy name to enforce (community, keyword, temporal, stargazer, search)
@@ -88,7 +88,7 @@ class Spider extends Base {
 
         // 1. Load State
         const visited        = await Storage.getVisited();
-        const blacklist      = await Storage.getBlacklist();
+        const blocklist      = await Storage.getBlocklist();
         const existingUsers  = await Storage.getTracker();
         const existingLogins = new Set(existingUsers.map(u => u.login.toLowerCase()));
         
@@ -102,7 +102,7 @@ class Spider extends Base {
 
         const state = {
             visited,
-            blacklist,
+            blocklist,
             existingLogins,
             newCandidates: new Set(),
             newVisited   : new Set(),
@@ -353,7 +353,7 @@ class Spider extends Base {
         }
 
         console.log(`[Spider] 👩‍💻 Scanning Community Cluster: ${targetOrg}`);
-        const { newCandidates, existingLogins, blacklist } = state;
+        const { newCandidates, existingLogins, blocklist } = state;
 
         try {
             // 1. Get Org Members (High signal)
@@ -378,7 +378,7 @@ class Spider extends Base {
                 for (const member of members) {
                     const login = member.login;
                     const lowerLogin = login.toLowerCase();
-                    if (!blacklist.has(lowerLogin) && !existingLogins.has(lowerLogin)) {
+                    if (!blocklist.has(lowerLogin) && !existingLogins.has(lowerLogin)) {
                         newCandidates.add(login);
                     }
                 }
@@ -444,7 +444,7 @@ class Spider extends Base {
         }
 
         console.log(`[Spider] 🕸️ Walking network of ${username}...`);
-        const { newCandidates, existingLogins, blacklist } = state;
+        const { newCandidates, existingLogins, blocklist } = state;
 
         try {
             // Fetch following (up to 100)
@@ -458,7 +458,7 @@ class Spider extends Base {
                     const login = user.login;
                     const lowerLogin = login.toLowerCase();
 
-                    if (!blacklist.has(lowerLogin) && !existingLogins.has(lowerLogin)) {
+                    if (!blocklist.has(lowerLogin) && !existingLogins.has(lowerLogin)) {
                         newCandidates.add(login);
                     }
                 }
@@ -503,7 +503,7 @@ class Spider extends Base {
      * @param {Object} state
      */
     async processRepositories(repos, state) {
-        const { visited, newVisited, blacklist, existingLogins, newCandidates } = state;
+        const { visited, newVisited, blocklist, existingLogins, newCandidates } = state;
 
         console.log(`[Spider] Processing ${repos.length} repositories...`);
 
@@ -530,7 +530,7 @@ class Spider extends Base {
             for (const login of contributors) {
                 const lowerLogin = login.toLowerCase();
 
-                if (blacklist.has(lowerLogin)) continue;
+                if (blocklist.has(lowerLogin)) continue;
                 if (login.includes('[bot]')) continue;
                 if (existingLogins.has(lowerLogin)) continue;
 

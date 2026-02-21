@@ -117,13 +117,13 @@ const defaultConfig = {
          * List of excluded usernames (bots, banned users).
          * @type {string}
          */
-        blacklist: path.resolve(projectRoot, 'apps/devindex/resources/blacklist.json'),
+        blocklist: path.resolve(projectRoot, 'apps/devindex/resources/blocklist.json'),
 
         /**
          * List of users to always track, ignoring thresholds.
          * @type {string}
          */
-        whitelist: path.resolve(projectRoot, 'apps/devindex/resources/whitelist.json'),
+        allowlist: path.resolve(projectRoot, 'apps/devindex/resources/allowlist.json'),
 
         /**
          * List of users who failed update processing (Penalty Box).

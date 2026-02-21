@@ -15,7 +15,7 @@ import Storage from './Storage.mjs';
  * 1.  **Fetch:** Queries GitHub (GraphQL) for the user's profile and a multi-year contribution history matrix.
  * 2.  **Enrich:** Augments the profile with Organization memberships via the REST API.
  * 3.  **Filter:** Applies the "Meritocracy Logic". If a user falls below the `minTotalContributions` threshold
- *     (and is not whitelisted), they are marked for immediate deletion from the Tracker ("Active Pruning").
+ *     (and is not allowlisted), they are marked for immediate deletion from the Tracker ("Active Pruning").
  *     **Dynamic Threshold:** Once the database hits the `maxUsers` cap (managed by `Storage`), this
  *     threshold dynamically rises to match the lowest performer in the database, ensuring only superior
  *     candidates displace existing ones.
@@ -44,7 +44,7 @@ class Updater extends Base {
      * Orchestrates the update process for a specific batch of users.
      *
      * Iterates through the provided list of logins, fetching their latest data from GitHub.
-     * Enforces the "Meritocracy Logic" by checking the contribution threshold and whitelist status.
+     * Enforces the "Meritocracy Logic" by checking the contribution threshold and allowlist status.
      *
      * **Safe Purge Protocol (Self-Healing):**
      * This method implements a defensive strategy for handling API errors:
@@ -73,7 +73,7 @@ class Updater extends Base {
         let failCount       = 0;
         let skipCount       = 0;
         const saveInterval  = config.updater.saveInterval;
-        const whitelist     = await Storage.getWhitelist();
+        const allowlist     = await Storage.getAllowlist();
         const richUsers     = await Storage.getUsers();
         const richUserMap   = new Map(richUsers.map(u => [u.l.toLowerCase(), u]));
         const concurrency   = 8; // Slightly reduced from 10 to balance speed vs stability
@@ -87,15 +87,15 @@ class Updater extends Base {
                 const data = await this.fetchUserData(login);
 
                 if (data) {
-                    const isWhitelisted  = whitelist.has(login.toLowerCase());
+                    const isAllowlisted  = allowlist.has(login.toLowerCase());
                     const meetsThreshold = data.tc >= minTc;
 
-                    if (meetsThreshold || isWhitelisted) {
+                    if (meetsThreshold || isAllowlisted) {
                         results.push(data);
                         indexUpdates.push({ login, lastUpdate: data.lu });
                         recoveredLogins.push(login); // Remove from Penalty Box
                         successCount++;
-                        console.log(`[${login}] OK (${data.tc})` + (isWhitelisted && !meetsThreshold ? ' [WHITELISTED]' : ''));
+                        console.log(`[${login}] OK (${data.tc})` + (isAllowlisted && !meetsThreshold ? ' [ALLOWLISTED]' : ''));
                     } else {
                         indexUpdates.push({ login, delete: true });
                         skipCount++;
