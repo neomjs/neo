@@ -9,8 +9,13 @@ import config from './config.mjs';
  * It ensures atomic-ish writes (by overwriting files completely) and handles the normalization of data.
  *
  * **Managed Resources:**
- * - **`users.json` (Rich Data Store):** Contains the full, enriched profile data for all users who met the threshold.
+ * - **`users.jsonl` (Rich Data Store):** Contains the full, enriched profile data for all users who met the threshold.
  *   This is the source of truth for the Frontend UI.
+ *   **The `maxUsers` Cap:** To ensure the application remains highly responsive, the size of this file is
+ *   strictly capped (e.g., 50,000 users). While the data is gzipped and streamed to the client, an unbounded
+ *   file (e.g., 100k users / 40MB) would eventually cause client-side parsing and memory bottlenecks.
+ *   When the cap is reached, `Storage` automatically prunes the bottom performers and raises the entry
+ *   bar via `threshold.json`.
  * - **`tracker.json` (The Index):** A lightweight map (`login` -> `lastUpdate`) used by the Backend to schedule updates.
  *   It includes "Pending" users (`lastUpdate: null`) discovered by the Spider but not yet processed.
  * - **`visited.json` (Cache):** A Set of keys (e.g., `repo:owner/name`) to prevent the Spider from re-scanning the same sources.
