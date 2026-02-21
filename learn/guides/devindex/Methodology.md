@@ -27,6 +27,9 @@ To overcome this, we built a highly specialized backend architecture:
 - **The Spider (Discovery Engine):** Uses a multi-strategy algorithm (including random graph walks and heuristic slicing) to discover highly active developers who might otherwise remain hidden.
 - **The Updater (Enrichment Engine):** Queries the GraphQL API to meticulously aggregate year-by-year contribution graphs for every discovered user, calculating their true lifetime metrics.
 
+### The Engineering Investment
+Building an index of this scale and overcoming the severe limitations of public API data is an immense challenge. To reach the current state of DevIndex, our core engineering team created and resolved over **350 dedicated GitHub tickets**. This represents a massive Research & Development investment spanning complex data pipelining, heuristics analysis, graph crawling algorithms, and UI performance tuning.
+
 ### Accuracy and The Need for Participation
 It is crucial to understand that while our data is vastly more accurate than existing lists, **it is still an approximation and will have gaps.** Because the Spider relies on graph traversal and heuristics rather than a full database dump, it is statistically probable that we are still missing highly prolific contributors—perhaps even the true #1 contributor globally.
 
@@ -48,7 +51,7 @@ DevIndex goes far beyond simple contribution counts. We provide extremely rich d
 - **Funding & Sponsorship:** If a developer has a GitHub Sponsors account, we provide a direct link to sponsor them.
 - **Hiring & Talent Scouting:** We index the "Is Hireable" flag (even though it's less prominent on GitHub now). Talent scouts can use our platform to instantly filter the world's top contributors by country and hireable status.
 
-We aim to be a "home" for developers worldwide, as well as AI agents and LLMs that actively contribute to the ecosystem. We are radically inclusive: the only GitHub accounts we actively filter out are those strictly flagged as "automation bots."
+We aim to be a "home" for developers worldwide, as well as AI agents and LLMs that actively contribute to the ecosystem. We are radically inclusive: the only GitHub accounts we actively filter out are those strictly flagged as "automation bots," alongside developers who have explicitly requested to opt out.
 
 ## Scoring
 
