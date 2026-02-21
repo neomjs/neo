@@ -8712,6 +8712,7 @@
   "repo:paulmillr/encrypted-dns",
   "repo:pavelgonchar/colornet",
   "repo:pavlobu/deskreen",
+  "repo:paxtonhare/demo-magic",
   "repo:pay-rails/pay",
   "repo:paypal/glamorous",
   "repo:pb33f/libopenapi",
@@ -11728,6 +11729,5 @@
   "repo:zxwk1998/vue-admin-better",
   "repo:zyantific/zydis",
   "repo:zziz/pwc",
-  "repo:zzzgydi/clash-verge",
-  "repo:paxtonhare/demo-magic"
+  "repo:zzzgydi/clash-verge"
 ]
