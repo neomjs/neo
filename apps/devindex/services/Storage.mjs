@@ -106,6 +106,7 @@ class Storage extends Base {
         }
 
         if (changed) {
+            current.sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
             await this.writeJson(config.paths.blocklist, current);
         }
     }
