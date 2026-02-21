@@ -41,6 +41,7 @@
         "create-component"             : "node ./buildScripts/create/component.mjs",
         "devindex:add"                 : "node ./apps/devindex/services/cli.mjs add",
         "devindex:cleanup"             : "node ./apps/devindex/services/cli.mjs cleanup",
+        "devindex:optout"              : "node ./apps/devindex/services/cli.mjs optout",
         "devindex:spider"              : "node ./apps/devindex/services/cli.mjs spider",
         "devindex:update"              : "node ./apps/devindex/services/cli.mjs update --limit 500",
         "generate-docs-json"           : "node ./buildScripts/docs/jsdocx.mjs",

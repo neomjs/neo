@@ -135,7 +135,13 @@ const defaultConfig = {
          * Stores the minimum total contributions required to enter the index.
          * @type {string}
          */
-        threshold: path.resolve(projectRoot, 'apps/devindex/resources/threshold.json')
+        threshold: path.resolve(projectRoot, 'apps/devindex/resources/threshold.json'),
+
+        /**
+         * State tracking for the Opt-Out service (last processed timestamp).
+         * @type {string}
+         */
+        optoutSync: path.resolve(projectRoot, 'apps/devindex/resources/optout-sync.json')
     }
 };
 
