@@ -52,9 +52,15 @@ To help identify unusual or extraordinary contribution patterns, we compute heur
 - **Acceleration (a):** The growth rate of their peak year compared to their median baseline of active years (e.g., >2x growth receives 📈, >10x receives 🚀).
 - **Consistency (c):** The number of active years (years with >100 contributions) in the ecosystem (e.g., >5 active years receives 🛡️, >10 active years receives 🏛️).
 
-These scores aren't judgments—they're signals. An incredibly active maintainer, a package automation system, or an AI agent will all generate unique footprints. The badges help researchers understand *what kind* of contributor they're looking at without making value judgments.
+These scores aren't judgments—they're signals. The GitHub ecosystem is incredibly diverse. DevIndex includes:
+- **The Human Titans:** OS maintainers (like Arch Linux or FreeBSD port maintainers) who legitimately merge hundreds of package bumps a day for a decade.
+- **The Enterprise Leads:** Framework founders with 15+ years of relentless, high-volume, organic daily commits.
+- **The Automators & Archivists:** Government infrastructure accounts or data hoarders running massive automated syncs.
+- **The "Code Golfers" & Experimenters:** Developers scripting commits for fun (e.g., creating a smartwatch app that pushes a commit for every physical step they take), leading to mathematically impossible spikes (like 2.1 million commits in a single year).
 
-For transparency, even profiles with mathematically impossible human patterns (e.g., 2.1 million contributions in a single year) remain in the index. We do not editorialize or delete data based on high volume. However, the UI provides built-in filters (such as `Hide Commit Ratio > 90%`) allowing researchers and users to dynamically filter out profiles that are highly likely to be automated systems rather than organic human contributors.
+An incredibly active maintainer, a package automation system, or an AI agent will all generate unique footprints. The badges help researchers understand *what kind* of contributor they're looking at without making value judgments.
+
+For transparency, even profiles with mathematically impossible human patterns remain in the index. We do not editorialize or delete data based on high volume because one developer's "script kiddie" is another researcher's valuable dataset on API abuse or automation trends. However, the UI provides built-in filters (such as `Hide Commit Ratio > 90%`) allowing users to dynamically filter out profiles that are highly likely to be automated systems rather than organic human contributors.
 
 ## Rich Data & Inclusivity
 
