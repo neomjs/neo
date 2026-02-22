@@ -1,7 +1,3 @@
----
-title: The Spider
----
-
 # The Spider (Discovery Engine)
 
 The Spider is a recursive discovery agent designed to traverse the GitHub graph and identify high-output contributors who might otherwise be invisible.

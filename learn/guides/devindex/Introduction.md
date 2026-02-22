@@ -1,7 +1,3 @@
----
-title: Introduction & Overview
----
-
 # Introduction & Overview
 
 > **Legal Disclaimer:** DevIndex is an independent, MIT-licensed open-source project created by the Neo.mjs team. It is **not officially affiliated with, endorsed by, or associated with GitHub, Inc.** in any way. The project serves as a high-performance technological showcase for the Neo.mjs application engine (demonstrating world-class buffered data grids streaming up to 50,000 records) and utilizes publicly available data provided by the GitHub API. We respect user privacy, utilize no tracking cookies, and run no advertisements.
