@@ -199,7 +199,6 @@ class OptIn extends Base {
                             nodes {
                                 id
                                 number
-                                title
                                 body
                                 author {
                                     login
@@ -231,40 +230,37 @@ class OptIn extends Base {
             const nodes = issues.nodes || [];
 
             for (const issue of nodes) {
-                if (issue.title.includes('Opt-In Request:')) {
+                const match = issue.body.match(/### GitHub Usernames\s*([\s\S]*?)(?:###|$)/);
+
+                if (match) {
+                    const text = match[1];
+                    const usernames = text.split('\n')
+                        .map(u => u.trim())
+                        .filter(u => u && !u.startsWith('-') && !u.startsWith('['));
+                    
+                    const validUsernames = [];
+                    const invalidUsernames = [];
+                    
+                    for (const uname of usernames) {
+                        try {
+                            await GitHub.rest(`users/${uname}`);
+                            validUsernames.push(uname);
+                            othersLogins.push(uname);
+                        } catch (e) {
+                            invalidUsernames.push(uname);
+                        }
+                    }
+                    
+                    issuesToClose.push({ 
+                        id: issue.id, 
+                        type: 'others', 
+                        validLogins: validUsernames,
+                        invalidLogins: invalidUsernames
+                    });
+                } else {
                     if (issue.author && issue.author.login) {
                         selfLogins.push(issue.author.login);
                         issuesToClose.push({ id: issue.id, type: 'self', logins: [issue.author.login] });
-                    }
-                } else if (issue.title.includes('Opt-In Nomination:')) {
-                    const match = issue.body.match(/### GitHub Usernames\s*([\s\S]*?)(?:###|$)/);
-                    if (match) {
-                        const text = match[1];
-                        const usernames = text.split('\n')
-                            .map(u => u.trim())
-                            .filter(u => u && !u.startsWith('-') && !u.startsWith('['));
-                        
-                        const validUsernames = [];
-                        const invalidUsernames = [];
-                        
-                        for (const uname of usernames) {
-                            try {
-                                await GitHub.rest(`users/${uname}`);
-                                validUsernames.push(uname);
-                                othersLogins.push(uname);
-                            } catch (e) {
-                                invalidUsernames.push(uname);
-                            }
-                        }
-                        
-                        issuesToClose.push({ 
-                            id: issue.id, 
-                            type: 'others', 
-                            validLogins: validUsernames,
-                            invalidLogins: invalidUsernames
-                        });
-                    } else {
-                        issuesToClose.push({ id: issue.id, type: 'invalid' });
                     }
                 }
             }
