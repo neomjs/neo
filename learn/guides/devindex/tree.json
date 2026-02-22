@@ -19,5 +19,6 @@
         {"name": "App Shell & MVVM",               "parentId": "Frontend",                     "id": "frontend/Architecture"},
         {"name": "The 50k-Row Grid",               "parentId": "Frontend",                     "id": "frontend/TheGrid"},
         {"name": "State Management & Controls",    "parentId": "Frontend",                     "id": "frontend/StateAndControls"},
+        {"name": "OffscreenCanvas & Rendering",    "parentId": "Frontend",                     "id": "frontend/OffscreenCanvas"},
         {"name": "The Content Engine",             "parentId": "Frontend",                     "id": "frontend/ContentEngine"}
 ]}
