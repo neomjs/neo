@@ -6,7 +6,7 @@ import Manager   from './Manager.mjs';
 dotenv.config({quiet: true});
 
 async function start() {
-    await Manager.main();
+    await Manager.ready();
 }
 
 start().catch(console.error);
