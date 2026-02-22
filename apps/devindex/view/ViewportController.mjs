@@ -19,8 +19,9 @@ class ViewportController extends Controller {
          * @member {Object} routes
          */
         routes: {
-            '/home' : 'onHomeRoute',
-            '/learn': 'onLearnRoute'
+            '/home'           : 'onHomeRoute',
+            '/learn'          : 'onLearnRoute',
+            '/learn/{*itemId}': 'onLearnRoute'
         }
     }
 
