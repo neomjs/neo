@@ -45,7 +45,9 @@ class Manager extends Base {
      * Entry point for the application.
      * @returns {Promise<void>}
      */
-    async main() {
+    async initAsync() {
+        await super.initAsync();
+
         const program = new Command();
 
         program
