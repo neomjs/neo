@@ -61,3 +61,14 @@ DevIndex goes far beyond simple contribution counts. We provide extremely rich d
 We aim to be a "home" for developers worldwide, as well as AI agents and LLMs that actively contribute to the ecosystem. We are radically inclusive: the only GitHub accounts we actively filter out are those strictly flagged as "automation bots," alongside developers who have explicitly requested to opt out.
 
 For detailed information on how to permanently remove your profile from the index, please read our [Privacy & Opt-Out Guide](./OptOut.md).
+
+## Current Status & Contributions
+
+The DevIndex is currently in **v1**. While the underlying Neo.mjs runtime and the autonomous Data Factory backend are extremely advanced, the platform is continuously evolving. 
+
+We highly welcome community feedback, feature requests, and bug reports. You can submit these directly via issues on the main [neomjs/neo](https://github.com/neomjs/neo/issues) repository. Opening a ticket is the easiest and most impactful way to contribute to the project's evolution!
+
+**A Note on Pull Requests:** 
+A Pull Request **MUST** reference an existing GitHub issue ticket. This is a strict project requirement to ensure all architectural changes are discussed and documented first.
+
+Because the DevIndex is built on the cutting-edge multithreaded architecture of the Neo.mjs engine, the codebase is highly advanced. However, we have built an incredibly rich suite of AI tooling to help you navigate it! The Neo.mjs repository includes 4 dedicated Model Context Protocol (MCP) servers (including a specialized Knowledge Base and Memory Core) that turn AI assistants like Claude or Gemini into expert Neo.mjs pair programmers. We highly encourage you to give the engine a spin alongside these AI tools—it is a fantastic way to experience the next generation of web development while contributing to the DevIndex.
