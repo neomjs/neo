@@ -5,6 +5,7 @@
     {"name": "Privacy & Opt-Out",                  "parentId": null,                      "id": "OptOut"},
     {"name": "The Spider",                         "parentId": null,     "isLeaf": false, "id": "Spider"},
         {"name": "Introduction",                   "parentId": "Spider",                  "id": "spider/Intro"},
+        {"name": "Spider Engine",                  "parentId": "Spider",                  "id": "spider/Engine"},
         {"name": "Opt-In Service Architecture",    "parentId": "Spider",                  "id": "spider/OptIn"},
         {"name": "Opt-Out Service Architecture",   "parentId": "Spider",                  "id": "spider/OptOut"},
     {"name": "Architecture",                       "parentId": null,                      "id": "Architecture"}
