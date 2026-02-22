@@ -78,6 +78,7 @@ static cityMap = new Map([
     // ...
 ]);
 ```
+**Curatorial Caveat:** This hardcoded map requires continuous, intentional expansion to avoid Western-centric bias. For example, if massive tech hubs in India (like Hyderabad or Pune) or China (like Hangzhou or Chengdu) are not mapped, their populations will be statistically underrepresented in the final dataset. The engineering team regularly adds new global hubs to this map as they are discovered in the raw data.
 
 ### Tier 3: Trailing Code Extraction
 As a final fallback, the parser looks for a two-letter uppercase code at the absolute end of the string, which commonly represents an ISO code or US State (e.g., `"Seattle, WA, US"` or `"Berlin, DE"`).

@@ -31,6 +31,7 @@ class LocationNormalizer extends Base {
         ['cologne', 'DE'], ['köln', 'DE'], ['frankfurt', 'DE'], ['stuttgart', 'DE'],
         ['düsseldorf', 'DE'], ['leipzig', 'DE'], ['dresden', 'DE'], ['aachen', 'DE'],
         ['karlsruhe', 'DE'], ['mannheim', 'DE'], ['nuremberg', 'DE'], ['nürnberg', 'DE'],
+        ['bonn', 'DE'],
 
         // USA (Common Tech Hubs)
         ['san francisco', 'US'], ['sf', 'US'], ['bay area', 'US'], ['new york', 'US'],
@@ -38,6 +39,13 @@ class LocationNormalizer extends Base {
         ['los angeles', 'US'], ['chicago', 'US'], ['denver', 'US'], ['palo alto', 'US'],
         ['mountain view', 'US'], ['cupertino', 'US'], ['redmond', 'US'],
         ['washington', 'US'], ['washington dc', 'US'], ['washington d.c.', 'US'], ['dc', 'US'],
+        ['brooklyn', 'US'], ['sammamish', 'US'], ['bend', 'US'],
+        ['california', 'US'], ['texas', 'US'],
+        ['hawaii', 'US'], ['hope, ri', 'US'],
+        ['columbus', 'US'], ['charlotte', 'US'], ['phoenix', 'US'], ['philadelphia', 'US'],
+        ['san antonio', 'US'], ['san diego', 'US'], ['dallas', 'US'], ['san jose', 'US'],
+        ['jacksonville', 'US'], ['indianapolis', 'US'], ['atlanta', 'US'], ['salt lake city', 'US'],
+        ['stanford', 'US'], ['berkeley', 'US'], ['irvine', 'US'], ['santa clara', 'US'], ['sunnyvale', 'US'],
 
         // UK
         ['london', 'GB'], ['manchester', 'GB'], ['edinburgh', 'GB'], ['cambridge', 'GB'],
@@ -46,25 +54,53 @@ class LocationNormalizer extends Base {
         // France
         ['paris', 'FR'], ['lyon', 'FR'], ['toulouse', 'FR'], ['nantes', 'FR'],
 
+        // China
+        ['beijing', 'CN'], ['shanghai', 'CN'], ['shenzhen', 'CN'], ['hangzhou', 'CN'], 
+        ['chengdu', 'CN'], ['wuhan', 'CN'], ['guangzhou', 'CN'], ['nanjing', 'CN'], 
+        ['xian', 'CN'], ['tianjin', 'CN'], ['suzhou', 'CN'], ['chongqing', 'CN'],
+        ['hong kong', 'HK'], ['hk', 'HK'],
+
+        // India
+        ['bangalore', 'IN'], ['bengaluru', 'IN'], ['mumbai', 'IN'], ['delhi', 'IN'], ['gurugram', 'IN'],
+        ['hyderabad', 'IN'], ['pune', 'IN'], ['chennai', 'IN'], ['noida', 'IN'], ['ahmedabad', 'IN'],
+        ['kolkata', 'IN'], ['jaipur', 'IN'], ['chandigarh', 'IN'], ['indore', 'IN'],
+
         // Others
         ['toronto', 'CA'], ['vancouver', 'CA'], ['montreal', 'CA'],
-        ['sydney', 'AU'], ['melbourne', 'AU'],
-        ['tokyo', 'JP'], ['beijing', 'CN'], ['shanghai', 'CN'], ['shenzhen', 'CN'],
-        ['bangalore', 'IN'], ['bengaluru', 'IN'], ['mumbai', 'IN'], ['delhi', 'IN'], ['gurugram', 'IN'],
-        ['são paulo', 'BR'],
+        ['sydney', 'AU'], ['melbourne', 'AU'], ['brisbane', 'AU'],
+        ['tokyo', 'JP'], ['osaka', 'JP'],
+        ['são paulo', 'BR'], ['rio de janeiro', 'BR'],
         ['amsterdam', 'NL'], ['the hague', 'NL'],
-        ['brooklyn', 'US'], ['sammamish', 'US'], ['bend', 'US'],
-        ['california', 'US'], ['texas', 'US'],
-        ['whangarei', 'NZ'],
-        ['lisbon', 'PT'],
-        ['bonn', 'DE'],
-        ['copenhagen', 'DK'], ['stockholm', 'SE'],
-        ['hawaii', 'US'], ['hope, ri', 'US'],
-        ['columbus', 'US'], ['charlotte', 'US'], ['phoenix', 'US'], ['philadelphia', 'US'],
-        ['san antonio', 'US'], ['san diego', 'US'], ['dallas', 'US'], ['san jose', 'US'],
-        ['jacksonville', 'US'], ['indianapolis', 'US'], ['atlanta', 'US'], ['salt lake city', 'US'],
-        ['genoa', 'IT'],
-        ['tbilisi', 'GE']
+        ['whangarei', 'NZ'], ['auckland', 'NZ'],
+        ['lisbon', 'PT'], ['porto', 'PT'],
+        ['copenhagen', 'DK'], ['stockholm', 'SE'], ['oslo', 'NO'], ['helsinki', 'FI'],
+        ['genoa', 'IT'], ['rome', 'IT'], ['milan', 'IT'],
+        ['tbilisi', 'GE'],
+        ['seoul', 'KR'],
+        ['taipei', 'TW'],
+        ['kiev', 'UA'], ['kyiv', 'UA'],
+        ['warsaw', 'PL'], ['krakow', 'PL'],
+        ['prague', 'CZ'],
+        ['budapest', 'HU'],
+        ['bucharest', 'RO'],
+        ['istanbul', 'TR'],
+        ['lagos', 'NG'],
+        ['nairobi', 'KE'],
+        ['cairo', 'EG'],
+        ['johannesburg', 'ZA'], ['cape town', 'ZA'],
+        ['buenos aires', 'AR'],
+        ['santiago', 'CL'],
+        ['bogota', 'CO'],
+        ['lima', 'PE'],
+        ['mexico city', 'MX'], ['guadalajara', 'MX'], ['monterrey', 'MX'],
+        ['kuala lumpur', 'MY'],
+        ['jakarta', 'ID'],
+        ['bangkok', 'TH'],
+        ['ho chi minh', 'VN'], ['hanoi', 'VN'],
+        ['manila', 'PH'],
+        ['karachi', 'PK'], ['lahore', 'PK'], ['islamabad', 'PK'],
+        ['dhaka', 'BD'],
+        ['colombo', 'LK']
     ]);
 
     /**
