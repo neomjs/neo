@@ -29,7 +29,7 @@ sequenceDiagram
     
     OptIn->>OptIn: Deduplicate & Aggregate Logins
     
-    alt If new self-requests found
+    opt If new self-requests found
         OptIn->>Storage: removeFromBlocklist(selfLogins)
         Note right of Storage: Only self-requests can reverse<br/>a previous opt-out.
     end

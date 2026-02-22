@@ -29,7 +29,7 @@ sequenceDiagram
     
     OptOut->>OptOut: Deduplicate Logins
     
-    alt If new opt-out requests found
+    opt If new opt-out requests found
         OptOut->>Storage: addToBlocklist(uniqueLogins)
         OptOut->>Storage: deleteUsers(uniqueLogins)
         OptOut->>Storage: updateTracker(delete: true)
