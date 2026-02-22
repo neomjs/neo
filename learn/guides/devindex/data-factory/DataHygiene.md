@@ -43,7 +43,7 @@ for (const [login, timestamp] of failed) {
 ```
 If a user remains in a failed state for more than 30 days, their protection is revoked, and the standard pruning logic will expunge them from the system. 
 
-**Rationale & The "Right to be Forgotten":** With a 50,000 user cap and an hourly update limit of 800, the pipeline completes a full cycle of the entire index approximately every 3 days. A 30-day retention period means a user has persistently failed roughly 10 consecutive update attempts. After a month of continuous failures, it is safe to assume the profile has either been permanently banned by GitHub or the user has explicitly deleted their own account. Automatically purging these records aligns with data minimization principles and proactively respects a user's right to be forgotten if they have chosen to remove their presence from the platform.
+**Rationale & The "Right to be Forgotten":** With a 50,000 user cap and an hourly update limit of 800, the pipeline completes a full cycle of the entire index approximately every 3 days. A 30-day retention period means a user has persistently failed roughly 10 consecutive update attempts (each of which internally utilizes multiple API retries). After a month of continuous failures, it is safe to assume the profile has either been permanently banned by GitHub or the user has explicitly deleted their own account. Automatically purging these records aligns with data minimization principles and proactively respects a user's right to be forgotten if they have chosen to remove their presence from the platform.
 
 ### 5. Canonical Sorting
 The final step of the Cleanup routine is purely for Developer Experience (DX) and Git repository health. 
