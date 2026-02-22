@@ -98,12 +98,95 @@ sequenceDiagram
 
 ---
 
+## The Discovery Workflow: Step-by-Step
+
+Every execution of the Spider follows a strict six-step lifecycle. While the architecture diagram provides the macro view, the implementation relies heavily on precision state management and strict filtering.
+
+### 1. State Loading
+The Spider begins by loading its necessary context from the local JSON storage layer. It must know who is already tracked, who has explicitly opted out, and which repositories it has already scanned to avoid redundant work.
+
+```javascript readonly
+// 1. Load State
+const visited        = await Storage.getVisited();
+const blocklist      = await Storage.getBlocklist();
+const existingUsers  = await Storage.getTracker();
+const existingLogins = new Set(existingUsers.map(u => u.login.toLowerCase()));
+```
+
+### 2. Strategy Selection & 3. Execution
+The engine selects one of the weighted strategies (discussed above) and executes it to generate a pool of repositories or users.
+
+```javascript readonly
+// 2. Pick Strategy
+const strategy = this.pickStrategy(existingUsers, forcedStrategy);
+
+// 3. Execute Strategy
+if (strategy.type === 'search') {
+    await this.runSearch(strategy.query, state, strategy.sort, strategy.order);
+} else if (strategy.type === 'stargazer') {
+    await this.runStargazer(strategy.username, state);
+} else if (strategy.type === 'network_walker') {
+    await this.runNetworkWalker(strategy.username, state);
+} // ... other strategies
+```
+
+### 4. Extraction & 5. Filtering
+Once a pool of repositories or user networks is identified, the Spider extracts the top contributors. This phase involves a critical filtering loop to ensure data hygiene.
+
+```mermaid
+flowchart TD
+    A[Fetch Candidates] --> B{Is Type User?}
+    B -- No (Bot/Org) --> C[Discard]
+    B -- Yes --> D{In Blocklist?}
+    D -- Yes --> C
+    D -- No --> E{Already Tracked?}
+    E -- Yes --> C
+    E -- No --> F[Add to New Candidates]
+```
+
+The code heavily enforces these boundaries to respect privacy and maintain index quality. Note the strict conversion to lowercase to ensure absolute consistency:
+
+```javascript readonly
+const contributors = await this.fetchContributors(repo.full_name);
+
+for (const login of contributors) {
+    const lowerLogin = login.toLowerCase();
+
+    // Strict Filtering Boundaries
+    if (blocklist.has(lowerLogin)) continue;
+    if (login.includes('[bot]')) continue;
+    if (existingLogins.has(lowerLogin)) continue;
+
+    if (!newCandidates.has(login)) {
+        newCandidates.add(login);
+    }
+}
+```
+
+### 6. Persistence (Checkpointing)
+Finally, the newly discovered candidates are flushed to disk. They are added to the tracker with a `lastUpdate: null` flag, signaling to the subsequent **Updater Service** that they are completely unanalyzed and require high-priority processing.
+
+```javascript readonly
+if (newCandidates.size > 0) {
+    const updates = Array.from(newCandidates).map(login => ({
+        login,
+        lastUpdate: null // Null means "never updated", high priority for Updater
+    }));
+
+    await Storage.updateTracker(updates);
+    
+    // ... totalFound tracking logic
+}
+```
+
+---
+
 ## Resilience & Safety Mechanisms
 
 The Spider is an aggressive crawler. To prevent it from overwhelming the system or burning through API quotas unnecessarily, it implements several critical safety features.
 
 ### 1. The Backpressure Valve
-The subsequent **Updater Service** requires significantly more API quota to perform deep analysis on each candidate discovered by the Spider. To prevent the `tracker.json` backlog from ballooning out of control, the Spider implements a backpressure valve:
+The Updater Service requires significantly more API quota to perform deep analysis on each candidate discovered by the Spider. To prevent the `tracker.json` backlog from ballooning out of control, the Spider implements a backpressure valve right after State Loading:
 
 ```javascript readonly
 const pendingCount = existingUsers.filter(u => u.lastUpdate === null).length;
@@ -114,7 +197,6 @@ if (pendingCount >= config.spider.maxPendingUsers) {
     return; // Halt the run
 }
 ```
-This guarantees that the DevIndex pipeline prioritizes analyzing the candidates it has already found over blindly accumulating more.
 
 ### 2. Rate Limit Monitoring & Graceful Degradation
 The Spider constantly monitors the GitHub API Rate Limit headers (`core` and `search` buckets). If the remaining quota drops below a safe threshold (e.g., `<50` for core requests), it will log a critical warning (including estimated recovery time) and immediately halt the current operation, saving a checkpoint before exiting.
