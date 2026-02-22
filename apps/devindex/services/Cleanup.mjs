@@ -12,8 +12,8 @@ import Storage from './Storage.mjs';
  * **Core Responsibilities:**
  * 1.  **Threshold Pruning:** Removes users from both the Rich Data Store (`users.json`) and the Tracker Index (`tracker.json`)
  *     if they fall below the `minTotalContributions` threshold. This prevents the index from bloating with low-value data.
- * 2.  **Blacklist Enforcement:** Hard-deletes any user present in `blacklist.json` from all data files.
- * 3.  **Whitelist Protection:** "Resurrects" any user found in `whitelist.json` who is missing from the tracker, ensuring
+ * 2.  **Blocklist Enforcement:** Hard-deletes any user present in `blocklist.json` from all data files.
+ * 3.  **Allowlist Protection:** "Resurrects" any user found in `allowlist.json` who is missing from the tracker, ensuring
  *     VIPs are always scheduled for updates. Also protects them from being pruned, regardless of their contribution count.
  * 4.  **Canonical Sorting:** Re-writes all JSON files with deterministic sorting (by contributions or login) to minimize
  *     git diff noise and ensure O(1) human readability.
@@ -22,7 +22,7 @@ import Storage from './Storage.mjs';
  *
  * **Key Concepts:**
  * - **Active Pruning:** The proactive removal of "dead weight" users to optimize the `Updater` loop.
- * - **Resurrection:** The mechanism to bring a user back into the tracking loop via the whitelist.
+ * - **Resurrection:** The mechanism to bring a user back into the tracking loop via the allowlist.
  *
  * @class DevIndex.services.Cleanup
  * @extends Neo.core.Base
@@ -48,9 +48,9 @@ class Cleanup extends Base {
      * **Steps:**
      * 1.  **Load State:** Reads all JSON data files into memory.
      * 1.5. **Retention Check:** Scans `failed.json` for expired entries (>30 days). Expired users are removed from the penalty box protection, effectively allowing them to be pruned if they remain invalid.
-     * 2.  **Resurrection:** Checks `whitelist.json` against `tracker.json`. If a VIP is missing, they are added back to the queue.
-     * 3.  **User Pruning:** Filters `users.json`. Removes any user who is in the blacklist OR (below threshold AND not whitelisted).
-     * 4.  **Tracker Pruning:** Filters `tracker.json`. Removes users who have been scanned (`lastUpdate` exists) but failed the threshold check (are not in the filtered `users` list). Explicitly protects whitelisted users.
+     * 2.  **Resurrection:** Checks `allowlist.json` against `tracker.json`. If a VIP is missing, they are added back to the queue.
+     * 3.  **User Pruning:** Filters `users.json`. Removes any user who is in the blocklist OR (below threshold AND not allowlisted).
+     * 4.  **Tracker Pruning:** Filters `tracker.json`. Removes users who have been scanned (`lastUpdate` exists) but failed the threshold check (are not in the filtered `users` list). Explicitly protects allowlisted users.
      * 5.  **Canonical Sorting:** Sorts all datasets (Users by contributions, others alphabetically) to minimize git diffs.
      * 6.  **Persistence:** Writes clean, sorted data back to disk.
      *
@@ -62,8 +62,8 @@ class Cleanup extends Base {
         // 1. Load All Data
         let users     = await Storage.getUsers();
         let tracker   = await Storage.getTracker();
-        let blacklist = await Storage.getBlacklist(); // Set<string>
-        let whitelist = await Storage.getWhitelist(); // Set<string>
+        let blocklist = await Storage.getBlocklist(); // Set<string>
+        let allowlist = await Storage.getAllowlist(); // Set<string>
         let visited   = await Storage.getVisited(); // Set<string>
         let failed    = await Storage.getFailed(); // Map<string, string> (login -> timestamp)
 
@@ -86,27 +86,27 @@ class Cleanup extends Base {
 
         const expiredSet = new Set(expiredLogins);
 
-        // 1.5. Sync Whitelist -> Tracker (Resurrection)
-        // Ensure all whitelisted users are in the tracker so they get scheduled.
-        whitelist.forEach(login => {
+        // 1.5. Sync Allowlist -> Tracker (Resurrection)
+        // Ensure all allowlisted users are in the tracker so they get scheduled.
+        allowlist.forEach(login => {
             const lowerLogin = login.toLowerCase();
             // Check if already in tracker (case-insensitive check needed, or rely on normalization)
             // Tracker is an array of objects.
             const exists = tracker.some(t => t.login.toLowerCase() === lowerLogin);
 
-            if (!exists && !blacklist.has(lowerLogin)) {
-                console.log(`[Cleanup] Resurrecting whitelisted user: ${login}`);
+            if (!exists && !blocklist.has(lowerLogin)) {
+                console.log(`[Cleanup] Resurrecting allowlisted user: ${login}`);
                 tracker.push({ login, lastUpdate: null });
             }
         });
 
         // 2. Filter Users (Rich Data)
-        // Criteria: Not Blacklisted AND Not Expired AND (Threshold Met OR Whitelisted)
+        // Criteria: Not Blocklisted AND Not Expired AND (Threshold Met OR Allowlisted)
         users = users.filter(u => {
             const lowerLogin = u.l.toLowerCase();
 
-            if (blacklist.has(lowerLogin)) {
-                console.log(`[Cleanup] Removing blacklisted user: ${u.l}`);
+            if (blocklist.has(lowerLogin)) {
+                console.log(`[Cleanup] Removing blocklisted user: ${u.l}`);
                 return false;
             }
 
@@ -116,9 +116,9 @@ class Cleanup extends Base {
             }
 
             const meetsThreshold = u.tc >= config.github.minTotalContributions;
-            const isWhitelisted = whitelist.has(lowerLogin);
+            const isAllowlisted = allowlist.has(lowerLogin);
 
-            if (!meetsThreshold && !isWhitelisted) {
+            if (!meetsThreshold && !isAllowlisted) {
                 console.log(`[Cleanup] Pruning user below threshold (${u.tc}): ${u.l}`);
                 return false;
             }
@@ -130,12 +130,12 @@ class Cleanup extends Base {
         const userLogins = new Set(users.map(u => u.l.toLowerCase()));
 
         // 3. Filter Tracker (Index)
-        // Criteria: Not Blacklisted AND (Threshold Met OR Whitelisted)
+        // Criteria: Not Blocklisted AND (Threshold Met OR Allowlisted)
         tracker = tracker.filter(t => {
             const lowerLogin = t.login.toLowerCase();
 
-            if (blacklist.has(lowerLogin)) return false;
-            if (whitelist.has(lowerLogin)) return true; // Explicit protection
+            if (blocklist.has(lowerLogin)) return false;
+            if (allowlist.has(lowerLogin)) return true; // Explicit protection
 
             if (t.lastUpdate) {
                 // If they have been updated, they must be in the filtered `users` list to stay in tracker.
@@ -162,9 +162,9 @@ class Cleanup extends Base {
         // Tracker: Login ASC (Canonical order)
         tracker.sort((a, b) => a.login.localeCompare(b.login));
 
-        // Blacklist/Whitelist/Visited: Convert to Array, Sort ASC
-        const sortedBlacklist = Array.from(blacklist).sort();
-        const sortedWhitelist = Array.from(whitelist).sort();
+        // Blocklist/Allowlist/Visited: Convert to Array, Sort ASC
+        const sortedBlocklist = Array.from(blocklist).sort();
+        const sortedAllowlist = Array.from(allowlist).sort();
         const sortedVisited   = Array.from(visited).sort();
 
         // 5. Save Changes
@@ -175,8 +175,8 @@ class Cleanup extends Base {
         tracker.forEach(t => trackerMap[t.login] = t.lastUpdate);
         await Storage.writeJson(config.paths.tracker, trackerMap);
 
-        await Storage.writeJson(config.paths.blacklist, sortedBlacklist);
-        await Storage.writeJson(config.paths.whitelist, sortedWhitelist);
+        await Storage.writeJson(config.paths.blocklist, sortedBlocklist);
+        await Storage.writeJson(config.paths.allowlist, sortedAllowlist);
         await Storage.writeJson(config.paths.visited, sortedVisited);
         await Storage.saveFailed(failed); // Persist map (migrates legacy array & removes expired)
 
