@@ -1,6 +1,6 @@
 # Opt-In Service Architecture
 
-The **Opt-In Service** (`DevIndex.services.OptIn`) is a crucial component of the DevIndex discovery pipeline. It provides an automated, secure, and privacy-respecting mechanism for developers to opt themselves in or nominate others to be indexed by the DevIndex.
+The **Opt-In Service** ([`DevIndex.services.OptIn`](https://github.com/neomjs/neo/blob/dev/apps/devindex/services/OptIn.mjs)) is a crucial component of the DevIndex discovery pipeline. It provides an automated, secure, and privacy-respecting mechanism for developers to opt themselves in or nominate others to be indexed by the DevIndex.
 
 This service processes two distinct streams of data from the `neomjs/devindex-opt-in` repository:
 1.  **Stargazers ("Quick Star"):** An implicit, highly secure way for users to opt themselves in.
