@@ -20,7 +20,7 @@ DevIndex and Neo.mjs are Free and Open Source Software (FOSS) projects (MIT lice
 By generating a static `.jsonl` file via the Data Factory (the Spider and Updater services) and serving it directly to the browser, we achieve:
 1. **Zero Infrastructure Costs:** No need for expensive database clusters or active Node.js servers to handle user queries.
 2. **Infinite Scalability:** The application is completely static. Serving it to 10 users or 10,000 users requires the exact same server effort (just serving static files via CDN).
-3. **Instant Interactive Performance:** Once the data is in the browser, sorting 50,000 developers by their `totalContributions` or filtering by `countryCode` happens in milliseconds within the App Worker, without network latency.
+3. **Instant Interactive Performance:** We literally stream in all 50,000+ developers at once, keeping the entire dataset in memory. Because everything resides within the App Worker, subsequent operations like sorting by `totalContributions` or filtering by `countryCode` happen in milliseconds. This provides a near-instant user experience with **zero additional backend traffic** or network latency.
 
 ---
 
