@@ -58,15 +58,15 @@ When a user stars the opt-in repository, GitHub implicitly verifies their identi
 *   **Blocklist Reversal:** If the user previously opted out (and is thus on the `blocklist.json`), starring the repository serves as verified consent to reverse the blocklist entry.
 
 ### 2. Issue Templates
-The service parses open issues tagged with the `devindex-opt-in` label. It distinguishes between two template types based on the issue title.
+The service parses open issues tagged with the `devindex-opt-in` label. It distinguishes between two template types based on the issue body content.
 
 #### A. "Self" Opt-In
-*   **Trigger:** Issue title contains `Opt-In Request:`
+*   **Trigger:** Issue does not contain the `### GitHub Usernames` markdown block.
 *   **Verification:** The issue author's login is automatically extracted via the GraphQL query.
 *   **Action:** Identical to the Stargazer flow. The user is added to the tracker, and any existing blocklist entry is reversed.
 
 #### B. "Nominate Others"
-*   **Trigger:** Issue title contains `Opt-In Nomination:`
+*   **Trigger:** Issue contains the `### GitHub Usernames` markdown block.
 *   **Parsing:** The service uses regex to extract usernames from the Markdown body, safely ignoring formatting artifacts (like bullet points or brackets).
 *   **Validation:** Every nominated username is explicitly validated against the GitHub REST API (`users/:login`) to prevent typos from polluting the tracker.
 *   **Privacy Boundary:** **Crucially, nominations CANNOT reverse a blocklist entry.** If a nominated user previously opted out, their privacy is respected, and the nomination is skipped.
