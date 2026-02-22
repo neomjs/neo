@@ -84,20 +84,17 @@ doLoadStore() {
 }
 ```
 
-The `contentPath` is derived from the current "deck" (documentation set) via the StateProvider:
+The `contentPath` is defined centrally in the StateProvider, which tells the `TreeList` where to fetch the JSON from:
 
 ```javascript readonly
-// Portal.view.learn.MainContainerStateProvider.mjs
-case 'deck': {
-    if (value) {
-        const folder = value === 'learnneo' ? 'learn/' : `resources/data/deck/${value}/`;
-        me.data.contentPath = Neo.config.basePath + folder
-    }
-    break
+// apps/devindex/view/learn/MainContainerStateProvider.mjs
+data: {
+    contentPath: Neo.config.basePath + 'learn/guides/devindex/',
+    // ...
 }
 ```
 
-This architecture allows Neo.mjs to power multiple documentation sets (like training decks or release notes) using the exact same rendering infrastructure.
+By decoupling the path from the component, the rendering engine remains highly reusable. (In fact, the main Neo.mjs Portal app uses this exact same architecture to dynamically serve multiple different "decks" of documentation).
 
 ---
 
@@ -261,7 +258,7 @@ The Content Engine integrates seamlessly with Neo.mjs's hash-based routing syste
 The MainContainerController defines route patterns that map URL hashes to handler methods:
 
 ```javascript readonly
-// Portal.view.learn.MainContainerController.mjs
+// apps/devindex/view/learn/MainContainerController.mjs
 static config = {
     routes: {
         '/learn'          : 'onRouteDefault',
@@ -313,14 +310,14 @@ async doFetchContent(record) {
 The `getContentPath` method constructs the full URL from the record's `id`:
 
 ```javascript readonly
-// Portal.view.learn.Component.mjs
+// apps/devindex/view/learn/Component.mjs
 getContentPath(record) {
     let path = this.getStateProvider().getData('contentPath');
-    return path + `${record.id.replaceAll('.', '/')}.md`
+    return path + `${record.id}.md`
 }
 ```
 
-For example, a record with `id: "guides/fundamentals/WorkerArchitecture"` and `contentPath: "/learn/"` resolves to `/learn/guides/fundamentals/WorkerArchitecture.md`.
+For example, a record with `id: "data-factory/Engine"` and `contentPath: ".../learn/guides/devindex/"` resolves to `.../learn/guides/devindex/data-factory/Engine.md`.
 
 ---
 
