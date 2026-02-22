@@ -9,6 +9,7 @@
         {"name": "Storage & Configuration",        "parentId": "DataFactory",                  "id": "data-factory/Storage"},
         {"name": "GitHub API Client",              "parentId": "DataFactory",                  "id": "data-factory/GitHubAPI"},
         {"name": "Spider Engine",                  "parentId": "DataFactory",                  "id": "data-factory/Engine"},
+        {"name": "Updater Engine",                 "parentId": "DataFactory",                  "id": "data-factory/Updater"},
         {"name": "Data Hygiene & Cleanup",         "parentId": "DataFactory",                  "id": "data-factory/DataHygiene"},
         {"name": "Opt-In Service Architecture",    "parentId": "DataFactory",                  "id": "data-factory/OptIn"},
         {"name": "Opt-Out Service Architecture",   "parentId": "DataFactory",                  "id": "data-factory/OptOut"},
