@@ -1,7 +1,3 @@
----
-title: Architecture
----
-
 # DevIndex Architecture
 
 DevIndex is built on the **Neo.mjs** platform, leveraging its multi-threaded architecture for high-performance data visualization.

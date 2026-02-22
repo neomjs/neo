@@ -1,7 +1,3 @@
----
-title: DevIndex Methodology
----
-
 # DevIndex Methodology
 
 This guide explains the specific calculations, scoring rules, and heuristics that power the DevIndex platform.
