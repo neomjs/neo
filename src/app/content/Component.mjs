@@ -1,4 +1,5 @@
 import Markdown from '../../component/Markdown.mjs';
+import {marked} from '../../../node_modules/marked/lib/marked.esm.js';
 
 /**
  * @summary Displays interactive content (Markdown) within the Portal application.
@@ -180,7 +181,7 @@ class Component extends Markdown {
 
         this.headlineData.push({id: index, name: sideNavTitle, sourceId: this.id, tag});
 
-        const headline = text.replace(Component.regexInlineCode, '<code>$1</code>');
+        const headline = marked.parseInline(text);
 
         return `<${tag} class="neo-${tag}" data-record-id="${index}">${headline}</${tag}>`
     }
