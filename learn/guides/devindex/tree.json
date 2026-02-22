@@ -1,49 +1,11 @@
-{
-    "data": [
-        {
-            "id"      : "Introduction",
-            "name"    : "Introduction & Overview",
-            "parentId": null
-        },
-        {
-            "id"      : "Methodology",
-            "name"    : "Methodology",
-            "parentId": null
-        },
-        {
-            "id"      : "OptIn",
-            "name"    : "Opt-In & Nominations",
-            "parentId": null
-        },
-        {
-            "id"      : "OptOut",
-            "name"    : "Privacy & Opt-Out",
-            "parentId": null
-        },
-        {
-            "id"      : "Spider",
-            "name"    : "The Spider",
-            "parentId": null
-        },
-        {
-            "id"      : "SpiderIntro",
-            "name"    : "Introduction",
-            "parentId": "Spider"
-        },
-        {
-            "id"      : "SpiderOptIn",
-            "name"    : "Opt-In Service Architecture",
-            "parentId": "Spider"
-        },
-        {
-            "id"      : "SpiderOptOut",
-            "name"    : "Opt-Out Service Architecture",
-            "parentId": "Spider"
-        },
-        {
-            "id"      : "Architecture",
-            "name"    : "Architecture",
-            "parentId": null
-        }
-    ]
-}
+{"data": [
+    {"name": "Introduction & Overview",            "parentId": null,                      "id": "Introduction"},
+    {"name": "Methodology",                        "parentId": null,                      "id": "Methodology"},
+    {"name": "Opt-In & Nominations",               "parentId": null,                      "id": "OptIn"},
+    {"name": "Privacy & Opt-Out",                  "parentId": null,                      "id": "OptOut"},
+    {"name": "The Spider",                         "parentId": null,     "isLeaf": false, "id": "Spider"},
+        {"name": "Introduction",                   "parentId": "Spider",                  "id": "spider/Intro"},
+        {"name": "Opt-In Service Architecture",    "parentId": "Spider",                  "id": "spider/OptIn"},
+        {"name": "Opt-Out Service Architecture",   "parentId": "Spider",                  "id": "spider/OptOut"},
+    {"name": "Architecture",                       "parentId": null,                      "id": "Architecture"}
+]}
