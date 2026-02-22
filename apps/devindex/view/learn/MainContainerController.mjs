@@ -69,7 +69,7 @@ class MainContainerController extends Controller {
      */
     onRouteDefault(data) {
         if (!this.getStateProvider().data.currentPageRecord) {
-            this.onRouteLearnItem({itemId: 'Methodology'}) // Default page for DevIndex
+            this.onRouteLearnItem({itemId: 'Introduction'}) // Default page for DevIndex
         }
     }
 
