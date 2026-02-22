@@ -48,6 +48,38 @@ flowchart TD
 ```
 
 ### 1. Fetch (The GraphQL Matrix)
+
+#### Transparency & The Basic Profile
+The Updater begins by fetching the user's basic profile and public social accounts. To maintain absolute transparency and trust with the developer community, the exact GraphQL query used to fetch personal data is documented below. The DevIndex does not request or store private email addresses or private repository details.
+
+```javascript readonly
+const profileQuery = `
+    query { 
+        rateLimit { remaining limit resetAt }
+        user(login: "${username}") { 
+            createdAt 
+            avatarUrl 
+            name 
+            location
+            company
+            bio
+            followers { totalCount }
+            isHireable
+            hasSponsorsListing
+            sponsorshipsAsMaintainer { totalCount }
+            twitterUsername
+            websiteUrl
+            socialAccounts(first: 5) {
+                nodes {
+                    provider
+                    url
+                }
+            }
+        } 
+    }`;
+```
+
+#### The Multi-Year Contribution Matrix
 To build the historical charts on the frontend, the DevIndex requires the total contribution count for *every year* since the user created their account. 
 
 Fetching this sequentially (one API call per year) is too slow. Fetching it all at once often results in GitHub API timeouts (`502 Bad Gateway` or `504 Gateway Timeout`) for prolific users. The Updater implements a smart **Chunking Strategy**:
