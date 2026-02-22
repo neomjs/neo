@@ -1,14 +1,14 @@
 ---
 id: 9233
 title: 'DevIndex: Expand Methodology Guide with Motivation, Tech Demo Context, and Disclaimers'
-state: OPEN
+state: CLOSED
 labels:
   - documentation
   - ai
 assignees:
   - tobiu
 createdAt: '2026-02-21T16:15:32Z'
-updatedAt: '2026-02-21T16:16:23Z'
+updatedAt: '2026-02-22T12:10:07Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9233'
 author: tobiu
 commentsCount: 1
@@ -18,6 +18,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-02-22T12:10:07Z'
 ---
 # DevIndex: Expand Methodology Guide with Motivation, Tech Demo Context, and Disclaimers
 
@@ -52,4 +53,5 @@ The `Methodology.md` guide for the DevIndex application requires significant exp
 > Changes pushed to `dev`. Closing the issue.
 
 - 2026-02-21T16:23:07Z @tobiu referenced in commit `1f25261` - "docs(devindex): Clarify 50k cap, 8MB payload, and streaming behavior (#9233)"
+- 2026-02-22T12:10:07Z @tobiu closed this issue
 
