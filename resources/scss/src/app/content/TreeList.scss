@@ -75,7 +75,7 @@
         border-radius   : 8px;
         font-size       : 16px;
         margin-right    : 0 !important;
-        padding         : 0 0 0 16px !important;
+        padding         : 0 3px 0 calc(var(--tree-list-indent-base) + (var(--neo-tree-level) * var(--tree-list-indent-step))) !important;
         height          : 48px;
         display         : flex;
         align-items     : center;
@@ -96,14 +96,6 @@
 
     .neo-list-container ul {
         padding: 0 !important;
-
-        .neo-list-item {
-            padding: 0 3px 3px 32px !important;
-        }
-
-        ul .neo-list-item {
-            padding: 0 3px 0 48px !important;
-        }
     }
 
     .neo-list-folder {

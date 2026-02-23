@@ -2,5 +2,7 @@
 
 :root .neo-theme-dark { // .neo-tree-list
     --tree-list-color          : #bbb;
+    --tree-list-indent-base    : 16px;
+    --tree-list-indent-step    : 16px;
     --tree-list-menu-item-color: #{color.adjust(#33343d, $lightness: 20%)};
 }
