@@ -47,16 +47,18 @@ class LocationNormalizer extends Base {
         ['jacksonville', 'US'], ['indianapolis', 'US'], ['atlanta', 'US'], ['salt lake city', 'US'],
         ['stanford', 'US'], ['berkeley', 'US'], ['irvine', 'US'], ['santa clara', 'US'], ['sunnyvale', 'US'],
         ['pittsburgh', 'US'], ['oakland', 'US'], ['silicon valley', 'US'], ['menlo park', 'US'],
-        ['houston', 'US'], ['minneapolis', 'US'], ['miami', 'US'], ['pdx', 'US'],
+        ['houston', 'US'], ['minneapolis', 'US'], ['miami', 'US'], ['pdx', 'US'], ['new orleans', 'US'],
+        ['detroit', 'US'], ['bellevue', 'US'], ['portland', 'US'],
 
         // UK
         ['london', 'GB'], ['manchester', 'GB'], ['edinburgh', 'GB'], ['cambridge', 'GB'],
-        ['oxford', 'GB'], ['bristol', 'GB'], ['brighton', 'GB'],
+        ['oxford', 'GB'], ['bristol', 'GB'], ['brighton', 'GB'], ['sheffield', 'GB'], ['glasgow', 'GB'],
+        ['liverpool', 'GB'],
 
         // France
         ['paris', 'FR'], ['lyon', 'FR'], ['toulouse', 'FR'], ['nantes', 'FR'],
         ['bordeaux', 'FR'], ['lille', 'FR'], ['strasbourg', 'FR'], ['grenoble', 'FR'],
-        ['rennes', 'FR'],
+        ['rennes', 'FR'], ['marseille', 'FR'], ['montpellier', 'FR'],
 
         // China
         ['beijing', 'CN'], ['shanghai', 'CN'], ['shenzhen', 'CN'], ['hangzhou', 'CN'], 
@@ -64,7 +66,7 @@ class LocationNormalizer extends Base {
         ['xian', 'CN'], ['tianjin', 'CN'], ['suzhou', 'CN'], ['chongqing', 'CN'],
         ['hong kong', 'HK'], ['hk', 'HK'],
         ['上海', 'CN'], ['深圳', 'CN'], ['北京', 'CN'], ['xiamen', 'CN'], ['canton', 'CN'],
-        ['中国', 'CN'],
+        ['中国', 'CN'], ['peking', 'CN'], ['成都', 'CN'], ['guangdong', 'CN'], ['hang zhou', 'CN'],
 
         // India
         ['bangalore', 'IN'], ['bengaluru', 'IN'], ['mumbai', 'IN'], ['delhi', 'IN'], ['gurugram', 'IN'],
@@ -73,7 +75,7 @@ class LocationNormalizer extends Base {
         ['gurgaon', 'IN'],
 
         // Spain
-        ['barcelona', 'ES'], ['madrid', 'ES'], ['valencia', 'ES'], ['sevilla', 'ES'],
+        ['barcelona', 'ES'], ['madrid', 'ES'], ['valencia', 'ES'], ['sevilla', 'ES'], ['málaga', 'ES'],
 
         // Switzerland & Austria
         ['zurich', 'CH'], ['zürich', 'CH'], ['geneva', 'CH'], ['vienna', 'AT'],
@@ -82,23 +84,23 @@ class LocationNormalizer extends Base {
         ['warsaw', 'PL'], ['krakow', 'PL'], ['kraków', 'PL'], ['wrocław', 'PL'],
 
         // Others
-        ['toronto', 'CA'], ['vancouver', 'CA'], ['montreal', 'CA'], ['ottawa', 'CA'], ['edmonton', 'CA'], ['calgary', 'CA'], ['québec', 'CA'],
-        ['sydney', 'AU'], ['melbourne', 'AU'], ['brisbane', 'AU'],
+        ['toronto', 'CA'], ['vancouver', 'CA'], ['montreal', 'CA'], ['ottawa', 'CA'], ['edmonton', 'CA'], ['calgary', 'CA'], ['québec', 'CA'], ['waterloo', 'CA'],
+        ['sydney', 'AU'], ['melbourne', 'AU'], ['brisbane', 'AU'], ['hobart', 'AU'],
         ['tokyo', 'JP'], ['osaka', 'JP'], ['kyoto', 'JP'],
         ['são paulo', 'BR'], ['rio de janeiro', 'BR'],
         ['amsterdam', 'NL'], ['the hague', 'NL'], ['rotterdam', 'NL'], ['utrecht', 'NL'], ['groningen', 'NL'],
         ['whangarei', 'NZ'], ['auckland', 'NZ'],
         ['lisbon', 'PT'], ['porto', 'PT'],
-        ['copenhagen', 'DK'], ['stockholm', 'SE'], ['gothenburg', 'SE'], ['oslo', 'NO'], ['helsinki', 'FI'],
+        ['copenhagen', 'DK'], ['stockholm', 'SE'], ['gothenburg', 'SE'], ['göteborg', 'SE'], ['oslo', 'NO'], ['helsinki', 'FI'],
         ['genoa', 'IT'], ['rome', 'IT'], ['milan', 'IT'], ['turin', 'IT'],
         ['tbilisi', 'GE'],
         ['seoul', 'KR'],
         ['taipei', 'TW'],
         ['kiev', 'UA'], ['kyiv', 'UA'],
-        ['prague', 'CZ'],
+        ['prague', 'CZ'], ['brno', 'CZ'],
         ['budapest', 'HU'],
         ['bucharest', 'RO'],
-        ['istanbul', 'TR'],
+        ['istanbul', 'TR'], ['i̇stanbul', 'TR'],
         ['lagos', 'NG'],
         ['nairobi', 'KE'],
         ['cairo', 'EG'],
@@ -130,7 +132,9 @@ class LocationNormalizer extends Base {
         ['reykjavík', 'IS'],
         ['minsk', 'BY'],
         ['zagreb', 'HR'],
-        ['athens', 'GR']
+        ['athens', 'GR'],
+        ['amman', 'JO'],
+        ['sofia', 'BG']
     ]);
 
     /**
@@ -248,6 +252,9 @@ class LocationNormalizer extends Base {
         if (/\b(ecuador)\b/.test(text)) return 'EC';
         if (/\b(saudi arabia)\b/.test(text)) return 'SA';
         if (/\b(morocco)\b/.test(text)) return 'MA';
+        if (/\b(puerto rico)\b/.test(text)) return 'PR';
+        if (/\b(jordan)\b/.test(text)) return 'JO';
+        if (/\b(ghana)\b/.test(text)) return 'GH';
 
         // 3. Check City Map
         // We look for known cities in the string (e.g. "Berlin, Wedding")
