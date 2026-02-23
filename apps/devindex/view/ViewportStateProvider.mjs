@@ -22,7 +22,12 @@ class ViewportStateProvider extends StateProvider {
             /**
              * @member {Boolean} isScrolling=false
              */
-            isScrolling: false
+            isScrolling: false,
+            /**
+             * Values are: large, medium, small, x-small, null
+             * @member {String|null} size
+             */
+            size: null
         }
     }
 }
