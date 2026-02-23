@@ -17,7 +17,7 @@ The Markdown Content Engine is built on three core concepts:
 ```mermaid
 flowchart LR
     subgraph Browser
-        URL[URL Hash<br/>#/learn/guides/fundamentals]
+        URL[URL Hash<br/>#/learn/frontend/Architecture]
     end
     
     subgraph App Worker
@@ -51,11 +51,13 @@ Every documentation section in Neo.mjs is defined by a `tree.json` file. This JS
 ```json readonly
 {
   "data": [
-    {"name": "Benefits",            "parentId": null,       "isLeaf": false, "id": "Benefits"},
-    {"name": "Introduction",        "parentId": "Benefits",                  "id": "benefits/Introduction"},
-    {"name": "Off the Main Thread", "parentId": "Benefits",                  "id": "benefits/OffTheMainThread"},
-    {"name": "Guides",              "parentId": null,       "isLeaf": false, "id": "guides", "collapsed": true},
-    {"name": "Fundamentals",        "parentId": "guides",   "isLeaf": false, "id": "guides/fundamentals"}
+    {"name": "Introduction & Overview",            "parentId": null,                           "id": "Introduction"},
+    {"name": "Methodology",                        "parentId": null,                           "id": "Methodology"},
+    {"name": "The Data Factory",                   "parentId": null,          "isLeaf": false, "id": "DataFactory"},
+        {"name": "Spider Engine",                  "parentId": "DataFactory",                  "id": "data-factory/Engine"},
+        {"name": "Updater Engine",                 "parentId": "DataFactory",                  "id": "data-factory/Updater"},
+    {"name": "Frontend Architecture",              "parentId": null,          "isLeaf": false, "id": "Frontend"},
+        {"name": "App Shell & MVVM",               "parentId": "Frontend",                     "id": "frontend/Architecture"}
   ]
 }
 ```
@@ -64,7 +66,7 @@ Each record contains:
 
 | Property   | Description                                                                 |
 |------------|-----------------------------------------------------------------------------|
-| `id`       | The unique identifier, which also maps to the file path (e.g., `benefits/Introduction` → `benefits/Introduction.md`) |
+| `id`       | The unique identifier, which also maps to the file path (e.g., `frontend/Architecture` → `frontend/Architecture.md`) |
 | `name`     | The display label shown in the navigation tree                              |
 | `parentId` | Reference to the parent node (or `null` for root items)                     |
 | `isLeaf`   | When `false`, indicates a folder/category with children                     |
@@ -267,7 +269,7 @@ static config = {
 }
 ```
 
-The `{*itemId}` wildcard captures the entire path after `/learn/`, allowing nested paths like `/learn/guides/fundamentals/WorkerArchitecture`.
+The `{*itemId}` wildcard captures the entire path after `/learn/`, allowing nested paths like `/learn/frontend/Architecture`.
 
 ### Route Handling
 
