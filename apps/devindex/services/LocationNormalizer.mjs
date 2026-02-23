@@ -31,7 +31,7 @@ class LocationNormalizer extends Base {
         ['cologne', 'DE'], ['köln', 'DE'], ['frankfurt', 'DE'], ['stuttgart', 'DE'],
         ['düsseldorf', 'DE'], ['leipzig', 'DE'], ['dresden', 'DE'], ['aachen', 'DE'],
         ['karlsruhe', 'DE'], ['mannheim', 'DE'], ['nuremberg', 'DE'], ['nürnberg', 'DE'],
-        ['bonn', 'DE'],
+        ['bonn', 'DE'], ['darmstadt', 'DE'],
 
         // USA (Common Tech Hubs)
         ['san francisco', 'US'], ['sf', 'US'], ['bay area', 'US'], ['new york', 'US'],
@@ -56,6 +56,7 @@ class LocationNormalizer extends Base {
         // France
         ['paris', 'FR'], ['lyon', 'FR'], ['toulouse', 'FR'], ['nantes', 'FR'],
         ['bordeaux', 'FR'], ['lille', 'FR'], ['strasbourg', 'FR'], ['grenoble', 'FR'],
+        ['rennes', 'FR'],
 
         // China
         ['beijing', 'CN'], ['shanghai', 'CN'], ['shenzhen', 'CN'], ['hangzhou', 'CN'], 
@@ -63,11 +64,13 @@ class LocationNormalizer extends Base {
         ['xian', 'CN'], ['tianjin', 'CN'], ['suzhou', 'CN'], ['chongqing', 'CN'],
         ['hong kong', 'HK'], ['hk', 'HK'],
         ['上海', 'CN'], ['深圳', 'CN'], ['北京', 'CN'], ['xiamen', 'CN'], ['canton', 'CN'],
+        ['中国', 'CN'],
 
         // India
         ['bangalore', 'IN'], ['bengaluru', 'IN'], ['mumbai', 'IN'], ['delhi', 'IN'], ['gurugram', 'IN'],
         ['hyderabad', 'IN'], ['pune', 'IN'], ['chennai', 'IN'], ['noida', 'IN'], ['ahmedabad', 'IN'],
         ['kolkata', 'IN'], ['jaipur', 'IN'], ['chandigarh', 'IN'], ['indore', 'IN'],
+        ['gurgaon', 'IN'],
 
         // Spain
         ['barcelona', 'ES'], ['madrid', 'ES'], ['valencia', 'ES'], ['sevilla', 'ES'],
@@ -79,15 +82,15 @@ class LocationNormalizer extends Base {
         ['warsaw', 'PL'], ['krakow', 'PL'], ['kraków', 'PL'], ['wrocław', 'PL'],
 
         // Others
-        ['toronto', 'CA'], ['vancouver', 'CA'], ['montreal', 'CA'], ['ottawa', 'CA'], ['edmonton', 'CA'], ['calgary', 'CA'],
+        ['toronto', 'CA'], ['vancouver', 'CA'], ['montreal', 'CA'], ['ottawa', 'CA'], ['edmonton', 'CA'], ['calgary', 'CA'], ['québec', 'CA'],
         ['sydney', 'AU'], ['melbourne', 'AU'], ['brisbane', 'AU'],
-        ['tokyo', 'JP'], ['osaka', 'JP'],
+        ['tokyo', 'JP'], ['osaka', 'JP'], ['kyoto', 'JP'],
         ['são paulo', 'BR'], ['rio de janeiro', 'BR'],
-        ['amsterdam', 'NL'], ['the hague', 'NL'], ['rotterdam', 'NL'], ['utrecht', 'NL'],
+        ['amsterdam', 'NL'], ['the hague', 'NL'], ['rotterdam', 'NL'], ['utrecht', 'NL'], ['groningen', 'NL'],
         ['whangarei', 'NZ'], ['auckland', 'NZ'],
         ['lisbon', 'PT'], ['porto', 'PT'],
         ['copenhagen', 'DK'], ['stockholm', 'SE'], ['gothenburg', 'SE'], ['oslo', 'NO'], ['helsinki', 'FI'],
-        ['genoa', 'IT'], ['rome', 'IT'], ['milan', 'IT'],
+        ['genoa', 'IT'], ['rome', 'IT'], ['milan', 'IT'], ['turin', 'IT'],
         ['tbilisi', 'GE'],
         ['seoul', 'KR'],
         ['taipei', 'TW'],
@@ -114,7 +117,7 @@ class LocationNormalizer extends Base {
         ['dhaka', 'BD'],
         ['colombo', 'LK'],
         ['dubai', 'AE'],
-        ['moscow', 'RU'],
+        ['moscow', 'RU'], ['saint petersburg', 'RU'], ['saint-petersburg', 'RU'],
         ['tel aviv', 'IL'], ['jerusalem', 'IL'],
         ['brussels', 'BE'],
         ['tallinn', 'EE'],
@@ -126,7 +129,8 @@ class LocationNormalizer extends Base {
         ['tehran', 'IR'],
         ['reykjavík', 'IS'],
         ['minsk', 'BY'],
-        ['zagreb', 'HR']
+        ['zagreb', 'HR'],
+        ['athens', 'GR']
     ]);
 
     /**
@@ -241,6 +245,9 @@ class LocationNormalizer extends Base {
         if (/\b(kazakhstan)\b/.test(text)) return 'KZ';
         if (/\b(venezuela)\b/.test(text)) return 'VE';
         if (/\b(palestine)\b/.test(text)) return 'PS';
+        if (/\b(ecuador)\b/.test(text)) return 'EC';
+        if (/\b(saudi arabia)\b/.test(text)) return 'SA';
+        if (/\b(morocco)\b/.test(text)) return 'MA';
 
         // 3. Check City Map
         // We look for known cities in the string (e.g. "Berlin, Wedding")
