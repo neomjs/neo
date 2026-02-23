@@ -1,4 +1,6 @@
 :root .neo-theme-neo-light { // .neo-tree-list
     --tree-list-color          : #666;
+    --tree-list-indent-base    : 16px;
+    --tree-list-indent-step    : 16px;
     --tree-list-menu-item-color: #1c60a0;
 }
