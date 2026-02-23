@@ -22,4 +22,6 @@
         {"name": "State Management & Controls",    "parentId": "Frontend",                     "id": "frontend/StateAndControls"},
         {"name": "OffscreenCanvas & Rendering",    "parentId": "Frontend",                     "id": "frontend/OffscreenCanvas"},
         {"name": "The Content Engine",             "parentId": "Frontend",                     "id": "frontend/ContentEngine"}
+    ]},
+    {"name": "FAQ",                                "parentId": null,                           "id": "FAQ"}
 ]}
