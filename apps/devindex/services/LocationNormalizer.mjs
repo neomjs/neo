@@ -46,40 +46,52 @@ class LocationNormalizer extends Base {
         ['san antonio', 'US'], ['san diego', 'US'], ['dallas', 'US'], ['san jose', 'US'],
         ['jacksonville', 'US'], ['indianapolis', 'US'], ['atlanta', 'US'], ['salt lake city', 'US'],
         ['stanford', 'US'], ['berkeley', 'US'], ['irvine', 'US'], ['santa clara', 'US'], ['sunnyvale', 'US'],
+        ['pittsburgh', 'US'], ['oakland', 'US'], ['silicon valley', 'US'], ['menlo park', 'US'],
+        ['houston', 'US'], ['minneapolis', 'US'], ['miami', 'US'], ['pdx', 'US'],
 
         // UK
         ['london', 'GB'], ['manchester', 'GB'], ['edinburgh', 'GB'], ['cambridge', 'GB'],
-        ['oxford', 'GB'], ['bristol', 'GB'],
+        ['oxford', 'GB'], ['bristol', 'GB'], ['brighton', 'GB'],
 
         // France
         ['paris', 'FR'], ['lyon', 'FR'], ['toulouse', 'FR'], ['nantes', 'FR'],
+        ['bordeaux', 'FR'], ['lille', 'FR'], ['strasbourg', 'FR'], ['grenoble', 'FR'],
 
         // China
         ['beijing', 'CN'], ['shanghai', 'CN'], ['shenzhen', 'CN'], ['hangzhou', 'CN'], 
         ['chengdu', 'CN'], ['wuhan', 'CN'], ['guangzhou', 'CN'], ['nanjing', 'CN'], 
         ['xian', 'CN'], ['tianjin', 'CN'], ['suzhou', 'CN'], ['chongqing', 'CN'],
         ['hong kong', 'HK'], ['hk', 'HK'],
+        ['上海', 'CN'], ['深圳', 'CN'], ['北京', 'CN'], ['xiamen', 'CN'], ['canton', 'CN'],
 
         // India
         ['bangalore', 'IN'], ['bengaluru', 'IN'], ['mumbai', 'IN'], ['delhi', 'IN'], ['gurugram', 'IN'],
         ['hyderabad', 'IN'], ['pune', 'IN'], ['chennai', 'IN'], ['noida', 'IN'], ['ahmedabad', 'IN'],
         ['kolkata', 'IN'], ['jaipur', 'IN'], ['chandigarh', 'IN'], ['indore', 'IN'],
 
+        // Spain
+        ['barcelona', 'ES'], ['madrid', 'ES'], ['valencia', 'ES'], ['sevilla', 'ES'],
+
+        // Switzerland & Austria
+        ['zurich', 'CH'], ['zürich', 'CH'], ['geneva', 'CH'], ['vienna', 'AT'],
+
+        // Poland
+        ['warsaw', 'PL'], ['krakow', 'PL'], ['kraków', 'PL'], ['wrocław', 'PL'],
+
         // Others
-        ['toronto', 'CA'], ['vancouver', 'CA'], ['montreal', 'CA'],
+        ['toronto', 'CA'], ['vancouver', 'CA'], ['montreal', 'CA'], ['ottawa', 'CA'], ['edmonton', 'CA'], ['calgary', 'CA'],
         ['sydney', 'AU'], ['melbourne', 'AU'], ['brisbane', 'AU'],
         ['tokyo', 'JP'], ['osaka', 'JP'],
         ['são paulo', 'BR'], ['rio de janeiro', 'BR'],
-        ['amsterdam', 'NL'], ['the hague', 'NL'],
+        ['amsterdam', 'NL'], ['the hague', 'NL'], ['rotterdam', 'NL'], ['utrecht', 'NL'],
         ['whangarei', 'NZ'], ['auckland', 'NZ'],
         ['lisbon', 'PT'], ['porto', 'PT'],
-        ['copenhagen', 'DK'], ['stockholm', 'SE'], ['oslo', 'NO'], ['helsinki', 'FI'],
+        ['copenhagen', 'DK'], ['stockholm', 'SE'], ['gothenburg', 'SE'], ['oslo', 'NO'], ['helsinki', 'FI'],
         ['genoa', 'IT'], ['rome', 'IT'], ['milan', 'IT'],
         ['tbilisi', 'GE'],
         ['seoul', 'KR'],
         ['taipei', 'TW'],
         ['kiev', 'UA'], ['kyiv', 'UA'],
-        ['warsaw', 'PL'], ['krakow', 'PL'],
         ['prague', 'CZ'],
         ['budapest', 'HU'],
         ['bucharest', 'RO'],
@@ -100,7 +112,21 @@ class LocationNormalizer extends Base {
         ['manila', 'PH'],
         ['karachi', 'PK'], ['lahore', 'PK'], ['islamabad', 'PK'],
         ['dhaka', 'BD'],
-        ['colombo', 'LK']
+        ['colombo', 'LK'],
+        ['dubai', 'AE'],
+        ['moscow', 'RU'],
+        ['tel aviv', 'IL'], ['jerusalem', 'IL'],
+        ['brussels', 'BE'],
+        ['tallinn', 'EE'],
+        ['vilnius', 'LT'],
+        ['yerevan', 'AM'],
+        ['montevideo', 'UY'],
+        ['dublin', 'IE'],
+        ['riga', 'LV'],
+        ['tehran', 'IR'],
+        ['reykjavík', 'IS'],
+        ['minsk', 'BY'],
+        ['zagreb', 'HR']
     ]);
 
     /**
@@ -144,11 +170,11 @@ class LocationNormalizer extends Base {
             return 'US';
         }
         if (/\b(canada)\b/.test(text)) return 'CA';
-        if (/\b(china|prc)\b/.test(text)) return 'CN';
+        if (/\b(china|prc|中国)\b/.test(text)) return 'CN';
         if (/\b(india)\b/.test(text)) return 'IN';
         if (/\b(japan)\b/.test(text)) return 'JP';
         if (/\b(brazil|brasil)\b/.test(text)) return 'BR';
-        if (/\b(russia)\b/.test(text)) return 'RU';
+        if (/\b(russia|russian federation)\b/.test(text)) return 'RU';
         if (/\b(ukraine)\b/.test(text)) return 'UA';
         if (/\b(switzerland|schweiz|suisse)\b/.test(text)) return 'CH';
         if (/\b(austria|österreich)\b/.test(text)) return 'AT';
@@ -164,7 +190,7 @@ class LocationNormalizer extends Base {
         if (/\b(south korea|korea)\b/.test(text)) return 'KR';
         if (/\b(taiwan)\b/.test(text)) return 'TW';
         if (/\b(singapore)\b/.test(text)) return 'SG';
-        if (/\b(vietnam)\b/.test(text)) return 'VN';
+        if (/\b(vietnam|viet nam)\b/.test(text)) return 'VN';
         if (/\b(indonesia)\b/.test(text)) return 'ID';
         if (/\b(thailand)\b/.test(text)) return 'TH';
         if (/\b(malaysia)\b/.test(text)) return 'MY';
@@ -175,7 +201,7 @@ class LocationNormalizer extends Base {
         if (/\b(kenya)\b/.test(text)) return 'KE';
         if (/\b(south africa)\b/.test(text)) return 'ZA';
         if (/\b(argentina)\b/.test(text)) return 'AR';
-        if (/\b(mexico)\b/.test(text)) return 'MX';
+        if (/\b(mexico|méxico)\b/.test(text)) return 'MX';
         if (/\b(colombia)\b/.test(text)) return 'CO';
         if (/\b(chile)\b/.test(text)) return 'CL';
         if (/\b(peru)\b/.test(text)) return 'PE';
@@ -196,6 +222,25 @@ class LocationNormalizer extends Base {
         if (/\b(bangladesh)\b/.test(text)) return 'BD';
         if (/\b(sri lanka)\b/.test(text)) return 'LK';
         if (/\b(nepal)\b/.test(text)) return 'NP';
+        if (/\b(united arab emirates|uae)\b/.test(text)) return 'AE';
+        if (/\b(estonia)\b/.test(text)) return 'EE';
+        if (/\b(lithuania)\b/.test(text)) return 'LT';
+        if (/\b(armenia)\b/.test(text)) return 'AM';
+        if (/\b(uruguay)\b/.test(text)) return 'UY';
+        if (/\b(cyprus)\b/.test(text)) return 'CY';
+        if (/\b(luxembourg)\b/.test(text)) return 'LU';
+        if (/\b(iran)\b/.test(text)) return 'IR';
+        if (/\b(latvia)\b/.test(text)) return 'LV';
+        if (/\b(dominican republic)\b/.test(text)) return 'DO';
+        if (/\b(tunisia)\b/.test(text)) return 'TN';
+        if (/\b(belarus)\b/.test(text)) return 'BY';
+        if (/\b(iceland)\b/.test(text)) return 'IS';
+        if (/\b(costa rica)\b/.test(text)) return 'CR';
+        if (/\b(montenegro)\b/.test(text)) return 'ME';
+        if (/\b(algeria)\b/.test(text)) return 'DZ';
+        if (/\b(kazakhstan)\b/.test(text)) return 'KZ';
+        if (/\b(venezuela)\b/.test(text)) return 'VE';
+        if (/\b(palestine)\b/.test(text)) return 'PS';
 
         // 3. Check City Map
         // We look for known cities in the string (e.g. "Berlin, Wedding")
