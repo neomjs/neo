@@ -15,13 +15,13 @@ author: tobiu
 commentsCount: 0
 parentIssue: null
 subIssues:
-  - '[ ] 9258 Create User Guide: Understanding Grid Columns & Metrics'
+  - '[x] 9258 Create User Guide: Understanding Grid Columns & Metrics'
   - '[ ] 9259 Create Frontend Guide 1: Architecture & Off-Main-Thread'
   - '[ ] 9260 Create Frontend Guide 2: The Grid Rewrite & Virtualization'
   - '[x] 9261 Create Frontend Guide 3: State Management & Controls'
   - '[x] 9262 Create Frontend Guide 4: The Markdown Content Engine'
   - '[x] 9263 Create Frontend Guide 5: OffscreenCanvas & Parallel Rendering'
-subIssuesCompleted: 3
+subIssuesCompleted: 4
 subIssuesTotal: 6
 blockedBy: []
 blocking: []
