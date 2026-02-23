@@ -196,10 +196,10 @@ The Markdown component supports several enhanced block types beyond standard Mar
 Standard fenced code blocks with a language identifier are automatically highlighted:
 
 ```markdown
-```javascript readonly
+\```javascript readonly
 const greeting = 'Hello, Neo.mjs!';
 console.log(greeting);
-` ` `
+\```
 ```
 
 ### 2. Live Preview Blocks
@@ -207,12 +207,12 @@ console.log(greeting);
 Code blocks marked with `live-preview` render an interactive code editor with real-time output:
 
 ```markdown
-```javascript live-preview
+\```javascript live-preview
 Neo.create({
     module: Neo.button.Base,
     text  : 'Click Me!'
 })
-` ` `
+\```
 ```
 
 ### 3. Neo Component Blocks
@@ -220,12 +220,12 @@ Neo.create({
 Embed any Neo.mjs component directly in documentation using `neo-component`:
 
 ```markdown
-```json neo-component
+\```json neo-component
 {
     "module": "Neo.button.Base",
     "text": "I'm a real button!"
 }
-` ` `
+\```
 ```
 
 ### 4. Mermaid Diagrams
@@ -233,10 +233,10 @@ Embed any Neo.mjs component directly in documentation using `neo-component`:
 Create flowcharts, sequence diagrams, and more using Mermaid syntax:
 
 ```markdown
-```mermaid
+\```mermaid
 flowchart LR
     A[Start] --> B[End]
-` ` `
+\```
 ```
 
 ### 5. Ticket References
