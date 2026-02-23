@@ -1,14 +1,14 @@
 ---
 id: 9106
 title: DevIndex App Polishing
-state: OPEN
+state: CLOSED
 labels:
   - epic
   - ai
 assignees:
   - tobiu
 createdAt: '2026-02-11T23:14:57Z'
-updatedAt: '2026-02-12T00:56:49Z'
+updatedAt: '2026-02-23T16:11:09Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9106'
 author: tobiu
 commentsCount: 0
@@ -74,6 +74,7 @@ subIssuesCompleted: 56
 subIssuesTotal: 56
 blockedBy: []
 blocking: []
+closedAt: '2026-02-23T16:11:09Z'
 ---
 # DevIndex App Polishing
 

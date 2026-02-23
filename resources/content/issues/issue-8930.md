@@ -1,14 +1,14 @@
 ---
 id: 8930
 title: 'Epic: DevIndex - The GitHub Meritocracy Index'
-state: OPEN
+state: CLOSED
 labels:
   - epic
   - ai
 assignees:
   - tobiu
 createdAt: '2026-02-01T15:19:40Z'
-updatedAt: '2026-02-12T00:56:37Z'
+updatedAt: '2026-02-23T16:12:15Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8930'
 author: tobiu
 commentsCount: 1
@@ -21,7 +21,7 @@ subIssues:
   - '[x] 8935 Feat: Yearly Breakdown Columns & Heatmap'
   - '[x] 8936 Fix: RecordFactory mapping logic not triggering for missing source keys'
   - '[x] 8937 Feat: Discovery Engine - The Spider'
-  - '[ ] 8938 Feat: UI Filtering Logic'
+  - '[x] 8938 Feat: UI Filtering Logic'
   - '[x] 8939 Feat: Country Flag Column'
   - '[x] 8940 Feat: Activity Sparkline Column'
   - '[x] 8941 Feat: Implement Neo.form.field.CountryFlagPicker'
@@ -103,10 +103,11 @@ subIssues:
   - '[x] 9103 Fix: DevRank Spider 422 Error on Complex Queries'
   - '[x] 9104 Refactor: DevRank Folder Structure'
   - '[x] 9105 Refactor: DevRank Viewport Lazy Loading & Routing'
-subIssuesCompleted: 88
+subIssuesCompleted: 89
 subIssuesTotal: 89
 blockedBy: []
 blocking: []
+closedAt: '2026-02-23T16:12:15Z'
 ---
 # Epic: DevIndex - The GitHub Meritocracy Index
 

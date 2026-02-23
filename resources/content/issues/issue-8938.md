@@ -1,23 +1,24 @@
 ---
 id: 8938
 title: 'Feat: UI Filtering Logic'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - design
 assignees:
   - tobiu
 createdAt: '2026-02-01T16:43:35Z'
-updatedAt: '2026-02-01T16:44:48Z'
+updatedAt: '2026-02-23T16:12:08Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8938'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 8930
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-02-23T16:12:08Z'
 ---
 # Feat: UI Filtering Logic
 
@@ -39,4 +40,9 @@ This task focuses on connecting the UI Controls to the Grid's Store to enable re
 - 2026-02-01T16:43:36Z @tobiu added the `design` label
 - 2026-02-01T16:43:54Z @tobiu added parent issue #8930
 - 2026-02-01T16:44:49Z @tobiu assigned to @tobiu
+### @tobiu - 2026-02-23T16:12:08Z
+
+already resolved.
+
+- 2026-02-23T16:12:08Z @tobiu closed this issue
 
