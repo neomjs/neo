@@ -49,17 +49,15 @@ Every documentation section in Neo.mjs is defined by a `tree.json` file. This JS
 ### Structure of tree.json
 
 ```json readonly
-{
-  "data": [
-    {"name": "Introduction & Overview",            "parentId": null,                           "id": "Introduction"},
-    {"name": "Methodology",                        "parentId": null,                           "id": "Methodology"},
-    {"name": "The Data Factory",                   "parentId": null,          "isLeaf": false, "id": "DataFactory"},
-        {"name": "Spider Engine",                  "parentId": "DataFactory",                  "id": "data-factory/Engine"},
-        {"name": "Updater Engine",                 "parentId": "DataFactory",                  "id": "data-factory/Updater"},
-    {"name": "Frontend Architecture",              "parentId": null,          "isLeaf": false, "id": "Frontend"},
-        {"name": "App Shell & MVVM",               "parentId": "Frontend",                     "id": "frontend/Architecture"}
-  ]
-}
+{"data": [
+    {"name": "Introduction & Overview", "parentId": null,                           "id": "Introduction"},
+    {"name": "Methodology",             "parentId": null,                           "id": "Methodology"},
+    {"name": "The Data Factory",        "parentId": null,          "isLeaf": false, "id": "DataFactory"},
+        {"name": "Spider Engine",       "parentId": "DataFactory",                  "id": "data-factory/Engine"},
+        {"name": "Updater Engine",      "parentId": "DataFactory",                  "id": "data-factory/Updater"},
+    {"name": "Frontend Architecture",   "parentId": null,          "isLeaf": false, "id": "Frontend"},
+        {"name": "App Shell & MVVM",    "parentId": "Frontend",                     "id": "frontend/Architecture"}
+]}
 ```
 
 Each record contains:
