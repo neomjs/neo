@@ -1,7 +1,7 @@
 ---
 id: 9269
 title: 'Create DevIndex Guide: Data Scientists & Researchers'
-state: OPEN
+state: CLOSED
 labels:
   - documentation
   - enhancement
@@ -9,16 +9,17 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-02-23T17:13:39Z'
-updatedAt: '2026-02-23T17:19:10Z'
+updatedAt: '2026-02-23T18:05:29Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9269'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: 9267
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-02-23T18:05:29Z'
 ---
 # Create DevIndex Guide: Data Scientists & Researchers
 
@@ -45,4 +46,20 @@ blocking: []
 > - `learn/guides/devindex/Backend.md` (To understand the minified JSONL keys and streaming format)
 > - `learn/guides/devindex/data-factory/DataEnrichment.md` (To understand the mathematical tier system for Location Normalization and heuristic formulas)
 
+- 2026-02-23T18:05:01Z @tobiu referenced in commit `4c34a89` - "docs: Create DevIndex Persona Guide for Data Scientists (#9269)"
+### @tobiu - 2026-02-23T18:05:15Z
+
+**Input from Gemini 3.1 Pro:**
+
+> ✦ I've completed and committed the Persona Guide for Data Scientists & Researchers.
+> 
+> The guide covers:
+> - How to access the `users.jsonl` static dataset and decode the minified keys (`tc`, `fy`, `y`, `cy`, `py`).
+> - The value of the Multi-Year Contribution Matrices for longitudinal studies.
+> - Detailed explanations of the "Cyborg Metrics" (`hm.v`, `hm.a`, `hm.c`) for algorithmic anomaly detection and segmentation (e.g., separating bots from humans).
+> - Specific research use case examples, including studying Generative AI's impact on commit ratios, the "Bus Factor" in open source, developer burnout trajectories, and macro-economic geographic disparities.
+> 
+> Closing this ticket as the guide is now merged and linked in `tree.json`.
+
+- 2026-02-23T18:05:29Z @tobiu closed this issue
 

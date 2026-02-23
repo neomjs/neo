@@ -1,7 +1,7 @@
 ---
 id: 9267
 title: 'DevIndex Persona Guides: Connecting Data to Intent'
-state: OPEN
+state: CLOSED
 labels:
   - documentation
   - epic
@@ -9,20 +9,21 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-02-23T17:13:32Z'
-updatedAt: '2026-02-23T17:14:18Z'
+updatedAt: '2026-02-23T18:34:37Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9267'
 author: tobiu
 commentsCount: 0
 parentIssue: null
 subIssues:
-  - '[ ] 9268 Create DevIndex Guide: Talent Scouts & Recruiters'
-  - '[ ] 9269 Create DevIndex Guide: Data Scientists & Researchers'
-  - '[ ] 9270 Create DevIndex Guide: Policy Makers & Gov Funding'
-  - '[ ] 9271 Create DevIndex Guide: The Ethical Manifesto (Why We Built This)'
-subIssuesCompleted: 0
+  - '[x] 9268 Create DevIndex Guide: Talent Scouts & Recruiters'
+  - '[x] 9269 Create DevIndex Guide: Data Scientists & Researchers'
+  - '[x] 9270 Create DevIndex Guide: Policy Makers & Gov Funding'
+  - '[x] 9271 Create DevIndex Guide: The Ethical Manifesto (Why We Built This)'
+subIssuesCompleted: 4
 subIssuesTotal: 4
 blockedBy: []
 blocking: []
+closedAt: '2026-02-23T18:34:37Z'
 ---
 # DevIndex Persona Guides: Connecting Data to Intent
 
@@ -40,4 +41,5 @@ This epic tracks the creation of targeted "Persona Guides" and an Ethical Manife
 - 2026-02-23T17:14:14Z @tobiu added sub-issue #9270
 - 2026-02-23T17:14:16Z @tobiu added sub-issue #9271
 - 2026-02-23T17:14:18Z @tobiu assigned to @tobiu
+- 2026-02-23T18:34:37Z @tobiu closed this issue
 
