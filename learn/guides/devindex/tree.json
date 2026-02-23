@@ -4,6 +4,8 @@
     {"name": "Opt-In & Nominations",               "parentId": null,                           "id": "OptIn"},
     {"name": "Privacy & Opt-Out",                  "parentId": null,                           "id": "OptOut"},
     {"name": "User Guide",                         "parentId": null,                           "id": "UserGuide"},
+    {"name": "Persona Guides",                     "parentId": null,          "isLeaf": false, "id": "Personas"},
+        {"name": "Talent Scouts & Recruiters",     "parentId": "Personas",                     "id": "personas/TalentScouts"},
     {"name": "The Data Factory",                   "parentId": null,          "isLeaf": false, "id": "DataFactory"},
         {"name": "Introduction",                   "parentId": "DataFactory",                  "id": "data-factory/Intro"},
         {"name": "The Orchestrator",               "parentId": "DataFactory",                  "id": "data-factory/Orchestrator"},
