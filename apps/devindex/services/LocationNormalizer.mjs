@@ -165,7 +165,7 @@ class LocationNormalizer extends Base {
         // Avoids matching "Doha" for "OH"
         // We only include states that do NOT conflict with ISO Country Codes
         // e.g. CA (Canada), DE (Germany), IN (India), ID (Indonesia) are excluded here.
-        if (/\b(oh|wa|or|ri|ny|nj|tx|fl|ut|az|nm|nv|mn|mi|il|mo|tn|ky|wv|va|nc|sc|ga|al|ms|la|ar|ok|ks|ne|sd|nd|wy|mt|vt|ct|ma|pa)\b/.test(text)) {
+        if (/\b(oh|wa|or|ri|ny|nj|tx|fl|ut|az|nm|nv|mn|mi|il|mo|tn|ky|wv|va|nc|sc|ga|al|ms|la|ar|ok|ks|ne|sd|nd|wy|mt|vt|ct|ma|pa|nh)\b/.test(text)) {
             // Heuristic: Map common US state codes to 'US'.
             // We exclude major country codes (CA, DE, IN, ID) to prevent false positives.
             // Minor collisions (IL=Israel, GA=Gabon, MT=Malta) are accepted as they are
