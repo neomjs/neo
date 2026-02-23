@@ -26,7 +26,7 @@ The main view of DevIndex is a high-performance grid displaying over 50,000 acti
     *   **Consistency:** 🏛️ Community Pillar (>10y) or 🛡️ Veteran (>5y).
     *   **New:** 🌱 Seedling for brand new contributors.
 *   **Activity (Sparkline):** A mini-chart showing the user's contribution trend from 2010 up to the present year. This helps you quickly visualize whether a user is ramping up, consistently active, or cooling down. Like the "Total" column, **the data driving this sparkline changes based on your selected Data Mode**.
-*   **Top Repo:** A direct link to the user's most starred repository, giving you a quick glimpse into their most popular work.
+*   **Top Repo:** A direct link to the repository, where the user contributed to the most. Heuristics based, we can only check a fraction of repos.
 *   **Company:** The company the user is associated with on their GitHub profile.
 *   **Location:** Displays a flag corresponding to the user's location. This uses our internal location normalizer to map self-reported text (e.g., "Bay Area") to recognized country codes.
 
