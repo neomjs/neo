@@ -17,8 +17,9 @@
 
     @media (max-width: 640px) {
         .sidenav-container {
-            box-shadow: var(--neo-app-content-sidenav-shadow);
-            height    : 100%;
+            background-color: var(--neo-app-content-sidenav-bg);
+            box-shadow      : var(--neo-app-content-sidenav-shadow);
+            height          : 100%;
             left      : -350px;
             overflow  : visible;
             position  : fixed;
