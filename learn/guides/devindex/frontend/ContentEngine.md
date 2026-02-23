@@ -51,11 +51,11 @@ Every documentation section in Neo.mjs is defined by a `tree.json` file. This JS
 ```json readonly
 {
   "data": [
-    {"name": "Benefits",         "parentId": null,       "isLeaf": false, "id": "Benefits"},
-    {"name": "Introduction",     "parentId": "Benefits",                  "id": "benefits/Introduction"},
-    {"name": "Off the Main Thread", "parentId": "Benefits",               "id": "benefits/OffTheMainThread"},
-    {"name": "Guides",           "parentId": null,       "isLeaf": false, "id": "guides", "collapsed": true},
-    {"name": "Fundamentals",     "parentId": "guides",   "isLeaf": false, "id": "guides/fundamentals"}
+    {"name": "Benefits",            "parentId": null,       "isLeaf": false, "id": "Benefits"},
+    {"name": "Introduction",        "parentId": "Benefits",                  "id": "benefits/Introduction"},
+    {"name": "Off the Main Thread", "parentId": "Benefits",                  "id": "benefits/OffTheMainThread"},
+    {"name": "Guides",              "parentId": null,       "isLeaf": false, "id": "guides", "collapsed": true},
+    {"name": "Fundamentals",        "parentId": "guides",   "isLeaf": false, "id": "guides/fundamentals"}
   ]
 }
 ```
@@ -195,49 +195,49 @@ The Markdown component supports several enhanced block types beyond standard Mar
 
 Standard fenced code blocks with a language identifier are automatically highlighted:
 
-````markdown
+```markdown
 ```javascript readonly
 const greeting = 'Hello, Neo.mjs!';
 console.log(greeting);
+` ` `
 ```
-````
 
 ### 2. Live Preview Blocks
 
 Code blocks marked with `live-preview` render an interactive code editor with real-time output:
 
-````markdown
+```markdown
 ```javascript live-preview
 Neo.create({
     module: Neo.button.Base,
     text  : 'Click Me!'
 })
+` ` `
 ```
-````
 
 ### 3. Neo Component Blocks
 
 Embed any Neo.mjs component directly in documentation using `neo-component`:
 
-````markdown
+```markdown
 ```json neo-component
 {
     "module": "Neo.button.Base",
     "text": "I'm a real button!"
 }
+` ` `
 ```
-````
 
 ### 4. Mermaid Diagrams
 
 Create flowcharts, sequence diagrams, and more using Mermaid syntax:
 
-````markdown
+```markdown
 ```mermaid
 flowchart LR
     A[Start] --> B[End]
+` ` `
 ```
-````
 
 ### 5. Ticket References
 
@@ -328,11 +328,11 @@ The `MainContainerStateProvider` acts as the central nervous system, managing sh
 ```javascript readonly
 // Key state properties
 data: {
-    contentPath      : null,  // Base path for content files
-    currentPageRecord: null,  // The currently displayed page
-    nextPageRecord   : null,  // For "Next Page" navigation
+    contentPath       : null,  // Base path for content files
+    currentPageRecord : null,  // The currently displayed page
+    nextPageRecord    : null,  // For "Next Page" navigation
     previousPageRecord: null, // For "Previous Page" navigation
-    countPages       : null   // Total page count for navigation
+    countPages        : null   // Total page count for navigation
 }
 ```
 
