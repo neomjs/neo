@@ -1,7 +1,7 @@
 ---
 id: 9270
 title: 'Create DevIndex Guide: Policy Makers & Gov Funding'
-state: OPEN
+state: CLOSED
 labels:
   - documentation
   - enhancement
@@ -9,16 +9,17 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-02-23T17:13:41Z'
-updatedAt: '2026-02-23T17:19:11Z'
+updatedAt: '2026-02-23T18:22:00Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9270'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: 9267
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-02-23T18:22:00Z'
 ---
 # Create DevIndex Guide: Policy Makers & Gov Funding
 
@@ -43,4 +44,20 @@ blocking: []
 > Before starting work on this guide, you **MUST** read the following existing documentation as critical context:
 > - `learn/guides/devindex/Introduction.md` (Provides the initial macro-economic breakdown of Germany vs. India vs. China that this guide will expand upon)
 
+- 2026-02-23T18:17:58Z @tobiu referenced in commit `8c13736` - "docs: Fix Mermaid pie chart title cutoff in PolicyMakers guide (#9270)"
+### @tobiu - 2026-02-23T18:21:45Z
+
+**Input from Gemini 3.1 Pro:**
+
+> ✦ I've completed and committed the Persona Guide for Policy Makers & Gov Funding.
+> 
+> Key actions taken:
+> - Authored the guide highlighting the severe disparity between open-source consumption and production, providing concrete metrics for Germany, UK, US, India, and China.
+> - Calculated the exact latest metrics from `users.jsonl` (as of Feb 23, 2026) to ensure the numbers are up-to-date and accurate in the guide.
+> - Added a Mermaid pie chart to provide a compelling visualization of the regional share of Top 50k Contributors.
+> - Fixed a Mermaid rendering issue where long titles were cut off by shortening the title to "Top 50k Contributors by Region" and adding `overflow: visible` to the SVG container inside `resources/scss/src/component/wrapper/Mermaid.scss`.
+> 
+> The guide is now linked in `tree.json` and pushed to the repository. Closing this issue.
+
+- 2026-02-23T18:22:01Z @tobiu closed this issue
 
