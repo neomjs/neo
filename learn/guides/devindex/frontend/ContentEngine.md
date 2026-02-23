@@ -328,11 +328,11 @@ The `MainContainerStateProvider` acts as the central nervous system, managing sh
 ```javascript readonly
 // Key state properties
 data: {
-    contentPath       : null,  // Base path for content files
-    currentPageRecord : null,  // The currently displayed page
-    nextPageRecord    : null,  // For "Next Page" navigation
+    contentPath       : null, // Base path for content files
+    currentPageRecord : null, // The currently displayed page
+    nextPageRecord    : null, // For "Next Page" navigation
     previousPageRecord: null, // For "Previous Page" navigation
-    countPages        : null   // Total page count for navigation
+    countPages        : null  // Total page count for navigation
 }
 ```
 
