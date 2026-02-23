@@ -1,5 +1,6 @@
 {"data": [
     {"name": "Introduction & Overview",            "parentId": null,                           "id": "Introduction"},
+    {"name": "The Ethical Manifesto",              "parentId": null,                           "id": "EthicalManifesto"},
     {"name": "Methodology",                        "parentId": null,                           "id": "Methodology"},
     {"name": "Opt-In & Nominations",               "parentId": null,                           "id": "OptIn"},
     {"name": "Privacy & Opt-Out",                  "parentId": null,                           "id": "OptOut"},
@@ -7,6 +8,7 @@
     {"name": "Persona Guides",                     "parentId": null,          "isLeaf": false, "id": "Personas"},
         {"name": "Talent Scouts & Recruiters",     "parentId": "Personas",                     "id": "personas/TalentScouts"},
         {"name": "Data Scientists & Researchers",  "parentId": "Personas",                     "id": "personas/DataScientists"},
+        {"name": "Policy Makers & Gov Funding",    "parentId": "Personas",                     "id": "personas/PolicyMakers"},
     {"name": "The Data Factory",                   "parentId": null,          "isLeaf": false, "id": "DataFactory"},
         {"name": "Introduction",                   "parentId": "DataFactory",                  "id": "data-factory/Intro"},
         {"name": "The Orchestrator",               "parentId": "DataFactory",                  "id": "data-factory/Orchestrator"},
