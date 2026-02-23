@@ -5,9 +5,9 @@ Welcome to the Frequently Asked Questions for the DevIndex! Here you will find a
 ## General Questions
 
 ### Is DevIndex a commercial product? Do you track me?
-**No, and No.** DevIndex is an independent, 100% free and open-source (MIT-licensed) FOSS project. 
+**No, and... well, yes.** There is a profound irony here. DevIndex does **not** track you as a visitor browsing this website (we use zero tracking cookies, no analytics, and no advertisements). It is a 100% free and open-source (MIT-licensed) FOSS project. 
 
-It is completely ad-free and tracking cookie-free. Our primary goal is to solve the "Invisibility Problem" in open source by promoting active developers—which is why we explicitly include direct links to your GitHub Sponsor profiles and your "Hireable" status.
+However, the application itself is, by its very nature, a massive public data tracker. It actively indexes, aggregates, and tracks the public GitHub contributions of the top 50,000 developers worldwide. Our primary goal is to solve the "Invisibility Problem" in open source by promoting active developers—which is why we explicitly include direct links to your GitHub Sponsor profiles and your "Hireable" status.
 
 While the application serves as a high-performance, deep-tech showcase for the underlying [Neo.mjs application engine](#/learn/Introduction) (pushing browser limits by streaming 50,000 records), the Neo.mjs platform itself is also a fully MIT-licensed open-source project.
 
