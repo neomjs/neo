@@ -307,6 +307,7 @@ class Sparkline extends Base {
      * Updates the configuration for a specific canvas.
      * @param {Object} data
      * @param {String} data.canvasId
+     * @param {String} [data.theme]
      * @param {Boolean} [data.usePulse]
      * @param {Boolean} [data.useTransition]
      */
@@ -315,6 +316,10 @@ class Sparkline extends Base {
             item = me.items.get(data.canvasId);
 
         if (item) {
+            if (data.theme !== undefined) {
+                item.theme = data.theme;
+                me.draw(item)
+            }
             if (data.usePulse !== undefined) {
                 item.usePulse = data.usePulse
             }
@@ -359,7 +364,7 @@ class Sparkline extends Base {
                 if (!item.isTransitioning) {
                     item.isTransitioning = true;
                     me.activeItems.add(item);
-                    
+
                     if (!me.animationId) {
                         me.renderLoop()
                     }
