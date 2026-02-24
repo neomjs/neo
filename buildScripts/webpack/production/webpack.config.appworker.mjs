@@ -45,6 +45,11 @@ export default async function(env) {
             childProcess = spawnSync('node', [`${neoPath}/buildScripts/util/copyFolder.mjs -s ${inputPath} -t ${outputPath}`], cpOpts);
             childProcess.status && process.exit(childProcess.status);
 
+            // Exception for devindex app: Do not deploy the data folder.
+            if (resourcesPath.replace(/\\/g, '/').includes('apps/devindex/resources')) {
+                fs.removeSync(path.join(outputPath, 'data'));
+            }
+
             // Minify all json files inside the copied resources folder
             fs.readdirSync(outputPath, {recursive: true}).forEach(fileOrFolder => {
                 if (fileOrFolder.endsWith('.json')) {

@@ -97,7 +97,7 @@ const defaultConfig = {
          * Contains full profiles, contributions, etc.
          * @type {string}
          */
-        users: path.resolve(projectRoot, 'apps/devindex/resources/users.jsonl'),
+        users: path.resolve(projectRoot, 'apps/devindex/resources/data/users.jsonl'),
         
         /**
          * The backend discovery index (formerly users.json).
@@ -105,49 +105,49 @@ const defaultConfig = {
          * Used for prioritizing updates.
          * @type {string}
          */
-        tracker: path.resolve(projectRoot, 'apps/devindex/resources/tracker.json'),
+        tracker: path.resolve(projectRoot, 'apps/devindex/resources/data/tracker.json'),
 
         /**
          * Tracks visited resources (repos, users) to prevent cycles.
          * @type {string}
          */
-        visited: path.resolve(projectRoot, 'apps/devindex/resources/visited.json'),
+        visited: path.resolve(projectRoot, 'apps/devindex/resources/data/visited.json'),
 
         /**
          * List of excluded usernames (bots, banned users).
          * @type {string}
          */
-        blocklist: path.resolve(projectRoot, 'apps/devindex/resources/blocklist.json'),
+        blocklist: path.resolve(projectRoot, 'apps/devindex/resources/data/blocklist.json'),
 
         /**
          * List of users to always track, ignoring thresholds.
          * @type {string}
          */
-        allowlist: path.resolve(projectRoot, 'apps/devindex/resources/allowlist.json'),
+        allowlist: path.resolve(projectRoot, 'apps/devindex/resources/data/allowlist.json'),
 
         /**
          * List of users who failed update processing (Penalty Box).
          * @type {string}
          */
-        failed: path.resolve(projectRoot, 'apps/devindex/resources/failed.json'),
+        failed: path.resolve(projectRoot, 'apps/devindex/resources/data/failed.json'),
 
         /**
          * Stores the minimum total contributions required to enter the index.
          * @type {string}
          */
-        threshold: path.resolve(projectRoot, 'apps/devindex/resources/threshold.json'),
+        threshold: path.resolve(projectRoot, 'apps/devindex/resources/data/threshold.json'),
 
         /**
          * State tracking for the Opt-Out service (last processed timestamp).
          * @type {string}
          */
-        optoutSync: path.resolve(projectRoot, 'apps/devindex/resources/optout-sync.json'),
+        optoutSync: path.resolve(projectRoot, 'apps/devindex/resources/data/optout-sync.json'),
 
         /**
          * State tracking for the Opt-In service (last processed timestamp).
          * @type {string}
          */
-        optinSync: path.resolve(projectRoot, 'apps/devindex/resources/optin-sync.json')
+        optinSync: path.resolve(projectRoot, 'apps/devindex/resources/data/optin-sync.json')
     }
 };
 
