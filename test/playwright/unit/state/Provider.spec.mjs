@@ -454,4 +454,35 @@ test.describe('Neo.state.Provider (Node.js)', () => {
         parentComponent.destroy();
         childComponent.destroy();
     });
+
+    test('Component bind_ config should deep merge class and instance level bindings', () => {
+        class BoundComponent extends Component {
+            static config = {
+                className: 'BoundComponent',
+                appName,
+                testConfig1_: null,
+                testConfig2_: null,
+                bind: {
+                    testConfig1: data => data.val1
+                }
+            }
+        }
+        BoundComponent = Neo.setupClass(BoundComponent);
+
+        const component = Neo.create(BoundComponent, {
+            stateProvider: {
+                data: { val1: 'A', val2: 'B' }
+            },
+            bind: {
+                testConfig2: data => data.val2
+            }
+        });
+
+        // Effect execution is asynchronous in some test contexts or deferred, 
+        // but here they are evaluated synchronously on creation if state exists.
+        expect(component.testConfig1).toBe('A');
+        expect(component.testConfig2).toBe('B');
+
+        component.destroy();
+    });
 });
