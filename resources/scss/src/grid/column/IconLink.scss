@@ -1,0 +1,11 @@
+.neo-grid-cell {
+    .neo-icon-link {
+        align-items: center;
+        display    : flex;
+        font-size  : var(--grid-column-icon-link-font-size);
+
+        .neo-link-label {
+            font-size: var(--grid-column-icon-link-label-font-size);
+        }
+    }
+}
