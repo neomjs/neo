@@ -298,7 +298,10 @@ class Storage extends Base {
      *
      * Performs a case-insensitive lookup to prevent duplicate entries for the same user.
      *
-     * @param {Array<{login: String, lastUpdate: String, delete?: Boolean}>} updates List of update operations.
+     * @param {Object[]} updates List of update operations.
+     * @param {String} updates[].login The user's login.
+     * @param {String} [updates[].lastUpdate] The last update timestamp.
+     * @param {Boolean} [updates[].delete] True to delete the user.
      * @returns {Promise<void>}
      */
     async updateTracker(updates) {
