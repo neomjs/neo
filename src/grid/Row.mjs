@@ -377,11 +377,6 @@ class Row extends Component {
                             }
                         }
 
-                        if (column.dock) {
-                            // Ensure neo-locked class is present/absent correctly? 
-                            // Usually static, but good to be safe if dock state changed (unlikely during scroll)
-                        }
-
                         pooledCells[poolIndex] = oldNode;
                         continue
                     }
