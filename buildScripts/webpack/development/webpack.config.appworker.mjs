@@ -42,6 +42,11 @@ export default env => {
         if (fs.existsSync(inputPath)) {
             childProcess = spawnSync('node', [`${neoPath}/buildScripts/util/copyFolder.mjs -s ${inputPath} -t ${outputPath}`], cpOpts);
             childProcess.status && process.exit(childProcess.status);
+
+            // Exception for devindex app: Do not deploy the data folder.
+            if (resourcesPath.replace(/\\/g, '/').includes('apps/devindex/resources')) {
+                fs.removeSync(path.join(outputPath, 'data'));
+            }
         }
     };
 

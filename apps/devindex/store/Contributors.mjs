@@ -46,7 +46,7 @@ class Contributors extends Store {
         proxy: {
             module: StreamProxy,
             progressiveChunkSize: true,
-            url   : '../../apps/devindex/resources/users.jsonl'
+            url   : Neo.config.basePath + 'apps/devindex/resources/data/users.jsonl'
         },
         /**
          * @member {Object[]} sorters
