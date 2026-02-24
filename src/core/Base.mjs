@@ -71,6 +71,13 @@ class Base {
      *     - `beforeSetMyConfig(newValue, oldValue)`: Executed before a new value is set. Can be used for validation or transformation. Returning `undefined` from this hook will cancel the update.
      *     - `afterSetMyConfig(newValue, oldValue)`: Executed after a new value has been successfully set. Ideal for triggering side effects.
      *
+     *     **The `undefined` Sentinel Value:**
+     *     In Neo.mjs, `undefined` is used as a strict, immutable sentinel value representing "initial instantiation".
+     *     When an `afterSet` hook runs for the very first time during component creation, its `oldValue` will ALWAYS be `undefined`.
+     *     This allows developers to easily skip logic that should not run during setup using a simple `if (oldValue !== undefined)`.
+     *     Because of this architecture, **you should never set a config to `undefined` later in its lifecycle.**
+     *     If you need to clear or reset a config's state, explicitly set it to `null`.
+     *
      * 2.  **Non-Reactive (Prototype-based) Configs:** Property names without a trailing underscore.
      *     These are applied directly to the class's **prototype** during the `Neo.setupClass`
      *     process. This is highly memory-efficient as the value is shared across all instances.
