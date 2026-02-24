@@ -32,8 +32,8 @@ subIssues:
   - '[x] 7471 Refactor: Implement Granular Playwright Test Configurations'
   - '[x] 7677 Create Playwright Component Test for Neo.form.field.Password'
   - '[x] 7703 Convert Component Test list/Chip.mjs to Playwright'
-  - '[ ] 7737 Create Playwright Component Test for Neo.component.Label'
-subIssuesCompleted: 15
+  - '[x] 7737 Create Playwright Component Test for Neo.component.Label'
+subIssuesCompleted: 16
 subIssuesTotal: 16
 blockedBy: []
 blocking: []
