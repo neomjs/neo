@@ -212,6 +212,7 @@ class GridContainer extends BaseContainer {
             parentId: me.id,
             rowHeight,
             store,
+            theme   : me.theme,
             windowId
         });
 
@@ -302,8 +303,10 @@ class GridContainer extends BaseContainer {
      * @protected
      */
     afterSetFooterToolbar(value, oldValue) {
-        if (value && this.store && value.store !== this.store) {
-            value.store = this.store
+        let me = this;
+
+        if (value && me.store && value.store !== me.store) {
+            value.store = me.store
         }
     }
 
@@ -421,6 +424,7 @@ class GridContainer extends BaseContainer {
             gridContainer: me,
             parentId     : me.id,
             store        : me.store,
+            theme        : me.theme,
             useInternalId: me.useInternalId
         })
     }
@@ -453,7 +457,8 @@ class GridContainer extends BaseContainer {
 
         return ClassSystemUtil.beforeSetInstance(value, FooterToolbar, {
             flex    : 'none',
-            parentId: me.id
+            parentId: me.id,
+            theme   : me.theme
         })
     }
 
@@ -471,7 +476,8 @@ class GridContainer extends BaseContainer {
             flex             : 'none',
             parentId         : me.id,
             showHeaderFilters: me.showHeaderFilters,
-            sortable         : me.sortable
+            sortable         : me.sortable,
+            theme            : me.theme
         })
     }
 
