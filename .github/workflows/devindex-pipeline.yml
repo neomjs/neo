@@ -78,3 +78,30 @@ jobs:
           else
             echo "No changes detected. Skipping commit."
           fi
+
+      - name: Push Data to neomjs/pages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Cloning pages repository..."
+          git clone https://x-access-token:${GITHUB_TOKEN}@github.com/neomjs/pages.git temp_pages
+          
+          # Ensure target directory exists
+          mkdir -p temp_pages/node_modules/neo.mjs/apps/devindex/resources/data
+          
+          # Copy the data file
+          cp apps/devindex/resources/data/users.jsonl temp_pages/node_modules/neo.mjs/apps/devindex/resources/data/
+          
+          cd temp_pages
+          
+          # Check for changes and push
+          if [[ -n $(git status -s node_modules/neo.mjs/apps/devindex/resources/data/users.jsonl) ]]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            
+            git add node_modules/neo.mjs/apps/devindex/resources/data/users.jsonl
+            git commit -m "chore(devindex): Sync users.jsonl from neo repo [skip ci]"
+            git push origin main
+          else
+            echo "No changes detected for pages repo."
+          fi
