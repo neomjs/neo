@@ -125,9 +125,10 @@ class Component extends Column {
                 ...me.defaults,
                 ...componentConfig,
                 appName,
-                parentComponent : row,
-                [recordProperty]: record,
+                parentComponent  : row,
+                [recordProperty] : record,
                 lastRecordVersion: record.version,
+                theme            : row.theme,
                 windowId
             })
         }
