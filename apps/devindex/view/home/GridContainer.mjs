@@ -1,9 +1,7 @@
 import BaseGridContainer from '../../../../src/grid/Container.mjs';
 import Heuristics        from './component/Heuristics.mjs';
 
-const
-    regexPrefixCy   = /^(c?y)/,
-    regexYearColumn = /^(c|p|pu)?y\d{4}$/;
+const regexYearColumn = /^(c|p|pu)?y\d{4}$/;
 
 /**
  * @class DevIndex.view.home.GridContainer
@@ -31,15 +29,10 @@ class GridContainer extends BaseGridContainer {
          */
         dataMode_: 'total',
         /**
-         * @member {Object} bind
-         */
-        bind: {
-            animateVisuals: data => data.animateVisuals
-        },
-        /**
          * @member {Object} body
          */
         body: {
+            bind             : {animateVisuals: data => data.animateVisuals},
             bufferColumnRange: 1,
             bufferRowRange   : 1,
             listeners        : {
@@ -70,16 +63,6 @@ class GridContainer extends BaseGridContainer {
     }
 
     /**
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
-     */
-    afterSetAnimateVisuals(value, oldValue) {
-        if (oldValue !== undefined) {
-            this.body.animateVisuals = value
-        }
-    }
-
-    /**
      * @param {String} value
      * @param {String} oldValue
      */
@@ -89,7 +72,6 @@ class GridContainer extends BaseGridContainer {
         let me              = this,
             {footerToolbar} = me,
             {store}         = me,
-            positions       = me.body.columnPositions,
             activeSorter    = store.sorters?.[0];
 
         if (footerToolbar) {
