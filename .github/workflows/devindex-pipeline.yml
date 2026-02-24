@@ -81,10 +81,15 @@ jobs:
 
       - name: Push Data to neomjs/pages
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PAGES_DEPLOY_PAT: ${{ secrets.PAGES_DEPLOY_PAT }}
         run: |
+          if [ -z "$PAGES_DEPLOY_PAT" ]; then
+            echo "Skipping push to pages: PAGES_DEPLOY_PAT secret is not set."
+            exit 0
+          fi
+
           echo "Cloning pages repository..."
-          git clone https://x-access-token:${GITHUB_TOKEN}@github.com/neomjs/pages.git temp_pages
+          git clone https://x-access-token:${PAGES_DEPLOY_PAT}@github.com/neomjs/pages.git temp_pages
           
           # Ensure target directory exists
           mkdir -p temp_pages/node_modules/neo.mjs/apps/devindex/resources/data
