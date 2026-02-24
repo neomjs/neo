@@ -118,6 +118,19 @@ class Component extends Column {
                 componentConfig.hideMode = me.hideMode
             }
 
+            // **Prevent Stale State in Pooled Cells**
+            // During grid scrolling (Row Pooling), existing cell components are recycled for new records.
+            // If a new record is missing a data field, `record[dataField]` returns `undefined`.
+            // The Neo.mjs config system's `set()` method ignores `undefined` values, meaning the
+            // component would retain the old record's state, causing visual bugs (e.g., showing a
+            // GitHub org from the previous row on a user who has no orgs).
+            // Converting `undefined` to `null` forces the change detection to explicitly clear the state.
+            for (const key in componentConfig) {
+                if (componentConfig[key] === undefined) {
+                    componentConfig[key] = null
+                }
+            }
+
             component.set(componentConfig, silent)
         } else {
             component = Neo.create({
