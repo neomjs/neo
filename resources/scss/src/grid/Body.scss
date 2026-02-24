@@ -53,12 +53,6 @@
         width      : 100%;
         will-change: transform;
 
-        &:last-child {
-            .neo-grid-cell {
-                border-bottom-width: 0 !important;
-            }
-        }
-
         &.neo-even {
             .neo-grid-cell {
                 background-color: var(--grid-container-cell-background-color-even);
