@@ -92,6 +92,22 @@ class Row extends Component {
     }
 
     /**
+     * Triggered after the theme config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetTheme(value, oldValue) {
+        super.afterSetTheme(value, oldValue);
+
+        if (this.components) {
+            Object.values(this.components).forEach(component => {
+                component.theme = value
+            })
+        }
+    }
+
+    /**
      * Generates the VDOM configuration for a single cell.
      *
      * @param {Object} data
