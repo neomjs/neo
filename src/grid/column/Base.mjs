@@ -104,7 +104,21 @@ class Column extends Base {
     }
 
     /**
-     * Triggered after the windowId config got changed
+     * Triggered after the windowId config got changed.
+     *
+     * **Non-Component Theme Injection**
+     * Although `Neo.grid.column.Base` and its subclasses are not components (they extend `core.Base`),
+     * they hook into the theme engine exactly like components do.
+     *
+     * This is a powerful architectural pattern. It allows specific column implementations
+     * (like `Neo.grid.column.Icon` or `Neo.grid.column.Component`) to inject their own SCSS
+     * theme files (e.g., `resources/scss/theme-neo-dark/grid/column/IconLink.scss`).
+     *
+     * **Best Practice:**
+     * Because columns do not render their own outer DOM nodes with unique CSS classes,
+     * any CSS rules defined in these injected files MUST be scoped inside `.neo-grid-cell`
+     * to prevent unintended side effects on standalone components elsewhere in the application.
+     *
      * @param {Number} value
      * @param {Number|null} oldValue
      * @protected
