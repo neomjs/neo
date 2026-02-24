@@ -1,7 +1,7 @@
 ---
 id: 7737
 title: Create Playwright Component Test for Neo.component.Label
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - stale
@@ -10,16 +10,17 @@ labels:
 assignees:
   - Alachi24
 createdAt: '2025-11-10T20:25:50Z'
-updatedAt: '2026-02-09T04:01:19Z'
+updatedAt: '2026-02-24T03:54:24Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7737'
 author: tobiu
-commentsCount: 4
+commentsCount: 5
 parentIssue: 7435
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-02-24T03:54:24Z'
 ---
 # Create Playwright Component Test for Neo.component.Label
 
@@ -97,4 +98,9 @@ Acceptable... Thank you
 This issue is stale because it has been open for 90 days with no activity.
 
 - 2026-02-09T04:01:19Z @github-actions added the `stale` label
+### @github-actions - 2026-02-24T03:54:23Z
+
+This issue was closed because it has been inactive for 14 days since being marked as stale.
+
+- 2026-02-24T03:54:24Z @github-actions closed this issue
 
