@@ -309,7 +309,9 @@ class DomEvent extends Base {
 
                     if (eventName === 'resize') {
                         me.addResizeObserver(component, event)
-                    } else if (eventName && (event.local || !globalDomEvents.includes(eventName))) {
+                    } else if (eventName && !event.mounted && (event.local || !globalDomEvents.includes(eventName))) {
+                        event.mounted = true;
+
                         let options = {};
 
                         if (event.opts) {
@@ -435,6 +437,28 @@ class DomEvent extends Base {
         listeners[id][eventName].sort((a, b) => b.priority - a.priority);
 
         return true
+    }
+
+    /**
+     * Resets the mounted flag for local domEvent listeners
+     * @param {Neo.component.Base} component
+     * @protected
+     */
+    resetMountedDomListeners(component) {
+        let me        = this,
+            listeners = me.items[component.id];
+
+        if (listeners) {
+            Object.entries(listeners).forEach(([eventName, value]) => {
+                value.forEach(event => {
+                    eventName = event.eventName;
+
+                    if (eventName !== 'resize' && eventName && (event.local || !globalDomEvents.includes(eventName))) {
+                        event.mounted = false
+                    }
+                })
+            })
+        }
     }
 
     /**
