@@ -16,16 +16,16 @@ class ViewportStateProvider extends StateProvider {
          */
         data: {
             /**
-             * @member {Boolean} animateVisuals=true
+             * @member {Boolean} data.animateVisuals=true
              */
             animateVisuals: true,
             /**
-             * @member {Boolean} isScrolling=false
+             * @member {Boolean} data.isScrolling=false
              */
             isScrolling: false,
             /**
              * Values are: large, medium, small, x-small, null
-             * @member {String|null} size
+             * @member {String|null} data.size
              */
             size: null
         }
