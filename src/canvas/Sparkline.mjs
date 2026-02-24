@@ -36,6 +36,7 @@ class Sparkline extends Base {
             fillEnd   : 'rgba(62, 99, 221, 0.0)',
             line      : '#3E63DD',
             marker    : '#3E63DD',
+            pulseRGB  : '255, 255, 255',
             scanner   : '#FFFFFF',
             textYear  : '#AAAAAA',
             textValue : '#FFFFFF'
@@ -45,6 +46,7 @@ class Sparkline extends Base {
             fillEnd   : 'rgba(62, 99, 221, 0.0)',
             line      : '#3E63DD',
             marker    : '#3E63DD',
+            pulseRGB  : '62, 99, 221',
             scanner   : '#000000',
             textYear  : '#666666',
             textValue : '#000000'
@@ -643,16 +645,16 @@ class Sparkline extends Base {
                      let alpha = 1 - (dist / 10);
                      ctx.beginPath();
                      ctx.arc(peak.x, peak.y, 10, 0, Math.PI * 2);
-                     ctx.fillStyle = `rgba(255, 255, 255, ${alpha * 0.5})`;
+                     ctx.fillStyle = `rgba(${colors.pulseRGB}, ${alpha * 0.5})`;
                      ctx.fill()
                  }
              }
 
              // Draw Glow
              let gradient = ctx.createRadialGradient(x, y, 0, x, y, 6);
-             gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
-             gradient.addColorStop(0.4, 'rgba(255, 255, 255, 0.4)');
-             gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+             gradient.addColorStop(0, `rgba(${colors.pulseRGB}, 1)`);
+             gradient.addColorStop(0.4, `rgba(${colors.pulseRGB}, 0.4)`);
+             gradient.addColorStop(1, `rgba(${colors.pulseRGB}, 0)`);
 
              ctx.beginPath();
              ctx.arc(x, y, 6, 0, Math.PI * 2);
