@@ -251,6 +251,8 @@ class Abstract extends Base {
             } else { // unmount
                 delete me._mountedPromise;
 
+                me.resetMountedDomEvents?.();
+
                 if (me.unmountConfigs) {
                     me.set(me.unmountConfigs)
                 }

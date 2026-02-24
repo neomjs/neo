@@ -97,6 +97,13 @@ class DomEvents extends Base {
     }
 
     /**
+     * Resets the mounted flag for local domEvent listeners
+     */
+    resetMountedDomEvents() {
+        DomEventManager.resetMountedDomListeners(this)
+    }
+
+    /**
      * Destroys DOM event listeners.
      */
     removeDomEvents() {
