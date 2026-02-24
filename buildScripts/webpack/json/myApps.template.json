@@ -1,9 +1,14 @@
 {
     "apps": [
+        "AgentOS",
         "Colors",
         "Covid",
+        "DevIndex",
         "Docs",
+        "Email",
+        "Finance",
         "Form",
+        "Legit",
         "Portal",
         "RealWorld",
         "RealWorld2",
