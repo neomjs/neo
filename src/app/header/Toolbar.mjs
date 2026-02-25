@@ -56,9 +56,15 @@ class Toolbar extends Base {
 
         this.add({
             module   : Canvas,
+            listeners: {canvasReady: 'onCanvasReady', scope: this},
             reference: 'header-canvas'
         })
     }
+
+    /**
+     * Empty template method, override in subclasses if needed
+     */
+    onCanvasReady() {}
 }
 
 export default Neo.setupClass(Toolbar);
