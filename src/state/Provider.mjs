@@ -243,28 +243,35 @@ class Provider extends Base {
      */
     createBinding(componentId, configKey, formatter) {
         const
-            me     = this,
-            effect = new Effect(() => {
-                const component = Neo.get(componentId);
+            me        = this,
+            mapKey    = `${componentId}-${configKey}`,
+            oldEffect = me.#bindingEffects.get(mapKey);
 
-                if (component && !component.isDestroyed) {
-                    const
-                        hierarchicalData = me.getHierarchyData(),
-                        newValue         = Neo.isFunction(formatter) ? formatter.call(me, hierarchicalData) : hierarchicalData[formatter];
+        if (oldEffect) {
+            oldEffect.destroy()
+        }
 
-                    component._skipTwoWayPush = configKey;
-                    component[configKey] = newValue;
-                    delete component._skipTwoWayPush
-                }
-            });
+        const effect = new Effect(() => {
+            const component = Neo.get(componentId);
 
-        me.#bindingEffects.set(componentId, effect);
+            if (component && !component.isDestroyed) {
+                const
+                    hierarchicalData = me.getHierarchyData(),
+                    newValue         = Neo.isFunction(formatter) ? formatter.call(me, hierarchicalData) : hierarchicalData[formatter];
+
+                component._skipTwoWayPush = configKey;
+                component[configKey] = newValue;
+                delete component._skipTwoWayPush
+            }
+        });
+
+        me.#bindingEffects.set(mapKey, effect);
 
         // The effect observes the component's destruction to clean itself up.
         me.observeConfig(componentId, 'isDestroying', (value) => {
             if (value) {
                 effect.destroy();
-                me.#bindingEffects.delete(componentId)
+                me.#bindingEffects.delete(mapKey)
             }
         });
 
