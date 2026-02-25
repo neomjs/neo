@@ -65,3 +65,10 @@ Switching the Data Mode recalculates the grid and re-sorts the data instantly. T
 ### Specialized Filters
 - **Hireable Only:** Check this box to filter the list down to developers who are looking for work. Ideal for recruiters.
 - **Hide Commit Ratio > 90%:** This filter can be used to hide accounts that exhibit highly anomalous commit patterns. While an extremely high commit ratio is often a strong indicator of an automated account (a "bot" or "cyborg"), there are valid exceptions (such as solo founders managing issues externally). To remain strictly objective and avoid passing judgment, this filter is optional and disabled by default.
+
+### Visual Settings
+Under the **Settings** tab within the controls, you can manage the application's performance and aesthetics. **All visual settings and the application theme are automatically saved to your browser's Local Storage**, meaning your preferences will persist across future visits.
+
+- **Slow Header Canvas:** Drastically reduces the speed of the background particle animation in the top header. Useful if the animation is visually distracting.
+- **Animate Grid Sparklines:** Toggles the "Living Pulse" animation inside the grid's Activity column. If you are on a low-end device, turning this off will significantly reduce CPU usage and battery drain during fast scrolling.
+- **Theme Toggle (Header):** Located in the main top header (the moon/sun icon), this instantly switches the entire application between Dark Mode and Light Mode.
