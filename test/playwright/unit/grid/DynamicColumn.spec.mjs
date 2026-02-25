@@ -103,7 +103,7 @@ test.describe('Grid Dynamic Column Updates', () => {
             width    : 300, // Constrained width to force scrolling
             store    : store,
             rowHeight: 40,
-            bufferColumnRange: 1, 
+            bufferColumnRange: 1,
             columns  : [{
                 dataField: 'id',
                 text     : 'ID',
@@ -134,7 +134,7 @@ test.describe('Grid Dynamic Column Updates', () => {
             {dataField: 'y2020', width: 100, x: 150},
             {dataField: 'zEnd',  width: 50,  x: 250}
         ];
-        
+
         grid.body.columnPositions.clear();
         grid.body.columnPositions.add(colPos);
 
@@ -154,35 +154,33 @@ test.describe('Grid Dynamic Column Updates', () => {
 
     test('Changing dataField should preserve column order', async () => {
         const body = grid.body;
-        
+
         // 1. Verify Initial Order
         // Index 2 should be y2020
         expect(body.columnPositions.getAt(2).dataField).toBe('y2020');
         expect(body.columnPositions.getAt(3).dataField).toBe('zEnd');
-        
+
         // 2. Simulate Data Mode Switch
         const yearColumn = grid.columns.items[2];
         const oldDataField = 'y2020';
         const newDataField = 'c2020';
-        
+
         // This triggers Column.afterSetDataField -> colPositions.remove() -> add()
         yearColumn.dataField = newDataField;
-        
+
         // 3. Verify Map Update (Should work)
         const positions = body.columnPositions;
         expect(positions.get(oldDataField)).toBeNull();
         expect(positions.get(newDataField)).toBeDefined();
-        
+
         // 4. Verify ORDER PRESERVATION (This is the bug)
         // With current implementation, 'add()' pushes to end.
         // So 'c2020' moves to index 3. 'zEnd' shifts to index 2.
         // WE WANT: c2020 at index 2.
-        
+
         const index2 = positions.getAt(2).dataField;
         const index3 = positions.getAt(3).dataField;
-        
-        console.log('Index 2:', index2, 'Index 3:', index3);
-        
+
         // If bug exists: index2 = 'zEnd', index3 = 'c2020'
         // If fix works:  index2 = 'c2020', index3 = 'zEnd'
         expect(index2).toBe(newDataField);
