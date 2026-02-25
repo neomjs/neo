@@ -32,7 +32,6 @@ class GridContainer extends BaseGridContainer {
          * @member {Object} body
          */
         body: {
-            bind             : {animateVisuals: data => data.animateGridVisuals},
             bufferColumnRange: 1,
             bufferRowRange   : 1,
             listeners        : {
@@ -232,11 +231,12 @@ class GridContainer extends BaseGridContainer {
                     heuristics : record.heuristics || record.hm
                 })
             }, {
-                dataField: 'activity',
-                text     : `Activity (${activityDuration}y)`,
-                width    : 160,
-                type     : 'sparkline',
-                component: ({record}) => {
+                dataField  : 'activity',
+                text       : `Activity (${activityDuration}y)`,
+                width      : 160,
+                type       : 'sparkline',
+                useBindings: true,
+                component  : ({record}) => {
                     const data = [];
                     // Iterate from 2010 to endYear
                     for (let i = 2010; i <= endYear; i++) {
@@ -244,6 +244,7 @@ class GridContainer extends BaseGridContainer {
                     }
 
                     return {
+                        bind  : {usePulse: data => data.animateGridVisuals},
                         values: data
                     }
                 }
