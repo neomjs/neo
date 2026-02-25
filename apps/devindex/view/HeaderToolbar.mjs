@@ -99,8 +99,10 @@ class HeaderToolbar extends Toolbar {
      * @param {Boolean} oldValue
      */
     afterSetAnimateVisuals(value, oldValue) {
-        if (value !== undefined) {
-            this.getReference('header-canvas')?.renderer?.updateConfig({usePulse: value})
+        let canvas = this.getReference('header-canvas');
+
+        if (value !== undefined && canvas?.isCanvasReady) {
+            canvas.renderer.updateConfig({usePulse: value})
         }
     }
 
@@ -109,8 +111,26 @@ class HeaderToolbar extends Toolbar {
      * @param {Boolean} oldValue
      */
     afterSetIsScrolling(value, oldValue) {
-        if (value !== undefined) {
-            this.getReference('header-canvas')?.renderer?.updateTimeScale({value: value ? 2 : 1})
+        let canvas = this.getReference('header-canvas');
+
+        if (value !== undefined && canvas?.isCanvasReady) {
+            canvas.renderer.updateTimeScale({value: value ? 2 : 1})
+        }
+    }
+
+    /**
+     * Gets triggered when the remote canvas worker is fully registered.
+     */
+    onCanvasReady() {
+        let me     = this,
+            canvas = me.getReference('header-canvas');
+            
+        if (me.animateVisuals !== undefined) {
+            canvas.renderer.updateConfig({usePulse: me.animateVisuals})
+        }
+
+        if (me.isScrolling !== undefined) {
+            canvas.renderer.updateTimeScale({value: me.isScrolling ? 2 : 1})
         }
     }
 }

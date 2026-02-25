@@ -13,15 +13,6 @@ class MainContainerStateProvider extends StateProvider {
          */
         className: 'DevIndex.view.home.MainContainerStateProvider',
         /**
-         * @member {Object} data
-         */
-        data: {
-            /**
-             * @member {Boolean} data.animateGridVisuals=true
-             */
-            animateGridVisuals: true
-        },
-        /**
          * @member {Object} stores
          */
         stores: {

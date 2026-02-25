@@ -16,6 +16,10 @@ class ViewportStateProvider extends StateProvider {
          */
         data: {
             /**
+             * @member {Boolean} data.animateGridVisuals=true
+             */
+            animateGridVisuals: true,
+            /**
              * @member {Boolean} data.slowHeaderVisuals=false
              */
             slowHeaderVisuals: false,
