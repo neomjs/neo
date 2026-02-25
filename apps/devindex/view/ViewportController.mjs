@@ -32,7 +32,7 @@ class ViewportController extends Controller {
         let me = this;
 
         Neo.main.addon.LocalStorage.readLocalStorageItem({
-            key     : ['devindexTheme', 'devindexSlowHeaderVisuals'],
+            key     : ['devindexTheme', 'devindexSlowHeaderVisuals', 'devindexAnimateGridVisuals'],
             windowId: me.windowId
         }).then(({value}) => {
             if (value.devindexTheme) {
@@ -43,6 +43,10 @@ class ViewportController extends Controller {
 
             if (value.devindexSlowHeaderVisuals !== null) {
                 me.setState('slowHeaderVisuals', value.devindexSlowHeaderVisuals === 'true')
+            }
+
+            if (value.devindexAnimateGridVisuals !== null) {
+                me.setState('animateGridVisuals', value.devindexAnimateGridVisuals === 'true')
             }
         })
     }
