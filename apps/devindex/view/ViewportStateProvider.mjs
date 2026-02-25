@@ -16,9 +16,9 @@ class ViewportStateProvider extends StateProvider {
          */
         data: {
             /**
-             * @member {Boolean} data.animateVisuals=true
+             * @member {Boolean} data.slowHeaderVisuals=false
              */
-            animateVisuals: true,
+            slowHeaderVisuals: false,
             /**
              * @member {Boolean} data.isScrolling=false
              */

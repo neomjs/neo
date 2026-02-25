@@ -32,7 +32,7 @@ class GridContainer extends BaseGridContainer {
          * @member {Object} body
          */
         body: {
-            bind             : {animateVisuals: data => data.animateVisuals},
+            bind             : {animateVisuals: data => data.animateGridVisuals},
             bufferColumnRange: 1,
             bufferRowRange   : 1,
             listeners        : {
