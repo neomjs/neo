@@ -51,6 +51,15 @@ class Component extends Column {
         type: 'component',
         /**
          * Set this config to true, in case you want to use 'bind' inside your cell based component.
+         *
+         * **Performance Warning (Static Bindings Only):**
+         * Because grid cells are pooled and recycled during scrolling, `StateProvider` bindings are evaluated
+         * exactly **once** when the component is first instantiated.
+         *
+         * Your `bind` functions must **never** rely on dynamically iterating `record` data from the `cellRenderer` scope.
+         * Bindings are strictly for global or hierarchical UI state (e.g. `animateVisuals`).
+         * For record-specific data, pass the values directly within the component config object, which is updated on every recycle.
+         *
          * @member {Boolean} useBindings=false
          */
         useBindings: false
@@ -131,6 +140,10 @@ class Component extends Column {
                 }
             }
 
+            // Enforce static bindings on pooled components to prevent OOM leaks
+            // Bindings belong to the global UI state, not iterating record state.
+            delete componentConfig.bind;
+
             component.set(componentConfig, silent)
         } else {
             component = Neo.create({
@@ -143,11 +156,12 @@ class Component extends Column {
                 lastRecordVersion: record.version,
                 theme            : row.theme,
                 windowId
-            })
-        }
+            });
 
-        if (me.useBindings) {
-            gridContainer.body.getStateProvider()?.createBindings(component)
+            // Only create bindings ONCE upon component instantiation
+            if (me.useBindings) {
+                gridContainer.body.getStateProvider()?.createBindings(component)
+            }
         }
 
         return component
