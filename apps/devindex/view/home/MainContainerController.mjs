@@ -62,6 +62,15 @@ class MainContainerController extends Controller {
 
         me.getReference('controls-tab-container').on('activeIndexChange', me.onControlsTabChange, me);
 
+        Neo.main.addon.LocalStorage.readLocalStorageItem({
+            key     : 'devindexAnimateGridVisuals',
+            windowId: me.windowId
+        }).then(({value}) => {
+            if (value !== null) {
+                me.setState('animateGridVisuals', value === 'true')
+            }
+        });
+
         Neo.Main.getByPath({
             path    : 'location.search',
             windowId: me.windowId
@@ -154,15 +163,27 @@ class MainContainerController extends Controller {
     /**
      * @param {Object} data
      */
-    onAnimateGridVisualsChange(data) {
-        this.setState('animateGridVisuals', data.value)
+    onAnimateGridVisualsChange(data) {console.log(data.value);
+        this.setState('animateGridVisuals', data.value);
+
+        Neo.main.addon.LocalStorage.updateLocalStorageItem({
+            key     : 'devindexAnimateGridVisuals',
+            value   : String(data.value),
+            windowId: this.windowId
+        })
     }
 
     /**
      * @param {Object} data
      */
     onSlowHeaderVisualsChange(data) {
-        this.setState('slowHeaderVisuals', data.value)
+        this.setState('slowHeaderVisuals', data.value);
+
+        Neo.main.addon.LocalStorage.updateLocalStorageItem({
+            key     : 'devindexSlowHeaderVisuals',
+            value   : String(data.value),
+            windowId: this.windowId
+        })
     }
 }
 

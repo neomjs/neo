@@ -32,13 +32,17 @@ class ViewportController extends Controller {
         let me = this;
 
         Neo.main.addon.LocalStorage.readLocalStorageItem({
-            key     : 'devindexTheme',
+            key     : ['devindexTheme', 'devindexSlowHeaderVisuals'],
             windowId: me.windowId
         }).then(({value}) => {
-            if (value) {
-                me.setTheme(value, false)
+            if (value.devindexTheme) {
+                me.setTheme(value.devindexTheme, false)
             } else if (Neo.config.prefersDarkTheme) {
                 me.setTheme('neo-theme-neo-dark', false)
+            }
+
+            if (value.devindexSlowHeaderVisuals !== null) {
+                me.setState('slowHeaderVisuals', value.devindexSlowHeaderVisuals === 'true')
             }
         })
     }

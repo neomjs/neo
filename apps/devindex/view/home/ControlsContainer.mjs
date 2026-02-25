@@ -177,7 +177,7 @@ class ControlsContainer extends Container {
 
                 items: [{
                     module       : CheckBox,
-                    checked      : false,
+                    bind         : {checked: data => data.slowHeaderVisuals},
                     hideLabel    : true,
                     listeners    : {change: 'onSlowHeaderVisualsChange'},
                     style        : {marginTop: 0},
@@ -185,7 +185,7 @@ class ControlsContainer extends Container {
                     width        : 200
                 }, {
                     module       : CheckBox,
-                    checked      : true,
+                    bind         : {checked: data => data.animateGridVisuals},
                     hideLabel    : true,
                     listeners    : {change: 'onAnimateGridVisualsChange'},
                     style        : {marginTop: '.3em'},
