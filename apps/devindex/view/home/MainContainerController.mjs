@@ -155,14 +155,26 @@ class MainContainerController extends Controller {
      * @param {Object} data
      */
     onAnimateGridVisualsChange(data) {
-        this.setState('animateGridVisuals', data.value)
+        this.setState('animateGridVisuals', data.value);
+
+        Neo.main.addon.LocalStorage.updateLocalStorageItem({
+            key     : 'devindexAnimateGridVisuals',
+            value   : String(data.value),
+            windowId: this.windowId
+        })
     }
 
     /**
      * @param {Object} data
      */
     onSlowHeaderVisualsChange(data) {
-        this.setState('slowHeaderVisuals', data.value)
+        this.setState('slowHeaderVisuals', data.value);
+
+        Neo.main.addon.LocalStorage.updateLocalStorageItem({
+            key     : 'devindexSlowHeaderVisuals',
+            value   : String(data.value),
+            windowId: this.windowId
+        })
     }
 }
 

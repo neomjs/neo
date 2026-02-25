@@ -67,7 +67,8 @@ class SharedCanvas extends Canvas {
     afterSetIsCanvasReady(value, oldValue) {
         if (value) {
             let mode = this.theme?.includes('dark') ? 'dark' : 'light';
-            this.renderer?.setTheme(mode)
+            this.renderer?.setTheme(mode);
+            this.fire('canvasReady')
         }
     }
 
