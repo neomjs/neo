@@ -154,8 +154,15 @@ class MainContainerController extends Controller {
     /**
      * @param {Object} data
      */
-    onShowAnimationsChange(data) {
-        this.setState('animateVisuals', data.value)
+    onAnimateGridVisualsChange(data) {
+        this.setState('animateGridVisuals', data.value)
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onSlowHeaderVisualsChange(data) {
+        this.setState('slowHeaderVisuals', data.value)
     }
 }
 

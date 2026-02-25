@@ -177,11 +177,19 @@ class ControlsContainer extends Container {
 
                 items: [{
                     module       : CheckBox,
+                    checked      : false,
+                    hideLabel    : true,
+                    listeners    : {change: 'onSlowHeaderVisualsChange'},
+                    style        : {marginTop: 0},
+                    valueLabel   : 'Slow Header Canvas',
+                    width        : 200
+                }, {
+                    module       : CheckBox,
                     checked      : true,
                     hideLabel    : true,
-                    listeners    : {change: 'onShowAnimationsChange'},
-                    style        : {marginTop: 0},
-                    valueLabel   : 'Show Animations',
+                    listeners    : {change: 'onAnimateGridVisualsChange'},
+                    style        : {marginTop: '.3em'},
+                    valueLabel   : 'Animate Grid Sparklines',
                     width        : 200
                 }, {
                     module        : ComboBox,

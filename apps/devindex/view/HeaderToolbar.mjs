@@ -20,7 +20,7 @@ class HeaderToolbar extends Toolbar {
          * @member {Object} bind
          */
         bind: {
-            animateVisuals: data => data.animateVisuals,
+            animateVisuals: data => !data.slowHeaderVisuals,
             isScrolling   : data => data.isScrolling
         },
         /**
