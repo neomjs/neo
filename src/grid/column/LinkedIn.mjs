@@ -20,9 +20,9 @@ class LinkedIn extends ComponentColumn {
             module: IconLinkComponent
         },
         /**
-         * @member {String|null} iconCls='fa-brands fa-linkedin'
+         * @member {String|null} cellIconCls='fa-brands fa-linkedin'
          */
-        iconCls: 'fa-brands fa-linkedin',
+        cellIconCls: 'fa-brands fa-linkedin',
         /**
          * @member {String} type='linkedin'
          * @protected
@@ -44,7 +44,7 @@ class LinkedIn extends ComponentColumn {
         }
 
         return {
-            iconCls: me.iconCls,
+            cellIconCls: me.cellIconCls,
             url,
             ...config
         }
