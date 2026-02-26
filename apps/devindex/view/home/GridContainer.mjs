@@ -251,7 +251,7 @@ class GridContainer extends BaseGridContainer {
             }, {
                 type          : 'iconLink',
                 dataField     : 'topRepo',
-                iconCls       : 'fa-brands fa-github',
+                cellIconCls   : 'fa-brands fa-github',
                 labelFormatter: val => val?.[1] ? new Intl.NumberFormat().format(val[1]) : null,
                 text          : 'Top Repo',
                 urlFormatter  : val => val ? `https://github.com/${val[0]}` : null,
@@ -268,13 +268,13 @@ class GridContainer extends BaseGridContainer {
                 text     : 'Location',
                 width    : 200
             }, {
-                type     : 'iconLink',
-                cellAlign: 'center',
-                dataField: 'website',
-                cellCls  : 'devindex-column-website',
-                iconCls  : 'fa fa-home',
-                text     : 'Website',
-                width    : 65
+                type       : 'iconLink',
+                cellAlign  : 'center',
+                dataField  : 'website',
+                cellCls    : 'devindex-column-website',
+                cellIconCls: 'fa fa-home',
+                text       : 'Website',
+                width      : 65
             }, {
                 type     : 'linkedin',
                 cellAlign: 'center',
@@ -283,21 +283,21 @@ class GridContainer extends BaseGridContainer {
                 text     : 'LI',
                 width    : 40
             }, {
-                type     : 'icon',
-                cellAlign: 'center',
-                dataField: 'isHireable',
-                cellCls  : 'devindex-column-hireable',
-                iconCls  : 'fas fa-circle-check',
-                text     : 'Hireable',
-                width    : 65
+                type       : 'icon',
+                cellAlign  : 'center',
+                dataField  : 'isHireable',
+                cellCls    : 'devindex-column-hireable',
+                cellIconCls: 'fas fa-circle-check',
+                text       : 'Hireable',
+                width      : 65
             }, {
-                type     : 'iconLink',
-                cellAlign: 'center',
-                dataField: 'twitter',
-                cellCls  : 'devindex-column-twitter',
-                iconCls  : 'fa-brands fa-x-twitter',
-                text     : 'X',
-                width    : 40
+                type       : 'iconLink',
+                cellAlign  : 'center',
+                dataField  : 'twitter',
+                cellCls    : 'devindex-column-twitter',
+                cellIconCls: 'fa-brands fa-x-twitter',
+                text       : 'X',
+                width      : 40
             }, {
                 type     : 'githubOrgs',
                 dataField: 'organizations',
@@ -314,7 +314,7 @@ class GridContainer extends BaseGridContainer {
                 cellAlign     : 'center',
                 cellCls       : 'devindex-column-sponsors',
                 dataField     : 'hasSponsors',
-                iconCls       : 'fa-regular fa-heart',
+                cellIconCls   : 'fa-regular fa-heart',
                 labelFormatter: val => val != null ? String(val) : null,
                 text          : 'Sponsors',
                 urlFormatter  : (val, record) => val != null ? `https://github.com/sponsors/${record.login}` : null,

@@ -20,9 +20,9 @@ class IconLink extends ComponentColumn {
             module: IconLinkComponent
         },
         /**
-         * @member {String|null} iconCls=null
+         * @member {String|null} cellIconCls=null
          */
-        iconCls: null,
+        cellIconCls: null,
         /**
          * @member {String|null} labelField=null
          */
@@ -62,7 +62,7 @@ class IconLink extends ComponentColumn {
         }
 
         return {
-            iconCls: me.iconCls,
+            cellIconCls: me.cellIconCls,
             label,
             url,
             ...config

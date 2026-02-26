@@ -20,9 +20,9 @@ class Icon extends ComponentColumn {
             module: IconComponent
         },
         /**
-         * @member {String|null} iconCls=null
+         * @member {String|null} cellIconCls=null
          */
-        iconCls: null,
+        cellIconCls: null,
         /**
          * @member {String} type='icon'
          * @protected
@@ -36,21 +36,21 @@ class Icon extends ComponentColumn {
      * @returns {Object}
      */
     applyRecordConfigs(config, record) {
-        let me      = this,
-            value   = record[me.dataField],
-            iconCls = me.iconCls;
+        let me          = this,
+            value       = record[me.dataField],
+            cellIconCls = me.cellIconCls;
 
-        if (iconCls) {
+        if (cellIconCls) {
             return {
-                iconCls,
+                cellIconCls,
                 hidden: !value,
                 ...config
             }
         }
 
         return {
-            iconCls: value,
-            hidden : !value,
+            cellIconCls: value,
+            hidden     : !value,
             ...config
         }
     }

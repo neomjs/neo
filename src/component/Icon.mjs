@@ -22,10 +22,10 @@ class Icon extends Component {
          */
         baseCls: ['neo-icon'],
         /**
-         * @member {String|null} iconCls_=null
+         * @member {String|null} cellIconCls_=null
          * @reactive
          */
-        iconCls_: null,
+        cellIconCls_: null,
         /**
          * @member {String} tag='i'
          */
@@ -33,11 +33,11 @@ class Icon extends Component {
     }
 
     /**
-     * Triggered after the iconCls config got changed
+     * Triggered after the cellIconCls config got changed
      * @param {String|String[]|null} value
      * @param {String|String[]|null} oldValue
      */
-    afterSetIconCls(value, oldValue) {
+    afterSetCellIconCls(value, oldValue) {
         let cls = this.cls;
 
         NeoArray.removeAdd(cls, oldValue, value);
@@ -46,13 +46,13 @@ class Icon extends Component {
     }
 
     /**
-     * Triggered before the iconCls config gets changed. Converts the string into an array if needed.
-     * @param {Array|String|null} value    The new value of the iconCls config.
-     * @param {Array|String|null} oldValue The old value of the iconCls config.
+     * Triggered before the cellIconCls config gets changed. Converts the string into an array if needed.
+     * @param {Array|String|null} value    The new value of the cellIconCls config.
+     * @param {Array|String|null} oldValue The old value of the cellIconCls config.
      * @returns {Array}
      * @protected
      */
-    beforeSetIconCls(value, oldValue) {
+    beforeSetCellIconCls(value, oldValue) {
         if (value && !Array.isArray(value)) {
             value = value.split(' ').filter(Boolean)
         }
