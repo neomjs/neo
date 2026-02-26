@@ -59,7 +59,7 @@ class Canvas extends Component {
 
             if (me.monitorSize) {
                 me.addDomListeners([{
-                    delegate: `#${me.getCanvasId()}`,
+                    delegate: `#${me.getMonitorTargetId()}`,
                     resize  : me.onDomResize,
                     scope   : me
                 }])
@@ -150,6 +150,16 @@ class Canvas extends Component {
      */
     getCanvasId() {
         return this.id
+    }
+
+    /**
+     * The DOM node ID that should trigger the canvas resize updates.
+     * By default, this is the component's top-level wrapper ID.
+     * Subclasses can override this to observe a different node (e.g. a parent container).
+     * @returns {String}
+     */
+    getMonitorTargetId() {
+        return this.vdom.id
     }
 
     /**

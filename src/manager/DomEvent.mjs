@@ -99,9 +99,23 @@ class DomEvent extends Base {
     mountTimeouts = {}
 
     /**
+     * Registers a native ResizeObserver for a specific component listener.
+     *
+     * **Architectural Note on Delegation:**
+     * Unlike standard DOM events (click, mouseenter) which support full CSS-selector delegation
+     * (e.g., `delegate: '.my-class'`), `resize` event delegation is strictly limited to exact Node IDs
+     * (e.g., `delegate: '#my-id'`).
+     *
+     * **The Intent:**
+     * A native `ResizeObserver` must be attached to a specific, existing physical DOM node. If we allowed
+     * CSS selectors, the manager would have to recursively scan the DOM on every mutation to find new
+     * matching nodes and dynamically attach/detach observers. For highly permutable DOM structures
+     * (like virtualized grids or dynamic lists), this continuous polling and observer thrashing
+     * would destroy performance. Therefore, observing dynamic children requires manual iteration
+     * and explicit ID registration by the parent component.
      *
      * @param {Neo.component.Base} component
-     * @param {data} event
+     * @param {Object} event
      */
     async addResizeObserver(component, event) {
         let {id, windowId} = component,
@@ -161,7 +175,8 @@ class DomEvent extends Base {
                         if (listener && listener.fn) {
                             if (eventName === 'resize') {
                                 // we do not want delegation for custom main.addon.ResizeObserver events
-                                delegationTargetId = data.id === component.id ? data.id : false
+                                let delegateId = listener.delegate?.startsWith('#') ? listener.delegate.substring(1) : listener.delegate;
+                                delegationTargetId = data.id === delegateId ? data.id : false
                             } else {
                                 delegationTargetId = me.verifyDelegationPath(listener, data.path, path)
                             }
