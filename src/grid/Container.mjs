@@ -759,8 +759,7 @@ class GridContainer extends BaseContainer {
      */
     removeSortingCss(dataField) {
         this.headerToolbar?.items.forEach(column => {
-            if (column.dataField !== dataField) {return;
-                console.log(column, dataField)
+            if (column.dataField !== dataField) {
                 column.removeSortingCss()
             }
         })
