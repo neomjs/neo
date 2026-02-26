@@ -82,12 +82,17 @@ class GitHubOrgs extends Component {
                     img = node.cn[0];
 
                 if (org) {
-                    let avatarUrl = org.avatar_url;
+                    let avatarUrl = org.avatarUrl;
 
                     if (avatarUrl) {
-                        let url = new URL(avatarUrl);
-                        url.searchParams.set('s', me.avatarSize);
-                        avatarUrl = url.toString()
+                        let urlStr = String(avatarUrl);
+                        if (!urlStr.startsWith('http')) {
+                            avatarUrl = `https://avatars.githubusercontent.com/u/${avatarUrl}?v=4&s=${me.avatarSize}`;
+                        } else {
+                            let url = new URL(avatarUrl);
+                            url.searchParams.set('s', me.avatarSize);
+                            avatarUrl = url.toString()
+                        }
                     }
 
                     node.href  = `https://github.com/${org.login}`;
@@ -108,12 +113,17 @@ class GitHubOrgs extends Component {
             let newItems = [];
 
             items.slice(0, maxItems).forEach(org => {
-                let avatarUrl = org.avatar_url;
+                let avatarUrl = org.avatarUrl;
 
                 if (avatarUrl) {
-                    let url = new URL(avatarUrl);
-                    url.searchParams.set('s', me.avatarSize);
-                    avatarUrl = url.toString()
+                    let urlStr = String(avatarUrl);
+                    if (!urlStr.startsWith('http')) {
+                        avatarUrl = `https://avatars.githubusercontent.com/u/${avatarUrl}?v=4&s=${me.avatarSize}`;
+                    } else {
+                        let url = new URL(avatarUrl);
+                        url.searchParams.set('s', me.avatarSize);
+                        avatarUrl = url.toString()
+                    }
                 }
 
                 newItems.push({

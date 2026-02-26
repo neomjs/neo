@@ -28,16 +28,9 @@ class Contributor extends Model {
          * @member {Object[]} fields
          */
         fields: [
-            {name: 'login', mapping: 'l',  type: 'String'},
-            {name: 'name',  mapping: 'n',  type: 'String'},
-            {
-                name        : 'avatar_url',
-                mapping     : 'i',
-                type        : 'String',
-                defaultValue: null,
-                convert     : value => value ? `https://avatars.githubusercontent.com/u/${value}?v=4` : null
-            },
-            {name: 'avatarUrl',            mapping: 'i',  type: 'String',  defaultValue: null, convert: value => value ? `https://avatars.githubusercontent.com/u/${value}?v=4` : null},
+            {name: 'login',                mapping: 'l',  type: 'String'},
+            {name: 'name',                 mapping: 'n',  type: 'String'},
+            {name: 'avatarUrl',            mapping: 'i',  type: 'String',  defaultValue: null},
             {name: 'location',             mapping: 'lc', type: 'String',  defaultValue: null},
             {name: 'countryCode',          mapping: 'cc', type: 'String',  defaultValue: null},
             {name: 'company',              mapping: 'c',  type: 'String',  defaultValue: null},
@@ -67,8 +60,8 @@ class Contributor extends Model {
                 convert: value => {
                     if (!Array.isArray(value)) return [];
                     return value.map(item => ({
-                        login     : item[0],
-                        avatar_url: `https://avatars.githubusercontent.com/u/${item[1]}?v=4`
+                        login    : item[0],
+                        avatarUrl: item[1]
                     }))
                 }
             },

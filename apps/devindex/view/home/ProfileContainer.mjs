@@ -98,6 +98,10 @@ class ProfileContainer extends Container {
     getAvatarUrl(src, size) {
         if (src) {
             try {
+                let urlStr = String(src);
+                if (!urlStr.startsWith('http')) {
+                    return `https://avatars.githubusercontent.com/u/${src}?v=4&s=${size}`;
+                }
                 let url = new URL(src);
                 url.searchParams.set('s', size);
                 return url.toString()
@@ -138,7 +142,7 @@ class ProfileContainer extends Container {
         login  = VDomUtil.getByFlag(vdom, 'login');
 
         if (avatar) {
-            avatar.src = me.getAvatarUrl(record.avatar_url, 128)
+            avatar.src = me.getAvatarUrl(record.avatarUrl, 128)
         }
         if (name) {
             name.text  = record.name || '';
@@ -164,7 +168,7 @@ class ProfileContainer extends Container {
                     module: Image,
                     alt   : org.login,
                     height: 32,
-                    src   : me.getAvatarUrl(org.avatar_url, 64),
+                    src   : me.getAvatarUrl(org.avatarUrl, 64),
                     title : org.login,
                     width : 32
                 })
