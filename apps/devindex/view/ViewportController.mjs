@@ -75,6 +75,7 @@ class ViewportController extends Controller {
      * @param {Object} oldValue
      */
     onHomeRoute(params, value, oldValue) {
+        this.getReference('controls-toggle-button').disabled = false;
         this.getReference('main-content').layout.activeIndex = 0
     }
 
@@ -84,6 +85,7 @@ class ViewportController extends Controller {
      * @param {Object} oldValue
      */
     onLearnRoute(params, value, oldValue) {
+        this.getReference('controls-toggle-button').disabled = true;
         this.getReference('main-content').layout.activeIndex = 1
     }
 
