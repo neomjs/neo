@@ -134,24 +134,38 @@ class VNode {
  * @private
  */
 function normalizeClassName(classNameInput) {
-    let normalizedClasses = [];
+    let normalizedClasses = [],
+        i, len, cls, parts, j, jLen, part;
 
     if (Neo.isString(classNameInput)) {
-        normalizedClasses = classNameInput.split(' ').filter(Boolean)
+        parts = classNameInput.split(' ');
+        for (i = 0, len = parts.length; i < len; i++) {
+            part = parts[i];
+            if (part) normalizedClasses.push(part)
+        }
     } else if (Array.isArray(classNameInput)) {
-        classNameInput.forEach(cls => {
+        for (i = 0, len = classNameInput.length; i < len; i++) {
+            cls = classNameInput[i];
             if (Neo.isString(cls)) {
                 if (cls.includes(' ')) {
-                    normalizedClasses.push(...cls.split(' ').filter(Boolean))
+                    parts = cls.split(' ');
+                    for (j = 0, jLen = parts.length; j < jLen; j++) {
+                        part = parts[j];
+                        if (part) normalizedClasses.push(part)
+                    }
                 } else if (cls !== '') {
                     normalizedClasses.push(cls)
                 }
             }
-        })
+        }
     }
 
     // Remove duplicates if necessary
-    return [...new Set(normalizedClasses)]
+    if (normalizedClasses.length > 1) {
+        return Array.from(new Set(normalizedClasses))
+    }
+
+    return normalizedClasses
 }
 
 export default Neo.gatekeep(VNode, 'Neo.vdom.VNode');
