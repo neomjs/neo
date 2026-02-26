@@ -266,12 +266,22 @@ class DeltaUpdates extends Base {
         if (!parentNode) return null;
 
         const
-            isComment = Node.COMMENT_NODE,
-            startStr  = ` ${id}-start `;
+            isComment  = Node.COMMENT_NODE,
+            startStr   = ` ${id}-start `,
+            childNodes = parentNode.childNodes;
 
-        let startNode = Array.from(parentNode.childNodes).find(n =>
-            n.nodeType === isComment && n.nodeValue === startStr
-        );
+        let startNode = null,
+            i         = 0,
+            len       = childNodes.length,
+            n;
+
+        for (; i < len; i++) {
+            n = childNodes[i];
+            if (n.nodeType === isComment && n.nodeValue === startStr) {
+                startNode = n;
+                break
+            }
+        }
 
         // Fallback for text nodes (if we want to unify, though text nodes use ` id `)
         // For now, let's strictly handle Fragments here.
@@ -579,47 +589,6 @@ class DeltaUpdates extends Base {
     }
 
     /**
-     * Helper to retrieve all DOM nodes belonging to a Fragment (or Text Node range).
-     * @param {HTMLElement} parentNode
-     * @param {String}      id
-     * @returns {Object|null} {startNode, endNode, nodes: []}
-     */
-    getFragmentNodes(parentNode, id) {
-        if (!parentNode) return null;
-
-        const
-            isComment = Node.COMMENT_NODE,
-            startStr  = ` ${id}-start `;
-
-        let startNode = Array.from(parentNode.childNodes).find(n =>
-            n.nodeType === isComment && n.nodeValue === startStr
-        );
-
-        // Fallback for text nodes (if we want to unify, though text nodes use ` id `)
-        // For now, let's strictly handle Fragments here.
-
-        if (!startNode) return null;
-
-        const
-            endStr = ` ${id}-end `,
-            nodes  = [];
-
-        let currentNode = startNode.nextSibling;
-
-        while (currentNode) {
-            // Check if we hit the end anchor
-            if (currentNode.nodeType === isComment && currentNode.nodeValue === endStr) {
-                return {startNode, endNode: currentNode, nodes};
-            }
-
-            nodes.push(currentNode);
-            currentNode = currentNode.nextSibling
-        }
-
-        return null // End anchor not found (should not happen in healthy DOM)
-    }
-
-    /**
      * Clears all child nodes of a given parent DOM node.
      * This is achieved by setting its `innerHTML` property to an empty string,
      * which is generally considered the fastest and most efficient way to remove
@@ -667,12 +636,24 @@ class DeltaUpdates extends Base {
                 }
 
                 // 2. Text Node Logic
-                const isComment = Node.COMMENT_NODE;
+                const
+                    isComment  = Node.COMMENT_NODE,
+                    searchStr  = ` ${id} `,
+                    childNodes = parentNode.childNodes;
+
+                let startComment = null,
+                    i            = 0,
+                    len          = childNodes.length,
+                    n;
 
                 // Find the starting comment node using its id marker
-                const startComment = Array.from(parentNode.childNodes).find(n =>
-                    n.nodeType === isComment && n.nodeValue.includes(` ${id} `)
-                );
+                for (; i < len; i++) {
+                    n = childNodes[i];
+                    if (n.nodeType === isComment && n.nodeValue.includes(searchStr)) {
+                        startComment = n;
+                        break
+                    }
+                }
 
                 if (startComment) {
                     const
@@ -726,13 +707,18 @@ class DeltaUpdates extends Base {
      */
     updateNode(delta) {
         let me   = this,
-            node = DomAccess.getElementOrBody(delta.id);
+            node = DomAccess.getElementOrBody(delta.id),
+            key, prop, val, value;
 
         if (node) {
-            Object.entries(delta).forEach(([prop, value]) => {
+            for (prop in delta) {
+                value = delta[prop];
+
                 switch (prop) {
                     case 'attributes':
-                        Object.entries(value).forEach(([key, val]) => {
+                        for (key in value) {
+                            val = value[key];
+
                             if (voidAttributes.has(key)) {
                                 node[key] = val === 'true' // vnode attribute values get converted into strings
                             } else if (val === null || val === '') {
@@ -753,7 +739,7 @@ class DeltaUpdates extends Base {
                                     node.setAttribute(key, val)
                                 }
                             }
-                        });
+                        }
                         break
                     case 'cls':
                         value.add    && node.classList.add(...value.add);
@@ -774,7 +760,8 @@ class DeltaUpdates extends Base {
                         break
                     case 'style':
                         if (Neo.isObject(value)) {
-                            Object.entries(value).forEach(([key, val]) => {
+                            for (key in value) {
+                                val = value[key];
                                 let important;
 
                                 if (Neo.isString(val) && val.includes('!important')) {
@@ -783,14 +770,14 @@ class DeltaUpdates extends Base {
                                 }
 
                                 node.style.setProperty(Neo.decamel(key), val, important)
-                            })
+                            }
                         }
                         break
                     case 'textContent':
                         node.textContent = value;
                         break
                 }
-            })
+            }
         }
     }
 
@@ -813,9 +800,20 @@ class DeltaUpdates extends Base {
             idString  = ` ${id} `;
 
         if (node) {
-            const startComment = Array.from(node.childNodes).find(n =>
-                n.nodeType === isComment && n.nodeValue === idString
-            );
+            const childNodes = node.childNodes;
+
+            let startComment = null,
+                i            = 0,
+                len          = childNodes.length,
+                n;
+
+            for (; i < len; i++) {
+                n = childNodes[i];
+                if (n.nodeType === isComment && n.nodeValue === idString) {
+                    startComment = n;
+                    break
+                }
+            }
 
             if (startComment?.nextSibling) {
                 startComment.nextSibling.nodeValue = value
