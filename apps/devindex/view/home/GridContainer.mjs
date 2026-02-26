@@ -297,6 +297,7 @@ class GridContainer extends BaseGridContainer {
                 cellCls    : 'devindex-column-twitter',
                 cellIconCls: 'fa-brands fa-x-twitter',
                 text       : 'X',
+                urlFormatter: val => val ? (String(val).startsWith('http') ? val : `https://x.com/${val}`) : null,
                 width      : 40
             }, {
                 type     : 'githubOrgs',
