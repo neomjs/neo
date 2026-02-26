@@ -53,6 +53,12 @@ class Contributor extends Model {
             {name: 'hasSponsors',          mapping: 's',  type: 'Integer', defaultValue: null},
             {name: 'heuristics',           mapping: 'hm', type: 'Object',  defaultValue: null},
             {name: 'topRepo',              mapping: 'tr', type: 'Array',   defaultValue: null},
+            {
+                name     : 'topRepoCount',
+                type     : 'Integer',
+                virtual  : true,
+                calculate: data => (data.topRepo ?? data.tr)?.[1] || 0
+            },
             {name: 'privateContributions', mapping: 'py', type: 'Array',   defaultValue: []},
             {
                 name   : 'organizations',
