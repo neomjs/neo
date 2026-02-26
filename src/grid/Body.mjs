@@ -330,9 +330,9 @@ class GridBody extends Component {
         super.afterSetAppName(value, oldValue);
 
         if (value) {
-            me.items.forEach(item => {
-                item.appName = value
-            })
+            for (let i = 0, len = me.items.length; i < len; i++) {
+                me.items[i].appName = value
+            }
         }
     }
 
@@ -440,11 +440,13 @@ class GridBody extends Component {
         super.afterSetMounted(value, oldValue);
 
         if (oldValue !== undefined) {
-            this.items.forEach(item => {
+            let i = 0, len = this.items.length, item;
+            for (; i < len; i++) {
+                item = this.items[i];
                 if (!item.vdom.removeDom) {
                     item.mounted = value
                 }
-            })
+            }
         }
     }
 
@@ -548,9 +550,9 @@ class GridBody extends Component {
         super.afterSetTheme(value, oldValue);
 
         if (value) {
-            me.items.forEach(item => {
-                item.theme = value
-            })
+            for (let i = 0, len = me.items.length; i < len; i++) {
+                me.items[i].theme = value
+            }
         }
     }
 
@@ -566,9 +568,9 @@ class GridBody extends Component {
         super.afterSetWindowId(value, oldValue);
 
         if (value) {
-            me.items.forEach(item => {
-                item.windowId = value
-            })
+            for (let i = 0, len = me.items.length; i < len; i++) {
+                me.items[i].windowId = value
+            }
         }
     }
 
@@ -772,7 +774,9 @@ class GridBody extends Component {
     destroy(...args) {
         let me = this;
 
-        me.items.forEach(item => item.destroy());
+        for (let i = 0, len = me.items.length; i < len; i++) {
+            me.items[i].destroy()
+        }
 
         me.store = null; // remove the listeners
 
@@ -904,10 +908,10 @@ class GridBody extends Component {
         }
 
         if (columnIndex > -1) {
-            me.items.forEach(row => {
-                cell = row.vdom.cn[columnIndex];
+            for (i = 0, len = me.items.length; i < len; i++) {
+                cell = me.items[i].vdom.cn[columnIndex];
                 cell && cells.push(cell)
-            })
+            }
         }
 
         return cells
@@ -1193,7 +1197,8 @@ class GridBody extends Component {
                     row.createVdom()
                 }
 
-                fields.forEach(field => {
+                for (let i = 0, len = fields.length; i < len; i++) {
+                    let field = fields[i];
                     if (field.name === me.selectedRecordField) {
                         if (selectionModel.ntype === 'selection-grid-rowmodel') {
                             recordId = me.getRecordId(record);
@@ -1201,7 +1206,7 @@ class GridBody extends Component {
                             selectionModel[field.value ? 'selectRow' : 'deselectRow'](recordId)
                         }
                     }
-                })
+                }
             }
         }
     }

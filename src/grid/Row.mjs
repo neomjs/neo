@@ -85,9 +85,9 @@ class Row extends Component {
         super.afterSetMounted(value, oldValue);
 
         if (this.components) {
-            Object.values(this.components).forEach(component => {
-                component.mounted = value
-            })
+            for (const key in this.components) {
+                this.components[key].mounted = value
+            }
         }
     }
 
@@ -101,9 +101,9 @@ class Row extends Component {
         super.afterSetTheme(value, oldValue);
 
         if (this.components) {
-            Object.values(this.components).forEach(component => {
-                component.theme = value
-            })
+            for (const key in this.components) {
+                this.components[key].theme = value
+            }
         }
     }
 
@@ -329,11 +329,12 @@ class Row extends Component {
         if (recycle && oldCn) {
             oldCellMap = new Map();
             // Map existing cells by dataField for robust retrieval regardless of pool index changes
-            oldCn.forEach(node => {
+            for (let i = 0, len = oldCn.length; i < len; i++) {
+                let node = oldCn[i];
                 if (node.data?.field) {
                     oldCellMap.set(node.data.field, node)
                 }
-            })
+            }
         }
 
         let rowCls = gridBody.getRowClass(record, rowIndex);
@@ -507,7 +508,9 @@ class Row extends Component {
         let me = this;
 
         if (me.components) {
-            Object.values(me.components).forEach(component => component.destroy())
+            for (const key in me.components) {
+                me.components[key].destroy()
+            }
         }
 
         super.destroy()
@@ -538,11 +541,12 @@ class Row extends Component {
                 identifier = proto.ntype || proto.className
             }
 
-            Object.values(me.components).forEach(component => {
+            for (const key in me.components) {
+                let component = me.components[key];
                 if (isString ? (component.ntype === identifier || component.className === identifier) : (component instanceof identifier)) {
                     component.set(config)
                 }
-            })
+            }
         }
     }
 

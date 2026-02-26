@@ -527,9 +527,9 @@ class GridContainer extends BaseContainer {
         if (body) {
             body.silentVdomUpdate = true;
 
-            records.forEach(item => {
-                store.get(item[keyProperty])?.set(item)
-            });
+            for (let i = 0, len = records.length; i < len; i++) {
+                store.get(records[i][keyProperty])?.set(records[i])
+            }
 
             body.silentVdomUpdate = false;
 
@@ -548,39 +548,42 @@ class GridContainer extends BaseContainer {
             sorters          = me.store?.sorters,
             columnClass, renderer;
 
-        columns?.forEach((column, index) => {
-            renderer = column.renderer;
+        if (columns) {
+            for (let index = 0, len = columns.length; index < len; index++) {
+                let column = columns[index];
+                renderer = column.renderer;
 
-            columnDefaults && Neo.assignDefaults(column, columnDefaults);
+                columnDefaults && Neo.assignDefaults(column, columnDefaults);
 
-            if (renderer && Neo.isString(renderer) && me[renderer]) {
-                column.renderer = me[renderer]
+                if (renderer && Neo.isString(renderer) && me[renderer]) {
+                    column.renderer = me[renderer]
+                }
+
+                if (sorters?.[0] && column.dataField === sorters[0].property) {
+                    column.isSorted = sorters[0].direction
+                }
+
+                column.listeners = {
+                    sort : me.onSortColumn,
+                    scope: me
+                };
+
+                headerButtons.push(column);
+
+                if (column.component && !column.type) {
+                    column.type = 'component'
+                }
+
+                columnClass = me.constructor.columnTypes[column.type || 'column'];
+                delete column.type;
+
+                columns[index] = Neo.create(columnClass, {
+                    parent  : me,
+                    windowId: me.windowId,
+                    ...column
+                })
             }
-
-            if (sorters?.[0] && column.dataField === sorters[0].property) {
-                column.isSorted = sorters[0].direction
-            }
-
-            column.listeners = {
-                sort : me.onSortColumn,
-                scope: me
-            };
-
-            headerButtons.push(column);
-
-            if (column.component && !column.type) {
-                column.type = 'component'
-            }
-
-            columnClass = me.constructor.columnTypes[column.type || 'column'];
-            delete column.type;
-
-            columns[index] = Neo.create(columnClass, {
-                parent  : me,
-                windowId: me.windowId,
-                ...column
-            })
-        });
+        }
 
         me.headerToolbar.items = headerButtons;
         me.headerToolbar.createItems();
@@ -758,11 +761,14 @@ class GridContainer extends BaseContainer {
      * @protected
      */
     removeSortingCss(dataField) {
-        this.headerToolbar?.items.forEach(column => {
-            if (column.dataField !== dataField) {
-                column.removeSortingCss()
+        let items = this.headerToolbar?.items;
+        if (items) {
+            for (let i = 0, len = items.length; i < len; i++) {
+                if (items[i].dataField !== dataField) {
+                    items[i].removeSortingCss()
+                }
             }
-        })
+        }
     }
 
     /**
