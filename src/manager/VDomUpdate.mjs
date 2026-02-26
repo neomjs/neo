@@ -183,12 +183,12 @@ class VDomUpdate extends Collection {
             callbackData = data ? [data] : [];
 
         if (item && processedChildIds) {
-            processedChildIds.forEach(childId => {
+            for (const childId of processedChildIds) {
                 if (item.children.has(childId)) {
                     me.executePromiseCallbacks(childId, ...callbackData);
                     item.children.delete(childId)
                 }
-            });
+            }
 
             if (item.children.size === 0) {
                 me.mergedCallbackMap.remove(ownerId)
@@ -223,7 +223,9 @@ class VDomUpdate extends Collection {
             callbacks = me.promiseCallbackMap.get(ownerId);
 
         if (callbacks) {
-            callbacks.forEach(callback => callback(data));
+            for (let i = 0, len = callbacks.length; i < len; i++) {
+                callbacks[i](data)
+            }
             me.promiseCallbackMap.delete(ownerId);
         }
     }
@@ -249,7 +251,7 @@ class VDomUpdate extends Collection {
             newDepth;
 
         if (item) {
-            item.children.forEach(value => {
+            for (const value of item.children.values()) {
                 if (value.childUpdateDepth === -1) {
                     newDepth = -1
                 } else {
@@ -262,7 +264,7 @@ class VDomUpdate extends Collection {
                 } else if (maxDepth !== -1) {
                     maxDepth = Math.max(maxDepth, newDepth)
                 }
-            });
+            }
 
             return maxDepth
         }
@@ -311,7 +313,7 @@ class VDomUpdate extends Collection {
             const ids = new Set(item.children.keys());
 
             // Add Bridge Paths: Walk up from each merged child to the owner
-            item.children.forEach((meta, childId) => {
+            for (const [childId, meta] of item.children) {
                 if (meta.distance > 1) {
                     let component = Neo.getComponent(childId);
 
@@ -322,7 +324,7 @@ class VDomUpdate extends Collection {
                         }
                     }
                 }
-            });
+            }
 
             return ids
         }
@@ -342,8 +344,9 @@ class VDomUpdate extends Collection {
         // Register this component as an in-flight descendant for all its parents
         const parentIds = Neo.manager.Component.getParentIds(Neo.getComponent(ownerId));
 
-        parentIds.forEach(parentId => {
-            let map = this.descendantInFlightMap.get(parentId);
+        for (let i = 0, len = parentIds.length; i < len; i++) {
+            let parentId = parentIds[i],
+                map      = this.descendantInFlightMap.get(parentId);
 
             if (!map) {
                 map = new Map();
@@ -351,7 +354,7 @@ class VDomUpdate extends Collection {
             }
 
             map.set(ownerId, true)
-        })
+        }
     }
 
     /**
@@ -420,14 +423,15 @@ class VDomUpdate extends Collection {
             component;
 
         if (item) {
-            item.children.forEach(entry => {
+            for (let i = 0, len = item.children.length; i < len; i++) {
+                let entry = item.children[i];
                 component = Neo.getComponent(entry.childId);
 
                 if (component) {
                     entry.resolve && me.addPromiseCallback(component.id, entry.resolve);
                     component.update()
                 }
-            });
+            }
 
             me.postUpdateQueueMap.remove(item)
         }
@@ -444,7 +448,7 @@ class VDomUpdate extends Collection {
         // Remove this component from the in-flight descendant maps of all its parents
         // We need to iterate all registered ancestors to ensure we catch cases where
         // the component moved (re-parented) during the update.
-        this.descendantInFlightMap.forEach((map, parentId) => {
+        for (const [parentId, map] of this.descendantInFlightMap) {
             if (map.has(ownerId)) {
                 map.delete(ownerId);
 
@@ -452,7 +456,7 @@ class VDomUpdate extends Collection {
                     this.descendantInFlightMap.delete(parentId)
                 }
             }
-        })
+        }
     }
 }
 

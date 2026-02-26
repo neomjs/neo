@@ -51,8 +51,9 @@ class TreeBuilder extends Base {
         if (node[childKey]) {
             output[childKey] = [];
 
-            node[childKey].forEach(item => {
-                let currentItem = item,
+            for (let i = 0, len = node[childKey].length; i < len; i++) {
+                let item        = node[childKey][i],
+                    currentItem = item,
                     childDepth;
 
                 if (currentItem.componentId) {
@@ -68,7 +69,7 @@ class TreeBuilder extends Base {
 
                         if ((depth === 1 && !isExpandable) || (mergedChildIds && !isExpandable)) {
                             output[childKey].push({...currentItem, neoIgnore: true});
-                            return // Stop processing this branch
+                            continue // Stop processing this branch, move to next item
                         }
                     }
 
@@ -89,7 +90,7 @@ class TreeBuilder extends Base {
                 }
 
                 output[childKey].push(this.#buildTree(currentItem, childDepth, mergedChildIds, childKey))
-            })
+            }
         }
 
         return output
