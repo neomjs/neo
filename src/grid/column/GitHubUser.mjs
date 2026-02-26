@@ -33,7 +33,7 @@ class GitHubUser extends ComponentColumn {
      */
     applyRecordConfigs(config, record) {
         return {
-            avatarUrl: record.avatar_url,
+            avatarUrl: record.avatarUrl,
             fullName : record.name && record.name !== record.login ? record.name : '',
             username : record.login,
             ...config

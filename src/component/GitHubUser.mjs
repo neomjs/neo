@@ -54,10 +54,17 @@ class GitHubUser extends Component {
         let me = this;
 
         if (value) {
-            let url = new URL(value);
-            url.searchParams.set('s', me.avatarSize);
+            let urlStr = String(value);
 
-            me.vdom.cn[0].src = url.toString();
+            if (!urlStr.startsWith('http')) {
+                urlStr = `https://avatars.githubusercontent.com/u/${value}?v=4&s=${me.avatarSize}`;
+            } else {
+                let url = new URL(value);
+                url.searchParams.set('s', me.avatarSize);
+                urlStr = url.toString();
+            }
+
+            me.vdom.cn[0].src = urlStr;
             me.update()
         }
     }
