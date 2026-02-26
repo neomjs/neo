@@ -160,6 +160,12 @@ class GridContainer extends BaseContainer {
          */
         useInternalId_: true,
         /**
+         * True enables restoring the initial sort state (ASC, DESC, null)
+         * @member {Boolean} useTriStateSorting_=false
+         * @reactive
+         */
+        useTriStateSorting_: false,
+        /**
          * @member {Neo.data.Store} store_=null
          * @reactive
          */
@@ -372,6 +378,18 @@ class GridContainer extends BaseContainer {
     }
 
     /**
+     * Triggered after the useTriStateSorting config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetUseTriStateSorting(value, oldValue) {
+        if (oldValue !== undefined) {
+            this.headerToolbar.useTriStateSorting = value
+        }
+    }
+
+    /**
      * Triggered after the store config got changed
      * @param {Number} value
      * @param {Number} oldValue
@@ -473,11 +491,12 @@ class GridContainer extends BaseContainer {
         const me = this;
 
         return ClassSystemUtil.beforeSetInstance(value, header.Toolbar, {
-            flex             : 'none',
-            parentId         : me.id,
-            showHeaderFilters: me.showHeaderFilters,
-            sortable         : me.sortable,
-            theme            : me.theme
+            flex              : 'none',
+            parentId          : me.id,
+            showHeaderFilters : me.showHeaderFilters,
+            sortable          : me.sortable,
+            theme             : me.theme,
+            useTriStateSorting: me.useTriStateSorting
         })
     }
 
@@ -814,11 +833,12 @@ class GridContainer extends BaseContainer {
             footerToolbar    : me.footerToolbar?.toJSON(),
             headerToolbar    : me.headerToolbar?.toJSON(),
             rowHeight        : me.rowHeight,
-            scrollbar        : me.scrollbar?.toJSON(),
-            scrollManager    : me.scrollManager?.toJSON(),
-            showHeaderFilters: me.showHeaderFilters,
-            sortable         : me.sortable,
-            store            : me.store?.toJSON()
+            scrollbar         : me.scrollbar?.toJSON(),
+            scrollManager     : me.scrollManager?.toJSON(),
+            showHeaderFilters : me.showHeaderFilters,
+            sortable          : me.sortable,
+            store             : me.store?.toJSON(),
+            useTriStateSorting: me.useTriStateSorting
         }
     }
 

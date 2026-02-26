@@ -55,6 +55,13 @@ class Toolbar extends BaseToolbar {
          */
         sortable_: true,
         /**
+         * Convenience shortcut to pass useTriStateSorting to all toolbar items.
+         * True enables restoring the initial sort state (ASC, DESC, null)
+         * @member {Boolean} useTriStateSorting_=false
+         * @reactive
+         */
+        useTriStateSorting_: false,
+        /**
          * @member {Object} _vdom
          */
         _vdom:
@@ -127,6 +134,27 @@ class Toolbar extends BaseToolbar {
     }
 
     /**
+     * Triggered after the useTriStateSorting config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetUseTriStateSorting(value, oldValue) {
+        if (oldValue !== undefined) {
+            let me = this;
+
+            me.items.forEach(item => {
+                item.setSilent({
+                    useTriStateSorting: value
+                })
+            });
+
+            me.updateDepth = 2;
+            me.update()
+        }
+    }
+
+    /**
      *
      */
     createItems() {
@@ -138,6 +166,10 @@ class Toolbar extends BaseToolbar {
         me.items.forEach(item => {
             if (!Object.hasOwn(item, 'sortable')) {
                 item.sortable = me.sortable
+            }
+
+            if (!Object.hasOwn(item, 'useTriStateSorting')) {
+                item.useTriStateSorting = me.useTriStateSorting
             }
         });
 
@@ -259,9 +291,10 @@ class Toolbar extends BaseToolbar {
 
         return {
             ...super.toJSON(),
-            scrollLeft       : me.scrollLeft,
-            showHeaderFilters: me.showHeaderFilters,
-            sortable         : me.sortable
+            scrollLeft        : me.scrollLeft,
+            showHeaderFilters : me.showHeaderFilters,
+            sortable          : me.sortable,
+            useTriStateSorting: me.useTriStateSorting
         }
     }
 }
