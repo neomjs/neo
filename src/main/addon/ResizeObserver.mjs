@@ -3,6 +3,26 @@ import DomAccess from '../DomAccess.mjs';
 import DomEvents from '../DomEvents.mjs';
 
 /**
+ * @summary Main thread bridge for the native DOM ResizeObserver API.
+ *
+ * This addon provides a centralized, highly optimized way for App Worker components to
+ * react to DOM node size changes. Instead of components polling or setting up their own
+ * individual observers, they register their target IDs with this singleton.
+ *
+ * **Performance & Throttling Architecture:**
+ * The native `ResizeObserver` can fire multiple times per frame during continuous layout
+ * thrashing (e.g., resizing the browser window). Sending a `postMessage` to the App Worker
+ * for every single micro-shift would flood the worker bridge and cause severe jank.
+ *
+ * To prevent this, this addon acts as a hardware-synced dam:
+ * 1. It catches all rapid-fire resize events and accumulates them in a private Map.
+ *    This ensures that if a node resizes multiple times before a paint, only the final state is kept.
+ * 2. It uses `requestAnimationFrame` to lock the dispatch. It only flushes the Map
+ *    and sends the `postMessage` payload exactly once per physical display frame (vsync).
+ *
+ * This guarantees the App Worker always receives the freshest possible layout data without
+ * ever being overwhelmed, regardless of how aggressively the DOM is mutating.
+ *
  * @class Neo.main.addon.ResizeObserver
  * @extends Neo.main.addon.Base
  */
@@ -38,6 +58,17 @@ class NeoResizeObserver extends Base {
     }
 
     /**
+     * @member {Map} #pendingEntries=new Map()
+     * @private
+     */
+    #pendingEntries = new Map()
+    /**
+     * @member {Number|null} #rAFId=null
+     * @private
+     */
+    #rAFId = null
+
+    /**
      * @param {Object} config
      */
     construct(config) {
@@ -56,6 +87,30 @@ class NeoResizeObserver extends Base {
      * @protected
      */
     onResize(entries, observer) {
+        let me = this;
+
+        entries.forEach(entry => {
+            me.#pendingEntries.set(entry.target, entry)
+        });
+
+        if (!me.#rAFId) {
+            me.#rAFId = requestAnimationFrame(() => {
+                me.dispatchResizeEvents()
+            })
+        }
+    }
+
+    /**
+     * Dispatches the accumulated events and resets the queue.
+     * @protected
+     */
+    dispatchResizeEvents() {
+        let me      = this,
+            entries = Array.from(me.#pendingEntries.values());
+
+        me.#rAFId = null;
+        me.#pendingEntries.clear();
+
         entries.forEach(entry => {
             // the content of entry is not spreadable, so we need to manually convert it
             // structuredClone(entry) throws a JS error => ResizeObserverEntry object could not be cloned.
