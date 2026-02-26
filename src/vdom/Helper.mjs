@@ -134,12 +134,41 @@ class Helper extends Base {
                         }
                         break
                     case 'nodeName':
-                    case 'innerHTML':
                     case 'scrollLeft':
                     case 'scrollTop':
-                    case 'textContent':
                         if (value !== oldVnode[prop]) {
                             delta[prop] = value
+                        }
+                        break
+                    case 'innerHTML':
+                        if (value !== oldVnode[prop]) {
+                            if (value === undefined) {
+                                // If innerHTML is removed, but we are setting textContent, skip the clear command.
+                                // Setting textContent natively wipes the DOM node's innerHTML.
+                                if (vnode.textContent !== undefined) {
+                                    break
+                                }
+                                // If both are genuinely removed, explicitly normalize to empty string.
+                                delta[prop] = ''
+                            } else {
+                                delta[prop] = value
+                            }
+                        }
+                        break
+                    case 'textContent':
+                        if (value !== oldVnode[prop]) {
+                            if (value === undefined) {
+                                // If textContent is removed, but we are setting innerHTML, skip the clear command.
+                                // Setting innerHTML natively wipes the DOM node's textContent.
+                                if (vnode.innerHTML !== undefined) {
+                                    break
+                                }
+                                // If both are genuinely removed, explicitly normalize to empty string.
+                                // Using innerHTML: '' is standard for clearing a node.
+                                delta.innerHTML = ''
+                            } else {
+                                delta[prop] = value
+                            }
                         }
                         break
                     case 'style':
