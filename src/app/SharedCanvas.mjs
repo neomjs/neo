@@ -113,7 +113,7 @@ class SharedCanvas extends Canvas {
             me.isCanvasReady = true;
 
             Neo.main.addon.ResizeObserver.register({
-                id      : me.id,
+                id      : me.getObserverId(),
                 windowId: me.windowId
             });
 
@@ -148,6 +148,16 @@ class SharedCanvas extends Canvas {
         }
 
         return me.canvasId
+    }
+
+    /**
+     * The DOM node ID that should trigger the canvas resize updates.
+     * By default, this is the canvas ID itself. Subclasses can override this
+     * (e.g. to observe the parent container if the canvas is absolutely positioned).
+     * @returns {String}
+     */
+    getObserverId() {
+        return this.id
     }
 
     /**
