@@ -29,12 +29,6 @@ class SharedCanvas extends Canvas {
          */
         isCanvasReady_: false,
         /**
-         * @member {Object} listeners
-         */
-        listeners: {
-            resize: 'onResize'
-        },
-        /**
          * The full class name of the SharedWorker singleton.
          * @member {String|null} rendererClassName=null
          */
@@ -112,11 +106,6 @@ class SharedCanvas extends Canvas {
 
             me.isCanvasReady = true;
 
-            Neo.main.addon.ResizeObserver.register({
-                id      : me.getObserverId(),
-                windowId: me.windowId
-            });
-
             await me.updateSize()
         } else if (oldValue) {
             me.isCanvasReady = false;
@@ -148,16 +137,6 @@ class SharedCanvas extends Canvas {
         }
 
         return me.canvasId
-    }
-
-    /**
-     * The DOM node ID that should trigger the canvas resize updates.
-     * By default, this is the canvas ID itself. Subclasses can override this
-     * (e.g. to observe the parent container if the canvas is absolutely positioned).
-     * @returns {String}
-     */
-    getObserverId() {
-        return this.id
     }
 
     /**
@@ -277,7 +256,8 @@ class SharedCanvas extends Canvas {
      * Updates the canvas size in the Shared Worker when the DOM element resizes.
      * @param {Object} data
      */
-    async onResize(data) {
+    async onDomResize(data) {
+        super.onDomResize(data);
         await this.updateSize(data.contentRect)
     }
 

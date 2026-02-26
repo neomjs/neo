@@ -87,20 +87,8 @@ class Canvas extends SharedCanvas {
         let me = this;
 
         if (value) {
-            let app     = Neo.apps[me.windowId],
-                parent  = Neo.get(me.parentId),
+            let parent  = Neo.get(me.parentId),
                 buttons = ComponentManager.down(parent, 'button', false);
-
-            if (app) {
-                app.on('orientationchange', me.onOrientationChange, me)
-            }
-
-            if (parent) {
-                parent.addDomListeners({
-                    resize: me.onToolbarResize,
-                    scope : me
-                })
-            }
 
             buttons.forEach(button => {
                 button.addDomListeners({
@@ -110,12 +98,6 @@ class Canvas extends SharedCanvas {
             });
 
             await me.updateNavRects()
-        } else if (oldValue) {
-            let app = Neo.apps[me.windowId];
-
-            if (app) {
-                app.un('orientationchange', me.onOrientationChange, me)
-            }
         }
     }
 
@@ -142,7 +124,7 @@ class Canvas extends SharedCanvas {
     /**
      * @returns {String}
      */
-    getObserverId() {
+    getMonitorTargetId() {
         return this.parentId
     }
 
@@ -154,24 +136,11 @@ class Canvas extends SharedCanvas {
     }
 
     /**
-     * @param {Object} data
-     */
-    onOrientationChange(data) {
-        this.updateNavRects()
-    }
-
-    /**
-     * @param {Object} data
-     */
-    onToolbarResize(data) {
-        this.updateNavRects()
-    }
-
-    /**
      * Updates the canvas size and re-calculates navigation rects on resize.
      * @param {Object} data
      */
-    async onResize(data) {
+    async onDomResize(data) {
+        this.fire('resize', data);
         await this.updateNavRects()
     }
 
