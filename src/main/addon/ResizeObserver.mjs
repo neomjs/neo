@@ -67,6 +67,11 @@ class NeoResizeObserver extends Base {
      * @private
      */
     #rAFId = null
+    /**
+     * @member {Object} #targetToComponents={}
+     * @private
+     */
+    #targetToComponents = {}
 
     /**
      * @param {Object} config
@@ -125,10 +130,11 @@ class NeoResizeObserver extends Base {
                 eventName: 'resize',
 
                 data: {
-                    contentRect: DomEvents.parseDomRect(entry.contentRect),
-                    id         : entry.target.id,
+                    componentIds: me.#targetToComponents[entry.target.id] || [],
+                    contentRect : DomEvents.parseDomRect(entry.contentRect),
+                    id          : entry.target.id,
                     path,
-                    rect       : path[0].rect,
+                    rect        : path[0].rect,
 
                     borderBoxSize: {
                         blockSize : borderBoxSize.blockSize,
@@ -151,6 +157,7 @@ class NeoResizeObserver extends Base {
 
     /**
      * @param {Object} data
+     * @param {String} data.componentId
      * @param {String} data.id
      * @param {Number} count=0
      */
@@ -159,6 +166,12 @@ class NeoResizeObserver extends Base {
             node = DomAccess.getElement(data.id);
 
         if (node) {
+            me.#targetToComponents[data.id] ??= [];
+
+            if (!me.#targetToComponents[data.id].includes(data.componentId)) {
+                me.#targetToComponents[data.id].push(data.componentId)
+            }
+
             me.instance.observe(node)
         } else if (count < me.registerAttempts) {
             await me.timeout(100);
@@ -169,11 +182,23 @@ class NeoResizeObserver extends Base {
 
     /**
      * @param {Object} data
+     * @param {String} data.componentId
      * @param {String} data.id
      */
     unregister(data) {
-        let node = DomAccess.getElement(data.id);
-        node && this.instance.unobserve(node)
+        let me           = this,
+            {id}         = data,
+            node         = DomAccess.getElement(id),
+            componentIds = me.#targetToComponents[id];
+
+        if (componentIds) {
+            me.#targetToComponents[id] = componentIds.filter(cid => cid !== data.componentId);
+
+            if (me.#targetToComponents[id].length === 0) {
+                delete me.#targetToComponents[id];
+                node && me.instance.unobserve(node)
+            }
+        }
     }
 }
 

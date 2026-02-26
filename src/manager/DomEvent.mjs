@@ -118,15 +118,16 @@ class DomEvent extends Base {
      * @param {Object} event
      */
     async addResizeObserver(component, event) {
-        let {id, windowId} = component,
+        let {windowId}     = component,
+            targetId       = component.id,
             ResizeObserver = await Neo.currentWorker.getAddon('ResizeObserver', windowId);
 
         // ResizeObservers need to get registered to a specific target id
         if (event.delegate?.startsWith('#')) {
-            id = event.delegate.substring(1)
+            targetId = event.delegate.substring(1)
         }
 
-        ResizeObserver.register({id, windowId})
+        ResizeObserver.register({componentId: component.id, id: targetId, windowId})
     }
 
     /**
@@ -142,10 +143,33 @@ class DomEvent extends Base {
         let me          = this,
             bubble      = true,
             data        = event.data || {},
-            {eventName} = event,
-            i           = 0,
+            {eventName} = event;
+
+        // Bypass standard bubbling for explicitly mapped resize events from the Main Thread registry
+        if (eventName === 'resize' && Array.isArray(data.componentIds)) {
+            data.componentIds.forEach(cmpId => {
+                let component = Neo.getComponent(cmpId),
+                    listeners = me.items[cmpId]?.[eventName];
+
+                if (component && listeners) {
+                    listeners.forEach(listener => {
+                        let eventData = Neo.clone(data, true, true);
+                        eventData.component = component;
+                        eventData.currentTarget = data.id;
+
+                        if (Neo.isString(listener.fn)) {
+                            me.bindCallback(listener.fn, 'fn', listener.scope, listener)
+                        }
+                        listener.fn.apply(listener.scope || globalThis, [eventData]);
+                    });
+                }
+            });
+            return
+        }
+
+        let i           = 0,
             listeners   = null,
-            pathIds     = data.path.map(e => e.id),
+            pathIds     = data.path ? data.path.map(e => e.id) : [],
             path        = ComponentManager.getParentPath(pathIds),
             len         = path.length,
             component, delegationTargetId, id, preventFire;
@@ -154,7 +178,7 @@ class DomEvent extends Base {
             id        = path[i];
             component = Neo.getComponent(id);
 
-            if (!component || component.disabled) {
+            if (!component || (eventName !== 'resize' && component.disabled)) {
                 break
             }
 
@@ -173,13 +197,7 @@ class DomEvent extends Base {
                         let result;
 
                         if (listener && listener.fn) {
-                            if (eventName === 'resize') {
-                                // we do not want delegation for custom main.addon.ResizeObserver events
-                                let delegateId = listener.delegate?.startsWith('#') ? listener.delegate.substring(1) : listener.delegate;
-                                delegationTargetId = data.id === delegateId ? data.id : false
-                            } else {
-                                delegationTargetId = me.verifyDelegationPath(listener, data.path, path)
-                            }
+                            delegationTargetId = me.verifyDelegationPath(listener, data.path, path);
 
                             if (delegationTargetId !== false) {
                                 preventFire = false;
