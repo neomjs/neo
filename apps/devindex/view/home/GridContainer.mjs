@@ -367,12 +367,17 @@ class GridContainer extends BaseGridContainer {
      */
     onSortColumn(opts) {
         let me         = this,
-            {dataMode} = me;
+            {dataMode} = me,
+            sortOpts   = {...opts};
+
+        if (sortOpts.property === 'topRepo') {
+            sortOpts.property = 'topRepoCount';
+        }
 
         // Intercept sort on year columns to use correct field
         if (dataMode !== 'total') {
-            if (regexYearColumn.test(opts.property)) {
-                let year   = opts.property.slice(-4),
+            if (regexYearColumn.test(sortOpts.property)) {
+                let year   = sortOpts.property.slice(-4),
                     prefix = '';
 
                 if (dataMode === 'commits') {
@@ -384,23 +389,25 @@ class GridContainer extends BaseGridContainer {
                 }
 
                 if (prefix) {
-                    opts.property = prefix + 'y' + year
+                    sortOpts.property = prefix + 'y' + year
                 }
-            } else if (opts.property === 'totalContributions') {
+            } else if (sortOpts.property === 'totalContributions') {
                 switch (dataMode) {
                     case 'commits':
-                        opts.property = 'totalCommits';
+                        sortOpts.property = 'totalCommits';
                         break;
                     case 'private':
-                        opts.property = 'totalPrivateContributions';
+                        sortOpts.property = 'totalPrivateContributions';
                         break;
                     case 'public':
-                        opts.property = 'totalPublicContributions';
+                        sortOpts.property = 'totalPublicContributions';
                         break;
                 }
             }
         }
-        super.onSortColumn(opts)
+        
+        me.store.sort(sortOpts);
+        me.removeSortingCss(opts.property)
     }
 }
 
