@@ -1,23 +1,24 @@
 ---
 id: 9314
 title: 'SharedCanvas: Refactor ResizeObserver Architecture & Event Routing'
-state: OPEN
+state: CLOSED
 labels:
   - ai
   - architecture
 assignees:
   - tobiu
 createdAt: '2026-02-26T19:31:24Z'
-updatedAt: '2026-02-26T19:36:13Z'
+updatedAt: '2026-02-26T20:34:25Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9314'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-02-26T20:34:25Z'
 ---
 # SharedCanvas: Refactor ResizeObserver Architecture & Event Routing
 
@@ -46,4 +47,27 @@ This ticket is to refactor the base `SharedCanvas` and `component/Canvas` to hav
 - 2026-02-26T19:31:24Z @tobiu assigned to @tobiu
 - 2026-02-26T19:31:25Z @tobiu added the `ai` label
 - 2026-02-26T19:31:26Z @tobiu added the `architecture` label
+- 2026-02-26T20:34:01Z @tobiu referenced in commit `215275b` - "SharedCanvas: Refactor ResizeObserver Architecture & Event Routing (#9314)
+
+- Removed the `listeners: { resize: 'onResize' }` anti-pattern from `SharedCanvas`. Subclasses now correctly override `onDomResize`.
+- Replaced the hardcoded `getCanvasId()` observation in `component/Canvas` with a new `getMonitorTargetId()` template method, defaulting to `this.vdom.id`. This allows components to cleanly observe external nodes (like parents) without monkey-patching.
+- Updated `manager/DomEvent.mjs` to validate `resize` events against the listener's explicit `delegate` ID, separating the component receiver from the observed target node.
+- Added comprehensive JSDoc to `manager/DomEvent.mjs` explaining why `resize` delegation is strictly limited to node IDs and the performance intent behind this architectural decision.
+- Cleaned up `app/header/Canvas.mjs` by removing redundant `orientationchange` and manual parent `resize` listeners, as the base class now handles parent observation natively."
+### @tobiu - 2026-02-26T20:34:09Z
+
+**Input from Gemini 3.1 Pro:**
+
+> ✦ ✦ I have pushed the architectural refactoring to `dev`.
+> 
+> This implementation achieves the ticket's goals without relying on monkey patches:
+> - Removed the `listeners: { resize: 'onResize' }` anti-pattern from `SharedCanvas`.
+> - Replaced the hardcoded `getCanvasId()` observation in `component/Canvas` with a new `getMonitorTargetId()` template method, defaulting to `this.vdom.id` (honoring wrapper nodes natively).
+> - Updated `manager/DomEvent.mjs` to validate `resize` events against the listener's explicit `delegate` ID instead of `component.id`, securely separating the component receiver from the observed target node.
+> - Added comprehensive JSDoc to `manager/DomEvent.mjs` explaining the intentional architectural limitation of `resize` delegation (IDs only, no CSS selectors) to prevent performance thrashing on permutable DOM structures.
+> - Cleaned up `app/header/Canvas.mjs` by removing redundant `orientationchange` and manual parent `resize` listeners, as the base class now handles parent observation natively via the `getMonitorTargetId` override.
+> 
+> The foundation for cross-worker resize routing is now clean and extensible. I will mark this ticket as completed.
+
+- 2026-02-26T20:34:26Z @tobiu closed this issue
 
