@@ -177,11 +177,17 @@ class Base {
     }
 
     /**
+     * Internal cache for all async reject functions (timeouts, remote calls, promises).
+     * @member {Map<Number|Symbol, Function>} #asyncRejects=new Map()
+     * @private
+     */
+    #asyncRejects = new Map()
+    /**
      * A private field to store the Config controller instances.
      * @member {Object} #configs={}
      * @private
      */
-    #configs = {};
+    #configs = {}
     /**
      * Internal cache for all config subscription cleanup functions.
      * @member {Function[]} #configSubscriptionCleanups=[]
@@ -193,31 +199,25 @@ class Base {
      * @member {Promise<void>|null} #readyPromise
      * @private
      */
-    #readyPromise = null;
+    #readyPromise = null
     /**
      * A resolver function for the ready promise.
      * @member {Function|null} #readyResolver
      * @private
      */
-    #readyResolver = null;
+    #readyResolver = null
     /**
      * A promise that resolves when the remote methods are registered.
      * @member {Promise<void>|null} #remotesReadyPromise
      * @private
      */
-    #remotesReadyPromise = null;
+    #remotesReadyPromise = null
     /**
      * A resolver function for the remotesReady promise.
      * @member {Function|null} #remotesReadyResolver
      * @private
      */
-    #remotesReadyResolver = null;
-    /**
-     * Internal cache for all async reject functions (timeouts, remote calls, promises).
-     * @member {Map<Number|Symbol, Function>} #asyncRejects=new Map()
-     * @private
-     */
-    #asyncRejects = new Map()
+    #remotesReadyResolver = null
 
     /**
      * The main initializer for all Neo.mjs classes, invoked by `Neo.create()`.
@@ -619,11 +619,13 @@ class Base {
      * @returns {Promise<void>} A promise that resolves when the asynchronous initialization is complete.
      */
     async initAsync() {
-        if (this.remote) {
-            await this.initRemote()
+        let me = this;
+
+        if (me.remote) {
+            await me.initRemote()
         }
 
-        this.#remotesReadyResolver()
+        me.#remotesReadyResolver()
     }
 
     /**
@@ -914,7 +916,7 @@ class Base {
      * @returns {Promise<void>}
      */
     ready() {
-        return this.#readyPromise;
+        return this.#readyPromise
     }
 
     /**
@@ -1055,7 +1057,7 @@ class Base {
             })
 
             // Process reactive configs
-            me.processConfigs(true);
+            me.processConfigs(true)
         } finally {
             // Trigger the skipped Effect, if needed
             EffectManager.resume()
