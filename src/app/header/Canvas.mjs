@@ -55,6 +55,11 @@ class Canvas extends SharedCanvas {
     navRects = null
 
     /**
+     * @member {Number|null} navRectsTimeoutId=null
+     */
+    navRectsTimeoutId = null
+
+    /**
      * @param {Boolean} value
      * @param {Boolean} oldValue
      */
@@ -79,8 +84,38 @@ class Canvas extends SharedCanvas {
     async afterSetOffscreenRegistered(value, oldValue) {
         await super.afterSetOffscreenRegistered(value, oldValue);
 
+        let me = this;
+
         if (value) {
-            await this.updateNavRects()
+            let app     = Neo.apps[me.windowId],
+                parent  = Neo.get(me.parentId),
+                buttons = ComponentManager.down(parent, 'button', false);
+
+            if (app) {
+                app.on('orientationchange', me.onOrientationChange, me)
+            }
+
+            if (parent) {
+                parent.addDomListeners({
+                    resize: me.onToolbarResize,
+                    scope : me
+                })
+            }
+
+            buttons.forEach(button => {
+                button.addDomListeners({
+                    resize: me.onButtonResize,
+                    scope : me
+                })
+            });
+
+            await me.updateNavRects()
+        } else if (oldValue) {
+            let app = Neo.apps[me.windowId];
+
+            if (app) {
+                app.un('orientationchange', me.onOrientationChange, me)
+            }
         }
     }
 
@@ -105,50 +140,121 @@ class Canvas extends SharedCanvas {
     }
 
     /**
+     * @returns {String}
+     */
+    getObserverId() {
+        return this.parentId
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onButtonResize(data) {
+        this.updateNavRects()
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onOrientationChange(data) {
+        this.updateNavRects()
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onToolbarResize(data) {
+        this.updateNavRects()
+    }
+
+    /**
      * Updates the canvas size and re-calculates navigation rects on resize.
      * @param {Object} data
      */
     async onResize(data) {
-        await super.onResize(data);
         await this.updateNavRects()
     }
+
+    /**
+     * @member {Boolean} isUpdatingNavRects=false
+     * @protected
+     */
+    isUpdatingNavRects = false
+    /**
+     * @member {Boolean} pendingNavRectsUpdate=false
+     * @protected
+     */
+    pendingNavRectsUpdate = false
 
     /**
      * Synchronizes the positions of the navigation buttons with the Shared Worker.
      * This allows the physics engine to "divert" the energy streams around the buttons.
      *
+     * @param {Boolean} [isFallback=false]
      * @returns {Promise<void>}
      */
-    async updateNavRects() {
+    async updateNavRects(isFallback=false) {
         let me = this;
 
         if (!me.isCanvasReady) return;
+
+        if (!isFallback) {
+            if (me.navRectsTimeoutId) {
+                clearTimeout(me.navRectsTimeoutId)
+            }
+
+            me.navRectsTimeoutId = setTimeout(() => {
+                me.navRectsTimeoutId = null;
+                me.updateNavRects(true)
+            }, 1000)
+        }
+
+        if (me.isUpdatingNavRects) {
+            me.pendingNavRectsUpdate = true;
+            return
+        }
+
+        me.isUpdatingNavRects = true;
+        me.pendingNavRectsUpdate = false;
 
         let parent  = Neo.get(me.parentId),
             buttons = ComponentManager.down(parent, 'button', false),
             ids     = buttons.map(button => button.id);
 
         if (ids.length > 0) {
-            let rects      = await me.getDomRect(ids),
-                canvasRect = await me.getDomRect(me.id);
+            let allIds = [...ids, me.id],
+                rects  = await me.getDomRect(allIds);
 
-            me.canvasRect = canvasRect; // Cache for mouse events
+            if (rects) {
+                let canvasRect = rects.pop();
 
-            if (rects && canvasRect) {
-                // Normalize button rects to be relative to the canvas
-                me.navRects = rects.map((r, index) => {
-                    if (!r) return null;
-                    return {
-                        id    : ids[index],
-                        x     : r.x - canvasRect.x,
-                        y     : r.y - canvasRect.y,
-                        width : r.width,
-                        height: r.height
-                    }
-                }).filter(Boolean);
+                me.canvasRect = canvasRect; // Cache for mouse events
 
-                me.renderer.updateNavRects({rects: me.navRects})
+                if (canvasRect) {
+                    me.navRects = rects.map((r, index) => {
+                        if (!r) return null;
+                        return {
+                            id    : ids[index],
+                            x     : r.x - canvasRect.x,
+                            y     : r.y - canvasRect.y,
+                            width : r.width,
+                            height: r.height
+                        }
+                    }).filter(Boolean);
+
+                    me.renderer.updateNavRects({
+                        height: canvasRect.height,
+                        rects : me.navRects,
+                        width : canvasRect.width
+                    })
+                }
             }
+        }
+
+        me.isUpdatingNavRects = false;
+
+        if (me.pendingNavRectsUpdate) {
+            me.updateNavRects()
         }
     }
 }

@@ -977,10 +977,16 @@ class Header extends Base {
 
     /**
      * @param {Object} data
+     * @param {Number} [data.height]
      * @param {Object[]} data.rects
+     * @param {Number} [data.width]
      */
     updateNavRects(data) {
         let rects = data?.rects;
+
+        if (data.width !== undefined && data.height !== undefined) {
+            this.updateSize(data)
+        }
 
         if (Array.isArray(rects)) {
             this.navRects = rects
