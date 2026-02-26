@@ -111,6 +111,9 @@ class Sorter extends Base {
             b = me.transformValue(b);
         }
 
+        if (a == null && b != null) return  1;
+        if (a != null && b == null) return -1;
+
         if (a > b) {
             return 1 * me.directionMultiplier;
         }

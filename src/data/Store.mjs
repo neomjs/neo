@@ -1115,6 +1115,11 @@ class Store extends Collection {
             if (field.convert) {
                 value = field.convert(value, item)
             }
+
+            // Handle Default Value
+            if (value === undefined && Object.hasOwn(field, 'defaultValue')) {
+                value = Neo.isFunction(field.defaultValue) ? field.defaultValue() : field.defaultValue
+            }
         }
 
         return value

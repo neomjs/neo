@@ -588,7 +588,7 @@ class Collection extends Base {
             countSorters      = sortProperties.length || 0,
             hasSortByMethod   = false,
             hasTransformValue = false,
-            i, mappedItems, obj, sorter, sortProperty, sortValue;
+            i, mappedItems, obj, sorter, sortProperty, sortValue, val1, val2;
 
         if (countSorters > 0) {
             sorters.forEach(key => {
@@ -642,12 +642,17 @@ class Collection extends Base {
 
                     for (; i < countSorters; i++) {
                         sortProperty = sortProperties[i];
+                        val1         = a[sortProperty];
+                        val2         = b[sortProperty];
 
-                        if (a[sortProperty] > b[sortProperty]) {
+                        if (val1 == null && val2 != null) return  1;
+                        if (val1 != null && val2 == null) return -1;
+
+                        if (val1 > val2) {
                             return 1 * sortDirections[i]
                         }
 
-                        if (a[sortProperty] < b[sortProperty]) {
+                        if (val1 < val2) {
                             return -1 * sortDirections[i]
                         }
                     }
