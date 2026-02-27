@@ -64,7 +64,7 @@ Switching the Data Mode recalculates the grid and re-sorts the data instantly. T
 
 ### Specialized Filters
 - **Hireable Only:** Check this box to filter the list down to developers who are looking for work. Ideal for recruiters.
-- **Hide Commit Ratio > 90%:** This filter can be used to hide accounts that exhibit highly anomalous commit patterns. While an extremely high commit ratio is often a strong indicator of an automated account (a "bot" or "cyborg"), there are valid exceptions (such as solo founders managing issues externally). To remain strictly objective and avoid passing judgment, this filter is optional and disabled by default.
+- **Hide Commit Ratio > 90%:** This filter can be used to hide accounts that exhibit highly anomalous commit patterns. While an extremely high commit ratio is often a strong indicator of an automated account (a "bot"), there are valid exceptions (such as solo founders using external ticketing systems). **As outlined in our Methodology, we do not censor these automated accounts from the default view because their activity represents valuable data for researchers studying ecosystem automation.** However, if you are sourcing human talent, this filter instantly cleans the list. It is optional and disabled by default.
 
 ### Visual Settings
 Under the **Settings** tab within the controls, you can manage the application's performance and aesthetics. **All visual settings and the application theme are automatically saved to your browser's Local Storage**, meaning your preferences will persist across future visits.
