@@ -1,4 +1,11 @@
 [{
+    "id"          : 25,
+    "environments": ["Desktop", "Mobile"],
+    "image"       : "devmode/DevIndex.png",
+    "name"        : "GitHub Meritocracy Index",
+    "sourceUrl"   : "apps/devindex",
+    "url"         : "dist/development/apps/devindex/index.html"
+}, {
     "id"          : 24,
     "environments": ["Desktop", "Mobile"],
     "image"       : "devmode/bigData.png",
