@@ -1,10 +1,9 @@
-import Base             from '../core/Base.mjs';
-import {isDescriptor}   from '../core/ConfigSymbols.mjs';
-import Filter     from './Filter.mjs';
-import Logger     from '../util/Logger.mjs';
-import NeoArray   from '../util/Array.mjs';
-import Observable from '../core/Observable.mjs';
-import Sorter     from './Sorter.mjs';
+import {isDescriptor} from '../core/ConfigSymbols.mjs';
+import Base           from '../core/Base.mjs';
+import Filter         from './Filter.mjs';
+import Logger         from '../util/Logger.mjs';
+import Observable     from '../core/Observable.mjs';
+import Sorter         from './Sorter.mjs';
 
 const
     countMutations     = Symbol('countMutations'),
