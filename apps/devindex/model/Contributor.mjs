@@ -106,65 +106,45 @@ class Contributor extends Model {
             {
                 name   : 'totalPublicContributions',
                 type   : 'Integer',
+                depends: ['totalPrivateContributions'],
                 /**
                  * Calculates the total public contributions (Total - Private).
                  * @param {Object|Neo.data.Record} data
                  * @returns {Number}
                  */
                 calculate: data => {
-                    // Optimization: Use pre-calculated fields if available (Record context)
-                    let total           = data.totalContributions || data.tc || 0,
-                        privateContribs = data.totalPrivateContributions;
-
-                    if (privateContribs === undefined) {
-                         privateContribs = (data.privateContributions || data.py)?.reduce((a, b) => a + b, 0) || 0
-                    }
-
-                    return total - privateContribs
+                    const total = data.totalContributions || data.tc || 0;
+                    return total - data.totalPrivateContributions
                 }
             },
             {
                 name: 'privateContributionsRatio',
                 type: 'Float',
+                depends: ['totalPrivateContributions'],
                 /**
                  * Calculates the ratio of private to total contributions (0-100).
                  * @param {Object|Neo.data.Record} data
                  * @returns {Number}
                  */
                 calculate: data => {
-                    // Optimization: Use totalPrivateContributions if already calculated (Record context)
-                    // Fallback: Calculate from raw array (Raw/Store context)
-                    let privateContribs = data.totalPrivateContributions;
-
-                    if (privateContribs === undefined) {
-                        privateContribs = (data.privateContributions || data.py)?.reduce((a, b) => a + b, 0) || 0
-                    }
-
                     const total = data.totalContributions || data.tc || 0;
-
-                    return total === 0 ? 0 : (privateContribs / total) * 100
+                    return total === 0 ? 0 : (data.totalPrivateContributions / total) * 100
                 }
             },
             {
                 name: 'commitRatio',
                 type: 'Float',
+                depends: ['totalCommits', 'totalPublicContributions'],
                 /**
-                 * Calculates the ratio of commits to total contributions (0-100).
+                 * Calculates the ratio of public commits to total public contributions (0-100).
+                 * We exclude private contributions from the denominator because GitHub does not
+                 * distinguish between private commits vs. private issues/PRs. Including them
+                 * would artificially tank the ratio for users with high private activity.
                  * @param {Object|Neo.data.Record} data
                  * @returns {Number}
                  */
                 calculate: data => {
-                    // Optimization: Use totalCommits if already calculated (Record context)
-                    // Fallback: Calculate from raw array (Raw/Store context)
-                    let commits = data.totalCommits;
-
-                    if (commits === undefined) {
-                        commits = (data.commitsArray || data.cy)?.reduce((a, b) => a + b, 0) || 0
-                    }
-
-                    const total = data.totalContributions || data.tc || 0;
-
-                    return total === 0 ? 0 : (commits / total) * 100
+                    return data.totalPublicContributions === 0 ? 0 : (data.totalCommits / data.totalPublicContributions) * 100
                 }
             }
         ]
