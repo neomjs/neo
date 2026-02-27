@@ -257,7 +257,7 @@ class Collection extends Base {
             let me     = this,
                 source = Neo.get(value);
 
-            me._items = [...source._items];
+            me._items = source._items.slice();
             me.map    = new Map(source.map); // creates a clone of the original map
 
             if (me.trackInternalId && source.trackInternalId) {
@@ -526,7 +526,7 @@ class Collection extends Base {
         delete config.sorters;
 
         if (me._items.length > 0) {
-            config.items  = [...me._items];
+            config.items  = me._items.slice();
             config.count = config.items.length;
         }
 
@@ -583,7 +583,7 @@ class Collection extends Base {
      */
     doSort(items=this._items, silent=false) {
         let me                = this,
-            previousItems     = [...items],
+            previousItems     = items.slice(),
             {sorters, sortDirections, sortProperties} = me,
             countSorters      = sortProperties.length || 0,
             hasSortByMethod   = false,
@@ -756,7 +756,7 @@ class Collection extends Base {
             countItems      = items.length,
             filteredItems   = [],
             needsSorting    = false,
-            oldItems        = [...me._items],
+            oldItems        = me._items.slice(),
             config, isIncluded, item, j, tmpItems;
 
         for (; i < countAllFilters; i++) {
@@ -776,7 +776,7 @@ class Collection extends Base {
             me.internalIdMap?.clear();
             me.initialIndexCounter = 0;
 
-            me.items = [...me.allItems._items]
+            me.items = me.allItems._items.slice()
         } else {
             if (!me.allItems) {
                 config = {...me.originalConfig};
@@ -832,7 +832,7 @@ class Collection extends Base {
 
                 me._items = filteredItems // silent update, the map is already in place
             } else {
-                filteredItems = [...items];
+                filteredItems = items.slice();
 
                 for (j=0; j < countAllFilters; j++) {
                     tmpItems = [];
@@ -843,7 +843,7 @@ class Collection extends Base {
                         }
                     }
 
-                    filteredItems = [...tmpItems];
+                    filteredItems = tmpItems.slice();
                     countItems    = filteredItems.length
                 }
 
