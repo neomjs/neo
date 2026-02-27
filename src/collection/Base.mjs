@@ -792,10 +792,11 @@ class Collection extends Base {
                 me.allItems = me.createAllItems({
                     ...Neo.clone(config, true, true),
                     id         : me.id + '-all',
-                    items      : [...me._items], // Initialize with a shallow copy of current items
                     keyProperty: me.keyProperty,
                     sourceId   : me.id
-                })
+                });
+
+                me.allItems.items = me._items.slice();
             }
 
             me.map.clear();
