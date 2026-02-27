@@ -1,4 +1,5 @@
-import Base       from '../core/Base.mjs';
+import Base             from '../core/Base.mjs';
+import {isDescriptor}   from '../core/ConfigSymbols.mjs';
 import Filter     from './Filter.mjs';
 import Logger     from '../util/Logger.mjs';
 import NeoArray   from '../util/Array.mjs';
@@ -81,7 +82,11 @@ class Collection extends Base {
          * @member {Object[]|null} items_=null
          * @reactive
          */
-        items_: null,
+        items_: {
+            [isDescriptor]: true,
+            clone         : 'shallow',
+            value         : null
+        },
         /**
          * The unique(!) key property of each collection item
          * @member {String} keyProperty='id'
