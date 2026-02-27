@@ -6,7 +6,7 @@
 
 The genesis of DevIndex stemmed from a simple frustration. Our creator, with over 30,000 GitHub contributions, wanted to understand how that volume compared to other active developers in the ecosystem. 
 
-A search revealed that the available tools were severely lacking. The few existing "Top GitHub Users" lists can be highly localized or niche, but universally, they are all severely inaccurate—often entirely missing developers with tens or hundreds of thousands of contributions. Even when querying advanced Large Language Models (LLMs) like ChatGPT or Claude for a "Top 20" list, the results were hallucinated or based on severely outdated and incomplete data (e.g., listing developers with 4k contributions in the Top 20, while the actual top 100 all have over 105,000 contributions).
+A search revealed that the available tools were severely lacking. The few existing "Top GitHub Users" lists can be highly localized or niche, but universally, they are all severely inaccurate—often entirely missing developers with tens or hundreds of thousands of contributions. Even when querying advanced Large Language Models (LLMs) like ChatGPT or Claude for a "Top 20" list, the results were hallucinated or based on severely outdated and incomplete data (e.g., listing developers with 4k contributions in the Top 20, while the actual top 100 all have over 134,000 contributions).
 
 This highlighted a major "Invisibility Problem" in the Open Source ecosystem.
 
