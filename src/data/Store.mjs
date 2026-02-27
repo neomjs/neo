@@ -49,6 +49,17 @@ const initialIndexSymbol = Symbol.for('initialIndex');
  *      store.add(hugeArrayOfData, false);
  *      ```
  *
+ * ### Soft Hydration & Field Dependencies
+ *
+ * When operating in Turbo Mode (`autoInitRecords: false`), the Store sorts and filters using raw JSON objects.
+ * If a sort or filter operation requires a calculated field that isn't present on the raw object, the Store
+ * performs **Soft Hydration** via `resolveField()`. It dynamically calculates the field value and auto-caches
+ * it on the raw object.
+ *
+ * If a calculated field relies on other calculated fields, the Model definition must declare a `depends: []` array.
+ * The Store uses this array to recursively resolve and cache all dependencies before executing the main calculation,
+ * preventing severe performance bottlenecks (like redundant array reductions).
+ *
  * ### Progressive Loading (Streaming)
  *
  * When using a `proxy` (e.g., {@link Neo.data.proxy.Stream}), the Store supports **Progressive Loading**.
@@ -1095,6 +1106,20 @@ class Store extends Collection {
 
         if (!field) return undefined;
 
+        if (!RecordFactory.isRecord(item) && field.depends) {
+            let deps = field.depends,
+                i    = 0,
+                len  = deps.length,
+                dep;
+
+            for (; i < len; i++) {
+                dep = deps[i];
+                if (item[dep] === undefined) {
+                    item[dep] = me.resolveField(item, dep);
+                }
+            }
+        }
+
         if (field.calculate) {
             value = field.calculate(item)
         } else {
@@ -1120,6 +1145,10 @@ class Store extends Collection {
             if (value === undefined && Object.hasOwn(field, 'defaultValue')) {
                 value = Neo.isFunction(field.defaultValue) ? field.defaultValue() : field.defaultValue
             }
+        }
+
+        if (!RecordFactory.isRecord(item)) {
+            item[fieldName] = value;
         }
 
         return value

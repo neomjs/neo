@@ -5,6 +5,33 @@ import {isDescriptor} from '../core/ConfigSymbols.mjs';
 /**
  * @class Neo.data.Model
  * @extends Neo.core.Base
+ *
+ * @summary Defines the schema and data processing logic for records in a Store.
+ *
+ * Models define the `fields` array, which maps raw data keys to canonical field names, handles
+ * data conversion, and defines computed values.
+ *
+ * ### Calculated Fields & Dependencies
+ *
+ * Fields can dynamically compute their values using a `calculate` function. 
+ * If a calculated field relies on other calculated fields, you **MUST** declare them in the `depends` array.
+ *
+ * This is critical for performance when the Store operates in "Turbo Mode" (`autoInitRecords: false`).
+ * In Turbo Mode, the Store performs "Soft Hydration" on raw JSON objects. Declaring `depends` ensures
+ * the Store recursively resolves and caches the dependencies before executing your calculate function,
+ * preventing massive performance bottlenecks (like redundant array reductions).
+ *
+ * @example
+ * fields: [{
+ *     name: 'total',
+ *     type: 'Integer',
+ *     calculate: data => data.a + data.b
+ * }, {
+ *     name: 'ratio',
+ *     type: 'Float',
+ *     depends: ['total'], // Crucial for Turbo Mode performance!
+ *     calculate: data => data.total === 0 ? 0 : data.a / data.total
+ * }]
  */
 class Model extends Base {
     static config = {
