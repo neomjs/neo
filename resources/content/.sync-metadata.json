@@ -1,6 +1,6 @@
 {
-  "lastSync": "2026-02-27T23:12:01.339Z",
-  "releasesLastFetched": "2026-02-27T23:12:01.888Z",
+  "lastSync": "2026-02-27T23:53:44.753Z",
+  "releasesLastFetched": "2026-02-27T23:53:45.270Z",
   "pushFailures": [],
   "issues": {
     "3789": {
@@ -21218,7 +21218,7 @@
       "path": "resources/content/issues/issue-9339.md",
       "closedAt": null,
       "updatedAt": "2026-02-27T19:54:15Z",
-      "contentHash": "a9d35726b5857bd1b46e41f22fc53aa0a802c2edd8738d86ede3cc6aae7a115e"
+      "contentHash": "4240f7bea14820fc6a4f7124a0f19d713e22346f080f4910d64208a41db5af25"
     },
     "9340": {
       "state": "CLOSED",
@@ -21235,18 +21235,18 @@
       "contentHash": "99590784d8ac47db88ef4cc86fb6bcc4e662a7f8066c68c144ccbf806f8dc1eb"
     },
     "9342": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "resources/content/issues/issue-9342.md",
-      "closedAt": null,
-      "updatedAt": "2026-02-27T19:54:58Z",
-      "contentHash": "47ba5a70b0e95e9739cb6191c5df0892454384df0f88d76b1586dcaa40d7aa61"
+      "closedAt": "2026-02-27T23:32:55Z",
+      "updatedAt": "2026-02-27T23:32:55Z",
+      "contentHash": "89d5246da220bb2118115d469e1694906cc779f3c589b88a302a2715d008411c"
     },
     "9343": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "resources/content/issues/issue-9343.md",
-      "closedAt": null,
-      "updatedAt": "2026-02-27T19:55:11Z",
-      "contentHash": "872161512ac127568837219712392f3154640846295da500b099c64094eb2ab7"
+      "closedAt": "2026-02-27T23:44:05Z",
+      "updatedAt": "2026-02-27T23:44:05Z",
+      "contentHash": "7ed349dffa8d40289a8112476361b8134a55c2301f6ea44c7d878f519b448a00"
     },
     "9344": {
       "state": "OPEN",
@@ -21261,6 +21261,13 @@
       "closedAt": null,
       "updatedAt": "2026-02-27T19:55:41Z",
       "contentHash": "a5fc8d765cbe3af199d517888ca36c94c4dd7bb7b2e303c4d21f5bddef8553ca"
+    },
+    "9346": {
+      "state": "CLOSED",
+      "path": "resources/content/issues/issue-9346.md",
+      "closedAt": "2026-02-27T23:20:19Z",
+      "updatedAt": "2026-02-27T23:20:19Z",
+      "contentHash": "faa8f0bb7893c128f239cc2ddac430ca69bd7edf6a454092604ff6c3b7d93056"
     }
   },
   "releases": {
