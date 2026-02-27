@@ -1,23 +1,24 @@
 ---
 id: 9322
 title: 'Docs: Provide empirical Delta Log proof for Grid Row Pooling in v12 Release Notes'
-state: OPEN
+state: CLOSED
 labels:
   - documentation
   - ai
 assignees:
   - tobiu
 createdAt: '2026-02-26T23:50:02Z'
-updatedAt: '2026-02-26T23:52:22Z'
+updatedAt: '2026-02-27T23:07:20Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9322'
 author: tobiu
-commentsCount: 0
-parentIssue: null
+commentsCount: 1
+parentIssue: 9339
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-02-27T23:07:20Z'
 ---
 # Docs: Provide empirical Delta Log proof for Grid Row Pooling in v12 Release Notes
 
@@ -75,4 +76,10 @@ Frame 5: 504 deltas
 - 2026-02-26T23:50:04Z @tobiu added the `documentation` label
 - 2026-02-26T23:50:04Z @tobiu added the `ai` label
 - 2026-02-26T23:52:23Z @tobiu assigned to @tobiu
+- 2026-02-27T19:57:40Z @tobiu added parent issue #9339
+### @tobiu - 2026-02-27T23:07:19Z
+
+Empirical Delta Log proof has been successfully integrated into the v12.0.0 release notes under Hero Story 2.
+
+- 2026-02-27T23:07:20Z @tobiu closed this issue
 
