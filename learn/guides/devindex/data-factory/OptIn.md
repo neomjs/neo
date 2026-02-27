@@ -143,4 +143,4 @@ async closeIssues(issues, existingTracker, currentBlocklist) {
 }
 ```
 
-This ensures the user who opened the issue understands exactly what happened to each of their nominations, saving the core team from manual support requests while strictly enforcing privacy boundaries.
+This ensures the user who opened the issue understands exactly what happened to each of their nominations, saving the maintainer from manual support requests while strictly enforcing privacy boundaries.

@@ -104,4 +104,4 @@ async closeIssues(issueIds) {
 }
 ```
 
-This strict, automated approach guarantees that privacy requests are honored immediately, securely, and permanently without requiring human intervention from the core team.
+This strict, automated approach guarantees that privacy requests are honored immediately, securely, and permanently without requiring human intervention from the maintainer.

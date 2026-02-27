@@ -44,5 +44,5 @@ However, we recognize that some individuals (such as prominent conference speake
 For these specific cases, we maintain a manual **Allowlist**. Users on the allowlist are guaranteed a spot in the DevIndex, regardless of the dynamic threshold, and they do not consume one of the 50,000 organic meritocracy slots.
 
 ### How to request Allowlist status:
-Because allowlisting bypasses the automated meritocracy, it requires human verification by our team. 
+Because allowlisting bypasses the automated meritocracy, it requires human verification by the maintainer. 
 - If you believe you or someone else should be allowlisted, please reach out to us in our **[Discord server](https://discord.gg/6p8paPq)**.
