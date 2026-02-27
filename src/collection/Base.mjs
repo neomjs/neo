@@ -263,6 +263,7 @@ class Collection extends Base {
 
             me._items = source._items.slice();
             me.map    = new Map(source.map); // creates a clone of the original map
+            me.count  = me._items.length;
 
             if (me.trackInternalId && source.trackInternalId) {
                 me.internalIdMap = new Map(source.internalIdMap)
