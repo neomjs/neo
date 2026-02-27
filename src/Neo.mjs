@@ -7,7 +7,7 @@ const
     getSetCache  = Symbol('getSetCache'),
     cloneMap = {
         Array(obj, deep, ignoreNeoInstances) {
-            return !deep ? [...obj] : [...obj.map(val => Neo.clone(val, deep, ignoreNeoInstances))]
+            return !deep ? obj.slice() : obj.map(val => Neo.clone(val, deep, ignoreNeoInstances))
         },
         Date(obj) {
             return new Date(obj.valueOf())
