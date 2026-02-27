@@ -1,6 +1,6 @@
 # Introduction & Overview
 
-> **Legal Disclaimer:** DevIndex is an independent, MIT-licensed open-source project created by the Neo.mjs team. It is **not officially affiliated with, endorsed by, or associated with GitHub, Inc.** in any way. The project serves as an independent index for the open-source community, built on the Neo.mjs application engine to manage data grids streaming 50,000 records. It utilizes publicly available data provided by the GitHub API. We respect user privacy, utilize no tracking cookies, and run no advertisements.
+> **Legal Disclaimer:** DevIndex is an independent, MIT-licensed open-source project created by the Neo.mjs creator and AI agents. It is **not officially affiliated with, endorsed by, or associated with GitHub, Inc.** in any way. The project serves as an independent index for the open-source community, built on the Neo.mjs application engine to manage data grids streaming 50,000 records. It utilizes publicly available data provided by the GitHub API. We respect user privacy, utilize no tracking cookies, and run no advertisements.
 
 ## Project Motivation & The "Invisibility" Problem
 
@@ -28,8 +28,12 @@ To overcome this, we built a highly specialized backend architecture:
 - **The Spider (Discovery Engine):** Uses a multi-strategy algorithm to discover highly active developers who might otherwise remain hidden. Our Spider uses weighted graph walks, temporal slicing, and network analysis—read more in [The Spider Guide](./Spider.md).
 - **The Updater (Enrichment Engine):** Queries the GraphQL API to meticulously aggregate year-by-year contribution graphs for every discovered user, calculating their true lifetime metrics.
 
-### The Engineering Investment
-Building an index of this scale and overcoming the severe limitations of public API data is an immense challenge. To reach the current state of DevIndex, our core engineering team created and resolved over **350 dedicated GitHub tickets**. This represents a massive Research & Development investment spanning complex data pipelining, heuristics analysis, graph crawling algorithms, and UI performance tuning.
+### The Engineering Investment & The "Cyborg Factor"
+Building an index of this scale and overcoming the severe limitations of public API data is an immense challenge. However, the development of DevIndex serves as a profound, verifiable proof-point for the **AI Era**.
+
+The entire DevIndex platform—including the complex backend Data Factory, the streaming frontend architecture, and a complete, from-scratch rewrite of the underlying framework's Grid component—was built in **exactly one month** (February 2026). This was not achieved by a large "core engineering team," but by a **single developer and an AI pair-programmer** (the Neo.mjs AI infrastructure).
+
+In that single month, this Human-AI pair created and resolved approximately **400 dedicated GitHub tickets**. This unprecedented velocity—fully verifiable via the project's public commit log and issue tracker—demonstrates the true power of Neo.mjs as an AI-Native Application Engine. It proves that with the right architecture, a single developer can now orchestrate massive, production-grade systems at speeds previously thought impossible.
 
 ### Accuracy and The Need for Participation
 It is crucial to understand that while our data is vastly more accurate than existing lists, **it is still an approximation and will have gaps.** Because the Spider relies on graph traversal and heuristics rather than a full database dump, it is statistically probable that we are still missing highly prolific contributors—perhaps even the true #1 contributor globally. If you're missing from the index, please let us know so we can submit your profile!

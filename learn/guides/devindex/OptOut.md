@@ -26,7 +26,7 @@ For maximum anonymity and ease of use, you can opt out simply by temporarily sta
     - Purges you from our discovery tracking files.
 4. **Un-star (Highly Encouraged)**: After an hour or two, you are free to un-star the repository. The removal is permanent, and you will not be re-indexed even if you remove the star.
 
-This approach is entirely automated, requires zero interaction with our team, and keeps your public GitHub activity clean of administrative issues.
+This approach is entirely automated, requires zero manual interaction with the maintainer, and keeps your public GitHub activity clean of administrative issues.
 
 ---
 
