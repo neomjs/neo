@@ -16,13 +16,13 @@ commentsCount: 0
 parentIssue: null
 subIssues:
   - '[x] 9340 Hero Story: The DevIndex & Data Layer'
-  - '[ ] 9341 Hero Story: The Grid Rewrite'
+  - '[x] 9341 Hero Story: The Grid Rewrite'
   - '[ ] 9342 Hero Story: Core Architecture Hardening'
   - '[ ] 9343 Extract DevIndex Guides & Mermaid Diagrams'
   - '[ ] 9344 Extract Engineering War Stories (Memory Core)'
   - '[ ] 9345 Final Narrative Arc & Editorial Polish'
-  - '[ ] 9322 Docs: Provide empirical Delta Log proof for Grid Row Pooling in v12 Release Notes'
-subIssuesCompleted: 1
+  - '[x] 9322 Docs: Provide empirical Delta Log proof for Grid Row Pooling in v12 Release Notes'
+subIssuesCompleted: 3
 subIssuesTotal: 7
 blockedBy: []
 blocking: []
@@ -48,4 +48,5 @@ This epic will be broken down into focused sub-tickets to manage the scope, extr
 - 2026-02-27T19:55:55Z @tobiu added sub-issue #9345
 - 2026-02-27T19:57:40Z @tobiu added sub-issue #9322
 - 2026-02-27T20:01:31Z @tobiu referenced in commit `94e2949` - "#9339 early stage draft"
+- 2026-02-27T22:13:15Z @tobiu referenced in commit `d1bfcef` - "#9339: removing unrelated tickets"
 
