@@ -14,6 +14,11 @@ class MainContainerController extends Controller {
     }
 
     /**
+     * @member {Boolean} firstFiltering=true
+     */
+    firstFiltering = true
+
+    /**
      * @param {Object} data
      */
     onBufferColumnRangeChange(data) {
@@ -96,15 +101,23 @@ class MainContainerController extends Controller {
     /**
      * @param {Object} data
      */
-    onFilterChange(data) {
-        let grid  = this.getReference('grid'),
+    async onFilterChange(data) {
+        let me    = this,
+            grid  = me.getReference('grid'),
             value = data.component.getSubmitValue();
 
         if (data.component.name === 'countryCode' && value) {
             value = value.toUpperCase()
         }
 
-        grid.store.getFilter(data.component.name).value = value
+        if (me.firstFiltering) {
+            me.firstFiltering = false;
+            grid.isLoading = 'Is Loading';
+            await me.timeout(5)
+        }
+
+        grid.store.getFilter(data.component.name).value = value;
+        grid.isLoading = false
     }
 
     /**
@@ -133,15 +146,35 @@ class MainContainerController extends Controller {
     /**
      * @param {Object} data
      */
-    onHideAutomationChange(data) {
-        this.getReference('grid').store.getFilter('commitRatio').value = data.value ? 90 : null
+    async onHideAutomationChange(data) {
+        let me   = this,
+            grid = me.getReference('grid');
+
+        if (me.firstFiltering) {
+            me.firstFiltering = false;
+            grid.isLoading = 'Is Loading';
+            await me.timeout(5)
+        }
+
+        grid.store.getFilter('commitRatio').value = data.value ? 90 : null;
+        grid.isLoading = false
     }
 
     /**
      * @param {Object} data
      */
-    onHireableChange(data) {
-        this.getReference('grid').store.getFilter('isHireable').value = data.value ? true : null
+    async onHireableChange(data) {
+        let me   = this,
+            grid = me.getReference('grid');
+
+        if (me.firstFiltering) {
+            me.firstFiltering = false;
+            grid.isLoading = 'Is Loading';
+            await me.timeout(5)
+        }
+
+        grid.store.getFilter('isHireable').value = data.value ? true : null;
+        grid.isLoading = false
     }
 
     /**
