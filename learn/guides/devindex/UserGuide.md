@@ -16,7 +16,7 @@ The main view of DevIndex is a high-performance grid displaying over 50,000 acti
 
 ### The Metrics
 *   **Total:** The primary metric for ranking. By default, this shows "Total Contributions" (the sum of commits to default branches, issues opened, PRs opened, and PR reviews). **Crucially, this column updates dynamically based on the "Data Mode" you select in the settings (e.g., changing to "Total Commits").**
-*   **Commits %:** The ratio of a user's commit activity compared to their total contributions. A very high ratio (e.g., > 90%) can sometimes indicate an automated bot account, though solo developers using external ticketing systems (like Jira) can also exhibit this pattern.
+*   **Commits %:** The ratio of a user's *public* commit activity compared to their total *public* contributions. (Note: Because the GitHub API does not distinguish the type of activity within private contributions, private activity is excluded from this calculation to prevent artificially skewing the ratio). A very high ratio (e.g., > 90%) can sometimes indicate an automated bot account, though solo developers using external ticketing systems (like Jira) can also exhibit this pattern.
 *   **Private %:** By default, GitHub only exposes public activity. However, users can choose to make their private contributions visible on their GitHub profile. If they do, DevIndex tracks these as well. This column shows the percentage of their total contributions that are private.
 
 ### Activity & Trends
