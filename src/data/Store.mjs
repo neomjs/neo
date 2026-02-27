@@ -1028,28 +1028,31 @@ class Store extends Collection {
 
         if (!me.autoInitRecords && me.model?.hasComplexFields && me.filters.length > 0) {
             const
-                filterProperties = me.filters.map(f => f.property),
+                activeFilters    = me.filters.filter(f => !f.disabled && f.value !== null),
+                filterProperties = activeFilters.map(f => f.property),
                 len              = filterProperties.length;
 
-            // We iterate over allItems (unfiltered source) or current items depending on state,
-            // but Collection.filter() uses allItems if it exists. Ideally we hydrate the source.
-            // Since we can't easily know which source Collection.filter will use without duplicating logic,
-            // we will hydrate both if they exist, or just the active one.
-            // Safest bet: Hydrate the source that filter() will use.
-            // Collection.filter uses: items = me.allItems?._items || me._items
-            const itemsToHydrate = me.allItems ? me.allItems._items : me._items;
+            if (len > 0) {
+                // We iterate over allItems (unfiltered source) or current items depending on state,
+                // but Collection.filter() uses allItems if it exists. Ideally we hydrate the source.
+                // Since we can't easily know which source Collection.filter will use without duplicating logic,
+                // we will hydrate both if they exist, or just the active one.
+                // Safest bet: Hydrate the source that filter() will use.
+                // Collection.filter uses: items = me.allItems?._items || me._items
+                const itemsToHydrate = me.allItems ? me.allItems._items : me._items;
 
-            itemsToHydrate.forEach(item => {
-                if (!RecordFactory.isRecord(item)) {
-                    for (let i = 0; i < len; i++) {
-                        const property = filterProperties[i];
+                itemsToHydrate.forEach(item => {
+                    if (!RecordFactory.isRecord(item)) {
+                        for (let i = 0; i < len; i++) {
+                            const property = filterProperties[i];
 
-                        if (!Object.hasOwn(item, property)) {
-                            item[property] = me.resolveField(item, property)
+                            if (!Object.hasOwn(item, property)) {
+                                item[property] = me.resolveField(item, property)
+                            }
                         }
                     }
-                }
-            })
+                })
+            }
         }
 
         super.filter()
@@ -1068,7 +1071,7 @@ class Store extends Collection {
 
         if (!me.autoInitRecords && !RecordFactory.isRecord(item) && me.filters.length > 0) {
             me.filters.forEach(filter => {
-                if (!filter.disabled && !Object.hasOwn(item, filter.property)) {
+                if (!filter.disabled && filter.value !== null && !Object.hasOwn(item, filter.property)) {
                     item[filter.property] = me.resolveField(item, filter.property)
                 }
             })
