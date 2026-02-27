@@ -11,6 +11,15 @@ However, the application itself is, by its very nature, a massive public data tr
 
 While the application serves as a high-performance, deep-tech showcase for the underlying [Neo.mjs application engine](#/learn/Introduction) (pushing browser limits by streaming 50,000 records), the Neo.mjs platform itself is also a fully MIT-licensed open-source project.
 
+### Why is the top of the list full of bots and "cheaters"?
+When you see accounts with 4 million or 6 million lifetime contributions, your first instinct is likely that they are cheating the system. In many cases, these are developers who have heavily automated commits to specific repositories (for backups, data hoarding, or even as code-golf experiments).
+
+We explicitly blocklist accounts where the user's profile bio explicitly states they are an automation bot (and we happen to notice it). However, for everyone else, **we do not censor the data.** 
+
+Why? Because an account with 3 million automated commits might also have 30,000 brilliant, organic contributions to critical open-source infrastructure. We refuse to manually police and delete profiles, as we risk destroying valid historical data. 
+
+We provide the raw data, and we provide tools to view it differently. If you want to see a more "human" list, use the **`Hide Commit Ratio > 90%` filter** in the UI. If you are a data scientist or engineer with ideas for better programmatic filters or AI-driven curation models, DevIndex is an open-source community project. We invite you to open a ticket or submit a PR to help us build better curation tools!
+
 ### How can I update my data inside DevIndex?
 DevIndex mirrors your public GitHub data. To update your information (like your location, company, or hireable status) in DevIndex, you simply need to **update your GitHub profile**. 
 

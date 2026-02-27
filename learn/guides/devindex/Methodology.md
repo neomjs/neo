@@ -38,4 +38,16 @@ These scores aren't judgments—they're signals. The GitHub ecosystem is incredi
 
 An incredibly active maintainer, a package automation system, or an AI agent will all generate unique footprints. The badges help researchers understand *what kind* of contributor they're looking at without making value judgments.
 
-For transparency, even profiles with mathematically impossible human patterns remain in the index. We do not editorialize or delete data based on high volume because one developer's "script kiddie" is another researcher's valuable dataset on API abuse or automation trends. However, the UI provides built-in filters (such as `Hide Commit Ratio > 90%`) allowing users to dynamically filter out profiles that are highly likely to be automated systems rather than organic human contributors.
+For transparency, even profiles with mathematically impossible human patterns remain in the index. We do not editorialize or delete data based on high volume because one user's "automation spam" is another researcher's valuable dataset on API abuse or automation trends. However, the UI provides built-in filters (such as `Hide Commit Ratio > 90%`) allowing users to dynamically filter out profiles that are highly likely to be automated systems rather than organic human contributors.
+
+## The Philosophy of Raw Data & The Community Challenge
+
+DevIndex v1 was an immense, month-long effort to build the foundational infrastructure (the Data Factory and the 50k-Row UI Grid). 
+
+You will undoubtedly notice accounts in the top 20 with mathematically impossible human statistics (e.g., 6 million contributions in a few years). We actively blocklist accounts where the user profile (e.g., the bio) explicitly states they are an automation bot and we happen to notice it. But beyond that, **we deliberately choose not to censor the default view**. 
+
+We believe in presenting the raw, unfiltered truth of the GitHub API. Attempting to manually review and judge the validity of 50,000 profiles is impossible. Furthermore, as outlined in our [Data Scientists Guide](./personas/DataScientists.md), one user's "automation spam" is a researcher's valuable dataset on automation trends. Even using AI to randomly sample commits is just a snapshot—an account might have 50,000 incredibly valuable, organic contributions buried within millions of automated commits.
+
+Instead of deleting data, we provide primitive heuristics (like Impact Badges) and built-in UI filters. 
+
+**This is a community project.** If you find the default view frustrating and have ideas for better statistical data annotations, advanced algorithms to separate organic from automated commits, or new UI filters, we welcome your expertise. Don't just complain about the data—open a ticket or submit a Pull Request to help us build a better lens for it.
