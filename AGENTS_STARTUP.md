@@ -138,26 +138,26 @@ To make fully informed decisions, you must leverage both the project's technical
 
 **Action:** Use the `query_documents` tool to find relevant source code, guides, and examples from the framework's knowledge base. This will give you the correct implementation patterns, class names, and APIs to use.
 
-#### Stage 2: Query for Memory
+#### Stage 2: Query for Memory (Your Cognitive Superpower)
 
-**Purpose:** To understand the historical "why."
+**Purpose:** To understand the historical "why" and to prevent reinventing the wheel.
 
-**Action:** Use memory queries to search your past work:
-- `query_raw_memories`: Search specific turn-by-turn interactions.
-- `query_summaries`: Search high-level session summaries for patterns.
+As an AI agent, your context window is ephemeral. By rigidly adhering to the "Consolidate-Then-Save" protocol, you have built a persistent, searchable brain. **This is your primary cognitive advantage.**
 
-**When to use summaries vs. raw memories:**
-- Use `query_summaries` first to find relevant past sessions (faster, high-level).
-- Use `query_raw_memories` to dive into specific implementation details from those sessions.
+**Action:** Before beginning the implementation of any complex feature or bug fix, you **MUST** perform a brief, proactive exploration of the Memory Core. 
+- `query_summaries`: Search high-level session summaries for broad patterns (e.g., "race condition", "VDOM", "Canvas"). Use this to find relevant past sessions quickly.
+- `query_raw_memories`: Dive into specific implementation details from those sessions to understand the nuanced thought processes.
 
-**Learning from past performance:**
-- Query for similar tasks: "refactoring worker architecture"
-- Check quality/productivity scores to see if you struggled before.
-- Review what worked (high scores) and what failed (low scores).
+**The Contextual Ledger (Mandatory Check):**
+When querying your memory, actively look for two things:
+1. **Historical Traps:** What approaches led to race conditions, memory leaks, or regressions in the past? (Learn from previous failures).
+2. **Gold Standards:** What architectural patterns proved highly successful and scalable? (Replicate proven success).
+
+If your current task overlaps with past challenges, explicitly state in your initial plan how your approach leverages the proven Gold Standards and avoids the Historical Traps discovered during your exploration.
 
 #### Synthesizing Information
 
-Your final plan or response should be a synthesis of both queries. Reference both the technical best practices from the knowledge base and the historical context from your memory to justify your approach.
+Your final plan or response should be a synthesis of both queries. Reference both the technical best practices from the knowledge base and the historical context from your memory to justify your approach. Proactively looking for ways to enhance collaboration, including suggesting workflow improvements based on your historical insights, is highly encouraged.
 
 ### 3.4. The "Ask the Expert" Protocol (Syntax Verification)
 
