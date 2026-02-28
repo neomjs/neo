@@ -19,11 +19,11 @@ subIssues:
   - '[x] 9341 Hero Story: The Grid Rewrite'
   - '[x] 9342 Hero Story: Core Architecture Hardening'
   - '[x] 9343 Extract DevIndex Guides & Mermaid Diagrams'
-  - '[ ] 9344 Extract Engineering War Stories (Memory Core)'
+  - '[x] 9344 Extract Engineering War Stories (Memory Core)'
   - '[ ] 9345 Final Narrative Arc & Editorial Polish'
   - '[x] 9322 Docs: Provide empirical Delta Log proof for Grid Row Pooling in v12 Release Notes'
   - '[x] 9346 Docs: Add Epic Summary to v12 Release Notes Changelog'
-subIssuesCompleted: 6
+subIssuesCompleted: 7
 subIssuesTotal: 8
 blockedBy: []
 blocking: []
