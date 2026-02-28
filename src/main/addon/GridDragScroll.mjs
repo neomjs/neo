@@ -180,7 +180,7 @@ class GridDragScroll extends Base {
             return
         }
 
-        if (event.type === 'touchmove') {
+        if (event.type === 'touchmove' && event.cancelable !== false) {
             event.preventDefault() // Disable native scrolling
         }
 
