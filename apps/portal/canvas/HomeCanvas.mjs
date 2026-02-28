@@ -1,4 +1,4 @@
-import Base from './Base.mjs';
+import Base from '../../../src/canvas/Base.mjs';
 
 const
     hasRaf           = typeof requestAnimationFrame === 'function',

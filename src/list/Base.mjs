@@ -155,6 +155,10 @@ class List extends Component {
          */
         useCheckBoxes_: false,
         /**
+         * @member {Boolean} useInternalId=true
+         */
+        useInternalId: true,
+        /**
          * Setting this config to true will switch to dl, dt & dd tags instead of using ul & li.
          * Use the {Boolean} model field isHeader.
          * @member {Boolean} useHeaders_=false
@@ -472,7 +476,7 @@ class List extends Component {
             hasItemWidth     = me.itemWidth !== null,
             isHeader         = me.useHeaders && record.isHeader,
             itemContent      = me.createItemContent(record, index),
-            itemId           = me.getItemId(record[me.getKeyProperty()]),
+            itemId           = me.getItemId(me.getRecordId(record)),
             {selectionModel} = me,
             isSelected       = !me.disableSelection && selectionModel?.isSelected(itemId),
             item, removeDom;
@@ -645,6 +649,14 @@ class List extends Component {
     }
 
     /**
+     * @param {Object} record
+     * @returns {String|Number}
+     */
+    getRecordId(record) {
+        return this.useInternalId ? this.store.getInternalId(record) : this.store.getKey(record)
+    }
+
+    /**
      * Transforms an index excluding list item headers into the real store index
      * @param {Number} headerlessSelectedIndex
      * @returns {Number}
@@ -693,7 +705,13 @@ class List extends Component {
      * @returns {String}
      */
     getItemId(recordOrId) {
-        return `${this.id}__${recordOrId.isRecord ? recordOrId[this.getKeyProperty()] : recordOrId}`
+        let id = recordOrId;
+
+        if (recordOrId.isRecord) {
+            id = this.getRecordId(recordOrId)
+        }
+
+        return `${this.id}__${id}`
     }
 
     /**
@@ -701,12 +719,9 @@ class List extends Component {
      * @returns {String|Number} itemId
      */
     getItemRecordId(vnodeId) {
-        let itemId   = vnodeId.split('__')[1],
-            {model}  = this.store,
-            keyField = model?.getField(this.getKeyProperty()),
-            keyType  = keyField?.type?.toLowerCase();
+        let itemId = vnodeId.split('__')[1];
 
-        if (keyType === 'int' || keyType === 'integer') {
+        if (!this.useInternalId && this.store.getKeyType()?.includes('int')) {
             itemId = parseInt(itemId)
         }
 
@@ -874,7 +889,7 @@ class List extends Component {
             } else if (value) {
                 navigateTo({
                     data    : me.navigator,
-                    target  : me.getItemId(value[me.getKeyProperty()]),
+                    target  : me.getItemId(me.getRecordId(value)),
                     windowId: me.windowId
                 })
             }

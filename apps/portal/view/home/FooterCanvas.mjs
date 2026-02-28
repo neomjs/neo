@@ -1,9 +1,9 @@
+import SharedCanvas     from '../../../../src/app/SharedCanvas.mjs';
 import ComponentManager from '../../../../src/manager/Component.mjs';
-import SharedCanvas     from '../shared/Canvas.mjs';
 
 /**
  * @class Portal.view.home.FooterCanvas
- * @extends Portal.view.shared.Canvas
+ * @extends Neo.app.SharedCanvas
  */
 class FooterCanvas extends SharedCanvas {
     static config = {
@@ -27,13 +27,13 @@ class FooterCanvas extends SharedCanvas {
          */
         hoverId_: null,
         /**
-         * @member {String} importMethodName='importFooterCanvas'
-         */
-        importMethodName: 'importFooterCanvas',
-        /**
          * @member {String} rendererClassName='Portal.canvas.FooterCanvas'
          */
         rendererClassName: 'Portal.canvas.FooterCanvas',
+        /**
+         * @member {String} rendererImportPath='apps/portal/canvas/FooterCanvas.mjs'
+         */
+        rendererImportPath: 'apps/portal/canvas/FooterCanvas.mjs',
         /**
          * @member {Object} style
          */

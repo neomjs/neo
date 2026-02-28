@@ -2,9 +2,22 @@ import Base       from '../core/Base.mjs';
 import Observable from '../core/Observable.mjs';
 
 /**
+ * @summary Defines a sorting rule for data collections, determining the order of items based on a property or custom function.
+ *
+ * `Neo.collection.Sorter` encapsulates a single sort criteria (e.g., `property: 'name', direction: 'ASC'`).
+ * Collections (like `Neo.data.Store`) use arrays of these Sorter instances to perform multi-level sorting.
+ *
+ * **Key Features:**
+ * - **Reactivity:** Changes to `property` or `direction` configs automatically fire a `change` event, prompting the parent collection to re-sort.
+ * - **Value Transformation:** The `useTransformValue` config allows values to be normalized before comparison (e.g., lowercasing strings for case-insensitive sorting).
+ * - **Custom Sorting:** The `sortBy` config allows providing a fully custom comparison function, overriding the default property-based logic.
+ * - **Null Handling:** `null` and `undefined` values are always pushed to the bottom of the sorted results, regardless of the sort direction (`ASC` or `DESC`), ensuring stable transitivity and predictable UI rendering.
+ *
  * @class Neo.collection.Sorter
  * @extends Neo.core.Base
  * @mixes Neo.core.Observable
+ * @see Neo.collection.Base
+ * @see Neo.data.Store
  */
 class Sorter extends Base {
     /**
@@ -110,6 +123,9 @@ class Sorter extends Base {
             a = me.transformValue(a);
             b = me.transformValue(b);
         }
+
+        if (a == null && b != null) return  1;
+        if (a != null && b == null) return -1;
 
         if (a > b) {
             return 1 * me.directionMultiplier;

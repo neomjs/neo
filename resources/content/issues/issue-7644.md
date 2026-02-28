@@ -1,7 +1,7 @@
 ---
 id: 7644
 title: 'Feat: Implement PR Syncer for GitHub Workflow'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - stale
@@ -9,16 +9,17 @@ labels:
 assignees:
   - tobiu
 createdAt: '2025-10-25T10:22:46Z'
-updatedAt: '2026-01-24T03:07:13Z'
+updatedAt: '2026-02-07T03:35:19Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7644'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: 7645
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-02-07T03:35:19Z'
 ---
 # Feat: Implement PR Syncer for GitHub Workflow
 
@@ -47,4 +48,9 @@ As the final part of the sync service refactoring epic, this ticket introduces t
 This issue is stale because it has been open for 90 days with no activity.
 
 - 2026-01-24T03:07:13Z @github-actions added the `stale` label
+### @github-actions - 2026-02-07T03:35:18Z
+
+This issue was closed because it has been inactive for 14 days since being marked as stale.
+
+- 2026-02-07T03:35:19Z @github-actions closed this issue
 

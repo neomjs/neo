@@ -89,7 +89,13 @@ class Button extends BaseButton {
          * @member {Boolean} sortable_=true
          * @reactive
          */
-        sortable_: true
+        sortable_: true,
+        /**
+         * True enables restoring the initial sort state (ASC, DESC, null)
+         * @member {Boolean} useTriStateSorting_=false
+         * @reactive
+         */
+        useTriStateSorting_: false
     }
 
     /**
@@ -217,14 +223,14 @@ class Button extends BaseButton {
 
         if (me.defaultSortDirection === 'DESC') {
             map = {
-                ASC : null,
+                ASC : me.useTriStateSorting ? null : 'DESC',
                 DESC: 'ASC',
                 null: 'DESC'
             }
         } else {
             map = {
                 ASC : 'DESC',
-                DESC: null,
+                DESC: me.useTriStateSorting ? null : 'ASC',
                 null: 'ASC'
             }
         }
@@ -328,7 +334,8 @@ class Button extends BaseButton {
             filterConfig        : me.serializeConfig(me.filterConfig),
             isSorted            : me.isSorted,
             showHeaderFilter    : me.showHeaderFilter,
-            sortable            : me.sortable
+            sortable            : me.sortable,
+            useTriStateSorting  : me.useTriStateSorting
         }
     }
 }

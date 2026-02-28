@@ -65,9 +65,8 @@ class RowModel extends BaseModel {
             {view}       = me,
             {store}      = view,
             countRecords = store.getCount(),
-            keyProperty  = store.getKeyProperty(),
-            recordId     = me.selectedRows[0] || store.getAt(0)[keyProperty],
-            record       = store.get(recordId),
+            recordId     = me.selectedRows[0] || view.getRecordId(store.getAt(0)),
+            record       = me.getRowRecord(recordId),
             index        = store.indexOf(record),
             newIndex     = (index + step) % countRecords;
 
@@ -80,7 +79,7 @@ class RowModel extends BaseModel {
         if (me.hasAnnotations(record)) {
             me.updateAnnotations(record)
         } else {
-            recordId = record[keyProperty];
+            recordId = view.getRecordId(record);
 
             if (recordId) {
                 me.selectRow(recordId);
@@ -104,7 +103,7 @@ class RowModel extends BaseModel {
             if (me.hasAnnotations(record)) {
                 me.updateAnnotations(record)
             } else {
-                recordId = record[view.store.getKeyProperty()];
+                recordId = view.getRecordId(record);
 
                 me.toggleRowSelection(recordId);
 
@@ -148,7 +147,7 @@ class RowModel extends BaseModel {
         let me               = this,
             {view}           = me,
             {store}          = view,
-            recordId         = record[store.getKeyProperty()],
+            recordId         = view.getRecordId(record),
             isSelected       = me.isSelectedRow(recordId),
             annotationsField = view.selectedRecordField;
 

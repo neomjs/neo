@@ -1,0 +1,88 @@
+.devindex-controls-container {
+    border     : none;
+    bottom     : 16px;
+    display    : block;
+    flex-shrink: 0;
+    min-width  : 235px;
+    overflow   : visible;
+    position   : absolute;
+    right      : -235px;
+    top        : 74px;
+    transition : right 250ms ease-out;
+    width      : 235px;
+    z-index    : 100;
+
+    .devindex-controls-container-content {
+        border                   : 1px solid var(--grid-container-border-color);
+        border-bottom-left-radius: 8px;
+        border-right             : none;
+        border-top-left-radius   : 8px;
+        box-shadow               : var(--devindex-header-shadow);
+        opacity                  : 0;
+        transition               : opacity 250ms ease-out;
+
+        .neo-tab-body-container {
+            background-color: transparent;
+            border          : none !important;
+        }
+
+        .devindex-tab-header-toolbar.neo-tab-header-toolbar {
+            --tab-button-height        : 30px;
+            --tab-button-height-pressed: 30px;
+            --tab-button-margin-bottom : 0;
+            --tab-button-padding       : 0 10px;
+
+            background-color      : var(--devindex-tab-toolbar-bg);
+            border-top-left-radius: 8px;
+            min-height            : 30px;
+
+            .neo-tab-header-button.neo-button {
+                .neo-button-glyph {
+                    color: var(--devindex-tab-text-color);
+                }
+
+                .neo-button-ripple {
+                    background-color: var(--devindex-tab-indicator-bg);
+                }
+
+                .neo-button-text {
+                    color: var(--devindex-tab-text-color);
+                }
+
+                &.pressed {
+                    .neo-button-glyph {
+                        color: var(--devindex-tab-text-color-pressed);
+                    }
+
+                    .neo-tab-button-indicator {
+                        background-color: var(--devindex-tab-indicator-bg);
+                    }
+                }
+            }
+        }
+
+                .neo-tab-strip {
+                    .neo-active-tab-indicator {
+                        background-color: var(--devindex-tab-indicator-bg);
+                    }
+                }
+
+        > .neo-container {
+            overflow-y: auto;
+            padding   : .5em 1em;
+
+            > .neo-container {
+                flex  : none;
+                height: fit-content;
+            }
+        }
+    }
+
+    &.neo-expanded {
+        right: 0;
+
+        .devindex-controls-container-content {
+            opacity: 1;
+        }
+    }
+}

@@ -1,4 +1,4 @@
-import Base from './Base.mjs';
+import Base from '../../../src/canvas/Base.mjs';
 
 const
     hasRaf = typeof requestAnimationFrame === 'function',
@@ -240,7 +240,7 @@ class FooterCanvas extends Base {
             if (!isCaptured) {
                 // Normal Spiral Physics
                 let velocity = spd * (1 + (500 / (rad + 10)));
-                
+
                 // Global Engine Rev: Accelerate spiral based on gravityBoost
                 velocity *= (1 + (me.gravityBoost - 1) * 0.2);
 

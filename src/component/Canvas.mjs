@@ -59,7 +59,7 @@ class Canvas extends Component {
 
             if (me.monitorSize) {
                 me.addDomListeners([{
-                    delegate: `#${me.getCanvasId()}`,
+                    delegate: `#${me.getMonitorTargetId()}`,
                     resize  : me.onDomResize,
                     scope   : me
                 }])
@@ -106,6 +106,12 @@ class Canvas extends Component {
                 }
             }
         } else if (offscreen) {
+            if (me.offscreenRegistered) {
+                Neo.worker.Canvas.unregisterCanvas({
+                    nodeId: id
+                })
+            }
+
             me.offscreenRegistered = false
         }
     }
@@ -126,11 +132,34 @@ class Canvas extends Component {
     }
 
     /**
+     * @param {...*} args
+     */
+    destroy(...args) {
+        if (this.offscreenRegistered) {
+            Neo.worker.Canvas.unregisterCanvas({
+                nodeId: this.id
+            })
+        }
+
+        super.destroy(...args)
+    }
+
+    /**
      * Override this method when using wrappers (e.g. D3)
      * @returns {String}
      */
     getCanvasId() {
         return this.id
+    }
+
+    /**
+     * The DOM node ID that should trigger the canvas resize updates.
+     * By default, this is the component's top-level wrapper ID.
+     * Subclasses can override this to observe a different node (e.g. a parent container).
+     * @returns {String}
+     */
+    getMonitorTargetId() {
+        return this.vdom.id
     }
 
     /**

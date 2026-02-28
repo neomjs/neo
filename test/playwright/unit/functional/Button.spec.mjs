@@ -42,6 +42,9 @@ test.describe('functional/Button', () => {
 
         ({vnode} = await button.initVnode());
         button.mounted = true; // Manually mount to enable updates in the test env
+
+        // Mock Neo.applyDeltas
+        Neo.applyDeltas = async () => {};
     });
 
     test.afterEach(() => {

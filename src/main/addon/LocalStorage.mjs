@@ -51,12 +51,24 @@ class LocalStorage extends Base {
     /**
      * Gets an item from window.localStorage
      * @param {Object} opts
-     * @param {String} opts.key
+     * @param {String|String[]} opts.key
      */
     readLocalStorageItem(opts) {
+        let {key} = opts;
+
+        if (Array.isArray(key)) {
+            let value = {};
+
+            key.forEach(item => {
+                value[item] = window.localStorage.getItem(item)
+            });
+
+            return {key, value}
+        }
+
         return {
-            key  : opts.key,
-            value: window.localStorage.getItem(opts.key)
+            key,
+            value: window.localStorage.getItem(key)
         }
     }
 

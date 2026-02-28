@@ -22,6 +22,15 @@ class BaseModel extends Model {
     get dataFields() {
         return this.view.parent.columns.map(column => column.dataField)
     }
+
+    /**
+     * Resolves a record from an ID (PK or internalId).
+     * @param {String|Number} id
+     * @returns {Neo.data.Record|null}
+     */
+    getRowRecord(id) {
+        return id && this.view.store.get(id) || null
+    }
 }
 
 export default Neo.setupClass(BaseModel);

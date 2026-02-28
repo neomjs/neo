@@ -177,25 +177,28 @@ export function resolveCallback(fn, scope=this) {
  * @returns {Function}
  */
 export function throttle(callback, scope, delay=300) {
-    let lastRanDate, timeoutId;
+    let lastArgs,
+        lastRan = 0,
+        timeoutId;
 
     return function(...args) {
-        if (!lastRanDate) {
-            // we need to check if the scope (instance) did not get destroyed yet
-            scope?.id && callback.apply(scope, args);
+        const now = Date.now();
+        lastArgs  = args;
 
-            lastRanDate = Date.now()
-        } else {
-            clearTimeout(timeoutId)
+        if (now - lastRan >= delay) {
+            if (timeoutId) {
+                clearTimeout(timeoutId);
+                timeoutId = null
+            }
 
-            timeoutId = setTimeout(function() {
-                if ((Date.now() - lastRanDate) >= delay) {
-                    // we need to check if the scope (instance) did not get destroyed yet
-                    scope?.id && callback.apply(scope, args);
-
-                    lastRanDate = Date.now()
-                }
-            }, delay - (Date.now() - lastRanDate))
+            scope?.id && callback.apply(scope, lastArgs);
+            lastRan = now
+        } else if (!timeoutId) {
+            timeoutId = setTimeout(() => {
+                timeoutId = null;
+                lastRan = Date.now();
+                scope?.id && callback.apply(scope, lastArgs)
+            }, delay - (now - lastRan))
         }
     }
 }

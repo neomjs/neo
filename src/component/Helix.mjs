@@ -258,6 +258,10 @@ class Helix extends Component {
          */
         url_: '../../resources/examples/data/ai_contacts.json',
         /**
+         * @member {Boolean} useInternalId=true
+         */
+        useInternalId: true,
+        /**
          * @member {Object} _vdom
          */
         _vdom:
@@ -568,9 +572,9 @@ class Helix extends Component {
     createItem(vdomItem, record, index) {
         let me = this;
 
-        vdomItem.id = me.getItemVnodeId(record[me.keyProperty]);
+        vdomItem.id = me.getItemVnodeId(me.getRecordId(record));
 
-        vdomItem.cn[0].id  = me.getItemVnodeId(record[me.keyProperty]) + '_img';
+        vdomItem.cn[0].id  = me.getItemVnodeId(me.getRecordId(record)) + '_img';
         vdomItem.cn[0].src = me.imageSource + Neo.ns(me.imageField, false, record);
 
         return vdomItem
@@ -666,15 +670,17 @@ class Helix extends Component {
                 id     = me.getItemId(item.id);
                 record = store.get(id);
 
-                record.expanded = false;
+                if (record) {
+                    record.expanded = false;
 
-                deltas.push({
-                    id   : item.id,
-                    style: {
-                        opacity  : record.opacity,
-                        transform: record.transformStyle
-                    }
-                });
+                    deltas.push({
+                        id   : item.id,
+                        style: {
+                            opacity  : record.opacity,
+                            transform: record.transformStyle
+                        }
+                    })
+                }
 
                 removeDeltas.push({
                     id    : item.id,
@@ -711,10 +717,12 @@ class Helix extends Component {
         let me               = this,
             {appName, store} = me,
             record           = store.get(itemId),
-            index            = store.indexOf(itemId),
-            isExpanded       = !!record.expanded,
-            group            = me.getItemsRoot(),
-            itemVdom         = Neo.clone(group.cn[index], true);
+            index, isExpanded, group, itemVdom;
+
+        index      = store.indexOf(record);
+        isExpanded = !!record.expanded;
+        group      = me.getItemsRoot();
+        itemVdom   = Neo.clone(group.cn[index], true);
 
         me.destroyClones();
 
@@ -730,6 +738,7 @@ class Helix extends Component {
 
             if (me.showCloneInfo) {
                 itemVdom.cn.push({
+                    id  : me.getItemVnodeId(me.getRecordId(record)) + '__clone-info',
                     cls : ['contact-name'],
                     text: record.firstname + ' ' + record.lastname
                 })
@@ -771,11 +780,25 @@ class Helix extends Component {
     }
 
     /**
+     * @param {Object} record
+     * @returns {String|Number}
+     */
+    getRecordId(record) {
+        return this.useInternalId ? this.store.getInternalId(record) : this.store.getKey(record)
+    }
+
+    /**
      * @param {String} vnodeId
      * @returns {Number}
      */
     getItemId(vnodeId) {
-        return parseInt(vnodeId.split('__')[1])
+        let itemId = vnodeId.split('__')[1];
+
+        if (!this.useInternalId && this.store.getKeyType()?.includes('int')) {
+            itemId = parseInt(itemId)
+        }
+
+        return itemId
     }
 
     /**
@@ -820,8 +843,10 @@ class Helix extends Component {
      * @param {String} itemId
      */
     moveToSelectedItem(itemId) {
-        let me = this;
-        me.rotationAngle = me.store.get(itemId).rotationAngle + me.rotationAngle
+        let me     = this,
+            record = me.store.get(itemId);
+
+        me.rotationAngle = record.rotationAngle + me.rotationAngle
     }
 
     /**
@@ -1004,7 +1029,7 @@ class Helix extends Component {
             });
 
             deltas.push({
-                id   : me.getItemVnodeId(item[me.keyProperty]),
+                id   : me.getItemVnodeId(me.getRecordId(item)),
                 style: {
                     opacity,
                     transform: transformStyle
@@ -1035,7 +1060,7 @@ class Helix extends Component {
         for (; i < len; i++) {
             deltas.push({
                 action: 'moveNode',
-                id    : me.getItemVnodeId(me.store.getAt(i)[me.keyProperty]),
+                id    : me.getItemVnodeId(me.getRecordId(me.store.getAt(i))),
                 index : i,
                 parentId
             })

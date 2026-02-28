@@ -281,12 +281,13 @@ class DomAccess extends Base {
 
     /**
      * Calls focus() on a node for a given dom node id
-     * @param {Object} data
+     * @param {Object}  data
      * @param {Boolean} data.children
-     * @param {String} data.id
+     * @param {String}  data.id
+     * @param {Boolean} [data.preventScroll=false]
      * @returns {Object} obj.id => the passed id
      */
-    focus({children, id}) {
+    focus({children, id, preventScroll}) {
         let node = this.getElement(id);
 
         if (node) {
@@ -297,7 +298,7 @@ class DomAccess extends Base {
             }
 
             if (node) {
-                node.focus();
+                node.focus({preventScroll});
 
                 if (Neo.isNumber(node.selectionStart)) {
                     node.selectionStart = node.selectionEnd = node.value.length
@@ -1035,12 +1036,16 @@ class DomAccess extends Base {
     }
 
     /**
-     *
+     * @param {Event|ResizeObserverEntry[]} [arg1]
      */
-    syncAligns() {
+    syncAligns(arg1) {
         const
-            me        = this,
-            {_aligns} = me;
+            me          = this,
+            {_aligns}   = me,
+            isScroll    = arg1?.type === 'scroll',
+            evtTarget   = isScroll ? arg1.target : null,
+            // Document scroll (window) target is document.
+            isDocScroll = isScroll && (evtTarget === document || evtTarget === document.documentElement);
 
         // Keep all registered aligns aligned on any detected change
         _aligns?.forEach(align => {
@@ -1048,6 +1053,17 @@ class DomAccess extends Base {
 
             // Align subject and target still in the DOM - correct its alignment
             if (document.contains(align.subject) && targetPresent) {
+                // If it's a scroll event, optimization:
+                if (isScroll && !isDocScroll) {
+                    // If the scrolling element does NOT contain the reference target,
+                    // then the reference target did not move relative to viewport.
+                    const targetMoved = evtTarget.contains(align.targetElement) || (align.constrainToElement && evtTarget.contains(align.constrainToElement));
+
+                    if (!targetMoved) {
+                        return // Skip this alignment
+                    }
+                }
+
                 me.align(align)
             }
             // Align subject or target no longer in the DOM - remove it.

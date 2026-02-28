@@ -10,10 +10,11 @@
     flex-direction  : row;
     flex-shrink     : 0;
     font-size       : var(--grid-header-button-font-size);
-    font-weight     : 600;
+    font-weight     : var(--grid-header-button-font-weight);
     height          : 29px; // Webkit => Safari can not handle 100%
-    justify-content : flex-end;
+    justify-content : var(--grid-header-button-justify-content);
     margin          : 0;
+    padding         : var(--grid-header-button-padding);
     transition      : var(--grid-header-button-transition);
     white-space     : nowrap;
 
@@ -22,11 +23,20 @@
     }
 
     &:hover {
-        border-color: var(--grid-header-button-border-hover-color);
-        box-shadow  : var(--grid-header-button-box-shadow-hover);
+        background-color: var(--grid-header-button-background-color-hover);
+        border-color    : var(--grid-header-button-border-hover-color);
+        box-shadow      : var(--grid-header-button-box-shadow-hover);
 
         &:not(:last-child) {
             border-right-color: var(--grid-header-button-border-right-hover-color);
+        }
+
+        .neo-button-glyph {
+            color: var(--grid-header-button-glyph-color-hover);
+        }
+
+        .neo-button-text {
+            color: var(--grid-header-button-color-hover);
         }
     }
 
@@ -80,6 +90,10 @@
 
     .neo-button-text {
         color         : var(--grid-header-button-color);
+        font-family   : inherit;
+        font-size     : var(--grid-header-button-font-size);
+        font-weight   : var(--grid-header-button-font-weight);
+        line-height   : inherit;
         pointer-events: none;
         text-transform: none;
 

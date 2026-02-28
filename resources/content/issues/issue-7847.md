@@ -4,13 +4,14 @@ title: Enhance WindowPosition Addon with Adaptive Tracking
 state: OPEN
 labels:
   - enhancement
+  - stale
   - ai
 assignees: []
 createdAt: '2025-11-21T19:23:54Z'
-updatedAt: '2025-11-21T19:29:35Z'
+updatedAt: '2026-02-20T03:42:15Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7847'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
@@ -52,4 +53,9 @@ Refactor `src/main/addon/WindowPosition.mjs` to support high-frequency, adaptive
 > 
 > This replaces the simpler "Focus=Fast" logic originally proposed.
 
+### @github-actions - 2026-02-20T03:42:14Z
+
+This issue is stale because it has been open for 90 days with no activity.
+
+- 2026-02-20T03:42:15Z @github-actions added the `stale` label
 

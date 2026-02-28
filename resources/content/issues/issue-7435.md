@@ -1,7 +1,7 @@
 ---
 id: 7435
 title: Create Component Tests in Playwright (and migrate existing tests from Siesta)
-state: OPEN
+state: CLOSED
 labels:
   - help wanted
   - epic
@@ -11,10 +11,10 @@ labels:
 assignees:
   - tobiu
 createdAt: '2025-10-10T16:38:20Z'
-updatedAt: '2026-01-26T03:26:32Z'
+updatedAt: '2026-02-09T04:01:22Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7435'
 author: tobiu
-commentsCount: 8
+commentsCount: 9
 parentIssue: null
 subIssues:
   - '[x] 7436 Create Component Test Harness Config'
@@ -30,13 +30,14 @@ subIssues:
   - '[x] 7469 Refactor: Consolidate and Refine Playwright Test Harness'
   - '[x] 7470 PoC: Create Component Test for component.Image'
   - '[x] 7471 Refactor: Implement Granular Playwright Test Configurations'
-  - '[ ] 7677 Create Playwright Component Test for Neo.form.field.Password'
+  - '[x] 7677 Create Playwright Component Test for Neo.form.field.Password'
   - '[x] 7703 Convert Component Test list/Chip.mjs to Playwright'
-  - '[ ] 7737 Create Playwright Component Test for Neo.component.Label'
-subIssuesCompleted: 14
+  - '[x] 7737 Create Playwright Component Test for Neo.component.Label'
+subIssuesCompleted: 16
 subIssuesTotal: 16
 blockedBy: []
 blocking: []
+closedAt: '2026-02-09T04:01:22Z'
 ---
 # Create Component Tests in Playwright (and migrate existing tests from Siesta)
 
@@ -396,4 +397,9 @@ into the new epic, we can now drop big amounts of subs.
 This issue is stale because it has been open for 90 days with no activity.
 
 - 2026-01-26T03:26:32Z @github-actions added the `stale` label
+### @github-actions - 2026-02-09T04:01:21Z
+
+This issue was closed because it has been inactive for 14 days since being marked as stale.
+
+- 2026-02-09T04:01:22Z @github-actions closed this issue
 

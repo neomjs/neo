@@ -1,7 +1,7 @@
 ---
 id: 7388
 title: Define the "Sighted" Development Workflow
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - help wanted
@@ -11,16 +11,17 @@ labels:
   - ai
 assignees: []
 createdAt: '2025-10-06T10:34:36Z'
-updatedAt: '2026-01-21T03:13:23Z'
+updatedAt: '2026-02-04T03:41:11Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7388'
 author: tobiu
-commentsCount: 2
+commentsCount: 3
 parentIssue: 7385
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-02-04T03:41:11Z'
 ---
 # Define the "Sighted" Development Workflow
 
@@ -53,4 +54,9 @@ Also, it’s my first time contributing here, so any quick guidance would be rea
 This issue is stale because it has been open for 90 days with no activity.
 
 - 2026-01-21T03:13:23Z @github-actions added the `stale` label
+### @github-actions - 2026-02-04T03:41:11Z
+
+This issue was closed because it has been inactive for 14 days since being marked as stale.
+
+- 2026-02-04T03:41:11Z @github-actions closed this issue
 

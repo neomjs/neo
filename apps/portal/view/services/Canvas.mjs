@@ -1,4 +1,4 @@
-import SharedCanvas from '../shared/Canvas.mjs';
+import SharedCanvas from '../../../../src/app/SharedCanvas.mjs';
 
 /**
  * @summary The App Worker component for the Services "Neural Lattice" background.
@@ -16,7 +16,7 @@ import SharedCanvas from '../shared/Canvas.mjs';
  *    and forwards normalized coordinates to the worker for interactive physics.
  *
  * @class Portal.view.services.Canvas
- * @extends Portal.view.shared.Canvas
+ * @extends Neo.app.SharedCanvas
  * @see Portal.canvas.ServicesCanvas
  */
 class Canvas extends SharedCanvas {
@@ -32,13 +32,13 @@ class Canvas extends SharedCanvas {
          */
         cls: ['portal-services-canvas'],
         /**
-         * @member {String} importMethodName='importServicesCanvas'
-         */
-        importMethodName: 'importServicesCanvas',
-        /**
          * @member {String} rendererClassName='Portal.canvas.ServicesCanvas'
          */
-        rendererClassName: 'Portal.canvas.ServicesCanvas'
+        rendererClassName: 'Portal.canvas.ServicesCanvas',
+        /**
+         * @member {String} rendererImportPath='apps/portal/canvas/ServicesCanvas.mjs'
+         */
+        rendererImportPath: 'apps/portal/canvas/ServicesCanvas.mjs'
     }
 }
 

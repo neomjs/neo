@@ -5,13 +5,30 @@ import GridBody          from './Body.mjs';
 import ScrollManager     from './ScrollManager.mjs';
 import Store             from '../data/Store.mjs';
 import VerticalScrollbar from './VerticalScrollbar.mjs';
+import FooterToolbar     from './footer/Toolbar.mjs';
 import * as column       from './column/_export.mjs';
 import * as header       from './header/_export.mjs';
 import {isDescriptor}    from '../core/ConfigSymbols.mjs';
 
 /**
+ * @summary The main entry point for creating Data Grids in Neo.mjs.
+ *
+ * `Neo.grid.Container` orchestrates the entire Grid component. It uses a composite architecture consisting of:
+ * 1.  `headerToolbar` ({@link Neo.grid.header.Toolbar}): Manages column headers, sorting, and filtering UI.
+ * 2.  `body` ({@link Neo.grid.Body}): The scrollable area containing the data rows.
+ * 3.  `scrollbar` ({@link Neo.grid.VerticalScrollbar}): A virtualized scrollbar for handling large datasets.
+ *
+ * Key features include:
+ * -   **Virtual Scrolling:** Only renders visible rows and columns (plus a small buffer) for high performance with large datasets.
+ * -   **Store Integration:** Binds directly to a {@link Neo.data.Store} for data management, sorting, and filtering.
+ * -   **Column Management:** Supports various column types (text, component, widget) via the `columns` config.
+ * -   **Multi-Threaded:** Logic runs in the App Worker, ensuring the UI stays responsive.
+ *
  * @class Neo.grid.Container
  * @extends Neo.container.Base
+ * @see Neo.grid.Body
+ * @see Neo.grid.Row
+ * @see Neo.data.Store
  */
 class GridContainer extends BaseContainer {
     /**
@@ -24,9 +41,16 @@ class GridContainer extends BaseContainer {
         animatedCurrency: column.AnimatedCurrency,
         column          : column.Base,
         component       : column.Component,
+        countryFlag     : column.CountryFlag,
         currency        : column.Currency,
+        githubOrgs      : column.GitHubOrgs,
+        githubUser      : column.GitHubUser,
+        icon            : column.Icon,
+        iconLink        : column.IconLink,
         index           : column.Index,
-        progress        : column.Progress
+        linkedin        : column.LinkedIn,
+        progress        : column.Progress,
+        sparkline       : column.Sparkline
     }
     /**
      * @member {Object} delayable
@@ -80,8 +104,18 @@ class GridContainer extends BaseContainer {
          */
         columns_: [],
         /**
+         * Configs for Neo.toolbar.Base
+         * @member {Object|null} [footerToolbar_={[isDescriptor]:true,merge:'deep',value:null}]
+         * @reactive
+         */
+        footerToolbar_: {
+            [isDescriptor]: true,
+            merge         : 'deep',
+            value         : null
+        },
+        /**
          * Configs for Neo.grid.header.Toolbar
-         * @member {Object|null} [headerToolbar_={[isDescriptor]: true, merge: 'deep', value: null}]
+         * @member {Object|null} [headerToolbar_={[isDescriptor]:true,merge:'deep',value:null}]
          * @reactive
          */
         headerToolbar_: {
@@ -90,10 +124,10 @@ class GridContainer extends BaseContainer {
             value         : null
         },
         /**
-         * @member {String} layout='base'
+         * @member {Object} layout={ntype: 'vbox', align: 'stretch'}
          * @reactive
          */
-        layout: 'base',
+        layout: {ntype: 'vbox', align: 'stretch'},
         /**
          * @member {String} role='grid'
          * @reactive
@@ -120,6 +154,17 @@ class GridContainer extends BaseContainer {
          * @reactive
          */
         sortable_: true,
+        /**
+         * @member {Boolean} useInternalId_=true
+         * @reactive
+         */
+        useInternalId_: true,
+        /**
+         * True enables restoring the initial sort state (ASC, DESC, null)
+         * @member {Boolean} useTriStateSorting_=false
+         * @reactive
+         */
+        useTriStateSorting_: false,
         /**
          * @member {Neo.data.Store} store_=null
          * @reactive
@@ -163,12 +208,17 @@ class GridContainer extends BaseContainer {
 
         me.items = [me.headerToolbar, me.body];
 
+        if (me.footerToolbar) {
+            me.items.push(me.footerToolbar)
+        }
+
         me.scrollbar = Neo.create({
             module  : VerticalScrollbar,
             appName,
             parentId: me.id,
             rowHeight,
             store,
+            theme   : me.theme,
             windowId
         });
 
@@ -253,6 +303,20 @@ class GridContainer extends BaseContainer {
     }
 
     /**
+     * Triggered after the footerToolbar config got changed
+     * @param {Neo.toolbar.Base} value
+     * @param {Neo.toolbar.Base} oldValue
+     * @protected
+     */
+    afterSetFooterToolbar(value, oldValue) {
+        let me = this;
+
+        if (value && me.store && value.store !== me.store) {
+            value.store = me.store
+        }
+    }
+
+    /**
      * Triggered after the mounted config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -314,6 +378,18 @@ class GridContainer extends BaseContainer {
     }
 
     /**
+     * Triggered after the useTriStateSorting config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetUseTriStateSorting(value, oldValue) {
+        if (oldValue !== undefined) {
+            this.headerToolbar.useTriStateSorting = value
+        }
+    }
+
+    /**
      * Triggered after the store config got changed
      * @param {Number} value
      * @param {Number} oldValue
@@ -334,6 +410,22 @@ class GridContainer extends BaseContainer {
         if (me.body) {
             me.body.store = value
         }
+
+        if (me.footerToolbar && me.footerToolbar.store !== value) {
+            me.footerToolbar.store = value
+        }
+    }
+
+    /**
+     * Triggered after the useInternalId config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetUseInternalId(value, oldValue) {
+        if (oldValue !== undefined && this.body) {
+            this.body.useInternalId = value
+        }
     }
 
     /**
@@ -349,7 +441,9 @@ class GridContainer extends BaseContainer {
             flex         : 1,
             gridContainer: me,
             parentId     : me.id,
-            store        : me.store
+            store        : me.store,
+            theme        : me.theme,
+            useInternalId: me.useInternalId
         })
     }
 
@@ -368,18 +462,41 @@ class GridContainer extends BaseContainer {
     }
 
     /**
+     * Triggered before.footerToolbar config gets changed.
+     * @param {Object|Neo.toolbar.Base|null} value
+     * @param {Object|Neo.toolbar.Base|null} oldValue
+     * @returns {Neo.toolbar.Base|null}
+     * @protected
+     */
+    beforeSetFooterToolbar(value, oldValue) {
+        if (!value) return null;
+
+        const me = this;
+
+        return ClassSystemUtil.beforeSetInstance(value, FooterToolbar, {
+            flex    : 'none',
+            parentId: me.id,
+            theme   : me.theme
+        })
+    }
+
+    /**
      * Triggered before the headerToolbar config gets changed.
      * @param {Object|Neo.grid.header.Toolbar|null} value
      * @param {Object|Neo.grid.header.Toolbar|null} oldValue
+     * @returns {Neo.toolbar.Base|null}
      * @protected
      */
     beforeSetHeaderToolbar(value, oldValue) {
         const me = this;
 
         return ClassSystemUtil.beforeSetInstance(value, header.Toolbar, {
-            parentId         : me.id,
-            showHeaderFilters: me.showHeaderFilters,
-            sortable         : me.sortable
+            flex              : 'none',
+            parentId          : me.id,
+            showHeaderFilters : me.showHeaderFilters,
+            sortable          : me.sortable,
+            theme             : me.theme,
+            useTriStateSorting: me.useTriStateSorting
         })
     }
 
@@ -410,9 +527,9 @@ class GridContainer extends BaseContainer {
         if (body) {
             body.silentVdomUpdate = true;
 
-            records.forEach(item => {
-                store.get(item[keyProperty])?.set(item)
-            });
+            for (let i = 0, len = records.length; i < len; i++) {
+                store.get(records[i][keyProperty])?.set(records[i])
+            }
 
             body.silentVdomUpdate = false;
 
@@ -431,39 +548,42 @@ class GridContainer extends BaseContainer {
             sorters          = me.store?.sorters,
             columnClass, renderer;
 
-        columns?.forEach((column, index) => {
-            renderer = column.renderer;
+        if (columns) {
+            for (let index = 0, len = columns.length; index < len; index++) {
+                let column = columns[index];
+                renderer = column.renderer;
 
-            columnDefaults && Neo.assignDefaults(column, columnDefaults);
+                columnDefaults && Neo.assignDefaults(column, columnDefaults);
 
-            if (renderer && Neo.isString(renderer) && me[renderer]) {
-                column.renderer = me[renderer]
+                if (renderer && Neo.isString(renderer) && me[renderer]) {
+                    column.renderer = me[renderer]
+                }
+
+                if (sorters?.[0] && column.dataField === sorters[0].property) {
+                    column.isSorted = sorters[0].direction
+                }
+
+                column.listeners = {
+                    sort : me.onSortColumn,
+                    scope: me
+                };
+
+                headerButtons.push(column);
+
+                if (column.component && !column.type) {
+                    column.type = 'component'
+                }
+
+                columnClass = me.constructor.columnTypes[column.type || 'column'];
+                delete column.type;
+
+                columns[index] = Neo.create(columnClass, {
+                    parent  : me,
+                    windowId: me.windowId,
+                    ...column
+                })
             }
-
-            if (sorters?.[0] && column.dataField === sorters[0].property) {
-                column.isSorted = sorters[0].direction
-            }
-
-            column.listeners = {
-                sort : me.onSortColumn,
-                scope: me
-            };
-
-            headerButtons.push(column);
-
-            if (column.component && !column.type) {
-                column.type = 'component'
-            }
-
-            columnClass = me.constructor.columnTypes[column.type || 'column'];
-            delete column.type;
-
-            columns[index] = Neo.create(columnClass, {
-                parent  : me,
-                windowId: me.windowId,
-                ...column
-            })
-        });
+        }
 
         me.headerToolbar.items = headerButtons;
         me.headerToolbar.createItems();
@@ -613,8 +733,16 @@ class GridContainer extends BaseContainer {
      * @returns {Promise<void>}
      */
     async passSizeToBody(silent=false) {
-        let me                          = this,
-            [containerRect, headerRect] = await me.getDomRect([me.id, me.headerToolbar.id]);
+        let me            = this,
+            {footerToolbar, headerToolbar} = me,
+            domRects      = [me.id, headerToolbar.id],
+            containerRect, footerRect, headerRect;
+
+        if (footerToolbar) {
+            domRects.push(footerToolbar.id)
+        }
+
+        [containerRect, headerRect, footerRect] = await me.getDomRect(domRects);
 
         // delay for slow connections, where the container-sizing is not done yet
         if (containerRect.height === headerRect.height) {
@@ -622,7 +750,7 @@ class GridContainer extends BaseContainer {
             await me.passSizeToBody(silent)
         } else {
             me.body[silent ? 'setSilent' : 'set']({
-                availableHeight: containerRect.height - headerRect.height,
+                availableHeight: containerRect.height - headerRect.height - (footerRect?.height || 0),
                 containerWidth : containerRect.width
             })
         }
@@ -633,12 +761,14 @@ class GridContainer extends BaseContainer {
      * @protected
      */
     removeSortingCss(dataField) {
-        this.headerToolbar?.items.forEach(column => {
-            if (column.dataField !== dataField) {return;
-                console.log(column, dataField)
-                column.removeSortingCss()
+        let items = this.headerToolbar?.items;
+        if (items) {
+            for (let i = 0, len = items.length; i < len; i++) {
+                if (items[i].dataField !== dataField) {
+                    items[i].removeSortingCss()
+                }
             }
-        })
+        }
     }
 
     /**
@@ -686,7 +816,7 @@ class GridContainer extends BaseContainer {
 
             Neo.main.DomAccess.scrollTo({
                 direction: 'left',
-                id       : me.id,
+                id       : me.getVdomRoot().id,
                 value    : scrollLeft,
                 windowId : me.windowId
             })
@@ -705,13 +835,15 @@ class GridContainer extends BaseContainer {
             body             : me.body?.toJSON(),
             cellEditing      : me.cellEditing,
             columns          : me.columns?.items.map(item => item.toJSON()),
+            footerToolbar    : me.footerToolbar?.toJSON(),
             headerToolbar    : me.headerToolbar?.toJSON(),
             rowHeight        : me.rowHeight,
-            scrollbar        : me.scrollbar?.toJSON(),
-            scrollManager    : me.scrollManager?.toJSON(),
-            showHeaderFilters: me.showHeaderFilters,
-            sortable         : me.sortable,
-            store            : me.store?.toJSON()
+            scrollbar         : me.scrollbar?.toJSON(),
+            scrollManager     : me.scrollManager?.toJSON(),
+            showHeaderFilters : me.showHeaderFilters,
+            sortable          : me.sortable,
+            store             : me.store?.toJSON(),
+            useTriStateSorting: me.useTriStateSorting
         }
     }
 

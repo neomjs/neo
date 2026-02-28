@@ -1,4 +1,5 @@
-import Column from './Base.mjs';
+import {isDescriptor} from '../../core/ConfigSymbols.mjs';
+import Column         from './Base.mjs';
 
 /**
  * @class Neo.grid.column.Component
@@ -16,10 +17,19 @@ class Component extends Column {
          */
         component: null,
         /**
-         * @member {Object} defaults
+         * @member {Object} defaults_
          * @protected
+         * @reactive
          */
-        defaults: null,
+        defaults_: {
+            [isDescriptor]: true,
+            merge         : 'deep',
+            value         : null
+        },
+        /**
+         * @member {String} hideMode='visibility'
+         */
+        hideMode: 'visibility',
         /**
          * Components can delegate event listeners (or button handlers) into methods somewhere inside
          * the view controller or component tree hierarchy.
@@ -41,16 +51,19 @@ class Component extends Column {
         type: 'component',
         /**
          * Set this config to true, in case you want to use 'bind' inside your cell based component.
+         *
+         * **Performance Warning (Static Bindings Only):**
+         * Because grid cells are pooled and recycled during scrolling, `StateProvider` bindings are evaluated
+         * exactly **once** when the component is first instantiated.
+         *
+         * Your `bind` functions must **never** rely on dynamically iterating `record` data from the `cellRenderer` scope.
+         * Bindings are strictly for global or hierarchical UI state (e.g. `animateVisuals`).
+         * For record-specific data, pass the values directly within the component config object, which is updated on every recycle.
+         *
          * @member {Boolean} useBindings=false
          */
         useBindings: false
     }
-
-    /**
-     * @member {Map} map=new Map()
-     * @protected
-     */
-    map = new Map()
 
     /**
      * Override as needed inside class extensions
@@ -66,22 +79,33 @@ class Component extends Column {
      * @param {Object}             data
      * @param {Neo.column.Base}    data.column
      * @param {Number}             data.columnIndex
+     * @param {Neo.component.Base} [data.component]
      * @param {String}             data.dataField
      * @param {Neo.grid.Container} data.gridContainer
      * @param {Object}             data.record
+     * @param {Neo.grid.Row}       data.row
      * @param {Number}             data.rowIndex
      * @param {Neo.data.Store}     data.store
      * @param {Number|String}      data.value
      * @returns {*}
      */
     cellRenderer(data) {
-        let {gridContainer, record, rowIndex} = data,
-            {appName, body, windowId}         = gridContainer,
+        let {component, gridContainer, record, row, silent} = data,
+            {appName, windowId} = gridContainer,
             me               = this,
             {recordProperty} = me,
-            id               = me.getComponentId(rowIndex),
-            component        = me.map.get(id),
             componentConfig  = me.component;
+
+        /**
+         * Optimization: If the record instance AND its version haven't changed, we can short-circuit.
+         * This skips:
+         * 1. Executing the 'component' config function (if it is one).
+         * 2. Calling component.set() which triggers the config system overhead.
+         * 3. Unnecessary VDOM updates.
+         */
+        if (component && component[recordProperty] === record && component.lastRecordVersion === record.version) {
+            return component
+        }
 
         if (Neo.typeOf(componentConfig) === 'Function') {
             componentConfig = componentConfig(data)
@@ -91,55 +115,56 @@ class Component extends Column {
         componentConfig = {...componentConfig};
 
         if (component) {
+            component.lastRecordVersion = record.version;
+
             delete componentConfig.className;
             delete componentConfig.module;
             delete componentConfig.ntype;
 
             componentConfig[recordProperty] = record;
 
-            component.set(componentConfig)
+            if (componentConfig.hideMode === undefined) {
+                componentConfig.hideMode = me.hideMode
+            }
+
+            // **Prevent Stale State in Pooled Cells**
+            // During grid scrolling (Row Pooling), existing cell components are recycled for new records.
+            // If a new record is missing a data field, `record[dataField]` returns `undefined`.
+            // The Neo.mjs config system's `set()` method ignores `undefined` values, meaning the
+            // component would retain the old record's state, causing visual bugs (e.g., showing a
+            // GitHub org from the previous row on a user who has no orgs).
+            // Converting `undefined` to `null` forces the change detection to explicitly clear the state.
+            for (const key in componentConfig) {
+                if (componentConfig[key] === undefined) {
+                    componentConfig[key] = null
+                }
+            }
+
+            // Enforce static bindings on pooled components to prevent OOM leaks
+            // Bindings belong to the global UI state, not iterating record state.
+            delete componentConfig.bind;
+
+            component.set(componentConfig, silent)
         } else {
             component = Neo.create({
+                hideMode: me.hideMode,
                 ...me.defaults,
                 ...componentConfig,
                 appName,
-                id,
-                parentComponent : body,
-                [recordProperty]: record,
+                parentComponent  : row,
+                [recordProperty] : record,
+                lastRecordVersion: record.version,
+                theme            : row.theme,
                 windowId
             });
 
-            // We need to ensure that wrapped components always get the same index-based id.
-            if (!component.vdom.id) {
-                component.vdom.id = id + '__wrapper'
+            // Only create bindings ONCE upon component instantiation
+            if (me.useBindings) {
+                gridContainer.body.getStateProvider()?.createBindings(component)
             }
-
-            me.map.set(id, component)
         }
 
-        if (me.useBindings) {
-            body.getStateProvider()?.createBindings(component)
-        }
-
-        body.updateDepth = -1;
-
-        return component.createVdomReference()
-    }
-
-    /**
-     * @param {Number} rowIndex
-     * @returns {String}
-     */
-    getComponentId(rowIndex) {
-        let me     = this,
-            {body} = me.parent,
-            store  = body.store; // Access the store from the body
-
-        if (store.chunkingTotal) { // Check if chunking is active
-            return `${me.id}-component-${rowIndex}`; // Use rowIndex directly
-        } else {
-            return `${me.id}-component-${rowIndex % (body.availableRows + 2 * body.bufferRowRange)}`
-        }
+        return component
     }
 
     /**
@@ -155,6 +180,10 @@ class Component extends Column {
 
         if (Neo.isObject(me.component)) {
             out.component = me.serializeConfig(me.component)
+        }
+
+        if (Neo.isObject(me.defaults)) {
+            out.defaults = me.serializeConfig(me.defaults)
         }
 
         return out

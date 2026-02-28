@@ -1,0 +1,112 @@
+name: DevIndex Pipeline
+
+on:
+  schedule:
+    - cron: '0 * * * *' # Run hourly
+  workflow_dispatch: # Allow manual trigger
+
+concurrency:
+  group: devindex-pipeline
+  cancel-in-progress: false
+
+jobs:
+  run-pipeline:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Required to push changes
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run DevIndex Opt-In
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run devindex:optin
+
+      - name: Run DevIndex Opt-Out
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run devindex:optout
+
+      - name: Run DevIndex Spider (3x Loop)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for i in 1 2 3; do
+            echo "Starting Spider Run $i/3..."
+            npm run devindex:spider -- --strategy random
+          done
+
+      - name: Run DevIndex Updater
+        run: npm run devindex:update -- --limit=800
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Commit, Rebase and Push
+        run: |
+          # Configure Git
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # Check for changes in specific files
+          if [[ -n $(git status -s apps/devindex/resources/data/*.json*) ]]; then
+            echo "Changes detected in data files."
+
+            # Stage the files
+            git add apps/devindex/resources/data/*.json*
+
+            # Commit
+            git commit -m "chore(devindex): Hourly pipeline update [skip ci]"
+
+            # Discard any other unstaged changes to allow rebase
+            git reset --hard
+
+            # Rebase on top of remote changes to handle concurrent pushes
+            git pull origin dev --rebase
+
+            # Push changes
+            git push origin dev
+          else
+            echo "No changes detected. Skipping commit."
+          fi
+
+      - name: Push Data to neomjs/pages
+        env:
+          PAGES_DEPLOY_PAT: ${{ secrets.PAGES_DEPLOY_PAT }}
+        run: |
+          if [ -z "$PAGES_DEPLOY_PAT" ]; then
+            echo "Skipping push to pages: PAGES_DEPLOY_PAT secret is not set."
+            exit 0
+          fi
+
+          echo "Cloning pages repository..."
+          git clone https://x-access-token:${PAGES_DEPLOY_PAT}@github.com/neomjs/pages.git temp_pages
+          
+          # Ensure target directory exists
+          mkdir -p temp_pages/node_modules/neo.mjs/apps/devindex/resources/data
+          
+          # Copy the data file
+          cp apps/devindex/resources/data/users.jsonl temp_pages/node_modules/neo.mjs/apps/devindex/resources/data/
+          
+          cd temp_pages
+          
+          # Check for changes and push
+          if [[ -n $(git status -s node_modules/neo.mjs/apps/devindex/resources/data/users.jsonl) ]]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            
+            git add node_modules/neo.mjs/apps/devindex/resources/data/users.jsonl
+            git commit -m "chore(devindex): Sync users.jsonl from neo repo [skip ci]"
+            git push origin main
+          else
+            echo "No changes detected for pages repo."
+          fi

@@ -1,0 +1,21 @@
+.devindex-status-toolbar.neo-toolbar {
+    border-bottom-left-radius : 8px;
+    border-bottom-right-radius: 8px;
+    border-top                : none !important;
+    font-size                 : var(--grid-container-font-size);
+    gap                       : 5px 10px;
+    min-height                : 30px;
+
+    .devindex-stop-stream-button {
+        .neo-button-glyph {
+            color: var(--devindex-stop-stream-button-color);
+        }
+    }
+
+    .devindex-stats-container {
+        background-color: transparent !important;
+        color           : inherit;
+        gap             : 10px;
+        margin-left     : auto;
+    }
+}

@@ -271,7 +271,9 @@ class VdomLifecycle extends Base {
 
                 // Recursively collect merged children
                 if (mergedChildIds) {
-                    mergedChildIds.forEach(childId => collectPayloads(childId))
+                    for (const childId of mergedChildIds) {
+                        collectPayloads(childId)
+                    }
                 }
             };
 
@@ -280,23 +282,25 @@ class VdomLifecycle extends Base {
 
             // Collision Filtering:
             // If a parent update covers this child, remove the child from the disjoint batch
-            Object.keys(updates).forEach(id => {
-                let parent   = Neo.getComponent(id)?.parent,
-                    distance = 1;
+            for (const id in updates) {
+                if (Object.hasOwn(updates, id)) {
+                    let parent   = Neo.getComponent(id)?.parent,
+                        distance = 1;
 
-                while (parent) {
-                    if (updates[parent.id]) {
-                        const parentDepth = depths.get(parent.id);
-                        // If parent covers this child, remove the child from the disjoint batch
-                        if (parentDepth === -1 || parentDepth > distance) {
-                            delete updates[id];
-                            return
+                    while (parent) {
+                        if (updates[parent.id]) {
+                            const parentDepth = depths.get(parent.id);
+                            // If parent covers this child, remove the child from the disjoint batch
+                            if (parentDepth === -1 || parentDepth > distance) {
+                                delete updates[id];
+                                break; // exit the while loop
+                            }
                         }
+                        parent   = parent.parent;
+                        distance++
                     }
-                    parent   = parent.parent;
-                    distance++
                 }
-            });
+            }
 
             const batchData = {updates};
 
@@ -321,20 +325,23 @@ class VdomLifecycle extends Base {
                 }
 
                 // Distribute results back to ALL components in the batch
-                Object.entries(response.vnodes).forEach(([id, vnode]) => {
-                    const component = Neo.getComponent(id);
+                for (const id in response.vnodes) {
+                    if (Object.hasOwn(response.vnodes, id)) {
+                        const vnode = response.vnodes[id];
+                        const component = Neo.getComponent(id);
 
-                    if (component && !component.isDestroyed) {
-                        component.vnode = vnode;
+                        if (component && !component.isDestroyed) {
+                            component.vnode = vnode;
 
-                        // Resolve the update for this component and its merged children
-                        // Note: response.deltas contains the aggregated deltas for the whole batch
-                        component.resolveVdomUpdate({
-                            deltas: response.deltas,
-                            vnode
-                        }, componentMergedChildren.get(id));
+                            // Resolve the update for this component and its merged children
+                            // Note: response.deltas contains the aggregated deltas for the whole batch
+                            component.resolveVdomUpdate({
+                                deltas: response.deltas,
+                                vnode
+                            }, componentMergedChildren.get(id));
+                        }
                     }
-                });
+                }
             }
         } catch (err) {
             me.isVdomUpdating = false;
@@ -750,6 +757,9 @@ class VdomLifecycle extends Base {
         // Trigger updates for components that were in-flight
         VDomUpdate.triggerPostUpdates(me.id);
 
+        // Execute callbacks which wanted to run before the next update cycle
+        VDomUpdate.executePreUpdates(me.id);
+
         if (me.needsVdomUpdate) {
             // any new promise callbacks will get picked up by the next update cycle
             me.update()
@@ -802,7 +812,8 @@ class VdomLifecycle extends Base {
         }
 
         // we need one separate iteration first to ensure all wrapper nodes get registered
-        childComponents.forEach(component => {
+        for (let i = 0, len = childComponents.length; i < len; i++) {
+            let component = childComponents[i];
             childVnode = VNodeUtil.find(me.vnode, component.vdom.id)?.vnode;
 
             if (childVnode) {
@@ -812,10 +823,11 @@ class VdomLifecycle extends Base {
                     ComponentManager.registerWrapperNode(childVnode.id, component)
                 }
             }
-        });
+        }
 
         // delegate the latest node updates to all possible child components found inside the vnode tree
-        childComponents.forEach(component => {
+        for (let i = 0, len = childComponents.length; i < len; i++) {
+            let component = childComponents[i];
             childVnode = map[component.id];
 
             if (childVnode) {
@@ -827,10 +839,12 @@ class VdomLifecycle extends Base {
             } else {
                 console.warn('syncVnodeTree: Could not replace the child vnode for', component.id)
             }
-        });
+        }
 
         // New logic to handle unmounting of removed children
-        ComponentManager.getDirectChildren(me.id).forEach(component => {
+        let directChildren = ComponentManager.getDirectChildren(me.id);
+        for (let i = 0, len = directChildren.length; i < len; i++) {
+            let component = directChildren[i];
             if (!childComponents.includes(component)) {
                 childVnode = null;
 
@@ -845,7 +859,7 @@ class VdomLifecycle extends Base {
                     component.mounted = false
                 }
             }
-        });
+        }
 
         // silent update
         me._vnode = vnode ? ComponentManager.addVnodeComponentReferences(vnode, me.id) : null;

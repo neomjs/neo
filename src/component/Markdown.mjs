@@ -7,11 +7,11 @@ const
     regexFrontMatter  = /^---\r?\n([\s\S]*?)\r?\n---\r?\n/,
     regexLabClose     = /<!--\s*\/lab\s*-->/g,
     regexLabOpen      = /<!--\s*lab\s*-->/g,
-    regexLivePreview  = /```(javascript|html|css|json)\s+live-preview\s*\n([\s\S]*?)\n\s*```/g,
-    regexMermaid      = /```mermaid\s*\n([\s\S]*?)\n\s*```/g,
-    regexNeoComponent = /```json\s+neo-component\s*\n([\s\S]*?)\n\s*```/g,
+    regexLivePreview  = /(?<!\\)```(javascript|html|css|json)\s+live-preview\s*\n([\s\S]*?)\n\s*```/g,
+    regexMermaid      = /(?<!\\)```mermaid\s*\n([\s\S]*?)\n\s*```/g,
+    regexNeoComponent = /(?<!\\)```json\s+neo-component\s*\n([\s\S]*?)\n\s*```/g,
     regexNewLines     = /^\n+|\n+$/g,
-    regexCodeBlock    = /```(\w*)(?:[^\n]*)?\n([\s\S]*?)\n\s*```/g,
+    regexCodeBlock    = /(?<!\\)(`{3,})(\w*)(?:[^\n]*)?\n([\s\S]*?)\n\s*\1/g,
     regexInlineCode   = /`([^`]+)`/g,
     regexTicketId     = /(^|[\s(])#(\d+)\b/g;
 
@@ -347,8 +347,7 @@ class Markdown extends Component {
      * @returns {String}
      */
     onHeadline(tag, text, index) {
-        text = text.replace(regexInlineCode, '<code>$1</code>');
-        return `<${tag} class="neo-${tag}">${text}</${tag}>`
+        return `<${tag} class="neo-${tag}">${marked.parseInline(text)}</${tag}>`
     }
 
     /**
@@ -440,9 +439,14 @@ class Markdown extends Component {
      */
     processNeoComponentsBlocks(contentString, map) {
         return contentString.replace(regexNeoComponent, (match, code) => {
-            const key = IdGenerator.getId('learn-content-component');
-            map[key] = JSON.parse(code);
-            return `<div id="${key}"></div>`
+            try {
+                const key = IdGenerator.getId('learn-content-component');
+                map[key] = JSON.parse(code);
+                return `<div id="${key}"></div>`
+            } catch (e) {
+                console.warn('Failed to parse neo-component block, returning original code.', e);
+                return match;
+            }
         })
     }
 
@@ -456,9 +460,12 @@ class Markdown extends Component {
             count               = 0,
             replacements;
 
-        let updatedContent = contentString.replace(regexCodeBlock, (match, language, code) => {
+        let updatedContent = contentString.replace(regexCodeBlock, (match, backticks, language, code) => {
             const token = `__NEO-READONLY-TOKEN-${++count}__`;
             const lang  = (!language || language.trim() === '' || language === 'text') ? 'plaintext' : language;
+
+            // Remove the backslash escape from special blocks so they display correctly
+            code = code.replace(/\\```/g, '```');
 
             replacementPromises.push(
                 HighlightJs.highlight(code, lang, windowId)
@@ -540,6 +547,10 @@ class Markdown extends Component {
 
         // Parse the (now modified) markdown content into HTML
         // This content string now contains standard markdown PLUS the HTML divs/pres we injected.
+        
+        // Remove the backslash escape from special blocks so marked.js treats them as normal markdown blocks
+        content = content.replace(/\\```/g, '```');
+        
         html = marked.parse(content);
 
         // Wrap raw HTML img tags in a scrollable container

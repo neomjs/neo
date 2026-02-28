@@ -154,7 +154,7 @@ class AccordionTree extends TreeList {
               hide    = !value;
 
         store.forEach(record => {
-            const itemId   = me.getItemId(record[me.getKeyProperty()]),
+            const itemId   = me.getItemId(me.store.getKey(record)),
                   vdom     = me.getVdomChild(itemId),
                   itemVdom = VDomUtil.getByFlag(vdom, 'iconCls');
 
@@ -307,7 +307,7 @@ class AccordionTree extends TreeList {
      */
     expandItem(record) {
         let me     = this,
-            itemId = me.getItemId(record[me.getKeyProperty()]),
+            itemId = me.getItemId(me.store.getKey(record)),
             item   = me.getVdomChild(itemId);
 
         record.collapsed = false;
@@ -326,7 +326,7 @@ class AccordionTree extends TreeList {
         let me               = this,
             {selectionModel} = me,
             itemId           = item.id,
-            id               = Number(itemId.split('__')[1]),
+            id               = me.getItemRecordId(itemId),
             record           = me.store.get(id);
 
         selectionModel.select(item.id);
@@ -413,7 +413,7 @@ class AccordionTree extends TreeList {
     onStoreRecordChange(data) {
         let me               = this,
             {fields, record} = data,
-            itemId           = me.getItemId(record[me.getKeyProperty()]),
+            itemId           = me.getItemId(me.store.getKey(record)),
             vdom             = me.getVdomChild(itemId),
             itemVdom;
 
@@ -457,7 +457,7 @@ class AccordionTree extends TreeList {
             recordKeyProperty, elId;
 
         if (Neo.isRecord(value)) {
-            recordKeyProperty = value[me.getKeyProperty()];
+            recordKeyProperty = me.store.getKey(value);
         } else {
             // RecordId
             recordKeyProperty = value;

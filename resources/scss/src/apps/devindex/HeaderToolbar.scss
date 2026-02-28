@@ -1,0 +1,98 @@
+.devindex-header-toolbar {
+    box-shadow: var(--devindex-header-shadow);
+    z-index   : 8;
+
+    .neo-button.neo-button-ghost {
+        &:hover,
+        &:active {
+            background-color: transparent !important;
+            border-color    : transparent !important;
+        }
+
+        &:not(:first-child) {
+            margin-left: 10px;
+        }
+
+        &.no-text {
+            margin-left: 0;
+            width      : 1.2em;
+
+            &.github-button {
+                margin-left: 5em;
+            }
+
+            .neo-button-glyph {
+                font-size: 24px;
+            }
+        }
+
+        .neo-button-glyph {
+            &.neo-logo-blue {
+                background-image   : url("../../../../../../resources/images/logo/neo_logo_primary.svg");
+                background-position: center center;
+                background-repeat  : no-repeat;
+                background-size    : contain;
+                height             : 24px;
+                min-height         : 24px;
+                min-width          : 24px;
+                width              : 24px;
+            }
+        }
+    }
+
+    .separate-bar {
+        animation     : fade-in-animation 200ms linear;
+        box-shadow    : var(--devindex-header-shadow);
+        flex-direction: column;
+        position      : absolute;
+        right         : 0;
+        top           : 58px;
+        z-index       : 9;
+
+        &.hide-sidebar {
+            animation: fade-out-animation 200ms linear forwards;
+        }
+    }
+
+    // find parallel class hide-sidebar
+    &:has(+div .hide-sidebar) .separate-bar {
+        animation: fade-out-animation 200ms linear forwards;
+    }
+}
+
+
+@keyframes rotateAnimation {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+
+@keyframes fade-in-animation {
+    from {
+        opacity: 0;
+        right  : -30px
+    }
+    to {
+        opacity: 1;
+        right  : 0;
+    }
+}
+
+@keyframes fade-out-animation {
+    from {
+        opacity: 1;
+        right  : 0;
+    }
+    to {
+        opacity: 0;
+        right  : -30px
+    }
+}
+
+.button-group {
+    overflow: visible;
+}

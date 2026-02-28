@@ -1,4 +1,5 @@
-import Base from './Base.mjs';
+import Base      from './Base.mjs';
+import DomEvents from '../DomEvents.mjs';
 
 /**
  * @summary Main Thread Addon for High-Performance Grid Drag Scrolling.
@@ -27,6 +28,24 @@ class GridDragScroll extends Base {
          */
         className: 'Neo.main.addon.GridDragScroll',
         /**
+         * Delay in ms before a drag OP starts.
+         * Useful to avoid drag OPs on double-clicks.
+         * @member {Number} delay=100
+         */
+        delay: 100,
+        /**
+         * @member {Number} minDistance=5
+         */
+        minDistance: 5,
+        /**
+         * @member {Number} mouseDownTime=0
+         */
+        mouseDownTime: 0,
+        /**
+         * @member {Number|null} mouseDownTimeout=null
+         */
+        mouseDownTimeout: null,
+        /**
          * Remote method access for other workers
          * @member {Object} remote
          * @protected
@@ -45,10 +64,23 @@ class GridDragScroll extends Base {
      */
     activeDrag = null
     /**
+     * @member {Object|null} monitorDrag=null
+     * @protected
+     */
+    monitorDrag = null
+    /**
      * @member {Map<String, Object>} registrations=new Map()
      * @protected
      */
     registrations = new Map()
+
+    /**
+     * @param {Object} config
+     */
+    construct(config) {
+        super.construct(config);
+        Neo.bindMethods(this, ['onDragStart', 'onMonitorEnd', 'onMonitorMove'])
+    }
 
     /**
      * @param {Object} data
@@ -148,7 +180,7 @@ class GridDragScroll extends Base {
             return
         }
 
-        if (event.type === 'touchmove') {
+        if (event.type === 'touchmove' && event.cancelable !== false) {
             event.preventDefault() // Disable native scrolling
         }
 
@@ -203,6 +235,7 @@ class GridDragScroll extends Base {
                 break
             }
         }
+
         if (!registration) {
             return
         }
@@ -219,26 +252,61 @@ class GridDragScroll extends Base {
 
         let {x, y} = me.getEventCoordinates(event);
 
-        me.activeDrag = {
+        me.monitorDrag = {
             id,
             registration,
-            history  : [{time: Date.now(), x, y}],
-            lastX    : x,
-            lastY    : y,
-            listeners: {
-                move: me.onDragMove.bind(me),
-                end : me.onDragEnd.bind(me)
-            }
+            startX: x,
+            startY: y
         };
 
+        me.mouseDownTime = Date.now();
+
         if (event.type === 'mousedown') {
-            document.body.style.setProperty('cursor', 'grabbing', 'important');
-            document.addEventListener('mousemove', me.activeDrag.listeners.move, {capture: true});
-            document.addEventListener('mouseup', me.activeDrag.listeners.end,    {capture: true})
+            document.addEventListener('mousemove', me.onMonitorMove, {capture: true});
+            document.addEventListener('mouseup',   me.onMonitorEnd,  {capture: true})
         } else {
-            document.addEventListener('touchmove', me.activeDrag.listeners.move, {capture: true, passive: false});
-            document.addEventListener('touchend', me.activeDrag.listeners.end,   {capture: true})
+            document.addEventListener('touchmove', me.onMonitorMove, {capture: true, passive: false});
+            document.addEventListener('touchend',  me.onMonitorEnd,  {capture: true})
         }
+
+        me.mouseDownTimeout = setTimeout(() => {
+            me.onMonitorMove({
+                type: 'timeout',
+                ...me.getEventCoordinates(event) // use original event coords as fallback
+            })
+        }, me.delay)
+    }
+
+    /**
+     * Detect change in distance, starting drag when both delay and distance requirements are met
+     * @param {MouseEvent|TouchEvent|Object} event - Object in case it does get trigger via the mouseDownTimeout
+     */
+    onMonitorMove(event) {
+        let me          = this,
+            monitor     = me.monitorDrag,
+            {x, y}      = me.getEventCoordinates(event),
+            timeElapsed = Date.now() - me.mouseDownTime,
+            dist        = DomEvents.getDistance(monitor.startX, monitor.startY, x, y) || 0;
+
+        if (timeElapsed >= me.delay && dist >= me.minDistance) {
+            me.onMonitorEnd(event);
+            me.startDrag(monitor, x, y, event.type.startsWith('touch') ? 'touch' : 'mouse')
+        }
+    }
+
+    /**
+     * @param {MouseEvent|TouchEvent} event
+     */
+    onMonitorEnd(event) {
+        let me = this;
+
+        clearTimeout(me.mouseDownTimeout);
+        me.monitorDrag = null;
+
+        document.removeEventListener('mousemove', me.onMonitorMove, {capture: true});
+        document.removeEventListener('mouseup',   me.onMonitorEnd,  {capture: true});
+        document.removeEventListener('touchmove', me.onMonitorMove, {capture: true, passive: false});
+        document.removeEventListener('touchend',  me.onMonitorEnd,  {capture: true})
     }
 
     /**
@@ -262,20 +330,50 @@ class GridDragScroll extends Base {
             let registration = {
                 bodyElement,
                 containerElement,
-                id,
-                dragStartListener: me.onDragStart.bind(me)
+                id
             };
 
             if (Neo.config.hasTouchEvents) {
-                bodyElement.addEventListener('touchstart', registration.dragStartListener, {
+                bodyElement.addEventListener('touchstart', me.onDragStart, {
                     capture: true,
                     passive: false
                 })
             } else {
-                bodyElement.addEventListener('mousedown', registration.dragStartListener, {capture: true})
+                bodyElement.addEventListener('mousedown', me.onDragStart, {capture: true})
             }
 
             me.registrations.set(id, registration)
+        }
+    }
+
+    /**
+     * @param {Object} monitor
+     * @param {Number} x
+     * @param {Number} y
+     * @param {String} inputType 'mouse' or 'touch'
+     */
+    startDrag(monitor, x, y, inputType) {
+        let me = this;
+
+        me.activeDrag = {
+            id          : monitor.id,
+            registration: monitor.registration,
+            history     : [{time: Date.now(), x, y}],
+            lastX       : x,
+            lastY       : y,
+            listeners   : {
+                move: me.onDragMove.bind(me),
+                end : me.onDragEnd.bind(me)
+            }
+        };
+
+        if (inputType === 'mouse') {
+            document.body.style.setProperty('cursor', 'grabbing', 'important');
+            document.addEventListener('mousemove', me.activeDrag.listeners.move, {capture: true});
+            document.addEventListener('mouseup',   me.activeDrag.listeners.end,  {capture: true})
+        } else {
+            document.addEventListener('touchmove', me.activeDrag.listeners.move, {capture: true, passive: false});
+            document.addEventListener('touchend',  me.activeDrag.listeners.end,  {capture: true})
         }
     }
 
@@ -291,12 +389,12 @@ class GridDragScroll extends Base {
         if (registration) {
             if (registration.bodyElement) {
                 if (Neo.config.hasTouchEvents) {
-                    registration.bodyElement.removeEventListener('touchstart', registration.dragStartListener, {
+                    registration.bodyElement.removeEventListener('touchstart', me.onDragStart, {
                         capture: true,
                         passive: false
                     })
                 } else {
-                    registration.bodyElement.removeEventListener('mousedown', registration.dragStartListener, {capture: true})
+                    registration.bodyElement.removeEventListener('mousedown', me.onDragStart, {capture: true})
                 }
             }
 

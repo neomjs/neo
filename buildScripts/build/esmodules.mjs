@@ -53,6 +53,12 @@ async function minifyDirectory(inputDir, outputDir) {
                     outputPath   = path.join(outputDir, relativePath);
                 fs.mkdirSync(path.dirname(outputPath), {recursive: true});
                 fs.copySync(inputPath, outputPath);
+
+                // Exception for devindex app: Do not deploy the data folder.
+                if (inputPath.replace(/\\/g, '/').includes('apps/devindex/resources')) {
+                    fs.removeSync(path.join(outputPath, 'data'));
+                }
+
                 const resourcesEntries = fs.readdirSync(outputPath, {recursive: true, withFileTypes: true});
                 for (const resource of resourcesEntries) {
                     if (resource.isFile() && resource.name.endsWith('.json')) {

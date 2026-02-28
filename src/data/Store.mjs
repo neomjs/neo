@@ -1,3 +1,4 @@
+import {internalId}    from '../core/ConfigSymbols.mjs';
 import ClassSystemUtil from '../util/ClassSystem.mjs';
 import Collection      from '../collection/Base.mjs';
 import Model           from './Model.mjs';
@@ -47,6 +48,25 @@ const initialIndexSymbol = Symbol.for('initialIndex');
  *      // Per-call override
  *      store.add(hugeArrayOfData, false);
  *      ```
+ *
+ * ### Soft Hydration & Field Dependencies
+ *
+ * When operating in Turbo Mode (`autoInitRecords: false`), the Store sorts and filters using raw JSON objects.
+ * If a sort or filter operation requires a calculated field that isn't present on the raw object, the Store
+ * performs **Soft Hydration** via `resolveField()`. It dynamically calculates the field value and auto-caches
+ * it on the raw object.
+ *
+ * If a calculated field relies on other calculated fields, the Model definition must declare a `depends: []` array.
+ * The Store uses this array to recursively resolve and cache all dependencies before executing the main calculation,
+ * preventing severe performance bottlenecks (like redundant array reductions).
+ *
+ * ### Progressive Loading (Streaming)
+ *
+ * When using a `proxy` (e.g., {@link Neo.data.proxy.Stream}), the Store supports **Progressive Loading**.
+ * Instead of waiting for the entire dataset to load, the Store updates itself incrementally as chunks of data arrive.
+ *
+ * - **Events:** The `load` event fires multiple times (once per chunk) with the cumulative `total`.
+ * - **UI Integration:** Components like `Neo.grid.Container` listen to these events to update their scrollbars and render rows immediately.
  */
 class Store extends Collection {
     /**
@@ -134,6 +154,11 @@ class Store extends Collection {
          */
         pageSize_: 0,
         /**
+         * @member {Object|Neo.data.proxy.Base|null} proxy_=null
+         * @reactive
+         */
+        proxy_: null,
+        /**
          * True to let the backend handle the filtering.
          * Useful for buffered stores
          * @member {Boolean} remoteFilter=false
@@ -156,6 +181,11 @@ class Store extends Collection {
          */
         totalCount: 0,
         /**
+         * True to track internalIds in a separate map for O(1) lookup
+         * @member {Boolean} trackInternalId=true
+         */
+        trackInternalId: true,
+        /**
          * Url for Ajax requests
          * @member {String|null} url=null
          */
@@ -166,6 +196,9 @@ class Store extends Collection {
      * @param {Object} config
      */
     construct(config) {
+        config = config || {};
+        config.itemFactory = this.assignInternalId.bind(this);
+
         super.construct(config);
 
         let me = this;
@@ -187,6 +220,25 @@ class Store extends Collection {
         StoreManager.unregister(this);
 
         super.destroy()
+    }
+
+    /**
+     * Identity Provider Hook.
+     * Assigns a stable, globally unique 'internalId' to items (Records or Raw Objects).
+     * This ensures DOM stability and security by decoupling the DOM ID from the data ID.
+     * @param {Object} item
+     */
+    assignInternalId(item) {
+        if (!item[internalId]) {
+            item[internalId] = Neo.getId('record')
+        }
+    }
+
+    /**
+     * Aborts the current proxy operation if the proxy supports it.
+     */
+    abort() {
+        this.proxy?.abort?.()
     }
 
     /**
@@ -234,7 +286,7 @@ class Store extends Collection {
 
             me.isLoaded = true;
 
-            return items.map(i => me.get(i[me.getKeyProperty()]))
+            return items.map(i => me.get(me.getKey(i)))
         }
 
         if (threshold > 0 && items.length > threshold) {
@@ -377,16 +429,30 @@ class Store extends Collection {
     }
 
     /**
-     * @param value
-     * @param oldValue
+     * @param {Object|Neo.data.proxy.Base} value
+     * @param {Object|Neo.data.proxy.Base} oldValue
      * @protected
-     * @returns {*}
+     * @returns {Neo.data.proxy.Base}
+     */
+    beforeSetProxy(value, oldValue) {
+        if (oldValue) {
+            oldValue.destroy();
+        }
+
+        return ClassSystemUtil.beforeSetInstance(value, null, {
+            store: this
+        });
+    }
+
+    /**
+     * @param {Object[]|Neo.data.Model[]} value
+     * @param {Object[]|Neo.data.Model[]} oldValue
+     * @protected
+     * @returns {Object[]|Neo.data.Model[]}
      */
     beforeSetData(value, oldValue) {
         if (value) {
-            this.isLoading = true;
-
-            // value = this.createRecord(value)
+            this.isLoading = true
         }
 
         return value
@@ -404,6 +470,17 @@ class Store extends Collection {
         oldValue?.destroy();
 
         return ClassSystemUtil.beforeSetInstance(value, Model)
+    }
+
+    /**
+     * Overrides collection.Base to prevent the allItems collection from auto-loading
+     * @param {Object} config
+     * @returns {Neo.collection.Base}
+     * @protected
+     */
+    createAllItems(config) {
+        config.autoLoad = false;
+        return super.createAllItems(config)
     }
 
     /**
@@ -448,9 +525,9 @@ class Store extends Collection {
         const result = super.find(property, value, returnFirstMatch);
 
         if (returnFirstMatch) {
-            return result ? this.get(result[this.keyProperty]) : null;
+            return result ? this.get(this.getKey(result)) : null;
         } else {
-            return result.map(item => this.get(item[this.keyProperty]));
+            return result.map(item => this.get(this.getKey(item)));
         }
     }
 
@@ -464,7 +541,7 @@ class Store extends Collection {
      */
     findBy(fn, scope=this, start=0, end=this.count) {
         const result = super.findBy(fn, scope, start, end);
-        return result.map(item => this.get(item[this.keyProperty]));
+        return result.map(item => this.get(this.getKey(item)));
     }
 
     /**
@@ -491,19 +568,37 @@ class Store extends Collection {
         if (item && !RecordFactory.isRecord(item)) {
             const record = RecordFactory.createRecord(me.model, item);
             const index  = me.indexOf(item);
+            const pk     = record[me.keyProperty]; // Use the actual PK from the record
 
             // Replace the raw data with the record instance in the current (filtered) collection
-            me.map.set(key, record);
+            me.map.set(pk, record);
+
             if (index !== -1) {
                 me._items[index] = record
+            }
+
+            // If we are tracking internalIds, we need to update the map to point to the new record
+            // instead of the raw object
+            if (me.trackInternalId) {
+                const internalKey = me.getInternalKey(record);
+                if (internalKey) {
+                    me.internalIdMap.set(internalKey, record)
+                }
             }
 
             // If this collection is filtered, we must also update the master 'allItems' collection
             if (me.allItems) {
                 const masterIndex = me.allItems.indexOf(item);
                 if (masterIndex !== -1) {
-                    me.allItems.map.set(key, record);
-                    me.allItems._items[masterIndex] = record
+                    me.allItems.map.set(pk, record);
+                    me.allItems._items[masterIndex] = record;
+
+                    if (me.allItems.trackInternalId) {
+                        const internalKey = me.getInternalKey(record);
+                        if (internalKey) {
+                            me.allItems.internalIdMap.set(internalKey, record)
+                        }
+                    }
                 }
             }
             return record
@@ -527,17 +622,55 @@ class Store extends Collection {
             me.map.set(record[me.keyProperty], record);
             me._items[index] = record;
 
+            // If we are tracking internalIds, we need to update the map to point to the new record
+            // instead of the raw object
+            if (me.trackInternalId) {
+                const internalKey = me.getInternalKey(record);
+                if (internalKey) {
+                    me.internalIdMap.set(internalKey, record)
+                }
+            }
+
             // If this collection is filtered, we must also update the master 'allItems' collection
             if (me.allItems) {
                 const masterIndex = me.allItems.indexOf(item);
                 if (masterIndex !== -1) {
                     me.allItems.map.set(record[me.keyProperty], record);
-                    me.allItems._items[masterIndex] = record
+                    me.allItems._items[masterIndex] = record;
+
+                    if (me.allItems.trackInternalId) {
+                        const internalKey = me.getInternalKey(record);
+                        if (internalKey) {
+                            me.allItems.internalIdMap.set(internalKey, record)
+                        }
+                    }
                 }
             }
             return record
         }
         return item // Already a record or undefined
+    }
+
+    /**
+     * Retrieves the stable internal ID of an item.
+     * @param {Object|Neo.data.Record} item
+     * @returns {String} e.g. 'neo-record-1'
+     */
+    getInternalId(item) {
+        if (!item[internalId]) {
+            item[internalId] = Neo.getId('record')
+        }
+
+        return item[internalId]
+    }
+
+    /**
+     * Hook to get the internal key of an item.
+     * @param {Object} item
+     * @returns {String|Number|null}
+     */
+    getInternalKey(item) {
+        return item[internalId]
     }
 
     /**
@@ -570,7 +703,7 @@ class Store extends Collection {
             return data
         }
 
-        return this.get(data[this.getKeyProperty()])
+        return this.get(this.getKey(data))
     }
 
     /**
@@ -594,7 +727,7 @@ class Store extends Collection {
             items = super.insert(index, item);
 
         if (init) {
-            return items.map(i => me.get(i[me.getKeyProperty()]))
+            return items.map(i => me.get(me.getKey(i)))
         }
 
         return items
@@ -644,6 +777,70 @@ class Store extends Collection {
 
                 return null
             }
+        } else if (me.proxy) {
+            if (me.items.length > 0 && !opts.append) {
+                me.clear();
+            }
+
+            me.isLoading = true;
+
+            const onData = (data) => {
+                me.add(data);
+
+                // Progressive Rendering:
+                // As soon as we have data, we want the grid to render.
+                if (me.isLoading) {
+                    me.isLoading = false
+                }
+
+                // We do not need to fire a load event here, since onCollectionMutate will handle this.
+            };
+
+            const onProgress = (data) => {
+                me.fire('progress', data)
+            };
+
+            me.proxy.on({
+                data    : onData,
+                progress: onProgress
+            });
+
+            try {
+                // params.url can override proxy url
+                if (opts.url) {
+                    params.url = opts.url;
+                }
+
+                const response = await me.proxy.read(params);
+
+                me.proxy.un({
+                    data    : onData,
+                    progress: onProgress
+                });
+
+                if (response.success) {
+                    me.totalCount = response.totalCount || me.count;
+                    me.isLoaded   = true;
+                    me.isLoading  = false; // Ensure it's false at the end
+                    me.fire('load', {
+                        isLoading    : false,
+                        items        : me.items,
+                        postChunkLoad: me.proxy?.ntype === 'proxy-stream',
+                        total        : me.totalCount
+                    });
+                    return me.items
+                } else {
+                    me.isLoading = false;
+                    return null
+                }
+            } catch (e) {
+                me.proxy.un({
+                    data    : onData,
+                    progress: onProgress
+                });
+                me.isLoading = false;
+                throw e
+            }
         } else {
             opts.url ??= me.url;
 
@@ -684,7 +881,14 @@ class Store extends Collection {
         let me = this;
 
         if (me.isConstructed && !me.isLoading) {
-            me.fire('load', {items: me.items, total: me.chunkingTotal});
+            const isFirstChunk = opts.addedItems && me.count === opts.addedItems.length;
+
+            me.fire('load', {
+                isLoading    : !!me.isStreaming,
+                items        : me.items,
+                postChunkLoad: !!me.isStreaming && !isFirstChunk,
+                total        : me.chunkingTotal
+            });
         }
     }
 
@@ -778,6 +982,219 @@ class Store extends Collection {
             }
         }
     }
+
+    /**
+     * Overrides collection.Base:doSort() to handle "Turbo Mode" (autoInitRecords: false).
+     * In this mode, items are raw objects which may lack the canonical field names used by Sorters.
+     * This method "soft hydrates" the raw items by resolving and caching the sort values.
+     * @param {Object[]} items
+     * @param {Boolean} silent
+     * @protected
+     */
+    doSort(items=this._items, silent=false) {
+        let me = this;
+
+        if (!me.autoInitRecords && me.model?.hasComplexFields && me.sorters.length > 0) {
+            const
+                sortProperties = me.sorters.map(s => s.property),
+                len            = sortProperties.length;
+
+            items.forEach(item => {
+                // Ensure item is not already a Record (mixed mode safety)
+                if (!RecordFactory.isRecord(item)) {
+                    for (let i = 0; i < len; i++) {
+                        const property = sortProperties[i];
+
+                        // Only resolve if the property is missing on the raw object
+                        if (!Object.hasOwn(item, property)) {
+                            item[property] = me.resolveField(item, property)
+                        }
+                    }
+                }
+            })
+        }
+
+        super.doSort(items, silent)
+    }
+
+    /**
+     * Overrides collection.Base:filter() to handle "Turbo Mode" (autoInitRecords: false).
+     * In this mode, items are raw objects which may lack the canonical field names used by Filters.
+     * This method "soft hydrates" the raw items by resolving and caching the filter values.
+     * @protected
+     */
+    filter() {
+        let me = this;
+
+        if (!me.autoInitRecords && me.model?.hasComplexFields && me.filters.length > 0) {
+            const
+                activeFilters    = me.filters.filter(f => !f.disabled && f.value !== null),
+                filterProperties = activeFilters.map(f => f.property),
+                len              = filterProperties.length;
+
+            if (len > 0) {
+                // We iterate over allItems (unfiltered source) or current items depending on state,
+                // but Collection.filter() uses allItems if it exists. Ideally we hydrate the source.
+                // Since we can't easily know which source Collection.filter will use without duplicating logic,
+                // we will hydrate both if they exist, or just the active one.
+                // Safest bet: Hydrate the source that filter() will use.
+                // Collection.filter uses: items = me.allItems?._items || me._items
+                const itemsToHydrate = me.allItems ? me.allItems._items : me._items;
+
+                itemsToHydrate.forEach(item => {
+                    if (!RecordFactory.isRecord(item)) {
+                        for (let i = 0; i < len; i++) {
+                            const property = filterProperties[i];
+
+                            if (!Object.hasOwn(item, property)) {
+                                item[property] = me.resolveField(item, property)
+                            }
+                        }
+                    }
+                })
+            }
+        }
+
+        super.filter()
+    }
+
+    /**
+     * Overrides collection.Base:isFilteredItem() to handle "Turbo Mode" (autoInitRecords: false).
+     * In this mode, items are raw objects which may lack the canonical field names used by Filters.
+     * This method "soft hydrates" the raw item by resolving and caching the filter values.
+     * @param {Object} item
+     * @returns {boolean}
+     * @protected
+     */
+    isFilteredItem(item) {
+        let me = this;
+
+        if (!me.autoInitRecords && !RecordFactory.isRecord(item) && me.filters.length > 0) {
+            me.filters.forEach(filter => {
+                if (!filter.disabled && filter.value !== null && !Object.hasOwn(item, filter.property)) {
+                    item[filter.property] = me.resolveField(item, filter.property)
+                }
+            })
+        }
+
+        return super.isFilteredItem(item)
+    }
+
+    /**
+     * Helper to resolve a field value from a raw data object using the Model definition.
+     * Handles mapping, calculate, and convert.
+     *
+     * **Limitations & "Turbo-Safe" Requirement:**
+     * This method resolves a *single* field in isolation. It does **not** recursively resolve dependencies.
+     *
+     * If Field A relies on Field B (e.g., via `calculate` or `convert`), and Field B is also a mapped/calculated field:
+     * - **On a Record:** Field B is accessible via its getter.
+     * - **On a Raw Object:** Field B is `undefined`.
+     *
+     * Therefore, Model logic (calculate/convert functions) MUST be written to be "Turbo-Safe" / "Polymorphic".
+     * They must check for both the canonical field name (for Records) AND the raw data key (for Turbo Mode).
+     *
+     * @example
+     * calculate: data => (data.mappedName || data.rawKey) + 1
+     *
+     * @param {Object} item The raw data object
+     * @param {String} fieldName The canonical field name
+     * @returns {*} The resolved value
+     * @protected
+     */
+    resolveField(item, fieldName) {
+        let me    = this,
+            field = me.model.getField(fieldName),
+            value;
+
+        if (!field) return undefined;
+
+        if (!RecordFactory.isRecord(item) && field.depends) {
+            let deps = field.depends,
+                i    = 0,
+                len  = deps.length,
+                dep;
+
+            for (; i < len; i++) {
+                dep = deps[i];
+                if (item[dep] === undefined) {
+                    item[dep] = me.resolveField(item, dep);
+                }
+            }
+        }
+
+        if (field.calculate) {
+            value = field.calculate(item)
+        } else {
+            // Handle Mapping
+            if (field.mapping) {
+                let ns     = field.mapping.split('.'),
+                    key    = ns.pop(),
+                    source = ns.length > 0 ? Neo.ns(ns, false, item) : item;
+
+                if (source && Object.hasOwn(source, key)) {
+                    value = source[key]
+                }
+            } else {
+                value = item[fieldName]
+            }
+
+            // Handle Convert
+            if (field.convert) {
+                value = field.convert(value, item)
+            }
+
+            // Handle Default Value
+            if (value === undefined && Object.hasOwn(field, 'defaultValue')) {
+                value = Neo.isFunction(field.defaultValue) ? field.defaultValue() : field.defaultValue
+            }
+        }
+
+        if (!RecordFactory.isRecord(item)) {
+            item[fieldName] = value;
+        }
+
+        return value
+    }
+
+    /**
+     * Resolves the key of a given item, supporting both raw data objects and Record instances.
+     * This handles the edge case where `keyProperty` refers to a mapped source key (e.g. 'l')
+     * which exists on the raw object but not on the Record instance (where it is mapped to e.g. 'login').
+     * @param {Object|Neo.data.Record} item
+     * @returns {String|Number}
+     */
+    getKey(item) {
+        let me          = this,
+            keyProperty = me.getKeyProperty(),
+            value;
+
+        if (RecordFactory.isRecord(item)) {
+            return item.get(keyProperty)
+        }
+
+        if (keyProperty.includes('.')) {
+            value = Neo.ns(keyProperty, false, item)
+        } else {
+            value = item[keyProperty]
+        }
+
+        // If direct access failed, check for mapping (Reverse Lookup)
+        if (value === undefined && me.model) {
+            let field = me.model.getField(keyProperty);
+            if (field?.mapping) {
+                let mapping = field.mapping;
+                if (mapping.includes('.')) {
+                    value = Neo.ns(mapping, false, item)
+                } else {
+                    value = item[mapping]
+                }
+            }
+        }
+
+        return value
+    }
+
     /**
      * Serializes the instance into a JSON-compatible object for the Neural Link.
      * @returns {Object}

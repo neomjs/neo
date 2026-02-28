@@ -1,6 +1,13 @@
 [{
     "id"          : 24,
     "environments": ["Desktop", "Mobile"],
+    "image"       : "devmode/DevIndex.png",
+    "name"        : "GitHub Meritocracy Index",
+    "sourceUrl"   : "apps/devindex",
+    "url"         : "dist/production/apps/devindex/index.html"
+}, {
+    "id"          : 24,
+    "environments": ["Desktop", "Mobile"],
     "image"       : "devmode/bigData.png",
     "name"        : "Buffered Data Grid with 5M cells",
     "sourceUrl"   : "examples/grid/bigData",

@@ -248,6 +248,52 @@ test.describe('Neo.state.Provider (Node.js)', () => {
         component.destroy();
     });
 
+    test('createBinding should handle multiple bindings per component without overwriting, and destroy old effects on re-bind', () => {
+        const component = Neo.create(MockComponent, {
+            stateProvider: {
+                data: {
+                    value1: 'A',
+                    value2: 'B',
+                    value3: 'C'
+                }
+            }
+        });
+        const provider = component.getStateProvider();
+
+        // 1. Create two separate bindings for the same component
+        const effect1 = provider.createBinding(component.id, 'testConfig', data => data.value1);
+        const effect2 = provider.createBinding(component.id, 'userObject', data => data.value2);
+
+        expect(component.testConfig).toBe('A');
+        expect(component.userObject).toBe('B');
+        
+        // Ensure both effects exist and haven't overwritten each other
+        expect(effect1.isDestroyed).toBe(false);
+        expect(effect2.isDestroyed).toBe(false);
+
+        // 2. Dynamically re-bind the first config
+        const effect3 = provider.createBinding(component.id, 'testConfig', data => data.value3);
+
+        // The old effect for 'testConfig' MUST be destroyed to prevent leaks/conflicts
+        expect(effect1.isDestroyed).toBe(true);
+        
+        // The new effect should be active
+        expect(effect3.isDestroyed).toBe(false);
+        expect(component.testConfig).toBe('C');
+
+        // The effect for the *other* config should remain completely unaffected
+        expect(effect2.isDestroyed).toBe(false);
+
+        // 3. Verify reactivity
+        provider.setData('value3', 'C-Updated');
+        expect(component.testConfig).toBe('C-Updated');
+
+        provider.setData('value2', 'B-Updated');
+        expect(component.userObject).toBe('B-Updated');
+
+        component.destroy();
+    });
+
     test('Formulas should calculate correctly and react to dependencies', () => {
         const component = Neo.create(MockComponent, {
             stateProvider: {
@@ -453,5 +499,36 @@ test.describe('Neo.state.Provider (Node.js)', () => {
 
         parentComponent.destroy();
         childComponent.destroy();
+    });
+
+    test('Component bind_ config should deep merge class and instance level bindings', () => {
+        class BoundComponent extends Component {
+            static config = {
+                className: 'BoundComponent',
+                appName,
+                testConfig1_: null,
+                testConfig2_: null,
+                bind: {
+                    testConfig1: data => data.val1
+                }
+            }
+        }
+        BoundComponent = Neo.setupClass(BoundComponent);
+
+        const component = Neo.create(BoundComponent, {
+            stateProvider: {
+                data: { val1: 'A', val2: 'B' }
+            },
+            bind: {
+                testConfig2: data => data.val2
+            }
+        });
+
+        // Effect execution is asynchronous in some test contexts or deferred, 
+        // but here they are evaluated synchronously on creation if state exists.
+        expect(component.testConfig1).toBe('A');
+        expect(component.testConfig2).toBe('B');
+
+        component.destroy();
     });
 });

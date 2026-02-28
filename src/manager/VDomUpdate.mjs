@@ -108,6 +108,16 @@ class VDomUpdate extends Collection {
      */
     inFlightUpdateMap = null;
     /**
+     * A Map that stores callbacks to be executed immediately after a component's VDOM update
+     * finishes, but BEFORE the `needsVdomUpdate` check for the next cycle.
+     *
+     * Key: componentId, Value: callback Function
+     *
+     * @member {Map<String, Function>} preUpdateMap=new Map()
+     * @protected
+     */
+    preUpdateMap = new Map()
+    /**
      * A Map that stores Promise `resolve` functions associated with a component's update.
      * When a component's VDOM update is finalized, the callbacks for its ID are executed,
      * resolving the Promise returned by the component's `update()` method.
@@ -173,12 +183,12 @@ class VDomUpdate extends Collection {
             callbackData = data ? [data] : [];
 
         if (item && processedChildIds) {
-            processedChildIds.forEach(childId => {
+            for (const childId of processedChildIds) {
                 if (item.children.has(childId)) {
                     me.executePromiseCallbacks(childId, ...callbackData);
                     item.children.delete(childId)
                 }
-            });
+            }
 
             if (item.children.size === 0) {
                 me.mergedCallbackMap.remove(ownerId)
@@ -186,6 +196,20 @@ class VDomUpdate extends Collection {
         }
 
         me.executePromiseCallbacks(ownerId, ...callbackData)
+    }
+
+    /**
+     * Retrieves and executes the registered Pre-Update callback for a component.
+     * This is called by VdomLifecycle just before checking `needsVdomUpdate`.
+     * @param {String} id The component ID.
+     */
+    executePreUpdates(id) {
+        let callback = this.preUpdateMap.get(id);
+
+        if (callback) {
+            this.preUpdateMap.delete(id);
+            callback()
+        }
     }
 
     /**
@@ -199,7 +223,9 @@ class VDomUpdate extends Collection {
             callbacks = me.promiseCallbackMap.get(ownerId);
 
         if (callbacks) {
-            callbacks.forEach(callback => callback(data));
+            for (let i = 0, len = callbacks.length; i < len; i++) {
+                callbacks[i](data)
+            }
             me.promiseCallbackMap.delete(ownerId);
         }
     }
@@ -225,7 +251,7 @@ class VDomUpdate extends Collection {
             newDepth;
 
         if (item) {
-            item.children.forEach(value => {
+            for (const value of item.children.values()) {
                 if (value.childUpdateDepth === -1) {
                     newDepth = -1
                 } else {
@@ -238,7 +264,7 @@ class VDomUpdate extends Collection {
                 } else if (maxDepth !== -1) {
                     maxDepth = Math.max(maxDepth, newDepth)
                 }
-            });
+            }
 
             return maxDepth
         }
@@ -284,12 +310,10 @@ class VDomUpdate extends Collection {
         const item = this.mergedCallbackMap.get(ownerId);
 
         if (item) {
-            const
-                ids = new Set(item.children.keys()),
-                owner = Neo.getComponent(ownerId);
+            const ids = new Set(item.children.keys());
 
             // Add Bridge Paths: Walk up from each merged child to the owner
-            item.children.forEach((meta, childId) => {
+            for (const [childId, meta] of item.children) {
                 if (meta.distance > 1) {
                     let component = Neo.getComponent(childId);
 
@@ -300,10 +324,11 @@ class VDomUpdate extends Collection {
                         }
                     }
                 }
-            });
+            }
 
             return ids
         }
+
         return null
     }
 
@@ -319,8 +344,9 @@ class VDomUpdate extends Collection {
         // Register this component as an in-flight descendant for all its parents
         const parentIds = Neo.manager.Component.getParentIds(Neo.getComponent(ownerId));
 
-        parentIds.forEach(parentId => {
-            let map = this.descendantInFlightMap.get(parentId);
+        for (let i = 0, len = parentIds.length; i < len; i++) {
+            let parentId = parentIds[i],
+                map      = this.descendantInFlightMap.get(parentId);
 
             if (!map) {
                 map = new Map();
@@ -328,7 +354,7 @@ class VDomUpdate extends Collection {
             }
 
             map.set(ownerId, true)
-        })
+        }
     }
 
     /**
@@ -377,6 +403,16 @@ class VDomUpdate extends Collection {
     }
 
     /**
+     * Registers a callback to be executed for a component immediately after its current
+     * VDOM update finishes, but before the next update cycle begins.
+     * @param {String} id The component ID.
+     * @param {Function} callback
+     */
+    registerPreUpdate(id, callback) {
+        this.preUpdateMap.set(id, callback)
+    }
+
+    /**
      * Triggers all pending updates that were queued to run after the specified `ownerId`'s
      * update has completed.
      * @param {String} ownerId The `id` of the component whose update has just finished.
@@ -387,14 +423,15 @@ class VDomUpdate extends Collection {
             component;
 
         if (item) {
-            item.children.forEach(entry => {
+            for (let i = 0, len = item.children.length; i < len; i++) {
+                let entry = item.children[i];
                 component = Neo.getComponent(entry.childId);
 
                 if (component) {
                     entry.resolve && me.addPromiseCallback(component.id, entry.resolve);
                     component.update()
                 }
-            });
+            }
 
             me.postUpdateQueueMap.remove(item)
         }
@@ -411,7 +448,7 @@ class VDomUpdate extends Collection {
         // Remove this component from the in-flight descendant maps of all its parents
         // We need to iterate all registered ancestors to ensure we catch cases where
         // the component moved (re-parented) during the update.
-        this.descendantInFlightMap.forEach((map, parentId) => {
+        for (const [parentId, map] of this.descendantInFlightMap) {
             if (map.has(ownerId)) {
                 map.delete(ownerId);
 
@@ -419,7 +456,7 @@ class VDomUpdate extends Collection {
                     this.descendantInFlightMap.delete(parentId)
                 }
             }
-        })
+        }
     }
 }
 

@@ -1,0 +1,32 @@
+.neo-github-user {
+    align-items: center;
+    display    : flex;
+    gap        : 10px;
+
+    .neo-avatar {
+        border-radius: 50%;
+        height       : 32px;
+        width        : 32px;
+    }
+
+    .neo-user-info {
+        display       : flex;
+        flex-direction: column;
+        line-height   : 1.2;
+        overflow      : hidden;
+
+        .neo-username {
+            color          : inherit;
+            font-weight    : bold;
+            text-decoration: none;
+        }
+
+        .neo-name {
+            font-size    : 0.85em;
+            opacity      : 0.8;
+            overflow     : hidden;
+            text-overflow: ellipsis;
+            white-space  : nowrap;
+        }
+    }
+}
