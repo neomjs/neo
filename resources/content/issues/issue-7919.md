@@ -4,13 +4,14 @@ title: 'Epic: Decouple AI Tooling for Public Ecosystem'
 state: OPEN
 labels:
   - epic
+  - stale
   - ai
 assignees: []
 createdAt: '2025-11-29T15:19:10Z'
-updatedAt: '2025-11-29T22:15:55Z'
+updatedAt: '2026-02-28T03:22:11Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7919'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues:
   - '[ ] 7923 Refactor: Extract Memory Core to @neomjs/ai-memory-server'
@@ -44,4 +45,9 @@ This epic covers Phase 4 of the roadmap: evolving our internal AI tools into sta
 - 2025-11-29T15:22:19Z @tobiu added sub-issue #7923
 - 2025-11-29T15:22:21Z @tobiu added sub-issue #7924
 - 2025-11-29T15:22:23Z @tobiu added sub-issue #7925
+### @github-actions - 2026-02-28T03:22:11Z
+
+This issue is stale because it has been open for 90 days with no activity.
+
+- 2026-02-28T03:22:11Z @github-actions added the `stale` label
 
