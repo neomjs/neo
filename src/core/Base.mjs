@@ -71,6 +71,13 @@ class Base {
      *     - `beforeSetMyConfig(newValue, oldValue)`: Executed before a new value is set. Can be used for validation or transformation. Returning `undefined` from this hook will cancel the update.
      *     - `afterSetMyConfig(newValue, oldValue)`: Executed after a new value has been successfully set. Ideal for triggering side effects.
      *
+     *     **The `undefined` Sentinel Value:**
+     *     In Neo.mjs, `undefined` is used as a strict, immutable sentinel value representing "initial instantiation".
+     *     When an `afterSet` hook runs for the very first time during component creation, its `oldValue` will ALWAYS be `undefined`.
+     *     This allows developers to easily skip logic that should not run during setup using a simple `if (oldValue !== undefined)`.
+     *     Because of this architecture, **you should never set a config to `undefined` later in its lifecycle.**
+     *     If you need to clear or reset a config's state, explicitly set it to `null`.
+     *
      * 2.  **Non-Reactive (Prototype-based) Configs:** Property names without a trailing underscore.
      *     These are applied directly to the class's **prototype** during the `Neo.setupClass`
      *     process. This is highly memory-efficient as the value is shared across all instances.
@@ -170,11 +177,17 @@ class Base {
     }
 
     /**
+     * Internal cache for all async reject functions (timeouts, remote calls, promises).
+     * @member {Map<Number|Symbol, Function>} #asyncRejects=new Map()
+     * @private
+     */
+    #asyncRejects = new Map()
+    /**
      * A private field to store the Config controller instances.
      * @member {Object} #configs={}
      * @private
      */
-    #configs = {};
+    #configs = {}
     /**
      * Internal cache for all config subscription cleanup functions.
      * @member {Function[]} #configSubscriptionCleanups=[]
@@ -186,31 +199,25 @@ class Base {
      * @member {Promise<void>|null} #readyPromise
      * @private
      */
-    #readyPromise = null;
+    #readyPromise = null
     /**
      * A resolver function for the ready promise.
      * @member {Function|null} #readyResolver
      * @private
      */
-    #readyResolver = null;
+    #readyResolver = null
     /**
      * A promise that resolves when the remote methods are registered.
      * @member {Promise<void>|null} #remotesReadyPromise
      * @private
      */
-    #remotesReadyPromise = null;
+    #remotesReadyPromise = null
     /**
      * A resolver function for the remotesReady promise.
      * @member {Function|null} #remotesReadyResolver
      * @private
      */
-    #remotesReadyResolver = null;
-    /**
-     * Internal cache for all async reject functions (timeouts, remote calls, promises).
-     * @member {Map<Number|Symbol, Function>} #asyncRejects=new Map()
-     * @private
-     */
-    #asyncRejects = new Map()
+    #remotesReadyResolver = null
 
     /**
      * The main initializer for all Neo.mjs classes, invoked by `Neo.create()`.
@@ -612,11 +619,13 @@ class Base {
      * @returns {Promise<void>} A promise that resolves when the asynchronous initialization is complete.
      */
     async initAsync() {
-        if (this.remote) {
-            await this.initRemote()
+        let me = this;
+
+        if (me.remote) {
+            await me.initRemote()
         }
 
-        this.#remotesReadyResolver()
+        me.#remotesReadyResolver()
     }
 
     /**
@@ -907,7 +916,7 @@ class Base {
      * @returns {Promise<void>}
      */
     ready() {
-        return this.#readyPromise;
+        return this.#readyPromise
     }
 
     /**
@@ -1048,7 +1057,7 @@ class Base {
             })
 
             // Process reactive configs
-            me.processConfigs(true);
+            me.processConfigs(true)
         } finally {
             // Trigger the skipped Effect, if needed
             EffectManager.resume()

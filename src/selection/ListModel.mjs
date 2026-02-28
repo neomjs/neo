@@ -59,11 +59,10 @@ class ListModel extends Model {
      */
     onListClick({currentTarget}) {
         let {view} = this,
-            record;
+            id     = view.getItemRecordId(currentTarget),
+            record = view.store.get(id);
 
         if (!view.disableSelection) {
-            record = view.store.get(view.getItemRecordId(currentTarget));
-
             record && this.select(record)
         }
     }
@@ -74,10 +73,11 @@ class ListModel extends Model {
     onListNavigate(data) {
         let {view}  = this,
             {store} = view,
-            record;
+            record, recordId;
 
         if (data.activeItem) {
-            record = store.get(view.getItemRecordId(data.activeItem))
+            recordId = view.getItemRecordId(data.activeItem);
+            record   = store.get(recordId);
         }
 
         if (!record) {
@@ -133,9 +133,9 @@ class ListModel extends Model {
      * @param {Number} index
      */
     selectAt(index) {
-        let {view}    = this,
-            recordKey = view?.store.getKeyAt(index),
-            itemId    = recordKey && view.getItemId(recordKey);
+        let {view} = this,
+            record = view?.store.getAt(index),
+            itemId = record && view.getItemId(view.getRecordId(record));
 
         itemId && this.select(itemId)
     }

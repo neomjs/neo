@@ -47,7 +47,7 @@ class List extends ComponentList {
      */
     createItemContent(record, index) {
         let me       = this,
-            id       = record[me.getKeyProperty()],
+            id       = me.store.getKey(record),
             items    = me.items || [],
             checkBox = items[index],
 

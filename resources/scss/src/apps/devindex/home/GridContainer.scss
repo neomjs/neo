@@ -1,0 +1,113 @@
+.devindex-grid-container {
+    border-bottom: none;
+
+    .devindex-sparkline-wrapper {
+        height  : 100%;
+        position: relative;
+        width   : 100%;
+
+        .devindex-sparkline-canvas {
+            height  : 100%;
+            left    : 0;
+            position: absolute;
+            top     : 0;
+            width   : 100%;
+        }
+    }
+
+    // Only animate heatmap transitions when NOT scrolling to prevent ghosting and repaint costs
+    .neo-grid-body:not(.neo-is-scrolling) .neo-grid-row .neo-grid-cell.neo-heatmap {
+        transition: background-color 150ms ease-out, color 150ms ease-out;
+    }
+
+    .neo-grid-body .neo-grid-row {
+        // Selection state overrides heatmap
+        &.neo-selected {
+            .neo-grid-cell {
+                // We need !important here because heatmap cells have specificity via classes
+                background-color: var(--grid-rowmodel-selected-cell-background-color) !important;
+                color           : var(--grid-rowmodel-selected-cell-color) !important;
+                font-weight     : normal !important;
+                text-shadow     : none !important;
+            }
+        }
+
+        // Hover state overrides heatmap (if not selected)
+        &:not(.neo-selected):hover {
+            .neo-grid-cell {
+                background-color: var(--grid-cell-background-color-hover) !important;
+                color           : inherit !important; // Reset color to ensure contrast
+                font-weight     : normal !important;
+                text-shadow     : none !important;
+            }
+        }
+
+        .neo-grid-cell {
+            &.heatmap-cell-0 {
+                background-color: var(--heatmap-bg-0);
+                color           : var(--heatmap-text-0);
+            }
+
+            &.heatmap-cell-1 {
+                background-color: var(--heatmap-bg-1);
+                color           : var(--heatmap-text-1);
+            }
+
+            &.heatmap-cell-2 {
+                background-color: var(--heatmap-bg-2);
+                color           : var(--heatmap-text-2);
+                text-shadow     : var(--heatmap-shadow-2);
+            }
+
+            &.heatmap-cell-3 {
+                background-color: var(--heatmap-bg-3);
+                color           : var(--heatmap-text-3);
+                font-weight     : bold;
+                text-shadow     : var(--heatmap-shadow-3);
+            }
+
+            &.devindex-column-website {
+                .neo-icon-link {
+                    color     : var(--devindex-website-color);
+                    font-size : 16px;
+                    transition: color 200ms ease-out;
+
+                    &:hover {
+                        color: var(--devindex-website-hover-color);
+                    }
+                }
+            }
+
+            &.devindex-column-linkedin {
+                .neo-icon-link {
+                    color     : var(--devindex-linkedin-color);
+                    font-size : 20px;
+                    transition: color 200ms ease-out;
+
+                    &:hover {
+                        color: var(--devindex-linkedin-hover-color);
+                    }
+                }
+            }
+
+            &.devindex-column-hireable {
+                .neo-icon {
+                    color    : var(--devindex-hireable-color);
+                    font-size: 16px;
+                }
+            }
+
+            &.devindex-column-sponsors {
+                .neo-icon-link {
+                    color     : var(--devindex-sponsors-color, #ea4aaa);
+                    font-size : 16px;
+                    transition: color 200ms ease-out;
+
+                    &:hover {
+                        color: var(--devindex-sponsors-hover-color, #ff6cc5);
+                    }
+                }
+            }
+        }
+    }
+}

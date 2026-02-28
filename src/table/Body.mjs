@@ -67,6 +67,10 @@ class TableBody extends Component {
          */
         useRowRecordIds: true,
         /**
+         * @member {Boolean} useInternalId=true
+         */
+        useInternalId: true,
+        /**
          * @member {Object} _vdom={tag: 'tbody', cn : []}
          */
         _vdom:
@@ -417,7 +421,7 @@ class TableBody extends Component {
      * @returns {String}
      */
     getCellId(record, dataField) {
-        return this.id + '__' + record[this.store.keyProperty] + '__' + dataField
+        return this.id + '__' + this.getRecordId(record) + '__' + dataField
     }
 
     /**
@@ -466,6 +470,10 @@ class TableBody extends Component {
             return record;
         }
 
+        // Check if nodeId is a recordId
+        record = me.store.get(nodeId);
+        if (record) return record;
+
         parentNodes = VDomUtil.getParentNodes(me.vdom, nodeId);
 
         for (node of parentNodes) {
@@ -477,6 +485,14 @@ class TableBody extends Component {
         }
 
         return null
+    }
+
+    /**
+     * @param {Object} record
+     * @returns {String|Number}
+     */
+    getRecordId(record) {
+        return this.useInternalId ? this.store.getInternalId(record) : this.store.getKey(record)
     }
 
     /**
@@ -497,7 +513,7 @@ class TableBody extends Component {
             {store} = me;
 
         if (me.useRowRecordIds) {
-            return `${me.id}__tr__${record[store.keyProperty]}`
+            return `${me.id}__tr__${me.getRecordId(record)}`
         } else {
             index = Neo.isNumber(index) ? index : store.indexOf(record);
             return me.vdom.cn[index]?.id || Neo.getId('tr')

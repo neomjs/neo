@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import {Command}       from 'commander';
 import Neo             from '../../../../src/Neo.mjs';
 import * as core       from '../../../../src/core/_export.mjs';

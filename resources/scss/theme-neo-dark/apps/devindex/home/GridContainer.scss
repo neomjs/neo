@@ -1,0 +1,27 @@
+:root .neo-theme-neo-dark {
+    --devindex-stop-stream-button-color: #ff4d4d;
+
+    .devindex-grid-container {
+        --heatmap-bg-0: rgba(14, 233, 175, 0.05);
+        --heatmap-text-0: rgba(255, 255, 255, 0.5);
+
+        --heatmap-bg-1: rgba(14, 233, 175, 0.15);
+        --heatmap-text-1: #fff;
+
+        --heatmap-bg-2: rgba(14, 233, 175, 0.35);
+        --heatmap-text-2: #fff;
+        --heatmap-shadow-2: 0 1px 2px rgba(0, 0, 0, 0.5);
+
+        --heatmap-bg-3: rgba(14, 233, 175, 0.65);
+        --heatmap-text-3: #fff;
+        --heatmap-shadow-3: 0 1px 2px rgba(0, 0, 0, 0.8);
+
+        --devindex-website-color      : var(--purple-300);
+        --devindex-website-hover-color: var(--purple-200);
+
+        --devindex-linkedin-color      : #0077b5;
+        --devindex-linkedin-hover-color: #298dcd;
+
+        --devindex-hireable-color: var(--green-500);
+    }
+}

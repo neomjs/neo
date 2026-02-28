@@ -20,10 +20,10 @@ parentIssue: null
 subIssues:
   - '[x] 7386 Configure MCP Server for Project'
   - '[x] 7387 Create Guide for Chrome DevTools MCP Server'
-  - '[ ] 7388 Define the "Sighted" Development Workflow'
+  - '[x] 7388 Define the "Sighted" Development Workflow'
   - '[x] 7389 Investigate Worker Console Access with MCP'
   - '[x] 7390 Create a "Sighted" Development Demo'
-subIssuesCompleted: 4
+subIssuesCompleted: 5
 subIssuesTotal: 5
 blockedBy: []
 blocking: []

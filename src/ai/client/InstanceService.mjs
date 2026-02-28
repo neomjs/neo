@@ -31,7 +31,7 @@ class InstanceService extends Service {
         }
 
         properties.forEach(property => {
-            result[property] = this.safeSerialize(instance[property])
+            result[property] = this.safeSerialize(Neo.ns(property, false, instance))
         });
 
         return {properties: result}
@@ -49,7 +49,7 @@ class InstanceService extends Service {
             if (Array.isArray(returnProperties) && returnProperties.length > 0) {
                 const props = {};
                 returnProperties.forEach(prop => {
-                    props[prop] = this.safeSerialize(instance[prop])
+                    props[prop] = this.safeSerialize(Neo.ns(prop, false, instance))
                 });
 
                 return {
@@ -82,6 +82,35 @@ class InstanceService extends Service {
         instance.set(properties);
 
         return {success: true}
+    }
+
+    /**
+     * Calls a method on a specific instance.
+     * @param {Object} params
+     * @param {String} params.id
+     * @param {String} params.method
+     * @param {Array}  [params.args]
+     * @returns {Object}
+     */
+    async callMethod({id, method, args=[]}) {
+        const instance = Neo.get(id);
+
+        if (!instance) {
+            throw new Error(`Instance not found: ${id}`)
+        }
+
+        const
+            pathArray  = method.split('.'),
+            methodName = pathArray.pop(),
+            scope      = pathArray.length < 1 ? instance : Neo.ns(pathArray.join('.'), false, instance);
+
+        if (!scope || typeof scope[methodName] !== 'function') {
+            throw new Error(`Method not found: ${method} on instance ${id}`)
+        }
+
+        const result = await scope[methodName].call(scope, ...args);
+
+        return {result: this.safeSerialize(result)}
     }
 }
 

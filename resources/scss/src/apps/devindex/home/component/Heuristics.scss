@@ -1,0 +1,25 @@
+.devindex-heuristics {
+    align-items: center;
+    contain    : strict;
+    display    : flex;
+    gap        : 4px;
+    height     : 100%;
+    width      : 100%;
+
+    .devindex-badge {
+        align-items    : center;
+        border-radius  : 4px;
+        display        : flex;
+        font-size      : 14px;
+        justify-content: center;
+        width          : 20px;
+
+        &.seedling {color: #4caf50;} /* Green */
+        &.fire     {color: #f44336;} /* Red */
+        &.bolt     {color: #ff9800;} /* Orange */
+        &.rocket   {color: #9c27b0;} /* Purple */
+        &.trend-up {color: #2196f3;} /* Blue */
+        &.pillar   {color: #ffd700;} /* Gold */
+        &.shield   {color: #607d8b;} /* Blue Grey */
+    }
+}

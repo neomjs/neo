@@ -109,10 +109,11 @@
 
                 &:after {
                     color       : var(--list-item-glyph-color);
-                    content     : "\f0c8";
+                    content     : "\f054";
                     display     : inline-block;
-                    font-family : 'Material Icons';
-                    font-size   : 18px;
+                    font-family : "Font Awesome 7 Free";
+                    font-weight : 900;
+                    font-size   : 14px;
                     width       : 25px;
                     padding-top : 4px;
                 }

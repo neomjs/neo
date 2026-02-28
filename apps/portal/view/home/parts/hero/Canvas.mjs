@@ -1,4 +1,4 @@
-import SharedCanvas from '../../../shared/Canvas.mjs';
+import SharedCanvas from '../../../../../../src/app/SharedCanvas.mjs';
 
 /**
  * @summary The App Worker component for the Home Hero "Neural Swarm" canvas.
@@ -16,7 +16,7 @@ import SharedCanvas from '../../../shared/Canvas.mjs';
  *    forwards normalized coordinates to the worker for interactive physics.
  *
  * @class Portal.view.home.parts.hero.Canvas
- * @extends Portal.view.shared.Canvas
+ * @extends Neo.app.SharedCanvas
  * @see Portal.canvas.HomeCanvas
  */
 class CanvasComponent extends SharedCanvas {
@@ -31,13 +31,13 @@ class CanvasComponent extends SharedCanvas {
          */
         cls: ['portal-home-hero-canvas'],
         /**
-         * @member {String} importMethodName='importHomeCanvas'
-         */
-        importMethodName: 'importHomeCanvas',
-        /**
          * @member {String} rendererClassName='Portal.canvas.HomeCanvas'
          */
-        rendererClassName: 'Portal.canvas.HomeCanvas'
+        rendererClassName: 'Portal.canvas.HomeCanvas',
+        /**
+         * @member {String} rendererImportPath='apps/portal/canvas/HomeCanvas.mjs'
+         */
+        rendererImportPath: 'apps/portal/canvas/HomeCanvas.mjs'
     }
 }
 

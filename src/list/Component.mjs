@@ -86,7 +86,7 @@ class Component extends List {
      */
     getItemRecordId(vnodeId) {
         let itemId = vnodeId.split('__')[1];
-        return this.store.getAt(parseInt(itemId))[this.getKeyProperty()]
+        return this.store.getKey(this.store.getAt(parseInt(itemId)))
     }
 
     /**
@@ -109,18 +109,17 @@ class Component extends List {
     sortItems(data) {
         let me       = this,
             newItems = [],
-            fromIndex, key, previousKeys;
+            fromIndex, previousKeys;
 
         if (me.items) {
             me.items.forEach(item => {
                 item.setSilent({id: null})
             });
 
-            key          = me.getKeyProperty();
-            previousKeys = data.previousItems.map(e => e[key]);
+            previousKeys = data.previousItems.map(e => me.store.getKey(e));
 
             data.items.forEach(item => {
-                fromIndex = previousKeys.indexOf(item[key]);
+                fromIndex = previousKeys.indexOf(me.store.getKey(item));
                 newItems.push(me.items[fromIndex])
             });
 

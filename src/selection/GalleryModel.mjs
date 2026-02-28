@@ -121,11 +121,12 @@ class GalleryModel extends Model {
             {view}       = me,
             {store}      = view,
             selected     = me.items[0],
-            countRecords = store.getCount(),
+            countRecords = view.maxItems ? Math.min(view.maxItems, store.getCount()) : store.getCount(),
             index, record;
 
         if (selected) {
-            index = store.indexOf(selected) + step
+            record = store.get(selected);
+            index  = store.indexOf(record) + step
         } else {
             index = 0
         }
@@ -138,7 +139,7 @@ class GalleryModel extends Model {
 
         record = store.getAt(index);
 
-        me.select(record[store.keyProperty]);
+        me.select(view.getRecordId(record));
 
         view.fire('select', {
             record
@@ -153,7 +154,7 @@ class GalleryModel extends Model {
             {stayInRow, view}   = me,
             {amountRows, store} = view,
             selected            = me.items[0],
-            countRecords        = store.getCount(),
+            countRecords        = view.maxItems ? Math.min(view.maxItems, store.getCount()) : store.getCount(),
             index, record;
 
         if (view.orderByRow) {
@@ -163,7 +164,8 @@ class GalleryModel extends Model {
         step *= amountRows;
 
         if (selected) {
-            index = store.indexOf(selected) + step
+            record = store.get(selected);
+            index  = store.indexOf(record) + step
         } else {
             index = 0
         }
@@ -186,7 +188,7 @@ class GalleryModel extends Model {
 
         record = store.getAt(index);
 
-        me.select(record[store.keyProperty]);
+        me.select(view.getRecordId(record));
 
         view.fire('select', {
             record

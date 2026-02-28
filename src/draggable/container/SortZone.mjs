@@ -394,7 +394,7 @@ class SortZone extends DragZone {
         let me = this;
 
         // The method can trigger before we got the client rects from the main thread
-        if (!me.itemRects || me.isScrolling) {
+        if (!me.itemRects || me.isScrolling || !me.boundaryContainerRect) {
             return
         }
 

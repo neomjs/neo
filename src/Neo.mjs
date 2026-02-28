@@ -7,7 +7,7 @@ const
     getSetCache  = Symbol('getSetCache'),
     cloneMap = {
         Array(obj, deep, ignoreNeoInstances) {
-            return !deep ? [...obj] : [...obj.map(val => Neo.clone(val, deep, ignoreNeoInstances))]
+            return !deep ? obj.slice() : obj.map(val => Neo.clone(val, deep, ignoreNeoInstances))
         },
         Date(obj) {
             return new Date(obj.valueOf())
@@ -25,21 +25,21 @@ const
             const out = {};
 
             // Use Reflect.ownKeys() to include symbol properties (e.g., for config descriptors)
-            Reflect.ownKeys(obj).forEach(key => {
+            for (const key of Reflect.ownKeys(obj)) {
                 const value = obj[key];
                 out[key] = !deep ? value : Neo.clone(value, deep, ignoreNeoInstances)
-            });
+            }
 
             return out
         }
     },
     typeDetector = {
-        function: item => {
+        function(item) {
             if (item.prototype?.constructor?.isClass) {
                 return 'NeoClass'
             }
         },
-        object: item => {
+        object(item) {
             if (item.constructor?.isClass && item instanceof Neo.core.Base) {
                 return 'NeoInstance'
             }
@@ -123,10 +123,10 @@ Neo = globalThis.Neo = Object.assign({
         let fnName;
 
         if (target && Neo.typeOf(config) === 'Object') {
-            Object.entries(config).forEach(([key, value]) => {
-                fnName = namespace[value];
+            for (const key in config) {
+                fnName = namespace[config[key]];
                 target[key] = bind ? fnName.bind(namespace) : fnName
-            })
+            }
         }
 
         return target
@@ -157,11 +157,11 @@ Neo = globalThis.Neo = Object.assign({
      */
     assignDefaults(target, defaults) {
         if (target && Neo.typeOf(defaults) === 'Object') {
-            Object.entries(defaults).forEach(([key, value]) => {
+            for (const key in defaults) {
                 if (!Object.hasOwn(target, key)) {
-                    target[key] = value
+                    target[key] = defaults[key]
                 }
-            })
+            }
         }
 
         return target
@@ -203,6 +203,10 @@ Neo = globalThis.Neo = Object.assign({
      * @returns {String}
      */
     camel(value) {
+        if (!value.includes('-')) {
+            return value
+        }
+
         return value.replace(camelRegex, match => match[1].toUpperCase())
     },
 

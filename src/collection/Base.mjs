@@ -1,9 +1,9 @@
-import Base       from '../core/Base.mjs';
-import Filter     from './Filter.mjs';
-import Logger     from '../util/Logger.mjs';
-import NeoArray   from '../util/Array.mjs';
-import Observable from '../core/Observable.mjs';
-import Sorter     from './Sorter.mjs';
+import {isDescriptor} from '../core/ConfigSymbols.mjs';
+import Base           from '../core/Base.mjs';
+import Filter         from './Filter.mjs';
+import Logger         from '../util/Logger.mjs';
+import Observable     from '../core/Observable.mjs';
+import Sorter         from './Sorter.mjs';
 
 const
     countMutations     = Symbol('countMutations'),
@@ -70,10 +70,22 @@ class Collection extends Base {
          */
         filters_: [],
         /**
+         * A map containing the internalId & reference of each collection item for faster access.
+         * Only populated if trackInternalId is true.
+         * @member {Map} internalIdMap_=null
+         * @protected
+         * @reactive
+         */
+        internalIdMap_: null,
+        /**
          * @member {Object[]|null} items_=null
          * @reactive
          */
-        items_: null,
+        items_: {
+            [isDescriptor]: true,
+            clone         : 'shallow',
+            value         : null
+        },
         /**
          * The unique(!) key property of each collection item
          * @member {String} keyProperty='id'
@@ -115,7 +127,12 @@ class Collection extends Base {
          * @member {String|null} sourceId_=null
          * @reactive
          */
-        sourceId_: null
+        sourceId_: null,
+        /**
+         * True to track internalIds in a separate map for O(1) lookup
+         * @member {Boolean} trackInternalId=false
+         */
+        trackInternalId: false
     }
 
     /**
@@ -185,17 +202,26 @@ class Collection extends Base {
      */
     afterSetItems(value, oldValue) {
         if (value) {
-            let me            = this,
-                {keyProperty} = me,
-                i             = 0,
-                len           = value.length,
-                item;
+            let me = this,
+                i  = 0,
+                len = value.length,
+                internalId, item;
 
             for (; i < len; i++) {
                 item = value[i];
 
+                me.itemFactory?.(item);
+
                 if (item) {
-                    me.map.set(item[keyProperty], item)
+                    me.map.set(me.getKey(item), item);
+
+                    if (me.trackInternalId) {
+                        internalId = me.getInternalKey(item);
+
+                        if (internalId) {
+                            me.internalIdMap.set(internalId, item)
+                        }
+                    }
                 }
             }
 
@@ -235,8 +261,13 @@ class Collection extends Base {
             let me     = this,
                 source = Neo.get(value);
 
-            me._items = [...source._items];
+            me._items = source._items.slice();
             me.map    = new Map(source.map); // creates a clone of the original map
+            me.count  = me._items.length;
+
+            if (me.trackInternalId && source.trackInternalId) {
+                me.internalIdMap = new Map(source.internalIdMap)
+            }
 
             const listenersConfig = {
                 mutate: me.onMutate,
@@ -323,6 +354,15 @@ class Collection extends Base {
         }
 
         return value
+    }
+
+    /**
+     * @param {Map|null} value
+     * @param {Map|null} oldValue
+     * @protected
+     */
+    beforeSetInternalIdMap(value, oldValue) {
+        return !value && this.trackInternalId ? new Map() : value
     }
 
     /**
@@ -460,6 +500,7 @@ class Collection extends Base {
 
         me._items.splice(0, me.count);
         me.map.clear();
+        me.internalIdMap?.clear();
         me.initialIndexCounter = 0
     }
 
@@ -490,7 +531,7 @@ class Collection extends Base {
         delete config.sorters;
 
         if (me._items.length > 0) {
-            config.items  = [...me._items];
+            config.items  = me._items.slice();
             config.count = config.items.length;
         }
 
@@ -511,6 +552,17 @@ class Collection extends Base {
     }
 
     /**
+     * Creates the allItems collection used for filtering.
+     * Can be overridden by subclasses.
+     * @param {Object} config
+     * @returns {Neo.collection.Base}
+     * @protected
+     */
+    createAllItems(config) {
+        return Neo.create(this.constructor, config)
+    }
+
+    /**
      * Clears the map & items array before the super call
      */
     destroy() {
@@ -523,6 +575,7 @@ class Collection extends Base {
 
         me._items.splice(0, me._items.length);
         me.map.clear();
+        me.internalIdMap?.clear();
 
         super.destroy()
     }
@@ -535,12 +588,12 @@ class Collection extends Base {
      */
     doSort(items=this._items, silent=false) {
         let me                = this,
-            previousItems     = [...items],
+            previousItems     = items.slice(),
             {sorters, sortDirections, sortProperties} = me,
             countSorters      = sortProperties.length || 0,
             hasSortByMethod   = false,
             hasTransformValue = false,
-            i, mappedItems, obj, sorter, sortProperty, sortValue;
+            i, mappedItems, obj, sorter, sortProperty, sortValue, val1, val2;
 
         if (countSorters > 0) {
             sorters.forEach(key => {
@@ -594,12 +647,17 @@ class Collection extends Base {
 
                     for (; i < countSorters; i++) {
                         sortProperty = sortProperties[i];
+                        val1         = a[sortProperty];
+                        val2         = b[sortProperty];
 
-                        if (a[sortProperty] > b[sortProperty]) {
+                        if (val1 == null && val2 != null) return  1;
+                        if (val1 != null && val2 == null) return -1;
+
+                        if (val1 > val2) {
                             return 1 * sortDirections[i]
                         }
 
-                        if (a[sortProperty] < b[sortProperty]) {
+                        if (val1 < val2) {
                             return -1 * sortDirections[i]
                         }
                     }
@@ -703,7 +761,7 @@ class Collection extends Base {
             countItems      = items.length,
             filteredItems   = [],
             needsSorting    = false,
-            oldItems        = [...me._items],
+            oldItems        = me._items.slice(),
             config, isIncluded, item, j, tmpItems;
 
         for (; i < countAllFilters; i++) {
@@ -720,9 +778,10 @@ class Collection extends Base {
             // We cannot use clearSilent() here, since it would clear allItems as well
             me._items.splice(0, me.count);
             me.map.clear();
+            me.internalIdMap?.clear();
             me.initialIndexCounter = 0;
 
-            me.items = [...me.allItems._items]
+            me.items = me.allItems._items.slice()
         } else {
             if (!me.allItems) {
                 config = {...me.originalConfig};
@@ -735,16 +794,18 @@ class Collection extends Base {
                 // which stores the unfiltered data. It is crucial to use `me.constructor` here.
                 // If we hardcode `Collection`, subclasses like `data.Store` would lose their specific
                 // functionalities (e.g., lazy record instantiation on `get()`) for the `allItems` collection.
-                me.allItems = Neo.create(me.constructor, {
+                me.allItems = me.createAllItems({
                     ...Neo.clone(config, true, true),
                     id         : me.id + '-all',
-                    items      : [...me._items], // Initialize with a shallow copy of current items
                     keyProperty: me.keyProperty,
                     sourceId   : me.id
-                })
+                });
+
+                me.allItems.items = me._items.slice();
             }
 
             me.map.clear();
+            me.internalIdMap?.clear();
 
             if (me.filterMode === 'primitive') {
                 // using for loops on purpose -> performance
@@ -762,13 +823,21 @@ class Collection extends Base {
 
                     if (isIncluded) {
                         filteredItems.push(item);
-                        me.map.set(item[me.keyProperty], item)
+                        me.map.set(me.getKey(item), item);
+
+                        if (me.trackInternalId) {
+                            const internalId = me.getInternalKey(item);
+
+                            if (internalId) {
+                                me.internalIdMap.set(internalId, item)
+                            }
+                        }
                     }
                 }
 
                 me._items = filteredItems // silent update, the map is already in place
             } else {
-                filteredItems = [...items];
+                filteredItems = items.slice();
 
                 for (j=0; j < countAllFilters; j++) {
                     tmpItems = [];
@@ -779,7 +848,7 @@ class Collection extends Base {
                         }
                     }
 
-                    filteredItems = [...tmpItems];
+                    filteredItems = tmpItems.slice();
                     countItems    = filteredItems.length
                 }
 
@@ -900,7 +969,7 @@ class Collection extends Base {
      * @returns {Object|null}
      */
     get(key) {
-        return this.map.get(key) || null
+        return this.map.get(key) || (this.trackInternalId && this.internalIdMap?.get(key)) || null
     }
 
     /**
@@ -910,6 +979,15 @@ class Collection extends Base {
      */
     getAt(index) {
         return this._items[index]
+    }
+
+    /**
+     * Returns the object associated to the internalId, or null if there is none.
+     * @param {String} internalId
+     * @returns {Object|null}
+     */
+    getByInternalId(internalId) {
+        return this.internalIdMap?.get(internalId) || null
     }
 
     /**
@@ -948,13 +1026,31 @@ class Collection extends Base {
     }
 
     /**
+     * Hook to get the internal key of an item.
+     * To be overridden by subclasses (e.g. Store).
+     * @param {Object} item
+     * @returns {String|Number|null}
+     */
+    getInternalKey(item) {
+        return null
+    }
+
+    /**
+     * @param {Object} item
+     * @returns {String|Number}
+     */
+    getKey(item) {
+        return item[this.keyProperty]
+    }
+
+    /**
      * Returns the key for a given index
      * @param {Number} index
      * @returns {Number|String|undefined}
      */
     getKeyAt(index) {
         let item = this._items[index];
-        return item?.[this.keyProperty]
+        return item && this.getKey(item)
     }
 
     /**
@@ -991,7 +1087,7 @@ class Collection extends Base {
      * @returns {Boolean}
      */
     hasItem(item) {
-        return this.map.has(item[this.keyProperty])
+        return this.map.has(this.getKey(item))
     }
 
     /**
@@ -1240,7 +1336,7 @@ class Collection extends Base {
             removedItems       = [],
             removeCountAtIndex = Neo.isNumber(removeCountOrToRemoveArray) ? removeCountOrToRemoveArray : null,
             toRemoveArray      = Array.isArray(removeCountOrToRemoveArray) ? removeCountOrToRemoveArray : null,
-            i, item, key, len, toAddMap;
+            internalId, i, item, key, len, toAddMap;
 
         if (!Neo.isNumber(index) && removeCountAtIndex) {
             Logger.error(me.id + ': If index is not passed, removeCountAtIndex cannot be used')
@@ -1250,17 +1346,26 @@ class Collection extends Base {
 
         if (toRemoveArray && (len = toRemoveArray.length) > 0) {
             if (toAddArray && toAddArray.length > 0) {
-                toAddMap = toAddArray.map(e => e[keyProperty])
+                toAddMap = toAddArray.map(e => me.getKey(e))
             }
 
             for (i=0; i < len; i++) {
                 item = toRemoveArray[i];
-                key  = me.isItem(item) ? item[keyProperty] : item;
+                key  = me.isItem(item) ? me.getKey(item) : item;
 
                 if (map.has(key)) {
                     if (!toAddMap || (toAddMap && toAddMap.indexOf(key) < 0)) {
-                        removedItems.push(items.splice(me.indexOfKey(key), 1)[0]);
-                        map.delete(key)
+                        const removedItem = items.splice(me.indexOfKey(key), 1)[0];
+                        removedItems.push(removedItem);
+                        map.delete(key);
+
+                        if (me.trackInternalId) {
+                            internalId = me.getInternalKey(removedItem);
+
+                            if (internalId) {
+                                me.internalIdMap.delete(internalId)
+                            }
+                        }
                     }
                 }
             }
@@ -1269,13 +1374,22 @@ class Collection extends Base {
             if (index === 0 && removeCountAtIndex === me.count) {
                 removedItems = items;
                 me._items = [];
-                map.clear()
+                map.clear();
+                me.internalIdMap?.clear()
             } else {
                 removedItems = items.splice(index, removeCountAtIndex);
 
                 // For partial removals, iterate and delete individual items from the map
                 removedItems.forEach(e => {
-                    map.delete(e[keyProperty])
+                    map.delete(me.getKey(e));
+
+                    if (me.trackInternalId) {
+                        internalId = me.getInternalKey(e);
+
+                        if (internalId) {
+                            me.internalIdMap.delete(internalId)
+                        }
+                    }
                 })
             }
         }
@@ -1283,9 +1397,12 @@ class Collection extends Base {
         if (toAddArray && (len = toAddArray.length) > 0) {
             for (i=0; i < len; i++) {
                 item = toAddArray[i];
-                key  = item[keyProperty];
 
-                if (!key) {
+                me.itemFactory?.(item);
+
+                key  = me.getKey(item);
+
+                if (key == null) {
                     item[keyProperty] = key = me.keyPropertyIndex;
                     me.keyPropertyIndex--
                 }
@@ -1300,7 +1417,15 @@ class Collection extends Base {
 
                 if (!map.has(key) && !me.isFilteredItem(item)) {
                     addedItems.push(item);
-                    map.set(key, item)
+                    map.set(key, item);
+
+                    if (me.trackInternalId) {
+                        internalId = me.getInternalKey(item);
+
+                        if (internalId) {
+                            me.internalIdMap.set(internalId, item)
+                        }
+                    }
                 }
             }
 

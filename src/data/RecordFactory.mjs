@@ -1,11 +1,13 @@
-import Base  from '../core/Base.mjs';
-import Model from './Model.mjs';
+import {internalId} from '../core/ConfigSymbols.mjs';
+import Base         from '../core/Base.mjs';
+import Model        from './Model.mjs';
 
 const
     dataSymbol         = Symbol.for('data'),
     initialIndexSymbol = Symbol.for('initialIndex'),
     isModifiedSymbol   = Symbol.for('isModified'),
-    originalDataSymbol = Symbol.for('originalData');
+    originalDataSymbol = Symbol.for('originalData'),
+    versionSymbol      = Symbol.for('version');
 
 let instance;
 
@@ -40,6 +42,24 @@ class RecordFactory extends Base {
      */
     assignDefaultValues(data, model) {
         model.fieldsMap.forEach((field, fieldName) => {
+            if (field.virtual) return;
+
+            if (field.mapping && !Object.hasOwn(data, fieldName)) {
+                let ns  = field.mapping.split('.'),
+                    key = ns.pop(),
+                    source;
+
+                if (ns.length > 0) {
+                    source = Neo.ns(ns, false, data)
+                } else {
+                    source = data
+                }
+
+                if (source && Object.hasOwn(source, key)) {
+                    data[fieldName] = source[key]
+                }
+            }
+
             if (Object.hasOwn(field, 'defaultValue')) {
                 const defaultValue = Neo.isFunction(field.defaultValue) ? field.defaultValue() : field.defaultValue;
 
@@ -72,26 +92,38 @@ class RecordFactory extends Base {
                 this.createField({field: childField, model, path: fieldPath, proto})
             })
         } else {
-            properties = {
-                [fieldPath]: {
-                    configurable: true,
-                    enumerable  : true,
-                    get() {
-                        if (model.hasNestedFields) {
-                            return Neo.ns(fieldPath, false, this[dataSymbol])
+            if (field.virtual) {
+                properties = {
+                    [fieldPath]: {
+                        configurable: true,
+                        enumerable  : true,
+                        get() {
+                            return field.calculate(this[dataSymbol], this)
                         }
-
-                        return this[dataSymbol][fieldName]
-                    },
-                    set(value) {
-                        this.notifyChange({
-                            fields: {[fieldPath]: instance.parseRecordValue({record: this, field, value})},
-                            model,
-                            record: this
-                        })
                     }
                 }
-            };
+            } else {
+                properties = {
+                    [fieldPath]: {
+                        configurable: true,
+                        enumerable  : true,
+                        get() {
+                            if (model.hasNestedFields) {
+                                return Neo.ns(fieldPath, false, this[dataSymbol])
+                            }
+
+                            return this[dataSymbol][fieldName]
+                        },
+                        set(value) {
+                            this.notifyChange({
+                                fields: {[fieldPath]: instance.parseRecordValue({record: this, field, value})},
+                                model,
+                                record: this
+                            })
+                        }
+                    }
+                }
+            }
 
             Object.defineProperties(proto, properties)
         }
@@ -132,7 +164,19 @@ class RecordFactory extends Base {
                     static name = 'Record';
 
                     [dataSymbol]         = {};
-                    [initialIndexSymbol] = null
+                    [initialIndexSymbol] = null;
+                    /**
+                     * The current version of the record. Increments on every modification.
+                     * Used for change tracking and optimization (e.g. short-circuiting grid rendering).
+                     * @member {Number} [versionSymbol]=0
+                     */
+                    [versionSymbol] = 0;
+
+                    /**
+                     * The stable, globally unique internal ID for this record instance.
+                     * @member {String} internalId
+                     */
+                    [internalId] = Neo.getId('record');
 
                     get isModified() {
                         let me = this;
@@ -142,6 +186,14 @@ class RecordFactory extends Base {
                         }
 
                         return me[isModifiedSymbol]
+                    }
+
+                    /**
+                     * Returns the current version of the record.
+                     * @returns {Number}
+                     */
+                    get version() {
+                        return this[versionSymbol]
                     }
 
                     /**
@@ -165,6 +217,22 @@ class RecordFactory extends Base {
                         }
 
                         me.setSilent(config) // We do not want to fire change events when constructing
+                    }
+
+                    /**
+                     * @param {String} field
+                     * @returns {*}
+                     */
+                    get(field) {
+                        if (model.getField(field)) {
+                            return this[field]
+                        }
+
+                        if (field.includes('.')) {
+                            return Neo.ns(field, false, this[dataSymbol])
+                        }
+
+                        return this[dataSymbol][field]
                     }
 
                     /**
@@ -460,7 +528,11 @@ class RecordFactory extends Base {
         hasChangedFields = Object.keys(changedFields).length > 0;
 
         if (hasChangedFields) {
+            record[versionSymbol]++;
+
             calculatedFieldsMap.forEach((value, key) => {
+                if (value.virtual) return;
+
                 oldValue = record[key];
                 value    = me.parseRecordValue({record, field: model.getField(key), useOriginalData});
 

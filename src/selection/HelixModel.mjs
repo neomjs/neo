@@ -77,7 +77,7 @@ class HelixModel extends Model {
                 this.select(key);
 
                 view.fire('select', {
-                    record: view.store.get(key)
+                    record: view.store.get(key) || view.store.items.find(r => view.getRecordId(r) === key)
                 });
 
                 break
@@ -121,14 +121,15 @@ class HelixModel extends Model {
             {stayInColumn, view} = me,
             {store}              = view,
             selected             = me.items[0],
-            countRecords         = store.getCount(),
+            countRecords         = view.maxItems ? Math.min(view.maxItems, store.getCount()) : store.getCount(),
             itemsPerRow          = parseInt(360 / view.itemAngle),
             index, record;
 
         step *= itemsPerRow;
 
         if (selected) {
-            index = store.indexOf(selected) + step
+            record = store.get(selected) || store.items.find(r => view.getRecordId(r) === selected);
+            index  = store.indexOf(record) + step
         } else {
             index = 0
         }
@@ -151,7 +152,7 @@ class HelixModel extends Model {
 
         record = store.getAt(index);
 
-        me.select(record[store.keyProperty]);
+        me.select(view.getRecordId(record));
 
         view.fire('select', {
             record
@@ -166,11 +167,12 @@ class HelixModel extends Model {
             {view}       = me,
             {store}      = view,
             selected     = me.items[0],
-            countRecords = store.getCount(),
+            countRecords = view.maxItems ? Math.min(view.maxItems, store.getCount()) : store.getCount(),
             index, record;
 
         if (selected) {
-            index = store.indexOf(selected) + step
+            record = store.get(selected) || store.items.find(r => view.getRecordId(r) === selected);
+            index  = store.indexOf(record) + step
         } else {
             index = 0
         }
@@ -183,7 +185,7 @@ class HelixModel extends Model {
 
         record = store.getAt(index);
 
-        me.select(record[store.keyProperty]);
+        me.select(view.getRecordId(record));
 
         view.fire('select', {
             record

@@ -60,6 +60,14 @@
         }
     }
 
+    h1, h2, h3, h4, h5, h6 {
+        code:not(.hljs) {
+            color  : var(--white-off);
+            margin : 0 0.15em;
+            padding: 0 0.3em;
+        }
+    }
+
     mark {
         background-color: var(--green-900);
         color           : var(--white);

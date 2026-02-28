@@ -1002,6 +1002,46 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /instance/method/call:
+    post:
+      summary: Call Instance Method
+      operationId: call_method
+      x-pass-as-object: true
+      description: |
+        Calls a method on a specific instance.
+
+        **When to Use:**
+        To trigger behavior on an instance (e.g. `store.load()`, `form.isValid()`, `grid.scrollToRow()`).
+      tags: [Instance]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CallMethodRequest'
+      responses:
+        '200':
+          description: Method called successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    description: The return value of the method
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /component/highlight:
     post:
       summary: Highlight Component
@@ -1314,7 +1354,7 @@ components:
           type: array
           items:
             type: string
-          description: "Optional list of properties to return. If provided, returns a lean response (id, className, properties)."
+          description: "Optional list of properties to return. Supports nested dot-notation (e.g. 'store.count'). If provided, returns a lean response (id, className, properties)."
         sessionId:
           type: string
           description: The target App Worker Session ID
@@ -1332,7 +1372,7 @@ components:
           type: array
           items:
             type: string
-          description: List of property names to retrieve
+          description: List of property names to retrieve. Supports nested dot-notation (e.g. 'store.data.length').
         sessionId:
           type: string
           description: The target App Worker Session ID
@@ -1432,6 +1472,10 @@ components:
         depth:
           type: integer
           description: Depth limit. 1=Self, 2=Self+Children, -1=Infinite.
+        lean:
+          type: boolean
+          default: true
+          description: If true, returns a strict subset of properties (id, className, items) for token efficiency.
         sessionId:
           type: string
           description: The target App Worker Session ID
@@ -1494,6 +1538,25 @@ components:
         properties:
           type: object
           description: Key-value pairs of properties to set
+        sessionId:
+          type: string
+          description: The target App Worker Session ID
+
+    CallMethodRequest:
+      type: object
+      required:
+        - id
+        - method
+      properties:
+        id:
+          type: string
+          description: The instance ID
+        method:
+          type: string
+          description: The method name (e.g. 'load' or 'series.push')
+        args:
+          type: array
+          description: Arguments to pass to the method
         sessionId:
           type: string
           description: The target App Worker Session ID

@@ -1,0 +1,14 @@
+.neo-icon-link {
+    color          : var(--icon-link-color);
+    contain        : layout paint style;
+    font-size      : var(--icon-link-font-size);
+    text-decoration: var(--icon-link-text-decoration);
+
+    &:hover {
+        color: var(--icon-link-hover-color);
+    }
+
+    .neo-link-label {
+        margin-left: 0.5em;
+    }
+}

@@ -46,9 +46,14 @@ class Abstract extends Base {
         appName_: null,
         /**
          * Bind configs to state.Provider data properties.
-         * @member {Object|null} bind=null
+         * @member {Object|null} bind_={[isDescriptor]:true,merge:'deep',value:null}
+         * @reactive
          */
-        bind: null,
+        bind_: {
+            [isDescriptor]: true,
+            merge         : 'deep',
+            value         : null
+        },
         /**
          * Custom CSS selectors to apply to the root level node of this component
          * @member {String[]} cls_=null
@@ -245,6 +250,8 @@ class Abstract extends Base {
                 })
             } else { // unmount
                 delete me._mountedPromise;
+
+                me.resetMountedDomEvents?.();
 
                 if (me.unmountConfigs) {
                     me.set(me.unmountConfigs)

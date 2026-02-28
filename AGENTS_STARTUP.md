@@ -138,26 +138,42 @@ To make fully informed decisions, you must leverage both the project's technical
 
 **Action:** Use the `query_documents` tool to find relevant source code, guides, and examples from the framework's knowledge base. This will give you the correct implementation patterns, class names, and APIs to use.
 
-#### Stage 2: Query for Memory
+#### Stage 2: Query for Memory (Your Cognitive Superpower)
 
-**Purpose:** To understand the historical "why."
+**Purpose:** To understand the historical "why" and to prevent reinventing the wheel.
 
-**Action:** Use memory queries to search your past work:
-- `query_raw_memories`: Search specific turn-by-turn interactions.
-- `query_summaries`: Search high-level session summaries for patterns.
+As an AI agent, your context window is ephemeral. By rigidly adhering to the "Consolidate-Then-Save" protocol, you have built a persistent, searchable brain. **This is your primary cognitive advantage.**
 
-**When to use summaries vs. raw memories:**
-- Use `query_summaries` first to find relevant past sessions (faster, high-level).
-- Use `query_raw_memories` to dive into specific implementation details from those sessions.
+**Action:** Before beginning the implementation of any complex feature or bug fix, you **MUST** perform a brief, proactive exploration of the Memory Core. 
+- `query_summaries`: Search high-level session summaries for broad patterns (e.g., "race condition", "VDOM", "Canvas"). Use this to find relevant past sessions quickly.
+- `query_raw_memories`: Dive into specific implementation details from those sessions to understand the nuanced thought processes.
 
-**Learning from past performance:**
-- Query for similar tasks: "refactoring worker architecture"
-- Check quality/productivity scores to see if you struggled before.
-- Review what worked (high scores) and what failed (low scores).
+**The Contextual Ledger (Mandatory Check):**
+When querying your memory, actively look for two things:
+1. **Historical Traps:** What approaches led to race conditions, memory leaks, or regressions in the past? (Learn from previous failures).
+2. **Gold Standards:** What architectural patterns proved highly successful and scalable? (Replicate proven success).
+
+If your current task overlaps with past challenges, explicitly state in your initial plan how your approach leverages the proven Gold Standards and avoids the Historical Traps discovered during your exploration.
 
 #### Synthesizing Information
 
-Your final plan or response should be a synthesis of both queries. Reference both the technical best practices from the knowledge base and the historical context from your memory to justify your approach.
+Your final plan or response should be a synthesis of both queries. Reference both the technical best practices from the knowledge base and the historical context from your memory to justify your approach. Proactively looking for ways to enhance collaboration, including suggesting workflow improvements based on your historical insights, is highly encouraged.
+
+### 3.4. The "Ask the Expert" Protocol (Syntax Verification)
+
+**Problem:** Your training data contains outdated syntax for rapidly evolving features (e.g., State Provider bindings, Reactive Configs, Worker messaging).
+
+**Solution:** You must treat `ask_knowledge_base` as an **Embedded RAG Sub-Agent**. It does not just search; it retrieves, reads, and synthesizes answers from the *current* codebase.
+
+**Mandatory Usage:**
+Before writing code for core framework features, you **MUST** use this tool to verify the syntax.
+
+**Workflow:**
+1.  **Identify the Hazard:** "I am about to write a binding. My training says strings, but the framework might use functions."
+2.  **Ask the Expert:** Call `ask_knowledge_base` with a specific question.
+    -   `ask_knowledge_base(query='current syntax for state provider bindings')`
+    -   `ask_knowledge_base(query='how to define a reactive config in a component')`
+3.  **Trust the Answer:** The tool reads the actual files in the repository. Its answer is the single source of truth.
 
 ## 4. The Implementation Loop
 
@@ -205,3 +221,19 @@ When invoking a sub-agent to analyze code or investigate an issue, you **MUST** 
 
 **Why this is required:**
 Without this context, sub-agents will hallucinate bugs where none exist (e.g., claiming `this.store` is undefined because they don't see an explicit assignment, missing the fact that it's a reactive config managed by `Neo.core.Base`).
+
+## 8. The Visual Verification Protocol (UI/Layout Tasks)
+
+**Context:** Agents often "hallucinate" layout behavior based on static SCSS/JS analysis, leading to "shotgun debugging" (guessing fixes) that wastes turns and frustrates users.
+
+**Mandate:** You are **FORBIDDEN** from modifying CSS or Layout Configs based solely on static code analysis when a visual bug (e.g., "cut off", "misalignment") is reported.
+
+**Workflow:**
+1.  **Stop & Observe:** Do not propose a fix immediately.
+2.  **Inspect Runtime State:** Use the `neural_link` tool suite:
+    -   `find_instances`: Locate the component.
+    -   `get_computed_styles`: Check `width`, `height`, `flex`, `display`, `overflow`.
+    -   `get_dom_rect`: Check actual dimensions and parent constraints.
+3.  **Consult the Expert:** If tools are insufficient or the hierarchy is complex, **ASK THE USER**.
+    -   *Template:* "I cannot see the parent container's computed styles. Could you please paste the computed `height` and `overflow` of the element wrapping `.my-component`?"
+4.  **Verify Assumptions:** Never assume a class like `neo-label` behaves standardly. Verify its computed style.

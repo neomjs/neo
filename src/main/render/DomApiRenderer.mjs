@@ -61,7 +61,8 @@ const DomApiRenderer = {
             domNode[Neo.config.useDomIds ? 'id' : 'data-neo-id'] = vnode.id;
 
             // Apply Attributes
-            Object.entries(vnode.attributes).forEach(([key, value]) => {
+            for (const key in vnode.attributes) {
+                const value = vnode.attributes[key];
                 if (voidAttributes.has(key)) {
                     domNode.toggleAttribute(key, value === 'true' || value === true)
                 } else if (key === 'value') {
@@ -69,7 +70,7 @@ const DomApiRenderer = {
                 } else if (value !== null && value !== undefined) {
                     domNode.setAttribute(key, value)
                 }
-            });
+            }
 
             // Apply Classes
             if (vnode.className.length > 0) {
@@ -78,7 +79,8 @@ const DomApiRenderer = {
 
             // Apply Styles
             if (Neo.isObject(vnode.style)) {
-                Object.entries(vnode.style).forEach(([key, value]) => {
+                for (const key in vnode.style) {
+                    let value = vnode.style[key];
                     let important;
 
                     if (Neo.isString(value) && value.includes('!important')) {
@@ -88,7 +90,7 @@ const DomApiRenderer = {
                     }
 
                     domNode.style.setProperty(Neo.decamel(key), value, important)
-                })
+                }
             }
 
             // Handle innerHTML & textContent

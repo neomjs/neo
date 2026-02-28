@@ -1,12 +1,10 @@
-import Base from '../../../src/toolbar/Base.mjs';
-import HeaderCanvas from './HeaderCanvas.mjs';
-import HeaderToolbarController from './HeaderToolbarController.mjs';
+import BaseHeaderToolbar from '../../../src/app/header/Toolbar.mjs';
 
 /**
  * @class Portal.view.HeaderToolbar
- * @extends Neo.container.Base
+ * @extends Neo.app.header.Toolbar
  */
-class HeaderToolbar extends Base {
+class HeaderToolbar extends BaseHeaderToolbar {
     static config = {
         /**
          * @member {String} className='Portal.view.HeaderToolbar'
@@ -18,30 +16,6 @@ class HeaderToolbar extends Base {
          * @reactive
          */
         cls: ['portal-header-toolbar'],
-        /**
-         * @member {Neo.controller.Component} controller=HeaderToolbarController
-         */
-        controller: HeaderToolbarController,
-        /**
-         * @member {Object[]} domListeners
-         */
-        domListeners: [{
-            click     : 'onButtonClick',
-            mouseleave: 'onMouseLeave',
-            mousemove : {fn: 'onMouseMove', local: true}
-        }, {
-            mouseenter: 'onButtonMouseEnter',
-            mouseleave: 'onButtonMouseLeave',
-            delegate  : '.neo-button'
-        }],
-        /**
-         * @member {Object} itemDefaults
-         */
-        itemDefaults: {
-            handler: 'onButtonClick',
-            ntype  : 'button',
-            ui     : 'ghost'
-        },
         /**
          * @member {Object[]} items
          */
@@ -106,14 +80,7 @@ class HeaderToolbar extends Base {
                     hideDelay: 0
                 }
             }]
-        }, {
-            module   : HeaderCanvas,
-            reference: 'header-canvas'
-        }],
-        /**
-         * @member {Object} style={position: 'relative'}
-         */
-        style: {position: 'relative'}
+        }]
     }
 }
 

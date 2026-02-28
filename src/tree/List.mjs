@@ -265,11 +265,12 @@ class Tree extends Base {
                 style: {pointerEvents: 'none'}
             }],
             style: {
-                display : record.hidden ? 'none' : 'flex',
-                padding : '10px',
-                position: (record.isLeaf || record.collapsed) ? null : 'sticky',
-                top     : (record.isLeaf || record.collapsed) ? null : (record.level * 38) + 'px',
-                zIndex  : record.isLeaf ? 1 : (10000 + record.level)
+                '--neo-tree-level': record.level,
+                display           : record.hidden ? 'none' : 'flex',
+                padding           : '10px',
+                position          : (record.isLeaf || record.collapsed) ? null : 'sticky',
+                top               : (record.isLeaf || record.collapsed) ? null : (record.level * 38) + 'px',
+                zIndex            : record.isLeaf ? 1 : (10000 + record.level)
             }
         };
 

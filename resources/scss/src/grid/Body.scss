@@ -48,14 +48,10 @@
     }
 
     .neo-grid-row {
-        position: absolute;
-        width   : 100%;
-
-        &:last-child {
-            .neo-grid-cell {
-                border-bottom-width: 0 !important;
-            }
-        }
+        contain    : strict;
+        position   : absolute;
+        width      : 100%;
+        will-change: transform;
 
         &.neo-even {
             .neo-grid-cell {
@@ -76,13 +72,14 @@
              background-color: var(--grid-container-cell-background-color);
              border-bottom   : 1px solid var(--grid-container-border-color);
              border-right    : 1px solid var(--grid-container-border-color);
+             contain         : layout paint style;
              display         : flex;
              height          : inherit;
              padding         : 2px 10px 2px;
              position        : absolute;
              width           : fit-content;
 
-             &:last-child {
+             &.neo-last-column {
                  border-right-width : 0;
              }
 

@@ -1,22 +1,23 @@
 ---
 id: 7078
 title: Create Node.js script to standardize and sort module imports
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - stale
 assignees: []
 createdAt: '2025-07-17T12:12:04Z'
-updatedAt: '2026-01-21T03:13:25Z'
+updatedAt: '2026-02-04T03:41:12Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7078'
 author: tobiu
-commentsCount: 2
+commentsCount: 3
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-02-04T03:41:12Z'
 ---
 # Create Node.js script to standardize and sort module imports
 
@@ -53,4 +54,9 @@ This issue is stale because it has been open for 90 days with no activity.
 This issue is stale because it has been open for 90 days with no activity.
 
 - 2026-01-21T03:13:24Z @github-actions added the `stale` label
+### @github-actions - 2026-02-04T03:41:12Z
+
+This issue was closed because it has been inactive for 14 days since being marked as stale.
+
+- 2026-02-04T03:41:12Z @github-actions closed this issue
 

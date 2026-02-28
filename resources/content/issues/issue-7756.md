@@ -4,14 +4,15 @@ title: Enhance `create_comment` tool to enforce reading related tickets
 state: OPEN
 labels:
   - enhancement
+  - stale
   - ai
 assignees:
   - Mahita07
 createdAt: '2025-11-12T14:12:09Z'
-updatedAt: '2025-11-14T09:15:12Z'
+updatedAt: '2026-02-13T03:57:03Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7756'
 author: tobiu
-commentsCount: 2
+commentsCount: 3
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
@@ -41,4 +42,9 @@ To improve the quality of pull request reviews, agents should be required to rea
 Yes, I can. This ticket is trivial (just adding a comment) into the yaml file, but it might be a good starting point to try out how the 3 MCP servers have evolved. Make sure to update your fork first, and in case you have not done it already, I recommend to read the v11 blog post.
 
 - 2025-11-14T09:15:12Z @tobiu assigned to @Mahita07
+### @github-actions - 2026-02-13T03:57:02Z
+
+This issue is stale because it has been open for 90 days with no activity.
+
+- 2026-02-13T03:57:03Z @github-actions added the `stale` label
 

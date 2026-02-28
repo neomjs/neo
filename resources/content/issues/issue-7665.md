@@ -1,7 +1,7 @@
 ---
 id: 7665
 title: 'Epic: Enhance Knowledge Base MCP with Class Query Tools'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - epic
@@ -9,10 +9,10 @@ labels:
   - ai
 assignees: []
 createdAt: '2025-10-26T13:53:16Z'
-updatedAt: '2026-01-25T03:23:25Z'
+updatedAt: '2026-02-08T04:12:12Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7665'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: null
 subIssues:
   - '[x] 7664 Docs: Create Codebase Overview Guide'
@@ -21,6 +21,7 @@ subIssuesCompleted: 2
 subIssuesTotal: 2
 blockedBy: []
 blocking: []
+closedAt: '2026-02-08T04:12:12Z'
 ---
 # Epic: Enhance Knowledge Base MCP with Class Query Tools
 
@@ -45,4 +46,9 @@ This will enable an agent (or other tools) to get specific information about cla
 This issue is stale because it has been open for 90 days with no activity.
 
 - 2026-01-25T03:23:25Z @github-actions added the `stale` label
+### @github-actions - 2026-02-08T04:12:11Z
+
+This issue was closed because it has been inactive for 14 days since being marked as stale.
+
+- 2026-02-08T04:12:12Z @github-actions closed this issue
 

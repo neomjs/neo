@@ -1,7 +1,6 @@
 .neo-grid-wrapper {
     overflow-anchor    : none;
-    overflow-x         : auto;
-    overflow-y         : hidden;
+    overflow-y         : clip;
     overscroll-behavior: none;
     position           : relative;
 
@@ -29,11 +28,14 @@
         border             : 1px solid var(--grid-container-border-color);
         border-spacing     : 0;
         color              : var(--grid-container-color);
-        font-size          : 13px;
+        display            : flex;
+        flex-direction     : column;
+        font-size          : var(--grid-container-font-size);
         font-weight        : 400;
         height             : 100%;
         line-height        : 19px;
         overscroll-behavior: none;
+        overflow-x         : auto;
         overflow-y         : hidden;
         position           : absolute;
         width              : 100%;

@@ -65,7 +65,7 @@ class CountryGallery extends Gallery {
             fn    = CountryGallery.formatNumber,
             style = {height: (me.itemHeight - 70) + 'px', width: me.itemWidth  + 'px'};
 
-        return {cls, id: me.getItemVnodeId(record[me.keyProperty]), tabIndex: '-1', cn: [
+        return {cls, id: me.getItemVnodeId(me.getRecordId(record)), tabIndex: '-1', cn: [
             {cls: ['neo-item-wrapper'], style: {height: me.itemHeight + 'px'}, cn: [
                 {cls: ['neo-country-gallery-item'], style, cn: [
                     {cls: ['neo-item-header'], cn: [
@@ -171,14 +171,6 @@ class CountryGallery extends Gallery {
         imageName = map[imageName] || imageName;
 
         return `https://raw.githubusercontent.com/neomjs/pages/main/resources_pub/images/flaticon/country_flags/png/${imageName}.png`
-    }
-
-    /**
-     * @param {String} vnodeId
-     * @returns {String} itemId
-     */
-    getItemId(vnodeId) {
-        return vnodeId.split('__')[1]
     }
 
     /**

@@ -1,0 +1,18 @@
+.neo-github-orgs {
+    align-items: center;
+    contain    : strict;
+    display    : flex;
+    gap        : 4px;
+    height     : 100%;
+    width      : 100%;
+
+    .neo-org-link {
+        display: flex;
+
+        .neo-org-avatar {
+            border-radius: 4px;
+            height       : 20px;
+            width        : 20px;
+        }
+    }
+}

@@ -1,0 +1,11 @@
+.neo-grid-footer-toolbar {
+    background-color: var(--grid-footer-toolbar-background-color);
+    border-top      : 1px solid var(--grid-container-border-color);
+    color           : var(--grid-footer-toolbar-color);
+    left            : 0;
+    min-width       : fit-content;
+    padding         : var(--grid-footer-toolbar-padding);
+    position        : sticky;
+    width           : 100%;
+    z-index         : 2;
+}

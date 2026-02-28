@@ -34,12 +34,19 @@ class CellColumnRowModel extends CellRowModel {
     onCellClick(data) {
         let me        = this,
             {view}    = me,
-            cellId    = data.data.currentTarget,
-            dataField = cellId && view.getDataField(cellId);
+            {dataField, record} = data,
+            logicalId, newSelection;
 
-        if (dataField) {
-            me.selectedColumns = me.isSelected(cellId) ? [] : [dataField];
-            view.createViewData(true)
+        if (dataField && record) {
+            logicalId    = view.getLogicalCellId(record, dataField);
+            newSelection = me.isSelected(logicalId) ? [] : [dataField];
+
+            if (!Neo.isEqual(me.selectedColumns, newSelection)) {
+                me.selectedColumns = newSelection;
+                view.createViewData() // Flush
+            } else {
+                view.createViewData(true) // Silent
+            }
         }
 
         super.onCellClick(data)
@@ -67,7 +74,7 @@ class CellColumnRowModel extends CellRowModel {
 
         me.selectedColumns = [dataFields[index]];
 
-        view.createViewData(true);
+        view.createViewData();
 
         super.onNavKeyColumn(step)
     }

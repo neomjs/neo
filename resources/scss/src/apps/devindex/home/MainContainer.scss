@@ -1,0 +1,11 @@
+.devindex-home-maincontainer.neo-container {
+    .devindex-grid-wrapper {
+        border-radius: 8px;
+        box-shadow   : var(--devindex-header-shadow);
+        margin       : 1em;
+
+        &.neo-extend-margin-right {
+            margin-right: calc(235px + 1em);
+        }
+    }
+}

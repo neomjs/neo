@@ -19,16 +19,22 @@ You must **NEVER** make guesses, assumptions, or "hallucinate" answers about the
 - **BAD Example:** ❌ *"Based on typical React patterns, you should use `useState` here..."*
 - **GOOD Example:** ✅ *"Let me query the knowledge base to understand Neo.mjs state management patterns..."*
 
-## 3. The "Ticket-First" Gate
+## 3. The "Ticket-Before-Commit" Gate
 
-For any actionable request that requires modifying the repository, you **MUST** ensure a GitHub issue exists for the task *before* you begin implementation. This is a critical gating protocol. This applies to **all** files within the repository, including documentation, configuration, and even this `AGENTS.md` file itself. There are no exceptions.
+For any actionable request that requires modifying the repository, you **MUST** ensure a GitHub issue exists for the task *before* you commit any code. This is a critical gating protocol. This applies to **all** files within the repository, including documentation, configuration, and even this `AGENTS.md` file itself. There are no exceptions.
+
+**Core Principles:**
+1.  **Scoping:** Tickets force focus. A single ticket (and its subsequent commit) should address one discrete problem or feature. Never bundle unrelated fixes into a single ticket/commit.
+2.  **Problem-Focused:** When creating a ticket, focus the description on the *problem* or the *user story*. Keep the proposed solution vague if the exact implementation is unclear.
+3.  **Exploration is Allowed:** You are permitted to write code, modify files, and experiment locally to understand a complex problem ("Unknown Unknowns") *before* creating the ticket.
+4.  **The Hard Stop:** The absolute hard stop is `git commit`. You **MUST NEVER** execute a commit without referencing a valid, narrowly scoped ticket ID in the commit message.
 
 To create a new issue, you **MUST** use the `create_issue` tool. The tool's own documentation contains the complete, up-to-date workflow. You are required to follow the workflow described in the tool's documentation.
 
-### Pre-Flight Check for Modifications
+### Pre-Flight Check for Commits
 
-You **MUST** execute this Pre-Flight Check before calling `replace`, `write_file`, or any other tool that modifies repository state. The check consists of explicitly stating in your internal thought process:
-"Pre-Flight Check: A ticket must exist for this modification. I will verify the ticket number or create one before proceeding."
+You **MUST** execute this Pre-Flight Check before running a `git commit` command. The check consists of explicitly stating in your internal thought process:
+"Pre-Flight Check: A ticket must exist for this commit. I will verify the ticket number and include it in the commit message before proceeding."
 
 ## 4. The Memory Core Protocol
 
