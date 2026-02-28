@@ -267,6 +267,14 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://neomjs.com/learn/guides/datahandling/DynamicGrids</loc>
+    <lastmod>2026-02-17T16:26:17+01:00</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/learn/guides/datahandling/Streaming</loc>
+    <lastmod>2026-02-10T20:46:29+01:00</lastmod>
+  </url>
+  <url>
     <loc>https://neomjs.com/learn/guides/datahandling/Tables</loc>
     <lastmod>2025-07-15T21:37:07+02:00</lastmod>
   </url>
@@ -297,7 +305,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/learn/guides/testing/UnitTesting</loc>
-    <lastmod>2026-01-26T12:26:29+01:00</lastmod>
+    <lastmod>2026-01-31T22:40:40+01:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/learn/guides/testing/ComponentTesting</loc>
@@ -318,6 +326,110 @@
   <url>
     <loc>https://neomjs.com/learn/guides/specificfeatures/PortalApp</loc>
     <lastmod>2025-07-15T21:37:07+02:00</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/learn/guides/devindex/Introduction</loc>
+    <lastmod>2026-02-27T19:53:12+01:00</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/learn/guides/devindex/EthicalManifesto</loc>
+    <lastmod>2026-02-23T19:32:47+01:00</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/learn/guides/devindex/Methodology</loc>
+    <lastmod>2026-02-27T11:09:56+01:00</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/learn/guides/devindex/OptIn</loc>
+    <lastmod>2026-02-27T10:47:03+01:00</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/learn/guides/devindex/OptOut</loc>
+    <lastmod>2026-02-27T10:47:03+01:00</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/learn/guides/devindex/UserGuide</loc>
+    <lastmod>2026-02-27T11:48:52+01:00</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/learn/guides/devindex/personas/TalentScouts</loc>
+    <lastmod>2026-02-27T11:48:52+01:00</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/learn/guides/devindex/personas/DataScientists</loc>
+    <lastmod>2026-02-23T19:04:59+01:00</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/learn/guides/devindex/personas/PolicyMakers</loc>
+    <lastmod>2026-02-23T19:17:57+01:00</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/learn/guides/devindex/data-factory/Intro</loc>
+    <lastmod>2026-02-22T14:27:34+01:00</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/learn/guides/devindex/data-factory/Orchestrator</loc>
+    <lastmod>2026-02-22T12:48:54+01:00</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/learn/guides/devindex/data-factory/Storage</loc>
+    <lastmod>2026-02-22T13:47:10+01:00</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/learn/guides/devindex/data-factory/GitHubAPI</loc>
+    <lastmod>2026-02-22T13:47:10+01:00</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/learn/guides/devindex/data-factory/Engine</loc>
+    <lastmod>2026-02-22T12:41:16+01:00</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/learn/guides/devindex/data-factory/Updater</loc>
+    <lastmod>2026-02-22T14:01:41+01:00</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/learn/guides/devindex/data-factory/DataEnrichment</loc>
+    <lastmod>2026-02-27T10:47:03+01:00</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/learn/guides/devindex/data-factory/DataHygiene</loc>
+    <lastmod>2026-02-22T13:03:11+01:00</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/learn/guides/devindex/data-factory/OptIn</loc>
+    <lastmod>2026-02-27T10:47:03+01:00</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/learn/guides/devindex/data-factory/OptOut</loc>
+    <lastmod>2026-02-27T10:47:03+01:00</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/learn/guides/devindex/Backend</loc>
+    <lastmod>2026-02-22T18:31:46+01:00</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/learn/guides/devindex/frontend/Architecture</loc>
+    <lastmod>2026-02-23T17:08:22+01:00</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/learn/guides/devindex/frontend/TheGrid</loc>
+    <lastmod>2026-02-23T14:33:11+01:00</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/learn/guides/devindex/frontend/StateAndControls</loc>
+    <lastmod>2026-02-22T19:21:08+01:00</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/learn/guides/devindex/frontend/OffscreenCanvas</loc>
+    <lastmod>2026-02-22T23:06:42+01:00</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/learn/guides/devindex/frontend/ContentEngine</loc>
+    <lastmod>2026-02-23T11:47:15+01:00</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/learn/guides/devindex/FAQ</loc>
+    <lastmod>2026-02-27T11:09:56+01:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/learn/guides/advanced/CanvasArchitecture</loc>
@@ -439,7 +551,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/apps/agentos/index.html</loc>
-    <lastmod>2026-01-05T21:56:32+01:00</lastmod>
+    <lastmod>2026-02-02T22:59:05+01:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/apps/ai/neural-link/index.html</loc>
@@ -451,7 +563,11 @@
   </url>
   <url>
     <loc>https://neomjs.com/apps/covid/index.html</loc>
-    <lastmod>2025-12-21T13:54:08+01:00</lastmod>
+    <lastmod>2026-02-09T11:01:39+01:00</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/apps/devindex/index.html</loc>
+    <lastmod>2026-02-27T23:47:49Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/apps/email/index.html</loc>
@@ -471,7 +587,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/apps/portal/index.html</loc>
-    <lastmod>2026-01-23T12:18:53+01:00</lastmod>
+    <lastmod>2026-02-27T19:30:23+01:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/apps/realworld/index.html</loc>
@@ -479,7 +595,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/apps/realworld2/index.html</loc>
-    <lastmod>2025-12-21T13:58:06+01:00</lastmod>
+    <lastmod>2026-02-09T11:01:39+01:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/apps/route/index.html</loc>
@@ -487,7 +603,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/apps/sharedcovid/index.html</loc>
-    <lastmod>2025-12-21T13:54:08+01:00</lastmod>
+    <lastmod>2026-02-09T11:01:39+01:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/apps/shareddialog/index.html</loc>
@@ -519,7 +635,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/examples/component/canvas/index.html</loc>
-    <lastmod>2024-08-17T23:57:34+02:00</lastmod>
+    <lastmod>2026-02-02T22:59:05+01:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/examples/component/carousel/index.html</loc>
@@ -539,11 +655,11 @@
   </url>
   <url>
     <loc>https://neomjs.com/examples/component/coronaGallery/index.html</loc>
-    <lastmod>2025-12-21T13:54:08+01:00</lastmod>
+    <lastmod>2026-02-10T01:39:00+01:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/examples/component/coronaHelix/index.html</loc>
-    <lastmod>2025-12-21T13:54:08+01:00</lastmod>
+    <lastmod>2026-02-09T11:01:39+01:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/examples/component/dateSelector/index.html</loc>
@@ -771,7 +887,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/examples/grid/bigData/index.html</loc>
-    <lastmod>2026-01-30T11:05:39+01:00</lastmod>
+    <lastmod>2026-02-15T04:11:45+01:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/examples/grid/cellEditing/index.html</loc>
