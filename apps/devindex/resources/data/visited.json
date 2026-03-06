@@ -7147,6 +7147,7 @@
   "repo:aquasecurity/kube-bench",
   "repo:aquasecurity/kube-hunter",
   "repo:aquasecurity/tracee",
+  "repo:aquasecurity/trivy",
   "repo:arXivTimes/arXivTimes",
   "repo:arabold/docs-mcp-server",
   "repo:aradzie/keybr.com",
