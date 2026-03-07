@@ -84,10 +84,10 @@ class HeaderToolbar extends Toolbar {
                 }
             }, {
                 handler  : 'onControlsToggleButtonClick',
-                iconCls  : 'fas fa-bars',
+                iconCls  : 'fas fa-magnifying-glass',
                 reference: 'controls-toggle-button',
                 tooltip  : {
-                    text     : 'Toggle Controls',
+                    text     : 'Search & Settings',
                     showDelay: 0,
                     hideDelay: 0
                 }
