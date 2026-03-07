@@ -186,13 +186,18 @@ class ScrollManager extends Base {
 
         let rtt      = Performance.getAverage('grid.scroll:' + body.id) || 16,
             gen      = Performance.getAverage('grid.createViewData:' + body.id) || 0,
-            totalLag = rtt + gen;
+            totalLag = rtt + gen,
+            predictedScrollTop = me.scrollTop;
 
         // Kinematic equation: d = v*t + 0.5*a*t^2
-        // We cap totalLag to 64ms (max ~4 frames) to prevent insane predictions if a thread hangs
-        let boundedLag         = Math.min(totalLag, 64),
-            distance           = (me.scrollVelocity * boundedLag) + (0.5 * me.scrollAcceleration * boundedLag * boundedLag),
+        // Only predict on definitive drags, not single wheel clicks
+        if (Math.abs(me.scrollVelocity) > 0.5) {
+            // We cap totalLag to 64ms (max ~4 frames) to prevent insane predictions if a thread hangs
+            let boundedLag = Math.min(totalLag, 64),
+                distance   = (me.scrollVelocity * boundedLag) + (0.5 * me.scrollAcceleration * boundedLag * boundedLag);
+            
             predictedScrollTop = Math.max(0, me.scrollTop + distance);
+        }
 
         body.skipCreateViewData = true;
 
