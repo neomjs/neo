@@ -13,6 +13,15 @@ class Performance extends Base {
          */
         className: 'Neo.util.Performance',
         /**
+         * Provide a 'key': ['methodName1', 'methodName2'] map to allow
+         * other workers to execute those methods.
+         * @member {Object|null} remote={main: ['getAverage', 'getMetrics', 'getSma']}
+         * @protected
+         */
+        remote: {
+            main: ['getAverage', 'getMetrics', 'getSma']
+        },
+        /**
          * How many samples to keep for the moving average calculation
          * @member {Number} sampleSize=10
          */
@@ -52,6 +61,23 @@ class Performance extends Base {
         }
 
         return sum / len;
+    }
+
+    /**
+     * Returns a JSON serializable copy of all tracked performance metrics.
+     * @returns {Object}
+     */
+    getMetrics() {
+        let result = {};
+
+        for (const [key, value] of this.#data.entries()) {
+            result[key] = {
+                samples: [...value.samples],
+                start  : value.start
+            }
+        }
+
+        return result;
     }
 
     /**
