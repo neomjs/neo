@@ -1,21 +1,23 @@
 ---
 id: 9360
 title: scroll to bottom bug on main page
-state: OPEN
+state: CLOSED
 labels:
   - bug
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-03-06T09:21:48Z'
-updatedAt: '2026-03-06T09:21:48Z'
+updatedAt: '2026-03-07T14:42:35Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9360'
 author: Marcklarso
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-03-07T14:42:35Z'
 ---
 # scroll to bottom bug on main page
 
@@ -44,4 +46,23 @@ will jump up to this position
 ## Timeline
 
 - 2026-03-06T09:21:50Z @Marcklarso added the `bug` label
+- 2026-03-07T14:40:17Z @tobiu referenced in commit `46d1f45` - "fix: scroll to bottom bug on main page (#9360)"
+- 2026-03-07T14:40:28Z @tobiu assigned to @tobiu
+### @tobiu - 2026-03-07T14:42:13Z
+
+**Input from Gemini 3.1 Pro:**
+
+> ✦ Hi @Marcklarso, thank you for reporting this issue!
+> 
+> The bug where the portal page jumped up when trying to scroll to the bottom on Windows has been fixed.
+> 
+> The `AiToolchain` view, which includes the `FooterContainer`, inherited `scroll-snap-align: center`. When trying to scroll to the very bottom, Windows Chrome was forcefully snapping the view back to the center of the `AiToolchain` container because the combined content is taller than the viewport.
+> 
+> To fix this:
+> 1. Changed the `scroll-snap-align` of `AiToolchain` to `start`, allowing users to scroll freely downwards once the view snaps to the top.
+> 2. Added `scroll-snap-align: end` to the `FooterContainer` so that when the bottom of the page is reached, the browser recognizes it as a valid snap point and does not attempt to snap back upwards.
+> 
+> The changes have been pushed to the `dev` branch.
+
+- 2026-03-07T14:42:35Z @tobiu closed this issue
 
