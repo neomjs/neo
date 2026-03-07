@@ -226,7 +226,7 @@ class GalleryModel extends Model {
             {items, view} = me,
             oldItems      = [...items],
             deltas        = [],
-            vnodeId       = view?.getItemVnodeId(itemId);
+            vnodeId;
 
         // a select() call can happen before the view is registered
         if (!view) {
@@ -234,6 +234,15 @@ class GalleryModel extends Model {
             NeoArray['add'](items, itemId);
             return
         }
+
+        if (view.useInternalId && view.store?.count > 0) {
+            let record = view.store.get(itemId);
+            if (record) {
+                itemId = view.getRecordId(record);
+            }
+        }
+
+        vnodeId = view.getItemVnodeId(itemId);
 
         if (me.singleSelect) {
             me.items.forEach(item => {
