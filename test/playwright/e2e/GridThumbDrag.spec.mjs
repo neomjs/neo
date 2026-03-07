@@ -108,15 +108,27 @@ test.describe('Desktop (1920x1080): Grid Scroll Thrashing', () => {
             // Wait a bit for the final render to catch up
             await new Promise(r => setTimeout(r, 500));
             
+            // Fetch Performance Metrics from the App worker via the generated Main Thread proxy
+            let metrics = null;
+            if (window.Neo && window.Neo.util && window.Neo.util.Performance) {
+                try {
+                    metrics = await window.Neo.util.Performance.getMetrics();
+                } catch (e) {
+                    console.error('Failed to fetch performance metrics', e);
+                }
+            }
+
             return {
                 maxDiscrepancy,
                 discrepancyCount: discrepancies.length,
-                discrepancies: discrepancies.slice(0, 10) // return sample
+                discrepancies: discrepancies.slice(0, 10), // return sample
+                metrics
             };
         });
 
-        console.log('Drag Result:', result);
+        console.log('Drag Result:', JSON.stringify(result, null, 2));
         expect(result.error).toBeUndefined();
+        expect(result.metrics).not.toBeNull();
         
         // If there's a significant discrepancy, it proves the stale render gap exists.
         // Once we fix it, this gap should be 0 (or very close to it, within the bufferRowRange).
