@@ -12,6 +12,10 @@
     &:hover {
         opacity: 1;
     }
+
+    .neo-grid-scrollbar-content {
+        width: 1px;
+    }
 }
 
 .neo-grid-wrapper:has(.neo-grid-body.neo-is-scrolling) {
