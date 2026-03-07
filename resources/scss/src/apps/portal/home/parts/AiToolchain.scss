@@ -1,8 +1,9 @@
 .portal-home-parts-aitoolchain {
-    background-color: transparent;
-    color           : var(--sem-color-text-neutral-default);
-    gap             : 4rem;
-    padding         : 6em 2em 0; /* Removing bottom padding as FooterContainer is attached */
+    background-color : transparent;
+    color            : var(--sem-color-text-neutral-default);
+    gap              : 4rem;
+    padding          : 6em 2em 0; /* Removing bottom padding as FooterContainer is attached */
+    scroll-snap-align: start;
 
     .content-wrapper {
         align-items     : center;
