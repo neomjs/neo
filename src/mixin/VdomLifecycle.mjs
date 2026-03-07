@@ -315,7 +315,21 @@ class VdomLifecycle extends Base {
                 batchData.windowId = me.windowId
             }
 
+            /**
+             * Optional hook that fires immediately before the VDOM payload is sent to the VDOM worker.
+             * This is useful for telemetry (e.g., Performance tracking) as it excludes the synchronous 
+             * queue wait time of the App worker and strictly measures the cross-thread roundtrip.
+             */
+            me.beforeExecuteVdomUpdate?.();
+
             const response = await Promise.resolve(Neo.vdom.Helper.updateBatch(batchData));
+
+            /**
+             * Optional hook that fires immediately after the VDOM update resolves.
+             * Because of internal promise chaining (promiseForwardMessage), this hook fires *after* 
+             * the Main Thread has painted the resulting DOM deltas.
+             */
+            me.afterExecuteVdomUpdate?.();
 
             // Component could be destroyed while the update is running
             if (me.id) {

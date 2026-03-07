@@ -1,6 +1,7 @@
 import ClassSystemUtil from '../util/ClassSystem.mjs';
 import Component       from '../component/Base.mjs';
 import Collection      from '../collection/Base.mjs';
+import Performance     from '../util/Performance.mjs';
 import Row             from './Row.mjs';
 import RowModel        from '../selection/grid/RowModel.mjs';
 import VDomUtil        from '../util/VDom.mjs';
@@ -294,6 +295,29 @@ class GridBody extends Component {
             delegate: '.neo-grid-row',
             scope   : me
         }])
+    }
+
+    /**
+     * Optional hook triggered after a VDOM update completes (including Main thread paint).
+     * Used by `Neo.grid.ScrollManager` to measure the real-time VDOM worker pipeline roundtrip 
+     * latency (RTT) during active scrolling, enabling Predictive Delta Injection.
+     * @protected
+     */
+    afterExecuteVdomUpdate() {
+        if (this.isScrolling) {
+            Performance.markEnd('grid.scroll:' + this.id)
+        }
+    }
+
+    /**
+     * Optional hook triggered right before the VDOM payload is dispatched to the worker.
+     * Starts the RTT measurement timer.
+     * @protected
+     */
+    beforeExecuteVdomUpdate() {
+        if (this.isScrolling) {
+            Performance.markStart('grid.scroll:' + this.id)
+        }
     }
 
     /**
