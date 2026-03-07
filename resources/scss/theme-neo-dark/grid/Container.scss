@@ -5,4 +5,8 @@
     --grid-container-color                     : var(--sem-color-text-neutral-default);
     --grid-container-font-size                 : 13px;
     --grid-container-header-cell-border-bottom : 1px solid var(--purple-800);
+
+    .neo-grid-container {
+        color-scheme: dark;
+    }
 }
