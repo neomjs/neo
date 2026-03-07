@@ -222,15 +222,24 @@ class HelixModel extends Model {
     select(itemId, toggleSelection=true) {
         let me         = this,
             view       = me.view,
-            isSelected = toggleSelection === false ? false : me.items.includes(itemId),
             items      = me.items,
             oldItems   = [...items],
-            deltas     = [];
+            deltas     = [],
+            isSelected;
 
         // a select() call can happen before the view is registered
         if (!view) {
             return;
         }
+
+        if (view.useInternalId && view.store?.count > 0) {
+            let record = view.store.get(itemId);
+            if (record) {
+                itemId = view.getRecordId(record);
+            }
+        }
+
+        isSelected = toggleSelection === false ? false : items.includes(itemId);
 
         if (!view.mounted) {
             view.on('mounted', () => {
