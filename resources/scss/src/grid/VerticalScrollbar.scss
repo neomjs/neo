@@ -1,13 +1,14 @@
 .neo-grid-vertical-scrollbar {
-    bottom    : 1px;
-    opacity   : 0;
-    overflow-y: scroll;
-    position  : absolute;
-    right     : 0;
-    top       : 31px; // header-toolbar height
-    transition: opacity 1s ease-out;
-    width     : 16px;
-    z-index   : 2;
+    bottom      : 1px;
+    color-scheme: var(--grid-scrollbar-color-scheme, light);
+    opacity     : 0;
+    overflow-y  : scroll;
+    position    : absolute;
+    right       : 0;
+    top         : 31px; // header-toolbar height
+    transition  : opacity 1s ease-out;
+    width       : 16px;
+    z-index     : 2;
 
     &:hover {
         opacity: 1;

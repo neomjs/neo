@@ -1,5 +1,5 @@
-:root .neo-theme-light {
-    .neo-grid-vertical-scrollbar {
-        color-scheme: light;
-    }
+:root .neo-theme-light { // .neo-grid-vertical-scrollbar
+    --grid-scrollbar-color-scheme: light;
+    --grid-scrollbar-touch-width : 24px;
 }
+
