@@ -272,7 +272,7 @@ class Gallery extends Component {
             me.focusOnMount && me.focus(me.id);
 
             me.timeout(300).then(() => {
-                Neo.currentWorker.promiseMessage('main', {
+                Neo.currentWorker.promiseMessage(me.windowId, {
                     action    : 'readDom',
                     appName   : me.appName,
                     attributes: ['offsetHeight', 'offsetWidth'],
@@ -644,7 +644,7 @@ class Gallery extends Component {
                 transform: me.translate3d(...dollyTransform)
             }
         }).then(() => {
-            Neo.currentWorker.promiseMessage('main', {
+            Neo.currentWorker.promiseMessage(windowId, {
                 action : 'readDom',
                 appName,
                 vnodeId: id,
