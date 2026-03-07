@@ -4,14 +4,15 @@ title: 'Epic: WebSocket RMA Infrastructure'
 state: OPEN
 labels:
   - epic
+  - stale
   - ai
   - architecture
 assignees: []
 createdAt: '2025-11-30T21:51:46Z'
-updatedAt: '2025-11-30T21:55:59Z'
+updatedAt: '2026-03-01T03:59:12Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7957'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
@@ -43,4 +44,9 @@ Reference: `.github/AGENT_ARCHITECTURE.md`
 - 2025-11-30T21:51:47Z @tobiu added the `ai` label
 - 2025-11-30T21:51:47Z @tobiu added the `architecture` label
 - 2025-12-01T10:57:35Z @tobiu cross-referenced by #7961
+### @github-actions - 2026-03-01T03:59:12Z
+
+This issue is stale because it has been open for 90 days with no activity.
+
+- 2026-03-01T03:59:12Z @github-actions added the `stale` label
 

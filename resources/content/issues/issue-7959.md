@@ -4,14 +4,15 @@ title: 'Epic: Agent Security & Capabilities'
 state: OPEN
 labels:
   - epic
+  - stale
   - ai
   - architecture
 assignees: []
 createdAt: '2025-11-30T21:52:09Z'
-updatedAt: '2025-11-30T21:56:55Z'
+updatedAt: '2026-03-01T03:59:10Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7959'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
@@ -38,4 +39,9 @@ Reference: `.github/AGENT_ARCHITECTURE.md`
 - 2025-11-30T21:52:11Z @tobiu added the `epic` label
 - 2025-11-30T21:52:11Z @tobiu added the `ai` label
 - 2025-11-30T21:52:11Z @tobiu added the `architecture` label
+### @github-actions - 2026-03-01T03:59:09Z
+
+This issue is stale because it has been open for 90 days with no activity.
+
+- 2026-03-01T03:59:09Z @github-actions added the `stale` label
 
