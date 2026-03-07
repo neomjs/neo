@@ -23,3 +23,14 @@
         opacity: 1;
     }
 }
+
+body.neo-has-touch {
+    .neo-grid-vertical-scrollbar {
+        opacity: 1;
+        width  : var(--grid-scrollbar-touch-width, 24px);
+
+        &::-webkit-scrollbar {
+            width: var(--grid-scrollbar-touch-width, 24px);
+        }
+    }
+}
