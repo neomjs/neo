@@ -720,6 +720,10 @@ class GridBody extends Component {
             return
         }
 
+        if (me.isScrolling) {
+            Performance.markStart('grid.createViewData:' + me.id)
+        }
+
         // Auto-detect if columns changed (horizontal scroll or resize)
         if (!force && !Neo.isEqual(me.mountedColumns, me.#lastMountedColumns)) {
             force = true
@@ -785,6 +789,10 @@ class GridBody extends Component {
         me.parent.isLoading = false;
 
         me.updateScrollHeight(true, range); // silent
+
+        if (me.isScrolling) {
+            Performance.markEnd('grid.createViewData:' + me.id)
+        }
 
         if (!silent) {
             me.updateDepth = -1;
