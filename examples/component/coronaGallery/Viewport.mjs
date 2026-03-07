@@ -1,4 +1,5 @@
 import BaseViewport       from '../../../src/container/Viewport.mjs';
+import BoxLabel           from '../../../src/component/BoxLabel.mjs';
 import CountryGallery     from './CountryGallery.mjs';
 import Panel              from '../../../src/container/Panel.mjs';
 import RangeField         from '../../../src/form/field/Range.mjs';
@@ -215,38 +216,20 @@ class Viewport extends BaseViewport {
                     }]
                 }]
             }, {
-                ntype: 'label',
-                html : [
+                module: BoxLabel,
+                html  : [
                     '<b>Navigation Concept</b>',
                     '<p>You can use the Arrow Keys to walk through the items.</p>'
-                ].join(''),
-
-                style: {
-                    backgroundColor: '#323232',
-                    color          : '#ddd',
-                    fontSize       : '13px',
-                    margin         : '10px',
-                    padding        : '10px',
-                    whiteSpace     : 'normal'
-                }
+                ].join('')
             }, {
-                ntype: 'label',
-                cls  : ['neo-link-color'],
-                html : [
+                module: BoxLabel,
+                cls   : ['neo-link-color'],
+                html  : [
                     '<b>Attribution</b>',
                     '<p>App created with <a href="https://github.com/neomjs/neo">neo.mjs</a>.</p>',
                     '<p>Data provided by <a href="https://github.com/disease-sh/API">disease-sh/API</a>.</p>',
                     '<p>Country Flag Icons made by <a href="https://www.flaticon.com/authors/freepik" title="Freepik">Freepik</a> from <a href="https://www.flaticon.com/" title="Flaticon"> www.flaticon.com</a>.</p>'
-                ].join(''),
-
-                style: {
-                    backgroundColor: '#323232',
-                    color          : '#ddd',
-                    fontSize       : '13px',
-                    margin         : '10px',
-                    padding        : '10px',
-                    whiteSpace     : 'normal'
-                }
+                ].join('')
             }]
         }]
     }
