@@ -4,14 +4,15 @@ title: 'Epic: Neo Command Center (Agent OS UI)'
 state: OPEN
 labels:
   - epic
+  - stale
   - ai
 assignees:
   - tobiu
 createdAt: '2025-11-29T15:17:50Z'
-updatedAt: '2025-12-04T23:32:45Z'
+updatedAt: '2026-03-05T03:38:57Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7918'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues:
   - '[x] 7920 Design: Agent Dashboard Layout (Multi-Window Architecture)'
@@ -77,4 +78,9 @@ This epic covers Phase 3 of the Agent OS Roadmap: building the "Killer App" that
 - 2025-12-05T02:43:35Z @tobiu added sub-issue #8034
 - 2025-12-05T03:03:15Z @tobiu added sub-issue #8035
 - 2025-12-05T03:28:07Z @tobiu added sub-issue #8036
+### @github-actions - 2026-03-05T03:38:56Z
+
+This issue is stale because it has been open for 90 days with no activity.
+
+- 2026-03-05T03:38:57Z @github-actions added the `stale` label
 

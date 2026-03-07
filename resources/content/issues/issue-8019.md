@@ -4,14 +4,15 @@ title: 'Bug: isWindowDragging flag stuck after external drop'
 state: OPEN
 labels:
   - bug
+  - stale
   - ai
 assignees:
   - tobiu
 createdAt: '2025-12-04T01:30:21Z'
-updatedAt: '2025-12-04T01:30:36Z'
+updatedAt: '2026-03-04T03:35:16Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8019'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 7918
 subIssues: []
 subIssuesCompleted: 0
@@ -37,4 +38,9 @@ The user mentioned `src/manager/Window.mjs` as a "god view" window manager that 
 - 2025-12-04T01:30:23Z @tobiu added the `ai` label
 - 2025-12-04T01:30:36Z @tobiu assigned to @tobiu
 - 2025-12-04T01:30:57Z @tobiu added parent issue #7918
+### @github-actions - 2026-03-04T03:35:15Z
+
+This issue is stale because it has been open for 90 days with no activity.
+
+- 2026-03-04T03:35:16Z @github-actions added the `stale` label
 
