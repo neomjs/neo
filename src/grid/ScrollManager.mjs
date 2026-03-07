@@ -1,4 +1,5 @@
-import Base from '../core/Base.mjs';
+import Base        from '../core/Base.mjs';
+import Performance from '../util/Performance.mjs';
 
 /**
  * @class Neo.grid.ScrollManager
@@ -58,6 +59,30 @@ class ScrollManager extends Base {
     gridContainer = null
 
     /**
+     * @member {Number} lastScrollTime=0
+     * @protected
+     */
+    lastScrollTime = 0
+
+    /**
+     * @member {Number} lastScrollTop=0
+     * @protected
+     */
+    lastScrollTop = 0
+
+    /**
+     * @member {Number} scrollAcceleration=0 (px/ms^2)
+     * @protected
+     */
+    scrollAcceleration = 0
+
+    /**
+     * @member {Number} scrollVelocity=0 (px/ms)
+     * @protected
+     */
+    scrollVelocity = 0
+
+    /**
      * @param {Boolean} value
      * @param {Boolean} oldValue
      */
@@ -93,9 +118,27 @@ class ScrollManager extends Base {
      * @protected
      */
     onBodyScroll({scrollTop}) {
-        let me = this;
+        let me  = this,
+            now = performance.now();
 
-        me.scrollTop           = scrollTop;
+        if (me.lastScrollTime > 0) {
+            let dt = now - me.lastScrollTime;
+            // dt < 100 ensures we don't calculate insane velocities from old, stale scrolls
+            if (dt > 0 && dt < 100) {
+                let newVelocity = (scrollTop - me.lastScrollTop) / dt;
+
+                if (me.scrollVelocity !== 0) {
+                    me.scrollAcceleration = (newVelocity - me.scrollVelocity) / dt;
+                }
+
+                me.scrollVelocity = newVelocity;
+            }
+        }
+
+        me.lastScrollTime = now;
+        me.lastScrollTop  = scrollTop;
+
+        me.scrollTop            = scrollTop;
         me.gridBody.isScrolling = true;
 
         me.onBodyScrollEnd();
@@ -106,7 +149,14 @@ class ScrollManager extends Base {
      * @protected
      */
     onBodyScrollEnd() {
-        this.gridBody.isScrolling = false
+        let me = this;
+        
+        me.gridBody.isScrolling = false;
+        me.lastScrollTime       = 0;
+        me.scrollAcceleration   = 0;
+        me.scrollVelocity       = 0;
+        
+        me.syncGridBody()
     }
 
     /**
@@ -134,11 +184,21 @@ class ScrollManager extends Base {
         let me   = this,
             body = me.gridBody;
 
+        let rtt      = Performance.getAverage('grid.scroll:' + body.id) || 16,
+            gen      = Performance.getAverage('grid.createViewData:' + body.id) || 0,
+            totalLag = rtt + gen;
+
+        // Kinematic equation: d = v*t + 0.5*a*t^2
+        // We cap totalLag to 64ms (max ~4 frames) to prevent insane predictions if a thread hangs
+        let boundedLag         = Math.min(totalLag, 64),
+            distance           = (me.scrollVelocity * boundedLag) + (0.5 * me.scrollAcceleration * boundedLag * boundedLag),
+            predictedScrollTop = Math.max(0, me.scrollTop + distance);
+
         body.skipCreateViewData = true;
 
         body.set({
             scrollLeft: me.scrollLeft,
-            scrollTop : me.scrollTop
+            scrollTop : predictedScrollTop
         });
 
         body.skipCreateViewData = false;
