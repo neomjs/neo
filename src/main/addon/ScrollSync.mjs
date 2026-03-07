@@ -31,6 +31,12 @@ class ScrollSync extends Base {
          */
         className: 'Neo.main.addon.ScrollSync',
         /**
+         * Time in ms to hold the scroll lock after a programmatic mutation.
+         * Must be long enough to survive asynchronous native scroll event dispatches.
+         * @member {Number} lockTimeout=50
+         */
+        lockTimeout: 50,
+        /**
          * Remote method access for other workers
          * @member {Object} remote
          * @protected
@@ -45,12 +51,13 @@ class ScrollSync extends Base {
 
     /**
      * Keeps track of which DOM node IDs are currently being mutated by ScrollSync.
-     * If an ID is in this Set, incoming native scroll events from that node are ignored
+     * The Map stores the active `setTimeout` ID for each locked node.
+     * If an ID is in this Map, incoming native scroll events from that node are ignored
      * because we know we caused them.
-     * @member {Set<String>} coordinatingNodes=new Set()
+     * @member {Map<String, Number>} coordinatingNodes=new Map()
      * @protected
      */
-    coordinatingNodes = new Set()
+    coordinatingNodes = new Map()
     /**
      * @member {Map<String, Object>} registrations=new Map()
      * @protected
@@ -69,6 +76,24 @@ class ScrollSync extends Base {
         let listener = this.onScroll.bind(this, toId, direction, isSyncBack);
         DomAccess.getElement(fromId)?.addEventListener('scroll', listener);
         return listener
+    }
+
+    /**
+     * Locks a node ID to prevent its native scroll events from triggering ping-pong loops.
+     * Uses a debounced timeout to ensure the lock survives continuous 16ms momentum loops.
+     * @param {String} nodeId
+     * @protected
+     */
+    lockNode(nodeId) {
+        let me = this;
+
+        if (me.coordinatingNodes.has(nodeId)) {
+            clearTimeout(me.coordinatingNodes.get(nodeId))
+        }
+
+        me.coordinatingNodes.set(nodeId, setTimeout(() => {
+            me.coordinatingNodes.delete(nodeId)
+        }, me.lockTimeout))
     }
 
     /**
@@ -94,7 +119,7 @@ class ScrollSync extends Base {
 
         if (node) {
             // Lock the target node we are about to mutate to prevent it from ping-ponging back
-            me.coordinatingNodes.add(toId);
+            me.lockNode(toId);
 
             if (direction === 'both') {
                 node.scrollTo({
@@ -107,11 +132,6 @@ class ScrollSync extends Base {
             } else if (direction === 'vertical') {
                 node.scrollTop = scrollTop
             }
-
-            // Release the lock on the next animation frame, after the native scroll event for this mutation has fired.
-            requestAnimationFrame(() => {
-                me.coordinatingNodes.delete(toId)
-            })
         }
     }
 
@@ -184,8 +204,8 @@ class ScrollSync extends Base {
             toNode           = DomAccess.getElement(toId);
 
         // Lock both nodes involved in this registration
-        me.coordinatingNodes.add(fromId);
-        me.coordinatingNodes.add(toId);
+        me.lockNode(fromId);
+        me.lockNode(toId);
 
         if (fromNode) {
             if (scrollLeft !== undefined) fromNode.scrollLeft = scrollLeft;
@@ -196,12 +216,6 @@ class ScrollSync extends Base {
             if (scrollLeft !== undefined) toNode.scrollLeft = scrollLeft;
             if (scrollTop  !== undefined) toNode.scrollTop  = scrollTop;
         }
-
-        // Release the locks on the next animation frame
-        requestAnimationFrame(() => {
-            me.coordinatingNodes.delete(fromId);
-            me.coordinatingNodes.delete(toId)
-        })
     }
 
     /**
