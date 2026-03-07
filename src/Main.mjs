@@ -141,6 +141,7 @@ class Main extends core.Base {
         }
 
         Object.assign(hashObj, data);
+        delete hashObj.windowId;
 
         Object.entries(hashObj).forEach(([key, value]) => {
             if (value !== null) {
