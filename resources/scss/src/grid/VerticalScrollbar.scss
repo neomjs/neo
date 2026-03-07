@@ -2,6 +2,7 @@
     bottom      : 1px;
     color-scheme: var(--grid-scrollbar-color-scheme, light);
     opacity     : 0;
+    overflow-x  : hidden;
     overflow-y  : scroll;
     position    : absolute;
     right       : 0;
@@ -15,7 +16,7 @@
     }
 
     .neo-grid-scrollbar-content {
-        width: 1px;
+        width: 10px;
     }
 }
 
@@ -28,10 +29,17 @@
 body.neo-has-touch {
     .neo-grid-vertical-scrollbar {
         opacity: 1;
-        width  : var(--grid-scrollbar-touch-width, 24px);
+        width  : var(--grid-scrollbar-touch-width, 40px);
 
         &::-webkit-scrollbar {
-            width: var(--grid-scrollbar-touch-width, 24px);
+            width: var(--grid-scrollbar-touch-width, 40px);
+        }
+
+        &::-webkit-scrollbar-thumb {
+            background-clip : padding-box;
+            background-color: var(--grid-scrollbar-thumb-color, rgba(128, 128, 128, 0.5));
+            border          : 8px solid transparent;
+            border-radius   : 16px;
         }
     }
 }
