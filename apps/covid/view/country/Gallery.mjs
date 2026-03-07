@@ -92,22 +92,32 @@ class CountryGallery extends Gallery {
          */
         store: CountryStore
     }
+/**
+ * Triggered after the country config got changed.
+ * We need to distinguish between manual view-based selections (like keynav or clicks) and
+ * programmatic selections that originate from other widgets (like the combobox or hash change).
+ * @param {String|null} value
+ * @param {String|null} oldValue
+ * @protected
+ */
+afterSetCountry(value, oldValue) {
+    if (oldValue !== undefined) {
+        let me             = this,
+            selectionModel = me.selectionModel,
+            recordId       = value;
 
-    /**
-     * Triggered after the country config got changed
-     * @param {String|null} value
-     * @param {String|null} oldValue
-     * @protected
-     */
-    afterSetCountry(value, oldValue) {
-        if (oldValue !== undefined) {
-            let selectionModel = this.selectionModel;
-
-            if (value && !selectionModel.isSelected(value)) {
-                selectionModel.select(value, false);
+        if (me.useInternalId && value) {
+            let record = me.store.get(value);
+            if (record) {
+                recordId = me.getRecordId(record);
             }
         }
+
+        if (recordId && !selectionModel.isSelected(recordId)) {
+            selectionModel.select(recordId);
+        }
     }
+}
 
     /**
      * Override this method to get different item-markups
@@ -122,7 +132,7 @@ class CountryGallery extends Gallery {
             fN         = Util.formatNumber,
             table      = firstChild.cn[1];
 
-        vdomItem.id = me.getItemVnodeId(me.store.getKey(record));
+        vdomItem.id = me.getItemVnodeId(me.getRecordId(record));
 
         vdomItem.cn[0].style.height = me.itemHeight + 'px';
 
@@ -162,7 +172,8 @@ class CountryGallery extends Gallery {
      * @param {String[]} items
      */
     onSelect(items) {
-        this.country = items[0] || null;
+        let record = items[0] ? this.store.get(items[0]) : null;
+        this.country = record ? record.country : null;
     }
 
     /**

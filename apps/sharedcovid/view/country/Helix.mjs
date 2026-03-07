@@ -114,7 +114,10 @@ class CountryHelix extends Helix {
     }
 
     /**
-     * Triggered after the country config got changed
+     * Triggered after the country config got changed.
+     * We need to distinguish between manual view-based selections (like keynav or clicks) and
+     * programmatic selections that originate from other widgets (like the combobox or hash change).
+     * If the change is external, we update the selection and trigger the rotation animation ("fireworks").
      * @param {String|null} value
      * @param {String|null} oldValue
      * @protected
@@ -122,10 +125,18 @@ class CountryHelix extends Helix {
     afterSetCountry(value, oldValue) {
         if (oldValue !== undefined) {
             let me             = this,
-                selectionModel = me.selectionModel;
+                selectionModel = me.selectionModel,
+                recordId       = value;
 
-            if (value && !selectionModel.isSelected(value)) {
-                selectionModel.select(value, false);
+            if (me.useInternalId && value) {
+                let record = me.store.get(value);
+                if (record) {
+                    recordId = me.getRecordId(record);
+                }
+            }
+
+            if (recordId && !selectionModel.isSelected(recordId)) {
+                selectionModel.select(recordId, false);
                 me.onKeyDownSpace(null);
             }
         }
@@ -143,7 +154,7 @@ class CountryHelix extends Helix {
             fN         = Util.formatNumber,
             table      = firstChild.cn[1];
 
-        vdomItem.id = me.getItemVnodeId(me.store.getKey(record));
+        vdomItem.id = me.getItemVnodeId(me.getRecordId(record));
 
         firstChild.cn[0].cn[0].src  = Util.getCountryFlagUrl(record.country);
         firstChild.cn[0].cn[1].text = record.country;
@@ -189,7 +200,8 @@ class CountryHelix extends Helix {
      * @param {String[]} items
      */
     onSelect(items) {
-        this.country = items[0] || null;
+        let record = items[0] ? this.store.get(items[0]) : null;
+        this.country = record ? record.country : null;
     }
 }
 
