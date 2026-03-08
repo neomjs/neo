@@ -15,9 +15,16 @@ githubUrl: 'https://github.com/neomjs/neo/issues/9380'
 author: tobiu
 commentsCount: 1
 parentIssue: null
-subIssues: []
-subIssuesCompleted: 0
-subIssuesTotal: 0
+subIssues:
+  - '[x] 9381 E2E: Create Deterministic Grid Thumb Drag Benchmark'
+  - '[x] 9382 E2E: Implement Dynamic RTT Measurement for VDOM Updates'
+  - '[x] 9383 E2E: Implement Predictive Delta Injection (Velocity & Acceleration)'
+  - '[x] 9384 Implement generic Neo.util.Performance tracker'
+  - '[x] 9385 E2E: Expose Performance tracker metrics via Remote Methods'
+  - '[x] 9386 E2E: Add min velocity threshold to Grid Predictive Scrolling'
+  - '[ ] 9387 E2E: Implement Main Thread Optical Pinning for Grid Scrolling'
+subIssuesCompleted: 6
+subIssuesTotal: 7
 blockedBy: []
 blocking: []
 ---
@@ -64,4 +71,11 @@ We recently implemented a granular, Set-based locking mechanism (`coordinatingNo
 > If successful, the VDOM payload will arrive just as the user's thumb reaches that exact point, eliminating the blank screen. The deterministic E2E Playwright tests will be essential for tuning this prediction algorithm.
 
 - 2026-03-07T18:34:18Z @tobiu assigned to @tobiu
+- 2026-03-07T19:02:20Z @tobiu added sub-issue #9381
+- 2026-03-07T21:13:36Z @tobiu added sub-issue #9382
+- 2026-03-07T21:13:49Z @tobiu added sub-issue #9383
+- 2026-03-07T21:29:03Z @tobiu added sub-issue #9384
+- 2026-03-07T22:05:54Z @tobiu added sub-issue #9385
+- 2026-03-07T22:44:28Z @tobiu added sub-issue #9386
+- 2026-03-07T23:51:49Z @tobiu added sub-issue #9387
 
