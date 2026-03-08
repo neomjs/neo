@@ -34,6 +34,12 @@ class ScrollManager extends Base {
          */
         mounted_: false,
         /**
+         * Uses Neo.main.addon.GridRowScrollPinning
+         * @member {Boolean} rowScrollPinning_=true
+         * @reactive
+         */
+        rowScrollPinning_: true,
+        /**
          * @member {Number} scrollLeft_=0
          * @protected
          * @reactive
@@ -110,6 +116,24 @@ class ScrollManager extends Base {
         } else if (oldValue) {
             this.updateDragScrollAddon(false)
         }
+    }
+
+    /**
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     */
+    afterSetRowScrollPinning(value, oldValue) {
+        if (oldValue !== undefined) {
+            this.updateRowScrollPinningAddon(value)
+        }
+    }
+
+    /**
+     * @param args
+     */
+    destroy(...args) {
+        this.updateRowScrollPinningAddon(false);
+        super.destroy(...args)
     }
 
     /**
@@ -225,6 +249,24 @@ class ScrollManager extends Base {
                 bodyId     : me.gridBody.id + '__wrapper',
                 containerId: me.gridContainer.id,
                 id         : me.id
+            })
+        } else {
+            addon.unregister({id: me.id})
+        }
+    }
+
+    /**
+     * @param {Boolean} active
+     * @returns {Promise<void>}
+     */
+    async updateRowScrollPinningAddon(active) {
+        let me    = this,
+            addon = await Neo.currentWorker.getAddon('GridRowScrollPinning', me.windowId);
+
+        if (active) {
+            addon.register({
+                bodyId: me.gridBody.id,
+                id    : me.id
             })
         } else {
             addon.unregister({id: me.id})
