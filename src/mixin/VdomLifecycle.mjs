@@ -839,10 +839,13 @@ class VdomLifecycle extends Base {
             ComponentManager.registerWrapperNode(vnode.id, me)
         }
 
+        let vnodeMap           = VNodeUtil.createMap(me.vnode),
+            childComponentsSet = new Set(childComponents);
+
         // we need one separate iteration first to ensure all wrapper nodes get registered
         for (let i = 0, len = childComponents.length; i < len; i++) {
             let component = childComponents[i];
-            childVnode = VNodeUtil.find(me.vnode, component.vdom.id)?.vnode;
+            childVnode = vnodeMap.get(component.vdom.id);
 
             if (childVnode) {
                 map[component.id] = childVnode;
@@ -873,13 +876,13 @@ class VdomLifecycle extends Base {
         let directChildren = ComponentManager.getDirectChildren(me.id);
         for (let i = 0, len = directChildren.length; i < len; i++) {
             let component = directChildren[i];
-            if (!childComponents.includes(component)) {
+            if (!childComponentsSet.has(component)) {
                 childVnode = null;
 
                 // Check if it exists in the tree (as placeholder)
-                // We use VNodeUtil.find which resolves placeholders
+                // We use vnodeMap which resolves placeholders
                 if (me.vnode) {
-                    childVnode = VNodeUtil.find(me.vnode, component.vdom.id)?.vnode
+                    childVnode = vnodeMap.get(component.vdom.id);
                 }
 
                 if (!childVnode && !component.floating) {
