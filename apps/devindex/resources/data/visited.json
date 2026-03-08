@@ -4517,6 +4517,7 @@
   "repo:QuiiBz/next-international",
   "repo:QuipNetwork/cpp-sdk",
   "repo:QuipNetwork/ethereum-sdk",
+  "repo:QuipNetwork/hashsigs-py",
   "repo:QuipNetwork/hashsigs-rs",
   "repo:QuipNetwork/hashsigs-solidity",
   "repo:QuipNetwork/hashsigs-ts",
