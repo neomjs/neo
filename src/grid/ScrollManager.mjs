@@ -87,9 +87,11 @@ class ScrollManager extends Base {
      */
     afterSetMounted(value, oldValue) {
         if (value) {
-            this.dragScroll && this.updateDragScrollAddon(true)
+            this.dragScroll       && this.updateDragScrollAddon(true);
+            this.rowScrollPinning && this.updateRowScrollPinningAddon(true)
         } else if (oldValue) {
-            this.updateDragScrollAddon(false)
+            this.updateDragScrollAddon(false);
+            this.updateRowScrollPinningAddon(false)
         }
     }
 
@@ -98,7 +100,9 @@ class ScrollManager extends Base {
      * @param {Boolean} oldValue
      */
     afterSetRowScrollPinning(value, oldValue) {
-        this.updateRowScrollPinningAddon(value)
+        if (this.mounted) {
+            this.updateRowScrollPinningAddon(value)
+        }
     }
 
     /**
