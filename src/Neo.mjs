@@ -365,7 +365,7 @@ If you intended to create custom logic, use the 'beforeGet${Neo.capitalize(key)}
                             const type = Neo.typeOf(value);
 
                             if (type === 'Array') {
-                                value = [...value]
+                                value = value.slice()
                             } else if (type === 'Object') {
                                 value = {...value}
                             }
@@ -373,7 +373,7 @@ If you intended to create custom logic, use the 'beforeGet${Neo.capitalize(key)}
                     }
                     // legacy behavior
                     else if (Array.isArray(value)) {
-                        value = [...value]
+                        value = value.slice()
                     }
 
                     if (hasNewKey) {

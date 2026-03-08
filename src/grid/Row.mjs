@@ -120,13 +120,11 @@ class Row extends Component {
      * @param {Boolean} [data.silent]
      * @returns {Object} VDOM object for the cell
      */
-    applyRendererOutput({cellId, column, columnIndex, isLastColumn, record, rowIndex, silent}) {
+    applyRendererOutput({cache, cellId, column, columnIndex, isLastColumn, record, rowIndex, silent}) {
         let me                     = this,
-            gridContainer          = me.parent.parent, // Row -> Body -> GridContainer
-            gridBody               = me.parent,
-            {selectedCells, store} = gridBody,
+            {colspanField, gridBody, gridContainer, highlightModifiedCells, selectedCells, selectionModel, store} = cache,
             cellCls                = ['neo-grid-cell'],
-            colspan                = record[gridBody.colspanField],
+            colspan                = record[colspanField],
             {dataField}            = column,
             recordId               = gridBody.getRecordId(record),
             logicalCellId          = gridBody.getLogicalCellId(record, dataField),
@@ -207,7 +205,7 @@ class Row extends Component {
             cellCls.push('neo-' + column.cellAlign)
         }
 
-        if (gridBody.highlightModifiedCells) {
+        if (highlightModifiedCells) {
             if (record.isModifiedField(dataField)) {
                 cellCls.push('neo-is-modified')
             }
@@ -217,8 +215,8 @@ class Row extends Component {
             cellId = me.getCellId(column.dataField)
         }
 
-        if (gridBody.selectionModel?.selectedColumns?.includes(dataField)) {
-            NeoArray.add(cellCls, gridBody.selectionModel.selectedColumnCellCls || 'neo-selected')
+        if (selectionModel?.selectedColumns?.includes(dataField)) {
+            NeoArray.add(cellCls, selectionModel.selectedColumnCellCls || 'neo-selected')
         }
 
         if (isLastColumn) {
@@ -304,10 +302,14 @@ class Row extends Component {
             return
         }
 
-        let {mountedColumns} = gridBody,
-            {selectedRows}   = gridBody,
-            recordId         = gridBody.getRecordId(record),
-            countColumns     = columns.getCount();
+        let {
+                cellPoolSize, columnPositions, colspanField, highlightModifiedCells,
+                mountedColumns, rowHeight, selectedRecordField, selectedCells,
+                selectionModel, store
+            }            = gridBody,
+            recordId     = gridBody.getRecordId(record),
+            countColumns = columns.getCount(),
+            cache        = {colspanField, columnPositions, gridBody, gridContainer, highlightModifiedCells, selectedCells, selectionModel, store};
 
         Object.assign(vdom, {
             'aria-rowindex': rowIndex + 2, // header row => 1, first body row => 2
@@ -315,8 +317,8 @@ class Row extends Component {
             role           : 'row',
             style          : {
                 display  : null, // Reset display in case it was hidden
-                height   : gridBody.rowHeight + 'px',
-                transform: `translate3d(0px, calc(${rowIndex * gridBody.rowHeight}px + var(--grid-row-pin-offset, 0px)), 0px)`
+                height   : rowHeight + 'px',
+                transform: `translate3d(0px, calc(${rowIndex * rowHeight}px + var(--grid-row-pin-offset, 0px)), 0px)`
             }
         });
 
@@ -343,7 +345,9 @@ class Row extends Component {
             rowCls.push('neo-even')
         }
 
-        if (selectedRows && record[gridBody.selectedRecordField]) {
+        let selectedRows = gridBody.selectedRows;
+
+        if (selectedRows && record[selectedRecordField]) {
             NeoArray.add(selectedRows, recordId)
         }
 
@@ -359,8 +363,8 @@ class Row extends Component {
 
         vdom.cls = rowCls;
 
-        lastColumnIndex = gridBody.columnPositions.getCount() - 1;
-        poolSize        = gridBody.cellPoolSize;
+        lastColumnIndex = columnPositions.getCount() - 1;
+        poolSize        = cellPoolSize;
         pooledCells     = new Array(poolSize);
 
         // Pass 1: Render Pooled Cells (hideMode === 'removeDom')
@@ -384,7 +388,7 @@ class Row extends Component {
                         oldNode['aria-colindex'] = i + 1;
 
                         // Update position
-                        columnPosition = gridBody.columnPositions.get(column.dataField);
+                        columnPosition = columnPositions.get(column.dataField);
                         if (columnPosition) {
                             oldNode.style.left  = columnPosition.x + 'px';
                             oldNode.style.width = columnPosition.width + 'px';
@@ -400,6 +404,7 @@ class Row extends Component {
                 }
 
                 cellConfig = me.applyRendererOutput({
+                    cache,
                     cellId      : `${me.id}__cell-${poolIndex}`,
                     column,
                     columnIndex : i,
@@ -413,7 +418,7 @@ class Row extends Component {
                     cellConfig.cls = ['neo-locked', ...cellConfig.cls || []]
                 }
 
-                columnPosition = gridBody.columnPositions.get(column.dataField);
+                columnPosition = columnPositions.get(column.dataField);
 
                 if (!columnPosition) {
                     continue
@@ -456,6 +461,7 @@ class Row extends Component {
                 isMounted = i >= mountedColumns[0] && i <= mountedColumns[1];
 
                 cellConfig = me.applyRendererOutput({
+                    cache,
                     cellId      : `${me.id}__${column.dataField}`,
                     column,
                     columnIndex : i,
@@ -469,7 +475,7 @@ class Row extends Component {
                     cellConfig.cls = ['neo-locked', ...cellConfig.cls || []]
                 }
 
-                columnPosition = gridBody.columnPositions.get(column.dataField);
+                columnPosition = columnPositions.get(column.dataField);
 
                 if (!columnPosition) {
                     continue
