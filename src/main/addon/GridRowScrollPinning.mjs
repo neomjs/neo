@@ -203,13 +203,13 @@ class GridRowScrollPinning extends Base {
             me.applyPinning(state.id);
 
             // Debounce: In rare edge cases (like leaving an iframe or browser losing focus),
-            // a global mouseup might be missed. If native scrolling stops completely for 250ms,
+            // a global mouseup might be missed. If native scrolling stops completely for 2000ms,
             // we assume the drag is over and forcefully clear the state.
             if (state.scrollTimeoutId) {
                 clearTimeout(state.scrollTimeoutId)
             }
             if (state.isThumbDragging) {
-                state.scrollTimeoutId = setTimeout(() => me.onMouseUp(), 250)
+                state.scrollTimeoutId = setTimeout(() => me.onMouseUp(), 2000)
             }
         }
     }
