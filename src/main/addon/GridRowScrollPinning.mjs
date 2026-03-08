@@ -41,7 +41,7 @@ class GridRowScrollPinning extends Base {
 
     /**
      * Stores state per registered Grid Body.
-     * Shape: { id, bodyId, wrapperNode, contentNode, workerScrollTop, rowHeight, isPinned }
+     * Shape: { id, bodyId, wrapperNode, contentNode, scrollbarNode, workerScrollTop, isThumbDragging, scrollTimeoutId }
      * @member {Map<String, Object>} registrations=new Map()
      * @protected
      */
@@ -53,6 +53,25 @@ class GridRowScrollPinning extends Base {
      * @protected
      */
     boundOnScroll = this.onScroll.bind(this)
+
+    /**
+     * @member {Function} boundOnMouseDown
+     * @protected
+     */
+    boundOnMouseDown = this.onMouseDown.bind(this)
+
+    /**
+     * @member {Function} boundOnMouseUp
+     * @protected
+     */
+    boundOnMouseUp = this.onMouseUp.bind(this)
+
+    /**
+     * Tracks which registration is currently being thumb-dragged.
+     * @member {String|null} activeDragId=null
+     * @protected
+     */
+    activeDragId = null
 
     /**
      * @param {Object} config
@@ -76,23 +95,15 @@ class GridRowScrollPinning extends Base {
         }
 
         let actualScrollTop = state.wrapperNode.scrollTop || 0,
-            deltaY          = actualScrollTop - state.workerScrollTop,
-            absDelta        = Math.abs(deltaY);
+            deltaY          = actualScrollTop - state.workerScrollTop;
 
-        // 500px is a safe threshold to ignore standard mouse wheel ticks entirely,
-        // allowing native smooth scroll to operate freely without jitter.
-        // It only engages when dragging the thumb massively outpaces the worker.
-        let threshold = 500,
-            shouldPin = state.isPinned ? (absDelta > 2) : (absDelta > threshold);
-
-        if (shouldPin) {
-            // Apply the full deltaY to perfectly freeze the stale rows on screen
+        // ONLY engage pinning if the user is explicitly dragging the scrollbar thumb.
+        // We explicitly ignore Wheel, Trackpad, Keyboard, and Body Drag scrolling,
+        // allowing their native/custom physics to operate perfectly.
+        if (state.isThumbDragging) {
             state.contentNode.style.setProperty('--grid-row-pin-offset', `${deltaY}px`);
-            state.isPinned = true;
-        } else if (state.isPinned) {
-            // Worker has caught up to the scroll position. Clear the optical shift.
+        } else if (state.contentNode.style.getPropertyValue('--grid-row-pin-offset') !== '0px') {
             state.contentNode.style.setProperty('--grid-row-pin-offset', '0px');
-            state.isPinned = false;
         }
     }
 
@@ -115,14 +126,59 @@ class GridRowScrollPinning extends Base {
             if (bodyMeta) {
                 // Silently update the baseline state.
                 state.workerScrollTop = bodyMeta.scrollTop;
-                state.rowHeight       = bodyMeta.rowHeight;
-                state.bufferRowRange  = bodyMeta.bufferRowRange;
 
                 // CRITICAL: Synchronously re-evaluate pinning to clear stale transforms
-                // if the worker catches up after the user stops scrolling.
+                // if the worker catches up.
                 me.applyPinning(state.id)
             }
         })
+    }
+
+    /**
+     * @param {Event} event
+     * @protected
+     */
+    onMouseDown(event) {
+        let me        = this,
+            scrollbar = event.currentTarget,
+            state;
+
+        for (const reg of me.registrations.values()) {
+            if (reg.scrollbarNode === scrollbar) {
+                state = reg;
+                break
+            }
+        }
+
+        if (state) {
+            me.activeDragId = state.id;
+            state.isThumbDragging = true;
+            
+            // Add a global mouseup listener to catch the release even if the cursor
+            // leaves the scrollbar area.
+            window.addEventListener('mouseup', me.boundOnMouseUp);
+            window.addEventListener('touchend', me.boundOnMouseUp);
+            
+            me.applyPinning(state.id)
+        }
+    }
+
+    /**
+     * @param {Event} event
+     * @protected
+     */
+    onMouseUp(event) {
+        let me    = this,
+            state = me.activeDragId ? me.registrations.get(me.activeDragId) : null;
+
+        if (state) {
+            state.isThumbDragging = false;
+            me.applyPinning(state.id);
+            me.activeDragId = null
+        }
+
+        window.removeEventListener('mouseup', me.boundOnMouseUp);
+        window.removeEventListener('touchend', me.boundOnMouseUp);
     }
 
     /**
@@ -144,34 +200,48 @@ class GridRowScrollPinning extends Base {
         }
 
         if (state) {
-            me.applyPinning(state.id)
+            me.applyPinning(state.id);
+
+            // Debounce: In rare edge cases (like leaving an iframe or browser losing focus),
+            // a global mouseup might be missed. If native scrolling stops completely for 250ms,
+            // we assume the drag is over and forcefully clear the state.
+            if (state.scrollTimeoutId) {
+                clearTimeout(state.scrollTimeoutId)
+            }
+            if (state.isThumbDragging) {
+                state.scrollTimeoutId = setTimeout(() => me.onMouseUp(), 250)
+            }
         }
     }
 
     /**
      * Registers a grid for row scroll pinning and attaches native scroll listener.
      * @param {Object} data
-     * @param {String} data.bodyId The ID of the grid body
-     * @param {String} data.id     Unique identifier for the registration (e.g. ScrollManager id)
+     * @param {String} data.bodyId      The ID of the grid body
+     * @param {String} data.scrollbarId The ID of the vertical scrollbar
+     * @param {String} data.id          Unique identifier for the registration (e.g. ScrollManager id)
      */
-    register({bodyId, id}) {
-        let me          = this,
-            wrapperNode = DomAccess.getElement(bodyId + '__wrapper'),
-            contentNode = DomAccess.getElement(bodyId);
+    register({bodyId, scrollbarId, id}) {
+        let me            = this,
+            wrapperNode   = DomAccess.getElement(bodyId + '__wrapper'),
+            contentNode   = DomAccess.getElement(bodyId),
+            scrollbarNode = DomAccess.getElement(scrollbarId);
 
-        if (wrapperNode && contentNode) {
+        if (wrapperNode && contentNode && scrollbarNode) {
             me.registrations.set(id, {
                 id,
                 bodyId,
                 wrapperNode,
                 contentNode,
-                bufferRowRange : 0,
-                isPinned       : false,
-                rowHeight      : 0,
+                scrollbarNode,
+                isThumbDragging: false,
+                scrollTimeoutId: null,
                 workerScrollTop: 0
             });
 
-            wrapperNode.addEventListener('scroll', me.boundOnScroll, {passive: true})
+            wrapperNode.addEventListener('scroll', me.boundOnScroll, {passive: true});
+            scrollbarNode.addEventListener('mousedown', me.boundOnMouseDown);
+            scrollbarNode.addEventListener('touchstart', me.boundOnMouseDown, {passive: true})
         }
     }
 
@@ -184,8 +254,23 @@ class GridRowScrollPinning extends Base {
         let me    = this,
             state = me.registrations.get(id);
 
-        if (state && state.wrapperNode) {
-            state.wrapperNode.removeEventListener('scroll', me.boundOnScroll);
+        if (state) {
+            if (state.wrapperNode) {
+                state.wrapperNode.removeEventListener('scroll', me.boundOnScroll)
+            }
+            if (state.scrollbarNode) {
+                state.scrollbarNode.removeEventListener('mousedown', me.boundOnMouseDown);
+                state.scrollbarNode.removeEventListener('touchstart', me.boundOnMouseDown)
+            }
+            if (state.scrollTimeoutId) {
+                clearTimeout(state.scrollTimeoutId)
+            }
+            
+            // If we unregister while dragging, forcefully clean up global listeners
+            if (me.activeDragId === id) {
+                me.onMouseUp()
+            }
+
             me.registrations.delete(id)
         }
     }

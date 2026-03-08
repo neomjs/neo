@@ -205,8 +205,9 @@ class ScrollManager extends Base {
 
         if (active) {
             addon.register({
-                bodyId: me.gridBody.id,
-                id    : me.id
+                bodyId     : me.gridBody.id,
+                id         : me.id,
+                scrollbarId: me.gridContainer.scrollbar.id
             })
         } else {
             addon.unregister({id: me.id})
