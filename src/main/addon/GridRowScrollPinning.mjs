@@ -82,8 +82,26 @@ class GridRowScrollPinning extends Base {
     }
 
     /**
-     * Executes synchronously. Reads DOM, does math, mutates DOM.
-     * @param {String} id
+     * Re-calculates and applies pinning offsets based on the actual scroll position
+     * minus the worker's last known scroll position.
+     *
+     * **Architectural Note (Chesterton's Fence):**
+     * You might look at `wrapperNode.scrollTop` and think: "This forces a synchronous layout
+     * during a hot update loop! We should cache it!" **DO NOT DO THIS.**
+     *
+     * The Grid has a fixed pool of DOM nodes. If a user drags the thumb in a 2.5 million pixel
+     * high container, the native scroll position jumps massively in a single frame, pushing the
+     * pooled DOM nodes entirely out of the viewport. This causes a "white flash" while the
+     * App Worker asynchronously calculates the new VDOM deltas.
+     *
+     * This method applies a reverse CSS `transform` to artificially "pin" the stale rows
+     * back into the viewport until the worker catches up. To make this optical illusion seamless,
+     * `deltaY` must be calculated against the *exact, un-cached, physical* compositor state of the
+     * scrollbar at the exact millisecond the worker's VDOM deltas are applied.
+     * Caching `scrollTop` here would result in misaligned math and permanent optical jitter.
+     * The forced layout is the required tax for 60fps visual stability.
+     *
+     * @param {String} id Registration ID
      * @protected
      */
     applyPinning(id) {
