@@ -25,9 +25,13 @@ class VNode extends Base {
         vnode = VNode.getVnode(vnode);
 
         if (vnode) {
-            let id = vnode.id || vnode.componentId;
+            // Strict ID matching: VNodeUtil.find(opts) specifically checks vnode.hasOwnProperty('id')
+            // It does not match raw placeholders that only have componentId.
+            let id = vnode.id;
 
-            if (id) {
+            // First-match wins: VNodeUtil.find is a top-down pre-order traversal that returns the first match.
+            // We must not overwrite an existing ID if we encounter duplicates or stale wrappers deeper in the tree.
+            if (id && !map.has(id)) {
                 map.set(id, vnode);
             }
 
