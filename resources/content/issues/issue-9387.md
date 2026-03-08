@@ -1,7 +1,7 @@
 ---
 id: 9387
 title: 'E2E: Implement Main Thread Optical Pinning for Grid Scrolling'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - architecture
@@ -10,16 +10,18 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-03-07T23:51:36Z'
-updatedAt: '2026-03-08T00:30:37Z'
+updatedAt: '2026-03-08T12:07:41Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9387'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 9380
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
-blockedBy: []
+blockedBy:
+  - '[x] 9388 E2E: Enhance VDOM Update Pipeline with Meta Payload Support'
 blocking: []
+closedAt: '2026-03-08T12:07:41Z'
 ---
 # E2E: Implement Main Thread Optical Pinning for Grid Scrolling
 
@@ -59,4 +61,22 @@ Instead of predicting the future, we must **force the stale data to stay on scre
 - 2026-03-07T23:54:16Z @tobiu assigned to @tobiu
 - 2026-03-08T00:30:37Z @tobiu removed the `epic` label
 - 2026-03-08T00:30:37Z @tobiu added the `enhancement` label
+- 2026-03-08T11:08:56Z @tobiu marked this issue as being blocked by #9388
+- 2026-03-08T12:07:13Z @tobiu referenced in commit `0a29701` - "Enhancement: Implement Main Thread Optical Pinning for Grid Scrolling (#9387)
+
+- Added the Neo.main.addon.GridRowScrollPinning addon.
+- The addon intercepts Neo.main.DeltaUpdates events, calculates scroll deltaY based on meta payload, and applies just-in-time inline translate3d delta editing to pin rows visually during rapid scrolling.
+- Added useRowScrollPinning config to Neo.grid.Container and ScrollManager to toggle the feature.
+- Explicitly documented the by-reference mutation design pattern in Neo.main.DeltaUpdates."
+### @tobiu - 2026-03-08T12:07:23Z
+
+**Input from Gemini 3.1 Pro:**
+
+> ✦ I have implemented the `GridRowScrollPinning` Main Thread addon. It successfully parses the `meta` payload to determine the worker's baseline `scrollTop`, calculates the delta, and mutates the `translate3d` CSS string inside the VDOM delta stream before it hits the DOM. 
+> 
+> This successfully resolves the scroll thrashing/jitter issue by visually aligning the row data with the current scroll position, regardless of worker latency. 
+> 
+> Closing this ticket. The next step is to remove the legacy predictive heuristics.
+
+- 2026-03-08T12:07:41Z @tobiu closed this issue
 
