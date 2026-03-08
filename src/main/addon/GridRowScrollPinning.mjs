@@ -2,20 +2,19 @@ import Base      from './Base.mjs';
 import DomAccess from '../DomAccess.mjs';
 
 /**
- * @summary Main Thread Addon for High-Performance Grid Row Scroll Pinning (Hybrid Engine).
+ * @summary Main Thread Addon for High-Performance Grid Row Scroll Pinning (Synchronous Engine).
  *
- * This addon uses a Hybrid rAF + Scroll Listener architecture to prevent visual
+ * This addon uses a Synchronous Scroll Listener architecture to prevent visual
  * row tearing during rapid scrolling (e.g., dragging the scrollbar thumb).
  *
- * **The Hybrid Architecture:**
+ * **The Synchronous Architecture:**
  * 1.  **Stateful Updates:** VDOM updates from the App Worker do NOT trigger DOM mutations.
  *     They merely update an internal `workerScrollTop` state variable.
  * 2.  **Scroll Driven:** A native `scroll` listener on the Grid Wrapper triggers the logic.
- * 3.  **rAF Debouncing:** The scroll event schedules a single `requestAnimationFrame` callback.
- * 4.  **Optical Pinning:** Inside the rAF loop, if the `deltaY` (Actual Scroll - Worker Scroll)
- *     exceeds a large threshold (e.g. 30 rows), a CSS `translateY` is applied to the
- *     *entire Grid Body Content Node*. This instantly slides the perfectly-laid-out pool
- *     of rows to stay on screen, bypassing the 50ms+ VDOM worker latency.
+ * 3.  **Synchronous Injection:** The scroll event synchronously calculates `deltaY` and
+ *     immediately applies a CSS `translateY` to the *entire Grid Body Content Node*. 
+ *     This ensures the optical pinning is injected perfectly in phase with the native
+ *     scroll event, before the browser paints the next frame.
  *
  * @class Neo.main.addon.GridRowScrollPinning
  * @extends Neo.main.addon.Base
@@ -42,7 +41,7 @@ class GridRowScrollPinning extends Base {
 
     /**
      * Stores state per registered Grid Body.
-     * Shape: { id, bodyId, wrapperNode, contentNode, workerScrollTop, rowHeight, ticking }
+     * Shape: { id, bodyId, wrapperNode, contentNode, workerScrollTop, rowHeight, isPinned }
      * @member {Map<String, Object>} registrations=new Map()
      * @protected
      */
@@ -64,7 +63,7 @@ class GridRowScrollPinning extends Base {
     }
 
     /**
-     * Executes inside the rAF loop. Reads DOM, does math, mutates DOM.
+     * Executes synchronously. Reads DOM, does math, mutates DOM.
      * @param {String} id
      * @protected
      */
@@ -73,7 +72,6 @@ class GridRowScrollPinning extends Base {
             state = me.registrations.get(id);
 
         if (!state || !state.wrapperNode || !state.contentNode) {
-            if (state) state.ticking = false;
             return
         }
 
@@ -81,20 +79,21 @@ class GridRowScrollPinning extends Base {
             deltaY          = actualScrollTop - state.workerScrollTop,
             absDelta        = Math.abs(deltaY);
 
-        // Hysteresis: If we are already pinned, stay pinned until the worker is within 2px.
-        // If we are NOT pinned, engage pinning if the worker lags by more than 1 row.
-        let shouldPin = state.isPinned ? (absDelta > 2) : (absDelta > state.rowHeight);
+        // 500px is a safe threshold to ignore standard mouse wheel ticks entirely,
+        // allowing native smooth scroll to operate freely without jitter.
+        // It only engages when dragging the thumb massively outpaces the worker.
+        let threshold = 500,
+            shouldPin = state.isPinned ? (absDelta > 2) : (absDelta > threshold);
 
         if (shouldPin) {
-            state.contentNode.style.transform = `translate3d(0px, ${deltaY}px, 0px)`;
+            // Apply the full deltaY to perfectly freeze the stale rows on screen
+            state.contentNode.style.setProperty('--grid-row-pin-offset', `${deltaY}px`);
             state.isPinned = true;
-        } else if (state.contentNode.style.transform) {
+        } else if (state.isPinned) {
             // Worker has caught up to the scroll position. Clear the optical shift.
-            state.contentNode.style.transform = null;
+            state.contentNode.style.setProperty('--grid-row-pin-offset', '0px');
             state.isPinned = false;
         }
-
-        state.ticking = false
     }
 
     /**
@@ -114,22 +113,20 @@ class GridRowScrollPinning extends Base {
             let bodyMeta = meta[state.bodyId];
 
             if (bodyMeta) {
-                // Silently update the baseline state. The rAF loop will consume this on the next scroll tick.
+                // Silently update the baseline state.
                 state.workerScrollTop = bodyMeta.scrollTop;
                 state.rowHeight       = bodyMeta.rowHeight;
+                state.bufferRowRange  = bodyMeta.bufferRowRange;
 
-                // CRITICAL: If the worker sends an update after the user stops scrolling,
-                // we must re-evaluate to clear the stale transform!
-                if (!state.ticking) {
-                    state.ticking = true;
-                    requestAnimationFrame(() => me.applyPinning(state.id))
-                }
+                // CRITICAL: Synchronously re-evaluate pinning to clear stale transforms
+                // if the worker catches up after the user stops scrolling.
+                me.applyPinning(state.id)
             }
         })
     }
 
     /**
-     * Triggered by native browser scroll. Debounces via rAF.
+     * Triggered by native browser scroll. Synchronous execution.
      * @param {Event} event
      * @protected
      */
@@ -146,9 +143,8 @@ class GridRowScrollPinning extends Base {
             }
         }
 
-        if (state && !state.ticking) {
-            state.ticking = true;
-            requestAnimationFrame(() => me.applyPinning(state.id))
+        if (state) {
+            me.applyPinning(state.id)
         }
     }
 
@@ -169,8 +165,9 @@ class GridRowScrollPinning extends Base {
                 bodyId,
                 wrapperNode,
                 contentNode,
+                bufferRowRange : 0,
+                isPinned       : false,
                 rowHeight      : 0,
-                ticking        : false,
                 workerScrollTop: 0
             });
 

@@ -34,7 +34,7 @@ test.describe('Desktop (1920x1080): BigData Grid Row Pinning Validation', () => 
         await page.waitForTimeout(500);
     });
 
-    test('Scroll Telemetry: Visual Blanking Detector', async ({ page }) => {
+    test('Scroll Telemetry: Visual Blanking and Jitter Detector', async ({ page }) => {
         await page.mouse.move(960, 540); // Move to center of screen
         
         const evaluationPromise = page.evaluate(async () => {
@@ -42,7 +42,9 @@ test.describe('Desktop (1920x1080): BigData Grid Row Pinning Validation', () => 
             const content = document.querySelector('.neo-grid-body');
             let telemetry = [];
             let blankFrames = 0;
+            let bounces = 0;
             let isRunning = true;
+            let lastFrameRows = [];
 
             const monitor = () => {
                 if (!isRunning) return;
@@ -65,6 +67,37 @@ test.describe('Desktop (1920x1080): BigData Grid Row Pinning Validation', () => 
                     if (rowsBottom < wrapperRect.top || rowsTop > wrapperRect.bottom) {
                         isBlank = true;
                     }
+
+                    // Detect visual bouncing/jitter (rows moving down while we scroll down)
+                    if (lastFrameRows.length > 0) {
+                        // Find a row that exists in both frames to track its physical movement
+                        const trackingRow = rows.find(r => 
+                            lastFrameRows.some(lastR => lastR.id === r.id && lastR.dataset.recordId === r.dataset.recordId)
+                        );
+
+                        if (trackingRow) {
+                            const currentTop = trackingRow.getBoundingClientRect().top;
+                            const lastTopObj = lastFrameRows.find(r => r.id === trackingRow.id && r.dataset.recordId === trackingRow.dataset.recordId);
+                            
+                            if (lastTopObj) {
+                                const lastTop = lastTopObj.top;
+                                // We are scrolling down. Content should natively move UP (top decreases).
+                                // If currentTop > lastTop + 2px tolerance, the content visually bounced DOWN.
+                                // This happens when the pinning addon kicks in and fights the native scroll,
+                                // or when it clears the transform and snaps.
+                                if (currentTop > lastTop + 2) {
+                                    bounces++;
+                                }
+                            }
+                        }
+                    }
+
+                    // Save state for next frame comparison
+                    lastFrameRows = rows.map(r => ({
+                        id: r.id,
+                        dataset: { recordId: r.dataset.recordId },
+                        top: r.getBoundingClientRect().top
+                    }));
                 }
 
                 if (isBlank) {
@@ -76,10 +109,7 @@ test.describe('Desktop (1920x1080): BigData Grid Row Pinning Validation', () => 
                     scrollTop: wrapper.scrollTop,
                     transform: content.style.transform,
                     isBlank,
-                    rowsTop,
-                    rowsBottom,
-                    wrapperTop: wrapperRect.top,
-                    wrapperBottom: wrapperRect.bottom
+                    bounces
                 });
                 
                 requestAnimationFrame(monitor);
@@ -91,7 +121,7 @@ test.describe('Desktop (1920x1080): BigData Grid Row Pinning Validation', () => 
             await new Promise(r => setTimeout(r, 6000));
             isRunning = false;
 
-            return { telemetry, blankFrames };
+            return { telemetry, blankFrames, bounces };
         });
 
         console.log('--- Profile 1: Slow Wheel (2-3 rows) ---');
@@ -122,18 +152,14 @@ test.describe('Desktop (1920x1080): BigData Grid Row Pinning Validation', () => 
         
         await page.waitForTimeout(500);
         
-        const { telemetry, blankFrames } = await evaluationPromise;
+        const { telemetry, blankFrames, bounces } = await evaluationPromise;
         
         console.log(`Total Frames Measured: ${telemetry.length}`);
         console.log(`Total Blank Frames (White Flash): ${blankFrames}`);
+        console.log(`Total Jitter Bounces Detected: ${bounces}`);
         
-        if (blankFrames > 0) {
-            const sample = telemetry.filter(t => t.isBlank).slice(0, 5);
-            console.log('Sample Blank Frames:', JSON.stringify(sample, null, 2));
-        }
-        
-        // We assert that the grid never flashes blank.
-        // Currently, we expect this to FAIL until the architecture is fixed.
+        // Assertions
         expect(blankFrames).toBe(0);
+        expect(bounces).toBe(0);
     });
 });
