@@ -437,7 +437,25 @@ class Abstract extends Base {
             vnode;
 
         if (me.vnode) {
-            vnode = VNodeUtil.getById(me.vnode, data.target.id);
+            let targetId = data.target.id;
+
+            if (me.vnode.id === targetId) {
+                vnode = me.vnode;
+            } else if (me.id === targetId) {
+                let vnodeRoot = me.getVnodeRoot();
+                if (vnodeRoot && vnodeRoot.id === targetId) {
+                    vnode = vnodeRoot;
+                }
+            } else if (me.getVnodeItemsRoot) {
+                let itemsRoot = me.getVnodeItemsRoot();
+                if (itemsRoot && itemsRoot.id === targetId) {
+                    vnode = itemsRoot;
+                }
+            }
+
+            if (!vnode) {
+                vnode = VNodeUtil.getById(me.vnode, targetId);
+            }
 
             if (vnode) {
                 // Directly updating the persistent vnode state (plain object).
