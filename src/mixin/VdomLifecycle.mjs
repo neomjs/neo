@@ -404,6 +404,16 @@ class VdomLifecycle extends Base {
 
     /**
      * Generates the update payload for this component.
+     * 
+     * **Meta Payload Concept:**
+     * If a component implements a `getVdomUpdateMeta()` method, its returned object will be 
+     * attached to the update payload as `meta`. This allows the App Worker to send contextual state 
+     * (e.g., the specific `scrollTop` value the VDOM was calculated against) alongside the VDOM deltas 
+     * to the Main Thread. The Main Thread's `DeltaUpdates` singleton fires an `update` event before 
+     * applying deltas, allowing addons (like optical pinning) to read this `meta` data and dynamically 
+     * adjust the deltas (like `translate3d` transforms) based on the *current* Main Thread state 
+     * before they are painted.
+     * 
      * @param {Set<String>|null} mergedChildIds
      * @param {Number} [depth] Override the update depth
      * @returns {Object} opts
@@ -420,6 +430,10 @@ class VdomLifecycle extends Base {
         if (currentWorker?.isSharedWorker) {
             opts.appName  = me.appName;
             opts.windowId = me.windowId
+        }
+
+        if (me.getVdomUpdateMeta) {
+            opts.meta = me.getVdomUpdateMeta()
         }
 
         // We cannot set the config directly => it could already be false,

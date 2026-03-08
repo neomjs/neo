@@ -1118,6 +1118,20 @@ class GridBody extends Component {
     }
 
     /**
+     * @returns {Object}
+     */
+    getVdomUpdateMeta() {
+        let me = this;
+
+        return {
+            bufferRowRange: me.bufferRowRange,
+            id            : me.id,
+            rowHeight     : me.rowHeight,
+            scrollTop     : me.scrollTop
+        }
+    }
+
+    /**
      * @param {Object} data
      */
     onCellClick(data) {
