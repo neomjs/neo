@@ -857,7 +857,11 @@ class DeltaUpdates extends Base {
         deltas = Array.isArray(deltas) ? deltas : [deltas];
         len    = deltas.length;
 
-        // Give listeners a chance to inspect or mutate the deltas before application
+        // Fire an event before applying the deltas.
+        // Important: Listeners receive the `data` object by reference.
+        // This is an intentional design choice to allow "just-in-time" inline delta editing.
+        // Addons (like GridRowPinning) can safely mutate the deltas array or individual delta
+        // properties here, and those modifications will be consumed directly by the update loop below.
         me.fire('update', data);
 
         if (NeoConfig.logDeltaUpdates && len > 0) {

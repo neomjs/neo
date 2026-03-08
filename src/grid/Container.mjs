@@ -160,6 +160,12 @@ class GridContainer extends BaseContainer {
          */
         useInternalId_: true,
         /**
+         * Enable/disable the high-performance GridRowScrollPinning addon.
+         * @member {Boolean} useRowScrollPinning_=true
+         * @reactive
+         */
+        useRowScrollPinning_: true,
+        /**
          * True enables restoring the initial sort state (ASC, DESC, null)
          * @member {Boolean} useTriStateSorting_=false
          * @reactive
@@ -429,6 +435,18 @@ class GridContainer extends BaseContainer {
     }
 
     /**
+     * Triggered after the useRowScrollPinning config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetUseRowScrollPinning(value, oldValue) {
+        if (oldValue !== undefined && this.scrollManager) {
+            this.scrollManager.rowScrollPinning = value
+        }
+    }
+
+    /**
      * Triggered before the body config gets changed.
      * @param {Object|Neo.grid.Body|null} value
      * @param {Object|Neo.grid.Body|null} oldValue
@@ -659,9 +677,10 @@ class GridContainer extends BaseContainer {
         let me = this;
 
         me.scrollManager = Neo.create({
-            gridBody     : me.body,
-            module       : ScrollManager,
-            gridContainer: me
+            gridBody        : me.body,
+            module          : ScrollManager,
+            gridContainer   : me,
+            rowScrollPinning: me.useRowScrollPinning
         })
     }
 
