@@ -284,15 +284,14 @@ class DomEvents extends Base {
         }
 
         const result = {
-            path     : path.map(e => this.getTargetData(e)),
-            target   : this.getTargetData(event.target),
+            path     : path.map(e => this.getTargetData(e, event.type)),
+            target   : this.getTargetData(event.target, event.type),
             timeStamp: event.timeStamp,
             type     : event.type,
-            data     : {...event.target.dataset}
         };
 
         if (event.relatedTarget) {
-            result.relatedTarget = this.getTargetData(event.relatedTarget)
+            result.relatedTarget = this.getTargetData(event.relatedTarget, event.type)
         }
 
         return result
@@ -366,34 +365,39 @@ class DomEvents extends Base {
     /**
      * @param {Object[]} path
      * @param {HTMLElement} target
+     * @param {String} [eventName]
      * @returns {Object[]}
      */
-    getSelectionPath(path, target) {
+    getSelectionPath(path, target, eventName) {
         if (target.parentNode && target.id.split('__').length > 1) {
-            path = this.getSelectionPath(path, target.parentNode);
+            path = this.getSelectionPath(path, target.parentNode, eventName);
         }
 
-        path.push(this.getTargetData(target));
+        path.push(this.getTargetData(target, eventName));
 
         return path
     }
 
     /**
      * @param {HTMLElement} node
+     * @param {String} [eventName]
      * @returns {Object}
      */
-    getTargetData(node) {
-        let r    = node.getBoundingClientRect?.(),
-            rect = r && this.parseDomRect(r) || {};
+    getTargetData(node, eventName) {
+        // Fast path: eliminate layout thrashing on continuous events.
+        // We skip bounding rect and layout dimensions for scroll & wheel.
+        let skipLayout = eventName === 'scroll' || eventName === 'wheel',
+            r          = !skipLayout && node.getBoundingClientRect?.(),
+            rect       = r && this.parseDomRect(r) || {};
 
         return {
             aria             : this.geAriaAttributes(node),
             checked          : node.checked,
             childElementCount: node.childElementCount,
-            clientHeight     : node.clientHeight,
+            clientHeight     : skipLayout ? 0 : node.clientHeight,
             clientLeft       : node.clientLeft,
             clientTop        : node.clientTop,
-            clientWidth      : node.clientWidth,
+            clientWidth      : skipLayout ? 0 : node.clientWidth,
             cls              : node.classList ? [...node.classList] : [],
             data             : {...node.dataset},
             draggable        : node.draggable,
@@ -403,16 +407,16 @@ class DomEvents extends Base {
             isConnected      : node.isConnected,
             isContentEditable: node.isContentEditable,
             nodeType         : node.nodeType,
-            offsetHeight     : node.offsetHeight,
+            offsetHeight     : skipLayout ? 0 : node.offsetHeight,
             offsetLeft       : node.offsetLeft,
             offsetTop        : node.offsetTop,
-            offsetWidth      : node.offsetWidth,
+            offsetWidth      : skipLayout ? 0 : node.offsetWidth,
             rect,
             role             : node.role,
-            scrollHeight     : node.scrollHeight,
+            scrollHeight     : skipLayout ? 0 : node.scrollHeight,
             scrollLeft       : node.scrollLeft,
             scrollTop        : node.scrollTop,
-            scrollWidth      : node.scrollWidth,
+            scrollWidth      : skipLayout ? 0 : node.scrollWidth,
             style            : node.style?.cssText,
             tabIndex         : node.getAttribute?.('tabindex') ? node.tabIndex : null,
             tagName          : node.tagName?.toLowerCase()
