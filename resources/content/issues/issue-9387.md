@@ -3,14 +3,14 @@ id: 9387
 title: 'E2E: Implement Main Thread Optical Pinning for Grid Scrolling'
 state: OPEN
 labels:
-  - epic
+  - enhancement
   - architecture
   - performance
   - grid
 assignees:
   - tobiu
 createdAt: '2026-03-07T23:51:36Z'
-updatedAt: '2026-03-07T23:54:15Z'
+updatedAt: '2026-03-08T00:30:37Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9387'
 author: tobiu
 commentsCount: 0
@@ -57,4 +57,6 @@ Instead of predicting the future, we must **force the stale data to stay on scre
 - 2026-03-07T23:51:37Z @tobiu added the `grid` label
 - 2026-03-07T23:51:49Z @tobiu added parent issue #9380
 - 2026-03-07T23:54:16Z @tobiu assigned to @tobiu
+- 2026-03-08T00:30:37Z @tobiu removed the `epic` label
+- 2026-03-08T00:30:37Z @tobiu added the `enhancement` label
 
