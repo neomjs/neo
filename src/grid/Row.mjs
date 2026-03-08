@@ -316,7 +316,7 @@ class Row extends Component {
             style          : {
                 display  : null, // Reset display in case it was hidden
                 height   : gridBody.rowHeight + 'px',
-                transform: `translate3d(0px, ${rowIndex * gridBody.rowHeight}px, 0px)`
+                transform: `translate3d(0px, calc(${rowIndex * gridBody.rowHeight}px + var(--grid-row-pin-offset, 0px)), 0px)`
             }
         });
 
