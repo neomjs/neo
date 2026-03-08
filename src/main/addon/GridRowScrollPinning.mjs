@@ -1,6 +1,8 @@
 import Base      from './Base.mjs';
 import DomAccess from '../DomAccess.mjs';
 
+const translateRegex = /translate3d\(0px,\s*(-?\d+(?:\.\d+)?)px,\s*0px\)/;
+
 /**
  * @summary Main Thread Addon for High-Performance Grid Row Scroll Pinning.
  *
@@ -67,7 +69,9 @@ class GridRowScrollPinning extends Base {
             let bodyMeta = meta[registration.bodyId];
 
             if (bodyMeta) {
-                let actualScrollTop = DomAccess.getElement(registration.bodyId)?.scrollTop || 0,
+                // The actual scroll container in the DOM is the wrapper node
+                let wrapperId       = registration.bodyId + '__wrapper',
+                    actualScrollTop = DomAccess.getElement(wrapperId)?.scrollTop || 0,
                     deltaY          = actualScrollTop - bodyMeta.scrollTop;
 
                 // Engage pinning if the worker is off by more than 2 rows
@@ -94,17 +98,17 @@ class GridRowScrollPinning extends Base {
         for (; i < len; i++) {
             delta = deltas[i];
 
-            // Only intercept updateNode actions for rows that have style.transform changes
+            // In VDOM diffs, attribute updates often omit the 'action' property,
+            // relying on DeltaUpdates to default to 'updateNode'.
             if (
-                delta.action === 'updateNode' && 
-                delta.id?.startsWith(rowIdRef) && 
+                (!delta.action || delta.action === 'updateNode') &&
+                delta.id?.startsWith(rowIdRef) &&
                 delta.style?.transform
             ) {
-                // Parse the existing Y value from translate3d(0px, 150px, 0px)
-                transformMatch = delta.style.transform.match(/translate3d\(0px,\s*(\d+)px,\s*0px\)/);
+                transformMatch = delta.style.transform.match(translateRegex);
 
                 if (transformMatch && transformMatch[1]) {
-                    currentY = parseInt(transformMatch[1], 10);
+                    currentY = parseFloat(transformMatch[1]);
                     // Apply the inline mutation
                     delta.style.transform = `translate3d(0px, ${currentY + deltaY}px, 0px)`
                 }
