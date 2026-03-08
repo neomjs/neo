@@ -98,9 +98,7 @@ class ScrollManager extends Base {
      * @param {Boolean} oldValue
      */
     afterSetRowScrollPinning(value, oldValue) {
-        if (oldValue !== undefined) {
-            this.updateRowScrollPinningAddon(value)
-        }
+        this.updateRowScrollPinningAddon(value)
     }
 
     /**
