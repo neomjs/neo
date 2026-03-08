@@ -22,9 +22,19 @@ subIssues:
   - '[x] 9384 Implement generic Neo.util.Performance tracker'
   - '[x] 9385 E2E: Expose Performance tracker metrics via Remote Methods'
   - '[x] 9386 E2E: Add min velocity threshold to Grid Predictive Scrolling'
-  - '[ ] 9387 E2E: Implement Main Thread Optical Pinning for Grid Scrolling'
-subIssuesCompleted: 6
-subIssuesTotal: 7
+  - '[x] 9387 E2E: Implement Main Thread Optical Pinning for Grid Scrolling'
+  - '[x] 9388 E2E: Enhance VDOM Update Pipeline with Meta Payload Support'
+  - '[x] 9389 E2E: Remove Legacy Scroll Prediction Heuristics from Grid ScrollManager'
+  - '[x] 9390 E2E: Fix GridRowScrollPinning Registration and DOM Lookup Flaws'
+  - '[x] 9391 E2E: Refactor GridRowScrollPinning to Hybrid rAF Engine'
+  - '[x] 9392 E2E: Implement GridRowScrollPinning Automated Test and Sync Refinement'
+  - '[x] 9393 E2E: Implement GridRowScrollPinning via CSS Variables'
+  - '[x] 9394 E2E: Validate GridRowScrollPinning against DevIndex Canvas Worker Latency'
+  - '[x] 9395 E2E: Refine GridRowScrollPinning to Target Explicit Thumb Drags'
+  - '[x] 9396 E2E: Implement Synthetic Thumb Drag Profiles for Optical Pinning Validation'
+  - '[ ] 9397 R&D: Explore "Fixed Glass Overlay" Strategy for Optical Pinning'
+subIssuesCompleted: 16
+subIssuesTotal: 17
 blockedBy: []
 blocking: []
 ---
@@ -78,4 +88,14 @@ We recently implemented a granular, Set-based locking mechanism (`coordinatingNo
 - 2026-03-07T22:05:54Z @tobiu added sub-issue #9385
 - 2026-03-07T22:44:28Z @tobiu added sub-issue #9386
 - 2026-03-07T23:51:49Z @tobiu added sub-issue #9387
+- 2026-03-08T11:08:46Z @tobiu added sub-issue #9388
+- 2026-03-08T12:09:20Z @tobiu added sub-issue #9389
+- 2026-03-08T13:03:25Z @tobiu added sub-issue #9390
+- 2026-03-08T14:29:07Z @tobiu added sub-issue #9391
+- 2026-03-08T14:48:38Z @tobiu added sub-issue #9392
+- 2026-03-08T16:23:04Z @tobiu added sub-issue #9393
+- 2026-03-08T16:25:57Z @tobiu added sub-issue #9394
+- 2026-03-08T17:12:52Z @tobiu added sub-issue #9395
+- 2026-03-08T17:48:28Z @tobiu added sub-issue #9396
+- 2026-03-08T18:12:27Z @tobiu added sub-issue #9397
 
