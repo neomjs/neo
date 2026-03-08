@@ -107,7 +107,7 @@ test.describe('Desktop (1920x1080): BigData Grid Row Pinning Validation', () => 
                 telemetry.push({
                     time: performance.now(),
                     scrollTop: wrapper.scrollTop,
-                    transform: content.style.transform,
+                    transform: content.style.getPropertyValue('--grid-row-pin-offset'),
                     isBlank,
                     bounces
                 });
@@ -118,7 +118,7 @@ test.describe('Desktop (1920x1080): BigData Grid Row Pinning Validation', () => 
             requestAnimationFrame(monitor);
 
             // Let it run while playwright scrolls
-            await new Promise(r => setTimeout(r, 6000));
+            await new Promise(r => setTimeout(r, 12000));
             isRunning = false;
 
             return { telemetry, blankFrames, bounces };
@@ -151,6 +151,36 @@ test.describe('Desktop (1920x1080): BigData Grid Row Pinning Validation', () => 
         }
         
         await page.waitForTimeout(500);
+
+        // --- Synthetic Thumb Drag Profiles ---
+
+        const scrollbar = await page.locator('.neo-grid-vertical-scrollbar');
+        await scrollbar.evaluate(node => node.dispatchEvent(new MouseEvent('mousedown', { bubbles: true })));
+
+        console.log('--- Profile 4: Synthetic Steady Slow Drag ---');
+        for(let i=0; i<10; i++) {
+            await page.evaluate(() => document.querySelector('.neo-grid-body-wrapper').scrollTop += 100);
+            await page.waitForTimeout(50);
+        }
+
+        await page.waitForTimeout(500);
+
+        console.log('--- Profile 5: Synthetic Drag Ping-Pong ---');
+        for(let i=0; i<5; i++) {
+            await page.evaluate(() => document.querySelector('.neo-grid-body-wrapper').scrollTop += 500);
+            await page.waitForTimeout(100);
+            await page.evaluate(() => document.querySelector('.neo-grid-body-wrapper').scrollTop -= 500);
+            await page.waitForTimeout(100);
+        }
+
+        await page.waitForTimeout(500);
+
+        console.log('--- Profile 6: Synthetic Massive Snap Drag ---');
+        await page.evaluate(() => document.querySelector('.neo-grid-body-wrapper').scrollTop += 50000);
+        await page.waitForTimeout(500);
+
+        await page.evaluate(() => window.dispatchEvent(new MouseEvent('mouseup', { bubbles: true })));
+        await page.waitForTimeout(1000);
         
         const { telemetry, blankFrames, bounces } = await evaluationPromise;
         
