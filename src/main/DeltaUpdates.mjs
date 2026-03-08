@@ -1,5 +1,6 @@
 import Base             from '../core/Base.mjs';
 import DomAccess        from './DomAccess.mjs';
+import Observable       from '../core/Observable.mjs';
 import {voidAttributes} from '../vdom/domConstants.mjs';
 
 const NeoConfig = Neo.config;
@@ -17,6 +18,13 @@ const NeoConfig = Neo.config;
  * @singleton
  */
 class DeltaUpdates extends Base {
+    /**
+     * True automatically applies the core.Observable mixin
+     * @member {Boolean} observable=true
+     * @static
+     */
+    static observable = true
+
     static config = {
         /**
          * @member {String} className='Neo.main.DeltaUpdates'
@@ -848,6 +856,9 @@ class DeltaUpdates extends Base {
 
         deltas = Array.isArray(deltas) ? deltas : [deltas];
         len    = deltas.length;
+
+        // Give listeners a chance to inspect or mutate the deltas before application
+        me.fire('update', data);
 
         if (NeoConfig.logDeltaUpdates && len > 0) {
             me.countDeltas += len;
