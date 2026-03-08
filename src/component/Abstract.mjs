@@ -430,6 +430,15 @@ class Abstract extends Base {
     }
 
     /**
+     * Captures scroll events from the main thread and syncs the logical vnode state.
+     *
+     * **Performance / Hot Path Note:**
+     * Scroll events fire continuously. We explicitly check the most common scrolling targets
+     * (the component's root, its wrapper, or its items root) in O(1) time before falling back
+     * to `VNodeUtil.getById`. A full `getById` recursive tree traversal is extremely expensive
+     * (O(N) where N is all DOM nodes) and will lock up the App Worker during fast scrolling
+     * on complex components like Grids.
+     *
      * @param {Object} data
      */
     onScrollCapture(data) {
@@ -439,20 +448,27 @@ class Abstract extends Base {
         if (me.vnode) {
             let targetId = data.target.id;
 
+            // Fast Path 1: Target is the root node itself
             if (me.vnode.id === targetId) {
                 vnode = me.vnode;
-            } else if (me.id === targetId) {
+            } 
+            // Fast Path 2: Target is the logical vnode root (e.g. GridBody scroll container)
+            else if (me.id === targetId) {
+                // me.getVnodeRoot() returns the node assigned me.id by ensureStableIds
                 let vnodeRoot = me.getVnodeRoot();
                 if (vnodeRoot && vnodeRoot.id === targetId) {
                     vnode = vnodeRoot;
                 }
-            } else if (me.getVnodeItemsRoot) {
+            } 
+            // Fast Path 3: Target is the designated items container
+            else if (me.getVnodeItemsRoot) {
                 let itemsRoot = me.getVnodeItemsRoot();
                 if (itemsRoot && itemsRoot.id === targetId) {
                     vnode = itemsRoot;
                 }
             }
 
+            // Fallback: Expensive full tree traversal
             if (!vnode) {
                 vnode = VNodeUtil.getById(me.vnode, targetId);
             }
