@@ -322,6 +322,18 @@ class Row extends Component {
             }
         });
 
+        if (gridContainer.isTreeGrid) {
+            if (!record.isLeaf) {
+                vdom['aria-expanded'] = record.expanded || false;
+            } else {
+                delete vdom['aria-expanded'];
+            }
+
+            vdom['aria-level']    = (record.depth || 0) + 1;
+            vdom['aria-posinset'] = record.siblingIndex || 1;
+            vdom['aria-setsize']  = record.siblingCount || 1;
+        }
+
         // Capture previous children for recycling check
         oldCn   = vdom.cn;
         vdom.cn = [];
