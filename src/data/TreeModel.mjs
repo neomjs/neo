@@ -38,6 +38,10 @@ class TreeModel extends Model {
             type        : 'Boolean',
             defaultValue: true
         }, {
+            name        : 'isLoading',
+            type        : 'Boolean',
+            defaultValue: false
+        }, {
             name    : 'parentId',
             type    : 'String',
             nullable: true

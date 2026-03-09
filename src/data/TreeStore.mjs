@@ -67,6 +67,8 @@ class TreeStore extends Store {
             return items;
         }
 
+        let newRoots = [];
+
         // 1. Ingest all data into maps
         items.forEach(data => {
             let key      = me.getKey(data),
@@ -77,39 +79,43 @@ class TreeStore extends Store {
             if (!me.#childrenMap.has(parentId)) {
                 me.#childrenMap.set(parentId, []);
             }
-            me.#childrenMap.get(parentId).push(data);
-        });
+            
+            // Avoid duplicates if data is re-added
+            if (!me.#childrenMap.get(parentId).includes(data)) {
+                me.#childrenMap.get(parentId).push(data);
+            }
 
-        // 2. Identify root nodes
-        // A node is a root if its parentId is 'root' or its parent does not exist in the dataset.
-        let roots = me.#childrenMap.get('root') || [];
-
-        items.forEach(data => {
-            let parentId = data.parentId;
-            if (parentId && parentId !== 'root' && !me.#allRecordsMap.has(parentId)) {
-                roots.push(data);
-                // Re-parent to 'root' internally to heal the disconnected branch
-                data.parentId = 'root';
+            // 2. Identify new root nodes from the current batch.
+            // A node is a root if its parentId is 'root' or its parent does not exist in the dataset.
+            if (parentId === 'root' || !me.#allRecordsMap.has(parentId)) {
+                newRoots.push(data);
                 
-                let siblings = me.#childrenMap.get(parentId);
-                if (siblings) {
-                    let idx = siblings.indexOf(data);
-                    if (idx > -1) {
-                        siblings.splice(idx, 1);
+                if (parentId !== 'root') {
+                    // Re-parent to 'root' internally to heal the disconnected branch
+                    data.parentId = 'root';
+                    
+                    let siblings = me.#childrenMap.get(parentId);
+                    if (siblings) {
+                        let idx = siblings.indexOf(data);
+                        if (idx > -1) {
+                            siblings.splice(idx, 1);
+                        }
                     }
-                }
-                if (!me.#childrenMap.has('root')) {
-                    me.#childrenMap.set('root', []);
-                }
-                if (!me.#childrenMap.get('root').includes(data)) {
-                    me.#childrenMap.get('root').push(data);
+                    if (!me.#childrenMap.has('root')) {
+                        me.#childrenMap.set('root', []);
+                    }
+                    if (!me.#childrenMap.get('root').includes(data)) {
+                        me.#childrenMap.get('root').push(data);
+                    }
                 }
             }
         });
 
-        // 3. Compute flat visible list
+        // 3. Compute flat visible list ONLY for the new roots.
+        // Child nodes of an already expanded parent will be spliced in by expand(),
+        // so we don't want them appended to the end of the collection here.
         let visibleItems = [];
-        roots.forEach(root => {
+        newRoots.forEach(root => {
             me.collectVisibleDescendants(root, visibleItems);
         });
 
@@ -174,13 +180,14 @@ class TreeStore extends Store {
 
     /**
      * Expands a node, injecting its children into the flat grid view.
+     * Supports asynchronous loading if children are missing and an API/URL is configured.
      * @param {String|Number} nodeId
      */
-    expand(nodeId) {
+    async expand(nodeId) {
         let me   = this,
             node = me.get(nodeId);
 
-        if (!node || node.collapsed === false || node.isLeaf) {
+        if (!node || node.collapsed === false || node.isLeaf || node.isLoading) {
             return;
         }
 
@@ -193,17 +200,18 @@ class TreeStore extends Store {
             });
         }
 
-        node.collapsed = false;
-
-        me.onRecordChange({
-            fields: [{name: 'collapsed', oldValue: true, value: false}],
-            model : me.model,
-            record: node
-        });
-
         let children = me.#childrenMap.get(nodeId) || [];
         
+        // Case A: Children are already in memory
         if (children.length > 0) {
+            node.collapsed = false;
+
+            me.onRecordChange({
+                fields: [{name: 'collapsed', oldValue: true, value: false}],
+                model : me.model,
+                record: node
+            });
+
             let visibleDescendants = [];
             children.forEach(child => me.collectVisibleDescendants(child, visibleDescendants));
             
@@ -211,8 +219,57 @@ class TreeStore extends Store {
             if (parentIndex > -1) {
                 me.splice(parentIndex + 1, 0, visibleDescendants);
             }
-        } else {
-            // Note: Async fetching for missing children will be implemented here later (#9413).
+        } 
+        // Case B: Async Fetch required
+        else if (me.url || me.api || me.proxy) {
+            node.isLoading = true;
+            
+            me.onRecordChange({
+                fields: [{name: 'isLoading', oldValue: false, value: true}],
+                model : me.model,
+                record: node
+            });
+
+            try {
+                // The load() call will eventually trigger add(), which populates #childrenMap
+                // but won't blindly append them to the flat array because their parent is known.
+                await me.load({ 
+                    append: true,
+                    params: { parentId: nodeId } 
+                });
+
+                children = me.#childrenMap.get(nodeId) || [];
+
+                node.isLoading = false;
+                node.collapsed = false;
+
+                me.onRecordChange({
+                    fields: [
+                        {name: 'isLoading', oldValue: true, value: false},
+                        {name: 'collapsed', oldValue: true, value: false}
+                    ],
+                    model : me.model,
+                    record: node
+                });
+
+                if (children.length > 0) {
+                    let visibleDescendants = [];
+                    children.forEach(child => me.collectVisibleDescendants(child, visibleDescendants));
+                    
+                    let parentIndex = me.indexOf(node);
+                    if (parentIndex > -1) {
+                        me.splice(parentIndex + 1, 0, visibleDescendants);
+                    }
+                }
+            } catch (err) {
+                node.isLoading = false;
+                me.onRecordChange({
+                    fields: [{name: 'isLoading', oldValue: true, value: false}],
+                    model : me.model,
+                    record: node
+                });
+                console.error('TreeStore async expand failed', err);
+            }
         }
     }
 
