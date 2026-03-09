@@ -227,27 +227,51 @@ class TreeStore extends Store {
             item = super.get(key); // Check the standard visible map first (fastest)
 
         if (!item && me.#allRecordsMap.has(key)) {
-            // Fallback to the full tree map for hidden nodes
-            item = me.#allRecordsMap.get(key);
-            
-            // Handle Turbo mode lazy instantiation just like Store.get
-            if (item && !RecordFactory.isRecord(item)) {
-                item = RecordFactory.createRecord(me.model, item);
-                me.#allRecordsMap.set(key, item);
-                
-                // Update in childrenMap to keep references consistent
-                let parentId = item.parentId || 'root',
-                    siblings = me.#childrenMap.get(parentId);
+            // Fallback to the full tree map for hidden nodes.
+            // Pass it through hydrateRecord to ensure Turbo Mode lazy instantiation works.
+            item = me.hydrateRecord(me.#allRecordsMap.get(key));
+        }
 
-                if (siblings) {
-                    let idx = siblings.findIndex(s => me.getKey(s) === key);
-                    if (idx > -1) {
-                        siblings[idx] = item;
-                    }
+        return item || null;
+    }
+
+    /**
+     * Extends the base Store's hydrateRecord to also update the TreeStore's internal maps.
+     * This acts as the Single Source of Truth for "Soft Hydration" in Turbo Mode, ensuring
+     * that when a raw data object becomes a Record, the TreeStore doesn't suffer from a split-brain.
+     * @param {Object} item The raw data object or Record
+     * @param {Number} [index] Optional index in the items array
+     * @returns {Neo.data.Record|Object|null} The hydrated Record
+     * @protected
+     */
+    hydrateRecord(item, index) {
+        let me = this;
+
+        // Base Store handles instantiation and updating the primary Collection maps
+        const record = super.hydrateRecord(item, index);
+
+        // If the item WAS a raw object, and IS NOW a Record, we must heal the Tree maps
+        if (record && !RecordFactory.isRecord(item)) {
+            const key = me.getKey(record);
+            
+            // Heal the all-records map
+            me.#allRecordsMap.set(key, record);
+
+            // Heal the children map to keep structural references consistent
+            const parentId = record.parentId || 'root';
+            const siblings = me.#childrenMap.get(parentId);
+
+            if (siblings) {
+                // We use the raw item's identity (=== item) to find it in the siblings array
+                // because the array currently holds the raw object reference.
+                const idx = siblings.indexOf(item);
+                if (idx > -1) {
+                    siblings[idx] = record;
                 }
             }
         }
-        return item || null;
+
+        return record;
     }
 
     /**
