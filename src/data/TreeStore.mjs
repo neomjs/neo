@@ -70,8 +70,9 @@ class TreeStore extends Store {
         let newRoots = [];
 
         // 1. Ingest all data into maps
-        items.forEach(data => {
-            let key      = me.getKey(data),
+        for (let i = 0, len = items.length; i < len; i++) {
+            let data     = items[i],
+                key      = me.getKey(data),
                 parentId = data.parentId || 'root';
 
             me.#allRecordsMap.set(key, data);
@@ -109,15 +110,15 @@ class TreeStore extends Store {
                     }
                 }
             }
-        });
+        }
 
         // 3. Compute flat visible list ONLY for the new roots.
         // Child nodes of an already expanded parent will be spliced in by expand(),
         // so we don't want them appended to the end of the collection here.
         let visibleItems = [];
-        newRoots.forEach(root => {
-            me.collectVisibleDescendants(root, visibleItems);
-        });
+        for (let i = 0, len = newRoots.length; i < len; i++) {
+            me.collectVisibleDescendants(newRoots[i], visibleItems);
+        }
 
         // 4. Delegate to super.add but ONLY for the visible items
         // The hidden items remain in #allRecordsMap as raw data (Turbo Mode) until accessed via get()
@@ -137,9 +138,9 @@ class TreeStore extends Store {
             let key      = this.getKey(node),
                 children = this.#childrenMap.get(key) || [];
 
-            children.forEach(child => {
-                this.collectVisibleDescendants(child, resultArr);
-            });
+            for (let i = 0, len = children.length; i < len; i++) {
+                this.collectVisibleDescendants(children[i], resultArr);
+            }
         }
     }
 
@@ -167,7 +168,9 @@ class TreeStore extends Store {
         let visibleDescendants = [],
             children           = me.#childrenMap.get(nodeId) || [];
 
-        children.forEach(child => me.collectVisibleDescendants(child, visibleDescendants));
+        for (let i = 0, len = children.length; i < len; i++) {
+            me.collectVisibleDescendants(children[i], visibleDescendants);
+        }
 
         if (visibleDescendants.length > 0) {
             let parentIndex = me.indexOf(node);
@@ -193,11 +196,12 @@ class TreeStore extends Store {
 
         if (me.singleExpand && node.parentId) {
             let siblings = me.#childrenMap.get(node.parentId) || [];
-            siblings.forEach(sibling => {
+            for (let i = 0, len = siblings.length; i < len; i++) {
+                let sibling = siblings[i];
                 if (sibling !== node && sibling.collapsed === false) {
                     me.collapse(me.getKey(sibling));
                 }
-            });
+            }
         }
 
         // Clear previous error state on retry
@@ -223,7 +227,9 @@ class TreeStore extends Store {
             });
 
             let visibleDescendants = [];
-            children.forEach(child => me.collectVisibleDescendants(child, visibleDescendants));
+            for (let i = 0, len = children.length; i < len; i++) {
+                me.collectVisibleDescendants(children[i], visibleDescendants);
+            }
             
             let parentIndex = me.indexOf(node);
             if (parentIndex > -1) {
@@ -264,7 +270,9 @@ class TreeStore extends Store {
 
                 if (children.length > 0) {
                     let visibleDescendants = [];
-                    children.forEach(child => me.collectVisibleDescendants(child, visibleDescendants));
+                    for (let i = 0, len = children.length; i < len; i++) {
+                        me.collectVisibleDescendants(children[i], visibleDescendants);
+                    }
                     
                     let parentIndex = me.indexOf(node);
                     if (parentIndex > -1) {
