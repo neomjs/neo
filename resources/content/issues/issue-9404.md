@@ -17,16 +17,24 @@ author: tobiu
 commentsCount: 0
 parentIssue: null
 subIssues:
-  - '[ ] 9405 Create `Neo.data.TreeModel`'
-  - '[ ] 9406 Create `Neo.data.TreeStore`'
+  - '[x] 9405 Create `Neo.data.TreeModel`'
+  - '[x] 9406 Create `Neo.data.TreeStore`'
   - '[ ] 9407 Create `Neo.grid.column.Tree` & Cell Component'
   - '[ ] 9408 Grid Core Integration & TreeGrid Accessibility'
   - '[ ] 9409 CSS Animations for TreeGrid Expand/Collapse'
   - '[ ] 9410 TreeGrid Documentation & Examples'
   - '[ ] 9411 TreeGrid Unit Tests (Data & Logic)'
   - '[ ] 9412 TreeGrid Component Tests (UI & Interactions)'
-subIssuesCompleted: 0
-subIssuesTotal: 8
+  - '[x] 9413 Create Async Subtree Loading for `Neo.data.TreeStore`'
+  - '[x] 9414 Refactor `Neo.data.Store` to unify Record Hydration'
+  - '[x] 9415 Support "Turbo Mode" in `Neo.data.TreeStore`'
+  - '[x] 9416 Add Error State & Events for Async Tree Loading'
+  - '[x] 9417 Optimize `TreeStore` Hot Paths (Performance)'
+  - '[ ] 9418 Create Data Normalizer Architecture (`Neo.data.normalizer.Base` & `Tree`)'
+  - '[ ] 9419 Implement Dynamic Module Loading in `Neo.worker.Data`'
+  - '[ ] 9420 Migrate Data Pipeline to Connection -> Parser -> Normalizer flow'
+subIssuesCompleted: 7
+subIssuesTotal: 16
 blockedBy: []
 blocking: []
 ---
@@ -65,4 +73,14 @@ The Tree Grid implementation is designed to integrate seamlessly with the existi
 - 2026-03-09T11:03:54Z @tobiu added sub-issue #9411
 - 2026-03-09T11:03:57Z @tobiu added sub-issue #9412
 - 2026-03-09T11:10:33Z @tobiu assigned to @tobiu
+- 2026-03-09T11:34:01Z @tobiu added sub-issue #9413
+- 2026-03-09T14:13:27Z @tobiu added sub-issue #9414
+- 2026-03-09T14:14:06Z @tobiu added sub-issue #9415
+- 2026-03-09T14:47:34Z @tobiu added sub-issue #9416
+- 2026-03-09T15:00:11Z @tobiu added sub-issue #9417
+- 2026-03-09T15:45:19Z @tobiu cross-referenced by #9418
+- 2026-03-09T15:45:33Z @tobiu added sub-issue #9418
+- 2026-03-09T15:46:10Z @tobiu cross-referenced by #9419
+- 2026-03-09T15:46:22Z @tobiu added sub-issue #9419
+- 2026-03-09T15:46:48Z @tobiu added sub-issue #9420
 

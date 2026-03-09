@@ -1,7 +1,7 @@
 ---
 id: 9406
 title: Create `Neo.data.TreeStore`
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
@@ -9,16 +9,17 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-03-09T10:44:06Z'
-updatedAt: '2026-03-09T11:10:43Z'
+updatedAt: '2026-03-09T13:38:58Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9406'
 author: tobiu
-commentsCount: 1
+commentsCount: 3
 parentIssue: 9404
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-03-09T13:38:58Z'
 ---
 # Create `Neo.data.TreeStore`
 
@@ -63,4 +64,31 @@ Create a specialized store to manage hierarchical data and provide a flattened v
 > - `src/grid/Body.mjs` -> `createViewData()` (Understand how the grid maps the 1D array to the DOM).
 
 - 2026-03-09T11:10:43Z @tobiu assigned to @tobiu
+- 2026-03-09T11:33:54Z @tobiu cross-referenced by #9413
+- 2026-03-09T13:38:10Z @tobiu referenced in commit `aec7125` - "feat: Add Neo.data.TreeStore (#9406)
+
+- Implemented TreeStore extending Neo.data.Store for hierarchical data.
+- Added internal maps for O(1) child lookups.
+- Added allRecordsMap to ensure get(key) works for hidden nodes.
+- Overridden add() to compute and append only the visible nodes to the flat items array.
+- Implemented expand(), collapse(), and toggle() using Collection.splice for high-performance virtual scrolling updates.
+- Added singleExpand config support."
+### @tobiu - 2026-03-09T13:38:26Z
+
+**Input from Gemini 3.1 Pro:**
+
+> ✦ Implemented `Neo.data.TreeStore` with the "Splice Approach".
+> 
+> - Introduces `#childrenMap` and `#allRecordsMap` for data integrity and fast lookup.
+> - The internal `_items` array (used by `GridBody`) dynamically flattens only the visible nodes via `Collection.splice()`.
+> - Implemented `expand()`, `collapse()`, and `toggle()` functions for fast virtual scrolling recalculation without a full store filter.
+> - Added `singleExpand` behavior.
+> 
+> Changes pushed to `dev`.
+
+### @tobiu - 2026-03-09T13:38:57Z
+
+Implemented Neo.data.TreeStore. Pushed to dev.
+
+- 2026-03-09T13:38:58Z @tobiu closed this issue
 
