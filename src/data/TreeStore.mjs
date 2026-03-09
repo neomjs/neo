@@ -3,15 +3,33 @@ import Store         from './Store.mjs';
 import TreeModel     from './TreeModel.mjs';
 
 /**
+ * @summary Manages hierarchical data by projecting a visible subset into a flat array for virtual scrolling.
+ *
+ * `Neo.data.TreeStore` is the architectural bridge between deep, hierarchical data and flat,
+ * high-performance UI components like `Neo.grid.Container`.
+ *
+ * ### The Projection Architecture
+ * Unlike a standard `Store` which manages a single flat array, `TreeStore` maintains two distinct states:
+ * 1. **The Structural Layer (`#childrenMap`, `#allRecordsMap`):** These native `Map`s hold the complete
+ *    tree structure and all data nodes (visible or hidden) in O(1) accessible memory. It intentionally avoids
+ *    using a secondary `Neo.collection.Base` for `#allRecordsMap` to prevent memory bloat and "flat array" impedance mismatches.
+ * 2. **The Projection Layer (inherited `items` array):** This is a flattened array containing *only* the currently
+ *    expanded (visible) nodes. UI components bind to this array, allowing them to render 50k row TreeGrids using
+ *    standard virtual scrolling without knowing it's a tree.
+ *
+ * ### Reactivity & Mutations
+ * - **Visibility (Expand/Collapse):** Toggling a node mathematically splices its visible descendants into or
+ *   out of the Projection Layer, triggering targeted UI updates.
+ * - **Structural Mutations (CRUD):** The overridden `splice` method acts as the single source of truth,
+ *   safely updating the Structural Layer (preventing ghost nodes) and recalculating the visible delta.
+ * - **ARIA & Accessibility:** During mutations, `siblingCount` and `siblingIndex` are written directly to the records.
+ *   This explicitly sacrifices write performance (O(N) during ingestion) to guarantee maximum read performance
+ *   (O(1) property access) in the `grid.Row` hot-path rendering loop (60-120fps).
+ *
  * @class Neo.data.TreeStore
  * @extends Neo.data.Store
- *
- * @summary A specialized store to manage hierarchical data for Tree Grids.
- *
- * TreeStore provides a flat `items` array to the UI (for virtual scrolling) while
- * maintaining the full hierarchical data structure internally using `#childrenMap`.
- * Expanding or collapsing nodes mathematically injects or removes rows from the
- * flattened array, ensuring O(1) rendering performance regardless of tree depth.
+ * @see Neo.grid.Container
+ * @see Neo.grid.column.Tree
  */
 class TreeStore extends Store {
     static config = {
