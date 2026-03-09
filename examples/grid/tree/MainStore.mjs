@@ -19,22 +19,17 @@ class MainStore extends Store {
         /**
          * @member {Array} data
          */
-        data: [{
-            id: 'root-1', name: 'src', type: 'folder', isLeaf: false, collapsed: false, children: [
-                { id: 'child-1-1', parentId: 'root-1', name: 'component', type: 'folder', isLeaf: false, collapsed: true, children: [
-                    { id: 'child-1-1-1', parentId: 'child-1-1', name: 'Base.mjs', type: 'file', isLeaf: true, size: '12 KB' },
-                    { id: 'child-1-1-2', parentId: 'child-1-1', name: 'Button.mjs', type: 'file', isLeaf: true, size: '8 KB' }
-                ]},
-                { id: 'child-1-2', parentId: 'root-1', name: 'grid', type: 'folder', isLeaf: false, collapsed: false, children: [
-                    { id: 'child-1-2-1', parentId: 'child-1-2', name: 'Container.mjs', type: 'file', isLeaf: true, size: '45 KB' },
-                    { id: 'child-1-2-2', parentId: 'child-1-2', name: 'Row.mjs', type: 'file', isLeaf: true, size: '20 KB' }
-                ]}
-            ]
-        }, {
-            id: 'root-2', name: 'package.json', type: 'file', isLeaf: true, size: '2 KB'
-        }, {
-            id: 'root-3', name: 'README.md', type: 'file', isLeaf: true, size: '5 KB'
-        }]
+        data: [
+            { id: 'root-1', name: 'src', type: 'folder', isLeaf: false, collapsed: false },
+            { id: 'child-1-1', parentId: 'root-1', name: 'component', type: 'folder', isLeaf: false, collapsed: true },
+            { id: 'child-1-1-1', parentId: 'child-1-1', name: 'Base.mjs', type: 'file', isLeaf: true, size: '12 KB' },
+            { id: 'child-1-1-2', parentId: 'child-1-1', name: 'Button.mjs', type: 'file', isLeaf: true, size: '8 KB' },
+            { id: 'child-1-2', parentId: 'root-1', name: 'grid', type: 'folder', isLeaf: false, collapsed: false },
+            { id: 'child-1-2-1', parentId: 'child-1-2', name: 'Container.mjs', type: 'file', isLeaf: true, size: '45 KB' },
+            { id: 'child-1-2-2', parentId: 'child-1-2', name: 'Row.mjs', type: 'file', isLeaf: true, size: '20 KB' },
+            { id: 'root-2', name: 'package.json', type: 'file', isLeaf: true, size: '2 KB' },
+            { id: 'root-3', name: 'README.md', type: 'file', isLeaf: true, size: '5 KB' }
+        ]
     }
 }
 
