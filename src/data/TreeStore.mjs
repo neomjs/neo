@@ -67,7 +67,8 @@ class TreeStore extends Store {
             return items;
         }
 
-        let newRoots = [];
+        let newRoots        = [],
+            affectedParents = new Set();
 
         // 1. Ingest all data into maps
         for (let i = 0, len = items.length; i < len; i++) {
@@ -84,6 +85,7 @@ class TreeStore extends Store {
             // Avoid duplicates if data is re-added
             if (!me.#childrenMap.get(parentId).includes(data)) {
                 me.#childrenMap.get(parentId).push(data);
+                affectedParents.add(parentId);
             }
 
             // 2. Identify new root nodes from the current batch.
@@ -107,12 +109,18 @@ class TreeStore extends Store {
                     }
                     if (!me.#childrenMap.get('root').includes(data)) {
                         me.#childrenMap.get('root').push(data);
+                        affectedParents.add('root');
                     }
                 }
             }
         }
 
-        // 3. Compute flat visible list ONLY for the new roots.
+        // 3. Update ARIA sibling stats for all affected parents
+        for (const parentId of affectedParents) {
+            me.updateSiblingStats(parentId);
+        }
+
+        // 4. Compute flat visible list ONLY for the new roots.
         // Child nodes of an already expanded parent will be spliced in by expand(),
         // so we don't want them appended to the end of the collection here.
         let visibleItems = [];
@@ -120,7 +128,7 @@ class TreeStore extends Store {
             me.collectVisibleDescendants(newRoots[i], visibleItems);
         }
 
-        // 4. Delegate to super.add but ONLY for the visible items
+        // 5. Delegate to super.add but ONLY for the visible items
         // The hidden items remain in #allRecordsMap as raw data (Turbo Mode) until accessed via get()
         return super.add(visibleItems, init);
     }
@@ -366,6 +374,26 @@ class TreeStore extends Store {
                 this.expand(nodeId);
             } else {
                 this.collapse(nodeId);
+            }
+        }
+    }
+
+    /**
+     * Recalculates the `siblingCount` and `siblingIndex` for all children of a given parent.
+     * This is an O(N) operation called during mutations to ensure O(1) reads during VDOM rendering.
+     * @param {String|Number} parentId The ID of the parent node (or 'root').
+     * @protected
+     */
+    updateSiblingStats(parentId) {
+        let me       = this,
+            siblings = me.#childrenMap.get(parentId);
+
+        if (siblings) {
+            let count = siblings.length;
+            for (let i = 0; i < count; i++) {
+                let sibling = siblings[i];
+                sibling.siblingCount = count;
+                sibling.siblingIndex = i + 1; // 1-based for ARIA
             }
         }
     }
