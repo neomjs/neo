@@ -1,0 +1,48 @@
+.neo-grid-tree-cell {
+    align-items: center;
+    display    : flex;
+    flex       : 1;
+    min-width  : 0;
+
+    .neo-tree-indent {
+        flex : none;
+        width: calc(var(--tree-depth, 0) * var(--tree-indent, 16px));
+    }
+
+    .neo-tree-toggle {
+        cursor    : pointer;
+        flex      : none;
+        text-align: center;
+        width     : 24px;
+
+        &.is-leaf {
+            cursor: default;
+        }
+
+        &.is-collapsed::before {
+            content: var(--tree-toggle-icon-collapsed);
+        }
+
+        &.is-expanded::before {
+            content: var(--tree-toggle-icon-expanded);
+        }
+
+        &.is-leaf::before {
+            content: var(--tree-toggle-icon-leaf);
+        }
+
+        &::before {
+            display    : inline-block;
+            font-family: var(--fa-style-family-classic);
+            font-weight: 900;
+        }
+    }
+
+    .neo-tree-content {
+        flex         : 1;
+        min-width    : 0;
+        overflow     : hidden;
+        text-overflow: ellipsis;
+        white-space  : nowrap;
+    }
+}
