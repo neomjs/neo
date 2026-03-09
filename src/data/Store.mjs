@@ -562,48 +562,7 @@ class Store extends Collection {
      * @returns {Object|null}
      */
     get(key) {
-        let me   = this,
-            item = super.get(key); // Get item from Collection.Base (could be raw data)
-
-        if (item && !RecordFactory.isRecord(item)) {
-            const record = RecordFactory.createRecord(me.model, item);
-            const index  = me.indexOf(item);
-            const pk     = record[me.keyProperty]; // Use the actual PK from the record
-
-            // Replace the raw data with the record instance in the current (filtered) collection
-            me.map.set(pk, record);
-
-            if (index !== -1) {
-                me._items[index] = record
-            }
-
-            // If we are tracking internalIds, we need to update the map to point to the new record
-            // instead of the raw object
-            if (me.trackInternalId) {
-                const internalKey = me.getInternalKey(record);
-                if (internalKey) {
-                    me.internalIdMap.set(internalKey, record)
-                }
-            }
-
-            // If this collection is filtered, we must also update the master 'allItems' collection
-            if (me.allItems) {
-                const masterIndex = me.allItems.indexOf(item);
-                if (masterIndex !== -1) {
-                    me.allItems.map.set(pk, record);
-                    me.allItems._items[masterIndex] = record;
-
-                    if (me.allItems.trackInternalId) {
-                        const internalKey = me.getInternalKey(record);
-                        if (internalKey) {
-                            me.allItems.internalIdMap.set(internalKey, record)
-                        }
-                    }
-                }
-            }
-            return record
-        }
-        return item // Already a record or null
+        return this.hydrateRecord(super.get(key));
     }
 
     /**
@@ -612,43 +571,7 @@ class Store extends Collection {
      * @returns {Object|undefined}
      */
     getAt(index) {
-        let me   = this,
-            item = super.getAt(index); // Get item from Collection.Base (could be raw data)
-
-        if (item && !RecordFactory.isRecord(item)) {
-            const record = RecordFactory.createRecord(me.model, item);
-
-            // Replace the raw data with the record instance in the current (filtered) collection
-            me.map.set(record[me.keyProperty], record);
-            me._items[index] = record;
-
-            // If we are tracking internalIds, we need to update the map to point to the new record
-            // instead of the raw object
-            if (me.trackInternalId) {
-                const internalKey = me.getInternalKey(record);
-                if (internalKey) {
-                    me.internalIdMap.set(internalKey, record)
-                }
-            }
-
-            // If this collection is filtered, we must also update the master 'allItems' collection
-            if (me.allItems) {
-                const masterIndex = me.allItems.indexOf(item);
-                if (masterIndex !== -1) {
-                    me.allItems.map.set(record[me.keyProperty], record);
-                    me.allItems._items[masterIndex] = record;
-
-                    if (me.allItems.trackInternalId) {
-                        const internalKey = me.getInternalKey(record);
-                        if (internalKey) {
-                            me.allItems.internalIdMap.set(internalKey, record)
-                        }
-                    }
-                }
-            }
-            return record
-        }
-        return item // Already a record or undefined
+        return this.hydrateRecord(super.getAt(index), index);
     }
 
     /**
@@ -690,6 +613,62 @@ class Store extends Collection {
             keyField = model?.getField(me.getKeyProperty());
 
         return keyField?.type?.toLowerCase() || null
+    }
+
+    /**
+     * Lazily instantiates a raw data object into a Record instance and updates all internal maps.
+     * This acts as the Single Source of Truth for "Soft Hydration" in Turbo Mode.
+     * @param {Object} item The raw data object or Record
+     * @param {Number} [index] Optional index in the items array (for performance)
+     * @returns {Neo.data.Record|Object|null} The hydrated Record (or original item if already a record or null)
+     * @protected
+     */
+    hydrateRecord(item, index) {
+        let me = this;
+
+        if (item && !RecordFactory.isRecord(item)) {
+            const record = RecordFactory.createRecord(me.model, item);
+            const pk     = record[me.keyProperty]; // Use the actual PK from the record
+
+            // For get(), index is omitted, so we find it. For getAt(), we pass it in.
+            if (index === undefined) {
+                index = me.indexOf(item);
+            }
+
+            // Replace the raw data with the record instance in the current (filtered) collection
+            me.map.set(pk, record);
+
+            if (index !== -1) {
+                me._items[index] = record
+            }
+
+            // If we are tracking internalIds, we need to update the map to point to the new record
+            // instead of the raw object
+            if (me.trackInternalId) {
+                const internalKey = me.getInternalKey(record);
+                if (internalKey) {
+                    me.internalIdMap.set(internalKey, record)
+                }
+            }
+
+            // If this collection is filtered, we must also update the master 'allItems' collection
+            if (me.allItems) {
+                const masterIndex = me.allItems.indexOf(item);
+                if (masterIndex !== -1) {
+                    me.allItems.map.set(pk, record);
+                    me.allItems._items[masterIndex] = record;
+
+                    if (me.allItems.trackInternalId) {
+                        const internalKey = me.getInternalKey(record);
+                        if (internalKey) {
+                            me.allItems.internalIdMap.set(internalKey, record)
+                        }
+                    }
+                }
+            }
+            return record
+        }
+        return item; // Already a record or null/undefined
     }
 
     /**
