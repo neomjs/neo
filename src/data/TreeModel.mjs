@@ -49,6 +49,24 @@ class TreeModel extends Model {
             name    : 'parentId',
             type    : 'String',
             nullable: true
+        }, {
+            /**
+             * Architectural Note:
+             * `siblingCount` and `siblingIndex` are maintained as fields on the record rather than
+             * calculated dynamically via getters. This is a deliberate trade-off.
+             *
+             * While updating these values during data mutation (e.g. adding/removing nodes) requires O(N) operations,
+             * it ensures that the `grid.Row` can access them in O(1) time during its `createVdom` hot path.
+             * Since scrolling occurs at 60-120fps and mutations are comparatively rare, optimizing the read path
+             * is critical for rendering performance in massive TreeGrids.
+             */
+            name        : 'siblingCount',
+            type        : 'Integer',
+            defaultValue: 1
+        }, {
+            name        : 'siblingIndex',
+            type        : 'Integer',
+            defaultValue: 1
         }]
     }
 }

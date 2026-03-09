@@ -177,6 +177,12 @@ class GridContainer extends BaseContainer {
          */
         store_: null,
         /**
+         * True enables hierarchical TreeGrid rendering and WAI-ARIA roles
+         * @member {Boolean} isTreeGrid_=false
+         * @reactive
+         */
+        isTreeGrid_: false,
+        /**
          * @member {Array|null} items=null
          * @protected
          * @reactive
@@ -320,6 +326,18 @@ class GridContainer extends BaseContainer {
         if (value && me.store && value.store !== me.store) {
             value.store = me.store
         }
+    }
+
+    /**
+     * Triggered after the isTreeGrid config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetIsTreeGrid(value, oldValue) {
+        let me = this;
+        me.getVdomRoot().role = value ? 'treegrid' : 'grid';
+        me.update();
     }
 
     /**
