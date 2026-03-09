@@ -34,6 +34,10 @@ class TreeModel extends Model {
             type        : 'Integer',
             defaultValue: 0
         }, {
+            name        : 'hasError',
+            type        : 'Boolean',
+            defaultValue: false
+        }, {
             name        : 'isLeaf',
             type        : 'Boolean',
             defaultValue: true

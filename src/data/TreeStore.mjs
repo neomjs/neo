@@ -200,6 +200,16 @@ class TreeStore extends Store {
             });
         }
 
+        // Clear previous error state on retry
+        if (node.hasError) {
+            node.hasError = false;
+            me.onRecordChange({
+                fields: [{name: 'hasError', oldValue: true, value: false}],
+                model : me.model,
+                record: node
+            });
+        }
+
         let children = me.#childrenMap.get(nodeId) || [];
         
         // Case A: Children are already in memory
@@ -261,14 +271,20 @@ class TreeStore extends Store {
                         me.splice(parentIndex + 1, 0, visibleDescendants);
                     }
                 }
-            } catch (err) {
+            } catch (error) {
                 node.isLoading = false;
+                node.hasError  = true;
+                
                 me.onRecordChange({
-                    fields: [{name: 'isLoading', oldValue: true, value: false}],
+                    fields: [
+                        {name: 'isLoading', oldValue: true, value: false},
+                        {name: 'hasError', oldValue: false, value: true}
+                    ],
                     model : me.model,
                     record: node
                 });
-                console.error('TreeStore async expand failed', err);
+                
+                me.fire('loadError', { error, record: node });
             }
         }
     }
