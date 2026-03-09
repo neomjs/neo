@@ -51,86 +51,21 @@ class TreeStore extends Store {
     #childrenMap = new Map()
 
     /**
-     * Overrides Store:add() to intercept data ingestion.
-     * It populates the internal hierarchical maps and calculates the initial
-     * flattened array of visible nodes, passing ONLY the visible nodes to `super.add()`.
-     *
-     * @param {Array|Object} item
-     * @param {Boolean} [init=this.autoInitRecords]
-     * @returns {Number|Object[]|Neo.data.Model[]}
+     * Recursively collects a node and all of its descendants (visible or hidden) into a flat array.
+     * Used for deep removal operations.
+     * @param {Object|Neo.data.Record} node
+     * @param {Array} resultArr
+     * @protected
      */
-    add(item, init=this.autoInitRecords) {
-        let me    = this,
-            items = Array.isArray(item) ? item : [item];
+    collectAllDescendants(node, resultArr) {
+        resultArr.push(node);
 
-        if (items.length === 0) {
-            return items;
+        let key      = this.getKey(node),
+            children = this.#childrenMap.get(key) || [];
+
+        for (let i = 0, len = children.length; i < len; i++) {
+            this.collectAllDescendants(children[i], resultArr);
         }
-
-        let newRoots        = [],
-            affectedParents = new Set();
-
-        // 1. Ingest all data into maps
-        for (let i = 0, len = items.length; i < len; i++) {
-            let data     = items[i],
-                key      = me.getKey(data),
-                parentId = data.parentId || 'root';
-
-            me.#allRecordsMap.set(key, data);
-
-            if (!me.#childrenMap.has(parentId)) {
-                me.#childrenMap.set(parentId, []);
-            }
-            
-            // Avoid duplicates if data is re-added
-            if (!me.#childrenMap.get(parentId).includes(data)) {
-                me.#childrenMap.get(parentId).push(data);
-                affectedParents.add(parentId);
-            }
-
-            // 2. Identify new root nodes from the current batch.
-            // A node is a root if its parentId is 'root' or its parent does not exist in the dataset.
-            if (parentId === 'root' || !me.#allRecordsMap.has(parentId)) {
-                newRoots.push(data);
-                
-                if (parentId !== 'root') {
-                    // Re-parent to 'root' internally to heal the disconnected branch
-                    data.parentId = 'root';
-                    
-                    let siblings = me.#childrenMap.get(parentId);
-                    if (siblings) {
-                        let idx = siblings.indexOf(data);
-                        if (idx > -1) {
-                            siblings.splice(idx, 1);
-                        }
-                    }
-                    if (!me.#childrenMap.has('root')) {
-                        me.#childrenMap.set('root', []);
-                    }
-                    if (!me.#childrenMap.get('root').includes(data)) {
-                        me.#childrenMap.get('root').push(data);
-                        affectedParents.add('root');
-                    }
-                }
-            }
-        }
-
-        // 3. Update ARIA sibling stats for all affected parents
-        for (const parentId of affectedParents) {
-            me.updateSiblingStats(parentId);
-        }
-
-        // 4. Compute flat visible list ONLY for the new roots.
-        // Child nodes of an already expanded parent will be spliced in by expand(),
-        // so we don't want them appended to the end of the collection here.
-        let visibleItems = [];
-        for (let i = 0, len = newRoots.length; i < len; i++) {
-            me.collectVisibleDescendants(newRoots[i], visibleItems);
-        }
-
-        // 5. Delegate to super.add but ONLY for the visible items
-        // The hidden items remain in #allRecordsMap as raw data (Turbo Mode) until accessed via get()
-        return super.add(visibleItems, init);
     }
 
     /**
@@ -150,6 +85,173 @@ class TreeStore extends Store {
                 this.collectVisibleDescendants(children[i], resultArr);
             }
         }
+    }
+
+    /**
+     * @summary The definitive mutation hook for hierarchical TreeStore data.
+     *
+     * Unlike a standard `Neo.collection.Base` which manages a single flat array, the `TreeStore`
+     * operates on two distinct layers:
+     * 1. **The Structural Layer:** Deep, hierarchical maps (`#allRecordsMap`, `#childrenMap`) that represent the true tree.
+     * 2. **The Projection Layer:** A flat array of *currently visible* nodes used for high-performance virtual scrolling.
+     *
+     * This `splice` override intercepts all structural mutations (`add`, `remove`, `splice`) to ensure both layers
+     * remain perfectly synchronized.
+     *
+     * **Architecture & Mechanics:**
+     * - **Removals:** When a node is removed, this method recursively identifies and deletes all of its
+     *   deep descendants from the Structural Layer, preventing memory leaks and ghost nodes.
+     * - **Additions/Moves:** When nodes are added (or moved to a new parent via Drag & Drop), they are
+     *   ingested into the Structural Layer.
+     * - **ARIA Synchronization:** After any mutation, the O(N) `updateSiblingStats` is called on affected
+     *   parents to recalculate `siblingCount` and `siblingIndex`. This trade-off guarantees O(1) reads
+     *   during the `grid.Row` hot-path rendering.
+     * - **Projection Delta:** Finally, the method calculates the delta of *visible* nodes and delegates
+     *   only those specific visual changes to `super.splice()`.
+     *
+     * @param {Number|null} index
+     * @param {Number|Object[]} [removeCountOrToRemoveArray]
+     * @param {Object|Object[]} [toAddArray]
+     * @returns {Object} An object containing the addedItems & removedItems arrays
+     */
+    splice(index, removeCountOrToRemoveArray, toAddArray) {
+        let me              = this,
+            affectedParents = new Set(),
+            visibleToRemove = [],
+            visibleToAdd    = [],
+            nodesToRemove   = [],
+            i, len, node, key, parentId;
+
+        // --- 1. Process Removals ---
+        if (removeCountOrToRemoveArray) {
+            let toRemoveArray;
+
+            if (Array.isArray(removeCountOrToRemoveArray)) {
+                toRemoveArray = removeCountOrToRemoveArray;
+            } else if (Neo.isNumber(index) && Neo.isNumber(removeCountOrToRemoveArray)) {
+                // Map index-based removal to actual items from the flat visible view
+                toRemoveArray = me._items.slice(index, index + removeCountOrToRemoveArray);
+            }
+
+            if (toRemoveArray && toRemoveArray.length > 0) {
+                // 1a. Gather all target nodes and structurally detach them from their parents
+                for (i = 0, len = toRemoveArray.length; i < len; i++) {
+                    node = me.isItem(toRemoveArray[i]) ? toRemoveArray[i] : me.get(toRemoveArray[i]);
+                    if (node) {
+                        parentId = node.parentId || 'root';
+                        affectedParents.add(parentId);
+                        
+                        let siblings = me.#childrenMap.get(parentId);
+                        if (siblings) {
+                            let idx = siblings.indexOf(node);
+                            if (idx > -1) {
+                                siblings.splice(idx, 1);
+                            }
+                        }
+
+                        // Collect this node and ALL deep children to ensure full cleanup
+                        me.collectAllDescendants(node, nodesToRemove);
+                    }
+                }
+
+                // 1b. Deep map cleanup. We iterate the flattened descendants to ensure no ghost nodes
+                // remain in memory, calculating the visible delta simultaneously.
+                for (i = 0, len = nodesToRemove.length; i < len; i++) {
+                    node = nodesToRemove[i];
+                    key  = me.getKey(node);
+
+                    me.#allRecordsMap.delete(key);
+                    me.#childrenMap.delete(key);
+
+                    // Track items that must be removed from the base Collection's flat array
+                    if (me.indexOf(node) > -1) {
+                        visibleToRemove.push(node);
+                    }
+                }
+            }
+        }
+
+        // --- 2. Process Additions & Moves ---
+        if (toAddArray) {
+            let items    = Array.isArray(toAddArray) ? toAddArray : [toAddArray],
+                newRoots = [];
+
+            if (items.length > 0) {
+                // 2a. Ingest nodes into the Structural Layer maps
+                for (i = 0, len = items.length; i < len; i++) {
+                    let data = items[i];
+                    key      = me.getKey(data);
+                    parentId = data.parentId || 'root';
+
+                    me.#allRecordsMap.set(key, data);
+
+                    if (!me.#childrenMap.has(parentId)) {
+                        me.#childrenMap.set(parentId, []);
+                    }
+                    
+                    if (!me.#childrenMap.get(parentId).includes(data)) {
+                        me.#childrenMap.get(parentId).push(data);
+                        affectedParents.add(parentId);
+                    }
+
+                    // Identify nodes that need their flat visible descendants calculated
+                    if (parentId === 'root' || !me.#allRecordsMap.has(parentId)) {
+                        newRoots.push(data);
+                        
+                        // Auto-heal disconnected branches by reparenting them to 'root'
+                        if (parentId !== 'root') {
+                            data.parentId = 'root';
+                            let siblings = me.#childrenMap.get(parentId);
+                            if (siblings) {
+                                let idx = siblings.indexOf(data);
+                                if (idx > -1) {
+                                    siblings.splice(idx, 1);
+                                }
+                            }
+                            if (!me.#childrenMap.has('root')) {
+                                me.#childrenMap.set('root', []);
+                            }
+                            if (!me.#childrenMap.get('root').includes(data)) {
+                                me.#childrenMap.get('root').push(data);
+                                affectedParents.add('root');
+                            }
+                        }
+                    }
+                }
+
+                // 2b. Calculate the visible delta for all new roots
+                for (i = 0, len = newRoots.length; i < len; i++) {
+                    me.collectVisibleDescendants(newRoots[i], visibleToAdd);
+                }
+            }
+        }
+
+        // --- 3. Synchronize ARIA Stats ---
+        for (const pid of affectedParents) {
+            me.updateSiblingStats(pid);
+        }
+
+        // --- 4. Finalize Mutations ---
+        
+        // Delegate to super.splice ONLY if the Projection Layer (visible items) actually changed.
+        if (visibleToRemove.length > 0 || visibleToAdd.length > 0 || index === 0 && removeCountOrToRemoveArray === me.count) {
+             return super.splice(index, visibleToRemove, visibleToAdd);
+        }
+
+        // Fallback Mutation Event: If we added/removed hidden nodes, the visible array didn't change,
+        // so we skipped super.splice(). We must manually fire 'mutate' to keep systems like Store.count in sync.
+        if (toAddArray || removeCountOrToRemoveArray) {
+             me.fire('mutate', {
+                 addedItems     : toAddArray,
+                 preventBubbleUp: me.preventBubbleUp,
+                 removedItems   : nodesToRemove
+             });
+        }
+
+        return {
+            addedItems  : visibleToAdd,
+            removedItems: visibleToRemove
+        };
     }
 
     /**
