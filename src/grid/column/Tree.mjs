@@ -32,14 +32,8 @@ class Tree extends ComponentColumn {
      * @returns {Object}
      */
     applyRecordConfigs(config, record) {
-        let me        = this,
-            dataValue = record[me.dataField];
-
         return {
-            depth   : record.depth || 0,
-            expanded: record.expanded || false,
-            isLeaf  : record.isLeaf || false,
-            value   : dataValue,
+            value: record[this.dataField],
             ...config
         };
     }

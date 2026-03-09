@@ -23,21 +23,6 @@ class Tree extends Component {
          */
         baseCls: ['neo-grid-tree-cell'],
         /**
-         * @member {Number} depth_=0
-         * @reactive
-         */
-        depth_: 0,
-        /**
-         * @member {Boolean} expanded_=false
-         * @reactive
-         */
-        expanded_: false,
-        /**
-         * @member {Boolean} isLeaf_=false
-         * @reactive
-         */
-        isLeaf_: false,
-        /**
          * @member {Object} record_=null
          * @reactive
          */
@@ -73,41 +58,31 @@ class Tree extends Component {
     }
 
     /**
-     * @param {Number} value
-     * @param {Number} oldValue
+     * @param {Object} value
+     * @param {Object} oldValue
      * @protected
      */
-    afterSetDepth(value, oldValue) {
-        if (value !== undefined) {
-            let me    = this,
-                vdom  = me.vdom,
-                style = vdom.style || {};
+    afterSetRecord(value, oldValue) {
+        if (value) {
+            let me   = this,
+                vdom = me.vdom,
+                cls  = vdom.cn[1].cls || [];
 
-            style['--tree-depth'] = value;
-            vdom.style = style;
+            vdom.style = vdom.style || {};
+            vdom.style['--tree-depth'] = value.depth || 0;
+
+            NeoArray.remove(cls, ['is-collapsed', 'is-expanded', 'is-leaf']);
+
+            if (value.isLeaf) {
+                cls.push('is-leaf');
+            } else if (value.collapsed === false) { // Assuming Record/Model maps expanded to collapsed false
+                cls.push('is-expanded');
+            } else {
+                cls.push('is-collapsed');
+            }
+
+            vdom.cn[1].cls = cls;
             me.update();
-        }
-    }
-
-    /**
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
-     * @protected
-     */
-    afterSetExpanded(value, oldValue) {
-        if (value !== undefined) {
-            this.updateState();
-        }
-    }
-
-    /**
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
-     * @protected
-     */
-    afterSetIsLeaf(value, oldValue) {
-        if (value !== undefined) {
-            this.updateState();
         }
     }
 
@@ -117,13 +92,10 @@ class Tree extends Component {
      * @protected
      */
     afterSetValue(value, oldValue) {
-        if (value !== undefined) {
-            let me   = this,
-                vdom = me.vdom;
+        let me = this;
 
-            vdom.cn[2].html = value;
-            me.update();
-        }
+        me.vdom.cn[2].html = value;
+        me.update();
     }
 
     /**
@@ -131,41 +103,19 @@ class Tree extends Component {
      */
     onToggleClick(data) {
         let me            = this,
-            gridContainer = me.up('grid-container'),
+            gridContainer = me.parent?.gridContainer,
             store         = gridContainer?.store,
             record        = me.record;
 
-        if (!me.isLeaf && store && record) {
-            if (me.expanded) {
-                store.collapse(record);
-                gridContainer.fire('collapse', {record});
-            } else {
+        if (gridContainer && !record.isLeaf && store) {
+            if (record.collapsed) {
                 store.expand(record);
                 gridContainer.fire('expand', {record});
+            } else {
+                store.collapse(record);
+                gridContainer.fire('collapse', {record});
             }
         }
-    }
-
-    /**
-     * Updates the VDOM toggle classes based on isLeaf and expanded state
-     */
-    updateState() {
-        let me   = this,
-            vdom = me.vdom,
-            cls  = vdom.cn[1].cls || [];
-
-        NeoArray.remove(cls, ['is-collapsed', 'is-expanded', 'is-leaf']);
-
-        if (me.isLeaf) {
-            cls.push('is-leaf');
-        } else if (me.expanded) {
-            cls.push('is-expanded');
-        } else {
-            cls.push('is-collapsed');
-        }
-
-        vdom.cn[1].cls = cls;
-        me.update();
     }
 }
 
