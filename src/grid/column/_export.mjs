@@ -12,6 +12,7 @@ import Index            from './Index.mjs';
 import LinkedIn         from './LinkedIn.mjs';
 import Progress         from './Progress.mjs';
 import Sparkline        from './Sparkline.mjs';
+import Tree             from './Tree.mjs';
 
 export {
     AnimatedChange,
@@ -27,5 +28,6 @@ export {
     Index,
     LinkedIn,
     Progress,
-    Sparkline
+    Sparkline,
+    Tree
 };

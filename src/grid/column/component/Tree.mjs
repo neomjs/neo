@@ -18,6 +18,11 @@ class Tree extends Component {
          */
         ntype: 'grid-column-component-tree',
         /**
+         * @member {String[]} baseCls=['neo-grid-tree-cell']
+         * @protected
+         */
+        baseCls: ['neo-grid-tree-cell'],
+        /**
          * @member {Number} depth_=0
          * @reactive
          */
@@ -46,7 +51,7 @@ class Tree extends Component {
          * @member {Object} _vdom
          */
         _vdom:
-        {cls: ['neo-grid-tree-cell'], cn: [
+        {cn: [
             {cls: ['neo-tree-indent']},
             {cls: ['neo-tree-toggle']},
             {cls: ['neo-tree-content']}

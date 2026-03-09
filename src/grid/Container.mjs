@@ -50,7 +50,8 @@ class GridContainer extends BaseContainer {
         index           : column.Index,
         linkedin        : column.LinkedIn,
         progress        : column.Progress,
-        sparkline       : column.Sparkline
+        sparkline       : column.Sparkline,
+        tree            : column.Tree
     }
     /**
      * @member {Object} delayable
