@@ -98,11 +98,11 @@ class GridBody extends Component {
         /**
          * The pool size for recyclable cells.
          * Auto-calculated based on mounted columns range.
-         * @member {Number} cellPoolSize_=20
+         * @member {Number|null} cellPoolSize_=null
          * @protected
          * @reactive
          */
-        cellPoolSize_: 20,
+        cellPoolSize_: null,
         /**
          * Define which model field contains the value of colspan definitions
          * @member {String} colspanField='colspan'
@@ -1338,18 +1338,20 @@ class GridBody extends Component {
         visibleColumns[0] = startIndex; // update the array inline
         visibleColumns[1] = endIndex;
 
-        if (force || visibleColumns[0] <= mountedColumns[0] || visibleColumns[1] >= mountedColumns[1]) {
+        if (force || visibleColumns[0] <= mountedColumns[0] || visibleColumns[1] >= mountedColumns[1] || cellPoolSize === null) {
             startIndex = Math.max(0, visibleColumns[0] - bufferColumnRange);
             endIndex   = Math.min(countColumns - 1, visibleColumns[1] + bufferColumnRange);
 
-            if (endIndex - startIndex >= cellPoolSize) {
-                newPoolSize = endIndex - startIndex + 5;
-            }
+            newPoolSize = endIndex - startIndex + 1;
 
-            me.set({
-                cellPoolSize  : newPoolSize || cellPoolSize,
-                mountedColumns: [startIndex, endIndex]
-            })
+            if (newPoolSize !== cellPoolSize) {
+                me.set({
+                    cellPoolSize  : newPoolSize,
+                    mountedColumns: [startIndex, endIndex]
+                })
+            } else {
+                me.mountedColumns = [startIndex, endIndex];
+            }
         }
     }
 
