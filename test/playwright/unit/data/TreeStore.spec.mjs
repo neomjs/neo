@@ -673,3 +673,71 @@ test.describe('Neo.data.TreeStore (Clear override)', () => {
         expect(store.get('1-1')).toBeNull();
     });
 });
+
+test.describe('Neo.data.TreeStore (clearFilters override)', () => {
+    let store, TestModel;
+
+    class TestTreeModel7 extends TreeModel {
+        static config = {
+            className: 'Test.Unit.Data.TreeStore.TestTreeModel7',
+            fields: [
+                { name: 'id', type: 'String' },
+                { name: 'name', type: 'String' }
+            ]
+        }
+    }
+
+    TestModel = Neo.setupClass(TestTreeModel7);
+
+    test.afterEach(() => {
+        store?.destroy();
+    });
+
+    test('clearFilters() should completely restore the visible projection from structural maps', () => {
+        store = Neo.create(TreeStore, {
+            model: TestModel,
+            data : [
+                { id: '1', name: 'Root A', isLeaf: false, collapsed: true },
+                { id: '1-1', parentId: '1', name: 'Child A1', isLeaf: true },
+                { id: '2', name: 'Root B', isLeaf: false, collapsed: false },
+                { id: '2-1', parentId: '2', name: 'Child B1', isLeaf: true }
+            ]
+        });
+
+        // Verify initial state
+        expect(store.count).toBe(3); // Root A, Root B, Child B1
+
+        // Apply a filter that matches only Root A
+        store.filters = [{
+            property: 'name',
+            value   : 'Root A'
+        }];
+
+        // Only Root A should be visible
+        expect(store.count).toBe(1);
+        expect(store.items[0].id).toBe('1');
+        
+        // Ensure _keptNodes mask is active
+        expect(store._keptNodes).toBeDefined();
+        expect(store._keptNodes.has('1')).toBe(true);
+        expect(store._keptNodes.has('2')).toBe(false);
+
+        // Call clearFilters()
+        store.clearFilters();
+
+        // 1. The mask should be gone
+        expect(store._keptNodes).toBeNull();
+        
+        // 2. The filters array should be empty
+        expect(store.filters.length).toBe(0);
+        
+        // 3. The isFiltered flag should be false
+        expect(store[Symbol.for('isFiltered')]).toBe(false);
+
+        // 4. The projection should be fully restored to its pre-filtered state
+        expect(store.count).toBe(3);
+        expect(store.items[0].id).toBe('1');
+        expect(store.items[1].id).toBe('2');
+        expect(store.items[2].id).toBe('2-1');
+    });
+});
