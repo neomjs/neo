@@ -271,3 +271,110 @@ test.describe('Neo.data.TreeStore (childCount and isLeaf decoupling)', () => {
         expect(parent.childCount).toBe(0);
     });
 });
+
+test.describe('Neo.data.TreeStore (Hierarchical Sorting)', () => {
+    let store, TestModel;
+
+    test.beforeEach(() => {
+        class TestTreeModel4 extends TreeModel {
+            static config = {
+                className: 'Test.Unit.Data.TreeStore.TestTreeModel4',
+                fields: [
+                    { name: 'id', type: 'String' },
+                    { name: 'name', type: 'String' }
+                ]
+            }
+        }
+
+        TestModel = Neo.setupClass(TestTreeModel4);
+    });
+
+    test.afterEach(() => {
+        store?.destroy();
+    });
+
+    test('doSort should hierarchically sort siblings without mixing parents and children', () => {
+        store = Neo.create(TreeStore, {
+            model: TestModel,
+            data : [
+                { id: '1', name: 'Z', isLeaf: false, collapsed: false },
+                { id: '1-1', parentId: '1', name: 'B', isLeaf: true },
+                { id: '1-2', parentId: '1', name: 'A', isLeaf: true },
+                { id: '2', name: 'A', isLeaf: false, collapsed: false },
+                { id: '2-1', parentId: '2', name: 'Z', isLeaf: true },
+                { id: '2-2', parentId: '2', name: 'Y', isLeaf: true }
+            ]
+        });
+
+        // Current order: Z, B, A, A, Z, Y
+        
+        // Sort descending by name
+        store.sorters = [{
+            property: 'name',
+            direction: 'DESC'
+        }];
+
+        // Expected sorted roots (DESC): 'Z' (id '1'), 'A' (id '2')
+        // Expected sorted children of 'Z' (DESC): 'B' (id '1-1'), 'A' (id '1-2')
+        // Expected sorted children of 'A' (DESC): 'Z' (id '2-1'), 'Y' (id '2-2')
+        // Flattened view should strictly keep children with their parents.
+        
+        let items = store.items; // items is the flattened _items array
+        expect(items.length).toBe(6);
+        expect(items[0].id).toBe('1');   // Z
+        expect(items[1].id).toBe('1-1'); // B (child of Z)
+        expect(items[2].id).toBe('1-2'); // A (child of Z)
+        expect(items[3].id).toBe('2');   // A
+        expect(items[4].id).toBe('2-1'); // Z (child of A)
+        expect(items[5].id).toBe('2-2'); // Y (child of A)
+
+        // Sort ascending by name
+        store.sorters = [{
+            property: 'name',
+            direction: 'ASC'
+        }];
+        
+        items = store.items;
+        expect(items.length).toBe(6);
+        // Expected sorted roots (ASC): 'A' (id '2'), 'Z' (id '1')
+        // Expected sorted children of 'A' (ASC): 'Y' (id '2-2'), 'Z' (id '2-1')
+        // Expected sorted children of 'Z' (ASC): 'A' (id '1-2'), 'B' (id '1-1')
+        expect(items[0].id).toBe('2');   // A
+        expect(items[1].id).toBe('2-2'); // Y (child of A)
+        expect(items[2].id).toBe('2-1'); // Z (child of A)
+        expect(items[3].id).toBe('1');   // Z
+        expect(items[4].id).toBe('1-2'); // A (child of Z)
+        expect(items[5].id).toBe('1-1'); // B (child of Z)
+    });
+
+    test('doSort should work correctly in Turbo Mode (autoInitRecords: false)', () => {
+        store = Neo.create(TreeStore, {
+            model: TestModel,
+            autoInitRecords: false, // Turbo Mode
+            data : [
+                { id: '2', name: 'B', isLeaf: false, collapsed: false },
+                { id: '2-1', parentId: '2', name: 'X', isLeaf: true },
+                { id: '2-2', parentId: '2', name: 'A', isLeaf: true },
+                { id: '1', name: 'A', isLeaf: false, collapsed: false },
+                { id: '1-1', parentId: '1', name: 'Z', isLeaf: true }
+            ]
+        });
+
+        // Sort ascending by name
+        store.sorters = [{
+            property: 'name',
+            direction: 'ASC'
+        }];
+
+        let items = store.items; // items is the flattened _items array
+        expect(items.length).toBe(5);
+        expect(items[0].isRecord).toBeUndefined(); // Verify we are still in Turbo Mode
+
+        // Roots (ASC): 'A' (id '1'), 'B' (id '2')
+        expect(items[0].id).toBe('1');
+        expect(items[1].id).toBe('1-1'); // Z
+        expect(items[2].id).toBe('2');   // B
+        expect(items[3].id).toBe('2-2'); // A (child of B)
+        expect(items[4].id).toBe('2-1'); // X (child of B)
+    });
+});

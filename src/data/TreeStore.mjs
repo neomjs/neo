@@ -341,6 +341,149 @@ class TreeStore extends Store {
         }
     }
 
+
+    /**
+     * @summary Hierarchically sorts the TreeStore.
+     *
+     * Overrides `Store.doSort` because the default implementation blindly sorts the flat `_items` array,
+     * which destroys the parent-child relationships. This override:
+     * 1. Soft-hydrates all nodes (Turbo Mode support).
+     * 2. Iterates through the `#childrenMap` and sorts each parent's children array individually.
+     * 3. Re-projects the flat `_items` view recursively to maintain tree structural integrity.
+     *
+     * @param {Object[]} [items=this._items]  Ignored in TreeStore, as it sorts the entire tree structure.
+     * @param {Boolean} [silent=false]
+     * @protected
+     */
+    doSort(items=this._items, silent=false) {
+        let me            = this,
+            previousItems = me._items.slice(),
+            isSorted      = Symbol.for('isSorted'),
+            updatingIndex = Symbol.for('updatingIndex');
+
+        // 1. Turbo Mode Soft Hydration (from Store.mjs)
+        // Since we are sorting the *entire* tree, we must hydrate all nodes, not just visible ones.
+        if (!me.autoInitRecords && me.model?.hasComplexFields && me.sorters.length > 0) {
+            const
+                sortProperties = me.sorters.map(s => s.property),
+                len            = sortProperties.length;
+
+            me.#allRecordsMap.forEach(item => {
+                if (!RecordFactory.isRecord(item)) {
+                    for (let i = 0; i < len; i++) {
+                        const property = sortProperties[i];
+                        if (!Object.hasOwn(item, property)) {
+                            item[property] = me.resolveField(item, property);
+                        }
+                    }
+                }
+            });
+        }
+
+        // If there are no sorters, just clear the sorted flag and exit
+        if (!me.sortProperties || me.sortProperties.length === 0) {
+            me[isSorted] = false;
+            return;
+        }
+
+        // 2. Hierarchically sort each children array in the Structural Layer
+        for (let children of me.#childrenMap.values()) {
+            me.sortArray(children);
+        }
+
+        // 3. Re-project the flat _items array from the sorted Structural Layer
+        me._items = [];
+        let roots = me.#childrenMap.get('root') || [];
+        for (let i = 0, len = roots.length; i < len; i++) {
+            me.collectVisibleDescendants(roots[i], me._items);
+        }
+
+        // 4. Update the Collection keys map and isSorted flag
+        me._keys = me._items.map(item => me.getKey(item));
+        me[isSorted] = true;
+
+        // 5. Fire the sort event, passing the flat view items
+        if (!silent && me[updatingIndex] === 0) {
+            me.fire('sort', {
+                items: me._items,
+                previousItems,
+                scope: me
+            });
+        }
+    }
+
+    /**
+     * Sorts an array of records/objects based on the Store's current sorters.
+     * Extracted from `Neo.collection.Base` to sort localized child arrays.
+     * @param {Array} arr The array to sort.
+     * @protected
+     */
+    sortArray(arr) {
+        let me = this,
+            {sorters, sortDirections, sortProperties} = me,
+            countSorters      = sortProperties.length || 0,
+            hasSortByMethod   = false,
+            hasTransformValue = false,
+            i, mappedItems, obj, sorter, sortProperty, sortValue, val1, val2;
+
+        sorters.forEach(key => {
+            if (key.sortBy)            hasSortByMethod   = true;
+            if (key.useTransformValue) hasTransformValue = true;
+        });
+
+        if (hasSortByMethod) {
+            arr.sort((a, b) => {
+                i = 0;
+                for (; i < countSorters; i++) {
+                    sorter    = sorters[i];
+                    sortValue = sorter[sorter.sortBy ? 'sortBy' : 'defaultSortBy'](a, b);
+                    if (sortValue !== 0) return sortValue;
+                }
+                return 0;
+            });
+        } else {
+            if (hasTransformValue) {
+                mappedItems = arr.map((item, index) => {
+                    obj = {index, original: item};
+                    i   = 0;
+                    for (; i < countSorters; i++) {
+                        if (sorters[i].useTransformValue) {
+                            obj[sortProperties[i]] = sorters[i].transformValue(item[sortProperties[i]]);
+                        } else {
+                            obj[sortProperties[i]] = item[sortProperties[i]];
+                        }
+                    }
+                    return obj;
+                });
+            } else {
+                mappedItems = arr;
+            }
+
+            mappedItems.sort((a, b) => {
+                i = 0;
+                for (; i < countSorters; i++) {
+                    sortProperty = sortProperties[i];
+                    val1         = a[sortProperty];
+                    val2         = b[sortProperty];
+
+                    if (val1 == null && val2 != null) return  1;
+                    if (val1 != null && val2 == null) return -1;
+                    if (val1 > val2) return  1 * sortDirections[i];
+                    if (val1 < val2) return -1 * sortDirections[i];
+                }
+                return 0;
+            });
+
+            if (hasTransformValue) {
+                // Map the sorted mappedItems back into the original array in place
+                let sortedOriginals = mappedItems.map(el => el.original);
+                for (i = 0; i < arr.length; i++) {
+                    arr[i] = sortedOriginals[i];
+                }
+            }
+        }
+    }
+
     /**
      * Expands a node, injecting its children into the flat grid view.
      * Supports asynchronous loading if children are missing and an API/URL is configured.
