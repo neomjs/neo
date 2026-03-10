@@ -636,7 +636,10 @@ class Store extends Collection {
             }
 
             // Replace the raw data with the record instance in the current (filtered) collection
-            me.map.set(pk, record);
+            // ONLY if it was actually in the map. Hidden/filtered items should not bleed into the active map.
+            if (me.map.has(pk)) {
+                me.map.set(pk, record);
+            }
 
             if (index !== -1) {
                 me._items[index] = record
@@ -646,7 +649,7 @@ class Store extends Collection {
             // instead of the raw object
             if (me.trackInternalId) {
                 const internalKey = me.getInternalKey(record);
-                if (internalKey) {
+                if (internalKey && me.internalIdMap.has(internalKey)) {
                     me.internalIdMap.set(internalKey, record)
                 }
             }
@@ -655,14 +658,15 @@ class Store extends Collection {
             if (me.allItems) {
                 const masterIndex = me.allItems.indexOf(item);
                 if (masterIndex !== -1) {
-                    me.allItems.map.set(pk, record);
                     me.allItems._items[masterIndex] = record;
-
-                    if (me.allItems.trackInternalId) {
-                        const internalKey = me.getInternalKey(record);
-                        if (internalKey) {
-                            me.allItems.internalIdMap.set(internalKey, record)
-                        }
+                }
+                if (me.allItems.map.has(pk)) {
+                    me.allItems.map.set(pk, record);
+                }
+                if (me.allItems.trackInternalId) {
+                    const internalKey = me.getInternalKey(record);
+                    if (internalKey && me.allItems.internalIdMap.has(internalKey)) {
+                        me.allItems.internalIdMap.set(internalKey, record)
                     }
                 }
             }
