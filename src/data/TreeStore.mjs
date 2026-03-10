@@ -93,11 +93,16 @@ class TreeStore extends Store {
      * @protected
      */
     collectVisibleDescendants(node, resultArr) {
+        let key = this.getKey(node);
+
+        if (this._keptNodes && !this._keptNodes.has(key)) {
+            return;
+        }
+
         resultArr.push(node);
 
         if (node.collapsed === false) {
-            let key      = this.getKey(node),
-                children = this.#childrenMap.get(key) || [];
+            let children = this.#childrenMap.get(key) || [];
 
             for (let i = 0, len = children.length; i < len; i++) {
                 this.collectVisibleDescendants(children[i], resultArr);
@@ -346,14 +351,22 @@ class TreeStore extends Store {
      * @summary Hierarchically sorts the TreeStore.
      *
      * Overrides `Store.doSort` because the default implementation blindly sorts the flat `_items` array,
-     * which destroys the parent-child relationships. This override:
-     * 1. Soft-hydrates all nodes (Turbo Mode support).
-     * 2. Iterates through the `#childrenMap` and sorts each parent's children array individually.
-     * 3. Re-projects the flat `_items` view recursively to maintain tree structural integrity.
+     * which would destroy the parent-child relationships (e.g., an alphabetical sort would mix
+     * all parents and children globally).
      *
-     * @param {Object[]} [items=this._items]  Ignored in TreeStore, as it sorts the entire tree structure.
+     * **Architectural Mechanics:**
+     * 1. **Soft Hydration:** If 'Turbo Mode' is active, the entire `#allRecordsMap` is soft-hydrated
+     *    to ensure complex fields (like calculated fields) are evaluable without full Record instantiation.
+     * 2. **Localized Sorting:** The algorithm iterates through the `#childrenMap` and applies the
+     *    active Sorters individually to each parent's array of children.
+     * 3. **Projection Re-calculation:** After the Structural Layer is sorted, the flat `_items` projection
+     *    is completely rebuilt via a top-down recursive traversal (`collectVisibleDescendants`), ensuring
+     *    the visual output remains strictly contiguous (parents immediately followed by their children).
+     *
+     * @param {Object[]} [items=this._items] Ignored in TreeStore, as it sorts the entire tree structure.
      * @param {Boolean} [silent=false]
      * @protected
+     * @fires sort
      */
     doSort(items=this._items, silent=false) {
         let me            = this,
@@ -599,6 +612,130 @@ class TreeStore extends Store {
 
                 me.fire('loadError', { error, record: node });
             }
+        }
+    }
+
+    /**
+     * @summary Overrides standard Collection filtering to provide "ancestor-aware" tree filtering.
+     *
+     * Unlike a flat data store where filtering simply hides non-matching rows, a TreeGrid
+     * must preserve the hierarchical context of any matching node. If a user searches
+     * for a deeply nested file, hiding its parent folders would break the visual tree structure
+     * and orphan the result.
+     *
+     * **Architectural Mechanics:**
+     * 1. **Soft Hydration:** If 'Turbo Mode' is active, the entire `#allRecordsMap` is soft-hydrated
+     *    to ensure complex fields (like calculated 'name' paths) are evaluable without full Record instantiation.
+     * 2. **Recursive Evaluation:** A top-down recursive pass (`evaluateNode`) evaluates every node against the active filters.
+     * 3. **Ancestor Preservation:** If any descendant matches the filter, its `isKept` flag bubbles up,
+     *    forcing all of its ancestors to also be kept and automatically expanded (`collapsed = false`),
+     *    even if the ancestors themselves fail the filter string test.
+     * 4. **Descendant Preservation:** If an ancestor explicitly matches the filter, its `ancestorMatched` flag
+     *    cascades down, keeping all of its descendants visible and structurally intact.
+     * 5. **Mask Application:** A `_keptNodes` Set is generated. The flat `_items` projection (`collectVisibleDescendants`)
+     *    is then re-calculated using this Set as a visibility mask.
+     *
+     * @protected
+     * @fires filter
+     */
+    filter() {
+        let me = this,
+            isFilteredSymbol = Symbol.for('isFiltered'),
+            updatingIndex    = Symbol.for('updatingIndex');
+
+        // 1. Soft hydration (Turbo Mode)
+        if (!me.autoInitRecords && me.model?.hasComplexFields && me.filters.length > 0) {
+            const activeFilters    = me.filters.filter(f => !f.disabled && f.value !== null),
+                  filterProperties = activeFilters.map(f => f.property),
+                  len              = filterProperties.length;
+
+            if (len > 0) {
+                me.#allRecordsMap.forEach(item => {
+                    if (!RecordFactory.isRecord(item)) {
+                        for (let i = 0; i < len; i++) {
+                            const property = filterProperties[i];
+                            if (!Object.hasOwn(item, property)) {
+                                item[property] = me.resolveField(item, property);
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        const activeFilters = me.filters.filter(f => !f.disabled && f.value !== null);
+        const isFiltered    = activeFilters.length > 0;
+        me[isFilteredSymbol] = isFiltered;
+
+        if (!isFiltered) {
+            me._keptNodes = null;
+        } else {
+            me._keptNodes = new Set();
+            
+            const evaluateNode = (node, ancestorMatched) => {
+                let key = me.getKey(node);
+                
+                let matchesSelf = true;
+                for (let i = 0; i < activeFilters.length; i++) {
+                    if (activeFilters[i].isFiltered(node)) {
+                        matchesSelf = false;
+                        break;
+                    }
+                }
+                
+                let isKept                = matchesSelf || ancestorMatched;
+                let hasMatchingDescendant = false;
+                
+                let children = me.#childrenMap.get(key) || [];
+                for (let i = 0; i < children.length; i++) {
+                    let childKept = evaluateNode(children[i], isKept);
+                    if (childKept) {
+                        hasMatchingDescendant = true;
+                    }
+                }
+                
+                if (hasMatchingDescendant) {
+                    isKept = true;
+                    // Auto-expand ancestors to reveal the matched descendant
+                    if (!matchesSelf && node.collapsed !== false) {
+                        node.collapsed = false;
+                        if (node.isRecord) {
+                            me.onRecordChange({
+                                fields: [{name: 'collapsed', oldValue: true, value: false}],
+                                model : me.model,
+                                record: node
+                            });
+                        }
+                    }
+                }
+                
+                if (isKept) {
+                    me._keptNodes.add(key);
+                }
+                
+                return isKept || hasMatchingDescendant;
+            };
+
+            let roots = me.#childrenMap.get('root') || [];
+            for (let i = 0; i < roots.length; i++) {
+                evaluateNode(roots[i], false);
+            }
+        }
+
+        // Re-project the flat array based on the new _keptNodes mask
+        me._items = [];
+        let roots = me.#childrenMap.get('root') || [];
+        for (let i = 0; i < roots.length; i++) {
+            me.collectVisibleDescendants(roots[i], me._items);
+        }
+        
+        me._keys = me._items.map(item => me.getKey(item));
+
+        if (me[updatingIndex] === 0) {
+            me.fire('filter', {
+                isFiltered: me[isFilteredSymbol],
+                scope     : me
+            });
         }
     }
 
