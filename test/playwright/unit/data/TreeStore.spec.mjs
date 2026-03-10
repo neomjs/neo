@@ -618,3 +618,58 @@ test.describe('Neo.data.TreeStore (Ancestor-Aware Filtering)', () => {
         expect(store.get('1-1').childCount).toBe(2); // Target Node and Other Node
     });
 });
+
+test.describe('Neo.data.TreeStore (Clear override)', () => {
+    let store, TestModel;
+
+    class TestTreeModel6 extends TreeModel {
+        static config = {
+            className: 'Test.Unit.Data.TreeStore.TestTreeModel6',
+            fields: [
+                { name: 'id', type: 'String' },
+                { name: 'name', type: 'String' }
+            ]
+        }
+    }
+
+    TestModel = Neo.setupClass(TestTreeModel6);
+
+    test.afterEach(() => {
+        store?.destroy();
+    });
+
+    test('clear() should wipe both visible items and internal structural maps', () => {
+        store = Neo.create(TreeStore, {
+            model: TestModel,
+            data : [
+                { id: '1', name: 'Root A', isLeaf: false, collapsed: false },
+                { id: '1-1', parentId: '1', name: 'Child A1', isLeaf: true }
+            ]
+        });
+
+        // Ensure initially populated
+        expect(store.count).toBe(2); // _items array length
+        
+        // We can test maps indirectly via get() which uses #allRecordsMap and #childrenMap internally 
+        // to return the item or expand nodes. But we'll test the actual properties via private access 
+        // fallback in test environment or just verify their size if possible. 
+        // Let's use stringification or direct map checks if available, or just verify get() fails.
+        // Actually, we can check the size of the maps by peeking or checking side-effects.
+        expect(store.get('1')).toBeDefined();
+        
+        // Let's check size via stringification or some reflection if possible. 
+        // Since they are private (#allRecordsMap), we cannot access them directly via dot notation.
+        // However, we can assert that get() completely fails even for hidden items after clear().
+
+        store.clear();
+
+        // 1. The visible array must be empty
+        expect(store.count).toBe(0);
+        expect(store.items.length).toBe(0);
+
+        // 2. The structural maps must be empty. If they weren't, `get()` would still find them 
+        // because get() falls back to #allRecordsMap.
+        expect(store.get('1')).toBeNull();
+        expect(store.get('1-1')).toBeNull();
+    });
+});

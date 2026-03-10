@@ -69,6 +69,31 @@ class TreeStore extends Store {
     #childrenMap = new Map()
 
     /**
+     * @summary Overrides the inherited `clear` method to prevent memory leaks and split-brain states.
+     *
+     * The base `Store.clear()` only truncates the flat `_items` array (the Projection Layer).
+     * If this override didn't exist, calling `clear()` on a TreeStore would leave `#allRecordsMap`
+     * and `#childrenMap` fully populated, causing a massive memory leak and putting the UI out
+     * of sync with the data model.
+     *
+     * This method ensures both the Projection Layer (via `super.clear()`) and the Structural Layer
+     * are completely wiped. It also resets the `_keptNodes` mask used for filtering.
+     */
+    clear() {
+        let me = this;
+        
+        me.#allRecordsMap.clear();
+        me.#childrenMap.clear();
+        
+        if (me._keptNodes) {
+            me._keptNodes.clear();
+            me._keptNodes = null;
+        }
+
+        super.clear();
+    }
+
+    /**
      * Recursively collects a node and all of its descendants (visible or hidden) into a flat array.
      * Used for deep removal operations.
      * @param {Object|Neo.data.Record} node
