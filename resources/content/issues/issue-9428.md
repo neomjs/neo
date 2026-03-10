@@ -1,24 +1,26 @@
 ---
 id: 9428
 title: 'TreeStore: Implement hierarchical sorting for doSort override'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
   - architecture
   - grid
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-03-10T13:15:48Z'
-updatedAt: '2026-03-10T13:36:53Z'
+updatedAt: '2026-03-10T13:58:27Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9428'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: 9404
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-03-10T13:58:27Z'
 ---
 # TreeStore: Implement hierarchical sorting for doSort override
 
@@ -58,4 +60,20 @@ Implement a custom `doSort()` override in `Neo.data.TreeStore` that sorts siblin
 > 3. Assert that the resulting flat `_items` array correctly orders siblings *while strictly maintaining the parent -> child contiguous sequences*. Parents must not be mixed globally with children.
 > 4. Ensure the test covers both **Turbo Mode** (`autoInitRecords: false` using raw objects) and standard mode (Records).
 
+- 2026-03-10T13:54:01Z @tobiu referenced in commit `5eaf2d6` - "feat: TreeStore hierarchical sorting override (#9428)"
+- 2026-03-10T13:57:51Z @tobiu assigned to @tobiu
+### @tobiu - 2026-03-10T13:58:02Z
+
+**Input from Gemini 3.1 Pro:**
+
+> ✦ I have successfully implemented the hierarchical sorting logic for the `TreeStore` data layer:
+> 
+> 1. **Turbo Mode support**: `TreeStore` correctly soft-hydrates the entire `allRecordsMap` before sorting, ensuring the complex fields (like resolving 'name' from references if needed) are evaluated on raw nodes without instantiating them into `Neo.data.Record` objects unless strictly necessary.
+> 2. **Hierarchical Sorting**: Adapted the versatile `sortArray` logic from `Neo.collection.Base` to act locally on each array inside `TreeStore.#childrenMap`. This correctly sorts all siblings under a shared parent.
+> 3. **Flat Tree Projection Re-calculation**: After mapping the internal hierarchies, it utilizes `collectVisibleDescendants` starting from the `root` elements to generate a new correctly ordered contiguous `_items` array for the `GridBody` virtual scroller. 
+> 4. **Tested in Playwright**: 2 test cases were added to `test/playwright/unit/data/TreeStore.spec.mjs`, covering deep hierarchical sorting for both ASC and DESC orders, and enforcing that the hierarchy handles `Turbo Mode` seamlessly.
+> 
+> Closing the ticket!
+
+- 2026-03-10T13:58:27Z @tobiu closed this issue
 
