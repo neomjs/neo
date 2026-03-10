@@ -11,10 +11,10 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-03-09T10:43:40Z'
-updatedAt: '2026-03-09T11:10:33Z'
+updatedAt: '2026-03-10T13:35:16Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9404'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues:
   - '[x] 9405 Create `Neo.data.TreeModel`'
@@ -23,7 +23,7 @@ subIssues:
   - '[x] 9408 Grid Core Integration & TreeGrid Accessibility'
   - '[ ] 9409 CSS Animations for TreeGrid Expand/Collapse'
   - '[x] 9410 TreeGrid Documentation & Examples'
-  - '[ ] 9411 TreeGrid Unit Tests (Data & Logic)'
+  - '[x] 9411 TreeGrid Unit Tests (Data & Logic)'
   - '[ ] 9412 TreeGrid Component Tests (UI & Interactions)'
   - '[x] 9413 Create Async Subtree Loading for `Neo.data.TreeStore`'
   - '[x] 9414 Refactor `Neo.data.Store` to unify Record Hydration'
@@ -38,8 +38,11 @@ subIssues:
   - '[x] 9425 Refactor Tree cell component architecture for performance'
   - '[x] 9426 Refactor Tree column and component reactivity'
   - '[x] 9427 Fix TreeStore projection mutations and Row VDOM recycling'
-subIssuesCompleted: 15
-subIssuesTotal: 21
+  - '[ ] 9428 TreeStore: Implement hierarchical sorting for doSort override'
+  - '[ ] 9429 TreeStore: Implement ancestor-aware filtering for filter override'
+  - '[x] 9430 TreeModel: Introduce childCount to decouple isLeaf state from emptiness'
+subIssuesCompleted: 17
+subIssuesTotal: 24
 blockedBy: []
 blocking: []
 ---
@@ -95,4 +98,13 @@ The Tree Grid implementation is designed to integrate seamlessly with the existi
 - 2026-03-09T20:22:37Z @tobiu added sub-issue #9425
 - 2026-03-10T10:32:06Z @tobiu added sub-issue #9426
 - 2026-03-10T11:33:25Z @tobiu added sub-issue #9427
+- 2026-03-10T13:16:02Z @tobiu added sub-issue #9428
+- 2026-03-10T13:16:05Z @tobiu added sub-issue #9429
+- 2026-03-10T13:25:32Z @tobiu added sub-issue #9430
+### @tobiu - 2026-03-10T13:35:16Z
+
+https://github.com/user-attachments/assets/4787104c-fb87-479f-8c9a-00abc29c1ca7
+
+wip
+
 
