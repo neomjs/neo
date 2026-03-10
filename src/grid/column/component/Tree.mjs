@@ -23,10 +23,30 @@ class Tree extends Component {
          */
         baseCls: ['neo-grid-tree-cell'],
         /**
-         * @member {Object} record_=null
+         * @member {Boolean} collapsed_=true
          * @reactive
          */
-        record_: null,
+        collapsed_: true,
+        /**
+         * @member {Number} depth_=0
+         * @reactive
+         */
+        depth_: 0,
+        /**
+         * @member {Boolean} hasError_=false
+         * @reactive
+         */
+        hasError_: false,
+        /**
+         * @member {Boolean} isLeaf_=true
+         * @reactive
+         */
+        isLeaf_: true,
+        /**
+         * @member {Boolean} isNodeLoading_=false
+         * @reactive
+         */
+        isNodeLoading_: false,
         /**
          * @member {String|Number|null} value_=null
          * @reactive
@@ -58,32 +78,53 @@ class Tree extends Component {
     }
 
     /**
-     * @param {Object} value
-     * @param {Object} oldValue
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
      * @protected
      */
-    afterSetRecord(value, oldValue) {
-        if (value) {
-            let me   = this,
-                vdom = me.vdom,
-                cls  = vdom.cn[1].cls || [];
+    afterSetCollapsed(value, oldValue) {
+        this.updateIconCls();
+    }
 
-            vdom.style = vdom.style || {};
-            vdom.style['--tree-depth'] = value.depth || 0;
+    /**
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetDepth(value, oldValue) {
+        let me   = this,
+            vdom = me.vdom;
 
-            NeoArray.remove(cls, ['is-collapsed', 'is-expanded', 'is-leaf']);
+        vdom.style = vdom.style || {};
+        vdom.style['--tree-depth'] = value;
+        me.update();
+    }
 
-            if (value.isLeaf) {
-                cls.push('is-leaf');
-            } else if (value.collapsed === false) { // Assuming Record/Model maps expanded to collapsed false
-                cls.push('is-expanded');
-            } else {
-                cls.push('is-collapsed');
-            }
+    /**
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetHasError(value, oldValue) {
+        this.updateIconCls();
+    }
 
-            vdom.cn[1].cls = cls;
-            me.update();
-        }
+    /**
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetIsLeaf(value, oldValue) {
+        this.updateIconCls();
+    }
+
+    /**
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetIsNodeLoading(value, oldValue) {
+        this.updateIconCls();
     }
 
     /**
@@ -107,8 +148,8 @@ class Tree extends Component {
             store         = gridContainer?.store,
             record        = me.record;
 
-        if (gridContainer && !record.isLeaf && store) {
-            if (record.collapsed) {
+        if (gridContainer && !me.isLeaf && store && record) {
+            if (me.collapsed) {
                 store.expand(record);
                 gridContainer.fire('expand', {record});
             } else {
@@ -116,6 +157,33 @@ class Tree extends Component {
                 gridContainer.fire('collapse', {record});
             }
         }
+    }
+
+    /**
+     * Updates the CSS classes for the toggle icon based on node state
+     * @protected
+     */
+    updateIconCls() {
+        let me   = this,
+            vdom = me.vdom,
+            cls  = vdom.cn[1].cls || [];
+
+        NeoArray.remove(cls, ['has-error', 'is-collapsed', 'is-expanded', 'is-leaf', 'is-loading']);
+
+        if (me.isNodeLoading) {
+            cls.push('is-loading');
+        } else if (me.hasError) {
+            cls.push('has-error');
+        } else if (me.isLeaf) {
+            cls.push('is-leaf');
+        } else if (me.collapsed) {
+            cls.push('is-collapsed');
+        } else {
+            cls.push('is-expanded');
+        }
+
+        vdom.cn[1].cls = cls;
+        me.update();
     }
 }
 
