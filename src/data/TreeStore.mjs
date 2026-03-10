@@ -2,6 +2,11 @@ import RecordFactory from './RecordFactory.mjs';
 import Store         from './Store.mjs';
 import TreeModel     from './TreeModel.mjs';
 
+const
+    isFiltered    = Symbol.for('isFiltered'),
+    isSorted      = Symbol.for('isSorted'),
+    updatingIndex = Symbol.for('updatingIndex');
+
 /**
  * @summary Manages hierarchical data by projecting a visible subset into a flat array for virtual scrolling.
  *
@@ -106,9 +111,7 @@ class TreeStore extends Store {
      * @param {Boolean} [silent=false] True to prevent firing the 'filter' event
      */
     clearFilters(silent=false) {
-        let me               = this,
-            isFilteredSymbol = Symbol.for('isFiltered'),
-            updatingIndex    = Symbol.for('updatingIndex');
+        let me = this;
 
         me.filters = [];
         
@@ -117,7 +120,7 @@ class TreeStore extends Store {
             me._keptNodes = null;
         }
 
-        me[isFilteredSymbol] = false;
+        me[isFiltered] = false;
 
         // Re-project the flat array from the unfiltered structural maps
         me._items = [];
@@ -269,6 +272,8 @@ class TreeStore extends Store {
         }
 
         // --- 2. Process Additions & Moves ---
+        let insertIndex = index;
+
         if (toAddArray) {
             let items    = Array.isArray(toAddArray) ? toAddArray : [toAddArray],
                 newRoots = [];
@@ -343,12 +348,31 @@ class TreeStore extends Store {
                                 affectedParents.add('root');
                             }
                         }
+                    } else {
+                        let parentNode = me.#allRecordsMap.get(parentId);
+                        if (parentNode.collapsed === false && me.indexOf(parentNode) > -1) {
+                            me.collectVisibleDescendants(data, visibleToAdd);
+
+                            if (!Neo.isNumber(insertIndex)) {
+                                let calcIndex = me.getInsertIndexForNode(data);
+                                if (calcIndex > -1) {
+                                    insertIndex = calcIndex;
+                                }
+                            }
+                        }
                     }
                 }
 
                 // 2b. Calculate the visible delta for all new roots
                 for (i = 0, len = newRoots.length; i < len; i++) {
                     me.collectVisibleDescendants(newRoots[i], visibleToAdd);
+
+                    if (!Neo.isNumber(insertIndex)) {
+                        let calcIndex = me.getInsertIndexForNode(newRoots[i]);
+                        if (calcIndex > -1) {
+                            insertIndex = calcIndex;
+                        }
+                    }
                 }
             }
         }
@@ -360,9 +384,26 @@ class TreeStore extends Store {
 
         // --- 4. Finalize Mutations ---
 
+        if (me[isFiltered]) {
+            me.filter();
+            
+            // Collection fires mutate if added or removed items > 0
+            if (toAddArray || removeCountOrToRemoveArray) {
+                 me.fire('mutate', {
+                     addedItems     : toAddArray || [],
+                     preventBubbleUp: me.preventBubbleUp,
+                     removedItems   : nodesToRemove
+                 });
+            }
+            return {
+                addedItems  : toAddArray || [],
+                removedItems: nodesToRemove
+            };
+        }
+
         // Delegate to super.splice ONLY if the Projection Layer (visible items) actually changed.
         if (visibleToRemove.length > 0 || visibleToAdd.length > 0 || index === 0 && removeCountOrToRemoveArray === me.count) {
-             return super.splice(index, visibleToRemove, visibleToAdd);
+             return super.splice(insertIndex, visibleToRemove, visibleToAdd);
         }
 
         // Fallback Mutation Event: If we added/removed hidden nodes, the visible array didn't change,
@@ -444,9 +485,7 @@ class TreeStore extends Store {
      */
     doSort(items=this._items, silent=false) {
         let me            = this,
-            previousItems = me._items.slice(),
-            isSorted      = Symbol.for('isSorted'),
-            updatingIndex = Symbol.for('updatingIndex');
+            previousItems = me._items.slice();
 
         // 1. Turbo Mode Soft Hydration (from Store.mjs)
         // Since we are sorting the *entire* tree, we must hydrate all nodes, not just visible ones.
@@ -718,9 +757,7 @@ class TreeStore extends Store {
      * @fires filter
      */
     filter() {
-        let me = this,
-            isFilteredSymbol = Symbol.for('isFiltered'),
-            updatingIndex    = Symbol.for('updatingIndex');
+        let me = this;
 
         // 1. Soft hydration (Turbo Mode)
         if (!me.autoInitRecords && me.model?.hasComplexFields && me.filters.length > 0) {
@@ -743,10 +780,10 @@ class TreeStore extends Store {
         }
 
         const activeFilters = me.filters.filter(f => !f.disabled && f.value !== null);
-        const isFiltered    = activeFilters.length > 0;
-        me[isFilteredSymbol] = isFiltered;
+        const isFilteredFlag = activeFilters.length > 0;
+        me[isFiltered] = isFilteredFlag;
 
-        if (!isFiltered) {
+        if (!isFilteredFlag) {
             me._keptNodes = null;
         } else {
             me._keptNodes = new Set();
@@ -818,7 +855,7 @@ class TreeStore extends Store {
 
         if (me[updatingIndex] === 0) {
             me.fire('filter', {
-                isFiltered: me[isFilteredSymbol],
+                isFiltered: me[isFiltered],
                 scope     : me
             });
         }
@@ -845,6 +882,55 @@ class TreeStore extends Store {
         }
 
         return item || null;
+    }
+
+    /**
+     * Calculates the target flat array index for a newly added node.
+     * @param {Object|Neo.data.Record} node
+     * @returns {Number}
+     * @protected
+     */
+    getInsertIndexForNode(node) {
+        let me       = this,
+            parentId = node.parentId || 'root',
+            siblings = me.#childrenMap.get(parentId);
+
+        if (!siblings) return -1;
+
+        let nodeIndex = siblings.indexOf(node);
+
+        if (nodeIndex > 0) {
+            for (let i = nodeIndex - 1; i >= 0; i--) {
+                let prevSibling            = siblings[i],
+                    prevVisibleDescendants = [];
+
+                me.collectVisibleDescendants(prevSibling, prevVisibleDescendants);
+
+                if (prevVisibleDescendants.length > 0) {
+                    let lastNode  = prevVisibleDescendants[prevVisibleDescendants.length - 1],
+                        lastIndex = me.indexOf(lastNode);
+
+                    if (lastIndex > -1) {
+                        return lastIndex + 1;
+                    }
+                }
+            }
+        }
+
+        if (parentId !== 'root') {
+            let parentNode  = me.get(parentId),
+                parentIndex = me.indexOf(parentNode);
+
+            if (parentIndex > -1) {
+                return parentIndex + 1;
+            }
+        }
+
+        if (parentId === 'root' && nodeIndex === 0) {
+            return 0;
+        }
+
+        return me.count;
     }
 
     /**

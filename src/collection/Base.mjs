@@ -6,13 +6,13 @@ import Observable     from '../core/Observable.mjs';
 import Sorter         from './Sorter.mjs';
 
 const
-    countMutations     = Symbol('countMutations'),
+    countMutations     = Symbol.for('countMutations'),
     initialIndexSymbol = Symbol.for('initialIndex'),
-    isFiltered         = Symbol('isFiltered'),
+    isFiltered         = Symbol.for('isFiltered'),
     isSorted           = Symbol.for('isSorted'),
-    silentUpdateMode   = Symbol('silentUpdateMode'),
-    toAddArray         = Symbol('toAddArray'),
-    toRemoveArray      = Symbol('toRemoveArray'),
+    silentUpdateMode   = Symbol.for('silentUpdateMode'),
+    toAddArray         = Symbol.for('toAddArray'),
+    toRemoveArray      = Symbol.for('toRemoveArray'),
     updatingIndex      = Symbol.for('updatingIndex');
 
 /**
