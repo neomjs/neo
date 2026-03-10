@@ -45,8 +45,9 @@ subIssues:
   - '[x] 9432 TreeStore: Override clear() to prevent memory leaks and split-brain states'
   - '[ ] 9433 TreeStore: Implement bulk expandAll() and collapseAll() methods'
   - '[x] 9434 TreeStore: Decouple clearFilters() from legacy allItems pattern'
-subIssuesCompleted: 22
-subIssuesTotal: 28
+  - '[x] 9435 TreeStore: Fix visible projection for dynamic child additions to expanded parents'
+subIssuesCompleted: 23
+subIssuesTotal: 29
 blockedBy: []
 blocking: []
 ---
@@ -115,4 +116,5 @@ wip
 - 2026-03-10T14:26:56Z @tobiu added sub-issue #9432
 - 2026-03-10T14:27:16Z @tobiu added sub-issue #9433
 - 2026-03-10T14:27:18Z @tobiu added sub-issue #9434
+- 2026-03-10T21:17:56Z @tobiu added sub-issue #9435
 
