@@ -19,10 +19,10 @@ parentIssue: null
 subIssues:
   - '[x] 9405 Create `Neo.data.TreeModel`'
   - '[x] 9406 Create `Neo.data.TreeStore`'
-  - '[ ] 9407 Create `Neo.grid.column.Tree` & Cell Component'
-  - '[ ] 9408 Grid Core Integration & TreeGrid Accessibility'
+  - '[x] 9407 Create `Neo.grid.column.Tree` & Cell Component'
+  - '[x] 9408 Grid Core Integration & TreeGrid Accessibility'
   - '[ ] 9409 CSS Animations for TreeGrid Expand/Collapse'
-  - '[ ] 9410 TreeGrid Documentation & Examples'
+  - '[x] 9410 TreeGrid Documentation & Examples'
   - '[ ] 9411 TreeGrid Unit Tests (Data & Logic)'
   - '[ ] 9412 TreeGrid Component Tests (UI & Interactions)'
   - '[x] 9413 Create Async Subtree Loading for `Neo.data.TreeStore`'
@@ -33,8 +33,11 @@ subIssues:
   - '[ ] 9418 Create Data Normalizer Architecture (`Neo.data.normalizer.Base` & `Tree`)'
   - '[ ] 9419 Implement Dynamic Module Loading in `Neo.worker.Data`'
   - '[ ] 9420 Migrate Data Pipeline to Connection -> Parser -> Normalizer flow'
-subIssuesCompleted: 7
-subIssuesTotal: 16
+  - '[x] 9422 Update TreeStore to manage ARIA sibling fields on mutations'
+  - '[x] 9423 TreeStore Full CRUD Support & Structural Mutations'
+  - '[x] 9425 Refactor Tree cell component architecture for performance'
+subIssuesCompleted: 13
+subIssuesTotal: 19
 blockedBy: []
 blocking: []
 ---
@@ -83,4 +86,9 @@ The Tree Grid implementation is designed to integrate seamlessly with the existi
 - 2026-03-09T15:46:10Z @tobiu cross-referenced by #9419
 - 2026-03-09T15:46:22Z @tobiu added sub-issue #9419
 - 2026-03-09T15:46:48Z @tobiu added sub-issue #9420
+- 2026-03-09T18:16:54Z @tobiu cross-referenced by #9422
+- 2026-03-09T18:19:04Z @tobiu added sub-issue #9422
+- 2026-03-09T18:41:22Z @tobiu added sub-issue #9423
+- 2026-03-09T18:59:56Z @tobiu referenced in commit `c478860` - "docs(data): Enhance TreeStore JSDoc with Projection Architecture details (#9404)"
+- 2026-03-09T20:22:37Z @tobiu added sub-issue #9425
 
