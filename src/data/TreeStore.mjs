@@ -158,7 +158,7 @@ class TreeStore extends Store {
                     if (node) {
                         parentId = node.parentId || 'root';
                         affectedParents.add(parentId);
-                        
+
                         let siblings = me.#childrenMap.get(parentId);
                         if (siblings) {
                             let idx = siblings.indexOf(node);
@@ -206,7 +206,7 @@ class TreeStore extends Store {
                     if (!me.#childrenMap.has(parentId)) {
                         me.#childrenMap.set(parentId, []);
                     }
-                    
+
                     if (!me.#childrenMap.get(parentId).includes(data)) {
                         me.#childrenMap.get(parentId).push(data);
                         affectedParents.add(parentId);
@@ -215,7 +215,7 @@ class TreeStore extends Store {
                     // Identify nodes that need their flat visible descendants calculated
                     if (parentId === 'root' || !me.#allRecordsMap.has(parentId)) {
                         newRoots.push(data);
-                        
+
                         // Auto-heal disconnected branches by reparenting them to 'root'
                         if (parentId !== 'root') {
                             data.parentId = 'root';
@@ -250,7 +250,7 @@ class TreeStore extends Store {
         }
 
         // --- 4. Finalize Mutations ---
-        
+
         // Delegate to super.splice ONLY if the Projection Layer (visible items) actually changed.
         if (visibleToRemove.length > 0 || visibleToAdd.length > 0 || index === 0 && removeCountOrToRemoveArray === me.count) {
              return super.splice(index, visibleToRemove, visibleToAdd);
@@ -274,7 +274,7 @@ class TreeStore extends Store {
 
     /**
      * Collapses a node, removing its visible descendants from the flat grid view.
-     * @param {String|Number} nodeId
+     * @param {String|Number|Object|Neo.data.Record} nodeId
      */
     collapse(nodeId) {
         let me   = this,
@@ -284,8 +284,10 @@ class TreeStore extends Store {
             return;
         }
 
+        let key = me.getKey(node);
+
         node.collapsed = true;
-        
+
         me.onRecordChange({
             fields: [{name: 'collapsed', oldValue: false, value: true}],
             model : me.model,
@@ -294,7 +296,7 @@ class TreeStore extends Store {
 
         // Find how many visible descendants to remove
         let visibleDescendants = [],
-            children           = me.#childrenMap.get(nodeId) || [];
+            children           = me.#childrenMap.get(key) || [];
 
         for (let i = 0, len = children.length; i < len; i++) {
             me.collectVisibleDescendants(children[i], visibleDescendants);
@@ -312,7 +314,7 @@ class TreeStore extends Store {
     /**
      * Expands a node, injecting its children into the flat grid view.
      * Supports asynchronous loading if children are missing and an API/URL is configured.
-     * @param {String|Number} nodeId
+     * @param {String|Number|Object|Neo.data.Record} nodeId
      */
     async expand(nodeId) {
         let me   = this,
@@ -321,6 +323,8 @@ class TreeStore extends Store {
         if (!node || node.collapsed === false || node.isLeaf || node.isLoading) {
             return;
         }
+
+        let key = me.getKey(node);
 
         if (me.singleExpand && node.parentId) {
             let siblings = me.#childrenMap.get(node.parentId) || [];
@@ -342,8 +346,8 @@ class TreeStore extends Store {
             });
         }
 
-        let children = me.#childrenMap.get(nodeId) || [];
-        
+        let children = me.#childrenMap.get(key) || [];
+
         // Case A: Children are already in memory
         if (children.length > 0) {
             node.collapsed = false;
@@ -358,16 +362,16 @@ class TreeStore extends Store {
             for (let i = 0, len = children.length; i < len; i++) {
                 me.collectVisibleDescendants(children[i], visibleDescendants);
             }
-            
+
             let parentIndex = me.indexOf(node);
             if (parentIndex > -1) {
                 me.splice(parentIndex + 1, 0, visibleDescendants);
             }
-        } 
+        }
         // Case B: Async Fetch required
         else if (me.url || me.api || me.proxy) {
             node.isLoading = true;
-            
+
             me.onRecordChange({
                 fields: [{name: 'isLoading', oldValue: false, value: true}],
                 model : me.model,
@@ -377,12 +381,12 @@ class TreeStore extends Store {
             try {
                 // The load() call will eventually trigger add(), which populates #childrenMap
                 // but won't blindly append them to the flat array because their parent is known.
-                await me.load({ 
+                await me.load({
                     append: true,
-                    params: { parentId: nodeId } 
+                    params: { parentId: key }
                 });
 
-                children = me.#childrenMap.get(nodeId) || [];
+                children = me.#childrenMap.get(key) || [];
 
                 node.isLoading = false;
                 node.collapsed = false;
@@ -401,7 +405,7 @@ class TreeStore extends Store {
                     for (let i = 0, len = children.length; i < len; i++) {
                         me.collectVisibleDescendants(children[i], visibleDescendants);
                     }
-                    
+
                     let parentIndex = me.indexOf(node);
                     if (parentIndex > -1) {
                         me.splice(parentIndex + 1, 0, visibleDescendants);
@@ -410,7 +414,7 @@ class TreeStore extends Store {
             } catch (error) {
                 node.isLoading = false;
                 node.hasError  = true;
-                
+
                 me.onRecordChange({
                     fields: [
                         {name: 'isLoading', oldValue: true, value: false},
@@ -419,7 +423,7 @@ class TreeStore extends Store {
                     model : me.model,
                     record: node
                 });
-                
+
                 me.fire('loadError', { error, record: node });
             }
         }
@@ -462,7 +466,7 @@ class TreeStore extends Store {
         // If the item WAS a raw object, and IS NOW a Record, we must heal the Tree maps
         if (record && !RecordFactory.isRecord(item)) {
             const key = me.getKey(record);
-            
+
             // Heal the all-records map
             me.#allRecordsMap.set(key, record);
 
