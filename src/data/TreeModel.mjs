@@ -26,6 +26,10 @@ class TreeModel extends Model {
          * @member {Object[]} fields
          */
         fields: [{
+            name        : 'childCount',
+            type        : 'Integer',
+            defaultValue: 0
+        }, {
             name        : 'collapsed',
             type        : 'Boolean',
             defaultValue: true

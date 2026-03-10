@@ -215,6 +215,10 @@ class TreeStore extends Store {
                         data.isLeaf = true;
                     }
                     
+                    if (data.childCount === undefined) {
+                        data.childCount = 0;
+                    }
+                    
                     if (data.collapsed === undefined) {
                         data.collapsed = true;
                     }
@@ -533,7 +537,7 @@ class TreeStore extends Store {
     }
 
     /**
-     * Recalculates the `siblingCount` and `siblingIndex` for all children of a given parent.
+     * Recalculates the `siblingCount`, `siblingIndex`, and `childCount` for all children of a given parent.
      * This is an O(N) operation called during mutations to ensure O(1) reads during VDOM rendering.
      * @param {String|Number} parentId The ID of the parent node (or 'root').
      * @protected
@@ -544,10 +548,55 @@ class TreeStore extends Store {
 
         if (siblings) {
             let count = siblings.length;
+            
+            // 1. Update Parent's childCount
+            if (parentId !== 'root') {
+                let parentNode = me.#allRecordsMap.get(parentId);
+                if (parentNode && parentNode.childCount !== count) {
+                    parentNode.childCount = count;
+                    
+                    // Trigger reactivity if it's an instantiated record
+                    if (parentNode.isRecord) {
+                        me.onRecordChange({
+                            fields: [{name: 'childCount', oldValue: undefined, value: count}], // Note: oldValue tracking might be complex here, keeping it simple for now
+                            model : me.model,
+                            record: parentNode
+                        });
+                    }
+                }
+            }
+
+            // 2. Update Siblings' ARIA stats
             for (let i = 0; i < count; i++) {
                 let sibling = siblings[i];
-                sibling.siblingCount = count;
-                sibling.siblingIndex = i + 1; // 1-based for ARIA
+                if (sibling.siblingCount !== count || sibling.siblingIndex !== i + 1) {
+                    sibling.siblingCount = count;
+                    sibling.siblingIndex = i + 1; // 1-based for ARIA
+                    
+                    if (sibling.isRecord) {
+                        me.onRecordChange({
+                            fields: [
+                                {name: 'siblingCount', oldValue: undefined, value: count},
+                                {name: 'siblingIndex', oldValue: undefined, value: i + 1}
+                            ],
+                            model : me.model,
+                            record: sibling
+                        });
+                    }
+                }
+            }
+        } else if (parentId !== 'root') {
+            // The parent has no children left.
+            let parentNode = me.#allRecordsMap.get(parentId);
+            if (parentNode && parentNode.childCount !== 0) {
+                parentNode.childCount = 0;
+                if (parentNode.isRecord) {
+                    me.onRecordChange({
+                        fields: [{name: 'childCount', oldValue: undefined, value: 0}],
+                        model : me.model,
+                        record: parentNode
+                    });
+                }
             }
         }
     }
