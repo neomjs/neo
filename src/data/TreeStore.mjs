@@ -885,9 +885,25 @@ class TreeStore extends Store {
     }
 
     /**
-     * Calculates the target flat array index for a newly added node.
+     * @summary Calculates the target flat array index for a newly added node.
+     *
+     * **Architectural Mechanics:**
+     * When a node is dynamically added to an *already expanded* parent in an unfiltered, unsorted `TreeStore`,
+     * it must be injected into the exact correct position within the `_items` flat projection array.
+     * If we simply appended it to the end of `_items`, the Grid's virtual scroller would render the
+     * child at the very bottom of the entire tree, visually breaking the hierarchy.
+     *
+     * This method recursively back-traces through the node's preceding siblings in `#childrenMap`
+     * to find the *last visible descendant* of those siblings. The new node's insertion index is
+     * immediately after that last descendant. If there are no preceding siblings, it returns
+     * the index immediately following the parent node.
+     *
+     * **Optimization:** The loop breaks instantly upon finding the first valid preceding sibling
+     * that has visible descendants, making this an O(subtree_size) operation for only the immediate
+     * prior sibling, rather than an O(N) scan of the entire store.
+     *
      * @param {Object|Neo.data.Record} node
-     * @returns {Number}
+     * @returns {Number} The exact index in the flat `_items` array where this node belongs.
      * @protected
      */
     getInsertIndexForNode(node) {
