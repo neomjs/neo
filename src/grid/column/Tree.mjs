@@ -33,7 +33,12 @@ class Tree extends ComponentColumn {
      */
     applyRecordConfigs(config, record) {
         return {
-            value: record[this.dataField],
+            collapsed    : record.collapsed,
+            depth        : record.depth,
+            hasError     : record.hasError,
+            isLeaf       : record.isLeaf,
+            isNodeLoading: record.isLoading,
+            value        : record[this.dataField],
             ...config
         };
     }
