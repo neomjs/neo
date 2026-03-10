@@ -9,11 +9,11 @@ const
     countMutations     = Symbol('countMutations'),
     initialIndexSymbol = Symbol.for('initialIndex'),
     isFiltered         = Symbol('isFiltered'),
-    isSorted           = Symbol('isSorted'),
+    isSorted           = Symbol.for('isSorted'),
     silentUpdateMode   = Symbol('silentUpdateMode'),
     toAddArray         = Symbol('toAddArray'),
     toRemoveArray      = Symbol('toRemoveArray'),
-    updatingIndex      = Symbol('updatingIndex');
+    updatingIndex      = Symbol.for('updatingIndex');
 
 /**
  * @class Neo.collection.Base
