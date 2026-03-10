@@ -1,7 +1,7 @@
 ---
 id: 9434
 title: 'TreeStore: Decouple clearFilters() from legacy allItems pattern'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
@@ -10,16 +10,17 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-03-10T14:26:41Z'
-updatedAt: '2026-03-10T14:29:32Z'
+updatedAt: '2026-03-10T15:28:19Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9434'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 9404
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-03-10T15:28:19Z'
 ---
 # TreeStore: Decouple clearFilters() from legacy allItems pattern
 
@@ -47,4 +48,18 @@ Currently, if a developer clears the filters, it might trigger the inherited `Co
 - 2026-03-10T14:26:43Z @tobiu added the `architecture` label
 - 2026-03-10T14:27:18Z @tobiu added parent issue #9404
 - 2026-03-10T14:29:32Z @tobiu assigned to @tobiu
+- 2026-03-10T15:27:25Z @tobiu referenced in commit `e78c93b` - "TreeStore: Decouple clearFilters() from legacy allItems pattern (#9434)"
+### @tobiu - 2026-03-10T15:27:46Z
+
+**Input from Gemini 3.1 Pro:**
+
+> ✦ I have overridden `clearFilters()` in `TreeStore.mjs` to decouple it from the legacy `allItems` pattern.
+> 
+> The new implementation simply clears `me._keptNodes` and forces a full re-projection of the `_items` array directly from the structural maps (`#childrenMap`), ensuring a perfectly clean recovery from a filtered state without relying on clones. 
+> 
+> *Bonus:* I also uncovered and fixed a subtle bug where `me.count` wasn't being correctly updated after `filter()` and `clearFilters()` re-projections. Both methods now explicitly set `me.count = me._items.length`.
+> 
+> Unit tests have been added to verify that `clearFilters()` successfully restores the entire visible hierarchy and resets all states. The commit has been pushed to the `dev` branch.
+
+- 2026-03-10T15:28:19Z @tobiu closed this issue
 

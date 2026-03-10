@@ -41,11 +41,11 @@ subIssues:
   - '[x] 9428 TreeStore: Implement hierarchical sorting for doSort override'
   - '[x] 9429 TreeStore: Implement ancestor-aware filtering for filter override'
   - '[x] 9430 TreeModel: Introduce childCount to decouple isLeaf state from emptiness'
-  - '[ ] 9431 TreeStore: Fix ARIA desync (siblingIndex and siblingCount) after sort and filter'
-  - '[ ] 9432 TreeStore: Override clear() to prevent memory leaks and split-brain states'
+  - '[x] 9431 TreeStore: Fix ARIA desync (siblingIndex and siblingCount) after sort and filter'
+  - '[x] 9432 TreeStore: Override clear() to prevent memory leaks and split-brain states'
   - '[ ] 9433 TreeStore: Implement bulk expandAll() and collapseAll() methods'
-  - '[ ] 9434 TreeStore: Decouple clearFilters() from legacy allItems pattern'
-subIssuesCompleted: 19
+  - '[x] 9434 TreeStore: Decouple clearFilters() from legacy allItems pattern'
+subIssuesCompleted: 22
 subIssuesTotal: 28
 blockedBy: []
 blocking: []
