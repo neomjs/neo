@@ -201,10 +201,36 @@ class TreeStore extends Store {
                     key      = me.getKey(data);
                     parentId = data.parentId || 'root';
 
+                    // Soft Hydration for hierarchical fields
+                    if (data.depth === undefined) {
+                        if (parentId === 'root') {
+                            data.depth = 0;
+                        } else {
+                            let parentNode = me.#allRecordsMap.get(parentId);
+                            data.depth = parentNode && parentNode.depth !== undefined ? parentNode.depth + 1 : 1;
+                        }
+                    }
+
+                    if (data.isLeaf === undefined) {
+                        data.isLeaf = true;
+                    }
+                    
+                    if (data.collapsed === undefined) {
+                        data.collapsed = true;
+                    }
+
                     me.#allRecordsMap.set(key, data);
 
                     if (!me.#childrenMap.has(parentId)) {
                         me.#childrenMap.set(parentId, []);
+                        
+                        // If a parent is gaining children, it's no longer a leaf
+                        if (parentId !== 'root') {
+                            let parentNode = me.#allRecordsMap.get(parentId);
+                            if (parentNode && parentNode.isLeaf) {
+                                parentNode.isLeaf = false;
+                            }
+                        }
                     }
 
                     if (!me.#childrenMap.get(parentId).includes(data)) {
