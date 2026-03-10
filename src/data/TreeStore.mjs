@@ -69,7 +69,7 @@ class TreeStore extends Store {
     #childrenMap = new Map()
 
     /**
-     * @summary Overrides the inherited `clear` method to prevent memory leaks and split-brain states.
+     * @summary Overrides `clear` to prevent memory leaks and split-brain states.
      *
      * The base `Store.clear()` only truncates the flat `_items` array (the Projection Layer).
      * If this override didn't exist, calling `clear()` on a TreeStore would leave `#allRecordsMap`
@@ -91,6 +91,55 @@ class TreeStore extends Store {
         }
 
         super.clear();
+    }
+
+    /**
+     * @summary Clears all active filters and completely rebuilds the visible projection.
+     *
+     * Overrides the base `Collection` implementation which relies on a cloned `allItems` array
+     * to remember the unfiltered state. TreeStore bypasses `allItems` entirely, relying on
+     * its `#allRecordsMap` and the `_keptNodes` visibility mask.
+     *
+     * This method removes the mask and forces a top-down re-calculation of the `_items` array
+     * to instantly restore the full visible hierarchy.
+     *
+     * @param {Boolean} [silent=false] True to prevent firing the 'filter' event
+     */
+    clearFilters(silent=false) {
+        let me               = this,
+            isFilteredSymbol = Symbol.for('isFiltered'),
+            updatingIndex    = Symbol.for('updatingIndex');
+
+        me.filters = [];
+        
+        if (me._keptNodes) {
+            me._keptNodes.clear();
+            me._keptNodes = null;
+        }
+
+        me[isFilteredSymbol] = false;
+
+        // Re-project the flat array from the unfiltered structural maps
+        me._items = [];
+        let roots = me.#childrenMap.get('root') || [];
+        for (let i = 0; i < roots.length; i++) {
+            me.collectVisibleDescendants(roots[i], me._items);
+        }
+
+        me._keys = me._items.map(item => me.getKey(item));
+        me.count = me._items.length;
+
+        // Restore structural sibling stats
+        for (let parentId of me.#childrenMap.keys()) {
+            me.updateSiblingStats(parentId);
+        }
+
+        if (!silent && me[updatingIndex] === 0) {
+            me.fire('filter', {
+                isFiltered: false,
+                scope     : me
+            });
+        }
     }
 
     /**
@@ -760,6 +809,7 @@ class TreeStore extends Store {
         }
         
         me._keys = me._items.map(item => me.getKey(item));
+        me.count = me._items.length;
 
         // Update sibling stats to reflect the filtered counts and indices
         for (let parentId of me.#childrenMap.keys()) {
