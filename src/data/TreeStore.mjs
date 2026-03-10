@@ -306,7 +306,7 @@ class TreeStore extends Store {
             let parentIndex = me.indexOf(node);
             if (parentIndex > -1) {
                 // Pass the array of items to remove so `Collection.splice` removes them by key
-                me.splice(null, visibleDescendants);
+                super.splice(null, visibleDescendants);
             }
         }
     }
@@ -365,7 +365,7 @@ class TreeStore extends Store {
 
             let parentIndex = me.indexOf(node);
             if (parentIndex > -1) {
-                me.splice(parentIndex + 1, 0, visibleDescendants);
+                super.splice(parentIndex + 1, 0, visibleDescendants);
             }
         }
         // Case B: Async Fetch required
@@ -408,7 +408,7 @@ class TreeStore extends Store {
 
                     let parentIndex = me.indexOf(node);
                     if (parentIndex > -1) {
-                        me.splice(parentIndex + 1, 0, visibleDescendants);
+                        super.splice(parentIndex + 1, 0, visibleDescendants);
                     }
                 }
             } catch (error) {
@@ -432,10 +432,14 @@ class TreeStore extends Store {
     /**
      * Overrides Store:get() to ensure records can be retrieved even if they are hidden
      * (not in the active flattened view).
-     * @param {Number|String} key
+     * @param {Number|String|Object|Neo.data.Record} key
      * @returns {Object|null}
      */
     get(key) {
+        if (this.isItem(key)) {
+            key = this.getKey(key);
+        }
+
         let me   = this,
             item = super.get(key); // Check the standard visible map first (fastest)
 
