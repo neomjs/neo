@@ -36,8 +36,10 @@ subIssues:
   - '[x] 9422 Update TreeStore to manage ARIA sibling fields on mutations'
   - '[x] 9423 TreeStore Full CRUD Support & Structural Mutations'
   - '[x] 9425 Refactor Tree cell component architecture for performance'
-subIssuesCompleted: 13
-subIssuesTotal: 19
+  - '[x] 9426 Refactor Tree column and component reactivity'
+  - '[x] 9427 Fix TreeStore projection mutations and Row VDOM recycling'
+subIssuesCompleted: 15
+subIssuesTotal: 21
 blockedBy: []
 blocking: []
 ---
@@ -91,4 +93,6 @@ The Tree Grid implementation is designed to integrate seamlessly with the existi
 - 2026-03-09T18:41:22Z @tobiu added sub-issue #9423
 - 2026-03-09T18:59:56Z @tobiu referenced in commit `c478860` - "docs(data): Enhance TreeStore JSDoc with Projection Architecture details (#9404)"
 - 2026-03-09T20:22:37Z @tobiu added sub-issue #9425
+- 2026-03-10T10:32:06Z @tobiu added sub-issue #9426
+- 2026-03-10T11:33:25Z @tobiu added sub-issue #9427
 
