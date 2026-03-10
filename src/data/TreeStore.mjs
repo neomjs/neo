@@ -404,7 +404,12 @@ class TreeStore extends Store {
             me.sortArray(children);
         }
 
-        // 3. Re-project the flat _items array from the sorted Structural Layer
+        // 3. Update sibling stats after sorting to reflect new indices
+        for (let parentId of me.#childrenMap.keys()) {
+            me.updateSiblingStats(parentId);
+        }
+
+        // 4. Re-project the flat _items array from the sorted Structural Layer
         me._items = [];
         let roots = me.#childrenMap.get('root') || [];
         for (let i = 0, len = roots.length; i < len; i++) {
@@ -731,6 +736,11 @@ class TreeStore extends Store {
         
         me._keys = me._items.map(item => me.getKey(item));
 
+        // Update sibling stats to reflect the filtered counts and indices
+        for (let parentId of me.#childrenMap.keys()) {
+            me.updateSiblingStats(parentId);
+        }
+
         if (me[updatingIndex] === 0) {
             me.fire('filter', {
                 isFiltered: me[isFilteredSymbol],
@@ -827,7 +837,13 @@ class TreeStore extends Store {
             siblings = me.#childrenMap.get(parentId);
 
         if (siblings) {
-            let count = siblings.length;
+            // Determine visible siblings based on the active filter mask
+            let visibleSiblings = siblings;
+            if (me._keptNodes) {
+                visibleSiblings = siblings.filter(node => me._keptNodes.has(me.getKey(node)));
+            }
+
+            let count = visibleSiblings.length;
             
             // 1. Update Parent's childCount
             if (parentId !== 'root') {
@@ -848,7 +864,7 @@ class TreeStore extends Store {
 
             // 2. Update Siblings' ARIA stats
             for (let i = 0; i < count; i++) {
-                let sibling = siblings[i];
+                let sibling = visibleSiblings[i];
                 if (sibling.siblingCount !== count || sibling.siblingIndex !== i + 1) {
                     sibling.siblingCount = count;
                     sibling.siblingIndex = i + 1; // 1-based for ARIA

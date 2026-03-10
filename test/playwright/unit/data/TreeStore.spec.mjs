@@ -286,19 +286,17 @@ test.describe('Neo.data.TreeStore (Hierarchical Sorting)', () => {
      */
     let store, TestModel;
 
-    test.beforeEach(() => {
-        class TestTreeModel4 extends TreeModel {
-            static config = {
-                className: 'Test.Unit.Data.TreeStore.TestTreeModel4',
-                fields: [
-                    { name: 'id', type: 'String' },
-                    { name: 'name', type: 'String' }
-                ]
-            }
+    class TestTreeModel4 extends TreeModel {
+        static config = {
+            className: 'Test.Unit.Data.TreeStore.TestTreeModel4',
+            fields: [
+                { name: 'id', type: 'String' },
+                { name: 'name', type: 'String' }
+            ]
         }
+    }
 
-        TestModel = Neo.setupClass(TestTreeModel4);
-    });
+    TestModel = Neo.setupClass(TestTreeModel4);
 
     test.afterEach(() => {
         store?.destroy();
@@ -388,6 +386,77 @@ test.describe('Neo.data.TreeStore (Hierarchical Sorting)', () => {
         expect(items[3].id).toBe('2-2'); // A (child of B)
         expect(items[4].id).toBe('2-1'); // X (child of B)
     });
+
+    test('siblingCount and siblingIndex should reflect the sorted order', () => {
+        store = Neo.create(TreeStore, {
+            model: TestModel,
+            data : [
+                { id: '1', name: 'Z', isLeaf: false, collapsed: false },
+                { id: '1-1', parentId: '1', name: 'B', isLeaf: true },
+                { id: '1-2', parentId: '1', name: 'A', isLeaf: true },
+                { id: '2', name: 'A', isLeaf: false, collapsed: false },
+                { id: '2-1', parentId: '2', name: 'Z', isLeaf: true },
+                { id: '2-2', parentId: '2', name: 'Y', isLeaf: true }
+            ]
+        });
+
+        // Initial check
+        let rootZ = store.get('1');
+        expect(rootZ.siblingIndex).toBe(1);
+        expect(rootZ.siblingCount).toBe(2);
+
+        let rootA = store.get('2');
+        expect(rootA.siblingIndex).toBe(2);
+        expect(rootA.siblingCount).toBe(2);
+
+        let child1_B = store.get('1-1');
+        expect(child1_B.siblingIndex).toBe(1);
+        expect(child1_B.siblingCount).toBe(2);
+
+        let child1_A = store.get('1-2');
+        expect(child1_A.siblingIndex).toBe(2);
+        expect(child1_A.siblingCount).toBe(2);
+
+        // Sort descending by name
+        store.sorters = [{
+            property: 'name',
+            direction: 'DESC'
+        }];
+
+        // Expected sorted roots (DESC): 'Z' (id '1'), 'A' (id '2')
+        // Expected sorted children of 'Z' (DESC): 'B' (id '1-1'), 'A' (id '1-2')
+        // Expected sorted children of 'A' (DESC): 'Z' (id '2-1'), 'Y' (id '2-2')
+        
+        expect(rootZ.siblingIndex).toBe(1); // Z is still 1
+        expect(rootA.siblingIndex).toBe(2); // A is still 2
+
+        expect(child1_B.siblingIndex).toBe(1);
+        expect(child1_A.siblingIndex).toBe(2);
+
+        let child2_Z = store.get('2-1');
+        let child2_Y = store.get('2-2');
+
+        expect(child2_Z.siblingIndex).toBe(1);
+        expect(child2_Y.siblingIndex).toBe(2);
+
+        // Sort ascending by name
+        store.sorters = [{
+            property: 'name',
+            direction: 'ASC'
+        }];
+
+        // Expected sorted roots (ASC): 'A' (id '2'), 'Z' (id '1')
+        // Expected sorted children of 'Z' (ASC): 'A' (id '1-2'), 'B' (id '1-1')
+        
+        expect(rootA.siblingIndex).toBe(1);
+        expect(rootZ.siblingIndex).toBe(2);
+
+        expect(child1_A.siblingIndex).toBe(1);
+        expect(child1_B.siblingIndex).toBe(2);
+        
+        expect(child2_Y.siblingIndex).toBe(1);
+        expect(child2_Z.siblingIndex).toBe(2);
+    });
 });
 
 test.describe('Neo.data.TreeStore (Ancestor-Aware Filtering)', () => {
@@ -402,19 +471,17 @@ test.describe('Neo.data.TreeStore (Ancestor-Aware Filtering)', () => {
      */
     let store, TestModel;
 
-    test.beforeEach(() => {
-        class TestTreeModel5 extends TreeModel {
-            static config = {
-                className: 'Test.Unit.Data.TreeStore.TestTreeModel5',
-                fields: [
-                    { name: 'id', type: 'String' },
-                    { name: 'name', type: 'String' }
-                ]
-            }
+    class TestTreeModel5 extends TreeModel {
+        static config = {
+            className: 'Test.Unit.Data.TreeStore.TestTreeModel5',
+            fields: [
+                { name: 'id', type: 'String' },
+                { name: 'name', type: 'String' }
+            ]
         }
+    }
 
-        TestModel = Neo.setupClass(TestTreeModel5);
-    });
+    TestModel = Neo.setupClass(TestTreeModel5);
 
     test.afterEach(() => {
         store?.destroy();
@@ -483,5 +550,71 @@ test.describe('Neo.data.TreeStore (Ancestor-Aware Filtering)', () => {
         
         expect(items[0].collapsed).toBe(false);
         expect(items[1].collapsed).toBe(false);
+    });
+
+    test('siblingCount and siblingIndex should reflect only visible siblings when filtered', () => {
+        store = Neo.create(TreeStore, {
+            model: TestModel,
+            data : [
+                { id: '1', name: 'Root A', isLeaf: false, collapsed: true },
+                { id: '1-1', parentId: '1', name: 'Child A1', isLeaf: false, collapsed: true },
+                { id: '1-1-1', parentId: '1-1', name: 'Target Node', isLeaf: true },
+                { id: '1-1-2', parentId: '1-1', name: 'Other Node', isLeaf: true },
+                { id: '2', name: 'Root B', isLeaf: false, collapsed: true },
+                { id: '2-1', parentId: '2', name: 'Child B1', isLeaf: true }
+            ]
+        });
+
+        // Check pre-filter stats
+        expect(store.get('1-1-1').siblingCount).toBe(2);
+        expect(store.get('1-1-2').siblingCount).toBe(2);
+        
+        expect(store.get('1').siblingCount).toBe(2);
+        expect(store.get('2').siblingCount).toBe(2);
+
+        // Filter for 'Target Node'
+        store.filters = [{
+            property: 'name',
+            value   : 'Target Node'
+        }];
+
+        // Only Root A -> Child A1 -> Target Node are visible
+        
+        let rootA = store.get('1');
+        let childA1 = store.get('1-1');
+        let targetNode = store.get('1-1-1');
+
+        // Root A is now the only visible root sibling (Root B is hidden)
+        expect(rootA.siblingCount).toBe(1);
+        expect(rootA.siblingIndex).toBe(1);
+
+        // Child A1 is the only visible child of Root A
+        expect(childA1.siblingCount).toBe(1);
+        expect(childA1.siblingIndex).toBe(1);
+
+        // Target Node is the only visible child of Child A1
+        expect(targetNode.siblingCount).toBe(1);
+        expect(targetNode.siblingIndex).toBe(1);
+
+        // Verify childCount on parents is correctly updated to reflect only visible children
+        expect(rootA.childCount).toBe(1); // Only Child A1 is visible
+        expect(childA1.childCount).toBe(1); // Only Target Node is visible
+        
+        // Let's clear the filter and ensure stats are restored
+        store.filters = [];
+        
+        expect(store.get('1-1-1').siblingCount).toBe(2);
+        expect(store.get('1-1-1').siblingIndex).toBe(1);
+        expect(store.get('1-1-2').siblingCount).toBe(2);
+        expect(store.get('1-1-2').siblingIndex).toBe(2);
+        
+        expect(store.get('1').siblingCount).toBe(2);
+        expect(store.get('1').siblingIndex).toBe(1);
+        expect(store.get('2').siblingCount).toBe(2);
+        expect(store.get('2').siblingIndex).toBe(2);
+
+        // Verify childCount is restored to structural counts
+        expect(store.get('1').childCount).toBe(1); // Child A1
+        expect(store.get('1-1').childCount).toBe(2); // Target Node and Other Node
     });
 });
