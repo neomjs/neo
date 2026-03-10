@@ -273,6 +273,17 @@ test.describe('Neo.data.TreeStore (childCount and isLeaf decoupling)', () => {
 });
 
 test.describe('Neo.data.TreeStore (Hierarchical Sorting)', () => {
+    /**
+     * @summary Tests the hierarchical sorting logic of Neo.data.TreeStore.
+     * 
+     * A standard `Store` sorts its flat `_items` array globally. If applied to a TreeStore,
+     * this would destroy the parent-child relationships (e.g., sorting alphabetically would
+     * mix all parents and children together).
+     * 
+     * These tests verify that `TreeStore.doSort()` correctly sorts sibling nodes *only within
+     * their own parent's scope*, ensuring that the contiguous visual projection (parent
+     * followed immediately by its children) remains structurally intact.
+     */
     let store, TestModel;
 
     test.beforeEach(() => {
@@ -376,5 +387,101 @@ test.describe('Neo.data.TreeStore (Hierarchical Sorting)', () => {
         expect(items[2].id).toBe('2');   // B
         expect(items[3].id).toBe('2-2'); // A (child of B)
         expect(items[4].id).toBe('2-1'); // X (child of B)
+    });
+});
+
+test.describe('Neo.data.TreeStore (Ancestor-Aware Filtering)', () => {
+    /**
+     * @summary Tests the hierarchical filtering logic of Neo.data.TreeStore.
+     * 
+     * Standard collection filtering hides any record that doesn't match the filter criteria.
+     * In a TreeStore, this would orphan child nodes if their parents don't match the filter.
+     * These tests verify that when a descendant node matches a filter, all of its direct
+     * ancestors (up to the root) are forced to remain visible and are automatically expanded
+     * to preserve the structural path to the matched node.
+     */
+    let store, TestModel;
+
+    test.beforeEach(() => {
+        class TestTreeModel5 extends TreeModel {
+            static config = {
+                className: 'Test.Unit.Data.TreeStore.TestTreeModel5',
+                fields: [
+                    { name: 'id', type: 'String' },
+                    { name: 'name', type: 'String' }
+                ]
+            }
+        }
+
+        TestModel = Neo.setupClass(TestTreeModel5);
+    });
+
+    test.afterEach(() => {
+        store?.destroy();
+    });
+
+    test('filter should keep ancestors visible when a child matches', () => {
+        store = Neo.create(TreeStore, {
+            model: TestModel,
+            data : [
+                { id: '1', name: 'Root A', isLeaf: false, collapsed: true },
+                { id: '1-1', parentId: '1', name: 'Child A1', isLeaf: false, collapsed: true },
+                { id: '1-1-1', parentId: '1-1', name: 'Target Node', isLeaf: true },
+                { id: '1-1-2', parentId: '1-1', name: 'Other Node', isLeaf: true },
+                { id: '2', name: 'Root B', isLeaf: false, collapsed: true },
+                { id: '2-1', parentId: '2', name: 'Child B1', isLeaf: true }
+            ]
+        });
+
+        // Filter for 'Target Node'
+        store.filters = [{
+            property: 'name',
+            value   : 'Target Node'
+        }];
+
+        let items = store.items;
+
+        // Ancestors ('Root A' and 'Child A1') must be forced visible and expanded.
+        // 'Target Node' must be visible.
+        // 'Other Node' should NOT be visible because neither it nor its parent matched the filter directly.
+        
+        expect(items.length).toBe(3);
+        expect(items[0].id).toBe('1');       // Root A
+        expect(items[1].id).toBe('1-1');     // Child A1
+        expect(items[2].id).toBe('1-1-1');   // Target Node
+        
+        expect(store.get('1').collapsed).toBe(false);
+        expect(store.get('1-1').collapsed).toBe(false);
+    });
+
+    test('filter should work correctly in Turbo Mode (autoInitRecords: false)', () => {
+        store = Neo.create(TreeStore, {
+            model: TestModel,
+            autoInitRecords: false, // Turbo Mode
+            data : [
+                { id: '1', name: 'Root X', isLeaf: false, collapsed: true },
+                { id: '1-1', parentId: '1', name: 'Hidden Child', isLeaf: true },
+                { id: '1-2', parentId: '1', name: 'Deep Parent', isLeaf: false, collapsed: true },
+                { id: '1-2-1', parentId: '1-2', name: 'Match Me', isLeaf: true }
+            ]
+        });
+
+        // Filter for 'Match Me'
+        store.filters = [{
+            property: 'name',
+            value   : 'Match Me'
+        }];
+
+        let items = store.items;
+
+        expect(items.length).toBe(3);
+        expect(items[0].isRecord).toBeUndefined(); // Still in Turbo Mode
+        
+        expect(items[0].id).toBe('1');       // Root X
+        expect(items[1].id).toBe('1-2');     // Deep Parent
+        expect(items[2].id).toBe('1-2-1');   // Match Me
+        
+        expect(items[0].collapsed).toBe(false);
+        expect(items[1].collapsed).toBe(false);
     });
 });
