@@ -210,5 +210,64 @@ test.describe('Neo.data.TreeStore (Turbo Mode / Soft Hydration)', () => {
         expect(leaf2.siblingIndex).toBe(2);
         expect(leaf2.depth).toBe(2);
         expect(leaf2.isLeaf).toBe(true);
+        expect(leaf2.childCount).toBe(0); // Leaves have 0 children
+        
+        // Let's verify childCount on parents
+        // In the test data for Turbo Mode, root-1 only has ONE child ('child-1-1')
+        expect(rootNode.childCount).toBe(1); // 'component'
+        expect(childNode.childCount).toBe(2); // 'Base.mjs' and 'Button.mjs'
+    });
+});
+
+test.describe('Neo.data.TreeStore (childCount and isLeaf decoupling)', () => {
+    let store, TestModel;
+
+    test.beforeEach(() => {
+        class TestTreeModel3 extends TreeModel {
+            static config = {
+                className: 'Test.Unit.Data.TreeStore.TestTreeModel3',
+                fields: [
+                    { name: 'id', type: 'String' },
+                    { name: 'name', type: 'String' }
+                ]
+            }
+        }
+
+        TestModel = Neo.setupClass(TestTreeModel3);
+
+        store = Neo.create(TreeStore, {
+            model: TestModel,
+            autoInitRecords: true, // Let's test with full Records this time
+            data : [
+                { id: 'root-1', name: 'src', isLeaf: false, collapsed: false },
+                { id: 'child-1-1', parentId: 'root-1', name: 'component', isLeaf: false, collapsed: false },
+                { id: 'child-1-1-1', parentId: 'child-1-1', name: 'Base.mjs', isLeaf: true }
+            ]
+        });
+    });
+
+    test.afterEach(() => {
+        store?.destroy();
+    });
+
+    test('childCount should accurately reflect the number of children and decouple from isLeaf', () => {
+        let parent = store.get('child-1-1'); // 'component' folder
+        
+        expect(parent.isLeaf).toBe(false);
+        expect(parent.childCount).toBe(1);
+
+        // Add a new child
+        store.add({ id: 'child-1-1-2', parentId: 'child-1-1', name: 'Button.mjs', isLeaf: true });
+        
+        expect(parent.isLeaf).toBe(false); // Still a folder
+        expect(parent.childCount).toBe(2); // Count increased
+
+        // Remove both children
+        store.remove('child-1-1-1');
+        store.remove('child-1-1-2');
+
+        // This is the critical test: it should STILL be a folder (isLeaf: false), but empty
+        expect(parent.isLeaf).toBe(false); 
+        expect(parent.childCount).toBe(0);
     });
 });
