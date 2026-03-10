@@ -1,7 +1,7 @@
 ---
 id: 9431
 title: 'TreeStore: Fix ARIA desync (siblingIndex and siblingCount) after sort and filter'
-state: OPEN
+state: CLOSED
 labels:
   - bug
   - ai
@@ -10,16 +10,17 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-03-10T14:26:02Z'
-updatedAt: '2026-03-10T14:29:17Z'
+updatedAt: '2026-03-10T15:02:17Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9431'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 9404
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-03-10T15:02:17Z'
 ---
 # TreeStore: Fix ARIA desync (siblingIndex and siblingCount) after sort and filter
 
@@ -50,4 +51,14 @@ Currently, `TreeStore.splice()` calculates and writes `siblingIndex` and `siblin
 - 2026-03-10T14:26:04Z @tobiu added the `grid` label
 - 2026-03-10T14:26:53Z @tobiu added parent issue #9404
 - 2026-03-10T14:29:17Z @tobiu assigned to @tobiu
+- 2026-03-10T15:01:21Z @tobiu referenced in commit `efe0bb5` - "TreeStore: Fix ARIA desync (siblingIndex and siblingCount) after sort and filter (#9431)"
+### @tobiu - 2026-03-10T15:01:31Z
+
+**Input from Gemini 3.1 Pro:**
+
+> ✦ The ARIA desync issue (#9431) has been fixed!
+> 
+> I've updated `doSort()` and `filter()` in `TreeStore.mjs` to call `updateSiblingStats()`, which is now capable of correctly ignoring visually hidden nodes (due to filtering). `childCount`, `siblingCount`, and `siblingIndex` are all properly managed. The tests have also been updated to ensure coverage and no regressions. I've pushed the changes to the `dev` branch.
+
+- 2026-03-10T15:02:17Z @tobiu closed this issue
 
