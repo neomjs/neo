@@ -38,11 +38,15 @@ subIssues:
   - '[x] 9425 Refactor Tree cell component architecture for performance'
   - '[x] 9426 Refactor Tree column and component reactivity'
   - '[x] 9427 Fix TreeStore projection mutations and Row VDOM recycling'
-  - '[ ] 9428 TreeStore: Implement hierarchical sorting for doSort override'
-  - '[ ] 9429 TreeStore: Implement ancestor-aware filtering for filter override'
+  - '[x] 9428 TreeStore: Implement hierarchical sorting for doSort override'
+  - '[x] 9429 TreeStore: Implement ancestor-aware filtering for filter override'
   - '[x] 9430 TreeModel: Introduce childCount to decouple isLeaf state from emptiness'
-subIssuesCompleted: 17
-subIssuesTotal: 24
+  - '[ ] 9431 TreeStore: Fix ARIA desync (siblingIndex and siblingCount) after sort and filter'
+  - '[ ] 9432 TreeStore: Override clear() to prevent memory leaks and split-brain states'
+  - '[ ] 9433 TreeStore: Implement bulk expandAll() and collapseAll() methods'
+  - '[ ] 9434 TreeStore: Decouple clearFilters() from legacy allItems pattern'
+subIssuesCompleted: 19
+subIssuesTotal: 28
 blockedBy: []
 blocking: []
 ---
@@ -107,4 +111,8 @@ https://github.com/user-attachments/assets/4787104c-fb87-479f-8c9a-00abc29c1ca7
 
 wip
 
+- 2026-03-10T14:26:53Z @tobiu added sub-issue #9431
+- 2026-03-10T14:26:56Z @tobiu added sub-issue #9432
+- 2026-03-10T14:27:16Z @tobiu added sub-issue #9433
+- 2026-03-10T14:27:18Z @tobiu added sub-issue #9434
 
