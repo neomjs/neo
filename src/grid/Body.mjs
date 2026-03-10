@@ -1240,7 +1240,7 @@ class GridBody extends Component {
                 row       = me.items[itemIndex];
 
                 if (row) {
-                    row.createVdom()
+                    row.createVdom(false, false)
                 }
 
                 for (let i = 0, len = fields.length; i < len; i++) {
