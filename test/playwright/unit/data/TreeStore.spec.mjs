@@ -141,6 +141,20 @@ test.describe('Neo.data.TreeStore (Splice Mechanics)', () => {
         expect(visibleNode.siblingCount).toBe(3);
         expect(visibleNode.siblingIndex).toBe(1);
     });
+
+    test('adding a child to an expanded visible parent should immediately show the new child', () => {
+        store.expand('child-1-1');
+        expect(store.count).toBe(9);
+
+        // Add a new child to 'component' (child-1-1)
+        store.add({ id: 'child-1-1-3', parentId: 'child-1-1', name: 'NewFile.mjs', isLeaf: true });
+
+        // The parent 'child-1-1' is expanded, so the new child should be instantly visible
+        expect(store.count).toBe(10);
+        
+        // Find the new file in the flat view
+        expect(store.items.find(i => i.name === 'NewFile.mjs')).toBeDefined();
+    });
 });
 
 test.describe('Neo.data.TreeStore (Turbo Mode / Soft Hydration)', () => {
@@ -457,6 +471,35 @@ test.describe('Neo.data.TreeStore (Hierarchical Sorting)', () => {
         expect(child2_Y.siblingIndex).toBe(1);
         expect(child2_Z.siblingIndex).toBe(2);
     });
+
+    test('adding a node to a sorted TreeStore should place it in the correct sorted position', () => {
+        store = Neo.create(TreeStore, {
+            model: TestModel,
+            data : [
+                { id: '1', name: 'Folder', isLeaf: false, collapsed: false },
+                { id: '1-1', parentId: '1', name: 'A', isLeaf: true },
+                { id: '1-3', parentId: '1', name: 'Z', isLeaf: true }
+            ]
+        });
+
+        // Sort ascending by name
+        store.sorters = [{
+            property: 'name',
+            direction: 'ASC'
+        }];
+
+        // Current order: Folder, A, Z
+        expect(store.items[1].name).toBe('A');
+        expect(store.items[2].name).toBe('Z');
+
+        // Add a node that should sort between A and Z
+        store.add({ id: '1-2', parentId: '1', name: 'M', isLeaf: true });
+
+        // Verify sorted order: Folder, A, M, Z
+        expect(store.items[1].name).toBe('A');
+        expect(store.items[2].name).toBe('M');
+        expect(store.items[3].name).toBe('Z');
+    });
 });
 
 test.describe('Neo.data.TreeStore (Ancestor-Aware Filtering)', () => {
@@ -616,6 +659,27 @@ test.describe('Neo.data.TreeStore (Ancestor-Aware Filtering)', () => {
         // Verify childCount is restored to structural counts
         expect(store.get('1').childCount).toBe(1); // Child A1
         expect(store.get('1-1').childCount).toBe(2); // Target Node and Other Node
+    });
+
+    test('adding a node to a filtered TreeStore should evaluate the filter and update projection', () => {
+        store = Neo.create(TreeStore, {
+            model: TestModel,
+            data : [
+                { id: '1', name: 'Root A', isLeaf: false, collapsed: true },
+                { id: '1-1', parentId: '1', name: 'Child A', isLeaf: true }
+            ]
+        });
+
+        store.filters = [{ property: 'name', value: 'Target', operator: 'like' }];
+        expect(store.count).toBe(0);
+
+        // Add a node that matches the filter
+        store.add({ id: '1-2', parentId: '1', name: 'Target Node', isLeaf: true });
+
+        // Adding this node should force its parent ('Root A') to become visible
+        expect(store.count).toBe(2);
+        expect(store.items[0].name).toBe('Root A');
+        expect(store.items[1].name).toBe('Target Node');
     });
 });
 
