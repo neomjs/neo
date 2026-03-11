@@ -122,5 +122,6 @@ test.describe.serial('DevIndex Grid Scroll Profile', () => {
         expect(duration).toBeLessThan(200);
 
         grid.destroy();
+        store.destroy();
     });
 });

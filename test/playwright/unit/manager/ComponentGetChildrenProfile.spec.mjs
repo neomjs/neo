@@ -72,6 +72,7 @@ test.describe.serial('ComponentManager getChildren Profile', () => {
         expect(childrenFromDom.length).toBe(childrenFromMap.length);
         expect(childrenFromDom.length).toBe(50);
 
+        children.forEach(c => c.destroy());
         parent.destroy();
     });
 });
