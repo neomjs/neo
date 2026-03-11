@@ -48,8 +48,9 @@ subIssues:
   - '[x] 9435 TreeStore: Fix visible projection for dynamic child additions to expanded parents'
   - '[x] 9437 TreeStore: Optimize #allRecordsMap iteration loops'
   - '[x] 9438 TreeStore: Reduce GC pressure and redundant iterations'
-subIssuesCompleted: 26
-subIssuesTotal: 31
+  - '[x] 9439 TreeStore: Apply "Anchor & Echo" JSDoc strategy for AI discoverability'
+subIssuesCompleted: 27
+subIssuesTotal: 32
 blockedBy: []
 blocking: []
 ---
@@ -121,4 +122,5 @@ wip
 - 2026-03-10T21:17:56Z @tobiu added sub-issue #9435
 - 2026-03-11T10:00:18Z @tobiu added sub-issue #9437
 - 2026-03-11T10:09:55Z @tobiu added sub-issue #9438
+- 2026-03-11T10:53:13Z @tobiu added sub-issue #9439
 
