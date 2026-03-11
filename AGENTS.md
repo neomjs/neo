@@ -34,7 +34,9 @@ To create a new issue, you **MUST** use the `create_issue` tool. The tool's own 
 ### Pre-Flight Check for Commits
 
 You **MUST** execute this Pre-Flight Check before running a `git commit` command. The check consists of explicitly stating in your internal thought process:
-"Pre-Flight Check: A ticket must exist for this commit. I will verify the ticket number and include it in the commit message before proceeding."
+"Pre-Flight Check: 
+1. A ticket must exist for this commit. I will verify the ticket number and include it in the commit message.
+2. I have reviewed the modified code and applied the 'Anchor & Echo' Knowledge Base Enhancement Strategy to ensure new or changed methods/properties have adequate semantic context before proceeding."
 
 ## 4. The Memory Core Protocol
 
