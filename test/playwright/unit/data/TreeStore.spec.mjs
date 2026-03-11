@@ -805,3 +805,110 @@ test.describe('Neo.data.TreeStore (clearFilters override)', () => {
         expect(store.items[2].id).toBe('2-1');
     });
 });
+
+test.describe('Neo.data.TreeStore (Bulk Operations)', () => {
+    let store, TestModel;
+
+    class TestTreeModel8 extends TreeModel {
+        static config = {
+            className: 'Test.Unit.Data.TreeStore.TestTreeModel8',
+            fields: [
+                { name: 'id', type: 'String' },
+                { name: 'name', type: 'String' }
+            ]
+        }
+    }
+
+    TestModel = Neo.setupClass(TestTreeModel8);
+
+    test.afterEach(() => {
+        store?.destroy();
+    });
+
+    test('expandAll() should expand every node in the tree', () => {
+        store = Neo.create(TreeStore, {
+            model: TestModel,
+            data : [
+                { id: '1', name: 'Root A', isLeaf: false, collapsed: true },
+                { id: '1-1', parentId: '1', name: 'Child A1', isLeaf: false, collapsed: true },
+                { id: '1-1-1', parentId: '1-1', name: 'Child A1-1', isLeaf: true },
+                { id: '2', name: 'Root B', isLeaf: false, collapsed: true },
+                { id: '2-1', parentId: '2', name: 'Child B1', isLeaf: true }
+            ]
+        });
+
+        // Initially only roots are visible
+        expect(store.count).toBe(2);
+        
+        let loadFired = false;
+        store.on('load', () => loadFired = true);
+
+        store.expandAll();
+
+        // All nodes should be visible
+        expect(store.count).toBe(5);
+        expect(store.items[0].id).toBe('1');
+        expect(store.items[1].id).toBe('1-1');
+        expect(store.items[2].id).toBe('1-1-1');
+        expect(store.items[3].id).toBe('2');
+        expect(store.items[4].id).toBe('2-1');
+
+        expect(store.get('1').collapsed).toBe(false);
+        expect(store.get('1-1').collapsed).toBe(false);
+        expect(store.get('2').collapsed).toBe(false);
+        
+        expect(loadFired).toBe(true);
+    });
+
+    test('collapseAll() should collapse every node in the tree, leaving only roots visible', () => {
+        store = Neo.create(TreeStore, {
+            model: TestModel,
+            data : [
+                { id: '1', name: 'Root A', isLeaf: false, collapsed: false },
+                { id: '1-1', parentId: '1', name: 'Child A1', isLeaf: false, collapsed: false },
+                { id: '1-1-1', parentId: '1-1', name: 'Child A1-1', isLeaf: true },
+                { id: '2', name: 'Root B', isLeaf: false, collapsed: false },
+                { id: '2-1', parentId: '2', name: 'Child B1', isLeaf: true }
+            ]
+        });
+
+        // Initially all nodes are visible
+        expect(store.count).toBe(5);
+        
+        let loadFired = false;
+        store.on('load', () => loadFired = true);
+
+        store.collapseAll();
+
+        // Only roots should be visible
+        expect(store.count).toBe(2);
+        expect(store.items[0].id).toBe('1');
+        expect(store.items[1].id).toBe('2');
+
+        expect(store.get('1').collapsed).toBe(true);
+        expect(store.get('1-1').collapsed).toBe(true);
+        expect(store.get('2').collapsed).toBe(true);
+        
+        expect(loadFired).toBe(true);
+    });
+
+    test('expandAll() should work correctly in Turbo Mode (autoInitRecords: false)', () => {
+        store = Neo.create(TreeStore, {
+            model: TestModel,
+            autoInitRecords: false,
+            data : [
+                { id: '1', name: 'Root A', isLeaf: false, collapsed: true },
+                { id: '1-1', parentId: '1', name: 'Child A1', isLeaf: true }
+            ]
+        });
+
+        expect(store.count).toBe(1);
+        
+        store.expandAll();
+
+        expect(store.count).toBe(2);
+        expect(store.items[0].isRecord).toBeUndefined(); // Still in Turbo Mode
+        expect(store.items[0].collapsed).toBe(false);
+    });
+});
+
