@@ -1097,7 +1097,7 @@ class Collection extends Base {
      */
     indexOf(key) {
         let me = this;
-        return me._items.indexOf(me.isItem(key) ? key : me.map.get(key))
+        return me._items.indexOf(me.isItem(key) ? key : me.get(key));
     }
 
     /**
@@ -1115,7 +1115,7 @@ class Collection extends Base {
      * @returns {Number} index (-1 in case no match is found)
      */
     indexOfKey(key) {
-        return this._items.indexOf(this.map.get(key))
+        return this._items.indexOf(this.get(key));
     }
 
     /**

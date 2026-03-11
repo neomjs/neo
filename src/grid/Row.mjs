@@ -345,7 +345,7 @@ class Row extends Component {
             // Map existing cells by dataField for robust retrieval regardless of pool index changes
             for (let i = 0, len = oldCn.length; i < len; i++) {
                 let node = oldCn[i];
-                if (node.data?.field) {
+                if (node?.data?.field) {
                     oldCellMap.set(node.data.field, node)
                 }
             }
