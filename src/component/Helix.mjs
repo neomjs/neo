@@ -836,19 +836,13 @@ class Helix extends Component {
         let me = this,
             data;
 
-        try {
-            data = await me.trap(Neo.Xhr.promiseJson({
-                insideNeo: true,
-                url      : me.url
-            }));
+        data = await me.trap(Neo.Xhr.promiseJson({
+            insideNeo: true,
+            url      : me.url
+        }));
 
-            me.store.items = data.json.data;
-            me.createItems()
-        } catch (err) {
-            if (err !== Neo.isDestroyed) {
-                console.log('Error for Neo.Xhr.request', err, me.id)
-            }
-        }
+        me.store.items = data.json.data;
+        me.createItems()
     }
 
     /**
