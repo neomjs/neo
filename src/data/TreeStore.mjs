@@ -196,7 +196,7 @@ class TreeStore extends Store {
     collapseAll(silent=false) {
         let me = this;
 
-        me.#allRecordsMap.forEach(item => {
+        for (let item of me.#allRecordsMap.values()) {
             if (!item.isLeaf && item.collapsed === false) {
                 if (item.isRecord) {
                     item.setSilent({collapsed: true})
@@ -204,7 +204,7 @@ class TreeStore extends Store {
                     item.collapsed = true
                 }
             }
-        });
+        }
 
         // Re-project the flat array from the roots
         me._items = [];
@@ -297,7 +297,7 @@ class TreeStore extends Store {
                 sortProperties = me.sorters.map(s => s.property),
                 len            = sortProperties.length;
 
-            me.#allRecordsMap.forEach(item => {
+            for (let item of me.#allRecordsMap.values()) {
                 if (!RecordFactory.isRecord(item)) {
                     for (let i = 0; i < len; i++) {
                         const property = sortProperties[i];
@@ -306,7 +306,7 @@ class TreeStore extends Store {
                         }
                     }
                 }
-            })
+            }
         }
 
         // If there are no sorters, just clear the sorted flag and exit
@@ -477,7 +477,7 @@ class TreeStore extends Store {
     expandAll(silent=false) {
         let me = this;
 
-        me.#allRecordsMap.forEach(item => {
+        for (let item of me.#allRecordsMap.values()) {
             if (!item.isLeaf && item.collapsed) {
                 if (item.isRecord) {
                     item.setSilent({collapsed: false})
@@ -485,7 +485,7 @@ class TreeStore extends Store {
                     item.collapsed = false
                 }
             }
-        });
+        }
 
         // Re-project the flat array from the roots
         me._items = [];
@@ -535,7 +535,7 @@ class TreeStore extends Store {
                   len              = filterProperties.length;
 
             if (len > 0) {
-                me.#allRecordsMap.forEach(item => {
+                for (let item of me.#allRecordsMap.values()) {
                     if (!RecordFactory.isRecord(item)) {
                         for (let i = 0; i < len; i++) {
                             const property = filterProperties[i];
@@ -544,7 +544,7 @@ class TreeStore extends Store {
                             }
                         }
                     }
-                })
+                }
             }
         }
 
