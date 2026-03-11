@@ -1344,6 +1344,12 @@ class GridBody extends Component {
 
             newPoolSize = endIndex - startIndex + 1;
 
+            // Only allow shrinking if forced (e.g., container resize or column changes)
+            // to maintain stable DOM structure during scroll
+            if (!force && cellPoolSize !== null) {
+                newPoolSize = Math.max(cellPoolSize, newPoolSize);
+            }
+
             if (newPoolSize !== cellPoolSize) {
                 me.set({
                     cellPoolSize  : newPoolSize,
