@@ -48,34 +48,6 @@ test.describe('Neo.component.Gallery InternalId Support', () => {
 
     test.beforeEach(async () => {
         testRun++;
-        
-        // Mock currentWorker
-        Neo.currentWorker = {
-            promiseMessage: async (dest, msg) => {
-                if (msg.action === 'readDom') {
-                    if (msg.attributes?.includes('offsetHeight')) {
-                         return { attributes: { offsetHeight: 600, offsetWidth: 800 } };
-                    }
-                    if (msg.functions?.[0]?.returnFnName === 'transform') {
-                         return { functions: { transform: 'matrix3d(1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1)' } };
-                    }
-                }
-                if (msg.action === 'updateDom') {
-                    return {};
-                }
-                return {};
-            }
-        };
-
-        // Mock Neo.main.DomAccess
-        Neo.main = {
-            DomAccess: {
-                focus: () => {}
-            }
-        };
-
-        // Mock applyDeltas
-        Neo.applyDeltas = async () => {};
 
         store = Neo.create(TestStore, {
             autoInitRecords: true,

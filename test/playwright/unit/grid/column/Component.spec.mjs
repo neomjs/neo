@@ -47,10 +47,6 @@ test.describe.serial('Neo.grid.column.Component', () => {
     let column, model, record;
 
     test.beforeEach(() => {
-        Neo.currentWorker = {
-            insertThemeFiles: () => {}
-        };
-
         column = Neo.create(ComponentColumn, {
             component: ({record}) => ({
                 module : MockComponent,

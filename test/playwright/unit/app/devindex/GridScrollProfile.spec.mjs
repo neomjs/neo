@@ -39,48 +39,6 @@ MockController = Neo.setupClass(MockController);
 test.describe.serial('DevIndex Grid Scroll Profile', () => {
 
     test.beforeEach(async () => {
-        // Mock Neo.applyDeltas
-        Neo.applyDeltas = async () => {};
-
-        // Mock Neo.main and Neo.currentWorker
-        Neo.main = {
-            addon: {
-                DragDrop: {},
-                ResizeObserver: {
-                    register  : () => {},
-                    unregister: () => {}
-                }
-            },
-            DomAccess: {
-                getBoundingClientRect: async ({id}) => {
-                    const rect = {width: 1920, height: 2000, x: 0, y: 0};
-                    if (Array.isArray(id)) {
-                        return id.map(() => rect);
-                    }
-                    return rect;
-                },
-                scrollIntoView: async () => {},
-                scrollTo      : async () => {}
-            }
-        };
-
-        Neo.currentWorker = {
-            getAddon: async () => ({
-                register  : () => {},
-                unregister: () => {}
-            }),
-            insertThemeFiles: () => {},
-            on              : () => {},
-            promiseMessage  : async () => {}
-        };
-
-        Neo.worker = Neo.worker || {};
-        Neo.worker.App = {
-            promiseMessage: async () => {}
-        };
-        Neo.worker.Manager = {
-            startWorker: async () => {}
-        };
     });
 
     test('Profile massive VDOM delta on scroll (syncVnodeTree)', async () => {
