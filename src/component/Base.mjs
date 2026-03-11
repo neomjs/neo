@@ -622,7 +622,7 @@ class Component extends Abstract {
     async afterSetResponsive(value, oldValue) {
         if (value && !this.getPlugin('responsive')) {
             let me      = this,
-                module  = await import(`../../src/plugin/Responsive.mjs`),
+                module  = await me.trap(import(`../../src/plugin/Responsive.mjs`)),
                 plugins = me.plugins || [];
 
             plugins.push({
