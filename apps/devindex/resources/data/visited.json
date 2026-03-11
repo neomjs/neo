@@ -7133,6 +7133,7 @@
   "repo:agents-flex/agents-flex",
   "repo:agentscope-ai/agentscope",
   "repo:agentscope-ai/agentscope-java",
+  "repo:agentscope-ai/agentscope-runtime",
   "repo:agentset-ai/agentset",
   "repo:agentskills/agentskills",
   "repo:agentsmd/agents.md",
