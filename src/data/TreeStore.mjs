@@ -65,7 +65,6 @@ class TreeStore extends Store {
      * @private
      */
     #allRecordsMap = new Map()
-
     /**
      * Map containing arrays of child nodes, keyed by their parentId (or 'root').
      * @member {Map} #childrenMap
@@ -86,10 +85,10 @@ class TreeStore extends Store {
      */
     clear() {
         let me = this;
-        
+
         me.#allRecordsMap.clear();
         me.#childrenMap.clear();
-        
+
         if (me._keptNodes) {
             me._keptNodes.clear();
             me._keptNodes = null;
@@ -114,7 +113,7 @@ class TreeStore extends Store {
         let me = this;
 
         me.filters = [];
-        
+
         if (me._keptNodes) {
             me._keptNodes.clear();
             me._keptNodes = null;
@@ -142,6 +141,45 @@ class TreeStore extends Store {
                 isFiltered: false,
                 scope     : me
             });
+        }
+    }
+
+    /**
+     * Collapses a node, removing its visible descendants from the flat grid view.
+     * @param {String|Number|Object|Neo.data.Record} nodeId
+     */
+    collapse(nodeId) {
+        let me   = this,
+            node = me.get(nodeId);
+
+        if (!node || node.collapsed || node.isLeaf) {
+            return;
+        }
+
+        let key = me.getKey(node);
+
+        node.collapsed = true;
+
+        me.onRecordChange({
+            fields: [{name: 'collapsed', oldValue: false, value: true}],
+            model : me.model,
+            record: node
+        });
+
+        // Find how many visible descendants to remove
+        let visibleDescendants = [],
+            children           = me.#childrenMap.get(key) || [];
+
+        for (let i = 0, len = children.length; i < len; i++) {
+            me.collectVisibleDescendants(children[i], visibleDescendants);
+        }
+
+        if (visibleDescendants.length > 0) {
+            let parentIndex = me.indexOf(node);
+            if (parentIndex > -1) {
+                // Pass the array of items to remove so `Collection.splice` removes them by key
+                super.splice(null, visibleDescendants);
+            }
         }
     }
 
@@ -186,281 +224,6 @@ class TreeStore extends Store {
             }
         }
     }
-
-    /**
-     * @summary The definitive mutation hook for hierarchical TreeStore data.
-     *
-     * Unlike a standard `Neo.collection.Base` which manages a single flat array, the `TreeStore`
-     * operates on two distinct layers:
-     * 1. **The Structural Layer:** Deep, hierarchical maps (`#allRecordsMap`, `#childrenMap`) that represent the true tree.
-     * 2. **The Projection Layer:** A flat array of *currently visible* nodes used for high-performance virtual scrolling.
-     *
-     * This `splice` override intercepts all structural mutations (`add`, `remove`, `splice`) to ensure both layers
-     * remain perfectly synchronized.
-     *
-     * **Architecture & Mechanics:**
-     * - **Removals:** When a node is removed, this method recursively identifies and deletes all of its
-     *   deep descendants from the Structural Layer, preventing memory leaks and ghost nodes.
-     * - **Additions/Moves:** When nodes are added (or moved to a new parent via Drag & Drop), they are
-     *   ingested into the Structural Layer.
-     * - **ARIA Synchronization:** After any mutation, the O(N) `updateSiblingStats` is called on affected
-     *   parents to recalculate `siblingCount` and `siblingIndex`. This trade-off guarantees O(1) reads
-     *   during the `grid.Row` hot-path rendering.
-     * - **Projection Delta:** Finally, the method calculates the delta of *visible* nodes and delegates
-     *   only those specific visual changes to `super.splice()`.
-     *
-     * @param {Number|null} index
-     * @param {Number|Object[]} [removeCountOrToRemoveArray]
-     * @param {Object|Object[]} [toAddArray]
-     * @returns {Object} An object containing the addedItems & removedItems arrays
-     */
-    splice(index, removeCountOrToRemoveArray, toAddArray) {
-        let me              = this,
-            affectedParents = new Set(),
-            visibleToRemove = [],
-            visibleToAdd    = [],
-            nodesToRemove   = [],
-            i, len, node, key, parentId;
-
-        // --- 1. Process Removals ---
-        if (removeCountOrToRemoveArray) {
-            let toRemoveArray;
-
-            if (Array.isArray(removeCountOrToRemoveArray)) {
-                toRemoveArray = removeCountOrToRemoveArray;
-            } else if (Neo.isNumber(index) && Neo.isNumber(removeCountOrToRemoveArray)) {
-                // Map index-based removal to actual items from the flat visible view
-                toRemoveArray = me._items.slice(index, index + removeCountOrToRemoveArray);
-            }
-
-            if (toRemoveArray && toRemoveArray.length > 0) {
-                // 1a. Gather all target nodes and structurally detach them from their parents
-                for (i = 0, len = toRemoveArray.length; i < len; i++) {
-                    node = me.isItem(toRemoveArray[i]) ? toRemoveArray[i] : me.get(toRemoveArray[i]);
-                    if (node) {
-                        parentId = node.parentId || 'root';
-                        affectedParents.add(parentId);
-
-                        let siblings = me.#childrenMap.get(parentId);
-                        if (siblings) {
-                            let idx = siblings.indexOf(node);
-                            if (idx > -1) {
-                                siblings.splice(idx, 1);
-                            }
-                        }
-
-                        // Collect this node and ALL deep children to ensure full cleanup
-                        me.collectAllDescendants(node, nodesToRemove);
-                    }
-                }
-
-                // 1b. Deep map cleanup. We iterate the flattened descendants to ensure no ghost nodes
-                // remain in memory, calculating the visible delta simultaneously.
-                for (i = 0, len = nodesToRemove.length; i < len; i++) {
-                    node = nodesToRemove[i];
-                    key  = me.getKey(node);
-
-                    me.#allRecordsMap.delete(key);
-                    me.#childrenMap.delete(key);
-
-                    // Track items that must be removed from the base Collection's flat array
-                    if (me.indexOf(node) > -1) {
-                        visibleToRemove.push(node);
-                    }
-                }
-            }
-        }
-
-        // --- 2. Process Additions & Moves ---
-        let insertIndex = index;
-
-        if (toAddArray) {
-            let items    = Array.isArray(toAddArray) ? toAddArray : [toAddArray],
-                newRoots = [];
-
-            if (items.length > 0) {
-                // 2a. Ingest nodes into the Structural Layer maps
-                for (i = 0, len = items.length; i < len; i++) {
-                    let data = items[i];
-                    key      = me.getKey(data);
-                    parentId = data.parentId || 'root';
-
-                    // Soft Hydration for hierarchical fields
-                    if (data.depth === undefined) {
-                        if (parentId === 'root') {
-                            data.depth = 0;
-                        } else {
-                            let parentNode = me.#allRecordsMap.get(parentId);
-                            data.depth = parentNode && parentNode.depth !== undefined ? parentNode.depth + 1 : 1;
-                        }
-                    }
-
-                    if (data.isLeaf === undefined) {
-                        data.isLeaf = true;
-                    }
-                    
-                    if (data.childCount === undefined) {
-                        data.childCount = 0;
-                    }
-                    
-                    if (data.collapsed === undefined) {
-                        data.collapsed = true;
-                    }
-
-                    me.#allRecordsMap.set(key, data);
-
-                    if (!me.#childrenMap.has(parentId)) {
-                        me.#childrenMap.set(parentId, []);
-                        
-                        // If a parent is gaining children, it's no longer a leaf
-                        if (parentId !== 'root') {
-                            let parentNode = me.#allRecordsMap.get(parentId);
-                            if (parentNode && parentNode.isLeaf) {
-                                parentNode.isLeaf = false;
-                            }
-                        }
-                    }
-
-                    if (!me.#childrenMap.get(parentId).includes(data)) {
-                        me.#childrenMap.get(parentId).push(data);
-                        affectedParents.add(parentId);
-                    }
-
-                    // Identify nodes that need their flat visible descendants calculated
-                    if (parentId === 'root' || !me.#allRecordsMap.has(parentId)) {
-                        newRoots.push(data);
-
-                        // Auto-heal disconnected branches by reparenting them to 'root'
-                        if (parentId !== 'root') {
-                            data.parentId = 'root';
-                            let siblings = me.#childrenMap.get(parentId);
-                            if (siblings) {
-                                let idx = siblings.indexOf(data);
-                                if (idx > -1) {
-                                    siblings.splice(idx, 1);
-                                }
-                            }
-                            if (!me.#childrenMap.has('root')) {
-                                me.#childrenMap.set('root', []);
-                            }
-                            if (!me.#childrenMap.get('root').includes(data)) {
-                                me.#childrenMap.get('root').push(data);
-                                affectedParents.add('root');
-                            }
-                        }
-                    } else {
-                        let parentNode = me.#allRecordsMap.get(parentId);
-                        if (parentNode.collapsed === false && me.indexOf(parentNode) > -1) {
-                            me.collectVisibleDescendants(data, visibleToAdd);
-
-                            if (!Neo.isNumber(insertIndex)) {
-                                let calcIndex = me.getInsertIndexForNode(data);
-                                if (calcIndex > -1) {
-                                    insertIndex = calcIndex;
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // 2b. Calculate the visible delta for all new roots
-                for (i = 0, len = newRoots.length; i < len; i++) {
-                    me.collectVisibleDescendants(newRoots[i], visibleToAdd);
-
-                    if (!Neo.isNumber(insertIndex)) {
-                        let calcIndex = me.getInsertIndexForNode(newRoots[i]);
-                        if (calcIndex > -1) {
-                            insertIndex = calcIndex;
-                        }
-                    }
-                }
-            }
-        }
-
-        // --- 3. Synchronize ARIA Stats ---
-        for (const pid of affectedParents) {
-            me.updateSiblingStats(pid);
-        }
-
-        // --- 4. Finalize Mutations ---
-
-        if (me[isFiltered]) {
-            me.filter();
-            
-            // Collection fires mutate if added or removed items > 0
-            if (toAddArray || removeCountOrToRemoveArray) {
-                 me.fire('mutate', {
-                     addedItems     : toAddArray || [],
-                     preventBubbleUp: me.preventBubbleUp,
-                     removedItems   : nodesToRemove
-                 });
-            }
-            return {
-                addedItems  : toAddArray || [],
-                removedItems: nodesToRemove
-            };
-        }
-
-        // Delegate to super.splice ONLY if the Projection Layer (visible items) actually changed.
-        if (visibleToRemove.length > 0 || visibleToAdd.length > 0 || index === 0 && removeCountOrToRemoveArray === me.count) {
-             return super.splice(insertIndex, visibleToRemove, visibleToAdd);
-        }
-
-        // Fallback Mutation Event: If we added/removed hidden nodes, the visible array didn't change,
-        // so we skipped super.splice(). We must manually fire 'mutate' to keep systems like Store.count in sync.
-        if (toAddArray || removeCountOrToRemoveArray) {
-             me.fire('mutate', {
-                 addedItems     : toAddArray,
-                 preventBubbleUp: me.preventBubbleUp,
-                 removedItems   : nodesToRemove
-             });
-        }
-
-        return {
-            addedItems  : visibleToAdd,
-            removedItems: visibleToRemove
-        };
-    }
-
-    /**
-     * Collapses a node, removing its visible descendants from the flat grid view.
-     * @param {String|Number|Object|Neo.data.Record} nodeId
-     */
-    collapse(nodeId) {
-        let me   = this,
-            node = me.get(nodeId);
-
-        if (!node || node.collapsed || node.isLeaf) {
-            return;
-        }
-
-        let key = me.getKey(node);
-
-        node.collapsed = true;
-
-        me.onRecordChange({
-            fields: [{name: 'collapsed', oldValue: false, value: true}],
-            model : me.model,
-            record: node
-        });
-
-        // Find how many visible descendants to remove
-        let visibleDescendants = [],
-            children           = me.#childrenMap.get(key) || [];
-
-        for (let i = 0, len = children.length; i < len; i++) {
-            me.collectVisibleDescendants(children[i], visibleDescendants);
-        }
-
-        if (visibleDescendants.length > 0) {
-            let parentIndex = me.indexOf(node);
-            if (parentIndex > -1) {
-                // Pass the array of items to remove so `Collection.splice` removes them by key
-                super.splice(null, visibleDescendants);
-            }
-        }
-    }
-
 
     /**
      * @summary Hierarchically sorts the TreeStore.
@@ -540,78 +303,6 @@ class TreeStore extends Store {
                 previousItems,
                 scope: me
             });
-        }
-    }
-
-    /**
-     * Sorts an array of records/objects based on the Store's current sorters.
-     * Extracted from `Neo.collection.Base` to sort localized child arrays.
-     * @param {Array} arr The array to sort.
-     * @protected
-     */
-    sortArray(arr) {
-        let me = this,
-            {sorters, sortDirections, sortProperties} = me,
-            countSorters      = sortProperties.length || 0,
-            hasSortByMethod   = false,
-            hasTransformValue = false,
-            i, mappedItems, obj, sorter, sortProperty, sortValue, val1, val2;
-
-        sorters.forEach(key => {
-            if (key.sortBy)            hasSortByMethod   = true;
-            if (key.useTransformValue) hasTransformValue = true;
-        });
-
-        if (hasSortByMethod) {
-            arr.sort((a, b) => {
-                i = 0;
-                for (; i < countSorters; i++) {
-                    sorter    = sorters[i];
-                    sortValue = sorter[sorter.sortBy ? 'sortBy' : 'defaultSortBy'](a, b);
-                    if (sortValue !== 0) return sortValue;
-                }
-                return 0;
-            });
-        } else {
-            if (hasTransformValue) {
-                mappedItems = arr.map((item, index) => {
-                    obj = {index, original: item};
-                    i   = 0;
-                    for (; i < countSorters; i++) {
-                        if (sorters[i].useTransformValue) {
-                            obj[sortProperties[i]] = sorters[i].transformValue(item[sortProperties[i]]);
-                        } else {
-                            obj[sortProperties[i]] = item[sortProperties[i]];
-                        }
-                    }
-                    return obj;
-                });
-            } else {
-                mappedItems = arr;
-            }
-
-            mappedItems.sort((a, b) => {
-                i = 0;
-                for (; i < countSorters; i++) {
-                    sortProperty = sortProperties[i];
-                    val1         = a[sortProperty];
-                    val2         = b[sortProperty];
-
-                    if (val1 == null && val2 != null) return  1;
-                    if (val1 != null && val2 == null) return -1;
-                    if (val1 > val2) return  1 * sortDirections[i];
-                    if (val1 < val2) return -1 * sortDirections[i];
-                }
-                return 0;
-            });
-
-            if (hasTransformValue) {
-                // Map the sorted mappedItems back into the original array in place
-                let sortedOriginals = mappedItems.map(el => el.original);
-                for (i = 0; i < arr.length; i++) {
-                    arr[i] = sortedOriginals[i];
-                }
-            }
         }
     }
 
@@ -787,10 +478,10 @@ class TreeStore extends Store {
             me._keptNodes = null;
         } else {
             me._keptNodes = new Set();
-            
+
             const evaluateNode = (node, ancestorMatched) => {
                 let key = me.getKey(node);
-                
+
                 let matchesSelf = true;
                 for (let i = 0; i < activeFilters.length; i++) {
                     if (activeFilters[i].isFiltered(node)) {
@@ -798,10 +489,10 @@ class TreeStore extends Store {
                         break;
                     }
                 }
-                
+
                 let isKept                = matchesSelf || ancestorMatched;
                 let hasMatchingDescendant = false;
-                
+
                 let children = me.#childrenMap.get(key) || [];
                 for (let i = 0; i < children.length; i++) {
                     let childKept = evaluateNode(children[i], isKept);
@@ -809,7 +500,7 @@ class TreeStore extends Store {
                         hasMatchingDescendant = true;
                     }
                 }
-                
+
                 if (hasMatchingDescendant) {
                     isKept = true;
                     // Auto-expand ancestors to reveal the matched descendant
@@ -824,11 +515,11 @@ class TreeStore extends Store {
                         }
                     }
                 }
-                
+
                 if (isKept) {
                     me._keptNodes.add(key);
                 }
-                
+
                 return isKept || hasMatchingDescendant;
             };
 
@@ -844,7 +535,7 @@ class TreeStore extends Store {
         for (let i = 0; i < roots.length; i++) {
             me.collectVisibleDescendants(roots[i], me._items);
         }
-        
+
         me._keys = me._items.map(item => me.getKey(item));
         me.count = me._items.length;
 
@@ -989,6 +680,313 @@ class TreeStore extends Store {
     }
 
     /**
+     * Sorts an array of records/objects based on the Store's current sorters.
+     * Extracted from `Neo.collection.Base` to sort localized child arrays.
+     * @param {Array} arr The array to sort.
+     * @protected
+     */
+    sortArray(arr) {
+        let me = this,
+            {sorters, sortDirections, sortProperties} = me,
+            countSorters      = sortProperties.length || 0,
+            hasSortByMethod   = false,
+            hasTransformValue = false,
+            i, mappedItems, obj, sorter, sortProperty, sortValue, val1, val2;
+
+        sorters.forEach(key => {
+            if (key.sortBy)            hasSortByMethod   = true;
+            if (key.useTransformValue) hasTransformValue = true;
+        });
+
+        if (hasSortByMethod) {
+            arr.sort((a, b) => {
+                i = 0;
+                for (; i < countSorters; i++) {
+                    sorter    = sorters[i];
+                    sortValue = sorter[sorter.sortBy ? 'sortBy' : 'defaultSortBy'](a, b);
+                    if (sortValue !== 0) return sortValue;
+                }
+                return 0;
+            });
+        } else {
+            if (hasTransformValue) {
+                mappedItems = arr.map((item, index) => {
+                    obj = {index, original: item};
+                    i   = 0;
+                    for (; i < countSorters; i++) {
+                        if (sorters[i].useTransformValue) {
+                            obj[sortProperties[i]] = sorters[i].transformValue(item[sortProperties[i]]);
+                        } else {
+                            obj[sortProperties[i]] = item[sortProperties[i]];
+                        }
+                    }
+                    return obj;
+                });
+            } else {
+                mappedItems = arr;
+            }
+
+            mappedItems.sort((a, b) => {
+                i = 0;
+                for (; i < countSorters; i++) {
+                    sortProperty = sortProperties[i];
+                    val1         = a[sortProperty];
+                    val2         = b[sortProperty];
+
+                    if (val1 == null && val2 != null) return  1;
+                    if (val1 != null && val2 == null) return -1;
+                    if (val1 > val2) return  1 * sortDirections[i];
+                    if (val1 < val2) return -1 * sortDirections[i];
+                }
+                return 0;
+            });
+
+            if (hasTransformValue) {
+                // Map the sorted mappedItems back into the original array in place
+                let sortedOriginals = mappedItems.map(el => el.original);
+                for (i = 0; i < arr.length; i++) {
+                    arr[i] = sortedOriginals[i];
+                }
+            }
+        }
+    }
+
+    /**
+     * @summary The definitive mutation hook for hierarchical TreeStore data.
+     *
+     * Unlike a standard `Neo.collection.Base` which manages a single flat array, the `TreeStore`
+     * operates on two distinct layers:
+     * 1. **The Structural Layer:** Deep, hierarchical maps (`#allRecordsMap`, `#childrenMap`) that represent the true tree.
+     * 2. **The Projection Layer:** A flat array of *currently visible* nodes used for high-performance virtual scrolling.
+     *
+     * This `splice` override intercepts all structural mutations (`add`, `remove`, `splice`) to ensure both layers
+     * remain perfectly synchronized.
+     *
+     * **Architecture & Mechanics:**
+     * - **Removals:** When a node is removed, this method recursively identifies and deletes all of its
+     *   deep descendants from the Structural Layer, preventing memory leaks and ghost nodes.
+     * - **Additions/Moves:** When nodes are added (or moved to a new parent via Drag & Drop), they are
+     *   ingested into the Structural Layer.
+     * - **ARIA Synchronization:** After any mutation, the O(N) `updateSiblingStats` is called on affected
+     *   parents to recalculate `siblingCount` and `siblingIndex`. This trade-off guarantees O(1) reads
+     *   during the `grid.Row` hot-path rendering.
+     * - **Projection Delta:** Finally, the method calculates the delta of *visible* nodes and delegates
+     *   only those specific visual changes to `super.splice()`.
+     *
+     * @param {Number|null} index
+     * @param {Number|Object[]} [removeCountOrToRemoveArray]
+     * @param {Object|Object[]} [toAddArray]
+     * @returns {Object} An object containing the addedItems & removedItems arrays
+     */
+    splice(index, removeCountOrToRemoveArray, toAddArray) {
+        let me              = this,
+            affectedParents = new Set(),
+            visibleToRemove = [],
+            visibleToAdd    = [],
+            nodesToRemove   = [],
+            i, len, node, key, parentId;
+
+        // --- 1. Process Removals ---
+        if (removeCountOrToRemoveArray) {
+            let toRemoveArray;
+
+            if (Array.isArray(removeCountOrToRemoveArray)) {
+                toRemoveArray = removeCountOrToRemoveArray;
+            } else if (Neo.isNumber(index) && Neo.isNumber(removeCountOrToRemoveArray)) {
+                // Map index-based removal to actual items from the flat visible view
+                toRemoveArray = me._items.slice(index, index + removeCountOrToRemoveArray);
+            }
+
+            if (toRemoveArray && toRemoveArray.length > 0) {
+                // 1a. Gather all target nodes and structurally detach them from their parents
+                for (i = 0, len = toRemoveArray.length; i < len; i++) {
+                    node = me.isItem(toRemoveArray[i]) ? toRemoveArray[i] : me.get(toRemoveArray[i]);
+                    if (node) {
+                        parentId = node.parentId || 'root';
+                        affectedParents.add(parentId);
+
+                        let siblings = me.#childrenMap.get(parentId);
+                        if (siblings) {
+                            let idx = siblings.indexOf(node);
+                            if (idx > -1) {
+                                siblings.splice(idx, 1);
+                            }
+                        }
+
+                        // Collect this node and ALL deep children to ensure full cleanup
+                        me.collectAllDescendants(node, nodesToRemove);
+                    }
+                }
+
+                // 1b. Deep map cleanup. We iterate the flattened descendants to ensure no ghost nodes
+                // remain in memory, calculating the visible delta simultaneously.
+                for (i = 0, len = nodesToRemove.length; i < len; i++) {
+                    node = nodesToRemove[i];
+                    key  = me.getKey(node);
+
+                    me.#allRecordsMap.delete(key);
+                    me.#childrenMap.delete(key);
+
+                    // Track items that must be removed from the base Collection's flat array
+                    if (me.indexOf(node) > -1) {
+                        visibleToRemove.push(node);
+                    }
+                }
+            }
+        }
+
+        // --- 2. Process Additions & Moves ---
+        let insertIndex = index;
+
+        if (toAddArray) {
+            let items    = Array.isArray(toAddArray) ? toAddArray : [toAddArray],
+                newRoots = [];
+
+            if (items.length > 0) {
+                // 2a. Ingest nodes into the Structural Layer maps
+                for (i = 0, len = items.length; i < len; i++) {
+                    let data = items[i];
+                    key      = me.getKey(data);
+                    parentId = data.parentId || 'root';
+
+                    // Soft Hydration for hierarchical fields
+                    if (data.depth === undefined) {
+                        if (parentId === 'root') {
+                            data.depth = 0;
+                        } else {
+                            let parentNode = me.#allRecordsMap.get(parentId);
+                            data.depth = parentNode && parentNode.depth !== undefined ? parentNode.depth + 1 : 1;
+                        }
+                    }
+
+                    if (data.isLeaf === undefined) {
+                        data.isLeaf = true;
+                    }
+
+                    if (data.childCount === undefined) {
+                        data.childCount = 0;
+                    }
+
+                    if (data.collapsed === undefined) {
+                        data.collapsed = true;
+                    }
+
+                    me.#allRecordsMap.set(key, data);
+
+                    if (!me.#childrenMap.has(parentId)) {
+                        me.#childrenMap.set(parentId, []);
+
+                        // If a parent is gaining children, it's no longer a leaf
+                        if (parentId !== 'root') {
+                            let parentNode = me.#allRecordsMap.get(parentId);
+                            if (parentNode && parentNode.isLeaf) {
+                                parentNode.isLeaf = false;
+                            }
+                        }
+                    }
+
+                    if (!me.#childrenMap.get(parentId).includes(data)) {
+                        me.#childrenMap.get(parentId).push(data);
+                        affectedParents.add(parentId);
+                    }
+
+                    // Identify nodes that need their flat visible descendants calculated
+                    if (parentId === 'root' || !me.#allRecordsMap.has(parentId)) {
+                        newRoots.push(data);
+
+                        // Auto-heal disconnected branches by reparenting them to 'root'
+                        if (parentId !== 'root') {
+                            data.parentId = 'root';
+                            let siblings = me.#childrenMap.get(parentId);
+                            if (siblings) {
+                                let idx = siblings.indexOf(data);
+                                if (idx > -1) {
+                                    siblings.splice(idx, 1);
+                                }
+                            }
+                            if (!me.#childrenMap.has('root')) {
+                                me.#childrenMap.set('root', []);
+                            }
+                            if (!me.#childrenMap.get('root').includes(data)) {
+                                me.#childrenMap.get('root').push(data);
+                                affectedParents.add('root');
+                            }
+                        }
+                    } else {
+                        let parentNode = me.#allRecordsMap.get(parentId);
+                        if (parentNode.collapsed === false && me.indexOf(parentNode) > -1) {
+                            me.collectVisibleDescendants(data, visibleToAdd);
+
+                            if (!Neo.isNumber(insertIndex)) {
+                                let calcIndex = me.getInsertIndexForNode(data);
+                                if (calcIndex > -1) {
+                                    insertIndex = calcIndex;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 2b. Calculate the visible delta for all new roots
+                for (i = 0, len = newRoots.length; i < len; i++) {
+                    me.collectVisibleDescendants(newRoots[i], visibleToAdd);
+
+                    if (!Neo.isNumber(insertIndex)) {
+                        let calcIndex = me.getInsertIndexForNode(newRoots[i]);
+                        if (calcIndex > -1) {
+                            insertIndex = calcIndex;
+                        }
+                    }
+                }
+            }
+        }
+
+        // --- 3. Synchronize ARIA Stats ---
+        for (const pid of affectedParents) {
+            me.updateSiblingStats(pid);
+        }
+
+        // --- 4. Finalize Mutations ---
+
+        if (me[isFiltered]) {
+            me.filter();
+
+            // Collection fires mutate if added or removed items > 0
+            if (toAddArray || removeCountOrToRemoveArray) {
+                me.fire('mutate', {
+                    addedItems     : toAddArray || [],
+                    preventBubbleUp: me.preventBubbleUp,
+                    removedItems   : nodesToRemove
+                });
+            }
+            return {
+                addedItems  : toAddArray || [],
+                removedItems: nodesToRemove
+            };
+        }
+
+        // Delegate to super.splice ONLY if the Projection Layer (visible items) actually changed.
+        if (visibleToRemove.length > 0 || visibleToAdd.length > 0 || index === 0 && removeCountOrToRemoveArray === me.count) {
+            return super.splice(insertIndex, visibleToRemove, visibleToAdd);
+        }
+
+        // Fallback Mutation Event: If we added/removed hidden nodes, the visible array didn't change,
+        // so we skipped super.splice(). We must manually fire 'mutate' to keep systems like Store.count in sync.
+        if (toAddArray || removeCountOrToRemoveArray) {
+            me.fire('mutate', {
+                addedItems     : toAddArray,
+                preventBubbleUp: me.preventBubbleUp,
+                removedItems   : nodesToRemove
+            });
+        }
+
+        return {
+            addedItems  : visibleToAdd,
+            removedItems: visibleToRemove
+        };
+    }
+
+    /**
      * Toggles the expansion state of a node.
      * @param {String|Number} nodeId
      */
@@ -1021,13 +1019,13 @@ class TreeStore extends Store {
             }
 
             let count = visibleSiblings.length;
-            
+
             // 1. Update Parent's childCount
             if (parentId !== 'root') {
                 let parentNode = me.#allRecordsMap.get(parentId);
                 if (parentNode && parentNode.childCount !== count) {
                     parentNode.childCount = count;
-                    
+
                     // Trigger reactivity if it's an instantiated record
                     if (parentNode.isRecord) {
                         me.onRecordChange({
@@ -1045,7 +1043,7 @@ class TreeStore extends Store {
                 if (sibling.siblingCount !== count || sibling.siblingIndex !== i + 1) {
                     sibling.siblingCount = count;
                     sibling.siblingIndex = i + 1; // 1-based for ARIA
-                    
+
                     if (sibling.isRecord) {
                         me.onRecordChange({
                             fields: [
