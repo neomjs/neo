@@ -75,22 +75,6 @@ class TreeStore extends Store {
     #childrenMap = new Map()
 
     /**
-     * Pre-allocates and builds the _keys array and count to minimize GC pressure.
-     * @private
-     */
-    #rebuildKeysAndCount() {
-        let me    = this,
-            items = me._items,
-            len   = items.length;
-
-        me._keys = new Array(len);
-        for (let i = 0; i < len; i++) {
-            me._keys[i] = me.getKey(items[i])
-        }
-        me.count = len
-    }
-
-    /**
      * @summary Overrides `clear` to prevent memory leaks and split-brain states.
      *
      * The base `Store.clear()` only truncates the flat `_items` array (the Projection Layer).
@@ -774,6 +758,24 @@ class TreeStore extends Store {
     }
 
     /**
+     * Pre-allocates and builds the _keys array and count to minimize GC pressure.
+     * @private
+     */
+    #rebuildKeysAndCount() {
+        let me    = this,
+            items = me._items,
+            len   = items.length;
+
+        me._keys = new Array(len);
+
+        for (let i = 0; i < len; i++) {
+            me._keys[i] = me.getKey(items[i])
+        }
+
+        me.count = len
+    }
+
+    /**
      * Sorts an array of records/objects based on the Store's current sorters.
      * Extracted from `Neo.collection.Base` to sort localized child arrays.
      * @param {Array} arr The array to sort.
@@ -1061,7 +1063,7 @@ class TreeStore extends Store {
 
         // Delegate to super.splice ONLY if the Projection Layer (visible items) actually changed.
         if (visibleToRemove.length > 0 || visibleToAdd.length > 0 || index === 0 && removeCountOrToRemoveArray === me.count) {
-            return super.splice(insertIndex, visibleToRemove, visibleToAdd);
+            return super.splice(insertIndex, visibleToRemove, visibleToAdd)
         }
 
         // Fallback Mutation Event: If we added/removed hidden nodes, the visible array didn't change,
@@ -1089,11 +1091,7 @@ class TreeStore extends Store {
             node = me.get(nodeId);
 
         if (node) {
-            if (node.collapsed) {
-                me.expand(nodeId)
-            } else {
-                me.collapse(nodeId)
-            }
+            me[node.collapsed ? 'expand' : 'collapse'](nodeId)
         }
     }
 
@@ -1115,11 +1113,11 @@ class TreeStore extends Store {
             if (me._keptNodes) {
                 for (let i = 0; i < siblings.length; i++) {
                     if (me._keptNodes.has(me.getKey(siblings[i]))) {
-                        count++;
+                        count++
                     }
                 }
             } else {
-                count = siblings.length;
+                count = siblings.length
             }
 
             // 2. Update Parent's childCount
@@ -1145,7 +1143,7 @@ class TreeStore extends Store {
                 let sibling = siblings[i];
 
                 if (me._keptNodes && !me._keptNodes.has(me.getKey(sibling))) {
-                    continue;
+                    continue
                 }
 
                 if (sibling.siblingCount !== count || sibling.siblingIndex !== index) {
