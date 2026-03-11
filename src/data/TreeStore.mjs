@@ -73,6 +73,22 @@ class TreeStore extends Store {
     #childrenMap = new Map()
 
     /**
+     * Pre-allocates and builds the _keys array and count to minimize GC pressure.
+     * @private
+     */
+    #rebuildKeysAndCount() {
+        let me    = this,
+            items = me._items,
+            len   = items.length;
+
+        me._keys = new Array(len);
+        for (let i = 0; i < len; i++) {
+            me._keys[i] = me.getKey(items[i])
+        }
+        me.count = len
+    }
+
+    /**
      * @summary Overrides `clear` to prevent memory leaks and split-brain states.
      *
      * The base `Store.clear()` only truncates the flat `_items` array (the Projection Layer).
@@ -128,8 +144,7 @@ class TreeStore extends Store {
             me.collectVisibleDescendants(roots[i], me._items)
         }
 
-        me._keys = me._items.map(item => me.getKey(item));
-        me.count = me._items.length;
+        me.#rebuildKeysAndCount();
 
         // Restore structural sibling stats
         for (let parentId of me.#childrenMap.keys()) {
@@ -213,8 +228,7 @@ class TreeStore extends Store {
             me.collectVisibleDescendants(roots[i], me._items)
         }
 
-        me._keys = me._items.map(item => me.getKey(item));
-        me.count = me._items.length;
+        me.#rebuildKeysAndCount();
 
         if (!silent && me[updatingIndex] === 0) {
             me.fire('load', {items: me._items})
@@ -332,11 +346,11 @@ class TreeStore extends Store {
             me.collectVisibleDescendants(roots[i], me._items)
         }
 
-        // 4. Update the Collection keys map and isSorted flag
-        me._keys = me._items.map(item => me.getKey(item));
+        // 5. Update the Collection keys map and isSorted flag
+        me.#rebuildKeysAndCount();
         me[isSorted] = true;
 
-        // 5. Fire the sort event, passing the flat view items
+        // 6. Fire the sort event, passing the flat view items
         if (!silent && me[updatingIndex] === 0) {
             me.fire('sort', {
                 items: me._items,
@@ -494,8 +508,7 @@ class TreeStore extends Store {
             me.collectVisibleDescendants(roots[i], me._items)
         }
 
-        me._keys = me._items.map(item => me.getKey(item));
-        me.count = me._items.length;
+        me.#rebuildKeysAndCount();
 
         if (!silent && me[updatingIndex] === 0) {
             me.fire('load', {items: me._items})
@@ -527,11 +540,11 @@ class TreeStore extends Store {
      */
     filter() {
         let me = this;
+        const activeFilters = me.filters.filter(f => !f.disabled && f.value !== null);
 
         // 1. Soft hydration (Turbo Mode)
-        if (!me.autoInitRecords && me.model?.hasComplexFields && me.filters.length > 0) {
-            const activeFilters    = me.filters.filter(f => !f.disabled && f.value !== null),
-                  filterProperties = activeFilters.map(f => f.property),
+        if (!me.autoInitRecords && me.model?.hasComplexFields && activeFilters.length > 0) {
+            const filterProperties = activeFilters.map(f => f.property),
                   len              = filterProperties.length;
 
             if (len > 0) {
@@ -548,7 +561,6 @@ class TreeStore extends Store {
             }
         }
 
-        const activeFilters = me.filters.filter(f => !f.disabled && f.value !== null);
         const isFilteredFlag = activeFilters.length > 0;
         me[isFiltered] = isFilteredFlag;
 
@@ -614,8 +626,7 @@ class TreeStore extends Store {
             me.collectVisibleDescendants(roots[i], me._items)
         }
 
-        me._keys = me._items.map(item => me.getKey(item));
-        me.count = me._items.length;
+        me.#rebuildKeysAndCount();
 
         // Update sibling stats to reflect the filtered counts and indices
         for (let parentId of me.#childrenMap.keys()) {
@@ -1092,15 +1103,20 @@ class TreeStore extends Store {
             siblings = me.#childrenMap.get(parentId);
 
         if (siblings) {
-            // Determine visible siblings based on the active filter mask
-            let visibleSiblings = siblings;
+            let count = 0;
+
+            // 1. Calculate count without allocating an array
             if (me._keptNodes) {
-                visibleSiblings = siblings.filter(node => me._keptNodes.has(me.getKey(node)))
+                for (let i = 0; i < siblings.length; i++) {
+                    if (me._keptNodes.has(me.getKey(siblings[i]))) {
+                        count++;
+                    }
+                }
+            } else {
+                count = siblings.length;
             }
 
-            let count = visibleSiblings.length;
-
-            // 1. Update Parent's childCount
+            // 2. Update Parent's childCount
             if (parentId !== 'root') {
                 let parentNode = me.#allRecordsMap.get(parentId);
                 if (parentNode && parentNode.childCount !== count) {
@@ -1117,24 +1133,31 @@ class TreeStore extends Store {
                 }
             }
 
-            // 2. Update Siblings' ARIA stats
-            for (let i = 0; i < count; i++) {
-                let sibling = visibleSiblings[i];
-                if (sibling.siblingCount !== count || sibling.siblingIndex !== i + 1) {
+            // 3. Update Siblings' ARIA stats
+            let index = 1;
+            for (let i = 0; i < siblings.length; i++) {
+                let sibling = siblings[i];
+
+                if (me._keptNodes && !me._keptNodes.has(me.getKey(sibling))) {
+                    continue;
+                }
+
+                if (sibling.siblingCount !== count || sibling.siblingIndex !== index) {
                     sibling.siblingCount = count;
-                    sibling.siblingIndex = i + 1; // 1-based for ARIA
+                    sibling.siblingIndex = index; // 1-based for ARIA
 
                     if (sibling.isRecord) {
                         me.onRecordChange({
                             fields: [
                                 {name: 'siblingCount', oldValue: undefined, value: count},
-                                {name: 'siblingIndex', oldValue: undefined, value: i + 1}
+                                {name: 'siblingIndex', oldValue: undefined, value: index}
                             ],
                             model : me.model,
                             record: sibling
                         })
                     }
                 }
+                index++;
             }
         } else if (parentId !== 'root') {
             // The parent has no children left.
