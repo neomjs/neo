@@ -900,7 +900,7 @@ class Store extends Collection {
 
         // Being constructed does not mean that related afterSetStore() methods got executed
         // => break the sync flow to ensure potential listeners got applied
-        Promise.resolve().then(() => {
+        me.trap(Promise.resolve()).then(() => {
             if (me.isLoaded) {
                 me.fire('load', {items: me.items})
             } else if (me.autoLoad) {
