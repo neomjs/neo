@@ -118,17 +118,17 @@ test.describe.serial('DevIndex Grid Scroll Profile', () => {
 
         // Force the grid body to generate its initial view data
         const gridBody = grid.body;
-        
+
         // Manually setup column positions (normally done by HeaderToolbar)
         const colPos = grid.columns.items.map((col, index) => ({
             dataField: col.dataField,
             width    : 100,
             x        : index * 100
         }));
-        
+
         gridBody.columnPositions.clear();
         gridBody.columnPositions.add(colPos);
-        
+
         // Setting availableHeight allows buffer calculation to work in unit test mode
         gridBody.set({
             availableHeight: 2000,
@@ -141,8 +141,8 @@ test.describe.serial('DevIndex Grid Scroll Profile', () => {
         await grid.promiseUpdate();
 
         // At this point, the grid has rendered the first ~40-50 rows.
-        // We will simulate a large scroll jump, which causes createViewData 
-        // to replace all existing row VDOM nodes with new ones, triggering 
+        // We will simulate a large scroll jump, which causes createViewData
+        // to replace all existing row VDOM nodes with new ones, triggering
         // massive amounts of syncVnodeTree() overhead.
 
         gridBody.scrollTop = 50000; // Jump down significantly
@@ -153,7 +153,7 @@ test.describe.serial('DevIndex Grid Scroll Profile', () => {
 
         // Trigger the VDOM generation for the new scroll position
         gridBody.createViewData();
-        
+
         // Wait for the complete VDOM update cycle (including executeVdomUpdate -> resolveVdomUpdate -> syncVnodeTree)
         await grid.promiseUpdate();
 
@@ -161,7 +161,7 @@ test.describe.serial('DevIndex Grid Scroll Profile', () => {
 
         // Currently, without the optimization, this might take >500ms or even >1000ms.
         // We expect it to drop drastically (e.g. < 200ms or less) with the Map fix.
-        expect(duration).toBeLessThan(200); 
+        expect(duration).toBeLessThan(200);
 
         grid.destroy();
     });
