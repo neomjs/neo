@@ -91,10 +91,10 @@ class TreeStore extends Store {
 
         if (me._keptNodes) {
             me._keptNodes.clear();
-            me._keptNodes = null;
+            me._keptNodes = null
         }
 
-        super.clear();
+        super.clear()
     }
 
     /**
@@ -116,7 +116,7 @@ class TreeStore extends Store {
 
         if (me._keptNodes) {
             me._keptNodes.clear();
-            me._keptNodes = null;
+            me._keptNodes = null
         }
 
         me[isFiltered] = false;
@@ -125,7 +125,7 @@ class TreeStore extends Store {
         me._items = [];
         let roots = me.#childrenMap.get('root') || [];
         for (let i = 0; i < roots.length; i++) {
-            me.collectVisibleDescendants(roots[i], me._items);
+            me.collectVisibleDescendants(roots[i], me._items)
         }
 
         me._keys = me._items.map(item => me.getKey(item));
@@ -133,14 +133,14 @@ class TreeStore extends Store {
 
         // Restore structural sibling stats
         for (let parentId of me.#childrenMap.keys()) {
-            me.updateSiblingStats(parentId);
+            me.updateSiblingStats(parentId)
         }
 
         if (!silent && me[updatingIndex] === 0) {
             me.fire('filter', {
                 isFiltered: false,
                 scope     : me
-            });
+            })
         }
     }
 
@@ -153,7 +153,7 @@ class TreeStore extends Store {
             node = me.get(nodeId);
 
         if (!node || node.collapsed || node.isLeaf) {
-            return;
+            return
         }
 
         let key = me.getKey(node);
@@ -171,14 +171,14 @@ class TreeStore extends Store {
             children           = me.#childrenMap.get(key) || [];
 
         for (let i = 0, len = children.length; i < len; i++) {
-            me.collectVisibleDescendants(children[i], visibleDescendants);
+            me.collectVisibleDescendants(children[i], visibleDescendants)
         }
 
         if (visibleDescendants.length > 0) {
             let parentIndex = me.indexOf(node);
             if (parentIndex > -1) {
                 // Pass the array of items to remove so `Collection.splice` removes them by key
-                super.splice(null, visibleDescendants);
+                super.splice(null, visibleDescendants)
             }
         }
     }
@@ -193,11 +193,12 @@ class TreeStore extends Store {
     collectAllDescendants(node, resultArr) {
         resultArr.push(node);
 
-        let key      = this.getKey(node),
-            children = this.#childrenMap.get(key) || [];
+        let me       = this,
+            key      = me.getKey(node),
+            children = me.#childrenMap.get(key) || [];
 
         for (let i = 0, len = children.length; i < len; i++) {
-            this.collectAllDescendants(children[i], resultArr);
+            me.collectAllDescendants(children[i], resultArr)
         }
     }
 
@@ -208,19 +209,20 @@ class TreeStore extends Store {
      * @protected
      */
     collectVisibleDescendants(node, resultArr) {
-        let key = this.getKey(node);
+        let me  = this,
+            key = this.getKey(node);
 
-        if (this._keptNodes && !this._keptNodes.has(key)) {
-            return;
+        if (me._keptNodes && !me._keptNodes.has(key)) {
+            return
         }
 
         resultArr.push(node);
 
         if (node.collapsed === false) {
-            let children = this.#childrenMap.get(key) || [];
+            let children = me.#childrenMap.get(key) || [];
 
             for (let i = 0, len = children.length; i < len; i++) {
-                this.collectVisibleDescendants(children[i], resultArr);
+                me.collectVisibleDescendants(children[i], resultArr)
             }
         }
     }
@@ -262,34 +264,34 @@ class TreeStore extends Store {
                     for (let i = 0; i < len; i++) {
                         const property = sortProperties[i];
                         if (!Object.hasOwn(item, property)) {
-                            item[property] = me.resolveField(item, property);
+                            item[property] = me.resolveField(item, property)
                         }
                     }
                 }
-            });
+            })
         }
 
         // If there are no sorters, just clear the sorted flag and exit
         if (!me.sortProperties || me.sortProperties.length === 0) {
             me[isSorted] = false;
-            return;
+            return
         }
 
         // 2. Hierarchically sort each children array in the Structural Layer
         for (let children of me.#childrenMap.values()) {
-            me.sortArray(children);
+            me.sortArray(children)
         }
 
         // 3. Update sibling stats after sorting to reflect new indices
         for (let parentId of me.#childrenMap.keys()) {
-            me.updateSiblingStats(parentId);
+            me.updateSiblingStats(parentId)
         }
 
         // 4. Re-project the flat _items array from the sorted Structural Layer
         me._items = [];
         let roots = me.#childrenMap.get('root') || [];
         for (let i = 0, len = roots.length; i < len; i++) {
-            me.collectVisibleDescendants(roots[i], me._items);
+            me.collectVisibleDescendants(roots[i], me._items)
         }
 
         // 4. Update the Collection keys map and isSorted flag
@@ -302,7 +304,7 @@ class TreeStore extends Store {
                 items: me._items,
                 previousItems,
                 scope: me
-            });
+            })
         }
     }
 
@@ -316,7 +318,7 @@ class TreeStore extends Store {
             node = me.get(nodeId);
 
         if (!node || node.collapsed === false || node.isLeaf || node.isLoading) {
-            return;
+            return
         }
 
         let key = me.getKey(node);
@@ -326,7 +328,7 @@ class TreeStore extends Store {
             for (let i = 0, len = siblings.length; i < len; i++) {
                 let sibling = siblings[i];
                 if (sibling !== node && sibling.collapsed === false) {
-                    me.collapse(me.getKey(sibling));
+                    me.collapse(me.getKey(sibling))
                 }
             }
         }
@@ -338,7 +340,7 @@ class TreeStore extends Store {
                 fields: [{name: 'hasError', oldValue: true, value: false}],
                 model : me.model,
                 record: node
-            });
+            })
         }
 
         let children = me.#childrenMap.get(key) || [];
@@ -355,12 +357,12 @@ class TreeStore extends Store {
 
             let visibleDescendants = [];
             for (let i = 0, len = children.length; i < len; i++) {
-                me.collectVisibleDescendants(children[i], visibleDescendants);
+                me.collectVisibleDescendants(children[i], visibleDescendants)
             }
 
             let parentIndex = me.indexOf(node);
             if (parentIndex > -1) {
-                super.splice(parentIndex + 1, 0, visibleDescendants);
+                super.splice(parentIndex + 1, 0, visibleDescendants)
             }
         }
         // Case B: Async Fetch required
@@ -378,7 +380,7 @@ class TreeStore extends Store {
                 // but won't blindly append them to the flat array because their parent is known.
                 await me.load({
                     append: true,
-                    params: { parentId: key }
+                    params: {parentId: key}
                 });
 
                 children = me.#childrenMap.get(key) || [];
@@ -398,12 +400,12 @@ class TreeStore extends Store {
                 if (children.length > 0) {
                     let visibleDescendants = [];
                     for (let i = 0, len = children.length; i < len; i++) {
-                        me.collectVisibleDescendants(children[i], visibleDescendants);
+                        me.collectVisibleDescendants(children[i], visibleDescendants)
                     }
 
                     let parentIndex = me.indexOf(node);
                     if (parentIndex > -1) {
-                        super.splice(parentIndex + 1, 0, visibleDescendants);
+                        super.splice(parentIndex + 1, 0, visibleDescendants)
                     }
                 }
             } catch (error) {
@@ -419,7 +421,7 @@ class TreeStore extends Store {
                     record: node
                 });
 
-                me.fire('loadError', { error, record: node });
+                me.fire('loadError', {error, record: node})
             }
         }
     }
@@ -462,11 +464,11 @@ class TreeStore extends Store {
                         for (let i = 0; i < len; i++) {
                             const property = filterProperties[i];
                             if (!Object.hasOwn(item, property)) {
-                                item[property] = me.resolveField(item, property);
+                                item[property] = me.resolveField(item, property)
                             }
                         }
                     }
-                });
+                })
             }
         }
 
@@ -475,7 +477,7 @@ class TreeStore extends Store {
         me[isFiltered] = isFilteredFlag;
 
         if (!isFilteredFlag) {
-            me._keptNodes = null;
+            me._keptNodes = null
         } else {
             me._keptNodes = new Set();
 
@@ -486,7 +488,7 @@ class TreeStore extends Store {
                 for (let i = 0; i < activeFilters.length; i++) {
                     if (activeFilters[i].isFiltered(node)) {
                         matchesSelf = false;
-                        break;
+                        break
                     }
                 }
 
@@ -497,7 +499,7 @@ class TreeStore extends Store {
                 for (let i = 0; i < children.length; i++) {
                     let childKept = evaluateNode(children[i], isKept);
                     if (childKept) {
-                        hasMatchingDescendant = true;
+                        hasMatchingDescendant = true
                     }
                 }
 
@@ -511,21 +513,21 @@ class TreeStore extends Store {
                                 fields: [{name: 'collapsed', oldValue: true, value: false}],
                                 model : me.model,
                                 record: node
-                            });
+                            })
                         }
                     }
                 }
 
                 if (isKept) {
-                    me._keptNodes.add(key);
+                    me._keptNodes.add(key)
                 }
 
-                return isKept || hasMatchingDescendant;
+                return isKept || hasMatchingDescendant
             };
 
             let roots = me.#childrenMap.get('root') || [];
             for (let i = 0; i < roots.length; i++) {
-                evaluateNode(roots[i], false);
+                evaluateNode(roots[i], false)
             }
         }
 
@@ -533,7 +535,7 @@ class TreeStore extends Store {
         me._items = [];
         let roots = me.#childrenMap.get('root') || [];
         for (let i = 0; i < roots.length; i++) {
-            me.collectVisibleDescendants(roots[i], me._items);
+            me.collectVisibleDescendants(roots[i], me._items)
         }
 
         me._keys = me._items.map(item => me.getKey(item));
@@ -541,14 +543,14 @@ class TreeStore extends Store {
 
         // Update sibling stats to reflect the filtered counts and indices
         for (let parentId of me.#childrenMap.keys()) {
-            me.updateSiblingStats(parentId);
+            me.updateSiblingStats(parentId)
         }
 
         if (me[updatingIndex] === 0) {
             me.fire('filter', {
                 isFiltered: me[isFiltered],
                 scope     : me
-            });
+            })
         }
     }
 
@@ -560,7 +562,7 @@ class TreeStore extends Store {
      */
     get(key) {
         if (this.isItem(key)) {
-            key = this.getKey(key);
+            key = this.getKey(key)
         }
 
         let me   = this,
@@ -569,10 +571,10 @@ class TreeStore extends Store {
         if (!item && me.#allRecordsMap.has(key)) {
             // Fallback to the full tree map for hidden nodes.
             // Pass it through hydrateRecord to ensure Turbo Mode lazy instantiation works.
-            item = me.hydrateRecord(me.#allRecordsMap.get(key));
+            item = me.hydrateRecord(me.#allRecordsMap.get(key))
         }
 
-        return item || null;
+        return item || null
     }
 
     /**
@@ -618,7 +620,7 @@ class TreeStore extends Store {
                         lastIndex = me.indexOf(lastNode);
 
                     if (lastIndex > -1) {
-                        return lastIndex + 1;
+                        return lastIndex + 1
                     }
                 }
             }
@@ -629,15 +631,15 @@ class TreeStore extends Store {
                 parentIndex = me.indexOf(parentNode);
 
             if (parentIndex > -1) {
-                return parentIndex + 1;
+                return parentIndex + 1
             }
         }
 
         if (parentId === 'root' && nodeIndex === 0) {
-            return 0;
+            return 0
         }
 
-        return me.count;
+        return me.count
     }
 
     /**
@@ -671,12 +673,12 @@ class TreeStore extends Store {
                 // because the array currently holds the raw object reference.
                 const idx = siblings.indexOf(item);
                 if (idx > -1) {
-                    siblings[idx] = record;
+                    siblings[idx] = record
                 }
             }
         }
 
-        return record;
+        return record
     }
 
     /**
@@ -695,7 +697,7 @@ class TreeStore extends Store {
 
         sorters.forEach(key => {
             if (key.sortBy)            hasSortByMethod   = true;
-            if (key.useTransformValue) hasTransformValue = true;
+            if (key.useTransformValue) hasTransformValue = true
         });
 
         if (hasSortByMethod) {
@@ -706,8 +708,8 @@ class TreeStore extends Store {
                     sortValue = sorter[sorter.sortBy ? 'sortBy' : 'defaultSortBy'](a, b);
                     if (sortValue !== 0) return sortValue;
                 }
-                return 0;
-            });
+                return 0
+            })
         } else {
             if (hasTransformValue) {
                 mappedItems = arr.map((item, index) => {
@@ -715,15 +717,15 @@ class TreeStore extends Store {
                     i   = 0;
                     for (; i < countSorters; i++) {
                         if (sorters[i].useTransformValue) {
-                            obj[sortProperties[i]] = sorters[i].transformValue(item[sortProperties[i]]);
+                            obj[sortProperties[i]] = sorters[i].transformValue(item[sortProperties[i]])
                         } else {
-                            obj[sortProperties[i]] = item[sortProperties[i]];
+                            obj[sortProperties[i]] = item[sortProperties[i]]
                         }
                     }
                     return obj;
-                });
+                })
             } else {
-                mappedItems = arr;
+                mappedItems = arr
             }
 
             mappedItems.sort((a, b) => {
@@ -736,16 +738,16 @@ class TreeStore extends Store {
                     if (val1 == null && val2 != null) return  1;
                     if (val1 != null && val2 == null) return -1;
                     if (val1 > val2) return  1 * sortDirections[i];
-                    if (val1 < val2) return -1 * sortDirections[i];
+                    if (val1 < val2) return -1 * sortDirections[i]
                 }
-                return 0;
+                return 0
             });
 
             if (hasTransformValue) {
                 // Map the sorted mappedItems back into the original array in place
                 let sortedOriginals = mappedItems.map(el => el.original);
                 for (i = 0; i < arr.length; i++) {
-                    arr[i] = sortedOriginals[i];
+                    arr[i] = sortedOriginals[i]
                 }
             }
         }
@@ -791,10 +793,10 @@ class TreeStore extends Store {
             let toRemoveArray;
 
             if (Array.isArray(removeCountOrToRemoveArray)) {
-                toRemoveArray = removeCountOrToRemoveArray;
+                toRemoveArray = removeCountOrToRemoveArray
             } else if (Neo.isNumber(index) && Neo.isNumber(removeCountOrToRemoveArray)) {
                 // Map index-based removal to actual items from the flat visible view
-                toRemoveArray = me._items.slice(index, index + removeCountOrToRemoveArray);
+                toRemoveArray = me._items.slice(index, index + removeCountOrToRemoveArray)
             }
 
             if (toRemoveArray && toRemoveArray.length > 0) {
@@ -809,12 +811,12 @@ class TreeStore extends Store {
                         if (siblings) {
                             let idx = siblings.indexOf(node);
                             if (idx > -1) {
-                                siblings.splice(idx, 1);
+                                siblings.splice(idx, 1)
                             }
                         }
 
                         // Collect this node and ALL deep children to ensure full cleanup
-                        me.collectAllDescendants(node, nodesToRemove);
+                        me.collectAllDescendants(node, nodesToRemove)
                     }
                 }
 
@@ -829,7 +831,7 @@ class TreeStore extends Store {
 
                     // Track items that must be removed from the base Collection's flat array
                     if (me.indexOf(node) > -1) {
-                        visibleToRemove.push(node);
+                        visibleToRemove.push(node)
                     }
                 }
             }
@@ -852,23 +854,23 @@ class TreeStore extends Store {
                     // Soft Hydration for hierarchical fields
                     if (data.depth === undefined) {
                         if (parentId === 'root') {
-                            data.depth = 0;
+                            data.depth = 0
                         } else {
                             let parentNode = me.#allRecordsMap.get(parentId);
-                            data.depth = parentNode && parentNode.depth !== undefined ? parentNode.depth + 1 : 1;
+                            data.depth = parentNode && parentNode.depth !== undefined ? parentNode.depth + 1 : 1
                         }
                     }
 
                     if (data.isLeaf === undefined) {
-                        data.isLeaf = true;
+                        data.isLeaf = true
                     }
 
                     if (data.childCount === undefined) {
-                        data.childCount = 0;
+                        data.childCount = 0
                     }
 
                     if (data.collapsed === undefined) {
-                        data.collapsed = true;
+                        data.collapsed = true
                     }
 
                     me.#allRecordsMap.set(key, data);
@@ -880,14 +882,14 @@ class TreeStore extends Store {
                         if (parentId !== 'root') {
                             let parentNode = me.#allRecordsMap.get(parentId);
                             if (parentNode && parentNode.isLeaf) {
-                                parentNode.isLeaf = false;
+                                parentNode.isLeaf = false
                             }
                         }
                     }
 
                     if (!me.#childrenMap.get(parentId).includes(data)) {
                         me.#childrenMap.get(parentId).push(data);
-                        affectedParents.add(parentId);
+                        affectedParents.add(parentId)
                     }
 
                     // Identify nodes that need their flat visible descendants calculated
@@ -901,15 +903,15 @@ class TreeStore extends Store {
                             if (siblings) {
                                 let idx = siblings.indexOf(data);
                                 if (idx > -1) {
-                                    siblings.splice(idx, 1);
+                                    siblings.splice(idx, 1)
                                 }
                             }
                             if (!me.#childrenMap.has('root')) {
-                                me.#childrenMap.set('root', []);
+                                me.#childrenMap.set('root', [])
                             }
                             if (!me.#childrenMap.get('root').includes(data)) {
                                 me.#childrenMap.get('root').push(data);
-                                affectedParents.add('root');
+                                affectedParents.add('root')
                             }
                         }
                     } else {
@@ -920,7 +922,7 @@ class TreeStore extends Store {
                             if (!Neo.isNumber(insertIndex)) {
                                 let calcIndex = me.getInsertIndexForNode(data);
                                 if (calcIndex > -1) {
-                                    insertIndex = calcIndex;
+                                    insertIndex = calcIndex
                                 }
                             }
                         }
@@ -934,7 +936,7 @@ class TreeStore extends Store {
                     if (!Neo.isNumber(insertIndex)) {
                         let calcIndex = me.getInsertIndexForNode(newRoots[i]);
                         if (calcIndex > -1) {
-                            insertIndex = calcIndex;
+                            insertIndex = calcIndex
                         }
                     }
                 }
@@ -943,7 +945,7 @@ class TreeStore extends Store {
 
         // --- 3. Synchronize ARIA Stats ---
         for (const pid of affectedParents) {
-            me.updateSiblingStats(pid);
+            me.updateSiblingStats(pid)
         }
 
         // --- 4. Finalize Mutations ---
@@ -957,12 +959,12 @@ class TreeStore extends Store {
                     addedItems     : toAddArray || [],
                     preventBubbleUp: me.preventBubbleUp,
                     removedItems   : nodesToRemove
-                });
+                })
             }
             return {
                 addedItems  : toAddArray || [],
                 removedItems: nodesToRemove
-            };
+            }
         }
 
         // Delegate to super.splice ONLY if the Projection Layer (visible items) actually changed.
@@ -977,13 +979,13 @@ class TreeStore extends Store {
                 addedItems     : toAddArray,
                 preventBubbleUp: me.preventBubbleUp,
                 removedItems   : nodesToRemove
-            });
+            })
         }
 
         return {
             addedItems  : visibleToAdd,
             removedItems: visibleToRemove
-        };
+        }
     }
 
     /**
@@ -991,12 +993,14 @@ class TreeStore extends Store {
      * @param {String|Number} nodeId
      */
     toggle(nodeId) {
-        let node = this.get(nodeId);
+        let me   = this,
+            node = me.get(nodeId);
+
         if (node) {
             if (node.collapsed) {
-                this.expand(nodeId);
+                me.expand(nodeId)
             } else {
-                this.collapse(nodeId);
+                me.collapse(nodeId)
             }
         }
     }
@@ -1015,7 +1019,7 @@ class TreeStore extends Store {
             // Determine visible siblings based on the active filter mask
             let visibleSiblings = siblings;
             if (me._keptNodes) {
-                visibleSiblings = siblings.filter(node => me._keptNodes.has(me.getKey(node)));
+                visibleSiblings = siblings.filter(node => me._keptNodes.has(me.getKey(node)))
             }
 
             let count = visibleSiblings.length;
@@ -1032,7 +1036,7 @@ class TreeStore extends Store {
                             fields: [{name: 'childCount', oldValue: undefined, value: count}], // Note: oldValue tracking might be complex here, keeping it simple for now
                             model : me.model,
                             record: parentNode
-                        });
+                        })
                     }
                 }
             }
@@ -1052,7 +1056,7 @@ class TreeStore extends Store {
                             ],
                             model : me.model,
                             record: sibling
-                        });
+                        })
                     }
                 }
             }
@@ -1066,7 +1070,7 @@ class TreeStore extends Store {
                         fields: [{name: 'childCount', oldValue: undefined, value: 0}],
                         model : me.model,
                         record: parentNode
-                    });
+                    })
                 }
             }
         }
