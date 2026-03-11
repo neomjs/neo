@@ -60,13 +60,15 @@ class TreeStore extends Store {
     }
 
     /**
-     * Map containing all nodes (visible or hidden) keyed by their keyProperty.
+     * The foundation of the Structural Layer. A map containing all nodes (visible or hidden)
+     * keyed by their keyProperty, ensuring O(1) node retrieval regardless of expansion state.
      * @member {Map} #allRecordsMap
      * @private
      */
     #allRecordsMap = new Map()
     /**
-     * Map containing arrays of child nodes, keyed by their parentId (or 'root').
+     * The hierarchy of the Structural Layer. A map containing arrays of child nodes,
+     * keyed by their parentId (or 'root'), enabling fast top-down recursive operations.
      * @member {Map} #childrenMap
      * @private
      */
@@ -160,7 +162,8 @@ class TreeStore extends Store {
     }
 
     /**
-     * Collapses a node, removing its visible descendants from the flat grid view.
+     * Collapses a node by mathematically removing its visible descendants from the
+     * flat Projection Layer (`_items`), without altering the underlying Structural Layer.
      * @param {String|Number|Object|Neo.data.Record} nodeId
      */
     collapse(nodeId) {
@@ -236,8 +239,8 @@ class TreeStore extends Store {
     }
 
     /**
-     * Recursively collects a node and all of its descendants (visible or hidden) into a flat array.
-     * Used for deep removal operations.
+     * Recursively traverses the Structural Layer (`#childrenMap`) to collect a node and
+     * ALL of its descendants (visible or hidden). Used for deep cleanup operations.
      * @param {Object|Neo.data.Record} node
      * @param {Array} resultArr
      * @protected
@@ -255,7 +258,8 @@ class TreeStore extends Store {
     }
 
     /**
-     * Recursively collects a node and all of its visible descendants into a flat array.
+     * Recursively traverses the Structural Layer (`#childrenMap`) to project a node and
+     * its currently expanded (visible) descendants into a flat array for the Projection Layer.
      * @param {Object|Neo.data.Record} node
      * @param {Array} resultArr
      * @protected
@@ -361,7 +365,8 @@ class TreeStore extends Store {
     }
 
     /**
-     * Expands a node, injecting its children into the flat grid view.
+     * Expands a node by projecting its visible children from the Structural Layer
+     * into the flat Projection Layer (`_items`).
      * Supports asynchronous loading if children are missing and an API/URL is configured.
      * @param {String|Number|Object|Neo.data.Record} nodeId
      */
@@ -1093,8 +1098,9 @@ class TreeStore extends Store {
     }
 
     /**
-     * Recalculates the `siblingCount`, `siblingIndex`, and `childCount` for all children of a given parent.
-     * This is an O(N) operation called during mutations to ensure O(1) reads during VDOM rendering.
+     * Recalculates the `siblingCount`, `siblingIndex`, and `childCount` for all children of a given parent
+     * within the Structural Layer. This explicitly trades O(N) mutation cost during data ingestion
+     * to guarantee O(1) property reads during high-frequency VDOM rendering cycles.
      * @param {String|Number} parentId The ID of the parent node (or 'root').
      * @protected
      */
