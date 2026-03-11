@@ -184,6 +184,44 @@ class TreeStore extends Store {
     }
 
     /**
+     * @summary Collapses all nodes in the tree.
+     *
+     * Iterates through the entire structural layer, silently setting `collapsed = true`
+     * on all non-leaf nodes. The visible projection (`_items`) is then completely
+     * re-calculated from the roots, and a single `load` event is fired to trigger a UI refresh.
+     * This avoids the O(N^2) cost of triggering individual `splice` operations.
+     *
+     * @param {Boolean} [silent=false] True to prevent firing the 'load' event
+     */
+    collapseAll(silent=false) {
+        let me = this;
+
+        me.#allRecordsMap.forEach(item => {
+            if (!item.isLeaf && item.collapsed === false) {
+                if (item.isRecord) {
+                    item.setSilent({collapsed: true})
+                } else {
+                    item.collapsed = true
+                }
+            }
+        });
+
+        // Re-project the flat array from the roots
+        me._items = [];
+        let roots = me.#childrenMap.get('root') || [];
+        for (let i = 0, len = roots.length; i < len; i++) {
+            me.collectVisibleDescendants(roots[i], me._items)
+        }
+
+        me._keys = me._items.map(item => me.getKey(item));
+        me.count = me._items.length;
+
+        if (!silent && me[updatingIndex] === 0) {
+            me.fire('load', {items: me._items})
+        }
+    }
+
+    /**
      * Recursively collects a node and all of its descendants (visible or hidden) into a flat array.
      * Used for deep removal operations.
      * @param {Object|Neo.data.Record} node
@@ -423,6 +461,44 @@ class TreeStore extends Store {
 
                 me.fire('loadError', {error, record: node})
             }
+        }
+    }
+
+    /**
+     * @summary Expands all nodes in the tree.
+     *
+     * Iterates through the entire structural layer, silently setting `collapsed = false`
+     * on all non-leaf nodes. The visible projection (`_items`) is then completely
+     * re-calculated from the roots, and a single `load` event is fired to trigger a UI refresh.
+     * This avoids the O(N^2) cost of triggering individual `splice` operations.
+     *
+     * @param {Boolean} [silent=false] True to prevent firing the 'load' event
+     */
+    expandAll(silent=false) {
+        let me = this;
+
+        me.#allRecordsMap.forEach(item => {
+            if (!item.isLeaf && item.collapsed) {
+                if (item.isRecord) {
+                    item.setSilent({collapsed: false})
+                } else {
+                    item.collapsed = false
+                }
+            }
+        });
+
+        // Re-project the flat array from the roots
+        me._items = [];
+        let roots = me.#childrenMap.get('root') || [];
+        for (let i = 0, len = roots.length; i < len; i++) {
+            me.collectVisibleDescendants(roots[i], me._items)
+        }
+
+        me._keys = me._items.map(item => me.getKey(item));
+        me.count = me._items.length;
+
+        if (!silent && me[updatingIndex] === 0) {
+            me.fire('load', {items: me._items})
         }
     }
 
