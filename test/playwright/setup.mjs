@@ -51,4 +51,71 @@ export function setup(options = {}) {
     Neo.apps ??= {};
     Neo.apps[appConfig.windowId || 1] = finalAppConfig;
     Neo.appsByName = {[finalAppConfig.name]: [finalAppConfig]};
+
+    // Standardized Global Mocks to prevent cross-contamination in Playwright worker reuse
+    Neo.applyDeltas ??= async () => {};
+
+    Neo.main ??= {
+        addon: {
+            DragDrop: {},
+            Navigator: {
+                subscribe  : () => {},
+                unsubscribe: () => {},
+                navigateTo : () => {}
+            },
+            ResizeObserver: {
+                register  : () => {},
+                unregister: () => {}
+            }
+        },
+        DomAccess: {
+            focus: () => {},
+            getBoundingClientRect: async ({id}) => {
+                const rect = {width: 1000, height: 1000, x: 0, y: 0};
+                if (Array.isArray(id)) {
+                    return id.map(() => rect);
+                }
+                return rect;
+            },
+            scrollIntoView: async () => {},
+            scrollTo      : async () => {}
+        }
+    };
+
+    Neo.currentWorker ??= {
+        getAddon: async () => ({
+            register  : () => {},
+            unregister: () => {}
+        }),
+        insertThemeFiles: () => {},
+        isSharedWorker  : false,
+        on              : () => {},
+        promiseMessage  : async (dest, msg) => {
+            if (msg?.action === 'readDom') {
+                if (msg.attributes?.includes('offsetHeight')) {
+                     return { attributes: { offsetHeight: 600, offsetWidth: 800 } };
+                }
+                if (msg.functions?.[0]?.returnFnName === 'transform') {
+                     return { functions: { transform: 'matrix3d(1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1)' } };
+                }
+                // Fallback for general bounding client rect reads
+                return {
+                    attributes: {},
+                    functions: {},
+                    rects: [{width: 1000, height: 1000, x: 0, y: 0}]
+                };
+            }
+            return {};
+        },
+        sendMessage     : () => {}
+    };
+
+    Neo.worker ??= {
+        App: {
+            promiseMessage: async () => {}
+        },
+        Manager: {
+            startWorker: async () => {}
+        }
+    };
 }

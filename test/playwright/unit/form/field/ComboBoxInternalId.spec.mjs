@@ -40,22 +40,6 @@ test.describe('Neo.form.field.ComboBox InternalId Support', () => {
     TestModel = Neo.setupClass(TestModel);
 
     test.beforeEach(async () => {
-        // Mock Neo.main.DomAccess
-        Neo.main = {
-            DomAccess: {
-                focus: () => {}
-            },
-            addon: {
-                Navigator: {
-                    subscribe: () => {},
-                    unsubscribe: () => {},
-                    navigateTo: () => {}
-                }
-            }
-        };
-        Neo.currentWorker = {};
-        Neo.currentWorker.promiseMessage = async () => ({});
-
         store = Neo.create(Store, {
             model: TestModel,
             autoInitRecords: true,
