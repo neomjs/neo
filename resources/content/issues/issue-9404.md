@@ -43,11 +43,13 @@ subIssues:
   - '[x] 9430 TreeModel: Introduce childCount to decouple isLeaf state from emptiness'
   - '[x] 9431 TreeStore: Fix ARIA desync (siblingIndex and siblingCount) after sort and filter'
   - '[x] 9432 TreeStore: Override clear() to prevent memory leaks and split-brain states'
-  - '[ ] 9433 TreeStore: Implement bulk expandAll() and collapseAll() methods'
+  - '[x] 9433 TreeStore: Implement bulk expandAll() and collapseAll() methods'
   - '[x] 9434 TreeStore: Decouple clearFilters() from legacy allItems pattern'
   - '[x] 9435 TreeStore: Fix visible projection for dynamic child additions to expanded parents'
-subIssuesCompleted: 23
-subIssuesTotal: 29
+  - '[x] 9437 TreeStore: Optimize #allRecordsMap iteration loops'
+  - '[x] 9438 TreeStore: Reduce GC pressure and redundant iterations'
+subIssuesCompleted: 26
+subIssuesTotal: 31
 blockedBy: []
 blocking: []
 ---
@@ -117,4 +119,6 @@ wip
 - 2026-03-10T14:27:16Z @tobiu added sub-issue #9433
 - 2026-03-10T14:27:18Z @tobiu added sub-issue #9434
 - 2026-03-10T21:17:56Z @tobiu added sub-issue #9435
+- 2026-03-11T10:00:18Z @tobiu added sub-issue #9437
+- 2026-03-11T10:09:55Z @tobiu added sub-issue #9438
 
