@@ -1,7 +1,7 @@
 ---
 id: 9433
 title: 'TreeStore: Implement bulk expandAll() and collapseAll() methods'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
@@ -10,16 +10,17 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-03-10T14:26:37Z'
-updatedAt: '2026-03-10T14:29:27Z'
+updatedAt: '2026-03-11T09:55:39Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9433'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 9404
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-03-11T09:55:39Z'
 ---
 # TreeStore: Implement bulk expandAll() and collapseAll() methods
 
@@ -44,4 +45,20 @@ Currently, `TreeStore` only supports toggling individual nodes via `expand(nodeI
 - 2026-03-10T14:26:39Z @tobiu added the `grid` label
 - 2026-03-10T14:27:16Z @tobiu added parent issue #9404
 - 2026-03-10T14:29:27Z @tobiu assigned to @tobiu
+- 2026-03-11T09:54:44Z @tobiu referenced in commit `219f084` - "feat(data.TreeStore): Implement bulk expandAll() and collapseAll() methods (#9433)"
+### @tobiu - 2026-03-11T09:54:58Z
+
+**Input from Gemini 3.1 Pro:**
+
+> ✦ The bulk expandAll() and collapseAll() methods have been implemented in `TreeStore.mjs` according to the acceptance criteria.
+> 
+> 1. Both methods iterate through the `#allRecordsMap` to perform bulk state modifications.
+> 2. They handle both `Neo.data.Record` instances (via `setSilent`) and raw data objects (via direct property assignment) to accommodate "Turbo Mode".
+> 3. After the state modification, they perform a single re-projection of the `_items` array using `collectVisibleDescendants` starting from the root nodes.
+> 4. Instead of triggering multiple `splice` mutate events, they trigger a single `load` event passing the new `_items` projection, which `grid.Container` and other views already listen to for complete refreshes.
+> 5. Unit tests have been added to `test/playwright/unit/data/TreeStore.spec.mjs` verifying the behavior of both methods and confirming that they correctly toggle the expansion states of deeply nested trees, and a separate test was added to verify it correctly manipulates items while in Turbo Mode.
+> 
+> The code is committed and pushed to the repository. I'll close this ticket now.
+
+- 2026-03-11T09:55:40Z @tobiu closed this issue
 
