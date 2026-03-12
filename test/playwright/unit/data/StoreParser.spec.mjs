@@ -1,6 +1,6 @@
 import {setup} from '../../setup.mjs';
 
-const appName = 'StoreProxyTest';
+const appName = 'StoreParserTest';
 
 setup({
     appConfig: {
@@ -13,12 +13,12 @@ import Neo            from '../../../../src/Neo.mjs';
 import * as core      from '../../../../src/core/_export.mjs';
 import Store          from '../../../../src/data/Store.mjs';
 import Model          from '../../../../src/data/Model.mjs';
-import ProxyBase      from '../../../../src/data/proxy/Base.mjs';
+import ParserBase     from '../../../../src/data/parser/Base.mjs';
 
-class MockProxy extends ProxyBase {
+class MockParser extends ParserBase {
     static config = {
-        className: 'Test.MockProxy',
-        ntype: 'mock-proxy'
+        className: 'Test.MockParser',
+        ntype: 'mock-parser'
     }
 
     async read(operation) {
@@ -27,35 +27,35 @@ class MockProxy extends ProxyBase {
     }
 }
 
-MockProxy = Neo.setupClass(MockProxy);
+MockParser = Neo.setupClass(MockParser);
 
 /**
- * @summary Tests for Neo.data.Store with Proxy
+ * @summary Tests for Neo.data.Store with Parser
  */
-test.describe.serial('Neo.data.Store Proxy Integration', () => {
+test.describe.serial('Neo.data.Store Parser Integration', () => {
     
-    test('Store should create proxy from config', () => {
+    test('Store should create parser from config', () => {
         const store = Neo.create(Store, {
             keyProperty: 'id',
-            proxy: {
-                module: MockProxy
+            parser: {
+                module: MockParser
             }
         });
 
-        expect(store.proxy).toBeDefined();
-        expect(store.proxy.className).toBe('Test.MockProxy');
-        expect(store.proxy instanceof MockProxy).toBe(true);
+        expect(store.parser).toBeDefined();
+        expect(store.parser.className).toBe('Test.MockParser');
+        expect(store.parser instanceof MockParser).toBe(true);
     });
 
-    test('Store load() should use proxy and progressive loading', async () => {
+    test('Store load() should use parser and progressive loading', async () => {
         const store = Neo.create(Store, {
             keyProperty: 'id',
             model: {
                 module: Model,
                 fields: [{name: 'id'}, {name: 'name'}]
             },
-            proxy: {
-                module: MockProxy
+            parser: {
+                module: MockParser
             }
         });
 
@@ -65,10 +65,10 @@ test.describe.serial('Neo.data.Store Proxy Integration', () => {
         await store.load();
 
         // Should fire load at least once during stream (progressive) and once at end?
-        // MockProxy fires data once (2 items).
+        // MockParser fires data once (2 items).
         // Store:
         // 1. onData -> add -> isLoading=false -> fire('load') (Count: 1)
-        // 2. await proxy.read -> success -> fire('load') (Count: 2)
+        // 2. await parser.read -> success -> fire('load') (Count: 2)
         
         expect(loadFiredCount).toBeGreaterThanOrEqual(1);
         expect(store.count).toBe(2);

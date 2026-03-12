@@ -1,14 +1,14 @@
 import Base from './Base.mjs';
 
 /**
- * @class Neo.data.proxy.Stream
- * @extends Neo.data.proxy.Base
+ * @class Neo.data.parser.Stream
+ * @extends Neo.data.parser.Base
  *
- * @summary A Proxy implementation for streaming newline-delimited JSON (NDJSON/JSONL).
+ * @summary A Parser implementation for streaming newline-delimited JSON (NDJSON/JSONL).
  *
- * This proxy uses the modern `fetch` and `ReadableStream` APIs to process data incrementally.
+ * This parser uses the modern `fetch` and `ReadableStream` APIs to process data incrementally.
  * Unlike standard JSON parsing (which requires the entire file to be downloaded and parsed at once),
- * this proxy yields records as they arrive.
+ * this parser yields records as they arrive.
  *
  * **Performance & Batching:**
  * To avoid overwhelming the main thread (App Worker) with thousands of micro-events, this class
@@ -17,7 +17,7 @@ import Base from './Base.mjs';
  * to perform bulk updates, drastically reducing overhead.
  *
  * **Compression Support:**
- * You can configure the proxy to use `DecompressionStream` (gzip/deflate) by setting the `compression` config.
+ * You can configure the parser to use `DecompressionStream` (gzip/deflate) by setting the `compression` config.
  * This allows serving pre-compressed files (`.jsonl.gz`), significantly reducing network transfer size
  * (often >60% reduction) while keeping the client-side parsing logic identical.
  *
@@ -28,15 +28,15 @@ import Base from './Base.mjs';
 class Stream extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.data.proxy.Stream'
+         * @member {String} className='Neo.data.parser.Stream'
          * @protected
          */
-        className: 'Neo.data.proxy.Stream',
+        className: 'Neo.data.parser.Stream',
         /**
-         * @member {String} ntype='proxy-stream'
+         * @member {String} ntype='parser-stream'
          * @protected
          */
-        ntype: 'proxy-stream',
+        ntype: 'parser-stream',
         /**
          * Number of records to batch before firing a 'data' event.
          * @member {Number} chunkSize=500
@@ -233,7 +233,7 @@ class Stream extends Base {
         try {
             chunk.push(JSON.parse(line));
         } catch (e) {
-            console.warn('JSON parse error in Stream proxy:', e, line);
+            console.warn('JSON parse error in Stream parser:', e, line);
         }
     }
 }

@@ -62,7 +62,7 @@ const initialIndexSymbol = Symbol.for('initialIndex');
  *
  * ### Progressive Loading (Streaming)
  *
- * When using a `proxy` (e.g., {@link Neo.data.proxy.Stream}), the Store supports **Progressive Loading**.
+ * When using a `parser` (e.g., {@link Neo.data.parser.Stream}), the Store supports **Progressive Loading**.
  * Instead of waiting for the entire dataset to load, the Store updates itself incrementally as chunks of data arrive.
  *
  * - **Events:** The `load` event fires multiple times (once per chunk) with the cumulative `total`.
@@ -162,10 +162,10 @@ class Store extends Collection {
          */
         pageSize_: 0,
         /**
-         * @member {Object|Neo.data.proxy.Base|null} proxy_=null
+         * @member {Object|Neo.data.parser.Base|null} parser_=null
          * @reactive
          */
-        proxy_: null,
+        parser_: null,
         /**
          * True to let the backend handle the filtering.
          * Useful for buffered stores
@@ -243,10 +243,10 @@ class Store extends Collection {
     }
 
     /**
-     * Aborts the current proxy operation if the proxy supports it.
+     * Aborts the current parser operation if the parser supports it.
      */
     abort() {
-        this.proxy?.abort?.()
+        this.parser?.abort?.()
     }
 
     /**
@@ -476,12 +476,12 @@ class Store extends Collection {
     }
 
     /**
-     * @param {Object|Neo.data.proxy.Base} value
-     * @param {Object|Neo.data.proxy.Base} oldValue
+     * @param {Object|Neo.data.parser.Base} value
+     * @param {Object|Neo.data.parser.Base} oldValue
      * @protected
-     * @returns {Neo.data.proxy.Base}
+     * @returns {Neo.data.parser.Base}
      */
-    beforeSetProxy(value, oldValue) {
+    beforeSetParser(value, oldValue) {
         if (oldValue) {
             oldValue.destroy();
         }
@@ -807,7 +807,7 @@ class Store extends Collection {
 
                 return null
             }
-        } else if (me.proxy) {
+        } else if (me.parser) {
             if (me.items.length > 0 && !opts.append) {
                 me.clear();
             }
@@ -830,20 +830,20 @@ class Store extends Collection {
                 me.fire('progress', data)
             };
 
-            me.proxy.on({
+            me.parser.on({
                 data    : onData,
                 progress: onProgress
             });
 
             try {
-                // params.url can override proxy url
+                // params.url can override parser url
                 if (opts.url) {
                     params.url = opts.url;
                 }
 
-                const response = await me.proxy.read(params);
+                const response = await me.parser.read(params);
 
-                me.proxy.un({
+                me.parser.un({
                     data    : onData,
                     progress: onProgress
                 });
@@ -855,7 +855,7 @@ class Store extends Collection {
                     me.fire('load', {
                         isLoading    : false,
                         items        : me.items,
-                        postChunkLoad: me.proxy?.ntype === 'proxy-stream',
+                        postChunkLoad: me.parser?.ntype === 'parser-stream',
                         total        : me.totalCount
                     });
                     return me.items
@@ -864,7 +864,7 @@ class Store extends Collection {
                     return null
                 }
             } catch (e) {
-                me.proxy.un({
+                me.parser.un({
                     data    : onData,
                     progress: onProgress
                 });

@@ -1,6 +1,6 @@
 import {setup} from '../../../setup.mjs';
 
-const appName = 'StreamProxyTest';
+const appName = 'StreamParserTest';
 
 setup({
     appConfig: {
@@ -11,19 +11,19 @@ setup({
 import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../src/Neo.mjs';
 import * as core      from '../../../../../src/core/_export.mjs';
-import StreamProxy    from '../../../../../src/data/proxy/Stream.mjs';
+import StreamParser   from '../../../../../src/data/parser/Stream.mjs';
 
 /**
- * @summary Tests for Neo.data.proxy.Stream
+ * @summary Tests for Neo.data.parser.Stream
  */
-test.describe.serial('Neo.data.proxy.Stream', () => {
-    let proxy;
+test.describe.serial('Neo.data.parser.Stream', () => {
+    let parser;
 
     // Mock global fetch and streams for Node environment if needed
     // In Playwright Node environment, ReadableStream/TextDecoderStream should be available.
     
     test.beforeEach(() => {
-        proxy = Neo.create(StreamProxy, {
+        parser = Neo.create(StreamParser, {
             store: {}
         });
     });
@@ -61,12 +61,12 @@ test.describe.serial('Neo.data.proxy.Stream', () => {
         };
 
         const items = [];
-        proxy.on('data', (data) => {
+        parser.on('data', (data) => {
             // data is now an array
             items.push(...data);
         });
 
-        const result = await proxy.read({url: 'http://test.com/data.jsonl'});
+        const result = await parser.read({url: 'http://test.com/data.jsonl'});
 
         expect(result.success).toBe(true);
         expect(result.count).toBe(3);
@@ -106,11 +106,11 @@ ${JSON.stringify(mockData[1])}
         };
 
         const items = [];
-        proxy.on('data', (data) => {
+        parser.on('data', (data) => {
             items.push(...data);
         });
 
-        const result = await proxy.read({url: 'http://test.com/data.jsonl'});
+        const result = await parser.read({url: 'http://test.com/data.jsonl'});
 
         expect(result.count).toBe(2);
         expect(items.length).toBe(2);
@@ -124,7 +124,7 @@ ${JSON.stringify(mockData[1])}
          const originalFetch = globalThis.fetch;
          globalThis.fetch = async () => ({ ok: false, status: 404 });
 
-         await expect(proxy.read({url: 'http://test.com/404'})).rejects.toThrow('HTTP error! status: 404');
+         await expect(parser.read({url: 'http://test.com/404'})).rejects.toThrow('HTTP error! status: 404');
 
          globalThis.fetch = originalFetch;
     });
