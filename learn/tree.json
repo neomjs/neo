@@ -60,6 +60,7 @@
             {"name": "Dynamic Grids & Virtualization",                 "parentId": "guides/datahandling",                                 "id": "guides/datahandling/DynamicGrids"},
             {"name": "Streaming Data & Progressive Rendering",         "parentId": "guides/datahandling",                                 "id": "guides/datahandling/Streaming"},
             {"name": "Tables (Stores)",                                "parentId": "guides/datahandling",                                 "id": "guides/datahandling/Tables", "hidden": true},
+            {"name": "TreeStore & Hierarchical Data",                  "parentId": "guides/datahandling",                                 "id": "guides/datahandling/TreeStore"},
             {"name": "Shared Bindable Data (State Providers)",         "parentId": "guides/datahandling",                                 "id": "guides/datahandling/StateProviders"},
         {"name": "User Interaction & Advanced Features",               "parentId": "guides",                             "isLeaf": false, "id": "guides/userinteraction", "collapsed": true},
             {"name": "User Input (Forms)",                             "parentId": "guides/userinteraction",                              "id": "guides/userinteraction/Forms"},
