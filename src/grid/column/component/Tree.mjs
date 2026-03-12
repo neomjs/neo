@@ -74,7 +74,7 @@ class Tree extends Component {
         me.addDomListeners({
             click   : me.onToggleClick,
             delegate: '.neo-tree-toggle'
-        });
+        })
     }
 
     /**
@@ -83,7 +83,7 @@ class Tree extends Component {
      * @protected
      */
     afterSetCollapsed(value, oldValue) {
-        this.updateIconCls();
+        this.updateIconCls()
     }
 
     /**
@@ -97,7 +97,7 @@ class Tree extends Component {
 
         vdom.style = vdom.style || {};
         vdom.style['--tree-depth'] = value;
-        me.update();
+        me.update()
     }
 
     /**
@@ -106,7 +106,7 @@ class Tree extends Component {
      * @protected
      */
     afterSetHasError(value, oldValue) {
-        this.updateIconCls();
+        this.updateIconCls()
     }
 
     /**
@@ -115,7 +115,7 @@ class Tree extends Component {
      * @protected
      */
     afterSetIsLeaf(value, oldValue) {
-        this.updateIconCls();
+        this.updateIconCls()
     }
 
     /**
@@ -124,7 +124,7 @@ class Tree extends Component {
      * @protected
      */
     afterSetIsNodeLoading(value, oldValue) {
-        this.updateIconCls();
+        this.updateIconCls()
     }
 
     /**
@@ -136,7 +136,7 @@ class Tree extends Component {
         let me = this;
 
         me.vdom.cn[2].html = value;
-        me.update();
+        me.update()
     }
 
     /**
@@ -151,10 +151,10 @@ class Tree extends Component {
         if (gridContainer && !me.isLeaf && store && record) {
             if (me.collapsed) {
                 store.expand(record);
-                gridContainer.fire('expand', {record});
+                gridContainer.fire('expand', {record})
             } else {
                 store.collapse(record);
-                gridContainer.fire('collapse', {record});
+                gridContainer.fire('collapse', {record})
             }
         }
     }
@@ -171,19 +171,19 @@ class Tree extends Component {
         NeoArray.remove(cls, ['has-error', 'is-collapsed', 'is-expanded', 'is-leaf', 'is-loading']);
 
         if (me.isNodeLoading) {
-            cls.push('is-loading');
+            NeoArray.add(cls, 'is-loading')
         } else if (me.hasError) {
-            cls.push('has-error');
+            NeoArray.add(cls, 'has-error')
         } else if (me.isLeaf) {
-            cls.push('is-leaf');
+            NeoArray.add(cls, 'is-leaf')
         } else if (me.collapsed) {
-            cls.push('is-collapsed');
+            NeoArray.add(cls, 'is-collapsed')
         } else {
-            cls.push('is-expanded');
+            NeoArray.add(cls, 'is-expanded')
         }
 
         vdom.cn[1].cls = cls;
-        me.update();
+        me.update()
     }
 }
 
