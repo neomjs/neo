@@ -24,6 +24,7 @@ class Data extends Base {
          */
         remote: {
             app: [
+                'createInstance',
                 'loadModule'
             ]
         },
@@ -63,6 +64,38 @@ class Data extends Base {
         me.sendMessage('app', {action: 'registerPort', transfer: port2}, [port2]);
 
         me.channelPorts.app = port1
+    }
+
+    /**
+     * @summary Remotely loads an ES module and creates an instance of it inside the Data Worker.
+     * This is crucial for avoiding the loading of heavy data-shaping logic (like Parsers/Normalizers)
+     * inside the App Worker.
+     *
+     * @param {Object} msg
+     * @param {Object} msg.config The configuration object to pass to the new instance.
+     * @param {String} msg.path The path to the module to load.
+     * @returns {Promise<Object>} {success: true, id} or {success: false, error}
+     */
+    async createInstance({config, path}) {
+        try {
+            let module = await import(
+                /* webpackExclude: /(?:\/|\\)(dist|node_modules)\/(?!neo.mjs)/ */
+                /* webpackMode: "lazy" */
+                `../../${path}`
+            );
+
+            // module.default is the Neo class
+            let instance = Neo.create(module.default, config);
+
+            // Keep a reference to prevent garbage collection and allow future interactions
+            this.instances ??= {};
+            this.instances[instance.id] = instance;
+
+            return {success: true, id: instance.id}
+        } catch (e) {
+            console.error(`Data Worker: Failed to create instance for ${path}`, e);
+            return {success: false, path, error: e.message}
+        }
     }
 
     /**

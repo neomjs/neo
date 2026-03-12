@@ -148,7 +148,10 @@ class Store extends Collection {
          */
         model_: null,
         /**
-         * @member {Object|Neo.data.normalizer.Base|null} normalizer_=null
+         * Configuration object for the normalizer to be instantiated inside the Data Worker.
+         * Must contain either an `ntype` or a `path` property.
+         * Must NOT be a class or an instance to keep the App Worker lightweight.
+         * @member {Object|null} normalizer_=null
          * @reactive
          */
         normalizer_: null,
@@ -383,6 +386,45 @@ class Store extends Collection {
     afterSetModel(value, oldValue) {
         if (value) {
             value.storeId = this.id
+        }
+    }
+
+    /**
+     * @param {Object|null} value
+     * @param {Object|null} oldValue
+     * @protected
+     */
+    afterSetNormalizer(value, oldValue) {
+        let me = this;
+
+        if (value) {
+            if (value.isClass || value.isInstance) {
+                throw new Error('Neo.data.Store#normalizer must be a config object, not a class or instance. It will be instantiated inside the Data Worker.');
+            }
+
+            // Tell the Data Worker to load and instantiate the normalizer
+            // We use the ntype shortcut (e.g., 'normalizer-tree' -> 'Tree') if path is not provided
+            let path = value.path;
+
+            if (!path) {
+                if (!value.ntype) {
+                    throw new Error('Neo.data.Store#normalizer config must include either a `path` or an `ntype` property.');
+                }
+                let parts = value.ntype.split('-');
+                let name = parts[1].charAt(0).toUpperCase() + parts[1].slice(1);
+                path = `src/data/normalizer/${name}.mjs`;
+            }
+
+            Neo.worker.Data.createInstance({
+                config: value,
+                path
+            }).then(data => {
+                if (data.success) {
+                    me.normalizerId = data.id;
+                }
+            });
+        } else {
+            me.normalizerId = null;
         }
     }
 
