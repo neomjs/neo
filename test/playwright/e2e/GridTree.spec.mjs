@@ -22,14 +22,48 @@ test.describe('Tree Grid E2E', () => {
         const initialRows = page.locator('.neo-grid-row:visible');
         await expect(initialRows).toHaveCount(7);
 
-        // Click the toggle icon to EXPAND
+        // DIAGNOSTICS: Check grid record state BEFORE click
+        const gridStateBefore = await page.evaluate(async () => {
+            const gridContainer = Neo.getComponent('neo-grid-container-1');
+            const store = gridContainer.store;
+            const gridNode = store.get('child-1-2');
+            return {
+                isLeaf: gridNode.isLeaf,
+                collapsed: gridNode.collapsed,
+                childCount: gridNode.childCount
+            };
+        });
+        console.log('BEFORE:', gridStateBefore);
+
+        // Click the toggle icon to EXPAND the 'component' node
         await toggleIcon.click();
 
         // Wait for rows to be added.
         await expect(page.locator('.neo-grid-row:visible')).toHaveCount(9);
         await expect(toggleIcon).toHaveClass(/is-expanded/);
 
-        // Click the toggle icon to COLLAPSE
+        // DIAGNOSTICS: Check grid record state AFTER click
+        const gridStateAfter = await page.evaluate(async () => {
+            const gridContainer = Neo.getComponent('neo-grid-container-1');
+            const store = gridContainer.store;
+            const gridNode = store.get('child-1-2');
+            return {
+                isLeaf: gridNode.isLeaf,
+                collapsed: gridNode.collapsed,
+                childCount: gridNode.childCount
+            };
+        });
+        console.log('AFTER:', gridStateAfter);
+
+        // BUG CHECK: Verify the 'grid' folder icon did NOT vanish (become is-leaf).
+        // Since 'grid' is the first row, let's locate it explicitly.
+        const gridRow = page.locator('.neo-grid-row:has-text("grid")');
+        const gridToggleIcon = gridRow.locator('.neo-tree-toggle');
+        // 'grid' was expanded initially and should remain expanded, NOT a leaf.
+        await expect(gridToggleIcon).not.toHaveClass(/is-leaf/);
+        await expect(gridToggleIcon).toHaveClass(/is-expanded/);
+
+        // Click the toggle icon to COLLAPSE the 'component' node
         await toggleIcon.click();
 
         // Wait for rows to be removed.
