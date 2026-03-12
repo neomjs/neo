@@ -14,7 +14,7 @@ test.describe('Tree Grid E2E', () => {
 
         // The tree toggle icon inside this row
         const toggleIcon = componentRow.locator('.neo-tree-toggle');
-        
+
         // Ensure it has the collapsed class initially
         await expect(toggleIcon).toHaveClass(/is-collapsed/);
 
@@ -22,38 +22,12 @@ test.describe('Tree Grid E2E', () => {
         const initialRows = page.locator('.neo-grid-row:visible');
         await expect(initialRows).toHaveCount(7);
 
-        // DIAGNOSTICS: Check grid record state BEFORE click
-        const gridStateBefore = await page.evaluate(async () => {
-            const gridContainer = Neo.getComponent('neo-grid-container-1');
-            const store = gridContainer.store;
-            const gridNode = store.get('child-1-2');
-            return {
-                isLeaf: gridNode.isLeaf,
-                collapsed: gridNode.collapsed,
-                childCount: gridNode.childCount
-            };
-        });
-        console.log('BEFORE:', gridStateBefore);
-
         // Click the toggle icon to EXPAND the 'component' node
         await toggleIcon.click();
 
         // Wait for rows to be added.
         await expect(page.locator('.neo-grid-row:visible')).toHaveCount(9);
         await expect(toggleIcon).toHaveClass(/is-expanded/);
-
-        // DIAGNOSTICS: Check grid record state AFTER click
-        const gridStateAfter = await page.evaluate(async () => {
-            const gridContainer = Neo.getComponent('neo-grid-container-1');
-            const store = gridContainer.store;
-            const gridNode = store.get('child-1-2');
-            return {
-                isLeaf: gridNode.isLeaf,
-                collapsed: gridNode.collapsed,
-                childCount: gridNode.childCount
-            };
-        });
-        console.log('AFTER:', gridStateAfter);
 
         // BUG CHECK: Verify the 'grid' folder icon did NOT vanish (become is-leaf).
         // Since 'grid' is the first row, let's locate it explicitly.
@@ -69,7 +43,7 @@ test.describe('Tree Grid E2E', () => {
         // Wait for rows to be removed.
         await expect(page.locator('.neo-grid-row:visible')).toHaveCount(7);
         await expect(toggleIcon).toHaveClass(/is-collapsed/);
-        
+
         // EXPAND AGAIN
         await toggleIcon.click();
         await expect(page.locator('.neo-grid-row:visible')).toHaveCount(9);
