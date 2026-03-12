@@ -148,6 +148,11 @@ class Store extends Collection {
          */
         model_: null,
         /**
+         * @member {Object|Neo.data.normalizer.Base|null} normalizer_=null
+         * @reactive
+         */
+        normalizer_: null,
+        /**
          * Use a value of 0 to not limit the pageSize
          * @member {Number} pageSize_=0
          * @reactive
