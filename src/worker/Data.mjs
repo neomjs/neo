@@ -18,6 +18,16 @@ class Data extends Base {
          */
         className: 'Neo.worker.Data',
         /**
+         * Remote method access for other workers
+         * @member {Object} remote
+         * @protected
+         */
+        remote: {
+            app: [
+                'loadModule'
+            ]
+        },
+        /**
          * @member {Boolean} singleton=true
          * @protected
          */
@@ -53,6 +63,29 @@ class Data extends Base {
         me.sendMessage('app', {action: 'registerPort', transfer: port2}, [port2]);
 
         me.channelPorts.app = port1
+    }
+
+    /**
+     * @summary Remotely loads an ES module into the Data Worker.
+     * This method uses a scoped dynamic import to ensure Webpack only bundles
+     * relevant modules.
+     *
+     * @param {Object} data
+     * @param {String} data.path The path to the module to load.
+     * @returns {Promise<Object>} {success: true, path} or {success: false, path, error}
+     */
+    async loadModule({path}) {
+        try {
+            await import(
+                /* webpackExclude: /(?:\/|\\)(dist|node_modules)\/(?!neo.mjs)/ */
+                /* webpackMode: "lazy" */
+                `../../${path}`
+            );
+            return {success: true, path}
+        } catch (e) {
+            console.error(`Data Worker: Failed to load module ${path}`, e);
+            return {success: false, path, error: e.message}
+        }
     }
 
     /**
