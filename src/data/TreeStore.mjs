@@ -162,12 +162,6 @@ class TreeStore extends Store {
 
         node.collapsed = true;
 
-        me.onRecordChange({
-            fields: [{name: 'collapsed', oldValue: false, value: true}],
-            model : me.model,
-            record: node
-        });
-
         // Find how many visible descendants to remove
         let visibleDescendants = [],
             children           = me.#childrenMap.get(key) || [];
@@ -377,11 +371,6 @@ class TreeStore extends Store {
         // Clear previous error state on retry
         if (node.hasError) {
             node.hasError = false;
-            me.onRecordChange({
-                fields: [{name: 'hasError', oldValue: true, value: false}],
-                model : me.model,
-                record: node
-            })
         }
 
         let children = me.#childrenMap.get(key) || [];
@@ -389,12 +378,6 @@ class TreeStore extends Store {
         // Case A: Children are already in memory
         if (children.length > 0) {
             node.collapsed = false;
-
-            me.onRecordChange({
-                fields: [{name: 'collapsed', oldValue: true, value: false}],
-                model : me.model,
-                record: node
-            });
 
             let visibleDescendants = [];
             for (let i = 0, len = children.length; i < len; i++) {
@@ -410,12 +393,6 @@ class TreeStore extends Store {
         else if (me.url || me.api || me.proxy) {
             node.isLoading = true;
 
-            me.onRecordChange({
-                fields: [{name: 'isLoading', oldValue: false, value: true}],
-                model : me.model,
-                record: node
-            });
-
             try {
                 // The load() call will eventually trigger add(), which populates #childrenMap
                 // but won't blindly append them to the flat array because their parent is known.
@@ -426,16 +403,9 @@ class TreeStore extends Store {
 
                 children = me.#childrenMap.get(key) || [];
 
-                node.isLoading = false;
-                node.collapsed = false;
-
-                me.onRecordChange({
-                    fields: [
-                        {name: 'isLoading', oldValue: true, value: false},
-                        {name: 'collapsed', oldValue: true, value: false}
-                    ],
-                    model : me.model,
-                    record: node
+                node.set({
+                    collapsed: false,
+                    isLoading: false
                 });
 
                 if (children.length > 0) {
@@ -450,16 +420,9 @@ class TreeStore extends Store {
                     }
                 }
             } catch (error) {
-                node.isLoading = false;
-                node.hasError  = true;
-
-                me.onRecordChange({
-                    fields: [
-                        {name: 'isLoading', oldValue: true, value: false},
-                        {name: 'hasError', oldValue: false, value: true}
-                    ],
-                    model : me.model,
-                    record: node
+                node.set({
+                    hasError : true,
+                    isLoading: false
                 });
 
                 me.fire('loadError', {error, record: node})
