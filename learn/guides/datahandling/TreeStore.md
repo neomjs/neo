@@ -174,7 +174,7 @@ sequenceDiagram
 
     UI->>Store: expandAll()
     Note over Store, Struct: 1. Silently update state
-    loop O(N) over #allRecordsMap
+    loop O(N) over allRecordsMap
         Store->>Struct: set collapsed = false (no events)
     end
     
