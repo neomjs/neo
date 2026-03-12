@@ -390,7 +390,7 @@ class TreeStore extends Store {
             }
         }
         // Case B: Async Fetch required
-        else if (me.url || me.api || me.proxy) {
+        else if (me.url || me.api || me.parser) {
             node.isLoading = true;
 
             try {

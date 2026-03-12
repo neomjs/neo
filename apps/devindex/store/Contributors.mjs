@@ -1,6 +1,6 @@
 import ContributorModel from '../model/Contributor.mjs';
 import Store            from '../../../src/data/Store.mjs';
-import StreamProxy      from '../../../src/data/proxy/Stream.mjs';
+import StreamParser     from '../../../src/data/parser/Stream.mjs';
 
 /**
  * @class DevIndex.store.Contributors
@@ -41,12 +41,12 @@ class Contributors extends Store {
             {property: 'name',        operator: 'like', value: null}
         ],
         /**
-         * @member {Object} proxy
+         * @member {Object} parser
          */
-        proxy: {
-            module: StreamProxy,
+        parser: {
+            module              : StreamParser,
             progressiveChunkSize: true,
-            url   : Neo.config.basePath + 'apps/devindex/resources/data/users.jsonl'
+            url                 : Neo.config.basePath + 'apps/devindex/resources/data/users.jsonl'
         },
         /**
          * @member {Object[]} sorters
