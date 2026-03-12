@@ -79,7 +79,7 @@ test.describe('Neo.form.field.ComboBox', () => {
         await expect(inputField).toHaveValue('');
 
         // First item is active on open, since the picker is visible
-        await expect(inputField).toHaveAttribute('aria-activedescendant', 'neo-list-1__AL');
+        await expect(inputField).toHaveAttribute('aria-activedescendant', /^neo-list-\d+__neo-record-1$/);
         await expect(page.locator('.neo-list-item.neo-navigator-active-item:has-text("Alabama")')).toBeVisible();
 
         // Should activate the second list item. editable: false means we can still be focused
@@ -87,7 +87,7 @@ test.describe('Neo.form.field.ComboBox', () => {
         await page.keyboard.press('ArrowDown');
 
         // The second item is now active
-        await expect(inputField).toHaveAttribute('aria-activedescendant', 'neo-list-1__AK');
+        await expect(inputField).toHaveAttribute('aria-activedescendant', /^neo-list-\d+__neo-record-2$/);
         await expect(page.locator('.neo-list-item.neo-navigator-active-item:has-text("Alaska")')).toBeVisible();
 
         await page.waitForTimeout(100);
