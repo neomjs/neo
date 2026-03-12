@@ -24,7 +24,7 @@ subIssues:
   - '[ ] 9409 CSS Animations for TreeGrid Expand/Collapse'
   - '[x] 9410 TreeGrid Documentation & Examples'
   - '[x] 9411 TreeGrid Unit Tests (Data & Logic)'
-  - '[ ] 9412 TreeGrid Component Tests (UI & Interactions)'
+  - '[x] 9412 TreeGrid Component Tests (UI & Interactions)'
   - '[x] 9413 Create Async Subtree Loading for `Neo.data.TreeStore`'
   - '[x] 9414 Refactor `Neo.data.Store` to unify Record Hydration'
   - '[x] 9415 Support "Turbo Mode" in `Neo.data.TreeStore`'
@@ -51,8 +51,9 @@ subIssues:
   - '[x] 9439 TreeStore: Apply "Anchor & Echo" JSDoc strategy for AI discoverability'
   - '[x] 9445 TreeGrid Documentation: Create high-level architectural guide for TreeStore'
   - '[x] 9447 TreeGrid: Fix 7-click expand/collapse bug and redundant change events'
-subIssuesCompleted: 29
-subIssuesTotal: 34
+  - '[x] 9448 TreeGrid Component pooling accumulates `is-leaf` class leading to visual bugs'
+subIssuesCompleted: 31
+subIssuesTotal: 35
 blockedBy: []
 blocking: []
 ---
@@ -127,4 +128,5 @@ wip
 - 2026-03-11T10:53:13Z @tobiu added sub-issue #9439
 - 2026-03-12T09:16:30Z @tobiu added sub-issue #9445
 - 2026-03-12T10:37:00Z @tobiu added sub-issue #9447
+- 2026-03-12T11:30:51Z @tobiu added sub-issue #9448
 
