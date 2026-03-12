@@ -13,7 +13,7 @@ updatedAt: '2026-03-09T15:47:18Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9419'
 author: tobiu
 commentsCount: 0
-parentIssue: 9404
+parentIssue: 9449
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
@@ -44,4 +44,7 @@ To achieve a high-performance `Connection -> Parser -> Normalizer` pipeline insi
 - 2026-03-09T15:46:22Z @tobiu added parent issue #9404
 - 2026-03-09T15:46:36Z @tobiu cross-referenced by #9420
 - 2026-03-09T15:47:12Z @tobiu assigned to @tobiu
+- 2026-03-12T14:20:26Z @tobiu cross-referenced by #9449
+- 2026-03-12T14:21:17Z @tobiu removed parent issue #9404
+- 2026-03-12T14:21:18Z @tobiu added parent issue #9449
 
