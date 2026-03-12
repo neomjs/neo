@@ -1,7 +1,7 @@
 ---
 id: 9419
 title: Implement Dynamic Module Loading in `Neo.worker.Data`
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
@@ -9,16 +9,17 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-03-09T15:46:09Z'
-updatedAt: '2026-03-09T15:47:18Z'
+updatedAt: '2026-03-12T14:54:31Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9419'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 9449
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-03-12T14:54:31Z'
 ---
 # Implement Dynamic Module Loading in `Neo.worker.Data`
 
@@ -33,9 +34,6 @@ To achieve a high-performance `Connection -> Parser -> Normalizer` pipeline insi
 - Use `await import(/* webpackIgnore: true */ path)` to load the module natively.
 - Address Webpack production bundling strategies (e.g., magic comments or dynamic chunks) as needed during implementation.
 
-### Dependencies
-- Belongs to the TreeGrid Epic (#9404).
-
 ## Timeline
 
 - 2026-03-09T15:46:10Z @tobiu added the `enhancement` label
@@ -47,4 +45,20 @@ To achieve a high-performance `Connection -> Parser -> Normalizer` pipeline insi
 - 2026-03-12T14:20:26Z @tobiu cross-referenced by #9449
 - 2026-03-12T14:21:17Z @tobiu removed parent issue #9404
 - 2026-03-12T14:21:18Z @tobiu added parent issue #9449
+- 2026-03-12T14:53:58Z @tobiu referenced in commit `7830abe` - "feat: Implement Dynamic Module Loading in Data Worker (#9419)"
+### @tobiu - 2026-03-12T14:54:09Z
+
+**Input from Gemini 3.1 Pro:**
+
+> ✦ I have successfully implemented dynamic module loading in `Neo.worker.Data`.
+> 
+> ### Changes Made
+> - Added the `remote` config mapping to expose `loadModule` to the `app` worker.
+> - Implemented `async loadModule({path})` which utilizes Webpack's dynamic `import()` capabilities natively.
+> - Integrated the specific `webpackExclude` rule `/* webpackExclude: /(?:\/|\\)(dist|node_modules)\/(?!neo.mjs)/ */` to ensure robust bundler chunking and ignore irrelevant system folders.
+> - Ran all unit tests (331) successfully.
+> 
+> Code has been committed and pushed under `#9419`.
+
+- 2026-03-12T14:54:32Z @tobiu closed this issue
 
