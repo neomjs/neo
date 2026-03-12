@@ -15,7 +15,7 @@ updatedAt: '2026-03-09T15:47:31Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9420'
 author: tobiu
 commentsCount: 0
-parentIssue: 9404
+parentIssue: 9449
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
@@ -47,4 +47,7 @@ With Normalizers defined and the Data Worker capable of dynamically loading them
 - 2026-03-09T15:46:37Z @tobiu added the `core` label
 - 2026-03-09T15:46:48Z @tobiu added parent issue #9404
 - 2026-03-09T15:47:24Z @tobiu assigned to @tobiu
+- 2026-03-12T14:20:26Z @tobiu cross-referenced by #9449
+- 2026-03-12T14:21:21Z @tobiu removed parent issue #9404
+- 2026-03-12T14:21:22Z @tobiu added parent issue #9449
 
