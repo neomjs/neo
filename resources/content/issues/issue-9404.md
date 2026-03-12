@@ -50,8 +50,9 @@ subIssues:
   - '[x] 9438 TreeStore: Reduce GC pressure and redundant iterations'
   - '[x] 9439 TreeStore: Apply "Anchor & Echo" JSDoc strategy for AI discoverability'
   - '[x] 9445 TreeGrid Documentation: Create high-level architectural guide for TreeStore'
-subIssuesCompleted: 28
-subIssuesTotal: 33
+  - '[x] 9447 TreeGrid: Fix 7-click expand/collapse bug and redundant change events'
+subIssuesCompleted: 29
+subIssuesTotal: 34
 blockedBy: []
 blocking: []
 ---
@@ -125,4 +126,5 @@ wip
 - 2026-03-11T10:09:55Z @tobiu added sub-issue #9438
 - 2026-03-11T10:53:13Z @tobiu added sub-issue #9439
 - 2026-03-12T09:16:30Z @tobiu added sub-issue #9445
+- 2026-03-12T10:37:00Z @tobiu added sub-issue #9447
 
