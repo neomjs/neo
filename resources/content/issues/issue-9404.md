@@ -49,8 +49,9 @@ subIssues:
   - '[x] 9437 TreeStore: Optimize #allRecordsMap iteration loops'
   - '[x] 9438 TreeStore: Reduce GC pressure and redundant iterations'
   - '[x] 9439 TreeStore: Apply "Anchor & Echo" JSDoc strategy for AI discoverability'
-subIssuesCompleted: 27
-subIssuesTotal: 32
+  - '[x] 9445 TreeGrid Documentation: Create high-level architectural guide for TreeStore'
+subIssuesCompleted: 28
+subIssuesTotal: 33
 blockedBy: []
 blocking: []
 ---
@@ -123,4 +124,5 @@ wip
 - 2026-03-11T10:00:18Z @tobiu added sub-issue #9437
 - 2026-03-11T10:09:55Z @tobiu added sub-issue #9438
 - 2026-03-11T10:53:13Z @tobiu added sub-issue #9439
+- 2026-03-12T09:16:30Z @tobiu added sub-issue #9445
 
