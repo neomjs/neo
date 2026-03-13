@@ -40,7 +40,7 @@ class MainModel extends TreeModel {
             fields.push({name: 'number' + i, type: 'Int'})
         }
 
-        this.fields = fields
+        this.fields = [...this.fields, ...fields]
     }
 }
 
