@@ -721,7 +721,16 @@ class TreeStore extends Store {
     }
 
     /**
-     * Pre-allocates and builds the _keys array and count to minimize GC pressure.
+     * @summary Rebuilds the Projection Layer's internal indexing arrays and map to match the flat `_items` array.
+     *
+     * This method is an architectural requirement when performing bulk projections (like `expandAll`,
+     * `collapseAll`, or `clearFilters`). Rather than letting the inherited `Collection` update its
+     * internal structures one-by-one via cost-heavy `splice` operations, the `TreeStore` wipes and
+     * completely regenerates the `_items` projection.
+     *
+     * Consequently, it must also manually synchronize the `_keys` array and the internal `map`
+     * to reflect the newly calculated flat projection, guaranteeing O(1) lookup integrity for the VDOM rendering loop.
+     *
      * @private
      */
     #rebuildKeysAndCount() {
