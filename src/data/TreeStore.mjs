@@ -730,6 +730,13 @@ class TreeStore extends Store {
      *
      * Consequently, it must also manually synchronize the internal `map`
      * to reflect the newly calculated flat projection, guaranteeing O(1) lookup integrity for the VDOM rendering loop.
+     * 
+     * **Turbo Mode Consistency:**
+     * In **Turbo Mode** (`autoInitRecords: false`), bulk projections deal with raw data objects. 
+     * However, UI interactions (like Grid selections) rely on `SelectionModel` resolving DOM
+     * `data-record-id` values (which fallback to `internalId`) back to records via `store.get()`.
+     * To prevent `store.get()` from failing, this method explicitly invokes `getInternalId` to 
+     * force generation of internal IDs on raw objects and perfectly synchronizes the `internalIdMap`.
      *
      * @private
      */
@@ -753,7 +760,7 @@ class TreeStore extends Store {
             map.set(key, item);
 
             if (me.trackInternalId) {
-                internalId = me.getInternalKey(item);
+                internalId = me.getInternalId(item);
                 if (internalId) {
                     me.internalIdMap.set(internalId, item)
                 }

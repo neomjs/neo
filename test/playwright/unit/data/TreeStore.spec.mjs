@@ -935,6 +935,7 @@ test.describe('Neo.data.TreeStore (Bulk Operations)', () => {
         // This is exactly what RowModel does: store.get(internalId)
         const record = store.get(internalId);
 
+        expect(record).not.toBeNull();
         expect(record.isRecord).toBe(true);
         expect(store._items[1]).toBe(record);
         expect(store.indexOf(record)).toBe(1);
