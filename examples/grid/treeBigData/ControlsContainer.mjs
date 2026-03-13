@@ -1,4 +1,5 @@
 import * as selection from '../../../src/selection/grid/_export.mjs';
+import Button         from '../../../src/button/Base.mjs';
 import ComboBox       from '../../../src/form/field/ComboBox.mjs';
 import Container      from '../../../src/container/Base.mjs';
 import Radio          from '../../../src/form/field/Radio.mjs';
@@ -20,7 +21,8 @@ class ControlsContainer extends Container {
         onAmountColumnsChange    : {type: 'buffer', timer: 15},
         onAmountRowsChange       : {type: 'buffer', timer: 15},
         onBufferColumnRangeChange: {type: 'buffer', timer: 15},
-        onBufferRowRangeChange   : {type: 'buffer', timer: 15}
+        onBufferRowRangeChange   : {type: 'buffer', timer: 15},
+        onMaxDepthChange         : {type: 'buffer', timer: 15}
     }
 
     static config = {
@@ -80,6 +82,13 @@ class ControlsContainer extends Container {
                     value     : '50',
                     width     : 200
                 }, {
+                    labelText : 'Max Depth',
+                    labelWidth: 145,
+                    listeners : {change: 'up.onMaxDepthChange'},
+                    store     : ['2', '3', '5', '8', '10', '20'],
+                    value     : '5',
+                    width     : 200
+                }, {
                     labelText : 'Buffer Rows',
                     labelWidth: 145,
                     listeners : {change: 'up.onBufferRowRangeChange'},
@@ -93,6 +102,22 @@ class ControlsContainer extends Container {
                     store     : ['0', '3', '5', '10', '20'],
                     value     : '3',
                     width     : 200
+                }, {
+                    module: Container,
+                    layout: {ntype: 'hbox', align: 'center'},
+                    style : {marginTop: '1em'},
+                    items : [{
+                        module : Button,
+                        handler: 'up.onExpandAllClick',
+                        text   : 'Expand All',
+                        flex   : 1,
+                        style  : {marginRight: '0.5em'}
+                    }, {
+                        module : Button,
+                        handler: 'up.onCollapseAllClick',
+                        text   : 'Collapse All',
+                        flex   : 1
+                    }]
                 }, {
                     module    : Radio,
                     checked   : true,
@@ -233,6 +258,19 @@ class ControlsContainer extends Container {
     /**
      * @param {Object} data
      */
+    async onMaxDepthChange(data) {
+        if (data.oldValue) {
+            let me = this;
+
+            me.grid.isLoading = 'Is Loading';
+            await me.timeout(5);
+            me.grid.store.maxDepth = parseInt(data.value.id)
+        }
+    }
+
+    /**
+     * @param {Object} data
+     */
     onBufferColumnRangeChange(data) {
         if (data.oldValue) {
             this.grid.body.bufferColumnRange = parseInt(data.value.id)
@@ -246,6 +284,28 @@ class ControlsContainer extends Container {
         if (data.oldValue) {
             this.grid.body.bufferRowRange = parseInt(data.value.id)
         }
+    }
+
+    /**
+     * @param {Object} data
+     */
+    async onExpandAllClick(data) {
+        let me = this;
+        me.grid.isLoading = 'Is Loading';
+        await me.timeout(5);
+        me.grid.store.expandAll();
+        me.grid.isLoading = false;
+    }
+
+    /**
+     * @param {Object} data
+     */
+    async onCollapseAllClick(data) {
+        let me = this;
+        me.grid.isLoading = 'Is Loading';
+        await me.timeout(5);
+        me.grid.store.collapseAll();
+        me.grid.isLoading = false;
     }
 
     /**
