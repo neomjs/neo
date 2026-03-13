@@ -1,7 +1,7 @@
 ---
 id: 9461
 title: 'Epic: TreeGrid Big Data Demo'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - epic
@@ -9,10 +9,10 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-03-13T11:05:41Z'
-updatedAt: '2026-03-13T12:07:37Z'
+updatedAt: '2026-03-13T18:37:14Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9461'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: null
 subIssues:
   - '[x] 9462 TreeGrid Big Data Demo: Scaffold Base Directory and Files'
@@ -24,6 +24,7 @@ subIssuesCompleted: 5
 subIssuesTotal: 5
 blockedBy: []
 blocking: []
+closedAt: '2026-03-13T18:37:14Z'
 ---
 # Epic: TreeGrid Big Data Demo
 
@@ -84,4 +85,9 @@ WIP
 
 https://github.com/user-attachments/assets/ccf9b1f3-4d21-4a89-a9db-e4839ad14c41
 
+### @tobiu - 2026-03-13T18:37:14Z
+
+resolved
+
+- 2026-03-13T18:37:14Z @tobiu closed this issue
 
