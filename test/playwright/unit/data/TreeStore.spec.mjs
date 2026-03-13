@@ -69,7 +69,7 @@ test.describe('Neo.data.TreeStore (Splice Mechanics)', () => {
 
         // Expand 'component'
         store.expand('child-1-1');
-        
+
         expect(store.count).toBe(9);
         expect(store.getAt(1).name).toBe('component');
         expect(store.getAt(2).name).toBe('Base.mjs');
@@ -91,10 +91,10 @@ test.describe('Neo.data.TreeStore (Splice Mechanics)', () => {
 
     test('singleExpand mode should collapse siblings when a node is expanded', () => {
         store.singleExpand = true;
-        
+
         // Initial state: 'grid' is expanded (2 children), 'component' is collapsed.
         // Total count = 7.
-        
+
         // Expand component -> Base.mjs and Button.mjs become visible.
         // Because of singleExpand, its sibling 'grid' will collapse -> Container.mjs and Row.mjs are hidden.
         store.expand('child-1-1');
@@ -108,14 +108,14 @@ test.describe('Neo.data.TreeStore (Splice Mechanics)', () => {
         expect(store.getAt(3).name).toBe('Button.mjs');
         expect(store.getAt(4).name).toBe('grid');
         expect(store.getAt(5).name).toBe('package.json');
-        
+
         // Now expand grid again.
         // It should expand grid AND collapse component.
         store.expand('child-1-2');
-        
+
         expect(store.get('child-1-2').collapsed).toBe(false);
         expect(store.get('child-1-1').collapsed).toBe(true);
-        
+
         // Base.mjs and Button.mjs should be gone, Container.mjs and Row.mjs should be present
         expect(store.count).toBe(7);
         expect(store.getAt(1).name).toBe('component');
@@ -128,15 +128,15 @@ test.describe('Neo.data.TreeStore (Splice Mechanics)', () => {
     test('#childrenMap and #allRecordsMap caching logic', () => {
         // We can't access private fields directly, but we can verify O(1) retrieval
         // by checking that nodes are instantly retrievable even when collapsed.
-        
+
         let hiddenNode = store.get('child-1-1-1'); // Base.mjs
         expect(hiddenNode).toBeDefined();
         expect(hiddenNode.name).toBe('Base.mjs');
-        
+
         // Verify sibling stats are correctly cached inside the hidden nodes
         expect(hiddenNode.siblingCount).toBe(2);
         expect(hiddenNode.siblingIndex).toBe(1);
-        
+
         let visibleNode = store.get('root-1');
         expect(visibleNode.siblingCount).toBe(3);
         expect(visibleNode.siblingIndex).toBe(1);
@@ -151,7 +151,7 @@ test.describe('Neo.data.TreeStore (Splice Mechanics)', () => {
 
         // The parent 'child-1-1' is expanded, so the new child should be instantly visible
         expect(store.count).toBe(10);
-        
+
         // Find the new file in the flat view
         expect(store.items.find(i => i.name === 'NewFile.mjs')).toBeDefined();
     });
@@ -192,16 +192,16 @@ test.describe('Neo.data.TreeStore (Turbo Mode / Soft Hydration)', () => {
     test('siblingCount and siblingIndex are correctly resolved for raw data objects', () => {
         // In Turbo Mode, _items contains raw data objects, not Records.
         let rootNode = store._items[0];
-        
+
         // Ensure it's a raw object
         expect(rootNode.isRecord).toBeUndefined();
-        
+
         // Check that TreeStore.splice() mutated the raw object to include ARIA stats
         expect(rootNode.siblingCount).toBe(1);
         expect(rootNode.siblingIndex).toBe(1);
         expect(rootNode.depth).toBe(0);
         expect(rootNode.isLeaf).toBe(false);
-        
+
         // The children map should contain raw objects, also with mutated stats
         let childNode = store.get('child-1-1'); // Wait, store.get() HYDRATES it!
         expect(childNode.isRecord).toBe(true);
@@ -209,6 +209,11 @@ test.describe('Neo.data.TreeStore (Turbo Mode / Soft Hydration)', () => {
         expect(childNode.siblingIndex).toBe(1);
         expect(childNode.depth).toBe(1);
         expect(childNode.isLeaf).toBe(false);
+
+        // Critical Fix check: the Store's _items array MUST contain the Hydrated record
+        // and indexOf must find it.
+        expect(store.indexOf(childNode)).toBe(1);
+        expect(store._items[1]).toBe(childNode);
 
         // However, we can check a hidden raw object via another way if needed,
         // but getting it will hydrate it. Since store.get() hydrates it, the values
@@ -218,14 +223,14 @@ test.describe('Neo.data.TreeStore (Turbo Mode / Soft Hydration)', () => {
         expect(leaf1.siblingIndex).toBe(1);
         expect(leaf1.depth).toBe(2);
         expect(leaf1.isLeaf).toBe(true);
-        
+
         let leaf2 = store.get('child-1-1-2');
         expect(leaf2.siblingCount).toBe(2);
         expect(leaf2.siblingIndex).toBe(2);
         expect(leaf2.depth).toBe(2);
         expect(leaf2.isLeaf).toBe(true);
         expect(leaf2.childCount).toBe(0); // Leaves have 0 children
-        
+
         // Let's verify childCount on parents
         // In the test data for Turbo Mode, root-1 only has ONE child ('child-1-1')
         expect(rootNode.childCount).toBe(1); // 'component'
@@ -266,13 +271,13 @@ test.describe('Neo.data.TreeStore (childCount and isLeaf decoupling)', () => {
 
     test('childCount should accurately reflect the number of children and decouple from isLeaf', () => {
         let parent = store.get('child-1-1'); // 'component' folder
-        
+
         expect(parent.isLeaf).toBe(false);
         expect(parent.childCount).toBe(1);
 
         // Add a new child
         store.add({ id: 'child-1-1-2', parentId: 'child-1-1', name: 'Button.mjs', isLeaf: true });
-        
+
         expect(parent.isLeaf).toBe(false); // Still a folder
         expect(parent.childCount).toBe(2); // Count increased
 
@@ -281,7 +286,7 @@ test.describe('Neo.data.TreeStore (childCount and isLeaf decoupling)', () => {
         store.remove('child-1-1-2');
 
         // This is the critical test: it should STILL be a folder (isLeaf: false), but empty
-        expect(parent.isLeaf).toBe(false); 
+        expect(parent.isLeaf).toBe(false);
         expect(parent.childCount).toBe(0);
     });
 });
@@ -289,11 +294,11 @@ test.describe('Neo.data.TreeStore (childCount and isLeaf decoupling)', () => {
 test.describe('Neo.data.TreeStore (Hierarchical Sorting)', () => {
     /**
      * @summary Tests the hierarchical sorting logic of Neo.data.TreeStore.
-     * 
+     *
      * A standard `Store` sorts its flat `_items` array globally. If applied to a TreeStore,
      * this would destroy the parent-child relationships (e.g., sorting alphabetically would
      * mix all parents and children together).
-     * 
+     *
      * These tests verify that `TreeStore.doSort()` correctly sorts sibling nodes *only within
      * their own parent's scope*, ensuring that the contiguous visual projection (parent
      * followed immediately by its children) remains structurally intact.
@@ -330,7 +335,7 @@ test.describe('Neo.data.TreeStore (Hierarchical Sorting)', () => {
         });
 
         // Current order: Z, B, A, A, Z, Y
-        
+
         // Sort descending by name
         store.sorters = [{
             property: 'name',
@@ -341,7 +346,7 @@ test.describe('Neo.data.TreeStore (Hierarchical Sorting)', () => {
         // Expected sorted children of 'Z' (DESC): 'B' (id '1-1'), 'A' (id '1-2')
         // Expected sorted children of 'A' (DESC): 'Z' (id '2-1'), 'Y' (id '2-2')
         // Flattened view should strictly keep children with their parents.
-        
+
         let items = store.items; // items is the flattened _items array
         expect(items.length).toBe(6);
         expect(items[0].id).toBe('1');   // Z
@@ -356,7 +361,7 @@ test.describe('Neo.data.TreeStore (Hierarchical Sorting)', () => {
             property: 'name',
             direction: 'ASC'
         }];
-        
+
         items = store.items;
         expect(items.length).toBe(6);
         // Expected sorted roots (ASC): 'A' (id '2'), 'Z' (id '1')
@@ -440,7 +445,7 @@ test.describe('Neo.data.TreeStore (Hierarchical Sorting)', () => {
         // Expected sorted roots (DESC): 'Z' (id '1'), 'A' (id '2')
         // Expected sorted children of 'Z' (DESC): 'B' (id '1-1'), 'A' (id '1-2')
         // Expected sorted children of 'A' (DESC): 'Z' (id '2-1'), 'Y' (id '2-2')
-        
+
         expect(rootZ.siblingIndex).toBe(1); // Z is still 1
         expect(rootA.siblingIndex).toBe(2); // A is still 2
 
@@ -461,13 +466,13 @@ test.describe('Neo.data.TreeStore (Hierarchical Sorting)', () => {
 
         // Expected sorted roots (ASC): 'A' (id '2'), 'Z' (id '1')
         // Expected sorted children of 'Z' (ASC): 'A' (id '1-2'), 'B' (id '1-1')
-        
+
         expect(rootA.siblingIndex).toBe(1);
         expect(rootZ.siblingIndex).toBe(2);
 
         expect(child1_A.siblingIndex).toBe(1);
         expect(child1_B.siblingIndex).toBe(2);
-        
+
         expect(child2_Y.siblingIndex).toBe(1);
         expect(child2_Z.siblingIndex).toBe(2);
     });
@@ -505,7 +510,7 @@ test.describe('Neo.data.TreeStore (Hierarchical Sorting)', () => {
 test.describe('Neo.data.TreeStore (Ancestor-Aware Filtering)', () => {
     /**
      * @summary Tests the hierarchical filtering logic of Neo.data.TreeStore.
-     * 
+     *
      * Standard collection filtering hides any record that doesn't match the filter criteria.
      * In a TreeStore, this would orphan child nodes if their parents don't match the filter.
      * These tests verify that when a descendant node matches a filter, all of its direct
@@ -554,12 +559,12 @@ test.describe('Neo.data.TreeStore (Ancestor-Aware Filtering)', () => {
         // Ancestors ('Root A' and 'Child A1') must be forced visible and expanded.
         // 'Target Node' must be visible.
         // 'Other Node' should NOT be visible because neither it nor its parent matched the filter directly.
-        
+
         expect(items.length).toBe(3);
         expect(items[0].id).toBe('1');       // Root A
         expect(items[1].id).toBe('1-1');     // Child A1
         expect(items[2].id).toBe('1-1-1');   // Target Node
-        
+
         expect(store.get('1').collapsed).toBe(false);
         expect(store.get('1-1').collapsed).toBe(false);
     });
@@ -586,11 +591,11 @@ test.describe('Neo.data.TreeStore (Ancestor-Aware Filtering)', () => {
 
         expect(items.length).toBe(3);
         expect(items[0].isRecord).toBeUndefined(); // Still in Turbo Mode
-        
+
         expect(items[0].id).toBe('1');       // Root X
         expect(items[1].id).toBe('1-2');     // Deep Parent
         expect(items[2].id).toBe('1-2-1');   // Match Me
-        
+
         expect(items[0].collapsed).toBe(false);
         expect(items[1].collapsed).toBe(false);
     });
@@ -611,7 +616,7 @@ test.describe('Neo.data.TreeStore (Ancestor-Aware Filtering)', () => {
         // Check pre-filter stats
         expect(store.get('1-1-1').siblingCount).toBe(2);
         expect(store.get('1-1-2').siblingCount).toBe(2);
-        
+
         expect(store.get('1').siblingCount).toBe(2);
         expect(store.get('2').siblingCount).toBe(2);
 
@@ -622,7 +627,7 @@ test.describe('Neo.data.TreeStore (Ancestor-Aware Filtering)', () => {
         }];
 
         // Only Root A -> Child A1 -> Target Node are visible
-        
+
         let rootA = store.get('1');
         let childA1 = store.get('1-1');
         let targetNode = store.get('1-1-1');
@@ -642,15 +647,15 @@ test.describe('Neo.data.TreeStore (Ancestor-Aware Filtering)', () => {
         // Verify childCount on parents is correctly updated to reflect only visible children
         expect(rootA.childCount).toBe(1); // Only Child A1 is visible
         expect(childA1.childCount).toBe(1); // Only Target Node is visible
-        
+
         // Let's clear the filter and ensure stats are restored
         store.filters = [];
-        
+
         expect(store.get('1-1-1').siblingCount).toBe(2);
         expect(store.get('1-1-1').siblingIndex).toBe(1);
         expect(store.get('1-1-2').siblingCount).toBe(2);
         expect(store.get('1-1-2').siblingIndex).toBe(2);
-        
+
         expect(store.get('1').siblingCount).toBe(2);
         expect(store.get('1').siblingIndex).toBe(1);
         expect(store.get('2').siblingCount).toBe(2);
@@ -713,15 +718,15 @@ test.describe('Neo.data.TreeStore (Clear override)', () => {
 
         // Ensure initially populated
         expect(store.count).toBe(2); // _items array length
-        
-        // We can test maps indirectly via get() which uses #allRecordsMap and #childrenMap internally 
-        // to return the item or expand nodes. But we'll test the actual properties via private access 
-        // fallback in test environment or just verify their size if possible. 
+
+        // We can test maps indirectly via get() which uses #allRecordsMap and #childrenMap internally
+        // to return the item or expand nodes. But we'll test the actual properties via private access
+        // fallback in test environment or just verify their size if possible.
         // Let's use stringification or direct map checks if available, or just verify get() fails.
         // Actually, we can check the size of the maps by peeking or checking side-effects.
         expect(store.get('1')).toBeDefined();
-        
-        // Let's check size via stringification or some reflection if possible. 
+
+        // Let's check size via stringification or some reflection if possible.
         // Since they are private (#allRecordsMap), we cannot access them directly via dot notation.
         // However, we can assert that get() completely fails even for hidden items after clear().
 
@@ -731,7 +736,7 @@ test.describe('Neo.data.TreeStore (Clear override)', () => {
         expect(store.count).toBe(0);
         expect(store.items.length).toBe(0);
 
-        // 2. The structural maps must be empty. If they weren't, `get()` would still find them 
+        // 2. The structural maps must be empty. If they weren't, `get()` would still find them
         // because get() falls back to #allRecordsMap.
         expect(store.get('1')).toBeNull();
         expect(store.get('1-1')).toBeNull();
@@ -780,7 +785,7 @@ test.describe('Neo.data.TreeStore (clearFilters override)', () => {
         // Only Root A should be visible
         expect(store.count).toBe(1);
         expect(store.items[0].id).toBe('1');
-        
+
         // Ensure _keptNodes mask is active
         expect(store._keptNodes).toBeDefined();
         expect(store._keptNodes.has('1')).toBe(true);
@@ -791,10 +796,10 @@ test.describe('Neo.data.TreeStore (clearFilters override)', () => {
 
         // 1. The mask should be gone
         expect(store._keptNodes).toBeNull();
-        
+
         // 2. The filters array should be empty
         expect(store.filters.length).toBe(0);
-        
+
         // 3. The isFiltered flag should be false
         expect(store[Symbol.for('isFiltered')]).toBe(false);
 
@@ -839,7 +844,7 @@ test.describe('Neo.data.TreeStore (Bulk Operations)', () => {
 
         // Initially only roots are visible
         expect(store.count).toBe(2);
-        
+
         let loadFired = false;
         store.on('load', () => loadFired = true);
 
@@ -856,7 +861,7 @@ test.describe('Neo.data.TreeStore (Bulk Operations)', () => {
         expect(store.get('1').collapsed).toBe(false);
         expect(store.get('1-1').collapsed).toBe(false);
         expect(store.get('2').collapsed).toBe(false);
-        
+
         expect(loadFired).toBe(true);
     });
 
@@ -874,7 +879,7 @@ test.describe('Neo.data.TreeStore (Bulk Operations)', () => {
 
         // Initially all nodes are visible
         expect(store.count).toBe(5);
-        
+
         let loadFired = false;
         store.on('load', () => loadFired = true);
 
@@ -888,7 +893,7 @@ test.describe('Neo.data.TreeStore (Bulk Operations)', () => {
         expect(store.get('1').collapsed).toBe(true);
         expect(store.get('1-1').collapsed).toBe(true);
         expect(store.get('2').collapsed).toBe(true);
-        
+
         expect(loadFired).toBe(true);
     });
 
@@ -903,12 +908,35 @@ test.describe('Neo.data.TreeStore (Bulk Operations)', () => {
         });
 
         expect(store.count).toBe(1);
-        
+
         store.expandAll();
 
         expect(store.count).toBe(2);
         expect(store.items[0].isRecord).toBeUndefined(); // Still in Turbo Mode
         expect(store.items[0].collapsed).toBe(false);
     });
-});
 
+    test('expandAll() + get() via internalId hydration updates _items and map so indexOf works', () => {
+        store = Neo.create(TreeStore, {
+            model: TestModel,
+            autoInitRecords: false,
+            data : [
+                { id: '1', name: 'Root A', isLeaf: false, collapsed: true },
+                { id: '1-1', parentId: '1', name: 'Child A1', isLeaf: true }
+            ]
+        });
+
+        store.expandAll();
+
+        // mimic the grid using internalId from the DOM to get the record
+        const rawObj = store._items[1];
+        const internalId = store.getInternalKey(rawObj);
+
+        // This is exactly what RowModel does: store.get(internalId)
+        const record = store.get(internalId);
+
+        expect(record.isRecord).toBe(true);
+        expect(store._items[1]).toBe(record);
+        expect(store.indexOf(record)).toBe(1);
+    });
+});

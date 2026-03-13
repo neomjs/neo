@@ -737,15 +737,27 @@ class TreeStore extends Store {
         let me    = this,
             items = me._items,
             len   = items.length,
-            keys  = new Array(len),
-            {map} = me;
+            {map} = me,
+            internalId, item, key;
 
         map.clear();
 
+        if (me.trackInternalId) {
+            me.internalIdMap?.clear()
+        }
+
         for (let i = 0; i < len; i++) {
-            let key = me.getKey(items[i]);
-            keys[i] = key;
-            map.set(key, items[i])
+            item = items[i];
+            key  = me.getKey(item);
+
+            map.set(key, item);
+
+            if (me.trackInternalId) {
+                internalId = me.getInternalKey(item);
+                if (internalId) {
+                    me.internalIdMap.set(internalId, item)
+                }
+            }
         }
 
         me.count = len
