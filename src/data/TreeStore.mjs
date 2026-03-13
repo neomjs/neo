@@ -731,8 +731,14 @@ class TreeStore extends Store {
 
         me._keys = new Array(len);
 
+        let {_keys, map} = me;
+
+        map.clear();
+
         for (let i = 0; i < len; i++) {
-            me._keys[i] = me.getKey(items[i])
+            let key = me.getKey(items[i]);
+            _keys[i] = key;
+            map.set(key, items[i])
         }
 
         me.count = len
