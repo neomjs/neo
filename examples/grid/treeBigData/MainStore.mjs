@@ -1,11 +1,11 @@
-import Model from './MainModel.mjs';
-import Store from '../../../src/data/Store.mjs';
+import Model     from './MainModel.mjs';
+import TreeStore from '../../../src/data/TreeStore.mjs';
 
 /**
  * @class Neo.examples.grid.treeBigData.MainStore
- * @extends Neo.data.Store
+ * @extends Neo.data.TreeStore
  */
-class MainStore extends Store {
+class MainStore extends TreeStore {
     static config = {
         /**
          * @member {String} className='Neo.examples.grid.treeBigData.MainStore'
@@ -65,6 +65,12 @@ class MainStore extends Store {
     ]
 
     /**
+     * @member {Number} maxDepth_=5
+     * @reactive
+     */
+    maxDepth_: 5,
+
+    /**
      * @param {Object} config
      * @returns {Neo.collection.Base}
      * @protected
@@ -75,6 +81,19 @@ class MainStore extends Store {
     }
 
     /**
+     * Triggered after the maxDepth config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetMaxDepth(value, oldValue) {
+        if (oldValue !== undefined) {
+            let me = this;
+            me.afterSetAmountRows(me.amountRows)
+        }
+    }
+
+    /**
      * Triggered after the amountColumns config got changed
      * @param {Number} value
      * @param {Number} oldValue
@@ -82,23 +101,9 @@ class MainStore extends Store {
      */
     afterSetAmountColumns(value, oldValue) {
         if (oldValue !== undefined) {
-            let me    = this,
-                data  = me.generateData(me.amountRows, value),
-                start = performance.now();
-
+            let me = this;
             me.model.amountColumns = value;
-
-            console.log('Start generating data and adding to collection');
-
-            if (me.items?.length > 0) {
-                me.clear(false)
-            }
-
-            // Turbo Mode: Passing false as the 2nd argument disables the eager Record creation.
-            // This enables the Store to use the lazy-load chunking mechanism for massive performance gains.
-            me.add(data, false);
-
-            console.log(`Data generation and collection add total time: ${Math.round(performance.now() - start)}ms`)
+            me.afterSetAmountRows(me.amountRows)
         }
     }
 
@@ -114,7 +119,7 @@ class MainStore extends Store {
         }
 
         let me    = this,
-            data  = me.generateData(value, me.amountColumns),
+            data  = me.generateData(value, me.amountColumns, me.maxDepth),
             start = performance.now();
 
         console.log('Start generating data and adding to collection');
@@ -123,9 +128,7 @@ class MainStore extends Store {
             me.clear(false)
         }
 
-        // Turbo Mode: Passing false as the 2nd argument disables the eager Record creation.
-        // This enables the Store to use the lazy-load chunking mechanism for massive performance gains.
-        me.add(data, false);
+        me.add(data);
 
         console.log(`Data generation and collection add total time: ${Math.round(performance.now() - start)}ms`)
     }
@@ -133,39 +136,81 @@ class MainStore extends Store {
     /**
      * @param {Number} amountRows
      * @param {Number} amountColumns
+     * @param {Number} maxDepth
      * @returns {Object[]}
      */
-    generateData(amountRows, amountColumns) {
-        console.log('Start creating data', {amountRows, amountColumns});
+    generateData(amountRows, amountColumns, maxDepth) {
+        console.log('Start creating tree data', {amountRows, amountColumns, maxDepth});
 
         let me               = this,
             start            = performance.now(),
             amountFirstnames = me.firstnames.length,
             amountLastnames  = me.lastnames.length,
             records          = [],
+            parentPool       = [],
             row              = 0,
-            column, record;
+            column, depth, isLeaf, parentId, parentInfo, record;
 
+        // Seed the pool with some initial root folders
+        const numRoots = Math.min(10, Math.max(1, Math.floor(amountRows / 100)));
+        for (let i = 0; i < numRoots; i++) {
+            row++;
+            record = me.createRecord(row, amountColumns, null, false, amountFirstnames, amountLastnames);
+            records.push(record);
+            parentPool.push({ id: record.id, depth: 1 });
+        }
+
+        // Generate the rest
         for (; row < amountRows; row++) {
-            column = 7;
+            // Randomly select a parent from the pool
+            parentInfo = parentPool[Math.floor(Math.random() * parentPool.length)];
+            parentId   = parentInfo.id;
+            depth      = parentInfo.depth;
+
+            // Determine if leaf. If we reached max depth, it MUST be a leaf.
+            // Otherwise, say 70% chance it's a leaf, 30% chance it's a folder.
+            isLeaf = depth >= maxDepth ? true : Math.random() < 0.7;
+
+            record = me.createRecord(row + 1, amountColumns, parentId, isLeaf, amountFirstnames, amountLastnames);
+            records.push(record);
+
+            if (!isLeaf) {
+                parentPool.push({ id: record.id, depth: depth + 1 });
+            }
+        }
+
+        console.log(`Tree Data creation total time: ${Math.round(performance.now() - start)}ms`);
+
+        return records
+    }
+
+    /**
+     * @param {Number} id 
+     * @param {Number} amountColumns 
+     * @param {String|null} parentId 
+     * @param {Boolean} isLeaf 
+     * @param {Number} amountFirstnames 
+     * @param {Number} amountLastnames 
+     * @returns {Object}
+     */
+    createRecord(id, amountColumns, parentId, isLeaf, amountFirstnames, amountLastnames) {
+        let column = 7,
             record = {
-                id       : row + 1,
+                id       : id.toString(),
+                parentId : parentId,
+                isLeaf   : isLeaf,
+                collapsed: true,
                 counter  : Math.round(Math.random() * 100),
-                firstname: me.firstnames[Math.floor(Math.random() * amountFirstnames)],
-                lastname : me.lastnames[ Math.floor(Math.random() * amountLastnames)],
+                firstname: this.firstnames[Math.floor(Math.random() * amountFirstnames)],
+                lastname : this.lastnames[ Math.floor(Math.random() * amountLastnames)],
                 progress : Math.round(Math.random() * 100)
             };
 
-            for (; column <= amountColumns; column++) {
-                record['number' + column] = Math.round(Math.random() * 10000)
-            }
-
-            records.push(record)
+        for (; column <= amountColumns; column++) {
+            record['number' + column] = Math.round(Math.random() * 10000)
         }
 
-        console.log(`Data creation total time: ${Math.round(performance.now() - start)}ms`);
-
-        return records
+        return record
     }
 }
 
