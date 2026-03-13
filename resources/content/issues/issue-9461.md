@@ -19,8 +19,8 @@ subIssues:
   - '[x] 9463 TreeGrid Big Data Demo: Implement Organic Data Generation Algorithm'
   - '[x] 9464 TreeGrid Big Data Demo: Implement Controls and Grid Wiring'
   - '[x] 9465 TreeGrid Big Data Demo: Styling, Logging, and Final Integration'
-  - '[ ] 9466 TreeGrid Big Data Demo: Create E2E Tests'
-subIssuesCompleted: 4
+  - '[x] 9466 TreeGrid Big Data Demo: Create E2E Tests'
+subIssuesCompleted: 5
 subIssuesTotal: 5
 blockedBy: []
 blocking: []
