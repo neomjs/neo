@@ -28,6 +28,7 @@ class MainModel extends TreeModel {
         let i      = 7,
             fields = [
                 {name: 'id',        type: 'String'},
+                {name: 'name',      type: 'String'},
                 {name: 'countAction'},
                 {name: 'counter',   type: 'Int'},
                 {name: 'firstname', type: 'String'},

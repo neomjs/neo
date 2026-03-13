@@ -196,6 +196,7 @@ class MainStore extends TreeStore {
         let column = 7,
             record = {
                 id       : id.toString(),
+                name     : (isLeaf ? 'File ' : 'Folder ') + id,
                 parentId : parentId,
                 isLeaf   : isLeaf,
                 collapsed: true,
