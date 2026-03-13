@@ -40,6 +40,11 @@ class MainStore extends TreeStore {
             value   : null
         }],
         /**
+         * @member {Number} maxDepth_=5
+         * @reactive
+         */
+        maxDepth_: 5,
+        /**
          * @member {Neo.data.Model} model=Model
          * @reactive
          */
@@ -63,12 +68,6 @@ class MainStore extends TreeStore {
         'Smith', 'Taylor', 'Thomas', 'Thompson', 'Torres', 'Uhlig', 'Walker', 'Waters', 'White', 'Williams',
         'Wilson', 'Wright', 'Young'
     ]
-
-    /**
-     * @member {Number} maxDepth_=5
-     * @reactive
-     */
-    maxDepth_: 5,
 
     /**
      * @param {Object} config
