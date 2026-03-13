@@ -46,11 +46,6 @@ test.describe('TreeGrid Big Data E2E', () => {
     });
 
     test('Selection happy path: initial render and after single expand', async ({ page }) => {
-        page.on('worker', worker => {
-            worker.on('console', msg => console.log('WORKER BROWSER:', msg.text()));
-        });
-        page.on('console', msg => console.log('BROWSER:', msg.text()));
-
         // 1. Initial State Selection
         // Wait for initial render
         await expect(page.locator('.neo-grid-row:visible')).not.toHaveCount(0);
@@ -58,19 +53,10 @@ test.describe('TreeGrid Big Data E2E', () => {
         // Click the first row to select it
         const firstRow = page.locator('.neo-grid-row:visible').first();
 
-        console.log('--- Selection Test 1: Clicking first row ---');
-        const firstRowId = await firstRow.getAttribute('id');
-        const firstRowRecordId = await firstRow.getAttribute('data-record-id');
-        console.log(`Target row ID: ${firstRowId}, Record ID: ${firstRowRecordId}`);
-
         await firstRow.locator('.neo-grid-cell').nth(2).click({ force: true });
-
-        console.log('Click executed. Waiting for selection class...');
 
         // Verify it gets the selection class
         await expect(firstRow).toHaveClass(/neo-selected/);
-
-        console.log('Selection verified. Proceeding to expand test...');
 
         // 2. Selection after single expand
         const firstFolderRow = page.locator('.neo-grid-row:has(.neo-tree-toggle)').first();
@@ -85,15 +71,8 @@ test.describe('TreeGrid Big Data E2E', () => {
         const childRow = firstFolderRow.locator('+ .neo-grid-row');
         await expect(childRow).toBeVisible();
 
-        console.log('--- Selection Test 2: Clicking child row ---');
-        const childRowId = await childRow.getAttribute('id');
-        const childRowRecordId = await childRow.getAttribute('data-record-id');
-        console.log(`Target child row ID: ${childRowId}, Record ID: ${childRowRecordId}`);
-
         // Click the child row to select it
         await childRow.locator('.neo-grid-cell').nth(2).click();
-
-        console.log('Child click executed. Waiting for selection class...');
 
         // Verify the child row gets the selection class
         await expect(childRow).toHaveClass(/neo-selected/);
@@ -214,11 +193,6 @@ test.describe('TreeGrid Big Data E2E', () => {
     });
 
     test('Selection persists correctly after structural changes (BUG REPRODUCTION)', async ({ page }) => {
-        page.on('worker', worker => {
-            worker.on('console', msg => console.log('WORKER BROWSER:', msg.text()));
-        });
-        page.on('console', msg => console.log('BROWSER:', msg.text()));
-
         // Open the settings panel
         await page.locator('.controls-container-button').click();
         await page.waitForTimeout(500);
