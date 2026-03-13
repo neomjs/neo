@@ -303,5 +303,19 @@
         "name"    : "Fragment",
         "parentId": 34,
         "path"    : "../../../examples/container/fragment/MainContainer.mjs"
+    },
+    {
+        "id"      : 44,
+        "isLeaf"  : false,
+        "name"    : "grid",
+        "parentId": 1,
+        "path"    : null
+    },
+    {
+        "id"      : 45,
+        "isLeaf"  : true,
+        "name"    : "Big Data Tree",
+        "parentId": 44,
+        "path"    : "../../../examples/grid/treeBigData/MainContainer.mjs"
     }
 ]
