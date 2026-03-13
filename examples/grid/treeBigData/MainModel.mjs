@@ -1,10 +1,10 @@
-import Model from '../../../src/data/Model.mjs';
+import TreeModel from '../../../src/data/TreeModel.mjs';
 
 /**
  * @class Neo.examples.grid.treeBigData.MainModel
- * @extends Neo.data.Model
+ * @extends Neo.data.TreeModel
  */
-class MainModel extends Model {
+class MainModel extends TreeModel {
     static config = {
         /**
          * @member {String} className='Neo.examples.grid.treeBigData.MainModel'
@@ -27,7 +27,7 @@ class MainModel extends Model {
     afterSetAmountColumns(value, oldValue) {
         let i      = 7,
             fields = [
-                {name: 'id',        type: 'Int'},
+                {name: 'id',        type: 'String'},
                 {name: 'countAction'},
                 {name: 'counter',   type: 'Int'},
                 {name: 'firstname', type: 'String'},
