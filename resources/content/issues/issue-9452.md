@@ -1,6 +1,6 @@
 ---
 id: 9452
-title: Implement Thread-Agnostic Execution Mode for Connections
+title: Connection Foundation and Parser Refactoring
 state: OPEN
 labels:
   - enhancement
@@ -10,7 +10,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-03-12T18:22:48Z'
-updatedAt: '2026-03-12T18:25:20Z'
+updatedAt: '2026-03-12T21:06:27Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9452'
 author: tobiu
 commentsCount: 0
@@ -21,20 +21,20 @@ subIssuesTotal: 0
 blockedBy: []
 blocking: []
 ---
-# Implement Thread-Agnostic Execution Mode for Connections
+# Connection Foundation and Parser Refactoring
 
 ### Goal
-Implement thread-agnostic execution for the Data Pipeline to prevent performance bottlenecks.
+Establish the `Neo.data.connection.Base` hierarchy and fix the abstraction leak in `Neo.data.parser.Stream` by extracting its network transport logic.
 
 ### Context
-By default, heavy normalization (like shaping Tree Grids) should occur in the Data Worker so the App Worker isn't blocked. However, for pure streaming of massive datasets (like a 28MB `.jsonl` file with 50,000 users in the DevIndex app), forcing the data through the Data Worker creates an unnecessary bridge bottleneck. 
-
-If no heavy transformation is needed, the `Connection -> Parser` pipeline should be able to execute directly inside the App Worker.
+A Parser should strictly focus on deserialization and shaping data (e.g., converting a text stream into JSON records). Currently, `Neo.data.parser.Stream` has `fetch()` and `AbortController` logic hardcoded into its `read()` method. This makes it a Connection in disguise and violates the single responsibility principle.
 
 ### Acceptance Criteria
-- Introduce a configuration mechanism on `Neo.data.Connection` (e.g. `workerId: 'app' | 'data'`) that dictates where the network request and parser logic execute.
-- If `workerId: 'app'`, the `Connection` natively calls `fetch()` in the App Worker.
-- If `workerId: 'data'`, the `Connection` routes the request via Remote Method Access to the Data Worker (which manages the fetch, parser, and normalizer remotely).
+- Create `src/data/connection/Base.mjs`.
+- Refactor `Neo.data.connection.Fetch` and `Xhr` to extend this new Base class.
+- Create a new Connection (e.g., `connection.Stream` or enhance `connection.Fetch`) that handles the `fetch()` request and returns the `ReadableStream`.
+- Refactor `Neo.data.parser.Stream`: Remove the `fetch()` call. The parser should now accept the `ReadableStream` provided by the Connection, process the NDJSON/JSONL chunks, and yield records.
+- Ensure the `Pipeline` class correctly routes the output of the `Connection` into the `Parser`.
 
 ## Timeline
 
@@ -45,4 +45,5 @@ If no heavy transformation is needed, the `Connection -> Parser` pipeline should
 - 2026-03-12T18:23:23Z @tobiu added parent issue #9449
 - 2026-03-12T18:24:42Z @tobiu cross-referenced by #9449
 - 2026-03-12T18:25:20Z @tobiu assigned to @tobiu
+- 2026-03-12T21:02:59Z @tobiu changed title from **Implement Thread-Agnostic Execution Mode for Connections** to **Connection Foundation and Parser Refactoring**
 
