@@ -728,7 +728,7 @@ class TreeStore extends Store {
      * internal structures one-by-one via cost-heavy `splice` operations, the `TreeStore` wipes and
      * completely regenerates the `_items` projection.
      *
-     * Consequently, it must also manually synchronize the `_keys` array and the internal `map`
+     * Consequently, it must also manually synchronize the internal `map`
      * to reflect the newly calculated flat projection, guaranteeing O(1) lookup integrity for the VDOM rendering loop.
      *
      * @private
@@ -736,17 +736,15 @@ class TreeStore extends Store {
     #rebuildKeysAndCount() {
         let me    = this,
             items = me._items,
-            len   = items.length;
-
-        me._keys = new Array(len);
-
-        let {_keys, map} = me;
+            len   = items.length,
+            keys  = new Array(len),
+            {map} = me;
 
         map.clear();
 
         for (let i = 0; i < len; i++) {
             let key = me.getKey(items[i]);
-            _keys[i] = key;
+            keys[i] = key;
             map.set(key, items[i])
         }
 
