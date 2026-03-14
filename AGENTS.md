@@ -151,3 +151,11 @@ Working on the Neo platform requires long, complex sessions. To prevent your con
 3. **Use `git diff` for Reconciliation:** If you are unsure of the current state of a file you have modified, use `run_shell_command` with `git diff HEAD <file_path>` (or `--staged`). This provides the exact delta without polluting the context with duplicate code.
 4. **Use `grep_search` for Method Verification:** If you need to verify the current state of a specific method after changes, use `grep_search` with the `context` parameter to surgically extract only that method.
 5. **No Shell Fallbacks:** You are strictly forbidden from using `cat` or `grep` via `run_shell_command` to read files. Always use the native `read_file` or `grep_search` tools.
+
+## 9. Testing and Validation Protocol
+
+To maintain repository hygiene and improve test coverage, you MUST adhere to the following rules when validating your work:
+
+1. **Micro-Benchmarking (V8 Physics):** If you need to quickly test raw JavaScript engine performance or syntax (e.g., variable hoisting, iteration speed), you may use `run_shell_command` with `node -e '...'`. This is preferred for ephemeral, non-framework tests.
+2. **No Throwaway Scripts:** You are strictly **FORBIDDEN** from using `run_shell_command` (e.g., `cat << EOF > test.js`) to create temporary testing scripts on the filesystem.
+3. **Permanent Coverage:** If you are testing or validating Neo.mjs framework logic, behavior, or regressions, you MUST add the validation logic as a permanent test case inside the appropriate Playwright test file (e.g., `test/playwright/unit/data/Store.spec.mjs`). Use the `replace` or `write_file` tools to do this. A task is not complete unless its framework logic is permanently verifiable.
