@@ -1,6 +1,6 @@
 {
-  "lastSync": "2026-03-13T18:39:07.234Z",
-  "releasesLastFetched": "2026-03-13T18:39:07.252Z",
+  "lastSync": "2026-03-14T08:43:29.935Z",
+  "releasesLastFetched": "2026-03-14T08:43:30.704Z",
   "pushFailures": [],
   "issues": {
     "3789": {
@@ -11582,11 +11582,11 @@
       "contentHash": "6526652413be95d1012806b78e8910544f8ac34a08fb35ba9d7621ca0c1c5ce1"
     },
     "7914": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "resources/content/issues/issue-7914.md",
-      "closedAt": null,
-      "updatedAt": "2026-02-28T03:22:13Z",
-      "contentHash": "c1d57c2d5da2cba7045525f7f493a1a2f2972dff4c205177241b7185127b1d43"
+      "closedAt": "2026-03-14T03:37:26Z",
+      "updatedAt": "2026-03-14T03:37:27Z",
+      "contentHash": "a925de2954216b39d2b17693602813e2367c89f51a48c6ae009acefaa8b91b74"
     },
     "7915": {
       "state": "CLOSED",
@@ -11614,14 +11614,14 @@
       "path": "resources/content/issues/issue-7918.md",
       "closedAt": null,
       "updatedAt": "2026-03-05T03:38:57Z",
-      "contentHash": "86ee16715fff61ac7c4d42ee249f1423c33a5cff60afa592ce51698bc3c3f52d"
+      "contentHash": "aed6c8c3de23b681aeb6de0a32e331cb9f29b2976099f6efa9b8850967b185d8"
     },
     "7919": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "resources/content/issues/issue-7919.md",
-      "closedAt": null,
-      "updatedAt": "2026-02-28T03:22:11Z",
-      "contentHash": "f9ed956c8dd2dc12949a794680294e39599ce3818ced76d9866df19cb03ae031"
+      "closedAt": "2026-03-14T03:37:24Z",
+      "updatedAt": "2026-03-14T03:37:24Z",
+      "contentHash": "a7409e2edb42818f5a7fb6c1500fd44f90ecf27c0ed38cfde6a772a12d913c08"
     },
     "7920": {
       "state": "CLOSED",
@@ -11638,39 +11638,39 @@
       "contentHash": "95ab7e96f406dc46ad8621b1b2d7403228b3715e03323bf66175f8c62014e274"
     },
     "7922": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "resources/content/issues/issue-7922.md",
-      "closedAt": null,
-      "updatedAt": "2026-02-28T03:22:09Z",
-      "contentHash": "76be7b474f4ed8dd8da4e445adaeae2df3adeed1f6ff77c8f31a8a075778de83"
+      "closedAt": "2026-03-14T03:37:23Z",
+      "updatedAt": "2026-03-14T03:37:23Z",
+      "contentHash": "0dad77a5d6ecd2a6dd68aacf691cbf183792e9669d9319d55b8c64f82644a18c"
     },
     "7923": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "resources/content/issues/issue-7923.md",
-      "closedAt": null,
-      "updatedAt": "2026-02-28T03:22:08Z",
-      "contentHash": "73ee2b9d127c76423f652326bae9eda1298c6832994afe3d4bbd98ad1b051de5"
+      "closedAt": "2026-03-14T03:37:21Z",
+      "updatedAt": "2026-03-14T03:37:21Z",
+      "contentHash": "c2bf2bdbca5cbc20195a6b29df20b54cc28a7e1d3335096bd4ed95def339b1f4"
     },
     "7924": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "resources/content/issues/issue-7924.md",
-      "closedAt": null,
-      "updatedAt": "2026-02-28T03:22:06Z",
-      "contentHash": "124216eed0b60e3da85a5db21c1bc46abe7d2823eab0e670ccfde59c617c3ccf"
+      "closedAt": "2026-03-14T03:37:19Z",
+      "updatedAt": "2026-03-14T03:37:19Z",
+      "contentHash": "1e59d17c3f3eff4c2fcfb6513e8a5c8eada8816c93195cf39e314391fed6074f"
     },
     "7925": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "resources/content/issues/issue-7925.md",
-      "closedAt": null,
-      "updatedAt": "2026-02-28T03:22:05Z",
-      "contentHash": "0172528aaa9f4157154ec3c9e2eb8344b78aa6863d5189042139c901026045b8"
+      "closedAt": "2026-03-14T03:37:16Z",
+      "updatedAt": "2026-03-14T03:37:16Z",
+      "contentHash": "ac2c245e90fe8a675817f6f986121f265213906b574a6ace5356a5f3d65ec706"
     },
     "7926": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "resources/content/issues/issue-7926.md",
-      "closedAt": null,
-      "updatedAt": "2026-02-28T03:22:04Z",
-      "contentHash": "d3227590d0598703dea4eabae8897ee404f5fc798887476c6b66f8bf0e4da622"
+      "closedAt": "2026-03-14T03:37:15Z",
+      "updatedAt": "2026-03-14T03:37:15Z",
+      "contentHash": "8cf79557a812790244b11f986cf4e60283402a1c62809e0bd76d1a24ce81a5cc"
     },
     "7927": {
       "state": "CLOSED",
