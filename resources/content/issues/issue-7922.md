@@ -1,23 +1,24 @@
 ---
 id: 7922
 title: 'Feat: ''Derailment'' Intervention Interface'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - stale
   - ai
 assignees: []
 createdAt: '2025-11-29T15:19:23Z'
-updatedAt: '2026-02-28T03:22:09Z'
+updatedAt: '2026-03-14T03:37:23Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7922'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: 7918
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-03-14T03:37:23Z'
 ---
 # Feat: 'Derailment' Intervention Interface
 
@@ -49,4 +50,9 @@ When an agent sets its status to `agent-task:blocked`, the system must alert the
 This issue is stale because it has been open for 90 days with no activity.
 
 - 2026-02-28T03:22:09Z @github-actions added the `stale` label
+### @github-actions - 2026-03-14T03:37:22Z
+
+This issue was closed because it has been inactive for 14 days since being marked as stale.
+
+- 2026-03-14T03:37:23Z @github-actions closed this issue
 

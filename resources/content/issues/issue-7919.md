@@ -1,26 +1,27 @@
 ---
 id: 7919
 title: 'Epic: Decouple AI Tooling for Public Ecosystem'
-state: OPEN
+state: CLOSED
 labels:
   - epic
   - stale
   - ai
 assignees: []
 createdAt: '2025-11-29T15:19:10Z'
-updatedAt: '2026-02-28T03:22:11Z'
+updatedAt: '2026-03-14T03:37:24Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7919'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: null
 subIssues:
-  - '[ ] 7923 Refactor: Extract Memory Core to @neomjs/ai-memory-server'
-  - '[ ] 7924 Refactor: Extract GitHub Workflow to @neomjs/ai-github-server'
-  - '[ ] 7925 Feat: Create VisualService (Sighted Agent SDK)'
-subIssuesCompleted: 0
+  - '[x] 7923 Refactor: Extract Memory Core to @neomjs/ai-memory-server'
+  - '[x] 7924 Refactor: Extract GitHub Workflow to @neomjs/ai-github-server'
+  - '[x] 7925 Feat: Create VisualService (Sighted Agent SDK)'
+subIssuesCompleted: 3
 subIssuesTotal: 3
 blockedBy: []
 blocking: []
+closedAt: '2026-03-14T03:37:24Z'
 ---
 # Epic: Decouple AI Tooling for Public Ecosystem
 
@@ -50,4 +51,9 @@ This epic covers Phase 4 of the roadmap: evolving our internal AI tools into sta
 This issue is stale because it has been open for 90 days with no activity.
 
 - 2026-02-28T03:22:11Z @github-actions added the `stale` label
+### @github-actions - 2026-03-14T03:37:24Z
+
+This issue was closed because it has been inactive for 14 days since being marked as stale.
+
+- 2026-03-14T03:37:24Z @github-actions closed this issue
 

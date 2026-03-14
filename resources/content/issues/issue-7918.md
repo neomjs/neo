@@ -17,7 +17,7 @@ parentIssue: null
 subIssues:
   - '[x] 7920 Design: Agent Dashboard Layout (Multi-Window Architecture)'
   - '[x] 7921 Feat: Real-time ''Blackboard'' Visualization'
-  - '[ ] 7922 Feat: ''Derailment'' Intervention Interface'
+  - '[x] 7922 Feat: ''Derailment'' Intervention Interface'
   - '[x] 7954 Task: Scaffold Agent OS Application'
   - '[x] 7955 Feat: Implement Agent OS Multi-Window Layout'
   - '[x] 7956 Feat: Multi-Window Orchestration Baseline'
@@ -33,7 +33,7 @@ subIssues:
   - '[x] 8034 Migrate Intervention Panel Styles and Clean Viewport SCSS'
   - '[x] 8035 Refine Visual Alignment and Button Typography'
   - '[x] 8036 Increase Toolbar Padding to 20px'
-subIssuesCompleted: 14
+subIssuesCompleted: 15
 subIssuesTotal: 18
 blockedBy: []
 blocking: []
