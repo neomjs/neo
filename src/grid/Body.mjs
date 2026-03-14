@@ -231,12 +231,7 @@ class GridBody extends Component {
 
     /**
      * Internal flag to adopt to store.add() passing an initial chunk.
-     * @member {Number} #initialChunkSize=0
-     */
-    #initialChunkSize = 0
-    /**
-     * Internal flag to adopt to store.add() passing an initial chunk.
-     * @member {Number} #initialChunkSize=0
+     * @member {Number} #initialTotalSize=0
      */
     #initialTotalSize = 0
     /**
@@ -644,7 +639,7 @@ class GridBody extends Component {
         let me           = this,
             countRecords = me.store.count,
             windowSize   = me.availableRows + 2 * me.bufferRowRange,
-            needed       = Math.max(0, Math.min(windowSize, countRecords)),
+            needed       = Math.min(windowSize, Math.max(me.items.length, countRecords)),
             current      = me.items.length,
             delta        = needed - current,
             newRows      = [],
@@ -746,14 +741,9 @@ class GridBody extends Component {
 
         me.#lastMountedColumns = [...me.mountedColumns];
 
-        if (me.#initialChunkSize > 0) {
-            endIndex = me.#initialChunkSize;
-            range    = endIndex;
-        } else {
-            // Creates the new start & end indexes
-            me.updateMountedAndVisibleRows();
-            endIndex = mountedRows[1]
-        }
+        // Creates the new start & end indexes
+        me.updateMountedAndVisibleRows();
+        endIndex = mountedRows[1];
 
         me.createRowPool();
 
@@ -797,7 +787,7 @@ class GridBody extends Component {
 
         me.parent.isLoading = false;
 
-        me.updateScrollHeight(true, range); // silent
+        me.updateScrollHeight(true); // silent
 
         if (me.isScrolling) {
             Performance.markEnd('grid.createViewData:' + me.id)
@@ -1094,14 +1084,10 @@ class GridBody extends Component {
      * @returns {String}
      */
     getRowId(rowIndex) {
-        let me = this;
+        let me       = this,
+            poolSize = me.rowPoolSize ?? (me.availableRows + 2 * me.bufferRowRange);
 
-        if (me.#initialChunkSize > 0) {
-            return `${me.id}__row-${rowIndex}`
-        } else {
-            let poolSize = me.rowPoolSize ?? (me.availableRows + 2 * me.bufferRowRange);
-            return `${me.id}__row-${rowIndex % poolSize}`
-        }
+        return `${me.id}__row-${rowIndex % poolSize}`
     }
 
     /**
@@ -1207,10 +1193,8 @@ class GridBody extends Component {
         // If it's the first chunked load (data.total exists and data.items is a subset of total)
         // Render the entire chunk for immediate scrollability
         if (total && items.length < total) {
-            me.#initialChunkSize = items.length;
             me.#initialTotalSize = total;
             me.createViewData();
-            me.#initialChunkSize = 0
             me.#initialTotalSize = 0
         } else {
             me.createViewData()
