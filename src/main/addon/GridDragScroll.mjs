@@ -96,12 +96,8 @@ class GridDragScroll extends Base {
         let newScrollLeft = registration.containerElement ? registration.containerElement.scrollLeft - velocity.x : undefined,
             newScrollTop  = registration.bodyElement      ? registration.bodyElement.scrollTop       - velocity.y : undefined;
 
-        if (Neo.main.addon.ScrollSync) {
-            Neo.main.addon.ScrollSync.syncTo(registration.id, newScrollLeft, newScrollTop)
-        } else {
-            if (newScrollLeft !== undefined) registration.containerElement.scrollLeft = newScrollLeft;
-            if (newScrollTop  !== undefined) registration.bodyElement.scrollTop       = newScrollTop;
-        }
+        if (newScrollLeft !== undefined) registration.containerElement.scrollLeft = newScrollLeft;
+        if (newScrollTop  !== undefined) registration.bodyElement.scrollTop       = newScrollTop;
 
         velocity.x *= friction;
         velocity.y *= friction;
@@ -194,12 +190,8 @@ class GridDragScroll extends Base {
         let newScrollLeft = deltaX !== 0 && registration.containerElement ? registration.containerElement.scrollLeft + deltaX : undefined,
             newScrollTop  = deltaY !== 0 && registration.bodyElement      ? registration.bodyElement.scrollTop       + deltaY : undefined;
 
-        if (Neo.main.addon.ScrollSync) {
-            Neo.main.addon.ScrollSync.syncTo(registration.id, newScrollLeft, newScrollTop)
-        } else {
-            if (newScrollLeft !== undefined) registration.containerElement.scrollLeft = newScrollLeft;
-            if (newScrollTop  !== undefined) registration.bodyElement.scrollTop       = newScrollTop;
-        }
+        if (newScrollLeft !== undefined) registration.containerElement.scrollLeft = newScrollLeft;
+        if (newScrollTop  !== undefined) registration.bodyElement.scrollTop       = newScrollTop;
 
         drag.lastX = x;
         drag.lastY = y;
