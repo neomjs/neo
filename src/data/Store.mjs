@@ -1051,9 +1051,10 @@ class Store extends Collection {
      * Overrides collection.Base:filter() to handle "Turbo Mode" (autoInitRecords: false).
      * In this mode, items are raw objects which may lack the canonical field names used by Filters.
      * This method "soft hydrates" the raw items by resolving and caching the filter values.
+     * @param {Boolean} [silent=false]
      * @protected
      */
-    filter() {
+    filter(silent=false) {
         let me = this;
 
         if (!me.autoInitRecords && me.model?.hasComplexFields && me.filters.length > 0) {
@@ -1085,7 +1086,7 @@ class Store extends Collection {
             }
         }
 
-        super.filter()
+        super.filter(silent)
     }
 
     /**

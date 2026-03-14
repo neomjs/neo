@@ -36,10 +36,12 @@ class Contributor extends Model {
             {name: 'company',              mapping: 'c',  type: 'String',  defaultValue: null},
             {name: 'bio',                  mapping: 'b',  type: 'String',  defaultValue: null},
             {name: 'followers',            mapping: 'fl', type: 'Integer'},
+            {name: 'initialRank',                         type: 'Integer'}, // Not inside raw data
             {name: 'totalContributions',   mapping: 'tc', type: 'Integer'},
             {name: 'firstYear',            mapping: 'fy', type: 'Integer'},
             {name: 'lastUpdated',          mapping: 'lu', type: 'Date'},
             {name: 'linkedinUrl',          mapping: 'li', type: 'String',  defaultValue: null},
+            {name: 'rank',                                type: 'Integer'}, // Not inside raw data
             {name: 'twitter',              mapping: 't',  type: 'String',  defaultValue: null},
             {name: 'website',              mapping: 'w',  type: 'String',  defaultValue: null},
             {name: 'isHireable',           mapping: 'h',  type: 'Boolean', defaultValue: false, convert: v => !!v},

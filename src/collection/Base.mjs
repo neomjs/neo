@@ -749,9 +749,10 @@ class Collection extends Base {
     }
 
     /**
+     * @param {Boolean} [silent=false]
      * @protected
      */
-    filter() {
+    filter(silent=false) {
         let me              = this,
             filters         = me._filters,
             countAllFilters = filters.length,
@@ -864,12 +865,14 @@ class Collection extends Base {
 
         me.count = me.items.length;
 
-        me.fire('filter', {
-            isFiltered: me[isFiltered],
-            items     : me.items,
-            oldItems,
-            scope     : me
-        })
+        if (!silent) {
+            me.fire('filter', {
+                isFiltered: me[isFiltered],
+                items     : me.items,
+                oldItems,
+                scope     : me
+            })
+        }
     }
 
     /**
