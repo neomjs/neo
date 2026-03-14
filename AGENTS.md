@@ -141,3 +141,13 @@ You **MUST** perform these steps in order before marking a task as complete:
     - You deviated from the original plan (explain *why*).
     - The task is complete (summarize the result).
 4.  **Close:** Only after steps 1-3 are complete can you close the ticket.
+
+## 8. Preventing Context Corruption (State Management)
+
+Working on the Neo platform requires long, complex sessions. To prevent your context window from becoming corrupted with multiple competing versions of the same file after several edits, you MUST adhere to this protocol:
+
+1. **The Single Full-Read Rule:** You should generally only perform a full `read_file` on a specific file *once* per session to establish your baseline understanding.
+2. **Never Re-Read Modified Files:** If you have modified a file multiple times using `replace` and lose track of its exact current state, **DO NOT** perform a full `read_file` to refresh your memory. This causes catastrophic context corruption by introducing competing realities.
+3. **Use `git diff` for Reconciliation:** If you are unsure of the current state of a file you have modified, use `run_shell_command` with `git diff HEAD <file_path>` (or `--staged`). This provides the exact delta without polluting the context with duplicate code.
+4. **Use `grep_search` for Method Verification:** If you need to verify the current state of a specific method after changes, use `grep_search` with the `context` parameter to surgically extract only that method.
+5. **No Shell Fallbacks:** You are strictly forbidden from using `cat` or `grep` via `run_shell_command` to read files. Always use the native `read_file` or `grep_search` tools.
