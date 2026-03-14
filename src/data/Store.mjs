@@ -211,7 +211,6 @@ class Store extends Collection {
 
         let me = this;
 
-        // todo
         me.on({
             mutate: me.onCollectionMutate,
             sort  : me.onCollectionSort,
@@ -219,27 +218,6 @@ class Store extends Collection {
         });
 
         StoreManager.register(me)
-    }
-
-    /**
-     *
-     */
-    destroy() {
-        StoreManager.unregister(this);
-
-        super.destroy()
-    }
-
-    /**
-     * Identity Provider Hook.
-     * Assigns a stable, globally unique 'internalId' to items (Records or Raw Objects).
-     * This ensures DOM stability and security by decoupling the DOM ID from the data ID.
-     * @param {Object} item
-     */
-    assignInternalId(item) {
-        if (!item[internalId]) {
-            item[internalId] = Neo.getId('record')
-        }
     }
 
     /**
@@ -457,6 +435,18 @@ class Store extends Collection {
     }
 
     /**
+     * Identity Provider Hook.
+     * Assigns a stable, globally unique 'internalId' to items (Records or Raw Objects).
+     * This ensures DOM stability and security by decoupling the DOM ID from the data ID.
+     * @param {Object} item
+     */
+    assignInternalId(item) {
+        if (!item[internalId]) {
+            item[internalId] = Neo.getId('record')
+        }
+    }
+
+    /**
      * @param {Object|String|null} value
      * @param {Object|String|null} oldValue
      * @protected
@@ -505,8 +495,6 @@ class Store extends Collection {
         return value
     }
 
-
-
     /**
      * @param {Neo.data.Model|Object} value
      * @param {Neo.data.Model|Object} oldValue
@@ -517,6 +505,87 @@ class Store extends Collection {
         oldValue?.destroy();
 
         return ClassSystemUtil.beforeSetInstance(value, Model)
+    }
+
+    /**
+     * Overrides collection.Base:doSort() to handle "Turbo Mode" (autoInitRecords: false).
+     * In this mode, items are raw objects which may lack the canonical field names used by Sorters.
+     * This method "soft hydrates" the raw items by resolving and caching the sort values.
+     * @param {Object[]} items
+     * @param {Boolean} silent
+     * @protected
+     */
+    doSort(items=this._items, silent=false) {
+        let me = this;
+
+        if (!me.autoInitRecords && me.model?.hasComplexFields && me.sorters.length > 0) {
+            const
+                sortProperties = me.sorters.map(s => s.property),
+                len            = sortProperties.length;
+
+            items.forEach(item => {
+                // Ensure item is not already a Record (mixed mode safety)
+                if (!RecordFactory.isRecord(item)) {
+                    for (let i = 0; i < len; i++) {
+                        const property = sortProperties[i];
+
+                        // Only resolve if the property is missing on the raw object
+                        if (!Object.hasOwn(item, property)) {
+                            item[property] = me.resolveField(item, property)
+                        }
+                    }
+                }
+            })
+        }
+
+        super.doSort(items, silent)
+    }
+
+    /**
+     *
+     */
+    destroy() {
+        StoreManager.unregister(this);
+
+        super.destroy()
+    }
+
+    /**
+     * Resolves the key of a given item, supporting both raw data objects and Record instances.
+     * This handles the edge case where `keyProperty` refers to a mapped source key (e.g. 'l')
+     * which exists on the raw object but not on the Record instance (where it is mapped to e.g. 'login').
+     * @param {Object|Neo.data.Record} item
+     * @returns {String|Number}
+     */
+    getKey(item) {
+        let me          = this,
+            keyProperty = me.getKeyProperty(),
+            value;
+
+        if (RecordFactory.isRecord(item)) {
+            return item.get(keyProperty)
+        }
+
+        if (keyProperty.includes('.')) {
+            value = Neo.ns(keyProperty, false, item)
+        } else {
+            value = item[keyProperty]
+        }
+
+        // If direct access failed, check for mapping (Reverse Lookup)
+        if (value === undefined && me.model) {
+            let field = me.model.getField(keyProperty);
+            if (field?.mapping) {
+                let mapping = field.mapping;
+                if (mapping.includes('.')) {
+                    value = Neo.ns(mapping, false, item)
+                } else {
+                    value = item[mapping]
+                }
+            }
+        }
+
+        return value
     }
 
     /**
@@ -559,6 +628,48 @@ class Store extends Collection {
         }
 
         return isArray ? config : config[0]
+    }
+
+    /**
+     * Overrides collection.Base:filter() to handle "Turbo Mode" (autoInitRecords: false).
+     * In this mode, items are raw objects which may lack the canonical field names used by Filters.
+     * This method "soft hydrates" the raw items by resolving and caching the filter values.
+     * @param {Boolean} [silent=false]
+     * @protected
+     */
+    filter(silent=false) {
+        let me = this;
+
+        if (!me.autoInitRecords && me.model?.hasComplexFields && me.filters.length > 0) {
+            const
+                activeFilters    = me.filters.filter(f => !f.disabled && f.value !== null),
+                filterProperties = activeFilters.map(f => f.property),
+                len              = filterProperties.length;
+
+            if (len > 0) {
+                // We iterate over allItems (unfiltered source) or current items depending on state,
+                // but Collection.filter() uses allItems if it exists. Ideally we hydrate the source.
+                // Since we can't easily know which source Collection.filter will use without duplicating logic,
+                // we will hydrate both if they exist, or just the active one.
+                // Safest bet: Hydrate the source that filter() will use.
+                // Collection.filter uses: items = me.allItems?._items || me._items
+                const itemsToHydrate = me.allItems ? me.allItems._items : me._items;
+
+                itemsToHydrate.forEach(item => {
+                    if (!RecordFactory.isRecord(item)) {
+                        for (let i = 0; i < len; i++) {
+                            const property = filterProperties[i];
+
+                            if (!Object.hasOwn(item, property)) {
+                                item[property] = me.resolveField(item, property)
+                            }
+                        }
+                    }
+                })
+            }
+        }
+
+        super.filter(silent)
     }
 
     /**
@@ -761,6 +872,28 @@ class Store extends Collection {
         }
 
         return items
+    }
+
+    /**
+     * Overrides collection.Base:isFilteredItem() to handle "Turbo Mode" (autoInitRecords: false).
+     * In this mode, items are raw objects which may lack the canonical field names used by Filters.
+     * This method "soft hydrates" the raw item by resolving and caching the filter values.
+     * @param {Object} item
+     * @returns {boolean}
+     * @protected
+     */
+    isFilteredItem(item) {
+        let me = this;
+
+        if (!me.autoInitRecords && !RecordFactory.isRecord(item) && me.filters.length > 0) {
+            me.filters.forEach(filter => {
+                if (!filter.disabled && filter.value !== null && !Object.hasOwn(item, filter.property)) {
+                    item[filter.property] = me.resolveField(item, filter.property)
+                }
+            })
+        }
+
+        return super.isFilteredItem(item)
     }
 
     /**
@@ -987,131 +1120,6 @@ class Store extends Collection {
     }
 
     /**
-     * @param {Object} opts={}
-     * @param {String} opts.direction
-     * @param {String} opts.property
-     */
-    sort(opts={}) {
-        let me = this;
-
-        me._currentPage = 1; // silent update
-
-        if (me.configsApplied) {
-            if (opts.direction) {
-                me.sorters = [{
-                    direction: opts.direction,
-                    property : opts.property
-                }]
-            } else {
-                if (!me.remoteSort) {
-                    me.sorters = [{
-                        direction: 'ASC',
-                        property : initialIndexSymbol
-                    }]
-                }
-            }
-        }
-    }
-
-    /**
-     * Overrides collection.Base:doSort() to handle "Turbo Mode" (autoInitRecords: false).
-     * In this mode, items are raw objects which may lack the canonical field names used by Sorters.
-     * This method "soft hydrates" the raw items by resolving and caching the sort values.
-     * @param {Object[]} items
-     * @param {Boolean} silent
-     * @protected
-     */
-    doSort(items=this._items, silent=false) {
-        let me = this;
-
-        if (!me.autoInitRecords && me.model?.hasComplexFields && me.sorters.length > 0) {
-            const
-                sortProperties = me.sorters.map(s => s.property),
-                len            = sortProperties.length;
-
-            items.forEach(item => {
-                // Ensure item is not already a Record (mixed mode safety)
-                if (!RecordFactory.isRecord(item)) {
-                    for (let i = 0; i < len; i++) {
-                        const property = sortProperties[i];
-
-                        // Only resolve if the property is missing on the raw object
-                        if (!Object.hasOwn(item, property)) {
-                            item[property] = me.resolveField(item, property)
-                        }
-                    }
-                }
-            })
-        }
-
-        super.doSort(items, silent)
-    }
-
-    /**
-     * Overrides collection.Base:filter() to handle "Turbo Mode" (autoInitRecords: false).
-     * In this mode, items are raw objects which may lack the canonical field names used by Filters.
-     * This method "soft hydrates" the raw items by resolving and caching the filter values.
-     * @param {Boolean} [silent=false]
-     * @protected
-     */
-    filter(silent=false) {
-        let me = this;
-
-        if (!me.autoInitRecords && me.model?.hasComplexFields && me.filters.length > 0) {
-            const
-                activeFilters    = me.filters.filter(f => !f.disabled && f.value !== null),
-                filterProperties = activeFilters.map(f => f.property),
-                len              = filterProperties.length;
-
-            if (len > 0) {
-                // We iterate over allItems (unfiltered source) or current items depending on state,
-                // but Collection.filter() uses allItems if it exists. Ideally we hydrate the source.
-                // Since we can't easily know which source Collection.filter will use without duplicating logic,
-                // we will hydrate both if they exist, or just the active one.
-                // Safest bet: Hydrate the source that filter() will use.
-                // Collection.filter uses: items = me.allItems?._items || me._items
-                const itemsToHydrate = me.allItems ? me.allItems._items : me._items;
-
-                itemsToHydrate.forEach(item => {
-                    if (!RecordFactory.isRecord(item)) {
-                        for (let i = 0; i < len; i++) {
-                            const property = filterProperties[i];
-
-                            if (!Object.hasOwn(item, property)) {
-                                item[property] = me.resolveField(item, property)
-                            }
-                        }
-                    }
-                })
-            }
-        }
-
-        super.filter(silent)
-    }
-
-    /**
-     * Overrides collection.Base:isFilteredItem() to handle "Turbo Mode" (autoInitRecords: false).
-     * In this mode, items are raw objects which may lack the canonical field names used by Filters.
-     * This method "soft hydrates" the raw item by resolving and caching the filter values.
-     * @param {Object} item
-     * @returns {boolean}
-     * @protected
-     */
-    isFilteredItem(item) {
-        let me = this;
-
-        if (!me.autoInitRecords && !RecordFactory.isRecord(item) && me.filters.length > 0) {
-            me.filters.forEach(filter => {
-                if (!filter.disabled && filter.value !== null && !Object.hasOwn(item, filter.property)) {
-                    item[filter.property] = me.resolveField(item, filter.property)
-                }
-            })
-        }
-
-        return super.isFilteredItem(item)
-    }
-
-    /**
      * Helper to resolve a field value from a raw data object using the Model definition.
      * Handles mapping, calculate, and convert.
      *
@@ -1189,41 +1197,30 @@ class Store extends Collection {
     }
 
     /**
-     * Resolves the key of a given item, supporting both raw data objects and Record instances.
-     * This handles the edge case where `keyProperty` refers to a mapped source key (e.g. 'l')
-     * which exists on the raw object but not on the Record instance (where it is mapped to e.g. 'login').
-     * @param {Object|Neo.data.Record} item
-     * @returns {String|Number}
+     * @param {Object} opts={}
+     * @param {String} opts.direction
+     * @param {String} opts.property
      */
-    getKey(item) {
-        let me          = this,
-            keyProperty = me.getKeyProperty(),
-            value;
+    sort(opts={}) {
+        let me = this;
 
-        if (RecordFactory.isRecord(item)) {
-            return item.get(keyProperty)
-        }
+        me._currentPage = 1; // silent update
 
-        if (keyProperty.includes('.')) {
-            value = Neo.ns(keyProperty, false, item)
-        } else {
-            value = item[keyProperty]
-        }
-
-        // If direct access failed, check for mapping (Reverse Lookup)
-        if (value === undefined && me.model) {
-            let field = me.model.getField(keyProperty);
-            if (field?.mapping) {
-                let mapping = field.mapping;
-                if (mapping.includes('.')) {
-                    value = Neo.ns(mapping, false, item)
-                } else {
-                    value = item[mapping]
+        if (me.configsApplied) {
+            if (opts.direction) {
+                me.sorters = [{
+                    direction: opts.direction,
+                    property : opts.property
+                }]
+            } else {
+                if (!me.remoteSort) {
+                    me.sorters = [{
+                        direction: 'ASC',
+                        property : initialIndexSymbol
+                    }]
                 }
             }
         }
-
-        return value
     }
 
     /**
