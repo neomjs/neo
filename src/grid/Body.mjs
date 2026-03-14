@@ -249,6 +249,11 @@ class GridBody extends Component {
      * @member {Object[]} items=[]
      */
     items = []
+    /**
+     * The dynamic size of the row pool.
+     * @member {Number|null} rowPoolSize=null
+     */
+    rowPoolSize = null
 
     /**
      * @member {String[]} selectedCells
@@ -636,12 +641,16 @@ class GridBody extends Component {
      * @protected
      */
     createRowPool() {
-        let me      = this,
-            needed  = me.availableRows + 2 * me.bufferRowRange,
-            current = me.items.length,
-            delta   = needed - current,
-            newRows = [],
+        let me           = this,
+            countRecords = me.store.count,
+            windowSize   = me.availableRows + 2 * me.bufferRowRange,
+            needed       = Math.max(0, Math.min(windowSize, countRecords)),
+            current      = me.items.length,
+            delta        = needed - current,
+            newRows      = [],
             config, i;
+
+        me.rowPoolSize = needed;
 
         if (delta > 0) {
             for (i = 0; i < delta; i++) {
@@ -1090,7 +1099,8 @@ class GridBody extends Component {
         if (me.#initialChunkSize > 0) {
             return `${me.id}__row-${rowIndex}`
         } else {
-            return `${me.id}__row-${rowIndex % (me.availableRows + 2 * me.bufferRowRange)}`
+            let poolSize = me.rowPoolSize ?? (me.availableRows + 2 * me.bufferRowRange);
+            return `${me.id}__row-${rowIndex % poolSize}`
         }
     }
 
@@ -1265,7 +1275,7 @@ class GridBody extends Component {
     scrollByRows(index, step) {
         let me                         = this,
             {mountedRows, visibleRows} = me,
-            countRecords               = me.store.getCount(),
+            countRecords               = me.store.count,
             newIndex                   = index + step,
             lastRowGap, mounted, scrollTop, visible;
 
@@ -1367,7 +1377,7 @@ class GridBody extends Component {
     updateMountedAndVisibleRows() {
         let me             = this,
             {bufferRowRange, availableRows, startIndex, store} = me,
-            countRecords   = store.getCount(),
+            countRecords   = store.count,
             windowSize     = availableRows + 2 * bufferRowRange,
             endIndex       = Math.min(countRecords, startIndex + availableRows),
             mountedStart   = startIndex - bufferRowRange,
