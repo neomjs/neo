@@ -680,12 +680,13 @@ class Store extends Collection {
      * @returns {Object|Object[]|null}
      */
     find(property, value, returnFirstMatch=false) {
-        const result = super.find(property, value, returnFirstMatch);
+        let me    = this,
+            result = super.find(property, value, returnFirstMatch);
 
         if (returnFirstMatch) {
-            return result ? this.get(this.getKey(result)) : null;
+            return result ? me.get(me.getKey(result)) : null;
         } else {
-            return result.map(item => this.get(this.getKey(item)));
+            return result.map(item => me.get(me.getKey(item)));
         }
     }
 
