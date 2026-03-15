@@ -22,7 +22,9 @@ Here is a simple view that displays a single button. The `createVdom` function r
 import {defineComponent} from '../functional/_export.mjs';
 
 const MainView = defineComponent({
-    className: 'GS.describing.functional.MainView',
+    config: {
+        className: 'GS.describing.functional.MainView'
+    },
 
     createVdom(config) {
         return {
@@ -82,7 +84,9 @@ import {defineComponent} from '../functional/_export.mjs';
 import Calendar from '../calendar/Component.mjs'; // A complex, class-based component
 
 const MainView = defineComponent({
-    className: 'GS.describing.interop.MainView1',
+    config: {
+        className: 'GS.describing.interop.MainView1'
+    },
 
     createVdom(config) {
         return {
@@ -114,7 +118,9 @@ import Container from '../container/Base.mjs';
 
 // 1. Define a simple functional component
 const MyFunctionalButton = defineComponent({
-    className: 'GS.describing.interop.FuncButton',
+    config: {
+        className: 'GS.describing.interop.FuncButton'
+    },
     createVdom(config) {
         return {
             ntype: 'button',
