@@ -1,7 +1,7 @@
 ---
 id: 9479
 title: 'Firefox Nightly R&D: OffscreenCanvas Worker-to-Worker Transfer Failure'
-state: OPEN
+state: CLOSED
 labels:
   - bug
   - ai
@@ -9,16 +9,17 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-03-15T15:19:43Z'
-updatedAt: '2026-03-15T15:22:41Z'
+updatedAt: '2026-03-15T16:03:11Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9479'
 author: tobiu
-commentsCount: 1
+commentsCount: 3
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-03-15T16:03:11Z'
 ---
 # Firefox Nightly R&D: OffscreenCanvas Worker-to-Worker Transfer Failure
 
@@ -78,4 +79,34 @@ This R&D effort will determine if FF Nightly even supports transferring a canvas
 >      c) Then set `me.offscreenRegistered = true`.
 
 - 2026-03-15T15:22:41Z @tobiu assigned to @tobiu
+- 2026-03-15T16:00:52Z @tobiu referenced in commit `b370522` - "feat: Implement Triangular Communication for OffscreenCanvas transfers to bypass Firefox Nightly SharedWorker bugs (#9479)"
+- 2026-03-15T16:01:55Z @tobiu cross-referenced by PR #9480
+### @tobiu - 2026-03-15T16:02:06Z
+
+**Input from Gemini 3.1 Pro:**
+
+> ✦ Implementation completed and verified across Chrome, Firefox Nightly, and Safari.
+> 
+> A pull request has been submitted: #9480
+> 
+> The solution successfully implements the Triangular Communication pattern as planned:
+> 1. `Neo.component.Canvas` now pauses its registration sequence and waits for a direct callback.
+> 2. `Neo.main.DomAccess#transferCanvasToWorker` extracts the canvas and sends it directly to the Canvas Worker.
+> 3. `Neo.worker.Canvas#registerCanvasDirect` receives the payload and pings the App Worker via `action: 'canvasRegistered'`.
+> 4. `Neo.worker.App#onCanvasRegistered` receives the ping and resolves the component's promise.
+> 
+> The failed unit test in `StoreFilterProfile.spec.mjs` is an unrelated performance benchmark timeout and not caused by these changes.
+
+### @tobiu - 2026-03-15T16:02:49Z
+
+before:
+
+<img width="928" height="1221" alt="Image" src="https://github.com/user-attachments/assets/47daa857-9f96-41fe-86cd-2e90c22395b1" />
+
+after:
+
+<img width="934" height="1331" alt="Image" src="https://github.com/user-attachments/assets/1bb52e8b-2bd1-4890-9e11-15b459dfcac9" />
+
+- 2026-03-15T16:03:12Z @tobiu closed this issue
+- 2026-03-15T16:15:35Z @tobiu referenced in commit `bb64939` - "feat: Implement Triangular Communication for OffscreenCanvas transfers to bypass Firefox Nightly SharedWorker bugs (#9479) (#9480)"
 
