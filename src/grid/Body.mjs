@@ -191,7 +191,10 @@ class GridBody extends Component {
          */
         startIndex_: 0,
         /**
-         * @member {Neo.data.Store|null} store_=null
+         * The data source containing the records to be rendered.
+         * This can be a standard `Neo.data.Store` for flat lists or a `Neo.data.TreeStore` for hierarchical data.
+         * The Body component delegates row generation to `Neo.grid.Row` instances based on this store's contents.
+         * @member {Neo.data.Store|Neo.data.TreeStore|null} store_=null
          * @reactive
          */
         store_: null,
@@ -545,8 +548,8 @@ class GridBody extends Component {
 
     /**
      * Triggered after the store config got changed
-     * @param {Number} value
-     * @param {Number} oldValue
+     * @param {Neo.data.Store|Neo.data.TreeStore|null} value
+     * @param {Neo.data.Store|Neo.data.TreeStore|null} oldValue
      * @protected
      */
     afterSetStore(value, oldValue) {

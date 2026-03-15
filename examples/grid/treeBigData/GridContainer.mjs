@@ -35,10 +35,6 @@ class GridContainer extends BaseGridContainer {
             width               : 100
         },
         /**
-         * @member {Boolean} isTreeGrid=true
-         */
-        isTreeGrid: true,
-        /**
          * @member {Object[]} store=MainStore
          * @reactive
          */
