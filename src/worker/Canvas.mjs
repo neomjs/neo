@@ -91,6 +91,43 @@ class Canvas extends Base {
     }
 
     /**
+     * Overrides worker/Base to handle specific messages like registerCanvasDirect
+     * @param {MessageEvent} e
+     */
+    onMessage(e) {
+        let msg = e.data;
+
+        if (msg.action === 'registerCanvasDirect') {
+            this.registerCanvasDirect(msg)
+        } else {
+            super.onMessage(e)
+        }
+    }
+
+    /**
+     * @param {Object} msg
+     */
+    onRegisterNeoConfig(msg) {
+        super.onRegisterNeoConfig(msg);
+
+        if (Neo.config.useCanvasWorkerStartingPoint) {
+            let path = Neo.config.appPath;
+
+            if (path.endsWith('.mjs')) {
+                path = path.slice(0, -8); // removing "/app.mjs"
+            }
+
+            import(
+                /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules)/ */
+                /* webpackMode: "lazy" */
+                `../../${path}/canvas.mjs`
+                ).then(module => {
+                module.onStart()
+            })
+        }
+    }
+
+    /**
      * @param {Object} data
      */
     registerCanvas(data) {
@@ -104,6 +141,26 @@ class Canvas extends Base {
         me.map[data.nodeId] = data.node;
 
         return true
+    }
+
+    /**
+     * @summary Receives an OffscreenCanvas directly from the Main Thread.
+     *
+     * This is the receiving end of the "Triangular Communication" pattern initiated by `Neo.main.DomAccess.transferCanvasToWorker`.
+     * By receiving the canvas directly from Main, we avoid the `OffscreenCanvas` transfer restrictions inherent in Firefox's SharedWorker implementation.
+     * Once the canvas is registered internally, this method pings the App Worker back over their direct `MessageChannel` to confirm receipt so the App Worker can proceed with rendering instructions.
+     *
+     * @param {Object} msg
+     * @protected
+     */
+    registerCanvasDirect(msg) {
+        this.registerCanvas(msg);
+
+        // Ping App worker that canvas was received from main.
+        this.sendMessage('app', {
+            action: 'canvasRegistered',
+            nodeId: msg.nodeId
+        })
     }
 
     /**
@@ -136,29 +193,6 @@ class Canvas extends Base {
         // windowIds are reused. However, for correctness:
         if (me.canvasWindowMap[data.nodeId]) {
             delete me.canvasWindowMap[data.nodeId]
-        }
-    }
-
-    /**
-     * @param {Object} msg
-     */
-    onRegisterNeoConfig(msg) {
-        super.onRegisterNeoConfig(msg);
-
-        if (Neo.config.useCanvasWorkerStartingPoint) {
-            let path = Neo.config.appPath;
-
-            if (path.endsWith('.mjs')) {
-                path = path.slice(0, -8); // removing "/app.mjs"
-            }
-
-            import(
-                /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules)/ */
-                /* webpackMode: "lazy" */
-                `../../${path}/canvas.mjs`
-            ).then(module => {
-                module.onStart()
-            })
         }
     }
 }
