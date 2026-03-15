@@ -4,9 +4,10 @@ title: Chrome Windows DevIndex
 state: CLOSED
 labels:
   - bug
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-03-06T09:35:00Z'
-updatedAt: '2026-03-07T15:01:26Z'
+updatedAt: '2026-03-15T11:40:21Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9362'
 author: kmunk-klarso
 commentsCount: 1
@@ -39,4 +40,5 @@ Hamburger durch Such-Icon ersetzen
 > Thanks for contributing!
 
 - 2026-03-07T15:01:26Z @tobiu closed this issue
+- 2026-03-15T11:40:21Z @tobiu assigned to @tobiu
 
