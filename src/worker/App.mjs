@@ -540,6 +540,27 @@ class App extends Base {
     }
 
     /**
+     * @summary Receives the ping from the Canvas Worker confirming a direct canvas transfer.
+     *
+     * This method resolves the promise created in `Neo.component.Canvas#afterSetMounted`.
+     * It is the final step in the "Triangular Communication" pattern where the Main Thread sends the
+     * `OffscreenCanvas` directly to the Canvas Worker, bypassing the App Worker's standard message payload,
+     * to avoid transfer restrictions in Firefox SharedWorkers.
+     *
+     * @param {Object} msg
+     * @param {String} msg.nodeId
+     * @protected
+     */
+    onCanvasRegistered({nodeId}) {
+        let instance = Neo.get(nodeId);
+
+        if (instance?.registerCanvasCallbacks?.[nodeId]) {
+            instance.registerCanvasCallbacks[nodeId]();
+            delete instance.registerCanvasCallbacks[nodeId]
+        }
+    }
+
+    /**
      * @param {Object} data
      */
     async onConnect(data) {
