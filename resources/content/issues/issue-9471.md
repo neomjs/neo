@@ -8,10 +8,10 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-03-14T11:06:27Z'
-updatedAt: '2026-03-14T11:11:49Z'
+updatedAt: '2026-03-15T18:37:34Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9471'
 author: tobiu
-commentsCount: 1
+commentsCount: 3
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
@@ -50,4 +50,30 @@ This protocol will:
 
 - 2026-03-14T11:10:54Z @tobiu assigned to @tobiu
 - 2026-03-14T11:11:49Z @tobiu closed this issue
+### @raye-deng - 2026-03-15T18:20:12Z
+
+This is a really well-written analysis of a problem I've been running into as well. The 'competing semantic realities' issue is exactly what happens — an agent reads a file, modifies it, then re-reads it, and now there are two versions of the truth in the context window. The attention mechanism can't reliably distinguish which one is current.
+
+One additional pattern that's helped us: always anchor edits via `git diff` and never rely on the agent's memory of what a file 'should' contain. We enforce this in Open Code Review's agent rules — the agent must call `git diff HEAD -- <file>` before any edit to reconcile state, similar to your Option 4.
+
+Regarding hallucinated replacements specifically — this is the same root cause as hallucinated package names in generated code. The model generates plausible-looking output that passes surface-level checks but doesn't correspond to reality. Traditional linters can't catch this because syntactically the code is valid. We've had to build dedicated hallucination detection for dependencies and API calls in our code review tool.
+
+The 'ban re-reads' and 'enforce grep_search' proposals are practical. We'd also suggest adding a max-context-refresh budget per session to prevent the drift compounding.
+
+### @tobiu - 2026-03-15T18:37:34Z
+
+@raye-deng Thanks for your input! The `git diff` idea sounds good for edits. I am still mostly using Gemini CLI with the 3.1 pro model. I did notice that the CLI instructions recently changed, and not in a good way. Starting with
+
+```
+CRITICAL INSTRUCTION 1: Use specific tools.
+```
+
+The intent is good, but it seems to just confuse models. The changes of this ticket definitely need more refinements: now Gemini is frequently using the `Search_Text` tool inside known files.
+
+What helped me the most to counter hallucinations is this one:
+https://github.com/neomjs/neo/blob/dev/learn/guides/mcp/NeuralLink.md
+
+Best regards,
+Tobi
+
 
