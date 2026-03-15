@@ -487,8 +487,8 @@ class LivePreview extends Container {
      */
     async onWindowConnect(data) {
         let me           = this,
-            searchString = await Neo.Main.getByPath({path: 'location.search', windowId: data.windowId}),
-            params       = new URLSearchParams(searchString),
+            url          = await Neo.Main.getByPath({path: 'document.URL', windowId: data.windowId}),
+            params       = new URL(url).searchParams,
             id           = params.get('id');
 
         if (id === me.id) {
