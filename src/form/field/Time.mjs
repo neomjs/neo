@@ -113,6 +113,7 @@ class Time extends Picker {
             itemsFocusable: false,
             navigator     : {eventSource: me.getInputElId(), windowId},
             store         : me.collection,
+            useInternalId : false,
             windowId,
             ...me.listConfig
         });

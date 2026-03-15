@@ -1113,6 +1113,23 @@ class Collection extends Base {
     }
 
     /**
+     * Tries to determine the type of the keyProperty by looking at the first item in the collection.
+     * Note that this differs from `data.Store` where this info can be pulled from a `data.Model`.
+     * @returns {String|null} 'int', 'string', etc.
+     */
+    getKeyType() {
+        let me    = this,
+            first = me._items[0];
+
+        if (first) {
+            let key = first[me.keyProperty];
+            return typeof key === 'number' ? 'int' : typeof key
+        }
+
+        return null
+    }
+
+    /**
      * Returns the index for a given key
      * @param {Number|String} key
      * @returns {Number} index (-1 in case no match is found)
