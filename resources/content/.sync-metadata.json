@@ -1,6 +1,6 @@
 {
-  "lastSync": "2026-03-14T16:37:19.133Z",
-  "releasesLastFetched": "2026-03-14T16:37:19.149Z",
+  "lastSync": "2026-03-15T11:05:00.574Z",
+  "releasesLastFetched": "2026-03-15T11:05:00.592Z",
   "pushFailures": [],
   "issues": {
     "3789": {
@@ -11848,25 +11848,25 @@
       "contentHash": "c2bd1422a24fc8c80101d279cbe432bf3de412e864eb0ce95cbd2bd9f9d7e1a7"
     },
     "7957": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "resources/content/issues/issue-7957.md",
-      "closedAt": null,
-      "updatedAt": "2026-03-01T03:59:12Z",
-      "contentHash": "9a4a56a79840b4c11ce63eeb4057e90b5557c840f6b58d091889b43ec5dd1e23"
+      "closedAt": "2026-03-15T04:08:07Z",
+      "updatedAt": "2026-03-15T04:08:07Z",
+      "contentHash": "976b9b71eb8fa0de7bb533ec5dbc6f4768d62a9ded8bef161d8e3b62e0da6906"
     },
     "7958": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "resources/content/issues/issue-7958.md",
-      "closedAt": null,
-      "updatedAt": "2026-03-01T03:59:11Z",
-      "contentHash": "a93b96e79798585d1c5eeded0be95db95b3a1302c6f26d2839a82846576b8980"
+      "closedAt": "2026-03-15T04:08:05Z",
+      "updatedAt": "2026-03-15T04:08:05Z",
+      "contentHash": "366dbe93787767743b28628bd01054e8ef38b98548aff9ccf9019395a6737f5d"
     },
     "7959": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "resources/content/issues/issue-7959.md",
-      "closedAt": null,
-      "updatedAt": "2026-03-01T03:59:10Z",
-      "contentHash": "ebc9f4bff53a59bac97199a10e97b0e7718fd0481861bdc09748f25c0498f02d"
+      "closedAt": "2026-03-15T04:08:04Z",
+      "updatedAt": "2026-03-15T04:08:04Z",
+      "contentHash": "1794a96b263f4887869a8406cca71b3bb18f28b1b4bbc830eb77db2adf6359e4"
     },
     "7960": {
       "state": "CLOSED",
@@ -21347,11 +21347,11 @@
       "contentHash": "c595363e60881e7c0b3861292b157d7956bb72b0fad5be6e313e719ee4be60dd"
     },
     "9364": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "resources/content/issues/issue-9364.md",
-      "closedAt": null,
-      "updatedAt": "2026-03-06T09:46:20Z",
-      "contentHash": "8fa7650b43c604e82423dc809bbafa2d6c93fd23decf1f4e733f358e3648d62c"
+      "closedAt": "2026-03-15T10:47:23Z",
+      "updatedAt": "2026-03-15T11:03:03Z",
+      "contentHash": "0ec0aa1407f471bd5a7b97aa703ab393005fd8105408446a435502a2b31ee0ab"
     },
     "9365": {
       "state": "OPEN",
