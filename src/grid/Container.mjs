@@ -173,7 +173,9 @@ class GridContainer extends BaseContainer {
          */
         useTriStateSorting_: false,
         /**
-         * @member {Neo.data.Store} store_=null
+         * The data source for the grid. This is the structural foundation for both flat Data Grids and hierarchical TreeGrids.
+         * The grid will automatically infer its `isTreeGrid` state based on whether this store is an instance of `Neo.data.TreeStore`.
+         * @member {Neo.data.Store|Neo.data.TreeStore|null} store_=null
          * @reactive
          */
         store_: null,
@@ -415,9 +417,10 @@ class GridContainer extends BaseContainer {
     }
 
     /**
-     * Triggered after the store config got changed
-     * @param {Number} value
-     * @param {Number} oldValue
+     * Triggered after the store config got changed.
+     * Automatically infers the `isTreeGrid` state based on the store's type.
+     * @param {Neo.data.Store|Neo.data.TreeStore|null} value
+     * @param {Neo.data.Store|Neo.data.TreeStore|null} oldValue
      * @protected
      */
     afterSetStore(value, oldValue) {
@@ -427,6 +430,8 @@ class GridContainer extends BaseContainer {
                 load  : me.onStoreLoad,
                 scope : me
             };
+
+        me.isTreeGrid = value?.isTreeStore === true;
 
         value   ?.on(listeners);
         oldValue?.un(listeners);

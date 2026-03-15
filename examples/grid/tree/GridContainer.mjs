@@ -13,10 +13,6 @@ class GridContainer extends Container {
          */
         className: 'Neo.examples.grid.tree.GridContainer',
         /**
-         * @member {Boolean} isTreeGrid=true
-         */
-        isTreeGrid: true,
-        /**
          * @member {Neo.data.Store} store=MainStore
          */
         store: MainStore,
