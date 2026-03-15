@@ -7,9 +7,10 @@ labels:
   - ai
   - refactoring
   - core
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-03-11T16:42:50Z'
-updatedAt: '2026-03-11T16:53:06Z'
+updatedAt: '2026-03-15T11:39:49Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9444'
 author: tobiu
 commentsCount: 1
@@ -60,4 +61,5 @@ Occurrences found in:
 > The codebase is now cleaner, relying on the central `unhandledrejection` interceptors in `src/Neo.mjs` to silently swallow `Neo.isDestroyed` exceptions as designed.
 
 - 2026-03-11T16:53:07Z @tobiu closed this issue
+- 2026-03-15T11:39:49Z @tobiu assigned to @tobiu
 
