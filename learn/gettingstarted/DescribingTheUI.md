@@ -28,12 +28,14 @@ const MainView = defineComponent({
 
     createVdom(config) {
         return {
-            ntype: 'container',
-            layout: {ntype: 'vbox', align: 'start'},
-            items: [{
-                ntype: 'button',
-                iconCls: 'fa fa-home',
-                text: 'Home'
+            cn: [{
+                ntype: 'container',
+                layout: {ntype: 'vbox', align: 'start'},
+                items: [{
+                    ntype: 'button',
+                    iconCls: 'fa fa-home',
+                    text: 'Home'
+                }]
             }]
         }
     }
@@ -81,7 +83,7 @@ You can easily instantiate a classic component within the `createVdom` method of
 
 ```javascript live-preview
 import {defineComponent} from '../functional/_export.mjs';
-import Calendar from '../calendar/Component.mjs'; // A complex, class-based component
+import DateSelector      from '../component/DateSelector.mjs';
 
 const MainView = defineComponent({
     config: {
@@ -90,16 +92,18 @@ const MainView = defineComponent({
 
     createVdom(config) {
         return {
-            ntype: 'container',
-            layout: {ntype: 'vbox', align: 'start'},
-            items: [{
-                ntype: 'component',
-                vdom: {tag: 'h1', html: 'My Functional View'}
-            }, {
-                // Drop the class-based Calendar into our functional view
-                module: Calendar,
-                height: 300,
-                width: 300
+            cn: [{
+                ntype: 'container',
+                layout: {ntype: 'vbox', align: 'start'},
+                items: [{
+                    text: 'My Functional View',
+                    tag : 'h1'
+                }, {
+                    // Drop the class-based DateSelector into our functional view
+                    module: DateSelector,
+                    height: 300,
+                    width: 300
+                }]
             }]
         }
     }
@@ -123,9 +127,11 @@ const MyFunctionalButton = defineComponent({
     },
     createVdom(config) {
         return {
-            ntype: 'button',
-            iconCls: config.iconCls,
-            text: config.text
+            cn: [{
+                ntype: 'button',
+                iconCls: config.iconCls,
+                text: config.text
+            }]
         }
     }
 });
