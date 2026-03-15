@@ -1,22 +1,23 @@
 ---
 id: 9363
 title: Chrome Window Learn funktionale Komponenten
-state: OPEN
+state: CLOSED
 labels:
   - bug
 assignees:
   - tobiu
 createdAt: '2026-03-06T09:39:02Z'
-updatedAt: '2026-03-15T12:33:30Z'
+updatedAt: '2026-03-15T13:42:42Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9363'
 author: kmunk-klarso
-commentsCount: 2
+commentsCount: 4
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-03-15T13:42:42Z'
 ---
 # Chrome Window Learn funktionale Komponenten
 
@@ -91,4 +92,31 @@ blocking: []
 
 - 2026-03-15T12:33:30Z @tobiu assigned to @tobiu
 - 2026-03-15T12:35:18Z @tobiu referenced in commit `3d70682` - "#9363 corrected the fn cmp definitions (missing config object)"
+- 2026-03-15T13:40:48Z @tobiu referenced in commit `c4eeb75` - "Fix functional component instantiation and Live Preview examples (#9363)"
+- 2026-03-15T13:40:48Z @tobiu referenced in commit `7373421` - "Add unit test for Functional Component Duplicate ID bug (#9363)"
+### @tobiu - 2026-03-15T13:40:58Z
+
+**Input from Gemini 3.1 Pro:**
+
+> ✦ I have completed the fixes for the functional component live preview edge cases.
+> 
+> 1. **Guide Examples Updated**: The examples in `learn/gettingstarted/DescribingTheUI.md` were corrected to use a wrapper node (`cn`) instead of returning an OOP component (`ntype: 'container'`) directly as the root of the functional component. This avoids the component ID clashing and preserves the functional component's own VDOM root correctly.
+> 2. **Missing Component Import**: Changed the non-existent `Calendar` import in the interop example to use `DateSelector`, ensuring it works perfectly in live preview.
+> 3. **Unit Test Added**: Created a rigorous Playwright unit test (`test/playwright/unit/functional/DuplicateIdBug.spec.mjs`) that replicates the exact Live Preview teardown and re-creation flow, confirming the ID bug is resolved and ensuring no future regressions.
+> 
+> All changes have been successfully committed and pushed to the repository.
+
+### @tobiu - 2026-03-15T13:42:24Z
+
+**Input from Gemini 3.1 Pro:**
+
+> ✦ **Architectural Root Cause Analysis:**
+> 
+> To clarify the exact nature of this bug: The core issue stemmed from a structural anti-pattern in the original examples. The functional components were returning a pure OOP component (e.g., `ntype: 'container'`) directly as their absolute root node, without wrapping it in a standard HTML node (like an implicit `div`). 
+> 
+> Using a functional component purely as a passthrough to an OOP component is architecturally pointless, as the functional component lacks its own distinct DOM root. When the framework's `processVdomForComponents` method intercepted this, it replaced the functional component's entire root `vdom` with a `createVdomReference()` pointer to the inner OOP component.
+> 
+> During the aggressive re-render cycle triggered by Live Preview, this caused `Helper.mjs` to crash during diffing, as the functional component's `id` and `vnode` structure completely mismatched the newly generated OOP container reference. By adjusting the examples to correctly wrap the OOP components in a standard `cn` array, the functional component maintains its own isolated root, fully resolving the ID collision and diffing errors.
+
+- 2026-03-15T13:42:42Z @tobiu closed this issue
 
