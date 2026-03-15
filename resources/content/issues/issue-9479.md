@@ -9,10 +9,10 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-03-15T15:19:43Z'
-updatedAt: '2026-03-15T16:03:11Z'
+updatedAt: '2026-03-15T20:48:16Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9479'
 author: tobiu
-commentsCount: 3
+commentsCount: 4
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
@@ -109,4 +109,9 @@ after:
 
 - 2026-03-15T16:03:12Z @tobiu closed this issue
 - 2026-03-15T16:15:35Z @tobiu referenced in commit `bb64939` - "feat: Implement Triangular Communication for OffscreenCanvas transfers to bypass Firefox Nightly SharedWorker bugs (#9479) (#9480)"
+### @tobiu - 2026-03-15T20:48:16Z
+
+created a bugreport for the mozilla team here:
+https://bugzilla.mozilla.org/show_bug.cgi?id=2023457
+
 
