@@ -49,7 +49,13 @@ class ScrollManager extends Base {
          * @protected
          * @reactive
          */
-        scrollTop_: 0
+        scrollTop_: 0,
+        /**
+         * @member {String|null} windowId_=null
+         * @protected
+         * @reactive
+         */
+        windowId_: null
     }
 
     /**
@@ -102,6 +108,22 @@ class ScrollManager extends Base {
     afterSetRowScrollPinning(value, oldValue) {
         if (this.mounted) {
             this.updateRowScrollPinningAddon(value)
+        }
+    }
+
+    /**
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     */
+    afterSetWindowId(value, oldValue) {
+        let me = this;
+
+        if (oldValue && me.mounted) {
+            me.dragScroll       && me.updateDragScrollAddon(false, oldValue);
+            me.rowScrollPinning && me.updateRowScrollPinningAddon(false, oldValue);
+
+            me.dragScroll       && me.updateDragScrollAddon(true, value);
+            me.rowScrollPinning && me.updateRowScrollPinningAddon(true, value)
         }
     }
 
@@ -178,39 +200,43 @@ class ScrollManager extends Base {
 
     /**
      * @param {Boolean} active
+     * @param {String|null} [windowId=this.windowId]
      * @returns {Promise<void>}
      */
-    async updateDragScrollAddon(active) {
+    async updateDragScrollAddon(active, windowId=this.windowId) {
         let me    = this,
-            addon = await Neo.currentWorker.getAddon('GridDragScroll', me.windowId);
+            addon = await Neo.currentWorker.getAddon('GridDragScroll', windowId);
 
         if (active) {
             addon.register({
                 bodyId     : me.gridBody.id + '__wrapper',
                 containerId: me.gridContainer.id,
-                id         : me.id
+                id         : me.id,
+                windowId
             })
         } else {
-            addon.unregister({id: me.id})
+            addon.unregister({id: me.id, windowId})
         }
     }
 
     /**
      * @param {Boolean} active
+     * @param {String|null} [windowId=this.windowId]
      * @returns {Promise<void>}
      */
-    async updateRowScrollPinningAddon(active) {
+    async updateRowScrollPinningAddon(active, windowId=this.windowId) {
         let me    = this,
-            addon = await Neo.currentWorker.getAddon('GridRowScrollPinning', me.windowId);
+            addon = await Neo.currentWorker.getAddon('GridRowScrollPinning', windowId);
 
         if (active) {
             addon.register({
                 bodyId     : me.gridBody.id,
                 id         : me.id,
-                scrollbarId: me.gridContainer.scrollbar.id
+                scrollbarId: me.gridContainer.scrollbar.id,
+                windowId
             })
         } else {
-            addon.unregister({id: me.id})
+            addon.unregister({id: me.id, windowId})
         }
     }
 

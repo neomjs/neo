@@ -466,6 +466,22 @@ class GridContainer extends BaseContainer {
     }
 
     /**
+     * Triggered after the windowId config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetWindowId(value, oldValue) {
+        super.afterSetWindowId(value, oldValue);
+
+        let {scrollManager} = this;
+
+        if (oldValue && scrollManager) {
+            scrollManager.windowId = value
+        }
+    }
+
+    /**
      * Triggered before the body config gets changed.
      * @param {Object|Neo.grid.Body|null} value
      * @param {Object|Neo.grid.Body|null} oldValue
@@ -699,7 +715,8 @@ class GridContainer extends BaseContainer {
             gridBody        : me.body,
             module          : ScrollManager,
             gridContainer   : me,
-            rowScrollPinning: me.useRowScrollPinning
+            rowScrollPinning: me.useRowScrollPinning,
+            windowId        : me.windowId
         })
     }
 
