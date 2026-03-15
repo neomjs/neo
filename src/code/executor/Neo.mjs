@@ -2,7 +2,7 @@ import Base from '../../core/Base.mjs';
 
 const
     classNameRegex = /className\s*:\s*['"]([^'"]+)['"]/g,
-    exportRegex    = /export\s+(?:default\s+)?(?:const|let|var|class|function|async\s+function|generator\s+function|async\s+generator\s+function|(\{[\s\S]*?\}))/g,
+    exportRegex    = /^(\s*)export\s+(?:default\s+)?(.*)/,
     importRegex    = /import\s+(?:([\w-]+)|\{([^}]+)\})\s+from\s+['"]([^'"]+)['"]/;
 
 /**
@@ -132,10 +132,18 @@ class NeoExecutor extends Base {
                 }
 
                 moduleNameAndPath.push({defaultImport, namedImports, path})
-            } else if (line.match(exportRegex)) {
-                // Skip export statements
             } else {
-                cleanLines.push(`    ${line}`)
+                let exportMatch = line.match(exportRegex);
+                if (exportMatch) {
+                    let declaration = exportMatch[2];
+                    if (declaration.startsWith('class ') || declaration.startsWith('const ') || declaration.startsWith('let ') || declaration.startsWith('function ')) {
+                        cleanLines.push(`${exportMatch[1]}${declaration}`)
+                    } else {
+                        cleanLines.push(`${exportMatch[1]}module = ${declaration}`)
+                    }
+                } else {
+                    cleanLines.push(`    ${line}`)
+                }
             }
         });
 
@@ -158,7 +166,7 @@ class NeoExecutor extends Base {
             `${vars.join('\n')}`,
             `    ${cleanLines.join('\n')}`,
             '',
-            `    module = Neo.ns('${className}');`,
+            `    module = module || Neo.ns('${className}');`,
             '',
             `    if (module && (`,
             `        Neo.component.Base.isPrototypeOf(module) ||`,
