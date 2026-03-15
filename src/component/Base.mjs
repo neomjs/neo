@@ -927,7 +927,7 @@ class Component extends Abstract {
      * @protected
      */
     beforeGetWrapperStyle(value) {
-        return {...Object.assign(this.vdom.style || {}, value)}
+        return {...this.vdom.style, ...value}
     }
 
     /**

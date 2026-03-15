@@ -136,12 +136,12 @@ class MainContainerController extends ComponentController {
             intersectionSize = intersection?.height * intersection?.width,
             side             = me.dockedWindowSide,
             size             = proxyRect.height * proxyRect.width,
-            wrapperStyle;
+            style;
 
         if (intersectionSize > size / 2) { // drop the dialog fully into the dragStart window
             me.destroyDockedWindowProxy();
 
-            wrapperStyle = dialog.wrapperStyle;
+            style = dialog.style;
 
             if (dialog.appName === me.dockedWindowAppName) {
                 side = me.getOppositeSide(side);
@@ -149,20 +149,20 @@ class MainContainerController extends ComponentController {
 
             switch (side) {
                 case 'bottom':
-                    wrapperStyle.top = `${me.dragStartWindowRect.height - proxyRect.height}px`;
+                    style.top = `${me.dragStartWindowRect.height - proxyRect.height}px`;
                     break;
                 case 'left':
-                    wrapperStyle.left = '0px';
+                    style.left = '0px';
                     break;
                 case 'right':
-                    wrapperStyle.left = `${me.dragStartWindowRect.width - proxyRect.width}px`;
+                    style.left = `${me.dragStartWindowRect.width - proxyRect.width}px`;
                     break;
                 case 'top':
-                    wrapperStyle.top = '0px';
+                    style.top = '0px';
                     break;
             }
 
-            dialog.wrapperStyle = wrapperStyle;
+            dialog.style = style;
         } else { // drop the dialog fully into the dragEnd window
             me.mountDialogInOtherWindow({
                 fullyIncludeIntoWindow: true,
@@ -259,7 +259,7 @@ class MainContainerController extends ComponentController {
             dragEndWindowAppName = me.dockedWindowAppName,
             dragEndWindowId      = me.dockedWindowId,
             side                 = me.dockedWindowSide,
-            needsSwitch, proxyPosition, wrapperStyle;
+            needsSwitch, proxyPosition, style;
 
         if (dialog.appName === dragEndWindowAppName) {
             dragEndWindowAppName = appName;
@@ -285,12 +285,12 @@ class MainContainerController extends ComponentController {
                 }
             });
 
-            wrapperStyle = dialog.wrapperStyle;
+            style = dialog.style;
 
-            wrapperStyle.left = proxyPosition.left;
-            wrapperStyle.top  = proxyPosition.top;
+            style.left = proxyPosition.left;
+            style.top  = proxyPosition.top;
 
-            dialog.wrapperStyle = wrapperStyle;
+            dialog.style = style;
 
             me.destroyDockedWindowProxy();
 
@@ -492,8 +492,12 @@ class MainContainerController extends ComponentController {
             }
 
             if (me.hasDockedWindow()) {
+                let targetAppName = me.dialog.appName === appName ? me.dockedWindowAppName : appName,
+                    windowId      = me.dialog.appName === appName ? me.dockedWindowId : me.windowId;
+
                 Neo.Main.getWindowData({
-                    appName: me.dialog.appName === appName ? me.dockedWindowAppName : appName
+                    appName: targetAppName,
+                    windowId
                 }).then(data => {
                     me.targetWindowSize = dockedHorizontal ? data.innerWidth : data.innerHeight
                 })
