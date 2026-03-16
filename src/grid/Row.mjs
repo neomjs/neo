@@ -223,6 +223,12 @@ class Row extends Component {
             cellCls.push('neo-last-column')
         }
 
+        if (column.locked === 'start') {
+            cellCls.push('neo-locked-start')
+        } else if (column.locked === 'end') {
+            cellCls.push('neo-locked-end')
+        }
+
         cellConfig = {
             'aria-colindex': columnIndex + 1, // 1 based
             data           : {field: dataField, recordId},
@@ -379,7 +385,7 @@ class Row extends Component {
         poolSize        = cellPoolSize;
         pooledCells     = new Array(poolSize);
 
-        // Pass 1: Render Pooled Cells (hideMode === 'removeDom')
+        // Pass 1: Render Pooled Cells (hideMode === 'removeDom' && !locked)
         // We render the FULL pool to ensure stable VDOM structure (0 inserts/moves).
         for (i=mountedColumns[0]; i <= mountedColumns[1]; i++) {
             column = columns.getAt(i);
@@ -387,7 +393,7 @@ class Row extends Component {
             // Sanity check for bounds (e.g. if column count changed)
             if (!column) continue;
 
-            if (column.hideMode === 'removeDom') {
+            if (column.hideMode === 'removeDom' && !column.locked) {
                 poolIndex = i % poolSize;
 
                 // Cell Recycling: Reuse existing VDOM if record and column match
@@ -426,10 +432,6 @@ class Row extends Component {
                     silent
                 });
 
-                if (column.dock) {
-                    cellConfig.cls = ['neo-locked', ...cellConfig.cls || []]
-                }
-
                 columnPosition = columnPositions.get(column.dataField);
 
                 if (!columnPosition) {
@@ -463,13 +465,13 @@ class Row extends Component {
 
         vdom.cn.push(...pooledCells);
 
-        // Pass 2: Render Permanent Cells (hideMode !== 'removeDom')
+        // Pass 2: Render Permanent Cells (hideMode !== 'removeDom' || locked)
         // We MUST render these even if they are off-screen to preserve their DOM state (e.g. Canvas context).
         // This loop is O(TotalColumns), but typically few columns use this mode.
         for (i=0; i < countColumns; i++) {
             column = columns.getAt(i);
 
-            if (column.hideMode !== 'removeDom') {
+            if (column.hideMode !== 'removeDom' || column.locked) {
                 isMounted = i >= mountedColumns[0] && i <= mountedColumns[1];
 
                 cellConfig = me.applyRendererOutput({
@@ -482,10 +484,6 @@ class Row extends Component {
                     rowIndex,
                     silent
                 });
-
-                if (column.dock) {
-                    cellConfig.cls = ['neo-locked', ...cellConfig.cls || []]
-                }
 
                 columnPosition = columnPositions.get(column.dataField);
 
