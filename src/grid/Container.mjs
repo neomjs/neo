@@ -213,6 +213,14 @@ class GridContainer extends BaseContainer {
     scrollManager = null
 
     /**
+     * @member {Boolean} hasLockedColumns=false
+     * @readonly
+     */
+    get hasLockedColumns() {
+        return this.columns?.items.some(col => col.locked === 'start' || col.locked === 'end') || false
+    }
+
+    /**
      * @param {Object} config
      */
     construct(config) {
@@ -718,7 +726,9 @@ class GridContainer extends BaseContainer {
         headerToolbar.passSizeToBody(false);
 
         // 4. Force a full row re-render to apply the new column order and styles
-        me.body.createViewData()
+        me.body.createViewData();
+
+        me.scrollManager?.updateColumnScrollPinningAddon()
     }
 
     /**
@@ -733,9 +743,9 @@ class GridContainer extends BaseContainer {
         for (let i = 0, len = columns.length; i < len; i++) {
             let column = columns[i];
 
-            if (column.locked === 'start' || column.locked === 'left') {
+            if (column.locked === 'start') {
                 lockedStart.push(column)
-            } else if (column.locked === 'end' || column.locked === 'right') {
+            } else if (column.locked === 'end') {
                 lockedEnd.push(column)
             } else {
                 unlocked.push(column)
