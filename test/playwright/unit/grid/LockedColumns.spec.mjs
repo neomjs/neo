@@ -1,9 +1,19 @@
 /**
  * @file test/playwright/unit/grid/LockedColumns.spec.mjs
- * @summary Unit tests for the High-Performance Locked Columns feature.
+ * @summary Unit tests for the High-Performance Locked Columns feature in the Grid architecture.
  *
- * Verifies that the mathematical layout engine correctly sorts columns based on their
- * `locked` state ('start', null, 'end'), both initially and dynamically at runtime.
+ * This test suite validates the core mechanics of the **Locked Columns** feature, a crucial part of the
+ * Grid's performance-oriented architecture. It ensures that the mathematical layout engine correctly
+ * interprets the `locked` configuration (`'start'`, `null`, `'end'`) and seamlessly reorders the
+ * structural column definitions, both during instantiation and when updated dynamically at runtime.
+ *
+ * By leveraging the 'Single-Thread Simulation' architecture for Playwright, these tests bypass visual
+ * rendering overhead, allowing us to perform high-speed, deterministic assertions on internal
+ * array sorting, getter states (e.g., `hasLockedColumns`), and the integration with the `ScrollManager`.
+ *
+ * @see Neo.grid.Container
+ * @see Neo.grid.column.Base
+ * @see Neo.grid.ScrollManager
  */
 
 import {setup} from '../../setup.mjs';
