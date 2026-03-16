@@ -20,8 +20,9 @@ subIssues:
   - '[x] 9459 Grid: Implement Reactive locked Config and Cell Pooling Bypass'
   - '[x] 9460 Grid: Column Drag & Drop Integration & State Transitions'
   - '[x] 9483 Grid: Implement Reactive locked Config and Run-Time Column Reordering'
-subIssuesCompleted: 5
-subIssuesTotal: 5
+  - '[x] 9484 Grid: Add Unit Tests for Locked Columns Feature'
+subIssuesCompleted: 6
+subIssuesTotal: 6
 blockedBy: []
 blocking: []
 ---
@@ -79,4 +80,6 @@ This Epic tracks the implementation of a modern, GPU-accelerated "locked" column
 > - **New Feature Demo:** Create a dedicated Locked Columns example app.
 > - **E2E Automation:** Validate the visual compositor transforms and drag-and-drop boundary inference via Playwright.
 
+- 2026-03-16T12:48:41Z @tobiu cross-referenced by #9484
+- 2026-03-16T12:49:46Z @tobiu added sub-issue #9484
 
