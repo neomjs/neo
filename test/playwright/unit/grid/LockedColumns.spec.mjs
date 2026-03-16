@@ -176,4 +176,47 @@ test.describe('Grid Locked Columns', () => {
         const headerOrderAfterLock = headerToolbar.items.map(item => item.dataField);
         expect(headerOrderAfterLock).toEqual(expectedOrderAfterLock);
     });
+
+    test('ScrollManager scroll pinning addon is updated on lock state change', async () => {
+        const scrollManager = grid.scrollManager;
+        let updateCalled = false;
+
+        // Mock the method to intercept the call
+        const originalUpdate = scrollManager.updateColumnScrollPinningAddon.bind(scrollManager);
+        scrollManager.updateColumnScrollPinningAddon = (active, windowId) => {
+            updateCalled = true;
+            return originalUpdate(active, windowId);
+        };
+
+        const col1 = grid.columns.get('col1');
+        col1.locked = 'start'; // This triggers afterSetLocked -> grid.onColumnLockChange -> scrollManager.update...
+        
+        await grid.timeout(50);
+
+        expect(updateCalled).toBe(true);
+    });
+
+    test('Setting a new columns array at runtime correctly sorts them', async () => {
+        // Provide a completely new set of columns, out of order regarding lock state.
+        grid.columns = [{
+            dataField: 'newCol1',
+            text     : 'New Unlocked 1'
+        }, {
+            dataField: 'newCol2',
+            text     : 'New End 1',
+            locked   : 'end'
+        }, {
+            dataField: 'newCol3',
+            text     : 'New Start 1',
+            locked   : 'start'
+        }];
+
+        await grid.timeout(50);
+
+        // Expected sorted order: start -> unlocked -> end
+        const expectedOrder = ['newCol3', 'newCol1', 'newCol2'];
+        const actualOrder = grid.columns.items.map(col => col.dataField);
+        
+        expect(actualOrder).toEqual(expectedOrder);
+    });
 });
