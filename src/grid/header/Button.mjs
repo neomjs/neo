@@ -76,6 +76,14 @@ class Button extends BaseButton {
          */
         isSorted_: null,
         /**
+         * Use 'start' or 'left' to pin the column to the start of the row.
+         * Use 'end' or 'right' to pin the column to the end of the row.
+         * Use null for standard, scrollable columns.
+         * @member {String|null} locked_=null
+         * @reactive
+         */
+        locked_: null,
+        /**
          * @member {String} role='columnheader'
          * @reactive
          */
@@ -136,6 +144,27 @@ class Button extends BaseButton {
             direction: value,
             property : me.dataField
         })
+    }
+
+    /**
+     * Triggered after the locked config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetLocked(value, oldValue) {
+        let {cls} = this;
+
+        NeoArray.remove(cls, 'neo-locked-start');
+        NeoArray.remove(cls, 'neo-locked-end');
+
+        if (value === 'start' || value === 'left') {
+            NeoArray.add(cls, 'neo-locked-start')
+        } else if (value === 'end' || value === 'right') {
+            NeoArray.add(cls, 'neo-locked-end')
+        }
+
+        this.cls = cls
     }
 
     /**

@@ -607,24 +607,11 @@ class GridContainer extends BaseContainer {
             columnClass, renderer;
 
         if (columns) {
-            let lockedEnd   = [],
-                lockedStart = [],
-                unlocked    = [];
-
-            for (let index = 0, len = columns.length; index < len; index++) {
-                let column = columns[index];
-                columnDefaults && Neo.assignDefaults(column, columnDefaults);
-
-                if (column.locked === 'start' || column.locked === 'left') {
-                    lockedStart.push(column)
-                } else if (column.locked === 'end' || column.locked === 'right') {
-                    lockedEnd.push(column)
-                } else {
-                    unlocked.push(column)
-                }
+            if (columnDefaults) {
+                columns.forEach(column => Neo.assignDefaults(column, columnDefaults))
             }
 
-            columns = [...lockedStart, ...unlocked, ...lockedEnd];
+            columns = me.sortColumns(columns);
 
             for (let index = 0, len = columns.length; index < len; index++) {
                 let column = columns[index];
@@ -693,6 +680,69 @@ class GridContainer extends BaseContainer {
         });
 
         super.destroy(...args)
+    }
+
+    /**
+     * Triggered by `grid.column.Base#afterSetLocked`
+     * Re-sorts the internal columns collection, the header items, and triggers a layout refresh.
+     * @param {Neo.grid.column.Base} column
+     */
+    onColumnLockChange(column) {
+        let me            = this,
+            columnsArray  = [...me.columns.items],
+            headerToolbar = me.headerToolbar,
+            sortedColumns = me.sortColumns(columnsArray);
+
+        // 1. Sync the Header Toolbar cleanly via public API
+        // Batched by the framework's core update loop
+        headerToolbar.silentVdomUpdate = true;
+
+        sortedColumns.forEach((col, targetIndex) => {
+            let btn          = headerToolbar.getColumn(col.dataField),
+                currentIndex = headerToolbar.indexOf(btn);
+
+            if (currentIndex !== targetIndex) {
+                headerToolbar.moveTo(currentIndex, targetIndex)
+            }
+        });
+
+        headerToolbar.silentVdomUpdate = false;
+        headerToolbar.update();
+
+        // 2. Sync the Collection
+        // clearSilent() and add() is the safest way to reset internal indices while avoiding duplicate mutate events
+        me.columns.clearSilent();
+        me.columns.add(sortedColumns);
+
+        // 3. Trigger Layout Engine
+        headerToolbar.passSizeToBody(false);
+
+        // 4. Force a full row re-render to apply the new column order and styles
+        me.body.createViewData()
+    }
+
+    /**
+     * @param {Object[]|Neo.grid.column.Base[]} columns
+     * @returns {Object[]|Neo.grid.column.Base[]}
+     */
+    sortColumns(columns) {
+        let lockedEnd   = [],
+            lockedStart = [],
+            unlocked    = [];
+
+        for (let i = 0, len = columns.length; i < len; i++) {
+            let column = columns[i];
+
+            if (column.locked === 'start' || column.locked === 'left') {
+                lockedStart.push(column)
+            } else if (column.locked === 'end' || column.locked === 'right') {
+                lockedEnd.push(column)
+            } else {
+                unlocked.push(column)
+            }
+        }
+
+        return [...lockedStart, ...unlocked, ...lockedEnd]
     }
 
     /**
