@@ -9,18 +9,19 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-03-13T10:25:42Z'
-updatedAt: '2026-03-13T10:25:59Z'
+updatedAt: '2026-03-16T12:25:56Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9456'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues:
-  - '[ ] 9457 Grid: Implement Mathematical Column Layout Engine'
-  - '[ ] 9458 Grid: Create Main Thread Addon for Column Pinning (CSS Variables)'
-  - '[ ] 9459 Grid: Implement Reactive locked Config and Cell Pooling Bypass'
-  - '[ ] 9460 Grid: Column Drag & Drop Integration & State Transitions'
-subIssuesCompleted: 0
-subIssuesTotal: 4
+  - '[x] 9457 Grid: Implement Mathematical Column Layout Engine'
+  - '[x] 9458 Grid: Create Main Thread Addon for Column Pinning (CSS Variables)'
+  - '[x] 9459 Grid: Implement Reactive locked Config and Cell Pooling Bypass'
+  - '[x] 9460 Grid: Column Drag & Drop Integration & State Transitions'
+  - '[x] 9483 Grid: Implement Reactive locked Config and Run-Time Column Reordering'
+subIssuesCompleted: 5
+subIssuesTotal: 5
 blockedBy: []
 blocking: []
 ---
@@ -56,4 +57,26 @@ This Epic tracks the implementation of a modern, GPU-accelerated "locked" column
 - 2026-03-13T10:28:06Z @tobiu added sub-issue #9459
 - 2026-03-13T10:28:32Z @tobiu cross-referenced by #9460
 - 2026-03-13T10:28:40Z @tobiu added sub-issue #9460
+- 2026-03-16T11:10:29Z @tobiu cross-referenced by #9483
+- 2026-03-16T11:10:52Z @tobiu added sub-issue #9483
+### @tobiu - 2026-03-16T12:25:56Z
+
+**Input from Gemini 3.1 Pro:**
+
+> ✦ **Epic Status Update: Architectural Foundation Complete**
+> 
+> All core architectural sub-tasks for the high-performance Locked Columns feature have been successfully implemented and pushed. 
+> 
+> **What we accomplished:**
+> 1. **Mathematical Layout Engine (#9457):** The Grid now inherently sorts the `columns` array (`start` -> `unlocked` -> `end`) before VDOM generation. The `passSizeToBody` engine was refactored to calculate logical X coordinates purely mathematically for fixed-width grids, gracefully falling back to DOM measurements only when dynamic sizing (`flex`) is used.
+> 2. **Synchronous Pinning Addon (#9458):** We created the `GridColumnScrollPinning` Main Thread addon. It maps horizontal scroll events synchronously to `--grid-locked-start-offset` and `--grid-locked-end-offset` CSS variables. The registration is completely dynamic, evaluating `hasLockedColumns` to ensure zero overhead for standard grids.
+> 3. **Cell Pooling Bypass & SCSS (#9459):** `grid/Row.mjs` was split into strict passes. Pass 1 skips locked columns. Pass 2 forces locked columns to render as "Permanent Cells", preventing them from being unmounted/recycled when scrolled out of view. The `transform: translateX(...)` offloads the visual shift to the compositor, avoiding layer explosions.
+> 4. **Drag & Drop Integration (#9460):** The `SortZone` interface now infers locked states based on drop boundaries. We built a robust pipeline (`grid.Container#onColumnLockChange`) that fully handles sorting, DOM syncing, and heavy layout recalculations seamlessly across the framework without duplicating logic.
+> 
+> **Next Steps (Upcoming Phase):**
+> - **Unit Testing:** Add tests to verify the pipeline logic and array sorting.
+> - **Example Integrations:** Integrate locked columns into existing robust examples.
+> - **New Feature Demo:** Create a dedicated Locked Columns example app.
+> - **E2E Automation:** Validate the visual compositor transforms and drag-and-drop boundary inference via Playwright.
+
 
