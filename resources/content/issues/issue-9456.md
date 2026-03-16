@@ -21,8 +21,9 @@ subIssues:
   - '[x] 9460 Grid: Column Drag & Drop Integration & State Transitions'
   - '[x] 9483 Grid: Implement Reactive locked Config and Run-Time Column Reordering'
   - '[x] 9484 Grid: Add Unit Tests for Locked Columns Feature'
-subIssuesCompleted: 6
-subIssuesTotal: 6
+  - '[x] 9485 Grid: Horizontal Scroll Performance & Jitter for Locked Columns'
+subIssuesCompleted: 7
+subIssuesTotal: 7
 blockedBy: []
 blocking: []
 ---
@@ -82,4 +83,5 @@ This Epic tracks the implementation of a modern, GPU-accelerated "locked" column
 
 - 2026-03-16T12:48:41Z @tobiu cross-referenced by #9484
 - 2026-03-16T12:49:46Z @tobiu added sub-issue #9484
+- 2026-03-16T15:09:29Z @tobiu added sub-issue #9485
 
