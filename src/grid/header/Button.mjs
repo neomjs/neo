@@ -158,9 +158,9 @@ class Button extends BaseButton {
         NeoArray.remove(cls, 'neo-locked-start');
         NeoArray.remove(cls, 'neo-locked-end');
 
-        if (value === 'start' || value === 'left') {
+        if (value === 'start') {
             NeoArray.add(cls, 'neo-locked-start')
-        } else if (value === 'end' || value === 'right') {
+        } else if (value === 'end') {
             NeoArray.add(cls, 'neo-locked-end')
         }
 

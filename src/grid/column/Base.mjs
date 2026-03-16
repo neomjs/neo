@@ -45,8 +45,8 @@ class Column extends Base {
          */
         hideMode_: 'removeDom',
         /**
-         * Use 'start' or 'left' to pin the column to the start of the row.
-         * Use 'end' or 'right' to pin the column to the end of the row.
+         * Use 'start' to pin the column to the start of the row.
+         * Use 'end' to pin the column to the end of the row.
          * Use null for standard, scrollable columns.
          * @member {String|null} locked_=null
          * @reactive
