@@ -204,7 +204,7 @@ class SortZone extends BaseSortZone {
             toIndex   = me.dragElement['aria-colindex'] - 1,
             column    = columns.getAt(toIndex),
             prevCol   = toIndex > 0 ? columns.getAt(toIndex - 1) : null,
-            nextCol   = toIndex < columns.getCount() - 1 ? columns.getAt(toIndex + 1) : null,
+            nextCol   = toIndex < columns.count - 1 ? columns.getAt(toIndex + 1) : null,
             newLocked = null;
 
         // Inference logic: Default to unlocked unless completely surrounded by a locked zone
@@ -215,7 +215,7 @@ class SortZone extends BaseSortZone {
             newLocked = 'end'
         } else if (toIndex === 0 && nextCol?.locked === 'start') {
             newLocked = 'start'
-        } else if (toIndex === columns.getCount() - 1 && prevCol?.locked === 'end') {
+        } else if (toIndex === columns.count - 1 && prevCol?.locked === 'end') {
             newLocked = 'end'
         }
 
