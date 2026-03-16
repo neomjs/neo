@@ -197,20 +197,46 @@ class SortZone extends BaseSortZone {
 
         await super.onDragEnd(data);
 
-        let {owner} = this;
+        let me        = this,
+            {owner}   = me,
+            grid      = owner.parent,
+            {columns} = grid,
+            toIndex   = me.dragElement['aria-colindex'] - 1,
+            column    = columns.getAt(toIndex),
+            prevCol   = toIndex > 0 ? columns.getAt(toIndex - 1) : null,
+            nextCol   = toIndex < columns.getCount() - 1 ? columns.getAt(toIndex + 1) : null,
+            newLocked = null;
 
-        owner.items.forEach((item, index) => {
-            item.vdom['aria-colindex'] = index + 1; // 1 based
-        });
+        // Inference logic: Default to unlocked unless completely surrounded by a locked zone
+        // or placed at the absolute outer edge of a locked zone.
+        if (prevCol?.locked === 'start' && nextCol?.locked === 'start') {
+            newLocked = 'start'
+        } else if (prevCol?.locked === 'end' && nextCol?.locked === 'end') {
+            newLocked = 'end'
+        } else if (toIndex === 0 && nextCol?.locked === 'start') {
+            newLocked = 'start'
+        } else if (toIndex === columns.getCount() - 1 && prevCol?.locked === 'end') {
+            newLocked = 'end'
+        }
 
-        owner.updateDepth = 2;
-        owner.update();
+        if (column.locked !== newLocked) {
+            // This implicitly triggers grid.Container#onColumnLockChange,
+            // which handles sorting, DOM syncing, and layout calculations.
+            column.locked = newLocked
+        } else {
+            owner.items.forEach((item, index) => {
+                item.vdom['aria-colindex'] = index + 1; // 1 based
+            });
 
-        await owner.passSizeToBody();
+            owner.updateDepth = 2;
+            owner.update();
 
-        await this.timeout(20);
+            await owner.passSizeToBody();
 
-        owner.parent.body.createViewData(false, true)
+            await this.timeout(20);
+
+            grid.body.createViewData(false, true)
+        }
     }
 
     /**
