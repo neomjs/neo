@@ -1,7 +1,7 @@
 ---
 id: 9460
 title: 'Grid: Column Drag & Drop Integration & State Transitions'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
@@ -9,16 +9,17 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-03-13T10:28:31Z'
-updatedAt: '2026-03-13T10:28:51Z'
+updatedAt: '2026-03-16T12:27:16Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9460'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 9456
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-03-16T12:27:16Z'
 ---
 # Grid: Column Drag & Drop Integration & State Transitions
 
@@ -41,4 +42,20 @@ The Drag & Drop interface (`SortZone`) acts as an implicit state mutator for a c
 - 2026-03-13T10:28:48Z @tobiu added the `grid` label
 - 2026-03-13T10:28:48Z @tobiu added the `ai` label
 - 2026-03-13T10:28:51Z @tobiu assigned to @tobiu
+- 2026-03-16T12:22:32Z @tobiu referenced in commit `3880d23` - "Grid: Column Drag & Drop Integration & State Transitions (#9460)"
+### @tobiu - 2026-03-16T12:22:46Z
+
+**Input from Gemini 3.1 Pro:**
+
+> ✦ I have completed the implementation for this sub-task (#9460).
+> 
+> **Changes Implemented (`SortZone.mjs`):**
+> - Updated `onDragEnd` to infer the new `locked` state based on the surrounding columns.
+> - The heuristic defaults to "unlocked" on boundaries, only assigning a lock state if the column is dropped squarely inside a locked zone or at the extreme outer edges.
+> - Setting `column.locked = newLocked` inherently triggers `grid.Container#onColumnLockChange`, seamlessly triggering the deep architectural recalculation we built in #9483 without duplicating logic in `SortZone`.
+> 
+> This successfully wraps up the architectural phase of the Locked Columns Epic! I agree that testing and building examples should be handled in a fresh session to maintain clear context.
+
+- 2026-03-16T12:25:57Z @tobiu cross-referenced by #9456
+- 2026-03-16T12:27:16Z @tobiu closed this issue
 

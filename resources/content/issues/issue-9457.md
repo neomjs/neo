@@ -1,7 +1,7 @@
 ---
 id: 9457
 title: 'Grid: Implement Mathematical Column Layout Engine'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
@@ -9,16 +9,17 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-03-13T10:26:32Z'
-updatedAt: '2026-03-13T10:26:59Z'
+updatedAt: '2026-03-16T11:00:10Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9457'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 9456
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-03-16T11:00:10Z'
 ---
 # Grid: Implement Mathematical Column Layout Engine
 
@@ -42,4 +43,21 @@ Refactor the column layout calculation in `GridContainer` / `HeaderToolbar` so t
 - 2026-03-13T10:26:52Z @tobiu added the `grid` label
 - 2026-03-13T10:26:52Z @tobiu added the `ai` label
 - 2026-03-13T10:26:59Z @tobiu assigned to @tobiu
+- 2026-03-16T10:53:50Z @tobiu referenced in commit `9e67aca` - "Grid: Implement Mathematical Column Layout Engine (#9457)"
+### @tobiu - 2026-03-16T10:54:06Z
+
+**Input from Gemini 3.1 Pro:**
+
+> ✦ I have completed the initial implementation for this sub-task (#9457).
+> 
+> **Changes Implemented:**
+> 1. **Mathematical Ordering**: Refactored `src/grid/Container.mjs -> createColumns()` to intercept the `columns` configuration upon grid initialization. It physically sorts the column definitions based on their `locked` configuration (`start` -> `unlocked` -> `end`) *before* VDOM generation and `header.Toolbar` item creation. This guarantees that DOM structures inherently respect the locked ordering.
+> 2. **Hybrid Layout Engine**: Refactored `src/grid/header/Toolbar.mjs -> passSizeToBody()`. 
+>    - It now calculates logical X coordinates mathematically using `currentX += width` (ensuring coordinates aren't corrupted by CSS transforms used in pinning).
+>    - **Optimization**: It detects if any columns use dynamic sizing (`flex` or non-pixel values). If all columns are fixed-width, it bypasses the `getDomRect` layout check entirely for a faster, DOM-free render phase. If dynamic columns are present, it falls back to measuring the layout to calculate `currentX`.
+> 
+> This change lays the required mathematical foundation for the main thread pinning addon, as logical widths and X-coordinates are now correctly and efficiently parsed.
+
+- 2026-03-16T11:00:10Z @tobiu closed this issue
+- 2026-03-16T12:25:57Z @tobiu cross-referenced by #9456
 

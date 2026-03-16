@@ -1,7 +1,7 @@
 ---
 id: 9459
 title: 'Grid: Implement Reactive locked Config and Cell Pooling Bypass'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
@@ -9,16 +9,17 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-03-13T10:27:58Z'
-updatedAt: '2026-03-13T10:28:18Z'
+updatedAt: '2026-03-16T12:07:47Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9459'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 9456
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-03-16T12:07:47Z'
 ---
 # Grid: Implement Reactive locked Config and Cell Pooling Bypass
 
@@ -53,4 +54,28 @@ Locked columns must be excluded from standard virtualized Cell Pooling (`hideMod
 - 2026-03-13T10:28:07Z @tobiu added the `grid` label
 - 2026-03-13T10:28:07Z @tobiu added the `ai` label
 - 2026-03-13T10:28:18Z @tobiu assigned to @tobiu
+- 2026-03-16T12:02:05Z @tobiu referenced in commit `e432044` - "Grid: Implement Cell Pooling Bypass & SCSS Rules for Locked Columns (#9459)"
+### @tobiu - 2026-03-16T12:02:19Z
+
+**Input from Gemini 3.1 Pro:**
+
+> ✦ I have completed the implementation for this sub-task (#9459).
+> 
+> **Implementation Details:**
+> 
+> 1. **Cell Pooling Bypass (`src/grid/Row.mjs`)**:
+>    - **Pass 1 (Pooled Cells):** Updated to explicitly exclude columns where `locked` is truthy (`!column.locked`).
+>    - **Pass 2 (Permanent Cells):** Updated to include all `column.locked` columns regardless of their `hideMode`. This physically guarantees the DOM nodes for locked columns are never destroyed or recycled when scrolling horizontally, enabling stable CSS transforms.
+>    - Removed the legacy `column.dock` fallback logic since `applyRendererOutput` now dynamically adds the correct `.neo-locked-start` and `.neo-locked-end` classes.
+> 
+> 2. **Hardware-Accelerated Pinning SCSS**:
+>    - Added `.neo-locked-start` and `.neo-locked-end` classes to `resources/scss/src/grid/Body.scss` and `resources/scss/src/grid/header/Button.scss`.
+>    - Used `transform: translateX(var(...))` tied to the CSS variables updated by the Main Thread Addon. This cleanly separates mathematical logical coordinates (`left`) managed by the VDOM from visual composite shifting (`transform`) managed by the browser compositor, completely avoiding layer explosions or hot main-thread layouts.
+>    - Applied `z-index: 5` to the locked columns.
+> 
+> 3. **Scrollbar Adjustment**:
+>    - Modified `resources/scss/src/grid/VerticalScrollbar.scss` to use `z-index: 10`, ensuring the scrollbar always floats correctly above pinned columns at the end of the grid.
+
+- 2026-03-16T12:07:47Z @tobiu closed this issue
+- 2026-03-16T12:25:57Z @tobiu cross-referenced by #9456
 
