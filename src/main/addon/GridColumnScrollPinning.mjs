@@ -64,11 +64,13 @@ class GridColumnScrollPinning extends Base {
 
         // Apply CSS variables to the root container node for inheritance
         node.style.setProperty('--grid-locked-start-offset', `${scrollLeft}px`);
-        node.style.setProperty('--grid-locked-end-offset',   `${scrollLeft - (scrollWidth - clientWidth)}px`)
+        node.style.setProperty('--grid-locked-end-offset',   `${scrollLeft - (scrollWidth - clientWidth)}px`);
+
+        state.ticking = false;
     }
 
     /**
-     * Triggered by native browser scroll. Synchronous execution.
+     * Triggered by native browser scroll. Uses rAF to batch style recalculations.
      * @param {Event} event
      * @protected
      */
@@ -85,8 +87,9 @@ class GridColumnScrollPinning extends Base {
             }
         }
 
-        if (state) {
-            me.applyPinning(state)
+        if (state && !state.ticking) {
+            state.ticking = true;
+            requestAnimationFrame(() => me.applyPinning(state));
         }
     }
 
@@ -104,7 +107,8 @@ class GridColumnScrollPinning extends Base {
             me.registrations.set(id, {
                 id,
                 containerId,
-                containerNode
+                containerNode,
+                ticking: false
             });
 
             containerNode.addEventListener('scroll', me.boundOnScroll, {passive: true});

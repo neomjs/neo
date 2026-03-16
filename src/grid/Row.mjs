@@ -474,6 +474,36 @@ class Row extends Component {
             if (column.hideMode !== 'removeDom' || column.locked) {
                 isMounted = i >= mountedColumns[0] && i <= mountedColumns[1];
 
+                // Cell Recycling for Permanent Cells
+                if (recycle && oldCellMap) {
+                    let oldNode = oldCellMap.get(column.dataField);
+
+                    if (oldNode && oldNode.data?.recordId === recordId) {
+                        columnPosition = columnPositions.get(column.dataField);
+                        if (columnPosition) {
+                            oldNode.style.left  = columnPosition.x + 'px';
+                            oldNode.style.width = columnPosition.width + 'px';
+                            
+                            if (isMounted || column.locked) {
+                                if (columnPosition.hidden) {
+                                    oldNode.style.visibility = 'hidden'
+                                } else {
+                                    oldNode.style.visibility = null;
+                                    oldNode.style.display = null;
+                                }
+                            } else {
+                                if (column.hideMode === 'visibility') {
+                                    oldNode.style.visibility = 'hidden'
+                                } else if (column.hideMode === 'display') {
+                                    oldNode.style.display = 'none'
+                                }
+                            }
+                        }
+                        vdom.cn.push(oldNode);
+                        continue;
+                    }
+                }
+
                 cellConfig = me.applyRendererOutput({
                     cache,
                     cellId      : `${me.id}__${column.dataField}`,
@@ -498,7 +528,7 @@ class Row extends Component {
                 };
 
                 // Visibility Logic
-                if (isMounted) {
+                if (isMounted || column.locked) {
                     if (columnPosition.hidden) {
                         cellConfig.style.visibility = 'hidden'
                     }
