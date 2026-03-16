@@ -607,11 +607,28 @@ class GridContainer extends BaseContainer {
             columnClass, renderer;
 
         if (columns) {
+            let lockedEnd   = [],
+                lockedStart = [],
+                unlocked    = [];
+
+            for (let index = 0, len = columns.length; index < len; index++) {
+                let column = columns[index];
+                columnDefaults && Neo.assignDefaults(column, columnDefaults);
+
+                if (column.locked === 'start' || column.locked === 'left') {
+                    lockedStart.push(column)
+                } else if (column.locked === 'end' || column.locked === 'right') {
+                    lockedEnd.push(column)
+                } else {
+                    unlocked.push(column)
+                }
+            }
+
+            columns = [...lockedStart, ...unlocked, ...lockedEnd];
+
             for (let index = 0, len = columns.length; index < len; index++) {
                 let column = columns[index];
                 renderer = column.renderer;
-
-                columnDefaults && Neo.assignDefaults(column, columnDefaults);
 
                 if (renderer && Neo.isString(renderer) && me[renderer]) {
                     column.renderer = me[renderer]
