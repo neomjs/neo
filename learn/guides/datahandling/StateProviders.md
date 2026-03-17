@@ -1,68 +1,45 @@
 # Shared Bindable Data (State Providers)
 
-While Components can manage their own state using the Class Config System,
-you want to use VMs as soon as you want to share data properties with multiple child Components.
+While individual Components can manage their own local state using the Class Config System, you will need a State Provider as soon as you want to share data properties across multiple child components or decouple your business logic from your view layer.
 
-Rules of thumb:
-1. Leaf Components inside the Component Tree (Container items) will not need a state provider.
-2. We can define multiple state providers as needed (they do communicate).
-3. We want to define shared state data properties as low inside the component tree as possible.
+State Providers act as a single source of truth for a section of your component tree.
 
-Other libraries or frameworks often call state providers "Stores".
+**Rules of thumb:**
+1. Leaf Components inside the Component Tree (like generic Buttons or TextFields) will not need their own state provider.
+2. We can define multiple state providers within an application. They automatically form a hierarchy based on the component tree.
+3. We want to define shared state data properties as low inside the component tree as possible to minimize the scope of updates.
+
+*Note: Other libraries or frameworks often call state providers "Stores" or "ViewModels".*
 
 ## How Reactivity Works: The Effects-Based System
 
-Neo.mjs State Providers implement a powerful effects-based reactivity system,
-which automatically tracks dependencies and re-evaluates computations when
-their underlying data changes. This system is built around two core concepts:
+Neo.mjs State Providers implement a powerful, automated reactivity system. You do not need to write manual event listeners or update hooks to keep your UI in sync with your state. This system is built around two core concepts:
 
 ### 1. The `Neo.core.Effect` Class
 
-At the heart of the reactivity is the `Neo.core.Effect` class. An `Effect`
-is a mechanism that encapsulates a function (its "effect function") and
-automatically re-runs this function whenever any of the reactive data
-properties it accesses change.
+At the heart of the reactivity is the `Neo.core.Effect` class. An `Effect` encapsulates a function and automatically re-runs that function whenever any of the reactive data properties it accessed during its previous execution change.
 
-*   **Implicit Dependency Tracking:** When your effect function (e.g., a formula
-    or a binding formatter) reads a reactive data property (e.g., `data.user.firstName`),
-    the `Effect` automatically "subscribes" to changes in that property.
-*   **Automatic Re-evaluation:** If `data.user.firstName` changes, the `Effect`
-    detects this and automatically re-executes its effect function, ensuring
-    that any dependent computations or UI updates are performed.
+*   **Implicit Dependency Tracking:** When your effect function (e.g., a formula or a component binding formatter) reads a reactive property (e.g., `data.user.firstName`), the `Effect` automatically "subscribes" to changes in that specific property.
+*   **Automatic Re-evaluation:** If `data.user.firstName` changes, the `Effect` detects this and automatically re-executes its function, ensuring that any dependent computations or UI updates are performed immediately and efficiently.
 
 ### 2. The Hierarchical Data Proxy
 
-When you access data within a State Provider (e.g., in a `bind` configuration
-or a `formula`), you are interacting with a special `Proxy` object. This proxy
-is created by `Neo.state.createHierarchicalDataProxy` and provides a unified
-view of data across the entire State Provider hierarchy (current provider and
-all its parents).
+When you access data within a State Provider (e.g., in a `bind` configuration or a `formula`), you are not interacting with a plain JavaScript object. You are interacting with a special `Proxy` created by `Neo.state.createHierarchicalDataProxy`. 
 
-*   **Seamless Data Access:** You can access any data property, whether it lives
-    in the current State Provider or a parent, using simple dot notation (e.g.,
-    `data.myProperty` or `data.user.address.street`).
-*   **Enabling Dependency Tracking:** This proxy works in conjunction with
-    `Neo.core.Effect` to enable implicit dependency tracking. When an `Effect`
-    reads a property through this proxy, the proxy notifies the `Effect` about
-    the access, allowing the `Effect` to register that property as a dependency.
+This proxy provides a unified, deeply reactive view of data across the entire State Provider hierarchy (the current provider and all its parents).
+
+*   **Seamless Data Access:** You can access any data property, whether it lives in the current State Provider or a distant parent, using simple dot notation (e.g., `data.myProperty` or `data.user.address.street`). The proxy traverses the tree automatically to find the closest matching property.
+*   **Cross-Instance Tracking:** This proxy is the bridge to the `Effect` system. When an `Effect` reads a property through this proxy, the proxy intercepts the read and registers the underlying `core.Config` instance (even if it lives on a completely different State Provider instance) as a dependency for the active Effect. 
 
 ### How Bindings and Formulas Utilize Effects
 
-*   **Bindings (`bind` config):** When you define a `bind` configuration for a
-    component (e.g., `bind: {text: data => data.hello}`), Neo.mjs creates an
-    `Effect`. The effect function is your formatter (`data => data.hello`).
-    Whenever `data.hello` changes, the `Effect` re-runs, re-evaluates the
-    formatter, and updates the component's `text` config.
+*   **Bindings (`bind` config):** When you define a `bind` configuration for a classic component (e.g., `bind: {text: data => data.hello}`), Neo.mjs creates an `Effect` behind the scenes. The effect function is your formatter (`data => data.hello`). Whenever the proxy detects a change to `data.hello`, the `Effect` re-runs the formatter and updates the component's `text` config.
 
-*   **Formulas (`formulas` config):** These are effect-based computed properties. Each formula function is wrapped in an `Effect`. When the
-    formula accesses data (e.g., `data.a + data.b`), the `Effect` tracks `data.a`
-    and `data.b` as dependencies. If either changes, the `Effect` re-runs the
-    formula, and its computed result is automatically updated in the State Provider's
-    data.
+*   **Functional Components (`createVdom`):** Functional components take this a step further. Their entire `createVdom(config)` method is wrapped in a single `Effect`. Any state provider data accessed during the rendering of the VDOM automatically becomes a dependency. When the state changes, the entire VDOM is re-calculated and diffed seamlessly.
 
-This effects-based system significantly reduces boilerplate, making state
-management intuitive and efficient by handling dependency tracking and updates
-automatically.
+*   **Formulas (`formulas` config):** These are effect-based computed properties within the State Provider itself. Each formula function is wrapped in a "lazy" `Effect`. When the formula accesses data (e.g., `data.a + data.b`), the `Effect` tracks `data.a` and `data.b` as dependencies. If either changes, the `Effect` re-runs the formula, and its computed result is automatically updated in the State Provider's data, which can then trigger component bindings.
+
+This effects-based system significantly reduces boilerplate, eliminating the need for manual event firing and listening. It handles dependency tracking and cross-instance updates automatically.
 
 ## Inline State Providers
 ### Direct Bindings
@@ -249,13 +226,13 @@ Our top level stateProvider now only contains the `hello` data prop, and we adde
 nested Container which contains the `world` data prop.
 
 As a result, the bindings for all 3 Labels contain a combination of data props which live inside different stateProviders.
-As long as these VMs are inside the parent hierarchy this works fine.
+As long as these VMs are inside the parent hierarchy this works fine. The Hierarchical Data Proxy handles the resolution automatically.
 
-The same goes for the Button handlers: `setData()` will find the closest matching data prop inside the stateProvider
+The same goes for the Button handlers: `setState()` will find the closest matching data prop inside the stateProvider
 parent chain.
 
 We can even change data props which live inside different stateProviders at once. As easy as this:</br>
-`setData({hello: 'foo', world: 'bar'})`
+`setState({hello: 'foo', world: 'bar'})`
 
 Hint: Modify the example code (Button handler) to try it out right away!
 
@@ -320,10 +297,7 @@ Or we can directly pass the object containing the change(s):</br>
 
 ***You can also directly change state data***
 
-`data => data.component.setStateProvider().data.user.firstname = 'Max'`
-
-Shorthand syntax:</br>
-`data => data.component.data.user.firstname = 'Max'`
+`data => data.component.getStateProvider().data.user.firstname = 'Max'`
 
 ### Formulas in Action
 
@@ -363,8 +337,8 @@ class MainView extends Container {
             text   : 'Increase Price'
         }, {
             module : Button,
-            // Shorthand syntax. Less descriptive, but works fine too.
-            handler: event => event.component.data.quantity++,
+            // Shorthand syntax using getStateProvider() explicitly
+            handler: event => event.component.getStateProvider().data.quantity++,
             text   : 'Increase Quantity'
         }],
         layout: {ntype: 'vbox', align: 'start'}
