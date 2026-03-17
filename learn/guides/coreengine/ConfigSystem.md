@@ -39,7 +39,7 @@ afterSetTitle(value, oldValue) {
     if (oldValue !== undefined) {
         // This logic will ONLY run on subsequent updates,
         // skipping the initial setup phase.
-        this.updateDom();
+        this.update();
     }
 }
 ```
@@ -48,28 +48,59 @@ Because of this specific meaning, **you should never set a config to `undefined`
 
 ## Solving Circular Dependencies (The `configSymbol`)
 
-A common challenge in complex UI frameworks is managing circular dependencies during batch updates.
+A common challenge in complex UI frameworks is managing circular or cross-dependent configurations during batch updates.
 
-Imagine setting two configs at the same time:
-```javascript readonly
-this.set({
-    width : 200,
-    height: 300
-});
-```
-
-What if `beforeSetWidth` needs to read `this.height`, but `height` hasn't been updated yet? Or what if updating `width` triggers a recalculation that inadvertently triggers another `set` on `height`?
+Imagine setting two configs at the same time where the update logic of one depends on the new value of the other.
 
 ### The Temporary Holding Zone
 
 `src/core/Base.mjs` solves this using a `configSymbol` (a hidden ES6 `Symbol` property on the instance) as a temporary holding zone.
 
-When `this.set()` is called:
-1. All new reactive values are placed into `this[configSymbol]`.
-2. The framework then begins processing them one by one.
-3. Because the generated *getter* checks `this[configSymbol]` before checking the actual internal backing property, any hook (e.g., `beforeSetWidth`) will immediately receive the *new, pending* value for `height`, even if `height` hasn't fully processed its own `beforeSet/afterSet` cycle yet.
+When `this.set()` is called with multiple properties, all new reactive values are placed into `this[configSymbol]`. The framework then processes them sequentially. Because the generated *getter* for any reactive config checks `this[configSymbol]` before checking the internal backing property, any hook will immediately receive the *new, pending* value, even if that property hasn't fully processed its own `beforeSet`/`afterSet` cycle yet.
 
-This guarantees that during a batch `set()`, all hooks operate against the "future state" of the instance, eliminating timing bugs and resolving circular read dependencies.
+### Example: Cross-Dependent Configs
+
+Consider this simplified example based on `Neo.examples.core.config.MainContainer`:
+
+```javascript live-preview
+import Base from '../core/Base.mjs';
+
+class MathComponent extends Base {
+    static config = {
+        className: 'MathComponent',
+        a_: null,
+        b_: null
+    }
+
+    afterSetA(value, oldValue) {
+        if (oldValue !== undefined) {
+            // Even though `afterSetA` might run before `b` has finished its setter,
+            // `this.b` will correctly return the NEW value passed in the set() block.
+            console.log(`afterSetA: a + b = ${value + this.b}`);
+        }
+    }
+
+    afterSetB(value, oldValue) {
+        if (oldValue !== undefined) {
+            console.log(`afterSetB: b + a = ${value + this.a}`);
+        }
+    }
+}
+
+let comp = Neo.create(MathComponent);
+
+// Trigger a batch update
+comp.set({
+    a: 5,
+    b: 5
+});
+
+// Console Output:
+// afterSetA: a + b = 10
+// afterSetB: b + a = 10
+```
+
+Without the `configSymbol` buffering these values, when `afterSetA` runs, `this.b` would still be `null`, resulting in a broken calculation. This mechanism guarantees that during a batch `set()`, all hooks operate against the "future state" of the instance, eliminating timing bugs and resolving circular read dependencies.
 
 ### The Immutable Batch
 
