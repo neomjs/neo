@@ -1129,10 +1129,10 @@ class DomAccess extends Base {
      * By calling this method, the Main Thread extracts the canvas and sends it directly to the Canvas Worker, bypassing the App Worker entirely for the buffer transfer.
      *
      * @param {Object} data
-     * @param {String} data.id
+     * @param {String} data.componentId
      * @param {String} data.nodeId
      */
-    transferCanvasToWorker({nodeId}) {
+    transferCanvasToWorker({componentId, nodeId}) {
         let me   = this,
             node = me.getElement(nodeId);
 
@@ -1142,6 +1142,7 @@ class DomAccess extends Base {
 
                 Neo.worker.Manager.sendMessage('canvas', {
                     action: 'registerCanvasDirect',
+                    componentId,
                     node  : offscreen,
                     nodeId
                 }, [offscreen])

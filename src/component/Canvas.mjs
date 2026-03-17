@@ -73,7 +73,8 @@ class Canvas extends Component {
                 });
 
                 Neo.main.DomAccess.transferCanvasToWorker({
-                    nodeId: id,
+                    componentId: me.id,
+                    nodeId     : id,
                     windowId
                 });
 
