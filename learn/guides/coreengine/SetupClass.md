@@ -109,7 +109,50 @@ graph TD
 *   **Method Copying:** Methods from the mixin are attached to the target class prototype. `setupClass` tracks where methods came from using an internal `_from` property to cleanly prevent collisions if multiple mixins define the same method.
 *   **Config Merging:** If a mixin defines reactive configs, those are seamlessly integrated into the target class's blueprint and processed to generate getters and setters.
 
-### 5. The "Gatekeeper" Pattern (Mixed Environments)
+### 5. Advanced Component Composition (`mergeFrom`)
+
+When building complex container components, you often want to allow developers to easily configure deeply nested child items without forcing them to override the entire `items` array.
+
+Neo.mjs provides the `[mergeFrom]` symbol to handle advanced component composition directly within the static config block. It allows you to dynamically inject the value of one config property into a specific node of an array or object during instantiation.
+
+```javascript readonly
+import {isDescriptor, mergeFrom} from '../../core/ConfigSymbols.mjs';
+
+class PageContainer extends Container {
+    static config = {
+        // 1. Define a specific config for the content area
+        contentConfig_: {
+            [isDescriptor]: true,
+            merge         : 'deep',
+            value         : {
+                module: MyContentComponent
+            }
+        },
+
+        // 2. Define the main items layout
+        items: {
+            [isDescriptor]: true,
+            clone         : 'deep',
+            value         : {
+                content: {
+                    // 3. Inject contentConfig here during instantiation!
+                    [mergeFrom]: 'contentConfig',
+                    reference  : 'content',
+                    weight     : 10
+                },
+                toolbar: {
+                    module: Toolbar,
+                    weight: 20
+                }
+            }
+        }
+    }
+}
+```
+
+When a user creates this container, they can simply pass `contentConfig: { style: { padding: '20px' } }`. During the `construct()` phase, `core.Base` sees the `[mergeFrom]` symbol and automatically deep-merges that custom config block exactly where the symbol is placed inside the `items` tree. This is incredibly powerful for creating highly customizable, deeply nested widgets.
+
+### 6. The "Gatekeeper" Pattern (Mixed Environments)
 
 `setupClass` includes a critical check at the very beginning: if the class namespace already exists, it immediately returns the existing class instead of recompiling it.
 
