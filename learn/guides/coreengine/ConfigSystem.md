@@ -21,6 +21,32 @@ class MyComponent extends Base {
 }
 ```
 
+## Config Descriptors
+
+Sometimes, a simple default value isn't enough. You might need to instruct the engine on *how* to handle a specific config when it is merged, cloned, or compared for equality. For advanced use cases, Neo.mjs allows you to define a reactive config using a **Descriptor Object** instead of a primitive value.
+
+You create a descriptor using the `[Neo.core.ConfigSymbols.isDescriptor]` symbol:
+
+```javascript readonly
+import {isDescriptor} from '../core/ConfigSymbols.mjs';
+
+class MyList extends Component {
+    static config = {
+        // A complex reactive config defined via a descriptor
+        items_: {
+            [isDescriptor]: true,
+            clone         : 'shallow', // How to clone the value when setting
+            cloneOnGet    : 'none',    // How to clone the value when reading
+            isEqual       : () => false, // Custom equality function
+            merge         : 'deepArrays', // Strategy for merging configs during setup
+            value         : []         // The actual default value
+        }
+    }
+}
+```
+
+When `Neo.setupClass` encounters a descriptor, it extracts the rules and uses the `value` property as the actual default. The underlying `Neo.core.Config` instance then uses these rules to govern how the property behaves at runtime (e.g., bypassing deep equality checks for performance, or defining custom array merging logic).
+
 ## Push-Based Lifecycle Hooks
 
 When you assign a new value to a reactive config at runtime (`this.title = 'New Title'`), the generated setter automatically pushes that change through a sequence of optional lifecycle hooks:
@@ -101,5 +127,10 @@ comp.set({
 ```
 
 Without the `configSymbol` buffering these values, when `afterSetA` runs, `this.b` would still be `null`, resulting in a broken calculation. The holding zone guarantees that during a batch `set()`, all hooks operate against the "future state" of the instance, eliminating timing bugs and resolving circular read dependencies gracefully.
+
+### Preventing Infinite Write Loops
+While the `configSymbol` solves circular *reads* safely, what happens if `afterSetA` *writes* to `b`, and `afterSetB` *writes* to `a`? Could they bounce back and forth infinitely?
+
+This is where the low-level `Neo.core.Compare` utility acts as the ultimate safety net. Before an `afterSet` hook is fired, the generated setter passes the new value through the deep comparison engine. **An `afterSet` hook is ONLY executed if the value has *actually* changed.** If your mathematical calculations stabilize and produce the same result, the loop is broken immediately.
 
 The `configSymbol` elegantly solves local component state mutations. But this push-based model requires writing explicit `afterSet` hooks. As an application scales, manually wiring hooks to synchronize global state leads to unmaintainable "spaghetti code." The core engine needs a brain to track dependencies automatically.
