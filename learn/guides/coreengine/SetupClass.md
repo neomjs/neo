@@ -32,20 +32,22 @@ It then merges these configs downwards. This allows a subclass to easily overrid
 
 ```mermaid
 graph TD
-    Base[Neo.core.Base<br/>static config = { id_: null }]
-    Comp[Neo.component.Base<br/>static config = { width_: null }]
-    MyComp[MyApp.MyComponent<br/>static config = { width_: 300 }]
+    Base["Neo.core.Base<br/>static config: id_"]
+    Comp["Neo.component.Base<br/>static config: width_"]
+    MyComp["MyApp.MyComponent<br/>static config: width: 300"]
 
     Base --> Comp
     Comp --> MyComp
 
-    subgraph Neo.setupClass Compilation
-        Merge[Merge Configs Downwards]
-        Merge -.-> FinalConfig[Unified Config:<br/>{ id_: null, width_: 300 }]
+    subgraph setupClass
+        Merge["Merge Configs Downwards"]
     end
-
-    MyComp ==> Merge
+    
+    MyComp -.-> Merge
+    Merge -.-> FinalConfig["Unified Config:<br/>{ id_: null, width_: 300 }"]
 ```
+
+> **Crucial Rule:** You define a config as reactive by adding a trailing underscore (e.g., `width_`) exactly **once** in the prototype chain. If you extend a class and want to change the default value of an already reactive config, you **must not** use the underscore (e.g., use `width: 300`). Using the underscore again will cause `Neo.setupClass` to throw an error.
 
 ### 2. Generating the Reactive Config API
 
@@ -84,30 +86,24 @@ Neo.mjs supports a robust Mixin system to share functionality across unrelated c
 
 ```mermaid
 graph TD
-    classDef target fill:#4CAF50,stroke:#333,stroke-width:2px;
-    classDef mixin fill:#2196F3,stroke:#333,stroke-width:2px;
-    classDef result fill:#FF9800,stroke:#333,stroke-width:2px;
+    T["Target Class (MyApp.MyComponent)"]
+    M1["Mixin A (core.Observable)"]
+    M2["Mixin B (util.Resizable)"]
 
-    T[Target Class<br/>e.g., MyApp.MyComponent]:::target
-    M1[Mixin A<br/>e.g., core.Observable]:::mixin
-    M2[Mixin B<br/>e.g., util.Resizable]:::mixin
-
-    subgraph Neo.setupClass Mixin Resolution
+    subgraph setupClass
         direction LR
-        CopyMethods[Copy Methods]
-        MergeConfigs[Merge Configs]
+        CopyMethods["Copy Methods"]
+        MergeConfigs["Merge Configs"]
     end
 
-    T -.-> |mixins: ['Mixin A', 'Mixin B']| CopyMethods
+    T -.-> |"mixins: ['Mixin A', 'Mixin B']"| CopyMethods
     M1 ==> CopyMethods
     M2 ==> CopyMethods
     M1 ==> MergeConfigs
     M2 ==> MergeConfigs
     
-    CopyMethods -.-> R
+    CopyMethods -.-> R["Enhanced Target Class<br/>(Prototype & Configs updated)"]
     MergeConfigs -.-> R
-
-    R[Enhanced Target Class<br/>Prototype has Mixin methods<br/>Config has Mixin configs]:::result
 ```
 
 *   **Method Copying:** Methods from the mixin are attached to the target class prototype. `setupClass` tracks where methods came from using an internal `_from` property to prevent collisions if multiple mixins define the same method.
