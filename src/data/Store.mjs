@@ -148,24 +148,16 @@ class Store extends Collection {
          */
         model_: null,
         /**
-         * Configuration object for the normalizer to be instantiated inside the Data Worker.
-         * Must contain either an `ntype` or a `path` property.
-         * Must NOT be a class or an instance to keep the App Worker lightweight.
-         * @member {Object|null} normalizer_=null
-         * @reactive
-         */
-        normalizer_: null,
-        /**
          * Use a value of 0 to not limit the pageSize
          * @member {Number} pageSize_=0
          * @reactive
          */
         pageSize_: 0,
         /**
-         * @member {Object|Neo.data.parser.Base|null} parser_=null
+         * @member {Object|Neo.data.Pipeline|null} pipeline_=null
          * @reactive
          */
-        parser_: null,
+        pipeline_: null,
         /**
          * True to let the backend handle the filtering.
          * Useful for buffered stores
@@ -368,45 +360,6 @@ class Store extends Collection {
     }
 
     /**
-     * @param {Object|null} value
-     * @param {Object|null} oldValue
-     * @protected
-     */
-    afterSetNormalizer(value, oldValue) {
-        let me = this;
-
-        if (value) {
-            if (value.isClass || value.isInstance) {
-                throw new Error('Neo.data.Store#normalizer must be a config object, not a class or instance. It will be instantiated inside the Data Worker.');
-            }
-
-            // Tell the Data Worker to load and instantiate the normalizer
-            // We use the ntype shortcut (e.g., 'normalizer-tree' -> 'Tree') if path is not provided
-            let path = value.path;
-
-            if (!path) {
-                if (!value.ntype) {
-                    throw new Error('Neo.data.Store#normalizer config must include either a `path` or an `ntype` property.');
-                }
-                let parts = value.ntype.split('-');
-                let name = parts[1].charAt(0).toUpperCase() + parts[1].slice(1);
-                path = `src/data/normalizer/${name}.mjs`;
-            }
-
-            Neo.worker.Data.createInstance({
-                config: value,
-                path
-            }).then(data => {
-                if (data.success) {
-                    me.normalizerId = data.id;
-                }
-            });
-        } else {
-            me.normalizerId = null;
-        }
-    }
-
-    /**
      * Triggered after the pageSize config got changed
      * @param {Number} value
      * @param {Number} oldValue
@@ -466,15 +419,13 @@ class Store extends Collection {
     }
 
     /**
-     * @param {Object|Neo.data.parser.Base} value
-     * @param {Object|Neo.data.parser.Base} oldValue
+     * @param {Object|Neo.data.Pipeline|null} value
+     * @param {Object|Neo.data.Pipeline|null} oldValue
      * @protected
-     * @returns {Neo.data.parser.Base}
+     * @returns {Neo.data.Pipeline|null}
      */
-    beforeSetParser(value, oldValue) {
-        if (oldValue) {
-            oldValue.destroy();
-        }
+    beforeSetPipeline(value, oldValue) {
+        oldValue?.destroy();
 
         return ClassSystemUtil.beforeSetInstance(value, null, {
             store: this
@@ -921,7 +872,77 @@ class Store extends Collection {
             params.sorters = me.exportSorters()
         }
 
-        if (me.api) {
+        if (me.pipeline) {
+            if (me.items.length > 0 && !opts.append) {
+                me.clear();
+            }
+
+            me.isLoading = true;
+
+            const onData = (data) => {
+                me.add(data);
+
+                // Progressive Rendering:
+                // As soon as we have data, we want the grid to render.
+                if (me.isLoading) {
+                    me.isLoading = false;
+                }
+            };
+
+            const onProgress = (data) => {
+                me.fire('progress', data);
+            };
+
+            me.pipeline.on({
+                data    : onData,
+                progress: onProgress
+            });
+
+            try {
+                // params.url can override pipeline/connection url
+                if (opts.url) {
+                    params.url = opts.url;
+                }
+
+                const response = await me.pipeline.read(params);
+
+                me.pipeline.un({
+                    data    : onData,
+                    progress: onProgress
+                });
+
+                if (response !== null) {
+                    // response could be the finalized array or an object depending on normalizer
+                    let items = Array.isArray(response) ? response : (response.data || response);
+
+                    // If it was a bulk load and not progressive (where onData added them), add them now
+                    if (items && items.length > 0 && me.count === 0) {
+                         me.add(items);
+                    }
+
+                    me.totalCount = response.totalCount || me.count;
+                    me.isLoaded   = true;
+                    me.isLoading  = false; // Ensure it's false at the end
+                    me.fire('load', {
+                        isLoading    : false,
+                        items        : me.items,
+                        postChunkLoad: me.pipeline.parser?.ntype === 'parser-stream',
+                        total        : me.totalCount
+                    });
+                    return me.items;
+                } else {
+                    me.isLoading = false;
+                    return null;
+                }
+            } catch (e) {
+                me.pipeline.un({
+                    data    : onData,
+                    progress: onProgress
+                });
+                me.isLoading = false;
+                throw e;
+            }
+        } else if (me.api) {
             let apiArray = me.api.read.split('.'),
                 fn       = apiArray.pop(),
                 service  = Neo.ns(apiArray.join('.'));
@@ -940,70 +961,6 @@ class Store extends Collection {
                 }
 
                 return null
-            }
-        } else if (me.parser) {
-            if (me.items.length > 0 && !opts.append) {
-                me.clear();
-            }
-
-            me.isLoading = true;
-
-            const onData = (data) => {
-                me.add(data);
-
-                // Progressive Rendering:
-                // As soon as we have data, we want the grid to render.
-                if (me.isLoading) {
-                    me.isLoading = false
-                }
-
-                // We do not need to fire a load event here, since onCollectionMutate will handle this.
-            };
-
-            const onProgress = (data) => {
-                me.fire('progress', data)
-            };
-
-            me.parser.on({
-                data    : onData,
-                progress: onProgress
-            });
-
-            try {
-                // params.url can override parser url
-                if (opts.url) {
-                    params.url = opts.url;
-                }
-
-                const response = await me.parser.read(params);
-
-                me.parser.un({
-                    data    : onData,
-                    progress: onProgress
-                });
-
-                if (response.success) {
-                    me.totalCount = response.totalCount || me.count;
-                    me.isLoaded   = true;
-                    me.isLoading  = false; // Ensure it's false at the end
-                    me.fire('load', {
-                        isLoading    : false,
-                        items        : me.items,
-                        postChunkLoad: me.parser?.ntype === 'parser-stream',
-                        total        : me.totalCount
-                    });
-                    return me.items
-                } else {
-                    me.isLoading = false;
-                    return null
-                }
-            } catch (e) {
-                me.parser.un({
-                    data    : onData,
-                    progress: onProgress
-                });
-                me.isLoading = false;
-                throw e
             }
         } else {
             opts.url ??= me.url;
@@ -1024,7 +981,7 @@ class Store extends Collection {
                     me.data = Neo.ns(me.responseRoot, false, data.json) || data.json // fires the load event
                 }
 
-                me.isLoaded = true;
+                me.isLoaded   = true;
 
                 return data?.json || null
             } catch(err) {
@@ -1242,6 +1199,7 @@ class Store extends Collection {
             isLoading       : me.isLoading,
             model           : me.model?.toJSON(),
             pageSize        : me.pageSize,
+            pipeline        : me.pipeline?.toJSON(),
             remoteFilter    : me.remoteFilter,
             remoteSort      : me.remoteSort,
             totalCount      : me.totalCount,

@@ -130,6 +130,23 @@ class Data extends Base {
 
     /**
      * @param {Object} msg
+     */
+    async onPipelineExecute(msg) {
+        let me       = this,
+            instance = me.instances?.[msg.id],
+            response;
+
+        if (!instance) {
+            console.error('Data Worker: Pipeline instance not found', msg.id);
+            me.reject(msg)
+        } else {
+            response = await instance[msg.operation](msg.params);
+            me.resolve(msg, response)
+        }
+    }
+
+    /**
+     * @param {Object} msg
      * @param {Object} msg.data the API content
      */
     onRegisterApi(msg) {

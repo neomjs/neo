@@ -162,11 +162,6 @@ class Pipeline extends Base {
     initRemoteExecution() {
         let me = this;
 
-        if (!Neo.worker.Data) {
-            console.error('Data Worker is not available for remote execution', me);
-            return;
-        }
-
         // We only send the configs, not instances
         let remoteConfig = {
             className      : me.className,
@@ -205,7 +200,7 @@ class Pipeline extends Base {
             }
 
             return Neo.worker.Data.promiseMessage({
-                action   : 'pipeline.execute',
+                action   : 'pipelineExecute',
                 id       : me.remoteId,
                 operation: 'read',
                 params
@@ -235,6 +230,22 @@ class Pipeline extends Base {
             }
 
             return shapedData;
+        }
+    }
+    /**
+     * Serializes the instance into a JSON-compatible object for the Neural Link.
+     * @returns {Object}
+     */
+    toJSON() {
+        let me = this;
+
+        return {
+            ...super.toJSON(),
+            connection     : me.connection?.toJSON?.() || me._connection,
+            normalizer     : me.normalizer?.toJSON?.() || me._normalizer,
+            parser         : me.parser?.toJSON?.() || me._parser,
+            remoteId       : me.remoteId,
+            workerExecution: me.workerExecution
         }
     }
 }
