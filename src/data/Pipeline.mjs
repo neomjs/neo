@@ -2,9 +2,6 @@ import Base            from '../core/Base.mjs';
 import ClassSystemUtil from '../util/ClassSystem.mjs';
 
 /**
- * @class Neo.data.Pipeline
- * @extends Neo.core.Base
- *
  * @summary The central orchestrator for data transformation and remote execution.
  *
  * The Pipeline manages the flow of data from a `Connection`, through a `Parser`,
@@ -12,6 +9,9 @@ import ClassSystemUtil from '../util/ClassSystem.mjs';
  * (App Worker vs. Data Worker). When `workerExecution: 'data'` is used, this App Worker
  * Pipeline acts as a proxy, holding the configs and delegating the actual execution
  * to a counterpart Pipeline inside the Data Worker via IPC.
+ *
+ * @class Neo.data.Pipeline
+ * @extends Neo.core.Base
  */
 class Pipeline extends Base {
     /**
@@ -86,10 +86,8 @@ class Pipeline extends Base {
     construct(config) {
         super.construct(config);
 
-        let me = this;
-
-        if (me.workerExecution === 'data') {
-            me.initRemoteExecution();
+        if (this.workerExecution === 'data') {
+            this.initRemoteExecution()
         }
     }
 
@@ -107,10 +105,10 @@ class Pipeline extends Base {
         if (value && this.workerExecution === 'app') {
             return ClassSystemUtil.beforeSetInstance(value, null, {
                 pipeline: this
-            });
+            })
         }
 
-        return value;
+        return value
     }
 
     /**
@@ -127,10 +125,10 @@ class Pipeline extends Base {
         if (value && this.workerExecution === 'app') {
             return ClassSystemUtil.beforeSetInstance(value, null, {
                 pipeline: this
-            });
+            })
         }
 
-        return value;
+        return value
     }
 
     /**
@@ -147,10 +145,10 @@ class Pipeline extends Base {
         if (value && this.workerExecution === 'app') {
             return ClassSystemUtil.beforeSetInstance(value, null, {
                 pipeline: this
-            });
+            })
         }
 
-        return value;
+        return value
     }
 
     /**
@@ -163,14 +161,14 @@ class Pipeline extends Base {
             Neo.worker.Data.sendMessage({
                 action: 'destroyInstance',
                 id    : me.remoteId
-            });
+            })
         }
 
         me.connection?.destroy?.();
-        me.parser?.destroy?.();
+        me.parser    ?.destroy?.();
         me.normalizer?.destroy?.();
 
-        super.destroy();
+        super.destroy()
     }
 
     /**
@@ -182,7 +180,7 @@ class Pipeline extends Base {
         let me = this;
 
         if (me.isRemoteConnecting) {
-            return new Promise(resolve => me.on('remoteConnected', resolve, me, {once: true}));
+            return new Promise(resolve => me.on('remoteConnected', resolve, me, {once: true}))
         }
 
         me.isRemoteConnecting = true;
@@ -204,14 +202,14 @@ class Pipeline extends Base {
 
             if (data.success) {
                 me.remoteId = data.id;
-                me.fire('remoteConnected', data.id);
+                me.fire('remoteConnected', data.id)
             } else {
-                console.error('Pipeline: Failed to create remote instance', data.error);
+                console.error('Pipeline: Failed to create remote instance', data.error)
             }
         } catch (e) {
-            console.error('Pipeline: IPC error during remote instantiation', e);
+            console.error('Pipeline: IPC error during remote instantiation', e)
         } finally {
-            me.isRemoteConnecting = false;
+            me.isRemoteConnecting = false
         }
     }
 
@@ -223,7 +221,8 @@ class Pipeline extends Base {
      * @returns {Promise<Object|Array|null>}
      */
     async read(params = {}, attempt = 1) {
-        let me = this;
+        let me                 = this,
+            {maxRemoteRetries} = me;
 
         if (me.workerExecution === 'data') {
             if (!me.remoteId && !me.isDestroyed) {
@@ -240,28 +239,28 @@ class Pipeline extends Base {
                     params
                 });
 
-                if (response === null && attempt <= me.maxRemoteRetries) {
+                if (response === null && attempt <= maxRemoteRetries) {
                     // Potential remote instance loss or silent failure
-                    console.warn(`Pipeline: Remote read returned null, retrying (attempt ${attempt}/${me.maxRemoteRetries})...`);
+                    console.warn(`Pipeline: Remote read returned null, retrying (attempt ${attempt}/${maxRemoteRetries})...`);
                     me.remoteId = null;
-                    return me.read(params, attempt + 1);
+                    return me.read(params, attempt + 1)
                 }
 
-                return response;
+                return response
             } catch (e) {
-                if (attempt <= me.maxRemoteRetries) {
-                    console.warn(`Pipeline: Remote read failed, retrying (attempt ${attempt}/${me.maxRemoteRetries})...`, e);
+                if (attempt <= maxRemoteRetries) {
+                    console.warn(`Pipeline: Remote read failed, retrying (attempt ${attempt}/${maxRemoteRetries})...`, e);
                     me.remoteId = null;
-                    return me.read(params, attempt + 1);
+                    return me.read(params, attempt + 1)
                 }
                 console.error('Pipeline: Remote read failed after maximum retries', e);
-                return null;
+                return null
             }
         } else {
             // Local execution flow
             if (!me.connection) {
                 console.error('Pipeline requires a connection', me);
-                return null;
+                return null
             }
 
             // 1. Connection (e.g. fetch, WebSocket, Rpc) retrieves raw data/stream
@@ -273,15 +272,15 @@ class Pipeline extends Base {
 
             // 2. Parser transforms raw data into JS objects
             if (me.parser) {
-                shapedData = await me.parser.read(shapedData);
+                shapedData = await me.parser.read(shapedData)
             }
 
             // 3. Normalizer flattens/structures the data for the Store
             if (me.normalizer) {
-                shapedData = await me.normalizer.normalize(shapedData);
+                shapedData = await me.normalizer.normalize(shapedData)
             }
 
-            return shapedData;
+            return shapedData
         }
     }
     /**
@@ -295,7 +294,7 @@ class Pipeline extends Base {
             ...super.toJSON(),
             connection     : me.connection?.toJSON?.() || me._connection,
             normalizer     : me.normalizer?.toJSON?.() || me._normalizer,
-            parser         : me.parser?.toJSON?.() || me._parser,
+            parser         : me.parser?.toJSON?.()     || me._parser,
             remoteId       : me.remoteId,
             workerExecution: me.workerExecution
         }
