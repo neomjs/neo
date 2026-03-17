@@ -78,7 +78,40 @@ When `Neo.setupClass(Neo.component.Base)` runs, it will see this overwrite and a
 
 ### 4. Mixin Resolution
 
-Neo.mjs supports a robust Mixin system to share functionality across unrelated class hierarchies. `setupClass` parses the `mixins` array defined in the static config and copies the methods and properties from the mixin classes directly onto the target class's prototype.
+Neo.mjs supports a robust Mixin system to share functionality across unrelated class hierarchies. JavaScript only supports single inheritance, but complex UI components often need to share horizontal features (like being "Observable" or "Resizable").
+
+`setupClass` parses the `mixins` array defined in the static config. It extracts both the methods and the configurations from the mixin classes and copies them directly onto the target class's prototype and config object.
+
+```mermaid
+graph TD
+    classDef target fill:#4CAF50,stroke:#333,stroke-width:2px;
+    classDef mixin fill:#2196F3,stroke:#333,stroke-width:2px;
+    classDef result fill:#FF9800,stroke:#333,stroke-width:2px;
+
+    T[Target Class<br/>e.g., MyApp.MyComponent]:::target
+    M1[Mixin A<br/>e.g., core.Observable]:::mixin
+    M2[Mixin B<br/>e.g., util.Resizable]:::mixin
+
+    subgraph Neo.setupClass Mixin Resolution
+        direction LR
+        CopyMethods[Copy Methods]
+        MergeConfigs[Merge Configs]
+    end
+
+    T -.-> |mixins: ['Mixin A', 'Mixin B']| CopyMethods
+    M1 ==> CopyMethods
+    M2 ==> CopyMethods
+    M1 ==> MergeConfigs
+    M2 ==> MergeConfigs
+    
+    CopyMethods -.-> R
+    MergeConfigs -.-> R
+
+    R[Enhanced Target Class<br/>Prototype has Mixin methods<br/>Config has Mixin configs]:::result
+```
+
+*   **Method Copying:** Methods from the mixin are attached to the target class prototype. `setupClass` tracks where methods came from using an internal `_from` property to prevent collisions if multiple mixins define the same method.
+*   **Config Merging:** If a mixin defines reactive configs (e.g., `isResizable_`), those are added to the target class's `static config` and processed, generating the appropriate getters and setters.
 
 ### 5. Namespace Registration
 
