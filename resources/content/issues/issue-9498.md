@@ -7,9 +7,10 @@ labels:
   - ai
   - architecture
   - grid
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-03-16T22:23:08Z'
-updatedAt: '2026-03-16T22:23:08Z'
+updatedAt: '2026-03-17T18:59:53Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9498'
 author: tobiu
 commentsCount: 0
@@ -55,4 +56,5 @@ This issue describes the ultimate "Killer Demo" capability: seamless cross-windo
 - 2026-03-16T22:23:10Z @tobiu added the `architecture` label
 - 2026-03-16T22:23:10Z @tobiu added the `grid` label
 - 2026-03-16T22:23:19Z @tobiu added parent issue #9486
+- 2026-03-17T18:59:53Z @tobiu assigned to @tobiu
 

@@ -6,9 +6,10 @@ labels:
   - epic
   - ai
   - grid
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-03-16T21:40:51Z'
-updatedAt: '2026-03-16T21:40:51Z'
+updatedAt: '2026-03-17T18:59:29Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9494'
 author: tobiu
 commentsCount: 0
@@ -35,4 +36,5 @@ When SubGrids are split across different browser windows, routing high-frequency
 - 2026-03-16T21:40:53Z @tobiu added the `grid` label
 - 2026-03-16T21:41:23Z @tobiu cross-referenced by #9486
 - 2026-03-16T21:41:29Z @tobiu added parent issue #9486
+- 2026-03-17T18:59:29Z @tobiu assigned to @tobiu
 

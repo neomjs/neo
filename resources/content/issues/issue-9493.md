@@ -6,9 +6,10 @@ labels:
   - epic
   - ai
   - grid
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-03-16T21:39:53Z'
-updatedAt: '2026-03-16T21:39:53Z'
+updatedAt: '2026-03-17T18:59:23Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9493'
 author: tobiu
 commentsCount: 0
@@ -37,4 +38,5 @@ As part of the Multi-Body Grid architecture, we need to ensure that the Left (`l
 - 2026-03-16T21:41:26Z @tobiu added parent issue #9486
 - 2026-03-16T21:51:31Z @tobiu cross-referenced by #9496
 - 2026-03-16T22:23:09Z @tobiu cross-referenced by #9498
+- 2026-03-17T18:59:23Z @tobiu assigned to @tobiu
 

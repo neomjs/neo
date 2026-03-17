@@ -6,9 +6,10 @@ labels:
   - epic
   - ai
   - grid
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-03-16T21:51:30Z'
-updatedAt: '2026-03-16T21:51:30Z'
+updatedAt: '2026-03-17T18:59:40Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9496'
 author: tobiu
 commentsCount: 0
@@ -37,4 +38,5 @@ Currently, using Left/Right arrow keys navigates through the DOM structure of a 
 - 2026-03-16T21:51:31Z @tobiu added the `ai` label
 - 2026-03-16T21:51:31Z @tobiu added the `grid` label
 - 2026-03-16T21:51:56Z @tobiu added parent issue #9486
+- 2026-03-17T18:59:40Z @tobiu assigned to @tobiu
 
