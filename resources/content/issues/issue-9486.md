@@ -9,10 +9,10 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-03-16T17:41:38Z'
-updatedAt: '2026-03-16T18:25:18Z'
+updatedAt: '2026-03-16T21:49:13Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9486'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues:
   - '[ ] 9487 Grid Multi-Body: Refactor Layout Engine & SubGrid Partitioning'
@@ -20,9 +20,16 @@ subIssues:
   - '[ ] 9489 Grid Multi-Body: Decoupled Horizontal Scroller & Main Thread Sync'
   - '[ ] 9490 Grid Multi-Body: Remove Obsolete GridColumnScrollPinning Addon & CSS Vars'
   - '[ ] 9491 Grid Multi-Body: Overhaul Column Drag & Drop (SortZone) across Split Headers'
-  - '[ ] 9492 Grid Multi-Body: Adapt Selection Models & Keyboard Nav for Split Rows'
+  - '[ ] 9492 Grid Multi-Body: Adapt Selection Models for Split Rows'
+  - '[ ] 9493 Grid Multi-Body: Enable Cross-Window SubGrid Detachment (Pop-out)'
+  - '[ ] 9494 Grid Multi-Body: Implement Direct Main-Thread Scroll Sync via MessageChannel'
+  - '[ ] 9495 Grid Multi-Body: Implement Data-Driven Variable Row Height Architecture'
+  - '[ ] 9496 Grid Multi-Body: Adapt Keyboard Navigation for Split Bodies'
+  - '[ ] 9497 Grid Multi-Body: Split Column Collections and Orchestration'
+  - '[ ] 9498 Grid Multi-Body: Infinite Canvas Cross-Window Column Drag & Drop'
+  - '[ ] 9499 Grid Multi-Body: Test Suite Refactoring & Expansion'
 subIssuesCompleted: 0
-subIssuesTotal: 6
+subIssuesTotal: 13
 blockedBy: []
 blocking: []
 ---
@@ -49,6 +56,11 @@ To prioritize vertical scroll performance (where massive data virtualization hap
 3. **The Decoupled Horizontal Scroller:** Because the Center Body sits inside the tall virtualized vertical wrapper, its native horizontal scrollbar would be pushed to the bottom of the virtual data (e.g., 500,000px down). We must build a decoupled, "fake" horizontal scrollbar locked to the bottom of the grid viewport.
 4. **Synchronous Horizontal JS Sync:** A Main Thread Addon will capture the scroll event from the decoupled horizontal scroller and synchronously update the `scrollLeft` of the Center Body and Header. 
 
+**Distributed Grid Architecture (The Killer Demo):**
+The multi-body architecture naturally enables cross-window capabilities. Because Neo.mjs manages the DOM virtually from the App Worker, SubGrids can be detached from the main window and rendered in entirely separate browser windows (multi-monitor setups).
+- To achieve low-latency scroll synchronization across windows, Main Thread Addons will establish direct `MessageChannel` communication, passing ports through the App Worker.
+- Visual selection states (Row Hover, Keyboard Nav) will span across windows seamlessly, driven by the App Worker's single source of truth, without requiring OS-level window focus changes.
+
 **Future-Proofing for Variable Row Heights:**
 A known risk of split SubGrids is maintaining visual row alignment if variable row heights are introduced in the future. Because Neo.mjs manages the VDOM entirely within the App Worker, we have a strategic advantage over other frameworks that suffer from layout thrashing in this scenario. Instead of relying on expensive Main Thread DOM measurement loops to sync heights across bodies, the App Worker will act as the single source of truth for row heights, injecting identical height configurations across all active SubGrids simultaneously.
 
@@ -73,4 +85,28 @@ This architecture changes the core assumption that "one record = one DOM node in
 - 2026-03-16T18:21:43Z @tobiu added sub-issue #9491
 - 2026-03-16T18:21:55Z @tobiu cross-referenced by #9492
 - 2026-03-16T18:22:10Z @tobiu added sub-issue #9492
+### @tobiu - 2026-03-16T21:41:22Z
+
+**Input from Gemini 3.1 Pro:**
+
+> ✦ I have expanded the scope of this Epic to include the "Distributed Grid Architecture" vision. 
+> 
+> The multi-body split enables the "Killer Demo" scenario of detaching a locked column SubGrid into a separate physical browser window while maintaining state and sync.
+> 
+> New sub-issues added:
+> *   #9493 Grid Multi-Body: Enable Cross-Window SubGrid Detachment (Pop-out)
+> *   #9494 Grid Multi-Body: Implement Direct Main-Thread Scroll Sync via MessageChannel
+> *   #9495 Grid Multi-Body: Implement Data-Driven Variable Row Height Architecture
+
+- 2026-03-16T21:41:26Z @tobiu added sub-issue #9493
+- 2026-03-16T21:41:29Z @tobiu added sub-issue #9494
+- 2026-03-16T21:41:30Z @tobiu added sub-issue #9495
+- 2026-03-16T21:51:31Z @tobiu cross-referenced by #9496
+- 2026-03-16T21:51:56Z @tobiu added sub-issue #9496
+- 2026-03-16T22:13:45Z @tobiu cross-referenced by #9497
+- 2026-03-16T22:13:58Z @tobiu added sub-issue #9497
+- 2026-03-16T22:23:09Z @tobiu cross-referenced by #9498
+- 2026-03-16T22:23:19Z @tobiu added sub-issue #9498
+- 2026-03-16T22:29:03Z @tobiu cross-referenced by #9499
+- 2026-03-16T22:29:29Z @tobiu added sub-issue #9499
 
