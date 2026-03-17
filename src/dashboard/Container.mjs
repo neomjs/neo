@@ -116,7 +116,7 @@ class Container extends BaseContainer {
             listeners         : {
                 dragBoundaryEntry: data => me.onDragBoundaryEntry(data),
                 dragBoundaryExit : data => me.onDragBoundaryExit(data),
-                dragEnd          : data => me.fire('dragEnd',           data)
+                dragEnd          : data => me.onDragEnd(data)
             },
             sortGroup: me.sortGroup
         })
@@ -175,6 +175,18 @@ class Container extends BaseContainer {
         Neo.main.addon.DragDrop.setConfigs({isWindowDragging: false, windowId});
 
         me.fire('dragBoundaryEntry', data)
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onDragEnd(data) {
+        // Reset the window dragging flag when any drag operation ends
+        // This ensures proper cleanup even if the drag ends outside the viewport
+        this.#isWindowDragging = false;
+        
+        // Fire the event for other listeners
+        this.fire('dragEnd', data);
     }
 
     /**
