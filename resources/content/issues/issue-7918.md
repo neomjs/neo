@@ -22,7 +22,7 @@ subIssues:
   - '[x] 7955 Feat: Implement Agent OS Multi-Window Layout'
   - '[x] 7956 Feat: Multi-Window Orchestration Baseline'
   - '[x] 8018 Feat: Implement Drag-to-Popup Dashboard'
-  - '[ ] 8019 Bug: isWindowDragging flag stuck after external drop'
+  - '[x] 8019 Bug: isWindowDragging flag stuck after external drop'
   - '[x] 8021 Refactor AgentOS SCSS: Split Source and Variables'
   - '[ ] 8022 Refactor AgentOS Viewport: Modularize Components'
   - '[x] 8024 Refactor Intervention View to dedicated Grid Component'
@@ -33,7 +33,7 @@ subIssues:
   - '[x] 8034 Migrate Intervention Panel Styles and Clean Viewport SCSS'
   - '[x] 8035 Refine Visual Alignment and Button Typography'
   - '[x] 8036 Increase Toolbar Padding to 20px'
-subIssuesCompleted: 15
+subIssuesCompleted: 16
 subIssuesTotal: 18
 blockedBy: []
 blocking: []
