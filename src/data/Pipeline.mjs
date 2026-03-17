@@ -14,6 +14,13 @@ import ClassSystemUtil from '../util/ClassSystem.mjs';
  * to a counterpart Pipeline inside the Data Worker via IPC.
  */
 class Pipeline extends Base {
+    /**
+     * True automatically applies the core.Observable mixin
+     * @member {Boolean} observable=true
+     * @static
+     */
+    static observable = true
+
     static config = {
         /**
          * @member {String} className='Neo.data.Pipeline'
@@ -31,6 +38,17 @@ class Pipeline extends Base {
          * @reactive
          */
         connection_: null,
+        /**
+         * Internal flag to track if the remote instance is currently being created.
+         * @member {Boolean} isRemoteConnecting=false
+         * @protected
+         */
+        isRemoteConnecting: false,
+        /**
+         * The maximum number of attempts to establish/re-establish the remote pipeline instance.
+         * @member {Number} maxRemoteRetries=3
+         */
+        maxRemoteRetries: 3,
         /**
          * The normalizer configuration or instance.
          * @member {Object|Neo.data.normalizer.Base|null} normalizer_=null
@@ -158,9 +176,16 @@ class Pipeline extends Base {
     /**
      * Instantiates the counterpart Pipeline in the Data Worker if workerExecution is 'data'.
      * @protected
+     * @returns {Promise<void>}
      */
-    initRemoteExecution() {
+    async initRemoteExecution() {
         let me = this;
+
+        if (me.isRemoteConnecting) {
+            return new Promise(resolve => me.on('remoteConnected', resolve, me, {once: true}));
+        }
+
+        me.isRemoteConnecting = true;
 
         // We only send the configs, not instances
         let remoteConfig = {
@@ -171,40 +196,67 @@ class Pipeline extends Base {
             workerExecution: 'app' // The remote instance executes locally within its worker
         };
 
-        Neo.worker.Data.createInstance({
-            config: remoteConfig,
-            path  : 'src/data/Pipeline.mjs'
-        }).then(data => {
+        try {
+            const data = await Neo.worker.Data.createInstance({
+                config: remoteConfig,
+                path  : 'src/data/Pipeline.mjs'
+            });
+
             if (data.success) {
                 me.remoteId = data.id;
+                me.fire('remoteConnected', data.id);
+            } else {
+                console.error('Pipeline: Failed to create remote instance', data.error);
             }
-        });
+        } catch (e) {
+            console.error('Pipeline: IPC error during remote instantiation', e);
+        } finally {
+            me.isRemoteConnecting = false;
+        }
     }
 
     /**
      * Main data fetch operation.
+     * Supports a self-healing retry loop for remote execution.
      * @param {Object} params
+     * @param {Number} [attempt=1] Internal retry attempt tracker
      * @returns {Promise<Object|Array|null>}
      */
-    async read(params = {}) {
+    async read(params = {}, attempt = 1) {
         let me = this;
 
         if (me.workerExecution === 'data') {
-            if (!me.remoteId) {
-                // Wait briefly if remote instantiation is still pending
-                await me.timeout(50);
-                if (!me.remoteId) {
-                    console.error('Remote Pipeline ID not established', me);
-                    return null;
-                }
+            if (!me.remoteId && !me.isDestroyed) {
+                await me.initRemoteExecution();
             }
 
-            return Neo.worker.Data.promiseMessage({
-                action   : 'pipelineExecute',
-                id       : me.remoteId,
-                operation: 'read',
-                params
-            });
+            if (me.isDestroyed) return null;
+
+            try {
+                const response = await Neo.worker.Data.promiseMessage({
+                    action   : 'pipelineExecute',
+                    id       : me.remoteId,
+                    operation: 'read',
+                    params
+                });
+
+                if (response === null && attempt <= me.maxRemoteRetries) {
+                    // Potential remote instance loss or silent failure
+                    console.warn(`Pipeline: Remote read returned null, retrying (attempt ${attempt}/${me.maxRemoteRetries})...`);
+                    me.remoteId = null;
+                    return me.read(params, attempt + 1);
+                }
+
+                return response;
+            } catch (e) {
+                if (attempt <= me.maxRemoteRetries) {
+                    console.warn(`Pipeline: Remote read failed, retrying (attempt ${attempt}/${me.maxRemoteRetries})...`, e);
+                    me.remoteId = null;
+                    return me.read(params, attempt + 1);
+                }
+                console.error('Pipeline: Remote read failed after maximum retries', e);
+                return null;
+            }
         } else {
             // Local execution flow
             if (!me.connection) {
