@@ -216,7 +216,7 @@ class Store extends Collection {
      * Aborts the current parser operation if the parser supports it.
      */
     abort() {
-        this.parser?.abort?.()
+        this.pipeline?.parser?.abort?.()
     }
 
     /**
