@@ -38,28 +38,36 @@ class MyButton extends Component {
 
 ## Tier 2: Pull-Based (Effects & Dependency Tracking)
 
-For complex, application-wide state, we need the engine to be intelligent enough to track dependencies automatically.
+For complex, cross-component state, we need the engine to be intelligent enough to track dependencies automatically.
 
 Neo.mjs provides a **pull-based** dependency tracking system via `src/core/Effect.mjs` and `src/core/EffectManager.mjs`.
 
 ### How it works
 Instead of explicitly defining *when* something should update (like an `afterSet` hook), you define *what* it depends on via a function. The `EffectManager` automatically watches this function execute and records any reactive config accessed during that execution. When any of those tracked configs change in the future, the effect is automatically queued to re-run.
 
-### When to use it
-* Complex calculations derived from multiple state sources.
-* Synchronizing application-level state (via `Neo.state.Provider`) across disparate components.
+### Observing Other Instances
+Because `Effects` track *any* accessed config, they inherently break the boundaries of a single instance. You can create an `Effect` that listens to configs on entirely different components or state managers.
+
+This is the exact mechanism that powers two of Neo's most advanced features:
+
+#### 1. Functional Components
+When you use functional components (`Neo.functional.component.Base`), the framework automatically wraps your `createVdom()` method inside an `Effect`. If your `createVdom` accesses a reactive config on the component (or any other instance), the effect tracks it. When that config changes, the effect automatically re-runs `createVdom()` and diffs the output, giving you a modern, declarative rendering loop without manual hooks.
+
+#### 2. The State Provider
+The `Neo.state.Provider` is the ultimate realization of this system. It uses `createHierarchicalDataProxy.mjs` to wrap its internal data object. When an `Effect` accesses `data.user.firstName`, the proxy intercepts the read and registers the underlying config with the `EffectManager`.
+
+This allows you to write clean formulas or component bindings that automatically update when distant data changes, without ever wiring up an event listener manually:
 
 ```javascript readonly
 import Effect from './core/Effect.mjs';
-
-// Assume we have a state provider with values
-let sum = 0;
 
 // The effect automatically registers dependencies during its first run.
 // If state.a or state.b changes later, this function re-runs automatically.
 let myEffect = Neo.create(Effect, {
     fn: () => {
-        sum = state.a + state.b;
+        // This function will re-run automatically whenever 
+        // the state provider's 'a' or 'b' values change.
+        sum = stateProvider.getData('a') + stateProvider.getData('b');
     }
 });
 ```
@@ -70,6 +78,6 @@ The true magic of the Neo.mjs engine is that these two systems are not competing
 
 Furthermore, batch updates via `set()` (utilizing the `configSymbol`) are wrapped in `EffectManager.pause()` and `EffectManager.resume()`. This guarantees that if multiple tracked configs change during a batch operation, the pull-based dependency graph is not re-evaluated until the entire batch is complete and internally consistent.
 
-You can use explicit hooks for precise component rendering, and automated Effects for complex business logic, allowing for optimal performance and clean architecture.
+You can use explicit hooks for precise component rendering, and automated Effects for complex business logic and functional rendering loops, allowing for optimal performance and clean architecture.
 
 We now have an instance that is compiled, locally reactive, and globally aware. It seems ready to go. But in Neo's multi-threaded architecture, synchronous readiness is an illusion. To truly join the application, the instance needs an asynchronous lifecycle.
