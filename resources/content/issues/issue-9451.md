@@ -10,7 +10,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-03-12T18:22:38Z'
-updatedAt: '2026-03-12T21:15:50Z'
+updatedAt: '2026-03-17T17:18:53Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9451'
 author: tobiu
 commentsCount: 0
@@ -21,8 +21,6 @@ subIssuesTotal: 0
 blockedBy: []
 blocking: []
 ---
-# Create Pipeline Cornerstone and Refactor Store Implementation
-
 # Create Pipeline Cornerstone and Refactor Store Implementation
 
 ### Goal
@@ -52,4 +50,20 @@ We need a dedicated `Neo.data.Pipeline` class. The Store will aggregate a `Pipel
 - 2026-03-12T18:25:16Z @tobiu assigned to @tobiu
 - 2026-03-12T21:02:43Z @tobiu changed title from **Create Connection.Base and Establish Connection -> Parser Hierarchy** to **Create Pipeline Cornerstone and Refactor Store Implementation**
 - 2026-03-12T21:03:15Z @tobiu cross-referenced by #9453
+- 2026-03-17T17:46:37Z @tobiu cross-referenced by #9502
+- 2026-03-17T18:00:10Z @tobiu referenced in commit `6c3cc3a` - "feat(data): Create Pipeline Cornerstone (#9451)
+
+- Establish Neo.data.Pipeline to orchestrate Connection, Parser, and Normalizer
+- Abstract App Worker vs Data Worker execution boundary via IPC"
+- 2026-03-17T18:00:10Z @tobiu referenced in commit `e6538be` - "fix(data): Refine Pipeline IPC and unbreak Store load (#9451)
+
+- Change remote action to 'pipelineExecute' (no dots)
+- Implement onPipelineExecute in Data worker
+- Restore missing api/url logic in Store.load()"
+- 2026-03-17T18:00:10Z @tobiu referenced in commit `9f20ea5` - "refactor(data): Refine Pipeline IPC and improve self-healing (#9451)
+
+- Remove redundant Neo.worker.Data check
+- Implement retry strategy for remote pipeline instantiation in read()
+- Update Store.abort() to use pipeline.parser
+- Add toJSON() to Pipeline class"
 
