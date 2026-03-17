@@ -158,8 +158,9 @@ class Canvas extends Base {
 
         // Ping App worker that canvas was received from main.
         this.sendMessage('app', {
-            action: 'canvasRegistered',
-            nodeId: msg.nodeId
+            action     : 'canvasRegistered',
+            componentId: msg.componentId,
+            nodeId     : msg.nodeId
         })
     }
 

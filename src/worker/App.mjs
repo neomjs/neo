@@ -548,11 +548,12 @@ class App extends Base {
      * to avoid transfer restrictions in Firefox SharedWorkers.
      *
      * @param {Object} msg
+     * @param {String} msg.componentId
      * @param {String} msg.nodeId
      * @protected
      */
-    onCanvasRegistered({nodeId}) {
-        let instance = Neo.get(nodeId);
+    onCanvasRegistered({componentId, nodeId}) {
+        let instance = Neo.get(componentId);
 
         if (instance?.registerCanvasCallbacks?.[nodeId]) {
             instance.registerCanvasCallbacks[nodeId]();
