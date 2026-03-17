@@ -10,10 +10,10 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-03-12T14:20:24Z'
-updatedAt: '2026-03-12T21:15:02Z'
+updatedAt: '2026-03-17T17:47:38Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9449'
 author: tobiu
-commentsCount: 0
+commentsCount: 2
 parentIssue: null
 subIssues:
   - '[x] 9418 Create Data Normalizer Architecture (`Neo.data.normalizer.Base` & `Tree`)'
@@ -25,68 +25,63 @@ subIssues:
   - '[ ] 9453 Implement Pipeline IPC and Remote Execution Routing'
   - '[ ] 9454 Implement Push-Based WebSocket Integration in Data Pipeline'
   - '[ ] 9455 Integrate RPC API into Pipeline Architecture (Connection.Rpc)'
+  - '[ ] 9502 Migrate existing Stores to the new Pipeline architecture'
 subIssuesCompleted: 4
-subIssuesTotal: 9
+subIssuesTotal: 10
 blockedBy: []
 blocking: []
 ---
 # Epic: Unified Data Pipeline Architecture (Pipeline -> Connection -> Parser -> Normalizer)
 
 ### Goal
-Modernize the framework's data architecture by implementing a unified, thread-agnostic data pipeline orchestrated by a new cornerstone class: `Neo.data.Pipeline`. This epic resolves the current fragmentation between local data fetching (Fetch/XHR) and the robust RPC API, ensuring all incoming data—whether pulled via REST, returned from an RPC call, or pushed spontaneously via WebSockets—flows through a standardized transformation and ingestion process.
+Modernize the framework's data architecture by implementing a unified, thread-agnostic data pipeline orchestrated by a new cornerstone class: `Neo.data.Pipeline`. This epic resolves the fragmentation between local data fetching (Fetch/XHR) and the RPC API, ensuring all incoming data—whether pulled via REST, returned from an RPC call, or pushed spontaneously via WebSockets—flows through a standardized transformation and ingestion process.
 
 ### Context & The Architectural Schism
-Currently, Neo.mjs has two competing data layers and architectural leaks:
+Currently, Neo.mjs has two competing data layers:
 1.  **The New Pipeline:** A modern, shaping-focused flow (`Connection -> Parser -> Normalizer -> Store`) designed to handle complex datasets (like Tree Grids). However, `parser.Stream` incorrectly handles fetching natively, breaking the single responsibility principle. Furthermore, the `Store` is currently hardcoded to orchestrate remote Data Worker instantiation for its Normalizer.
-2.  **The RPC API:** A powerful system that generates typed proxy functions, handles WebSocket multiplexing, and buffers Ajax requests. If a `Store` uses the `api` config (RPC), it completely bypasses any Parsers or Normalizers.
+2.  **The RPC API:** A powerful system that generates typed proxy functions, handles WebSocket multiplexing, and buffers Ajax requests. If a `Store` uses the `api` config (RPC), it bypasses any Parsers or Normalizers.
 
-**The Solution:** We must introduce `Neo.data.Pipeline` as an architectural cornerstone. The Store will exclusively aggregate a `Pipeline` instance. The `Pipeline` entirely encapsulates the cross-worker orchestration, and the RPC API becomes just one of several Transport Mechanisms (Connections) the Pipeline can utilize.
+**The Solution:** Introduce `Neo.data.Pipeline` as an architectural cornerstone. The Store will exclusively aggregate a `Pipeline` instance. The `Pipeline` encapsulates the cross-worker orchestration, and the RPC API becomes a Transport Mechanism (`Connection.Rpc`).
 
 ---
 
-### The Unified Architecture
+### The "Merged Universe": RPC + Pipelines
 
-**1. The Hierarchy (`Neo.data.Pipeline`)**
-The `Store` will no longer manage `api`, `parser`, or `normalizer` logic directly. It will define a `pipeline_` config, which resolves to a `Neo.data.Pipeline` instance via `ClassSystemUtil.beforeSetInstance()`.
-- `Store` -> owns -> `Pipeline`
-- `Pipeline` -> owns -> `Connection`, `Parser`, `Normalizer`
+Data shaping (Parsers and Normalizers) should not be exclusive to Stores. A `ViewController` making a direct RPC call shouldn't have to manually format raw JSON. We are merging these concepts:
+- `remotes-api.json` configurations will be enhanced to optionally define `parser` and `normalizer` configs for specific endpoints.
+- When `Neo.remotes.Api` detects these configs, the generated proxy function will automatically pipe the raw JSON response through a Pipeline inside the Data Worker before returning the perfectly shaped data to the App Worker.
 
-The Pipeline class provides a standardized CRUD interface (`create`, `read`, `update`, `destroy`). When `store.load()` triggers `pipeline.read()`, the Pipeline handles the transport, receives the raw data, and automatically pipes it through its Parser and Normalizer before yielding the finalized record array to the Store.
+### Progressive Hydration & Delta-Aware Pipelines
 
-**2. Thread-Agnostic Orchestration (The "Remote Pipeline")**
-To prevent the App Worker from blocking during heavy operations (like Tree normalizations), the `Pipeline` class absorbs all cross-worker orchestration logic.
-- If `workerExecution: 'data'` is set, the App Worker `Pipeline` instance automatically uses `Neo.worker.Data.createInstance` to spawn the actual Connection, Parser, and Normalizer instances exclusively inside the Data Worker (meaning the App Worker Pipeline only holds the configs, not the instances).
-- The Store remains blissfully unaware. It just calls `this.pipeline.read()`.
-- The App Worker `Pipeline` sends a lightweight IPC message to its Data Worker counterpart, which handles the network, runs the heavy parsing locally, and sends only the finalized array back across the bridge.
+Modern applications require high Time-To-Interactive (TTI). A common backend pattern is to push "Quick Wins" (lightweight data like IDs and titles) immediately, and then stream the heavy, processed fields (like complex summaries or aggregations) later via WebSockets as Operational Transforms (Opcodes / Deltas).
 
-**3. Integrating the RPC API (`Connection.Rpc`)**
-A new subclass, `Neo.data.connection.Rpc`, will bridge the gap. Instead of a URL, it takes an `api` config. Its `read()` method acts as an adapter: it makes the RPC call and then routes the raw JSON response through the Pipeline's Parser/Normalizer.
-
-**4. The Push-Based WebSocket Paradigm**
-Supporting **server-pushed data** via WebSockets is critical.
-- If a Pipeline uses a `WebSocket` connection, the backend can spontaneously push new data.
-- The `Connection` intercepts this push, treats it as an incoming `read` operation, and pushes the payload through the Parser and Normalizer.
-- The `Pipeline` then broadcasts an event back to the `Store` to ingest the updated records, unifying pull and push workflows.
+To support this natively:
+1.  **Pipelines are Delta-Aware:** They are not just for `read()` (Full Loads). They must support continuous stream handlers that output *partial* record updates.
+2.  **The Parser's Dual Role:** For a `read()`, the Parser shapes a bulk array. For a `stream`, a specialized Parser translates proprietary backend Opcodes into standardized Neo.mjs Deltas (Insert, Update, Delete).
+3.  **Surgical Updates:** When a Store receives a parsed Delta from the Pipeline, it uses `record.set({ field: 'new value' })`. The `RecordFactory` increments the record version, and the VDOM Worker calculates a minimal patch, updating just a single grid cell without replacing the whole row or losing local UI state.
 
 ---
 
 ### Implementation Phasing
 
 1. **Phase 1: The Pipeline Cornerstone (#9451)**
-   - Create `Neo.data.Pipeline` to manage the `workerExecution` state and the aggregation of Connections, Parsers, and Normalizers using `ClassSystemUtil`.
-   - Remove remote instantiation logic from `Neo.data.Store`.
+   - Create `Neo.data.Pipeline` to manage `workerExecution` state.
+   - Refactor `Store` to delegate to `this.pipeline.read()`.
 
 2. **Phase 2: Connection Foundation & Refactoring (#9452)**
-   - Create `Neo.data.connection.Base`.
-   - Extract the `fetch` logic out of `Neo.data.parser.Stream` and into `Neo.data.connection.Fetch` (or a dedicated Stream Connection). A Parser must strictly parse.
+   - Extract fetch logic out of `Neo.data.parser.Stream` into Connections.
 
 3. **Phase 3: IPC & Remote Execution (#9453)**
-   - Implement the IPC routing so an App Worker `Pipeline` can remotely execute a Data Worker `Pipeline` instance.
-   - Wire the Data Worker message handlers to route `pipeline.read` requests.
+   - Implement the IPC routing so an App Worker Pipeline can remotely execute a Data Worker Pipeline instance.
 
-4. **Phase 4: RPC & WebSocket Integration (#9454, #9455)**
+4. **Phase 4: RPC Integration & The Merged Universe (#9455)**
    - Create `Connection.Rpc` to wrap proxy calls.
-   - Implement observable connections for unsolicited WebSocket push messages to flow through the pipeline.
+   - Enhance `Neo.remotes.Api` to support pipelines for standalone RPC calls.
+
+5. **Phase 5: Push-Based WebSocket Integration (#9454)**
+   - Introduce `streams` to `remotes-api.json`.
+   - Implement persistent stream subscriptions in `manager.rpc.Message`.
+   - Support "Delta" routing from Connections through Parsers directly to Stores or ViewControllers.
 
 ## Timeline
 
@@ -107,4 +102,45 @@ Supporting **server-pushed data** via WebSockets is critical.
 - 2026-03-12T21:03:41Z @tobiu changed title from **Epic: Modernize Data Pipeline Architecture (Parser & Normalizer)** to **Epic: Unified Data Pipeline Architecture (Pipeline -> Connection -> Parser -> Normalizer)**
 - 2026-03-12T21:04:08Z @tobiu added sub-issue #9455
 - 2026-03-12T21:14:31Z @tobiu cross-referenced by #9451
+### @tobiu - 2026-03-17T17:14:28Z
+
+**Input from Gemini 3.1 Pro:**
+
+> ✦ ### 🤖 AI Agent / Developer Briefing: Architectural Guidelines for Implementation
+> 
+> Before beginning work on any phase of this Epic, it is critical to understand the nuanced architecture of the Neo.mjs data layer to avoid significant design flaws. This Epic merges the Pipeline architecture with the RPC/WebSocket architecture.
+> 
+> **1. Critical Trap: Records vs. Models**
+> *   **The Trap:** Assuming that `Neo.data.Store` items are instances of `Neo.data.Model`. They are **NOT**.
+> *   **The Reality:** The Store uses `Neo.data.RecordFactory` to create lightweight, enhanced objects (Records) that map back to a Model definition, but they are not Model instances themselves. 
+> *   **Architectural Implication:** Never attempt to bind a WebSocket subscription directly to a Record instance or a Model. Subscriptions belong to the `Pipeline` or are initiated by a `ViewController` via `Neo.remotes.Api`. The Pipeline parses the incoming push into a delta, and the Store executes `record.set(delta)` on the lightweight object, triggering a surgical VDOM update.
+> 
+> **2. The Pipeline Boundary (App Worker vs. Data Worker)**
+> *   The `Neo.data.Pipeline` class is primarily an **App Worker** construct.
+> *   When `workerExecution: 'data'` is used, the App Worker Pipeline acts as an orchestrator. It holds the configs but uses IPC to instruct the Data Worker to instantiate the *actual* `Connection`, `Parser`, and `Normalizer`.
+> *   An App Worker Pipeline cannot natively "listen" to events from a Data Worker Connection. All cross-worker communication for streams and data fetching must explicitly bridge via IPC (`Neo.worker.Data` message handlers).
+> 
+> **3. Key Files & Subsystems Affected:**
+> To successfully implement this Epic, you must be familiar with the following files:
+> *   **The Data/Store Layer:**
+>     *   `src/data/Store.mjs` (Understand `add()`, `recordChange`, and `autoInitRecords`)
+>     *   `src/data/RecordFactory.mjs` (Understand how `set()` updates a record and increments `versionSymbol`)
+> *   **The RPC/Remotes Layer:**
+>     *   `src/remotes/Api.mjs` (Where `remotes-api.json` is parsed and proxy functions are generated. This needs to wrap proxies in Pipelines).
+>     *   `src/manager/rpc/Api.mjs` & `src/manager/rpc/Message.mjs` (Needs enhancement for persistent `callbackId` subscriptions instead of just single-use Promise `mId`s).
+> *   **The Connection Layer:**
+>     *   `src/data/connection/WebSocket.mjs` (Needs enhancement to route unsolicited pushes to subscribed channels/pipelines).
+> 
+> **4. The "Progressive Hydration" Testing Standard:**
+> When implementing Parsers for streams (#9454), tests should explicitly prove that a pushed Delta (e.g., `{ action: 'update', id: 1, changes: { heavyField: 'data' } }`) routes through the Pipeline and correctly triggers `record.set()` in the Store without causing a full collection reset.
+
+- 2026-03-17T17:46:52Z @tobiu added sub-issue #9502
+### @tobiu - 2026-03-17T17:47:37Z
+
+**Input from Gemini 3.1 Pro:**
+
+> ✦ Added sub-issue #9502 for **Phase 6: Migration & Regression Testing**.
+> 
+> This phase focuses on scanning the `examples` and `apps` folders for any `Store` instances currently using direct `api` or `url` configs. We need to ensure these are systematically migrated to the new `pipeline` architecture to prevent any regression bugs as the old patterns are phased out.
+
 
