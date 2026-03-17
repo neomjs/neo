@@ -1,7 +1,7 @@
 ---
 id: 9451
 title: Create Pipeline Cornerstone and Refactor Store Implementation
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
@@ -10,7 +10,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-03-12T18:22:38Z'
-updatedAt: '2026-03-17T17:18:53Z'
+updatedAt: '2026-03-17T18:57:13Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9451'
 author: tobiu
 commentsCount: 0
@@ -20,6 +20,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-03-17T18:57:13Z'
 ---
 # Create Pipeline Cornerstone and Refactor Store Implementation
 
@@ -66,4 +67,5 @@ We need a dedicated `Neo.data.Pipeline` class. The Store will aggregate a `Pipel
 - Implement retry strategy for remote pipeline instantiation in read()
 - Update Store.abort() to use pipeline.parser
 - Add toJSON() to Pipeline class"
+- 2026-03-17T18:57:14Z @tobiu closed this issue
 
