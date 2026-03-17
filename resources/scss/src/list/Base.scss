@@ -6,6 +6,7 @@
 }
 
 .neo-list {
+    color-scheme        : var(--list-scrollbar-color-scheme, light);
     color               : var(--list-container-list-color);
     list-style-type     : none;
     margin-block-start  : 0;
@@ -31,9 +32,8 @@
     }
 
     &.neo-use-wrapper-node {
-        height  : 100%;
+        inset   : 0;
         position: absolute;
-        width   : 100%;
     }
 
     .neo-list-header {

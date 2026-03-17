@@ -1,6 +1,7 @@
 @use "sass:color";
 
 :root .neo-theme-light { // .neo-list-container
+    --list-scrollbar-color-scheme         : light;
     --list-container-background-color     : #fff;
     --list-container-border               : 0;
     --list-container-list-color           : #{color.adjust(#33343d, $lightness: 20%)};
