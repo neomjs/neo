@@ -7,9 +7,10 @@ labels:
   - ai
   - refactoring
   - grid
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-03-16T18:18:08Z'
-updatedAt: '2026-03-16T18:18:08Z'
+updatedAt: '2026-03-17T19:00:03Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9490'
 author: tobiu
 commentsCount: 0
@@ -40,4 +41,5 @@ Because the V2 Multi-Body architecture completely removes the need for `translat
 - 2026-03-16T18:18:10Z @tobiu added the `refactoring` label
 - 2026-03-16T18:18:10Z @tobiu added the `grid` label
 - 2026-03-16T18:18:42Z @tobiu added parent issue #9486
+- 2026-03-17T19:00:03Z @tobiu assigned to @tobiu
 

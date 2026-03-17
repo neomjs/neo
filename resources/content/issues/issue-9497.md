@@ -6,9 +6,10 @@ labels:
   - epic
   - ai
   - grid
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-03-16T22:13:44Z'
-updatedAt: '2026-03-16T22:13:44Z'
+updatedAt: '2026-03-17T18:59:46Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9497'
 author: tobiu
 commentsCount: 0
@@ -47,4 +48,5 @@ To support the Multi-Body architecture (where columns are physically separated i
 - 2026-03-16T22:13:45Z @tobiu added the `ai` label
 - 2026-03-16T22:13:45Z @tobiu added the `grid` label
 - 2026-03-16T22:13:58Z @tobiu added parent issue #9486
+- 2026-03-17T18:59:46Z @tobiu assigned to @tobiu
 

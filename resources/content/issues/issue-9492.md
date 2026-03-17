@@ -7,9 +7,10 @@ labels:
   - ai
   - refactoring
   - grid
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-03-16T18:21:54Z'
-updatedAt: '2026-03-16T21:51:51Z'
+updatedAt: '2026-03-17T18:59:16Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9492'
 author: tobiu
 commentsCount: 0
@@ -48,4 +49,5 @@ Requirements:
 - 2026-03-16T18:21:57Z @tobiu added the `grid` label
 - 2026-03-16T18:22:10Z @tobiu added parent issue #9486
 - 2026-03-16T21:51:51Z @tobiu changed title from **Grid Multi-Body: Adapt Selection Models & Keyboard Nav for Split Rows** to **Grid Multi-Body: Adapt Selection Models for Split Rows**
+- 2026-03-17T18:59:16Z @tobiu assigned to @tobiu
 

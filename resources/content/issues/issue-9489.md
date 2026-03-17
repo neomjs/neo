@@ -6,9 +6,10 @@ labels:
   - enhancement
   - ai
   - grid
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-03-16T18:16:28Z'
-updatedAt: '2026-03-16T18:16:28Z'
+updatedAt: '2026-03-17T18:59:06Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9489'
 author: tobiu
 commentsCount: 0
@@ -46,4 +47,5 @@ We must build a decoupled, "fake" horizontal scrollbar that stays pinned to the 
 - 2026-03-16T18:16:29Z @tobiu added the `ai` label
 - 2026-03-16T18:16:29Z @tobiu added the `grid` label
 - 2026-03-16T18:16:41Z @tobiu added parent issue #9486
+- 2026-03-17T18:59:06Z @tobiu assigned to @tobiu
 

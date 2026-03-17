@@ -9,10 +9,10 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-03-16T17:41:38Z'
-updatedAt: '2026-03-16T21:49:13Z'
+updatedAt: '2026-03-17T19:00:57Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9486'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: null
 subIssues:
   - '[ ] 9487 Grid Multi-Body: Refactor Layout Engine & SubGrid Partitioning'
@@ -109,4 +109,8 @@ This architecture changes the core assumption that "one record = one DOM node in
 - 2026-03-16T22:23:19Z @tobiu added sub-issue #9498
 - 2026-03-16T22:29:03Z @tobiu cross-referenced by #9499
 - 2026-03-16T22:29:29Z @tobiu added sub-issue #9499
+### @tobiu - 2026-03-17T19:00:57Z
+
+quick info: this epic is currently planned **after** the release of neo v12.1, since the scope is massive.
+
 

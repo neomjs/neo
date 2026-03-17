@@ -6,9 +6,10 @@ labels:
   - epic
   - ai
   - grid
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-03-16T21:40:56Z'
-updatedAt: '2026-03-16T21:40:56Z'
+updatedAt: '2026-03-17T18:59:34Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9495'
 author: tobiu
 commentsCount: 0
@@ -34,4 +35,5 @@ With a split-body architecture, ensuring visual row alignment is critical. We ca
 - 2026-03-16T21:40:58Z @tobiu added the `grid` label
 - 2026-03-16T21:41:23Z @tobiu cross-referenced by #9486
 - 2026-03-16T21:41:30Z @tobiu added parent issue #9486
+- 2026-03-17T18:59:34Z @tobiu assigned to @tobiu
 

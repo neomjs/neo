@@ -6,9 +6,10 @@ labels:
   - enhancement
   - ai
   - grid
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-03-16T18:15:38Z'
-updatedAt: '2026-03-16T22:12:16Z'
+updatedAt: '2026-03-17T18:59:00Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9488'
 author: tobiu
 commentsCount: 0
@@ -50,4 +51,5 @@ In the Multi-Body architecture, the `Body` component must become a "SubGrid".
 - 2026-03-16T18:15:40Z @tobiu added the `ai` label
 - 2026-03-16T18:15:40Z @tobiu added the `grid` label
 - 2026-03-16T18:15:58Z @tobiu added parent issue #9486
+- 2026-03-17T18:59:00Z @tobiu assigned to @tobiu
 

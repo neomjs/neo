@@ -7,9 +7,10 @@ labels:
   - ai
   - refactoring
   - grid
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-03-16T18:21:28Z'
-updatedAt: '2026-03-16T22:15:10Z'
+updatedAt: '2026-03-17T19:00:08Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9491'
 author: tobiu
 commentsCount: 0
@@ -56,4 +57,5 @@ When a user drags a column header from the `center` toolbar into the `start` too
 - 2026-03-16T18:21:29Z @tobiu added the `refactoring` label
 - 2026-03-16T18:21:30Z @tobiu added the `grid` label
 - 2026-03-16T18:21:43Z @tobiu added parent issue #9486
+- 2026-03-17T19:00:08Z @tobiu assigned to @tobiu
 
