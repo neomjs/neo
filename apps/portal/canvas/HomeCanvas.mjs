@@ -89,7 +89,7 @@ class HomeCanvas extends Base {
             nodeHigh  : '#FFFFFF',
             packet    : '#FFFFFF',
             shockwave : '#FFFFFF',
-            spark     : '#4B0082'
+            spark     : '#D500F9' // Bright neon purple for high contrast
         },
         light: {
             agentHead : '#3E63DD', // PRIMARY
