@@ -59,14 +59,6 @@
             }
         }
 
-         // selection.RowModel
-         &.neo-selected {
-             .neo-grid-cell {
-                 background-color: var(--grid-rowmodel-selected-cell-background-color);
-                 color           : var(--grid-rowmodel-selected-cell-color);
-             }
-         }
-
          .neo-grid-cell {
              align-items     : center;
              background-color: var(--grid-container-cell-background-color);
@@ -113,6 +105,14 @@
              &.selected-column-cell {
                  background-color: var(--grid-cellmodel-selected-column-cell-background-color);
                  color           : var(--grid-cellmodel-selected-column-cell-color);
+             }
+         }
+
+         // selection.RowModel
+         &.neo-selected {
+             .neo-grid-cell {
+                 background-color: var(--grid-rowmodel-selected-cell-background-color);
+                 color           : var(--grid-rowmodel-selected-cell-color);
              }
          }
      }
