@@ -35,11 +35,11 @@ class MyList extends Component {
         // A complex reactive config defined via a descriptor
         items_: {
             [isDescriptor]: true,
-            clone         : 'shallow', // How to clone the value when setting
-            cloneOnGet    : 'none',    // How to clone the value when reading
-            isEqual       : () => false, // Custom equality function
+            clone         : 'shallow',    // How to clone the value when setting
+            cloneOnGet    : 'none',       // How to clone the value when reading
+            isEqual       : () => false,  // Custom equality function
             merge         : 'deepArrays', // Strategy for merging configs during setup
-            value         : []         // The actual default value
+            value         : []            // The actual default value
         }
     }
 }
