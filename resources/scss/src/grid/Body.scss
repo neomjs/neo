@@ -83,6 +83,14 @@
                  border-right-width : 0;
              }
 
+             &.neo-value-band-1 {
+                 background-color: var(--grid-cell-value-band-1-background-color, transparent);
+             }
+
+             &.neo-value-band-2 {
+                 background-color: var(--grid-cell-value-band-2-background-color, transparent);
+             }
+
              &.neo-locked-start,
              &.neo-locked-end {
                  z-index: 5;

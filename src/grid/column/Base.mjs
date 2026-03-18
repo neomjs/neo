@@ -74,6 +74,12 @@ class Column extends Base {
          */
         type: 'column',
         /**
+         * Gives cells with the same value the same background color, as long as they are below each other.
+         * @member {Boolean} useValueBanding_=false
+         * @reactive
+         */
+        useValueBanding_: false,
+        /**
          * @member {Number|null} windowId_=null
          * @reactive
          */

@@ -132,7 +132,13 @@ class Collection extends Base {
          * True to track internalIds in a separate map for O(1) lookup
          * @member {Boolean} trackInternalId=false
          */
-        trackInternalId: false
+        trackInternalId: false,
+        /**
+         * Array of strings for fields that should use value banding (consecutive identical values toggle a boolean flag).
+         * @member {String[]|null} valueBandingFields_=null
+         * @reactive
+         */
+        valueBandingFields_: null
     }
 
     /**
@@ -248,6 +254,18 @@ class Collection extends Base {
         });
 
         oldValue && me.autoSort && me.doSort()
+    }
+
+    /**
+     * Triggered after the valueBandingFields config got changed
+     * @param {String[]|null} value
+     * @param {String[]|null} oldValue
+     * @protected
+     */
+    afterSetValueBandingFields(value, oldValue) {
+        if (value) {
+            this.calcValueBands()
+        }
     }
 
     /**
@@ -455,6 +473,60 @@ class Collection extends Base {
                     me[toRemoveArray].push(item)
                 }
             })
+        }
+    }
+
+    /**
+     * Calculates the valueBands object for each item.
+     * This is useful for UI grids to alternating highlight cells with the same value.
+     * @protected
+     */
+    calcValueBands() {
+        let me     = this,
+            fields = me.valueBandingFields;
+
+        if (!fields || fields.length === 0) {
+            me.valueBandsMap?.clear();
+            return;
+        }
+
+        let items = me._items;
+
+        if (!me.valueBandsMap) {
+            me.valueBandsMap = new Map()
+        } else {
+            me.valueBandsMap.clear()
+        }
+
+        if (items) {
+            let i    = 0,
+                len  = items.length,
+                bands = {},
+                prev  = {},
+                item, isRecord, key, val;
+
+            for (; i < len; i++) {
+                item     = items[i];
+                key      = me.getKey(item);
+                isRecord = Neo.isRecord(item);
+
+                if (i === 0) {
+                    fields.forEach(f => {
+                        bands[f] = true;
+                        prev[f]  = isRecord ? item.get(f) : item[f]
+                    })
+                } else {
+                    fields.forEach(f => {
+                        val = isRecord ? item.get(f) : item[f];
+                        if (val !== prev[f]) {
+                            bands[f] = !bands[f];
+                            prev[f]  = val
+                        }
+                    })
+                }
+
+                me.valueBandsMap.set(key, {...bands})
+            }
         }
     }
 
@@ -675,6 +747,8 @@ class Collection extends Base {
 
         me[isSorted] = countSorters > 0;
 
+        me.calcValueBands();
+
         if (!silent && me[updatingIndex] === 0) {
             me.fire('sort', {
                 items: me._items,
@@ -702,6 +776,8 @@ class Collection extends Base {
         if (endSilentUpdateMode) {
             me[silentUpdateMode] = false
         } else {
+            me.calcValueBands();
+
             me.fire('mutate', {
                 addedItems  : me[toAddArray],
                 removedItems: me[toRemoveArray]
@@ -1493,6 +1569,8 @@ class Collection extends Base {
 
         if (me[updatingIndex] === 0) {
             me.count = me._items.length;
+
+            me.calcValueBands();
 
             me.fire('mutate', {
                 addedItems     : toAddArray,
