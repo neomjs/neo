@@ -1,6 +1,6 @@
 # Why Enhance JS Classes? (`construct` vs `constructor`)
 
-When building a high-performance, multi-threaded application platform like Neo.mjs, the vanilla JavaScript `class` system quickly hits an architectural wall. While ES6 classes are a vast improvement over raw prototype manipulation, they lack the built-in mechanisms required for a declarative UI framework: automated reactivity, a unified initialization lifecycle, and robust configuration merging.
+When building a high-performance, multi-threaded application platform like Neo.mjs, the vanilla JavaScript `class` system quickly hits an architectural wall. While ES6 classes are a vast improvement over raw prototype manipulation, they lack the built-in mechanisms required for a declarative UI engine: automated reactivity, a unified initialization lifecycle, and robust configuration merging.
 
 The most significant limitation arises from the native initialization sequence itself—specifically, how JavaScript handles class fields and the `super()` call within the `constructor`.
 
@@ -48,7 +48,7 @@ This makes it impossible to build a sophisticated `Base` class that can automati
 
 Neo.mjs elegantly bypasses this limitation by decoupling the *native instantiation* from the *logical configuration*.
 
-Instead of using the `new` keyword and the native `constructor`, you instantiate Neo classes using `Neo.create()`. The Neo core architecture dictates that you **should almost never write a native `constructor()` in your Neo classes**. Instead, the framework relies on a lifecycle method named `construct(config)`.
+Instead of using the `new` keyword and the native `constructor`, you instantiate Neo classes using `Neo.create()`. The Neo core architecture dictates that you **should almost never write a native `constructor()` in your Neo classes**. Instead, the engine relies on a lifecycle method named `construct(config)`.
 
 Here is how `Neo.create()` orchestrates the birth of an object:
 
@@ -82,7 +82,7 @@ construct(config={}) {
 
 By the time `construct()` runs inside `Neo.core.Base`, the instance `this` is completely hydrated. Every class field and prototype method defined anywhere in the inheritance chain is ready and accessible.
 
-This late-stage logical construction enables the foundational features of the framework:
+This late-stage logical construction enables the foundational features of the engine:
 
 * **Declarative Config Merging:** The base class can now safely read static configurations, prototype values, and class fields from its subclasses, allowing it to perform deep, intelligent merging of complex configuration objects (like layouts or component items).
 * **The Config System:** It provides the precise entry point to initialize the `core.Config` system, setting up the reactive state of the component.

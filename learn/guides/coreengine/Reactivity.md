@@ -51,7 +51,7 @@ Because `Effects` track *any* accessed config, they inherently break the boundar
 This is the exact mechanism that powers two of Neo's most advanced features:
 
 #### 1. Functional Components
-When you use functional components (`Neo.functional.component.Base`), the framework automatically wraps your `createVdom()` method inside an `Effect`. If your `createVdom` accesses a reactive config on the component (or any other instance), the effect tracks it. When that config changes, the effect automatically re-runs `createVdom()` and diffs the output, giving you a modern, declarative rendering loop without manual hooks.
+When you use functional components (`Neo.functional.component.Base`), the engine automatically wraps your `createVdom()` method inside an `Effect`. If your `createVdom` accesses a reactive config on the component (or any other instance), the effect tracks it. When that config changes, the effect automatically re-runs `createVdom()` and diffs the output, giving you a modern, declarative rendering loop without manual hooks.
 
 #### 2. The State Provider
 The `Neo.state.Provider` is the ultimate realization of this system. It uses `createHierarchicalDataProxy.mjs` to wrap its internal data object. When an `Effect` accesses `data.user.firstName`, the proxy intercepts the read and registers the underlying config with the `EffectManager`.

@@ -2,7 +2,7 @@
 
 To solve the `constructor` trap and enable declarative configurations, Neo.mjs must know exactly how a class is structured before it creates an instance. In native JavaScript, defining a class is a static, one-time operation—once the `class {}` block is evaluated, its prototype is largely fixed. 
 
-Neo.mjs introduces a crucial **compilation step** that occurs *after* a class is defined but *before* it is ever instantiated. This step is the forge where standard JS classes are granted their framework superpowers, managed by `Neo.setupClass()`.
+Neo.mjs introduces a crucial **compilation step** that occurs *after* a class is defined but *before* it is ever instantiated. This step is the forge where standard JS classes are granted their engine superpowers, managed by `Neo.setupClass()`.
 
 Every class definition in the Neo.mjs ecosystem must end by passing the class through this meta-compiler:
 
@@ -55,7 +55,7 @@ As `setupClass` merges the configs, it actively hunts for any property name endi
 
 This trailing underscore is the declarative signal for the Neo Config System. When the compiler encounters one, it automatically generates a public getter and setter on the class prototype (stripping the underscore). 
 
-It wires these generated getters and setters into the `core.Config` system, guaranteeing that whenever this property is accessed or changed at runtime, the framework's `beforeSet`, `beforeGet`, and `afterSet` lifecycle hooks will fire.
+It wires these generated getters and setters into the `core.Config` system, guaranteeing that whenever this property is accessed or changed at runtime, the engine's `beforeSet`, `beforeGet`, and `afterSet` lifecycle hooks will fire.
 
 ### 3. Applying Overwrites
 

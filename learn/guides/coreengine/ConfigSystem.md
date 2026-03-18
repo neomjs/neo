@@ -14,7 +14,7 @@ class MyComponent extends Base {
         // Non-reactive (applied directly to prototype)
         className: 'MyApp.MyComponent',
         
-        // Reactive (framework generates getter/setter and hooks)
+        // Reactive (engine generates getter/setter and hooks)
         title_: 'Default Title',
         isActive_: false
     }
@@ -80,7 +80,7 @@ The true test of a config system is how it handles batch updates where configs d
 
 `src/core/Base.mjs` solves this using a `configSymbol` (a hidden ES6 `Symbol` property on the instance) as a temporary holding zone.
 
-When you call `this.set()` to perform a batch update with multiple properties, all new reactive values are placed into `this[configSymbol]`. The framework then processes them sequentially. 
+When you call `this.set()` to perform a batch update with multiple properties, all new reactive values are placed into `this[configSymbol]`. The engine then processes them sequentially. 
 
 The brilliance of this mechanism lies in the generated *getter*. The getter for any reactive config is programmed to check `this[configSymbol]` *before* checking the internal backing property. As a result, any lifecycle hook will immediately receive the *new, pending* value of a sibling config, even if that property hasn't fully processed its own `beforeSet`/`afterSet` cycle yet.
 
