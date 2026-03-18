@@ -1,5 +1,6 @@
 import * as selection from '../../../src/selection/grid/_export.mjs';
 import Button         from '../../../src/button/Base.mjs';
+import CheckBox       from '../../../src/form/field/CheckBox.mjs';
 import ComboBox       from '../../../src/form/field/ComboBox.mjs';
 import Container      from '../../../src/container/Base.mjs';
 import Radio          from '../../../src/form/field/Radio.mjs';
@@ -137,6 +138,22 @@ class ControlsContainer extends Container {
                     style     : {marginTop: '.3em'},
                     value     : 'neo-theme-light',
                     valueLabel: 'Light'
+                }, {
+                    module    : CheckBox,
+                    checked   : false,
+                    labelText : 'Striped Rows',
+                    labelWidth: 170,
+                    listeners : {change: 'up.onStripedRowsChange'},
+                    name      : 'stripedRows',
+                    style     : {marginTop: '2em'}
+                }, {
+                    module    : CheckBox,
+                    checked   : true,
+                    labelText : 'Value Banding (Lastname)',
+                    labelWidth: 170,
+                    listeners : {change: 'up.onUseValueBandingChange'},
+                    name      : 'useValueBanding',
+                    style     : {marginTop: '.3em'}
                 }, {
                     ntype: 'label',
                     style: {marginTop: '2em'},
@@ -359,6 +376,23 @@ class ControlsContainer extends Container {
      */
     onSelectionModelChange(data) {
         this.grid.body.selectionModel = data.component.selectionModel
+    }
+
+    /**
+     * @param {Object} opts
+     */
+    onStripedRowsChange(opts) {
+        this.grid.body.stripedRows = opts.value
+    }
+
+    /**
+     * @param {Object} opts
+     */
+    onUseValueBandingChange(opts) {
+        let grid   = this.grid,
+            column = grid.columns.get('lastname');
+
+        column.useValueBanding = opts.value
     }
 
     /**

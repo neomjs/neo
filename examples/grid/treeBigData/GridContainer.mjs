@@ -23,7 +23,8 @@ class GridContainer extends BaseGridContainer {
          */
         body: {
             bufferColumnRange: 3,
-            bufferRowRange   : 5
+            bufferRowRange   : 5,
+            stripedRows      : false
         },
         /**
          * Default configs for each column
@@ -53,7 +54,7 @@ class GridContainer extends BaseGridContainer {
                 {type: 'index', dataField: 'id', text: '#', width: 60},
                 {type: 'tree', dataField: 'name', text: 'Tree', width: 250},
                 {cellAlign: 'left', dataField: 'firstname', defaultSortDirection: 'ASC', text: 'Firstname', width: 150},
-                {cellAlign: 'left', dataField: 'lastname',  defaultSortDirection: 'ASC', text: 'Lastname',  width: 150},
+                {cellAlign: 'left', dataField: 'lastname',  defaultSortDirection: 'ASC', text: 'Lastname',  useValueBanding: true, width: 150},
                 {cellAlign: 'left', dataField: 'countAction', text: 'Increase Counter', width: 150,  component: ({record}) => ({
                     module: Button,
                     handler() {record.counter++},
