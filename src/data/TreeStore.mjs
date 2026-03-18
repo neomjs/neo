@@ -137,6 +137,8 @@ class TreeStore extends Store {
             me.updateSiblingStats(parentId)
         }
 
+        me.calcValueBands();
+
         if (!silent && me[updatingIndex] === 0) {
             me.fire('filter', {
                 isFiltered: false,
@@ -210,6 +212,8 @@ class TreeStore extends Store {
         }
 
         me.#rebuildKeysAndCount();
+
+        me.calcValueBands();
 
         if (!silent && me[updatingIndex] === 0) {
             me.fire('load', {items: me._items})
@@ -331,6 +335,8 @@ class TreeStore extends Store {
         // 5. Update the Collection keys map and isSorted flag
         me.#rebuildKeysAndCount();
         me[isSorted] = true;
+
+        me.calcValueBands();
 
         // 6. Fire the sort event, passing the flat view items
         if (!silent && me[updatingIndex] === 0) {
@@ -461,6 +467,8 @@ class TreeStore extends Store {
         }
 
         me.#rebuildKeysAndCount();
+
+        me.calcValueBands();
 
         if (!silent && me[updatingIndex] === 0) {
             me.fire('load', {items: me._items})
