@@ -70,6 +70,29 @@ async initAsync() {
 }
 ```
 
+### Main Thread Addons & Lazy Loading
+
+Another prime example is the Main Thread Addon system (`Neo.main.addon.Base`), which is used to wrap heavy third-party libraries like Mermaid.js, AmCharts, or Google Maps.
+
+These addons must inject external `<script>` tags into the DOM and wait for the browser to fetch and parse them. If the App Worker tried to call a method like `mermaid.render()` or add a Google Maps marker before the script was fully loaded, the application would crash.
+
+To solve this, the addon base class overrides `initAsync` to await a `loadFiles()` promise.
+
+```javascript readonly
+// Simplified from Neo.main.addon.Base
+async initAsync() {
+    await super.initAsync();
+    
+    // The framework pauses here until the external script 
+    // is fully loaded and parsed by the browser.
+    await this.#loadFilesPromise;
+}
+```
+
+This elegant pause guarantees that the App Worker can confidently send remote messages to the addon without worrying about race conditions. If the addon hasn't finished its `initAsync` phase yet, it will seamlessly intercept and **queue the incoming remote messages**. 
+
+The moment `initAsync` resolves and `isReady` flips to `true`, the addon processes the queued messages in order. From the developer's perspective in the App Worker, you can request to add a marker to a map instantly—"it just works", and the message is never lost.
+
 This ensures that when an instance finally flips `isReady` to true and fires its `ready` event, it is genuinely prepared to interact with the distributed application safely.
 
 The instance is finally alive, connected, and communicating across threads. This intricate dance of compilation, reactivity, and lifecycle management provides immense power. But in a framework capable of 40,000 delta updates per second, power requires rigorous efficiency.
