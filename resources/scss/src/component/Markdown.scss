@@ -74,6 +74,12 @@
 
     h1.neo-h1 {
         color: var(--markdown-h1-color);
+
+        code {
+            font-family: inherit !important;
+            font-size  : .8em !important;
+            font-weight: inherit !important;
+        }
     }
 
     h2.neo-h2,
