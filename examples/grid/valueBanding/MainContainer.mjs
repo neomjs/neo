@@ -35,6 +35,12 @@ class MainContainer extends ConfigurationViewport {
             labelText: 'stripedRows',
             listeners: {change: me.onStripedRowsChange.bind(me)},
             style    : {marginTop: '10px'}
+        }, {
+            module   : CheckBox,
+            checked  : true,
+            labelText: 'useValueBanding (Dept)',
+            listeners: {change: me.onUseValueBandingChange.bind(me, 'department')},
+            style    : {marginTop: '10px'}
         }]
     }
 
@@ -70,6 +76,17 @@ class MainContainer extends ConfigurationViewport {
      */
     onStripedRowsChange(opts) {
         this.exampleComponent.body.stripedRows = opts.value
+    }
+
+    /**
+     * @param {String} dataField
+     * @param {Object} opts
+     */
+    onUseValueBandingChange(dataField, opts) {
+        let grid   = this.exampleComponent,
+            column = grid.columns.get(dataField);
+
+        column.useValueBanding = opts.value
     }
 }
 
