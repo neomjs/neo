@@ -479,9 +479,10 @@ class Collection extends Base {
     /**
      * Calculates the valueBands object for each item.
      * This is useful for UI grids to alternating highlight cells with the same value.
+     * @param {Number} [startIndex=0] Optimization to only recalculate from a specific index downwards
      * @protected
      */
-    calcValueBands() {
+    calcValueBands(startIndex=0) {
         let me     = this,
             fields = me.valueBandingFields;
 
@@ -494,23 +495,55 @@ class Collection extends Base {
 
         if (!me.valueBandsMap) {
             me.valueBandsMap = new Map()
-        } else {
+        }
+
+        if (startIndex === 0) {
             me.valueBandsMap.clear()
         }
 
         if (items) {
-            let i    = 0,
+            let i    = startIndex,
                 len  = items.length,
                 bands = {},
                 prev  = {},
                 item, isRecord, key, val;
 
+            if (startIndex > 0 && startIndex <= len) {
+                let prevItem = items[startIndex - 1];
+
+                if (prevItem) {
+                    let prevKey  = me.getKey(prevItem),
+                        prevMap  = me.valueBandsMap.get(prevKey),
+                        prevIsRecord = Neo.isRecord(prevItem);
+
+                    if (prevMap) {
+                        fields.forEach(f => {
+                            bands[f] = prevMap[f];
+                            prev[f]  = prevIsRecord ? prevItem.get(f) : prevItem[f]
+                        })
+                    } else {
+                        startIndex = 0; // Fallback if previous state is missing
+                        i = 0;
+                        me.valueBandsMap.clear()
+                    }
+                } else {
+                    startIndex = 0;
+                    i = 0;
+                    me.valueBandsMap.clear()
+                }
+            }
+
             for (; i < len; i++) {
-                item     = items[i];
+                item = items[i];
+
+                if (!item) {
+                    continue
+                }
+
                 key      = me.getKey(item);
                 isRecord = Neo.isRecord(item);
 
-                if (i === 0) {
+                if (i === 0 || Object.keys(prev).length === 0) {
                     fields.forEach(f => {
                         bands[f] = true;
                         prev[f]  = isRecord ? item.get(f) : item[f]
@@ -1570,7 +1603,7 @@ class Collection extends Base {
         if (me[updatingIndex] === 0) {
             me.count = me._items.length;
 
-            me.calcValueBands();
+            me.calcValueBands(index);
 
             me.fire('mutate', {
                 addedItems     : toAddArray,
