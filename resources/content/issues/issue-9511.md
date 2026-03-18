@@ -18,9 +18,10 @@ parentIssue: null
 subIssues:
   - '[x] 9512 Dynamic Value Banding Updates'
   - '[x] 9513 Optimize Grid Value Banding (startIndex Support)'
-  - '[ ] 9514 [Epic Sub] TreeStore Value Banding Support'
-subIssuesCompleted: 2
-subIssuesTotal: 3
+  - '[x] 9514 [Epic Sub] TreeStore Value Banding Support'
+  - '[x] 9515 [Epic Sub] Value Banding styling conflicts with row selection'
+subIssuesCompleted: 4
+subIssuesTotal: 4
 blockedBy: []
 blocking: []
 closedAt: '2026-03-18T14:18:17Z'
@@ -68,4 +69,6 @@ Implemented via f0381948e
 - 2026-03-18T15:04:27Z @tobiu added sub-issue #9513
 - 2026-03-18T15:07:50Z @tobiu cross-referenced by #9514
 - 2026-03-18T15:08:12Z @tobiu added sub-issue #9514
+- 2026-03-18T18:21:20Z @tobiu cross-referenced by #9515
+- 2026-03-18T18:21:35Z @tobiu added sub-issue #9515
 
