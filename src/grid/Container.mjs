@@ -252,6 +252,8 @@ class GridContainer extends BaseContainer {
         me._columns = me.createColumns(me.columns);
         me.updateColCount();
 
+        me.syncValueBandingFields();
+
         me.addDomListeners({
             resize: me.onResize,
             scope : me
@@ -309,6 +311,8 @@ class GridContainer extends BaseContainer {
     async afterSetColumns(value, oldValue) {
         let me              = this,
             {headerToolbar} = me;
+
+        me.syncValueBandingFields();
 
         // - If columns changed at run-time OR
         // - In case the `header.Toolbar#createItems()` method has run before columns where available
@@ -452,6 +456,8 @@ class GridContainer extends BaseContainer {
         if (me.footerToolbar && me.footerToolbar.store !== value) {
             me.footerToolbar.store = value
         }
+
+        me.syncValueBandingFields()
     }
 
     /**
@@ -463,6 +469,27 @@ class GridContainer extends BaseContainer {
     afterSetUseInternalId(value, oldValue) {
         if (oldValue !== undefined && this.body) {
             this.body.useInternalId = value
+        }
+    }
+
+    /**
+     * Scans all columns for useValueBanding:true and applies the mapped fields to the store
+     * @protected
+     */
+    syncValueBandingFields() {
+        let me      = this,
+            columns = me.columns?.items,
+            store   = me.store,
+            fields  = [];
+
+        if (columns && store) {
+            columns.forEach(column => {
+                if (column.useValueBanding) {
+                    fields.push(column.dataField)
+                }
+            });
+
+            store.valueBandingFields = fields
         }
     }
 

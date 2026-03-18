@@ -135,6 +135,16 @@ class Row extends Component {
             fieldValue = ''
         }
 
+        let valueBandsMap = store.valueBandsMap;
+
+        if (column.useValueBanding && valueBandsMap) {
+            let bands = valueBandsMap.get(store.getKey(record));
+
+            if (bands && bands[dataField] !== undefined) {
+                cellCls.push(bands[dataField] ? 'neo-value-band-1' : 'neo-value-band-2')
+            }
+        }
+
         if (column.rendererScope === 'me' || column.rendererScope === 'this') {
             column.rendererScope = column;
         }
@@ -201,7 +211,7 @@ class Row extends Component {
             rendererOutput = ''
         }
 
-        if (column.cellAlign !== 'left') {
+        if (column.cellAlign && column.cellAlign !== 'left') {
             cellCls.push('neo-' + column.cellAlign)
         }
 
@@ -359,7 +369,7 @@ class Row extends Component {
 
         let rowCls = gridBody.getRowClass(record, rowIndex);
 
-        if (rowIndex % 2 !== 0) {
+        if (gridBody.stripedRows && rowIndex % 2 !== 0) {
             rowCls.push('neo-even')
         }
 

@@ -199,6 +199,12 @@ class GridBody extends Component {
          */
         store_: null,
         /**
+         * Gives even rows a different background-color
+         * @member {Boolean} stripedRows_=true
+         * @reactive
+         */
+        stripedRows_: true,
+        /**
          * Stores the indexes of the first & last painted columns
          * @member {Number[]} visibleColumns=[0,0]
          * @protected
@@ -563,6 +569,18 @@ class GridBody extends Component {
 
         oldValue?.un(listeners);
         value   ?.on(listeners);
+    }
+
+    /**
+     * Triggered after the stripedRows config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetStripedRows(value, oldValue) {
+        if (oldValue !== undefined) {
+            this.createViewData(false, true)
+        }
     }
 
     /**
