@@ -129,6 +129,28 @@ class Column extends Base {
     }
 
     /**
+     * Triggered after the useValueBanding config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetUseValueBanding(value, oldValue) {
+        if (oldValue !== undefined) {
+            let me            = this,
+                gridContainer = me.parent,
+                body          = gridContainer?.body;
+
+            if (gridContainer) {
+                gridContainer.syncValueBandingFields();
+
+                if (body) {
+                    body.createViewData(false, true)
+                }
+            }
+        }
+    }
+
+    /**
      * Triggered after the windowId config got changed.
      *
      * **Non-Component Theme Injection**
