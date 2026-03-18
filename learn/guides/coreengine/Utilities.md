@@ -1,12 +1,12 @@
 # Core Utilities
 
-To power a framework capable of processing 40,000 VDOM delta updates per second across multiple worker threads, the sophisticated core engine we've explored must be built on a foundation of absolute efficiency. It's not enough to be reactive; the engine must know exactly when *not* to do work.
+To power an engine capable of processing 40,000 VDOM delta updates per second across multiple worker threads, the sophisticated core engine we've explored must be built on a foundation of absolute efficiency. It's not enough to be reactive; the engine must know exactly when *not* to do work.
 
 The Neo.mjs core includes several low-level utilities designed to protect the system from unnecessary computation and manage chaotic inputs declaratively.
 
 ## The Verification Engine: `core.Compare`
 
-At the heart of the Config System is the ability to determine if a value has *actually* changed. If a framework re-renders or fires events when data hasn't genuinely mutated, performance degrades rapidly.
+At the heart of the Config System is the ability to determine if a value has *actually* changed. If an engine re-renders or fires events when data hasn't genuinely mutated, performance degrades rapidly.
 
 Neo.mjs uses a custom, highly optimized deep comparison engine located at `src/core/Compare.mjs`.
 

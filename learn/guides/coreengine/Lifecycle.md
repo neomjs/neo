@@ -8,13 +8,13 @@ Neo.mjs provides a dedicated, promise-driven lifecycle phase to handle asynchron
 
 ## The Lifecycle Sequence
 
-When you call `Neo.create(MyClass, config)`, the framework orchestrates a precise sequence in `src/core/Base.mjs` that spans both synchronous and asynchronous realms:
+When you call `Neo.create(MyClass, config)`, the engine orchestrates a precise sequence in `src/core/Base.mjs` that spans both synchronous and asynchronous realms:
 
 1. **`constructor()` (Native):** The native parameterless constructor runs, initializing all basic class fields.
-2. **`construct(config)` (Synchronous):** The framework merges configs, initializes the reactive config system, and applies the initial state payload.
+2. **`construct(config)` (Synchronous):** The engine merges configs, initializes the reactive config system, and applies the initial state payload.
 3. **`onConstructed()` (Synchronous):** A hook for subclasses to perform logic immediately after the core construction is complete. The `isConstructed` flag is set to `true`.
 4. **`init()` (Synchronous):** A secondary hook for synchronous initialization, often used by components to build their initial VDOM tree.
-5. **`initAsync()` (Asynchronous):** The critical phase for async operations. The framework pauses here.
+5. **`initAsync()` (Asynchronous):** The critical phase for async operations. The engine pauses here.
 6. **`afterSetIsReady(true)` (Synchronous):** Fired strictly *after* the promise returned by `initAsync` resolves.
 
 ## Why `initAsync` is Essential
@@ -59,7 +59,7 @@ If a singleton instance defines a `remote` config (e.g., exposing an App Worker 
 ```javascript readonly
 // Example override of initAsync in a custom class
 async initAsync() {
-    // 1. ALWAYS call super to ensure framework async setup (like remotes) finishes first
+    // 1. ALWAYS call super to ensure engine async setup (like remotes) finishes first
     await super.initAsync();
     
     // 2. Perform custom async logic
@@ -83,7 +83,7 @@ To solve this, the addon base class overrides `initAsync` to await a `loadFiles(
 async initAsync() {
     await super.initAsync();
     
-    // The framework pauses here until the external script 
+    // The engine pauses here until the external script 
     // is fully loaded and parsed by the browser.
     await this.#loadFilesPromise;
 }
@@ -95,4 +95,4 @@ The moment `initAsync` resolves and `isReady` flips to `true`, the addon process
 
 This ensures that when an instance finally flips `isReady` to true and fires its `ready` event, it is genuinely prepared to interact with the distributed application safely.
 
-The instance is finally alive, connected, and communicating across threads. This intricate dance of compilation, reactivity, and lifecycle management provides immense power. But in a framework capable of 40,000 delta updates per second, power requires rigorous efficiency.
+The instance is finally alive, connected, and communicating across threads. This intricate dance of compilation, reactivity, and lifecycle management provides immense power. But in an engine capable of 40,000 delta updates per second, power requires rigorous efficiency.
