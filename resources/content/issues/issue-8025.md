@@ -1,7 +1,7 @@
 ---
 id: 8025
 title: 'Create Custom Theme: Neo Cyberpunk'
-state: OPEN
+state: CLOSED
 labels:
   - epic
   - stale
@@ -10,10 +10,10 @@ labels:
 assignees:
   - tobiu
 createdAt: '2025-12-04T23:37:19Z'
-updatedAt: '2026-03-05T03:38:50Z'
+updatedAt: '2026-03-19T03:58:31Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8025'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: 7918
 subIssues:
   - '[x] 8026 Scaffold Neo Cyberpunk Theme Structure'
@@ -25,6 +25,7 @@ subIssuesCompleted: 5
 subIssuesTotal: 5
 blockedBy: []
 blocking: []
+closedAt: '2026-03-19T03:58:31Z'
 ---
 # Create Custom Theme: Neo Cyberpunk
 
@@ -64,4 +65,9 @@ Create a new custom theme `neo-theme-cyberpunk` (folder: `resources/scss/theme-c
 This issue is stale because it has been open for 90 days with no activity.
 
 - 2026-03-05T03:38:50Z @github-actions added the `stale` label
+### @github-actions - 2026-03-19T03:58:30Z
+
+This issue was closed because it has been inactive for 14 days since being marked as stale.
+
+- 2026-03-19T03:58:31Z @github-actions closed this issue
 

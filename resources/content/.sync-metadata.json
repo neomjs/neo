@@ -1,6 +1,6 @@
 {
-  "lastSync": "2026-03-18T18:28:01.177Z",
-  "releasesLastFetched": "2026-03-18T18:28:01.811Z",
+  "lastSync": "2026-03-19T09:21:16.996Z",
+  "releasesLastFetched": "2026-03-19T09:21:17.012Z",
   "pushFailures": [],
   "issues": {
     "3789": {
@@ -11610,11 +11610,11 @@
       "contentHash": "d04bf2c7c107037933742ead6fcbc4aed3852a2b49b91ab685a6c1e9abaaa707"
     },
     "7918": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "resources/content/issues/issue-7918.md",
-      "closedAt": null,
-      "updatedAt": "2026-03-05T03:38:57Z",
-      "contentHash": "f75fe5bc82d8088c7e2cf8bc7e462245713144d8afb4c23a35de6a05238e315a"
+      "closedAt": "2026-03-19T03:58:33Z",
+      "updatedAt": "2026-03-19T03:58:33Z",
+      "contentHash": "c2a2ec6946f316fbecfe2b2edc37ca7705feb8faf2cd2ec8c1bcd382f48cc029"
     },
     "7919": {
       "state": "CLOSED",
@@ -12254,11 +12254,11 @@
       "contentHash": "9474563c4f646ebc0e941765ac04c65b4bb75ef6a7eb4c9abfeb3f6cda08d88e"
     },
     "8022": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "resources/content/issues/issue-8022.md",
-      "closedAt": null,
-      "updatedAt": "2026-03-05T03:38:51Z",
-      "contentHash": "5b2e38fc0b7f332da9555d9ecaaabb9acb9d82087f0c9c018aeee7067ea8bd35"
+      "closedAt": "2026-03-19T03:58:32Z",
+      "updatedAt": "2026-03-19T03:58:32Z",
+      "contentHash": "245f943a1d847198fba3e3b590c12fef02b7035c0e367f31163aad356c9329c7"
     },
     "8023": {
       "state": "CLOSED",
@@ -12275,11 +12275,11 @@
       "contentHash": "2f2c028ec28d123419c3af8da4860b638f8b75fb54ec4c114a955cbb27b502a0"
     },
     "8025": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "resources/content/issues/issue-8025.md",
-      "closedAt": null,
-      "updatedAt": "2026-03-05T03:38:50Z",
-      "contentHash": "9d5fe8a885c2ab62776191c896c739c12efc29b0eeb79a9aae2036b53bb7539e"
+      "closedAt": "2026-03-19T03:58:31Z",
+      "updatedAt": "2026-03-19T03:58:31Z",
+      "contentHash": "84642ad1b8e86023f1520dbd950d44b55d7bae9c7d78eda5dec0732b8b341bec"
     },
     "8026": {
       "state": "CLOSED",
@@ -22367,6 +22367,13 @@
       "closedAt": "2026-03-18T18:25:48Z",
       "updatedAt": "2026-03-18T18:25:48Z",
       "contentHash": "e1b52d6983ef49669577a31fb90d7abfe8a8b295ee659487db6c721657d84480"
+    },
+    "9516": {
+      "state": "CLOSED",
+      "path": "resources/content/issues/issue-9516.md",
+      "closedAt": "2026-03-18T18:50:15Z",
+      "updatedAt": "2026-03-18T18:50:15Z",
+      "contentHash": "ed174e71dd9872f0a42f91b458748b796ca06eb96f166ebcda40ce6f8e442897"
     }
   },
   "releases": {
