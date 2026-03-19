@@ -38,6 +38,11 @@ class Tree extends Component {
          */
         hasError_: false,
         /**
+         * @member {Boolean} isLastChild_=false
+         * @reactive
+         */
+        isLastChild_: false,
+        /**
          * @member {Boolean} isLeaf_=true
          * @reactive
          */
@@ -47,6 +52,11 @@ class Tree extends Component {
          * @reactive
          */
         isNodeLoading_: false,
+        /**
+         * @member {Boolean} showHelperLines_=false
+         * @reactive
+         */
+        showHelperLines_: false,
         /**
          * @member {String|Number|null} value_=null
          * @reactive
@@ -114,6 +124,15 @@ class Tree extends Component {
      * @param {Boolean} oldValue
      * @protected
      */
+    afterSetIsLastChild(value, oldValue) {
+        this.toggleCls('is-last-child', value)
+    }
+
+    /**
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
     afterSetIsLeaf(value, oldValue) {
         this.updateIconCls()
     }
@@ -125,6 +144,15 @@ class Tree extends Component {
      */
     afterSetIsNodeLoading(value, oldValue) {
         this.updateIconCls()
+    }
+
+    /**
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetShowHelperLines(value, oldValue) {
+        this.toggleCls('show-helper-lines', value)
     }
 
     /**

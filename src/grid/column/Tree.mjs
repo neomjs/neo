@@ -13,6 +13,18 @@ class Tree extends ComponentColumn {
          */
         className: 'Neo.grid.column.Tree',
         /**
+         * @member {Function|String|String[]|null} cellCls
+         */
+        cellCls: ({column}) => {
+            let cls = ['neo-grid-tree-column-cell'];
+
+            if (column.showHelperLines) {
+                cls.push('show-helper-lines');
+            }
+
+            return cls;
+        },
+        /**
          * @member {Object} defaults
          * @protected
          */
@@ -20,10 +32,32 @@ class Tree extends ComponentColumn {
             module: TreeComponent
         },
         /**
+         * @member {Boolean} showHelperLines_=false
+         * @reactive
+         */
+        showHelperLines_: false,
+        /**
          * @member {String} type='tree'
          * @protected
          */
         type: 'tree'
+    }
+
+    /**
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetShowHelperLines(value, oldValue) {
+        if (oldValue !== undefined) {
+            let me            = this,
+                gridContainer = me.parent,
+                body          = gridContainer?.body;
+
+            if (body) {
+                body.createViewData(false, true)
+            }
+        }
     }
 
     /**
@@ -33,12 +67,14 @@ class Tree extends ComponentColumn {
      */
     applyRecordConfigs(config, record) {
         return {
-            collapsed    : record.collapsed,
-            depth        : record.depth,
-            hasError     : record.hasError,
-            isLeaf       : record.isLeaf,
-            isNodeLoading: record.isLoading,
-            value        : record[this.dataField],
+            collapsed      : record.collapsed,
+            depth          : record.depth,
+            hasError       : record.hasError,
+            isLastChild    : record.siblingIndex === record.siblingCount,
+            isLeaf         : record.isLeaf,
+            isNodeLoading  : record.isLoading,
+            showHelperLines: this.showHelperLines,
+            value          : record[this.dataField],
             ...config
         };
     }
