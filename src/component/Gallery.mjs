@@ -407,7 +407,8 @@ class Gallery extends Component {
 
         vdomItem.id = me.getItemVnodeId(me.getRecordId(record));
 
-        imageVdom.src = Neo.config.resourcesPath + 'examples/' + record.image;
+        let appConfig = Neo.windowConfigs?.[me.windowId] || Neo.config;
+        imageVdom.src = appConfig.resourcesPath + 'examples/' + record.image;
 
         imageVdom.style.height = me.itemHeight + 'px';
         imageVdom.style.width  = me.itemWidth  + 'px';

@@ -220,7 +220,7 @@ class LivePreview extends Container {
      */
     beforeSetWindowUrl(value, oldValue) {
         if (value.startsWith('./')) {
-            let appPath = Neo.config.appPath.split('/');
+            let appPath = (Neo.windowConfigs?.[this.windowId]?.appPath || Neo.config.appPath).split('/');
             appPath.pop()
 
             return new URL(Neo.config.basePath + appPath.join('/') + value.substring(1), location.href).href

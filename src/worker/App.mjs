@@ -64,6 +64,12 @@ class App extends Base {
      */
     themeFilesCache = []
     /**
+     * Ensures we only fetch the theme-map once per worker.
+     * @member {Boolean} themeMapFetchStarted=false
+     * @protected
+     */
+    themeMapFetchStarted = false
+    /**
      * @member {String} workerId='app'
      * @protected
      */
@@ -607,14 +613,18 @@ class App extends Base {
     onLoadApplication(data) {
         let me        = this,
             {config}  = Neo,
-            {appPath} = config;
+            windowId  = data.windowId,
+            appConfig = Neo.windowConfigs[windowId] || config,
+            appPath   = appConfig.appPath;
 
-        if (config.environment !== 'development') {
+        if (appConfig.environment !== 'development') {
             appPath = appPath.startsWith('/') ? appPath.substring(1) : appPath
         }
 
         me.importApp(appPath).then(module => {
+            Neo.bootingWindowId = windowId;
             module.onStart();
+            delete Neo.bootingWindowId;
 
             // short delay to ensure Component Controllers are ready
             config.hash && me.timeout(5).then(() => {
@@ -647,7 +657,8 @@ class App extends Base {
             import('../manager/Window.mjs')
         }
 
-        let {config} = Neo,
+        let me       = this,
+            {config} = Neo,
             {data}   = msg,
             url      = 'resources/theme-map.json';
 
@@ -655,21 +666,25 @@ class App extends Base {
 
         Neo.windowConfigs[data.windowId] = Neo.clone(data, true);
 
-        if (config.environment === 'development' || config.environment === 'dist/esm') {
-            url = `../../${url}`
-        }
+        if (!me.themeMapFetchStarted) {
+            me.themeMapFetchStarted = true;
 
-        if (config.workerBasePath?.includes('node_modules')) {
-            url = `../../${url}`
-        }
+            if (config.environment === 'development' || config.environment === 'dist/esm') {
+                url = `../../${url}`
+            }
 
-        if (url[0] !== '.') {
-            url = `./${url}`
-        }
+            if (config.workerBasePath?.includes('node_modules')) {
+                url = `../../${url}`
+            }
 
-        fetch(url)
-            .then(response => response.json())
-            .then(data => {this.createThemeMap(data)});
+            if (url[0] !== '.') {
+                url = `./${url}`
+            }
+
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {me.createThemeMap(data)});
+        }
 
         config.remotesApiUrl && import('../remotes/Api.mjs').then(module => module.default.load());
 
