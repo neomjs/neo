@@ -154,6 +154,14 @@ class ControlsContainer extends Container {
                     listeners : {change: 'up.onUseValueBandingChange'},
                     name      : 'useValueBanding',
                     style     : {marginTop: '.3em'}
+                } , {
+                    module    : CheckBox,
+                    checked   : false,
+                    labelText : 'Helper Lines',
+                    labelWidth: 170,
+                    listeners : {change: 'up.onShowHelperLinesChange'},
+                    name      : 'showHelperLines',
+                    style     : {marginTop: '.3em'}
                 }, {
                     ntype: 'label',
                     style: {marginTop: '2em'},
@@ -376,6 +384,18 @@ class ControlsContainer extends Container {
      */
     onSelectionModelChange(data) {
         this.grid.body.selectionModel = data.component.selectionModel
+    }
+
+    /**
+     * @param {Object} opts
+     */
+    onShowHelperLinesChange(opts) {
+        let grid   = this.grid,
+            column = grid.columns.get('name');
+
+        if (column) {
+            column.showHelperLines = opts.value
+        }
     }
 
     /**

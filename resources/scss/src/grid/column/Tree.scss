@@ -1,0 +1,106 @@
+.neo-grid-body .neo-grid-row .neo-grid-cell.neo-grid-tree-column-cell {
+    &.show-helper-lines {
+        padding-bottom: 0;
+        padding-top   : 0;
+
+        .neo-grid-tree-cell {
+            align-items: stretch;
+            height     : 100%;
+            width      : 100%;
+
+            &.is-last-child {
+                .neo-tree-toggle {
+                    // Expanded/Collapsed last child: top half line only, with gap for icon
+                    background-image: linear-gradient(
+                        to bottom,
+                        var(--tree-helper-line-color, var(--grid-container-border-color)) 0%,
+                        var(--tree-helper-line-color, var(--grid-container-border-color)) calc(50% - 8px),
+                        transparent calc(50% - 8px),
+                        transparent 100%
+                    );
+
+                    &.is-leaf {
+                        // Leaf last child: continuous line stopping at 50%
+                        background-image: linear-gradient(
+                            to bottom,
+                            var(--tree-helper-line-color, var(--grid-container-border-color)) 0%,
+                            var(--tree-helper-line-color, var(--grid-container-border-color)) 50%,
+                            transparent 50%,
+                            transparent 100%
+                        );
+                    }
+                }
+            }
+        }
+
+        .neo-tree-content {
+            align-items: center;
+            display    : flex;
+        }
+
+        .neo-tree-indent {
+            background-image: repeating-linear-gradient(
+                to right,
+                transparent,
+                transparent calc(var(--tree-toggle-width, 24px) / 2 - 1px),
+                var(--tree-helper-line-color, var(--grid-container-border-color)) calc(var(--tree-toggle-width, 24px) / 2 - 1px),
+                var(--tree-helper-line-color, var(--grid-container-border-color)) calc(var(--tree-toggle-width, 24px) / 2),
+                transparent calc(var(--tree-toggle-width, 24px) / 2),
+                transparent var(--tree-indent, 16px)
+            );
+        }
+
+        .neo-tree-toggle {
+            align-items        : center;
+            display            : flex;
+            justify-content    : center;
+            position           : relative;
+
+            // Default: expanded/collapsed nodes (has icon)
+            // Vertical line with a gap in the middle for the icon
+            background-image   : linear-gradient(
+                to bottom,
+                var(--tree-helper-line-color, var(--grid-container-border-color)) 0%,
+                var(--tree-helper-line-color, var(--grid-container-border-color)) calc(50% - 8px),
+                transparent calc(50% - 8px),
+                transparent calc(50% + 8px),
+                var(--tree-helper-line-color, var(--grid-container-border-color)) calc(50% + 8px),
+                var(--tree-helper-line-color, var(--grid-container-border-color)) 100%
+            );
+            background-position: center;
+            background-repeat  : no-repeat;
+            background-size    : 1px 100%;
+
+            // Horizontal line starting after the icon
+            &::after {
+                border-top: 1px solid var(--tree-helper-line-color, var(--grid-container-border-color));
+                content   : '';
+                left      : calc(50% + 8px);
+                position  : absolute;
+                top       : 50%;
+                width     : calc(50% - 12px); // Leaves a 4px gap before the text
+                z-index   : 0;
+            }
+
+            &::before {
+                position: relative;
+                z-index : 1;
+            }
+
+            &.is-leaf {
+                // Continuous vertical line
+                background-image: linear-gradient(
+                    to bottom,
+                    var(--tree-helper-line-color, var(--grid-container-border-color)) 0%,
+                    var(--tree-helper-line-color, var(--grid-container-border-color)) 100%
+                );
+
+                // Horizontal line starting from the center
+                &::after {
+                    left : 50%;
+                    width: calc(50% - 4px); // Leaves a 4px gap before the text
+                }
+            }
+        }
+    }
+}
