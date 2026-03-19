@@ -485,20 +485,26 @@ class LivePreview extends Container {
      * @param {String} data.appName
      * @param {Number} data.windowId
      */
-    async onWindowConnect(data) {
+    async onWindowConnect({windowId}) {
         let me           = this,
-            url          = await Neo.Main.getByPath({path: 'document.URL', windowId: data.windowId}),
+            url          = await Neo.Main.getByPath({path: 'document.URL', windowId}),
             params       = new URL(url).searchParams,
             id           = params.get('id');
 
         if (id === me.id) {
-            me.connectedWindowId = data.windowId;
+            me.connectedWindowId = windowId;
 
-            let app              = Neo.apps[data.windowId],
+            let app              = Neo.apps[windowId],
                 mainView         = app.mainView,
                 previewContainer = me.getReference('preview'),
                 {tabContainer}   = me,
-                previewView      = previewContainer.removeAt(0, false);
+                previewView      = previewContainer.removeAt(0, false),
+                theme            = me.getTheme?.();
+
+            // We overrule the viewport theme on purpose
+            if (theme) {
+                mainView.theme = theme
+            }
 
             me.previewContainer = mainView;
             mainView.add(previewView);
