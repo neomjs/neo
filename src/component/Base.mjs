@@ -1491,7 +1491,7 @@ class Component extends Abstract {
             // Fast Path 1: Target is the root node itself
             if (me._vdom.id === targetId) {
                 vdomNode = me._vdom;
-            } 
+            }
             // Fast Path 2: Target is the logical vdom root (e.g. GridBody scroll container)
             else if (me.id === targetId) {
                 // me.getVdomRoot() returns the node assigned me.id by ensureStableIds
@@ -1499,7 +1499,7 @@ class Component extends Abstract {
                 if (vdomRoot && vdomRoot.id === targetId) {
                     vdomNode = vdomRoot;
                 }
-            } 
+            }
             // Fast Path 3: Target is the designated items container
             else if (me.getVdomItemsRoot) {
                 let itemsRoot = me.getVdomItemsRoot();
