@@ -1342,7 +1342,7 @@ class Component extends Abstract {
             }
         }
 
-        return Neo.config.themes?.[0]
+        return (Neo.windowConfigs?.[me.windowId] || Neo.config).themes?.[0]
     }
 
     /**

@@ -429,7 +429,9 @@ class App extends Base {
      * @param {String} [className]
      */
     insertThemeFiles(windowId, proto, className) {
-        if (Neo.config.themes.length > 0) {
+        let appConfig = Neo.windowConfigs?.[windowId] || Neo.config;
+
+        if (appConfig.themes?.length > 0) {
             className = className || proto.className;
 
             let me     = this,
@@ -808,10 +810,11 @@ class App extends Base {
      * @returns {Promise<any>}
      */
     async setCssVariable(data) {
-        let Stylesheet = await this.getAddon('Stylesheet', data.windowId),
-            theme      = data.theme || Neo.config.themes?.[0];
+        let appConfig  = Neo.windowConfigs?.[data.windowId] || Neo.config,
+            Stylesheet = await this.getAddon('Stylesheet', data.windowId),
+            theme      = data.theme || appConfig.themes?.[0];
 
-        if (theme.startsWith('neo-')) {
+        if (theme?.startsWith('neo-')) {
             theme = theme.substring(4)
         }
 
