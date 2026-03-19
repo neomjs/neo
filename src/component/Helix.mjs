@@ -448,7 +448,8 @@ class Helix extends Component {
         super.afterSetWindowId(value, oldValue);
 
         if (value) {
-            this.imageSource = Neo.config.resourcesPath + 'examples/'
+            let appConfig = Neo.windowConfigs?.[value] || Neo.config;
+            this.imageSource = appConfig.resourcesPath + 'examples/'
         }
     }
 

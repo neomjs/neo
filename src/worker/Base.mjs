@@ -272,7 +272,9 @@ class Worker extends Base {
             }
         }
 
-        Neo.merge(Neo.config, data)
+        if (!Neo.config.windowId) {
+            Neo.merge(Neo.config, data)
+        }
     }
 
     /**

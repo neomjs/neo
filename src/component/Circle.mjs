@@ -217,6 +217,27 @@ class Circle extends Component {
     }
 
     /**
+     * Triggered after the windowId config got changed
+     * @param {Number|String|null} value
+     * @param {Number|String|null} oldValue
+     * @protected
+     */
+    afterSetWindowId(value, oldValue) {
+        super.afterSetWindowId(value, oldValue);
+
+        if (value) {
+            let appConfig = Neo.windowConfigs?.[value] || Neo.config;
+
+            if (this.backsideIconPath === Neo.config.resourcesPath + 'images/circle/') {
+                this.backsideIconPath = appConfig.resourcesPath + 'images/circle/';
+            }
+            if (this.itemImagePath === Neo.config.resourcesPath + 'examples/images/') {
+                this.itemImagePath = appConfig.resourcesPath + 'examples/images/';
+            }
+        }
+    }
+
+    /**
      * Triggered after the draggable config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue

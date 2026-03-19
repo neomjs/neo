@@ -407,7 +407,7 @@ class Manager extends Base {
      *
      */
     loadApplication() {
-        this.sendMessage('app', {action: 'loadApplication' })
+        this.sendMessage('app', {action: 'loadApplication', windowId: this.windowId})
     }
 
     /**
