@@ -5,9 +5,10 @@ state: CLOSED
 labels:
   - bug
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-03-19T12:44:15Z'
-updatedAt: '2026-03-19T14:30:09Z'
+updatedAt: '2026-03-19T14:38:16Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9518'
 author: tobiu
 commentsCount: 2
@@ -61,4 +62,5 @@ All changes have been successfully committed and pushed to the `dev` branch.
 
 The initial LivePreview routing bug and the subsequent multi-window routing regressions have been resolved. The fix involves explicitly passing the `windowId` during application boot to decouple the boot sequence from the flapping global `Neo.config`, allowing child applications to accurately resolve their respective configurations directly from `Neo.windowConfigs`.
 
+- 2026-03-19T14:38:16Z @tobiu assigned to @tobiu
 
