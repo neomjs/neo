@@ -1,7 +1,7 @@
 ---
 id: 8022
 title: 'Refactor AgentOS Viewport: Modularize Components'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - stale
@@ -11,16 +11,17 @@ labels:
 assignees:
   - tobiu
 createdAt: '2025-12-04T03:36:24Z'
-updatedAt: '2026-03-05T03:38:51Z'
+updatedAt: '2026-03-19T03:58:32Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8022'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: 7918
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-03-19T03:58:32Z'
 ---
 # Refactor AgentOS Viewport: Modularize Components
 
@@ -39,4 +40,9 @@ The `Viewport.mjs` file is becoming overloaded. Refactor the `items` (Toolbar, D
 This issue is stale because it has been open for 90 days with no activity.
 
 - 2026-03-05T03:38:51Z @github-actions added the `stale` label
+### @github-actions - 2026-03-19T03:58:32Z
+
+This issue was closed because it has been inactive for 14 days since being marked as stale.
+
+- 2026-03-19T03:58:32Z @github-actions closed this issue
 
