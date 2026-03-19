@@ -76,12 +76,16 @@ class Canvas extends Base {
      * @returns {Promise<Object>} {success: true, path} or {success: false, path, error}
      */
     async loadModule({path}) {
+        if (path.endsWith('.mjs')) {
+            path = path.slice(0, -4)
+        }
+
         try {
             await import(
-                /* webpackInclude: /canvas\/.*\.mjs$/ */
+                /* webpackInclude: /^(?:apps|examples|src)\/.*canvas\/.*\.mjs$/ */
                 /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules)/ */
                 /* webpackMode: "lazy" */
-                `../../${path}`
+                `../../${path}.mjs`
             );
             return {success: true, path}
         } catch (e) {
@@ -118,6 +122,7 @@ class Canvas extends Base {
             }
 
             import(
+                /* webpackInclude: /^(?:apps|examples|src)\/.*canvas\.mjs$/ */
                 /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules)/ */
                 /* webpackMode: "lazy" */
                 `../../${path}/canvas.mjs`

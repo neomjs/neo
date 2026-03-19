@@ -77,11 +77,16 @@ class Data extends Base {
      * @returns {Promise<Object>} {success: true, id} or {success: false, error}
      */
     async createInstance({config, path}) {
+        if (path.endsWith('.mjs')) {
+            path = path.slice(0, -4)
+        }
+
         try {
             let module = await import(
-                /* webpackExclude: /(?:\/|\\)(dist|node_modules)\/(?!neo.mjs)/ */
+                /* webpackInclude: /^(?:apps|docs\/app|examples|src)\/.*\.mjs$/ */
+                /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules)/ */
                 /* webpackMode: "lazy" */
-                `../../${path}`
+                `../../${path}.mjs`
             );
 
             // module.default is the Neo class
@@ -108,11 +113,16 @@ class Data extends Base {
      * @returns {Promise<Object>} {success: true, path} or {success: false, path, error}
      */
     async loadModule({path}) {
+        if (path.endsWith('.mjs')) {
+            path = path.slice(0, -4)
+        }
+
         try {
             await import(
-                /* webpackExclude: /(?:\/|\\)(dist|node_modules)\/(?!neo.mjs)/ */
+                /* webpackInclude: /^(?:apps|docs\/app|examples|src)\/.*\.mjs$/ */
+                /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules)/ */
                 /* webpackMode: "lazy" */
-                `../../${path}`
+                `../../${path}.mjs`
             );
             return {success: true, path}
         } catch (e) {
