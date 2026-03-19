@@ -19,10 +19,10 @@ class Tree extends ComponentColumn {
             let cls = ['neo-grid-tree-column-cell'];
 
             if (column.showHelperLines) {
-                cls.push('show-helper-lines');
+                cls.push('show-helper-lines')
             }
 
-            return cls;
+            return cls
         },
         /**
          * @member {Object} defaults
@@ -76,7 +76,7 @@ class Tree extends ComponentColumn {
             showHelperLines: this.showHelperLines,
             value          : record[this.dataField],
             ...config
-        };
+        }
     }
 }
 
