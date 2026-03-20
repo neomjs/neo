@@ -255,7 +255,7 @@ class Toolbar extends BaseToolbar {
 
             if (item.flex || !w || (Neo.isString(w) && !w.endsWith('px'))) {
                 hasDynamicWidth = true;
-                break;
+                break
             }
         }
 
@@ -266,7 +266,7 @@ class Toolbar extends BaseToolbar {
             for (i = 1; i < len; i++) {
                 if (rects[i].x === rects[0].x) {
                     layoutFinished = false;
-                    break;
+                    break
                 }
             }
         }
@@ -284,7 +284,7 @@ class Toolbar extends BaseToolbar {
                         x        : currentX
                     });
 
-                    currentX += rects[i].width;
+                    currentX += rects[i].width
                 }
             } else {
                 for (i = 0; i < len; i++) {
@@ -297,7 +297,7 @@ class Toolbar extends BaseToolbar {
                         x        : currentX
                     });
 
-                    currentX += width;
+                    currentX += width
                 }
             }
 
