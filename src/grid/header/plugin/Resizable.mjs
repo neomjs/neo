@@ -36,7 +36,8 @@ class Resizable extends BaseResizable {
      * @param {Object} data
      */
     onDragMove(data) {
-        let {dragProxy} = this.dragZone;
+        let me          = this,
+            {dragProxy} = me.dragZone;
 
         // Since dragZoneConfig: {useProxyWrapper: false} is set, the proxy is a single-node
         // component. Neo.component.Base merges `style` over `wrapperStyle`.
@@ -48,7 +49,23 @@ class Resizable extends BaseResizable {
             dragProxy.style = proxyStyle
         }
 
-        super.onDragMove(data)
+        super.onDragMove(data);
+
+        if (dragProxy) {
+            let {owner}  = me,
+                newWidth = parseInt(dragProxy.wrapperStyle.width, 10);
+
+            if (newWidth && newWidth !== owner.width) {
+                let toolbar = owner.parent,
+                    body    = toolbar?.parent?.body;
+
+                owner.width = newWidth;
+
+                if (body) {
+                    body.updateCellPositions(owner.dataField, newWidth)
+                }
+            }
+        }
     }
 
     /**
