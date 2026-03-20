@@ -205,6 +205,7 @@ class Toolbar extends BaseToolbar {
 
         Neo.merge(config, {
             boundaryContainerId: [me.id, me.parent.id],
+            ignoreDragSelector : '.neo-resizable',
             scrollLeft         : me.scrollLeft
         });
 
