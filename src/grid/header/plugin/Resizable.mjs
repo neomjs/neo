@@ -58,6 +58,7 @@ class Resizable extends BaseResizable {
         let me          = this,
             {owner}     = me,
             {dragProxy} = me.dragZone,
+            toolbar     = owner.up('grid-header-toolbar'),
             newWidth    = dragProxy ? parseInt(dragProxy.wrapperStyle.width, 10) : null;
 
         super.onDragEnd(data);
@@ -76,8 +77,25 @@ class Resizable extends BaseResizable {
             owner.wrapperStyle = style;
             owner.width        = newWidth;
 
-            owner.up('grid-header-toolbar')?.passSizeToBody()
+            toolbar?.passSizeToBody()
         }
+
+        if (toolbar) {
+            toolbar.removeCls('neo-is-resizing')
+        }
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onDragStart(data) {
+        let toolbar = this.owner.up('grid-header-toolbar');
+
+        if (toolbar) {
+            toolbar.addCls('neo-is-resizing')
+        }
+
+        super.onDragStart(data)
     }
 }
 
