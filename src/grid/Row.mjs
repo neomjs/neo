@@ -254,7 +254,7 @@ class Row extends Component {
         }
 
         if (column.width) {
-            cellConfig.style.minWidth = `${column.width}px`
+            cellConfig.style.width = `${column.width}px`
         }
 
         if (colspan && Object.keys(colspan).includes(dataField)) {
