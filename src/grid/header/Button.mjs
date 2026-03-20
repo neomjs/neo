@@ -76,13 +76,18 @@ class Button extends BaseButton {
          */
         isSorted_: null,
         /**
-         * Use 'start' or 'left' to pin the column to the start of the row.
-         * Use 'end' or 'right' to pin the column to the end of the row.
+         * Use 'start' to pin the column to the start of the row.
+         * Use 'end' to pin the column to the end of the row.
          * Use null for standard, scrollable columns.
          * @member {String|null} locked_=null
          * @reactive
          */
         locked_: null,
+        /**
+         * @member {Boolean} resizable_=true
+         * @reactive
+         */
+        resizable_: true,
         /**
          * @member {String} role='columnheader'
          * @reactive
@@ -165,6 +170,29 @@ class Button extends BaseButton {
         }
 
         this.cls = cls
+    }
+
+    /**
+     * Triggered after the resizable config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetResizable(value, oldValue) {
+        if (value && !this.getPlugin('plugin-grid-header-resizable')) {
+            import('./plugin/Resizable.mjs').then(module => {
+                let me        = this,
+                    {appName} = me,
+                    plugins   = me.plugins || [];
+
+                plugins.push({
+                    module : module.default,
+                    appName
+                });
+
+                me.plugins = plugins
+            })
+        }
     }
 
     /**
@@ -362,6 +390,7 @@ class Button extends BaseButton {
             editorConfig        : me.serializeConfig(me.editorConfig),
             filterConfig        : me.serializeConfig(me.filterConfig),
             isSorted            : me.isSorted,
+            resizable           : me.resizable,
             showHeaderFilter    : me.showHeaderFilter,
             sortable            : me.sortable,
             useTriStateSorting  : me.useTriStateSorting
