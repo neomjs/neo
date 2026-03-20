@@ -275,6 +275,10 @@ class Button extends BaseButton {
      * @protected
      */
     onClick(data) {
+        if (data.path[0].cls.includes('neo-resizable')) {
+            return
+        }
+
         let me = this,
             map;
 
