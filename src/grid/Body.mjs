@@ -1327,6 +1327,69 @@ class GridBody extends Component {
     }
 
     /**
+     * Lightweight update for column resizing, triggered by drag:move.
+     * Updates the width of the resized column's cells and the left position of all following cells.
+     * @param {String} dataField The dataField of the resized column
+     * @param {Number} newWidth The new width in pixels
+     */
+    updateCellPositions(dataField, newWidth) {
+        let me              = this,
+            columnPositions = me.columnPositions,
+            colPos          = columnPositions.get(dataField),
+            colIndex        = columnPositions.indexOf(colPos),
+            deltaWidth      = newWidth - colPos.width,
+            count           = columnPositions.getCount(),
+            i, minX, pos;
+
+        if (deltaWidth === 0) {
+            return
+        }
+
+        // 1. Update the JS config caches
+        colPos.width = newWidth;
+        minX         = colPos.x;
+
+        for (i = colIndex + 1; i < count; i++) {
+            pos    = columnPositions.getAt(i);
+            pos.x += deltaWidth;
+        }
+
+        me.setSilent({
+            availableWidth: me.availableWidth + deltaWidth
+        });
+
+        me.vdom.width       = me.availableWidth + 'px';
+        me.vdom.cn[0].width = me.availableWidth + 'px';
+
+        // 2. Update the VDOM of all active rows
+        me.items.forEach(row => {
+            let cells = row.vdom.cn,
+                j = 0, len = cells.length, cell, field;
+
+            for (; j < len; j++) {
+                cell = cells[j];
+                field = cell.data?.field;
+
+                if (field) {
+                    if (field === dataField) {
+                        cell.style.width = newWidth + 'px';
+                    } else {
+                        pos = columnPositions.get(field);
+
+                        // Using x coordinate to check if it's a following column
+                        if (pos && pos.x > minX) {
+                            cell.style.left = pos.x + 'px';
+                        }
+                    }
+                }
+            }
+        });
+
+        me.updateDepth = 2;
+        me.update()
+    }
+
+    /**
      * @param {Boolean} [force=false]
      */
     updateMountedAndVisibleColumns(force=false) {
