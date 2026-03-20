@@ -245,7 +245,7 @@ class SortZone extends BaseSortZone {
     async onDragStart(data) {
         await super.onDragStart(data);
 
-        if (this.moveColumnContent) {
+        if (this.dragComponent && this.moveColumnContent) {
             let me             = this,
                 {body}         = me.owner.parent,
                 columnIndex    = me.dragElement['aria-colindex'] - 1,
