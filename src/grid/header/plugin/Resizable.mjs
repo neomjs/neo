@@ -99,7 +99,9 @@ class Resizable extends BaseResizable {
 
         if (toolbar) {
             toolbar.removeCls('neo-is-resizing');
-            toolbar.dragResortable = true
+            me.timeout(10).then(() => {
+                toolbar.dragResortable = true
+            })
         }
     }
 
