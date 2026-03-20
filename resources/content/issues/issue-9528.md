@@ -1,7 +1,7 @@
 ---
 id: 9528
 title: 'Real-time cell resizing during grid column drag:move'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
@@ -9,16 +9,18 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-03-20T13:20:54Z'
-updatedAt: '2026-03-20T13:21:15Z'
+updatedAt: '2026-03-20T16:35:00Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9528'
 author: tobiu
-commentsCount: 0
+commentsCount: 2
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
-blockedBy: []
+blockedBy:
+  - '[x] 9529 Add lightweight cell resizing method to grid.Body'
 blocking: []
+closedAt: '2026-03-20T16:33:52Z'
 ---
 # Real-time cell resizing during grid column drag:move
 
@@ -41,4 +43,25 @@ Currently, grid column resizing updates the header visually during `drag:move`, 
 - 2026-03-20T13:20:56Z @tobiu added the `ai` label
 - 2026-03-20T13:20:56Z @tobiu added the `grid` label
 - 2026-03-20T13:21:15Z @tobiu assigned to @tobiu
+- 2026-03-20T16:21:49Z @tobiu cross-referenced by #9529
+- 2026-03-20T16:23:11Z @tobiu marked this issue as being blocked by #9529
+### @tobiu - 2026-03-20T16:33:33Z
+
+**Input from Gemini 3.1 Pro:**
+
+> ✦ The real-time cell resizing during grid column `drag:move` has been successfully implemented.
+> 
+> This was achieved by introducing a new, lightweight `updateCellPositions` method in `src/grid/Body.mjs` (handled in prerequisite ticket #9529) and hooking it into the `onDragMove` event of `src/grid/header/plugin/Resizable.mjs`.
+> 
+> By utilizing `updateDepth: 2` and directly mutating the VDOM and JS cache in memory, we bypass the expensive `createViewData()` row-render cycle, allowing the grid body cells to seamlessly and performantly match the header width in real-time. The final `drag:end` event remains untouched to ensure flex columns and viewport buffers are cleanly recalculated via `passSizeToBody()`.
+> 
+> Closing this ticket as completed.
+
+- 2026-03-20T16:33:52Z @tobiu closed this issue
+### @tobiu - 2026-03-20T16:35:00Z
+
+Current state:
+
+https://github.com/user-attachments/assets/e05539ee-97ee-4ccf-b56e-4f5d7b99facc
+
 
