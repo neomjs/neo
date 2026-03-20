@@ -1380,9 +1380,6 @@ class GridBody extends Component {
                         pos = columnPositions.get(field);
 
                         if (pos) {
-                            // Self-healing: if a previous drag left visibility: 'hidden' in the VDOM,
-                            // cear it now to prevent the cell from vanishing during resize.
-                            delete cell.style.visibility;
                             // Blindly apply the cache. If it's a preceding column,
                             // pos.x is unchanged and the VDOM engine ignores the delta.
                             cell.style.left = pos.x + 'px'
