@@ -230,7 +230,7 @@ class SortZone extends BaseSortZone {
             column.locked = newLocked
         } else {
             owner.items.forEach((item, index) => {
-                item.vdom['aria-colindex'] = index + 1; // 1 based
+                item.vdom['aria-colindex'] = index + 1 // 1 based
             });
 
             owner.updateDepth = 2;
