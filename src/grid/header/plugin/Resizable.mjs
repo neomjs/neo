@@ -25,7 +25,30 @@ class Resizable extends BaseResizable {
          * @member {String[]} directions=['r']
          * @reactive
          */
-        directions: ['r']
+        directions: ['r'],
+        /**
+         * @member {Number} minWidth=100
+         */
+        minWidth: 100
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onDragMove(data) {
+        let {dragProxy} = this.dragZone;
+
+        // Since dragZoneConfig: {useProxyWrapper: false} is set, the proxy is a single-node
+        // component. Neo.component.Base merges `style` over `wrapperStyle`.
+        // DragZone applies a hardcoded initial `width` to the proxy's `style`.
+        // We must completely delete it so the base plugin's `wrapperStyle` updates can take effect.
+        if (dragProxy?.style?.width) {
+            let proxyStyle = dragProxy.style;
+            delete proxyStyle.width;
+            dragProxy.style = proxyStyle
+        }
+
+        super.onDragMove(data)
     }
 
     /**
@@ -39,9 +62,21 @@ class Resizable extends BaseResizable {
 
         super.onDragEnd(data);
 
+        // The base plugin blindly copies absolute coordinates from the proxy to the owner.
+        // We must clean them up so we don't break the header's flexbox layout.
         if (newWidth) {
-            owner.width = newWidth;
-            owner.up('grid-header-toolbar')?.passSizeToBody();
+            let style = owner.wrapperStyle;
+            style.height    = null;
+            style.left      = null;
+            style.position  = null;
+            style.top       = null;
+            style.opacity   = null;
+            style.transform = null;
+
+            owner.wrapperStyle = style;
+            owner.width        = newWidth;
+
+            owner.up('grid-header-toolbar')?.passSizeToBody()
         }
     }
 }
