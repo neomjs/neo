@@ -308,7 +308,7 @@ class GridBody extends Component {
 
     /**
      * Optional hook triggered after a VDOM update completes (including Main thread paint).
-     * Used by `Neo.grid.ScrollManager` to measure the real-time VDOM worker pipeline roundtrip 
+     * Used by `Neo.grid.ScrollManager` to measure the real-time VDOM worker pipeline roundtrip
      * latency (RTT) during active scrolling, enabling Predictive Delta Injection.
      * @protected
      */
@@ -415,10 +415,12 @@ class GridBody extends Component {
      */
     afterSetBufferColumnRange(value, oldValue) {
         if (oldValue !== undefined) {
-            this.skipCreateViewData = true;
-            this.updateMountedAndVisibleColumns(true);
-            this.skipCreateViewData = false;
-            this.createViewData()
+            let me = this;
+
+            me.skipCreateViewData = true;
+            me.updateMountedAndVisibleColumns(true);
+            me.skipCreateViewData = false;
+            me.createViewData()
         }
     }
 
@@ -430,15 +432,16 @@ class GridBody extends Component {
      */
     afterSetBufferRowRange(value, oldValue) {
         if (oldValue !== undefined) {
-            let current = Math.floor(this.scrollTop / this.rowHeight);
+            let me      = this,
+                current = Math.floor(me.scrollTop / me.rowHeight);
 
-            if (Math.abs(this.startIndex - current) >= value) {
-                this.skipCreateViewData = true;
-                this.startIndex = current;
-                this.skipCreateViewData = false;
+            if (Math.abs(me.startIndex - current) >= value) {
+                me.skipCreateViewData = true;
+                me.startIndex         = current;
+                me.skipCreateViewData = false
             }
 
-            this.createViewData(false, true)
+            me.createViewData(false, true)
         }
     }
 
@@ -788,7 +791,7 @@ class GridBody extends Component {
                 recycle,
                 rowIndex: i,
                 silent  : true
-            });
+            })
         }
 
         // Hide unused pool items (e.g. when filtering or at the end of the store)
@@ -955,7 +958,7 @@ class GridBody extends Component {
         for (; i < len; i++) {
             if (dataField === me.getDataField(firstRow.cn[i].id)) {
                 columnIndex = i;
-                break;
+                break
             }
         }
 
@@ -1009,7 +1012,7 @@ class GridBody extends Component {
             node, parentNodes;
 
         if (record) {
-            return record;
+            return record
         }
 
         // Check if nodeId is a recordId (internalId or PK)
@@ -1174,8 +1177,10 @@ class GridBody extends Component {
      * @param {Object} data
      */
     onRowClick(data) {
-        this.focus(this.vdom.id, false, true);
-        this.fireRowEvent(data, 'rowClick')
+        let me = this;
+
+        me.focus(me.vdom.id, false, true);
+        me.fireRowEvent(data, 'rowClick')
     }
 
     /**
@@ -1371,7 +1376,7 @@ class GridBody extends Component {
                     mountedColumns: [startIndex, endIndex]
                 })
             } else {
-                me.mountedColumns = [startIndex, endIndex];
+                me.mountedColumns = [startIndex, endIndex]
             }
         }
     }
