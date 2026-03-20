@@ -197,8 +197,13 @@ class SortZone extends BaseSortZone {
 
         await super.onDragEnd(data);
 
-        let me        = this,
-            {owner}   = me,
+        let me = this;
+
+        if (!me.dragElement) {
+            return
+        }
+
+        let {owner}   = me,
             grid      = owner.parent,
             {columns} = grid,
             toIndex   = me.dragElement['aria-colindex'] - 1,
