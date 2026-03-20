@@ -15,6 +15,7 @@
     justify-content : var(--grid-header-button-justify-content);
     margin          : 0;
     padding         : var(--grid-header-button-padding);
+    position        : relative;
     transition      : var(--grid-header-button-transition);
     white-space     : nowrap;
 
