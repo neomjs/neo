@@ -1336,22 +1336,25 @@ class GridBody extends Component {
         let me              = this,
             columnPositions = me.columnPositions,
             colPos          = columnPositions.get(dataField),
-            colIndex        = columnPositions.indexOf(colPos),
             deltaWidth      = newWidth - colPos.width,
             count           = columnPositions.getCount(),
-            i, minX, pos;
+            isFollowing     = false,
+            i, pos;
 
         if (deltaWidth === 0) {
             return
         }
 
-        // 1. Update the JS config caches
-        colPos.width = newWidth;
-        minX         = colPos.x;
+        // 1. Update the JS config caches strictly by array order
+        for (i = 0; i < count; i++) {
+            pos = columnPositions.getAt(i);
 
-        for (i = colIndex + 1; i < count; i++) {
-            pos    = columnPositions.getAt(i);
-            pos.x += deltaWidth;
+            if (pos.dataField === dataField) {
+                pos.width = newWidth;
+                isFollowing = true
+            } else if (isFollowing) {
+                pos.x += deltaWidth
+            }
         }
 
         me.setSilent({
@@ -1372,13 +1375,17 @@ class GridBody extends Component {
 
                 if (field) {
                     if (field === dataField) {
-                        cell.style.width = newWidth + 'px';
+                        cell.style.width = newWidth + 'px'
                     } else {
                         pos = columnPositions.get(field);
 
-                        // Using x coordinate to check if it's a following column
-                        if (pos && pos.x > minX) {
-                            cell.style.left = pos.x + 'px';
+                        if (pos) {
+                            // Self-healing: if a previous drag left visibility: 'hidden' in the VDOM,
+                            // cear it now to prevent the cell from vanishing during resize.
+                            delete cell.style.visibility;
+                            // Blindly apply the cache. If it's a preceding column,
+                            // pos.x is unchanged and the VDOM engine ignores the delta.
+                            cell.style.left = pos.x + 'px'
                         }
                     }
                 }
