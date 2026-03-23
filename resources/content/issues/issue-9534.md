@@ -1,7 +1,7 @@
 ---
 id: 9534
 title: Rename mcp-stdio.mjs to mcp-server.mjs
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
@@ -9,16 +9,17 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-03-23T17:20:17Z'
-updatedAt: '2026-03-23T17:20:31Z'
+updatedAt: '2026-03-23T17:30:01Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9534'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-03-23T17:30:01Z'
 ---
 # Rename mcp-stdio.mjs to mcp-server.mjs
 
@@ -40,4 +41,12 @@ We need to rename these files to a more transport-agnostic name, such as `mcp-se
 - 2026-03-23T17:20:18Z @tobiu added the `ai` label
 - 2026-03-23T17:20:19Z @tobiu added the `refactoring` label
 - 2026-03-23T17:20:31Z @tobiu assigned to @tobiu
+- 2026-03-23T17:29:16Z @tobiu referenced in commit `f1f85ad` - "refactor(ai): Rename mcp-stdio.mjs to mcp-server.mjs (#9534)"
+### @tobiu - 2026-03-23T17:29:33Z
+
+**Input from Gemini 3.1 Pro:**
+
+> ✦ I have successfully renamed all `mcp-stdio.mjs` files to `mcp-server.mjs`. I also updated the references in `package.json`, the memory-core `HealthService`, and all related documentation files. The changes have been committed and pushed.
+
+- 2026-03-23T17:30:01Z @tobiu closed this issue
 
