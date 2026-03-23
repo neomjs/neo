@@ -10,7 +10,11 @@ import {listTools, callTool}                           from './services/toolServ
 /**
  * @summary The Memory Core MCP Server application.
  *
- * Handles initialization, configuration, and lifecycle management for the MCP server.
+ * Handles initialization, configuration, and lifecycle management for the Memory Core MCP server.
+ * This server uses a dual-transport architecture, allowing it to communicate with local CLI clients
+ * via `stdio` (the default) or with cloud-native/remote clients via `sse` (StreamableHTTPServerTransport).
+ *
+ * The transport mode and HTTP port can be configured using `aiConfig.transport` and `aiConfig.ssePort`.
  *
  * @class Neo.ai.mcp.server.memory-core.Server
  * @extends Neo.core.Base
