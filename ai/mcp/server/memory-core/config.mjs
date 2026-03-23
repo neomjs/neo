@@ -20,6 +20,21 @@ const defaultConfig = {
      */
     debug: false,
     /**
+     * Transport protocol for the MCP server ('stdio' or 'sse').
+     * @type {string}
+     */
+    transport: 'stdio',
+    /**
+     * Port for the SSE transport (only used if transport is 'sse').
+     * @type {number}
+     */
+    ssePort: 3001,
+    /**
+     * Optional Express middleware function for authentication (only used if transport is 'sse').
+     * @type {Function|null}
+     */
+    authMiddleware: null,
+    /**
      * A dummy embedding function to satisfy the ChromaDB API when embeddings are provided manually.
      *
      * NOTE: This verbose structure is strictly required to prevent the ChromaDB client from
