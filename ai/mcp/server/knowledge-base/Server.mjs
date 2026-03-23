@@ -36,12 +36,6 @@ class Server extends Base {
      * @protected
      */
     mcpServer = null
-    /**
-     * The Transport instance.
-     * @member {Object|null} transport=null
-     * @protected
-     */
-    transport = null
 
     /**
      * Async initialization sequence.
@@ -127,8 +121,8 @@ class Server extends Base {
             });
         } else {
             const {StdioServerTransport} = await import('@modelcontextprotocol/sdk/server/stdio.js');
-            this.transport = new StdioServerTransport();
-            await this.mcpServer.connect(this.transport);
+            const transport = new StdioServerTransport();
+            await this.mcpServer.connect(transport);
 
             logger.info('[neo-knowledge-base MCP] Server started on stdio transport');
             logger.info('[neo-knowledge-base MCP] Available tools loaded from OpenAPI spec');
