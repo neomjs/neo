@@ -85,21 +85,38 @@ class Server extends Base {
 
         // 6. Connect Transport
         if (aiConfig.transport === 'sse') {
-            const express              = (await import('express')).default;
-            const {SSEServerTransport} = await import('@modelcontextprotocol/sdk/server/sse.js');
-            const app                  = express();
+            const { StreamableHTTPServerTransport } = await import('@modelcontextprotocol/sdk/server/streamableHttp.js');
+            const { createMcpExpressApp }           = await import('@modelcontextprotocol/sdk/server/express.js');
+            const crypto                            = await import('crypto');
+            const app                               = createMcpExpressApp();
 
             if (typeof aiConfig.authMiddleware === 'function') {
                 app.use(aiConfig.authMiddleware);
             }
 
-            app.get('/mcp/messages', async (req, res) => {
-                this.transport = new SSEServerTransport('/mcp/messages', res);
-                await this.mcpServer.connect(this.transport);
-            });
+            const transports = new Map();
 
-            app.post('/mcp/messages', async (req, res) => {
-                await this.transport.handlePostMessage(req, res);
+            app.all('/mcp', async (req, res) => {
+                const sessionId = req.headers['mcp-session-id'];
+                let transport;
+
+                if (sessionId) {
+                    transport = transports.get(sessionId);
+                    if (!transport) {
+                        res.status(404).json({ error: 'Session not found' });
+                        return;
+                    }
+                } else {
+                    transport = new StreamableHTTPServerTransport({
+                        sessionIdGenerator  : () => crypto.randomUUID(),
+                        onsessioninitialized: (id) => transports.set(id, transport),
+                        onsessionclosed     : (id) => transports.delete(id)
+                    });
+
+                    await this.mcpServer.connect(transport);
+                }
+
+                await transport.handleRequest(req, res, req.body);
             });
 
             const port = aiConfig.ssePort || 3001;
