@@ -67,7 +67,7 @@ It is important to understand that **MCP is just a transport layer**.
 
 In the Neo.mjs Agent OS, the actual business logic (searching vectors, syncing GitHub, saving memories) lives inside **Services** (e.g., `QueryService`, `IssueService`). These are **Neo.mjs Singleton Classes** that exist independently of any server.
 
-*   **The MCP Server** (`mcp-stdio.mjs`) is just a thin wrapper. It exposes these services to the outside world via the Model Context Protocol.
+*   **The MCP Server** (`mcp-server.mjs`) is just a thin wrapper. It exposes these services to the outside world via the Model Context Protocol.
 *   **The AI SDK** (`ai/services.mjs`) imports these **Services** directly.
 
 ### The `initAsync` Pattern
