@@ -4,15 +4,16 @@ title: Combine DomAccess.addScript and loadScript into a unified API
 state: OPEN
 labels:
   - enhancement
+  - stale
   - ai
   - refactoring
   - architecture
 assignees: []
 createdAt: '2025-12-21T11:37:41Z'
-updatedAt: '2025-12-21T11:37:41Z'
+updatedAt: '2026-03-22T03:55:58Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8152'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
@@ -40,4 +41,9 @@ This is a technical debt cleanup task.
 - 2025-12-21T11:37:43Z @tobiu added the `refactoring` label
 - 2025-12-21T11:37:43Z @tobiu added the `architecture` label
 - 2025-12-21T11:46:03Z @tobiu cross-referenced by #8149
+### @github-actions - 2026-03-22T03:55:57Z
+
+This issue is stale because it has been open for 90 days with no activity.
+
+- 2026-03-22T03:55:58Z @github-actions added the `stale` label
 
