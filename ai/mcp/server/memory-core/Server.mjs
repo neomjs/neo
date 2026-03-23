@@ -82,10 +82,10 @@ class Server extends Base {
 
         // 6. Connect Transport
         if (aiConfig.transport === 'sse') {
-            const { StreamableHTTPServerTransport } = await import('@modelcontextprotocol/sdk/server/streamableHttp.js');
-            const { createMcpExpressApp }           = await import('@modelcontextprotocol/sdk/server/express.js');
-            const crypto                            = await import('crypto');
-            const app                               = createMcpExpressApp();
+            const {createMcpExpressApp}           = await import('@modelcontextprotocol/sdk/server/express.js');
+            const {StreamableHTTPServerTransport} = await import('@modelcontextprotocol/sdk/server/streamableHttp.js');
+            const crypto                          = await import('crypto');
+            const app                             = createMcpExpressApp();
 
             if (typeof aiConfig.authMiddleware === 'function') {
                 app.use(aiConfig.authMiddleware);
@@ -105,7 +105,7 @@ class Server extends Base {
                     }
                 } else {
                     transport = new StreamableHTTPServerTransport({
-                        sessionIdGenerator  : () => crypto.randomUUID(),
+                        sessionIdGenerator  : ()   => crypto.randomUUID(),
                         onsessioninitialized: (id) => transports.set(id, transport),
                         onsessionclosed     : (id) => transports.delete(id)
                     });
