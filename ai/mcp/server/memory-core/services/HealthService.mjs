@@ -412,7 +412,7 @@ class HealthService extends Base {
 
     /**
      * Records the result of startup summarization attempt.
-     * Called by the startup sequence in mcp-stdio.mjs
+     * Called by the startup sequence in mcp-server.mjs
      * @param {string} status  One of: 'completed', 'failed', 'skipped'
      * @param {Object} details Additional information about the summarization
      */

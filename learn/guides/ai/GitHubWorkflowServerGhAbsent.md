@@ -17,7 +17,7 @@ $origPATH = $env:PATH
 $env:PATH = ($env:PATH -split ';' | Where-Object { $_ -notmatch 'GitHub CLI' -and $_ -notmatch 'GitHub' }) -join ';'
 
 # Start the MCP stdio server in this session (gh will be hidden)
-node C:/dev/open_source/neo/ai/mcp/server/github-workflow/mcp-stdio.mjs --debug
+node C:/dev/open_source/neo/ai/mcp/server/github-workflow/mcp-server.mjs --debug
 
 # When finished, restore your PATH
 $env:PATH = $origPATH
@@ -31,7 +31,7 @@ $env:PATH = $origPATH
 Alternative single-command test (no session PATH change)
 
 ```powershell
-cmd /C "set PATH=C:\Windows\System32;C:\Windows; & node C:\dev\open_source\neo\ai\mcp\server\github-workflow\mcp-stdio.mjs --debug"
+cmd /C "set PATH=C:\Windows\System32;C:\Windows; & node C:\dev\open_source\neo\ai\mcp\server\github-workflow\mcp-server.mjs --debug"
 ```
 
 Runbook / Remediation

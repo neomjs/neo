@@ -120,7 +120,7 @@ The server is highly configurable via `config.mjs` or a custom configuration fil
 ### Usage
 
 ```bash readonly
-node ai/mcp/server/github-workflow/mcp-stdio.mjs -c ./my-config.json
+node ai/mcp/server/github-workflow/mcp-server.mjs -c ./my-config.json
 ```
 
 ### Configuration File Format

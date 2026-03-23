@@ -99,7 +99,7 @@ The server supports loading a custom configuration file via the `-c` or `--confi
 ### Usage
 
 ```bash readonly
-node ai/mcp/server/memory-core/mcp-stdio.mjs -c ./my-config.json
+node ai/mcp/server/memory-core/mcp-server.mjs -c ./my-config.json
 ```
 
 ### Configuration File Format
