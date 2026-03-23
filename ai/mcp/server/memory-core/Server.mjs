@@ -38,7 +38,7 @@ class Server extends Base {
     mcpServer = null
     /**
      * The Transport instance.
-     * @member {StdioServerTransport|null} transport=null
+     * @member {Object|null} transport=null
      * @protected
      */
     transport = null
@@ -84,11 +84,36 @@ class Server extends Base {
         this.logStartupStatus(health);
 
         // 6. Connect Transport
-        this.transport = new StdioServerTransport();
-        await this.mcpServer.connect(this.transport);
+        if (aiConfig.transport === 'sse') {
+            const express              = (await import('express')).default;
+            const {SSEServerTransport} = await import('@modelcontextprotocol/sdk/server/sse.js');
+            const app                  = express();
 
-        logger.info('[neo-memory-core MCP] Server started on stdio transport');
-        logger.info('[neo-memory-core MCP] Available tools loaded from OpenAPI spec');
+            if (typeof aiConfig.authMiddleware === 'function') {
+                app.use(aiConfig.authMiddleware);
+            }
+
+            app.get('/mcp/messages', async (req, res) => {
+                this.transport = new SSEServerTransport('/mcp/messages', res);
+                await this.mcpServer.connect(this.transport);
+            });
+
+            app.post('/mcp/messages', async (req, res) => {
+                await this.transport.handlePostMessage(req, res);
+            });
+
+            const port = aiConfig.ssePort || 3001;
+            app.listen(port, () => {
+                logger.info(`[neo-memory-core MCP] Server started on SSE transport (Port: ${port})`);
+                logger.info('[neo-memory-core MCP] Available tools loaded from OpenAPI spec');
+            });
+        } else {
+            this.transport = new StdioServerTransport();
+            await this.mcpServer.connect(this.transport);
+
+            logger.info('[neo-memory-core MCP] Server started on stdio transport');
+            logger.info('[neo-memory-core MCP] Available tools loaded from OpenAPI spec');
+        }
     }
 
     /**
