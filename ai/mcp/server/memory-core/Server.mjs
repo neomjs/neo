@@ -1,5 +1,4 @@
 import {McpServer}                                     from '@modelcontextprotocol/sdk/server/mcp.js';
-import {StdioServerTransport}                          from '@modelcontextprotocol/sdk/server/stdio.js';
 import {CallToolRequestSchema, ListToolsRequestSchema} from '@modelcontextprotocol/sdk/types.js';
 import Base                                            from '../../../../src/core/Base.mjs';
 import aiConfig                                        from './config.mjs';
@@ -125,6 +124,7 @@ class Server extends Base {
                 logger.info('[neo-memory-core MCP] Available tools loaded from OpenAPI spec');
             });
         } else {
+            const {StdioServerTransport} = await import('@modelcontextprotocol/sdk/server/stdio.js');
             this.transport = new StdioServerTransport();
             await this.mcpServer.connect(this.transport);
 
