@@ -202,6 +202,11 @@ export default {
     *   `dataPath`: The location of the source-of-truth JSONL file.
     *   *Note:* Ensure these do not overlap with the Memory Core's configuration.
 
+*   **Transport & Cloud Deployments:**
+    *   `transport`: Defines the MCP transport protocol. Defaults to `'stdio'` for local CLI usage. Set to `'sse'` to run the server as a cloud-native HTTP microservice (e.g., in a Docker container).
+    *   `ssePort`: The HTTP port for the SSE server (default: `3000`).
+    *   `authMiddleware`: An optional Express middleware function for securing the `/mcp` endpoint when using the `sse` transport.
+
 *   **Scoring Weights (`queryScoreWeights`):**
     *   You can fine-tune the brain's retrieval logic here.
     *   *Example:* Decrease `ticketPenalty` if you want the agent to focus more on historical bug reports.
