@@ -1,5 +1,6 @@
 import ContributorModel from '../model/Contributor.mjs';
 import Store            from '../../../src/data/Store.mjs';
+import StreamConnection from '../../../src/data/connection/Stream.mjs';
 import StreamParser     from '../../../src/data/parser/Stream.mjs';
 
 /**
@@ -41,12 +42,17 @@ class Contributors extends Store {
             {property: 'name',        operator: 'like', value: null}
         ],
         /**
-         * @member {Object} parser
+         * @member {Object} pipeline
          */
-        parser: {
-            module              : StreamParser,
-            progressiveChunkSize: true,
-            url                 : Neo.config.basePath + 'apps/devindex/resources/data/users.jsonl'
+        pipeline: {
+            connection: {
+                module: StreamConnection,
+                url   : Neo.config.basePath + 'apps/devindex/resources/data/users.jsonl'
+            },
+            parser: {
+                module              : StreamParser,
+                progressiveChunkSize: true
+            }
         },
         /**
          * @member {Object[]} sorters
