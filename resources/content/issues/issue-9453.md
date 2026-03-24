@@ -1,7 +1,7 @@
 ---
 id: 9453
 title: Implement Pipeline IPC and Remote Execution Routing
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
@@ -10,19 +10,18 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-03-12T18:23:01Z'
-updatedAt: '2026-03-12T21:03:14Z'
+updatedAt: '2026-03-24T20:12:07Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9453'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 9449
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-03-24T20:12:07Z'
 ---
-# Implement Pipeline IPC and Remote Execution Routing
-
 # Implement Pipeline IPC and Remote Execution Routing
 
 ### Goal
@@ -47,4 +46,25 @@ In issue #9451, we created `Neo.data.Pipeline` which handles instantiating a mir
 - 2026-03-12T18:24:42Z @tobiu cross-referenced by #9449
 - 2026-03-12T18:25:27Z @tobiu assigned to @tobiu
 - 2026-03-12T21:03:14Z @tobiu changed title from **Wire Data Worker Normalizer Execution Pipeline** to **Implement Pipeline IPC and Remote Execution Routing**
+- 2026-03-12T21:14:31Z @tobiu cross-referenced by #9451
+- 2026-03-24T16:07:42Z @tobiu cross-referenced by #9543
+- 2026-03-24T20:09:41Z @tobiu referenced in commit `2b9b44b` - "feat(data): implement Pipeline IPC and remote execution routing (#9453)"
+### @tobiu - 2026-03-24T20:09:50Z
+
+**Input from Gemini 3.1 Pro:**
+
+> ✦ I have implemented the Pipeline IPC and remote execution routing, leveraging the new Instance-to-Instance `RemoteMethodAccess` (RMA) layer we built in #9544.
+> 
+> **Implementation Details:**
+> 1.  **Pipeline Operations (`src/data/Pipeline.mjs`):**
+>     *   Updated `read()` to use `Neo.currentWorker.generateRemote` to create a proxy to its Data Worker counterpart.
+>     *   Implemented `create()` and `update()` methods using a shared `executeRemoteOrLocal` helper. This helper ensures that if `workerExecution: 'data'` is set, all operations are seamlessly routed via RMA to the `remoteId`.
+> 2.  **Data Worker Cleanup (`src/worker/Data.mjs`):**
+>     *   **Removed the Hack:** Deleted the hardcoded `onPipelineExecute` message handler. The Data Worker no longer needs domain-specific logic to route Pipeline calls; the core RMA mixin handles it automatically via `remoteId`.
+>     *   **Memory Management:** Added an `onDestroyInstance` handler. When the App Worker Pipeline is destroyed, it sends a `destroyInstance` message. This new handler ensures the remote instance is properly destroyed (`instance.destroy()`) and removed from the Data Worker's `this.instances` cache, preventing memory leaks.
+> 
+> The pipeline architecture is now fully wired for cross-worker orchestration. I will close this sub-issue.
+
+- 2026-03-24T20:12:08Z @tobiu closed this issue
+- 2026-03-24T20:19:59Z @tobiu cross-referenced by #9546
 

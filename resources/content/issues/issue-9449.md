@@ -22,13 +22,15 @@ subIssues:
   - '[x] 9450 Enhance Data Worker to Instantiate Dynamically Loaded Modules'
   - '[x] 9451 Create Pipeline Cornerstone and Refactor Store Implementation'
   - '[x] 9452 Connection Foundation and Parser Refactoring'
-  - '[ ] 9453 Implement Pipeline IPC and Remote Execution Routing'
+  - '[x] 9453 Implement Pipeline IPC and Remote Execution Routing'
   - '[ ] 9454 Implement Push-Based WebSocket Integration in Data Pipeline'
   - '[ ] 9455 Integrate RPC API into Pipeline Architecture (Connection.Rpc)'
   - '[ ] 9502 Migrate existing Stores to the new Pipeline architecture'
-  - '[ ] 9543 Store Pipeline Instantiation and Legacy Parser Compatibility'
-subIssuesCompleted: 6
-subIssuesTotal: 11
+  - '[x] 9543 Store Pipeline Instantiation and Legacy Parser Compatibility'
+  - '[x] 9544 Enhance RemoteMethodAccess to Support Instance-to-Instance Routing'
+  - '[x] 9546 Refactor Pipeline IPC to use Declarative Remote Configs (Instance Proxies)'
+subIssuesCompleted: 10
+subIssuesTotal: 13
 blockedBy: []
 blocking: []
 ---
@@ -146,4 +148,7 @@ To support this natively:
 
 - 2026-03-17T18:48:48Z @tobiu cross-referenced by PR #9501
 - 2026-03-24T16:08:31Z @tobiu added sub-issue #9543
+- 2026-03-24T19:31:36Z @tobiu cross-referenced by #9544
+- 2026-03-24T19:31:49Z @tobiu added sub-issue #9544
+- 2026-03-24T20:20:11Z @tobiu added sub-issue #9546
 
