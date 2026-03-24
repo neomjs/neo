@@ -19,9 +19,6 @@ import StreamParser   from '../../../../../src/data/parser/Stream.mjs';
 test.describe.serial('Neo.data.parser.Stream', () => {
     let parser;
 
-    // Mock global fetch and streams for Node environment if needed
-    // In Playwright Node environment, ReadableStream/TextDecoderStream should be available.
-    
     test.beforeEach(() => {
         parser = Neo.create(StreamParser, {
             store: {}
@@ -37,28 +34,18 @@ test.describe.serial('Neo.data.parser.Stream', () => {
 
         const ndjson = mockData.map(JSON.stringify).join('\n');
         
-        // Mock fetch
-        const originalFetch = globalThis.fetch;
-        globalThis.fetch = async (url) => {
-            return {
-                headers: {
-                    get: () => 0
-                },
-                ok: true,
-                body: new ReadableStream({
-                    start(controller) {
-                        const encoder = new TextEncoder();
-                        // Send data in chunks to simulate streaming
-                        const chunk1 = encoder.encode(ndjson.substring(0, 10)); // Partial first line
-                        const chunk2 = encoder.encode(ndjson.substring(10));    // Rest
+        const stream = new ReadableStream({
+            start(controller) {
+                const encoder = new TextEncoder();
+                // Send data in chunks to simulate streaming
+                const chunk1 = encoder.encode(ndjson.substring(0, 10)); // Partial first line
+                const chunk2 = encoder.encode(ndjson.substring(10));    // Rest
 
-                        controller.enqueue(chunk1);
-                        controller.enqueue(chunk2);
-                        controller.close();
-                    }
-                })
-            };
-        };
+                controller.enqueue(chunk1);
+                controller.enqueue(chunk2);
+                controller.close();
+            }
+        });
 
         const items = [];
         parser.on('data', (data) => {
@@ -66,7 +53,7 @@ test.describe.serial('Neo.data.parser.Stream', () => {
             items.push(...data);
         });
 
-        const result = await parser.read({url: 'http://test.com/data.jsonl'});
+        const result = await parser.read({stream, total: ndjson.length});
 
         expect(result.success).toBe(true);
         expect(result.count).toBe(3);
@@ -74,9 +61,6 @@ test.describe.serial('Neo.data.parser.Stream', () => {
         expect(items[0]).toMatchObject(mockData[0]);
         expect(items[1]).toMatchObject(mockData[1]);
         expect(items[2]).toMatchObject(mockData[2]);
-
-        // Restore fetch
-        globalThis.fetch = originalFetch;
     });
 
     test('read() should handle empty lines and whitespace', async () => {
@@ -87,45 +71,36 @@ ${JSON.stringify(mockData[0])}
 ${JSON.stringify(mockData[1])}
         `; // Leading/trailing newlines and empty lines
 
-        // Mock fetch
-        const originalFetch = globalThis.fetch;
-        globalThis.fetch = async (url) => {
-            return {
-                headers: {
-                    get: () => 0
-                },
-                ok: true,
-                body: new ReadableStream({
-                    start(controller) {
-                        const encoder = new TextEncoder();
-                        controller.enqueue(encoder.encode(ndjson));
-                        controller.close();
-                    }
-                })
-            };
-        };
+        const stream = new ReadableStream({
+            start(controller) {
+                const encoder = new TextEncoder();
+                controller.enqueue(encoder.encode(ndjson));
+                controller.close();
+            }
+        });
 
         const items = [];
         parser.on('data', (data) => {
             items.push(...data);
         });
 
-        const result = await parser.read({url: 'http://test.com/data.jsonl'});
+        const result = await parser.read({stream, total: ndjson.length});
 
         expect(result.count).toBe(2);
         expect(items.length).toBe(2);
         expect(items[0]).toMatchObject(mockData[0]);
         expect(items[1]).toMatchObject(mockData[1]);
-
-        globalThis.fetch = originalFetch;
     });
 
-    test('read() should throw on HTTP error', async () => {
-         const originalFetch = globalThis.fetch;
-         globalThis.fetch = async () => ({ ok: false, status: 404 });
+    test('read() should handle aborted stream gracefully', async () => {
+         const items = [];
+         parser.on('data', (data) => items.push(...data));
 
-         await expect(parser.read({url: 'http://test.com/404'})).rejects.toThrow('HTTP error! status: 404');
+         const result = await parser.read({aborted: true});
 
-         globalThis.fetch = originalFetch;
+         expect(result.success).toBe(true);
+         expect(result.aborted).toBe(true);
+         expect(result.count).toBe(0);
+         expect(items.length).toBe(0);
     });
 });
