@@ -251,6 +251,15 @@ class Pipeline extends Base {
     }
 
     /**
+     * Main data create operation.
+     * @param {Object} params
+     * @returns {Promise<Object|Array|null>}
+     */
+    async create(params = {}) {
+        return this.executeRemoteOrLocal('create', params);
+    }
+
+    /**
      * Main data fetch operation.
      * Supports a self-healing retry loop for remote execution.
      * @param {Object} params
@@ -269,12 +278,13 @@ class Pipeline extends Base {
             if (me.isDestroyed) return null;
 
             try {
-                const response = await Neo.worker.Data.promiseMessage({
-                    action   : 'pipelineExecute',
-                    id       : me.remoteId,
-                    operation: 'read',
-                    params
-                });
+                let remoteRead = Neo.currentWorker.generateRemote({
+                    origin   : 'data',
+                    className: me.className,
+                    id       : me.remoteId
+                }, 'read');
+
+                const response = await remoteRead(params);
 
                 if (response === null && attempt <= maxRemoteRetries) {
                     // Potential remote instance loss or silent failure
@@ -319,6 +329,61 @@ class Pipeline extends Base {
             // if it was parsed locally. For parser.Stream, the parser fires 'data' itself,
             // but we can ensure standard responses also trigger it or let the store handle it.
             // Actually, parser.Stream fires 'data', but Pipeline needs to relay it if we are encapsulating it.
+            return shapedData
+        }
+    }
+
+    /**
+     * Main data update operation.
+     * @param {Object} params
+     * @returns {Promise<Object|Array|null>}
+     */
+    async update(params = {}) {
+        return this.executeRemoteOrLocal('update', params);
+    }
+
+    /**
+     * Helper method to execute generic pipeline operations.
+     * @param {String} operation 'create', 'update'
+     * @param {Object} params
+     * @returns {Promise<Object|Array|null>}
+     * @protected
+     */
+    async executeRemoteOrLocal(operation, params = {}) {
+        let me = this;
+
+        if (me.workerExecution === 'data') {
+            if (!me.remoteId && !me.isDestroyed) {
+                await me.initRemoteExecution();
+            }
+
+            if (me.isDestroyed) return null;
+
+            let remoteMethod = Neo.currentWorker.generateRemote({
+                origin   : 'data',
+                className: me.className,
+                id       : me.remoteId
+            }, operation);
+
+            return await remoteMethod(params);
+        } else {
+            let rawData;
+            
+            if (me.connection && me.connection[operation]) {
+                rawData = await me.connection[operation](params);
+                if (!rawData) return null;
+            }
+
+            let shapedData = rawData;
+
+            if (me.parser && me.parser[operation]) {
+                shapedData = await me.parser[operation](shapedData)
+            }
+
+            if (me.normalizer && me.normalizer[operation]) {
+                shapedData = await me.normalizer[operation](shapedData)
+            }
+
             return shapedData
         }
     }
