@@ -183,7 +183,10 @@ class RemoteMethodAccess extends Base {
                     throw new Error('Duplicate remote method definition ' + className + '.' + method)
                 }
 
-                pkg[method] ??= me.generateRemote(remote, method)
+                pkg[method] ??= me.generateRemote({
+                    className: remote.className,
+                    origin   : remote.origin
+                }, method)
             });
 
             if (remote.id) {
