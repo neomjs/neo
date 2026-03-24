@@ -60,6 +60,7 @@ paths:
     post:
       summary: Manage Database
       operationId: manage_database
+      x-pass-as-object: true
       description: |
         Manages the lifecycle (start/stop) of the ChromaDB database instance.
 
@@ -109,6 +110,7 @@ paths:
     post:
       summary: Manage Knowledge Base Data
       operationId: manage_knowledge_base
+      x-pass-as-object: true
       description: |
         Manages the content of the knowledge base.
 
