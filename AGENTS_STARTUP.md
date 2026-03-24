@@ -208,7 +208,7 @@ This approach transforms the AI agent from just a consumer of documentation to a
 
 Your initialization is a snapshot in time. The codebase can change. If you pull new changes from the repository, you should consider re-running your initialization steps (reading `Neo.mjs`, and `core/Base.mjs`) to ensure your understanding is up to date.
 
-Furthermore, after pulling changes, the local knowledge base may be out of sync. You should call the `sync_database` tool to re-embed the latest changes into the database.
+Furthermore, after pulling changes, the local knowledge base may be out of sync. You should call the `manage_knowledge_base` tool with the `action: 'sync'` parameter to re-embed the latest changes into the database.
 
 ## 7. Working with Sub-Agents
 

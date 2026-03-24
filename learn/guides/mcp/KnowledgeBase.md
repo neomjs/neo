@@ -151,7 +151,7 @@ A critical part of the workflow is that the AI agent is not just a consumer, but
 1.  **Query:** The agent searches for information.
 2.  **Analyze:** If the returned source code lacks comments or intent, the agent struggles.
 3.  **Enhance:** The agent applies the **Knowledge Base Enhancement Strategy** (defined in `AGENTS_STARTUP.md`). It adds rich JSDoc comments, `@summary` tags, and semantic keywords to the code.
-4.  **Sync:** The agent runs `sync_database`.
+4.  **Sync:** The agent runs `manage_knowledge_base(action: 'sync')`.
 5.  **Improve:** The next query (by this agent or another) will find this enhanced content, yielding a higher score and better understanding.
 
 This cycle turns technical debt into an asset, continuously improving the project's "AI-friendliness."
