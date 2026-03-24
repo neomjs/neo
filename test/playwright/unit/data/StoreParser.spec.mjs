@@ -37,8 +37,10 @@ test.describe.serial('Neo.data.Store Parser Integration', () => {
     test('Store should create parser from config', () => {
         const store = Neo.create(Store, {
             keyProperty: 'id',
-            parser: {
-                module: MockParser
+            pipeline: {
+                parser: {
+                    module: MockParser
+                }
             }
         });
 
@@ -55,8 +57,10 @@ test.describe.serial('Neo.data.Store Parser Integration', () => {
                 module: Model,
                 fields: [{name: 'id'}, {name: 'name'}]
             },
-            parser: {
-                module: MockParser
+            pipeline: {
+                parser: {
+                    module: MockParser
+                }
             }
         });
 

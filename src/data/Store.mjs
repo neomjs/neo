@@ -1,8 +1,6 @@
 import {internalId}    from '../core/ConfigSymbols.mjs';
 import ClassSystemUtil from '../util/ClassSystem.mjs';
 import Collection      from '../collection/Base.mjs';
-import ConnectionFetch from './connection/Fetch.mjs';
-import ConnectionStream from './connection/Stream.mjs';
 import Model           from './Model.mjs';
 import Observable      from '../core/Observable.mjs';
 import Pipeline        from './Pipeline.mjs';
@@ -201,54 +199,6 @@ class Store extends Collection {
     construct(config) {
         config = config || {};
         config.itemFactory = this.assignInternalId.bind(this);
-
-        // temporary bridge for legacy parser and url configs
-        if (!config.pipeline) {
-            let pConfig = config.parser !== undefined ? config.parser : this.parser;
-            let uConfig = config.url    !== undefined ? config.url    : this.url;
-
-            if (pConfig || uConfig) {
-                let connectionNtype = 'connection-fetch';
-                let connectionUrl   = uConfig;
-
-                if (pConfig) {
-                    if (Neo.typeOf(pConfig) === 'NeoClass') {
-                        pConfig = { module: pConfig };
-                    } else if (Neo.typeOf(pConfig) === 'Object') {
-                        pConfig = { ...pConfig };
-                    } else {
-                        pConfig = { ntype: pConfig }; // string fallback
-                    }
-
-                    if (pConfig.url) {
-                        connectionUrl = pConfig.url;
-                        delete pConfig.url;
-                    }
-
-                    if (pConfig.ntype === 'parser-stream' || pConfig.module?.prototype?.ntype === 'parser-stream') {
-                        connectionNtype = 'connection-stream';
-                    }
-                }
-
-                config.pipeline = {};
-                
-                if (pConfig) {
-                    config.pipeline.parser = pConfig;
-                }
-                
-                if (connectionUrl) {
-                    config.pipeline.connection = {
-                        ntype: connectionNtype,
-                        url  : connectionUrl
-                    };
-                }
-
-                config.parser = null;
-                this.parser   = null;
-                config.url    = null;
-                this.url      = null;
-            }
-        }
 
         super.construct(config);
 
@@ -875,55 +825,6 @@ class Store extends Collection {
         }
 
         return items
-    }
-
-    /**
-     * @param {Object} config
-     * @param {Boolean} [preventOriginalConfig] True prevents the instance from getting an originalConfig property
-     * @returns {Object} config
-     * @protected
-     */
-    mergeConfig(config, preventOriginalConfig) {
-        let merged = super.mergeConfig(config, preventOriginalConfig);
-
-        // temporary bridge for legacy parser and url configs
-        if (!merged.pipeline && (merged.parser || merged.url)) {
-            let pConfig = merged.parser;
-            let url     = merged.url;
-
-            merged.pipeline = {};
-
-            if (pConfig) {
-                if (typeof pConfig === 'function') {
-                    pConfig = { module: pConfig };
-                } else if (Neo.isObject(pConfig)) {
-                    pConfig = { ...pConfig };
-                } else {
-                    pConfig = { ntype: pConfig };
-                }
-
-                if (pConfig.url) {
-                    if (!url) url = pConfig.url;
-                    delete pConfig.url;
-                }
-
-                merged.pipeline.parser = pConfig;
-            }
-
-            if (url) {
-                let pModule = merged.pipeline?.parser?.module;
-                let isStream = merged.pipeline?.parser?.ntype === 'parser-stream' || pModule?.prototype?.ntype === 'parser-stream';
-                
-                merged.pipeline.connection = {
-                    ntype: isStream ? 'connection-stream' : 'connection-fetch',
-                    url  : url
-                };
-            }
-
-            delete merged.parser;
-        }
-
-        return merged;
     }
 
     /**
