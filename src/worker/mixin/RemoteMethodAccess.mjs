@@ -36,9 +36,22 @@ import Base from '../../core/Base.mjs';
  *   function returns a `Promise` that resolves with the return value of the remote method. This is true even if
  *   the original method is synchronous.
  *
- * **Namespace-Driven Access:**
- * Remote access is resolved via namespaces. The calling thread must know the full class name (e.g., `Neo.main.addon.LocalStorage`)
- * to invoke the method.
+ * **Routing Modes:**
+ * RMA supports two distinct routing modes for executing remote methods:
+ *
+ * 1. **Singleton Routing (Namespace-Driven):**
+ *    Historically, RMA was used exclusively for singletons. Remote access is resolved via static namespaces
+ *    (e.g., `Neo.ns('Neo.main.addon.LocalStorage')`). The calling thread must know the full class name.
+ *
+ * 2. **Instance-to-Instance Routing (ID-Driven):**
+ *    RMA can also route messages to specific class instances across worker boundaries using `remoteId`.
+ *    Because each worker has an isolated memory space and its own `Neo.manager.Instance` registry, an ID
+ *    (like 'pipeline-1') only refers to an object within its local thread.
+ *    To establish an instance-to-instance connection, instances must perform a **Handshake**:
+ *    - Thread A creates an instance in Thread B (via `worker.createInstance()`), passing its own local ID in the config.
+ *    - Thread B instantiates the object, registers it locally, and returns its new local ID to Thread A.
+ *    - Now, both instances can use `generateRemote` by providing `id` alongside `origin` (the destination worker).
+ *    RMA intercepts messages with a `remoteId` and resolves them dynamically via `Neo.manager.Instance.get(remoteId)`.
  *
  * **Architectural Note:**
  * To support the distributed multi-window architecture where one App Worker serves multiple connected Main Threads,
@@ -48,7 +61,7 @@ import Base from '../../core/Base.mjs';
  * cannot be reliably routed in a shared-worker environment.
  *
  * @example
- * // 1. Usage in Neo.component.wrapper.MonacoEditor
+ * // 1. Singleton Usage in Neo.component.wrapper.MonacoEditor
  * // Calls the remote method 'setTheme' on the Main Thread addon 'Neo.main.addon.MonacoEditor'
  * Neo.main.addon.MonacoEditor.setTheme({
  *     id      : me.id,
@@ -59,12 +72,23 @@ import Base from '../../core/Base.mjs';
  * });
  *
  * @example
- * // 2. Usage in a Controller accessing LocalStorage
+ * // 2. Singleton Usage in a Controller accessing LocalStorage
  * // Calls 'readLocalStorageItem' on the Main Thread addon 'Neo.main.addon.LocalStorage'
  * const value = await Neo.main.addon.LocalStorage.readLocalStorageItem({
  *     key     : 'mySettings',
  *     windowId: this.windowId
  * });
+ *
+ * @example
+ * // 3. Instance-to-Instance Usage
+ * // App Worker Pipeline generating a proxy to call `read()` on its Data Worker counterpart
+ * let remoteRead = this.generateRemote({
+ *     origin   : 'data',         // Target worker
+ *     className: this.className,
+ *     id       : this.remoteId   // The local ID of the instance in the Data Worker
+ * }, 'read');
+ *
+ * let response = await remoteRead({ page: 1 });
  *
  * @class Neo.worker.mixin.RemoteMethodAccess
  * @extends Neo.core.Base
@@ -125,6 +149,10 @@ class RemoteMethodAccess extends Base {
                 remoteMethod   : method
             };
 
+            if (remote.id) {
+                opts.remoteId = remote.id;
+            }
+
             if (origin === 'main' && data?.windowId) {
                 opts.destination = data.windowId
             }
@@ -177,17 +205,20 @@ class RemoteMethodAccess extends Base {
      */
     onRemoteMethod(msg) {
         let me  = this,
-            pkg = Neo.ns(msg.remoteClassName),
+            pkg = msg.remoteId ? Neo.manager.Instance.get(msg.remoteId) : Neo.ns(msg.remoteClassName),
             out, method;
 
         if (!pkg) {
-            throw new Error('Invalid remote namespace "' + msg.remoteClassName + '"')
+            throw new Error(msg.remoteId ? 
+                `Invalid remote instance id "${msg.remoteId}"` : 
+                `Invalid remote namespace "${msg.remoteClassName}"`
+            )
         }
 
         method = pkg[msg.remoteMethod];
 
         if (!method) {
-            throw new Error('Invalid remote method name "' + msg.remoteMethod + '" in namespace "' + msg.remoteClassName + '"')
+            throw new Error(`Invalid remote method name "${msg.remoteMethod}" in ${msg.remoteId ? 'instance "'+msg.remoteId+'"' : 'namespace "'+msg.remoteClassName+'"'}`)
         }
 
         // Check for interception
