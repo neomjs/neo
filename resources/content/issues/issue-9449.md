@@ -21,13 +21,14 @@ subIssues:
   - '[x] 9420 Migrate Data Pipeline to Connection -> Parser -> Normalizer flow'
   - '[x] 9450 Enhance Data Worker to Instantiate Dynamically Loaded Modules'
   - '[x] 9451 Create Pipeline Cornerstone and Refactor Store Implementation'
-  - '[ ] 9452 Connection Foundation and Parser Refactoring'
+  - '[x] 9452 Connection Foundation and Parser Refactoring'
   - '[ ] 9453 Implement Pipeline IPC and Remote Execution Routing'
   - '[ ] 9454 Implement Push-Based WebSocket Integration in Data Pipeline'
   - '[ ] 9455 Integrate RPC API into Pipeline Architecture (Connection.Rpc)'
   - '[ ] 9502 Migrate existing Stores to the new Pipeline architecture'
-subIssuesCompleted: 5
-subIssuesTotal: 10
+  - '[ ] 9543 Store Pipeline Instantiation and Legacy Parser Compatibility'
+subIssuesCompleted: 6
+subIssuesTotal: 11
 blockedBy: []
 blocking: []
 ---
@@ -144,4 +145,5 @@ To support this natively:
 > This phase focuses on scanning the `examples` and `apps` folders for any `Store` instances currently using direct `api` or `url` configs. We need to ensure these are systematically migrated to the new `pipeline` architecture to prevent any regression bugs as the old patterns are phased out.
 
 - 2026-03-17T18:48:48Z @tobiu cross-referenced by PR #9501
+- 2026-03-24T16:08:31Z @tobiu added sub-issue #9543
 
