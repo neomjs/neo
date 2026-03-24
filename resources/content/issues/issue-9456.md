@@ -1,7 +1,7 @@
 ---
 id: 9456
 title: 'Epic: Buffered Grid - High-Performance Locked Columns (`locked: ''start'' | ''end''`)'
-state: OPEN
+state: CLOSED
 labels:
   - epic
   - ai
@@ -9,7 +9,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-03-13T10:25:42Z'
-updatedAt: '2026-03-16T12:25:56Z'
+updatedAt: '2026-03-24T14:46:12Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9456'
 author: tobiu
 commentsCount: 1
@@ -26,6 +26,7 @@ subIssuesCompleted: 7
 subIssuesTotal: 7
 blockedBy: []
 blocking: []
+closedAt: '2026-03-24T14:46:12Z'
 ---
 # Epic: Buffered Grid - High-Performance Locked Columns (`locked: 'start' | 'end'`)
 
@@ -84,4 +85,5 @@ This Epic tracks the implementation of a modern, GPU-accelerated "locked" column
 - 2026-03-16T12:48:41Z @tobiu cross-referenced by #9484
 - 2026-03-16T12:49:46Z @tobiu added sub-issue #9484
 - 2026-03-16T15:09:29Z @tobiu added sub-issue #9485
+- 2026-03-24T14:46:12Z @tobiu closed this issue
 
