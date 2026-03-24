@@ -140,15 +140,52 @@ class Pipeline extends Base {
      * @returns {Object|Neo.data.parser.Base|null}
      */
     beforeSetParser(value, oldValue) {
-        oldValue?.destroy();
+        let me = this;
 
-        if (value && this.workerExecution === 'app') {
-            return ClassSystemUtil.beforeSetInstance(value, null, {
-                pipeline: this
-            })
+        if (oldValue) {
+            oldValue.un({
+                data    : me.onParserData,
+                progress: me.onParserProgress,
+                scope   : me
+            });
+            oldValue.destroy();
+        }
+
+        if (value && me.workerExecution === 'app') {
+            if (typeof value.module === 'function' && !value.module.isClass) {
+                return value;
+            }
+
+            value = ClassSystemUtil.beforeSetInstance(value, null, {
+                pipeline: me
+            });
+
+            value.on({
+                data    : me.onParserData,
+                progress: me.onParserProgress,
+                scope   : me
+            });
+
+            return value;
         }
 
         return value
+    }
+
+    /**
+     * @param {Object} data
+     * @protected
+     */
+    onParserData(data) {
+        this.fire('data', data);
+    }
+
+    /**
+     * @param {Object} data
+     * @protected
+     */
+    onParserProgress(data) {
+        this.fire('progress', data);
     }
 
     /**
@@ -258,15 +295,13 @@ class Pipeline extends Base {
             }
         } else {
             // Local execution flow
-            if (!me.connection) {
-                console.error('Pipeline requires a connection', me);
-                return null
-            }
-
+            let rawData;
+            
             // 1. Connection (e.g. fetch, WebSocket, Rpc) retrieves raw data/stream
-            let rawData = await me.connection.read(params);
-
-            if (!rawData) return null;
+            if (me.connection) {
+                rawData = await me.connection.read(params);
+                if (!rawData) return null;
+            }
 
             let shapedData = rawData;
 
@@ -280,6 +315,10 @@ class Pipeline extends Base {
                 shapedData = await me.normalizer.normalize(shapedData)
             }
 
+            // Fire data event for the store to pick it up via pipeline.on('data', ...)
+            // if it was parsed locally. For parser.Stream, the parser fires 'data' itself,
+            // but we can ensure standard responses also trigger it or let the store handle it.
+            // Actually, parser.Stream fires 'data', but Pipeline needs to relay it if we are encapsulating it.
             return shapedData
         }
     }

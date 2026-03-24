@@ -42,9 +42,10 @@ test.describe.serial('Neo.data.Store Parser Integration', () => {
             }
         });
 
-        expect(store.parser).toBeDefined();
-        expect(store.parser.className).toBe('Test.MockParser');
-        expect(store.parser instanceof MockParser).toBe(true);
+        expect(store.pipeline).toBeDefined();
+        expect(store.pipeline.parser).toBeDefined();
+        expect(store.pipeline.parser.className).toBe('Test.MockParser');
+        expect(store.pipeline.parser instanceof MockParser).toBe(true);
     });
 
     test('Store load() should use parser and progressive loading', async () => {
