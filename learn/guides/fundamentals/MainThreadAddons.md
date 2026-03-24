@@ -29,16 +29,21 @@ is implemented as a main thread addon which loads the libraries and exposes what
 need to run from the other Neo.mjs threads. In addition, in a Neo.mjs application we want to use
 Google Maps like any other component, so Neo.mjs also provides a component wrapper. In summary:
 - The main-thread addon contains the code run in the main thread, and exposes what methods can be
-  run by other web-workers (remote method access)
+  run by other web-workers (remote method access).
 - The component wrapper lets you use it like any other component, internally calling the main thread
   methods as needed.
 
 ## How it Works: The Round Trip of a Remote Call
 
 When your code in the App Worker calls an addon method, a sophisticated, promise-based communication
-happens automatically behind the scenes.
+happens automatically behind the scenes. This communication is powered by the `RemoteMethodAccess`
+(RMA) mixin. 
 
-Let's trace the journey of a single call:
+*(Note: While this guide focuses on using RMA to reach Main Thread Singletons, the RMA architecture
+has evolved to also support "Instance-to-Instance" routing between any two worker threads, such as an
+App Worker data pipeline streaming chunks from a Data Worker pipeline instance).*
+
+Let's trace the journey of a single call to a Main Thread Addon:
 
 ```javascript readonly
 // Inside a component in the App Worker
@@ -77,13 +82,14 @@ Here's what happens when `getMySetting()` is executed:
 ```
 
 1.  **The Call (App Worker)**: Your code calls what looks like a normal static method. However, this
-    `readLocalStorageItem` function is actually a "proxy" or "stub" created by the engine.
+    `readLocalStorageItem` function is actually a "proxy" or "stub" created by the engine's RMA mixin.
 2.  **The Message (App Worker -> Main Thread)**: The proxy function immediately returns a `Promise`
     and sends a message to the main thread containing the addon's class name
     (`Neo.main.addon.LocalStorage`), the method name (`readLocalStorageItem`), and the arguments
     (`{key: 'my-setting'}`).
-3.  **The Execution (Main Thread)**: The main thread receives the message, finds the `LocalStorage`
-    addon instance, and calls the real `readLocalStorageItem` method with the provided arguments.
+3.  **The Execution (Main Thread)**: The main thread receives the message, looks up the `LocalStorage`
+    namespace to find the "Semi-Singleton" instance, and calls the real `readLocalStorageItem` method
+    with the provided arguments.
 4.  **The Return (Main Thread -> App Worker)**: The method returns the value from `localStorage`. The
     main thread packages this return value into a "reply" message and sends it back to the App
     Worker.
