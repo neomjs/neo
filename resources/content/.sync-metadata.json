@@ -1,6 +1,6 @@
 {
-  "lastSync": "2026-03-24T09:12:48.748Z",
-  "releasesLastFetched": "2026-03-24T09:12:48.766Z",
+  "lastSync": "2026-03-24T14:47:20.526Z",
+  "releasesLastFetched": "2026-03-24T14:47:20.543Z",
   "pushFailures": [],
   "issues": {
     "3789": {
@@ -21970,11 +21970,11 @@
       "contentHash": "fc89f08bed5f3693203459149ce5bc32fe73dca875b84f1880de6c25d4c5a3da"
     },
     "9456": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "resources/content/issues/issue-9456.md",
-      "closedAt": null,
-      "updatedAt": "2026-03-16T12:25:56Z",
-      "contentHash": "2471b8eda820712a57f6447d534558ea7c6b75ed5f89e8e6fa70ccba5ff6f590"
+      "closedAt": "2026-03-24T14:46:12Z",
+      "updatedAt": "2026-03-24T14:46:12Z",
+      "contentHash": "b3e6756e52e0325dc606bb6187781d6964efb81d8183961594264d4ea6cf1ca4"
     },
     "9457": {
       "state": "CLOSED",
@@ -22521,6 +22521,27 @@
       "closedAt": null,
       "updatedAt": "2026-03-24T08:49:44Z",
       "contentHash": "035f7bdda5dac41a4e970842dc696d5ae125c76f3e9e285912f28ad1c7385cf5"
+    },
+    "9540": {
+      "state": "CLOSED",
+      "path": "resources/content/issues/issue-9540.md",
+      "closedAt": "2026-03-24T14:07:04Z",
+      "updatedAt": "2026-03-24T14:07:04Z",
+      "contentHash": "42c851f913eedf95cbbe158c26868677c297ef6e07552ae432512378bcbf1676"
+    },
+    "9541": {
+      "state": "CLOSED",
+      "path": "resources/content/issues/issue-9541.md",
+      "closedAt": "2026-03-24T14:12:27Z",
+      "updatedAt": "2026-03-24T14:12:27Z",
+      "contentHash": "ad567bb75207288b6059d43d6a5016a6c9521f7094223fd0713e97db4dd9694b"
+    },
+    "9542": {
+      "state": "CLOSED",
+      "path": "resources/content/issues/issue-9542.md",
+      "closedAt": "2026-03-24T14:18:28Z",
+      "updatedAt": "2026-03-24T14:18:28Z",
+      "contentHash": "6f5a3f421a20dcbc405a3d6680997eee1dfa197d15b8fdfcf7cf1b424da38adb"
     }
   },
   "releases": {
