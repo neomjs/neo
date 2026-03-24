@@ -62,6 +62,13 @@ class Pipeline extends Base {
          */
         parser_: null,
         /**
+         * @member {Object} remote
+         * @protected
+         */
+        remote: {
+            data: ['create', 'read', 'update']
+        },
+        /**
          * The ID of the corresponding Pipeline instance in the remote worker.
          * @member {String|null} remoteId=null
          * @protected
@@ -278,13 +285,7 @@ class Pipeline extends Base {
             if (me.isDestroyed) return null;
 
             try {
-                let remoteRead = Neo.currentWorker.generateRemote({
-                    origin   : 'data',
-                    className: me.className,
-                    id       : me.remoteId
-                }, 'read');
-
-                const response = await remoteRead(params);
+                const response = await me.remote.data.read(params);
 
                 if (response === null && attempt <= maxRemoteRetries) {
                     // Potential remote instance loss or silent failure
@@ -359,13 +360,7 @@ class Pipeline extends Base {
 
             if (me.isDestroyed) return null;
 
-            let remoteMethod = Neo.currentWorker.generateRemote({
-                origin   : 'data',
-                className: me.className,
-                id       : me.remoteId
-            }, operation);
-
-            return await remoteMethod(params);
+            return await me.remote.data[operation](params);
         } else {
             let rawData;
             
