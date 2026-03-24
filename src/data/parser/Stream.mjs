@@ -6,7 +6,7 @@ import Base from './Base.mjs';
  *
  * @summary A Parser implementation for streaming newline-delimited JSON (NDJSON/JSONL).
  *
- * This parser uses the modern `fetch` and `ReadableStream` APIs to process data incrementally.
+ * This parser processes data incrementally from a ReadableStream.
  * Unlike standard JSON parsing (which requires the entire file to be downloaded and parsed at once),
  * this parser yields records as they arrive.
  *
@@ -15,11 +15,6 @@ import Base from './Base.mjs';
  * implements a buffering strategy. It accumulates parsed records into a chunk (defined by `chunkSize`)
  * and fires a single `data` event containing the array of records. This allows the consumer (Store)
  * to perform bulk updates, drastically reducing overhead.
- *
- * **Compression Support:**
- * You can configure the parser to use `DecompressionStream` (gzip/deflate) by setting the `compression` config.
- * This allows serving pre-compressed files (`.jsonl.gz`), significantly reducing network transfer size
- * (often >60% reduction) while keeping the client-side parsing logic identical.
  *
  * **Requirements:**
  * - The backend must serve data in NDJSON format (one valid JSON object per line).
@@ -42,16 +37,6 @@ class Stream extends Base {
          * @member {Number} chunkSize=500
          */
         chunkSize: 500,
-        /**
-         * Set the compression algorithm to use for the stream.
-         * Valid values: 'gzip', 'deflate', null.
-         *
-         * Uses the browser's `DecompressionStream` API to transparently unzip data on the fly.
-         * This can reduce bandwidth usage by 60-80% for JSONL data, enabling significantly larger datasets.
-         *
-         * @member {String|null} compression=null
-         */
-        compression: null,
         /**
          * How many chunks to send at initialChunkSize before switching to chunkSize.
          * @member {Number} initialBurstCount=5
@@ -83,64 +68,33 @@ class Stream extends Base {
     }
 
     /**
-     * @member {AbortController|null} abortController=null
-     * @protected
-     */
-    abortController = null
-
-    /**
-     * Aborts the current stream request.
-     */
-    abort() {
-        this.abortController?.abort()
-    }
-
-    /**
-     * @param {Object} operation
+     * @param {Object} rawData Output from the connection
      * @returns {Promise}
      */
-    async read(operation) {
+    async read(rawData) {
         let me               = this,
             chunk            = [],
             {chunkSize, progressiveChunkSize} = me,
             currentChunkSize = me.initialChunkSize || chunkSize,
             burstCount       = 0,
-            count            = 0,
-            url              = me.url || operation.url;
+            count            = 0;
 
-        if (!url) {
-            throw new Error('No URL specified')
+        if (rawData.aborted) {
+            console.log('Stream request aborted');
+            me.store && (me.store.isStreaming = false);
+            return {success: true, count: 0, aborted: true}
         }
 
-        me.abortController = new AbortController();
-        me.store.isStreaming = true;
+        let {stream, total} = rawData;
+
+        me.store && (me.store.isStreaming = true);
 
         try {
-            const response = await fetch(url, {signal: me.abortController.signal});
-
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`)
-            }
-
-            if (!response.body) {
-                throw new Error('ReadableStream not supported in this environment.')
-            }
-
-            let stream = response.body;
-
-            if (me.compression) {
-                if (typeof DecompressionStream === 'undefined') {
-                    throw new Error('DecompressionStream not supported in this environment.')
-                }
-                stream = stream.pipeThrough(new DecompressionStream(me.compression))
-            }
-
             const reader = stream.getReader();
             const decoder = new TextDecoder();
 
             let buffer = '';
             let loaded = 0;
-            const total = parseInt(response.headers.get('content-length') || 0, 10);
 
             while (true) {
                 const {value, done} = await reader.read();
@@ -154,7 +108,7 @@ class Stream extends Base {
                     // Flush remaining chunk
                     if (chunk.length > 0) {
                         me.fire('data', chunk);
-                        me.store.isStreaming = false
+                        me.store && (me.store.isStreaming = false)
                     }
                     break
                 }
@@ -197,13 +151,10 @@ class Stream extends Base {
         } catch (e) {
             if (e.name === 'AbortError') {
                 console.log('Stream request aborted');
-                me.store.isStreaming = false;
-                // Treat abort as a valid "partial success"
+                me.store && (me.store.isStreaming = false);
                 return {success: true, count, aborted: true}
             }
             throw e
-        } finally {
-            me.abortController = null
         }
     }
 

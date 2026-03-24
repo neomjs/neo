@@ -1,8 +1,8 @@
-import Base from '../../core/Base.mjs';
+import Base from './Base.mjs';
 
 /**
  * @class Neo.data.connection.Fetch
- * @extends Neo.core.Base
+ * @extends Neo.data.connection.Base
  */
 class Fetch extends Base {
     static config = {
@@ -10,13 +10,26 @@ class Fetch extends Base {
          * @member {String} className='Neo.data.connection.Fetch'
          * @protected
          */
-        className: 'Neo.data.connection.Fetch'
+        className: 'Neo.data.connection.Fetch',
+        /**
+         * @member {String} ntype='connection-fetch'
+         * @protected
+         */
+        ntype: 'connection-fetch'
     }
 
     /**
      * @member {Object} defaultHeaders=null
      */
     defaultHeaders = null
+
+    /**
+     * @param {Object} [params]
+     * @returns {Promise<any>}
+     */
+    async read(params) {
+        return this.get(this.url, params);
+    }
 
     /**
      * @param {Object|String} url
