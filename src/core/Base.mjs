@@ -632,7 +632,8 @@ class Base {
 
         if (!Neo.config.isMiddleware && !Neo.config.unitTestMode) {
             // SetupClass applies `singleton` to the instance prototype if configured.
-            if (me.singleton === true) {
+            // Main thread addons are also treated as singletons for remote method access.
+            if (me.singleton === true || me.isMainThreadAddon === true) {
                 // Singleton Routing (Namespace-Driven)
                 if (Neo.workerId !== 'main' && currentWorker.isSharedWorker) {
                     if (remote.main) {
