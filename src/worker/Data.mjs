@@ -132,27 +132,24 @@ class Data extends Base {
     }
 
     /**
+     * @param {Object} msg
+     */
+    onDestroyInstance(msg) {
+        let instance = this.instances?.[msg.id];
+
+        if (instance) {
+            instance.destroy();
+            delete this.instances[msg.id];
+        }
+
+        this.resolve(msg);
+    }
+
+    /**
      *
      */
     onLoad() {
         console.log('worker.Data onLoad');
-    }
-
-    /**
-     * @param {Object} msg
-     */
-    async onPipelineExecute(msg) {
-        let me       = this,
-            instance = me.instances?.[msg.id],
-            response;
-
-        if (!instance) {
-            console.error('Data Worker: Pipeline instance not found', msg.id);
-            me.reject(msg)
-        } else {
-            response = await instance[msg.operation](msg.params);
-            me.resolve(msg, response)
-        }
     }
 
     /**
