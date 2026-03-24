@@ -29,8 +29,9 @@ subIssues:
   - '[x] 9543 Store Pipeline Instantiation and Legacy Parser Compatibility'
   - '[x] 9544 Enhance RemoteMethodAccess to Support Instance-to-Instance Routing'
   - '[x] 9546 Refactor Pipeline IPC to use Declarative Remote Configs (Instance Proxies)'
-subIssuesCompleted: 10
-subIssuesTotal: 13
+  - '[x] 9547 Fix RemoteMethodAccess for Main Thread Addons and Instance-to-Instance ID collision'
+subIssuesCompleted: 11
+subIssuesTotal: 14
 blockedBy: []
 blocking: []
 ---
@@ -151,4 +152,5 @@ To support this natively:
 - 2026-03-24T19:31:36Z @tobiu cross-referenced by #9544
 - 2026-03-24T19:31:49Z @tobiu added sub-issue #9544
 - 2026-03-24T20:20:11Z @tobiu added sub-issue #9546
+- 2026-03-24T21:19:35Z @tobiu added sub-issue #9547
 
