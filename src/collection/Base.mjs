@@ -1667,6 +1667,27 @@ class Collection extends Base {
         this.splice(0, 0, item);
         return this.count
     }
+
+    /**
+     * Updates the key property of an item and keeps the map in sync.
+     * Preserves the item's index in the items array (Zero Array Mutation).
+     * @param {Object} item
+     * @param {String|Number} newKey
+     */
+    updateKey(item, newKey) {
+        let me     = this,
+            oldKey = me.getKey(item);
+
+        if (oldKey !== newKey) {
+            me.map.delete(oldKey);
+            item[me.keyProperty] = newKey;
+            me.map.set(newKey, item);
+
+            if (me[updatingIndex] === 0) {
+                me.fire('updateKey', {item, newKey, oldKey, scope: me})
+            }
+        }
+    }
 }
 
 /**
