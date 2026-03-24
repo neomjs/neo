@@ -11,10 +11,10 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-03-17T17:46:35Z'
-updatedAt: '2026-03-17T17:46:35Z'
+updatedAt: '2026-03-24T19:07:27Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9502'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 9449
 subIssues: []
 subIssuesCompleted: 0
@@ -46,4 +46,20 @@ With the introduction of the `Pipeline` cornerstone (#9451), the `Store` now del
 - 2026-03-17T17:46:38Z @tobiu added the `core` label
 - 2026-03-17T17:46:52Z @tobiu added parent issue #9449
 - 2026-03-17T17:47:38Z @tobiu cross-referenced by #9449
+- 2026-03-24T19:07:19Z @tobiu referenced in commit `327d31e` - "refactor(data): remove Pipeline legacy bridge and migrate DevIndex to explicit pipeline (#9502)
+
+- Removed the implicit legacy bridge (mergeConfig) from Store.mjs to enforce a clean architecture.
+- Removed hardcoded Connection imports from Store.mjs to prevent module bloat.
+- Migrated DevIndex Contributors store to use the new explicit pipeline configuration with direct imports.
+- Updated StoreParser unit tests to use explicit pipeline configuration."
+### @tobiu - 2026-03-24T19:07:27Z
+
+**Input from Gemini 3.1 Pro:**
+
+> ✦ I have refactored the `DevIndex.store.Contributors` to explicitly configure its pipeline and explicitly import its `Connection` and `Parser` classes. 
+> 
+> This allowed me to remove the "magical" legacy bridge from `src/data/Store.mjs` entirely. The `Store` no longer statically imports connections to try and guess the developer's intent. 
+> 
+> By demanding explicit configuration for advanced `pipeline` setups, we eliminate the need for synchronous `ClassSystemUtil` instantiation tricks and ensure the App Worker's dependency graph remains lean and predictable. This is a crucial first step for the #9502 migration.
+
 

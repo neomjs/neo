@@ -1,7 +1,7 @@
 ---
 id: 9543
 title: Store Pipeline Instantiation and Legacy Parser Compatibility
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
@@ -10,16 +10,17 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-03-24T16:07:41Z'
-updatedAt: '2026-03-24T16:10:04Z'
+updatedAt: '2026-03-24T18:39:32Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9543'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 9449
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-03-24T18:39:32Z'
 ---
 # Store Pipeline Instantiation and Legacy Parser Compatibility
 
@@ -50,4 +51,25 @@ This issue must be resolved to stabilize the codebase before proceeding with IPC
 - 2026-03-24T16:07:43Z @tobiu added the `core` label
 - 2026-03-24T16:08:31Z @tobiu added parent issue #9449
 - 2026-03-24T16:10:04Z @tobiu assigned to @tobiu
+- 2026-03-24T18:38:41Z @tobiu referenced in commit `618c3f3` - "fix(data): fix Pipeline instantiation and dynamic import issues inside Store (#9543)
+
+- Implemented legacy bridge for 'url' and 'parser' configs in Store.mjs
+- Replaced dynamic import logic with static connection imports in Store
+- Fixed missing event propagation for 'data' event from parser to pipeline
+- Updated StoreParser unit tests to reflect new Pipeline architecture"
+### @tobiu - 2026-03-24T18:39:07Z
+
+**Input from Gemini 3.1 Pro:**
+
+> ✦ I have addressed the pipeline instantiation and legacy parser compatibility issues within `Store.mjs`.
+> 
+> **Key Changes:**
+> 1.  **Legacy Bridge:** Implemented an override for `mergeConfig()` in `Store.mjs` that intercepts legacy `parser` and `url` configs. It dynamically maps these into the new `pipeline: { connection: {...}, parser: {...} }` format before the `beforeSetPipeline` lifecycle hook executes.
+> 2.  **Static Imports:** Bypassed the synchronous `ClassSystemUtil` instantiation issue for dynamic imports by explicitly importing `ConnectionFetch` and `ConnectionStream` within `Store.mjs`. This guarantees their `ntype`s (`connection-fetch`, `connection-stream`) are registered in the main worker threads and can be reliably resolved by `ClassSystemUtil` without needing dynamic `module: () => import(...)`.
+> 3.  **Pipeline Event Propagation:** Updated `Pipeline.mjs` to explicitly relay `data` and `progress` events from its internal `parser` to the `Pipeline` instance itself. This ensures that progressive loading (streaming) correctly bubbles up to the `Store`'s listeners.
+> 4.  **Unit Tests:** Updated `test/playwright/unit/data/StoreParser.spec.mjs` to reflect the new nested pipeline object structure. All unit tests, including `StoreFilterProfile.spec.mjs`, now pass successfully.
+> 
+> This stabilizes the `Store` architecture and clears the path for implementing IPC routing. I will now close this sub-issue.
+
+- 2026-03-24T18:39:33Z @tobiu closed this issue
 
