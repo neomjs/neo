@@ -309,6 +309,23 @@ class Pipeline extends Base {
         };
 
         try {
+            // Pre-load required modules in the Data Worker using strictly scoped imports
+            const modulesToLoad = [];
+
+            if (remoteConfig.connection?.className) {
+                modulesToLoad.push(Neo.worker.Data.loadDataModule({className: remoteConfig.connection.className}))
+            }
+            if (remoteConfig.normalizer?.className) {
+                modulesToLoad.push(Neo.worker.Data.loadDataModule({className: remoteConfig.normalizer.className}))
+            }
+            if (remoteConfig.parser?.className) {
+                modulesToLoad.push(Neo.worker.Data.loadDataModule({className: remoteConfig.parser.className}))
+            }
+
+            if (modulesToLoad.length > 0) {
+                await Promise.all(modulesToLoad)
+            }
+
             const data = await Neo.worker.Data.createInstance({
                 config: remoteConfig,
                 path  : 'src/data/Pipeline.mjs'
