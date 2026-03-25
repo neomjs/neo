@@ -57,6 +57,11 @@ class App extends Base {
     }
 
     /**
+     * @member {Object} rpcStreamCallbacks={}
+     * @protected
+     */
+    rpcStreamCallbacks = {}
+    /**
      * We are storing the params of insertThemeFiles() calls here, in case the method does get triggered
      * before the json theme structure got loaded.
      * @member {Array[]} themeFilesCache=[]
@@ -651,6 +656,18 @@ class App extends Base {
 
     /**
      * @param {Object} msg
+     * @param {Object} msg.data
+     * @param {String} msg.pipeline The origin pipeline ID
+     */
+    onPipelinePush(msg) {
+        let pipeline = Neo.manager.Instance.get(msg.pipeline);
+        if (pipeline) {
+            pipeline.fire('push', msg.data)
+        }
+    }
+
+    /**
+     * @param {Object} msg
      */
     onRegisterNeoConfig(msg) {
         super.onRegisterNeoConfig(msg);
@@ -720,6 +737,19 @@ class App extends Base {
         port.onmessage = me.onMessage.bind(me);
 
         me.channelPorts[msg.origin] = port
+    }
+
+    /**
+     * @param {Object} msg
+     * @param {String} msg.callbackId
+     * @param {Object} msg.data
+     */
+    onRpcStreamData(msg) {
+        let callback = this.rpcStreamCallbacks?.[msg.callbackId];
+        
+        if (typeof callback === 'function') {
+            callback(msg.data)
+        }
     }
 
     /**
