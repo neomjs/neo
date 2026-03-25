@@ -210,7 +210,7 @@ class RemoteMethodAccess extends Base {
      */
     onRemoteMethod(msg) {
         let me  = this,
-            pkg = msg.remoteId ? Neo.manager.Instance.get(msg.remoteId) : Neo.ns(msg.remoteClassName),
+            pkg = msg.remoteId ? Neo.get(msg.remoteId) : Neo.ns(msg.remoteClassName),
             out, method;
 
         if (!pkg) {
