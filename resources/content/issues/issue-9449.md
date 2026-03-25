@@ -25,13 +25,14 @@ subIssues:
   - '[x] 9453 Implement Pipeline IPC and Remote Execution Routing'
   - '[x] 9454 Implement Push-Based WebSocket Integration in Data Pipeline'
   - '[x] 9455 Integrate RPC API into Pipeline Architecture (Connection.Rpc)'
-  - '[ ] 9502 Migrate existing Stores to the new Pipeline architecture'
+  - '[x] 9502 Migrate existing Stores to the new Pipeline architecture'
   - '[x] 9543 Store Pipeline Instantiation and Legacy Parser Compatibility'
   - '[x] 9544 Enhance RemoteMethodAccess to Support Instance-to-Instance Routing'
   - '[x] 9546 Refactor Pipeline IPC to use Declarative Remote Configs (Instance Proxies)'
   - '[x] 9547 Fix RemoteMethodAccess for Main Thread Addons and Instance-to-Instance ID collision'
-subIssuesCompleted: 13
-subIssuesTotal: 14
+  - '[x] 9550 Refactor(data): Implement Store-to-Pipeline Legacy Bridge'
+subIssuesCompleted: 15
+subIssuesTotal: 15
 blockedBy: []
 blocking: []
 ---
@@ -153,4 +154,5 @@ To support this natively:
 - 2026-03-24T19:31:49Z @tobiu added sub-issue #9544
 - 2026-03-24T20:20:11Z @tobiu added sub-issue #9546
 - 2026-03-24T21:19:35Z @tobiu added sub-issue #9547
+- 2026-03-25T15:24:16Z @tobiu added sub-issue #9550
 
