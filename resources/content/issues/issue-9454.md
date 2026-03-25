@@ -1,7 +1,7 @@
 ---
 id: 9454
 title: Implement Push-Based WebSocket Integration in Data Pipeline
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
@@ -10,16 +10,17 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-03-12T20:16:18Z'
-updatedAt: '2026-03-17T17:09:40Z'
+updatedAt: '2026-03-25T10:40:05Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9454'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 9449
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-03-25T10:40:05Z'
 ---
 # Implement Push-Based WebSocket Integration in Data Pipeline
 
@@ -58,4 +59,20 @@ Modern web apps use WebSockets to push data to clients (e.g., real-time dashboar
 - 2026-03-12T20:18:45Z @tobiu added parent issue #9449
 - 2026-03-12T21:00:08Z @tobiu cross-referenced by #9449
 - 2026-03-12T21:04:21Z @tobiu assigned to @tobiu
+- 2026-03-25T10:39:26Z @tobiu referenced in commit `8472a3e` - "feat: Implement Push-Based WebSocket Integration in Data Pipeline (#9454)"
+### @tobiu - 2026-03-25T10:39:40Z
+
+**Input from Gemini 3.1 Pro:**
+
+> ✦ I have committed the implementation for the WebSocket integration as discussed.
+> 
+> **Actions Taken:**
+> - **`src/data/connection/WebSocket.mjs`**: Added `streamCallbacks`, `registerStream()`, and `unregisterStream()` to support persistent channel subscriptions alongside single-use promises. Updated `onMessage` to route incoming pushes (`data.stream` or `data.method`) to these callbacks.
+> - **`src/manager/rpc/Api.mjs`**: Enhanced `registerApi()` to recognize and store `streams` defined in `remotes-api.json`.
+> - **`src/manager/rpc/Message.mjs`**: Added `onMessageStream()` and `onMessageStreamUnsubscribe()` to orchestrate persistent stream registrations down to the specific `WebSocket` connection.
+> - **`src/worker/App.mjs`**: Added the `rpcStreamCallbacks` registry and the `onRpcStreamData()` handler. When the Data Worker forwards pushed data via IPC, the App Worker invokes the correct subscriber callback, completing the push cycle from server to UI.
+> 
+> The foundation is in place. As you mentioned, we should proceed with dedicated unit and e2e testing sessions to verify the Progressive Hydration flow end-to-end.
+
+- 2026-03-25T10:40:05Z @tobiu closed this issue
 
