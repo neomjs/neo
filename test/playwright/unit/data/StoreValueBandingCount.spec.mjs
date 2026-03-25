@@ -54,11 +54,8 @@ test.describe('Neo.data.Store valueBanding Calls', () => {
             data     : data
         });
 
-        console.log(`calcValueBands called ${callCount} times for initial data load.`);
-        
         // Assert it's called a reasonable number of times (e.g. < 5)
         expect(callCount).toBeLessThan(10);
-
         // Restore
         Collection.prototype.calcValueBands = originalCalc;
         store.destroy();
