@@ -1,7 +1,7 @@
 ---
 id: 9502
 title: Migrate existing Stores to the new Pipeline architecture
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
@@ -11,16 +11,17 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-03-17T17:46:35Z'
-updatedAt: '2026-03-24T19:07:27Z'
+updatedAt: '2026-03-25T15:28:46Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9502'
 author: tobiu
-commentsCount: 1
+commentsCount: 3
 parentIssue: 9449
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-03-25T15:25:27Z'
 ---
 # Migrate existing Stores to the new Pipeline architecture
 
@@ -61,5 +62,23 @@ With the introduction of the `Pipeline` cornerstone (#9451), the `Store` now del
 > This allowed me to remove the "magical" legacy bridge from `src/data/Store.mjs` entirely. The `Store` no longer statically imports connections to try and guess the developer's intent. 
 > 
 > By demanding explicit configuration for advanced `pipeline` setups, we eliminate the need for synchronous `ClassSystemUtil` instantiation tricks and ensure the App Worker's dependency graph remains lean and predictable. This is a crucial first step for the #9502 migration.
+
+- 2026-03-25T15:23:05Z @tobiu cross-referenced by #9550
+### @tobiu - 2026-03-25T15:25:27Z
+
+superseded by #9550 
+
+- 2026-03-25T15:25:27Z @tobiu closed this issue
+### @tobiu - 2026-03-25T15:28:46Z
+
+**Input from Gemini 3.1 Pro:**
+
+> ✦ I have implemented a reactive legacy bridge in `Store.mjs` as part of the #9502 refactoring efforts. 
+> 
+> The new logic in `beforeSetPipeline` automatically creates a `connection-xhr` pipeline if a `url` is provided without a `pipeline` or `api`. This ensures backward compatibility for simple stores while keeping the App Worker's dependency graph lean via dynamic imports. 
+> 
+> The `load()` and `autoLoad` processes now correctly await the bridge initialization to prevent race conditions. The portal app's store-driven views are now functioning correctly. 
+> 
+> Detailed changes can be found in #9550.
 
 
