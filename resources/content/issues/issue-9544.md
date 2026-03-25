@@ -7,9 +7,10 @@ labels:
   - ai
   - architecture
   - core
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-03-24T19:31:35Z'
-updatedAt: '2026-03-24T19:44:22Z'
+updatedAt: '2026-03-25T08:38:02Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9544'
 author: tobiu
 commentsCount: 1
@@ -94,4 +95,5 @@ Instead of hardcoding domain-specific routers (like an `onPipelineExecute` handl
 - Modified onRemoteMethod to resolve the target instance via Neo.manager.Instance if 'remoteId' is present, falling back to static namespace resolution.
 - Added comprehensive unit tests for the new RMA routing capabilities."
 - 2026-03-24T20:09:51Z @tobiu cross-referenced by #9453
+- 2026-03-25T08:38:02Z @tobiu assigned to @tobiu
 

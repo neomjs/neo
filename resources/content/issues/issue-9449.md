@@ -23,14 +23,14 @@ subIssues:
   - '[x] 9451 Create Pipeline Cornerstone and Refactor Store Implementation'
   - '[x] 9452 Connection Foundation and Parser Refactoring'
   - '[x] 9453 Implement Pipeline IPC and Remote Execution Routing'
-  - '[ ] 9454 Implement Push-Based WebSocket Integration in Data Pipeline'
-  - '[ ] 9455 Integrate RPC API into Pipeline Architecture (Connection.Rpc)'
+  - '[x] 9454 Implement Push-Based WebSocket Integration in Data Pipeline'
+  - '[x] 9455 Integrate RPC API into Pipeline Architecture (Connection.Rpc)'
   - '[ ] 9502 Migrate existing Stores to the new Pipeline architecture'
   - '[x] 9543 Store Pipeline Instantiation and Legacy Parser Compatibility'
   - '[x] 9544 Enhance RemoteMethodAccess to Support Instance-to-Instance Routing'
   - '[x] 9546 Refactor Pipeline IPC to use Declarative Remote Configs (Instance Proxies)'
   - '[x] 9547 Fix RemoteMethodAccess for Main Thread Addons and Instance-to-Instance ID collision'
-subIssuesCompleted: 11
+subIssuesCompleted: 13
 subIssuesTotal: 14
 blockedBy: []
 blocking: []
