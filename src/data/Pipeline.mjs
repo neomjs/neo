@@ -66,7 +66,7 @@ class Pipeline extends Base {
          * @protected
          */
         remote: {
-            data: ['create', 'read', 'update']
+            data: ['create', 'execute', 'read', 'update']
         },
         /**
          * The ID of the corresponding Pipeline instance in the remote worker.
@@ -95,6 +95,76 @@ class Pipeline extends Base {
 
         if (this.workerExecution === 'data') {
             this.initRemoteExecution()
+        }
+    }
+
+    /**
+     * Executes a generic method via the connection.
+     * @param {String} method
+     * @param {Object} params
+     * @param {Number} [attempt=1]
+     * @returns {Promise<any>}
+     */
+    async execute(method, params = {}, attempt = 1) {
+        let me                 = this,
+            {maxRemoteRetries} = me;
+
+        if (me.workerExecution === 'data') {
+            if (!me.remoteId && !me.isDestroyed) {
+                await me.initRemoteExecution();
+            }
+
+            if (me.isDestroyed) return null;
+
+            try {
+                const response = await me.remote.data.execute(method, params);
+
+                if (response === null && attempt <= maxRemoteRetries) {
+                    console.warn(`Pipeline: Remote execute returned null, retrying (attempt ${attempt}/${maxRemoteRetries})...`);
+                    me.remoteId = null;
+                    return me.execute(method, params, attempt + 1)
+                }
+
+                return response
+            } catch (e) {
+                if (attempt <= maxRemoteRetries) {
+                    console.warn(`Pipeline: Remote execute failed, retrying (attempt ${attempt}/${maxRemoteRetries})...`, e);
+                    me.remoteId = null;
+                    return me.execute(method, params, attempt + 1)
+                }
+                console.error('Pipeline: Remote execute failed after maximum retries', e);
+                return null
+            }
+        } else {
+            let rawData;
+            
+            if (me.connection && me.connection.execute) {
+                rawData = await me.connection.execute(method, params);
+            } else if (me.connection && typeof me.connection[method] === 'function') {
+                rawData = await me.connection[method](params);
+            }
+
+            if (!rawData) return null;
+
+            let shapedData = rawData;
+
+            if (me.parser) {
+                if (typeof me.parser[method] === 'function') {
+                    shapedData = await me.parser[method](shapedData)
+                } else if (me.parser.read) {
+                    shapedData = await me.parser.read(shapedData)
+                }
+            }
+
+            if (me.normalizer) {
+                if (typeof me.normalizer[method] === 'function') {
+                    shapedData = await me.normalizer[method](shapedData)
+                } else if (me.normalizer.normalize) {
+                    shapedData = await me.normalizer.normalize(shapedData)
+                }
+            }
+
+            return shapedData
         }
     }
 
