@@ -426,10 +426,28 @@ class Store extends Collection {
      * @returns {Neo.data.Pipeline|null}
      */
     beforeSetPipeline(value, oldValue) {
+        let me = this;
+
         oldValue?.destroy();
 
+        if (!value && me.url && !me.api) {
+            // We store the promise so that load() can await it to prevent race conditions
+            // e.g., when autoLoad: true triggers immediately after construction
+            me.urlPipelinePromise = import('./connection/Xhr.mjs').then(() => {
+                me.pipeline = {
+                    connection: {
+                        ntype: 'connection-xhr',
+                        url  : me.url
+                    }
+                };
+                delete me.urlPipelinePromise;
+            });
+
+            return null
+        }
+
         return ClassSystemUtil.beforeSetInstance(value, Pipeline, {
-            store: this
+            store: me
         });
     }
 
@@ -865,6 +883,11 @@ class Store extends Collection {
         let me     = this,
             params = {page: me.currentPage, pageSize: me.pageSize, ...opts.params};
 
+        // Ensure the dummy pipeline is fully constructed before proceeding
+        if (me.urlPipelinePromise) {
+            await me.urlPipelinePromise;
+        }
+
         if (me.remoteFilter) {
             params.filters = me.exportFilters()
         }
@@ -912,16 +935,20 @@ class Store extends Collection {
                     progress: onProgress
                 });
 
-                if (response !== null) {
+                if (response != null) {
                     // response could be the finalized array or an object depending on normalizer
-                    let items = Array.isArray(response) ? response : (response.data || response);
+                    let items = response.data || response.json || response;
+
+                    if (!Array.isArray(items)) {
+                        items = Neo.ns(me.responseRoot, false, items) || items;
+                    }
 
                     // If it was a bulk load and not progressive (where onData added them), add them now
-                    if (items && items.length > 0 && me.count === 0) {
+                    if (Array.isArray(items) && items.length > 0 && me.count === 0) {
                          me.add(items);
                     }
 
-                    me.totalCount = response.totalCount || me.count;
+                    me.totalCount = response.totalCount || (response.json && !Array.isArray(response.json) ? response.json.totalCount : null) || me.count;
                     me.isLoaded   = true;
                     me.isLoading  = false; // Ensure it's false at the end
                     me.fire('load', {
@@ -967,30 +994,29 @@ class Store extends Collection {
             opts.url ??= me.url;
 
             try {
-                let data;
-
                 // Fallback for non-browser based envs like nodejs
                 if (globalThis.process?.release) {
                     const { readFile } = await import(/* webpackIgnore: true */ 'fs/promises');
                     const content = await me.trap(readFile(opts.url, 'utf-8'));
-                    data = {json: JSON.parse(content)};
+                    let data = {json: JSON.parse(content)};
+
+                    if (data) {
+                        me.data = Neo.ns(me.responseRoot, false, data.json) || data.json // fires the load event
+                    }
+
+                    me.isLoaded   = true;
+
+                    return data.json || null
                 } else {
-                    data = await me.trap(Neo.Xhr.promiseJson(opts));
+                    console.warn('Store.load(): No pipeline, api, or url configured.', me.id);
+                    return null
                 }
-
-                if (data) {
-                    me.data = Neo.ns(me.responseRoot, false, data.json) || data.json // fires the load event
-                }
-
-                me.isLoaded   = true;
-
-                return data?.json || null
             } catch(err) {
                 if (err === Neo.isDestroyed) {
                     throw err
                 }
 
-                console.error('Error for Neo.Xhr.request', {id: me.id, error: err, url: opts.url});
+                console.error('Error in Store.load() fallback', {id: me.id, error: err, url: opts.url});
                 return null
             }
         }
