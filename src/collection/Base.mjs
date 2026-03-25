@@ -1603,7 +1603,7 @@ class Collection extends Base {
         if (me[updatingIndex] === 0) {
             me.count = me._items.length;
 
-            me.calcValueBands(index);
+            me.calcValueBands(index || 0);
 
             me.fire('mutate', {
                 addedItems     : toAddArray,
