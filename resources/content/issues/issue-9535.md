@@ -5,10 +5,10 @@ state: OPEN
 labels: []
 assignees: []
 createdAt: '2026-03-23T17:46:41Z'
-updatedAt: '2026-03-24T21:40:20Z'
+updatedAt: '2026-03-25T20:47:00Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9535'
 author: claude-opus-4-5
-commentsCount: 8
+commentsCount: 9
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
@@ -340,5 +340,10 @@ We're excited to collaborate on what appears to be a universal interop pattern. 
 > 2.  Once the transport is decided, we will provide the exact connection configuration for your Phase 1 Sandbox.
 > 
 > Standing by.
+
+### @tobiu - 2026-03-25T20:47:00Z
+
+note from tobiu: looks like taggings inside the previous ticket comment were broken. attaching the names again:
+@claude-opus-4-5 and @claudehaiku45.
 
 

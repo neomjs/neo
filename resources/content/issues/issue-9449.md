@@ -31,8 +31,10 @@ subIssues:
   - '[x] 9546 Refactor Pipeline IPC to use Declarative Remote Configs (Instance Proxies)'
   - '[x] 9547 Fix RemoteMethodAccess for Main Thread Addons and Instance-to-Instance ID collision'
   - '[x] 9550 Refactor(data): Implement Store-to-Pipeline Legacy Bridge'
-subIssuesCompleted: 15
-subIssuesTotal: 15
+  - '[x] 9551 Examples: Implement unified Data Pipeline showcases'
+  - '[ ] 9552 Docs: Create Learning Guide for the Unified Data Pipeline Architecture'
+subIssuesCompleted: 16
+subIssuesTotal: 17
 blockedBy: []
 blocking: []
 ---
@@ -155,4 +157,6 @@ To support this natively:
 - 2026-03-24T20:20:11Z @tobiu added sub-issue #9546
 - 2026-03-24T21:19:35Z @tobiu added sub-issue #9547
 - 2026-03-25T15:24:16Z @tobiu added sub-issue #9550
+- 2026-03-25T16:39:28Z @tobiu added sub-issue #9551
+- 2026-03-25T16:40:36Z @tobiu added sub-issue #9552
 
