@@ -80,7 +80,6 @@ class Stream extends Base {
             count            = 0;
 
         if (rawData.aborted) {
-            console.log('Stream request aborted');
             me.store && (me.store.isStreaming = false);
             return {success: true, count: 0, aborted: true}
         }
@@ -150,7 +149,6 @@ class Stream extends Base {
             return {success: true, count}
         } catch (e) {
             if (e.name === 'AbortError') {
-                console.log('Stream request aborted');
                 me.store && (me.store.isStreaming = false);
                 return {success: true, count, aborted: true}
             }
