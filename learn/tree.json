@@ -61,6 +61,7 @@
             {"name": "Under the Hood: HTML Templates",                 "parentId": "guides/uibuildingblocks",                             "id": "guides/uibuildingblocks/HtmlTemplatesUnderTheHood"},
             {"name": "Styling and Theming",                            "parentId": "guides/uibuildingblocks",                             "id": "guides/uibuildingblocks/StylingAndTheming"},
         {"name": "Data Handling",                                      "parentId": "guides",                             "isLeaf": false, "id": "guides/datahandling", "collapsed": true},
+            {"name": "Data Pipelines",                                 "parentId": "guides/datahandling",                                 "id": "guides/datahandling/DataPipelines"},
             {"name": "Collections",                                    "parentId": "guides/datahandling",                                 "id": "guides/datahandling/Collections"},
             {"name": "Records",                                        "parentId": "guides/datahandling",                                 "id": "guides/datahandling/Records"},
             {"name": "Grids",                                          "parentId": "guides/datahandling",                                 "id": "guides/datahandling/Grids"},
