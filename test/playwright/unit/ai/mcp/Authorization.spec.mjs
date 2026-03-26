@@ -37,18 +37,18 @@ test.describe('MCP Server OIDC/OAuth 2.1 Authorization (Functional)', () => {
 
         // Introspection Endpoint
         app.post('/realms/test/protocol/openid-connect/token/introspect', (req, res) => {
-            const {token, client_id} = req.body;
+            const { token, client_id } = req.body;
 
             if (token === TEST_TOKEN && client_id === TEST_CLIENT_ID) {
                 res.json({
-                    active   : true,
+                    active: true,
                     client_id: TEST_CLIENT_ID,
-                    scope    : 'mcp:tools',
-                    aud      : `http://localhost:${MCP_SSE_PORT}`,
-                    exp      : Math.floor(Date.now() / 1000) + 3600
+                    scope: 'mcp:tools',
+                    aud: ['http://localhost:3333', 'http://localhost:3334'],
+                    exp: Math.floor(Date.now() / 1000) + 3600
                 });
             } else {
-                res.json({active: false});
+                res.json({ active: false });
             }
         });
 
@@ -61,6 +61,8 @@ test.describe('MCP Server OIDC/OAuth 2.1 Authorization (Functional)', () => {
                 ...process.env,
                 TRANSPORT      : 'sse',
                 SSE_PORT       : MCP_SSE_PORT.toString(),
+                AUTO_SYNC      : 'false',
+                AUTO_SUMMARIZE : 'false',
                 AUTH_HOST      : 'localhost',
                 AUTH_PORT      : MOCK_OIDC_PORT.toString(),
                 AUTH_REALM     : 'test',
@@ -85,7 +87,7 @@ test.describe('MCP Server OIDC/OAuth 2.1 Authorization (Functional)', () => {
                     resolve();
                 }
             });
-            setTimeout(() => reject(new Error('MCP Server startup timeout')), 10000);
+            setTimeout(() => reject(new Error('MCP Server startup timeout')), 20000);
         });
     });
 
@@ -112,21 +114,21 @@ test.describe('MCP Server OIDC/OAuth 2.1 Authorization (Functional)', () => {
         expect(response.status()).toBe(401);
     });
 
-    test('should allow access with a valid token', async ({request}) => {
+    test('should allow access with a valid token', async ({ request }) => {
         const response = await request.post(`http://localhost:${MCP_SSE_PORT}/mcp`, {
             headers: {
                 'Authorization': `Bearer ${TEST_TOKEN}`,
-                'Content-Type' : 'application/json',
-                'Accept'       : 'application/json, text/event-stream'
+                'Content-Type': 'application/json',
+                'Accept': 'application/json, text/event-stream'
             },
-            data   : {
+            data: {
                 jsonrpc: '2.0',
-                id     : 1,
-                method : 'initialize',
-                params : {
+                id: 1,
+                method: 'initialize',
+                params: {
                     protocolVersion: '2024-11-05',
-                    capabilities   : {},
-                    clientInfo     : {name: 'test-client', version: '1.0.0'}
+                    capabilities: {},
+                    clientInfo: { name: 'test-client', version: '1.0.0' }
                 }
             }
         });
@@ -140,7 +142,7 @@ test.describe('MCP Server OIDC/OAuth 2.1 Authorization (Functional)', () => {
         expect(body).toContain('2024-11-05');
     });
 
-    test('should verify CORS headers are present', async ({request}) => {
+    test('should verify CORS headers are present', async ({ request }) => {
         const response = await request.fetch(`http://localhost:${MCP_SSE_PORT}/mcp`, {
             method : 'OPTIONS',
             headers: {
@@ -160,5 +162,63 @@ test.describe('MCP Server OIDC/OAuth 2.1 Authorization (Functional)', () => {
         const body = await response.json();
         expect(body.resource).toBe(`http://localhost:${MCP_SSE_PORT}/`);
         expect(body.authorization_servers).toContain(`http://localhost:${MOCK_OIDC_PORT}/realms/test/`);
+    });
+
+    test('should support OIDC discovery via AUTH_ISSUER_URL', async ({ request }) => {
+        const DISCOVERY_MCP_PORT = 3334;
+
+        // Start a new MCP server process using issuerUrl
+        const discoveryProcess = spawn('node', [SERVER_PATH, '--debug'], {
+            env: {
+                ...process.env,
+                TRANSPORT      : 'sse',
+                SSE_PORT       : DISCOVERY_MCP_PORT.toString(),
+                AUTO_SYNC      : 'false',
+                AUTO_SUMMARIZE : 'false',
+                AUTH_ISSUER_URL: `http://localhost:${MOCK_OIDC_PORT}/realms/test`,
+                OAUTH_CLIENT_ID: TEST_CLIENT_ID,
+                HOST           : 'localhost'
+            }
+        });
+
+        try {
+            // Wait for server to start
+            await new Promise((resolve, reject) => {
+                discoveryProcess.stdout.on('data', (data) => {
+                    if (data.toString().includes('Server started on SSE transport')) {
+                        resolve();
+                    }
+                });
+                discoveryProcess.stderr.on('data', (data) => {
+                    if (data.toString().includes('Server started on SSE transport')) {
+                        resolve();
+                    }
+                });
+                setTimeout(() => reject(new Error('Discovery MCP Server startup timeout')), 20000);
+            });
+
+            const response = await request.post(`http://localhost:${DISCOVERY_MCP_PORT}/mcp`, {
+                headers: {
+                    'Authorization': `Bearer ${TEST_TOKEN}`,
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json, text/event-stream'
+                },
+                data: {
+                    jsonrpc: '2.0',
+                    id: 1,
+                    method: 'initialize',
+                    params: {
+                        protocolVersion: '2024-11-05',
+                        capabilities: {},
+                        clientInfo: { name: 'test-client', version: '1.0.0' }
+                    }
+                }
+            });
+
+            expect(response.status()).toBe(200);
+            expect(response.headers()['content-type']).toContain('text/event-stream');
+        } finally {
+            discoveryProcess.kill();
+        }
     });
 });

@@ -13,7 +13,7 @@ const defaultConfig = {
      * Automatically synchronize the knowledge base on startup.
      * @type {boolean}
      */
-    autoSync: true,
+    autoSync: process.env.AUTO_SYNC !== 'false',
     /**
      * Global debug flag for all MCP servers.
      * @type {boolean}
@@ -43,6 +43,7 @@ const defaultConfig = {
         host        : process.env.AUTH_HOST || null,
         port        : Number(process.env.AUTH_PORT) || 8080,
         realm       : process.env.AUTH_REALM || 'master',
+        issuerUrl   : process.env.AUTH_ISSUER_URL || null,
         clientId    : process.env.OAUTH_CLIENT_ID || null,
         clientSecret: process.env.OAUTH_CLIENT_SECRET || '',
     },

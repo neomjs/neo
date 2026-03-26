@@ -22,9 +22,10 @@ To enable authorization on your MCP server, you must use the **SSE transport** a
 
 | Variable | Description | Example |
 | :--- | :--- | :--- |
-| `AUTH_HOST` | The hostname of your OIDC provider. | `keycloak.local` |
-| `AUTH_PORT` | The port of your OIDC provider. | `8080` |
-| `AUTH_REALM` | The OIDC realm name. | `master` |
+| `AUTH_ISSUER_URL` | The base URL of the OIDC provider (enables Discovery). | `https://accounts.google.com` |
+| `AUTH_HOST` | The hostname of your OIDC provider (Keycloak fallback). | `keycloak.local` |
+| `AUTH_PORT` | The port of your OIDC provider (Keycloak fallback). | `8080` |
+| `AUTH_REALM` | The OIDC realm name (Keycloak fallback). | `master` |
 | `OAUTH_CLIENT_ID` | The OAuth 2.1 client ID for the server. | `neo-mcp-server` |
 | `OAUTH_CLIENT_SECRET` | The OAuth 2.1 client secret. | `your-secret-here` |
 | `HOST` | The public hostname of the MCP server. | `mcp.neomjs.com` |
@@ -34,6 +35,13 @@ The server intelligently resolves URLs:
 - If the host is `localhost` or `127.0.0.1`, it defaults to `http`.
 - For all other hosts, it defaults to `https`.
 - If the host string already includes a protocol (e.g., `https://myhost`), that protocol is preserved.
+
+---
+
+## Hands-on Examples
+
+- **Keycloak:** See the [Local Keycloak Setup](#example-local-keycloak-setup) below.
+- **Google OAuth:** Follow the [Google OAuth 2.1 Demo](GoogleAuthDemo.md) guide.
 
 ---
 
