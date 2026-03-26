@@ -938,6 +938,14 @@ class Store extends Collection {
                 // params.url can override pipeline/connection url
                 if (opts.url) {
                     params.url = opts.url;
+
+                    if (!me.pipeline.connection) {
+                        const ConnectionXhr = (await import('./connection/Xhr.mjs')).default;
+                        me.pipeline.connection = {
+                            module: ConnectionXhr,
+                            url   : opts.url
+                        };
+                    }
                 }
 
                 const response = await me.pipeline.read(params);
