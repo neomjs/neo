@@ -1,11 +1,9 @@
-import Base                from '../../core/Base.mjs';
+import Base                from './Base.mjs';
 import {createInterceptor} from '../../util/Function.mjs';
-import Observable          from '../../core/Observable.mjs';
 
 /**
  * @class Neo.data.connection.WebSocket
- * @extends Neo.core.Base
- * @mixes Neo.core.Observable
+ * @extends Neo.data.connection.Base
  */
 class Socket extends Base {
     static config = {
