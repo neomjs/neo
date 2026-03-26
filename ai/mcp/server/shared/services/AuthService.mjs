@@ -1,14 +1,27 @@
 import Base from '../../../../../src/core/Base.mjs';
 
 /**
- * @summary Service for handling OIDC/OAuth 2.1 authorization for MCP servers.
+ * @summary Orchestrates OIDC and OAuth 2.1 authorization for Neo.mjs MCP servers.
  *
- * This service encapsulates OIDC discovery, token verification via introspection,
- * and the setup of MCP Protected Resource Metadata.
+ * This service acts as the **Authorization Anchor** for the MCP ecosystem. It implements
+ * the **Discovery-First Pattern**, where it dynamically resolves security endpoints from the
+ * identity provider's `.well-known/openid-configuration`. 
+ *
+ * Key Architectural Concepts:
+ * - **Dynamic Resolution:** Autonomously fetches and parses OIDC discovery documents.
+ * - **Token Introspection:** Implements RFC 7662 compliant token validation.
+ * - **Protected Resource Metadata (PRM):** Serves the discovery router required for MCP clients
+ *    to identify the required authorization server.
+ * - **Audience Enforcement:** Strictly validates that the `aud` (Audience) claim in the
+ *   Bearer token matches the MCP server's public URL to prevent passthrough attacks.
+ *
+ * This service is essential for enabling **Agent-Native Security** in distributed or 
+ * cloud-native environments using Infrastructure as Code (IaC).
  *
  * @class Neo.ai.mcp.server.shared.services.AuthService
  * @extends Neo.core.Base
  * @singleton
+ * @see Neo.ai.mcp.server.shared.services.TransportService
  */
 class AuthService extends Base {
     static config = {
