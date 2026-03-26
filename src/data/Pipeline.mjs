@@ -33,6 +33,12 @@ class Pipeline extends Base {
          */
         ntype: 'pipeline',
         /**
+         * The ID of the App Worker Pipeline instance (used when running inside the Data Worker).
+         * @member {String|null} appPipelineId=null
+         * @protected
+         */
+        appPipelineId: null,
+        /**
          * The connection configuration or instance (e.g., Fetch, WebSocket, Rpc).
          * @member {Object|Neo.data.connection.Base|null} connection_=null
          * @reactive
@@ -137,7 +143,7 @@ class Pipeline extends Base {
             }
         } else {
             let rawData;
-            
+
             if (me.connection && me.connection.execute) {
                 rawData = await me.connection.execute(method, params);
             } else if (me.connection && typeof me.connection[method] === 'function') {
@@ -177,15 +183,52 @@ class Pipeline extends Base {
      * @returns {Object|Neo.data.connection.Base|null}
      */
     beforeSetConnection(value, oldValue) {
-        oldValue?.destroy();
+        let me = this;
 
-        if (value && this.workerExecution === 'app') {
-            return ClassSystemUtil.beforeSetInstance(value, null, {
-                pipeline: this
-            })
+        if (oldValue) {
+            oldValue.un('push', me.onConnectionPush, me);
+            oldValue.destroy();
+        }
+
+        if (value && me.workerExecution === 'app') {
+            value = ClassSystemUtil.beforeSetInstance(value, null, {
+                pipeline: me
+            });
+
+            value.on('push', me.onConnectionPush, me);
+
+            return value;
         }
 
         return value
+    }
+
+    /**
+     * Triggered when the underlying connection receives unsolicited push data (e.g. WebSocket).
+     * @param {Object} data
+     * @protected
+     */
+    async onConnectionPush(data) {
+        let me         = this,
+            shapedData = data;
+
+        if (me.parser?.read) {
+            shapedData = await me.parser.read(shapedData);
+        }
+
+        if (me.normalizer?.normalize) {
+            shapedData = await me.normalizer.normalize(shapedData);
+        }
+
+        if (me.appPipelineId) {
+            Neo.currentWorker.sendMessage('app', {
+                action: 'pipelinePush',
+                data  : shapedData,
+                id    : me.appPipelineId
+            });
+        } else {
+            me.fire('push', shapedData);
+        }
     }
 
     /**
@@ -301,6 +344,7 @@ class Pipeline extends Base {
 
         // We only send the configs, not instances
         let remoteConfig = {
+            appPipelineId  : me.id,
             className      : me.className,
             connection     : me.serializeConfig(me._connection),
             normalizer     : me.serializeConfig(me._normalizer),
@@ -394,7 +438,7 @@ class Pipeline extends Base {
         } else {
             // Local execution flow
             let rawData;
-            
+
             // 1. Connection (e.g. fetch, WebSocket, Rpc) retrieves raw data/stream
             if (me.connection) {
                 rawData = await me.connection.read(params);
@@ -450,7 +494,7 @@ class Pipeline extends Base {
             return await me.remote.data[operation](params);
         } else {
             let rawData;
-            
+
             if (me.connection && me.connection[operation]) {
                 rawData = await me.connection[operation](params);
                 if (!rawData) return null;

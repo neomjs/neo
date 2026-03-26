@@ -1,10 +1,19 @@
-import BaseCore from '../../core/Base.mjs';
+import CoreBase   from '../../core/Base.mjs';
+import Observable from '../../core/Observable.mjs';
 
 /**
  * @class Neo.data.connection.Base
  * @extends Neo.core.Base
+ * @mixes Neo.core.Observable
  */
-class Base extends BaseCore {
+class Base extends CoreBase {
+    /**
+     * True automatically applies the core.Observable mixin
+     * @member {Boolean} observable=true
+     * @static
+     */
+    static observable = true
+
     static config = {
         /**
          * @member {String} className='Neo.data.connection.Base'

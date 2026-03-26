@@ -374,6 +374,18 @@ class Store extends Collection {
     }
 
     /**
+     * @param {Neo.data.Pipeline|null} value
+     * @param {Neo.data.Pipeline|null} oldValue
+     * @protected
+     */
+    afterSetPipeline(value, oldValue) {
+        let me = this;
+
+        oldValue?.un('push', me.onPipelinePush, me);
+        value   ?.on('push', me.onPipelinePush, me)
+    }
+
+    /**
      * @param {Object[]} value
      * @param {Object[]} oldValue
      * @protected
@@ -1086,6 +1098,27 @@ class Store extends Collection {
             me.load()
         } else {
             super.onFilterChange(opts)
+        }
+    }
+
+    /**
+     * @param {Object} data
+     * @protected
+     */
+    onPipelinePush(data) {
+        let me = this,
+            id = data[me.getKeyProperty()],
+            record;
+
+        if (id !== undefined) {
+            record = me.get(id);
+
+            if (record) {
+                record.set(data)
+            } else {
+                // Future enhancement: handle inserts based on a config (e.g. autoInsertPushes)
+                // me.add(data);
+            }
         }
     }
 
