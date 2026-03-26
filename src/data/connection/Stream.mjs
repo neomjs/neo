@@ -3,6 +3,22 @@ import Base from './Base.mjs';
 /**
  * @class Neo.data.connection.Stream
  * @extends Neo.data.connection.Base
+ *
+ * @summary A Transport Layer implementation that initiates a network request and returns a raw byte stream.
+ *
+ * `connection.Stream` is strictly responsible for the **Transport** phase of the Data Pipeline.
+ * It uses the native `fetch` API to open a connection, handle optional `DecompressionStream` logic
+ * (like gzip or deflate), and returns the raw `ReadableStream`.
+ *
+ * **Crucial Architectural Boundary:**
+ * This class knows nothing about the format of the data (JSON, CSV, XML) or how it translates
+ * to records. It simply provides the byte pipe. A downstream Parser (e.g., {@link Neo.data.parser.Stream})
+ * must be used in the Pipeline to deserialize the byte stream into structured JavaScript objects.
+ * This separation adheres to the single responsibility principle and allows this connection to be
+ * reused for entirely different streaming data formats.
+ *
+ * @see Neo.data.Pipeline
+ * @see Neo.data.parser.Stream
  */
 class Stream extends Base {
     static config = {
