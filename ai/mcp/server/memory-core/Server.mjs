@@ -85,7 +85,13 @@ class Server extends Base {
             const {createMcpExpressApp}           = await import('@modelcontextprotocol/sdk/server/express.js');
             const {StreamableHTTPServerTransport} = await import('@modelcontextprotocol/sdk/server/streamableHttp.js');
             const crypto                          = await import('crypto');
+            const cors                            = await import('cors');
             const app                             = createMcpExpressApp();
+
+            app.use(cors.default({
+                origin        : '*',
+                exposedHeaders: ['Mcp-Session-Id'],
+            }));
 
             const getFullUrl = (host, port) => {
                 if (host.includes('://')) {
