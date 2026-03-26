@@ -28,7 +28,7 @@ class MainContainer extends Viewport {
                     autoLoad: true,
                     model   : BeatlesModel,
                     pipeline: {
-                        workerExecution: 'app',
+                        workerExecution: 'app', // Default value, re-adding it here for clarity.
                         connection: {
                             module: ConnectionFetch,
                             url   : '../../../resources/data/theBeatles.json'
