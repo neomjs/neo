@@ -6,7 +6,7 @@ labels:
   - bug
 assignees: []
 createdAt: '2026-03-06T10:30:01Z'
-updatedAt: '2026-03-25T16:18:53Z'
+updatedAt: '2026-03-26T15:17:43Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9366'
 author: kmunk-klarso
 commentsCount: 2
@@ -18,7 +18,6 @@ blockedBy: []
 blocking: []
 ---
 # Chrome Windows Color app
-
 
 widget nach rausziehen lässt sind reintegrieren
 
