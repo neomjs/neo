@@ -105,33 +105,59 @@ class Server extends Base {
             const mcpServerUrl = getFullUrl(process.env.HOST || 'localhost', aiConfig.ssePort);
 
             // Optional OIDC/OAuth Authorization
-            if (aiConfig.auth.host) {
+            if (aiConfig.auth.host || aiConfig.auth.issuerUrl) {
                 const {mcpAuthMetadataRouter, getOAuthProtectedResourceMetadataUrl} = await import('@modelcontextprotocol/sdk/server/auth/router.js');
                 const {requireBearerAuth}                                           = await import('@modelcontextprotocol/sdk/server/auth/middleware/bearerAuth.js');
                 const {InvalidTokenError}                                           = await import('@modelcontextprotocol/sdk/server/auth/errors.js');
                 const {checkResourceAllowed}                                        = await import('@modelcontextprotocol/sdk/shared/auth-utils.js');
 
-                const authBaseUrl = getFullUrl(aiConfig.auth.host, aiConfig.auth.port);
+                let oauthUrls;
 
-                // Append Keycloak realm path if not already present
-                if (!authBaseUrl.pathname.includes('/realms/')) {
-                    authBaseUrl.pathname = `/realms/${aiConfig.auth.realm}/`;
+                if (aiConfig.auth.issuerUrl) {
+                    let issuerUrl = aiConfig.auth.issuerUrl;
+
+                    if (!issuerUrl.endsWith('/')) {
+                        issuerUrl += '/';
+                    }
+
+                    const discoveryUrl = new URL('.well-known/openid-configuration', issuerUrl);
+                    const response     = await fetch(discoveryUrl);
+
+                    if (!response.ok) {
+                        throw new Error(`Failed to fetch OIDC discovery document from ${discoveryUrl}: ${response.statusText}`);
+                    }
+
+                    oauthUrls = await response.json();
+                    logger.info(`[neo-knowledge-base MCP] OIDC Discovery successful for issuer: ${oauthUrls.issuer}`);
+                } else {
+                    const authBaseUrl = getFullUrl(aiConfig.auth.host, aiConfig.auth.port);
+
+                    // Append Keycloak realm path if not already present
+                    if (!authBaseUrl.pathname.includes('/realms/')) {
+                        authBaseUrl.pathname = `/realms/${aiConfig.auth.realm}/`;
+                    }
+
+                    oauthUrls = {
+                        issuer                : authBaseUrl.toString(),
+                        introspection_endpoint: new URL('protocol/openid-connect/token/introspect', authBaseUrl).toString(),
+                        authorization_endpoint: new URL('protocol/openid-connect/auth',             authBaseUrl).toString(),
+                        token_endpoint        : new URL('protocol/openid-connect/token',            authBaseUrl).toString(),
+                    };
                 }
-
-                const oauthUrls = {
-                    issuer                : authBaseUrl.toString(),
-                    introspection_endpoint: new URL('protocol/openid-connect/token/introspect', authBaseUrl).toString(),
-                    authorization_endpoint: new URL('protocol/openid-connect/auth',             authBaseUrl).toString(),
-                    token_endpoint        : new URL('protocol/openid-connect/token',            authBaseUrl).toString(),
-                };
 
                 const oauthMetadata = {
                     ...oauthUrls,
-                    response_types_supported: ['code'],
+                    response_types_supported: oauthUrls.response_types_supported || ['code'],
                 };
 
                 const tokenVerifier = {
                     verifyAccessToken: async (token) => {
+                        const introspectionEndpoint = oauthUrls.introspection_endpoint;
+
+                        if (!introspectionEndpoint) {
+                            throw new Error('No introspection endpoint available in OIDC metadata');
+                        }
+
                         const params = new URLSearchParams({
                             token    : token,
                             client_id: aiConfig.auth.clientId,
@@ -141,7 +167,7 @@ class Server extends Base {
                             params.set('client_secret', aiConfig.auth.clientSecret);
                         }
 
-                        const response = await fetch(oauthUrls.introspection_endpoint, {
+                        const response = await fetch(introspectionEndpoint, {
                             method : 'POST',
                             headers: {'Content-Type': 'application/x-www-form-urlencoded'},
                             body   : params.toString(),
