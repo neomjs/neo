@@ -88,6 +88,109 @@ class Server extends Base {
             const crypto                          = await import('crypto');
             const app                             = createMcpExpressApp();
 
+            const getFullUrl = (host, port) => {
+                if (host.includes('://')) {
+                    return new URL(host);
+                }
+                const protocol = (host === 'localhost' || host === '127.0.0.1') ? 'http' : 'https';
+                return new URL(`${protocol}://${host}:${port}`);
+            };
+
+            const mcpServerUrl = getFullUrl(process.env.HOST || 'localhost', aiConfig.ssePort);
+
+            // Optional OIDC/OAuth Authorization
+            if (aiConfig.auth.host) {
+                const {mcpAuthMetadataRouter, getOAuthProtectedResourceMetadataUrl} = await import('@modelcontextprotocol/sdk/server/auth/router.js');
+                const {requireBearerAuth}                                           = await import('@modelcontextprotocol/sdk/server/auth/middleware/bearerAuth.js');
+                const {checkResourceAllowed}                                        = await import('@modelcontextprotocol/sdk/shared/auth-utils.js');
+
+                const authBaseUrl = getFullUrl(aiConfig.auth.host, aiConfig.auth.port);
+
+                // Append Keycloak realm path if not already present
+                if (!authBaseUrl.pathname.includes('/realms/')) {
+                    authBaseUrl.pathname = `/realms/${aiConfig.auth.realm}/`;
+                }
+
+                const oauthUrls = {
+                    issuer                : authBaseUrl.toString(),
+                    introspection_endpoint: new URL('protocol/openid-connect/token/introspect', authBaseUrl).toString(),
+                    authorization_endpoint: new URL('protocol/openid-connect/auth',             authBaseUrl).toString(),
+                    token_endpoint        : new URL('protocol/openid-connect/token',            authBaseUrl).toString(),
+                };
+
+                const oauthMetadata = {
+                    ...oauthUrls,
+                    response_types_supported: ['code'],
+                };
+
+                const tokenVerifier = {
+                    verifyAccessToken: async (token) => {
+                        const params = new URLSearchParams({
+                            token    : token,
+                            client_id: aiConfig.auth.clientId,
+                        });
+
+                        if (aiConfig.auth.clientSecret) {
+                            params.set('client_secret', aiConfig.auth.clientSecret);
+                        }
+
+                        const response = await fetch(oauthUrls.introspection_endpoint, {
+                            method : 'POST',
+                            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                            body   : params.toString(),
+                        });
+
+                        if (!response.ok) {
+                            throw new Error(`Invalid or expired token: ${await response.text()}`);
+                        }
+
+                        const data = await response.json();
+
+                        if (data.active === false) {
+                            throw new Error('Inactive token');
+                        }
+
+                        if (!data.aud) {
+                            throw new Error('Resource indicator (aud) missing');
+                        }
+
+                        const audiences = Array.isArray(data.aud) ? data.aud : [data.aud];
+                        const allowed   = audiences.some(a => checkResourceAllowed({
+                            requestedResource : a,
+                            configuredResource: mcpServerUrl,
+                        }));
+
+                        if (!allowed) {
+                            throw new Error(`None of the provided audiences are allowed. Expected ${mcpServerUrl}, got: ${audiences.join(', ')}`);
+                        }
+
+                        return {
+                            token,
+                            clientId : data.client_id,
+                            scopes   : data.scope ? data.scope.split(' ') : [],
+                            expiresAt: data.exp,
+                        };
+                    }
+                };
+
+                app.use(mcpAuthMetadataRouter({
+                    oauthMetadata,
+                    resourceServerUrl: mcpServerUrl,
+                    scopesSupported  : ['mcp:tools'],
+                    resourceName     : 'Neo.mjs Knowledge Base',
+                }));
+
+                const authMiddleware = requireBearerAuth({
+                    verifier           : tokenVerifier,
+                    requiredScopes     : [],
+                    resourceMetadataUrl: getOAuthProtectedResourceMetadataUrl(mcpServerUrl),
+                });
+
+                app.use(authMiddleware);
+
+                logger.info(`[neo-knowledge-base MCP] OIDC Authorization enabled (Issuer: ${oauthUrls.issuer})`);
+            }
+
             if (typeof aiConfig.authMiddleware === 'function') {
                 app.use(aiConfig.authMiddleware);
             }

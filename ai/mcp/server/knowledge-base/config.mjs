@@ -35,6 +35,18 @@ const defaultConfig = {
      */
     authMiddleware: null,
     /**
+     * Authentication configuration for the server (OAuth 2.1 / OIDC).
+     * Only used when transport is 'sse'.
+     * @type {Object}
+     */
+    auth: {
+        host        : process.env.AUTH_HOST || null,
+        port        : Number(process.env.AUTH_PORT) || 8080,
+        realm       : process.env.AUTH_REALM || 'master',
+        clientId    : process.env.OAUTH_CLIENT_ID || null,
+        clientSecret: process.env.OAUTH_CLIENT_SECRET || '',
+    },
+    /**
      * A dummy embedding function to satisfy the ChromaDB API when embeddings are provided manually.
      *
      * NOTE: This verbose structure is strictly required to prevent the ChromaDB client from
