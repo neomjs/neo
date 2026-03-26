@@ -23,12 +23,12 @@ const defaultConfig = {
      * Transport protocol for the MCP server ('stdio' or 'sse').
      * @type {string}
      */
-    transport: 'stdio',
+    transport: process.env.TRANSPORT || 'stdio',
     /**
      * Port for the SSE transport (only used if transport is 'sse').
      * @type {number}
      */
-    ssePort: 3001,
+    ssePort: Number(process.env.SSE_PORT) || 3001,
     /**
      * Optional Express middleware function for authentication (only used if transport is 'sse').
      * @type {Function|null}
