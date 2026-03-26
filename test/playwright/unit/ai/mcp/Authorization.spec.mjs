@@ -1,4 +1,18 @@
-import {test, expect}  from '@playwright/test';
+/**
+ * @summary Functional tests for MCP OIDC/OAuth 2.1 Authorization.
+ *
+ * This test suite verifies the **Authorization Anchor** implementation for Neo.mjs MCP servers.
+ * It simulates a complete **Logical Handshake** between an AI agent (Playwright) and the
+ * Knowledge Base server by mocking a standard OIDC identity provider.
+ *
+ * Testing Strategy:
+ * 1. **Identity Simulation:** Mocks OIDC discovery and introspection endpoints.
+ * 2. **Process Orchestration:** Spawns the MCP server in a separate Node.js process with 
+ *    custom environment variables to simulate a real IaC deployment.
+ * 3. **Handshake Verification:** Validates 401 (Unauthorized), 200 (Authorized with SSE),
+ *    CORS headers, and Protected Resource Metadata (PRM) discovery.
+ */
+import { test, expect } from '@playwright/test';
 import {spawn}         from 'child_process';
 import path            from 'path';
 import {fileURLToPath} from 'url';
