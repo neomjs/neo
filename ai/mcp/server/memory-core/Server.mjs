@@ -107,6 +107,7 @@ class Server extends Base {
             if (aiConfig.auth.host) {
                 const {mcpAuthMetadataRouter, getOAuthProtectedResourceMetadataUrl} = await import('@modelcontextprotocol/sdk/server/auth/router.js');
                 const {requireBearerAuth}                                           = await import('@modelcontextprotocol/sdk/server/auth/middleware/bearerAuth.js');
+                const {InvalidTokenError}                                           = await import('@modelcontextprotocol/sdk/server/auth/errors.js');
                 const {checkResourceAllowed}                                        = await import('@modelcontextprotocol/sdk/shared/auth-utils.js');
 
                 const authBaseUrl = getFullUrl(aiConfig.auth.host, aiConfig.auth.port);
@@ -146,17 +147,17 @@ class Server extends Base {
                         });
 
                         if (!response.ok) {
-                            throw new Error(`Invalid or expired token: ${await response.text()}`);
+                            throw new InvalidTokenError(`Invalid or expired token: ${await response.text()}`);
                         }
 
                         const data = await response.json();
 
                         if (data.active === false) {
-                            throw new Error('Inactive token');
+                            throw new InvalidTokenError('Inactive token');
                         }
 
                         if (!data.aud) {
-                            throw new Error('Resource indicator (aud) missing');
+                            throw new InvalidTokenError('Resource indicator (aud) missing');
                         }
 
                         const audiences = Array.isArray(data.aud) ? data.aud : [data.aud];
@@ -166,7 +167,7 @@ class Server extends Base {
                         }));
 
                         if (!allowed) {
-                            throw new Error(`None of the provided audiences are allowed. Expected ${mcpServerUrl}, got: ${audiences.join(', ')}`);
+                            throw new InvalidTokenError(`None of the provided audiences are allowed. Expected ${mcpServerUrl}, got: ${audiences.join(', ')}`);
                         }
 
                         return {
