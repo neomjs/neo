@@ -127,6 +127,7 @@
             {"name": "The Memory Core Server",                         "parentId": "guides/mcp",                                          "id": "guides/mcp/MemoryCore"},
             {"name": "The Neural Link Server",                         "parentId": "guides/mcp",                                          "id": "guides/mcp/NeuralLink"},
             {"name": "The GitHub Workflow Server",                     "parentId": "guides/mcp",                                          "id": "guides/mcp/GitHubWorkflow"},
+            {"name": "Server Authorization",                           "parentId": "guides/mcp",                                          "id": "guides/mcp/Authorization"},
             {"name": "Code Execution",                                 "parentId": "guides/mcp",                                          "id": "guides/mcp/CodeExecution"},
         {"name": "AI",                                                 "parentId": "guides",                             "isLeaf": false, "id": "guides/ai", "collapsed": true},
             {"name": "Strategic Workflows",                            "parentId": "guides/ai",                                           "id": "guides/ai/StrategicWorkflows"},
