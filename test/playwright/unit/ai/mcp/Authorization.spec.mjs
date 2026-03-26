@@ -7,12 +7,12 @@
  *
  * Testing Strategy:
  * 1. **Identity Simulation:** Mocks OIDC discovery and introspection endpoints.
- * 2. **Process Orchestration:** Spawns the MCP server in a separate Node.js process with 
+ * 2. **Process Orchestration:** Spawns the MCP server in a separate Node.js process with
  *    custom environment variables to simulate a real IaC deployment.
  * 3. **Handshake Verification:** Validates 401 (Unauthorized), 200 (Authorized with SSE),
  *    CORS headers, and Protected Resource Metadata (PRM) discovery.
  */
-import { test, expect } from '@playwright/test';
+import {test, expect}  from '@playwright/test';
 import {spawn}         from 'child_process';
 import path            from 'path';
 import {fileURLToPath} from 'url';
@@ -51,18 +51,18 @@ test.describe('MCP Server OIDC/OAuth 2.1 Authorization (Functional)', () => {
 
         // Introspection Endpoint
         app.post('/realms/test/protocol/openid-connect/token/introspect', (req, res) => {
-            const { token, client_id } = req.body;
+            const {token, client_id} = req.body;
 
             if (token === TEST_TOKEN && client_id === TEST_CLIENT_ID) {
                 res.json({
-                    active: true,
+                    active   : true,
                     client_id: TEST_CLIENT_ID,
-                    scope: 'mcp:tools',
-                    aud: ['http://localhost:3333', 'http://localhost:3334'],
-                    exp: Math.floor(Date.now() / 1000) + 3600
+                    scope    : 'mcp:tools',
+                    aud      : ['http://localhost:3333', 'http://localhost:3334'],
+                    exp      : Math.floor(Date.now() / 1000) + 3600
                 });
             } else {
-                res.json({ active: false });
+                res.json({active: false});
             }
         });
 
@@ -128,21 +128,21 @@ test.describe('MCP Server OIDC/OAuth 2.1 Authorization (Functional)', () => {
         expect(response.status()).toBe(401);
     });
 
-    test('should allow access with a valid token', async ({ request }) => {
+    test('should allow access with a valid token', async ({request}) => {
         const response = await request.post(`http://localhost:${MCP_SSE_PORT}/mcp`, {
             headers: {
                 'Authorization': `Bearer ${TEST_TOKEN}`,
-                'Content-Type': 'application/json',
-                'Accept': 'application/json, text/event-stream'
+                'Content-Type' : 'application/json',
+                'Accept'       : 'application/json, text/event-stream'
             },
-            data: {
+            data   : {
                 jsonrpc: '2.0',
-                id: 1,
-                method: 'initialize',
-                params: {
+                id     : 1,
+                method : 'initialize',
+                params : {
                     protocolVersion: '2024-11-05',
-                    capabilities: {},
-                    clientInfo: { name: 'test-client', version: '1.0.0' }
+                    capabilities   : {},
+                    clientInfo     : {name: 'test-client', version: '1.0.0'}
                 }
             }
         });
@@ -156,7 +156,7 @@ test.describe('MCP Server OIDC/OAuth 2.1 Authorization (Functional)', () => {
         expect(body).toContain('2024-11-05');
     });
 
-    test('should verify CORS headers are present', async ({ request }) => {
+    test('should verify CORS headers are present', async ({request}) => {
         const response = await request.fetch(`http://localhost:${MCP_SSE_PORT}/mcp`, {
             method : 'OPTIONS',
             headers: {
@@ -178,7 +178,7 @@ test.describe('MCP Server OIDC/OAuth 2.1 Authorization (Functional)', () => {
         expect(body.authorization_servers).toContain(`http://localhost:${MOCK_OIDC_PORT}/realms/test/`);
     });
 
-    test('should support OIDC discovery via AUTH_ISSUER_URL', async ({ request }) => {
+    test('should support OIDC discovery via AUTH_ISSUER_URL', async ({request}) => {
         const DISCOVERY_MCP_PORT = 3334;
 
         // Start a new MCP server process using issuerUrl
@@ -214,17 +214,17 @@ test.describe('MCP Server OIDC/OAuth 2.1 Authorization (Functional)', () => {
             const response = await request.post(`http://localhost:${DISCOVERY_MCP_PORT}/mcp`, {
                 headers: {
                     'Authorization': `Bearer ${TEST_TOKEN}`,
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json, text/event-stream'
+                    'Content-Type' : 'application/json',
+                    'Accept'       : 'application/json, text/event-stream'
                 },
-                data: {
+                data   : {
                     jsonrpc: '2.0',
-                    id: 1,
-                    method: 'initialize',
-                    params: {
+                    id     : 1,
+                    method : 'initialize',
+                    params : {
                         protocolVersion: '2024-11-05',
-                        capabilities: {},
-                        clientInfo: { name: 'test-client', version: '1.0.0' }
+                        capabilities   : {},
+                        clientInfo     : {name: 'test-client', version: '1.0.0'}
                     }
                 }
             });
