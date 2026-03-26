@@ -128,7 +128,7 @@ Because RPC and local fetching now share the same architecture, integrating a We
 
 If your project defines an RPC API (via `remotes-api.json`), you don't even need to define the connection manually. You just reference the API endpoint, and the system dynamically constructs the WebSocket pipeline for you.
 
-```javascript live-preview
+```javascript readonly
 import Container from '../../src/container/Base.mjs';
 import Model     from '../../src/data/Model.mjs';
 import Store     from '../../src/data/Store.mjs';
