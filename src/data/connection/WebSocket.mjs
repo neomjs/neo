@@ -8,13 +8,6 @@ import Observable          from '../../core/Observable.mjs';
  * @mixes Neo.core.Observable
  */
 class Socket extends Base {
-    /**
-     * True automatically applies the core.Observable mixin
-     * @member {Boolean} observable=true
-     * @static
-     */
-    static observable = true
-
     static config = {
         /**
          * @member {String} className='Neo.data.connection.WebSocket'
@@ -229,6 +222,9 @@ class Socket extends Base {
             me.streamCallbacks[data.method](data.data || data)
         } else if (data.stream && me.streamCallbacks[data.stream]) {
             me.streamCallbacks[data.stream](data.data || data)
+        } else {
+            // Unsolicited Push Data (Progressive Hydration)
+            me.fire('push', data.data || data)
         }
     }
 
@@ -262,7 +258,7 @@ class Socket extends Base {
     registerStream(data, callback) {
         let me       = this,
             streamId = data.method; // Based on remotes-api.json, the key is the method name
-            
+
         me.streamCallbacks[streamId] = callback;
         me.sendMessage(data)
     }

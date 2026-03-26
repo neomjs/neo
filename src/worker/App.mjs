@@ -657,13 +657,10 @@ class App extends Base {
     /**
      * @param {Object} msg
      * @param {Object} msg.data
-     * @param {String} msg.pipeline The origin pipeline ID
+     * @param {String} msg.id The origin pipeline ID
      */
     onPipelinePush(msg) {
-        let pipeline = Neo.manager.Instance.get(msg.pipeline);
-        if (pipeline) {
-            pipeline.fire('push', msg.data)
-        }
+        Neo.manager.Instance.get(msg.id)?.fire('push', msg.data)
     }
 
     /**
@@ -746,7 +743,7 @@ class App extends Base {
      */
     onRpcStreamData(msg) {
         let callback = this.rpcStreamCallbacks?.[msg.callbackId];
-        
+
         if (typeof callback === 'function') {
             callback(msg.data)
         }
