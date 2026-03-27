@@ -34,7 +34,9 @@ To create a new issue, you **MUST** use the `create_issue` tool. The tool's own 
 ### Pre-Flight Check for Commits
 
 You **MUST** execute this Pre-Flight Check before running a `git commit` command. The check consists of explicitly stating in your internal thought process:
-"Pre-Flight Check: A ticket must exist for this commit. I will verify the ticket number and include it in the commit message before proceeding."
+"Pre-Flight Check: 
+1. A ticket must exist for this commit. I will verify the ticket number and include it in the commit message.
+2. I have reviewed the modified code and applied the 'Anchor & Echo' Knowledge Base Enhancement Strategy to ensure new or changed methods/properties have adequate semantic context before proceeding."
 
 ## 4. The Memory Core Protocol
 
@@ -139,3 +141,30 @@ You **MUST** perform these steps in order before marking a task as complete:
     - You deviated from the original plan (explain *why*).
     - The task is complete (summarize the result).
 4.  **Close:** Only after steps 1-3 are complete can you close the ticket.
+
+## 8. Preventing Context Corruption (State Management)
+
+Working on the Neo platform requires long, complex sessions. To prevent your context window from becoming corrupted with multiple competing versions of the same file after several edits, you MUST adhere to this protocol:
+
+1. **The Single Full-Read Rule:** You should generally only perform a full `read_file` on a specific file *once* per session to establish your baseline understanding.
+2. **Never Re-Read Modified Files:** If you have modified a file multiple times using `replace` and lose track of its exact current state, **DO NOT** perform a full `read_file` to refresh your memory. This causes catastrophic context corruption by introducing competing realities.
+3. **Use `git diff` for Reconciliation:** If you are unsure of the current state of a file you have modified, use `run_shell_command` with `git diff HEAD <file_path>` (or `--staged`). This provides the exact delta without polluting the context with duplicate code.
+4. **Use `grep_search` for Method Verification:** If you need to verify the current state of a specific method after changes, use `grep_search` with the `context` parameter to surgically extract only that method.
+5. **No Shell Fallbacks:** You are strictly forbidden from using `cat` or `grep` via `run_shell_command` to read files. Always use the native `read_file` or `grep_search` tools.
+
+## 9. Testing and Validation Protocol
+
+To maintain repository hygiene and improve test coverage, you MUST adhere to the following rules when validating your work:
+
+1. **Micro-Benchmarking (V8 Physics):** If you need to quickly test raw JavaScript engine performance or syntax (e.g., variable hoisting, iteration speed), you may use `run_shell_command` with `node -e '...'`. This is preferred for ephemeral, non-framework tests.
+2. **No Throwaway Scripts:** You are strictly **FORBIDDEN** from using `run_shell_command` (e.g., `cat << EOF > test.js`) to create temporary testing scripts on the filesystem.
+3. **Permanent Coverage:** If you are testing or validating Neo.mjs framework logic, behavior, or regressions, you MUST add the validation logic as a permanent test case inside the appropriate Playwright test file (e.g., `test/playwright/unit/data/Store.spec.mjs`). Use the `replace` or `write_file` tools to do this. A task is not complete unless its framework logic is permanently verifiable.
+
+## 10. File Editing Tool Selection (The "Append Gap")
+
+Due to the constraints of the agentic environment, you MUST adhere to the following rules when modifying files to prevent JSON escaping errors and tool contract violations:
+
+1. **For Targeted Edits:** Always use the `replace` tool.
+2. **For Appending:** There is no native `append_file` tool. If you need to append to a file, you MUST use the `replace` tool. Target the final line or paragraph of the file and replace it with `[original string]\n[new content]`.
+3. **For Overwriting/Creating:** Always use the `write_file` tool.
+4. **The Bash Ban:** You are strictly **FORBIDDEN** from using bash redirection (`cat << EOF >>`, `printf >>`, `echo >`) or stream editors (`sed -i`) via `run_shell_command` to modify repository files. Always use the native `replace` and `write_file` tools.

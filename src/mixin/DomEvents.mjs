@@ -1,5 +1,6 @@
 import Base            from '../core/Base.mjs';
 import DomEventManager from '../manager/DomEvent.mjs';
+import {isDescriptor}  from '../core/ConfigSymbols.mjs';
 
 /**
  * A mixin providing DOM event handling capabilities to components.
@@ -31,7 +32,11 @@ class DomEvents extends Base {
          *}
          * @reactive
          */
-        domListeners_: null
+        domListeners_: {
+            [isDescriptor]: true,
+            cloneOnGet    : 'shallow',
+            value         : null
+        }
     }
 
     /**
@@ -88,10 +93,6 @@ class DomEvents extends Base {
             // todo: the main thread reply of mount arrives after pushing the task into the queue which does not ensure the dom is mounted
             me.timeout(150).then(() => {
                 DomEventManager.mountDomListeners(me)
-            }).catch(err => {
-                if (err !== Neo.isDestroyed) {
-                    throw err
-                }
             })
         }
     }

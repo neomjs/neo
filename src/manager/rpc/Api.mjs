@@ -25,13 +25,30 @@ class Api extends Base {
      */
     registerApi(api) {
         Object.entries(api.services).forEach(([service, serviceValue]) => {
-            Object.entries(serviceValue.methods).forEach(([method, methodValue]) => {
+            Object.entries(serviceValue.methods || {}).forEach(([method, methodValue]) => {
                 this.register({
-                    id  : `${service}.${method}`,
+                    id        : `${service}.${method}`,
                     method,
                     service,
-                    type: methodValue.type || serviceValue.type || api.type || 'ajax',
-                    url : methodValue.url  || serviceValue.url  || api.url
+                    type      : methodValue.type || serviceValue.type || api.type || 'ajax',
+                    url       : methodValue.url  || serviceValue.url  || api.url,
+                    parser    : methodValue.parser,
+                    normalizer: methodValue.normalizer,
+                    pipeline  : methodValue.pipeline
+                })
+            });
+
+            Object.entries(serviceValue.streams || {}).forEach(([stream, streamValue]) => {
+                this.register({
+                    id        : `${service}.${stream}`,
+                    isStream  : true,
+                    method    : stream,
+                    service,
+                    type      : streamValue.type || serviceValue.type || api.type || 'websocket',
+                    url       : streamValue.url  || serviceValue.url  || api.url,
+                    parser    : streamValue.parser,
+                    normalizer: streamValue.normalizer,
+                    pipeline  : streamValue.pipeline
                 })
             })
         })

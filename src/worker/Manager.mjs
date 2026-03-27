@@ -330,6 +330,10 @@ class Manager extends Base {
         // Useful for styling
         document.body.classList.add(NeoConfig.hasMouseEvents ? 'neo-mouse' : 'neo-no-mouse');
 
+        if (NeoConfig.hasTouchEvents) {
+            document.body.classList.add('neo-has-touch');
+        }
+
         if (window.Worker) {
             me.webWorkersEnabled = true
         } else {
@@ -403,7 +407,7 @@ class Manager extends Base {
      *
      */
     loadApplication() {
-        this.sendMessage('app', {action: 'loadApplication' })
+        this.sendMessage('app', {action: 'loadApplication', windowId: this.windowId})
     }
 
     /**

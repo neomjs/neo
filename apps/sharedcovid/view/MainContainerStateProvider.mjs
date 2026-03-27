@@ -38,7 +38,8 @@ class MainContainerStateProvider extends StateProvider {
         if (oldValue !== undefined) {
             if (key === 'country') {
                 Neo.Main.editRoute({
-                    country: value
+                    country : value,
+                    windowId: this.windowId
                 })
             }
         }

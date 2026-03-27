@@ -66,44 +66,20 @@ class Canvas extends Component {
             }
 
             if (offscreen) {
-                let data,
-                    delay = 50;
+                me.registerCanvasCallbacks ??= {};
 
-                while (me.mounted && !me.offscreenRegistered && !me.isDestroyed) {
-                    data = await Neo.main.DomAccess.getOffscreenCanvas({
-                        nodeId: id,
-                        windowId
-                    });
+                let promise = new Promise(resolve => {
+                    me.registerCanvasCallbacks[id] = resolve;
+                });
 
-                    if (data.offscreen) {
-                        await Neo.worker.Canvas.registerCanvas({
-                            node  : data.offscreen,
-                            nodeId: id,
-                            windowId
-                        }, [data.offscreen]);
+                Neo.main.DomAccess.transferCanvasToWorker({
+                    componentId: me.id,
+                    nodeId     : id,
+                    windowId
+                });
 
-                        me.offscreenRegistered = true;
-                        break
-                    } else if (data.transferred) {
-                        if (Neo.config.useSharedWorkers) {
-                            let retrieveData = await Neo.worker.Canvas.retrieveCanvas({
-                                nodeId: id,
-                                windowId
-                            });
-
-                            if (retrieveData.hasCanvas) {
-                                me.offscreenRegistered = true;
-                                break
-                            }
-                        }
-                    }
-
-                    await me.timeout(delay);
-
-                    if (delay < 1000) {
-                        delay *= 2
-                    }
-                }
+                await promise;
+                me.offscreenRegistered = true;
             }
         } else if (offscreen) {
             if (me.offscreenRegistered) {

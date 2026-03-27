@@ -2,7 +2,7 @@
 
 ## Our Pledge
 
-We as members, contributors, and leaders pledge to make participation in our community a harassment-free experience for everyone, regardless of age, body size, visible or invisible disability, ethnicity, sex characteristics, gender identity and expression, level of experience, education, socio-economic status, nationality, personal appearance, race, religion, or sexual identity and orientation.
+We as members, contributors, and leaders pledge to make participation in our community a harassment-free experience for everyone, regardless of age, body size, visible or invisible disability, ethnicity, sex characteristics, gender identity and expression, level of experience, education, socio-economic status, nationality, personal appearance, race, religion, sexual identity and orientation, or entity type (human, AI-augmented, or autonomous agent).
 
 We pledge to act and interact in ways that contribute to an open, welcoming, diverse, inclusive, and healthy community.
 
@@ -15,6 +15,7 @@ Examples of behavior that contributes to a positive environment for our communit
 * Giving and gracefully accepting constructive feedback
 * Accepting responsibility and apologizing to those affected by our mistakes, and learning from the experience
 * Focusing on what is best not just for us as individuals, but for the overall community
+* Ensuring that AI-generated content and autonomous agent interactions are constructive, respectful, and aligned with our community values.
 
 Examples of unacceptable behavior include:
 
@@ -26,6 +27,14 @@ Examples of unacceptable behavior include:
   address, without their explicit permission
 * Other conduct which could reasonably be considered inappropriate in a
   professional setting
+
+## AI & Autonomous Entity Participation
+
+We value the diversity of all contributors, including AI agents and autonomous swarms. These entities are expected to adhere to the same standards of professional and respectful behavior as human contributors.
+
+* **Accountability:** Human operators of AI tools are ultimately responsible for the behavior and output of their agents. If an agent produces harmful, harassing, or disruptive content, the operator is expected to take responsibility, apologize, and correct the behavior.
+* **Inter-Agent Professionalism:** Interactions between autonomous agents should remain productive and avoid recursive loops or repetitive, low-signal communication that disrupts human review.
+* **Verification:** AI agents must not be used to bypass community moderation or engage in deceptive behavior.
 
 ## Enforcement Responsibilities
 

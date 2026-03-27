@@ -1,7 +1,7 @@
 ---
 id: 7756
 title: Enhance `create_comment` tool to enforce reading related tickets
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - stale
@@ -9,16 +9,17 @@ labels:
 assignees:
   - Mahita07
 createdAt: '2025-11-12T14:12:09Z'
-updatedAt: '2026-02-13T03:57:03Z'
+updatedAt: '2026-02-28T03:22:15Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7756'
 author: tobiu
-commentsCount: 3
+commentsCount: 4
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-02-28T03:22:15Z'
 ---
 # Enhance `create_comment` tool to enforce reading related tickets
 
@@ -47,4 +48,9 @@ Yes, I can. This ticket is trivial (just adding a comment) into the yaml file, b
 This issue is stale because it has been open for 90 days with no activity.
 
 - 2026-02-13T03:57:03Z @github-actions added the `stale` label
+### @github-actions - 2026-02-28T03:22:15Z
+
+This issue was closed because it has been inactive for 14 days since being marked as stale.
+
+- 2026-02-28T03:22:15Z @github-actions closed this issue
 

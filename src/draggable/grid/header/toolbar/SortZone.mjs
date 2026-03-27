@@ -182,46 +182,96 @@ class SortZone extends BaseSortZone {
      * @param {Object} data
      */
     async onDragEnd(data) {
+        let me = this;
+
+        // Avoid conflicts with grid.header.plugin.Resizable
+        if (!me.owner.dragResortable) return;
+
         // Restore moved nodes BEFORE destroying the proxy to ensure they return to the Grid.
-        if (this.movedComponents?.length > 0) {
-            let restoreDeltas = this.movedComponents.map(item => ({
+        if (me.movedComponents?.length > 0) {
+            let restoreDeltas = me.movedComponents.map(item => ({
                 action  : 'moveNode',
                 id      : item.id,
                 index   : 0,
                 parentId: item.originalParentId
             }));
 
-            await Neo.applyDeltas(this.windowId, restoreDeltas);
-            this.movedComponents = null
+            await Neo.applyDeltas(me.windowId, restoreDeltas);
+            me.movedComponents = null
         }
 
         await super.onDragEnd(data);
 
-        let {owner} = this;
+        if (!me.dragElement) {
+            return
+        }
 
-        owner.items.forEach((item, index) => {
-            item.vdom['aria-colindex'] = index + 1; // 1 based
-        });
+        let {owner}   = me,
+            grid      = owner.parent,
+            {columns} = grid,
+            toIndex   = me.dragElement['aria-colindex'] - 1,
+            column    = columns.getAt(toIndex),
+            prevCol   = toIndex > 0 ? columns.getAt(toIndex - 1) : null,
+            nextCol   = toIndex < columns.count - 1 ? columns.getAt(toIndex + 1) : null,
+            newLocked = null;
 
-        owner.updateDepth = 2;
-        owner.update();
+        // Inference logic: Default to unlocked unless completely surrounded by a locked zone
+        // or placed at the absolute outer edge of a locked zone.
+        if (prevCol?.locked === 'start' && nextCol?.locked === 'start') {
+            newLocked = 'start'
+        } else if (prevCol?.locked === 'end' && nextCol?.locked === 'end') {
+            newLocked = 'end'
+        } else if (toIndex === 0 && nextCol?.locked === 'start') {
+            newLocked = 'start'
+        } else if (toIndex === columns.count - 1 && prevCol?.locked === 'end') {
+            newLocked = 'end'
+        }
 
-        await owner.passSizeToBody();
+        if (column.locked !== newLocked) {
+            // This implicitly triggers grid.Container#onColumnLockChange,
+            // which handles sorting, DOM syncing, and layout calculations.
+            column.locked = newLocked
+        } else {
+            owner.items.forEach((item, index) => {
+                item.vdom['aria-colindex'] = index + 1 // 1 based
+            });
 
-        await this.timeout(20);
+            owner.updateDepth = 2;
+            owner.update();
 
-        owner.parent.body.createViewData(false, true)
+            await owner.passSizeToBody();
+
+            await this.timeout(20);
+
+            grid.body.createViewData(false, true)
+        }
+    }
+
+    /**
+     * @param {Object} data
+     */
+    async onDragMove(data) {
+        let me = this;
+
+        // Avoid conflicts with grid.header.plugin.Resizable
+        if (!me.owner.dragResortable) return;
+
+        await super.onDragMove(data)
     }
 
     /**
      * @param {Object} data
      */
     async onDragStart(data) {
+        let me = this;
+
+        // Avoid conflicts with grid.header.plugin.Resizable
+        if (!me.owner.dragResortable) return;
+
         await super.onDragStart(data);
 
-        if (this.moveColumnContent) {
-            let me             = this,
-                {body}         = me.owner.parent,
+        if (me.dragComponent && me.moveColumnContent) {
+            let {body}         = me.owner.parent,
                 columnIndex    = me.dragElement['aria-colindex'] - 1,
                 columnPosition = body.columnPositions.getAt(columnIndex),
                 {dataField}    = columnPosition,

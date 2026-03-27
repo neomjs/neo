@@ -59,14 +59,6 @@
             }
         }
 
-         // selection.RowModel
-         &.neo-selected {
-             .neo-grid-cell {
-                 background-color: var(--grid-rowmodel-selected-cell-background-color);
-                 color           : var(--grid-rowmodel-selected-cell-color);
-             }
-         }
-
          .neo-grid-cell {
              align-items     : center;
              background-color: var(--grid-container-cell-background-color);
@@ -83,6 +75,27 @@
                  border-right-width : 0;
              }
 
+             &.neo-value-band-1 {
+                 background-color: var(--grid-cell-value-band-1-background-color, transparent);
+             }
+
+             &.neo-value-band-2 {
+                 background-color: var(--grid-cell-value-band-2-background-color, transparent);
+             }
+
+             &.neo-locked-start,
+             &.neo-locked-end {
+                 z-index: 5;
+             }
+
+             &.neo-locked-start {
+                 transform: translateX(var(--grid-locked-start-offset, 0px));
+             }
+
+             &.neo-locked-end {
+                 transform: translateX(var(--grid-locked-end-offset, 0px));
+             }
+
              // selection.CellModel
              &.neo-selected {
                  background-color: var(--grid-cellmodel-selected-cell-background-color) !important;
@@ -92,6 +105,14 @@
              &.selected-column-cell {
                  background-color: var(--grid-cellmodel-selected-column-cell-background-color);
                  color           : var(--grid-cellmodel-selected-column-cell-color);
+             }
+         }
+
+         // selection.RowModel
+         &.neo-selected {
+             .neo-grid-cell {
+                 background-color: var(--grid-rowmodel-selected-cell-background-color);
+                 color           : var(--grid-rowmodel-selected-cell-color);
              }
          }
      }

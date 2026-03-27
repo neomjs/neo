@@ -72,6 +72,11 @@ class SortZone extends DragZone {
          */
         enableProxyToPopup: false,
         /**
+         * A CSS selector to ignore drag starts on (e.g. '.neo-resizable').
+         * @member {String|null} ignoreDragSelector=null
+         */
+        ignoreDragSelector: null,
+        /**
          * @member {Object} indexMap=null
          * @protected
          */
@@ -275,6 +280,10 @@ class SortZone extends DragZone {
             itemStyle;
 
         await me.timeout(10);
+
+        if (!me.dragComponent) {
+            return
+        }
 
         if (owner.dragResortable) {
             if (me.dragPlaceholder) {
@@ -489,13 +498,20 @@ class SortZone extends DragZone {
      */
     async onDragStart(data) {
         let me         = this,
-            {adjustItemRectsToParent, dragHandleSelector, owner} = me,
+            {adjustItemRectsToParent, dragHandleSelector, ignoreDragSelector, owner} = me,
             itemStyles = me.itemStyles = [],
             {layout}   = owner,
             ownerStyle = owner.style || {},
             draggedItem, index, indexMap, itemStyle, rect, sortableItems;
 
         if (owner.dragResortable) {
+            if (ignoreDragSelector) {
+                const ignoreClassName = ignoreDragSelector.startsWith('.') ? ignoreDragSelector.substring(1) : ignoreDragSelector;
+                if (data.path[0].cls.includes(ignoreClassName)) {
+                    return
+                }
+            }
+
             if (dragHandleSelector) {
                 const handleClassName = dragHandleSelector.substring(1);
                 const handleNode      = data.path.find(node => node.cls.includes(handleClassName));

@@ -55,5 +55,7 @@ test.describe.serial('DevIndex Store Filtering Profile', () => {
 
         expect(store.count).toBeGreaterThan(0);
         expect(store.count).toBeLessThan(data.length);
+
+        store.destroy();
     });
 });

@@ -1,13 +1,14 @@
 .portal-home-footer-container {
-    background-color: var(--portal-footer-background-color);
-    color           : var(--portal-footer-text-color);
-    display         : flex;
-    flex-direction  : column;
-    isolation       : isolate;
-    min-height      : 300px;
-    padding         : 0 2em;
-    position        : relative;
-    width           : 100%;
+    background-color : var(--portal-footer-background-color);
+    color            : var(--portal-footer-text-color);
+    display          : flex;
+    flex-direction   : column;
+    isolation        : isolate;
+    min-height       : 300px;
+    padding          : 0 2em;
+    position         : relative;
+    scroll-snap-align: end;
+    width            : 100%;
 
     .portal-footer-content {
         background-color: transparent;

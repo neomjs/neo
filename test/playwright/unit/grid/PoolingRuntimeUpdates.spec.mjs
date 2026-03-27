@@ -24,6 +24,7 @@ setup({
 import {test, expect}     from '@playwright/test';
 import Neo                from '../../../../src/Neo.mjs';
 import * as core          from '../../../../src/core/_export.mjs';
+import InstanceManager    from '../../../../src/manager/Instance.mjs';
 import GridContainer      from '../../../../src/grid/Container.mjs';
 import Store              from '../../../../src/data/Store.mjs';
 import VdomHelper         from '../../../../src/vdom/Helper.mjs';
@@ -32,46 +33,6 @@ test.describe('Grid Pooling Runtime Updates', () => {
     let grid, store;
 
     test.beforeEach(async () => {
-        // Mock Neo.applyDeltas
-        Neo.applyDeltas = async () => {};
-
-        // Mock Neo.main and Neo.currentWorker
-        Neo.main = {
-            addon: {
-                DragDrop: {},
-                ResizeObserver: {
-                    register  : () => {},
-                    unregister: () => {}
-                }
-            },
-            DomAccess: {
-                getBoundingClientRect: async ({id}) => {
-                    const rect = {width: 600, height: 400, x: 0, y: 0};
-                    if (Array.isArray(id)) {
-                        return id.map(() => rect);
-                    }
-                    return rect;
-                },
-                scrollIntoView: async () => {},
-                scrollTo      : async () => {}
-            }
-        };
-
-        Neo.currentWorker = {
-            getAddon: async () => ({
-                register  : () => {},
-                unregister: () => {}
-            }),
-            insertThemeFiles: () => {},
-            on              : () => {},
-            promiseMessage  : async () => {}
-        };
-
-        Neo.worker = Neo.worker || {};
-        Neo.worker.App = {
-            promiseMessage: async () => {}
-        };
-
         const data = [];
         for (let i = 0; i < 200; i++) {
             data.push({
@@ -104,7 +65,7 @@ test.describe('Grid Pooling Runtime Updates', () => {
             width    : 300,
             store    : store,
             rowHeight: 40,
-            bufferRowRange: 2, 
+            bufferRowRange: 2,
             bufferColumnRange: 0,
             columns  : [{
                 dataField: 'id', text: 'ID', width: 50
@@ -156,11 +117,11 @@ test.describe('Grid Pooling Runtime Updates', () => {
 
     test('Increase bufferRowRange at runtime should expand row pool', async () => {
         const body = grid.body;
-        
+
         // Initial state
         // Visible rows: 360 / 40 = 9 rows.
         // Buffer: 2 * 2 = 4 rows.
-        // Total Pool: 9 - 1 (availableRows logic) + 4 = 12? 
+        // Total Pool: 9 - 1 (availableRows logic) + 4 = 12?
         // Actual from previous run: 18.
         // Formula: ceil(360/40) - 1 = 8 available rows.
         // Pool = available + 2*buffer. 8 + 4 = 12.
@@ -168,36 +129,36 @@ test.describe('Grid Pooling Runtime Updates', () => {
         // Ah, `updateMountedAndVisibleRows` logic:
         // windowSize = availableRows + 2 * bufferRowRange.
         // If start is 0, end is windowSize.
-        // 8 + 4 = 12. 
+        // 8 + 4 = 12.
         // Why 18? Maybe my math on availableHeight is wrong or rowHeight.
-        // height 400. rowHeight 40. header 40? 
-        // 360 / 40 = 9. 
+        // height 400. rowHeight 40. header 40?
+        // 360 / 40 = 9.
         // Let's trust the engine's output for now and verify the DELTA.
-        
+
         const initialPoolSize = body.items.length;
         // expect(initialPoolSize).toBe(18); // Based on previous run
 
         // Change buffer
         body.bufferRowRange = 5;
-        
+
         // Wait for update
         await body.promiseUpdate();
         await grid.timeout(50);
 
         const newPoolSize = body.items.length;
-        
+
         // Assertion: The pool MUST expand.
         expect(newPoolSize).toBeGreaterThan(initialPoolSize);
     });
 
     test('Increase bufferColumnRange at runtime should update mountedColumns', async () => {
         const body = grid.body;
-        
+
         // Initial state (Width 300)
         // ID(50) + Name(150) + Score(100) = 300.
         // Exact fit. Cols 0, 1, 2.
         // Mounted should be [0, 2] or [0, 3] depending on boundary.
-        
+
         const initialEndIndex = body.mountedColumns[1];
 
         // Increase buffer
@@ -214,7 +175,7 @@ test.describe('Grid Pooling Runtime Updates', () => {
 
     test('Reproduction: Decrease bufferRowRange from 25 to 0 after scrolling should maintain visible rows', async () => {
         const body = grid.body;
-        
+
         // 1. Start with buffer 5 (default in test setup is 2, user says 5, let's set it)
         body.bufferRowRange = 5;
         await body.promiseUpdate();
@@ -227,7 +188,7 @@ test.describe('Grid Pooling Runtime Updates', () => {
 
         // 3. Scroll down until seeing rows 50-74 (Top 50)
         // rowHeight 40. 50 * 40 = 2000.
-        body.scrollTop = 2000; 
+        body.scrollTop = 2000;
         await body.promiseUpdate();
         await grid.timeout(50);
 
@@ -243,7 +204,7 @@ test.describe('Grid Pooling Runtime Updates', () => {
 
         // 5. Verify Row 50 is STILL visible
         visibleRow = body.items.find(r => r.rowIndex === 50);
-        
+
         if (!visibleRow || visibleRow.vdom.style.display === 'none') {
             const activeRows = body.items.filter(r => r.rowIndex > -1).map(r => r.rowIndex).sort((a,b)=>a-b);
             console.log('Row 50 missing. Mounted:', body.mountedRows, 'Visible:', body.visibleRows);
@@ -257,7 +218,7 @@ test.describe('Grid Pooling Runtime Updates', () => {
 
     test('Reproduction 2: Decrease bufferRowRange from 50 to 0 after deep scrolling', async () => {
         const body = grid.body;
-        
+
         // 1. Range 50
         body.bufferRowRange = 50;
         await body.promiseUpdate();
@@ -275,7 +236,7 @@ test.describe('Grid Pooling Runtime Updates', () => {
 
         // 4. Verify Row 100 is visible
         const visibleRow = body.items.find(r => r.rowIndex === 100);
-        
+
         if (!visibleRow || visibleRow.vdom.style.display === 'none') {
             const activeRows = body.items.filter(r => r.rowIndex > -1).map(r => r.rowIndex).sort((a,b)=>a-b);
             console.log('Row 100 missing. Mounted:', body.mountedRows, 'Visible:', body.visibleRows);

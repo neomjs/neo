@@ -33,6 +33,7 @@ setup({
 import {test, expect}     from '@playwright/test';
 import Neo                from '../../../../src/Neo.mjs';
 import * as core          from '../../../../src/core/_export.mjs';
+import InstanceManager    from '../../../../src/manager/Instance.mjs';
 import DomApiVnodeCreator from '../../../../src/vdom/util/DomApiVnodeCreator.mjs';
 import GridContainer      from '../../../../src/grid/Container.mjs';
 import Store              from '../../../../src/data/Store.mjs';
@@ -67,47 +68,6 @@ test.describe('Grid Pooling & Fixed-DOM-Order', () => {
     };
 
     test.beforeEach(async () => {
-        // Mock Neo.applyDeltas
-        Neo.applyDeltas = async () => {};
-
-        // Mock Neo.main and Neo.currentWorker
-        Neo.main = {
-            addon: {
-                DragDrop: {},
-                ResizeObserver: {
-                    register  : () => {},
-                    unregister: () => {}
-                }
-            },
-            DomAccess: {
-                getBoundingClientRect: async ({id}) => {
-                    const rect = {width: 600, height: 400, x: 0, y: 0};
-                    if (Array.isArray(id)) {
-                        return id.map(() => rect);
-                    }
-                    return rect;
-                },
-                scrollIntoView: async () => {},
-                scrollTo      : async () => {}
-            }
-        };
-
-        Neo.currentWorker = {
-            getAddon: async () => ({
-                register  : () => {},
-                unregister: () => {}
-            }),
-            insertThemeFiles: () => {},
-            on              : () => {},
-            promiseMessage  : async () => {}
-        };
-
-        // Mock Neo.worker.App
-        Neo.worker = Neo.worker || {};
-        Neo.worker.App = {
-            promiseMessage: async () => {}
-        };
-
         // Create large dataset
         const data = [];
         for (let i = 0; i < 1000; i++) {
@@ -143,7 +103,7 @@ test.describe('Grid Pooling & Fixed-DOM-Order', () => {
             store    : store,
             rowHeight: 40,
             // Use small buffer for deterministic testing
-            bufferRowRange: 2, 
+            bufferRowRange: 2,
             columns  : [{
                 dataField: 'id',
                 text     : 'ID',
@@ -208,7 +168,7 @@ test.describe('Grid Pooling & Fixed-DOM-Order', () => {
      */
     test('Vertical Scroll should recycle rows with ZERO structural deltas', async () => {
         const body = grid.body;
-        
+
         // Initial check: Row pool size
         // Visible: 360px / 40px = 9 rows.
         // Buffer: 2 * 2 = 4 rows.
@@ -245,7 +205,7 @@ test.describe('Grid Pooling & Fixed-DOM-Order', () => {
 
         // We expect content updates for recycled rows
         expect(contentUpdates.length).toBeGreaterThan(0);
-        
+
         // We expect transform updates for recycled rows (moving them to the bottom)
         const transformUpdates = styleUpdates.filter(d => d.style.transform);
         expect(transformUpdates.length).toBeGreaterThan(0);
@@ -253,10 +213,10 @@ test.describe('Grid Pooling & Fixed-DOM-Order', () => {
         // Verify Data Correctness
         // At scrollTop 400, top row is index 10 (Row 10)
         const topRowIndex = 10;
-        
+
         // Find the Row component responsible for index 10
         const rowCmp = body.items.find(row => row.rowIndex === topRowIndex);
-        
+
         expect(rowCmp).toBeDefined();
         expect(rowCmp.record.id).toBe(10);
         expect(rowCmp.record.name).toBe('Row 10');
@@ -280,7 +240,7 @@ test.describe('Grid Pooling & Fixed-DOM-Order', () => {
         await grid.timeout(50);
 
         // Scroll Right to reveal Age, Country, Email...
-        const scrollLeftAmount = 300; 
+        const scrollLeftAmount = 300;
 
         const deltas = await captureDeltas(async () => {
             body.scrollLeft = scrollLeftAmount;
@@ -300,7 +260,7 @@ test.describe('Grid Pooling & Fixed-DOM-Order', () => {
         // Verify cell updates
         const updates = deltas.filter(d => d.style || d.textContent || d.innerHTML);
         expect(updates.length).toBeGreaterThan(0);
-        
+
         // Verify 'left' style updates (cell positioning)
         const leftUpdates = updates.filter(d => d.style?.left);
         // Verify content updates (recycling)
@@ -337,7 +297,7 @@ test.describe('Grid Pooling & Fixed-DOM-Order', () => {
     test('Scrolling to end of store should clamp correctly', async () => {
         const body = grid.body;
         const totalHeight = (1000 * 40) + 40; // rows + header (approx)
-        
+
         // Scroll to very bottom
         const maxScroll = totalHeight - 400;
 
@@ -355,7 +315,7 @@ test.describe('Grid Pooling & Fixed-DOM-Order', () => {
         // Verify no "Row undefined" or blank rows are rendered visibly
         // The pool size might be larger than visible rows, so unused rows should be hidden or empty
         const activeRows = body.items.filter(row => row.rowIndex > -1);
-        
+
         // Ensure all active rows have valid records
         activeRows.forEach(row => {
             expect(row.record).not.toBeNull();
@@ -368,7 +328,7 @@ test.describe('Grid Pooling & Fixed-DOM-Order', () => {
      */
     test('Performance Audit: Exact delta count for single row scroll', async () => {
         const body = grid.body;
-        
+
         // Reset to top
         body.scrollTop = 0;
         await body.promiseUpdate();
@@ -401,7 +361,7 @@ test.describe('Grid Pooling & Fixed-DOM-Order', () => {
 
         // 3. Total Deltas should be exactly 7
         expect(deltas.length).toBe(7);
-        
+
         // 4. Verify no structural changes
         const structureChanges = deltas.filter(d => ['moveNode', 'insertNode', 'removeNode'].includes(d.action));
         expect(structureChanges.length).toBe(0);

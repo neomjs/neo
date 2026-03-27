@@ -141,6 +141,7 @@ class Main extends core.Base {
         }
 
         Object.assign(hashObj, data);
+        delete hashObj.windowId;
 
         Object.entries(hashObj).forEach(([key, value]) => {
             if (value !== null) {
@@ -386,6 +387,8 @@ class Main extends core.Base {
 
                 // Main thread addons need to get registered as singletons inside the neo namespace
                 Neo.applyToGlobalNs(addon)
+            } else {
+                addon = Neo.ns(addon.prototype.className);
             }
         }
 

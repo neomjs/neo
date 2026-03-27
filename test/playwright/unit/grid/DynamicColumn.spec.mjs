@@ -24,6 +24,7 @@ setup({
 import {test, expect}     from '@playwright/test';
 import Neo                from '../../../../src/Neo.mjs';
 import * as core          from '../../../../src/core/_export.mjs';
+import InstanceManager    from '../../../../src/manager/Instance.mjs';
 import GridContainer      from '../../../../src/grid/Container.mjs';
 import Store              from '../../../../src/data/Store.mjs';
 import VdomHelper         from '../../../../src/vdom/Helper.mjs';
@@ -32,46 +33,6 @@ test.describe('Grid Dynamic Column Updates', () => {
     let grid, store;
 
     test.beforeEach(async () => {
-        // Mock Neo.applyDeltas
-        Neo.applyDeltas = async () => {};
-
-        // Mock Neo.main and Neo.currentWorker
-        Neo.main = {
-            addon: {
-                DragDrop: {},
-                ResizeObserver: {
-                    register  : () => {},
-                    unregister: () => {}
-                }
-            },
-            DomAccess: {
-                getBoundingClientRect: async ({id}) => {
-                    const rect = {width: 600, height: 400, x: 0, y: 0};
-                    if (Array.isArray(id)) {
-                        return id.map(() => rect);
-                    }
-                    return rect;
-                },
-                scrollIntoView: async () => {},
-                scrollTo      : async () => {}
-            }
-        };
-
-        Neo.currentWorker = {
-            getAddon: async () => ({
-                register  : () => {},
-                unregister: () => {}
-            }),
-            insertThemeFiles: () => {},
-            on              : () => {},
-            promiseMessage  : async () => {}
-        };
-
-        Neo.worker = Neo.worker || {};
-        Neo.worker.App = {
-            promiseMessage: async () => {}
-        };
-
         const data = [];
         for (let i = 0; i < 20; i++) {
             data.push({

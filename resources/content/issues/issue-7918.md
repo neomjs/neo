@@ -1,41 +1,43 @@
 ---
 id: 7918
 title: 'Epic: Neo Command Center (Agent OS UI)'
-state: OPEN
+state: CLOSED
 labels:
   - epic
+  - stale
   - ai
 assignees:
   - tobiu
 createdAt: '2025-11-29T15:17:50Z'
-updatedAt: '2025-12-04T23:32:45Z'
+updatedAt: '2026-03-19T03:58:33Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7918'
 author: tobiu
-commentsCount: 0
+commentsCount: 2
 parentIssue: null
 subIssues:
   - '[x] 7920 Design: Agent Dashboard Layout (Multi-Window Architecture)'
   - '[x] 7921 Feat: Real-time ''Blackboard'' Visualization'
-  - '[ ] 7922 Feat: ''Derailment'' Intervention Interface'
+  - '[x] 7922 Feat: ''Derailment'' Intervention Interface'
   - '[x] 7954 Task: Scaffold Agent OS Application'
   - '[x] 7955 Feat: Implement Agent OS Multi-Window Layout'
   - '[x] 7956 Feat: Multi-Window Orchestration Baseline'
   - '[x] 8018 Feat: Implement Drag-to-Popup Dashboard'
-  - '[ ] 8019 Bug: isWindowDragging flag stuck after external drop'
+  - '[x] 8019 Bug: isWindowDragging flag stuck after external drop'
   - '[x] 8021 Refactor AgentOS SCSS: Split Source and Variables'
-  - '[ ] 8022 Refactor AgentOS Viewport: Modularize Components'
+  - '[x] 8022 Refactor AgentOS Viewport: Modularize Components'
   - '[x] 8024 Refactor Intervention View to dedicated Grid Component'
-  - '[ ] 8025 Create Custom Theme: Neo Cyberpunk'
+  - '[x] 8025 Create Custom Theme: Neo Cyberpunk'
   - '[x] 8031 Fix Grid Header Button Border on Hover'
   - '[x] 8032 Add Glow and Transition to Cyberpunk Grid Header Buttons'
   - '[x] 8033 Create InterventionPanel.scss and Fix Selection Contrast'
   - '[x] 8034 Migrate Intervention Panel Styles and Clean Viewport SCSS'
   - '[x] 8035 Refine Visual Alignment and Button Typography'
   - '[x] 8036 Increase Toolbar Padding to 20px'
-subIssuesCompleted: 14
+subIssuesCompleted: 18
 subIssuesTotal: 18
 blockedBy: []
 blocking: []
+closedAt: '2026-03-19T03:58:33Z'
 ---
 # Epic: Neo Command Center (Agent OS UI)
 
@@ -77,4 +79,14 @@ This epic covers Phase 3 of the Agent OS Roadmap: building the "Killer App" that
 - 2025-12-05T02:43:35Z @tobiu added sub-issue #8034
 - 2025-12-05T03:03:15Z @tobiu added sub-issue #8035
 - 2025-12-05T03:28:07Z @tobiu added sub-issue #8036
+### @github-actions - 2026-03-05T03:38:56Z
+
+This issue is stale because it has been open for 90 days with no activity.
+
+- 2026-03-05T03:38:57Z @github-actions added the `stale` label
+### @github-actions - 2026-03-19T03:58:33Z
+
+This issue was closed because it has been inactive for 14 days since being marked as stale.
+
+- 2026-03-19T03:58:33Z @github-actions closed this issue
 

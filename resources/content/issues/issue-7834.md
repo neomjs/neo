@@ -1,23 +1,24 @@
 ---
 id: 7834
 title: '[Test] Button click event not firing on mobile'
-state: OPEN
+state: CLOSED
 labels:
   - bug
   - stale
   - testing
 assignees: []
 createdAt: '2025-11-21T01:02:19Z'
-updatedAt: '2026-02-21T03:33:59Z'
+updatedAt: '2026-03-08T03:39:52Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7834'
 author: tobiu
-commentsCount: 9
+commentsCount: 10
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-03-08T03:39:52Z'
 ---
 # [Test] Button click event not firing on mobile
 
@@ -217,4 +218,9 @@ Potential conflict between `click` and `touchend` events in `src/manager/DomEven
 This issue is stale because it has been open for 90 days with no activity.
 
 - 2026-02-21T03:33:59Z @github-actions added the `stale` label
+### @github-actions - 2026-03-08T03:39:52Z
+
+This issue was closed because it has been inactive for 14 days since being marked as stale.
+
+- 2026-03-08T03:39:52Z @github-actions closed this issue
 

@@ -2,7 +2,13 @@
     --grid-container-border-color              : var(--purple-800);
     --grid-container-cell-background-color     : var(--sem-color-surface-neutral-default);
     --grid-container-cell-background-color-even: var(--purple-950);
+    --grid-cell-value-band-1-background-color  : var(--purple-900);
+    --grid-cell-value-band-2-background-color  : var(--sem-color-surface-neutral-default);
     --grid-container-color                     : var(--sem-color-text-neutral-default);
     --grid-container-font-size                 : 13px;
     --grid-container-header-cell-border-bottom : 1px solid var(--purple-800);
+
+    .neo-grid-container {
+        color-scheme: dark;
+    }
 }

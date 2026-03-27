@@ -272,7 +272,7 @@ class Gallery extends Component {
             me.focusOnMount && me.focus(me.id);
 
             me.timeout(300).then(() => {
-                Neo.currentWorker.promiseMessage('main', {
+                Neo.currentWorker.promiseMessage(me.windowId, {
                     action    : 'readDom',
                     appName   : me.appName,
                     attributes: ['offsetHeight', 'offsetWidth'],
@@ -407,7 +407,8 @@ class Gallery extends Component {
 
         vdomItem.id = me.getItemVnodeId(me.getRecordId(record));
 
-        imageVdom.src = Neo.config.resourcesPath + 'examples/' + record.image;
+        let appConfig = Neo.windowConfigs?.[me.windowId] || Neo.config;
+        imageVdom.src = appConfig.resourcesPath + 'examples/' + record.image;
 
         imageVdom.style.height = me.itemHeight + 'px';
         imageVdom.style.width  = me.itemWidth  + 'px';
@@ -644,7 +645,7 @@ class Gallery extends Component {
                 transform: me.translate3d(...dollyTransform)
             }
         }).then(() => {
-            Neo.currentWorker.promiseMessage('main', {
+            Neo.currentWorker.promiseMessage(windowId, {
                 action : 'readDom',
                 appName,
                 vnodeId: id,

@@ -179,11 +179,9 @@ class Base extends Component {
     }
 }
 
-Neo.applyClassConfig(Base);
-
-export default Base;
-
+export default Neo.setupClass(Base);
 ```
+
 * (18) Use JSDoc based comments for all top-level items (classes, methods, configs).
   + For class top-level comments, a `@summary` tag is **mandatory**. It **must** be the first tag and **must** be followed by an empty line, then a detailed description of the class.
   + Single-line tags like `@class` and `@extends` do not require an empty line after them.
@@ -198,7 +196,7 @@ export default Base;
   - empty line
   - class definition
   - empty line
-  - Neo.applyClassConfig(<ClassName>)
+  - Neo.setupClass(<ClassName>)
   - empty line
   - export statement
   - empty line

@@ -81,30 +81,29 @@ The tool contains complete guidance on effective querying. Follow its documented
 
 When analyzing source files, if you encounter code that lacks sufficient intent-driven comments or clear documentation, immediately enhance it with meaningful, structured documentation before proceeding with your implementation. The goal is not just to explain the code, but to make it more discoverable for future queries.
 
-#### Step 1: Analyze the Implementation
+The Knowledge Base does not ingest entire files; it parses them into **isolated semantic chunks** (Class Context, Methods, Properties). A common documentation anti-pattern is "Implied Context"—where a method's comment assumes the reader has read the class description. When the AI queries the database, these isolated chunks lack semantic weight and fail to match.
 
-Study the source code carefully to understand:
-- What the code does (mechanics).
-- Why it does it (intent).
-- How it fits into the broader architecture.
-- What patterns it follows.
+To balance human readability with AI discoverability, you MUST apply the **"Anchor & Echo"** strategy.
 
-#### Step 2: Generate Structured, Intent-Driven Comments
+#### Step 1: The Anchor (Class & Major Overrides)
+Establish high-value architectural vocabulary at the class level and in major overridden methods.
+- Define the specific domain terms (e.g., "Structural Layer", "Projection Layer", "Soft Hydration").
+- For major method overrides, always explain *why* the base behavior is insufficient and how the override solves it architecturally.
+- **Anticipate Future Queries:** After documenting the class's purpose, think like a user. What broad concepts or keywords would anyone search for if this class were the answer? Explicitly include these concepts in the class description. This acts as a "semantic signpost". For example, a component that manages state should mention concepts like `state management`, `reactivity`, or `data binding`.
 
-For class-level comments, add meaningful JSDoc tags that explain:
-- `@summary`: A concise, one-sentence explanation of the class's purpose.
-- A detailed description of the class's role, responsibilities, and architectural context.
+#### Step 2: The Echo (Properties & Helper Methods)
+For isolated fields and smaller helper methods, do not write essays. Instead, **deliberately echo the Anchor vocabulary**.
+- **Bad (Implied Context):** `// Recursively collects visible descendants into a flat array.`
+- **Good (Echo):** `// Recursively traverses the Structural Layer to project visible descendants into the flat Projection Layer.`
+By explicitly reusing the anchor terms, you tie these small, isolated chunks semantically back to the main architectural concepts.
+
+#### Step 3: Generate Structured, Intent-Driven Comments
+Always use proper JSDoc tags to provide structure:
+- `@summary`: A concise, one-sentence explanation of the item's purpose.
 - `@see`: Links to other relevant classes, guides, or examples.
+- `@protected` / `@private`: Ensures correct API surface generation.
 
-#### Step 3: Anticipate Future Queries
-
-After documenting the class's purpose, think like a user. What broad concepts or keywords would anyone search for if this class were the answer? Explicitly include these concepts in the class description. This acts as a "semantic signpost" that makes the class more discoverable. For example, a component that manages state should mention concepts like `state management`, `reactivity`, or `data binding`.
-
-#### Step 4: Enhance for Future Sessions
-
-Your rich, structured comments become part of the knowledge base, helping future AI sessions understand the code's purpose and context more effectively and improving query results for everyone.
-
-#### Example of a Good Query-Driven Class Comment
+#### Example of a Good Query-Driven Class Comment (The Anchor)
 
 ```javascript
 /**
@@ -127,6 +126,8 @@ class TabContainer extends Container {
     // Implementation details...
 }
 ```
+
+By actively applying this strategy during your sessions, your rich, structured comments become part of the knowledge base, helping future AI sessions understand the code's purpose more effectively.
 
 ### 3.3. The Two-Stage Query Protocol
 
@@ -207,7 +208,7 @@ This approach transforms the AI agent from just a consumer of documentation to a
 
 Your initialization is a snapshot in time. The codebase can change. If you pull new changes from the repository, you should consider re-running your initialization steps (reading `Neo.mjs`, and `core/Base.mjs`) to ensure your understanding is up to date.
 
-Furthermore, after pulling changes, the local knowledge base may be out of sync. You should call the `sync_database` tool to re-embed the latest changes into the database.
+Furthermore, after pulling changes, the local knowledge base may be out of sync. You should call the `manage_knowledge_base` tool with the `action: 'sync'` parameter to re-embed the latest changes into the database.
 
 ## 7. Working with Sub-Agents
 

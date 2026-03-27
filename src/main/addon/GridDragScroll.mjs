@@ -93,13 +93,11 @@ class GridDragScroll extends Base {
             return
         }
 
-        if (registration.containerElement) {
-            registration.containerElement.scrollLeft -= velocity.x
-        }
+        let newScrollLeft = registration.containerElement ? registration.containerElement.scrollLeft - velocity.x : undefined,
+            newScrollTop  = registration.bodyElement      ? registration.bodyElement.scrollTop       - velocity.y : undefined;
 
-        if (registration.bodyElement) {
-            registration.bodyElement.scrollTop -= velocity.y
-        }
+        if (newScrollLeft !== undefined) registration.containerElement.scrollLeft = newScrollLeft;
+        if (newScrollTop  !== undefined) registration.bodyElement.scrollTop       = newScrollTop;
 
         velocity.x *= friction;
         velocity.y *= friction;
@@ -189,13 +187,11 @@ class GridDragScroll extends Base {
             deltaX         = drag.lastX - x,
             deltaY         = drag.lastY - y;
 
-        if (deltaX !== 0 && registration.containerElement) {
-            registration.containerElement.scrollLeft += deltaX
-        }
+        let newScrollLeft = deltaX !== 0 && registration.containerElement ? registration.containerElement.scrollLeft + deltaX : undefined,
+            newScrollTop  = deltaY !== 0 && registration.bodyElement      ? registration.bodyElement.scrollTop       + deltaY : undefined;
 
-        if (deltaY !== 0 && registration.bodyElement) {
-            registration.bodyElement.scrollTop += deltaY
-        }
+        if (newScrollLeft !== undefined) registration.containerElement.scrollLeft = newScrollLeft;
+        if (newScrollTop  !== undefined) registration.bodyElement.scrollTop       = newScrollTop;
 
         drag.lastX = x;
         drag.lastY = y;

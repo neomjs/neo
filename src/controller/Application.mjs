@@ -77,7 +77,7 @@ class Application extends Base {
         let me     = this,
             {name} = me;
 
-        me.windowId = Neo.config.windowId;
+        me.windowId = config.windowId || Neo.bootingWindowId || Neo.config.windowId;
 
         Neo.apps[me.windowId] = me;
 
@@ -132,11 +132,12 @@ class Application extends Base {
      */
     beforeSetMainView(value, oldValue) {
         if (value) {
-            let {config} = Neo,
+            let me       = this,
+                {config} = Neo,
                 instanceConfig = {
-                    appName : this.name,
-                    parentId: this.parentId,
-                    windowId: config.windowId
+                    appName : me.name,
+                    parentId: me.parentId,
+                    windowId: me.windowId
                 };
 
             if (config.useSSR && config.vnode) {

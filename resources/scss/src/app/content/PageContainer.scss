@@ -1,5 +1,6 @@
 .neo-app-content-page-container {
     background-color: transparent;
+    color-scheme    : var(--neo-app-content-page-scrollbar-color-scheme, inherit);
     flex-shrink     : 1 !important;
     min-width       : 0;
     overflow        : auto;

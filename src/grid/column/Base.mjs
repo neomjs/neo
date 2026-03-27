@@ -45,6 +45,14 @@ class Column extends Base {
          */
         hideMode_: 'removeDom',
         /**
+         * Use 'start' to pin the column to the start of the row.
+         * Use 'end' to pin the column to the end of the row.
+         * Use null for standard, scrollable columns.
+         * @member {String|null} locked_=null
+         * @reactive
+         */
+        locked_: null,
+        /**
          * @member {Neo.grid.Container|null} parent=null
          */
         parent: null,
@@ -65,6 +73,12 @@ class Column extends Base {
          * @protected
          */
         type: 'column',
+        /**
+         * Gives cells with the same value the same background color, as long as they are below each other.
+         * @member {Boolean} useValueBanding_=false
+         * @reactive
+         */
+        useValueBanding_: false,
         /**
          * @member {Number|null} windowId_=null
          * @reactive
@@ -99,6 +113,39 @@ class Column extends Base {
 
             if (button) {
                 button.dataField = value
+            }
+        }
+    }
+
+    /**
+     * Triggered after the locked config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     */
+    afterSetLocked(value, oldValue) {
+        if (oldValue !== undefined) {
+            this.parent?.onColumnLockChange(this)
+        }
+    }
+
+    /**
+     * Triggered after the useValueBanding config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetUseValueBanding(value, oldValue) {
+        if (oldValue !== undefined) {
+            let me            = this,
+                gridContainer = me.parent,
+                body          = gridContainer?.body;
+
+            if (gridContainer) {
+                gridContainer.syncValueBandingFields();
+
+                if (body) {
+                    body.createViewData(false, true)
+                }
             }
         }
     }

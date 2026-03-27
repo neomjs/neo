@@ -15,6 +15,7 @@
     justify-content : var(--grid-header-button-justify-content);
     margin          : 0;
     padding         : var(--grid-header-button-padding);
+    position        : relative;
     transition      : var(--grid-header-button-transition);
     white-space     : nowrap;
 
@@ -40,8 +41,17 @@
         }
     }
 
-    &.neo-locked {
+    &.neo-locked-start,
+    &.neo-locked-end {
+        z-index: 5;
+    }
 
+    &.neo-locked-start {
+        transform: translateX(var(--grid-locked-start-offset, 0px));
+    }
+
+    &.neo-locked-end {
+        transform: translateX(var(--grid-locked-end-offset, 0px));
     }
 
     &.neo-drag-over {

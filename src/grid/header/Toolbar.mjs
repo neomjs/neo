@@ -205,6 +205,7 @@ class Toolbar extends BaseToolbar {
 
         Neo.merge(config, {
             boundaryContainerId: [me.id, me.parent.id],
+            ignoreDragSelector : '.neo-resizable',
             scrollLeft         : me.scrollLeft
         });
 
@@ -240,18 +241,33 @@ class Toolbar extends BaseToolbar {
         let me              = this,
             {items}         = me,
             {body}          = me.parent,
-            rects           = await me.getDomRect(items.map(item => item.id)),
-            lastItem        = rects[rects.length - 1],
-            columnPositions = rects.map((item, index) => ({dataField: items[index].dataField, width: item.width, x: item.x - rects[0].x})),
-            i               = 1,
-            len             = columnPositions.length,
-            layoutFinished  = true;
+            columnPositions = [],
+            currentX        = 0,
+            hasDynamicWidth = false,
+            layoutFinished  = true,
+            i               = 0,
+            len             = items.length,
+            item, rects, w, width;
 
-        // If the css sizing is not done, columns after the first one can get x = 0
         for (; i < len; i++) {
-            if (columnPositions[i].x === 0) {
-                layoutFinished = false;
-                break;
+            item = items[i];
+            w    = item.width;
+
+            if (item.flex || !w || (Neo.isString(w) && !w.endsWith('px'))) {
+                hasDynamicWidth = true;
+                break
+            }
+        }
+
+        if (hasDynamicWidth) {
+            rects = await me.getDomRect(items.map(item => item.id));
+
+            // If the css sizing is not done, columns after the first one can get x === firstX
+            for (i = 1; i < len; i++) {
+                if (rects[i].x === rects[0].x) {
+                    layoutFinished = false;
+                    break
+                }
             }
         }
 
@@ -260,11 +276,36 @@ class Toolbar extends BaseToolbar {
             await me.timeout(100);
             await me.passSizeToBody(silent)
         } else {
+            if (hasDynamicWidth) {
+                for (i = 0; i < len; i++) {
+                    columnPositions.push({
+                        dataField: items[i].dataField,
+                        width    : rects[i].width,
+                        x        : currentX
+                    });
+
+                    currentX += rects[i].width
+                }
+            } else {
+                for (i = 0; i < len; i++) {
+                    item  = items[i];
+                    width = item.hidden ? 0 : parseInt(item.width, 10);
+
+                    columnPositions.push({
+                        dataField: item.dataField,
+                        width    : width,
+                        x        : currentX
+                    });
+
+                    currentX += width
+                }
+            }
+
             body.columnPositions.clear();
             body.columnPositions.add(columnPositions);
 
             body[silent ? 'setSilent' : 'set']({
-                availableWidth: lastItem.x + lastItem.width - rects[0].x
+                availableWidth: currentX
             });
 
             !silent && body.updateMountedAndVisibleColumns()

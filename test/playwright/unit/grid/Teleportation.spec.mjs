@@ -16,10 +16,10 @@ setup({
 import {test, expect}     from '@playwright/test';
 import Neo                from '../../../../src/Neo.mjs';
 import * as core          from '../../../../src/core/_export.mjs';
+import InstanceManager    from '../../../../src/manager/Instance.mjs';
 import Button             from '../../../../src/button/Base.mjs';
 import DomApiVnodeCreator from '../../../../src/vdom/util/DomApiVnodeCreator.mjs';
 import GridContainer      from '../../../../src/grid/Container.mjs';
-import InstanceManager    from '../../../../src/manager/Instance.mjs';
 import Store              from '../../../../src/data/Store.mjs';
 import VdomHelper         from '../../../../src/vdom/Helper.mjs';
 
@@ -27,47 +27,6 @@ test.describe('Grid Teleportation & VDOM Deltas', () => {
     let grid, store;
 
     test.beforeEach(async () => {
-        // Mock Neo.applyDeltas
-        Neo.applyDeltas = async () => {};
-
-        // Mock Neo.main and Neo.currentWorker
-        Neo.main = {
-            addon: {
-                DragDrop: {},
-                ResizeObserver: {
-                    register  : () => {},
-                    unregister: () => {}
-                }
-            },
-            DomAccess: {
-                getBoundingClientRect: async ({id}) => {
-                    const rect = {width: 600, height: 400, x: 0, y: 0};
-                    if (Array.isArray(id)) {
-                        return id.map(() => rect);
-                    }
-                    return rect;
-                },
-                scrollIntoView       : async () => {},
-                scrollTo             : async () => {}
-            }
-        };
-
-        Neo.currentWorker = {
-            getAddon: async () => ({
-                register  : () => {},
-                unregister: () => {}
-            }),
-            insertThemeFiles: () => {},
-            on              : () => {},
-            promiseMessage  : async () => {}
-        };
-
-        // Mock Neo.worker.App for DomEvent manager
-        Neo.worker = Neo.worker || {};
-        Neo.worker.App = {
-            promiseMessage: async () => {}
-        };
-
         // create a store with enough data to scroll
         store = Neo.create(Store, {
             keyProperty: 'id',
@@ -270,7 +229,7 @@ test.describe('Grid Teleportation & VDOM Deltas', () => {
         // Robust lookup: Find the cell that contains the component (button)
         // Components use 'visibility' hideMode by default, so they are appended AFTER the pooled cells.
         const cell = rowComponent.vdom.cn.find(c => c.cn?.[0]?.componentId);
-        
+
         if (!cell) {
             console.error('Failed to find component cell in row VDOM:', rowComponent.vdom);
         }
@@ -381,7 +340,7 @@ test.describe('Grid Teleportation & VDOM Deltas', () => {
                 // Specific check: We should NOT be inserting 'text' vtypes (span wrapper for text).
                 // The duplication bug manifests as inserting a NEW text span instead of updating the existing one.
                 const textSpanInsertions = insertNodes.filter(d => d.parentId.includes('component') && d.vnode?.className?.includes('neo-button-text'));
-                
+
                 // Ideally, we should have 0 text span insertions in a clean recycle
                 expect(textSpanInsertions.length).toBe(0);
 
@@ -404,22 +363,22 @@ test.describe('Grid Teleportation & VDOM Deltas', () => {
                 // We must verify if this pattern exists in our captured deltas.
                 const movedIds = new Set(moveNodes.map(d => d.id));
                 const updatedIds = new Set(textUpdates.map(d => d.id));
-                
+
                 // Find IDs that are BOTH moved and updated
                 const intersection = [...movedIds].filter(id => updatedIds.has(id));
-                
+
                 // In a clean recycle, we DO expect the row container to move, and the text content to update.
-                // However, the text NODE itself (neo-vnode-XXX) usually just updates content. 
-                // Does it move? 
+                // However, the text NODE itself (neo-vnode-XXX) usually just updates content.
+                // Does it move?
                 // If it is inside a Button, and the Button moves (recycled), the text node moves with it implicitly.
                 // Explicitly moving the text node implies it was re-ordered within the Button?
                 // The Button only has [Icon, Text, Badge, Ripple].
                 // If the Text node is index 1, and stays index 1, it should NOT have a moveNode delta.
-                
+
                 // Filter for "text node" moves (neo-vnode-XXX inside a component)
                 // We assume 'neo-vnode-' IDs are the internal ones.
                 const textNodeMoves = moveNodes.filter(d => d.id.startsWith('neo-vnode-'));
-                
+
                 // We expect 0 explicit moves for the internal text span if the structure is stable.
                 expect(textNodeMoves.length).toBe(0);
             }
@@ -470,7 +429,7 @@ test.describe('Grid Teleportation & VDOM Deltas', () => {
             // Verify ALL visible rows have correct text
             body.getVdomRoot().cn.forEach(row => {
                 if (!row.attributes) return; // Skip spacers or non-row nodes
-                
+
                 const cell = row.cn?.[1]; // Component column
                 if (!cell) return;
 

@@ -217,6 +217,27 @@ class Circle extends Component {
     }
 
     /**
+     * Triggered after the windowId config got changed
+     * @param {Number|String|null} value
+     * @param {Number|String|null} oldValue
+     * @protected
+     */
+    afterSetWindowId(value, oldValue) {
+        super.afterSetWindowId(value, oldValue);
+
+        if (value) {
+            let appConfig = Neo.windowConfigs?.[value] || Neo.config;
+
+            if (this.backsideIconPath === Neo.config.resourcesPath + 'images/circle/') {
+                this.backsideIconPath = appConfig.resourcesPath + 'images/circle/';
+            }
+            if (this.itemImagePath === Neo.config.resourcesPath + 'examples/images/') {
+                this.itemImagePath = appConfig.resourcesPath + 'examples/images/';
+            }
+        }
+    }
+
+    /**
      * Triggered after the draggable config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -618,23 +639,17 @@ class Circle extends Component {
         let me = this,
             data;
 
-        try {
-            data = await me.trap(Neo.Xhr.promiseJson({
-                insideNeo: true,
-                url      : me.url
-            }));
+        data = await me.trap(Neo.Xhr.promiseJson({
+            insideNeo: true,
+            url      : me.url
+        }));
 
-            me.store.items = data.json.data;
+        me.store.items = data.json.data;
 
-            await me.timeout(100);
+        await me.timeout(100);
 
-            me.updateTitle();
-            me.createItems()
-        } catch (err) {
-            if (err !== Neo.isDestroyed) {
-                console.log('Error for Neo.Xhr.request', err, me.id)
-            }
-        }
+        me.updateTitle();
+        me.createItems()
     }
 
     /**

@@ -1,8 +1,8 @@
-import Base from '../../core/Base.mjs';
+import Base from './Base.mjs';
 
 /**
  * @class Neo.data.connection.Xhr
- * @extends Neo.core.Base
+ * @extends Neo.data.connection.Base
  */
 class Xhr extends Base {
     static config = {
@@ -12,10 +12,10 @@ class Xhr extends Base {
          */
         className: 'Neo.data.connection.Xhr',
         /**
-         * @member {String} ntype='xhr'
+         * @member {String} ntype='connection-xhr'
          * @protected
          */
-        ntype: 'xhr-connection',
+        ntype: 'connection-xhr',
         /**
          * @member {Function} callback=null
          */
@@ -36,6 +36,17 @@ class Xhr extends Base {
          * @member {Number} timeout=5000
          */
         timeout: 5000
+    }
+
+    /**
+     * @param {Object} [params]
+     * @returns {Promise<any>}
+     */
+    async read(params) {
+        return this.promiseJson({
+            url: this.url,
+            params
+        });
     }
 
     /**

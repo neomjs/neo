@@ -3,4 +3,10 @@
     padding      : 0;
     min-width    : fit-content;
     width        : 100%;
+
+    &.neo-is-resizing {
+        .neo-grid-header-button {
+            opacity: 0.3;
+        }
+    }
 }

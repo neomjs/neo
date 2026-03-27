@@ -15,6 +15,38 @@ class VNode extends Base {
     }
 
     /**
+     * Creates a flat map of the vnode tree, containing ids as keys and vnodes as values.
+     * This is highly optimized for performance to eliminate O(N²) lookups during tree syncing.
+     * @param {Object} vnode
+     * @param {Map}    [map=new Map()]
+     * @returns {Map}
+     */
+    static createMap(vnode, map = new Map()) {
+        vnode = VNode.getVnode(vnode);
+
+        if (vnode) {
+            // Strict ID matching: VNodeUtil.find(opts) specifically checks vnode.hasOwnProperty('id')
+            // It does not match raw placeholders that only have componentId.
+            let id = vnode.id;
+
+            // First-match wins: VNodeUtil.find is a top-down pre-order traversal that returns the first match.
+            // We must not overwrite an existing ID if we encounter duplicates or stale wrappers deeper in the tree.
+            if (id && !map.has(id)) {
+                map.set(id, vnode);
+            }
+
+            let childNodes = vnode.childNodes;
+            if (childNodes) {
+                for (let i = 0, len = childNodes.length; i < len; i++) {
+                    VNode.createMap(childNodes[i], map);
+                }
+            }
+        }
+
+        return map;
+    }
+
+    /**
      * Search vnode child nodes by id or opts object for a given vdom tree
      * @param {Object} vnode
      * @param {Object|String} opts Either an object containing vdom node attributes or a string based id

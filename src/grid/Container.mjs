@@ -50,7 +50,8 @@ class GridContainer extends BaseContainer {
         index           : column.Index,
         linkedin        : column.LinkedIn,
         progress        : column.Progress,
-        sparkline       : column.Sparkline
+        sparkline       : column.Sparkline,
+        tree            : column.Tree
     }
     /**
      * @member {Object} delayable
@@ -160,16 +161,30 @@ class GridContainer extends BaseContainer {
          */
         useInternalId_: true,
         /**
+         * Enable/disable the high-performance GridRowScrollPinning addon.
+         * @member {Boolean} useRowScrollPinning_=true
+         * @reactive
+         */
+        useRowScrollPinning_: true,
+        /**
          * True enables restoring the initial sort state (ASC, DESC, null)
          * @member {Boolean} useTriStateSorting_=false
          * @reactive
          */
         useTriStateSorting_: false,
         /**
-         * @member {Neo.data.Store} store_=null
+         * The data source for the grid. This is the structural foundation for both flat Data Grids and hierarchical TreeGrids.
+         * The grid will automatically infer its `isTreeGrid` state based on whether this store is an instance of `Neo.data.TreeStore`.
+         * @member {Neo.data.Store|Neo.data.TreeStore|null} store_=null
          * @reactive
          */
         store_: null,
+        /**
+         * True enables hierarchical TreeGrid rendering and WAI-ARIA roles
+         * @member {Boolean} isTreeGrid_=false
+         * @reactive
+         */
+        isTreeGrid_: false,
         /**
          * @member {Array|null} items=null
          * @protected
@@ -196,6 +211,14 @@ class GridContainer extends BaseContainer {
      * @protected
      */
     scrollManager = null
+
+    /**
+     * @member {Boolean} hasLockedColumns=false
+     * @readonly
+     */
+    get hasLockedColumns() {
+        return this.columns?.items.some(col => col.locked === 'start' || col.locked === 'end') || false
+    }
 
     /**
      * @param {Object} config
@@ -228,6 +251,8 @@ class GridContainer extends BaseContainer {
 
         me._columns = me.createColumns(me.columns);
         me.updateColCount();
+
+        me.syncValueBandingFields();
 
         me.addDomListeners({
             resize: me.onResize,
@@ -287,6 +312,8 @@ class GridContainer extends BaseContainer {
         let me              = this,
             {headerToolbar} = me;
 
+        me.syncValueBandingFields();
+
         // - If columns changed at run-time OR
         // - In case the `header.Toolbar#createItems()` method has run before columns where available
         if (oldValue?.count || (value?.count && headerToolbar?.isConstructed)) {
@@ -314,6 +341,18 @@ class GridContainer extends BaseContainer {
         if (value && me.store && value.store !== me.store) {
             value.store = me.store
         }
+    }
+
+    /**
+     * Triggered after the isTreeGrid config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetIsTreeGrid(value, oldValue) {
+        let me = this;
+        me.getVdomRoot().role = value ? 'treegrid' : 'grid';
+        me.update();
     }
 
     /**
@@ -390,9 +429,10 @@ class GridContainer extends BaseContainer {
     }
 
     /**
-     * Triggered after the store config got changed
-     * @param {Number} value
-     * @param {Number} oldValue
+     * Triggered after the store config got changed.
+     * Automatically infers the `isTreeGrid` state based on the store's type.
+     * @param {Neo.data.Store|Neo.data.TreeStore|null} value
+     * @param {Neo.data.Store|Neo.data.TreeStore|null} oldValue
      * @protected
      */
     afterSetStore(value, oldValue) {
@@ -402,6 +442,8 @@ class GridContainer extends BaseContainer {
                 load  : me.onStoreLoad,
                 scope : me
             };
+
+        me.isTreeGrid = value?.isTreeStore === true;
 
         value   ?.on(listeners);
         oldValue?.un(listeners);
@@ -414,6 +456,8 @@ class GridContainer extends BaseContainer {
         if (me.footerToolbar && me.footerToolbar.store !== value) {
             me.footerToolbar.store = value
         }
+
+        me.syncValueBandingFields()
     }
 
     /**
@@ -425,6 +469,55 @@ class GridContainer extends BaseContainer {
     afterSetUseInternalId(value, oldValue) {
         if (oldValue !== undefined && this.body) {
             this.body.useInternalId = value
+        }
+    }
+
+    /**
+     * Scans all columns for useValueBanding:true and applies the mapped fields to the store
+     * @protected
+     */
+    syncValueBandingFields() {
+        let me      = this,
+            columns = me.columns?.items,
+            store   = me.store,
+            fields  = [];
+
+        if (columns && store) {
+            columns.forEach(column => {
+                if (column.useValueBanding) {
+                    fields.push(column.dataField)
+                }
+            });
+
+            store.valueBandingFields = fields
+        }
+    }
+
+    /**
+     * Triggered after the useRowScrollPinning config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetUseRowScrollPinning(value, oldValue) {
+        if (oldValue !== undefined && this.scrollManager) {
+            this.scrollManager.rowScrollPinning = value
+        }
+    }
+
+    /**
+     * Triggered after the windowId config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetWindowId(value, oldValue) {
+        super.afterSetWindowId(value, oldValue);
+
+        let {scrollManager} = this;
+
+        if (oldValue && scrollManager) {
+            scrollManager.windowId = value
         }
     }
 
@@ -549,11 +642,15 @@ class GridContainer extends BaseContainer {
             columnClass, renderer;
 
         if (columns) {
+            if (columnDefaults) {
+                columns.forEach(column => Neo.assignDefaults(column, columnDefaults))
+            }
+
+            columns = me.sortColumns(columns);
+
             for (let index = 0, len = columns.length; index < len; index++) {
                 let column = columns[index];
                 renderer = column.renderer;
-
-                columnDefaults && Neo.assignDefaults(column, columnDefaults);
 
                 if (renderer && Neo.isString(renderer) && me[renderer]) {
                     column.renderer = me[renderer]
@@ -621,6 +718,71 @@ class GridContainer extends BaseContainer {
     }
 
     /**
+     * Triggered by `grid.column.Base#afterSetLocked`
+     * Re-sorts the internal columns collection, the header items, and triggers a layout refresh.
+     * @param {Neo.grid.column.Base} column
+     */
+    onColumnLockChange(column) {
+        let me            = this,
+            columnsArray  = [...me.columns.items],
+            headerToolbar = me.headerToolbar,
+            sortedColumns = me.sortColumns(columnsArray);
+
+        // 1. Sync the Header Toolbar cleanly via public API
+        // Batched by the framework's core update loop
+        headerToolbar.silentVdomUpdate = true;
+
+        sortedColumns.forEach((col, targetIndex) => {
+            let btn          = headerToolbar.getColumn(col.dataField),
+                currentIndex = headerToolbar.indexOf(btn);
+
+            if (currentIndex !== targetIndex) {
+                headerToolbar.moveTo(currentIndex, targetIndex)
+            }
+        });
+
+        headerToolbar.silentVdomUpdate = false;
+        headerToolbar.update();
+
+        // 2. Sync the Collection
+        // clearSilent() and add() is the safest way to reset internal indices while avoiding duplicate mutate events
+        me.columns.clearSilent();
+        me.columns.add(sortedColumns);
+
+        // 3. Trigger Layout Engine
+        headerToolbar.passSizeToBody(false);
+
+        // 4. Force a full row re-render to apply the new column order and styles
+        me.body.createViewData();
+
+        me.scrollManager?.updateColumnScrollPinningAddon()
+    }
+
+    /**
+     * @param {Object[]|Neo.grid.column.Base[]} columns
+     * @returns {Object[]|Neo.grid.column.Base[]}
+     */
+    sortColumns(columns) {
+        let lockedEnd   = [],
+            lockedStart = [],
+            unlocked    = [];
+
+        for (let i = 0, len = columns.length; i < len; i++) {
+            let column = columns[i];
+
+            if (column.locked === 'start') {
+                lockedStart.push(column)
+            } else if (column.locked === 'end') {
+                lockedEnd.push(column)
+            } else {
+                unlocked.push(column)
+            }
+        }
+
+        return [...lockedStart, ...unlocked, ...lockedEnd]
+    }
+
+    /**
      * @override
      * @returns {*}
      */
@@ -659,9 +821,11 @@ class GridContainer extends BaseContainer {
         let me = this;
 
         me.scrollManager = Neo.create({
-            gridBody     : me.body,
-            module       : ScrollManager,
-            gridContainer: me
+            gridBody        : me.body,
+            module          : ScrollManager,
+            gridContainer   : me,
+            rowScrollPinning: me.useRowScrollPinning,
+            windowId        : me.windowId
         })
     }
 

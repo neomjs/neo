@@ -36,38 +36,32 @@ async function minifyDirectory(inputDir, outputDir) {
         fs.mkdirSync(outputDir, {recursive: true});
         const dirents = fs.readdirSync(inputDir, {recursive: true, withFileTypes: true});
         for (const dirent of dirents) {
-            if (dirent.path.includes('/docs/output/')) {
-                continue
+            if (!dirent.isFile()) {
+                continue;
             }
-            if (dirent.isFile()) {
-                const
-                    inputPath    = path.join(dirent.path, dirent.name),
-                    relativePath = path.relative(inputDir, inputPath),
-                    outputPath   = path.join(outputDir, relativePath),
-                    content      = fs.readFileSync(inputPath, 'utf8');
-                await minifyFile(content, outputPath)
-            } else if (dirent.name === 'resources') {
-                const
-                    inputPath    = path.join(dirent.path, dirent.name),
-                    relativePath = path.relative(inputDir, inputPath),
-                    outputPath   = path.join(outputDir, relativePath);
+
+            const currentPath = dirent.parentPath || dirent.path;
+            const inputPath = path.join(currentPath, dirent.name);
+            const normalizedInput = inputPath.replace(/\\/g, '/');
+
+            if (normalizedInput.includes('/docs/output/')) {
+                continue;
+            }
+
+            // Exception for devindex app: Do not deploy the data folder.
+            if (normalizedInput.includes('/apps/devindex/resources/data/')) {
+                continue;
+            }
+
+            const relativePath = path.relative(inputDir, inputPath);
+            const outputPath   = path.join(outputDir, relativePath);
+
+            if (dirent.name.endsWith('.mjs') || dirent.name.endsWith('.json') || dirent.name.endsWith('.html')) {
+                const content = fs.readFileSync(inputPath, 'utf8');
+                await minifyFile(content, outputPath);
+            } else if (normalizedInput.includes('/resources/')) {
                 fs.mkdirSync(path.dirname(outputPath), {recursive: true});
-                fs.copySync(inputPath, outputPath);
-
-                // Exception for devindex app: Do not deploy the data folder.
-                if (inputPath.replace(/\\/g, '/').includes('apps/devindex/resources')) {
-                    fs.removeSync(path.join(outputPath, 'data'));
-                }
-
-                const resourcesEntries = fs.readdirSync(outputPath, {recursive: true, withFileTypes: true});
-                for (const resource of resourcesEntries) {
-                    if (resource.isFile() && resource.name.endsWith('.json')) {
-                        const
-                            resourcePath = path.join(resource.path, resource.name),
-                            content      = fs.readFileSync(resourcePath, 'utf8');
-                        fs.writeFileSync(resourcePath, JSON.stringify(JSON.parse(content)))
-                    }
-                }
+                fs.copyFileSync(inputPath, outputPath);
             }
         }
     }
@@ -116,9 +110,12 @@ async function minifyFile(content, outputPath) {
     }
 }
 
-const
-    swContent = fs.readFileSync(path.resolve(root, 'ServiceWorker.mjs'), 'utf8'),
-    promises  = [minifyFile(swContent, path.resolve(root, outputBasePath, 'ServiceWorker.mjs'))];
+const promises = [];
+const swPath = path.resolve(root, 'ServiceWorker.mjs');
+
+if (fs.existsSync(swPath)) {
+    promises.push(minifyFile(fs.readFileSync(swPath, 'utf8'), path.resolve(root, outputBasePath, 'ServiceWorker.mjs')));
+}
 
 inputDirectories.forEach(folder => {
     const outputPath = path.resolve(root, outputBasePath, folder.replace('node_modules/neo.mjs/', ''));

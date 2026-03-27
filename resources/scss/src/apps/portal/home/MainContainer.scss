@@ -13,7 +13,12 @@
         background      : var(--sem-color-surface-primary-background);
         height          : 4px;
         position        : fixed;
-        scale           : 0 1;
+        /* Note: Using 0.001 instead of 0 for the X scale is a critical hack for Firefox (as of v150 Nightly).
+           If set to exactly 0, a bug in Firefox's layout engine causes the mouse wheel to completely lock up
+           on the very first scroll-snap-aligned section (the Hero container) when `scrollTop` is 0.
+           A scale of 0.001 ensures the layout box is mathematically non-zero, allowing the scroll-snap
+           engine and the scroll-driven animation below to calculate intersections correctly. */
+        scale           : 0.001 1;
         top             : 0;
         transform-origin: left;
         width           : 100%;

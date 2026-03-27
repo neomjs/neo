@@ -212,24 +212,6 @@ class LivePreview extends Container {
     }
 
     /**
-     * Triggered before the language config gets changed
-     * @param {String} value
-     * @param {String} oldValue
-     * @returns {String}
-     * @protected
-     */
-    beforeSetWindowUrl(value, oldValue) {
-        if (value.startsWith('./')) {
-            let appPath = Neo.config.appPath.split('/');
-            appPath.pop()
-
-            return new URL(Neo.config.basePath + appPath.join('/') + value.substring(1), location.href).href
-        }
-
-        return value
-    }
-
-    /**
      * @param {Object} data
      */
     async collapseExpand(data) {
@@ -485,20 +467,26 @@ class LivePreview extends Container {
      * @param {String} data.appName
      * @param {Number} data.windowId
      */
-    async onWindowConnect(data) {
+    async onWindowConnect({windowId}) {
         let me           = this,
-            searchString = await Neo.Main.getByPath({path: 'location.search', windowId: data.windowId}),
-            params       = new URLSearchParams(searchString),
+            url          = await Neo.Main.getByPath({path: 'document.URL', windowId}),
+            params       = new URL(url).searchParams,
             id           = params.get('id');
 
         if (id === me.id) {
-            me.connectedWindowId = data.windowId;
+            me.connectedWindowId = windowId;
 
-            let app              = Neo.apps[data.windowId],
+            let app              = Neo.apps[windowId],
                 mainView         = app.mainView,
                 previewContainer = me.getReference('preview'),
                 {tabContainer}   = me,
-                previewView      = previewContainer.removeAt(0, false);
+                previewView      = previewContainer.removeAt(0, false),
+                theme            = me.getTheme?.();
+
+            // We overrule the viewport theme on purpose
+            if (theme) {
+                mainView.theme = theme
+            }
 
             me.previewContainer = mainView;
             mainView.add(previewView);
