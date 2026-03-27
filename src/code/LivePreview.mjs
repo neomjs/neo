@@ -212,24 +212,6 @@ class LivePreview extends Container {
     }
 
     /**
-     * Triggered before the language config gets changed
-     * @param {String} value
-     * @param {String} oldValue
-     * @returns {String}
-     * @protected
-     */
-    beforeSetWindowUrl(value, oldValue) {
-        if (value.startsWith('./')) {
-            let appPath = (Neo.windowConfigs?.[this.windowId]?.appPath || Neo.config.appPath).split('/');
-            appPath.pop()
-
-            return new URL(Neo.config.basePath + appPath.join('/') + value.substring(1), location.href).href
-        }
-
-        return value
-    }
-
-    /**
      * @param {Object} data
      */
     async collapseExpand(data) {
