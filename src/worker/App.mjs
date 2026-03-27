@@ -284,19 +284,35 @@ class App extends Base {
     }
 
     /**
+     * Cache to track which main thread addons have been instructed to load per window.
+     * @member {Object} windowAddons={}
+     * @protected
+     */
+    windowAddons = {}
+
+    /**
      * Convenience shortcut to lazy-load main thread addons, in case they are not imported yet
      * @param {String} name
      * @param {String} windowId
      * @returns {Promise<Neo.main.addon.Base>} The namespace of the addon to use via remote method access
      */
     async getAddon(name, windowId) {
-        let addon = Neo.main?.addon?.[name];
+        let me = this;
 
-        if (addon) {
-            return addon
+        me.windowAddons[windowId] ??= {};
+
+        // If we already instructed this specific window to load the addon, we can return the global proxy.
+        if (me.windowAddons[windowId][name]) {
+            return Neo.main?.addon?.[name];
         }
 
+        // We must forcefully import the addon on the target window thread if it's the first time
+        // this specific window is requesting it via RMA, because the newly spawned windows
+        // might not have it loaded in their main.js bundle native configuration.
         await Neo.Main.importAddon({name, windowId});
+
+        me.windowAddons[windowId][name] = true;
+
         return Neo.main.addon[name]
     }
 
