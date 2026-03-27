@@ -270,31 +270,59 @@ async function defragChromaDB() {
                 console.log(`     Found ${count} items.`);
 
                 const colData = {ids: [], embeddings: [], metadatas: [], documents: []};
-                let offset    = 0;
-                let hasMore   = true;
-                const limit   = 2000;
-
-                while (hasMore) {
-                    process.stdout.write(`     Fetching batch ${offset}... `);
-                    const batch = await collection.get({
-                        limit,
-                        offset,
-                        include: ['embeddings', 'metadatas', 'documents']
-                    });
-
-                    if (batch.ids.length === 0) {
-                        hasMore = false;
-                        console.log('Done.');
-                    } else {
-                        colData.ids.push(...batch.ids);
-                        colData.embeddings.push(...batch.embeddings);
-                        colData.metadatas.push(...batch.metadatas);
-                        colData.documents.push(...batch.documents);
-                        offset += limit;
-                        if (batch.ids.length < limit) hasMore = false;
+                
+                // 3.1 Fetch all IDs first (avoids HNSW index to prevent "Error finding id")
+                const allIds = [];
+                let offset = 0;
+                while (true) {
+                    const batch = await collection.get({ limit: 2000, offset, include: [] });
+                    if (batch.ids.length === 0) break;
+                    allIds.push(...batch.ids);
+                    offset += 2000;
+                    if (batch.ids.length < 2000) break;
+                }
+                
+                console.log(`     Fetched ${allIds.length} IDs. Now extracting data...`);
+                
+                // 3.2 Fetch full data in chunks, with graceful fallback for corrupted embeddings
+                const chunkSize = 500;
+                for (let i = 0; i < allIds.length; i += chunkSize) {
+                    const chunk = allIds.slice(i, i + chunkSize);
+                    process.stdout.write(`     Extracting data for IDs ${i} to ${i + chunk.length}... `);
+                    try {
+                        const batchData = await collection.get({
+                            ids: chunk,
+                            include: ['embeddings', 'metadatas', 'documents']
+                        });
+                        colData.ids.push(...batchData.ids);
+                        colData.embeddings.push(...batchData.embeddings);
+                        colData.metadatas.push(...batchData.metadatas);
+                        colData.documents.push(...batchData.documents);
                         console.log('ok');
+                    } catch (e) {
+                        console.log(`\n     ⚠️ Chunk failed (${e.message}). Falling back to item-by-item extraction...`);
+                        let rescued = 0;
+                        for (const id of chunk) {
+                            try {
+                                const singleData = await collection.get({
+                                    ids: [id],
+                                    include: ['embeddings', 'metadatas', 'documents']
+                                });
+                                if (singleData.ids.length > 0) {
+                                    colData.ids.push(...singleData.ids);
+                                    colData.embeddings.push(...singleData.embeddings);
+                                    colData.metadatas.push(...singleData.metadatas);
+                                    colData.documents.push(...singleData.documents);
+                                    rescued++;
+                                }
+                            } catch (err) {
+                                // Silently skip corrupted ghost entries to avoid log spam
+                            }
+                        }
+                        console.log(`     ✅ Rescued ${rescued} items. Skipped ${chunk.length - rescued} corrupted ghost entries.`);
                     }
                 }
+                
                 buffer[colName] = colData;
             } catch (e) {
                 console.warn(`     ⚠️ Could not fetch collection ${colName} (might not exist yet): ${e.message}`);

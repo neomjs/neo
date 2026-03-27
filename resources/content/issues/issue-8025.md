@@ -1,18 +1,19 @@
 ---
 id: 8025
 title: 'Create Custom Theme: Neo Cyberpunk'
-state: OPEN
+state: CLOSED
 labels:
   - epic
+  - stale
   - design
   - ai
 assignees:
   - tobiu
 createdAt: '2025-12-04T23:37:19Z'
-updatedAt: '2025-12-04T23:50:59Z'
+updatedAt: '2026-03-19T03:58:31Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8025'
 author: tobiu
-commentsCount: 0
+commentsCount: 2
 parentIssue: 7918
 subIssues:
   - '[x] 8026 Scaffold Neo Cyberpunk Theme Structure'
@@ -24,6 +25,7 @@ subIssuesCompleted: 5
 subIssuesTotal: 5
 blockedBy: []
 blocking: []
+closedAt: '2026-03-19T03:58:31Z'
 ---
 # Create Custom Theme: Neo Cyberpunk
 
@@ -58,4 +60,14 @@ Create a new custom theme `neo-theme-cyberpunk` (folder: `resources/scss/theme-c
 - 2025-12-04T23:50:59Z @tobiu assigned to @tobiu
 - 2025-12-05T00:42:49Z @tobiu referenced in commit `2a2b6d4` - "#8025 agentos app: use the cyberpunk theme"
 - 2025-12-05T00:46:01Z @tobiu referenced in commit `a627f02` - "#8025 AgentOS.view.InterventionPanel: remove the grid margin"
+### @github-actions - 2026-03-05T03:38:49Z
+
+This issue is stale because it has been open for 90 days with no activity.
+
+- 2026-03-05T03:38:50Z @github-actions added the `stale` label
+### @github-actions - 2026-03-19T03:58:30Z
+
+This issue was closed because it has been inactive for 14 days since being marked as stale.
+
+- 2026-03-19T03:58:31Z @github-actions closed this issue
 

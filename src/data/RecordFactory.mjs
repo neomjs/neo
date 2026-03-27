@@ -207,6 +207,11 @@ class RecordFactory extends Base {
                             delete config[initialIndexSymbol]
                         }
 
+                        if (Object.hasOwn(config, internalId)) {
+                            // We do NOT delete it from config because it's a Symbol and won't affect setOriginal/setSilent
+                            me[internalId] = config[internalId]
+                        }
+
                         config = instance.assignDefaultValues(config, model);
 
                         if (model.trackModifiedFields) {

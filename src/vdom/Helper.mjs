@@ -842,30 +842,51 @@ class Helper extends Base {
      * This method is the core of the "Teleportation" / Disjoint Updates architecture.
      * Instead of building a single bridged VDOM tree, we process multiple components
      * as separate, disjoint updates in a single batch.
+     * 
+     * **Meta Payload Aggregation:**
+     * If individual component updates provide a `meta` object (see `Neo.mixin.VdomLifecycle#getVdomUpdatePayload`), 
+     * this method aggregates them into a single `meta` dictionary keyed by `componentId`. This allows 
+     * the VDOM worker to pass contextual App Worker state (like baseline `scrollTop` values) through 
+     * to the Main Thread's `DeltaUpdates` event listeners.
      *
      * @param {Object} data
      * @param {Object} data.updates A map of update config objects: {componentId: updateOpts}
-     * @returns {Object} { deltas: Object[], vnodes: Object }
+     * @returns {Object} { deltas: Object[], meta: Object, vnodes: Object }
      */
     updateBatch(data) {
         let me        = this,
             allDeltas = [],
+            meta      = {},
             vnodes    = {},
-            result, id;
+            hasMeta   = false,
+            result, id, updateOpts;
 
         for (id in data.updates) {
             if (Object.hasOwn(data.updates, id)) {
-                result = me.update(data.updates[id]);
+                updateOpts = data.updates[id];
+                result     = me.update(updateOpts);
+                
                 allDeltas.push(...result.deltas);
                 vnodes[id] = result.vnode;
+
+                if (updateOpts.meta) {
+                    meta[id] = updateOpts.meta;
+                    hasMeta  = true
+                }
             }
         }
 
-        return {
+        let response = {
             deltas    : allDeltas,
             updateVdom: true,
             vnodes
+        };
+
+        if (hasMeta) {
+            response.meta = meta
         }
+
+        return response
     }
 }
 

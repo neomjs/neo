@@ -57,7 +57,7 @@ Neo.mjs v11 introduces a revolutionary approach to software development: **Conte
 This isn't just about generating code; it's about creating a self-aware development environment that accelerates velocity, improves quality, and enables a new level of human-AI collaboration.
 
 <p align="center">
-  <img width="800px" src="https://raw.githubusercontent.com/neomjs/pages/master/resources_pub/website/blog/ContextEngineering.png" alt="Context Engineering Done Right" class="blog-image">
+  <img width="800px" src="https://raw.githubusercontent.com/neomjs/pages/master/resources_pub/website/blog/ContextEngineering2.png" alt="Context Engineering Done Right" class="blog-image">
 </p>
 
 1.  **🧠 The Knowledge Base Server**: Gives agents a deep, semantic understanding of your project. Powered by ChromaDB and Gemini embeddings, it allows agents to perform semantic searches across your entire codebase, documentation, and historical tickets. An agent can ask, "How does VDOM diffing work?" and get the exact source files and architectural guides relevant to the *currently checked-out version*.

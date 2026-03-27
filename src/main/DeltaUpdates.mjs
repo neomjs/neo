@@ -1,5 +1,6 @@
 import Base             from '../core/Base.mjs';
 import DomAccess        from './DomAccess.mjs';
+import Observable       from '../core/Observable.mjs';
 import {voidAttributes} from '../vdom/domConstants.mjs';
 
 const NeoConfig = Neo.config;
@@ -17,6 +18,13 @@ const NeoConfig = Neo.config;
  * @singleton
  */
 class DeltaUpdates extends Base {
+    /**
+     * True automatically applies the core.Observable mixin
+     * @member {Boolean} observable=true
+     * @static
+     */
+    static observable = true
+
     static config = {
         /**
          * @member {String} className='Neo.main.DeltaUpdates'
@@ -848,6 +856,13 @@ class DeltaUpdates extends Base {
 
         deltas = Array.isArray(deltas) ? deltas : [deltas];
         len    = deltas.length;
+
+        // Fire an event before applying the deltas.
+        // Important: Listeners receive the `data` object by reference.
+        // This is an intentional design choice to allow "just-in-time" inline delta editing.
+        // Addons (like GridRowPinning) can safely mutate the deltas array or individual delta
+        // properties here, and those modifications will be consumed directly by the update loop below.
+        me.fire('update', data);
 
         if (NeoConfig.logDeltaUpdates && len > 0) {
             me.countDeltas += len;

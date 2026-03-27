@@ -303,14 +303,8 @@ class Base {
 
         // Triggers async logic after the construction chain is done.
         Promise.resolve().then(async () => {
-            try {
-                await me.initAsync();
-                me.isReady = true
-            } catch (e) {
-                if (e !== Neo.isDestroyed) {
-                    throw e
-                }
-            }
+            await me.initAsync();
+            me.isReady = true
         })
     }
 
@@ -454,24 +448,6 @@ class Base {
         if (!values.includes(value)) {
             console.error(`Supported values for ${name} are:`, ...values, this);
             return oldValue
-        }
-
-        return value
-    }
-
-    /**
-     * Triggered before the remote config gets changed
-     * @param {Object|null} value
-     * @param {Object|null} oldValue
-     * @returns {Object|null}
-     * @protected
-     */
-    beforeSetRemote(value, oldValue) {
-        let me = this;
-
-        // Only allow remote access for singletons or main thread addons
-        if (value && !me.singleton && !me.isMainThreadAddon) {
-            throw new Error('Remote method access is only functional for Singleton classes ' + me.className)
         }
 
         return value
@@ -650,27 +626,77 @@ class Base {
      * @protected
      */
     async initRemote() {
-        let {className, remote} = this,
+        let me                  = this,
+            {className, remote} = me,
             {currentWorker}     = Neo;
 
         if (!Neo.config.isMiddleware && !Neo.config.unitTestMode) {
-            if (Neo.workerId !== 'main' && currentWorker.isSharedWorker) {
-                if (remote.main) {
-                    currentWorker.remotesToRegister.push({className, methods: remote.main})
+            // SetupClass applies `singleton` to the instance prototype if configured.
+            // Main thread addons are also treated as singletons for remote method access.
+            if (me.singleton === true || me.isMainThreadAddon === true) {
+                // Singleton Routing (Namespace-Driven)
+                if (Neo.workerId !== 'main' && currentWorker.isSharedWorker) {
+                    if (remote.main) {
+                        currentWorker.remotesToRegister.push({className, methods: remote.main})
+                    }
+
+                    if (!currentWorker.isConnected) {
+                        await new Promise(resolve => {
+                            currentWorker.on('connected', () => resolve(), me, {once: true})
+                        })
+                    }
+                } else if (Neo.workerId === 'service') {
+                    if (remote.app) {
+                        currentWorker.remotesToRegister.push({className, methods: remote.app})
+                    }
                 }
 
-                if (!currentWorker.isConnected) {
-                    await new Promise(resolve => {
-                        currentWorker.on('connected', () => resolve(), this, {once: true})
+                await Base.promiseRemotes(className, remote)
+            } else {
+                // Instance-to-Instance Routing (ID-Driven)
+                // Unlike Singletons which broadcast their existence globally via 'registerRemote',
+                // instances dynamically build a `me.remote` object containing pre-bound proxy functions.
+                // This establishes a localized IPC channel for cross-thread architecture (e.g. data.Pipeline).
+                let remoteObj = {};
+
+                Object.entries(remote).forEach(([worker, methods]) => {
+                    remoteObj[worker] = {};
+
+                    methods.forEach(method => {
+                        remoteObj[worker][method] = (data, buffer) => {
+                            let origin = Neo.workerId === 'main' ? Neo.worker.Manager : Neo.currentWorker,
+                                opts   = {
+                                    action         : 'remoteMethod',
+                                    data,
+                                    destination    : worker,
+                                    remoteClassName: className,
+                                    remoteMethod   : method
+                                };
+
+                            // The destination ID is resolved at execution time. This accommodates
+                            // the "Handshake" pattern where `me.remoteId` is populated asynchronously
+                            // after the target instance is created in the remote thread.
+                            if (me.remoteId) {
+                                opts.remoteId = me.remoteId
+                            } else if (data?.remoteId) {
+                                opts.remoteId = data.remoteId
+                            }
+
+                            if (worker === 'main' && data?.windowId) {
+                                opts.destination = data.windowId
+                            }
+
+                            if (origin.isSharedWorker) {
+                                origin.assignPort(data, opts)
+                            }
+
+                            return origin.promiseMessage(opts.destination, opts, buffer)
+                        }
                     })
-                }
-            } else if (Neo.workerId === 'service') {
-                if (remote.app) {
-                    currentWorker.remotesToRegister.push({className, methods: remote.app})
-                }
-            }
+                });
 
-            await Base.promiseRemotes(className, remote)
+                me.remote = remoteObj
+            }
         }
     }
 

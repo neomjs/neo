@@ -99,7 +99,7 @@ The server supports loading a custom configuration file via the `-c` or `--confi
 ### Usage
 
 ```bash readonly
-node ai/mcp/server/memory-core/mcp-stdio.mjs -c ./my-config.json
+node ai/mcp/server/memory-core/mcp-server.mjs -c ./my-config.json
 ```
 
 ### Configuration File Format
@@ -112,6 +112,8 @@ You can provide a JSON file or an ES Module (`.mjs`) that exports a configuratio
 {
     "debug": true,
     "modelName": "gemini-2.5-pro",
+    "transport": "sse",
+    "ssePort": 3001,
     "memoryDb": {
         "port": 8005,
         "collectionName": "my-custom-memory"
@@ -120,6 +122,7 @@ You can provide a JSON file or an ES Module (`.mjs`) that exports a configuratio
 ```
 
 This flexibility is crucial for:
+*   **Cloud Deployments:** Switching `transport` to `"sse"` allows the server to run as a microservice in Docker, accepting connections on `ssePort` (default 3001).
 *   **Custom Models:** Switching to a different Gemini model version.
 *   **Port Conflicts:** Running multiple instances or avoiding conflicts with other services.
 *   **Environment Specifics:** Adjusting paths for different deployment environments.

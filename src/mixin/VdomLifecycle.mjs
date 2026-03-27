@@ -315,7 +315,21 @@ class VdomLifecycle extends Base {
                 batchData.windowId = me.windowId
             }
 
+            /**
+             * Optional hook that fires immediately before the VDOM payload is sent to the VDOM worker.
+             * This is useful for telemetry (e.g., Performance tracking) as it excludes the synchronous 
+             * queue wait time of the App worker and strictly measures the cross-thread roundtrip.
+             */
+            me.beforeExecuteVdomUpdate?.();
+
             const response = await Promise.resolve(Neo.vdom.Helper.updateBatch(batchData));
+
+            /**
+             * Optional hook that fires immediately after the VDOM update resolves.
+             * Because of internal promise chaining (promiseForwardMessage), this hook fires *after* 
+             * the Main Thread has painted the resulting DOM deltas.
+             */
+            me.afterExecuteVdomUpdate?.();
 
             // Component could be destroyed while the update is running
             if (me.id) {
@@ -390,6 +404,16 @@ class VdomLifecycle extends Base {
 
     /**
      * Generates the update payload for this component.
+     * 
+     * **Meta Payload Concept:**
+     * If a component implements a `getVdomUpdateMeta()` method, its returned object will be 
+     * attached to the update payload as `meta`. This allows the App Worker to send contextual state 
+     * (e.g., the specific `scrollTop` value the VDOM was calculated against) alongside the VDOM deltas 
+     * to the Main Thread. The Main Thread's `DeltaUpdates` singleton fires an `update` event before 
+     * applying deltas, allowing addons (like optical pinning) to read this `meta` data and dynamically 
+     * adjust the deltas (like `translate3d` transforms) based on the *current* Main Thread state 
+     * before they are painted.
+     * 
      * @param {Set<String>|null} mergedChildIds
      * @param {Number} [depth] Override the update depth
      * @returns {Object} opts
@@ -406,6 +430,10 @@ class VdomLifecycle extends Base {
         if (currentWorker?.isSharedWorker) {
             opts.appName  = me.appName;
             opts.windowId = me.windowId
+        }
+
+        if (me.getVdomUpdateMeta) {
+            opts.meta = me.getVdomUpdateMeta()
         }
 
         // We cannot set the config directly => it could already be false,
@@ -811,10 +839,13 @@ class VdomLifecycle extends Base {
             ComponentManager.registerWrapperNode(vnode.id, me)
         }
 
+        let vnodeMap           = VNodeUtil.createMap(me.vnode),
+            childComponentsSet = new Set(childComponents);
+
         // we need one separate iteration first to ensure all wrapper nodes get registered
         for (let i = 0, len = childComponents.length; i < len; i++) {
             let component = childComponents[i];
-            childVnode = VNodeUtil.find(me.vnode, component.vdom.id)?.vnode;
+            childVnode = vnodeMap.get(component.vdom.id);
 
             if (childVnode) {
                 map[component.id] = childVnode;
@@ -845,13 +876,13 @@ class VdomLifecycle extends Base {
         let directChildren = ComponentManager.getDirectChildren(me.id);
         for (let i = 0, len = directChildren.length; i < len; i++) {
             let component = directChildren[i];
-            if (!childComponents.includes(component)) {
+            if (!childComponentsSet.has(component)) {
                 childVnode = null;
 
                 // Check if it exists in the tree (as placeholder)
-                // We use VNodeUtil.find which resolves placeholders
+                // We use vnodeMap which resolves placeholders
                 if (me.vnode) {
-                    childVnode = VNodeUtil.find(me.vnode, component.vdom.id)?.vnode
+                    childVnode = vnodeMap.get(component.vdom.id);
                 }
 
                 if (!childVnode && !component.floating) {

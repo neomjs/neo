@@ -1,25 +1,27 @@
 ---
 id: 7914
 title: 'Epic: Foundation for Ticket-Driven Agent Orchestration'
-state: OPEN
+state: CLOSED
 labels:
   - epic
+  - stale
   - ai
 assignees:
   - tobiu
 createdAt: '2025-11-29T15:07:56Z'
-updatedAt: '2025-11-29T16:24:28Z'
+updatedAt: '2026-03-14T03:37:27Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7914'
 author: tobiu
-commentsCount: 1
+commentsCount: 3
 parentIssue: null
 subIssues:
-  - '[ ] 7926 Feat: Add Cross-Repo Capabilities to GitHub Workflow MCP'
+  - '[x] 7926 Feat: Add Cross-Repo Capabilities to GitHub Workflow MCP'
   - '[x] 7930 Bug: GitHub HealthService fails in standalone SDK scripts'
-subIssuesCompleted: 1
+subIssuesCompleted: 2
 subIssuesTotal: 2
 blockedBy: []
 blocking: []
+closedAt: '2026-03-14T03:37:26Z'
 ---
 # Epic: Foundation for Ticket-Driven Agent Orchestration
 
@@ -80,4 +82,14 @@ without human intervention.
 > 
 > The "Feature Factory" pipeline is now 50% complete (Epic -> Tickets). The next phase is closing the loop (Tickets -> Code).
 
+### @github-actions - 2026-02-28T03:22:12Z
+
+This issue is stale because it has been open for 90 days with no activity.
+
+- 2026-02-28T03:22:13Z @github-actions added the `stale` label
+### @github-actions - 2026-03-14T03:37:26Z
+
+This issue was closed because it has been inactive for 14 days since being marked as stale.
+
+- 2026-03-14T03:37:27Z @github-actions closed this issue
 

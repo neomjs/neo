@@ -196,6 +196,12 @@ class GridContainer extends BaseGridContainer {
                 width    : 60,
                 cellAlign: 'right'
             }, {
+                dataField           : 'rank',
+                text                : 'Rank',
+                width               : 60,
+                cellAlign           : 'right',
+                defaultSortDirection: 'ASC'
+            }, {
                 type     : 'githubUser',
                 dataField: 'login',
                 text     : 'User',

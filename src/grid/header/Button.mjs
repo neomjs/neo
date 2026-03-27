@@ -76,6 +76,19 @@ class Button extends BaseButton {
          */
         isSorted_: null,
         /**
+         * Use 'start' to pin the column to the start of the row.
+         * Use 'end' to pin the column to the end of the row.
+         * Use null for standard, scrollable columns.
+         * @member {String|null} locked_=null
+         * @reactive
+         */
+        locked_: null,
+        /**
+         * @member {Boolean} resizable_=true
+         * @reactive
+         */
+        resizable_: true,
+        /**
          * @member {String} role='columnheader'
          * @reactive
          */
@@ -136,6 +149,50 @@ class Button extends BaseButton {
             direction: value,
             property : me.dataField
         })
+    }
+
+    /**
+     * Triggered after the locked config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetLocked(value, oldValue) {
+        let {cls} = this;
+
+        NeoArray.remove(cls, 'neo-locked-start');
+        NeoArray.remove(cls, 'neo-locked-end');
+
+        if (value === 'start') {
+            NeoArray.add(cls, 'neo-locked-start')
+        } else if (value === 'end') {
+            NeoArray.add(cls, 'neo-locked-end')
+        }
+
+        this.cls = cls
+    }
+
+    /**
+     * Triggered after the resizable config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetResizable(value, oldValue) {
+        if (value && !this.getPlugin('plugin-grid-header-resizable')) {
+            import('./plugin/Resizable.mjs').then(module => {
+                let me        = this,
+                    {appName} = me,
+                    plugins   = me.plugins || [];
+
+                plugins.push({
+                    module : module.default,
+                    appName
+                });
+
+                me.plugins = plugins
+            })
+        }
     }
 
     /**
@@ -218,6 +275,10 @@ class Button extends BaseButton {
      * @protected
      */
     onClick(data) {
+        if (data.path[0].cls.includes('neo-resizable')) {
+            return
+        }
+
         let me = this,
             map;
 
@@ -333,6 +394,7 @@ class Button extends BaseButton {
             editorConfig        : me.serializeConfig(me.editorConfig),
             filterConfig        : me.serializeConfig(me.filterConfig),
             isSorted            : me.isSorted,
+            resizable           : me.resizable,
             showHeaderFilter    : me.showHeaderFilter,
             sortable            : me.sortable,
             useTriStateSorting  : me.useTriStateSorting

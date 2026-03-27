@@ -55,7 +55,6 @@ class Message extends Base {
     transactionId = 1
 
     /**
-     *
      * @param {Object} msg
      * @returns {Promise<any>}
      */
@@ -63,6 +62,32 @@ class Message extends Base {
         let api = Neo.manager.rpc.Api.get(`${msg.service}.${msg.method}`);
 
         return this[`onMessage${Neo.capitalize(api.type)}`](msg, api);
+    }
+
+    /**
+     * @param {Object} msg
+     * @param {Function} callback
+     */
+    onMessageStream(msg, callback) {
+        let api = Neo.manager.rpc.Api.get(`${msg.service}.${msg.method}`);
+
+        if (api.type !== 'websocket') {
+            console.error('onMessageStream is only supported for websocket connections', msg);
+            return
+        }
+
+        this.onMessageStreamWebsocket(msg, api, callback)
+    }
+
+    /**
+     * @param {Object} msg
+     */
+    onMessageStreamUnsubscribe(msg) {
+        let api = Neo.manager.rpc.Api.get(`${msg.service}.${msg.method}`);
+
+        if (api?.type === 'websocket') {
+            this.onMessageStreamUnsubscribeWebsocket(msg, api)
+        }
     }
 
     /**
@@ -101,7 +126,6 @@ class Message extends Base {
     }
 
     /**
-     *
      * @param {Object} msg
      * @param {Object} api
      * @protected
@@ -119,6 +143,39 @@ class Message extends Base {
         }
 
         return await connection.promiseMessage(msg)
+    }
+
+    /**
+     * @param {Object} msg
+     * @param {Object} api
+     * @param {Function} callback
+     * @protected
+     * @returns {Promise<any>}
+     */
+    async onMessageStreamWebsocket(msg, api, callback) {
+        let me         = this,
+            {url}      = api,
+            connection = me.socketConnections[url];
+
+        if (!connection) {
+            let module = await import('../../data/connection/WebSocket.mjs');
+
+            me.socketConnections[url] = connection = Neo.create(module.default, {serverAddress: url})
+        }
+
+        connection.registerStream(msg, callback)
+    }
+
+    /**
+     * @param {Object} msg
+     * @param {Object} api
+     * @protected
+     */
+    onMessageStreamUnsubscribeWebsocket(msg, api) {
+        let connection = this.socketConnections[api.url];
+        if (connection) {
+            connection.unregisterStream(msg)
+        }
     }
 
     /**

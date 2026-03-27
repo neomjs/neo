@@ -178,7 +178,7 @@ class MainContainerController extends ComponentController {
     createPopupWindow(containerReference, url, windowName) {
         let me = this;
 
-        Neo.Main.getWindowData().then(winData => {
+        Neo.Main.getWindowData({windowId: me.windowId}).then(winData => {
             me.component.getDomRect(me.getReference(containerReference).id).then(data => {
                 let {height, left, top, width} = data;
 
@@ -189,6 +189,7 @@ class MainContainerController extends ComponentController {
                 Neo.Main.windowOpen({
                     url           : `../sharedcovid/childapps/${url}/index.html`,
                     windowFeatures: `height=${height},left=${left},top=${top},width=${width}`,
+                    windowId      : me.windowId,
                     windowName
                 })
             })
@@ -267,8 +268,9 @@ class MainContainerController extends ComponentController {
      * @param {String} data.appName
      */
     onAppConnect(data) {
-        let me   = this,
-            name = data.appName,
+        let me         = this,
+            name       = data.appName,
+            {windowId} = me,
             style, toolbar, view;
 
         switch (name) {
@@ -286,19 +288,19 @@ class MainContainerController extends ComponentController {
                 view = me.getReference('gallery-container');
                 NeoArray.remove(me.mainTabs, 'gallery');
                 me.activeMainTabIndex--;
-                Neo.Main.editRoute({mainview: me.mainTabs[me.activeMainTabIndex]});
+                Neo.Main.editRoute({mainview: me.mainTabs[me.activeMainTabIndex], windowId});
                 break;
             case 'SharedCovidHelix':
                 view = me.getReference('helix-container');
                 NeoArray.remove(me.mainTabs, 'helix');
                 me.activeMainTabIndex--;
-                Neo.Main.editRoute({mainview: me.mainTabs[me.activeMainTabIndex]});
+                Neo.Main.editRoute({mainview: me.mainTabs[me.activeMainTabIndex], windowId});
                 break;
             case 'SharedCovidMap':
                 view = me.getReference('mapbox-gl-container');
                 NeoArray.remove(me.mainTabs, 'mapboxglmap');
                 me.activeMainTabIndex--;
-                Neo.Main.editRoute({mainview: me.mainTabs[me.activeMainTabIndex]});
+                Neo.Main.editRoute({mainview: me.mainTabs[me.activeMainTabIndex], windowId});
                 break;
         }
 
@@ -328,7 +330,8 @@ class MainContainerController extends ComponentController {
         switch (name) {
             case 'SharedCovid':
                 Neo.Main.windowClose({
-                    names: me.connectedApps,
+                    names   : me.connectedApps,
+                    windowId: me.windowId
                 });
                 break;
             case 'SharedCovidChart':
@@ -682,7 +685,8 @@ class MainContainerController extends ComponentController {
      */
     updateCountryField(data) {
         Neo.Main.editRoute({
-            country: data.record.country
+            country : data.record.country,
+            windowId: this.windowId
         })
     }
 }

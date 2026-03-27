@@ -135,7 +135,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/learn/gettingstarted/DescribingTheUI</loc>
-    <lastmod>2025-07-28T13:02:27+02:00</lastmod>
+    <lastmod>2026-03-15T14:40:46+01:00</lastmod>
     <priority>0.9</priority>
   </url>
   <url>
@@ -167,6 +167,30 @@
     <loc>https://neomjs.com/learn/gettingstarted/CreatingYourFirstApp</loc>
     <lastmod>2025-10-09T13:06:12+02:00</lastmod>
     <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://neomjs.com/learn/guides/coreengine/WhyEnhance</loc>
+    <lastmod>2026-03-18T11:26:12+01:00</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/learn/guides/coreengine/SetupClass</loc>
+    <lastmod>2026-03-18T11:26:12+01:00</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/learn/guides/coreengine/ConfigSystem</loc>
+    <lastmod>2026-03-18T11:26:12+01:00</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/learn/guides/coreengine/Reactivity</loc>
+    <lastmod>2026-03-18T11:26:12+01:00</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/learn/guides/coreengine/Lifecycle</loc>
+    <lastmod>2026-03-18T11:26:12+01:00</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/learn/guides/coreengine/Utilities</loc>
+    <lastmod>2026-03-18T11:26:12+01:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/learn/guides/fundamentals/CodebaseOverview</loc>
@@ -216,7 +240,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/learn/guides/fundamentals/MainThreadAddons</loc>
-    <lastmod>2026-01-08T23:06:13+01:00</lastmod>
+    <lastmod>2026-03-24T20:51:00+01:00</lastmod>
     <priority>0.9</priority>
   </url>
   <url>
@@ -254,6 +278,10 @@
     <lastmod>2026-01-08T23:06:13+01:00</lastmod>
   </url>
   <url>
+    <loc>https://neomjs.com/learn/guides/datahandling/DataPipelines</loc>
+    <lastmod>2026-03-27T11:20:48+01:00</lastmod>
+  </url>
+  <url>
     <loc>https://neomjs.com/learn/guides/datahandling/Collections</loc>
     <lastmod>2025-07-15T21:37:07+02:00</lastmod>
   </url>
@@ -279,8 +307,12 @@
     <lastmod>2025-07-15T21:37:07+02:00</lastmod>
   </url>
   <url>
+    <loc>https://neomjs.com/learn/guides/datahandling/TreeStore</loc>
+    <lastmod>2026-03-12T10:22:55+01:00</lastmod>
+  </url>
+  <url>
     <loc>https://neomjs.com/learn/guides/datahandling/StateProviders</loc>
-    <lastmod>2025-07-15T21:37:07+02:00</lastmod>
+    <lastmod>2026-03-17T11:01:37+01:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/learn/guides/userinteraction/Forms</loc>
@@ -458,11 +490,11 @@
   </url>
   <url>
     <loc>https://neomjs.com/learn/guides/mcp/KnowledgeBase</loc>
-    <lastmod>2026-01-08T15:04:19+01:00</lastmod>
+    <lastmod>2026-03-24T20:53:37+01:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/learn/guides/mcp/MemoryCore</loc>
-    <lastmod>2025-11-23T13:10:07+01:00</lastmod>
+    <lastmod>2026-03-23T18:29:15+01:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/learn/guides/mcp/NeuralLink</loc>
@@ -471,11 +503,19 @@
   </url>
   <url>
     <loc>https://neomjs.com/learn/guides/mcp/GitHubWorkflow</loc>
-    <lastmod>2025-11-23T13:10:07+01:00</lastmod>
+    <lastmod>2026-03-23T18:29:15+01:00</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/learn/guides/mcp/Authorization</loc>
+    <lastmod>2026-03-26T15:54:50+01:00</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/learn/guides/mcp/GoogleAuthDemo</loc>
+    <lastmod>2026-03-26T15:54:50+01:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/learn/guides/mcp/CodeExecution</loc>
-    <lastmod>2026-01-07T04:36:51+01:00</lastmod>
+    <lastmod>2026-03-23T18:29:15+01:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/learn/guides/ai/StrategicWorkflows</loc>
@@ -483,7 +523,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/learn/guides/ai/AgentAgnosticMcpConfig</loc>
-    <lastmod>2025-11-08T13:08:38+01:00</lastmod>
+    <lastmod>2026-03-23T18:15:34+01:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/learn/guides/ai/MemoryCoreMcpApi</loc>
@@ -499,7 +539,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/learn/guides/ai/GitHubWorkflowServerGhAbsent</loc>
-    <lastmod>2025-11-10T21:07:23+01:00</lastmod>
+    <lastmod>2026-03-23T18:29:15+01:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/learn/guides/ai/TroubleshootingToolCalls</loc>
@@ -563,11 +603,11 @@
   </url>
   <url>
     <loc>https://neomjs.com/apps/covid/index.html</loc>
-    <lastmod>2026-02-09T11:01:39+01:00</lastmod>
+    <lastmod>2026-03-07T14:22:20+01:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/apps/devindex/index.html</loc>
-    <lastmod>2026-02-27T23:47:49Z</lastmod>
+    <lastmod>2026-03-27T19:25:26Z</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/apps/email/index.html</loc>
@@ -587,7 +627,7 @@
   </url>
   <url>
     <loc>https://neomjs.com/apps/portal/index.html</loc>
-    <lastmod>2026-02-27T19:30:23+01:00</lastmod>
+    <lastmod>2026-03-27T13:57:55+01:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/apps/realworld/index.html</loc>
@@ -603,11 +643,11 @@
   </url>
   <url>
     <loc>https://neomjs.com/apps/sharedcovid/index.html</loc>
-    <lastmod>2026-02-09T11:01:39+01:00</lastmod>
+    <lastmod>2026-03-07T14:22:20+01:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/apps/shareddialog/index.html</loc>
-    <lastmod>2025-12-21T13:36:23+01:00</lastmod>
+    <lastmod>2026-03-15T23:28:07+01:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/examples/button/base/index.html</loc>
@@ -655,11 +695,11 @@
   </url>
   <url>
     <loc>https://neomjs.com/examples/component/coronaGallery/index.html</loc>
-    <lastmod>2026-02-10T01:39:00+01:00</lastmod>
+    <lastmod>2026-03-07T12:18:44+01:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/examples/component/coronaHelix/index.html</loc>
-    <lastmod>2026-02-09T11:01:39+01:00</lastmod>
+    <lastmod>2026-03-07T12:18:44+01:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/examples/component/dateSelector/index.html</loc>
@@ -776,6 +816,10 @@
   <url>
     <loc>https://neomjs.com/examples/dashboard/index.html</loc>
     <lastmod>2024-08-17T23:57:34+02:00</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/examples/data/pipeline/index.html</loc>
+    <lastmod>2026-03-26T13:27:50+01:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/examples/date/selectorContainer/index.html</loc>
@@ -904,6 +948,18 @@
   <url>
     <loc>https://neomjs.com/examples/grid/nestedRecordFields/index.html</loc>
     <lastmod>2025-08-12T02:02:10+02:00</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/examples/grid/tree/index.html</loc>
+    <lastmod>2026-03-15T19:55:14+01:00</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/examples/grid/treeBigData/index.html</loc>
+    <lastmod>2026-03-27T13:57:55+01:00</lastmod>
+  </url>
+  <url>
+    <loc>https://neomjs.com/examples/grid/valueBanding/index.html</loc>
+    <lastmod>2026-03-18T15:44:11+01:00</lastmod>
   </url>
   <url>
     <loc>https://neomjs.com/examples/layout/card/index.html</loc>

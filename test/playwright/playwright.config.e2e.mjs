@@ -27,14 +27,26 @@ export default defineConfig({
     projects: [{
         name: 'chromium',
         use : {
-            ...devices['Desktop Chrome'],
+            channel: 'chrome', // Use local Google Chrome instead of Playwright's Chromium binary
             launchOptions: {
                 args: [
                     '--use-gl=desktop',
-                    '--js-flags=--max_old_space_size=4096',
+                    '--ignore-gpu-blocklist',
+                    '--enable-gpu-rasterization',
+                    '--enable-zero-copy',
+                    '--enable-accelerated-2d-canvas',
+                    '--disable-software-rasterizer',
+                    '--disable-frame-rate-limit',
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox',
+                    '--js-flags=--max_old_space_size=8192',
                     '--disable-background-timer-throttling',
                     '--disable-backgrounding-occluded-windows',
-                    '--disable-renderer-backgrounding'
+                    '--disable-renderer-backgrounding',
+                    '--disable-dev-shm-usage',
+                    '--disable-ipc-flooding-protection',
+                    '--force-gpu-mem-available-mb=4096',
+                    '--disable-features=IsolateOrigins,site-per-process'
                 ]
             }
         }

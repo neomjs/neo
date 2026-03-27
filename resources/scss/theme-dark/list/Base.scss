@@ -1,6 +1,7 @@
 @use "sass:color";
 
 :root .neo-theme-dark { // .neo-list-container
+    --list-scrollbar-color-scheme         : dark;
     --list-container-background-color     : #33343d;
     --list-container-border               : 1px solid #282829;
     --list-container-list-color           : #bbb;

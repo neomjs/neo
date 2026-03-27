@@ -1,5 +1,4 @@
 import {McpServer}                                     from '@modelcontextprotocol/sdk/server/mcp.js';
-import {StdioServerTransport}                          from '@modelcontextprotocol/sdk/server/stdio.js';
 import {CallToolRequestSchema, ListToolsRequestSchema} from '@modelcontextprotocol/sdk/types.js';
 import Base                                            from '../../../../src/core/Base.mjs';
 import aiConfig                                        from './config.mjs';
@@ -11,7 +10,11 @@ import {listTools, callTool}                           from './services/toolServ
 /**
  * @summary The Memory Core MCP Server application.
  *
- * Handles initialization, configuration, and lifecycle management for the MCP server.
+ * Handles initialization, configuration, and lifecycle management for the Memory Core MCP server.
+ * This server uses a dual-transport architecture, allowing it to communicate with local CLI clients
+ * via `stdio` (the default) or with cloud-native/remote clients via `sse` (StreamableHTTPServerTransport).
+ *
+ * The transport mode and HTTP port can be configured using `aiConfig.transport` and `aiConfig.ssePort`.
  *
  * @class Neo.ai.mcp.server.memory-core.Server
  * @extends Neo.core.Base
@@ -36,12 +39,6 @@ class Server extends Base {
      * @protected
      */
     mcpServer = null
-    /**
-     * The Transport instance.
-     * @member {StdioServerTransport|null} transport=null
-     * @protected
-     */
-    transport = null
 
     /**
      * Async initialization sequence.
@@ -84,11 +81,23 @@ class Server extends Base {
         this.logStartupStatus(health);
 
         // 6. Connect Transport
-        this.transport = new StdioServerTransport();
-        await this.mcpServer.connect(this.transport);
+        if (aiConfig.transport === 'sse') {
+            const {default: TransportService} = await import('../shared/services/TransportService.mjs');
 
-        logger.info('[neo-memory-core MCP] Server started on stdio transport');
-        logger.info('[neo-memory-core MCP] Available tools loaded from OpenAPI spec');
+            await TransportService.setup({
+                server      : this,
+                aiConfig,
+                logger,
+                resourceName: 'neo-memory-core MCP'
+            });
+        } else {
+            const {StdioServerTransport} = await import('@modelcontextprotocol/sdk/server/stdio.js');
+            const transport = new StdioServerTransport();
+            await this.mcpServer.connect(transport);
+
+            logger.info('[neo-memory-core MCP] Server started on stdio transport');
+            logger.info('[neo-memory-core MCP] Available tools loaded from OpenAPI spec');
+        }
     }
 
     /**

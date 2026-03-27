@@ -1,24 +1,31 @@
 [{
-    "id"          : 25,
+    "id"          : 26,
     "environments": ["Desktop", "Mobile"],
     "image"       : "devmode/DevIndex.png",
     "name"        : "GitHub Meritocracy Index",
     "sourceUrl"   : "apps/devindex",
     "url"         : "dist/development/apps/devindex/index.html"
 }, {
-    "id"          : 24,
+    "id"          : 25,
     "environments": ["Desktop", "Mobile"],
-    "image"       : "devmode/bigData.png",
-    "name"        : "Buffered Data Grid with 5M cells",
-    "sourceUrl"   : "examples/grid/bigData",
-    "url"         : "dist/development/examples/grid/bigData/index.html"
+    "image"       : "devmode/treeGridBigData.png",
+    "name"        : "TreeGrid - Big Data",
+    "sourceUrl"   : "examples/grid/treeBigData",
+    "url"         : "dist/development/examples/grid/treeBigData/index.html"
 }, {
-    "id"           : 23,
+    "id"           : 24,
     "image"        : "devmode/sharedcovid.png",
     "name"         : "Multi Window Covid App",
     "sharedWorkers": true,
     "sourceUrl"    : "apps/sharedcovid",
     "url"          : "dist/development/apps/sharedcovid/index.html#mainview=table"
+}, {
+    "id"          : 23,
+    "environments": ["Desktop", "Mobile"],
+    "image"       : "devmode/bigData.png",
+    "name"        : "Buffered Data Grid with 5M cells",
+    "sourceUrl"   : "examples/grid/bigData",
+    "url"         : "dist/development/examples/grid/bigData/index.html"
 }, {
     "id"       : 22,
     "image"    : "devmode/calendar-preview.png",

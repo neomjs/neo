@@ -151,7 +151,7 @@ A critical part of the workflow is that the AI agent is not just a consumer, but
 1.  **Query:** The agent searches for information.
 2.  **Analyze:** If the returned source code lacks comments or intent, the agent struggles.
 3.  **Enhance:** The agent applies the **Knowledge Base Enhancement Strategy** (defined in `AGENTS_STARTUP.md`). It adds rich JSDoc comments, `@summary` tags, and semantic keywords to the code.
-4.  **Sync:** The agent runs `sync_database`.
+4.  **Sync:** The agent runs `manage_knowledge_base(action: 'sync')`.
 5.  **Improve:** The next query (by this agent or another) will find this enhanced content, yielding a higher score and better understanding.
 
 This cycle turns technical debt into an asset, continuously improving the project's "AI-friendliness."
@@ -201,6 +201,11 @@ export default {
     *   `path`: The filesystem path for vector storage (default: `chroma-neo-knowledge-base`).
     *   `dataPath`: The location of the source-of-truth JSONL file.
     *   *Note:* Ensure these do not overlap with the Memory Core's configuration.
+
+*   **Transport & Cloud Deployments:**
+    *   `transport`: Defines the MCP transport protocol. Defaults to `'stdio'` for local CLI usage. Set to `'sse'` to run the server as a cloud-native HTTP microservice (e.g., in a Docker container).
+    *   `ssePort`: The HTTP port for the SSE server (default: `3000`).
+    *   `authMiddleware`: An optional Express middleware function for securing the `/mcp` endpoint when using the `sse` transport.
 
 *   **Scoring Weights (`queryScoreWeights`):**
     *   You can fine-tune the brain's retrieval logic here.

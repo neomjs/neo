@@ -622,7 +622,7 @@ class Component extends Abstract {
     async afterSetResponsive(value, oldValue) {
         if (value && !this.getPlugin('responsive')) {
             let me      = this,
-                module  = await import(`../../src/plugin/Responsive.mjs`),
+                module  = await me.trap(import(`../../src/plugin/Responsive.mjs`)),
                 plugins = me.plugins || [];
 
             plugins.push({
@@ -927,7 +927,7 @@ class Component extends Abstract {
      * @protected
      */
     beforeGetWrapperStyle(value) {
-        return {...Object.assign(this.vdom.style || {}, value)}
+        return {...this.vdom.style, ...value}
     }
 
     /**
@@ -1342,7 +1342,7 @@ class Component extends Abstract {
             }
         }
 
-        return Neo.config.themes?.[0]
+        return (Neo.windowConfigs?.[me.windowId] || Neo.config).themes?.[0]
     }
 
     /**
@@ -1468,6 +1468,15 @@ class Component extends Abstract {
     }
 
     /**
+     * Captures scroll events from the main thread and syncs the logical vdom state.
+     *
+     * **Performance / Hot Path Note:**
+     * Scroll events fire continuously. We explicitly check the most common scrolling targets
+     * (the component's root, its wrapper, or its items root) in O(1) time before falling back
+     * to `VDomUtil.getById`. A full `getById` recursive tree traversal is extremely expensive
+     * (O(N) where N is all DOM nodes) and will lock up the App Worker during fast scrolling
+     * on complex components like Grids.
+     *
      * @param {Object} data
      */
     onScrollCapture(data) {
@@ -1476,7 +1485,33 @@ class Component extends Abstract {
         let me = this;
 
         if (me._vdom) {
-            let vdomNode = VDomUtil.getById(me._vdom, data.target.id);
+            let targetId = data.target.id,
+                vdomNode;
+
+            // Fast Path 1: Target is the root node itself
+            if (me._vdom.id === targetId) {
+                vdomNode = me._vdom;
+            }
+            // Fast Path 2: Target is the logical vdom root (e.g. GridBody scroll container)
+            else if (me.id === targetId) {
+                // me.getVdomRoot() returns the node assigned me.id by ensureStableIds
+                let vdomRoot = me.getVdomRoot();
+                if (vdomRoot && vdomRoot.id === targetId) {
+                    vdomNode = vdomRoot;
+                }
+            }
+            // Fast Path 3: Target is the designated items container
+            else if (me.getVdomItemsRoot) {
+                let itemsRoot = me.getVdomItemsRoot();
+                if (itemsRoot && itemsRoot.id === targetId) {
+                    vdomNode = itemsRoot;
+                }
+            }
+
+            // Fallback: Expensive full tree traversal
+            if (!vdomNode) {
+                vdomNode = VDomUtil.getById(me._vdom, targetId);
+            }
 
             if (vdomNode) {
                 vdomNode.scrollTop  = data.scrollTop;

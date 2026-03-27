@@ -1,20 +1,11 @@
-import Base                from '../../core/Base.mjs';
+import Base                from './Base.mjs';
 import {createInterceptor} from '../../util/Function.mjs';
-import Observable          from '../../core/Observable.mjs';
 
 /**
  * @class Neo.data.connection.WebSocket
- * @extends Neo.core.Base
- * @mixes Neo.core.Observable
+ * @extends Neo.data.connection.Base
  */
 class Socket extends Base {
-    /**
-     * True automatically applies the core.Observable mixin
-     * @member {Boolean} observable=true
-     * @static
-     */
-    static observable = true
-
     static config = {
         /**
          * @member {String} className='Neo.data.connection.WebSocket'
@@ -65,6 +56,11 @@ class Socket extends Base {
      * @member {String|null} serverAddress=null
      */
     serverAddress = null
+    /**
+     * @member {Object} streamCallbacks={}
+     * @protected
+     */
+    streamCallbacks = {}
 
     /**
      * @param {Object} config
@@ -217,9 +213,16 @@ class Socket extends Base {
 
         me.fire('message', {data});
 
-        if (data.mId) {
+        if (data.mId && me.messageCallbacks[data.mId]) {
             me.messageCallbacks[data.mId].resolve(data.data);
             delete me.messageCallbacks[data.mId]
+        } else if (data.method && me.streamCallbacks[data.method]) {
+            me.streamCallbacks[data.method](data.data || data)
+        } else if (data.stream && me.streamCallbacks[data.stream]) {
+            me.streamCallbacks[data.stream](data.data || data)
+        } else {
+            // Unsolicited Push Data (Progressive Hydration)
+            me.fire('push', data.data || data)
         }
     }
 
@@ -244,6 +247,26 @@ class Socket extends Base {
             me.sendMessage({data, mId: me.messageId});
             me.messageId++
         })
+    }
+
+    /**
+     * @param {Object} data
+     * @param {Function} callback
+     */
+    registerStream(data, callback) {
+        let me       = this,
+            streamId = data.method; // Based on remotes-api.json, the key is the method name
+
+        me.streamCallbacks[streamId] = callback;
+        me.sendMessage(data)
+    }
+
+    /**
+     * @param {Object} data
+     */
+    unregisterStream(data) {
+        let streamId = data.method;
+        delete this.streamCallbacks[streamId]
     }
 
     /**

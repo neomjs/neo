@@ -22,16 +22,20 @@ Here is a simple view that displays a single button. The `createVdom` function r
 import {defineComponent} from '../functional/_export.mjs';
 
 const MainView = defineComponent({
-    className: 'GS.describing.functional.MainView',
+    config: {
+        className: 'GS.describing.functional.MainView'
+    },
 
     createVdom(config) {
         return {
-            ntype: 'container',
-            layout: {ntype: 'vbox', align: 'start'},
-            items: [{
-                ntype: 'button',
-                iconCls: 'fa fa-home',
-                text: 'Home'
+            cn: [{
+                ntype: 'container',
+                layout: {ntype: 'vbox', align: 'start'},
+                items: [{
+                    ntype: 'button',
+                    iconCls: 'fa fa-home',
+                    text: 'Home'
+                }]
             }]
         }
     }
@@ -79,23 +83,27 @@ You can easily instantiate a classic component within the `createVdom` method of
 
 ```javascript live-preview
 import {defineComponent} from '../functional/_export.mjs';
-import Calendar from '../calendar/Component.mjs'; // A complex, class-based component
+import DateSelector      from '../component/DateSelector.mjs';
 
 const MainView = defineComponent({
-    className: 'GS.describing.interop.MainView1',
+    config: {
+        className: 'GS.describing.interop.MainView1'
+    },
 
     createVdom(config) {
         return {
-            ntype: 'container',
-            layout: {ntype: 'vbox', align: 'start'},
-            items: [{
-                ntype: 'component',
-                vdom: {tag: 'h1', html: 'My Functional View'}
-            }, {
-                // Drop the class-based Calendar into our functional view
-                module: Calendar,
-                height: 300,
-                width: 300
+            cn: [{
+                ntype: 'container',
+                layout: {ntype: 'vbox', align: 'start'},
+                items: [{
+                    text: 'My Functional View',
+                    tag : 'h1'
+                }, {
+                    // Drop the class-based DateSelector into our functional view
+                    module: DateSelector,
+                    height: 300,
+                    width: 300
+                }]
             }]
         }
     }
@@ -114,12 +122,16 @@ import Container from '../container/Base.mjs';
 
 // 1. Define a simple functional component
 const MyFunctionalButton = defineComponent({
-    className: 'GS.describing.interop.FuncButton',
+    config: {
+        className: 'GS.describing.interop.FuncButton'
+    },
     createVdom(config) {
         return {
-            ntype: 'button',
-            iconCls: config.iconCls,
-            text: config.text
+            cn: [{
+                ntype: 'button',
+                iconCls: config.iconCls,
+                text: config.text
+            }]
         }
     }
 });

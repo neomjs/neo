@@ -1,0 +1,6 @@
+{
+    "appPath"    : "examples/grid/valueBanding/app.mjs",
+    "basePath"   : "../../../",
+    "environment": "development",
+    "mainPath"   : "./Main.mjs"
+}

@@ -20,12 +20,6 @@ test.describe.serial('Neo.draggable.dashboard.SortZone Directional Logic', () =>
     let DashboardSortZone, Rectangle, sortZone;
 
     test.beforeAll(async () => {
-        Neo.currentWorker = {
-            on         : () => {},
-            sendMessage: () => {},
-            isSharedWorker: false
-        };
-
         const sortZoneModule = await import('../../../../../src/draggable/dashboard/SortZone.mjs');
         DashboardSortZone = sortZoneModule.default;
 

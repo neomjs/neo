@@ -1,22 +1,24 @@
 ---
 id: 7925
 title: 'Feat: Create VisualService (Sighted Agent SDK)'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
+  - stale
   - ai
 assignees: []
 createdAt: '2025-11-29T15:20:04Z'
-updatedAt: '2025-11-29T22:14:36Z'
+updatedAt: '2026-03-14T03:37:16Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/7925'
 author: tobiu
-commentsCount: 0
+commentsCount: 2
 parentIssue: 7919
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-03-14T03:37:16Z'
 ---
 # Feat: Create VisualService (Sighted Agent SDK)
 
@@ -40,4 +42,14 @@ We want to evolve the "Sighted Agent" concept into a first-class citizen of our 
 - 2025-11-29T15:20:05Z @tobiu added the `enhancement` label
 - 2025-11-29T15:20:05Z @tobiu added the `ai` label
 - 2025-11-29T15:22:23Z @tobiu added parent issue #7919
+### @github-actions - 2026-02-28T03:22:04Z
+
+This issue is stale because it has been open for 90 days with no activity.
+
+- 2026-02-28T03:22:05Z @github-actions added the `stale` label
+### @github-actions - 2026-03-14T03:37:16Z
+
+This issue was closed because it has been inactive for 14 days since being marked as stale.
+
+- 2026-03-14T03:37:16Z @github-actions closed this issue
 

@@ -58,13 +58,6 @@ test.describe('Neo.vdom.CrossWindowMove', () => {
     let container, panel, header;
 
     test.beforeEach(async () => {
-        if (!Neo.currentWorker) {
-            Neo.currentWorker = {};
-        }
-        if (!Neo.currentWorker.insertThemeFiles) {
-            Neo.currentWorker.insertThemeFiles = () => {};
-        }
-
         container = Neo.create(TestContainer, {
             appName,
             id: 'viewport'

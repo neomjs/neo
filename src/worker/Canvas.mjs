@@ -76,17 +76,59 @@ class Canvas extends Base {
      * @returns {Promise<Object>} {success: true, path} or {success: false, path, error}
      */
     async loadModule({path}) {
+        if (path.endsWith('.mjs')) {
+            path = path.slice(0, -4)
+        }
+
         try {
             await import(
-                /* webpackInclude: /canvas\/.*\.mjs$/ */
-                /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules)/ */
+                /* webpackInclude: /(?:apps|examples|src)\/.*canvas\/.*\.mjs$/ */
+                /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules(?:\/|\\)(?!neo\.mjs)|ai(?:\/|\\)|server\.mjs|devindex(?:\/|\\)services)/ */
                 /* webpackMode: "lazy" */
-                `../../${path}`
+                `../../${path}.mjs`
             );
             return {success: true, path}
         } catch (e) {
             console.error(`Canvas Worker: Failed to load module ${path}`, e);
             return {success: false, path, error: e.message}
+        }
+    }
+
+    /**
+     * Overrides worker/Base to handle specific messages like registerCanvasDirect
+     * @param {MessageEvent} e
+     */
+    onMessage(e) {
+        let msg = e.data;
+
+        if (msg.action === 'registerCanvasDirect') {
+            this.registerCanvasDirect(msg)
+        } else {
+            super.onMessage(e)
+        }
+    }
+
+    /**
+     * @param {Object} msg
+     */
+    onRegisterNeoConfig(msg) {
+        super.onRegisterNeoConfig(msg);
+
+        if (Neo.config.useCanvasWorkerStartingPoint) {
+            let path = Neo.config.appPath;
+
+            if (path.endsWith('.mjs')) {
+                path = path.slice(0, -8); // removing "/app.mjs"
+            }
+
+            import(
+                /* webpackInclude: /(?:apps|examples|src)\/.*canvas\.mjs$/ */
+                /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules(?:\/|\\)(?!neo\.mjs)|ai(?:\/|\\)|server\.mjs|devindex(?:\/|\\)services)/ */
+                /* webpackMode: "lazy" */
+                `../../${path}/canvas.mjs`
+                ).then(module => {
+                module.onStart()
+            })
         }
     }
 
@@ -104,6 +146,27 @@ class Canvas extends Base {
         me.map[data.nodeId] = data.node;
 
         return true
+    }
+
+    /**
+     * @summary Receives an OffscreenCanvas directly from the Main Thread.
+     *
+     * This is the receiving end of the "Triangular Communication" pattern initiated by `Neo.main.DomAccess.transferCanvasToWorker`.
+     * By receiving the canvas directly from Main, we avoid the `OffscreenCanvas` transfer restrictions inherent in Firefox's SharedWorker implementation.
+     * Once the canvas is registered internally, this method pings the App Worker back over their direct `MessageChannel` to confirm receipt so the App Worker can proceed with rendering instructions.
+     *
+     * @param {Object} msg
+     * @protected
+     */
+    registerCanvasDirect(msg) {
+        this.registerCanvas(msg);
+
+        // Ping App worker that canvas was received from main.
+        this.sendMessage('app', {
+            action     : 'canvasRegistered',
+            componentId: msg.componentId,
+            nodeId     : msg.nodeId
+        })
     }
 
     /**
@@ -136,29 +199,6 @@ class Canvas extends Base {
         // windowIds are reused. However, for correctness:
         if (me.canvasWindowMap[data.nodeId]) {
             delete me.canvasWindowMap[data.nodeId]
-        }
-    }
-
-    /**
-     * @param {Object} msg
-     */
-    onRegisterNeoConfig(msg) {
-        super.onRegisterNeoConfig(msg);
-
-        if (Neo.config.useCanvasWorkerStartingPoint) {
-            let path = Neo.config.appPath;
-
-            if (path.endsWith('.mjs')) {
-                path = path.slice(0, -8); // removing "/app.mjs"
-            }
-
-            import(
-                /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules)/ */
-                /* webpackMode: "lazy" */
-                `../../${path}/canvas.mjs`
-            ).then(module => {
-                module.onStart()
-            })
         }
     }
 }

@@ -270,7 +270,7 @@ class Container extends Component {
                     await Promise.resolve()
                 }
             } else {
-                module = await me.loadSortZoneModule();
+                module = await me.trap(me.loadSortZoneModule());
                 module = module.default
             }
 

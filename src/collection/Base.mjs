@@ -6,14 +6,14 @@ import Observable     from '../core/Observable.mjs';
 import Sorter         from './Sorter.mjs';
 
 const
-    countMutations     = Symbol('countMutations'),
+    countMutations     = Symbol.for('countMutations'),
     initialIndexSymbol = Symbol.for('initialIndex'),
-    isFiltered         = Symbol('isFiltered'),
-    isSorted           = Symbol('isSorted'),
-    silentUpdateMode   = Symbol('silentUpdateMode'),
-    toAddArray         = Symbol('toAddArray'),
-    toRemoveArray      = Symbol('toRemoveArray'),
-    updatingIndex      = Symbol('updatingIndex');
+    isFiltered         = Symbol.for('isFiltered'),
+    isSorted           = Symbol.for('isSorted'),
+    silentUpdateMode   = Symbol.for('silentUpdateMode'),
+    toAddArray         = Symbol.for('toAddArray'),
+    toRemoveArray      = Symbol.for('toRemoveArray'),
+    updatingIndex      = Symbol.for('updatingIndex');
 
 /**
  * @class Neo.collection.Base
@@ -132,7 +132,13 @@ class Collection extends Base {
          * True to track internalIds in a separate map for O(1) lookup
          * @member {Boolean} trackInternalId=false
          */
-        trackInternalId: false
+        trackInternalId: false,
+        /**
+         * Array of strings for fields that should use value banding (consecutive identical values toggle a boolean flag).
+         * @member {String[]|null} valueBandingFields_=null
+         * @reactive
+         */
+        valueBandingFields_: null
     }
 
     /**
@@ -248,6 +254,18 @@ class Collection extends Base {
         });
 
         oldValue && me.autoSort && me.doSort()
+    }
+
+    /**
+     * Triggered after the valueBandingFields config got changed
+     * @param {String[]|null} value
+     * @param {String[]|null} oldValue
+     * @protected
+     */
+    afterSetValueBandingFields(value, oldValue) {
+        if (value) {
+            this.calcValueBands()
+        }
     }
 
     /**
@@ -455,6 +473,93 @@ class Collection extends Base {
                     me[toRemoveArray].push(item)
                 }
             })
+        }
+    }
+
+    /**
+     * Calculates the valueBands object for each item.
+     * This is useful for UI grids to alternating highlight cells with the same value.
+     * @param {Number} [startIndex=0] Optimization to only recalculate from a specific index downwards
+     * @protected
+     */
+    calcValueBands(startIndex=0) {
+        let me     = this,
+            fields = me.valueBandingFields;
+
+        if (!fields || fields.length === 0) {
+            me.valueBandsMap?.clear();
+            return;
+        }
+
+        let items = me._items;
+
+        if (!me.valueBandsMap) {
+            me.valueBandsMap = new Map()
+        }
+
+        if (startIndex === 0) {
+            me.valueBandsMap.clear()
+        }
+
+        if (items) {
+            let i    = startIndex,
+                len  = items.length,
+                bands = {},
+                prev  = {},
+                item, isRecord, key, val;
+
+            if (startIndex > 0 && startIndex <= len) {
+                let prevItem = items[startIndex - 1];
+
+                if (prevItem) {
+                    let prevKey  = me.getKey(prevItem),
+                        prevMap  = me.valueBandsMap.get(prevKey),
+                        prevIsRecord = Neo.isRecord(prevItem);
+
+                    if (prevMap) {
+                        fields.forEach(f => {
+                            bands[f] = prevMap[f];
+                            prev[f]  = prevIsRecord ? prevItem.get(f) : prevItem[f]
+                        })
+                    } else {
+                        startIndex = 0; // Fallback if previous state is missing
+                        i = 0;
+                        me.valueBandsMap.clear()
+                    }
+                } else {
+                    startIndex = 0;
+                    i = 0;
+                    me.valueBandsMap.clear()
+                }
+            }
+
+            for (; i < len; i++) {
+                item = items[i];
+
+                if (!item) {
+                    continue
+                }
+
+                key      = me.getKey(item);
+                isRecord = Neo.isRecord(item);
+
+                if (i === 0 || Object.keys(prev).length === 0) {
+                    fields.forEach(f => {
+                        bands[f] = true;
+                        prev[f]  = isRecord ? item.get(f) : item[f]
+                    })
+                } else {
+                    fields.forEach(f => {
+                        val = isRecord ? item.get(f) : item[f];
+                        if (val !== prev[f]) {
+                            bands[f] = !bands[f];
+                            prev[f]  = val
+                        }
+                    })
+                }
+
+                me.valueBandsMap.set(key, {...bands})
+            }
         }
     }
 
@@ -675,6 +780,8 @@ class Collection extends Base {
 
         me[isSorted] = countSorters > 0;
 
+        me.calcValueBands();
+
         if (!silent && me[updatingIndex] === 0) {
             me.fire('sort', {
                 items: me._items,
@@ -702,6 +809,8 @@ class Collection extends Base {
         if (endSilentUpdateMode) {
             me[silentUpdateMode] = false
         } else {
+            me.calcValueBands();
+
             me.fire('mutate', {
                 addedItems  : me[toAddArray],
                 removedItems: me[toRemoveArray]
@@ -749,9 +858,10 @@ class Collection extends Base {
     }
 
     /**
+     * @param {Boolean} [silent=false]
      * @protected
      */
-    filter() {
+    filter(silent=false) {
         let me              = this,
             filters         = me._filters,
             countAllFilters = filters.length,
@@ -864,12 +974,14 @@ class Collection extends Base {
 
         me.count = me.items.length;
 
-        me.fire('filter', {
-            isFiltered: me[isFiltered],
-            items     : me.items,
-            oldItems,
-            scope     : me
-        })
+        if (!silent) {
+            me.fire('filter', {
+                isFiltered: me[isFiltered],
+                items     : me.items,
+                oldItems,
+                scope     : me
+            })
+        }
     }
 
     /**
@@ -1097,7 +1209,7 @@ class Collection extends Base {
      */
     indexOf(key) {
         let me = this;
-        return me._items.indexOf(me.isItem(key) ? key : me.map.get(key))
+        return me._items.indexOf(me.isItem(key) ? key : me.get(key));
     }
 
     /**
@@ -1110,12 +1222,29 @@ class Collection extends Base {
     }
 
     /**
+     * Tries to determine the type of the keyProperty by looking at the first item in the collection.
+     * Note that this differs from `data.Store` where this info can be pulled from a `data.Model`.
+     * @returns {String|null} 'int', 'string', etc.
+     */
+    getKeyType() {
+        let me    = this,
+            first = me._items[0];
+
+        if (first) {
+            let key = first[me.keyProperty];
+            return typeof key === 'number' ? 'int' : typeof key
+        }
+
+        return null
+    }
+
+    /**
      * Returns the index for a given key
      * @param {Number|String} key
      * @returns {Number} index (-1 in case no match is found)
      */
     indexOfKey(key) {
-        return this._items.indexOf(this.map.get(key))
+        return this._items.indexOf(this.get(key));
     }
 
     /**
@@ -1474,6 +1603,8 @@ class Collection extends Base {
         if (me[updatingIndex] === 0) {
             me.count = me._items.length;
 
+            me.calcValueBands(index || 0);
+
             me.fire('mutate', {
                 addedItems     : toAddArray,
                 preventBubbleUp: me.preventBubbleUp,
@@ -1535,6 +1666,32 @@ class Collection extends Base {
     unshift(item) {
         this.splice(0, 0, item);
         return this.count
+    }
+
+    /**
+     * Updates the key property of an item and keeps the map in sync.
+     * Preserves the item's index in the items array (Zero Array Mutation).
+     * @param {Object} item
+     * @param {String|Number} newKey
+     */
+    updateKey(item, newKey) {
+        let me     = this,
+            oldKey = me.getKey(item);
+
+        if (oldKey !== newKey) {
+            me.map.delete(oldKey);
+            item[me.keyProperty] = newKey;
+            me.map.set(newKey, item);
+
+            if (me.allItems) {
+                me.allItems.map.delete(oldKey);
+                me.allItems.map.set(newKey, item);
+            }
+
+            if (me[updatingIndex] === 0) {
+                me.fire('updateKey', {item, newKey, oldKey, scope: me})
+            }
+        }
     }
 }
 

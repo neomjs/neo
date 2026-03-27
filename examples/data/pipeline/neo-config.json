@@ -1,0 +1,6 @@
+{
+    "appPath"    : "examples/data/pipeline/app.mjs",
+    "basePath"   : "../../../",
+    "environment": "development",
+    "mainPath"   : "./Main.mjs"
+}

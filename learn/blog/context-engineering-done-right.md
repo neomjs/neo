@@ -1599,7 +1599,7 @@ The beauty of this pattern is that **services can depend on each other** without
 1. **`ChromaManager`** initializes and establishes the ChromaDB connection
 2. **`DatabaseLifecycleService`** waits for `ChromaManager.ready()` and starts ChromaDB
 3. **`SessionService`** waits for `DatabaseLifecycleService.ready()` and performs summarization
-4. **`mcp-stdio.mjs`** waits for `SessionService.ready()` and starts the MCP server
+4. **`mcp-server.mjs`** waits for `SessionService.ready()` and starts the MCP server
 
 All of this happens **automatically and in the correct order**, with zero race conditions. From the main entry point:
 

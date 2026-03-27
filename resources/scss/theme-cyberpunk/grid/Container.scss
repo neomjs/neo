@@ -2,7 +2,13 @@
     --grid-container-border-color              : var(--cyber-border);
     --grid-container-cell-background-color     : transparent;
     --grid-container-cell-background-color-even: rgba(0, 210, 255, 0.03); // Very faint cyan tint
+    --grid-cell-value-band-1-background-color  : rgba(0, 210, 255, 0.06);
+    --grid-cell-value-band-2-background-color  : transparent;
     --grid-container-color                     : var(--cyber-text);
     --grid-container-font-size                 : 13px;
     --grid-container-header-cell-border-bottom : 1px solid var(--cyber-cyan);
+
+    .neo-grid-container {
+        color-scheme: dark;
+    }
 }

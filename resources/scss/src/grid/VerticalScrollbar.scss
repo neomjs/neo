@@ -1,21 +1,45 @@
 .neo-grid-vertical-scrollbar {
-    bottom    : 1px;
-    opacity   : 0;
-    overflow-y: scroll;
-    position  : absolute;
-    right     : 0;
-    top       : 31px; // header-toolbar height
-    transition: opacity 1s ease-out;
-    width     : 16px;
-    z-index   : 2;
+    bottom      : 1px;
+    color-scheme: var(--grid-scrollbar-color-scheme, light);
+    opacity     : 0;
+    overflow-x  : hidden;
+    overflow-y  : scroll;
+    position    : absolute;
+    right       : 0;
+    top         : 31px; // header-toolbar height
+    transition  : opacity 1s ease-out;
+    width       : var(--grid-scrollbar-width, 16px);
+    z-index     : 10;
 
     &:hover {
         opacity: 1;
+    }
+
+    .neo-grid-scrollbar-content {
+        width: 10px;
     }
 }
 
 .neo-grid-wrapper:has(.neo-grid-body.neo-is-scrolling) {
     .neo-grid-vertical-scrollbar {
         opacity: 1;
+    }
+}
+
+body.neo-has-touch {
+    .neo-grid-vertical-scrollbar {
+        opacity: 1;
+        width  : var(--grid-scrollbar-touch-width, 40px);
+
+        &::-webkit-scrollbar {
+            width: var(--grid-scrollbar-touch-width, 40px);
+        }
+
+        &::-webkit-scrollbar-thumb {
+            background-clip : padding-box;
+            background-color: var(--grid-scrollbar-thumb-color, rgba(128, 128, 128, 0.5));
+            border          : 8px solid transparent;
+            border-radius   : 16px;
+        }
     }
 }

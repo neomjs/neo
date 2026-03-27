@@ -57,12 +57,23 @@ class App extends Base {
     }
 
     /**
+     * @member {Object} rpcStreamCallbacks={}
+     * @protected
+     */
+    rpcStreamCallbacks = {}
+    /**
      * We are storing the params of insertThemeFiles() calls here, in case the method does get triggered
      * before the json theme structure got loaded.
      * @member {Array[]} themeFilesCache=[]
      * @protected
      */
     themeFilesCache = []
+    /**
+     * Ensures we only fetch the theme-map once per worker.
+     * @member {Boolean} themeMapFetchStarted=false
+     * @protected
+     */
+    themeMapFetchStarted = false
     /**
      * @member {String} workerId='app'
      * @protected
@@ -273,19 +284,35 @@ class App extends Base {
     }
 
     /**
+     * Cache to track which main thread addons have been instructed to load per window.
+     * @member {Object} windowAddons={}
+     * @protected
+     */
+    windowAddons = {}
+
+    /**
      * Convenience shortcut to lazy-load main thread addons, in case they are not imported yet
      * @param {String} name
      * @param {String} windowId
      * @returns {Promise<Neo.main.addon.Base>} The namespace of the addon to use via remote method access
      */
     async getAddon(name, windowId) {
-        let addon = Neo.main?.addon?.[name];
+        let me = this;
 
-        if (addon) {
-            return addon
+        me.windowAddons[windowId] ??= {};
+
+        // If we already instructed this specific window to load the addon, we can return the global proxy.
+        if (me.windowAddons[windowId][name]) {
+            return Neo.main?.addon?.[name];
         }
 
+        // We must forcefully import the addon on the target window thread if it's the first time
+        // this specific window is requesting it via RMA, because the newly spawned windows
+        // might not have it loaded in their main.js bundle native configuration.
         await Neo.Main.importAddon({name, windowId});
+
+        me.windowAddons[windowId][name] = true;
+
         return Neo.main.addon[name]
     }
 
@@ -329,8 +356,8 @@ class App extends Base {
         }
 
         return import(
-            /* webpackInclude: /(?:\/|\\)app.mjs$/ */
-            /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules)/ */
+            /* webpackInclude: /(?:apps|docs\/app|examples|src)\/.*app\.mjs$/ */
+            /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules(?:\/|\\)(?!neo\.mjs)|ai(?:\/|\\)|server\.mjs|devindex(?:\/|\\)services)/ */
             /* webpackMode: "lazy" */
             `../../${path}.mjs`
         )
@@ -423,7 +450,9 @@ class App extends Base {
      * @param {String} [className]
      */
     insertThemeFiles(windowId, proto, className) {
-        if (Neo.config.themes.length > 0) {
+        let appConfig = Neo.windowConfigs?.[windowId] || Neo.config;
+
+        if (appConfig.themes?.length > 0) {
             className = className || proto.className;
 
             let me     = this,
@@ -442,7 +471,7 @@ class App extends Base {
 
                     className[0] === 'view' && className.shift();
 
-                    mapClassName = `apps.${Neo.apps[classRoot]?.appThemeFolder || lClassRoot}.${className.join('.')}`;
+                    mapClassName = `apps.${Neo.appsByName[classRoot]?.[0]?.appThemeFolder || lClassRoot}.${className.join('.')}`;
                     className    = `apps.${lClassRoot}.${className.join('.')}`
                 }
 
@@ -540,6 +569,28 @@ class App extends Base {
     }
 
     /**
+     * @summary Receives the ping from the Canvas Worker confirming a direct canvas transfer.
+     *
+     * This method resolves the promise created in `Neo.component.Canvas#afterSetMounted`.
+     * It is the final step in the "Triangular Communication" pattern where the Main Thread sends the
+     * `OffscreenCanvas` directly to the Canvas Worker, bypassing the App Worker's standard message payload,
+     * to avoid transfer restrictions in Firefox SharedWorkers.
+     *
+     * @param {Object} msg
+     * @param {String} msg.componentId
+     * @param {String} msg.nodeId
+     * @protected
+     */
+    onCanvasRegistered({componentId, nodeId}) {
+        let instance = Neo.get(componentId);
+
+        if (instance?.registerCanvasCallbacks?.[nodeId]) {
+            instance.registerCanvasCallbacks[nodeId]();
+            delete instance.registerCanvasCallbacks[nodeId]
+        }
+    }
+
+    /**
      * @param {Object} data
      */
     async onConnect(data) {
@@ -585,14 +636,18 @@ class App extends Base {
     onLoadApplication(data) {
         let me        = this,
             {config}  = Neo,
-            {appPath} = config;
+            windowId  = data.windowId,
+            appConfig = Neo.windowConfigs[windowId] || config,
+            appPath   = appConfig.appPath;
 
-        if (config.environment !== 'development') {
+        if (appConfig.environment !== 'development') {
             appPath = appPath.startsWith('/') ? appPath.substring(1) : appPath
         }
 
         me.importApp(appPath).then(module => {
+            Neo.bootingWindowId = windowId;
             module.onStart();
+            delete Neo.bootingWindowId;
 
             // short delay to ensure Component Controllers are ready
             config.hash && me.timeout(5).then(() => {
@@ -617,6 +672,15 @@ class App extends Base {
 
     /**
      * @param {Object} msg
+     * @param {Object} msg.data
+     * @param {String} msg.id The origin pipeline ID
+     */
+    onPipelinePush(msg) {
+        Neo.manager.Instance.get(msg.id)?.fire('push', msg.data)
+    }
+
+    /**
+     * @param {Object} msg
      */
     onRegisterNeoConfig(msg) {
         super.onRegisterNeoConfig(msg);
@@ -625,7 +689,8 @@ class App extends Base {
             import('../manager/Window.mjs')
         }
 
-        let {config} = Neo,
+        let me       = this,
+            {config} = Neo,
             {data}   = msg,
             url      = 'resources/theme-map.json';
 
@@ -633,21 +698,25 @@ class App extends Base {
 
         Neo.windowConfigs[data.windowId] = Neo.clone(data, true);
 
-        if (config.environment === 'development' || config.environment === 'dist/esm') {
-            url = `../../${url}`
-        }
+        if (!me.themeMapFetchStarted) {
+            me.themeMapFetchStarted = true;
 
-        if (config.workerBasePath?.includes('node_modules')) {
-            url = `../../${url}`
-        }
+            if (config.environment === 'development' || config.environment === 'dist/esm') {
+                url = `../../${url}`
+            }
 
-        if (url[0] !== '.') {
-            url = `./${url}`
-        }
+            if (config.workerBasePath?.includes('node_modules')) {
+                url = `../../${url}`
+            }
 
-        fetch(url)
-            .then(response => response.json())
-            .then(data => {this.createThemeMap(data)});
+            if (url[0] !== '.') {
+                url = `./${url}`
+            }
+
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {me.createThemeMap(data)});
+        }
 
         config.remotesApiUrl && import('../remotes/Api.mjs').then(module => module.default.load());
 
@@ -681,6 +750,19 @@ class App extends Base {
         port.onmessage = me.onMessage.bind(me);
 
         me.channelPorts[msg.origin] = port
+    }
+
+    /**
+     * @param {Object} msg
+     * @param {String} msg.callbackId
+     * @param {Object} msg.data
+     */
+    onRpcStreamData(msg) {
+        let callback = this.rpcStreamCallbacks?.[msg.callbackId];
+
+        if (typeof callback === 'function') {
+            callback(msg.data)
+        }
     }
 
     /**
@@ -771,10 +853,11 @@ class App extends Base {
      * @returns {Promise<any>}
      */
     async setCssVariable(data) {
-        let Stylesheet = await this.getAddon('Stylesheet', data.windowId),
-            theme      = data.theme || Neo.config.themes?.[0];
+        let appConfig  = Neo.windowConfigs?.[data.windowId] || Neo.config,
+            Stylesheet = await this.getAddon('Stylesheet', data.windowId),
+            theme      = data.theme || appConfig.themes?.[0];
 
-        if (theme.startsWith('neo-')) {
+        if (theme?.startsWith('neo-')) {
             theme = theme.substring(4)
         }
 

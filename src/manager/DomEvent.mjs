@@ -222,7 +222,7 @@ class DomEvent extends Base {
 
                                     result = listener.fn.apply(listener.scope || globalThis, [data]);
 
-                                    if (!listener.bubble) {
+                                    if (listener.bubble === false) {
                                         bubble = false
                                     }
                                 }
@@ -460,7 +460,7 @@ class DomEvent extends Base {
             ownerId       : config.ownerId,
             priority      : config.priority || opts.priority || 1,
             scope,
-            vnodeId       : config.vnodeId
+            vnodeId       : config.vnodeId || opts.vnodeId || config.id
         };
 
         me.map[listenerId] = listenerConfig;
@@ -552,7 +552,7 @@ class DomEvent extends Base {
                 Object.entries(domListener).forEach(([key, value]) => {
                     if (!eventConfigKeys.includes(key)) {
                         me.register({
-                            bubble        : domListener.bubble   || value.bubble,
+                            bubble        : domListener.hasOwnProperty('bubble') ? domListener.bubble : value.hasOwnProperty?.('bubble') ? value.bubble : true,
                             delegate      : domListener.delegate || value.delegate || '#' + (component.vdom.id || component.id),
                             eventName     : key,
                             id            : component.vdom.id || component.id, // honor wrapper nodes
@@ -561,7 +561,7 @@ class DomEvent extends Base {
                             ownerId       : component.id,
                             priority      : domListener.priority || value.priority || 1,
                             scope         : domListener.scope    || component,
-                            vnodeId       : domListener.vnodeId  || value.vnodeId  || component.vdom.id
+                            vnodeId       : domListener.vnodeId  || value.vnodeId  || component.vdom?.id || component.id
                         })
                     }
                 })

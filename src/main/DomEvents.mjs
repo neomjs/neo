@@ -284,15 +284,14 @@ class DomEvents extends Base {
         }
 
         const result = {
-            path     : path.map(e => this.getTargetData(e)),
-            target   : this.getTargetData(event.target),
+            path     : path.map(e => this.getTargetData(e, event.type, false)),
+            target   : this.getTargetData(event.target, event.type, true),
             timeStamp: event.timeStamp,
             type     : event.type,
-            data     : {...event.target.dataset}
         };
 
         if (event.relatedTarget) {
-            result.relatedTarget = this.getTargetData(event.relatedTarget)
+            result.relatedTarget = this.getTargetData(event.relatedTarget, event.type, false)
         }
 
         return result
@@ -366,34 +365,40 @@ class DomEvents extends Base {
     /**
      * @param {Object[]} path
      * @param {HTMLElement} target
+     * @param {String} [eventName]
      * @returns {Object[]}
      */
-    getSelectionPath(path, target) {
+    getSelectionPath(path, target, eventName) {
         if (target.parentNode && target.id.split('__').length > 1) {
-            path = this.getSelectionPath(path, target.parentNode);
+            path = this.getSelectionPath(path, target.parentNode, eventName);
         }
 
-        path.push(this.getTargetData(target));
+        path.push(this.getTargetData(target, eventName, false));
 
         return path
     }
 
     /**
      * @param {HTMLElement} node
+     * @param {String} [eventName]
+     * @param {Boolean} [isTarget=true]
      * @returns {Object}
      */
-    getTargetData(node) {
-        let r    = node.getBoundingClientRect?.(),
-            rect = r && this.parseDomRect(r) || {};
+    getTargetData(node, eventName, isTarget=true) {
+        // Fast path: eliminate layout thrashing on continuous events.
+        // We skip bounding rect and layout dimensions for scroll & wheel.
+        let skipLayout = eventName === 'scroll' || eventName === 'wheel',
+            r          = !skipLayout && node.getBoundingClientRect?.(),
+            rect       = r && this.parseDomRect(r) || undefined;
 
         return {
             aria             : this.geAriaAttributes(node),
             checked          : node.checked,
             childElementCount: node.childElementCount,
-            clientHeight     : node.clientHeight,
+            clientHeight     : skipLayout ? undefined : node.clientHeight,
             clientLeft       : node.clientLeft,
             clientTop        : node.clientTop,
-            clientWidth      : node.clientWidth,
+            clientWidth      : skipLayout ? undefined : node.clientWidth,
             cls              : node.classList ? [...node.classList] : [],
             data             : {...node.dataset},
             draggable        : node.draggable,
@@ -403,16 +408,16 @@ class DomEvents extends Base {
             isConnected      : node.isConnected,
             isContentEditable: node.isContentEditable,
             nodeType         : node.nodeType,
-            offsetHeight     : node.offsetHeight,
+            offsetHeight     : skipLayout ? undefined : node.offsetHeight,
             offsetLeft       : node.offsetLeft,
             offsetTop        : node.offsetTop,
-            offsetWidth      : node.offsetWidth,
+            offsetWidth      : skipLayout ? undefined : node.offsetWidth,
             rect,
             role             : node.role,
-            scrollHeight     : node.scrollHeight,
-            scrollLeft       : node.scrollLeft,
-            scrollTop        : node.scrollTop,
-            scrollWidth      : node.scrollWidth,
+            scrollHeight     : skipLayout ? undefined : node.scrollHeight,
+            scrollLeft       : skipLayout && !isTarget ? undefined : node.scrollLeft,
+            scrollTop        : skipLayout && !isTarget ? undefined : node.scrollTop,
+            scrollWidth      : skipLayout ? undefined : node.scrollWidth,
             style            : node.style?.cssText,
             tabIndex         : node.getAttribute?.('tabindex') ? node.tabIndex : null,
             tagName          : node.tagName?.toLowerCase()

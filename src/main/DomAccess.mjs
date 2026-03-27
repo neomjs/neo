@@ -84,6 +84,7 @@ class DomAccess extends Base {
                 'setStyle',
                 'startViewTransition',
                 'syncModalMask',
+                'transferCanvasToWorker',
                 'trapFocus',
                 'windowScrollTo'
             ]
@@ -1116,6 +1117,37 @@ class DomAccess extends Base {
                 this.syncModalMask({ id: topmostModal.id, modal: true })
             } else {
                 this._modalMask?.remove()
+            }
+        }
+    }
+
+    /**
+     * @summary Extracts an OffscreenCanvas and transfers it directly to the Canvas Worker.
+     *
+     * This method implements a "Triangular Communication" pattern required to bypass a core limitation in Firefox Nightly (and potentially other browsers) regarding SharedWorkers.
+     * Firefox fails silently when attempting to transfer an `OffscreenCanvas` from the Main Thread to the App Worker (SharedWorker), and then again from the App Worker to the Canvas Worker.
+     * By calling this method, the Main Thread extracts the canvas and sends it directly to the Canvas Worker, bypassing the App Worker entirely for the buffer transfer.
+     *
+     * @param {Object} data
+     * @param {String} data.componentId
+     * @param {String} data.nodeId
+     */
+    transferCanvasToWorker({componentId, nodeId}) {
+        let me   = this,
+            node = me.getElement(nodeId);
+
+        if (node) {
+            try {
+                let offscreen = node.transferControlToOffscreen();
+
+                Neo.worker.Manager.sendMessage('canvas', {
+                    action: 'registerCanvasDirect',
+                    componentId,
+                    node  : offscreen,
+                    nodeId
+                }, [offscreen])
+            } catch (e) {
+                // Ignore, means the canvas was already transferred or we do not support it
             }
         }
     }

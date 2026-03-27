@@ -13,6 +13,8 @@ import DomAccess from '../DomAccess.mjs';
  * This makes it essential for implementing custom scrollbars or linking the scroll behavior of separate UI elements.
  *
  * This class manages registrations for scroll synchronization, allowing for both one-way and two-way binding between elements.
+ * It uses a granular locking mechanism (`coordinatingNodes`) to prevent infinite "ping-pong" feedback loops
+ * when two-way sync is active or when other programmatic scrolling addons (like `GridDragScroll`) mutate the DOM.
  *
  * Key concepts: scroll synchronization, custom scrollbar, virtual scrolling, grid, main thread addon, DOM manipulation, event handling.
  *
@@ -29,6 +31,12 @@ class ScrollSync extends Base {
          */
         className: 'Neo.main.addon.ScrollSync',
         /**
+         * Time in ms to hold the scroll lock after a programmatic mutation.
+         * Must be long enough to survive asynchronous native scroll event dispatches.
+         * @member {Number} lockTimeout=50
+         */
+        lockTimeout: 50,
+        /**
          * Remote method access for other workers
          * @member {Object} remote
          * @protected
@@ -42,43 +50,19 @@ class ScrollSync extends Base {
     }
 
     /**
-     * @member {Boolean} isTouching=false
+     * Keeps track of which DOM node IDs are currently being mutated by ScrollSync.
+     * The Map stores the active `setTimeout` ID for each locked node.
+     * If an ID is in this Map, incoming native scroll events from that node are ignored
+     * because we know we caused them.
+     * @member {Map<String, Number>} coordinatingNodes=new Map()
      * @protected
      */
-    isTouching = false
+    coordinatingNodes = new Map()
     /**
      * @member {Map<String, Object>} registrations=new Map()
      * @protected
      */
     registrations = new Map()
-
-    /**
-     * Sets up the addon by adding global touch event listeners to the document body.
-     * @param {Object} config
-     */
-    construct(config) {
-        super.construct(config);
-
-        let me = this;
-
-        document.body.addEventListener('touchstart', me.onTouchStart.bind(me), {passive: true});
-        document.body.addEventListener('touchend',   me.onTouchEnd  .bind(me), {passive: true});
-        document.body.addEventListener('touchcancel',me.onTouchEnd  .bind(me), {passive: true})
-    }
-
-    /**
-     * Sets the isTouching flag to true when a touch interaction starts.
-     */
-    onTouchStart() {
-        this.isTouching = true;
-    }
-
-    /**
-     * Sets the isTouching flag to false when a touch interaction ends.
-     */
-    onTouchEnd() {
-        this.isTouching = false;
-    }
 
     /**
      * Creates and attaches a scroll event listener to a DOM node.
@@ -95,16 +79,38 @@ class ScrollSync extends Base {
     }
 
     /**
+     * Locks a node ID to prevent its native scroll events from triggering ping-pong loops.
+     * Uses a debounced timeout to ensure the lock survives continuous 16ms momentum loops.
+     * @param {String} nodeId
+     * @protected
+     */
+    lockNode(nodeId) {
+        let me = this;
+
+        if (me.coordinatingNodes.has(nodeId)) {
+            clearTimeout(me.coordinatingNodes.get(nodeId))
+        }
+
+        me.coordinatingNodes.set(nodeId, setTimeout(() => {
+            me.coordinatingNodes.delete(nodeId)
+        }, me.lockTimeout))
+    }
+
+    /**
      * The main event handler for scroll events.
      * It programmatically scrolls the target node (`toId`) based on the scroll position of the source node (`event.target`).
-     * It will prevent the sync back call during a touch interaction to avoid feedback loops.
+     * Uses `coordinatingNodes` to prevent feedback loops.
      * @param {String} toId
      * @param {String} direction
      * @param {Boolean} isSyncBack
      * @param {Event}  event
      */
     onScroll(toId, direction, isSyncBack, event) {
-        if (this.isTouching && isSyncBack) {
+        let me     = this,
+            fromId = event.target.id;
+
+        // GATEKEEPER: If the source node is currently locked by a programmatic mutation, ignore this event.
+        if (me.coordinatingNodes.has(fromId)) {
             return
         }
 
@@ -112,6 +118,9 @@ class ScrollSync extends Base {
             {scrollLeft, scrollTop} = event.target;
 
         if (node) {
+            // Lock the target node we are about to mutate to prevent it from ping-ponging back
+            me.lockNode(toId);
+
             if (direction === 'both') {
                 node.scrollTo({
                     behavior: 'instant',
@@ -173,6 +182,40 @@ class ScrollSync extends Base {
         }
 
         me.registrations.set(id, registration)
+    }
+
+    /**
+     * Programmatically drives the scroll state for a registered connection without triggering feedback loops.
+     * Expected to be called by other Main Thread Addons (like GridDragScroll).
+     * @param {String} id         The registration ID
+     * @param {Number} scrollLeft
+     * @param {Number} scrollTop
+     */
+    syncTo(id, scrollLeft, scrollTop) {
+        let me           = this,
+            registration = me.registrations.get(id);
+
+        if (!registration) {
+            return
+        }
+
+        let {fromId, toId}   = registration,
+            fromNode         = DomAccess.getElement(fromId),
+            toNode           = DomAccess.getElement(toId);
+
+        // Lock both nodes involved in this registration
+        me.lockNode(fromId);
+        me.lockNode(toId);
+
+        if (fromNode) {
+            if (scrollLeft !== undefined) fromNode.scrollLeft = scrollLeft;
+            if (scrollTop  !== undefined) fromNode.scrollTop  = scrollTop;
+        }
+
+        if (toNode) {
+            if (scrollLeft !== undefined) toNode.scrollLeft = scrollLeft;
+            if (scrollTop  !== undefined) toNode.scrollTop  = scrollTop;
+        }
     }
 
     /**

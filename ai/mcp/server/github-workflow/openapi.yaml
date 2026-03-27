@@ -327,8 +327,8 @@ paths:
                   description: The content of the comment.
                 agent:
                   type: string
-                  description: The agent identity (required for 'create').
-                  example: "Gemini 2.5 pro"
+                  description: The agent identity in the format '[Model Name] ([Agent Wrapper])' (required for 'create').
+                  example: "Gemini 3.1 Pro (Antigravity)"
       responses:
         '200':
           description: Comment created or updated successfully.

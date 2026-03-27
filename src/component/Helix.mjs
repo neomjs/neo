@@ -375,8 +375,20 @@ class Helix extends Component {
     afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
 
+        let me = this;
+
         if (oldValue !== undefined) {
-            this.addResizeObserver(value)
+            me.addResizeObserver(value)
+        }
+
+        if (value && me.selectionModel?.hasSelection()) {
+            if (me[itemsMounted]) {
+                me.applyItemTransitions(me.moveToSelectedItem, 1000, me.selectionModel.items[0])
+            } else {
+                me.on('itemsMounted', () => {
+                    me.applyItemTransitions(me.moveToSelectedItem, 1000, me.selectionModel.items[0])
+                }, me, {once: true})
+            }
         }
     }
 
@@ -436,7 +448,8 @@ class Helix extends Component {
         super.afterSetWindowId(value, oldValue);
 
         if (value) {
-            this.imageSource = Neo.config.resourcesPath + 'examples/'
+            let appConfig = Neo.windowConfigs?.[value] || Neo.config;
+            this.imageSource = appConfig.resourcesPath + 'examples/'
         }
     }
 
@@ -824,19 +837,13 @@ class Helix extends Component {
         let me = this,
             data;
 
-        try {
-            data = await me.trap(Neo.Xhr.promiseJson({
-                insideNeo: true,
-                url      : me.url
-            }));
+        data = await me.trap(Neo.Xhr.promiseJson({
+            insideNeo: true,
+            url      : me.url
+        }));
 
-            me.store.items = data.json.data;
-            me.createItems()
-        } catch (err) {
-            if (err !== Neo.isDestroyed) {
-                console.log('Error for Neo.Xhr.request', err, me.id)
-            }
-        }
+        me.store.items = data.json.data;
+        me.createItems()
     }
 
     /**
@@ -1012,7 +1019,6 @@ class Helix extends Component {
             }
 
             transformStyle = matrix.getTransformStyle();
-            matrix.destroy();
 
             Object.assign(item, {
                 rotationAngle: angle,
