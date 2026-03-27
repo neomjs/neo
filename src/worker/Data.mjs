@@ -86,7 +86,7 @@ class Data extends Base {
         try {
             let module = await import(
                 /* webpackInclude: /^(?:apps|docs\/app|examples|src)\/.*\.mjs$/ */
-                /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules)/ */
+                /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules)\/(?!neo\.mjs)/ */
                 /* webpackMode: "lazy" */
                 `../../${path}.mjs`
             );
@@ -130,7 +130,7 @@ class Data extends Base {
                 case 'connection':
                     await import(
                         /* webpackInclude: /src\/data\/connection\/.*\.mjs$/ */
-                        /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules)/ */
+                        /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules)\/(?!neo\.mjs)/ */
                         /* webpackMode: "lazy" */
                         `../data/connection/${name}.mjs`
                     );
@@ -138,7 +138,7 @@ class Data extends Base {
                 case 'parser':
                     await import(
                         /* webpackInclude: /src\/data\/parser\/.*\.mjs$/ */
-                        /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules)/ */
+                        /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules)\/(?!neo\.mjs)/ */
                         /* webpackMode: "lazy" */
                         `../data/parser/${name}.mjs`
                     );
@@ -146,7 +146,7 @@ class Data extends Base {
                 case 'normalizer':
                     await import(
                         /* webpackInclude: /src\/data\/normalizer\/.*\.mjs$/ */
-                        /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules)/ */
+                        /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules)\/(?!neo\.mjs)/ */
                         /* webpackMode: "lazy" */
                         `../data/normalizer/${name}.mjs`
                     );
@@ -178,7 +178,7 @@ class Data extends Base {
         try {
             await import(
                 /* webpackInclude: /^(?:apps|docs\/app|examples|src)\/.*\.mjs$/ */
-                /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules)/ */
+                /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules)\/(?!neo\.mjs)/ */
                 /* webpackMode: "lazy" */
                 `../../${path}.mjs`
             );
