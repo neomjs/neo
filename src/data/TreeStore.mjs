@@ -1099,6 +1099,57 @@ class TreeStore extends Store {
     }
 
     /**
+     * @summary Overrides `Collection.updateKey` to ensure TreeStore's structural maps remain perfectly synchronized.
+     *
+     * In a standard Collection, updating a key just changes the primary lookup maps.
+     * However, in a TreeStore, a node's key is critical for both the O(1) `#allRecordsMap` lookup
+     * AND structural integrity in `#childrenMap` (where a node's key acts as the `parentId` for its children).
+     *
+     * This override safely transitions both layers without creating ghost nodes or orphaned branches.
+     *
+     * @param {Object|Neo.data.Record} item
+     * @param {Number|String} newKey
+     * @returns {Boolean} true if the key changed, false otherwise.
+     */
+    updateKey(item, newKey) {
+        let me = this,
+            oldKey = me.getKey(item);
+
+        if (oldKey === newKey) {
+            return false;
+        }
+
+        // 1. Update the base Collection layer (Projection maps & allItems)
+        super.updateKey(item, newKey);
+
+        // 2. Heal #allRecordsMap
+        if (me.#allRecordsMap.has(oldKey)) {
+            let storedItem = me.#allRecordsMap.get(oldKey);
+            me.#allRecordsMap.delete(oldKey);
+            me.#allRecordsMap.set(newKey, storedItem);
+        }
+
+        // 3. Heal #childrenMap (Structural Hierarchy)
+        if (me.#childrenMap.has(oldKey)) {
+            let children = me.#childrenMap.get(oldKey);
+            me.#childrenMap.delete(oldKey);
+            me.#childrenMap.set(newKey, children);
+
+            // Re-parent all children so their internal parentId properties match the new parent key.
+            for (let i = 0, len = children.length; i < len; i++) {
+                let child = children[i];
+                if (child.isRecord) {
+                    child.setSilent({parentId: newKey});
+                } else {
+                    child.parentId = newKey;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    /**
      * Recalculates the `siblingCount`, `siblingIndex`, and `childCount` for all children of a given parent
      * within the Structural Layer. This explicitly trades O(N) mutation cost during data ingestion
      * to guarantee O(1) property reads during high-frequency VDOM rendering cycles.

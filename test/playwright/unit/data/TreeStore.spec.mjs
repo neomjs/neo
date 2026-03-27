@@ -941,3 +941,83 @@ test.describe('Neo.data.TreeStore (Bulk Operations)', () => {
         expect(store.indexOf(record)).toBe(1);
     });
 });
+
+test.describe('Neo.data.TreeStore (updateKey override)', () => {
+    let store, TestModel;
+
+    class TestTreeModel9 extends TreeModel {
+        static config = {
+            className: 'Test.Unit.Data.TreeStore.TestTreeModel9',
+            fields: [
+                { name: 'id', type: 'String' },
+                { name: 'name', type: 'String' }
+            ]
+        }
+    }
+
+    TestModel = Neo.setupClass(TestTreeModel9);
+
+    test.afterEach(() => {
+        store?.destroy();
+    });
+
+    test('updateKey() should update #allRecordsMap and #childrenMap hierarchies dynamically', () => {
+        store = Neo.create(TreeStore, {
+            model: TestModel,
+            data : [
+                { id: '1', name: 'Root A', isLeaf: false, collapsed: false },
+                { id: '1-1', parentId: '1', name: 'Child A1', isLeaf: false, collapsed: false },
+                { id: '1-1-1', parentId: '1-1', name: 'Child A1-1', isLeaf: true },
+                { id: '1-1-2', parentId: '1-1', name: 'Child A1-2', isLeaf: true }
+            ]
+        });
+
+        // Validate initial state
+        expect(store.get('1-1')).toBeDefined();
+        expect(store.get('1-1-1').parentId).toBe('1-1');
+
+        let itemToUpdate = store.get('1-1');
+        
+        // Perform the key update
+        store.updateKey(itemToUpdate, 'new-id');
+
+        // Validate item itself updated
+        expect(store.getKey(itemToUpdate)).toBe('new-id');
+        expect(itemToUpdate.id).toBe('new-id'); // Assuming keyProperty map applies
+
+        // Validate base maps fallback resolving correctly
+        expect(store.get('1-1')).toBeNull();
+        expect(store.get('new-id')).toBe(itemToUpdate);
+        
+        // Validate children have correct new parentId
+        let child1 = store.get('1-1-1');
+        let child2 = store.get('1-1-2');
+
+        expect(child1.parentId).toBe('new-id');
+        expect(child2.parentId).toBe('new-id');
+    });
+
+    test('updateKey() should work for nodes inside un-initialized #allRecordsMap correctly (Turbo Mode)', () => {
+        store = Neo.create(TreeStore, {
+            model: TestModel,
+            autoInitRecords: false, // Turbo Mode
+            data : [
+                { id: '1', name: 'Root X', isLeaf: false, collapsed: true },
+                { id: '1-1', parentId: '1', name: 'Child X1', isLeaf: true }
+            ]
+        });
+
+        let itemToUpdate = store._items[0]; // Raw Root X object
+        expect(itemToUpdate.isRecord).toBeUndefined(); // Still in Turbo Mode
+
+        store.updateKey(itemToUpdate, 'new-root-x');
+
+        expect(store.getKey(itemToUpdate)).toBe('new-root-x');
+        
+        // Child X1 is hidden because root is collapsed.
+        // Getting it will hydrate it via allRecordsMap.
+        let hydratedChild = store.get('1-1');
+        
+        expect(hydratedChild.parentId).toBe('new-root-x');
+    });
+});
