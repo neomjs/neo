@@ -9,10 +9,9 @@ labels:
   - ai
   - architecture
   - core
-assignees:
-  - tobiu
+assignees: []
 createdAt: '2026-03-25T20:47:58Z'
-updatedAt: '2026-03-25T20:50:05Z'
+updatedAt: '2026-03-26T15:19:31Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9556'
 author: tobiu
 commentsCount: 0
@@ -48,4 +47,5 @@ This is a research-first ticket to determine if a "Pre-Hydration" phase in the D
 - 2026-03-25T20:48:00Z @tobiu added the `core` label
 - 2026-03-25T20:50:05Z @tobiu added the `help wanted` label
 - 2026-03-25T20:50:05Z @tobiu added the `no auto close` label
+- 2026-03-26T15:19:31Z @tobiu unassigned from @tobiu
 

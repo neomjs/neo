@@ -32,9 +32,10 @@ subIssues:
   - '[x] 9547 Fix RemoteMethodAccess for Main Thread Addons and Instance-to-Instance ID collision'
   - '[x] 9550 Refactor(data): Implement Store-to-Pipeline Legacy Bridge'
   - '[x] 9551 Examples: Implement unified Data Pipeline showcases'
-  - '[ ] 9552 Docs: Create Learning Guide for the Unified Data Pipeline Architecture'
-subIssuesCompleted: 16
-subIssuesTotal: 17
+  - '[x] 9552 Docs: Create Learning Guide for the Unified Data Pipeline Architecture'
+  - '[x] 9564 Finalize Data Pipeline Push Integration & UI Reactivity'
+subIssuesCompleted: 18
+subIssuesTotal: 18
 blockedBy: []
 blocking: []
 ---
@@ -159,4 +160,5 @@ To support this natively:
 - 2026-03-25T15:24:16Z @tobiu added sub-issue #9550
 - 2026-03-25T16:39:28Z @tobiu added sub-issue #9551
 - 2026-03-25T16:40:36Z @tobiu added sub-issue #9552
+- 2026-03-26T16:14:06Z @tobiu added sub-issue #9564
 

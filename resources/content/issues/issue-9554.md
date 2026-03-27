@@ -9,10 +9,9 @@ labels:
   - ai
   - performance
   - core
-assignees:
-  - tobiu
+assignees: []
 createdAt: '2026-03-25T20:12:22Z'
-updatedAt: '2026-03-25T20:50:50Z'
+updatedAt: '2026-03-26T15:20:24Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9554'
 author: tobiu
 commentsCount: 0
@@ -49,4 +48,5 @@ To support the strategic "Benchmark Reports" and assist in debugging complex dat
 - 2026-03-25T20:12:24Z @tobiu added the `core` label
 - 2026-03-25T20:50:50Z @tobiu added the `help wanted` label
 - 2026-03-25T20:50:50Z @tobiu added the `no auto close` label
+- 2026-03-26T15:20:24Z @tobiu unassigned from @tobiu
 
