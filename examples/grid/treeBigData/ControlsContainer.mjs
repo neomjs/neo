@@ -156,7 +156,7 @@ class ControlsContainer extends Container {
                     style     : {marginTop: '.3em'}
                 } , {
                     module    : CheckBox,
-                    checked   : false,
+                    checked   : true,
                     labelText : 'Helper Lines',
                     labelWidth: 170,
                     listeners : {change: 'up.onShowHelperLinesChange'},
