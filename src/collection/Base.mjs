@@ -1683,6 +1683,11 @@ class Collection extends Base {
             item[me.keyProperty] = newKey;
             me.map.set(newKey, item);
 
+            if (me.allItems) {
+                me.allItems.map.delete(oldKey);
+                me.allItems.map.set(newKey, item);
+            }
+
             if (me[updatingIndex] === 0) {
                 me.fire('updateKey', {item, newKey, oldKey, scope: me})
             }

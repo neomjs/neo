@@ -352,6 +352,43 @@ test.describe.serial('Neo.collection.Base', () => {
         expect(collection.count).toBe(1);
         expect(collection.getAt(0).id).toBe(1);
     });
+    test('updateKey on unfiltered and filtered collections', () => {
+        let collection = Neo.create(Collection, {
+            keyProperty: 'id',
+            items: [
+                {id: 1, name: 'Alice', active: true},
+                {id: 2, name: 'Bob',   active: false},
+                {id: 3, name: 'Charlie', active: true}
+            ]
+        });
+
+        // Test updateKey on unfiltered collection
+        let item1 = collection.get(1);
+        collection.updateKey(item1, 10);
+        
+        expect(collection.get(1) || null).toBeNull();
+        expect(collection.get(10)).toBe(item1);
+        expect(item1.id).toBe(10);
+
+        // Filter the collection
+        collection.filters = [{
+            property: 'active',
+            value   : true
+        }];
+
+        expect(collection.count).toBe(2);
+        expect(collection.allItems.count).toBe(3);
+
+        // Test updateKey on filtered collection
+        let item3 = collection.get(3);
+        collection.updateKey(item3, 30);
+
+        expect(collection.get(3) || null).toBeNull();
+        expect(collection.get(30)).toBe(item3);
+        expect(item3.id).toBe(30);
+
+        // Verify that allItems is also updated correctly
+        expect(collection.allItems.get(3) || null).toBeNull();
+        expect(collection.allItems.get(30)).toBe(item3);
+    });
 });
-    
-    
