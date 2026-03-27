@@ -61,6 +61,7 @@ class UserModel extends Model {
         ]
     }
 }
+UserModel = Neo.setupClass(UserModel);
 
 class UserStore extends Store {
     static config = {
@@ -75,14 +76,17 @@ class UserStore extends Store {
         }
     }
 }
+UserStore = Neo.setupClass(UserStore);
 
 const myStore = Neo.create(UserStore);
 
-export default class Example extends Container {
+class Example extends Container {
     static config = {
+        className: 'Docs.DataPipelineExample1',
         layout: {ntype: 'vbox', align: 'stretch'},
         items : [{
             module : Button,
+            flex   : 'none',
             text   : 'Load Data via Pipeline',
             handler: () => myStore.load()
         }, {
@@ -97,6 +101,7 @@ export default class Example extends Container {
         }]
     }
 }
+Example = Neo.setupClass(Example);
 ```
 
 ---
@@ -147,6 +152,7 @@ class LiveUserModel extends Model {
         ]
     }
 }
+LiveUserModel = Neo.setupClass(LiveUserModel);
 
 class LiveUserStore extends Store {
     static config = {
@@ -157,11 +163,13 @@ class LiveUserStore extends Store {
         api      : 'MyApp.backend.LiveUsers'
     }
 }
+LiveUserStore = Neo.setupClass(LiveUserStore);
 
 const liveStore = Neo.create(LiveUserStore);
 
-export default class Example extends Container {
+class Example extends Container {
     static config = {
+        className: 'Docs.DataPipelineExample2',
         layout: {ntype: 'vbox', align: 'stretch'},
         items : [{
             module : Table,
@@ -174,6 +182,7 @@ export default class Example extends Container {
         }]
     }
 }
+Example = Neo.setupClass(Example);
 ```
 
 ### Unsolicited Pushes & UI Reactivity
