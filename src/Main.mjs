@@ -387,6 +387,8 @@ class Main extends core.Base {
 
                 // Main thread addons need to get registered as singletons inside the neo namespace
                 Neo.applyToGlobalNs(addon)
+            } else {
+                addon = Neo.ns(addon.prototype.className);
             }
         }
 
