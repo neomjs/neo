@@ -5,9 +5,10 @@ state: CLOSED
 labels:
   - bug
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-03-27T14:31:41Z'
-updatedAt: '2026-03-27T15:09:39Z'
+updatedAt: '2026-03-27T19:45:03Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9585'
 author: tobiu
 commentsCount: 1
@@ -41,4 +42,5 @@ We should return the relative URL directly and allow `window.open` natively to r
 > To guarantee no recursive popout regressions or hidden OS edge cases resurface from the original implementation reason (#8074), an expansive review matrix has been scheduled in Analysis Ticket #9586.
 
 - 2026-03-27T15:09:38Z @tobiu closed this issue
+- 2026-03-27T19:45:04Z @tobiu assigned to @tobiu
 
