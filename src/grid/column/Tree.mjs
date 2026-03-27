@@ -32,10 +32,10 @@ class Tree extends ComponentColumn {
             module: TreeComponent
         },
         /**
-         * @member {Boolean} showHelperLines_=false
+         * @member {Boolean} showHelperLines_=true
          * @reactive
          */
-        showHelperLines_: false,
+        showHelperLines_: true,
         /**
          * @member {String} type='tree'
          * @protected
