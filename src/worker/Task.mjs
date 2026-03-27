@@ -56,8 +56,8 @@ class Task extends Base {
         }
 
         import(
-            /* webpackInclude: /^(?:apps|examples|src)\/.*task\.mjs$/ */
-            /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules)\/(?!neo\.mjs)/ */
+            /* webpackInclude: /(?:apps|examples|src)\/.*task\.mjs$/ */
+            /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules(?:\/|\\)(?!neo\.mjs)|ai(?:\/|\\)|server\.mjs|devindex(?:\/|\\)services)/ */
             /* webpackMode: "lazy" */
             `../../${path}/task.mjs`
         ).then(module => {

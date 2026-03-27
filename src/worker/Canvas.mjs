@@ -82,8 +82,8 @@ class Canvas extends Base {
 
         try {
             await import(
-                /* webpackInclude: /^(?:apps|examples|src)\/.*canvas\/.*\.mjs$/ */
-                /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules)\/(?!neo\.mjs)/ */
+                /* webpackInclude: /(?:apps|examples|src)\/.*canvas\/.*\.mjs$/ */
+                /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules(?:\/|\\)(?!neo\.mjs)|ai(?:\/|\\)|server\.mjs|devindex(?:\/|\\)services)/ */
                 /* webpackMode: "lazy" */
                 `../../${path}.mjs`
             );
@@ -122,8 +122,8 @@ class Canvas extends Base {
             }
 
             import(
-                /* webpackInclude: /^(?:apps|examples|src)\/.*canvas\.mjs$/ */
-                /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules)\/(?!neo\.mjs)/ */
+                /* webpackInclude: /(?:apps|examples|src)\/.*canvas\.mjs$/ */
+                /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules(?:\/|\\)(?!neo\.mjs)|ai(?:\/|\\)|server\.mjs|devindex(?:\/|\\)services)/ */
                 /* webpackMode: "lazy" */
                 `../../${path}/canvas.mjs`
                 ).then(module => {
