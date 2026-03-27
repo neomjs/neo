@@ -22,8 +22,8 @@ subIssues:
   - '[x] 9574 Draft Release Notes: Generate Full Changelog'
   - '[x] 9575 Draft Release Notes: Gather Visual Assets'
   - '[x] 9576 Draft Release Notes: MCP Infrastructure & Security'
-  - '[ ] 9577 Draft Release Notes: Storytelling & Narrative Arc'
-subIssuesCompleted: 7
+  - '[x] 9577 Draft Release Notes: Storytelling & Narrative Arc'
+subIssuesCompleted: 8
 subIssuesTotal: 8
 blockedBy: []
 blocking: []
