@@ -316,10 +316,10 @@ async function defragChromaDB() {
                                     rescued++;
                                 }
                             } catch (err) {
-                                console.log(`       ❌ Skipping corrupted ID (ghost entry): ${id}`);
+                                // Silently skip corrupted ghost entries to avoid log spam
                             }
                         }
-                        console.log(`     ✅ Rescued ${rescued} out of ${chunk.length} items in this chunk.`);
+                        console.log(`     ✅ Rescued ${rescued} items. Skipped ${chunk.length - rescued} corrupted ghost entries.`);
                     }
                 }
                 
