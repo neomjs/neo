@@ -85,7 +85,7 @@ class Data extends Base {
 
         try {
             let module = await import(
-                /* webpackInclude: /(?:apps|docs\/app|examples|src)\/.*\.mjs$/ */
+                /* webpackInclude: /(?:apps|docs\/app|examples|src\/data)\/.*\.mjs$/ */
                 /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules(?:\/|\\)(?!neo\.mjs)|ai(?:\/|\\)|server\.mjs|devindex(?:\/|\\)services)/ */
                 /* webpackMode: "lazy" */
                 `../../${path}.mjs`
@@ -177,7 +177,7 @@ class Data extends Base {
 
         try {
             await import(
-                /* webpackInclude: /(?:apps|docs\/app|examples|src)\/.*\.mjs$/ */
+                /* webpackInclude: /(?:apps|docs\/app|examples|src\/data)\/.*\.mjs$/ */
                 /* webpackExclude: /(?:\/|\\)(buildScripts|dist|node_modules(?:\/|\\)(?!neo\.mjs)|ai(?:\/|\\)|server\.mjs|devindex(?:\/|\\)services)/ */
                 /* webpackMode: "lazy" */
                 `../../${path}.mjs`

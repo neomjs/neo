@@ -34,8 +34,12 @@ export default env => {
 
         plugins: [
             new webpack.ContextReplacementPlugin(/.*/, context => {
-                if (!insideNeo && context.context.includes('/src/worker')) {
-                    context.request = '../../' + context.request;
+                let con = context.context;
+
+                if (!insideNeo && (con.includes('/src/worker') || con.includes('\\src\\worker'))) {
+                    if (!context.request.startsWith('../../') && !context.request.startsWith('..\\..\\')) {
+                        context.request = path.join('../../', context.request);
+                    }
                 }
             })
         ],

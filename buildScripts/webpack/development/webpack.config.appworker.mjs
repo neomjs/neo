@@ -14,8 +14,7 @@ const cwd                   = process.cwd(),
       regexIndexNodeModules = /node_modules/g,
       regexTopLevel         = /\.\.\//g;
 
-let contextAdjusted = false,
-    examplesPath;
+let examplesPath;
 
 if (!buildTarget.folder) {
     buildTarget.folder = 'dist/development';
@@ -159,9 +158,10 @@ export default env => {
             new webpack.ContextReplacementPlugin(/.*/, context => {
                 let con = context.context;
 
-                if (!insideNeo && !contextAdjusted && (con.includes('/src/worker') || con.includes('\\src\\worker'))) {
-                    context.request = path.join('../../', context.request);
-                    contextAdjusted = true;
+                if (!insideNeo && (con.includes('/src/worker') || con.includes('\\src\\worker'))) {
+                    if (!context.request.startsWith('../../') && !context.request.startsWith('..\\..\\')) {
+                        context.request = path.join('../../', context.request);
+                    }
                 }
             }),
             ...plugins

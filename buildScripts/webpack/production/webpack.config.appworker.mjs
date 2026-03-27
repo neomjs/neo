@@ -15,8 +15,7 @@ const
     plugins        = [],
     regexTopLevel  = /\.\.\//g;
 
-let contextAdjusted = false,
-    examplesPath;
+let examplesPath;
 
 if (!buildTarget.folder) {
     buildTarget.folder = 'dist/production';
@@ -166,9 +165,10 @@ export default async function(env) {
             new webpack.ContextReplacementPlugin(/.*/, context => {
                 let con = context.context;
 
-                if (!insideNeo && !contextAdjusted && (con.includes('/src/worker') || con.includes('\\src\\worker'))) {
-                    context.request = path.join('../../', context.request);
-                    contextAdjusted = true;
+                if (!insideNeo && (con.includes('/src/worker') || con.includes('\\src\\worker'))) {
+                    if (!context.request.startsWith('../../') && !context.request.startsWith('..\\..\\')) {
+                        context.request = path.join('../../', context.request);
+                    }
                 }
             }),
             ...plugins
