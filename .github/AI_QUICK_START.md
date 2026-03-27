@@ -35,9 +35,9 @@ Before you begin, ensure you have the following:
 
 ## 2. What is an AI Agent?
 
-For this workflow, an "AI agent" is a terminal-based AI assistant capable of executing local shell commands.
+For this workflow, an "AI agent" is a local AI assistant capable of executing shell commands and making architectural decisions.
 
-**Current Support:** This guide focuses on the Gemini CLI setup. Support for other agents (Claude Code, Aider, etc.) is planned. The core infrastructure (MCP servers, knowledge base) is agent-agnostic, but the configuration files in `.gemini/` are Gemini-specific.
+**Current Support:** This guide covers the setup for two environments: the Google Gemini CLI and the Antigravity OS. The core infrastructure (MCP servers, knowledge base) is agent-agnostic, but their respective configuration files differ slightly.
 
 ## 3. Setup the AI Environment (Required)
 
@@ -105,19 +105,86 @@ Higher batch sizes or lower delays may trigger `429 Too Many Requests` errors on
 The pre-built Knowledge Base artifact is generated using **`gemini-embedding-001`**.
 If you change the `embeddingModel` in the configuration (e.g., to a newer model), the existing database will be incompatible. You **MUST** run `npm run ai:sync-kb` to rebuild the database from scratch with the new model. Querying with a mismatched model will return irrelevant results.
 
-## 4. Installing the Gemini CLI Agent
+## 4. Choosing Your Agent Environment
 
-To interact with the AI servers, install the Gemini CLI:
+You can interact with the AI servers using either the Gemini CLI or the Antigravity OS.
+
+### Option A: Gemini CLI
+
+To install the Gemini CLI:
 ```bash
 npm i -g @google/gemini-cli
 ```
 
 ## 5. Understanding the Configuration Files
 
-The agent's behavior is controlled by several configuration files:
+The agent's behavior is controlled by several configuration files depending on your chosen environment:
 
-### Core Configuration (`.gemini/` directory)
-- **`settings.json`**: Defines context files and MCP servers for the session
+### Core Configuration (Gemini CLI)
+The repository provides a `.gemini/settings.json` file which automatically activates all 4 Neo MCP servers for the session.
+
+### Core Configuration (Antigravity OS)
+Antigravity requires a user-level configuration file located at `~/.gemini/antigravity/mcp_config.json`. You must create this file and configure it with your API keys and local paths. 
+
+- **`<DEFAULT_PATH>`**: Your system's default `PATH` environment variable (e.g., on macOS this typically looks like `/usr/local/bin:/usr/local/sbin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin`).
+- **`<YOUR_NODE_PATH>`**: The absolute path to your Node.js executable (e.g., `/usr/local/bin/node` or `~/.nvm/versions/node/v20.x.x/bin/node`).
+
+Use the following structure:
+
+```json
+{
+  "context": {
+    "fileName": [
+      "<YOUR_NEO_REPO_PATH>/.agent/ANTIGRAVITY_RULES.md",
+      "<YOUR_NEO_REPO_PATH>/AGENTS.md",
+      "~/.gemini/GEMINI.md"
+    ]
+  },
+  "mcpServers": {
+    "neo-mjs-knowledge-base": {
+      "command": "<YOUR_NODE_PATH>",
+      "args": [
+        "<YOUR_NEO_REPO_PATH>/ai/mcp/server/knowledge-base/mcp-server.mjs"
+      ],
+      "env": {
+        "GEMINI_API_KEY": "<YOUR_GEMINI_API_KEY>",
+        "PATH": "<YOUR_NEO_REPO_PATH>/node_modules/.bin:<DEFAULT_PATH>"
+      }
+    },
+    "neo-mjs-memory-core": {
+      "command": "<YOUR_NODE_PATH>",
+      "args": [
+        "<YOUR_NEO_REPO_PATH>/ai/mcp/server/memory-core/mcp-server.mjs"
+      ],
+      "env": {
+        "GEMINI_API_KEY": "<YOUR_GEMINI_API_KEY>",
+        "PATH": "<YOUR_NEO_REPO_PATH>/node_modules/.bin:<DEFAULT_PATH>"
+      }
+    },
+    "neo-mjs-github-workflow": {
+      "command": "<YOUR_NODE_PATH>",
+      "args": [
+        "<YOUR_NEO_REPO_PATH>/ai/mcp/server/github-workflow/mcp-server.mjs"
+      ],
+      "env": {
+        "GH_TOKEN": "<YOUR_GH_TOKEN>",
+        "PATH": "<YOUR_NEO_REPO_PATH>/node_modules/.bin:<DEFAULT_PATH>"
+      }
+    },
+    "neo-mjs-neural-link": {
+      "command": "<YOUR_NODE_PATH>",
+      "args": [
+        "<YOUR_NEO_REPO_PATH>/ai/mcp/server/neural-link/mcp-server.mjs",
+        "--cwd",
+        "<YOUR_NEO_REPO_PATH>"
+      ],
+      "env": {
+        "PATH": "<YOUR_NEO_REPO_PATH>/node_modules/.bin:<DEFAULT_PATH>"
+      }
+    }
+  }
+}
+```
 
 ### Agent Guidelines (Repository root)
 - **`AGENTS_STARTUP.md`**: Step-by-step session initialization instructions
@@ -130,12 +197,9 @@ The agent's behavior is controlled by several configuration files:
 
 ## 6. Your First Agent Session
 
-Once the Gemini CLI is installed:
-
 1. **Start the agent** from the repository root:
-   ```bash
-   gemini
-   ```
+   * **For Gemini CLI:** Run `gemini` in your terminal.
+   * **For Antigravity:** Follow the Antigravity launch procedure.
 
 2. **Follow the initialization instructions in AGENTS_STARTUP.md**:
 
