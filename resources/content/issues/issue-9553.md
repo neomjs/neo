@@ -9,10 +9,9 @@ labels:
   - ai
   - architecture
   - core
-assignees:
-  - tobiu
+assignees: []
 createdAt: '2026-03-25T20:10:19Z'
-updatedAt: '2026-03-25T20:51:06Z'
+updatedAt: '2026-03-26T15:19:45Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9553'
 author: tobiu
 commentsCount: 0
@@ -47,4 +46,5 @@ As the Data Pipeline architecture matures, we need a way to inject logic at key 
 - 2026-03-25T20:10:21Z @tobiu added the `core` label
 - 2026-03-25T20:51:06Z @tobiu added the `help wanted` label
 - 2026-03-25T20:51:06Z @tobiu added the `no auto close` label
+- 2026-03-26T15:19:45Z @tobiu unassigned from @tobiu
 

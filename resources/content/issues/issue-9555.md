@@ -9,10 +9,9 @@ labels:
   - ai
   - performance
   - core
-assignees:
-  - tobiu
+assignees: []
 createdAt: '2026-03-25T20:28:46Z'
-updatedAt: '2026-03-25T20:50:28Z'
+updatedAt: '2026-03-26T15:20:03Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9555'
 author: tobiu
 commentsCount: 0
@@ -46,4 +45,5 @@ By caching shaped data results inside the Data Worker, we can significantly impr
 - 2026-03-25T20:28:48Z @tobiu added the `core` label
 - 2026-03-25T20:50:28Z @tobiu added the `help wanted` label
 - 2026-03-25T20:50:28Z @tobiu added the `no auto close` label
+- 2026-03-26T15:20:03Z @tobiu unassigned from @tobiu
 
