@@ -1,4 +1,4 @@
-import Neo from '../../Neo.mjs';
+import CoreBase from '../../core/Base.mjs';
 
 /**
  * @summary The base class for data normalizers.
@@ -14,7 +14,7 @@ import Neo from '../../Neo.mjs';
  * @class Neo.data.normalizer.Base
  * @extends Neo.core.Base
  */
-class Base extends Neo.core.Base {
+class Base extends CoreBase {
     static config = {
         /**
          * @member {String} className='Neo.data.normalizer.Base'
@@ -38,7 +38,7 @@ class Base extends Neo.core.Base {
         return {
             data,
             totalCount: Array.isArray(data) ? data.length : 1
-        };
+        }
     }
 }
 
