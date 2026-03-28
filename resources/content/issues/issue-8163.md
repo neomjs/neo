@@ -4,15 +4,16 @@ title: Cross-Window Drag & Drop Refinement & Topology
 state: OPEN
 labels:
   - epic
+  - no auto close
   - ai
   - architecture
 assignees:
   - tobiu
 createdAt: '2025-12-27T21:26:45Z'
-updatedAt: '2025-12-27T22:48:29Z'
+updatedAt: '2026-03-28T05:56:53Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8163'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues:
   - '[ ] 8160 Decouple and Configure Window Detachment Thresholds in SortZone'
@@ -61,4 +62,11 @@ This epic tracks the advanced refinement and functional expansion of the Cross-W
 - 2025-12-27T21:33:50Z @tobiu added sub-issue #8166
 - 2025-12-27T21:33:52Z @tobiu added sub-issue #8167
 - 2025-12-27T22:48:29Z @tobiu assigned to @tobiu
+### @github-actions - 2026-03-28T03:54:38Z
+
+This issue is stale because it has been open for 90 days with no activity.
+
+- 2026-03-28T03:54:38Z @github-actions added the `stale` label
+- 2026-03-28T05:56:53Z @tobiu removed the `stale` label
+- 2026-03-28T05:56:53Z @tobiu added the `no auto close` label
 
