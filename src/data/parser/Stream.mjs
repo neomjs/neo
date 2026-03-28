@@ -72,12 +72,12 @@ class Stream extends Base {
      * @returns {Promise}
      */
     async read(rawData) {
-        let me               = this,
-            chunk            = [],
+        let me                                = this,
+            chunk                             = [],
             {chunkSize, progressiveChunkSize} = me,
-            currentChunkSize = me.initialChunkSize || chunkSize,
-            burstCount       = 0,
-            count            = 0;
+            currentChunkSize                  = me.initialChunkSize || chunkSize,
+            burstCount                        = 0,
+            count                             = 0;
 
         if (rawData.aborted) {
             me.store && (me.store.isStreaming = false);
@@ -89,11 +89,11 @@ class Stream extends Base {
         me.store && (me.store.isStreaming = true);
 
         try {
-            const reader = stream.getReader();
-            const decoder = new TextDecoder();
-
-            let buffer = '';
-            let loaded = 0;
+            const
+                reader  = stream.getReader(),
+                decoder = new TextDecoder();
+            let buffer  = '',
+                loaded  = 0;
 
             while (true) {
                 const {value, done} = await reader.read();
@@ -164,11 +164,11 @@ class Stream extends Base {
      * @returns {Number} The recommended chunk size for the next batch
      */
     getProgressiveChunkSize(total) {
-        if (total < 100)   return 100;
-        if (total < 250)   return 150;
-        if (total < 500)   return 250;
-        if (total < 1000)  return 500;
-        if (total < 2500)  return 1500;
+        if (total <   100) return  100;
+        if (total <   250) return  150;
+        if (total <   500) return  250;
+        if (total <  1000) return  500;
+        if (total <  2500) return 1500;
         if (total < 10000) return 2500;
         if (total < 20000) return 5000;
         return 10000
@@ -180,9 +180,9 @@ class Stream extends Base {
      */
     processLine(line, chunk) {
         try {
-            chunk.push(JSON.parse(line));
+            chunk.push(JSON.parse(line))
         } catch (e) {
-            console.warn('JSON parse error in Stream parser:', e, line);
+            console.warn('JSON parse error in Stream parser:', e, line)
         }
     }
 }
