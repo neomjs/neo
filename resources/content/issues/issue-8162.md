@@ -4,13 +4,14 @@ title: Fix Layout Corruption in Target Dashboard on Remote Drag Exit
 state: OPEN
 labels:
   - bug
+  - no auto close
   - ai
 assignees: []
 createdAt: '2025-12-27T21:09:59Z'
-updatedAt: '2025-12-27T21:09:59Z'
+updatedAt: '2026-03-28T05:56:30Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8162'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 8163
 subIssues: []
 subIssuesCompleted: 0
@@ -43,4 +44,11 @@ Debug and fix the layout restoration logic in `SortZone` to ensure the Target Da
 - 2025-12-27T21:10:00Z @tobiu added the `bug` label
 - 2025-12-27T21:10:00Z @tobiu added the `ai` label
 - 2025-12-27T21:33:44Z @tobiu added parent issue #8163
+### @github-actions - 2026-03-28T03:54:39Z
+
+This issue is stale because it has been open for 90 days with no activity.
+
+- 2026-03-28T03:54:39Z @github-actions added the `stale` label
+- 2026-03-28T05:56:30Z @tobiu removed the `stale` label
+- 2026-03-28T05:56:30Z @tobiu added the `no auto close` label
 

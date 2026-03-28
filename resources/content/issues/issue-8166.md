@@ -4,13 +4,14 @@ title: Implement Cross-Window Drop Validation and Topology Rules
 state: OPEN
 labels:
   - enhancement
+  - no auto close
   - ai
 assignees: []
 createdAt: '2025-12-27T21:33:19Z'
-updatedAt: '2025-12-27T21:33:19Z'
+updatedAt: '2026-03-28T05:57:38Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8166'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 8163
 subIssues: []
 subIssuesCompleted: 0
@@ -38,4 +39,11 @@ Implement a robust validation hook or Topology Manager.
 - 2025-12-27T21:33:20Z @tobiu added the `enhancement` label
 - 2025-12-27T21:33:20Z @tobiu added the `ai` label
 - 2025-12-27T21:33:50Z @tobiu added parent issue #8163
+### @github-actions - 2026-03-28T03:54:35Z
+
+This issue is stale because it has been open for 90 days with no activity.
+
+- 2026-03-28T03:54:35Z @github-actions added the `stale` label
+- 2026-03-28T05:57:38Z @tobiu removed the `stale` label
+- 2026-03-28T05:57:38Z @tobiu added the `no auto close` label
 
