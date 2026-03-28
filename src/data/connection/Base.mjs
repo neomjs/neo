@@ -37,7 +37,7 @@ class Base extends CoreBase {
      * @returns {Promise<any>}
      */
     async read(params) {
-        throw new Error('connection.Base: read() needs to get implemented in subclasses');
+        throw new Error('connection.Base: read() needs to get implemented in subclasses')
     }
 }
 

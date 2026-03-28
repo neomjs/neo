@@ -55,7 +55,7 @@ class Parser extends Base {
      * @returns {Promise}
      */
     read(operation) {
-        return Promise.reject('read method not implemented');
+        return Promise.reject('read method not implemented')
     }
 }
 
