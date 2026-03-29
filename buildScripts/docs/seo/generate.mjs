@@ -95,6 +95,10 @@ const DEFAULT_PRIORITY = 0.5;
  * @returns {Number} The priority value
  */
 function getPriority(id) {
+    if (id.startsWith('/news/releases/')) {
+        return 0.9;
+    }
+
     // Normalize ID by removing .md extension if present
     const cleanId = id.endsWith('.md') ? id.slice(0, -3) : id;
     return PRIORITIES.get(cleanId) || DEFAULT_PRIORITY;
@@ -241,17 +245,41 @@ async function collectExampleRoutes() {
 }
 
 /**
+ * Collects all release notes by scanning the markdown directory.
+ * @returns {Promise<Array<{id: String, filePath: String, name: String}>>}
+ */
+async function collectReleaseRoutes() {
+    const files = await fg('resources/content/release-notes/*.md', {
+        cwd    : ROOT_DIR,
+        ignore : ['**/node_modules/**']
+    });
+
+    return files.map(file => {
+        const filePath = path.resolve(ROOT_DIR, file);
+        const fileName = path.basename(file, '.md'); // e.g., 'v12.1.0'
+        const version  = fileName.startsWith('v') ? fileName.substring(1) : fileName;
+        
+        return {
+            category: 'top-level',
+            filePath: filePath,
+            id      : `/news/releases/${version}`
+        };
+    });
+}
+
+/**
  * Collects all routes (top-level + content routes).
  * @returns {Promise<Array<{id: String, filePath: String|null}>>}
  */
 async function collectAllRoutes() {
-    const [topLevelRoutes, contentRoutes, exampleRoutes] = await Promise.all([
+    const [topLevelRoutes, contentRoutes, exampleRoutes, releaseRoutes] = await Promise.all([
         collectTopLevelRoutes(),
         collectRoutesFromTree(),
-        collectExampleRoutes()
+        collectExampleRoutes(),
+        collectReleaseRoutes()
     ]);
 
-    return [...topLevelRoutes, ...contentRoutes, ...exampleRoutes];
+    return [...topLevelRoutes, ...contentRoutes, ...exampleRoutes, ...releaseRoutes];
 }
 
 /**
