@@ -28,7 +28,7 @@ Update your `.env` file or IaC environment variables.
 ### Using OIDC Discovery (Recommended)
 Google provides a standard OIDC discovery endpoint. This is the easiest way to configure the server.
 
-```env
+```bash
 TRANSPORT=sse
 SSE_PORT=3000
 HOST=mcp.yourdomain.com

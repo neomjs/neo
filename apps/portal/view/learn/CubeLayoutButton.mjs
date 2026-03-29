@@ -42,7 +42,7 @@ class CubeLayoutButton extends Button {
 
         let me = this;
 
-        me.activeLayout = me.viewportController.mainContentLayout;
+        me.activeLayout = me.viewportController?.mainContentLayout;
         me.handler      = me.changeLayout.bind(me)
     }
 

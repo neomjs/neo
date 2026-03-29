@@ -54,7 +54,7 @@ The server intelligently resolves URLs:
    - Client Type: `OpenID Connect`
    - Authentication: `Service accounts roles` (if using machine-to-machine) or `Standard flow` for user-based.
 4. **Configure .env:**
-   ```env
+   ```bash
    # MCP Server Config
    TRANSPORT=sse
    SSE_PORT=3000
