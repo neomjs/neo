@@ -99,6 +99,10 @@ function getPriority(id) {
         return 0.9;
     }
 
+    if (id.startsWith('/news/tickets/')) {
+        return 0.5;
+    }
+
     // Normalize ID by removing .md extension if present
     const cleanId = id.endsWith('.md') ? id.slice(0, -3) : id;
     return PRIORITIES.get(cleanId) || DEFAULT_PRIORITY;
@@ -268,18 +272,45 @@ async function collectReleaseRoutes() {
 }
 
 /**
+ * Collects all github issues by scanning the active and archive markdown directories.
+ * @returns {Promise<Array<{id: String, filePath: String}>>}
+ */
+async function collectIssueRoutes() {
+    const files = await fg([
+        'resources/content/issues/*.md',
+        'resources/content/issue-archive/**/*.md'
+    ], {
+        cwd    : ROOT_DIR,
+        ignore : ['**/node_modules/**']
+    });
+
+    return files.map(file => {
+        const filePath = path.resolve(ROOT_DIR, file);
+        const fileName = path.basename(file, '.md'); // e.g., 'issue-8186'
+        const issueNumber = fileName.startsWith('issue-') ? fileName.substring(6) : fileName;
+
+        return {
+            category: 'top-level',
+            filePath: filePath,
+            id      : `/news/tickets/${issueNumber}`
+        };
+    });
+}
+
+/**
  * Collects all routes (top-level + content routes).
  * @returns {Promise<Array<{id: String, filePath: String|null}>>}
  */
 async function collectAllRoutes() {
-    const [topLevelRoutes, contentRoutes, exampleRoutes, releaseRoutes] = await Promise.all([
+    const [topLevelRoutes, contentRoutes, exampleRoutes, releaseRoutes, issueRoutes] = await Promise.all([
         collectTopLevelRoutes(),
         collectRoutesFromTree(),
         collectExampleRoutes(),
-        collectReleaseRoutes()
+        collectReleaseRoutes(),
+        collectIssueRoutes()
     ]);
 
-    return [...topLevelRoutes, ...contentRoutes, ...exampleRoutes, ...releaseRoutes];
+    return [...topLevelRoutes, ...contentRoutes, ...exampleRoutes, ...releaseRoutes, ...issueRoutes];
 }
 
 /**
