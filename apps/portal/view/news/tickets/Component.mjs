@@ -286,7 +286,10 @@ class Component extends ContentComponent {
 
             if (data.author)    {author    = data.author}
             if (data.createdAt) {createdAt = me.formatTimestamp(data.createdAt)}
-            if (data.labels)    {labels    = data.labels}
+            if (data.labels)    {
+                // Ensure labels is always an array, even if a single string was parsed
+                labels = Array.isArray(data.labels) ? data.labels : (typeof data.labels === 'string' ? [data.labels] : []);
+            }
             if (data.state)     {state     = data.state}
         }
 
