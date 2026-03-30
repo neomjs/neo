@@ -3,6 +3,9 @@ on:
   issues:
     types: [reopened]
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   prevent-reopen:
     runs-on: ubuntu-latest
