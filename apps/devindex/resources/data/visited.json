@@ -12417,6 +12417,7 @@
   "repo:buildout/buildout",
   "repo:buildpacks/pack",
   "repo:buildroot/buildroot",
+  "repo:buildship-ai/rowy",
   "repo:buildspace/buildspace-projects",
   "repo:builtbybel/Bloatynosy",
   "repo:builtbybel/FlyOOBE",
