@@ -16,14 +16,14 @@ author: tobiu
 commentsCount: 1
 parentIssue: null
 subIssues:
-  - '[ ] 8160 Decouple and Configure Window Detachment Thresholds in SortZone'
+  - '[x] 8160 Decouple and Configure Window Detachment Thresholds in SortZone'
   - '[x] 8161 Refine Cross-Window Drag Intersection to Target SortZone Rect'
   - '[ ] 8162 Fix Layout Corruption in Target Dashboard on Remote Drag Exit'
   - '[x] 8164 Enhance Neo.manager.Window to Track Full Window Geometry'
   - '[ ] 8165 Implement Configurable Theme Inheritance for Dragged Items'
   - '[ ] 8166 Implement Cross-Window Drop Validation and Topology Rules'
   - '[ ] 8167 Harden Return Trip Logic for Detached Items'
-subIssuesCompleted: 2
+subIssuesCompleted: 3
 subIssuesTotal: 7
 blockedBy: []
 blocking: []
