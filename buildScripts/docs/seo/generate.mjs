@@ -614,6 +614,24 @@ To access bundled versions, prefix paths with \`/dist/production/\`, \`/dist/dev
     });
     content += topLevelUrls.join('\n') + '\n\n';
 
+    if (exampleRoutes.length > 0) {
+        content += `## Demo Apps and Examples\n\n`;
+        const exampleUrls = exampleRoutes.map(route => {
+            const url   = new URL(route.id, baseUrl).toString();
+            return `- [${route.name}](${url})`;
+        });
+        content += exampleUrls.join('\n') + '\n\n';
+    }
+
+    content += `## Content & Documentation Layout\n` +
+               `The sections below (Release Notes, Guides/Blogs, and GitHub Tickets) represent pure technical content. ` +
+               `When human users navigate to these routes, Neo.mjs serves a persistent, desktop-class Single Page Application. The visual layout consists of:\n` +
+               `- A top Header Toolbar with main site context.\n` +
+               `- A functional left-hand \`Neo.tree.List\` sidebar for hierarchical navigation.\n` +
+               `- A right-hand \`Neo.list.Base\` sidebar featuring anchor links for in-page navigation (e.g. sections and ticket metadata).\n` +
+               `- A primary Article container where the Markdown content renders.\n` +
+               `- Interactive Next/Previous controls for navigating sequential documentation or tickets.\n\n`;
+
     if (releaseRoutes.length > 0) {
         content += `## Release Notes\n\n`;
         content += `Here you find the full history of Neo.mjs updates.\n\n`;
@@ -657,14 +675,7 @@ To access bundled versions, prefix paths with \`/dist/production/\`, \`/dist/dev
         content += urls.join('\n') + '\n\n';
     }
 
-    if (exampleRoutes.length > 0) {
-        content += `## Demo Apps and Examples\n\n`;
-        const exampleUrls = exampleRoutes.map(route => {
-            const url   = new URL(route.id, baseUrl).toString();
-            return `- [${route.name}](${url})`;
-        });
-        content += exampleUrls.join('\n') + '\n\n';
-    }
+
 
     if (ticketRoutes.length > 0) {
         content += `## GitHub Tickets\n\n`;
