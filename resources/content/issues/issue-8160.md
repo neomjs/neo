@@ -4,14 +4,15 @@ title: Decouple and Configure Window Detachment Thresholds in SortZone
 state: OPEN
 labels:
   - enhancement
+  - stale
   - ai
 assignees:
   - tobiu
 createdAt: '2025-12-27T21:00:50Z'
-updatedAt: '2025-12-28T13:12:27Z'
+updatedAt: '2026-03-29T04:13:49Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8160'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: 8163
 subIssues: []
 subIssuesCompleted: 0
@@ -60,4 +61,9 @@ Currently, `Neo.draggable.container.SortZone` uses the same intersection logic (
 > **Outcome:**
 > The threshold logic is now centralized and correctly handles directionality (inwards vs. outwards) using `lastIntersectionRatio`. The system is prepared for further investigation into the re-detach behavior after full re-integration.
 
+### @github-actions - 2026-03-29T04:13:48Z
+
+This issue is stale because it has been open for 90 days with no activity.
+
+- 2026-03-29T04:13:49Z @github-actions added the `stale` label
 
