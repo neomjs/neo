@@ -4,6 +4,7 @@ import {Command}       from 'commander/esm.mjs';
 import {execSync}      from 'child_process';
 import {fileURLToPath} from 'url';
 import fg              from 'fast-glob';
+import semver          from 'semver';
 import {sanitizeInput} from '../../util/Sanitizer.mjs';
 
 const ROOT_DIR          = process.cwd();
@@ -258,16 +259,26 @@ async function collectReleaseRoutes() {
         ignore : ['**/node_modules/**']
     });
 
-    return files.map(file => {
+    const releases = files.map(file => {
         const filePath = path.resolve(ROOT_DIR, file);
         const fileName = path.basename(file, '.md'); // e.g., 'v12.1.0'
         const version  = fileName.startsWith('v') ? fileName.substring(1) : fileName;
         
         return {
-            category: 'top-level',
+            category: 'release-notes',
             filePath: filePath,
-            id      : `/news/releases/${version}`
+            id      : `/news/releases/${version}`,
+            version : version
         };
+    });
+
+    return releases.sort((a, b) => {
+        const vA = semver.valid(a.version) || semver.coerce(a.version)?.version;
+        const vB = semver.valid(b.version) || semver.coerce(b.version)?.version;
+        if (vA && vB) {
+            return semver.rcompare(vA, vB);
+        }
+        return 0;
     });
 }
 
@@ -284,17 +295,21 @@ async function collectIssueRoutes() {
         ignore : ['**/node_modules/**']
     });
 
-    return files.map(file => {
+    const issues = files.map(file => {
         const filePath = path.resolve(ROOT_DIR, file);
         const fileName = path.basename(file, '.md'); // e.g., 'issue-8186'
-        const issueNumber = fileName.startsWith('issue-') ? fileName.substring(6) : fileName;
+        const issueNumberStr = fileName.startsWith('issue-') ? fileName.substring(6) : fileName;
+        const issueNumber = parseInt(issueNumberStr, 10);
 
         return {
-            category: 'top-level',
+            category: 'tickets',
             filePath: filePath,
-            id      : `/news/tickets/${issueNumber}`
+            id      : `/news/tickets/${issueNumberStr}`,
+            issueNum: isNaN(issueNumber) ? 0 : issueNumber
         };
     });
+
+    return issues.sort((a, b) => b.issueNum - a.issueNum);
 }
 
 /**
@@ -551,20 +566,19 @@ To access bundled versions, prefix paths with \`/dist/production/\`, \`/dist/dev
             
             if (Array.isArray(releases) && releases.length > 0) {
                 // Filter out directory nodes (leaf nodes only)
-                const actualReleases = releases.filter(r => r.isLeaf !== false && r.version);
+                const actualReleases = releases.filter(r => r.isLeaf !== false && r.id);
 
                 if (actualReleases.length > 0) {
                     content += `## Latest Updates\n\n`;
                     // Take top 5 releases
                     actualReleases.slice(0, 5).forEach(release => {
-                        // Link deep into the Portal's new News/Release tab
-                        // Assumption: The route in Portal is #/news/release/{version}
-                        const version = release.version;
+                        // Link natively to the markdown file on our proxy /raw/*
+                        const version = release.id;
                         const date    = release.date ? ` (${release.date.split('T')[0]})` : '';
                         const title   = release.title || 'Update';
                         
-                        // Note: We use the production distribution link for stability in llms.txt
-                        const url = new URL(`dist/production/apps/portal/index.html#/news/release/${version}`, baseUrl).toString();
+                        // Maps to raw/news/releases/{version}.md
+                        const url = new URL(`raw/news/releases/${version}.md`, baseUrl).toString();
                         
                         content += `- [v${version}${date}: ${title}](${url})\n`;
                     });
@@ -577,6 +591,8 @@ To access bundled versions, prefix paths with \`/dist/production/\`, \`/dist/dev
     }
 
     const topLevelRoutes = allRoutes.filter(route => route.category === 'top-level');
+    const releaseRoutes  = allRoutes.filter(route => route.category === 'release-notes');
+    const ticketRoutes   = allRoutes.filter(route => route.category === 'tickets');
     const exampleRoutes  = allRoutes.filter(route => route.category === 'file');
     const contentRoutes  = allRoutes.filter(route => route.category === 'tree');
 
@@ -584,10 +600,31 @@ To access bundled versions, prefix paths with \`/dist/production/\`, \`/dist/dev
     const topLevelUrls = topLevelRoutes.map(route => {
         // Beautify route name: /about-us -> About Us
         const name  = route.id.substring(1).split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-        const url   = new URL(buildRouteFromId(route.id, null, false), baseUrl).toString();
-        return `- [${name}](${url})`;
+        
+        let urlStr;
+        if (route.filePath && route.filePath.endsWith('.md')) {
+            const relativePath = path.relative(ROOT_DIR, route.filePath).split(path.sep).join('/');
+            urlStr = new URL(`raw/${relativePath}`, baseUrl).toString();
+        } else {
+            const routeStr = buildRouteFromId(route.id, null, false);
+            urlStr = new URL(routeStr, baseUrl).toString();
+        }
+        
+        return `- [${name}](${urlStr})`;
     });
     content += topLevelUrls.join('\n') + '\n\n';
+
+    if (releaseRoutes.length > 0) {
+        content += `## Release Notes\n\n`;
+        content += `Here you find the full history of Neo.mjs updates.\n\n`;
+        const mappedUrls = releaseRoutes.map(route => {
+            const name = `v${route.version}`;
+            const cleanPath = route.id.startsWith('/') ? route.id.substring(1) : route.id;
+            const urlStr = new URL(`raw/${cleanPath}.md`, baseUrl).toString();
+            return `- [${name}](${urlStr})`;
+        });
+        content += mappedUrls.join('\n') + '\n\n';
+    }
 
     const topLevelFolders = contentRoutes.reduce((acc, node) => {
         const parts = node.id.split('/');
@@ -606,9 +643,16 @@ To access bundled versions, prefix paths with \`/dist/production/\`, \`/dist/dev
         const header = folder.charAt(0).toUpperCase() + folder.slice(1);
         content += `## ${header}\n\n`;
         const urls = topLevelFolders[folder].map(node => {
-            const route = buildRouteFromId(node.id, basePath, false);
-            const url   = new URL(route, baseUrl).toString();
-            return `- [${node.name}](${url})`;
+            let urlStr;
+            if (node.filePath && node.filePath.endsWith('.md')) {
+                // Ensure cross-platform path resolution matches the expected web path
+                const relativePath = path.relative(ROOT_DIR, node.filePath).split(path.sep).join('/');
+                urlStr = new URL(`raw/${relativePath}`, baseUrl).toString();
+            } else {
+                const route = buildRouteFromId(node.id, basePath, false);
+                urlStr = new URL(route, baseUrl).toString();
+            }
+            return `- [${node.name}](${urlStr})`;
         });
         content += urls.join('\n') + '\n\n';
     }
@@ -620,6 +664,18 @@ To access bundled versions, prefix paths with \`/dist/production/\`, \`/dist/dev
             return `- [${route.name}](${url})`;
         });
         content += exampleUrls.join('\n') + '\n\n';
+    }
+
+    if (ticketRoutes.length > 0) {
+        content += `## GitHub Tickets\n\n`;
+        content += `Here you find historical technical discussions and GitHub issues.\n\n`;
+        const mappedUrls = ticketRoutes.map(route => {
+            const name = `Ticket #${route.issueNum}`;
+            const cleanPath = route.id.startsWith('/') ? route.id.substring(1) : route.id;
+            const urlStr = new URL(`raw/${cleanPath}.md`, baseUrl).toString();
+            return `- [${name}](${urlStr})`;
+        });
+        content += mappedUrls.join('\n') + '\n\n';
     }
 
     return content;
