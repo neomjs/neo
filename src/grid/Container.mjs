@@ -274,6 +274,8 @@ class GridContainer extends BaseContainer {
         let me = this,
             {appName, rowHeight, store, windowId} = me;
 
+        me.items = me.items || [];
+
         me.headerWrapper = Neo.create(BaseContainer, {
             appName,
             cls     : ['neo-header-wrapper'],
@@ -601,6 +603,7 @@ class GridContainer extends BaseContainer {
         return ClassSystemUtil.beforeSetInstance(value, GridBody, {
             flex         : 1,
             gridContainer: me,
+            parentId     : me.id,
             store        : me.store,
             theme        : me.theme,
             useInternalId: me.useInternalId
@@ -652,6 +655,8 @@ class GridContainer extends BaseContainer {
 
         return ClassSystemUtil.beforeSetInstance(value, header.Toolbar, {
             flex              : 'none',
+            gridContainer     : me,
+            parentId          : me.id,
             showHeaderFilters : me.showHeaderFilters,
             sortable          : me.sortable,
             theme             : me.theme,
