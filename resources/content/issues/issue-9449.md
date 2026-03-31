@@ -1,7 +1,7 @@
 ---
 id: 9449
 title: 'Epic: Unified Data Pipeline Architecture (Pipeline -> Connection -> Parser -> Normalizer)'
-state: OPEN
+state: CLOSED
 labels:
   - epic
   - ai
@@ -10,10 +10,10 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-03-12T14:20:24Z'
-updatedAt: '2026-03-17T17:47:38Z'
+updatedAt: '2026-03-31T15:03:22Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9449'
 author: tobiu
-commentsCount: 2
+commentsCount: 3
 parentIssue: null
 subIssues:
   - '[x] 9418 Create Data Normalizer Architecture (`Neo.data.normalizer.Base` & `Tree`)'
@@ -38,6 +38,7 @@ subIssuesCompleted: 18
 subIssuesTotal: 18
 blockedBy: []
 blocking: []
+closedAt: '2026-03-31T15:03:22Z'
 ---
 # Epic: Unified Data Pipeline Architecture (Pipeline -> Connection -> Parser -> Normalizer)
 
@@ -161,4 +162,9 @@ To support this natively:
 - 2026-03-25T16:39:28Z @tobiu added sub-issue #9551
 - 2026-03-25T16:40:36Z @tobiu added sub-issue #9552
 - 2026-03-26T16:14:06Z @tobiu added sub-issue #9564
+### @tobiu - 2026-03-31T15:03:22Z
+
+already resolved in v12.1.
+
+- 2026-03-31T15:03:22Z @tobiu closed this issue
 
