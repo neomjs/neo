@@ -207,6 +207,21 @@ class GridContainer extends BaseContainer {
      */
     initialResizeEvent = true
     /**
+     * @member {Object[]|Neo.grid.column.Base[]} centerColumns=[]
+     * @protected
+     */
+    centerColumns = []
+    /**
+     * @member {Object[]|Neo.grid.column.Base[]} lockedEndColumns=[]
+     * @protected
+     */
+    lockedEndColumns = []
+    /**
+     * @member {Object[]|Neo.grid.column.Base[]} lockedStartColumns=[]
+     * @protected
+     */
+    lockedStartColumns = []
+    /**
      * @member {Neo.grid.ScrollManager|null} scrollManager=null
      * @protected
      */
@@ -689,8 +704,16 @@ class GridContainer extends BaseContainer {
             me._columns.clear();
             me._columns.add(columns);
 
+            me.lockedStartColumns = columns.filter(c => c.locked === 'start');
+            me.centerColumns      = columns.filter(c => !c.locked);
+            me.lockedEndColumns   = columns.filter(c => c.locked === 'end');
+
             return me._columns
         }
+
+        me.lockedStartColumns = columns.filter(c => c.locked === 'start');
+        me.centerColumns      = columns.filter(c => !c.locked);
+        me.lockedEndColumns   = columns.filter(c => c.locked === 'end');
 
         return Neo.create(Collection, {
             keyProperty: 'dataField',
@@ -748,6 +771,10 @@ class GridContainer extends BaseContainer {
         // clearSilent() and add() is the safest way to reset internal indices while avoiding duplicate mutate events
         me.columns.clearSilent();
         me.columns.add(sortedColumns);
+
+        me.lockedStartColumns = sortedColumns.filter(c => c.locked === 'start');
+        me.centerColumns      = sortedColumns.filter(c => !c.locked);
+        me.lockedEndColumns   = sortedColumns.filter(c => c.locked === 'end');
 
         // 3. Trigger Layout Engine
         headerToolbar.passSizeToBody(false);
