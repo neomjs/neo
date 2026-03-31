@@ -121,6 +121,11 @@ class GridBody extends Component {
          */
         columnPositions_: null,
         /**
+         * @member {Neo.grid.Container|null} gridContainer=null
+         * @protected
+         */
+        gridContainer: null,
+        /**
          * @member {Boolean} highlightModifiedCells_=false
          * @reactive
          */
@@ -676,7 +681,7 @@ class GridBody extends Component {
                 config = {
                     module       : Row,
                     appName      : me.appName,
-                    gridContainer: me.parent,
+                    gridContainer: me.gridContainer,
                     id           : me.getRowId(current + i),
                     parentId     : me.id,
                     record       : null,
@@ -809,7 +814,7 @@ class GridBody extends Component {
             }
         }
 
-        me.parent.isLoading = false;
+        me.gridContainer.isLoading = false;
 
         me.updateScrollHeight(true); // silent
 
@@ -861,7 +866,7 @@ class GridBody extends Component {
             record    = me.getRecord(id)
         }
 
-        me.parent.fire(eventName, {body: me, data, dataField, record})
+        me.gridContainer.fire(eventName, {body: me, data, dataField, record})
     }
 
     /**
@@ -885,7 +890,7 @@ class GridBody extends Component {
             record = me.getRecord(id)
         }
 
-        me.parent.fire(eventName, {body: me, data, record})
+        me.gridContainer.fire(eventName, {body: me, data, record})
     }
 
     /**
@@ -930,7 +935,7 @@ class GridBody extends Component {
      * @returns {Object|Number|null}
      */
     getColumn(field, returnIndex=false) {
-        let {columns} = this.parent,
+        let {columns} = this.gridContainer,
             column    = columns.get(field);
 
         if (column) {
@@ -980,7 +985,7 @@ class GridBody extends Component {
         if (cellId.includes('__cell-')) {
             let me            = this,
                 poolIndex     = parseInt(cellId.split('__cell-')[1]),
-                columns       = me.parent.columns,
+                columns       = me.gridContainer.columns,
                 {cellPoolSize, mountedColumns} = me,
                 i             = mountedColumns[0],
                 len           = mountedColumns[1],
@@ -1195,7 +1200,7 @@ class GridBody extends Component {
      */
     onScrollCapture(data) {
         super.onScrollCapture(data);
-        this.parent.scrollManager.onBodyScroll(data)
+        this.gridContainer.scrollManager.onBodyScroll(data)
     }
 
     /**

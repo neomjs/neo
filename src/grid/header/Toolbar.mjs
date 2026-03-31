@@ -26,12 +26,24 @@ class Toolbar extends BaseToolbar {
          */
         dragResortable: true,
         /**
+         * @member {Neo.grid.Container|null} gridContainer=null
+         * @protected
+         */
+        gridContainer: null,
+        /**
          * @member {Object} itemDefaults={ntype: 'grid-header-button'}
          * @reactive
          */
         itemDefaults: {
             ntype: 'grid-header-button'
         },
+        /**
+         * The section of the multi-body layout this toolbar belongs to.
+         * Valid values: 'start', 'end', or null (center).
+         * @member {String|null} layoutLock=null
+         * @protected
+         */
+        layoutLock: null,
         /**
          * @member {String} role='row'
          * @reactive
@@ -239,8 +251,10 @@ class Toolbar extends BaseToolbar {
      */
     async passSizeToBody(silent=false) {
         let me              = this,
+            gridContainer   = me.gridContainer,
+            layoutLock      = me.layoutLock,
+            body            = layoutLock === 'start' ? gridContainer.bodyStart : (layoutLock === 'end' ? gridContainer.bodyEnd : gridContainer.body),
             {items}         = me,
-            {body}          = me.parent,
             columnPositions = [],
             currentX        = 0,
             hasDynamicWidth = false,
