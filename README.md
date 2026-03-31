@@ -33,6 +33,34 @@ But performance is only half the story. With v11, Neo.mjs becomes the world's fi
 </p>
 
 </br></br>
+## 🚀 Jump In: Your First Neo.mjs App in Minutes
+
+Run this command:
+
+```bash
+npx neo-app@latest
+```
+
+This one-liner sets up everything you need to start building with Neo.mjs, including:
+
+* A new app workspace.
+* A pre-configured app shell.
+* A local development server.
+* Launching your app in a new browser window — all in one go.
+
+:book: More details? Check out our [Getting Started Guide](./.github/GETTING_STARTED.md)
+
+:student: Make sure to dive into the [Learning Section](https://neomjs.com/dist/production/apps/portal/#/learn/gettingstarted.Setup)
+
+Next steps:
+
+* :star: **Experience stunning Demos & Examples here**: [Neo.mjs Examples Portal](https://neomjs.com/dist/production/apps/portal/#/examples)
+* Many more are included inside the repos [apps](https://github.com/neomjs/neo/tree/dev/apps)
+  & [examples](https://github.com/neomjs/neo/tree/dev/examples) folders.
+* :blue_book: All Blog Posts are listed here: [Neo.mjs Blog](https://neomjs.com/dist/production/apps/portal/#/blog)
+* :robot: Get started with the **[AI Knowledge Base Quick Start Guide](./.github/AI_QUICK_START.md)**.
+
+</br></br>
 ## 🎯 Is Neo.mjs Right for You?
 
 **Neo.mjs is an Application Engine, not a website builder.**
@@ -50,7 +78,7 @@ But performance is only half the story. With v11, Neo.mjs becomes the world's fi
 * Developers unwilling to embrace the Actor Model (Workers).
 
 </br></br>
-## 🚀 The AI-Native Development Platform
+## 🚀 Agent OS & Web for Agents
 
 Neo.mjs v11 introduces a revolutionary approach to software development: **Context Engineering**. We've moved beyond simple "AI-assisted" coding to create a truly **AI-native** platform where AI agents are deeply integrated partners in the development process. This is made possible by a suite of dedicated **Model Context Protocol (MCP) servers** that give agents the context they need to understand, build, and reason about your code.
 
@@ -80,11 +108,11 @@ AI agents are "blind" in traditional compiled frameworks (React, Svelte) because
 This powerful tooling, co-created with AI agents, enabled us to ship **388 architectural enhancements in just 6 weeks**. This order-of-magnitude increase in velocity proves that Context Engineering solves the complexity bottleneck. To learn more about this paradigm shift, read our blog post: **[388 Tickets in 6 Weeks: Context Engineering Done Right](./learn/blog/context-engineering-done-right.md)**.
 
 </br></br>
-## 🔗 The Neural Link: Your App is a Living Graph
+## 🔗 Neural Link & Conversational UIs: Your App is a Living Graph
 
-**Most frameworks offer a "Read-Only" view of your code to AI. Neo.mjs offers "Read/Write" access to the Runtime.**
+**Most frameworks offer a "Read-Only" view of your code to AI. Neo.mjs offers "Read/Write" access to the Runtime, enabling true Conversational UIs.**
 
-Because Neo.mjs components are persistent objects (Lego Technic) rather than transient DOM nodes (Melted Plastic), the **Neural Link** allows AI agents to connect directly to the engine's memory.
+Because Neo.mjs components are persistent objects (Lego Technic) rather than transient DOM nodes (Melted Plastic), the **Neural Link** allows AI agents to connect directly to the engine's memory. This makes Neo.mjs the ultimate foundation for building Conversational UIs where the AI can mutate the interface based on user intent.
 
 * **Introspection:** Agents can query the Scene Graph (`get_component_tree`) to understand the exact state of the UI.
 * **Mutation:** Agents can hot-patch class methods, modify state, or re-parent components in real-time without a reload.
@@ -93,42 +121,14 @@ Because Neo.mjs components are persistent objects (Lego Technic) rather than tra
 **[📘 Read the Neural Link Guide](https://github.com/neomjs/neo/blob/dev/learn/guides/mcp/NeuralLink.md)**
 
 </br></br>
-## 🚀 Jump In: Your First Neo.mjs App in Minutes
-
-Run this command:
-
-```bash
-npx neo-app@latest
-```
-
-This one-liner sets up everything you need to start building with Neo.mjs, including:
-
-* A new app workspace.
-* A pre-configured app shell.
-* A local development server.
-* Launching your app in a new browser window — all in one go.
-
-:book: More details? Check out our [Getting Started Guide](./.github/GETTING_STARTED.md)
-
-:student: Make sure to dive into the [Learning Section](https://neomjs.com/dist/production/apps/portal/#/learn/gettingstarted.Setup)
-
-Next steps:
-
-* :star: **Experience stunning Demos & Examples here**: [Neo.mjs Examples Portal](https://neomjs.com/dist/production/apps/portal/#/examples)
-* Many more are included inside the repos [apps](https://github.com/neomjs/neo/tree/dev/apps)
-  & [examples](https://github.com/neomjs/neo/tree/dev/examples) folders.
-* :blue_book: All Blog Posts are listed here: [Neo.mjs Blog](https://neomjs.com/dist/production/apps/portal/#/blog)
-* :robot: Get started with the **[AI Knowledge Base Quick Start Guide](./.github/AI_QUICK_START.md)**.
-
-</br></br>
-## 📦 The Object Model: The Scene Graph
+## 📦 Object Permanence & Component Trees
 
 **Frameworks compile away. Engines stay alive.**
 
-In traditional frameworks, the source code is a blueprint that gets destroyed to create the DOM. In Neo.mjs, the source code instantiates a **Scene Graph**—a hierarchy of persistent objects that lives in the App Worker.
+In traditional frameworks, the source code is a blueprint that gets destroyed to create the DOM. In Neo.mjs, the source code instantiates a **Scene Graph**—a hierarchy of persistent objects that lives in the App Worker via **Object Permanence**.
 
 * **Lego Technic vs. Duplo:** Most framework components are like "melted plastic"—once rendered, they lose their identity. Neo.mjs components are like **Lego Technic**: precision-engineered parts that retain their state, methods, and relationships at runtime.
-* **The JSON Protocol:** Because every component adheres to a strict **serialization protocol** (toJSON), the entire application behaves as a mutable graph.
+* **JSON First UIs (Asymmetric VDOM):** Because every component adheres to a strict **JSON serialization protocol** (toJSON), the entire application behaves as a mutable graph. You build JSON blueprints off the main thread, and the engine handles the DOM independently.
 * **Runtime Permutation:** This allows AI agents (or you) to inspect, dismantle, and reconfigure the application on the fly—changing layouts, moving dashboards between windows, or hot-swapping themes without a reload.
 
 It's not just a view library; it's a **construction kit** for adaptive, living applications.
