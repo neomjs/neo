@@ -20,7 +20,7 @@ import DomAccess from '../DomAccess.mjs';
  *
  * @class Neo.main.addon.ScrollSync
  * @extends Neo.main.addon.Base
- * @see Neo.grid.VerticalScrollbar
+
  * @see Neo.grid.Container
  */
 class ScrollSync extends Base {

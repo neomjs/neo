@@ -148,8 +148,8 @@ class ScrollManager extends Base {
     onBodyScroll({scrollTop}) {
         let me = this;
 
-        me.scrollTop            = scrollTop;
-        me.gridBody.isScrolling = true;
+        me.scrollTop = scrollTop;
+        me.gridContainer.body.isScrolling = true;
 
         me.onBodyScrollEnd();
         me.syncGridBody()
@@ -161,22 +161,28 @@ class ScrollManager extends Base {
     onBodyScrollEnd() {
         let me = this;
 
-        me.gridBody.isScrolling = false;
+        me.gridContainer.body.isScrolling = false;
         me.syncGridBody()
     }
 
     /**
      * @param {Object} data
      * @param {Number} data.scrollLeft
+     * @param {Number} data.scrollTop
      * @param {Object} data.target
      */
-    onContainerScroll({scrollLeft, target}) {
+    onContainerScroll({scrollLeft, scrollTop, target}) {
         let me = this;
 
-        // We must ignore events for grid-scrollbar
-        if (target.id.includes('grid-container')) {
-            me.scrollLeft          = scrollLeft;
-            me.gridBody.isScrolling = true;
+        if (target.id === me.gridContainer.bodyWrapper?.id) {
+            me.scrollTop = scrollTop;
+            me.gridContainer.body.isScrolling = true;
+
+            me.onBodyScrollEnd();
+            me.syncGridBody()
+        } else if (target.id.includes('grid-container')) {
+            me.scrollLeft = scrollLeft;
+            me.gridContainer.body.isScrolling = true;
 
             me.onBodyScrollEnd();
             me.syncGridBody()
@@ -187,19 +193,9 @@ class ScrollManager extends Base {
      * @protected
      */
     syncGridBody() {
-        let me   = this,
-            body = me.gridBody;
+        let me = this;
 
-        body.skipCreateViewData = true;
-
-        body.set({
-            scrollLeft: me.scrollLeft,
-            scrollTop : me.scrollTop
-        });
-
-        body.skipCreateViewData = false;
-        body.createViewData();
-
+        me.gridContainer.syncBodies(me.scrollTop);
         me.gridContainer.headerToolbar.scrollLeft = me.scrollLeft
     }
 
@@ -258,9 +254,9 @@ class ScrollManager extends Base {
 
         if (active) {
             addon.register({
-                bodyId     : me.gridBody.id,
-                id         : me.id,
-                scrollbarId: me.gridContainer.scrollbar.id,
+                bodyId       : me.gridBody.id,
+                bodyWrapperId: me.gridContainer.bodyWrapper.id,
+                id           : me.id,
                 windowId
             })
         } else {

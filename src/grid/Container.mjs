@@ -4,7 +4,6 @@ import Collection        from '../collection/Base.mjs';
 import GridBody          from './Body.mjs';
 import ScrollManager     from './ScrollManager.mjs';
 import Store             from '../data/Store.mjs';
-import VerticalScrollbar from './VerticalScrollbar.mjs';
 import FooterToolbar     from './footer/Toolbar.mjs';
 import * as column       from './column/_export.mjs';
 import * as header       from './header/_export.mjs';
@@ -16,7 +15,6 @@ import {isDescriptor}    from '../core/ConfigSymbols.mjs';
  * `Neo.grid.Container` orchestrates the entire Grid component. It uses a composite architecture consisting of:
  * 1.  `headerToolbar` ({@link Neo.grid.header.Toolbar}): Manages column headers, sorting, and filtering UI.
  * 2.  `body` ({@link Neo.grid.Body}): The scrollable area containing the data rows.
- * 3.  `scrollbar` ({@link Neo.grid.VerticalScrollbar}): A virtualized scrollbar for handling large datasets.
  *
  * Key features include:
  * -   **Virtual Scrolling:** Only renders visible rows and columns (plus a small buffer) for high performance with large datasets.
@@ -170,11 +168,7 @@ class GridContainer extends BaseContainer {
          * @reactive
          */
         rowHeight_: 32,
-        /**
-         * @member {Neo.grid.Scrollbar|null} scrollbar=null
-         * @protected
-         */
-        scrollbar: null,
+
         /**
          * @member {Boolean} showHeaderFilters_=false
          * @reactive
@@ -304,18 +298,6 @@ class GridContainer extends BaseContainer {
         if (me.footerToolbar) {
             me.items.push(me.footerToolbar)
         }
-
-        me.scrollbar = Neo.create({
-            module  : VerticalScrollbar,
-            appName,
-            parentId: me.id,
-            rowHeight,
-            store,
-            theme   : me.theme,
-            windowId
-        });
-
-        me.vdom.cn.push(me.scrollbar.createVdomReference())
 
         me.vdom.id = me.getWrapperId();
 
@@ -450,15 +432,11 @@ class GridContainer extends BaseContainer {
      */
     afterSetRowHeight(value, oldValue) {
         if (value > 0) {
-            let {body, scrollbar} = this;
+            let {body, bodyEnd, bodyStart} = this;
 
-            if (scrollbar) {
-                scrollbar.rowHeight = value
-            }
-
-            if (body) {
-                body.rowHeight = value
-            }
+            if (body)      body.rowHeight = value;
+            if (bodyStart) bodyStart.rowHeight = value;
+            if (bodyEnd)   bodyEnd.rowHeight = value;
         }
     }
 
@@ -519,9 +497,9 @@ class GridContainer extends BaseContainer {
         oldValue?.un(listeners);
 
         // in case we dynamically change the store, grid.Body needs to get the new reference
-        if (me.body) {
-            me.body.store = value
-        }
+        if (me.body)      me.body.store = value;
+        if (me.bodyStart) me.bodyStart.store = value;
+        if (me.bodyEnd)   me.bodyEnd.store = value
 
         if (me.footerToolbar && me.footerToolbar.store !== value) {
             me.footerToolbar.store = value
@@ -537,8 +515,10 @@ class GridContainer extends BaseContainer {
      * @protected
      */
     afterSetUseInternalId(value, oldValue) {
-        if (oldValue !== undefined && this.body) {
-            this.body.useInternalId = value
+        if (oldValue !== undefined) {
+            if (this.body)      this.body.useInternalId = value;
+            if (this.bodyStart) this.bodyStart.useInternalId = value;
+            if (this.bodyEnd)   this.bodyEnd.useInternalId = value;
         }
     }
 
@@ -1160,10 +1140,14 @@ class GridContainer extends BaseContainer {
             await me.timeout(100);
             await me.passSizeToBody(silent)
         } else {
-            me.body[silent ? 'setSilent' : 'set']({
+            let config = {
                 availableHeight: containerRect.height - headerRect.height - (footerRect?.height || 0),
                 containerWidth : containerRect.width
-            })
+            };
+
+            me.body[silent ? 'setSilent' : 'set'](config);
+            me.bodyStart && me.bodyStart[silent ? 'setSilent' : 'set'](config);
+            me.bodyEnd   && me.bodyEnd[silent ? 'setSilent' : 'set'](config)
         }
     }
 
@@ -1235,6 +1219,40 @@ class GridContainer extends BaseContainer {
     }
 
     /**
+     * Pushes synchronized scrolling coordinates (like startIndex) into all active bodies
+     * @param {Number} scrollTop
+     */
+    syncBodies(scrollTop) {
+        let me               = this,
+            {body, bodyEnd, bodyStart, scrollManager} = me,
+            {bufferRowRange, rowHeight} = body,
+            newStartIndex    = Math.floor(scrollTop / rowHeight);
+
+        let updateBody = _body => {
+            _body.skipCreateViewData = true;
+
+            _body.set({
+                scrollLeft: scrollManager.scrollLeft, // Horizontal sync applies from scrollManager state
+                scrollTop : scrollTop
+            });
+
+            if (Math.abs(_body.startIndex - newStartIndex) >= bufferRowRange) {
+                _body.startIndex = newStartIndex
+            } else {
+                _body.visibleRows[0] = newStartIndex;
+                _body.visibleRows[1] = newStartIndex + _body.availableRows
+            }
+
+            _body.skipCreateViewData = false;
+            _body.createViewData();
+        };
+
+        updateBody(body);
+        bodyStart && updateBody(bodyStart);
+        bodyEnd   && updateBody(bodyEnd)
+    }
+
+    /**
      * Serializes the instance into a JSON-compatible object for the Neural Link.
      * @returns {Object}
      */
@@ -1249,7 +1267,7 @@ class GridContainer extends BaseContainer {
             footerToolbar    : me.footerToolbar?.toJSON(),
             headerToolbar    : me.headerToolbar?.toJSON(),
             rowHeight        : me.rowHeight,
-            scrollbar         : me.scrollbar?.toJSON(),
+
             scrollManager     : me.scrollManager?.toJSON(),
             showHeaderFilters : me.showHeaderFilters,
             sortable          : me.sortable,
