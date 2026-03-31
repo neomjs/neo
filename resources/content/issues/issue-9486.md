@@ -18,7 +18,7 @@ subIssues:
   - '[x] 9487 Grid Multi-Body: Refactor Layout Engine & SubGrid Partitioning'
   - '[x] 9488 Grid Multi-Body: SubGrid Row Pooling & Vertical Sync Refactoring'
   - '[ ] 9489 Grid Multi-Body: Decoupled Horizontal Scroller & Main Thread Sync'
-  - '[ ] 9490 Grid Multi-Body: Remove Obsolete GridColumnScrollPinning Addon & CSS Vars'
+  - '[x] 9490 Grid Multi-Body: Remove Obsolete GridColumnScrollPinning Addon & CSS Vars'
   - '[ ] 9491 Grid Multi-Body: Overhaul Column Drag & Drop (SortZone) across Split Headers'
   - '[ ] 9492 Grid Multi-Body: Adapt Selection Models for Split Rows'
   - '[ ] 9493 Grid Multi-Body: Enable Cross-Window SubGrid Detachment (Pop-out)'
@@ -28,7 +28,7 @@ subIssues:
   - '[x] 9497 Grid Multi-Body: Split Column Collections and Orchestration'
   - '[ ] 9498 Grid Multi-Body: Infinite Canvas Cross-Window Column Drag & Drop'
   - '[ ] 9499 Grid Multi-Body: Test Suite Refactoring & Expansion'
-subIssuesCompleted: 3
+subIssuesCompleted: 4
 subIssuesTotal: 13
 blockedBy: []
 blocking: []

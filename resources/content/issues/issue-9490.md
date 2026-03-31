@@ -1,7 +1,7 @@
 ---
 id: 9490
 title: 'Grid Multi-Body: Remove Obsolete GridColumnScrollPinning Addon & CSS Vars'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
@@ -10,16 +10,17 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-03-16T18:18:08Z'
-updatedAt: '2026-03-17T19:00:03Z'
+updatedAt: '2026-03-31T13:26:28Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9490'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 9486
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-03-31T13:26:28Z'
 ---
 # Grid Multi-Body: Remove Obsolete GridColumnScrollPinning Addon & CSS Vars
 
@@ -42,4 +43,10 @@ Because the V2 Multi-Body architecture completely removes the need for `translat
 - 2026-03-16T18:18:10Z @tobiu added the `grid` label
 - 2026-03-16T18:18:42Z @tobiu added parent issue #9486
 - 2026-03-17T19:00:03Z @tobiu assigned to @tobiu
+- 2026-03-31T13:25:57Z @tobiu referenced in commit `95d7367` - "fix: Remove obsolete GridColumnScrollPinning Addon & CSS Vars (#9490)"
+### @tobiu - 2026-03-31T13:26:27Z
+
+Resolved: Removed obsolete GridColumnScrollPinning addon, its references in Container/ScrollManager, and CSS locking variables. Verified on devindex app.
+
+- 2026-03-31T13:26:28Z @tobiu closed this issue
 
