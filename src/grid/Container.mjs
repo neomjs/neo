@@ -706,10 +706,13 @@ class GridContainer extends BaseContainer {
      * @returns {*}
      */
     createColumns(columns) {
-        let me               = this,
-            {columnDefaults} = me,
-            sorters          = me.store?.sorters,
-            columnClass, renderer;
+        let me                 = this,
+            {columnDefaults}   = me,
+            centerButtons      = [],
+            lockedEndButtons   = [],
+            lockedStartButtons = [],
+            sorters            = me.store?.sorters,
+            buttonConfig, columnClass, renderer;
 
         if (columns) {
             if (columnDefaults) {
@@ -735,6 +738,16 @@ class GridContainer extends BaseContainer {
                     scope: me
                 };
 
+                buttonConfig = {...column};
+
+                if (column.locked === 'start') {
+                    lockedStartButtons.push(buttonConfig);
+                } else if (column.locked === 'end') {
+                    lockedEndButtons.push(buttonConfig);
+                } else {
+                    centerButtons.push(buttonConfig);
+                }
+
                 if (column.component && !column.type) {
                     column.type = 'component'
                 }
@@ -758,7 +771,7 @@ class GridContainer extends BaseContainer {
             me.centerColumns      = columns.filter(c => !c.locked);
             me.lockedEndColumns   = columns.filter(c => c.locked === 'end');
 
-            me.createOrUpdateSubGrids();
+            me.createOrUpdateSubGrids(lockedStartButtons, centerButtons, lockedEndButtons);
 
             return me._columns
         }
@@ -767,7 +780,7 @@ class GridContainer extends BaseContainer {
         me.centerColumns      = columns.filter(c => !c.locked);
         me.lockedEndColumns   = columns.filter(c => c.locked === 'end');
 
-        me.createOrUpdateSubGrids();
+        me.createOrUpdateSubGrids(lockedStartButtons, centerButtons, lockedEndButtons);
 
         return Neo.create(Collection, {
             keyProperty: 'dataField',
@@ -777,15 +790,20 @@ class GridContainer extends BaseContainer {
     }
 
     /**
+     * @param {Object[]} [lockedStartButtons]
+     * @param {Object[]} [centerButtons]
+     * @param {Object[]} [lockedEndButtons]
      * @protected
      */
-    createOrUpdateSubGrids() {
+    createOrUpdateSubGrids(lockedStartButtons, centerButtons, lockedEndButtons) {
         let me = this;
 
         // --- Center (Default) ---
         if (me.centerColumns.length > 0) {
-            me.headerToolbar.items = me.centerColumns;
-            me.headerToolbar.createItems();
+            if (centerButtons) {
+                me.headerToolbar.items = centerButtons;
+                me.headerToolbar.createItems();
+            }
         }
 
         // --- Start (Left) ---
@@ -795,7 +813,7 @@ class GridContainer extends BaseContainer {
                     ...me.headerToolbar.initialConfig,
                     flex         : 'none',
                     gridContainer: me,
-                    items        : me.lockedStartColumns,
+                    items        : lockedStartButtons || [],
                     layoutLock   : 'start',
                     parentId     : me.headerWrapper.id,
                     theme        : me.theme,
@@ -810,8 +828,8 @@ class GridContainer extends BaseContainer {
                     theme        : me.theme,
                     windowId     : me.windowId
                 });
-            } else {
-                me.headerStart.items = me.lockedStartColumns;
+            } else if (lockedStartButtons) {
+                me.headerStart.items = lockedStartButtons;
                 me.headerStart.createItems();
             }
         } else if (me.headerStart) {
@@ -827,7 +845,7 @@ class GridContainer extends BaseContainer {
                     ...me.headerToolbar.initialConfig,
                     flex         : 'none',
                     gridContainer: me,
-                    items        : me.lockedEndColumns,
+                    items        : lockedEndButtons || [],
                     layoutLock   : 'end',
                     parentId     : me.headerWrapper.id,
                     theme        : me.theme,
@@ -842,8 +860,8 @@ class GridContainer extends BaseContainer {
                     theme        : me.theme,
                     windowId     : me.windowId
                 });
-            } else {
-                me.headerEnd.items = me.lockedEndColumns;
+            } else if (lockedEndButtons) {
+                me.headerEnd.items = lockedEndButtons;
                 me.headerEnd.createItems();
             }
         } else if (me.headerEnd) {
@@ -963,6 +981,19 @@ class GridContainer extends BaseContainer {
     }
 
     /**
+     * @param {String} dataField
+     * @returns {Neo.grid.header.Button|null}
+     * @protected
+     */
+    getButton(dataField) {
+        let me = this;
+        return me.headerStart?.getColumn(dataField) ||
+               me.headerToolbar?.getColumn(dataField) ||
+               me.headerEnd?.getColumn(dataField) ||
+               null
+    }
+
+    /**
      * @param {Object} data
      */
     onColumnsMutate(data) {
@@ -973,6 +1004,58 @@ class GridContainer extends BaseContainer {
         me.lockedEndColumns   = me._columns.items.filter(c => c.locked === 'end');
 
         me.createOrUpdateSubGrids();
+
+        me.lockedStartColumns.forEach((col, targetIndex) => {
+            let btn = me.getButton(col.dataField);
+
+            if (btn) {
+                if (btn.parentId !== me.headerStart.id) {
+                    Neo.getComponent(btn.parentId).remove(btn, false);
+                    me.headerStart.add(btn);
+                }
+
+                let currentIndex = me.headerStart.indexOf(btn);
+
+                if (currentIndex !== targetIndex) {
+                    me.headerStart.moveTo(currentIndex, targetIndex)
+                }
+            }
+        });
+
+        me.centerColumns.forEach((col, targetIndex) => {
+            let btn = me.getButton(col.dataField);
+
+            if (btn) {
+                if (btn.parentId !== me.headerToolbar.id) {
+                    Neo.getComponent(btn.parentId).remove(btn, false);
+                    me.headerToolbar.add(btn);
+                }
+
+                let currentIndex = me.headerToolbar.indexOf(btn);
+
+                if (currentIndex !== targetIndex) {
+                    me.headerToolbar.moveTo(currentIndex, targetIndex)
+                }
+            }
+        });
+
+        me.lockedEndColumns.forEach((col, targetIndex) => {
+            let btn = me.getButton(col.dataField);
+
+            if (btn) {
+                if (btn.parentId !== me.headerEnd.id) {
+                    Neo.getComponent(btn.parentId).remove(btn, false);
+                    me.headerEnd.add(btn);
+                }
+
+                let currentIndex = me.headerEnd.indexOf(btn);
+
+                if (currentIndex !== targetIndex) {
+                    me.headerEnd.moveTo(currentIndex, targetIndex)
+                }
+            }
+        });
+
         me.updateColCount()
     }
 
