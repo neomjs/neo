@@ -1,7 +1,7 @@
 ---
 id: 9489
 title: 'Grid Multi-Body: Decoupled Horizontal Scroller & Main Thread Sync'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
@@ -9,16 +9,17 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-03-16T18:16:28Z'
-updatedAt: '2026-03-17T18:59:06Z'
+updatedAt: '2026-03-31T15:02:42Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9489'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 9486
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-03-31T15:02:42Z'
 ---
 # Grid Multi-Body: Decoupled Horizontal Scroller & Main Thread Sync
 
@@ -48,4 +49,9 @@ We must build a decoupled, "fake" horizontal scrollbar that stays pinned to the 
 - 2026-03-16T18:16:29Z @tobiu added the `grid` label
 - 2026-03-16T18:16:41Z @tobiu added parent issue #9486
 - 2026-03-17T18:59:06Z @tobiu assigned to @tobiu
+### @tobiu - 2026-03-31T15:02:40Z
+
+Resolved. The decoupled horizontal scroller has been structurally integrated alongside the multi-body wrapper architecture, and the `GridHorizontalScrollSync` Main Thread Addon has been refactored to translate its scrolling output to both the `bodyCenter` and the `headerCenter`. Furthermore, trackpad physics (`wheel` events) and drag-to-scroll functionalities have been seamlessly bridged back to the new architecture via #9613.
+
+- 2026-03-31T15:02:42Z @tobiu closed this issue
 

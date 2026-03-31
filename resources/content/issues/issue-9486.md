@@ -17,7 +17,7 @@ parentIssue: null
 subIssues:
   - '[x] 9487 Grid Multi-Body: Refactor Layout Engine & SubGrid Partitioning'
   - '[x] 9488 Grid Multi-Body: SubGrid Row Pooling & Vertical Sync Refactoring'
-  - '[ ] 9489 Grid Multi-Body: Decoupled Horizontal Scroller & Main Thread Sync'
+  - '[x] 9489 Grid Multi-Body: Decoupled Horizontal Scroller & Main Thread Sync'
   - '[x] 9490 Grid Multi-Body: Remove Obsolete GridColumnScrollPinning Addon & CSS Vars'
   - '[ ] 9491 Grid Multi-Body: Overhaul Column Drag & Drop (SortZone) across Split Headers'
   - '[ ] 9492 Grid Multi-Body: Adapt Selection Models for Split Rows'
@@ -28,8 +28,9 @@ subIssues:
   - '[x] 9497 Grid Multi-Body: Split Column Collections and Orchestration'
   - '[ ] 9498 Grid Multi-Body: Infinite Canvas Cross-Window Column Drag & Drop'
   - '[ ] 9499 Grid Multi-Body: Test Suite Refactoring & Expansion'
-subIssuesCompleted: 4
-subIssuesTotal: 13
+  - '[ ] 9611 Grid Multi-Body: Native Vertical Scrollbar & Alignment Spacer'
+subIssuesCompleted: 5
+subIssuesTotal: 14
 blockedBy: []
 blocking: []
 ---
@@ -148,4 +149,6 @@ Resolved: Stabilized Grid Multi-Body Architecture by decoupling column instantia
 
 - 2026-03-31T12:12:50Z @github-actions cross-referenced by #9609
 - 2026-03-31T12:14:10Z @tobiu reopened this issue
+- 2026-03-31T14:07:03Z @tobiu added sub-issue #9611
+- 2026-03-31T14:25:27Z @tobiu cross-referenced by #9612
 
