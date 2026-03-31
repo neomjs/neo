@@ -233,7 +233,7 @@ class ScrollManager extends Base {
 
         if (active) {
             addon.register({
-                bodyId       : me.gridBody.id,
+                bodyIds      : [me.gridContainer.bodyStart?.id, me.gridContainer.body?.id, me.gridContainer.bodyEnd?.id].filter(Boolean),
                 bodyWrapperId: me.gridContainer.bodyWrapper?.id,
                 id           : me.id,
                 windowId
@@ -254,14 +254,14 @@ class ScrollManager extends Base {
 
         if (active) {
             let scrollerId    = me.gridContainer.horizontalScrollbar?.id,
-                bodyWrapperId = me.gridContainer.bodyWrapper?.id,
+                bodyId        = me.gridContainer.body?.id,
                 headerId      = me.gridContainer.headerWrapper?.id;
 
-            if (scrollerId && bodyWrapperId && headerId) {
+            if (scrollerId && bodyId && headerId) {
                 addon.register({
                     id        : me.id + '__h_scroll',
                     scrollerId,
-                    bodyId    : bodyWrapperId,
+                    bodyId,
                     headerId,
                     windowId
                 });
