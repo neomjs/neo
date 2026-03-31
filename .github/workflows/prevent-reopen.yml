@@ -16,6 +16,26 @@ jobs:
           script: |
             const issue = context.payload.issue;
             
+            // 1. Fetch the timeline events to find when it was actually closed
+            const events = await github.rest.issues.listEvents({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+              per_page: 50
+            });
+            
+            const closeEvents = events.data.filter(e => e.event === 'closed');
+            if (closeEvents.length > 0) {
+              const lastClosed = new Date(closeEvents[closeEvents.length - 1].created_at);
+              const hoursSinceClose = (Date.now() - lastClosed.getTime()) / (1000 * 60 * 60);
+              
+              // 2. The Grace Period Check (24 hours)
+              if (hoursSinceClose < 24) {
+                console.log(`Issue was closed ${hoursSinceClose.toFixed(1)} hours ago. Grace period active. Allowing reopen.`);
+                return; // Exit script gracefully without re-closing
+              }
+            }
+            
             // Close it again
             await github.rest.issues.update({
               owner: context.repo.owner,
