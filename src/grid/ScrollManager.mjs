@@ -94,10 +94,12 @@ class ScrollManager extends Base {
     afterSetMounted(value, oldValue) {
         if (value) {
             this.dragScroll       && this.updateDragScrollAddon(true);
-            this.rowScrollPinning && this.updateRowScrollPinningAddon(true)
+            this.rowScrollPinning && this.updateRowScrollPinningAddon(true);
+            this.updateGridHorizontalScrollSyncAddon(true)
         } else if (oldValue) {
             this.updateDragScrollAddon(false);
-            this.updateRowScrollPinningAddon(false)
+            this.updateRowScrollPinningAddon(false);
+            this.updateGridHorizontalScrollSyncAddon(false)
         }
     }
 
@@ -121,9 +123,11 @@ class ScrollManager extends Base {
         if (oldValue && me.mounted) {
             me.dragScroll       && me.updateDragScrollAddon(false, oldValue);
             me.rowScrollPinning && me.updateRowScrollPinningAddon(false, oldValue);
+            me.updateGridHorizontalScrollSyncAddon(false, oldValue);
 
             me.dragScroll       && me.updateDragScrollAddon(true, value);
-            me.rowScrollPinning && me.updateRowScrollPinningAddon(true, value)
+            me.rowScrollPinning && me.updateRowScrollPinningAddon(true, value);
+            me.updateGridHorizontalScrollSyncAddon(true, value);
         }
     }
 
@@ -132,6 +136,7 @@ class ScrollManager extends Base {
      */
     destroy(...args) {
         this.updateRowScrollPinningAddon(false);
+        this.updateGridHorizontalScrollSyncAddon(false);
         super.destroy(...args)
     }
 
@@ -227,12 +232,40 @@ class ScrollManager extends Base {
         if (active) {
             addon.register({
                 bodyId       : me.gridBody.id,
-                bodyWrapperId: me.gridContainer.bodyWrapper.id,
+                bodyWrapperId: me.gridContainer.bodyWrapper?.id,
                 id           : me.id,
                 windowId
             })
         } else {
             addon.unregister({id: me.id, windowId})
+        }
+    }
+
+    /**
+     * @param {Boolean} active
+     * @param {String|null} [windowId=this.windowId]
+     * @returns {Promise<void>}
+     */
+    async updateGridHorizontalScrollSyncAddon(active, windowId=this.windowId) {
+        let me    = this,
+            addon = await Neo.currentWorker.getAddon('GridHorizontalScrollSync', windowId);
+
+        if (active) {
+            let scrollerId    = me.gridContainer.horizontalScrollbar?.id,
+                bodyWrapperId = me.gridContainer.bodyWrapper?.id,
+                headerId      = me.gridContainer.headerWrapper?.id;
+
+            if (scrollerId && bodyWrapperId && headerId) {
+                addon.register({
+                    id        : me.id + '__h_scroll',
+                    scrollerId,
+                    bodyId    : bodyWrapperId,
+                    headerId,
+                    windowId
+                });
+            }
+        } else {
+            addon.unregister({id: me.id + '__h_scroll', windowId})
         }
     }
 
