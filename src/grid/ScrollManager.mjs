@@ -193,10 +193,7 @@ class ScrollManager extends Base {
      * @protected
      */
     syncGridBody() {
-        let me = this;
-
-        me.gridContainer.syncBodies(me.scrollTop);
-        me.gridContainer.headerToolbar.scrollLeft = me.scrollLeft
+        this.gridContainer.syncBodies(this.scrollTop)
     }
 
     /**
