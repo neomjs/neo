@@ -910,7 +910,6 @@ class GridContainer extends BaseContainer {
         if (me.bodyStart) me.bodyStart.createViewData();
         if (me.bodyEnd)   me.bodyEnd.createViewData();
 
-        me.scrollManager?.updateColumnScrollPinningAddon()
     }
 
     /**

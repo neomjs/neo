@@ -94,12 +94,10 @@ class ScrollManager extends Base {
     afterSetMounted(value, oldValue) {
         if (value) {
             this.dragScroll       && this.updateDragScrollAddon(true);
-            this.rowScrollPinning && this.updateRowScrollPinningAddon(true);
-            this.updateColumnScrollPinningAddon()
+            this.rowScrollPinning && this.updateRowScrollPinningAddon(true)
         } else if (oldValue) {
             this.updateDragScrollAddon(false);
-            this.updateRowScrollPinningAddon(false);
-            this.updateColumnScrollPinningAddon(false)
+            this.updateRowScrollPinningAddon(false)
         }
     }
 
@@ -123,11 +121,9 @@ class ScrollManager extends Base {
         if (oldValue && me.mounted) {
             me.dragScroll       && me.updateDragScrollAddon(false, oldValue);
             me.rowScrollPinning && me.updateRowScrollPinningAddon(false, oldValue);
-            me.updateColumnScrollPinningAddon(false, oldValue);
 
             me.dragScroll       && me.updateDragScrollAddon(true, value);
-            me.rowScrollPinning && me.updateRowScrollPinningAddon(true, value);
-            me.updateColumnScrollPinningAddon(value)
+            me.rowScrollPinning && me.updateRowScrollPinningAddon(true, value)
         }
     }
 
@@ -136,7 +132,6 @@ class ScrollManager extends Base {
      */
     destroy(...args) {
         this.updateRowScrollPinningAddon(false);
-        this.updateColumnScrollPinningAddon(false);
         super.destroy(...args)
     }
 
@@ -197,29 +192,6 @@ class ScrollManager extends Base {
 
         me.gridContainer.syncBodies(me.scrollTop);
         me.gridContainer.headerToolbar.scrollLeft = me.scrollLeft
-    }
-
-    /**
-     * @param {Boolean} [active]
-     * @param {String|null} [windowId=this.windowId]
-     * @returns {Promise<void>}
-     */
-    async updateColumnScrollPinningAddon(active, windowId=this.windowId) {
-        let me = this;
-
-        active = active ?? (me.mounted && me.gridContainer?.hasLockedColumns);
-
-        let addon = await Neo.currentWorker.getAddon('GridColumnScrollPinning', windowId);
-
-        if (active) {
-            addon.register({
-                containerId: me.gridContainer.id,
-                id         : me.id,
-                windowId
-            })
-        } else {
-            addon.unregister({id: me.id, windowId})
-        }
     }
 
     /**
