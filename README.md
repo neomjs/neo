@@ -11,21 +11,23 @@
   <a href="./CONTRIBUTING.md"><img src="https://img.shields.io/badge/PRs-welcome-green.svg?logo=GitHub&logoColor=white" alt="PRs Welcome"></a>
 </p>
 
-# The Application Engine for the AI Era
-🚀 **True Multithreading Meets Context Engineering — Build Desktop-Class UIs with an AI Co-Developer.**
+# Neo.mjs: The Application Engine for the AI Era
+🚀 **True Multithreading Meets AI-Native Tooling — Build "Impossible" Desktop-Class Web Apps.**
 
-> **⚡ The Mental Model:**
-> **Neo.mjs is a multi-threaded application runtime where UI components are persistent objects—not ephemeral render results.**
-> This architectural shift enables desktop-class performance, multi-window orchestration, and AI-driven runtime mutation that traditional frameworks cannot achieve.
+> **⚡ The Paradigm Shift:**
+> **Neo.mjs is not a framework. It is a multi-threaded Application Engine.** 
+> While legacy, single-threaded frameworks compile code into static, transient DOM nodes, Neo.mjs instantiates a persistent **Scene Graph** inside a dedicated Web Worker. 
+> This architecture unlocks unprecedented desktop-fluidity, multi-window orchestration, and a runtime that is natively fluent for AI agents.
 
 </br></br>
-💻 ***Neo.mjs is not a framework; it is an Application Engine for the web. Just as Unreal Engine provides a complete runtime and toolchain for games, Neo.mjs provides a multi-threaded runtime and AI-native toolchain for enterprise applications.***
+💻 ***The "Original Sin" of the legacy web is the single-threaded bottleneck. Neo.mjs rectifies this by treating the browser like an operating system, giving you an Unreal Engine equivalent for enterprise web development.***
 
-Imagine web applications that never jank, no matter how complex the logic, how many real-time updates they handle, or how many browser windows they span. Neo.mjs is engineered from the ground up to deliver **desktop-like fluidity and scalability**. **While it excels for Single Page Apps (SPAs), Neo.mjs is simply the best option for browser-based multi-window applications**, operating fundamentally different from traditional frameworks.
+Imagine building financial trading desks that never jank processing 40k+ ops/sec, or multi-window control rooms where UI components seamlessly drag-and-drop across monitors. Neo.mjs was engineered for this level of complexity. 
+**While it supports Single Page Apps (SPAs), Neo.mjs is the undisputed engine for orchestrating massive, multi-window architectures**, operating in a completely different paradigm than legacy frameworks.
 
-By leveraging a **pioneering Off-Main-Thread (OMT) architecture**, Neo.mjs ensures your UI remains butter-smooth. The main thread is kept free for one purpose: **flawless user interactions and seamless DOM updates.**
+By leveraging a **pioneering Off-Main-Thread (OMT) architecture**, Neo.mjs guarantees UI fluidity. The main thread is restricted to one job: **flawless user interactions and rapid DOM patching.**
 
-But performance is only half the story. With v11, Neo.mjs becomes the world's first **AI-native** frontend platform, designed to be developed *with* AI agents as first-class partners in your workflow.
+But performance is only half the equation. Neo.mjs is the world's first **AI-native** application engine. Because its UI is entirely JSON-driven and components are persistent objects (not melted compilation output), **Neo.mjs is the easiest Application Engine in the world for an AI to understand and drive.** Humans and LLMs can now collaborate to build applications that were previously impossible.
 
 <p align="center">
   <a href="https://youtu.be/pYfM28Pz6_0"><img height="316px" width="400px" src="https://raw.githubusercontent.com/neomjs/pages/master/resources_pub/images/neo33s.png" alt="Neo.mjs Performance Demo 1 (YouTube Video)"></a>
@@ -67,9 +69,9 @@ Next steps:
 *It is a mature, enterprise-grade platform with over 130,000 lines of production-ready code.*
 
 ✅ **Perfect For:**
-* **Financial & Trading Platforms:** processing 10k+ ticks/sec without UI freeze.
+* **Financial & Trading Platforms:** processing 40k+ ops/sec without UI freeze.
 * **Multi-Window Workspaces:** IDEs, Control Rooms, and Dashboards that span multiple screens.
-* **AI-Native Interfaces:** Apps where the UI structure must be mutable by AI agents at runtime.
+* **AI Workforce:** Apps where the UI structure must be mutated by AI agents at runtime.
 * **Enterprise SPAs:** Complex logic that demands the stability of a desktop application.
 
 ❌ **Not Designed For:**
@@ -101,11 +103,18 @@ This isn't just about generating code; it's about creating a self-aware developm
     * **[📘 Read the Guide](https://github.com/neomjs/neo/blob/dev/learn/guides/mcp/CodeExecution.md)**
 
 ### Why an Engine Architecture Matters for AI
-AI agents are "blind" in traditional compiled frameworks (React, Svelte) because the code they write (JSX/Templates) is destroyed by the build step—the runtime reality (DOM nodes) looks nothing like the source.
+AI agents are "blind" in legacy compiled frameworks because the code they write (JSX/Templates) is destroyed by the build step—the runtime reality (DOM nodes) looks nothing like the source.
 
-**In Neo.mjs, the map IS the territory.** Because components are persistent objects in the App Worker (not ephemeral DOM nodes), the AI can query their state, methods, and inheritance chain at any time. It's like inspecting a running game character in Unreal Engine, rather than parsing the pixels on the screen. The AI sees exactly what the engine sees, enabling it to reason about state, inheritance, and topology with perfect accuracy. Furthermore, the **Neural Link** allows agents to query the runtime for the **Ground Truth**, enabling them to verify reality and solve complex, runtime-dependent problems that static analysis cannot touch.
+**In Neo.mjs, the map IS the territory.** Because components are persistent objects in the App Worker (not ephemeral DOM nodes), the AI can query their state, methods, and inheritance chain at any time. It's like inspecting a running game character in Unreal Engine, rather than parsing the pixels on the screen. The AI sees exactly what the engine sees. The **Neural Link** allows agents to query the runtime for the **Ground Truth**, enabling them to verify reality and solve complex, runtime-dependent problems that static analysis cannot touch. Furthermore, Neo.mjs has been exclusively **JSON-first** for 6 years, giving LLMs unparalleled fluency to read, write, and orchestrate complex UI hierarchies.
 
-This powerful tooling, co-created with AI agents, enabled us to ship **388 architectural enhancements in just 6 weeks**. This order-of-magnitude increase in velocity proves that Context Engineering solves the complexity bottleneck. To learn more about this paradigm shift, read our blog post: **[388 Tickets in 6 Weeks: Context Engineering Done Right](./learn/blog/context-engineering-done-right.md)**.
+This powerful AI tooling enabled us to ship **1,064 tickets across 3,185 commits in just 3 months** (Jan-Mar 2026). This unprecedented, order-of-magnitude increase in velocity proves that Context Engineering solves the complexity bottleneck. To learn more about this paradigm shift, read our blog post: **[388 Tickets in 6 Weeks: Context Engineering Done Right](./learn/blog/context-engineering-done-right.md)** (from when the journey began).
+
+### Built For AI, By AI (The Zero-Hallucination Engine)
+Neo.mjs sets the industry standard for AI-driven software engineering because it provides a **closed-loop verification system**. Autonomous agents aren't just generating code; they are rigorously co-authoring the engine itself. We achieve this by systematically eradicating AI hallucinations through three pillars:
+
+1. **Test-Driven Verification:** Our AI workforce autonomously writes, runs, and debugs full suites of Playwright Unit, Component, and E2E tests. Code changes are not committed unless tests pass, ensuring that AI-generated logic is structurally sound, mathematically verified, and free of hallucinations.
+2. **Runtime Ground Truth (Neural Link):** Beyond limited static code analysis, the Neural Link allows agents to inspect live Scene Graphs at runtime. If an AI agent modifies a layout, it can immediately query the engine to verify if the components rendered correctly, closing the "blind spot" that plagues all other web frameworks. 
+3. **Continuous Learning (Memory Core):** Mistakes are only made once. Through the Memory Core, AI agents recall historical traps, track evolving best practices, and learn from experience across thousands of developer sessions.
 
 </br></br>
 ## 🔗 Neural Link & Conversational UIs: Your App is a Living Graph
@@ -259,7 +268,7 @@ This is not a small library—it's a complete ecosystem with more source code th
 </br></br>
 ## 📚 Foundational Architecture: The Core Principles
 
-The v10 release marked a significant evolution of the Neo.mjs core, introducing a new functional component model and a revolutionary two-tier reactivity system. These principles form the bedrock of the framework today. We've published a five-part blog series that dives deep into this architecture:
+The v10 release marked a significant evolution of the Neo.mjs core, introducing a new functional component model and a revolutionary two-tier reactivity system. These principles form the bedrock of the engine today. We've published a five-part blog series that dives deep into this architecture:
 
 1.  **[A Frontend Love Story: Why the Strategies of Today Won't Build the Apps of Tomorrow](./learn/blog/v10-post1-love-story.md)**
     *   *An introduction to the core problems in modern frontend development and the architectural vision of Neo.mjs.*
