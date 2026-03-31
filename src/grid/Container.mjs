@@ -5,6 +5,7 @@ import GridBody          from './Body.mjs';
 import ScrollManager     from './ScrollManager.mjs';
 import Store             from '../data/Store.mjs';
 import FooterToolbar     from './footer/Toolbar.mjs';
+import HorizontalScrollbar from './HorizontalScrollbar.mjs';
 import * as column       from './column/_export.mjs';
 import * as header       from './header/_export.mjs';
 import {isDescriptor}    from '../core/ConfigSymbols.mjs';
@@ -153,6 +154,11 @@ class GridContainer extends BaseContainer {
          */
         headerWrapper: null,
         /**
+         * @member {Neo.grid.HorizontalScrollbar|null} horizontalScrollbar=null
+         * @protected
+         */
+        horizontalScrollbar: null,
+        /**
          * @member {Object} layout={ntype: 'vbox', align: 'stretch'}
          * @reactive
          */
@@ -283,17 +289,24 @@ class GridContainer extends BaseContainer {
 
         me.bodyWrapper = Neo.create(BaseContainer, {
             appName,
-            cls     : ['neo-body-wrapper'],
+            cls     : ['neo-grid-body-wrapper'],
             flex    : 1,
             layout  : {ntype: 'hbox', align: 'stretch'},
             parentId: me.id,
-            style   : {overflowY: 'auto'},
             theme   : me.theme,
             windowId,
             items   : [me.body]
         });
 
-        me.items = [me.headerWrapper, me.bodyWrapper];
+        me.horizontalScrollbar = Neo.create(HorizontalScrollbar, {
+            appName,
+            flex    : 'none',
+            parentId: me.id,
+            theme   : me.theme,
+            windowId
+        });
+
+        me.items = [me.headerWrapper, me.bodyWrapper, me.horizontalScrollbar];
 
         if (me.footerToolbar) {
             me.items.push(me.footerToolbar)

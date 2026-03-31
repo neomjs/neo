@@ -408,7 +408,12 @@ class GridBody extends Component {
 
             me.vdom.width = value + 'px';
             me.vdom.cn[0].width = value + 'px';
-            me.update()
+            me.update();
+
+            // Only sync the center body's width to the Scroller addon
+            if (me === me.gridContainer?.body && me.gridContainer.horizontalScrollbar) {
+                me.gridContainer.horizontalScrollbar.centerWidth = value;
+            }
         }
     }
 

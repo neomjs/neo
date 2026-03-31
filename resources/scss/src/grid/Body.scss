@@ -1,10 +1,10 @@
 .neo-grid-body-wrapper {
     height         : 100%;
+    min-width      : 0;
     overflow-anchor: none;
     overflow-x     : hidden;
-    overflow-y     : visible;
+    overflow-y     : scroll;
     position       : relative;
-    scrollbar-width: none;
 
     &:focus {
         outline: none;
