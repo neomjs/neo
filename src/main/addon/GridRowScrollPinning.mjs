@@ -108,7 +108,7 @@ class GridRowScrollPinning extends Base {
         let me    = this,
             state = me.registrations.get(id);
 
-        if (!state || !state.wrapperNode || !state.contentNode) {
+        if (!state || !state.wrapperNode || !state.contentNodes?.length) {
             return
         }
 
@@ -119,9 +119,13 @@ class GridRowScrollPinning extends Base {
         // We explicitly ignore Wheel, Trackpad, Keyboard, and Body Drag scrolling,
         // allowing their native/custom physics to operate perfectly.
         if (state.isThumbDragging) {
-            state.contentNode.style.setProperty('--grid-row-pin-offset', `${deltaY}px`);
-        } else if (state.contentNode.style.getPropertyValue('--grid-row-pin-offset') !== '0px') {
-            state.contentNode.style.setProperty('--grid-row-pin-offset', '0px');
+            state.contentNodes.forEach(node => {
+                node.style.setProperty('--grid-row-pin-offset', `${deltaY}px`);
+            });
+        } else if (state.contentNodes[0].style.getPropertyValue('--grid-row-pin-offset') !== '0px') {
+            state.contentNodes.forEach(node => {
+                node.style.setProperty('--grid-row-pin-offset', '0px');
+            });
         }
     }
 
@@ -139,7 +143,13 @@ class GridRowScrollPinning extends Base {
         }
 
         me.registrations.forEach(state => {
-            let bodyMeta = meta[state.bodyId];
+            let bodyMeta;
+
+            state.bodyIds.forEach(bodyId => {
+                if (meta[bodyId]) {
+                    bodyMeta = meta[bodyId];
+                }
+            });
 
             if (bodyMeta) {
                 // Silently update the baseline state.
@@ -235,21 +245,21 @@ class GridRowScrollPinning extends Base {
     /**
      * Registers a grid for row scroll pinning and attaches native scroll listener.
      * @param {Object} data
-     * @param {String} data.bodyId        The ID of the grid body
+     * @param {String[]} data.bodyIds       The IDs of the grid body nodes
      * @param {String} data.bodyWrapperId The ID of the vertical scroll wrapper
      * @param {String} data.id            Unique identifier for the registration (e.g. ScrollManager id)
      */
-    register({bodyId, bodyWrapperId, id}) {
+    register({bodyIds, bodyWrapperId, id}) {
         let me            = this,
             wrapperNode   = DomAccess.getElement(bodyWrapperId),
-            contentNode   = DomAccess.getElement(bodyId);
+            contentNodes  = bodyIds.map(bodyId => DomAccess.getElement(bodyId)).filter(Boolean);
 
-        if (wrapperNode && contentNode) {
+        if (wrapperNode && contentNodes.length > 0) {
             me.registrations.set(id, {
                 id,
-                bodyId,
+                bodyIds,
                 wrapperNode,
-                contentNode,
+                contentNodes,
                 isThumbDragging: false,
                 scrollTimeoutId: null,
                 workerScrollTop: 0

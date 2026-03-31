@@ -44,7 +44,7 @@ class GridHorizontalScrollSync extends Base {
             scrollLeft   = scrollerNode.scrollLeft;
 
         // Synchronously update both nodes in the identical animation frame
-        if (bodyNode)   { bodyNode.scrollLeft = scrollLeft; }
+        if (bodyNode)   { bodyNode.style.setProperty('--grid-scroll-left', scrollLeft + 'px'); }
         if (headerNode) { headerNode.scrollLeft = scrollLeft; }
     }
 

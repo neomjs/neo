@@ -13,7 +13,7 @@
 
 .neo-grid-body {
     height    : 100%;
-    overflow-x: visible;
+    overflow-x: hidden;
 
     .neo-grid-cell {
         &.neo-is-modified {
@@ -37,6 +37,10 @@
 
     &.neo-is-scrolling * {
         pointer-events: none !important;
+    }
+
+    .neo-grid-body-content {
+        position: relative;
     }
 
     .neo-center {
