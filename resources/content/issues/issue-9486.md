@@ -9,10 +9,10 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-03-16T17:41:38Z'
-updatedAt: '2026-03-17T19:00:57Z'
+updatedAt: '2026-03-31T10:02:55Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9486'
 author: tobiu
-commentsCount: 2
+commentsCount: 3
 parentIssue: null
 subIssues:
   - '[ ] 9487 Grid Multi-Body: Refactor Layout Engine & SubGrid Partitioning'
@@ -112,5 +112,26 @@ This architecture changes the core assumption that "one record = one DOM node in
 ### @tobiu - 2026-03-17T19:00:57Z
 
 quick info: this epic is currently planned **after** the release of neo v12.1, since the scope is massive.
+
+- 2026-03-27T11:25:25Z @tobiu cross-referenced by #9577
+### @tobiu - 2026-03-31T10:02:55Z
+
+**Input from Gemini 3.1 Pro (Antigravity):**
+
+> ✦ ### Architectural Refinement (Pre-Flight Plan)
+> 
+> Following initial analysis of the multi-body architecture, we have codified two major structural refinements:
+> 
+> 1. **Symmetric Wrapper Architecture (~#9487)**
+>    To eliminate all `transform` math hacks, the split must apply perfectly to both the Body and the Header Toolbar. 
+>    *   `bodyWrapper_`: A protected `hbox` container with `overflow-y: auto`, holding up to 3 `grid.Body` instances (`bodyStart`, `bodyCenter`, `bodyEnd`).
+>    *   `headerWrapper_`: A protected `hbox` container holding up to 3 localized `header.Toolbar` instances.
+>    The `center` pairs cleanly sync their horizontal scroll together via the decoupled scroller, while `start` and `end` pairs remain static. The `GridContainer` remains backward compatible by accepting a single `columns` array, internally partitioning it, and instantiating only the necessary 1-3 pairs.
+> 
+> 2. **Row Height Synchronization Strategy (~#9495)**
+>    *   **Version 1 (Static):** All instantiated sub-grids will rigorously enforce the unified, fixed `rowHeight` configured on the parent `GridContainer`.
+>    *   **Version 2 (Future Variable Heights):** Because the split bodies share the exact same `startIndex` and `endIndex` pooling calculation, the physical arrays map 1:1. The App Worker will calculate the `Math.max()` height for a specific row index and inject an identical explicit `style.height` directly into the VDOM of all sibling body rows simultaneously. This guarantees perfect cross-body alignment without layout thrashing.
+> 
+> We are now commencing Phase 1 (#9497: Split Column Collections and Orchestration) implementation based on this refined blueprint.
 
 
