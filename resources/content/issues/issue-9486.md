@@ -15,7 +15,7 @@ author: tobiu
 commentsCount: 3
 parentIssue: null
 subIssues:
-  - '[ ] 9487 Grid Multi-Body: Refactor Layout Engine & SubGrid Partitioning'
+  - '[x] 9487 Grid Multi-Body: Refactor Layout Engine & SubGrid Partitioning'
   - '[ ] 9488 Grid Multi-Body: SubGrid Row Pooling & Vertical Sync Refactoring'
   - '[ ] 9489 Grid Multi-Body: Decoupled Horizontal Scroller & Main Thread Sync'
   - '[ ] 9490 Grid Multi-Body: Remove Obsolete GridColumnScrollPinning Addon & CSS Vars'
@@ -25,10 +25,10 @@ subIssues:
   - '[ ] 9494 Grid Multi-Body: Implement Direct Main-Thread Scroll Sync via MessageChannel'
   - '[ ] 9495 Grid Multi-Body: Implement Data-Driven Variable Row Height Architecture'
   - '[ ] 9496 Grid Multi-Body: Adapt Keyboard Navigation for Split Bodies'
-  - '[ ] 9497 Grid Multi-Body: Split Column Collections and Orchestration'
+  - '[x] 9497 Grid Multi-Body: Split Column Collections and Orchestration'
   - '[ ] 9498 Grid Multi-Body: Infinite Canvas Cross-Window Column Drag & Drop'
   - '[ ] 9499 Grid Multi-Body: Test Suite Refactoring & Expansion'
-subIssuesCompleted: 0
+subIssuesCompleted: 2
 subIssuesTotal: 13
 blockedBy: []
 blocking: []

@@ -1,7 +1,7 @@
 ---
 id: 9487
 title: 'Grid Multi-Body: Refactor Layout Engine & SubGrid Partitioning'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
@@ -9,16 +9,17 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-03-16T18:15:11Z'
-updatedAt: '2026-03-16T22:11:29Z'
+updatedAt: '2026-03-31T10:27:00Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9487'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 9486
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-03-31T10:27:00Z'
 ---
 # Grid Multi-Body: Refactor Layout Engine & SubGrid Partitioning
 
@@ -62,4 +63,20 @@ Note: Fixing the vertical scroll math and row pooling for these bodies will be h
 - 2026-03-16T18:15:13Z @tobiu added the `grid` label
 - 2026-03-16T18:15:26Z @tobiu added parent issue #9486
 - 2026-03-16T18:18:37Z @tobiu assigned to @tobiu
+- 2026-03-31T10:02:56Z @tobiu cross-referenced by #9486
+- 2026-03-31T10:26:38Z @tobiu referenced in commit `36b45d7` - "feat: Grid Multi-Body architecture layout wrappers and sub-grid partitioning (#9487)"
+### @tobiu - 2026-03-31T10:26:47Z
+
+**Input from Gemini 3.1 Pro (Antigravity):**
+
+> ✦ Completed Phase 2 of the Multi-Body Epic.
+> 
+> - Implemented `headerWrapper` and `bodyWrapper` inside `GridContainer.mjs` to encapsulate symmetrical sub-grids.
+> - Created `createOrUpdateSubGrids()` logic for dynamic sub-grid orchestration based on split column collections.
+> - Refactored `Toolbar.passSizeToBody()` to explicitly calculate constraints corresponding to its twin GridBody via the `layoutLock` config, correctly resetting `x: 0` coordinates.
+> - Overhauled `onColumnLockChange()` and `onColumnsMutate()` for centralized state consistency resulting in automatic sub-grid regeneration boundaries.
+> - Re-architected `Row.mjs` & `Body.mjs` dependency resolution to inherently rely on `_gridContainer` traversing up multi-tier structures cleanly.
+
+- 2026-03-31T10:27:00Z @tobiu closed this issue
+- 2026-03-31T10:33:31Z @tobiu cross-referenced by #9607
 
