@@ -88,14 +88,6 @@
                  z-index: 5;
              }
 
-             &.neo-locked-start {
-                 transform: translateX(var(--grid-locked-start-offset, 0px));
-             }
-
-             &.neo-locked-end {
-                 transform: translateX(var(--grid-locked-end-offset, 0px));
-             }
-
              // selection.CellModel
              &.neo-selected {
                  background-color: var(--grid-cellmodel-selected-cell-background-color) !important;
