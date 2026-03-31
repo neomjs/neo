@@ -9,14 +9,14 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-03-16T17:41:38Z'
-updatedAt: '2026-03-31T10:02:55Z'
+updatedAt: '2026-03-31T12:14:10Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9486'
 author: tobiu
-commentsCount: 3
+commentsCount: 5
 parentIssue: null
 subIssues:
   - '[x] 9487 Grid Multi-Body: Refactor Layout Engine & SubGrid Partitioning'
-  - '[ ] 9488 Grid Multi-Body: SubGrid Row Pooling & Vertical Sync Refactoring'
+  - '[x] 9488 Grid Multi-Body: SubGrid Row Pooling & Vertical Sync Refactoring'
   - '[ ] 9489 Grid Multi-Body: Decoupled Horizontal Scroller & Main Thread Sync'
   - '[ ] 9490 Grid Multi-Body: Remove Obsolete GridColumnScrollPinning Addon & CSS Vars'
   - '[ ] 9491 Grid Multi-Body: Overhaul Column Drag & Drop (SortZone) across Split Headers'
@@ -28,7 +28,7 @@ subIssues:
   - '[x] 9497 Grid Multi-Body: Split Column Collections and Orchestration'
   - '[ ] 9498 Grid Multi-Body: Infinite Canvas Cross-Window Column Drag & Drop'
   - '[ ] 9499 Grid Multi-Body: Test Suite Refactoring & Expansion'
-subIssuesCompleted: 2
+subIssuesCompleted: 3
 subIssuesTotal: 13
 blockedBy: []
 blocking: []
@@ -134,4 +134,18 @@ quick info: this epic is currently planned **after** the release of neo v12.1, s
 > 
 > We are now commencing Phase 1 (#9497: Split Column Collections and Orchestration) implementation based on this refined blueprint.
 
+- 2026-03-31T12:09:34Z @tobiu referenced in commit `098490d` - "fix: Grid Multi-Body Architecture Type Desynchronization (#9486)"
+### @tobiu - 2026-03-31T12:10:42Z
+
+Resolved: Stabilized Grid Multi-Body Architecture by decoupling column instantiation from toolbar items creation. Passed tests.
+
+- 2026-03-31T12:10:43Z @tobiu closed this issue
+- 2026-03-31T12:12:40Z @tobiu reopened this issue
+- 2026-03-31T12:12:48Z @github-actions closed this issue
+### @github-actions - 2026-03-31T12:12:50Z
+
+❌ Tickets cannot be reopened. Created new ticket: #9609
+
+- 2026-03-31T12:12:50Z @github-actions cross-referenced by #9609
+- 2026-03-31T12:14:10Z @tobiu reopened this issue
 
