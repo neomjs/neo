@@ -528,16 +528,7 @@ class GridBody extends Component {
      * @protected
      */
     afterSetScrollTop(value, oldValue) {
-        let me               = this,
-            {bufferRowRange} = me,
-            newStartIndex    = Math.floor(value / me.rowHeight);
-
-        if (Math.abs(me.startIndex - newStartIndex) >= bufferRowRange) {
-            me.startIndex = newStartIndex
-        } else {
-            me.visibleRows[0] = newStartIndex;
-            me.visibleRows[1] = newStartIndex + me.availableRows
-        }
+        // Controlled externally by Grid.Container.syncBodies()
     }
 
     /**
@@ -1235,7 +1226,7 @@ class GridBody extends Component {
             me.timeout(50).then(() => {
                 Neo.main.DomAccess.scrollTo({
                     direction: 'top',
-                    id       : me.vdom.id,
+                    id       : me.gridContainer.bodyWrapper.id,
                     value    : 0,
                     windowId
                 })
@@ -1324,7 +1315,7 @@ class GridBody extends Component {
             }
 
             Neo.main.DomAccess.scrollTo({
-                id      : me.vdom.id,
+                id      : me.gridContainer.bodyWrapper.id,
                 value   : scrollTop,
                 windowId: me.windowId
             })

@@ -41,7 +41,7 @@ class GridRowScrollPinning extends Base {
 
     /**
      * Stores state per registered Grid Body.
-     * Shape: { id, bodyId, wrapperNode, contentNode, scrollbarNode, workerScrollTop, isThumbDragging, scrollTimeoutId }
+     * Shape: { id, bodyId, wrapperNode, contentNode, workerScrollTop, isThumbDragging, scrollTimeoutId }
      * @member {Map<String, Object>} registrations=new Map()
      * @protected
      */
@@ -162,7 +162,7 @@ class GridRowScrollPinning extends Base {
             state;
 
         for (const reg of me.registrations.values()) {
-            if (reg.scrollbarNode === scrollbar) {
+            if (reg.wrapperNode === scrollbar) {
                 state = reg;
                 break
             }
@@ -235,31 +235,29 @@ class GridRowScrollPinning extends Base {
     /**
      * Registers a grid for row scroll pinning and attaches native scroll listener.
      * @param {Object} data
-     * @param {String} data.bodyId      The ID of the grid body
-     * @param {String} data.scrollbarId The ID of the vertical scrollbar
-     * @param {String} data.id          Unique identifier for the registration (e.g. ScrollManager id)
+     * @param {String} data.bodyId        The ID of the grid body
+     * @param {String} data.bodyWrapperId The ID of the vertical scroll wrapper
+     * @param {String} data.id            Unique identifier for the registration (e.g. ScrollManager id)
      */
-    register({bodyId, scrollbarId, id}) {
+    register({bodyId, bodyWrapperId, id}) {
         let me            = this,
-            wrapperNode   = DomAccess.getElement(bodyId + '__wrapper'),
-            contentNode   = DomAccess.getElement(bodyId),
-            scrollbarNode = DomAccess.getElement(scrollbarId);
+            wrapperNode   = DomAccess.getElement(bodyWrapperId),
+            contentNode   = DomAccess.getElement(bodyId);
 
-        if (wrapperNode && contentNode && scrollbarNode) {
+        if (wrapperNode && contentNode) {
             me.registrations.set(id, {
                 id,
                 bodyId,
                 wrapperNode,
                 contentNode,
-                scrollbarNode,
                 isThumbDragging: false,
                 scrollTimeoutId: null,
                 workerScrollTop: 0
             });
 
             wrapperNode.addEventListener('scroll', me.boundOnScroll, {passive: true});
-            scrollbarNode.addEventListener('mousedown', me.boundOnMouseDown);
-            scrollbarNode.addEventListener('touchstart', me.boundOnMouseDown, {passive: true})
+            wrapperNode.addEventListener('mousedown', me.boundOnMouseDown);
+            wrapperNode.addEventListener('touchstart', me.boundOnMouseDown, {passive: true})
         }
     }
 
@@ -274,11 +272,9 @@ class GridRowScrollPinning extends Base {
 
         if (state) {
             if (state.wrapperNode) {
-                state.wrapperNode.removeEventListener('scroll', me.boundOnScroll)
-            }
-            if (state.scrollbarNode) {
-                state.scrollbarNode.removeEventListener('mousedown', me.boundOnMouseDown);
-                state.scrollbarNode.removeEventListener('touchstart', me.boundOnMouseDown)
+                state.wrapperNode.removeEventListener('scroll', me.boundOnScroll);
+                state.wrapperNode.removeEventListener('mousedown', me.boundOnMouseDown);
+                state.wrapperNode.removeEventListener('touchstart', me.boundOnMouseDown)
             }
             if (state.scrollTimeoutId) {
                 clearTimeout(state.scrollTimeoutId)
