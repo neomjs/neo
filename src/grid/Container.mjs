@@ -89,6 +89,21 @@ class GridContainer extends BaseContainer {
             value         : null
         },
         /**
+         * @member {Neo.grid.Body|null} bodyEnd=null
+         * @protected
+         */
+        bodyEnd: null,
+        /**
+         * @member {Neo.grid.Body|null} bodyStart=null
+         * @protected
+         */
+        bodyStart: null,
+        /**
+         * @member {Neo.container.Base|null} bodyWrapper=null
+         * @protected
+         */
+        bodyWrapper: null,
+        /**
          * true uses grid.plugin.CellEditing
          * @member {Boolean} cellEditing_=false
          * @reactive
@@ -124,6 +139,21 @@ class GridContainer extends BaseContainer {
             merge         : 'deep',
             value         : null
         },
+        /**
+         * @member {Neo.grid.header.Toolbar|null} headerEnd=null
+         * @protected
+         */
+        headerEnd: null,
+        /**
+         * @member {Neo.grid.header.Toolbar|null} headerStart=null
+         * @protected
+         */
+        headerStart: null,
+        /**
+         * @member {Neo.container.Base|null} headerWrapper=null
+         * @protected
+         */
+        headerWrapper: null,
         /**
          * @member {Object} layout={ntype: 'vbox', align: 'stretch'}
          * @reactive
@@ -244,7 +274,30 @@ class GridContainer extends BaseContainer {
         let me = this,
             {appName, rowHeight, store, windowId} = me;
 
-        me.items = [me.headerToolbar, me.body];
+        me.headerWrapper = Neo.create(BaseContainer, {
+            appName,
+            cls     : ['neo-header-wrapper'],
+            flex    : 'none',
+            layout  : {ntype: 'hbox', align: 'stretch'},
+            parentId: me.id,
+            theme   : me.theme,
+            windowId,
+            items   : [me.headerToolbar]
+        });
+
+        me.bodyWrapper = Neo.create(BaseContainer, {
+            appName,
+            cls     : ['neo-body-wrapper'],
+            flex    : 1,
+            layout  : {ntype: 'hbox', align: 'stretch'},
+            parentId: me.id,
+            style   : {overflowY: 'auto'},
+            theme   : me.theme,
+            windowId,
+            items   : [me.body]
+        });
+
+        me.items = [me.headerWrapper, me.bodyWrapper];
 
         if (me.footerToolbar) {
             me.items.push(me.footerToolbar)
@@ -652,7 +705,6 @@ class GridContainer extends BaseContainer {
     createColumns(columns) {
         let me               = this,
             {columnDefaults} = me,
-            headerButtons    = [],
             sorters          = me.store?.sorters,
             columnClass, renderer;
 
@@ -680,8 +732,6 @@ class GridContainer extends BaseContainer {
                     scope: me
                 };
 
-                headerButtons.push(column);
-
                 if (column.component && !column.type) {
                     column.type = 'component'
                 }
@@ -697,9 +747,6 @@ class GridContainer extends BaseContainer {
             }
         }
 
-        me.headerToolbar.items = headerButtons;
-        me.headerToolbar.createItems();
-
         if (Neo.typeOf(me._columns) === 'NeoInstance') {
             me._columns.clear();
             me._columns.add(columns);
@@ -708,6 +755,8 @@ class GridContainer extends BaseContainer {
             me.centerColumns      = columns.filter(c => !c.locked);
             me.lockedEndColumns   = columns.filter(c => c.locked === 'end');
 
+            me.createOrUpdateSubGrids();
+
             return me._columns
         }
 
@@ -715,11 +764,108 @@ class GridContainer extends BaseContainer {
         me.centerColumns      = columns.filter(c => !c.locked);
         me.lockedEndColumns   = columns.filter(c => c.locked === 'end');
 
+        me.createOrUpdateSubGrids();
+
         return Neo.create(Collection, {
             keyProperty: 'dataField',
             items      : columns,
             listeners  : {mutate: me.onColumnsMutate, scope: me}
         })
+    }
+
+    /**
+     * @protected
+     */
+    createOrUpdateSubGrids() {
+        let me = this;
+
+        // --- Center (Default) ---
+        if (me.centerColumns.length > 0) {
+            me.headerToolbar.items = me.centerColumns;
+            me.headerToolbar.createItems();
+        }
+
+        // --- Start (Left) ---
+        if (me.lockedStartColumns.length > 0) {
+            if (!me.headerStart) {
+                me.headerStart = Neo.create(header.Toolbar, {
+                    ...me.headerToolbar.initialConfig,
+                    flex         : 'none',
+                    gridContainer: me,
+                    items        : me.lockedStartColumns,
+                    layoutLock   : 'start',
+                    parentId     : me.headerWrapper.id,
+                    theme        : me.theme,
+                    windowId     : me.windowId
+                });
+
+                me.bodyStart = Neo.create(GridBody, {
+                    ...me.body.initialConfig,
+                    flex         : 'none',
+                    gridContainer: me,
+                    parentId     : me.bodyWrapper.id,
+                    theme        : me.theme,
+                    windowId     : me.windowId
+                });
+            } else {
+                me.headerStart.items = me.lockedStartColumns;
+                me.headerStart.createItems();
+            }
+        } else if (me.headerStart) {
+            me.headerStart.destroy();
+            me.bodyStart.destroy();
+            me.headerStart = me.bodyStart = null;
+        }
+
+        // --- End (Right) ---
+        if (me.lockedEndColumns.length > 0) {
+            if (!me.headerEnd) {
+                me.headerEnd = Neo.create(header.Toolbar, {
+                    ...me.headerToolbar.initialConfig,
+                    flex         : 'none',
+                    gridContainer: me,
+                    items        : me.lockedEndColumns,
+                    layoutLock   : 'end',
+                    parentId     : me.headerWrapper.id,
+                    theme        : me.theme,
+                    windowId     : me.windowId
+                });
+
+                me.bodyEnd = Neo.create(GridBody, {
+                    ...me.body.initialConfig,
+                    flex         : 'none',
+                    gridContainer: me,
+                    parentId     : me.bodyWrapper.id,
+                    theme        : me.theme,
+                    windowId     : me.windowId
+                });
+            } else {
+                me.headerEnd.items = me.lockedEndColumns;
+                me.headerEnd.createItems();
+            }
+        } else if (me.headerEnd) {
+            me.headerEnd.destroy();
+            me.bodyEnd.destroy();
+            me.headerEnd = me.bodyEnd = null;
+        }
+
+        // Synchronize SubGrids into DOM via Symmetrical Wrappers
+        let bodyItems   = [],
+            headerItems = [];
+
+        if (me.headerStart) headerItems.push(me.headerStart);
+        if (me.headerToolbar) headerItems.push(me.headerToolbar);
+        if (me.headerEnd) headerItems.push(me.headerEnd);
+
+        if (me.bodyStart) bodyItems.push(me.bodyStart);
+        if (me.body) bodyItems.push(me.body);
+        if (me.bodyEnd) bodyItems.push(me.bodyEnd);
+
+        me.headerWrapper.items = headerItems;
+        me.bodyWrapper.items = bodyItems;
+
+        me.headerWrapper.createItems();
+        me.bodyWrapper.createItems();
     }
 
     /**
@@ -748,39 +894,20 @@ class GridContainer extends BaseContainer {
     onColumnLockChange(column) {
         let me            = this,
             columnsArray  = [...me.columns.items],
-            headerToolbar = me.headerToolbar,
             sortedColumns = me.sortColumns(columnsArray);
 
-        // 1. Sync the Header Toolbar cleanly via public API
-        // Batched by the framework's core update loop
-        headerToolbar.silentVdomUpdate = true;
-
-        sortedColumns.forEach((col, targetIndex) => {
-            let btn          = headerToolbar.getColumn(col.dataField),
-                currentIndex = headerToolbar.indexOf(btn);
-
-            if (currentIndex !== targetIndex) {
-                headerToolbar.moveTo(currentIndex, targetIndex)
-            }
-        });
-
-        headerToolbar.silentVdomUpdate = false;
-        headerToolbar.update();
-
-        // 2. Sync the Collection
-        // clearSilent() and add() is the safest way to reset internal indices while avoiding duplicate mutate events
+        // Sync the Collection
+        // clearSilent() and add() is the safest way to reset internal indices
         me.columns.clearSilent();
         me.columns.add(sortedColumns);
 
-        me.lockedStartColumns = sortedColumns.filter(c => c.locked === 'start');
-        me.centerColumns      = sortedColumns.filter(c => !c.locked);
-        me.lockedEndColumns   = sortedColumns.filter(c => c.locked === 'end');
+        // Trigger Sub-grid Layout Sync
+        me.onColumnsMutate();
 
-        // 3. Trigger Layout Engine
-        headerToolbar.passSizeToBody(false);
-
-        // 4. Force a full row re-render to apply the new column order and styles
-        me.body.createViewData();
+        // Force a full row re-render to apply the new column order and styles
+        if (me.body)      me.body.createViewData();
+        if (me.bodyStart) me.bodyStart.createViewData();
+        if (me.bodyEnd)   me.bodyEnd.createViewData();
 
         me.scrollManager?.updateColumnScrollPinningAddon()
     }
@@ -836,7 +963,14 @@ class GridContainer extends BaseContainer {
      * @param {Object} data
      */
     onColumnsMutate(data) {
-        this.updateColCount()
+        let me = this;
+
+        me.lockedStartColumns = me._columns.items.filter(c => c.locked === 'start');
+        me.centerColumns      = me._columns.items.filter(c => !c.locked);
+        me.lockedEndColumns   = me._columns.items.filter(c => c.locked === 'end');
+
+        me.createOrUpdateSubGrids();
+        me.updateColCount()
     }
 
     /**

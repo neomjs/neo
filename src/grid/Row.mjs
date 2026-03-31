@@ -307,7 +307,7 @@ class Row extends Component {
             record           = me.record,
             rowIndex         = me.rowIndex,
             gridBody         = me.parent, // The Row is an item of Body
-            gridContainer    = gridBody.parent,
+            gridContainer    = gridBody.gridContainer,
             vdom             = me.vdom,
             {columns}        = gridContainer,
             cellConfig, column, columnPosition, i, isMounted, lastColumnIndex, oldCn, poolIndex, poolSize, pooledCells;
