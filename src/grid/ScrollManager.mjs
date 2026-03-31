@@ -209,9 +209,11 @@ class ScrollManager extends Base {
             addon = await Neo.currentWorker.getAddon('GridDragScroll', windowId);
 
         if (active) {
+            let scrollerId = me.gridContainer.horizontalScrollbar?.id;
+
             addon.register({
                 bodyId     : me.gridBody.id + '__wrapper',
-                containerId: me.gridContainer.id,
+                containerId: scrollerId || me.gridContainer.id,
                 id         : me.id,
                 windowId
             })

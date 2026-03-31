@@ -49,6 +49,21 @@ class GridHorizontalScrollSync extends Base {
     }
 
     /**
+     * @param {String} scrollerId
+     * @param {Event}  event
+     */
+    onWheel(scrollerId, event) {
+        // Only trigger update if there is horizontal movement
+        if (Math.abs(event.deltaX) > 0) {
+            let scrollerNode = DomAccess.getElement(scrollerId);
+            if (scrollerNode) {
+                // Adjust scrollbar by deltaX, triggering its native 'scroll' event.
+                scrollerNode.scrollLeft += event.deltaX;
+            }
+        }
+    }
+
+    /**
      * @param {Object} data
      * @param {String} data.id
      * @param {String} data.scrollerId
@@ -68,10 +83,12 @@ class GridHorizontalScrollSync extends Base {
             scrollerId,
             bodyId,
             headerId,
-            listener: me.onScroll.bind(me, scrollerId, bodyId, headerId)
+            scrollListener: me.onScroll.bind(me, scrollerId, bodyId, headerId),
+            wheelListener : me.onWheel.bind(me, scrollerId)
         };
 
-        DomAccess.getElement(scrollerId)?.addEventListener('scroll', registration.listener);
+        DomAccess.getElement(scrollerId)?.addEventListener('scroll', registration.scrollListener);
+        DomAccess.getElement(bodyId)?.addEventListener('wheel', registration.wheelListener, {passive: true});
         
         me.registrations.set(id, registration);
     }
@@ -85,7 +102,8 @@ class GridHorizontalScrollSync extends Base {
             registration = me.registrations.get(id);
 
         if (registration) {
-            DomAccess.getElement(registration.scrollerId)?.removeEventListener('scroll', registration.listener);
+            DomAccess.getElement(registration.scrollerId)?.removeEventListener('scroll', registration.scrollListener);
+            DomAccess.getElement(registration.bodyId)?.removeEventListener('wheel', registration.wheelListener);
             me.registrations.delete(id);
         }
     }
