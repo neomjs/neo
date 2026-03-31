@@ -1,7 +1,7 @@
 ---
 id: 9488
 title: 'Grid Multi-Body: SubGrid Row Pooling & Vertical Sync Refactoring'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
@@ -9,16 +9,17 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-03-16T18:15:38Z'
-updatedAt: '2026-03-17T18:59:00Z'
+updatedAt: '2026-03-31T13:16:55Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9488'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 9486
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-03-31T13:16:55Z'
 ---
 # Grid Multi-Body: SubGrid Row Pooling & Vertical Sync Refactoring
 
@@ -52,4 +53,10 @@ In the Multi-Body architecture, the `Body` component must become a "SubGrid".
 - 2026-03-16T18:15:40Z @tobiu added the `grid` label
 - 2026-03-16T18:15:58Z @tobiu added parent issue #9486
 - 2026-03-17T18:59:00Z @tobiu assigned to @tobiu
+- 2026-03-31T13:16:32Z @tobiu referenced in commit `286a8db` - "fix: Finalize Grid Multi-Body Row Pooling & Vertical Sync (#9488)"
+### @tobiu - 2026-03-31T13:16:54Z
+
+Resolved: Finalized Grid Multi-Body Row Pooling & Vertical Sync. The ScrollManager now uses the centralized body wrapper for vertical scrolling, preventing desync across multiple split bodies. GridRowScrollPinning logic was also updated to listen to the new wrapper.
+
+- 2026-03-31T13:16:55Z @tobiu closed this issue
 
