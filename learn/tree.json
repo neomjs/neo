@@ -2,6 +2,8 @@
     {"name": "Using These Topics",                                     "parentId": null,                                                  "id": "UsingTheseTopics" },
     {"name": "Benefits: The Application Engine",                       "parentId": null,                                 "isLeaf": false, "id": "Benefits"},
         {"name": "Introduction",                                       "parentId": "Benefits",                                            "id": "benefits/Introduction"},
+        {"name": "Object Permanence",                                  "parentId": "Benefits",                                            "id": "benefits/ObjectPermanence"},
+        {"name": "JSON First UIs (Asymmetric VDOM)",                   "parentId": "Benefits",                                            "id": "benefits/JSONFirstUIs"},
         {"name": "Off the Main Thread",                                "parentId": "Benefits",                                            "id": "benefits/OffTheMainThread"},
         {"name": "4 Environments",                                     "parentId": "Benefits",                                            "id": "benefits/FourEnvironments"},
         {"name": "Unified Config System",                              "parentId": "Benefits",                                            "id": "benefits/ConfigSystem"},
