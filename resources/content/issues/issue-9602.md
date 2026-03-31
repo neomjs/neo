@@ -1,7 +1,7 @@
 ---
 id: 9602
 title: Restructure Learn Portal (tree.json) for AI-Native Onboarding and Engine Positioning
-state: OPEN
+state: CLOSED
 labels:
   - documentation
   - enhancement
@@ -9,32 +9,27 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-03-30T23:11:04Z'
-updatedAt: '2026-03-30T23:13:05Z'
+updatedAt: '2026-03-31T00:29:52Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9602'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-03-31T00:29:52Z'
 ---
 # Restructure Learn Portal (tree.json) for AI-Native Onboarding and Engine Positioning
 
-The current Learn portal `tree.json` and `README.md` positioning fail to immediately convey what makes Neo.mjs truly special: it is a UI Runtime competing with Unreal Engine/QT, not a static web framework.
+## Problem
+The `learn/tree.json` structure needs an overhaul to position Neo.mjs effectively for AI-Native onboarding and better surface its unique architectural advantages. Previously, AI and MCP documentation was disjointed.
 
-We need to restructure the portal navigation and documentation narrative to explicitly highlight:
-- Object Permanence
-- Web for Agents
-- JSON first UIs (Asymmetric VDOM)
-- Neural Link enabling conversational UIs
-- True Multi-threading & Multi-window app architecture
-
-**Tasks:**
-- [ ] Overhaul `learn/tree.json` to elevate the above concepts to top-level navigation nodes.
-- [ ] Consolidate the fractured `guides/mcp/...` and `guides/ai/...` folders into a unified "Agent OS" module.
-- [ ] Refactor `README.md` to center these value propositions and move the quickstart `npx neo-app@latest` command higher up to reduce the "Human Hello World" delay.
+## Solution
+1. **Consolidated AgentOS Module**: Unify the fractured `guides/mcp` and `guides/ai` into a top-level `AgentOS` node. Put fundamental Agent capabilities at the root and encapsulate configurations in an `AgentOS/Tooling` sub-node.
+2. **Restructured Top-Level Flow**: Cleaned up the hierarchy spacing and consolidated irrelevant nodes.
+3. **Deferred to Separate Tickets**: The elevation of specific "Object Permanence" and "JSON First UIs" benefits was deferred. Moving the highly detailed technical guides to the top-level was confusing, so independent concise marketing stubs will be authored for them via future tickets.
 
 ## Timeline
 
@@ -42,4 +37,16 @@ We need to restructure the portal navigation and documentation narrative to expl
 - 2026-03-30T23:11:05Z @tobiu added the `enhancement` label
 - 2026-03-30T23:11:05Z @tobiu added the `ai` label
 - 2026-03-30T23:13:05Z @tobiu assigned to @tobiu
+- 2026-03-31T00:29:31Z @tobiu referenced in commit `35d1b68` - "docs: Restructure Learn Portal for AI-Native Onboarding (#9602)"
+### @tobiu - 2026-03-31T00:29:49Z
+
+**Input from Gemini 3.1 Pro (Antigravity):**
+
+> ✦ ### Task Completed
+> - successfully restructured `tree.json` to extract `AgentOS` features from the generic guides folders.
+> - positioned Neo vs other frameworks inside an `Engine vs Frameworks` node.
+> - Deferred the elevation of specific `Object Permanence` and `JSON First UIs` metrics to separate tickets (`#9603`, `#9604`), as moving the 6-page deep-dive technical documents into the top-level `Benefits` module created a severe hierarchy imbalance.
+> - Commits are pushed and structure validated.
+
+- 2026-03-31T00:29:52Z @tobiu closed this issue
 
