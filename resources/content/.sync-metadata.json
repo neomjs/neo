@@ -1,6 +1,6 @@
 {
-  "lastSync": "2026-03-31T13:26:55.323Z",
-  "releasesLastFetched": "2026-03-31T13:26:55.883Z",
+  "lastSync": "2026-03-31T15:03:04.337Z",
+  "releasesLastFetched": "2026-03-31T15:03:05.368Z",
   "pushFailures": [],
   "issues": {
     "3789": {
@@ -22170,7 +22170,7 @@
       "path": "resources/content/issues/issue-9486.md",
       "closedAt": null,
       "updatedAt": "2026-03-31T12:14:10Z",
-      "contentHash": "36ecd79214d64bf27ac30c6916d9e86d183cb8d6d8d1b78acf83d11482f6c6dd"
+      "contentHash": "7502a3273ce2e58211efbb4ebb443ca485cabdefcfaf6362c23a59ab9cb5779d"
     },
     "9487": {
       "state": "CLOSED",
@@ -22187,11 +22187,11 @@
       "contentHash": "ce45f44874ee9c5f3b432a85ed92a0fc58e9851f5f738752c3153cee3d20339f"
     },
     "9489": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "resources/content/issues/issue-9489.md",
-      "closedAt": null,
-      "updatedAt": "2026-03-17T18:59:06Z",
-      "contentHash": "691e4f67dca4ae02b6a2db57b5a22dd48c33715ad9470e306541f4670ff1afc6"
+      "closedAt": "2026-03-31T15:02:42Z",
+      "updatedAt": "2026-03-31T15:02:42Z",
+      "contentHash": "ae7edc4f23cd8fe83da3754e6cbc872dbd538deb6d4d59c7a93048c7149a21e2"
     },
     "9490": {
       "state": "CLOSED",
@@ -22990,6 +22990,27 @@
       "closedAt": "2026-03-31T12:22:56Z",
       "updatedAt": "2026-03-31T12:22:56Z",
       "contentHash": "ae6dfb8038f832d2af3d5a481610bbeeb376ceaddbab8ba93a9d94b76fe8243a"
+    },
+    "9611": {
+      "state": "OPEN",
+      "path": "resources/content/issues/issue-9611.md",
+      "closedAt": null,
+      "updatedAt": "2026-03-31T14:07:05Z",
+      "contentHash": "c7a8661024ca7bde4ae373c1d657b85fd16fbc41cd3a11a5cc45f4fba5e2cb36"
+    },
+    "9612": {
+      "state": "CLOSED",
+      "path": "resources/content/issues/issue-9612.md",
+      "closedAt": "2026-03-31T14:52:48Z",
+      "updatedAt": "2026-03-31T14:52:48Z",
+      "contentHash": "5b26a6616265b9e3dbffceb70411cc44ce7609a95228414f1472f22e90cbf793"
+    },
+    "9613": {
+      "state": "CLOSED",
+      "path": "resources/content/issues/issue-9613.md",
+      "closedAt": "2026-03-31T15:00:25Z",
+      "updatedAt": "2026-03-31T15:00:25Z",
+      "contentHash": "2d4c4d754ddb6d30796cc60357f7732906828cb81ad66e3b106af517431f75d4"
     }
   },
   "releases": {
