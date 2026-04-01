@@ -242,6 +242,17 @@ class GridDragScroll extends Base {
             return
         }
 
+        // Ignore clicks on the native scrollbar (including Mac OS overlay scrollbars)
+        if (event.target === registration.bodyElement) {
+            let rect = registration.bodyElement.getBoundingClientRect();
+            let isRightEdge = event.offsetX >= registration.bodyElement.clientWidth  || event.clientX >= (rect.right - 18);
+            let isBottomEdge = event.offsetY >= registration.bodyElement.clientHeight || event.clientY >= (rect.bottom - 18);
+            
+            if (isRightEdge || isBottomEdge) {
+                return
+            }
+        }
+
         if (event.type === 'mousedown') {
             event.preventDefault() // Prevent text selection
         }
