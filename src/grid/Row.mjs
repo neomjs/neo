@@ -398,7 +398,10 @@ class Row extends Component {
         // Pass 1: Render Pooled Cells (hideMode === 'removeDom' && !locked)
         // We render the FULL pool to ensure stable VDOM structure (0 inserts/moves).
         for (i=mountedColumns[0]; i <= mountedColumns[1]; i++) {
-            column = columns.getAt(i);
+            columnPosition = columnPositions.getAt(i);
+            if (!columnPosition) continue;
+
+            column = columns.get(columnPosition.dataField);
 
             // Sanity check for bounds (e.g. if column count changed)
             if (!column) continue;
@@ -416,7 +419,6 @@ class Row extends Component {
                         oldNode['aria-colindex'] = i + 1;
 
                         // Update position
-                        columnPosition = columnPositions.get(column.dataField);
                         if (columnPosition) {
                             oldNode.style.left  = columnPosition.x + 'px';
                             oldNode.style.width = columnPosition.width + 'px';
@@ -441,8 +443,6 @@ class Row extends Component {
                     rowIndex,
                     silent
                 });
-
-                columnPosition = columnPositions.get(column.dataField);
 
                 if (!columnPosition) {
                     continue
@@ -479,7 +479,13 @@ class Row extends Component {
         // We MUST render these even if they are off-screen to preserve their DOM state (e.g. Canvas context).
         // This loop is O(TotalColumns), but typically few columns use this mode.
         for (i=0; i < countColumns; i++) {
-            column = columns.getAt(i);
+            columnPosition = columnPositions.getAt(i);
+            if (!columnPosition) continue;
+
+            column = columns.get(columnPosition.dataField);
+
+            // Sanity check
+            if (!column) continue;
 
             if (column.hideMode !== 'removeDom' || column.locked) {
                 isMounted = i >= mountedColumns[0] && i <= mountedColumns[1];
@@ -489,7 +495,6 @@ class Row extends Component {
                     let oldNode = oldCellMap.get(column.dataField);
 
                     if (oldNode && oldNode.data?.recordId === recordId) {
-                        columnPosition = columnPositions.get(column.dataField);
                         if (columnPosition) {
                             oldNode.style.left  = columnPosition.x + 'px';
                             oldNode.style.width = columnPosition.width + 'px';
@@ -524,8 +529,6 @@ class Row extends Component {
                     rowIndex,
                     silent
                 });
-
-                columnPosition = columnPositions.get(column.dataField);
 
                 if (!columnPosition) {
                     continue
