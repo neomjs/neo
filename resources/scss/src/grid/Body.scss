@@ -104,6 +104,10 @@
              }
          }
 
+         .neo-grid-cell:not(.neo-locked-start):not(.neo-locked-end) {
+             transform: translateX(calc(var(--grid-scroll-left, 0px) * -1));
+         }
+
          // selection.RowModel
          &.neo-selected {
              .neo-grid-cell {

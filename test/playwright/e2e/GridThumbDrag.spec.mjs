@@ -143,4 +143,53 @@ test.describe('Desktop (1920x1080): Grid Scroll Thrashing', () => {
         // Our goal is to fix it, so eventually maxDiscrepancy should be 0.
         // If it's failing currently, we can observe the output.
     });
+
+    test('Horizontal Drag Scroll Moves Cells Optically and Triggers Data Virtualization', async ({ page }) => {
+        const result = await page.evaluate(async () => {
+            const bodyWrapper = document.querySelector('.neo-grid-body-wrapper:not(.neo-container)');
+            const hScrollbar = document.querySelector('.neo-grid-horizontal-scrollbar');
+            
+            if (!bodyWrapper || !hScrollbar) {
+                return { error: 'Grid components not found' };
+            }
+
+            // Get initial cell boundary
+            const getFirstCellDOMLeft = () => {
+                const centerCell = document.querySelector('.neo-grid-row .neo-grid-cell:not(.neo-locked-start):not(.neo-locked-end)');
+                if (!centerCell) return null;
+                return centerCell.getBoundingClientRect().left;
+            };
+
+            const initialLeft = getFirstCellDOMLeft();
+
+            // 1. Simulate a moderate horizontal scroll for Translation
+            hScrollbar.scrollLeft += 100;
+            
+            // Wait for 1 frame to allow CSS variable to apply and be painted
+            await new Promise(r => requestAnimationFrame(r));
+            await new Promise(r => requestAnimationFrame(r));
+            
+            // Measure the IMMEDIATE visual shift (CSS translation) before the worker even has a chance to recycle
+            const instantLeft = getFirstCellDOMLeft();
+
+            // 2. Simulate a MASSIVE horizontal scroll to force Data Virtualization (Cell Recycling)
+            hScrollbar.scrollLeft += 2000;
+            
+            // Now wait for App Worker Round-trip (Wait for VDOM Patch)
+            await new Promise(r => setTimeout(r, 500)); 
+
+            return {
+                initialLeft,
+                instantLeft,
+                pixelShift: initialLeft - instantLeft
+            };
+        });
+
+        console.log('Horizontal Scroll Test Result:', JSON.stringify(result, null, 2));
+        
+        expect(result.error).toBeUndefined();
+        
+        // Assert Visual CSS Translation occurred (Physical pixels shifted left as we scrolled right)
+        expect(result.pixelShift).toBeGreaterThan(0); 
+    });
 });

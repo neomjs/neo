@@ -181,7 +181,7 @@ class ScrollManager extends Base {
 
             me.onBodyScrollEnd();
             me.syncGridBody()
-        } else if (target.id.includes('grid-container')) {
+        } else if (target.id === me.gridContainer.horizontalScrollbar?.id || target.id.includes('grid-container')) {
             me.scrollLeft = target.scrollLeft ?? scrollLeft;
             me.gridContainer.body.isScrolling = true;
 
