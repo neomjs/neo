@@ -119,6 +119,19 @@ class GridRowScrollPinning extends Base {
         // We explicitly ignore Wheel, Trackpad, Keyboard, and Body Drag scrolling,
         // allowing their native/custom physics to operate perfectly.
         if (state.isThumbDragging) {
+            state.isPinningActive = true;
+        }
+
+        // Once pinning is engaged, we MUST KEEP pinning active until the worker physically catches up,
+        // otherwise we will get a massive blank white screen if the user releases the mouse mid-lag.
+        if (state.isPinningActive) {
+            // Check if worker caught up. We use a 5px threshold for sub-pixel accuracy.
+            if (!state.isThumbDragging && Math.abs(deltaY) < 5) {
+                state.isPinningActive = false;
+            }
+        }
+
+        if (state.isPinningActive) {
             state.contentNodes.forEach(node => {
                 node.style.setProperty('--grid-row-pin-offset', `${deltaY}px`);
             });
@@ -184,10 +197,16 @@ class GridRowScrollPinning extends Base {
             let rect                = scrollbar.getBoundingClientRect(),
                 isVerticalScrollbar = false;
 
-            if (event.target === scrollbar && event.clientX) {
-                // 1. Standard scrollbars: offsetX >= clientWidth
-                // 2. Mac OS overlay scrollbars: clientX is within 18px of the right edge
-                isVerticalScrollbar = event.offsetX >= scrollbar.clientWidth || event.clientX >= (rect.right - 18);
+            if (event.clientX) {
+                // 1. Standard scrollbars: If target is the wrapper, offsetX > clientWidth is 100% reliable.
+                if (event.target === scrollbar && event.offsetX >= scrollbar.clientWidth) {
+                    isVerticalScrollbar = true;
+                }
+                // 2. Mac OS Overlay Scrollbars: These often "fall through" and hit-test the child element.
+                // We must use absolute clientX coordinates to detect clicks in the "phantom" scrollbar layer (last ~18px).
+                else if (event.clientX >= (rect.right - 18) && event.clientX <= rect.right) {
+                    isVerticalScrollbar = true;
+                }
             }
 
             if (!isVerticalScrollbar) {
@@ -201,6 +220,7 @@ class GridRowScrollPinning extends Base {
             // leaves the scrollbar area.
             window.addEventListener('mouseup', me.boundOnMouseUp);
             window.addEventListener('touchend', me.boundOnMouseUp);
+            window.addEventListener('blur', me.boundOnMouseUp);
             
             me.applyPinning(state.id)
         }
@@ -222,6 +242,7 @@ class GridRowScrollPinning extends Base {
 
         window.removeEventListener('mouseup', me.boundOnMouseUp);
         window.removeEventListener('touchend', me.boundOnMouseUp);
+        window.removeEventListener('blur', me.boundOnMouseUp);
     }
 
     /**
@@ -244,16 +265,6 @@ class GridRowScrollPinning extends Base {
 
         if (state) {
             me.applyPinning(state.id);
-
-            // Debounce: In rare edge cases (like leaving an iframe or browser losing focus),
-            // a global mouseup might be missed. If native scrolling stops completely for 2000ms,
-            // we assume the drag is over and forcefully clear the state.
-            if (state.scrollTimeoutId) {
-                clearTimeout(state.scrollTimeoutId)
-            }
-            if (state.isThumbDragging) {
-                state.scrollTimeoutId = setTimeout(() => me.onMouseUp(), 2000)
-            }
         }
     }
 
@@ -275,6 +286,7 @@ class GridRowScrollPinning extends Base {
                 bodyIds,
                 wrapperNode,
                 contentNodes,
+                isPinningActive: false,
                 isThumbDragging: false,
                 scrollTimeoutId: null,
                 workerScrollTop: 0
@@ -300,9 +312,6 @@ class GridRowScrollPinning extends Base {
                 state.wrapperNode.removeEventListener('scroll', me.boundOnScroll);
                 state.wrapperNode.removeEventListener('mousedown', me.boundOnMouseDown);
                 state.wrapperNode.removeEventListener('touchstart', me.boundOnMouseDown)
-            }
-            if (state.scrollTimeoutId) {
-                clearTimeout(state.scrollTimeoutId)
             }
             
             // If we unregister while dragging, forcefully clean up global listeners

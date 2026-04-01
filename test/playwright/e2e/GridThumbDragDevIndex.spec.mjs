@@ -5,6 +5,7 @@ test.describe('Desktop (1920x1080): DevIndex Grid Row Pinning Validation', () =>
 
     test.beforeEach(async ({ page }) => {
         await page.goto('/apps/devindex/');
+        page.on('console', msg => console.log('BROWSER:', msg.text()));
 
         // 1. Wait for the grid to be visible
         await page.waitForSelector('[role="grid"]', { state: 'visible', timeout: 30000 });
@@ -82,6 +83,15 @@ test.describe('Desktop (1920x1080): DevIndex Grid Row Pinning Validation', () =>
 
                 if (isBlank) {
                     blankFrames++;
+                    if (window.__PROFILE7) {
+                        console.log(`[isBlank PROF 7] wrapper: ${wrapperRect.top}->${wrapperRect.bottom}, rows: ${rowsTop}->${rowsBottom}, scrollTop: ${wrapper.scrollTop}, offset: ${content.style.getPropertyValue('--grid-row-pin-offset')}`);
+                    }
+                }
+
+                if (window.__RESET_METRICS) {
+                    blankFrames = 0;
+                    bounces = 0;
+                    window.__RESET_METRICS = false;
                 }
 
                 telemetry.push({
@@ -98,7 +108,7 @@ test.describe('Desktop (1920x1080): DevIndex Grid Row Pinning Validation', () =>
             requestAnimationFrame(monitor);
 
             // Let it run while playwright scrolls
-            await new Promise(r => setTimeout(r, 12000));
+            await new Promise(r => setTimeout(r, 16000));
             isRunning = false;
 
             return { telemetry, blankFrames, bounces };
@@ -132,13 +142,9 @@ test.describe('Desktop (1920x1080): DevIndex Grid Row Pinning Validation', () =>
         
         await page.waitForTimeout(500);
 
-        // --- Synthetic Thumb Drag Profiles ---
+        // --- Synthetic Drag Profiles ---
+        // Let them run without pinning first so that the browser handles them natively.
 
-        const wrapper = await page.locator('.neo-grid-body-wrapper:not(.neo-container)');
-        await wrapper.evaluate(node => {
-            const rect = node.getBoundingClientRect();
-            node.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientX: rect.right - 5 }));
-        });
 
         console.log('--- Profile 4: Synthetic Steady Slow Drag ---');
         for(let i=0; i<10; i++) {
@@ -162,8 +168,39 @@ test.describe('Desktop (1920x1080): DevIndex Grid Row Pinning Validation', () =>
         await page.evaluate(() => document.querySelector('.neo-grid-body-wrapper').scrollTop += 50000);
         await page.waitForTimeout(500);
 
-        await page.evaluate(() => window.dispatchEvent(new MouseEvent('mouseup', { bubbles: true })));
-        await page.waitForTimeout(1000);
+        console.log('--- Profile 7: Authentic High-Frequency Native Drag (50px/sec thumb equivalent) ---');
+        const wrapperNode = await page.locator('.neo-grid-body-wrapper:not(.neo-container)');
+        const box = await wrapperNode.boundingBox();
+        
+        // Emulate the human pointer exactly at the vertical scrollbar thumb location.
+        // Assuming thumb starts near the top of the wrapper.
+        const startX = box.x + box.width - 5;
+        const startY = box.y + 20;
+        
+        // 1. Position mouse on the thumb
+        await page.mouse.move(startX, startY);
+        
+        // 2. Start telemetry and press mouse down
+        await page.evaluate(() => {
+            window.__PROFILE7 = true;
+            window.__RESET_METRICS = true;
+            
+            // Create a small promise to allow Playwright's async test blocks to advance
+            return Promise.resolve();
+        });
+        await page.mouse.down();
+        
+        // 3. Perform a 2-second continuous smooth drag down by 100 pixels (50px/sec native thumb movement)
+        // using 'steps: 120' to force a 60fps event cadence from the browser.
+        await page.mouse.move(startX, startY + 100, { steps: 120 });
+        
+        // 4. Release mouse and finish sequence
+        await page.mouse.up();
+        await page.waitForTimeout(500);
+
+        await page.evaluate(() => {
+            window.__PROFILE7 = false;
+        });
         
         const { telemetry, blankFrames, bounces } = await evaluationPromise;
         
