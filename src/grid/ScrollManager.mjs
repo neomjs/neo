@@ -95,11 +95,13 @@ class ScrollManager extends Base {
         if (value) {
             this.dragScroll && this.updateDragScrollAddon(true);
             this.rowScrollPinning && this.updateRowScrollPinningAddon(true);
-            this.updateGridHorizontalScrollSyncAddon(true)
+            this.updateGridHorizontalScrollSyncAddon(true);
+            this.updateVerticalScrollSyncAddon(true)
         } else if (oldValue) {
             this.updateDragScrollAddon(false);
             this.updateRowScrollPinningAddon(false);
-            this.updateGridHorizontalScrollSyncAddon(false)
+            this.updateGridHorizontalScrollSyncAddon(false);
+            this.updateVerticalScrollSyncAddon(false)
         }
     }
 
@@ -124,10 +126,12 @@ class ScrollManager extends Base {
             me.dragScroll && me.updateDragScrollAddon(false, oldValue);
             me.rowScrollPinning && me.updateRowScrollPinningAddon(false, oldValue);
             me.updateGridHorizontalScrollSyncAddon(false, oldValue);
+            me.updateVerticalScrollSyncAddon(false, oldValue);
 
             me.dragScroll && me.updateDragScrollAddon(true, value);
             me.rowScrollPinning && me.updateRowScrollPinningAddon(true, value);
             me.updateGridHorizontalScrollSyncAddon(true, value);
+            me.updateVerticalScrollSyncAddon(true, value);
         }
     }
 
@@ -137,6 +141,7 @@ class ScrollManager extends Base {
     destroy(...args) {
         this.updateRowScrollPinningAddon(false);
         this.updateGridHorizontalScrollSyncAddon(false);
+        this.updateVerticalScrollSyncAddon(false);
         super.destroy(...args)
     }
 
@@ -237,7 +242,7 @@ class ScrollManager extends Base {
         if (active) {
             addon.register({
                 bodyIds      : [me.gridContainer.bodyStart?.id, me.gridContainer.body?.id, me.gridContainer.bodyEnd?.id].filter(Boolean),
-                bodyWrapperId: me.gridContainer.body?.id + '__wrapper',
+                bodyWrapperId: (me.gridContainer.bodyEnd?.id || me.gridContainer.body?.id) + '__wrapper',
                 id           : me.id,
                 windowId
             })
@@ -271,6 +276,49 @@ class ScrollManager extends Base {
             }
         } else {
             addon.unregister({ id: me.id + '__h_scroll', windowId })
+        }
+    }
+
+    /**
+     * Synchronizes vertical scrolling between bodyStart, body, and bodyEnd wrappers via the ScrollSync main-thread addon.
+     * @param {Boolean} active
+     * @param {String|null} [windowId=this.windowId]
+     * @returns {Promise<void>}
+     */
+    async updateVerticalScrollSyncAddon(active, windowId = this.windowId) {
+        let me = this,
+            addon = await Neo.currentWorker.getAddon('ScrollSync', windowId),
+            {bodyStart, body, bodyEnd} = me.gridContainer;
+
+        if (active) {
+            if (body && bodyEnd) {
+                addon.register({
+                    direction: 'vertical',
+                    fromId   : body.id + '__wrapper',
+                    id       : me.id + '__v_scroll_end',
+                    toId     : bodyEnd.id + '__wrapper',
+                    twoWay   : true,
+                    windowId
+                })
+            } else {
+                addon.unregister({ id: me.id + '__v_scroll_end', windowId })
+            }
+
+            if (body && bodyStart) {
+                addon.register({
+                    direction: 'vertical',
+                    fromId   : body.id + '__wrapper',
+                    id       : me.id + '__v_scroll_start',
+                    toId     : bodyStart.id + '__wrapper',
+                    twoWay   : true,
+                    windowId
+                })
+            } else {
+                addon.unregister({ id: me.id + '__v_scroll_start', windowId })
+            }
+        } else {
+            addon.unregister({ id: me.id + '__v_scroll_end', windowId });
+            addon.unregister({ id: me.id + '__v_scroll_start', windowId })
         }
     }
 
