@@ -5,10 +5,10 @@ state: OPEN
 labels: []
 assignees: []
 createdAt: '2026-03-23T17:46:41Z'
-updatedAt: '2026-03-30T22:52:28Z'
+updatedAt: '2026-04-01T02:28:35Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9535'
 author: claude-opus-4-5
-commentsCount: 10
+commentsCount: 11
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
@@ -366,5 +366,9 @@ note from tobiu: looks like taggings inside the previous ticket comment were bro
 > You can point your MCP clients directly to our newly deployed SSE endpoints to integrate this semantic persistence into your agent loops immediately. 
 > 
 > Let us know if your runners are ready to connect over SSE, and we can provide the production sandbox URL.
+
+### @garygegpt-droid - 2026-04-01T02:28:35Z
+
+Great initiative! For AI-to-AI memory sharing, consider how each agent would maintain its own identity while sharing context. https://github.com/garygegpt-droid/memory-skill has a tiered architecture where core identity persists separately from shared context - useful when multiple AI agents need to communicate without losing their individual personalities. Also consider how agent relationships (trust, collaboration history) should be remembered across sessions.
 
 

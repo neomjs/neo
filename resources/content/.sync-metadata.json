@@ -1,6 +1,6 @@
 {
-  "lastSync": "2026-03-31T19:53:51.819Z",
-  "releasesLastFetched": "2026-03-31T19:53:51.839Z",
+  "lastSync": "2026-04-01T09:54:24.907Z",
+  "releasesLastFetched": "2026-04-01T09:54:24.923Z",
   "pushFailures": [],
   "issues": {
     "3789": {
@@ -22170,7 +22170,7 @@
       "path": "resources/content/issues/issue-9486.md",
       "closedAt": null,
       "updatedAt": "2026-03-31T12:14:10Z",
-      "contentHash": "7502a3273ce2e58211efbb4ebb443ca485cabdefcfaf6362c23a59ab9cb5779d"
+      "contentHash": "1b6351aa0b9b62bdbe995531e3269e86b0f35b395fcb62ac5f6cc330c2133aa6"
     },
     "9487": {
       "state": "CLOSED",
@@ -22505,8 +22505,8 @@
       "state": "OPEN",
       "path": "resources/content/issues/issue-9535.md",
       "closedAt": null,
-      "updatedAt": "2026-03-30T22:52:28Z",
-      "contentHash": "d24446f507050ddc33e65fa0c0cea5ab823c44e8a733cfabc05f1f1e6d4d75b3"
+      "updatedAt": "2026-04-01T02:28:35Z",
+      "contentHash": "f1807ada26b4408bb33c2a05a3c7a9a021b03cf9cd4bfff76c1ae6b468ab398a"
     },
     "9538": {
       "state": "CLOSED",
@@ -23016,15 +23016,29 @@
       "state": "OPEN",
       "path": "resources/content/issues/issue-9614.md",
       "closedAt": null,
-      "updatedAt": "2026-03-31T15:56:50Z",
-      "contentHash": "9847d0f70cc9f7a047f67c82ed482ded8e255b532ec5bcab3e565e7c379d7372"
+      "updatedAt": "2026-04-01T08:29:21Z",
+      "contentHash": "2fac443fa30b7293420d04502589fc0dc6d6c9405e721f94e4b8d9ef749d3dd5"
     },
     "9615": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "resources/content/issues/issue-9615.md",
+      "closedAt": "2026-03-31T19:55:45Z",
+      "updatedAt": "2026-03-31T19:55:45Z",
+      "contentHash": "4b0ab692ac473fdba266e948c7da0610e0c8743e01901195b2bfd33ab24aa065"
+    },
+    "9616": {
+      "state": "OPEN",
+      "path": "resources/content/issues/issue-9616.md",
       "closedAt": null,
-      "updatedAt": "2026-03-31T19:42:45Z",
-      "contentHash": "e85e091ea20e98bde0e1d06961ceeb5d56576255282f829a9021497c5d88dba7"
+      "updatedAt": "2026-03-31T20:23:36Z",
+      "contentHash": "8b9c857149c3d46f9236f1e10b476368baa4e15c6512a55964a5efd4761d53a2"
+    },
+    "9617": {
+      "state": "OPEN",
+      "path": "resources/content/issues/issue-9617.md",
+      "closedAt": null,
+      "updatedAt": "2026-04-01T08:09:56Z",
+      "contentHash": "110766526daf3fe75c77c8bb0b067ab581047d39e114036ceb05bed3a5e11817"
     }
   },
   "releases": {

@@ -1,7 +1,7 @@
 ---
 id: 9615
 title: 'Sub-Epic: Grid Multi-Body Stabilization (Header Sync & Pinning)'
-state: OPEN
+state: CLOSED
 labels:
   - bug
   - ai
@@ -9,16 +9,17 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-03-31T19:38:39Z'
-updatedAt: '2026-03-31T19:42:45Z'
+updatedAt: '2026-03-31T19:55:45Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9615'
 author: tobiu
 commentsCount: 1
-parentIssue: null
+parentIssue: 9486
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-03-31T19:55:45Z'
 ---
 # Sub-Epic: Grid Multi-Body Stabilization (Header Sync & Pinning)
 
@@ -51,4 +52,6 @@ This ticket tracks the stabilization of the Grid Multi-Body architecture prior t
 > - Fixed `bodyIds` reference in `ScrollManager.updateRowScrollPinningAddon` preventing row scroll pinning from triggering crashes.
 
 - 2026-03-31T19:42:45Z @tobiu assigned to @tobiu
+- 2026-03-31T19:55:45Z @tobiu closed this issue
+- 2026-03-31T20:21:54Z @tobiu added parent issue #9486
 
