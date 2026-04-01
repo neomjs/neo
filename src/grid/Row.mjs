@@ -230,7 +230,9 @@ class Row extends Component {
         }
 
         if (isLastColumn) {
-            cellCls.push('neo-last-column')
+            if (column.locked === 'end' || (!column.locked && !gridContainer.lockedEndColumns?.length)) {
+                cellCls.push('neo-last-column')
+            }
         }
 
         if (column.locked === 'start') {
