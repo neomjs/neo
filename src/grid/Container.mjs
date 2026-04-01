@@ -662,7 +662,7 @@ class GridContainer extends BaseContainer {
         const me = this;
 
         return ClassSystemUtil.beforeSetInstance(value, header.Toolbar, {
-            flex              : 'none',
+            flex              : 1,
             gridContainer     : me,
             parentId          : me.id,
             showHeaderFilters : me.showHeaderFilters,
@@ -1264,10 +1264,11 @@ class GridContainer extends BaseContainer {
             newStartIndex    = Math.floor(scrollTop / rowHeight);
 
         let updateBody = _body => {
+            let isCenter = _body === body;
             _body.skipCreateViewData = true;
 
             _body.set({
-                scrollLeft: scrollManager.scrollLeft, // Horizontal sync applies from scrollManager state
+                scrollLeft: isCenter ? scrollManager.scrollLeft : 0, // Horizontal sync applies from scrollManager state ONLY for center
                 scrollTop : scrollTop
             });
 
