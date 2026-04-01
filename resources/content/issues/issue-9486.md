@@ -29,8 +29,15 @@ subIssues:
   - '[ ] 9498 Grid Multi-Body: Infinite Canvas Cross-Window Column Drag & Drop'
   - '[ ] 9499 Grid Multi-Body: Test Suite Refactoring & Expansion'
   - '[ ] 9611 Grid Multi-Body: Native Vertical Scrollbar & Alignment Spacer'
-subIssuesCompleted: 5
-subIssuesTotal: 14
+  - '[x] 9612 Grid Multi-Body: Scrollbar Refactoring and Vertical Restoration'
+  - '[x] 9613 Grid Multi-Body: Fix horizontal DragScroll and Mousewheel translation'
+  - '[x] 9608 Fix Event Resolution and Parent Hierarchy Regressions in Nested Sub-Grids'
+  - '[x] 9607 GridContainer: `this.items is not iterable` crash on initialization'
+  - '[x] 9615 Sub-Epic: Grid Multi-Body Stabilization (Header Sync & Pinning)'
+  - '[ ] 9616 Grid Multi-Body: Implement Two-Tier Horizontal Cell Pooling and Scroll Sync'
+  - '[ ] 9617 Grid Multi-Body: Fix Row Scroll Pinning for Thumb Dragging'
+subIssuesCompleted: 10
+subIssuesTotal: 21
 blockedBy: []
 blocking: []
 ---
@@ -151,4 +158,13 @@ Resolved: Stabilized Grid Multi-Body Architecture by decoupling column instantia
 - 2026-03-31T12:14:10Z @tobiu reopened this issue
 - 2026-03-31T14:07:03Z @tobiu added sub-issue #9611
 - 2026-03-31T14:25:27Z @tobiu cross-referenced by #9612
+- 2026-03-31T15:14:03Z @tobiu added sub-issue #9612
+- 2026-03-31T15:14:16Z @tobiu added sub-issue #9613
+- 2026-03-31T15:14:35Z @tobiu added sub-issue #9608
+- 2026-03-31T15:14:49Z @tobiu added sub-issue #9607
+- 2026-03-31T20:21:54Z @tobiu added sub-issue #9615
+- 2026-03-31T20:22:29Z @tobiu cross-referenced by #9616
+- 2026-03-31T20:22:36Z @tobiu added sub-issue #9616
+- 2026-03-31T20:45:04Z @tobiu cross-referenced by #9617
+- 2026-03-31T20:45:12Z @tobiu added sub-issue #9617
 
