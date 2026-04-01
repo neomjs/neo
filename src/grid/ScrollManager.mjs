@@ -173,9 +173,14 @@ class ScrollManager extends Base {
      */
     onContainerScroll({ scrollLeft, scrollTop, target }) {
         let me = this,
-            { bodyWrapper } = me.gridContainer;
+            isBodyWrapper = [
+                me.gridContainer.bodyWrapper?.id,
+                me.gridContainer.bodyStart?.id + '__wrapper',
+                me.gridContainer.body?.id + '__wrapper',
+                me.gridContainer.bodyEnd?.id + '__wrapper'
+            ].includes(target.id);
         
-        if (target.id === bodyWrapper?.id || target.id === me.gridContainer.body?.id + '__wrapper') {
+        if (isBodyWrapper) {
             me.scrollTop = target.scrollTop ?? scrollTop;
             me.gridContainer.body.isScrolling = true;
 
