@@ -6,9 +6,10 @@ labels:
   - enhancement
   - ai
   - grid
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-03-31T15:56:50Z'
-updatedAt: '2026-03-31T15:56:50Z'
+updatedAt: '2026-04-01T08:29:21Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9614'
 author: tobiu
 commentsCount: 0
@@ -37,4 +38,5 @@ In the new Multi-Body Grid architecture, horizontal scrolling is currently broke
 - 2026-03-31T15:56:51Z @tobiu added the `enhancement` label
 - 2026-03-31T15:56:51Z @tobiu added the `ai` label
 - 2026-03-31T15:56:52Z @tobiu added the `grid` label
+- 2026-04-01T08:29:21Z @tobiu assigned to @tobiu
 
