@@ -289,13 +289,14 @@ class GridContainer extends BaseContainer {
 
         me.bodyWrapper = Neo.create(BaseContainer, {
             appName,
-            cls     : ['neo-grid-body-wrapper'],
-            flex    : 1,
-            layout  : {ntype: 'hbox', align: 'stretch'},
-            parentId: me.id,
-            theme   : me.theme,
+            cls      : ['neo-grid-bodies-wrapper'],
+            flex     : 1,
+            isLoading: me.isLoading,
+            layout   : {ntype: 'hbox', align: 'stretch'},
+            parentId : me.id,
+            theme    : me.theme,
             windowId,
-            items   : [me.body]
+            items    : [me.body]
         });
 
         me.horizontalScrollbar = Neo.create(HorizontalScrollbar, {
@@ -405,6 +406,20 @@ class GridContainer extends BaseContainer {
 
         if (value && me.store && value.store !== me.store) {
             value.store = me.store
+        }
+    }
+
+    /**
+     * Triggered after the isLoading config got changed
+     * @param {Boolean|String} value
+     * @param {Boolean|String} oldValue
+     * @protected
+     */
+    afterSetIsLoading(value, oldValue) {
+        let {bodyWrapper} = this;
+
+        if (bodyWrapper) {
+            bodyWrapper.isLoading = value;
         }
     }
 
@@ -818,7 +833,10 @@ class GridContainer extends BaseContainer {
                     flex         : 'none',
                     gridContainer: me,
                     parentId     : me.bodyWrapper.id,
+                    rowHeight    : me.rowHeight,
+                    store        : me.store,
                     theme        : me.theme,
+                    useInternalId: me.useInternalId,
                     windowId     : me.windowId
                 });
             } else if (lockedStartButtons) {
@@ -850,7 +868,10 @@ class GridContainer extends BaseContainer {
                     flex         : 'none',
                     gridContainer: me,
                     parentId     : me.bodyWrapper.id,
+                    rowHeight    : me.rowHeight,
+                    store        : me.store,
                     theme        : me.theme,
+                    useInternalId: me.useInternalId,
                     windowId     : me.windowId
                 });
             } else if (lockedEndButtons) {
@@ -1078,7 +1099,9 @@ class GridContainer extends BaseContainer {
         if (!me.initialResizeEvent) {
             await me.passSizeToBody(true);
 
+            me.bodyStart?.updateMountedAndVisibleColumns();
             me.body.updateMountedAndVisibleColumns();
+            me.bodyEnd?.updateMountedAndVisibleColumns();
 
             await me.headerToolbar.passSizeToBody()
         } else {

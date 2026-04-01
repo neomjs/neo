@@ -733,6 +733,7 @@ class GridBody extends Component {
             endIndex, i, item, itemIndex, poolSize, range, recycle = true;
 
         if (
+            !store                            ||
             store.isLoading                   ||
             me.availableRows              < 1 ||
             me._containerWidth            < 1 || // we are not checking me.containerWidth, since we want to ignore the config symbol

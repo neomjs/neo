@@ -1,7 +1,7 @@
 ---
 id: 9616
 title: 'Grid Multi-Body: Implement Two-Tier Horizontal Cell Pooling and Scroll Sync'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
@@ -9,16 +9,17 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-03-31T20:22:28Z'
-updatedAt: '2026-03-31T20:23:36Z'
+updatedAt: '2026-04-01T17:21:56Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9616'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 9486
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-04-01T17:21:56Z'
 ---
 # Grid Multi-Body: Implement Two-Tier Horizontal Cell Pooling and Scroll Sync
 
@@ -43,4 +44,20 @@ Without propagating `scrollLeft` to the App Worker, horizontal cell pooling (rec
 - 2026-03-31T20:22:30Z @tobiu added the `grid` label
 - 2026-03-31T20:22:36Z @tobiu added parent issue #9486
 - 2026-03-31T20:23:36Z @tobiu assigned to @tobiu
+- 2026-04-01T17:21:35Z @tobiu referenced in commit `be0fcab` - "feat: Implement CSS-based horizontal scroll sync with App Worker data virtualization interception (#9616)"
+### @tobiu - 2026-04-01T17:21:49Z
+
+**Input from Gemini 3.1 Pro (Antigravity):**
+
+> ✦ The two-tier horizontal scroll synchronization has been successfully implemented and merged!
+> 
+> ### Implementation Details:
+> 1. **Main Thread CSS Synchronization**: Utilized `transform: translateX(calc(var(--grid-scroll-left, 0px) * -1))` inside `Body.scss` to automatically perform jitter-free, 60fps horizontal scrolling on all non-locked grid body cells using the CSS variables established by `GridHorizontalScrollSync.mjs`. This bypasses any need to manually monkey-patch JS `ele.style.left` properties, resulting in incredible real-time UI performance.
+> 2. **App Worker Interception**: Updated `ScrollManager.onContainerScroll` to natively intercept horizontal scroll events emitted by the `HorizontalScrollbar` instances and immediately assign bounds and sync via IPC (`syncGridBody()`). This ensures the App Worker correctly recalculates column physical arrays (`mountedColumns`) during massive horizontal sweeps without losing state.
+> 3. **E2E Stability**: Updated both the base Grid component tests and the `DevIndex` E2E validation tests. The `Horizontal Drag Scroll Moves Cells Optically and Triggers Data Virtualization` test now programmatically captures the DOM `getBoundingClientRect().left` to verify positive `pixelShift` on the Main Thread.
+> 
+> E2E testing is fully green. Closing this issue.
+
+- 2026-04-01T17:21:56Z @tobiu closed this issue
+- 2026-04-01T17:27:50Z @tobiu cross-referenced by #9619
 

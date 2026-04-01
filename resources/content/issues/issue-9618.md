@@ -1,7 +1,7 @@
 ---
 id: 9618
 title: DevIndex High-Velocity Grid Thumb Drag Scroll Jitter
-state: OPEN
+state: CLOSED
 labels:
   - bug
   - ai
@@ -10,7 +10,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-04-01T10:22:23Z'
-updatedAt: '2026-04-01T10:22:44Z'
+updatedAt: '2026-04-01T16:24:45Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9618'
 author: tobiu
 commentsCount: 0
@@ -20,6 +20,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-04-01T16:24:45Z'
 ---
 # DevIndex High-Velocity Grid Thumb Drag Scroll Jitter
 
@@ -35,4 +36,6 @@ Since the current synthetic E2E tests do not reliably catch this specific magnit
 - 2026-04-01T10:22:25Z @tobiu added the `grid` label
 - 2026-04-01T10:22:33Z @tobiu added parent issue #9486
 - 2026-04-01T10:22:44Z @tobiu assigned to @tobiu
+- 2026-04-01T15:46:37Z @tobiu referenced in commit `a5ca902` - "fix(grid): Eliminate DevIndex blank pages by replacing GridRowScrollPinning timeout with blur listener (#9618)"
+- 2026-04-01T16:24:45Z @tobiu closed this issue
 
