@@ -108,12 +108,17 @@ class GridRowScrollPinning extends Base {
         let me    = this,
             state = me.registrations.get(id);
 
-        if (!state || !state.wrapperNode || !state.contentNodes?.length) {
+        if (!state || !state.wrapperNode) {
             return
         }
 
         let actualScrollTop = state.wrapperNode.scrollTop || 0,
-            deltaY          = actualScrollTop - state.workerScrollTop;
+            deltaY          = actualScrollTop - state.workerScrollTop,
+            contentNodes    = state.bodyIds.map(bodyId => DomAccess.getElement(bodyId)).filter(Boolean);
+
+        if (contentNodes.length < 1) {
+            return
+        }
 
         // ONLY engage pinning if the user is explicitly dragging the scrollbar thumb.
         // We explicitly ignore Wheel, Trackpad, Keyboard, and Body Drag scrolling,
@@ -132,11 +137,11 @@ class GridRowScrollPinning extends Base {
         }
 
         if (state.isPinningActive) {
-            state.contentNodes.forEach(node => {
+            contentNodes.forEach(node => {
                 node.style.setProperty('--grid-row-pin-offset', `${deltaY}px`);
             });
-        } else if (state.contentNodes[0].style.getPropertyValue('--grid-row-pin-offset') !== '0px') {
-            state.contentNodes.forEach(node => {
+        } else if (contentNodes[0].style.getPropertyValue('--grid-row-pin-offset') !== '0px') {
+            contentNodes.forEach(node => {
                 node.style.setProperty('--grid-row-pin-offset', '0px');
             });
         }
@@ -277,15 +282,13 @@ class GridRowScrollPinning extends Base {
      */
     register({bodyIds, bodyWrapperId, id}) {
         let me            = this,
-            wrapperNode   = DomAccess.getElement(bodyWrapperId),
-            contentNodes  = bodyIds.map(bodyId => DomAccess.getElement(bodyId)).filter(Boolean);
+            wrapperNode   = DomAccess.getElement(bodyWrapperId);
 
-        if (wrapperNode && contentNodes.length > 0) {
+        if (wrapperNode && bodyIds.length > 0) {
             me.registrations.set(id, {
                 id,
                 bodyIds,
                 wrapperNode,
-                contentNodes,
                 isPinningActive: false,
                 isThumbDragging: false,
                 scrollTimeoutId: null,

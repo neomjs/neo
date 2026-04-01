@@ -77,7 +77,7 @@ class Toolbar extends BaseToolbar {
          * @member {Object} _vdom
          */
         _vdom:
-        {'aria-rowindex': 1, cn: [{cn: []}]}
+            { 'aria-rowindex': 1, cn: [{ cn: [] }] }
     }
 
     /**
@@ -170,8 +170,8 @@ class Toolbar extends BaseToolbar {
      *
      */
     createItems() {
-        let me        = this,
-            {mounted} = me;
+        let me = this,
+            { mounted } = me;
 
         me.itemDefaults.showHeaderFilter = me.showHeaderFilters;
 
@@ -187,7 +187,7 @@ class Toolbar extends BaseToolbar {
 
         super.createItems();
 
-        let {items} = me,
+        let { items } = me,
             style;
 
         items.forEach((item, index) => {
@@ -196,9 +196,9 @@ class Toolbar extends BaseToolbar {
             style = item.wrapperStyle;
 
             // todo: only add px if number
-            if (item.maxWidth) {style.maxWidth = item.maxWidth + 'px'}
-            if (item.minWidth) {style.minWidth = item.minWidth + 'px'}
-            if (item.width)    {style.width    = item.width    + 'px'}
+            if (item.maxWidth) { style.maxWidth = item.maxWidth + 'px' }
+            if (item.minWidth) { style.minWidth = item.minWidth + 'px' }
+            if (item.width) { style.width = item.width + 'px' }
 
             item.wrapperStyle = style
         });
@@ -217,8 +217,8 @@ class Toolbar extends BaseToolbar {
 
         Neo.merge(config, {
             boundaryContainerId: [me.id, me.parent.id],
-            ignoreDragSelector : '.neo-resizable',
-            scrollLeft         : me.scrollLeft
+            ignoreDragSelector: '.neo-resizable',
+            scrollLeft: me.scrollLeft
         });
 
         super.createSortZone(config)
@@ -249,23 +249,23 @@ class Toolbar extends BaseToolbar {
      * @param {Boolean} silent=false
      * @returns {Promise<void>}
      */
-    async passSizeToBody(silent=false) {
-        let me              = this,
-            gridContainer   = me.gridContainer,
-            layoutLock      = me.layoutLock,
-            body            = layoutLock === 'start' ? gridContainer.bodyStart : (layoutLock === 'end' ? gridContainer.bodyEnd : gridContainer.body),
-            {items}         = me,
+    async passSizeToBody(silent = false) {
+        let me = this,
+            gridContainer = me.gridContainer,
+            layoutLock = me.layoutLock,
+            body = layoutLock === 'start' ? gridContainer.bodyStart : (layoutLock === 'end' ? gridContainer.bodyEnd : gridContainer.body),
+            { items } = me,
             columnPositions = [],
-            currentX        = 0,
+            currentX = 0,
             hasDynamicWidth = false,
-            layoutFinished  = true,
-            i               = 0,
-            len             = items.length,
+            layoutFinished = true,
+            i = 0,
+            len = items.length,
             item, rects, w, width;
 
         for (; i < len; i++) {
             item = items[i];
-            w    = item.width;
+            w = item.width;
 
             if (item.flex || !w || (Neo.isString(w) && !w.endsWith('px'))) {
                 hasDynamicWidth = true;
@@ -294,21 +294,21 @@ class Toolbar extends BaseToolbar {
                 for (i = 0; i < len; i++) {
                     columnPositions.push({
                         dataField: items[i].dataField,
-                        width    : rects[i].width,
-                        x        : currentX
+                        width: rects[i].width,
+                        x: currentX
                     });
 
                     currentX += rects[i].width
                 }
             } else {
                 for (i = 0; i < len; i++) {
-                    item  = items[i];
+                    item = items[i];
                     width = item.hidden ? 0 : parseInt(item.width, 10);
 
                     columnPositions.push({
                         dataField: item.dataField,
-                        width    : width,
-                        x        : currentX
+                        width: width,
+                        x: currentX
                     });
 
                     currentX += width
@@ -332,8 +332,8 @@ class Toolbar extends BaseToolbar {
      */
     async scrollToIndex(index) {
         await Neo.main.DomAccess.scrollIntoView({
-            delay   : 125,
-            id      : this.items[index].id,
+            delay: 125,
+            id: this.items[index].id,
             windowId: this.windowId
         })
     }
@@ -346,9 +346,9 @@ class Toolbar extends BaseToolbar {
 
         return {
             ...super.toJSON(),
-            scrollLeft        : me.scrollLeft,
-            showHeaderFilters : me.showHeaderFilters,
-            sortable          : me.sortable,
+            scrollLeft: me.scrollLeft,
+            showHeaderFilters: me.showHeaderFilters,
+            sortable: me.sortable,
             useTriStateSorting: me.useTriStateSorting
         }
     }
