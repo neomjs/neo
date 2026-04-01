@@ -34,11 +34,13 @@ subIssues:
   - '[x] 9608 Fix Event Resolution and Parent Hierarchy Regressions in Nested Sub-Grids'
   - '[x] 9607 GridContainer: `this.items is not iterable` crash on initialization'
   - '[x] 9615 Sub-Epic: Grid Multi-Body Stabilization (Header Sync & Pinning)'
-  - '[ ] 9616 Grid Multi-Body: Implement Two-Tier Horizontal Cell Pooling and Scroll Sync'
+  - '[x] 9616 Grid Multi-Body: Implement Two-Tier Horizontal Cell Pooling and Scroll Sync'
   - '[x] 9617 Grid Multi-Body: Fix Row Scroll Pinning for Thumb Dragging'
-  - '[ ] 9618 DevIndex High-Velocity Grid Thumb Drag Scroll Jitter'
-subIssuesCompleted: 11
-subIssuesTotal: 22
+  - '[x] 9618 DevIndex High-Velocity Grid Thumb Drag Scroll Jitter'
+  - '[ ] 9619 Grid Multi-Body: Implement and Test Locked Columns in DevIndex'
+  - '[ ] 9620 Grid Multi-Body: Fix Null Data Store and Consolidate Loading Mask'
+subIssuesCompleted: 13
+subIssuesTotal: 24
 blockedBy: []
 blocking: []
 ---

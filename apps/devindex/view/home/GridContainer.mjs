@@ -192,11 +192,13 @@ class GridContainer extends BaseGridContainer {
             columns          = [{
                 type     : 'index',
                 dataField: 'id',
+                locked   : 'start',
                 text     : '#',
                 width    : 60,
                 cellAlign: 'right'
             }, {
                 dataField           : 'rank',
+                locked              : 'start',
                 text                : 'Rank',
                 width               : 60,
                 cellAlign           : 'right',
@@ -204,6 +206,7 @@ class GridContainer extends BaseGridContainer {
             }, {
                 type     : 'githubUser',
                 dataField: 'login',
+                locked   : 'start',
                 text     : 'User',
                 width    : 250
             }, {
@@ -360,6 +363,7 @@ class GridContainer extends BaseGridContainer {
 
         columns.push({
             dataField: 'lastUpdated',
+            locked   : 'end',
             text     : 'Updated',
             width    : 120,
             cellAlign: 'right',
