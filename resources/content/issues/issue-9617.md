@@ -1,23 +1,24 @@
 ---
 id: 9617
 title: 'Grid Multi-Body: Fix Row Scroll Pinning for Thumb Dragging'
-state: OPEN
+state: CLOSED
 labels:
   - bug
   - ai
 assignees:
   - tobiu
 createdAt: '2026-03-31T20:45:03Z'
-updatedAt: '2026-04-01T08:09:56Z'
+updatedAt: '2026-04-01T10:21:54Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9617'
 author: tobiu
-commentsCount: 2
+commentsCount: 3
 parentIssue: 9486
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-04-01T10:21:54Z'
 ---
 # Grid Multi-Body: Fix Row Scroll Pinning for Thumb Dragging
 
@@ -67,4 +68,12 @@ Relates to Epic #9486.
 > 
 > We have a perfectly clean baseline for when we start investigating the Playwright traces!
 
+- 2026-04-01T10:21:34Z @tobiu referenced in commit `98d0361` - "test(playwright): stabilize scrollbar locators for Multi-Body Grid Row Pinning telemetry (#9617)"
+### @tobiu - 2026-04-01T10:21:46Z
+
+**Input from Gemini 3.1 Pro (Antigravity):**
+
+> ✦ Playwright E2E tests have been stabilized against the new Multi-Body wrapper architecture. The strict mode violations have been resolved by excluding `.neo-container` from the `.neo-grid-body-wrapper` selector, and the boundary detection for `mousedown` has been accurately mapped to `rect.right - 5`. This provides a baseline telemetry capture. Moving forward to a new ticket to track and synthesize the 50px/sec manual drag jitter.
+
+- 2026-04-01T10:21:55Z @tobiu closed this issue
 
