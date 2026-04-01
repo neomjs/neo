@@ -22,14 +22,13 @@ test.describe('Desktop (1920x1080): Grid Scroll Thrashing', () => {
 
     test('High-Velocity Vertical Thumb Drag Stale Render Detection', async ({ page }) => {
         const result = await page.evaluate(async () => {
-            const scrollbar = document.querySelector('.neo-grid-vertical-scrollbar');
-            const bodyWrapper = document.querySelector('.neo-grid-body-wrapper');
+            const bodyWrapper = document.querySelector('.neo-grid-body-wrapper:not(.neo-container)');
             
-            if (!scrollbar || !bodyWrapper) {
+            if (!bodyWrapper) {
                 return { error: 'Grid components not found' };
             }
 
-            const maxScroll = scrollbar.scrollHeight - scrollbar.clientHeight;
+            const maxScroll = bodyWrapper.scrollHeight - bodyWrapper.clientHeight;
             if (maxScroll <= 0) return { skipped: true, reason: 'Not scrollable' };
 
             let maxDiscrepancy = 0;
@@ -79,9 +78,13 @@ test.describe('Desktop (1920x1080): Grid Scroll Thrashing', () => {
             const performDrag = async () => {
                 const duration = 1000; // 1 second fast drag
                 const start = performance.now();
-                const startTop = scrollbar.scrollTop;
+                const startTop = bodyWrapper.scrollTop;
                 // Drag down by 20000px
                 const targetTop = Math.min(startTop + 20000, maxScroll);
+                
+                // Trigger the mousedown to activate thumb dragging pinning logic
+                const rect = bodyWrapper.getBoundingClientRect();
+                bodyWrapper.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientX: rect.right - 5 }));
                 
                 return new Promise(resolve => {
                     const step = () => {
@@ -89,11 +92,13 @@ test.describe('Desktop (1920x1080): Grid Scroll Thrashing', () => {
                         const progress = Math.min(elapsed / duration, 1);
                         
                         // We set scrollTop directly to simulate moving the thumb
-                        scrollbar.scrollTop = startTop + (targetTop - startTop) * progress;
+                        bodyWrapper.scrollTop = startTop + (targetTop - startTop) * progress;
                         
                         if (progress < 1) {
                             requestAnimationFrame(step);
                         } else {
+                            // Trigger the mouse up to deactivate thumb dragging
+                            window.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
                             resolve();
                         }
                     };
