@@ -79,6 +79,10 @@
                  border-right-width : 0;
              }
 
+             &.neo-locked-end-first-column {
+                 border-left: 1px solid var(--grid-container-border-color);
+             }
+
              &.neo-value-band-1 {
                  background-color: var(--grid-cell-value-band-1-background-color, transparent);
              }

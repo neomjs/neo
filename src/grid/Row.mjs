@@ -230,7 +230,7 @@ class Row extends Component {
         }
 
         if (isLastColumn) {
-            if (column.locked === 'end' || (!column.locked && !gridContainer.lockedEndColumns?.length)) {
+            if (column.locked !== 'start') {
                 cellCls.push('neo-last-column')
             }
         }
@@ -238,7 +238,11 @@ class Row extends Component {
         if (column.locked === 'start') {
             cellCls.push('neo-locked-start')
         } else if (column.locked === 'end') {
-            cellCls.push('neo-locked-end')
+            cellCls.push('neo-locked-end');
+
+            if (columnIndex === 0) {
+                cellCls.push('neo-locked-end-first-column')
+            }
         }
 
         cellConfig = {
