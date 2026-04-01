@@ -244,9 +244,12 @@ class GridDragScroll extends Base {
 
         // Ignore clicks on the native scrollbar (including Mac OS overlay scrollbars)
         if (event.target === registration.bodyElement) {
+            let style = window.getComputedStyle(registration.bodyElement);
+            let hasVisibleScrollbar = style.scrollbarWidth !== 'none' && style.display !== 'none';
             let rect = registration.bodyElement.getBoundingClientRect();
-            let isRightEdge = event.offsetX >= registration.bodyElement.clientWidth  || event.clientX >= (rect.right - 18);
-            let isBottomEdge = event.offsetY >= registration.bodyElement.clientHeight || event.clientY >= (rect.bottom - 18);
+
+            let isRightEdge = hasVisibleScrollbar && (event.offsetX >= registration.bodyElement.clientWidth  || event.clientX >= (rect.right - 18));
+            let isBottomEdge = hasVisibleScrollbar && (event.offsetY >= registration.bodyElement.clientHeight || event.clientY >= (rect.bottom - 18));
             
             if (isRightEdge || isBottomEdge) {
                 return

@@ -1319,6 +1319,35 @@ class GridContainer extends BaseContainer {
         let me = this;
 
         me.getVdomRoot()['aria-colcount'] = me.columns.count;
+
+        let cls = 'neo-hide-scrollbar';
+
+        if (me.bodyStart) {
+            let startCls = [...me.bodyStart.wrapperCls];
+            if (!startCls.includes(cls)) {
+                startCls.push(cls);
+                me.bodyStart.wrapperCls = startCls;
+            }
+        }
+
+        if (me.body) {
+            let bodyCls = [...me.body.wrapperCls];
+            let hasCls  = bodyCls.includes(cls);
+
+            if (me.bodyEnd && !hasCls) {
+                bodyCls.push(cls);
+                me.body.wrapperCls = bodyCls;
+            } else if (!me.bodyEnd && hasCls) {
+                NeoArray.remove(bodyCls, cls);
+                me.body.wrapperCls = bodyCls;
+            }
+        }
+
+        if (me.scrollManager) {
+            me.scrollManager.rowScrollPinning && me.scrollManager.updateRowScrollPinningAddon(true);
+            me.scrollManager.updateVerticalScrollSyncAddon(true);
+        }
+
         !silent && me.update()
     }
 

@@ -9,6 +9,15 @@
     &:focus {
         outline: none;
     }
+
+    &.neo-hide-scrollbar {
+        -ms-overflow-style: none; /* IE, Edge */
+        scrollbar-width   : none; /* Firefox */
+
+        &::-webkit-scrollbar {
+            display: none;        /* Chrome, Safari, Edge */
+        }
+    }
 }
 
 .neo-grid-body {
