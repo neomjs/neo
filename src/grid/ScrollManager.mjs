@@ -11,8 +11,8 @@ class ScrollManager extends Base {
      * @static
      */
     static delayable = {
-        onBodyScrollEnd: {type: 'buffer',   timer: 150},
-        syncGridBody   : {type: 'throttle', timer:  16}
+        onBodyScrollEnd: { type: 'buffer', timer: 150 },
+        syncGridBody: { type: 'throttle', timer: 16 }
     }
 
     static config = {
@@ -93,7 +93,7 @@ class ScrollManager extends Base {
      */
     afterSetMounted(value, oldValue) {
         if (value) {
-            this.dragScroll       && this.updateDragScrollAddon(true);
+            this.dragScroll && this.updateDragScrollAddon(true);
             this.rowScrollPinning && this.updateRowScrollPinningAddon(true);
             this.updateGridHorizontalScrollSyncAddon(true)
         } else if (oldValue) {
@@ -121,11 +121,11 @@ class ScrollManager extends Base {
         let me = this;
 
         if (oldValue && me.mounted) {
-            me.dragScroll       && me.updateDragScrollAddon(false, oldValue);
+            me.dragScroll && me.updateDragScrollAddon(false, oldValue);
             me.rowScrollPinning && me.updateRowScrollPinningAddon(false, oldValue);
             me.updateGridHorizontalScrollSyncAddon(false, oldValue);
 
-            me.dragScroll       && me.updateDragScrollAddon(true, value);
+            me.dragScroll && me.updateDragScrollAddon(true, value);
             me.rowScrollPinning && me.updateRowScrollPinningAddon(true, value);
             me.updateGridHorizontalScrollSyncAddon(true, value);
         }
@@ -145,7 +145,7 @@ class ScrollManager extends Base {
      * @param {Object} data
      * @protected
      */
-    onBodyScroll({scrollTop}) {
+    onBodyScroll({ scrollTop }) {
         let me = this;
 
         me.scrollTop = scrollTop;
@@ -171,17 +171,18 @@ class ScrollManager extends Base {
      * @param {Number} data.scrollTop
      * @param {Object} data.target
      */
-    onContainerScroll({scrollLeft, scrollTop, target}) {
-        let me = this;
-
-        if (target.id === me.gridContainer.bodyWrapper?.id) {
-            me.scrollTop = scrollTop;
+    onContainerScroll({ scrollLeft, scrollTop, target }) {
+        let me = this,
+            { bodyWrapper } = me.gridContainer;
+        
+        if (target.id === bodyWrapper?.id || target.id === me.gridContainer.body?.id + '__wrapper') {
+            me.scrollTop = target.scrollTop ?? scrollTop;
             me.gridContainer.body.isScrolling = true;
 
             me.onBodyScrollEnd();
             me.syncGridBody()
         } else if (target.id.includes('grid-container')) {
-            me.scrollLeft = scrollLeft;
+            me.scrollLeft = target.scrollLeft ?? scrollLeft;
             me.gridContainer.body.isScrolling = true;
 
             me.onBodyScrollEnd();
@@ -201,21 +202,21 @@ class ScrollManager extends Base {
      * @param {String|null} [windowId=this.windowId]
      * @returns {Promise<void>}
      */
-    async updateDragScrollAddon(active, windowId=this.windowId) {
-        let me    = this,
+    async updateDragScrollAddon(active, windowId = this.windowId) {
+        let me = this,
             addon = await Neo.currentWorker.getAddon('GridDragScroll', windowId);
 
         if (active) {
             let scrollerId = me.gridContainer.horizontalScrollbar?.id;
 
             addon.register({
-                bodyId     : me.gridBody.id + '__wrapper',
+                bodyId: me.gridBody.id + '__wrapper',
                 containerId: scrollerId || me.gridContainer.id,
-                id         : me.id,
+                id: me.id,
                 windowId
             })
         } else {
-            addon.unregister({id: me.id, windowId})
+            addon.unregister({ id: me.id, windowId })
         }
     }
 
@@ -224,19 +225,19 @@ class ScrollManager extends Base {
      * @param {String|null} [windowId=this.windowId]
      * @returns {Promise<void>}
      */
-    async updateRowScrollPinningAddon(active, windowId=this.windowId) {
-        let me    = this,
+    async updateRowScrollPinningAddon(active, windowId = this.windowId) {
+        let me = this,
             addon = await Neo.currentWorker.getAddon('GridRowScrollPinning', windowId);
 
         if (active) {
             addon.register({
                 bodyIds      : [me.gridContainer.bodyStart?.id, me.gridContainer.body?.id, me.gridContainer.bodyEnd?.id].filter(Boolean),
-                bodyWrapperId: me.gridContainer.bodyWrapper?.id,
+                bodyWrapperId: me.gridContainer.body?.id + '__wrapper',
                 id           : me.id,
                 windowId
             })
         } else {
-            addon.unregister({id: me.id, windowId})
+            addon.unregister({ id: me.id, windowId })
         }
     }
 
@@ -245,18 +246,18 @@ class ScrollManager extends Base {
      * @param {String|null} [windowId=this.windowId]
      * @returns {Promise<void>}
      */
-    async updateGridHorizontalScrollSyncAddon(active, windowId=this.windowId) {
-        let me    = this,
+    async updateGridHorizontalScrollSyncAddon(active, windowId = this.windowId) {
+        let me = this,
             addon = await Neo.currentWorker.getAddon('GridHorizontalScrollSync', windowId);
 
         if (active) {
-            let scrollerId    = me.gridContainer.horizontalScrollbar?.id,
-                bodyId        = me.gridContainer.body?.id,
-                headerId      = me.gridContainer.headerWrapper?.id;
+            let scrollerId = me.gridContainer.horizontalScrollbar?.id,
+                bodyId = me.gridContainer.body?.id,
+                headerId = me.gridContainer.headerWrapper?.id;
 
             if (scrollerId && bodyId && headerId) {
                 addon.register({
-                    id        : me.id + '__h_scroll',
+                    id: me.id + '__h_scroll',
                     scrollerId,
                     bodyId,
                     headerId,
@@ -264,7 +265,7 @@ class ScrollManager extends Base {
                 });
             }
         } else {
-            addon.unregister({id: me.id + '__h_scroll', windowId})
+            addon.unregister({ id: me.id + '__h_scroll', windowId })
         }
     }
 
@@ -275,7 +276,7 @@ class ScrollManager extends Base {
         return {
             ...super.toJSON(),
             scrollLeft: this.scrollLeft,
-            scrollTop : this.scrollTop
+            scrollTop: this.scrollTop
         }
     }
 }

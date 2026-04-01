@@ -179,6 +179,21 @@ class GridRowScrollPinning extends Base {
         }
 
         if (state) {
+            // Strict boundary check: only engage if clicking the vertical scrollbar track.
+            // Clicking the native scrollbar hit-tests to the container element itself.
+            let rect                = scrollbar.getBoundingClientRect(),
+                isVerticalScrollbar = false;
+
+            if (event.target === scrollbar && event.clientX) {
+                // 1. Standard scrollbars: offsetX >= clientWidth
+                // 2. Mac OS overlay scrollbars: clientX is within 18px of the right edge
+                isVerticalScrollbar = event.offsetX >= scrollbar.clientWidth || event.clientX >= (rect.right - 18);
+            }
+
+            if (!isVerticalScrollbar) {
+                return
+            }
+
             me.activeDragId = state.id;
             state.isThumbDragging = true;
             
