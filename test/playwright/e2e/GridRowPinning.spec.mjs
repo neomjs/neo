@@ -38,7 +38,7 @@ test.describe('Desktop (1920x1080): BigData Grid Row Pinning Validation', () => 
         await page.mouse.move(960, 540); // Move to center of screen
         
         const evaluationPromise = page.evaluate(async () => {
-            const wrapper = document.querySelector('.neo-grid-body-wrapper');
+            const wrapper = document.querySelector('.neo-grid-body-wrapper:not(.neo-container)');
             const content = document.querySelector('.neo-grid-body');
             let telemetry = [];
             let blankFrames = 0;
@@ -154,8 +154,11 @@ test.describe('Desktop (1920x1080): BigData Grid Row Pinning Validation', () => 
 
         // --- Synthetic Thumb Drag Profiles ---
 
-        const scrollbar = await page.locator('.neo-grid-vertical-scrollbar');
-        await scrollbar.evaluate(node => node.dispatchEvent(new MouseEvent('mousedown', { bubbles: true })));
+        const wrapper = await page.locator('.neo-grid-body-wrapper:not(.neo-container)');
+        await wrapper.evaluate(node => {
+            const rect = node.getBoundingClientRect();
+            node.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientX: rect.right - 5 }));
+        });
 
         console.log('--- Profile 4: Synthetic Steady Slow Drag ---');
         for(let i=0; i<10; i++) {
