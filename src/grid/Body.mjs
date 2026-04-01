@@ -738,7 +738,7 @@ class GridBody extends Component {
             me.availableRows              < 1 ||
             me._containerWidth            < 1 || // we are not checking me.containerWidth, since we want to ignore the config symbol
             me.columnPositions.getCount() < 1 ||
-            me.mountedColumns[1]          < 1
+            me.mountedColumns[1]          < 0
         ) {
             return
         }

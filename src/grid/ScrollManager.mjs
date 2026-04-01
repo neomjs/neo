@@ -253,7 +253,7 @@ class ScrollManager extends Base {
         if (active) {
             let scrollerId = me.gridContainer.horizontalScrollbar?.id,
                 bodyId = me.gridContainer.body?.id,
-                headerId = me.gridContainer.headerWrapper?.id;
+                headerId = me.gridContainer.headerToolbar?.id;
 
             if (scrollerId && bodyId && headerId) {
                 addon.register({
