@@ -45,19 +45,20 @@ class GridRowHoverSync extends Base {
      */
     onMouseOut(id, event) {
         let registration = this.registrations.get(id);
+
         if (registration) {
             registration.lastX = event.clientX;
-            registration.lastY = event.clientY;
+            registration.lastY = event.clientY
         }
 
         let row = event.target.closest('.neo-grid-row');
-        
+
         if (row && row.dataset.recordId) {
             let relatedRow = event.relatedTarget && event.relatedTarget.closest('.neo-grid-row');
-            
+
             // Bailout: Pointer is still inside the SAME physiological row
             if (relatedRow && relatedRow.dataset.recordId === row.dataset.recordId) {
-                return;
+                return
             }
 
             if (registration) {
@@ -65,7 +66,7 @@ class GridRowHoverSync extends Base {
                 // This eliminates any "stuck" states caused by VDOM row recycling during scroll virtualization.
                 registration.wrapperNode
                     .querySelectorAll('.neo-hover')
-                    .forEach(r => r.classList.remove('neo-hover'));
+                    .forEach(r => r.classList.remove('neo-hover'))
             }
         }
     }
@@ -78,19 +79,20 @@ class GridRowHoverSync extends Base {
      */
     onMouseOver(id, event) {
         let registration = this.registrations.get(id);
+
         if (registration) {
             registration.lastX = event.clientX;
-            registration.lastY = event.clientY;
+            registration.lastY = event.clientY
         }
 
         let row = event.target.closest('.neo-grid-row');
-        
+
         if (row && row.dataset.recordId) {
             let relatedRow = event.relatedTarget && event.relatedTarget.closest('.neo-grid-row');
-            
+
             // Bailout: Pointer just came from the SAME physiological row
             if (relatedRow && relatedRow.dataset.recordId === row.dataset.recordId) {
-                return;
+                return
             }
 
             if (registration) {
@@ -101,7 +103,7 @@ class GridRowHoverSync extends Base {
 
                 registration.wrapperNode
                     .querySelectorAll(`.neo-grid-row[data-record-id="${row.dataset.recordId}"]`)
-                    .forEach(r => r.classList.add('neo-hover'));
+                    .forEach(r => r.classList.add('neo-hover'))
             }
         }
     }
@@ -112,12 +114,12 @@ class GridRowHoverSync extends Base {
      * @param {String} data.wrapperId
      */
     register({id, wrapperId}) {
-        let me = this,
+        let me          = this,
             wrapperNode = DomAccess.getElement(wrapperId),
             registration;
 
         if (me.registrations.has(id)) {
-            me.unregister({id});
+            me.unregister({id})
         }
 
         if (wrapperNode) {
@@ -131,8 +133,8 @@ class GridRowHoverSync extends Base {
 
             wrapperNode.addEventListener('mouseout',  registration.mouseOutListener);
             wrapperNode.addEventListener('mouseover', registration.mouseOverListener);
-            
-            me.registrations.set(id, registration);
+
+            me.registrations.set(id, registration)
         }
     }
 
@@ -163,8 +165,8 @@ class GridRowHoverSync extends Base {
                     clientY   : registration.lastY,
                     view      : window
                 });
-                
-                element.dispatchEvent(event);
+
+                element.dispatchEvent(event)
             }
         }
     }
@@ -181,7 +183,7 @@ class GridRowHoverSync extends Base {
         if (registration) {
             registration.wrapperNode
                 .querySelectorAll('.neo-hover')
-                .forEach(r => r.classList.remove('neo-hover'));
+                .forEach(r => r.classList.remove('neo-hover'))
         }
     }
 
@@ -196,7 +198,7 @@ class GridRowHoverSync extends Base {
         if (registration) {
             registration.wrapperNode.removeEventListener('mouseout',  registration.mouseOutListener);
             registration.wrapperNode.removeEventListener('mouseover', registration.mouseOverListener);
-            me.registrations.delete(id);
+            me.registrations.delete(id)
         }
     }
 }
