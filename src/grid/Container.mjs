@@ -1349,7 +1349,6 @@ class GridContainer extends BaseContainer {
 
         if (me.scrollManager) {
             me.scrollManager.rowScrollPinning && me.scrollManager.updateRowScrollPinningAddon(true);
-            me.scrollManager.updateVerticalScrollSyncAddon(true);
         }
 
         !silent && me.update()
