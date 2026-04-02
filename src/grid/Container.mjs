@@ -1262,7 +1262,7 @@ class GridContainer extends BaseContainer {
 
         if (me.view) {
             me.view.scrollTop   = scrollTop;
-            me.view.updateDepth = -1;
+            me.view.updateDepth = 3;
             me.view.update()
         }
     }
