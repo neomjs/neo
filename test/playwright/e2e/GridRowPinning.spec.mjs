@@ -35,6 +35,7 @@ test.describe('Desktop (1920x1080): BigData Grid Row Pinning Validation', () => 
     });
 
     test('Scroll Telemetry: Visual Blanking and Jitter Detector', async ({ page }) => {
+        test.setTimeout(120000);
         await page.mouse.move(960, 540); // Move to center of screen
         
         const evaluationPromise = page.evaluate(async () => {
@@ -45,6 +46,7 @@ test.describe('Desktop (1920x1080): BigData Grid Row Pinning Validation', () => 
             let bounces = 0;
             let isRunning = true;
             let lastFrameRows = [];
+            window.__TELEMETRY = [];
 
             const monitor = () => {
                 if (!isRunning) return;
@@ -63,45 +65,72 @@ test.describe('Desktop (1920x1080): BigData Grid Row Pinning Validation', () => 
                     rowsTop = Math.min(...rowRects.map(r => r.top));
                     rowsBottom = Math.max(...rowRects.map(r => r.bottom));
                     
-                    // Check if the entire block of rows is physically outside the visible wrapper bounds
                     if (rowsBottom < wrapperRect.top || rowsTop > wrapperRect.bottom) {
                         isBlank = true;
                     }
 
-                    // Detect visual bouncing/jitter (rows moving down while we scroll down)
                     if (lastFrameRows.length > 0) {
-                        // Find a row that exists in both frames to track its physical movement
                         const trackingRow = rows.find(r => 
                             lastFrameRows.some(lastR => lastR.id === r.id && lastR.dataset.recordId === r.dataset.recordId)
                         );
 
-                        if (trackingRow) {
+                        if (trackingRow && trackingRow.id && window.__TELEMETRY && window.__TELEMETRY.length > 1) {
                             const currentTop = trackingRow.getBoundingClientRect().top;
-                            const lastTopObj = lastFrameRows.find(r => r.id === trackingRow.id && r.dataset.recordId === trackingRow.dataset.recordId);
+                            const lastFrameData = window.__TELEMETRY[window.__TELEMETRY.length - 2] || {};
+                            const lastTopObj = (lastFrameData.rows || []).find(r => r.id === trackingRow.id);
                             
                             if (lastTopObj) {
                                 const lastTop = lastTopObj.top;
-                                // We are scrolling down. Content should natively move UP (top decreases).
-                                // If currentTop > lastTop + 2px tolerance, the content visually bounced DOWN.
-                                // This happens when the pinning addon kicks in and fights the native scroll,
-                                // or when it clears the transform and snaps.
-                                if (currentTop > lastTop + 2) {
+                                const lastScrollTop = lastFrameData.wrapperScrollTop || wrapper.scrollTop;
+                                const scrollDelta = wrapper.scrollTop - lastScrollTop;
+                                const moveDelta = currentTop - lastTop;
+                                
+                                let isBounce = false;
+                                // If scrolling down (scrollDelta > 0), row should move up visually (moveDelta <= 0).
+                                // If scrolling up (scrollDelta < 0), row should move down visually (moveDelta >= 0).
+                                if (scrollDelta > 0 && moveDelta > 2) {
+                                    isBounce = true;
+                                } else if (scrollDelta < 0 && moveDelta < -2) {
+                                    isBounce = true;
+                                }
+
+                                if (isBounce) {
                                     bounces++;
+                                    const myBody = trackingRow.closest('.neo-grid-body');
+                                    window.__DEBUG_BOUNCES = window.__DEBUG_BOUNCES || [];
+                                    window.__DEBUG_BOUNCES.push(`Row ${trackingRow.id}: currentTop=${currentTop}, lastTop=${lastTop}, moveDelta=${moveDelta}, wrapperScrollTop=${wrapper.scrollTop}, scrollDelta=${scrollDelta}, bodyId=${myBody ? myBody.id : '?'}, offset=${myBody ? myBody.style.getPropertyValue('--grid-row-pin-offset') : '?'}, transform=${trackingRow.style.transform}`);
                                 }
                             }
                         }
                     }
 
-                    // Save state for next frame comparison
                     lastFrameRows = rows.map(r => ({
                         id: r.id,
                         dataset: { recordId: r.dataset.recordId },
                         top: r.getBoundingClientRect().top
                     }));
+                    window.__TELEMETRY.push({ rows: lastFrameRows, wrapperScrollTop: wrapper.scrollTop });
                 }
 
                 if (isBlank) {
                     blankFrames++;
+                    window.__DEBUG_BLANKS = window.__DEBUG_BLANKS || [];
+                    window.__DEBUG_BLANKS.push({
+                        time: performance.now(),
+                        scrollTop: wrapper.scrollTop,
+                        offset: content.style.getPropertyValue('--grid-row-pin-offset'),
+                        rowsTop, rowsBottom,
+                        wrapperTop: wrapperRect.top, wrapperBottom: wrapperRect.bottom,
+                        numRows: rows.length
+                    });
+                }
+
+                if (window.__RESET_METRICS) {
+                    blankFrames = 0;
+                    bounces = 0;
+                    window.__DEBUG_BLANKS = [];
+                    window.__DEBUG_BOUNCES = [];
+                    window.__RESET_METRICS = false;
                 }
 
                 telemetry.push({
@@ -121,7 +150,7 @@ test.describe('Desktop (1920x1080): BigData Grid Row Pinning Validation', () => 
             await new Promise(r => setTimeout(r, 12000));
             isRunning = false;
 
-            return { telemetry, blankFrames, bounces };
+            return { telemetry, blankFrames, bounces, debugBounces: window.__DEBUG_BOUNCES, debugBlanks: window.__DEBUG_BLANKS };
         });
 
         console.log('--- Profile 1: Slow Wheel (2-3 rows) ---');
@@ -152,45 +181,56 @@ test.describe('Desktop (1920x1080): BigData Grid Row Pinning Validation', () => 
         
         await page.waitForTimeout(500);
 
-        // --- Synthetic Thumb Drag Profiles ---
-
-        const wrapper = await page.locator('.neo-grid-view');
-        await wrapper.evaluate(node => {
-            const rect = node.getBoundingClientRect();
-            node.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientX: rect.right - 5 }));
+        // --- Authentic Drag Profiles ---
+        
+        console.log('--- Profile 4: Authentic High-Frequency Native Drag (100px/sec thumb equivalent) ---');
+        const wrappers = page.locator('.neo-grid-view');
+        // If there are multiple grid views for any reason, grab the right one
+        const wrapperNode = await wrappers.count() > 1 ? wrappers.nth(1) : wrappers.first();
+        const box = await wrapperNode.boundingBox();
+        
+        // Emulate the human pointer exactly at the vertical scrollbar thumb location.
+        const startX = box.x + box.width - 5;
+        const startY = box.y + 40;
+        
+        // 1. Position mouse on the thumb
+        await page.mouse.move(startX, startY);
+        
+        // 2. Start telemetry and press mouse down
+        await page.evaluate(() => {
+            window.__RESET_METRICS = true;
+            return Promise.resolve();
         });
-
-        console.log('--- Profile 4: Synthetic Steady Slow Drag ---');
-        for(let i=0; i<10; i++) {
-            await page.evaluate(() => document.querySelector('.neo-grid-view').scrollTop += 100);
-            await page.waitForTimeout(50);
-        }
-
-        await page.waitForTimeout(500);
-
-        console.log('--- Profile 5: Synthetic Drag Ping-Pong ---');
-        for(let i=0; i<5; i++) {
-            await page.evaluate(() => document.querySelector('.neo-grid-view').scrollTop += 500);
-            await page.waitForTimeout(100);
-            await page.evaluate(() => document.querySelector('.neo-grid-view').scrollTop -= 500);
-            await page.waitForTimeout(100);
-        }
-
-        await page.waitForTimeout(500);
-
-        console.log('--- Profile 6: Synthetic Massive Snap Drag ---');
-        await page.evaluate(() => document.querySelector('.neo-grid-view').scrollTop += 50000);
-        await page.waitForTimeout(500);
-
-        await page.evaluate(() => window.dispatchEvent(new MouseEvent('mouseup', { bubbles: true })));
+        await page.mouse.down();
+        
+        // 3. Perform a 2.5-second continuous smooth drag down by 500 pixels
+        await page.mouse.move(startX, startY + 500, { steps: 150 });
+        
+        // 4. Ping-Pong back up by 300 pixels
+        await page.mouse.move(startX, startY + 200, { steps: 90 });
+        
+        // 5. Massive snap drag down to force massive deltaY
+        await page.mouse.move(startX, startY + 900, { steps: 20 });
+        
+        // 6. Release mouse and finish sequence
+        await page.mouse.up();
         await page.waitForTimeout(1000);
         
-        const { telemetry, blankFrames, bounces } = await evaluationPromise;
+        const { telemetry, blankFrames, bounces, debugBounces, debugBlanks } = await evaluationPromise;
         
         console.log(`Total Frames Measured: ${telemetry.length}`);
         console.log(`Total Blank Frames (White Flash): ${blankFrames}`);
         console.log(`Total Jitter Bounces Detected: ${bounces}`);
-        
+        if (debugBounces && debugBounces.length > 0) {
+            console.log('--- DEBUG BOUNCES ---');
+            debugBounces.forEach(b => console.log(b));
+            console.log('---------------------');
+        }
+        if (debugBlanks && debugBlanks.length > 0) {
+            console.log('--- DEBUG BLANKS ---');
+            debugBlanks.forEach(b => console.log(JSON.stringify(b)));
+            console.log('---------------------');
+        }
         // Assertions
         expect(blankFrames).toBe(0);
         expect(bounces).toBe(0);

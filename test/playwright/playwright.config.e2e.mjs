@@ -2,7 +2,7 @@ import {defineConfig, devices} from '@playwright/test';
 
 export default defineConfig({
     testDir      : './e2e',
-    outputDir    : './test-results/e2e',
+    outputDir    : './test-results/e2e/artifacts',
     fullyParallel: false, // Maintain serial execution for benchmarks
     workers      : 1,     // Maintain serial execution for benchmarks
 

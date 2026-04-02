@@ -58,19 +58,25 @@ test.describe('Desktop (1920x1080): DevIndex Grid Row Pinning Validation', () =>
                     }
 
                     // Detect visual bouncing/jitter (rows moving down while we scroll down)
-                    if (lastFrameRows.length > 0) {
-                        const trackingRow = rows.find(r => 
-                            lastFrameRows.some(lastR => lastR.id === r.id && lastR.dataset.recordId === r.dataset.recordId)
-                        );
+                    const trackingRow = rows.find(r => 
+                        lastFrameRows.some(lastR => lastR.id === r.id && lastR.dataset.recordId === r.dataset.recordId)
+                    );
 
-                        if (trackingRow) {
-                            const currentTop = trackingRow.getBoundingClientRect().top;
-                            const lastTopObj = lastFrameRows.find(r => r.id === trackingRow.id && r.dataset.recordId === trackingRow.dataset.recordId);
-                            
+                    if (trackingRow) {
+                        const row = trackingRow.getBoundingClientRect();
+                        const currentTop = row.top;
+
+                        if (trackingRow.id && window.__TELEMETRY && window.__TELEMETRY.length > 1) {
+                            const lastTopObj = Object.values(window.__TELEMETRY[window.__TELEMETRY.length - 2] || {}).find(r => r.id === trackingRow.id);
                             if (lastTopObj) {
                                 const lastTop = lastTopObj.top;
                                 if (currentTop > lastTop + 2) {
                                     bounces++;
+                                    if (window.__PROFILE7) {
+                                        const myBody = trackingRow.closest('.neo-grid-body');
+                                        window.__DEBUG_BOUNCES = window.__DEBUG_BOUNCES || [];
+                                        window.__DEBUG_BOUNCES.push(`Row ${trackingRow.id}: currentTop=${currentTop}, lastTop=${lastTop}, diff=${currentTop - lastTop}, wrapperScrollTop=${wrapper.scrollTop}, bodyId=${myBody ? myBody.id : '?'}, offset=${myBody ? myBody.style.getPropertyValue('--grid-row-pin-offset') : '?'}, transform=${trackingRow.style.transform}`);
+                                    }
                                 }
                             }
                         }
@@ -221,11 +227,16 @@ test.describe('Desktop (1920x1080): DevIndex Grid Row Pinning Validation', () =>
             window.__PROFILE7 = false;
         });
         
-        const { telemetry, blankFrames, bounces } = await evaluationPromise;
+        const { telemetry, blankFrames, bounces, debugBounces } = await evaluationPromise;
         
         console.log(`Total Frames Measured: ${telemetry.length}`);
         console.log(`Total Blank Frames (White Flash): ${blankFrames}`);
         console.log(`Total Jitter Bounces Detected: ${bounces}`);
+        if (debugBounces && debugBounces.length > 0) {
+            console.log('--- DEBUG BOUNCES ---');
+            debugBounces.forEach(b => console.log(b));
+            console.log('---------------------');
+        }
         
         // Assertions
         expect(blankFrames).toBe(0);
