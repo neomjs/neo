@@ -1279,12 +1279,17 @@ class GridContainer extends BaseContainer {
             }
 
             _body.skipCreateViewData = false;
-            _body.createViewData();
+            _body.createViewData(true); // silent = true
         };
 
         updateBody(body);
         bodyStart && updateBody(bodyStart);
-        bodyEnd   && updateBody(bodyEnd)
+        bodyEnd   && updateBody(bodyEnd);
+
+        if (me.bodyWrapper) {
+            me.bodyWrapper.updateDepth = -1;
+            me.bodyWrapper.update()
+        }
     }
 
     /**
