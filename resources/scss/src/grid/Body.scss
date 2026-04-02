@@ -1,6 +1,7 @@
 .neo-grid-body {
     height    : 100%;
     overflow-x: hidden;
+    position  : relative;
 
     .neo-grid-cell {
         &.neo-is-modified {

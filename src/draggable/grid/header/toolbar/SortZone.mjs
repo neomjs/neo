@@ -1,5 +1,5 @@
 import BaseSortZone from '../../../container/SortZone.mjs';
-import VdomUtil     from  '../../../../util/VDom.mjs';
+import VdomUtil from '../../../../util/VDom.mjs';
 
 /**
  * @summary Manages drag-and-drop column reordering for Grids.
@@ -71,21 +71,21 @@ class SortZone extends BaseSortZone {
      * @param {Boolean} createComponent=true
      * @returns {Object|Neo.draggable.DragProxyComponent}
      */
-    async createDragProxy(data, createComponent=true) {
+    async createDragProxy(data, createComponent = true) {
         if (!this.moveColumnContent) {
             return await super.createDragProxy(data, createComponent)
         }
 
-        let me            = this,
-            grid          = me.owner.parent,
-            {body}        = grid,
-            bodyWrapperId = Neo.getId('grid-body-wrapper'),
-            columnIndex   = me.dragElement['aria-colindex'] - 1,
-            {dataField}   = body.columnPositions.getAt(columnIndex),
-            cells         = body.getColumnCells(dataField),
-            rows          = [],
-            config        = await super.createDragProxy(data, false),
-            rect          = await grid.getDomRect(),
+        let me = this,
+            grid = me.owner.parent,
+            { body } = grid,
+            viewId = Neo.getId('grid-view'),
+            columnIndex = me.dragElement['aria-colindex'] - 1,
+            { dataField } = body.columnPositions.getAt(columnIndex),
+            cells = body.getColumnCells(dataField),
+            rows = [],
+            config = await super.createDragProxy(data, false),
+            rect = await grid.getDomRect(),
             row, rowComponent;
 
         config.cls = ['neo-grid-wrapper', me.owner.getTheme()];
@@ -101,7 +101,7 @@ class SortZone extends BaseSortZone {
             rowComponent = body.items[index];
 
             row = VdomUtil.clone({ // clone to remove ids
-                cls  : rowComponent.vdom.cls,
+                cls: rowComponent.vdom.cls,
                 style: rowComponent.vdom.style
             });
 
@@ -109,25 +109,25 @@ class SortZone extends BaseSortZone {
             delete proxyCell.id;
             delete proxyCell.style.left;
 
-            proxyCellId  = Neo.getId('proxy-cell');
+            proxyCellId = Neo.getId('proxy-cell');
             proxyCell.id = proxyCellId;
 
             if (cell.cn && cell.cn.length > 0) {
-                let content   = cell.cn[0],
+                let content = cell.cn[0],
                     contentId = content.id || content.componentId;
 
                 if (contentId) {
                     proxyCell.cn = [];
 
                     moveDeltas.push({
-                        action  : 'moveNode',
-                        id      : contentId,
-                        index   : 0,
+                        action: 'moveNode',
+                        id: contentId,
+                        index: 0,
                         parentId: proxyCellId
                     });
 
                     me.movedComponents.push({
-                        id              : contentId,
+                        id: contentId,
                         originalParentId: cell.id
                     })
                 }
@@ -138,21 +138,27 @@ class SortZone extends BaseSortZone {
         });
 
         config.vdom =
-        {cn: [
-            {cls: ['neo-grid-container', ...grid.cls], cn: [
-                {...config.vdom, cls: ['neo-grid-header-toolbar', 'neo-toolbar']},
-                {cls: ['neo-grid-body-wrapper'], id: bodyWrapperId, cn: [
-                    {cls: ['neo-grid-body'], cn: rows},
-                    {cls: ['neo-grid-scrollbar'], style: {height: body.vdom.cn[0].height}}
-                ]}
-            ]}
-        ]};
+        {
+            cn: [
+                {
+                    cls: ['neo-grid-container', ...grid.cls], cn: [
+                        { ...config.vdom, cls: ['neo-grid-header-toolbar', 'neo-toolbar'] },
+                        {
+                            cls: ['neo-grid-view'], id: viewId, cn: [
+                                { cls: ['neo-grid-body'], cn: rows },
+                                { cls: ['neo-grid-scrollbar'], style: { height: body.vdom.height } }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        };
 
         config.listeners = {
             mounted() {
                 Neo.main.DomAccess.scrollTo({
-                    id      : bodyWrapperId,
-                    value   : body.scrollTop,
+                    id: viewId,
+                    value: body.scrollTop,
                     windowId: me.windowId
                 });
 
@@ -190,9 +196,9 @@ class SortZone extends BaseSortZone {
         // Restore moved nodes BEFORE destroying the proxy to ensure they return to the Grid.
         if (me.movedComponents?.length > 0) {
             let restoreDeltas = me.movedComponents.map(item => ({
-                action  : 'moveNode',
-                id      : item.id,
-                index   : 0,
+                action: 'moveNode',
+                id: item.id,
+                index: 0,
                 parentId: item.originalParentId
             }));
 
@@ -206,13 +212,13 @@ class SortZone extends BaseSortZone {
             return
         }
 
-        let {owner}   = me,
-            grid      = owner.parent,
-            {columns} = grid,
-            toIndex   = me.dragElement['aria-colindex'] - 1,
-            column    = columns.getAt(toIndex),
-            prevCol   = toIndex > 0 ? columns.getAt(toIndex - 1) : null,
-            nextCol   = toIndex < columns.count - 1 ? columns.getAt(toIndex + 1) : null,
+        let { owner } = me,
+            grid = owner.parent,
+            { columns } = grid,
+            toIndex = me.dragElement['aria-colindex'] - 1,
+            column = columns.getAt(toIndex),
+            prevCol = toIndex > 0 ? columns.getAt(toIndex - 1) : null,
+            nextCol = toIndex < columns.count - 1 ? columns.getAt(toIndex + 1) : null,
             newLocked = null;
 
         // Inference logic: Default to unlocked unless completely surrounded by a locked zone
@@ -271,11 +277,11 @@ class SortZone extends BaseSortZone {
         await super.onDragStart(data);
 
         if (me.dragComponent && me.moveColumnContent) {
-            let {body}         = me.owner.parent,
-                columnIndex    = me.dragElement['aria-colindex'] - 1,
+            let { body } = me.owner.parent,
+                columnIndex = me.dragElement['aria-colindex'] - 1,
                 columnPosition = body.columnPositions.getAt(columnIndex),
-                {dataField}    = columnPosition,
-                cells          = body.getColumnCells(dataField);
+                { dataField } = columnPosition,
+                cells = body.getColumnCells(dataField);
 
             columnPosition.hidden = true;
 
@@ -297,34 +303,34 @@ class SortZone extends BaseSortZone {
         super.switchItems(index1, index2);
 
         if (this.moveColumnContent) {
-            let me                = this,
-                {itemRects}       = me,
-                {body}            = me.owner.parent,
-                {columnPositions} = body,
-                column1Position   = columnPositions.getAt(index1),
-                column2Position   = columnPositions.getAt(index2),
-                column1Cells      = body.getColumnCells(column1Position.dataField),
-                column2Cells      = body.getColumnCells(column2Position.dataField);
+            let me = this,
+                { itemRects } = me,
+                { body } = me.owner.parent,
+                { columnPositions } = body,
+                column1Position = columnPositions.getAt(index1),
+                column2Position = columnPositions.getAt(index2),
+                column1Cells = body.getColumnCells(column1Position.dataField),
+                column2Cells = body.getColumnCells(column2Position.dataField);
 
             Object.assign(column1Position, {
                 width: itemRects[index2].width,
-                x    : itemRects[index2].x + 1
+                x: itemRects[index2].x + 1
             });
 
             Object.assign(column2Position, {
                 width: itemRects[index1].width,
-                x    : itemRects[index1].x + 1
+                x: itemRects[index1].x + 1
             });
 
             columnPositions.move(index1, index2);
 
             column1Cells.forEach(node => {
-                node.style.left  = column1Position.x     + 'px';
+                node.style.left = column1Position.x + 'px';
                 node.style.width = column1Position.width + 'px'
             });
 
             column2Cells.forEach(node => {
-                node.style.left  = column2Position.x     + 'px';
+                node.style.left = column2Position.x + 'px';
                 node.style.width = column2Position.width + 'px'
             });
 

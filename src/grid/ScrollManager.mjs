@@ -153,9 +153,9 @@ class ScrollManager extends Base {
     onContainerScroll({ scrollLeft, scrollTop, target }) {
         let me        = this,
             container = me.gridContainer,
-            isBodyWrapper = target.id === container.bodyWrapper?.id;
+            isView    = target.id === container.view?.id;
         
-        if (isBodyWrapper) {
+        if (isView) {
             me.scrollTop = target.scrollTop ?? scrollTop;
             
             let startedScrolling = !container.body.isScrolling;
@@ -252,7 +252,7 @@ class ScrollManager extends Base {
             let scrollerId = me.gridContainer.horizontalScrollbar?.id;
 
             addon.register({
-                bodyId: me.gridContainer.bodyWrapper.id,
+                viewId: me.gridContainer.view.id,
                 containerId: scrollerId || me.gridContainer.id,
                 id: me.id,
                 windowId
@@ -273,9 +273,9 @@ class ScrollManager extends Base {
 
         if (active) {
             addon.register({
-                bodyIds      : [me.gridContainer.bodyStart?.id, me.gridContainer.body?.id, me.gridContainer.bodyEnd?.id].filter(Boolean),
-                bodyWrapperId: me.gridContainer.bodyWrapper.id,
-                id           : me.id,
+                bodyIds : [me.gridContainer.bodyStart?.id, me.gridContainer.body?.id, me.gridContainer.bodyEnd?.id].filter(Boolean),
+                viewId  : me.gridContainer.view.id,
+                id      : me.id,
                 windowId
             })
         } else {
@@ -294,8 +294,8 @@ class ScrollManager extends Base {
 
         if (active) {
             addon.register({
-                wrapperId: me.gridContainer.bodyWrapper.id,
-                id       : me.id,
+                viewId  : me.gridContainer.view.id,
+                id      : me.id,
                 windowId
             })
         } else {
@@ -315,7 +315,7 @@ class ScrollManager extends Base {
         if (active) {
             let scrollerId = me.gridContainer.horizontalScrollbar?.id,
                 bodyId = me.gridContainer.body?.id,
-                bodyWrapperId = me.gridContainer.bodyWrapper?.id,
+                viewId = me.gridContainer.view?.id,
                 headerId = me.gridContainer.headerToolbar?.id;
 
             if (scrollerId && bodyId && headerId) {
@@ -323,7 +323,7 @@ class ScrollManager extends Base {
                     id: me.id + '__h_scroll',
                     scrollerId,
                     bodyId,
-                    bodyWrapperId,
+                    viewId,
                     headerId,
                     windowId
                 });

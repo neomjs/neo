@@ -111,11 +111,11 @@ class GridRowHoverSync extends Base {
     /**
      * @param {Object} data
      * @param {String} data.id
-     * @param {String} data.wrapperId
+     * @param {String} data.viewId
      */
-    register({id, wrapperId}) {
+    register({id, viewId}) {
         let me          = this,
-            wrapperNode = DomAccess.getElement(wrapperId),
+            wrapperNode = DomAccess.getElement(viewId),
             registration;
 
         if (me.registrations.has(id)) {
@@ -125,7 +125,7 @@ class GridRowHoverSync extends Base {
         if (wrapperNode) {
             registration = {
                 id,
-                wrapperId,
+                viewId,
                 wrapperNode,
                 mouseOutListener : me.onMouseOut.bind(me, id),
                 mouseOverListener: me.onMouseOver.bind(me, id)

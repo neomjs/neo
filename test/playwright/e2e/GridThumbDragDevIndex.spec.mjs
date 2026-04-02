@@ -26,7 +26,7 @@ test.describe('Desktop (1920x1080): DevIndex Grid Row Pinning Validation', () =>
         await page.mouse.move(960, 540); // Move to center of screen
         
         const evaluationPromise = page.evaluate(async () => {
-            const wrappers = document.querySelectorAll('.neo-grid-body-wrapper:not(.neo-container)');
+            const wrappers = document.querySelectorAll('.neo-grid-view');
             const wrapper = wrappers.length > 1 ? wrappers[1] : wrappers[0];
             const content = wrapper.querySelector('.neo-grid-body');
             let telemetry = [];
@@ -151,7 +151,7 @@ test.describe('Desktop (1920x1080): DevIndex Grid Row Pinning Validation', () =>
         console.log('--- Profile 4: Synthetic Steady Slow Drag ---');
         for(let i=0; i<10; i++) {
             await page.evaluate(() => {
-                const wrappers = document.querySelectorAll('.neo-grid-body-wrapper');
+                const wrappers = document.querySelectorAll('.neo-grid-view');
                 const w = wrappers.length > 1 ? wrappers[1] : wrappers[0];
                 w.scrollTop += 100;
             });
@@ -163,13 +163,13 @@ test.describe('Desktop (1920x1080): DevIndex Grid Row Pinning Validation', () =>
         console.log('--- Profile 5: Synthetic Drag Ping-Pong ---');
         for(let i=0; i<5; i++) {
             await page.evaluate(() => {
-                const wrappers = document.querySelectorAll('.neo-grid-body-wrapper');
+                const wrappers = document.querySelectorAll('.neo-grid-view');
                 const w = wrappers.length > 1 ? wrappers[1] : wrappers[0];
                 w.scrollTop += 500;
             });
             await page.waitForTimeout(100);
             await page.evaluate(() => {
-                const wrappers = document.querySelectorAll('.neo-grid-body-wrapper');
+                const wrappers = document.querySelectorAll('.neo-grid-view');
                 const w = wrappers.length > 1 ? wrappers[1] : wrappers[0];
                 w.scrollTop -= 500;
             });
@@ -180,14 +180,14 @@ test.describe('Desktop (1920x1080): DevIndex Grid Row Pinning Validation', () =>
 
         console.log('--- Profile 6: Synthetic Massive Snap Drag ---');
         await page.evaluate(() => {
-            const wrappers = document.querySelectorAll('.neo-grid-body-wrapper');
+            const wrappers = document.querySelectorAll('.neo-grid-view');
             const w = wrappers.length > 1 ? wrappers[1] : wrappers[0];
             w.scrollTop += 50000;
         });
         await page.waitForTimeout(500);
 
         console.log('--- Profile 7: Authentic High-Frequency Native Drag (50px/sec thumb equivalent) ---');
-        const wrappers = page.locator('.neo-grid-body-wrapper:not(.neo-container)');
+        const wrappers = page.locator('.neo-grid-view');
         const wrapperNode = await wrappers.count() > 1 ? wrappers.nth(1) : wrappers.first();
         const box = await wrapperNode.boundingBox();
         
@@ -234,7 +234,7 @@ test.describe('Desktop (1920x1080): DevIndex Grid Row Pinning Validation', () =>
 
     test('Horizontal Drag Scroll Moves Cells Optically and Triggers Data Virtualization', async ({ page }) => {
         const result = await page.evaluate(async () => {
-            const wrappers = document.querySelectorAll('.neo-grid-body-wrapper:not(.neo-container)');
+            const wrappers = document.querySelectorAll('.neo-grid-view');
             const bodyWrapper = wrappers.length > 1 ? wrappers[1] : wrappers[0];
             const hScrollbar = document.querySelector('.neo-grid-horizontal-scrollbar');
             
