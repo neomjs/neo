@@ -1,0 +1,21 @@
+.neo-grid-view {
+    height         : 100%;
+    min-width      : 0;
+    overflow-anchor: none;
+    overflow-x     : hidden;
+    overflow-y     : scroll;
+    position       : relative;
+
+    &:focus {
+        outline: none;
+    }
+
+    &.neo-hide-scrollbar {
+        -ms-overflow-style: none; /* IE, Edge */
+        scrollbar-width   : none; /* Firefox */
+
+        &::-webkit-scrollbar {
+            display: none;        /* Chrome, Safari, Edge */
+        }
+    }
+}
