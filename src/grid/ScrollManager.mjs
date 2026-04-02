@@ -33,6 +33,12 @@ class ScrollManager extends Base {
          */
         mounted_: false,
         /**
+         * Uses Neo.main.addon.GridRowHoverSync
+         * @member {Boolean} rowHoverSync_=true
+         * @reactive
+         */
+        rowHoverSync_: true,
+        /**
          * Uses Neo.main.addon.GridRowScrollPinning
          * @member {Boolean} rowScrollPinning_=true
          * @reactive
@@ -146,17 +152,36 @@ class ScrollManager extends Base {
      */
     onContainerScroll({ scrollLeft, scrollTop, target }) {
         let me = this,
-            isBodyWrapper = target.id === me.gridContainer.bodyWrapper?.id;
+            c  = me.gridContainer,
+            isBodyWrapper = target.id === c.bodyWrapper?.id;
         
         if (isBodyWrapper) {
             me.scrollTop = target.scrollTop ?? scrollTop;
-            me.gridContainer.body.isScrolling = true;
+            
+            let startedScrolling = !c.body.isScrolling;
+
+            if (c.bodyStart) c.bodyStart.isScrolling = true;
+            if (c.bodyEnd)   c.bodyEnd.isScrolling   = true;
+            c.body.isScrolling = true;
+
+            if (startedScrolling && me.rowHoverSync) {
+                me.suspendGridRowHoverSyncAddon();
+            }
 
             me.onScrollEnd();
             me.syncGridBody()
-        } else if (target.id === me.gridContainer.horizontalScrollbar?.id || target.id.includes('grid-container')) {
+        } else if (target.id === c.horizontalScrollbar?.id || target.id.includes('grid-container')) {
             me.scrollLeft = target.scrollLeft ?? scrollLeft;
-            me.gridContainer.body.isScrolling = true;
+            
+            let startedScrolling = !c.body.isScrolling;
+
+            if (c.bodyStart) c.bodyStart.isScrolling = true;
+            if (c.bodyEnd)   c.bodyEnd.isScrolling   = true;
+            c.body.isScrolling = true;
+
+            if (startedScrolling && me.rowHoverSync) {
+                me.suspendGridRowHoverSyncAddon();
+            }
 
             me.onScrollEnd();
             me.syncGridBody()
@@ -167,10 +192,43 @@ class ScrollManager extends Base {
      * @protected
      */
     onScrollEnd() {
-        let me = this;
+        let c = this.gridContainer;
 
-        me.gridContainer.body.isScrolling = false;
-        me.syncGridBody()
+        if (c.bodyStart) c.bodyStart.isScrolling = false;
+        if (c.bodyEnd)   c.bodyEnd.isScrolling   = false;
+        c.body.isScrolling = false;
+
+        this.syncGridBody();
+
+        if (this.rowHoverSync) {
+            this.resumeGridRowHoverSyncAddon();
+        }
+    }
+
+    /**
+     * @param {String|null} [windowId=this.windowId]
+     * @returns {Promise<void>}
+     */
+    async resumeGridRowHoverSyncAddon(windowId = this.windowId) {
+        let me = this,
+            addon = await Neo.currentWorker.getAddon('GridRowHoverSync', windowId);
+
+        addon.resumeHover({
+            id: me.id
+        });
+    }
+
+    /**
+     * @param {String|null} [windowId=this.windowId]
+     * @returns {Promise<void>}
+     */
+    async suspendGridRowHoverSyncAddon(windowId = this.windowId) {
+        let me = this,
+            addon = await Neo.currentWorker.getAddon('GridRowHoverSync', windowId);
+
+        addon.suspendHover({
+            id: me.id
+        });
     }
 
     /**
@@ -217,6 +275,26 @@ class ScrollManager extends Base {
                 bodyIds      : [me.gridContainer.bodyStart?.id, me.gridContainer.body?.id, me.gridContainer.bodyEnd?.id].filter(Boolean),
                 bodyWrapperId: me.gridContainer.bodyWrapper.id,
                 id           : me.id,
+                windowId
+            })
+        } else {
+            addon.unregister({ id: me.id, windowId })
+        }
+    }
+
+    /**
+     * @param {Boolean} active
+     * @param {String|null} [windowId=this.windowId]
+     * @returns {Promise<void>}
+     */
+    async updateGridRowHoverSyncAddon(active, windowId = this.windowId) {
+        let me = this,
+            addon = await Neo.currentWorker.getAddon('GridRowHoverSync', windowId);
+
+        if (active) {
+            addon.register({
+                wrapperId: me.gridContainer.bodyWrapper.id,
+                id       : me.id,
                 windowId
             })
         } else {
