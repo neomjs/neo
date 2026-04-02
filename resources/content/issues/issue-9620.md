@@ -1,7 +1,7 @@
 ---
 id: 9620
 title: 'Grid Multi-Body: Fix Null Data Store and Consolidate Loading Mask'
-state: OPEN
+state: CLOSED
 labels:
   - bug
   - ai
@@ -9,16 +9,17 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-04-01T17:36:51Z'
-updatedAt: '2026-04-01T17:37:00Z'
+updatedAt: '2026-04-01T19:00:36Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9620'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 9486
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-04-01T19:00:36Z'
 ---
 # Grid Multi-Body: Fix Null Data Store and Consolidate Loading Mask
 
@@ -38,4 +39,10 @@ Additionally, loading masks historically target the inner `GridBody`. In a Multi
 - 2026-04-01T17:36:52Z @tobiu added the `grid` label
 - 2026-04-01T17:36:58Z @tobiu added parent issue #9486
 - 2026-04-01T17:37:00Z @tobiu assigned to @tobiu
+- 2026-04-01T19:00:13Z @tobiu referenced in commit `2cddb5c` - "fix(grid): Resolve Multi-Body layout and rendering issues (#9619, #9620)"
+### @tobiu - 2026-04-01T19:00:35Z
+
+Resolved in dev. Loading masks are consolidated at the body wrapper level, null data stores are handled properly.
+
+- 2026-04-01T19:00:36Z @tobiu closed this issue
 

@@ -37,10 +37,16 @@ subIssues:
   - '[x] 9616 Grid Multi-Body: Implement Two-Tier Horizontal Cell Pooling and Scroll Sync'
   - '[x] 9617 Grid Multi-Body: Fix Row Scroll Pinning for Thumb Dragging'
   - '[x] 9618 DevIndex High-Velocity Grid Thumb Drag Scroll Jitter'
-  - '[ ] 9619 Grid Multi-Body: Implement and Test Locked Columns in DevIndex'
-  - '[ ] 9620 Grid Multi-Body: Fix Null Data Store and Consolidate Loading Mask'
-subIssuesCompleted: 13
-subIssuesTotal: 24
+  - '[x] 9619 Grid Multi-Body: Implement and Test Locked Columns in DevIndex'
+  - '[x] 9620 Grid Multi-Body: Fix Null Data Store and Consolidate Loading Mask'
+  - '[x] 9622 Grid Multi-Body: Resolve duplicate cell rendering and phantom nodes'
+  - '[x] 9623 Grid Multi-Body: Fix .neo-last-column border styling logic across multiple bodies'
+  - '[x] 9624 [Multi-Body Grid] Resolve Border Overlap, Header Sync, and Scroll Propagation'
+  - '[x] 9625 Multi-Body Grid: Visually delegate native vertical scrollbar UX with CSS'
+  - '[x] 9614 Grid Multi-Body: Fix Horizontal Row Clipping & Scrollbar SCSS'
+  - '[ ] 9626 Epic: Grid Unified Scrolling & VDOM Orchestration'
+subIssuesCompleted: 20
+subIssuesTotal: 30
 blockedBy: []
 blocking: []
 ---

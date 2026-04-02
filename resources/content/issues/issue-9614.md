@@ -1,7 +1,7 @@
 ---
 id: 9614
 title: 'Grid Multi-Body: Fix Horizontal Row Clipping & Scrollbar SCSS'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
@@ -9,16 +9,17 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-03-31T15:56:50Z'
-updatedAt: '2026-04-01T08:29:21Z'
+updatedAt: '2026-04-01T21:43:06Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9614'
 author: tobiu
-commentsCount: 0
-parentIssue: null
+commentsCount: 1
+parentIssue: 9486
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-04-01T21:42:24Z'
 ---
 # Grid Multi-Body: Fix Horizontal Row Clipping & Scrollbar SCSS
 
@@ -39,4 +40,10 @@ In the new Multi-Body Grid architecture, horizontal scrolling is currently broke
 - 2026-03-31T15:56:51Z @tobiu added the `ai` label
 - 2026-03-31T15:56:52Z @tobiu added the `grid` label
 - 2026-04-01T08:29:21Z @tobiu assigned to @tobiu
+- 2026-04-01T21:42:18Z @tobiu added parent issue #9486
+- 2026-04-01T21:42:24Z @tobiu closed this issue
+### @tobiu - 2026-04-01T21:43:06Z
+
+already resolved.
+
 
