@@ -6,6 +6,7 @@ import ScrollManager     from './ScrollManager.mjs';
 import Store             from '../data/Store.mjs';
 import FooterToolbar     from './footer/Toolbar.mjs';
 import HorizontalScrollbar from './HorizontalScrollbar.mjs';
+import View              from './View.mjs';
 import * as column       from './column/_export.mjs';
 import * as header       from './header/_export.mjs';
 import {isDescriptor}    from '../core/ConfigSymbols.mjs';
@@ -287,12 +288,10 @@ class GridContainer extends BaseContainer {
             items   : [me.headerToolbar]
         });
 
-        me.bodyWrapper = Neo.create(BaseContainer, {
+        me.bodyWrapper = Neo.create(View, {
             appName,
-            cls      : ['neo-grid-bodies-wrapper'],
             flex     : 1,
             isLoading: me.isLoading,
-            layout   : {ntype: 'hbox', align: 'stretch'},
             parentId : me.id,
             theme    : me.theme,
             windowId,
