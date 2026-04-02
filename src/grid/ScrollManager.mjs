@@ -11,7 +11,7 @@ class ScrollManager extends Base {
      * @static
      */
     static delayable = {
-        onBodyScrollEnd: { type: 'buffer', timer: 150 },
+        onScrollEnd: { type: 'buffer', timer: 150 },
         syncGridBody: { type: 'throttle', timer: 16 }
     }
 
@@ -96,12 +96,6 @@ class ScrollManager extends Base {
             this.dragScroll && this.updateDragScrollAddon(true);
             this.rowScrollPinning && this.updateRowScrollPinningAddon(true);
             this.updateGridHorizontalScrollSyncAddon(true);
-            this.updateVerticalScrollSyncAddon(true)
-        } else if (oldValue) {
-            this.updateDragScrollAddon(false);
-            this.updateRowScrollPinningAddon(false);
-            this.updateGridHorizontalScrollSyncAddon(false);
-            this.updateVerticalScrollSyncAddon(false)
         }
     }
 
@@ -126,12 +120,10 @@ class ScrollManager extends Base {
             me.dragScroll && me.updateDragScrollAddon(false, oldValue);
             me.rowScrollPinning && me.updateRowScrollPinningAddon(false, oldValue);
             me.updateGridHorizontalScrollSyncAddon(false, oldValue);
-            me.updateVerticalScrollSyncAddon(false, oldValue);
 
             me.dragScroll && me.updateDragScrollAddon(true, value);
             me.rowScrollPinning && me.updateRowScrollPinningAddon(true, value);
             me.updateGridHorizontalScrollSyncAddon(true, value);
-            me.updateVerticalScrollSyncAddon(true, value);
         }
     }
 
@@ -141,34 +133,10 @@ class ScrollManager extends Base {
     destroy(...args) {
         this.updateRowScrollPinningAddon(false);
         this.updateGridHorizontalScrollSyncAddon(false);
-        this.updateVerticalScrollSyncAddon(false);
         super.destroy(...args)
     }
 
-    /**
-     * Only triggers for vertical scrolling
-     * @param {Object} data
-     * @protected
-     */
-    onBodyScroll({ scrollTop }) {
-        let me = this;
 
-        me.scrollTop = scrollTop;
-        me.gridContainer.body.isScrolling = true;
-
-        me.onBodyScrollEnd();
-        me.syncGridBody()
-    }
-
-    /**
-     * @protected
-     */
-    onBodyScrollEnd() {
-        let me = this;
-
-        me.gridContainer.body.isScrolling = false;
-        me.syncGridBody()
-    }
 
     /**
      * @param {Object} data
@@ -178,26 +146,31 @@ class ScrollManager extends Base {
      */
     onContainerScroll({ scrollLeft, scrollTop, target }) {
         let me = this,
-            isBodyWrapper = [
-                me.gridContainer.bodyWrapper?.id,
-                me.gridContainer.bodyStart?.id + '__wrapper',
-                me.gridContainer.body?.id + '__wrapper',
-                me.gridContainer.bodyEnd?.id + '__wrapper'
-            ].includes(target.id);
+            isBodyWrapper = target.id === me.gridContainer.bodyWrapper?.id;
         
         if (isBodyWrapper) {
             me.scrollTop = target.scrollTop ?? scrollTop;
             me.gridContainer.body.isScrolling = true;
 
-            me.onBodyScrollEnd();
+            me.onScrollEnd();
             me.syncGridBody()
         } else if (target.id === me.gridContainer.horizontalScrollbar?.id || target.id.includes('grid-container')) {
             me.scrollLeft = target.scrollLeft ?? scrollLeft;
             me.gridContainer.body.isScrolling = true;
 
-            me.onBodyScrollEnd();
+            me.onScrollEnd();
             me.syncGridBody()
         }
+    }
+
+    /**
+     * @protected
+     */
+    onScrollEnd() {
+        let me = this;
+
+        me.gridContainer.body.isScrolling = false;
+        me.syncGridBody()
     }
 
     /**
@@ -220,7 +193,7 @@ class ScrollManager extends Base {
             let scrollerId = me.gridContainer.horizontalScrollbar?.id;
 
             addon.register({
-                bodyId: me.gridBody.id + '__wrapper',
+                bodyId: me.gridContainer.bodyWrapper.id,
                 containerId: scrollerId || me.gridContainer.id,
                 id: me.id,
                 windowId
@@ -242,7 +215,7 @@ class ScrollManager extends Base {
         if (active) {
             addon.register({
                 bodyIds      : [me.gridContainer.bodyStart?.id, me.gridContainer.body?.id, me.gridContainer.bodyEnd?.id].filter(Boolean),
-                bodyWrapperId: (me.gridContainer.bodyEnd?.id || me.gridContainer.body?.id) + '__wrapper',
+                bodyWrapperId: me.gridContainer.bodyWrapper.id,
                 id           : me.id,
                 windowId
             })
@@ -279,48 +252,7 @@ class ScrollManager extends Base {
         }
     }
 
-    /**
-     * Synchronizes vertical scrolling between bodyStart, body, and bodyEnd wrappers via the ScrollSync main-thread addon.
-     * @param {Boolean} active
-     * @param {String|null} [windowId=this.windowId]
-     * @returns {Promise<void>}
-     */
-    async updateVerticalScrollSyncAddon(active, windowId = this.windowId) {
-        let me = this,
-            addon = await Neo.currentWorker.getAddon('ScrollSync', windowId),
-            {bodyStart, body, bodyEnd} = me.gridContainer;
 
-        if (active) {
-            if (body && bodyEnd) {
-                addon.register({
-                    direction: 'vertical',
-                    fromId   : body.id + '__wrapper',
-                    id       : me.id + '__v_scroll_end',
-                    toId     : bodyEnd.id + '__wrapper',
-                    twoWay   : true,
-                    windowId
-                })
-            } else {
-                addon.unregister({ id: me.id + '__v_scroll_end', windowId })
-            }
-
-            if (body && bodyStart) {
-                addon.register({
-                    direction: 'vertical',
-                    fromId   : body.id + '__wrapper',
-                    id       : me.id + '__v_scroll_start',
-                    toId     : bodyStart.id + '__wrapper',
-                    twoWay   : true,
-                    windowId
-                })
-            } else {
-                addon.unregister({ id: me.id + '__v_scroll_start', windowId })
-            }
-        } else {
-            addon.unregister({ id: me.id + '__v_scroll_end', windowId });
-            addon.unregister({ id: me.id + '__v_scroll_start', windowId })
-        }
-    }
 
     /**
      * @returns {Object}

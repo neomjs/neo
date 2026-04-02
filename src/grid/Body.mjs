@@ -1189,13 +1189,7 @@ class GridBody extends Component {
         this.fireRowEvent(data, 'rowDoubleClick')
     }
 
-    /**
-     * @param {Object} data
-     */
-    onScrollCapture(data) {
-        super.onScrollCapture(data);
-        this.gridContainer.scrollManager.onBodyScroll(data)
-    }
+
 
     /**
      * @param {Object} data
