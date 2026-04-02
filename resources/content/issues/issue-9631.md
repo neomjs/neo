@@ -1,23 +1,25 @@
 ---
 id: 9631
 title: 'Grid: Enable Horizontal Scrolling via Locked Regions'
-state: OPEN
+state: CLOSED
 labels:
   - bug
   - ai
   - grid
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-04-02T10:11:48Z'
-updatedAt: '2026-04-02T10:11:48Z'
+updatedAt: '2026-04-02T13:02:48Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9631'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 9626
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-04-02T13:02:48Z'
 ---
 # Grid: Enable Horizontal Scrolling via Locked Regions
 
@@ -38,4 +40,11 @@ This sub-epic is part of Epic #9626 (Unified Multi-Body Grid Scrolling).
 - 2026-04-02T10:11:50Z @tobiu added the `ai` label
 - 2026-04-02T10:11:50Z @tobiu added the `grid` label
 - 2026-04-02T10:12:05Z @tobiu added parent issue #9626
+- 2026-04-02T13:02:27Z @tobiu referenced in commit `ddb6336` - "fix(grid): enable horizontal scrolling via locked regions (#9631)"
+- 2026-04-02T13:02:44Z @tobiu assigned to @tobiu
+### @tobiu - 2026-04-02T13:02:47Z
+
+Fixed in ddb633628 by changing the `wheel` listener registration to utilize `bodyWrapperId` instead of `bodyId`. This securely catches wheel events across all active grid bodies (including locked ones) while maintaining horizontal style recalculation isolation to only the center body.
+
+- 2026-04-02T13:02:49Z @tobiu closed this issue
 

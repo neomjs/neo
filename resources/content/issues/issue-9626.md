@@ -20,10 +20,12 @@ subIssues:
   - '[x] 9628 Grid Multi-Body: Map Physical Heights and Transfer Vertical Scrolling'
   - '[x] 9629 Grid Multi-Body: Implement Atomic VDOM Orchestration Layer'
   - '[x] 9630 Grid: Implement Main-Thread Addon Hover Synchronization'
-  - '[ ] 9631 Grid: Enable Horizontal Scrolling via Locked Regions'
+  - '[x] 9631 Grid: Enable Horizontal Scrolling via Locked Regions'
   - '[ ] 9632 Grid: Restore Row Scroll Pinning and Update Drag E2E Tests'
-subIssuesCompleted: 4
-subIssuesTotal: 6
+  - '[x] 9633 Grid: Rename bodyWrapper to view'
+  - '[x] 9634 Grid Container: Remove redundent grid wrapper node'
+subIssuesCompleted: 7
+subIssuesTotal: 8
 blockedBy: []
 blocking: []
 ---
@@ -62,4 +64,8 @@ All 3 architectural phases for unified vertical scrolling and atomic VDOM update
 - 2026-04-02T10:12:00Z @tobiu cross-referenced by #9632
 - 2026-04-02T10:12:05Z @tobiu added sub-issue #9631
 - 2026-04-02T10:12:06Z @tobiu added sub-issue #9632
+- 2026-04-02T13:06:48Z @tobiu cross-referenced by #9633
+- 2026-04-02T13:06:57Z @tobiu added sub-issue #9633
+- 2026-04-02T13:55:57Z @tobiu cross-referenced by #9634
+- 2026-04-02T13:56:04Z @tobiu added sub-issue #9634
 
