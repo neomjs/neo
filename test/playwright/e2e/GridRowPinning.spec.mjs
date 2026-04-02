@@ -67,6 +67,13 @@ test.describe('Desktop (1920x1080): BigData Grid Row Pinning Validation', () => 
                     
                     if (rowsBottom < wrapperRect.top || rowsTop > wrapperRect.bottom) {
                         isBlank = true;
+                    } else {
+                        // Detect holes/blank areas
+                        let topGap = rowsTop - wrapperRect.top;
+                        let bottomGap = wrapperRect.bottom - rowsBottom;
+                        if (topGap > 100 || bottomGap > 100) {
+                            isBlank = true;
+                        }
                     }
 
                     if (lastFrameRows.length > 0) {
@@ -214,6 +221,42 @@ test.describe('Desktop (1920x1080): BigData Grid Row Pinning Validation', () => 
         
         // 6. Release mouse and finish sequence
         await page.mouse.up();
+        await page.waitForTimeout(500);
+
+        console.log('--- Profile 5: OS Compositor Saturation (Raw ScrollTop Flood) ---');
+        const saturationMetrics = await page.evaluate(async () => {
+            const wrapper = document.querySelector('.neo-grid-view');
+            if(!wrapper) return null;
+            
+            window.__RESET_METRICS = true;
+            const box = wrapper.getBoundingClientRect();
+            // Trick the GridRowScrollPinning addon into thinking the thumb is being dragged
+            const evt = new MouseEvent('mousedown', {
+                clientX: box.right - 5,
+                clientY: box.top + 40,
+                bubbles: true,
+                cancelable: true
+            });
+            wrapper.dispatchEvent(evt);
+            
+            let currentScroll = wrapper.scrollTop;
+            for (let i = 0; i < 90; i++) {
+                currentScroll += 4000;
+                wrapper.scrollTop = currentScroll;
+                wrapper.dispatchEvent(new Event('scroll'));
+                await new Promise(r => requestAnimationFrame(r));
+            }
+            
+            for (let i = 0; i < 90; i++) {
+                currentScroll -= 4000;
+                wrapper.scrollTop = Math.max(0, currentScroll);
+                wrapper.dispatchEvent(new Event('scroll'));
+                await new Promise(r => requestAnimationFrame(r));
+            }
+
+            window.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+        });
+        
         await page.waitForTimeout(1000);
         
         const { telemetry, blankFrames, bounces, debugBounces, debugBlanks } = await evaluationPromise;

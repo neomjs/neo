@@ -273,9 +273,10 @@ class ScrollManager extends Base {
 
         if (active) {
             addon.register({
-                bodyIds : [me.gridContainer.bodyStart?.id, me.gridContainer.body?.id, me.gridContainer.bodyEnd?.id].filter(Boolean),
-                viewId  : me.gridContainer.view.id,
-                id      : me.id,
+                bodyIds    : [me.gridContainer.bodyStart?.id, me.gridContainer.body?.id, me.gridContainer.bodyEnd?.id].filter(Boolean),
+                verticalScrollbarId: me.gridContainer.verticalScrollbar?.id,
+                viewId             : me.gridContainer.view.id,
+                id         : me.id,
                 windowId
             })
         } else {
