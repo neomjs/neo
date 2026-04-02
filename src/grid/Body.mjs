@@ -238,9 +238,7 @@ class GridBody extends Component {
          * @member {Object} _vdom
          */
         _vdom:
-        {tabIndex: '-1', cn: [
-            {cn: []}
-        ]}
+        {tabIndex: '-1', cn: []}
     }
 
     /**
@@ -407,7 +405,6 @@ class GridBody extends Component {
             let me = this;
 
             me.vdom.width = value + 'px';
-            me.vdom.cn[0].width = value + 'px';
             me.update();
 
             // Only sync the center body's width to the Scroller addon
@@ -1121,14 +1118,14 @@ class GridBody extends Component {
      * @returns {*}
      */
     getVdomRoot() {
-        return this.vdom.cn[0]
+        return this.vdom
     }
 
     /**
      * @returns {Object[]} The new vdom items root
      */
     getVdomItemsRoot() {
-        return this.vdom.cn[0]
+        return this.vdom
     }
 
     /**
@@ -1136,7 +1133,7 @@ class GridBody extends Component {
      * @returns {Neo.vdom.VNode}
      */
     getVnodeRoot() {
-        return this.vnode.childNodes[0]
+        return this.vnode
     }
 
     /**
@@ -1363,8 +1360,7 @@ class GridBody extends Component {
             availableWidth: me.availableWidth + deltaWidth
         });
 
-        me.vdom.width       = me.availableWidth + 'px';
-        me.vdom.cn[0].width = me.availableWidth + 'px';
+        me.vdom.width = me.availableWidth + 'px';
 
         // 2. Update the VDOM of all active rows
         me.items.forEach(row => {
@@ -1496,7 +1492,7 @@ class GridBody extends Component {
             {rowHeight}  = me;
 
         if (countRecords > 0 && rowHeight > 0) {
-            me.vdom.cn[0].height = `${(countRecords + 1) * rowHeight}px`;
+            me.vdom.height = `${(countRecords + 1) * rowHeight}px`;
             !silent && me.update()
         }
     }
