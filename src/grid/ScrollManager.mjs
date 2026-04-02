@@ -315,6 +315,7 @@ class ScrollManager extends Base {
         if (active) {
             let scrollerId = me.gridContainer.horizontalScrollbar?.id,
                 bodyId = me.gridContainer.body?.id,
+                bodyWrapperId = me.gridContainer.bodyWrapper?.id,
                 headerId = me.gridContainer.headerToolbar?.id;
 
             if (scrollerId && bodyId && headerId) {
@@ -322,6 +323,7 @@ class ScrollManager extends Base {
                     id: me.id + '__h_scroll',
                     scrollerId,
                     bodyId,
+                    bodyWrapperId,
                     headerId,
                     windowId
                 });
