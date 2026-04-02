@@ -150,25 +150,26 @@ class GridRowScrollPinning extends Base {
     }
 
     /**
-     * Updates internal baseline state. Does NOT mutate the DOM.
-     * @param {Object} data The event payload from Neo.main.DeltaUpdates
+     * Intercepts VDOM delta updates to precisely track when the worker has generated DOM modifications
+     * for the scroll events. We synchronize using the dedicated `scrollTop` meta property from the View.
+     *
+     * @param {Object} data The DeltaUpdates event payload
+     * @param {Object[]} data.deltas
+     * @param {Object} [data.meta]
      * @protected
      */
     onDeltaUpdate(data) {
         let me             = this,
             {deltas, meta} = data;
-
-        if (!meta || !deltas) {
-            return
-        }
+        
+        if (!meta || !deltas) return;
 
         me.registrations.forEach(state => {
-            if (meta[state.viewId]) {
-                // Silently update the baseline state from the view's meta delta
-                state.workerScrollTop = meta[state.viewId].scrollTop;
+            let viewMeta = meta[state.viewId];
 
-                // CRITICAL: Synchronously re-evaluate pinning to clear stale transforms
-                // if the worker catches up.
+            if (viewMeta && viewMeta.scrollTop !== undefined) {
+                // We sync against the true scroll target the VDOM was generated for
+                state.workerScrollTop = viewMeta.scrollTop;
                 me.applyPinning(state.id)
             }
         })
