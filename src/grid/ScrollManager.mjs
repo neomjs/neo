@@ -151,18 +151,18 @@ class ScrollManager extends Base {
      * @param {Object} data.target
      */
     onContainerScroll({ scrollLeft, scrollTop, target }) {
-        let me = this,
-            c  = me.gridContainer,
-            isBodyWrapper = target.id === c.bodyWrapper?.id;
+        let me        = this,
+            container = me.gridContainer,
+            isBodyWrapper = target.id === container.bodyWrapper?.id;
         
         if (isBodyWrapper) {
             me.scrollTop = target.scrollTop ?? scrollTop;
             
-            let startedScrolling = !c.body.isScrolling;
+            let startedScrolling = !container.body.isScrolling;
 
-            if (c.bodyStart) c.bodyStart.isScrolling = true;
-            if (c.bodyEnd)   c.bodyEnd.isScrolling   = true;
-            c.body.isScrolling = true;
+            if (container.bodyStart) container.bodyStart.isScrolling = true;
+            if (container.bodyEnd)   container.bodyEnd.isScrolling   = true;
+            container.body.isScrolling = true;
 
             if (startedScrolling && me.rowHoverSync) {
                 me.suspendGridRowHoverSyncAddon();
@@ -170,14 +170,14 @@ class ScrollManager extends Base {
 
             me.onScrollEnd();
             me.syncGridBody()
-        } else if (target.id === c.horizontalScrollbar?.id || target.id.includes('grid-container')) {
+        } else if (target.id === container.horizontalScrollbar?.id || target.id.includes('grid-container')) {
             me.scrollLeft = target.scrollLeft ?? scrollLeft;
             
-            let startedScrolling = !c.body.isScrolling;
+            let startedScrolling = !container.body.isScrolling;
 
-            if (c.bodyStart) c.bodyStart.isScrolling = true;
-            if (c.bodyEnd)   c.bodyEnd.isScrolling   = true;
-            c.body.isScrolling = true;
+            if (container.bodyStart) container.bodyStart.isScrolling = true;
+            if (container.bodyEnd)   container.bodyEnd.isScrolling   = true;
+            container.body.isScrolling = true;
 
             if (startedScrolling && me.rowHoverSync) {
                 me.suspendGridRowHoverSyncAddon();
@@ -192,11 +192,11 @@ class ScrollManager extends Base {
      * @protected
      */
     onScrollEnd() {
-        let c = this.gridContainer;
+        let container = this.gridContainer;
 
-        if (c.bodyStart) c.bodyStart.isScrolling = false;
-        if (c.bodyEnd)   c.bodyEnd.isScrolling   = false;
-        c.body.isScrolling = false;
+        if (container.bodyStart) container.bodyStart.isScrolling = false;
+        if (container.bodyEnd)   container.bodyEnd.isScrolling   = false;
+        container.body.isScrolling = false;
 
         this.syncGridBody();
 

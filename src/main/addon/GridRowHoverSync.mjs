@@ -38,99 +38,6 @@ class GridRowHoverSync extends Base {
     registrations = new Map()
 
     /**
-     * @param {Object} data
-     * @param {String} data.id
-     * @param {String} data.wrapperId
-     */
-    register({id, wrapperId}) {
-        let me = this,
-            wrapperNode = DomAccess.getElement(wrapperId),
-            registration;
-
-        if (me.registrations.has(id)) {
-            me.unregister({id});
-        }
-
-        if (wrapperNode) {
-            registration = {
-                id,
-                wrapperId,
-                wrapperNode,
-                mouseOutListener : me.onMouseOut.bind(me, id),
-                mouseOverListener: me.onMouseOver.bind(me, id)
-            };
-
-            wrapperNode.addEventListener('mouseout',  registration.mouseOutListener);
-            wrapperNode.addEventListener('mouseover', registration.mouseOverListener);
-            
-            me.registrations.set(id, registration);
-        }
-    }
-    /**
-     * Resolves layout desynchronization by artificially injecting a synthetic mouseover event
-     * into the native DOM. Called by the App Worker specifically when a scroll operation finalizes,
-     * ensuring the pointer hit-test accurately pierces the newly removed .neo-is-scrolling state block.
-     * @param {Object} data
-     * @param {String} data.id
-     */
-    async resumeHover({id}) {
-        let me           = this,
-            registration = me.registrations.get(id);
-
-        if (registration && registration.lastX !== undefined) {
-            // Delay hit-testing to ensure the App Worker's VDOM update (removing pointer-events: none)
-            // has successfully flushed and painted to the active DOM.
-            await me.timeout(100);
-
-            let element = document.elementFromPoint(registration.lastX, registration.lastY);
-
-            // Re-bootstrap the semantic mouseover state organically
-            if (element) {
-                let event = new MouseEvent('mouseover', {
-                    bubbles   : true,
-                    cancelable: true,
-                    clientX   : registration.lastX,
-                    clientY   : registration.lastY,
-                    view      : window
-                });
-                
-                element.dispatchEvent(event);
-            }
-        }
-    }
-
-    /**
-     * Drops all active hover records. Primarily invoked when a scroll interaction starts to visually
-     * decouple the mouse resting state from the rapidly advancing row virtualization buffer.
-     * @param {Object} data
-     * @param {String} data.id
-     */
-    suspendHover({id}) {
-        let registration = this.registrations.get(id);
-
-        if (registration) {
-            registration.wrapperNode
-                .querySelectorAll('.neo-hover')
-                .forEach(r => r.classList.remove('neo-hover'));
-        }
-    }
-
-    /**
-     * @param {Object} data
-     * @param {String} data.id
-     */
-    unregister({id}) {
-        let me           = this,
-            registration = me.registrations.get(id);
-
-        if (registration) {
-            registration.wrapperNode.removeEventListener('mouseout',  registration.mouseOutListener);
-            registration.wrapperNode.removeEventListener('mouseover', registration.mouseOverListener);
-            me.registrations.delete(id);
-        }
-    }
-
-    /**
      * Reacts to native row exit boundaries. Caches stationary coordinates passively and features an
      * aggressive DOM sweep to eradicate stuck virtualization artifacts caused by rapid VDOM node recycling.
      * @param {String} id
@@ -196,6 +103,100 @@ class GridRowHoverSync extends Base {
                     .querySelectorAll(`.neo-grid-row[data-record-id="${row.dataset.recordId}"]`)
                     .forEach(r => r.classList.add('neo-hover'));
             }
+        }
+    }
+
+    /**
+     * @param {Object} data
+     * @param {String} data.id
+     * @param {String} data.wrapperId
+     */
+    register({id, wrapperId}) {
+        let me = this,
+            wrapperNode = DomAccess.getElement(wrapperId),
+            registration;
+
+        if (me.registrations.has(id)) {
+            me.unregister({id});
+        }
+
+        if (wrapperNode) {
+            registration = {
+                id,
+                wrapperId,
+                wrapperNode,
+                mouseOutListener : me.onMouseOut.bind(me, id),
+                mouseOverListener: me.onMouseOver.bind(me, id)
+            };
+
+            wrapperNode.addEventListener('mouseout',  registration.mouseOutListener);
+            wrapperNode.addEventListener('mouseover', registration.mouseOverListener);
+            
+            me.registrations.set(id, registration);
+        }
+    }
+
+    /**
+     * Resolves layout desynchronization by artificially injecting a synthetic mouseover event
+     * into the native DOM. Called by the App Worker specifically when a scroll operation finalizes,
+     * ensuring the pointer hit-test accurately pierces the newly removed .neo-is-scrolling state block.
+     * @param {Object} data
+     * @param {String} data.id
+     */
+    async resumeHover({id}) {
+        let me           = this,
+            registration = me.registrations.get(id);
+
+        if (registration && registration.lastX !== undefined) {
+            // Delay hit-testing to ensure the App Worker's VDOM update (removing pointer-events: none)
+            // has successfully flushed and painted to the active DOM.
+            await me.timeout(100);
+
+            let element = document.elementFromPoint(registration.lastX, registration.lastY);
+
+            // Re-bootstrap the semantic mouseover state organically
+            if (element) {
+                let event = new MouseEvent('mouseover', {
+                    bubbles   : true,
+                    cancelable: true,
+                    clientX   : registration.lastX,
+                    clientY   : registration.lastY,
+                    view      : window
+                });
+                
+                element.dispatchEvent(event);
+            }
+        }
+    }
+
+    /**
+     * Drops all active hover records. Primarily invoked when a scroll interaction starts to visually
+     * decouple the mouse resting state from the rapidly advancing row virtualization buffer.
+     * @param {Object} data
+     * @param {String} data.id
+     */
+    suspendHover({id}) {
+        let registration = this.registrations.get(id);
+
+        if (registration) {
+            registration.wrapperNode
+                .querySelectorAll('.neo-hover')
+                .forEach(r => r.classList.remove('neo-hover'));
+        }
+    }
+
+    /**
+     * @param {Object} data
+     * @param {String} data.id
+     */
+    unregister({id}) {
+        let me           = this,
+            registration = me.registrations.get(id);
+
+        if (registration) {
+            registration.wrapperNode.removeEventListener('mouseout',  registration.mouseOutListener);
+            registration.wrapperNode.removeEventListener('mouseover', registration.mouseOverListener);
+            me.registrations.delete(id);
         }
     }
 }
