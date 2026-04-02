@@ -17,10 +17,10 @@ class View extends Base {
          */
         ntype: 'grid-view',
         /**
-         * @member {String[]} baseCls=['neo-grid-view']
+         * @member {String[]} baseCls=['neo-grid-view', 'neo-hide-scrollbar']
          * @protected
          */
-        baseCls: ['neo-grid-view'],
+        baseCls: ['neo-grid-view', 'neo-hide-scrollbar'],
         /**
          * @member {Object} layout={ntype: 'hbox', align: 'stretch'}
          * @protected

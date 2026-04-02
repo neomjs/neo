@@ -187,36 +187,16 @@ class GridRowScrollPinning extends Base {
             state;
 
         for (const reg of me.registrations.values()) {
-            if (reg.wrapperNode === scrollbar) {
+            if (reg.scrollbarNode === scrollbar) {
                 state = reg;
                 break
             }
         }
 
         if (state) {
-            // Strict boundary check: only engage if clicking the vertical scrollbar track.
-            // Clicking the native scrollbar hit-tests to the container element itself.
-            let rect                = scrollbar.getBoundingClientRect(),
-                isVerticalScrollbar = false;
-
-            if (event.clientX) {
-                // 1. Standard scrollbars: If target is the wrapper, offsetX > clientWidth is 100% reliable.
-                if (event.target === scrollbar && event.offsetX >= scrollbar.clientWidth) {
-                    isVerticalScrollbar = true;
-                }
-                // 2. Mac OS Overlay Scrollbars: These often "fall through" and hit-test the child element.
-                // We must use absolute clientX coordinates to detect clicks in the "phantom" scrollbar layer (last ~18px).
-                else if (event.clientX >= (rect.right - 18) && event.clientX <= rect.right) {
-                    isVerticalScrollbar = true;
-                }
-            }
-
-            if (!isVerticalScrollbar) {
-                return
-            }
-
             me.activeDragId = state.id;
             state.isThumbDragging = true;
+            state.lastLoggedScrollTop = undefined;
             
             // Add a global mouseup listener to catch the release even if the cursor
             // leaves the scrollbar area.
@@ -224,7 +204,7 @@ class GridRowScrollPinning extends Base {
             window.addEventListener('touchend', me.boundOnMouseUp);
             window.addEventListener('blur', me.boundOnMouseUp);
             
-            me.applyPinning(state.id)
+            me.applyPinning(state.id);
         }
     }
 
@@ -274,17 +254,20 @@ class GridRowScrollPinning extends Base {
      * Registers a grid for row scroll pinning and attaches native scroll listener.
      * @param {Object} data
      * @param {String[]} data.bodyIds       The IDs of the grid body nodes
-     * @param {String} data.viewId        The ID of the vertical scroll wrapper
-     * @param {String} data.id            Unique identifier for the registration (e.g. ScrollManager id)
+     * @param {String} data.verticalScrollbarId The ID of the vertical scrollbar dummy
+     * @param {String} data.viewId          The ID of the vertical scroll wrapper
+     * @param {String} data.id              Unique identifier for the registration (e.g. ScrollManager id)
      */
-    register({bodyIds, viewId, id}) {
-        let me            = this,
-            wrapperNode   = DomAccess.getElement(viewId);
+    register({bodyIds, verticalScrollbarId, viewId, id}) {
+        let me                    = this,
+            wrapperNode           = DomAccess.getElement(viewId),
+            verticalScrollbarNode = DomAccess.getElement(verticalScrollbarId);
 
-        if (wrapperNode && bodyIds.length > 0) {
+        if (wrapperNode && verticalScrollbarNode && bodyIds.length > 0) {
             me.registrations.set(id, {
                 id,
                 bodyIds,
+                scrollbarNode: verticalScrollbarNode,
                 viewId,
                 wrapperNode,
                 isPinningActive: false,
@@ -294,8 +277,8 @@ class GridRowScrollPinning extends Base {
             });
 
             wrapperNode.addEventListener('scroll', me.boundOnScroll, {passive: true});
-            wrapperNode.addEventListener('mousedown', me.boundOnMouseDown);
-            wrapperNode.addEventListener('touchstart', me.boundOnMouseDown, {passive: true})
+            verticalScrollbarNode.addEventListener('mousedown', me.boundOnMouseDown);
+            verticalScrollbarNode.addEventListener('touchstart', me.boundOnMouseDown, {passive: true})
         }
     }
 

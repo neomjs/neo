@@ -1,15 +1,16 @@
-import BaseContainer     from '../container/Base.mjs';
-import ClassSystemUtil   from '../util/ClassSystem.mjs';
-import Collection        from '../collection/Base.mjs';
-import GridBody          from './Body.mjs';
-import ScrollManager     from './ScrollManager.mjs';
-import Store             from '../data/Store.mjs';
-import FooterToolbar     from './footer/Toolbar.mjs';
+import BaseContainer       from '../container/Base.mjs';
+import ClassSystemUtil     from '../util/ClassSystem.mjs';
+import Collection          from '../collection/Base.mjs';
+import GridBody            from './Body.mjs';
+import ScrollManager       from './ScrollManager.mjs';
+import Store               from '../data/Store.mjs';
+import FooterToolbar       from './footer/Toolbar.mjs';
 import HorizontalScrollbar from './HorizontalScrollbar.mjs';
-import View              from './View.mjs';
-import * as column       from './column/_export.mjs';
-import * as header       from './header/_export.mjs';
-import {isDescriptor}    from '../core/ConfigSymbols.mjs';
+import VerticalScrollbar   from './VerticalScrollbar.mjs';
+import View                from './View.mjs';
+import * as column         from './column/_export.mjs';
+import * as header         from './header/_export.mjs';
+import {isDescriptor}      from '../core/ConfigSymbols.mjs';
 
 /**
  * @summary The main entry point for creating Data Grids in Neo.mjs.
@@ -160,6 +161,12 @@ class GridContainer extends BaseContainer {
          */
         horizontalScrollbar: null,
         /**
+         * True enables hierarchical TreeGrid rendering and WAI-ARIA roles
+         * @member {Boolean} isTreeGrid_=false
+         * @reactive
+         */
+        isTreeGrid_: false,
+        /**
          * @member {Object} layout={ntype: 'vbox', align: 'stretch'}
          * @reactive
          */
@@ -175,7 +182,6 @@ class GridContainer extends BaseContainer {
          * @reactive
          */
         rowHeight_: 32,
-
         /**
          * @member {Boolean} showHeaderFilters_=false
          * @reactive
@@ -186,6 +192,13 @@ class GridContainer extends BaseContainer {
          * @reactive
          */
         sortable_: true,
+        /**
+         * The data source for the grid. This is the structural foundation for both flat Data Grids and hierarchical TreeGrids.
+         * The grid will automatically infer its `isTreeGrid` state based on whether this store is an instance of `Neo.data.TreeStore`.
+         * @member {Neo.data.Store|Neo.data.TreeStore|null} store_=null
+         * @reactive
+         */
+        store_: null,
         /**
          * @member {Boolean} useInternalId_=true
          * @reactive
@@ -204,24 +217,10 @@ class GridContainer extends BaseContainer {
          */
         useTriStateSorting_: false,
         /**
-         * The data source for the grid. This is the structural foundation for both flat Data Grids and hierarchical TreeGrids.
-         * The grid will automatically infer its `isTreeGrid` state based on whether this store is an instance of `Neo.data.TreeStore`.
-         * @member {Neo.data.Store|Neo.data.TreeStore|null} store_=null
-         * @reactive
-         */
-        store_: null,
-        /**
-         * True enables hierarchical TreeGrid rendering and WAI-ARIA roles
-         * @member {Boolean} isTreeGrid_=false
-         * @reactive
-         */
-        isTreeGrid_: false,
-        /**
-         * @member {Array|null} items=null
+         * @member {Neo.grid.VerticalScrollbar|null} verticalScrollbar=null
          * @protected
-         * @reactive
          */
-        items: null,
+        verticalScrollbar: null,
         /**
          * @member {Object} _vdom
          */
@@ -304,11 +303,23 @@ class GridContainer extends BaseContainer {
             windowId
         });
 
+        me.verticalScrollbar = Neo.create({
+            module  : VerticalScrollbar,
+            appName,
+            parentId: me.id,
+            rowHeight,
+            store,
+            theme   : me.theme,
+            windowId
+        });
+
         me.items = [me.headerWrapper, me.view, me.horizontalScrollbar];
 
         if (me.footerToolbar) {
             me.items.push(me.footerToolbar)
         }
+
+        me.items.push(me.verticalScrollbar);
 
         me._columns = me.createColumns(me.columns);
         me.updateColCount();
@@ -906,6 +917,7 @@ class GridContainer extends BaseContainer {
 
         me.store = null; // remove the listeners
 
+        me.verticalScrollbar?.destroy();
         me.scrollManager.destroy();
 
         me.mounted && Neo.main.addon.ResizeObserver.unregister({
