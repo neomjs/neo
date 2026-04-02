@@ -322,18 +322,18 @@ class GridDragScroll extends Base {
     /**
      * Registers a grid for drag scrolling.
      * @param {Object} data
-     * @param {String} data.bodyId      The ID of the grid body (vertical scroll target)
+     * @param {String} data.viewId      The ID of the grid view (vertical scroll target)
      * @param {String} data.containerId The ID of the grid container (horizontal scroll target)
      * @param {String} data.id          Unique identifier for the registration (e.g. ScrollManager id)
      */
-    register({bodyId, containerId, id}) {
+    register({viewId, containerId, id}) {
         let me = this;
 
         if (me.registrations.has(id)) {
             me.unregister({id})
         }
 
-        let bodyElement      = document.getElementById(bodyId),
+        let bodyElement      = document.getElementById(viewId),
             containerElement = document.getElementById(containerId);
 
         if (bodyElement) {

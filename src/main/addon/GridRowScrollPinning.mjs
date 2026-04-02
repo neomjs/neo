@@ -73,6 +73,8 @@ class GridRowScrollPinning extends Base {
      */
     activeDragId = null
 
+
+
     /**
      * @param {Object} config
      */
@@ -161,17 +163,9 @@ class GridRowScrollPinning extends Base {
         }
 
         me.registrations.forEach(state => {
-            let bodyMeta;
-
-            state.bodyIds.forEach(bodyId => {
-                if (meta[bodyId]) {
-                    bodyMeta = meta[bodyId];
-                }
-            });
-
-            if (bodyMeta) {
-                // Silently update the baseline state.
-                state.workerScrollTop = bodyMeta.scrollTop;
+            if (meta[state.viewId]) {
+                // Silently update the baseline state from the view's meta delta
+                state.workerScrollTop = meta[state.viewId].scrollTop;
 
                 // CRITICAL: Synchronously re-evaluate pinning to clear stale transforms
                 // if the worker catches up.
@@ -179,6 +173,8 @@ class GridRowScrollPinning extends Base {
             }
         })
     }
+
+
 
     /**
      * @param {Event} event
@@ -277,17 +273,18 @@ class GridRowScrollPinning extends Base {
      * Registers a grid for row scroll pinning and attaches native scroll listener.
      * @param {Object} data
      * @param {String[]} data.bodyIds       The IDs of the grid body nodes
-     * @param {String} data.bodyWrapperId The ID of the vertical scroll wrapper
+     * @param {String} data.viewId        The ID of the vertical scroll wrapper
      * @param {String} data.id            Unique identifier for the registration (e.g. ScrollManager id)
      */
-    register({bodyIds, bodyWrapperId, id}) {
+    register({bodyIds, viewId, id}) {
         let me            = this,
-            wrapperNode   = DomAccess.getElement(bodyWrapperId);
+            wrapperNode   = DomAccess.getElement(viewId);
 
         if (wrapperNode && bodyIds.length > 0) {
             me.registrations.set(id, {
                 id,
                 bodyIds,
+                viewId,
                 wrapperNode,
                 isPinningActive: false,
                 isThumbDragging: false,

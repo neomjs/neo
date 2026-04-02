@@ -17,15 +17,29 @@ class View extends Base {
          */
         ntype: 'grid-view',
         /**
-         * @member {String[]} baseCls=['neo-grid-view', 'neo-grid-bodies-wrapper']
+         * @member {String[]} baseCls=['neo-grid-view']
          * @protected
          */
-        baseCls: ['neo-grid-view', 'neo-grid-bodies-wrapper'],
+        baseCls: ['neo-grid-view'],
         /**
          * @member {Object} layout={ntype: 'hbox', align: 'stretch'}
          * @protected
          */
-        layout: {ntype: 'hbox', align: 'stretch'}
+        layout: {ntype: 'hbox', align: 'stretch'},
+        /**
+         * The current scroll top position of the grid view
+         * @member {Number} scrollTop_=0
+         */
+        scrollTop_: 0
+    }
+
+    /**
+     * @returns {Object}
+     */
+    getVdomUpdateMeta() {
+        return {
+            scrollTop: this.scrollTop
+        }
     }
 }
 

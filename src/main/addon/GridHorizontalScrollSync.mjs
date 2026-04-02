@@ -68,10 +68,10 @@ class GridHorizontalScrollSync extends Base {
      * @param {String} data.id
      * @param {String} data.scrollerId
      * @param {String} data.bodyId
-     * @param {String} data.bodyWrapperId
+     * @param {String} data.viewId
      * @param {String} data.headerId
      */
-    register({id, scrollerId, bodyId, bodyWrapperId, headerId}) {
+    register({id, scrollerId, bodyId, viewId, headerId}) {
         let me = this,
             registration;
 
@@ -83,14 +83,14 @@ class GridHorizontalScrollSync extends Base {
             id,
             scrollerId,
             bodyId,
-            bodyWrapperId,
+            viewId,
             headerId,
             scrollListener: me.onScroll.bind(me, scrollerId, bodyId, headerId),
             wheelListener : me.onWheel.bind(me, scrollerId)
         };
 
         DomAccess.getElement(scrollerId)?.addEventListener('scroll', registration.scrollListener);
-        DomAccess.getElement(bodyWrapperId || bodyId)?.addEventListener('wheel', registration.wheelListener, {passive: true});
+        DomAccess.getElement(viewId || bodyId)?.addEventListener('wheel', registration.wheelListener, {passive: true});
         
         me.registrations.set(id, registration);
     }
@@ -105,7 +105,7 @@ class GridHorizontalScrollSync extends Base {
 
         if (registration) {
             DomAccess.getElement(registration.scrollerId)?.removeEventListener('scroll', registration.scrollListener);
-            DomAccess.getElement(registration.bodyWrapperId || registration.bodyId)?.removeEventListener('wheel', registration.wheelListener);
+            DomAccess.getElement(registration.viewId || registration.bodyId)?.removeEventListener('wheel', registration.wheelListener);
             me.registrations.delete(id);
         }
     }

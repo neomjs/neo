@@ -99,10 +99,10 @@ class GridContainer extends BaseContainer {
          */
         bodyStart: null,
         /**
-         * @member {Neo.container.Base|null} bodyWrapper=null
+         * @member {Neo.grid.View|null} view=null
          * @protected
          */
-        bodyWrapper: null,
+        view: null,
         /**
          * true uses grid.plugin.CellEditing
          * @member {Boolean} cellEditing_=false
@@ -288,7 +288,7 @@ class GridContainer extends BaseContainer {
             items   : [me.headerToolbar]
         });
 
-        me.bodyWrapper = Neo.create(View, {
+        me.view = Neo.create(View, {
             appName,
             flex     : 1,
             isLoading: me.isLoading,
@@ -306,7 +306,7 @@ class GridContainer extends BaseContainer {
             windowId
         });
 
-        me.items = [me.headerWrapper, me.bodyWrapper, me.horizontalScrollbar];
+        me.items = [me.headerWrapper, me.view, me.horizontalScrollbar];
 
         if (me.footerToolbar) {
             me.items.push(me.footerToolbar)
@@ -415,10 +415,10 @@ class GridContainer extends BaseContainer {
      * @protected
      */
     afterSetIsLoading(value, oldValue) {
-        let {bodyWrapper} = this;
+        let {view} = this;
 
-        if (bodyWrapper) {
-            bodyWrapper.isLoading = value;
+        if (view) {
+            view.isLoading = value;
         }
     }
 
@@ -831,7 +831,7 @@ class GridContainer extends BaseContainer {
                     ...me.body.initialConfig,
                     flex         : 'none',
                     gridContainer: me,
-                    parentId     : me.bodyWrapper.id,
+                    parentId     : me.view.id,
                     rowHeight    : me.rowHeight,
                     store        : me.store,
                     theme        : me.theme,
@@ -866,7 +866,7 @@ class GridContainer extends BaseContainer {
                     ...me.body.initialConfig,
                     flex         : 'none',
                     gridContainer: me,
-                    parentId     : me.bodyWrapper.id,
+                    parentId     : me.view.id,
                     rowHeight    : me.rowHeight,
                     store        : me.store,
                     theme        : me.theme,
@@ -896,10 +896,10 @@ class GridContainer extends BaseContainer {
         if (me.bodyEnd) bodyItems.push(me.bodyEnd);
 
         me.headerWrapper.items = headerItems;
-        me.bodyWrapper.items = bodyItems;
+        me.view.items = bodyItems;
 
         me.headerWrapper.createItems();
-        me.bodyWrapper.createItems();
+        me.view.createItems();
     }
 
     /**
@@ -1286,9 +1286,10 @@ class GridContainer extends BaseContainer {
         bodyStart && updateBody(bodyStart);
         bodyEnd   && updateBody(bodyEnd);
 
-        if (me.bodyWrapper) {
-            me.bodyWrapper.updateDepth = -1;
-            me.bodyWrapper.update()
+        if (me.view) {
+            me.view.scrollTop   = scrollTop;
+            me.view.updateDepth = -1;
+            me.view.update()
         }
     }
 

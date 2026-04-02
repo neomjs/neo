@@ -9,7 +9,7 @@ test.describe('Grid Scroll Pinning Timeout Pause', () => {
     });
 
     test('Pausing during thumb drag clears pinning state', async ({ page }) => {
-        const wrapperNode = await page.locator('.neo-grid-body-wrapper:not(.neo-container)');
+        const wrapperNode = await page.locator('.neo-grid-view');
         const box = await wrapperNode.boundingBox();
         
         const startX = box.x + box.width - 5;
@@ -25,7 +25,7 @@ test.describe('Grid Scroll Pinning Timeout Pause', () => {
         // Since pinning was cleared, this should result in blank visual rows
         await page.evaluate(() => {
             window.__BLANK = false;
-            const wrapper = document.querySelector('.neo-grid-body-wrapper');
+            const wrapper = document.querySelector('.neo-grid-view');
             wrapper.addEventListener('scroll', () => {
                 const rows = Array.from(wrapper.querySelectorAll('.neo-grid-row'));
                 const wrapperRect = wrapper.getBoundingClientRect();

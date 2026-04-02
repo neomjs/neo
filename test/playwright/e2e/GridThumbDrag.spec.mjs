@@ -22,7 +22,7 @@ test.describe('Desktop (1920x1080): Grid Scroll Thrashing', () => {
 
     test('High-Velocity Vertical Thumb Drag Stale Render Detection', async ({ page }) => {
         const result = await page.evaluate(async () => {
-            const bodyWrapper = document.querySelector('.neo-grid-body-wrapper:not(.neo-container)');
+            const bodyWrapper = document.querySelector('.neo-grid-view');
             
             if (!bodyWrapper) {
                 return { error: 'Grid components not found' };
@@ -146,7 +146,7 @@ test.describe('Desktop (1920x1080): Grid Scroll Thrashing', () => {
 
     test('Horizontal Drag Scroll Moves Cells Optically and Triggers Data Virtualization', async ({ page }) => {
         const result = await page.evaluate(async () => {
-            const bodyWrapper = document.querySelector('.neo-grid-body-wrapper:not(.neo-container)');
+            const bodyWrapper = document.querySelector('.neo-grid-view');
             const hScrollbar = document.querySelector('.neo-grid-horizontal-scrollbar');
             
             if (!bodyWrapper || !hScrollbar) {
