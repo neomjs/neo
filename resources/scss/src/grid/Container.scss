@@ -1,13 +1,22 @@
-.neo-grid-wrapper {
+.neo-grid-container {
+    border             : 1px solid var(--grid-container-border-color);
+    border-spacing     : 0;
+    color              : var(--grid-container-color);
+    display            : flex;
+    flex-direction     : column;
+    font-size          : var(--grid-container-font-size);
+    font-weight        : 400;
+    height             : 100%;
+    line-height        : 19px;
     overflow-anchor    : none;
+    overflow-x         : hidden;
     overflow-y         : clip;
     overscroll-behavior: none;
     position           : relative;
+    width              : 100%;
 
     &.neo-masked {
-        .neo-grid-container {
-            opacity: .3;
-        }
+        opacity: .3;
 
         .neo-load-mask {
             .neo-load-mask-body {
@@ -22,22 +31,5 @@
                 }
             }
         }
-    }
-
-    .neo-grid-container {
-        border             : 1px solid var(--grid-container-border-color);
-        border-spacing     : 0;
-        color              : var(--grid-container-color);
-        display            : flex;
-        flex-direction     : column;
-        font-size          : var(--grid-container-font-size);
-        font-weight        : 400;
-        height             : 100%;
-        line-height        : 19px;
-        overscroll-behavior: none;
-        overflow-x         : hidden;
-        overflow-y         : hidden;
-        position           : absolute;
-        width              : 100%;
     }
 }
