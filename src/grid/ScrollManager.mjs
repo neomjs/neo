@@ -192,16 +192,17 @@ class ScrollManager extends Base {
      * @protected
      */
     onScrollEnd() {
-        let container = this.gridContainer;
+        let me        = this,
+            container = me.gridContainer;
 
         if (container.bodyStart) container.bodyStart.isScrolling = false;
         if (container.bodyEnd)   container.bodyEnd.isScrolling   = false;
         container.body.isScrolling = false;
 
-        this.syncGridBody();
+        me.syncGridBody();
 
-        if (this.rowHoverSync) {
-            this.resumeGridRowHoverSyncAddon();
+        if (me.rowHoverSync) {
+            me.resumeGridRowHoverSyncAddon();
         }
     }
 
