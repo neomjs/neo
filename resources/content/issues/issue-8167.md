@@ -5,14 +5,15 @@ state: OPEN
 labels:
   - bug
   - QA
+  - stale
   - ai
 assignees:
   - tobiu
 createdAt: '2025-12-27T21:33:28Z'
-updatedAt: '2026-01-01T17:04:47Z'
+updatedAt: '2026-04-02T04:03:07Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8167'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 8163
 subIssues: []
 subIssuesCompleted: 0
@@ -43,4 +44,9 @@ Audit and harden this flow. Ensure `onDragBoundaryEntry` in the Source correctly
 - 2025-12-27T21:33:29Z @tobiu added the `ai` label
 - 2025-12-27T21:33:52Z @tobiu added parent issue #8163
 - 2026-01-01T17:04:47Z @tobiu assigned to @tobiu
+### @github-actions - 2026-04-02T04:03:06Z
+
+This issue is stale because it has been open for 90 days with no activity.
+
+- 2026-04-02T04:03:07Z @github-actions added the `stale` label
 

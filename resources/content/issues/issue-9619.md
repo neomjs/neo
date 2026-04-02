@@ -1,7 +1,7 @@
 ---
 id: 9619
 title: 'Grid Multi-Body: Implement and Test Locked Columns in DevIndex'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
@@ -9,16 +9,17 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-04-01T17:27:49Z'
-updatedAt: '2026-04-01T17:28:07Z'
+updatedAt: '2026-04-01T19:00:24Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9619'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 9486
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-04-01T19:00:24Z'
 ---
 # Grid Multi-Body: Implement and Test Locked Columns in DevIndex
 
@@ -41,4 +42,10 @@ This is a follow-up to the horizontal scroll synchronization implementation (Iss
 - 2026-04-01T17:27:50Z @tobiu added the `grid` label
 - 2026-04-01T17:27:58Z @tobiu added parent issue #9486
 - 2026-04-01T17:28:07Z @tobiu assigned to @tobiu
+- 2026-04-01T19:00:13Z @tobiu referenced in commit `2cddb5c` - "fix(grid): Resolve Multi-Body layout and rendering issues (#9619, #9620)"
+### @tobiu - 2026-04-01T19:00:24Z
+
+Resolved in dev. Locked columns are aligned correctly and row layout logic is finalized.
+
+- 2026-04-01T19:00:24Z @tobiu closed this issue
 
