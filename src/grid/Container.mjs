@@ -226,9 +226,7 @@ class GridContainer extends BaseContainer {
          * @member {Object} _vdom
          */
         _vdom:
-        {cls: ['neo-grid-wrapper'], cn: [
-            {'aria-colcount': 0, 'aria-rowcount': 1, cn: []} // aria-rowcount includes the column headers
-        ]}
+        {'aria-colcount': 0, 'aria-rowcount': 1, cn: []} // aria-rowcount includes the column headers
     }
 
     /**
@@ -311,8 +309,6 @@ class GridContainer extends BaseContainer {
         if (me.footerToolbar) {
             me.items.push(me.footerToolbar)
         }
-
-        me.vdom.id = me.getWrapperId();
 
         me._columns = me.createColumns(me.columns);
         me.updateColCount();
@@ -969,28 +965,6 @@ class GridContainer extends BaseContainer {
         return [...lockedStart, ...unlocked, ...lockedEnd]
     }
 
-    /**
-     * @override
-     * @returns {*}
-     */
-    getVdomRoot() {
-        return this.vdom.cn[0]
-    }
-
-    /**
-     * @override
-     * @returns {Neo.vdom.VNode}
-     */
-    getVnodeRoot() {
-        return this.vnode.childNodes[0]
-    }
-
-    /**
-     * @returns {String}
-     */
-    getWrapperId() {
-        return `${this.id}__wrapper`
-    }
 
     /**
      * @param {String} dataField
