@@ -3,6 +3,7 @@ import {fileURLToPath}          from 'url';
 import ToolService              from '../../../ToolService.mjs';
 import DatabaseService          from './DatabaseService.mjs';
 import DatabaseLifecycleService from './DatabaseLifecycleService.mjs';
+import GraphService             from './GraphService.mjs';
 import HealthService            from './HealthService.mjs';
 import MemoryService            from './MemoryService.mjs';
 import SessionService           from './SessionService.mjs';
@@ -16,12 +17,15 @@ const serviceMapping = {
     add_memory            : MemoryService           .addMemory           .bind(MemoryService),
     delete_all_summaries  : SummaryService          .deleteAllSummaries  .bind(SummaryService),
     get_all_summaries     : SummaryService          .listSummaries       .bind(SummaryService),
+    get_neighbors         : GraphService            .getNeighbors        .bind(GraphService),
+    get_node              : GraphService            .getNode             .bind(GraphService),
     get_session_memories  : MemoryService           .listMemories        .bind(MemoryService),
     healthcheck           : HealthService           .healthcheck         .bind(HealthService),
     manage_database       : DatabaseLifecycleService.manageDatabase      .bind(DatabaseLifecycleService),
     manage_database_backup: DatabaseService         .manageDatabaseBackup.bind(DatabaseService),
     query_raw_memories    : MemoryService           .queryMemories       .bind(MemoryService),
     query_summaries       : SummaryService          .querySummaries      .bind(SummaryService),
+    search_nodes          : GraphService            .searchNodes         .bind(GraphService),
     summarize_sessions    : SessionService          .summarizeSessions   .bind(SessionService)
 };
 
