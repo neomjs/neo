@@ -115,6 +115,46 @@ class GraphService extends Base {
              logger.warn(`[GraphService] Link Failed ${source} -> ${target}: ${e.message}`);
         }
     }
+
+    /**
+     * Retrieves a specific node by its ID.
+     * @param {String} id 
+     * @returns {Object|null}
+     */
+    getNode(id) {
+        const stmt = this.db.prepare('SELECT * FROM Nodes WHERE id = ?');
+        return stmt.get(id) || null;
+    }
+
+    /**
+     * Retrieves adjacent connected nodes (neighbors) alongside relationship metadata.
+     * @param {String} id 
+     * @returns {Array} List of connected Node objects with edge relationship mapping.
+     */
+    getNeighbors(id) {
+        // Flat join to retrieve immediate topology scope
+        const stmt = this.db.prepare(`
+            SELECT n.*, e.relationship, e.weight, e.source, e.target
+            FROM Edges e
+            JOIN Nodes n ON (n.id = e.target AND e.source = ?) OR (n.id = e.source AND e.target = ?)
+        `);
+        return stmt.all(id, id);
+    }
+
+    /**
+     * Performs a text-based fuzzy search across node topology to find structural entities.
+     * @param {String} queryString 
+     * @returns {Array} List of matching Nodes.
+     */
+    searchNodes(queryString) {
+        const stmt = this.db.prepare(`
+            SELECT * FROM Nodes 
+            WHERE name LIKE ? OR description LIKE ? OR id LIKE ?
+            LIMIT 50
+        `);
+        const q = `%${queryString}%`;
+        return stmt.all(q, q, q);
+    }
 }
 
 export default Neo.setupClass(GraphService);
