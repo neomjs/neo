@@ -92,7 +92,7 @@ const defaultConfig = {
      * The local persistence path for the SQLite knowledge graph.
      * @type {string}
      */
-    sqlitePath: path.resolve(cwd, 'chroma-neo-knowledge-base/knowledge-graph.sqlite'),
+    sqlitePath: path.resolve(cwd, 'chroma-neo-knowledge-base/graph/knowledge-graph.sqlite'),
     /**
      * The path to the generated knowledge base JSONL file.
      * @type {string}

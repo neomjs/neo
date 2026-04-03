@@ -1,10 +1,9 @@
-import aiConfig        from '../config.mjs';
-import Base            from '../../../../../src/core/Base.mjs';
-import ChromaManager   from './ChromaManager.mjs';
-import Json            from '../../../../../src/util/Json.mjs';
-import KB_GraphService from '../../knowledge-base/services/GraphService.mjs';
-import logger          from '../logger.mjs';
-import Ollama          from '../../../../provider/Ollama.mjs';
+import aiConfig      from '../config.mjs';
+import Base          from '../../../../../src/core/Base.mjs';
+import ChromaManager from './ChromaManager.mjs';
+import Json          from '../../../../../src/util/Json.mjs';
+import logger        from '../logger.mjs';
+import Ollama        from '../../../../provider/Ollama.mjs';
 
 /**
  * @summary Service for offline GraphRAG extraction ("REM Sleep").
@@ -181,6 +180,7 @@ ${session.document}
             logger.info(`[DreamService] Successfully extracted ${payload.nodes.length} nodes and ${payload.edges.length} edges for session ${session.meta.sessionId}.`);
 
             // Sub-Epic 3C: Bridge to knowledge-base GraphService (SQLite)
+            /*
             for (const node of payload.nodes) {
                 KB_GraphService.upsertNode({
                     id: node.id,
@@ -200,7 +200,8 @@ ${session.document}
                 );
             }
 
-            logger.info(`[DreamService] Graph entities committed to Neocortex for session ${session.meta.sessionId}.`);
+            logger.info(\`[DreamService] Graph entities committed to Neocortex for session \${session.meta.sessionId}.\`);
+            */
 
             return payload;
 
