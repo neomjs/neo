@@ -1,6 +1,6 @@
 {
-  "lastSync": "2026-04-03T21:48:18.571Z",
-  "releasesLastFetched": "2026-04-03T21:48:19.099Z",
+  "lastSync": "2026-04-03T22:10:58.633Z",
+  "releasesLastFetched": "2026-04-03T22:10:59.215Z",
   "pushFailures": [],
   "issues": {
     "3789": {
@@ -23373,29 +23373,29 @@
       "state": "OPEN",
       "path": "resources/content/issues/issue-9666.md",
       "closedAt": null,
-      "updatedAt": "2026-04-03T21:44:03Z",
-      "contentHash": "e0be13b156e72f725ac45247d08635dcdcf95384157c2fb1c47bc45a2a3cfb09"
+      "updatedAt": "2026-04-03T22:04:17Z",
+      "contentHash": "114c02bdad928649f56f924ddecf5402b45d05beb4d9d92b1ccc4a8c6245247d"
     },
     "9667": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "resources/content/issues/issue-9667.md",
-      "closedAt": null,
-      "updatedAt": "2026-04-03T21:44:16Z",
-      "contentHash": "85c08f412435b1b6999ba6afe9844da44f7f5413e604b6814d0d2f31c1e050dc"
+      "closedAt": "2026-04-03T22:01:58Z",
+      "updatedAt": "2026-04-03T22:03:18Z",
+      "contentHash": "4458a50adc6d8850b32c3a20cdf2cddee693152cfda10db3b7459ce2aef0a0fa"
     },
     "9668": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "resources/content/issues/issue-9668.md",
-      "closedAt": null,
-      "updatedAt": "2026-04-03T21:44:28Z",
-      "contentHash": "8c0f2e36593b133f77df8897842823d1ac5e7f876b563c6da106e6ddcdc8326b"
+      "closedAt": "2026-04-03T22:04:31Z",
+      "updatedAt": "2026-04-03T22:04:31Z",
+      "contentHash": "f6198c9285497213e5c725f9fa842212b9bfa0e251cb4427e82e7a9b6147f5be"
     },
     "9669": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "resources/content/issues/issue-9669.md",
-      "closedAt": null,
-      "updatedAt": "2026-04-03T21:44:40Z",
-      "contentHash": "40103db340059aec52555b065466925c6e2362f9957d0c5a1c509b737d271a00"
+      "closedAt": "2026-04-03T22:04:36Z",
+      "updatedAt": "2026-04-03T22:04:36Z",
+      "contentHash": "880aa8ccd98b4e7cccb203d85bee65b2b3db4849df01a33edcc92531b71df6eb"
     }
   },
   "releases": {
