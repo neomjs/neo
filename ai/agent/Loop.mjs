@@ -2,6 +2,7 @@ import Assembler       from '../context/Assembler.mjs';
 import Base            from '../../src/core/Base.mjs';
 import ClassSystemUtil from '../../src/util/ClassSystem.mjs';
 import Provider        from '../provider/Base.mjs';
+import SDK             from '../services.mjs';
 
 /**
  * The cognitive event loop for the Agent.
@@ -365,8 +366,21 @@ class Loop extends Base {
 
             if (success) {
                 console.log(`[Loop] ✓ Cycle succeeded for ${event.type}`);
-                // Store pattern to memory-core for future reference
-                // await Memory_Service.storePattern({ event, decision, result: actionResult });
+                
+                if (event.type === 'user:input' || event.type === 'delegate') {
+                    const agentName = this.agent?.constructor?.config?.className?.split('.').pop() || 'unknown';
+                    const modelName = this.provider?.model || this.provider?.modelName || 'unknown';
+                    const sessionId = this.agent?.sessionId || 'default-session';
+                    
+                    await SDK.Memory_Service.addMemory({
+                        prompt: event.data,
+                        thought: decision.thought || 'Internal reflection',
+                        response: decision.content || 'Action executed successfully.',
+                        agent: agentName.toLowerCase(),
+                        model: modelName,
+                        sessionId: sessionId
+                    });
+                }
             } else {
                 console.log(`[Loop] ✗ Action failed for ${event.type}`);
                 // Could re-queue with different approach or escalate to human

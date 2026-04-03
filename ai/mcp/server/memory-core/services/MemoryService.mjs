@@ -37,9 +37,11 @@ class MemoryService extends Base {
      * @param {String} options.response  The agent's response.
      * @param {String} options.thought   The agent's internal thought process.
      * @param {String} options.sessionId The ID of the session this memory belongs to.
+     * @param {String} [options.agent]   The agent profile (e.g. 'antigravity').
+     * @param {String} [options.model]   The model name (e.g. 'gemini-3.1-pro').
      * @returns {Promise<{id: string, sessionId: string, timestamp: string, message: string}>}
      */
-    async addMemory({prompt, response, thought, sessionId}) {
+    async addMemory({prompt, response, thought, sessionId, agent, model}) {
         try {
             const collection   = await ChromaManager.getMemoryCollection();
             const combinedText = `User Prompt: ${prompt}\nAgent Thought: ${thought}\nAgent Response: ${response}`;
@@ -52,17 +54,22 @@ class MemoryService extends Base {
                 sessionId = SessionService.currentSessionId;
             }
 
+            const metadata = {
+                prompt,
+                response,
+                thought,
+                sessionId,
+                timestamp: now,
+                type: 'agent-interaction'
+            };
+
+            if (agent) metadata.agent = agent;
+            if (model) metadata.model = model;
+
             await collection.add({
                 ids: [memoryId],
                 embeddings: [embedding],
-                metadatas: [{
-                    prompt,
-                    response,
-                    thought,
-                    sessionId,
-                    timestamp: now,
-                    type: 'agent-interaction'
-                }],
+                metadatas: [metadata],
                 documents: [combinedText]
             });
 
@@ -108,7 +115,9 @@ class MemoryService extends Base {
                     prompt   : metadata.prompt,
                     thought  : metadata.thought,
                     response : metadata.response,
-                    type     : metadata.type
+                    type     : metadata.type,
+                    agent    : metadata.agent || null,
+                    model    : metadata.model || null
                 };
             }).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
