@@ -25,8 +25,10 @@ subIssues:
   - '[x] 9660 Native MCP Tool Execution inside Loop.mjs'
   - '[x] 9661 Phase 2: Autonomous Sub-Agent Delegation (Dream Mode)'
   - '[ ] 9662 Dream Mode Phase 3: GraphRAG Topology & REM Mode Orchestration'
-subIssuesCompleted: 9
-subIssuesTotal: 10
+  - '[x] 9665 Stabilize MCP Server Infrastructure & Fix Memory/Graph Regression'
+  - '[ ] 9666 Epic: Migrate Knowledge Graph to Memory Core'
+subIssuesCompleted: 10
+subIssuesTotal: 12
 blockedBy: []
 blocking: []
 ---
@@ -72,4 +74,6 @@ This epic coordinates the upgrade of the Neo.mjs AI infrastructure into a GraphR
 - 2026-04-03T14:27:27Z @tobiu added sub-issue #9661
 - 2026-04-03T14:46:31Z @tobiu cross-referenced by #9662
 - 2026-04-03T14:46:38Z @tobiu added sub-issue #9662
+- 2026-04-03T18:37:56Z @tobiu added sub-issue #9665
+- 2026-04-03T21:44:10Z @tobiu added sub-issue #9666
 
