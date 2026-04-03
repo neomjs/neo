@@ -357,19 +357,28 @@ class SessionService extends Base {
 
         const aggregatedContent = memories.documents.join('\n\n---\n\n');
 
-        // Calculate the latest timestamp from the session's memories to preserve historical timeline
         let lastActivity = Date.now();
+        const extractedAgents = new Set();
+        const extractedModels = new Set();
+
         if (memories.metadatas && memories.metadatas.length > 0) {
             const timestamps = memories.metadatas.map(m => m.timestamp).filter(Boolean);
             if (timestamps.length > 0) {
                 lastActivity = Math.max(...timestamps);
             }
+            memories.metadatas.forEach(m => {
+                if (m.agent) extractedAgents.add(m.agent);
+                if (m.model) extractedModels.add(m.model);
+            });
         }
+
+        const participatingAgents = Array.from(extractedAgents);
+        const models              = Array.from(extractedModels);
 
         const summaryPrompt = `
 Analyze the following development session and provide a structured summary in JSON format. The JSON object should have the following properties:
 
-- "summary": (String) A detailed summary of the session. Identify the main goal, key decisions, modified code, and the final outcome.
+- "summary": (String) A detailed summary of the session. Identify the main goal, key decisions, modified code, and the final outcome. Mention the involvement of specific agents if obvious.
 - "title": (String) A concise, descriptive title for the session (max 10 words).
 - "category": (String) Classify the task into one of the following: 'bugfix', 'feature', 'refactoring', 'documentation', 'new-app', 'analysis', 'other'.
 - "quality": (Number) A score from 0-100 rating the session's flow and focus. 100 is a perfect, focused session. 0 is a completely derailed or useless session.
@@ -379,6 +388,8 @@ Analyze the following development session and provide a structured summary in JS
 - "technologies": (String[]) An array of key technologies, frameworks, or libraries involved (e.g., "neo.mjs", "chromadb", "nodejs").
 
 Critical: Do not include any markdown formatting (e.g., \`json) in your response.
+
+Context: This session involved the following agents: ${participatingAgents.join(', ') || 'unknown'} running on models: ${models.join(', ') || 'unknown'}.
 
 ---
 
@@ -406,7 +417,10 @@ ${aggregatedContent}
             embeddings: [embedding],
             metadatas : [{
                 sessionId, timestamp: lastActivity, memoryCount: memories.ids.length,
-                title, category, quality, productivity, impact, complexity, technologies: technologies.join(',')
+                title, category, quality, productivity, impact, complexity,
+                technologies: (technologies || []).join(','),
+                participatingAgents: participatingAgents.join(','),
+                models: models.join(',')
             }]
         });
 

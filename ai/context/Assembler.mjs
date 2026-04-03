@@ -167,8 +167,9 @@ class ContextAssembler extends Base {
     formatMessages(memories) {
         const messages = [];
         memories.forEach(m => {
+            const agentMeta = m.agent ? `[Agent: ${m.agent} | Model: ${m.model || 'unknown'}]\n` : '';
             messages.push({ role: 'user', content: m.prompt });
-            messages.push({ role: 'model', content: `Thought: ${m.thought}\n\n${m.response}` });
+            messages.push({ role: 'model', content: `${agentMeta}Thought: ${m.thought}\n\n${m.response}` });
         });
         return messages;
     }

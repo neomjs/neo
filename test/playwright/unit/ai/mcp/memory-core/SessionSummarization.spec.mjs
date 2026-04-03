@@ -96,11 +96,11 @@ test.describe('Memory Core Offline Summarization', () => {
         console.log(`[Playwright] Generating Dummy Turns for session ${dummySessionId}...`);
 
         const turns = [
-            { prompt: "How do I create a Neo.mjs button?", thought: "Query the UI library for buttons.", response: "Use Neo.button.Base configs." },
-            { prompt: "Now make it red.", thought: "Use inline styles or cls.", response: "Add style: {color: 'red'} to the element." },
-            { prompt: "Does it support icons?", thought: "Check iconCls.", response: "Yes, use the iconCls property." },
-            { prompt: "How to handle clicks?", thought: "DOM events dispatcher.", response: "Bind a click listener via domListeners property." },
-            { prompt: "Can a button float?", thought: "Neo components support floating.", response: "Set floating: true." }
+            { prompt: "How do I create a Neo.mjs button?", thought: "Query the UI library for buttons.", response: "Use Neo.button.Base configs.", agent: "developer", model: "gemini-1.5-pro" },
+            { prompt: "Now make it red.", thought: "Use inline styles or cls.", response: "Add style: {color: 'red'} to the element.", agent: "developer", model: "gemini-1.5-pro" },
+            { prompt: "Does it support icons?", thought: "Check iconCls.", response: "Yes, use the iconCls property.", agent: "librarian", model: "gemma4" },
+            { prompt: "How to handle clicks?", thought: "DOM events dispatcher.", response: "Bind a click listener via domListeners property.", agent: "librarian", model: "gemma4" },
+            { prompt: "Can a button float?", thought: "Neo components support floating.", response: "Set floating: true.", agent: "developer", model: "gemini-1.5-pro" }
         ];
 
         // Ensure database is ready before adding memories
@@ -111,6 +111,8 @@ test.describe('Memory Core Offline Summarization', () => {
                 prompt: turn.prompt,
                 thought: turn.thought,
                 response: turn.response,
+                agent: turn.agent,
+                model: turn.model,
                 sessionId: dummySessionId
             });
             if (addResult.error) console.error('ADD_MEMORY ERROR:', addResult);
@@ -146,5 +148,10 @@ test.describe('Memory Core Offline Summarization', () => {
         expect(metadata.title).toBeDefined();
         expect(typeof metadata.quality).toBe('number');
         expect(typeof metadata.productivity).toBe('number');
+        
+        expect(metadata.participatingAgents).toBeDefined();
+        expect(metadata.participatingAgents.includes('librarian')).toBe(true);
+        expect(metadata.participatingAgents.includes('developer')).toBe(true);
+        expect(metadata.models.includes('gemma4')).toBe(true);
     });
 });

@@ -643,6 +643,14 @@ components:
           type: string
           description: Session ID for grouping related memories (optional, defaults to currentSessionId)
           example: "550e8400-e29b-41d4-a716-446655440000"
+        agent:
+          type: string
+          description: The agent profile executing this turn
+          example: "antigravity"
+        model:
+          type: string
+          description: The underlying model used for inference
+          example: "gemini-3.1-pro"
 
     MemoryResponse:
       type: object
@@ -706,6 +714,14 @@ components:
         type:
           type: string
           example: "agent-interaction"
+        agent:
+          type: string
+          nullable: true
+          example: "antigravity"
+        model:
+          type: string
+          nullable: true
+          example: "gemini-3.1-pro"
 
     QueryMemoriesRequest:
       type: object
@@ -826,6 +842,16 @@ components:
           items:
             type: string
           example: ["neo.mjs", "nodejs", "chromadb"]
+        participatingAgents:
+          type: array
+          items:
+            type: string
+          example: ["antigravity", "librarian"]
+        models:
+          type: array
+          items:
+            type: string
+          example: ["gemini-3.1-pro", "gemma4"]
 
     QuerySummariesRequest:
       type: object
