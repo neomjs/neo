@@ -1,7 +1,7 @@
 ---
 id: 9626
 title: 'Epic: Grid Unified Scrolling & VDOM Orchestration'
-state: OPEN
+state: CLOSED
 labels:
   - epic
   - ai
@@ -10,7 +10,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-04-02T08:17:06Z'
-updatedAt: '2026-04-02T08:49:24Z'
+updatedAt: '2026-04-02T22:52:34Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9626'
 author: tobiu
 commentsCount: 1
@@ -21,13 +21,14 @@ subIssues:
   - '[x] 9629 Grid Multi-Body: Implement Atomic VDOM Orchestration Layer'
   - '[x] 9630 Grid: Implement Main-Thread Addon Hover Synchronization'
   - '[x] 9631 Grid: Enable Horizontal Scrolling via Locked Regions'
-  - '[ ] 9632 Grid: Restore Row Scroll Pinning and Update Drag E2E Tests'
+  - '[x] 9632 Grid: Restore Row Scroll Pinning and Update Drag E2E Tests'
   - '[x] 9633 Grid: Rename bodyWrapper to view'
   - '[x] 9634 Grid Container: Remove redundent grid wrapper node'
-subIssuesCompleted: 7
+subIssuesCompleted: 8
 subIssuesTotal: 8
 blockedBy: []
 blocking: []
+closedAt: '2026-04-02T22:52:34Z'
 ---
 # Epic: Grid Unified Scrolling & VDOM Orchestration
 
@@ -68,4 +69,5 @@ All 3 architectural phases for unified vertical scrolling and atomic VDOM update
 - 2026-04-02T13:06:57Z @tobiu added sub-issue #9633
 - 2026-04-02T13:55:57Z @tobiu cross-referenced by #9634
 - 2026-04-02T13:56:04Z @tobiu added sub-issue #9634
+- 2026-04-02T22:52:34Z @tobiu closed this issue
 

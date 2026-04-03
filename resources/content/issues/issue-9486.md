@@ -44,9 +44,12 @@ subIssues:
   - '[x] 9624 [Multi-Body Grid] Resolve Border Overlap, Header Sync, and Scroll Propagation'
   - '[x] 9625 Multi-Body Grid: Visually delegate native vertical scrollbar UX with CSS'
   - '[x] 9614 Grid Multi-Body: Fix Horizontal Row Clipping & Scrollbar SCSS'
-  - '[ ] 9626 Epic: Grid Unified Scrolling & VDOM Orchestration'
-subIssuesCompleted: 20
-subIssuesTotal: 30
+  - '[x] 9626 Epic: Grid Unified Scrolling & VDOM Orchestration'
+  - '[ ] 9635 Grid Multi-Body: Restoring Vertical Scrollbar for Dual-Pipeline GPU Thumb Pinning'
+  - '[ ] 9636 Grid Multi-Body: Simplify GridDragScroll Scrollbar Hit Detection'
+  - '[ ] 9637 Grid Multi-Body: E2E Telemetry Adjustments for Dual-Pipeline Scrolling'
+subIssuesCompleted: 21
+subIssuesTotal: 33
 blockedBy: []
 blocking: []
 ---
