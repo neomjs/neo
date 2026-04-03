@@ -68,6 +68,18 @@ class OllamaProvider extends Base {
             delete clonedOptions.response_mime_type;
         }
 
+        if (clonedOptions.tools && clonedOptions.tools.length > 0) {
+            payload.tools = clonedOptions.tools.map(tool => ({
+                type: 'function',
+                function: {
+                    name: tool.name,
+                    description: tool.description || '',
+                    parameters: tool.inputSchema || { type: 'object', properties: {} }
+                }
+            }));
+            delete clonedOptions.tools;
+        }
+
         if (Object.keys(clonedOptions).length > 0) {
             payload.options = clonedOptions;
         }
@@ -101,10 +113,21 @@ class OllamaProvider extends Base {
 
             const result = await response.json();
 
-            return {
+            const resultPayload = {
                 content: result.message?.content || '',
                 raw    : result
             };
+
+            if (result.message?.tool_calls && result.message.tool_calls.length > 0) {
+                resultPayload.toolCalls = result.message.tool_calls.map(c => ({
+                    function: {
+                        name     : c.function.name,
+                        arguments: c.function.arguments
+                    }
+                }));
+            }
+
+            return resultPayload;
         } catch (error) {
             console.error('[Neo.ai.provider.Ollama] Generation failed:', error);
             throw error;
