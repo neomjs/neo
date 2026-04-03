@@ -1,6 +1,7 @@
 import Base from './Base.mjs';
 import fs   from 'fs-extra';
 import path from 'path';
+import aiConfig from '../config.mjs';
 
 /**
  * @summary Extracts knowledge chunks from the Issue Archive.
@@ -36,7 +37,7 @@ class TicketSource extends Base {
      */
     async extract(writeStream, createHashFn) {
         let count = 0;
-        const ticketArchivePath = path.resolve(process.cwd(), '.github/ISSUE_ARCHIVE');
+        const ticketArchivePath = path.resolve(aiConfig.neoRootDir, '.github/ISSUE_ARCHIVE');
 
         if (await fs.pathExists(ticketArchivePath)) {
             const releaseVersions = await fs.readdir(ticketArchivePath);

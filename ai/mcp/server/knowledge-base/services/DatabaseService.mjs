@@ -13,7 +13,7 @@ import fs                 from 'fs-extra';
 import logger             from '../logger.mjs';
 import path               from 'path';
 
-const cwd       = process.cwd();
+const cwd       = aiConfig.neoRootDir;
 const insideNeo = process.env.npm_package_name?.includes('neo.mjs') ?? false;
 
 dotenv.config({

@@ -81,7 +81,7 @@ class ApiSource extends Base {
      */
     async indexRawDirectory(writeStream, createHashFn, relativePath, defaultType, hierarchy) {
         let count = 0;
-        const fullPath = path.resolve(process.cwd(), relativePath);
+        const fullPath = path.resolve(aiConfig.neoRootDir, relativePath);
 
         if (!await fs.pathExists(fullPath)) return 0;
 

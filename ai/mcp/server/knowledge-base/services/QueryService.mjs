@@ -8,7 +8,7 @@ import path                 from 'path';
 
 const {queryScoreWeights} = aiConfig;
 
-const cwd       = process.cwd();
+const cwd       = aiConfig.neoRootDir;
 const insideNeo = process.env.npm_package_name?.includes('neo.mjs') ?? false;
 
 dotenv.config({
