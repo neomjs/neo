@@ -5,7 +5,6 @@ import GeminiProvider   from './provider/Gemini.mjs';
 import OllamaProvider   from './provider/Ollama.mjs';
 import Loop             from './agent/Loop.mjs';
 import Scheduler        from './agent/Scheduler.mjs';
-import Librarian        from './agent/profile/Librarian.mjs';
 
 /**
  * A base class for AI Agents that manages multiple MCP Client connections
@@ -46,7 +45,7 @@ class Agent extends Base {
          * @member {Object} subAgents
          */
         subAgents: {
-            librarian: Librarian
+            librarian: async () => (await import('./agent/profile/Librarian.mjs')).default
         }
     }
 
@@ -158,11 +157,13 @@ class Agent extends Base {
      * @returns {Promise<String>} The generated result content.
      */
     async delegate(profileName, request) {
-        const ProfileClass = this.subAgents[profileName];
+        const getProfileClass = this.subAgents[profileName];
 
-        if (!ProfileClass) {
+        if (!getProfileClass) {
             throw new Error(`Sub-Agent profile '${profileName}' not found.`);
         }
+
+        const ProfileClass = await getProfileClass();
 
         console.log(`[Agent] Delegating to Sub-Agent: ${profileName} (${ProfileClass.config.className})`);
 
