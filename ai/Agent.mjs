@@ -99,12 +99,15 @@ class Agent extends Base {
         // Create the Loop
         this.loop = Neo.create(Loop, {
             agent: this,
-            provider,
             assembler,
-            scheduler,
-            // Inject clients into the loop for Tool Execution (Future Phase)
-            // tools: this.clients
+            clients: this.clients,
+            provider,
+            scheduler
         });
+
+        if (this.loop.initAsync) {
+            await this.loop.initAsync();
+        }
 
         console.log('[Agent] Runtime Ready.');
     }

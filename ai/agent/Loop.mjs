@@ -27,6 +27,11 @@ class Loop extends Base {
          */
         assembler_: null,
         /**
+         * Map of connected MCP Clients injected by the Agent.
+         * @member {Object|null} clients=null
+         */
+        clients: null,
+        /**
          * Execution interval in ms.
          * @member {Number} interval=100
          */
@@ -80,6 +85,18 @@ class Loop extends Base {
      * @member {Object[]} failedEvents=[]
      */
     failedEvents = []
+
+    /**
+     * Centralized map of tool names to their providing client.
+     * @member {Object} toolRegistry={}
+     */
+    toolRegistry = {}
+
+    /**
+     * Generic list of tool schemas for sending to the LLM Provider.
+     * @member {Object[]} tools=[]
+     */
+    tools = []
 
     /**
      * @member {Boolean} isRunning=false
@@ -159,6 +176,34 @@ class Loop extends Base {
 
         console.log(`[Loop] State: ${oldValue} -> ${value}`);
         return value
+    }
+
+    /**
+     * Initialize the agent loop, specifically handling tool discovery.
+     * @returns {Promise<void>}
+     */
+    async initAsync() {
+        await super.initAsync();
+
+        // 1. Tool Discovery
+        if (this.clients) {
+            console.log('[Loop] Mapping tools from injected MCP clients...');
+            this.tools = [];
+            this.toolRegistry = {};
+
+            for (const [clientName, client] of Object.entries(this.clients)) {
+                try {
+                    const clientTools = await client.listTools();
+                    for (const tool of clientTools) {
+                        this.tools.push(tool);
+                        this.toolRegistry[tool.name] = { client, clientName, method: Neo.camel(tool.name) };
+                    }
+                } catch (e) {
+                    console.error(`[Loop] Failed to fetch tools from client: ${clientName}`, e);
+                }
+            }
+            console.log(`[Loop] Discovered ${this.tools.length} total tools from clients.`);
+        }
     }
 
     /**
@@ -278,46 +323,59 @@ class Loop extends Base {
                 ragQuery
             });
 
-            // 2. Reason (LLM Inference)
+            // 2. Reason (LLM Inference) - Recursive Loop
             const messages = [
                 {role: 'system', content: context.system},
                 ...context.messages
             ];
 
-            const result = await this.provider.generate(messages);
-            console.log(`[Loop] Model Response: ${result.content}`);
-
-            // 3. Act (Tool Execution - Stub)
+            let finalResult  = null;
             let actionResult = null;
-            if (result.raw?.toolCalls) { // Hypothetical check
-                this.state = 'acting';
-                if (this.executeTools) {
-                    actionResult = await this.executeTools(result.raw.toolCalls);
+
+            // Allow up to 10 iterations of tool chaining
+            for (let i = 0; i < 10; i++) {
+                const result = await this.provider.generate(messages, { tools: this.tools });
+                
+                if (result.content) {
+                    console.log(`[Loop] Model Response:\n${result.content}`);
                 }
-            } else if (result.content && result.content.includes('{') && result.content.includes('"tool":')) {
-                // Fallback for providers that output tool calls as JSON in the text
-                try {
-                    const match = result.content.match(/\{[^]*"tool"\s*:\s*"[^"]+"[^]*\}/);
-                    if (match) {
-                        const parsed = JSON.parse(match[0]);
-                        if (parsed.tool && this.executeTools) {
-                            this.state = 'acting';
-                            console.log(`[Loop] Detected manual tool call fallback: ${parsed.tool}`);
-                            actionResult = await this.executeTools([{
-                                function: { name: parsed.tool, arguments: parsed }
-                            }]);
-                        }
-                    }
-                } catch (e) {
-                    console.warn('[Loop] Failed to parse fallback tool call JSON:', e.message);
+
+                // 3. Act (Tool Execution)
+                if (result.toolCalls && result.toolCalls.length > 0) {
+                    this.state = 'acting';
+                    actionResult = await this.executeTools(result.toolCalls);
+                    
+                    // Push the model's textual response (if any)
+                    messages.push({
+                        role   : 'model',
+                        content: result.content || `(Delegated to tools: ${result.toolCalls.map(t => t.function.name).join(', ')})`
+                    });
+                    
+                    // Format tool results as a user observation for the next LLM turn
+                    const toolResponsesStr = actionResult.map(r => `[Tool Result: ${r.name}]\n${r.error || JSON.stringify(r.result)}`).join('\n\n');
+                    
+                    messages.push({
+                        role   : 'user',
+                        content: `Observation from tools:\n${toolResponsesStr}\n\nPlease proceed based on the above results.`
+                    });
+                    
+                    this.state = 'thinking'; // Resume reasoning
+                } else {
+                    // No further tool calls -> Final answer achieved
+                    finalResult = result;
+                    break;
                 }
+            }
+
+            if (!finalResult) {
+                throw new Error('[Loop] Exceeded maximum tool execution iterations.');
             }
 
             // 4. Reflect
             this.state = 'reflecting';
-            await this.reflect(event, result, actionResult);
+            await this.reflect(event, finalResult, actionResult);
 
-            return result.content;
+            return finalResult.content;
 
         } catch (error) {
             console.error(`[Loop] Error processing event (attempt ${retryCount + 1}):`, error);
@@ -400,16 +458,25 @@ class Loop extends Base {
         for (const call of toolCalls) {
             console.log(`[Loop] Executing Tool: ${call.function.name}`);
             try {
-                if (call.function.name === 'delegate_task') {
-                    const args = typeof call.function.arguments === 'string' ? JSON.parse(call.function.arguments) : call.function.arguments;
+                const name = call.function.name;
+                const args = typeof call.function.arguments === 'string' ? JSON.parse(call.function.arguments) : call.function.arguments;
+
+                if (this.toolRegistry && this.toolRegistry[name]) {
+                    // Route to injected MCP client
+                    const entry = this.toolRegistry[name];
+                    console.log(`[Loop] Routing tool '${name}' to MCP Server '${entry.clientName}'`);
+                    
+                    const res = await entry.client.callTool(name, args);
+                    results.push({ name, result: res });
+                } else if (name === 'delegate_task') {
                     if (this.agent) {
                         const res = await this.agent.delegate(args.agent, args.query);
-                        results.push({ name: call.function.name, result: res });
+                        results.push({ name, result: res });
                     } else {
-                        results.push({ name: call.function.name, error: 'Agent reference missing for delegation.' });
+                        results.push({ name, error: 'Agent reference missing for delegation.' });
                     }
                 } else {
-                    results.push({ name: call.function.name, error: 'Unknown tool.' });
+                    results.push({ name, error: `Unknown tool: ${name}` });
                 }
             } catch (err) {
                 console.error(`[Loop] Tool Error:`, err);

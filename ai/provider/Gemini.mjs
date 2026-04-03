@@ -41,6 +41,35 @@ class GeminiProvider extends Base {
     }
 
     /**
+     * Helper to map MCP JSON Schema into Gemini's expected FunctionDeclaration syntax.
+     * @param {Object} tool The generic tool object.
+     * @protected
+     */
+    mapToolSchema(tool) {
+        // Deep clone to avoid mutating original schema
+        const parameters = JSON.parse(JSON.stringify(tool.inputSchema || { type: 'object', properties: {} }));
+
+        // Gemini requires type names to be uppercase (e.g. 'OBJECT', 'STRING')
+        const uppercaseTypes = (obj) => {
+            if (obj && typeof obj === 'object') {
+                if (typeof obj.type === 'string') {
+                    obj.type = obj.type.toUpperCase();
+                }
+                for (const key in obj) {
+                    uppercaseTypes(obj[key]);
+                }
+            }
+        };
+        uppercaseTypes(parameters);
+
+        return {
+            name: tool.name,
+            description: tool.description || '',
+            parameters
+        };
+    }
+
+    /**
      * Generates text completion.
      *
      * @param {String|Array} input Prompt string or message history array.
@@ -73,21 +102,47 @@ class GeminiProvider extends Base {
             });
         }
 
-        const model = this.client.getGenerativeModel({
+        const modelConfig = {
             model: this.modelName,
-            generationConfig: options,
             systemInstruction: systemInstruction
-        });
+        };
+
+        if (options.tools && options.tools.length > 0) {
+            modelConfig.tools = [{
+                functionDeclarations: options.tools.map(t => this.mapToolSchema(t))
+            }];
+            delete options.tools; // ensure it doesn't leak into generationConfig
+        }
+
+        modelConfig.generationConfig = options;
+
+        const model = this.client.getGenerativeModel(modelConfig);
 
         try {
             const result   = await model.generateContent({contents});
-            const response = await result.response;
-            const text     = response.text();
+            const response = result.response;
+            
+            // Extract text (might be empty if model just chose a tool)
+            let text = '';
+            try { text = response.text(); } catch(e) {} 
 
-            return {
+            const functionCalls = response.functionCalls();
+
+            const payload = {
                 content: text,
                 raw    : response
             };
+
+            if (functionCalls && functionCalls.length > 0) {
+                payload.toolCalls = functionCalls.map(c => ({
+                    function: {
+                        name     : c.name,
+                        arguments: c.args
+                    }
+                }));
+            }
+
+            return payload;
         } catch (error) {
             console.error('[Neo.ai.provider.Gemini] Generation failed:', error);
             throw error;
