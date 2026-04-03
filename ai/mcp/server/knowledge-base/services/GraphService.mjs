@@ -118,20 +118,22 @@ class GraphService extends Base {
 
     /**
      * Retrieves a specific node by its ID.
-     * @param {String} id 
+     * @param {Object} data
+     * @param {String} data.id
      * @returns {Object|null}
      */
-    getNode(id) {
+    getNode({id}) {
         const stmt = this.db.prepare('SELECT * FROM Nodes WHERE id = ?');
         return stmt.get(id) || null;
     }
 
     /**
      * Retrieves adjacent connected nodes (neighbors) alongside relationship metadata.
-     * @param {String} id 
+     * @param {Object} data
+     * @param {String} data.id
      * @returns {Array} List of connected Node objects with edge relationship mapping.
      */
-    getNeighbors(id) {
+    getNeighbors({id}) {
         // Flat join to retrieve immediate topology scope
         const stmt = this.db.prepare(`
             SELECT n.*, e.relationship, e.weight, e.source, e.target
@@ -143,16 +145,17 @@ class GraphService extends Base {
 
     /**
      * Performs a text-based fuzzy search across node topology to find structural entities.
-     * @param {String} queryString 
+     * @param {Object} data 
+     * @param {String} data.query
      * @returns {Array} List of matching Nodes.
      */
-    searchNodes(queryString) {
+    searchNodes({query}) {
         const stmt = this.db.prepare(`
             SELECT * FROM Nodes 
             WHERE name LIKE ? OR description LIKE ? OR id LIKE ?
             LIMIT 50
         `);
-        const q = `%${queryString}%`;
+        const q = `%${query}%`;
         return stmt.all(q, q, q);
     }
 }
