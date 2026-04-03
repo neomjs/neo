@@ -15,6 +15,11 @@ const defaultConfig = {
      */
     autoSummarize: process.env.AUTO_SUMMARIZE !== 'false',
     /**
+     * Automatically trigger GraphRAG extraction on startup.
+     * @type {boolean}
+     */
+    autoDream: process.env.AUTO_DREAM !== 'false',
+    /**
      * Global debug flag for all MCP servers.
      * @type {boolean}
      */
