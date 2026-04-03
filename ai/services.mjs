@@ -28,6 +28,7 @@ import KB_HealthService             from './mcp/server/knowledge-base/services/H
 import KB_QueryService              from './mcp/server/knowledge-base/services/QueryService.mjs';
 import KB_SearchService             from './mcp/server/knowledge-base/services/SearchService.mjs';
 import KB_ChromaManager             from './mcp/server/knowledge-base/services/ChromaManager.mjs';
+import KB_GraphService              from './mcp/server/knowledge-base/services/GraphService.mjs';
 import KB_Config                    from './mcp/server/knowledge-base/config.mjs';
 
 // Disable auto-sync for all scripts using the SDK to prevent double-runs
@@ -224,6 +225,7 @@ export {
     KB_DatabaseService,
     KB_LifecycleService,
     KB_DocumentService,
+    KB_GraphService,
     KB_HealthService,
     KB_QueryService,
     KB_SearchService,
