@@ -1,8 +1,8 @@
-import Base          from '../../../../../src/core/Base.mjs';
-import Json          from '../../../../../src/util/Json.mjs';
 import aiConfig        from '../config.mjs';
+import Base            from '../../../../../src/core/Base.mjs';
 import ChromaManager   from './ChromaManager.mjs';
-import KB_GraphService from '../../../knowledge-base/services/GraphService.mjs';
+import Json            from '../../../../../src/util/Json.mjs';
+import KB_GraphService from '../../knowledge-base/services/GraphService.mjs';
 import logger          from '../logger.mjs';
 import Ollama          from '../../../../provider/Ollama.mjs';
 
@@ -62,7 +62,7 @@ class DreamService extends Base {
         // we'll fetch recent sessions and filter in memory if the dataset is reasonable.
         // For production, we will just query specifically.
         const limit = aiConfig.summarizationBatchLimit || 2000;
-        
+
         try {
             const batch = await this.sessionsCollection.get({
                 include: ['metadatas', 'documents'],
@@ -104,7 +104,7 @@ class DreamService extends Base {
             }
 
             logger.info(`[DreamService] Found ${sessions.length} undigested session(s). Beginning REM pipeline...`);
-            
+
             // For Sub-Epic 3A, this is a skeleton pipeline.
             // We'll iterate through them and prepare them for batch inference.
             // Inference logic itself will come in 3B, and IPC transfer in 3C.
@@ -112,7 +112,7 @@ class DreamService extends Base {
                 logger.info(`[DreamService] Preparing session ${session.meta.sessionId} ("${session.meta.title}") for REM extraction.`);
                 await this.extractGraphEntities(session);
             }
-            
+
             logger.info('[DreamService] REM pipeline completed.');
         } catch (error) {
             logger.error('[DreamService] Failed to process undigested sessions:', error);
@@ -179,7 +179,7 @@ ${session.document}
             }
 
             logger.info(`[DreamService] Successfully extracted ${payload.nodes.length} nodes and ${payload.edges.length} edges for session ${session.meta.sessionId}.`);
-            
+
             // Sub-Epic 3C: Bridge to knowledge-base GraphService (SQLite)
             for (const node of payload.nodes) {
                 KB_GraphService.upsertNode({
