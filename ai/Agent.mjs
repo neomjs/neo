@@ -2,6 +2,7 @@ import Base             from '../src/core/Base.mjs';
 import Client           from './mcp/client/Client.mjs';
 import ContextAssembler from './context/Assembler.mjs';
 import GeminiProvider   from './provider/Gemini.mjs';
+import OllamaProvider   from './provider/Ollama.mjs';
 import Loop             from './agent/Loop.mjs';
 import Scheduler        from './agent/Scheduler.mjs';
 
@@ -25,10 +26,15 @@ class Agent extends Base {
          */
         loop: null,
         /**
-         * The AI Provider class or instance.
-         * @member {Neo.ai.provider.Base} modelProvider=GeminiProvider
+         * The AI Provider class or string alias ('gemini', 'ollama').
+         * @member {Neo.ai.provider.Base|String} modelProvider=GeminiProvider
          */
         modelProvider: GeminiProvider,
+        /**
+         * Configuration options for the provider instantiation.
+         * @member {Object|null} providerConfig=null
+         */
+        providerConfig: null,
         /**
          * A list of server names (keys in ClientConfig) to connect to.
          * @member {String[]} servers=[]
@@ -70,7 +76,13 @@ class Agent extends Base {
         // 2. Initialize Cognitive Runtime
         console.log('[Agent] Initializing Cognitive Runtime...');
 
-        const provider = Neo.create(this.modelProvider);
+        let providerClass = this.modelProvider;
+
+        if (typeof providerClass === 'string') {
+            providerClass = providerClass.toLowerCase() === 'ollama' ? OllamaProvider : GeminiProvider;
+        }
+
+        const provider = Neo.create(providerClass, this.providerConfig || {});
 
         const assembler = Neo.create(ContextAssembler);
         await assembler.initAsync(); // Connects to Memory Core via Services SDK
