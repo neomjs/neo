@@ -76,6 +76,18 @@ const defaultConfig = {
         }
     },
     /**
+     * Provider to use for summarization generation ('gemini' or 'ollama')
+     * @type {string}
+     */
+    modelProvider: process.env.MODEL_PROVIDER || 'gemini',
+    /**
+     * Settings for the Ollama integration
+     */
+    ollama: {
+        host : process.env.OLLAMA_HOST || 'http://127.0.0.1:11434',
+        model: process.env.OLLAMA_MODEL || 'gemma4'
+    },
+    /**
      * The name of the Google Generative AI model for content generation.
      * @type {string}
      */
