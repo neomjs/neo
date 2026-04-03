@@ -1,9 +1,10 @@
 import Base          from '../../../../../src/core/Base.mjs';
 import Json          from '../../../../../src/util/Json.mjs';
-import aiConfig      from '../config.mjs';
-import ChromaManager from './ChromaManager.mjs';
-import logger        from '../logger.mjs';
-import Ollama        from '../../../../provider/Ollama.mjs';
+import aiConfig        from '../config.mjs';
+import ChromaManager   from './ChromaManager.mjs';
+import KB_GraphService from '../../../knowledge-base/services/GraphService.mjs';
+import logger          from '../logger.mjs';
+import Ollama          from '../../../../provider/Ollama.mjs';
 
 /**
  * @summary Service for offline GraphRAG extraction ("REM Sleep").
@@ -179,7 +180,28 @@ ${session.document}
 
             logger.info(`[DreamService] Successfully extracted ${payload.nodes.length} nodes and ${payload.edges.length} edges for session ${session.meta.sessionId}.`);
             
-            // Sub-Epic 3C will handle transmitting this payload to the knowledge-base server
+            // Sub-Epic 3C: Bridge to knowledge-base GraphService (SQLite)
+            for (const node of payload.nodes) {
+                KB_GraphService.upsertNode({
+                    id: node.id,
+                    type: node.type || 'Unknown',
+                    name: node.name || 'Unknown',
+                    description: node.description || '',
+                    semanticVectorId: null // Can be populated later by vector syncing logic
+                });
+            }
+
+            for (const edge of payload.edges) {
+                KB_GraphService.linkNodes(
+                    edge.source,
+                    edge.target,
+                    edge.relationship || 'RELATED_TO',
+                    edge.weight !== undefined ? parseFloat(edge.weight) : 1.0
+                );
+            }
+
+            logger.info(`[DreamService] Graph entities committed to Neocortex for session ${session.meta.sessionId}.`);
+
             return payload;
 
         } catch (error) {
