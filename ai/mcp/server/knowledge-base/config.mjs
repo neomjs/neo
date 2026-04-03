@@ -1,6 +1,6 @@
-import fs   from 'fs/promises';
-import path from 'path';
-import Base from '../../../../src/core/Base.mjs';
+import fs              from 'fs/promises';
+import path            from 'path';
+import Base            from '../../../../src/core/Base.mjs';
 import {fileURLToPath} from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
