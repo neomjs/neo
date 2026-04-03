@@ -258,6 +258,9 @@ class Loop extends Base {
             if (event.type === 'user:input') {
                 systemPrompt = 'You are a helpful assistant.';
                 ragQuery     = this.extractKeywords(userQuery);
+            } else if (event.type === 'delegate') {
+                systemPrompt = event.systemPrompt || 'You are a specialized sub-agent.';
+                ragQuery     = this.extractKeywords(userQuery);
             } else if (event.type.startsWith('system:error')) {
                 systemPrompt = 'You are an expert debugger. Analyze the error and propose a fix.';
                 const err    = event.data || {};
@@ -287,13 +290,33 @@ class Loop extends Base {
             let actionResult = null;
             if (result.raw?.toolCalls) { // Hypothetical check
                 this.state = 'acting';
-                // Execute tools...
-                // actionResult = await this.executeTools(result.raw.toolCalls);
+                if (this.executeTools) {
+                    actionResult = await this.executeTools(result.raw.toolCalls);
+                }
+            } else if (result.content && result.content.includes('{') && result.content.includes('"tool":')) {
+                // Fallback for providers that output tool calls as JSON in the text
+                try {
+                    const match = result.content.match(/\{[^]*"tool"\s*:\s*"[^"]+"[^]*\}/);
+                    if (match) {
+                        const parsed = JSON.parse(match[0]);
+                        if (parsed.tool && this.executeTools) {
+                            this.state = 'acting';
+                            console.log(`[Loop] Detected manual tool call fallback: ${parsed.tool}`);
+                            actionResult = await this.executeTools([{
+                                function: { name: parsed.tool, arguments: parsed }
+                            }]);
+                        }
+                    }
+                } catch (e) {
+                    console.warn('[Loop] Failed to parse fallback tool call JSON:', e.message);
+                }
             }
 
             // 4. Reflect
             this.state = 'reflecting';
             await this.reflect(event, result, actionResult);
+
+            return result.content;
 
         } catch (error) {
             console.error(`[Loop] Error processing event (attempt ${retryCount + 1}):`, error);
@@ -351,6 +374,35 @@ class Loop extends Base {
         } catch (error) {
             console.warn('[Loop] Reflection failed (non-fatal):', error.message);
         }
+    }
+
+    /**
+     * Executes tools requested by the LLM.
+     * @param {Object[]} toolCalls List of tool calls from the provider.
+     * @returns {Promise<Object[]>} Results of tool executions.
+     */
+    async executeTools(toolCalls) {
+        let results = [];
+        for (const call of toolCalls) {
+            console.log(`[Loop] Executing Tool: ${call.function.name}`);
+            try {
+                if (call.function.name === 'delegate_task') {
+                    const args = typeof call.function.arguments === 'string' ? JSON.parse(call.function.arguments) : call.function.arguments;
+                    if (this.agent) {
+                        const res = await this.agent.delegate(args.agent, args.query);
+                        results.push({ name: call.function.name, result: res });
+                    } else {
+                        results.push({ name: call.function.name, error: 'Agent reference missing for delegation.' });
+                    }
+                } else {
+                    results.push({ name: call.function.name, error: 'Unknown tool.' });
+                }
+            } catch (err) {
+                console.error(`[Loop] Tool Error:`, err);
+                results.push({ name: call.function.name, error: err.message });
+            }
+        }
+        return results;
     }
 }
 
