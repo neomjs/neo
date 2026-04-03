@@ -1,7 +1,7 @@
+import aiConfig from '../config.mjs';
 import fs       from 'fs-extra';
 import path     from 'path';
 import Database from 'better-sqlite3';
-import aiConfig from '../config.mjs';
 import logger   from '../logger.mjs';
 import Base     from '../../../../../src/core/Base.mjs';
 
@@ -22,13 +22,13 @@ class GraphService extends Base {
          */
         className: 'Neo.ai.mcp.server.knowledge-base.services.GraphService',
         /**
-         * @member {Boolean} singleton=true
-         */
-        singleton: true,
-        /**
          * @member {Object|null} db=null
          */
-        db: null
+        db: null,
+        /**
+         * @member {Boolean} singleton=true
+         */
+        singleton: true
     }
 
     /**
@@ -36,7 +36,7 @@ class GraphService extends Base {
      */
     async initAsync() {
         await super.initAsync();
-        
+
         await fs.ensureDir(path.dirname(aiConfig.sqlitePath));
 
         this.db = new Database(aiConfig.sqlitePath, { verbose: null });
@@ -61,7 +61,7 @@ class GraphService extends Base {
             );
         `);
 
-        // Store traversal linking topology 
+        // Store traversal linking topology
         this.db.exec(`
             CREATE TABLE IF NOT EXISTS Edges (
                 source TEXT NOT NULL,
@@ -73,13 +73,13 @@ class GraphService extends Base {
                 FOREIGN KEY (target) REFERENCES Nodes(id) ON DELETE CASCADE
             );
         `);
-        
+
         logger.log('[GraphService] Graph schematic synchronized.');
     }
 
     /**
      * Upserts a Node representation into the graph securely linking the ID.
-     * @param {Object} node 
+     * @param {Object} node
      */
     upsertNode({ id, type, name, description, semanticVectorId }) {
         const stmt = this.db.prepare(`
@@ -96,10 +96,10 @@ class GraphService extends Base {
 
     /**
      * Links two nodes via a relationship tracking edge weight metadata.
-     * @param {String} source 
-     * @param {String} target 
-     * @param {String} relationship 
-     * @param {Number} weight 
+     * @param {String} source
+     * @param {String} target
+     * @param {String} relationship
+     * @param {Number} weight
      */
     linkNodes(source, target, relationship, weight = 1.0) {
         // Safe-guard enforcing node presence gracefully internally inside upsert cascades
@@ -145,7 +145,7 @@ class GraphService extends Base {
 
     /**
      * Performs a text-based fuzzy search across node topology to find structural entities.
-     * @param {Object} data 
+     * @param {Object} data
      * @param {String} data.query
      * @returns {Array} List of matching Nodes.
      */
