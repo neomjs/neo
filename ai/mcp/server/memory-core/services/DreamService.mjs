@@ -1,7 +1,9 @@
 import Base          from '../../../../../src/core/Base.mjs';
+import Json          from '../../../../../src/util/Json.mjs';
 import aiConfig      from '../config.mjs';
 import ChromaManager from './ChromaManager.mjs';
 import logger        from '../logger.mjs';
+import Ollama        from '../../../../provider/Ollama.mjs';
 
 /**
  * @summary Service for offline GraphRAG extraction ("REM Sleep").
@@ -119,15 +121,71 @@ class DreamService extends Base {
     /**
      * Extracts Nodes and Edges from the session memory.
      * @param {Object} session Wrapped session object containing id, document, and meta
+     * @returns {Promise<Object|null>} The extracted graph payload, or null on failure
      */
     async extractGraphEntities(session) {
-        // Prepare extraction prompt implementation (Sub-Epic 3B)
-        // Submit via local Ollama provider
-        // Forward to knowledge-base via IPC bridge (Sub-Epic 3C)
-        // Mark as digested in ChromaDB
-        
-        // This is a placeholder for Sub-Epic 3A
-        logger.debug(`[DreamService] Stub: Extracting entities for session ID: ${session.meta.sessionId}`);
+        logger.debug(`[DreamService] Extracting entities for session ID: ${session.meta.sessionId}`);
+
+        const prompt = `
+You are the Neo.mjs REM (Rapid Eye Movement) Sleep digestion agent.
+Your task is to analyze the following episodic development session history and extract a formal knowledge graph structure consisting of Nodes and Edges.
+
+Nodes must be core concepts, framework components, APIs, or files discussed in the session.
+Edges must be the relationships between these nodes.
+
+Enforce this STRICT JSON schema:
+{
+  "nodes": [
+    {
+      "id": "Type:Name",
+      "type": "String",
+      "name": "String",
+      "description": "String"
+    }
+  ],
+  "edges": [
+    {
+      "source": "String (must match a node id)",
+      "target": "String (must match a node id)",
+      "relationship": "String (e.g. IMPLEMENTS, USES, FIXES, DEPRECATES)",
+      "weight": 1.0
+    }
+  ]
+}
+
+DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide purely the JSON object.
+
+--- Session Episodic Memory ---
+${session.document}
+`;
+
+        try {
+            const provider = Neo.create(Ollama, {
+                modelName: 'gemma-4-31b-it'
+            });
+
+            // Call standard generation method with explicit format enforcement
+            const result = await provider.generate(prompt, {
+                response_format: { type: 'json_object' }
+            });
+
+            // Extract using robust Json parser to catch malformed boundaries
+            const payload = Json.extract(result.content);
+
+            if (!payload || !payload.nodes || !payload.edges) {
+                logger.warn(`[DreamService] Failed to validate extracted graph payload for session: ${session.meta.sessionId}`);
+                return null;
+            }
+
+            logger.info(`[DreamService] Successfully extracted ${payload.nodes.length} nodes and ${payload.edges.length} edges for session ${session.meta.sessionId}.`);
+            
+            // Sub-Epic 3C will handle transmitting this payload to the knowledge-base server
+            return payload;
+
+        } catch (error) {
+            logger.error('[DreamService] Error during graph extraction run:', error);
+            return null;
+        }
     }
 }
 
