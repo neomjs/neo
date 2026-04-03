@@ -15,17 +15,17 @@ class Librarian extends Agent {
          */
         className: 'Neo.ai.agent.profile.Librarian',
         /**
-         * The Librarian exclusively connects to the knowledge-base server.
-         * @member {String[]} servers=['knowledge-base']
-         */
-        servers: ['knowledge-base'],
-        /**
          * Configurable model provider. Defaults to 'gemini' for reasoning speed
          * but can be instantiated with 'ollama' (e.g. gemma-4-31b-it) to support
          * swarms and offline sub-agent spawning.
          * @member {String|Neo.ai.provider.Base} modelProvider='gemini'
          */
         modelProvider: 'gemini',
+        /**
+         * The Librarian exclusively connects to the knowledge-base server.
+         * @member {String[]} servers=['knowledge-base']
+         */
+        servers: ['knowledge-base'],
         /**
          * Specialized system prompt tailored for GraphRAG synthesis.
          * The loop will inject this when processing research tasks.

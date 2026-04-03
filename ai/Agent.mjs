@@ -36,6 +36,12 @@ class Agent extends Base {
          */
         providerConfig: null,
         /**
+         * The maximum number of interaction turns a sub-agent can execute
+         * before being deliberately recycled to flush its context window.
+         * @member {Number} maxSubAgentLifespan=50
+         */
+        maxSubAgentLifespan: 50,
+        /**
          * A list of server names (keys in ClientConfig) to connect to.
          * @member {String[]} servers=[]
          */
@@ -45,15 +51,28 @@ class Agent extends Base {
          * @member {Object} subAgents
          */
         subAgents: {
+            browser  : async () => (await import('./agent/profile/Browser.mjs')).default,
             librarian: async () => (await import('./agent/profile/Librarian.mjs')).default
         }
     }
+
+    /**
+     * Map of currently running sub-agent instances.
+     * @member {Object} activeSubAgents={}
+     */
+    activeSubAgents = {}
 
     /**
      * Map of connected Client instances, keyed by server name.
      * @member {Object} clients={}
      */
     clients = {}
+
+    /**
+     * Track turn numbers to prevent hallucination cascades.
+     * @member {Object} subAgentTurns={}
+     */
+    subAgentTurns = {}
 
     /**
      * Async initialization sequence.
@@ -157,23 +176,44 @@ class Agent extends Base {
      * Spawns a sub-agent ephemerally to execute a task and return the synthesis.
      * @param {String} profileName The alias inside subAgents config.
      * @param {String} request The query/task to delegate.
+     * @param {Boolean} [forceFresh=false] Whether to force a topic switch / new instance.
      * @returns {Promise<String>} The generated result content.
      */
-    async delegate(profileName, request) {
+    async delegate(profileName, request, forceFresh = false) {
         const getProfileClass = this.subAgents[profileName];
 
         if (!getProfileClass) {
             throw new Error(`Sub-Agent profile '${profileName}' not found.`);
         }
 
-        const ProfileClass = await getProfileClass();
+        // Context Flush (Max Tasks Gate) or explicit Reset
+        if (this.activeSubAgents[profileName]) {
+            if (forceFresh || this.subAgentTurns[profileName] >= this.maxSubAgentLifespan) {
+                console.log(`[Agent] Recycling sub-agent '${profileName}' (Max Turns Reached / Forced Switch)`);
+                await this.activeSubAgents[profileName].disconnect();
+                delete this.activeSubAgents[profileName];
+                this.subAgentTurns[profileName] = 0;
+            }
+        }
 
-        console.log(`[Agent] Delegating to Sub-Agent: ${profileName} (${ProfileClass.config.className})`);
+        let subAgent = this.activeSubAgents[profileName];
 
-        const subAgent = Neo.create(ProfileClass);
-        await subAgent.initAsync();
+        if (!subAgent) {
+            const ProfileClass = await getProfileClass();
+            console.log(`[Agent] Booting fresh Sub-Agent: ${profileName} (${ProfileClass.config.className})`);
+
+            subAgent = Neo.create(ProfileClass);
+            await subAgent.initAsync();
+            
+            this.activeSubAgents[profileName] = subAgent;
+            this.subAgentTurns[profileName]   = 0;
+        } else {
+            console.log(`[Agent] Re-using active Sub-Agent: ${profileName} (Turn ${this.subAgentTurns[profileName] + 1})`);
+        }
 
         try {
+            this.subAgentTurns[profileName]++;
+            
             const result = await subAgent.loop.processEvent({
                 type: 'delegate',
                 data: request,
@@ -181,9 +221,9 @@ class Agent extends Base {
             });
 
             return result;
-        } finally {
-            console.log(`[Agent] Sub-Agent ${profileName} completed. Terminating connection.`);
-            await subAgent.disconnect();
+        } catch (err) {
+            console.error(`[Agent] Delegate execution failed for ${profileName}:`, err);
+            throw err;
         }
     }
 }
