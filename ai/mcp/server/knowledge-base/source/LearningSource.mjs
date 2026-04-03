@@ -2,6 +2,7 @@ import Base                from './Base.mjs';
 import DocumentationParser from '../parser/DocumentationParser.mjs';
 import fs                  from 'fs-extra';
 import path                from 'path';
+import aiConfig            from '../config.mjs';
 
 /**
  * @summary Extracts knowledge chunks from the 'learn/' directory.
@@ -39,11 +40,11 @@ class LearningSource extends Base {
      */
     async extract(writeStream, createHashFn) {
         let count = 0;
-        const learnTreePath = path.resolve(process.cwd(), 'learn/tree.json');
+        const learnTreePath = path.resolve(aiConfig.neoRootDir, 'learn/tree.json');
 
         if (await fs.pathExists(learnTreePath)) {
             const learnTree         = await fs.readJson(learnTreePath);
-            const learnBasePath     = path.resolve(process.cwd(), 'learn');
+            const learnBasePath     = path.resolve(aiConfig.neoRootDir, 'learn');
             const filteredLearnData = learnTree.data.filter(item => item.id !== 'comparisons' && item.parentId !== 'comparisons');
 
             for (const item of filteredLearnData) {

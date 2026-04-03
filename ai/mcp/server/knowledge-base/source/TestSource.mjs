@@ -2,6 +2,7 @@ import Base       from './Base.mjs';
 import TestParser from '../parser/TestParser.mjs';
 import fs         from 'fs-extra';
 import path       from 'path';
+import aiConfig   from '../config.mjs';
 
 /**
  * @summary Extracts knowledge chunks from the Playwright test suite.
@@ -61,7 +62,7 @@ class TestSource extends Base {
      */
     async indexRawDirectory(writeStream, createHashFn, relativePath, defaultType, options={}) {
         let count = 0;
-        const fullPath = path.resolve(process.cwd(), relativePath);
+        const fullPath = path.resolve(aiConfig.neoRootDir, relativePath);
 
         if (!await fs.pathExists(fullPath)) return 0;
 

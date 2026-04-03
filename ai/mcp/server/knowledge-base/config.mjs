@@ -5,13 +5,14 @@ import {fileURLToPath} from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
-const cwd        = process.cwd() === '/' ? path.resolve(__dirname, '../../../../') : process.cwd();
+const neoRootDir = path.resolve(__dirname, '../../../../');
 
 /**
  * Default configuration object.
  * Defines the structure and default values for the server configuration.
  */
 const defaultConfig = {
+    neoRootDir,
     /**
      * Automatically synchronize the knowledge base on startup.
      * @type {boolean}
@@ -87,17 +88,17 @@ const defaultConfig = {
      * The local persistence path for the agent knowledge-base server.
      * @type {string}
      */
-    path: path.resolve(cwd, 'chroma-neo-knowledge-base'),
+    path: path.resolve(neoRootDir, 'chroma-neo-knowledge-base'),
     /**
      * The path to the generated knowledge base JSONL file.
      * @type {string}
      */
-    dataPath: path.resolve(cwd, 'dist/ai-knowledge-base.jsonl'),
+    dataPath: path.resolve(neoRootDir, 'dist/ai-knowledge-base.jsonl'),
     /**
      * The path to the generated class hierarchy JSON file.
      * @type {string}
      */
-    hierarchyPath: path.resolve(cwd, 'docs/output/class-hierarchy.json'),
+    hierarchyPath: path.resolve(neoRootDir, 'docs/output/class-hierarchy.json'),
     /**
      * The name of the ChromaDB collection for the knowledge base.
      * @type {string}

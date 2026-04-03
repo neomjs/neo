@@ -1,6 +1,7 @@
 import Base from './Base.mjs';
 import fs   from 'fs-extra';
 import path from 'path';
+import aiConfig from '../config.mjs';
 
 /**
  * @summary Extracts knowledge chunks from Release Notes.
@@ -35,7 +36,7 @@ class ReleaseNotesSource extends Base {
      */
     async extract(writeStream, createHashFn) {
         let count = 0;
-        const releaseNotesPath = path.resolve(process.cwd(), '.github/RELEASE_NOTES');
+        const releaseNotesPath = path.resolve(aiConfig.neoRootDir, '.github/RELEASE_NOTES');
 
         if (await fs.pathExists(releaseNotesPath)) {
             const releaseFiles = await fs.readdir(releaseNotesPath);
