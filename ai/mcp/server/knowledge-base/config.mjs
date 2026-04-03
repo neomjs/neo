@@ -1,8 +1,11 @@
 import fs   from 'fs/promises';
 import path from 'path';
 import Base from '../../../../src/core/Base.mjs';
+import {fileURLToPath} from 'url';
 
-const cwd = process.cwd();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname  = path.dirname(__filename);
+const cwd        = process.cwd() === '/' ? path.resolve(__dirname, '../../../../') : process.cwd();
 
 /**
  * Default configuration object.
