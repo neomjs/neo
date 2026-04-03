@@ -113,6 +113,11 @@ const defaultConfig = {
      */
     summarizationConcurrency: 5,
     /**
+     * The local persistence path for the SQLite knowledge graph.
+     * @type {string}
+     */
+    sqlitePath: path.resolve(cwd, 'chroma-neo-memory-core/graph/knowledge-graph.sqlite'),
+    /**
      * Configuration for the AI agent's persistent memory database.
      */
     memoryDb: {

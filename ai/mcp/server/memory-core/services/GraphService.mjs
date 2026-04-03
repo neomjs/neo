@@ -11,16 +11,16 @@ import Base     from '../../../../../src/core/Base.mjs';
  * It provides the topological layout of the Neo.mjs namespace, knowledge,
  * and history structurally mapping against semantic ChromaDB queries.
  *
- * @class Neo.ai.mcp.server.knowledge-base.services.GraphService
+ * @class Neo.ai.mcp.server.memory-core.services.GraphService
  * @extends Neo.core.Base
  * @singleton
  */
 class GraphService extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.knowledge-base.services.GraphService'
+         * @member {String} className='Neo.ai.mcp.server.memory-core.services.GraphService'
          */
-        className: 'Neo.ai.mcp.server.knowledge-base.services.GraphService',
+        className: 'Neo.ai.mcp.server.memory-core.services.GraphService',
         /**
          * @member {Object|null} db=null
          */

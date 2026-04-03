@@ -1,6 +1,7 @@
 import aiConfig      from '../config.mjs';
 import Base          from '../../../../../src/core/Base.mjs';
 import ChromaManager from './ChromaManager.mjs';
+import GraphService  from './GraphService.mjs';
 import Json          from '../../../../../src/util/Json.mjs';
 import logger        from '../logger.mjs';
 import Ollama        from '../../../../provider/Ollama.mjs';
@@ -180,9 +181,8 @@ ${session.document}
             logger.info(`[DreamService] Successfully extracted ${payload.nodes.length} nodes and ${payload.edges.length} edges for session ${session.meta.sessionId}.`);
 
             // Sub-Epic 3C: Bridge to knowledge-base GraphService (SQLite)
-            /*
             for (const node of payload.nodes) {
-                KB_GraphService.upsertNode({
+                GraphService.upsertNode({
                     id: node.id,
                     type: node.type || 'Unknown',
                     name: node.name || 'Unknown',
@@ -192,7 +192,7 @@ ${session.document}
             }
 
             for (const edge of payload.edges) {
-                KB_GraphService.linkNodes(
+                GraphService.linkNodes(
                     edge.source,
                     edge.target,
                     edge.relationship || 'RELATED_TO',
@@ -200,8 +200,7 @@ ${session.document}
                 );
             }
 
-            logger.info(\`[DreamService] Graph entities committed to Neocortex for session \${session.meta.sessionId}.\`);
-            */
+            logger.info(`[DreamService] Graph entities committed to Neocortex for session ${session.meta.sessionId}.`);
 
             return payload;
 
