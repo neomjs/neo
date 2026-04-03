@@ -3,6 +3,7 @@ import aiConfig             from '../config.mjs';
 import Base                 from '../../../../../src/core/Base.mjs';
 import ChromaManager        from './ChromaManager.mjs';
 import fs                   from 'fs-extra';
+import GraphService         from './GraphService.mjs';
 import logger               from '../logger.mjs';
 import path                 from 'path';
 import readline             from 'readline';
@@ -218,6 +219,17 @@ class VectorService extends Base {
                         embeddings,
                         metadatas
                     });
+
+                    batch.forEach(chunk => {
+                        GraphService.upsertNode({
+                            id: chunk.id,
+                            type: chunk.type || chunk.kind || 'document',
+                            name: chunk.name || chunk.className || chunk.id,
+                            description: chunk.description || chunk.content || '',
+                            semanticVectorId: chunk.id
+                        });
+                    });
+
                     logger.log(`Processed and embedded batch ${i / batchSize + 1} of ${Math.ceil(chunksToProcess.length / batchSize)}`);
                     success = true;
                 } catch (err) {
