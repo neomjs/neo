@@ -2,7 +2,7 @@ import Assembler       from '../context/Assembler.mjs';
 import Base            from '../../src/core/Base.mjs';
 import ClassSystemUtil from '../../src/util/ClassSystem.mjs';
 import Provider        from '../provider/Base.mjs';
-import SDK             from '../services.mjs';
+import * as SDK        from '../services.mjs';
 
 /**
  * The cognitive event loop for the Agent.
@@ -202,8 +202,29 @@ class Loop extends Base {
                     console.error(`[Loop] Failed to fetch tools from client: ${clientName}`, e);
                 }
             }
+
             console.log(`[Loop] Discovered ${this.tools.length} total tools from clients.`);
         }
+
+        // 2. Inject Native Tools
+        this.tools.push({
+            name: "delegate_task",
+            description: "Delegates a complex task or query to a specialized sub-agent expert. Use this when you lack the context or tools to fulfill the user's request. Wait for the sub-agent's response to formulate your final answer.",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    agent: {
+                        type: "string",
+                        description: "The name of the specialized sub-agent profile (e.g. 'librarian', 'browser')."
+                    },
+                    query: {
+                        type: "string",
+                        description: "The specific task, objective, or question to delegate to the sub-agent."
+                    }
+                },
+                required: ["agent", "query"]
+            }
+        });
     }
 
     /**

@@ -13,6 +13,10 @@ const defaultConfig = {
      * The value is an object with 'command' and 'args' properties.
      */
     mcpServers: {
+        "chrome-devtools": {
+            command: "npx",
+            args   : ["-y", "chrome-devtools-mcp@latest"]
+        },
         "github-workflow": {
             command    : "npm",
             args       : ["run", "ai:mcp-server-github-workflow"],
