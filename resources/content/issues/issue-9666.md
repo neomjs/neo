@@ -5,18 +5,19 @@ state: OPEN
 labels:
   - epic
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-04-03T21:44:03Z'
-updatedAt: '2026-04-03T21:44:03Z'
+updatedAt: '2026-04-03T22:04:17Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9666'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 9638
 subIssues:
-  - '[ ] 9667 Phase 1: Cleanse knowledge-base of Graph Logic'
-  - '[ ] 9668 Phase 2: Migrate Graph Service and OpenAPI to memory-core'
-  - '[ ] 9669 Phase 3: Unleash DreamService Graph Extraction'
-subIssuesCompleted: 0
+  - '[x] 9667 Phase 1: Cleanse knowledge-base of Graph Logic'
+  - '[x] 9668 Phase 2: Migrate Graph Service and OpenAPI to memory-core'
+  - '[x] 9669 Phase 3: Unleash DreamService Graph Extraction'
+subIssuesCompleted: 3
 subIssuesTotal: 3
 blockedBy: []
 blocking: []
@@ -51,4 +52,11 @@ The Graph database natively tracks episodic memories, so it must be owned exclus
 - 2026-04-03T21:44:35Z @tobiu added sub-issue #9668
 - 2026-04-03T21:44:41Z @tobiu cross-referenced by #9669
 - 2026-04-03T21:44:48Z @tobiu added sub-issue #9669
+- 2026-04-03T21:51:49Z @tobiu assigned to @tobiu
+### @tobiu - 2026-04-03T22:02:06Z
+
+We have fully migrated the Knowledge Graph from `knowledge-base` to `memory-core` resolving cross-process IPC locks and protecting episodic memory privacy.
+
+- 2026-04-03T22:02:08Z @tobiu closed this issue
+- 2026-04-03T22:04:17Z @tobiu reopened this issue
 
