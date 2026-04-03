@@ -5,6 +5,7 @@ import GeminiProvider   from './provider/Gemini.mjs';
 import OllamaProvider   from './provider/Ollama.mjs';
 import Loop             from './agent/Loop.mjs';
 import Scheduler        from './agent/Scheduler.mjs';
+import Librarian        from './agent/profile/Librarian.mjs';
 
 /**
  * A base class for AI Agents that manages multiple MCP Client connections
@@ -39,7 +40,14 @@ class Agent extends Base {
          * A list of server names (keys in ClientConfig) to connect to.
          * @member {String[]} servers=[]
          */
-        servers: []
+        servers: [],
+        /**
+         * Registered sub-agent profiles available for delegation.
+         * @member {Object} subAgents
+         */
+        subAgents: {
+            librarian: Librarian
+        }
     }
 
     /**
@@ -91,6 +99,7 @@ class Agent extends Base {
 
         // Create the Loop
         this.loop = Neo.create(Loop, {
+            agent: this,
             provider,
             assembler,
             scheduler,
@@ -140,6 +149,38 @@ class Agent extends Base {
             return;
         }
         this.loop.scheduler.add(event);
+    }
+
+    /**
+     * Spawns a sub-agent ephemerally to execute a task and return the synthesis.
+     * @param {String} profileName The alias inside subAgents config.
+     * @param {String} request The query/task to delegate.
+     * @returns {Promise<String>} The generated result content.
+     */
+    async delegate(profileName, request) {
+        const ProfileClass = this.subAgents[profileName];
+
+        if (!ProfileClass) {
+            throw new Error(`Sub-Agent profile '${profileName}' not found.`);
+        }
+
+        console.log(`[Agent] Delegating to Sub-Agent: ${profileName} (${ProfileClass.config.className})`);
+
+        const subAgent = Neo.create(ProfileClass);
+        await subAgent.initAsync();
+
+        try {
+            const result = await subAgent.loop.processEvent({
+                type: 'delegate',
+                data: request,
+                systemPrompt: subAgent.systemPrompt
+            });
+
+            return result;
+        } finally {
+            console.log(`[Agent] Sub-Agent ${profileName} completed. Terminating connection.`);
+            await subAgent.disconnect();
+        }
     }
 }
 
