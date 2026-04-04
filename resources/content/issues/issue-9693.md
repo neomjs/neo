@@ -13,9 +13,10 @@ githubUrl: 'https://github.com/neomjs/neo/issues/9693'
 author: tobiu
 commentsCount: 0
 parentIssue: null
-subIssues: []
-subIssuesCompleted: 0
-subIssuesTotal: 0
+subIssues:
+  - '[x] 9695 Implement Offline Synchronization for Ideation Sandbox (Discussions)'
+subIssuesCompleted: 1
+subIssuesTotal: 1
 blockedBy: []
 blocking: []
 ---
@@ -38,4 +39,5 @@ Instead of polluting the actionable Issue tracker, the agent should utilize **Gi
 - 2026-04-04T14:49:04Z @tobiu added the `epic` label
 - 2026-04-04T14:49:05Z @tobiu added the `ai` label
 - 2026-04-04T14:50:20Z @tobiu assigned to @tobiu
+- 2026-04-04T15:14:57Z @tobiu added sub-issue #9695
 
