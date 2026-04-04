@@ -127,4 +127,72 @@ test.describe('Neo.ai.graph.Database', () => {
 
         reloadDb.destroy();
     });
+
+    test('should execute graph mutations synchronously within an atomic transaction', async () => {
+        if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
+        
+        let storage = Neo.create(SQLite, { dbPath });
+        await storage.initAsync();
+        
+        let dbTransaction = Neo.create(Database, {
+            id: 'sqlite-graph-transcation',
+            storage: storage
+        });
+
+        dbTransaction.transaction(() => {
+            dbTransaction.addNode({ id: 'X' });
+            dbTransaction.addNode({ id: 'Y' });
+            dbTransaction.addEdge({ id: 'E1', source: 'X', target: 'Y', type: 'TEST' });
+            
+            // Nested checks should "see" data instantly in isolated synchronous thread natively 
+            expect(dbTransaction.nodes.getCount()).toBe(2);
+            expect(dbTransaction.edges.getCount()).toBe(1);
+        });
+
+        // After transaction executes SQLite synchronously, verifying data survived cleanly natively
+        expect(dbTransaction.nodes.getCount()).toBe(2);
+        
+        // Ensure disk mappings captured transaction cleanly
+        dbTransaction.destroy();
+
+        let storageReload = Neo.create(SQLite, { dbPath });
+        await storageReload.initAsync();
+        
+        let reloadDb = Neo.create(Database, {
+            id: 'sqlite-graph-txn-reload',
+            storage: storageReload
+        });
+        await storageReload.load();
+
+        expect(reloadDb.edges.getCount()).toBe(1);
+        reloadDb.destroy();
+    });
+
+    test('should instantly rollback Memory Collections if transaction boundary throws', async () => {
+        let dbRollback = Neo.create(Database, { id: 'graph-rollback-test' });
+
+        dbRollback.addNode({ id: 'Base' });
+        expect(dbRollback.nodes.getCount()).toBe(1);
+
+        try {
+            dbRollback.transaction(() => {
+                dbRollback.addNode({ id: 'Poison' });
+                dbRollback.addEdge({ id: 'badEdge', source: 'Base', target: 'Poison' });
+                
+                // Assert it works momentarily 
+                expect(dbRollback.nodes.getCount()).toBe(2);
+                
+                throw new Error("Triggered Exception!");
+            });
+        } catch(e) {
+            // Error intentionally caught gracefully natively 
+        }
+
+        // Memory rollback sequence has automatically fired instantly deleting uncommitted nodes cleanly!
+        expect(dbRollback.nodes.getCount()).toBe(1);
+        expect(dbRollback.edges.getCount()).toBe(0);
+        expect(!dbRollback.nodes.has('Poison')).toBe(true);
+        
+        dbRollback.destroy();
+    });
 });
