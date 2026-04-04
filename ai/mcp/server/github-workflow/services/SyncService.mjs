@@ -5,12 +5,13 @@ import HealthService   from './HealthService.mjs';
 import IssueSyncer     from './sync/IssueSyncer.mjs';
 import MetadataManager from './sync/MetadataManager.mjs';
 import ReleaseSyncer   from './sync/ReleaseSyncer.mjs';
+import DiscussionSyncer from './sync/DiscussionSyncer.mjs';
 
 /**
  * @summary Orchestrates the bi-directional synchronization of GitHub issues and releases with local Markdown files.
  *
  * This service is the core engine for the GitHub sync workflow. Its primary responsibilities include:
- * - **Orchestration:** It calls specialized syncer modules (`IssueSyncer`, `ReleaseSyncer`) in the
+ * - **Orchestration:** It calls specialized syncer modules (`IssueSyncer`, `ReleaseSyncer`, `DiscussionSyncer`) in the
  *   correct order to ensure data integrity and minimize conflicts (e.g., push-then-pull).
  * - **Metadata Management:** It uses the `MetadataManager` to load metadata at the start of a sync
  *   and save the updated metadata at the end.
@@ -97,6 +98,9 @@ class SyncService extends Base {
         // 5. Sync release notes
         const releaseStats = await ReleaseSyncer.syncNotes(metadata);
 
+        // 6. Sync discussions
+        const discussionStats = await DiscussionSyncer.syncDiscussions(metadata);
+
         // 6. Self-heal push failures: If a previously failed issue was successfully pulled, remove it from the failure list
         if (newMetadata.pushFailures?.length > 0) {
             newMetadata.pushFailures = newMetadata.pushFailures.filter(failedId => !newMetadata.issues[failedId]);
@@ -113,11 +117,12 @@ class SyncService extends Base {
         const durationMs = endTime - startTime;
 
         const finalStats = {
-            reconciled: reconcileStats,
-            pushed    : pushStats,
-            pulled    : pullStats.pulled,
-            dropped   : pullStats.dropped,
-            releases  : releaseStats
+            reconciled : reconcileStats,
+            pushed     : pushStats,
+            pulled     : pullStats.pulled,
+            dropped    : pullStats.dropped,
+            releases   : releaseStats,
+            discussions: discussionStats
         };
 
         const timing = {
@@ -127,12 +132,13 @@ class SyncService extends Base {
         };
 
         logger.info('✨ Sync Complete');
-        logger.info(`   Reconciled: ${finalStats.reconciled.count} issues archived`);
-        logger.info(`   Pushed:     ${finalStats.pushed.count} issues`);
-        logger.info(`   Pulled:     ${finalStats.pulled.count} issues (${finalStats.pulled.created} new, ${finalStats.pulled.updated} updated, ${finalStats.pulled.moved} moved)`);
-        logger.info(`   Dropped:    ${finalStats.dropped.count} issues`);
-        logger.info(`   Releases:   ${finalStats.releases.count} synced`);
-        logger.info(`   Duration:   ${Math.round(timing.durationMs / 1000)}s`);
+        logger.info(`   Reconciled:  ${finalStats.reconciled.count} issues archived`);
+        logger.info(`   Pushed:      ${finalStats.pushed.count} issues`);
+        logger.info(`   Pulled:      ${finalStats.pulled.count} issues (${finalStats.pulled.created} new, ${finalStats.pulled.updated} updated, ${finalStats.pulled.moved} moved)`);
+        logger.info(`   Dropped:     ${finalStats.dropped.count} issues`);
+        logger.info(`   Releases:    ${finalStats.releases.count} synced`);
+        logger.info(`   Discussions: ${finalStats.discussions.count} synced`);
+        logger.info(`   Duration:    ${Math.round(timing.durationMs / 1000)}s`);
 
         return {
             success   : true,

@@ -71,6 +71,11 @@ const defaultConfig = {
          */
         archiveDir: path.resolve(projectRoot, 'resources/content/issue-archive'),
         /**
+         * The path to the directory for discussions.
+         * @type {string}
+         */
+        discussionsDir: path.resolve(projectRoot, 'resources/content/discussions'),
+        /**
          * The path to the synchronization metadata file.
          * @type {string}
          */

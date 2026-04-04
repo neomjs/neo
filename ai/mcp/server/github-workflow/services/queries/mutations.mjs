@@ -71,6 +71,27 @@ export const ADD_LABELS = `
 `;
 
 /**
+ * Mutation to create a new discussion.
+ *
+ * Variables required:
+ * - $repositoryId: ID! - The global GraphQL ID of the repository
+ * - $categoryId: ID! - The global GraphQL ID of the discussion category
+ * - $title: String! - The discussion title
+ * - $body: String! - The discussion body
+ */
+export const CREATE_DISCUSSION = `
+  mutation CreateDiscussion($repositoryId: ID!, $categoryId: ID!, $title: String!, $body: String!) {
+    createDiscussion(input: {repositoryId: $repositoryId, categoryId: $categoryId, title: $title, body: $body}) {
+      discussion {
+        id
+        number
+        url
+      }
+    }
+  }
+`;
+
+/**
  * Mutation to add a sub-issue to a parent issue.
  *
  * Variables required:
@@ -226,6 +247,43 @@ export const UPDATE_COMMENT = `
   mutation UpdateComment($commentId: ID!, $body: String!) {
     updateIssueComment(input: {id: $commentId, body: $body}) {
       issueComment {
+        id
+        url
+        updatedAt
+      }
+    }
+  }
+`;
+
+/**
+ * Mutation to add a new comment to a discussion.
+ *
+ * Variables required:
+ * - $discussionId: ID! - The global ID of the discussion
+ * - $body: String! - The comment body
+ */
+export const ADD_DISCUSSION_COMMENT = `
+  mutation AddDiscussionComment($discussionId: ID!, $body: String!) {
+    addDiscussionComment(input: {discussionId: $discussionId, body: $body}) {
+      comment {
+        id
+        url
+      }
+    }
+  }
+`;
+
+/**
+ * Mutation to update an existing comment on a discussion.
+ *
+ * Variables required:
+ * - $commentId: ID! - The global ID of the discussion comment to update
+ * - $body: String! - The new comment body
+ */
+export const UPDATE_DISCUSSION_COMMENT = `
+  mutation UpdateDiscussionComment($commentId: ID!, $body: String!) {
+    updateDiscussionComment(input: {commentId: $commentId, body: $body}) {
+      comment {
         id
         url
         updatedAt
