@@ -53,18 +53,33 @@ class GraphService extends Base {
      * Upserts a Node representation into the graph securely linking the ID.
      * @param {Object} node
      */
-    upsertNode({ id, type, name, description, semanticVectorId }) {
+    upsertNode({ id, type, name, description, semanticVectorId, state }) {
         let node = this.db.nodes.get(id);
 
         if (node) {
-            node.label = type;
-            node.properties = { ...node.properties, name, description, semanticVectorId };
-            this.db.nodes.update(node);
+            if (type) node.label = type;
+            
+            let p = Object.assign({}, node.properties || {});
+            if (name !== undefined) p.name = name;
+            if (description !== undefined) p.description = description;
+            if (semanticVectorId !== undefined) p.semanticVectorId = semanticVectorId;
+            if (state !== undefined) p.state = state;
+            
+            node.properties = p;
+            
+            // Directly commit delta to SQLite since Store.update does not exist
+            if (this.db.autoSave && this.db.storage) {
+                this.db.storage.addNodes([node]);
+            }
         } else {
+            let properties = { name, description, semanticVectorId };
+            if (state !== undefined) {
+                properties.state = state;
+            }
             this.db.addNode({
                 id, 
-                label: type,
-                properties: { name, description, semanticVectorId }
+                label: type || 'NODE',
+                properties
             });
         }
     }
@@ -103,7 +118,8 @@ class GraphService extends Base {
             type: node.label,
             name: node.properties?.name,
             description: node.properties?.description,
-            semanticVectorId: node.properties?.semanticVectorId
+            semanticVectorId: node.properties?.semanticVectorId,
+            state: node.properties?.state
         };
     }
 
@@ -200,7 +216,8 @@ class GraphService extends Base {
                 let adjacentId = e.source === 'frontier' ? e.target : e.source;
                 let node = this.db.nodes.get(adjacentId);
                 
-                if (node) {
+                // Actively filter out CLOSED structural paths
+                if (node && node.properties?.state !== 'CLOSED') {
                     topology.strategicNeighbors.push({
                         id: node.id,
                         type: node.label,
@@ -243,14 +260,18 @@ class GraphService extends Base {
 
         // First, apply decay to existing frontier edges to prevent saturation
         const outbound = this.db.edges.getByIndex('source', 'frontier');
+        const edgesToUpdate = [];
         outbound.forEach(e => {
             if (e.target !== targetNodeId) {
                 // Decay by 50%
                 let currentWeight = e.properties?.weight || 1.0;
                 e.properties.weight = currentWeight * 0.5;
-                this.db.edges.update(e);
+                edgesToUpdate.push(e);
             }
         });
+        if (edgesToUpdate.length > 0 && this.db.autoSave && this.db.storage) {
+            this.db.storage.addEdges(edgesToUpdate);
+        }
 
         // Upsert target node placeholder if it doesn't exist, to prevent getContextFrontier filtering it out
         if (!this.db.nodes.get(targetNodeId)) {
@@ -266,7 +287,9 @@ class GraphService extends Base {
         let existingEdge = this.db.edges.items.find(e => e.source === 'frontier' && e.target === targetNodeId && e.type === relationship);
         if (existingEdge) {
             existingEdge.properties.weight = weight;
-            this.db.edges.update(existingEdge);
+            if (this.db.autoSave && this.db.storage) {
+                this.db.storage.addEdges([existingEdge]);
+            }
         } else {
             this.db.addEdge({
                 id: Neo.getId('edge'),

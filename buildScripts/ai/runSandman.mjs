@@ -6,6 +6,8 @@ import DreamService         from '../../ai/mcp/server/memory-core/services/Dream
 import ChromaManager        from '../../ai/mcp/server/memory-core/services/ChromaManager.mjs';
 import LifecycleService     from '../../ai/mcp/server/memory-core/services/DatabaseLifecycleService.mjs';
 
+import InstanceManager  from '../../src/manager/Instance.mjs';
+
 async function runSandman() {
     // Enable debug logging to see progress
     Memory_Config.data.debug = true;
