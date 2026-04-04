@@ -314,6 +314,52 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /context/pre_brief:
+    post:
+      summary: Contextual Pre-Briefing
+      operationId: pre_brief_session
+      x-pass-as-object: true
+      description: |
+        Instantly contextualizes the agent by targeting a specific Epic or Graph Node,
+        loading its high-weight semantic relationships and returning a structured brief.
+        This provides zero-friction context-switching for the LLM.
+      tags: [System]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - targetId
+              properties:
+                targetId:
+                  type: string
+                  description: The Target Epic / Node ID to brief against.
+                limit:
+                  type: number
+                  description: Max context neighbors to pull.
+                  default: 5
+      responses:
+        '200':
+          description: Successful structural brief payload.
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /summaries:
     get:
       summary: Get All Summaries

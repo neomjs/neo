@@ -265,6 +265,78 @@ class MemoryService extends Base {
     }
 
     /**
+     * Instantly contextualizes the agent by targeting a specific Epic or Graph Node,
+     * loading its high-weight semantic relationships and returning a structured brief.
+     * @param {Object} options
+     * @param {String} options.targetId The Target Epic / Node ID to brief against.
+     * @param {Number} [options.limit=5] Max context neighbors to pull.
+     * @returns {Promise<Object>}
+     */
+    async preBriefSession({ targetId, limit = 5 }) {
+        try {
+            const baseNode = GraphService.getNode({ id: targetId });
+            if (!baseNode) {
+                 return {
+                     error: `Node ${targetId} not found in the Native Graph.`,
+                     code: 'NODE_NOT_FOUND'
+                 };
+            }
+
+            let neighbors = GraphService.getNeighbors({ id: targetId });
+            
+            // Focus purely on highest-weight semantic and architectural relationships
+            neighbors = neighbors
+                .filter(n => n.weight >= 0.5) // filter weak noise
+                .sort((a, b) => b.weight - a.weight)
+                .slice(0, limit);
+
+            const brief = {
+                target: baseNode,
+                context: []
+            };
+
+            const collection = await ChromaManager.getSummaryCollection();
+
+            for (const neighbor of neighbors) {
+                let episodicContext = null;
+                
+                if (neighbor.semanticVectorId) {
+                    try {
+                        const result = await collection.get({
+                            ids: [neighbor.semanticVectorId],
+                            include: ['documents']
+                        });
+                        if (result.documents && result.documents.length > 0) {
+                            episodicContext = result.documents[0];
+                        }
+                    } catch (e) {
+                         // Missing vector is fine, we still have structural graph data
+                    }
+                }
+
+                brief.context.push({
+                    id: neighbor.id,
+                    type: neighbor.type,
+                    name: neighbor.name,
+                    relationship: neighbor.relationship,
+                    weight: neighbor.weight,
+                    episodicContext
+                });
+            }
+
+            return brief;
+
+        } catch (error) {
+            logger.error('[MemoryService] Error in preBriefSession:', error);
+            return {
+                error  : 'Failed to generate contextual brief',
+                message: error.message,
+                code   : 'PRE_BRIEF_ERROR'
+            };
+        }
+    }
+
+    /**
      * Mutates the active context frontier in the native knowledge graph.
      * @param {Object} options
      * @param {String} options.targetNodeId The semantic target ID.
