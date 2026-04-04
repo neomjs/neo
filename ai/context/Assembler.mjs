@@ -1,10 +1,16 @@
-import Base from '../../src/core/Base.mjs';
+import fs               from 'fs';
+import path             from 'path';
+import {fileURLToPath}  from 'url';
+import Base             from '../../src/core/Base.mjs';
 import {
     Memory_Service,
     Memory_SessionService,
     Memory_SummaryService,
     KB_QueryService
 } from '../services.mjs';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname  = path.dirname(__filename);
 
 /**
  * Manages the assembly of the LLM context window.
@@ -49,6 +55,9 @@ class ContextAssembler extends Base {
      */
     async initAsync() {
         await super.initAsync();
+
+        this.skillsContext = this.loadSkillsSync();
+
         // SessionService readiness implies ChromaManager readiness
         try {
             await Memory_SessionService.ready();
@@ -213,7 +222,42 @@ class ContextAssembler extends Base {
      * @returns {String}
      */
     augmentSystemPrompt(basePrompt, ragContext) {
-        return `${basePrompt}${ragContext}`;
+        let prompt = basePrompt || '';
+        if (this.skillsContext) {
+            prompt += this.skillsContext;
+        }
+        return `${prompt}${ragContext || ''}`;
+    }
+
+    /**
+     * Loads SKILL.md files from the .agent/skills directory to be injected into the system prompt.
+     * @returns {String}
+     */
+    loadSkillsSync() {
+        try {
+            const skillsDir = path.resolve(__dirname, '../../.agent/skills');
+            if (!fs.existsSync(skillsDir)) return '';
+
+            const entries = fs.readdirSync(skillsDir, { withFileTypes: true });
+            let skillsText = '';
+
+            for (const entry of entries) {
+                if (entry.isDirectory()) {
+                    const skillPath = path.join(skillsDir, entry.name, 'SKILL.md');
+                    if (fs.existsSync(skillPath)) {
+                        const content = fs.readFileSync(skillPath, 'utf8');
+                        skillsText += `\n<skill name="${entry.name}">\n${content}\n</skill>\n`;
+                    }
+                }
+            }
+
+            if (skillsText) {
+                return `\n\n<agent_skills>\nYou have access to the following specialized workflows. Adhere to them strictly when their triggers are met:\n${skillsText}</agent_skills>\n`;
+            }
+        } catch (e) {
+            console.warn('[ContextAssembler] Failed to load skills:', e);
+        }
+        return '';
     }
 }
 

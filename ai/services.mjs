@@ -28,7 +28,6 @@ import KB_HealthService             from './mcp/server/knowledge-base/services/H
 import KB_QueryService              from './mcp/server/knowledge-base/services/QueryService.mjs';
 import KB_SearchService             from './mcp/server/knowledge-base/services/SearchService.mjs';
 import KB_ChromaManager             from './mcp/server/knowledge-base/services/ChromaManager.mjs';
-import KB_GraphService              from './mcp/server/knowledge-base/services/GraphService.mjs';
 import KB_Config                    from './mcp/server/knowledge-base/config.mjs';
 
 // Disable auto-sync for all scripts using the SDK to prevent double-runs
@@ -40,6 +39,7 @@ import Memory_DatabaseService       from './mcp/server/memory-core/services/Data
 import Memory_SessionService        from './mcp/server/memory-core/services/SessionService.mjs';
 import Memory_LifecycleService      from './mcp/server/memory-core/services/DatabaseLifecycleService.mjs';
 import Memory_HealthService         from './mcp/server/memory-core/services/HealthService.mjs';
+import Memory_GraphService          from './mcp/server/memory-core/services/GraphService.mjs';
 import Memory_SummaryService        from './mcp/server/memory-core/services/SummaryService.mjs';
 import Memory_ChromaManager         from './mcp/server/memory-core/services/ChromaManager.mjs';
 import Memory_Config                from './mcp/server/memory-core/config.mjs';
@@ -177,6 +177,7 @@ makeSafe(Memory_DatabaseService,  memSpec);
 makeSafe(Memory_SessionService,   memSpec);
 makeSafe(Memory_LifecycleService, memSpec);
 makeSafe(Memory_HealthService,    memSpec);
+makeSafe(Memory_GraphService,     memSpec);
 makeSafe(Memory_SummaryService,   memSpec);
 
 // Neural Link
@@ -225,7 +226,6 @@ export {
     KB_DatabaseService,
     KB_LifecycleService,
     KB_DocumentService,
-    KB_GraphService,
     KB_HealthService,
     KB_QueryService,
     KB_SearchService,
@@ -237,6 +237,7 @@ export {
     Memory_SessionService,
     Memory_DatabaseService,
     Memory_LifecycleService,
+    Memory_GraphService,
     Memory_HealthService,
     Memory_SummaryService,
 
