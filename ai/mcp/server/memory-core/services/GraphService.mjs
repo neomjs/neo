@@ -1,8 +1,9 @@
-import aiConfig     from '../config.mjs';
-import logger       from '../logger.mjs';
-import Base         from '../../../../../src/core/Base.mjs';
-import CoreDatabase from '../../../../../ai/graph/Database.mjs';
-import SQLite       from '../../../../../ai/graph/storage/SQLite.mjs';
+import aiConfig       from '../config.mjs';
+import logger         from '../logger.mjs';
+import Base           from '../../../../../src/core/Base.mjs';
+import CoreDatabase   from '../../../../../ai/graph/Database.mjs';
+import InstanceManager from '../../../../../src/manager/Instance.mjs';
+import SQLite         from '../../../../../ai/graph/storage/SQLite.mjs';
 
 /**
  * @summary Service that manages the SQLite Knowledge Graph (Nodes and Edges).

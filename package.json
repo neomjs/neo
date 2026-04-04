@@ -22,6 +22,7 @@
         "ai:mcp-server-memory-core"    : "node ./ai/mcp/server/memory-core/mcp-server.mjs",
         "ai:mcp-server-neural-link"    : "node ./ai/mcp/server/neural-link/mcp-server.mjs",
         "ai:migrate-memory"            : "node ./buildScripts/ai/migrateMemoryCore.mjs",
+        "ai:run-sandman"               : "node ./buildScripts/ai/runSandman.mjs",
         "ai:server"                    : "chroma run --path ./chroma-neo-knowledge-base",
         "ai:server-memory"             : "chroma run --path ./chroma-neo-memory-core --port 8001",
         "ai:server-neural-link"        : "node ./ai/mcp/server/neural-link/run-bridge.mjs",

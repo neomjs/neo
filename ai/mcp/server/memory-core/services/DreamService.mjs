@@ -149,13 +149,11 @@ You are the Neo.mjs REM (Rapid Eye Movement) Sleep digestion agent.
 Your task is to analyze the following episodic development session history and extract three vital vectors of intelligence into a strict JSON object:
 
 1. **Semantic Graph:** Core concepts, framework components, and their relationships.
-2. **Open Deltas:** Specific tasks, unresolved friction, or requested changes that were NOT completed by the end of this session. State them as actionable checklist items. If none, pass an empty array.
-3. **Roadmap Strategy:** Major architectural pivots, roadblocks, or discoveries that impact long-term Epic planning. If none, pass null.
+2. **Roadmap Strategy:** Major architectural pivots, roadblocks, or discoveries that impact long-term Epic planning. If none, pass null.
 
 Enforce this STRICT JSON schema:
 {
   "summary": "String (1 sentence high-level summary of the session)",
-  "open_deltas": ["String (Unfinished/Blocked Task 1)", "String (Task 2)"],
   "roadmap_impact": "String (Proposal for a long-term strategy pivot) or Null",
   "graph": {
     "nodes": [
@@ -238,22 +236,7 @@ ${session.document}
 
             logger.info(`[DreamService] Graph entities committed to Neocortex for session ${session.meta.sessionId}.`);
 
-            // --- VECTOR 2: OPEN DELTAS (Context Handoff) ---
-            if (payload.open_deltas && Array.isArray(payload.open_deltas) && payload.open_deltas.length > 0) {
-                const handoffFile = path.join(process.cwd(), 'resources', 'content', 'sandman_handoff.md');
-                const deltaEntry = `\n## Blocked Deltas (from Session ${session.meta.sessionId}) [Date: ${new Date().toISOString()}]\n` +
-                                   payload.open_deltas.map(d => `- [ ] ${d}`).join('\n') + '\n';
-                
-                const contentDir = path.dirname(handoffFile);
-                if (!fs.existsSync(contentDir)) {
-                    fs.mkdirSync(contentDir, { recursive: true });
-                }
-                
-                fs.appendFileSync(handoffFile, deltaEntry, 'utf8');
-                logger.info(`[DreamService] Extracted ${payload.open_deltas.length} Deltas and persisted to sandman_handoff.md`);
-            }
-
-            // --- VECTOR 3: STRATEGIC ROADMAP PIVOTS ---
+            // --- VECTOR 2: STRATEGIC ROADMAP PIVOTS ---
             if (payload.roadmap_impact && typeof payload.roadmap_impact === 'string' && payload.roadmap_impact.toLowerCase() !== 'null') {
                 const auditLog = path.join('/tmp', 'roadmap_audits.log');
                 const strategyEntry = `[${new Date().toISOString()}] Session ${session.meta.sessionId}:\n${payload.roadmap_impact}\n\n`;
@@ -390,7 +373,7 @@ ${issues.map(i => '[' + i.issueId + '] ' + i.title + '\n' + i.body.substring(0, 
 Analyze what enables you (the AI) and the project further.
 Write a powerful Markdown document outlining the 'Golden Path' (the top 3-4 strategic priorities we MUST focus on next).
 Include a clear justification linking the priorities back to the structural graph weaknesses or capability force-multipliers.
-DO NOT use json wrappers or code blocks. Just output clean Markdown.
+BE CONCISE. DO NOT use json wrappers or code blocks. Just output clean, direct Markdown text.
 `;
 
         try {
@@ -400,6 +383,7 @@ DO NOT use json wrappers or code blocks. Just output clean Markdown.
 
             logger.info('[DreamService] Triggering Sandman synthesis engine...');
             const result = await provider.generate(prompt);
+            const content = result.content.trim();
             
             const __filename = fileURLToPath(import.meta.url);
             const __dirname  = path.dirname(__filename);
@@ -408,8 +392,20 @@ DO NOT use json wrappers or code blocks. Just output clean Markdown.
             const dir = path.dirname(goldenPath);
             if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
             
-            fs.writeFileSync(goldenPath, result.content.trim(), 'utf8');
+            fs.writeFileSync(goldenPath, content, 'utf8');
             logger.info(`[DreamService] Golden Path synthesized and saved to ${goldenPath}`);
+
+            // Structural Injection: Pipe the Golden Path back into the Subconscious Layer
+            GraphService.upsertNode({
+                id: 'golden_path',
+                type: 'STRATEGY',
+                name: 'The Golden Path',
+                description: content
+            });
+            
+            // Explicitly anchor this to the frontier context so the Agent NEVER loses sight of it
+            GraphService.linkNodes('frontier', 'golden_path', 'GUIDES', 1.0);
+            logger.info(`[DreamService] Golden Path structurally anchored to the frontier node.`);
             
         } catch (error) {
             logger.error('[DreamService] Failed to synthesize Golden Path:', error);
