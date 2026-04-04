@@ -298,6 +298,63 @@ class GraphService extends Base {
     }
 
     /**
+     * Retrieves the structural topology surrounding a specific node.
+     * @param {Object} args
+     * @param {String} args.nodeId The ID of the root node.
+     * @param {Number} [args.maxDepth=2] The traversal depth from the root.
+     * @returns {Object|null}
+     */
+    queryNodeTopology({nodeId, maxDepth = 2} = {}) {
+        // Guarantee lazy-loading of the topology explicitly
+        this.db.getAdjacentNodes(nodeId, 'both');
+
+        const rootNode = this.db.nodes.get(nodeId);
+        if (!rootNode) {
+            logger.info(`[GraphService] Node ${nodeId} not found in graph.`);
+            return null;
+        }
+
+        const topology = {
+            root: {
+                id: rootNode.id,
+                type: rootNode.label,
+                name: rootNode.properties?.name,
+                description: rootNode.properties?.description,
+                semanticVectorId: rootNode.properties?.semanticVectorId
+            },
+            neighbors: []
+        };
+
+        // Get immediate connections
+        const inbound = this.db.edges.getByIndex('target', nodeId);
+        const outbound = this.db.edges.getByIndex('source', nodeId);
+
+        [...inbound, ...outbound].forEach(e => {
+            const weight = e.properties?.weight || 1.0;
+            let adjacentId = e.source === nodeId ? e.target : e.source;
+            let node = this.db.nodes.get(adjacentId);
+            
+            if (node) {
+                topology.neighbors.push({
+                    id: node.id,
+                    type: node.label,
+                    name: node.properties?.name,
+                    description: node.properties?.description,
+                    semanticVectorId: node.properties?.semanticVectorId,
+                    relationship: e.type,
+                    weight: weight,
+                    direction: e.source === nodeId ? 'outbound' : 'inbound'
+                });
+            }
+        });
+
+        // Sort by highest weight
+        topology.neighbors.sort((a, b) => b.weight - a.weight);
+
+        return topology;
+    }
+
+    /**
      * Actively mutates the relationships originating from the frontier node.
      * Upserts the frontier node if necessary, establishes the new relationship, and safely 
      * decays older strategic neighbors to prevent context saturation.
