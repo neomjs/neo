@@ -31,7 +31,7 @@ test.describe('Neo.ai.context.Assembler', () => {
         await assembler.initAsync();
     });
 
-    test('loadSkillsSync should parse SKILL.md and inject into system prompt', async () => {
+    test('loadSkillsSync should extract YAML frontmatter for progressive disclosure', async () => {
         const skillsDir = path.resolve(process.cwd(), '.agent/skills');
         const ideationPath = path.join(skillsDir, 'ideation-sandbox', 'SKILL.md');
         
@@ -47,8 +47,10 @@ test.describe('Neo.ai.context.Assembler', () => {
         }
         
         if (hasIdeationSandbox) {
-            expect(assembler.skillsContext).toContain('<skill name="ideation-sandbox">');
-            expect(assembler.skillsContext).toContain('Ideation Sandbox');
+            expect(assembler.skillsContext).toContain('<skill>');
+            expect(assembler.skillsContext).toContain('<path>');
+            expect(assembler.skillsContext).toContain('ideation-sandbox/SKILL.md');
+            expect(assembler.skillsContext).toContain('name: ideation-sandbox');
         }
     });
 

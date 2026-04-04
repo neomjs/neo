@@ -231,6 +231,7 @@ class ContextAssembler extends Base {
 
     /**
      * Loads SKILL.md files from the .agent/skills directory to be injected into the system prompt.
+     * Uses Progressive Disclosure: Only injects YAML frontmatter.
      * @returns {String}
      */
     loadSkillsSync() {
@@ -246,13 +247,18 @@ class ContextAssembler extends Base {
                     const skillPath = path.join(skillsDir, entry.name, 'SKILL.md');
                     if (fs.existsSync(skillPath)) {
                         const content = fs.readFileSync(skillPath, 'utf8');
-                        skillsText += `\n<skill name="${entry.name}">\n${content}\n</skill>\n`;
+                        
+                        // Extract YAML frontmatter for progressive disclosure
+                        const yamlMatch = content.match(/^---\s*\n([\s\S]*?)\n---/);
+                        if (yamlMatch) {
+                            skillsText += `\n<skill>\n<path>${skillPath}</path>\n<metadata>\n${yamlMatch[1].trim()}\n</metadata>\n</skill>\n`;
+                        }
                     }
                 }
             }
 
             if (skillsText) {
-                return `\n\n<agent_skills>\nYou have access to the following specialized workflows. Adhere to them strictly when their triggers are met:\n${skillsText}</agent_skills>\n`;
+                return `\n\n<agent_skills>\nYou have access to the following specialized agent skills. IF a user requests a task that matches the triggers of a skill below, you MUST use the \`view_file\` tool to read the corresponding <path> BEFORE taking any action to execute the request.\n${skillsText}</agent_skills>\n`;
             }
         } catch (e) {
             console.warn('[ContextAssembler] Failed to load skills:', e);
