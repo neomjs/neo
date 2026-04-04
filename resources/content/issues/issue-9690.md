@@ -1,22 +1,23 @@
 ---
 id: 9690
 title: 'Agent Skill: Ideation Sandbox'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
 assignees: []
 createdAt: '2026-04-04T13:43:47Z'
-updatedAt: '2026-04-04T13:54:24Z'
+updatedAt: '2026-04-04T18:02:39Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9690'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 9687
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-04-04T18:02:39Z'
 ---
 # Agent Skill: Ideation Sandbox
 
@@ -27,4 +28,10 @@ Establish a dedicated Github Discussion thread where the background local LLM (e
 - 2026-04-04T13:43:50Z @tobiu added the `enhancement` label
 - 2026-04-04T13:43:50Z @tobiu added the `ai` label
 - 2026-04-04T13:44:03Z @tobiu added parent issue #9687
+- 2026-04-04T17:12:40Z @tobiu referenced in commit `84353df` - "feat: standardise ideation-sandbox skill frontmatter to anthropic spec (#9690)"
+### @tobiu - 2026-04-04T18:02:39Z
+
+Fixed via .agent/skills/ideation-sandbox
+
+- 2026-04-04T18:02:40Z @tobiu closed this issue
 
