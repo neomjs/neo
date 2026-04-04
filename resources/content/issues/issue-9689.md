@@ -5,9 +5,10 @@ state: CLOSED
 labels:
   - enhancement
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-04-04T13:43:46Z'
-updatedAt: '2026-04-04T14:14:18Z'
+updatedAt: '2026-04-04T14:14:46Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9689'
 author: tobiu
 commentsCount: 1
@@ -39,4 +40,5 @@ Tasks accomplished:
 3. Created Playwright unit tests for topological extraction `getNeighbors()` solving WAL concurrency.
 
 - 2026-04-04T14:14:18Z @tobiu closed this issue
+- 2026-04-04T14:14:46Z @tobiu assigned to @tobiu
 
