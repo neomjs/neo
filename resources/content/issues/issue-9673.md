@@ -24,8 +24,12 @@ subIssues:
   - '[x] 9682 Native Edge Graph: Traversal Query Engine & Aggregations'
   - '[x] 9683 Epic Sub: Session Amnesia & The Context Priming Engine'
   - '[x] 9697 Fix: GraphService direct lookups fail on Lazy Loading cache misses'
+  - '[ ] 9707 [Handoff Protocol] Agent Startup Reconciliation & Graph Mutation'
+  - '[ ] 9708 [Topographical Extraction] Sandman REM Actionable Alert Generation'
+  - '[ ] 9709 [Vector Bridge] Stitching Chroma Semantics to SQLite Edge Nodes'
+  - '[ ] 9710 [SQLite VSS Migration] 100% Offline Markdown Tensor Chunking'
 subIssuesCompleted: 9
-subIssuesTotal: 9
+subIssuesTotal: 13
 blockedBy: []
 blocking: []
 ---
@@ -72,4 +76,12 @@ Pivot to a true **Hybrid GraphRAG Model**.
 - 2026-04-04T11:39:49Z @tobiu added sub-issue #9683
 - 2026-04-04T16:13:04Z @tobiu cross-referenced by #9697
 - 2026-04-04T16:13:15Z @tobiu added sub-issue #9697
+- 2026-04-04T21:05:09Z @tobiu cross-referenced by #9707
+- 2026-04-04T21:05:21Z @tobiu cross-referenced by #9708
+- 2026-04-04T21:05:26Z @tobiu cross-referenced by #9709
+- 2026-04-04T21:05:33Z @tobiu cross-referenced by #9710
+- 2026-04-04T21:05:41Z @tobiu added sub-issue #9707
+- 2026-04-04T21:05:42Z @tobiu added sub-issue #9708
+- 2026-04-04T21:05:43Z @tobiu added sub-issue #9709
+- 2026-04-04T21:05:44Z @tobiu added sub-issue #9710
 
