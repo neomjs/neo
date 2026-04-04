@@ -145,7 +145,7 @@ class Database extends Base {
             len, edge, adjacentNode;
 
         if (direction === 'outbound' || direction === 'both') {
-            edges.push(...me.edges.getByIndex('source', nodeId));
+            edges = me.edges.getByIndex('source', nodeId).slice();
         }
 
         if (direction === 'inbound' || direction === 'both') {
@@ -156,7 +156,7 @@ class Database extends Base {
                     if (e.source !== nodeId) edges.push(e);
                 });
             } else {
-                edges.push(...inboundEdges);
+                edges = inboundEdges.slice();
             }
         }
 
@@ -223,14 +223,12 @@ class Database extends Base {
      */
     removeNode(nodeId) {
         let me            = this,
-            edgesToRemove = [],
             outbound      = me.edges.getByIndex('source', nodeId),
-            inbound       = me.edges.getByIndex('target', nodeId);
+            inbound       = me.edges.getByIndex('target', nodeId),
+            edgesToRemove = outbound.slice();
         
         me.nodes.remove(nodeId);
 
-        edgesToRemove.push(...outbound);
-        
         // Cascade delete attached edges
         inbound.forEach(e => {
             if (e.source !== nodeId) edgesToRemove.push(e);
