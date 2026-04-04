@@ -1,6 +1,10 @@
 import Model from '../../src/data/Model.mjs';
 
 /**
+ * Represents an edge (relationship) bridging two Nodes within the Native Edge Graph Database engine. 
+ * Essential for structural GraphRAG topological traversal.
+ * Leveraging Neo.data.Model ensures lightweight, schema-validated routing logic between endpoints.
+ * 
  * @class Neo.ai.graph.EdgeModel
  * @extends Neo.data.Model
  */
