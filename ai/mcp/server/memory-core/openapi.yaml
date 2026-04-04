@@ -241,6 +241,31 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /context/frontier:
+    get:
+      summary: Get Context Frontier
+      operationId: get_context_frontier
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: true
+      description: |
+        Executes the Context Priming Engine to fetch the highly scaled topological frontier
+        and maps vectors back to extract specific underlying episodic knowledge logic.
+      tags: [System]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /summaries:
     get:
       summary: Get All Summaries
