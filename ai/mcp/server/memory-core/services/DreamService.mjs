@@ -114,6 +114,8 @@ class DreamService extends Base {
                 logger.info(`[DreamService] Preparing session ${session.meta.sessionId} ("${session.meta.title}") for REM extraction.`);
                 const success = await this.executeTriVectorExtraction(session);
                 
+                await this.extractTopology(session.document, session.meta.sessionId);
+                
                 if (success) {
                     await this.sessionsCollection.update({
                         ids: [session.id],
@@ -249,6 +251,80 @@ ${session.document}
         } catch (error) {
             logger.error('[DreamService] Error during graph extraction run:', error);
             return null;
+        }
+    }
+
+    /**
+     * Dedicated inference pass to scan episodic memory explicitly for topological conflicts
+     * (e.g. tracking when an OPEN issue is superseded or rendered obsolete by recent session decisions).
+     * @param {String} contextText The raw session episodic document.
+     * @param {String} sessionId The ID of the session being processed.
+     */
+    async extractTopology(contextText, sessionId) {
+        logger.debug(`[DreamService] Extracting Topological Conflicts for session ID: ${sessionId}`);
+
+        const prompt = `
+You are the Neo.mjs REM Sandman. Analyze the following session history for strict topological conflicts.
+A topological conflict occurs primarily when the user and agent realize an OPEN GitHub ticket/issue has been rendered obsolete, superseded, or is a duplicate.
+
+Enforce this STRICT JSON schema:
+{
+  "conflicts": [
+    {
+      "issueId": "String (e.g. issue-1234)",
+      "type": "String (SUPERSEDES, OBSOLETES, DUPLICATE)",
+      "description": "String (Why is there a conflict?)"
+    }
+  ]
+}
+
+DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide purely the JSON object. If there are no conflicts, output {"conflicts": []}.
+
+--- Session Episodic Memory ---
+${contextText}
+`;
+        try {
+            const provider = Neo.create(Ollama, {
+                modelName: aiConfig.ollama.model
+            });
+
+            const result = await provider.generate(prompt, {
+                response_format: { type: 'json_object' }
+            });
+
+            const payload = Json.extract(result.content);
+            if (!payload || !Array.isArray(payload.conflicts) || payload.conflicts.length === 0) {
+                return;
+            }
+
+            // Write to sandman_handoff.md
+            const __filename = fileURLToPath(import.meta.url);
+            const __dirname  = path.dirname(__filename);
+            const handoffFile = path.resolve(__dirname, '../../../../../resources/content/sandman_handoff.md');
+            
+            let handoffContent = '';
+            if (fs.existsSync(handoffFile)) {
+                handoffContent = fs.readFileSync(handoffFile, 'utf8');
+            } else {
+                handoffContent = '# Sandman Handoff Alerts\n\nThis file tracks topological conflict alerts generated during overnight REM sleep cycles. Agents MUST reconcile these conflicts structurally upon startup.\n\n## Active Conflicts\n\n';
+            }
+
+            let newAlerts = false;
+            for (const conflict of payload.conflicts) {
+                const entry = `- **[${conflict.type}]** \`${conflict.issueId}\`: ${conflict.description} (Source Session: ${sessionId})\n`;
+                if (!handoffContent.includes(entry)) {
+                    handoffContent += entry;
+                    newAlerts = true;
+                }
+            }
+
+            if (newAlerts) {
+                fs.writeFileSync(handoffFile, handoffContent, 'utf8');
+                logger.info(`[DreamService] Registered new topological conflicts to sandman_handoff.md for session ${sessionId}.`);
+            }
+
+        } catch (error) {
+            logger.error('[DreamService] Error during topology extraction:', error);
         }
     }
 
