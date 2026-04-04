@@ -13,10 +13,10 @@ author: tobiu
 commentsCount: 0
 parentIssue: null
 subIssues:
-  - '[ ] 9688 Agent Skill: Hybrid Roadmap Planner'
+  - '[x] 9688 Agent Skill: Hybrid Roadmap Planner'
   - '[x] 9689 Agent Skill: Contextual Pre-Briefer'
   - '[ ] 9690 Agent Skill: Ideation Sandbox'
-subIssuesCompleted: 1
+subIssuesCompleted: 2
 subIssuesTotal: 3
 blockedBy: []
 blocking: []
