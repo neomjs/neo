@@ -112,7 +112,7 @@ class DreamService extends Base {
 
             for (const session of sessions) {
                 logger.info(`[DreamService] Preparing session ${session.meta.sessionId} ("${session.meta.title}") for REM extraction.`);
-                const success = await this.extractGraphEntities(session);
+                const success = await this.executeTriVectorExtraction(session);
                 
                 if (success) {
                     await this.sessionsCollection.update({
@@ -136,40 +136,45 @@ class DreamService extends Base {
     }
 
     /**
-     * Extracts Nodes and Edges from the session memory.
+     * Executes the Tri-Vector Synthesis (Semantic Graph, Open Deltas, Roadmap Strategy) 
+     * from the session memory log via Ollama JSON schema extraction.
      * @param {Object} session Wrapped session object containing id, document, and meta
-     * @returns {Promise<Object|null>} The extracted graph payload, or null on failure
+     * @returns {Promise<Object|null>} The extracted payload, or null on failure
      */
-    async extractGraphEntities(session) {
-        logger.debug(`[DreamService] Extracting entities for session ID: ${session.meta.sessionId}`);
+    async executeTriVectorExtraction(session) {
+        logger.debug(`[DreamService] Extracting Tri-Vector Synthesis for session ID: ${session.meta.sessionId}`);
 
         const prompt = `
 You are the Neo.mjs REM (Rapid Eye Movement) Sleep digestion agent.
-Your task is to analyze the following episodic development session history and extract a formal knowledge graph structure consisting of Nodes and Edges.
+Your task is to analyze the following episodic development session history and extract three vital vectors of intelligence into a strict JSON object:
 
-Nodes must be core concepts, framework components, APIs, or files discussed in the session.
-Edges must be the relationships between these nodes.
-
-If the session log indicates a "Context Collapse", a long-term architectural goal, or a massive "Strategic Pivot", you MUST inject an edge explicitly linking the primary concept node to the "frontier" node with relationship "GUIDES" and a high weight (e.g. 1.0).
+1. **Semantic Graph:** Core concepts, framework components, and their relationships.
+2. **Open Deltas:** Specific tasks, unresolved friction, or requested changes that were NOT completed by the end of this session. State them as actionable checklist items. If none, pass an empty array.
+3. **Roadmap Strategy:** Major architectural pivots, roadblocks, or discoveries that impact long-term Epic planning. If none, pass null.
 
 Enforce this STRICT JSON schema:
 {
-  "nodes": [
-    {
-      "id": "Type:Name",
-      "type": "String",
-      "name": "String",
-      "description": "String"
-    }
-  ],
-  "edges": [
-    {
-      "source": "String (must match a node id, or 'frontier')",
-      "target": "String (must match a node id, or 'frontier')",
-      "relationship": "String (e.g. IMPLEMENTS, USES, FIXES, DEPRECATES, GUIDES)",
-      "weight": 1.0
-    }
-  ]
+  "summary": "String (1 sentence high-level summary of the session)",
+  "open_deltas": ["String (Unfinished/Blocked Task 1)", "String (Task 2)"],
+  "roadmap_impact": "String (Proposal for a long-term strategy pivot) or Null",
+  "graph": {
+    "nodes": [
+      {
+        "id": "Type:Name",
+        "type": "String",
+        "name": "String",
+        "description": "String"
+      }
+    ],
+    "edges": [
+      {
+        "source": "String (must match a node id, or 'frontier')",
+        "target": "String (must match a node id, or 'frontier')",
+        "relationship": "String (e.g. IMPLEMENTS, USES, FIXES, DEPRECATES, GUIDES)",
+        "weight": 1.0
+      }
+    ]
+  }
 }
 
 DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide purely the JSON object.
@@ -191,13 +196,15 @@ ${session.document}
             // Extract using robust Json parser to catch malformed boundaries
             const payload = Json.extract(result.content);
 
-            if (!payload || !payload.nodes || !payload.edges) {
-                logger.warn(`[DreamService] Failed to validate extracted graph payload for session: ${session.meta.sessionId}`);
+            // Validation check
+            if (!payload || !payload.graph || !payload.graph.nodes || !payload.graph.edges) {
+                logger.warn(`[DreamService] Failed to validate extracted Tri-Vector payload for session: ${session.meta.sessionId}`);
                 return null;
             }
 
-            logger.info(`[DreamService] Successfully extracted ${payload.nodes.length} nodes and ${payload.edges.length} edges for session ${session.meta.sessionId}.`);
+            logger.info(`[DreamService] Successfully extracted Tri-Vector schema for session ${session.meta.sessionId}.`);
 
+            // --- VECTOR 1: SEMANTIC GRAPH ---
             // Check if frontier exists, if not, stub it so we can link to it
             GraphService.upsertNode({
                 id: 'frontier',
@@ -208,8 +215,7 @@ ${session.document}
             });
 
             // Bridge to GraphService (SQLite)
-            for (const node of payload.nodes) {
-                // If the LLM tried to create its own frontier node, skip it as we manage it statically above
+            for (const node of payload.graph.nodes) {
                 if (node.id === 'frontier') continue;
                 
                 GraphService.upsertNode({
@@ -217,11 +223,11 @@ ${session.document}
                     type: node.type || 'Unknown',
                     name: node.name || 'Unknown',
                     description: node.description || '',
-                    semanticVectorId: session.id // Bind back to the ChromaDB summary this node came from
+                    semanticVectorId: session.id
                 });
             }
 
-            for (const edge of payload.edges) {
+            for (const edge of payload.graph.edges) {
                 GraphService.linkNodes(
                     edge.source,
                     edge.target,
@@ -231,6 +237,29 @@ ${session.document}
             }
 
             logger.info(`[DreamService] Graph entities committed to Neocortex for session ${session.meta.sessionId}.`);
+
+            // --- VECTOR 2: OPEN DELTAS (Context Handoff) ---
+            if (payload.open_deltas && Array.isArray(payload.open_deltas) && payload.open_deltas.length > 0) {
+                const handoffFile = path.join(process.cwd(), 'resources', 'content', 'sandman_handoff.md');
+                const deltaEntry = `\n## Blocked Deltas (from Session ${session.meta.sessionId}) [Date: ${new Date().toISOString()}]\n` +
+                                   payload.open_deltas.map(d => `- [ ] ${d}`).join('\n') + '\n';
+                
+                const contentDir = path.dirname(handoffFile);
+                if (!fs.existsSync(contentDir)) {
+                    fs.mkdirSync(contentDir, { recursive: true });
+                }
+                
+                fs.appendFileSync(handoffFile, deltaEntry, 'utf8');
+                logger.info(`[DreamService] Extracted ${payload.open_deltas.length} Deltas and persisted to sandman_handoff.md`);
+            }
+
+            // --- VECTOR 3: STRATEGIC ROADMAP PIVOTS ---
+            if (payload.roadmap_impact && typeof payload.roadmap_impact === 'string' && payload.roadmap_impact.toLowerCase() !== 'null') {
+                const auditLog = path.join('/tmp', 'roadmap_audits.log');
+                const strategyEntry = `[${new Date().toISOString()}] Session ${session.meta.sessionId}:\n${payload.roadmap_impact}\n\n`;
+                fs.appendFileSync(auditLog, strategyEntry, 'utf8');
+                logger.info(`[DreamService] Extracted Strategy impact to roadmap_audits.log`);
+            }
 
             return payload;
 
