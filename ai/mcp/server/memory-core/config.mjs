@@ -125,6 +125,11 @@ const defaultConfig = {
      */
     sqlitePath: path.resolve(cwd, 'chroma-neo-memory-core/graph/knowledge-graph.sqlite'),
     /**
+     * The target Storage Engine (Vector Database) to use.
+     * Options: 'neo' (SQLite-Vec), 'chroma' (ChromaDB), or 'both'.
+     */
+    engine: 'both',
+    /**
      * Configuration for the AI agent's persistent memory database.
      */
     memoryDb: {

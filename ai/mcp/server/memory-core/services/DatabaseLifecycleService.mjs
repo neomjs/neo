@@ -55,7 +55,7 @@ class DatabaseLifecycleService extends Base {
      */
     async isDbRunning() {
         try {
-            const ChromaManager = (await import('./ChromaManager.mjs')).default;
+            const ChromaManager = (await import('../managers/ChromaManager.mjs')).default;
             await ChromaManager.client.heartbeat();
             return true;
         } catch (e) {

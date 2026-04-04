@@ -1,6 +1,6 @@
 import aiConfig             from '../config.mjs';
 import Base                 from '../../../../../src/core/Base.mjs';
-import SQLiteVectorManager  from './SQLiteVectorManager.mjs';
+import StorageRouter        from '../managers/StorageRouter.mjs';
 import logger               from '../logger.mjs';
 import TextEmbeddingService from './TextEmbeddingService.mjs';
 
@@ -34,10 +34,11 @@ class SummaryService extends Base {
      */
     async deleteAllSummaries() {
         try {
-            const collection = await SQLiteVectorManager.getSummaryCollection();
-            const count      = await collection.count();
-            await SQLiteVectorManager.client.deleteCollection({ name: collection.name });
-            await SQLiteVectorManager.getSummaryCollection(); // Re-creates it
+            const collection = await StorageRouter.getSummaryCollection();
+            
+            const count = await collection.count();
+            await collection.drop();
+            await StorageRouter.getSummaryCollection(); // Re-creates it
             return { deleted: count, message: 'All summaries successfully deleted' };
         } catch (error) {
             logger.error('[SummaryService] Error deleting all summaries:', error);
@@ -62,7 +63,7 @@ class SummaryService extends Base {
      */
     async listSummaries({limit=50, offset=0} = {}) {
         try {
-            const collection = await SQLiteVectorManager.getSummaryCollection();
+            const collection = await StorageRouter.getSummaryCollection();
 
             // Phase 1: Fetch ALL metadata (lightweight)
             const
@@ -178,7 +179,7 @@ class SummaryService extends Base {
      */
     async querySummaries({query, nResults, category}) {
         try {
-            const collection = await SQLiteVectorManager.getSummaryCollection();
+            const collection = await StorageRouter.getSummaryCollection();
             const embedding  = await TextEmbeddingService.embedText(query);
 
             const queryArgs = {

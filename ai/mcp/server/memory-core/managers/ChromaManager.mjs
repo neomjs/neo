@@ -2,7 +2,7 @@ import {ChromaClient}           from 'chromadb';
 import aiConfig                 from '../config.mjs';
 import logger                   from '../logger.mjs';
 import Base                     from '../../../../../src/core/Base.mjs';
-import DatabaseLifecycleService from './DatabaseLifecycleService.mjs';
+import DatabaseLifecycleService from '../services/DatabaseLifecycleService.mjs';
 
 /**
  * @summary Simple manager around the Chroma client that lazily caches frequently used collections.
@@ -19,10 +19,10 @@ import DatabaseLifecycleService from './DatabaseLifecycleService.mjs';
 class ChromaManager extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.memory-core.services.ChromaManager'
+         * @member {String} className='Neo.ai.mcp.server.memory-core.managers.ChromaManager'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.memory-core.services.ChromaManager',
+        className: 'Neo.ai.mcp.server.memory-core.managers.ChromaManager',
         /**
          * @member {ChromaClient|null} client=null
          * @protected

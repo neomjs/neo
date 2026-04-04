@@ -1,15 +1,14 @@
-import fs            from 'fs';
-import path          from 'path';
-import yaml          from 'js-yaml';
+import fs              from 'fs';
+import path            from 'path';
+import yaml            from 'js-yaml';
 import {fileURLToPath} from 'url';
-
-import aiConfig      from '../config.mjs';
-import Base          from '../../../../../src/core/Base.mjs';
-import SQLiteVectorManager  from './SQLiteVectorManager.mjs';
-import GraphService  from './GraphService.mjs';
-import Json          from '../../../../../src/util/Json.mjs';
-import logger        from '../logger.mjs';
-import Ollama        from '../../../../provider/Ollama.mjs';
+import aiConfig        from '../config.mjs';
+import Base            from '../../../../../src/core/Base.mjs';
+import StorageRouter   from '../managers/StorageRouter.mjs';
+import GraphService    from './GraphService.mjs';
+import Json            from '../../../../../src/util/Json.mjs';
+import logger          from '../logger.mjs';
+import Ollama          from '../../../../provider/Ollama.mjs';
 
 /**
  * @summary Service for offline GraphRAG extraction ("REM Sleep").
@@ -49,8 +48,8 @@ class DreamService extends Base {
         await super.initAsync();
 
         // Wait for ChromaManager to be ready (connected)
-        await SQLiteVectorManager.ready();
-        this.sessionsCollection = await SQLiteVectorManager.getSummaryCollection();
+        await StorageRouter.ready();
+        this.sessionsCollection = await StorageRouter.getSummaryCollection();
 
         if (aiConfig.data.autoDream) {
             logger.info('[Startup] DreamService: Checking for undigested session memories...');
@@ -113,9 +112,9 @@ class DreamService extends Base {
             for (const session of sessions) {
                 logger.info(`[DreamService] Preparing session ${session.meta.sessionId} ("${session.meta.title}") for REM extraction.`);
                 const success = await this.executeTriVectorExtraction(session);
-                
+
                 await this.extractTopology(session.document, session.meta.sessionId);
-                
+
                 if (success) {
                     await this.sessionsCollection.update({
                         ids: [session.id],
@@ -138,7 +137,7 @@ class DreamService extends Base {
     }
 
     /**
-     * Executes the Tri-Vector Synthesis (Semantic Graph, Open Deltas, Roadmap Strategy) 
+     * Executes the Tri-Vector Synthesis (Semantic Graph, Open Deltas, Roadmap Strategy)
      * from the session memory log via Ollama JSON schema extraction.
      * @param {Object} session Wrapped session object containing id, document, and meta
      * @returns {Promise<Object|null>} The extracted payload, or null on failure
@@ -217,7 +216,7 @@ ${session.document}
             // Bridge to GraphService (SQLite)
             for (const node of payload.graph.nodes) {
                 if (node.id === 'frontier') continue;
-                
+
                 GraphService.upsertNode({
                     id: node.id,
                     type: node.type || 'Unknown',
@@ -301,7 +300,7 @@ ${contextText}
             const __filename = fileURLToPath(import.meta.url);
             const __dirname  = path.dirname(__filename);
             const handoffFile = path.resolve(__dirname, '../../../../../resources/content/sandman_handoff.md');
-            
+
             let handoffContent = '';
             if (fs.existsSync(handoffFile)) {
                 handoffContent = fs.readFileSync(handoffFile, 'utf8');
@@ -337,16 +336,16 @@ ${contextText}
         const __filename = fileURLToPath(import.meta.url);
         const __dirname  = path.dirname(__filename);
         const issuesDir  = path.resolve(__dirname, '../../../../../resources/content/issues');
-        
+
         if (!fs.existsSync(issuesDir)) {
             logger.warn(`[DreamService] Issues directory not found at ${issuesDir}`);
             return [];
         }
-        
+
         const files = fs.readdirSync(issuesDir).filter(f => f.endsWith('.md'));
         const openIssues = [];
         const parsedIssues = [];
-        
+
         // Pass 1: Upsert all nodes
         for (const file of files) {
             const content = fs.readFileSync(path.join(issuesDir, file), 'utf8');
@@ -356,7 +355,7 @@ ${contextText}
                     const meta = yaml.load(match[1]);
                     if (meta && meta.state) {
                         const issueId = 'issue-' + (meta.id || file.replace(/\.md$/, ''));
-                        
+
                         GraphService.upsertNode({
                             id: issueId,
                             type: 'ISSUE',
@@ -386,7 +385,7 @@ ${contextText}
                     const parentId = extractIssueId(meta.parentIssue);
                     if (parentId && GraphService.db.nodes.get(parentId)) GraphService.linkNodes(parentId, issueId, 'PARENT_OF', 1.0);
                 }
-                
+
                 if (Array.isArray(meta.subIssues)) {
                     meta.subIssues.forEach(sub => {
                         const subId = extractIssueId(sub);
@@ -431,7 +430,7 @@ ${contextText}
                 logger.warn(`[DreamService] Failed to link edges for ${file}`, e);
             }
         }
-        
+
         return openIssues;
     }
 
@@ -441,7 +440,7 @@ ${contextText}
      */
     runGarbageCollection() {
         logger.info('[DreamService] Initiating Graph Garbage Collection (The Fade)...');
-        
+
         const edges = GraphService.db.edges.items.slice();
         let cullCount = 0;
         const edgesToUpdate = [];
@@ -450,7 +449,7 @@ ${contextText}
             let currentWeight = e.properties?.weight || 1.0;
             // Apply geometric decay
             let newWeight = currentWeight * 0.9;
-            
+
             if (newWeight < 0.1) {
                 GraphService.db.removeEdge(e.id);
                 cullCount++;
@@ -472,7 +471,7 @@ ${contextText}
      */
     async synthesizeGoldenPath() {
         logger.info('[DreamService] Initializing Mathematical Strategic Traversal...');
-        
+
         // This will sync Graph Node states and re-assert edge weights structurally!
         await this.ingestIssueStates();
 
@@ -483,7 +482,7 @@ ${contextText}
             // Find blockers
             const blockers = GraphService.db.edges.getByIndex('target', issue.id).filter(e => e.type === 'BLOCKS');
             let isBlocked = false;
-            
+
             for (const bEdge of blockers) {
                 const blockerNode = GraphService.db.nodes.get(bEdge.source);
                 if (blockerNode && blockerNode.properties?.state === 'OPEN') {
@@ -497,7 +496,7 @@ ${contextText}
             // Score based on all inbound, non-blocking edges (Hebbian + Structural)
             let score = 1.0; // Base score
             const inboundEdges = GraphService.db.edges.getByIndex('target', issue.id);
-            
+
             inboundEdges.forEach(e => {
                 if (e.type !== 'BLOCKS') {
                     score += parseFloat(e.properties?.weight || 1.0);
@@ -514,7 +513,7 @@ ${contextText}
         scoredNodes.sort((a, b) => b.score - a.score);
 
         const topNodes = scoredNodes.slice(0, 3);
-        
+
         if (topNodes.length === 0) {
             logger.info('[DreamService] No actionable unblocked issues found. Golden path empty.');
             return;
@@ -524,7 +523,7 @@ ${contextText}
             // Explicitly anchor this to the frontier context so the Agent NEVER loses sight of it
             GraphService.linkNodes('frontier', item.node.id, 'GUIDES', item.score);
         });
-        
+
         logger.info(`[DreamService] Mathematical Golden Path established. Anchored ${topNodes.length} strategic nodes to frontier.`);
     }
 }

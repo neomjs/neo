@@ -2,7 +2,7 @@ import {GoogleGenerativeAI} from '@google/generative-ai';
 import aiConfig             from '../config.mjs';
 import Base                 from '../../../../../src/core/Base.mjs';
 import crypto               from 'crypto';
-import SQLiteVectorManager  from './SQLiteVectorManager.mjs';
+import StorageRouter      from '../managers/StorageRouter.mjs';
 import HealthService        from './HealthService.mjs';
 import Json                 from '../../../../../src/util/Json.mjs';
 import logger               from '../logger.mjs';
@@ -126,13 +126,12 @@ class SessionService extends Base {
     async initAsync() {
         await super.initAsync();
 
-        // Wait for SQLiteVectorManager to be ready (connected)
-        // SQLiteVectorManager internally waits for DatabaseLifecycleService
-        await SQLiteVectorManager.ready();
+        // Wait for StorageRouter to be ready (connected)
+        await StorageRouter.ready();
 
-        // Use SQLiteVectorManager instead of direct client access
-        this.memoryCollection   = await SQLiteVectorManager.getMemoryCollection();
-        this.sessionsCollection = await SQLiteVectorManager.getSummaryCollection();
+        // Use StorageRouter
+        this.memoryCollection   = await StorageRouter.getMemoryCollection();
+        this.sessionsCollection = await StorageRouter.getSummaryCollection();
 
         // Do not proceed with summarization if the API key is missing.
         if (!this.model) {
