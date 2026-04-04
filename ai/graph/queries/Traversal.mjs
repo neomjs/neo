@@ -44,6 +44,10 @@ export const getPaths = (database, startNodeId, config = {}) => {
 
         visited.add(id);
 
+        if (database.storage && !database.vicinityLoadedNodes.has(id)) {
+            database.getAdjacentNodes(id, 'both');
+        }
+
         let node = database.nodes.get(id);
         if (!node) continue;
 
@@ -138,6 +142,10 @@ export const findShortestPath = (database, startNodeId, targetNodeId, config = {
         }
 
         unvisited.delete(currentId);
+
+        if (database.storage && !database.vicinityLoadedNodes.has(currentId)) {
+            database.getAdjacentNodes(currentId, 'both');
+        }
 
         let adjacentEdges = [];
         if (direction === 'outbound' || direction === 'both') {
