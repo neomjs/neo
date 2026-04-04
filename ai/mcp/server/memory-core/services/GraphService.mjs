@@ -46,6 +46,17 @@ class GraphService extends Base {
 
         await storage.load();
         
+        // Ensure the frontier node exists to prevent context frontier errors
+        this.db.getAdjacentNodes('frontier', 'both'); // trigger lazy load
+        if (!this.db.nodes.has('frontier')) {
+            this.upsertNode({
+                id: 'frontier',
+                type: 'SYSTEM_ANCHOR',
+                name: 'Active Context Frontier',
+                description: 'The shifting focal point of the active Neo OS agent session.'
+            });
+        }
+        
         logger.log('[GraphService] SQLite database mounted securely via ai.graph.Database.');
     }
 
