@@ -16,8 +16,9 @@ subIssues:
   - '[x] 9688 Agent Skill: Hybrid Roadmap Planner'
   - '[x] 9689 Agent Skill: Contextual Pre-Briefer'
   - '[ ] 9690 Agent Skill: Ideation Sandbox'
+  - '[ ] 9700 Initialize Default Context Frontier Node on Database Boot'
 subIssuesCompleted: 2
-subIssuesTotal: 3
+subIssuesTotal: 4
 blockedBy: []
 blocking: []
 ---
@@ -32,4 +33,6 @@ Implementing the background, autonomous layer of the Agent OS, leveraging the Na
 - 2026-04-04T13:44:01Z @tobiu added sub-issue #9688
 - 2026-04-04T13:44:02Z @tobiu added sub-issue #9689
 - 2026-04-04T13:44:03Z @tobiu added sub-issue #9690
+- 2026-04-04T17:02:00Z @tobiu cross-referenced by #9700
+- 2026-04-04T17:02:05Z @tobiu added sub-issue #9700
 

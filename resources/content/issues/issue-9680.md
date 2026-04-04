@@ -13,9 +13,10 @@ githubUrl: 'https://github.com/neomjs/neo/issues/9680'
 author: tobiu
 commentsCount: 1
 parentIssue: 9673
-subIssues: []
-subIssuesCompleted: 0
-subIssuesTotal: 0
+subIssues:
+  - '[x] 9699 Test: GraphService SQLite Lazy-Loading Coverage'
+subIssuesCompleted: 1
+subIssuesTotal: 1
 blockedBy: []
 blocking: []
 closedAt: '2026-04-04T02:33:59Z'
@@ -55,4 +56,6 @@ With the Native Edge Database engine fully operational locally, multiple AppWork
 > The system is now fully coherent supporting multiple decoupled Sandman Application Workers manipulating identical AST Knowledge bases completely locally gracefully natively. All code is verified and committed to remote (`#9680`).
 
 - 2026-04-04T02:34:00Z @tobiu closed this issue
+- 2026-04-04T16:44:56Z @tobiu added sub-issue #9699
+- 2026-04-04T17:49:20Z @tobiu referenced in commit `5c93412` - "test: Implement lazy-loading recursion tests and GC boundaries for Graph Database (#9680)"
 
