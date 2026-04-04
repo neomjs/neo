@@ -686,6 +686,47 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /graph/topology:
+    post:
+      summary: Query Hybrid Graph
+      operationId: query_hybrid_graph
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: true
+      description: |
+        Retrieves the structural topology surrounding a specific node from the SQLite Native Edge Graph.
+        Helps bridge the gap between Episodic Memory and Structural Knowledge.
+      tags: [Graph]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - nodeId
+              properties:
+                nodeId:
+                  type: string
+                  description: The ID of the root node.
+                maxDepth:
+                  type: integer
+                  description: The traversal depth from the root.
+                  default: 2
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
 components:
   schemas:
     HealthCheckResponse:

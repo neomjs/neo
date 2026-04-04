@@ -26,6 +26,7 @@ const serviceMapping = {
     manage_database_backup: DatabaseService         .manageDatabaseBackup.bind(DatabaseService),
     mutate_frontier       : MemoryService           .mutateFrontier      .bind(MemoryService),
     pre_brief_session     : MemoryService           .preBriefSession     .bind(MemoryService),
+    query_hybrid_graph    : GraphService            .queryNodeTopology   .bind(GraphService),
     query_raw_memories    : MemoryService           .queryMemories       .bind(MemoryService),
     query_summaries       : SummaryService          .querySummaries      .bind(SummaryService),
     search_nodes          : GraphService            .searchNodes         .bind(GraphService),
