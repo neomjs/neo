@@ -40,6 +40,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.GraphService', () => {
         if (GraphService.db) {
             GraphService.db.nodes.clear();
             GraphService.db.edges.clear();
+        GraphService.db.vicinityLoadedNodes.clear();
         }
     });
 
@@ -47,6 +48,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.GraphService', () => {
         if (GraphService.db) {
             GraphService.db.nodes.clear();
             GraphService.db.edges.clear();
+        GraphService.db.vicinityLoadedNodes.clear();
         }
     });
 
@@ -95,5 +97,67 @@ test.describe('Neo.ai.mcp.server.memory-core.services.GraphService', () => {
         expect(topology.frontier.id).toBe('frontier');
         expect(topology.strategicNeighbors.length).toBe(1);
         expect(topology.strategicNeighbors[0].id).toBe('EpicB');
+    });
+
+    test('should trigger a SQLite lazy-load on cache miss when fetching a Node', async () => {
+        GraphService.upsertNode({ id: 'LazyNode', name: 'Wait For It' });
+        GraphService.upsertNode({ id: 'ConnectedNode', name: 'Linked' });
+        GraphService.linkNodes('LazyNode', 'ConnectedNode', 'TEST_LINK', 1.0);
+
+        // Let the asynchronous store mutations propagate to SQLite natively
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        let wasAutoSave = GraphService.db.autoSave;
+        GraphService.db.autoSave = false;
+        
+        // Explicitly clear RAM cache WITHOUT cascading to SQLite
+        GraphService.db.nodes.clear();
+        GraphService.db.edges.clear();
+        GraphService.db.vicinityLoadedNodes.clear();
+        
+        GraphService.db.autoSave = wasAutoSave;
+
+        // Access via getNeighbors which should trigger SQLite rehydration
+        const neighbors = GraphService.getNeighbors({ id: 'LazyNode' });
+        expect(neighbors.length).toBe(1);
+        expect(neighbors[0].id).toBe('ConnectedNode');
+        expect(neighbors[0].relationship).toBe('TEST_LINK');
+
+        // Verify the node itself is fully rehydrated in RAM
+        const rehydratedNode = GraphService.getNode({ id: 'LazyNode' });
+        expect(rehydratedNode.id).toBe('LazyNode');
+        expect(rehydratedNode.name).toBe('Wait For It');
+        
+        // Verify it actually placed it back into the in-memory map
+        expect(GraphService.db.nodes.has('LazyNode')).toBe(true);
+    });
+
+    test('should lazy-load topology for getContextFrontier when frontiers drop out of cache', async () => {
+        GraphService.upsertNode({ id: 'frontier', type: 'SYSTEM_ANCHOR', name: 'AnchorData' });
+        GraphService.upsertNode({ id: 'StrategicTarget', name: 'SecretGoal' });
+        GraphService.linkNodes('frontier', 'StrategicTarget', 'FOCUS', 1.0);
+
+        // Let the asynchronous store mutations propagate to SQLite natively
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        let wasAutoSave = GraphService.db.autoSave;
+        GraphService.db.autoSave = false;
+        
+        // Wipe RAM cache to simulate memory eviction over time WITHOUT cascading to SQLite
+        GraphService.db.nodes.clear();
+        GraphService.db.edges.clear();
+        GraphService.db.vicinityLoadedNodes.clear();
+        
+        GraphService.db.autoSave = wasAutoSave;
+
+        // The method should seamlessly recover the topology from SQLite
+        const topology = GraphService.getContextFrontier();
+        
+        expect(topology).toBeDefined();
+        expect(topology.frontier.id).toBe('frontier');
+        expect(topology.frontier.name).toBe('AnchorData');
+        expect(topology.strategicNeighbors.length).toBe(1);
+        expect(topology.strategicNeighbors[0].id).toBe('StrategicTarget');
+        expect(topology.strategicNeighbors[0].name).toBe('SecretGoal');
     });
 });
