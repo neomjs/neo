@@ -1,23 +1,24 @@
 ---
 id: 9662
 title: 'Dream Mode Phase 3: GraphRAG Topology & REM Mode Orchestration'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
 assignees:
   - tobiu
 createdAt: '2026-04-03T14:46:30Z'
-updatedAt: '2026-04-03T14:49:31Z'
+updatedAt: '2026-04-04T00:04:14Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9662'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 9638
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-04-04T00:04:14Z'
 ---
 # Dream Mode Phase 3: GraphRAG Topology & REM Mode Orchestration
 
@@ -42,4 +43,9 @@ This ticket encompasses Phase 3 of the Swarm Orchestrator "Dream Mode" epic (#96
 - 2026-04-03T14:46:31Z @tobiu added the `ai` label
 - 2026-04-03T14:46:38Z @tobiu added parent issue #9638
 - 2026-04-03T14:49:31Z @tobiu assigned to @tobiu
+### @tobiu - 2026-04-04T00:04:13Z
+
+Superseded by the new architecture roadmap defined in Epic #9671 (specifically #9673 and #9674).
+
+- 2026-04-04T00:04:14Z @tobiu closed this issue
 

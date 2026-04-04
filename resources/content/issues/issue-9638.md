@@ -1,7 +1,7 @@
 ---
 id: 9638
 title: 'Epic: Architecture - Neo.mjs Dream Mode & GraphRAG Swarm'
-state: OPEN
+state: CLOSED
 labels:
   - epic
   - ai
@@ -9,11 +9,11 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-04-03T10:42:53Z'
-updatedAt: '2026-04-03T10:47:12Z'
+updatedAt: '2026-04-04T00:04:16Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9638'
 author: tobiu
-commentsCount: 0
-parentIssue: null
+commentsCount: 1
+parentIssue: 9671
 subIssues:
   - '[x] 9639 Local LLM Provider Adapter (Ollama + Gemma-4)'
   - '[x] 9640 Knowledge Graph Database Backend (Neocortex)'
@@ -24,13 +24,14 @@ subIssues:
   - '[x] 9659 Enhance Memory Core with Agent and Model Traceability'
   - '[x] 9660 Native MCP Tool Execution inside Loop.mjs'
   - '[x] 9661 Phase 2: Autonomous Sub-Agent Delegation (Dream Mode)'
-  - '[ ] 9662 Dream Mode Phase 3: GraphRAG Topology & REM Mode Orchestration'
+  - '[x] 9662 Dream Mode Phase 3: GraphRAG Topology & REM Mode Orchestration'
   - '[x] 9665 Stabilize MCP Server Infrastructure & Fix Memory/Graph Regression'
-  - '[ ] 9666 Epic: Migrate Knowledge Graph to Memory Core'
-subIssuesCompleted: 10
+  - '[x] 9666 Epic: Migrate Knowledge Graph to Memory Core'
+subIssuesCompleted: 12
 subIssuesTotal: 12
 blockedBy: []
 blocking: []
+closedAt: '2026-04-04T00:04:16Z'
 ---
 # Epic: Architecture - Neo.mjs Dream Mode & GraphRAG Swarm
 
@@ -76,4 +77,10 @@ This epic coordinates the upgrade of the Neo.mjs AI infrastructure into a GraphR
 - 2026-04-03T14:46:38Z @tobiu added sub-issue #9662
 - 2026-04-03T18:37:56Z @tobiu added sub-issue #9665
 - 2026-04-03T21:44:10Z @tobiu added sub-issue #9666
+- 2026-04-03T23:49:23Z @tobiu added parent issue #9671
+### @tobiu - 2026-04-04T00:04:16Z
+
+Superseded by the new Masterplan Epic #9671.
+
+- 2026-04-04T00:04:16Z @tobiu closed this issue
 
