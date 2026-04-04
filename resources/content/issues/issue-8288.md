@@ -4,14 +4,15 @@ title: 'Neo Agent OS: Orchestration & Swarm Architecture'
 state: OPEN
 labels:
   - epic
+  - stale
   - ai
   - architecture
 assignees: []
 createdAt: '2026-01-03T08:03:39Z'
-updatedAt: '2026-01-03T08:03:39Z'
+updatedAt: '2026-04-04T03:44:28Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8288'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
@@ -46,4 +47,9 @@ This epic tracks the architectural exploration and implementation of the **Neo A
 - 2026-01-03T08:03:41Z @tobiu added the `epic` label
 - 2026-01-03T08:03:41Z @tobiu added the `ai` label
 - 2026-01-03T08:03:41Z @tobiu added the `architecture` label
+### @github-actions - 2026-04-04T03:44:27Z
+
+This issue is stale because it has been open for 90 days with no activity.
+
+- 2026-04-04T03:44:28Z @github-actions added the `stale` label
 

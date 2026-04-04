@@ -18,9 +18,10 @@ subIssues:
   - '[x] 9638 Epic: Architecture - Neo.mjs Dream Mode & GraphRAG Swarm'
   - '[ ] 9672 Workflow Enablement: Implement Anthropic Agent Skills Standard'
   - '[ ] 9673 Technical Awareness: Hybrid GraphRAG (Native Edge Graph & App Mapping)'
-  - '[ ] 9674 Strategic Consciousness: The Sandman/REM Prototype'
-subIssuesCompleted: 1
-subIssuesTotal: 4
+  - '[x] 9674 Strategic Consciousness: The Sandman/REM Prototype'
+  - '[x] 9684 Epic: AI - The "Strategic Co-Founder" Orchestrator (Sub-Epic of #9671)'
+subIssuesCompleted: 3
+subIssuesTotal: 5
 blockedBy: []
 blocking: []
 ---
@@ -94,4 +95,5 @@ The sequence of execution is critical. It must be ordered purely on **AI Enablem
 - 2026-04-04T00:04:15Z @tobiu cross-referenced by #9662
 - 2026-04-04T00:04:18Z @tobiu cross-referenced by #9638
 - 2026-04-04T00:07:50Z @tobiu assigned to @tobiu
+- 2026-04-04T12:07:55Z @tobiu added sub-issue #9684
 
