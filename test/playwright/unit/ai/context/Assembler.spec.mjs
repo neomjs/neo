@@ -23,12 +23,14 @@ test.describe('Neo.ai.context.Assembler', () => {
     let assembler;
 
     test.beforeEach(async () => {
-        assembler = Neo.create(ContextAssembler);
-        // We mock out the services to avoid real DB connections for this specific unit test
-        assembler.initAsync = async function() {
-            this.skillsContext = this.loadSkillsSync();
-        };
-        await assembler.initAsync();
+        assembler = Neo.create({
+            module: ContextAssembler,
+            // We mock out the services to avoid real DB connections for this specific unit test
+            initAsync: async function() {
+                this.skillsContext = this.loadSkillsSync();
+            }
+        });
+        await assembler.ready();
     });
 
     test('loadSkillsSync should extract YAML frontmatter for progressive disclosure', async () => {
