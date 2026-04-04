@@ -305,9 +305,6 @@ class GraphService extends Base {
      * @returns {Object|null}
      */
     queryNodeTopology({nodeId, maxDepth = 2} = {}) {
-        // Guarantee lazy-loading of the topology explicitly
-        this.db.getAdjacentNodes(nodeId, 'both');
-
         const rootNode = this.db.nodes.get(nodeId);
         if (!rootNode) {
             logger.info(`[GraphService] Node ${nodeId} not found in graph.`);
@@ -322,34 +319,59 @@ class GraphService extends Base {
                 description: rootNode.properties?.description,
                 semanticVectorId: rootNode.properties?.semanticVectorId
             },
-            neighbors: []
+            nodes: [],
+            edges: []
         };
+        
+        topology.nodes.push(topology.root);
 
-        // Get immediate connections
-        const inbound = this.db.edges.getByIndex('target', nodeId);
-        const outbound = this.db.edges.getByIndex('source', nodeId);
+        let currentLevel = new Set([nodeId]);
+        let visitedNodes = new Set([nodeId]);
+        let visitedEdges = new Set();
 
-        [...inbound, ...outbound].forEach(e => {
-            const weight = e.properties?.weight || 1.0;
-            let adjacentId = e.source === nodeId ? e.target : e.source;
-            let node = this.db.nodes.get(adjacentId);
-            
-            if (node) {
-                topology.neighbors.push({
-                    id: node.id,
-                    type: node.label,
-                    name: node.properties?.name,
-                    description: node.properties?.description,
-                    semanticVectorId: node.properties?.semanticVectorId,
-                    relationship: e.type,
-                    weight: weight,
-                    direction: e.source === nodeId ? 'outbound' : 'inbound'
+        for (let depth = 0; typeof maxDepth === 'number' && depth < maxDepth; depth++) {
+            let nextLevel = new Set();
+            for (let id of currentLevel) {
+                // Guarantee lazy-loading of the topology explicitly
+                this.db.getAdjacentNodes(id, 'both');
+
+                const inbound = this.db.edges.getByIndex('target', id);
+                const outbound = this.db.edges.getByIndex('source', id);
+
+                [...inbound, ...outbound].forEach(e => {
+                    if (!visitedEdges.has(e.id)) {
+                        visitedEdges.add(e.id);
+                        topology.edges.push({
+                            source: e.source,
+                            target: e.target,
+                            relationship: e.type,
+                            weight: e.properties?.weight || 1.0
+                        });
+                    }
+
+                    let adjacentId = e.source === id ? e.target : e.source;
+                    if (!visitedNodes.has(adjacentId)) {
+                        visitedNodes.add(adjacentId);
+                        nextLevel.add(adjacentId);
+                        let n = this.db.nodes.get(adjacentId);
+                        if (n) {
+                            topology.nodes.push({
+                                id: n.id,
+                                type: n.label,
+                                name: n.properties?.name,
+                                description: n.properties?.description,
+                                semanticVectorId: n.properties?.semanticVectorId
+                            });
+                        }
+                    }
                 });
             }
-        });
+            if (nextLevel.size === 0) break;
+            currentLevel = nextLevel;
+        }
 
-        // Sort by highest weight
-        topology.neighbors.sort((a, b) => b.weight - a.weight);
+        // Sort edges by highest weight as a convenience
+        topology.edges.sort((a, b) => b.weight - a.weight);
 
         return topology;
     }

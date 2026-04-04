@@ -240,4 +240,39 @@ test.describe('Neo.ai.mcp.server.memory-core.services.GraphService', () => {
         // Restore maxGraphNodes constraint cleanly safely natively 
         GraphService.db.maxGraphNodes = null;
     });
+
+    test('should resolve queryNodeTopology correctly formatting root and neighbors', async () => {
+        GraphService.upsertNode({ id: 'RootT', name: 'Topology Start' });
+        GraphService.upsertNode({ id: 'AdjacentT', name: 'Adjacency Target', semanticVectorId: 'vec-123' });
+        GraphService.upsertNode({ id: 'DeepT', name: 'Deep Target', semanticVectorId: 'vec-456' });
+
+        GraphService.linkNodes('RootT', 'AdjacentT', 'REFERENCES', 0.95);
+        GraphService.linkNodes('AdjacentT', 'DeepT', 'REFERENCES', 0.85);
+
+        // Fetch using the new endpoint topology function - depth 1
+        const topology1 = GraphService.queryNodeTopology({ nodeId: 'RootT', maxDepth: 1 });
+
+        // Verify root mapping
+        expect(topology1).toBeDefined();
+        expect(topology1.root.id).toBe('RootT');
+        expect(topology1.root.name).toBe('Topology Start');
+
+        // Verify boundaries (depth 1 shouldn't include DeepT)
+        expect(topology1.nodes.length).toBe(2);
+        expect(topology1.edges.length).toBe(1);
+        expect(topology1.nodes.find(n => n.id === 'AdjacentT')).toBeDefined();
+        expect(topology1.nodes.find(n => n.id === 'DeepT')).toBeUndefined();
+
+        // Fetch using depth 2
+        const topology2 = GraphService.queryNodeTopology({ nodeId: 'RootT', maxDepth: 2 });
+        expect(topology2.nodes.length).toBe(3);
+        expect(topology2.edges.length).toBe(2);
+        expect(topology2.nodes.find(n => n.id === 'DeepT').semanticVectorId).toBe('vec-456');
+
+        // Check edge logic
+        const link = topology2.edges.find(e => e.target === 'AdjacentT');
+        expect(link.relationship).toBe('REFERENCES');
+        expect(link.weight).toBe(0.95);
+        expect(link.source).toBe('RootT');
+    });
 });
