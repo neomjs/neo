@@ -1,9 +1,8 @@
-import aiConfig from '../config.mjs';
-import fs       from 'fs-extra';
-import path     from 'path';
-import Database from 'better-sqlite3';
-import logger   from '../logger.mjs';
-import Base     from '../../../../../src/core/Base.mjs';
+import aiConfig     from '../config.mjs';
+import logger       from '../logger.mjs';
+import Base         from '../../../../../src/core/Base.mjs';
+import CoreDatabase from '../../../../../ai/graph/Database.mjs';
+import SQLite       from '../../../../../ai/graph/storage/SQLite.mjs';
 
 /**
  * @summary Service that manages the SQLite Knowledge Graph (Nodes and Edges).
@@ -32,49 +31,22 @@ class GraphService extends Base {
     }
 
     /**
-     * Initializes the SQLite Database and PRAGMA configurations.
+     * Initializes the SQLite Database and Native Edge database structures.
      */
     async initAsync() {
         await super.initAsync();
 
-        await fs.ensureDir(path.dirname(aiConfig.sqlitePath));
+        let storage = Neo.create(SQLite, { dbPath: aiConfig.sqlitePath });
+        await storage.initAsync();
 
-        this.db = new Database(aiConfig.sqlitePath, { verbose: null });
-        this.db.pragma('journal_mode = WAL');
+        this.db = Neo.create(CoreDatabase, {
+            id: 'memory-core-graph',
+            storage: storage
+        });
 
-        this.initSchema();
-        logger.log('[GraphService] SQLite database mounted securely.');
-    }
-
-    /**
-     * Defines the Nodes and Edges schemas mapping directly to the NeoCortex models.
-     */
-    initSchema() {
-        // Prepare tables structurally supporting arbitrary code, memory, and topology items
-        this.db.exec(`
-            CREATE TABLE IF NOT EXISTS Nodes (
-                id TEXT PRIMARY KEY,
-                type TEXT NOT NULL,
-                name TEXT NOT NULL,
-                description TEXT,
-                semanticVectorId TEXT
-            );
-        `);
-
-        // Store traversal linking topology
-        this.db.exec(`
-            CREATE TABLE IF NOT EXISTS Edges (
-                source TEXT NOT NULL,
-                target TEXT NOT NULL,
-                relationship TEXT NOT NULL,
-                weight REAL DEFAULT 1.0,
-                PRIMARY KEY (source, target, relationship),
-                FOREIGN KEY (source) REFERENCES Nodes(id) ON DELETE CASCADE,
-                FOREIGN KEY (target) REFERENCES Nodes(id) ON DELETE CASCADE
-            );
-        `);
-
-        logger.log('[GraphService] Graph schematic synchronized.');
+        await storage.load();
+        
+        logger.log('[GraphService] SQLite database mounted securely via ai.graph.Database.');
     }
 
     /**
@@ -82,16 +54,19 @@ class GraphService extends Base {
      * @param {Object} node
      */
     upsertNode({ id, type, name, description, semanticVectorId }) {
-        const stmt = this.db.prepare(`
-            INSERT INTO Nodes (id, type, name, description, semanticVectorId)
-            VALUES (?, ?, ?, ?, ?)
-            ON CONFLICT(id) DO UPDATE SET
-                type=excluded.type,
-                name=excluded.name,
-                description=excluded.description,
-                semanticVectorId=excluded.semanticVectorId
-        `);
-        stmt.run(id, type, name, description || null, semanticVectorId || null);
+        let node = this.db.nodes.get(id);
+
+        if (node) {
+            node.label = type;
+            node.properties = { ...node.properties, name, description, semanticVectorId };
+            this.db.nodes.update(node);
+        } else {
+            this.db.addNode({
+                id, 
+                label: type,
+                properties: { name, description, semanticVectorId }
+            });
+        }
     }
 
     /**
@@ -102,17 +77,15 @@ class GraphService extends Base {
      * @param {Number} weight
      */
     linkNodes(source, target, relationship, weight = 1.0) {
-        // Safe-guard enforcing node presence gracefully internally inside upsert cascades
-        const stmt = this.db.prepare(`
-            INSERT INTO Edges (source, target, relationship, weight)
-            VALUES (?, ?, ?, ?)
-            ON CONFLICT(source, target, relationship) DO UPDATE SET
-                weight=excluded.weight
-        `);
-        try {
-            stmt.run(source, target, relationship, weight);
-        } catch (e) {
-             logger.warn(`[GraphService] Link Failed ${source} -> ${target}: ${e.message}`);
+        let existing = this.db.edges.items.find(e => e.source === source && e.target === target && e.type === relationship);
+        if (!existing) {
+            this.db.addEdge({
+                id: Neo.getId('edge'),
+                source,
+                target,
+                type: relationship,
+                properties: { weight }
+            });
         }
     }
 
@@ -123,8 +96,15 @@ class GraphService extends Base {
      * @returns {Object|null}
      */
     getNode({id}) {
-        const stmt = this.db.prepare('SELECT * FROM Nodes WHERE id = ?');
-        return stmt.get(id) || null;
+        let node = this.db.nodes.get(id);
+        if (!node) return null;
+        return {
+            id: node.id,
+            type: node.label,
+            name: node.properties?.name,
+            description: node.properties?.description,
+            semanticVectorId: node.properties?.semanticVectorId
+        };
     }
 
     /**
@@ -134,13 +114,28 @@ class GraphService extends Base {
      * @returns {Array} List of connected Node objects with edge relationship mapping.
      */
     getNeighbors({id}) {
-        // Flat join to retrieve immediate topology scope
-        const stmt = this.db.prepare(`
-            SELECT n.*, e.relationship, e.weight, e.source, e.target
-            FROM Edges e
-            JOIN Nodes n ON (n.id = e.target AND e.source = ?) OR (n.id = e.source AND e.target = ?)
-        `);
-        return stmt.all(id, id);
+        let results = [],
+            inbound = this.db.edges.getByIndex('target', id),
+            outbound = this.db.edges.getByIndex('source', id);
+            
+        [...inbound, ...outbound].forEach(e => {
+            let adjacentId = e.source === id ? e.target : e.source;
+            let node = this.db.nodes.get(adjacentId);
+            if (node) {
+                results.push({
+                    id: node.id,
+                    type: node.label,
+                    name: node.properties?.name,
+                    description: node.properties?.description,
+                    relationship: e.type,
+                    weight: e.properties?.weight || 1.0,
+                    source: e.source,
+                    target: e.target
+                });
+            }
+        });
+        
+        return results;
     }
 
     /**
@@ -150,13 +145,25 @@ class GraphService extends Base {
      * @returns {Array} List of matching Nodes.
      */
     searchNodes({query}) {
-        const stmt = this.db.prepare(`
-            SELECT * FROM Nodes 
-            WHERE name LIKE ? OR description LIKE ? OR id LIKE ?
-            LIMIT 50
-        `);
-        const q = `%${query}%`;
-        return stmt.all(q, q, q);
+        let q = query.toLowerCase(),
+            matches = [];
+            
+        this.db.nodes.items.forEach(node => {
+            let name = (node.properties?.name || '').toLowerCase();
+            let desc = (node.properties?.description || '').toLowerCase();
+            let idLower = node.id.toLowerCase();
+            
+            if (name.includes(q) || desc.includes(q) || idLower.includes(q)) {
+                matches.push({
+                    id: node.id,
+                    type: node.label,
+                    name: node.properties?.name,
+                    description: node.properties?.description
+                });
+            }
+        });
+        
+        return matches.slice(0, 50);
     }
 }
 
