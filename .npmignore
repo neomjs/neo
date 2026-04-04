@@ -1,9 +1,6 @@
 # Additional rules, which are solely npm related, to not bloat the package size.
 apps/devindex/resources/*.json
-resources/content/issues
-resources/content/issue-archive
-resources/content/release-notes
-resources/content/.sync-metadata.json
+resources/content/
 
 # Original content of the .gitignore file
 # See http://help.github.com/ignore-files/ for more about ignoring files.

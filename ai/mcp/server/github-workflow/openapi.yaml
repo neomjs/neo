@@ -676,6 +676,122 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /discussions:
+    post:
+      summary: Create a new GitHub Discussion
+      operationId: create_discussion
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: false
+      description: |
+        Creates a new discussion on GitHub. This is used for the Ideation Sandbox, keeping brainstorming separate from issues.
+
+        **MANDATORY WORKFLOW:**
+        - Always provide a clear title and body.
+        - Categories are mapped internally; default is 'Ideas'. If another categorical structure is needed, specify it.
+      tags: [Issues]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - body
+              properties:
+                title:
+                  type: string
+                  description: The title of the discussion.
+                body:
+                  type: string
+                  description: The Markdown body of the discussion.
+                category:
+                  type: string
+                  description: The name of the category (e.g., 'Ideas', 'Q&A'). Defaults to 'Ideas'.
+                  default: "Ideas"
+      responses:
+        '201':
+          description: Discussion created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateIssueResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /discussions/comments/manage:
+    post:
+      summary: Manage Discussion Comments (Create or Update)
+      operationId: manage_discussion_comment
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: false
+      description: |
+        Unified tool for creating and updating comments on GitHub discussions.
+
+        **Action: 'create'**
+        - Creates a new comment on a discussion.
+        - Requires `agent`, `body`, and `discussion_number`.
+
+        **Action: 'update'**
+        - Updates an existing discussion comment.
+        - Requires `comment_id` and `body`.
+      tags: [Issues]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - action
+                - body
+              properties:
+                action:
+                  type: string
+                  enum: [create, update]
+                  description: The action to perform.
+                  example: create
+                discussion_number:
+                  type: integer
+                  description: The number of the discussion (required for 'create').
+                  example: 456
+                comment_id:
+                  type: string
+                  description: The global node ID of the comment (required for 'update').
+                  example: "DC_kwDOABcD1234567890"
+                body:
+                  type: string
+                  description: The content of the comment.
+                agent:
+                  type: string
+                  description: The agent identity in the format '[Model Name] ([Agent Wrapper])' (required for 'create').
+                  example: "Gemini 3.1 Pro (Antigravity)"
+      responses:
+        '200':
+          description: Comment created or updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Bad Request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /issues/relationship:
     post:
       summary: Manage Issue Relationships (Parent-Child and Blocked-By)
