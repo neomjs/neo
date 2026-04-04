@@ -15,9 +15,9 @@ parentIssue: null
 subIssues:
   - '[x] 9688 Agent Skill: Hybrid Roadmap Planner'
   - '[x] 9689 Agent Skill: Contextual Pre-Briefer'
-  - '[ ] 9690 Agent Skill: Ideation Sandbox'
-  - '[ ] 9700 Initialize Default Context Frontier Node on Database Boot'
-subIssuesCompleted: 2
+  - '[x] 9690 Agent Skill: Ideation Sandbox'
+  - '[x] 9700 Initialize Default Context Frontier Node on Database Boot'
+subIssuesCompleted: 4
 subIssuesTotal: 4
 blockedBy: []
 blocking: []

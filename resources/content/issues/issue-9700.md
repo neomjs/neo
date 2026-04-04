@@ -1,23 +1,24 @@
 ---
 id: 9700
 title: Initialize Default Context Frontier Node on Database Boot
-state: OPEN
+state: CLOSED
 labels:
   - bug
   - ai
 assignees:
   - tobiu
 createdAt: '2026-04-04T17:01:57Z'
-updatedAt: '2026-04-04T17:03:12Z'
+updatedAt: '2026-04-04T18:02:17Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9700'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 9687
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-04-04T18:02:17Z'
 ---
 # Initialize Default Context Frontier Node on Database Boot
 
@@ -36,4 +37,9 @@ We need an initialization step within our service layer (e.g. `GraphService`). W
 - 2026-04-04T17:02:05Z @tobiu added parent issue #9687
 - 2026-04-04T17:03:12Z @tobiu assigned to @tobiu
 - 2026-04-04T17:12:40Z @tobiu referenced in commit `e504e9a` - "fix: ensure default frontier node on graph service boot (#9700)"
+### @tobiu - 2026-04-04T18:02:16Z
+
+Fixed via e504e9a9aeb6e885cba0759cb2f4f162842f5ba6
+
+- 2026-04-04T18:02:17Z @tobiu closed this issue
 

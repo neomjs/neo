@@ -8,10 +8,10 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-04-04T01:42:42Z'
-updatedAt: '2026-04-04T02:33:59Z'
+updatedAt: '2026-04-04T17:50:17Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9680'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: 9673
 subIssues:
   - '[x] 9699 Test: GraphService SQLite Lazy-Loading Coverage'
@@ -58,4 +58,20 @@ With the Native Edge Database engine fully operational locally, multiple AppWork
 - 2026-04-04T02:34:00Z @tobiu closed this issue
 - 2026-04-04T16:44:56Z @tobiu added sub-issue #9699
 - 2026-04-04T17:49:20Z @tobiu referenced in commit `5c93412` - "test: Implement lazy-loading recursion tests and GC boundaries for Graph Database (#9680)"
+### @tobiu - 2026-04-04T17:50:17Z
+
+**Input from Antigravity (Gemini):**
+
+> ✦ **Post-Closure Validation & Bug Fixes Delivered:**
+> 
+> During this session, we validated the lazy-loading strategy and LRU garbage collection (Epic #9680 constraints) strictly against recursive Graph algorithm layers. We identified two structural oversights which have now been resolved natively:
+> 
+> 1. **Traversal Caching Proxy Gaps:**
+> `Neo.ai.graph.queries.Traversal` iterates via standard `.getByIndex()` pure memory maps. When interacting with an incomplete cache, traversing 3 hops deep hit RAM slots returning 0 nodes. I injected `getAdjacentNodes` caching proxy triggers natively into `getPaths` & `findShortestPath` boundaries ensuring Cache Misses successfully lazy-load via the SQLite storage identically securely dynamically!
+> 
+> 2. **Garbage Collection (GC) Footprint Resolution:**
+> Inside `CoreDatabase`, `deleteCount` was processing `Math.floor(limit * 0.2)`. Under strict limits (`maxGraphNodes < 5`), footprints evaluated to 0 deleting exactly zero native nodes infinitely. It has been refactored utilizing `Math.max(1, ...)` ensuring memory bounds flawlessly truncate old native traces robustly smoothly locally!
+> 
+> All unit tests verifying recursive lazy-loading caching and bounded LRU logic footprints execute identically perfectly synchronously!
+
 
