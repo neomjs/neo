@@ -1,6 +1,6 @@
 import aiConfig                 from '../config.mjs';
 import Base                     from '../../../../../src/core/Base.mjs';
-import SQLiteVectorManager      from './SQLiteVectorManager.mjs';
+import SQLiteVectorManager      from '../managers/SQLiteVectorManager.mjs';
 import DatabaseLifecycleService from './DatabaseLifecycleService.mjs';
 import logger                   from '../logger.mjs';
 

@@ -4,7 +4,7 @@ import logger               from '../logger.mjs';
 import crypto               from 'crypto';
 import path                 from 'path';
 import fs                   from 'fs-extra';
-import TextEmbeddingService from './TextEmbeddingService.mjs';
+import TextEmbeddingService from '../services/TextEmbeddingService.mjs';
 
 /**
  * @summary A native SQLite Vector database wrapper mimicking ChromaDB's API.
@@ -17,10 +17,10 @@ import TextEmbeddingService from './TextEmbeddingService.mjs';
 class SQLiteVectorManager extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.memory-core.services.SQLiteVectorManager'
+         * @member {String} className='Neo.ai.mcp.server.memory-core.managers.SQLiteVectorManager'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.memory-core.services.SQLiteVectorManager',
+        className: 'Neo.ai.mcp.server.memory-core.managers.SQLiteVectorManager',
         /**
          * @member {Boolean} singleton=true
          * @protected
