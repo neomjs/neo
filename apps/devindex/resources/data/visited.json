@@ -19464,6 +19464,7 @@
   "repo:google/WebFundamentals",
   "repo:google/accompanist",
   "repo:google/addlicense",
+  "repo:google/adk-go",
   "repo:google/adk-js",
   "repo:google/adk-python",
   "repo:google/adk-samples",
