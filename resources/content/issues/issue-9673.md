@@ -22,8 +22,9 @@ subIssues:
   - '[x] 9680 Native Edge Graph: Distributed Caching & Lazy Loading'
   - '[x] 9681 Native Edge Graph: ACID Transaction Control Pipeline'
   - '[x] 9682 Native Edge Graph: Traversal Query Engine & Aggregations'
-subIssuesCompleted: 7
-subIssuesTotal: 7
+  - '[x] 9683 Epic Sub: Session Amnesia & The Context Priming Engine'
+subIssuesCompleted: 8
+subIssuesTotal: 8
 blockedBy: []
 blocking: []
 ---
@@ -67,4 +68,5 @@ Pivot to a true **Hybrid GraphRAG Model**.
 - 2026-04-04T01:42:52Z @tobiu added sub-issue #9680
 - 2026-04-04T01:42:53Z @tobiu added sub-issue #9681
 - 2026-04-04T01:42:54Z @tobiu added sub-issue #9682
+- 2026-04-04T11:39:49Z @tobiu added sub-issue #9683
 
