@@ -4,7 +4,7 @@ import logger               from '../logger.mjs';
 import path          from 'path';
 import readline      from 'readline';
 import Base          from '../../../../../src/core/Base.mjs';
-import ChromaManager from './ChromaManager.mjs';
+import SQLiteVectorManager from './SQLiteVectorManager.mjs';
 import TextEmbeddingService from './TextEmbeddingService.mjs';
 
 /**
@@ -102,12 +102,12 @@ class DatabaseService extends Base {
             let memoryCount = 0, summaryCount = 0;
 
             if (include.includes('memories')) {
-                const collection = await ChromaManager.getMemoryCollection();
+                const collection = await SQLiteVectorManager.getMemoryCollection();
                 memoryCount = await this.#exportCollection(collection, aiConfig.memoryDb.backupPath, 'memory-backup');
             }
 
             if (include.includes('summaries')) {
-                const collection = await ChromaManager.getSummaryCollection();
+                const collection = await SQLiteVectorManager.getSummaryCollection();
                 summaryCount = await this.#exportCollection(collection, aiConfig.sessionDb.backupPath, 'summaries-backup');
             }
 
@@ -142,18 +142,18 @@ class DatabaseService extends Base {
             // Determine which collection to import into based on filename
             const isMemoryBackup = path.basename(filePath).startsWith('memory-backup');
             let collection = isMemoryBackup
-                ? await ChromaManager.getMemoryCollection()
-                : await ChromaManager.getSummaryCollection();
+                ? await SQLiteVectorManager.getMemoryCollection()
+                : await SQLiteVectorManager.getSummaryCollection();
 
             if (mode === 'replace') {
-                await ChromaManager.client.deleteCollection({ name: collection.name });
+                await SQLiteVectorManager.client.deleteCollection({ name: collection.name });
 
                 if (isMemoryBackup) {
-                    ChromaManager.memoryCollection = null;
-                    collection = await ChromaManager.getMemoryCollection();
+                    SQLiteVectorManager.memoryCollection = null;
+                    collection = await SQLiteVectorManager.getMemoryCollection();
                 } else {
-                    ChromaManager.summaryCollection = null;
-                    collection = await ChromaManager.getSummaryCollection();
+                    SQLiteVectorManager.summaryCollection = null;
+                    collection = await SQLiteVectorManager.getSummaryCollection();
                 }
 
                 logger.log('Replaced mode: existing collection cleared and recreated.');

@@ -1,5 +1,5 @@
 import Base                 from '../../../../../src/core/Base.mjs';
-import ChromaManager        from './ChromaManager.mjs';
+import SQLiteVectorManager  from './SQLiteVectorManager.mjs';
 import crypto               from 'crypto';
 import GraphService         from './GraphService.mjs';
 import logger               from '../logger.mjs';
@@ -44,7 +44,7 @@ class MemoryService extends Base {
      */
     async addMemory({prompt, response, thought, sessionId, agent, model}) {
         try {
-            const collection   = await ChromaManager.getMemoryCollection();
+            const collection   = await SQLiteVectorManager.getMemoryCollection();
             const combinedText = `User Prompt: ${prompt}\nAgent Thought: ${thought}\nAgent Response: ${response}`;
             const now          = Date.now();
             const timestamp    = new Date(now).toISOString();
@@ -99,7 +99,7 @@ class MemoryService extends Base {
                 return { sessionId, count: 0, total: 0, memories: [] };
             }
 
-            const collection = await ChromaManager.getMemoryCollection();
+            const collection = await SQLiteVectorManager.getMemoryCollection();
 
             const result = await collection.get({
                 where  : {sessionId},
@@ -151,7 +151,7 @@ class MemoryService extends Base {
      */
     async queryMemories({query, nResults, sessionId}) {
         try {
-            const collection = await ChromaManager.getMemoryCollection();
+            const collection = await SQLiteVectorManager.getMemoryCollection();
             const embedding  = await TextEmbeddingService.embedText(query);
 
             const queryArgs = {
@@ -223,7 +223,7 @@ class MemoryService extends Base {
             const semanticContexts = [];
 
             // We grab context blocks from summaries, as that is where DreamService extracts episodic graph nodes from
-            const collection = await ChromaManager.getSummaryCollection();
+            const collection = await SQLiteVectorManager.getSummaryCollection();
 
             for (const neighbor of strategicNeighbors) {
                 if (neighbor.semanticVectorId) {
@@ -295,7 +295,7 @@ class MemoryService extends Base {
                 context: []
             };
 
-            const collection = await ChromaManager.getSummaryCollection();
+            const collection = await SQLiteVectorManager.getSummaryCollection();
 
             for (const neighbor of neighbors) {
                 let episodicContext = null;

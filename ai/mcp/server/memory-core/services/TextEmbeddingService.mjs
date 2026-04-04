@@ -40,15 +40,15 @@ class TextEmbeddingService extends Base {
     construct(config) {
         super.construct(config);
 
-        const apiKey = process.env.GEMINI_API_KEY;
-
-        if (!apiKey) {
-            logger.warn('⚠️  [TextEmbeddingService] GEMINI_API_KEY not set. Semantic search features will be unavailable.');
-            return;
+        if (aiConfig.embeddingProvider === 'gemini') {
+            const apiKey = process.env.GEMINI_API_KEY;
+            if (!apiKey) {
+                logger.warn('⚠️  [TextEmbeddingService] GEMINI_API_KEY not set. Semantic search features will be unavailable.');
+            } else {
+                const genAI = new GoogleGenerativeAI(apiKey);
+                this.embeddingModel = genAI.getGenerativeModel({model: aiConfig.embeddingModel});
+            }
         }
-
-        const genAI = new GoogleGenerativeAI(apiKey);
-        this.embeddingModel = genAI.getGenerativeModel({model: aiConfig.embeddingModel});
     }
 
     /**
@@ -57,12 +57,33 @@ class TextEmbeddingService extends Base {
      * @returns {Promise<number[]>}
      */
     async embedText(text) {
-        if (!process.env.GEMINI_API_KEY) {
-             throw  new Error('Semantic search unavailable: GEMINI_API_KEY is missing.');
-        }
+        if (aiConfig.embeddingProvider === 'ollama') {
+            const { host, embeddingModel } = aiConfig.ollama;
+            try {
+                const response = await fetch(`${host}/api/embeddings`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ model: embeddingModel, prompt: text })
+                });
 
-        const result = await this.embeddingModel.embedContent(text);
-        return result.embedding.values;
+                if (!response.ok) {
+                    const errText = await response.text();
+                    throw new Error(`Ollama embedding error HTTP ${response.status}: ${errText}`);
+                }
+
+                const result = await response.json();
+                return result.embedding;
+            } catch (err) {
+                logger.error(`[TextEmbeddingService] Failed to generate embedding from Ollama:`, err.message);
+                throw err;
+            }
+        } else {
+            if (!process.env.GEMINI_API_KEY) {
+                 throw new Error('Semantic search unavailable: GEMINI_API_KEY is missing.');
+            }
+            const result = await this.embeddingModel.embedContent(text);
+            return result.embedding.values;
+        }
     }
 }
 

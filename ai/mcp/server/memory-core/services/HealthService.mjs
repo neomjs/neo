@@ -1,6 +1,6 @@
 import aiConfig                 from '../config.mjs';
 import Base                     from '../../../../../src/core/Base.mjs';
-import ChromaManager            from './ChromaManager.mjs';
+import SQLiteVectorManager      from './SQLiteVectorManager.mjs';
 import DatabaseLifecycleService from './DatabaseLifecycleService.mjs';
 import logger                   from '../logger.mjs';
 
@@ -106,12 +106,13 @@ class HealthService extends Base {
      */
     async #checkChromaConnection() {
         try {
-            await ChromaManager.client.heartbeat();
+            await SQLiteVectorManager.ready();
+            if (!SQLiteVectorManager.db?.open) throw new Error("SQLite VSS not open");
             return {running: true};
         } catch (e) {
             return {
                 running: false,
-                error  : `ChromaDB is not accessible at ${aiConfig.memoryDb.host}:${aiConfig.memoryDb.port}. Please start ChromaDB or use the start_database tool.`
+                error  : `SQLite VSS is not accessible: ${e.message}`
             };
         }
     }
@@ -134,13 +135,12 @@ class HealthService extends Base {
 
         try {
             // Check memory collection
-            const memoryCollection = await ChromaManager.getMemoryCollection().catch(() => null);
+            const memoryCollection = await SQLiteVectorManager.getMemoryCollection().catch(() => null);
             if (memoryCollection) {
-                const count = await memoryCollection.count();
                 result.memories = {
                     name  : aiConfig.memoryDb.collectionName,
                     exists: true,
-                    count
+                    count : await memoryCollection.count()
                 };
             } else {
                 result.memories = {
@@ -151,13 +151,12 @@ class HealthService extends Base {
             }
 
             // Check summary collection
-            const summaryCollection = await ChromaManager.getSummaryCollection().catch(() => null);
+            const summaryCollection = await SQLiteVectorManager.getSummaryCollection().catch(() => null);
             if (summaryCollection) {
-                const count = await summaryCollection.count();
                 result.summaries = {
                     name  : aiConfig.sessionDb.collectionName,
                     exists: true,
-                    count
+                    count : await summaryCollection.count()
                 };
             } else {
                 result.summaries = {
