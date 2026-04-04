@@ -37,11 +37,27 @@ test.describe('Memory Core Offline Summarization', () => {
         SDK = await import('../../../../../../ai/services.mjs');
         TextEmbeddingService = (await import('../../../../../../ai/mcp/server/memory-core/services/TextEmbeddingService.mjs')).default;
 
+        // Ensure isolated path for this test execution
+        const os = await import('os');
+        const fs = await import('fs');
+        const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const testDbPath = path.join(os.tmpdir(), `memory-core-session-test-${process.pid}-${Date.now()}.db`);
+        aiConfig.sqlitePath = testDbPath;
+        
+        // Remove existing test db
+        if (fs.existsSync(testDbPath)) {
+            fs.unlinkSync(testDbPath);
+        }
+
         // Force 'ollama' routing for this test
         SDK.Memory_Config.data.modelProvider          = 'ollama';
+        SDK.Memory_Config.data.embeddingProvider      = 'ollama';
         SDK.Memory_Config.data.ollama.model           = 'gemma4';
         SDK.Memory_Config.data.ollama.embeddingModel  = 'gemma4';
         SDK.Memory_Config.data.autoSummarize          = false;
+        
+        // Adjust batch limit to speed up test execution
+        SDK.Memory_Config.data.summarizationBatchLimit = 5;
 
         // Offline tests cannot hit Gemini's API. Mock TextEmbeddingService.
         TextEmbeddingService.embedText = async () => new Array(3072).fill(Math.random());
@@ -66,10 +82,10 @@ test.describe('Memory Core Offline Summarization', () => {
         // Clean up dummy turns so we don't pollute the real memory core
         if (dummySessionId && localModelActive) {
             try {
-                const memCol = await SDK.Memory_ChromaManager.getMemoryCollection();
+                const memCol = await SDK.Memory_SQLiteVectorManager.getMemoryCollection();
                 await memCol.delete({ where: { sessionId: dummySessionId } });
                 
-                const sumCol = await SDK.Memory_ChromaManager.getSummaryCollection();
+                const sumCol = await SDK.Memory_SQLiteVectorManager.getSummaryCollection();
                 await sumCol.delete({ where: { sessionId: dummySessionId } });
                 console.log(`[Cleanup] Deleted dummy session ${dummySessionId} from DB.`);
             } catch (e) {
@@ -104,7 +120,7 @@ test.describe('Memory Core Offline Summarization', () => {
         ];
 
         // Ensure database is ready before adding memories
-        await SDK.Memory_ChromaManager.ready();
+        await SDK.Memory_SQLiteVectorManager.ready();
 
         for (const turn of turns) {
             const addResult = await SDK.Memory_Service.addMemory({
@@ -134,7 +150,7 @@ test.describe('Memory Core Offline Summarization', () => {
         expect(result.title).toBeTruthy();
 
         // Verify summary actually got written
-        const summaryCollection = await SDK.Memory_ChromaManager.getSummaryCollection();
+        const summaryCollection = await SDK.Memory_SQLiteVectorManager.getSummaryCollection();
         const savedSummary = await summaryCollection.get({
             ids: [result.summaryId],
             include: ['metadatas', 'documents']

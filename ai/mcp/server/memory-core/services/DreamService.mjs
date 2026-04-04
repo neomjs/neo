@@ -5,7 +5,7 @@ import {fileURLToPath} from 'url';
 
 import aiConfig      from '../config.mjs';
 import Base          from '../../../../../src/core/Base.mjs';
-import ChromaManager from './ChromaManager.mjs';
+import SQLiteVectorManager  from './SQLiteVectorManager.mjs';
 import GraphService  from './GraphService.mjs';
 import Json          from '../../../../../src/util/Json.mjs';
 import logger        from '../logger.mjs';
@@ -49,8 +49,8 @@ class DreamService extends Base {
         await super.initAsync();
 
         // Wait for ChromaManager to be ready (connected)
-        await ChromaManager.ready();
-        this.sessionsCollection = await ChromaManager.getSummaryCollection();
+        await SQLiteVectorManager.ready();
+        this.sessionsCollection = await SQLiteVectorManager.getSummaryCollection();
 
         if (aiConfig.data.autoDream) {
             logger.info('[Startup] DreamService: Checking for undigested session memories...');

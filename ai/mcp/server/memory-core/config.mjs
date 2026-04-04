@@ -85,11 +85,17 @@ const defaultConfig = {
      */
     modelProvider: process.env.MODEL_PROVIDER || 'gemini',
     /**
+     * Provider to use for text embeddings ('gemini' or 'ollama')
+     * @type {string}
+     */
+    embeddingProvider: process.env.EMBEDDING_PROVIDER || 'ollama',
+    /**
      * Settings for the Ollama integration
      */
     ollama: {
-        host : process.env.OLLAMA_HOST || 'http://127.0.0.1:11434',
-        model: process.env.OLLAMA_MODEL || 'gemma4'
+        host          : process.env.OLLAMA_HOST || 'http://127.0.0.1:11434',
+        model         : process.env.OLLAMA_MODEL || 'gemma4',
+        embeddingModel: process.env.OLLAMA_EMBEDDING_MODEL || 'qwen3-embedding'
     },
     /**
      * The name of the Google Generative AI model for content generation.
