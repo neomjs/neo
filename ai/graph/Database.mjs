@@ -121,7 +121,7 @@ class Database extends Base {
             let nodesArray = Array.from(me.lastAccessMap.entries());
             nodesArray.sort((a,b) => a[1] - b[1]); // Oldest timestamps first
             
-            let deleteCount = Math.floor(me.maxGraphNodes * 0.2); // Execute 20% chunk truncation efficiently locally
+            let deleteCount = Math.max(1, Math.floor(me.maxGraphNodes * 0.2)); // Execute 20% chunk truncation cleanly locally guaranteeing at least 1 dropped
             let toDelete    = nodesArray.slice(0, deleteCount).map(entry => entry[0]);
 
             let wasTransacting = me.isExecutingTransaction;
