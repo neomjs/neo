@@ -17,10 +17,17 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../src/Neo.mjs';
 import * as core      from '../../../../../src/core/_export.mjs';
 import Database       from '../../../../../ai/graph/Database.mjs';
+import SQLite         from '../../../../../ai/graph/storage/SQLite.mjs';
+import fs             from 'fs-extra';
+import path           from 'path';
+import os             from 'os';
 
 test.describe('Neo.ai.graph.Database', () => {
     let db;
     let testRun = 0;
+    
+    // Build an isolated tmp path for the database file tests
+    const dbPath = path.join(os.tmpdir(), 'neo-graph-test.db');
 
     test.beforeEach(async () => {
         testRun++;
@@ -79,5 +86,45 @@ test.describe('Neo.ai.graph.Database', () => {
         
         expect(db.nodes.getCount()).toBe(1);
         expect(db.edges.getCount()).toBe(0); // Edge should be deleted because its source node is gone
+    });
+
+    test('should persist nodes and edges properly using SQLite storage adapter', async () => {
+        // Clean out previous runs
+        if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
+        
+        let storage = Neo.create(SQLite, { dbPath });
+        await storage.initAsync();
+        
+        let persistentDb = Neo.create(Database, {
+            id: 'sqlite-graph-test',
+            storage: storage
+        });
+
+        persistentDb.addNode({ id: 'node1', label: 'Person', properties: { name: 'Alice' } });
+        persistentDb.addNode({ id: 'node2', label: 'Person', properties: { name: 'Bob' } });
+        persistentDb.addEdge({ id: 'e1', source: 'node1', target: 'node2', type: 'KNOWS', weight: 1.0 });
+
+        expect(persistentDb.nodes.getCount()).toBe(2);
+        expect(persistentDb.edges.getCount()).toBe(1);
+
+        // Discard DB and ensure disk mapping survives via new instance
+        persistentDb.destroy();
+
+        let storageReload = Neo.create(SQLite, { dbPath });
+        await storageReload.initAsync();
+        
+        let reloadDb = Neo.create(Database, {
+            id: 'sqlite-graph-reload',
+            storage: storageReload
+        });
+
+        await storageReload.load();
+
+        expect(reloadDb.nodes.getCount()).toBe(2);
+        expect(reloadDb.edges.getCount()).toBe(1);
+        expect(reloadDb.nodes.get('node1').properties.name).toBe('Alice');
+        expect(reloadDb.edges.get('e1').type).toBe('KNOWS');
+
+        reloadDb.destroy();
     });
 });

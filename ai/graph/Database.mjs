@@ -3,6 +3,7 @@ import ClassSystemUtil from '../../src/util/ClassSystem.mjs';
 import Store           from './Store.mjs';
 import EdgeModel       from './EdgeModel.mjs';
 import NodeModel       from './NodeModel.mjs';
+import StorageBase     from './storage/Base.mjs';
 
 /**
  * The Database class serves as the core coordinator for the Native Edge Graph Database engine. 
@@ -21,6 +22,10 @@ class Database extends Base {
          */
         className: 'Neo.ai.graph.Database',
         /**
+         * @member {Boolean} autoSave=true
+         */
+        autoSave: true,
+        /**
          * @member {Object|Neo.data.Store|null} edges_=null
          * @reactive
          */
@@ -29,7 +34,13 @@ class Database extends Base {
          * @member {Object|Neo.data.Store|null} nodes_=null
          * @reactive
          */
-        nodes_: null
+        nodes_: null,
+        /**
+         * Database persistence wrapper.
+         * @member {Object|Neo.ai.graph.storage.Base|null} storage_=null
+         * @reactive
+         */
+        storage_: null
     }
 
     /**
@@ -51,6 +62,18 @@ class Database extends Base {
     }
 
     /**
+     * Triggered after the storage config gets changed.
+     * @param {Neo.ai.graph.storage.Base} value
+     * @param {Neo.ai.graph.storage.Base} oldValue
+     * @protected
+     */
+    afterSetStorage(value, oldValue) {
+        if (value) {
+            value.load();
+        }
+    }
+
+    /**
      * Triggered before the edges config gets changed.
      * @param {Object|Neo.data.Store} value
      * @param {Object|Neo.data.Store} oldValue
@@ -59,11 +82,15 @@ class Database extends Base {
      */
     beforeSetEdges(value, oldValue) {
         oldValue?.destroy();
-        return ClassSystemUtil.beforeSetInstance(value, Store, {
+        let store = ClassSystemUtil.beforeSetInstance(value, Store, {
             autoInitRecords: false,
             indices        : [{ property: 'source' }, { property: 'target' }],
             model          : EdgeModel
         });
+
+        store?.on('mutate', this.onEdgesMutate, this);
+
+        return store;
     }
 
     /**
@@ -75,10 +102,32 @@ class Database extends Base {
      */
     beforeSetNodes(value, oldValue) {
         oldValue?.destroy();
-        return ClassSystemUtil.beforeSetInstance(value, Store, {
+        let store = ClassSystemUtil.beforeSetInstance(value, Store, {
             autoInitRecords: false,
             model          : NodeModel
         });
+
+        store?.on('mutate', this.onNodesMutate, this);
+
+        return store;
+    }
+
+    /**
+     * Triggered before the storage config gets changed.
+     * @param {Object|Neo.ai.graph.storage.Base} value
+     * @param {Object|Neo.ai.graph.storage.Base} oldValue
+     * @returns {Neo.ai.graph.storage.Base}
+     * @protected
+     */
+    beforeSetStorage(value, oldValue) {
+        if (value) {
+            value = ClassSystemUtil.beforeSetInstance(value, StorageBase, {
+                database: this
+            });
+            
+            value.database = this;
+        }
+        return value;
     }
 
     /**
@@ -128,6 +177,36 @@ class Database extends Base {
         }
 
         return nodes;
+    }
+
+    /**
+     * Triggered on edges Store mutations to sync storage
+     * @param {Object} mutation
+     */
+    onEdgesMutate(mutation) {
+        if (this.autoSave && this.storage) {
+            if (mutation.addedItems?.length > 0) {
+                this.storage.addEdges(mutation.addedItems);
+            }
+            if (mutation.removedItems?.length > 0) {
+                this.storage.removeEdges(mutation.removedItems);
+            }
+        }
+    }
+
+    /**
+     * Triggered on nodes Store mutations to sync storage
+     * @param {Object} mutation
+     */
+    onNodesMutate(mutation) {
+        if (this.autoSave && this.storage) {
+            if (mutation.addedItems?.length > 0) {
+                this.storage.addNodes(mutation.addedItems);
+            }
+            if (mutation.removedItems?.length > 0) {
+                this.storage.removeNodes(mutation.removedItems);
+            }
+        }
     }
 
     /**
