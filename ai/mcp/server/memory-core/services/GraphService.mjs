@@ -220,6 +220,67 @@ class GraphService extends Base {
 
         return topology;
     }
+
+    /**
+     * Actively mutates the relationships originating from the frontier node.
+     * Upserts the frontier node if necessary, establishes the new relationship, and safely 
+     * decays older strategic neighbors to prevent context saturation.
+     * @param {Object} args
+     * @param {String} args.targetNodeId The ID of the node to pivot focus to.
+     * @param {Number} [args.weight=1.0] Importance weight, typically very high for a new pivot.
+     * @param {String} [args.relationship='STRATEGIC_PIVOT'] The semantic edge type.
+     */
+    mutateFrontier({ targetNodeId, weight = 1.0, relationship = 'STRATEGIC_PIVOT' }) {
+        let frontierNode = this.db.nodes.get('frontier');
+        if (!frontierNode) {
+            this.upsertNode({
+                id: 'frontier',
+                type: 'SYSTEM_ANCHOR',
+                name: 'Active Context Frontier',
+                description: 'The shifting focal point of the active Neo OS agent session.'
+            });
+        }
+
+        // First, apply decay to existing frontier edges to prevent saturation
+        const outbound = this.db.edges.getByIndex('source', 'frontier');
+        outbound.forEach(e => {
+            if (e.target !== targetNodeId) {
+                // Decay by 50%
+                let currentWeight = e.properties?.weight || 1.0;
+                e.properties.weight = currentWeight * 0.5;
+                this.db.edges.update(e);
+            }
+        });
+
+        // Upsert target node placeholder if it doesn't exist, to prevent getContextFrontier filtering it out
+        if (!this.db.nodes.get(targetNodeId)) {
+            this.upsertNode({
+                id: targetNodeId,
+                type: 'CONTEXT_NODE',
+                name: targetNodeId,
+                description: `Dynamically injected context target during a STRATEGIC_PIVOT.`
+            });
+        }
+
+        // Establish the new high-weight connection
+        let existingEdge = this.db.edges.items.find(e => e.source === 'frontier' && e.target === targetNodeId && e.type === relationship);
+        if (existingEdge) {
+            existingEdge.properties.weight = weight;
+            this.db.edges.update(existingEdge);
+        } else {
+            this.db.addEdge({
+                id: Neo.getId('edge'),
+                source: 'frontier',
+                target: targetNodeId,
+                type: relationship,
+                properties: { weight }
+            });
+        }
+
+        logger.info(`[GraphService] Mutated [Frontier] -> ${targetNodeId} w/ weight ${weight}`);
+        
+        return { success: true, targetNodeId, newWeight: weight };
+    }
 }
 
 export default Neo.setupClass(GraphService);

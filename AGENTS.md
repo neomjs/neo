@@ -113,7 +113,14 @@ Adhering to this recovery protocol is paramount for:
 - **Accurate Analysis:** Ensuring that future session summaries and memory queries are based on a complete and truthful record.
 - **Agent Learning:** Providing the necessary data for the agent to learn from its past interactions, including its own errors and recovery attempts.
 
-## 5. Request Triage
+## 5. The Strategic Co-Founder Protocol (Active Context Mutation)
+
+If the user explicitly pivots the top-level focus of the session (e.g., "Let's switch from the Database to the Next.js UI layer", or "Let's focus on Item 2 of the epic"), you **MUST** actively update the Native Graph so that the context window strategy remains aligned.
+
+- **Action:** You MUST invoke the `mutate_frontier` tool, passing the new conceptual target as `targetNodeId` (e.g. `nextjs-ui`).
+- **Why:** This establishes a high-weight edge in the native graph topology, ensuring the Context Priming Engine (`get_context_frontier`) passes the updated reality to future turns and sessions (Session Amnesia prevention). This also functions as the trigger for background Librarian workflows to perform deep topological re-organizations.
+
+## 6. Request Triage
 
 First, classify the user's request into one of two categories:
 
@@ -125,13 +132,13 @@ First, classify the user's request into one of two categories:
 
 **Note:** A conceptual discussion can become an actionable task. The moment the intent shifts from "what if..." to "let's do...", you must treat it as a new actionable request and apply the Ticket-First Gate.
 
-## 6. Git Protocol
+## 7. Git Protocol
 
 - **Ticket ID Required:** The commit subject line **MUST** end with `(#TICKET_ID)`.
     - **Correct:** `feat: Add infinite canvas (#8392)`
 - **Standard:** Follow Conventional Commits.
 
-## 7. Ticket Closure Protocol (Definition of Done)
+## 8. Ticket Closure Protocol (Definition of Done)
 
 You **MUST** perform these steps in order before marking a task as complete:
 
@@ -142,7 +149,7 @@ You **MUST** perform these steps in order before marking a task as complete:
     - The task is complete (summarize the result).
 4.  **Close:** Only after steps 1-3 are complete can you close the ticket.
 
-## 8. Preventing Context Corruption (State Management)
+## 9. Preventing Context Corruption (State Management)
 
 Working on the Neo platform requires long, complex sessions. To prevent your context window from becoming corrupted with multiple competing versions of the same file after several edits, you MUST adhere to this protocol:
 
@@ -152,7 +159,7 @@ Working on the Neo platform requires long, complex sessions. To prevent your con
 4. **Use `grep_search` for Method Verification:** If you need to verify the current state of a specific method after changes, use `grep_search` with the `context` parameter to surgically extract only that method.
 5. **No Shell Fallbacks:** You are strictly forbidden from using `cat` or `grep` via `run_shell_command` to read files. Always use the native `read_file` or `grep_search` tools.
 
-## 9. Testing and Validation Protocol
+## 10. Testing and Validation Protocol
 
 To maintain repository hygiene and improve test coverage, you MUST adhere to the following rules when validating your work:
 
@@ -160,7 +167,7 @@ To maintain repository hygiene and improve test coverage, you MUST adhere to the
 2. **No Throwaway Scripts:** You are strictly **FORBIDDEN** from using `run_shell_command` (e.g., `cat << EOF > test.js`) to create temporary testing scripts on the filesystem.
 3. **Permanent Coverage:** If you are testing or validating Neo.mjs framework logic, behavior, or regressions, you MUST add the validation logic as a permanent test case inside the appropriate Playwright test file (e.g., `test/playwright/unit/data/Store.spec.mjs`). Use the `replace` or `write_file` tools to do this. A task is not complete unless its framework logic is permanently verifiable.
 
-## 10. File Editing Tool Selection (The "Append Gap")
+## 11. File Editing Tool Selection (The "Append Gap")
 
 Due to the constraints of the agentic environment, you MUST adhere to the following rules when modifying files to prevent JSON escaping errors and tool contract violations:
 

@@ -263,6 +263,39 @@ class MemoryService extends Base {
             };
         }
     }
+
+    /**
+     * Mutates the active context frontier in the native knowledge graph.
+     * @param {Object} options
+     * @param {String} options.targetNodeId The semantic target ID.
+     * @param {Number} [options.weight=1.0] Importance weighting.
+     * @param {String} [options.relationship='STRATEGIC_PIVOT'] Relationships label.
+     * @returns {Promise<Object>}
+     */
+    async mutateFrontier({targetNodeId, weight = 1.0, relationship = 'STRATEGIC_PIVOT'}) {
+        try {
+            if (!targetNodeId) {
+                return {
+                    error  : 'targetNodeId is required',
+                    code   : 'INVALID_PARAMETERS'
+                };
+            }
+            
+            const result = GraphService.mutateFrontier({ targetNodeId, weight, relationship });
+            
+            return {
+                message: 'Successfully mutated the context frontier.',
+                result
+            };
+        } catch (error) {
+            logger.error('[MemoryService] Error running mutateFrontier:', error);
+            return {
+                error  : 'Failed to mutate context frontier',
+                message: error.message,
+                code   : 'MUTATE_FRONTIER_ERROR'
+            };
+        }
+    }
 }
 
 export default Neo.setupClass(MemoryService);
