@@ -26,6 +26,12 @@ class Database extends Base {
          */
         autoSave: true,
         /**
+         * System flag ensuring perfect isolated V8 single threading loops dynamically.
+         * @member {Boolean} isExecutingTransaction=false
+         * @protected
+         */
+        isExecutingTransaction: false,
+        /**
          * @member {Object|Neo.data.Store|null} edges_=null
          * @reactive
          */
@@ -180,10 +186,14 @@ class Database extends Base {
     }
 
     /**
-     * Triggered on edges Store mutations to sync storage
-     * @param {Object} mutation
-     */
+         * Triggered on edges Store mutations to sync storage
+         * @param {Object} mutation
+         */
     onEdgesMutate(mutation) {
+        if (this.isExecutingTransaction) {
+            this.transactionDiff.push({ type: 'edges', mutation });
+            return;
+        }
         if (this.autoSave && this.storage) {
             if (mutation.addedItems?.length > 0) {
                 this.storage.addEdges(mutation.addedItems);
@@ -199,6 +209,10 @@ class Database extends Base {
      * @param {Object} mutation
      */
     onNodesMutate(mutation) {
+        if (this.isExecutingTransaction) {
+            this.transactionDiff.push({ type: 'nodes', mutation });
+            return;
+        }
         if (this.autoSave && this.storage) {
             if (mutation.addedItems?.length > 0) {
                 this.storage.addNodes(mutation.addedItems);
@@ -236,6 +250,66 @@ class Database extends Base {
 
         if (edgesToRemove.length > 0) {
             me.edges.remove(edgesToRemove);
+        }
+    }
+
+    /**
+     * Parses the identical mutation buffer inversely mapping strict `.splice()` limits natively resolving failures.
+     * @param {Object[]} diffLog
+     * @protected
+     */
+    rollbackTransaction(diffLog) {
+        // Iterate backward guarantees dependencies (e.g. node deletion then edge cascade) reverse perfectly 
+        for (let i = diffLog.length - 1; i >= 0; i--) {
+            let trace    = diffLog[i];
+            let store    = trace.type === 'nodes' ? this.nodes : this.edges;
+            let mutation = trace.mutation;
+
+            // Suspend mutation monitoring cleanly natively during automated rollback logic bounds!
+            let wasTransacting = this.isExecutingTransaction;
+            this.isExecutingTransaction = false;
+            let wasAutoSave = this.autoSave;
+            this.autoSave = false;
+
+            if (mutation.addedItems?.length > 0) {
+                store.remove(mutation.addedItems.map(item => item.id));
+            }
+            if (mutation.removedItems?.length > 0) {
+                store.add(mutation.removedItems);
+            }
+
+            this.autoSave = wasAutoSave;
+            this.isExecutingTransaction = wasTransacting;
+        }
+    }
+
+    /**
+     * Executes purely synchronous atomic closures securely mirroring standard database parameters effectively.
+     * Utilizes a rollback buffer erasing local V8 mapped instances correctly if backend SQLite queries detonate cleanly.
+     * 
+     * @param {Function} fn Synchronous logical closure interacting via standard `Database.addNode/removeNode`.
+     */
+    transaction(fn) {
+        if (this.isExecutingTransaction) {
+            throw new Error('Graph Native Database transactions cannot be structurally nested.');
+        }
+
+        this.isExecutingTransaction = true;
+        this.transactionDiff = [];
+
+        try {
+            fn(); // Synchronous array splices apply isolating memory mappings instantaneously internally
+            
+            if (this.storage && this.transactionDiff.length > 0) {
+                this.storage.executeTransaction(this.transactionDiff);
+            }
+        } catch (error) {
+            // Intercept internal throw commands seamlessly rendering perfect state erasures instantly
+            this.rollbackTransaction(this.transactionDiff);
+            throw error; 
+        } finally {
+            this.isExecutingTransaction = false;
+            this.transactionDiff = [];
         }
     }
 }

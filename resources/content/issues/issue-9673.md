@@ -6,16 +6,24 @@ labels:
   - epic
   - ai
   - architecture
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-04-03T23:59:50Z'
-updatedAt: '2026-04-03T23:59:50Z'
+updatedAt: '2026-04-04T01:18:24Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9673'
 author: tobiu
 commentsCount: 0
 parentIssue: 9671
-subIssues: []
-subIssuesCompleted: 0
-subIssuesTotal: 0
+subIssues:
+  - '[x] 9676 Implement Native Edge Graph Database Engine'
+  - '[x] 9677 Epic Sub: Enhance Neo.collection.Base with Secondary Lookup Indices'
+  - '[x] 9678 Native Graph Database SQLite Persistence Adapter'
+  - '[x] 9679 Optimize V8 graph array operations via native slice topologies'
+  - '[ ] 9680 Native Edge Graph: Distributed Caching & Lazy Loading'
+  - '[ ] 9681 Native Edge Graph: ACID Transaction Control Pipeline'
+  - '[x] 9682 Native Edge Graph: Traversal Query Engine & Aggregations'
+subIssuesCompleted: 5
+subIssuesTotal: 7
 blockedBy: []
 blocking: []
 ---
@@ -51,4 +59,12 @@ Pivot to a true **Hybrid GraphRAG Model**.
 - 2026-04-03T23:59:58Z @tobiu added parent issue #9671
 - 2026-04-04T00:02:14Z @tobiu cross-referenced by #9674
 - 2026-04-04T00:04:15Z @tobiu cross-referenced by #9662
+- 2026-04-04T00:37:43Z @tobiu added sub-issue #9676
+- 2026-04-04T01:03:47Z @tobiu added sub-issue #9677
+- 2026-04-04T01:18:06Z @tobiu added sub-issue #9678
+- 2026-04-04T01:18:24Z @tobiu assigned to @tobiu
+- 2026-04-04T01:38:24Z @tobiu added sub-issue #9679
+- 2026-04-04T01:42:52Z @tobiu added sub-issue #9680
+- 2026-04-04T01:42:53Z @tobiu added sub-issue #9681
+- 2026-04-04T01:42:54Z @tobiu added sub-issue #9682
 

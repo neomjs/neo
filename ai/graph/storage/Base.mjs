@@ -55,6 +55,12 @@ class Base extends NeoBase {
      * Orchestrates the restoration loop, ripping physical rows back out into standard `Neo.data.Record` collections internally.
      */
     async load() {}
+
+    /**
+     * Executes a combined difflog batch inside an atomic array natively safely.
+     * @param {Object[]} diffLog Array of mutation traces
+     */
+    executeTransaction(diffLog) {}
 }
 
 export default Neo.setupClass(Base);
