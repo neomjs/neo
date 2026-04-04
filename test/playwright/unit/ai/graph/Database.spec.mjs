@@ -120,6 +120,13 @@ test.describe('Neo.ai.graph.Database', () => {
 
         await storageReload.load();
 
+        // Since Graph uses Distributed Lazy Loading, memory limits are 0 until accessed intelligently natively!
+        expect(reloadDb.nodes.getCount()).toBe(0);
+        expect(reloadDb.edges.getCount()).toBe(0);
+
+        // Fetch Vicinity synchronously simulating standalone engine Traversal perfectly.
+        reloadDb.getAdjacentNodes('node1');
+
         expect(reloadDb.nodes.getCount()).toBe(2);
         expect(reloadDb.edges.getCount()).toBe(1);
         expect(reloadDb.nodes.get('node1').properties.name).toBe('Alice');
@@ -164,6 +171,9 @@ test.describe('Neo.ai.graph.Database', () => {
         });
         await storageReload.load();
 
+        // Distributed Vicinity Load mapping Lazy Memory internally perfectly
+        reloadDb.getAdjacentNodes('X'); 
+
         expect(reloadDb.edges.getCount()).toBe(1);
         reloadDb.destroy();
     });
@@ -194,5 +204,42 @@ test.describe('Neo.ai.graph.Database', () => {
         expect(!dbRollback.nodes.has('Poison')).toBe(true);
         
         dbRollback.destroy();
+    });
+
+    test('should enforce Cache Coherence flushing stale footprints dynamically directly mapping SQLite hardware triggers seamlessly', async () => {
+        if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
+        
+        let storagePrimary = Neo.create(SQLite, { dbPath });
+        await storagePrimary.initAsync();
+        await storagePrimary.load();
+        let dbPrimary = Neo.create(Database, { id: 'cache-p', storage: storagePrimary });
+
+        dbPrimary.addNode({ id: 'core' });
+        dbPrimary.addNode({ id: 'branch' });
+        dbPrimary.addEdge({ id: 'route1', source: 'core', target: 'branch', type: 'LINKS' });
+
+        // Spin up second standalone Neo Database instance mimicking another Node.js App Worker process securely!
+        let storageSecondary = Neo.create(SQLite, { dbPath });
+        await storageSecondary.initAsync();
+        let dbSecondary = Neo.create(Database, { id: 'cache-s', storage: storageSecondary });
+        await storageSecondary.load();
+
+        // Load Vicinity inside Secondary instance pulling it directly into Memory correctly
+        dbSecondary.getAdjacentNodes('core');
+        expect(dbSecondary.nodes.getCount()).toBe(2);
+        
+        // Emulate Primary Server completely bypassing Secondary Process Memory internally modifying disk bounds directly!
+        dbPrimary.removeNode('branch'); 
+        
+        // Automatically hardware Trigger executed locally recording branch deletion on GraphLog internally.
+        // If Secondary Process hits an adjacent lookup, it automatically sweeps Garbage Logs!
+        dbSecondary.getAdjacentNodes('core');
+
+        // Verify Secondary correctly invalidated Memory autonomously flawlessly natively!
+        expect(dbSecondary.nodes.has('branch')).toBe(false);
+        expect(dbSecondary.nodes.getCount()).toBe(1);
+
+        dbPrimary.destroy();
+        dbSecondary.destroy();
     });
 });

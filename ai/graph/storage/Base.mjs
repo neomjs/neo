@@ -61,6 +61,23 @@ class Base extends NeoBase {
      * @param {Object[]} diffLog Array of mutation traces
      */
     executeTransaction(diffLog) {}
+    /**
+     * Executes localized sequence polling isolating un-processed Native SQL edits securely.
+     * Evaluates Database Logs verifying structurally exactly which remote Application Workers modified Graph limits.
+     * @see Neo.ai.graph.Database#syncCache
+     * @param {Number} sinceId 
+     * @returns {Object} { lastLogId, invalidNodes, invalidEdges }
+     */
+    getDeltaLog(sinceId) {}
+
+    /**
+     * Retrieves specific isolated Graph chunks mapping immediate adjacency cleanly back resolving cache misses.
+     * Fetches adjacent Node and Edge mappings bypassing massive initialization loops exclusively targeting specifically isolated Memory bounds limits natively.
+     * @see Neo.ai.graph.Database#getAdjacentNodes
+     * @param {String|String[]} nodeIds 
+     * @returns {Object} { nodes:[], edges:[] }
+     */
+    loadNodeVicinitySync(nodeIds) {}
 }
 
 export default Neo.setupClass(Base);
