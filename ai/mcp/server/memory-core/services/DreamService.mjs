@@ -272,7 +272,8 @@ ${session.document}
                             id: issueId,
                             type: 'ISSUE',
                             name: meta.title || issueId,
-                            state: meta.state
+                            state: meta.state,
+                            updatedAt: meta.updatedAt || meta.createdAt
                         });
 
                         if (meta.state === 'OPEN') {

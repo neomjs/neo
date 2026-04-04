@@ -53,7 +53,7 @@ class GraphService extends Base {
      * Upserts a Node representation into the graph securely linking the ID.
      * @param {Object} node
      */
-    upsertNode({ id, type, name, description, semanticVectorId, state }) {
+    upsertNode({ id, type, name, description, semanticVectorId, state, updatedAt }) {
         let node = this.db.nodes.get(id);
 
         if (node) {
@@ -64,6 +64,7 @@ class GraphService extends Base {
             if (description !== undefined) p.description = description;
             if (semanticVectorId !== undefined) p.semanticVectorId = semanticVectorId;
             if (state !== undefined) p.state = state;
+            if (updatedAt !== undefined) p.updatedAt = updatedAt;
             
             node.properties = p;
             
@@ -72,14 +73,16 @@ class GraphService extends Base {
                 this.db.storage.addNodes([node]);
             }
         } else {
-            let properties = { name, description, semanticVectorId };
-            if (state !== undefined) {
-                properties.state = state;
-            }
             this.db.addNode({
-                id, 
+                id,
                 label: type || 'NODE',
-                properties
+                properties: {
+                    name: name || id,
+                    description: description || '',
+                    semanticVectorId,
+                    state,
+                    updatedAt
+                }
             });
         }
     }
