@@ -15,8 +15,9 @@ commentsCount: 0
 parentIssue: null
 subIssues:
   - '[x] 9695 Implement Offline Synchronization for Ideation Sandbox (Discussions)'
-subIssuesCompleted: 1
-subIssuesTotal: 1
+  - '[x] 9698 Feature: Agent Skill Loader & Ideation Sandbox'
+subIssuesCompleted: 2
+subIssuesTotal: 2
 blockedBy: []
 blocking: []
 ---
@@ -40,4 +41,5 @@ Instead of polluting the actionable Issue tracker, the agent should utilize **Gi
 - 2026-04-04T14:49:05Z @tobiu added the `ai` label
 - 2026-04-04T14:50:20Z @tobiu assigned to @tobiu
 - 2026-04-04T15:14:57Z @tobiu added sub-issue #9695
+- 2026-04-04T16:18:30Z @tobiu added sub-issue #9698
 

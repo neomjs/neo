@@ -12,9 +12,12 @@ githubUrl: 'https://github.com/neomjs/neo/issues/9672'
 author: tobiu
 commentsCount: 0
 parentIssue: 9671
-subIssues: []
-subIssuesCompleted: 0
-subIssuesTotal: 0
+subIssues:
+  - '[x] 9701 Implement Progressive Disclosure for Agent Skills Context Assembly'
+  - '[x] 9702 Implement Neural Link Tactical Skill (Tool Chaining)'
+  - '[x] 9703 Implement "Skill Creation" Meta-Skill'
+subIssuesCompleted: 3
+subIssuesTotal: 3
 blockedBy: []
 blocking: []
 ---
@@ -46,4 +49,9 @@ Implement the Anthropic standard for **Composable Agent Skills**. This enables t
 - 2026-04-03T23:56:52Z @tobiu added the `epic` label
 - 2026-04-03T23:56:52Z @tobiu added the `ai` label
 - 2026-04-03T23:56:56Z @tobiu added parent issue #9671
+- 2026-04-04T17:09:12Z @tobiu cross-referenced by #9701
+- 2026-04-04T17:09:18Z @tobiu added sub-issue #9701
+- 2026-04-04T17:23:48Z @tobiu cross-referenced by #9702
+- 2026-04-04T17:23:51Z @tobiu added sub-issue #9702
+- 2026-04-04T17:32:23Z @tobiu added sub-issue #9703
 
