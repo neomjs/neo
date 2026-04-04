@@ -16,7 +16,7 @@ import Ollama        from '../../../../provider/Ollama.mjs';
  *
  * Scans recent session summaries from the `neo-agent-sessions` collection that have not
  * yet been formally digested into Graph Nodes and Edges. Uses the local Ollama provider
- * via `gemma-4-31b-it` to extract formal graph structures from episodic memories.
+ * via configurable model to extract formal graph structures from episodic memories.
  *
  * @class Neo.ai.mcp.server.memory-core.services.DreamService
  * @extends Neo.core.Base
@@ -123,7 +123,10 @@ class DreamService extends Base {
                 }
             }
 
-            // After extraction pipeline is done, synthesize strategic roadmap
+            // Universal Fade (Garbage Collection)
+            this.runGarbageCollection();
+
+            // After extraction pipeline and decay are done, synthesize strategic roadmap
             await this.synthesizeGoldenPath();
 
             logger.info('[DreamService] REM pipeline completed.');
@@ -177,7 +180,7 @@ ${session.document}
 
         try {
             const provider = Neo.create(Ollama, {
-                modelName: 'gemma-4-31b-it'
+                modelName: aiConfig.ollama.model
             });
 
             // Call standard generation method with explicit format enforcement
@@ -238,10 +241,11 @@ ${session.document}
     }
 
     /**
-     * Parses the local file system for markdown files with a YAML 'state: OPEN'.
-     * @returns {Promise<Object[]>}
+     * Parses the local file system for markdown files and explicitly syncs their state
+     * into the Native Graph database. Re-asserts edge weights for OPEN issues.
+     * @returns {Promise<Object[]>} Returns only the OPEN issues for synthesis.
      */
-    async parseOpenIssues() {
+    async ingestIssueStates() {
         const __filename = fileURLToPath(import.meta.url);
         const __dirname  = path.dirname(__filename);
         const issuesDir  = path.resolve(__dirname, '../../../../../resources/content/issues');
@@ -260,13 +264,36 @@ ${session.document}
             if (match) {
                 try {
                     const meta = yaml.load(match[1]);
-                    if (meta && meta.state === 'OPEN') {
-                        const body = content.replace(/^---\n[\s\S]*?\n---\n/, '').trim();
-                        openIssues.push({
-                            title: meta.title,
-                            issueId: meta.issueId || file,
-                            body
+                    if (meta && meta.state) {
+                        const issueId = 'issue-' + meta.issueId; // Normalize ID format e.g. issue-9685
+                        
+                        // Push explicit state into the database
+                        GraphService.upsertNode({
+                            id: issueId,
+                            type: 'ISSUE',
+                            name: meta.title || issueId,
+                            state: meta.state
                         });
+
+                        if (meta.state === 'OPEN') {
+                            // The Ancestral Anchor: Re-assert edge weights for active roadmap items
+                            const edges = GraphService.db.edges.items.filter(e => e.source === issueId || e.target === issueId);
+                            if (edges.length > 0) {
+                                edges.forEach(e => {
+                                    e.properties.weight = 1.0;
+                                });
+                                if (GraphService.db.autoSave && GraphService.db.storage) {
+                                    GraphService.db.storage.addEdges(edges);
+                                }
+                            }
+
+                            const body = content.replace(/^---\n[\s\S]*?\n---\n/, '').trim();
+                            openIssues.push({
+                                title: meta.title,
+                                issueId: meta.issueId || file,
+                                body
+                            });
+                        }
                     }
                 } catch(e) {
                     logger.warn(`[DreamService] Failed to parse frontmatter for ${file}`, e);
@@ -277,12 +304,45 @@ ${session.document}
     }
 
     /**
+     * Executes the global "Fade" algorithm across all Native Graph edges.
+     * Unused edges undergo a geometric decay and are permanently severed if they fall beneath the threshold.
+     */
+    runGarbageCollection() {
+        logger.info('[DreamService] Initiating Graph Garbage Collection (The Fade)...');
+        
+        const edges = GraphService.db.edges.items.slice();
+        let cullCount = 0;
+        const edgesToUpdate = [];
+
+        edges.forEach(e => {
+            let currentWeight = e.properties?.weight || 1.0;
+            // Apply geometric decay
+            let newWeight = currentWeight * 0.9;
+            
+            if (newWeight < 0.1) {
+                GraphService.db.removeEdge(e.id);
+                cullCount++;
+            } else {
+                e.properties.weight = newWeight;
+                edgesToUpdate.push(e);
+            }
+        });
+
+        if (edgesToUpdate.length > 0 && GraphService.db.autoSave && GraphService.db.storage) {
+            GraphService.db.storage.addEdges(edgesToUpdate);
+        }
+
+        logger.info(`[DreamService] Garbage Collection complete. Severed ${cullCount} unanchored edges.`);
+    }
+
+    /**
      * Synthesizes the Golden Path (strategic priorities) by analyzing open issues and Graph topology.
      */
     async synthesizeGoldenPath() {
         logger.info('[DreamService] Initializing Strategic CTO Synthesis...');
         
-        const issues = await this.parseOpenIssues();
+        // This will sync Graph Node states and re-assert edge weights structurally!
+        const issues = await this.ingestIssueStates();
         const frontier = GraphService.getContextFrontier({ depth: 2 });
         
         const prompt = `
@@ -305,7 +365,7 @@ DO NOT use json wrappers or code blocks. Just output clean Markdown.
 
         try {
             const provider = Neo.create(Ollama, {
-                modelName: 'gemma-4-31b-it'
+                modelName: aiConfig.ollama.model
             });
 
             logger.info('[DreamService] Triggering Sandman synthesis engine...');
