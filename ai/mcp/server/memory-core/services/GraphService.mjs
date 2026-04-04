@@ -107,7 +107,11 @@ class GraphService extends Base {
      * @param {Number} weight
      */
     linkNodes(source, target, relationship, weight = 1.0) {
-        let existing = this.db.edges.items.find(e => e.source === source && e.target === target && e.type === relationship);
+        if (!this.db?.storage?.db) return; // Safe guard for SQLite backend
+        
+        const stmt = this.db.storage.db.prepare(`SELECT id, json_extract(data, '$.properties.weight') as weight FROM Edges WHERE source = ? AND target = ? AND type = ?`);
+        const existing = stmt.get(source, target, relationship);
+
         if (!existing) {
             this.db.addEdge({
                 id: Neo.getId('edge'),
@@ -116,7 +120,38 @@ class GraphService extends Base {
                 type: relationship,
                 properties: { weight }
             });
+        } else {
+            const currentWeight = parseFloat(existing.weight) || 1.0;
+            const newWeight = Math.min(currentWeight + (weight * 0.1), 5.0);
+            
+            const updateStmt = this.db.storage.db.prepare(`UPDATE Edges SET data = json_set(data, '$.properties.weight', ?) WHERE id = ?`);
+            updateStmt.run(newWeight, existing.id);
         }
+    }
+
+    /**
+     * Applies a geometric decay over the edge topology and deletes edges under the pruning threshold.
+     */
+    decayGlobalTopology(decayFactor = 0.95, pruningThreshold = 0.2) {
+        if (!this.db?.storage?.db) return;
+        logger.info(`[GraphService] Running ambient topology decay (factor: ${decayFactor})...`);
+        
+        // Shield structural AST edges completely from decay
+        const decayStmt = this.db.storage.db.prepare(`
+            UPDATE Edges 
+            SET data = json_set(data, '$.properties.weight', MAX(COALESCE(CAST(json_extract(data, '$.properties.weight') AS REAL), 1.0) * ?, 0.1))
+            WHERE type NOT IN ('IMPLEMENTS', 'EXTENDS')
+        `);
+        decayStmt.run(decayFactor);
+        
+        // Prune dead pathways permanently mapping via physical SQL
+        const pruneStmt = this.db.storage.db.prepare(`
+            DELETE FROM Edges 
+            WHERE COALESCE(CAST(json_extract(data, '$.properties.weight') AS REAL), 1.0) < ?
+        `);
+        const info = pruneStmt.run(pruningThreshold);
+        
+        logger.info(`[GraphService] Ambient Decay complete. Pruned ${info.changes} dead pathways.`);
     }
 
     /**

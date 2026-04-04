@@ -6,6 +6,7 @@ import Memory_Service from '../../ai/mcp/server/memory-core/services/MemoryServi
 import DreamService from '../../ai/mcp/server/memory-core/services/DreamService.mjs';
 import ChromaManager from '../../ai/mcp/server/memory-core/services/ChromaManager.mjs';
 import LifecycleService from '../../ai/mcp/server/memory-core/services/DatabaseLifecycleService.mjs';
+import GraphService from '../../ai/mcp/server/memory-core/services/GraphService.mjs';
 
 import { spawn } from 'child_process';
 import http from 'http';
@@ -65,10 +66,19 @@ async function runSandman() {
         await DreamService.processUndigestedSessions();
 
         console.log('✅ Sandman cycle complete.');
-        process.exit(0);
+        process.exitCode = 0;
     } catch (e) {
         console.error('❌ REM cycle failed:', e);
-        process.exit(1);
+        process.exitCode = 1;
+    } finally {
+        console.log('🧹 Triggering global topology decay & pruning mechanism...');
+        try {
+            // Need to await? decayGlobalTopology is synchronous.
+            GraphService.decayGlobalTopology();
+        } catch (e) {
+            console.error('❌ Failed to decay topology:', e);
+        }
+        process.exit(process.exitCode);
     }
 }
 

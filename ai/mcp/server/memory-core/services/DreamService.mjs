@@ -159,7 +159,7 @@ Enforce this STRICT JSON schema:
     "nodes": [
       {
         "id": "Type:Name",
-        "type": "String",
+        "type": "String (MUST BE EXACTLY ONE OF: SESSION, MEMORY, ARTIFACT_PLAN, ARTIFACT_TASK, ISSUE, STRATEGY, SYSTEM_ANCHOR, CONCEPT, CLASS, METHOD, FILE, GUIDE, BLOG, TEST)",
         "name": "String",
         "description": "String"
       }
@@ -371,9 +371,14 @@ ${JSON.stringify(frontier || {}, null, 2)}
 ${issues.map(i => '[' + i.issueId + '] ' + i.title + '\n' + i.body.substring(0, 500) + '...').join('\n\n')}
 
 Analyze what enables you (the AI) and the project further.
-Write a powerful Markdown document outlining the 'Golden Path' (the top 3-4 strategic priorities we MUST focus on next).
-Include a clear justification linking the priorities back to the structural graph weaknesses or capability force-multipliers.
-BE CONCISE. DO NOT use json wrappers or code blocks. Just output clean, direct Markdown text.
+Find the highest-leverage tasks that will act as force-multipliers for yourself and future AI agents.
+Instead of a markdown document, you MUST identify the top 1-4 strategic tactical nodes that form the 'Golden Path'.
+Output exactly this JSON structure. DO NOT output markdown.
+{
+  "strategic_nodes": [
+    { "id": "goal_id", "name": "Short Title", "description": "Clear justification / plan", "weight": 2.0 }
+  ]
+}
 `;
 
         try {
@@ -382,30 +387,28 @@ BE CONCISE. DO NOT use json wrappers or code blocks. Just output clean, direct M
             });
 
             logger.info('[DreamService] Triggering Sandman synthesis engine...');
-            const result = await provider.generate(prompt);
-            const content = result.content.trim();
+            const result = await provider.generate(prompt, {
+                response_format: { type: 'json_object' }
+            });
+            const payload = Json.extract(result.content);
             
-            const __filename = fileURLToPath(import.meta.url);
-            const __dirname  = path.dirname(__filename);
-            const goldenPath = path.resolve(__dirname, '../../../../../ai/agentos/GoldenPath.md');
+            if (!payload || !payload.strategic_nodes || !Array.isArray(payload.strategic_nodes)) {
+                throw new Error('Invalid JSON structure from Golden Path synthesis');
+            }
             
-            const dir = path.dirname(goldenPath);
-            if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-            
-            fs.writeFileSync(goldenPath, content, 'utf8');
-            logger.info(`[DreamService] Golden Path synthesized and saved to ${goldenPath}`);
-
-            // Structural Injection: Pipe the Golden Path back into the Subconscious Layer
-            GraphService.upsertNode({
-                id: 'golden_path',
-                type: 'STRATEGY',
-                name: 'The Golden Path',
-                description: content
+            payload.strategic_nodes.forEach(node => {
+                GraphService.upsertNode({
+                    id: node.id,
+                    type: 'STRATEGY',
+                    name: node.name,
+                    description: node.description
+                });
+                
+                // Explicitly anchor this to the frontier context so the Agent NEVER loses sight of it
+                GraphService.linkNodes('frontier', node.id, 'GUIDES', parseFloat(node.weight) || 2.0);
             });
             
-            // Explicitly anchor this to the frontier context so the Agent NEVER loses sight of it
-            GraphService.linkNodes('frontier', 'golden_path', 'GUIDES', 1.0);
-            logger.info(`[DreamService] Golden Path structurally anchored to the frontier node.`);
+            logger.info(`[DreamService] Golden Path strategically parsed into ${payload.strategic_nodes.length} Nodes and anchored to the frontier.`);
             
         } catch (error) {
             logger.error('[DreamService] Failed to synthesize Golden Path:', error);
