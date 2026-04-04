@@ -1,6 +1,6 @@
 import Base            from '../../src/core/Base.mjs';
 import ClassSystemUtil from '../../src/util/ClassSystem.mjs';
-import Store           from '../../src/data/Store.mjs';
+import Store           from './Store.mjs';
 import EdgeModel       from './EdgeModel.mjs';
 import NodeModel       from './NodeModel.mjs';
 
@@ -61,6 +61,7 @@ class Database extends Base {
         oldValue?.destroy();
         return ClassSystemUtil.beforeSetInstance(value, Store, {
             autoInitRecords: false,
+            indices        : [{ property: 'source' }, { property: 'target' }],
             model          : EdgeModel
         });
     }
@@ -88,13 +89,29 @@ class Database extends Base {
      * @returns {Object[]} Array of adjacent nodes
      */
     getAdjacentNodes(nodeId, direction = 'outbound', type = null) {
-        let me    = this,
-            edges = me.edges.items,
-            nodes = [],
-            i     = 0,
-            len   = edges.length,
-            edge,
-            adjacentNode;
+        let me           = this,
+            edges        = [],
+            nodes        = [],
+            i            = 0,
+            len, edge, adjacentNode;
+
+        if (direction === 'outbound' || direction === 'both') {
+            edges.push(...me.edges.getByIndex('source', nodeId));
+        }
+
+        if (direction === 'inbound' || direction === 'both') {
+            let inboundEdges = me.edges.getByIndex('target', nodeId);
+            
+            if (direction === 'both') {
+                inboundEdges.forEach(e => {
+                    if (e.source !== nodeId) edges.push(e);
+                });
+            } else {
+                edges.push(...inboundEdges);
+            }
+        }
+
+        len = edges.length;
 
         for (; i < len; i++) {
             edge = edges[i];
@@ -103,16 +120,10 @@ class Database extends Base {
                 continue;
             }
 
-            if ((direction === 'outbound' || direction === 'both') && edge.source === nodeId) {
-                adjacentNode = me.nodes.get(edge.target);
-                if (adjacentNode) {
-                    nodes.push(adjacentNode);
-                }
-            } else if ((direction === 'inbound' || direction === 'both') && edge.target === nodeId) {
-                adjacentNode = me.nodes.get(edge.source);
-                if (adjacentNode) {
-                    nodes.push(adjacentNode);
-                }
+            adjacentNode = me.nodes.get(edge.source === nodeId ? edge.target : edge.source);
+
+            if (adjacentNode) {
+                nodes.push(adjacentNode);
             }
         }
 
@@ -134,20 +145,17 @@ class Database extends Base {
     removeNode(nodeId) {
         let me            = this,
             edgesToRemove = [],
-            edges         = me.edges.items,
-            i             = 0,
-            len           = edges.length,
-            edge;
+            outbound      = me.edges.getByIndex('source', nodeId),
+            inbound       = me.edges.getByIndex('target', nodeId);
         
         me.nodes.remove(nodeId);
 
+        edgesToRemove.push(...outbound);
+        
         // Cascade delete attached edges
-        for (; i < len; i++) {
-            edge = edges[i];
-            if (edge.source === nodeId || edge.target === nodeId) {
-                edgesToRemove.push(edge);
-            }
-        }
+        inbound.forEach(e => {
+            if (e.source !== nodeId) edgesToRemove.push(e);
+        });
 
         if (edgesToRemove.length > 0) {
             me.edges.remove(edgesToRemove);
