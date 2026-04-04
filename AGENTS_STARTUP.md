@@ -52,7 +52,7 @@ Parse the file `.github/CODING_GUIDELINES.md` to ensure all code and documentati
 - **If the healthcheck is successful:** The Memory Core is active.
     - **Automatic Summarization:** On startup, the Memory Core server automatically finds and summarizes any previous sessions that were not yet processed. You do not need to trigger this manually.
     - **Establish Context (Mandatory):** You **MUST** call two tools at boot:
-        1. `get_context_frontier()`: This queries the GraphRAG Context Priming Engine to retrieve the "Golden Path" strategic roadmap and deeply embedded contextual guides for the current project focus.
+        1. `get_context_frontier()`: This queries the GraphRAG Context Priming Engine to retrieve the mathematically derived "Golden Path" strategic roadmap and deeply embedded contextual guides for the current project focus. **Strategic Proposal:** You MUST evaluate the highest-weight strategic node and propose it to the user as the logical next step. Present your findings, but wait for the user's input before committing to execution. This ensures we operate as a cohesive team and allows the user to weigh in or pivot based on new ideas.
         2. `get_all_summaries({ limit: 5 })`: This acts as a chronological ledger to tell you "what just happened?" across recent sessions.
         - **Why:** The combination of GraphRAG topology and chronological vector summaries prevents Session Amnesia, clarifies architectural decisions (Origin Stories), and aligns you with the current strategic direction.
         - **Drill Down Strategy:** Deep-diving into a full session (30+ turns) via raw memory fetches is expensive.
