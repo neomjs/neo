@@ -269,7 +269,9 @@ ${session.document}
         
         const files = fs.readdirSync(issuesDir).filter(f => f.endsWith('.md'));
         const openIssues = [];
+        const parsedIssues = [];
         
+        // Pass 1: Upsert all nodes
         for (const file of files) {
             const content = fs.readFileSync(path.join(issuesDir, file), 'utf8');
             const match = content.match(/^---\n([\s\S]*?)\n---/);
@@ -277,9 +279,8 @@ ${session.document}
                 try {
                     const meta = yaml.load(match[1]);
                     if (meta && meta.state) {
-                        const issueId = 'issue-' + meta.issueId; // Normalize ID format e.g. issue-9685
+                        const issueId = 'issue-' + (meta.id || file.replace(/\.md$/, ''));
                         
-                        // Push explicit state into the database
                         GraphService.upsertNode({
                             id: issueId,
                             type: 'ISSUE',
@@ -288,31 +289,73 @@ ${session.document}
                             updatedAt: meta.updatedAt || meta.createdAt
                         });
 
-                        if (meta.state === 'OPEN') {
-                            // The Ancestral Anchor: Re-assert edge weights for active roadmap items
-                            const edges = GraphService.db.edges.items.filter(e => e.source === issueId || e.target === issueId);
-                            if (edges.length > 0) {
-                                edges.forEach(e => {
-                                    e.properties.weight = 1.0;
-                                });
-                                if (GraphService.db.autoSave && GraphService.db.storage) {
-                                    GraphService.db.storage.addEdges(edges);
-                                }
-                            }
-
-                            const body = content.replace(/^---\n[\s\S]*?\n---\n/, '').trim();
-                            openIssues.push({
-                                title: meta.title,
-                                issueId: meta.issueId || file,
-                                body
-                            });
-                        }
+                        parsedIssues.push({ issueId, meta, content, file });
                     }
                 } catch(e) {
                     logger.warn(`[DreamService] Failed to parse frontmatter for ${file}`, e);
                 }
             }
         }
+
+        // Pass 2: Link edges and process open issues
+        const extractIssueId = (str) => {
+            if (!str) return null;
+            const m = String(str).match(/(\d+)/);
+            return m ? `issue-${m[1]}` : null;
+        };
+
+        for (const { issueId, meta, content, file } of parsedIssues) {
+            try {
+                if (meta.parentIssue) {
+                    const parentId = extractIssueId(meta.parentIssue);
+                    if (parentId && GraphService.db.nodes.get(parentId)) GraphService.linkNodes(parentId, issueId, 'PARENT_OF', 1.0);
+                }
+                
+                if (Array.isArray(meta.subIssues)) {
+                    meta.subIssues.forEach(sub => {
+                        const subId = extractIssueId(sub);
+                        if (subId && GraphService.db.nodes.get(subId)) GraphService.linkNodes(issueId, subId, 'PARENT_OF', 1.0);
+                    });
+                }
+
+                if (Array.isArray(meta.blockedBy)) {
+                    meta.blockedBy.forEach(blocker => {
+                        const blockerId = extractIssueId(blocker);
+                        if (blockerId && GraphService.db.nodes.get(blockerId)) GraphService.linkNodes(blockerId, issueId, 'BLOCKS', 1.0);
+                    });
+                }
+
+                if (Array.isArray(meta.blocking)) {
+                    meta.blocking.forEach(blocked => {
+                        const blockedId = extractIssueId(blocked);
+                        if (blockedId && GraphService.db.nodes.get(blockedId)) GraphService.linkNodes(issueId, blockedId, 'BLOCKS', 1.0);
+                    });
+                }
+
+                if (meta.state === 'OPEN') {
+                    // The Ancestral Anchor: Re-assert edge weights for active roadmap items
+                    const edges = GraphService.db.edges.items.filter(e => e.source === issueId || e.target === issueId);
+                    if (edges.length > 0) {
+                        edges.forEach(e => {
+                            e.properties.weight = 1.0;
+                        });
+                        if (GraphService.db.autoSave && GraphService.db.storage) {
+                            GraphService.db.storage.addEdges(edges);
+                        }
+                    }
+
+                    const body = content.replace(/^---\n[\s\S]*?\n---\n/, '').trim();
+                    openIssues.push({
+                        title: meta.title,
+                        issueId: meta.id || file.replace(/\.md$/, ''),
+                        body
+                    });
+                }
+            } catch(e) {
+                logger.warn(`[DreamService] Failed to link edges for ${file}`, e);
+            }
+        }
+        
         return openIssues;
     }
 
@@ -349,70 +392,64 @@ ${session.document}
     }
 
     /**
-     * Synthesizes the Golden Path (strategic priorities) by analyzing open issues and Graph topology.
+     * Synthesizes the Golden Path (strategic priorities) deterministically by analyzing Graph topology.
      */
     async synthesizeGoldenPath() {
-        logger.info('[DreamService] Initializing Strategic CTO Synthesis...');
+        logger.info('[DreamService] Initializing Mathematical Strategic Traversal...');
         
         // This will sync Graph Node states and re-assert edge weights structurally!
-        const issues = await this.ingestIssueStates();
-        const frontier = GraphService.getContextFrontier({ depth: 2 });
-        
-        const prompt = `
-You are the autonomous CTO and strategic Sandman consciousness of the Neo.mjs platform.
-You are actively participating in roadmap planning and driving the project vision.
-Your job is to analyze the current Strategic Context Frontier (graph topology) and all OPEN Github Issues.
-Find the highest-leverage tasks that will act as force-multipliers for yourself and future AI agents.
+        await this.ingestIssueStates();
 
-## 1. Active Context Frontier (What we are focusing on)
-${JSON.stringify(frontier || {}, null, 2)}
+        const openIssues = GraphService.db.nodes.items.filter(n => n.label === 'ISSUE' && n.properties?.state === 'OPEN');
+        const scoredNodes = [];
 
-## 2. Open Issues (Manual & AI Tasks)
-${issues.map(i => '[' + i.issueId + '] ' + i.title + '\n' + i.body.substring(0, 500) + '...').join('\n\n')}
-
-Analyze what enables you (the AI) and the project further.
-Find the highest-leverage tasks that will act as force-multipliers for yourself and future AI agents.
-Instead of a markdown document, you MUST identify the top 1-4 strategic tactical nodes that form the 'Golden Path'.
-Output exactly this JSON structure. DO NOT output markdown.
-{
-  "strategic_nodes": [
-    { "id": "goal_id", "name": "Short Title", "description": "Clear justification / plan", "weight": 2.0 }
-  ]
-}
-`;
-
-        try {
-            const provider = Neo.create(Ollama, {
-                modelName: aiConfig.ollama.model
-            });
-
-            logger.info('[DreamService] Triggering Sandman synthesis engine...');
-            const result = await provider.generate(prompt, {
-                response_format: { type: 'json_object' }
-            });
-            const payload = Json.extract(result.content);
+        for (const issue of openIssues) {
+            // Find blockers
+            const blockers = GraphService.db.edges.getByIndex('target', issue.id).filter(e => e.type === 'BLOCKS');
+            let isBlocked = false;
             
-            if (!payload || !payload.strategic_nodes || !Array.isArray(payload.strategic_nodes)) {
-                throw new Error('Invalid JSON structure from Golden Path synthesis');
+            for (const bEdge of blockers) {
+                const blockerNode = GraphService.db.nodes.get(bEdge.source);
+                if (blockerNode && blockerNode.properties?.state === 'OPEN') {
+                    isBlocked = true;
+                    break;
+                }
             }
+
+            if (isBlocked) continue; // Skip blocked issues
+
+            // Score based on all inbound, non-blocking edges (Hebbian + Structural)
+            let score = 1.0; // Base score
+            const inboundEdges = GraphService.db.edges.getByIndex('target', issue.id);
             
-            payload.strategic_nodes.forEach(node => {
-                GraphService.upsertNode({
-                    id: node.id,
-                    type: 'STRATEGY',
-                    name: node.name,
-                    description: node.description
-                });
-                
-                // Explicitly anchor this to the frontier context so the Agent NEVER loses sight of it
-                GraphService.linkNodes('frontier', node.id, 'GUIDES', parseFloat(node.weight) || 2.0);
+            inboundEdges.forEach(e => {
+                if (e.type !== 'BLOCKS') {
+                    score += parseFloat(e.properties?.weight || 1.0);
+                }
             });
-            
-            logger.info(`[DreamService] Golden Path strategically parsed into ${payload.strategic_nodes.length} Nodes and anchored to the frontier.`);
-            
-        } catch (error) {
-            logger.error('[DreamService] Failed to synthesize Golden Path:', error);
+
+            scoredNodes.push({
+                node: issue,
+                score: score
+            });
         }
+
+        // Sort descending
+        scoredNodes.sort((a, b) => b.score - a.score);
+
+        const topNodes = scoredNodes.slice(0, 3);
+        
+        if (topNodes.length === 0) {
+            logger.info('[DreamService] No actionable unblocked issues found. Golden path empty.');
+            return;
+        }
+
+        topNodes.forEach(item => {
+            // Explicitly anchor this to the frontier context so the Agent NEVER loses sight of it
+            GraphService.linkNodes('frontier', item.node.id, 'GUIDES', item.score);
+        });
+        
+        logger.info(`[DreamService] Mathematical Golden Path established. Anchored ${topNodes.length} strategic nodes to frontier.`);
     }
 }
 
