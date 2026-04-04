@@ -3,12 +3,12 @@ id: 9682
 title: 'Native Edge Graph: Traversal Query Engine & Aggregations'
 state: CLOSED
 labels:
-  - epic
+  - enhancement
   - ai
 assignees:
   - tobiu
 createdAt: '2026-04-04T01:42:44Z'
-updatedAt: '2026-04-04T02:00:44Z'
+updatedAt: '2026-04-04T02:01:00Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9682'
 author: tobiu
 commentsCount: 1
@@ -43,4 +43,6 @@ This Epic introduces a fully functional stateless Traversal Query Engine scaling
 Implemented full functional Native Edge Traversal Engine (#9682) providing stateless Dijkstra routing paths properly bounded by lambda-predicate evaluations inside tight recursive loops safely cleanly avoiding Neo.core.Base overheads.
 
 - 2026-04-04T01:58:56Z @tobiu closed this issue
+- 2026-04-04T02:01:00Z @tobiu removed the `epic` label
+- 2026-04-04T02:01:00Z @tobiu added the `enhancement` label
 
