@@ -51,8 +51,6 @@ class SQLiteVectorManager extends Base {
         let dbPath = typeof aiConfig.sqlitePath === 'string' ? aiConfig.sqlitePath : path.resolve(process.cwd(), 'chroma-neo-memory-core/graph/knowledge-graph.sqlite');
         await fs.ensureDir(path.dirname(dbPath));
 
-        console.error("DEBUG SQLITE INIT. DBPATH=", dbPath);
-
         // Dynamic imports for native modules
         const Database = (await import('better-sqlite3')).default;
         const sqliteVec = await import('sqlite-vec');
@@ -63,7 +61,11 @@ class SQLiteVectorManager extends Base {
         this.db.pragma('journal_mode = WAL');
 
         // Load the sqlite-vec extension
-        sqliteVec.load(this.db);
+        try {
+            sqliteVec.load(this.db);
+        } catch (e) {
+            throw new Error(`Failed to load sqlite-vec native extension from path [${extPath}]. Ensure binary compatibility for your architecture.`, { cause: e });
+        }
         
         // System tables
         this.db.exec(`
