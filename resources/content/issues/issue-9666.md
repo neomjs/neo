@@ -1,14 +1,14 @@
 ---
 id: 9666
 title: 'Epic: Migrate Knowledge Graph to Memory Core'
-state: OPEN
+state: CLOSED
 labels:
   - epic
   - ai
 assignees:
   - tobiu
 createdAt: '2026-04-03T21:44:03Z'
-updatedAt: '2026-04-03T22:04:17Z'
+updatedAt: '2026-04-03T22:17:10Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9666'
 author: tobiu
 commentsCount: 1
@@ -21,6 +21,7 @@ subIssuesCompleted: 3
 subIssuesTotal: 3
 blockedBy: []
 blocking: []
+closedAt: '2026-04-03T22:17:10Z'
 ---
 # Epic: Migrate Knowledge Graph to Memory Core
 
@@ -59,4 +60,5 @@ We have fully migrated the Knowledge Graph from `knowledge-base` to `memory-core
 
 - 2026-04-03T22:02:08Z @tobiu closed this issue
 - 2026-04-03T22:04:17Z @tobiu reopened this issue
+- 2026-04-03T22:17:10Z @tobiu closed this issue
 
