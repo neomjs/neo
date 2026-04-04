@@ -19,10 +19,10 @@ subIssues:
   - '[x] 9677 Epic Sub: Enhance Neo.collection.Base with Secondary Lookup Indices'
   - '[x] 9678 Native Graph Database SQLite Persistence Adapter'
   - '[x] 9679 Optimize V8 graph array operations via native slice topologies'
-  - '[ ] 9680 Native Edge Graph: Distributed Caching & Lazy Loading'
-  - '[ ] 9681 Native Edge Graph: ACID Transaction Control Pipeline'
+  - '[x] 9680 Native Edge Graph: Distributed Caching & Lazy Loading'
+  - '[x] 9681 Native Edge Graph: ACID Transaction Control Pipeline'
   - '[x] 9682 Native Edge Graph: Traversal Query Engine & Aggregations'
-subIssuesCompleted: 5
+subIssuesCompleted: 7
 subIssuesTotal: 7
 blockedBy: []
 blocking: []
