@@ -1,6 +1,7 @@
 import Base                 from '../../../../../src/core/Base.mjs';
 import ChromaManager        from './ChromaManager.mjs';
 import crypto               from 'crypto';
+import GraphService         from './GraphService.mjs';
 import logger               from '../logger.mjs';
 import SessionService       from './SessionService.mjs';
 import TextEmbeddingService from './TextEmbeddingService.mjs';
@@ -198,6 +199,67 @@ class MemoryService extends Base {
                 error  : 'Failed to query memories',
                 message: error.message,
                 code   : 'MEMORY_QUERY_ERROR'
+            };
+        }
+    }
+
+    /**
+     * Executes the Context Priming Engine to fetch the highly scaled topological frontier
+     * and maps vectors back to extract specific underlying episodic knowledge logic.
+     * @returns {Promise<Object>}
+     */
+    async getContextFrontier() {
+        try {
+            // 1. Traverse Graph Topology
+            const topology = GraphService.getContextFrontier();
+            if (!topology) {
+                return {
+                    message: "No context frontier configured. Graph topology returns null."
+                };
+            }
+
+            // 2. Unpack mapping to map context to Chroma db entries
+            const { frontier, strategicNeighbors } = topology;
+            const semanticContexts = [];
+
+            // We grab context blocks from summaries, as that is where DreamService extracts episodic graph nodes from
+            const collection = await ChromaManager.getSummaryCollection();
+
+            for (const neighbor of strategicNeighbors) {
+                if (neighbor.semanticVectorId) {
+                    try {
+                        const result = await collection.get({
+                            ids: [neighbor.semanticVectorId],
+                            include: ['documents', 'metadatas']
+                        });
+
+                        if (result.documents && result.documents.length > 0) {
+                            semanticContexts.push({
+                                nodeId: neighbor.id,
+                                name: neighbor.name,
+                                relationship: neighbor.relationship,
+                                weight: neighbor.weight,
+                                content: result.documents[0],
+                                metadata: result.metadatas ? result.metadatas[0] : null
+                            });
+                        }
+                    } catch (e) {
+                         logger.warn(`[MemoryService] Failed to fetch vector ${neighbor.semanticVectorId} for node ${neighbor.id}`);
+                    }
+                }
+            }
+
+            return {
+                topology,
+                semanticContexts
+            };
+
+        } catch (error) {
+            logger.error('[MemoryService] Error running getContextFrontier:', error);
+            return {
+                error  : 'Failed to retrieve context frontier',
+                message: error.message,
+                code   : 'CONTEXT_FRONTIER_ERROR'
             };
         }
     }

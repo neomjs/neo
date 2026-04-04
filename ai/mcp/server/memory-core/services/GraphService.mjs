@@ -165,6 +165,61 @@ class GraphService extends Base {
         
         return matches.slice(0, 50);
     }
+
+    /**
+     * Retrieves the structural topology of the active context frontier.
+     * @param {Object} args
+     * @param {Number} [args.depth=2] The traversal depth from the frontier node.
+     * @returns {Object|null}
+     */
+    getContextFrontier({depth = 2} = {}) {
+        const frontierNode = this.db.nodes.get('frontier');
+        if (!frontierNode) {
+            logger.info('[GraphService] No frontier node found in graph.');
+            return null;
+        }
+
+        const topology = {
+            frontier: {
+                id: frontierNode.id,
+                type: frontierNode.label,
+                name: frontierNode.properties?.name,
+                description: frontierNode.properties?.description,
+                semanticVectorId: frontierNode.properties?.semanticVectorId
+            },
+            strategicNeighbors: []
+        };
+
+        // Get immediate high-weight connections
+        const inbound = this.db.edges.getByIndex('target', 'frontier');
+        const outbound = this.db.edges.getByIndex('source', 'frontier');
+
+        [...inbound, ...outbound].forEach(e => {
+            const weight = e.properties?.weight || 1.0;
+            if (weight >= 0.8) {
+                let adjacentId = e.source === 'frontier' ? e.target : e.source;
+                let node = this.db.nodes.get(adjacentId);
+                
+                if (node) {
+                    topology.strategicNeighbors.push({
+                        id: node.id,
+                        type: node.label,
+                        name: node.properties?.name,
+                        description: node.properties?.description,
+                        semanticVectorId: node.properties?.semanticVectorId,
+                        relationship: e.type,
+                        weight: weight,
+                        direction: e.source === 'frontier' ? 'outbound' : 'inbound'
+                    });
+                }
+            }
+        });
+
+        // Sort by highest weight
+        topology.strategicNeighbors.sort((a, b) => b.weight - a.weight);
+
+        return topology;
+    }
 }
 
 export default Neo.setupClass(GraphService);

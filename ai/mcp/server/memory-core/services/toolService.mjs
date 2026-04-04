@@ -17,6 +17,7 @@ const serviceMapping = {
     add_memory            : MemoryService           .addMemory           .bind(MemoryService),
     delete_all_summaries  : SummaryService          .deleteAllSummaries  .bind(SummaryService),
     get_all_summaries     : SummaryService          .listSummaries       .bind(SummaryService),
+    get_context_frontier  : MemoryService           .getContextFrontier  .bind(MemoryService),
     get_neighbors         : GraphService            .getNeighbors        .bind(GraphService),
     get_node              : GraphService            .getNode             .bind(GraphService),
     get_session_memories  : MemoryService           .listMemories        .bind(MemoryService),

@@ -134,6 +134,8 @@ Your task is to analyze the following episodic development session history and e
 Nodes must be core concepts, framework components, APIs, or files discussed in the session.
 Edges must be the relationships between these nodes.
 
+If the session log indicates a "Context Collapse", a long-term architectural goal, or a massive "Strategic Pivot", you MUST inject an edge explicitly linking the primary concept node to the "frontier" node with relationship "GUIDES" and a high weight (e.g. 1.0).
+
 Enforce this STRICT JSON schema:
 {
   "nodes": [
@@ -146,9 +148,9 @@ Enforce this STRICT JSON schema:
   ],
   "edges": [
     {
-      "source": "String (must match a node id)",
-      "target": "String (must match a node id)",
-      "relationship": "String (e.g. IMPLEMENTS, USES, FIXES, DEPRECATES)",
+      "source": "String (must match a node id, or 'frontier')",
+      "target": "String (must match a node id, or 'frontier')",
+      "relationship": "String (e.g. IMPLEMENTS, USES, FIXES, DEPRECATES, GUIDES)",
       "weight": 1.0
     }
   ]
@@ -180,14 +182,26 @@ ${session.document}
 
             logger.info(`[DreamService] Successfully extracted ${payload.nodes.length} nodes and ${payload.edges.length} edges for session ${session.meta.sessionId}.`);
 
-            // Sub-Epic 3C: Bridge to knowledge-base GraphService (SQLite)
+            // Check if frontier exists, if not, stub it so we can link to it
+            GraphService.upsertNode({
+                id: 'frontier',
+                type: 'System',
+                name: 'Strategic Frontier',
+                description: 'The actively tracked development front for the current project scope.',
+                semanticVectorId: null
+            });
+
+            // Bridge to GraphService (SQLite)
             for (const node of payload.nodes) {
+                // If the LLM tried to create its own frontier node, skip it as we manage it statically above
+                if (node.id === 'frontier') continue;
+                
                 GraphService.upsertNode({
                     id: node.id,
                     type: node.type || 'Unknown',
                     name: node.name || 'Unknown',
                     description: node.description || '',
-                    semanticVectorId: null // Can be populated later by vector syncing logic
+                    semanticVectorId: session.id // Bind back to the ChromaDB summary this node came from
                 });
             }
 
