@@ -1,3 +1,8 @@
+import fs            from 'fs';
+import path          from 'path';
+import yaml          from 'js-yaml';
+import {fileURLToPath} from 'url';
+
 import aiConfig      from '../config.mjs';
 import Base          from '../../../../../src/core/Base.mjs';
 import ChromaManager from './ChromaManager.mjs';
@@ -105,13 +110,21 @@ class DreamService extends Base {
 
             logger.info(`[DreamService] Found ${sessions.length} undigested session(s). Beginning REM pipeline...`);
 
-            // For Sub-Epic 3A, this is a skeleton pipeline.
-            // We'll iterate through them and prepare them for batch inference.
-            // Inference logic itself will come in 3B, and IPC transfer in 3C.
             for (const session of sessions) {
                 logger.info(`[DreamService] Preparing session ${session.meta.sessionId} ("${session.meta.title}") for REM extraction.`);
-                await this.extractGraphEntities(session);
+                const success = await this.extractGraphEntities(session);
+                
+                if (success) {
+                    await this.sessionsCollection.update({
+                        ids: [session.id],
+                        metadatas: [{ ...session.meta, graphDigested: true }]
+                    });
+                    logger.info(`[DreamService] Session ${session.meta.sessionId} marked as graphDigested in ChromaDB.`);
+                }
             }
+
+            // After extraction pipeline is done, synthesize strategic roadmap
+            await this.synthesizeGoldenPath();
 
             logger.info('[DreamService] REM pipeline completed.');
         } catch (error) {
@@ -221,6 +234,95 @@ ${session.document}
         } catch (error) {
             logger.error('[DreamService] Error during graph extraction run:', error);
             return null;
+        }
+    }
+
+    /**
+     * Parses the local file system for markdown files with a YAML 'state: OPEN'.
+     * @returns {Promise<Object[]>}
+     */
+    async parseOpenIssues() {
+        const __filename = fileURLToPath(import.meta.url);
+        const __dirname  = path.dirname(__filename);
+        const issuesDir  = path.resolve(__dirname, '../../../../../resources/content/issues');
+        
+        if (!fs.existsSync(issuesDir)) {
+            logger.warn(`[DreamService] Issues directory not found at ${issuesDir}`);
+            return [];
+        }
+        
+        const files = fs.readdirSync(issuesDir).filter(f => f.endsWith('.md'));
+        const openIssues = [];
+        
+        for (const file of files) {
+            const content = fs.readFileSync(path.join(issuesDir, file), 'utf8');
+            const match = content.match(/^---\n([\s\S]*?)\n---/);
+            if (match) {
+                try {
+                    const meta = yaml.load(match[1]);
+                    if (meta && meta.state === 'OPEN') {
+                        const body = content.replace(/^---\n[\s\S]*?\n---\n/, '').trim();
+                        openIssues.push({
+                            title: meta.title,
+                            issueId: meta.issueId || file,
+                            body
+                        });
+                    }
+                } catch(e) {
+                    logger.warn(`[DreamService] Failed to parse frontmatter for ${file}`, e);
+                }
+            }
+        }
+        return openIssues;
+    }
+
+    /**
+     * Synthesizes the Golden Path (strategic priorities) by analyzing open issues and Graph topology.
+     */
+    async synthesizeGoldenPath() {
+        logger.info('[DreamService] Initializing Strategic CTO Synthesis...');
+        
+        const issues = await this.parseOpenIssues();
+        const frontier = GraphService.getContextFrontier({ depth: 2 });
+        
+        const prompt = `
+You are the autonomous CTO and strategic Sandman consciousness of the Neo.mjs platform.
+You are actively participating in roadmap planning and driving the project vision.
+Your job is to analyze the current Strategic Context Frontier (graph topology) and all OPEN Github Issues.
+Find the highest-leverage tasks that will act as force-multipliers for yourself and future AI agents.
+
+## 1. Active Context Frontier (What we are focusing on)
+${JSON.stringify(frontier || {}, null, 2)}
+
+## 2. Open Issues (Manual & AI Tasks)
+${issues.map(i => '[' + i.issueId + '] ' + i.title + '\n' + i.body.substring(0, 500) + '...').join('\n\n')}
+
+Analyze what enables you (the AI) and the project further.
+Write a powerful Markdown document outlining the 'Golden Path' (the top 3-4 strategic priorities we MUST focus on next).
+Include a clear justification linking the priorities back to the structural graph weaknesses or capability force-multipliers.
+DO NOT use json wrappers or code blocks. Just output clean Markdown.
+`;
+
+        try {
+            const provider = Neo.create(Ollama, {
+                modelName: 'gemma-4-31b-it'
+            });
+
+            logger.info('[DreamService] Triggering Sandman synthesis engine...');
+            const result = await provider.generate(prompt);
+            
+            const __filename = fileURLToPath(import.meta.url);
+            const __dirname  = path.dirname(__filename);
+            const goldenPath = path.resolve(__dirname, '../../../../../ai/agentos/GoldenPath.md');
+            
+            const dir = path.dirname(goldenPath);
+            if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+            
+            fs.writeFileSync(goldenPath, result.content.trim(), 'utf8');
+            logger.info(`[DreamService] Golden Path synthesized and saved to ${goldenPath}`);
+            
+        } catch (error) {
+            logger.error('[DreamService] Failed to synthesize Golden Path:', error);
         }
     }
 }
