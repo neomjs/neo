@@ -114,6 +114,9 @@ class GraphService extends Base {
      * @returns {Object|null}
      */
     getNode({id}) {
+        // Guarantee lazy-loading from SQLite triggers if not cached
+        this.db.getAdjacentNodes(id, 'both');
+        
         let node = this.db.nodes.get(id);
         if (!node) return null;
         return {
@@ -133,6 +136,9 @@ class GraphService extends Base {
      * @returns {Array} List of connected Node objects with edge relationship mapping.
      */
     getNeighbors({id}) {
+        // Guarantee lazy-loading vicinity topology securely
+        this.db.getAdjacentNodes(id, 'both');
+
         let results = [],
             inbound = this.db.edges.getByIndex('target', id),
             outbound = this.db.edges.getByIndex('source', id);
@@ -192,6 +198,9 @@ class GraphService extends Base {
      * @returns {Object|null}
      */
     getContextFrontier({depth = 2} = {}) {
+        // Guarantee lazy-loading of frontier topology explicitly
+        this.db.getAdjacentNodes('frontier', 'both');
+
         const frontierNode = this.db.nodes.get('frontier');
         if (!frontierNode) {
             logger.info('[GraphService] No frontier node found in graph.');
