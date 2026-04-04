@@ -1,6 +1,7 @@
 ---
-name: Ideation Sandbox
-description: A safe environment to propose architectural features, unknown unknowns, and brainstorm ideas without polluting the Issue tracker.
+name: ideation-sandbox
+description: Safely propose architectural features, unknown unknowns, and brainstorm ideas natively in GitHub Discussions.
+triggers: Use this skill when the user asks to brainstorm an architecture change or proposes a highly exploratory / undefined technical idea.
 ---
 
 # Ideation Sandbox
