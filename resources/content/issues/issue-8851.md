@@ -4,12 +4,13 @@ title: 'Exploration: Neural Link Driven Playwright Tests (Deep E2E)'
 state: OPEN
 labels:
   - enhancement
+  - no auto close
   - ai
   - testing
   - architecture
 assignees: []
 createdAt: '2026-01-21T14:53:16Z'
-updatedAt: '2026-01-21T14:58:22Z'
+updatedAt: '2026-04-05T00:24:54Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8851'
 author: tobiu
 commentsCount: 1
@@ -104,4 +105,6 @@ This capability would uniquely position Neo.mjs as an exceptionally testable fra
 >   Issue #8851 serves as the placeholder for this "Next Level" capability. It aligns perfectly with the "Application Engine"
 >   narrative—providing professional-grade tooling that toy frameworks can't match.
 
+- 2026-01-26T18:45:10Z @tobiu cross-referenced by #8884
+- 2026-04-05T00:24:53Z @tobiu added the `no auto close` label
 

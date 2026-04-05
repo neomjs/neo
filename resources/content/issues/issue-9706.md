@@ -1,14 +1,15 @@
 ---
 id: 9706
 title: 'Epic: Autonomous Priority Graph Engine'
-state: OPEN
+state: CLOSED
 labels:
   - epic
   - ai
   - architecture
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-04-04T20:23:53Z'
-updatedAt: '2026-04-04T20:23:53Z'
+updatedAt: '2026-04-04T21:06:30Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9706'
 author: tobiu
 commentsCount: 0
@@ -18,6 +19,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-04-04T21:06:30Z'
 ---
 # Epic: Autonomous Priority Graph Engine
 
@@ -34,4 +36,6 @@ Tasks:
 - 2026-04-04T20:23:54Z @tobiu added the `ai` label
 - 2026-04-04T20:23:54Z @tobiu added the `architecture` label
 - 2026-04-04T20:35:12Z @tobiu referenced in commit `8a3bc3a` - "feat: Refining Autonomous Startup Protocol and Graph ID Parsing (#9706)"
+- 2026-04-04T21:06:29Z @tobiu assigned to @tobiu
+- 2026-04-04T21:06:30Z @tobiu closed this issue
 
