@@ -41,8 +41,7 @@ import Memory_LifecycleService      from './mcp/server/memory-core/services/Data
 import Memory_HealthService         from './mcp/server/memory-core/services/HealthService.mjs';
 import Memory_GraphService          from './mcp/server/memory-core/services/GraphService.mjs';
 import Memory_SummaryService        from './mcp/server/memory-core/services/SummaryService.mjs';
-import Memory_ChromaManager         from './mcp/server/memory-core/services/ChromaManager.mjs';
-import Memory_SQLiteVectorManager   from './mcp/server/memory-core/services/SQLiteVectorManager.mjs';
+import Memory_SQLiteVectorManager   from './mcp/server/memory-core/managers/SQLiteVectorManager.mjs';
 import Memory_Config                from './mcp/server/memory-core/config.mjs';
 
 Memory_Config.data.autoSummarize = false;
@@ -233,7 +232,6 @@ export {
 
     // Memory Core
     Memory_Config,
-    Memory_ChromaManager,
     Memory_SQLiteVectorManager,
     Memory_Service,
     Memory_SessionService,

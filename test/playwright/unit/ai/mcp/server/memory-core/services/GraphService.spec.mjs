@@ -1,4 +1,4 @@
-import { setup } from '../../../../../../setup.mjs';
+import {setup} from '../../../../../../setup.mjs';
 
 const appName = 'GraphServiceTest';
 
@@ -7,21 +7,22 @@ setup({
         unitTestMode: true
     },
     appConfig: {
-        name: appName,
-        isMounted: () => true,
+        name             : appName,
+        isMounted        : () => true,
         vnodeInitialising: false
     }
 });
 
-import { test, expect } from '@playwright/test';
-import Neo from '../../../../../../../../src/Neo.mjs';
-import * as core from '../../../../../../../../src/core/_export.mjs';
-import GraphService from '../../../../../../../../ai/mcp/server/memory-core/services/GraphService.mjs';
-import aiConfig from '../../../../../../../../ai/mcp/server/memory-core/config.mjs';
-import fs from 'fs-extra';
-import path from 'path';
-import os from 'os';
-import {getPaths} from '../../../../../../../../ai/graph/queries/Traversal.mjs';
+import {test, expect}  from '@playwright/test';
+import Neo             from '../../../../../../../../src/Neo.mjs';
+import * as core       from '../../../../../../../../src/core/_export.mjs';
+import InstanceManager from '../../../../../../../../src/manager/Instance.mjs';
+import GraphService    from '../../../../../../../../ai/mcp/server/memory-core/services/GraphService.mjs';
+import aiConfig        from '../../../../../../../../ai/mcp/server/memory-core/config.mjs';
+import fs              from 'fs-extra';
+import path            from 'path';
+import os              from 'os';
+import {getPaths}      from '../../../../../../../../ai/graph/queries/Traversal.mjs';
 
 test.describe('Neo.ai.mcp.server.memory-core.services.GraphService', () => {
     let service;
@@ -42,14 +43,22 @@ test.describe('Neo.ai.mcp.server.memory-core.services.GraphService', () => {
             GraphService.db.nodes.clear();
             GraphService.db.edges.clear();
             GraphService.db.vicinityLoadedNodes.clear();
+
+            if (GraphService.db.storage) {
+                await GraphService.db.storage.clear();
+            }
         }
     });
 
-    test.afterEach(() => {
+    test.afterEach(async () => {
         if (GraphService.db) {
             GraphService.db.nodes.clear();
             GraphService.db.edges.clear();
             GraphService.db.vicinityLoadedNodes.clear();
+
+            if (GraphService.db.storage) {
+                await GraphService.db.storage.clear();
+            }
         }
     });
 
@@ -177,12 +186,12 @@ test.describe('Neo.ai.mcp.server.memory-core.services.GraphService', () => {
 
         let wasAutoSave = GraphService.db.autoSave;
         GraphService.db.autoSave = false;
-        
+
         // Explicitly clear RAM cache WITHOUT cascading to SQLite
         GraphService.db.nodes.clear();
         GraphService.db.edges.clear();
         GraphService.db.vicinityLoadedNodes.clear();
-        
+
         GraphService.db.autoSave = wasAutoSave;
 
         // Traverse using getPaths. Depth parameter is set to 3 to hit all nodes.
@@ -194,10 +203,10 @@ test.describe('Neo.ai.mcp.server.memory-core.services.GraphService', () => {
         // Depth 2: Depth2
         // Depth 3: Depth3
         expect(results.length).toBe(4);
-        
+
         let pathIds = results.map(n => n.id).sort();
         expect(pathIds).toEqual(['Depth1', 'Depth2', 'Depth3', 'Root']);
-        
+
         // Verify that deeply resolved nodes were structurally hydrated into memory
         expect(GraphService.db.nodes.has('Depth3')).toBe(true);
         expect(GraphService.getNode({ id: 'Depth3' }).name).toBe('Final Hop');
@@ -209,12 +218,12 @@ test.describe('Neo.ai.mcp.server.memory-core.services.GraphService', () => {
 
         GraphService.upsertNode({ id: 'N1', name: 'First' });
         GraphService.getNode({ id: 'N1' }); // Register to LRU Matrix natively
-        
+
         // Let timestamp differential tick natively avoiding micro-millisecond collisions gracefully
         await new Promise(resolve => setTimeout(resolve, 5));
         GraphService.upsertNode({ id: 'N2', name: 'Second' });
         GraphService.getNode({ id: 'N2' });
-        
+
         await new Promise(resolve => setTimeout(resolve, 5));
         GraphService.upsertNode({ id: 'N3', name: 'Third' });
         GraphService.getNode({ id: 'N3' });
@@ -224,20 +233,20 @@ test.describe('Neo.ai.mcp.server.memory-core.services.GraphService', () => {
         expect(GraphService.db.nodes.has('N1')).toBe(true);
 
         await new Promise(resolve => setTimeout(resolve, 5));
-        
+
         // This 4th insert will push the length over 3 when accessed.
         GraphService.upsertNode({ id: 'N4', name: 'Fourth' });
         GraphService.getNode({ id: 'N4' }); // GC fires here natively!
 
         // V8 footprint must hold 3 items cleanly locally natively. Output should be N2, N3, N4
         expect(GraphService.db.nodes.getCount()).toBe(3);
-        
+
         expect(GraphService.db.nodes.has('N1')).toBe(false); // N1 dropped out of cache natively gracefully!
         expect(GraphService.db.nodes.has('N2')).toBe(true);
         expect(GraphService.db.nodes.has('N3')).toBe(true);
         expect(GraphService.db.nodes.has('N4')).toBe(true);
-        
-        // Restore maxGraphNodes constraint cleanly safely natively 
+
+        // Restore maxGraphNodes constraint cleanly safely natively
         GraphService.db.maxGraphNodes = null;
     });
 

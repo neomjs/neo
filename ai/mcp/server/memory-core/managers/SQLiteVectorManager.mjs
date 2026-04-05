@@ -47,6 +47,8 @@ class SQLiteVectorManager extends Base {
     async initAsync() {
         await super.initAsync();
 
+        if (this.db) return;
+
         if (aiConfig.engine !== 'neo' && aiConfig.engine !== 'both') {
             logger.log('[SQLiteVectorManager] Engine configured to bypass local vector manager. Skipping init.');
             return;

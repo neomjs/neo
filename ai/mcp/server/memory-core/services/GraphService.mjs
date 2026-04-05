@@ -37,13 +37,20 @@ class GraphService extends Base {
     async initAsync() {
         await super.initAsync();
 
+        if (this.db) return;
+
         let storage = Neo.create(SQLite, { dbPath: aiConfig.sqlitePath });
         await storage.initAsync();
 
-        this.db = Neo.create(CoreDatabase, {
-            id: 'memory-core-graph',
-            storage: storage
-        });
+        if (Neo.get('memory-core-graph')) {
+            this.db = Neo.get('memory-core-graph');
+            this.db.storage = storage;
+        } else {
+            this.db = Neo.create(CoreDatabase, {
+                id: 'memory-core-graph',
+                storage: storage
+            });
+        }
 
         await storage.load();
         
