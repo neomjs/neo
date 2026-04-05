@@ -57,12 +57,30 @@ class Store extends DataStore {
     }
 
     /**
-     * Hook bypassing natural splice flow during raw structural deletion.
-     * Flush all Native Graph Topologies.
+     * Removes all items and clears the map. Overridden from Base.mjs to ensure indexMaps are flushed.
+     * @param {Boolean} [reset=true]
+     */
+    clear(reset=true) {
+        let me = this;
+
+        super.clear(reset);
+
+        if (me.indexMaps) {
+            let value = me.indices;
+            me.indexMaps.clear();
+            value.forEach(indexConfig => {
+                me.indexMaps.set(indexConfig.property, new Map());
+            });
+        }
+    }
+
+    /**
+     * Clears filters, allItems, and the data map softly without alerting subscribers.
      * @param {Boolean} [reset=true]
      */
     clearSilent(reset=true) {
         let me = this;
+
         super.clearSilent(reset);
 
         if (me.indexMaps) {

@@ -6,14 +6,14 @@ import NodeModel       from './NodeModel.mjs';
 import StorageBase     from './storage/Base.mjs';
 
 /**
- * The Database class serves as the core coordinator for the Native Edge Graph Database engine. 
- * Operating in headless MCP server environments (Sandman, memory-core), it orchestrates local 
+ * The Database class serves as the core coordinator for the Native Edge Graph Database engine.
+ * Operating in headless MCP server environments (Sandman, memory-core), it orchestrates local
  * Native Node embeddings tracking alongside Semantic vectors natively inside ChromaDB (GraphRAG).
- * 
- * Implements strict Multi-Worker Cache Coherence via SQLite Hardware Triggers & Delta Logs, combined 
- * with completely Synchronous Lazy Loading architectures and automated LRU Garbage Collection 
+ *
+ * Implements strict Multi-Worker Cache Coherence via SQLite Hardware Triggers & Delta Logs, combined
+ * with completely Synchronous Lazy Loading architectures and automated LRU Garbage Collection
  * to guarantee V8 execution limits seamlessly evaluating massive Application ASTs natively.
- * 
+ *
  * It leverages Neo.data.Store for high-speed local vicinity edge traversals smoothly safely!
  * @class Neo.ai.graph.Database
  * @extends Neo.core.Base
@@ -120,7 +120,7 @@ class Database extends Base {
         if (me.maxGraphNodes !== null && me.lastAccessMap.size > me.maxGraphNodes) {
             let nodesArray = Array.from(me.lastAccessMap.entries());
             nodesArray.sort((a,b) => a[1] - b[1]); // Oldest timestamps first
-            
+
             let deleteCount = Math.max(1, Math.floor(me.maxGraphNodes * 0.2)); // Execute 20% chunk truncation cleanly locally guaranteeing at least 1 dropped
             let toDelete    = nodesArray.slice(0, deleteCount).map(entry => entry[0]);
 
@@ -222,7 +222,7 @@ class Database extends Base {
             value = ClassSystemUtil.beforeSetInstance(value, StorageBase, {
                 database: this
             });
-            
+
             value.database = this;
         }
         return value;
@@ -251,19 +251,14 @@ class Database extends Base {
         // 2. Resolve Lazy Loading Vicinity Cache Misses seamlessly blocking via synchronous boundaries efficiently
         if (me.storage && !me.vicinityLoadedNodes.has(nodeId)) {
             let vicinity = me.storage.loadNodeVicinitySync(nodeId);
-            
+
             let wasTransacting = me.isExecutingTransaction;
             let wasAutoSave = me.autoSave;
             me.isExecutingTransaction = false;
             me.autoSave = false;
 
-
-            let newNodes = vicinity.nodes.filter(n => !me.nodes.get(n.id));
-            let newEdges = vicinity.edges.filter(e => !me.edges.get(e.id));
-
-            if (newNodes.length > 0) me.nodes.add(newNodes);
-            if (newEdges.length > 0) me.edges.add(newEdges);
-            
+            if (vicinity.nodes.length > 0) me.nodes.add(vicinity.nodes);
+            if (vicinity.edges.length > 0) me.edges.add(vicinity.edges);
 
             me.autoSave = wasAutoSave;
             me.isExecutingTransaction = wasTransacting;
@@ -283,7 +278,7 @@ class Database extends Base {
 
         if (direction === 'inbound' || direction === 'both') {
             let inboundEdges = me.edges.getByIndex('target', nodeId);
-            
+
             if (direction === 'both') {
                 inboundEdges.forEach(e => {
                     if (e.source !== nodeId) edges.push(e);
@@ -367,7 +362,7 @@ class Database extends Base {
             outbound      = me.edges.getByIndex('source', nodeId),
             inbound       = me.edges.getByIndex('target', nodeId),
             edgesToRemove = outbound.slice();
-        
+
         me.nodes.remove(nodeId);
         me.vicinityLoadedNodes.delete(nodeId);
         me.lastAccessMap.delete(nodeId);
@@ -388,7 +383,7 @@ class Database extends Base {
      * @protected
      */
     rollbackTransaction(diffLog) {
-        // Iterate backward guarantees dependencies (e.g. node deletion then edge cascade) reverse perfectly 
+        // Iterate backward guarantees dependencies (e.g. node deletion then edge cascade) reverse perfectly
         for (let i = diffLog.length - 1; i >= 0; i--) {
             let trace    = diffLog[i];
             let store    = trace.type === 'nodes' ? this.nodes : this.edges;
@@ -415,7 +410,7 @@ class Database extends Base {
     /**
      * Executes purely synchronous atomic closures securely mirroring standard database parameters effectively.
      * Utilizes a rollback buffer erasing local V8 mapped instances correctly if backend SQLite queries detonate cleanly.
-     * 
+     *
      * @param {Function} fn Synchronous logical closure interacting via standard `Database.addNode/removeNode`.
      */
     transaction(fn) {
@@ -428,14 +423,14 @@ class Database extends Base {
 
         try {
             fn(); // Synchronous array splices apply isolating memory mappings instantaneously internally
-            
+
             if (this.storage && this.transactionDiff.length > 0) {
                 this.storage.executeTransaction(this.transactionDiff);
             }
         } catch (error) {
             // Intercept internal throw commands seamlessly rendering perfect state erasures instantly
             this.rollbackTransaction(this.transactionDiff);
-            throw error; 
+            throw error;
         } finally {
             this.isExecutingTransaction = false;
             this.transactionDiff = [];
