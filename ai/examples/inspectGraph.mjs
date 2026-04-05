@@ -4,7 +4,7 @@ import Database from 'better-sqlite3';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const dbPath = path.resolve(__dirname, '../../chroma-neo-memory-core/graph/knowledge-graph.sqlite');
+const dbPath = path.resolve(__dirname, '../../neo-memory-core-sqlite/knowledge-graph.sqlite');
 
 function run() {
     try {

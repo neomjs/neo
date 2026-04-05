@@ -100,7 +100,7 @@ const defaultConfig = {
      * The local persistence path for the SQLite knowledge graph.
      * @type {string}
      */
-    sqlitePath: path.resolve(cwd, 'chroma-neo-memory-core/graph/knowledge-graph.sqlite'),
+    sqlitePath: path.resolve(cwd, 'neo-memory-core-sqlite/knowledge-graph.sqlite'),
     /**
      * The target Storage Engine (Vector Database) to use.
      * Options: 'neo' (SQLite-Vec), 'chroma' (ChromaDB), or 'both'.

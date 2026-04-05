@@ -101,6 +101,7 @@ resources/data/deck/EditorConfig.json
 .env
 chroma-neo-knowledge-base/
 chroma-neo-memory-core/
+neo-memory-core-sqlite/
 
 # Playwright test results
 test/playwright/test-results/

@@ -15,6 +15,7 @@
         "add-reactive-tags": "node ./buildScripts/helpers/addReactiveTags.mjs",
         "ai:defrag-kb": "node ./buildScripts/ai/defragChromaDB.mjs --target knowledge-base",
         "ai:defrag-memory": "node ./buildScripts/ai/defragChromaDB.mjs --target memory-core",
+        "ai:defrag-sqlite": "node ./buildScripts/ai/defragSQLiteDB.mjs",
         "ai:download-kb": "node ./buildScripts/ai/downloadKnowledgeBase.mjs",
         "ai:mcp-client": "node ./ai/mcp/client/mcp-cli.mjs",
         "ai:mcp-server-github-workflow": "node ./ai/mcp/server/github-workflow/mcp-server.mjs",
