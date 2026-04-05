@@ -5,9 +5,10 @@ state: CLOSED
 labels:
   - enhancement
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-04-04T13:43:47Z'
-updatedAt: '2026-04-04T18:02:39Z'
+updatedAt: '2026-04-04T21:31:16Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9690'
 author: tobiu
 commentsCount: 1
@@ -34,4 +35,5 @@ Establish a dedicated Github Discussion thread where the background local LLM (e
 Fixed via .agent/skills/ideation-sandbox
 
 - 2026-04-04T18:02:40Z @tobiu closed this issue
+- 2026-04-04T21:31:16Z @tobiu assigned to @tobiu
 

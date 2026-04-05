@@ -5,9 +5,10 @@ state: CLOSED
 labels:
   - enhancement
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-04-04T13:43:45Z'
-updatedAt: '2026-04-04T14:44:12Z'
+updatedAt: '2026-04-04T21:31:25Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9688'
 author: tobiu
 commentsCount: 1
@@ -41,4 +42,5 @@ Key deliverables:
 The first raw un-mocked output PR will spawn automatically when the active evaluation loop finalizes on the main machine.
 
 - 2026-04-04T14:44:12Z @tobiu closed this issue
+- 2026-04-04T21:31:25Z @tobiu assigned to @tobiu
 

@@ -25,11 +25,12 @@ subIssues:
   - '[x] 9683 Epic Sub: Session Amnesia & The Context Priming Engine'
   - '[x] 9697 Fix: GraphService direct lookups fail on Lazy Loading cache misses'
   - '[ ] 9707 [Handoff Protocol] Agent Startup Reconciliation & Graph Mutation'
-  - '[ ] 9708 [Topographical Extraction] Sandman REM Actionable Alert Generation'
-  - '[ ] 9709 [Vector Bridge] Stitching Chroma Semantics to SQLite Edge Nodes'
-  - '[ ] 9710 [SQLite VSS Migration] 100% Offline Markdown Tensor Chunking'
-subIssuesCompleted: 9
-subIssuesTotal: 13
+  - '[x] 9708 [Topographical Extraction] Sandman REM Actionable Alert Generation'
+  - '[x] 9709 [Vector Bridge] Stitching Chroma Semantics to SQLite Edge Nodes'
+  - '[x] 9710 [SQLite VSS Migration] 100% Offline Markdown Tensor Chunking'
+  - '[ ] 9714 [Sandman] Hybrid GraphRAG Scoring Algorithm'
+subIssuesCompleted: 12
+subIssuesTotal: 14
 blockedBy: []
 blocking: []
 ---
@@ -84,4 +85,6 @@ Pivot to a true **Hybrid GraphRAG Model**.
 - 2026-04-04T21:05:42Z @tobiu added sub-issue #9708
 - 2026-04-04T21:05:43Z @tobiu added sub-issue #9709
 - 2026-04-04T21:05:44Z @tobiu added sub-issue #9710
+- 2026-04-05T00:44:18Z @tobiu cross-referenced by #9714
+- 2026-04-05T00:44:25Z @tobiu added sub-issue #9714
 
