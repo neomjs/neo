@@ -46,7 +46,15 @@ Read the file `learn/gettingstarted/DescribingTheUI.md` to understand the differ
 
 Parse the file `.github/CODING_GUIDELINES.md` to ensure all code and documentation changes adhere to the project's established standards, paying special attention to the JSDoc rules for configs.
 
-### Step 6: Check for Memory Core
+### Step 6: Discover the Repository Ecosystem & Skills
+
+Before executing any commands, you MUST orient yourself to the repository's built-in tools.
+
+1. **Verify Scripts Before Running:** You must never run an `npm run` or `npx` command (like `test:unit` or `playwright`) without first explicitly viewing `package.json` to see the actual, available scripts.
+2. **Discover Capabilities:** Before assuming you know how to perform a multi-step task like testing, debugging, or scaffolding, you must list the contents of `.agent/skills/` to discover what predefined workflows exist for this specific repository. If a skill folder exists for your assigned task, you MUST read its `SKILL.md` before proceeding.
+3. **Propose New Skills:** The Agent Skill system is actively expanding. If you identify a recurring, complex task that lacks a skill, you are highly encouraged to propose creating a new one to the user.
+
+### Step 7: Check for Memory Core
 
 - Use the `healthcheck` tool for the `neo.mjs-memory-core` server.
 - **If the healthcheck is successful:** The Memory Core is active.
