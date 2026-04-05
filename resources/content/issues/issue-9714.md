@@ -6,9 +6,10 @@ labels:
   - enhancement
   - ai
   - architecture
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-04-05T00:44:17Z'
-updatedAt: '2026-04-05T00:44:17Z'
+updatedAt: '2026-04-05T00:50:54Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9714'
 author: tobiu
 commentsCount: 0
@@ -39,4 +40,5 @@ Related Epic: #9673
 - 2026-04-05T00:44:19Z @tobiu added the `ai` label
 - 2026-04-05T00:44:19Z @tobiu added the `architecture` label
 - 2026-04-05T00:44:25Z @tobiu added parent issue #9673
+- 2026-04-05T00:50:54Z @tobiu assigned to @tobiu
 
