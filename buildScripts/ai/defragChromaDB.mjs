@@ -52,13 +52,13 @@ const TARGETS = {
             collections: [cfg.collectionName]
         })
     },
-    'memory-core': {
+    'memory-core'   : {
         configPath: '../../ai/mcp/server/memory-core/config.mjs',
         adapt: (cfg) => ({
-            host       : cfg.memoryDb.host,
-            path       : cfg.memoryDb.path,
-            port       : cfg.memoryDb.port,
-            collections: [cfg.memoryDb.collectionName, cfg.sessionDb.collectionName]
+            host       : cfg.engines.chroma.host,
+            path       : cfg.engines.chroma.dataDir,
+            port       : cfg.engines.chroma.port,
+            collections: [cfg.collections.memory, cfg.collections.session]
         })
     }
 };
@@ -97,7 +97,7 @@ async function cleanOldBackups(backupDir) {
     try {
         if (!await fs.pathExists(backupDir)) return;
 
-        const entries = await fs.readdir(backupDir, { withFileTypes: true });
+        const entries = await fs.readdir(backupDir, {withFileTypes: true});
         const backups = entries
             .filter(e => e.isDirectory() && e.name.startsWith('backup-'))
             .map(e => {
@@ -136,8 +136,8 @@ async function cleanOldBackups(backupDir) {
  * @returns {Promise<Number>} The total size in bytes.
  */
 async function getDirSize(dir) {
-    const files = await fs.readdir(dir, { withFileTypes: true });
-    let size = 0;
+    const files = await fs.readdir(dir, {withFileTypes: true});
+    let size    = 0;
 
     for (const file of files) {
         const filePath = path.join(dir, file.name);
@@ -162,7 +162,7 @@ function vacuumSqlite(dbDir) {
     if (fs.existsSync(sqlitePath)) {
         console.log(`   🧹 Running SQLite VACUUM on ${sqlitePath}...`);
         try {
-            execSync(`sqlite3 "${sqlitePath}" "VACUUM;"`, { stdio: 'inherit' });
+            execSync(`sqlite3 "${sqlitePath}" "VACUUM;"`, {stdio: 'inherit'});
             console.log(`   ✅ VACUUM complete.`);
         } catch (e) {
             console.warn(`   ⚠️  VACUUM failed (sqlite3 CLI might be missing?): ${e.message}`);
@@ -255,7 +255,7 @@ async function defragChromaDB() {
 
         // 3. Extract All Data (Multi-Collection)
         console.log(`\n3️⃣  Fetching data from all collections...`);
-        const buffer = {};
+        const buffer         = {};
         let extractionErrors = false;
 
         for (const colName of config.collections) {
@@ -270,20 +270,20 @@ async function defragChromaDB() {
                 console.log(`     Found ${count} items.`);
 
                 const colData = {ids: [], embeddings: [], metadatas: [], documents: []};
-                
+
                 // 3.1 Fetch all IDs first (avoids HNSW index to prevent "Error finding id")
                 const allIds = [];
-                let offset = 0;
+                let offset   = 0;
                 while (true) {
-                    const batch = await collection.get({ limit: 2000, offset, include: [] });
+                    const batch = await collection.get({limit: 2000, offset, include: []});
                     if (batch.ids.length === 0) break;
                     allIds.push(...batch.ids);
                     offset += 2000;
                     if (batch.ids.length < 2000) break;
                 }
-                
+
                 console.log(`     Fetched ${allIds.length} IDs. Now extracting data...`);
-                
+
                 // 3.2 Fetch full data in chunks, with graceful fallback for corrupted embeddings
                 const chunkSize = 500;
                 for (let i = 0; i < allIds.length; i += chunkSize) {
@@ -291,7 +291,7 @@ async function defragChromaDB() {
                     process.stdout.write(`     Extracting data for IDs ${i} to ${i + chunk.length}... `);
                     try {
                         const batchData = await collection.get({
-                            ids: chunk,
+                            ids    : chunk,
                             include: ['embeddings', 'metadatas', 'documents']
                         });
                         colData.ids.push(...batchData.ids);
@@ -305,7 +305,7 @@ async function defragChromaDB() {
                         for (const id of chunk) {
                             try {
                                 const singleData = await collection.get({
-                                    ids: [id],
+                                    ids    : [id],
                                     include: ['embeddings', 'metadatas', 'documents']
                                 });
                                 if (singleData.ids.length > 0) {
@@ -322,7 +322,7 @@ async function defragChromaDB() {
                         console.log(`     ✅ Rescued ${rescued} items. Skipped ${chunk.length - rescued} corrupted ghost entries.`);
                     }
                 }
-                
+
                 buffer[colName] = colData;
             } catch (e) {
                 console.warn(`     ⚠️ Could not fetch collection ${colName} (might not exist yet): ${e.message}`);
@@ -340,19 +340,19 @@ async function defragChromaDB() {
         // Deleting the collection via API releases the logical locks on the index files.
         console.log(`\n4️⃣  Resetting Collections...`);
         for (const colName of config.collections) {
-             try {
+            try {
                 console.log(`   Deleting ${colName}...`);
-                await client.deleteCollection({ name: colName });
-             } catch (e) {
+                await client.deleteCollection({name: colName});
+            } catch (e) {
                 console.log(`   ℹ️  Delete failed (maybe didn't exist): ${e.message}`);
-             }
+            }
         }
 
         // 5. Load (Restore)
         // Re-creating the collection triggers a clean build of the HNSW index.
         console.log(`\n5️⃣  Restoring Data...`);
         const newCollectionIds = [];
-        let hasRestoreErrors = false;
+        let hasRestoreErrors   = false;
 
         for (const colName of config.collections) {
             try {
@@ -382,7 +382,7 @@ async function defragChromaDB() {
                     // Document Sanitization: Ensure documents are always strings.
                     // ChromaDB can throw if a document is null or an object.
                     const batchDocs = data.documents.slice(i, end).map(d => {
-                        if (d === null || d === undefined) return '';
+                        if (d == null)             return '';
                         if (typeof d === 'object') return JSON.stringify(d);
                         return String(d);
                     });
@@ -406,19 +406,19 @@ async function defragChromaDB() {
         console.log(`\n6️⃣  Cleaning up orphaned index folders...`);
         console.log(`   Active IDs: ${newCollectionIds.join(', ')}`);
 
-        const entries = await fs.readdir(DB_PATH, { withFileTypes: true });
+        const entries = await fs.readdir(DB_PATH, {withFileTypes: true});
         for (const entry of entries) {
             if (entry.isDirectory()) {
                 // Heuristic: UUIDv4 Check (36 chars, contains hyphen)
                 // This prevents accidental deletion of system folders (e.g., 'chroma.sqlite3' directory if it existed)
                 if (entry.name.length === 36 && entry.name.includes('-')) {
-                     if (!newCollectionIds.includes(entry.name)) {
-                         const orphanPath = path.join(DB_PATH, entry.name);
-                         console.log(`   🗑️  Deleting orphan: ${entry.name}`);
-                         await fs.remove(orphanPath);
-                     } else {
-                         console.log(`   ✨ Keeping active: ${entry.name}`);
-                     }
+                    if (!newCollectionIds.includes(entry.name)) {
+                        const orphanPath = path.join(DB_PATH, entry.name);
+                        console.log(`   🗑️  Deleting orphan: ${entry.name}`);
+                        await fs.remove(orphanPath);
+                    } else {
+                        console.log(`   ✨ Keeping active: ${entry.name}`);
+                    }
                 }
             }
         }

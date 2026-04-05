@@ -34,9 +34,11 @@ test.describe('DreamService Golden Path', () => {
 
         const os         = await import('os');
         const fs         = await import('fs');
-        const testDbPath = path.join(os.tmpdir(), `memory-core-dream-test-${process.pid}-${Date.now()}.db`);
+        const testDbName = `memory-core-dream-test-${process.pid}-${Date.now()}.sqlite`;
+        const testDbPath = path.join(os.tmpdir(), testDbName);
 
-        aiConfig.sqlitePath = testDbPath;
+        aiConfig.engines.neo.dataDir = os.tmpdir();
+        aiConfig.engines.neo.filename = testDbName;
         aiConfig.engine     = 'neo';
 
         TextEmbeddingService = (await import('../../../../../../ai/mcp/server/memory-core/services/TextEmbeddingService.mjs')).default;

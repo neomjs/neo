@@ -183,8 +183,8 @@ class DatabaseLifecycleService extends Base {
             logger.error('Starting ChromaDB (Memory Core) process...');
 
             await new Promise((resolve, reject) => {
-                const {port, path: dbPath} = aiConfig.memoryDb;
-                const args                 = ['run', '--path', dbPath, '--port', port.toString()];
+                const {port, dataDir} = aiConfig.engines.chroma;
+                const args            = ['run', '--path', dataDir, '--port', port.toString()];
 
                 const spawnedProcess = spawn('chroma', args, {
                     detached: true,

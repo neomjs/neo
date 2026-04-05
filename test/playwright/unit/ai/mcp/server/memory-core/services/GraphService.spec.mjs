@@ -17,20 +17,24 @@ import {test, expect}  from '@playwright/test';
 import Neo             from '../../../../../../../../src/Neo.mjs';
 import * as core       from '../../../../../../../../src/core/_export.mjs';
 import InstanceManager from '../../../../../../../../src/manager/Instance.mjs';
-import GraphService    from '../../../../../../../../ai/mcp/server/memory-core/services/GraphService.mjs';
-import aiConfig        from '../../../../../../../../ai/mcp/server/memory-core/config.mjs';
 import fs              from 'fs-extra';
 import path            from 'path';
 import os              from 'os';
 import {getPaths}      from '../../../../../../../../ai/graph/queries/Traversal.mjs';
 
 test.describe('Neo.ai.mcp.server.memory-core.services.GraphService', () => {
+    let GraphService;
     let service;
-    const testDbPath = path.join(os.tmpdir(), `memory-core-graph-test-${process.pid}-${Date.now()}.db`);
+    const testDbName = `memory-core-graph-test-${process.pid}-${Date.now()}.sqlite`;
+    const testDbPath = path.join(os.tmpdir(), testDbName);
 
     test.beforeAll(async () => {
+        const aiConfig = (await import('../../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
         // Mock the SQLite target path to a safe pure temporary location
-        aiConfig.sqlitePath = testDbPath;
+        aiConfig.engines.neo.dataDir = os.tmpdir();
+        aiConfig.engines.neo.filename = testDbName;
+
+        GraphService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/GraphService.mjs')).default;
         if (fs.existsSync(testDbPath)) {
             try {
                 fs.unlinkSync(testDbPath);
