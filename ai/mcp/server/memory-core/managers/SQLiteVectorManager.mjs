@@ -294,19 +294,24 @@ class SQLiteVectorManager extends Base {
             },
 
             async get({ ids, where, include, limit, offset }) {
-                let sql = `SELECT * FROM ${tableName}_data`;
+                const fetchEmbeddings = include && include.includes('embeddings');
+                
+                let sql = fetchEmbeddings 
+                    ? `SELECT d.*, v.embedding FROM ${tableName}_data d LEFT JOIN ${tableName}_vec v ON d.rowid = v.rowid`
+                    : `SELECT d.* FROM ${tableName}_data d`;
+                    
                 let conditions = [];
                 let values = [];
 
                 if (ids && ids.length > 0) {
                     const placeholders = ids.map(() => '?').join(',');
-                    conditions.push(`chroma_id IN (${placeholders})`);
+                    conditions.push(`d.chroma_id IN (${placeholders})`);
                     values.push(...ids);
                 }
 
                 if (where) {
                     for (const [key, val] of Object.entries(where)) {
-                        conditions.push(`json_extract(metadata, '$.${key}') = ?`);
+                        conditions.push(`json_extract(d.metadata, '$.${key}') = ?`);
                         values.push(val);
                     }
                 }
@@ -315,7 +320,7 @@ class SQLiteVectorManager extends Base {
                     sql += ` WHERE ` + conditions.join(' AND ');
                 }
 
-                sql += ` ORDER BY rowid DESC`;
+                sql += ` ORDER BY d.rowid DESC`;
 
                 if (limit !== undefined) {
                     sql += ` LIMIT ?`;
@@ -332,7 +337,7 @@ class SQLiteVectorManager extends Base {
                     ids: rows.map(r => r.chroma_id),
                     metadatas: include && include.includes('metadatas') ? rows.map(r => JSON.parse(r.metadata)) : [],
                     documents: include && include.includes('documents') ? rows.map(r => r.document) : [],
-                    embeddings: [] // Rarely needed via raw GET
+                    embeddings: fetchEmbeddings ? rows.map(r => r.embedding ? Array.from(new Float32Array(r.embedding.buffer, r.embedding.byteOffset, r.embedding.byteLength / 4)) : null) : []
                 };
             },
 

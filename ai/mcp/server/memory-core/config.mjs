@@ -131,10 +131,10 @@ const defaultConfig = {
          */
         path: path.resolve(cwd, '.neo-ai-data/chroma/memory-core'),
         /**
-         * The path to store memory backups.
+         * The local persistence path for exporting memory JSONL backups.
          * @type {string}
          */
-        backupPath: path.resolve(cwd, '.neo-ai-data/backups/chroma/memory-core')
+        backupPath: path.resolve(cwd, '.neo-ai-data/backups'),
     },
     /**
      * Configuration for the AI agent's session summary database.
@@ -156,10 +156,10 @@ const defaultConfig = {
          */
         port: 8001,
         /**
-         * The path to store session summary backups.
+         * The local persistence path for exporting summary JSONL backups.
          * @type {string}
          */
-        backupPath: path.resolve(cwd, '.neo-ai-data/backups/chroma/session-core')
+        backupPath: path.resolve(cwd, '.neo-ai-data/backups'),
     }
 };
 
