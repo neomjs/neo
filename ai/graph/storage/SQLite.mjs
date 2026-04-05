@@ -2,9 +2,9 @@ import Base from './Base.mjs';
 
 /**
  * Native Write-Ahead Logging (WAL) SQLite engine proxy driving memory graph persistence logic.
- * Bounded uniquely inside backend Node.js domains, this integration leverages dynamic imports natively, 
+ * Bounded uniquely inside backend Node.js domains, this integration leverages dynamic imports natively,
  * bypassing generic browser module restraints while translating instantaneous $O(1)$ memory mapping directly to physical data rows.
- * 
+ *
  * @class Neo.ai.graph.storage.SQLite
  * @extends Neo.ai.graph.storage.Base
  */
@@ -25,14 +25,14 @@ class SQLite extends Base {
     db = null;
 
     /**
-     * Evaluates backend file dependencies dynamically resolving database driver configurations. 
+     * Evaluates backend file dependencies dynamically resolving database driver configurations.
      * Applies robust WAL PRAGMA for ultimate IO concurrency avoiding framework lock-ups natively.
      */
     async initAsync() {
         await super.initAsync();
-        
+
         let me = this;
-        
+
         if (!me.dbPath) {
             throw new Error('SQLite storage requires a valid dbPath config.');
         }
@@ -51,18 +51,18 @@ class SQLite extends Base {
     }
 
     /**
-     * Evaluates current disk schemas, verifying universal JSON mapping configurations. 
+     * Evaluates current disk schemas, verifying universal JSON mapping configurations.
      * Injects strict Graph relational maps internally mitigating corrupted Edge cascade cascades cleanly.
      */
     initSchema() {
         let upgradeRequired = false;
-        
+
         try {
             this.db.prepare('SELECT log_id FROM GraphLog LIMIT 1').get();
         } catch (e) {
             upgradeRequired = true;
         }
-        
+
         if (upgradeRequired) {
             this.db.exec('DROP TABLE IF EXISTS Edges');
             this.db.exec('DROP TABLE IF EXISTS Nodes');
@@ -131,7 +131,7 @@ class SQLite extends Base {
 
     /**
      * Injects complex Edge topologies capturing mapping source/target configurations mapped across WAL schema blocks rigidly.
-     * @param {Object[]} edges 
+     * @param {Object[]} edges
      */
     addEdges(edges) {
         if (!this.db || !edges || edges.length === 0) return;
@@ -144,49 +144,49 @@ class SQLite extends Base {
                 type=excluded.type, 
                 data=excluded.data
         `);
-        
+
         const insertMany = this.db.transaction((edgesList) => {
             for (const edge of edgesList) {
                 stmt.run(edge.id, edge.source, edge.target, edge.type || null, JSON.stringify(edge));
             }
         });
-        
+
         insertMany(edges);
     }
 
     /**
      * Eradicates structural SQLite Node links, autonomously invoking SQLite CASCADE deletions for dependent bounding edge segments.
-     * @param {Object[]|String[]} nodes 
+     * @param {Object[]|String[]} nodes
      */
     removeNodes(nodes) {
         if (!this.db || !nodes || nodes.length === 0) return;
         const stmt = this.db.prepare('DELETE FROM Nodes WHERE id = ?');
-        
+
         const removeMany = this.db.transaction((nodesList) => {
             for (const node of nodesList) {
                 let resolvedId = typeof node === 'object' ? node.id : node;
                 stmt.run(resolvedId);
             }
         });
-        
+
         removeMany(nodes);
     }
 
     /**
      * Cleaves standalone Edge matrices cleanly inside atomic DELETE loop transactions.
-     * @param {Object[]|String[]} edges 
+     * @param {Object[]|String[]} edges
      */
     removeEdges(edges) {
         if (!this.db || !edges || edges.length === 0) return;
         const stmt = this.db.prepare('DELETE FROM Edges WHERE id = ?');
-        
+
         const removeMany = this.db.transaction((edgesList) => {
             for (const edge of edgesList) {
                 let resolvedId = typeof edge === 'object' ? edge.id : edge;
                 stmt.run(resolvedId);
             }
         });
-        
+
         removeMany(edges);
     }
 
@@ -202,7 +202,7 @@ class SQLite extends Base {
             ON CONFLICT(id) DO UPDATE SET data=excluded.data
         `);
         const removeNodeStmt = this.db.prepare('DELETE FROM Nodes WHERE id = ?');
-        
+
         const insertEdgeStmt = this.db.prepare(`
             INSERT INTO Edges (id, source, target, type, data) VALUES (?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET source=excluded.source, target=excluded.target, type=excluded.type, data=excluded.data
@@ -245,17 +245,29 @@ class SQLite extends Base {
     }
 
     /**
+     * Retrieves the absolute maximum GraphLog ID currently tracked avoiding lock dependencies organically.
+     * @returns {Number}
+     */
+    getLatestLogId() {
+        if (!this.db) return 0;
+        try {
+            let maxLogQuery = this.db.prepare('SELECT MAX(log_id) as max_id FROM GraphLog').get();
+            return maxLogQuery.max_id || 0;
+        } catch (e) { return 0; }
+    }
+
+    /**
      * Executes localized sequence polling isolating un-processed Native SQL edits securely resolving Cache Coherence natively cleanly.
      * Maps `AFTER UPDATE/INSERT/DELETE` trigger records stored in `GraphLog` locally comparing explicitly sequentially securely validating remote worker diffs internally perfectly accurately.
      * @see Neo.ai.graph.Database#syncCache
-     * @param {Number} sinceId 
+     * @param {Number} sinceId
      * @returns {Object} { lastLogId, invalidNodes, invalidEdges }
      */
     getDeltaLog(sinceId = 0) {
-        if (!this.db) return { lastLogId: sinceId, invalidNodes: [], invalidEdges: [] };
-        
-        let logs = this.db.prepare('SELECT log_id, entity_id, entity_type FROM GraphLog WHERE log_id > ? ORDER BY log_id ASC').all(sinceId);
-        let maxId = sinceId;
+        if (!this.db) return {lastLogId: sinceId, invalidNodes: [], invalidEdges: []};
+
+        let logs         = this.db.prepare('SELECT log_id, entity_id, entity_type FROM GraphLog WHERE log_id > ? ORDER BY log_id ASC').all(sinceId);
+        let maxId        = sinceId;
         let invalidNodes = new Set();
         let invalidEdges = new Set();
 
@@ -277,16 +289,16 @@ class SQLite extends Base {
      * Operates completely seamlessly inside strictly synchronous V8 traversal loops cleanly mapping boundaries cleanly safely!
      * Circumvents previous asynchronous initialization restrictions preventing destructive disk loop sweeps flawlessly securely dynamically mechanically internally.
      * @see Neo.ai.graph.Database#getAdjacentNodes
-     * @param {String|String[]} nodeIds 
+     * @param {String|String[]} nodeIds
      * @returns {Object} { nodes:[], edges:[] }
      */
     loadNodeVicinitySync(nodeIds) {
         if (!this.db) return { nodes: [], edges: [] };
         let ids = Array.isArray(nodeIds) ? nodeIds : [nodeIds];
-        if (ids.length === 0) return { nodes: [], edges: [] };
+        if (ids.length === 0) return {nodes: [], edges: []};
 
         let placeholders = ids.map(() => '?').join(',');
-        
+
         const nodesStmt = this.db.prepare(`SELECT data FROM Nodes WHERE id IN (${placeholders})`);
         const targetNodes = nodesStmt.all(...ids).map(r => JSON.parse(r.data));
 
@@ -304,9 +316,9 @@ class SQLite extends Base {
         let adjacentNodes = [];
         if (adjacentIds.size > 0) {
             let adjIdsArray = Array.from(adjacentIds);
-            let adjPl = adjIdsArray.map(() => '?').join(',');
-            let adjStmt = this.db.prepare(`SELECT data FROM Nodes WHERE id IN (${adjPl})`);
-            adjacentNodes = adjStmt.all(...adjIdsArray).map(r => JSON.parse(r.data));
+            let adjPl       = adjIdsArray.map(() => '?').join(',');
+            let adjStmt     = this.db.prepare(`SELECT data FROM Nodes WHERE id IN (${adjPl})`);
+            adjacentNodes   = adjStmt.all(...adjIdsArray).map(r => JSON.parse(r.data));
         }
 
         return {
@@ -320,7 +332,7 @@ class SQLite extends Base {
      */
     async load() {
         if (!this.db || !this.database) return;
-        
+
         // Retrieve absolute max log ID marking initialization cleanly so synchronization matches hardware efficiently internally natively.
         try {
             let maxLogQuery = this.db.prepare('SELECT MAX(log_id) as max_id FROM GraphLog').get();
