@@ -65,6 +65,21 @@ class GraphService extends Base {
             });
         }
         
+        // --- 1. THE GLOBAL SYSTEM PRIMER (Epic #9671) ---
+        // Inject the Master Architecture Tenets directly into the Native Graph at boot.
+        // Because this is anchored to the 'frontier' with a protected SYSTEM_TENET edge,
+        // it acts as a deterministic onboarding payload for every agent session.
+        this.db.getAdjacentNodes('Neo-Master-Architecture', 'both');
+        if (!this.db.nodes.has('Neo-Master-Architecture')) {
+            this.upsertNode({
+                id: 'Neo-Master-Architecture',
+                type: 'System',
+                name: 'Global System Primer',
+                description: 'Core framework tenets: 1. All Playwright tests must be run using "npm run test-unit -- [file]". No npx. 2. UI debugging and application state inspection must use the Neural Link MCP tools. 3. Look at .agent/skills for reusable agent workflows.'
+            });
+            this.linkNodes('frontier', 'Neo-Master-Architecture', 'SYSTEM_TENET', 1.0);
+        }
+        
         logger.log('[GraphService] SQLite database mounted securely via ai.graph.Database.');
     }
 

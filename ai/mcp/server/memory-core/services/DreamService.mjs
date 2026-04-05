@@ -207,14 +207,16 @@ ${session.document}
             logger.info(`[DreamService] Successfully extracted Tri-Vector schema for session ${session.meta.sessionId}.`);
 
             // --- VECTOR 1: SEMANTIC GRAPH ---
-            // Check if frontier exists, if not, stub it so we can link to it
-            GraphService.upsertNode({
-                id: 'frontier',
-                type: 'System',
-                name: 'Strategic Frontier',
-                description: 'The actively tracked development front for the current project scope.',
-                semanticVectorId: null
-            });
+            // Ensure frontier exists, if not, stub it so we can link to it
+            if (!GraphService.db.nodes.has('frontier')) {
+                GraphService.upsertNode({
+                    id: 'frontier',
+                    type: 'SYSTEM_ANCHOR',
+                    name: 'Active Context Frontier',
+                    description: 'The actively tracked development front for the current project scope.',
+                    semanticVectorId: null
+                });
+            }
 
             // Bridge to GraphService (SQLite)
             for (const node of payload.graph.nodes) {
@@ -492,6 +494,8 @@ ${contextText}
         const edgesToUpdate = [];
 
         edges.forEach(e => {
+            if (e.type === 'SYSTEM_TENET') return; // Protect structural system edges from fading
+
             let currentWeight = e.properties?.weight || 1.0;
             // Apply geometric decay
             let newWeight = currentWeight * 0.9;
