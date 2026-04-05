@@ -1,6 +1,8 @@
 import aiConfig                 from '../config.mjs';
 import Base                     from '../../../../../src/core/Base.mjs';
+import ChromaManager            from '../managers/ChromaManager.mjs';
 import SQLiteVectorManager      from '../managers/SQLiteVectorManager.mjs';
+import StorageRouter            from '../managers/StorageRouter.mjs';
 import DatabaseLifecycleService from './DatabaseLifecycleService.mjs';
 import logger                   from '../logger.mjs';
 
@@ -96,23 +98,37 @@ class HealthService extends Base {
     #startupSummarizationDetails = null;
 
     /**
-     * Checks if ChromaDB is running and accessible.
+     * Checks if the active vector databases are running and accessible.
      *
-     * Intent: This is the most critical check. Without ChromaDB running, no memory
-     * operations are possible. We use the heartbeat endpoint to verify connectivity.
+     * Intent: This checks that whatever engine is configured ('neo', 'chroma', or 'both')
+     * is properly initialized and accepting connections.
      *
      * @returns {Promise<Object>} {running: boolean, error?: string}
      * @private
      */
     async #checkChromaConnection() {
         try {
-            await SQLiteVectorManager.ready();
-            if (!SQLiteVectorManager.db?.open) throw new Error("SQLite VSS not open");
+            const engine = aiConfig.engine || 'both';
+            
+            if (engine === 'neo' || engine === 'both') {
+                await SQLiteVectorManager.ready();
+                if (!SQLiteVectorManager.db?.open) {
+                    throw new Error("SQLite VSS not open");
+                }
+            }
+            
+            if (engine === 'chroma' || engine === 'both') {
+                await ChromaManager.ready();
+                if (!ChromaManager.connected && !(await ChromaManager.connect())) {
+                    throw new Error("ChromaDB is not accessible");
+                }
+            }
+            
             return {running: true};
         } catch (e) {
             return {
                 running: false,
-                error  : `SQLite VSS is not accessible: ${e.message}`
+                error  : `Vector DB engine not accessible: ${e.message}`
             };
         }
     }
@@ -120,9 +136,8 @@ class HealthService extends Base {
     /**
      * Verifies that the required collections exist and are accessible.
      *
-     * Intent: Even if ChromaDB is running, we need to ensure our specific collections
-     * are properly initialized. This check confirms both memory and summary collections
-     * are available for operations.
+     * Intent: Confirms both memory and summary collections
+     * are available for operations on the active StorageRouter.
      *
      * @returns {Promise<Object>} {memories: Object|null, summaries: Object|null, error?: string}
      * @private
@@ -135,12 +150,12 @@ class HealthService extends Base {
 
         try {
             // Check memory collection
-            const memoryCollection = await SQLiteVectorManager.getMemoryCollection().catch(() => null);
+            const memoryCollection = await StorageRouter.getMemoryCollection().catch(() => null);
             if (memoryCollection) {
                 result.memories = {
                     name  : aiConfig.memoryDb.collectionName,
                     exists: true,
-                    count : await memoryCollection.count()
+                    count : await memoryCollection.count().catch(() => 0)
                 };
             } else {
                 result.memories = {
@@ -151,12 +166,12 @@ class HealthService extends Base {
             }
 
             // Check summary collection
-            const summaryCollection = await SQLiteVectorManager.getSummaryCollection().catch(() => null);
+            const summaryCollection = await StorageRouter.getSummaryCollection().catch(() => null);
             if (summaryCollection) {
                 result.summaries = {
                     name  : aiConfig.sessionDb.collectionName,
                     exists: true,
-                    count : await summaryCollection.count()
+                    count : await summaryCollection.count().catch(() => 0)
                 };
             } else {
                 result.summaries = {

@@ -101,24 +101,50 @@ class ChromaManager extends Base {
         };
     }
 
+    #chromaLock = Promise.resolve();
+
+    /**
+     * Executes a ChromaDB client function sequentially, ensuring console.warn
+     * is safely suppressed without overlapping race conditions.
+     * @param {Function} fn Async function to execute
+     * @returns {Promise<any>}
+     */
+    async #executeSilently(fn) {
+        const nextLock = (async () => {
+            // Await the completion of the previous silent execution
+            await this.#chromaLock;
+            
+            const originalWarn = console.warn;
+            console.warn = () => {}; // Suppress unwanted warnings from ChromaDB client
+            
+            try {
+                return await fn();
+            } finally {
+                // Guaranteed sequential restore
+                console.warn = originalWarn;
+            }
+        })();
+        
+        // Prevent chain crashing if an internal error occurs
+        this.#chromaLock = nextLock.catch(() => {});
+        return nextLock;
+    }
+
     /**
      * @returns {Promise<Object>}
      */
     async getMemoryCollection() {
-        if (!this.memoryCollection) {
-            const {collectionName} = aiConfig.memoryDb;
-
-            const originalWarn = console.warn;
-            console.warn = () => {}; // Suppress unwanted warnings from ChromaDB client
-
-            this.memoryCollection = await this.client.getOrCreateCollection({
-                name             : collectionName,
-                embeddingFunction: aiConfig.dummyEmbeddingFunction
+        if (!this._memoryCollectionPromise) {
+            this._memoryCollectionPromise = this.#executeSilently(async () => {
+                const {collectionName} = aiConfig.memoryDb;
+                return await this.client.getOrCreateCollection({
+                    name             : collectionName,
+                    embeddingFunction: aiConfig.dummyEmbeddingFunction
+                });
             });
-
-            console.warn = originalWarn;
         }
 
+        this.memoryCollection = await this._memoryCollectionPromise;
         return this.memoryCollection;
     }
 
@@ -126,20 +152,17 @@ class ChromaManager extends Base {
      * @returns {Promise<Object>}
      */
     async getSummaryCollection() {
-        if (!this.summaryCollection) {
-            const {collectionName} = aiConfig.sessionDb;
-
-            const originalWarn = console.warn;
-            console.warn = () => {}; // Suppress unwanted warnings from ChromaDB client
-
-            this.summaryCollection = await this.client.getOrCreateCollection({
-                name             : collectionName,
-                embeddingFunction: aiConfig.dummyEmbeddingFunction
+        if (!this._summaryCollectionPromise) {
+            this._summaryCollectionPromise = this.#executeSilently(async () => {
+                const {collectionName} = aiConfig.sessionDb;
+                return await this.client.getOrCreateCollection({
+                    name             : collectionName,
+                    embeddingFunction: aiConfig.dummyEmbeddingFunction
+                });
             });
-
-            console.warn = originalWarn;
         }
 
+        this.summaryCollection = await this._summaryCollectionPromise;
         return this.summaryCollection;
     }
 }
