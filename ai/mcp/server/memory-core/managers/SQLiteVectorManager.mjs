@@ -379,6 +379,8 @@ class SQLiteVectorManager extends Base {
 
                 const rows = self.db.prepare(sql).all(...queryArgs);
 
+                let returnData = { ids: [[]], metadatas: [[]], documents: [[]], distances: [[]] };
+
                 for (const row of rows) {
                     returnData.ids[0].push(row.id);
                     returnData.metadatas[0].push(JSON.parse(row.metadata));
