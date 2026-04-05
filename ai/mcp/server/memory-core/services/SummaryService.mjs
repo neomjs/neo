@@ -1,8 +1,8 @@
-import aiConfig             from '../config.mjs';
-import Base                 from '../../../../../src/core/Base.mjs';
-import StorageRouter        from '../managers/StorageRouter.mjs';
-import logger               from '../logger.mjs';
-import TextEmbeddingService from './TextEmbeddingService.mjs';
+import aiConfig      from '../config.mjs';
+import Base          from '../../../../../src/core/Base.mjs';
+import StorageRouter from '../managers/StorageRouter.mjs';
+import logger        from '../logger.mjs';
+
 
 /**
  * @summary Service for handling deleting, listing, and querying session summaries.
@@ -35,7 +35,7 @@ class SummaryService extends Base {
     async deleteAllSummaries() {
         try {
             const collection = await StorageRouter.getSummaryCollection();
-            
+
             const count = await collection.count();
             await collection.drop();
             await StorageRouter.getSummaryCollection(); // Re-creates it
@@ -180,12 +180,10 @@ class SummaryService extends Base {
     async querySummaries({query, nResults, category}) {
         try {
             const collection = await StorageRouter.getSummaryCollection();
-            const embedding  = await TextEmbeddingService.embedText(query);
-
             const queryArgs = {
-                queryEmbeddings: [embedding],
+                queryTexts: [query],
                 nResults,
-                include        : ['metadatas', 'documents']
+                include   : ['metadatas', 'documents']
             };
 
             if (category) {

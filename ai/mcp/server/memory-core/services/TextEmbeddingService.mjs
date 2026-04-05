@@ -40,10 +40,10 @@ class TextEmbeddingService extends Base {
     construct(config) {
         super.construct(config);
 
-        if (aiConfig.embeddingProvider === 'gemini') {
+        if (aiConfig.embeddingProvider === 'gemini' || aiConfig.chromaEmbeddingProvider === 'gemini' || aiConfig.neoEmbeddingProvider === 'gemini') {
             const apiKey = process.env.GEMINI_API_KEY;
             if (!apiKey) {
-                logger.warn('⚠️  [TextEmbeddingService] GEMINI_API_KEY not set. Semantic search features will be unavailable.');
+                logger.warn('⚠️  [TextEmbeddingService] GEMINI_API_KEY not set. Semantic search features with Gemini will be unavailable.');
             } else {
                 const genAI = new GoogleGenerativeAI(apiKey);
                 this.embeddingModel = genAI.getGenerativeModel({model: aiConfig.embeddingModel});
@@ -54,10 +54,13 @@ class TextEmbeddingService extends Base {
     /**
      * Creates an embedding vector for the provided text.
      * @param {String} text The text to embed.
+     * @param {String} [explicitProvider=null] The embedding provider to use, bypassing config.
      * @returns {Promise<number[]>}
      */
-    async embedText(text) {
-        if (aiConfig.embeddingProvider === 'ollama') {
+    async embedText(text, explicitProvider = null) {
+        const provider = explicitProvider || aiConfig.embeddingProvider;
+
+        if (provider === 'ollama') {
             const { host, embeddingModel } = aiConfig.ollama;
             try {
                 const response = await fetch(`${host}/api/embeddings`, {
@@ -80,6 +83,9 @@ class TextEmbeddingService extends Base {
         } else {
             if (!process.env.GEMINI_API_KEY) {
                  throw new Error('Semantic search unavailable: GEMINI_API_KEY is missing.');
+            }
+            if (!this.embeddingModel) {
+                 throw new Error('Google Generative AI Client not initialized properly.');
             }
             const result = await this.embeddingModel.embedContent(text);
             return result.embedding.values;

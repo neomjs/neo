@@ -12,7 +12,7 @@ import DatabaseLifecycleService from '../services/DatabaseLifecycleService.mjs';
  * collections are created if they don't exist. It handles the `dummyEmbeddingFunction` requirement for ChromaDB
  * to prevent warnings.
  *
- * @class Neo.ai.mcp.server.memory-core.services.ChromaManager
+ * @class Neo.ai.mcp.server.memory-core.managers.ChromaManager
  * @extends Neo.core.Base
  * @singleton
  */
@@ -57,7 +57,7 @@ class ChromaManager extends Base {
 
         // The client is created here, but the connection is established in initAsync
         const {host, port} = aiConfig.memoryDb;
-        this.client = new ChromaClient({host, port, ssl: false});
+        this.client        = new ChromaClient({host, port, ssl: false});
     }
 
     /**
@@ -113,10 +113,17 @@ class ChromaManager extends Base {
         const nextLock = (async () => {
             // Await the completion of the previous silent execution
             await this.#chromaLock;
-            
+
             const originalWarn = console.warn;
-            console.warn = () => {}; // Suppress unwanted warnings from ChromaDB client
-            
+            console.warn       = (...args) => {
+                const msg = args.join(' ');
+                if (msg.includes('No embedding function configuration found') ||
+                    msg.includes('Could not deserialize the collection metadata')) {
+                    return;
+                }
+                originalWarn.apply(console, args);
+            };
+
             try {
                 return await fn();
             } finally {
@@ -124,10 +131,32 @@ class ChromaManager extends Base {
                 console.warn = originalWarn;
             }
         })();
-        
+
         // Prevent chain crashing if an internal error occurs
-        this.#chromaLock = nextLock.catch(() => {});
+        this.#chromaLock = nextLock.catch(() => {
+        });
         return nextLock;
+    }
+
+    /**
+     * Instantiates an IEmbeddingFunction wrapper for the chromadb client.
+     * @returns {Object} A locally valid implementation of IEmbeddingFunction
+     */
+    #createEmbeddingFunction() {
+        return {
+            generate   : async (texts) => {
+                // Pass arrays of texts sequentially or via promise.all to TextEmbeddingService
+                const {default: TextEmbeddingService} = await import('../services/TextEmbeddingService.mjs');
+                const provider                        = aiConfig.chromaEmbeddingProvider || aiConfig.embeddingProvider;
+                const vectors                         = await Promise.all(texts.map(text => TextEmbeddingService.embedText(text, provider)));
+                return vectors;
+            },
+            name       : 'dynamic_text_embedding_service',
+            getConfig  : () => ({}),
+            constructor: {
+                buildFromConfig: () => this.#createEmbeddingFunction()
+            }
+        };
     }
 
     /**
@@ -139,7 +168,7 @@ class ChromaManager extends Base {
                 const {collectionName} = aiConfig.memoryDb;
                 return await this.client.getOrCreateCollection({
                     name             : collectionName,
-                    embeddingFunction: aiConfig.dummyEmbeddingFunction
+                    embeddingFunction: this.#createEmbeddingFunction()
                 });
             });
         }
@@ -157,7 +186,7 @@ class ChromaManager extends Base {
                 const {collectionName} = aiConfig.sessionDb;
                 return await this.client.getOrCreateCollection({
                     name             : collectionName,
-                    embeddingFunction: aiConfig.dummyEmbeddingFunction
+                    embeddingFunction: this.#createEmbeddingFunction()
                 });
             });
         }

@@ -2,7 +2,7 @@ import {GoogleGenerativeAI} from '@google/generative-ai';
 import aiConfig             from '../config.mjs';
 import Base                 from '../../../../../src/core/Base.mjs';
 import crypto               from 'crypto';
-import StorageRouter      from '../managers/StorageRouter.mjs';
+import StorageRouter        from '../managers/StorageRouter.mjs';
 import HealthService        from './HealthService.mjs';
 import Json                 from '../../../../../src/util/Json.mjs';
 import logger               from '../logger.mjs';
@@ -85,7 +85,7 @@ class SessionService extends Base {
                 return;
             }
         }
-        
+
         if (aiConfig.modelProvider === 'ollama') {
             logger.info(`[SessionService] Initializing generation model via Ollama (${aiConfig.ollama.model})`);
             this.model = {
@@ -101,7 +101,7 @@ class SessionService extends Base {
                         })
                     });
                     const data = await response.json();
-                    
+
                     if (data.error) {
                         logger.error(`[Ollama] Error: ${data.error}`);
                         throw new Error(`Ollama Generation Error: ${data.error}`);
@@ -398,14 +398,10 @@ ${aggregatedContent}
         const {summary, title, category, quality, productivity, impact, complexity, technologies} = summaryData;
 
         const summaryId       = `summary_${sessionId}`;
-        // Delegation to Abstracted TextEmbeddingService to respect aiConfig.embeddingProvider
-        const TextEmbeddingService = (await import('./TextEmbeddingService.mjs')).default;
-        const embedding       = await TextEmbeddingService.embedText(summary);
 
         await this.sessionsCollection.upsert({
             ids       : [summaryId],
             documents : [summary],
-            embeddings: [embedding],
             metadatas : [{
                 sessionId, timestamp: lastActivity, memoryCount: memories.ids.length,
                 title, category, quality, productivity, impact, complexity,
