@@ -28,8 +28,8 @@ subIssues:
   - '[x] 9708 [Topographical Extraction] Sandman REM Actionable Alert Generation'
   - '[x] 9709 [Vector Bridge] Stitching Chroma Semantics to SQLite Edge Nodes'
   - '[x] 9710 [SQLite VSS Migration] 100% Offline Markdown Tensor Chunking'
-  - '[ ] 9714 [Sandman] Hybrid GraphRAG Scoring Algorithm'
-subIssuesCompleted: 13
+  - '[x] 9714 [Sandman] Hybrid GraphRAG Scoring Algorithm'
+subIssuesCompleted: 14
 subIssuesTotal: 14
 blockedBy: []
 blocking: []

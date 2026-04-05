@@ -1,6 +1,6 @@
 {
-  "lastSync": "2026-04-05T14:06:09.754Z",
-  "releasesLastFetched": "2026-04-05T14:06:10.253Z",
+  "lastSync": "2026-04-05T15:30:18.823Z",
+  "releasesLastFetched": "2026-04-05T15:30:20.269Z",
   "pushFailures": [],
   "issues": {
     "3789": {
@@ -23415,15 +23415,15 @@
       "state": "CLOSED",
       "path": "resources/content/issues/issue-9672.md",
       "closedAt": "2026-04-04T17:53:01Z",
-      "updatedAt": "2026-04-04T17:53:01Z",
-      "contentHash": "d2f9e89d16d90da96ef89eee2f6e7845e142fe7f52925c2f1ee500ce78f71fc8"
+      "updatedAt": "2026-04-05T14:55:02Z",
+      "contentHash": "eeefd3d9bf556d49109ca73c823c0a892bbac66cc28772d8e29e7ca1dfa0940c"
     },
     "9673": {
       "state": "OPEN",
       "path": "resources/content/issues/issue-9673.md",
       "closedAt": null,
       "updatedAt": "2026-04-04T01:18:24Z",
-      "contentHash": "dbca7cf428094946a5dc14ec1a6996cef8abc35717fc3c01b56f6c0574d5305b"
+      "contentHash": "97cad75d3e43a2f40b6ef5bfd6518e76a94c4301d84f32b2b541d5e6ea1ccc22"
     },
     "9674": {
       "state": "CLOSED",
@@ -23506,8 +23506,8 @@
       "state": "CLOSED",
       "path": "resources/content/issues/issue-9686.md",
       "closedAt": "2026-04-04T18:02:36Z",
-      "updatedAt": "2026-04-04T18:02:36Z",
-      "contentHash": "4782d57d75bfb73ba712e8665697c2e1a590dc916c7604b08bd570a403d72cf5"
+      "updatedAt": "2026-04-05T14:54:52Z",
+      "contentHash": "d08b9b66994db6d141035a7f8270ec4c226bbb8ce9f7e562a859ebc69029bc41"
     },
     "9687": {
       "state": "OPEN",
@@ -23678,11 +23678,11 @@
       "contentHash": "1d17146fc9f9a44fab1bebe4f1d2560fc91f032a618bd41e3bc32ee351ceabac"
     },
     "9714": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "resources/content/issues/issue-9714.md",
-      "closedAt": null,
-      "updatedAt": "2026-04-05T00:50:54Z",
-      "contentHash": "d2c87907b86edcf9fe6582d1e6ab1995d74ded1df99d22ea8bef9729d21dd7bb"
+      "closedAt": "2026-04-05T15:30:01Z",
+      "updatedAt": "2026-04-05T15:30:01Z",
+      "contentHash": "0cf50b87e9b34b0f0049cb836ff0174a18159c63b443f72f90cf8f25496ba603"
     },
     "9715": {
       "state": "CLOSED",
