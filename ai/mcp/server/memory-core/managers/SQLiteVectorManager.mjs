@@ -46,7 +46,7 @@ class SQLiteVectorManager extends Base {
      */
     async initAsync() {
         await super.initAsync();
-        
+
         if (aiConfig.engine !== 'neo' && aiConfig.engine !== 'both') {
             logger.log('[SQLiteVectorManager] Engine configured to bypass local vector manager. Skipping init.');
             return;
@@ -71,7 +71,7 @@ class SQLiteVectorManager extends Base {
         } catch (e) {
             throw new Error(`Failed to load sqlite-vec native extension from path [${extPath}]. Ensure binary compatibility for your architecture.`, { cause: e });
         }
-        
+
         // System tables
         this.db.exec(`
             CREATE TABLE IF NOT EXISTS vector_collections_meta (
@@ -80,7 +80,7 @@ class SQLiteVectorManager extends Base {
                 dimension INTEGER
             );
         `);
-        
+
         // Create client mock for deleteCollection
         this.client = {
             deleteCollection: async ({ name }) => {
@@ -97,7 +97,7 @@ class SQLiteVectorManager extends Base {
         const tables = this.db.prepare('SELECT * FROM vector_collections_meta').all();
         if (tables.length > 0) {
             try {
-                const dummy = await TextEmbeddingService.embedText("dimension_test");
+                const dummy = await TextEmbeddingService.embedText("dimension_test", aiConfig.neoEmbeddingProvider);
                 const currentDim = dummy.length;
                 for (const table of tables) {
                     if (table.dimension !== currentDim) {
@@ -136,7 +136,7 @@ class SQLiteVectorManager extends Base {
 
     /**
      * @summary Core infrastructure method that scaffolds the underlying SQLite tables
-     * for a vector collection if it does not already exist. It resolves the 
+     * for a vector collection if it does not already exist. It resolves the
      * correct vector dimension dynamically based on the current embedding model.
      * @param {Object} config API matching ChromaDB's getOrCreateCollection.
      * @param {String} config.name The unique name for the collection.
@@ -156,7 +156,7 @@ class SQLiteVectorManager extends Base {
         if (!col) {
             logger.log(`[SQLiteVectorManager] Discovering embedding dimension for new collection: ${tableName}`);
             // Infer dimension via a dummy generation
-            const dummy = await TextEmbeddingService.embedText("dimension_test");
+            const dummy = await TextEmbeddingService.embedText("dimension_test", aiConfig.neoEmbeddingProvider);
             dim = dummy.length;
 
             this.db.prepare('INSERT INTO vector_collections_meta (id, name, dimension) VALUES (?, ?, ?)').run(crypto.randomUUID(), tableName, dim);
@@ -190,17 +190,17 @@ class SQLiteVectorManager extends Base {
      */
     #createInterface(tableName, dim) {
         const self = this;
-        
+
         return {
             name: tableName,
-            
+
             async count() {
                 const res = self.db.prepare(`SELECT count(*) as c FROM ${tableName}_data`).get();
                 return res.c || 0;
             },
-            
+
             async add({ ids, embeddings, metadatas, documents }) {
-                return this.upsert({ ids, embeddings, metadatas, documents });
+                return await this.upsert({ ids, embeddings, metadatas, documents });
             },
 
             async delete({ ids, where }) {
@@ -208,7 +208,7 @@ class SQLiteVectorManager extends Base {
                 if (ids && ids.length > 0) {
                     const delData = self.db.prepare(`DELETE FROM ${tableName}_data WHERE chroma_id = ? RETURNING rowid`);
                     const delVec  = self.db.prepare(`DELETE FROM ${tableName}_vec WHERE rowid = ?`);
-                    
+
                     const tx = self.db.transaction(() => {
                         for (const id of ids) {
                             const res = delData.get(id);
@@ -247,6 +247,22 @@ class SQLiteVectorManager extends Base {
             },
 
             async upsert({ ids, embeddings, metadatas, documents }) {
+                // Generate any missing embeddings BEFORE the synchronous SQLite transaction
+                let finalEmbeddings = embeddings || [];
+                if (documents && finalEmbeddings.length !== ids.length) {
+                    finalEmbeddings = [];
+                    for (let i = 0; i < ids.length; i++) {
+                        if (embeddings && embeddings[i]) {
+                            finalEmbeddings.push(embeddings[i]);
+                        } else if (documents[i]) {
+                            const e = await TextEmbeddingService.embedText(documents[i], aiConfig.neoEmbeddingProvider);
+                            finalEmbeddings.push(e);
+                        } else {
+                            finalEmbeddings.push(null);
+                        }
+                    }
+                }
+
                 const upsertData = self.db.prepare(`
                     INSERT INTO ${tableName}_data (chroma_id, document, metadata) 
                     VALUES (?, ?, ?)
@@ -260,19 +276,18 @@ class SQLiteVectorManager extends Base {
                     for (let i = 0; i < ids.length; i++) {
                         const metaStr = metadatas && metadatas[i] ? JSON.stringify(metadatas[i]) : '{}';
                         const docStr  = documents && documents[i] ? documents[i] : '';
-                        
+
                         const res = upsertData.get(ids[i], docStr, metaStr);
                         const rowid = BigInt(res.rowid);
 
-                        if (embeddings && embeddings[i]) {
+                        if (finalEmbeddings[i]) {
                             deleteVec.run(rowid);
-                            // sqlite-vec requires Float32Array
-                            const f32 = new Float32Array(embeddings[i]);
+                            const f32 = new Float32Array(finalEmbeddings[i]);
                             insertVec.run(rowid, f32);
                         }
                     }
                 });
-                
+
                 tx();
             },
 
@@ -293,13 +308,13 @@ class SQLiteVectorManager extends Base {
                         values.push(val);
                     }
                 }
-                
+
                 if (conditions.length > 0) {
                     sql += ` WHERE ` + conditions.join(' AND ');
                 }
-                
+
                 sql += ` ORDER BY rowid DESC`;
-                
+
                 if (limit !== undefined) {
                     sql += ` LIMIT ?`;
                     values.push(limit);
@@ -310,7 +325,7 @@ class SQLiteVectorManager extends Base {
                 }
 
                 const rows = self.db.prepare(sql).all(...values);
-                
+
                 return {
                     ids: rows.map(r => r.chroma_id),
                     metadatas: include && include.includes('metadatas') ? rows.map(r => JSON.parse(r.metadata)) : [],
@@ -319,14 +334,18 @@ class SQLiteVectorManager extends Base {
                 };
             },
 
-            async query({ queryEmbeddings, nResults, where }) {
-                // Vector similarity search using sqlite-vec
-                // knn search: SELECT rowid, distance FROM _vec WHERE embedding MATCH ? AND k = ?
-                // But we also need 'where' metadata filtering! Fast approach: JOIN with _data.
-                
-                const returnData = { ids: [[]], metadatas: [[]], documents: [[]], distances: [[]] };
+            async query({ queryEmbeddings, queryTexts, nResults, where }) {
+                // Allow dynamic generation from queryTexts
+                let finalQueryEmbedding = queryEmbeddings ? queryEmbeddings[0] : null;
+                if (!finalQueryEmbedding && queryTexts && queryTexts.length > 0) {
+                    finalQueryEmbedding = await TextEmbeddingService.embedText(queryTexts[0], aiConfig.neoEmbeddingProvider);
+                }
 
-                const f32 = new Float32Array(queryEmbeddings[0]);
+                if (!finalQueryEmbedding) {
+                    throw new Error('SQLiteVectorManager requires queryEmbeddings or queryTexts');
+                }
+
+                const f32 = new Float32Array(finalQueryEmbedding);
 
                 let whereClause = '';
                 let queryArgs = [f32, nResults || 5];

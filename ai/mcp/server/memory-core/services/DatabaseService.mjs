@@ -1,11 +1,10 @@
 import aiConfig      from '../config.mjs';
 import fs            from 'fs-extra';
-import logger               from '../logger.mjs';
+import logger        from '../logger.mjs';
 import path          from 'path';
 import readline      from 'readline';
 import Base          from '../../../../../src/core/Base.mjs';
 import StorageRouter from '../managers/StorageRouter.mjs';
-import TextEmbeddingService from './TextEmbeddingService.mjs';
 
 /**
  * @summary Service for exporting and importing memory core data.
@@ -165,31 +164,8 @@ class DatabaseService extends Base {
 
             // --- Re-Embedding Logic ---
             if (reEmbed) {
-                logger.log('Re-embedding enabled. Generating new embeddings for all records (Model: gemini-embedding-001)...');
-                const batchSize = 50;
-                const delay     = 10000; // 10s
-
-                for (let i = 0; i < records.length; i += batchSize) {
-                    const batch = records.slice(i, i + batchSize);
-                    logger.log(`Processing batch ${Math.ceil((i + 1) / batchSize)}/${Math.ceil(records.length / batchSize)}...`);
-
-                    const promises = batch.map(async (record) => {
-                        try {
-                            const newEmbedding = await TextEmbeddingService.embedText(record.document);
-                            record.embedding = newEmbedding;
-                        } catch (err) {
-                            logger.error(`Failed to re-embed record ${record.id}:`, err);
-                            throw err;
-                        }
-                    });
-
-                    await Promise.all(promises);
-
-                    if (i + batchSize < records.length) {
-                        logger.log(`Waiting ${delay}ms to respect rate limits...`);
-                        await this.timeout(delay);
-                    }
-                }
+                logger.log('Re-embedding enabled. Stripping existing embeddings so storage engine regenerates them dynamically...');
+                records.forEach(r => delete r.embedding);
             }
             // --------------------------
 

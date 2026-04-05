@@ -1,10 +1,10 @@
-import Base                 from '../../../../../src/core/Base.mjs';
-import StorageRouter        from '../managers/StorageRouter.mjs';
-import crypto               from 'crypto';
-import GraphService         from './GraphService.mjs';
-import logger               from '../logger.mjs';
-import SessionService       from './SessionService.mjs';
-import TextEmbeddingService from './TextEmbeddingService.mjs';
+import Base           from '../../../../../src/core/Base.mjs';
+import StorageRouter  from '../managers/StorageRouter.mjs';
+import crypto         from 'crypto';
+import GraphService   from './GraphService.mjs';
+import logger         from '../logger.mjs';
+import SessionService from './SessionService.mjs';
+
 
 /**
  * @summary Service for handling adding, listing, and querying agent memories.
@@ -49,7 +49,6 @@ class MemoryService extends Base {
             const now          = Date.now();
             const timestamp    = new Date(now).toISOString();
             const memoryId     = crypto.randomUUID();
-            const embedding    = await TextEmbeddingService.embedText(combinedText);
 
             if (!sessionId) {
                 sessionId = SessionService.currentSessionId;
@@ -69,7 +68,6 @@ class MemoryService extends Base {
 
             await collection.add({
                 ids: [memoryId],
-                embeddings: [embedding],
                 metadatas: [metadata],
                 documents: [combinedText]
             });
@@ -152,12 +150,10 @@ class MemoryService extends Base {
     async queryMemories({query, nResults, sessionId}) {
         try {
             const collection = await StorageRouter.getMemoryCollection();
-            const embedding  = await TextEmbeddingService.embedText(query);
-
             const queryArgs = {
-                queryEmbeddings: [embedding],
+                queryTexts: [query],
                 nResults,
-                include        : ['metadatas']
+                include   : ['metadatas']
             };
 
             if (sessionId) {
@@ -283,7 +279,7 @@ class MemoryService extends Base {
             }
 
             let neighbors = GraphService.getNeighbors({ id: targetId });
-            
+
             // Focus purely on highest-weight semantic and architectural relationships
             neighbors = neighbors
                 .filter(n => n.weight >= 0.5) // filter weak noise
@@ -299,7 +295,7 @@ class MemoryService extends Base {
 
             for (const neighbor of neighbors) {
                 let episodicContext = null;
-                
+
                 if (neighbor.semanticVectorId) {
                     try {
                         const result = await collection.get({
@@ -352,9 +348,9 @@ class MemoryService extends Base {
                     code   : 'INVALID_PARAMETERS'
                 };
             }
-            
+
             const result = GraphService.mutateFrontier({ targetNodeId, weight, relationship });
-            
+
             return {
                 message: 'Successfully mutated the context frontier.',
                 result

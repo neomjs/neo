@@ -190,17 +190,21 @@ class HealthService extends Base {
         }
     }
 
-    /**
-     * Checks if the GEMINI_API_KEY is configured (required for summarization).
-     *
-     * Intent: Session summarization requires the Gemini API. This check allows us
-     * to report a 'degraded' state when the API key is missing, so users know
-     * that memory operations work but summarization will fail.
-     *
-     * @returns {boolean}
-     * @private
-     */
     #checkApiKeyConfigured() {
+        const providers = [aiConfig.modelProvider];
+        
+        if (aiConfig.engine === 'chroma' || aiConfig.engine === 'both') {
+            providers.push(aiConfig.chromaEmbeddingProvider || aiConfig.embeddingProvider);
+        }
+        if (aiConfig.engine === 'neo' || aiConfig.engine === 'both') {
+            providers.push(aiConfig.neoEmbeddingProvider || aiConfig.embeddingProvider);
+        }
+
+        const needsGemini = providers.some(p => p === 'gemini');
+
+        if (!needsGemini) {
+            return true; // Local generation and embedding does not require Gemini key
+        }
         return !!process.env.GEMINI_API_KEY;
     }
 
