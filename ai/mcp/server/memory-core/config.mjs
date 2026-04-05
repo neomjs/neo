@@ -128,7 +128,7 @@ const defaultConfig = {
      * The target Storage Engine (Vector Database) to use.
      * Options: 'neo' (SQLite-Vec), 'chroma' (ChromaDB), or 'both'.
      */
-    engine: 'both',
+    engine: 'chroma',
     /**
      * Configuration for the AI agent's persistent memory database.
      */
