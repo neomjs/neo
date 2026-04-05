@@ -5,28 +5,50 @@ import ChromaManager        from '../../ai/mcp/server/memory-core/managers/Chrom
 import SQLiteVectorManager  from '../../ai/mcp/server/memory-core/managers/SQLiteVectorManager.mjs';
 import TextEmbeddingService from '../../ai/mcp/server/memory-core/services/TextEmbeddingService.mjs';
 import aiConfig             from '../../ai/mcp/server/memory-core/config.mjs';
+import { program }          from 'commander';
 
-// We must override the local model config just in case, but let's assume it resolves
-// To safely get from Chroma, we just instantiate ChromaManager collections.
+program
+    .name('sync-memory-chroma-to-neo')
+    .description('Migrate ChromaDB memory to Neo SQLite with optional re-embedding')
+    .option('-p, --target-provider <provider>', 'The target embedding provider (e.g., gemini, ollama).')
+    .parse(process.argv);
 
+const options = program.opts();
+/**
+ * @summary Synchronizes and migrates the ChromaDB memory persistence layer into the Native SQLite Vector Database.
+ * 
+ * Supports dynamic re-embedding: if `--target-provider` matches the legacy Chroma provider,
+ * it performs a 1:1 hardware buffer clone. Otherwise, it iteratively re-embeds the text context
+ * into the target vector space to prevent dimension mismatch errors.
+ * 
+ * This system targets the `.neo-ai-data/neo-sqlite/knowledge-graph.sqlite` topology.
+ * @async
+ * @function sync
+ */
 async function sync() {
     try {
+        const targetProvider = options.targetProvider || aiConfig.neoEmbeddingProvider;
         console.log("=== STARTING MEMORY CORE MIGRATION (CHROMA => NEO SQLITE) ===");
+        console.log(`Target Provider: ${targetProvider}`);
+        console.log(`Source Provider: ${aiConfig.chromaEmbeddingProvider}`);
 
         // Wait for managers to boot
-        console.log("1. Booting ChromaDB (Legacy)...");
+        console.log("1. Booting ChromaDB...");
         await ChromaManager.ready();
 
         console.log("2. Cleaning up Native SQLite for a FULL Re-sync...");
         const fs = (await import('fs')).default;
         const path = (await import('path')).default;
-        const sqlDbUrl = new URL('../../neo-memory-core-sqlite/memories.sqlite', import.meta.url);
+        const sqlDbUrl = new URL('../../.neo-ai-data/neo-sqlite/knowledge-graph.sqlite', import.meta.url);
+        
         if (fs.existsSync(sqlDbUrl)) {
             fs.unlinkSync(sqlDbUrl);
-            console.log("   -> Old memories.sqlite deleted.");
+            console.log("   -> Old knowledge-graph.sqlite deleted.");
         }
 
         console.log("3. Booting SQLite (Neo Native)...");
+        // Ensure aiConfig is temporarily overridden if required so validation passes
+        aiConfig.neoEmbeddingProvider = targetProvider;
         await SQLiteVectorManager.ready();
 
         console.log("4. Booting TextEmbeddingService...");
@@ -38,7 +60,7 @@ async function sync() {
             const sqliteColl = await sqliteGetter();
 
             const count = await chromaColl.count();
-            console.log(`[${name}] Legacy Count: ${count}`);
+            console.log(`[${name}] Source Count: ${count}`);
 
             if (count === 0) {
                 console.log(`[${name}] Skipping, nothing to migrate.`);
@@ -50,7 +72,7 @@ async function sync() {
             let offset = 0;
 
             while (offset < count) {
-                const isProviderMatch = aiConfig.neoEmbeddingProvider === aiConfig.chromaEmbeddingProvider;
+                const isProviderMatch = targetProvider === aiConfig.chromaEmbeddingProvider;
 
                 const batch = await chromaColl.get({
                     include: isProviderMatch ? ["documents", "metadatas", "embeddings"] : ["documents", "metadatas"],
@@ -62,23 +84,20 @@ async function sync() {
 
                 console.log(`[${name}] Processing batch ${offset} => ${offset + batch.ids.length}`);
 
-                // We process sequentially or in parallel batches for the local VRAM
-                // We construct the arrays required by sqliteVectorManager: ids, embeddings, metadatas, documents
                 let generatedEmbeddings = [];
                 const ids = batch.ids;
                 const metadatas = batch.metadatas;
                 const documents = batch.documents;
 
                 if (isProviderMatch) {
-                    console.log(`[${name}] Providers match (${aiConfig.neoEmbeddingProvider}). Hardware 1:1 vector transfer active.`);
+                    console.log(`[${name}] Providers match (${targetProvider}). Hardware 1:1 vector transfer active.`);
                     generatedEmbeddings = batch.embeddings;
                 } else {
-                    console.log(`[${name}] Translating semantic space from ${aiConfig.chromaEmbeddingProvider} to ${aiConfig.neoEmbeddingProvider}.`);
+                    console.log(`[${name}] Translating semantic space from ${aiConfig.chromaEmbeddingProvider} to ${targetProvider}.`);
                     // Re-embed chunks sequentially to prevent OOM
                     for (let i = 0; i < documents.length; i++) {
                         const docText = documents[i];
-                        // Generate using the new local active TextEmbeddingService
-                        const vec = await TextEmbeddingService.embedText(docText, aiConfig.neoEmbeddingProvider);
+                        const vec = await TextEmbeddingService.embedText(docText, targetProvider);
                         generatedEmbeddings.push(vec);
 
                         if (i > 0 && i % 10 === 0) {

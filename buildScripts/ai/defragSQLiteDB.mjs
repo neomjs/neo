@@ -6,7 +6,7 @@ import { execSync } from 'child_process';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
-const dbPath = path.resolve(PROJECT_ROOT, 'neo-memory-core-sqlite/knowledge-graph.sqlite');
+const dbPath = path.resolve(PROJECT_ROOT, '.neo-ai-data/neo-sqlite/knowledge-graph.sqlite');
 
 /**
  * @summary A lightweight CLI tool to defragment the SQLite Native Vector Database.
@@ -19,7 +19,7 @@ function defragSQLiteDB() {
         const initialSize = fs.statSync(dbPath).size;
         console.log(`   📂 Database Path: ${dbPath}`);
         console.log(`   📊 Initial Size: ${(initialSize / 1024 / 1024).toFixed(2)} MB`);
-        console.log(`   🧹 Running SQLite VACUUM on knowledge-graph.sqlite...`);
+        console.log(`   🧹 Running SQLite VACUUM on .neo-ai-data/neo-sqlite/knowledge-graph.sqlite...`);
         
         try {
             execSync(`sqlite3 "${dbPath}" "VACUUM;"`, { stdio: 'inherit' });
