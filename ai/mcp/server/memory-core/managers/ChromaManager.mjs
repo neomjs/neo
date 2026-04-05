@@ -55,8 +55,8 @@ class ChromaManager extends Base {
     construct(config) {
         super.construct(config);
 
-        // The client is created here, but the connection is established in initAsync
-        const {host, port} = aiConfig.memoryDb;
+        // The client is created here, but the connection is evaluated lazily.
+        const {host, port} = aiConfig.engines.chroma;
         this.client        = new ChromaClient({host, port, ssl: false});
     }
 
@@ -74,6 +74,11 @@ class ChromaManager extends Base {
      * @returns {Promise<boolean>} True if connected, false otherwise
      */
     async connect() {
+        if (aiConfig.engine === 'neo') {
+            this.connected = true;
+            return true;
+        }
+
         try {
             await this.client.heartbeat();
             this.connected = true;
@@ -166,7 +171,7 @@ class ChromaManager extends Base {
     async getMemoryCollection() {
         if (!this._memoryCollectionPromise) {
             this._memoryCollectionPromise = this.#executeSilently(async () => {
-                const {collectionName} = aiConfig.memoryDb;
+                const collectionName = aiConfig.collections.memory;
                 return await this.client.getOrCreateCollection({
                     name             : collectionName,
                     embeddingFunction: this.#createEmbeddingFunction()
@@ -184,7 +189,7 @@ class ChromaManager extends Base {
     async getSummaryCollection() {
         if (!this._summaryCollectionPromise) {
             this._summaryCollectionPromise = this.#executeSilently(async () => {
-                const {collectionName} = aiConfig.sessionDb;
+                const collectionName = aiConfig.collections.session;
                 return await this.client.getOrCreateCollection({
                     name             : collectionName,
                     embeddingFunction: this.#createEmbeddingFunction()

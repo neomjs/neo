@@ -72,7 +72,7 @@ class DatabaseService extends Base {
                 });
             } catch (batchErr) {
                 logger.log(`Batch ${offset} fetch failed: ${batchErr.message}. Initiating surgical 1-by-1 rescue mode...`);
-                
+
                 // Fetch only IDs first to bypass corrupt payload/embedding pointers
                 const idBatch = await collection.get({
                     include: [],
@@ -80,15 +80,15 @@ class DatabaseService extends Base {
                     offset : offset
                 });
 
-                batch = { ids: [], metadatas: [], documents: [], embeddings: [] };
-                
+                batch = {ids: [], metadatas: [], documents: [], embeddings: []};
+
                 for (const id of idBatch.ids) {
                     try {
                         const single = await collection.get({
                             ids    : [id],
                             include: ["documents", "embeddings", "metadatas"]
                         });
-                        
+
                         if (single.ids && single.ids.length > 0) {
                             batch.ids.push(single.ids[0]);
                             batch.documents.push(single.documents[0]);
@@ -134,19 +134,19 @@ class DatabaseService extends Base {
 
             if (include.includes('memories')) {
                 const collection = await StorageRouter.getMemoryCollection();
-                memoryCount = await this.#exportCollection(collection, aiConfig.memoryDb.backupPath, 'memory-backup');
+                memoryCount      = await this.#exportCollection(collection, aiConfig.backupPath, 'memory-backup');
             }
 
             if (include.includes('summaries')) {
                 const collection = await StorageRouter.getSummaryCollection();
-                summaryCount = await this.#exportCollection(collection, aiConfig.sessionDb.backupPath, 'summaries-backup');
+                summaryCount     = await this.#exportCollection(collection, aiConfig.backupPath, 'summaries-backup');
             }
 
             return {message: `Export complete. Exported ${memoryCount} memories and ${summaryCount} summaries.`};
         } catch (error) {
             logger.error('[DatabaseService] Error exporting database:', error);
             const exportError = new Error(`DATABASE_EXPORT_ERROR: ${error.message}`);
-            exportError.code = 'DATABASE_EXPORT_ERROR';
+            exportError.code  = 'DATABASE_EXPORT_ERROR';
             throw exportError;
         }
     }
@@ -162,7 +162,7 @@ class DatabaseService extends Base {
     async importDatabase({file, mode, reEmbed=false}) {
         try {
             let filesToImport = [];
-            
+
             // If the user specifies a specific file
             if (file && (file.endsWith('.jsonl') || file.endsWith('.json'))) {
                 if (!await fs.pathExists(file)) {
@@ -173,7 +173,7 @@ class DatabaseService extends Base {
                 // "Grab them all" mode - scan fallback/unified backup folders
                 const pathsToScan = [
                     file, // user provided directory
-                    aiConfig.memoryDb.backupPath, // .neo-ai-data/backups/
+                    aiConfig.backupPath, // .neo-ai-data/backups/
                     path.resolve(process.cwd(), 'dist/memory-backups') // legacy
                 ];
 
@@ -193,7 +193,7 @@ class DatabaseService extends Base {
             }
 
             if (filesToImport.length === 0) {
-                return { message: 'No JSONL backup files found to import.' };
+                return {message: 'No JSONL backup files found to import.'};
             }
 
             // Deduplicate paths
@@ -205,14 +205,14 @@ class DatabaseService extends Base {
                 // Note: Proxy delete requires specific implementation, relying on merge for now if not supported natively.
             }
 
-            let totalImported = 0;
+            let totalImported        = 0;
             let targetCollectionName = '';
 
             for (const filePath of filesToImport) {
                 logger.log(`Importing: ${filePath}`);
                 // Determine which collection to import into based on filename heuristics
                 const isMemoryBackup = path.basename(filePath).startsWith('memory-backup');
-                let collection = isMemoryBackup
+                let collection       = isMemoryBackup
                     ? await StorageRouter.getMemoryCollection()
                     : await StorageRouter.getSummaryCollection();
 
@@ -244,7 +244,7 @@ class DatabaseService extends Base {
                     metadatas : records.map(r => r.metadata),
                     documents : records.map(r => r.document)
                 });
-                
+
                 totalImported += records.length;
             }
 
@@ -256,7 +256,7 @@ class DatabaseService extends Base {
         } catch (error) {
             logger.error('[DatabaseService] Error importing database:', error);
             const importError = new Error(`DATABASE_IMPORT_ERROR: ${error.message}`);
-            importError.code = 'DATABASE_IMPORT_ERROR';
+            importError.code  = 'DATABASE_IMPORT_ERROR';
             throw importError;
         }
     }

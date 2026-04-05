@@ -18,10 +18,13 @@ setup({
     }
 });
 
-import { test, expect } from '@playwright/test';
-import path             from 'path';
-import {fileURLToPath}  from 'url';
-import dotenv           from 'dotenv';
+import {test, expect}  from '@playwright/test';
+import Neo             from '../../../../../../src/Neo.mjs';
+import * as core       from '../../../../../../src/core/_export.mjs';
+import InstanceManager from '../../../../../../src/manager/Instance.mjs';
+import path            from 'path';
+import {fileURLToPath} from 'url';
+import dotenv          from 'dotenv';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -34,28 +37,31 @@ test.describe('Memory Core Offline Summarization', () => {
     // We must use dynamic imports in Playwright tests inside beforeAll or the test body
     // because Neo globals are established during setup()
     test.beforeAll(async () => {
-        SDK = await import('../../../../../../ai/services.mjs');
-        TextEmbeddingService = (await import('../../../../../../ai/mcp/server/memory-core/services/TextEmbeddingService.mjs')).default;
-
-        // Ensure isolated path for this test execution
         const os = await import('os');
         const fs = await import('fs');
-        const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
-        const testDbPath = path.join(os.tmpdir(), `memory-core-session-test-${process.pid}-${Date.now()}.db`);
-        aiConfig.sqlitePath = testDbPath;
-        
+
+        // Load and mock config FIRST before starting any services
+        const aiConfig                = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const testDbName              = `memory-core-session-test-${process.pid}-${Date.now()}.sqlite`;
+        const testDbPath              = path.join(os.tmpdir(), testDbName);
+        aiConfig.engines.neo.dataDir  = os.tmpdir();
+        aiConfig.engines.neo.filename = testDbName;
+
         // Remove existing test db
         if (fs.existsSync(testDbPath)) {
             fs.unlinkSync(testDbPath);
         }
 
+        SDK                  = await import('../../../../../../ai/services.mjs');
+        TextEmbeddingService = (await import('../../../../../../ai/mcp/server/memory-core/services/TextEmbeddingService.mjs')).default;
+
         // Force 'ollama' routing for this test
-        SDK.Memory_Config.data.modelProvider          = 'ollama';
-        SDK.Memory_Config.data.embeddingProvider      = 'ollama';
-        SDK.Memory_Config.data.ollama.model           = 'gemma4';
-        SDK.Memory_Config.data.ollama.embeddingModel  = 'gemma4';
-        SDK.Memory_Config.data.autoSummarize          = false;
-        
+        SDK.Memory_Config.data.modelProvider         = 'ollama';
+        SDK.Memory_Config.data.embeddingProvider     = 'ollama';
+        SDK.Memory_Config.data.ollama.model          = 'gemma4';
+        SDK.Memory_Config.data.ollama.embeddingModel = 'gemma4';
+        SDK.Memory_Config.data.autoSummarize         = false;
+
         // Adjust batch limit to speed up test execution
         SDK.Memory_Config.data.summarizationBatchLimit = 5;
 
@@ -65,9 +71,9 @@ test.describe('Memory Core Offline Summarization', () => {
         // Check if Ollama daemon and gemma4 are available
         try {
             const host = SDK.Memory_Config.data.ollama.host;
-            const res = await fetch(`${host}/api/tags`);
+            const res  = await fetch(`${host}/api/tags`);
             if (res.ok) {
-                const data = await res.json();
+                const data      = await res.json();
                 const hasGemma4 = data.models?.some(m => m.name.startsWith('gemma4'));
                 if (hasGemma4) {
                     localModelActive = true;
@@ -83,10 +89,10 @@ test.describe('Memory Core Offline Summarization', () => {
         if (dummySessionId && localModelActive) {
             try {
                 const memCol = await SDK.Memory_SQLiteVectorManager.getMemoryCollection();
-                await memCol.delete({ where: { sessionId: dummySessionId } });
-                
+                await memCol.delete({where: {sessionId: dummySessionId}});
+
                 const sumCol = await SDK.Memory_SQLiteVectorManager.getSummaryCollection();
-                await sumCol.delete({ where: { sessionId: dummySessionId } });
+                await sumCol.delete({where: {sessionId: dummySessionId}});
                 console.log(`[Cleanup] Deleted dummy session ${dummySessionId} from DB.`);
             } catch (e) {
                 console.warn(`[Cleanup] Failed to delete session ${dummySessionId}:`, e);
@@ -107,40 +113,66 @@ test.describe('Memory Core Offline Summarization', () => {
 
         console.log('Waiting SessionService.initAsync() implicitly via SDK');
         await SDK.Memory_SessionService.initAsync();
-        
+
         dummySessionId = crypto.randomUUID();
         console.log(`[Playwright] Generating Dummy Turns for session ${dummySessionId}...`);
 
-        const turns = [
-            { prompt: "How do I create a Neo.mjs button?", thought: "Query the UI library for buttons.", response: "Use Neo.button.Base configs.", agent: "developer", model: "gemini-1.5-pro" },
-            { prompt: "Now make it red.", thought: "Use inline styles or cls.", response: "Add style: {color: 'red'} to the element.", agent: "developer", model: "gemini-1.5-pro" },
-            { prompt: "Does it support icons?", thought: "Check iconCls.", response: "Yes, use the iconCls property.", agent: "librarian", model: "gemma4" },
-            { prompt: "How to handle clicks?", thought: "DOM events dispatcher.", response: "Bind a click listener via domListeners property.", agent: "librarian", model: "gemma4" },
-            { prompt: "Can a button float?", thought: "Neo components support floating.", response: "Set floating: true.", agent: "developer", model: "gemini-1.5-pro" }
-        ];
+        const turns = [{
+            prompt  : "How do I create a Neo.mjs button?",
+            thought : "Query the UI library for buttons.",
+            response: "Use Neo.button.Base configs.",
+            agent   : "developer",
+            model   : "gemini-3.1-pro"
+        }, {
+            prompt  : "Now make it red.",
+            thought : "Use inline styles or cls.",
+            response: "Add style: {color: 'red'} to the element.",
+            agent   : "developer",
+            model   : "gemini-3.1-pro"
+        }, {
+            prompt  : "Does it support icons?",
+            thought : "Check iconCls.",
+            response: "Yes, use the iconCls property.",
+            agent   : "librarian",
+            model   : "gemma4"
+        }, {
+            prompt  : "How to handle clicks?",
+            thought : "DOM events dispatcher.",
+            response: "Bind a click listener via domListeners property.",
+            agent   : "librarian",
+            model   : "gemma4"
+        }, {
+            prompt  : "Can a button float?",
+            thought : "Neo components support floating.",
+            response: "Set floating: true.",
+            agent   : "developer",
+            model   : "gemini-3.1-pro"
+        }];
 
         // Ensure database is ready before adding memories
         await SDK.Memory_SQLiteVectorManager.ready();
 
         for (const turn of turns) {
             const addResult = await SDK.Memory_Service.addMemory({
-                prompt: turn.prompt,
-                thought: turn.thought,
-                response: turn.response,
-                agent: turn.agent,
-                model: turn.model,
+                prompt   : turn.prompt,
+                thought  : turn.thought,
+                response : turn.response,
+                agent    : turn.agent,
+                model    : turn.model,
                 sessionId: dummySessionId
             });
-            if (addResult.error) console.error('ADD_MEMORY ERROR:', addResult);
+            if (addResult.error) {
+                console.error('ADD_MEMORY ERROR:', addResult);
+            }
         }
 
         console.log(`[Playwright] Injected 5 dummy turns via SDK. Triggering Memory_SessionService.summarizeSession...`);
         const startTime = Date.now();
-        
+
         // This invokes local Gemma 4
         const result = await SDK.Memory_SessionService.summarizeSession(dummySessionId);
 
-        console.log(`[Playwright] Summarization complete! Took ${Math.round((Date.now()-startTime)/1000)}s`);
+        console.log(`[Playwright] Summarization complete! Took ${Math.round((Date.now() - startTime) / 1000)}s`);
         console.log('Summarization Result:', result);
 
         expect(result).not.toBeNull();
@@ -151,8 +183,8 @@ test.describe('Memory Core Offline Summarization', () => {
 
         // Verify summary actually got written
         const summaryCollection = await SDK.Memory_SQLiteVectorManager.getSummaryCollection();
-        const savedSummary = await summaryCollection.get({
-            ids: [result.summaryId],
+        const savedSummary      = await summaryCollection.get({
+            ids    : [result.summaryId],
             include: ['metadatas', 'documents']
         });
 
@@ -164,7 +196,7 @@ test.describe('Memory Core Offline Summarization', () => {
         expect(metadata.title).toBeDefined();
         expect(typeof metadata.quality).toBe('number');
         expect(typeof metadata.productivity).toBe('number');
-        
+
         expect(metadata.participatingAgents).toBeDefined();
         expect(metadata.participatingAgents.includes('librarian')).toBe(true);
         expect(metadata.participatingAgents.includes('developer')).toBe(true);

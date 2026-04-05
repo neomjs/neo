@@ -109,21 +109,21 @@ class HealthService extends Base {
     async #checkChromaConnection() {
         try {
             const engine = aiConfig.engine || 'both';
-            
+
             if (engine === 'neo' || engine === 'both') {
                 await SQLiteVectorManager.ready();
                 if (!SQLiteVectorManager.db?.open) {
                     throw new Error("SQLite VSS not open");
                 }
             }
-            
+
             if (engine === 'chroma' || engine === 'both') {
                 await ChromaManager.ready();
                 if (!ChromaManager.connected && !(await ChromaManager.connect())) {
                     throw new Error("ChromaDB is not accessible");
                 }
             }
-            
+
             return {running: true};
         } catch (e) {
             return {
@@ -153,13 +153,13 @@ class HealthService extends Base {
             const memoryCollection = await StorageRouter.getMemoryCollection().catch(() => null);
             if (memoryCollection) {
                 result.memories = {
-                    name  : aiConfig.memoryDb.collectionName,
+                    name  : aiConfig.collections.memory,
                     exists: true,
                     count : await memoryCollection.count().catch(() => 0)
                 };
             } else {
                 result.memories = {
-                    name  : aiConfig.memoryDb.collectionName,
+                    name  : aiConfig.collections.memory,
                     exists: false,
                     count : 0
                 };
@@ -169,13 +169,13 @@ class HealthService extends Base {
             const summaryCollection = await StorageRouter.getSummaryCollection().catch(() => null);
             if (summaryCollection) {
                 result.summaries = {
-                    name  : aiConfig.sessionDb.collectionName,
+                    name  : aiConfig.collections.session,
                     exists: true,
                     count : await summaryCollection.count().catch(() => 0)
                 };
             } else {
                 result.summaries = {
-                    name  : aiConfig.sessionDb.collectionName,
+                    name  : aiConfig.collections.session,
                     exists: false,
                     count : 0
                 };
@@ -192,7 +192,7 @@ class HealthService extends Base {
 
     #checkApiKeyConfigured() {
         const providers = [aiConfig.modelProvider];
-        
+
         if (aiConfig.engine === 'chroma' || aiConfig.engine === 'both') {
             providers.push(aiConfig.chromaEmbeddingProvider);
         }
@@ -236,22 +236,22 @@ class HealthService extends Base {
                 currentId: Neo.ns('Neo.ai.mcp.server.memory-core.services.SessionService', false)?.currentSessionId
             },
             database : {
-                process: DatabaseLifecycleService.getDatabaseStatus(),
+                process   : DatabaseLifecycleService.getDatabaseStatus(),
                 connection: {
                     connected  : false,
                     collections: null
                 }
             },
-            features: {
+            features : {
                 summarization: false
             },
-            startup: {
+            startup  : {
                 summarizationStatus : this.#startupSummarizationStatus || 'not_attempted',
                 summarizationDetails: this.#startupSummarizationDetails
             },
-            details: [],
-            version: process.env.npm_package_version || '1.0.0',
-            uptime : process.uptime()
+            details  : [],
+            version  : process.env.npm_package_version || '1.0.0',
+            uptime   : process.uptime()
         };
 
         // Step 1: Check ChromaDB connectivity
@@ -422,7 +422,7 @@ class HealthService extends Base {
 
         if (health.status !== 'healthy') {
             // Build a multi-line error message with all the issues detected
-            const details = health.details.join('\n  - ');
+            const details   = health.details.join('\n  - ');
             const statusMsg = health.status === 'unhealthy' ? 'not available' : 'not fully operational';
             throw new Error(`Memory Core is ${statusMsg}:\n  - ${details}`);
         }

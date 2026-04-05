@@ -1,11 +1,11 @@
-import Neo                  from '../../src/Neo.mjs';
-import * as core            from '../../src/core/_export.mjs';
-import MC_Config            from '../../ai/mcp/server/memory-core/config.mjs';
-import MC_DatabaseService   from '../../ai/mcp/server/memory-core/services/DatabaseService.mjs';
-import MC_ChromaManager     from '../../ai/mcp/server/memory-core/services/ChromaManager.mjs';
-import MC_LifecycleService  from '../../ai/mcp/server/memory-core/services/DatabaseLifecycleService.mjs';
-import fs                   from 'fs';
-import path                 from 'path';
+import Neo                 from '../../src/Neo.mjs';
+import * as core           from '../../src/core/_export.mjs';
+import MC_Config           from '../../ai/mcp/server/memory-core/config.mjs';
+import MC_DatabaseService  from '../../ai/mcp/server/memory-core/services/DatabaseService.mjs';
+import MC_ChromaManager    from '../../ai/mcp/server/memory-core/managers/ChromaManager.mjs';
+import MC_LifecycleService from '../../ai/mcp/server/memory-core/services/DatabaseLifecycleService.mjs';
+import fs                  from 'fs';
+import path                from 'path';
 
 const args = process.argv.slice(2);
 const help = `
@@ -24,29 +24,30 @@ Description:
   Options:
     --test-mode          Use test collections (test-re-embed-*) instead of production DB.
   `;
-  
-  if (args.length < 1 || args.includes('--help') || args.includes('-h')) {
-      console.log(help);
-      process.exit(args.length >= 1 ? 0 : 1);
-  }
-  
-  const backupFile = path.resolve(args[0]);
-  
-  if (!fs.existsSync(backupFile)) {
-      console.error(`❌ Error: Backup file not found at: ${backupFile}`);
-      process.exit(1);
-  }
-  
-  if (args.includes('--test-mode')) {
-      console.log('🧪 TEST MODE ENABLED: Using test collections.');
-      MC_Config.data.memoryDb.collectionName = 'test-re-embed-memories';
-      MC_Config.data.sessionDb.collectionName = 'test-re-embed-summaries';
-  }
-  
-  async function migrate() {
-      console.log('🚀 Starting Memory Core Migration...');    console.log(`📂 Input File: ${backupFile}`);
+
+if (args.length < 1 || args.includes('--help') || args.includes('-h')) {
+    console.log(help);
+    process.exit(args.length >= 1 ? 0 : 1);
+}
+
+const backupFile = path.resolve(args[0]);
+
+if (!fs.existsSync(backupFile)) {
+    console.error(`❌ Error: Backup file not found at: ${backupFile}`);
+    process.exit(1);
+}
+
+if (args.includes('--test-mode')) {
+    console.log('🧪 TEST MODE ENABLED: Using test collections.');
+    MC_Config.data.collections.memory  = 'test-re-embed-memories';
+    MC_Config.data.collections.session = 'test-re-embed-summaries';
+}
+
+async function migrate() {
+    console.log('🚀 Starting Memory Core Migration...');
+    console.log(`📂 Input File: ${backupFile}`);
     console.log(`🤖 Target Model: ${MC_Config.embeddingModel}`);
-    
+
     // Check for API Key
     if (!process.env.GEMINI_API_KEY) {
         console.error('❌ Error: GEMINI_API_KEY environment variable is not set.');
@@ -68,8 +69,8 @@ Description:
         console.log('   (This may take a while due to API rate limiting: 50 items/10s)');
 
         const result = await MC_DatabaseService.importDatabase({
-            file: backupFile,
-            mode: 'replace',
+            file   : backupFile,
+            mode   : 'replace',
             reEmbed: true
         });
 
@@ -79,7 +80,7 @@ Description:
         console.log(`📥 Imported:        ${result.imported}`);
         console.log(`⚙️  Mode:            ${result.mode}`);
         console.log('----------------------------------------');
-        
+
         process.exit(0);
 
     } catch (e) {

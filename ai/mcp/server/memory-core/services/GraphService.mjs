@@ -1,3 +1,4 @@
+import path         from 'path';
 import aiConfig     from '../config.mjs';
 import logger       from '../logger.mjs';
 import Base         from '../../../../../src/core/Base.mjs';
@@ -44,48 +45,50 @@ class GraphService extends Base {
         }
 
         this._initPromise = (async () => {
-            let storage = Neo.create(SQLite, {dbPath: aiConfig.sqlitePath});
-        await storage.initAsync();
+            const {dataDir, filename} = aiConfig.engines.neo;
+            const dbPath              = path.resolve(dataDir, filename);
+            let storage               = Neo.create(SQLite, {dbPath: dbPath});
+            await storage.initAsync();
 
-        if (Neo.get('memory-core-graph')) {
-            this.db         = Neo.get('memory-core-graph');
-            this.db.storage = storage;
-        } else {
-            this.db = Neo.create(CoreDatabase, {
-                id     : 'memory-core-graph',
-                storage: storage
-            });
-        }
+            if (Neo.get('memory-core-graph')) {
+                this.db         = Neo.get('memory-core-graph');
+                this.db.storage = storage;
+            } else {
+                this.db = Neo.create(CoreDatabase, {
+                    id     : 'memory-core-graph',
+                    storage: storage
+                });
+            }
 
-        await storage.load();
+            await storage.load();
 
-        // Ensure the frontier node exists to prevent context frontier errors
-        this.db.getAdjacentNodes('frontier', 'both'); // trigger lazy load
-        if (!this.db.nodes.has('frontier')) {
-            this.upsertNode({
-                id         : 'frontier',
-                type       : 'SYSTEM_ANCHOR',
-                name       : 'Active Context Frontier',
-                description: 'The shifting focal point of the active Neo OS agent session.'
-            });
-        }
+            // Ensure the frontier node exists to prevent context frontier errors
+            this.db.getAdjacentNodes('frontier', 'both'); // trigger lazy load
+            if (!this.db.nodes.has('frontier')) {
+                this.upsertNode({
+                    id         : 'frontier',
+                    type       : 'SYSTEM_ANCHOR',
+                    name       : 'Active Context Frontier',
+                    description: 'The shifting focal point of the active Neo OS agent session.'
+                });
+            }
 
-        // --- 1. THE GLOBAL SYSTEM PRIMER (Epic #9671) ---
-        // Inject the Master Architecture Tenets directly into the Native Graph at boot.
-        // Because this is anchored to the 'frontier' with a protected SYSTEM_TENET edge,
-        // it acts as a deterministic onboarding payload for every agent session.
-        this.db.getAdjacentNodes('Neo-Master-Architecture', 'both');
-        if (!this.db.nodes.has('Neo-Master-Architecture')) {
-            this.upsertNode({
-                id         : 'Neo-Master-Architecture',
-                type       : 'System',
-                name       : 'Global System Primer',
-                description: 'Core framework tenets: 1. All Playwright tests must be run using "npm run test-unit -- [file]". No npx. 2. UI debugging and application state inspection must use the Neural Link MCP tools. 3. Look at .agent/skills for reusable agent workflows.'
-            });
-        }
-        this.linkNodes('frontier', 'Neo-Master-Architecture', 'SYSTEM_TENET', 1.0);
+            // --- 1. THE GLOBAL SYSTEM PRIMER (Epic #9671) ---
+            // Inject the Master Architecture Tenets directly into the Native Graph at boot.
+            // Because this is anchored to the 'frontier' with a protected SYSTEM_TENET edge,
+            // it acts as a deterministic onboarding payload for every agent session.
+            this.db.getAdjacentNodes('Neo-Master-Architecture', 'both');
+            if (!this.db.nodes.has('Neo-Master-Architecture')) {
+                this.upsertNode({
+                    id         : 'Neo-Master-Architecture',
+                    type       : 'System',
+                    name       : 'Global System Primer',
+                    description: 'Core framework tenets: 1. All Playwright tests must be run using "npm run test-unit -- [file]". No npx. 2. UI debugging and application state inspection must use the Neural Link MCP tools. 3. Look at .agent/skills for reusable agent workflows.'
+                });
+            }
+            this.linkNodes('frontier', 'Neo-Master-Architecture', 'SYSTEM_TENET', 1.0);
 
-        logger.log('[GraphService] SQLite database mounted securely via ai.graph.Database.');
+            logger.log('[GraphService] SQLite database mounted securely via ai.graph.Database.');
         })();
 
         await this._initPromise;

@@ -97,70 +97,39 @@ const defaultConfig = {
      */
     summarizationConcurrency: 5,
     /**
-     * The local persistence path for the SQLite knowledge graph.
-     * @type {string}
-     */
-    sqlitePath: path.resolve(cwd, '.neo-ai-data/neo-sqlite/knowledge-graph.sqlite'),
-    /**
      * The target Storage Engine (Vector Database) to use.
      * Options: 'neo' (SQLite-Vec), 'chroma' (ChromaDB), or 'both'.
      */
     engine: 'neo',
     /**
-     * Configuration for the AI agent's persistent memory database.
+     * Database Engine Definitions
+     * This defines WHERE data is stored physically.
      */
-    memoryDb: {
-        /**
-         * The name of the ChromaDB collection for agent memories.
-         * @type {string}
-         */
-        collectionName: 'neo-agent-memory',
-        /**
-         * The hostname of the ChromaDB server for agent memory.
-         * @type {string}
-         */
-        host: 'localhost',
-        /**
-         * The port the ChromaDB server for agent memory is listening on.
-         * @type {number}
-         */
-        port: 8001,
-        /**
-         * The local persistence path for the agent memory server.
-         * @type {string}
-         */
-        path: path.resolve(cwd, '.neo-ai-data/chroma/memory-core'),
-        /**
-         * The local persistence path for exporting memory JSONL backups.
-         * @type {string}
-         */
-        backupPath: path.resolve(cwd, '.neo-ai-data/backups'),
+    engines: {
+        neo   : {
+            dataDir : path.resolve(cwd, '.neo-ai-data/neo-sqlite'),
+            filename: 'memory-core.sqlite'
+        },
+        chroma: {
+            dataDir: path.resolve(cwd, '.neo-ai-data/chroma/memory-core'),
+            host   : 'localhost',
+            port   : 8001
+        }
     },
     /**
-     * Configuration for the AI agent's session summary database.
+     * Data Schema/Table Names
+     * This defines WHAT the tables/collections are called logically.
      */
-    sessionDb: {
-        /**
-         * The name of the ChromaDB collection for session summaries.
-         * @type {string}
-         */
-        collectionName: 'neo-agent-sessions',
-        /**
-         * The hostname of the ChromaDB server for session summaries.
-         * @type {string}
-         */
-        host: 'localhost',
-        /**
-         * The port the ChromaDB server for session summaries is listening on.
-         * @type {number}
-         */
-        port: 8001,
-        /**
-         * The local persistence path for exporting summary JSONL backups.
-         * @type {string}
-         */
-        backupPath: path.resolve(cwd, '.neo-ai-data/backups'),
-    }
+    collections: {
+        memory : process.env.MEMORY_COLLECTION_NAME || 'neo-agent-memory',
+        session: process.env.SESSION_COLLECTION_NAME || 'neo-agent-sessions',
+        graph  : process.env.GRAPH_COLLECTION_NAME || 'neo-native-graph'
+    },
+    /**
+     * Universal JSONL backup/export directory for all databases.
+     * @type {string}
+     */
+    backupPath: path.resolve(cwd, '.neo-ai-data/backups')
 };
 
 /**

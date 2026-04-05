@@ -1,11 +1,11 @@
-import '../../src/Neo.mjs';
-import '../../src/core/_export.mjs';
-import '../../src/manager/Instance.mjs';
+import Neo                  from '../../src/Neo.mjs';
+import * as core            from '../../src/core/_export.mjs';
+import InstanceManager      from '../../src/manager/Instance.mjs';
 import ChromaManager        from '../../ai/mcp/server/memory-core/managers/ChromaManager.mjs';
 import SQLiteVectorManager  from '../../ai/mcp/server/memory-core/managers/SQLiteVectorManager.mjs';
 import TextEmbeddingService from '../../ai/mcp/server/memory-core/services/TextEmbeddingService.mjs';
 import aiConfig             from '../../ai/mcp/server/memory-core/config.mjs';
-import { program }          from 'commander';
+import {program}            from 'commander';
 
 program
     .name('sync-memory-chroma-to-neo')
@@ -16,11 +16,11 @@ program
 const options = program.opts();
 /**
  * @summary Synchronizes and migrates the ChromaDB memory persistence layer into the Native SQLite Vector Database.
- * 
+ *
  * Supports dynamic re-embedding: if `--target-provider` matches the legacy Chroma provider,
  * it performs a 1:1 hardware buffer clone. Otherwise, it iteratively re-embeds the text context
  * into the target vector space to prevent dimension mismatch errors.
- * 
+ *
  * This system targets the `.neo-ai-data/neo-sqlite/knowledge-graph.sqlite` topology.
  * @async
  * @function sync
@@ -40,7 +40,7 @@ async function sync() {
         const fs = (await import('fs')).default;
         const path = (await import('path')).default;
         const sqlDbUrl = new URL('../../.neo-ai-data/neo-sqlite/knowledge-graph.sqlite', import.meta.url);
-        
+
         if (fs.existsSync(sqlDbUrl)) {
             fs.unlinkSync(sqlDbUrl);
             console.log("   -> Old knowledge-graph.sqlite deleted.");
@@ -74,11 +74,39 @@ async function sync() {
             while (offset < count) {
                 const isProviderMatch = targetProvider === aiConfig.chromaEmbeddingProvider;
 
-                const batch = await chromaColl.get({
-                    include: isProviderMatch ? ["documents", "metadatas", "embeddings"] : ["documents", "metadatas"],
-                    limit: batchSize,
-                    offset: offset
-                });
+                let batch;
+                try {
+                    batch = await chromaColl.get({
+                        include: isProviderMatch ? ["documents", "metadatas", "embeddings"] : ["documents", "metadatas"],
+                        limit: batchSize,
+                        offset: offset
+                    });
+                } catch (batchErr) {
+                    console.log(`[${name}] Batch ${offset} fetch failed: ${batchErr.message}. Initiating surgical 1-by-1 rescue mode...`);
+                    const idBatch = await chromaColl.get({
+                        include: [],
+                        limit: batchSize,
+                        offset: offset
+                    });
+
+                    batch = { ids: [], metadatas: [], documents: [], embeddings: [] };
+                    for (const id of idBatch.ids) {
+                        try {
+                            const single = await chromaColl.get({
+                                ids: [id],
+                                include: isProviderMatch ? ["documents", "metadatas", "embeddings"] : ["documents", "metadatas"]
+                            });
+                            if (single.ids && single.ids.length > 0) {
+                                batch.ids.push(single.ids[0]);
+                                batch.documents.push(single.documents[0]);
+                                batch.metadatas.push(single.metadatas[0]);
+                                if (isProviderMatch) batch.embeddings.push(single.embeddings[0]);
+                            }
+                        } catch(singleErr) {
+                            console.log(`   -> Skipping corrupted vector ID: ${id}`);
+                        }
+                    }
+                }
 
                 if (!batch.ids || batch.ids.length === 0) break;
 
