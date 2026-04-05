@@ -60,7 +60,7 @@ const defaultConfig = {
      * Explicit override provider for the SQLite Native Database Engine.
      * @type {string}
      */
-    neoEmbeddingProvider: process.env.NEO_EMBEDDING_PROVIDER || 'ollama',
+    neoEmbeddingProvider: process.env.NEO_EMBEDDING_PROVIDER || 'gemini',
     /**
      * Explicit override provider for the ChromaDB Engine.
      * @type {string}
@@ -105,7 +105,7 @@ const defaultConfig = {
      * The target Storage Engine (Vector Database) to use.
      * Options: 'neo' (SQLite-Vec), 'chroma' (ChromaDB), or 'both'.
      */
-    engine: 'chroma',
+    engine: 'neo',
     /**
      * Configuration for the AI agent's persistent memory database.
      */
@@ -208,12 +208,14 @@ class Config extends Base {
      * @returns {Promise<void>}
      */
     async load(filePath) {
-        if (!filePath) return;
+        if (!filePath) {
+            return;
+        }
 
         try {
             const absolutePath = path.resolve(filePath);
             const ext          = path.extname(absolutePath);
-            let   customConfig;
+            let customConfig;
 
             if (ext === '.mjs' || ext === '.js') {
                 const module = await import(absolutePath);
