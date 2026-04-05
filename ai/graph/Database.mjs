@@ -75,16 +75,18 @@ class Database extends Base {
      * @see Neo.ai.graph.storage.SQLite#getDeltaLog
      */
     syncCache() {
-        if (!this.storage || !this.lastSyncId) return;
+        if (!this.storage || !this.lastSyncId) {
+            return;
+        }
 
-        let delta = this.storage.getDeltaLog(this.lastSyncId);
+        let delta       = this.storage.getDeltaLog(this.lastSyncId);
         this.lastSyncId = delta.lastLogId;
 
         if (delta.invalidNodes.length > 0) {
-            let wasTransacting = this.isExecutingTransaction;
-            let wasAutoSave = this.autoSave;
+            let wasTransacting          = this.isExecutingTransaction;
+            let wasAutoSave             = this.autoSave;
             this.isExecutingTransaction = false;
-            this.autoSave = false;
+            this.autoSave               = false;
 
             this.nodes.remove(delta.invalidNodes);
             delta.invalidNodes.forEach(id => {
@@ -92,20 +94,29 @@ class Database extends Base {
                 this.lastAccessMap.delete(id);
             });
 
-            this.autoSave = wasAutoSave;
+            this.autoSave               = wasAutoSave;
             this.isExecutingTransaction = wasTransacting;
         }
 
         if (delta.invalidEdges.length > 0) {
-            let wasTransacting = this.isExecutingTransaction;
-            let wasAutoSave = this.autoSave;
+            let wasTransacting          = this.isExecutingTransaction;
+            let wasAutoSave             = this.autoSave;
             this.isExecutingTransaction = false;
-            this.autoSave = false;
+            this.autoSave               = false;
 
             this.edges.remove(delta.invalidEdges);
 
-            this.autoSave = wasAutoSave;
+            this.autoSave               = wasAutoSave;
             this.isExecutingTransaction = wasTransacting;
+        }
+    }
+
+    /**
+     * Skips executing destructive cache invalidation algorithms for mutations strictly generated natively by this Node.js process safely avoiding destructive loops cleanly.
+     */
+    acknowledgeLocalMutations() {
+        if (this.storage && typeof this.storage.getLatestLogId === 'function') {
+            this.lastSyncId = this.storage.getLatestLogId();
         }
     }
 
@@ -119,15 +130,15 @@ class Database extends Base {
         let me = this;
         if (me.maxGraphNodes !== null && me.lastAccessMap.size > me.maxGraphNodes) {
             let nodesArray = Array.from(me.lastAccessMap.entries());
-            nodesArray.sort((a,b) => a[1] - b[1]); // Oldest timestamps first
+            nodesArray.sort((a, b) => a[1] - b[1]); // Oldest timestamps first
 
             let deleteCount = Math.max(1, Math.floor(me.maxGraphNodes * 0.2)); // Execute 20% chunk truncation cleanly locally guaranteeing at least 1 dropped
             let toDelete    = nodesArray.slice(0, deleteCount).map(entry => entry[0]);
 
-            let wasTransacting = me.isExecutingTransaction;
-            let wasAutoSave    = me.autoSave;
+            let wasTransacting        = me.isExecutingTransaction;
+            let wasAutoSave           = me.autoSave;
             me.isExecutingTransaction = false;
-            me.autoSave = false;
+            me.autoSave               = false;
 
             me.nodes.remove(toDelete);
             toDelete.forEach(id => {
@@ -136,7 +147,7 @@ class Database extends Base {
             });
 
             // Note: Cascade deletions for attached unmapped edges isn't strictly required instantly unless Edges Map exceeds threshold natively safely.
-            me.autoSave = wasAutoSave;
+            me.autoSave               = wasAutoSave;
             me.isExecutingTransaction = wasTransacting;
         }
     }
@@ -182,7 +193,7 @@ class Database extends Base {
         oldValue?.destroy();
         let store = ClassSystemUtil.beforeSetInstance(value, Store, {
             autoInitRecords: false,
-            indices        : [{ property: 'source' }, { property: 'target' }],
+            indices        : [{property: 'source'}, {property: 'target'}],
             model          : EdgeModel
         });
 
@@ -239,10 +250,10 @@ class Database extends Base {
      * @returns {Object[]} Array of adjacent nodes
      */
     getAdjacentNodes(nodeId, direction = 'outbound', type = null) {
-        let me           = this,
-            edges        = [],
-            nodes        = [],
-            i            = 0,
+        let me    = this,
+            edges = [],
+            nodes = [],
+            i     = 0,
             len, edge, adjacentNode;
 
         // 1. Maintain Distributed Worker Cache Coherence automatically securely locally
@@ -252,15 +263,19 @@ class Database extends Base {
         if (me.storage && !me.vicinityLoadedNodes.has(nodeId)) {
             let vicinity = me.storage.loadNodeVicinitySync(nodeId);
 
-            let wasTransacting = me.isExecutingTransaction;
-            let wasAutoSave = me.autoSave;
+            let wasTransacting        = me.isExecutingTransaction;
+            let wasAutoSave           = me.autoSave;
             me.isExecutingTransaction = false;
-            me.autoSave = false;
+            me.autoSave               = false;
 
-            if (vicinity.nodes.length > 0) me.nodes.add(vicinity.nodes);
-            if (vicinity.edges.length > 0) me.edges.add(vicinity.edges);
+            if (vicinity.nodes.length > 0) {
+                me.nodes.add(vicinity.nodes);
+            }
+            if (vicinity.edges.length > 0) {
+                me.edges.add(vicinity.edges);
+            }
 
-            me.autoSave = wasAutoSave;
+            me.autoSave               = wasAutoSave;
             me.isExecutingTransaction = wasTransacting;
 
             me.vicinityLoadedNodes.add(nodeId);
@@ -281,7 +296,9 @@ class Database extends Base {
 
             if (direction === 'both') {
                 inboundEdges.forEach(e => {
-                    if (e.source !== nodeId) edges.push(e);
+                    if (e.source !== nodeId) {
+                        edges.push(e);
+                    }
                 });
             } else {
                 edges = inboundEdges.slice();
@@ -308,12 +325,12 @@ class Database extends Base {
     }
 
     /**
-         * Triggered on edges Store mutations to sync storage
-         * @param {Object} mutation
-         */
+     * Triggered on edges Store mutations to sync storage
+     * @param {Object} mutation
+     */
     onEdgesMutate(mutation) {
         if (this.isExecutingTransaction) {
-            this.transactionDiff.push({ type: 'edges', mutation });
+            this.transactionDiff.push({type: 'edges', mutation});
             return;
         }
         if (this.autoSave && this.storage) {
@@ -323,6 +340,7 @@ class Database extends Base {
             if (mutation.removedItems?.length > 0) {
                 this.storage.removeEdges(mutation.removedItems);
             }
+            this.acknowledgeLocalMutations();
         }
     }
 
@@ -331,8 +349,9 @@ class Database extends Base {
      * @param {Object} mutation
      */
     onNodesMutate(mutation) {
+
         if (this.isExecutingTransaction) {
-            this.transactionDiff.push({ type: 'nodes', mutation });
+            this.transactionDiff.push({type: 'nodes', mutation});
             return;
         }
         if (this.autoSave && this.storage) {
@@ -342,6 +361,7 @@ class Database extends Base {
             if (mutation.removedItems?.length > 0) {
                 this.storage.removeNodes(mutation.removedItems);
             }
+            this.acknowledgeLocalMutations();
         }
     }
 
@@ -369,7 +389,9 @@ class Database extends Base {
 
         // Cascade delete attached edges
         inbound.forEach(e => {
-            if (e.source !== nodeId) edgesToRemove.push(e);
+            if (e.source !== nodeId) {
+                edgesToRemove.push(e);
+            }
         });
 
         if (edgesToRemove.length > 0) {
@@ -390,10 +412,10 @@ class Database extends Base {
             let mutation = trace.mutation;
 
             // Suspend mutation monitoring cleanly natively during automated rollback logic bounds!
-            let wasTransacting = this.isExecutingTransaction;
+            let wasTransacting          = this.isExecutingTransaction;
             this.isExecutingTransaction = false;
-            let wasAutoSave = this.autoSave;
-            this.autoSave = false;
+            let wasAutoSave             = this.autoSave;
+            this.autoSave               = false;
 
             if (mutation.addedItems?.length > 0) {
                 store.remove(mutation.addedItems.map(item => item.id));
@@ -402,7 +424,7 @@ class Database extends Base {
                 store.add(mutation.removedItems);
             }
 
-            this.autoSave = wasAutoSave;
+            this.autoSave               = wasAutoSave;
             this.isExecutingTransaction = wasTransacting;
         }
     }
@@ -419,13 +441,14 @@ class Database extends Base {
         }
 
         this.isExecutingTransaction = true;
-        this.transactionDiff = [];
+        this.transactionDiff        = [];
 
         try {
             fn(); // Synchronous array splices apply isolating memory mappings instantaneously internally
 
             if (this.storage && this.transactionDiff.length > 0) {
                 this.storage.executeTransaction(this.transactionDiff);
+                this.acknowledgeLocalMutations();
             }
         } catch (error) {
             // Intercept internal throw commands seamlessly rendering perfect state erasures instantly
@@ -433,7 +456,7 @@ class Database extends Base {
             throw error;
         } finally {
             this.isExecutingTransaction = false;
-            this.transactionDiff = [];
+            this.transactionDiff        = [];
         }
     }
 }
