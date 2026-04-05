@@ -57,12 +57,6 @@ const defaultConfig = {
         clientSecret: process.env.OAUTH_CLIENT_SECRET || '',
     },
     /**
-     * Provider to use for text embeddings ('gemini' or 'ollama')
-     * Used as the default fallback.
-     * @type {string}
-     */
-    embeddingProvider: process.env.EMBEDDING_PROVIDER || 'ollama',
-    /**
      * Explicit override provider for the SQLite Native Database Engine.
      * @type {string}
      */
