@@ -47,6 +47,11 @@ class SQLiteVectorManager extends Base {
     async initAsync() {
         await super.initAsync();
         
+        if (aiConfig.engine !== 'neo' && aiConfig.engine !== 'both') {
+            logger.log('[SQLiteVectorManager] Engine configured to bypass local vector manager. Skipping init.');
+            return;
+        }
+
         // 1. Establish SQLite DB Connection
         let dbPath = typeof aiConfig.sqlitePath === 'string' ? aiConfig.sqlitePath : path.resolve(process.cwd(), 'chroma-neo-memory-core/graph/knowledge-graph.sqlite');
         await fs.ensureDir(path.dirname(dbPath));
