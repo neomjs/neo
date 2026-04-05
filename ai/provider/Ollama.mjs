@@ -129,7 +129,8 @@ class OllamaProvider extends Base {
 
             return resultPayload;
         } catch (error) {
-            console.error('[Neo.ai.provider.Ollama] Generation failed:', error);
+            // Re-throw to let the caller handle it or gracefully degrade
+            // instead of vomiting a raw fetch trace if the daemon is offline
             throw error;
         }
     }
@@ -182,7 +183,7 @@ class OllamaProvider extends Base {
                 }
             }
         } catch (error) {
-            console.error('[Neo.ai.provider.Ollama] Stream failed:', error);
+            // Re-throw to let the caller handle it or gracefully degrade
             throw error;
         }
     }

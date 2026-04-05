@@ -257,8 +257,13 @@ class Database extends Base {
             me.isExecutingTransaction = false;
             me.autoSave = false;
 
-            if (vicinity.nodes.length > 0) me.nodes.add(vicinity.nodes);
-            if (vicinity.edges.length > 0) me.edges.add(vicinity.edges);
+
+            let newNodes = vicinity.nodes.filter(n => !me.nodes.get(n.id));
+            let newEdges = vicinity.edges.filter(e => !me.edges.get(e.id));
+
+            if (newNodes.length > 0) me.nodes.add(newNodes);
+            if (newEdges.length > 0) me.edges.add(newEdges);
+            
 
             me.autoSave = wasAutoSave;
             me.isExecutingTransaction = wasTransacting;
