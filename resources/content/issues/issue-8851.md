@@ -8,9 +8,10 @@ labels:
   - ai
   - testing
   - architecture
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-01-21T14:53:16Z'
-updatedAt: '2026-04-05T00:24:54Z'
+updatedAt: '2026-04-05T10:22:32Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8851'
 author: tobiu
 commentsCount: 1
@@ -107,4 +108,5 @@ This capability would uniquely position Neo.mjs as an exceptionally testable fra
 
 - 2026-01-26T18:45:10Z @tobiu cross-referenced by #8884
 - 2026-04-05T00:24:53Z @tobiu added the `no auto close` label
+- 2026-04-05T10:22:32Z @tobiu assigned to @tobiu
 
