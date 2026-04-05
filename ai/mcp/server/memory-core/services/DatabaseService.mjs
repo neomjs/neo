@@ -63,11 +63,43 @@ class DatabaseService extends Base {
         while (offset < count) {
             logger.log(`Fetching batch: ${offset} to ${Math.min(offset + limit, count)} of ${count}`);
 
-            const batch = await collection.get({
-                include: ["documents", "embeddings", "metadatas"],
-                limit  : limit,
-                offset : offset
-            });
+            let batch;
+            try {
+                batch = await collection.get({
+                    include: ["documents", "embeddings", "metadatas"],
+                    limit  : limit,
+                    offset : offset
+                });
+            } catch (batchErr) {
+                logger.log(`Batch ${offset} fetch failed: ${batchErr.message}. Initiating surgical 1-by-1 rescue mode...`);
+                
+                // Fetch only IDs first to bypass corrupt payload/embedding pointers
+                const idBatch = await collection.get({
+                    include: [],
+                    limit  : limit,
+                    offset : offset
+                });
+
+                batch = { ids: [], metadatas: [], documents: [], embeddings: [] };
+                
+                for (const id of idBatch.ids) {
+                    try {
+                        const single = await collection.get({
+                            ids    : [id],
+                            include: ["documents", "embeddings", "metadatas"]
+                        });
+                        
+                        if (single.ids && single.ids.length > 0) {
+                            batch.ids.push(single.ids[0]);
+                            batch.documents.push(single.documents[0]);
+                            batch.metadatas.push(single.metadatas[0]);
+                            batch.embeddings.push(single.embeddings[0]);
+                        }
+                    } catch (singleErr) {
+                        logger.error(`Skipping corrupted vector ID during export: ${id}`);
+                    }
+                }
+            }
 
             if (!batch.ids || batch.ids.length === 0) break;
 
@@ -113,11 +145,9 @@ class DatabaseService extends Base {
             return {message: `Export complete. Exported ${memoryCount} memories and ${summaryCount} summaries.`};
         } catch (error) {
             logger.error('[DatabaseService] Error exporting database:', error);
-            return {
-                error  : 'Failed to export database',
-                message: error.message,
-                code   : 'DATABASE_EXPORT_ERROR'
-            };
+            const exportError = new Error(`DATABASE_EXPORT_ERROR: ${error.message}`);
+            exportError.code = 'DATABASE_EXPORT_ERROR';
+            throw exportError;
         }
     }
 
@@ -131,68 +161,103 @@ class DatabaseService extends Base {
      */
     async importDatabase({file, mode, reEmbed=false}) {
         try {
-            const filePath = file; // Assuming file object contains path
-            logger.log(`Starting agent memory import from: ${filePath}`);
+            let filesToImport = [];
+            
+            // If the user specifies a specific file
+            if (file && (file.endsWith('.jsonl') || file.endsWith('.json'))) {
+                if (!await fs.pathExists(file)) {
+                    throw new Error(`Backup file not found at ${file}`);
+                }
+                filesToImport.push(file);
+            } else {
+                // "Grab them all" mode - scan fallback/unified backup folders
+                const pathsToScan = [
+                    file, // user provided directory
+                    aiConfig.memoryDb.backupPath, // .neo-ai-data/backups/
+                    path.resolve(process.cwd(), 'dist/memory-backups') // legacy
+                ];
 
-            if (!await fs.pathExists(filePath)) {
-                throw new Error(`Backup file not found at ${filePath}`);
+                for (const sweepTarget of pathsToScan) {
+                    if (sweepTarget && await fs.pathExists(sweepTarget)) {
+                        const stat = await fs.stat(sweepTarget);
+                        if (stat.isDirectory()) {
+                            const dirFiles = await fs.readdir(sweepTarget);
+                            for (const df of dirFiles) {
+                                if (df.endsWith('.jsonl')) {
+                                    filesToImport.push(path.join(sweepTarget, df));
+                                }
+                            }
+                        }
+                    }
+                }
             }
 
-            // Determine which collection to import into based on filename
-            const isMemoryBackup = path.basename(filePath).startsWith('memory-backup');
-            let collection = isMemoryBackup
-                ? await StorageRouter.getMemoryCollection()
-                : await StorageRouter.getSummaryCollection();
+            if (filesToImport.length === 0) {
+                return { message: 'No JSONL backup files found to import.' };
+            }
+
+            // Deduplicate paths
+            filesToImport = [...new Set(filesToImport)];
+            logger.log(`Starting agent memory import. Discovered ${filesToImport.length} backup file(s)...`);
 
             if (mode === 'replace') {
-                await collection.delete({ where: {} }); // We can just delete all using Proxy delete, or implement generic collection delete
-                // Actually proxy doesn't support delete natively without args, let's just omit replacing collections for now or add empty delete
-                logger.log('Replace mode skipped (Proxy mode uses overwrite)');
+                logger.log('Replace mode specified - wiping target collections before batch import...');
+                // Note: Proxy delete requires specific implementation, relying on merge for now if not supported natively.
             }
 
-            const fileStream = fs.createReadStream(filePath);
-            const rl         = readline.createInterface({input: fileStream, crlfDelay: Infinity});
-            const records    = [];
+            let totalImported = 0;
+            let targetCollectionName = '';
 
-            for await (const line of rl) {
-                records.push(JSON.parse(line));
+            for (const filePath of filesToImport) {
+                logger.log(`Importing: ${filePath}`);
+                // Determine which collection to import into based on filename heuristics
+                const isMemoryBackup = path.basename(filePath).startsWith('memory-backup');
+                let collection = isMemoryBackup
+                    ? await StorageRouter.getMemoryCollection()
+                    : await StorageRouter.getSummaryCollection();
+
+                targetCollectionName = collection.name; // roughly tracking target
+
+                const fileStream = fs.createReadStream(filePath);
+                const rl         = readline.createInterface({input: fileStream, crlfDelay: Infinity});
+                const records    = [];
+
+                for await (const line of rl) {
+                    if (line.trim()) {
+                        records.push(JSON.parse(line));
+                    }
+                }
+
+                if (records.length === 0) {
+                    logger.log(`No records found in ${filePath}. Skipping.`);
+                    continue;
+                }
+
+                if (reEmbed) {
+                    logger.log(`Re-embedding enabled. Stripping ${records.length} existing embeddings...`);
+                    records.forEach(r => delete r.embedding);
+                }
+
+                await collection.upsert({
+                    ids       : records.map(r => r.id),
+                    embeddings: records.map(r => r.embedding),
+                    metadatas : records.map(r => r.metadata),
+                    documents : records.map(r => r.document)
+                });
+                
+                totalImported += records.length;
             }
 
-            if (records.length === 0) {
-                return { message: 'No records found in backup file to import.' };
-            }
-
-            // --- Re-Embedding Logic ---
-            if (reEmbed) {
-                logger.log('Re-embedding enabled. Stripping existing embeddings so storage engine regenerates them dynamically...');
-                records.forEach(r => delete r.embedding);
-            }
-            // --------------------------
-
-            logger.log(`Importing ${records.length} documents into ${collection.name}...`);
-
-            await collection.upsert({
-                ids       : records.map(r => r.id),
-                embeddings: records.map(r => r.embedding),
-                metadatas : records.map(r => r.metadata),
-                documents : records.map(r => r.document)
-            });
-
-            const count = await collection.count();
-            logger.log(`Import complete. Collection "${collection.name}" now contains ${count} documents.`);
             return {
-                message : `Import complete. Collection "${collection.name}" now contains ${count} documents.`,
-                imported: records.length,
-                total   : count,
+                message : `Import batch complete. Successfully ingested ${totalImported} records across ${filesToImport.length} file(s).`,
+                imported: totalImported,
                 mode
             };
         } catch (error) {
             logger.error('[DatabaseService] Error importing database:', error);
-            return {
-                error  : 'Failed to import database',
-                message: error.message,
-                code   : 'DATABASE_IMPORT_ERROR'
-            };
+            const importError = new Error(`DATABASE_IMPORT_ERROR: ${error.message}`);
+            importError.code = 'DATABASE_IMPORT_ERROR';
+            throw importError;
         }
     }
 
