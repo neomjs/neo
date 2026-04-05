@@ -118,7 +118,8 @@ class ChromaManager extends Base {
             console.warn       = (...args) => {
                 const msg = args.join(' ');
                 if (msg.includes('No embedding function configuration found') ||
-                    msg.includes('Could not deserialize the collection metadata')) {
+                    msg.includes('Could not deserialize the collection metadata') ||
+                    msg.includes('dummy embedding function')) {
                     return;
                 }
                 originalWarn.apply(console, args);

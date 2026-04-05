@@ -1,14 +1,17 @@
-import fs              from 'fs';
-import path            from 'path';
-import yaml            from 'js-yaml';
-import {fileURLToPath} from 'url';
-import aiConfig        from '../config.mjs';
-import Base            from '../../../../../src/core/Base.mjs';
-import StorageRouter   from '../managers/StorageRouter.mjs';
-import GraphService    from './GraphService.mjs';
-import Json            from '../../../../../src/util/Json.mjs';
-import logger          from '../logger.mjs';
-import Ollama          from '../../../../provider/Ollama.mjs';
+import fs                   from 'fs';
+import path                 from 'path';
+import yaml                 from 'js-yaml';
+import {fileURLToPath}      from 'url';
+import crypto               from 'crypto';
+import aiConfig             from '../config.mjs';
+import Base                 from '../../../../../src/core/Base.mjs';
+import StorageRouter        from '../managers/StorageRouter.mjs';
+import SQLiteVectorManager  from '../managers/SQLiteVectorManager.mjs';
+import TextEmbeddingService from './TextEmbeddingService.mjs';
+import GraphService         from './GraphService.mjs';
+import Json                 from '../../../../../src/util/Json.mjs';
+import logger               from '../logger.mjs';
+import Ollama               from '../../../../provider/Ollama.mjs';
 
 /**
  * @summary Service for offline GraphRAG extraction ("REM Sleep").
@@ -248,7 +251,11 @@ ${session.document}
             return payload;
 
         } catch (error) {
-            logger.error('[DreamService] Error during graph extraction run:', error);
+            if (error.message && error.message.includes('fetch failed')) {
+                logger.debug(`[DreamService] Skipping extraction (Ollama daemon offline).`);
+            } else {
+                logger.error('[DreamService] Error during graph extraction run:', error);
+            }
             return null;
         }
     }
@@ -323,13 +330,18 @@ ${contextText}
             }
 
         } catch (error) {
-            logger.error('[DreamService] Error during topology extraction:', error);
+            if (error.message && error.message.includes('fetch failed')) {
+                logger.debug('[DreamService] Skipping topology extraction (Ollama daemon offline).');
+            } else {
+                logger.error('[DreamService] Error during topology extraction:', error);
+            }
         }
     }
 
     /**
      * Parses the local file system for markdown files and explicitly syncs their state
      * into the Native Graph database. Re-asserts edge weights for OPEN issues.
+     * Upserts textual issue embeddings into the localized `neo_graph_nodes` SQLite vector collection.
      * @returns {Promise<Object[]>} Returns only the OPEN issues for synthesis.
      */
     async ingestIssueStates() {
@@ -345,6 +357,11 @@ ${contextText}
         const files = fs.readdirSync(issuesDir).filter(f => f.endsWith('.md'));
         const openIssues = [];
         const parsedIssues = [];
+
+        let nodesCollection = null;
+        if (SQLiteVectorManager.db) {
+            nodesCollection = await SQLiteVectorManager.getOrCreateCollection({ name: 'neo_graph_nodes' });
+        }
 
         // Pass 1: Upsert all nodes
         for (const file of files) {
@@ -420,6 +437,35 @@ ${contextText}
                     }
 
                     const body = content.replace(/^---\n[\s\S]*?\n---\n/, '').trim();
+                    const titleAndBody = `${meta.title}\n\n${body}`;
+
+                    // Markdown-Aware Vector Chunking using hash bypass
+                    if (nodesCollection) {
+                        const contentHash = crypto.createHash('md5').update(titleAndBody).digest('hex');
+                        let needsEmbedding = true;
+
+                        try {
+                            const existing = await nodesCollection.get({ ids: [issueId], include: ['metadatas'] });
+                            if (existing && existing.ids.length > 0) {
+                                const exMeta = existing.metadatas[0] || {};
+                                if (exMeta.hash === contentHash) {
+                                    needsEmbedding = false;
+                                }
+                            }
+                        } catch (e) {
+                            // Suppress get errors locally
+                        }
+
+                        if (needsEmbedding) {
+                            logger.info(`[DreamService] Dynamically embedding OPEN issue: ${issueId}`);
+                            await nodesCollection.upsert({
+                                ids: [issueId],
+                                documents: [titleAndBody],
+                                metadatas: [{ hash: contentHash, title: meta.title, type: 'ISSUE' }]
+                            });
+                        }
+                    }
+
                     openIssues.push({
                         title: meta.title,
                         issueId: meta.id || file.replace(/\.md$/, ''),
@@ -467,20 +513,72 @@ ${contextText}
     }
 
     /**
-     * Synthesizes the Golden Path (strategic priorities) deterministically by analyzing Graph topology.
+     * Synthesizes the Golden Path (strategic priorities) deterministically by analyzing Graph topology
+     * combined with Vector Similarity (Hybrid GraphRAG).
      */
     async synthesizeGoldenPath() {
-        logger.info('[DreamService] Initializing Mathematical Strategic Traversal...');
+        logger.info('[DreamService] Initializing Hybrid GraphRAG Strategic Traversal...');
 
-        // This will sync Graph Node states and re-assert edge weights structurally!
+        // This will sync Graph Node states and embed issue vectors!
         await this.ingestIssueStates();
 
-        const openIssues = GraphService.db.nodes.items.filter(n => n.label === 'ISSUE' && n.properties?.state === 'OPEN');
+        if (!SQLiteVectorManager.db) {
+            logger.warn('[DreamService] SQLiteVectorManager not mounted. Skipping Golden Path extraction.');
+            return;
+        }
+
+        // Generate the Frontier Baseline Vector using the most recent session memory
+        let frontierEmbedding = null;
+        try {
+            const sessionsVec = await SQLiteVectorManager.getSummaryCollection();
+            const recent = await sessionsVec.get({ limit: 2, include: ['documents'] });
+            
+            let frontierText = "Neo.mjs Active Strategic Context: ";
+            if (recent && recent.documents.length > 0) {
+                frontierText += recent.documents.join("\n\n");
+            } else {
+                frontierText += "Initialization and Stabilization.";
+            }
+            
+            logger.debug('[DreamService] Computing Frontier Baseline Vector...');
+            frontierEmbedding = await TextEmbeddingService.embedText(frontierText, aiConfig.neoEmbeddingProvider);
+        } catch (e) {
+            logger.warn('[DreamService] Failed to generate Frontier Baseline Vector. Aborting Hybrid route.', e);
+            return;
+        }
+
+        const f32 = new Float32Array(frontierEmbedding);
+        
+        // Execute the unified Hybrid SQL Query directly mapping native structural weights against active vectors!
+        const stmt = SQLiteVectorManager.db.prepare(`
+            SELECT 
+                n.id,
+                n.data,
+                COALESCE((
+                    SELECT SUM(json_extract(e.data, '$.properties.weight')) 
+                    FROM Edges e 
+                    WHERE e.target = n.id AND e.type != 'BLOCKS'
+                ), 0.0) as struct_score,
+                v.distance as semantic_distance
+            FROM Nodes n
+            JOIN neo_graph_nodes_data d ON d.chroma_id = n.id
+            JOIN neo_graph_nodes_vec v ON v.rowid = d.rowid
+            WHERE json_extract(n.data, '$.properties.state') = 'OPEN'
+              AND v.embedding MATCH ? AND k = 20
+        `);
+
+        // Check node validity and calculate priority mathematically internally securely
+        const results = stmt.all(f32, 20);
         const scoredNodes = [];
 
-        for (const issue of openIssues) {
-            // Find blockers
-            const blockers = GraphService.db.edges.getByIndex('target', issue.id).filter(e => e.type === 'BLOCKS');
+        const SEMANTIC_WEIGHT = 2.0;
+        const STRUCTURAL_WEIGHT = 1.0;
+
+        for (const row of results) {
+            const issueId = row.id;
+            
+            // Re-verify blocker topology natively using GraphService API
+            const blockers = GraphService.db.edges.getByIndex('target', issueId).filter(e => e.type === 'BLOCKS');
             let isBlocked = false;
 
             for (const bEdge of blockers) {
@@ -491,25 +589,29 @@ ${contextText}
                 }
             }
 
-            if (isBlocked) continue; // Skip blocked issues
+            if (isBlocked) continue; // Architecturally blocked issues cannot be Golden
 
-            // Score based on all inbound, non-blocking edges (Hebbian + Structural)
-            let score = 1.0; // Base score
-            const inboundEdges = GraphService.db.edges.getByIndex('target', issue.id);
+            const semantic_distance = parseFloat(row.semantic_distance) || 0.1;
+            const struct_score = parseFloat(row.struct_score) || 0;
+            
+            // Lower distance = Higher significance. (Add 0.1 to avoid div by 0 and curb massive asymptotes)
+            const semanticScore = 1.0 / (semantic_distance + 0.1);
+            
+            const priority = (semanticScore * SEMANTIC_WEIGHT) + (struct_score * STRUCTURAL_WEIGHT);
 
-            inboundEdges.forEach(e => {
-                if (e.type !== 'BLOCKS') {
-                    score += parseFloat(e.properties?.weight || 1.0);
-                }
-            });
+            // Re-inflate node JSON locally
+            let nodeData = null;
+            try { nodeData = JSON.parse(row.data); } catch(e) {}
 
             scoredNodes.push({
-                node: issue,
-                score: score
+                node: nodeData || { id: issueId },
+                score: priority,
+                semantic: semanticScore,
+                structural: struct_score
             });
         }
 
-        // Sort descending
+        // Sort descending by calculated priority
         scoredNodes.sort((a, b) => b.score - a.score);
 
         const topNodes = scoredNodes.slice(0, 3);
@@ -519,9 +621,13 @@ ${contextText}
             return;
         }
 
+        logger.info(`[DreamService] Top Issue 1 (${topNodes[0].node.id}): Priority ${topNodes[0].score.toFixed(2)} [Sem: ${topNodes[0].semantic.toFixed(2)} / Struc: ${topNodes[0].structural.toFixed(2)}]`);
+
+        // Explicitly anchor this to the frontier context so the Agent NEVER loses sight of it
         topNodes.forEach(item => {
-            // Explicitly anchor this to the frontier context so the Agent NEVER loses sight of it
-            GraphService.linkNodes('frontier', item.node.id, 'GUIDES', item.score);
+            if (item.node && item.node.id) {
+                GraphService.linkNodes('frontier', item.node.id, 'GUIDES', item.score);
+            }
         });
 
         logger.info(`[DreamService] Mathematical Golden Path established. Anchored ${topNodes.length} strategic nodes to frontier.`);
