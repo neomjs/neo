@@ -643,9 +643,12 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  type: object
+                type: object
+                properties:
+                  neighbors:
+                    type: array
+                    items:
+                      type: object
         '500':
           description: Internal server error.
           content:
@@ -676,9 +679,12 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  type: object
+                type: object
+                properties:
+                  nodes:
+                    type: array
+                    items:
+                      type: object
         '500':
           description: Internal server error.
           content:
