@@ -92,22 +92,49 @@ class ChromaManager extends Base {
         };
     }
 
+    #chromaLock = Promise.resolve();
+
+    /**
+     * Executes a ChromaDB client function sequentially, ensuring console.warn
+     * is safely suppressed without overlapping race conditions.
+     * @param {Function} fn Async function to execute
+     * @returns {Promise<any>}
+     */
+    async #executeSilently(fn) {
+        const nextLock = (async () => {
+            // Await the completion of the previous silent execution
+            await this.#chromaLock;
+            
+            const originalWarn = console.warn;
+            console.warn = () => {}; // Suppress unwanted warnings from ChromaDB client
+            
+            try {
+                return await fn();
+            } finally {
+                // Guaranteed sequential restore
+                console.warn = originalWarn;
+            }
+        })();
+        
+        // Prevent chain crashing if an internal error occurs
+        this.#chromaLock = nextLock.catch(() => {});
+        return nextLock;
+    }
+
     /**
      * @returns {Promise<Object>}
      */
     async getKnowledgeBaseCollection() {
-        if (!this.knowledgeBaseCollection) {
-            const originalWarn = console.warn;
-            console.warn = () => {}; // Suppress unwanted warnings from ChromaDB client
-
-            this.knowledgeBaseCollection = await this.client.getOrCreateCollection({
-                name             : aiConfig.collectionName,
-                embeddingFunction: aiConfig.dummyEmbeddingFunction
+        if (!this._knowledgeBaseCollectionPromise) {
+            this._knowledgeBaseCollectionPromise = this.#executeSilently(async () => {
+                return await this.client.getOrCreateCollection({
+                    name             : aiConfig.collectionName,
+                    embeddingFunction: aiConfig.dummyEmbeddingFunction
+                });
             });
-
-            console.warn = originalWarn;
         }
 
+        this.knowledgeBaseCollection = await this._knowledgeBaseCollectionPromise;
         return this.knowledgeBaseCollection;
     }
 }
