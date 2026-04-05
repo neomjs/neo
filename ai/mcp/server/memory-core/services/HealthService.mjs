@@ -194,10 +194,10 @@ class HealthService extends Base {
         const providers = [aiConfig.modelProvider];
         
         if (aiConfig.engine === 'chroma' || aiConfig.engine === 'both') {
-            providers.push(aiConfig.chromaEmbeddingProvider || aiConfig.embeddingProvider);
+            providers.push(aiConfig.chromaEmbeddingProvider);
         }
         if (aiConfig.engine === 'neo' || aiConfig.engine === 'both') {
-            providers.push(aiConfig.neoEmbeddingProvider || aiConfig.embeddingProvider);
+            providers.push(aiConfig.neoEmbeddingProvider);
         }
 
         const needsGemini = providers.some(p => p === 'gemini');

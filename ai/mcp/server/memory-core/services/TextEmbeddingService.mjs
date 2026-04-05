@@ -40,7 +40,7 @@ class TextEmbeddingService extends Base {
     construct(config) {
         super.construct(config);
 
-        if (aiConfig.embeddingProvider === 'gemini' || aiConfig.chromaEmbeddingProvider === 'gemini' || aiConfig.neoEmbeddingProvider === 'gemini') {
+        if (aiConfig.chromaEmbeddingProvider === 'gemini' || aiConfig.neoEmbeddingProvider === 'gemini') {
             const apiKey = process.env.GEMINI_API_KEY;
             if (!apiKey) {
                 logger.warn('⚠️  [TextEmbeddingService] GEMINI_API_KEY not set. Semantic search features with Gemini will be unavailable.');
@@ -54,13 +54,13 @@ class TextEmbeddingService extends Base {
     /**
      * Creates an embedding vector for the provided text.
      * @param {String} text The text to embed.
-     * @param {String} [explicitProvider=null] The embedding provider to use, bypassing config.
+     * @param {String} explicitProvider The embedding provider to use.
      * @returns {Promise<number[]>}
      */
-    async embedText(text, explicitProvider = null) {
-        const provider = explicitProvider || aiConfig.embeddingProvider;
+    async embedText(text, explicitProvider) {
+        if (!explicitProvider) throw new Error('TextEmbeddingService.embedText requires an explicit provider argument');
 
-        if (provider === 'ollama') {
+        if (explicitProvider === 'ollama') {
             const { host, embeddingModel } = aiConfig.ollama;
             try {
                 const response = await fetch(`${host}/api/embeddings`, {
