@@ -97,11 +97,9 @@
 Thumbs.db
 resources/data/deck/EditorConfig.json
 
-# Local AI Knowledge Base
+# Agent OS Local Data
 .env
-chroma-neo-knowledge-base/
-chroma-neo-memory-core/
-neo-memory-core-sqlite/
+.neo-ai-data/
 
 # Playwright test results
 test/playwright/test-results/

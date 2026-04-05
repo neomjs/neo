@@ -100,7 +100,7 @@ const defaultConfig = {
      * The local persistence path for the SQLite knowledge graph.
      * @type {string}
      */
-    sqlitePath: path.resolve(cwd, 'neo-memory-core-sqlite/knowledge-graph.sqlite'),
+    sqlitePath: path.resolve(cwd, '.neo-ai-data/neo-sqlite/knowledge-graph.sqlite'),
     /**
      * The target Storage Engine (Vector Database) to use.
      * Options: 'neo' (SQLite-Vec), 'chroma' (ChromaDB), or 'both'.
@@ -129,12 +129,12 @@ const defaultConfig = {
          * The local persistence path for the agent memory server.
          * @type {string}
          */
-        path: path.resolve(cwd, 'chroma-neo-memory-core'),
+        path: path.resolve(cwd, '.neo-ai-data/chroma/memory-core'),
         /**
          * The path to store memory backups.
          * @type {string}
          */
-        backupPath: path.resolve(cwd, 'dist/memory-backups')
+        backupPath: path.resolve(cwd, '.neo-ai-data/backups/chroma/memory-core')
     },
     /**
      * Configuration for the AI agent's session summary database.
@@ -159,7 +159,7 @@ const defaultConfig = {
          * The path to store session summary backups.
          * @type {string}
          */
-        backupPath: path.resolve(cwd, 'dist/session-backups')
+        backupPath: path.resolve(cwd, '.neo-ai-data/backups/chroma/session-core')
     }
 };
 
