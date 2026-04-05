@@ -5,9 +5,10 @@ state: CLOSED
 labels:
   - enhancement
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-04-04T13:25:25Z'
-updatedAt: '2026-04-04T18:02:36Z'
+updatedAt: '2026-04-05T14:54:52Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9686'
 author: tobiu
 commentsCount: 1
@@ -35,4 +36,5 @@ This ticket tracks the addition of `ai/examples/inspectGraph.mjs` and the inclus
 Fixed via ai/examples/inspectGraph.mjs
 
 - 2026-04-04T18:02:36Z @tobiu closed this issue
+- 2026-04-05T14:54:52Z @tobiu assigned to @tobiu
 

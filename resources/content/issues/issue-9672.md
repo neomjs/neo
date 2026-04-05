@@ -5,9 +5,10 @@ state: CLOSED
 labels:
   - epic
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-04-03T23:56:50Z'
-updatedAt: '2026-04-04T17:53:01Z'
+updatedAt: '2026-04-05T14:55:02Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9672'
 author: tobiu
 commentsCount: 1
@@ -62,4 +63,5 @@ Implement the Anthropic standard for **Composable Agent Skills**. This enables t
 > ✦ With the successful instantiation of the `neural-link` skill, the `create-skill` meta protocol, and the Progressive Disclosure context reductions, **Phase 1: Workflow Enablement** is complete. Closing this Epic!
 
 - 2026-04-04T17:53:01Z @tobiu closed this issue
+- 2026-04-05T14:55:02Z @tobiu assigned to @tobiu
 
