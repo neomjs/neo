@@ -568,7 +568,7 @@ ${contextText}
         `);
 
         // Check node validity and calculate priority mathematically internally securely
-        const results = stmt.all(f32, 20);
+        const results = stmt.all(f32);
         const scoredNodes = [];
 
         const SEMANTIC_WEIGHT = 2.0;
