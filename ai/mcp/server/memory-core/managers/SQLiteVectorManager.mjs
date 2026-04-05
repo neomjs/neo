@@ -53,7 +53,7 @@ class SQLiteVectorManager extends Base {
         }
 
         // 1. Establish SQLite DB Connection
-        let dbPath = typeof aiConfig.sqlitePath === 'string' ? aiConfig.sqlitePath : path.resolve(process.cwd(), 'chroma-neo-memory-core/graph/knowledge-graph.sqlite');
+        let dbPath = typeof aiConfig.sqlitePath === 'string' ? aiConfig.sqlitePath : path.resolve(process.cwd(), 'neo-memory-core-sqlite/knowledge-graph.sqlite');
         await fs.ensureDir(path.dirname(dbPath));
 
         // Dynamic imports for native modules
