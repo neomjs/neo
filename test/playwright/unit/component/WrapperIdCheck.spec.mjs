@@ -48,9 +48,8 @@ test.describe('Wrapper Component IDs', () => {
             parentComponent: mockGrid
         });
 
-        // The root vdom node (the wrapper) should have the wrapper suffix
-        expect(gridBody.vdom.id).toBe('my-grid-body__wrapper');
-        // The getVdomRoot() node should have the component ID
+        // In the new Multi-Body architecture, GridBody extends Component and does not use a wrapper element.
+        expect(gridBody.vdom.id).toBe('my-grid-body');
         expect(gridBody.getVdomRoot().id).toBe('my-grid-body');
 
         // Unregister manually to avoid destroy() complexity with mock parent
