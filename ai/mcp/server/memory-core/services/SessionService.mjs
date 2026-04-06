@@ -2,9 +2,13 @@ import {GoogleGenerativeAI} from '@google/generative-ai';
 import aiConfig             from '../config.mjs';
 import Base                 from '../../../../../src/core/Base.mjs';
 import crypto               from 'crypto';
+import GraphService         from './GraphService.mjs';
 import StorageRouter        from '../managers/StorageRouter.mjs';
 import HealthService        from './HealthService.mjs';
 import Json                 from '../../../../../src/util/Json.mjs';
+import fs                   from 'fs';
+import path                 from 'path';
+import os                   from 'os';
 import logger               from '../logger.mjs';
 
 /**
@@ -348,12 +352,14 @@ class SessionService extends Base {
         const aggregatedContent = memories.documents.join('\n\n---\n\n');
 
         let lastActivity = Date.now();
+        let firstActivity = lastActivity;
         const extractedAgents = new Set();
         const extractedModels = new Set();
 
         if (memories.metadatas && memories.metadatas.length > 0) {
             const timestamps = memories.metadatas.map(m => m.timestamp).filter(Boolean);
             if (timestamps.length > 0) {
+                firstActivity = Math.min(...timestamps);
                 lastActivity = Math.max(...timestamps);
             }
             memories.metadatas.forEach(m => {
@@ -411,7 +417,104 @@ ${aggregatedContent}
             }]
         });
 
+        // --- 1. Topological Ingestion (Graph Mapping) ---
+        GraphService.upsertNode({
+            id: summaryId,
+            type: 'SESSION_SUMMARY',
+            name: title,
+            description: `${category} session by ${participatingAgents.join(', ')}`,
+            semanticVectorId: summaryId
+        });
+
+        // Tie the summary strategically to the current focal point
+        GraphService.linkNodes('frontier', summaryId, 'SESSION_COMPLETED', 1.0);
+
+        // --- 2. Semantic Extraction (Regex Linkage) ---
+        const issueRegex = /(?:#|issue-)(\d+)/gi;
+        const linkedIssues = new Set();
+        let match;
+        
+        while ((match = issueRegex.exec(summary)) !== null) {
+            linkedIssues.add(`issue-${match[1]}`);
+        }
+        
+        while ((match = issueRegex.exec(aggregatedContent)) !== null) {
+            linkedIssues.add(`issue-${match[1]}`);
+        }
+
+        linkedIssues.forEach(issueId => {
+            // Tie the summary session logically to the issues being discussed
+            GraphService.linkNodes(summaryId, issueId, 'DISCUSSED_IN', 0.8);
+        });
+
+        // 3. Antigravity Artifact Ingestion (Passive Scan)
+        // Add a 12-hour buffer window for offline drafting match
+        await this.ingestAntigravityArtifacts(sessionId, summaryId, firstActivity - (12 * 3600000), lastActivity + (12 * 3600000));
+
         return {sessionId, summaryId, title, memoryCount: memories.ids.length};
+    }
+
+    /**
+     * Passively scans the local Antigravity brain directory for implementation plans
+     * and structurally ingests them into the vector DB and edge graph if their timestamps
+     * match the active session.
+     * @param {String} sessionId 
+     * @param {String} summaryId
+     * @param {Number} minTimeMs
+     * @param {Number} maxTimeMs
+     */
+    async ingestAntigravityArtifacts(sessionId, summaryId, minTimeMs, maxTimeMs) {
+        try {
+            const homeDir = os.homedir();
+            const brainDir = path.join(homeDir, '.gemini', 'antigravity', 'brain');
+            
+            if (!fs.existsSync(brainDir)) return;
+            
+            const conversations = fs.readdirSync(brainDir);
+            for (const convId of conversations) {
+                const planPath = path.join(brainDir, convId, 'implementation_plan.md');
+                if (fs.existsSync(planPath)) {
+                    const stats = fs.statSync(planPath);
+                    // Match artifact to session timeframe
+                    if (stats.mtimeMs >= minTimeMs && stats.mtimeMs <= maxTimeMs) {
+                        const content = fs.readFileSync(planPath, 'utf8');
+                        const artifactId = `plan_${convId}`;
+                        
+                        logger.info(`[SessionService] Ingesting Antigravity artifact: ${planPath}`);
+                        
+                        // Push into ChromaDB
+                        try {
+                            await this.memoryCollection.upsert({
+                                ids: [artifactId],
+                                metadatas: [{
+                                    sessionId,
+                                    timestamp: stats.mtimeMs,
+                                    type: 'implementation_plan',
+                                    source: 'antigravity'
+                                }],
+                                documents: [content]
+                            });
+                        } catch (e) {
+                            logger.warn(`[SessionService] Failed to vector-upsert plan: ${e.message}`);
+                        }
+
+                        // Tie it structurally into Graph
+                        GraphService.upsertNode({
+                            id: artifactId,
+                            type: 'IMPLEMENTATION_PLAN',
+                            name: `Antigravity Plan (${convId})`,
+                            description: `Strategically generated implementation plan via Antigravity Brain for session ${sessionId}.`,
+                            semanticVectorId: artifactId
+                        });
+
+                        // Link it to the current Session summary node
+                        GraphService.linkNodes(summaryId, artifactId, 'CONTAINED_PLAN', 1.0);
+                    }
+                }
+            }
+        } catch (e) {
+            logger.warn(`[SessionService] Antigravity artifacts ingestion failed: ${e.message}`);
+        }
     }
 
     /**
