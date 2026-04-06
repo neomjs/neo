@@ -13,11 +13,11 @@ setup({
     }
 });
 
-import {test, expect}       from '@playwright/test';
-import Neo                  from '../../../../../../../../src/Neo.mjs';
-import fs                   from 'fs';
-import path                 from 'path';
-import os                   from 'os';
+import {test, expect} from '@playwright/test';
+import Neo            from '../../../../../../../../src/Neo.mjs';
+import fs             from 'fs';
+import path           from 'path'
+import os             from 'os';
 
 test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
     let GraphService;
@@ -127,36 +127,34 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
         }
 
         // Restore patches
-        if (originalGenerate) Ollama.prototype.generate = originalGenerate;
+        if (originalGenerate)   Ollama.prototype.generate = originalGenerate;
         if (originalAppendFile) fs.writeFileSync = originalAppendFile;
     });
 
     test('should extract Graph nodes and flag capability gaps without mutating physical files', async () => {
         // 1. Manually populate SQLite graph with mocked FileSystem state
         GraphService.upsertNode({
-            id: 'mock-file-1',
-            type: 'FILE',
-            name: 'Button.mjs',
+            id         : 'mock-file-1',
+            type       : 'FILE',
+            name       : 'Button.mjs',
             description: 'Mock button class',
-            properties: { path: 'src/button/Button.mjs' }
+            properties : {path: 'src/button/Button.mjs'}
         });
 
         // 2. Prepare mock extracted payload showing a new abstract feature
         const payload = {
             graph: {
-                nodes: [
-                    {
-                        id: 'node-feature-1',
-                        type: 'FEATURE',
-                        name: 'TestFeature',
-                        description: 'A newly formulated architectural concept.'
-                    }
-                ]
+                nodes: [{
+                    id         : 'node-feature-1',
+                    type       : 'FEATURE',
+                    name       : 'TestFeature',
+                    description: 'A newly formulated architectural concept.'
+                }]
             }
         };
 
         const session = {
-            meta: { sessionId: 'playwright-test-session' }
+            meta: {sessionId: 'playwright-test-session'}
         };
 
         // 3. Trigger REM sleep cycle
