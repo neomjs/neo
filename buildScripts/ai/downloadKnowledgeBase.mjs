@@ -9,11 +9,11 @@ const cwd       = process.cwd();
 
 async function downloadKnowledgeBase() {
     const version   = packageJson.version;
-    const zipName   = 'chroma-neo-knowledge-base.zip';
+    const zipName   = 'neo-ai-data.zip';
     const url       = `https://github.com/neomjs/neo/releases/download/${version}/${zipName}`;
     const targetDir = path.resolve(cwd);
     const zipPath   = path.resolve(targetDir, zipName);
-    const kbDir     = path.resolve(targetDir, 'chroma-neo-knowledge-base');
+    const kbDir     = path.resolve(targetDir, '.neo-ai-data');
 
     console.log(`Checking for existing Knowledge Base...`);
     if (await fs.pathExists(kbDir)) {

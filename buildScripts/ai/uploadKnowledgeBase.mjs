@@ -40,8 +40,8 @@ const cwd       = process.cwd();
 async function uploadKnowledgeBase() {
     const {version} = packageJson;
     const tagName   = version;
-    const sourceDir = 'chroma-neo-knowledge-base';
-    const zipName   = 'chroma-neo-knowledge-base.zip';
+    const sourceDir = '.neo-ai-data';
+    const zipName   = 'neo-ai-data.zip';
     const zipPath   = path.resolve(cwd, zipName);
     let exitCode    = 0;
 
