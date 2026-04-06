@@ -128,7 +128,7 @@ class DreamService extends Base {
             }
 
             // Universal Fade (Garbage Collection)
-            this.runGarbageCollection();
+            await this.runGarbageCollection();
 
             // After extraction pipeline and decay are done, synthesize strategic roadmap
             await this.synthesizeGoldenPath();
@@ -483,11 +483,11 @@ ${contextText}
     }
 
     /**
-     * Executes the global "Fade" algorithm across all Native Graph edges.
-     * Unused edges undergo a geometric decay and are permanently severed if they fall beneath the threshold.
+     * Executes the global "Fade" algorithm across all Native Graph edges,
+     * then executes Vector Apoptosis to clean up resulting orphaned nodes from the hybrid semantic space.
      */
-    runGarbageCollection() {
-        logger.info('[DreamService] Initiating Graph Garbage Collection (The Fade)...');
+    async runGarbageCollection() {
+        logger.info('[DreamService] Initiating Graph Garbage Collection (The Fade & Apoptosis)...');
 
         const edges = GraphService.db.edges.items.slice();
         let cullCount = 0;
@@ -521,6 +521,31 @@ ${contextText}
         }
 
         logger.info(`[DreamService] Garbage Collection complete. Severed ${cullCount} unanchored edges.`);
+
+        // Vector Apoptosis: Identify orphans and purge from Hybrid Store
+        logger.info('[DreamService] Initializing Vector Apoptosis (Orphaned Node Cleanup)...');
+        const orphaned = GraphService.getOrphanedNodes();
+        
+        if (orphaned.length > 0) {
+            logger.info(`[DreamService] Apoptosis detected ${orphaned.length} orphaned nodes. Commencing eradication...`);
+            GraphService.removeNodes(orphaned);
+
+            if (SQLiteVectorManager.db) {
+                // Cross-layer purge from semantic embeddings
+                logger.info(`[DreamService] Purging semantic vectors for ${orphaned.length} deleted nodes.`);
+                
+                ['neo_graph_nodes', 'neo_agent_sessions_summary'].forEach(async collectionName => {
+                    try {
+                        const collection = await SQLiteVectorManager.getOrCreateCollection({ name: collectionName });
+                        if (collection) {
+                            await collection.delete({ ids: orphaned });
+                        }
+                    } catch(e) {
+                         logger.warn(`[DreamService] Apoptosis soft-failure on collection ${collectionName}: ${e.message}`);
+                    }
+                });
+            }
+        }
     }
 
     /**

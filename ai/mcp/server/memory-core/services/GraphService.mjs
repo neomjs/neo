@@ -526,6 +526,50 @@ class GraphService extends Base {
 
         return {success: true, targetNodeId, newWeight: weight};
     }
+
+    /**
+     * Finds nodes that have lost all structural edges to trigger algorithmic forgetting.
+     * Protects SYSTEM_ANCHOR and System topologies.
+     * @returns {String[]} Array of node IDs mapping to orphaned vectors.
+     */
+    getOrphanedNodes() {
+        if (!this.db || !this.db.storage || !this.db.storage.db) return [];
+        
+        const stmt = this.db.storage.db.prepare(`
+            SELECT n.id, n.data
+            FROM Nodes n
+            LEFT JOIN Edges e ON n.id = e.source OR n.id = e.target
+            WHERE e.id IS NULL
+        `);
+
+        let orphaned = [];
+        for (let row of stmt.all()) {
+            let data;
+            try {
+                // n.data maps to JSON payload storing the node label
+                data = JSON.parse(row.data);
+            } catch(e) { continue; }
+            
+            if (data.label !== 'SYSTEM_ANCHOR' && data.label !== 'System') {
+                orphaned.push(row.id);
+            }
+        }
+
+        return orphaned;
+    }
+
+    /**
+     * Bulk atomic deletion of graph nodes mapping back to SQLite natively.
+     * @param {String[]} nodeIds
+     */
+    removeNodes(nodeIds) {
+        if (!nodeIds || nodeIds.length === 0) return;
+        
+        this.db.transaction(() => {
+            nodeIds.forEach(id => this.db.removeNode(id));
+        });
+        logger.debug(`[GraphService] Obliterated ${nodeIds.length} Nodes from Native Engine synchronously.`);
+    }
 }
 
 export default Neo.setupClass(GraphService);
