@@ -12,6 +12,7 @@ import GraphService         from './GraphService.mjs';
 import Json                 from '../../../../../src/util/Json.mjs';
 import logger               from '../logger.mjs';
 import Ollama               from '../../../../provider/Ollama.mjs';
+import FileSystemIngestor   from './FileSystemIngestor.mjs';
 
 /**
  * @summary Service for offline GraphRAG extraction ("REM Sleep").
@@ -112,11 +113,15 @@ class DreamService extends Base {
 
             logger.info(`[DreamService] Found ${sessions.length} undigested session(s). Beginning REM pipeline...`);
 
+            // Phase 1: Ingest Live Workspace Files for Gap Analysis context mapping
+            await FileSystemIngestor.syncWorkspaceToGraph();
+
             for (const session of sessions) {
                 logger.info(`[DreamService] Preparing session ${session.meta.sessionId} ("${session.meta.title}") for REM extraction.`);
                 const success = await this.executeTriVectorExtraction(session);
 
                 await this.extractTopology(session.document, session.meta.sessionId);
+                await this.executeCapabilityGapInference(session, success);
 
                 if (success) {
                     await this.sessionsCollection.update({
@@ -336,6 +341,103 @@ ${contextText}
                 logger.debug('[DreamService] Skipping topology extraction (Ollama daemon offline).');
             } else {
                 logger.error('[DreamService] Error during topology extraction:', error);
+            }
+        }
+    }
+
+    /**
+     * ReAct loop for detecting Codebase Gaps natively via dynamic filesystem evaluation.
+     * @param {Object} session The wrapped session object
+     * @param {Object} extractedPayload The parsed Tri-Vector schema
+     */
+    async executeCapabilityGapInference(session, extractedPayload) {
+        if (!extractedPayload || !extractedPayload.graph || !Array.isArray(extractedPayload.graph.nodes)) return;
+        
+        // Find high-level architectural node outputs from this session
+        const structuralNodes = extractedPayload.graph.nodes.filter(n => 
+            n.type === 'FEATURE' || n.type === 'CONCEPT' || n.type === 'CLASS'
+        );
+
+        if (structuralNodes.length === 0) return;
+
+        logger.info(`[DreamService] Launching Capability Gap ReAct Loop for session ${session.meta.sessionId}...`);
+        
+        // Retrieve the current native repository document tree for analysis contextualization
+        const fsNodes = GraphService.db.nodes.items.filter(n => 
+            n.type === 'FILE' || n.type === 'DIRECTORY'
+        ).map(n => n.properties?.path || '').filter(p => 
+            p && (p.startsWith('docs/') || p.startsWith('learn/') || p.startsWith('test/') || p.startsWith('src/'))
+        ).join('\n');
+
+        const __filename = fileURLToPath(import.meta.url);
+        const neoRootDir = path.resolve(path.dirname(__filename), '../../../../../');
+        const handoffFile = path.resolve(neoRootDir, 'resources/content/sandman_handoff.md');
+
+        const provider = Neo.create(Ollama, {
+            modelName: aiConfig.ollama.model
+        });
+
+        for (const node of structuralNodes) {
+            let messages = [
+                {
+                    role: 'system',
+                    content: `You are the Neo.mjs Capability Gap Analyzer (REM).
+The underlying Agent just worked on a new feature/concept. You need to verify if the documentation and test coverage exists natively.
+We will provide you the ACTIVE DIRECTORY TREE containing physical file paths in 'docs/', 'learn/', 'test/', and 'src/'.
+Analyze the directory tree to see if relevant test or doc files exist for this node.
+If you need to read a file to verify its contents, output JSON: {"action": "read_file", "path": "path/to/file.md"}.
+If you are confident there is a gap (no file exists, or it's clearly insufficient), output JSON: {"action": "alert", "message": "[DOC_GAP] Detailed reason..."}.
+If coverage looks adequate, output JSON: {"action": "pass"}.
+NEVER output raw markdown or conversational text. YOU MUST output EXACTLY ONE JSON OBJECT per turn.`
+                },
+                {
+                    role: 'user',
+                    content: `Node Type: ${node.type}\nNode Name: ${node.name}\nNode Description: ${node.description}\n\n--- ACTIVE DIRECTORY TREE ---\n${fsNodes}\n--- END DIRECTORY TREE ---`
+                }
+            ];
+
+            let passCounter = 0;
+            // Limit ReAct loop
+            while (passCounter < 4) {
+                passCounter++;
+                try {
+                    const result = await provider.generate(messages, {
+                        response_format: { type: 'json_object' }
+                    });
+                    
+                    const payload = Json.extract(result.content);
+                    if (!payload || !payload.action) break;
+
+                    if (payload.action === 'read_file' && payload.path) {
+                        try {
+                            const raw = fs.readFileSync(path.join(neoRootDir, payload.path), 'utf8');
+                            messages.push({ role: 'assistant', content: result.content });
+                            messages.push({ role: 'user', content: `File contents of ${payload.path}:\n\n${raw}` });
+                        } catch(e) {
+                            messages.push({ role: 'assistant', content: result.content });
+                            messages.push({ role: 'user', content: `Target path ${payload.path} does not physically exist. Cannot read.` });
+                        }
+                    } else if (payload.action === 'alert' && payload.message) {
+                        // We found a legitimate gap! Append to sandman_handoff.md!
+                        let handoffContent = fs.existsSync(handoffFile) ? fs.readFileSync(handoffFile, 'utf8') : '';
+                        const entry = `- **[Codebase Gap]** Node \`${node.name}\`: ${payload.message} (Source Session: ${session.meta.sessionId})\n`;
+                        if (!handoffContent.includes(entry)) {
+                            fs.writeFileSync(handoffFile, handoffContent + entry, 'utf8');
+                            logger.info(`[DreamService] Gap Alert logged for ${node.name}.`);
+                        }
+                        break;
+                    } else {
+                        logger.debug(`[DreamService] Gap Analyzer passed on ${node.name}.`);
+                        break; // action === 'pass' or fallback
+                    }
+                } catch(e) {
+                    if (e.message && e.message.includes('fetch failed')) {
+                        logger.debug('[DreamService] Skipping Gap Analysis (Ollama daemon offline).');
+                    } else {
+                        logger.warn('[DreamService] Gap Inference loop failed.', e);
+                    }
+                    break;
+                }
             }
         }
     }
