@@ -1,21 +1,21 @@
-import fs from 'fs';
-import path from 'path';
-import yaml from 'js-yaml';
-import { fileURLToPath } from 'url';
-import crypto from 'crypto';
-import aiConfig from '../config.mjs';
-import Base from '../../../../../src/core/Base.mjs';
-import StorageRouter from '../managers/StorageRouter.mjs';
-import SQLiteVectorManager from '../managers/SQLiteVectorManager.mjs';
+import fs                   from 'fs';
+import path                 from 'path';
+import yaml                 from 'js-yaml';
+import {fileURLToPath}      from 'url';
+import crypto               from 'crypto';
+import aiConfig             from '../config.mjs';
+import Base                 from '../../../../../src/core/Base.mjs';
+import StorageRouter        from '../managers/StorageRouter.mjs';
+import SQLiteVectorManager  from '../managers/SQLiteVectorManager.mjs';
 import TextEmbeddingService from './TextEmbeddingService.mjs';
-import GraphService from './GraphService.mjs';
-import Json from '../../../../../src/util/Json.mjs';
-import logger from '../logger.mjs';
-import Ollama from '../../../../provider/Ollama.mjs';
-import FileSystemIngestor from './FileSystemIngestor.mjs';
+import GraphService         from './GraphService.mjs';
+import Json                 from '../../../../../src/util/Json.mjs';
+import logger               from '../logger.mjs';
+import Ollama               from '../../../../provider/Ollama.mjs';
+import FileSystemIngestor   from './FileSystemIngestor.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __dirname  = path.dirname(__filename);
 
 /**
  * @summary Service for offline GraphRAG extraction ("REM Sleep").
