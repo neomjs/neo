@@ -787,7 +787,8 @@ NEVER output raw markdown or conversational text. YOU MUST output EXACTLY ONE JS
         topNodes.forEach((item, index) => {
             if (item.node && item.node.id) {
                 GraphService.linkNodes('frontier', item.node.id, 'GUIDES', item.score);
-                markdownAppend += `${index + 1}. **${item.node.id}**: Score ${item.score.toFixed(2)} (Semantic: ${item.semantic.toFixed(2)}, Structural: ${item.structural.toFixed(2)})\n`;
+                const title = item.node.properties?.title || item.node.properties?.name || item.node.name || 'Unknown Title';
+                markdownAppend += `${index + 1}. **${item.node.id}**: Score ${item.score.toFixed(2)} (Semantic: ${item.semantic.toFixed(2)}, Structural: ${item.structural.toFixed(2)})\n   - *${title}*\n`;
             }
         });
 
@@ -797,12 +798,14 @@ NEVER output raw markdown or conversational text. YOU MUST output EXACTLY ONE JS
             const goldenPathHeader = `\n## Computed Golden Path (Strategic Recommendation)\n\n`;
             const headerIndex = currentContent.indexOf(goldenPathHeader.trim()); // trim() to handle potential newline variances
 
+            let markdownAppendForFile = markdownAppend.trimStart();
+
             if (headerIndex !== -1) {
-                // Replace everything from the header to the end of the file
-                currentContent = currentContent.substring(0, headerIndex) + markdownAppend;
+                // Strip trailing whitespace to prevent newline accumulation, then apply 2 newlines before the header
+                currentContent = currentContent.substring(0, headerIndex).trimEnd() + '\n\n' + markdownAppendForFile;
             } else {
                 // Header not found, append safely
-                currentContent += markdownAppend;
+                currentContent = currentContent.trimEnd() + '\n\n' + markdownAppendForFile;
             }
 
             fs.writeFileSync(handoffFile, currentContent, 'utf-8');
