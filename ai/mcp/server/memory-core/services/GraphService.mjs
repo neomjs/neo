@@ -144,7 +144,7 @@ class GraphService extends Base {
                     updatedAt
                 }
             });
-            console.log(`Successfully added node to Database RAM: ${id}`);
+            logger.debug(`Successfully added node to Database RAM: ${id}`);
         }
     }
 
