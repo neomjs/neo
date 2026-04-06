@@ -25,7 +25,7 @@ async function run() {
     const provider  = Neo.create(GeminiProvider);
     const assembler = Neo.create(ContextAssembler);
 
-    await assembler.initAsync(); // Connects to memory
+    await assembler.ready(); // Connects to memory
 
     const scheduler = Neo.create(Scheduler);
     const loop      = Neo.create(Loop, {

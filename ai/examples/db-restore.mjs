@@ -1,7 +1,6 @@
 import { 
     Memory_DatabaseService, 
-    Memory_LifecycleService, 
-    Memory_ChromaManager 
+    Memory_LifecycleService
 } from '../services.mjs';
 import fs from 'fs/promises';
 import path from 'path';
@@ -15,12 +14,12 @@ async function main() {
 
     // 1. Initialize Services
     console.log('   - Initializing Memory Core...');
-    await Memory_ChromaManager.ready();
+    await Memory_DatabaseService.ready();
 
     // 2. Locate Backup Files
-    // We assume the backup script created them in dist/memory-backups and dist/session-backups
-    const memoryBackupDir  = path.resolve(__dirname, '../../dist/memory-backups');
-    const sessionBackupDir = path.resolve(__dirname, '../../dist/session-backups');
+    // The backup script creates them in the universal backup path defined by aiConfig
+    const aiConfig  = (await import('../mcp/server/memory-core/config.mjs')).default;
+    const backupDir = aiConfig.backupPath;
 
     async function findLatestBackup(dir, prefix) {
         try {
@@ -35,8 +34,8 @@ async function main() {
         }
     }
 
-    const memoryBackupFile  = await findLatestBackup(memoryBackupDir, 'memory-backup');
-    const sessionBackupFile = await findLatestBackup(sessionBackupDir, 'summaries-backup');
+    const memoryBackupFile  = await findLatestBackup(backupDir, 'memory-backup');
+    const sessionBackupFile = await findLatestBackup(backupDir, 'summaries-backup');
 
     if (!memoryBackupFile && !sessionBackupFile) {
         console.error('   ❌ No backup files found.');

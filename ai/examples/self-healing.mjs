@@ -1,7 +1,7 @@
 import {
     KB_LifecycleService, KB_HealthService, KB_QueryService, KB_DatabaseService, KB_ChromaManager,
     GH_IssueService, 
-    Memory_Service, Memory_LifecycleService, Memory_ChromaManager
+    Memory_Service, Memory_LifecycleService, Memory_DatabaseService
 } from '../services.mjs';
 
 /**
@@ -27,7 +27,7 @@ async function main() {
     console.log('   - Knowledge Base Service: Ready');
     
     // Start Memory Core
-    await Memory_ChromaManager.ready(); // Ensure connection is active
+    await Memory_DatabaseService.ready(); // Ensure connection is active
     console.log('   - Memory Core Service: Ready');
     
     // Ensure KB content is loaded (embed if needed)

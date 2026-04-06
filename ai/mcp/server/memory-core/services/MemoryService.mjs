@@ -32,6 +32,14 @@ class MemoryService extends Base {
     }
 
     /**
+     * @returns {Promise<void>}
+     */
+    async initAsync() {
+        await super.initAsync();
+        await StorageRouter.ready();
+    }
+
+    /**
      * Adds a new memory to the collection.
      * @param {Object} options
      * @param {String} options.prompt    The user's prompt.

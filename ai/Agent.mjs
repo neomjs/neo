@@ -111,7 +111,7 @@ class Agent extends Base {
         const provider = Neo.create(providerClass, this.providerConfig || {});
 
         const assembler = Neo.create(ContextAssembler);
-        await assembler.initAsync(); // Connects to Memory Core via Services SDK
+        await assembler.ready(); // Connects to Memory Core via Services SDK
 
         const scheduler = Neo.create(Scheduler);
 
@@ -124,9 +124,7 @@ class Agent extends Base {
             scheduler
         });
 
-        if (this.loop.initAsync) {
-            await this.loop.initAsync();
-        }
+        await this.loop.ready();
 
         console.log('[Agent] Runtime Ready.');
     }
@@ -203,7 +201,7 @@ class Agent extends Base {
             console.log(`[Agent] Booting fresh Sub-Agent: ${profileName} (${ProfileClass.config.className})`);
 
             subAgent = Neo.create(ProfileClass);
-            await subAgent.initAsync();
+            await subAgent.ready();
             
             this.activeSubAgents[profileName] = subAgent;
             this.subAgentTurns[profileName]   = 0;

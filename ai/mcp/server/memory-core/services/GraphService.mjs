@@ -48,7 +48,7 @@ class GraphService extends Base {
             const {dataDir, filename} = aiConfig.engines.neo;
             const dbPath              = path.resolve(dataDir, filename);
             let storage               = Neo.create(SQLite, {dbPath: dbPath});
-            await storage.initAsync();
+            await storage.ready();
 
             if (Neo.get('memory-core-graph')) {
                 this.db         = Neo.get('memory-core-graph');

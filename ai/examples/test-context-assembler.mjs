@@ -27,7 +27,7 @@ async function run() {
 
     // Initialize (will connect to Memory Core if available)
     console.log('⏳ Initializing Assembler (and services)...');
-    await assembler.initAsync();
+    await assembler.ready();
     console.log('✅ Assembler Ready.');
 
     // Test Assembly

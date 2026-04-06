@@ -29,6 +29,14 @@ class SummaryService extends Base {
     }
 
     /**
+     * @returns {Promise<void>}
+     */
+    async initAsync() {
+        await super.initAsync();
+        await StorageRouter.ready();
+    }
+
+    /**
      * Deletes all session summaries.
      * @returns {Promise<{deleted: number, message: string}>}
      */
