@@ -13,11 +13,13 @@ This file tracks topological conflict alerts generated during overnight REM slee
 - **[SUPERSEDES]** `issue-9741`: The resolution of all critical SQLite integration issues and the implementation of Vector Apoptosis ensure that the system state surpasses the scope and requirements of this ticket. (Source Session: 41df81fb-54b0-41ae-a179-d3b0f12faa36)
 - **[SUPERSEDES]** `issue-9740`: The successful creation of a configuration-driven FileSystemIngestor and the autonomous status of the 'memory-core' supersede the initial goals of this ticket. (Source Session: 41df81fb-54b0-41ae-a179-d3b0f12faa36)
 
-
 ## Computed Golden Path (Strategic Recommendation)
 
 Based on the latest Tri-Vector Synthesis and Topological Priorities, the following tasks are mathematically recommended as the next immediate focus:
 
 1. **issue-9673**: Score 11.00 (Semantic: 5.00, Structural: 1.00)
+   - *Technical Awareness: Hybrid GraphRAG (Native Edge Graph & App Mapping)*
 2. **issue-9637**: Score 11.00 (Semantic: 5.00, Structural: 1.00)
+   - *Grid Multi-Body: E2E Telemetry Adjustments for Dual-Pipeline Scrolling*
 3. **issue-9636**: Score 11.00 (Semantic: 5.00, Structural: 1.00)
+   - *Grid Multi-Body: Simplify GridDragScroll Scrollbar Hit Detection*
