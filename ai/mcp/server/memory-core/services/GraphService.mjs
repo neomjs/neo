@@ -161,6 +161,15 @@ class GraphService extends Base {
             return;
         } // Safe guard for SQLite backend
 
+        // Enforce Foreign Key constraints preemptively to prevent SQLite crash from hallucinated paths
+        const verifyStmt = this.db.storage.db.prepare('SELECT count(*) as count FROM Nodes WHERE id IN (?, ?)');
+        const count = verifyStmt.get(source, target).count;
+        if (source !== target && count !== 2) {
+             logger.warn(`[GraphService] Culling hallucinated edge mapping: ${source} -> ${target}`);
+             return;
+        }
+        if (source === target && count !== 1) return;
+
         const stmt     = this.db.storage.db.prepare(`SELECT id, json_extract(data, '$.properties.weight') as weight
                                                      FROM Edges
                                                      WHERE source = ?

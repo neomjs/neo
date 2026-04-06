@@ -54,6 +54,11 @@ class CollectionProxy extends Base {
         await Promise.all(collections.map(c => c.upsert(args)));
     }
 
+    async update(args) {
+        const collections = await this.getCollections();
+        await Promise.all(collections.map(c => c.update(args)));
+    }
+
     async get(args) {
         const collections = await this.getCollections();
         return collections[0].get(args);
