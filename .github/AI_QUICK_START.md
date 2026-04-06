@@ -53,7 +53,7 @@ For most contributors, the Knowledge Base setup is fully automated. When you run
     ```
     Watch for the `> neo.mjs@... prepare` step. It should say: `✅ Download complete` and `🎉 Knowledge Base is ready!`.
 
-2.  **Verify**: Check if the `chroma-neo-knowledge-base` folder exists in your project root.
+2.  **Verify**: Check if the `.neo-ai-data` folder exists in your project root.
 
 **Troubleshooting (Manual Setup):**
 If the automatic download fails (e.g., due to network issues), you can trigger it manually:
