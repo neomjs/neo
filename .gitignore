@@ -100,6 +100,7 @@ resources/data/deck/EditorConfig.json
 # Agent OS Local Data
 .env
 .neo-ai-data/
+ai/mcp/server/*/config.mjs
 
 # Playwright test results
 test/playwright/test-results/
