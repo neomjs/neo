@@ -72,13 +72,22 @@ The Knowledge Base artifact allows you to start quickly, but you still need a Ge
 
 ### Step 3.3: Configure Your Local Environment
 
-1.  **Navigate to Repo Root**: Make sure you are in the root directory of your cloned `neo` repository.
-2.  **Create `.env` file**: Create a new file named `.env`.
-3.  **Add API Key**: Add the following line to the `.env` file, replacing `YOUR_API_KEY_HERE` with the key you just copied:
+**Highly Recommended: Global Shell Profiles over `.env` Files**
+
+When an AI Agent (e.g., Antigravity OS) is launched as a native macOS desktop GUI application (like clicking an icon in your Dock), it operates outside traditional terminal architectures. This means it frequently bypasses localized `.env` file resolutions within specific repository working directories.
+
+To ensure your environment is accurately inherited across all local MCP sub-servers dynamically, it is heavily recommended to export your API keys directly into your global shell profiles:
+
+1.  **Open your shell profile**: `nano ~/.zshrc` (or `~/.zprofile`)
+2.  **Add your keys**: Add the following lines, replacing the placeholder keys:
+    ```bash
+    export GEMINI_API_KEY="YOUR_API_KEY_HERE"
+    export GH_TOKEN="YOUR_GITHUB_TOKEN_HERE"
+    export NEO_EMBEDDING_PROVIDER="gemini" # or "ollama" for 100% offline
     ```
-    GEMINI_API_KEY="YOUR_API_KEY_HERE"
-    ```
-    This file is already listed in `.gitignore` to prevent you from accidentally committing your key.
+3.  **Apply changes**: `source ~/.zshrc`
+
+*Alternative (Classic `.env`)*: If you strictly prefer `.env`, create a `.env` file at the root of the `neo` directory with those exact variables. However, if MCP servers fail to authenticate or throw dimension mismatch errors, migrating to global exports is your immediate architectural fix.
 
 ### Step 3.4: Understanding the Workflow
 
@@ -91,6 +100,9 @@ The Knowledge Base artifact allows you to start quickly, but you still need a Ge
 The free tier of the Gemini API has a strict limit of **1,000 requests per day** for the embedding model.
 *   **Do NOT** run `npm run ai:sync-kb` (full rebuild) unless absolutely necessary. A full rebuild requires ~153 requests and takes ~25 minutes due to rate-limiting delays.
 *   The pre-built artifact saves you from this cost and delay.
+
+**Local Architecture (Ollama Integration):**
+To completely bypass Gemini API limits and operate a 100% offline knowledge base, you can utilize the local inference loop. Export `NEO_EMBEDDING_PROVIDER="ollama"` in your environment variables. Ensure the corresponding Ollama embedding models are running locally.
 
 ### Step 3.5: Advanced Configuration (Optional)
 
@@ -126,7 +138,8 @@ The repository provides a `.gemini/settings.json` file which automatically activ
 ### Core Configuration (Antigravity OS)
 Antigravity requires a user-level configuration file located at `~/.gemini/antigravity/mcp_config.json`. You must create this file and configure it with your API keys and local paths. 
 
-- **`<DEFAULT_PATH>`**: Your system's default `PATH` environment variable (e.g., on macOS this typically looks like `/usr/local/bin:/usr/local/sbin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin`).
+- **`<DEFAULT_PATH>`**: Your system's default `PATH` environment variable.
+  - **M-Series Mac Warning (Apple Silicon):** Desktop GUI applications do **not** inherit Homebrew paths like `/opt/homebrew/bin` since macOS strips out `.zshrc` upon GUI Spotlight launch. If your GitHub CLI (`gh`) or `sqlite3` were installed via Homebrew, you **must** manually prepend `/opt/homebrew/bin:` to this `<DEFAULT_PATH>` string (or symlink them into `/usr/local/bin` using `sudo`), otherwise your MCP servers will silently crash claiming binaries are missing!
 - **`<YOUR_NODE_PATH>`**: The absolute path to your Node.js executable (e.g., `/usr/local/bin/node` or `~/.nvm/versions/node/v20.x.x/bin/node`).
 
 Use the following structure:
