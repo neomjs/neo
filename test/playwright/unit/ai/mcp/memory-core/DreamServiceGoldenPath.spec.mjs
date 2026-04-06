@@ -56,6 +56,24 @@ test.describe('DreamService Golden Path', () => {
         await SQLiteVectorManager.initAsync();
         await GraphService.initAsync();
     });
+    test.afterAll(async () => {
+        if (GraphService && GraphService.db) {
+            if (GraphService.db.storage && GraphService.db.storage.db) {
+                try { GraphService.db.storage.db.close(); } catch (e) {}
+            }
+            GraphService.db = null;
+            GraphService._initPromise = null;
+        }
+
+        const os = await import('os');
+        const fs = await import('fs');
+        const testDbPath = path.join(os.tmpdir(), aiConfig.engines.neo.filename);
+        if (fs.existsSync(testDbPath)) {
+            try { fs.unlinkSync(testDbPath); } catch (e) {}
+            try { fs.unlinkSync(`${testDbPath}-wal`); } catch (e) {}
+            try { fs.unlinkSync(`${testDbPath}-shm`); } catch (e) {}
+        }
+    });
 
     test('synthesizeGoldenPath executes without crashing', async () => {
         test.setTimeout(60000);

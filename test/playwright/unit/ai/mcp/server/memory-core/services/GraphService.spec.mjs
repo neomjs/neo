@@ -29,9 +29,9 @@ test.describe('Neo.ai.mcp.server.memory-core.services.GraphService', () => {
     const testDbPath = path.join(os.tmpdir(), testDbName);
 
     test.beforeAll(async () => {
-        const aiConfig = (await import('../../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const aiConfig                = (await import('../../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
         // Mock the SQLite target path to a safe pure temporary location
-        aiConfig.engines.neo.dataDir = os.tmpdir();
+        aiConfig.engines.neo.dataDir  = os.tmpdir();
         aiConfig.engines.neo.filename = testDbName;
 
         GraphService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/GraphService.mjs')).default;
@@ -61,8 +61,11 @@ test.describe('Neo.ai.mcp.server.memory-core.services.GraphService', () => {
             GraphService.db.edges.clear();
             GraphService.db.vicinityLoadedNodes.clear();
 
-            if (GraphService.db.storage) {
+            if (GraphService.db.storage?.db) {
                 await GraphService.db.storage.clear();
+                // We MUST wipe the log and reset syncId to prevent cross-test coherence corruption
+                GraphService.db.storage.db.exec('DELETE FROM GraphLog');
+                GraphService.db.lastSyncId = 0;
             }
         }
     });
@@ -73,18 +76,30 @@ test.describe('Neo.ai.mcp.server.memory-core.services.GraphService', () => {
             GraphService.db.edges.clear();
             GraphService.db.vicinityLoadedNodes.clear();
 
-            if (GraphService.db.storage) {
+            if (GraphService.db.storage?.db) {
                 await GraphService.db.storage.clear();
+                GraphService.db.storage.db.exec('DELETE FROM GraphLog');
+                GraphService.db.lastSyncId = 0;
             }
         }
     });
 
     test.afterAll(() => {
+        if (GraphService?.db) {
+            if (GraphService.db.storage && GraphService.db.storage.db) {
+                try {
+                    GraphService.db.storage.db.close();
+                } catch (e) {
+                }
+            }
+            GraphService.db           = null;
+            GraphService._initPromise = null;
+        }
+
         if (fs.existsSync(testDbPath)) {
             try {
                 fs.unlinkSync(testDbPath);
-            } catch (e) {
-            }
+            } catch (e) {}
         }
     });
 
