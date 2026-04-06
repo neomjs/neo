@@ -58,8 +58,8 @@ test.describe('DreamService Golden Path', () => {
         // Mock TextEmbeddingService to return an array of 1536 floats for OpenAI compatibility (which sqlite-vec expects)
         TextEmbeddingService.embedText = async () => new Array(1536).fill(0.1);
 
-        await SQLiteVectorManager.initAsync();
-        await GraphService.initAsync();
+        await SQLiteVectorManager.ready();
+        await GraphService.ready();
     });
 
     test.afterAll(async () => {
