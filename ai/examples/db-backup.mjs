@@ -1,7 +1,6 @@
 import { 
     Memory_DatabaseService, 
-    Memory_LifecycleService, 
-    Memory_ChromaManager 
+    Memory_LifecycleService
 } from '../services.mjs';
 
 async function main() {
@@ -9,7 +8,7 @@ async function main() {
 
     // 1. Initialize Services
     console.log('   - Initializing Memory Core...');
-    await Memory_ChromaManager.ready();
+    await Memory_DatabaseService.ready();
 
     // 2. Perform Export
     console.log('   - Exporting memories and summaries...');

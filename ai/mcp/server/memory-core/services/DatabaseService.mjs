@@ -32,6 +32,14 @@ class DatabaseService extends Base {
     }
 
     /**
+     * @returns {Promise<void>}
+     */
+    async initAsync() {
+        await super.initAsync();
+        await StorageRouter.ready();
+    }
+
+    /**
      * Helper method to export a ChromaDB collection.
      * @param {Object} collection The ChromaDB collection to export.
      * @param {String} backupPath The directory to save the backup file.

@@ -1,6 +1,5 @@
 import {
     Memory_SessionService,
-    Memory_ChromaManager,
     Memory_Config
 } from '../services.mjs';
 
@@ -10,7 +9,6 @@ async function debugSessionState() {
     // 1. Initialize
     console.log('⏳ Waiting for Memory Core readiness...');
     try {
-        await Memory_ChromaManager.ready();
         await Memory_SessionService.ready();
         console.log('✅ Memory Core Services Ready.');
     } catch (e) {

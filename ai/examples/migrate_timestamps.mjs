@@ -1,5 +1,4 @@
 import {
-    Memory_ChromaManager,
     Memory_SessionService
 } from '../services.mjs';
 
@@ -9,7 +8,6 @@ async function migrateTimestamps() {
     // 1. Initialize
     console.log('⏳ Waiting for Memory Core readiness...');
     try {
-        await Memory_ChromaManager.ready();
         // SessionService initialization also ensures collections are ready
         await Memory_SessionService.ready();
         console.log('✅ Memory Core Services Ready.');
