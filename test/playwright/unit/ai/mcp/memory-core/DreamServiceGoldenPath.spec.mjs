@@ -37,9 +37,9 @@ test.describe('DreamService Golden Path', () => {
         const testDbName = `memory-core-dream-test-${process.pid}-${Date.now()}.sqlite`;
         const testDbPath = path.join(os.tmpdir(), testDbName);
 
-        aiConfig.engines.neo.dataDir = os.tmpdir();
+        aiConfig.engines.neo.dataDir  = os.tmpdir();
         aiConfig.engines.neo.filename = testDbName;
-        aiConfig.engine     = 'neo';
+        aiConfig.engine               = 'neo';
 
         TextEmbeddingService = (await import('../../../../../../ai/mcp/server/memory-core/services/TextEmbeddingService.mjs')).default;
         DreamService         = (await import('../../../../../../ai/mcp/server/memory-core/services/DreamService.mjs')).default;
@@ -56,22 +56,24 @@ test.describe('DreamService Golden Path', () => {
         await SQLiteVectorManager.initAsync();
         await GraphService.initAsync();
     });
+
     test.afterAll(async () => {
-        if (GraphService && GraphService.db) {
-            if (GraphService.db.storage && GraphService.db.storage.db) {
-                try { GraphService.db.storage.db.close(); } catch (e) {}
+        if (GraphService?.db) {
+            if (GraphService.db.storage?.db) {
+                try {GraphService.db.storage.db.close();} catch (e) {}
             }
-            GraphService.db = null;
+            GraphService.db           = null;
             GraphService._initPromise = null;
         }
 
-        const os = await import('os');
-        const fs = await import('fs');
+        const os         = await import('os');
+        const fs         = await import('fs');
         const testDbPath = path.join(os.tmpdir(), aiConfig.engines.neo.filename);
+
         if (fs.existsSync(testDbPath)) {
-            try { fs.unlinkSync(testDbPath); } catch (e) {}
-            try { fs.unlinkSync(`${testDbPath}-wal`); } catch (e) {}
-            try { fs.unlinkSync(`${testDbPath}-shm`); } catch (e) {}
+            try {fs.unlinkSync(testDbPath);}          catch (e) {}
+            try {fs.unlinkSync(`${testDbPath}-wal`);} catch (e) {}
+            try {fs.unlinkSync(`${testDbPath}-shm`);} catch (e) {}
         }
     });
 
@@ -79,7 +81,6 @@ test.describe('DreamService Golden Path', () => {
         test.setTimeout(60000);
 
         await DreamService.ingestIssueStates();
-
         await DreamService.synthesizeGoldenPath();
 
         const topology = await GraphService.getContextFrontier();
