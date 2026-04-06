@@ -496,6 +496,13 @@ ${contextText}
         edges.forEach(e => {
             if (e.type === 'SYSTEM_TENET') return; // Protect structural system edges from fading
 
+            // Enforce SQLite Foreign Key constraints dynamically to avoid crashes
+            if (!GraphService.db.nodes.get(e.source) || !GraphService.db.nodes.get(e.target)) {
+                GraphService.db.removeEdge(e.id);
+                cullCount++;
+                return;
+            }
+
             let currentWeight = e.properties?.weight || 1.0;
             // Apply geometric decay
             let newWeight = currentWeight * 0.9;
@@ -628,11 +635,21 @@ ${contextText}
         logger.info(`[DreamService] Top Issue 1 (${topNodes[0].node.id}): Priority ${topNodes[0].score.toFixed(2)} [Sem: ${topNodes[0].semantic.toFixed(2)} / Struc: ${topNodes[0].structural.toFixed(2)}]`);
 
         // Explicitly anchor this to the frontier context so the Agent NEVER loses sight of it
-        topNodes.forEach(item => {
+        let markdownAppend = `\n## Computed Golden Path (Strategic Recommendation)\n\n`;
+        markdownAppend += `Based on the latest Tri-Vector Synthesis and Topological Priorities, the following tasks are mathematically recommended as the next immediate focus:\n\n`;
+
+        topNodes.forEach((item, index) => {
             if (item.node && item.node.id) {
                 GraphService.linkNodes('frontier', item.node.id, 'GUIDES', item.score);
+                markdownAppend += `${index + 1}. **${item.node.id}**: Score ${item.score.toFixed(2)} (Semantic: ${item.semantic.toFixed(2)}, Structural: ${item.structural.toFixed(2)})\n`;
             }
         });
+
+        const handoffFile = path.resolve(__dirname, '../../../../../resources/content/sandman_handoff.md');
+        if (fs.existsSync(handoffFile)) {
+             fs.appendFileSync(handoffFile, markdownAppend, 'utf-8');
+             logger.info(`[DreamService] Golden Path recommendations exported to sandman_handoff.md`);
+        }
 
         logger.info(`[DreamService] Mathematical Golden Path established. Anchored ${topNodes.length} strategic nodes to frontier.`);
     }

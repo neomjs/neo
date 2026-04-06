@@ -194,6 +194,36 @@ class SQLiteVectorManager extends Base {
     #createInterface(tableName, dim) {
         const self = this;
 
+        const buildWhere = (where, tableAlias = '') => {
+            let conditions = [];
+            let values = [];
+            if (!where) return { conditions, values };
+            
+            for (const [key, val] of Object.entries(where)) {
+                let field = tableAlias ? `json_extract(${tableAlias}.metadata, '$.${key}')` : `json_extract(metadata, '$.${key}')`;
+                
+                if (val !== null && typeof val === 'object' && !Array.isArray(val)) {
+                    for (const [op, opVal] of Object.entries(val)) {
+                        let bindVal = opVal;
+                        if (typeof opVal === 'boolean') bindVal = opVal ? 1 : 0;
+                        
+                        if (op === '$eq') { conditions.push(`${field} = ?`); values.push(bindVal); }
+                        else if (op === '$ne') { conditions.push(`${field} != ?`); values.push(bindVal); }
+                        else if (op === '$gt') { conditions.push(`${field} > ?`); values.push(bindVal); }
+                        else if (op === '$gte') { conditions.push(`${field} >= ?`); values.push(bindVal); }
+                        else if (op === '$lt') { conditions.push(`${field} < ?`); values.push(bindVal); }
+                        else if (op === '$lte') { conditions.push(`${field} <= ?`); values.push(bindVal); }
+                    }
+                } else {
+                    let bindVal = val;
+                    if (typeof val === 'boolean') bindVal = val ? 1 : 0;
+                    conditions.push(`${field} = ?`);
+                    values.push(bindVal);
+                }
+            }
+            return { conditions, values };
+        };
+
         return {
             name: tableName,
 
@@ -225,12 +255,7 @@ class SQLiteVectorManager extends Base {
 
                 // Delete by Where clause (if provided)
                 if (where) {
-                    let conditions = [];
-                    let values     = [];
-                    for (const [key, val] of Object.entries(where)) {
-                        conditions.push(`json_extract(metadata, '$.${key}') = ?`);
-                        values.push(val);
-                    }
+                    const { conditions, values } = buildWhere(where, '');
                     if (conditions.length > 0) {
                         const sql = `DELETE FROM ${tableName}_data WHERE ` + conditions.join(' AND ') + ` RETURNING rowid`;
                         const delData = self.db.prepare(sql);
@@ -294,6 +319,29 @@ class SQLiteVectorManager extends Base {
                 tx();
             },
 
+            async update({ids, metadatas, documents}) {
+                const tx = self.db.transaction(() => {
+                    for (let i = 0; i < ids.length; i++) {
+                        let updates = [];
+                        let vals = [];
+
+                        if (documents && documents[i] !== undefined) {
+                            updates.push('document = ?');
+                            vals.push(documents[i]);
+                        }
+                        if (metadatas && metadatas[i] !== undefined) {
+                            updates.push('metadata = ?');
+                            vals.push(JSON.stringify(metadatas[i]));
+                        }
+                        if (updates.length > 0) {
+                            vals.push(ids[i]);
+                            self.db.prepare(`UPDATE ${tableName}_data SET ${updates.join(', ')} WHERE chroma_id = ?`).run(...vals);
+                        }
+                    }
+                });
+                tx();
+            },
+
             async get({ids, where, include, limit, offset}) {
                 const fetchEmbeddings = include && include.includes('embeddings');
 
@@ -311,10 +359,9 @@ class SQLiteVectorManager extends Base {
                 }
 
                 if (where) {
-                    for (const [key, val] of Object.entries(where)) {
-                        conditions.push(`json_extract(d.metadata, '$.${key}') = ?`);
-                        values.push(val);
-                    }
+                    const w = buildWhere(where, 'd');
+                    conditions.push(...w.conditions);
+                    values.push(...w.values);
                 }
 
                 if (conditions.length > 0) {
@@ -359,14 +406,10 @@ class SQLiteVectorManager extends Base {
                 let queryArgs   = [f32, nResults || 5];
 
                 if (where) {
-                    let conditions = [];
-                    for (const [key, val] of Object.entries(where)) {
-                        // Subquery metadata extraction rather than joined table direct extraction
-                        conditions.push(`json_extract(metadata, '$.${key}') = ?`);
-                        queryArgs.push(val);
-                    }
-                    if (conditions.length > 0) {
-                        whereClause = `AND v.rowid IN (SELECT rowid FROM ${tableName}_data WHERE ` + conditions.join(' AND ') + `)`;
+                    const w = buildWhere(where, '');
+                    if (w.conditions.length > 0) {
+                        whereClause = `AND v.rowid IN (SELECT rowid FROM ${tableName}_data WHERE ` + w.conditions.join(' AND ') + `)`;
+                        queryArgs.push(...w.values);
                     }
                 }
 
