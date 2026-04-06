@@ -25740,6 +25740,7 @@
   "repo:lucide-icons/lucide",
   "repo:lucidrains/DALLE-pytorch",
   "repo:lucidrains/DALLE2-pytorch",
+  "repo:lucidrains/RETRO-pytorch",
   "repo:lucidrains/deep-daze",
   "repo:lucidrains/denoising-diffusion-pytorch",
   "repo:lucidrains/gigagan-pytorch",
