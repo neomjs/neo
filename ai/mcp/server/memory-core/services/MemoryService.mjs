@@ -80,6 +80,18 @@ class MemoryService extends Base {
                 documents: [combinedText]
             });
 
+            // 1. Topologically inject the new memory into the Native Edge Graph
+            GraphService.upsertNode({
+                id: memoryId,
+                type: 'AGENT_MEMORY',
+                name: `Memory: ${timestamp}`,
+                description: `Agent thought flow inside session ${sessionId}.`,
+                semanticVectorId: memoryId
+            });
+
+            // 2. Link this memory dynamically to the active context frontier
+            GraphService.linkNodes('frontier', memoryId, 'SPAWNED_MEMORY', 0.8);
+
             return {id: memoryId, sessionId, timestamp, message: "Memory successfully added"};
         } catch (error) {
             logger.error('[MemoryService] Error adding memory:', error);
@@ -286,7 +298,7 @@ class MemoryService extends Base {
                  };
             }
 
-            let neighbors = GraphService.getNeighbors({ id: targetId });
+            let {neighbors} = GraphService.getNeighbors({ id: targetId });
 
             // Focus purely on highest-weight semantic and architectural relationships
             neighbors = neighbors
