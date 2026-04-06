@@ -24,6 +24,11 @@ const defaultConfig = {
      */
     autoDream: process.env.AUTO_DREAM !== 'false',
     /**
+     * Automatically trigger FileSystem ingestion (Differential Graph Sync) on MCP server startup.
+     * @type {boolean}
+     */
+    autoIngestFileSystem: process.env.AUTO_INGEST_FS === 'true',
+    /**
      * Global debug flag for all MCP servers.
      * @type {boolean}
      */

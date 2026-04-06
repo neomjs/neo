@@ -89,6 +89,14 @@ class GraphService extends Base {
             }
             this.linkNodes('frontier', 'Neo-Master-Architecture', 'SYSTEM_TENET', 1.0);
 
+            // --- 2. FILE SYSTEM INGESTION (Differential Sync) ---
+            if (config.autoIngestFileSystem) {
+                logger.log('[GraphService] Bootstrapping FileSystem Ingestion Native Sync...');
+                const FileSystemIngestor = (await import('./FileSystemIngestor.mjs')).default;
+                await FileSystemIngestor.syncWorkspaceToGraph();
+                logger.log('[GraphService] FileSystem topology synced.');
+            }
+
             logger.log('[GraphService] SQLite database mounted securely via ai.graph.Database.');
         })();
 
