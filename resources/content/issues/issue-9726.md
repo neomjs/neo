@@ -5,9 +5,10 @@ state: CLOSED
 labels:
   - enhancement
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-04-05T22:21:39Z'
-updatedAt: '2026-04-05T22:23:43Z'
+updatedAt: '2026-04-06T01:50:38Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9726'
 author: tobiu
 commentsCount: 1
@@ -47,4 +48,5 @@ Architecture consolidation complete and pushed.
 - Refactored SQLiteVectorManager to explicitly hydrate float32 array embeddings on getter requests to prevent silent data-loss during JSONL backup generation.
 - Decoupled backup destinations from engine-specific namespaces, centralizing JSONL artifacts in .neo-ai-data/backups for engine-agnostic persistence sharing.
 - Upgraded manageDatabaseBackup import action to automatically sweep .neo-ai-data/backups and legacy dist/memory-backups, seamlessly grabbing and merging all found JSONL files into the active engine if no specific target file is provided."
+- 2026-04-06T01:50:38Z @tobiu assigned to @tobiu
 
