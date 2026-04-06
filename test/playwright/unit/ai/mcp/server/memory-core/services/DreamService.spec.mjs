@@ -24,7 +24,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
     let DreamService;
     let Ollama;
     const testDbName = `memory-core-dream-test-${process.pid}-${Date.now()}.sqlite`;
-    const testDbPath = path.join(os.tmpdir(), testDbName);
+    let testDbPath; // Reassigned in beforeAll
 
     let originalGenerate;
     let originalAppendFile;
@@ -33,9 +33,17 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
 
     test.beforeAll(async () => {
         const aiConfig                = (await import('../../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
-        aiConfig.engines.neo.dataDir  = os.tmpdir();
+        
+        const tmpDir = path.resolve(process.cwd(), 'tmp');
+        if (!fs.existsSync(tmpDir)) {
+            fs.mkdirSync(tmpDir, { recursive: true });
+        }
+        testDbPath = path.join(tmpDir, testDbName);
+
+        aiConfig.engines.neo.dataDir  = tmpDir;
         aiConfig.engines.neo.filename = testDbName;
         aiConfig.autoIngestFileSystem = false; // Prevent differential sync during DreamService tests
+        aiConfig.handoffFilePath      = path.join(tmpDir, 'mock_sandman_handoff.md');
 
         GraphService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/GraphService.mjs')).default;
         DreamService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/DreamService.mjs')).default;
@@ -72,7 +80,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
         // Monkey patch fs.writeFileSync
         originalAppendFile = fs.writeFileSync;
         fs.writeFileSync = function(filePath, data, options) {
-            if (filePath.endsWith('sandman_handoff.md')) {
+            if (filePath.endsWith('mock_sandman_handoff.md')) {
                 appendedContent.push({ filePath, data });
             } else {
                 return originalAppendFile(filePath, data, options);
@@ -97,22 +105,30 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
         }
     });
 
-    test.afterAll(() => {
+    test.afterAll(async () => {
         if (GraphService?.db) {
-            if (GraphService.db.storage && GraphService.db.storage.db) {
-                try { GraphService.db.storage.db.close(); } catch (e) {};
+            if (GraphService.db.storage?.db) {
+                try { GraphService.db.storage.db.close(); } catch (e) {}
             }
             GraphService.db           = null;
             GraphService._initPromise = null;
         }
 
+        if (fs.existsSync(testDbPath)) {
+            try { fs.unlinkSync(testDbPath); } catch (e) {}
+            if (fs.existsSync(`${testDbPath}-wal`)) try { fs.unlinkSync(`${testDbPath}-wal`); } catch (e) {}
+            if (fs.existsSync(`${testDbPath}-shm`)) try { fs.unlinkSync(`${testDbPath}-shm`); } catch (e) {}
+        }
+        
+        const tmpDir = path.resolve(process.cwd(), 'tmp');
+        const mockHandoff = path.join(tmpDir, 'mock_sandman_handoff.md');
+        if (fs.existsSync(mockHandoff)) {
+            try { fs.unlinkSync(mockHandoff); } catch (e) {}
+        }
+
         // Restore patches
         if (originalGenerate) Ollama.prototype.generate = originalGenerate;
         if (originalAppendFile) fs.writeFileSync = originalAppendFile;
-
-        try { fs.unlinkSync(testDbPath); } catch (e) {}
-        try { fs.unlinkSync(`${testDbPath}-wal`); } catch (e) {}
-        try { fs.unlinkSync(`${testDbPath}-shm`); } catch (e) {}
     });
 
     test('should extract Graph nodes and flag capability gaps without mutating physical files', async () => {
@@ -153,7 +169,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
 
         // 5. Validate the Sandman interaction logic gracefully appended to the MD file (via proxy)
         console.log("APPENDED ARRAY:", appendedContent); expect(appendedContent.length).toBeGreaterThan(0);
-        expect(appendedContent[0].filePath.endsWith('sandman_handoff.md')).toBe(true);
+        expect(appendedContent[0].filePath.endsWith('mock_sandman_handoff.md')).toBe(true);
         expect(appendedContent[0].data).toContain('- **[Codebase Gap]** Node `TestFeature`: Mock Gap detected.');
     });
 });

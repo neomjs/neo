@@ -42,9 +42,15 @@ test.describe('Memory Core Offline Summarization', () => {
 
         // Load and mock config FIRST before starting any services
         const aiConfig                = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        
+        const tmpDir = path.resolve(process.cwd(), 'tmp');
+        if (!fs.existsSync(tmpDir)) {
+            fs.mkdirSync(tmpDir, { recursive: true });
+        }
+        
         const testDbName              = `memory-core-session-test-${process.pid}-${Date.now()}.sqlite`;
-        const testDbPath              = path.join(os.tmpdir(), testDbName);
-        aiConfig.engines.neo.dataDir  = os.tmpdir();
+        const testDbPath              = path.join(tmpDir, testDbName);
+        aiConfig.engines.neo.dataDir  = tmpDir;
         aiConfig.engines.neo.filename = testDbName;
 
         // Remove existing test db

@@ -131,6 +131,11 @@ const defaultConfig = {
         graph  : process.env.GRAPH_COLLECTION_NAME || 'neo-native-graph'
     },
     /**
+     * Target markdown file used for autonomous agent-to-user reporting (offline jobs).
+     * @type {string}
+     */
+    handoffFilePath: path.resolve(cwd, 'resources/content/sandman_handoff.md'),
+    /**
      * Universal JSONL backup/export directory for all databases.
      * @type {string}
      */

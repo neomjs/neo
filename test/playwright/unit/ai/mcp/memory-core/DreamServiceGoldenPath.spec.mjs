@@ -34,12 +34,17 @@ test.describe('DreamService Golden Path', () => {
 
         const os         = await import('os');
         const fs         = await import('fs');
+        const tmpDir = path.resolve(process.cwd(), 'tmp');
+        if (!fs.existsSync(tmpDir)) {
+            fs.mkdirSync(tmpDir, { recursive: true });
+        }
         const testDbName = `memory-core-dream-test-${process.pid}-${Date.now()}.sqlite`;
-        const testDbPath = path.join(os.tmpdir(), testDbName);
+        const testDbPath = path.join(tmpDir, testDbName);
 
-        aiConfig.engines.neo.dataDir  = os.tmpdir();
+        aiConfig.engines.neo.dataDir  = tmpDir;
         aiConfig.engines.neo.filename = testDbName;
         aiConfig.engine               = 'neo';
+        aiConfig.handoffFilePath      = path.join(tmpDir, 'mock_sandman_handoff.md');
 
         TextEmbeddingService = (await import('../../../../../../ai/mcp/server/memory-core/services/TextEmbeddingService.mjs')).default;
         DreamService         = (await import('../../../../../../ai/mcp/server/memory-core/services/DreamService.mjs')).default;
@@ -68,12 +73,17 @@ test.describe('DreamService Golden Path', () => {
 
         const os         = await import('os');
         const fs         = await import('fs');
-        const testDbPath = path.join(os.tmpdir(), aiConfig.engines.neo.filename);
+        const tmpDir     = path.resolve(process.cwd(), 'tmp');
+        const testDbPath = path.join(tmpDir, aiConfig.engines.neo.filename);
 
         if (fs.existsSync(testDbPath)) {
             try {fs.unlinkSync(testDbPath);}          catch (e) {}
             try {fs.unlinkSync(`${testDbPath}-wal`);} catch (e) {}
             try {fs.unlinkSync(`${testDbPath}-shm`);} catch (e) {}
+        }
+        const mockHandoff = path.join(tmpDir, 'mock_sandman_handoff.md');
+        if (fs.existsSync(mockHandoff)) {
+            try {fs.unlinkSync(mockHandoff);} catch (e) {}
         }
     });
 
