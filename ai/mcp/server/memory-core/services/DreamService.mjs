@@ -410,7 +410,16 @@ NEVER output raw markdown or conversational text. YOU MUST output EXACTLY ONE JS
 
                     if (payload.action === 'read_file' && payload.path) {
                         try {
-                            const raw = fs.readFileSync(path.join(neoRootDir, payload.path), 'utf8');
+                            const targetPath = path.resolve(neoRootDir, payload.path);
+                            const relativePath = path.relative(neoRootDir, targetPath);
+
+                            if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
+                                messages.push({ role: 'assistant', content: result.content });
+                                messages.push({ role: 'user', content: `Security Error: Target path ${payload.path} attempts to traverse outside the repository root. This is forbidden.` });
+                                continue;
+                            }
+
+                            const raw = fs.readFileSync(targetPath, 'utf8');
                             messages.push({ role: 'assistant', content: result.content });
                             messages.push({ role: 'user', content: `File contents of ${payload.path}:\n\n${raw}` });
                         } catch(e) {
