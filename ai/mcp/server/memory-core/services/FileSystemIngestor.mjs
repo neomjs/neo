@@ -27,7 +27,7 @@ class FileSystemIngestor extends Base {
         /**
          * Standard high-noise directories and files to completely ignore.
          */
-        ignorePatterns_: ['node_modules', 'dist', '.git', '.DS_Store', 'build', '.env', '.neo-ai-data', 'docs/output'],
+        ignorePatterns_: ['node_modules', 'dist', '.git', '.DS_Store', 'build', '.env', '.neo-ai-data', 'docs/output', 'tmp', '.idea', '.gemini', '.agent', 'resources/images', 'resources/fonts'],
         /**
          * Extensions to explicitly ignore (images, fonts, raw binaries)
          */
