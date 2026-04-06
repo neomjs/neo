@@ -364,7 +364,7 @@ ${contextText}
         
         // Retrieve the current native repository document tree for analysis contextualization
         const fsNodes = GraphService.db.nodes.items.filter(n => 
-            n.type === 'FILE' || n.type === 'DIRECTORY'
+            n.label === 'FILE' || n.label === 'DIRECTORY'
         ).map(n => n.properties?.path || '').filter(p => 
             p && (p.startsWith('docs/') || p.startsWith('learn/') || p.startsWith('test/') || p.startsWith('src/'))
         ).join('\n');
