@@ -4,7 +4,7 @@ import InstanceManager from '../../src/manager/Instance.mjs';
 import Memory_Config from '../../ai/mcp/server/memory-core/config.mjs';
 import Memory_Service from '../../ai/mcp/server/memory-core/services/MemoryService.mjs';
 import DreamService from '../../ai/mcp/server/memory-core/services/DreamService.mjs';
-import ChromaManager from '../../ai/mcp/server/memory-core/services/ChromaManager.mjs';
+
 import LifecycleService from '../../ai/mcp/server/memory-core/services/DatabaseLifecycleService.mjs';
 import GraphService from '../../ai/mcp/server/memory-core/services/GraphService.mjs';
 
@@ -51,9 +51,7 @@ async function runSandman() {
         await LifecycleService.ready();
         console.log('   Lifecycle Service Ready. Database should be running.');
 
-        console.log('   Waiting for Chroma Manager...');
-        await ChromaManager.ready();
-        console.log('   Chroma Manager Ready.');
+
 
         console.log('   Waiting for DreamService Initialization...');
         // We might need to ensure DreamService is fully inited, though it initAsync runs automatically upon Neo.setupClass
