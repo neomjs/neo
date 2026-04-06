@@ -26,12 +26,19 @@ test.describe('Neo.ai.mcp.server.memory-core.services.GraphService', () => {
     let GraphService;
     let service;
     const testDbName = `memory-core-graph-test-${process.pid}-${Date.now()}.sqlite`;
-    const testDbPath = path.join(os.tmpdir(), testDbName);
+    let testDbPath;
 
     test.beforeAll(async () => {
         const aiConfig                = (await import('../../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        
+        const tmpDir = path.resolve(process.cwd(), 'tmp');
+        if (!fs.existsSync(tmpDir)) {
+            fs.mkdirSync(tmpDir, { recursive: true });
+        }
+        testDbPath = path.join(tmpDir, testDbName);
+
         // Mock the SQLite target path to a safe pure temporary location
-        aiConfig.engines.neo.dataDir  = os.tmpdir();
+        aiConfig.engines.neo.dataDir  = tmpDir;
         aiConfig.engines.neo.filename = testDbName;
 
         GraphService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/GraphService.mjs')).default;

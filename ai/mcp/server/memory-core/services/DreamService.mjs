@@ -1,18 +1,21 @@
-import fs                   from 'fs';
-import path                 from 'path';
-import yaml                 from 'js-yaml';
-import {fileURLToPath}      from 'url';
-import crypto               from 'crypto';
-import aiConfig             from '../config.mjs';
-import Base                 from '../../../../../src/core/Base.mjs';
-import StorageRouter        from '../managers/StorageRouter.mjs';
-import SQLiteVectorManager  from '../managers/SQLiteVectorManager.mjs';
+import fs from 'fs';
+import path from 'path';
+import yaml from 'js-yaml';
+import { fileURLToPath } from 'url';
+import crypto from 'crypto';
+import aiConfig from '../config.mjs';
+import Base from '../../../../../src/core/Base.mjs';
+import StorageRouter from '../managers/StorageRouter.mjs';
+import SQLiteVectorManager from '../managers/SQLiteVectorManager.mjs';
 import TextEmbeddingService from './TextEmbeddingService.mjs';
-import GraphService         from './GraphService.mjs';
-import Json                 from '../../../../../src/util/Json.mjs';
-import logger               from '../logger.mjs';
-import Ollama               from '../../../../provider/Ollama.mjs';
-import FileSystemIngestor   from './FileSystemIngestor.mjs';
+import GraphService from './GraphService.mjs';
+import Json from '../../../../../src/util/Json.mjs';
+import logger from '../logger.mjs';
+import Ollama from '../../../../provider/Ollama.mjs';
+import FileSystemIngestor from './FileSystemIngestor.mjs';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 /**
  * @summary Service for offline GraphRAG extraction ("REM Sleep").
@@ -31,7 +34,7 @@ class DreamService extends Base {
          * @member {String} className='Neo.ai.mcp.server.memory-core.services.DreamService'
          * @protected
          */
-         className: 'Neo.ai.mcp.server.memory-core.services.DreamService',
+        className: 'Neo.ai.mcp.server.memory-core.services.DreamService',
         /**
          * @member {Boolean} singleton=true
          * @protected
@@ -311,9 +314,7 @@ ${contextText}
             }
 
             // Write to sandman_handoff.md
-            const __filename = fileURLToPath(import.meta.url);
-            const __dirname  = path.dirname(__filename);
-            const handoffFile = path.resolve(__dirname, '../../../../../resources/content/sandman_handoff.md');
+            const handoffFile = aiConfig.handoffFilePath;
 
             let handoffContent = '';
             if (fs.existsSync(handoffFile)) {
@@ -325,9 +326,14 @@ ${contextText}
             let newAlerts = false;
             for (const conflict of payload.conflicts) {
                 const entry = `- **[${conflict.type}]** \`${conflict.issueId}\`: ${conflict.description} (Source Session: ${sessionId})\n`;
-                if (!handoffContent.includes(entry)) {
-                    handoffContent += entry;
-                    newAlerts = true;
+                const conflictIdentifier = `- **[${conflict.type}]** \`${conflict.issueId}\`:`;
+                if (!handoffContent.includes(conflictIdentifier)) {
+                    // Check if *any* conflicting alert for this exact issue ID is already logged, to be safe.
+                    const anyConflictIdentifier = `\`${conflict.issueId}\`:`;
+                    if (!handoffContent.includes(anyConflictIdentifier)) {
+                        handoffContent += entry;
+                        newAlerts = true;
+                    }
                 }
             }
 
@@ -350,28 +356,27 @@ ${contextText}
      * @param {Object} session The wrapped session object
      * @param {Object} extractedPayload The parsed Tri-Vector schema
      */
-    async executeCapabilityGapInference(session, extractedPayload) {
-        if (!extractedPayload || !extractedPayload.graph || !Array.isArray(extractedPayload.graph.nodes)) return;
-        
-        // Find high-level architectural node outputs from this session
-        const structuralNodes = extractedPayload.graph.nodes.filter(n => 
-            n.type === 'FEATURE' || n.type === 'CONCEPT' || n.type === 'CLASS'
+    async executeCapabilityGapInference(session, payload) {
+        if (!payload || !payload.graph || !payload.graph.nodes) return;
+
+        const structuralNodes = payload.graph.nodes.filter(n =>
+            n.type === 'FEATURE' || n.type === 'EPIC' || n.type === 'ISSUE' || n.type === 'CLASS'
         );
 
         if (structuralNodes.length === 0) return;
 
-        logger.info(`[DreamService] Launching Capability Gap ReAct Loop for session ${session.meta.sessionId}...`);
-        
-        // Retrieve the current native repository document tree for analysis contextualization
-        const fsNodes = GraphService.db.nodes.items.filter(n => 
+        logger.debug(`[DreamService] Launching Capability Gap Inference passes for ${structuralNodes.length} nodes...`);
+
+        // Resolve absolute root directory
+        const neoRootDir = path.resolve(__dirname, '../../../../../');
+        const handoffFile = aiConfig.handoffFilePath;
+        const fsNodes = GraphService.db.nodes.items.filter(n =>
             n.label === 'FILE' || n.label === 'DIRECTORY'
-        ).map(n => n.properties?.path || '').filter(p => 
+        ).map(n => n.properties?.path || '').filter(p =>
             p && (p.startsWith('docs/') || p.startsWith('learn/') || p.startsWith('test/') || p.startsWith('src/'))
         ).join('\n');
 
-        const __filename = fileURLToPath(import.meta.url);
-        const neoRootDir = path.resolve(path.dirname(__filename), '../../../../../');
-        const handoffFile = path.resolve(neoRootDir, 'resources/content/sandman_handoff.md');
+
 
         const provider = Neo.create(Ollama, {
             modelName: aiConfig.ollama.model
@@ -404,7 +409,7 @@ NEVER output raw markdown or conversational text. YOU MUST output EXACTLY ONE JS
                     const result = await provider.generate(messages, {
                         response_format: { type: 'json_object' }
                     });
-                    
+
                     const payload = Json.extract(result.content);
                     if (!payload || !payload.action) break;
 
@@ -422,7 +427,7 @@ NEVER output raw markdown or conversational text. YOU MUST output EXACTLY ONE JS
                             const raw = fs.readFileSync(targetPath, 'utf8');
                             messages.push({ role: 'assistant', content: result.content });
                             messages.push({ role: 'user', content: `File contents of ${payload.path}:\n\n${raw}` });
-                        } catch(e) {
+                        } catch (e) {
                             messages.push({ role: 'assistant', content: result.content });
                             messages.push({ role: 'user', content: `Target path ${payload.path} does not physically exist. Cannot read.` });
                         }
@@ -430,16 +435,21 @@ NEVER output raw markdown or conversational text. YOU MUST output EXACTLY ONE JS
                         // We found a legitimate gap! Append to sandman_handoff.md!
                         let handoffContent = fs.existsSync(handoffFile) ? fs.readFileSync(handoffFile, 'utf8') : '';
                         const entry = `- **[Codebase Gap]** Node \`${node.name}\`: ${payload.message} (Source Session: ${session.meta.sessionId})\n`;
-                        if (!handoffContent.includes(entry)) {
+
+                        // Check if a gap for this specific node already exists!
+                        const nodeIdentifier = `- **[Codebase Gap]** Node \`${node.name}\`:`;
+                        if (!handoffContent.includes(nodeIdentifier)) {
                             fs.writeFileSync(handoffFile, handoffContent + entry, 'utf8');
                             logger.info(`[DreamService] Gap Alert logged for ${node.name}.`);
+                        } else {
+                            logger.debug(`[DreamService] Gap Alert already exists for ${node.name}. Skipping duplication.`);
                         }
                         break;
                     } else {
                         logger.debug(`[DreamService] Gap Analyzer passed on ${node.name}.`);
                         break; // action === 'pass' or fallback
                     }
-                } catch(e) {
+                } catch (e) {
                     if (e.message && e.message.includes('fetch failed')) {
                         logger.debug('[DreamService] Skipping Gap Analysis (Ollama daemon offline).');
                     } else {
@@ -459,8 +469,8 @@ NEVER output raw markdown or conversational text. YOU MUST output EXACTLY ONE JS
      */
     async ingestIssueStates() {
         const __filename = fileURLToPath(import.meta.url);
-        const __dirname  = path.dirname(__filename);
-        const issuesDir  = path.resolve(__dirname, '../../../../../resources/content/issues');
+        const __dirname = path.dirname(__filename);
+        const issuesDir = path.resolve(__dirname, '../../../../../resources/content/issues');
 
         if (!fs.existsSync(issuesDir)) {
             logger.warn(`[DreamService] Issues directory not found at ${issuesDir}`);
@@ -496,7 +506,7 @@ NEVER output raw markdown or conversational text. YOU MUST output EXACTLY ONE JS
 
                         parsedIssues.push({ issueId, meta, content, file });
                     }
-                } catch(e) {
+                } catch (e) {
                     logger.warn(`[DreamService] Failed to parse frontmatter for ${file}`, e);
                 }
             }
@@ -585,7 +595,7 @@ NEVER output raw markdown or conversational text. YOU MUST output EXACTLY ONE JS
                         body
                     });
                 }
-            } catch(e) {
+            } catch (e) {
                 logger.warn(`[DreamService] Failed to link edges for ${file}`, e);
             }
         }
@@ -636,7 +646,7 @@ NEVER output raw markdown or conversational text. YOU MUST output EXACTLY ONE JS
         // Vector Apoptosis: Identify orphans and purge from Hybrid Store
         logger.info('[DreamService] Initializing Vector Apoptosis (Orphaned Node Cleanup)...');
         const orphaned = GraphService.getOrphanedNodes();
-        
+
         if (orphaned.length > 0) {
             logger.info(`[DreamService] Apoptosis detected ${orphaned.length} orphaned nodes. Commencing eradication...`);
             GraphService.removeNodes(orphaned);
@@ -644,15 +654,15 @@ NEVER output raw markdown or conversational text. YOU MUST output EXACTLY ONE JS
             if (SQLiteVectorManager.db) {
                 // Cross-layer purge from semantic embeddings
                 logger.info(`[DreamService] Purging semantic vectors for ${orphaned.length} deleted nodes.`);
-                
+
                 ['neo_graph_nodes', 'neo_agent_sessions_summary'].forEach(async collectionName => {
                     try {
                         const collection = await SQLiteVectorManager.getOrCreateCollection({ name: collectionName });
                         if (collection) {
                             await collection.delete({ ids: orphaned });
                         }
-                    } catch(e) {
-                         logger.warn(`[DreamService] Apoptosis soft-failure on collection ${collectionName}: ${e.message}`);
+                    } catch (e) {
+                        logger.warn(`[DreamService] Apoptosis soft-failure on collection ${collectionName}: ${e.message}`);
                     }
                 });
             }
@@ -679,14 +689,14 @@ NEVER output raw markdown or conversational text. YOU MUST output EXACTLY ONE JS
         try {
             const sessionsVec = await SQLiteVectorManager.getSummaryCollection();
             const recent = await sessionsVec.get({ limit: 2, include: ['documents'] });
-            
+
             let frontierText = "Neo.mjs Active Strategic Context: ";
             if (recent && recent.documents.length > 0) {
                 frontierText += recent.documents.join("\n\n");
             } else {
                 frontierText += "Initialization and Stabilization.";
             }
-            
+
             logger.debug('[DreamService] Computing Frontier Baseline Vector...');
             frontierEmbedding = await TextEmbeddingService.embedText(frontierText, aiConfig.neoEmbeddingProvider);
         } catch (e) {
@@ -695,7 +705,7 @@ NEVER output raw markdown or conversational text. YOU MUST output EXACTLY ONE JS
         }
 
         const f32 = new Float32Array(frontierEmbedding);
-        
+
         // Execute the unified Hybrid SQL Query directly mapping native structural weights against active vectors!
         const stmt = SQLiteVectorManager.db.prepare(`
             SELECT 
@@ -723,7 +733,7 @@ NEVER output raw markdown or conversational text. YOU MUST output EXACTLY ONE JS
 
         for (const row of results) {
             const issueId = row.id;
-            
+
             // Re-verify blocker topology natively using GraphService API
             const blockers = GraphService.db.edges.getByIndex('target', issueId).filter(e => e.type === 'BLOCKS');
             let isBlocked = false;
@@ -740,15 +750,15 @@ NEVER output raw markdown or conversational text. YOU MUST output EXACTLY ONE JS
 
             const semantic_distance = parseFloat(row.semantic_distance) || 0.1;
             const struct_score = parseFloat(row.struct_score) || 0;
-            
+
             // Lower distance = Higher significance. (Add 0.1 to avoid div by 0 and curb massive asymptotes)
             const semanticScore = 1.0 / (semantic_distance + 0.1);
-            
+
             const priority = (semanticScore * SEMANTIC_WEIGHT) + (struct_score * STRUCTURAL_WEIGHT);
 
             // Re-inflate node JSON locally
             let nodeData = null;
-            try { nodeData = JSON.parse(row.data); } catch(e) {}
+            try { nodeData = JSON.parse(row.data); } catch (e) { }
 
             scoredNodes.push({
                 node: nodeData || { id: issueId },
@@ -783,8 +793,20 @@ NEVER output raw markdown or conversational text. YOU MUST output EXACTLY ONE JS
 
         const handoffFile = path.resolve(__dirname, '../../../../../resources/content/sandman_handoff.md');
         if (fs.existsSync(handoffFile)) {
-             fs.appendFileSync(handoffFile, markdownAppend, 'utf-8');
-             logger.info(`[DreamService] Golden Path recommendations exported to sandman_handoff.md`);
+            let currentContent = fs.readFileSync(handoffFile, 'utf-8');
+            const goldenPathHeader = `\n## Computed Golden Path (Strategic Recommendation)\n\n`;
+            const headerIndex = currentContent.indexOf(goldenPathHeader.trim()); // trim() to handle potential newline variances
+
+            if (headerIndex !== -1) {
+                // Replace everything from the header to the end of the file
+                currentContent = currentContent.substring(0, headerIndex) + markdownAppend;
+            } else {
+                // Header not found, append safely
+                currentContent += markdownAppend;
+            }
+
+            fs.writeFileSync(handoffFile, currentContent, 'utf-8');
+            logger.info(`[DreamService] Golden Path recommendations exported to sandman_handoff.md`);
         }
 
         logger.info(`[DreamService] Mathematical Golden Path established. Anchored ${topNodes.length} strategic nodes to frontier.`);

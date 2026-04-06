@@ -24,14 +24,20 @@ test.describe('Neo.ai.mcp.server.memory-core.services.FileSystemIngestor', () =>
     let GraphService;
     let FileSystemIngestor;
     const testDbName = `memory-core-fs-test-${process.pid}-${Date.now()}.sqlite`;
-    const testDbPath = path.join(os.tmpdir(), testDbName);
-
-    // Create a mock filesystem directory structure to rigorously test isolation
-    const mockFsRoot = path.join(os.tmpdir(), `fs-ingest-mock-${Date.now()}`);
+    let testDbPath;
+    let mockFsRoot;
 
     test.beforeAll(async () => {
         const aiConfig                = (await import('../../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
-        aiConfig.engines.neo.dataDir  = os.tmpdir();
+        
+        const tmpDir = path.resolve(process.cwd(), 'tmp');
+        if (!fs.existsSync(tmpDir)) {
+            fs.mkdirSync(tmpDir, { recursive: true });
+        }
+        testDbPath = path.join(tmpDir, testDbName);
+        mockFsRoot = path.join(tmpDir, `fs-ingest-mock-${Date.now()}`);
+
+        aiConfig.engines.neo.dataDir  = tmpDir;
         aiConfig.engines.neo.filename = testDbName;
 
         GraphService       = (await import('../../../../../../../../ai/mcp/server/memory-core/services/GraphService.mjs')).default;

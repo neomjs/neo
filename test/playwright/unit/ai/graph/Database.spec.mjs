@@ -20,14 +20,17 @@ import Database       from '../../../../../ai/graph/Database.mjs';
 import SQLite         from '../../../../../ai/graph/storage/SQLite.mjs';
 import fs             from 'fs-extra';
 import path           from 'path';
-import os             from 'os';
 
 test.describe('Neo.ai.graph.Database', () => {
     let db;
     let testRun = 0;
     
     // Build an isolated tmp path for the database file tests
-    const dbPath = path.join(os.tmpdir(), 'neo-graph-test.db');
+    const tmpDir = path.resolve(process.cwd(), 'tmp');
+    if (!fs.existsSync(tmpDir)) {
+        fs.mkdirSync(tmpDir, { recursive: true });
+    }
+    const dbPath = path.join(tmpDir, 'neo-graph-test.db');
 
     test.beforeEach(async () => {
         testRun++;
