@@ -20,9 +20,9 @@ class OllamaProvider extends Base {
          */
         host: 'http://127.0.0.1:11434',
         /**
-         * @member {String} modelName='gemma-4'
+         * @member {String} modelName='gemma4'
          */
-        modelName: 'gemma-4',
+        modelName: 'gemma4',
         /**
          * @member {String[]} requiredEnv=[]
          */
