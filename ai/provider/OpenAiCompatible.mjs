@@ -47,7 +47,7 @@ class OpenAiCompatibleProvider extends Base {
         // Apply global system prompt if set
         if (this.systemPrompt) {
             messages.push({
-                role: 'system',
+                role   : 'system',
                 content: this.systemPrompt
             });
         }
@@ -67,9 +67,9 @@ class OpenAiCompatibleProvider extends Base {
         }
 
         const payload = {
-            model   : this.modelName,
-            messages: messages,
-            stream  : stream
+            model: this.modelName,
+            messages,
+            stream
         };
 
         const clonedOptions = { ...options };
@@ -110,7 +110,7 @@ class OpenAiCompatibleProvider extends Base {
      * @returns {Promise<{content: String, raw: Object}>}
      */
     async generate(input, options = {}) {
-        // Explicity strip out any legacy Ollama context parameters as MLX manages this internally via paging
+        // Explicitly strip out any legacy Ollama context parameters as MLX manages this internally via paging
         const cleanOptions = { ...options };
         delete cleanOptions.num_ctx;
 
