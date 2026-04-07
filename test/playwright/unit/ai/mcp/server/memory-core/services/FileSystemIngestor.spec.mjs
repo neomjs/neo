@@ -57,7 +57,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.FileSystemIngestor', () =>
             GraphService.db.vicinityLoadedNodes.clear();
         }
 
-        await GraphService.initAsync();
+        await GraphService.ready();
 
         // Build the mock filesystem
         fs.ensureDirSync(mockFsRoot);

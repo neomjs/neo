@@ -51,14 +51,14 @@ test.describe('Neo.ai.mcp.server.memory-core.services.GraphService', () => {
         }
 
         // Wipe any RAM caches created by the automated Base constructor async initialization loop cleanly
-        // preventing Foreign Key races when `initAsync` is re-launched pointing to the wiped `testDbPath`!
+        // preventing Foreign Key races when `ready` is re-launched pointing to the wiped `testDbPath`!
         if (GraphService.db) {
             GraphService.db.nodes.clear();
             GraphService.db.edges.clear();
             GraphService.db.vicinityLoadedNodes.clear();
         }
 
-        await GraphService.initAsync();
+        await GraphService.ready();
     });
 
     test.beforeEach(async () => {

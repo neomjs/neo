@@ -2,8 +2,8 @@ import {setup} from '../../../../../../setup.mjs';
 
 const appName = 'MemoryCoreTest';
 
-process.env.MODEL_PROVIDER = 'ollama';
-process.env.OLLAMA_MODEL   = 'gemma4';
+process.env.MODEL_PROVIDER = 'openAiCompatible';
+process.env.OPENAI_COMPATIBLE_MODEL   = 'gemma4';
 
 setup({
     neoConfig: {
@@ -61,12 +61,12 @@ test.describe('Memory Core Offline Summarization', () => {
         SDK                  = await import('../../../../../../../../ai/services.mjs');
         TextEmbeddingService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/TextEmbeddingService.mjs')).default;
 
-        // Force 'ollama' routing for this test
-        SDK.Memory_Config.data.modelProvider         = 'ollama';
-        SDK.Memory_Config.data.neoEmbeddingProvider  = 'ollama';
-        SDK.Memory_Config.data.chromaEmbeddingProvider = 'ollama';
-        SDK.Memory_Config.data.ollama.model          = 'gemma4';
-        SDK.Memory_Config.data.ollama.embeddingModel = 'qwen3-embedding';
+        // Force 'openAiCompatible' routing for this test
+        SDK.Memory_Config.data.modelProvider         = 'openAiCompatible';
+        SDK.Memory_Config.data.neoEmbeddingProvider  = 'openAiCompatible';
+        SDK.Memory_Config.data.chromaEmbeddingProvider = 'openAiCompatible';
+        SDK.Memory_Config.data.openAiCompatible.model          = 'gemma4';
+        SDK.Memory_Config.data.openAiCompatible.embeddingModel = 'qwen3-embedding';
         SDK.Memory_Config.data.autoSummarize         = false;
 
         // Adjust batch limit to speed up test execution
@@ -75,19 +75,19 @@ test.describe('Memory Core Offline Summarization', () => {
         // Offline tests cannot hit APIs. Mock TextEmbeddingService for Qwen3-Embedding (4096D)
         TextEmbeddingService.embedText = async () => new Array(4096).fill(Math.random());
 
-        // Check if Ollama daemon and gemma4 are available
+        // Check if openAiCompatible daemon and gemma4 are available
         try {
-            const host = SDK.Memory_Config.data.ollama.host;
-            const res  = await fetch(`${host}/api/tags`);
+            const host = SDK.Memory_Config.data.openAiCompatible.host;
+            const res  = await fetch(`${host}/v1/models`);
             if (res.ok) {
                 const data      = await res.json();
-                const hasGemma4 = data.models?.some(m => m.name.startsWith('gemma4'));
+                const hasGemma4 = data.data?.some(m => m.id.startsWith('gemma4'));
                 if (hasGemma4) {
                     localModelActive = true;
                 }
             }
         } catch (e) {
-            console.log('[Playwright] Ollama daemon not reachable, skipping active test logic.');
+            console.log('[Playwright] openAiCompatible daemon not reachable, skipping active test logic.');
         }
     });
 
@@ -107,19 +107,19 @@ test.describe('Memory Core Offline Summarization', () => {
         }
     });
 
-    test('SessionService routes to Ollama (gemma4) via SDK and correctly summarizes memories', async () => {
+    test('SessionService routes to openAiCompatible (gemma4) via SDK and correctly summarizes memories', async () => {
         test.setTimeout(300000); // 5 minutes to allow Gemma 4 to fully summarize on slow hardware
 
         if (!localModelActive) {
-            test.skip(true, 'Skipping: Ollama or gemma4 not found locally');
+            test.skip(true, 'Skipping: openAiCompatible or gemma4 not found locally');
             return;
         }
 
         console.log('INIT DB Lifecycled...');
         await SDK.Memory_LifecycleService.ready();
 
-        console.log('Waiting SessionService.initAsync() implicitly via SDK');
-        await SDK.Memory_SessionService.initAsync();
+        console.log('Waiting SessionService.ready() implicitly via SDK');
+        await SDK.Memory_SessionService.ready();
 
         dummySessionId = crypto.randomUUID();
         console.log(`[Playwright] Generating Dummy Turns for session ${dummySessionId}...`);
