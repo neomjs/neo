@@ -19,7 +19,7 @@ You must **NEVER** make guesses, assumptions, or "hallucinate" answers about the
 - **BAD Example:** ❌ *"Based on typical React patterns, you should use `useState` here..."*
 - **GOOD Example:** ✅ *"Let me query the knowledge base to understand Neo.mjs state management patterns..."*
 
-## 3. The Pre-Commit Hard Gates (Tickets & Anti-Slop)
+## 3. The Pre-Commit Hard Gates (Tickets & Context)
 
 For any actionable request that requires modifying the repository, you **MUST** ensure you pass two critical gating protocols *before* you execute `git commit`. This applies to **all** files within the repository. There are no exceptions.
 
@@ -29,8 +29,8 @@ For any actionable request that requires modifying the repository, you **MUST** 
 3.  **Exploration is Allowed:** You are permitted to write code, modify files, and experiment locally to understand a complex problem ("Unknown Unknowns") *before* creating the ticket.
 4.  **The Hard Stop:** The absolute hard stop is `git commit`. You **MUST NEVER** execute a commit without referencing a valid, narrowly scoped ticket ID in the commit message. Use the `create_issue` tool and follow its workflow.
 
-**Gate 2: The "Anti-Slop" Quality & Documentation Gate**
-Writing code fast or changing concepts on the fly is acceptable during the exploration phase. However, **before a commit is executed, the code MUST conform to our strict quality and documentation standards**. We must protect the codebase from "AI slop".
+**Gate 2: The Contextual Completeness Gate**
+Writing code fast or changing concepts on the fly is acceptable during the exploration phase. However, **before a commit is executed, the code MUST conform to our strict quality and documentation standards**. We must protect the codebase from semantic degradation.
 1. **Mandatory Anchor & Echo:** You **MUST** apply the 'Anchor & Echo' Knowledge Base Enhancement Strategy (per `AGENTS_STARTUP.md`) to all new or modified classes, properties, and methods.
 2. **Contextual Completeness:** You are strictly forbidden from committing undocumented configurations, methods with zero JSDoc, or functions lacking `@summary` tags.
 3. **The Hard Stop:** If the modified elements lack comprehensive, framework-compliant JSDoc, you MUST pause and add it before running `git commit`.
@@ -40,7 +40,7 @@ Writing code fast or changing concepts on the fly is acceptable during the explo
 You **MUST** execute this Pre-Flight Check before running a `git commit` command. The check consists of explicitly stating in your internal thought process:
 "Pre-Flight Check: 
 1. **Gate 1 (Ticket):** A ticket must exist for this commit. I will verify the ticket number and include it in the commit message.
-2. **Gate 2 (Quality/Anti-Slop):** I have reviewed the modified code and applied the 'Anchor & Echo' Knowledge Base Enhancement Strategy to ensure new or changed methods/properties have adequate semantic context before proceeding. I am not committing undocumented AI slop."
+2. **Gate 2 (Contextual Completeness):** I have reviewed the modified code and applied the 'Anchor & Echo' Knowledge Base Enhancement Strategy to ensure new or changed methods/properties have adequate semantic context before proceeding. I am not committing undocumented, context-less code."
 
 ## 4. The Memory Core Protocol
 
