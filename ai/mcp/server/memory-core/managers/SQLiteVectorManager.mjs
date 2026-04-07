@@ -107,12 +107,14 @@ class SQLiteVectorManager extends Base {
                         logger.error(`[SQLiteVectorManager] CRITICAL STARTUP ERROR: SQLite Vector Dimension Mismatch!`);
                         logger.error(`[SQLiteVectorManager] Table '${table.name}' expects ${table.dimension}D vectors.`);
                         logger.error(`[SQLiteVectorManager] Current embedding model outputs ${currentDim}D vectors.`);
-                        throw new Error(`Vector dimension mismatch. Expected ${table.dimension}, got ${currentDim}.`);
+                        this.degraded = true;
+                        this.degradedReason = `Vector dimension mismatch. Expected ${table.dimension}, got ${currentDim}.`;
                     }
                 }
             } catch (e) {
-                logger.error('[SQLiteVectorManager] Failed to validate embedding dimensions:', e.message);
-                throw e;
+                logger.error('[SQLiteVectorManager] Failed to validate embedding dimensions because the inference server is offline:', e.message);
+                this.degraded = true;
+                this.degradedReason = 'Connecting to embedding provider failed. Offline Mode.';
             }
         }
 

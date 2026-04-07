@@ -35,6 +35,12 @@ class DatabaseLifecycleService extends Base {
          */
         chromaProcess: null,
         /**
+         * Holds the child process object for the local inference daemon.
+         * @member {ChildProcess|null} inferenceProcess=null
+         * @protected
+         */
+        inferenceProcess: null,
+        /**
          * @member {Boolean} singleton=true
          * @protected
          */
@@ -47,6 +53,7 @@ class DatabaseLifecycleService extends Base {
     async initAsync() {
         await super.initAsync();
         await this.startDatabase();
+        await this.startInferenceServer();
     }
 
     /**
@@ -63,6 +70,68 @@ class DatabaseLifecycleService extends Base {
         }
     }
 
+
+/**
+     * Checks if the local inference server (e.g. Ollama) is already running.
+     * @returns {Promise<boolean>}
+     */
+    async isInferenceRunning() {
+        try {
+            const res = await fetch(aiConfig.openAiCompatible.host + '/v1/models');
+            return res.ok;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    /**
+     * Starts a local inference daemon if the host points to localhost and is offline.
+     * Restores backward compatibility for auto-booting local ollama instances.
+     * @returns {Promise<object>}
+     */
+    async startInferenceServer() {
+        try {
+            if (!aiConfig.openAiCompatible.host.includes('127.0.0.1') && !aiConfig.openAiCompatible.host.includes('localhost')) {
+                return {status: 'external', detail: 'External inference server configured.'};
+            }
+
+            if (await this.isInferenceRunning()) {
+                return {status: 'already_running', detail: 'Inference daemon is already running.'};
+            }
+
+            if (aiConfig.openAiCompatible.host.includes('11434')) {
+                logger.log('[DatabaseLifecycleService] Attempting to auto-start local Ollama daemon for inference...');
+                
+                return new Promise((resolve, reject) => {
+                    const spawnedProcess = spawn('ollama', ['serve'], {
+                        detached: true,
+                        stdio   : 'ignore'
+                    });
+
+                    spawnedProcess.on('spawn', () => {
+                        this.inferenceProcess = spawnedProcess;
+                        logger.log(`[DatabaseLifecycleService] Ollama daemon started with PID: ${this.inferenceProcess.pid}`);
+                        resolve({status: 'started', pid: this.inferenceProcess.pid});
+                    });
+
+                    spawnedProcess.on('error', (err) => {
+                        logger.error('[DatabaseLifecycleService] Failed to auto-start local inference daemon:', err.message);
+                        this.inferenceProcess = null;
+                        // Don't reject, just let the system degradation handle it
+                        resolve({status: 'failed', error: err.message});
+                    });
+
+                    spawnedProcess.unref();
+                });
+            }
+            
+            logger.warn('[DatabaseLifecycleService] Local inference server on custom port is offline. Please start it manually.');
+            return {status: 'offline', detail: 'Custom port local server is offline.'};
+        } catch (error) {
+            logger.error('[DatabaseLifecycleService] Error handling inference server boot:', error);
+            return {status: 'failed', error: error.message};
+        }
+    }
 
     /**
      * Manages the database lifecycle based on the provided action.
@@ -161,6 +230,14 @@ class DatabaseLifecycleService extends Base {
      * @param {string|number} signalOrCode
      */
     async cleanup(signalOrCode) {
+        if (this.inferenceProcess) {
+            logger.log(`[DatabaseLifecycleService] stopping local inference daemon`);
+            try {
+                process.kill(-this.inferenceProcess.pid, 'SIGTERM');
+                this.inferenceProcess = null;
+            } catch (e) {}
+        }
+
         if (this.chromaProcess) {
             logger.log(`[DatabaseLifecycleService] cleanup triggered by ${signalOrCode}`);
             try {
@@ -244,7 +321,16 @@ class DatabaseLifecycleService extends Base {
         if (this.chromaProcess && !this.chromaProcess.killed) {
             return {running: true, pid: this.chromaProcess.pid, managed: true};
         }
-        return {running: false, pid: null, managed: false};
+        const status = {running: false, pid: null, managed: false};
+        if (this.chromaProcess && !this.chromaProcess.killed) {
+             Object.assign(status, {running: true, pid: this.chromaProcess.pid, managed: true});
+        }
+        
+        status.inference = { running: false, pid: null, managed: false };
+        if (this.inferenceProcess && !this.inferenceProcess.killed) {
+             Object.assign(status.inference, {running: true, pid: this.inferenceProcess.pid, managed: true});
+        }
+        return status;
     }
 }
 
