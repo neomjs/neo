@@ -2,7 +2,7 @@ import path                     from 'path';
 import {fileURLToPath}          from 'url';
 import ToolService              from '../../../ToolService.mjs';
 import DatabaseService          from './DatabaseService.mjs';
-import DatabaseLifecycleService from './DatabaseLifecycleService.mjs';
+import ChromaLifecycleService   from './lifecycle/ChromaLifecycleService.mjs';
 import GraphService             from './GraphService.mjs';
 import HealthService            from './HealthService.mjs';
 import MemoryService            from './MemoryService.mjs';
@@ -22,7 +22,7 @@ const serviceMapping = {
     get_node              : GraphService            .getNode             .bind(GraphService),
     get_session_memories  : MemoryService           .listMemories        .bind(MemoryService),
     healthcheck           : HealthService           .healthcheck         .bind(HealthService),
-    manage_database       : DatabaseLifecycleService.manageDatabase      .bind(DatabaseLifecycleService),
+    manage_database       : ChromaLifecycleService  .manageDatabase      .bind(ChromaLifecycleService),
     manage_database_backup: DatabaseService         .manageDatabaseBackup.bind(DatabaseService),
     mutate_frontier       : MemoryService           .mutateFrontier      .bind(MemoryService),
     pre_brief_session     : MemoryService           .preBriefSession     .bind(MemoryService),

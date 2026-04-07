@@ -1,4 +1,4 @@
-import Base                 from '../../../../../src/core/Base.mjs';
+import AbstractVectorManager from './AbstractVectorManager.mjs';
 import aiConfig             from '../config.mjs';
 import logger               from '../logger.mjs';
 import crypto               from 'crypto';
@@ -11,10 +11,10 @@ import TextEmbeddingService from '../services/TextEmbeddingService.mjs';
  * Uses sqlite-vec to maintain fully local, zero-dependency embedding queries.
  *
  * @class Neo.ai.mcp.server.memory-core.services.SQLiteVectorManager
- * @extends Neo.core.Base
+ * @extends Neo.ai.mcp.server.memory-core.managers.AbstractVectorManager
  * @singleton
  */
-class SQLiteVectorManager extends Base {
+class SQLiteVectorManager extends AbstractVectorManager {
     static config = {
         /**
          * @member {String} className='Neo.ai.mcp.server.memory-core.managers.SQLiteVectorManager'

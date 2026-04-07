@@ -3,7 +3,7 @@ import Base                     from '../../../../../src/core/Base.mjs';
 import ChromaManager            from '../managers/ChromaManager.mjs';
 import SQLiteVectorManager      from '../managers/SQLiteVectorManager.mjs';
 import StorageRouter            from '../managers/StorageRouter.mjs';
-import DatabaseLifecycleService from './DatabaseLifecycleService.mjs';
+import ChromaLifecycleService   from './lifecycle/ChromaLifecycleService.mjs';
 import logger                   from '../logger.mjs';
 
 /**
@@ -236,7 +236,7 @@ class HealthService extends Base {
                 currentId: Neo.ns('Neo.ai.mcp.server.memory-core.services.SessionService', false)?.currentSessionId
             },
             database : {
-                process   : DatabaseLifecycleService.getDatabaseStatus(),
+                process   : ChromaLifecycleService.getDatabaseStatus(),
                 connection: {
                     connected  : false,
                     collections: null
