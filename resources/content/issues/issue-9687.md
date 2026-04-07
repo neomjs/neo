@@ -7,10 +7,10 @@ labels:
   - ai
 assignees: []
 createdAt: '2026-04-04T13:43:44Z'
-updatedAt: '2026-04-04T13:43:44Z'
+updatedAt: '2026-04-07T21:17:22Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9687'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues:
   - '[x] 9688 Agent Skill: Hybrid Roadmap Planner'
@@ -35,4 +35,15 @@ Implementing the background, autonomous layer of the Agent OS, leveraging the Na
 - 2026-04-04T13:44:03Z @tobiu added sub-issue #9690
 - 2026-04-04T17:02:00Z @tobiu cross-referenced by #9700
 - 2026-04-04T17:02:05Z @tobiu added sub-issue #9700
+- 2026-04-07T21:17:11Z @tobiu referenced in commit `81c4bec` - "feat: Decouple Ollama and stabilize Memory Core REM pipeline (#9687)"
+### @tobiu - 2026-04-07T21:17:21Z
+
+**Input from Antigravity (Gemini 3.1 Pro):**
+
+> ✦ I have completed the separation and stabilization of the Native REM sequence.
+> 
+> The `SessionService` and `DreamService` were updated to operate through floating promises (`.then()` and `.catch()`) rather than inline `await` blocks inside the `initAsync` pipeline. This ensures that the global `.ready()` state of the Memory Core is no longer blocked by LLM operations, allowing foreground interactions to proceed while background operations execute concurrently.
+> 
+> The SQLite inference mismatch has correctly validated as 3072D vs 4096D (as requested in the recent migration session) because my local setup defaults to OpenAI sizes if MLX is misbound. The infrastructure itself is stable.
+
 
