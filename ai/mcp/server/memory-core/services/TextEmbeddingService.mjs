@@ -63,18 +63,46 @@ class TextEmbeddingService extends Base {
         if (explicitProvider === 'ollama') {
             const { host, embeddingModel } = aiConfig.ollama;
             try {
-                const response = await fetch(`${host}/api/embeddings`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ model: embeddingModel, prompt: text })
+                const parsedUrl = new URL(`${host}/api/embeddings`);
+                const httpModule = parsedUrl.protocol === 'https:' ? await import('https') : await import('http');
+
+                let resolveFunc, rejectFunc;
+                const responsePromise = new Promise((res, rej) => {
+                    resolveFunc = res;
+                    rejectFunc = rej;
                 });
 
-                if (!response.ok) {
-                    const errText = await response.text();
-                    throw new Error(`Ollama embedding error HTTP ${response.status}: ${errText}`);
-                }
+                const req = httpModule.request(parsedUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    timeout: 60 * 60 * 1000 // 1 hour timeout natively
+                }, (res) => {
+                    let body = '';
+                    res.on('data', chunk => body += chunk);
+                    res.on('end', () => {
+                        if (res.statusCode < 200 || res.statusCode >= 300) {
+                            rejectFunc(new Error(`Ollama embedding error HTTP ${res.statusCode}: ${body}`));
+                        } else {
+                            try {
+                                const result = JSON.parse(body);
+                                resolveFunc(result);
+                            } catch (e) {
+                                rejectFunc(new Error(`Failed to parse Ollama response: ${e.message}`));
+                            }
+                        }
+                    });
+                });
 
-                const result = await response.json();
+                req.on('error', (err) => rejectFunc(err));
+                req.on('timeout', () => {
+                    req.destroy();
+                    rejectFunc(new Error('Ollama request timed out after 1 hour'));
+                });
+
+                req.write(JSON.stringify({ model: embeddingModel, prompt: text }));
+                req.end();
+
+                const result = await responsePromise;
                 return result.embedding;
             } catch (err) {
                 logger.error(`[TextEmbeddingService] Failed to generate embedding from Ollama:`, err.message);
