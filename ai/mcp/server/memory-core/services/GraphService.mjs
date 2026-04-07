@@ -212,14 +212,14 @@ class GraphService extends Base {
     }
 
     /**
-     * Applies a geometric decay over the edge topology and deletes edges under the pruning threshold.
+     * Applies geometric weight decay mapping to existing graph relationships over time.
      * Enforces a 24-hour algorithmic lock to prevent amnesia under high execution frequency.
      * 
      * @param {Number} decayFactor
      * @param {Number} pruningThreshold
      * @param {Boolean} force Bypass the 24-hour lock (used strictly for manual forcing/tuning)
      */
-    decayGlobalTopology(decayFactor = 0.98, pruningThreshold = 0.2, force = false) {
+    decayGlobalTopology(decayFactor = aiConfig.decayFactor, pruningThreshold = 0.2, force = false) {
         if (!this.db?.storage?.db) {
             return;
         }
