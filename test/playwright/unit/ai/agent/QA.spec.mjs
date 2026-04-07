@@ -62,7 +62,7 @@ test.describe('QA Sub-Agent Swarm Node', () => {
             servers: []
         });
 
-        await primaryAgent.initAsync();
+        await primaryAgent.ready();
 
         const request = `
         Analyze the component 'Neo.button.Base'.
