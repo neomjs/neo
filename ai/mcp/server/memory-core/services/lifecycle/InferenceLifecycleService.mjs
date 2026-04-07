@@ -32,6 +32,9 @@ class InferenceLifecycleService extends Base {
         singleton: true
     }
 
+    /**
+     * @summary Asynchronously initializes the InferenceLifecycleService, bootstrapping daemon startup.
+     */
     async initAsync() {
         await super.initAsync();
         await this.startInferenceServer();
@@ -149,6 +152,9 @@ class InferenceLifecycleService extends Base {
         }
     }
 
+    /**
+     * @summary Binds SIGINT and SIGTERM handlers to gracefully tear down the assigned inference group.
+     */
     registerCleanup() {
         if (!this.cleanupHandler) {
             this.cleanupHandler = this.cleanup.bind(this);
@@ -158,6 +164,10 @@ class InferenceLifecycleService extends Base {
         }
     }
 
+    /**
+     * @summary Intercepts OS signals to aggressively force teardown of the MLX/Ollama child engine group.
+     * @param {String|Number} signalOrCode 
+     */
     async cleanup(signalOrCode) {
         if (this.inferenceProcess) {
             logger.log(`[InferenceLifecycleService] cleanup triggered by ${signalOrCode}`);
@@ -220,6 +230,10 @@ class InferenceLifecycleService extends Base {
         }
     }
     
+    /**
+     * @summary Resolves the current internal status and PID tracking for the explicit LLM daemon process.
+     * @returns {Object}
+     */
     getStatus() {
         if (this.inferenceProcess && !this.inferenceProcess.killed) {
             return { running: true, pid: this.inferenceProcess.pid, managed: true };
@@ -227,6 +241,11 @@ class InferenceLifecycleService extends Base {
         return { running: false, pid: null, managed: false };
     }
 
+    /**
+     * @summary Router mapping for explicit manual startup and teardown orchestrations of the Inference backend.
+     * @param {Object} args
+     * @returns {Promise<Object>}
+     */
     async manageInference(args) {
         if (args.action === 'start') {
             return await this.startInferenceServer();

@@ -27,6 +27,9 @@ class ChromaLifecycleService extends Base {
         singleton: true
     }
 
+    /**
+     * @summary Asynchronously initializes the ChromaLifecycleService, verifying engine config constraints.
+     */
     async initAsync() {
         await super.initAsync();
         if (aiConfig.engine === 'chroma' || aiConfig.engine === 'both') {
@@ -34,6 +37,10 @@ class ChromaLifecycleService extends Base {
         }
     }
 
+    /**
+     * @summary Actively pings the Chroma backend to confirm topological readiness.
+     * @returns {Promise<Boolean>}
+     */
     async isDbRunning() {
         try {
             const ChromaManager = (await import('../../managers/ChromaManager.mjs')).default;
@@ -96,6 +103,10 @@ class ChromaLifecycleService extends Base {
         }
     }
 
+    /**
+     * @summary Intercepts OS signals (SIGINT, SIGTERM) to aggressively tear down the ChromaDB child engine.
+     * @param {String|Number} signalOrCode 
+     */
     async cleanup(signalOrCode) {
         if (this.chromaProcess) {
             logger.log(`[ChromaLifecycleService] cleanup triggered by ${signalOrCode}`);
@@ -154,6 +165,10 @@ class ChromaLifecycleService extends Base {
         }
     }
 
+    /**
+     * @summary Resolves the current internal status and PID tracking for the ChromaDB backend engine.
+     * @returns {Object}
+     */
     getDatabaseStatus() {
         if (this.chromaProcess && !this.chromaProcess.killed) {
             return { running: true, pid: this.chromaProcess.pid, managed: true };
@@ -161,6 +176,11 @@ class ChromaLifecycleService extends Base {
         return { running: false, pid: null, managed: false };
     }
 
+    /**
+     * @summary High-level router for managing ChromaDB process state (start/stop) from the orchestrator.
+     * @param {Object} args
+     * @returns {Promise<Object>}
+     */
     async manageDatabase(args) {
         if (args.action === 'start') {
             return await this.startDatabase();
