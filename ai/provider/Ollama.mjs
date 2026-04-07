@@ -96,15 +96,26 @@ class OllamaProvider extends Base {
      */
     async generate(input, options = {}) {
         const payload = this.preparePayload(input, options, false);
+        // Force long keep_alive for heavy tasks
+        if (!payload.keep_alive) payload.keep_alive = "1h";
 
         try {
-            const response = await fetch(`${this.host}/api/chat`, {
-                method : 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(payload)
-            });
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 60 * 60 * 1000); // 1 hour timeout
+
+            let response;
+            try {
+                response = await fetch(`${this.host}/api/chat`, {
+                    method : 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload),
+                    signal: controller.signal
+                });
+            } finally {
+                clearTimeout(timeoutId);
+            }
 
             if (!response.ok) {
                 const text = await response.text();
