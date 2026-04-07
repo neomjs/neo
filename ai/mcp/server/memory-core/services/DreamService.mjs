@@ -667,11 +667,10 @@ NEVER output raw markdown or conversational text. YOU MUST output EXACTLY ONE JS
      * then executes Vector Apoptosis to clean up resulting orphaned nodes from the hybrid semantic space.
      */
     async runGarbageCollection() {
-        logger.info('[DreamService] Initiating Graph Garbage Collection (The Fade & Apoptosis)...');
+        logger.info('[DreamService] Initiating Graph Garbage Collection (Apoptosis)...');
 
         const edges = GraphService.db.edges.items.slice();
         let cullCount = 0;
-        const edgesToUpdate = [];
 
         edges.forEach(e => {
             if (e.type === 'SYSTEM_TENET') return; // Protect structural system edges from fading
@@ -680,25 +679,8 @@ NEVER output raw markdown or conversational text. YOU MUST output EXACTLY ONE JS
             if (!GraphService.db.nodes.get(e.source) || !GraphService.db.nodes.get(e.target)) {
                 GraphService.db.removeEdge(e.id);
                 cullCount++;
-                return;
-            }
-
-            let currentWeight = e.properties?.weight || 1.0;
-            // Apply geometric decay
-            let newWeight = currentWeight * 0.9;
-
-            if (newWeight < 0.1) {
-                GraphService.db.removeEdge(e.id);
-                cullCount++;
-            } else {
-                e.properties.weight = newWeight;
-                edgesToUpdate.push(e);
             }
         });
-
-        if (edgesToUpdate.length > 0 && GraphService.db.autoSave && GraphService.db.storage) {
-            GraphService.db.storage.addEdges(edgesToUpdate);
-        }
 
         logger.info(`[DreamService] Garbage Collection complete. Severed ${cullCount} unanchored edges.`);
 
