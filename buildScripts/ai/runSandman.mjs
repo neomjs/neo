@@ -19,6 +19,10 @@ function checkOllama() {
 async function runSandman() {
     // Enable debug logging to see progress
     Memory_Config.data.debug = true;
+    
+    // STRICTLY bypass daemon startup auto-queue.
+    // If autoDream fires synchronously inside init(), the await processUndigestedSessions() skips.
+    Memory_Config.data.autoDream = false;
 
     console.log('⏳ Initializing Sandman REM Extraction Pipeline...');
     

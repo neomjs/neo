@@ -10,6 +10,8 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import logger from '../logger.mjs';
+import http from 'http';
+import https from 'https';
 
 /**
  * @summary Service for handling session summarization and drift detection.
@@ -95,39 +97,47 @@ class SessionService extends Base {
             this.model = {
                 generateContent: async (promptText) => {
                     logger.info(`[Ollama] Sending summarization prompt (${promptText.length} chars)`);
-                    const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 60 * 60 * 1000); // 1 hour timeout
+                    return new Promise((resolve, reject) => {
+                        const url = new URL(`${aiConfig.ollama.host}/api/generate`);
+                        const client = url.protocol === 'https:' ? https : http;
+                        const bodyData = Buffer.from(JSON.stringify({
+                            model: aiConfig.ollama.model,
+                            prompt: promptText,
+                            stream: false,
+                            keep_alive: "1h",
+                            options: { num_ctx: 200000 }
+                        }), 'utf8');
 
-                    let response;
-                    try {
-                        response = await fetch(`${aiConfig.ollama.host}/api/generate`, {
+                        const req = client.request(url, {
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                model: aiConfig.ollama.model,
-                                prompt: promptText,
-                                stream: false,
-                                keep_alive: "1h",
-                                options: {
-                                    num_ctx: 200000 // Force massive context window
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Content-Length': bodyData.length
+                            },
+                            timeout: 60 * 60 * 1000 // 1 hour timeout explicitly configured
+                        }, (res) => {
+                            let chunks = [];
+                            res.on('data', c => chunks.push(c));
+                            res.on('end', () => {
+                                try {
+                                    const rawStr = Buffer.concat(chunks).toString('utf8');
+                                    const data = JSON.parse(rawStr);
+                                    if (data.error) {
+                                        logger.error(`[Ollama] Error: ${data.error}`);
+                                        return reject(new Error(`Ollama Generation Error: ${data.error}`));
+                                    }
+                                    resolve({ response: { text: () => data.response } });
+                                } catch (e) {
+                                    reject(new Error(`Ollama Parser Error: ${e.message}`));
                                 }
-                            }),
-                            signal: controller.signal
+                            });
                         });
-                    } finally {
-                        clearTimeout(timeoutId);
-                    }
-                    const data = await response.json();
-
-                    if (data.error) {
-                        logger.error(`[Ollama] Error: ${data.error}`);
-                        throw new Error(`Ollama Generation Error: ${data.error}`);
-                    }
-                    return {
-                        response: {
-                            text: () => data.response
-                        }
-                    };
+                        
+                        req.on('error', e => reject(e));
+                        req.on('timeout', () => { req.destroy(); reject(new Error('Ollama Request Timeout')); });
+                        req.write(bodyData);
+                        req.end();
+                    });
                 }
             };
         } else {
