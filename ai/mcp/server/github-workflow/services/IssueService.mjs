@@ -87,7 +87,7 @@ class IssueService extends Base {
      * @returns {Promise<object>}
      */
     async assignIssue({issue_number, assignees}) {
-        if (!this.hasWritePermission()) {
+        if (!await this.hasWritePermission()) {
             const message = [
                 `Permission denied. Viewer has '${RepositoryService.viewerPermission}' permission, `,
                 `but one of [${this.writePermissions.join(', ')}] is required to assign issues.`
@@ -108,12 +108,12 @@ class IssueService extends Base {
             if (assignees?.length > 0) {
                 logger.info(`Attempting to assign issue #${issue_number} to: ${assignees.join(', ')}`);
                 const assigneeFlags = assignees.map(a => `--add-assignee "${a}"`).join(' ');
-                command             = `gh issue edit ${issue_number} ${assigneeFlags}`;
+                command             = `gh issue edit ${issue_number} ${assigneeFlags} --repo ${aiConfig.owner}/${aiConfig.repo}`;
                 successMessage      = `Successfully assigned issue #${issue_number} to ${assignees.join(', ')}`;
             } else {
                 logger.info(`Attempting to unassign all users from issue #${issue_number}`);
                 // Passing an empty string to --remove-assignee has been experimentally verified to clear all assignees.
-                command        = `gh issue edit ${issue_number} --remove-assignee ""`;
+                command        = `gh issue edit ${issue_number} --remove-assignee "" --repo ${aiConfig.owner}/${aiConfig.repo}`;
                 successMessage = `Successfully unassigned all users from issue #${issue_number}`;
             }
 
@@ -220,7 +220,7 @@ class IssueService extends Base {
 
         // Permission check is only required if we are trying to assign users.
         if (assignees && assignees.length > 0) {
-            if (!this.hasWritePermission()) {
+            if (!await this.hasWritePermission()) {
                 const message = [
                     `Permission denied. Viewer has '${RepositoryService.viewerPermission}' permission, `,
                     `but one of [${this.writePermissions.join(', ')}] is required to assign issues.`
@@ -312,10 +312,11 @@ class IssueService extends Base {
 
     /**
      * Convenience shortcut
-     * @returns {Boolean}
+     * @returns {Promise<Boolean>}
      */
-    hasWritePermission() {
-        return this.writePermissions.includes(RepositoryService.viewerPermission);
+    async hasWritePermission() {
+        const {permission} = await RepositoryService.getViewerPermission();
+        return this.writePermissions.includes(permission);
     }
 
     /**
@@ -417,7 +418,7 @@ class IssueService extends Base {
      * @returns {Promise<object>}
      */
     async unassignIssue({issue_number, assignees}) {
-        if (!this.hasWritePermission()) {
+        if (!await this.hasWritePermission()) {
             const message = [
                 `Permission denied. Viewer has '${RepositoryService.viewerPermission}' permission, `,
                 `but one of [${this.writePermissions.join(', ')}] is required to unassign issues.`
@@ -443,7 +444,7 @@ class IssueService extends Base {
 
         try {
             const assigneeFlags = assignees.map(a => `--remove-assignee "${a}"`).join(' ');
-            const command       = `gh issue edit ${issue_number} ${assigneeFlags}`;
+            const command       = `gh issue edit ${issue_number} ${assigneeFlags} --repo ${aiConfig.owner}/${aiConfig.repo}`;
 
             await execAsync(command);
 

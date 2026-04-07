@@ -82,7 +82,7 @@ class OpenAiCompatibleProvider extends Base {
             delete clonedOptions.response_format;
         }
 
-        if (clonedOptions.tools && clonedOptions.tools.length > 0) {
+        if (clonedOptions.tools?.length > 0) {
             payload.tools = clonedOptions.tools.map(tool => ({
                 type: 'function',
                 function: {
@@ -164,14 +164,14 @@ class OpenAiCompatibleProvider extends Base {
             const result = await responsePromise;
             
             // OpenAI completions format returns choices array
-            const message = result.choices && result.choices.length > 0 ? result.choices[0].message : result.message;
+            const message = result.choices?.[0]?.message ?? result.message;
 
             const resultPayload = {
                 content: message?.content || '',
                 raw    : result
             };
 
-            if (message?.tool_calls && message.tool_calls.length > 0) {
+            if (message?.tool_calls?.length > 0) {
                 resultPayload.toolCalls = message.tool_calls.map(c => ({
                     function: {
                         name     : c.function.name,
@@ -229,8 +229,8 @@ class OpenAiCompatibleProvider extends Base {
                         if (!jsonStr) continue;
 
                         const data = JSON.parse(jsonStr);
-                        const delta = data.choices && data.choices[0] && data.choices[0].delta;
-                        if (delta && typeof delta.content === 'string') {
+                        const delta = data.choices?.[0]?.delta;
+                        if (typeof delta?.content === 'string') {
                             yield delta.content;
                         }
                     } catch (e) {
