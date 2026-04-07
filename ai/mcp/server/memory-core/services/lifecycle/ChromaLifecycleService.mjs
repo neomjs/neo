@@ -22,8 +22,20 @@ class ChromaLifecycleService extends Base {
     static observable = true;
 
     static config = {
+        /**
+         * @member {String} className='Neo.ai.mcp.server.memory-core.services.lifecycle.ChromaLifecycleService'
+         * @protected
+         */
         className: 'Neo.ai.mcp.server.memory-core.services.lifecycle.ChromaLifecycleService',
+        /**
+         * @member {Object|null} chromaProcess=null
+         * @protected
+         */
         chromaProcess: null,
+        /**
+         * @member {Boolean} singleton=true
+         * @protected
+         */
         singleton: true
     }
 
