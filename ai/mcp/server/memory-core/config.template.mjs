@@ -141,6 +141,11 @@ const defaultConfig = {
      */
     handoffFilePath: path.resolve(cwd, 'resources/content/sandman_handoff.md'),
     /**
+     * The Hebbian decay factor applied every 24 hours to the edge graph (e.g., 0.98 for ~79 day half-life).
+     * @type {number}
+     */
+    decayFactor: Number(process.env.GRAPH_DECAY_FACTOR) || 0.98,
+    /**
      * Universal JSONL backup/export directory for all databases.
      * @type {string}
      */
