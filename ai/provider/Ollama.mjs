@@ -100,29 +100,51 @@ class OllamaProvider extends Base {
         if (!payload.keep_alive) payload.keep_alive = "1h";
 
         try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 60 * 60 * 1000); // 1 hour timeout
+            const parsedUrl = new URL(`${this.host}/api/chat`);
+            const httpModule = parsedUrl.protocol === 'https:' ? await import('https') : await import('http');
 
-            let response;
-            try {
-                response = await fetch(`${this.host}/api/chat`, {
-                    method : 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(payload),
-                    signal: controller.signal
+            let resolveFunc, rejectFunc;
+            const responsePromise = new Promise((res, rej) => {
+                resolveFunc = res;
+                rejectFunc = rej;
+            });
+
+            const req = httpModule.request(parsedUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                timeout: 60 * 60 * 1000 // 1 hour timeout natively
+            }, (res) => {
+                let body = '';
+                res.on('data', chunk => body += chunk);
+                res.on('end', () => {
+                    if (res.statusCode < 200 || res.statusCode >= 300) {
+                        rejectFunc(new Error(`Ollama API error: ${res.statusCode} - ${body}`));
+                    } else {
+                        try {
+                            const result = JSON.parse(body);
+                            resolveFunc(result);
+                        } catch (e) {
+                            rejectFunc(new Error(`Failed to parse Ollama response: ${e.message}`));
+                        }
+                    }
                 });
-            } finally {
-                clearTimeout(timeoutId);
-            }
+            });
 
-            if (!response.ok) {
-                const text = await response.text();
-                throw new Error(`Ollama API error: ${response.status} - ${text}`);
-            }
+            req.on('error', (err) => {
+                rejectFunc(err);
+            });
 
-            const result = await response.json();
+            req.on('timeout', () => {
+                req.destroy();
+                rejectFunc(new Error('Ollama request timed out after 1 hour'));
+            });
+
+            req.write(JSON.stringify(payload));
+            req.end();
+
+            const result = await responsePromise;
 
             const resultPayload = {
                 content: result.message?.content || '',
