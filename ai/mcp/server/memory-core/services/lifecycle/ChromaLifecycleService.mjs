@@ -4,11 +4,19 @@ import logger from '../../logger.mjs';
 import Base from '../../../../../../src/core/Base.mjs';
 
 /**
- * @summary Manages the lifecycle of the ChromaDB process for the Memory Core.
+ * @summary Orchestrates the daemon lifecycle specifically for the ChromaDB backend engine.
+ *
+ * Following the dismantling of the monolithic database service, this class is now an explicitly isolated orchestrator
+ * responsible for managing the local ChromaDB vector database daemon. It handles asynchronous initialization,
+ * persistent heartbeat monitoring (`waitForHeartbeat`), and safe termination sequences independently.
+ * 
+ * Future AI sessions should search for `chroma startup`, `vector database lifecycle`, or `daemon orchestrator`.
  *
  * @class Neo.ai.mcp.server.memory-core.services.lifecycle.ChromaLifecycleService
  * @extends Neo.core.Base
  * @singleton
+ * @see Neo.ai.mcp.server.memory-core.services.lifecycle.InferenceLifecycleService
+ * @see Neo.ai.mcp.server.memory-core.managers.ChromaManager
  */
 class ChromaLifecycleService extends Base {
     static observable = true;
@@ -36,6 +44,10 @@ class ChromaLifecycleService extends Base {
         }
     }
 
+    /**
+     * @summary Boots the explicit local ChromaDB daemon as a detached process and awaits readiness.
+     * @returns {Promise<Object>}
+     */
     async startDatabase() {
         try {
             if (this.chromaProcess && !this.chromaProcess.killed) {
@@ -97,6 +109,10 @@ class ChromaLifecycleService extends Base {
         }
     }
 
+    /**
+     * @summary Polls the managed ChromaDB daemon backend until the heartbeat API succeeds.
+     * @returns {Promise<void>}
+     */
     async waitForHeartbeat() {
         logger.log('Waiting for ChromaDB heartbeat...');
         for (let i = 0; i < 30; i++) {
@@ -109,6 +125,10 @@ class ChromaLifecycleService extends Base {
         throw new Error('ChromaDB failed to start (timeout).');
     }
 
+    /**
+     * @summary Intentionally drops the ongoing ChromaDB daemon process when transitioning to offline.
+     * @returns {Promise<Object>}
+     */
     async stopDatabase() {
         try {
             if (!this.chromaProcess || this.chromaProcess.killed) return { status: 'not_running' };
