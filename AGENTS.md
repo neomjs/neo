@@ -175,3 +175,11 @@ Due to the constraints of the agentic environment, you MUST adhere to the follow
 2. **For Appending:** There is no native `append_file` tool. If you need to append to a file, you MUST use the `replace` tool. Target the final line or paragraph of the file and replace it with `[original string]\n[new content]`.
 3. **For Overwriting/Creating:** Always use the `write_file` tool.
 4. **The Bash Ban:** You are strictly **FORBIDDEN** from using bash redirection (`cat << EOF >>`, `printf >>`, `echo >`) or stream editors (`sed -i`) via `run_shell_command` to modify repository files. Always use the native `replace` and `write_file` tools.
+
+## 12. Coding Syntax Constraints (ES6+)
+
+To maintain repository modernization, you **MUST** prioritize the absolute latest ECMAScript syntax (ES6+) when writing or refactoring JavaScript.
+- Do not treat JavaScript like it is 2015.
+- **Always** use optional chaining (`?.`) instead of verbose `&&` sequential checks (e.g., `opts.format?.type === 'json_object'` instead of `opts.format && opts.format.type === 'json_object'`).
+- **Always** use object property shorthand, destructuring, and fat arrow functions.
+- Aggressively replace legacy assignments and manual object replication when encountering them in the file you are modifying.
