@@ -17,9 +17,9 @@ This file tracks topological conflict alerts generated during overnight REM slee
 
 Based on the latest Tri-Vector Synthesis and Topological Priorities, the following tasks are mathematically recommended as the next immediate focus:
 
-1. **issue-9673**: Score 3.04 (Semantic: 1.02, Structural: 1.00)
+1. **issue-9673**: Score 6.78 (Semantic: 0.89, Structural: 5.00)
    - *Technical Awareness: Hybrid GraphRAG (Native Edge Graph & App Mapping)*
-2. **issue-9299**: Score 2.96 (Semantic: 0.98, Structural: 1.00)
+2. **issue-9299**: Score 5.01 (Semantic: 1.01, Structural: 3.00)
    - *Implement Agent Self-Discovery via Neural Link Introspection*
-3. **issue-9298**: Score 2.93 (Semantic: 0.96, Structural: 1.00)
+3. **issue-9298**: Score 3.95 (Semantic: 0.97, Structural: 2.00)
    - *Implement Moltbook Demo Agent using Chrome DevTools MCP*

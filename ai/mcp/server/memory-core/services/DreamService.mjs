@@ -792,6 +792,44 @@ NEVER output raw markdown or conversational text. YOU MUST output EXACTLY ONE JS
             }
         });
 
+        try {
+            logger.info('[DreamService] Instantiating Ollama to interpret Mathematical Golden Path...');
+            const provider = Neo.create(Ollama, {
+                modelName: aiConfig.ollama.model
+            });
+
+            // Get adjacent frontier topology for context
+            const frontierTopology = GraphService.getContextFrontier({ depth: 1 });
+
+            const interpretPrompt = `
+You are the Neo.mjs Strategic Steering Engine.
+The mathematical engine has evaluated the codebase and determined the following top priority features based on semantic and structural weight:
+
+${markdownAppend}
+
+Active Topological Context Frontier:
+${JSON.stringify(frontierTopology, null, 2)}
+
+Synthesize a concise, 2-to-3 sentence Strategic Brief for the development agent explaining exactly *why* these tasks are the current structural priority given the active frontier, and how the agent should pivot.
+
+Mandatory Schema:
+{ "strategic_brief": "String (2-3 sentences)" }
+DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide purely the JSON object.
+`;
+
+            const result = await provider.generate(interpretPrompt, {
+                response_format: { type: 'json_object' }
+            });
+
+            const payload = Json.extract(result.content);
+            if (payload && payload.strategic_brief) {
+                markdownAppend += `\n> **Strategic Interpretation:**\n> ${payload.strategic_brief}\n\n`;
+                logger.info('[DreamService] Successfully appended semantic strategic brief to Golden Path.');
+            }
+        } catch (e) {
+            logger.warn('[DreamService] Failed to generate semantic interpretation for Golden Path (LLM Offline). Proceeding with pure mathematical output.', e);
+        }
+
         const handoffFile = path.resolve(__dirname, '../../../../../resources/content/sandman_handoff.md');
         if (fs.existsSync(handoffFile)) {
             let currentContent = fs.readFileSync(handoffFile, 'utf-8');
