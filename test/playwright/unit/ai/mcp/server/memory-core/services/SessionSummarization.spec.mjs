@@ -65,14 +65,14 @@ test.describe('Memory Core Offline Summarization', () => {
         SDK.Memory_Config.data.modelProvider         = 'ollama';
         SDK.Memory_Config.data.embeddingProvider     = 'ollama';
         SDK.Memory_Config.data.ollama.model          = 'gemma4';
-        SDK.Memory_Config.data.ollama.embeddingModel = 'gemma4';
+        SDK.Memory_Config.data.ollama.embeddingModel = 'qwen3-embedding';
         SDK.Memory_Config.data.autoSummarize         = false;
 
         // Adjust batch limit to speed up test execution
         SDK.Memory_Config.data.summarizationBatchLimit = 5;
 
-        // Offline tests cannot hit Gemini's API. Mock TextEmbeddingService.
-        TextEmbeddingService.embedText = async () => new Array(3072).fill(Math.random());
+        // Offline tests cannot hit APIs. Mock TextEmbeddingService for Qwen3-Embedding (4096D)
+        TextEmbeddingService.embedText = async () => new Array(4096).fill(Math.random());
 
         // Check if Ollama daemon and gemma4 are available
         try {
