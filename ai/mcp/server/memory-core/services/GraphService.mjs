@@ -213,19 +213,47 @@ class GraphService extends Base {
 
     /**
      * Applies a geometric decay over the edge topology and deletes edges under the pruning threshold.
+     * Enforces a 24-hour algorithmic lock to prevent amnesia under high execution frequency.
+     * 
+     * @param {Number} decayFactor
+     * @param {Number} pruningThreshold
+     * @param {Boolean} force Bypass the 24-hour lock (used strictly for manual forcing/tuning)
      */
-    decayGlobalTopology(decayFactor = 0.95, pruningThreshold = 0.2) {
+    decayGlobalTopology(decayFactor = 0.98, pruningThreshold = 0.2, force = false) {
         if (!this.db?.storage?.db) {
             return;
         }
+
+        // Initialize or fetch the global _SYSTEM_STATE node for cycle tracking
+        let systemNode = this.db.nodes.get('_SYSTEM_STATE');
+        if (!systemNode) {
+            this.upsertNode({
+                id: '_SYSTEM_STATE',
+                type: 'SYSTEM_CLOCK',
+                name: 'Global System Clock',
+                description: 'Tracks algorithmic time intervals for global physics.'
+            });
+            systemNode = this.db.nodes.get('_SYSTEM_STATE');
+        }
+
+        const lastDecayedAt = systemNode.properties?.lastDecayedAt || 0;
+        const now = Date.now();
+        const hoursElapsed = (now - lastDecayedAt) / 3600000;
+
+        // 24-hour Algorithmic Lock
+        if (!force && hoursElapsed < 24) {
+            logger.info(`[GraphService] Skipping global topology decay (Algorithmic Lock: only ${hoursElapsed.toFixed(1)}h elapsed).`);
+            return;
+        }
+
         logger.info(`[GraphService] Running ambient topology decay (factor: ${decayFactor})...`);
 
-        // Shield structural AST edges completely from decay
+        // Shield structural edges completely from decay
         const decayStmt = this.db.storage.db.prepare(`
             UPDATE Edges
             SET data = json_set(data, '$.properties.weight',
                                 MAX(COALESCE(CAST(json_extract(data, '$.properties.weight') AS REAL), 1.0) * ?, 0.1))
-            WHERE type NOT IN ('IMPLEMENTS', 'EXTENDS')
+            WHERE type NOT IN ('IMPLEMENTS', 'EXTENDS', 'SYSTEM_TENET')
         `);
         decayStmt.run(decayFactor);
 
@@ -236,6 +264,15 @@ class GraphService extends Base {
             WHERE COALESCE(CAST(json_extract(data, '$.properties.weight') AS REAL), 1.0) < ?
         `);
         const info      = pruneStmt.run(pruningThreshold);
+
+        // Commit global clock update
+        this.upsertNode({
+            ...systemNode,
+            properties: {
+                ...(systemNode.properties || {}),
+                lastDecayedAt: now
+            }
+        });
 
         logger.info(`[GraphService] Ambient Decay complete. Pruned ${info.changes} dead pathways.`);
     }
