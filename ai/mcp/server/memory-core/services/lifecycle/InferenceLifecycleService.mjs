@@ -52,8 +52,22 @@ class InferenceLifecycleService extends Base {
             if (aiConfig.openAiCompatible.host.includes('11434')) {
                 logger.log('[InferenceLifecycleService] Attempting to auto-start local Ollama daemon for inference...');
                 
-                const ollamaCmd = fs.existsSync('/opt/homebrew/bin/ollama') ? '/opt/homebrew/bin/ollama' : 
-                                  fs.existsSync('/usr/local/bin/ollama') ? '/usr/local/bin/ollama' : 'ollama';
+                let ollamaCmd = 'ollama';
+                if (process.platform === 'win32') {
+                    const localAppData = process.env.LOCALAPPDATA;
+                    const winPath = localAppData ? path.join(localAppData, 'Programs', 'Ollama', 'ollama.exe') : '';
+                    if (winPath && fs.existsSync(winPath)) {
+                        ollamaCmd = winPath;
+                    }
+                } else {
+                    const macSilicon = '/opt/homebrew/bin/ollama';
+                    const macIntel = '/usr/local/bin/ollama';
+                    if (fs.existsSync(macSilicon)) {
+                        ollamaCmd = macSilicon;
+                    } else if (fs.existsSync(macIntel)) {
+                        ollamaCmd = macIntel;
+                    }
+                }
 
                 return new Promise((resolve) => {
                     const spawnedProcess = spawn(ollamaCmd, ['serve'], { detached: true, stdio: 'ignore' });
