@@ -16,8 +16,10 @@ setup({
 import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../../../src/core/_export.mjs';
+import InstanceManager from '../../../../../../../../src/manager/Instance.mjs';
 import aiConfig       from '../../../../../../../../ai/mcp/server/memory-core/config.mjs';
 import ChromaManager  from '../../../../../../../../ai/mcp/server/memory-core/managers/ChromaManager.mjs';
+import SystemLifecycleService from '../../../../../../../../ai/mcp/server/memory-core/services/lifecycle/SystemLifecycleService.mjs';
 
 test.describe('Neo.ai.mcp.server.memory-core.managers.ChromaManager', () => {
     test('should prevent console.warn global state theft during concurrent collection fetching', async () => {
@@ -30,7 +32,7 @@ test.describe('Neo.ai.mcp.server.memory-core.managers.ChromaManager', () => {
         };
 
         try {
-            await ChromaManager.ready();
+            if (!SystemLifecycleService._initPromise) { await SystemLifecycleService.initAsync(); } else { await SystemLifecycleService.ready(); }
 
             // Mock the client to simulate async latency and rogue warnings
             ChromaManager.client = {
@@ -70,6 +72,7 @@ test.describe('Neo.ai.mcp.server.memory-core.managers.ChromaManager', () => {
         } finally {
             // Un-mock
             console.warn = originalWarn;
+            SystemLifecycleService._initPromise = null;
         }
     });
 });

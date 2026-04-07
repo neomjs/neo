@@ -15,12 +15,15 @@ setup({
 
 import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../../../../src/Neo.mjs';
+import * as core      from '../../../../../../../../src/core/_export.mjs';
+import InstanceManager from '../../../../../../../../src/manager/Instance.mjs';
 import fs             from 'fs';
 import path           from 'path'
 import os             from 'os';
 
 test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
     let GraphService;
+    let SystemLifecycleService;
     let DreamService;
     let OpenAiCompatible;
     const testDbName = `memory-core-dream-test-${process.pid}-${Date.now()}.sqlite`;
@@ -48,6 +51,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
         GraphService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/GraphService.mjs')).default;
         DreamService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/DreamService.mjs')).default;
         OpenAiCompatible       = (await import('../../../../../../../../ai/provider/OpenAiCompatible.mjs')).default;
+        SystemLifecycleService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/lifecycle/SystemLifecycleService.mjs')).default;
 
         if (fs.existsSync(testDbPath)) {
             try {
@@ -63,7 +67,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
             GraphService.db.vicinityLoadedNodes.clear();
         }
 
-        await GraphService.ready();
+        if (!SystemLifecycleService._initPromise) { await SystemLifecycleService.initAsync(); } else { await SystemLifecycleService.ready(); }
 
         // Monkey patch OpenAiCompatible
         originalGenerate = OpenAiCompatible.prototype.generate;
@@ -72,7 +76,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
             return {
                 content: JSON.stringify({
                     action: "alert",
-                    message: "- **[Codebase Gap]** Node `TestFeature`: Mock Gap detected."
+                    message: "- **[Codebase Gap]** Node `ButtonFeature`: Mock Gap detected."
                 })
             };
         };
@@ -114,6 +118,10 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
             GraphService._initPromise = null;
         }
 
+        if (SystemLifecycleService) {
+            SystemLifecycleService._initPromise = null;
+        }
+
         if (fs.existsSync(testDbPath)) {
             try { fs.unlinkSync(testDbPath); } catch (e) {}
             if (fs.existsSync(`${testDbPath}-wal`)) try { fs.unlinkSync(`${testDbPath}-wal`); } catch (e) {}
@@ -147,7 +155,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
                 nodes: [{
                     id         : 'node-feature-1',
                     type       : 'FEATURE',
-                    name       : 'TestFeature',
+                    name       : 'ButtonFeature',
                     description: 'A newly formulated architectural concept.'
                 }]
             }
@@ -162,12 +170,12 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
 
         // 4. Validate Provider was hit with the accurate filesystem Native Graph output
         expect(providerPrompt.length).toBeGreaterThan(1);
-        expect(providerPrompt[1].content).toContain('TestFeature');
+        expect(providerPrompt[1].content).toContain('ButtonFeature');
         expect(providerPrompt[1].content).toContain('src/button/Button.mjs');
 
         // 5. Validate the Sandman interaction logic gracefully appended to the MD file (via proxy)
         console.log("APPENDED ARRAY:", appendedContent); expect(appendedContent.length).toBeGreaterThan(0);
         expect(appendedContent[0].filePath.endsWith('mock_sandman_handoff.md')).toBe(true);
-        expect(appendedContent[0].data).toContain('- **[Codebase Gap]** Node `TestFeature`: Mock Gap detected.');
+        expect(appendedContent[0].data).toContain('- **[Codebase Gap]** Node `ButtonFeature`: Mock Gap detected.');
     });
 });

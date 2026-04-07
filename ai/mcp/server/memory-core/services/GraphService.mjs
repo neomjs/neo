@@ -50,8 +50,9 @@ class GraphService extends Base {
             let storage               = Neo.create(SQLite, {dbPath: dbPath});
             await storage.ready();
 
-            if (Neo.get('memory-core-graph')) {
-                this.db         = Neo.get('memory-core-graph');
+            let memoryCoreGraph = Neo.get ? Neo.get('memory-core-graph') : Neo.idMap?.['memory-core-graph'];
+            if (memoryCoreGraph) {
+                this.db         = memoryCoreGraph;
                 this.db.storage = storage;
             } else {
                 this.db = Neo.create(CoreDatabase, {

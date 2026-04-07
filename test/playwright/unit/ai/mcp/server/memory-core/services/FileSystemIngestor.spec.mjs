@@ -16,12 +16,14 @@ setup({
 import {test, expect}       from '@playwright/test';
 import Neo                  from '../../../../../../../../src/Neo.mjs';
 import * as core            from '../../../../../../../../src/core/_export.mjs';
+import InstanceManager      from '../../../../../../../../src/manager/Instance.mjs';
 import fs                   from 'fs-extra';
 import path                 from 'path';
 import os                   from 'os';
 
 test.describe('Neo.ai.mcp.server.memory-core.services.FileSystemIngestor', () => {
     let GraphService;
+    let SystemLifecycleService;
     let FileSystemIngestor;
     const testDbName = `memory-core-fs-test-${process.pid}-${Date.now()}.sqlite`;
     let testDbPath;
@@ -42,6 +44,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.FileSystemIngestor', () =>
 
         GraphService       = (await import('../../../../../../../../ai/mcp/server/memory-core/services/GraphService.mjs')).default;
         FileSystemIngestor = (await import('../../../../../../../../ai/mcp/server/memory-core/services/FileSystemIngestor.mjs')).default;
+        SystemLifecycleService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/lifecycle/SystemLifecycleService.mjs')).default;
         
         if (fs.existsSync(testDbPath)) {
             try {
@@ -57,7 +60,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.FileSystemIngestor', () =>
             GraphService.db.vicinityLoadedNodes.clear();
         }
 
-        await GraphService.ready();
+        if (!SystemLifecycleService._initPromise) { await SystemLifecycleService.initAsync(); } else { await SystemLifecycleService.ready(); }
 
         // Build the mock filesystem
         fs.ensureDirSync(mockFsRoot);
@@ -99,6 +102,10 @@ test.describe('Neo.ai.mcp.server.memory-core.services.FileSystemIngestor', () =>
             }
             GraphService.db           = null;
             GraphService._initPromise = null;
+        }
+
+        if (SystemLifecycleService) {
+            SystemLifecycleService._initPromise = null;
         }
 
         fs.removeSync(mockFsRoot);

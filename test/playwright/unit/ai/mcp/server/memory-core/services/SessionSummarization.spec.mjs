@@ -65,7 +65,7 @@ test.describe('Memory Core Offline Summarization', () => {
         SDK.Memory_Config.data.modelProvider         = 'openAiCompatible';
         SDK.Memory_Config.data.neoEmbeddingProvider  = 'openAiCompatible';
         SDK.Memory_Config.data.chromaEmbeddingProvider = 'openAiCompatible';
-        SDK.Memory_Config.data.openAiCompatible.model          = 'gemma4';
+        SDK.Memory_Config.data.openAiCompatible.model          = 'gemma4:31b';
         SDK.Memory_Config.data.openAiCompatible.embeddingModel = 'qwen3-embedding';
         SDK.Memory_Config.data.autoSummarize         = false;
 
@@ -105,6 +105,10 @@ test.describe('Memory Core Offline Summarization', () => {
                 console.warn(`[Cleanup] Failed to delete session ${dummySessionId}:`, e);
             }
         }
+        
+        if (SDK?.Memory_LifecycleService) {
+            SDK.Memory_LifecycleService._initPromise = null;
+        }
     });
 
     test('SessionService routes to openAiCompatible (gemma4) via SDK and correctly summarizes memories', async () => {
@@ -116,7 +120,11 @@ test.describe('Memory Core Offline Summarization', () => {
         }
 
         console.log('INIT DB Lifecycled...');
-        await SDK.Memory_LifecycleService.ready();
+        if (!SDK.Memory_LifecycleService._initPromise) {
+            await SDK.Memory_LifecycleService.initAsync();
+        } else {
+            await SDK.Memory_LifecycleService.ready();
+        }
 
         console.log('Waiting SessionService.ready() implicitly via SDK');
         await SDK.Memory_SessionService.ready();
