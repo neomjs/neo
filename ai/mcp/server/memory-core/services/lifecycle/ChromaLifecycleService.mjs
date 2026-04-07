@@ -19,6 +19,11 @@ import Base from '../../../../../../src/core/Base.mjs';
  * @see Neo.ai.mcp.server.memory-core.managers.ChromaManager
  */
 class ChromaLifecycleService extends Base {
+    /**
+     * @member {Boolean} observable=true
+     * @protected
+     * @static
+     */
     static observable = true;
 
     static config = {
@@ -89,10 +94,7 @@ class ChromaLifecycleService extends Base {
                 spawnedProcess.on('spawn', () => {
                     this.chromaProcess = spawnedProcess;
                     logger.log(`ChromaDB process started with PID: ${this.chromaProcess.pid}`);
-                    this.cleanupHandler = this.cleanup.bind(this);
-                    process.on('exit', this.cleanupHandler);
-                    process.on('SIGINT', this.cleanupHandler);
-                    process.on('SIGTERM', this.cleanupHandler);
+                    this.registerCleanup();
                     resolve();
                 });
 
@@ -129,6 +131,18 @@ class ChromaLifecycleService extends Base {
         }
         if (typeof signalOrCode === 'string') {
             process.exit(0);
+        }
+    }
+
+    /**
+     * @summary Binds SIGINT and SIGTERM handlers to gracefully tear down the assigned ChromaDB child group.
+     */
+    registerCleanup() {
+        if (!this.cleanupHandler) {
+            this.cleanupHandler = this.cleanup.bind(this);
+            process.on('exit', this.cleanupHandler);
+            process.on('SIGINT', this.cleanupHandler);
+            process.on('SIGTERM', this.cleanupHandler);
         }
     }
 
