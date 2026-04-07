@@ -17,6 +17,10 @@ const defaultConfig = {
             command: "npx",
             args   : ["-y", "chrome-devtools-mcp@latest"]
         },
+        "file-system": {
+            command: "npm",
+            args   : ["run", "ai:mcp-server-file-system"]
+        },
         "github-workflow": {
             command    : "npm",
             args       : ["run", "ai:mcp-server-github-workflow"],

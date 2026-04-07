@@ -26,8 +26,12 @@ class QA extends Agent {
         model: 'gemma4',
         /**
          * The QA agent needs context matching capabilities to assert components,
-         * so we attach the knowledge base.
-         * @member {String[]} servers=['knowledge-base']
+         * so we attach the knowledge base and the file system server.
+         * @member {String[]} servers=['knowledge-base','file-system']
+         */
+        servers: ['knowledge-base', 'file-system'],
+        /**
+         * @member {String} systemPrompt
          */
         systemPrompt: `You are the QA Subagent, a strict Quality Assurance automation engineer specializing in Neo.mjs and Playwright.
 Your responsibility is to analyze given class designs or code implementations, and output highly robust, isolated unit tests using Playwright syntax inside the Neo context.

@@ -18,6 +18,7 @@
         "ai:defrag-sqlite"             : "node ./buildScripts/ai/defragSQLiteDB.mjs",
         "ai:download-kb"               : "node ./buildScripts/ai/downloadKnowledgeBase.mjs",
         "ai:mcp-client"                : "node ./ai/mcp/client/mcp-cli.mjs",
+        "ai:mcp-server-file-system"    : "node ./ai/mcp/server/file-system/mcp-server.mjs",
         "ai:mcp-server-github-workflow": "node ./ai/mcp/server/github-workflow/mcp-server.mjs",
         "ai:mcp-server-knowledge-base" : "node ./ai/mcp/server/knowledge-base/mcp-server.mjs",
         "ai:mcp-server-memory-core"    : "node ./ai/mcp/server/memory-core/mcp-server.mjs",
