@@ -92,7 +92,7 @@ const defaultConfig = {
      * WARNING: Never hardcode API keys here. Always export them via .env or globally.
      */
     openAiCompatible: {
-        host          : process.env.OPENAI_COMPATIBLE_HOST || 'http://127.0.0.1:8000',
+        host          : process.env.OPENAI_COMPATIBLE_HOST || 'http://127.0.0.1:11434',
         model         : process.env.OPENAI_COMPATIBLE_MODEL || 'gemma4:31b',
         embeddingModel: process.env.OPENAI_COMPATIBLE_EMBEDDING_MODEL || 'qwen3-embedding',
         apiKey        : process.env.OPENAI_COMPATIBLE_API_KEY || ''
