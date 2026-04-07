@@ -140,6 +140,60 @@ class SessionService extends Base {
                     });
                 }
             };
+        } else if (aiConfig.modelProvider === 'openAiCompatible') {
+            logger.info(`[SessionService] Initializing generation model via OpenAI-Compatible API (${aiConfig.openAiCompatible.model})`);
+            this.model = {
+                generateContent: async (promptText) => {
+                    logger.info(`[OpenAiCompatible] Sending summarization prompt (${promptText.length} chars)`);
+                    return new Promise((resolve, reject) => {
+                        const url = new URL(`${aiConfig.openAiCompatible.host}/v1/chat/completions`);
+                        const client = url.protocol === 'https:' ? https : http;
+                        const payload = {
+                            model: aiConfig.openAiCompatible.model,
+                            messages: [{ role: 'user', content: promptText }],
+                            stream: false
+                        };
+                        const bodyData = Buffer.from(JSON.stringify(payload), 'utf8');
+
+                        const headers = {
+                            'Content-Type': 'application/json',
+                            'Content-Length': bodyData.length
+                        };
+                        
+                        if (aiConfig.openAiCompatible.apiKey) {
+                            headers['Authorization'] = `Bearer ${aiConfig.openAiCompatible.apiKey}`;
+                        }
+
+                        const req = client.request(url, {
+                            method: 'POST',
+                            headers,
+                            timeout: 60 * 60 * 1000 // 1 hour timeout
+                        }, (res) => {
+                            let chunks = [];
+                            res.on('data', c => chunks.push(c));
+                            res.on('end', () => {
+                                try {
+                                    const rawStr = Buffer.concat(chunks).toString('utf8');
+                                    if (res.statusCode < 200 || res.statusCode >= 300) {
+                                        logger.error(`[OpenAiCompatible] Error ${res.statusCode}: ${rawStr}`);
+                                        return reject(new Error(`OpenAiCompatible Status ${res.statusCode}: ${rawStr}`));
+                                    }
+                                    const data = JSON.parse(rawStr);
+                                    const content = data.choices?.[0]?.message?.content || '';
+                                    resolve({ response: { text: () => content } });
+                                } catch (e) {
+                                    reject(new Error(`OpenAiCompatible Parser Error: ${e.message}`));
+                                }
+                            });
+                        });
+
+                        req.on('error', e => reject(e));
+                        req.on('timeout', () => { req.destroy(); reject(new Error('OpenAiCompatible Request Timeout')); });
+                        req.write(bodyData);
+                        req.end();
+                    });
+                }
+            };
         } else {
             logger.info(`[SessionService] Initializing generation model via Gemini (${aiConfig.modelName})`);
             const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
