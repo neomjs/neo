@@ -258,7 +258,7 @@ class ContextAssembler extends Base {
             }
 
             if (skillsText) {
-                return `\n\n<agent_skills>\nYou have access to the following specialized agent skills. IF a user requests a task that matches the triggers of a skill below, you MUST use the \`view_file\` tool to read the corresponding <path> BEFORE taking any action to execute the request.\n${skillsText}</agent_skills>\n`;
+                return `\n\n<agent_skills>\nYou have access to the following specialized agent skills. IF a user requests a task that matches the triggers of a skill below, you MUST use the \`read_file\` tool (passing the \`absolutePath\` parameter) to read the corresponding <path> BEFORE taking any action to execute the request.\n${skillsText}</agent_skills>\n`;
             }
         } catch (e) {
             console.warn('[ContextAssembler] Failed to load skills:', e);
