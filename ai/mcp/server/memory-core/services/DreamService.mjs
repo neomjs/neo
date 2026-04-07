@@ -11,7 +11,7 @@ import TextEmbeddingService from './TextEmbeddingService.mjs';
 import GraphService         from './GraphService.mjs';
 import Json                 from '../../../../../src/util/Json.mjs';
 import logger               from '../logger.mjs';
-import Ollama               from '../../../../provider/Ollama.mjs';
+import OpenAiCompatible     from '../../../../provider/OpenAiCompatible.mjs';
 import FileSystemIngestor   from './FileSystemIngestor.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -121,13 +121,13 @@ class DreamService extends Base {
         
         this.isProcessing = true;
 
-        if (aiConfig.modelProvider === 'ollama') {
+        if (aiConfig.modelProvider === 'openAiCompatible') {
             try {
-                const url = new URL('/api/tags', aiConfig.ollama.host || 'http://127.0.0.1:11434');
+                const url = new URL('/v1/models', aiConfig.openAiCompatible.host || 'http://127.0.0.1:8000');
                 const ping = await fetch(url.toString(), { method: 'GET', signal: AbortSignal.timeout(5000) });
-                if (!ping.ok) throw new Error('Ollama not running');
+                if (!ping.ok) throw new Error('API provider not running');
             } catch (e) {
-                logger.error('[DreamService] Ollama service is unreachable. Aborting REM pipeline to prevent queue failures.');
+                logger.error('[DreamService] API provider service is unreachable. Aborting REM pipeline to prevent queue failures.');
                 this.isProcessing = false;
                 return;
             }
@@ -236,18 +236,16 @@ ${session.document}
 `;
 
         try {
-            const provider = Neo.create(Ollama, {
-                modelName: aiConfig.ollama.model
+            const provider = Neo.create(OpenAiCompatible, {
+                modelName: aiConfig.openAiCompatible.model,
+                host: aiConfig.openAiCompatible.host
             });
 
-            // Dynamically size Ollama KV cache context. Apple Silicon chokes on massive static 200,000 blocks.
-            // Formula: (Target String length / 3 chars per token) + 4096 (Schema Response Margin)
-            const dynamicCtx = Math.ceil(session.document.length / 3) + 4096;
+            // MLX manages KV cache paging internally. No dynamic context sizing required here.
 
             // Call standard generation method with explicit format enforcement
             const result = await provider.generate(prompt, {
-                response_format: { type: 'json_object' },
-                num_ctx: dynamicCtx
+                response_format: { type: 'json_object' }
             });
 
             // Extract using robust Json parser to catch malformed boundaries
@@ -340,7 +338,7 @@ ${session.document}
 
         } catch (error) {
             if (error.message && error.message.includes('fetch failed')) {
-                logger.debug(`[DreamService] Skipping extraction (Ollama daemon offline).`);
+                logger.debug(`[DreamService] Skipping extraction (API provider offline).`);
             } else {
                 logger.error('[DreamService] Error during graph extraction run:', error);
             }
@@ -378,15 +376,13 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
 ${contextText}
 `;
         try {
-            const provider = Neo.create(Ollama, {
-                modelName: aiConfig.ollama.model
+            const provider = Neo.create(OpenAiCompatible, {
+                modelName: aiConfig.openAiCompatible.model,
+                host: aiConfig.openAiCompatible.host
             });
 
-            const dynamicCtx = Math.ceil(contextText.length / 3) + 2048;
-
             const result = await provider.generate(prompt, {
-                response_format: { type: 'json_object' },
-                num_ctx: dynamicCtx
+                response_format: { type: 'json_object' }
             });
 
             const payload = Json.extract(result.content);
@@ -425,7 +421,7 @@ ${contextText}
 
         } catch (error) {
             if (error.message && error.message.includes('fetch failed')) {
-                logger.debug('[DreamService] Skipping topology extraction (Ollama daemon offline).');
+                logger.debug('[DreamService] Skipping topology extraction (API provider offline).');
             } else {
                 logger.error('[DreamService] Error during topology extraction:', error);
             }
@@ -459,8 +455,9 @@ ${contextText}
 
 
 
-        const provider = Neo.create(Ollama, {
-            modelName: aiConfig.ollama.model
+        const provider = Neo.create(OpenAiCompatible, {
+            modelName: aiConfig.openAiCompatible.model,
+            host: aiConfig.openAiCompatible.host
         });
 
         for (const node of structuralNodes) {
@@ -496,10 +493,8 @@ NEVER output raw markdown or conversational text. YOU MUST output EXACTLY ONE JS
             while (passCounter < 4) {
                 passCounter++;
                 try {
-                    const dynamicCtx = Math.ceil(JSON.stringify(messages).length / 3) + 4096;
                     const result = await provider.generate(messages, {
-                        response_format: { type: 'json_object' },
-                        num_ctx: dynamicCtx
+                        response_format: { type: 'json_object' }
                     });
 
                     const payload = Json.extract(result.content);
@@ -543,7 +538,7 @@ NEVER output raw markdown or conversational text. YOU MUST output EXACTLY ONE JS
                     }
                 } catch (e) {
                     if (e.message && e.message.includes('fetch failed')) {
-                        logger.debug('[DreamService] Skipping Gap Analysis (Ollama daemon offline).');
+                        logger.debug('[DreamService] Skipping Gap Analysis (API provider offline).');
                     } else {
                         logger.warn('[DreamService] Gap Inference loop failed.', e);
                     }
@@ -867,9 +862,10 @@ NEVER output raw markdown or conversational text. YOU MUST output EXACTLY ONE JS
         });
 
         try {
-            logger.info('[DreamService] Instantiating Ollama to interpret Mathematical Golden Path...');
-            const provider = Neo.create(Ollama, {
-                modelName: aiConfig.ollama.model
+            logger.info('[DreamService] Instantiating API provider to interpret Mathematical Golden Path...');
+            const provider = Neo.create(OpenAiCompatible, {
+                modelName: aiConfig.openAiCompatible.model,
+                host: aiConfig.openAiCompatible.host
             });
 
             // Get adjacent frontier topology for context
