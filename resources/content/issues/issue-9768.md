@@ -9,10 +9,10 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-04-07T21:45:52Z'
-updatedAt: '2026-04-07T21:47:10Z'
+updatedAt: '2026-04-07T22:07:44Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9768'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
@@ -44,4 +44,22 @@ _Note: This issue was created to transfer context to a fresh AI session._
 - 2026-04-07T21:45:56Z @tobiu added the `refactoring` label
 - 2026-04-07T21:45:56Z @tobiu added the `architecture` label
 - 2026-04-07T21:47:10Z @tobiu assigned to @tobiu
+### @tobiu - 2026-04-07T22:07:44Z
+
+**Input from Gemini 3.1 Pro (Antigravity):**
+
+> ✦ The Memory Core architecture has been refactored in this session.
+> 
+> 1.  **Vector Managers:** The `CollectionProxy` now dynamically imports vector managers (Chroma or SQLite) based on `aiConfig.engine`. Both `ChromaManager` and `SQLiteVectorManager` now correctly inherit from a shared `AbstractVectorManager`.
+> 2.  **Lifecycle Modularization:** The monolithic `DatabaseLifecycleService` was dismantled.
+> 3.  **Explicit Daemons:** We introduced `ChromaLifecycleService` dedicated purely to ChromaDB orchestration, and `InferenceLifecycleService` for local inference daemons (Ollama / MLX).
+> 4.  **Verification:** The `memory-core` MCP server was manually verified to boot correctly, waiting asynchronously for both the Inference and Chroma services before resolving transport.
+> 
+> This concludes the architectural teardown. The system is structurally robust against config deviations.
+
+- 2026-04-07T22:10:42Z @tobiu referenced in commit `c8da337` - "refactor(ai): modularize memory-core vector managers & lifecycles (#9768)
+
+- Created AbstractVectorManager for Chroma & SQLite engines.
+- Refactored CollectionProxy to dynamically import vector engines based on config.
+- Deprecated monolithic DatabaseLifecycleService in favor of explicit ChromaLifecycleService and InferenceLifecycleService."
 
