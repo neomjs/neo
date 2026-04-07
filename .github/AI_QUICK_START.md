@@ -83,7 +83,11 @@ To ensure your environment is accurately inherited across all local MCP sub-serv
     ```bash
     export GEMINI_API_KEY="YOUR_API_KEY_HERE"
     export GH_TOKEN="YOUR_GITHUB_TOKEN_HERE"
-    export NEO_EMBEDDING_PROVIDER="gemini" # or "ollama" for 100% offline
+    # Core LLM Engine provider (Supported: 'gemini', 'ollama', 'openAiCompatible')
+    # export MODEL_PROVIDER="openAiCompatible"
+    
+    # Vector Embedding provider (Supported: 'gemini', 'ollama', 'openAiCompatible')
+    export NEO_EMBEDDING_PROVIDER="gemini"
     ```
 3.  **Apply changes**: `source ~/.zshrc`
 
@@ -101,8 +105,8 @@ The free tier of the Gemini API has a strict limit of **1,000 requests per day**
 *   **Do NOT** run `npm run ai:sync-kb` (full rebuild) unless absolutely necessary. A full rebuild requires ~153 requests and takes ~25 minutes due to rate-limiting delays.
 *   The pre-built artifact saves you from this cost and delay.
 
-**Local Architecture (Ollama Integration):**
-To completely bypass Gemini API limits and operate a 100% offline knowledge base, you can utilize the local inference loop. Export `NEO_EMBEDDING_PROVIDER="ollama"` in your environment variables. Ensure the corresponding Ollama embedding models are running locally.
+**Local Architecture (Ollama & MLX / OpenAI-Compatible):**
+To completely bypass Gemini API limits and operate a 100% offline knowledge base, you can utilize the local inference loops. Export `NEO_EMBEDDING_PROVIDER="ollama"` or `NEO_EMBEDDING_PROVIDER="openAiCompatible"` in your environment variables. Ensure the corresponding embedding models and servers (e.g. `mlx_lm.server`) are running locally.
 
 ### Step 3.5: Advanced Configuration (Optional)
 

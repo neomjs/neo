@@ -108,6 +108,59 @@ class TextEmbeddingService extends Base {
                 logger.error(`[TextEmbeddingService] Failed to generate embedding from Ollama:`, err.message);
                 throw err;
             }
+        } else if (explicitProvider === 'openAiCompatible') {
+            const { host, embeddingModel, apiKey } = aiConfig.openAiCompatible;
+            try {
+                const parsedUrl = new URL(`${host}/v1/embeddings`);
+                const httpModule = parsedUrl.protocol === 'https:' ? await import('https') : await import('http');
+
+                let resolveFunc, rejectFunc;
+                const responsePromise = new Promise((res, rej) => {
+                    resolveFunc = res;
+                    rejectFunc = rej;
+                });
+
+                const reqHeaders = { 'Content-Type': 'application/json' };
+                if (apiKey) {
+                    reqHeaders.Authorization = `Bearer ${apiKey}`;
+                }
+
+                const req = httpModule.request(parsedUrl, {
+                    method : 'POST',
+                    headers: reqHeaders,
+                    timeout: 60 * 60 * 1000 // 1 hour timeout natively
+                }, (res) => {
+                    let body = '';
+                    res.on('data', chunk => body += chunk);
+                    res.on('end', () => {
+                        if (res.statusCode < 200 || res.statusCode >= 300) {
+                            rejectFunc(new Error(`openAiCompatible embedding error HTTP ${res.statusCode}: ${body}`));
+                        } else {
+                            try {
+                                const result = JSON.parse(body);
+                                resolveFunc(result);
+                            } catch (e) {
+                                rejectFunc(new Error(`Failed to parse openAiCompatible response: ${e.message}`));
+                            }
+                        }
+                    });
+                });
+
+                req.on('error', (err) => rejectFunc(err));
+                req.on('timeout', () => {
+                    req.destroy();
+                    rejectFunc(new Error('openAiCompatible request timed out after 1 hour'));
+                });
+
+                req.write(JSON.stringify({ model: embeddingModel, input: text }));
+                req.end();
+
+                const result = await responsePromise;
+                return result.data?.[0]?.embedding;
+            } catch (err) {
+                logger.error(`[TextEmbeddingService] Failed to generate embedding from openAiCompatible:`, err.message);
+                throw err;
+            }
         } else {
             if (!process.env.GEMINI_API_KEY) {
                  throw new Error('Semantic search unavailable: GEMINI_API_KEY is missing.');
