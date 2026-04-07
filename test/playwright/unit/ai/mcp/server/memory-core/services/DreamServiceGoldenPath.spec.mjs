@@ -1,4 +1,4 @@
-import {setup} from '../../../../setup.mjs';
+import {setup} from '../../../../../../setup.mjs';
 
 const appName = 'DreamServiceTest';
 
@@ -16,9 +16,9 @@ setup({
 });
 
 import {test, expect}  from '@playwright/test';
-import Neo             from '../../../../../../src/Neo.mjs';
-import * as core       from '../../../../../../src/core/_export.mjs';
-import InstanceManager from '../../../../../../src/manager/Instance.mjs';
+import Neo             from '../../../../../../../../src/Neo.mjs';
+import * as core       from '../../../../../../../../src/core/_export.mjs';
+import InstanceManager from '../../../../../../../../src/manager/Instance.mjs';
 import path            from 'path';
 import {fileURLToPath} from 'url';
 import crypto          from 'crypto';
@@ -30,7 +30,7 @@ test.describe('DreamService Golden Path', () => {
     let TextEmbeddingService, aiConfig, DreamService, GraphService, SQLiteVectorManager;
 
     test.beforeAll(async () => {
-        aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        aiConfig = (await import('../config.mjs')).default;
 
         const os         = await import('os');
         const fs         = await import('fs');
@@ -46,10 +46,10 @@ test.describe('DreamService Golden Path', () => {
         aiConfig.engine               = 'neo';
         aiConfig.handoffFilePath      = path.join(tmpDir, 'mock_sandman_handoff.md');
 
-        TextEmbeddingService = (await import('../../../../../../ai/mcp/server/memory-core/services/TextEmbeddingService.mjs')).default;
-        DreamService         = (await import('../../../../../../ai/mcp/server/memory-core/services/DreamService.mjs')).default;
-        GraphService         = (await import('../../../../../../ai/mcp/server/memory-core/services/GraphService.mjs')).default;
-        SQLiteVectorManager  = (await import('../../../../../../ai/mcp/server/memory-core/managers/SQLiteVectorManager.mjs')).default;
+        TextEmbeddingService = (await import('./TextEmbeddingService.mjs')).default;
+        DreamService         = (await import('./DreamService.mjs')).default;
+        GraphService         = (await import('./GraphService.mjs')).default;
+        SQLiteVectorManager  = (await import('../managers/SQLiteVectorManager.mjs')).default;
 
         if (fs.existsSync(testDbPath)) {
             fs.unlinkSync(testDbPath);
