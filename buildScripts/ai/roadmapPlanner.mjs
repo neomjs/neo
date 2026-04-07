@@ -80,24 +80,29 @@ Here is the current ROADMAP.md:
 
 Output the final, fully written markdown content for the updated ROADMAP.md file. Only output the raw markdown file. Do not include markdown \`\`\` wrappers.`;
 
-    console.log('Querying Gemma 4 (Ollama) to synthesize new ROADMAP.md...');
+    console.log('Querying openAiCompatible to synthesize new ROADMAP.md...');
+
+    // Extract dynamic host/model instead of hardcoded 11434/gemma
+    const host = Memory_Config?.data?.openAiCompatible?.host || 'http://127.0.0.1:8000';
+    const model = Memory_Config?.data?.openAiCompatible?.model || 'gemma4';
 
     try {
         const payload = JSON.stringify({
-            model: 'gemma4:latest',
-            prompt: prompt,
+            model,
+            messages: [{ role: 'user', content: prompt }],
             stream: false
         });
 
-        const responseStr = execSync(`curl -s -m 1800 -X POST http://127.0.0.1:11434/api/generate -H "Content-Type: application/json" -d @-`, {
+        const responseStr = execSync(`curl -s -m 1800 -X POST ${host}/v1/chat/completions -H "Content-Type: application/json" -d @-`, {
             input: payload,
             maxBuffer: 50 * 1024 * 1024
         }).toString();
 
         const data = JSON.parse(responseStr);
+        const text = data.choices?.[0]?.message?.content;
         
-        if (data.response) {
-            let newRoadmap = data.response.trim();
+        if (text) {
+            let newRoadmap = text.trim();
             // Prune wrappers
             if (newRoadmap.startsWith('\`\`\`markdown')) newRoadmap = newRoadmap.substring(11).trim();
             if (newRoadmap.startsWith('\`\`\`')) newRoadmap = newRoadmap.substring(3).trim();
@@ -135,8 +140,8 @@ Output the final, fully written markdown content for the updated ROADMAP.md file
 (async () => {
     try {
         // Must init GraphService first
-        await GraphService.initAsync();
-        await MemoryService.initAsync();
+        await GraphService.ready();
+        await MemoryService.ready();
         
         await plannerAgent();
         process.exit(0);
