@@ -65,7 +65,8 @@ test.describe('QA Sub-Agent Swarm Node', () => {
         await primaryAgent.ready();
 
         const request = `
-        Analyze the component 'Neo.button.Base'.
+        You are the QA Agent. Before writing tests, you MUST use the 'read_file' tool to read the source code of 'src/button/Base.mjs'.
+        Analyze the component 'Neo.button.Base' based on its actual source code.
         Write a 100% complete Playwright test suite for it.
         Focus exclusively on DOM mounting and testing the 'text' configuration property mutability.
         Return ONLY the code block and nothing else.
@@ -83,11 +84,11 @@ test.describe('QA Sub-Agent Swarm Node', () => {
         // Core assertions to ensure Gemma4 learned the rules from its System Prompt
         expect(generatedCode).toMatch(/import\s*\{\s*setup\s*\}\s*from/);
         expect(generatedCode).toMatch(/import\s*Neo\s*from\s*'.*src\/Neo\.mjs'/);
-        expect(generatedCode).toContain('DomApiVnodeCreator');
         expect(generatedCode).toContain('Neo.create(');
         expect(generatedCode).toContain('initVnode()');
         expect(generatedCode).toContain('.mounted = true');
         expect(generatedCode).toContain('.set({');
+        expect(generatedCode).toContain('deltas');
 
         console.log('\n--- Gemma4 QA Output Start ---');
         console.log(generatedCode);
