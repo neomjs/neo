@@ -23,3 +23,4 @@ Based on the latest Tri-Vector Synthesis and Topological Priorities, the followi
    - *Grid Multi-Body: E2E Telemetry Adjustments for Dual-Pipeline Scrolling*
 3. **issue-9636**: Score 11.00 (Semantic: 5.00, Structural: 1.00)
    - *Grid Multi-Body: Simplify GridDragScroll Scrollbar Hit Detection*
+- **[Codebase Gap]** Node `Zombie Ollama Runner Processes`: [DOC_GAP] No documentation or tests found regarding the handling, detection, or cleanup of zombie Ollama runner processes in the provided directory tree. (Source Session: 67b641b1-4354-4bd5-ba22-0ed333a6847b)
