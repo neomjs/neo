@@ -52,7 +52,8 @@ class Agent extends Base {
          */
         subAgents: {
             browser  : async () => (await import('./agent/profile/Browser.mjs')).default,
-            librarian: async () => (await import('./agent/profile/Librarian.mjs')).default
+            librarian: async () => (await import('./agent/profile/Librarian.mjs')).default,
+            qa       : async () => (await import('./agent/profile/QA.mjs')).default
         }
     }
 
