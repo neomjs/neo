@@ -9,7 +9,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-04-03T23:59:50Z'
-updatedAt: '2026-04-04T01:18:24Z'
+updatedAt: '2026-04-07T08:42:31Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9673'
 author: tobiu
 commentsCount: 0
@@ -49,14 +49,14 @@ Pivot to a true **Hybrid GraphRAG Model**.
    - Build a zero-dependency JS Graph Database that sits alongside ChromaDB.
    - Design lightweight node/edge relationship schemas in a purely JS environment to explicitly connect vector chunks (Graph Layer interacting with Semantic Layer).
 2. **Application Engine Knowledge Graph Mapping:** 
-   - Parse the Neo.mjs class hierarchy, declarative configs, reactive hooks, and component dependencies.
-   - Feed this framework topology automatically into the Native Graph.
-   - Expose MCP server endpoints so the AI can traverse this graph dynamically to gain precise architectural awareness.
+   - **(Deprecation Update):** We will *not* build a standalone static AST class hierarchy ingestor. Instead, the AI will rely on the `neo-mjs-neural-link` MCP server for powerful runtime scene inspections and the `neo-mjs-knowledge-base` MCP for static relationship querying.
+   - The Native Edge graph should instead focus exclusively on topological relationships mapping external concepts (File System structure, Agent Memories, GitHub Epics, Boardroom KPIs).
+   - Expose MCP server endpoints so the AI can traverse this graph dynamically to gain architectural awareness.
 
 ## Definition of Done
 - A zero-dependency JS Graph DB module is functional and integrated into the overarching server architecture.
-- The Neo.mjs framework hierarchy (The Public Context) is actively mapped into this graph.
-- Agents can query the graph (e.g., "What are the children of this class?" or "What hooks does this node trigger?") and receive deterministic answers.
+- A functional `FileSystemIngestor` natively injects code architecture anchors into the graph.
+- Agents can query the graph and receive deterministic answers.
 
 ## Timeline
 

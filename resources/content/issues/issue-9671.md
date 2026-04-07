@@ -98,4 +98,8 @@ The sequence of execution is critical. It must be ordered purely on **AI Enablem
 - 2026-04-04T00:07:50Z @tobiu assigned to @tobiu
 - 2026-04-04T12:07:55Z @tobiu added sub-issue #9684
 - 2026-04-04T19:25:11Z @tobiu added sub-issue #9704
+- 2026-04-05T16:33:27Z @tobiu referenced in commit `4d372ba` - "feat: Anchor Master Architecture to Context Frontier (Epic #9671)
+
+Implemented the Global System Primer by injecting a Neo-Master-Architecture node with protected SYSTEM_TENET relationships during memory core initialization. This ensures all autonomous sessions automatically index the core Playwright testing and Neural Link MCP standards without relying on the legacy vector database infrastructure.
+(#9671)"
 
