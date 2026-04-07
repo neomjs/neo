@@ -75,7 +75,7 @@ class OpenAiCompatibleProvider extends Base {
         const clonedOptions = { ...options };
 
         // Handle JSON extraction
-        if (clonedOptions.responseMimeType === 'application/json' || clonedOptions.response_mime_type === 'application/json' || (clonedOptions.response_format && clonedOptions.response_format.type === 'json_object')) {
+        if (clonedOptions.responseMimeType === 'application/json' || clonedOptions.response_mime_type === 'application/json' || clonedOptions.response_format?.type === 'json_object') {
             payload.response_format = { type: 'json_object' };
             delete clonedOptions.responseMimeType;
             delete clonedOptions.response_mime_type;
