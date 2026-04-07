@@ -180,6 +180,6 @@ Due to the constraints of the agentic environment, you MUST adhere to the follow
 
 To maintain repository modernization, you **MUST** prioritize the absolute latest ECMAScript syntax (ES6+) when writing or refactoring JavaScript.
 - Do not treat JavaScript like it is 2015.
-- **Always** use optional chaining (`?.`) instead of verbose `&&` sequential checks (e.g., `opts.format?.type === 'json_object'` instead of `opts.format && opts.format.type === 'json_object'`).
-- **Always** use object property shorthand, destructuring, and fat arrow functions.
+- **Always** use optional chaining (`?.`) instead of verbose `&&` sequential checks (e.g., `clonedOptions.response_format?.type` instead of `clonedOptions.response_format && clonedOptions.response_format.type`).
+- **Always** use object property shorthand, destructuring, and fat arrow functions (e.g., `{messages, stream}` instead of `{messages: messages, stream: stream}`).
 - Aggressively replace legacy assignments and manual object replication when encountering them in the file you are modifying.
