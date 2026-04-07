@@ -63,7 +63,8 @@ test.describe('Memory Core Offline Summarization', () => {
 
         // Force 'ollama' routing for this test
         SDK.Memory_Config.data.modelProvider         = 'ollama';
-        SDK.Memory_Config.data.embeddingProvider     = 'ollama';
+        SDK.Memory_Config.data.neoEmbeddingProvider  = 'ollama';
+        SDK.Memory_Config.data.chromaEmbeddingProvider = 'ollama';
         SDK.Memory_Config.data.ollama.model          = 'gemma4';
         SDK.Memory_Config.data.ollama.embeddingModel = 'qwen3-embedding';
         SDK.Memory_Config.data.autoSummarize         = false;
