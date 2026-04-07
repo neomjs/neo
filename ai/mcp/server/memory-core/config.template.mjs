@@ -63,17 +63,20 @@ const defaultConfig = {
     },
     /**
      * Explicit override provider for the core LLM Engine (e.g. summarization).
-     * @type {string}
+     * Supported values: 'gemini', 'ollama', 'openAiCompatible'
+     * @type {String}
      */
     modelProvider: process.env.MODEL_PROVIDER || 'gemini',
     /**
      * Explicit override provider for the SQLite Native Database Engine.
-     * @type {string}
+     * Supported values: 'gemini', 'ollama', 'openAiCompatible'
+     * @type {String}
      */
     neoEmbeddingProvider: process.env.NEO_EMBEDDING_PROVIDER || 'gemini',
     /**
      * Explicit override provider for the ChromaDB Engine.
-     * @type {string}
+     * Supported values: 'gemini', 'ollama', 'openAiCompatible'
+     * @type {String}
      */
     chromaEmbeddingProvider: process.env.CHROMA_EMBEDDING_PROVIDER || 'gemini',
     /**
@@ -86,11 +89,13 @@ const defaultConfig = {
     },
     /**
      * Settings for the OpenAI-Compatible API integration (e.g., mlx-lm or mlx-openai-server)
+     * WARNING: Never hardcode API keys here. Always export them via .env or globally.
      */
     openAiCompatible: {
         host          : process.env.OPENAI_COMPATIBLE_HOST || 'http://127.0.0.1:8000',
         model         : process.env.OPENAI_COMPATIBLE_MODEL || 'gemma4:31b',
-        embeddingModel: process.env.OPENAI_COMPATIBLE_EMBEDDING_MODEL || 'qwen3-embedding'
+        embeddingModel: process.env.OPENAI_COMPATIBLE_EMBEDDING_MODEL || 'qwen3-embedding',
+        apiKey        : process.env.OPENAI_COMPATIBLE_API_KEY || ''
     },
     /**
      * The name of the Google Generative AI model for content generation.
