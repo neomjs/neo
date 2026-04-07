@@ -24,6 +24,7 @@ import {getPaths}      from '../../../../../../../../ai/graph/queries/Traversal.
 
 test.describe('Neo.ai.mcp.server.memory-core.services.GraphService', () => {
     let GraphService;
+    let SystemLifecycleService;
     let service;
     const testDbName = `memory-core-graph-test-${process.pid}-${Date.now()}.sqlite`;
     let testDbPath;
@@ -42,6 +43,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.GraphService', () => {
         aiConfig.engines.neo.filename = testDbName;
 
         GraphService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/GraphService.mjs')).default;
+        SystemLifecycleService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/lifecycle/SystemLifecycleService.mjs')).default;
         if (fs.existsSync(testDbPath)) {
             try {
                 fs.unlinkSync(testDbPath);
@@ -58,7 +60,11 @@ test.describe('Neo.ai.mcp.server.memory-core.services.GraphService', () => {
             GraphService.db.vicinityLoadedNodes.clear();
         }
 
-        await GraphService.ready();
+        if (!SystemLifecycleService._initPromise) {
+            await SystemLifecycleService.initAsync();
+        } else {
+            await SystemLifecycleService.ready();
+        }
     });
 
     test.beforeEach(async () => {
@@ -101,6 +107,10 @@ test.describe('Neo.ai.mcp.server.memory-core.services.GraphService', () => {
             }
             GraphService.db           = null;
             GraphService._initPromise = null;
+        }
+
+        if (SystemLifecycleService) {
+            SystemLifecycleService._initPromise = null;
         }
 
         if (fs.existsSync(testDbPath)) {

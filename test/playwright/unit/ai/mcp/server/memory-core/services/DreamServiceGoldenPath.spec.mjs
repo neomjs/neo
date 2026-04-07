@@ -27,7 +27,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 
 test.describe('DreamService Golden Path', () => {
-    let TextEmbeddingService, aiConfig, DreamService, GraphService, SQLiteVectorManager;
+    let TextEmbeddingService, aiConfig, DreamService, GraphService, SQLiteVectorManager, SystemLifecycleService;
 
     test.beforeAll(async () => {
         aiConfig = (await import('../../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
@@ -50,6 +50,7 @@ test.describe('DreamService Golden Path', () => {
         DreamService         = (await import('../../../../../../../../ai/mcp/server/memory-core/services/DreamService.mjs')).default;
         GraphService         = (await import('../../../../../../../../ai/mcp/server/memory-core/services/GraphService.mjs')).default;
         SQLiteVectorManager  = (await import('../../../../../../../../ai/mcp/server/memory-core/managers/SQLiteVectorManager.mjs')).default;
+        SystemLifecycleService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/lifecycle/SystemLifecycleService.mjs')).default;
 
         if (fs.existsSync(testDbPath)) {
             fs.unlinkSync(testDbPath);
@@ -58,8 +59,7 @@ test.describe('DreamService Golden Path', () => {
         // Mock TextEmbeddingService to return an array of 4096 floats for Qwen3 compatibility
         TextEmbeddingService.embedText = async () => new Array(4096).fill(0.1);
 
-        await SQLiteVectorManager.ready();
-        await GraphService.ready();
+        if (!SystemLifecycleService._initPromise) { await SystemLifecycleService.initAsync(); } else { await SystemLifecycleService.ready(); }
     });
 
     test.afterAll(async () => {
@@ -69,6 +69,10 @@ test.describe('DreamService Golden Path', () => {
             }
             GraphService.db           = null;
             GraphService._initPromise = null;
+        }
+
+        if (SystemLifecycleService) {
+            SystemLifecycleService._initPromise = null;
         }
 
         const os         = await import('os');

@@ -16,6 +16,7 @@ setup({
 import {test, expect}       from '@playwright/test';
 import Neo                  from '../../../../../../../../src/Neo.mjs';
 import * as core            from '../../../../../../../../src/core/_export.mjs';
+import InstanceManager      from '../../../../../../../../src/manager/Instance.mjs';
 import aiConfig             from '../../../../../../../../ai/mcp/server/memory-core/config.mjs';
 import SQLiteVectorManager  from '../../../../../../../../ai/mcp/server/memory-core/managers/SQLiteVectorManager.mjs';
 import ChromaManager        from '../../../../../../../../ai/mcp/server/memory-core/managers/ChromaManager.mjs';
