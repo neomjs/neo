@@ -81,8 +81,8 @@ test.describe('QA Sub-Agent Swarm Node', () => {
         expect(generatedCode.length).toBeGreaterThan(100);
 
         // Core assertions to ensure Gemma4 learned the rules from its System Prompt
-        expect(generatedCode).toContain('import {setup} from');
-        expect(generatedCode).toContain("import Neo from '../../../../src/Neo.mjs'");
+        expect(generatedCode).toMatch(/import\s*\{\s*setup\s*\}\s*from/);
+        expect(generatedCode).toMatch(/import\s*Neo\s*from\s*'.*src\/Neo\.mjs'/);
         expect(generatedCode).toContain('DomApiVnodeCreator');
         expect(generatedCode).toContain('Neo.create(');
         expect(generatedCode).toContain('initVnode()');

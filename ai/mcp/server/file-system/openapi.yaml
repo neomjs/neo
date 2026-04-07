@@ -1,0 +1,163 @@
+openapi: 3.0.3
+info:
+  title: Neo File System MCP Server API
+  description: |
+    This API provides baseline environment tools to autonomous agents.
+    It includes heavily sandboxed file system manipulation and strictly
+    limited execution capabilities (like syntax checking and testing) essential
+    for agent feedback loops.
+  version: 1.0.0
+  contact:
+    name: Neo.mjs Project
+    url: https://github.com/neomjs/neo
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8004
+    description: Local file system server
+
+tags:
+  - name: Health
+    description: Server health endpoints
+  - name: IO
+    description: File IO capabilities
+  - name: Execution
+    description: Execution sandbox
+
+paths:
+  /healthcheck:
+    get:
+      summary: Health Check
+      operationId: healthcheck
+      x-annotations:
+        readOnlyHint: true
+      description: Verifies that the server is running.
+      tags: [Health]
+      responses:
+        '200':
+          description: Server is healthy.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "OK"
+
+  /read_file:
+    post:
+      summary: Read a specific file safely.
+      operationId: read_file
+      description: Reads the complete text of a file from the workspace. Throws a 403 on directory escape attempts.
+      tags: [IO]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [absolutePath]
+              properties:
+                absolutePath:
+                  type: string
+                  description: The absolute path of the file to read.
+      responses:
+        '200':
+          description: The text content of the file.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  content:
+                    type: string
+
+  /write_file:
+    post:
+      summary: Writes or overwrites a file.
+      operationId: write_file
+      description: Writes content to a specific file. Throws a 403 on directory escape attempts.
+      tags: [IO]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [absolutePath, content]
+              properties:
+                absolutePath:
+                  type: string
+                  description: The absolute path to save the file.
+                content:
+                  type: string
+                  description: The exact string contents to write.
+      responses:
+        '200':
+          description: A status confirming write success.
+
+  /list_directory:
+    post:
+      summary: Lists the content of a directory.
+      operationId: list_directory
+      description: Returns an array of file/folder names inside the given directory path.
+      tags: [IO]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [absolutePath]
+              properties:
+                absolutePath:
+                  type: string
+                  description: The absolute directory path.
+      responses:
+        '200':
+          description: List of directory contents.
+
+  /check_syntax:
+    post:
+      summary: Checks target JS file for syntax errors.
+      operationId: check_syntax
+      description: Runs a native AST/syntax check against a file. Returns empty if valid, else returns the syntax error preventing execution.
+      tags: [Execution]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [absolutePath]
+              properties:
+                absolutePath:
+                  type: string
+                  description: The absolute path of the file.
+      responses:
+        '200':
+          description: The result of the syntax check.
+
+  /run_playwright_test:
+    post:
+      summary: Executes a single Playwright spec.
+      operationId: run_playwright_test
+      description: Runs the Playwright runner isolated to the requested spec file to test pass/fail conditions.
+      tags: [Execution]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [absolutePath]
+              properties:
+                absolutePath:
+                  type: string
+                  description: The absolute path to the .spec.mjs file.
+      responses:
+        '200':
+          description: The output trace of the test.
