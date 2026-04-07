@@ -1,4 +1,4 @@
-import {setup} from '../../../../setup.mjs';
+import {setup} from '../../../../../../setup.mjs';
 
 const appName = 'MemoryCoreTest';
 
@@ -19,16 +19,16 @@ setup({
 });
 
 import {test, expect}  from '@playwright/test';
-import Neo             from '../../../../../../src/Neo.mjs';
-import * as core       from '../../../../../../src/core/_export.mjs';
-import InstanceManager from '../../../../../../src/manager/Instance.mjs';
+import Neo             from '../../../../../../../../src/Neo.mjs';
+import * as core       from '../../../../../../../../src/core/_export.mjs';
+import InstanceManager from '../../../../../../../../src/manager/Instance.mjs';
 import path            from 'path';
 import {fileURLToPath} from 'url';
 import dotenv          from 'dotenv';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
-dotenv.config({path: path.resolve(__dirname, '../../../../../../.env'), quiet: true});
+dotenv.config({path: path.resolve(__dirname, '../../../../../../../../.env'), quiet: true});
 
 test.describe('Memory Core Offline Summarization', () => {
     let SDK, TextEmbeddingService, dummySessionId;
@@ -41,7 +41,7 @@ test.describe('Memory Core Offline Summarization', () => {
         const fs = await import('fs');
 
         // Load and mock config FIRST before starting any services
-        const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const aiConfig = (await import('../config.mjs')).default;
 
         const tmpDir = path.resolve(process.cwd(), 'tmp');
         if (!fs.existsSync(tmpDir)) {
@@ -58,8 +58,8 @@ test.describe('Memory Core Offline Summarization', () => {
             fs.unlinkSync(testDbPath);
         }
 
-        SDK                  = await import('../../../../../../ai/services.mjs');
-        TextEmbeddingService = (await import('../../../../../../ai/mcp/server/memory-core/services/TextEmbeddingService.mjs')).default;
+        SDK                  = await import('../../../../../../../../ai/services.mjs');
+        TextEmbeddingService = (await import('./TextEmbeddingService.mjs')).default;
 
         // Force 'ollama' routing for this test
         SDK.Memory_Config.data.modelProvider         = 'ollama';
