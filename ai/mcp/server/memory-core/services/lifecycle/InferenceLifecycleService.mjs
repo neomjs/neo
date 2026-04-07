@@ -27,8 +27,20 @@ const memCoreDir = path.resolve(__dirname, '../../');
  */
 class InferenceLifecycleService extends Base {
     static config = {
+        /**
+         * @member {String} className='Neo.ai.mcp.server.memory-core.services.lifecycle.InferenceLifecycleService'
+         * @protected
+         */
         className: 'Neo.ai.mcp.server.memory-core.services.lifecycle.InferenceLifecycleService',
+        /**
+         * @member {Object|null} inferenceProcess=null
+         * @protected
+         */
         inferenceProcess: null,
+        /**
+         * @member {Boolean} singleton=true
+         * @protected
+         */
         singleton: true
     }
 
