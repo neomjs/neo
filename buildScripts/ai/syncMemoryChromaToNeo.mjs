@@ -10,7 +10,7 @@ import {program}            from 'commander';
 program
     .name('sync-memory-chroma-to-neo')
     .description('Migrate ChromaDB memory to Neo SQLite with optional re-embedding')
-    .option('-p, --target-provider <provider>', 'The target embedding provider (e.g., gemini, ollama).')
+    .option('-p, --target-provider <provider>', 'The target embedding provider (e.g., gemini, openAiCompatible).')
     .parse(process.argv);
 
 const options = program.opts();
@@ -52,7 +52,7 @@ async function sync() {
         await SQLiteVectorManager.ready();
 
         console.log("4. Booting TextEmbeddingService...");
-        await TextEmbeddingService.initAsync();
+        await TextEmbeddingService.ready();
 
         const processCollection = async (chromaGetter, sqliteGetter, name) => {
             console.log(`\n--- Migrating Collection: ${name} ---`);
