@@ -35,12 +35,6 @@ class DatabaseLifecycleService extends Base {
          */
         chromaProcess: null,
         /**
-         * Holds the child process object for the Ollama server.
-         * @member {ChildProcess|null} ollamaProcess=null
-         * @protected
-         */
-        ollamaProcess: null,
-        /**
          * @member {Boolean} singleton=true
          * @protected
          */
@@ -69,70 +63,6 @@ class DatabaseLifecycleService extends Base {
         }
     }
 
-    /**
-     * Checks if the Ollama daemon is running.
-     * @returns {Promise<boolean>}
-     */
-    async isOllamaRunning() {
-        try {
-            const {host} = aiConfig.ollama;
-            const res    = await fetch(`${host}/api/version`);
-            return res.ok;
-        } catch (e) {
-            return false;
-        }
-    }
-
-    /**
-     * Starts the Ollama daemon if it is not already running.
-     * @returns {Promise<void>}
-     */
-    async startOllama() {
-        if (await this.isOllamaRunning()) {
-            logger.log('Ollama daemon is already running (Memory Core).');
-            return;
-        }
-
-        logger.error('Starting Ollama daemon (Memory Core)...');
-
-        await new Promise((resolve, reject) => {
-            const spawnedProcess = spawn('ollama', ['serve'], {
-                detached: true,
-                stdio   : 'ignore'
-            });
-
-            spawnedProcess.on('spawn', () => {
-                this.ollamaProcess = spawnedProcess;
-                logger.log(`Ollama daemon started with PID: ${this.ollamaProcess.pid}`);
-
-                if (!this.cleanupHandler) {
-                    this.cleanupHandler = this.cleanup.bind(this);
-                    process.on('exit', this.cleanupHandler);
-                    process.on('SIGINT', this.cleanupHandler);
-                    process.on('SIGTERM', this.cleanupHandler);
-                }
-                resolve();
-            });
-
-            spawnedProcess.on('error', (err) => {
-                logger.error('Failed to start Ollama daemon:', err);
-                this.ollamaProcess = null;
-                reject(err);
-            });
-
-            spawnedProcess.unref();
-        });
-
-        logger.log('Waiting for Ollama heartbeat...');
-        for (let i = 0; i < 30; i++) {
-            if (await this.isOllamaRunning()) {
-                logger.log('Ollama heartbeat detected.');
-                return;
-            }
-            await new Promise(resolve => setTimeout(resolve, 500));
-        }
-        throw new Error('Ollama failed to start (timeout waiting for heartbeat).');
-    }
 
     /**
      * Manages the database lifecycle based on the provided action.
@@ -156,12 +86,6 @@ class DatabaseLifecycleService extends Base {
      */
     async startDatabase() {
         try {
-            if (aiConfig.engine === 'neo' || aiConfig.engine === 'both') {
-                if (aiConfig.neoEmbeddingProvider === 'ollama') {
-                    await this.startOllama();
-                }
-            }
-
             if (aiConfig.engine === 'neo') {
                 return {status: 'neo_engine_active', pid: null, detail: 'SQLite-Vec native engine started.'};
             }
@@ -249,15 +173,6 @@ class DatabaseLifecycleService extends Base {
             }
         }
 
-        if (this.ollamaProcess) {
-            try {
-                process.kill(-this.ollamaProcess.pid, 'SIGTERM');
-                this.ollamaProcess = null;
-            } catch (e) {
-                // Ignore errors
-            }
-        }
-
         // If this was a signal (not a normal exit), we need to exit explicitly
         if (typeof signalOrCode === 'string') {
             process.exit(0);
@@ -286,15 +201,6 @@ class DatabaseLifecycleService extends Base {
      */
     async stopDatabase() {
         try {
-            if (this.ollamaProcess && !this.ollamaProcess.killed) {
-                logger.log(`Ollama process with PID: ${this.ollamaProcess.pid} has been stopped.`);
-                try {
-                    process.kill(-this.ollamaProcess.pid, 'SIGTERM');
-                } catch (e) {
-                }
-                this.ollamaProcess = null;
-            }
-
             if (!this.chromaProcess || this.chromaProcess.killed) {
                 return {status: 'not_running', detail: 'No process was started by this server.'};
             }

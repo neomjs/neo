@@ -92,55 +92,7 @@ class SessionService extends Base {
             }
         }
 
-        if (aiConfig.modelProvider === 'ollama') {
-            logger.info(`[SessionService] Initializing generation model via Ollama (${aiConfig.ollama.model})`);
-            this.model = {
-                generateContent: async (promptText) => {
-                    logger.info(`[Ollama] Sending summarization prompt (${promptText.length} chars)`);
-                    return new Promise((resolve, reject) => {
-                        const url = new URL(`${aiConfig.ollama.host}/api/generate`);
-                        const client = url.protocol === 'https:' ? https : http;
-                        const bodyData = Buffer.from(JSON.stringify({
-                            model: aiConfig.ollama.model,
-                            prompt: promptText,
-                            stream: false,
-                            keep_alive: "1h",
-                            options: { num_ctx: 200000 }
-                        }), 'utf8');
-
-                        const req = client.request(url, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Content-Length': bodyData.length
-                            },
-                            timeout: 60 * 60 * 1000 // 1 hour timeout explicitly configured
-                        }, (res) => {
-                            let chunks = [];
-                            res.on('data', c => chunks.push(c));
-                            res.on('end', () => {
-                                try {
-                                    const rawStr = Buffer.concat(chunks).toString('utf8');
-                                    const data = JSON.parse(rawStr);
-                                    if (data.error) {
-                                        logger.error(`[Ollama] Error: ${data.error}`);
-                                        return reject(new Error(`Ollama Generation Error: ${data.error}`));
-                                    }
-                                    resolve({ response: { text: () => data.response } });
-                                } catch (e) {
-                                    reject(new Error(`Ollama Parser Error: ${e.message}`));
-                                }
-                            });
-                        });
-
-                        req.on('error', e => reject(e));
-                        req.on('timeout', () => { req.destroy(); reject(new Error('Ollama Request Timeout')); });
-                        req.write(bodyData);
-                        req.end();
-                    });
-                }
-            };
-        } else if (aiConfig.modelProvider === 'openAiCompatible') {
+        if (aiConfig.modelProvider === 'openAiCompatible') {
             logger.info(`[SessionService] Initializing generation model via OpenAI-Compatible API (${aiConfig.openAiCompatible.model})`);
             this.model = {
                 generateContent: async (promptText) => {
@@ -222,9 +174,7 @@ class SessionService extends Base {
         if (aiConfig.data.autoSummarize) {
             logger.info('[Startup] Checking for unsummarized sessions...');
 
-            try {
-                const result = await this.summarizeSessions({});
-
+            this.summarizeSessions({}).then(result => {
                 if (result.processed > 0) {
                     logger.info(`✅ [Startup] Summarized ${result.processed} session(s):`);
                     result.sessions.forEach(session => {
@@ -238,11 +188,11 @@ class SessionService extends Base {
                     logger.info('[Startup] No unsummarized sessions found');
                     HealthService.recordStartupSummarization('completed', { processed: 0 });
                 }
-            } catch (error) {
+            }).catch(error => {
                 logger.warn('⚠️  [Startup] Session summarization failed:', error.message);
                 logger.warn('    You can manually trigger summarization using the summarize_sessions tool');
                 HealthService.recordStartupSummarization('failed', { error: error.message });
-            }
+            });
         }
     }
 
@@ -618,7 +568,7 @@ ${aggregatedContent}
                     // Gemini (Cloud) scales over parallel network connections based on host CPU
                     batchSize = Math.max(1, Math.floor(os.cpus().length * 0.75));
                 } else {
-                    // Ollama (Local) with massive-context bounds MUST strictly track serial execution to prevent VRAM OOM
+                    // Local LLMs with massive-context bounds MUST strictly track serial execution to prevent VRAM OOM
                     batchSize = 1;
                 }
 
