@@ -21,7 +21,7 @@ const __dirname  = path.dirname(__filename);
  * @summary Service for offline GraphRAG extraction ("REM Sleep").
  *
  * Scans recent session summaries from the `neo-agent-sessions` collection that have not
- * yet been formally digested into Graph Nodes and Edges. Uses the local Ollama provider
+ * yet been formally digested into Graph Nodes and Edges. Uses the configured model provider
  * via configurable model to extract formal graph structures from episodic memories.
  *
  * @class Neo.ai.mcp.server.memory-core.services.DreamService
@@ -66,7 +66,7 @@ class DreamService extends Base {
 
         if (aiConfig.data.autoDream) {
             logger.info('[Startup] DreamService: Checking for undigested session memories...');
-            this.processUndigestedSessions();
+            this.processUndigestedSessions().catch(e => logger.error('[Startup] DreamService failed:', e));
         }
     }
 
@@ -191,7 +191,7 @@ class DreamService extends Base {
 
     /**
      * Executes the Tri-Vector Synthesis (Semantic Graph, Open Deltas, Roadmap Strategy)
-     * from the session memory log via Ollama JSON schema extraction.
+     * from the session memory log via JSON schema extraction.
      * @param {Object} session Wrapped session object containing id, document, and meta
      * @returns {Promise<Object|null>} The extracted payload, or null on failure
      */
