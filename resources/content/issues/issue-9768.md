@@ -1,0 +1,47 @@
+---
+id: 9768
+title: Refactor memory-core Database Lifecycle & Vector Managers
+state: OPEN
+labels:
+  - ai
+  - refactoring
+  - architecture
+assignees:
+  - tobiu
+createdAt: '2026-04-07T21:45:52Z'
+updatedAt: '2026-04-07T21:47:10Z'
+githubUrl: 'https://github.com/neomjs/neo/issues/9768'
+author: tobiu
+commentsCount: 0
+parentIssue: null
+subIssues: []
+subIssuesCompleted: 0
+subIssuesTotal: 0
+blockedBy: []
+blocking: []
+---
+# Refactor memory-core Database Lifecycle & Vector Managers
+
+This epic covers the architectural teardown and modularization of the `DatabaseLifecycleService` to support configuration-driven Vector Databases (Chroma vs SQLite) and local Inference Daemons (`openAiCompatible` via MLX).
+
+### Architectural Context
+The memory-core MCP server's initial infrastructure outgrew its design:
+1. **The Vector Sprawl:** `DatabaseLifecycleService` organically grew into a "god class" that intertwines Chroma and local inference logic, making it impossible to run cleanly if an engine was disabled. 
+2. **Missing Mac Provisioning:** The recent switch to `openAiCompatible` left Apple Silicon environments without an automated provisioning path for the MLX daemon (the Ollama equivalent).
+3. **The Proxy Coupling:** `CollectionProxy` was statically importing mutually exclusive managers (`ChromaManager` and `SQLiteVectorManager`), breaking the dependency inversion principles established by `aiConfig.engine`.
+
+### Implementation Plan
+A finalized implementation plan has been written to address this:
+1. **MLX Provisioning:** Create a `setup_mlx.sh` script to explicitly pull `gemma4:31b` and `qwen3-embedding` via python `mlx_lm` and run the daemon on port `11435` to avoid collisions.
+2. **Vector Clean Architecture:** Implement an `AbstractVectorManager` and use a dynamic factory inside `CollectionProxy` to load managers.
+3. **Service Refactoring:** Dismantle `DatabaseLifecycleService` into `ChromaLifecycleService` and `InferenceLifecycleService`, properly exporting them via `ai/services.mjs` using the singleton `.ready()` paradigm.
+
+_Note: This issue was created to transfer context to a fresh AI session._
+
+## Timeline
+
+- 2026-04-07T21:45:56Z @tobiu added the `ai` label
+- 2026-04-07T21:45:56Z @tobiu added the `refactoring` label
+- 2026-04-07T21:45:56Z @tobiu added the `architecture` label
+- 2026-04-07T21:47:10Z @tobiu assigned to @tobiu
+
