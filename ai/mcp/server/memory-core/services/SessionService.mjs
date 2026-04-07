@@ -1,15 +1,15 @@
-import {GoogleGenerativeAI} from '@google/generative-ai';
-import aiConfig             from '../config.mjs';
-import Base                 from '../../../../../src/core/Base.mjs';
-import crypto               from 'crypto';
-import GraphService         from './GraphService.mjs';
-import StorageRouter        from '../managers/StorageRouter.mjs';
-import HealthService        from './HealthService.mjs';
-import Json                 from '../../../../../src/util/Json.mjs';
-import fs                   from 'fs';
-import path                 from 'path';
-import os                   from 'os';
-import logger               from '../logger.mjs';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import aiConfig from '../config.mjs';
+import Base from '../../../../../src/core/Base.mjs';
+import crypto from 'crypto';
+import GraphService from './GraphService.mjs';
+import StorageRouter from '../managers/StorageRouter.mjs';
+import HealthService from './HealthService.mjs';
+import Json from '../../../../../src/util/Json.mjs';
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
+import logger from '../logger.mjs';
 
 /**
  * @summary Service for handling session summarization and drift detection.
@@ -85,7 +85,7 @@ class SessionService extends Base {
             const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
             if (!GEMINI_API_KEY) {
                 logger.warn('⚠️  [Startup] GEMINI_API_KEY not set for generation model.');
-                HealthService.recordStartupSummarization('skipped', {reason: 'GEMINI_API_KEY not set'});
+                HealthService.recordStartupSummarization('skipped', { reason: 'GEMINI_API_KEY not set' });
                 return;
             }
         }
@@ -95,15 +95,28 @@ class SessionService extends Base {
             this.model = {
                 generateContent: async (promptText) => {
                     logger.info(`[Ollama] Sending summarization prompt (${promptText.length} chars)`);
-                    const response = await fetch(`${aiConfig.ollama.host}/api/generate`, {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({
-                            model: aiConfig.ollama.model,
-                            prompt: promptText,
-                            stream: false
-                        })
-                    });
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 60 * 60 * 1000); // 1 hour timeout
+
+                    let response;
+                    try {
+                        response = await fetch(`${aiConfig.ollama.host}/api/generate`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                model: aiConfig.ollama.model,
+                                prompt: promptText,
+                                stream: false,
+                                keep_alive: "1h",
+                                options: {
+                                    num_ctx: 200000 // Force massive context window
+                                }
+                            }),
+                            signal: controller.signal
+                        });
+                    } finally {
+                        clearTimeout(timeoutId);
+                    }
                     const data = await response.json();
 
                     if (data.error) {
@@ -112,7 +125,7 @@ class SessionService extends Base {
                     }
                     return {
                         response: {
-                           text: () => data.response
+                            text: () => data.response
                         }
                     };
                 }
@@ -120,7 +133,7 @@ class SessionService extends Base {
         } else {
             logger.info(`[SessionService] Initializing generation model via Gemini (${aiConfig.modelName})`);
             const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-            this.model = genAI.getGenerativeModel({model: aiConfig.modelName});
+            this.model = genAI.getGenerativeModel({ model: aiConfig.modelName });
         }
     }
 
@@ -134,7 +147,7 @@ class SessionService extends Base {
         await StorageRouter.ready();
 
         // Use StorageRouter
-        this.memoryCollection   = await StorageRouter.getMemoryCollection();
+        this.memoryCollection = await StorageRouter.getMemoryCollection();
         this.sessionsCollection = await StorageRouter.getSummaryCollection();
 
         // Do not proceed with summarization if the API key is missing.
@@ -155,16 +168,16 @@ class SessionService extends Base {
                     });
                     HealthService.recordStartupSummarization('completed', {
                         processed: result.processed,
-                        sessions : result.sessions.map(s => ({title: s.title, memoryCount: s.memoryCount}))
+                        sessions: result.sessions.map(s => ({ title: s.title, memoryCount: s.memoryCount }))
                     });
                 } else {
                     logger.info('[Startup] No unsummarized sessions found');
-                    HealthService.recordStartupSummarization('completed', {processed: 0});
+                    HealthService.recordStartupSummarization('completed', { processed: 0 });
                 }
             } catch (error) {
                 logger.warn('⚠️  [Startup] Session summarization failed:', error.message);
                 logger.warn('    You can manually trigger summarization using the summarize_sessions tool');
-                HealthService.recordStartupSummarization('failed', {error: error.message});
+                HealthService.recordStartupSummarization('failed', { error: error.message });
             }
         }
     }
@@ -191,19 +204,19 @@ class SessionService extends Base {
      * @param {Boolean} [includeAll=false] If true, ignores the 30-day limit and scans all sessions.
      * @returns {Promise<String[]>} List of Session IDs requiring summarization.
      */
-    async findSessionsToSummarize(includeAll=false) {
+    async findSessionsToSummarize(includeAll = false) {
         // 1. Get metadata for memories
         // Default: Last 30 Days only (limits scope to recent active work).
         // Override: All time (if includeAll is true).
         const ONE_MONTH_MS = 30 * 24 * 60 * 60 * 1000;
         const minTimestamp = Date.now() - ONE_MONTH_MS;
-        const limit        = aiConfig.summarizationBatchLimit || 2000;
-        const maxIterations= 1000; // Safety break: max 2M records (2000 * 1000)
+        const limit = aiConfig.summarizationBatchLimit || 2000;
+        const maxIterations = 1000; // Safety break: max 2M records (2000 * 1000)
 
-        let allMetadatas  = [];
-        let offset        = 0;
-        let hasMore       = true;
-        let iterations    = 0;
+        let allMetadatas = [];
+        let offset = 0;
+        let hasMore = true;
+        let iterations = 0;
 
         // Build query options dynamically to avoid passing `where: undefined`
         const baseQueryOptions = {
@@ -211,7 +224,7 @@ class SessionService extends Base {
             limit
         };
 
-        const memoryQueryOptions = {...baseQueryOptions};
+        const memoryQueryOptions = { ...baseQueryOptions };
 
         if (!includeAll) {
             memoryQueryOptions.where = {
@@ -251,7 +264,7 @@ class SessionService extends Base {
             if (!m.sessionId) return;
 
             if (!sessions[m.sessionId]) {
-                sessions[m.sessionId] = {count: 0};
+                sessions[m.sessionId] = { count: 0 };
             }
 
             sessions[m.sessionId].count++;
@@ -260,11 +273,11 @@ class SessionService extends Base {
         // 3. Fetch existing summaries
         // Matches the scope of the memory fetch (30 days or all).
         let allSummaryMetadatas = [];
-        offset     = 0;
-        hasMore    = true;
+        offset = 0;
+        hasMore = true;
         iterations = 0;
 
-        const summaryQueryOptions = {...baseQueryOptions};
+        const summaryQueryOptions = { ...baseQueryOptions };
 
         if (!includeAll) {
             summaryQueryOptions.where = {
@@ -307,7 +320,7 @@ class SessionService extends Base {
         const sessionsToUpdate = [];
 
         Object.keys(sessions).forEach(sessionId => {
-            const sessionData  = sessions[sessionId];
+            const sessionData = sessions[sessionId];
             const summaryCount = summaryMap[sessionId];
 
             // Case A: Completely Missing Summary (within the scoped window)
@@ -343,7 +356,7 @@ class SessionService extends Base {
         }
 
         const memories = await this.memoryCollection.get({
-            where  : {sessionId},
+            where: { sessionId },
             include: ['documents', 'metadatas']
         });
 
@@ -369,7 +382,7 @@ class SessionService extends Base {
         }
 
         const participatingAgents = Array.from(extractedAgents);
-        const models              = Array.from(extractedModels);
+        const models = Array.from(extractedModels);
 
         const summaryPrompt = `
 Analyze the following development session and provide a structured summary in JSON format. The JSON object should have the following properties:
@@ -392,23 +405,23 @@ Context: This session involved the following agents: ${participatingAgents.join(
 ${aggregatedContent}
 `;
 
-        const result       = await this.model.generateContent(summaryPrompt);
+        const result = await this.model.generateContent(summaryPrompt);
         const responseText = result.response.text();
-        const summaryData  = Json.extract(responseText);
+        const summaryData = Json.extract(responseText);
 
         if (!summaryData) {
-             logger.warn(`Failed to parse summary for session ${sessionId}`);
-             return null;
+            logger.warn(`Failed to parse summary for session ${sessionId}`);
+            return null;
         }
 
-        const {summary, title, category, quality, productivity, impact, complexity, technologies} = summaryData;
+        const { summary, title, category, quality, productivity, impact, complexity, technologies } = summaryData;
 
-        const summaryId       = `summary_${sessionId}`;
+        const summaryId = `summary_${sessionId}`;
 
         await this.sessionsCollection.upsert({
-            ids       : [summaryId],
-            documents : [summary],
-            metadatas : [{
+            ids: [summaryId],
+            documents: [summary],
+            metadatas: [{
                 sessionId, timestamp: lastActivity, memoryCount: memories.ids.length,
                 title, category, quality, productivity, impact, complexity,
                 technologies: (technologies || []).join(','),
@@ -433,11 +446,11 @@ ${aggregatedContent}
         const issueRegex = /(?:#|issue-)(\d+)/gi;
         const linkedIssues = new Set();
         let match;
-        
+
         while ((match = issueRegex.exec(summary)) !== null) {
             linkedIssues.add(`issue-${match[1]}`);
         }
-        
+
         while ((match = issueRegex.exec(aggregatedContent)) !== null) {
             linkedIssues.add(`issue-${match[1]}`);
         }
@@ -451,7 +464,7 @@ ${aggregatedContent}
         // Add a 12-hour buffer window for offline drafting match
         await this.ingestAntigravityArtifacts(sessionId, summaryId, firstActivity - (12 * 3600000), lastActivity + (12 * 3600000));
 
-        return {sessionId, summaryId, title, memoryCount: memories.ids.length};
+        return { sessionId, summaryId, title, memoryCount: memories.ids.length };
     }
 
     /**
@@ -467,9 +480,9 @@ ${aggregatedContent}
         try {
             const homeDir = os.homedir();
             const brainDir = path.join(homeDir, '.gemini', 'antigravity', 'brain');
-            
+
             if (!fs.existsSync(brainDir)) return;
-            
+
             const conversations = fs.readdirSync(brainDir);
             for (const convId of conversations) {
                 const planPath = path.join(brainDir, convId, 'implementation_plan.md');
@@ -479,9 +492,9 @@ ${aggregatedContent}
                     if (stats.mtimeMs >= minTimeMs && stats.mtimeMs <= maxTimeMs) {
                         const content = fs.readFileSync(planPath, 'utf8');
                         const artifactId = `plan_${convId}`;
-                        
+
                         logger.info(`[SessionService] Ingesting Antigravity artifact: ${planPath}`);
-                        
+
                         // Push into ChromaDB
                         try {
                             await this.memoryCollection.upsert({
@@ -525,7 +538,7 @@ ${aggregatedContent}
      * @param {String}  [options.sessionId]  A specific session ID to summarize.
      * @returns {Promise<{processed: number, sessions: object[]}|{error: string, message: string, code: string}>}
      */
-    async summarizeSessions({includeAll, sessionId} = {}) {
+    async summarizeSessions({ includeAll, sessionId } = {}) {
         try {
             let processed = [];
 
@@ -534,8 +547,18 @@ ${aggregatedContent}
                 if (result) processed.push(result);
             } else {
                 const sessionsToSummarize = await this.findSessionsToSummarize(includeAll);
-                const batchSize           = aiConfig.summarizationConcurrency || 5;
-                const total               = sessionsToSummarize.length;
+
+                // Hardware concurrency scaling
+                let batchSize;
+                if (aiConfig.modelProvider === 'gemini') {
+                    // Gemini (Cloud) scales over parallel network connections based on host CPU
+                    batchSize = Math.max(1, Math.floor(os.cpus().length * 0.75));
+                } else {
+                    // Ollama (Local) with massive-context bounds MUST strictly track serial execution to prevent VRAM OOM
+                    batchSize = 1; 
+                }
+
+                const total = sessionsToSummarize.length;
 
                 logger.info(`[SessionService] Found ${total} sessions to summarize. Processing in batches of ${batchSize}...`);
 
@@ -543,22 +566,22 @@ ${aggregatedContent}
                     const chunk = sessionsToSummarize.slice(i, i + batchSize);
                     logger.info(`[SessionService] Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(total / batchSize)} (${chunk.length} sessions)...`);
 
-                    const promises    = chunk.map(id => this.summarizeSession(id));
-                    const results     = await Promise.all(promises);
+                    const promises = chunk.map(id => this.summarizeSession(id));
+                    const results = await Promise.all(promises);
                     const batchResult = results.filter(Boolean);
 
                     processed.push(...batchResult);
                 }
             }
 
-            return {processed: processed.length, sessions: processed};
+            return { processed: processed.length, sessions: processed };
 
         } catch (error) {
             logger.error('[SessionService] Error during session summarization:', error);
             return {
-                error  : 'Session summarization failed',
+                error: 'Session summarization failed',
                 message: error.message,
-                code   : 'SUMMARIZATION_ERROR'
+                code: 'SUMMARIZATION_ERROR'
             };
         }
     }

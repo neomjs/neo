@@ -45,7 +45,13 @@ class DreamService extends Base {
          * @protected
          * @reactive
          */
-        sessionsCollection_: null
+        sessionsCollection_: null,
+        /**
+         * @member {Boolean} isProcessing_=false
+         * @protected
+         * @reactive
+         */
+        isProcessing_: false
     }
 
     /**
@@ -107,6 +113,25 @@ class DreamService extends Base {
      * Pipeline to process undigested sessions.
      */
     async processUndigestedSessions() {
+        if (this.isProcessing) {
+            logger.debug('[DreamService] REM pipeline is already running. Skipping trigger.');
+            return;
+        }
+        
+        this.isProcessing = true;
+
+        if (aiConfig.modelProvider === 'ollama') {
+            try {
+                const url = new URL('/api/tags', aiConfig.ollama.host || 'http://127.0.0.1:11434');
+                const ping = await fetch(url.toString(), { method: 'GET', signal: AbortSignal.timeout(5000) });
+                if (!ping.ok) throw new Error('Ollama not running');
+            } catch (e) {
+                logger.error('[DreamService] Ollama service is unreachable. Aborting REM pipeline to prevent queue failures.');
+                this.isProcessing = false;
+                return;
+            }
+        }
+
         try {
             const sessions = await this.findUndigestedSessions();
             if (sessions.length === 0) {
@@ -144,6 +169,8 @@ class DreamService extends Base {
             logger.info('[DreamService] REM pipeline completed.');
         } catch (error) {
             logger.error('[DreamService] Failed to process undigested sessions:', error);
+        } finally {
+            this.isProcessing = false;
         }
     }
 
@@ -200,7 +227,8 @@ ${session.document}
 
             // Call standard generation method with explicit format enforcement
             const result = await provider.generate(prompt, {
-                response_format: { type: 'json_object' }
+                response_format: { type: 'json_object' },
+                num_ctx: 200000 // Massive context required for un-truncated digestion
             });
 
             // Extract using robust Json parser to catch malformed boundaries
@@ -226,23 +254,54 @@ ${session.document}
                 });
             }
 
+            const VALID_TYPES = ['SESSION', 'MEMORY', 'ARTIFACT_PLAN', 'ARTIFACT_TASK', 'ISSUE', 'STRATEGY', 'SYSTEM_ANCHOR', 'CONCEPT', 'CLASS', 'METHOD', 'FILE', 'GUIDE', 'BLOG', 'TEST'];
+
             // Bridge to GraphService (SQLite)
             for (const node of payload.graph.nodes) {
                 if (node.id === 'frontier') continue;
+                
+                let nodeType = node.type && VALID_TYPES.includes(node.type.toUpperCase()) ? node.type.toUpperCase() : 'CONCEPT';
+                let nodeId = node.id;
+                
+                // Enforce Neo native Graph ID specification (Type:Name) if hallucinated
+                if (!nodeId.includes(':')) {
+                    const cleanName = (node.name || nodeId).replace(/[^a-zA-Z0-9_\-\.]/g, '_');
+                    nodeId = `${nodeType}:${cleanName}`;
+                }
 
                 GraphService.upsertNode({
-                    id: node.id,
-                    type: node.type || 'Unknown',
+                    id: nodeId,
+                    type: nodeType,
                     name: node.name || 'Unknown',
                     description: node.description || '',
                     semanticVectorId: session.id
                 });
+                
+                // Update the payload graph node id so edges bind correctly
+                node._resolvedId = nodeId; 
             }
 
+            const validNodeRefs = new Set([...payload.graph.nodes.map(n => n.id), ...payload.graph.nodes.map(n => n._resolvedId), 'frontier']);
+
             for (const edge of payload.graph.edges) {
+                // Map the original edge source/target to the resolved Node IDs
+                let resolvedSource = edge.source;
+                let resolvedTarget = edge.target;
+                
+                const sourceNode = payload.graph.nodes.find(n => n.id === edge.source);
+                if (sourceNode && sourceNode._resolvedId) resolvedSource = sourceNode._resolvedId;
+                
+                const targetNode = payload.graph.nodes.find(n => n.id === edge.target);
+                if (targetNode && targetNode._resolvedId) resolvedTarget = targetNode._resolvedId;
+
+                if (!validNodeRefs.has(resolvedSource) || !validNodeRefs.has(resolvedTarget)) {
+                    logger.warn(`[DreamService] Culling hallucinated edge from ${resolvedSource} to ${resolvedTarget}`);
+                    continue; // Skip trying to link non-existent graph nodes
+                }
+
                 GraphService.linkNodes(
-                    edge.source,
-                    edge.target,
+                    resolvedSource,
+                    resolvedTarget,
                     edge.relationship || 'RELATED_TO',
                     edge.weight !== undefined ? parseFloat(edge.weight) : 1.0
                 );
