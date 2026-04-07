@@ -88,11 +88,11 @@ Your most important tool is the local AI knowledge base. To use it, call the `qu
 
 The tool contains complete guidance on effective querying. Follow its documented patterns.
 
-### 3.2. Knowledge Base Enhancement Strategy (Mandatory Anti-Slop Gate)
+### 3.2. Knowledge Base Enhancement Strategy (Mandatory Contextual Completeness Gate)
 
-**CRITICAL:** This strategy is not optional. It is a mandatory strict requirement enforced by the "Anti-Slop" Pre-Commit Gate defined in `AGENTS.md`. You are strictly forbidden from committing undocumented configurations, methods with zero JSDoc, or functions lacking `@summary` tags.
+**CRITICAL:** This strategy is not optional. It is a mandatory strict requirement enforced by the "Contextual Completeness" Pre-Commit Gate defined in `AGENTS.md`. You are strictly forbidden from committing undocumented configurations, methods with zero JSDoc, or functions lacking `@summary` tags.
 
-When analyzing source files, if you encounter code that lacks sufficient intent-driven comments or clear documentation, you MUST enhance it with meaningful, structured documentation before proceeding with a commit. The goal is not just to explain the code, but to protect the codebase from low-context "AI slop" and make it discoverable for future queries.
+When analyzing source files, if you encounter code that lacks sufficient intent-driven comments or clear documentation, you MUST enhance it with meaningful, structured documentation before proceeding with a commit. The goal is not just to explain the code, but to protect the codebase from low-context semantic degradation and make it discoverable for future queries.
 
 The Knowledge Base does not ingest entire files; it parses them into **isolated semantic chunks** (Class Context, Methods, Properties). A common documentation anti-pattern is "Implied Context"—where a method's comment assumes the reader has read the class description. When the AI queries the database, these isolated chunks lack semantic weight and fail to match.
 
