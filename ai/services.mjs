@@ -44,6 +44,7 @@ import Memory_SummaryService        from './mcp/server/memory-core/services/Summ
 import Memory_ChromaLifecycleService from './mcp/server/memory-core/services/lifecycle/ChromaLifecycleService.mjs';
 import Memory_InferenceLifecycleService from './mcp/server/memory-core/services/lifecycle/InferenceLifecycleService.mjs';
 import Memory_SQLiteVectorManager   from './mcp/server/memory-core/managers/SQLiteVectorManager.mjs';
+import Memory_LifecycleService      from './mcp/server/memory-core/services/lifecycle/SystemLifecycleService.mjs';
 import Memory_Config                from './mcp/server/memory-core/config.mjs';
 
 Memory_Config.data.autoSummarize = false;
@@ -177,6 +178,7 @@ makeSafe(KB_SearchService,    kbSpec);
 makeSafe(Memory_Service,          memSpec);
 makeSafe(Memory_DatabaseService,  memSpec);
 makeSafe(Memory_SessionService,   memSpec);
+makeSafe(Memory_LifecycleService, memSpec);
 makeSafe(Memory_ChromaLifecycleService, memSpec);
 makeSafe(Memory_InferenceLifecycleService, memSpec);
 makeSafe(Memory_HealthService,    memSpec);
@@ -239,6 +241,7 @@ export {
     Memory_Service,
     Memory_SessionService,
     Memory_DatabaseService,
+    Memory_LifecycleService,
     Memory_ChromaLifecycleService,
     Memory_InferenceLifecycleService,
     Memory_GraphService,

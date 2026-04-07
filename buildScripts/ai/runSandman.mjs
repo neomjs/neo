@@ -4,7 +4,7 @@ import InstanceManager  from '../../src/manager/Instance.mjs';
 import Memory_Config    from '../../ai/mcp/server/memory-core/config.mjs';
 import Memory_Service   from '../../ai/mcp/server/memory-core/services/MemoryService.mjs';
 import DreamService     from '../../ai/mcp/server/memory-core/services/DreamService.mjs';
-import LifecycleService from '../../ai/mcp/server/memory-core/services/DatabaseLifecycleService.mjs';
+import LifecycleService from '../../ai/mcp/server/memory-core/services/lifecycle/SystemLifecycleService.mjs';
 import GraphService     from '../../ai/mcp/server/memory-core/services/GraphService.mjs';
 import {spawn}          from 'child_process';
 import http             from 'http';
