@@ -62,6 +62,11 @@ const defaultConfig = {
         clientSecret: process.env.OAUTH_CLIENT_SECRET || '',
     },
     /**
+     * Explicit override provider for the core LLM Engine (e.g. summarization).
+     * @type {string}
+     */
+    modelProvider: process.env.MODEL_PROVIDER || 'gemini',
+    /**
      * Explicit override provider for the SQLite Native Database Engine.
      * @type {string}
      */
