@@ -41,7 +41,7 @@ test.describe('Memory Core Offline Summarization', () => {
         const fs = await import('fs');
 
         // Load and mock config FIRST before starting any services
-        const aiConfig = (await import('../config.mjs')).default;
+        const aiConfig = (await import('../../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
 
         const tmpDir = path.resolve(process.cwd(), 'tmp');
         if (!fs.existsSync(tmpDir)) {
@@ -59,7 +59,7 @@ test.describe('Memory Core Offline Summarization', () => {
         }
 
         SDK                  = await import('../../../../../../../../ai/services.mjs');
-        TextEmbeddingService = (await import('./TextEmbeddingService.mjs')).default;
+        TextEmbeddingService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/TextEmbeddingService.mjs')).default;
 
         // Force 'ollama' routing for this test
         SDK.Memory_Config.data.modelProvider         = 'ollama';
