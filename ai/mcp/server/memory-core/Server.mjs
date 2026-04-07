@@ -6,6 +6,7 @@ import logger                                          from './logger.mjs';
 import HealthService                                   from './services/HealthService.mjs';
 import SessionService                                  from './services/SessionService.mjs';
 import DreamService                                    from './services/DreamService.mjs';
+import InferenceLifecycleService                       from './services/lifecycle/InferenceLifecycleService.mjs';
 import {listTools, callTool}                           from './services/toolService.mjs';
 
 /**
@@ -75,6 +76,7 @@ class Server extends Base {
 
         // 4. Wait for dependent services
         // SessionService is a singleton, so we wait for its global ready state
+        await InferenceLifecycleService.ready();
         await SessionService.ready();
         await DreamService.ready();
 

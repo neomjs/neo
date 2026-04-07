@@ -38,10 +38,11 @@ KB_Config.data.autoSync = false;
 import Memory_Service               from './mcp/server/memory-core/services/MemoryService.mjs';
 import Memory_DatabaseService       from './mcp/server/memory-core/services/DatabaseService.mjs';
 import Memory_SessionService        from './mcp/server/memory-core/services/SessionService.mjs';
-import Memory_LifecycleService      from './mcp/server/memory-core/services/DatabaseLifecycleService.mjs';
 import Memory_HealthService         from './mcp/server/memory-core/services/HealthService.mjs';
 import Memory_GraphService          from './mcp/server/memory-core/services/GraphService.mjs';
 import Memory_SummaryService        from './mcp/server/memory-core/services/SummaryService.mjs';
+import Memory_ChromaLifecycleService from './mcp/server/memory-core/services/lifecycle/ChromaLifecycleService.mjs';
+import Memory_InferenceLifecycleService from './mcp/server/memory-core/services/lifecycle/InferenceLifecycleService.mjs';
 import Memory_SQLiteVectorManager   from './mcp/server/memory-core/managers/SQLiteVectorManager.mjs';
 import Memory_Config                from './mcp/server/memory-core/config.mjs';
 
@@ -176,7 +177,8 @@ makeSafe(KB_SearchService,    kbSpec);
 makeSafe(Memory_Service,          memSpec);
 makeSafe(Memory_DatabaseService,  memSpec);
 makeSafe(Memory_SessionService,   memSpec);
-makeSafe(Memory_LifecycleService, memSpec);
+makeSafe(Memory_ChromaLifecycleService, memSpec);
+makeSafe(Memory_InferenceLifecycleService, memSpec);
 makeSafe(Memory_HealthService,    memSpec);
 makeSafe(Memory_GraphService,     memSpec);
 makeSafe(Memory_SummaryService,   memSpec);
@@ -237,7 +239,8 @@ export {
     Memory_Service,
     Memory_SessionService,
     Memory_DatabaseService,
-    Memory_LifecycleService,
+    Memory_ChromaLifecycleService,
+    Memory_InferenceLifecycleService,
     Memory_GraphService,
     Memory_HealthService,
     Memory_SummaryService,

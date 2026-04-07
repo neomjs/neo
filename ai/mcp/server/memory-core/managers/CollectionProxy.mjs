@@ -1,7 +1,5 @@
 import Base                from '../../../../../src/core/Base.mjs';
 import aiConfig            from '../config.mjs';
-import ChromaManager       from './ChromaManager.mjs';
-import SQLiteVectorManager from './SQLiteVectorManager.mjs';
 
 /**
  * @class Neo.ai.mcp.server.memory-core.managers.CollectionProxy
@@ -25,11 +23,13 @@ class CollectionProxy extends Base {
         const managers = [];
         
         if (engine === 'chroma' || engine === 'both') {
+            const { default: ChromaManager } = await import('./ChromaManager.mjs');
             await ChromaManager.ready();
             managers.push(ChromaManager);
         }
         
         if (engine === 'neo' || engine === 'both') {
+            const { default: SQLiteVectorManager } = await import('./SQLiteVectorManager.mjs');
             await SQLiteVectorManager.ready();
             managers.push(SQLiteVectorManager);
         }
