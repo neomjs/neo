@@ -79,6 +79,7 @@ class DreamService extends Base {
         // we'll fetch recent sessions and filter in memory if the dataset is reasonable.
         // For production, we will just query specifically.
         const limit = aiConfig.summarizationBatchLimit || 2000;
+        const maxToProcess = aiConfig.remSleepBatchLimit || 10;
 
         try {
             const batch = await this.sessionsCollection.get({
@@ -102,7 +103,7 @@ class DreamService extends Base {
                 }
             }
 
-            return undigested;
+            return undigested.slice(0, maxToProcess);
         } catch (error) {
             logger.error('[DreamService] Error querying undigested sessions:', error);
             return [];
@@ -146,10 +147,24 @@ class DreamService extends Base {
 
             for (const session of sessions) {
                 logger.info(`[DreamService] Preparing session ${session.meta.sessionId} ("${session.meta.title}") for REM extraction.`);
+                logger.info(`[DreamService]   -> Payload size (chars): ${session.document.length}`);
+                
+                const startTime = Date.now();
                 const success = await this.executeTriVectorExtraction(session);
+                const triVectorTime = ((Date.now() - startTime) / 1000).toFixed(1);
+                logger.info(`[DreamService]   -> Tri-Vector Synthesis took: ${triVectorTime}s`);
 
+                const topoStart = Date.now();
                 await this.extractTopology(session.document, session.meta.sessionId);
+                const topoTime = ((Date.now() - topoStart) / 1000).toFixed(1);
+                logger.info(`[DreamService]   -> Topological Conflicts took: ${topoTime}s`);
+                
+                const capStart = Date.now();
                 await this.executeCapabilityGapInference(session, success);
+                const capTime = ((Date.now() - capStart) / 1000).toFixed(1);
+                logger.info(`[DreamService]   -> Capability Gap Inference took: ${capTime}s`);
+
+                logger.info(`[DreamService] Total Session Digest Time: ${((Date.now() - startTime) / 1000).toFixed(1)}s`);
 
                 if (success) {
                     await this.sessionsCollection.update({
@@ -225,10 +240,14 @@ ${session.document}
                 modelName: aiConfig.ollama.model
             });
 
+            // Dynamically size Ollama KV cache context. Apple Silicon chokes on massive static 200,000 blocks.
+            // Formula: (Target String length / 3 chars per token) + 4096 (Schema Response Margin)
+            const dynamicCtx = Math.ceil(session.document.length / 3) + 4096;
+
             // Call standard generation method with explicit format enforcement
             const result = await provider.generate(prompt, {
                 response_format: { type: 'json_object' },
-                num_ctx: 200000 // Massive context required for un-truncated digestion
+                num_ctx: dynamicCtx
             });
 
             // Extract using robust Json parser to catch malformed boundaries
@@ -363,8 +382,11 @@ ${contextText}
                 modelName: aiConfig.ollama.model
             });
 
+            const dynamicCtx = Math.ceil(contextText.length / 3) + 2048;
+
             const result = await provider.generate(prompt, {
-                response_format: { type: 'json_object' }
+                response_format: { type: 'json_object' },
+                num_ctx: dynamicCtx
             });
 
             const payload = Json.extract(result.content);
@@ -429,11 +451,11 @@ ${contextText}
         // Resolve absolute root directory
         const neoRootDir = path.resolve(__dirname, '../../../../../');
         const handoffFile = aiConfig.handoffFilePath;
-        const fsNodes = GraphService.db.nodes.items.filter(n =>
+        const allFilePaths = GraphService.db.nodes.items.filter(n =>
             n.label === 'FILE' || n.label === 'DIRECTORY'
         ).map(n => n.properties?.path || '').filter(p =>
             p && (p.startsWith('docs/') || p.startsWith('learn/') || p.startsWith('test/') || p.startsWith('src/'))
-        ).join('\n');
+        );
 
 
 
@@ -442,12 +464,21 @@ ${contextText}
         });
 
         for (const node of structuralNodes) {
+            // Context Thinning: Extract semantic tokens from Node name to filter directory tree
+            const nameTerms = node.name.replace(/([A-Z])/g, ' $1').toLowerCase().split(/[^a-z0-9]+/).filter(t => t.length > 2);
+            if (nameTerms.length === 0) nameTerms.push(node.name.toLowerCase());
+
+            const relevantPaths = allFilePaths.filter(p => {
+                const lowerP = p.toLowerCase();
+                return nameTerms.some(term => lowerP.includes(term));
+            }).slice(0, 100).join('\n'); // High relevance, capped at 100 files
+
             let messages = [
                 {
                     role: 'system',
                     content: `You are the Neo.mjs Capability Gap Analyzer (REM).
 The underlying Agent just worked on a new feature/concept. You need to verify if the documentation and test coverage exists natively.
-We will provide you the ACTIVE DIRECTORY TREE containing physical file paths in 'docs/', 'learn/', 'test/', and 'src/'.
+We will provide you a FILTERED DIRECTORY TREE of the most likely relevant physical paths in 'docs/', 'learn/', 'test/', and 'src/'.
 Analyze the directory tree to see if relevant test or doc files exist for this node.
 If you need to read a file to verify its contents, output JSON: {"action": "read_file", "path": "path/to/file.md"}.
 If you are confident there is a gap (no file exists, or it's clearly insufficient), output JSON: {"action": "alert", "message": "[DOC_GAP] Detailed reason..."}.
@@ -456,7 +487,7 @@ NEVER output raw markdown or conversational text. YOU MUST output EXACTLY ONE JS
                 },
                 {
                     role: 'user',
-                    content: `Node Type: ${node.type}\nNode Name: ${node.name}\nNode Description: ${node.description}\n\n--- ACTIVE DIRECTORY TREE ---\n${fsNodes}\n--- END DIRECTORY TREE ---`
+                    content: `Node Type: ${node.type}\nNode Name: ${node.name}\nNode Description: ${node.description}\n\n--- FILTERED DIRECTORY TREE ---\n${relevantPaths || '(No relevant paths found based on heuristic)'}\n--- END DIRECTORY TREE ---`
                 }
             ];
 
@@ -465,8 +496,10 @@ NEVER output raw markdown or conversational text. YOU MUST output EXACTLY ONE JS
             while (passCounter < 4) {
                 passCounter++;
                 try {
+                    const dynamicCtx = Math.ceil(JSON.stringify(messages).length / 3) + 4096;
                     const result = await provider.generate(messages, {
-                        response_format: { type: 'json_object' }
+                        response_format: { type: 'json_object' },
+                        num_ctx: dynamicCtx
                     });
 
                     const payload = Json.extract(result.content);

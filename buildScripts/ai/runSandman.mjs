@@ -23,6 +23,7 @@ async function runSandman() {
     // STRICTLY bypass daemon startup auto-queue.
     // If autoDream fires synchronously inside init(), the await processUndigestedSessions() skips.
     Memory_Config.data.autoDream = false;
+    Memory_Config.data.autoSummarize = false;
 
     console.log('⏳ Initializing Sandman REM Extraction Pipeline...');
     
