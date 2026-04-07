@@ -9,9 +9,10 @@ import GraphService     from '../../ai/mcp/server/memory-core/services/GraphServ
 import {spawn}          from 'child_process';
 import http             from 'http';
 
-function checkOllama() {
+function checkProvider() {
+    const host = Memory_Config.data.openAiCompatible?.host || 'http://127.0.0.1:8000';
     return new Promise(resolve => {
-        const req = http.get('http://127.0.0.1:11434', () => resolve(true));
+        const req = http.get(`${host}/v1/models`, () => resolve(true));
         req.on('error', () => resolve(false));
     });
 }
@@ -27,26 +28,12 @@ async function runSandman() {
 
     console.log('⏳ Initializing Sandman REM Extraction Pipeline...');
     
-    const isOllamaRunning = await checkOllama();
-    if (!isOllamaRunning) {
-        console.log('   Ollama is not running. Starting Ollama serve...');
-        const ollamaProcess = spawn('ollama', ['serve'], {
-            detached: true,
-            stdio: 'ignore'
-        });
-        ollamaProcess.unref();
-
-        // Give it 3 seconds to boot
-        await new Promise(r => setTimeout(r, 3000));
-        
-        const checkAgain = await checkOllama();
-        if (!checkAgain) {
-            console.error('❌ Failed to start Ollama automatically. Please start it manually.');
-            process.exit(1);
-        }
-        console.log('   ✅ Ollama serve started automatically.');
+    const isProviderRunning = await checkProvider();
+    if (!isProviderRunning) {
+        console.error(`❌ openAiCompatible server is not running on ${Memory_Config.data.openAiCompatible?.host || 'http://127.0.0.1:8000'}. Please start your MLX provider manually.`);
+        process.exit(1);
     } else {
-        console.log('   ✅ Ollama is running.');
+        console.log('   ✅ openAiCompatible server is running.');
     }
 
     try {
