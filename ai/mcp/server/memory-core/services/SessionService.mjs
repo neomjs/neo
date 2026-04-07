@@ -132,7 +132,7 @@ class SessionService extends Base {
                                 }
                             });
                         });
-                        
+
                         req.on('error', e => reject(e));
                         req.on('timeout', () => { req.destroy(); reject(new Error('Ollama Request Timeout')); });
                         req.write(bodyData);
@@ -565,7 +565,7 @@ ${aggregatedContent}
                     batchSize = Math.max(1, Math.floor(os.cpus().length * 0.75));
                 } else {
                     // Ollama (Local) with massive-context bounds MUST strictly track serial execution to prevent VRAM OOM
-                    batchSize = 1; 
+                    batchSize = 1;
                 }
 
                 const total = sessionsToSummarize.length;

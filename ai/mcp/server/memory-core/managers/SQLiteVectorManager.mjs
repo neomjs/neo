@@ -162,7 +162,8 @@ class SQLiteVectorManager extends Base {
             const dummy = await TextEmbeddingService.embedText("dimension_test", aiConfig.neoEmbeddingProvider);
             dim         = dummy.length;
 
-            this.db.prepare('INSERT INTO vector_collections_meta (id, name, dimension) VALUES (?, ?, ?)').run(crypto.randomUUID(), tableName, dim);
+            // Prevent race conditions with concurrent async initializations
+            this.db.prepare('INSERT OR IGNORE INTO vector_collections_meta (id, name, dimension) VALUES (?, ?, ?)').run(crypto.randomUUID(), tableName, dim);
 
             // Create structural tables
             this.db.exec(`
