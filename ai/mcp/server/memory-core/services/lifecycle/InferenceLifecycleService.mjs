@@ -162,12 +162,61 @@ class InferenceLifecycleService extends Base {
         if (this.inferenceProcess) {
             logger.log(`[InferenceLifecycleService] cleanup triggered by ${signalOrCode}`);
             try {
-                process.kill(-this.inferenceProcess.pid, 'SIGTERM');
+                process.kill(-this.inferenceProcess.pid, 'SIGKILL');
                 this.inferenceProcess = null;
             } catch (e) {}
         }
         if (typeof signalOrCode === 'string') {
             process.exit(0);
+        }
+    }
+
+    /**
+     * @summary Intentionally drops the ongoing LLM daemon process when transitioning to offline.
+     * @returns {Promise<Object>}
+     */
+    async stopInferenceServer() {
+        try {
+            if (!this.inferenceProcess || this.inferenceProcess.killed) return { status: 'not_running' };
+
+            return new Promise((resolve) => {
+                const pid = this.inferenceProcess.pid;
+                
+                // Fallback timeout in case 'exit' isn't triggered after SIGKILL
+                const killTimeout = setTimeout(() => {
+                    this.inferenceProcess = null;
+                    if (this.cleanupHandler) {
+                        process.off('exit', this.cleanupHandler);
+                        process.off('SIGINT', this.cleanupHandler);
+                        process.off('SIGTERM', this.cleanupHandler);
+                        this.cleanupHandler = null;
+                    }
+                    resolve({ status: 'stopped', detail: 'timeout_force_resolve' });
+                }, 2000);
+
+                this.inferenceProcess.on('exit', () => {
+                    clearTimeout(killTimeout);
+                    logger.log(`[InferenceLifecycleService] process ${pid} stopped.`);
+                    this.inferenceProcess = null;
+                    if (this.cleanupHandler) {
+                        process.off('exit', this.cleanupHandler);
+                        process.off('SIGINT', this.cleanupHandler);
+                        process.off('SIGTERM', this.cleanupHandler);
+                        this.cleanupHandler = null;
+                    }
+                    resolve({ status: 'stopped' });
+                });
+                
+                try {
+                    process.kill(-this.inferenceProcess.pid, 'SIGKILL');
+                } catch(e) {
+                    clearTimeout(killTimeout);
+                    this.inferenceProcess = null;
+                    resolve({ status: 'stopped', detail: 'already_dead' });
+                }
+            });
+        } catch (error) {
+            return { error: 'Failed to stop inference server', message: error.message };
         }
     }
     
@@ -176,6 +225,15 @@ class InferenceLifecycleService extends Base {
             return { running: true, pid: this.inferenceProcess.pid, managed: true };
         }
         return { running: false, pid: null, managed: false };
+    }
+
+    async manageInference(args) {
+        if (args.action === 'start') {
+            return await this.startInferenceServer();
+        } else if (args.action === 'stop') {
+            return await this.stopInferenceServer();
+        }
+        return { error: 'Unknown action' };
     }
 }
 

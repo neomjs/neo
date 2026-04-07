@@ -23,3 +23,4 @@ Based on the latest Tri-Vector Synthesis and Topological Priorities, the followi
    - *Implement Agent Self-Discovery via Neural Link Introspection*
 3. **issue-9767**: Score 2.78 (Semantic: 0.89, Structural: 1.00)
    - *Investigate 'Viewer has null permission' bug in manage_issue_assignees MCP tool*
+- **[Codebase Gap]** Node `GraphQL permission bug`: [DOC_GAP] No specific test coverage or documentation found for the 'manage_issue_assignees' tool or GraphQL permission logic in the provided directory tree. (Source Session: 5b79fa84-43cc-4408-be85-17a06015a338)
