@@ -22,7 +22,7 @@ import os             from 'os';
 test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
     let GraphService;
     let DreamService;
-    let Ollama;
+    let OpenAiCompatible;
     const testDbName = `memory-core-dream-test-${process.pid}-${Date.now()}.sqlite`;
     let testDbPath; // Reassigned in beforeAll
 
@@ -47,7 +47,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
 
         GraphService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/GraphService.mjs')).default;
         DreamService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/DreamService.mjs')).default;
-        Ollama       = (await import('../../../../../../../../ai/provider/Ollama.mjs')).default;
+        OpenAiCompatible       = (await import('../../../../../../../../ai/provider/OpenAiCompatible.mjs')).default;
 
         if (fs.existsSync(testDbPath)) {
             try {
@@ -63,11 +63,11 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
             GraphService.db.vicinityLoadedNodes.clear();
         }
 
-        await GraphService.initAsync();
+        await GraphService.ready();
 
-        // Monkey patch Ollama
-        originalGenerate = Ollama.prototype.generate;
-        Ollama.prototype.generate = async function(prompt) {
+        // Monkey patch OpenAiCompatible
+        originalGenerate = OpenAiCompatible.prototype.generate;
+        OpenAiCompatible.prototype.generate = async function(prompt) {
             providerPrompt = prompt;
             return {
                 content: JSON.stringify({
@@ -127,7 +127,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
         }
 
         // Restore patches
-        if (originalGenerate)   Ollama.prototype.generate = originalGenerate;
+        if (originalGenerate)   OpenAiCompatible.prototype.generate = originalGenerate;
         if (originalAppendFile) fs.writeFileSync = originalAppendFile;
     });
 

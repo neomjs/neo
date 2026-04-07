@@ -26,7 +26,7 @@ test.describe('Neo.ai.mcp.server.memory-core.managers.StorageBothMode', () => {
 
     test('should independently request correct embeddings for Neo and Chroma in Both mode', async () => {
         aiConfig.engine = 'both';
-        aiConfig.neoEmbeddingProvider = 'mock_ollama';
+        aiConfig.neoEmbeddingProvider = 'mock_openAiCompatible';
         aiConfig.chromaEmbeddingProvider = 'mock_gemini';
 
         let requestedProviders = [];
@@ -76,7 +76,7 @@ test.describe('Neo.ai.mcp.server.memory-core.managers.StorageBothMode', () => {
             ChromaManager._summaryCollectionPromise = null; // force clear if cached
             await ChromaManager.getSummaryCollection();
 
-            expect(requestedProviders).toContain('mock_ollama');
+            expect(requestedProviders).toContain('mock_openAiCompatible');
             expect(requestedProviders).toContain('mock_gemini');
 
         } finally {
