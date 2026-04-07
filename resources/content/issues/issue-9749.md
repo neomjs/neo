@@ -1,23 +1,25 @@
 ---
 id: 9749
 title: Add QA Subagent Profile leveraging Local Gemma4 Swarm
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
   - testing
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-04-07T09:29:28Z'
-updatedAt: '2026-04-07T09:29:28Z'
+updatedAt: '2026-04-07T10:03:57Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9749'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-04-07T10:03:57Z'
 ---
 # Add QA Subagent Profile leveraging Local Gemma4 Swarm
 
@@ -34,4 +36,11 @@ The QA Agent (`Neo.ai.agent.profile.QA`) will be our first local Swarm subagent 
 - 2026-04-07T09:29:29Z @tobiu added the `enhancement` label
 - 2026-04-07T09:29:30Z @tobiu added the `ai` label
 - 2026-04-07T09:29:30Z @tobiu added the `testing` label
+- 2026-04-07T10:03:15Z @tobiu referenced in commit `5340afb` - "feat: Add QA Subagent Profile leveraging Local Gemma4 Swarm (#9749)"
+- 2026-04-07T10:03:54Z @tobiu assigned to @tobiu
+### @tobiu - 2026-04-07T10:03:56Z
+
+QA subagent has been configured locally with the gemma4 swarm profile. The hallucinated renderTo option was removed and component instantiation adheres to the offline environment restrictions. 100% complete.
+
+- 2026-04-07T10:03:58Z @tobiu closed this issue
 
