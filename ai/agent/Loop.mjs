@@ -75,7 +75,7 @@ class Loop extends Base {
         transitions: {
             idle      : ['thinking'],
             thinking  : ['acting', 'reflecting', 'idle'],
-            acting    : ['reflecting', 'idle'],
+            acting    : ['thinking', 'reflecting', 'idle'],
             reflecting: ['idle']
         }
     }

@@ -58,6 +58,20 @@ class Agent extends Base {
     }
 
     /**
+     * Enhances the base system prompt with mandatory overarching policies (e.g., Anti-Hallucination).
+     * @returns {String} The fully resolved system prompt.
+     */
+    getEnhancedSystemPrompt() {
+        const antiHallucinationPolicy = `
+ANTI-HALLUCINATION POLICY (CRITICAL):
+Your training data regarding the Neo.mjs framework is outdated.
+You MUST NEVER hallucinate, guess, or assume Neo.mjs API methods, patterns, or architecture.
+ALWAYS use your file system or knowledge base tools to read the relevant source code (e.g., 'src/Neo.mjs', 'src/core/Base.mjs') to verify the exact method signatures and class structures BEFORE you act.`;
+
+        return `${this.systemPrompt}\n\n${antiHallucinationPolicy}`;
+    }
+
+    /**
      * Map of currently running sub-agent instances.
      * @member {Object} activeSubAgents={}
      */
@@ -216,7 +230,7 @@ class Agent extends Base {
             const result = await subAgent.loop.processEvent({
                 type: 'delegate',
                 data: request,
-                systemPrompt: subAgent.systemPrompt
+                systemPrompt: subAgent.getEnhancedSystemPrompt()
             });
 
             return result;
