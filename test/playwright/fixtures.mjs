@@ -1,5 +1,11 @@
 import { test as base, expect } from '@playwright/test';
 import * as RmaHelpers from './util/RmaHelpers.mjs';
+import {
+    NeuralLink_ConnectionService,
+    NeuralLink_InstanceService,
+    NeuralLink_DataService,
+    NeuralLink_RuntimeService
+} from '../../ai/services.mjs';
 
 export const test = base.extend({
     neo: async ({ page }, use) => {
@@ -59,6 +65,65 @@ export const test = base.extend({
         };
 
         await use(neo);
+    },
+
+    neuralLink: async ({ page }, use) => {
+        // 1. Ensure Bridge connects
+        await NeuralLink_ConnectionService.manageConnection({action: 'start'});
+
+        // 2. Define the Neural Link Fixture object
+        const nl = {
+            /**
+             * Waits for the Test's specific App Worker to connect to the Bridge and returns an SDK wrapper.
+             * @param {String} [appName] Optional explicitly named app to wait for. Mostly we wait for this specific page's workerId.
+             */
+            async connectToApp(appName) {
+                let inferredAppName = null;
+
+                try {
+                    // Give the page a moment to initialize Neo
+                    await page.waitForFunction(() => window.Neo && window.Neo.config, { timeout: 2000 }).catch(() => {});
+                    inferredAppName = await page.evaluate(() => {
+                        const path = window.Neo?.config?.appPath;
+                        return path ? path.split('/').slice(-2, -1)[0] : null;
+                    });
+                } catch (e) {
+                    // Ignore, page might not exist or be blank
+                }
+
+                // If user passed 'Portal', prefer that, otherwise use the inferred appName like 'portal'
+                const targetId = appName || inferredAppName;
+                if (!targetId) {
+                    throw new Error('neuralLink.connectToApp requires either an initialized Neo environment or an explicit appName to wait for.');
+                }
+
+                // Lowercase for the connection service match
+                const sessionId = await NeuralLink_ConnectionService.waitForSession(targetId.toLowerCase());
+
+                return {
+                    sessionId,
+
+                    async getComponent(id) {
+                        const response = await NeuralLink_InstanceService.getInstanceProperties({ sessionId, id, properties: ['ntype', 'windowId', 'cls', 'className', 'vnode'] });
+                        return response.properties;
+                    },
+
+                    async getStore(storeId) {
+                        return NeuralLink_DataService.inspectStore({ sessionId, storeId });
+                    },
+
+                    async callMethod(id, method, args = []) {
+                        return NeuralLink_RuntimeService.callMethod({ sessionId, id, method, args });
+                    },
+
+                    async setProperties(id, properties) {
+                        return NeuralLink_InstanceService.setInstanceProperties({ sessionId, id, properties });
+                    }
+                };
+            }
+        };
+
+        await use(nl);
     }
 });
 

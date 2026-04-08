@@ -17,13 +17,9 @@ This file tracks topological conflict alerts generated during overnight REM slee
 
 Based on the latest Tri-Vector Synthesis and Topological Priorities, the following tasks are mathematically recommended as the next immediate focus:
 
-1. **issue-9673**: Score 11.00 (Semantic: 5.00, Structural: 1.00)
+1. **issue-9673**: Score 3.54 (Semantic: 1.27, Structural: 1.00)
    - *Technical Awareness: Hybrid GraphRAG (Native Edge Graph & App Mapping)*
-2. **issue-9637**: Score 11.00 (Semantic: 5.00, Structural: 1.00)
-   - *Grid Multi-Body: E2E Telemetry Adjustments for Dual-Pipeline Scrolling*
-3. **issue-9636**: Score 11.00 (Semantic: 5.00, Structural: 1.00)
-   - *Grid Multi-Body: Simplify GridDragScroll Scrollbar Hit Detection*
-- **[Codebase Gap]** Node `Zombie Ollama Runner Processes`: [DOC_GAP] No documentation or tests found regarding the handling, detection, or cleanup of zombie Ollama runner processes in the provided directory tree. (Source Session: 67b641b1-4354-4bd5-ba22-0ed333a6847b)
-- **[Codebase Gap]** Node `Neo.canvas.Base`: [DOC_GAP] The 'Neo.canvas.Base' class is a critical foundation for high-performance canvas renderers (OffscreenCanvas in Workers). While 'learn/guides/advanced/CanvasArchitecture.md' exists and explains the conceptual architecture and a specific implementation (Luminous Flux), it lacks a formal API reference for the 'Neo.canvas.Base' class itself. There is no documentation describing the methods 'initGraph', 'clearGraph', 'updateSize', 'updateMouseState', and hooks like 'onGraphMounted' or 'updateResources'. Developers cannot know the API surface of the base class without reading the source code. Additionally, there is no unit test coverage for the base class in 'test/playwright/unit/'. (Source Session: f971ec44-5ad6-48b9-92e0-790524267d09)
-- **[Codebase Gap]** Node `Neo.canvas.Header`: [DOC_GAP] Class `Neo.canvas.Header` implements complex 'Luminous Flux' visual theme, Zero-Allocation geometry buffers, and specific physics for UI diversion (detailed in code comments but not in native documentation). No corresponding doc file exists in `docs/` or `learn/` that explains this architectural approach or the theme's configuration. (Source Session: f971ec44-5ad6-48b9-92e0-790524267d09)
-- **[Codebase Gap]** Node `Neo.component.CanvasShared`: [DOC_GAP] The class `Neo.app.SharedCanvas` (implemented in `src/app/SharedCanvas.mjs`) provides a critical abstraction for connecting App Workers to SharedWorker canvas renderers. While `learn/guides/advanced/CanvasArchitecture.md` discusses the high-level architecture and uses a conceptual `HeaderCanvas` example, there is no API reference or developer guide specifically for the `Neo.app.SharedCanvas` base class itself. Developers need documentation on its required config properties (`rendererClassName`, `rendererImportPath`) and its lifecycle methods to properly implement their own SharedWorker-backed components. (Source Session: f971ec44-5ad6-48b9-92e0-790524267d09)
+2. **issue-9299**: Score 3.40 (Semantic: 1.20, Structural: 1.00)
+   - *Implement Agent Self-Discovery via Neural Link Introspection*
+3. **issue-9298**: Score 3.39 (Semantic: 1.19, Structural: 1.00)
+   - *Implement Moltbook Demo Agent using Chrome DevTools MCP*
