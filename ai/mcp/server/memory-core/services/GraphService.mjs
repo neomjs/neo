@@ -168,8 +168,9 @@ class GraphService extends Base {
      * @param {String} target
      * @param {String} relationship
      * @param {Number} weight
+     * @param {Object} [properties={}] Additional edge metadata (e.g. justification, context_source).
      */
-    linkNodes(source, target, relationship, weight = 1.0) {
+    linkNodes(source, target, relationship, weight = 1.0, properties = {}) {
         if (!this.db?.storage?.db) {
             return;
         } // Safe guard for SQLite backend
@@ -196,16 +197,30 @@ class GraphService extends Base {
                 source,
                 target,
                 type      : relationship,
-                properties: {weight}
+                properties: {weight, ...properties}
             });
         } else {
             const currentWeight = parseFloat(existing.weight) || 1.0;
             const newWeight     = Math.min(currentWeight + (weight * 0.1), 5.0);
 
-            const updateStmt = this.db.storage.db.prepare(`UPDATE Edges
-                                                           SET data = json_set(data, '$.properties.weight', ?)
-                                                           WHERE id = ?`);
-            updateStmt.run(newWeight, existing.id);
+            // Fetch the entire current JSON to merge new properties natively
+            const dataStmt = this.db.storage.db.prepare(`SELECT data FROM Edges WHERE id = ?`);
+            const row = dataStmt.get(existing.id);
+            if (row && row.data) {
+                let parsed = JSON.parse(row.data);
+                parsed.properties = { ...(parsed.properties || {}), ...properties, weight: newWeight };
+                
+                const updateStmt = this.db.storage.db.prepare(`UPDATE Edges SET data = ? WHERE id = ?`);
+                updateStmt.run(JSON.stringify(parsed), existing.id);
+            }
+
+            // Keep RAM cache functionally coherent if edge actively exists
+            let ramEdge = this.db.edges.get(existing.id);
+            if (ramEdge) {
+                ramEdge.properties.weight = newWeight;
+                Object.assign(ramEdge.properties, properties);
+            }
+
             if (typeof this.db.acknowledgeLocalMutations === 'function') {
                 this.db.acknowledgeLocalMutations();
             }
