@@ -197,4 +197,54 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
         expect(appendedContent[0].filePath.endsWith('mock_sandman_handoff.md')).toBe(true);
         expect(appendedContent[0].data).toContain('- **[Codebase Gap]** Node `ButtonFeature`: Mock Gap detected.');
     });
+
+    test('should detect ALIGNMENT_DRIFT for isolated components without strategic gravity', async () => {
+        const baseGenerate = OpenAiCompatible.prototype.generate;
+        OpenAiCompatible.prototype.generate = async function(prompt) {
+            providerPrompt = prompt;
+            return {
+                content: JSON.stringify({
+                    action: "alert",
+                    message: "[ALIGNMENT_DRIFT] The strategy vacuum detected."
+                })
+            };
+        };
+
+        // Prepare isolated node payload
+        const payload = {
+            session_artifact: {
+                graph: {
+                    nodes: [{
+                        id           : 'node-isolated',
+                        type         : 'CONCEPT',
+                        name         : 'RogueFeature',
+                        description  : 'A feature totally disconnected from the vision.',
+                        confidence   : 0.9,
+                        logical_layer: 'Core',
+                        stability    : 'EXPERIMENTAL',
+                        gravity_well : false,
+                        strategic_weight: 0.05
+                    }],
+                    edges: []
+                }
+            }
+        };
+
+        const session = {
+            meta: {sessionId: 'playwright-drift-session'}
+        };
+
+        await DreamService.executeCapabilityGapInference(session, payload);
+
+        // Verify Prompt explicitly passes empty gravity and weight
+        expect(providerPrompt[1].content).toContain('Strategic Weight: 0.05');
+        expect(providerPrompt[1].content).toContain('Structural Gravity: Inbound 0, Outbound 0');
+
+        // Verify logging
+        expect(appendedContent.length).toBeGreaterThan(0);
+        expect(appendedContent[0].data).toContain('[ALIGNMENT_DRIFT] The strategy vacuum detected');
+        
+        // Restore
+        OpenAiCompatible.prototype.generate = baseGenerate;
+    });
 });
