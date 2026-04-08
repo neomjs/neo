@@ -266,5 +266,5 @@ Without this context, sub-agents will hallucinate bugs where none exist (e.g., c
 3.  **Required A2A Context:** The Fat Ticket MUST contain:
     -   **The Problem:** Include deep background context or insights from your recent Memory Core explorations.
     -   **The Architectural Reality:** Point out exactly *which* Neo.mjs patterns or class topologies this issue interacts with. Include specific paths to files discovered during your research.
-    -   **Avoided Gold Standards/Traps:** Summarize *why* you decided not to use alternative paths based on your prior queries.
+    -   **Avoided "Gold Standards" / Traps:** Explain *why* you decided not to use alternative paths. Specifically highlight if you avoided a generic industry or LLM "Gold Standard" (e.g., standard React patterns, generic node workflows) because it acts as a trap within Neo.mjs's unique multi-threaded architecture.
 4.  **Handoff Realization:** On boot (`initAsync`), nodes like Mac 2 automatically synthesize the latest synced `.md` issues into their local SQLite matrix and build `sandman_handoff.md`. If your tickets are "Fat," the resulting "Golden Path" ranking will accurately bridge the distributed swarm without ever merging the raw SQLite files.
