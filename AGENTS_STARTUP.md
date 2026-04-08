@@ -251,3 +251,20 @@ Without this context, sub-agents will hallucinate bugs where none exist (e.g., c
 3.  **Consult the Expert:** If tools are insufficient or the hierarchy is complex, **ASK THE USER**.
     -   *Template:* "I cannot see the parent container's computed styles. Could you please paste the computed `height` and `overflow` of the element wrapping `.my-component`?"
 4.  **Verify Assumptions:** Never assume a class like `neo-label` behaves standardly. Verify its computed style.
+
+## 9. Swarm Architecture: The "Fat Ticket" Protocol
+
+**Context:** The Neo.mjs project runs as a distributed agentic swarm. Multiple hardware instances (e.g., Mac 1, Mac 2) operate simultaneously, but their underlying SQLite `/neo-ai-data` repositories are entirely local to avoid cross-network database collisions.
+
+**The Boot Amnesia Problem:** This means that when a secondary agent drops into the network or pulls a new git sync, it has *zero* chronological memory vectors of what the primary agent discussed, discovered, or decided in the preceding sessions.
+
+**The Solution:** You MUST bridge the SQLite gap by converting GitHub Issues into your primary episodic memory carriers.
+
+**Mandatory Workflow:**
+1.  **Do Not Create Skeleton Tickets:** You are strictly forbidden from creating GitHub issues with one-sentence descriptions. A ticket is not just for human tracking; it is the **A2A (Agent-to-Agent)** data transport mechanism.
+2.  **Generate "Fat Tickets":** When you call `create_issue`, the `body` parameter MUST contain a highly detailed summary that functions as a structural graph node proxy.
+3.  **Required A2A Context:** The Fat Ticket MUST contain:
+    -   **The Problem:** Include deep background context or insights from your recent Memory Core explorations.
+    -   **The Architectural Reality:** Point out exactly *which* Neo.mjs patterns or class topologies this issue interacts with. Include specific paths to files discovered during your research.
+    -   **Avoided Gold Standards/Traps:** Summarize *why* you decided not to use alternative paths based on your prior queries.
+4.  **Handoff Realization:** On boot (`initAsync`), nodes like Mac 2 automatically synthesize the latest synced `.md` issues into their local SQLite matrix and build `sandman_handoff.md`. If your tickets are "Fat," the resulting "Golden Path" ranking will accurately bridge the distributed swarm without ever merging the raw SQLite files.

@@ -68,6 +68,11 @@ class DreamService extends Base {
             logger.info('[Startup] DreamService: Checking for undigested session memories...');
             this.processUndigestedSessions().catch(e => logger.error('[Startup] DreamService failed:', e));
         }
+
+        if (aiConfig.data.autoGoldenPath) {
+            logger.info('[Startup] DreamService: Synthesizing Golden Path into handoff file...');
+            this.synthesizeGoldenPath().catch(e => logger.error('[Startup] Golden Path generation failed:', e));
+        }
     }
 
     /**

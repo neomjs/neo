@@ -25,7 +25,7 @@ For any actionable request that requires modifying the repository, you **MUST** 
 
 **Gate 1: The Ticket Gate**
 1.  **Scoping:** Tickets force focus. A single ticket (and its subsequent commit) should address one discrete problem or feature. Never bundle unrelated fixes into a single ticket/commit.
-2.  **Problem-Focused:** When creating a ticket, focus the description on the *problem* or the *user story*.
+2.  **The "Fat Ticket" Protocol (MANDATORY):** You MUST adhere to the Swarm Architecture "Fat Ticket" protocol (defined in `AGENTS_STARTUP.md`). When creating a ticket, focus the description not just for human tracking, but as a rich A2A (Agent-to-Agent) memory bridge containing deep architectural context, rationale, and avoided pitfalls.
 3.  **Exploration is Allowed:** You are permitted to write code, modify files, and experiment locally to understand a complex problem ("Unknown Unknowns") *before* creating the ticket.
 4.  **The Hard Stop:** The absolute hard stop is `git commit`. You **MUST NEVER** execute a commit without referencing a valid, narrowly scoped ticket ID in the commit message. Use the `create_issue` tool and follow its workflow.
 
