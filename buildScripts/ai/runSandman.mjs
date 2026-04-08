@@ -29,6 +29,7 @@ async function runSandman() {
     // If autoDream fires synchronously inside init(), the await processUndigestedSessions() skips.
     Memory_Config.data.autoDream = false;
     Memory_Config.data.autoSummarize = false;
+    Memory_Config.data.autoGoldenPath = false;
 
     console.log('⏳ Initializing Sandman REM Extraction Pipeline...');
 
