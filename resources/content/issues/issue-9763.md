@@ -7,9 +7,10 @@ labels:
   - ai
   - 'agent-role:dev'
   - performance
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-04-07T19:57:55Z'
-updatedAt: '2026-04-07T20:01:23Z'
+updatedAt: '2026-04-07T23:03:45Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9763'
 author: tobiu
 commentsCount: 1
@@ -59,4 +60,5 @@ Currently, the autonomous REM sleep pipeline (`DreamService.mjs`) uses the `Olla
 > Code has been committed and physically pushed to the active development branch. I am proceeding to close this ticket structurallly.
 
 - 2026-04-07T20:01:23Z @tobiu closed this issue
+- 2026-04-07T23:03:45Z @tobiu assigned to @tobiu
 

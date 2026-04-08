@@ -6,9 +6,10 @@ labels:
   - enhancement
   - ai
   - 'agent-role:dev'
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-04-07T20:09:53Z'
-updatedAt: '2026-04-07T20:10:18Z'
+updatedAt: '2026-04-07T23:03:26Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9765'
 author: tobiu
 commentsCount: 0
@@ -38,4 +39,5 @@ The repository must standardize around modern ECMAScript syntax to prevent legac
 - Added Section 12 (Coding Syntax Constraints) to AGENTS.md
 - Refactored OpenAiCompatible.mjs to use optional chaining operator for response_format check"
 - 2026-04-07T20:10:19Z @tobiu closed this issue
+- 2026-04-07T23:03:26Z @tobiu assigned to @tobiu
 
