@@ -295,10 +295,12 @@ class ConnectionService extends Base {
 
     /**
      * @param {String} appWorkerId
+     * @param {String} [appName='Unknown']
      */
-    handleAppConnected(appWorkerId) {
-        logger.info(`App Worker connected: ${appWorkerId}`);
+    handleAppConnected(appWorkerId, appName = 'Unknown') {
+        logger.info(`App Worker connected: ${appWorkerId} (${appName})`);
         this.sessionData.set(appWorkerId, {
+            appName,
             connectedAt: Date.now(),
             logs       : [],
             sessionId  : appWorkerId
@@ -342,7 +344,7 @@ class ConnectionService extends Base {
 
             switch (payload.type) {
                 case 'app_connected':
-                    this.handleAppConnected(payload.appWorkerId);
+                    this.handleAppConnected(payload.appWorkerId, payload.appName);
                     break;
                 case 'app_disconnected':
                     this.handleAppDisconnected(payload.appWorkerId);
@@ -495,6 +497,40 @@ class ConnectionService extends Base {
 
             // Give it a moment to start
             setTimeout(resolve, 2000);
+        });
+    }
+
+    /**
+     * Waits for a session matching the given ID or AppName to become active.
+     * @param {String} target The appWorkerId or appName to wait for.
+     * @param {Number} [timeout=10000] Ms to wait before rejecting.
+     * @returns {Promise<String>} The matched appWorkerId.
+     */
+    async waitForSession(target, timeout = 10000) {
+        const check = () => {
+             for (const [id, meta] of this.sessionData.entries()) {
+                 if (id === target || meta.appName === target) {
+                     return id;
+                 }
+             }
+             return null;
+        };
+
+        let found = check();
+        if (found) return found;
+
+        return new Promise((resolve, reject) => {
+            const startTime = Date.now();
+            const interval = setInterval(() => {
+                found = check();
+                if (found) {
+                    clearInterval(interval);
+                    resolve(found);
+                } else if (Date.now() - startTime > timeout) {
+                    clearInterval(interval);
+                    reject(new Error(`waitForSession timed out looking for: ${target}`));
+                }
+            }, 100);
         });
     }
 }

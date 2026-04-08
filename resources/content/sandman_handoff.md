@@ -17,19 +17,9 @@ This file tracks topological conflict alerts generated during overnight REM slee
 
 Based on the latest Tri-Vector Synthesis and Topological Priorities, the following tasks are mathematically recommended as the next immediate focus:
 
-1. **issue-9298**: Score 4.24 (Semantic: 1.02, Structural: 2.20)
-   - *Implement Moltbook Demo Agent using Chrome DevTools MCP*
-2. **issue-9299**: Score 4.22 (Semantic: 1.01, Structural: 2.20)
-   - *Implement Agent Self-Discovery via Neural Link Introspection*
-3. **issue-9673**: Score 4.13 (Semantic: 0.96, Structural: 2.20)
+1. **issue-9673**: Score 3.54 (Semantic: 1.27, Structural: 1.00)
    - *Technical Awareness: Hybrid GraphRAG (Native Edge Graph & App Mapping)*
-
-> **Strategic Interpretation:**
-> The current structural priority is to bridge the gap between agent autonomy and environment interaction by integrating Chrome DevTools MCP and Neural Link introspection. This shift pivots the agent from static codebase analysis toward active, self-aware discovery and live-browser verification, grounded in the Hybrid GraphRAG architecture.
-
-- **[Codebase Gap]** Node `DomApiRenderer`: [DOC_GAP] The 'DomApiRenderer' class, which handles the critical logic for physical DOM insertion, recursive VNode tree building, and post-mount updates (like scroll state), is not documented in 'docs/' or 'learn/'. Furthermore, 'test/playwright/unit/vdom/FragmentHelperDomApi.spec.mjs' only tests the 'VdomHelper' delta calculation logic for the DomApiRenderer mode, but does not actually execute or verify the resulting DOM output produced by 'DomApiRenderer.createDomTree' (no integration tests for the renderer itself). (Source Session: f8bb6d4b-ba01-4cb1-a866-178fcc76caa1)
-- **[Codebase Gap]** Node `Ticket #8607`: [DOC_GAP] No relevant files found in the directory tree for 'Advanced lifecycle testing for Fragment long-term stability' (Ticket #8607). No documentation or tests exist to cover this stability requirement. (Source Session: f8bb6d4b-ba01-4cb1-a866-178fcc76caa1)
-- **[Codebase Gap]** Node `NewsTabContainerController`: [DOC_GAP] No documentation or test files found for NewsTabContainerController. The directory tree shows general tab and container files, but no specific implementation or tests for this routing controller. (Source Session: f7833bc9-d43d-405c-9558-3998d8f82946)
-- **[Codebase Gap]** Node `NewsTabContainer`: [DOC_GAP] No documentation or test files found for the 'NewsTabContainer' class. It is missing from both the 'docs/' and 'test/' directories, and there is no corresponding implementation file in 'src/' within the filtered tree. (Source Session: f7833bc9-d43d-405c-9558-3998d8f82946)
-- **[Codebase Gap]** Node `ViewportStateProvider`: [DOC_GAP] The class 'ViewportStateProvider' is missing from both the documentation and the source code directory tree provided. While 'Neo.container.Viewport' exists in 'src/container/Viewport.mjs', there is not a a dedicated 'ViewportStateProvider' class implemented or documented. There are no tests specifically targeting this node, and there is also no mention of blog post counts in the context of Viewport state management in the 'learn/' directory (despite a 'v10-deep-dive-state-provider.md' file existing, I have not been read it, but'learn/guides/datahandling/StateProviders.md' does not contain it). (Source Session: f7833bc9-d43d-405c-9558-3998d8f82946)
-- **[Codebase Gap]** Node `Ticket #8399`: [DOC_GAP] No relevant files found in 'docs/', 'learn/', 'test/', or 'src/' directory tree for deep linking routing in the News section or blog badge update logic. (Source Session: f7833bc9-d43d-405c-9558-3998d8f82946)
+2. **issue-9299**: Score 3.40 (Semantic: 1.20, Structural: 1.00)
+   - *Implement Agent Self-Discovery via Neural Link Introspection*
+3. **issue-9298**: Score 3.39 (Semantic: 1.19, Structural: 1.00)
+   - *Implement Moltbook Demo Agent using Chrome DevTools MCP*
