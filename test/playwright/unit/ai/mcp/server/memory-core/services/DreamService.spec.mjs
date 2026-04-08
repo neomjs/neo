@@ -151,13 +151,15 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
 
         // 2. Prepare mock extracted payload showing a new abstract feature
         const payload = {
-            graph: {
-                nodes: [{
-                    id         : 'node-feature-1',
-                    type       : 'FEATURE',
-                    name       : 'ButtonFeature',
-                    description: 'A newly formulated architectural concept.'
-                }]
+            session_artifact: {
+                graph: {
+                    nodes: [{
+                        id         : 'node-feature-1',
+                        type       : 'FEATURE',
+                        name       : 'ButtonFeature',
+                        description: 'A newly formulated architectural concept.'
+                    }]
+                }
             }
         };
 
