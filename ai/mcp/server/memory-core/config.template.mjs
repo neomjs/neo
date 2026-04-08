@@ -24,6 +24,11 @@ const defaultConfig = {
      */
     autoDream: process.env.AUTO_DREAM !== 'false',
     /**
+     * Immediately parse each incoming memory turn (add_memory) for Graph Injection.
+     * @type {boolean}
+     */
+    realTimeMemoryParsing: process.env.REAL_TIME_MEMORY_PARSING === 'true',
+    /**
      * Automatically trigger FileSystem ingestion (Differential Graph Sync) on MCP server startup.
      * @type {boolean}
      */

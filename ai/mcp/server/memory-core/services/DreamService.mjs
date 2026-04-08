@@ -200,32 +200,38 @@ class DreamService extends Base {
 
         const prompt = `
 You are the Neo.mjs REM (Rapid Eye Movement) Sleep digestion agent.
-Your task is to analyze the following episodic development session history and extract three vital vectors of intelligence into a strict JSON object:
+Your task is to analyze the following episodic development session history and extract three vital vectors of intelligence into a strict A2A 2026 JSON object:
 
 1. **Semantic Graph:** Core concepts, framework components, and their relationships.
-2. **Roadmap Strategy:** Major architectural pivots, roadblocks, or discoveries that impact long-term Epic planning. If none, pass null.
+2. **Feature Namespace:** What primary class or namespace were we working on?
+3. **Human Readable Summary:** A single sentence summary of the turn/session.
 
 Enforce this STRICT JSON schema:
 {
-  "summary": "String (1 sentence high-level summary of the session)",
-  "roadmap_impact": "String (Proposal for a long-term strategy pivot) or Null",
-  "graph": {
-    "nodes": [
-      {
-        "id": "Type:Name",
-        "type": "String (MUST BE EXACTLY ONE OF: SESSION, MEMORY, ARTIFACT_PLAN, ARTIFACT_TASK, ISSUE, STRATEGY, SYSTEM_ANCHOR, CONCEPT, CLASS, METHOD, FILE, GUIDE, BLOG, TEST)",
-        "name": "String",
-        "description": "String"
-      }
-    ],
-    "edges": [
-      {
-        "source": "String (must match a node id, or 'frontier')",
-        "target": "String (must match a node id, or 'frontier')",
-        "relationship": "String (e.g. IMPLEMENTS, USES, FIXES, DEPRECATES, GUIDES)",
-        "weight": 1.0
-      }
-    ]
+  "a2a_version": "1.0",
+  "agent_id": "Antigravity_Primary",
+  "session_artifact": {
+    "feature_namespace": "String (e.g. Neo.dashboard.Main, or null)",
+    "human_readable_summary": "String (1 sentence high-level summary of the session or turn)",
+    "roadmap_impact": "String (Proposal for a long-term strategy pivot) or null",
+    "graph": {
+      "nodes": [
+        {
+          "id": "Type:Name",
+          "type": "String (MUST BE EXACTLY ONE OF: SESSION, MEMORY, ARTIFACT_PLAN, ARTIFACT_TASK, ISSUE, STRATEGY, SYSTEM_ANCHOR, CONCEPT, CLASS, METHOD, FILE, GUIDE, BLOG, TEST)",
+          "name": "String",
+          "description": "String"
+        }
+      ],
+      "edges": [
+        {
+          "source": "String (must match a node id, or 'frontier')",
+          "target": "String (must match a node id, or 'frontier')",
+          "relationship": "String (e.g. IMPLEMENTS, USES, FIXES, DEPRECATES, GUIDES)",
+          "weight": 1.0
+        }
+      ]
+    }
   }
 }
 
@@ -252,12 +258,14 @@ ${session.document}
             const payload = Json.extract(result.content);
 
             // Validation check
-            if (!payload || !payload.graph || !payload.graph.nodes || !payload.graph.edges) {
-                logger.warn(`[DreamService] Failed to validate extracted Tri-Vector payload for session: ${session.meta.sessionId}`);
+            if (!payload || !payload.session_artifact || !payload.session_artifact.graph || !payload.session_artifact.graph.nodes || !payload.session_artifact.graph.edges) {
+                logger.warn(`[DreamService] Failed to validate extracted Tri-Vector A2A payload for session: ${session.meta.sessionId}`);
                 return null;
             }
 
-            logger.info(`[DreamService] Successfully extracted Tri-Vector schema for session ${session.meta.sessionId}.`);
+            logger.info(`[DreamService] Successfully extracted Tri-Vector A2A schema for session ${session.meta.sessionId}.`);
+
+            const artifact = payload.session_artifact;
 
             // --- VECTOR 1: SEMANTIC GRAPH ---
             // Ensure frontier exists, if not, stub it so we can link to it
@@ -274,7 +282,7 @@ ${session.document}
             const VALID_TYPES = ['SESSION', 'MEMORY', 'ARTIFACT_PLAN', 'ARTIFACT_TASK', 'ISSUE', 'STRATEGY', 'SYSTEM_ANCHOR', 'CONCEPT', 'CLASS', 'METHOD', 'FILE', 'GUIDE', 'BLOG', 'TEST'];
 
             // Bridge to GraphService (SQLite)
-            for (const node of payload.graph.nodes) {
+            for (const node of artifact.graph.nodes) {
                 if (node.id === 'frontier') continue;
                 
                 let nodeType = node.type && VALID_TYPES.includes(node.type.toUpperCase()) ? node.type.toUpperCase() : 'CONCEPT';
@@ -298,17 +306,17 @@ ${session.document}
                 node._resolvedId = nodeId; 
             }
 
-            const validNodeRefs = new Set([...payload.graph.nodes.map(n => n.id), ...payload.graph.nodes.map(n => n._resolvedId), 'frontier']);
+            const validNodeRefs = new Set([...artifact.graph.nodes.map(n => n.id), ...artifact.graph.nodes.map(n => n._resolvedId), 'frontier']);
 
-            for (const edge of payload.graph.edges) {
+            for (const edge of artifact.graph.edges) {
                 // Map the original edge source/target to the resolved Node IDs
                 let resolvedSource = edge.source;
                 let resolvedTarget = edge.target;
                 
-                const sourceNode = payload.graph.nodes.find(n => n.id === edge.source);
+                const sourceNode = artifact.graph.nodes.find(n => n.id === edge.source);
                 if (sourceNode && sourceNode._resolvedId) resolvedSource = sourceNode._resolvedId;
                 
-                const targetNode = payload.graph.nodes.find(n => n.id === edge.target);
+                const targetNode = artifact.graph.nodes.find(n => n.id === edge.target);
                 if (targetNode && targetNode._resolvedId) resolvedTarget = targetNode._resolvedId;
 
                 if (!validNodeRefs.has(resolvedSource) || !validNodeRefs.has(resolvedTarget)) {
@@ -327,9 +335,9 @@ ${session.document}
             logger.info(`[DreamService] Graph entities committed to Neocortex for session ${session.meta.sessionId}.`);
 
             // --- VECTOR 2: STRATEGIC ROADMAP PIVOTS ---
-            if (payload.roadmap_impact && typeof payload.roadmap_impact === 'string' && payload.roadmap_impact.toLowerCase() !== 'null') {
+            if (artifact.roadmap_impact && typeof artifact.roadmap_impact === 'string' && artifact.roadmap_impact.toLowerCase() !== 'null') {
                 const auditLog = path.join('/tmp', 'roadmap_audits.log');
-                const strategyEntry = `[${new Date().toISOString()}] Session ${session.meta.sessionId}:\n${payload.roadmap_impact}\n\n`;
+                const strategyEntry = `[${new Date().toISOString()}] Session ${session.meta.sessionId}:\n${artifact.roadmap_impact}\n\n`;
                 fs.appendFileSync(auditLog, strategyEntry, 'utf8');
                 logger.info(`[DreamService] Extracted Strategy impact to roadmap_audits.log`);
             }
@@ -434,9 +442,9 @@ ${contextText}
      * @param {Object} extractedPayload The parsed Tri-Vector schema
      */
     async executeCapabilityGapInference(session, payload) {
-        if (!payload || !payload.graph || !payload.graph.nodes) return;
+        if (!payload || !payload.session_artifact || !payload.session_artifact.graph || !payload.session_artifact.graph.nodes) return;
 
-        const structuralNodes = payload.graph.nodes.filter(n =>
+        const structuralNodes = payload.session_artifact.graph.nodes.filter(n =>
             n.type === 'FEATURE' || n.type === 'EPIC' || n.type === 'ISSUE' || n.type === 'CLASS'
         );
 
