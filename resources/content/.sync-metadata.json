@@ -1,6 +1,6 @@
 {
-  "lastSync": "2026-04-08T09:37:25.920Z",
-  "releasesLastFetched": "2026-04-08T09:37:26.687Z",
+  "lastSync": "2026-04-08T15:37:23.432Z",
+  "releasesLastFetched": "2026-04-08T15:37:23.963Z",
   "pushFailures": [],
   "issues": {
     "3789": {
@@ -17924,11 +17924,11 @@
       "contentHash": "a2f8ef65b28f7bd5750fb543ff9608525bcfbbd4d5b9fb910326130685f4427f"
     },
     "8851": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "resources/content/issues/issue-8851.md",
-      "closedAt": null,
-      "updatedAt": "2026-04-05T10:22:32Z",
-      "contentHash": "c48fe36833756e0b74aee6c8792593d802675104360cd5fba558b94e3b4d078b"
+      "closedAt": "2026-04-08T10:16:33Z",
+      "updatedAt": "2026-04-08T10:16:33Z",
+      "contentHash": "13b936847cbc3543cb308299ae68bd9cf0c40cbebb3cfec0b468beb97b7a5ec8"
     },
     "8852": {
       "state": "CLOSED",
@@ -24084,39 +24084,95 @@
       "contentHash": "03e7b46724876399ac43538c83dc5cc9b2c2272d6d15458f4e8458ee629dc87c"
     },
     "9777": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "resources/content/issues/issue-9777.md",
-      "closedAt": null,
-      "updatedAt": "2026-04-08T09:31:45Z",
-      "contentHash": "a692e45ce5a842504dc22ae76615ee3676a6e8a609f084803f0f0bdec9866ecf"
+      "closedAt": "2026-04-08T09:51:46Z",
+      "updatedAt": "2026-04-08T09:51:46Z",
+      "contentHash": "372c36fb1c90177160accd0a303a006ad3b4ebb413e1de9ad892dbdb6f4ae977"
     },
     "9778": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "resources/content/issues/issue-9778.md",
-      "closedAt": null,
-      "updatedAt": "2026-04-08T09:31:46Z",
-      "contentHash": "9d0c444b3caab27c7f15b499b979ab39d54fad6254b00d185b70dc101764e69b"
+      "closedAt": "2026-04-08T10:18:01Z",
+      "updatedAt": "2026-04-08T10:18:01Z",
+      "contentHash": "891c474f9d140a998c81208e485d6b19b335ede76f04d9e911a07357baee70f1"
     },
     "9779": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "resources/content/issues/issue-9779.md",
-      "closedAt": null,
-      "updatedAt": "2026-04-08T09:31:47Z",
-      "contentHash": "22eee9b6f48c3fb959271f327e25feb8df09e2d0b2013f4e7b1b571aeb3d5aa2"
+      "closedAt": "2026-04-08T09:51:37Z",
+      "updatedAt": "2026-04-08T09:51:37Z",
+      "contentHash": "edab2dddee439cf41a7c8f0958d0c90e7dc13a76bf549a60688133f3085ac5d9"
     },
     "9780": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "resources/content/issues/issue-9780.md",
-      "closedAt": null,
-      "updatedAt": "2026-04-08T09:31:48Z",
-      "contentHash": "265debff3100ddd5baf0b14807148a6a002f9422a21c66e47a388324cb877ffb"
+      "closedAt": "2026-04-08T09:51:39Z",
+      "updatedAt": "2026-04-08T09:51:40Z",
+      "contentHash": "8fde3fdc134e800ce8d4500492cce119ebfef1d8c6df4e72f1477b395ad7b9a0"
     },
     "9781": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "resources/content/issues/issue-9781.md",
-      "closedAt": null,
-      "updatedAt": "2026-04-08T09:31:50Z",
-      "contentHash": "db481a7f54d60215b7e5aa86210de8c5768e500bc62779889df9bd9c4b4b3047"
+      "closedAt": "2026-04-08T09:51:43Z",
+      "updatedAt": "2026-04-08T09:51:43Z",
+      "contentHash": "c048767d53c17016b206426e1df8771631bebd4ca04abb25e3dda24658922605"
+    },
+    "9782": {
+      "state": "CLOSED",
+      "path": "resources/content/issues/issue-9782.md",
+      "closedAt": "2026-04-08T10:16:34Z",
+      "updatedAt": "2026-04-08T10:16:34Z",
+      "contentHash": "a8b65cafe14db41ba29d4d5d2dcab2987f100cb22b977917cf926dbdde19505b"
+    },
+    "9783": {
+      "state": "CLOSED",
+      "path": "resources/content/issues/issue-9783.md",
+      "closedAt": "2026-04-08T10:16:34Z",
+      "updatedAt": "2026-04-08T10:16:34Z",
+      "contentHash": "0fbd3439dad939f46df314a5ed6b7b82043512c37f41a43f62a9e8ef8768d531"
+    },
+    "9784": {
+      "state": "CLOSED",
+      "path": "resources/content/issues/issue-9784.md",
+      "closedAt": "2026-04-08T10:08:09Z",
+      "updatedAt": "2026-04-08T11:39:21Z",
+      "contentHash": "74630d3cf10d1ed3aaed675fc36fa357071b801f21bec49fd9377bb1e931e8e4"
+    },
+    "9785": {
+      "state": "CLOSED",
+      "path": "resources/content/issues/issue-9785.md",
+      "closedAt": "2026-04-08T10:07:56Z",
+      "updatedAt": "2026-04-08T10:07:56Z",
+      "contentHash": "13df7f5df538d2345132d76513725eb9fcf96f289609711636ada137ca6ccbe8"
+    },
+    "9786": {
+      "state": "CLOSED",
+      "path": "resources/content/issues/issue-9786.md",
+      "closedAt": "2026-04-08T10:08:05Z",
+      "updatedAt": "2026-04-08T10:08:06Z",
+      "contentHash": "285b93fbc6ad91435e945912833a495bd71221ba897aa82ff4bd46326e900227"
+    },
+    "9787": {
+      "state": "CLOSED",
+      "path": "resources/content/issues/issue-9787.md",
+      "closedAt": "2026-04-08T10:08:07Z",
+      "updatedAt": "2026-04-08T10:08:07Z",
+      "contentHash": "8978dd2367d53065c47029ebd20d8ef3a49ecebc800fc2b4ba2fb7a9b8091fe2"
+    },
+    "9789": {
+      "state": "CLOSED",
+      "path": "resources/content/issues/issue-9789.md",
+      "closedAt": "2026-04-08T10:47:06Z",
+      "updatedAt": "2026-04-08T10:47:08Z",
+      "contentHash": "67f1511f8e72095468e59d304c0dc0b52a02871968983bb293d59c0c1db664a9"
+    },
+    "9790": {
+      "state": "CLOSED",
+      "path": "resources/content/issues/issue-9790.md",
+      "closedAt": "2026-04-08T13:48:57Z",
+      "updatedAt": "2026-04-08T13:48:57Z",
+      "contentHash": "f9d8d41dbccc1e3b13c3ab0e1a464a8dda02bf989c37017f5003a6874445fdd9"
     }
   },
   "releases": {
