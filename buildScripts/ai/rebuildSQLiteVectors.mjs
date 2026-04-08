@@ -1,5 +1,8 @@
 import { Memory_LifecycleService, Memory_SQLiteVectorManager } from '../../ai/services.mjs';
 import TextEmbeddingService from '../../ai/mcp/server/memory-core/services/TextEmbeddingService.mjs';
+import aiConfig from '../../ai/mcp/server/memory-core/config.mjs';
+import fs from 'fs-extra';
+import path from 'path';
 
 /**
  * @module buildScripts/ai/rebuildSQLiteVectors
@@ -18,9 +21,28 @@ async function bootstrap() {
         throw new Error("SQLiteVectorManager DB not initialized.");
     }
 
+    const {dataDir, filename} = aiConfig.engines.neo;
+    const dbPath = path.resolve(process.cwd(), dataDir, filename);
+
+    console.log(`\n🔒 SAFETY PROTOCOL: Probing configured embedding model dimensions...`);
+    const dummy = await TextEmbeddingService.embedText("dimension_test", aiConfig.neoEmbeddingProvider);
+    const incomingDim = dummy.length;
+
+    if (incomingDim !== aiConfig.vectorDimension) {
+        console.error(`\n❌ FATAL SAFETY ERROR: Embedding model outputs ${incomingDim}D, but system config enforces ${aiConfig.vectorDimension}D!`);
+        console.error(`Please update your configured embedding model or update NEO_VECTOR_DIMENSION in .env before rebuilding.`);
+        process.exit(1);
+    }
+    console.log(`✅ Embedding model matches enforced config (${aiConfig.vectorDimension}D).`);
+
+    const backupPath = `${dbPath}.bak_${Date.now()}`;
+    console.log(`\n🔒 SAFETY PROTOCOL: Backing up current database to ${backupPath}`);
+    await fs.copy(dbPath, backupPath);
+    console.log(`✅ Backup secured.`);
+
     // 1. Identify collections
     const collections = db.prepare('SELECT * FROM vector_collections_meta').all();
-    console.log(`Discovered ${collections.length} vector collections to re-index.`);
+    console.log(`\nDiscovered ${collections.length} vector collections to re-index.`);
 
     for (const collMeta of collections) {
         console.log(`\n--- Processing Collection: ${collMeta.name} (Currently ${collMeta.dimension}D) ---`);
@@ -49,8 +71,8 @@ async function bootstrap() {
         await Memory_SQLiteVectorManager.client.deleteCollection({ name: collMeta.name });
         console.log(` > Successfully dropped ${collMeta.name}.`);
 
-        // 4. Re-initialize collection dynamically (will trigger 4096D table creation)
-        console.log(` > Re-initializing ${collMeta.name}. This will probe the new embedding model for dimensions...`);
+        // 4. Re-initialize collection dynamically (will trigger configured vectorDimension creation)
+        console.log(` > Re-initializing ${collMeta.name}. This will use the locked dimension from configuration...`);
         const newCollection = await Memory_SQLiteVectorManager.getOrCreateCollection({ name: collMeta.name });
         
         const checkMeta = db.prepare('SELECT dimension FROM vector_collections_meta WHERE name = ?').get(collMeta.name);

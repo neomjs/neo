@@ -108,12 +108,12 @@ class QueryService extends Base {
             throw new Error('A query string must be provided.');
         }
 
-        const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-        if (!GEMINI_API_KEY) {
+        const apiKey = process.env.GEMINI_API_KEY;
+        if (!apiKey) {
             throw new Error('The GEMINI_API_KEY environment variable is not set.');
         }
 
-        const genAI          = new GoogleGenerativeAI(GEMINI_API_KEY);
+        const genAI          = new GoogleGenerativeAI(apiKey);
         const model          = genAI.getGenerativeModel({model: aiConfig.embeddingModel});
         const collection     = await ChromaManager.getKnowledgeBaseCollection();
         const queryEmbedding = await model.embedContent(query);

@@ -77,7 +77,7 @@ const defaultConfig = {
      * Supported values: 'gemini', 'ollama', 'openAiCompatible'
      * @type {String}
      */
-    modelProvider: process.env.MODEL_PROVIDER || 'gemini',
+    modelProvider: process.env.NEO_MODEL_PROVIDER || 'gemini',
     /**
      * Explicit override provider for the SQLite Native Database Engine.
      * Supported values: 'gemini', 'ollama', 'openAiCompatible'
@@ -89,25 +89,31 @@ const defaultConfig = {
      * Supported values: 'gemini', 'ollama', 'openAiCompatible'
      * @type {String}
      */
-    chromaEmbeddingProvider: process.env.CHROMA_EMBEDDING_PROVIDER || 'gemini',
+    chromaEmbeddingProvider: process.env.NEO_CHROMA_EMBEDDING_PROVIDER || 'gemini',
     /**
      * Settings for the Ollama integration
      */
     ollama: {
-        host          : process.env.OLLAMA_HOST || 'http://127.0.0.1:11434',
-        model         : process.env.OLLAMA_MODEL || 'gemma4:31b',
-        embeddingModel: process.env.OLLAMA_EMBEDDING_MODEL || 'qwen3-embedding'
+        host          : process.env.NEO_OLLAMA_HOST || 'http://127.0.0.1:11434',
+        model         : process.env.NEO_OLLAMA_MODEL || 'gemma4:31b',
+        embeddingModel: process.env.NEO_OLLAMA_EMBEDDING_MODEL || 'qwen3-embedding'
     },
     /**
      * Settings for the OpenAI-Compatible API integration (e.g., mlx-lm or mlx-openai-server)
      * WARNING: Never hardcode API keys here. Always export them via .env or globally.
      */
     openAiCompatible: {
-        host          : process.env.OPENAI_COMPATIBLE_HOST || 'http://127.0.0.1:11434',
-        model         : process.env.OPENAI_COMPATIBLE_MODEL || 'gemma-4-31b-it',
-        embeddingModel: process.env.OPENAI_COMPATIBLE_EMBEDDING_MODEL || 'text-embedding-qwen3-embedding-8b',
-        apiKey        : process.env.OPENAI_COMPATIBLE_API_KEY || ''
+        host          : process.env.NEO_OPENAI_COMPATIBLE_HOST || 'http://127.0.0.1:11434',
+        model         : process.env.NEO_OPENAI_COMPATIBLE_MODEL || 'gemma-4-31b-it',
+        embeddingModel: process.env.NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL || 'text-embedding-qwen3-embedding-8b',
+        apiKey        : process.env.NEO_OPENAI_COMPATIBLE_API_KEY || ''
     },
+    /**
+     * The enforced vector dimension across all SQLite collections.
+     * Hard-configured here to prevent catastrophic schema wipes due to dynamic model changes.
+     * @type {number}
+     */
+    vectorDimension: process.env.NEO_VECTOR_DIMENSION ? parseInt(process.env.NEO_VECTOR_DIMENSION, 10) : 4096,
     /**
      * The name of the Google Generative AI model for content generation.
      * @type {string}
@@ -241,7 +247,7 @@ class Config extends Base {
             // Deep merge custom config into the data object
             Neo.merge(this.data, customConfig);
 
-            console.log(`[Config] Loaded custom configuration from ${absolutePath}`);
+            console.error(`[Config] Loaded custom configuration from ${absolutePath}`);
 
         } catch (error) {
             console.error(`[Config] Failed to load configuration from ${filePath}:`, error.message);

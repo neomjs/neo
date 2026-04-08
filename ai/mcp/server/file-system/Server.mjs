@@ -55,7 +55,7 @@ class Server extends Base {
         const transport = new StdioServerTransport();
         await this.mcpServer.connect(transport);
 
-        console.log('[neo-file-system MCP] Server started on stdio transport');
+        console.error('[neo-file-system MCP] Server started on stdio transport');
     }
 
     /**

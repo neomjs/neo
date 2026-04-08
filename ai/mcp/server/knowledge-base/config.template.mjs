@@ -219,7 +219,7 @@ class Config extends Base {
             // Deep merge custom config into the data object
             Neo.merge(this.data, customConfig);
 
-            console.log(`[Config] Loaded custom configuration from ${absolutePath}`);
+            console.error(`[Config] Loaded custom configuration from ${absolutePath}`);
 
         } catch (error) {
             console.error(`[Config] Failed to load configuration from ${filePath}:`, error.message);
