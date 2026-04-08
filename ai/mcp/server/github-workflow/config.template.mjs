@@ -57,6 +57,12 @@ const defaultConfig = {
      */
     syncOnStartup: true,
     /**
+     * Whether to automatically commit and push changes after a sync.
+     * Only executes if the user has write permissions and there are non-metadata changes.
+     * @type {boolean}
+     */
+    pushToRepoAfterSync: true,
+    /**
      * Configuration for the issue synchronization service.
      */
     issueSync: {
