@@ -8,7 +8,7 @@ labels:
   - architecture
 assignees: []
 createdAt: '2026-04-08T21:07:16Z'
-updatedAt: '2026-04-08T21:12:04Z'
+updatedAt: '2026-04-08T22:11:36Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9797'
 author: tobiu
 commentsCount: 0
@@ -33,18 +33,17 @@ Relevant file integrations affected by this task:
 - `ai/mcp/server/neural-link/config.template.mjs`: Global MCP transport surface area.
 
 ### Avoided Gold Standards/Traps
-1. **Dynamic Schema Mutability Avoided:** We deliberately bypassed building dynamic dimension handling inside `SQLiteVectorManager.mjs`. Adapting to arbitrary incoming vector shapes corrupts the `sqlite-vec` distance search indexing over the application lifecycle. We opted for a strict *Fail Fast* schema paradigm instead of soft degradation. 
-2. **Over-Engineering Authentication Avoided:** We reverted the experimental `NEO_GEMINI_API_KEY` mapping back to its native variant `GEMINI_API_KEY`. Custom prefix tunneling breaks recursive dependencies inherently shipped within 3rd-party clients (like Google Generative AI SDKs), avoiding complex parameter drilling schemas.
+1. **Dynamic Schema Mutability Avoided:** We deliberately bypassed building dynamic dimension handling inside `SQLiteVectorManager.mjs`. Adapting to arbitrary incoming vector shapes corrupts the `sqlite-vec` distance search indexing over the application lifecycle. We opted for a strict *Fail Fast* schema paradigm instead of soft degradation.
 
 ### Resolution (Golden Path Alignment)
 1. **Dimension Safety Probe (Hard Gate):** Integrated an explicit dimensionality probe inside `buildScripts/ai/rebuildSQLiteVectors.mjs`. A dummy `dimension_test` aborts the pipeline (`process.exit(1)`) prior to any mutation if inference outputs diverge from the central 4096D configuration guardrails.
 2. **Graceful Inference Checkpoint:** Modified Node.js `fetch` routines querying `/v1/models` in `InferenceLifecycleService.mjs` to operate strictly on AbortSignals (3000ms threshold).
 3. **Transport Channel Hygiene:** Segregated all log pollution outside the stdout pipe by shunting standard operational noise to `stderr` across server boot sequences. JSON-RPC maintains isolated channel integrity.
 
-
 ## Timeline
 
 - 2026-04-08T21:07:17Z @tobiu added the `bug` label
 - 2026-04-08T21:07:17Z @tobiu added the `ai` label
 - 2026-04-08T21:07:17Z @tobiu added the `architecture` label
+- 2026-04-08T21:12:44Z @tobiu referenced in commit `dbd7f29` - "feat: Stabilize Memory Core Inference Config & SQLite Vector Dimensions (#9797)"
 
