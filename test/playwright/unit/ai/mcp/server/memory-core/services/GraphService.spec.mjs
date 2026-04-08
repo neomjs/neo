@@ -145,6 +145,28 @@ test.describe('Neo.ai.mcp.server.memory-core.services.GraphService', () => {
         expect(task2.weight).toBe(0.8);
     });
 
+    test('should dynamically compute getNodeGravity natively', async () => {
+        GraphService.upsertNode({id: 'NodeA'});
+        GraphService.upsertNode({id: 'NodeB'});
+        GraphService.upsertNode({id: 'NodeC'});
+        GraphService.upsertNode({id: 'NodeD'});
+
+        GraphService.linkNodes('NodeA', 'NodeB', 'DEPENDS_ON');
+        GraphService.linkNodes('NodeA', 'NodeC', 'IMPLEMENTS');
+        GraphService.linkNodes('NodeD', 'NodeA', 'RELATES_TO');
+
+        const gravityA = GraphService.getNodeGravity('NodeA');
+        const gravityB = GraphService.getNodeGravity('NodeB');
+        
+        // NodeA out:2 (NodeB, NodeC), in:1 (NodeD)
+        expect(gravityA.out_degree).toBe(2);
+        expect(gravityA.in_degree).toBe(1);
+
+        // NodeB out:0, in:1 (NodeA)
+        expect(gravityB.out_degree).toBe(0);
+        expect(gravityB.in_degree).toBe(1);
+    });
+
     test('should correctly expose getContextFrontier topology', async () => {
         GraphService.upsertNode({id: 'frontier', type: 'SYSTEM_ANCHOR'});
         GraphService.upsertNode({id: 'EpicB'});
