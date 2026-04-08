@@ -318,6 +318,29 @@ class GraphService extends Base {
     }
 
     /**
+     * Dynamically computes the structural gravity (inbound/outbound edges) for a node natively via SQLite.
+     * @param {String} id 
+     * @returns {Object} { in_degree, out_degree }
+     */
+    getNodeGravity(id) {
+        if (!this.db?.storage?.db) {
+            return { in_degree: 0, out_degree: 0 };
+        }
+
+        try {
+            const inStmt = this.db.storage.db.prepare('SELECT count(*) as count FROM Edges WHERE target = ?');
+            const inCount = inStmt.get(id).count || 0;
+
+            const outStmt = this.db.storage.db.prepare('SELECT count(*) as count FROM Edges WHERE source = ?');
+            const outCount = outStmt.get(id).count || 0;
+
+            return { in_degree: inCount, out_degree: outCount };
+        } catch (e) {
+            return { in_degree: 0, out_degree: 0 };
+        }
+    }
+
+    /**
      * Retrieves adjacent connected nodes (neighbors) alongside relationship metadata.
      * @param {Object} data
      * @param {String} data.id

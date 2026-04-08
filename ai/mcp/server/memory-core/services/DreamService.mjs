@@ -223,6 +223,8 @@ Enforce this STRICT JSON schema:
           "description": "String",
           "logical_layer": "String (e.g. UI, State, Network, Build, Docs, Core, Unknown)",
           "stability": "String (EXPERIMENTAL, STABLE, DEPRECATED, UNKNOWN)",
+          "gravity_well": "Boolean (Is this a long-term strategic anchor from roadmap/boardroom?)",
+          "strategic_weight": 0.9,
           "confidence": 0.9,
           "tags": ["Array", "of", "Strings"]
         }
@@ -308,6 +310,8 @@ ${session.document}
                     properties: {
                         logical_layer: node.logical_layer || 'Unknown',
                         stability: node.stability || 'UNKNOWN',
+                        gravity_well: node.gravity_well === true,
+                        strategic_weight: typeof node.strategic_weight === 'number' ? node.strategic_weight : (node.gravity_well ? 1.0 : 0.1),
                         confidence: typeof node.confidence === 'number' ? node.confidence : 0.5,
                         tags: Array.isArray(node.tags) ? node.tags : [],
                         context_source: session.meta.sessionId
@@ -498,21 +502,23 @@ ${contextText}
             let nodeEdges = (payload.session_artifact.graph.edges || []).filter(e => e.source === node.id || e.target === node.id);
             let edgeSummary = nodeEdges.length ? nodeEdges.map(e => `[${e.relationship}] ${e.source} -> ${e.target} (Justification: ${e.justification || 'N/A'})`).join('\n') : '(No structural edges generated)';
 
+            const gravity = GraphService.getNodeGravity(node._resolvedId || node.id);
+
             let messages = [
                 {
                     role: 'system',
                     content: `You are the Neo.mjs Capability Gap Analyzer (REM).
-The underlying Agent just worked on a new feature/concept. You must detect topological conflicts, missing documentation, or coverage gaps based on the node's metadata and relational edges.
-We will provide you the Node Metadata, inferred Topological Edges (e.g. CAUSES_ISSUE, BLOCKS), and a FILTERED DIRECTORY TREE of relevant paths in 'docs/', 'learn/', 'test/', and 'src/'.
-Analyze if the architectural edges flag a conflict, or if stability implies missing test coverage.
+The underlying Agent just worked on a new feature/concept. You must detect topological conflicts, missing documentation, coverage gaps, or STRATEGIC ALIGNMENT DRIFT based on the node's metadata, relational edges, and structural gravity.
+We will provide you the Node Metadata, inferred Topological Edges (e.g. CAUSES_ISSUE, BLOCKS), Structural Gravity, and a FILTERED DIRECTORY TREE of relevant paths in 'docs/', 'learn/', 'test/', and 'src/'.
+Analyze if the architectural edges flag a conflict, if stability implies missing test coverage, or if there is a "Strategic Vacuum" (ALIGNMENT_DRIFT) where the technical cluster lacks a topological pathway to a strategic anchor or has anomalous gravitational weight.
 If you need to read a file to verify its contents, output JSON: {"action": "read_file", "path": "path/to/file.md"}.
-If you detect a true gap or topological blocker, output JSON: {"action": "alert", "message": "[CONFLICT|DOC_GAP|TEST_GAP] Detailed reason..."}.
+If you detect a true gap, topological blocker, or drift, output JSON: {"action": "alert", "message": "[CONFLICT|DOC_GAP|TEST_GAP|ALIGNMENT_DRIFT] Detailed reason..."}.
 If no issues are detected, output JSON: {"action": "pass"}.
 NEVER output raw markdown or conversational text. YOU MUST output EXACTLY ONE JSON OBJECT per turn.`
                 },
                 {
                     role: 'user',
-                    content: `Node Type: ${node.type}\nNode Name: ${node.name}\nNode Description: ${node.description}\nLogical Layer: ${node.logical_layer || 'Unknown'}\nStability: ${node.stability || 'UNKNOWN'}\nTags: ${(node.tags || []).join(', ')}\n\n--- INFERRED TOPOLOGICAL EDGES ---\n${edgeSummary}\n\n--- FILTERED DIRECTORY TREE ---\n${relevantPaths || '(No relevant paths found based on heuristic)'}\n--- END DIRECTORY TREE ---`
+                    content: `Node Type: ${node.type}\nNode Name: ${node.name}\nNode Description: ${node.description}\nLogical Layer: ${node.logical_layer || 'Unknown'}\nStability: ${node.stability || 'UNKNOWN'}\nGravity Well: ${node.gravity_well === true ? 'YES' : 'NO'}\nStrategic Weight: ${typeof node.strategic_weight === 'number' ? node.strategic_weight : 0.1}\nStructural Gravity: Inbound ${gravity.in_degree}, Outbound ${gravity.out_degree}\nTags: ${(node.tags || []).join(', ')}\n\n--- INFERRED TOPOLOGICAL EDGES ---\n${edgeSummary}\n\n--- FILTERED DIRECTORY TREE ---\n${relevantPaths || '(No relevant paths found based on heuristic)'}\n--- END DIRECTORY TREE ---`
                 }
             ];
 

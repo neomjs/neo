@@ -161,6 +161,8 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
                         confidence   : 0.9,
                         logical_layer: 'UI Components',
                         stability    : 'EXPERIMENTAL',
+                        gravity_well : true,
+                        strategic_weight: 0.85,
                         tags         : ['Frontend', 'button']
                     }],
                     edges: [{
@@ -186,6 +188,9 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
         expect(providerPrompt[1].content).toContain('src/button/Button.mjs');
         expect(providerPrompt[1].content).toContain('CAUSES_ISSUE');
         expect(providerPrompt[1].content).toContain('The button feature lacks mobile');
+        expect(providerPrompt[1].content).toContain('Gravity Well: YES');
+        expect(providerPrompt[1].content).toContain('Strategic Weight: 0.85');
+        expect(providerPrompt[1].content).toContain('Structural Gravity: Inbound 0, Outbound 0');
 
         // 5. Validate the Sandman interaction logic gracefully appended to the MD file (via proxy)
         console.log("APPENDED ARRAY:", appendedContent); expect(appendedContent.length).toBeGreaterThan(0);
