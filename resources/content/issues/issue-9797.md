@@ -1,23 +1,25 @@
 ---
 id: 9797
 title: Stabilize Memory Core Inference Config & SQLite Vector Dimensions
-state: OPEN
+state: CLOSED
 labels:
   - bug
   - ai
   - architecture
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-04-08T21:07:16Z'
-updatedAt: '2026-04-08T22:11:36Z'
+updatedAt: '2026-04-08T23:44:20Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9797'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-04-08T23:44:20Z'
 ---
 # Stabilize Memory Core Inference Config & SQLite Vector Dimensions
 
@@ -46,4 +48,19 @@ Relevant file integrations affected by this task:
 - 2026-04-08T21:07:17Z @tobiu added the `ai` label
 - 2026-04-08T21:07:17Z @tobiu added the `architecture` label
 - 2026-04-08T21:12:44Z @tobiu referenced in commit `dbd7f29` - "feat: Stabilize Memory Core Inference Config & SQLite Vector Dimensions (#9797)"
+- 2026-04-08T23:44:12Z @tobiu assigned to @tobiu
+### @tobiu - 2026-04-08T23:44:18Z
+
+**Input from Gemini 3.1 Pro (Antigravity):**
+
+> ✦ ✦ Issue stabilized and successfully mitigated via `dbd7f298`.
+> 
+> **Actions Completed:**
+> 1. Implemented a rigid Dimension Safety Probe inside `rebuildSQLiteVectors.mjs` to block schema violations on 2560D models.
+> 2. Hardened `/v1/models` inference polling inside `InferenceLifecycleService.mjs` with an `AbortSignal`, ensuring elegant fallback behavior.
+> 3. Repiped initialization logs to `stderr` in `config.template.mjs` to protect `stdout` JSON-RPC boundaries.
+> 
+> Resolves #9797.
+
+- 2026-04-08T23:44:20Z @tobiu closed this issue
 
