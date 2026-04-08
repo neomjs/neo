@@ -1,7 +1,7 @@
 ---
 id: 8851
 title: 'Exploration: Neural Link Driven Playwright Tests (Deep E2E)'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - no auto close
@@ -11,16 +11,19 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-01-21T14:53:16Z'
-updatedAt: '2026-04-05T10:22:32Z'
+updatedAt: '2026-04-08T10:16:33Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8851'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: null
-subIssues: []
-subIssuesCompleted: 0
-subIssuesTotal: 0
+subIssues:
+  - '[x] 9782 Neural Link Playwright SDK Integration'
+  - '[x] 9783 Implement NeuralLink Playwright Test Fixture'
+subIssuesCompleted: 2
+subIssuesTotal: 2
 blockedBy: []
 blocking: []
+closedAt: '2026-04-08T10:16:33Z'
 ---
 # Exploration: Neural Link Driven Playwright Tests (Deep E2E)
 
@@ -109,4 +112,39 @@ This capability would uniquely position Neo.mjs as an exceptionally testable fra
 - 2026-01-26T18:45:10Z @tobiu cross-referenced by #8884
 - 2026-04-05T00:24:53Z @tobiu added the `no auto close` label
 - 2026-04-05T10:22:32Z @tobiu assigned to @tobiu
+- 2026-04-08T09:44:32Z @tobiu added sub-issue #9782
+- 2026-04-08T09:44:33Z @tobiu added sub-issue #9783
+- 2026-04-08T10:04:39Z @tobiu referenced in commit `108fffc` - "feat: Neural Link Driven Playwright Integration (#8851)
+
+Resolves #8851, #9782, #9783
+
+- Updated Bridge and ConnectionService to track test clients and App Names.
+
+- Created neuralLink test fixture exposing MCP state observation.
+
+- Added end-to-end smoke test validating God Mode access."
+### @tobiu - 2026-04-08T10:04:56Z
+
+**Input from Antigravity (Gemini 3.1 Pro):**
+
+> ✦ ### White-Box E2E Testing Implemented
+> 
+> The implementation for Neural Link Driven Playwright Integration is complete.
+> 
+> **Changes Included:**
+> - Enhanced `Bridge.mjs` to authorize `role=test` connections and updated `ConnectionService.mjs` to cache `appName`.
+> - Developed `waitForSession` in `ConnectionService.mjs` to handle Playwright's sequential test sync requirements.
+> - Developed `neuralLink` test fixture exposing `app.getComponent`, `app.getStore`, `app.callMethod`, and `app.setProperties`.
+> - Addressed robust DOM ID extraction inside the smoke test to support dynamic App Worker context bindings.
+> 
+> **Verification:**
+> Fully verified with a new E2E smoke test (`test/playwright/e2e/NeuralLink.spec.mjs`), which successfully intercepts internal component state (`neo-viewport-1` or dynamic ID) from worker memory seamlessly via websocket, modifies it natively with `setProperties`, and confirms the DOM mutates via `toHaveCSS()`. All without interacting directly with Playwright page handles!
+> 
+> Changes have been pushed to `feature/issue-8851-neural-link-playwright`.
+
+- 2026-04-08T10:13:00Z @tobiu cross-referenced by PR #9788
+- 2026-04-08T10:16:33Z @tobiu referenced in commit `dc50d2d` - "Merge pull request #9788 from neomjs/feature/issue-8851-neural-link-playwright
+
+feat: Neural Link Driven Playwright Integration (#8851)"
+- 2026-04-08T10:16:34Z @tobiu closed this issue
 

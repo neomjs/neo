@@ -45,8 +45,25 @@ class FileSystemIngestor extends Base {
             return;
         }
 
+        // Precache existing mtimeMs dynamically bypassing RAM bloat cleanly natively
+        const mtimeMap = new Map();
+        if (GraphService.db.storage?.db) {
+            try {
+                const stmt = GraphService.db.storage.db.prepare("SELECT id, data FROM Nodes WHERE id LIKE 'file-%'");
+                const rows = stmt.all();
+                for (const row of rows) {
+                    const parsedData = JSON.parse(row.data);
+                    if (parsedData?.properties?.mtimeMs) {
+                        mtimeMap.set(row.id, parsedData.properties.mtimeMs);
+                    }
+                }
+            } catch (e) {
+                logger.debug(`[FileSystemIngestor] Caching skipped: ${e.message}`);
+            }
+        }
+
         const stats = { nodes: 0, edges: 0 };
-        this.walkDirectory(neoRootDir, neoRootDir, null, stats);
+        this.walkDirectory(neoRootDir, neoRootDir, null, stats, mtimeMap);
         
         logger.info(`[FileSystemIngestor] Workspace Sync Complete. Upserted/Verified ${stats.nodes} Nodes and ${stats.edges} new CONTAINS Edges.`);
     }
@@ -57,16 +74,19 @@ class FileSystemIngestor extends Base {
      * @param {String} rootDir The base root path determining relative node ids natively
      * @param {String|null} parentId Graph ID of the parent directory Node
      * @param {Object} stats Reference counter
+     * @param {Map} mtimeMap Precaching SQLite map
      */
-    walkDirectory(dir, rootDir, parentId, stats) {
+    walkDirectory(dir, rootDir, parentId, stats, mtimeMap) {
         const files = fs.readdirSync(dir);
 
         for (const file of files) {
             const fullPath = path.join(dir, file);
             let isDir = false;
+            let stat;
             
             try {
-                isDir = fs.statSync(fullPath).isDirectory();
+                stat = fs.statSync(fullPath);
+                isDir = stat.isDirectory();
             } catch(e) { continue; } // symlink drops
             
             const relativePath = path.relative(rootDir, fullPath).replace(/\\/g, '/');
@@ -85,36 +105,42 @@ class FileSystemIngestor extends Base {
             }
 
             const nodeId = `file-${relativePath}`;
+            const mtimeMs = stat.mtimeMs;
 
-            // Upsert node bypassing textual embeddings (these are purely structural references)
-            GraphService.upsertNode({
-                id: nodeId,
-                type: isDir ? 'DIRECTORY' : 'FILE',
-                name: file,
-                description: isDir ? `Directory: ${relativePath}` : `File path: ${relativePath}`,
-                properties: {
-                    path: relativePath
-                }
-            });
-            stats.nodes++;
+            const isUnchanged = mtimeMap.get(nodeId) === mtimeMs;
 
-            // Create hierarchical structural edge
-            if (parentId) {
-                let existingEdge = GraphService.db.edges.items.find(e => e.source === parentId && e.target === nodeId && e.type === 'CONTAINS');
-                if (!existingEdge) {
-                    GraphService.db.addEdge({
-                        id: Neo.getId('edge'),
-                        source: parentId,
-                        target: nodeId,
-                        type: 'CONTAINS',
-                        properties: { weight: 1.0 }
-                    });
-                    stats.edges++;
+            if (!isUnchanged) {
+                // Upsert node bypassing textual embeddings (these are purely structural references)
+                GraphService.upsertNode({
+                    id: nodeId,
+                    type: isDir ? 'DIRECTORY' : 'FILE',
+                    name: file,
+                    description: isDir ? `Directory: ${relativePath}` : `File path: ${relativePath}`,
+                    properties: {
+                        path: relativePath,
+                        mtimeMs: mtimeMs
+                    }
+                });
+                stats.nodes++;
+
+                // Create hierarchical structural edge
+                if (parentId) {
+                    let existingEdge = GraphService.db.edges.items.find(e => e.source === parentId && e.target === nodeId && e.type === 'CONTAINS');
+                    if (!existingEdge) {
+                        GraphService.db.addEdge({
+                            id: Neo.getId('edge'),
+                            source: parentId,
+                            target: nodeId,
+                            type: 'CONTAINS',
+                            properties: { weight: 1.0 }
+                        });
+                        stats.edges++;
+                    }
                 }
             }
 
             if (isDir) {
-                this.walkDirectory(fullPath, rootDir, nodeId, stats);
+                this.walkDirectory(fullPath, rootDir, nodeId, stats, mtimeMap);
             }
         }
     }
