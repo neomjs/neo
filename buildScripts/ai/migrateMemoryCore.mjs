@@ -14,6 +14,10 @@ Usage: node buildScripts/migrateMemoryCore.mjs <backup-file.jsonl>
 Arguments:
   <backup-file.jsonl>  Path to the JSONL backup file to import and re-embed.
 
+/**
+ * @module buildScripts/ai/migrateMemoryCore
+ */
+
 Description:
   This script migrates a Memory Core database backup to the current embedding model 
   (gemini-embedding-001). It performs a destructive 'replace' import, clearing the 

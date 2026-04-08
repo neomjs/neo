@@ -2,6 +2,10 @@ import fs              from 'fs-extra';
 import path            from 'path';
 import {fileURLToPath} from 'url';
 
+/**
+ * @module buildScripts/ai/initServerConfigs
+ */
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 const cwd        = path.resolve(__dirname, '../../'); // Neo root

@@ -4,6 +4,10 @@ import {exec}      from 'child_process';
 import {promisify} from 'util';
 import packageJson from '../../package.json' with {type: 'json'};
 
+/**
+ * @module buildScripts/ai/downloadKnowledgeBase
+ */
+
 const execAsync = promisify(exec);
 const cwd       = process.cwd();
 

@@ -9,6 +9,10 @@ import GraphService     from '../../ai/mcp/server/memory-core/services/GraphServ
 import {spawn}          from 'child_process';
 import http             from 'http';
 
+/**
+ * @module buildScripts/ai/runSandman
+ */
+
 function checkProvider() {
     const host = Memory_Config.data.openAiCompatible?.host || 'http://127.0.0.1:8000';
     return new Promise(resolve => {

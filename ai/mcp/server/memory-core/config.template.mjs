@@ -104,8 +104,8 @@ const defaultConfig = {
      */
     openAiCompatible: {
         host          : process.env.OPENAI_COMPATIBLE_HOST || 'http://127.0.0.1:11434',
-        model         : process.env.OPENAI_COMPATIBLE_MODEL || 'gemma4:31b',
-        embeddingModel: process.env.OPENAI_COMPATIBLE_EMBEDDING_MODEL || 'qwen3-embedding',
+        model         : process.env.OPENAI_COMPATIBLE_MODEL || 'gemma-4-31b-it',
+        embeddingModel: process.env.OPENAI_COMPATIBLE_EMBEDDING_MODEL || 'text-embedding-qwen3-embedding-8b',
         apiKey        : process.env.OPENAI_COMPATIBLE_API_KEY || ''
     },
     /**

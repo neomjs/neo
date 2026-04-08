@@ -6,6 +6,10 @@ import GraphService     from '../../ai/mcp/server/memory-core/services/GraphServ
 import LifecycleService from '../../ai/mcp/server/memory-core/services/lifecycle/SystemLifecycleService.mjs';
 import Memory_Config    from '../../ai/mcp/server/memory-core/config.mjs';
 
+/**
+ * @module buildScripts/ai/runGoldenPath
+ */
+
 async function testGoldenPath() {
     Memory_Config.data.debug = true;
     console.log('⏳ Starting Lifecycle Service...');

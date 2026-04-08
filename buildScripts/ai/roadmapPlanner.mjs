@@ -10,6 +10,10 @@ import MemoryService from '../../ai/mcp/server/memory-core/services/MemoryServic
 import DreamService from '../../ai/mcp/server/memory-core/services/DreamService.mjs';
 import GraphService from '../../ai/mcp/server/memory-core/services/GraphService.mjs';
 
+/**
+ * @module buildScripts/ai/roadmapPlanner
+ */
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const ROADMAP_PATH = path.resolve(__dirname, '../../ROADMAP.md');
