@@ -106,3 +106,6 @@ ai/mcp/server/*/config.mjs
 test/playwright/test-results/
 # Single-file Playwright runs via npx
 test-results/
+
+# Autonomous AI Output files
+resources/content/sandman_handoff.md
