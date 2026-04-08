@@ -136,6 +136,9 @@ class Bridge extends Base {
 
             if (role === 'agent') {
                 this.registerAgent(id, ws);
+            } else if (role === 'test') {
+                logger.info(`Bridge: Test client connected [${id}]`);
+                this.registerAgent(id, ws);
             } else {
                 // Default to app if no role specified (backward compatibility)
                 this.registerApp(id, ws, appName);
