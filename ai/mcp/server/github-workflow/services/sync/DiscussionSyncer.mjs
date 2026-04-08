@@ -97,7 +97,7 @@ class DiscussionSyncer extends Base {
 
         for (const discussion of allDiscussions) {
             try {
-                const filename    = `${discussion.number}.md`;
+                const filename    = `${issueSyncConfig.discussionFilenamePrefix}${discussion.number}.md`;
                 const filePath    = path.join(issueSyncConfig.discussionsDir, filename);
 
                 const frontmatter = {
@@ -113,19 +113,19 @@ class DiscussionSyncer extends Base {
 
                 // Build comments structure
                 if (discussion.comments && discussion.comments.nodes && discussion.comments.nodes.length > 0) {
-                    body += '\\n\\n## Comments\\n\\n';
+                    body += '\n\n## Comments\n\n';
                     for (const comment of discussion.comments.nodes) {
-                        body += `### \`@${comment.author?.login || 'unknown'}\` commented on ${comment.createdAt}\\n\\n${comment.body}\\n\\n`;
+                        body += `### \`@${comment.author?.login || 'unknown'}\` commented on ${comment.createdAt}\n\n${comment.body}\n\n`;
                         
                         // Parse replies if any
                         if (comment.replies && comment.replies.nodes && comment.replies.nodes.length > 0) {
                             for (const reply of comment.replies.nodes) {
-                                body += `> **Reply by \`@${reply.author?.login || 'unknown'}\`** on ${reply.createdAt}\\n>\\n`;
-                                const blockquotedReply = reply.body.split('\\n').map(l => `> ${l}`).join('\\n');
-                                body += `${blockquotedReply}\\n\\n`;
+                                body += `> **Reply by \`@${reply.author?.login || 'unknown'}\`** on ${reply.createdAt}\n>\n`;
+                                const blockquotedReply = reply.body.split('\n').map(l => `> ${l}`).join('\n');
+                                body += `${blockquotedReply}\n\n`;
                             }
                         }
-                        body += '---\\n\\n';
+                        body += '---\n\n';
                     }
                 }
 

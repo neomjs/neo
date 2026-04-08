@@ -112,6 +112,10 @@ const defaultConfig = {
          */
         issueFilenamePrefix: 'issue-',
         /**
+         * @member {String} discussionFilenamePrefix='discussion-'
+         */
+        discussionFilenamePrefix: 'discussion-',
+        /**
          * A prefix for version-based archive directories (e.g., 'v' for 'v1.2.3').
          * Applies to both milestone titles and release tags.
          * @type {string}
