@@ -1,10 +1,10 @@
-import fs from 'fs/promises';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import Base from '../../../../src/core/Base.mjs';
+import fs              from 'fs/promises';
+import path            from 'path';
+import {fileURLToPath} from 'url';
+import Base            from '../../../../src/core/Base.mjs';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __filename  = fileURLToPath(import.meta.url);
+const __dirname   = path.dirname(__filename);
 const packageRoot = path.resolve(__dirname, '../../../../');
 const projectRoot = process.cwd() === '/' ? packageRoot : process.cwd();
 
