@@ -431,14 +431,15 @@ ${contextText}
             let newAlerts = false;
             for (const conflict of payload.conflicts) {
                 const entry = `- **[${conflict.type}]** \`${conflict.issueId}\`: ${conflict.description} (Source Session: ${sessionId})\n`;
-                const conflictIdentifier = `- **[${conflict.type}]** \`${conflict.issueId}\`:`;
-                if (!handoffContent.includes(conflictIdentifier)) {
-                    // Check if *any* conflicting alert for this exact issue ID is already logged, to be safe.
-                    const anyConflictIdentifier = `\`${conflict.issueId}\`:`;
-                    if (!handoffContent.includes(anyConflictIdentifier)) {
+                const anyConflictIdentifier = `\`${conflict.issueId}\`:`;
+                if (!handoffContent.includes(anyConflictIdentifier)) {
+                    let insertIndex = handoffContent.indexOf('## Computed Golden Path');
+                    if (insertIndex !== -1) {
+                        handoffContent = handoffContent.substring(0, insertIndex) + entry + '\n\n' + handoffContent.substring(insertIndex);
+                    } else {
                         handoffContent += entry;
-                        newAlerts = true;
                     }
+                    newAlerts = true;
                 }
             }
 
@@ -560,7 +561,13 @@ NEVER output raw markdown or conversational text. YOU MUST output EXACTLY ONE JS
                         // Check if a gap for this specific node already exists!
                         const nodeIdentifier = `- **[Codebase Gap]** Node \`${node.name}\`:`;
                         if (!handoffContent.includes(nodeIdentifier)) {
-                            fs.writeFileSync(handoffFile, handoffContent + entry, 'utf8');
+                            let insertIndex = handoffContent.indexOf('## Computed Golden Path');
+                            if (insertIndex !== -1) {
+                                handoffContent = handoffContent.substring(0, insertIndex) + entry + '\n\n' + handoffContent.substring(insertIndex);
+                            } else {
+                                handoffContent += entry;
+                            }
+                            fs.writeFileSync(handoffFile, handoffContent, 'utf8');
                             logger.info(`[DreamService] Gap Alert logged for ${node.name}.`);
                         } else {
                             logger.debug(`[DreamService] Gap Alert already exists for ${node.name}. Skipping duplication.`);
@@ -934,11 +941,10 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             logger.warn('[DreamService] Failed to generate semantic interpretation for Golden Path (LLM Offline). Proceeding with pure mathematical output.', e);
         }
 
-        const handoffFile = path.resolve(__dirname, '../../../../../resources/content/sandman_handoff.md');
+        const handoffFile = aiConfig.handoffFilePath;
         if (fs.existsSync(handoffFile)) {
             let currentContent = fs.readFileSync(handoffFile, 'utf-8');
-            const goldenPathHeader = `\n## Computed Golden Path (Strategic Recommendation)\n\n`;
-            const headerIndex = currentContent.indexOf(goldenPathHeader.trim()); // trim() to handle potential newline variances
+            const headerIndex = currentContent.indexOf('## Computed Golden Path');
 
             let markdownAppendForFile = markdownAppend.trimStart();
 

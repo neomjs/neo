@@ -25,7 +25,9 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
     let GraphService;
     let SystemLifecycleService;
     let DreamService;
+    let SQLiteVectorManager;
     let OpenAiCompatible;
+    let TextEmbeddingService;
     const testDbName = `memory-core-dream-test-${process.pid}-${Date.now()}.sqlite`;
     let testDbPath; // Reassigned in beforeAll
 
@@ -50,8 +52,10 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
 
         GraphService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/GraphService.mjs')).default;
         DreamService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/DreamService.mjs')).default;
+        SQLiteVectorManager = (await import('../../../../../../../../ai/mcp/server/memory-core/managers/SQLiteVectorManager.mjs')).default;
         OpenAiCompatible       = (await import('../../../../../../../../ai/provider/OpenAiCompatible.mjs')).default;
         SystemLifecycleService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/lifecycle/SystemLifecycleService.mjs')).default;
+        TextEmbeddingService   = (await import('../../../../../../../../ai/mcp/server/memory-core/services/TextEmbeddingService.mjs')).default;
 
         if (fs.existsSync(testDbPath)) {
             try {
@@ -246,5 +250,144 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
         
         // Restore
         OpenAiCompatible.prototype.generate = baseGenerate;
+    });
+
+    test('synthesizeGoldenPath should mathematically select and inject Golden Path while rejecting BLOCKS', async () => {
+        // Mock SQLiteVectorManager to return dynamic Math metrics without embedding dependencies
+        const originalPrepare = SQLiteVectorManager.db ? SQLiteVectorManager.db.prepare : null;
+        const originalGetSummary = SQLiteVectorManager.getSummaryCollection;
+        
+        if (!SQLiteVectorManager.db) {
+             SQLiteVectorManager.db = {};
+        }
+        
+        SQLiteVectorManager.getSummaryCollection = async () => {
+             return {
+                 get: async () => ({ documents: [] })
+             };
+        };
+        
+        SQLiteVectorManager.db.prepare = function(sql) {
+            // console.log("SQL PREPARE CALLED:", sql.substring(0, 50));
+            if (sql.includes('SELECT') && sql.includes('Nodes')) {
+                console.log('MOCK TRIGGERED Nodes SELECT!');
+                return {
+                    all: () => [
+                        { id: 'epic-1', data: JSON.stringify({ id: 'epic-1', name: 'Epic Hero', properties: { state: 'OPEN'} }), struct_score: 5.0, semantic_distance: 0.1 },
+                        { id: 'task-blocked', data: JSON.stringify({ id: 'task-blocked', name: 'Blocked Task', properties: { state: 'OPEN'} }), struct_score: 10.0, semantic_distance: 0.2 },
+                        { id: 'blocker', data: JSON.stringify({ id: 'blocker', name: 'Blocker Bug', properties: { state: 'OPEN'} }), struct_score: 1.0, semantic_distance: 0.9 },
+                        { id: 'weak-task', data: JSON.stringify({ id: 'weak-task', name: 'Weak Task', properties: { state: 'OPEN'} }), struct_score: 0.1, semantic_distance: 0.8 }
+                    ],
+                    get: () => null,
+                    run: () => {}
+                };
+            }
+            return { all: () => [], get: () => null, run: () => {} };
+        };
+
+        // GraphService mock topology
+        GraphService.db.edges.items = [
+             { source: 'blocker', target: 'task-blocked', type: 'BLOCKS' }
+        ];
+
+        GraphService.db.nodes.items = [
+             { id: 'epic-1', properties: { state: 'OPEN' } },
+             { id: 'task-blocked', properties: { state: 'OPEN' } },
+             { id: 'blocker', properties: { state: 'OPEN' } },
+             { id: 'weak-task', properties: { state: 'OPEN' } }
+        ];
+
+        GraphService.db.edges.getByIndex = (idx, val) => {
+            return GraphService.db.edges.items.filter(e => e[idx] === val);
+        };
+        GraphService.linkNodes = () => {};
+        GraphService.getContextFrontier = () => ({ nodes: [], edges: [] });
+
+        const baseGenerate = OpenAiCompatible.prototype.generate;
+        OpenAiCompatible.prototype.generate = async () => ({
+             content: JSON.stringify({ strategic_brief: "Math synthesis works natively." })
+        });
+        
+        const baseEmbed = TextEmbeddingService.embedText;
+        TextEmbeddingService.embedText = async () => new Array(4096).fill(0.1);
+
+        // Setup markdown with a conflicting gap to verify dynamic stripping / injection sequence
+        const aiConfig = (await import('../../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const handoffFile = aiConfig.handoffFilePath;
+        
+        // Restore actual file system write for this test specifically
+        const mockWriteFile = fs.writeFileSync;
+        fs.writeFileSync = originalAppendFile;
+
+        fs.writeFileSync(handoffFile, '- **[Codebase Gap]** Node `Fake`: Exists\n\n## Computed Golden Path\nOld Path\n', 'utf8');
+
+        // Execute Golden Path Synthesizer
+        await DreamService.synthesizeGoldenPath();
+        
+        const finalContent = fs.readFileSync(handoffFile, 'utf8');
+
+        // Verification Loop
+        expect(finalContent).toContain('Epic Hero');
+        expect(finalContent).toContain('Weak Task'); 
+        expect(finalContent).not.toContain('Blocked Task'); // REJECTED topologically by GraphService
+        expect(finalContent).toContain('Math synthesis works natively.');
+        expect(finalContent.indexOf('- **[Codebase Gap]**')).toBeLessThan(finalContent.indexOf('## Computed Golden Path'));
+        expect(finalContent).not.toContain('Old Path');
+
+        // Restore
+        OpenAiCompatible.prototype.generate = baseGenerate;
+        TextEmbeddingService.embedText = baseEmbed;
+        fs.writeFileSync = mockWriteFile;
+        SQLiteVectorManager.getSummaryCollection = originalGetSummary;
+        if (originalPrepare) {
+             SQLiteVectorManager.db.prepare = originalPrepare;
+        } else {
+             delete SQLiteVectorManager.db.prepare;
+        }
+    });
+
+    test('Capability Gap Inference correctly inserts above Golden Path and prevents duplicates natively', async () => {
+        const baseGenerate = OpenAiCompatible.prototype.generate;
+        OpenAiCompatible.prototype.generate = async () => ({
+             content: JSON.stringify({ action: "alert", message: "A duplicate issue." })
+        });
+
+        // Restore actual file system write for this test specifically
+        const mockWriteFile = fs.writeFileSync;
+        fs.writeFileSync = originalAppendFile;
+
+        const aiConfig = (await import('../../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const handoffFile = aiConfig.handoffFilePath;
+        fs.writeFileSync(handoffFile, '## Computed Golden Path\nMath is Cool\n', 'utf8');
+
+        const session = { meta: { sessionId: 'playwright-drift-session'} };
+        const payload = {
+             session_artifact: {
+                 graph: {
+                     nodes: [{ id: 'dup-1', name: 'DuplicateTest', type: 'CONCEPT', confidence: 0.9, properties: { state: 'OPEN'} }]
+                 }
+             }
+        };
+
+        await DreamService.executeCapabilityGapInference(session, payload);
+        let content = fs.readFileSync(handoffFile, 'utf8');
+        
+        // Assert Ordering
+        expect(content).toContain('- **[Codebase Gap]** Node `DuplicateTest`: A duplicate issue.');
+        expect(content.indexOf('DuplicateTest')).toBeLessThan(content.indexOf('## Computed Golden Path'));
+
+        // Run AGAIN to trigger duplication prevention loop
+        await DreamService.executeCapabilityGapInference(session, payload);
+        const duplicateCount = content.split('DuplicateTest').length - 1;
+        
+        content = fs.readFileSync(handoffFile, 'utf8');
+        const newCount = content.split('DuplicateTest').length - 1;
+
+        // Count should remain unchanged
+        expect(newCount).toBe(duplicateCount); 
+
+        // Restore
+        OpenAiCompatible.prototype.generate = baseGenerate;
+        fs.writeFileSync = mockWriteFile;
     });
 });
