@@ -6,6 +6,11 @@ import IssueSyncer     from './sync/IssueSyncer.mjs';
 import MetadataManager from './sync/MetadataManager.mjs';
 import ReleaseSyncer   from './sync/ReleaseSyncer.mjs';
 import DiscussionSyncer from './sync/DiscussionSyncer.mjs';
+import RepositoryService from './RepositoryService.mjs';
+import {exec} from 'child_process';
+import {promisify} from 'util';
+
+const execAsync = promisify(exec);
 
 /**
  * @summary Orchestrates the bi-directional synchronization of GitHub issues and releases with local Markdown files.
@@ -112,6 +117,39 @@ class SyncService extends Base {
 
         // 8. Save metadata
         await MetadataManager.save(newMetadata);
+
+        if (aiConfig.pushToRepoAfterSync) {
+            const {permission} = await RepositoryService.getViewerPermission();
+            const writePermissions = ['ADMIN', 'MAINTAIN', 'WRITE'];
+
+            if (writePermissions.includes(permission)) {
+                try {
+                    const cwd = aiConfig.projectRoot;
+                    const {stdout} = await execAsync('git status --porcelain resources/content', {cwd});
+                    const lines = stdout.trim().split('\n').filter(Boolean);
+
+                    if (lines.length > 0) {
+                        const onlyMetaChanged = lines.every(line => line.endsWith('.sync-metadata.json'));
+
+                        if (onlyMetaChanged) {
+                            logger.info('[SyncService] Only metadata changed. Rolling back metadata.');
+                            await execAsync('git restore resources/content/.sync-metadata.json', {cwd});
+                        } else {
+                            logger.info('[SyncService] Detected real content changes. Committing and pushing.');
+                            await execAsync('git add resources/content', {cwd});
+                            await execAsync('git commit -m "chore: ticket sync [skip ci]"', {cwd});
+                            await execAsync('git pull --rebase --autostash', {cwd});
+                            await execAsync('git push', {cwd});
+                            logger.info('[SyncService] Successfully pushed changes to GitHub.');
+                        }
+                    }
+                } catch (error) {
+                    logger.error('[SyncService] Auto-commit and push failed:', error.message);
+                }
+            } else {
+                logger.info(`[SyncService] Skipping auto-push. Viewer permission '${permission}' lacks write access.`);
+            }
+        }
 
         const endTime    = new Date();
         const durationMs = endTime - startTime;
