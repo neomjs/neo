@@ -193,7 +193,7 @@ class GraphService extends Base {
 
         if (!existing) {
             this.db.addEdge({
-                id        : Neo.getId('edge'),
+                id        : globalThis.crypto.randomUUID(),
                 source,
                 target,
                 type      : relationship,
@@ -602,7 +602,7 @@ class GraphService extends Base {
             }
         } else {
             this.db.addEdge({
-                id        : Neo.getId('edge'),
+                id        : globalThis.crypto.randomUUID(),
                 source    : 'frontier',
                 target    : targetNodeId,
                 type      : relationship,

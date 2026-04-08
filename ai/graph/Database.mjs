@@ -157,7 +157,7 @@ class Database extends Base {
      * @param {Object} edge
      */
     addEdge(edge) {
-        edge.id ??= Neo.getId('edge');
+        edge.id ??= globalThis.crypto.randomUUID();
         this.edges.add(edge);
     }
 
@@ -166,7 +166,7 @@ class Database extends Base {
      * @param {Object} node
      */
     addNode(node) {
-        node.id ??= Neo.getId('node');
+        node.id ??= globalThis.crypto.randomUUID();
         this.nodes.add(node);
     }
 

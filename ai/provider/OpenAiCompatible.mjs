@@ -159,17 +159,24 @@ class OpenAiCompatibleProvider extends Base {
 
             const reader  = response.body.getReader();
             const decoder = new TextDecoder('utf-8');
+            let buffer = '';
 
             while (true) {
                 const {done, value} = await reader.read();
                 if (done) break;
 
-                const chunkText = decoder.decode(value, {stream: true});
-                const lines = chunkText.split('\n').filter(line => line.trim() !== '' && line.trim() !== 'data: [DONE]');
+                buffer += decoder.decode(value, {stream: true});
+                const lines = buffer.split('\n');
                 
+                // Keep the last partial line in the buffer for the next chunk
+                buffer = lines.pop();
+
                 for (const line of lines) {
+                    const trimmed = line.trim();
+                    if (!trimmed || trimmed === 'data: [DONE]') continue;
+
                     try {
-                        const jsonStr = line.replace(/^data:\s*/, '');
+                        const jsonStr = trimmed.replace(/^data:\s*/, '');
                         if (!jsonStr) continue;
 
                         const data = JSON.parse(jsonStr);
@@ -178,7 +185,8 @@ class OpenAiCompatibleProvider extends Base {
                             yield delta.content;
                         }
                     } catch (e) {
-                         // Ignore incomplete JSON chunks boundary issues
+                        // Safe to ignore if JSON.parse fails on malformed LLM outputs
+                        // We have handled TCP boundaries via the buffer!
                     }
                 }
             }

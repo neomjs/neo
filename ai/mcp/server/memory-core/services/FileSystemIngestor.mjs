@@ -128,7 +128,7 @@ class FileSystemIngestor extends Base {
                     let existingEdge = GraphService.db.edges.items.find(e => e.source === parentId && e.target === nodeId && e.type === 'CONTAINS');
                     if (!existingEdge) {
                         GraphService.db.addEdge({
-                            id: Neo.getId('edge'),
+                            id: globalThis.crypto.randomUUID(),
                             source: parentId,
                             target: nodeId,
                             type: 'CONTAINS',
