@@ -2,6 +2,7 @@ import fs              from 'fs';
 import path            from 'path';
 import {fileURLToPath} from 'url';
 import Base            from '../../../../../src/core/Base.mjs';
+import crypto           from 'crypto';
 import GraphService    from './GraphService.mjs';
 import logger          from '../logger.mjs';
 
@@ -47,6 +48,7 @@ class FileSystemIngestor extends Base {
 
         // Precache existing mtimeMs dynamically bypassing RAM bloat cleanly natively
         const mtimeMap = new Map();
+        const hashMap  = new Map();
         if (GraphService.db.storage?.db) {
             try {
                 const stmt = GraphService.db.storage.db.prepare("SELECT id, data FROM Nodes WHERE id LIKE 'file-%'");
@@ -56,6 +58,9 @@ class FileSystemIngestor extends Base {
                     if (parsedData?.properties?.mtimeMs) {
                         mtimeMap.set(row.id, parsedData.properties.mtimeMs);
                     }
+                    if (parsedData?.properties?.hash) {
+                        hashMap.set(row.id, parsedData.properties.hash);
+                    }
                 }
             } catch (e) {
                 logger.debug(`[FileSystemIngestor] Caching skipped: ${e.message}`);
@@ -63,7 +68,7 @@ class FileSystemIngestor extends Base {
         }
 
         const stats = { nodes: 0, edges: 0 };
-        this.walkDirectory(neoRootDir, neoRootDir, null, stats, mtimeMap);
+        this.walkDirectory(neoRootDir, neoRootDir, null, stats, mtimeMap, hashMap);
         
         logger.info(`[FileSystemIngestor] Workspace Sync Complete. Upserted/Verified ${stats.nodes} Nodes and ${stats.edges} new CONTAINS Edges.`);
     }
@@ -76,7 +81,7 @@ class FileSystemIngestor extends Base {
      * @param {Object} stats Reference counter
      * @param {Map} mtimeMap Precaching SQLite map
      */
-    walkDirectory(dir, rootDir, parentId, stats, mtimeMap) {
+    walkDirectory(dir, rootDir, parentId, stats, mtimeMap, hashMap) {
         const files = fs.readdirSync(dir);
 
         for (const file of files) {
@@ -107,7 +112,20 @@ class FileSystemIngestor extends Base {
             const nodeId = `file-${relativePath}`;
             const mtimeMs = stat.mtimeMs;
 
-            const isUnchanged = mtimeMap.get(nodeId) === mtimeMs;
+            const mtimeMatch = mtimeMap.get(nodeId) === mtimeMs;
+            let fileHash = null;
+            let isUnchanged = mtimeMatch;
+
+            // Only hash if mtime mismatch on actual files
+            if (!mtimeMatch && !isDir) {
+                try {
+                    const content = fs.readFileSync(fullPath);
+                    fileHash = crypto.createHash('md5').update(content).digest('hex');
+                    if (hashMap.get(nodeId) === fileHash) {
+                        isUnchanged = true;
+                    }
+                } catch(e) {}
+            }
 
             if (!isUnchanged) {
                 // Upsert node bypassing textual embeddings (these are purely structural references)
@@ -118,7 +136,8 @@ class FileSystemIngestor extends Base {
                     description: isDir ? `Directory: ${relativePath}` : `File path: ${relativePath}`,
                     properties: {
                         path: relativePath,
-                        mtimeMs: mtimeMs
+                        mtimeMs: mtimeMs,
+                        ...(fileHash && { hash: fileHash })
                     }
                 });
                 stats.nodes++;
@@ -140,7 +159,7 @@ class FileSystemIngestor extends Base {
             }
 
             if (isDir) {
-                this.walkDirectory(fullPath, rootDir, nodeId, stats, mtimeMap);
+                this.walkDirectory(fullPath, rootDir, nodeId, stats, mtimeMap, hashMap);
             }
         }
     }

@@ -703,7 +703,7 @@ NEVER output raw markdown or conversational text. YOU MUST output EXACTLY ONE JS
                                 }
                             }
                         } catch (e) {
-                            // Suppress get errors locally
+                            console.error("DreamService GET error:", e);
                         }
 
                         if (needsEmbedding) {
