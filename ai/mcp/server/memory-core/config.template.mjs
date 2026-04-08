@@ -24,6 +24,12 @@ const defaultConfig = {
      */
     autoDream: process.env.AUTO_DREAM !== 'false',
     /**
+     * Automatically trigger Golden Path Synthesis into the handoff file on startup.
+     * Crucial for headless swarm nodes (Mac 2) to physically generate sandman_handoff.md.
+     * @type {boolean}
+     */
+    autoGoldenPath: process.env.AUTO_GOLDEN_PATH !== 'false',
+    /**
      * Immediately parse each incoming memory turn (add_memory) for Graph Injection.
      * @type {boolean}
      */
