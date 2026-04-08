@@ -220,15 +220,20 @@ Enforce this STRICT JSON schema:
           "id": "Type:Name",
           "type": "String (MUST BE EXACTLY ONE OF: SESSION, MEMORY, ARTIFACT_PLAN, ARTIFACT_TASK, ISSUE, STRATEGY, SYSTEM_ANCHOR, CONCEPT, CLASS, METHOD, FILE, GUIDE, BLOG, TEST)",
           "name": "String",
-          "description": "String"
+          "description": "String",
+          "logical_layer": "String (e.g. UI, State, Network, Build, Docs, Core, Unknown)",
+          "stability": "String (EXPERIMENTAL, STABLE, DEPRECATED, UNKNOWN)",
+          "confidence": 0.9,
+          "tags": ["Array", "of", "Strings"]
         }
       ],
       "edges": [
         {
           "source": "String (must match a node id, or 'frontier')",
           "target": "String (must match a node id, or 'frontier')",
-          "relationship": "String (e.g. IMPLEMENTS, USES, FIXES, DEPRECATES, GUIDES)",
-          "weight": 1.0
+          "relationship": "String (MUST BE EXACTLY ONE OF: IMPLEMENTS, EXTENDS, DEPENDS_ON, BLOCKS, BLOCKED_BY, RELATES_TO, RESOLVES, CAUSES_ISSUE)",
+          "weight": 1.0,
+          "justification": "String (Brief reason for this edge's algorithmic relevance)"
         }
       ]
     }
@@ -299,7 +304,14 @@ ${session.document}
                     type: nodeType,
                     name: node.name || 'Unknown',
                     description: node.description || '',
-                    semanticVectorId: session.id
+                    semanticVectorId: session.id,
+                    properties: {
+                        logical_layer: node.logical_layer || 'Unknown',
+                        stability: node.stability || 'UNKNOWN',
+                        confidence: typeof node.confidence === 'number' ? node.confidence : 0.5,
+                        tags: Array.isArray(node.tags) ? node.tags : [],
+                        context_source: session.meta.sessionId
+                    }
                 });
                 
                 // Update the payload graph node id so edges bind correctly
@@ -327,8 +339,12 @@ ${session.document}
                 GraphService.linkNodes(
                     resolvedSource,
                     resolvedTarget,
-                    edge.relationship || 'RELATED_TO',
-                    edge.weight !== undefined ? parseFloat(edge.weight) : 1.0
+                    edge.relationship || 'RELATES_TO',
+                    edge.weight !== undefined ? parseFloat(edge.weight) : 1.0,
+                    {
+                        justification: edge.justification || '',
+                        context_source: session.meta.sessionId
+                    }
                 );
             }
 
@@ -445,7 +461,8 @@ ${contextText}
         if (!payload || !payload.session_artifact || !payload.session_artifact.graph || !payload.session_artifact.graph.nodes) return;
 
         const structuralNodes = payload.session_artifact.graph.nodes.filter(n =>
-            n.type === 'FEATURE' || n.type === 'EPIC' || n.type === 'ISSUE' || n.type === 'CLASS'
+            (n.type === 'CONCEPT' || n.type === 'CLASS' || n.type === 'METHOD' || n.type === 'STRATEGY' || n.type === 'ISSUE') &&
+            (typeof n.confidence === 'number' ? n.confidence : 1.0) >= 0.6
         );
 
         if (structuralNodes.length === 0) return;
@@ -478,21 +495,24 @@ ${contextText}
                 return nameTerms.some(term => lowerP.includes(term));
             }).slice(0, 100).join('\n'); // High relevance, capped at 100 files
 
+            let nodeEdges = (payload.session_artifact.graph.edges || []).filter(e => e.source === node.id || e.target === node.id);
+            let edgeSummary = nodeEdges.length ? nodeEdges.map(e => `[${e.relationship}] ${e.source} -> ${e.target} (Justification: ${e.justification || 'N/A'})`).join('\n') : '(No structural edges generated)';
+
             let messages = [
                 {
                     role: 'system',
                     content: `You are the Neo.mjs Capability Gap Analyzer (REM).
-The underlying Agent just worked on a new feature/concept. You need to verify if the documentation and test coverage exists natively.
-We will provide you a FILTERED DIRECTORY TREE of the most likely relevant physical paths in 'docs/', 'learn/', 'test/', and 'src/'.
-Analyze the directory tree to see if relevant test or doc files exist for this node.
+The underlying Agent just worked on a new feature/concept. You must detect topological conflicts, missing documentation, or coverage gaps based on the node's metadata and relational edges.
+We will provide you the Node Metadata, inferred Topological Edges (e.g. CAUSES_ISSUE, BLOCKS), and a FILTERED DIRECTORY TREE of relevant paths in 'docs/', 'learn/', 'test/', and 'src/'.
+Analyze if the architectural edges flag a conflict, or if stability implies missing test coverage.
 If you need to read a file to verify its contents, output JSON: {"action": "read_file", "path": "path/to/file.md"}.
-If you are confident there is a gap (no file exists, or it's clearly insufficient), output JSON: {"action": "alert", "message": "[DOC_GAP] Detailed reason..."}.
-If coverage looks adequate, output JSON: {"action": "pass"}.
+If you detect a true gap or topological blocker, output JSON: {"action": "alert", "message": "[CONFLICT|DOC_GAP|TEST_GAP] Detailed reason..."}.
+If no issues are detected, output JSON: {"action": "pass"}.
 NEVER output raw markdown or conversational text. YOU MUST output EXACTLY ONE JSON OBJECT per turn.`
                 },
                 {
                     role: 'user',
-                    content: `Node Type: ${node.type}\nNode Name: ${node.name}\nNode Description: ${node.description}\n\n--- FILTERED DIRECTORY TREE ---\n${relevantPaths || '(No relevant paths found based on heuristic)'}\n--- END DIRECTORY TREE ---`
+                    content: `Node Type: ${node.type}\nNode Name: ${node.name}\nNode Description: ${node.description}\nLogical Layer: ${node.logical_layer || 'Unknown'}\nStability: ${node.stability || 'UNKNOWN'}\nTags: ${(node.tags || []).join(', ')}\n\n--- INFERRED TOPOLOGICAL EDGES ---\n${edgeSummary}\n\n--- FILTERED DIRECTORY TREE ---\n${relevantPaths || '(No relevant paths found based on heuristic)'}\n--- END DIRECTORY TREE ---`
                 }
             ];
 

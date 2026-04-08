@@ -154,10 +154,20 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
             session_artifact: {
                 graph: {
                     nodes: [{
-                        id         : 'node-feature-1',
-                        type       : 'FEATURE',
-                        name       : 'ButtonFeature',
-                        description: 'A newly formulated architectural concept.'
+                        id           : 'node-feature-1',
+                        type         : 'CONCEPT',
+                        name         : 'ButtonFeature',
+                        description  : 'A newly formulated architectural concept.',
+                        confidence   : 0.9,
+                        logical_layer: 'UI Components',
+                        stability    : 'EXPERIMENTAL',
+                        tags         : ['Frontend', 'button']
+                    }],
+                    edges: [{
+                        source       : 'node-feature-1',
+                        target       : 'node-issue-1',
+                        relationship : 'CAUSES_ISSUE',
+                        justification: 'The button feature lacks mobile responsiveness resolving strategies.'
                     }]
                 }
             }
@@ -174,6 +184,8 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
         expect(providerPrompt.length).toBeGreaterThan(1);
         expect(providerPrompt[1].content).toContain('ButtonFeature');
         expect(providerPrompt[1].content).toContain('src/button/Button.mjs');
+        expect(providerPrompt[1].content).toContain('CAUSES_ISSUE');
+        expect(providerPrompt[1].content).toContain('The button feature lacks mobile');
 
         // 5. Validate the Sandman interaction logic gracefully appended to the MD file (via proxy)
         console.log("APPENDED ARRAY:", appendedContent); expect(appendedContent.length).toBeGreaterThan(0);
