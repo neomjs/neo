@@ -124,21 +124,101 @@ class DatabaseService extends Base {
             offset += limit;
         }
 
-        writeStream.end();
+        await new Promise(resolve => writeStream.end(resolve));
         logger.log(`Successfully exported ${count} documents to: ${backupFile}`);
         return count;
     }
 
     /**
+     * Helper method to export the Native Graph (Nodes and Edges) as JSONL.
+     * @param {String} backupPath The directory to save the backup file.
+     * @param {String} filePrefix The prefix for the backup filename.
+     * @returns {Promise<number>} The total number of graph elements exported.
+     * @private
+     */
+    async #exportGraph(backupPath, filePrefix) {
+        logger.log(`Fetching all nodes and edges from the native graph...`);
+        const GraphService = (await import('./GraphService.mjs')).default;
+        
+        // Ensure graph is initialized
+        if (!GraphService.db || !GraphService.db.storage || !GraphService.db.storage.db) {
+             logger.log(`Graph database not initialized. Skipping graph export.`);
+             return 0;
+        }
+
+        const db = GraphService.db.storage.db;
+        
+        let nodesCount = 0;
+        let edgesCount = 0;
+
+        try {
+            nodesCount = db.prepare('SELECT count(*) as c FROM Nodes').get().c || 0;
+            edgesCount = db.prepare('SELECT count(*) as c FROM Edges').get().c || 0;
+        } catch (e) {
+            logger.error(`Error querying Native Graph tables: ${e.message}`);
+            return 0;
+        }
+
+        const totalCount = nodesCount + edgesCount;
+
+        if (totalCount === 0) {
+            logger.log(`No nodes or edges found in the native graph to export.`);
+            return 0;
+        }
+
+        logger.log(`Found ${nodesCount} nodes and ${edgesCount} edges to export.`);
+
+        const fs        = (await import('fs-extra')).default;
+        const path      = (await import('path')).default;
+        await fs.ensureDir(backupPath);
+        
+        const timestamp   = new Date().toISOString().replace(/:/g, '-');
+        const backupFile  = path.join(backupPath, `${filePrefix}-${timestamp}.jsonl`);
+        const writeStream = fs.createWriteStream(backupFile);
+
+        let exported = 0;
+
+        // Export Nodes
+        const nodesStmt = db.prepare('SELECT data FROM Nodes');
+        for (const row of nodesStmt.iterate()) {
+             try {
+                 const node = JSON.parse(row.data);
+                 const record = { type: 'node', data: node };
+                 writeStream.write(JSON.stringify(record) + '\\n');
+                 exported++;
+             } catch(e) {
+                 logger.error(`Error parsing node during export`, e);
+             }
+        }
+
+        // Export Edges
+        const edgesStmt = db.prepare('SELECT data FROM Edges');
+        for (const row of edgesStmt.iterate()) {
+             try {
+                 const edge = JSON.parse(row.data);
+                 const record = { type: 'edge', data: edge };
+                 writeStream.write(JSON.stringify(record) + '\\n');
+                 exported++;
+             } catch(e) {
+                 logger.error(`Error parsing edge during export`, e);
+             }
+        }
+
+        await new Promise(resolve => writeStream.end(resolve));
+        logger.log(`Successfully exported ${exported} graph elements to: ${backupFile}`);
+        return exported;
+    }
+
+    /**
      * Exports the entire memory database (both memories and summaries) to a JSONL file.
      * @param {Object} options
-     * @param {String[]} [options.include=['memories', 'summaries']] Array of collections to export.
+     * @param {String[]} [options.include=['memories', 'summaries', 'graph']] Array of collections to export.
      * @returns {Promise<{message: string}>}
      */
-    async exportDatabase({include=['memories', 'summaries']} = {}) {
+    async exportDatabase({include=['memories', 'summaries', 'graph']} = {}) {
         try {
             logger.log('Starting agent memory export...');
-            let memoryCount = 0, summaryCount = 0;
+            let memoryCount = 0, summaryCount = 0, graphCount = 0;
 
             if (include.includes('memories')) {
                 const collection = await StorageRouter.getMemoryCollection();
@@ -150,7 +230,11 @@ class DatabaseService extends Base {
                 summaryCount     = await this.#exportCollection(collection, aiConfig.backupPath, 'summaries-backup');
             }
 
-            return {message: `Export complete. Exported ${memoryCount} memories and ${summaryCount} summaries.`};
+            if (include.includes('graph')) {
+                graphCount = await this.#exportGraph(aiConfig.backupPath, 'graph-backup');
+            }
+
+            return {message: `Export complete. Exported ${memoryCount} memories, ${summaryCount} summaries, and ${graphCount} graph elements.`};
         } catch (error) {
             logger.error('[DatabaseService] Error exporting database:', error);
             const exportError = new Error(`DATABASE_EXPORT_ERROR: ${error.message}`);

@@ -40,7 +40,7 @@ class StorageRouter extends Base {
     async getSummaryCollection() {
         return Neo.create(CollectionProxy, { collectionType: 'summary' });
     }
-    
+
     /**
      * Used by export/import processes to target specific or all active engines
      * @returns {Promise<Object[]>}
