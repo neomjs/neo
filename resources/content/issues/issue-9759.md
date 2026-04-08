@@ -5,9 +5,10 @@ state: CLOSED
 labels:
   - enhancement
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-04-07T15:44:29Z'
-updatedAt: '2026-04-07T15:46:27Z'
+updatedAt: '2026-04-07T23:03:57Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9759'
 author: tobiu
 commentsCount: 0
@@ -30,4 +31,5 @@ This allows end users to fine-tune the geometric decay mapping through `process.
 - 2026-04-07T15:44:30Z @tobiu added the `ai` label
 - 2026-04-07T15:46:27Z @tobiu referenced in commit `1ec83b8` - "feat: Extract edge graph decay factor into MCP config (#9759)"
 - 2026-04-07T15:46:27Z @tobiu closed this issue
+- 2026-04-07T23:03:57Z @tobiu assigned to @tobiu
 

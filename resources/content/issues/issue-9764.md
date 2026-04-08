@@ -6,9 +6,10 @@ labels:
   - enhancement
   - ai
   - 'agent-role:dev'
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-04-07T20:06:09Z'
-updatedAt: '2026-04-07T20:06:36Z'
+updatedAt: '2026-04-07T23:03:33Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9764'
 author: tobiu
 commentsCount: 0
@@ -38,4 +39,5 @@ The `openAiCompatible` configuration mapping was omitted from `config.template.m
 - Synced openAiCompatible mapping into config.template.mjs
 - Refactored OpenAiCompatible.mjs payload object assignment to leverage ES6 property shorthand"
 - 2026-04-07T20:06:36Z @tobiu closed this issue
+- 2026-04-07T23:03:33Z @tobiu assigned to @tobiu
 
