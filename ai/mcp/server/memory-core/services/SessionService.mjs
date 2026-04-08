@@ -148,7 +148,8 @@ class SessionService extends Base {
             };
         } else {
             logger.info(`[SessionService] Initializing generation model via Gemini (${aiConfig.modelName})`);
-            const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+            const geminiKey = process.env.GEMINI_API_KEY;
+            const genAI = new GoogleGenerativeAI(geminiKey);
             this.model = genAI.getGenerativeModel({ model: aiConfig.modelName });
         }
     }

@@ -55,9 +55,9 @@ class SearchService extends Base {
     construct(config) {
         super.construct(config);
 
-        const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-        if (GEMINI_API_KEY) {
-            const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+        const apiKey = process.env.GEMINI_API_KEY;
+        if (apiKey) {
+            const genAI = new GoogleGenerativeAI(apiKey);
             this.model          = genAI.getGenerativeModel({model: aiConfig.modelName});
             this.embeddingModel = genAI.getGenerativeModel({model: aiConfig.embeddingModel});
         }

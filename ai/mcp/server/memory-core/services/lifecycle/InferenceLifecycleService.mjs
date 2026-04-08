@@ -58,7 +58,10 @@ class InferenceLifecycleService extends Base {
      */
     async isInferenceRunning() {
         try {
-            const res = await fetch(aiConfig.openAiCompatible.host + '/v1/models');
+            const res = await fetch(aiConfig.openAiCompatible.host + '/v1/models', {
+                method: 'GET',
+                signal: AbortSignal.timeout(3000)
+            });
             return res.ok;
         } catch (e) {
             return false;

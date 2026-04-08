@@ -99,22 +99,14 @@ class SQLiteVectorManager extends AbstractVectorManager {
         logger.log('[SQLiteVectorManager] Validating vector dimensions against existing collections...');
         const tables = this.db.prepare('SELECT * FROM vector_collections_meta').all();
         if (tables.length > 0) {
-            try {
-                const dummy      = await TextEmbeddingService.embedText("dimension_test", aiConfig.neoEmbeddingProvider);
-                const currentDim = dummy.length;
-                for (const table of tables) {
-                    if (table.dimension !== currentDim) {
-                        logger.error(`[SQLiteVectorManager] CRITICAL STARTUP ERROR: SQLite Vector Dimension Mismatch!`);
-                        logger.error(`[SQLiteVectorManager] Table '${table.name}' expects ${table.dimension}D vectors.`);
-                        logger.error(`[SQLiteVectorManager] Current embedding model outputs ${currentDim}D vectors.`);
-                        this.degraded = true;
-                        this.degradedReason = `Vector dimension mismatch. Expected ${table.dimension}, got ${currentDim}.`;
-                    }
+            for (const table of tables) {
+                if (table.dimension !== aiConfig.vectorDimension) {
+                    logger.error(`[SQLiteVectorManager] CRITICAL ERROR: SQLite Vector Dimension Mismatch!`);
+                    logger.error(`[SQLiteVectorManager] Table '${table.name}' expects ${table.dimension}D vectors.`);
+                    logger.error(`[SQLiteVectorManager] System config enforces ${aiConfig.vectorDimension}D vectors.`);
+                    this.degraded = true;
+                    this.degradedReason = `Vector dimension mismatch. Expected ${table.dimension}, config forces ${aiConfig.vectorDimension}.`;
                 }
-            } catch (e) {
-                logger.error('[SQLiteVectorManager] Failed to validate embedding dimensions because the inference server is offline:', e.message);
-                this.degraded = true;
-                this.degradedReason = 'Connecting to embedding provider failed. Offline Mode.';
             }
         }
 
@@ -156,13 +148,10 @@ class SQLiteVectorManager extends AbstractVectorManager {
         const tableName = name.replace(/[^a-zA-Z0-9_]/g, '_');
 
         let col = this.db.prepare('SELECT * FROM vector_collections_meta WHERE name = ?').get(tableName);
-        let dim = col ? col.dimension : null;
+        let dim = col ? col.dimension : aiConfig.vectorDimension;
 
         if (!col) {
-            logger.log(`[SQLiteVectorManager] Discovering embedding dimension for new collection: ${tableName}`);
-            // Infer dimension via a dummy generation
-            const dummy = await TextEmbeddingService.embedText("dimension_test", aiConfig.neoEmbeddingProvider);
-            dim         = dummy.length;
+            logger.log(`[SQLiteVectorManager] Enforcing static embedding dimension ${dim}D for new collection: ${tableName}`);
 
             // Prevent race conditions with concurrent async initializations
             this.db.prepare('INSERT OR IGNORE INTO vector_collections_meta (id, name, dimension) VALUES (?, ?, ?)').run(crypto.randomUUID(), tableName, dim);

@@ -114,7 +114,8 @@ class TextEmbeddingService extends Base {
                 throw err;
             }
         } else {
-            if (!process.env.GEMINI_API_KEY) {
+            const geminiKey = process.env.GEMINI_API_KEY;
+            if (!geminiKey) {
                  throw new Error('Semantic search unavailable: GEMINI_API_KEY is missing.');
             }
             if (!this.embeddingModel) {
