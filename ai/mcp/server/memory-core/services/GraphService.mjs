@@ -158,7 +158,7 @@ class GraphService extends Base {
                     ...(properties || {})
                 }
             });
-            logger.debug(`Successfully added node to Database RAM: ${id}`);
+            // logger.debug(`Successfully added node to Database RAM: ${id}`);
         }
     }
 

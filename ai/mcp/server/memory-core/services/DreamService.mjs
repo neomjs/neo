@@ -201,7 +201,7 @@ class DreamService extends Base {
      * @returns {Promise<Object|null>} The extracted payload, or null on failure
      */
     async executeTriVectorExtraction(session) {
-        logger.debug(`[DreamService] Extracting Tri-Vector Synthesis for session ID: ${session.meta.sessionId}`);
+        logger.info(`[DreamService] Extracting Tri-Vector Synthesis for session ID: ${session.meta.sessionId}`);
 
         const prompt = `
 You are the Neo.mjs REM (Rapid Eye Movement) Sleep digestion agent.
@@ -273,7 +273,7 @@ ${session.document}
                 return null;
             }
 
-            logger.info(`[DreamService] Successfully extracted Tri-Vector A2A schema for session ${session.meta.sessionId}.`);
+            logger.debug(`[DreamService] Successfully extracted Tri-Vector A2A schema for session ${session.meta.sessionId}.`);
 
             const artifact = payload.session_artifact;
 
@@ -384,7 +384,7 @@ ${session.document}
      * @param {String} sessionId The ID of the session being processed.
      */
     async extractTopology(contextText, sessionId) {
-        logger.debug(`[DreamService] Extracting Topological Conflicts for session ID: ${sessionId}`);
+        logger.info(`[DreamService] Extracting Topological Conflicts for session ID: ${sessionId}`);
 
         const prompt = `
 You are the Neo.mjs REM Sandman. Analyze the following session history for strict topological conflicts.
@@ -473,7 +473,7 @@ ${contextText}
 
         if (structuralNodes.length === 0) return;
 
-        logger.debug(`[DreamService] Launching Capability Gap Inference passes for ${structuralNodes.length} nodes...`);
+        logger.info(`[DreamService] Launching Capability Gap Inference passes for ${structuralNodes.length} nodes...`);
 
         // Resolve absolute root directory
         const neoRootDir = path.resolve(__dirname, '../../../../../');
@@ -707,7 +707,7 @@ NEVER output raw markdown or conversational text. YOU MUST output EXACTLY ONE JS
                         }
 
                         if (needsEmbedding) {
-                            logger.info(`[DreamService] Dynamically embedding OPEN issue: ${issueId}`);
+                            logger.debug(`[DreamService] Dynamically embedding OPEN issue: ${issueId}`);
                             await nodesCollection.upsert({
                                 ids: [issueId],
                                 documents: [titleAndBody],
