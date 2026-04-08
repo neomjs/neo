@@ -7,6 +7,10 @@ import TextEmbeddingService from '../../ai/mcp/server/memory-core/services/TextE
 import aiConfig             from '../../ai/mcp/server/memory-core/config.mjs';
 import {program}            from 'commander';
 
+/**
+ * @module buildScripts/ai/syncMemoryChromaToNeo
+ */
+
 program
     .name('sync-memory-chroma-to-neo')
     .description('Migrate ChromaDB memory to Neo SQLite with optional re-embedding')

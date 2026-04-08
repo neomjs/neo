@@ -7,6 +7,10 @@ import aiConfig        from '../../ai/mcp/server/memory-core/config.mjs';
 import GraphService    from '../../ai/mcp/server/memory-core/services/GraphService.mjs';
 import StorageRouter   from '../../ai/mcp/server/memory-core/managers/StorageRouter.mjs';
 
+/**
+ * @module buildScripts/ai/recreateGraphDb
+ */
+
 async function recreateGraphDb() {
     console.log('⏳ Initializing Graph DB Recreation Script...');
     

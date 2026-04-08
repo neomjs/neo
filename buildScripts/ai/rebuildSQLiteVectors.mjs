@@ -1,6 +1,10 @@
 import { Memory_LifecycleService, Memory_SQLiteVectorManager } from '../../ai/services.mjs';
 import TextEmbeddingService from '../../ai/mcp/server/memory-core/services/TextEmbeddingService.mjs';
 
+/**
+ * @module buildScripts/ai/rebuildSQLiteVectors
+ */
+
 const BATCH_SIZE = 15;
 
 async function bootstrap() {
@@ -72,7 +76,7 @@ async function bootstrap() {
                 }
 
                 try {
-                    const vec = await TextEmbeddingService.embedText(item.document);
+                    const vec = await TextEmbeddingService.embedText(item.document, aiConfig.neoEmbeddingProvider);
                     ids.push(item.id);
                     documents.push(item.document);
                     metadatas.push(item.metadata);

@@ -5,6 +5,10 @@ import KB_DatabaseService   from '../../ai/mcp/server/knowledge-base/services/Da
 import KB_ChromaManager     from '../../ai/mcp/server/knowledge-base/services/ChromaManager.mjs';
 import KB_LifecycleService  from '../../ai/mcp/server/knowledge-base/services/DatabaseLifecycleService.mjs';
 
+/**
+ * @module buildScripts/ai/syncKnowledgeBase
+ */
+
 async function syncKnowledgeBase() {
     // Enable debug logging to see progress
     KB_Config.data.debug = true;

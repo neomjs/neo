@@ -261,10 +261,8 @@ ${session.document}
 
             // MLX manages KV cache paging internally. No dynamic context sizing required here.
 
-            // Call standard generation method with explicit format enforcement
-            const result = await provider.generate(prompt, {
-                response_format: { type: 'json_object' }
-            });
+            // Call standard generation method explicitly without format enforcement
+            const result = await provider.generate(prompt);
 
             // Extract using robust Json parser to catch malformed boundaries
             const payload = Json.extract(result.content);
@@ -414,9 +412,7 @@ ${contextText}
                 host: aiConfig.openAiCompatible.host
             });
 
-            const result = await provider.generate(prompt, {
-                response_format: { type: 'json_object' }
-            });
+            const result = await provider.generate(prompt);
 
             const payload = Json.extract(result.content);
             if (!payload || !Array.isArray(payload.conflicts) || payload.conflicts.length === 0) {
@@ -533,9 +529,7 @@ NEVER output raw markdown or conversational text. YOU MUST output EXACTLY ONE JS
             while (passCounter < 4) {
                 passCounter++;
                 try {
-                    const result = await provider.generate(messages, {
-                        response_format: { type: 'json_object' }
-                    });
+                    const result = await provider.generate(messages);
 
                     const payload = Json.extract(result.content);
                     if (!payload || !payload.action) break;
@@ -933,9 +927,7 @@ Mandatory Schema:
 DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide purely the JSON object.
 `;
 
-            const result = await provider.generate(interpretPrompt, {
-                response_format: { type: 'json_object' }
-            });
+            const result = await provider.generate(interpretPrompt);
 
             const payload = Json.extract(result.content);
             if (payload && payload.strategic_brief) {

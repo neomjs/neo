@@ -4,6 +4,10 @@ import InstanceManager  from '../../src/manager/Instance.mjs';
 import LifecycleService from '../../ai/mcp/server/memory-core/services/lifecycle/SystemLifecycleService.mjs';
 import DatabaseService  from '../../ai/mcp/server/memory-core/services/DatabaseService.mjs';
 
+/**
+ * @module buildScripts/ai/exportDatabase
+ */
+
 async function exportBackup() {
     try {
         console.log('⏳ Waiting for generic database lifecycle to become ready...');
