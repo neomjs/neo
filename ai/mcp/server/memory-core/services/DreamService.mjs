@@ -678,8 +678,22 @@ NEVER output raw markdown or conversational text. YOU MUST output EXACTLY ONE JS
                     // The Ancestral Anchor: Re-assert edge weights for active roadmap items
                     const edges = GraphService.db.edges.items.filter(e => e.source === issueId || e.target === issueId);
                     if (edges.length > 0) {
+                        let baseWeight = 1.0;
+
+                        // Community Multiplier: Boost if ticket is external and has been triaged
+                        if (meta.author && meta.author !== 'tobiu' && meta.author !== 'neo-mjs-swarm') {
+                            if (Array.isArray(meta.labels) && meta.labels.length > 0) {
+                                baseWeight += 0.5;
+                            }
+                        }
+
+                        // Bug Multiplier: Forcing Context Priming towards regressions
+                        if (Array.isArray(meta.labels) && meta.labels.includes('bug')) {
+                            baseWeight += 1.0;
+                        }
+
                         edges.forEach(e => {
-                            e.properties.weight = 1.0;
+                            e.properties.weight = baseWeight;
                         });
                         if (GraphService.db.autoSave && GraphService.db.storage) {
                             GraphService.db.storage.addEdges(edges);
