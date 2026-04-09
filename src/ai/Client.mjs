@@ -138,12 +138,18 @@ class Client extends Base {
 
         try {
             let url     = new URL(Neo.config.neuralLinkUrl || me.url),
-                appName = 'Unknown App';
+                appName = Neo.config.appName || 'Unknown App';
 
-            if (Neo.config.appPath) {
-                const match = Neo.config.appPath.match(/apps\/([^\/]+)\//);
+            if (appName === 'Unknown App' && Neo.config.appPath) {
+                let match = Neo.config.appPath.match(/apps\/([^\/]+)\//);
+                
                 if (match) {
                     appName = match[1]
+                } else {
+                    match = Neo.config.appPath.match(/examples\/([^\/]+)\/([^\/]+)\//);
+                    if (match) {
+                        appName = `Neo.examples.${match[1]}.${match[2]}`
+                    }
                 }
             }
 

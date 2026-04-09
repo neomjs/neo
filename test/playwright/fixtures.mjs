@@ -3,6 +3,7 @@ import * as RmaHelpers from './util/RmaHelpers.mjs';
 import {
     NeuralLink_ConnectionService,
     NeuralLink_InstanceService,
+    NeuralLink_ComponentService,
     NeuralLink_DataService,
     NeuralLink_RuntimeService
 } from '../../ai/services.mjs';
@@ -115,6 +116,11 @@ export const test = base.extend({
                     async callMethod(id, method, args = []) {
                         const response = await NeuralLink_InstanceService.callMethod({ sessionId, id, method, args });
                         return response.result;
+                    },
+
+                    async queryComponent(selector, properties) {
+                        const response = await NeuralLink_ComponentService.queryComponent({ sessionId, selector, returnProperties: properties });
+                        return response.components || response;
                     },
 
                     async setProperties(id, properties) {
