@@ -1002,7 +1002,7 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
                     prunedGaps++;
                 } else {
                     const sanitizedMessage = node.properties.capabilityGap.replace(/\n/g, ' ');
-                    handoffContent += `- **[Codebase Gap]** Node \`${node.name}\`: ${sanitizedMessage}\n`;
+                    handoffContent += `- **[Codebase Gap]** Node \`${node.id}\`: ${sanitizedMessage}\n`;
                     gapElementsCount++;
                 }
             }
