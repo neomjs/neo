@@ -9,10 +9,10 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-04-09T11:33:45Z'
-updatedAt: '2026-04-09T15:30:38Z'
+updatedAt: '2026-04-09T17:17:09Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9819'
 author: tobiu
-commentsCount: 4
+commentsCount: 6
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
@@ -83,4 +83,12 @@ This identification fulfills the objective. Our next actionable ticket should be
 
 - 2026-04-09T15:30:38Z @tobiu closed this issue
 - 2026-04-09T15:35:23Z @tobiu cross-referenced by #9827
+### @m13v - 2026-04-09T17:16:36Z
+
+The distinction between worker-thread whitebox testing and DOM-crawling automation is an important one. If Neo.mjs keeps component state entirely in the App Worker, then testing through the Neural Link bridge gives you direct access to the actual data model without fighting DOM synchronization. That's fundamentally more reliable than traditional E2E. The architectural difference makes this a different category of testing entirely.
+
+### @m13v - 2026-04-09T17:17:09Z
+
+The gradient from primitives to composites to multi-body grid is a solid methodology. Validating each level before escalating prevents the context implosion you described. The button baseline from #9826 gives you a known-good reference point. For the grid level, I'd suggest testing with a small fixed dataset first (3x3 grid, known values) before scaling to dynamic data, so you can isolate rendering issues from data-binding issues.
+
 
