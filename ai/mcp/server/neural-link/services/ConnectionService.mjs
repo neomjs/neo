@@ -341,6 +341,7 @@ class ConnectionService extends Base {
     handleBridgeMessage(data) {
         try {
             const payload = JSON.parse(data.toString());
+            logger.info(`[DEBUG] Received from Bridge: ${JSON.stringify(payload)}`);
 
             switch (payload.type) {
                 case 'app_connected':
@@ -508,8 +509,9 @@ class ConnectionService extends Base {
      */
     async waitForSession(target, timeout = 10000) {
         const check = () => {
+             const targetLower = target.toLowerCase();
              for (const [id, meta] of this.sessionData.entries()) {
-                 if (id === target || meta.appName === target) {
+                 if (id === target || (meta.appName && meta.appName.toLowerCase() === targetLower)) {
                      return id;
                  }
              }

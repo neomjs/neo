@@ -97,14 +97,14 @@ export const test = base.extend({
                     throw new Error('neuralLink.connectToApp requires either an initialized Neo environment or an explicit appName to wait for.');
                 }
 
-                // Lowercase for the connection service match
-                const sessionId = await NeuralLink_ConnectionService.waitForSession(targetId.toLowerCase());
+                const sessionId = await NeuralLink_ConnectionService.waitForSession(targetId, 30000);
 
                 return {
                     sessionId,
 
-                    async getComponent(id) {
-                        const response = await NeuralLink_InstanceService.getInstanceProperties({ sessionId, id, properties: ['ntype', 'windowId', 'cls', 'className', 'vnode'] });
+                    async getComponent(id, properties) {
+                        const propsToFetch = properties || ['ntype', 'windowId', 'cls', 'className', 'vnode'];
+                        const response = await NeuralLink_InstanceService.getInstanceProperties({ sessionId, id, properties: propsToFetch });
                         return response.properties;
                     },
 
@@ -113,7 +113,8 @@ export const test = base.extend({
                     },
 
                     async callMethod(id, method, args = []) {
-                        return NeuralLink_RuntimeService.callMethod({ sessionId, id, method, args });
+                        const response = await NeuralLink_InstanceService.callMethod({ sessionId, id, method, args });
+                        return response.result;
                     },
 
                     async setProperties(id, properties) {
