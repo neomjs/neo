@@ -18,8 +18,9 @@ subIssues:
   - '[ ] 9805 Centralize sandman_handoff.md generation in DreamService'
   - '[ ] 9806 Enforce TTL Pruning for Graph Topology Gap Tracking'
   - '[ ] 9807 Enforce Type-Aware Gap Targeting Constraints'
+  - '[ ] 9809 Ensure GitHub Discussions Surface Natively in the Golden Path'
 subIssuesCompleted: 0
-subIssuesTotal: 4
+subIssuesTotal: 5
 blockedBy: []
 blocking: []
 ---
@@ -53,4 +54,6 @@ The initial iteration of the Hybrid GraphRAG pipeline successfully stood up the 
 - 2026-04-09T08:12:17Z @tobiu added sub-issue #9806
 - 2026-04-09T08:14:41Z @tobiu cross-referenced by #9807
 - 2026-04-09T08:14:49Z @tobiu added sub-issue #9807
+- 2026-04-09T08:22:42Z @tobiu cross-referenced by #9809
+- 2026-04-09T08:22:48Z @tobiu added sub-issue #9809
 
