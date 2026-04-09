@@ -116,9 +116,6 @@ class RowModel extends BaseModel {
 
                 me.toggleRowSelection(recordId);
 
-                // Sync visual state to sibling sub-grids
-                me.getActivePeers().forEach(peer => peer.updateRows(recordId));
-
                 view.fire(me.isSelectedRow(recordId) ? 'select' : 'deselect', {record})
             }
         }
