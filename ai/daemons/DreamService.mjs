@@ -1058,6 +1058,10 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
         let gapElementsCount = 0;
         let prunedGaps = 0;
 
+        let testGaps = [];
+        let docGaps = [];
+        let guideGaps = [];
+
         GraphService.db.nodes.items.forEach(node => {
             if (node.properties?.capabilityGap) {
                 const age = now - (node.properties.lastGapCheck || now);
@@ -1077,15 +1081,25 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
                         }
                         gaps = [...new Set(gaps)];
                         gaps.forEach(gapMessage => {
-                            if (gapMessage && gapMessage.trim().length > 0) {
-                                handoffContent += `- **[Codebase Gap]** Node \`${node.id}\`: ${gapMessage.trim()}\n`;
+                            let msg = gapMessage.trim();
+                            if (msg.length > 0) {
                                 gapElementsCount++;
+                                if (msg.includes('[TEST_GAP]')) {
+                                    testGaps.push({ id: node.id, msg: msg.replace('[TEST_GAP]', '').trim() });
+                                } else if (msg.includes('[DOC_GAP]')) {
+                                    docGaps.push({ id: node.id, msg: msg.replace('[DOC_GAP]', '').trim() });
+                                } else if (msg.includes('[GUIDE_GAP]')) {
+                                    guideGaps.push({ id: node.id, msg: msg.replace('[GUIDE_GAP]', '').trim() });
+                                } else {
+                                    // Fallback for unlabeled 
+                                    testGaps.push({ id: node.id, msg });
+                                }
                             }
                         });
                     } catch (e) {
-                        const sanitizedMessage = node.properties.capabilityGap.replace(/\\n/g, ' ').replace(/\n/g, ' ');
-                        handoffContent += `- **[Codebase Gap]** Node \`${node.id}\`: ${sanitizedMessage}\n`;
-                        gapElementsCount++;
+                         const sanitizedMessage = node.properties.capabilityGap.replace(/\\n/g, ' ').replace(/\n/g, ' ');
+                         testGaps.push({ id: node.id, msg: sanitizedMessage });
+                         gapElementsCount++;
                     }
                 }
             }
@@ -1093,6 +1107,25 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
 
         if (gapElementsCount === 0) {
             handoffContent += `*No architectural gaps detected at this time. Codebase is aligned with structural jsdocx graph expectations.*\n`;
+        } else {
+            if (testGaps.length > 0) {
+                handoffContent += `### 🧪 Critical Test Constraints (\`${testGaps.length}\` items)\n`;
+                testGaps.slice(0, 15).forEach(g => handoffContent += `- **\`${g.id}\`**: ${g.msg}\n`);
+                if (testGaps.length > 15) handoffContent += `  - *(+ ${testGaps.length - 15} more in native SQLite)*\n`;
+                handoffContent += `\n`;
+            }
+            if (docGaps.length > 0) {
+                handoffContent += `### 📚 Missing Architecture Documentation (\`${docGaps.length}\` items)\n`;
+                docGaps.slice(0, 15).forEach(g => handoffContent += `- **\`${g.id}\`**: ${g.msg}\n`);
+                if (docGaps.length > 15) handoffContent += `  - *(+ ${docGaps.length - 15} more in native SQLite)*\n`;
+                handoffContent += `\n`;
+            }
+            if (guideGaps.length > 0) {
+                handoffContent += `### 🗺️ Guide Disconnects (\`${guideGaps.length}\` items)\n`;
+                guideGaps.slice(0, 15).forEach(g => handoffContent += `- **\`${g.id}\`**: ${g.msg}\n`);
+                if (guideGaps.length > 15) handoffContent += `  - *(+ ${guideGaps.length - 15} more in native SQLite)*\n`;
+                handoffContent += `\n`;
+            }
         }
 
         if (prunedGaps > 0) {
