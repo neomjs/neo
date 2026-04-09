@@ -5,9 +5,10 @@ state: CLOSED
 labels:
   - epic
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-04-04T13:43:44Z'
-updatedAt: '2026-04-09T13:05:03Z'
+updatedAt: '2026-04-09T13:07:15Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9687'
 author: tobiu
 commentsCount: 2
@@ -71,4 +72,5 @@ Implementing the background, autonomous layer of the Agent OS, leveraging the Na
 > 
 > All definition of done workflows achieved. Epic is formally closed. 🚀
 
+- 2026-04-09T13:07:15Z @tobiu assigned to @tobiu
 
