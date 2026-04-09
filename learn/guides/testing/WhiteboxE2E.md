@@ -135,8 +135,23 @@ await nlApp.simulateEvent([
 ]);
 ```
 
+### Topology, Nodes, & Namespaces
+Get a bird's eye view of the entire runtime environment, discovering connected workers or resolving the class hierarchy.
+
+```javascript
+// Map component hierarchy dynamically
+const compTree = await nlApp.getComponentTree(undefined, 2); // Depth limit 2
+
+// View all connected Apps / Windows 
+const workers = await nlApp.getWorkerTopology();
+const windows = await nlApp.getWindowTopology();
+
+// Verify that specific classes loaded successfully
+const hasGrid = await nlApp.checkNamespace('Neo.grid.Container');
+```
+
 ### Runtime & App State
-Tools exist to inspect stores, active listeners, or reload the page logic entirely.
+Tools exist to inspect stores, active listeners, global config, or drag states.
 
 ```javascript
 // View what raw events are actually bound to this specific layout block
@@ -145,9 +160,36 @@ const listeners = await nlApp.getDomEventListeners('my-grid-container');
 // Dump the full raw store records (paginated) without querying the component
 const storeData = await nlApp.inspectStore('my-data-store', 50, 0);
 
-// Get internal Route History (navigating via hash)
-const history = await nlApp.getRouteHistory();
+// Review global configurations 
+const globalConfig = await nlApp.manageNeoConfig('get');
 ```
+
+### Advanced Metaprogramming
+The Neural Link Fixture exposes powerful introspection and runtime patching capabilities for high-level whitebox debugging.
+
+> [!WARNING]
+> The `patchCode` method requires `Neo.config.enableHotPatching = true` to be set in your `neo-config.json`. Due to significant security concerns, hot patching is disabled by default and should **never** be enabled in production environments.
+
+```javascript
+// Extract the fully resolved configuration blueprint and API hooks for a class
+const blueprint = await nlApp.inspectClass('Neo.button.Base');
+
+// View the exact source code of a method currently loaded in memory
+const methodSource = await nlApp.getMethodSource('Neo.button.Base', 'onClick');
+
+// Dynamically replace the method implementation during E2E testing
+await nlApp.patchCode(
+    'Neo.button.Base', 
+    'onClick', 
+    'function(data) { console.log("Patched!"); }'
+);
+```
+
+## Legacy RMA vs Neural Link
+
+Before Neural Link, Early Neo.mjs testing relied on Remote Method Access (RMA) using the `window.Neo` object mapped from the browser context to the worker (e.g. `await page.evaluate(() => Neo.worker.App.getConfigs(...))`).
+
+This legacy strategy, provided by the fallback `neo` fixture, suffers from serialization drops and lacks targeted debugging interfaces. The `neuralLink` SDK (`nlApp`) completely supersedes these legacy calls and connects directly to the core MCP server logic via postMessage boundaries. You should **always** use `neuralLink` for Neo native testing. Legacy RMA is strictly retained as a fallback layer for React/Angular wrapped Neo integrations where the Neural Link is disabled.
 
 ## A Complete Example Walkthrough
 

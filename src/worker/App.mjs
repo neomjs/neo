@@ -127,6 +127,10 @@ class App extends Base {
      * Remote method to use inside main threads for creating neo based class instances.
      * Be aware that you can only pass configs which can get converted into pure JSON.
      *
+     * @warning This provides legacy testing support for environments where Neural Link 
+     * is not available (e.g. React wrappers). For native Neo.mjs E2E testing, 
+     * use the Neural Link Bridge instead.
+     *
      * Mounting a component into the document.body
      * @example:
      *     Neo.worker.App.createNeoInstance({
@@ -213,6 +217,10 @@ class App extends Base {
 
     /**
      * Remote method to use inside main threads for destroying neo based class instances.
+     * 
+     * @warning This provides legacy testing support for environments where Neural Link 
+     * is not available (e.g. React wrappers). For native Neo.mjs E2E testing, 
+     * use the Neural Link Bridge instead.
      *
      * @example:
      *     Neo.worker.App.destroyNeoInstance('neo-button-3').then(result => console.log(result.success))
@@ -318,6 +326,11 @@ class App extends Base {
 
     /**
      * Get configs of any app realm based Neo instance from main
+     * 
+     * @warning This provides legacy testing support for environments where Neural Link 
+     * is not available (e.g. React wrappers). For native Neo.mjs E2E testing, 
+     * use the Neural Link Bridge instead.
+     * 
      * @param {Object} data
      * @param {String} data.id
      * @param {String|String[]} data.keys
@@ -532,6 +545,10 @@ class App extends Base {
      * This operation is **atomic** and state-preserving when moving within the same browser window.
      * It relies on `Neo.container.Base.insert` to handle the silent removal from the old parent,
      * ensuring that the DOM node is physically moved rather than destroyed and recreated.
+     * 
+     * @warning This provides legacy testing support for environments where Neural Link 
+     * is not available (e.g. React wrappers). For native Neo.mjs E2E testing, 
+     * use the Neural Link Bridge instead.
      *
      * @param {Object} data
      * @param {String} data.id The id of the component to move.
@@ -822,6 +839,11 @@ class App extends Base {
 
     /**
      * Set configs of any app realm based Neo instance from main
+     * 
+     * @warning This provides legacy testing support for environments where Neural Link 
+     * is not available (e.g. React wrappers). For native Neo.mjs E2E testing, 
+     * use the Neural Link Bridge instead.
+     * 
      * @param {Object} data
      * @param {String} data.id
      * @returns {Object}

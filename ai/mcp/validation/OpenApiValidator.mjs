@@ -54,11 +54,7 @@ function buildZodSchema(openApiDocument, operation) {
                         schema = z.string();
                         break;
                     case 'array':
-                        if (propSchema.items && propSchema.items.type !== 'string') {
-                            schema = z.array(z.any());
-                        } else {
-                            schema = z.array(z.string());
-                        }
+                        schema = z.array(z.string());
                         break;
                     default:
                         schema = z.any();

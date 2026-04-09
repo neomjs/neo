@@ -10,6 +10,13 @@ import {
 } from '../../ai/services.mjs';
 
 export const test = base.extend({
+    /**
+     * @warning The `neo` fixture uses legacy Remote Method Access (RMA). 
+     * It is retained for environments where the Neural Link is unavailable 
+     * (e.g., Neo.mjs wrapped inside a React application). 
+     * For native Neo.mjs E2E testing, you should exclusively use the `neuralLink` 
+     * fixture instead. See: learn/guides/testing/WhiteboxE2E.md
+     */
     neo: async ({ page }, use) => {
         // Ensure RMA helpers are registered in the browser context
         await RmaHelpers.registerRmaHelpers(page);
@@ -103,6 +110,40 @@ export const test = base.extend({
 
                 return {
                     sessionId,
+
+                    // --- Metaprogramming ---
+
+                    /**
+                     * Inspects a Neo.mjs class to retrieve its Rich Blueprint.
+                     * @param {String} className
+                     * @param {String} [detail='standard'] 'compact' or 'standard'
+                     * @returns {Promise<Object>}
+                     */
+                    async inspectClass(className, detail = 'standard') {
+                        return NeuralLink_InstanceService.inspectClass({ sessionId, className, detail });
+                    },
+
+                    /**
+                     * Retrieves the source code of a class method.
+                     * @param {String} className
+                     * @param {String} methodName
+                     * @returns {Promise<Object>}
+                     */
+                    async getMethodSource(className, methodName) {
+                        return NeuralLink_InstanceService.getMethodSource({ sessionId, className, methodName });
+                    },
+
+                    /**
+                     * Replaces a method implementation on a class prototype at runtime.
+                     * @warning Requires `Neo.config.enableHotPatching = true`. Security concerns apply.
+                     * @param {String} className
+                     * @param {String} methodName
+                     * @param {String} source
+                     * @returns {Promise<Object>}
+                     */
+                    async patchCode(className, methodName, source) {
+                        return NeuralLink_InstanceService.patchCode({ sessionId, className, methodName, source });
+                    },
 
                     // --- Instance Methods ---
 
@@ -216,6 +257,18 @@ export const test = base.extend({
                     async highlightComponent(componentId, options) {
                         return NeuralLink_ComponentService.highlightComponent({ sessionId, componentId, options });
                     },
+
+                    /**
+                     * Retrieves the full component tree of the application.
+                     * @param {String} [rootId]
+                     * @param {Number} [depth=-1]
+                     * @param {Boolean} [lean=false]
+                     * @returns {Promise<Object>}
+                     */
+                    async getComponentTree(rootId, depth = -1, lean = false) {
+                        return NeuralLink_ComponentService.getComponentTree({ sessionId, rootId, depth, lean });
+                    },
+
 
                     // --- Interaction Methods ---
 
@@ -333,6 +386,69 @@ export const test = base.extend({
                      */
                     async getConsoleLogs(type, filter) {
                         return NeuralLink_RuntimeService.getConsoleLogs({ sessionId, type, filter });
+                    },
+
+                    /**
+                     * Checks if a namespace exists in the current environment.
+                     * @param {String} namespace
+                     * @returns {Promise<Object>}
+                     */
+                    async checkNamespace(namespace) {
+                        return NeuralLink_RuntimeService.checkNamespace({ sessionId, namespace });
+                    },
+
+                    /**
+                     * Retrieves the loaded namespace tree from the runtime.
+                     * @param {String} [root='Neo']
+                     * @returns {Promise<Object>}
+                     */
+                    async getNamespaceTree(root = 'Neo') {
+                        return NeuralLink_RuntimeService.getNamespaceTree({ sessionId, root });
+                    },
+
+                    /**
+                     * Retrieves a high-level summary of the DomEvent manager state.
+                     * @returns {Promise<Object>}
+                     */
+                    async getDomEventSummary() {
+                        return NeuralLink_RuntimeService.getDomEventSummary({ sessionId });
+                    },
+
+                    /**
+                     * Retrieves the state of the DragCoordinator.
+                     * @returns {Promise<Object>}
+                     */
+                    async getDragState() {
+                        return NeuralLink_RuntimeService.getDragState({ sessionId });
+                    },
+
+                    /**
+                     * Manages the global Neo.config object. 
+                     * @param {String} action 'get' or 'set'
+                     * @param {Object} [config]
+                     * @param {String} [windowId]
+                     * @returns {Promise<Object>}
+                     */
+                    async manageNeoConfig(action, config, windowId) {
+                        return NeuralLink_RuntimeService.manageNeoConfig({ sessionId, action, config, windowId });
+                    },
+
+                    // --- Topology ---
+
+                    /**
+                     * Retrieves the topology of all connected App Workers.
+                     * @returns {Promise<Object>}
+                     */
+                    async getWorkerTopology() {
+                        return NeuralLink_ConnectionService.getWorkerTopology();
+                    },
+
+                    /**
+                     * Retrieves the topology of all connected windows.
+                     * @returns {Promise<Object>}
+                     */
+                    async getWindowTopology() {
+                        return NeuralLink_ConnectionService.getWindowTopology();
                     }
                 };
             }
