@@ -27,18 +27,20 @@ class RowModel extends BaseModel {
      *
      */
     addDomListener() {
-        let me = this;
+        let me     = this,
+            target = me.view.gridContainer || me.view.parent;
 
-        me.view.parent.on('rowClick', me.onRowClick, me)
+        target.on('rowClick', me.onRowClick, me)
     }
 
     /**
      * @param args
      */
     destroy(...args) {
-        let me = this;
+        let me     = this,
+            target = me.view.gridContainer || me.view.parent;
 
-        me.view.parent.un('rowClick', me.onRowClick, me);
+        target.un('rowClick', me.onRowClick, me);
 
         super.destroy(...args)
     }
@@ -91,13 +93,20 @@ class RowModel extends BaseModel {
     }
 
     /**
-     * @param {Object} data
+     * @param {Object} event
      */
-    onRowClick({data}) {
+    onRowClick(event) {
         let me     = this,
             {view} = me,
-            record = me.getRecord(data.path),
+            {data} = event,
+            record = event.record || me.getRecord(data.path),
             recordId;
+
+        // In a multi-body architecture, ensure we only toggle the state once per click
+        // by restricting the state mutation to the specific body that fired the event.
+        if (event.body && event.body !== view) {
+            return
+        }
 
         if (record) {
             if (me.hasAnnotations(record)) {
@@ -106,6 +115,9 @@ class RowModel extends BaseModel {
                 recordId = view.getRecordId(record);
 
                 me.toggleRowSelection(recordId);
+
+                // Sync visual state to sibling sub-grids
+                me.getActivePeers().forEach(peer => peer.updateRows(recordId));
 
                 view.fire(me.isSelectedRow(recordId) ? 'select' : 'deselect', {record})
             }
