@@ -349,7 +349,9 @@ class BaseModel extends Model {
         // Peer State Adoption: if siblings are already initialized, natively 
         // adopt their state references to enforce a single state truth globally.
         if (peers.length > 0) {
-            me.selectedRows = peers[0].selectedRows
+            me.selectedRows    = peers[0].selectedRows;
+            me.selectedColumns = peers[0].selectedColumns;
+            me._items          = peers[0]._items
         }
     }
 
