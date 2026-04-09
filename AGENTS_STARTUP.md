@@ -261,10 +261,13 @@ Without this context, sub-agents will hallucinate bugs where none exist (e.g., c
 **The Solution:** You MUST bridge the SQLite gap by converting GitHub Issues into your primary episodic memory carriers.
 
 **Mandatory Workflow:**
-1.  **Do Not Create Skeleton Tickets:** You are strictly forbidden from creating GitHub issues with one-sentence descriptions. A ticket is not just for human tracking; it is the **A2A (Agent-to-Agent)** data transport mechanism.
-2.  **Generate "Fat Tickets":** When you call `create_issue`, the `body` parameter MUST contain a highly detailed summary that functions as a structural graph node proxy.
-3.  **Required A2A Context:** The Fat Ticket MUST contain:
+1.  **Gate 0 (Deduplication):** Before creating *any* ticket, you MUST run a `grep_search` against the `resources/content/issues` and `resources/content/discussions` directory. Redundant, duplicate tickets pollute the Knowledge Base and disrupt swarm synchronicity.
+2.  **Epic Granularity Constraints:** Do NOT create an Epic unless it functions strictly as an overarching parent node for granular, multi-commit sub-issues. If the task is a single commit (no matter how big), it is a standard Request, NOT an Epic.
+3.  **Strict Graph Connectivity:** When generating sub-issues for an Epic, you MUST use the `update_issue_relationship` tool to natively link the sub-issues to their parent block.
+4.  **Do Not Create Skeleton Tickets:** You are strictly forbidden from creating GitHub issues with one-sentence descriptions. A ticket is not just for human tracking; it is the **A2A (Agent-to-Agent)** data transport mechanism.
+5.  **Generate "Fat Tickets":** When you call `create_issue`, the `body` parameter MUST contain a highly detailed summary that functions as a structural graph node proxy.
+6.  **Required A2A Context:** The Fat Ticket MUST contain:
     -   **The Problem:** Include deep background context or insights from your recent Memory Core explorations.
     -   **The Architectural Reality:** Point out exactly *which* Neo.mjs patterns or class topologies this issue interacts with. Include specific paths to files discovered during your research.
     -   **Avoided "Gold Standards" / Traps:** Explain *why* you decided not to use alternative paths. Specifically highlight if you avoided a generic industry or LLM "Gold Standard" (e.g., standard React patterns, generic node workflows) because it acts as a trap within Neo.mjs's unique multi-threaded architecture.
-4.  **Handoff Realization:** On boot (`initAsync`), nodes like Mac 2 automatically synthesize the latest synced `.md` issues into their local SQLite matrix and build `sandman_handoff.md`. If your tickets are "Fat," the resulting "Golden Path" ranking will accurately bridge the distributed swarm without ever merging the raw SQLite files.
+7.  **Handoff Realization:** On boot (`initAsync`), nodes like Mac 2 automatically synthesize the latest synced `.md` issues into their local SQLite matrix and build `sandman_handoff.md`. If your tickets are "Fat," the resulting "Golden Path" ranking will accurately bridge the distributed swarm without ever merging the raw SQLite files.

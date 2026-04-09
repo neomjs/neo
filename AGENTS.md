@@ -134,6 +134,10 @@ First, classify the user's request into one of two categories:
 - **B) Actionable/Modification:** The user's request requires creating, deleting, or modifying files in the repository (e.g., "Fix this bug," "Add JSDoc," "Create a release").
     - **Action:** Apply the **Ticket-First Gate** (Section 3).
 
+**Meta Gate: Deduplication & Linking**
+- **Gate 0:** Before creating *any* Issue or Discussion on GitHub, you **MUST** verify an equivalent item doesn't already exist using the `grep_search` tool locally against the `resources/content/issues/` and `resources/content/discussions/` directories. This prevents polluting the remote tracker. 
+- **Graph Linking:** When creating Sub-Issues for an Epic, you **MUST** natively link them using the `update_issue_relationship` MCP tool. Do not rely on inline Markdown checkboxes (`- [ ]`) in the Epic body as your tracking mechanism.
+
 **Note:** A conceptual discussion can become an actionable task. The moment the intent shifts from "what if..." to "let's do...", you must treat it as a new actionable request and apply the Ticket-First Gate.
 
 ## 7. Git Protocol
@@ -151,7 +155,9 @@ You **MUST** perform these steps in order before marking a task as complete:
 3.  **Comment:** You **MUST** post a comment on the issue if:
     - You deviated from the original plan (explain *why*).
     - The task is complete (summarize the result).
-4.  **Close:** Only after steps 1-3 are complete can you close the ticket.
+4.  **Epic Granularity Constraints:** An Agent must *only* create an Epic if there are legitimate sub-issues needed that will be resolved independently (via their own distinct commit, PR, and comment). "One-shotting" an Epic and multiple sub-tasks within a single commit is a strict sequence violation. If a task can be done in one commit, it is a standard Issue, not an Epic.
+5.  **Resolve Sub-Tasks:** If closing an Epic, you **MUST** cascade this Protocol (Steps 1-4) down to all linked sub-issues. An Epic is not closed until its sub-issues are explicitly resolved.
+6.  **Close:** Only after steps 1-5 are complete can you close the ticket (or Epic).
 
 ## 9. Preventing Context Corruption (State Management)
 
