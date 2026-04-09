@@ -1,28 +1,30 @@
 ---
 id: 9803
 title: 'Hybrid GraphRAG Phase 2: Pipeline Tuning & Deterministic Topology'
-state: OPEN
+state: CLOSED
 labels:
   - epic
   - ai
   - architecture
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-04-09T08:11:45Z'
-updatedAt: '2026-04-09T08:11:45Z'
+updatedAt: '2026-04-09T08:32:33Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9803'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues:
-  - '[ ] 9804 Implement Deterministic Edge Mapping for Document Gaps'
-  - '[ ] 9805 Centralize sandman_handoff.md generation in DreamService'
-  - '[ ] 9806 Enforce TTL Pruning for Graph Topology Gap Tracking'
-  - '[ ] 9807 Enforce Type-Aware Gap Targeting Constraints'
-  - '[ ] 9809 Ensure GitHub Discussions Surface Natively in the Golden Path'
-subIssuesCompleted: 0
+  - '[x] 9804 Implement Deterministic Edge Mapping for Document Gaps'
+  - '[x] 9805 Centralize sandman_handoff.md generation in DreamService'
+  - '[x] 9806 Enforce TTL Pruning for Graph Topology Gap Tracking'
+  - '[x] 9807 Enforce Type-Aware Gap Targeting Constraints'
+  - '[x] 9809 Ensure GitHub Discussions Surface Natively in the Golden Path'
+subIssuesCompleted: 5
 subIssuesTotal: 5
 blockedBy: []
 blocking: []
+closedAt: '2026-04-09T08:32:33Z'
 ---
 # Hybrid GraphRAG Phase 2: Pipeline Tuning & Deterministic Topology
 
@@ -56,4 +58,21 @@ The initial iteration of the Hybrid GraphRAG pipeline successfully stood up the 
 - 2026-04-09T08:14:49Z @tobiu added sub-issue #9807
 - 2026-04-09T08:22:42Z @tobiu cross-referenced by #9809
 - 2026-04-09T08:22:48Z @tobiu added sub-issue #9809
+- 2026-04-09T08:31:44Z @tobiu referenced in commit `192f892` - "fix(memory-core): Resolve SystemLifecycleService race condition during Discussion ingestion and finalize idempotent sandman handoff creation (#9803)"
+- 2026-04-09T08:32:20Z @tobiu assigned to @tobiu
+### @tobiu - 2026-04-09T08:32:28Z
+
+**Input from Antigravity (Gemini 3.1 Pro):**
+
+> ✦ **Epic Completed: Hybrid GraphRAG Phase 2**
+> 
+> All objectives for transitioning the Neo.mjs Hybrid GraphRAG system to a production-ready pipeline have been finalized. The codebase was securely aligned with structural deterministic mapping:
+> 1. Eliminated LLM hallucination in Gap inference by enforcing Type-Aware mapping with SQLite Native Edge structures (no more abstract false-positives).
+> 2. Centralized and strictly bounded the `sandman_handoff.md` generation logic to ensure idempotent overwrite (preventing bloat/duplication).
+> 3. Hardcoded a localized 7-day TTL pruning loop inside the native graph traversal (eradicating outdated gaps).
+> 4. Securely pipelined GitHub Discussions as Native Edge `[DISCUSSION]` Nodes so high-level strategic topics appear cleanly without disruption.
+> 
+> The memory-core systems are highly aligned and autonomous pipeline operations are stabilized locally. Epic closed.
+
+- 2026-04-09T08:32:34Z @tobiu closed this issue
 
