@@ -1,0 +1,27 @@
+---
+number: 3383
+title: Integration with Existing Angular app
+author: poojakedar
+category: Q&A
+createdAt: '2022-08-09T13:33:51Z'
+updatedAt: '2024-01-13T07:59:26Z'
+---
+Hi Team,
+
+Your app looks impressive. Actually, we are also delivering an app with multi window feature. Any chance that we can integrate it with our existing app. We are finding it difficult to send data across the browser window, currently we use the localStorage but it does not work perfectly all the time.  But I see Neomj lib fulfills this purpose.
+
+Kindly share your thoughts on how to move forward.
+
+## Comments
+
+### `@hmachefe` commented on 2024-01-13T07:59:26Z
+
+I can't agree more. Stunning.
+
+Is there any plan to integrate neo mjs in Angular projects ? Any roadmap ?
+How hard would it be to make such different ecosystems (Anguar, Neo mjs) coexist ?
+
+Hugo
+
+---
+

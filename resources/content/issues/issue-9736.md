@@ -1,7 +1,7 @@
 ---
 id: 9736
 title: Hebbian Memory Integration (Hybrid GraphRAG Upgrade)
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - epic
@@ -9,7 +9,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-04-06T16:53:48Z'
-updatedAt: '2026-04-06T16:54:22Z'
+updatedAt: '2026-04-08T23:57:51Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9736'
 author: tobiu
 commentsCount: 0
@@ -22,6 +22,7 @@ subIssuesCompleted: 3
 subIssuesTotal: 3
 blockedBy: []
 blocking: []
+closedAt: '2026-04-08T23:57:51Z'
 ---
 # Hebbian Memory Integration (Hybrid GraphRAG Upgrade)
 
@@ -44,4 +45,5 @@ This epic tracks the integration of chronological and semantic agent memories in
 - 2026-04-06T19:27:19Z @tobiu referenced in commit `d6b6ce3` - "fix: Harden FileSystemIngestor ignore patterns and integrate schema into config (#9736)"
 - 2026-04-06T19:29:20Z @tobiu cross-referenced by #9745
 - 2026-04-06T19:29:50Z @tobiu added sub-issue #9745
+- 2026-04-08T23:57:52Z @tobiu closed this issue
 
