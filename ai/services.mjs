@@ -61,6 +61,9 @@ import NeuralLink_Config             from './mcp/server/neural-link/config.mjs';
 
 NeuralLink_Config.data.autoConnect = false;
 
+// --- Daemons ---
+import DreamService from './daemons/DreamService.mjs';
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 
@@ -256,5 +259,8 @@ export {
     NeuralLink_HealthService,
     NeuralLink_InstanceService,
     NeuralLink_InteractionService,
-    NeuralLink_RuntimeService
+    NeuralLink_RuntimeService,
+
+    // Daemons
+    DreamService
 };
