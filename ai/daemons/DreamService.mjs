@@ -3,16 +3,16 @@ import path                 from 'path';
 import yaml                 from 'js-yaml';
 import {fileURLToPath}      from 'url';
 import crypto               from 'crypto';
-import aiConfig             from '../config.mjs';
-import Base                 from '../../../../../src/core/Base.mjs';
-import StorageRouter        from '../managers/StorageRouter.mjs';
-import SQLiteVectorManager  from '../managers/SQLiteVectorManager.mjs';
-import TextEmbeddingService from './TextEmbeddingService.mjs';
-import GraphService         from './GraphService.mjs';
-import Json                 from '../../../../../src/util/Json.mjs';
-import logger               from '../logger.mjs';
-import OpenAiCompatible     from '../../../../provider/OpenAiCompatible.mjs';
-import FileSystemIngestor   from './FileSystemIngestor.mjs';
+import aiConfig             from '../mcp/server/memory-core/config.mjs';
+import Base                 from '../../src/core/Base.mjs';
+import StorageRouter        from '../mcp/server/memory-core/managers/StorageRouter.mjs';
+import SQLiteVectorManager  from '../mcp/server/memory-core/managers/SQLiteVectorManager.mjs';
+import TextEmbeddingService from '../mcp/server/memory-core/services/TextEmbeddingService.mjs';
+import GraphService         from '../mcp/server/memory-core/services/GraphService.mjs';
+import Json                 from '../../src/util/Json.mjs';
+import logger               from '../mcp/server/memory-core/logger.mjs';
+import OpenAiCompatible     from '../provider/OpenAiCompatible.mjs';
+import FileSystemIngestor   from '../mcp/server/memory-core/services/FileSystemIngestor.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -31,10 +31,10 @@ const __dirname  = path.dirname(__filename);
 class DreamService extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.memory-core.services.DreamService'
+         * @member {String} className='Neo.ai.daemons.DreamService'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.memory-core.services.DreamService',
+        className: 'Neo.ai.daemons.DreamService',
         /**
          * @member {Boolean} singleton=true
          * @protected
@@ -65,7 +65,7 @@ class DreamService extends Base {
         this.sessionsCollection = await StorageRouter.getSummaryCollection();
 
         // Inter-service dependency lock: ensure DB is ready BEFORE scheduling background work
-        const LifecycleService = (await import('./lifecycle/SystemLifecycleService.mjs')).default;
+        const LifecycleService = (await import('../mcp/server/memory-core/services/lifecycle/SystemLifecycleService.mjs')).default;
         await LifecycleService.ready();
         
         // Wait for the full lifecycle boot to ensure GraphService.db is mounted
@@ -485,7 +485,7 @@ ${contextText}
 
         logger.info(`[DreamService] Launching Deterministic Capability Gap Inference for ${structuralNodes.length} actual codebase nodes...`);
 
-        const neoRootDir = path.resolve(__dirname, '../../../../../');
+        const neoRootDir = path.resolve(__dirname, '../../');
         
         // Ensure jsdocx structures are processed for authoritative DOC_GAP detection
         let docStructure = [];
@@ -558,7 +558,7 @@ ${contextText}
     async ingestIssueStates() {
         const __filename = fileURLToPath(import.meta.url);
         const __dirname = path.dirname(__filename);
-        const issuesDir = path.resolve(__dirname, '../../../../../resources/content/issues');
+        const issuesDir = path.resolve(__dirname, '../../resources/content/issues');
 
         if (!fs.existsSync(issuesDir)) {
             logger.warn(`[DreamService] Issues directory not found at ${issuesDir}`);
@@ -712,7 +712,7 @@ ${contextText}
     async ingestDiscussionStates() {
         const __filename = fileURLToPath(import.meta.url);
         const __dirname = path.dirname(__filename);
-        const discussionsDir = path.resolve(__dirname, '../../../../../resources/content/discussions');
+        const discussionsDir = path.resolve(__dirname, '../../resources/content/discussions');
 
         if (!fs.existsSync(discussionsDir)) {
             logger.warn(`[DreamService] Discussions directory not found at ${discussionsDir}`);

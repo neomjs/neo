@@ -4,7 +4,6 @@ import crypto         from 'crypto';
 import GraphService   from './GraphService.mjs';
 import logger         from '../logger.mjs';
 import SessionService from './SessionService.mjs';
-import DreamService   from './DreamService.mjs';
 import aiConfig       from '../config.mjs';
 
 
@@ -94,23 +93,9 @@ class MemoryService extends Base {
             // 2. Link this memory dynamically to the active context frontier
             GraphService.linkNodes('frontier', memoryId, 'SPAWNED_MEMORY', 0.8);
 
-            // 3. Real-Time A2A JSON Parsing (Optional)
+            // 3. Real-Time A2A JSON Parsing (Deprecated)
             if (aiConfig.realTimeMemoryParsing) {
-                // Wrap in pseudo-session structure expected by DreamService
-                const pseudoSession = {
-                    id: memoryId,
-                    document: combinedText,
-                    meta: metadata
-                };
-                
-                // Fire and forget (allow the tool response to be immediate to the user)
-                DreamService.executeTriVectorExtraction(pseudoSession).then((payload) => {
-                     if (payload) {
-                         logger.info(`[MemoryService] Real-Time parsed turn ${memoryId} into Graph edges.`);
-                     }
-                }).catch((e) => {
-                     logger.error(`[MemoryService] Real-Time parsing failed for turn ${memoryId}:`, e);
-                });
+                logger.warn(`[MemoryService] Real-Time parsing skipped: DreamService decoupled. Awaiting REM sleep.`);
             }
 
             return {id: memoryId, sessionId, timestamp, message: "Memory successfully added"};
