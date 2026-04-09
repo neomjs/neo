@@ -49,8 +49,16 @@ test.describe('Grid BigData App (Neural Link)', () => {
         await page.goto('examples/grid/bigData/index.html');
 
         // 2. Connect the fixture to the running App Worker
-        // The fixture auto-discovers the running application's name if omitted
-        const nlApp = await neuralLink.connectToApp();
+        // The intent here is to explicitly pass the application name 
+        // to `connectToApp()`. While the fixture has fallback logic to infer the name 
+        // from the window path, explicit declarations prevent initialization races 
+        // and ensure the test strictly targets the intended App Worker environment.
+        // 
+        // Examples use their fully qualified namespace:
+        const nlApp = await neuralLink.connectToApp('Neo.examples.grid.bigData');
+        
+        // Full Applications use their named string identifier:
+        // const nlApp = await neuralLink.connectToApp('DevIndex');
 
         // Tests go here...
     });
@@ -80,7 +88,9 @@ Queries can also be hierarchically bounded by looking for children inside specif
 ```javascript
 test('Verify foundational grid structure', async ({ page, neuralLink }) => {
     await page.goto('examples/grid/bigData/index.html');
-    const nlApp = await neuralLink.connectToApp();
+
+    // Securely bridge to the specific Application Worker
+    const nlApp = await neuralLink.connectToApp('Neo.examples.grid.bigData');
 
     // 1. Fetch MainView (It will always return the root wrapper)
     const viewResult = await nlApp.queryComponent({ className: 'Neo.examples.grid.bigData.MainContainer' });
@@ -103,7 +113,9 @@ This test simulates interaction on the Grid row counter and uses Neural Link to 
 ```javascript
 test('Simulate DOM selection and verify Neo.mjs engine data', async ({ page, neuralLink }) => {
     await page.goto('examples/grid/bigData/index.html');
-    const nlApp = await neuralLink.connectToApp();
+
+    // Bound the bridge to the specific namespace to prevent inference races
+    const nlApp = await neuralLink.connectToApp('Neo.examples.grid.bigData');
 
     // 1. Visually identify the ComboBox using typical Playwright Locator on the DOM wrapper layer
     const rowComboBox = page.locator('.neo-combobox').filter({ hasText: 'Amount Rows' });
