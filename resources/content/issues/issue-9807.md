@@ -1,22 +1,24 @@
 ---
 id: 9807
 title: Enforce Type-Aware Gap Targeting Constraints
-state: OPEN
+state: CLOSED
 labels:
   - ai
   - architecture
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-04-09T08:14:40Z'
-updatedAt: '2026-04-09T08:14:40Z'
+updatedAt: '2026-04-09T09:06:15Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9807'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 9803
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-04-09T09:05:53Z'
 ---
 # Enforce Type-Aware Gap Targeting Constraints
 
@@ -34,4 +36,10 @@ Part of Epic #9803
 - 2026-04-09T08:14:41Z @tobiu added the `ai` label
 - 2026-04-09T08:14:41Z @tobiu added the `architecture` label
 - 2026-04-09T08:14:49Z @tobiu added parent issue #9803
+### @tobiu - 2026-04-09T09:05:52Z
+
+Implemented natively in DreamService.mjs during Epic #9803.
+
+- 2026-04-09T09:05:53Z @tobiu closed this issue
+- 2026-04-09T09:06:15Z @tobiu assigned to @tobiu
 
