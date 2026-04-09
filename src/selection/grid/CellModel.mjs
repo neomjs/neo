@@ -27,20 +27,79 @@ class CellModel extends BaseModel {
      *
      */
     addDomListener() {
-        let me = this;
+        let me            = this,
+            {view}        = me,
+            {parent}      = view,
+            gridContainer = view.gridContainer || parent, // Fallback if no specific Multi-Body structure
+            listener      = {cellClick: me.onCellClick, scope: me};
 
-        me.view.parent.on('cellClick', me.onCellClick, me)
+        if (gridContainer.vdom.tag === 'table') {
+            gridContainer = gridContainer.parent
+        }
+
+        gridContainer.on(listener)
     }
 
     /**
      * @param args
      */
     destroy(...args) {
-        let me = this;
+        let me            = this,
+            {view}        = me,
+            {parent}      = view,
+            gridContainer = view.gridContainer || parent;
 
-        me.view.parent.un('cellClick', me.onCellClick, me);
+        if (gridContainer.vdom?.tag === 'table') {
+            gridContainer = gridContainer.parent
+        }
+
+        gridContainer.un('cellClick', me.onCellClick, me);
 
         super.destroy(...args)
+    }
+
+    /**
+     * @param {Object} item
+     * @param {Boolean} [silent] true to prevent a vdom update
+     * @param {Object[]|String[]} itemCollection=this.items
+     * @param {String} [selectedCls]
+     */
+    deselect(item, silent, itemCollection=this.items, selectedCls) {
+        let me = this;
+
+        super.deselect(item, silent, itemCollection, selectedCls);
+
+        me.getActivePeers().forEach(peer => {
+            try {
+                let node = peer.view.getVdomChild(item);
+                if (node) {
+                    node.cls = NeoArray.remove(node.cls || [], selectedCls || peer.selectedCls);
+                    delete node['aria-selected'];
+
+                    if (!silent) {
+                        peer.view.update()
+                    }
+                }
+            } catch(e) {
+                console.warn(e)
+            }
+        })
+    }
+
+    /**
+     * @param {Boolean} [silent] true to prevent a vdom update
+     * @param {Object[]|String[]} itemCollection=this.items
+     */
+    deselectAll(silent, itemCollection=this.items) {
+        let me             = this,
+            items          = [...itemCollection],
+            hasActiveItems = items.length > 0;
+
+        super.deselectAll(silent, itemCollection);
+
+        if (!silent && hasActiveItems) {
+            me.getActivePeers().forEach(peer => peer.view.update())
+        }
     }
 
     /**
@@ -63,9 +122,15 @@ class CellModel extends BaseModel {
      * @param {Object} data
      */
     onCellClick(data) {
-        let me        = this,
-            {view}    = me,
+        let me                  = this,
+            {view}              = me,
             {dataField, record} = data;
+
+        // In a multi-body architecture, ensure we only toggle the state once per click
+        // by restricting the state mutation to the specific body that fired the event.
+        if (data.body && data.body !== view) {
+            return
+        }
 
         if (record && dataField) {
             me.toggleSelection(view.getLogicalCellId(record, dataField))
@@ -163,6 +228,40 @@ class CellModel extends BaseModel {
 
         me.select(view.getLogicalCellId(store.getAt(newIndex), dataField));
         view.scrollByRows(currentIndex, step)
+    }
+
+    /**
+     * @param {Object|Object[]|String[]} items
+     * @param {Object[]|String[]} itemCollection=this.items
+     * @param {String} [selectedCls]
+     */
+    select(items, itemCollection=this.items, selectedCls) {
+        let me = this;
+
+        super.select(items, itemCollection, selectedCls);
+
+        if (!Array.isArray(items)) {
+            items = [items]
+        }
+
+        items.forEach(item => {
+            // We hold vdom ids for now, so all incoming selections must be converted.
+            let itemId = item.isRecord ? me.view.getItemId(item) : Neo.isObject(item) ? item.id : item;
+
+            me.getActivePeers().forEach(peer => {
+                try {
+                    let node = peer.view.getVdomChild(itemId);
+                    if (node && !node.cls?.includes(selectedCls || peer.selectedCls)) {
+                        NeoArray.add(node.cls || (node.cls = []), selectedCls || peer.selectedCls);
+                        node['aria-selected'] = true;
+
+                        peer.view.update()
+                    }
+                } catch(e) {
+                    console.warn(e)
+                }
+            })
+        })
     }
 
     /**
