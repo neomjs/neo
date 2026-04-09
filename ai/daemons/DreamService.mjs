@@ -185,7 +185,7 @@ class DreamService extends Base {
                         ids: [session.id],
                         metadatas: [{ ...session.meta, graphDigested: true }]
                     });
-                    logger.info(`[DreamService] Session ${session.meta.sessionId} marked as graphDigested in ChromaDB.`);
+                    logger.info(`[DreamService] Session ${session.meta.sessionId} marked as graphDigested in Memory Core.`);
                 }
             }
 
@@ -500,8 +500,13 @@ ${contextText}
 
         // Gather test framework paths directly
         const testFilePaths = GraphService.db.nodes.items.filter(n =>
-            n.label === 'FILE' && n.properties?.path?.startsWith('test/')
+            n.type === 'FILE' && n.properties?.path?.startsWith('test/')
         ).map(n => n.properties?.path || '').map(p => p.toLowerCase());
+
+        // Gather architectural guide paths natively
+        const guideFilePaths = GraphService.db.nodes.items.filter(n =>
+            n.type === 'FILE' && n.properties?.path?.startsWith('learn/guides/')
+        ).map(n => n.properties?.path || '');
 
         for (const node of structuralNodes) {
             let docGap = null;
@@ -530,27 +535,32 @@ ${contextText}
 
             let combinedGaps = [docGap, testGap].filter(Boolean);
             
-            // --- GUIDE GAP INFERENCE (Vector Fast-Fail & Boolean LLM Verification) ---
+            // --- GUIDE GAP INFERENCE (Native File-System & Boolean LLM Verification) ---
             let guideGap = null;
             if (node.type === 'CLASS' || node.type === 'CONCEPT' || node.type === 'COMPONENT') {
                 try {
-                    const { default: QueryService } = await import('../mcp/server/knowledge-base/services/QueryService.mjs');
-                    await QueryService.ready();
-                    
-                    const queryResult = await QueryService.queryDocuments({ query: node.name, type: 'guide', limit: 1 });
-                    
-                    if (queryResult.message || !queryResult.topResult) {
+                    const nodeTokensGuide = node.name.replace(/([A-Z])/g, ' $1').toLowerCase().split(/[^a-z0-9]+/).filter(t => t.length > 2);
+                    if (nodeTokensGuide.length === 0) nodeTokensGuide.push(node.name.toLowerCase());
+
+                    // Loose path scan matching node tokens inside the learn/guides namespace
+                    const matchingGuide = guideFilePaths.find(p => {
+                        const pLower = p.toLowerCase();
+                        return nodeTokensGuide.some(term => pLower.includes(term));
+                    });
+
+                    if (!matchingGuide) {
                         guideGap = `[GUIDE_GAP] The ${node.type} '${node.name}' lacks a corresponding architectural learning Guide in the knowledge base.`;
                     } else {
-                        // Fast-Fail passed: Top result found. Now do Boolean LLM verification.
+                        // Core Match Passed: Now do Boolean LLM verification natively via file content
                         const provider = Neo.create(OpenAiCompatible, {
                             modelName: aiConfig.openAiCompatible.model,
                             host: aiConfig.openAiCompatible.host
                         });
                         
                         let topContent = '';
-                        if (fs.existsSync(queryResult.topResult)) {
-                            topContent = fs.readFileSync(queryResult.topResult, 'utf8');
+                        const guideAbsolutePath = path.resolve(neoRootDir, matchingGuide);
+                        if (fs.existsSync(guideAbsolutePath)) {
+                            topContent = fs.readFileSync(guideAbsolutePath, 'utf8');
                         }
                         
                         // Truncate to save inference time on large guides
@@ -567,13 +577,13 @@ ${topContent}
                         const res = await provider.generate(verifyPrompt);
                         const vPayload = Json.extract(res.content);
                         if (vPayload && vPayload.verified === false) {
-                            guideGap = `[GUIDE_GAP] The ${node.type} '${node.name}' lacks a dedicated architectural Guide (Existing vector hits failed LLM semantic verification).`;
+                            guideGap = `[GUIDE_GAP] The ${node.type} '${node.name}' lacks a dedicated architectural Guide (Existing file match failed LLM semantic verification).`;
                         } else if (!vPayload) {
                             logger.warn(`[DreamService] Failed to extract boolean JSON for Guide verification of ${node.name}.`);
                         }
                     }
                 } catch (e) {
-                    logger.warn(`[DreamService] Fast-Fail Vector Inference failed for ${node.name}:`, e.message);
+                    logger.warn(`[DreamService] Native Knowledge Base Inference failed for ${node.name}:`, e.message);
                 }
             }
 
@@ -1065,7 +1075,7 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
                         } else {
                             gaps = node.properties.capabilityGap.split(/\\n|\n/);
                         }
-                        
+                        gaps = [...new Set(gaps)];
                         gaps.forEach(gapMessage => {
                             if (gapMessage && gapMessage.trim().length > 0) {
                                 handoffContent += `- **[Codebase Gap]** Node \`${node.id}\`: ${gapMessage.trim()}\n`;
