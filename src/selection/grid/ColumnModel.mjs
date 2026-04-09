@@ -27,18 +27,33 @@ class ColumnModel extends BaseModel {
      *
      */
     addDomListener() {
-        let me = this;
+        let me            = this,
+            {view}        = me,
+            {parent}      = view,
+            gridContainer = view.gridContainer || parent, // Fallback if no specific Multi-Body structure
+            listener      = {cellClick: me.onCellClick, scope: me};
 
-        me.view.parent.on('cellClick', me.onCellClick, me)
+        if (gridContainer.vdom.tag === 'table') {
+            gridContainer = gridContainer.parent
+        }
+
+        gridContainer.on(listener)
     }
 
     /**
      * @param args
      */
     destroy(...args) {
-        let me = this;
+        let me            = this,
+            {view}        = me,
+            {parent}      = view,
+            gridContainer = view.gridContainer || parent;
 
-        me.view.parent.un('cellClick', me.onCellClick, me);
+        if (gridContainer.vdom?.tag === 'table') {
+            gridContainer = gridContainer.parent
+        }
+
+        gridContainer.un('cellClick', me.onCellClick, me);
 
         super.destroy(...args)
     }
@@ -59,8 +74,18 @@ class ColumnModel extends BaseModel {
             cellId    = data.data.currentTarget,
             dataField = cellId && view.getDataField(cellId);
 
+        // In a multi-body architecture, ensure we only toggle the state once per click
+        // by restricting the state mutation to the specific body that fired the event.
+        if (data.body && data.body !== view) {
+            return
+        }
+
         if (dataField) {
             me.selectedColumns = me.isSelectedColumn(dataField) ? [] : [dataField];
+
+            // Sync visual state to sibling sub-grids
+            me.getActivePeers().forEach(peer => peer.view.createViewData());
+
             view.createViewData()
         }
     }
