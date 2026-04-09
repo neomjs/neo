@@ -21,7 +21,10 @@ subIssues:
   - '[x] 9783 Implement NeuralLink Playwright Test Fixture'
 subIssuesCompleted: 2
 subIssuesTotal: 2
-blockedBy: []
+blockedBy:
+  - '[ ] 9821 Enhancement: Neural Link VDOM Sync Primitives'
+  - '[ ] 9820 R&D: Grid Component Mutability & Column Synchronization'
+  - '[ ] 9819 R&D: Identify Ideal Candidates for Whitebox E2E Testing'
 blocking: []
 closedAt: '2026-04-08T10:16:33Z'
 ---
@@ -147,4 +150,12 @@ Resolves #8851, #9782, #9783
 
 feat: Neural Link Driven Playwright Integration (#8851)"
 - 2026-04-08T10:16:34Z @tobiu closed this issue
+- 2026-04-09T11:34:01Z @tobiu marked this issue as being blocked by #9819
+- 2026-04-09T11:34:02Z @tobiu marked this issue as being blocked by #9820
+- 2026-04-09T11:34:03Z @tobiu marked this issue as being blocked by #9821
+- 2026-04-09T11:35:07Z @tobiu referenced in commit `38fd22e` - "test(playwright): stabilize Neural Link test environment and fix DevIndex bindings (#8851)"
+- 2026-04-09T12:18:25Z @tobiu cross-referenced by PR #9823
+- 2026-04-09T12:20:11Z @tobiu referenced in commit `383d838` - "Merge pull request #9823 from neomjs/feature/issue-8851-neural-link-playwright
+
+Feature: Stabilize Neural Link Grid Tests & E2E Bindings (#8851)"
 
