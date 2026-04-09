@@ -1,6 +1,6 @@
 {
-  "lastSync": "2026-04-09T17:06:43.745Z",
-  "releasesLastFetched": "2026-04-09T17:06:44.364Z",
+  "lastSync": "2026-04-09T17:18:12.497Z",
+  "releasesLastFetched": "2026-04-09T17:18:12.976Z",
   "pushFailures": [],
   "issues": {
     "3789": {
@@ -24360,8 +24360,8 @@
       "state": "CLOSED",
       "path": "resources/content/issues/issue-9819.md",
       "closedAt": "2026-04-09T15:30:38Z",
-      "updatedAt": "2026-04-09T15:30:38Z",
-      "contentHash": "3a8c3c1f0067726dc46338ec9e8f93b01baeaf8bc5437f5b361a0100cf6967c5"
+      "updatedAt": "2026-04-09T17:17:09Z",
+      "contentHash": "7481a0a25062c9ecfa133a8e59eb31bb44b4df1f42b268002b69cb2484dc88c8"
     },
     "9820": {
       "state": "OPEN",
