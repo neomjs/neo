@@ -37,35 +37,31 @@ class TicketSource extends Base {
      */
     async extract(writeStream, createHashFn) {
         let count = 0;
-        const ticketArchivePath = path.resolve(aiConfig.neoRootDir, '.github/ISSUE_ARCHIVE');
+        const targetPaths = [
+            path.resolve(aiConfig.neoRootDir, 'resources/content/issues'),
+            path.resolve(aiConfig.neoRootDir, 'resources/content/issue-archive')
+        ];
 
-        if (await fs.pathExists(ticketArchivePath)) {
-            const releaseVersions = await fs.readdir(ticketArchivePath);
-            releaseVersions.sort();
+        for (const targetPath of targetPaths) {
+            if (await fs.pathExists(targetPath)) {
+                const ticketFiles = await fs.readdir(targetPath);
+                ticketFiles.sort();
 
-            for (const version of releaseVersions) {
-                const versionPath = path.join(ticketArchivePath, version);
-                if ((await fs.stat(versionPath)).isDirectory()) {
-                    const ticketFiles = await fs.readdir(versionPath);
-                    ticketFiles.sort();
+                for (const file of ticketFiles) {
+                    if (file.endsWith('.md')) {
+                        const filePath   = path.join(targetPath, file);
+                        const content    = await fs.readFile(filePath, 'utf-8');
+                        const chunk      = {
+                            type   : 'ticket',
+                            kind   : 'ticket',
+                            name   : file.replace('.md', ''),
+                            content,
+                            source : filePath
+                        };
 
-                    for (const file of ticketFiles) {
-                        if (file.endsWith('.md')) {
-                            const filePath   = path.join(versionPath, file);
-                            const content    = await fs.readFile(filePath, 'utf-8');
-                            const titleMatch = content.match(/^# Ticket: (.*)/m);
-                            const chunk      = {
-                                type   : 'ticket',
-                                kind   : 'ticket',
-                                name   : titleMatch ? titleMatch[1] : file.replace('.md', ''),
-                                content,
-                                source : filePath
-                            };
-
-                            chunk.hash = createHashFn(chunk);
-                            writeStream.write(JSON.stringify(chunk) + '\n');
-                            count++;
-                        }
+                        chunk.hash = createHashFn(chunk);
+                        writeStream.write(JSON.stringify(chunk) + '\n');
+                        count++;
                     }
                 }
             }

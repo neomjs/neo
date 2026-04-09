@@ -3,6 +3,7 @@ import Base               from '../../../../../src/core/Base.mjs';
 import ChromaManager      from './ChromaManager.mjs';
 import VectorService      from './VectorService.mjs';
 import ApiSource          from '../source/ApiSource.mjs';
+import DiscussionSource   from '../source/DiscussionSource.mjs';
 import LearningSource     from '../source/LearningSource.mjs';
 import ReleaseNotesSource from '../source/ReleaseNotesSource.mjs';
 import TestSource         from '../source/TestSource.mjs';
@@ -124,6 +125,7 @@ class DatabaseService extends Base {
 
         const sources = [
             ApiSource,
+            DiscussionSource,
             LearningSource,
             ReleaseNotesSource,
             TicketSource,
