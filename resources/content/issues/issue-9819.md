@@ -1,17 +1,18 @@
 ---
 id: 9819
 title: 'R&D: Identify Ideal Candidates for Whitebox E2E Testing'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
   - testing
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-04-09T11:33:45Z'
-updatedAt: '2026-04-09T13:51:07Z'
+updatedAt: '2026-04-09T15:30:38Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9819'
 author: tobiu
-commentsCount: 2
+commentsCount: 4
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
@@ -19,6 +20,7 @@ subIssuesTotal: 0
 blockedBy: []
 blocking:
   - '[x] 8851 Exploration: Neural Link Driven Playwright Tests (Deep E2E)'
+closedAt: '2026-04-09T15:30:38Z'
 ---
 # R&D: Identify Ideal Candidates for Whitebox E2E Testing
 
@@ -43,4 +45,42 @@ starting with the simplest standalone components is the right instinct. we went 
 
 we built an open source tool that auto-discovers testable components by crawling the running app. the discovery and scenario generation logic: https://github.com/assrt-ai/assrt-freestyle/blob/main/src/core/freestyle.ts. it identifies interactive elements and generates Playwright tests for each one automatically, which is essentially the inverse of your problem (finding what to test).
 
+### @tobiu - 2026-04-09T14:46:33Z
+
+**Input from Antigravity (Gemini 3.1 Pro):**
+
+> ✦ @m13v Thank you for the insights and sharing the `assrt-freestyle` tool! 
+> 
+> To clarify our architectural objective here: whitebox E2E testing based on the Neo.mjs Neural Link (a bridge for multiple agents and app workers) is quite something different from traditional DOM-crawling automation.
+> 
+> Because Neo.mjs executes the entirety of the component configurations and data processing within a separate App Worker (maintaining the DOM purely as a remote view), the single source of truth for the application state exists entirely within the Worker's memory space.
+> 
+> The Neural Link allows Playwright tests to query this Worker directly in real-time (e.g. `await app.getStore('my-store').count`) to assert internal properties, entirely bypassing the brittle and slow process of querying DOM locators. Instead of testing *what* is painted, we are testing the *actual state* generating it. We are starting with standalone components primarily to harden these low-level socket primitives before unleashing them on the complex Multi-Body Grid layouts.
+
+- 2026-04-09T15:24:28Z @tobiu referenced in commit `5a00bce` - "test: Implement comprehensive Neural Link validation for component primitives and configuration interactions (#9819)"
+- 2026-04-09T15:24:39Z @tobiu assigned to @tobiu
+- 2026-04-09T15:26:59Z @tobiu cross-referenced by #9826
+### @tobiu - 2026-04-09T15:30:36Z
+
+Based on recent baseline validations and a structural review of the `examples/grid` workspace, jumping strictly from standalone primitives to a monolithic app like DevIndex was the root cause of the previous context implosions.
+
+**Architectural Escalation Path for Neural Link E2E:**
+
+To establish robust Neural Link capabilities for the Grid Multi-Body architecture, we should follow this strict testing gradient:
+
+1. **Level 1 (Primitives)**: `examples/button/base` (✅ Validated via #9826 - Proved direct state inspection and semantic querying).
+2. **Level 2 (Single-Body Datastore)**: `examples/grid/basic`
+   * *Goal:* Validate `Store` inspection, record-level mutation tracking, and simple header manipulations.
+3. **Level 3 (High-Density / Virtualization)**: `examples/grid/bigData`
+   * *Goal:* `bigData` offers a massive virtualized grid but with an isolated, clean controller structure (`ControlsContainer.mjs` -> `GridContainer.mjs`). It is ideal for testing Neural Link's structural footprint (`getComponentTree` limits) and layout-thrashing validation without unrelated app-level noise.
+4. **Level 4 (Interactive Grid States)**: `examples/grid/cellEditing`
+   * *Goal:* Validate transient inputs inside a layout (e.g., intercepting dynamic inline textfield mounts via Neural Link).
+5. **Level 5 (Monolithic Orchestration)**: The `DevIndex` application.
+   * *Goal:* Multi-app level layout synchronization and God Mode modifications.
+
+**Recommendation:**
+This identification fulfills the objective. Our next actionable ticket should be implementing the test suite for `examples/grid/bigData` to harden the Neural Link for data-bound grid layouts.
+
+- 2026-04-09T15:30:38Z @tobiu closed this issue
+- 2026-04-09T15:35:23Z @tobiu cross-referenced by #9827
 
