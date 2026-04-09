@@ -529,6 +529,57 @@ ${contextText}
             }
 
             let combinedGaps = [docGap, testGap].filter(Boolean);
+            
+            // --- GUIDE GAP INFERENCE (Vector Fast-Fail & Boolean LLM Verification) ---
+            let guideGap = null;
+            if (node.type === 'CLASS' || node.type === 'CONCEPT' || node.type === 'COMPONENT') {
+                try {
+                    const { default: QueryService } = await import('../mcp/server/knowledge-base/services/QueryService.mjs');
+                    await QueryService.ready();
+                    
+                    const queryResult = await QueryService.queryDocuments({ query: node.name, type: 'guide', limit: 1 });
+                    
+                    if (queryResult.message || !queryResult.topResult) {
+                        guideGap = `[GUIDE_GAP] The ${node.type} '${node.name}' lacks a corresponding architectural learning Guide in the knowledge base.`;
+                    } else {
+                        // Fast-Fail passed: Top result found. Now do Boolean LLM verification.
+                        const provider = Neo.create(OpenAiCompatible, {
+                            modelName: aiConfig.openAiCompatible.model,
+                            host: aiConfig.openAiCompatible.host
+                        });
+                        
+                        let topContent = '';
+                        if (fs.existsSync(queryResult.topResult)) {
+                            topContent = fs.readFileSync(queryResult.topResult, 'utf8');
+                        }
+                        
+                        // Truncate to save inference time on large guides
+                        topContent = topContent.substring(0, 3000); 
+
+                        const verifyPrompt = `
+You are the Neo.mjs QA Engine. 
+Does the following guide text ACTUALLY describe and explain the structural concept/class '${node.name}'?
+Respond strictly with a JSON object: {"verified": true} or {"verified": false}
+
+--- Guide Text (Truncated) ---
+${topContent}
+`;
+                        const res = await provider.generate(verifyPrompt);
+                        const vPayload = Json.extract(res.content);
+                        if (vPayload && vPayload.verified === false) {
+                            guideGap = `[GUIDE_GAP] The ${node.type} '${node.name}' lacks a dedicated architectural Guide (Existing vector hits failed LLM semantic verification).`;
+                        } else if (!vPayload) {
+                            logger.warn(`[DreamService] Failed to extract boolean JSON for Guide verification of ${node.name}.`);
+                        }
+                    }
+                } catch (e) {
+                    logger.warn(`[DreamService] Fast-Fail Vector Inference failed for ${node.name}:`, e.message);
+                }
+            }
+
+            combinedGaps.push(guideGap);
+            combinedGaps = combinedGaps.filter(Boolean);
+
             let dbNode = GraphService.db.nodes.get(node.id) || GraphService.db.nodes.get(node._resolvedId);
             
             if (!dbNode) continue;
@@ -536,7 +587,7 @@ ${contextText}
             if (combinedGaps.length > 0) {
                 logger.debug(`[DreamService] Deterministic Gaps structurally bound to ${node.name}.`);
                 dbNode.properties = dbNode.properties || {};
-                dbNode.properties.capabilityGap = combinedGaps.join('\\n');
+                dbNode.properties.capabilityGap = JSON.stringify(combinedGaps);
                 dbNode.properties.lastGapCheck = Date.now();
                 GraphService.upsertNode(dbNode);
             } else if (dbNode.properties?.capabilityGap) {
@@ -1006,9 +1057,26 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
                     GraphService.upsertNode(node);
                     prunedGaps++;
                 } else {
-                    const sanitizedMessage = node.properties.capabilityGap.replace(/\\n/g, ' ').replace(/\n/g, ' ');
-                    handoffContent += `- **[Codebase Gap]** Node \`${node.id}\`: ${sanitizedMessage}\n`;
-                    gapElementsCount++;
+                    try {
+                        // Parse JSON encoded array if possible, otherwise fallback to traditional string
+                        let gaps = [];
+                        if (node.properties.capabilityGap.startsWith('[')) {
+                            gaps = JSON.parse(node.properties.capabilityGap);
+                        } else {
+                            gaps = node.properties.capabilityGap.split(/\\n|\n/);
+                        }
+                        
+                        gaps.forEach(gapMessage => {
+                            if (gapMessage && gapMessage.trim().length > 0) {
+                                handoffContent += `- **[Codebase Gap]** Node \`${node.id}\`: ${gapMessage.trim()}\n`;
+                                gapElementsCount++;
+                            }
+                        });
+                    } catch (e) {
+                        const sanitizedMessage = node.properties.capabilityGap.replace(/\\n/g, ' ').replace(/\n/g, ' ');
+                        handoffContent += `- **[Codebase Gap]** Node \`${node.id}\`: ${sanitizedMessage}\n`;
+                        gapElementsCount++;
+                    }
                 }
             }
         });
