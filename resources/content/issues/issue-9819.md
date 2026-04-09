@@ -8,10 +8,10 @@ labels:
   - testing
 assignees: []
 createdAt: '2026-04-09T11:33:45Z'
-updatedAt: '2026-04-09T11:33:45Z'
+updatedAt: '2026-04-09T13:51:07Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9819'
 author: tobiu
-commentsCount: 0
+commentsCount: 2
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
@@ -35,4 +35,12 @@ The initial integration of Neural Link with Playwright for whitebox E2E testing 
 - 2026-04-09T11:33:46Z @tobiu added the `ai` label
 - 2026-04-09T11:33:46Z @tobiu added the `testing` label
 - 2026-04-09T11:34:01Z @tobiu marked this issue as blocking #8851
+### @m13v - 2026-04-09T13:49:40Z
+
+starting with the simplest standalone components is the right instinct. we went through a similar exercise trying to find good first targets for automated E2E test generation and the pattern that emerged: components with clear input/output contracts and minimal external state are ideal. things like a standalone button with click handlers, a simple dialog with open/close state, or a basic form with validation. the grid was probably a rough first target because it has too much internal state management and inter-column dependencies. for Neo specifically, the examples/ directory apps that use a single component in isolation would be the lowest risk starting point. once you have the test primitives proven on those, composing them for more complex layouts becomes much more predictable.
+
+### @m13v - 2026-04-09T13:51:07Z
+
+we built an open source tool that auto-discovers testable components by crawling the running app. the discovery and scenario generation logic: https://github.com/assrt-ai/assrt-freestyle/blob/main/src/core/freestyle.ts. it identifies interactive elements and generates Playwright tests for each one automatically, which is essentially the inverse of your problem (finding what to test).
+
 
