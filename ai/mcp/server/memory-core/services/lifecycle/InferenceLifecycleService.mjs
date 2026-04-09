@@ -69,6 +69,33 @@ class InferenceLifecycleService extends Base {
     }
 
     /**
+     * @summary Abstraction for daemon spawning to eliminate Promise boilerplate.
+     * @param {String} cmd 
+     * @param {Array} args 
+     * @param {String} name 
+     * @returns {Promise<Object>}
+     */
+    spawnInferenceProcess(cmd, args, name) {
+        return new Promise((resolve) => {
+            const spawnedProcess = spawn(cmd, args, { detached: true, stdio: 'ignore' });
+
+            spawnedProcess.on('spawn', () => {
+                this.inferenceProcess = spawnedProcess;
+                this.registerCleanup();
+                logger.log(`[InferenceLifecycleService] ${name} started with PID: ${this.inferenceProcess.pid}`);
+                resolve({ status: 'started', pid: this.inferenceProcess.pid });
+            });
+
+            spawnedProcess.on('error', (err) => {
+                logger.error(`[InferenceLifecycleService] Failed to auto-start ${name}:`, err.message);
+                this.inferenceProcess = null;
+                resolve({ status: 'failed', error: err.message });
+            });
+            spawnedProcess.unref();
+        });
+    }
+
+    /**
      * @summary Spawns the required standalone LLM inference process by mapping seamlessly to the correct binary paths.
      * @returns {Promise<Object>}
      */
@@ -85,7 +112,7 @@ class InferenceLifecycleService extends Base {
             // Ollama
             if (aiConfig.openAiCompatible.host.includes('11434')) {
                 logger.log('[InferenceLifecycleService] Attempting to auto-start local Ollama daemon for inference...');
-                
+
                 let ollamaCmd = 'ollama';
                 if (process.platform === 'win32') {
                     const localAppData = process.env.LOCALAPPDATA;
@@ -103,25 +130,9 @@ class InferenceLifecycleService extends Base {
                     }
                 }
 
-                return new Promise((resolve) => {
-                    const spawnedProcess = spawn(ollamaCmd, ['serve'], { detached: true, stdio: 'ignore' });
-
-                    spawnedProcess.on('spawn', () => {
-                        this.inferenceProcess = spawnedProcess;
-                        this.registerCleanup();
-                        logger.log(`[InferenceLifecycleService] Ollama daemon started with PID: ${this.inferenceProcess.pid}`);
-                        resolve({ status: 'started', pid: this.inferenceProcess.pid });
-                    });
-
-                    spawnedProcess.on('error', (err) => {
-                        logger.error('[InferenceLifecycleService] Failed to auto-start Ollama:', err.message);
-                        this.inferenceProcess = null;
-                        resolve({ status: 'failed', error: err.message });
-                    });
-                    spawnedProcess.unref();
-                });
+                return this.spawnInferenceProcess(ollamaCmd, ['serve'], 'Ollama daemon');
             }
-            
+
             // MLX
             if (aiConfig.openAiCompatible.host.includes('11435')) {
                 logger.log('[InferenceLifecycleService] Attempting to auto-start MLX daemon for inference...');
@@ -137,26 +148,13 @@ class InferenceLifecycleService extends Base {
                 const model = aiConfig.openAiCompatible.model;
                 const pythonPath = path.join(venvPath, 'bin', 'python');
                 
-                return new Promise((resolve) => {
-                    const spawnedProcess = spawn(pythonPath, ['-m', 'mlx_lm.server', '--model', model, '--port', '11435'], { 
-                        detached: true, 
-                        stdio: 'ignore' 
-                    });
+                return this.spawnInferenceProcess(pythonPath, ['-m', 'mlx_lm.server', '--model', model, '--port', '11435'], 'MLX daemon');
+            }
 
-                    spawnedProcess.on('spawn', () => {
-                        this.inferenceProcess = spawnedProcess;
-                        this.registerCleanup();
-                        logger.log(`[InferenceLifecycleService] MLX daemon started with PID: ${this.inferenceProcess.pid}`);
-                        resolve({ status: 'started', pid: this.inferenceProcess.pid });
-                    });
-
-                    spawnedProcess.on('error', (err) => {
-                        logger.error('[InferenceLifecycleService] Failed to auto-start MLX daemon:', err.message);
-                        this.inferenceProcess = null;
-                        resolve({ status: 'failed', error: err.message });
-                    });
-                    spawnedProcess.unref();
-                });
+            // LM Studio
+            if (aiConfig.openAiCompatible.host.includes('1234')) {
+                logger.log('[InferenceLifecycleService] Attempting to auto-start LM Studio daemon via lms CLI...');
+                return this.spawnInferenceProcess('lms', ['server', 'start'], 'LM Studio daemon');
             }
 
             logger.warn('[InferenceLifecycleService] Local inference server on custom port is offline.');
