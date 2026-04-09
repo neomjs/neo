@@ -4,13 +4,14 @@ title: 'Agent OS: Implement ''Janitor'' capability for automated Ticket Sync'
 state: OPEN
 labels:
   - enhancement
+  - stale
   - ai
 assignees: []
 createdAt: '2026-01-08T07:46:34Z'
-updatedAt: '2026-01-08T07:46:34Z'
+updatedAt: '2026-04-09T04:06:11Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8410'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
@@ -41,4 +42,9 @@ To automate metadata hygiene without polluting feature history or causing remote
 
 - 2026-01-08T07:46:35Z @tobiu added the `enhancement` label
 - 2026-01-08T07:46:35Z @tobiu added the `ai` label
+### @github-actions - 2026-04-09T04:06:11Z
+
+This issue is stale because it has been open for 90 days with no activity.
+
+- 2026-04-09T04:06:11Z @github-actions added the `stale` label
 
