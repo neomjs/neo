@@ -123,6 +123,11 @@ export const test = base.extend({
                         return response.components || response;
                     },
 
+                    async findInstances(selector, properties) {
+                        const response = await NeuralLink_InstanceService.findInstances({ sessionId, selector, returnProperties: properties });
+                        return response.instances || response;
+                    },
+
                     async setProperties(id, properties) {
                         return NeuralLink_InstanceService.setInstanceProperties({ sessionId, id, properties });
                     }
