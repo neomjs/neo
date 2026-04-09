@@ -38,12 +38,21 @@ async function runSandman() {
         await LifecycleService.ready();
         console.log('   Lifecycle Service Ready. Database should be running.');
 
-        const isProviderRunning = await checkProvider();
+        console.log('   Waiting for MLX provider to warm up load weights into VRAM...');
+        let isProviderRunning = false;
+        for (let i = 0; i < 30; i++) {
+            isProviderRunning = await checkProvider();
+            if (isProviderRunning) {
+                console.log('\n   ✅ openAiCompatible server is running (auto-boot successful).');
+                break;
+            }
+            process.stdout.write('.');
+            await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+
         if (!isProviderRunning) {
-            console.error(`❌ openAiCompatible server is not running on ${Memory_Config.data.openAiCompatible?.host || 'http://127.0.0.1:8000'}. Please start your MLX provider manually.`);
+            console.error(`\n❌ openAiCompatible server is not running on ${Memory_Config.data.openAiCompatible?.host || 'http://127.0.0.1:8000'}. Please start your MLX provider manually.`);
             process.exit(1);
-        } else {
-            console.log('   ✅ openAiCompatible server is running (auto-boot successful).');
         }
 
         console.log('   Waiting for DreamService Initialization...');
