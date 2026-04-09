@@ -1,6 +1,6 @@
 {
-  "lastSync": "2026-04-09T14:05:40.279Z",
-  "releasesLastFetched": "2026-04-09T14:05:40.852Z",
+  "lastSync": "2026-04-09T16:54:05.837Z",
+  "releasesLastFetched": "2026-04-09T16:54:06.692Z",
   "pushFailures": [],
   "issues": {
     "3789": {
@@ -24357,11 +24357,11 @@
       "contentHash": "c6dcf69800527375f940a9f7445dc94db82fae58e2aa637b1c76cf328b4a66c1"
     },
     "9819": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "resources/content/issues/issue-9819.md",
-      "closedAt": null,
-      "updatedAt": "2026-04-09T13:51:07Z",
-      "contentHash": "b81350cb3d30945731838b7aba1b35cc987045e17bc8ad77f98a3bb7fe71b58e"
+      "closedAt": "2026-04-09T15:30:38Z",
+      "updatedAt": "2026-04-09T15:30:38Z",
+      "contentHash": "3a8c3c1f0067726dc46338ec9e8f93b01baeaf8bc5437f5b361a0100cf6967c5"
     },
     "9820": {
       "state": "OPEN",
@@ -24397,6 +24397,34 @@
       "closedAt": "2026-04-09T14:05:19Z",
       "updatedAt": "2026-04-09T14:05:20Z",
       "contentHash": "9c171df8d2a2a1db0fc19262c9a64aae19ad115d9e72542363bf744fba76bed5"
+    },
+    "9826": {
+      "state": "CLOSED",
+      "path": "resources/content/issues/issue-9826.md",
+      "closedAt": "2026-04-09T15:27:18Z",
+      "updatedAt": "2026-04-09T15:27:19Z",
+      "contentHash": "5e9c980374121158c9693b370ba4a82e5b66b8bf89cae91525964339583da289"
+    },
+    "9827": {
+      "state": "CLOSED",
+      "path": "resources/content/issues/issue-9827.md",
+      "closedAt": "2026-04-09T15:41:31Z",
+      "updatedAt": "2026-04-09T15:41:31Z",
+      "contentHash": "5fdb6f294d318dce8d8c2d0fa6520077d07f83278b06899a753884327cd0ec1f"
+    },
+    "9828": {
+      "state": "CLOSED",
+      "path": "resources/content/issues/issue-9828.md",
+      "closedAt": "2026-04-09T15:53:24Z",
+      "updatedAt": "2026-04-09T15:53:28Z",
+      "contentHash": "cb3a51a45479aba06dfde79661d194669b3f65b1193c596daf00415ba0fb5408"
+    },
+    "9829": {
+      "state": "CLOSED",
+      "path": "resources/content/issues/issue-9829.md",
+      "closedAt": "2026-04-09T15:56:11Z",
+      "updatedAt": "2026-04-09T15:56:13Z",
+      "contentHash": "a70d1eba3fd2cc918777b8faed6d9899d7c8fcc2b395d8075ab80af492bd3017"
     }
   },
   "releases": {
