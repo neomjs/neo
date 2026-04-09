@@ -225,6 +225,26 @@ class BaseModel extends Model {
     }
 
     /**
+     * Retrieves sibling Selection Models in a Multi-Body environment.
+     * @returns {Neo.selection.grid.BaseModel[]}
+     */
+    getActivePeers() {
+        let me        = this,
+            container = me.view?.gridContainer,
+            peers     = [];
+
+        if (container) {
+            peers = [
+                container.bodyStart?.selectionModel,
+                container.body?.selectionModel,
+                container.bodyEnd?.selectionModel
+            ].filter(sm => sm && sm !== me)
+        }
+
+        return peers
+    }
+
+    /**
      * @param {Object} path
      * @returns {Number|String|null}
      */
@@ -315,6 +335,22 @@ class BaseModel extends Model {
      */
     isSelectedRow(recordId) {
         return this.selectedRows.includes(recordId)
+    }
+
+    /**
+     * @param {Neo.component.Base} component
+     */
+    register(component) {
+        super.register(component);
+
+        let me    = this,
+            peers = me.getActivePeers();
+
+        // Peer State Adoption: if siblings are already initialized, natively 
+        // adopt their state references to enforce a single state truth globally.
+        if (peers.length > 0) {
+            me.selectedRows = peers[0].selectedRows
+        }
     }
 
     /**
