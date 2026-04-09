@@ -5,7 +5,8 @@ import {
     NeuralLink_InstanceService,
     NeuralLink_ComponentService,
     NeuralLink_DataService,
-    NeuralLink_RuntimeService
+    NeuralLink_RuntimeService,
+    NeuralLink_InteractionService
 } from '../../ai/services.mjs';
 
 export const test = base.extend({
@@ -191,7 +192,8 @@ export const test = base.extend({
                      * @returns {Promise<Object>}
                      */
                     async getComputedStyles(componentId, variables) {
-                        return NeuralLink_ComponentService.getComputedStyles({ sessionId, componentId, variables });
+                        const response = await NeuralLink_ComponentService.getComputedStyles({ sessionId, componentId, variables });
+                        return response.styles || response;
                     },
 
                     /**

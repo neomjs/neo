@@ -96,4 +96,53 @@ test.describe('Desktop: Neural Link Baseline Validation (Button Base)', () => {
         const btnProps = await app.getComponent(btnId, ['text']);
         expect(btnProps.text).toBe('Agent Manipulated config');
     });
+
+    test('Agent-Driven Layout and Interaction Validation (NL -> InteractionService & ComponentService)', async ({ page, neuralLink }) => {
+        await page.goto('/examples/button/base/index.html');
+        await page.waitForTimeout(500);
+
+        const app = await neuralLink.connectToApp('Neo.examples.button.base');
+        
+        // 1. Get the target example button
+        const exampleButton = page.locator('.neo-example-container .neo-button').first();
+        const btnId = await exampleButton.getAttribute('id');
+
+        // 2. Test getDomRect
+        const rects = await app.getDomRect([btnId]);
+        expect(rects.length).toBe(1);
+        expect(rects[0].width).toBeGreaterThan(0);
+        expect(rects[0].height).toBeGreaterThan(0);
+
+        // 3. Test getComputedStyles
+        const styles = await app.getComputedStyles(btnId, ['display', 'cursor']);
+        expect(styles.display).toBeTruthy();
+        expect(styles.cursor).toBeTruthy();
+
+        // 4. Test queryVdom
+        // Search the VDOM for the button by tag name within the current button's context
+        const vdomResult = await app.queryVdom({ tag: 'button' }, btnId);
+        expect(vdomResult).toBeTruthy();
+        expect(vdomResult.vdom).toBeTruthy();
+        expect(vdomResult.vdom.tag).toBe('button');
+
+        // 5. Test simulateEvent
+        // Find the 'disabled' checkbox field to toggle state natively
+        let checkboxes = await app.queryComponent({ ntype: 'checkboxfield' }, ['id', 'checked', 'labelText']);
+        if (!Array.isArray(checkboxes)) checkboxes = [checkboxes];
+        
+        const disabledCheckbox = checkboxes.find(c => c.properties && c.properties.labelText === 'disabled');
+        expect(disabledCheckbox).toBeTruthy();
+        
+        const initialState = disabledCheckbox.properties.checked;
+        
+        // Dispatch a native click event to the component's input VNode via Neural Link
+        await app.simulateEvent({ type: 'click', targetId: `${disabledCheckbox.id}__input` });
+        
+        // Wait a slight tick for the App Worker to process the event and propagate reactive changes
+        await page.waitForTimeout(100);
+        
+        // Fetch updated state directly from Backend
+        const updatedProps = await app.getComponent(disabledCheckbox.id, ['checked']);
+        expect(updatedProps.checked).not.toBe(initialState);
+    });
 });
