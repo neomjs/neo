@@ -17,8 +17,9 @@ subIssues:
   - '[ ] 9804 Implement Deterministic Edge Mapping for Document Gaps'
   - '[ ] 9805 Centralize sandman_handoff.md generation in DreamService'
   - '[ ] 9806 Enforce TTL Pruning for Graph Topology Gap Tracking'
+  - '[ ] 9807 Enforce Type-Aware Gap Targeting Constraints'
 subIssuesCompleted: 0
-subIssuesTotal: 3
+subIssuesTotal: 4
 blockedBy: []
 blocking: []
 ---
@@ -50,4 +51,6 @@ The initial iteration of the Hybrid GraphRAG pipeline successfully stood up the 
 - 2026-04-09T08:12:14Z @tobiu added sub-issue #9804
 - 2026-04-09T08:12:16Z @tobiu added sub-issue #9805
 - 2026-04-09T08:12:17Z @tobiu added sub-issue #9806
+- 2026-04-09T08:14:41Z @tobiu cross-referenced by #9807
+- 2026-04-09T08:14:49Z @tobiu added sub-issue #9807
 
