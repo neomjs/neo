@@ -47,15 +47,6 @@ class Contributor extends Model {
             {name: 'isHireable',           mapping: 'h',  type: 'Boolean', defaultValue: false, convert: v => !!v},
             {name: 'hasSponsors',          mapping: 's',  type: 'Integer', defaultValue: null},
             {name: 'heuristics',           mapping: 'hm', type: 'Object',  defaultValue: null},
-            {
-                name: 'annotations',
-                type: 'Object',
-                fields: [{
-                    name        : 'selected',
-                    type        : 'Boolean',
-                    defaultValue: false
-                }]
-            },
             {name: 'topRepo',              mapping: 'tr', type: 'Array',   defaultValue: null},
             {
                 name     : 'topRepoCount',

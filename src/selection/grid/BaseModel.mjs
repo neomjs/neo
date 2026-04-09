@@ -153,7 +153,8 @@ class BaseModel extends Model {
         me.view.silentSelect = false;
 
         if (!silent) {
-            me.updateRows(item)
+            me.updateRows(item);
+            me.getActivePeers().forEach(peer => peer.updateRows(item))
         }
     }
 
@@ -169,7 +170,8 @@ class BaseModel extends Model {
         super.deselectAll(silent, itemCollection);
         me.view.silentSelect = false;
 
-        me.updateRows(items)
+        me.updateRows(items);
+        me.getActivePeers().forEach(peer => peer.updateRows(items, silent))
     }
 
     /**
@@ -184,7 +186,8 @@ class BaseModel extends Model {
         super.select(items, itemCollection, selectedCls);
         me.view.silentSelect = false;
 
-        me.updateRows(items)
+        me.updateRows(items);
+        me.getActivePeers().forEach(peer => peer.updateRows(items))
     }
 
     /**
@@ -200,7 +203,8 @@ class BaseModel extends Model {
             });
 
             if (!silent) {
-                me.updateRows(items)
+                me.updateRows(items);
+                me.getActivePeers().forEach(peer => peer.updateRows(items))
             }
 
             me.fire('selectionChange', {
@@ -221,7 +225,8 @@ class BaseModel extends Model {
 
         NeoArray.remove(me.selectedRows, recordId);
 
-        me.updateRows(recordId, silent)
+        me.updateRows(recordId, silent);
+        me.getActivePeers().forEach(peer => peer.updateRows(recordId, silent))
     }
 
     /**
@@ -368,7 +373,8 @@ class BaseModel extends Model {
 
         NeoArray.add(me.selectedRows, recordId);
 
-        me.updateRows(recordId, silent)
+        me.updateRows(recordId, silent);
+        me.getActivePeers().forEach(peer => peer.updateRows(recordId, silent))
     }
 
     /**

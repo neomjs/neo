@@ -5,7 +5,7 @@ test.describe('Desktop (1280x720): Grid Multi-Body Neural Link Selection Validat
     test.use({ viewport: { width: 1280, height: 720 } });
 
     test.beforeEach(async ({ page }) => {
-        await page.goto('/apps/devindex/');
+        await page.goto('/apps/devindex/index.html');
         
         // Wait for grid skeleton to mount
         await page.waitForSelector('.neo-grid-container', { state: 'visible', timeout: 30000 });
@@ -33,6 +33,12 @@ test.describe('Desktop (1280x720): Grid Multi-Body Neural Link Selection Validat
         // Locate the main GridContainer manually via Main Thread DOM to prove it works
         const gridId = await page.evaluate(() => document.querySelector('.neo-grid-container').id);
         
+        // Activate RowModel natively using Neural Link (since DevIndex defaults to null on load)
+        await app.setProperties(gridId, { 'body.selectionModel': { ntype: 'selection-grid-rowmodel' } });
+        
+        // Let it initialize
+        await page.waitForTimeout(200);
+
         // Inspect the Grid Component directly
         const gridProps = await app.getComponent(gridId, ['bodyStart.id', 'body.id', 'bodyEnd.id', 'body.selectionModel', 'store', 'ntype']);
         
@@ -69,10 +75,11 @@ test.describe('Desktop (1280x720): Grid Multi-Body Neural Link Selection Validat
         await expect(rightBodyRow).toHaveClass(/neo-selected/);
         
         // God Mode Assertion: Verify the exact backend state mirrors our action.
-        // DevIndex uses annotation-based selections ({selected: true}). 
-        // We fetch the record directly from the Store via the Neural Link data bridge.
-        const record = await app.callMethod(storeId, 'get', [recordId]);
-        expect(record.annotations?.selected).toBe(true);
+        // DevIndex Grid defaults to array-based selection since selectedRecordField ('selected') 
+        // does not exist on the Contributor model prototype. We check the RowModel's selectedRows array.
+        const smId = gridProps['body.selectionModel'].id;
+        const smProps = await app.getComponent(smId, ['selectedRows']);
+        expect(smProps.selectedRows.includes(recordId)).toBe(true);
     });
 
     test('Live Property Updation (Column Width Alignment)', async ({ page, neuralLink }) => {
