@@ -33,18 +33,18 @@ async function runSandman() {
 
     console.log('⏳ Initializing Sandman REM Extraction Pipeline...');
 
-    const isProviderRunning = await checkProvider();
-    if (!isProviderRunning) {
-        console.error(`❌ openAiCompatible server is not running on ${Memory_Config.data.openAiCompatible?.host || 'http://127.0.0.1:8000'}. Please start your MLX provider manually.`);
-        process.exit(1);
-    } else {
-        console.log('   ✅ openAiCompatible server is running.');
-    }
-
     try {
-        console.log('   Waiting for Lifecycle Service...');
+        console.log('   Waiting for Lifecycle Service to auto-boot orchestrators...');
         await LifecycleService.ready();
         console.log('   Lifecycle Service Ready. Database should be running.');
+
+        const isProviderRunning = await checkProvider();
+        if (!isProviderRunning) {
+            console.error(`❌ openAiCompatible server is not running on ${Memory_Config.data.openAiCompatible?.host || 'http://127.0.0.1:8000'}. Please start your MLX provider manually.`);
+            process.exit(1);
+        } else {
+            console.log('   ✅ openAiCompatible server is running (auto-boot successful).');
+        }
 
         console.log('   Waiting for DreamService Initialization...');
         // We might need to ensure DreamService is fully inited, though it initAsync runs automatically upon Neo.setupClass
