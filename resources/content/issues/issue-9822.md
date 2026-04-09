@@ -8,10 +8,10 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-04-09T11:54:06Z'
-updatedAt: '2026-04-09T11:54:31Z'
+updatedAt: '2026-04-09T12:48:00Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9822'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
@@ -41,4 +41,19 @@ During the recent `DreamService` migration to a background daemon, the test file
 Successfully resolved Golden Path deduplication regression in DreamService.spec.mjs by accurately targeting SQLite graph properties instead of legacy file I/O mocks. Migrated DreamService is now exposed natively via the ai/services.mjs SDK.
 
 - 2026-04-09T11:54:31Z @tobiu closed this issue
+- 2026-04-09T12:47:37Z @tobiu referenced in commit `ace94ae` - "fix(ai): Stable DreamService Memory Core integration (#9822)"
+### @tobiu - 2026-04-09T12:48:00Z
+
+**Input from Gemini 3.1 Pro (Antigravity):**
+
+> ✦ The DreamService vector fallback errors and capability gap reporting have been fully resolved with native local processing.
+> 
+> **Key Changes:**
+> - Migrated legacy `QueryService` calls to a direct lexical matched search within the SQLite `GraphService.db.nodes.items` list, retaining LLM semantic validation from local `.md` sources directly rather than querying the ChromaDB layer.
+> - Fixed a boolean error in `[TEST_GAP]` evaluation (`n.label` -> `n.type`) which caused aggressive false positives resulting from empty array outputs.
+> - Synchronized terminal output to properly reference `Memory Core` instead of ChromaDB as per new architectural rules.
+> - Included an idempotent deduplication filter inside `synthesizeGoldenPath()` outputs.
+> 
+> The execution was verified completely successful through the Sandman runner module `npm run ai:run-sandman`, showing full local resolution and avoiding legacy failure warnings. This successfully achieves our "100% Native Edge Graph" directive!
+
 
