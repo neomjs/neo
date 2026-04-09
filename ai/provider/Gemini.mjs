@@ -49,11 +49,14 @@ class GeminiProvider extends Base {
         // Deep clone to avoid mutating original schema
         const parameters = JSON.parse(JSON.stringify(tool.inputSchema || { type: 'object', properties: {} }));
 
-        // Gemini requires type names to be uppercase (e.g. 'OBJECT', 'STRING')
         const uppercaseTypes = (obj) => {
             if (obj && typeof obj === 'object') {
                 if (typeof obj.type === 'string') {
                     obj.type = obj.type.toUpperCase();
+                }
+                // Gemini does not support additionalProperties in the tool schema
+                if (obj.hasOwnProperty('additionalProperties')) {
+                    delete obj.additionalProperties;
                 }
                 for (const key in obj) {
                     uppercaseTypes(obj[key]);

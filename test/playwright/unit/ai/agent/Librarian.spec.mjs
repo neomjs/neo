@@ -37,6 +37,9 @@ test.describe('Librarian Sub-Agent Orchestration', () => {
     });
 
     test('Primary Agent delegates research task to Librarian via Loop tool execution', async () => {
+        // Since this now tests actual inference and GraphRAG IO, we increase the timeout block
+        test.setTimeout(180_000);
+
         // Skip test in CI environments without API keys
         test.skip(!process.env.GEMINI_API_KEY, 'Skipping: GEMINI_API_KEY not found');
 
@@ -48,7 +51,7 @@ test.describe('Librarian Sub-Agent Orchestration', () => {
 
         await primaryAgent.initAsync();
 
-        // We wrap the delegate method to verify it was executed correctly
+        // We wrap the delegate method to verify it was executed correctly natively
         let delegateCalled      = false;
         let delegatedAgentAlias = null;
         
@@ -57,19 +60,8 @@ test.describe('Librarian Sub-Agent Orchestration', () => {
             delegateCalled      = true;
             delegatedAgentAlias = profileName;
             
-            // To ensure test speed and reliability without actually querying the real MCP graph, 
-            // we mock the sub-agent's response. In a true integration test against an active Graph DB,
-            // we would `return await originalDelegate.call(this, profileName, request);`
-            return 'Mock Synthesis: Neo.component.Base is the foundation for all UI components.';
-        };
-
-        // We MUST mock the ContextAssembler to prevent it from attempting real DB queries
-        // via thick-client connections to ChromaDB, ensuring this remains a decoupled unit test.
-        primaryAgent.loop.assembler.assemble = async function({systemPrompt, userQuery}) {
-            return {
-                system: systemPrompt,
-                messages: [{ role: 'user', content: userQuery }]
-            };
+            // Execute the true delegation and sub-agent boot
+            return await originalDelegate.call(this, profileName, request);
         };
 
         // Since delegate_task is now injected natively into the Loop's tools array,
@@ -77,13 +69,17 @@ test.describe('Librarian Sub-Agent Orchestration', () => {
         const event = {
             type: 'user:input',
             priority: 'high',
-            data: 'You must research the architectural purpose of Neo.component.Base. You do not have the context. Delegate this to the "librarian" sub-agent using the delegate_task tool. Once you get the result, formulate your final answer.'
+            data: 'You must research the exact architectural purpose of Neo.component.Base. You do not have the context. Delegate this to the "librarian" sub-agent using the delegate_task tool. Once you get the result, formulate your final answer. Please include specific details retrieved from the architectural context.'
         };
 
         // Bypass the scheduler and force synchronous processing for the test environment
         const finalAnswer = await primaryAgent.loop.processEvent(event);
 
+        console.log('\n--- E2E GraphRAG Synthesis Output ---\n', finalAnswer, '\n-------------------------------------\n');
+
         expect(delegateCalled).toBeTruthy();
         expect(delegatedAgentAlias).toBe('librarian');
+        expect(typeof finalAnswer).toBe('string');
+        expect(finalAnswer.length).toBeGreaterThan(50);
     });
 });
