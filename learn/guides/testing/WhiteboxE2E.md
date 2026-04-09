@@ -104,6 +104,51 @@ test('Verify foundational grid structure', async ({ page, neuralLink }) => {
 });
 ```
 
+## The Expanded Fixture API
+
+While `queryComponent` and `getComponent` cover basic state inspection, `nlApp` provides a robust, native suite of tools to perfectly manipulate and measure the Application Worker from Playwright.
+
+### Layout & VDOM Validation
+Instead of brittle CSS selectors, you can use Neo.mjs layout tools to query the Virtual DOM and extract physical measurements, natively executed inside the browser.
+
+```javascript
+// Locate internal VNode elements to check render boundaries
+const rowVdom = await nlApp.queryVdom({ cls: 'neo-grid-row' });
+
+// Get exact screen boundaries of multiple components simultaneously
+const rects = await nlApp.getDomRect(['component-id-1', 'component-id-2']);
+
+// Directly extract CSS variables or specific computed values
+const styles = await nlApp.getComputedStyles('component-id-1', ['--neo-grid-row-height', 'display']);
+```
+
+### Interaction Simulation
+If Playwright's synthetic DOM clicks fail or suffer from z-index races on complex components (like Grid locked columns), you can manually dispatch native browser events straight onto the VNode target via the component ID.
+
+```javascript
+// Bypass Playwright DOM clicking, and dispatch to the VNode listener natively
+await nlApp.simulateEvent([
+    {
+        action: 'click', 
+        targetId: 'my-grid-row-1'
+    }
+]);
+```
+
+### Runtime & App State
+Tools exist to inspect stores, active listeners, or reload the page logic entirely.
+
+```javascript
+// View what raw events are actually bound to this specific layout block
+const listeners = await nlApp.getDomEventListeners('my-grid-container');
+
+// Dump the full raw store records (paginated) without querying the component
+const storeData = await nlApp.inspectStore('my-data-store', 50, 0);
+
+// Get internal Route History (navigating via hash)
+const history = await nlApp.getRouteHistory();
+```
+
 ## A Complete Example Walkthrough
 
 Let's look at how Whitebox testing effectively validates complex grid data inputs, without writing a single CSS locator for the inner workings.

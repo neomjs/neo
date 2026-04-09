@@ -103,33 +103,234 @@ export const test = base.extend({
                 return {
                     sessionId,
 
+                    // --- Instance Methods ---
+
+                    /**
+                     * Retrieves properties from a specific instance by its ID.
+                     * @param {String} id The instance ID
+                     * @param {String[]} [properties] Optional list of properties to fetch
+                     * @returns {Promise<Object>}
+                     */
                     async getComponent(id, properties) {
                         const propsToFetch = properties || ['ntype', 'windowId', 'cls', 'className', 'vnode'];
                         const response = await NeuralLink_InstanceService.getInstanceProperties({ sessionId, id, properties: propsToFetch });
                         return response.properties;
                     },
 
-                    async getStore(storeId) {
-                        return NeuralLink_DataService.inspectStore({ sessionId, storeId });
-                    },
-
+                    /**
+                     * Calls a method on a specific instance.
+                     * @param {String} id The instance ID
+                     * @param {String} method The method name
+                     * @param {Array} [args=[]] Arguments to pass
+                     * @returns {Promise<*>}
+                     */
                     async callMethod(id, method, args = []) {
                         const response = await NeuralLink_InstanceService.callMethod({ sessionId, id, method, args });
                         return response.result;
                     },
 
-                    async queryComponent(selector, properties) {
-                        const response = await NeuralLink_ComponentService.queryComponent({ sessionId, selector, returnProperties: properties });
-                        return response.components || response;
-                    },
-
+                    /**
+                     * Finds instances matching a set of properties.
+                     * @param {Object} selector Property/value pairs to match
+                     * @param {String[]} [properties] Optional list of properties to return
+                     * @returns {Promise<Object[]>}
+                     */
                     async findInstances(selector, properties) {
                         const response = await NeuralLink_InstanceService.findInstances({ sessionId, selector, returnProperties: properties });
                         return response.instances || response;
                     },
 
+                    /**
+                     * Sets properties on a specific instance.
+                     * @param {String} id The instance ID
+                     * @param {Object} properties Key-value pairs to set
+                     * @returns {Promise<Object>}
+                     */
                     async setProperties(id, properties) {
                         return NeuralLink_InstanceService.setInstanceProperties({ sessionId, id, properties });
+                    },
+
+                    // --- Component & VDOM Methods ---
+
+                    /**
+                     * Finds components matching a set of properties.
+                     * @param {Object} selector Property/value pairs to match
+                     * @param {String[]} [properties] Optional list of properties to return
+                     * @returns {Promise<Object[]>}
+                     */
+                    async queryComponent(selector, properties) {
+                        const response = await NeuralLink_ComponentService.queryComponent({ sessionId, selector, returnProperties: properties });
+                        return response.components || response;
+                    },
+
+                    /**
+                     * Finds internal VDOM nodes matching a set of attributes.
+                     * @param {Object} selector Property/value pairs to match
+                     * @param {String} [rootId] Optional root component ID to search within
+                     * @returns {Promise<Object[]>}
+                     */
+                    async queryVdom(selector, rootId) {
+                        const response = await NeuralLink_ComponentService.queryVdom({ sessionId, selector, rootId });
+                        return response.nodes || response;
+                    },
+
+                    /**
+                     * Retrieves physical DOM rect measurements for one or more components.
+                     * @param {String|String[]} componentIds
+                     * @returns {Promise<Object[]>}
+                     */
+                    async getDomRect(componentIds) {
+                        const response = await NeuralLink_ComponentService.getDomRect({ sessionId, componentIds: Array.isArray(componentIds) ? componentIds : [componentIds] });
+                        return response.rects || response;
+                    },
+
+                    /**
+                     * Retrieves computed CSS styles for a component.
+                     * @param {String} componentId
+                     * @param {String[]} variables List of style properties/variables
+                     * @returns {Promise<Object>}
+                     */
+                    async getComputedStyles(componentId, variables) {
+                        return NeuralLink_ComponentService.getComputedStyles({ sessionId, componentId, variables });
+                    },
+
+                    /**
+                     * Inspects the render tree (VDOM or VNode) of a component.
+                     * @param {String} [type='vdom'] 'vdom' or 'vnode'
+                     * @param {Number} [depth=-1] Depth limit (-1 for infinite)
+                     * @param {String} [rootId] Optional root component ID
+                     * @returns {Promise<Object>}
+                     */
+                    async inspectComponentRenderTree(type = 'vdom', depth = -1, rootId) {
+                        return NeuralLink_ComponentService.inspectComponentRenderTree({ sessionId, type, depth, rootId });
+                    },
+
+                    /**
+                     * Visually highlights a component in the browser.
+                     * @param {String} componentId
+                     * @param {Object} [options]
+                     * @returns {Promise<Object>}
+                     */
+                    async highlightComponent(componentId, options) {
+                        return NeuralLink_ComponentService.highlightComponent({ sessionId, componentId, options });
+                    },
+
+                    // --- Interaction Methods ---
+
+                    /**
+                     * Simulates a native DOM event directly onto the VNode exactly as a user would.
+                     * @param {Object|Object[]} events Sequence of events (e.g., {action: 'click', targetId: 'my-comp'})
+                     * @returns {Promise<Object>}
+                     */
+                    async simulateEvent(events) {
+                        return NeuralLink_InteractionService.simulateEvent({ sessionId, events: Array.isArray(events) ? events : [events] });
+                    },
+
+                    // --- Data & State Methods ---
+
+                    /**
+                     * Inspects a specific data store.
+                     * @param {String} storeId
+                     * @returns {Promise<Object>}
+                     */
+                    async getStore(storeId) {
+                        return NeuralLink_DataService.inspectStore({ sessionId, storeId });
+                    },
+
+                    /**
+                     * Lists all available stores in the data service.
+                     * @returns {Promise<Object>}
+                     */
+                    async listStores() {
+                        return NeuralLink_DataService.listStores({ sessionId });
+                    },
+
+                    /**
+                     * Retrieves paginated data from a store.
+                     * @param {String} storeId
+                     * @param {Number} [limit=50]
+                     * @param {Number} [offset=0]
+                     * @returns {Promise<Object>}
+                     */
+                    async inspectStore(storeId, limit = 50, offset = 0) {
+                        return NeuralLink_DataService.inspectStore({ sessionId, storeId, limit, offset });
+                    },
+
+                    /**
+                     * Retrieves a specific data record.
+                     * @param {String} recordId
+                     * @param {String} [storeId] Optional store scope
+                     * @returns {Promise<Object>}
+                     */
+                    async getRecord(recordId, storeId) {
+                        return NeuralLink_DataService.getRecord({ sessionId, recordId, storeId });
+                    },
+
+                    /**
+                     * Inspects a specific state provider.
+                     * @param {String} providerId
+                     * @returns {Promise<Object>}
+                     */
+                    async inspectStateProvider(providerId) {
+                        return NeuralLink_DataService.inspectStateProvider({ sessionId, providerId });
+                    },
+
+                    /**
+                     * Modifies variables inside a specific state provider.
+                     * @param {String} providerId
+                     * @param {Object} data Key-value pairs to set
+                     * @returns {Promise<Object>}
+                     */
+                    async modifyStateProvider(providerId, data) {
+                        return NeuralLink_DataService.modifyStateProvider({ sessionId, providerId, data });
+                    },
+
+                    // --- Runtime & Global Methods ---
+
+                    /**
+                     * Retrieves bound DOM event listeners for a specific component.
+                     * @param {String} componentId
+                     * @returns {Promise<Object>}
+                     */
+                    async getDomEventListeners(componentId) {
+                        return NeuralLink_RuntimeService.getDomEventListeners({ sessionId, componentId });
+                    },
+
+                    /**
+                     * Retrieves the route history log.
+                     * @param {String} [windowId]
+                     * @returns {Promise<Object>}
+                     */
+                    async getRouteHistory(windowId) {
+                        return NeuralLink_RuntimeService.getRouteHistory({ sessionId, windowId });
+                    },
+
+                    /**
+                     * Drives the application to a specific hash route.
+                     * @param {String} hash The hash string
+                     * @param {String} [windowId]
+                     * @returns {Promise<Object>}
+                     */
+                    async setRoute(hash, windowId) {
+                        return NeuralLink_RuntimeService.setRoute({ sessionId, hash, windowId });
+                    },
+
+                    /**
+                     * Reloads the application window.
+                     * @returns {Promise<Object>}
+                     */
+                    async reloadPage() {
+                        return NeuralLink_RuntimeService.reloadPage({ sessionId });
+                    },
+
+                    /**
+                     * Retrieves captured console logs from the App Worker.
+                     * @param {String} [type] Optional log type (log, warn, error)
+                     * @param {String} [filter]
+                     * @returns {Promise<Object>}
+                     */
+                    async getConsoleLogs(type, filter) {
+                        return NeuralLink_RuntimeService.getConsoleLogs({ sessionId, type, filter });
                     }
                 };
             }
