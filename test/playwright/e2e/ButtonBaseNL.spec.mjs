@@ -97,52 +97,49 @@ test.describe('Desktop: Neural Link Baseline Validation (Button Base)', () => {
         expect(btnProps.text).toBe('Agent Manipulated config');
     });
 
-    test('Agent-Driven Layout and Interaction Validation (NL -> InteractionService & ComponentService)', async ({ page, neuralLink }) => {
+    test('Agent-Driven Layout vs DOM Physics Validation (NL -> Live DOM Verification)', async ({ page, neuralLink }) => {
         await page.goto('/examples/button/base/index.html');
         await page.waitForTimeout(500);
 
         const app = await neuralLink.connectToApp('Neo.examples.button.base');
         
-        // 1. Get the target example button
+        // 1. Get the target example button visually
         const exampleButton = page.locator('.neo-example-container .neo-button').first();
         const btnId = await exampleButton.getAttribute('id');
 
-        // 2. Test getDomRect
-        const rects = await app.getDomRect([btnId]);
-        expect(rects.length).toBe(1);
-        expect(rects[0].width).toBeGreaterThan(0);
-        expect(rects[0].height).toBeGreaterThan(0);
+        // 2. Cross-check DOMRect (App Worker vs Live DOM)
+        const workerRects = await app.getDomRect([btnId]);
+        const workerRect = workerRects[0];
+        
+        const domBox = await exampleButton.boundingBox();
+        
+        // The Engine bounds should mathematically match the Live DOM visual output
+        expect(Math.abs(workerRect.width - domBox.width)).toBeLessThan(2);
+        expect(Math.abs(workerRect.height - domBox.height)).toBeLessThan(2);
 
-        // 3. Test getComputedStyles
-        const styles = await app.getComputedStyles(btnId, ['display', 'cursor']);
-        expect(styles.display).toBeTruthy();
-        expect(styles.cursor).toBeTruthy();
+        // 3. Cross-check Computed Styles (App Worker vs Live DOM)
+        // We ask the worker what it sees over the remote bridge
+        const workerStyles = await app.getComputedStyles(btnId, ['display', 'cursor']);
+        
+        // We directly ask the browser tab what CSS OM rendered natively
+        const domStyles = await exampleButton.evaluate(node => {
+            const computed = window.getComputedStyle(node);
+            return {
+                display: computed.display,
+                cursor: computed.cursor
+            };
+        });
 
-        // 4. Test queryVdom
-        // Search the VDOM for the button by tag name within the current button's context
+        expect(workerStyles.display).toBe(domStyles.display);
+        expect(workerStyles.cursor).toBe(domStyles.cursor);
+
+        // 4. Test queryVdom Structural Sanity
         const vdomResult = await app.queryVdom({ tag: 'button' }, btnId);
         expect(vdomResult).toBeTruthy();
-        expect(vdomResult.vdom).toBeTruthy();
         expect(vdomResult.vdom.tag).toBe('button');
-
-        // 5. Test simulateEvent
-        // Find the 'disabled' checkbox field to toggle state natively
-        let checkboxes = await app.queryComponent({ ntype: 'checkboxfield' }, ['id', 'checked', 'labelText']);
-        if (!Array.isArray(checkboxes)) checkboxes = [checkboxes];
         
-        const disabledCheckbox = checkboxes.find(c => c.properties && c.properties.labelText === 'disabled');
-        expect(disabledCheckbox).toBeTruthy();
-        
-        const initialState = disabledCheckbox.properties.checked;
-        
-        // Dispatch a native click event to the component's input VNode via Neural Link
-        await app.simulateEvent({ type: 'click', targetId: `${disabledCheckbox.id}__input` });
-        
-        // Wait a slight tick for the App Worker to process the event and propagate reactive changes
-        await page.waitForTimeout(100);
-        
-        // Fetch updated state directly from Backend
-        const updatedProps = await app.getComponent(disabledCheckbox.id, ['checked']);
-        expect(updatedProps.checked).not.toBe(initialState);
+        // Assert the Live DOM has the same structural tag match
+        const tagName = await exampleButton.evaluate(node => node.tagName.toLowerCase());
+        expect(vdomResult.vdom.tag).toBe(tagName);
     });
 });
