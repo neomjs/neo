@@ -12,6 +12,12 @@ import Memory_Config    from '../../ai/mcp/server/memory-core/config.mjs';
 
 async function testGoldenPath() {
     Memory_Config.data.debug = true;
+    
+    // STRICTLY bypass daemon startup auto-queue.
+    Memory_Config.data.autoDream = false;
+    Memory_Config.data.autoSummarize = false;
+    Memory_Config.data.autoGoldenPath = false;
+
     console.log('⏳ Starting Lifecycle Service...');
     await LifecycleService.ready();
 
