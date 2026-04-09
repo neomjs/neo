@@ -32,92 +32,65 @@ You MUST specify the E2E specific playwright config (`playwright.config.e2e.mjs`
 npx playwright test test/playwright/e2e/YourTestNL.spec.mjs -c test/playwright/playwright.config.e2e.mjs
 ```
 
-## Connecting the Neural Link
+## Connecting the Neural Link (Fixtures)
 
-Whitebox E2E tests are located in `test/playwright/e2e/`. Every test hooks into the Neural Link via the `beforeAll` and `afterAll` Playwright lifecycle events. 
+Whitebox E2E tests are located in `test/playwright/e2e/`. Instead of manually establishing WebSocket connections, the Neo.mjs team provides a powerful Playwright fixture called `neuralLink`.
 
 ### Core Connection Boilerplate
-When tests launch, they mount the browser context, intercept the `NeuralLink_ComponentService`, and extract the `sessionId` for the specific App Worker.
+When tests launch, you can use the `neuralLink` parameter injected by Playwright. This abstracts away the internal component architecture and exposes a simple SDK.
 
 ```javascript
-import { test, expect } from '@playwright/test';
-import { setupNeuralLink, getBaseUrl } from '../../setup-nl.mjs';
-
-const targetUrl = `${getBaseUrl()}examples/grid/bigData/index.html`;
+import { test, expect } from '../../fixtures.mjs'; // Use custom fixtures!
 
 test.describe('Grid BigData App (Neural Link)', () => {
-    let page;
-    let nlClient; // The Neural Link interface
-    let sessionId; // The App worker instance Session ID
 
-    test.beforeAll(async ({ browser }) => {
-        const context = await browser.newContext();
-        page = await context.newPage();
+    test('Verify connection and inspect state', async ({ page, neuralLink }) => {
+        // 1. Navigate to the app inside the browser worker
+        await page.goto('examples/grid/bigData/index.html');
 
-        // 1. Hook the client logic to your URL
-        const setup = await setupNeuralLink(page, targetUrl);
-        nlClient = setup.nlClient;
-        sessionId = setup.sessionId;
+        // 2. Connect the fixture to the running App Worker
+        // The fixture auto-discovers the running application's name if omitted
+        const nlApp = await neuralLink.connectToApp();
+
+        // Tests go here...
     });
-
-    test.afterAll(async () => {
-        if (nlClient) {
-            nlClient.disconnect();
-        }
-    });
-
-    // Tests go here...
 });
 ```
 
 ## Component Queries & State Inspection
 
-The core of Whitebox testing rests on `queryComponent`. By calling it through the `nlClient`, you find components by semantic layout rather than DOM classes.
+The core of Whitebox testing rests on `queryComponent`. By calling it through the `nlApp` fixture, you find components by semantic layout rather than DOM classes.
 
 ```javascript
-// A simple semantic query
-const comboQuery = {
-    selector: {
-        ntype: 'combobox', 
-        name: 'amountRows'
-    },
-    // Extract exact properties directly from the instance!
-    returnProperties: ['value']
-};
+// Extract exact properties directly from the instance!
+const queryResult = await nlApp.queryComponent(
+    { ntype: 'combobox', name: 'amountRows' }, // Selector
+    ['value'] // Return Properties
+);
 
-const result = await nlClient.request('mcp_neo-mjs-neural-link_query_component', {
-    sessionId,
-    ...comboQuery
-});
-
-// The returned value is wrapped inside a 'properties' object envelope.
-// Important: Store records and complex objects are serialized.
-expect(result.properties.value.id).toBe("20000"); 
+// Important: Return properties are nested under `.properties`
+// Store records and complex objects are serialized.
+expect(queryResult.properties.value.id).toBe("20000"); 
 ```
 
 ### Advanced Discovery
 
-Queries can also be hierarchically bounded using `rootId`. For complex, deeply nested grids, it is extremely beneficial to first discover Structural Primitives so that tests run more securely.
+Queries can also be hierarchically bounded by looking for children inside specific component graphs.
 
 ```javascript
-let gridContainerId;
+test('Verify foundational grid structure', async ({ page, neuralLink }) => {
+    await page.goto('examples/grid/bigData/index.html');
+    const nlApp = await neuralLink.connectToApp();
 
-test('Verify foundational grid structure', async () => {
     // 1. Fetch MainView (It will always return the root wrapper)
-    const viewResult = await nlClient.request('mcp_neo-mjs-neural-link_query_component', {
-        sessionId,
-        selector: { className: 'Neo.examples.grid.bigData.MainContainer' }
-    });
+    const viewResult = await nlApp.queryComponent({ className: 'Neo.examples.grid.bigData.MainContainer' });
     
     // 2. Discover children inside the root scope
-    const gridResult = await nlClient.request('mcp_neo-mjs-neural-link_query_component', {
-        sessionId,
-        rootId: viewResult.id,
-        selector: { ntype: 'grid-container' }
-    });
+    // Note: The fixture currently masks rootId natively if we query globally, 
+    // but the underlying API fully supports ID-scoped boundaries.
+    const gridResult = await nlApp.queryComponent({ ntype: 'grid-container' });
 
-    gridContainerId = gridResult.id;
-    expect(gridContainerId).toBeDefined();
+    expect(gridResult.id).toBeDefined();
 });
 ```
 
@@ -128,7 +101,10 @@ Let's look at how Whitebox testing effectively validates complex grid data input
 This test simulates interaction on the Grid row counter and uses Neural Link to assert the engine accurately digested the new variable asynchronously.
 
 ```javascript
-test('Simulate DOM selection and verify Neo.mjs engine data', async () => {
+test('Simulate DOM selection and verify Neo.mjs engine data', async ({ page, neuralLink }) => {
+    await page.goto('examples/grid/bigData/index.html');
+    const nlApp = await neuralLink.connectToApp();
+
     // 1. Visually identify the ComboBox using typical Playwright Locator on the DOM wrapper layer
     const rowComboBox = page.locator('.neo-combobox').filter({ hasText: 'Amount Rows' });
 
@@ -138,14 +114,13 @@ test('Simulate DOM selection and verify Neo.mjs engine data', async () => {
     await page.keyboard.press('Enter');
 
     // 2. Validate Engine Memory. Was the data actually stored by the Application Worker?
-    const engineResult = await nlClient.request('mcp_neo-mjs-neural-link_query_component', {
-        sessionId,
-        selector: { ntype: 'combobox', name: 'amountRows' },
-        returnProperties: ['value']
-    });
+    const queryResult = await nlApp.queryComponent(
+        { ntype: 'combobox', name: 'amountRows' },
+        ['value']
+    );
 
     // Instead of looking for DOM text reading '40k', we verify what the class actually believes to be true.
-    expect(engineResult.properties.value.id).toBe("40000");
+    expect(queryResult.properties.value.id).toBe("40000");
 });
 ```
 
