@@ -5,6 +5,7 @@ export default defineConfig({
     outputDir    : './test-results/e2e/artifacts',
     fullyParallel: false, // Maintain serial execution for benchmarks
     workers      : 1,     // Maintain serial execution for benchmarks
+    timeout      : 90000, // E2E tests (like DevIndex) are heavy rendering apps
 
     reporter: [
         ['list'],
