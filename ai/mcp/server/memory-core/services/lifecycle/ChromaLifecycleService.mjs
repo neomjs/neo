@@ -2,6 +2,7 @@ import { spawn } from 'child_process';
 import aiConfig from '../../config.mjs';
 import logger from '../../logger.mjs';
 import Base from '../../../../../../src/core/Base.mjs';
+import Observable from '../../../../../../src/core/Observable.mjs';
 
 /**
  * @summary Orchestrates the daemon lifecycle specifically for the ChromaDB backend engine.
