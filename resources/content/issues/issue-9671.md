@@ -17,11 +17,11 @@ parentIssue: null
 subIssues:
   - '[x] 9638 Epic: Architecture - Neo.mjs Dream Mode & GraphRAG Swarm'
   - '[x] 9672 Workflow Enablement: Implement Anthropic Agent Skills Standard'
-  - '[ ] 9673 Technical Awareness: Hybrid GraphRAG (Native Edge Graph & App Mapping)'
+  - '[x] 9673 Technical Awareness: Hybrid GraphRAG (Native Edge Graph & App Mapping)'
   - '[x] 9674 Strategic Consciousness: The Sandman/REM Prototype'
   - '[x] 9684 Epic: AI - The "Strategic Co-Founder" Orchestrator (Sub-Epic of #9671)'
   - '[x] 9704 Feat: Sandman Graph Physics (Hebbian Reinforcement & Global Ambient Decay)'
-subIssuesCompleted: 5
+subIssuesCompleted: 6
 subIssuesTotal: 6
 blockedBy: []
 blocking: []
