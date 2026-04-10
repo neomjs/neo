@@ -152,7 +152,7 @@ You **MUST** perform these steps in order before marking a task as complete:
 
 1.  **Branching (MANDATORY):** You are strictly forbidden from committing or pushing directly to the `main` (release-only) or `dev` (default working) branches. You MUST checkout a new branch (e.g., `agent/9851-retrospective`).
 2.  **Commit & Push:** Commit your finalized changes to this branch and push the branch to the remote repository.
-3.  **Pull Request (MANDATORY):** Use `run_command` with `gh pr create --fill --base dev` to open a Pull Request targeting the `dev` branch.
+3.  **Pull Request (MANDATORY):** Use `run_command` with `gh pr create --fill --base dev` to open a Pull Request targeting the `dev` branch. The PR body **MUST** include the keyword `Resolves #[Issue Number]` to guarantee automatic ticket closure upon merge.
 4.  **One PR per Ticket:** Enforce a strict 1-to-1 ratio between an Issue and a Pull Request. Do not bundle multiple unassociated issues into a single PR.
     - **Epic Exception:** An Epic may have a single overarching PR that resolves all of its associated Sub-Issues.
 5.  **Assign:** Ensure the Pull Request and the underlying Ticket are assigned to the current user to capture credit.
