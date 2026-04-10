@@ -22,7 +22,8 @@ subIssues:
   - '[x] 9841 Multi-Body: Peer State Adoption for Cell Selection Synchronization'
 subIssuesCompleted: 3
 subIssuesTotal: 3
-blockedBy: []
+blockedBy:
+  - '[ ] 9868 R&D: Grid Multi-Body Selection Architecture Redesign'
 blocking: []
 ---
 # Grid Multi-Body: Adapt Selection Models for Split Rows
@@ -110,4 +111,9 @@ Epic resolved. The Grid Multi-Body Selection abstraction natively supports cell,
 > 
 > *Session saved internally to the Memory Core. Waiting for the final validation passes.*
 
+- 2026-04-10T05:34:30Z @tobiu referenced in commit `4ad0f9b` - "chore: align Multi-Body Grid Row Selection & fix test harness (#9492)"
+- 2026-04-10T16:22:28Z @tobiu cross-referenced by #9866
+- 2026-04-10T16:22:54Z @tobiu cross-referenced by PR #9867
+- 2026-04-10T16:35:10Z @tobiu cross-referenced by #9868
+- 2026-04-10T16:35:22Z @tobiu marked this issue as being blocked by #9868
 

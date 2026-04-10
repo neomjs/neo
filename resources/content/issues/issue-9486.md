@@ -48,8 +48,9 @@ subIssues:
   - '[ ] 9635 Grid Multi-Body: Restoring Vertical Scrollbar for Dual-Pipeline GPU Thumb Pinning'
   - '[ ] 9636 Grid Multi-Body: Simplify GridDragScroll Scrollbar Hit Detection'
   - '[ ] 9637 Grid Multi-Body: E2E Telemetry Adjustments for Dual-Pipeline Scrolling'
+  - '[ ] 9868 R&D: Grid Multi-Body Selection Architecture Redesign'
 subIssuesCompleted: 21
-subIssuesTotal: 33
+subIssuesTotal: 34
 blockedBy: []
 blocking: []
 ---
