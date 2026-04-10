@@ -26,6 +26,7 @@ Every PR review MUST score the work across the following categories on a scale o
 *   **`[PRODUCTIVITY]`** (0-100): Were the primary goals of the linked ticket achieved?
 *   **`[IMPACT]`** (0-100): What is the significance of the change? (100 = critical framework architecture, 10 = trivial typo fix).
 *   **`[COMPLEXITY]`** (0-100): Factor in file touchpoints, depth of changes (core vs. app-level), and cognitive load.
+*   **`[EFFORT_PROFILE]`**: Categorize the effort relative to the Impact/Complexity ratio to establish explicit Native Graph labels. Valid values are: `Quick Win` (High ROI/Low Complexity), `Heavy Lift` (High Complexity/High Impact), `Maintenance` (Routine tasks), or `Architectural Pillar` (Fundamental shifts).
 
 ## 4. Graph Ingestion Tags
 To bridge the gap between human/agent code review and the internal Agent OS memory, you MUST use the following explicit markdown tags for any critical feedback. 
