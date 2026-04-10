@@ -910,6 +910,20 @@ ${topContent}
                                 logger.debug(`[DreamService] Ingested ${gapType} from ${prId}: ${gapNodeId}`);
                             }
                         }
+
+                        // Lexical scanning for Resolves/Closes/Fixes issue linkages
+                        const issueMatches = [...content.matchAll(/(?:(?:Resolves|Closes|Fixes)\s+#)(\d+)/gi)];
+                        for (const issueMatch of issueMatches) {
+                            const issueNumber = issueMatch[1];
+                            const issueNodeId = `issue-${issueNumber}`;
+
+                            // Create Hebbian edge for PR resolving Issue
+                            GraphService.linkNodes(prId, issueNodeId, 'RESOLVES', 1.0, {
+                                justification: `PR #${meta.number} explicitly resolves Issue #${issueNumber}.`
+                            });
+
+                            logger.debug(`[DreamService] Linked PR ${prId} as resolving ${issueNodeId}`);
+                        }
                     }
                 } catch (e) {
                     logger.warn(`[DreamService] Failed to process pull request feedback for ${file}`, e);
