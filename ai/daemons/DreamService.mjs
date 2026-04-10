@@ -840,6 +840,99 @@ ${topContent}
     }
 
     /**
+     * Parses the local file system for pull request reviews and syncs their embedded
+     * gap signals ([KB_GAP], [TOOLING_GAP], [RETROSPECTIVE]) into the Native Graph database.
+     */
+    async ingestPullRequestFeedback() {
+        const __filename = fileURLToPath(import.meta.url);
+        const __dirname = path.dirname(__filename);
+        const pullsDir = path.resolve(__dirname, '../../resources/content/pulls');
+
+        if (!fs.existsSync(pullsDir)) {
+            logger.warn(`[DreamService] Pull requests directory not found at ${pullsDir}`);
+            return;
+        }
+
+        const files = fs.readdirSync(pullsDir).filter(f => f.endsWith('.md'));
+
+        for (const file of files) {
+            const content = fs.readFileSync(path.join(pullsDir, file), 'utf8');
+            const match = content.match(/^---\n([\s\S]*?)\n---/);
+            if (match) {
+                try {
+                    const meta = yaml.load(match[1]);
+                    if (meta && meta.number) {
+                        const prId = `pr-${meta.number}`;
+
+                        // Upsert the PR node structurally
+                        GraphService.upsertNode({
+                            id: prId,
+                            type: 'PULL_REQUEST',
+                            name: meta.title || prId,
+                            state: meta.state,
+                            updatedAt: meta.updatedAt || meta.createdAt
+                        });
+
+                        // Lexical scanning for tags
+                        const lines = content.split('\n');
+                        for (const line of lines) {
+                            const gapMatch = line.match(/\[(KB_GAP|TOOLING_GAP|RETROSPECTIVE)\](.*?)$/);
+                            if (gapMatch) {
+                                const gapType = gapMatch[1]; // KB_GAP, TOOLING_GAP, RETROSPECTIVE
+                                const gapContent = gapMatch[2].replace(/^[\`\*:\s]+/, '').trim();
+                                
+                                if (!gapContent) continue;
+
+                                // Generate deterministic ID based on PR and Gap Content
+                                const gapHash = crypto.createHash('md5').update(`${prId}-${gapType}-${gapContent}`).digest('hex');
+                                const gapNodeId = `GAP:${gapType}-${gapHash.substring(0, 8)}`;
+
+                                // Upsert Gap Node
+                                GraphService.upsertNode({
+                                    id: gapNodeId,
+                                    type: gapType,
+                                    name: `${gapType} from PR #${meta.number}`,
+                                    description: gapContent,
+                                    properties: {
+                                        sourcePr: prId,
+                                        discoveredAt: meta.updatedAt || meta.createdAt
+                                    }
+                                });
+
+                                // Create Hebbian edges
+                                GraphService.linkNodes(gapNodeId, prId, 'DISCOVERED_IN', 1.0, {
+                                    justification: `Extracted from PR #${meta.number} feedback.`
+                                });
+                                GraphService.linkNodes(prId, gapNodeId, 'EVALUATED_BY', 1.0, {
+                                    justification: `Gap evaluated during PR #${meta.number} review.`
+                                });
+                                
+                                logger.debug(`[DreamService] Ingested ${gapType} from ${prId}: ${gapNodeId}`);
+                            }
+                        }
+
+                        // Lexical scanning for Resolves/Closes/Fixes issue linkages
+                        const issueMatches = [...content.matchAll(/(?:(?:Resolves|Closes|Fixes)\s+#)(\d+)/gi)];
+                        for (const issueMatch of issueMatches) {
+                            const issueNumber = issueMatch[1];
+                            const issueNodeId = `issue-${issueNumber}`;
+
+                            // Create Hebbian edge for PR resolving Issue
+                            GraphService.linkNodes(prId, issueNodeId, 'RESOLVES', 1.0, {
+                                justification: `PR #${meta.number} explicitly resolves Issue #${issueNumber}.`
+                            });
+
+                            logger.debug(`[DreamService] Linked PR ${prId} as resolving ${issueNodeId}`);
+                        }
+                    }
+                } catch (e) {
+                    logger.warn(`[DreamService] Failed to process pull request feedback for ${file}`, e);
+                }
+            }
+        }
+    }
+
+    /**
      * Executes the global "Fade" algorithm across all Native Graph edges,
      * then executes Vector Apoptosis to clean up resulting orphaned nodes from the hybrid semantic space.
      */
@@ -897,6 +990,7 @@ ${topContent}
         // This will sync Graph Node states and embed issue vectors!
         await this.ingestIssueStates();
         await this.ingestDiscussionStates();
+        await this.ingestPullRequestFeedback();
 
         if (!SQLiteVectorManager.db) {
             logger.warn('[DreamService] SQLiteVectorManager not mounted. Skipping Golden Path extraction.');
