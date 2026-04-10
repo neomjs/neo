@@ -137,6 +137,7 @@ First, classify the user's request into one of two categories:
 **Meta Gate: Deduplication & Linking**
 - **Gate 0:** Before creating *any* Issue or Discussion on GitHub, you **MUST** verify an equivalent item doesn't already exist using the `grep_search` tool locally against the `resources/content/issues/` and `resources/content/discussions/` directories. This prevents polluting the remote tracker. 
 - **Graph Linking:** When creating Sub-Issues for an Epic, you **MUST** natively link them using the `update_issue_relationship` MCP tool. Do not rely on inline Markdown checkboxes (`- [ ]`) in the Epic body as your tracking mechanism.
+- **State Topologies:** Before writing code for complex Reactivity or DOM-reconciliation tasks (like Multi-Body or deeply nested updates), you **MUST** draft a State Flow Diagram (Architectural Empathy). Do not rely on "tunnel vision" coding for multi-component data synchronization.
 
 **Note:** A conceptual discussion can become an actionable task. The moment the intent shifts from "what if..." to "let's do...", you must treat it as a new actionable request and apply the Ticket-First Gate.
 
@@ -177,6 +178,9 @@ To maintain repository hygiene and improve test coverage, you MUST adhere to the
 1. **Micro-Benchmarking (V8 Physics):** If you need to quickly test raw JavaScript engine performance or syntax (e.g., variable hoisting, iteration speed), you may use `run_shell_command` with `node -e '...'`. This is preferred for ephemeral, non-framework tests.
 2. **No Throwaway Scripts:** You are strictly **FORBIDDEN** from using `run_shell_command` (e.g., `cat << EOF > test.js`) to create temporary testing scripts on the filesystem.
 3. **Permanent Coverage:** If you are testing or validating Neo.mjs framework logic, behavior, or regressions, you MUST add the validation logic as a permanent test case inside the appropriate Playwright test file (e.g., `test/playwright/unit/data/Store.spec.mjs`). Use the `replace` or `write_file` tools to do this. A task is not complete unless its framework logic is permanently verifiable.
+4. **Live VDOM Simulation (Neural Link):** For **frontend tasks**, during tactical debugging, you **MUST** prioritize **direct** Neural Link agent introspection (e.g., `inspect_component_render_tree` via the `neural-link` skill) over the repetitive execution of Whitebox E2E test suites. Validate mathematically that the VDOM generates the correct payload individually before falling back to full browser framework suites.
+5. **Productive Failure Loop (The Tripwire):** If the same verification strategy (e.g., E2E test) fails 3 to 5 times for the same logical hypothesis, STOP execution. Do not panic. Instead, step back and challenge your architectural assumptions. You **MUST** document the paradox locally (e.g., in `walkthrough.md` or a `scratch` artifact), invoke `add_memory`, and ask the user for guidance. Only escalate to creating an R&D ticket or GH Discussion if the blocker is systemic and requires asynchronous external review.
+6. **Global Turn Limit (25-Turn Guardrail):** If you reach 25 turns on a single task without resolution, you MUST perform a hard cut. Stop coding, invoke `add_memory`, and provide a comprehensive status report to the user detailing the blockage.
 
 ## 11. File Editing Tool Selection (The "Append Gap")
 
@@ -194,3 +198,9 @@ To maintain repository modernization, you **MUST** prioritize the absolute lates
 - **Always** use optional chaining (`?.`) instead of verbose `&&` sequential checks (e.g., `clonedOptions.response_format?.type` instead of `clonedOptions.response_format && clonedOptions.response_format.type`).
 - **Always** use object property shorthand, destructuring, and fat arrow functions (e.g., `{messages, stream}` instead of `{messages: messages, stream: stream}`).
 - Aggressively replace legacy assignments and manual object replication when encountering them in the file you are modifying.
+
+## 13. Self-Evolving Systems (Meta-Level Enhancements)
+
+The Neo.mjs agent framework operates as a self-evolving system. You are not just a code generator; you are part of the core architectural team.
+- **Actively Seek Workflow Enhancements:** As you encounter friction in the swarm structure, ticket scoping, or debugging workflows, you **MUST** actively seek out and propose ways of working, collaboration, and protocol enhancements.
+- **Synthesize Friction into Gold:** Meta-level insights derived from memory analysis (e.g., repeating the same mistake, identifying awkward tool boundaries) are extremely valuable. Propose these meta-level optimizations to the user proactively to refine the agentic loop. Do not just fix the code; fix the system that builds the code.
