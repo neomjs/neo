@@ -38,9 +38,9 @@ Read `src/core/Base.mjs`. This is the foundation for all components and classes.
 - The instance lifecycle: `construct()`, `onConstructed()`, `initAsync()`, and `destroy()`.
 - The reactivity hooks: `beforeGet*`, `beforeSet*`, `afterSet*`.
 
-### Step 4: Understand the Two Component Models
+### Step 4: Understand the Two Component Models (Frontend Tasks Only)
 
-Read the file `learn/gettingstarted/DescribingTheUI.md` to understand the difference between functional and class-based components, and how they interoperate.
+If your task involves frontend rendering or UI components, read the file `learn/gettingstarted/DescribingTheUI.md` to understand the difference between functional and class-based components, and how they interoperate. If your focus is on MCP backend servers (e.g., Memory Core, GitHub Workflow), you may skip this UI-specific step.
 
 ### Step 5: Read the Coding Guidelines
 
@@ -169,9 +169,11 @@ When querying your memory, actively look for two things:
 
 If your current task overlaps with past challenges, explicitly state in your initial plan how your approach leverages the proven Gold Standards and avoids the Historical Traps discovered during your exploration.
 
-#### Synthesizing Information
+#### Synthesizing Information (Self-Evolving Systems)
 
-Your final plan or response should be a synthesis of both queries. Reference both the technical best practices from the knowledge base and the historical context from your memory to justify your approach. Proactively looking for ways to enhance collaboration, including suggesting workflow improvements based on your historical insights, is highly encouraged.
+Your final plan or response should be a synthesis of both queries. Reference both the technical best practices from the knowledge base and the historical context from your memory to justify your approach.
+
+**Mandate for Meta-Level Enhancements:** We are moving towards a self-evolving system. You are part of the core architectural team, not just a task executor. As you synthesize historical insights, you **MUST** actively seek ways to enhance collaboration, workflows, and agent ways of working. If you identify recurrent friction or architectural gaps, propose a meta-level enhancement (e.g., updating these very guidelines) rather than just solving the immediate problem.
 
 ### 3.4. The "Ask the Expert" Protocol (Syntax Verification)
 
@@ -236,18 +238,19 @@ When invoking a sub-agent to analyze code or investigate an issue, you **MUST** 
 **Why this is required:**
 Without this context, sub-agents will hallucinate bugs where none exist (e.g., claiming `this.store` is undefined because they don't see an explicit assignment, missing the fact that it's a reactive config managed by `Neo.core.Base`).
 
-## 8. The Visual Verification Protocol (UI/Layout Tasks)
+## 8. The Visual Verification Protocol (Frontend UI/Layout Tasks)
 
-**Context:** Agents often "hallucinate" layout behavior based on static SCSS/JS analysis, leading to "shotgun debugging" (guessing fixes) that wastes turns and frustrates users.
+**Context:** Agents often "hallucinate" layout behavior based on static SCSS/JS analysis, leading to "shotgun debugging" (guessing fixes) that wastes turns and frustrates users. This protocol applies **exclusively to frontend UI and layout tasks**, not backend MCP server logic.
 
 **Mandate:** You are **FORBIDDEN** from modifying CSS or Layout Configs based solely on static code analysis when a visual bug (e.g., "cut off", "misalignment") is reported.
 
 **Workflow:**
 1.  **Stop & Observe:** Do not propose a fix immediately.
-2.  **Inspect Runtime State:** Use the `neural_link` tool suite:
+2.  **Inspect Runtime State:** Use the `neural_link` tool suite to verify physical DOM constraints and structural VDOM intent:
     -   `find_instances`: Locate the component.
     -   `get_computed_styles`: Check `width`, `height`, `flex`, `display`, `overflow`.
     -   `get_dom_rect`: Check actual dimensions and parent constraints.
+    -   `inspect_component_render_tree`: Mathematically verify that the generated VNode tree matches your structural expectations before it hits the physical browser DOM.
 3.  **Consult the Expert:** If tools are insufficient or the hierarchy is complex, **ASK THE USER**.
     -   *Template:* "I cannot see the parent container's computed styles. Could you please paste the computed `height` and `overflow` of the element wrapping `.my-component`?"
 4.  **Verify Assumptions:** Never assume a class like `neo-label` behaves standardly. Verify its computed style.
