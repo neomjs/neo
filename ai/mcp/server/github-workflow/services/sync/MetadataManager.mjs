@@ -46,7 +46,8 @@ class MetadataManager extends Base {
                 return {
                     lastSync: null,
                     issues  : {},
-                    releases: {}
+                    releases: {},
+                    pulls   : {}
                 };
             } else {
                 throw error;
@@ -67,7 +68,8 @@ class MetadataManager extends Base {
             releasesLastFetched: metadata.releasesLastFetched,
             pushFailures       : metadata.pushFailures || [],
             issues             : {},
-            releases           : {}
+            releases           : {},
+            pulls              : {}
         };
 
         // Prune issues
@@ -82,9 +84,20 @@ class MetadataManager extends Base {
         }
 
         // Prune releases
-        for (const [key, value] of Object.entries(metadata.releases)) {
+        for (const [key, value] of Object.entries(metadata.releases || {})) {
             prunedMetadata.releases[key] = {
                 publishedAt: value.publishedAt,
+                contentHash: value.contentHash
+            };
+        }
+
+        // Prune pulls
+        for (const [key, value] of Object.entries(metadata.pulls || {})) {
+            prunedMetadata.pulls[key] = {
+                state      : value.state,
+                path       : value.path,
+                closedAt   : value.closedAt,
+                updatedAt  : value.updatedAt,
                 contentHash: value.contentHash
             };
         }

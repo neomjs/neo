@@ -1,7 +1,7 @@
 import Neo              from '../../src/Neo.mjs';
 import * as core        from '../../src/core/_export.mjs';
 import InstanceManager  from '../../src/manager/Instance.mjs';
-import DreamService     from '../../ai/mcp/server/memory-core/services/DreamService.mjs';
+import DreamService     from '../../ai/daemons/DreamService.mjs';
 import GraphService     from '../../ai/mcp/server/memory-core/services/GraphService.mjs';
 import LifecycleService from '../../ai/mcp/server/memory-core/services/lifecycle/SystemLifecycleService.mjs';
 import Memory_Config    from '../../ai/mcp/server/memory-core/config.mjs';
