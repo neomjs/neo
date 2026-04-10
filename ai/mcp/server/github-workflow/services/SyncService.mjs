@@ -6,6 +6,7 @@ import IssueSyncer     from './sync/IssueSyncer.mjs';
 import MetadataManager from './sync/MetadataManager.mjs';
 import ReleaseSyncer   from './sync/ReleaseSyncer.mjs';
 import DiscussionSyncer from './sync/DiscussionSyncer.mjs';
+import PullRequestSyncer from './sync/PullRequestSyncer.mjs';
 import RepositoryService from './RepositoryService.mjs';
 import {exec} from 'child_process';
 import {promisify} from 'util';
@@ -106,16 +107,21 @@ class SyncService extends Base {
         // 6. Sync discussions
         const discussionStats = await DiscussionSyncer.syncDiscussions(metadata);
 
-        // 6. Self-heal push failures: If a previously failed issue was successfully pulled, remove it from the failure list
+        // 7. Sync pull requests
+        const pullStats2 = await PullRequestSyncer.syncPullRequests(metadata);
+
+        // 8. Self-heal push failures: If a previously failed issue was successfully pulled, remove it from the failure list
         if (newMetadata.pushFailures?.length > 0) {
             newMetadata.pushFailures = newMetadata.pushFailures.filter(failedId => !newMetadata.issues[failedId]);
         }
 
-        // 7. Cache releases in metadata for next run
+        // Cached pulls are updated inline by PullRequestSyncer.
+
+        // 9. Cache releases in metadata for next run
         newMetadata.releases            = ReleaseSyncer.releases;
         newMetadata.releasesLastFetched = new Date().toISOString();
 
-        // 8. Save metadata
+        // 10. Save metadata
         await MetadataManager.save(newMetadata);
 
         if (aiConfig.pushToRepoAfterSync) {
@@ -160,7 +166,8 @@ class SyncService extends Base {
             pulled     : pullStats.pulled,
             dropped    : pullStats.dropped,
             releases   : releaseStats,
-            discussions: discussionStats
+            discussions: discussionStats,
+            pulls      : pullStats2
         };
 
         const timing = {
@@ -176,6 +183,7 @@ class SyncService extends Base {
         logger.info(`   Dropped:     ${finalStats.dropped.count} issues`);
         logger.info(`   Releases:    ${finalStats.releases.count} synced`);
         logger.info(`   Discussions: ${finalStats.discussions.count} synced`);
+        logger.info(`   Pulls:       ${finalStats.pulls.count} synced`);
         logger.info(`   Duration:    ${Math.round(timing.durationMs / 1000)}s`);
 
         return {

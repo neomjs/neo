@@ -13,6 +13,7 @@
 *   **`[PRODUCTIVITY]`**: [0-100] - [Brief justification]
 *   **`[IMPACT]`**: [0-100] - [Brief justification]
 *   **`[COMPLEXITY]`**: [0-100] - [Brief justification]
+*   **`[EFFORT_PROFILE]`**: [Quick Win | Heavy Lift | Maintenance | Architectural Pillar] - [Brief justification]
 
 ---
 

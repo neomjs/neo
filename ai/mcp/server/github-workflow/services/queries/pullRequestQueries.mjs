@@ -65,6 +65,83 @@ export const FETCH_PULL_REQUESTS = `
 `;
 
 /**
+ * Query to fetch pull requests for synchronization, including reviews and comments.
+ *
+ * Variables required:
+ * - $owner: String!
+ * - $repo: String!
+ * - $limit: Int!
+ * - $cursor: String
+ * - $states: [PullRequestState!]
+ * - $since: DateTime
+ * - $maxComments: Int!
+ * - $maxReviews: Int!
+ */
+export const FETCH_PULL_REQUESTS_FOR_SYNC = `
+  query FetchPullRequestsForSync(
+    $owner: String!
+    $repo: String!
+    $limit: Int!
+    $cursor: String
+    $states: [PullRequestState!]
+    $maxComments: Int!
+    $maxReviews: Int!
+  ) {
+    repository(owner: $owner, name: $repo) {
+      pullRequests(
+        first: $limit
+        after: $cursor
+        states: $states
+        orderBy: {field: UPDATED_AT, direction: DESC}
+      ) {
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
+        nodes {
+          number
+          title
+          body
+          state
+          createdAt
+          updatedAt
+          closedAt
+          mergedAt
+          url
+          headRefName
+          baseRefName
+          
+          author {
+            login
+          }
+          
+          comments(first: $maxComments) {
+            nodes {
+              createdAt
+              author {
+                login
+              }
+              body
+            }
+          }
+
+          reviews(first: $maxReviews) {
+            nodes {
+              createdAt
+              author {
+                login
+              }
+              body
+              state
+            }
+          }
+        }
+      }
+    }
+  }
+`;
+
+/**
  * Query to get the global ID of a pull request.
  *
  * Variables required:

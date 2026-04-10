@@ -156,7 +156,8 @@ You **MUST** perform these steps in order before marking a task as complete:
 4.  **One PR per Ticket:** Enforce a strict 1-to-1 ratio between an Issue and a Pull Request. Do not bundle multiple unassociated issues into a single PR.
     - **Epic Exception:** An Epic may have a single overarching PR that resolves all of its associated Sub-Issues.
 5.  **Assign:** Ensure the Pull Request and the underlying Ticket are assigned to the current user to capture credit.
-6.  **Handoff:** Post a comment on the original issue and the PR if you deviated from the original plan. The agent's task is considered "Done" once the PR is opened and ready for human review. Do not merge it yourself.
+6.  **Handoff:** The PR body MUST contain a "Fat Ticket Style" summary of the changes made, explicitly highlighting any deviations from the original issue's scope, and clarifying what previous closing discussions or commits accomplished. The agent's task is considered "Done" once the PR is opened and ready for human review. Do not merge it yourself.
+7.  **Squash Merge (MANDATORY):** Rebase and Fast-Forward merges are strictly forbidden. You MUST Squash Merge the PR (e.g., via GitHub UI or `gh pr merge --squash`). This guarantees that the "Fat Ticket" summary detailed in the PR body is compiled directly into the single baseline commit, ensuring the raw Git log natively inherits full A2A conceptual continuity.
 
 ## 9. Preventing Context Corruption (State Management)
 
