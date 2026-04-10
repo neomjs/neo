@@ -1,4 +1,4 @@
-name: DevIndex Pipeline
+name: Data Sync Pipeline
 
 on:
   schedule:
@@ -6,7 +6,7 @@ on:
   workflow_dispatch: # Allow manual trigger
 
 concurrency:
-  group: devindex-pipeline
+  group: data-sync-pipeline
   cancel-in-progress: false
 
 env:
@@ -54,6 +54,16 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Rebuild Indexes & SEO
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          node ./buildScripts/docs/index/labels.mjs
+          node ./buildScripts/docs/index/release.mjs
+          node ./buildScripts/docs/index/tickets.mjs
+          node ./buildScripts/docs/seo/generate.mjs --format xml --base-url https://neomjs.com -o apps/portal/sitemap.xml
+          node ./buildScripts/docs/seo/generate.mjs --format llms --base-url https://neomjs.com -o apps/portal/llms.txt
+
       - name: Commit, Rebase and Push
         run: |
           # Configure Git
@@ -61,14 +71,14 @@ jobs:
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           # Check for changes in specific files
-          if [[ -n $(git status -s apps/devindex/resources/data/*.json*) ]]; then
+          if [[ -n $(git status -s apps/devindex/resources/data/*.json* apps/portal/resources/data/*.json apps/portal/sitemap.xml apps/portal/llms.txt) ]]; then
             echo "Changes detected in data files."
 
             # Stage the files
-            git add apps/devindex/resources/data/*.json*
+            git add apps/devindex/resources/data/*.json* apps/portal/resources/data/*.json apps/portal/sitemap.xml apps/portal/llms.txt
 
             # Commit
-            git commit -m "chore(devindex): Hourly pipeline update [skip ci]"
+            git commit -m "chore(data): Hourly data sync pipeline update [skip ci]"
 
             # Discard any other unstaged changes to allow rebase
             git reset --hard
@@ -94,21 +104,37 @@ jobs:
           echo "Cloning pages repository..."
           git clone https://x-access-token:${PAGES_DEPLOY_PAT}@github.com/neomjs/pages.git temp_pages
           
-          # Ensure target directory exists
+          # Ensure target directories exist
           mkdir -p temp_pages/node_modules/neo.mjs/apps/devindex/resources/data
+          mkdir -p temp_pages/node_modules/neo.mjs/apps/portal/resources/data
+          mkdir -p temp_pages/node_modules/neo.mjs/resources/content
           
-          # Copy the data file
+          # Copy the data files
           cp apps/devindex/resources/data/users.jsonl temp_pages/node_modules/neo.mjs/apps/devindex/resources/data/
+          cp -f apps/portal/resources/data/*.json temp_pages/node_modules/neo.mjs/apps/portal/resources/data/ 2>/dev/null || true
+          cp -f apps/portal/sitemap.xml temp_pages/ 2>/dev/null || true
+          cp -f apps/portal/llms.txt temp_pages/ 2>/dev/null || true
+          
+          # Copy resources content (syncing deletions natively via git)
+          rm -rf temp_pages/node_modules/neo.mjs/resources/content/issues
+          rm -rf temp_pages/node_modules/neo.mjs/resources/content/issue-archive
+          cp -r resources/content/issues temp_pages/node_modules/neo.mjs/resources/content/
+          cp -r resources/content/issue-archive temp_pages/node_modules/neo.mjs/resources/content/
           
           cd temp_pages
           
           # Check for changes and push
-          if [[ -n $(git status -s node_modules/neo.mjs/apps/devindex/resources/data/users.jsonl) ]]; then
+          if [[ -n $(git status -s node_modules/neo.mjs/apps/devindex/resources/data/users.jsonl node_modules/neo.mjs/apps/portal/resources/data/*.json sitemap.xml llms.txt node_modules/neo.mjs/resources/content/) ]]; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             
             git add node_modules/neo.mjs/apps/devindex/resources/data/users.jsonl
-            git commit -m "chore(devindex): Sync users.jsonl from neo repo [skip ci]"
+            git add node_modules/neo.mjs/apps/portal/resources/data/*.json 2>/dev/null || true
+            git add sitemap.xml 2>/dev/null || true
+            git add llms.txt 2>/dev/null || true
+            git add -A node_modules/neo.mjs/resources/content/
+            
+            git commit -m "chore(data): Sync data and content from neo repo [skip ci]"
             git push origin main
           else
             echo "No changes detected for pages repo."
