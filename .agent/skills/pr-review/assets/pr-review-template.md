@@ -17,7 +17,7 @@
 ---
 
 ### 🕸️ Context & Graph Linking
-*   **Target Epic / Issue ID:** #[Issue Number]
+*   **Target Epic / Issue ID:** Resolves #[Issue Number]
 *   **Related Graph Nodes:** [Any other related node IDs or conceptual tags]
 
 ---
