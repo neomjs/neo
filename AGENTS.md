@@ -158,6 +158,7 @@ You **MUST** perform these steps in order before marking a task as complete:
 5.  **Assign:** Ensure the Pull Request and the underlying Ticket are assigned to the current user to capture credit.
 6.  **Handoff:** The PR body MUST contain a "Fat Ticket Style" summary of the changes made, explicitly highlighting any deviations from the original issue's scope, and clarifying what previous closing discussions or commits accomplished. The agent's task is considered "Done" once the PR is opened and ready for human review. Do not merge it yourself.
 7.  **Squash Merge (MANDATORY):** Rebase and Fast-Forward merges are strictly forbidden. You MUST Squash Merge the PR (e.g., via GitHub UI or `gh pr merge --squash`). This guarantees that the "Fat Ticket" summary detailed in the PR body is compiled directly into the single baseline commit, ensuring the raw Git log natively inherits full A2A conceptual continuity.
+8.  **Iterative PR Updates:** If you are requested to push new commits to an open Pull Request that alter the scope, fix a bug, or change the technical approach after the initial PR was opened, you MUST post a new comment on the Pull Request. This comment must detail the exact delta of what was changed from the prior state to ensure "ghost diffs" do not disrupt human review or the Graph context.
 
 ## 9. Preventing Context Corruption (State Management)
 
