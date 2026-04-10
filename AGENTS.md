@@ -27,7 +27,7 @@ For any actionable request that requires modifying the repository, you **MUST** 
 1.  **Scoping:** Tickets force focus. A single ticket (and its subsequent commit) should address one discrete problem or feature. Never bundle unrelated fixes into a single ticket/commit.
 2.  **The "Fat Ticket" Protocol (MANDATORY):** You MUST adhere to the Swarm Architecture "Fat Ticket" protocol (defined in `AGENTS_STARTUP.md`). When creating a ticket, focus the description not just for human tracking, but as a rich A2A (Agent-to-Agent) memory bridge containing deep architectural context, rationale, and avoided pitfalls.
 3.  **Exploration is Allowed:** You are permitted to write code, modify files, and experiment locally to understand a complex problem ("Unknown Unknowns") *before* creating the ticket.
-4.  **The Hard Stop:** The absolute hard stop is `git commit`. You **MUST NEVER** execute a commit without referencing a valid, narrowly scoped ticket ID in the commit message. Use the `create_issue` tool and follow its workflow.
+4.  **The Hard Stop:** The absolute hard stop is `git commit`. You **MUST NEVER** execute a commit without referencing a valid, narrowly scoped ticket ID in the commit message. Furthermore, direct pushes to `main` or `dev` are strictly forbidden; all code modifications must undergo the Pull Request workflow (see Section 8). Use the `create_issue` tool and follow its workflow.
 
 **Gate 2: The Contextual Completeness Gate**
 Writing code fast or changing concepts on the fly is acceptable during the exploration phase. However, **before a commit is executed, the code MUST conform to our strict quality and documentation standards**. We must protect the codebase from semantic degradation.
@@ -150,14 +150,13 @@ First, classify the user's request into one of two categories:
 
 You **MUST** perform these steps in order before marking a task as complete:
 
-1.  **Push:** If a task involves local commits, you **MUST** push changes to the remote repository (`git push`).
-2.  **Assign (MANDATORY):** Ensure the ticket is assigned to the current user. If unassigned, assign it immediately to capture credit for the work.
-3.  **Comment:** You **MUST** post a comment on the issue if:
-    - You deviated from the original plan (explain *why*).
-    - The task is complete (summarize the result).
-4.  **Epic Granularity Constraints:** An Agent must *only* create an Epic if there are legitimate sub-issues needed that will be resolved independently (via their own distinct commit, PR, and comment). "One-shotting" an Epic and multiple sub-tasks within a single commit is a strict sequence violation. If a task can be done in one commit, it is a standard Issue, not an Epic.
-5.  **Resolve Sub-Tasks:** If closing an Epic, you **MUST** cascade this Protocol (Steps 1-4) down to all linked sub-issues. An Epic is not closed until its sub-issues are explicitly resolved.
-6.  **Close:** Only after steps 1-5 are complete can you close the ticket (or Epic).
+1.  **Branching (MANDATORY):** You are strictly forbidden from committing or pushing directly to the `main` (release-only) or `dev` (default working) branches. You MUST checkout a new branch (e.g., `agent/9851-retrospective`).
+2.  **Commit & Push:** Commit your finalized changes to this branch and push the branch to the remote repository.
+3.  **Pull Request (MANDATORY):** Use `run_command` with `gh pr create --fill --base dev` to open a Pull Request targeting the `dev` branch.
+4.  **One PR per Ticket:** Enforce a strict 1-to-1 ratio between an Issue and a Pull Request. Do not bundle multiple unassociated issues into a single PR.
+    - **Epic Exception:** An Epic may have a single overarching PR that resolves all of its associated Sub-Issues.
+5.  **Assign:** Ensure the Pull Request and the underlying Ticket are assigned to the current user to capture credit.
+6.  **Handoff:** Post a comment on the original issue and the PR if you deviated from the original plan. The agent's task is considered "Done" once the PR is opened and ready for human review. Do not merge it yourself.
 
 ## 9. Preventing Context Corruption (State Management)
 
