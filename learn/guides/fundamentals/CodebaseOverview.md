@@ -345,18 +345,27 @@ The content in `/learn` is the source material for the AI Knowledge Base. Query 
 
 ### Historical Context
 
-**Release Notes** (`.github/RELEASE_NOTES/`):
+The entire historical footprint of the Neo.mjs project is synchronized locally for the Agent OS within `resources/content/`:
+
+**Release Notes** (`resources/content/release-notes/`):
 - Version-by-version changelog
 - Feature additions with rationale
 - Bug fixes and their context
 - Breaking changes and migration guides
 
-**Ticket Archive** (`.github/ISSUE_ARCHIVE/`):
-- Closed issues organized by release version
-- Full context: problem, discussion, solution, implementation
-- Searchable history of decisions
+**Ticket Archive & Active Issues** (`resources/content/issue-archive/`, `resources/content/issues/`):
+- Full contextual history: problem, discussion, solution, implementation
+- Searchable history of architectural decisions via Native Graph ingestion
 
-Query these when you need to understand *why* something works a certain way.
+**Pull Requests** (`resources/content/pulls/`):
+- Complete PR conversations, diff summaries, and Agent-generated "Fat Ticket" reviews
+- Links directly to closing commits for deep execution context
+
+**Discussions** (`resources/content/discussions/`):
+- The Ideation Sandbox
+- Proposed architectural features, "Unknown Unknowns", and early-stage brainstorming
+
+Query these when you need to understand *why* something works a certain way or track the evolution of an architectural design.
 
 ---
 
@@ -513,7 +522,8 @@ If you're coming from other frameworks, here are the key mental shifts:
 1. Query the specific concept (e.g., `"afterSet hook"`)
 2. Read both the source file (`type='src'`) and guide (`type='guide'`)
 3. Check examples (`type='example'`) for practical usage
-4. Review tickets (`type='ticket'`) for historical context
+4. Review tickets (`type='ticket'`) and Pull Requests (`type='pull'`) for execution history
+5. Search Discussions (`type='discussion'`) for the underlying architectural "Why"
 
 ---
 
