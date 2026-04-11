@@ -41,7 +41,7 @@ class PullRequestService extends Base {
      */
     async checkoutPullRequest(prNumber) {
         try {
-            const {stdout} = await execAsync(`gh pr checkout ${prNumber}`);
+            const {stdout} = await execAsync(`gh pr checkout ${prNumber}`, {cwd: aiConfig.projectRoot});
             return {message: `Successfully checked out PR #${prNumber}`, details: stdout.trim()};
         } catch (error) {
             logger.error(`Error checking out PR #${prNumber}:`, error);
@@ -86,7 +86,7 @@ class PullRequestService extends Base {
      */
     async getPullRequestDiff(prNumber) {
         try {
-            const {stdout} = await execAsync(`gh pr diff ${prNumber}`);
+            const {stdout} = await execAsync(`gh pr diff ${prNumber}`, {cwd: aiConfig.projectRoot});
             return { result: stdout };
         } catch (error) {
             logger.error(`Error getting diff for PR #${prNumber}:`, error);
