@@ -2,21 +2,24 @@
 
 > **Note for Readers:** This guide is primarily written for AI agents working with the Neo.mjs codebase and is part of their required session initialization. However, it also serves as a comprehensive overview for human developers seeking to understand the platform's scale, architecture, and design philosophy. References to "querying" refer to the AI Knowledge Base system available to agents.
 
-## Understanding the Scale (State of January 2026)
+## Understanding the Scale (State of April 2026)
 
 Neo.mjs is not a library. It's a **comprehensive web platform** with:
 
-- **45,244 lines** of core engine source (370 files)
-- **19,210 lines** of working examples (485 files)
-- **16,478 lines** of flagship applications (313 files)
-- **13,714 lines** of AI infrastructure (105 files)
-- **6,769 lines** of automated tests (56 files)
-- **5,813 lines** of build tooling (44 files)
+- **54,361 lines** of core engine source (426 files)
+- **41,772 lines** of flagship applications (399 files)
+- **14,838 lines** of component theming (613 files)
+- **23,212 lines** of working examples (642 files)
+- **20,026 lines** of AI infrastructure (144 files)
+- **24,442 lines** of learning materials (148 files)
+- **21,937 lines** of automated tests (189 files)
+- **7,517 lines** of build tooling (67 files)
 - **1,294 lines** of documentation app (17 files)
-- **12,137 lines** of production theming (446 SCSS files)
-- **52,850 lines** of JSDoc documentation
+- **204,082 lines** of Agent Knowledge context (3,924 files)
+- **260 lines** of Swarm Skills (10 files)
+- **66,077 lines** of pure JSDoc and inline comments
 
-**Total: ~121,000 lines of source code + 53,000 lines of documentation = ~174,000 lines of knowledge**
+**Total: ~205,000 lines of source code + ~274,000 lines of documentation = ~479,000 lines of knowledge**
 
 The documentation lines count. They contain intent, architectural rationale, and usage patterns—knowledge that's as valuable as the code itself for understanding the platform.
 
@@ -43,11 +46,15 @@ Everything in Neo.mjs flows from this principle. Every architectural decision—
 
 ## The Architecture: Why These Choices?
 
-### 1. True Multithreading (Not Just "Web Workers")
+First, it is critical to understand the primary execution boundary. Neo.mjs operates **two completely disjointized environments** that only ever communicate via the Neural Link (JSON-RPC WebSocket):
+1. **The Frontend UI Engine:** The browser-based application runtime that renders the DOM.
+2. **The Agent OS (Node.js):** The backend cognitive loop and local AI SDK.
 
-**The Problem**: Single-threaded frameworks fundamentally cannot prevent UI jank. They use schedulers and time-slicing, but they're still fighting the browser's event loop.
+### 1. The Frontend Engine: True Multithreading via Web Workers
 
-**The Solution**: Neo.mjs moves *all application logic* to dedicated workers:
+**The Problem**: Within the browser, single-threaded frameworks fundamentally cannot prevent UI jank. They use schedulers and time-slicing, but they're still fighting the browser's event loop.
+
+**The Solution**: The Neo.mjs Frontend Engine moves *all UI application logic* to dedicated web workers:
 - **App Worker**: Your entire application (components, state, logic)
 - **VDom Worker**: Diffing and patching calculations
 - **Data Worker**: Store operations and data transformations
@@ -61,9 +68,9 @@ Everything in Neo.mjs flows from this principle. Every architectural decision—
 
 ---
 
-### 2. The VDOM as a Cross-Thread Protocol
+### 2. The VDOM as a Cross-Thread Protocol (Frontend Only)
 
-**The Problem**: Workers communicate via `postMessage`, which requires serializable data. JSX and function components aren't serializable.
+**The Problem**: Within the Frontend Engine, web workers communicate via `postMessage`, which requires serializable data. JSX and function components aren't serializable.
 
 **The Solution**: The Virtual DOM *is* the protocol. Components describe themselves as **JSON blueprints**:
 ```javascript
@@ -74,13 +81,15 @@ Everything in Neo.mjs flows from this principle. Every architectural decision—
 }
 ```
 
+*Note: The VDOM is strictly a capability of the Frontend UI Engine. The Agent OS SDK does not render or process VDOM internally; it merely inspects or injects it remotely via the Neural Link.*
+
 **The Trade-off**: More verbose than JSX, but:
 - Serializable by definition
 - Language-agnostic (ideal for AI generation)
 - Debuggable without source maps
 - Zero compilation required
 
-**The Result**: The VDOM isn't a rendering optimization; it's the **IPC (Inter-Process Communication) layer** of the platform.
+**The Result**: The VDOM isn't a rendering optimization; it's the **IPC (Inter-Process Communication) layer** of the frontend platform.
 
 ---
 
@@ -260,7 +269,7 @@ Desktop-class application architecture:
 
 ## The Knowledge Landscape: What's Available to Query
 
-### Core Engine (`/src` - 351 files, 81k lines)
+### Core Engine (`/src` - 426 files, ~54k lines)
 
 **Foundation**:
 - `Neo.mjs`: The entry point. Class factory, `setupClass()`, global configuration
@@ -343,9 +352,9 @@ The content in `/learn` is the source material for the AI Knowledge Base. Query 
 
 ---
 
-### Historical Context
+### Agent Knowledge Base (`/resources/content/` - 3,923 files, ~178.7k lines)
 
-The entire historical footprint of the Neo.mjs project is synchronized locally for the Agent OS within `resources/content/`:
+The entire historical footprint and live contextual state of the Neo.mjs project is synchronized locally for the Agent OS within `resources/content/`:
 
 **Release Notes** (`resources/content/release-notes/`):
 - Version-by-version changelog
@@ -365,7 +374,43 @@ The entire historical footprint of the Neo.mjs project is synchronized locally f
 - The Ideation Sandbox
 - Proposed architectural features, "Unknown Unknowns", and early-stage brainstorming
 
-Query these when you need to understand *why* something works a certain way or track the evolution of an architectural design.
+Query these when you need to understand *why* something works a certain way, track the evolution of an architectural design, or find open tasks.
+
+---
+
+### Agent OS Backend (`/ai` - 144 files, ~20k lines)
+
+The cognitive architecture underpinning the swarm:
+- `agent/`: The cognitive loop, task schedulers, and agent profiles.
+- `graph/`: The Native Edge Graph topology database (`Database.mjs`, `NodeModel.mjs`, `EdgeModel.mjs`).
+- `daemons/`: Offline memory consolidation pipelines (e.g., `DreamService.mjs`).
+- `sdk-manifest.md`: Public API mapping for interacting with the KB, Memory, GitHub, and Neural Link services.
+
+---
+
+### Swarm Skills & Workflows (`/.agent/skills/` - 11 files, ~268 lines)
+
+Formalized Anthropic Progressive Disclosure Skills natively used by the swarm:
+- `create-skill`: Architectural blueprinting for new operational abilities.
+- `ideation-sandbox`: Safe brainstorming pipelines mapped directly into GitHub Discussions.
+- `pr-review`: Evaluation matrix templates spanning `[ARCH_ALIGNMENT]` to `[EFFORT_PROFILE]`.
+- `neural-link`: Standard operating procedures for traversing the Object-Permanent VDOM structure.
+- `unit-test`: Synthetically driving Playwright natively.
+
+---
+
+### Neo Theming Engine (`/resources/scss/` - 613 files, ~14.8k lines)
+
+Documenting the SCSS frameworks defining Neo's glassmorphism and application layouts, structurally detached from the core JS framework rendering engine.
+
+---
+
+### Automated Validation & Docs Parsing
+
+Documenting auxiliary determinism systems:
+- **/test/** (189 files, ~21.9k lines): Testing layouts (unit, e2e, component, mcp) leveraging the Neural Link for Whitebox E2E.
+- **/buildScripts/** (62 files, ~6.8k lines): Build pipelines (Webpack distributions) and context generation layers.
+- **/docs/app/** (17 files, ~1.2k lines): The specialized JSDoc parsing pipeline generating the Neo UI documentation layer (output directed to `.gitignore`'d `/docs/output/`).
 
 ---
 
@@ -373,9 +418,15 @@ Query these when you need to understand *why* something works a certain way or t
 
 Neo.mjs isn't just "AI-friendly"—it was **architected for AI collaboration from the ground up**.
 
-### The Evidence: A Comprehensive Agent OS
+### Primary Separation: The Node.js Agent OS vs. The Frontend Engine
 
-The platform includes a dedicated **Node.js Agent SDK** that acts as the cognitive backend (Agent OS), completely isolated from the browser-based Frontend Engine. They connect exclusively via the **Neural Link** (WebSocket JSON-RPC). This infrastructure exposes five dedicated Model Context Protocol (MCP) servers:
+The platform features a dedicated **Node.js Agent SDK** acting as the cognitive backend (Agent OS). This OS is **completely isolated** from the browser-based Frontend Engine. 
+- The Agent OS operates within Node.js, leveraging native Child Processes for parallelization (e.g., daemon spawns) instead of Web Workers.
+- The UI Runtime (Frontend Engine) operates entirely in the browser using Web Workers.
+- The VDOM (Virtual DOM) applies *only* to the UI runtime.
+- **The Neural Link (WebSocket JSON-RPC)** serves as the exclusive, stateless bridge between these two disjoint worlds. 
+
+This local infrastructure exposes five dedicated Model Context Protocol (MCP) servers:
 
 **1. Knowledge Base Server** (`ai/mcp/server/knowledge-base/`)
 - Indexes the entire platform: source code, examples, guides, release notes, tickets
@@ -429,6 +480,13 @@ You're not just working *with* Neo.mjs. You're working *inside* an ecosystem des
 ## Key Concepts: Query Entry Points
 
 When you need to understand Neo.mjs, these are high-value concepts to query. Use these terms with the `query_documents` tool to find relevant source files and guides.
+
+### Agent Intelligence & Workflows
+- `"DreamService"`, `"Agent OS"`, `"Native Edge Graph"`, `"SQLite topology"`, `"Fat Ticket"`
+- `"Swarm protocols"`, `"pr-review templates"`
+
+### Validation & Parsers
+- `"Whitebox E2E"`, `"Playwright fixtures"`, `"JSDoc parsing"`
 
 ### Architecture & Philosophy
 - `"multithreading"`, `"worker architecture"`, `"App Worker"`, `"VDom Worker"`
@@ -529,6 +587,6 @@ If you're coming from other frameworks, here are the key mental shifts:
 
 ## Remember
 
-This is a **174,000-line knowledge base**, not a 5k-line library. And that's just the indexed source and JSDoc—it excludes the `/dist` production builds (which would triple it) and ~100 markdown files of learning content in `/learn`.
+This is a **~479,000-line platform**, not a 5k-line library. And that's just the indexed source and conceptual knowledge context—it excludes the `/dist` production builds (which would triple it) and transient tracking data arrays.
 
 Don't assume. Query. The knowledge base contains the answers. Your job is to ask the right questions.
