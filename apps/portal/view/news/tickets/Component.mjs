@@ -374,7 +374,11 @@ class Component extends ContentComponent {
                         <a class="neo-timeline-user" href="${me.repoUserUrl}${author}" target="_blank">${author}</a>
                         <span class="neo-timeline-date">commented on ${createdAt}</span>
                     </div>
-                    <div class="neo-timeline-body">${fullHtml}</div>
+                    <div class="neo-timeline-body">
+
+${fullHtml}
+
+</div>
                 </div>
             </div>`;
 
