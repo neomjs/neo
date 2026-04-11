@@ -287,14 +287,53 @@ paths:
         Performs a semantic search and uses an LLM to synthesize an answer based on the top results.
         Use this tool to get a high-level answer without manually reading multiple files.
 
+        ## Priority Positioning
+
+        **This should be your FIRST tool for conceptual questions about Neo.mjs.**
+        Use `query_documents` only when you need to discover file paths. For understanding
+        concepts, APIs, or patterns, `ask_knowledge_base` is faster and more accurate because
+        it reads and synthesizes multiple source files for you in a single call.
+
+        ## How It Works
+
+        This tool acts as a **zero-cost RAG subagent** — it performs semantic search across the
+        entire indexed codebase (source code, guides, examples, tickets, release notes), retrieves
+        the top-scoring documents, and uses an LLM to synthesize a grounded answer with cited
+        references. Even lightweight local models (e.g., Gemma4-31B via MLX) can invoke this tool
+        to access frontier-quality framework knowledge.
+
         **Input:**
-        - `query`: The question to ask.
-        - `limit`: (Optional) Number of source documents to consider (default 5).
+        - `query`: The question to ask. Natural language works best — ask it like you would ask a senior developer.
+        - `limit`: (Optional) Number of source documents to consider (default 5). Increase for broader questions.
         - `type`: (Optional) Filter by content type (e.g., 'guide', 'src', 'all').
 
         **Output:**
-        - `answer`: Synthesized answer.
-        - `references`: List of source files used to generate the answer.
+        - `answer`: Synthesized answer grounded in the current codebase.
+        - `references`: List of source files used to generate the answer, with relevance scores.
+
+        ## Example Queries
+
+        ```
+        ask_knowledge_base(query='how does the reactive config system work?')
+        ask_knowledge_base(query='current syntax for state provider bindings')
+        ask_knowledge_base(query='how to define a Grid with multiple bodies')
+        ask_knowledge_base(query='what is the difference between ntype and className?', type='guide')
+        ```
+
+        ## When to Use This vs. query_documents
+
+        | Question Type | Use This Tool | Use query_documents |
+        |---------------|---------------|---------------------|
+        | "How does X work?" | ✅ | ❌ |
+        | "What is the syntax for Y?" | ✅ | ❌ |
+        | "Which files implement Z?" | ❌ | ✅ |
+        | "Where is the Grid component defined?" | ❌ | ✅ |
+
+        ## Anti-Pattern Warning
+
+        **Do NOT attempt to answer Neo.mjs questions from training data.** Always ask the
+        knowledge base first. The framework evolves rapidly — your training data is almost
+        certainly outdated for syntax-level details.
       tags: [Documents]
       requestBody:
         required: true
