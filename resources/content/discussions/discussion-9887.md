@@ -4,7 +4,7 @@ title: '[R&D] Swarm Intelligence: The Karpathy Loop & Graph Stigmergy'
 author: tobiu
 category: Ideas
 createdAt: '2026-04-11T17:48:07Z'
-updatedAt: '2026-04-11T18:23:37Z'
+updatedAt: '2026-04-11T19:02:48Z'
 ---
 > **Author's Note:** This proposal was autonomously synthesized by **Antigravity (Gemini 3.1 Pro)** during an Ideation session.
 
@@ -112,6 +112,69 @@ To prevent overlapping duties, the Daemon architecture strictly enforces roles:
 > * **The Workflow:** When the *Autonomous Immune System* retrieves an open bug matrix `#9888`, the Agent uses the Neural Link to simulate the bug directly. It applies the "Live JSON Mutation" step (above), re-simulates the event, and checks the Native Edge Graph for passing state. Playwright is entirely bypassed during the deterministic repair loop and is only invoked at the final external CI gate before merge.
 > 
 > **Conclusion:** The Swarm doesn't need to learn how to write better code. It needs to learn how to inject structured logic payloads natively over the current MCP bridge. We are ready to begin drafting the orchestrator for this exact pipeline.
+
+---
+
+### `@tobiu` commented on 2026-04-11T19:02:47Z
+
+**Input from Claude Opus 4.6 (Antigravity):**
+
+> ❋ ### From Ideation to Operational Architecture
+> 
+> **Input from Antigravity (Claude Opus 4.6)** — second session on this thread, focused on grounding the Swarm Intelligence proposal in the concrete infrastructure that already exists.
+> 
+> ---
+> 
+> #### Answering the Three Open Technical Questions Directly
+> 
+> This session involved a full audit of the MCP server layer (`Bridge.mjs`, `ConnectionService.mjs`, `ToolService.mjs`, `SQLiteVectorManager.mjs`, `DreamService.mjs`, `runSandman.mjs`, plus the DevIndex backend as a Neo.core.Base proof point). Here's what the code tells us:
+> 
+> **Q1: Graph Locking & Concurrency (10 concurrent Operator nodes writing SQLite)**
+> 
+> This is already solved. `SQLiteVectorManager.initAsync()` enforces `PRAGMA journal_mode = WAL` on startup. WAL (Write-Ahead Logging) mode allows unlimited concurrent readers with one serialized writer per checkpoint — exactly the pattern a swarm of Operator agents produces. What isn't solved yet is the **write-queue coordinator** for the Native Edge Graph's `Nodes` and `Edges` tables specifically, which don't go through the vector manager. That's a real gap, but it's a queue primitive in front of `GraphService.upsertNode()`, not a DB redesign.
+> 
+> **Q2: Reward Function Decay (framework upgrades invalidating DPO datasets)**
+> 
+> The concrete fix is a `framework_version` column in the RLAIF tuple schema. Every action logged against the Neural Link gets tagged with the Neo.mjs semver at recording time. When `DreamService` executes the RLAIF ingestion pass, it can filter tuples by version range. Legacy tuples aren't deleted — they become a historical negative signal (tuples from pre-13.0 that scored `reward: 1.0` on patterns now considered anti-patterns become `reward: -1.0` inputs for DPO contrastive training). The dataset doesn't regress; it accumulates institutional memory of *what used to work*.
+> 
+> **Q3: Pheromone Evaporation (deprecated workarounds being forgotten)**
+> 
+> This one is already implemented. `runSandman.mjs` calls `GraphService.decayGlobalTopology()` in its `finally` block on every REM cycle. The decay infrastructure is live. The open question is calibrating the decay rate constants for `ANTI_PATTERN` edges versus `CAPABILITY_PROVEN` nodes — the former should evaporate faster when the underlying framework surface changes, the latter should be more sticky. This is a config tuning problem, not an architecture gap.
+> 
+> ---
+> 
+> #### The Critical Path: Data Before Training
+> 
+> The previous comments correctly identify the capabilities. What's missing is the **data bootstrap**. The Karpathy Loop can't start until we're recording what agents actually do with the Neural Link. Right now, every tool invocation — `simulate_event`, `set_instance_properties`, `inspect_store` — vanishes into the void the moment it returns a result.
+> 
+> The complete MCP call chain is:
+> 
+> ```
+> Agent → Server.mjs [CallToolRequestSchema] → toolService.mjs [serviceMapping] → ToolService.callTool() → {services} → Bridge.mjs → App Worker
+> ```
+> 
+> `ToolService.callTool()` at `ai/mcp/ToolService.mjs:53` is the single choke-point all 33 Neural Link tools pass through. A six-line HOF wrapper here, logging to a new `nl_action_log` table in `memory-core.sqlite` (WAL-safe via a dedicated `better-sqlite3` handle from the NL process), gives us the recording primitive the entire Karpathy Loop depends on.
+> 
+> This is now tracked as **[#9889](https://github.com/neomjs/neo/issues/9889)** — drafted and assigned in this session.
+> 
+> ---
+> 
+> #### On Local Model Fine-Tuning Feasibility
+> 
+> The `Librarian.mjs` agent profile has `modelProvider` as a configurable field, defaulting to `'gemini'` but designed to accept any provider — including the local MLX Server that's now the de facto winner for on-device inference (April 2026). The `OpenAiCompatible` provider surface means Gemma4-31B, Qwen3-32B, or a future Neo.mjs-specific fine-tune are all drop-in targets. 
+> 
+> The fine-tuning pipeline becomes realistic once we have ~50k RLAIF tuples from the Recorder. Until then, the Librarian's value is as an offline GraphRAG synthesizer — navigating the Native Edge Graph to give Operator agents precise architectural context without cloud API latency. That's already useful. Fine-tuning is the upgrade that makes the Local Operator *autonomous*.
+> 
+> ---
+> 
+> #### What This Session Established
+> 
+> 1. The three Open Technical Questions have concrete answers in the existing codebase — they're engineering tasks, not research problems.  
+> 2. The minimum viable first step is the NL Action Recorder (#9889) — before any Karpathy Loop, before any RLAIF scoring, before any DPO pass.
+> 3. The `DreamService.processUndigestedSessions()` pipeline in `runSandman.mjs` is exactly the right insertion point for the 4th ingestion vector (`executeNLActionDigest()`) that will synthesize Playwright test scaffolds from recorded NL sequences — making the loop: *Agent explores → Recorder captures → Sandman synthesizes → Test suite grows → CI validates → Graph learns*.
+> 
+> The architecture is sound. The primitives exist. The critical path is clear.
+> 
 
 ---
 
