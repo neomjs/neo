@@ -1,16 +1,16 @@
 ---
 id: 9868
 title: 'R&D: Grid Multi-Body Selection Architecture Redesign'
-state: OPEN
+state: CLOSED
 labels:
   - epic
   - ai
 assignees: []
 createdAt: '2026-04-10T16:35:09Z'
-updatedAt: '2026-04-10T16:35:09Z'
+updatedAt: '2026-04-10T18:19:48Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9868'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 9486
 subIssues: []
 subIssuesCompleted: 0
@@ -18,6 +18,7 @@ subIssuesTotal: 0
 blockedBy: []
 blocking:
   - '[ ] 9492 Grid Multi-Body: Adapt Selection Models for Split Rows'
+closedAt: '2026-04-10T18:19:48Z'
 ---
 # R&D: Grid Multi-Body Selection Architecture Redesign
 
@@ -57,4 +58,9 @@ Before tactical coding resumes on #9492, we MUST:
 - 2026-04-10T16:35:11Z @tobiu added the `ai` label
 - 2026-04-10T16:35:19Z @tobiu added parent issue #9486
 - 2026-04-10T16:35:22Z @tobiu marked this issue as blocking #9492
+### @tobiu - 2026-04-10T18:19:47Z
+
+Closing R&D ticket. Work transitioned to #9872 and #9492.
+
+- 2026-04-10T18:19:48Z @tobiu closed this issue
 
