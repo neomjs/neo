@@ -7,19 +7,19 @@
 Neo.mjs is not a library. It's a **comprehensive web platform** with:
 
 - **54,361 lines** of core engine source (426 files)
-- **185,624 lines** of flagship applications (421 files)
+- **41,772 lines** of flagship applications (399 files)
 - **14,838 lines** of component theming (613 files)
-- **23,324 lines** of working examples (644 files)
+- **23,212 lines** of working examples (642 files)
 - **20,026 lines** of AI infrastructure (144 files)
-- **24,410 lines** of learning materials (148 files)
+- **24,442 lines** of learning materials (148 files)
 - **21,937 lines** of automated tests (189 files)
-- **6,875 lines** of build tooling (62 files)
+- **7,517 lines** of build tooling (67 files)
 - **1,294 lines** of documentation app (17 files)
-- **178,740 lines** of Agent Knowledge context (3,923 files)
-- **268 lines** of Swarm Skills (11 files)
-- **522,440 lines** of documentation (comments + JSDoc)
+- **204,082 lines** of Agent Knowledge context (3,924 files)
+- **260 lines** of Swarm Skills (10 files)
+- **66,077 lines** of pure JSDoc and inline comments
 
-**Total: ~1,393,000 lines of source code + 522,000 lines of documentation = ~1,915,000 lines of knowledge**
+**Total: ~205,000 lines of source code + ~274,000 lines of documentation = ~479,000 lines of knowledge**
 
 The documentation lines count. They contain intent, architectural rationale, and usage patterns—knowledge that's as valuable as the code itself for understanding the platform.
 
