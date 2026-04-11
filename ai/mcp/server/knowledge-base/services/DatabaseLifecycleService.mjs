@@ -46,7 +46,9 @@ class DatabaseLifecycleService extends Base {
      */
     async initAsync() {
         await super.initAsync();
-        await this.startDatabase();
+        if (aiConfig.autoStartDatabase) {
+            await this.startDatabase();
+        }
     }
 
     /**

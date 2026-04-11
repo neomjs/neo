@@ -19,6 +19,16 @@ const defaultConfig = {
      */
     autoSummarize: process.env.AUTO_SUMMARIZE !== 'false',
     /**
+     * Automatically start the local database process (Chroma/SQLite) on startup.
+     * @type {boolean}
+     */
+    autoStartDatabase: process.env.NEO_MEM_AUTO_START_DATABASE !== 'false',
+    /**
+     * Automatically start the local inference server on startup.
+     * @type {boolean}
+     */
+    autoStartInference: process.env.NEO_MEM_AUTO_START_INFERENCE !== 'false',
+    /**
      * Automatically trigger GraphRAG extraction on startup.
      * @type {boolean}
      */

@@ -31,8 +31,9 @@ import KB_SearchService             from './mcp/server/knowledge-base/services/S
 import KB_ChromaManager             from './mcp/server/knowledge-base/services/ChromaManager.mjs';
 import KB_Config                    from './mcp/server/knowledge-base/config.mjs';
 
-// Disable auto-sync for all scripts using the SDK to prevent double-runs
+// Disable auto-sync and auto-start for all scripts using the SDK to prevent double-runs and daemon spawns
 KB_Config.data.autoSync = false;
+KB_Config.data.autoStartDatabase = false;
 
 // --- Memory Core Services ---
 import Memory_Service               from './mcp/server/memory-core/services/MemoryService.mjs';
@@ -48,6 +49,8 @@ import Memory_LifecycleService      from './mcp/server/memory-core/services/life
 import Memory_Config                from './mcp/server/memory-core/config.mjs';
 
 Memory_Config.data.autoSummarize = false;
+Memory_Config.data.autoStartDatabase = false;
+Memory_Config.data.autoStartInference = false;
 
 // --- Neural Link Services ---
 import NeuralLink_ComponentService   from './mcp/server/neural-link/services/ComponentService.mjs';
