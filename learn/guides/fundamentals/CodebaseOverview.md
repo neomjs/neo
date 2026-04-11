@@ -479,7 +479,10 @@ You're not just working *with* Neo.mjs. You're working *inside* an ecosystem des
 
 ## Key Concepts: Query Entry Points
 
-When you need to understand Neo.mjs, these are high-value concepts to query. Use these terms with the `query_documents` tool to find relevant source files and guides.
+When you need to understand Neo.mjs, start with the right tool:
+
+- **Ask, Don't Search:** For conceptual questions ("How does reactivity work?", "What is the config system?"), use `ask_knowledge_base` — it synthesizes answers from multiple source files in a single call. Essential for top-level perspective in a codebase of this scale.
+- **Search for Files:** When you need to discover *which files* implement something, use `query_documents` with these high-value terms:
 
 ### Agent Intelligence & Workflows
 - `"DreamService"`, `"Agent OS"`, `"Native Edge Graph"`, `"SQLite topology"`, `"Fat Ticket"`
@@ -577,8 +580,8 @@ If you're coming from other frameworks, here are the key mental shifts:
 3. Look at `/apps/portal/` for a complete application
 
 ### When Stuck
-1. Query the specific concept (e.g., `"afterSet hook"`)
-2. Read both the source file (`type='src'`) and guide (`type='guide'`)
+1. **Ask first:** `ask_knowledge_base(query='how does the afterSet hook work?')` — gets a synthesized answer with cited source file paths
+2. **Drill into code:** The answer includes ranked file references — use `grep_search` or `view_file` to inspect the specific implementation
 3. Check examples (`type='example'`) for practical usage
 4. Review tickets (`type='ticket'`) and Pull Requests (`type='pull'`) for execution history
 5. Search Discussions (`type='discussion'`) for the underlying architectural "Why"

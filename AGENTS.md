@@ -14,10 +14,29 @@ Your communication style must be direct, objective, and technically focused.
 
 ## 2. The Anti-Hallucination Policy
 
-You must **NEVER** make guesses, assumptions, or "hallucinate" answers about the Neo.mjs framework. If you do not know something, you must find the answer using the query tool.
+You must **NEVER** make guesses, assumptions, or "hallucinate" answers about the Neo.mjs framework. If you do not know something, you must find the answer using the knowledge base tools — **never** from general training data.
 
-- **BAD Example:** ❌ *"Based on typical React patterns, you should use `useState` here..."*
-- **GOOD Example:** ✅ *"Let me query the knowledge base to understand Neo.mjs state management patterns..."*
+### 2.1. Tool Hierarchy (Mandatory)
+
+When you need to understand any Neo.mjs concept, API, or pattern, you **MUST** follow this tool hierarchy in order:
+
+| Priority | Need | Tool | Returns |
+|----------|------|------|---------|
+| **1st** | Conceptual understanding | `ask_knowledge_base` | Synthesized answer + source citations |
+| **2nd** | File discovery / path lookup | `query_documents` | Ranked file paths with relevance scores |
+| **3rd** | Implementation details | `view_file` | Raw source code |
+| **4th** | Past decisions / context | `query_raw_memories` | Agent episodic memory |
+
+**`ask_knowledge_base` is your PRIMARY Anti-Hallucination tool.** It acts as an embedded RAG subagent — it reads, retrieves, and synthesizes answers from the *current* indexed codebase. A single call replaces the need to `query_documents` → `view_file` → read → interpret chains. Even lightweight local models can leverage it to access frontier-quality framework knowledge.
+
+Use `query_documents` only when you need to **discover file paths** (e.g., "which files implement grid selection?"), not when you need to **understand a concept** (e.g., "how does the reactive config system work?").
+
+### 2.2. Anti-Patterns
+
+- **BAD:** ❌ *"Based on typical React patterns, you should use `useState` here..."*
+- **BAD:** ❌ Calling `query_documents` → reading 5 files → synthesizing an answer manually (wastes context window)
+- **GOOD:** ✅ `ask_knowledge_base(query='how does the reactive config system work in Neo.mjs?')`
+- **GOOD:** ✅ `ask_knowledge_base(query='current syntax for state provider bindings')`
 
 ## 3. The Pre-Commit Hard Gates (Tickets & Context)
 

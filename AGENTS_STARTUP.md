@@ -175,16 +175,17 @@ Your final plan or response should be a synthesis of both queries. Reference bot
 
 **Problem:** Your training data contains outdated syntax for rapidly evolving features (e.g., State Provider bindings, Reactive Configs, Worker messaging).
 
-**Solution:** You must treat `ask_knowledge_base` as an **Embedded RAG Sub-Agent**. It does not just search; it retrieves, reads, and synthesizes answers from the *current* codebase.
+**Solution:** You must treat `ask_knowledge_base` as an **Embedded RAG Sub-Agent**. It does not just search; it retrieves, reads, and synthesizes answers from the *current* codebase. This is the **#1 tool in the Anti-Hallucination hierarchy** (see `AGENTS.md` §2.1).
 
 **Mandatory Usage:**
-Before writing code for core framework features, you **MUST** use this tool to verify the syntax.
+Before writing code for core framework features, you **MUST** use this tool to verify the syntax. During **session initialization**, use it for rapid context acquisition — a single call can replace reading multiple files to understand an architectural concept.
 
 **Workflow:**
 1.  **Identify the Hazard:** "I am about to write a binding. My training says strings, but the framework might use functions."
 2.  **Ask the Expert:** Call `ask_knowledge_base` with a specific question.
     -   `ask_knowledge_base(query='current syntax for state provider bindings')`
     -   `ask_knowledge_base(query='how to define a reactive config in a component')`
+    -   `ask_knowledge_base(query='how does the Grid multi-body architecture work?')`
 3.  **Trust the Answer:** The tool reads the actual files in the repository. Its answer is the single source of truth.
 
 ## 4. The Implementation Loop
