@@ -922,6 +922,16 @@ components:
           type: string
           description: The underlying model used for inference
           example: "gemini-3.1-pro"
+        amountToolCalls:
+          type: integer
+          description: "The number of tool calls executed during the turn."
+          example: 5
+        toolsUsed:
+          type: array
+          description: "Descriptions or array of tools used."
+          items:
+            type: string
+          example: ["view_file", "replace"]
 
     MemoryResponse:
       type: object

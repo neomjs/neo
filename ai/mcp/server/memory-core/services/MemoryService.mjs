@@ -49,9 +49,11 @@ class MemoryService extends Base {
      * @param {String} options.sessionId The ID of the session this memory belongs to.
      * @param {String} [options.agent]   The agent profile (e.g. 'antigravity').
      * @param {String} [options.model]   The model name (e.g. 'gemini-3.1-pro').
+     * @param {Number} [options.amountToolCalls] The number of tool calls executed during the turn.
+     * @param {Array|String} [options.toolsUsed] Descriptions or array of tools used.
      * @returns {Promise<{id: string, sessionId: string, timestamp: string, message: string}>}
      */
-    async addMemory({prompt, response, thought, sessionId, agent, model}) {
+    async addMemory({prompt, response, thought, sessionId, agent, model, amountToolCalls, toolsUsed}) {
         try {
             const collection   = await StorageRouter.getMemoryCollection();
             const combinedText = `User Prompt: ${prompt}\nAgent Thought: ${thought}\nAgent Response: ${response}`;
@@ -74,6 +76,10 @@ class MemoryService extends Base {
 
             if (agent) metadata.agent = agent;
             if (model) metadata.model = model;
+            if (amountToolCalls !== undefined) metadata.amountToolCalls = amountToolCalls;
+            if (toolsUsed !== undefined) {
+                metadata.toolsUsed = typeof toolsUsed === 'string' ? toolsUsed : JSON.stringify(toolsUsed);
+            }
 
             await collection.add({
                 ids: [memoryId],
@@ -142,7 +148,9 @@ class MemoryService extends Base {
                     response : metadata.response,
                     type     : metadata.type,
                     agent    : metadata.agent || null,
-                    model    : metadata.model || null
+                    model    : metadata.model || null,
+                    amountToolCalls: metadata.amountToolCalls || 0,
+                    toolsUsed: metadata.toolsUsed || null
                 };
             }).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 

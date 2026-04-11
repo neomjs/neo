@@ -161,6 +161,24 @@ class DreamService extends Base {
 
             for (const session of sessions) {
                 logger.info(`[DreamService] Preparing session ${session.meta.sessionId} ("${session.meta.title}") for REM extraction.`);
+                
+                let rawEpisodicMemory = session.document;
+                try {
+                    const memoryCollection = await StorageRouter.getMemoryCollection();
+                    if (memoryCollection) {
+                        const rawMemories = await memoryCollection.get({
+                            where: { sessionId: session.meta.sessionId },
+                            include: ['documents']
+                        });
+                        if (rawMemories && rawMemories.documents && rawMemories.documents.length > 0) {
+                            rawEpisodicMemory = rawMemories.documents.join('\n\n---\n\n');
+                        }
+                    }
+                } catch (e) {
+                    logger.warn(`[DreamService] Could not fetch raw memories for ${session.meta.sessionId}`, e);
+                }
+                
+                session.document = rawEpisodicMemory;
                 logger.info(`[DreamService]   -> Payload size (chars): ${session.document.length}`);
                 
                 const startTime = Date.now();
@@ -370,7 +388,7 @@ ${session.document}
             if (artifact.roadmap_impact && typeof artifact.roadmap_impact === 'string' && artifact.roadmap_impact.toLowerCase() !== 'null') {
                 const auditLog = path.join('/tmp', 'roadmap_audits.log');
                 const strategyEntry = `[${new Date().toISOString()}] Session ${session.meta.sessionId}:\n${artifact.roadmap_impact}\n\n`;
-                fs.appendFileSync(auditLog, strategyEntry, 'utf8');
+                await fs.promises.appendFile(auditLog, strategyEntry, 'utf8');
                 logger.info(`[DreamService] Extracted Strategy impact to roadmap_audits.log`);
             }
 
@@ -430,11 +448,12 @@ ${contextText}
 
             // Write to sandman_handoff.md
             const handoffFile = aiConfig.handoffFilePath;
+            const tmpFile = `${handoffFile}.tmp`;
 
             let handoffContent = '';
-            if (fs.existsSync(handoffFile)) {
-                handoffContent = fs.readFileSync(handoffFile, 'utf8');
-            } else {
+            try {
+                handoffContent = await fs.promises.readFile(handoffFile, 'utf8');
+            } catch (e) {
                 handoffContent = '# Sandman Handoff Alerts\n\nThis file tracks topological conflict alerts generated during overnight REM sleep cycles. Agents MUST reconcile these conflicts structurally upon startup.\n\n## Active Conflicts\n\n';
             }
 
@@ -454,7 +473,8 @@ ${contextText}
             }
 
             if (newAlerts) {
-                fs.writeFileSync(handoffFile, handoffContent, 'utf8');
+                await fs.promises.writeFile(tmpFile, handoffContent, 'utf8');
+                await fs.promises.rename(tmpFile, handoffFile);
                 logger.info(`[DreamService] Registered new topological conflicts to sandman_handoff.md for session ${sessionId}.`);
             }
 
@@ -491,9 +511,8 @@ ${contextText}
         let docStructure = [];
         try {
             const structurePath = path.resolve(neoRootDir, 'docs/output/structure.json');
-            if (fs.existsSync(structurePath)) {
-                docStructure = JSON.parse(fs.readFileSync(structurePath, 'utf8'));
-            }
+            const fileData = await fs.promises.readFile(structurePath, 'utf8');
+            docStructure = JSON.parse(fileData);
         } catch (e) {
             logger.warn('[DreamService] Could not parse jsdocx structure.json.');
         }
@@ -527,7 +546,10 @@ ${contextText}
                 if (nodeTokens.length === 0) nodeTokens.push(node.name.toLowerCase());
                 
                 // Loose path scan matching node tokens inside the test namespace
-                const hasTest = testFilePaths.some(p => nodeTokens.some(term => p.includes(term)));
+                const hasTest = testFilePaths.some(p => nodeTokens.some(term => {
+                    const regex = new RegExp('\\b' + term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i');
+                    return regex.test(p);
+                }));
                 if (!hasTest) {
                     testGap = `[TEST_GAP] The ${node.type} '${node.name}' lacks corresponding automated validation suites (Playwright/Jest) covering its tokens within the test/ directory.`;
                 }
@@ -544,8 +566,10 @@ ${contextText}
 
                     // Loose path scan matching node tokens inside the learn/guides namespace
                     const matchingGuide = guideFilePaths.find(p => {
-                        const pLower = p.toLowerCase();
-                        return nodeTokensGuide.some(term => pLower.includes(term));
+                        return nodeTokensGuide.some(term => {
+                            const regex = new RegExp('\\b' + term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i');
+                            return regex.test(p);
+                        });
                     });
 
                     if (!matchingGuide) {
@@ -559,9 +583,9 @@ ${contextText}
                         
                         let topContent = '';
                         const guideAbsolutePath = path.resolve(neoRootDir, matchingGuide);
-                        if (fs.existsSync(guideAbsolutePath)) {
-                            topContent = fs.readFileSync(guideAbsolutePath, 'utf8');
-                        }
+                        try {
+                            topContent = await fs.promises.readFile(guideAbsolutePath, 'utf8');
+                        } catch (e) {}
                         
                         // Truncate to save inference time on large guides
                         topContent = topContent.substring(0, 3000); 
@@ -621,12 +645,15 @@ ${topContent}
         const __dirname = path.dirname(__filename);
         const issuesDir = path.resolve(__dirname, '../../resources/content/issues');
 
-        if (!fs.existsSync(issuesDir)) {
+        try {
+            await fs.promises.access(issuesDir);
+        } catch (e) {
             logger.warn(`[DreamService] Issues directory not found at ${issuesDir}`);
             return [];
         }
 
-        const files = fs.readdirSync(issuesDir).filter(f => f.endsWith('.md'));
+        const filesRaw = await fs.promises.readdir(issuesDir);
+        const files = filesRaw.filter(f => f.endsWith('.md'));
         const openIssues = [];
         const parsedIssues = [];
 
@@ -637,7 +664,7 @@ ${topContent}
 
         // Pass 1: Upsert all nodes
         for (const file of files) {
-            const content = fs.readFileSync(path.join(issuesDir, file), 'utf8');
+            const content = await fs.promises.readFile(path.join(issuesDir, file), 'utf8');
             const match = content.match(/^---\n([\s\S]*?)\n---/);
             if (match) {
                 try {
@@ -775,12 +802,15 @@ ${topContent}
         const __dirname = path.dirname(__filename);
         const discussionsDir = path.resolve(__dirname, '../../resources/content/discussions');
 
-        if (!fs.existsSync(discussionsDir)) {
+        try {
+            await fs.promises.access(discussionsDir);
+        } catch (e) {
             logger.warn(`[DreamService] Discussions directory not found at ${discussionsDir}`);
             return;
         }
 
-        const files = fs.readdirSync(discussionsDir).filter(f => f.endsWith('.md'));
+        const filesRaw = await fs.promises.readdir(discussionsDir);
+        const files = filesRaw.filter(f => f.endsWith('.md'));
         
         let nodesCollection = null;
         if (SQLiteVectorManager.db) {
@@ -788,7 +818,7 @@ ${topContent}
         }
 
         for (const file of files) {
-            const content = fs.readFileSync(path.join(discussionsDir, file), 'utf8');
+            const content = await fs.promises.readFile(path.join(discussionsDir, file), 'utf8');
             const match = content.match(/^---\n([\s\S]*?)\n---/);
             if (match) {
                 try {
