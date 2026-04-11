@@ -46,11 +46,15 @@ Everything in Neo.mjs flows from this principle. Every architectural decision—
 
 ## The Architecture: Why These Choices?
 
-### 1. True Multithreading (Not Just "Web Workers")
+First, it is critical to understand the primary execution boundary. Neo.mjs operates **two completely disjointized environments** that only ever communicate via the Neural Link (JSON-RPC WebSocket):
+1. **The Frontend UI Engine:** The browser-based application runtime that renders the DOM.
+2. **The Agent OS (Node.js):** The backend cognitive loop and local AI SDK.
 
-**The Problem**: Single-threaded frameworks fundamentally cannot prevent UI jank. They use schedulers and time-slicing, but they're still fighting the browser's event loop.
+### 1. The Frontend Engine: True Multithreading via Web Workers
 
-**The Solution**: Neo.mjs moves *all application logic* to dedicated workers:
+**The Problem**: Within the browser, single-threaded frameworks fundamentally cannot prevent UI jank. They use schedulers and time-slicing, but they're still fighting the browser's event loop.
+
+**The Solution**: The Neo.mjs Frontend Engine moves *all UI application logic* to dedicated web workers:
 - **App Worker**: Your entire application (components, state, logic)
 - **VDom Worker**: Diffing and patching calculations
 - **Data Worker**: Store operations and data transformations
@@ -64,9 +68,9 @@ Everything in Neo.mjs flows from this principle. Every architectural decision—
 
 ---
 
-### 2. The VDOM as a Cross-Thread Protocol
+### 2. The VDOM as a Cross-Thread Protocol (Frontend Only)
 
-**The Problem**: Workers communicate via `postMessage`, which requires serializable data. JSX and function components aren't serializable.
+**The Problem**: Within the Frontend Engine, web workers communicate via `postMessage`, which requires serializable data. JSX and function components aren't serializable.
 
 **The Solution**: The Virtual DOM *is* the protocol. Components describe themselves as **JSON blueprints**:
 ```javascript
@@ -77,13 +81,15 @@ Everything in Neo.mjs flows from this principle. Every architectural decision—
 }
 ```
 
+*Note: The VDOM is strictly a capability of the Frontend UI Engine. The Agent OS SDK does not render or process VDOM internally; it merely inspects or injects it remotely via the Neural Link.*
+
 **The Trade-off**: More verbose than JSX, but:
 - Serializable by definition
 - Language-agnostic (ideal for AI generation)
 - Debuggable without source maps
 - Zero compilation required
 
-**The Result**: The VDOM isn't a rendering optimization; it's the **IPC (Inter-Process Communication) layer** of the platform.
+**The Result**: The VDOM isn't a rendering optimization; it's the **IPC (Inter-Process Communication) layer** of the frontend platform.
 
 ---
 
@@ -412,9 +418,15 @@ Documenting auxiliary determinism systems:
 
 Neo.mjs isn't just "AI-friendly"—it was **architected for AI collaboration from the ground up**.
 
-### The Evidence: A Comprehensive Agent OS
+### Primary Separation: The Node.js Agent OS vs. The Frontend Engine
 
-The platform includes a dedicated **Node.js Agent SDK** that acts as the cognitive backend (Agent OS), completely isolated from the browser-based Frontend Engine. They connect exclusively via the **Neural Link** (WebSocket JSON-RPC). This infrastructure exposes five dedicated Model Context Protocol (MCP) servers:
+The platform features a dedicated **Node.js Agent SDK** acting as the cognitive backend (Agent OS). This OS is **completely isolated** from the browser-based Frontend Engine. 
+- The Agent OS operates within Node.js, leveraging native Child Processes for parallelization (e.g., daemon spawns) instead of Web Workers.
+- The UI Runtime (Frontend Engine) operates entirely in the browser using Web Workers.
+- The VDOM (Virtual DOM) applies *only* to the UI runtime.
+- **The Neural Link (WebSocket JSON-RPC)** serves as the exclusive, stateless bridge between these two disjoint worlds. 
+
+This local infrastructure exposes five dedicated Model Context Protocol (MCP) servers:
 
 **1. Knowledge Base Server** (`ai/mcp/server/knowledge-base/`)
 - Indexes the entire platform: source code, examples, guides, release notes, tickets
@@ -575,6 +587,6 @@ If you're coming from other frameworks, here are the key mental shifts:
 
 ## Remember
 
-This is a **174,000-line knowledge base**, not a 5k-line library. And that's just the indexed source and JSDoc—it excludes the `/dist` production builds (which would triple it) and ~100 markdown files of learning content in `/learn`.
+This is a **~479,000-line platform**, not a 5k-line library. And that's just the indexed source and conceptual knowledge context—it excludes the `/dist` production builds (which would triple it) and transient tracking data arrays.
 
 Don't assume. Query. The knowledge base contains the answers. Your job is to ask the right questions.
