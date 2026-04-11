@@ -49,7 +49,9 @@ class InferenceLifecycleService extends Base {
      */
     async initAsync() {
         await super.initAsync();
-        await this.startInferenceServer();
+        if (aiConfig.autoStartInference) {
+            await this.startInferenceServer();
+        }
     }
 
     /**
