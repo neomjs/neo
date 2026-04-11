@@ -364,28 +364,39 @@ Query these when you need to understand *why* something works a certain way.
 
 Neo.mjs isn't just "AI-friendly"—it was **architected for AI collaboration from the ground up**.
 
-### The Evidence: 9,120 Lines of AI Infrastructure
+### The Evidence: A Comprehensive Agent OS
 
-The platform includes three dedicated Model Context Protocol (MCP) servers (47 files):
+The platform includes a dedicated **Node.js Agent SDK** that acts as the cognitive backend (Agent OS), completely isolated from the browser-based Frontend Engine. They connect exclusively via the **Neural Link** (WebSocket JSON-RPC). This infrastructure exposes five dedicated Model Context Protocol (MCP) servers:
 
 **1. Knowledge Base Server** (`ai/mcp/server/knowledge-base/`)
 - Indexes the entire platform: source code, examples, guides, release notes, tickets
 - Semantic search via vector embeddings (ChromaDB + Google Gemini)
 - Sophisticated scoring algorithm prioritizing relevance
 - Pre-calculates class inheritance chains for fast queries
-- Transforms ~158k lines of code into queryable knowledge
+- Transforms over 158k lines of code into queryable knowledge
 
-**2. Memory Core Server** (`ai/mcp/server/memory-core/`)
-- Long-term conversational memory across sessions
-- Consolidates agent "thought process" for analysis
-- Enables learning from past decisions
-- Supports session summaries and context retrieval
+**2. Memory Core Server & DreamService** (`ai/mcp/server/memory-core/`)
+- Features a sophisticated **Hybrid RAG** processing pipeline.
+- Backed by an independent SQLite-based Native Graph DB to extract topological conflict data.
+- Executes offline cognitive maintenance during the "Dream Cycle" (`runSandman.mjs`).
+- Leverages local SLMs (e.g., `gemma4-31b`) for Subagents and the Librarian daemon to automatically organize episodic memory.
+- Consolidates agent "thought process" for analysis and context retrieval.
 
 **3. GitHub Workflow Server** (`ai/mcp/server/github-workflow/`)
 - 2-way sync between local filesystem and GitHub issues
-- Automated ticket creation with templates
+- Automated ticket creation with "Fat Ticket" templates
 - Status tracking and archival
 - Ensures all work is traceable and documented
+
+**4. Neural Link Server** (`ai/mcp/server/neural-link/`)
+- The vital bridge connecting the detached Node.js Agent OS to the browser-based Frontend Engine.
+- Bypasses traditional HTML DOM by feeding structured JSON component blueprints directly to agents.
+- Enables deep, runtime component state introspection and dynamic mutation.
+- Powers deterministic **Whitebox E2E** testing frameworks, allowing agents to assert accurate internal memory states.
+
+**5. File System Server** (`ai/mcp/server/file-system/`)
+- A localized file-system proxy exclusively for internal Neo agents.
+- (*Note: External clients like Claude Code, Gemini CLI, and Antigravity utilize their own native file system tools.*)
 
 ### Why This Matters for You
 
