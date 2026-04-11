@@ -38,15 +38,11 @@ Read `src/core/Base.mjs`. This is the foundation for all components and classes.
 - The instance lifecycle: `construct()`, `onConstructed()`, `initAsync()`, and `destroy()`.
 - The reactivity hooks: `beforeGet*`, `beforeSet*`, `afterSet*`.
 
-### Step 4: Understand the Two Component Models (Frontend Tasks Only)
-
-If your task involves frontend rendering or UI components, read the file `learn/gettingstarted/DescribingTheUI.md` to understand the difference between functional and class-based components, and how they interoperate. If your focus is on MCP backend servers (e.g., Memory Core, GitHub Workflow), you may skip this UI-specific step.
-
-### Step 5: Read the Coding Guidelines
+### Step 4: Read the Coding Guidelines
 
 Parse the file `.github/CODING_GUIDELINES.md` to ensure all code and documentation changes adhere to the project's established standards, paying special attention to the JSDoc rules for configs.
 
-### Step 6: Discover the Repository Ecosystem & Skills
+### Step 5: Discover the Repository Ecosystem & Skills
 
 Before executing any commands, you MUST orient yourself to the repository's built-in tools.
 
@@ -54,7 +50,7 @@ Before executing any commands, you MUST orient yourself to the repository's buil
 2. **Discover Capabilities:** Before assuming you know how to perform a multi-step task like testing, debugging, or scaffolding, you must list the contents of `.agent/skills/` to discover what predefined workflows exist for this specific repository. If a skill folder exists for your assigned task, you MUST read its `SKILL.md` before proceeding.
 3. **Propose New Skills:** The Agent Skill system is actively expanding. If you identify a recurring, complex task that lacks a skill, you are highly encouraged to propose creating a new one to the user.
 
-### Step 7: Check for Memory Core
+### Step 6: Check for Memory Core
 
 - Use the `healthcheck` tool for the `neo.mjs-memory-core` server.
 - **If the healthcheck is successful:** The Memory Core is active.
@@ -198,6 +194,8 @@ Once you have passed the "Ticket-First" Gate (see `AGENTS.md`) and handled the M
 ### Step 1: Query & Analyze
 
 Use the **Two-Stage Query Protocol** to understand the context. If you find source code lacking intent-driven comments, apply the **Knowledge Base Enhancement Strategy** to add them *before* implementing your main changes.
+
+**UI Task Prerequisite:** If the task involves frontend rendering or UI components, you MUST read the file `learn/gettingstarted/DescribingTheUI.md` to understand the difference between functional and class-based components before writing any view-layer code.
 
 ### Step 2: Implement Changes
 
