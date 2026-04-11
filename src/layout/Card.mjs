@@ -205,6 +205,9 @@ class Card extends Base {
         delete item.isLoading;
         delete item.vdom;
 
+        item.appName  ??= container.appName;
+        item.windowId ??= container.windowId;
+
         items[index] = item = Neo.create(item);
 
         me.applyChildAttributes(item, index);
