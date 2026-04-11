@@ -61,6 +61,11 @@ class Card extends Base {
          * @member {Boolean} removeInactiveCards=true
          */
         removeInactiveCards: true,
+        /**
+         * Use incremental updates to reduce VDOM serialization & IPC overhead.
+         * @member {Boolean} incrementalUpdates=true
+         */
+        incrementalUpdates: true,
         /*
          * Valid values: 'horizontal', 'vertical', null
          * @member {String|null} slideDirection_=null
@@ -78,7 +83,7 @@ class Card extends Base {
      */
     async afterSetActiveIndex(value, oldValue) {
         let me              = this,
-            {container, removeInactiveCards} = me,
+            {container, incrementalUpdates, removeInactiveCards} = me,
             sCfg            = me.constructor,
             needsTransition = me.slideDirection && oldValue !== undefined,
             needsUpdate     = false,
@@ -100,6 +105,10 @@ class Card extends Base {
                     needsUpdate = true;
                     break
                 }
+            }
+
+            if (incrementalUpdates && !needsTransition && !needsUpdate) {
+                container.updateDepth = 1; // Only update the shell
             }
 
             for (i=0; i < len; i++) {
@@ -127,14 +136,24 @@ class Card extends Base {
                         }
                     }
 
-                    item.wrapperCls = wrapperCls
+                    item.wrapperCls = wrapperCls;
+
+                    if (incrementalUpdates && !needsTransition && !needsUpdate) {
+                        if (isActiveIndex) {
+                            item.vdomUpdate.registerMerged({depth: -1}); // Full subtree update for the active card
+                        } else if (i === oldValue) {
+                            item.vdomUpdate.registerMerged({depth: 1}); // Shell only update for the old active card
+                        }
+                    }
                 }
             }
 
             if (needsTransition) {
                 await me.slideCards(value, oldValue)
             } else if (removeInactiveCards || needsUpdate) {
-                container.updateDepth = -1; // include the full tree to honor new or changed inactive cards
+                if (!incrementalUpdates || needsUpdate) {
+                    container.updateDepth = -1; // include the full tree to honor new or changed inactive cards
+                }
                 container.update()
             }
         }
