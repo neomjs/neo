@@ -383,6 +383,8 @@ class SessionService extends Base {
         let firstActivity = lastActivity;
         const extractedAgents = new Set();
         const extractedModels = new Set();
+        let totalToolCalls = 0;
+        const allToolsUsed = new Set();
 
         if (memories.metadatas && memories.metadatas.length > 0) {
             const timestamps = memories.metadatas.map(m => m.timestamp).filter(Boolean);
@@ -393,6 +395,24 @@ class SessionService extends Base {
             memories.metadatas.forEach(m => {
                 if (m.agent) extractedAgents.add(m.agent);
                 if (m.model) extractedModels.add(m.model);
+                if (m.amountToolCalls) {
+                    const parsed = parseInt(m.amountToolCalls, 10);
+                    if (!isNaN(parsed)) totalToolCalls += parsed;
+                }
+                if (m.toolsUsed) {
+                    try {
+                        const parsedTools = JSON.parse(m.toolsUsed);
+                        if (Array.isArray(parsedTools)) {
+                            parsedTools.forEach(t => {
+                                if (t) allToolsUsed.add(typeof t === 'string' ? t : (t.name || t.toolAction || JSON.stringify(t)));
+                            });
+                        } else {
+                            allToolsUsed.add(m.toolsUsed);
+                        }
+                    } catch (e) {
+                        allToolsUsed.add(m.toolsUsed);
+                    }
+                }
             });
         }
 
@@ -414,6 +434,8 @@ Analyze the following development session and provide a structured summary in JS
 Critical: Do not include any markdown formatting (e.g., \`json) in your response.
 
 Context: This session involved the following agents: ${participatingAgents.join(', ') || 'unknown'} running on models: ${models.join(', ') || 'unknown'}.
+Total Tool Calls Executed: ${totalToolCalls}
+Unique Tools Utilized: ${Array.from(allToolsUsed).join(', ') || 'none recorded'}
 
 ---
 
@@ -441,7 +463,9 @@ ${aggregatedContent}
                 title, category, quality, productivity, impact, complexity,
                 technologies: (technologies || []).join(','),
                 participatingAgents: participatingAgents.join(','),
-                models: models.join(',')
+                models: models.join(','),
+                totalToolCalls,
+                toolsUsed: Array.from(allToolsUsed).join(',')
             }]
         });
 

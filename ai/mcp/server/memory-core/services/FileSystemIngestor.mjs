@@ -68,7 +68,7 @@ class FileSystemIngestor extends Base {
         }
 
         const stats = { nodes: 0, edges: 0 };
-        this.walkDirectory(neoRootDir, neoRootDir, null, stats, mtimeMap, hashMap);
+        await this.walkDirectory(neoRootDir, neoRootDir, null, stats, mtimeMap, hashMap);
         
         logger.info(`[FileSystemIngestor] Workspace Sync Complete. Upserted/Verified ${stats.nodes} Nodes and ${stats.edges} new CONTAINS Edges.`);
     }
@@ -80,9 +80,13 @@ class FileSystemIngestor extends Base {
      * @param {String|null} parentId Graph ID of the parent directory Node
      * @param {Object} stats Reference counter
      * @param {Map} mtimeMap Precaching SQLite map
+     * @param {Map} hashMap Precaching SQLite hash map
      */
-    walkDirectory(dir, rootDir, parentId, stats, mtimeMap, hashMap) {
-        const files = fs.readdirSync(dir);
+    async walkDirectory(dir, rootDir, parentId, stats, mtimeMap, hashMap) {
+        let files;
+        try {
+            files = await fs.promises.readdir(dir);
+        } catch(e) { return; }
 
         for (const file of files) {
             const fullPath = path.join(dir, file);
@@ -90,7 +94,7 @@ class FileSystemIngestor extends Base {
             let stat;
             
             try {
-                stat = fs.statSync(fullPath);
+                stat = await fs.promises.stat(fullPath);
                 isDir = stat.isDirectory();
             } catch(e) { continue; } // symlink drops
             
@@ -119,7 +123,7 @@ class FileSystemIngestor extends Base {
             // Only hash if mtime mismatch on actual files
             if (!mtimeMatch && !isDir) {
                 try {
-                    const content = fs.readFileSync(fullPath);
+                    const content = await fs.promises.readFile(fullPath);
                     fileHash = crypto.createHash('md5').update(content).digest('hex');
                     if (hashMap.get(nodeId) === fileHash) {
                         isUnchanged = true;
@@ -159,7 +163,7 @@ class FileSystemIngestor extends Base {
             }
 
             if (isDir) {
-                this.walkDirectory(fullPath, rootDir, nodeId, stats, mtimeMap, hashMap);
+                await this.walkDirectory(fullPath, rootDir, nodeId, stats, mtimeMap, hashMap);
             }
         }
     }
