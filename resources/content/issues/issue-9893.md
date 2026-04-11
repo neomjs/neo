@@ -1,7 +1,7 @@
 ---
 id: 9893
 title: 'feat: Promote ask_knowledge_base as the primary Anti-Hallucination tool across agent protocols'
-state: OPEN
+state: CLOSED
 labels:
   - documentation
   - enhancement
@@ -9,7 +9,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-04-11T19:27:36Z'
-updatedAt: '2026-04-11T19:27:42Z'
+updatedAt: '2026-04-11T20:10:47Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9893'
 author: tobiu
 commentsCount: 0
@@ -19,6 +19,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-04-11T20:04:12Z'
 ---
 # feat: Promote ask_knowledge_base as the primary Anti-Hallucination tool across agent protocols
 
@@ -86,7 +87,6 @@ If `AGENTS_STARTUP.md` includes a session boot sequence, `ask_knowledge_base` sh
 1. Grep verification: `ask_knowledge_base` appears in `AGENTS.md` §2 and `openapi.yaml` with expanded description
 2. Functional test: Ask a new agent "how does the config system work in Neo.mjs?" and verify it reaches for `ask_knowledge_base` before `query_documents` or `view_file`
 
-
 ## Timeline
 
 - 2026-04-11T19:27:38Z @tobiu added the `documentation` label
@@ -94,4 +94,9 @@ If `AGENTS_STARTUP.md` includes a session boot sequence, `ask_knowledge_base` sh
 - 2026-04-11T19:27:39Z @tobiu added the `ai` label
 - 2026-04-11T19:27:43Z @tobiu assigned to @tobiu
 - 2026-04-11T19:29:49Z @tobiu cross-referenced by #9892
+- 2026-04-11T19:55:45Z @tobiu referenced in commit `b4007bd` - "docs: Promote ask_knowledge_base as primary Anti-Hallucination tool (#9893)"
+- 2026-04-11T19:56:07Z @tobiu cross-referenced by PR #9894
+- 2026-04-11T19:59:53Z @tobiu referenced in commit `fc9b59c` - "docs: Promote ask_knowledge_base as primary Anti-Hallucination tool (#9893)"
+- 2026-04-11T20:04:11Z @tobiu referenced in commit `c6452ce` - "docs: Promote ask_knowledge_base as primary Anti-Hallucination tool (#9893) (#9894)"
+- 2026-04-11T20:04:12Z @tobiu closed this issue
 
