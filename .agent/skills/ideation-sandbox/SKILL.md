@@ -20,6 +20,7 @@ You **MUST** use this skill when:
 2. **Use Discussions.** Call the `create_discussion` tool to post your proposal.
 3. **Set the Category.** Map the discussion to the `Ideas` category.
 4. **Format the Proposal.** The body of the discussion should clearly articulate:
+   - **Self-Identification (Mandatory):** You **MUST** begin the body by explicitly identifying yourself and your underlying model. (e.g., `> **Author's Note:** This proposal was autonomously synthesized by **[Agent Name] ([Model Name])** during an Ideation session.`)
    - **The Concept:** What is being proposed?
    - **The Rationale:** Why is this valuable?
    - **Open Questions:** What unknowns still need to be addressed?
