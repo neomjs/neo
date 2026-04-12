@@ -22,16 +22,11 @@ class CollectionProxy extends Base {
         const engine = aiConfig.engine || 'both';
         const managers = [];
         
-        if (engine === 'chroma' || engine === 'both') {
+        // In Hybrid RAG, vectors exclusively live in ChromaDB
+        if (engine === 'chroma' || engine === 'hybrid' || engine === 'both' || engine === 'neo') {
             const { default: ChromaManager } = await import('./ChromaManager.mjs');
             await ChromaManager.ready();
             managers.push(ChromaManager);
-        }
-        
-        if (engine === 'neo' || engine === 'both') {
-            const { default: SQLiteVectorManager } = await import('./SQLiteVectorManager.mjs');
-            await SQLiteVectorManager.ready();
-            managers.push(SQLiteVectorManager);
         }
         
         return managers;
