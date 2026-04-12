@@ -1,13 +1,14 @@
 ---
 id: 9908
 title: 'Meta: The A2A Contextual Bridge Protocol (End of Session Handoff)'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-04-12T10:19:06Z'
-updatedAt: '2026-04-12T10:19:06Z'
+updatedAt: '2026-04-12T10:39:32Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9908'
 author: tobiu
 commentsCount: 0
@@ -17,6 +18,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-04-12T10:39:32Z'
 ---
 # Meta: The A2A Contextual Bridge Protocol (End of Session Handoff)
 
@@ -41,4 +43,17 @@ Formally update the Agent Operational Mandates (`AGENTS.md` / `AGENTS_STARTUP.md
 
 - 2026-04-12T10:19:12Z @tobiu added the `enhancement` label
 - 2026-04-12T10:19:12Z @tobiu added the `ai` label
+- 2026-04-12T10:36:51Z @tobiu referenced in commit `184fc74` - "docs: Add A2A Contextual Bridge Protocol (#9908)
+
+Resolves #9908
+
+This commit codifies the A2A Contextual Bridge Protocol to resolve 'Zero-State Amnesia' across sequential AI agent Swarm iterations. By mandating the 'Origin Session ID' telemetry payload in follow-up tickets, subsequent agents can preemptively fetch vector memories and context directly from the SQLite memory core instead of parsing isolated code snippets."
+- 2026-04-12T10:36:55Z @tobiu assigned to @tobiu
+- 2026-04-12T10:36:55Z @tobiu cross-referenced by PR #9909
+- 2026-04-12T10:39:33Z @tobiu referenced in commit `1fba705` - "docs: Add A2A Contextual Bridge Protocol (#9908) (#9909)
+
+Resolves #9908
+
+This commit codifies the A2A Contextual Bridge Protocol to resolve 'Zero-State Amnesia' across sequential AI agent Swarm iterations. By mandating the 'Origin Session ID' telemetry payload in follow-up tickets, subsequent agents can preemptively fetch vector memories and context directly from the SQLite memory core instead of parsing isolated code snippets."
+- 2026-04-12T10:39:33Z @tobiu closed this issue
 
