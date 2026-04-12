@@ -8,6 +8,10 @@ import ConnectionService                               from './services/Connecti
 import HealthService                                   from './services/HealthService.mjs';
 import {listTools, callTool}                           from './services/toolService.mjs';
 
+let _turnId = 0;
+
+export const getCurrentTurnId = () => _turnId;
+
 /**
  * @class Neo.ai.mcp.server.neural-link.Server
  * @extends Neo.core.Base
@@ -127,6 +131,7 @@ class Server extends Base {
 
         // Call Tool Handler
         this.mcpServer.server.setRequestHandler(CallToolRequestSchema, async (request) => {
+            _turnId++;
             const { name, arguments: args } = request.params;
 
             try {
