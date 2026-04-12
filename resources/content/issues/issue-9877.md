@@ -6,9 +6,10 @@ labels:
   - documentation
   - enhancement
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-04-11T08:29:10Z'
-updatedAt: '2026-04-11T08:31:22Z'
+updatedAt: '2026-04-12T17:00:59Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9877'
 author: tobiu
 commentsCount: 0
@@ -39,4 +40,5 @@ Following the recent AI infrastructure updates, the `Historical Context` section
 - 2026-04-11T08:30:16Z @tobiu cross-referenced by PR #9878
 - 2026-04-11T08:31:22Z @tobiu referenced in commit `b868061` - "docs: Modernize Historical Context and Sandbox topology in CodebaseOverview (#9877) (#9878)"
 - 2026-04-11T08:31:22Z @tobiu closed this issue
+- 2026-04-12T17:00:59Z @tobiu assigned to @tobiu
 

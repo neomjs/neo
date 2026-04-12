@@ -5,9 +5,10 @@ state: CLOSED
 labels:
   - bug
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-04-11T10:17:31Z'
-updatedAt: '2026-04-11T10:32:53Z'
+updatedAt: '2026-04-12T17:00:33Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9881'
 author: tobiu
 commentsCount: 0
@@ -65,4 +66,5 @@ The GitHub Actions data sync pipeline has critically broken with an `ENOENT` err
 * fix: Ticket markdown rendering by adding blank lines for marked.js (#9881)
 
 * fix: Resolve missing appName/windowId propagation in CardLayout & update data"
+- 2026-04-12T17:00:33Z @tobiu assigned to @tobiu
 

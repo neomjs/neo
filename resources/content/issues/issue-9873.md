@@ -5,9 +5,10 @@ state: CLOSED
 labels:
   - bug
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-04-11T07:58:21Z'
-updatedAt: '2026-04-11T08:02:59Z'
+updatedAt: '2026-04-12T17:01:30Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9873'
 author: tobiu
 commentsCount: 0
@@ -45,4 +46,5 @@ This ensures the session initialization remains lean and task-agnostic.
 * docs: Refactor Agent Startup Workflow to delay UI Guide loading (#9873)
 
 * docs: Refine AI infrastructure scale and boundaries in CodebaseOverview (#9875)"
+- 2026-04-12T17:01:30Z @tobiu assigned to @tobiu
 

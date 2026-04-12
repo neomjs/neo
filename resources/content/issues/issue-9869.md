@@ -6,9 +6,10 @@ labels:
   - enhancement
   - ai
   - build
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-04-10T17:32:07Z'
-updatedAt: '2026-04-10T17:35:12Z'
+updatedAt: '2026-04-12T17:01:40Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9869'
 author: tobiu
 commentsCount: 0
@@ -45,4 +46,5 @@ Using `cp -r` for `resources/content/*` initially poses a problem since a ticket
 - 2026-04-10T17:32:29Z @tobiu cross-referenced by PR #9870
 - 2026-04-10T17:35:12Z @tobiu referenced in commit `a7e9b73` - "feat: Unified Data Sync Pipeline (#9869) (#9870)"
 - 2026-04-10T17:35:12Z @tobiu closed this issue
+- 2026-04-12T17:01:40Z @tobiu assigned to @tobiu
 
