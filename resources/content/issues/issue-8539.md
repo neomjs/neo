@@ -4,14 +4,15 @@ title: Update Ticket Index Scripts for JSON Generation
 state: OPEN
 labels:
   - enhancement
+  - stale
   - build
 assignees:
   - tobiu
 createdAt: '2026-01-11T10:17:28Z'
-updatedAt: '2026-01-11T10:17:46Z'
+updatedAt: '2026-04-12T04:24:35Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8539'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 8537
 subIssues: []
 subIssuesCompleted: 0
@@ -35,4 +36,9 @@ Update the `createTicketIndex.mjs` (and related scripts) to handle the new JSON 
 - 2026-01-11T10:17:29Z @tobiu added the `build` label
 - 2026-01-11T10:17:46Z @tobiu assigned to @tobiu
 - 2026-01-11T10:17:58Z @tobiu added parent issue #8537
+### @github-actions - 2026-04-12T04:24:35Z
+
+This issue is stale because it has been open for 90 days with no activity.
+
+- 2026-04-12T04:24:35Z @github-actions added the `stale` label
 

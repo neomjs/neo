@@ -1,14 +1,14 @@
 ---
 id: 9895
 title: 'bug: PullRequestService execAsync calls missing cwd — gh pr diff/checkout fail in headless environments'
-state: OPEN
+state: CLOSED
 labels:
   - bug
   - ai
 assignees:
   - tobiu
 createdAt: '2026-04-11T20:09:34Z'
-updatedAt: '2026-04-11T20:09:35Z'
+updatedAt: '2026-04-11T20:19:26Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9895'
 author: tobiu
 commentsCount: 0
@@ -18,6 +18,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-04-11T20:19:26Z'
 ---
 # bug: PullRequestService execAsync calls missing cwd — gh pr diff/checkout fail in headless environments
 
@@ -52,4 +53,12 @@ After applying the fix, restart the MCP server and call `get_pull_request_diff` 
 - 2026-04-11T20:09:35Z @tobiu assigned to @tobiu
 - 2026-04-11T20:09:40Z @tobiu added the `bug` label
 - 2026-04-11T20:09:40Z @tobiu added the `ai` label
+- 2026-04-11T20:15:12Z @tobiu referenced in commit `4a336f0` - "fix: Add cwd to PullRequestService execAsync calls (#9895)"
+- 2026-04-11T20:15:29Z @tobiu cross-referenced by PR #9896
+- 2026-04-11T20:19:27Z @tobiu referenced in commit `1113f85` - "fix: Add cwd to PullRequestService execAsync calls (#9895) (#9896)
+
+* chore: ticket sync [skip ci]
+
+* fix: Add cwd to PullRequestService execAsync calls (#9895)"
+- 2026-04-11T20:19:27Z @tobiu closed this issue
 

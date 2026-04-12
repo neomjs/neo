@@ -4,16 +4,17 @@ title: 'Feature: Canvas-based "Neural" TreeList Animation'
 state: OPEN
 labels:
   - enhancement
+  - stale
   - design
   - ai
   - performance
 assignees:
   - tobiu
 createdAt: '2026-01-11T10:35:01Z'
-updatedAt: '2026-01-11T10:39:04Z'
+updatedAt: '2026-04-12T04:24:33Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8541'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
@@ -39,4 +40,9 @@ blocking: []
 - 2026-01-11T10:35:02Z @tobiu added the `ai` label
 - 2026-01-11T10:35:02Z @tobiu added the `performance` label
 - 2026-01-11T10:39:04Z @tobiu assigned to @tobiu
+### @github-actions - 2026-04-12T04:24:32Z
+
+This issue is stale because it has been open for 90 days with no activity.
+
+- 2026-04-12T04:24:33Z @github-actions added the `stale` label
 
