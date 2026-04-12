@@ -16,7 +16,8 @@ parentIssue: 9295
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
-blockedBy: []
+blockedBy:
+  - '[ ] 9915 [Research] Evaluate Moltbook API capabilities and MCP infrastructure'
 blocking: []
 ---
 # Implement Agent Self-Discovery via Neural Link Introspection
@@ -45,4 +46,8 @@ The telemetry and insights gathered from this live, out-of-band introspection ph
 - 2026-02-24T19:41:54Z @tobiu added the `architecture` label
 - 2026-02-24T19:41:59Z @tobiu added parent issue #9295
 - 2026-02-24T19:42:08Z @tobiu cross-referenced by #9295
+- 2026-04-12T09:14:36Z @tobiu referenced in commit `3a601b3` - "feat: Agent self-discovery complete (#9299)"
+- 2026-04-12T09:14:47Z @tobiu cross-referenced by PR #9901
+- 2026-04-12T11:16:55Z @tobiu cross-referenced by PR #9911
+- 2026-04-12T11:37:42Z @tobiu marked this issue as being blocked by #9915
 
