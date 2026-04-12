@@ -5,9 +5,10 @@ state: CLOSED
 labels:
   - enhancement
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-04-12T16:34:34Z'
-updatedAt: '2026-04-12T17:02:25Z'
+updatedAt: '2026-04-12T19:03:14Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9931'
 author: tobiu
 commentsCount: 0
@@ -40,4 +41,5 @@ However, the offline GraphRAG daemon (`DreamService.mjs`) was not fully refactor
 - 2026-04-12T16:54:30Z @tobiu cross-referenced by PR #9932
 - 2026-04-12T17:02:24Z @tobiu referenced in commit `ff9c4f6` - "docs: Anchor & Echo mapping logic for EdgeGraph topology (#9931) (#9932)"
 - 2026-04-12T17:02:25Z @tobiu closed this issue
+- 2026-04-12T19:03:14Z @tobiu assigned to @tobiu
 
