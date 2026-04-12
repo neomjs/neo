@@ -639,7 +639,7 @@ class GraphService extends Base {
                 data = JSON.parse(row.data);
             } catch(e) { continue; }
             
-            if (data.label !== 'SYSTEM_ANCHOR' && data.label !== 'System') {
+            if (data.label !== 'SYSTEM_ANCHOR' && data.label !== 'System' && data.label !== 'ISSUE' && data.label !== 'DISCUSSION' && data.label !== 'PULL_REQUEST') {
                 orphaned.push(row.id);
             }
         }
