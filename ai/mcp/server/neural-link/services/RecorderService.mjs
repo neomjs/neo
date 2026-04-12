@@ -30,6 +30,8 @@ class RecorderService extends Base {
     }
 
     /**
+     * Initializes the SQLite connection to the Memory Core and ensures the physical nl_action_log
+     * schema and indices exist. Uses WAL journal mode to support non-blocking concurrent writes.
      * @returns {Promise<void>}
      */
     async initAsync() {
@@ -76,7 +78,9 @@ class RecorderService extends Base {
     }
 
     /**
-     * @param {Object} entry 
+     * Synchronously persists a specific Neural Link tool invocation into the shared memory core.
+     * Guaranteed not to throw or block the main execution thread on persistence failures.
+     * @param {Object} entry The invocation payload containing sequences, tool metadata, args, and execution times.
      */
     log(entry) {
         if (!this.db) return;
@@ -111,8 +115,13 @@ class RecorderService extends Base {
     }
 
     /**
-     * @param {Object} config 
-     * @returns {Array}
+     * Executes queries against the internal Action Log. Principally used by DreamService triggers 
+     * to harvest execution chains for automated Playwright test synthesis.
+     * @param {Object} config Query parameters and offsets.
+     * @param {Number} [config.sinceTimestamp=0] Return logs after this epoch.
+     * @param {Number} [config.minSuccessRate] (Not yet implemented) Flattens metrics filtering.
+     * @param {Number} [config.limit] Optional hard limit.
+     * @returns {Array} An array of matched SQLite row objects.
      */
     querySequences({ sinceTimestamp = 0, minSuccessRate, limit } = {}) {
         if (!this.db) return [];
@@ -136,7 +145,8 @@ class RecorderService extends Base {
     }
 
     /**
-     * @param {Number} days 
+     * Permanently drops legacy Neural Link action records from the SQLite db to prevent unbounded disk growth.
+     * @param {Number} days The rolling window in days beyond which older records are permanently discarded.
      */
     pruneOlderThan(days) {
         if (!this.db) return;
