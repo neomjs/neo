@@ -537,10 +537,30 @@ You're not just working *with* Neo.mjs. You're working *inside* an ecosystem des
 
 ## Key Concepts: Query Entry Points
 
-When you need to understand Neo.mjs, start with the right tool:
+### Ask First, Search Second
 
-- **Ask, Don't Search:** For conceptual questions ("How does reactivity work?", "What is the config system?"), use `ask_knowledge_base` — it synthesizes answers from multiple source files in a single call. Essential for top-level perspective in a codebase of this scale.
-- **Search for Files:** When you need to discover *which files* implement something, use `query_documents` with these high-value terms:
+Your most powerful tool is `ask_knowledge_base`. It reads multiple source files, 
+synthesizes a grounded answer, and cites its references — all in a single call.
+
+> [!WARNING]
+> Do NOT attempt to answer Neo.mjs questions from training data. The framework evolves rapidly — your training data is almost certainly outdated for syntax-level details.
+
+**Example queries:**
+- `ask_knowledge_base(query='how does the reactive config system work?')`
+- `ask_knowledge_base(query='current syntax for state provider bindings')`
+- `ask_knowledge_base(query='how to configure locked columns in a Grid')`
+- `ask_knowledge_base(query='what is the difference between ntype and className?', type='guide')`
+
+| Question Type | Tool | Returns |
+|---|---|---|
+| "How does X work?" | `ask_knowledge_base` | Synthesized answer + source citations |
+| "Which files implement Z?" | `query_documents` | Ranked file paths with relevance scores |
+| Exact implementation details | `view_file` | Raw source code |
+
+### File Discovery Keywords
+
+When you specifically need to discover *which files* implement something, 
+use `query_documents` with these high-value terms:
 
 ### Agent Intelligence & Workflows
 - `"DreamService"`, `"Agent OS"`, `"Native Edge Graph"`, `"SQLite topology"`, `"Fat Ticket"`
