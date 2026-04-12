@@ -1,5 +1,6 @@
 import Base            from '../../../../../src/core/Base.mjs';
 import CollectionProxy from './CollectionProxy.mjs';
+import GraphService    from '../services/GraphService.mjs';
 
 /**
  * StorageRouter acts as a transparent Proxy pattern for the underlying vector databases.
@@ -31,14 +32,101 @@ class StorageRouter extends Base {
      * @returns {Promise<CollectionProxy>} A proxy respecting aiConfig.engine
      */
     async getMemoryCollection() {
-        return Neo.create(CollectionProxy, { collectionType: 'memory' });
+        const proxy = Neo.create(CollectionProxy, { collectionType: 'memory' });
+        this.injectQueryReRanker(proxy, 'memory');
+        return proxy;
     }
 
     /**
      * @returns {Promise<CollectionProxy>} A proxy respecting aiConfig.engine
      */
     async getSummaryCollection() {
-        return Neo.create(CollectionProxy, { collectionType: 'summary' });
+        const proxy = Neo.create(CollectionProxy, { collectionType: 'summary' });
+        this.injectQueryReRanker(proxy, 'summary');
+        return proxy;
+    }
+
+    /**
+     * Injects the Dual-Pass Re-Ranking Middleware into the CollectionProxy.
+     * Pass 1: Uses ChromaDB\'s ANN search to fetch top K candidates.
+     * Pass 2: Re-ranks based on topological weighting via the SQLite Native Edge Graph.
+     * @param {CollectionProxy} proxy 
+     * @param {String} collectionType 
+     */
+    injectQueryReRanker(proxy, collectionType) {
+        const originalQuery = proxy.query.bind(proxy);
+
+        proxy.query = async (args) => {
+            const originalNResults = args.nResults || 10;
+            const expandedNResults = originalNResults * 3; 
+            
+            // Pass 1: Semantic retrieval
+            const pass1Args = { ...args, nResults: expandedNResults };
+            const searchResult = await originalQuery(pass1Args);
+            
+            if (!searchResult.ids || searchResult.ids.length === 0 || searchResult.ids[0].length === 0) {
+                return searchResult;
+            }
+
+            // Pass 2: Topological filtering/weighting
+            const topology = GraphService.getContextFrontier();
+            const graphWeights = new Map();
+            
+            if (topology && topology.strategicNeighbors) {
+                topology.strategicNeighbors.forEach(n => {
+                    graphWeights.set(n.id, n.weight);
+                    if (n.semanticVectorId) graphWeights.set(n.semanticVectorId, n.weight);
+                });
+            }
+
+            const ids = searchResult.ids[0];
+            const distances = searchResult.distances[0];
+            const metadatas = searchResult.metadatas ? searchResult.metadatas[0] : [];
+            const documents = searchResult.documents ? searchResult.documents[0] : null;
+
+            // Compute composite scores
+            const rankedResults = ids.map((id, index) => {
+                const vectorDist = Number(distances[index] ?? 0);
+                // Vector distance (lower is better, typically L2 in ChromaDB) -> score
+                const semanticScore = 1 / (1 + vectorDist);
+                
+                let topologyMultiplier = 1.0;
+                
+                // Boost for active frontend context
+                if (graphWeights.has(id)) {
+                    topologyMultiplier += graphWeights.get(id);
+                }
+                
+                // General structural importance (Gravity)
+                const gravity = GraphService.getNodeGravity(id);
+                if (gravity && (gravity.in_degree > 0 || gravity.out_degree > 0)) {
+                    topologyMultiplier += Math.log10(1 + gravity.in_degree + gravity.out_degree) * 0.1;
+                }
+
+                return {
+                    id,
+                    distance: vectorDist,
+                    metadata: metadatas[index],
+                    document: documents ? documents[index] : null,
+                    compositeScore: semanticScore * topologyMultiplier
+                };
+            });
+
+            // Sort by composite score descending
+            rankedResults.sort((a, b) => b.compositeScore - a.compositeScore);
+            
+            // Slice the requested top K
+            const topK = rankedResults.slice(0, originalNResults);
+            
+            // Re-pack into ChromaDB format
+            return {
+                ids: [topK.map(r => r.id)],
+                distances: [topK.map(r => r.distance)], // or map composite score inverses? keeping original distance for transparency
+                metadatas: [topK.map(r => r.metadata)],
+                documents: searchResult.documents ? [topK.map(r => r.document)] : undefined,
+                _reRanked: true
+            };
+        };
     }
 
     /**

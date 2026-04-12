@@ -538,15 +538,15 @@ paths:
               properties:
                 action:
                   type: string
-                  enum: [import, export]
+                  enum: [import, export, truncate]
                   description: The action to perform.
                 include:
                   type: array
                   items:
                     type: string
-                    enum: [memories, summaries]
-                  default: [memories, summaries]
-                  description: (Export only) Which collections to export.
+                    enum: [memories, summaries, graph]
+                  default: [memories, summaries, graph]
+                  description: (Export/Truncate only) Which collections to target.
                 file:
                   type: string
                   description: (Import only) The absolute path to the JSONL backup file to import.

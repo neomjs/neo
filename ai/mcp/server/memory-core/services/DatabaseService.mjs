@@ -210,6 +210,85 @@ class DatabaseService extends Base {
     }
 
     /**
+     * Helper method to import the Native Graph from JSONL.
+     * @param {String} filePath The JSONL file path.
+     * @param {String} mode 'merge' or 'replace'.
+     * @returns {Promise<number>}
+     * @private
+     */
+    async #importGraph(filePath, mode) {
+        logger.log(`Importing Graph Data from ${filePath} (mode: ${mode})...`);
+        const GraphService = (await import('./GraphService.mjs')).default;
+
+        if (!GraphService.db || !GraphService.db.storage || !GraphService.db.storage.db) {
+            throw new Error(`Graph database not initialized. Cannot import graph.`);
+        }
+        
+        const db = GraphService.db.storage.db;
+
+        if (mode === 'replace') {
+            logger.log(`Replace mode: Truncating existing Graph Nodes and Edges...`);
+            db.prepare('DELETE FROM Nodes').run();
+            db.prepare('DELETE FROM Edges').run();
+        }
+
+        const fs = (await import('fs-extra')).default;
+        const readline = (await import('readline')).default;
+        
+        const fileStream = fs.createReadStream(filePath);
+        const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
+
+        let imported = 0;
+        
+        db.transaction((records) => {
+            const insertNode = db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)');
+            const insertEdge = db.prepare('INSERT OR REPLACE INTO Edges (source, target, data) VALUES (?, ?, ?)');
+            
+            for (const record of records) {
+                if (record.type === 'node') {
+                    insertNode.run(record.data.id, JSON.stringify(record.data));
+                } else if (record.type === 'edge') {
+                    insertEdge.run(record.data.source, record.data.target, JSON.stringify(record.data));
+                }
+                imported++;
+            }
+        })([]); // Execute an empty transaction block initially, but we need to batch it.
+        
+        // Let's do it directly in loop for simplicity
+        const insertNode = db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)');
+        const insertEdge = db.prepare('INSERT OR REPLACE INTO Edges (source, target, data) VALUES (?, ?, ?)');
+
+        // Run within a transaction for speed
+        const insertBatch = db.transaction((records) => {
+            for (const record of records) {
+                if (record.type === 'node') {
+                    insertNode.run(record.data.id, JSON.stringify(record.data));
+                } else if (record.type === 'edge') {
+                    insertEdge.run(record.data.source, record.data.target, JSON.stringify(record.data));
+                }
+                imported++;
+            }
+        });
+
+        const batch = [];
+        for await (const line of rl) {
+            if (line.trim()) {
+                batch.push(JSON.parse(line));
+                if (batch.length >= 2000) {
+                     insertBatch(batch);
+                     batch.length = 0;
+                }
+            }
+        }
+        if (batch.length > 0) {
+             insertBatch(batch);
+        }
+
+        logger.log(`Successfully imported ${imported} graph elements.`);
+        return imported;
+    }
+
+    /**
      * Exports the entire memory database (both memories and summaries) to a JSONL file.
      * @param {Object} options
      * @param {String[]} [options.include=['memories', 'summaries', 'graph']] Array of collections to export.
@@ -302,6 +381,14 @@ class DatabaseService extends Base {
 
             for (const filePath of filesToImport) {
                 logger.log(`Importing: ${filePath}`);
+                
+                const isGraphBackup = path.basename(filePath).startsWith('graph-backup');
+                if (isGraphBackup) {
+                    const graphImportCount = await this.#importGraph(filePath, mode);
+                    totalImported += graphImportCount;
+                    continue;
+                }
+
                 // Determine which collection to import into based on filename heuristics
                 const isMemoryBackup = path.basename(filePath).startsWith('memory-backup');
                 let collection       = isMemoryBackup
@@ -354,9 +441,50 @@ class DatabaseService extends Base {
     }
 
     /**
-     * Manages database backups (import/export).
+     * Truncates specified collections (or graph) from the database.
      * @param {Object} options
-     * @param {String} options.action   The action to perform: 'import' or 'export'.
+     * @param {String[]} [options.include=['memories', 'summaries', 'graph']] 
+     * @returns {Promise<{message: string}>}
+     */
+    async truncateDatabase({include=['memories', 'summaries', 'graph']} = {}) {
+        try {
+            logger.log('Starting truncation of agent database...');
+            let truncated = [];
+
+            if (include.includes('memories')) {
+                const proxy = Neo.create('Neo.ai.mcp.server.memory-core.managers.CollectionProxy', { collectionType: 'memory' });
+                await proxy.drop();
+                truncated.push('memories');
+            }
+
+            if (include.includes('summaries')) {
+                const proxy = Neo.create('Neo.ai.mcp.server.memory-core.managers.CollectionProxy', { collectionType: 'session' });
+                await proxy.drop();
+                truncated.push('summaries');
+            }
+            
+            if (include.includes('graph')) {
+                const GraphService = (await import('./GraphService.mjs')).default;
+                if (GraphService.db?.storage?.db) {
+                    GraphService.db.storage.db.prepare('DELETE FROM Nodes').run();
+                    GraphService.db.storage.db.prepare('DELETE FROM Edges').run();
+                    truncated.push('graph');
+                }
+            }
+
+            return {message: `Truncation complete. Cleared: ${truncated.join(', ')}`};
+        } catch (error) {
+            logger.error('[DatabaseService] Error truncating database:', error);
+            const truncateError = new Error(`DATABASE_TRUNCATE_ERROR: ${error.message}`);
+            truncateError.code  = 'DATABASE_TRUNCATE_ERROR';
+            throw truncateError;
+        }
+    }
+
+    /**
+     * Manages database backups and truncations.
+     * @param {Object} options
+     * @param {String} options.action   The action to perform: 'import', 'export', or 'truncate'.
      * @param {Object} [options.config] Additional options for the action.
      * @returns {Promise<Object>}
      */
@@ -365,6 +493,8 @@ class DatabaseService extends Base {
             return this.exportDatabase(config);
         } else if (action === 'import') {
             return this.importDatabase(config);
+        } else if (action === 'truncate') {
+            return this.truncateDatabase(config);
         } else {
             throw new Error(`Unknown action: ${action}`);
         }

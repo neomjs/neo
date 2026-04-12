@@ -1,7 +1,6 @@
 import aiConfig                 from '../config.mjs';
 import Base                     from '../../../../../src/core/Base.mjs';
 import ChromaManager            from '../managers/ChromaManager.mjs';
-import SQLiteVectorManager      from '../managers/SQLiteVectorManager.mjs';
 import StorageRouter            from '../managers/StorageRouter.mjs';
 import ChromaLifecycleService   from './lifecycle/ChromaLifecycleService.mjs';
 import logger                   from '../logger.mjs';
@@ -98,37 +97,30 @@ class HealthService extends Base {
     #startupSummarizationDetails = null;
 
     /**
-     * Checks if the active vector databases are running and accessible.
-     *
-     * Intent: This checks that whatever engine is configured ('neo', 'chroma', or 'both')
-     * is properly initialized and accepting connections.
-     *
-     * @returns {Promise<Object>} {running: boolean, error?: string}
+     * Checks if the active vector and graph databases are running and accessible.
+     * @returns {Promise<Object>} {running: boolean, error?: string, engines: Object}
      * @private
      */
-    async #checkChromaConnection() {
+    async #checkDatabaseConnections() {
         try {
-            const engine = aiConfig.engine || 'both';
+            const engine = aiConfig.engine || 'hybrid';
+            const engines = { chroma: false, sqlite: false };
 
-            if (engine === 'neo' || engine === 'both') {
-                await SQLiteVectorManager.ready();
-                if (!SQLiteVectorManager.db?.open) {
-                    throw new Error("SQLite VSS not open");
-                }
-            }
-
-            if (engine === 'chroma' || engine === 'both') {
+            // 2. Vector Chroma Engine (Hybrid & Legacy Chroma)
+            if (engine === 'chroma' || engine === 'hybrid' || engine === 'both') {
                 await ChromaManager.ready();
                 if (!ChromaManager.connected && !(await ChromaManager.connect())) {
                     throw new Error("ChromaDB is not accessible");
                 }
+                engines.chroma = true;
             }
 
-            return {running: true};
+            return { running: true, engines };
         } catch (e) {
             return {
                 running: false,
-                error  : `Vector DB engine not accessible: ${e.message}`
+                error  : `Database engine not accessible: ${e.message}`,
+                engines: { chroma: false, sqlite: false }
             };
         }
     }
@@ -192,11 +184,12 @@ class HealthService extends Base {
 
     #checkApiKeyConfigured() {
         const providers = [aiConfig.modelProvider];
+        const engine = aiConfig.engine || 'hybrid';
 
-        if (aiConfig.engine === 'chroma' || aiConfig.engine === 'both') {
+        if (engine === 'chroma' || engine === 'hybrid' || engine === 'both') {
             providers.push(aiConfig.chromaEmbeddingProvider);
         }
-        if (aiConfig.engine === 'neo' || aiConfig.engine === 'both') {
+        if (engine === 'neo' || engine === 'both') {
             providers.push(aiConfig.neoEmbeddingProvider);
         }
 
@@ -254,9 +247,10 @@ class HealthService extends Base {
             uptime   : process.uptime()
         };
 
-        // Step 1: Check ChromaDB connectivity
-        const connectionCheck = await this.#checkChromaConnection();
+        // Step 1: Check Database connectivity
+        const connectionCheck = await this.#checkDatabaseConnections();
         payload.database.connection.connected = connectionCheck.running;
+        payload.database.connection.engines = connectionCheck.engines;
 
         if (!connectionCheck.running) {
             payload.status = 'unhealthy';
