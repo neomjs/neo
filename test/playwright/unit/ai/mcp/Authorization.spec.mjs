@@ -27,7 +27,7 @@ test.describe('MCP Server OIDC/OAuth 2.1 Authorization (Functional)', () => {
     let mockOidcServer;
     let mcpServerProcess;
     const MOCK_OIDC_PORT = 8888;
-    const MCP_SSE_PORT   = 3333;
+    const MCP_SSE_PORT   = 5555;
     const TEST_TOKEN     = 'valid-test-token';
     const TEST_CLIENT_ID = 'test-client';
 
