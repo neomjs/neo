@@ -25,7 +25,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
     let GraphService;
     let SystemLifecycleService;
     let DreamService;
-    let SQLiteVectorManager;
+    let StorageRouter;
     let OpenAiCompatible;
     let TextEmbeddingService;
     const testDbName = `memory-core-dream-test-${process.pid}-${Date.now()}.sqlite`;
@@ -52,7 +52,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
 
         GraphService = (await import('../../../../../ai/mcp/server/memory-core/services/GraphService.mjs')).default;
         DreamService = (await import('../../../../../ai/daemons/DreamService.mjs')).default;
-        SQLiteVectorManager = (await import('../../../../../ai/mcp/server/memory-core/managers/SQLiteVectorManager.mjs')).default;
+        StorageRouter = (await import('../../../../../ai/mcp/server/memory-core/managers/StorageRouter.mjs')).default;
         OpenAiCompatible       = (await import('../../../../../ai/provider/OpenAiCompatible.mjs')).default;
         SystemLifecycleService = (await import('../../../../../ai/mcp/server/memory-core/services/lifecycle/SystemLifecycleService.mjs')).default;
         TextEmbeddingService   = (await import('../../../../../ai/mcp/server/memory-core/services/TextEmbeddingService.mjs')).default;
@@ -194,7 +194,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
     test('should detect GUIDE_GAP using Boolean LLM Verification', async () => {
         const baseGenerate = OpenAiCompatible.prototype.generate;
         OpenAiCompatible.prototype.generate = async function(prompt) {
-            providerPrompt = prompt;
+            providerPrompt = typeof prompt === 'string' ? prompt : JSON.stringify(prompt);
             return {
                 content: JSON.stringify({
                     verified: false
@@ -208,6 +208,13 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
             name       : 'RogueFeature',
             description  : 'A feature totally disconnected from the vision.',
             properties : {path: 'src/rogue/Rogue.mjs'}
+        });
+        
+        GraphService.upsertNode({
+            id: 'mock-guide-node',
+            type: 'FILE',
+            name: 'Rogue Guide',
+            properties: {path: 'learn/guides/rogue.md'}
         });
 
         // Prepare isolated node payload
@@ -236,23 +243,20 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
         const originalQuery = QueryService.queryDocuments;
         QueryService.queryDocuments = async () => ({ topResult: '/mock/path/guide.md' });
 
-        const originalFsExists = fs.existsSync;
-        fs.existsSync = (path) => {
-            if (path === '/mock/path/guide.md') return true;
-            return originalFsExists(path);
+        const originalFsPromisesRead = fs.promises.readFile;
+        fs.promises.readFile = async (p, enc) => {
+            if (p.includes('rogue.md')) return "Mock Guide Content for RogueFeature.";
+            return originalFsPromisesRead(p, enc);
         };
-        const originalFsRead = fs.readFileSync;
-        fs.readFileSync = (path, enc) => {
-            if (path === '/mock/path/guide.md') return "Mock Guide Content for RogueFeature.";
-            return originalFsRead(path, enc);
-        }
 
+        const configOverride = (await import('../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        
         await DreamService.executeCapabilityGapInference(session, payload);
 
         // Verify Prompt explicitly hit Guide Gap Logic
-        expect(typeof providerPrompt).toBe('string');
-        expect(providerPrompt).toContain('QA Engine');
-        expect(providerPrompt).toContain('RogueFeature');
+        const promptText = typeof providerPrompt === 'string' ? providerPrompt : JSON.stringify(providerPrompt);
+        expect(promptText).toContain('QA Engine');
+        expect(promptText).toContain('RogueFeature');
 
         // Verify logging appended GUIDE_GAP
         const updatedNode = GraphService.db.nodes.get('node-guide-test');
@@ -260,38 +264,45 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
         expect(updatedNode.properties.capabilityGap).toContain('[GUIDE_GAP]');
         expect(updatedNode.properties.capabilityGap).toContain('failed LLM semantic verification');
         
-        // Restore
+        // Restore global functions
         OpenAiCompatible.prototype.generate = baseGenerate;
         QueryService.queryDocuments = originalQuery;
-        fs.existsSync = originalFsExists;
-        fs.readFileSync = originalFsRead;
+        fs.promises.readFile = originalFsPromisesRead;
     });
 
     test('synthesizeGoldenPath should mathematically select and inject Golden Path while rejecting BLOCKS', async () => {
-        // Mock SQLiteVectorManager to return dynamic Math metrics without embedding dependencies
-        const originalPrepare = SQLiteVectorManager.db ? SQLiteVectorManager.db.prepare : null;
-        const originalGetSummary = SQLiteVectorManager.getSummaryCollection;
+        // Mock StorageRouter to return deterministic ChromaDB metric formats
+        const originalGetSummary = StorageRouter.getSummaryCollection;
+        const originalGetGraph = StorageRouter.getGraphCollection;
+        const originalPrepare = GraphService.db.storage.db.prepare;
         
-        if (!SQLiteVectorManager.db) {
-             SQLiteVectorManager.db = {};
-        }
-        
-        SQLiteVectorManager.getSummaryCollection = async () => {
+        StorageRouter.getSummaryCollection = async () => {
              return {
                  get: async () => ({ documents: [] })
              };
         };
+
+        StorageRouter.getGraphCollection = async () => {
+            return {
+                query: async () => ({
+                    ids: [['epic-1', 'task-blocked', 'blocker', 'weak-task']],
+                    distances: [[0.1, 0.2, 0.9, 0.8]]
+                }),
+                get: async () => ({ ids: [], metadatas: [] }),
+                upsert: async () => {}
+            };
+        };
         
-        SQLiteVectorManager.db.prepare = function(sql) {
+        GraphService.db.storage.db.prepare = function(sql) {
             // console.log("SQL PREPARE CALLED:", sql.substring(0, 50));
             if (sql.includes('SELECT') && sql.includes('Nodes')) {
                 console.log('MOCK TRIGGERED Nodes SELECT!');
                 return {
                     all: () => [
-                        { id: 'epic-1', data: JSON.stringify({ id: 'epic-1', name: 'Epic Hero', properties: { state: 'OPEN'} }), struct_score: 5.0, semantic_distance: 0.1 },
-                        { id: 'task-blocked', data: JSON.stringify({ id: 'task-blocked', name: 'Blocked Task', properties: { state: 'OPEN'} }), struct_score: 10.0, semantic_distance: 0.2 },
-                        { id: 'blocker', data: JSON.stringify({ id: 'blocker', name: 'Blocker Bug', properties: { state: 'OPEN'} }), struct_score: 1.0, semantic_distance: 0.9 },
-                        { id: 'weak-task', data: JSON.stringify({ id: 'weak-task', name: 'Weak Task', properties: { state: 'OPEN'} }), struct_score: 0.1, semantic_distance: 0.8 }
+                        { id: 'epic-1', data: JSON.stringify({ id: 'epic-1', name: 'Epic Hero', properties: { state: 'OPEN'} }), struct_score: 5.0 },
+                        { id: 'task-blocked', data: JSON.stringify({ id: 'task-blocked', name: 'Blocked Task', properties: { state: 'OPEN'} }), struct_score: 10.0 },
+                        { id: 'blocker', data: JSON.stringify({ id: 'blocker', name: 'Blocker Bug', properties: { state: 'OPEN'} }), struct_score: 1.0 },
+                        { id: 'weak-task', data: JSON.stringify({ id: 'weak-task', name: 'Weak Task', properties: { state: 'OPEN'} }), struct_score: 0.1 }
                     ],
                     get: () => null,
                     run: () => {}
@@ -362,11 +373,12 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
         OpenAiCompatible.prototype.generate = baseGenerate;
         TextEmbeddingService.embedText = baseEmbed;
         fs.writeFileSync = mockWriteFile;
-        SQLiteVectorManager.getSummaryCollection = originalGetSummary;
+        StorageRouter.getSummaryCollection = originalGetSummary;
+        StorageRouter.getGraphCollection = originalGetGraph;
         if (originalPrepare) {
-             SQLiteVectorManager.db.prepare = originalPrepare;
+             GraphService.db.storage.db.prepare = originalPrepare;
         } else {
-             delete SQLiteVectorManager.db.prepare;
+             delete GraphService.db.storage.db.prepare;
         }
     });
 });

@@ -4,6 +4,10 @@ import Model from '../../src/data/Model.mjs';
  * Represents a single Node within the Native Edge Graph Database engine. 
  * Nodes capture entity data in the GraphRAG topologies, pairing with ChrombaDB semantic vectors.
  * Leveraging Neo.data.Model enables exact schema validation and tracks structural changes for disk synchronization.
+ *
+ * @important The JSON DTO representation uses `.type` (e.g., 'CLASS', 'FILE'). However, to align 
+ * strictly with formal Graph Database taxonomy (where Nodes have 'labels' and Edges have 'types'), 
+ * NodeModel natively maps this JSON field to `.label` for internal storage and querying.
  * 
  * @class Neo.ai.graph.NodeModel
  * @extends Neo.data.Model
