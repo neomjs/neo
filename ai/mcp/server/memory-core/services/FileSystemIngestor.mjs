@@ -67,8 +67,16 @@ class FileSystemIngestor extends Base {
             }
         }
 
+        const rootNodeId = 'project-root';
+        GraphService.upsertNode({
+            id: rootNodeId,
+            type: 'SYSTEM_ANCHOR',
+            name: 'Neo.mjs Ecosystem Root',
+            description: 'The physical root directory of the Neo.mjs project.'
+        });
+
         const stats = { nodes: 0, edges: 0 };
-        await this.walkDirectory(neoRootDir, neoRootDir, null, stats, mtimeMap, hashMap);
+        await this.walkDirectory(neoRootDir, neoRootDir, rootNodeId, stats, mtimeMap, hashMap);
         
         logger.info(`[FileSystemIngestor] Workspace Sync Complete. Upserted/Verified ${stats.nodes} Nodes and ${stats.edges} new CONTAINS Edges.`);
     }
@@ -145,20 +153,20 @@ class FileSystemIngestor extends Base {
                     }
                 });
                 stats.nodes++;
+            }
 
-                // Create hierarchical structural edge
-                if (parentId) {
-                    let existingEdge = GraphService.db.edges.items.find(e => e.source === parentId && e.target === nodeId && e.type === 'CONTAINS');
-                    if (!existingEdge) {
-                        GraphService.db.addEdge({
-                            id: globalThis.crypto.randomUUID(),
-                            source: parentId,
-                            target: nodeId,
-                            type: 'CONTAINS',
-                            properties: { weight: 1.0 }
-                        });
-                        stats.edges++;
-                    }
+            // Create hierarchical structural edge unconditionally to prevent topography drift 
+            if (parentId) {
+                let existingEdge = GraphService.db.edges.items.find(e => e.source === parentId && e.target === nodeId && e.type === 'CONTAINS');
+                if (!existingEdge) {
+                    GraphService.db.addEdge({
+                        id: globalThis.crypto.randomUUID(),
+                        source: parentId,
+                        target: nodeId,
+                        type: 'CONTAINS',
+                        properties: { weight: 1.0 }
+                    });
+                    stats.edges++;
                 }
             }
 
