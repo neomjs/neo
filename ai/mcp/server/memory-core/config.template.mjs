@@ -148,9 +148,10 @@ const defaultConfig = {
     summarizationConcurrency: 5,
     /**
      * The target Storage Engine (Vector Database) to use.
-     * Options: 'neo' (SQLite-Vec), 'chroma' (ChromaDB), or 'both'.
+     * Options: 'hybrid' (ChromaDB vectors + SQLite graph), 'neo' (SQLite vectors - DEPRECATED), 'chroma' (Legacy).
+     * The default is explicitly 'hybrid' per Epic #9922 Two-Pillar RAG architecture.
      */
-    engine: 'neo',
+    engine: 'hybrid',
     /**
      * Database Engine Definitions
      * This defines WHERE data is stored physically.
