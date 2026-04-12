@@ -105,6 +105,7 @@ class GraphService extends Base {
 
     /**
      * Upserts a Node representation into the graph securely linking the ID.
+     * @important The `type` string is mapped directly to `node.label` to comply with strict Graph Database taxonomy (Node Labels).
      * @param {Object} nodeData
      */
     upsertNode({id, type, name, description, semanticVectorId, state, updatedAt, properties}) {

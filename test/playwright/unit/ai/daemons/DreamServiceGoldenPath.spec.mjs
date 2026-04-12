@@ -27,7 +27,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 
 test.describe('DreamService Golden Path', () => {
-    let TextEmbeddingService, aiConfig, DreamService, GraphService, SQLiteVectorManager, SystemLifecycleService;
+    let TextEmbeddingService, aiConfig, DreamService, GraphService, SystemLifecycleService;
 
     test.beforeAll(async () => {
         aiConfig = (await import('../../../../../ai/mcp/server/memory-core/config.mjs')).default;
@@ -49,7 +49,6 @@ test.describe('DreamService Golden Path', () => {
         TextEmbeddingService = (await import('../../../../../ai/mcp/server/memory-core/services/TextEmbeddingService.mjs')).default;
         DreamService         = (await import('../../../../../ai/daemons/DreamService.mjs')).default;
         GraphService         = (await import('../../../../../ai/mcp/server/memory-core/services/GraphService.mjs')).default;
-        SQLiteVectorManager  = (await import('../../../../../ai/mcp/server/memory-core/managers/SQLiteVectorManager.mjs')).default;
         SystemLifecycleService = (await import('../../../../../ai/mcp/server/memory-core/services/lifecycle/SystemLifecycleService.mjs')).default;
 
         if (fs.existsSync(testDbPath)) {

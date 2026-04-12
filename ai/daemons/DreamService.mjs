@@ -516,14 +516,18 @@ ${contextText}
             logger.warn('[DreamService] Could not parse jsdocx structure.json.');
         }
 
+        // INTERNAL MAPPING NOTE: The native SQLite items iterate over `Neo.ai.graph.NodeModel`
+        // instances. To align with formal Graph Database taxonomy, the DTO `.type` property 
+        // is mapped to `.label` on Nodes (while Edges retain `.type`).
+
         // Gather test framework paths directly
         const testFilePaths = GraphService.db.nodes.items.filter(n =>
-            n.type === 'FILE' && n.properties?.path?.startsWith('test/')
+            n.label === 'FILE' && n.properties?.path?.startsWith('test/')
         ).map(n => n.properties?.path || '').map(p => p.toLowerCase());
 
         // Gather architectural guide paths natively
         const guideFilePaths = GraphService.db.nodes.items.filter(n =>
-            n.type === 'FILE' && n.properties?.path?.startsWith('learn/guides/')
+            n.label === 'FILE' && n.properties?.path?.startsWith('learn/guides/')
         ).map(n => n.properties?.path || '');
 
         for (const node of structuralNodes) {
@@ -831,8 +835,10 @@ ${topContent}
         const files = filesRaw.filter(f => f.endsWith('.md'));
         
         let nodesCollection = null;
-        if (SQLiteVectorManager.db) {
-            nodesCollection = await SQLiteVectorManager.getOrCreateCollection({ name: 'neo_graph_nodes' });
+        try {
+            nodesCollection = await StorageRouter.getGraphCollection();
+        } catch (e) {
+            logger.warn('[DreamService] Could not resolve graph collection via StorageRouter.');
         }
 
         for (const file of files) {
@@ -1010,20 +1016,21 @@ ${topContent}
             logger.info(`[DreamService] Apoptosis detected ${orphaned.length} orphaned nodes. Commencing eradication...`);
             GraphService.removeNodes(orphaned);
 
-            if (SQLiteVectorManager.db) {
+            try {
                 // Cross-layer purge from semantic embeddings
                 logger.info(`[DreamService] Purging semantic vectors for ${orphaned.length} deleted nodes.`);
 
-                ['neo_graph_nodes', 'neo_agent_sessions_summary'].forEach(async collectionName => {
-                    try {
-                        const collection = await SQLiteVectorManager.getOrCreateCollection({ name: collectionName });
-                        if (collection) {
-                            await collection.delete({ ids: orphaned });
-                        }
-                    } catch (e) {
-                        logger.warn(`[DreamService] Apoptosis soft-failure on collection ${collectionName}: ${e.message}`);
-                    }
-                });
+                const graphColl = await StorageRouter.getGraphCollection();
+                const summaryColl = await StorageRouter.getSummaryCollection();
+
+                if (graphColl) {
+                    await graphColl.delete({ ids: orphaned }).catch(() => {});
+                }
+                if (summaryColl) {
+                    await summaryColl.delete({ ids: orphaned }).catch(() => {});
+                }
+            } catch (e) {
+                logger.warn(`[DreamService] Apoptosis soft-failure on Vector purge: ${e.message}`);
             }
         }
     }
@@ -1040,19 +1047,28 @@ ${topContent}
         await this.ingestDiscussionStates();
         await this.ingestPullRequestFeedback();
 
-        if (!SQLiteVectorManager.db) {
-            logger.warn('[DreamService] SQLiteVectorManager not mounted. Skipping Golden Path extraction.');
+        let graphColl = null;
+        let summaryColl = null;
+        try {
+            graphColl = await StorageRouter.getGraphCollection();
+            summaryColl = await StorageRouter.getSummaryCollection();
+        } catch (e) {
+            logger.warn('[DreamService] StorageRouter unavailable. Skipping Golden Path extraction.');
+            return;
+        }
+
+        if (!graphColl || !summaryColl) {
+            logger.warn('[DreamService] Collections missing. Skipping Golden Path extraction.');
             return;
         }
 
         // Generate the Frontier Baseline Vector using the most recent session memory
         let frontierEmbedding = null;
         try {
-            const sessionsVec = await SQLiteVectorManager.getSummaryCollection();
-            const recent = await sessionsVec.get({ limit: 2, include: ['documents'] });
+            const recent = await summaryColl.get({ limit: 2, include: ['documents'] });
 
             let frontierText = "Neo.mjs Active Strategic Context: ";
-            if (recent && recent.documents.length > 0) {
+            if (recent && recent.documents && recent.documents.length > 0) {
                 frontierText += recent.documents.join("\n\n");
             } else {
                 frontierText += "Initialization and Stabilization.";
@@ -1065,68 +1081,89 @@ ${topContent}
             return;
         }
 
-        const f32 = new Float32Array(frontierEmbedding);
+        // Pillar 1: Semantic Distance from ChromaDB
+        let semanticIds = [];
+        let semanticDistances = [];
+        try {
+            const semanticResults = await graphColl.query({
+                queryEmbeddings: [frontierEmbedding],
+                nResults: 20
+            });
+            if (semanticResults && semanticResults.ids && semanticResults.ids.length > 0) {
+                semanticIds = semanticResults.ids[0];
+                semanticDistances = semanticResults.distances ? semanticResults.distances[0] : new Array(semanticIds.length).fill(0.1);
+            }
+        } catch (e) {
+            logger.warn('[DreamService] Failed to query semantic vectors from ChromaDB.', e);
+            return;
+        }
 
-        // Execute the unified Hybrid SQL Query directly mapping native structural weights against active vectors!
-        const stmt = SQLiteVectorManager.db.prepare(`
-            SELECT 
-                n.id,
-                n.data,
-                COALESCE((
-                    SELECT SUM(json_extract(e.data, '$.properties.weight')) 
-                    FROM Edges e 
-                    WHERE e.target = n.id AND e.type != 'BLOCKS'
-                ), 0.0) as struct_score,
-                v.distance as semantic_distance
-            FROM Nodes n
-            JOIN neo_graph_nodes_data d ON d.chroma_id = n.id
-            JOIN neo_graph_nodes_vec v ON v.rowid = d.rowid
-            WHERE json_extract(n.data, '$.properties.state') = 'OPEN'
-              AND v.embedding MATCH ? AND k = 20
-        `);
+        if (semanticIds.length === 0) {
+            logger.info('[DreamService] No semantic nodes found. Golden path empty.');
+            return;
+        }
 
-        // Check node validity and calculate priority mathematically internally securely
-        const results = stmt.all(f32);
+        // Pillar 2: Structural Weight from SQLite Graph
         const scoredNodes = [];
-
         const SEMANTIC_WEIGHT = 2.0;
         const STRUCTURAL_WEIGHT = 1.0;
 
-        for (const row of results) {
-            const issueId = row.id;
+        try {
+            const placeholders = semanticIds.map(() => '?').join(',');
+            const stmt = GraphService.db.storage.db.prepare(`
+                SELECT 
+                    n.id,
+                    n.data,
+                    COALESCE((
+                        SELECT SUM(json_extract(e.data, '$.properties.weight')) 
+                        FROM Edges e 
+                        WHERE e.target = n.id AND e.type != 'BLOCKS'
+                    ), 0.0) as struct_score
+                FROM Nodes n
+                WHERE json_extract(n.data, '$.properties.state') = 'OPEN'
+                  AND n.id IN (${placeholders})
+            `);
 
-            // Re-verify blocker topology natively using GraphService API
-            const blockers = GraphService.db.edges.getByIndex('target', issueId).filter(e => e.type === 'BLOCKS');
-            let isBlocked = false;
+            const results = stmt.all(...semanticIds);
 
-            for (const bEdge of blockers) {
-                const blockerNode = GraphService.db.nodes.get(bEdge.source);
-                if (blockerNode && blockerNode.properties?.state === 'OPEN') {
-                    isBlocked = true;
-                    break;
+            for (const row of results) {
+                const issueId = row.id;
+
+                // Re-verify blocker topology natively using GraphService API
+                const blockers = GraphService.db.edges.getByIndex('target', issueId).filter(e => e.type === 'BLOCKS');
+                let isBlocked = false;
+
+                for (const bEdge of blockers) {
+                    const blockerNode = GraphService.db.nodes.get(bEdge.source);
+                    if (blockerNode && blockerNode.properties?.state === 'OPEN') {
+                        isBlocked = true;
+                        break;
+                    }
                 }
+
+                if (isBlocked) continue; // Architecturally blocked issues cannot be Golden
+
+                const idx = semanticIds.indexOf(issueId);
+                const semantic_distance = parseFloat(semanticDistances[idx]) || 0.1;
+                const struct_score = parseFloat(row.struct_score) || 0;
+
+                // Lower distance = Higher significance. (Add 0.1 to avoid div by 0 and curb massive asymptotes)
+                const semanticScore = 1.0 / (semantic_distance + 0.1);
+
+                const priority = (semanticScore * SEMANTIC_WEIGHT) + (struct_score * STRUCTURAL_WEIGHT);
+
+                let nodeData = null;
+                try { nodeData = JSON.parse(row.data); } catch (e) { }
+
+                scoredNodes.push({
+                    node: nodeData || { id: issueId },
+                    score: priority,
+                    semantic: semanticScore,
+                    structural: struct_score
+                });
             }
-
-            if (isBlocked) continue; // Architecturally blocked issues cannot be Golden
-
-            const semantic_distance = parseFloat(row.semantic_distance) || 0.1;
-            const struct_score = parseFloat(row.struct_score) || 0;
-
-            // Lower distance = Higher significance. (Add 0.1 to avoid div by 0 and curb massive asymptotes)
-            const semanticScore = 1.0 / (semantic_distance + 0.1);
-
-            const priority = (semanticScore * SEMANTIC_WEIGHT) + (struct_score * STRUCTURAL_WEIGHT);
-
-            // Re-inflate node JSON locally
-            let nodeData = null;
-            try { nodeData = JSON.parse(row.data); } catch (e) { }
-
-            scoredNodes.push({
-                node: nodeData || { id: issueId },
-                score: priority,
-                semantic: semanticScore,
-                structural: struct_score
-            });
+        } catch (e) {
+            logger.warn('[DreamService] Error executing hybrid mapping across local Graph Store.', e);
         }
 
         // Sort descending by calculated priority
