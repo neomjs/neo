@@ -34,9 +34,10 @@ class CollectionProxy extends Base {
 
     async getCollections() {
         const managers = await this.getManagers();
-        return Promise.all(managers.map(m => 
-            this.collectionType === 'memory' ? m.getMemoryCollection() : m.getSummaryCollection()
-        ));
+        return Promise.all(managers.map(m => {
+            if (this.collectionType === 'graph') return m.getGraphCollection();
+            return this.collectionType === 'memory' ? m.getMemoryCollection() : m.getSummaryCollection();
+        }));
     }
 
     async add(args) {
@@ -77,9 +78,14 @@ class CollectionProxy extends Base {
     async drop() {
         const managers = await this.getManagers();
         for (const manager of managers) {
-            const coll = this.collectionType === 'memory' ? 
-                await manager.getMemoryCollection() : 
-                await manager.getSummaryCollection();
+            let coll;
+            if (this.collectionType === 'graph') {
+                coll = await manager.getGraphCollection();
+            } else {
+                coll = this.collectionType === 'memory' ? 
+                    await manager.getMemoryCollection() : 
+                    await manager.getSummaryCollection();
+            }
                 
             if (manager.client && manager.client.deleteCollection) {
                 await manager.client.deleteCollection({ name: coll.name });

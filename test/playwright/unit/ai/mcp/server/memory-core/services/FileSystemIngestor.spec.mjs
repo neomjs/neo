@@ -118,7 +118,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.FileSystemIngestor', () =>
         const stats = { nodes: 0, edges: 0 };
 
         // Override walk logic root physically mimicking neoRootDir logic natively
-        FileSystemIngestor.walkDirectory(mockFsRoot, mockFsRoot, null, stats);
+        await FileSystemIngestor.walkDirectory(mockFsRoot, mockFsRoot, null, stats, new Map(), new Map());
 
         // Nodes: src, src/App.mjs, docs, resources, resources/scss, resources/scss/theme.scss, resources/images, package.json
         // NOTE: Relative paths here depend on CWD. In `walkDirectory`, it compares against `neoRootDir`,

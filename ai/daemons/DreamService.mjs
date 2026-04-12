@@ -6,7 +6,6 @@ import crypto               from 'crypto';
 import aiConfig             from '../mcp/server/memory-core/config.mjs';
 import Base                 from '../../src/core/Base.mjs';
 import StorageRouter        from '../mcp/server/memory-core/managers/StorageRouter.mjs';
-import SQLiteVectorManager  from '../mcp/server/memory-core/managers/SQLiteVectorManager.mjs';
 import TextEmbeddingService from '../mcp/server/memory-core/services/TextEmbeddingService.mjs';
 import GraphService         from '../mcp/server/memory-core/services/GraphService.mjs';
 import Json                 from '../../src/util/Json.mjs';
@@ -659,8 +658,8 @@ ${topContent}
         const parsedIssues = [];
 
         let nodesCollection = null;
-        if (SQLiteVectorManager.db) {
-            nodesCollection = await SQLiteVectorManager.getOrCreateCollection({ name: 'neo_graph_nodes' });
+        if (StorageRouter) {
+            nodesCollection = await StorageRouter.getGraphCollection();
         }
 
         // Pass 1: Upsert all nodes
