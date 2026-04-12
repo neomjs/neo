@@ -4,15 +4,16 @@ title: Implement Store-Driven VDOM Ticket Component (V2)
 state: OPEN
 labels:
   - enhancement
+  - stale
   - performance
   - core
 assignees:
   - tobiu
 createdAt: '2026-01-11T10:17:30Z'
-updatedAt: '2026-01-11T10:17:51Z'
+updatedAt: '2026-04-12T04:24:34Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8540'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 8537
 subIssues: []
 subIssuesCompleted: 0
@@ -37,4 +38,9 @@ Create `Portal.view.ticket.v2.Component` that renders directly from a `Portal.st
 - 2026-01-11T10:17:32Z @tobiu added the `core` label
 - 2026-01-11T10:17:51Z @tobiu assigned to @tobiu
 - 2026-01-11T10:18:00Z @tobiu added parent issue #8537
+### @github-actions - 2026-04-12T04:24:33Z
+
+This issue is stale because it has been open for 90 days with no activity.
+
+- 2026-04-12T04:24:34Z @github-actions added the `stale` label
 

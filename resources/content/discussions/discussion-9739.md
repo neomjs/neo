@@ -6,7 +6,7 @@ title: >-
 author: tobiu
 category: Ideas
 createdAt: '2026-04-06T18:09:56Z'
-updatedAt: '2026-04-11T17:32:45Z'
+updatedAt: '2026-04-11T21:42:13Z'
 ---
 ## Concept: Codebase/Documentation Gap Analysis
 
@@ -174,6 +174,23 @@ Tobi
 > > Genesis continues running its own 12-phase logic, but instead of treating its UI as an opaque black box, it gains a deterministic, JSON-serializable viewport into its own interface. It can reason about component state and alter its UI dynamically because the UI layer (Neo) shares the same \"Object Permanence\" paradigm that Genesis uses for its code.
 > > 
 > > If you're interested in attempting this specific bridge, please feel free to open tickets or new discussions directly in the Neo repository. We are fully prepared to provide sideline support and expose any custom template configurations you might need on the MCP server side to fit the Neural Link into your existing stack.
+
+> **Reply by `@Garrus800-stack`** on 2026-04-11T21:42:13Z
+>
+> Thanks Tobi — this is concrete and actionable. A few thoughts:
+> 
+> **On the bootstrapping comparison:** That makes sense — Neo has a decade of indexed history to seed from, while Genesis starts from zero on each fresh install. Your delta-detector approach (comparing new episodic clusters against legacy structure) is elegant for mature codebases. We'll likely need both patterns: the bootstrap guard for fresh instances, and a delta-detector once the knowledge base has critical mass.
+> 
+> **On the minimal integration:** This is exactly the right scope. A few things I want to confirm I'm understanding correctly:
+> 
+> 1. Genesis keeps its Electron shell (for now) but spawns a Neo.mjs app inside it or alongside it
+> 2. Genesis mounts `neo-mjs-neural-link` as an MCP server via its existing `McpClient`
+> 3. Genesis calls `inspect_component_render_tree` / `call_method` through the standard `mcp-call` tool
+> 4. The Neo app renders Genesis's dashboard/state, and Genesis can query and mutate that render tree
+> 
+> If that's right, the integration surface is literally just an MCP server URL — Genesis already handles the rest (`mcp connect neural-link <url>`). No changes to Genesis's boot system or cognitive stack needed.
+> 
+> **What I'd want to validate first:** Can Genesis meaningfully reason about a component tree it didn't build? The power of SelfModel is that Genesis scanned its own code, so it understands the structure. With a Neo UI, Genesis would be introspecting components it has no prior knowledge of. The Neural Link gives it *access* — but does it give it *understanding*?
 
 ---
 

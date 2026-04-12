@@ -12,10 +12,10 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-04-11T18:58:10Z'
-updatedAt: '2026-04-11T18:58:17Z'
+updatedAt: '2026-04-12T04:51:28Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9889'
 author: tobiu
-commentsCount: 0
+commentsCount: 2
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
@@ -202,4 +202,12 @@ These are explicitly deferred to preserve ticket atomicity:
 - 2026-04-11T19:22:39Z @tobiu cross-referenced by #9890
 - 2026-04-11T19:23:02Z @tobiu cross-referenced by #9892
 - 2026-04-11T19:23:12Z @tobiu marked this issue as blocking #9890
+### @m13v - 2026-04-12T04:50:33Z
+
+the HOF wrapper around callTool for recording is clean. one thing we learned from building similar instrumentation: the JSON.stringify(args) in the finally block can fail silently if args contains circular references or BigInt values. wrapping it in a try/catch with a fallback to a truncated string representation prevents lost log entries. for the sequence_id grouping by turn counter, make sure parallel tool calls within the same turn get the same sequence_id. if the agent fires multiple tools concurrently (which MCP supports), they should be grouped together. the Playwright test synthesis from action logs (mentioned as future DreamService work) is the really exciting part. we've been doing something similar where recorded user interactions become executable test specs. the key insight was that not every action sequence makes a good test, you need to filter for sequences that end in an observable state change (DOM mutation, API response) rather than sequences that just navigate.
+
+### @m13v - 2026-04-12T04:51:28Z
+
+for the Playwright test synthesis from action logs (the future DreamService direction), we've been building exactly this. the test generation engine that converts interaction sequences into executable Playwright specs: https://github.com/assrt-ai/assrt-freestyle/blob/main/src/core/freestyle.ts and the agentic test execution that filters for meaningful state-change sequences: https://github.com/assrt-ai/assrt-freestyle/blob/main/src/core/agent.ts. the element targeting with multi-strategy selectors (relevant for mapping NL tool calls to DOM elements): https://github.com/mediar-ai/terminator/blob/main/crates/terminator/src/element.rs
+
 
