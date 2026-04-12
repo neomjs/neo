@@ -78,7 +78,7 @@ class FileSystemIngestor extends Base {
         const stats = { nodes: 0, edges: 0 };
         await this.walkDirectory(neoRootDir, neoRootDir, rootNodeId, stats, mtimeMap, hashMap);
         
-        logger.info(`[FileSystemIngestor] Workspace Sync Complete. Upserted/Verified ${stats.nodes} Nodes and ${stats.edges} new CONTAINS Edges.`);
+        logger.info(`[FileSystemIngestor] Workspace Sync Complete. Upserted/Verified ${stats.nodes} Nodes and ${stats.edges} tracked CONTAINS Edges.`);
     }
 
     /**
@@ -155,19 +155,10 @@ class FileSystemIngestor extends Base {
                 stats.nodes++;
             }
 
-            // Create hierarchical structural edge unconditionally to prevent topography drift 
+            // Create hierarchical structural edge tracking deduplication safely via GraphService native logic
             if (parentId) {
-                let existingEdge = GraphService.db.edges.items.find(e => e.source === parentId && e.target === nodeId && e.type === 'CONTAINS');
-                if (!existingEdge) {
-                    GraphService.db.addEdge({
-                        id: globalThis.crypto.randomUUID(),
-                        source: parentId,
-                        target: nodeId,
-                        type: 'CONTAINS',
-                        properties: { weight: 1.0 }
-                    });
-                    stats.edges++;
-                }
+                GraphService.linkNodes(parentId, nodeId, 'CONTAINS', 1.0);
+                stats.edges++; // Tracks 'verified or created' topological state
             }
 
             if (isDir) {
