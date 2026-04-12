@@ -748,7 +748,7 @@ ${topContent}
                             logger.debug(`[DreamService] Discounting topological weight for ${issueId} because it is BLOCKED_BY an OPEN issue.`);
                         } else {
                             // Community Multiplier: Boost if ticket is external and has been triaged
-                            if (meta.author && meta.author !== 'tobiu' && meta.author !== 'neo-mjs-swarm') {
+                            if (meta.author && meta.author !== 'tobiu') {
                                 if (Array.isArray(meta.labels) && meta.labels.length > 0) {
                                     baseWeight += 0.5;
                                 }
