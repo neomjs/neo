@@ -6,7 +6,7 @@ title: >-
 author: tobiu
 category: Ideas
 createdAt: '2026-04-06T18:09:56Z'
-updatedAt: '2026-04-12T08:57:17Z'
+updatedAt: '2026-04-12T11:29:44Z'
 ---
 ## Concept: Codebase/Documentation Gap Analysis
 
@@ -233,6 +233,77 @@ Tobi
 > The authorization topic (#9559) is relevant for us too — Genesis has HMAC token auth on its own PeerNetwork, so we're aligned on the principle that control channels need auth before any cloud deployment.
 > 
 > Will report back once I have the Neural Link responding to Genesis's `mcp-call` tool. If I run into issues I'll open a ticket in your repo.
+
+> **Reply by `@Garrus800-stack`** on 2026-04-12T11:13:23Z
+>
+> Hi Tobi,
+> 
+> Quick update — I've started preparing Genesis for the Neural Link integration. The v7.1.4 release includes a new session-aware memory architecture (frontier node in the KnowledgeGraph, crash-safe checkpoints, cross-store referencing) that was partly inspired by your Memory Core design.
+> 
+> I still need to clone the fork locally, get the Neural Link server running, and test the MCP handshake from Genesis's side. Have a few things to take care of first, but I'll follow up once I have the bridge responding.
+> 
+> Looking forward to seeing the first `inspect_component_render_tree` call come through from Genesis.
+> 
+> I wanted to ask if this would be okay with you before I upload v7.1.4.
+> 
+> Daniel
+> 
+> 
+> Genesis learns from its sessions. Inspired by [neo.mjs](https://github.com/neomjs/neo) Memory Core architecture by [@tobiu](https://github.com/tobiu) — implemented the Genesis way: self-contained, no external services.
+> 
+> ---
+> 
+> ### Feature 1: Crash-Safe Session Summaries
+> 
+> Periodic checkpoints every 10 messages (no LLM call, raw metadata only). If Genesis crashes, the next boot detects the orphaned checkpoint via sessionId matching and creates a fallback summary. No more lost context on unexpected shutdown.
+> 
+> ### Feature 2: Frontier Node in KnowledgeGraph
+> 
+> A persistent "frontier" node acts as focus anchor. Session summaries and active goals connect via typed edges (SESSION_COMPLETED, ACTIVE_GOAL). Edge decay at boot — old sessions lose 50% confidence per restart, pruned below 5%. PromptBuilder traverses the frontier to build a "CURRENT FOCUS" section. Genesis now knows what's important without scanning all summaries linearly.
+> 
+> Scope: 2 frontier writers (SessionPersistence + GoalStack). Additional writers deferred to v7.1.5.
+> 
+> ### Feature 3: Session Scores (Heuristic)
+> 
+> 4 deterministic scores computed from session metadata — no LLM needed:
+> - **productivity** = goals_completed / max(goals_total, 1) × 100
+> - **complexity** = min(files × 15 + decisions × 10, 100)
+> - **quality** = max(0, 100 − (errors / max(messages, 5)) × 200)
+> - **impact** = min(codeFiles × 20, 100) or 10
+> 
+> Scores stored in every session summary. `getScoreTrends()` provides rolling averages for GoalSynthesizer trend analysis.
+> 
+> ### Feature 4: UnifiedMemory Cross-Referencing
+> 
+> After merging results from 3 stores, a cross-reference pass detects overlapping concepts via Jaccard similarity on cached keyword sets. Matches from different stores are merged with 1.3× score boost. Surfaces the most relevant information first and saves context window tokens.
+> 
+> ### Stats
+> 
+> | Metric | v7.1.3 | v7.1.4 |
+> |---|---|---|
+> | Tests passing | 4208 | 4229 |
+> | Coverage (L/B/F) | 82.08 / 76.38 / 79.53 | 82.13 / 76.26 / 79.64 |
+> | Fitness | 130/130 | 130/130 |
+> | Boot time | ~1100ms | ~1092ms |
+> | New tests | — | +21 (SessionPersistence, KnowledgeGraph, UnifiedMemory) |
+> 
+> ### Acknowledgment
+> 
+> The session summary architecture, frontier concept, and structured session scores were inspired by the [neo.mjs Memory Core](https://github.com/neomjs/neo/tree/dev/ai/mcp/server/memory-core) — specifically `SessionService.mjs` (drift detection, weighted summaries) and `GraphService.mjs` (frontier node, hybrid RAG). Thanks to [@tobiu](https://github.com/tobiu) for the open architecture discussion and hands-on integration support.
+> 
+> **Full Changelog:** See [CHANGELOG.md](CHANGELOG.md)
+
+> **Reply by `@Garrus800-stack`** on 2026-04-12T11:29:44Z
+>
+> While studying your Memory Core codebase to understand the design before building our version, I wanted to say — the architecture is remarkably clean. The separation between SessionService, GraphService, and SummaryService is very well structured. The drift detection approach (comparing memory count vs summary count at startup) is elegant, and the way `decayGlobalTopology` shields structural edges from decay shows real production thinking. Impressive work for what is essentially a solo project.
+> 
+> Two small things I noticed while reading through — not bugs, just observations:
+> 
+> - **SessionService timeout for OpenAI-Compatible providers** is set to 1 hour (`timeout: 60 * 60 * 1000`). If a local LLM hangs (VRAM issue, Ollama crash), this could block the entire startup summarization for a long time. A shorter timeout (5-10 min) with a graceful fallback might be more resilient for local setups.
+> 
+> - **`findSessionsToSummarize` pagination** accumulates all metadata objects into `allMetadatas` in memory during the scan. With the safety break at 2M records and ~500 bytes per metadata object, that could approach 1GB RAM in extreme cases. A lighter approach might be to only collect sessionIds during the scan instead of full metadata objects, then fetch the details only for sessions that actually need re-summarization.
+> 
+> Neither of these would matter for typical usage — they'd only surface in edge cases with local LLMs or very long-running instances. Just thought I'd mention them since I was in the code anyway.
 
 ---
 
