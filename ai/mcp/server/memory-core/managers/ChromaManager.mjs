@@ -46,7 +46,12 @@ class ChromaManager extends AbstractVectorManager {
          * @member {Object|null} summaryCollection=null
          * @protected
          */
-        summaryCollection: null
+        summaryCollection: null,
+        /**
+         * @member {Object|null} graphCollection=null
+         * @protected
+         */
+        graphCollection: null
     }
 
     /**
@@ -199,6 +204,24 @@ class ChromaManager extends AbstractVectorManager {
 
         this.summaryCollection = await this._summaryCollectionPromise;
         return this.summaryCollection;
+    }
+
+    /**
+     * @returns {Promise<Object>}
+     */
+    async getGraphCollection() {
+        if (!this._graphCollectionPromise) {
+            this._graphCollectionPromise = this.#executeSilently(async () => {
+                const collectionName = aiConfig.collections.graph;
+                return await this.client.getOrCreateCollection({
+                    name             : collectionName,
+                    embeddingFunction: this.#createEmbeddingFunction()
+                });
+            });
+        }
+
+        this.graphCollection = await this._graphCollectionPromise;
+        return this.graphCollection;
     }
 }
 
