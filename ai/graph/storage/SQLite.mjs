@@ -86,6 +86,8 @@ class SQLite extends Base {
                 FOREIGN KEY (source) REFERENCES Nodes(id) ON DELETE CASCADE,
                 FOREIGN KEY (target) REFERENCES Nodes(id) ON DELETE CASCADE
             );
+            CREATE INDEX IF NOT EXISTS idx_edges_source ON Edges(source);
+            CREATE INDEX IF NOT EXISTS idx_edges_target ON Edges(target);
         `);
 
         // The Delta Log Hardware Mechanism mimicking Global Broadcast matrices securely natively without network payloads cleanly!

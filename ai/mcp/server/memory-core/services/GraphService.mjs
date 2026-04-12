@@ -627,8 +627,8 @@ class GraphService extends Base {
         const stmt = this.db.storage.db.prepare(`
             SELECT n.id, n.data
             FROM Nodes n
-            LEFT JOIN Edges e ON n.id = e.source OR n.id = e.target
-            WHERE e.id IS NULL
+            WHERE NOT EXISTS (SELECT 1 FROM Edges WHERE source = n.id)
+              AND NOT EXISTS (SELECT 1 FROM Edges WHERE target = n.id)
         `);
 
         let orphaned = [];
