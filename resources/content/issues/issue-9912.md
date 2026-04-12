@@ -1,6 +1,6 @@
 ---
 id: 9912
-title: 'bug(ai): Debug sqlite-vec metadata schema to restore DreamService Hash Bypass'
+title: 'bug(ai): Prevent Vector Apoptosis from eradicating structural entities'
 state: OPEN
 labels:
   - bug
@@ -19,15 +19,13 @@ subIssuesTotal: 0
 blockedBy: []
 blocking: []
 ---
-# bug(ai): Debug sqlite-vec metadata schema to restore DreamService Hash Bypass
-
-# Restore MD5 Hash Caching in DreamService
+# bug(ai): Prevent Vector Apoptosis from eradicating structural entities
 
 ### Context
-Since migrating to `sqlite-vec`, `runSandman.mjs` is unnecessarily re-embedding every OPEN issue. The metadata extraction payload `exMeta.hash === contentHash` is failing natively. 
+`runSandman.mjs` is unnecessarily re-embedding every OPEN issue and discussion during the REM extraction pipeline. We originally suspected `sqlite-vec` metadata formatting, but the root cause is that `GraphService.getOrphanedNodes()` considers any node without edges to be "orphaned" and permanently deletes it via Vector Apoptosis. 
 
 ### Objective
-We must identify if `sqlite-vec` natively returns `.metadatas` structurally different from Chroma, and update the condition to correctly skip redundant LLM token processing.
+Update `GraphService.getOrphanedNodes()` to explicitly protect structural entities like `ISSUE`, `DISCUSSION`, and `PULL_REQUEST` from apoptosis, so they remain in the Native Edge Graph and ChromaDB, successfully passing the hash equality bypass on subsequent runs.
 
 ## Timeline
 
