@@ -1,4 +1,5 @@
 import fs from 'fs/promises';
+import os from 'os';
 import path from 'path';
 import Base from '../../../../src/core/Base.mjs';
 
@@ -27,7 +28,17 @@ const defaultConfig = {
      * Timeout for RPC calls in milliseconds.
      * @type {number}
      */
-    rpcTimeout: 10000
+    rpcTimeout: 10000,
+    /**
+     * Path to the memory core SQLite database for action logging.
+     * @type {string}
+     */
+    memoryCoreDbPath: path.join(os.homedir(), '.neo-ai-data', 'memory-core.sqlite'),
+    /**
+     * Number of days to retain Action logs in the Neural Link Database.
+     * @type {number}
+     */
+    pruneLogsAfterDays: 14
 };
 
 /**

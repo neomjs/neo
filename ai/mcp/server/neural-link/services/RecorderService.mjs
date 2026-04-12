@@ -4,6 +4,8 @@ import path   from 'path';
 import Base   from '../../../../../src/core/Base.mjs';
 import config from '../config.mjs';
 
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
 /**
  * @summary Service to intercept and persist Neural Link tool invocations to the Native Graph database.
  * @class Neo.ai.mcp.server.neural-link.services.RecorderService
@@ -146,13 +148,13 @@ class RecorderService extends Base {
 
     /**
      * Permanently drops legacy Neural Link action records from the SQLite db to prevent unbounded disk growth.
-     * @param {Number} days The rolling window in days beyond which older records are permanently discarded.
+     * @param {Number} [days=config.pruneLogsAfterDays] The rolling window in days beyond which older records are permanently discarded.
      */
-    pruneOlderThan(days) {
+    pruneOlderThan(days = config.pruneLogsAfterDays) {
         if (!this.db) return;
         
         try {
-            const cutoff = Date.now() - (days * 24 * 60 * 60 * 1000);
+            const cutoff = Date.now() - (days * MS_PER_DAY);
             const dropStmt = this.db.prepare(`DELETE FROM nl_action_log WHERE timestamp < ?`);
             dropStmt.run(cutoff);
         } catch (err) {
