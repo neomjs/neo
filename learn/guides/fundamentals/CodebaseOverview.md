@@ -548,7 +548,7 @@ synthesizes a grounded answer, and cites its references — all in a single call
 **Example queries:**
 - `ask_knowledge_base(query='how does the reactive config system work?')`
 - `ask_knowledge_base(query='current syntax for state provider bindings')`
-- `ask_knowledge_base(query='how to define a Grid with multiple bodies')`
+- `ask_knowledge_base(query='how to configure locked columns in a Grid')`
 - `ask_knowledge_base(query='what is the difference between ntype and className?', type='guide')`
 
 | Question Type | Tool | Returns |
