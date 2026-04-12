@@ -1,10 +1,12 @@
-import test from '@playwright/test';
-import fs   from 'fs';
-import path from 'path';
+import test         from '@playwright/test';
+import fs           from 'fs';
+import path         from 'path';
+import Neo          from '../../../../src/Neo.mjs';
+import * as core    from '../../../../src/core/_export.mjs';
+import Orchestrator from '../../../../ai/agent/Orchestrator.mjs';
 
 test.describe('Neo.ai.agent.Orchestrator', () => {
     test('Golden Path regex correctly extracts issue IDs and descriptions', async () => {
-        // Mock content simulating a typical sandman_handoff.md output
         const content = `
 # Autonomous Handoff
 
@@ -21,24 +23,26 @@ Based on priorities, the following tasks are mathematically recommended:
 > Pivot memory synthesis.
 `;
 
-        const goldenPathMatch = content.match(/## Computed Golden Path[^\n]*\n([\s\S]*?)(?=\n#|$)/);
-        test.expect(goldenPathMatch).not.toBeNull();
-        
-        const sectionChunk = goldenPathMatch[1];
-        const directives = [];
-        const regex = /\d+\.\s\*\*issue-(\d+)\*\*:[^\n]*\n\s+-\s\*(.*?)\*/g;
-        let match;
+        const testHandoffPath = path.resolve(process.cwd(), '.neo-test-handoff.md');
+        fs.writeFileSync(testHandoffPath, content, 'utf-8');
 
-        while ((match = regex.exec(sectionChunk)) !== null) {
-            directives.push({
-                issueId    : match[1],
-                description: match[2].trim()
+        try {
+            const orchestrator = Neo.create(Orchestrator, {
+                handoffPath: testHandoffPath
             });
-        }
 
-        test.expect(directives.length).toBe(2);
-        test.expect(directives[0].issueId).toBe('9900');
-        test.expect(directives[0].description).toBe('docs: restructure CodebaseOverview "Query Entry Points" to lead with ask_knowledge_base');
-        test.expect(directives[1].issueId).toBe('9844');
+            const directives = orchestrator.parseGoldenPath();
+
+            test.expect(directives).not.toBeNull();
+            test.expect(directives.length).toBe(2);
+            test.expect(directives[0].issueId).toBe('9900');
+            test.expect(directives[0].description).toBe('docs: restructure CodebaseOverview "Query Entry Points" to lead with ask_knowledge_base');
+            test.expect(directives[1].issueId).toBe('9844');
+        } finally {
+            if (fs.existsSync(testHandoffPath)) {
+                fs.unlinkSync(testHandoffPath);
+            }
+        }
     });
 });
+
