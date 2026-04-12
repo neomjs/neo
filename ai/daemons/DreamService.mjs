@@ -168,7 +168,15 @@ class DreamService extends Base {
                             include: ['documents']
                         });
                         if (rawMemories && rawMemories.documents && rawMemories.documents.length > 0) {
-                            rawEpisodicMemory = rawMemories.documents.join('\n\n---\n\n');
+                            const sliced = rawMemories.documents.slice(-3); // take only final 3 concluding actions
+                            let rawStr = sliced.join('\n\n---\n\n');
+                            
+                            // Natively enforce strict token floor ensuring LLM has minimum 2500 tokens free to generate complex output maps
+                            const maxLen = 4000;
+                            if (rawStr.length > maxLen) {
+                                rawStr = rawStr.slice(-maxLen);
+                            }
+                            rawEpisodicMemory = rawStr;
                         }
                     }
                 } catch (e) {
@@ -228,8 +236,7 @@ class DreamService extends Base {
     async executeTriVectorExtraction(session) {
         logger.info(`[DreamService] Extracting Tri-Vector Synthesis for session ID: ${session.meta.sessionId}`);
 
-        const prompt = `
-You are the Neo.mjs REM (Rapid Eye Movement) Sleep digestion agent.
+        const systemInstruction = `You are the Neo.mjs REM (Rapid Eye Movement) Sleep digestion agent.
 Your task is to analyze the following episodic development session history and extract three vital vectors of intelligence into a strict A2A 2026 JSON object:
 
 1. **Semantic Graph:** Core concepts, framework components, and their relationships.
@@ -272,11 +279,7 @@ Enforce this STRICT JSON schema:
   }
 }
 
-DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide purely the JSON object.
-
---- Session Episodic Memory ---
-${session.document}
-`;
+DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide purely the JSON object.`;
 
         try {
             const provider = Neo.create(OpenAiCompatible, {
@@ -284,10 +287,14 @@ ${session.document}
                 host: aiConfig.openAiCompatible.host
             });
 
-            // MLX manages KV cache paging internally. No dynamic context sizing required here.
+            // Format boundaries securely
+            const messages = [
+                { role: 'system', content: systemInstruction },
+                { role: 'user', content: `--- Session Episodic Memory ---\n${session.document}` }
+            ];
 
-            // Call standard generation method explicitly without format enforcement
-            const result = await provider.generate(prompt);
+            // Call standard generation method explicitly without format enforcement (MLX hardware rejects `json_object` without schema map)
+            const result = await provider.generate(messages);
 
             // Extract using robust Json parser to catch malformed boundaries
             const payload = Json.extract(result.content);
@@ -295,6 +302,7 @@ ${session.document}
             // Validation check
             if (!payload || !payload.session_artifact || !payload.session_artifact.graph || !payload.session_artifact.graph.nodes || !payload.session_artifact.graph.edges) {
                 logger.warn(`[DreamService] Failed to validate extracted Tri-Vector A2A payload for session: ${session.meta.sessionId}`);
+                logger.warn(`[DreamService] --- RAW LLM DUMP ---\n${result.content}\n-----------------------------`);
                 return null;
             }
 
