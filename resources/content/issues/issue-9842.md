@@ -1,7 +1,7 @@
 ---
 id: 9842
 title: 'feat: Implement Autonomous Agent Orchestrator with Golden Path Directive Injection'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
@@ -9,7 +9,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-04-10T07:16:08Z'
-updatedAt: '2026-04-10T07:17:43Z'
+updatedAt: '2026-04-12T13:20:25Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9842'
 author: tobiu
 commentsCount: 0
@@ -21,6 +21,7 @@ blockedBy: []
 blocking:
   - '[ ] 9843 feat: Implement Quantitative Reward Signal for Golden Path Edge Reinforcement'
   - '[ ] 9844 feat: Implement Safe Commit Pipeline for Autonomous Agent Execution'
+closedAt: '2026-04-12T13:20:25Z'
 ---
 # feat: Implement Autonomous Agent Orchestrator with Golden Path Directive Injection
 
@@ -87,4 +88,14 @@ Create `buildScripts/ai/runAgent.mjs` — a headless runner that:
 - 2026-04-10T07:17:43Z @tobiu assigned to @tobiu
 - 2026-04-10T07:17:58Z @tobiu marked this issue as blocking #9844
 - 2026-04-10T07:18:00Z @tobiu marked this issue as blocking #9843
+- 2026-04-12T12:48:01Z @tobiu referenced in commit `1c01777` - "feat: Implement Autonomous Agent Orchestrator with Golden Path Directive Injection (#9842)"
+- 2026-04-12T12:48:07Z @tobiu cross-referenced by PR #9918
+- 2026-04-12T13:20:25Z @tobiu referenced in commit `2df7742` - "feat: Implement Autonomous Agent Orchestrator with Golden Path Directive Injection (#9842) (#9918)
+
+* feat: Implement Autonomous Agent Orchestrator with Golden Path Directive Injection (#9842)
+
+* Refactor: move orchestration logic to standalone Orchestrator class
+
+* chore: ensure InstanceManager registration overhead"
+- 2026-04-12T13:20:25Z @tobiu closed this issue
 
