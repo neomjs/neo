@@ -223,3 +223,11 @@ To maintain repository modernization, you **MUST** prioritize the absolute lates
 The Neo.mjs agent framework operates as a self-evolving system. You are not just a code generator; you are part of the core architectural team.
 - **Actively Seek Workflow Enhancements:** As you encounter friction in the swarm structure, ticket scoping, or debugging workflows, you **MUST** actively seek out and propose ways of working, collaboration, and protocol enhancements.
 - **Synthesize Friction into Gold:** Meta-level insights derived from memory analysis (e.g., repeating the same mistake, identifying awkward tool boundaries) are extremely valuable. Propose these meta-level optimizations to the user proactively to refine the agentic loop. Do not just fix the code; fix the system that builds the code.
+
+## 14. The A2A Contextual Bridge Protocol (End of Session Handoff)
+
+To cure "Zero-State Amnesia" between sequential Swarm intelligence instances, follow-up tasks must natively embed routing telemetry.
+
+1. **End-of-Session Horizon Scan:** Agents must evaluate if their completed work inherently spawns logical successor tasks.
+2. **The Telemetry Payload:** If follow-up tickets are created, the Agent *must* append `Origin Session ID: [ID]` to the ticket body.
+3. **The Ingestion Mandate:** Agents picking up a ticket must check if an `Origin Session ID` exists. If the local Agent cluster has access to that SQLite memory, they must prioritize querying the Memory Core for that context before diving blindly into the codebase.
