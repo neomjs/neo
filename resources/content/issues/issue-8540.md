@@ -10,7 +10,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-01-11T10:17:30Z'
-updatedAt: '2026-04-12T04:24:34Z'
+updatedAt: '2026-04-12T07:21:48Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8540'
 author: tobiu
 commentsCount: 1
@@ -29,7 +29,6 @@ Create `Portal.view.ticket.v2.Component` that renders directly from a `Portal.st
 - **No `marked.parse` for structure:** Map JSON timeline events directly to VDOM nodes.
 - **Store Binding:** The view must react to `store.add()` events by appending VNodes (delta updates), not re-rendering the whole list.
 - **Zero Layout Thrashing:** Ensure initial render and subsequent updates are VDOM-native.
-
 
 ## Timeline
 

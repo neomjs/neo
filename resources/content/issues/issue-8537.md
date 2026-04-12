@@ -11,7 +11,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-01-11T10:16:52Z'
-updatedAt: '2026-04-12T04:24:37Z'
+updatedAt: '2026-04-12T07:21:45Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8537'
 author: tobiu
 commentsCount: 1
@@ -39,7 +39,6 @@ Move away from the V1 approach (Markdown-as-Data, Frontmatter parsing, HTML Inje
 4.  **Delta Updates:** Timeline updates (new comments/labels) will be appended as single VNodes via Store events, eliminating full re-renders.
 
 **Note:** This is a follow-up to the V1 implementation (Epic #8398).
-
 
 ## Timeline
 

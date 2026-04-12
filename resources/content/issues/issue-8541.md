@@ -11,7 +11,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-01-11T10:35:01Z'
-updatedAt: '2026-04-12T04:24:33Z'
+updatedAt: '2026-04-12T07:21:49Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8541'
 author: tobiu
 commentsCount: 1
@@ -31,7 +31,6 @@ blocking: []
 **Ideas:**
 - **Indentation Guide:** A glowing line that traces the active hierarchy branch.
 - **Scanner Effect:** A "Cylon" or "Knight Rider" style scanner that highlights the active ticket.
-
 
 ## Timeline
 
