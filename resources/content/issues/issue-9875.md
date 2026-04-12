@@ -6,9 +6,10 @@ labels:
   - documentation
   - enhancement
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-04-11T08:21:40Z'
-updatedAt: '2026-04-11T08:26:16Z'
+updatedAt: '2026-04-12T17:01:09Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9875'
 author: tobiu
 commentsCount: 0
@@ -44,4 +45,7 @@ The `CodebaseOverview.md` guide is outdated regarding the current AI infrastruct
 * docs: Refactor Agent Startup Workflow to delay UI Guide loading (#9873)
 
 * docs: Refine AI infrastructure scale and boundaries in CodebaseOverview (#9875)"
+- 2026-04-11T19:23:02Z @tobiu cross-referenced by #9892
+- 2026-04-12T08:10:24Z @tobiu cross-referenced by PR #9897
+- 2026-04-12T17:01:09Z @tobiu assigned to @tobiu
 

@@ -5,9 +5,10 @@ state: CLOSED
 labels:
   - epic
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-04-10T16:35:09Z'
-updatedAt: '2026-04-10T18:19:48Z'
+updatedAt: '2026-04-12T17:01:20Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9868'
 author: tobiu
 commentsCount: 1
@@ -63,4 +64,5 @@ Before tactical coding resumes on #9492, we MUST:
 Closing R&D ticket. Work transitioned to #9872 and #9492.
 
 - 2026-04-10T18:19:48Z @tobiu closed this issue
+- 2026-04-12T17:01:20Z @tobiu assigned to @tobiu
 

@@ -8,9 +8,10 @@ labels:
   - refactoring
   - architecture
   - core
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-04-11T16:32:29Z'
-updatedAt: '2026-04-11T16:41:56Z'
+updatedAt: '2026-04-12T17:00:22Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9884'
 author: tobiu
 commentsCount: 0
@@ -61,4 +62,5 @@ We explicitly avoid adding a mid-tier episodic summarization cascade before Tri-
 * fix: Update openapi.yaml to expose telemetry properties to the add_memory tool shape"
 - 2026-04-11T17:06:59Z @tobiu referenced in commit `90f90b5` - "chore: Add AI attribution tracking instruction to ideation sandbox (#9884)"
 - 2026-04-11T17:07:27Z @tobiu referenced in commit `2204447` - "chore: Add AI attribution tracking instruction to ideation sandbox (#9884)"
+- 2026-04-12T17:00:22Z @tobiu assigned to @tobiu
 

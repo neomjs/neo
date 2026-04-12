@@ -6,9 +6,10 @@ labels:
   - documentation
   - epic
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-04-11T08:42:12Z'
-updatedAt: '2026-04-11T08:57:19Z'
+updatedAt: '2026-04-12T17:00:44Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9879'
 author: tobiu
 commentsCount: 0
@@ -62,4 +63,5 @@ Piecemeal ticket updates to this core markdown document are inefficient and pron
 * docs: Refine scale metrics using accurate cloc logic excluding datasets (#9879)
 
 * docs: Detail disjoint boundary between Agent OS and Frontend Engine (#9879)"
+- 2026-04-12T17:00:44Z @tobiu assigned to @tobiu
 
