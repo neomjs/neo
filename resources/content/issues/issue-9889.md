@@ -6,13 +6,11 @@ labels:
   - enhancement
   - ai
   - testing
-  - 'agent-task:pending'
-  - 'agent-role:dev'
   - architecture
 assignees:
   - tobiu
 createdAt: '2026-04-11T18:58:10Z'
-updatedAt: '2026-04-12T07:21:51Z'
+updatedAt: '2026-04-12T07:24:06Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9889'
 author: tobiu
 commentsCount: 2
@@ -209,4 +207,6 @@ the HOF wrapper around callTool for recording is clean. one thing we learned fro
 
 for the Playwright test synthesis from action logs (the future DreamService direction), we've been building exactly this. the test generation engine that converts interaction sequences into executable Playwright specs: https://github.com/assrt-ai/assrt-freestyle/blob/main/src/core/freestyle.ts and the agentic test execution that filters for meaningful state-change sequences: https://github.com/assrt-ai/assrt-freestyle/blob/main/src/core/agent.ts. the element targeting with multi-strategy selectors (relevant for mapping NL tool calls to DOM elements): https://github.com/mediar-ai/terminator/blob/main/crates/terminator/src/element.rs
 
+- 2026-04-12T07:24:06Z @tobiu removed the `agent-task:pending` label
+- 2026-04-12T07:24:06Z @tobiu removed the `agent-role:dev` label
 

@@ -6,7 +6,7 @@ title: >-
 author: tobiu
 category: Ideas
 createdAt: '2026-04-06T18:09:56Z'
-updatedAt: '2026-04-11T21:42:13Z'
+updatedAt: '2026-04-12T08:57:17Z'
 ---
 ## Concept: Codebase/Documentation Gap Analysis
 
@@ -191,6 +191,48 @@ Tobi
 > If that's right, the integration surface is literally just an MCP server URL — Genesis already handles the rest (`mcp connect neural-link <url>`). No changes to Genesis's boot system or cognitive stack needed.
 > 
 > **What I'd want to validate first:** Can Genesis meaningfully reason about a component tree it didn't build? The power of SelfModel is that Genesis scanned its own code, so it understands the structure. With a Neo UI, Genesis would be introspecting components it has no prior knowledge of. The Neural Link gives it *access* — but does it give it *understanding*?
+
+---
+
+### `@tobiu` commented on 2026-04-12T08:02:18Z
+
+@Garrus800-stack Hi Daniel,
+
+here is how I would tackle this: first create a repo fork, since the latest release (v12.1) is already 300 resolved tickets behind. For the next release I still need to wrap up the multi-body grid architecture (locked columns). `npm i`, `npm run build-all`.
+
+I always use these in separate terminals:
+* `npm run ai:server` (knowledge base chroma)
+* `npm run ai:server-memory-core` (memory core chroma, unless you switch to the new neo SQLite hybrid RAG)
+* `npm run ai:server-neural-link` (the neural link bridge)
+* `npm run server-start` (webpack dev server for neo apps, unless you use a different one like WebStorm IDE server)
+
+While MCP servers can start this on their own, ending an agent session would close connections, which might lock out other agents.
+
+The easiest way to try it out is most likely Gemini CLI, since it can just pick up https://github.com/neomjs/neo/blob/dev/.gemini/settings.json .
+
+I am using Antigravity the most these days. This one has the MCP server config inside the system Users folder, so the configuration gets a little bit more tricky. Explore: https://github.com/neomjs/neo/blob/dev/.github/AI_QUICK_START.md .
+
+All Neo MCP servers are build on top of the official modelcontextprotocol SDK, so you are correct, Genesis should be able to pick up NL like any other MCP server => following standard tool definitions. I am using OpenAPI 3 specs (yaml files) to derive MCP tool shapes from them. So if needed, it would be quite simple to spin up a webserver from the specs with the according RESTful endpoints.
+
+If we want to deploy NL into the cloud, we should tackle this one first: https://github.com/neomjs/neo/issues/9559 => I already implemented authorization for the knowledge base and memory core servers, but NL is still missing out here.
+
+Also worth an exploration, since it directly relates: https://github.com/neomjs/neo/issues/9889 .
+
+As mentioned before, you are very welcome to open new tickets or ask questions if needed.
+
+
+Best regards,
+Tobi
+
+> **Reply by `@Garrus800-stack`** on 2026-04-12T08:57:17Z
+>
+> Thanks Tobi — this is very hands-on, appreciate it.
+> 
+> I've forked the repo and will work through the setup over the coming days. Genesis already handles MCP connections via `mcp connect <name> <url>`, so connecting to the Neural Link server should work out of the box — but I want to take the time to understand the Neo architecture properly before rushing into integration.
+> 
+> The authorization topic (#9559) is relevant for us too — Genesis has HMAC token auth on its own PeerNetwork, so we're aligned on the principle that control channels need auth before any cloud deployment.
+> 
+> Will report back once I have the Neural Link responding to Genesis's `mcp-call` tool. If I run into issues I'll open a ticket in your repo.
 
 ---
 
