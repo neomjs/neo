@@ -149,16 +149,14 @@ class DreamService extends Base {
         try {
             const sessions = await this.findUndigestedSessions();
             if (sessions.length === 0) {
-                logger.info('[DreamService] No undigested session memories found.');
-                return;
-            }
+                logger.info('[DreamService] No undigested session memories found. Proceeding to ambient task execution.');
+            } else {
+                logger.info(`[DreamService] Found ${sessions.length} undigested session(s). Beginning REM pipeline...`);
 
-            logger.info(`[DreamService] Found ${sessions.length} undigested session(s). Beginning REM pipeline...`);
+                // Phase 1: Ingest Live Workspace Files for Gap Analysis context mapping
+                await FileSystemIngestor.syncWorkspaceToGraph();
 
-            // Phase 1: Ingest Live Workspace Files for Gap Analysis context mapping
-            await FileSystemIngestor.syncWorkspaceToGraph();
-
-            for (const session of sessions) {
+                for (const session of sessions) {
                 logger.info(`[DreamService] Preparing session ${session.meta.sessionId} ("${session.meta.title}") for REM extraction.`);
                 
                 let rawEpisodicMemory = session.document;
@@ -203,6 +201,7 @@ class DreamService extends Base {
                         metadatas: [{ ...session.meta, graphDigested: true }]
                     });
                     logger.info(`[DreamService] Session ${session.meta.sessionId} marked as graphDigested in Memory Core.`);
+                }
                 }
             }
 
