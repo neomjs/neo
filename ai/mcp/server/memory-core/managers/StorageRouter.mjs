@@ -47,6 +47,14 @@ class StorageRouter extends Base {
     }
 
     /**
+     * @returns {Promise<CollectionProxy>} A proxy respecting aiConfig.engine
+     */
+    async getGraphCollection() {
+        const proxy = Neo.create(CollectionProxy, { collectionType: 'graph' });
+        return proxy;
+    }
+
+    /**
      * Injects the Dual-Pass Re-Ranking Middleware into the CollectionProxy.
      * Pass 1: Uses ChromaDB\'s ANN search to fetch top K candidates.
      * Pass 2: Re-ranks based on topological weighting via the SQLite Native Edge Graph.
