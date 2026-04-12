@@ -12,7 +12,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-04-11T18:58:10Z'
-updatedAt: '2026-04-12T04:51:28Z'
+updatedAt: '2026-04-12T07:21:51Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9889'
 author: tobiu
 commentsCount: 2
@@ -188,7 +188,6 @@ These are explicitly deferred to preserve ticket atomicity:
 - Do NOT open the DB connection inside `log()` on every call — establish once in `initAsync()` and reuse the handle.
 - Do NOT use async writes for `log()` — the synchronous `better-sqlite3` `.run()` is the correct pattern here (already established by `SQLiteVectorManager`). Async embedding is not needed for structured relational data.
 - The `RecorderService` must be `initAsync()`-aware — it must not block the MCP server startup on DB unavailability. Degrade gracefully with a warning log if the memory-core path is not configured.
-
 
 ## Timeline
 

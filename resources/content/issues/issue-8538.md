@@ -9,7 +9,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-01-11T10:17:25Z'
-updatedAt: '2026-04-12T04:24:36Z'
+updatedAt: '2026-04-12T07:21:46Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8538'
 author: tobiu
 commentsCount: 1
@@ -27,7 +27,6 @@ Enhance the `neo.mjs-github-workflow` server to support configurable export targ
 **Requirements:**
 - Update the server configuration to allow specifying export formats: `markdown` (current), `json` (new structured format), or `all`.
 - Implement the logic to serialize GitHub GraphQL responses into the agreed "Hybrid JSON" schema (Structured Metadata + Event Stream + Markdown Body Strings).
-
 
 ## Timeline
 
