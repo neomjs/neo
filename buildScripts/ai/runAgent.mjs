@@ -1,6 +1,7 @@
-import Neo          from '../../src/Neo.mjs';
-import * as core    from '../../src/core/_export.mjs';
-import Orchestrator from '../../ai/agent/Orchestrator.mjs';
+import Neo             from '../../src/Neo.mjs';
+import * as core       from '../../src/core/_export.mjs';
+import InstanceManager from '../../src/manager/Instance.mjs';
+import Orchestrator    from '../../ai/agent/Orchestrator.mjs';
 
 /**
  * @module buildScripts/ai/runAgent
